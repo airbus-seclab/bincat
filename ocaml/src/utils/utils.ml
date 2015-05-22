@@ -1,0 +1,3 @@
+exception Bottom
+exception Enum_failure
+exception Emptyset
