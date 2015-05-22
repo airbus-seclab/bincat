@@ -1,4 +1,4 @@
-DOCFILE=bnew_manual.tex
+DOCFILE=bincat_manual.tex
 LATEX=pdflatex --shell-escape
 
 all:
