@@ -1,0 +1,26 @@
+=dependencies
+
+ocaml 3.12 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
+ocamlfind
+python 2.7
+pdflatex for documentation
+pytest for tests 
+ocamldoc and doxygen for the documentation generation
+the library ocamlgraph (tested with version 1.8.3) No need of the edit/visualisation component
+https://github.com/szennou/ocaml-hashcons.git
+the library OCaml aiDataStruct (forge)
+IDA for the vizualisation
+
+=installation
+
+1. unzip this archive and enter it
+2. compilation
+make
+3. installation. 
+make install
+4. for the documentation (generated in directory doc)
+make doc
+
+=important remark
+be sure to have the directory src/bincat into your LD_LIBRARY_PATH variable
+
