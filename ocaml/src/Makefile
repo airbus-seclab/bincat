@@ -12,7 +12,7 @@ SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	fixpoint/state.mli fixpoint/state.ml\
 	 fixpoint/fixpoint.mli fixpoint/fixpoint.ml main.mli main.ml
 
-LIBNAME=libml.so
+LIBNAME=libBinCAT.so
 
 
 
