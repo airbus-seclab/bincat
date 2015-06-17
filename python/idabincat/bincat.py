@@ -5,10 +5,13 @@
 from idaapi import * 
 from idc import * 
 from idautils import *
+from analyseur import Analyseur
 
 # Functions 
 def test():
     print("This is an IDA test Module")
+    x = Analyseur() 
+    x.test()
 
 
 
