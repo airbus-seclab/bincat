@@ -5,9 +5,11 @@
 from idaapi import * 
 from idc import * 
 from idautils import *
-from analyseur import Analyseur
 import threading 
 import time
+import socket 
+import os 
+
 
 exitFlag =0 
 
@@ -60,10 +62,28 @@ class BinCATThread (threading.Thread):
         self.threadID = threadID
         self.name = name
         self.counter = counter
+    
     def run(self):
         print(" [+] Starting %s ")%(self.name)
         print_time(self.name, self.counter, 5)
-        print(" [+] Exiting %s ")%self.name
+        try: 
+            parent , child = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  
+            pid  = os .fork 
+            if pid : # IDA 
+                parent.close() 
+                message = " toto "
+                child.send(message) 
+                message = child.recv(1024)
+                print("[+] message received from analyseur %s ")%message   
+
+            else :  # Analyseur 
+                child.close() 
+                fd = parent.fileno() 
+                execv('analyseur.py',[ 123456 ,'--command-fd', str(fd)])
+        except : 
+            raise      
+
+        print(" [+] Starting %s ")%self.name
 
 
 
@@ -75,10 +95,10 @@ def main():
         return
     
     thread1 = BinCATThread(1, "Thread-1", 1)
-    thread2 = BinCATThread(2, "Thread-2", 2)
+    #thread2 = BinCATThread(2, "Thread-2", 2)
 
     thread1.start() 
-    thread2.start()
+    #thread2.start()
 
     print(" [+] Exiting main thread ")
 
