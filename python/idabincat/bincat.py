@@ -65,13 +65,14 @@ class BinCATThread (threading.Thread):
     
     def run(self):
         print(" [+] Starting %s ")%(self.name)
-        print_time(self.name, self.counter, 5)
+        #print_time(self.name, self.counter, 5)
         try: 
             parent , child = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  
-            pid  = os .fork 
+            pid  = os.fork() 
             if pid : # IDA 
                 parent.close() 
                 message = " toto "
+                print("[+] IDA plugin --> analyseur : %s")%message
                 child.send(message) 
                 message = child.recv(1024)
                 print("[+] message received from analyseur %s ")%message   
@@ -79,11 +80,12 @@ class BinCATThread (threading.Thread):
             else :  # Analyseur 
                 child.close() 
                 fd = parent.fileno() 
-                execv('analyseur.py',[ 123456 ,'--command-fd', str(fd)])
+                #print("[+] IDA plugin launching analyseur.py ")
+                os.execv('/opt/ida-6.7/python/mymodule/analyseur.py',[ '123456' ,'--commandfd', str(fd)])
         except : 
             raise      
 
-        print(" [+] Starting %s ")%self.name
+        print(" [+] Exiting %s ")%self.name
 
 
 
