@@ -81,7 +81,7 @@ class BinCATThread (threading.Thread):
                 child.close() 
                 fd = parent.fileno() 
                 #print("[+] IDA plugin launching analyseur.py ")
-                os.execv('/opt/ida-6.7/python/mymodule/analyseur.py',[ '123456' ,'--commandfd', str(fd)])
+                os.execv('/opt/ida-6.7/python/mymodule/analyseur.py',['Bincat','123456' ,'--commandfd', str(fd)])
         except : 
             raise      
 
