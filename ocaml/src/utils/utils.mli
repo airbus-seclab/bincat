@@ -1,4 +1,4 @@
-(** Utilities *)
+(** Utilities like exceptions, common data structures, etc. *)
 
 (** raised whenever a computed abstract value is bottom *)
 exception Bottom
@@ -8,3 +8,6 @@ exception Enum_failure
 
 (** raised whenever an empty abstract state/domain value is computed *)
 exception Emptyset
+
+(** raised whenever an address is not legal (out of code string, etc.) *)
+exception Illegal_address

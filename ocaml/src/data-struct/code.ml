@@ -4,9 +4,9 @@ module type T =
     type t
     type address
 	   
-    (** Constructor *)
+    (** constructor *)
     val make: address -> int -> string -> t
-    (** The provided address is the entry point ; the integer is the offset *)
+    (** The provided address is the entry point ; the integer is the offset (raises an exception if it is negative) *)
     (** of the entry point from the start of the provided byte sequence supposed to start at 0 index *)
 					    
     (** returns the sub sequence of byte string starting at the given address *)
@@ -24,9 +24,16 @@ module Make (D: Data.T) =
       }
 	       
     type address   = D.Address.t
-    let make e o c = {e = e ; o = o ; c = c}
-    let sub v a    =
+    let make e o c =
+      if o >= 0 then
+	{e = e ; o = o ; c = c}
+      else
+	raise Utils.Illegal_address
+	      
+    let sub v a =
       try
-	String.sub v.c (D.Address.sub a v.e)
-      with _ -> raise D.Address.Illegal_value
+	let o   = Int64.to_int (D.Address.sub a v.e) in
+	let len = (String.length v.c) - o            in
+	String.sub v.c o len 
+      with _ -> raise Utils.Illegal_address
   end

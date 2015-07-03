@@ -4,12 +4,13 @@ module type T =
     type t
     type address
 	   
-    (** Constructor *) 
-    val make: address -> string -> t
-    (** The provided address represents the address of the first element in the byte sequence *)
+    (** constructor *) 
+    val make: address -> int -> string -> t
+    (** The provided address is the entry point ; the integer is the offset (raises an exception if it is negative) *)
+    (** of the entry point from the start of the provided byte sequence supposed to start at 0 index *)
 				     
     (** returns the sub sequence starting at the given address *)
-    val sub: string -> address -> string
+    val sub: t -> address -> string
     (** may raise an exception if the given address is out of range *)
 end
 
