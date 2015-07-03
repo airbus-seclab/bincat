@@ -1,7 +1,8 @@
-(** Control Flow Graph module *)
+(** Control Flow Automaton module *)
 module type T = sig
-
-(** type of a control flow graph *)
-      type t
+    
+    (** type of a control flow automaton *)
+    type t
+	   
 end
     

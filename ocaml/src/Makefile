@@ -1,7 +1,6 @@
 SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	data-struct/asm.mli data-struct/asm.ml\
 	data-struct/code.mli data-struct/code.ml\
-	data-struct/cfa.mli data-struct/cfa.ml\
 	domains/domain.mli\
 	fixpoint/alarm.mli fixpoint/alarm.ml\
 	domains/unrel.mli domains/unrel.ml domains/ptr.mli domains/ptr.ml\
@@ -12,6 +11,7 @@ SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	 utils/utils.ml utils/utils.mli\
 	domains/tainting.mli domains/tainting.ml\
 	fixpoint/state.mli fixpoint/state.ml\
+	data-struct/cfa.mli data-struct/cfa.ml\
 	 fixpoint/fixpoint.mli fixpoint/fixpoint.ml main.mli main.ml
 
 LIBNAME=libBinCAT.so

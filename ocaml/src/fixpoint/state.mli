@@ -1,7 +1,9 @@
-(** Signature of an abstract state *)
+(** Abstract state module *)
+module Make
 module type T = sig
- type t
-  (** abstract state data type *)
+    (** abstract state data type *)
+    type t
+ 
  type address
  type lval
  type exp

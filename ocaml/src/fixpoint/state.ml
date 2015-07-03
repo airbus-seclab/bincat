@@ -1,9 +1,11 @@
-module type T = sig
- type t
-  (** abstract state data type *)
- type address
- type lval
- type exp
+module type T =
+  sig
+    (** abstract state data type *)
+    type t
+	   
+    type address
+    type lval
+    type exp
 
   val contains: t -> t -> bool
   (** [contains s1 s2] returns true whenever _s1_ contains _s2_ *)
