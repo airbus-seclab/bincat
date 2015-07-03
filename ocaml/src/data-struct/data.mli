@@ -69,22 +69,13 @@ module type T = sig
 
     val sub: t -> t -> Int64.t
     (** returns the distance between the two addresses *)
-    (** may raise an exeception is the size of the addresses are not the same *)
+    (** may raise an exception if the size of the addresses are not the same *)
 
     module Set: Set.S with type elt = t
   end
 end
 
-module Code: sig
-    (** data type for the code string *)
-    type t
-	   
-    (** Constructor. The provided address represents the address of the first element in the byte sequence *)
-    val make: Address.t -> string -> t
-				       
-    (** returns the sub sequence starting at the given address *)
-    val sub: t -> Address.t -> t
-  end
+
 
 
 

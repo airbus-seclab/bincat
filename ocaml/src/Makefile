@@ -1,10 +1,12 @@
 SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	data-struct/asm.mli data-struct/asm.ml\
+	data-struct/code.mli data-struct/code.ml\
+	data-struct/cfa.mli data-struct/cfa.ml\
 	domains/domain.mli\
-	data-struct/cfa.mli\
 	fixpoint/alarm.mli fixpoint/alarm.ml\
 	domains/unrel.mli domains/unrel.ml domains/ptr.mli domains/ptr.ml\
 	disassembly/abi.mli disassembly/abi.ml\
+	disassembly/decoder.mli disassembly/decoder.ml\
 	domains/pair.mli domains/pair.ml\
 	data-struct/interval.mli data-struct/interval.ml\
 	 utils/utils.ml utils/utils.mli\
