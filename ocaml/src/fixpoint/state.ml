@@ -1,40 +1,17 @@
-module type T =
+(**************************************************************************************************************************)
+(* State module *)
+(**************************************************************************************************************************)
+(** signature of the abstract store (addresses, assembly language, etc.) *)
+module type Store =
   sig
-    (** abstract state data type *)
-    type t
-	   
     type address
-    type lval
     type exp
-
-  val contains: t -> t -> bool
-  (** [contains s1 s2] returns true whenever _s1_ contains _s2_ *)
+    type asm
+  end
     
-  val make: unit -> t
-  (** creates an initial state with top value *)    
-    
-  val forget: t -> t
-  (** returns Top *)
-    
-  val is_top: t -> bool
-(** returns true whenever its argument is top *)
-    
-  val set: address -> lval -> exp -> t -> t
-(** function transfert of the assignment *)
-
-  val widen: t -> t -> t
-(** widening *)
-
-  val guard: t -> exp -> t
-(** restricts the given abstract state to values that satisfy then given expression *)
-
-  val exp_to_addresses: t -> exp -> address list
-(** returns the list of addresses corresponding to the given expression *)
-end
-
-module M(Dom: Domain.T)(Data: Data.T)(Asm: Asm.T with type address = Data.Address.t and type word = Data.Word.t) = 
+module M(Store: Store) = 
 struct
-  module Dom = Dom(Data)(Asm)
+  module Dom = Dom(Store.Data)(Store.Asm)
   module M   = MapOpt.Make(Data.Address)
   
   type t = { 
@@ -42,10 +19,6 @@ struct
     map: Dom.t M.t (* a Map from addresses to abstract values *)
   }
   
-  type address = Data.Address.t
-  type lval = Asm.lval
-  type exp = Asm.exp
-
   class context d =
   object
     method mem_to_addresses m sz = Dom.mem_to_addresses m sz d

@@ -1,92 +1,116 @@
 (** The Assembly Intermediate Language *)
-module type T =
+
+(** this module type is the signature of the set of abstract types: *)
+(** - addresses                                                     *)
+(** - word                                                          *)
+(** together with useful operations on these types                  *)
+module type V =
+  sig
+    (** abstract data type for addresses *) 
+    type address
+    (** abstract data type for words *)
+    type word
+
+    (** abstract data type for segments *)
+    type segment
+
+    (** [address_of_string s n] converts the string _s_ into an address of _n_ bits long **)
+    val address_of_string: string -> int -> address
+					      
+    (** returns 0 if the two word parameters are equal ; *)
+    val word_compare: word -> word -> int
+    (** a negative integer if the first one is less than the second one *)
+    (** a positive integer otherwise *)
+					
+    (** returns 0 if the two address parameters are equal ; *)			
+    val address_compare: address -> address -> int
+    (** a negative integer if the first one is less than the second one *)
+    (** a positive integer otherwise *)
+
+  end
+
+    
+module Make(Data: V) :
 sig
-  type word
-  type address
 
+  (** data type of register operands *)
   type reg = 
-    T of Register.t
-  | P of int * int * Register.t (* (l, u, r) = r[l, u] *)
+    | T of Register.t 		  (** a complete register *)
+    | P of Register.t * int * int (** a chunk of a register P (r, l, u)  means the chunk of register r that ranges from bit l to bit r *)
 
+  (** data type of jump targets *)
   type jmp_target = 
-    A of address
-  | R of int * reg (* R (n, v) <=> Address at n << 4 + v *)
+    | A of Data.address (** jump target is an address *)
+    | R of int * reg   (** R(s, r) means that the jump target is an address of segment _s_ whose value is the content _r_ *)
 
-  type memory =
-    M1 of word
-  | M2 of int * reg (* [n:r]*)
-  | M3 of int * reg * int * reg (* [n1:r1 + n2:r2] *)
-  | M4 of int * reg * word (* [n:r] + w *)
-  | M5 of int * reg * int * reg * word (* [n1:r1 + n2:r2] + w *)
-  | M6 of int * int * reg * int * reg (* [s * n1:r1 + n2:r2] ; s in {2, 4, 8} *)
-  | M7 of int * int * reg * word (* [s * n:r] + w ; s in {2, 4, 8} *)
-  | M8 of int * int * reg * int * reg * word (* [s * n1:r1 + n2:r2] + w *)
-      
 (** type of binary operations *)
-type binop =
-    Add  (** addition *)
-  | Sub  (** substraction *)
-  | Mul  (** unsigned multiplication *)
-  | Div  (** unsigned division *)
-  | Divs (** signed division *)
-  | Shl  (** left logical shift *)
-  | Shr  (** right logical shift *)
-  | Shrs (** right logical shift with sign *)
-  | Mod  (** unsigned modulo *)
-  | And  (** bitwise AND *)
-  | Or   (** bitwise OR *)
-  | Xor  (** bitwise XOR *)
-  | Gt   (** comparison greater than *)
-  | Eq   (** comparison for equality *)
-
-(** type of unary operation *)
-type unop =
-    Sign_extension of int
-  | Not
+  type binop =
+    | Add    (** addition *)
+    | Sub    (** substraction *)
+    | Mul    (** unsigned multiplication *)
+    | Div    (** unsigned division *)
+    | Divs   (** signed division *)
+    | Shl    (** left logical shift *)
+    | Shr    (** right logical shift *)
+    | Shrs   (** right logical shift with sign *)
+    | Mod    (** unsigned modulo *)
+    | And    (** bitwise AND *)
+    | Or     (** bitwise OR *)
+    | Xor    (** bitwise XOR *)
+    | CmpEq  (** comparison for equality *)
+    | CmpLeu (** comparion less than equal on unsigned operands *)
+    | CmpLes (** comparion less than equal on signed operands *)
+    | CmpLtu (** comparion strictly less than on unsigned operands *)
+    | CmpLts (** comparison strictly less than on signed operands *)
+	
+  (** type of unary operations *)
+  type unop =
+    | SignExt of int (** [SignExt n] is a sign extension on _n_ bit width *)
+    | Not 	     (** Negation *)
+	
+	
 
 (** type of expressions *)
 type exp =
-    Const of word
-  | Lval  of lval
-  | BinOp of binop * exp * exp
-  | UnOp  of unop * exp
+  | Const of Data.word 	       (** a constant *)
+  | Lval  of lval 	       (** a left value *)
+  | BinOp of binop * exp * exp (** a binary operation *)
+  | UnOp  of unop * exp        (** a unary operation *)
 
-(** type of left values : R for register addressing ; M for memory *)
-and lval =
-  V of reg 
-| M of memory * int (* size in bits of the operand *)
+ (** type of left values *)
+ and lval =
+   | V of reg 	    (** a register *)
+   | M of exp * int (** M(e, n) is a memory adress whose value is _e_ and width is _n_ bits *) 
+
+(** type of function calls *)
+type fct =
+  | I of reg 	      (** indirect call from register *)
+  | D of Data.address (** direct call from address *)
 
 (** type of directives for the analyzer *)
 type directive_t =
-    Remove   of Register.t (* remove the variable *)
-  | Push     of exp 
-  | Pop      of reg (* address size of the register for the pop *)
-  | Undefine of Register.t (* set value to top *)
- 
-(** type of functions *)
-type fct =
-    I of reg (* indirect call from register ; call from memory can not be expressed for the while *)
-  | D of address (* direct call from address *)
+  | Remove of Register.t   (** remove the register *)
+  | Push of exp 	   (** push the expression on the stack *)
+  | Pop of reg 		   (** pop the stack and stores it on the given register *)
+  | Undefine of Register.t (** forget the computed value of the given register *)
 
 (** type of statements *)
 type stmt =
-    Set     of lval * exp (** store the expression into the left value                       *)
-  | Jcc	     of exp option * jmp_target option (** (un)conditional branch ; None expression is for unconditional  jump ; None address is for intermediate block translation *)
-  | Call     of fct        (** call                                                           *)
-  | Unknown                (** unknown (partial decoding)                                     *)
-  | Undef                  (** undefined (decoding error)                                     *)
-  | Nop                    (** no operation                                                   *)
-  | Directive of directive_t      (** directive for the analyzer *)
+  | Load  of lval * lval    		   (** load the second argument into the first one *)
+  | Store  of lval * exp    		   (** load the expression into the left value *)
+  | Jcc	 of exp option * jmp_target option (** (un)conditional branch ; None expression is for unconditional jump ; None target is for intermediate block translation *)				    
+  | Call of fct          		   (** call *)
+  | Return of fct 			   (** return *)
+  | Unknown                  		   (** unknown (partial decoding) *)
+  | Undef                    		   (** undefined (decoding error) *)
+  | Nop                      		   (** no operation *)
+  | Directive of directive_t 		   (** directive/hint for the analyzer *)
 
-
-(* first int is the segment ; second int is the size of the immediate in bits *)
-val jmp_target_of_immediate: int -> string -> int -> jmp_target
-val jmp_target_of_register: int -> reg -> jmp_target
-
-(** string conversion *)
+(** string conversion of a statement *)
 val string_of_stmt: stmt -> string
 
+(** returns true whenever the two given statements are equal ; false otherwise *)
 val equal_stmt: stmt -> stmt -> bool
 end
 
-module Make: functor (D: Data.T) -> (T with type word = D.Word.t and type address = D.Address.t)
+

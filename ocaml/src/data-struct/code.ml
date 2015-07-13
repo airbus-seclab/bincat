@@ -9,7 +9,6 @@ module Make (D: Data.T) =
 	c: string; 	(** the byte sequence containing the code *)	       
       }
 	       
-    type address   = D.Address.t
     let make e o c =
       if o >= 0 then
 	{e = e ; o = o ; c = c}
