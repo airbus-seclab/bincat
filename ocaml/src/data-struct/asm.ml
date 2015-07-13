@@ -15,20 +15,6 @@ module type V =
 
     (** abstract data type for segments *)
     type segment
-	   
-    (** [address_of_string s n] converts the string _s_ into an address of _n_ bits long **)
-    val address_of_string: string -> int -> address
-					      
-    (** returns 0 if the two word parameters are equal ; *)
-    val word_compare: word -> word -> int
-    (** a negative integer if the first one is less than the second one *)
-    (** a positive integer otherwise *)
-					
-    (** returns 0 if the two address parameters are equal ; *)			
-    val address_compare: address -> address -> int
-    (** a negative integer if the first one is less than the second one *)
-    (** a positive integer otherwise *)
-
   end
     
 module Make(Data: V) =
@@ -118,58 +104,6 @@ let string_of_stmt s =
   | Undef 	-> "undef"
   | Nop 	-> "nop"
   | Directive _ -> "directive"
-		       
-let rec equal_exp e1 e2 =
-  match e1, e2 with
-    Const c1, Const c2 			       -> Data.word_compare c1 c2 = 0
-  | Lval lv1, Lval lv2 			       -> equal_lval lv1 lv2
-  | BinOp(op1, e11, e12), BinOp(op2, e21, e22) -> op1 = op2 && equal_exp e11 e21 && equal_exp e12 e22
-  | UnOp(op1, e1), UnOp(op2, e2) 	       -> op1 = op2 && equal_exp e1 e2
-  | _, _ 				       -> false
 
-and equal_reg r1 r2 =
-  match r1, r2 with
-    T r1, T r2 			   -> Register.compare r1 r2 = 0
-  | P (l1, u1, r1), P (l2, u2, r2) -> l1 = u1 && l2 = u2 && Register.compare r1 r2 = 0
-  | _, _ 			   -> false
-
-and equal_lval lv1 lv2 =
-  match lv1, lv2 with
-    V r1, V r2 		     -> equal_reg r1 r2
-  | M (e1, sz1), M (e2, sz2) -> equal_exp e1 e2 && sz1 = sz2
-  | _, _ 		     -> false
-
-let equal_directive d1 d2 =
-  match d1, d2 with
-    Remove v1, Remove v2
-  | Undefine v1, Undefine v2 -> Register.compare v1 v2 = 0
-  | Push e1, Push e2 	     -> equal_exp e1 e2
-  | Pop r1, Pop r2 	     -> equal_reg r1 r2
-  | _, _ 		     -> false
-
-let equal_target t1 t2 =
-  match t1, t2 with
-    A a1, A a2 		   -> Data.address_compare a1 a2 = 0
-  | R (s1, r1), R (s2, r2) -> s1 = s2 && equal_reg r1 r2
-  | _, _ 		   -> false
-
-let equal_fct f1 f2 =
-  match f1, f2 with
-    I r1, I r2 -> equal_reg r1 r2
-  | D a1, D a2 -> Data.address_compare a1 a2 = 0
-  | _, _       -> false
-
-let equal_stmt s1 s2 =
-  match s1, s2 with
-    Load(lv11, lv12), Load(lv21, lv22) 		   -> equal_lval lv11 lv21 && equal_lval lv12 lv22
-  | Store(lv1, e1), Store(lv2, e2) 		   -> equal_lval lv1 lv2 && equal_exp e1 e2
-  | Jcc (None, None), Jcc(None, None) 		   -> true
-  | Jcc (None, Some a1), Jcc (None, Some a2) 	   -> equal_target a1 a2
-  | Jcc (Some e1, None), Jcc (Some e2, None) 	   -> equal_exp e1 e2
-  | Jcc (Some e1, Some a1), Jcc (Some e2, Some a2) -> equal_exp e1 e2 && equal_target a1 a2
-  | Call f1, Call f2 				   -> equal_fct f1 f2
-  | Nop, Nop | Undef, Undef | Unknown, Unknown 	   -> true
-  | Directive d1, Directive d2 			   -> equal_directive d1 d2
-  |_, _ 					   -> false
 end
 

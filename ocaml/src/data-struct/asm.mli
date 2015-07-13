@@ -108,9 +108,6 @@ type stmt =
 
 (** string conversion of a statement *)
 val string_of_stmt: stmt -> string
-
-(** returns true whenever the two given statements are equal ; false otherwise *)
-val equal_stmt: stmt -> stmt -> bool
 end
 
 
