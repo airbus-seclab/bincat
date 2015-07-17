@@ -1,11 +1,12 @@
 SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
+	utils/mapOpt.mli utils/mapOpt.ml\
 	data-struct/asm.mli data-struct/asm.ml\
 	data-struct/code.mli data-struct/code.ml\
 	domains/domain.mli\
 	fixpoint/alarm.mli fixpoint/alarm.ml\
 	domains/unrel.mli domains/unrel.ml domains/ptr.mli domains/ptr.ml\
-	disassembly/abi.mli disassembly/abi.ml\
 	disassembly/decoder.mli disassembly/decoder.ml\
+	disassembly/abi.mli disassembly/abi.ml\
 	domains/pair.mli domains/pair.ml\
 	data-struct/interval.mli data-struct/interval.ml\
 	 utils/utils.ml utils/utils.mli\
@@ -25,7 +26,7 @@ OBJS2 = $(filter-out %.mly, $(OBJS1))
 OBJS=$(filter-out %.mli, $(OBJS1))
 
 
-DIROPT = -I fixpoint -I +ocamlgraph -I "`ocamlfind query hashcons`"  -I "`ocamlfind query aiDataStruct`" -I domains -I data-struct -I utils -I disassembly
+DIROPT = -I fixpoint -I +ocamlgraph -I domains -I data-struct -I utils -I disassembly
 
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt -w Ael -warn-error +a-7 $(DIROPT) 

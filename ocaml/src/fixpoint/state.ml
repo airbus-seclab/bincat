@@ -12,7 +12,7 @@ module type Store =
 module M(Store: Store) = 
 struct
   module Dom = Dom(Store.Data)(Store.Asm)
-  module M   = MapOpt.Make(Data.Address)
+  module M   = Map.Make(Data.Address)
   
   type t = { 
     state: Dom.t;   (* current state *)
