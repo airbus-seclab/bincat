@@ -1,5 +1,6 @@
 SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	utils/mapOpt.mli utils/mapOpt.ml\
+	utils/context.mli utils/context.ml\
 	data-struct/asm.mli data-struct/asm.ml\
 	data-struct/code.mli data-struct/code.ml\
 	domains/domain.mli\

@@ -33,44 +33,50 @@ module type T = sig
     val to_int: t -> int (** may raise Overflow *)
     val of_string: string -> int -> t
     val sign_extend: t -> int -> t
-  end
+    end
+		  
   (** type of an address *)
   module Address: sig
-    type t
-    val default_size: unit -> int (** default size in bits *)  
-    val size: t -> int (** size in bits *)
-
-
-    (** string conversion *)
-    val to_string: t -> string
-      
-    (** [of_string a sz] returns the address _a_ on _sz_ bits *)
-    val of_string: string -> int -> t
+      type t
+      val default_size: unit -> int (** default size in bits *)  
+      val size: t -> int (** size in bits *)
+		       
+		       
+      (** string conversion *)
+      val to_string: t -> string
+			    
+      (** [of_string a sz] returns the address _a_ on _sz_ bits *)
+      val of_string: string -> int -> t
       (** in Segmented memory models _a_ is supposed to be of the form se:offset *)
-    (** may raise Invalid if the given string is not a valid *)
-    (** representation of an offset wrt to the size given by the int parameter *)
-      
-    (** comparison of the two arguments *)
-    val compare: t -> t -> int
-    (** returns 0 if arguments are equal ; *)
-    (** a positive number if the first argument is greater ; *)
-    (** a negative number otherwise *)
-      
-    (** returns true whenever the two arguments are equal *)
-    val equal: t -> t -> bool
-      
-    val add_offset: t -> int -> t
-    (** [add_offset v o] add offset [o] to the address [v] *)
-    (** may raise Invalid_argument if the result overflows or underflows *)
-      
-    val to_word: t -> int -> Word.t
+      (** may raise Invalid if the given string is not a valid *)
+      (** representation of an offset wrt to the size given by the int parameter *)
+					
+      (** comparison of the two arguments *)
+      val compare: t -> t -> int
+      (** returns 0 if arguments are equal ; *)
+      (** a positive number if the first argument is greater ; *)
+      (** a negative number otherwise *)
+			       
+      (** returns true whenever the two arguments are equal *)
+      val equal: t -> t -> bool
+			     
+      val add_offset: t -> int -> t
+      (** [add_offset v o] add offset [o] to the address [v] *)
+      (** may raise Invalid_argument if the result overflows or underflows *)
+				    
+      val to_word: t -> int -> Word.t
+				 
+      val hash: t -> int
+		       
+      val sub: t -> t -> Int64.t
+      (** returns the distance between the two addresses *)
+      (** may raise an exception if the size of the addresses are not the same *)
+			   
+      module Set: Set.S with type elt = t
+    end
 
-    val hash: t -> int
-
-    val sub: t -> t -> Int64.t
-    (** returns the distance between the two addresses *)
-    (** may raise an exception if the size of the addresses are not the same *)
-
-    module Set: Set.S with type elt = t
+  (** Offset on a basis address *)
+  module Offset: sig
+      type t
+    end
   end
-end

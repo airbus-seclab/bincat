@@ -1,1 +1,1 @@
-module M: Domain.T
+module Make(D: Data.T): Unrel.T
