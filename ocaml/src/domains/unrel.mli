@@ -1,5 +1,7 @@
-(** Functor generating unrelational abstract domains *)
-(** basically it is a map from Registers and Memory to abstract values *)
+(******************************************************************************)
+(* Functor generating unrelational abstract domains                           *)
+(* basically it is a map from Registers to abstract values                    *)
+(******************************************************************************)
 
 (** context *)
 class type ['addr, 'v] ctx_t =

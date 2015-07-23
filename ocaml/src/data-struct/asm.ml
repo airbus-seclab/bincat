@@ -71,7 +71,7 @@ module type T =
       | Store  of lval * exp    		   (** load the expression into the left value *)
       | Jcc	 of exp option * jmp_target option (** (un)conditional branch ; None expression is for unconditional jump ; None target is for intermediate block translation *)				    
       | Call of fct          		   	   (** call *)
-      | Return of fct 			   	   (** return *)
+      | Return  			   	   (** return *)
       | Unknown                  		   (** unknown (partial decoding) *)
       | Undef                    		   (** undefined (decoding error) *)
       | Nop                      		   (** no operation *)
@@ -124,7 +124,7 @@ module Make(Data: Data.T) =
 
 (** type of expressions *)
 type exp =
-  | Const of Word.t       (** a constant *)
+  | Const of Word.t            (** a constant *)
   | Lval  of lval 	       (** a left value *)
   | BinOp of binop * exp * exp (** a binary operation *)
   | UnOp  of unop * exp        (** a unary operation *)
@@ -136,7 +136,7 @@ type exp =
 
 (** type of function calls *)
 type fct =
-  | I of reg 	      (** indirect call from register *)
+  | I of reg 	   (** indirect call from register *)
   | D of Address.t (** direct call from address *)
 
 (** type of directives for the analyzer *)
@@ -165,7 +165,7 @@ let string_of_stmt s =
   | Store _ 	-> "store"
   | Jcc _ 	-> "jcc"
   | Call _ 	-> "call"
-  | Return _ 	-> "return"
+  | Return  	-> "return"
   | Unknown 	-> "unknown"
   | Undef 	-> "undef"
   | Nop 	-> "nop"

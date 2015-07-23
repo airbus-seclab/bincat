@@ -34,7 +34,14 @@ module type T = sig
     val of_string: string -> int -> t
     val sign_extend: t -> int -> t
     end
-		  
+
+  (** Offset on a base address *)
+  module Offset: sig
+      type t
+      (** converts an integer to an offset *)
+      val from_int: int -> t
+    end
+		   
   (** type of an address *)
   module Address: sig
       type t
@@ -60,7 +67,7 @@ module type T = sig
       (** returns true whenever the two arguments are equal *)
       val equal: t -> t -> bool
 			     
-      val add_offset: t -> int -> t
+      val add_offset: t -> Offset.t -> t
       (** [add_offset v o] add offset [o] to the address [v] *)
       (** may raise Invalid_argument if the result overflows or underflows *)
 				    
@@ -75,8 +82,5 @@ module type T = sig
       module Set: Set.S with type elt = t
     end
 
-  (** Offset on a basis address *)
-  module Offset: sig
-      type t
-    end
+ 
   end
