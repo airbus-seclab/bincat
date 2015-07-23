@@ -152,7 +152,7 @@ type stmt =
   | Store  of lval * exp    		   (** load the expression into the left value *)
   | Jcc	 of exp option * jmp_target option (** (un)conditional branch ; None expression is for unconditional jump ; None target is for intermediate block translation *)				    
   | Call of fct          		   (** call *)
-  | Return of fct 			   (** return *)
+  | Return         			   (** return *)
   | Unknown                  		   (** unknown (partial decoding) *)
   | Undef                    		   (** undefined (decoding error) *)
   | Nop                      		   (** no operation *)
