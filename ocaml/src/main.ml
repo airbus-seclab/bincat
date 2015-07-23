@@ -9,7 +9,10 @@ let init segments =
   Abi.segments.Abi.fs <- segments.(4);
   Abi.segments.Abi.gs <- segments.(5)
 
-let process flat text o e =
+let process k_bound data_tainting_file flat text o e =
+  Context.k_bound := k_bound;
+  if data_tainting_file <> "" then
+      Tainting.parse data_tainting_file;
   let o' = Int64.of_string o in
   if flat then
     let e' = Abi.Flat.Address.of_string e (Abi.Flat.Address.default_size()) in
