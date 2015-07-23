@@ -8,7 +8,7 @@ module Make(D: Data.T) =
     let to_string p =
       match p with
 	Some (b, o) -> "(" ^ (D.Address.to_string b) ^ ", " ^ (D.Offset.to_string o) ^ ")"
-      | None 	    -> ?
+      | None 	    -> "?"
     let name = "Pointer"
     let eval_exp _e 	  = raise (Alarm.E (Alarm.Concretization name))
     let combine _ _ _ _ = universe()
