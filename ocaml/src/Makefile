@@ -9,7 +9,6 @@ SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	disassembly/decoder.mli disassembly/decoder.ml\
 	disassembly/abi.mli disassembly/abi.ml\
 	domains/pair.mli domains/pair.ml\
-	data-struct/interval.mli data-struct/interval.ml\
 	 utils/utils.ml utils/utils.mli\
 	domains/tainting.mli domains/tainting.ml\
 	fixpoint/state.mli fixpoint/state.ml\
