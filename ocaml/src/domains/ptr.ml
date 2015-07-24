@@ -3,12 +3,14 @@
 (******************************************************************************)
 module Make(D: Data.T) =
   struct
-    type t' = (D.Address.t * D.Offset.t) option (* a pointeur is a base address plus an offset on that base ; None is top *)
-    let top = None
+    module Offset = Offset.Make(D)
+    type t' = D.Address.t option * Offset.t option (* a pointeur is a base address plus an offset on that base ; None is top *)
+    let top = None, None
     let to_string p =
       match p with
-	Some (b, o) -> "(" ^ (D.Address.to_string b) ^ ", " ^ (D.Offset.to_string o) ^ ")"
-      | None 	    -> "?"
+	Some b, Some o -> "(" ^ (D.Address.to_string b) ^ ", " ^ (D.Offset.to_string o) ^ ")"
+      | None, _ -> "?"
+      | Some b, _ -> "("^ (D.Address.to_string b) ^ ", ?)"
     let name = "Pointer"
     let eval_exp _e 	  = raise (Alarm.E (Alarm.Concretization name))
     let combine _ _ _ _ = universe()
@@ -16,6 +18,8 @@ module Make(D: Data.T) =
     let exp_to_addresses _e _ctx = raise (Alarm.E (Alarm.Concretization name))
     let taint_memory _r = None (* None means that the module does not implement this functionality *)
     let taint_register _m = None (* None means that the module does not implement this functionality *)
-    let widen _m1 _m2 = failwith "Ptr.widen: to implement"
+    let widen p1 p2 =
+      match p1, p2 with
+	(Some b1, Some o1), (Some b2, Some o2) when Address.compare b1 b2 = 0 -> Some b1, Some (Offset.widen o1 o2)
   end
 
