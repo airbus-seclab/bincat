@@ -58,19 +58,19 @@ end
 module Make(Asm: Asm.T) =
 struct
   module S = Src(Asm)
-  include Asm
+  module Asm = Asm
   type o = 
       Safe
     | Tainted of S.t 
     | Maybe   of S.t option
 
-  type t' = o array option (** None is Top *)
+  type t = o array option (** None is Top *)
   (** Note that there are several Top : None and an array whose every cell contains Maybe None. Keep it as they are more precise : you know at least the size of the Top value (the length of the array) *)
 
   let name 		 = "Data Tainting"
   let top 		 = None
   let taint_register r = Some (Some (Array.make (Register.size r) (Tainted (S.singleton (S.R r)))))
-  let taint_memory a = Some (Some (Array.make (Address.size a) (Tainted (S.singleton(S.M a)))))
+  let taint_memory a = Some (Some (Array.make (Asm.Address.size a) (Tainted (S.singleton(S.M a)))))
  
   let join v1 v2 =
     let join_b b1 b2 =
@@ -158,7 +158,7 @@ struct
   let mem_to_addresses _e _sz _c = None
   let exp_to_addresses _e _c = None
 
-  let eval_exp e (c: (Asm.exp, Address.Set.t) Domain.context) ctx: t' =
+  let eval_exp e (c: (Asm.exp, Asm.Address.Set.t) Domain.context) ctx: t =
     match e with
       Asm.Lval (Asm.V (Asm.T r)) -> ctx#get_val_from_register r
     | Asm.Lval (Asm.V (Asm.P (r, l, u))) -> 
@@ -175,13 +175,13 @@ struct
 	  None 	     -> None
 	| Some addr' -> 
 	  try
-	    let addr_l = Address.Set.elements addr'		  in
+	    let addr_l = Asm.Address.Set.elements addr'		  in
 	    let v      = ctx#get_val_from_memory (List.hd addr_l) in 
 	    List.fold_left (fun s a -> join s ( ctx#get_val_from_memory a )) v (List.tl addr_l)
 	  with _ -> raise Utils.Emptyset
 	end
   
-    | Asm.Const c      -> Some (Array.make (Word.size c) Safe) 
+    | Asm.Const c      -> Some (Array.make (Asm.Word.size c) Safe) 
     | _ 	     -> None
 
   let combine v1 v2 l u = 

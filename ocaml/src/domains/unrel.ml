@@ -16,86 +16,86 @@ end
 
 (** Unrelational domain signature *)
 module type T = sig
-    
-    include Asm.T
+
+    module Asm: Asm.T
 
     (** abstract data type *)
-    type t'
+    type t
 	   
     (** name of the abstract domain *)
     val name: string
 		
     (** top abstract value *)
-    val top: t'
+    val top: t
 	      
 			      
     (** equality comparison : returns true whenever the two arguments are logically equal *)
-    val equal: t' -> t' -> bool
+    val equal: t -> t -> bool
 		         
     (** order comparison : returns true whenever the first argument is greater than the second one *)
-    val contains: t' -> t' -> bool
+    val contains: t -> t -> bool
 			      
     (** string conversion *)
-    val to_string: t' -> string
+    val to_string: t -> string
 			  
     (** returns the evaluation of the given expression as an abstract value *)			    
-    val eval_exp: exp -> (exp, Address.Set.t) Domain.context -> (Address.t, t') ctx_t -> t'
+    val eval_exp: Asm.exp -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
 												  
     (** returns the set of addresses associated to the memory expression of size _n_ where _n_ is the integer parameter *)
-    val mem_to_addresses: exp -> int -> (Address.t, t') ctx_t -> Address.Set.t option
+    val mem_to_addresses: Asm.exp -> int -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t option
     (** None is Top *)										  
     (** never call the method ctx_t.to_addresses in this function *)
 										    
     (** returns the set of addresses associated to the given expression *)											  
-    val exp_to_addresses: exp -> (Address.t, t') ctx_t -> Address.Set.t option 
+    val exp_to_addresses: Asm.exp -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t option 
 									     
     (** taint the given register into the given abstract value *)
-    val taint_register: Register.t -> t' option
+    val taint_register: Register.t -> t option
     (** None means that this functionality is not handled *)
 					
     (** taint the given address into the given abstract value *)
-    val taint_memory: Address.t -> t' option
+    val taint_memory: Asm.Address.t -> t option
     (** None means that this functionality is not handled *)
 				       
     (** join two abstract values *)
-    val join: t' -> t' -> t'
+    val join: t -> t -> t
 			  
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
-    val combine: t' -> t' -> int -> int -> t' 
+    val combine: t -> t -> int -> int -> t 
 					   
     (** widens two abstract values *)
-    val widen: t' -> t' -> t'
+    val widen: t -> t -> t
   end
 		  
 		  
 module Make(D: T) = 
   struct
-   
+
+    module Asm = D.Asm
+		   
     module K = 
       struct
 	type t = 
 	  | R of Register.t
-	  | M of D.Address.t
+	  | M of Asm.Address.t
 		   	   
 	let compare v1 v2 = 
 	  match v1, v2 with
 	  | R r1, R r2 -> Register.compare r1 r2
-	  | M m1, M m2 -> D.Address.compare m1 m2
+	  | M m1, M m2 -> Asm.Address.compare m1 m2
 	  | R _ , _    -> 1
 	  | _   , _    -> -1
 			     
 	let to_string x = 
 	  match x with 
 	  | R r -> Register.to_string r
-	  | M a -> D.Address.to_string a
+	  | M a -> Asm.Address.to_string a
       end
-
-    include D
 	      
     module Map = MapOpt.Make(K)
 
     (** type of the Map from Dimension (register or memory) to abstract values. This contains also an upper bound of the number of times a dimension has been already set *)
-    type t     = (t' * int) Map.t
+    type t     = (D.t * int) Map.t
 				     
 		       
     class ['addr, 'v] ctx m =
@@ -116,10 +116,10 @@ module Make(D: T) =
     let set_register r e c m = 
       let v = D.eval_exp e c (new ctx m) in
       match r with
-      |	D.T r' 	       ->
+      |	Asm.T r' 	       ->
 	 let _, n = Map.find (K.R r') m in
 	 Map.replace (K.R r') (v, n+1) m
-      | D.P (r', l, u) -> 
+      | Asm.P (r', l, u) -> 
 	 let v2, n = Map.find (K.R r') m in
 	 Map.replace (K.R r') (D.combine v v2 l u, n+1) m
 		     
@@ -141,7 +141,7 @@ module Make(D: T) =
       |	None 	   -> raise (Alarm.E Alarm.Empty)
       | Some addrs ->
 	 let v' = D.eval_exp src c (new ctx m) in 
-	 let l  = D.Address.Set.elements addrs in
+	 let l  = Asm.Address.Set.elements addrs in
 	 match l with 
 	   [a] -> (* strong update *) let _, n = Map.find (K.M a) m in Map.replace (K.M a) (v', n+1) m
 	 | l   -> (* weak update   *) List.fold_left (fun m a -> let v, n = Map.find (K.M a) m in Map.replace (K.M a) (D.join v v', n+1) m) m l

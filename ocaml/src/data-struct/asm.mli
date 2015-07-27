@@ -42,19 +42,19 @@ module type T =
 
     (** type of expressions *)
     type exp =
-      | Const of Word.t 	       (** a constant *)
-      | Lval  of lval 	       (** a left value *)
+      | Const of Word.t 	   (** a constant *)
+      | Lval  of lval 	           (** a left value *)
       | BinOp of binop * exp * exp (** a binary operation *)
       | UnOp  of unop * exp        (** a unary operation *)
 			  
      (** type of left values *)
      and lval =
-       | V of reg 	    (** a register *)
-       | M of exp * int (** M(e, n) is a memory adress whose value is _e_ and width is _n_ bits *) 
+       | V of reg 	(** a register *)
+       | M of exp * int (** M(e, n) is a memory address whose value is _e_ and width is _n_ bit long *) 
 		      
     (** type of function calls *)
     type fct =
-      | I of reg 	    (** indirect call from register *)
+      | I of reg       (** indirect call from register *)
       | D of Address.t (** direct call from address *)
 
     (** type of directives for the analyzer *)

@@ -1,7 +1,7 @@
-module Make(Dom1: Domain.T)(Dom2: Domain.T)(Data: Data.T)(Asm:Asm.T with type address = Data.Address.t and type word = Data.Word.t) =
+module Make(D1: Domain.T)(D2: Domain.T with module Asm = D1.Asm) =
 struct
-  module D1 = Dom1(Data)(Asm)
-  module D2 = Dom2(Data)(Asm)
+
+  module Asm = D1.Asm
   type t    = D1.t * D2.t
   let name  = "(" ^ D1.name ^ " x " ^ D2.name ^ ")"
  
@@ -20,11 +20,11 @@ struct
   let mem_to_addresses m sz (v1, v2) =
     match D1.mem_to_addresses m sz v1, D2.mem_to_addresses m sz v2 with
       None, a | a, None  -> a
-    | Some a1', Some a2' -> Some (Data.Address.Set.inter a1' a2')
+    | Some a1', Some a2' -> Some (Asm.Address.Set.inter a1' a2')
 
   let exp_to_addresses (v1, v2) e =
  (* TODO factorize with mem_to_addresses *)
     match D1.exp_to_addresses v1 e, D2.exp_to_addresses v2 e with
       None, a | a, None  -> a
-    | Some a1', Some a2' -> Some (Data.Address.Set.inter a1' a2')
+    | Some a1', Some a2' -> Some (Asm.Address.Set.inter a1' a2')
 end

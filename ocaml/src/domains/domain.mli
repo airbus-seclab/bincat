@@ -12,8 +12,8 @@ end
 
 module type T = 
     sig
-      include Asm.T
-
+      module Asm: Asm.T
+		
       (** type of abstract values *)
       type t 
       
@@ -31,17 +31,17 @@ module type T =
       val to_string: t -> string list
 
       (** assignment into the given register of the given expression *)
-      val set_register: reg -> exp -> (exp, Address.Set.t) context -> t -> t
+      val set_register: Asm.reg -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
       
       (** returns the set of addresses corresponding to the given expression of size in bits given by the parameter ;
 	  None is for Top *)	
-      val mem_to_addresses: exp -> int -> t -> Address.Set.t option
+      val mem_to_addresses: Asm.exp -> int -> t -> Asm.Address.Set.t option
       
       (** returns the set of addresses corresponding to the given expression ; None is Top *)	
-      val exp_to_addresses: t -> exp -> Address.Set.t option
+      val exp_to_addresses: t -> Asm.exp -> Asm.Address.Set.t option
 
       (** assignment into memory *) 
-      val set_memory: exp -> int -> exp -> (exp, Address.Set.t) context -> t -> t
+      val set_memory: Asm.exp -> int -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
       (**[set_memory e1 n e2 ctx m] returns the abstract value _m_ where the dimension _e1_ of size _n_ bits has been set to _e2_ *)
 
       (** [taint_register r m] *) 
@@ -50,7 +50,7 @@ module type T =
       (** the identity is a sound return value *)
 					       
       (** [taint_memory a m] *) 
-      val taint_memory: Address.t -> t -> t
+      val taint_memory: Asm.Address.t -> t -> t
       (** returns _m_ where the address _a_ has been tainted *)
       (** the identity is a sound return value *)
 					      
