@@ -1,9 +1,8 @@
 (***************************************************************************************)
 (* Decoder functor *)
 (***************************************************************************************)
-module Make(Data: Data.T) =
+module Make(Asm: Asm.T) =
   struct
-    Asm = Asm.Make(D)
 		  
     (************************************************************************)
     (* Creation of the general purpose registers *)
@@ -75,8 +74,8 @@ module Make(Data: Data.T) =
 	  gs: int;
 	}
       type state = {
-	  mutable g 	     : Cfg.t; 	          (* current cfg *)
-	  mutable b 	     : Cfg.Vertex.t;           (* predecessor vertex *)
+	  mutable g 	     : Cfa.t; 	          (* current cfg *)
+	  mutable b 	     : Cfa.Vertex.t;           (* predecessor vertex *)
 	  a 	     : Data.Address.t;       (* current address to decode *)
 	  mutable addr_sz   : int; 	          (* current address size in bits *)
 	  mutable operand_sz: int; 	          (* current operand size in bits *)
@@ -412,7 +411,7 @@ module Make(Data: Data.T) =
 		
       let update s stmts o' =
 	s.o <- o';
-	Cfg.update_stmts s.b stmts s.operand_sz s.addr_sz;
+	Cfa.update_stmts s.b stmts s.operand_sz s.addr_sz;
 	[s.b]
 	  
       let add_and_sub_immediate op carry_or_borrow s r sz = 
@@ -516,19 +515,19 @@ module Make(Data: Data.T) =
 	       
       let exp_of_cond v s n =
 	match v with
-	  0 | 1   -> BinOp (Eq, Lval (V (T fof)), Const (Data.Word.of_int (1-v) s.operand_sz)), int_of_bytes s n
-	  | 2 | 3   -> BinOp (Eq, Lval (V (T fcf)), Const (Data.Word.of_int (1-(v-2)) s.operand_sz)), int_of_bytes s n
-	  | 4 | 5   -> BinOp (Eq, Lval (V (T fzf)), Const (Data.Word.of_int (1-(v-4)) s.operand_sz)), int_of_bytes s n
-	  | 6       -> BinOp (Or, BinOp(Eq, Lval (V (T fcf)), Const (Data.Word.one s.operand_sz)), BinOp(Eq, Lval (V (T fzf)), Const (Data.Word.one s.operand_sz))), int_of_bytes s n
-	  | 7       -> BinOp (And, BinOp(Eq, Lval (V (T fcf)), Const (Data.Word.zero s.operand_sz)), BinOp(Eq, Lval (V (T fzf)), Const (Data.Word.zero s.operand_sz))), int_of_bytes s n
-	  | 8 | 9   -> BinOp (Eq, Lval (V (T fsf)), Const (Data.Word.of_int (1-(v-8)) s.operand_sz)), int_of_bytes s n
-	  | 10 | 11 -> BinOp (Eq, Lval (V (T fpf)), Const (Data.Word.of_int (1-(v-10)) s.operand_sz)), int_of_bytes s n
-	  | 12      -> UnOp (Not, BinOp(Eq, Lval (V (T fsf)), Lval (V (T fof)))), int_of_bytes s n
-	  | 13      -> BinOp (Eq, Lval (V (T fsf)), Lval (V (T fof))), int_of_bytes s n
-	  | 14      -> BinOp (Or, BinOp(Eq, Lval (V (T fzf)), Const (Data.Word.one s.operand_sz)), UnOp(Not, BinOp(Eq, Lval (V (T fsf)), Lval (V (T fof))))), int_of_bytes s n
-	  | 15      -> BinOp (And, BinOp(Eq, Lval (V (T fzf)), Const (Data.Word.zero s.operand_sz)), BinOp(Eq, Lval (V (T fsf)), Lval (V (T fof)))), int_of_bytes s n
-	  | _       -> invalid_arg "Opcode.exp_of_cond: illegal value"
-				   
+	| 0 | 1   -> BinOp (Eq, Lval (V (T fof)), Const (Data.Word.of_int (1-v) s.operand_sz)), int_of_bytes s n
+	| 2 | 3   -> BinOp (Eq, Lval (V (T fcf)), Const (Data.Word.of_int (1-(v-2)) s.operand_sz)), int_of_bytes s n
+	| 4 | 5   -> BinOp (Eq, Lval (V (T fzf)), Const (Data.Word.of_int (1-(v-4)) s.operand_sz)), int_of_bytes s n
+	| 6       -> BinOp (Or, BinOp(Eq, Lval (V (T fcf)), Const (Data.Word.one s.operand_sz)), BinOp(Eq, Lval (V (T fzf)), Const (Data.Word.one s.operand_sz))), int_of_bytes s n
+	| 7       -> BinOp (And, BinOp(Eq, Lval (V (T fcf)), Const (Data.Word.zero s.operand_sz)), BinOp(Eq, Lval (V (T fzf)), Const (Data.Word.zero s.operand_sz))), int_of_bytes s n
+	| 8 | 9   -> BinOp (Eq, Lval (V (T fsf)), Const (Data.Word.of_int (1-(v-8)) s.operand_sz)), int_of_bytes s n
+	| 10 | 11 -> BinOp (Eq, Lval (V (T fpf)), Const (Data.Word.of_int (1-(v-10)) s.operand_sz)), int_of_bytes s n
+	| 12      -> UnOp (Not, BinOp(Eq, Lval (V (T fsf)), Lval (V (T fof)))), int_of_bytes s n
+	| 13      -> BinOp (Eq, Lval (V (T fsf)), Lval (V (T fof))), int_of_bytes s n
+	| 14      -> BinOp (Or, BinOp(Eq, Lval (V (T fzf)), Const (Data.Word.one s.operand_sz)), UnOp(Not, BinOp(Eq, Lval (V (T fsf)), Lval (V (T fof))))), int_of_bytes s n
+	| 15      -> BinOp (And, BinOp(Eq, Lval (V (T fzf)), Const (Data.Word.zero s.operand_sz)), BinOp(Eq, Lval (V (T fsf)), Lval (V (T fof)))), int_of_bytes s n
+	| _       -> invalid_arg "Opcode.exp_of_cond: illegal value"
+				 
 				   
 				   
 				   
@@ -536,8 +535,8 @@ module Make(Data: Data.T) =
 	match second_token s with
 	  JCC (v, n) ->
 	  (* TODO: factorize with JMP *)
-	  let e, o = exp_of_cond v s n					in
-	  let a'   = Data.Address.add_offset s.a o				in
+	  let e, o = exp_of_cond v s n in
+	  let a'   = Data.Address.add_offset s.a o in
 	  update s [Jcc (Some e, Some (A a'))] o
 	| _ -> invalid_arg "Opcode.parse_two_bytes"
 			   
@@ -624,30 +623,30 @@ module Make(Data: Data.T) =
 	in
 	let rep_blk = s.b in 
 	Cfg.update_stmts s.b [Jcc (Some test', Some (A s.a))] s.operand_sz s.addr_sz;
-	Cfg.add_edge s.g s.b rep_blk None;
-	let ctx = {Cfg.Vertex.op_sz = s.operand_sz ; Cfg.Vertex.addr_sz = s.addr_sz} in	
-	let instr_blk, _ = Cfg.add_vertex s.g rep_blk s.a rep_blk.Cfg.Vertex.s (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(Eq, Lval (V(T fdf)), Const (Data.Word.of_int 1 1))), None)]) ctx true in 
-	Cfg.add_edge s.g rep_blk instr_blk (Some true);
+	Cfa.add_edge s.g s.b rep_blk None;
+	let ctx = {Cfa.Vertex.op_sz = s.operand_sz ; Cfa.Vertex.addr_sz = s.addr_sz} in	
+	let instr_blk, _ = Cfa.add_vertex s.g rep_blk s.a rep_blk.Cfa.Vertex.s (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(Eq, Lval (V(T fdf)), Const (Data.Word.of_int 1 1))), None)]) ctx true in 
+	Cfa.add_edge s.g rep_blk instr_blk (Some true);
 	let step     	= Const (Data.Word.of_int (i / 8) s.addr_sz) in
 	let decr     	= 
 	  if s.addr_sz <> len then 
 	    List.map (fun r -> Set(V (T r), BinOp(Sub, Lval (V (T r)), step))) regs    
 	  else
 	    List.map (fun r -> Set(V (P(0, s.addr_sz-1, r)), BinOp(Sub, Lval(V (P(0, s.addr_sz-1, r))), step))) regs                                          in
-	let decr_blk, _ = Cfg.add_vertex s.g instr_blk s.a instr_blk.Cfg.Vertex.s decr ctx true in
-	Cfg.add_edge s.g instr_blk decr_blk (Some true);
+	let decr_blk, _ = Cfa.add_vertex s.g instr_blk s.a instr_blk.Cfa.Vertex.s decr ctx true in
+	Cfa.add_edge s.g instr_blk decr_blk (Some true);
 	let incr     	= 
 	  if s.addr_sz <> len then 
 	    List.map (fun r -> Set(V (T r), BinOp(Add, Lval (V (T r)), step))) regs    
 	  else
 	    List.map (fun r -> Set(V (P(0, s.addr_sz-1, r)), BinOp(Add, Lval(V (P(0, s.addr_sz-1, r))), step))) regs  
 	in
-	let incr_blk, _ = Cfg.add_vertex s.g instr_blk s.a instr_blk.Cfg.Vertex.s incr ctx true
+	let incr_blk, _ = Cfa.add_vertex s.g instr_blk s.a instr_blk.Cfa.Vertex.s incr ctx true
 					 
         in
-	Cfg.add_edge s.g instr_blk incr_blk (Some false);
-	Cfg.add_edge s.g decr_blk rep_blk None;
-	Cfg.add_edge s.g incr_blk rep_blk None;
+	Cfa.add_edge s.g instr_blk incr_blk (Some false);
+	Cfa.add_edge s.g decr_blk rep_blk None;
+	Cfa.add_edge s.g incr_blk rep_blk None;
 	s.o <- s.o + 1;
 	[rep_blk ; instr_blk ; incr_blk ; decr_blk]
       ;;
@@ -679,11 +678,11 @@ module Make(Data: Data.T) =
 				  
 	| CALL (v, far) -> 
 	   let a' = Data.Address.add_offset s.a 1 in
-	   let v, _ = Cfg.add_vertex s.g s.b s.a s.b.Cfg.Vertex.s ([Directive (Push (Const (Data.Address.to_word a' 32))) ; Set(V(T esp), 
+	   let v, _ = Cfa.add_vertex s.g s.b s.a s.b.Cfa.Vertex.s ([Directive (Push (Const (Data.Address.to_word a' 32))) ; Set(V(T esp), 
 																BinOp(Sub, Lval (V (T esp)), 
 																      Const (Data.Word.of_int (Data.Stack.width()) (Register.size esp))))
 								   ]@(if far then [Directive (Push (Lval (V (T cs)))); Set(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Data.Word.of_int (Data.Stack.width()) (Register.size esp))))] else []) @
-								     [Call v]) ({Cfg.Vertex.op_sz = s.operand_sz ; Cfg.Vertex.addr_sz = s.addr_sz}) false
+								     [Call v]) ({Cfa.Vertex.op_sz = s.operand_sz ; Cfa.Vertex.addr_sz = s.addr_sz}) false
 	   in
 	   [v]
 	     
@@ -756,9 +755,9 @@ module Make(Data: Data.T) =
 	     | _ -> (* loop *) ecx_cond
 	   in
 	   let a' = Data.Address.add_offset s.a (int_of_bytes s 1) in
-	   Cfg.update_stmts s.b (stmts@[Jcc(Some e, Some (A a'))]) s.operand_sz s.addr_sz;
+	   Cfa.update_stmts s.b (stmts@[Jcc(Some e, Some (A a'))]) s.operand_sz s.addr_sz;
 	   s.o <- s.o + 1;
-	   Cfg.add_edge s.g s.b s.b (Some true);
+	   Cfa.add_edge s.g s.b s.b (Some true);
 	   [s.b]
 	     
 	| MOVS i ->

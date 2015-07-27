@@ -1,4 +1,10 @@
-module Src(D: Data.T) =
+(******************************************************************************)
+(* Functor generating the unrelational abstract domain of data tainting       *)
+(******************************************************************************)
+
+
+(** auxilary module in charge of keeping path information about the source of tainting *)
+module Src(D: Asm.T) =
 struct 
   type src =
     R  of Register.t
@@ -49,21 +55,22 @@ struct
     | Path (v, t) -> (string_of_src v) ^ " -> " ^ (to_string t)
 end
 
-module P(D: Data.T)(A: Asm.T with type address = D.Address.t and type word = D.Word.t) =
+module Make(Asm: Asm.T) =
 struct
-  module S = Src(D)
+  module S = Src(Asm)
+  include Asm
   type o = 
       Safe
     | Tainted of S.t 
     | Maybe   of S.t option
 
-  type t = o array option (** None is Top *)
+  type t' = o array option (** None is Top *)
   (** Note that there are several Top : None and an array whose every cell contains Maybe None. Keep it as they are more precise : you know at least the size of the Top value (the length of the array) *)
 
   let name 		 = "Data Tainting"
   let top 		 = None
   let taint_register r = Some (Some (Array.make (Register.size r) (Tainted (S.singleton (S.R r)))))
-  let taint_memory a = Some (Some (Array.make (D.Address.size a) (Tainted (S.singleton(S.M a)))))
+  let taint_memory a = Some (Some (Array.make (Address.size a) (Tainted (S.singleton(S.M a)))))
  
   let join v1 v2 =
     let join_b b1 b2 =
@@ -151,30 +158,30 @@ struct
   let mem_to_addresses _e _sz _c = None
   let exp_to_addresses _e _c = None
 
-  let eval_exp e (c: (A.memory, D.Address.Set.t) Domain.context) ctx: t =
+  let eval_exp e (c: (Asm.exp, Address.Set.t) Domain.context) ctx: t' =
     match e with
-      A.Lval (A.V (A.T r)) -> ctx#get_val_from_register r
-    | A.Lval (A.V (A.P (l, u, r))) -> 
+      Asm.Lval (Asm.V (Asm.T r)) -> ctx#get_val_from_register r
+    | Asm.Lval (Asm.V (Asm.P (r, l, u))) -> 
 		  let e = ctx#get_val_from_register r in
 		  begin
 		    match e with
 		      None -> None
 		    | Some a -> Some (Array.sub a l (u+1))
 		  end
-    | A.Lval (A.M (m, sz)) -> 
+    | Asm.Lval (Asm.M (m, sz)) -> 
       let addr = c#mem_to_addresses m sz in
       begin
 	match addr with
 	  None 	     -> None
 	| Some addr' -> 
 	  try
-	    let addr_l = D.Address.Set.elements addr'		  in
+	    let addr_l = Address.Set.elements addr'		  in
 	    let v      = ctx#get_val_from_memory (List.hd addr_l) in 
 	    List.fold_left (fun s a -> join s ( ctx#get_val_from_memory a )) v (List.tl addr_l)
 	  with _ -> raise Utils.Emptyset
 	end
   
-    | A.Const c      -> Some (Array.make (D.Word.size c) Safe) 
+    | Asm.Const c      -> Some (Array.make (Word.size c) Safe) 
     | _ 	     -> None
 
   let combine v1 v2 l u = 
@@ -194,5 +201,4 @@ struct
   let widen _v1 _v2 = failwith "Tainting.widen: to implement"
 end
 
-module M = Unrel.Make(P)
 
