@@ -27,13 +27,14 @@ module type T = sig
 		
     (** top abstract value *)
     val top: t'
-	       
-    (** inclusion test: returns true whenever the first argument contains the second one *)
+	      
+			      
+    (** equality comparison : returns true whenever the two arguments are logically equal *)
+    val equal: t' -> t' -> bool
+		         
+    (** order comparison : returns true whenever the first argument is greater than the second one *)
     val contains: t' -> t' -> bool
 			      
-    (** equality comparion : returns true whenever the two arguments are logically equal *)
-    val equal: t' -> t' -> bool
-			   
     (** string conversion *)
     val to_string: t' -> string
 			  
@@ -109,7 +110,7 @@ module Make(D: T) =
     let mem_to_addresses mem sz m = D.mem_to_addresses mem sz (new ctx m)
     let exp_to_addresses m e 	  = D.exp_to_addresses e (new ctx m)
     let remove_register v m 	  = Map.remove (K.R v) m	
-    let contains m1 m2 		  = Map.for_all2 (fun v1 v2 -> D.contains (fst v1) (fst v2)) m1 m2
+    let contains m1 m2 		  = Map.for_all2 (fun v1 v2 -> D.equal (fst v1) (fst v2)) m1 m2
     let to_string m 		  = Map.fold (fun k v l -> ((K.to_string k) ^" -> " ^ (D.to_string (fst v))) :: l) m []
 					   
     let set_register r e c m = 

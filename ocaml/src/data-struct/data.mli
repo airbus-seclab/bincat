@@ -40,6 +40,13 @@ module type T = sig
       type t
       (** converts an integer to an offset *)
       val from_int: int -> t
+
+      (** string conversion *)
+      val to_string: t -> string
+
+      (** returns 0 if the two offests are equal *) 
+      val compare: t -> t -> int
+      (** a negative integer if the first parameter is less than the second one ; a positive integer otherwise *)
     end
 		   
   (** type of an address *)

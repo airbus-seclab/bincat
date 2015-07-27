@@ -29,13 +29,13 @@ module type T = sig
 		
     (** top abstract value *)
     val top: t'
-	       
-    (** inclusion test: returns true whenever the first argument contains the second one *)
-    val contains: t' -> t' -> bool
-			      
+
     (** equality comparion : returns true whenever the two arguments are logically equal *)
     val equal: t' -> t' -> bool
-			   
+
+    (** order comparison : returns true whenever the first argument is greater than the second one *)
+    val contains: t' -> t' -> bool
+
     (** string conversion *)
     val to_string: t' -> string
 			  
