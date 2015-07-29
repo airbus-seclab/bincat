@@ -6,13 +6,12 @@ SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	domains/domain.mli\
 	fixpoint/alarm.mli fixpoint/alarm.ml\
 	domains/unrel.mli domains/unrel.ml domains/ptr.mli domains/ptr.ml\
-	disassembly/decoder.mli disassembly/decoder.ml\
 	disassembly/abi.mli disassembly/abi.ml\
 	domains/pair.mli domains/pair.ml\
 	 utils/utils.ml utils/utils.mli\
 	domains/tainting.mli domains/tainting.ml\
-	fixpoint/state.mli fixpoint/state.ml\
-	data-struct/cfa.mli data-struct/cfa.ml\
+	disassembly/cfa.mli disassembly/cfa.ml\
+	disassembly/decoder.mli disassembly/decoder.ml\
 	 fixpoint/fixpoint.mli fixpoint/fixpoint.ml main.mli main.ml
 
 LIBNAME=libbincat.so

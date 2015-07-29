@@ -1,5 +1,7 @@
-module FlatFixpoint 	 = Fixpoint.Make(Abi.Flat)
-module SegmentedFixpoint = Fixpoint.Make(Abi.Segmented)
+module Dom(Asm: Asm.T) = Pair.Make(Unrel.Make(Ptr.Make(Asm)))(Unrel.Make(Ptr.Make(Tainting)))
+
+module FlatDomain      = Dom(Abi.Flat)
+module SegmentedDomain = Dom(Abi.Segmented)
 
 let init segments =
   Abi.segments.Abi.cs <- segments.(0);

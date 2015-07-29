@@ -69,6 +69,7 @@ struct
 
   let name 		 = "Data Tainting"
   let top 		 = None
+  let is_top v 		 = v = None
   let taint_register r = Some (Some (Array.make (Register.size r) (Tainted (S.singleton (S.R r)))))
   let taint_memory a = Some (Some (Array.make (Asm.Address.size a) (Tainted (S.singleton(S.M a)))))
  
@@ -198,7 +199,7 @@ struct
 	Some v
     | _, _ -> None (* note that the case Some v, None should never occurs as l and u are supposed to be indices in v2 hence a top value for v2 has to be of the form Some v2' with all cells equal to top *)
 
-  let widen _v1 _v2 = failwith "Tainting.widen: to implement"
+
 end
 
 

@@ -27,7 +27,9 @@ module type T = sig
 		
     (** top abstract value *)
     val top: t
-	      
+
+    (** returns true whenever the given parameter is top *)
+    val is_top: t -> bool
 			      
     (** equality comparison : returns true whenever the two arguments are logically equal *)
     val equal: t -> t -> bool
@@ -63,8 +65,6 @@ module type T = sig
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t 
 					   
-    (** widens two abstract values *)
-    val widen: t -> t -> t
   end
 		  
 		  
@@ -105,12 +105,13 @@ module Make(D: T) =
     end
       
     let name 			  = D.name
-    let make () 		  = Map.empty
+    let top 		          = Map.empty
+    let is_top m                  = Map.for_all (fun v -> D.is_top (fst v)) m	
     let forget s 		  = Map.map (fun v -> D.top, (snd v)+1) s
     let mem_to_addresses mem sz m = D.mem_to_addresses mem sz (new ctx m)
     let exp_to_addresses m e 	  = D.exp_to_addresses e (new ctx m)
     let remove_register v m 	  = Map.remove (K.R v) m	
-    let contains m1 m2 		  = Map.for_all2 (fun v1 v2 -> D.equal (fst v1) (fst v2)) m1 m2
+    let contains m1 m2 		  = Map.for_all2 (fun v1 v2 -> D.contains (fst v1) (fst v2) && snd v1 >= snd v2) m1 m2
     let to_string m 		  = Map.fold (fun k v l -> ((K.to_string k) ^" -> " ^ (D.to_string (fst v))) :: l) m []
 					   
     let set_register r e c m = 
@@ -146,6 +147,6 @@ module Make(D: T) =
 	   [a] -> (* strong update *) let _, n = Map.find (K.M a) m in Map.replace (K.M a) (v', n+1) m
 	 | l   -> (* weak update   *) List.fold_left (fun m a -> let v, n = Map.find (K.M a) m in Map.replace (K.M a) (D.join v v', n+1) m) m l
 						     
-    let widen m1 m2 = Map.map2 (fun (v1, n1) (v2, n2) -> D.widen v1 v2, max n1 n2) m1 m2
+    let join m1 m2 = Map.map2 (fun (v1, n1) (v2, n2) -> D.join v1 v2, max n1 n2) m1 m2
   end
     

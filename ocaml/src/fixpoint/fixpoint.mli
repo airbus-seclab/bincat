@@ -1,5 +1,5 @@
 
-module Make: functor (Data: Data.T) ->
+module Make: functor (Domain: Domain.T) ->
 	     (** Fixpoint engine *)
 sig
 

@@ -65,9 +65,11 @@ struct
 	    s := Int64.add !s  (Int64.of_int (1 lsl i))
 	  done;
 	  (!s, n)
+    end
 
-      
-  end
+  module Offset = struct
+     include Int64
+    end
 end
 
 module O =
@@ -95,7 +97,7 @@ struct
   let equal (o1, _) (o2, _) = (Int64.compare o1 o2) = 0
     
   let add_offset (o, n) o' = 
-    let off = Int64.add o (Int64.of_int o') in
+    let off = Int64.add o o' in
     check off n;
     off, n
       
@@ -126,7 +128,7 @@ struct
       type t = int * O.t
       let default_size () = O.default_size ()
      
-      let to_offset (s, o) = O.add_offset o (s lsl 4)
+      let to_offset (s, o) = O.add_offset o (Offset.of_int (s lsl 4))
 
       let check a = 
 	let o, sz = to_offset a in

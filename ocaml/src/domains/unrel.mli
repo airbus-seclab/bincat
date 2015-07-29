@@ -31,6 +31,9 @@ module type T = sig
     (** top abstract value *)
     val top: t
 
+    (** returns true whenever the given value is top *)
+    val is_top: t -> bool
+		       
     (** equality comparion : returns true whenever the two arguments are logically equal *)
     val equal: t -> t -> bool
 
@@ -64,9 +67,7 @@ module type T = sig
 			  
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t 
-					   
-    (** widens two abstract values *)
-    val widen: t -> t -> t
+
   end
 		  
 module Make(V: T): Domain.T

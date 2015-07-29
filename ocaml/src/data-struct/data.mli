@@ -39,7 +39,8 @@ module type T = sig
   module Offset: sig
       type t
       (** converts an integer to an offset *)
-      val from_int: int -> t
+      val of_int: int -> t
+      (** may raise an exception *)
 
       (** string conversion *)
       val to_string: t -> string

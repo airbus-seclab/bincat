@@ -54,14 +54,17 @@ module type T =
       (** returns _m_ where the address _a_ has been tainted *)
       (** the identity is a sound return value *)
 					      
-      (** creates an initial value *)	
-      val make: unit -> t
+      (** top value *)	
+      val top: t
+
+      (** returns true whenever the given value is top *)
+      val is_top: t -> bool
 
       (** forgets all computed information in s *)
       val forget: t -> t
       (**  only dimensions are preserved *)	
 
-      (** widens the two abstract values *)
-      val widen: t -> t -> t
+      (** joins the two abstract values *)
+      val join: t -> t -> t
     end
       
