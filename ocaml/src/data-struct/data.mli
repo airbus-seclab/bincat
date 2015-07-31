@@ -5,21 +5,35 @@ module type T = sig
       - some operations may raise Underflow or Overflow
   *)
     
+  
   (** Segment selector data type *)
   module Segment: sig
-   
-    val cs: unit -> int (** default value of the code segment *)
-    val ds: unit -> int
-    val ss: unit -> int
-    val ss: unit -> int
-    val es: unit -> int
-    val fs: unit -> int
-    val gs: unit -> int
-  end
 
+      (** abstract data type of a segment *)
+      type t
+      (** initial value of the cs segment *)
+      val cs: t
+      (** initial value of the ds segment *)
+      val ds: t
+      (** initial value of the ss segment *)
+      val ss: t
+      (** initial value of the es segment *)
+      val es: t
+      (** initial value of the fs segment *)
+      val fs: t
+      (** initial value of the gs segment *)
+      val gs: t
+
+      (** logical left shift *)
+      val shift_left: t -> int -> t
+    end
+  (** *)
+
+  (** Stack data type *)
   module Stack: sig
     val width: unit -> int
-  end
+    end
+  (** *)
 
   (** Word data type *)
   module Word : sig
@@ -31,8 +45,8 @@ module type T = sig
     val one: int -> t (** [one n] returns 1 on _n_ bits *)
     val of_int: int -> int -> t (** [of_int v sz] returns the conversion of _v_ on _sz_ bits *)
     val to_int: t -> int (** may raise Overflow *)
-    val of_string: string -> int -> t
-    val sign_extend: t -> int -> t
+    val of_string: string -> int -> t (** string conversion *)
+    val sign_extend: t -> int -> t (** sign extension. The integer is the width of the data *)
     end
 
   (** Offset on a base address *)
@@ -65,7 +79,11 @@ module type T = sig
       (** in Segmented memory models _a_ is supposed to be of the form se:offset *)
       (** may raise Invalid if the given string is not a valid *)
       (** representation of an offset wrt to the size given by the int parameter *)
-					
+
+      (** creates an address from a segment and an offset on it *)
+      val make: Segment.t -> Offset.t -> int -> t
+      (** the integer is the size in bits of the address *)
+					   
       (** comparison of the two arguments *)
       val compare: t -> t -> int
       (** returns 0 if arguments are equal ; *)

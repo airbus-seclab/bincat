@@ -156,8 +156,8 @@ struct
       !s
 
 
-  let mem_to_addresses _e _sz _c = None
-  let exp_to_addresses _e _c = None
+  let mem_to_addresses _e _sz _c = raise Utils.Enum_failure
+  let exp_to_addresses _e _c = raise Utils.Enum_failure
 
   let eval_exp e (c: (Asm.exp, Asm.Address.Set.t) Domain.context) ctx: t =
     match e with

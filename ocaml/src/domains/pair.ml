@@ -19,13 +19,25 @@ struct
   let join (v11, v12) (v21, v22)        = D1.join v11 v21              , D2.join v12 v22
 
   let mem_to_addresses m sz (v1, v2) =
-    match D1.mem_to_addresses m sz v1, D2.mem_to_addresses m sz v2 with
-      None, a | a, None  -> a
-    | Some a1', Some a2' -> Some (Asm.Address.Set.inter a1' a2')
+    try
+      let a1' = D1.mem_to_addresses m sz v1 in
+	try
+	  let a2' = D2.mem_to_addresses m sz v2 in
+	  Asm.Address.Set.inter a1' a2'
+	with
+	  Utils.Enum_failure -> a1'
+    with
+      Utils.Enum_failure -> D2.mem_to_addresses m sz v2
 
   let exp_to_addresses (v1, v2) e =
- (* TODO factorize with mem_to_addresses *)
-    match D1.exp_to_addresses v1 e, D2.exp_to_addresses v2 e with
-      None, a | a, None  -> a
-    | Some a1', Some a2' -> Some (Asm.Address.Set.inter a1' a2')
+    (* TODO factorize with mem_to_addresses *)
+    try
+      let a1' = D1.exp_to_addresses v1 e in
+	try
+	  let a2' = D2.exp_to_addresses v2 e in
+	  Asm.Address.Set.inter a1' a2'
+	with
+	  Utils.Enum_failure -> a1'
+    with
+      Utils.Enum_failure -> D2.exp_to_addresses v2 e
 end

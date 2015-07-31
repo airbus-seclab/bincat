@@ -2,13 +2,13 @@ SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	utils/mapOpt.mli utils/mapOpt.ml\
 	utils/context.mli utils/context.ml\
 	data-struct/asm.mli data-struct/asm.ml\
+	utils/utils.ml utils/utils.mli\
 	data-struct/code.mli data-struct/code.ml\
 	domains/domain.mli\
 	fixpoint/alarm.mli fixpoint/alarm.ml\
 	domains/unrel.mli domains/unrel.ml domains/ptr.mli domains/ptr.ml\
 	disassembly/abi.mli disassembly/abi.ml\
 	domains/pair.mli domains/pair.ml\
-	 utils/utils.ml utils/utils.mli\
 	domains/tainting.mli domains/tainting.ml\
 	disassembly/cfa.mli disassembly/cfa.ml\
 	disassembly/decoder.mli disassembly/decoder.ml\
@@ -34,8 +34,7 @@ CAMLYACC=ocamlyacc
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
-LIBX=graph.cmxa nums.cmxa hmap.cmx hset.cmx hashcons.cmx exceptions.cmx mapOpt.cmx\
-extendedIntMisc.cmx extendedBigInt.cmx listUtils.cmx natural.cmx range.cmx bounded_congruence.cmx dimension.cmx
+LIBX=graph.cmxa nums.cmxa
 
 all: $(LIBNAME)
 

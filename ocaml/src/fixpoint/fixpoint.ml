@@ -6,54 +6,72 @@ module Make(Domain: Domain.T) =
 struct
 
   (** the decoder module *)
-  module Decoder = Decoder.Make(Domain.Asm)
+  module Decoder = Decoder.Make(Domain)
 
   (** the control flow automaton module *)
-  module Cfa = Cfa.Make(Domain)
-      
+  module Cfa = Decoder.Cfa 
+
+  (** the code module *)
+  module Code = Code.Make(Domain.Asm)
+			 
+  (** the assembly language *)
+  open Domain.Asm
+
+  (** computes the list of function targets (their addresses) from a value of type fct *)
   let ft_to_addresses s f =
     match f with
-      Asm.I r -> State.exp_to_addresses s (Asm.Lval (Asm.V r))
-    | Asm.D a -> [a]
-		   
-  let jmp_to_addresses s j =
+      I r -> Address.Set.elements (Domain.exp_to_addresses s (Lval (V r)))
+    | D a -> [a]
+
+  (** computes the list of jump targets (their addresses) from a value of type jmp_target *)
+  let jmp_to_addresses _s j _sz =
     match j with
-      Asm.A a -> [a]
-    | Asm.R (n, r) -> let n' = n lsl 4 in List.map (fun a -> Data.Address.add_offset a n') (State.exp_to_addresses s (Asm.Lval (Asm.V r)))
+      A a -> [a]
+    | R (_n, _r) -> failwith "the following commented code shows a confusion between what an offset and an address are supposed to represent "
+  (*let n' = Segment.shift_left n 4 in
+		  let offsets = Address.Set.elements (Domain.exp_to_addresses s (Lval (V r))) in
+		  List.map (fun a -> Address.make n' a sz) offsets*)
 						   
-  let default_ctx () = {Cfa.Vertex.op_sz = Data.Word.default_size() ; Cfa.Vertex.addr_sz = Data.Address.default_size()}
+  let default_ctx () = {
+      Cfa.State.op_sz = Word.default_size() ;
+      Cfa.State.addr_sz = Address.default_size()
+    }
 			 
-  let process_stmt g v a o stmt = 
+  let process_stmt g (v: Cfa.State.t) _a _o stmt = 
     (* TODO factorize the two Jcc case and the CALL case *)
-    let s = match v.Cfa.Vertex.s with None -> State.make() | Some s -> s in
+    let s = match v.Cfa.State.v with
+      | None -> failwith "Fixpoint.process_stmt: None case not implemented"
+      | Some s -> s
+    in
     match stmt with
-      Asm.Set (lv, e) 	     -> 
-      let _ = Cfa.update_state v (State.set a lv e s) in []
+      Store (_lv, _e) 	     -> failwith "Fixpoint.process_stmt, case Store: not implemented"
 							   
-    | Asm.Jcc (None, Some e)  ->
-    let addrs = jmp_to_addresses s e in
+    | Jcc (None, Some e)  ->
+       let addr_sz = (* v.Cfa.State.ctx.addr_sz in *) failwith "Fixpoint.process_stmt, case Jcc: addr_sz field of v to compute" in
+    let addrs = jmp_to_addresses s e addr_sz in
     List.fold_left (fun vertices a -> 
-      let v', b = Cfa.add_vertex g v a (Some s) [] (default_ctx()) false in
+      let v', b = Cfa.add_state g v a (Some s) [] (default_ctx()) false in
       Cfa.add_edge g v v' None; 
       if b then v'::vertices 
       else vertices) [] addrs
 
-  | Asm.Call f -> 
+  | Call f -> 
     let addrs = ft_to_addresses s f in
     List.fold_left (fun vertices a -> 
-      let v', b = Cfa.add_vertex g v a (Some s) [] (default_ctx()) false in
+      let v', b = Cfa.add_state g v a (Some s) [] (default_ctx()) false in
       Cfa.add_edge g v v' None; 
       if b then v'::vertices 
       else vertices) [] addrs
-  | Asm.Jcc (_, None) 	     -> []
-  
-  | Asm.Jcc(Some e, Some a') -> 
-    let s' = State.guard s e in
-    let ns' = State.guard s (Asm.UnOp(Asm.Not, e)) in
+  | Jcc (_, None) 	     -> []
+
+				  (*
+  | Jcc(Some e, Some a') -> 
+     let s' = Cfa.State.guard s e in
+     let ns' = Cfa.State.guard s (UnOp(Not, e)) in
     let addrs = jmp_to_addresses s a' in
     let vertices = 
     List.fold_left (fun vertices a ->
-      let v', b = Cfa.add_vertex g v a (Some s') [] (default_ctx()) false in
+      let v', b = Cfa.add_state g v a (Some s') [] (default_ctx()) false in
       Cfa.add_edge g v v' (Some true); 
       if b then v'::vertices 
       else vertices
@@ -62,32 +80,33 @@ struct
     let nv, b = Cfa.add_vertex g v (Data.Address.add_offset a o) (Some ns') [] (default_ctx()) false in 
     if b then begin Cfa.add_edge g v nv (Some false); nv::vertices end
     else vertices
- 
+				   
 
-  | Asm.Unknown     	     -> let _ = Cfa.update_state v (State.forget s) in []
-  | Asm.Undef       	     -> raise Exit
-  | Asm.Nop         	     -> []
-  | Asm.Directive _ 	     -> let _ = Cfa.update_state v (State.forget s) in []
+  | Unknown     	     -> let _ = Cfa.update_state v (Cfa.State.forget s) in []
+  | Undef       	     -> raise Exit
+  | Nop         	     -> []
+  | Directive _ 	     -> let _ = Cfa.update_state v (Cfa.State.forget s) in []*)
+  | _ -> failwith "Fixpoint.process_stmt, default case: to implement (use above commented code)"
 
 let update g a o v =
-  List.fold_left (fun l stmt -> (process_stmt g v a o stmt)@l) [] v.Cfa.Vertex.stmts
+  List.fold_left (fun l stmt -> (process_stmt g v a o stmt)@l) [] v.Cfa.State.stmts
 
-  module Vertices = Set.Make(Cfa.Vertex)
+  module Vertices = Set.Make(Cfa.State)
 
   let filter_vertices g vertices =
 (** [filter_vertices _g_ vertices] removes vertices in _vertices_ that are already in _g_ (same address and same decoding context) *)
-    let equal_ctx ctx1 ctx2 = ctx1.Cfa.Vertex.addr_sz = ctx2.Cfa.Vertex.addr_sz && ctx1.Cfa.Vertex.op_sz = ctx2.Cfa.Vertex.op_sz
+    let equal_ctx ctx1 ctx2 = ctx1.Cfa.State.addr_sz = ctx2.Cfa.State.addr_sz && ctx1.Cfa.State.op_sz = ctx2.Cfa.State.op_sz
     in
     let rec filter_succs succs v =
       match succs with
 	[] -> v
       | s::succs' -> 
-	 if Data.Address.compare s.Cfa.Vertex.a v.Cfa.Vertex.a = 0
-	    && equal_ctx s.Cfa.Vertex.ctx v.Cfa.Vertex.ctx
-	    && v.Cfa.Vertex.internal = s.Cfa.Vertex.internal then 
+	 if Address.compare s.Cfa.State.ip v.Cfa.State.ip = 0
+	    && equal_ctx s.Cfa.State.ctx v.Cfa.State.ctx
+	    && v.Cfa.State.internal = s.Cfa.State.internal then 
 	  begin
-	    let edges = Cfa.succ_e g v in
-	    List.iter (fun e -> Cfa.add_edge g s (Cfa.dst e) (Cfa.label e)) edges;
+	    let _edges = (*Cfa.succ_e g v in*) failwith "Fixpoint.update: computation of successors not implemented" in
+	    if true then failwith "Fixpoint.filter: List.iter (fun e -> Cfa.add_edge g s (Cfa.dst e) (Cfa.label e)) edges";
 	    Cfa.remove g v;
 	    s
 	  end
@@ -101,24 +120,26 @@ let update g a o v =
     in
     List.map filter vertices
 
-  let process text o e =
-    let g     	 = Cfa.create()			      in
+  let process code g s =
     let ctx   	 = { 
-      Decoder.cs 	 = Data.Segment.cs() ; Decoder.ds = Data.Segment.ds() ; Decoder.ss = Data.Segment.ss() ; 
-      Decoder.es 	 = Data.Segment.es() ; Decoder.fs = Data.Segment.fs() ; Decoder.gs = Data.Segment.gs() } 
+	Decoder.cs = Segment.cs;
+	Decoder.ds = Segment.ds;
+	Decoder.ss = Segment.ss; 
+	Decoder.es = Segment.es;
+	Decoder.fs = Segment.fs;
+	Decoder.gs = Segment.gs
+      } 
     in
-    let continue = ref true				     in
-    let waiting = ref (Vertices.singleton (Cfa.dummy_vertex e)) in
-    let o' = Int64.to_int o in
+    let continue = ref true in
+    let waiting = ref (Vertices.singleton s) in
     while !continue do
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
-      let n 		   = Int64.to_int (Data.Address.sub v.Cfa.Vertex.a e)			      in
-      let text' 	   = String.sub text (o'+n) ((String.length text) - n) in
-      let vertices, offset = Decoder.parse text' g v v.Cfa.Vertex.a ctx		      in
+      let text' 	   = Code.sub code v.Cfa.State.ip in
+      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip ctx		      in
       let vertices' 	   = filter_vertices g vertices				      in
-      let new_vertices 	   = List.fold_left (fun l v' -> (update g v.Cfa.Vertex.a offset v')@l) [] vertices'   in
-      List.iter (fun v -> if not v.Cfa.Vertex.internal then waiting := Vertices.add v !waiting) new_vertices;
+      let new_vertices 	   = List.fold_left (fun l v' -> (update g v.Cfa.State.ip offset v')@l) [] vertices'   in
+      List.iter (fun v -> if not v.Cfa.State.internal then waiting := Vertices.add v !waiting) new_vertices;
       continue := not (Vertices.is_empty !waiting) 
     done;
     g

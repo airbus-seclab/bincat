@@ -47,13 +47,14 @@ module type T = sig
     val eval_exp: Asm.exp -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
 												  
     (** returns the set of addresses associated to the memory expression of size _n_ where _n_ is the integer parameter *)
-    val mem_to_addresses: Asm.exp -> int -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t option
-    (** None is Top *)										  
+    val mem_to_addresses: Asm.exp -> int -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
+    (** may raise an Exception if this set of addresses is too large *)	
     (** never call the method ctx_t.to_addresses in this function *)
 										    
-    (** returns the set of addresses associated to the given expression *)											  
-    val exp_to_addresses: Asm.exp -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t option 
-									     
+    (** returns the set of addresses associated to the given expression *)										 
+    val exp_to_addresses: Asm.exp -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
+    (** may raise an Exception if this set of addresses is too large *)
+										   
     (** taint the given register into the given abstract value *)
     val taint_register: Register.t -> t option
     (** None means that this functionality is not handled *)
@@ -70,4 +71,4 @@ module type T = sig
 
   end
 		  
-module Make(V: T): Domain.T
+module Make(V: T): (Domain.T with module Asm = V.Asm)

@@ -6,37 +6,33 @@ type mode_t =
 type format_t =
   Pe
 | Elf 
-      
-type segment_t = {
-    mutable cs: int;
-    mutable ds: int;
-    mutable ss: int;
-    mutable es: int;
-    mutable fs: int;
-    mutable gs: int;
-  }
-
+  
 let operand_sz = ref 32
 let address_sz = ref 32
-let segments = {cs = 0 ; ds = 0 ; ss = 0 ; es = 0 ; fs = 0 ; gs = 0}
 let stack_width = ref 32
 
 
+
+let zero = Int64.zero
 let one = Int64.one
 let underflows o = Int64.compare o Int64.zero < 0 
 let overflows o sz = Int64.compare o (Int64.sub (Int64.shift_left one sz) one) > 0
-    
+
+
 module M =
 struct
     
-  (** Segment data type *)
+ (** Segment data type *)
   module Segment = struct
-    let cs () = segments.cs
-    let ds () = segments.ds
-    let ss () = segments.ss
-    let es () = segments.es
-    let fs () = segments.fs
-    let gs () = segments.gs
+      type t = Int64.t
+      let cs = zero
+      let ds = zero
+      let ss = zero
+      let es = zero
+      let fs = zero
+      let gs = zero
+
+      let shift_left = Int64.shift_left
   end
   module Stack = struct
     let width () = !stack_width
@@ -115,6 +111,9 @@ struct
   module Address = 
   struct
     include O
+    (** in that implementation the segment is simply forgotten *)
+    let make _s o sz = (o, sz)
+		      
     module Set = Set.Make(O)
   end
 end
@@ -125,10 +124,10 @@ struct
   module Address =
   struct
     module A = struct
-      type t = int * O.t
+      type t = Segment.t * O.t
       let default_size () = O.default_size ()
      
-      let to_offset (s, o) = O.add_offset o (Offset.of_int (s lsl 4))
+      let to_offset ((s, o): t) = O.add_offset o (Int64.shift_left s 4)
 
       let check a = 
 	let o, sz = to_offset a in
@@ -136,13 +135,15 @@ struct
 	if overflows o sz then raise (Invalid_argument "too high address");
 	()
 
-      let to_string (s, (o, _)) = (string_of_int (s lsl 4))  ^ ":" ^ (Int64.to_string o)
+      let make s o sz = (s, (o, sz))
+		       
+      let to_string (s, (o, _)) = (Int64.to_string (Int64.shift_left s  4))  ^ ":" ^ (Int64.to_string o)
       let of_string a n = 
 	try
 	  let i = String.index a ':' in
 	  let s = String.sub a 0 i in
 	  let (o: string) = String.sub a (i+1) ((String.length a) - i - 1) in
-	  let a' = int_of_string s, O.of_string o n in
+	  let a' = Int64.of_string s, O.of_string o n in
 	  check a';
 	  a'
 	with _ -> failwith "Invalid address format"

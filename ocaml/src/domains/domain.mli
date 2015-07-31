@@ -33,12 +33,13 @@ module type T =
       (** assignment into the given register of the given expression *)
       val set_register: Asm.reg -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
       
-      (** returns the set of addresses corresponding to the given expression of size in bits given by the parameter ;
-	  None is for Top *)	
-      val mem_to_addresses: Asm.exp -> int -> t -> Asm.Address.Set.t option
-      
-      (** returns the set of addresses corresponding to the given expression ; None is Top *)	
-      val exp_to_addresses: t -> Asm.exp -> Asm.Address.Set.t option
+      (** returns the set of addresses corresponding to the given expression of size in bits given by the parameter *)
+      val mem_to_addresses: Asm.exp -> int -> t -> Asm.Address.Set.t
+      (** may raise an exception if the set of addresses is too large *)
+								     
+      (** returns the set of addresses corresponding to the given expression *)	
+      val exp_to_addresses: t -> Asm.exp -> Asm.Address.Set.t
+      (** may raise an exception if the set of addresses is too large *)
 
       (** assignment into memory *) 
       val set_memory: Asm.exp -> int -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
