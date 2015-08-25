@@ -31,7 +31,7 @@ doc: all
 	@make -C $(MLPATH) DOCPATH=$(DOCMLPATH) doc 
 	@echo "Generating Python documentation......................................"
 	@make -C $(PYPATH) doc
-	@echo "Generating reference manual.........................................."
+	@echo "Compiling reference manual..........................................."
 	@make -C $(DOCREFPATH) all
 
 clean:
@@ -42,8 +42,19 @@ clean:
 	echo "Cleaning documentation................................................"
 	-rm -rf $(DOCGENPATH)
 	-rm -rf $(PYPATH)/tests/__pycache__
+	-rm -rf bincat-dist
+	-rm bincat.tar.gz
 	@make -C $(DOCREFPATH) clean
 
 
+dist: clean
+	@echo "Making distribution.................................................."
+	mkdir bincat-dist
+	cp Makefile bincat-dist
+	cp README bincat-dist
+	cp -r python bincat-dist
+	cp -r ocaml bincat-dist
+	cp -r doc bincat-dist
+	tar -czf bincat.tar.gz bincat-dist
 .PHONY: install clean
 
