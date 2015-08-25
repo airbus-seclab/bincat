@@ -1,5 +1,5 @@
 #!/usr/bin/python 
-# Filename : mymodule.py 
+
 
 #Imports
 from idaapi import * 
@@ -16,7 +16,7 @@ exitFlag =0
 # Functions 
 def test():
     print("This is an IDA test Module")
-    x = Analyseur() 
+    x = Analyszer() 
     x.test()
 
 
@@ -43,7 +43,7 @@ def getAllfunctions() :
 
 
 '''
-AddComment : pour ajouter un commentaire  
+AddComment
 params : address format hex (0xFF...)
           string : commentaire 
 '''
@@ -72,16 +72,16 @@ class BinCATThread (threading.Thread):
             if pid : # IDA 
                 parent.close() 
                 message = " toto "
-                print("[+] IDA plugin --> analyseur : %s")%message
+                print("[+] IDA plugin --> analyzer : %s")%message
                 child.send(message) 
                 message = child.recv(1024)
-                print("[+] message received from analyseur %s ")%message   
+                print("[+] message received from analyzer %s ")%message   
 
-            else :  # Analyseur 
+            else :  # Analyzer 
                 child.close() 
                 fd = parent.fileno() 
-                #print("[+] IDA plugin launching analyseur.py ")
-                os.execv('/opt/ida-6.7/python/mymodule/analyseur.py',['Bincat','123456' ,'--commandfd', str(fd)])
+                #print("[+] IDA plugin launching analyzer.py ")
+                os.execv('/opt/ida-6.7/python/mymodule/analyzer.py',['Bincat','123456' ,'--commandfd', str(fd)])
         except : 
             raise      
 

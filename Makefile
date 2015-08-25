@@ -5,7 +5,7 @@ MLTESTPATH =ocaml/test
 DPREFIX	   =/usr/local
 DOCMLPATH  =../../doc/generated/ocaml
 DOCREFPATH =doc/manual
-MLLIBDIR=../../python/bnew
+MLLIBDIR=../../python/bincat
 
 all:	
 	@echo "Compiling OCaml part................................................."
@@ -22,8 +22,8 @@ install: all
 
 
 test: all
-	py.test -q test/test_caml.py
 	make -C $(MLTESTPATH) all
+	py.test -q test/test_caml.py
 
 doc: all
 	@mkdir -p doc/generated

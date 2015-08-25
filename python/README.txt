@@ -1,8 +1,8 @@
 Installation procedure
 
 1. unzip this archive and enter it
-tar xvzf Bnew-xx.tar.gz
-cd bnew
+tar xvzf bincat.tar.gz
+cd BinCAT
 
 2. build only
 python setup.py build
