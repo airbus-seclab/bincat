@@ -30,9 +30,13 @@ sig
     
     type t
     val create: unit -> t
+			  
     (** dummy state *)
+    (** the given string is the entry point *)
     val dummy_state: string -> State.t
-				 (** the given string is the entry point *)
+				 
+
+    
   end
 
     (** abstract data type of the code section *)
@@ -51,5 +55,6 @@ sig
   (** the given state is the initial state of the computation *)
   val process: Code.t ->  Cfa.t -> Cfa.State.t -> Cfa.t
 
+ 
 end
 

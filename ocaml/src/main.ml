@@ -39,7 +39,7 @@ let process_flat text o e =
     ()
 
 let process_segmented text o e =
-    let code =  SegmentedFixpoint.Code.make text o e (Abi.Segmented.Address.default_size()) in
+    let code = SegmentedFixpoint.Code.make text o e (Abi.Segmented.Address.default_size()) in
     let g = SegmentedFixpoint.Cfa.create () in
     let s = SegmentedFixpoint.Cfa.dummy_state e in
     let _ = SegmentedFixpoint.process code g s in
@@ -49,7 +49,7 @@ let process_elf flat segments op_sz text o e =
   Abi.operand_sz := op_sz;
   init segments;
   if flat then process_flat text o e
-  else ()
+  else process_segmented text o e
  
 let process_pe flat segments addr_sz op_sz stack_width text o e =
   if (addr_sz <> 16 && addr_sz <> 32) || 
