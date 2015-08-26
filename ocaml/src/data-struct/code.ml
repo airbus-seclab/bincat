@@ -9,11 +9,11 @@ module Make (D: Data.T) =
 	c: string; 	(** the byte sequence containing the code *)	       
       }
 	       
-    let make e o c sz =
+    let make ~code ~ep ~o ~addr_sz =
       try
-	let o' = Int64.of_string o in 
+	let o' = Int64.of_string o in
 	if Int64.compare o' Int64.zero  >= 0 then
-	  {e = D.Address.of_string e sz; o = o' ; c = c}
+	  {e = D.Address.of_string ep addr_sz; o = o' ; c = code}
 	else
 	  raise Utils.Illegal_address
       with _ -> raise Utils.Illegal_address
@@ -21,6 +21,7 @@ module Make (D: Data.T) =
     let sub v a =
       try
 	let o   = Int64.to_int (D.Address.sub a v.e) in
+	print_endline (string_of_int o);
 	let len = (String.length v.c) - o            in
 	String.sub v.c o len 
       with _ -> raise Utils.Illegal_address

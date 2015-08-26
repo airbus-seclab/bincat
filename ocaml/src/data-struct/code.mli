@@ -7,10 +7,10 @@ module Make:
     type t
 	   
     (** constructor *) 
-    val make: string -> string -> string -> int -> t
-    (** The first string is the entry point ; the second string is the offset (raises an exception if it is negative) *)
-    (** of the entry point from the start of the provided byte sequence (third string) supposed to start at 0 index *)
-    (** the integer is the size in bits of the addresses *)
+    val make: code:string -> ep:string -> o:string -> addr_sz:int -> t
+    (** code is the byte sequence of instructions to decode ; ep is the entry point ; o is the offset  *)
+    (** of the entry point from the start of the provided byte sequence *)
+    (** addr_sz is the size in bits of the addresses *)
 				     
     (** returns the sub sequence starting at the given address *)
     val sub: t -> D.Address.t -> string

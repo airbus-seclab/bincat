@@ -17,29 +17,28 @@ val process_pe: bool -> int array -> int -> int -> int -> string -> string -> st
 
 (** fixpoint engine for a flat memory model *)
 (** its signature is exposed for test purpose only *)
-(* module FlatFixpoint: *)
-(* sig *)
-(*   (\* module Address: *\) *)
-(*   (\* sig *\) *)
-(*   (\*   type t *\) *)
-(*   (\* end *\) *)
-(*   (\* module Offset: *\) *)
-(*   (\* sig *\) *)
-(*   (\*   type t *\) *)
-(*   (\* end *\) *)
-(*   module Code: *)
-(*   sig *)
-(*     type t *)
-(*   end *)
-(*   module Cfa: *)
-(*   sig *)
-(*     type t *)
-(*     module State: *)
-(*     sig *)
-(*       type t *)
-(*       val equal: t -> t -> bool *)
-(*     end *)
-(*   end *)
-(*     (\*val process_stmt: Cfa.t -> Cfa.State.t -> Address.t -> Offset.t -> Asm.t -> Cfa.State.t*\) *)
-(* end *)
+module FlatFixpoint:
+sig
+  module Code:
+  sig
+    type t
+
+    val make: code:string -> ep:string -> o:string -> addr_sz:int -> t
+    (** code is the byte sequence of instructions to decode ; ep is the entry point ; o is the offset  *)
+    (** of the entry point from the start of the provided byte sequence *)
+    (** addr_sz is the size in bits of the addresses *)		
+
+  end
+  module Cfa:
+  sig
+    module State:
+    sig
+      type t
+    end
+    type t
+    val make: unit -> t
+    val dummy_state: string -> State.t
+  end
+  val process: Code.t -> Cfa.t -> Cfa.State.t -> Cfa.t * Cfa.State.t list
+end
 											  

@@ -33,14 +33,14 @@ let init _segments =
 
 let process_flat text o e =
     let code = FlatFixpoint.Code.make text o e (Abi.Flat.Address.default_size()) in
-    let g = FlatFixpoint.Cfa.create () in
+    let g = FlatFixpoint.Cfa.make () in
     let s = FlatFixpoint.Cfa.dummy_state e in
     let _  = FlatFixpoint.process code g s in
     ()
 
 let process_segmented text o e =
     let code = SegmentedFixpoint.Code.make text o e (Abi.Segmented.Address.default_size()) in
-    let g = SegmentedFixpoint.Cfa.create () in
+    let g = SegmentedFixpoint.Cfa.make () in
     let s = SegmentedFixpoint.Cfa.dummy_state e in
     let _ = SegmentedFixpoint.process code g s in
     ()

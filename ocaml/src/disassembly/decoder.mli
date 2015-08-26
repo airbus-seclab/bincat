@@ -33,7 +33,7 @@ sig
 	end
       (** *)    
       type t
-      val create: unit -> t
+      val make: unit -> t
 
 			    
       (** dummy state *)

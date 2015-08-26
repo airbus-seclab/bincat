@@ -37,7 +37,7 @@ sig
 	end
       (** *)    
   type t
-  val create: unit -> t
+  val make: unit -> t
 
   (** dummy state *)
   val dummy_state: string -> State.t

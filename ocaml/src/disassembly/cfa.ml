@@ -72,7 +72,7 @@ module Make(Domain: Domain.T) =
       type t = G.t
 		 
       (** CFA creation *)
-      let create () = G.create ()
+      let make () = G.create ()
  			       
       (** dummy state *)
       let dummy_state ip = {id = 0; ip = Domain.Asm.Address.of_string ip (Domain.Asm.Address.default_size()); v = None; stmts = []; ctx = {op_sz = Domain.Asm.Word.default_size(); addr_sz = Domain.Asm.Address.default_size()}; internal = false}
