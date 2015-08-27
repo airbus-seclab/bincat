@@ -14,5 +14,8 @@ module Make:
 				     
     (** returns the sub sequence starting at the given address *)
     val sub: t -> D.Address.t -> string
-    (** may raise an exception if the given address is out of range *)
+				   (** may raise an exception if the given address is out of range *)
+
+    (** string conversion *)
+    val to_string: t -> string
   end

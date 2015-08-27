@@ -48,13 +48,17 @@ sig
     val make: code:string -> ep:string -> o:string -> addr_sz:int -> t
     (** code is the byte sequence of instructions to decode ; ep is the entry point ; o is the offset  *)
     (** of the entry point from the start of the provided byte sequence *)
-    (** addr_sz is the size in bits of the addresses *)						  
+								       (** addr_sz is the size in bits of the addresses *)
+
+    (** string conversion *)
+    val to_string: t -> string
     end
       
   (** computes the fixpoint of the reachable CFA from the given intial one and the provided code *)
     (** the given state is the initial state of the computation *)
   val process: Code.t ->  Cfa.t -> Cfa.State.t -> Cfa.t * (Cfa.State.t list)
 
+ 
  
 end
 

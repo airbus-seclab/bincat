@@ -37,7 +37,8 @@ struct
       Cfa.State.addr_sz = Address.default_size()
     }
 			 
-  let process_stmt g (v: Cfa.State.t) _a _o stmt = 
+  let process_stmt g (v: Cfa.State.t) _a _o stmt =
+    print_endline (string_of_stmt stmt);
     (* TODO factorize the two Jcc case and the CALL case *)
     let s =  v.Cfa.State.v in
     match stmt with
@@ -60,7 +61,7 @@ struct
       if b then v'::vertices 
       else vertices) [] addrs
   | Jcc (_, None) 	     -> []
-
+  | Nop         	     -> []
 				  (*
   | Jcc(Some e, Some a') -> 
      let s' = Cfa.State.guard s e in
@@ -81,7 +82,7 @@ struct
 
   | Unknown     	     -> let _ = Cfa.update_state v (Cfa.State.forget s) in []
   | Undef       	     -> raise Exit
-  | Nop         	     -> []
+ 
   | Directive _ 	     -> let _ = Cfa.update_state v (Cfa.State.forget s) in []*)
   | _ -> failwith "Fixpoint.process_stmt, default case: to implement (use above commented code)"
 
@@ -118,6 +119,7 @@ let update g a o v =
     List.map filter vertices
 
   let process code g s =
+    print_endline (Code.to_string code);
     let ctx   	 = { 
 	Decoder.cs = Segment.cs;
 	Decoder.ds = Segment.ds;

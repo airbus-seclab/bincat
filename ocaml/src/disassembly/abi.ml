@@ -80,12 +80,15 @@ struct
     if overflows o sz then raise (Invalid_argument "too high address");
     ()
       
-  let to_string o = Int64.to_string (fst o)
-  let of_string o n = 
-    try 
-      let a = Int64.of_string o in
-      check a n;
-      a, n
+  let to_string o = Printf.sprintf "Ox%LX" (fst o)
+				    
+  let of_string o n =
+    let int64_of_char c = Int64.of_int (Char.code c) in
+    try
+      let a = ref (int64_of_char (String.get o 0)) in
+      String.iter (fun c -> a := Int64.add (Int64.shift_left !a 1) (int64_of_char c)) (String.sub o 1 ((String.length o) -1));
+      check !a n;
+      !a, n
     with _ -> raise (Invalid_argument "address format ")
       
   let compare (o1, _) (o2, _) = Int64.compare o1 o2
@@ -113,7 +116,7 @@ struct
     include O
     (** in that implementation the segment is simply forgotten *)
     let make _s o sz = (o, sz)
-		      
+    let to_int64 o = fst o      
     module Set = Set.Make(O)
   end
 end
@@ -138,6 +141,8 @@ struct
       let make s o sz = (s, (o, sz))
 		       
       let to_string (s, (o, _)) = (Int64.to_string (Int64.shift_left s  4))  ^ ":" ^ (Int64.to_string o)
+      let to_int64 (s, (o, _)) = Int64.add (Int64.shift_left s 4) o
+					   
       let of_string a n = 
 	try
 	  let i = String.index a ':' in
