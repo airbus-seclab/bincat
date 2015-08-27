@@ -2,9 +2,9 @@
 print_endline "********************************************************";;
   print_endline "\t\t unit test 1";;
     print_endline "********************************************************";;
-    let c1 = Main.FlatFixpoint.Code.make "0x90" "0x01" "0x00" 32;;
+    let c1 = Main.FlatFixpoint.Code.make "\x90" "\x23" "\x00" 32;;
       print_endline "data structure for the code generated";;
-      let icfa, is1 = Main.FlatFixpoint.Cfa.make "0x01";;
+      let icfa, is1 = Main.FlatFixpoint.Cfa.make "\x23";;
 	Main.FlatFixpoint.Cfa.print icfa;
     print_endline "\ninitial CFA and state generated";;
 

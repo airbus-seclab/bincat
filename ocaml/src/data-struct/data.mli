@@ -67,10 +67,15 @@ module type T = sig
   (** type of an address *)
   module Address: sig
       type t
-      val default_size: unit -> int (** default size in bits *)  
-      val size: t -> int (** size in bits *)
+      (** default size in bits *)  
+      val default_size: unit -> int
+
+      (** size in bits *)
+      val size: t -> int 
 		       
-		       
+      (** Int64 conversion *)
+      val to_int64: t -> Int64.t
+			   
       (** string conversion *)
       val to_string: t -> string
 			    
