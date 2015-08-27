@@ -6,8 +6,9 @@ python 2.7
 pdflatex for documentation
 pytest for tests 
 ocamldoc and doxygen for the documentation generation
-the library ocamlgraph (tested with version 1.8.3) No need of the edit/visualisation component
+the library ocamlgraph
 IDA for the vizualisation
+Graphviz
 
 =installation
 

@@ -3,6 +3,9 @@
 (** type of a register *)
 type t
 
+(** returns the set of current used registers *)
+val used: unit -> t list
+	   
 (** creates a register from the given string and size *)
 val make: string -> int -> t
 (** may raise Invalid_argument if a register with that name already exists 
@@ -23,8 +26,3 @@ val compare: t -> t -> int
 (** returns the size in bits of the register *)
 val size: t -> int
 
-module Set:
-sig
-  type t
-  val empty: t
-end

@@ -39,10 +39,7 @@ struct
 			 
   let process_stmt g (v: Cfa.State.t) _a _o stmt = 
     (* TODO factorize the two Jcc case and the CALL case *)
-    let s = match v.Cfa.State.v with
-      | None -> failwith "Fixpoint.process_stmt: None case not implemented"
-      | Some s -> s
-    in
+    let s =  v.Cfa.State.v in
     match stmt with
       Store (_lv, _e) 	     -> failwith "Fixpoint.process_stmt, case Store: not implemented"
 							   
@@ -50,7 +47,7 @@ struct
        let addr_sz = (* v.Cfa.State.ctx.addr_sz in *) failwith "Fixpoint.process_stmt, case Jcc: addr_sz field of v to compute" in
     let addrs = jmp_to_addresses s e addr_sz in
     List.fold_left (fun vertices a -> 
-      let v', b = Cfa.add_state g v a (Some s) [] (default_ctx()) false in
+      let v', b = Cfa.add_state g v a s [] (default_ctx()) false in
       Cfa.add_edge g v v' None; 
       if b then v'::vertices 
       else vertices) [] addrs
@@ -58,7 +55,7 @@ struct
   | Call f -> 
     let addrs = ft_to_addresses s f in
     List.fold_left (fun vertices a -> 
-      let v', b = Cfa.add_state g v a (Some s) [] (default_ctx()) false in
+      let v', b = Cfa.add_state g v a s [] (default_ctx()) false in
       Cfa.add_edge g v v' None; 
       if b then v'::vertices 
       else vertices) [] addrs

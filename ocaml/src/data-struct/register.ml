@@ -5,24 +5,24 @@ struct
 end
 
 let cid = ref 0
-
-module Set = Set.Make(T)
 include T
+module Set = Set.Make(T)
 
 (** contains currently used registers *)
-let used = ref Set.empty
+let registers = ref (Set.empty)
 
 let make s l = 
   let  v = { name = s ; sz = l ; id = !cid } in
-  used := Set.add v !used;
+  registers := Set.add v !registers;
   cid := !cid + 1;
   v
   
-let fresh_name () = "_bnew_tmp_"^(string_of_int !cid)
+let fresh_name () = "_bincat_tmp_"^(string_of_int !cid)
     
-let remove r = used := Set.remove r !used
+let remove r = registers := Set.remove r !registers
 
 let to_string r = r.name
 
 let size r = r.sz
 
+let used () = Set.elements !registers

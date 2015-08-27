@@ -18,22 +18,23 @@ sig
 	  type t = {
 	      id: int; 	     (** unique identificator of the state *)
 	      ip: Domain.Asm.Address.t ;  (** instruction pointer *)
-	      mutable v: Domain.t option; 		  (** abstract value ; None means "not set yet" *)
+	      mutable v: Domain.t; 		  (** abstract value *)
 	      mutable ctx: ctx_t ; 		  (** context of decoding *)
 	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
 	      internal     : bool 	     (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
 	    }
 
-
     end
-    
+
+    (** abstract data type *)
     type t
-    val make: unit -> t
-			  
-    (** dummy state *)
+	   
     (** the given string is the entry point *)
-    val dummy_state: string -> State.t
-				 
+    val make: string -> t * State.t
+			  
+   
+    (** graphviz printer *)
+    val print: t -> unit
 
     
   end

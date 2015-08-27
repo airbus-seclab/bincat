@@ -21,7 +21,6 @@ module Make (D: Data.T) =
     let sub v a =
       try
 	let o   = Int64.to_int (D.Address.sub a v.e) in
-	print_endline (string_of_int o);
 	let len = (String.length v.c) - o            in
 	String.sub v.c o len 
       with _ -> raise Utils.Illegal_address

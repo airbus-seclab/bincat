@@ -14,7 +14,7 @@ sig
 	  type t = {
 	      id: int; 	     (** unique identificator of the state *)
 	      ip: Domain.Asm.Address.t ;  (** instruction pointer *)
-	      mutable v: Domain.t option; 		  (** abstract value ; None means "not set yet" *)
+	      mutable v: Domain.t; 		  (** abstract value *)
 	      mutable ctx: ctx_t ; 		  (** context of decoding *)
 	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
 	      internal     : bool 	     (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
@@ -23,7 +23,9 @@ sig
 	  (** state comparison: returns 0 whenever they are the physically the same (do not compare the content) *)
 	  val compare: t -> t -> int
 	  (** otherwise return a negative integer if the first state has been created before the second one; *)
-	  (** a positive integer if it has been created later *)
+				   (** a positive integer if it has been created later *)
+
+	
     end
     (** Abstract data type of edge labels of the CFA *)
       module Label:
@@ -33,21 +35,25 @@ sig
 	end
       (** *)    
       type t
-      val make: unit -> t
+
+      (** CFA creation with the given string as entry point *)
+      (** the returned state is the corresponding initial state *)
+      val make: string -> t * State.t
+
+      (** graphviz printing *)
+      val print: t -> unit
 
 			    
-      (** dummy state *)
-      val dummy_state: string -> State.t
-      (** the given string is the entry point *)
+     
 				   
     (** [add_state g pred ip s stmts ctx i] creates a new state in _g_ with
     - ip as instruction pointer;
     - stmts as list of statements;
-    - v as abstract value (if already in the CFG ; then previous value is joined with s)
+    - v as abstract value (if already in the CFA ; then previous value is joined with s)
     - pred as ancestor;
     - ctx as decoding context
     - i is the boolean true for internal states ; false otherwise *)
-    val add_state: t -> State.t -> Domain.Asm.Address.t -> Domain.t option -> Domain.Asm.stmt list -> State.ctx_t -> bool -> State.t * bool
+    val add_state: t -> State.t -> Domain.Asm.Address.t -> Domain.t  -> Domain.Asm.stmt list -> State.ctx_t -> bool -> State.t * bool
 
     (** [add_edge g src dst l] adds in _g_ an edge _src_ -> _dst_ with label _l_ *)
     val add_edge: t -> State.t -> State.t -> Label.t -> unit

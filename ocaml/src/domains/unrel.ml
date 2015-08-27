@@ -28,6 +28,10 @@ module type T = sig
     (** top abstract value *)
     val top: t
 
+    (** non initialized abstract value *)
+    (** the integer is the size in bits on this value *)
+    val bot: int -> t
+		      
     (** returns true whenever the given parameter is top *)
     val is_top: t -> bool
 			      
@@ -149,5 +153,8 @@ module Make(D: T) =
 	 | l   -> (* weak update   *) List.fold_left (fun m a -> let v, n = Map.find (K.M a) m in Map.replace (K.M a) (D.join v v', n+1) m) m l
 						     
     let join m1 m2 = Map.map2 (fun (v1, n1) (v2, n2) -> D.join v1 v2, max n1 n2) m1 m2
+
+    let from_registers () =
+      List.fold_left (fun m r -> Map.add (K.R r) (D.bot (Register.size r), 0) m) Map.empty (Register.used ())
   end
     

@@ -6,19 +6,26 @@ module Make(Asm: Asm.T) =
   struct
     module Asm = Asm
 
-    type t = Asm.Address.t option * Asm.Offset.t option (* a pointeur is a base address plus an offset on that base ; None is top *)
-    let top = None, None
+    type t =
+      I of Asm.Address.t option * Asm.Offset.t option (* a pointeur is a base address plus an offset on that base ; None is top *)
+      | Bot (* bottom *)
+	  
+    let bot _sz = Bot
+			   
+    let top = I (None, None)
 
     let is_top v =
       match v with
-      |	None, _ | _, None -> true
-      | _, _ 		  -> false
+      |	I (None, _) | I (_, None) -> true
+      | _ 		  -> false
 		     
     let to_string p =
       match p with
-	Some b, Some o -> "(" ^ (Asm.Address.to_string b) ^ ", " ^ (Asm.Offset.to_string o) ^ ")"
-      | None, _ -> "?"
-      | Some b, _ -> "("^ (Asm.Address.to_string b) ^ ", ?)"
+	I (Some b, Some o) -> "(" ^ (Asm.Address.to_string b) ^ ", " ^ (Asm.Offset.to_string o) ^ ")"
+      | I (None, _) 	   -> "T"
+      | I (Some b, _) 	   -> "("^ (Asm.Address.to_string b) ^ ", ?)"
+      | Bot 		   -> "_|_"
+		 
     let name = "Pointer"
 
     let eval_exp _e 	  = raise (Alarm.E (Alarm.Concretization name))
@@ -32,7 +39,7 @@ module Make(Asm: Asm.T) =
 
     let equal p1 p2 =
       match p1, p2 with
-	(Some b1, Some o1), (Some b2, Some o2) ->
+	I (Some b1, Some o1), I (Some b2, Some o2) ->
 	if Asm.Address.compare b1 b2 = 0 && Asm.Offset.compare o1 o2 = 0 then
 	  true
 	else
@@ -47,12 +54,12 @@ module Make(Asm: Asm.T) =
 
     let contains p1 p2 =
       match p1, p2 with
-	(Some b1, Some o1), (Some b2, Some o2) ->
+	I (Some b1, Some o1), I (Some b2, Some o2) ->
 	if Asm.Address.compare b1 b2 = 0 && Asm.Offset.compare o1 o2 = 0 then
 	  true
 	else
 	  false
-      | (Some _, _), _ 			       -> false
+      | I (Some _, _), _ 		       -> false
       | _, _ 				       -> true
   end
 

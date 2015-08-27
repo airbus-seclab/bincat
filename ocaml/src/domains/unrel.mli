@@ -31,6 +31,10 @@ module type T = sig
     (** top abstract value *)
     val top: t
 
+    (** non initialized abstract value *)
+    (** the integer is the size in bits of this value *)
+    val bot: int -> t
+
     (** returns true whenever the given value is top *)
     val is_top: t -> bool
 		       

@@ -36,8 +36,8 @@ sig
       type t
     end
     type t
-    val make: unit -> t
-    val dummy_state: string -> State.t
+    val make: string -> t * State.t
+    val print: t -> unit
   end
   val process: Code.t -> Cfa.t -> Cfa.State.t -> Cfa.t * Cfa.State.t list
 end
