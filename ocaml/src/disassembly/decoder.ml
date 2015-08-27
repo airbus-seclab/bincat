@@ -12,9 +12,10 @@ module Make(Domain: Domain.T) =
     (************************************************************************)
     (* Creation of the general purpose registers *)
     (************************************************************************)
-    let register_tbl = Hashtbl.create 8 ;;
+
+    let register_tbl = Hashtbl.create 8;;
       
-    let eax = Register.make "eax" 32;; 
+    let eax = Register.make "eax" 32;;
     let ecx = Register.make "ecx" 32;;
     let edx = Register.make "edx" 32;;
     let ebx = Register.make "ebx" 32;;
@@ -22,7 +23,7 @@ module Make(Domain: Domain.T) =
     let ebp = Register.make "ebp" 32;;
     let esi = Register.make "esi" 32;;
     let edi = Register.make "edi" 32;;
-      
+
       Hashtbl.add register_tbl 0 eax;
       Hashtbl.add register_tbl 1 ecx;
       Hashtbl.add register_tbl 2 edx;
@@ -31,6 +32,8 @@ module Make(Domain: Domain.T) =
       Hashtbl.add register_tbl 5 ebp;
       Hashtbl.add register_tbl 6 esi;
       Hashtbl.add register_tbl 7 edi;;
+      
+   
 
   
 

@@ -67,5 +67,8 @@ module type T =
 
       (** joins the two abstract values *)
       val join: t -> t -> t
+
+      (** create an abstract value from the registers in Register.tbl ; all dimensions are set to top *)
+      val from_registers: unit -> t
     end
       

@@ -69,6 +69,9 @@ struct
 
   let name 		 = "Data Tainting"
   let top 		 = None
+			     
+  (** initially everything is safe *)
+  let bot sz             = Some (Array.make sz Safe)
   let is_top v 		 = v = None
   let taint_register r = Some (Some (Array.make (Register.size r) (Tainted (S.singleton (S.R r)))))
   let taint_memory a = Some (Some (Array.make (Asm.Address.size a) (Tainted (S.singleton(S.M a)))))

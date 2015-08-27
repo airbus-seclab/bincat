@@ -39,10 +39,7 @@ struct
 			 
   let process_stmt g (v: Cfa.State.t) _a _o stmt = 
     (* TODO factorize the two Jcc case and the CALL case *)
-    let s = match v.Cfa.State.v with
-      | None -> failwith "Fixpoint.process_stmt: None case not implemented"
-      | Some s -> s
-    in
+    let s =  v.Cfa.State.v in
     match stmt with
       Store (_lv, _e) 	     -> failwith "Fixpoint.process_stmt, case Store: not implemented"
 							   
@@ -50,7 +47,7 @@ struct
        let addr_sz = (* v.Cfa.State.ctx.addr_sz in *) failwith "Fixpoint.process_stmt, case Jcc: addr_sz field of v to compute" in
     let addrs = jmp_to_addresses s e addr_sz in
     List.fold_left (fun vertices a -> 
-      let v', b = Cfa.add_state g v a (Some s) [] (default_ctx()) false in
+      let v', b = Cfa.add_state g v a s [] (default_ctx()) false in
       Cfa.add_edge g v v' None; 
       if b then v'::vertices 
       else vertices) [] addrs
@@ -58,7 +55,7 @@ struct
   | Call f -> 
     let addrs = ft_to_addresses s f in
     List.fold_left (fun vertices a -> 
-      let v', b = Cfa.add_state g v a (Some s) [] (default_ctx()) false in
+      let v', b = Cfa.add_state g v a s [] (default_ctx()) false in
       Cfa.add_edge g v v' None; 
       if b then v'::vertices 
       else vertices) [] addrs
@@ -116,7 +113,7 @@ let update g a o v =
       try
 	let succs = Cfa.succs g (List.hd (Cfa.pred g v)) in
 	filter_succs succs v
-      with Invalid_argument _ -> v (* raised as initial node corresponding to the entry point has no predecessor in the CFG *)
+      with _ -> v (* raised as initial node corresponding to the entry point has no predecessor in the CFG *)
     in
     List.map filter vertices
 
@@ -130,21 +127,22 @@ let update g a o v =
 	Decoder.gs = Segment.gs
       } 
     in
-    let continue = ref true in
+    let continue = ref true		     in
     let waiting = ref (Vertices.singleton s) in
-    let vl = ref [] in
+    let outs = ref []			     in
     while !continue do
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
-      let text' 	   = Code.sub code v.Cfa.State.ip in
-      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip ctx		      in
-      let vertices' 	   = filter_vertices g vertices				      in
-      let new_vertices 	   = List.fold_left (fun l v' -> (update g v.Cfa.State.ip offset v')@l) [] vertices'   in
-      vl := [];
-      List.iter (fun v -> if not v.Cfa.State.internal then begin vl := v::!vl;  waiting := Vertices.add v !waiting end) new_vertices;
-      continue := not (Vertices.is_empty !waiting) 
+      let text' 	   = Code.sub code v.Cfa.State.ip						 in
+      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip ctx		     			 in
+      let vertices' 	   = filter_vertices g vertices				     			 in
+      let new_vertices = List.fold_left (fun l v' -> (update g v.Cfa.State.ip offset v')@l) [] vertices' in
+      List.iter (fun v -> if not v.Cfa.State.internal then waiting := Vertices.add v !waiting) new_vertices;
+      continue := not (Vertices.is_empty !waiting);
+      if not !continue then
+	outs := vertices
     done;
-    g, !vl
+    g, !outs
 
 
 end
