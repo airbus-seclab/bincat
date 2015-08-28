@@ -43,7 +43,8 @@ sig
   val make: string -> t * State.t
 
   (** cfa pretty printer *)
-  val print: t -> unit
+  (** the string parameter is the file name *)
+  val print: t -> string -> unit
 			       
   (** set the v field of given state by the given domain *)
   val update_state: State.t -> Domain.t -> bool

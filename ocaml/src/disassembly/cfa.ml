@@ -163,7 +163,11 @@ module Make(Domain: Domain.T) =
 	  let default_vertex_attributes _v = []
 	end
       module Dot = Graph.Graphviz.Dot(DotAttr)
-      let print g = Dot.output_graph stdout g
+				     
+      let print g dotfile =
+	let f = open_out_bin dotfile in
+	Dot.output_graph f g;
+	close_out f
 	
 	
     end

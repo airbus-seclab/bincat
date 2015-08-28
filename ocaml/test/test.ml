@@ -5,10 +5,17 @@ print_endline "********************************************************";;
     let c1 = Main.FlatFixpoint.Code.make "\x90" "\x23" "\x00" 32;;
       print_endline "data structure for the code generated";;
       let icfa, is1 = Main.FlatFixpoint.Cfa.make "\x23";;
-	Main.FlatFixpoint.Cfa.print icfa;
+	Main.FlatFixpoint.Cfa.print icfa "test1.dot";
     print_endline "\ninitial CFA and state generated";;
 
-    let check _ _ = failwith "Test.check: check the new ip is one byte further and state content before and after are equal";;
+	let check_test1 s s' =
+	  (* first check that the nex ip is one byte further *)
+	  let o = Address.sub s.ip s'.ip in
+	  if Offset.compare o Offset.one then 
+	    (* check that domain fields are equal *)
+	    Domain.equal s.v s'.v
+	  else
+	    false
    
     let g1, s1 = Main.FlatFixpoint.process c1 icfa is1;;
          print_endline "fixpoint reached";;

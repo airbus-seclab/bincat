@@ -38,7 +38,6 @@ struct
     }
 			 
   let process_stmt g (v: Cfa.State.t) _a _o stmt =
-    print_endline (string_of_stmt stmt);
     (* TODO factorize the two Jcc case and the CALL case *)
     let s =  v.Cfa.State.v in
     match stmt with
@@ -119,7 +118,6 @@ let update g a o v =
     List.map filter vertices
 
   let process code g s =
-    print_endline (Code.to_string code);
     let ctx   	 = { 
 	Decoder.cs = Segment.cs;
 	Decoder.ds = Segment.ds;
