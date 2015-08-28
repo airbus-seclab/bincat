@@ -15,10 +15,23 @@ val process_pe: bool -> int array -> int -> int -> int -> string -> string -> st
 (** addr : address size (16 or 32) ; op: operand size (16 or 32) ; stack: stack width (16 or 32) *)
 
 
-(** fixpoint engine for a flat memory model *)
-(** its signature is exposed for test purpose only *)
+(** the belowed signatures are given for test purpose only *)
+
+ 
 module FlatFixpoint:
 sig
+  module Offset:
+  sig
+    type t
+    val one: t
+    val compare: t -> t -> int
+  end
+  module Address:
+  sig
+    type t
+    val sub: t -> t -> Offset.t
+    val to_string: t -> string
+  end
   module Code:
   sig
     type t
@@ -29,15 +42,18 @@ sig
     (** addr_sz is the size in bits of the addresses *)		
 
   end
+ 
   module Cfa:
   sig
-    module State:
+     module State:
     sig
       type t
+      val ip: t -> Address.t
     end
+      
     type t
     val make: string -> t * State.t
-    val print: t -> unit
+    val print: t -> string -> unit
   end
   val process: Code.t -> Cfa.t -> Cfa.State.t -> Cfa.t * Cfa.State.t list
 end

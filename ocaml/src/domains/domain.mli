@@ -57,7 +57,7 @@ module type T =
 					      
       (** top value *)	
       val top: t
-
+			
       (** returns true whenever the given value is top *)
       val is_top: t -> bool
 

@@ -1,29 +1,28 @@
 
 module Make: functor (Domain: Domain.T) ->
 	     (** Fixpoint engine *)
-sig
+sig		     
 
+  module Offset:
+  sig
+    type t
+    val one: t
+    val compare: t -> t -> int
+  end
+  module Address:
+  sig
+    type t = Domain.Asm.Address.t
+    val sub: t -> t -> Offset.t
+    val to_string: t -> string
+  end
+    
   (** control flow automaton *)
   module Cfa:
   sig
     module State:
     sig
-      (** data type for the decoding context *)
-	  type ctx_t = {
-	      addr_sz: int; (** size in bits of the addresses *)
-	      op_sz  : int; (** size in bits of operands *)
-	    }
-	   
-	  (** abstract data type of a state *)
-	  type t = {
-	      id: int; 	     (** unique identificator of the state *)
-	      ip: Domain.Asm.Address.t ;  (** instruction pointer *)
-	      mutable v: Domain.t; 		  (** abstract value *)
-	      mutable ctx: ctx_t ; 		  (** context of decoding *)
-	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
-	      internal     : bool 	     (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
-	    }
-
+      type t
+      val ip: t -> Domain.Asm.Address.t
     end
 
     (** abstract data type *)
@@ -34,7 +33,8 @@ sig
 			  
    
     (** graphviz printer *)
-    val print: t -> unit
+    (** the string parameter is the name of the dot generated file *)
+    val print: t -> string -> unit
 
     
   end

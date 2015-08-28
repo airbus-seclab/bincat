@@ -420,8 +420,10 @@ module Make(Domain: Domain.T) =
 		
       let update s stmts o' =
 	s.o <- o';
-	Cfa.update_stmts s.b stmts s.operand_sz s.addr_sz;
-	[s.b]
+	let ctx = {Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz} in
+	let s, _ = Cfa.add_state s.g s.b (Address.add_offset s.a (Offset.of_int o')) s.b.Cfa.State.v stmts ctx false in
+	[s]
+
 	  
       let add_and_sub_immediate op carry_or_borrow s r sz = 
 	let w     = Word.of_int (int_of_bytes s sz) s.operand_sz				     in
@@ -578,7 +580,7 @@ module Make(Domain: Domain.T) =
 							       
       let push_prefix s c =
 	match c with
-	| '\xf0' -> Printf.printf "Prefix 0x%x ignored \n" (Char.code c)
+	| '\xf0' -> Printf.printf "Prefix 0x%X ignored \n" (Char.code c)
 	| '\xf2' -> s.rep_prefix <- Some false
 	| '\xf3' -> s.rep_prefix <- Some true
 	| '\x26' -> s.current_ds <- s.segments.es

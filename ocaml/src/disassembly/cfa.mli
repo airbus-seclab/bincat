@@ -16,7 +16,7 @@ sig
 	  (** abstract data type of a state *)
 	  type t = {
 	      id: int; 	     (** unique identificator of the state *)
-	      ip: Domain.Asm.Address.t ;  (** instruction pointer *)
+	      mutable ip: Domain.Asm.Address.t ;  (** instruction pointer *)
 	      mutable v: Domain.t; 		  (** abstract value *)
 	      mutable ctx: ctx_t ; 		  (** context of decoding *)
 	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
@@ -28,7 +28,7 @@ sig
 	  (** otherwise return a negative integer if the first state has been created before the second one; *)
 				   (** a positive integer if it has been created later *)
 
-
+	  val ip: t -> Domain.Asm.Address.t
 	end
 
       (** Abstract data type of edge labels of the CFA *)

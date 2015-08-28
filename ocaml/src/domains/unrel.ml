@@ -110,7 +110,7 @@ module Make(D: T) =
     end
       
     let name 			  = D.name
-    let top 		          = Map.empty
+    let top 		          = Map.empty      
     let is_top m                  = Map.for_all (fun v -> D.is_top (fst v)) m	
     let forget s 		  = Map.map (fun v -> D.top, (snd v)+1) s
     let mem_to_addresses mem sz m = D.mem_to_addresses mem sz (new ctx m)

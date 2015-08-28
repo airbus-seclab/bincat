@@ -64,7 +64,8 @@ struct
     end
 
   module Offset = struct
-     include Int64
+      include Int64
+      let of_int64 i = i
     end
 end
 
@@ -111,6 +112,8 @@ end
 module Flat = 
 struct
   include M
+ 
+      
   module Address = 
   struct
     include O
