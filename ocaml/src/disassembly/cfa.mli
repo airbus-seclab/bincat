@@ -29,6 +29,7 @@ sig
 				   (** a positive integer if it has been created later *)
 
 	  val ip: t -> Domain.Asm.Address.t
+	  val abstract_value: t -> Domain.t
 	end
 
       (** Abstract data type of edge labels of the CFA *)

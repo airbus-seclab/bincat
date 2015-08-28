@@ -17,9 +17,15 @@ val process_pe: bool -> int array -> int -> int -> int -> string -> string -> st
 
 (** the belowed signatures are given for test purpose only *)
 
- 
+
 module FlatFixpoint:
 sig
+
+  module Dom:
+  sig
+    type t
+    val equal: t -> t -> bool
+  end
   module Offset:
   sig
     type t
@@ -49,6 +55,7 @@ sig
     sig
       type t
       val ip: t -> Address.t
+      val abstract_value: t -> Dom.t
     end
       
     type t

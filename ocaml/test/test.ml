@@ -10,7 +10,7 @@ print_endline "********************************************************";;
 	  let o = Main.FlatFixpoint.Address.sub (Main.FlatFixpoint.Cfa.State.ip s') (Main.FlatFixpoint.Cfa.State.ip s) in
 	  if Main.FlatFixpoint.Offset.compare o Main.FlatFixpoint.Offset.one = 0 then 
 	      (* check that domain fields are equal *)
-	      failwith "Domain.equal s.v s'.v"
+	      Main.FlatFixpoint.Dom.equal (Main.FlatFixpoint.Cfa.State.abstract_value s) (Main.FlatFixpoint.Cfa.State.abstract_value s')
 	  else
 	    false
 	in

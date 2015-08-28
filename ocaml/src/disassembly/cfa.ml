@@ -22,7 +22,8 @@ module Make(Domain: Domain.T) =
 	    }
 
 	  let ip s = s.ip
-		       
+	  let abstract_value s = s.v
+				   
 	  (** the state identificator counter *)
 	  let state_cpt = ref 0
 			      

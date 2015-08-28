@@ -2,7 +2,11 @@
 module Make: functor (Domain: Domain.T) ->
 	     (** Fixpoint engine *)
 sig		     
-
+  module Dom:
+  sig
+    type t = Domain.t
+    val equal: t -> t -> bool
+  end
   module Offset:
   sig
     type t
@@ -23,6 +27,7 @@ sig
     sig
       type t
       val ip: t -> Domain.Asm.Address.t
+      val abstract_value: t -> Domain.t 
     end
 
     (** abstract data type *)

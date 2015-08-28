@@ -15,7 +15,9 @@ struct
   module Word = Domain.Asm.Word
 
   module Segment = Domain.Asm.Segment
-		     
+
+  module Dom = Domain
+		 
   (** the control flow automaton module *)
   module Cfa = Decoder.Cfa 
 
