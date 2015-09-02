@@ -9,6 +9,10 @@ import threading
 import time
 import socket 
 import os 
+import cPickle 
+import subprocess
+import sys
+import ConfigParser
 from collections import OrderedDict
 
 exitFlag =0 
@@ -66,7 +70,7 @@ def GetFileInfo() :
     main_entry_point_adr = 0x00
     main_entry_point_name = "" 
     
-    for i in range(0,GetEntryPoinQty()):
+    for i in range(0,GetEntryPointQty()):
         ordinals.append(GetEntryOrdinal(i))
 
     for i in ordinals:
@@ -102,58 +106,111 @@ def GetFileInfo() :
 
     return(data_to_send)
 
+'''
+function to get the memory model basing on IDA database properties
 
-# Classes 
-
-
-class BinCATThread (threading.Thread):
-    def __init__(self, threadID, name, counter):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.name = name
-        self.counter = counter
-    
-    def run(self):
-        print(" [+] Starting %s ")%(self.name)
-        #print_time(self.name, self.counter, 5)
-        try: 
-            parent , child = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  
-            pid  = os.fork() 
-            if pid : # IDA 
-                parent.close() 
-                message = " toto "
-                print("[+] IDA plugin --> analyzer : %s")%message
-                child.send(message) 
-                fileinfo = GetFileInfo()
-                print(fileinfo)
-                message = child.recv(1024)
-                print("[+] message received from analyzer %s ")%message   
-
-            else :  # Analyzer 
-                child.close() 
-                fd = parent.fileno() 
-                #print("[+] IDA plugin launching analyzer.py ")
-                os.execv('/opt/ida-6.7/python/mymodule/analyzer.py',['Bincat','123456' ,'--commandfd', str(fd)])
-        except : 
-            raise      
-
-        print(" [+] Exiting %s ")%self.name
+'''
+def getMemoryModel():
+    ida_db_info_structure = idaapi.get_inf_structure() 
+    compiler_info =  ida_db_info_structure.cc 
+    if  (compiler_info.cm & idaapi.C_PC_TINY == 1): return "tiny"
+    if  (compiler_info.cm & idaapi.C_PC_SMALL == 1): return "small"
+    if  (compiler_info.cm & idaapi.C_PC_COMPACT == 1): return "compact"
+    if  (compiler_info.cm & idaapi.C_PC_MEDIUM == 1): return "medium"
+    if  (compiler_info.cm & idaapi.C_PC_LARGE == 1): return "large"
+    if  (compiler_info.cm & idaapi.C_PC_HUGE == 1): return "huge"
+    if  (compiler_info.cm & idaapi.C_PC_FLAT == 1 ): return "flat"
 
 
+'''
+get the call convention
+'''
+
+def getCallConvention():
+    ida_db_info_structure = idaapi.get_inf_structure() 
+    compiler_info =  ida_db_info_structure.cc 
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_INVALID : return "invalid"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_UNKNOWN : return "unknown"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_VOIDARG : return "voidargs"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_CDECL : return "cdecl"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_ELLIPSIS : return "ellipsis"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_STDCALL : return "stdcall"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_PASCAL : return "pascal"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_FASTCALL : return "fastcall"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_THISCALL : return "thiscall"
+    if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_MANUAL : return "manual"
+
+
+'''
+get pointer size for memsz 
+'''    
+def getPointerSize():
+    ida_db_info_structure = idaapi.get_inf_structure() 
+    compiler_info =  ida_db_info_structure.cc 
+    if  (compiler_info.cm & CM_MASK ) == CM_UNKNOWN : return "unknown"
+    if  ( (compiler_info.cm & CM_MASK ) == CM_N8_F16) and (compiler_info.size_i < 2 ): return "16"
+    if  ( (compiler_info.cm & CM_MASK ) == CM_N64) and (compiler_info.size_i > 2 ) : return "64"
+    if  (compiler_info.cm & CM_MASK ) == CM_N16_F32 : return "32"
+    if  (compiler_info.cm & CM_MASK ) == CM_N32_F48 : return "48"
+
+class BinCATThread(threading.Thread):
+
+     def __init__(self,msg):
+         threading.Thread.__init__(self)
+         self.msg = msg 
+         self.config_ini_file = 'analyzer_config.ini' 
+         self.config_ini_path  = '' 
+     '''
+     function test de generation d'un fichier de config pour l'analyseur
+
+     '''
+     def TestGenerateConfigFile(self):
+         config  =  ConfigParser.RawConfigParser() 
+         config.add_section('settings')
+         config.set('settings','memmodel',getMemoryModel()) 
+         config.set('settings','callconv',getCallConvention())
+         # pointer size 
+         config.set('settings','address_size',getPointerSize())
+         # confi ini file should be in the same directriy as bincat.py and analyzer 
+         self.config_ini_path = GetIdaDirectory() + '/python/mymodule/' + self.config_ini_file         
+         # writing configuration file
+         idaapi.msg("[BinCAT] BinCATThread::TestGenerateConfigFile opening config file %s \n"%self.config_ini_path) 
+         with open(self.config_ini_path,'w') as configfile:
+             config.write(configfile)
+     
+     def run(self):
+         parent , child = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  
+         fdnum = child.fileno() 
+         proc_analyzer= subprocess.Popen(['/opt/ida-6.7/python/mymodule/analyzer.py', '123456' ,'--commandfd', str(fdnum)],stdout=1)
+         # generate confg ini file 
+         self.TestGenerateConfigFile() 
+         idaapi.msg("[BinCAT] BinCATThread::TestGenerateConfigFile()\n")
+         #idaapi.msg("Analyzer debug messages %s \n"%analyzer_debug)
+         parent.send(self.config_ini_file)
+         #child.close()
+         idaapi.msg("Analyzer response is %s\n"%parent.recv(1000)) 
+
+       
 
 
 def main():
-    print("BinCAT module loaded")
+    idaapi.msg("BinCAT module loaded\n")
     if not idaapi.get_root_filename():                                                               
-        print "[sync] please load a file/idb before"
+        idaapi.msg("[BinCAT] please load a file/idb before \n")
         return
+    idaapi.msg("[BinCAT] Launching bincat thread to communicate with the analyzer\n")
+    bincat_thread = BinCATThread("message 1")
+    bincat_thread.start()
     
-    thread1 = BinCATThread(1, "Thread-1", 1)
-    #thread2 = BinCATThread(2, "Thread-2", 2)
 
-    thread1.start() 
-    #thread2.start()
+    #bincat_thread = BinCATThread("message 2")
+    #bincat_thread.start()
+    
 
-    print(" [+] Exiting main thread ")
+
+
+
+
+
 
 main()
