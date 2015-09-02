@@ -52,25 +52,38 @@ module type T = sig
   (** Offset on a base address *)
   module Offset: sig
       type t
+      (** converts an int64 to an offset *)
+      val of_int64: Int64.t -> t
+
       (** converts an integer to an offset *)
       val of_int: int -> t
-      (** may raise an exception *)
-
+			   
+      (** int conversion ; may raise an exception *)
+      val to_int: t -> int
+			 
       (** string conversion *)
       val to_string: t -> string
 
-      (** returns 0 if the two offests are equal *) 
-      val compare: t -> t -> int
+      (** returns 0 if the two offests are equal *)
       (** a negative integer if the first parameter is less than the second one ; a positive integer otherwise *)
+      val compare: t -> t -> int
+
+      (** the offset one *)
+      val one: t
     end
 		   
   (** type of an address *)
   module Address: sig
       type t
-      val default_size: unit -> int (** default size in bits *)  
-      val size: t -> int (** size in bits *)
+      (** default size in bits *)  
+      val default_size: unit -> int
+
+      (** size in bits *)
+      val size: t -> int 
 		       
-		       
+      (** Int64 conversion *)
+      val to_int64: t -> Int64.t
+			   
       (** string conversion *)
       val to_string: t -> string
 			    
@@ -101,7 +114,7 @@ module type T = sig
 				 
       val hash: t -> int
 		       
-      val sub: t -> t -> Int64.t
+      val sub: t -> t -> Offset.t
       (** returns the distance between the two addresses *)
       (** may raise an exception if the size of the addresses are not the same *)
 			   

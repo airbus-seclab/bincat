@@ -110,7 +110,7 @@ module Make(D: T) =
     end
       
     let name 			  = D.name
-    let top 		          = Map.empty
+    let top 		          = Map.empty      
     let is_top m                  = Map.for_all (fun v -> D.is_top (fst v)) m	
     let forget s 		  = Map.map (fun v -> D.top, (snd v)+1) s
     let mem_to_addresses mem sz m = D.mem_to_addresses mem sz (new ctx m)
@@ -118,7 +118,9 @@ module Make(D: T) =
     let remove_register v m 	  = Map.remove (K.R v) m	
     let contains m1 m2 		  = Map.for_all2 (fun v1 v2 -> D.contains (fst v1) (fst v2) && snd v1 >= snd v2) m1 m2
     let to_string m 		  = Map.fold (fun k v l -> ((K.to_string k) ^" -> " ^ (D.to_string (fst v))) :: l) m []
-					   
+
+    let equal m1 m2 = Map.for_all2 (fun d1 d2 -> D.equal (fst d1) (fst d2)) m1 m2
+				   
     let set_register r e c m = 
       let v = D.eval_exp e c (new ctx m) in
       match r with

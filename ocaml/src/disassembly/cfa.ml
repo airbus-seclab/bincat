@@ -14,14 +14,16 @@ module Make(Domain: Domain.T) =
 	  (** abstract data type of a state *)
 	  type t = {
 	      id: int; 	     (** unique identificator of the state *)
-	      ip: Domain.Asm.Address.t ;  (** instruction pointer *)
+	      mutable ip: Domain.Asm.Address.t ;  (** instruction pointer *)
 	      mutable v: Domain.t; 		  (** abstract value *)
 	      mutable ctx: ctx_t ; 		  (** context of decoding *)
 	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
 	      internal     : bool 	     (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
 	    }
 
-	     	     
+	  let ip s = s.ip
+	  let abstract_value s = s.v
+				   
 	  (** the state identificator counter *)
 	  let state_cpt = ref 0
 			      
@@ -158,12 +160,16 @@ module Make(Domain: Domain.T) =
 	  let edge_attributes _g = []
 	  let default_edge_attributes _g = []
 	  let get_subgraph _g = None
-	  let vertex_attributes _g = []
+	  let vertex_attributes _g = [`Shape `Box]
 	  let vertex_name v = Domain.Asm.Address.to_string v.ip
 	  let default_vertex_attributes _v = []
 	end
       module Dot = Graph.Graphviz.Dot(DotAttr)
-      let print g = Dot.output_graph stdout g
+				     
+      let print g dotfile =
+	let f = open_out_bin dotfile in
+	Dot.output_graph f g;
+	close_out f
 	
 	
     end

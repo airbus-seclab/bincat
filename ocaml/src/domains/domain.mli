@@ -23,7 +23,10 @@ module type T =
       (** returns true whenever the first argument contains the second one *)	
       val contains: t -> t -> bool
       (** false otherwise *)
-				
+
+      (** equality *)
+      val equal: t -> t -> bool
+		       
       (** remove the given register from the given abstract value *)	
       val remove_register: Register.t -> t -> t
 
@@ -57,7 +60,7 @@ module type T =
 					      
       (** top value *)	
       val top: t
-
+			
       (** returns true whenever the given value is top *)
       val is_top: t -> bool
 

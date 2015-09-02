@@ -2,18 +2,24 @@
 print_endline "********************************************************";;
   print_endline "\t\t unit test 1";;
     print_endline "********************************************************";;
-    let c1 = Main.FlatFixpoint.Code.make "0x90" "0x01" "0x00" 32;;
-      print_endline "data structure for the code generated";;
-      let icfa, is1 = Main.FlatFixpoint.Cfa.make "0x01";;
-	Main.FlatFixpoint.Cfa.print icfa;
-    print_endline "\ninitial CFA and state generated";;
-
-    let check _ _ = failwith "Test.check: check the new ip is one byte further and state content before and after are equal";;
-   
-    let g1, s1 = Main.FlatFixpoint.process c1 icfa is1;;
-         print_endline "fixpoint reached";;
-  if List.length s1 <> 1 then
-    failwith "test 1 has failed"
-  else
-    OUnit2.assert_equal ~cmp:check is1 (List.hd s1);;
-print_endline "SUCCEEDEED";;
+      print_endline "-> data generation";;
+    let c1 = Main.FlatFixpoint.Code.make "\x90" "\x23" "\x00" 32 in
+	let icfa, is1 = Main.FlatFixpoint.Cfa.make "\x23" in
+	let check_test1 s s' =
+	  (* first check that the new ip is one byte further *)
+	  let o = Main.FlatFixpoint.Address.sub (Main.FlatFixpoint.Cfa.State.ip s') (Main.FlatFixpoint.Cfa.State.ip s) in
+	  if Main.FlatFixpoint.Offset.compare o Main.FlatFixpoint.Offset.one = 0 then 
+	      (* check that domain fields are equal *)
+	      Main.FlatFixpoint.Dom.equal (Main.FlatFixpoint.Cfa.State.abstract_value s) (Main.FlatFixpoint.Cfa.State.abstract_value s')
+	  else
+	    false
+	in
+	print_endline "-> fixpoint computation";
+	let g1, s1 = Main.FlatFixpoint.process c1 icfa is1 in
+	Main.FlatFixpoint.Cfa.print g1 "test1.dot";
+	print_endline "-> unit test launching";
+	if List.length s1 <> 1 then
+	  failwith "test 1 has failed"
+	else
+	  OUnit2.assert_equal ~cmp:check_test1 is1 (List.hd s1);
+	print_endline "SUCCEEDEED";;

@@ -6,6 +6,7 @@ struct
   let name  = "(" ^ D1.name ^ " x " ^ D2.name ^ ")"
  
   let contains (v11, v12) (v21, v22)    = D1.contains v11 v21 && D2.contains v12 v22
+  let equal (v11, v12) (v21, v22)       = D1.equal v11 v21 && D2.equal v12 v22
   let to_string (v1, v2)                = (D1.to_string v1) @ (D2.to_string v2)
   let is_top (v1, v2) 			= D1.is_top v1 && D2.is_top v2
   let top 			     	= D1.top                       , D2.top

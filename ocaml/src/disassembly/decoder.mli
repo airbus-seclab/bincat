@@ -13,7 +13,7 @@ sig
 	  (** abstract data type of a state *)
 	  type t = {
 	      id: int; 	     (** unique identificator of the state *)
-	      ip: Domain.Asm.Address.t ;  (** instruction pointer *)
+	      mutable ip: Domain.Asm.Address.t ;  (** instruction pointer *)
 	      mutable v: Domain.t; 		  (** abstract value *)
 	      mutable ctx: ctx_t ; 		  (** context of decoding *)
 	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
@@ -21,10 +21,12 @@ sig
 	    }
 
 	  (** state comparison: returns 0 whenever they are the physically the same (do not compare the content) *)
-	  val compare: t -> t -> int
 	  (** otherwise return a negative integer if the first state has been created before the second one; *)
-				   (** a positive integer if it has been created later *)
-
+	  (** a positive integer if it has been created later *)
+	  val compare: t -> t -> int
+				   
+	  val ip: t -> Domain.Asm.Address.t
+	  val abstract_value: t -> Domain.t
 	
     end
     (** Abstract data type of edge labels of the CFA *)
@@ -41,7 +43,8 @@ sig
       val make: string -> t * State.t
 
       (** graphviz printing *)
-      val print: t -> unit
+      (** the string is the filename of the generated dot file *)
+      val print: t -> string -> unit
 
 			    
      

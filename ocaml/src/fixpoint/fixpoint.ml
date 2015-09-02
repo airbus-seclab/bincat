@@ -8,6 +8,16 @@ struct
   (** the decoder module *)
   module Decoder = Decoder.Make(Domain)
 
+  module Offset = Domain.Asm.Offset
+		    
+  module Address = Domain.Asm.Address
+
+  module Word = Domain.Asm.Word
+
+  module Segment = Domain.Asm.Segment
+
+  module Dom = Domain
+		 
   (** the control flow automaton module *)
   module Cfa = Decoder.Cfa 
 
@@ -15,19 +25,19 @@ struct
   module Code = Code.Make(Domain.Asm)
 			 
   (** the assembly language *)
-  open Domain.Asm
+  module Asm = Domain.Asm
 
   (** computes the list of function targets (their addresses) from a value of type fct *)
   let ft_to_addresses s f =
     match f with
-      I r -> Address.Set.elements (Domain.exp_to_addresses s (Lval (V r)))
-    | D a -> [a]
+      Asm.I r -> Address.Set.elements (Domain.exp_to_addresses s (Asm.Lval (Asm.V r)))
+    | Asm.D a -> [a]
 
   (** computes the list of jump targets (their addresses) from a value of type jmp_target *)
   let jmp_to_addresses _s j _sz =
     match j with
-      A a -> [a]
-    | R (_n, _r) -> failwith "the following commented code shows a confusion between what an offset and an address are supposed to represent "
+      Asm.A a -> [a]
+    | Asm.R (_n, _r) -> failwith "the following commented code shows a confusion between what an offset and an address are supposed to represent "
   (*let n' = Segment.shift_left n 4 in
 		  let offsets = Address.Set.elements (Domain.exp_to_addresses s (Lval (V r))) in
 		  List.map (fun a -> Address.make n' a sz) offsets*)
@@ -37,13 +47,13 @@ struct
       Cfa.State.addr_sz = Address.default_size()
     }
 			 
-  let process_stmt g (v: Cfa.State.t) _a _o stmt = 
+  let process_stmt g (v: Cfa.State.t) _a _o stmt =
     (* TODO factorize the two Jcc case and the CALL case *)
     let s =  v.Cfa.State.v in
     match stmt with
-      Store (_lv, _e) 	     -> failwith "Fixpoint.process_stmt, case Store: not implemented"
+      Asm.Store (_lv, _e) 	     -> failwith "Fixpoint.process_stmt, case Store: not implemented"
 							   
-    | Jcc (None, Some e)  ->
+    | Asm.Jcc (None, Some e)  ->
        let addr_sz = (* v.Cfa.State.ctx.addr_sz in *) failwith "Fixpoint.process_stmt, case Jcc: addr_sz field of v to compute" in
     let addrs = jmp_to_addresses s e addr_sz in
     List.fold_left (fun vertices a -> 
@@ -52,17 +62,17 @@ struct
       if b then v'::vertices 
       else vertices) [] addrs
 
-  | Call f -> 
+  | Asm.Call f -> 
     let addrs = ft_to_addresses s f in
     List.fold_left (fun vertices a -> 
       let v', b = Cfa.add_state g v a s [] (default_ctx()) false in
       Cfa.add_edge g v v' None; 
       if b then v'::vertices 
       else vertices) [] addrs
-  | Jcc (_, None) 	     -> []
-
+  | Asm.Jcc (_, None) 	     -> []
+  | Asm.Nop         	     -> []
 				  (*
-  | Jcc(Some e, Some a') -> 
+  | Asm.Jcc(Some e, Some a') -> 
      let s' = Cfa.State.guard s e in
      let ns' = Cfa.State.guard s (UnOp(Not, e)) in
     let addrs = jmp_to_addresses s a' in
@@ -79,13 +89,13 @@ struct
     else vertices
 				   
 
-  | Unknown     	     -> let _ = Cfa.update_state v (Cfa.State.forget s) in []
-  | Undef       	     -> raise Exit
-  | Nop         	     -> []
-  | Directive _ 	     -> let _ = Cfa.update_state v (Cfa.State.forget s) in []*)
+  | Asm.Unknown     	     -> let _ = Cfa.update_state v (Cfa.State.forget s) in []
+  | Asm.Undef       	     -> raise Exit
+ 
+  | Asm.Directive _ 	     -> let _ = Cfa.update_state v (Cfa.State.forget s) in []*)
   | _ -> failwith "Fixpoint.process_stmt, default case: to implement (use above commented code)"
 
-let update g a o v =
+  let update g a o v =
   List.fold_left (fun l stmt -> (process_stmt g v a o stmt)@l) [] v.Cfa.State.stmts
 
   module Vertices = Set.Make(Cfa.State)

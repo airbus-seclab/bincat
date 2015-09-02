@@ -13,6 +13,10 @@ module Make:
     (** addr_sz is the size in bits of the addresses *)
 				     
     (** returns the sub sequence starting at the given address *)
-    val sub: t -> D.Address.t -> string
     (** may raise an exception if the given address is out of range *)
+    val sub: t -> D.Address.t -> string
+				   
+
+    (** string conversion *)
+    val to_string: t -> string
   end

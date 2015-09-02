@@ -5,7 +5,10 @@ module FlatPtr = (Unrel.Make(FlPtr): Domain.T with module Asm = FlatAsm)
 module FlatTaint = (Tainting.Make(FlatPtr.Asm): Unrel.T with module Asm = FlatAsm)
 					      
 module FlatTainting = (Unrel.Make(FlatTaint): Domain.T with module Asm = FlatAsm)
-			       
+
+module FlatOffset = FlatAsm.Offset
+module FlatAddress = FlatAsm.Address
+		       
 module FlatDomain = Pair.Make(FlatPtr)(FlatTainting)
 module FlatFixpoint = Fixpoint.Make(FlatDomain)
 
@@ -64,3 +67,4 @@ let process_pe flat segments addr_sz op_sz stack_width text o e =
 (* Callback.register "process" process;;*)
 Callback.register "process_elf" process_elf;;
 Callback.register "process_pe" process_pe;;
+
