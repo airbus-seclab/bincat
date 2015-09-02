@@ -153,6 +153,71 @@ def getPointerSize():
     if  (compiler_info.cm & CM_MASK ) == CM_N16_F32 : return "32"
     if  (compiler_info.cm & CM_MASK ) == CM_N32_F48 : return "48"
 
+'''
+get main entry point 
+TODO find all entrypoints 
+
+'''
+def getMainEntryPoint():
+    ordinals =  [] 
+    entrypoints = []
+    main_entry_point_adr = 0x00
+    main_entry_point_name = "" 
+    
+    for i in range(0,GetEntryPointQty()):
+        ordinals.append(GetEntryOrdinal(i))
+
+    for i in ordinals:
+        entrypoints.append( (i,GetEntryPoint(i)) ) 
+
+    for i in entrypoints:
+        if GetFunctionName(i[0]) == "start":
+            main_entry_point_adr = i[1]
+            main_entry_point_name= "start" 
+
+    return(main_entry_point_adr)
+
+'''
+get current analyzed binary file  path 
+'''
+
+def getBinaryPath():
+    filename = GetInputFilePath()
+    return(filename) 
+
+'''
+get file type  : PE /ELF 
+'''
+def getFileType():
+    filetype = idaapi.get_file_type_name() 
+    return(filetype)
+
+'''
+get file image base 
+'''
+
+def getImageBase():
+     imagebase = idaapi.get_imagebase()
+     return(imagebase)
+
+
+'''
+get code sections start/end 
+'''
+def getCodeSection(ea):
+    # in case we have more than one code section we apply the following heuristic 
+    # entry point must be in the code section 
+    ep = getMainEntryPoint()
+    for seg in Segments():
+        seg_attributes = idc.GetSegmentAttr(SegStart(seg),idc.SEGATTR_TYPE)
+        if seg_attributes  == idaapi.SEG_CODE and ( SegStart(seg) <= ep  <= SegEnd(seg)  )  : 
+             if ea == 'start' : 
+                 return( SegStart(seg) )
+             if ea == 'end' :
+                return( SegEnd(seg) )
+
+
+
 class BinCATThread(threading.Thread):
 
      def __init__(self,msg):
@@ -166,12 +231,27 @@ class BinCATThread(threading.Thread):
      '''
      def TestGenerateConfigFile(self):
          config  =  ConfigParser.RawConfigParser() 
+         # global section : settings 
          config.add_section('settings')
          config.set('settings','memmodel',getMemoryModel()) 
          config.set('settings','callconv',getCallConvention())
          # pointer size 
          config.set('settings','address_size',getPointerSize())
-         # confi ini file should be in the same directriy as bincat.py and analyzer 
+
+         # global section:  binary file information 
+         config.add_section('binary')
+         config.set('binary','filepath',getBinaryPath())
+         config.set('binary', 'format',getFileType())
+         config.set('binary','imagebase', hex(getImageBase()).rstrip('L'))
+         config.set('binary','entrypoint_main',hex(getMainEntryPoint()).rstrip('L'))
+         config.set('binary','entrypoint_main_raw', hex( getMainEntryPoint() - getImageBase() ).rstrip('L')   )
+         config.set('binary','textsection_start', hex( getCodeSection('start') ).rstrip('L') )
+         config.set('binary','testsection_end',hex(getCodeSection('end')).rstrip('L') )
+
+
+
+
+         # config ini file should be in the same directory as bincat.py and analyzer 
          self.config_ini_path = GetIdaDirectory() + '/python/mymodule/' + self.config_ini_file         
          # writing configuration file
          idaapi.msg("[BinCAT] BinCATThread::TestGenerateConfigFile opening config file %s \n"%self.config_ini_path) 
