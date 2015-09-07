@@ -211,9 +211,11 @@ def getCodeSection(ea):
     for seg in Segments():
         seg_attributes = idc.GetSegmentAttr(SegStart(seg),idc.SEGATTR_TYPE)
         if seg_attributes  == idaapi.SEG_CODE and ( SegStart(seg) <= ep  <= SegEnd(seg)  )  : 
-             if ea == 'start' : 
-                 return( SegStart(seg) )
+             if ea == 'start' :
+                print("[+] BinCAT::getCodeSection start %d ")%(SegStart(seg)) 
+                return( SegStart(seg) )
              if ea == 'end' :
+                print("[+] BinCAT::getCodeSection end %d ")%(SegStart(seg)) 
                 return( SegEnd(seg) )
 
 '''
@@ -222,12 +224,12 @@ get stack width
 def getStackWidth():
     ida_db_info_structure = idaapi.get_inf_structure() 
     if  ida_db_info_structure.is_64bit() :
-        return(8)
+        return(8*8)
     else : 
        if ida_db_info_structure.is_32bit() :
-           return(4)
+           return(4*8)
        else :
-           return(2)   
+           return(2*8)   
 
 
 '''
@@ -288,6 +290,10 @@ class BinCATThread(threading.Thread):
          config.set('binary','stack_width', getStackWidth())
 
          # loader section 
+         config.add_section('loader')
+         config.set('loader','stack_segment',0x0)
+         config.set('loader','data_segment',0x0)
+         config.set('loader','code_segment',0x0)
 
 
          # state section 
