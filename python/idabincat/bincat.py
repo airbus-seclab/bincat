@@ -216,6 +216,43 @@ def getCodeSection(ea):
              if ea == 'end' :
                 return( SegEnd(seg) )
 
+'''
+get stack width 
+'''
+def getStackWidth():
+    ida_db_info_structure = idaapi.get_inf_structure() 
+    if  ida_db_info_structure.is_64bit() :
+        return(8)
+    else : 
+       if ida_db_info_structure.is_32bit() :
+           return(4)
+       else :
+           return(2)   
+
+
+'''
+this used to find the operand-size  for intel architecture 
+
+In real mode and 16-bit protected mode, the default operand size is 16-bit, 
+In 32-bit mode operand size defaults to 32-bit,
+In x64 mode, most instructions again default to 32-bit operand size (except branches and those that indirectly use the stack, such as pushes, pops, calls and returns), 
+
+bitness == 0 : bitness == 16   
+
+We'll get the bitness of the segment that include the main entry point 
+
+'''
+
+def getBitness(ea):
+    bitness = idc.GetSegmentAttr( ea , idc.SEGATTR_BITNESS)
+    if  bitness == 0 :
+        bitness = 16 
+    elif bitness == 1 :
+        bitness = 32 
+    elif bitness == 2 :
+        bitness = 64 
+    return bitness
+ 
 
 
 class BinCATThread(threading.Thread):
@@ -247,9 +284,27 @@ class BinCATThread(threading.Thread):
          config.set('binary','entrypoint_main_raw', hex( getMainEntryPoint() - getImageBase() ).rstrip('L')   )
          config.set('binary','textsection_start', hex( getCodeSection('start') ).rstrip('L') )
          config.set('binary','testsection_end',hex(getCodeSection('end')).rstrip('L') )
+         config.set('binary','operand_size', getBitness(getCodeSection('start')))
+         config.set('binary','stack_width', getStackWidth())
+
+         # loader section 
 
 
+         # state section 
+         config.add_section('state')
+         config.set('state','reg[eax]',0x00)
+         config.set('state','reg[ebx]',0x01)
+         config.set('state','reg[ecx]',0x02)
+         config.set('state','reg[edx]',0x03)
+         config.set('state','reg[edi]',0x04)
+         config.set('state','reg[esi]',0x05)
+         config.set('state','reg[esp]',0x06)
+         config.set('state','reg[ebp]',0x07)
 
+
+         # analyzer config section 
+         config.add_section('analyzer')
+         config.set('analyzer','kband',5)
 
          # config ini file should be in the same directory as bincat.py and analyzer 
          self.config_ini_path = GetIdaDirectory() + '/python/mymodule/' + self.config_ini_file         
