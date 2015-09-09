@@ -30,10 +30,20 @@ class HTooltipA(idaapi.action_handler_t):
 
     def activate(self, ctx):
         idaapi.warning("Analyse : Tooltip-providing action triggered")
-        idaapi.msg(" Analyzer handler %s "%type(ctx))
-        idaapi.msg(" Analyzer handler current ea %s "%hex(ctx.cur_ea))
-        for fdix in ctx.chooser_selection: 
-            idaapi.msg(" fdix %s "%type(fdix))
+        idaapi.msg(" Analyzer handler %s \n"%type(ctx))
+        idaapi.msg(" Analyzer handler current ea %s \n"%hex(ctx.cur_ea).rstrip('L'))
+        bincatform = idaapi.get_current_tform() 
+        idaapi.msg(" Analyzer current form is %s\n"%idaapi.get_tform_title(bincatform))
+        idaapi.msg(" Analyzer current form type is %s\n"%idaapi.get_tform_type(bincatform))
+        highlighted_item = "None"
+        #highlighted_item = idaapi.get_highlighted_identifier() 
+
+        if (idaapi.get_tform_title(bincatform) == "IDA View-BinCAT Plugin-view" ):
+            if ( idaapi.get_tform_type(bincatform) == 29 ) : 
+                highlighted_item = idaapi.get_highlighted_identifier() 
+
+        idaapi.msg(" Analyzer current selected item %s\n"% highlighted_item) 
+
         return 1
 
     def update(self, ctx):
@@ -71,6 +81,9 @@ class bincat_plugin_t(idaapi.plugin_t):
         idaapi.attach_action_to_menu("View/", 'my:tooltip0', idaapi.SETMENU_APP)
         idaapi.attach_action_to_menu("View/", 'my:tooltip1', idaapi.SETMENU_APP)
 
+        # we give the focus to IDA View-A 
+        ida_view_a_form =  idaapi.find_tform("IDA View-A")
+        idaapi.switchto_tform(ida_view_a_form,1)
         idaapi.open_disasm_window("BinCAT Plugin-view")
 
         #hooks = Hooks()
