@@ -78,12 +78,12 @@ module Make(Domain: Domain.T) =
       let make ip =
 	let s = {
 	    id = 0;
-	    ip = Domain.Asm.Address.of_string ip (Domain.Asm.Address.default_size());
+	    ip = Domain.Asm.Address.of_string ip !Context.address_sz;
 	    v = Domain.from_registers (); (* initialize every registers to bottom *)
 	    stmts = [];
 	    ctx = {
-		op_sz = Domain.Asm.Word.default_size();
-		addr_sz = Domain.Asm.Address.default_size()
+		op_sz = !Context.operand_sz;
+		addr_sz = !Context.address_sz;
 	      };
 	    internal = false
 	}

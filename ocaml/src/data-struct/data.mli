@@ -6,39 +6,9 @@ module type T = sig
   *)
     
   
-  (** Segment selector data type *)
-  module Segment: sig
-
-      (** abstract data type of a segment *)
-      type t
-      (** initial value of the cs segment *)
-      val cs: t
-      (** initial value of the ds segment *)
-      val ds: t
-      (** initial value of the ss segment *)
-      val ss: t
-      (** initial value of the es segment *)
-      val es: t
-      (** initial value of the fs segment *)
-      val fs: t
-      (** initial value of the gs segment *)
-      val gs: t
-
-      (** logical left shift *)
-      val shift_left: t -> int -> t
-    end
-  (** *)
-
-  (** Stack data type *)
-  module Stack: sig
-    val width: unit -> int
-    end
-  (** *)
-
   (** Word data type *)
   module Word : sig
     type t
-    val default_size: unit -> int (** default size in bits *)
     val size: t -> int (** size in bits *)
     val compare: t -> t -> int
     val zero: int -> t (** [zero n] returns 0 on _n_ bits *)
@@ -75,8 +45,6 @@ module type T = sig
   (** type of an address *)
   module Address: sig
       type t
-      (** default size in bits *)  
-      val default_size: unit -> int
 
       (** size in bits *)
       val size: t -> int 
@@ -93,8 +61,8 @@ module type T = sig
       (** may raise Invalid if the given string is not a valid *)
       (** representation of an offset wrt to the size given by the int parameter *)
 
-      (** creates an address from a segment and an offset on it *)
-      val make: Segment.t -> Offset.t -> int -> t
+      (** creates an address from a segment address and an offset on it *)
+      val make: t -> Offset.t -> int -> t
       (** the integer is the size in bits of the address *)
 					   
       (** comparison of the two arguments *)

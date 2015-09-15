@@ -12,7 +12,7 @@ module type T =
     (** data type of jump targets *)
     type jmp_target = 
       | A of Address.t (** jump target is an address *)
-      | R of Segment.t * reg    (** R(s,r) means that the jump target is an address of segment _s_ whose value is the content _r_ *)
+      | R of Address.t * reg    (** R(s,r) means that the jump target is an address of segment _s_ whose value is the content _r_ *)
 
 		      
     (** type of binary operations *)
@@ -80,7 +80,7 @@ module type T =
     val string_of_stmt: stmt -> string
   end
     
-module Make(Data: Data.T) : (T with module Segment = Data.Segment)
+module Make(Data: Data.T) : T
 
 
 

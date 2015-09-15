@@ -1,70 +1,45 @@
-module FlatAsm = Asm.Make(Abi.Flat)
-module FlPtr = Ptr.Make(FlatAsm)
-module FlatPtr = (Unrel.Make(FlPtr): Domain.T with module Asm = FlatAsm)
-						   
-module FlatTaint = (Tainting.Make(FlatPtr.Asm): Unrel.T with module Asm = FlatAsm)
-					      
-module FlatTainting = (Unrel.Make(FlatTaint): Domain.T with module Asm = FlatAsm)
+module Make(Abi: Data.T) =
+  struct
+    module Asm 	    = Asm.Make(Abi)
+    module Ptr 	    = Ptr.Make(Asm)
+    module UPtr     = (Unrel.Make(Ptr): Domain.T with module Asm = Asm)
+    module Taint    = Tainting.Make(Asm)
+    module UTaint   = (Unrel.Make(Taint): Domain.T with module Asm = Asm)
+    module Offset   = Asm.Offset
+    module Domain   = Pair.Make(UPtr)(UTaint)
+    module Address  = Domain.Asm.Address
+    module Fixpoint = Fixpoint.Make(Domain)
+    module Cfa 	    = Fixpoint.Cfa
+    module Code     = Fixpoint.Code
+		    
+    let process text o e resultfile =
+      let code   = Fixpoint.Code.make text o e !Context.address_sz in
+      let g, s   = Fixpoint.Cfa.make e				   in
+      let segments = {
+	  Fixpoint.cs = Address.of_string (!Context.cs^":\x00") !Context.address_sz;
+	  Fixpoint.ds = Address.of_string (!Context.ds^":\x00") !Context.address_sz;
+	  Fixpoint.ss = Address.of_string (!Context.ss^":\x00") !Context.address_sz;
+	  Fixpoint.es = Address.of_string (!Context.es^":\x00") !Context.address_sz;
+	  Fixpoint.fs = Address.of_string (!Context.fs^":\x00") !Context.address_sz;
+	  Fixpoint.gs = Address.of_string (!Context.gs^":\x00") !Context.address_sz;
+	}
+      in	
+      let cfa = Fixpoint.process code g s segments in
+      Cfa.print cfa resultfile
+  end
 
-module FlatOffset = FlatAsm.Offset
-module FlatAddress = FlatAsm.Address
-		       
-module FlatDomain = Pair.Make(FlatPtr)(FlatTainting)
-module FlatFixpoint = Fixpoint.Make(FlatDomain)
+module Flat 	  = Make(Abi.Flat)
+module Segmented  = Make(Abi.Segmented)
 
-(* TODO factorize with SegmentedFixpoint *)
-module SegmentedAsm = Asm.Make(Abi.Segmented)
-module SegPtr = Ptr.Make(SegmentedAsm)
-module SegmentedPtr = (Unrel.Make(SegPtr): Domain.T with module Asm = SegmentedAsm)
-						   
-module SegmentedTaint = (Tainting.Make(SegmentedPtr.Asm): Unrel.T with module Asm = SegmentedAsm)
-					      
-module SegmentedTainting = (Unrel.Make(SegmentedTaint): Domain.T with module Asm = SegmentedAsm)
-			       
-module SegmentedDomain = Pair.Make(SegmentedPtr)(SegmentedTainting)
-module SegmentedFixpoint = Fixpoint.Make(SegmentedDomain)
+let process ~configfile ~resultfile =
+  let cin    = open_in configfile      in
+  let lexbuf = Lexing.from_channel cin in
+  Parser.process Lexer.token lexbuf ;
+  close_in cin;
+  match !Context.memory_model with
+  | Context.Flat      -> Flat.process !Context.text !Context.offset_from_ep !Context.ep resultfile
+  | Context.Segmented -> Segmented.process !Context.text !Context.offset_from_ep !Context.ep resultfile;;
 
-				   
-let init _segments =
-  if true then failwith "make the below code compile"
-  (*Abi.segments.Abi.cs <- segments.(0);
-  Abi.segments.Abi.ds <- segments.(1);
-  Abi.segments.Abi.ss <- segments.(2);
-  Abi.segments.Abi.es <- segments.(3);
-  Abi.segments.Abi.fs <- segments.(4);
-  Abi.segments.Abi.gs <- segments.(5)*)
+Callback.register "process" process;;
 
-let process_flat text o e =
-    let code = FlatFixpoint.Code.make text o e (Abi.Flat.Address.default_size()) in
-    let g, s = FlatFixpoint.Cfa.make e in
-    let _  = FlatFixpoint.process code g s in
-    ()
-
-let process_segmented text o e =
-    let code = SegmentedFixpoint.Code.make text o e (Abi.Segmented.Address.default_size()) in
-    let g, s = SegmentedFixpoint.Cfa.make e in
-    let _ = SegmentedFixpoint.process code g s in
-    ()
-
-let process_elf flat segments op_sz text o e =
-  Abi.operand_sz := op_sz;
-  init segments;
-  if flat then process_flat text o e
-  else process_segmented text o e
- 
-let process_pe flat segments addr_sz op_sz stack_width text o e =
-  if (addr_sz <> 16 && addr_sz <> 32) || 
-    (op_sz <> 16 && op_sz <> 32) || 
-    (stack_width <> 16 && stack_width <> 32) then
-    raise (Invalid_argument "invalid value of address size or operand size or stack width");
-  Abi.address_sz := addr_sz;
-  Abi.operand_sz := op_sz;
-  Abi.stack_width := stack_width;
-  init segments;
-  if flat then process_flat text o e
-  else process_segmented text o e;;
-
-(* Callback.register "process" process;;*)
-Callback.register "process_elf" process_elf;;
-Callback.register "process_pe" process_pe;;
 
