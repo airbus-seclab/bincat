@@ -13,7 +13,6 @@ let stack_width = ref 32
 
 
 
-let zero = Int64.zero
 let one = Int64.one
 let underflows o = Int64.compare o Int64.zero < 0 
 let overflows o sz = Int64.compare o (Int64.sub (Int64.shift_left one sz) one) > 0
@@ -22,22 +21,6 @@ let overflows o sz = Int64.compare o (Int64.sub (Int64.shift_left one sz) one) >
 module M =
 struct
     
- (** Segment data type *)
-  module Segment = struct
-      type t = Int64.t
-      let cs = zero
-      let ds = zero
-      let ss = zero
-      let es = zero
-      let fs = zero
-      let gs = zero
-
-      let shift_left = Int64.shift_left
-  end
-  module Stack = struct
-    let width () = !stack_width
-  end
-
   module Word = struct
     type t 	  = Int64.t * int (* integer is the size in bits *)
     let size w = snd w
@@ -45,7 +28,6 @@ struct
       let n = Int64.compare w1 w2 in
       if n = 0 then sz1 - sz2 else n
 
-    let default_size ()	= !operand_sz
     let zero sz	  = Int64.zero, sz
     let one sz	  = Int64.one, sz
     let of_int v sz   = Int64.of_int v, sz
@@ -103,7 +85,6 @@ struct
       
   let hash a = Hashtbl.hash a
   let to_word a sz = if sz = snd a then a else failwith "Abi.to_word"
-  let default_size () = !address_sz 
   let sub (o1, n1) (o2, n2) =
     if n1 = n2 then Int64.sub o1 o2
     else raise (Invalid_argument "address size")
@@ -130,8 +111,7 @@ struct
   module Address =
   struct
     module A = struct
-      type t = Segment.t * O.t
-      let default_size () = O.default_size ()
+      type t = Int64.t * O.t
      
       let to_offset ((s, o): t) = O.add_offset o (Int64.shift_left s 4)
 
@@ -141,8 +121,13 @@ struct
 	if overflows o sz then raise (Invalid_argument "too high address");
 	()
 
-      let make s o sz = (s, (o, sz))
-		       
+      let make s o sz =
+	let a, (o', _) = s in
+	if Int64.compare o' Int64.zero <> 0 then
+	  failwith "Malformed segment address"
+	else
+	  (a, (o, sz))
+       	       
       let to_string (s, (o, _)) = (Int64.to_string (Int64.shift_left s  4))  ^ ":" ^ (Int64.to_string o)
       let to_int64 (s, (o, _)) = Int64.add (Int64.shift_left s 4) o
 					   

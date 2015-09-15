@@ -67,13 +67,13 @@ sig
     end
   
   type segments = {
-      cs: Domain.Asm.Segment.t;
-      ds: Domain.Asm.Segment.t;
-      ss: Domain.Asm.Segment.t;
-      es: Domain.Asm.Segment.t;
-      fs: Domain.Asm.Segment.t;
-      gs: Domain.Asm.Segment.t;
+      cs: Domain.Asm.Address.t;
+      ds: Domain.Asm.Address.t;
+      ss: Domain.Asm.Address.t;
+      es: Domain.Asm.Address.t;
+      fs: Domain.Asm.Address.t;
+      gs: Domain.Asm.Address.t;
     }
-  val parse: string -> Cfa.t -> Cfa.State.t -> Domain.Asm.Address.t -> segments -> Cfa.State.t list * int
+  val parse: string -> Cfa.t -> Cfa.State.t -> Domain.Asm.Address.t -> segments -> Cfa.State.t list * int												     
 end
 

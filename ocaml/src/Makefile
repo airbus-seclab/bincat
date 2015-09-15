@@ -12,7 +12,9 @@ SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	domains/tainting.mli domains/tainting.ml\
 	disassembly/cfa.mli disassembly/cfa.ml\
 	disassembly/decoder.mli disassembly/decoder.ml\
-	 fixpoint/fixpoint.mli fixpoint/fixpoint.ml main.mli main.ml
+	fixpoint/fixpoint.mli fixpoint/fixpoint.ml\
+	parser.mly lexer.mll\
+	main.mli main.ml
 
 LIBNAME=libbincat.so
 
@@ -21,7 +23,6 @@ LIBNAME=libbincat.so
 SRC1 = $(SRC:.mly=.ml)
 SRC2 = $(SRC1:.mll=.ml)
 OBJS1 = $(SRC2:.ml=.cmx)
-OBJS2 = $(filter-out %.mly, $(OBJS1))
 OBJS=$(filter-out %.mli, $(OBJS1))
 
 
@@ -38,7 +39,7 @@ LIBX=graph.cmxa nums.cmxa
 
 all: $(LIBNAME)
 
-$(LIBNAME): $(OBJS1)
+$(LIBNAME): $(OBJS1) 
 	$(CAMLOPT) -fPIC -output-obj -o $(LIBNAME) $(LIBX) $(OBJS)
 
 
@@ -85,6 +86,7 @@ clean:
 	-rm -f data-struct/*.cm[ix] data-struct/*.o data-struct/*~
 	-rm -f disassembly/*.cm[ix] disassembly/*.o disassembly/*~ disassembly/*.so
 	-rm -f $(LIBNAME)
+	-rm -f lexer.ml lexer.mli parser.ml parser.mli
 
 install: $(LIBNAME)
 	cp $(LIBNAME) $(LIBDIR)

@@ -7,17 +7,10 @@ struct
 
   (** the decoder module *)
   module Decoder = Decoder.Make(Domain)
-
-  module Offset = Domain.Asm.Offset
-		    
+  module Dom = Domain
+  module Offset = Domain.Asm. Offset
   module Address = Domain.Asm.Address
 
-  module Word = Domain.Asm.Word
-
-  module Segment = Domain.Asm.Segment
-
-  module Dom = Domain
-		 
   (** the control flow automaton module *)
   module Cfa = Decoder.Cfa 
 
@@ -43,8 +36,8 @@ struct
 		  List.map (fun a -> Address.make n' a sz) offsets*)
 						   
   let default_ctx () = {
-      Cfa.State.op_sz = Word.default_size() ;
-      Cfa.State.addr_sz = Address.default_size()
+      Cfa.State.op_sz = !Context.operand_sz; 
+      Cfa.State.addr_sz = !Context.address_sz;
     }
 			 
   let process_stmt g (v: Cfa.State.t) _a _o stmt =
@@ -127,32 +120,38 @@ struct
     in
     List.map filter vertices
 
-  let process code g s =
-    let ctx   	 = { 
-	Decoder.cs = Segment.cs;
-	Decoder.ds = Segment.ds;
-	Decoder.ss = Segment.ss; 
-	Decoder.es = Segment.es;
-	Decoder.fs = Segment.fs;
-	Decoder.gs = Segment.gs
-      } 
-    in
+  type segments = {
+	cs: Address.t;
+	ds: Address.t;
+	ss: Address.t;
+	es: Address.t;
+	fs: Address.t;
+	gs: Address.t
+      }
+		    
+  let process code g s ctx =
     let continue = ref true		     in
     let waiting = ref (Vertices.singleton s) in
-    let outs = ref []			     in
+    let ctx' = {
+	Decoder.cs = ctx.cs;
+	Decoder.ds = ctx.ds;
+	Decoder.ss = ctx.ss;
+	Decoder.es = ctx.es;
+	Decoder.fs = ctx.fs;
+	Decoder.gs = ctx.gs;
+      }
+    in
     while !continue do
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
       let text' 	   = Code.sub code v.Cfa.State.ip						 in
-      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip ctx		     			 in
+      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip ctx'		     		 in
       let vertices' 	   = filter_vertices g vertices				     			 in
       let new_vertices = List.fold_left (fun l v' -> (update g v.Cfa.State.ip offset v')@l) [] vertices' in
       List.iter (fun v -> if not v.Cfa.State.internal then waiting := Vertices.add v !waiting) new_vertices;
       continue := not (Vertices.is_empty !waiting);
-      if not !continue then
-	outs := vertices
     done;
-    g, !outs
+    g
 
 
 end
