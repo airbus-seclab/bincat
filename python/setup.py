@@ -17,10 +17,10 @@ class PyTest(Command):
 
 
 
-camlmodule = Extension(
-    "caml",
-    sources=["bincat.c"],
-    libraries=["ml"],
+mlbincat = Extension(
+    "mlbincat",
+    sources=["mlbincat.c"],
+    libraries=["bincat"],
     library_dirs=["../ocaml/src"])
 
 setup(
@@ -29,8 +29,9 @@ setup(
     version          = '0.1',
     author           = 'Sarah Zennou',
     author_email     = 'sarah.zennou@airbus.com',
-    description      = 'BINnary Code Aanalysis Toolkit',
+    description      = 'BINnary Code Analysis Toolkit',
     long_description = open('README.txt').read(),
     packages         = ['idabincat'],
+    ext_modules = [mlbincat],
     license          = 'GPLv2'
 )
