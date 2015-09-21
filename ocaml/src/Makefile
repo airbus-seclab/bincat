@@ -29,7 +29,7 @@ OBJS=$(filter-out %.mli, $(OBJS1))
 DIROPT = -I fixpoint -I +ocamlgraph -I domains -I data-struct -I utils -I disassembly
 
 CAMLC   =ocamlc $(DIROPT)
-CAMLOPT =ocamlopt -w Ael -warn-error +a-7 $(DIROPT) 
+CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) 
 CAMLLEX =ocamllex
 CAMLYACC=ocamlyacc
 CAMLDEP =ocamldep $(DIROPT)
