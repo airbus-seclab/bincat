@@ -14,14 +14,13 @@ class PyTest(Command):
         errno = subprocess.call([sys.executable, 'runtests.py'])
         raise SystemExit(errno)
 
-
-
-
 mlbincat = Extension(
     "mlbincat",
     sources=["mlbincat.c"],
     libraries=["bincat"],
-    library_dirs=["../ocaml/src"])
+    library_dirs=["../ocaml/src"],
+    include_dirs=["/usr/lib/ocaml"]
+)
 
 setup(
     cmdclass = {'test': PyTest},
