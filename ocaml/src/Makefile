@@ -41,7 +41,7 @@ LIBX=graph.cmxa nums.cmxa
 all: $(LIBNAME)
 
 $(LIBNAME): $(OBJS1) 
-	$(CAMLOPT) -fPIC -output-obj -o $(LIBNAME) $(LIBX) $(OBJS)
+	$(CAMLOPT) -output-obj -fPIC -o $(LIBNAME) $(LIBX) $(OBJS)
 
 
 .SUFFIXES:

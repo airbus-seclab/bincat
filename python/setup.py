@@ -19,7 +19,7 @@ mlbincat = Extension(
     sources=["mlbincat.c"],
     libraries=["bincat"],
     library_dirs=["../ocaml/src"],
-    include_dirs=["/usr/lib/ocaml"]
+    include_dirs=["/usr/local/lib/ocaml"]
 )
 
 setup(
@@ -31,6 +31,6 @@ setup(
     description      = 'BINnary Code Analysis Toolkit',
     long_description = open('README.txt').read(),
     packages         = ['idabincat'],
-    ext_modules = [mlbincat],
+    ext_modules      = [mlbincat],
     license          = 'GPLv2'
 )

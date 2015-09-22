@@ -5,7 +5,7 @@ MLTESTPATH =ocaml/test
 DPREFIX	   =/usr/local
 DOCMLPATH  =../../doc/generated/ocaml
 DOCREFPATH =doc/manual
-MLLIBDIR=../../python/bincat
+MLLIBDIR=../../python/idabincat
 
 all:	
 	@echo "Compiling OCaml part................................................."
