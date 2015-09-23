@@ -19,7 +19,6 @@ mlbincat = Extension(
     sources=["mlbincat.c"],
     libraries=["bincat"],
     library_dirs=["../ocaml/src"],
-    include_dirs=["/usr/local/lib/ocaml"]
 )
 
 setup(

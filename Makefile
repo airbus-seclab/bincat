@@ -7,7 +7,7 @@ DOCMLPATH  =../../doc/generated/ocaml
 DOCREFPATH =doc/manual
 MLLIBDIR=../../python/idabincat
 
-all:	
+all:
 	@echo "Compiling OCaml part................................................."
 	@make -C $(MLPATH) all DEBUG=$(DEBUG)
 	@echo "Building python part................................................."

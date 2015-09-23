@@ -4,7 +4,7 @@ ocaml 3.12 / check that type value = long in the include header caml/mlvalues.h 
 ocamlfind
 python 2.7
 pdflatex for documentation
-pytest for tests 
+pytest for tests
 ocamldoc and doxygen for the documentation generation
 the library ocamlgraph
 IDA for the vizualisation
@@ -15,7 +15,7 @@ Graphviz
 1. unzip this archive and enter it
 2. compilation
 make
-3. installation. 
+3. installation.
 make install
 4. for the documentation (generated in directory doc)
 make doc
@@ -23,3 +23,12 @@ make doc
 =important remark
 be sure to have the directory src/bincat into your LD_LIBRARY_PATH variable
 
+=ocaml headers
+OCAML headers are not installed in /usr/include or /usr/local/include, where
+gcc looks for them, when installing from source.
+
+Two solutions may be applied when compiling the Python using python2 setup.py build:
+* Create a symlink (/usr/include/caml -> /usr/lib/ocaml/caml/, or
+  /usr/local/include/caml -> /usr/local/lib/ocaml/caml/). This seems to be done
+  in the debian packages.
+* export C_INCLUDE_PATH=/usr/lib/ocaml
