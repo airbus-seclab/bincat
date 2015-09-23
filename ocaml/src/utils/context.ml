@@ -5,6 +5,14 @@ type memory_model_t =
   | Segmented
       
 let memory_model = ref Flat
+
+type call_conv_t =
+  | Cdecl
+  | Stdcall
+  | Fastcall
+
+let call_conv = ref Cdecl
+		    
 let text = ref ""
 let ep = ref ""
 let offset_from_ep = ref ""

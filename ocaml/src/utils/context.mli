@@ -10,6 +10,14 @@ type memory_model_t =
 
 val memory_model: memory_model_t ref
 
+(** calling convention *)
+type call_conv_t =
+  | Cdecl
+  | Stdcall
+  | Fastcall
+      
+val call_conv: call_conv_t ref
+			   
 (** content of the text section *)
 val text: string ref
 
