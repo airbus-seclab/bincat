@@ -17,7 +17,8 @@ SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	main.mli main.ml
 
 LIBNAME=libbincat.so
-LIBDIR=/usr/lib
+
+LIBDIR ?= /usr/local/lib
 
 
 
