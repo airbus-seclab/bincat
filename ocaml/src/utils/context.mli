@@ -1,7 +1,7 @@
 (** useful information provided by main essentially *)
 
 (** the bound used to know whether a widening has to be set *)
-val k_bound: int ref
+val unroll: int ref
 
 (** memory model *)
 type memory_model_t =
@@ -21,12 +21,18 @@ val call_conv: call_conv_t ref
 (** content of the text section *)
 val text: string ref
 
-(** addressof the entry point of the text section *)
+(** address of the entry point of the code *)
 val ep: string ref
 
-(** distance between the start of the text section and the entry point *)
-val offset_from_ep: string ref
+(** address of the beginning of the code *)
+val text_addr: string ref
 
+(** address of the beginning of the data *)
+val data_addr: string ref
+
+(** address of the beginning of the stack *)
+val stack_addr: string ref
+		      
 (** default address size in bits *)
 val address_sz: int ref
 

@@ -50,10 +50,9 @@ sig
       (** constructor *)
       type t
 	     
-    val make: code:string -> ep:string -> o:string -> addr_sz:int -> t
-    (** code is the byte sequence of instructions to decode ; ep is the entry point ; o is the offset  *)
-    (** of the entry point from the start of the provided byte sequence *)
-								       (** addr_sz is the size in bits of the addresses *)
+    val make: code:string -> ep:string -> a:string -> addr_sz:int -> t
+    (** code is the byte sequence of instructions to decode ; ep is the entry point ; a is the address of the fistr byte in code  *)
+    (** addr_sz is the size in bits of the addresses *)
 
     (** string conversion *)
     val to_string: t -> string

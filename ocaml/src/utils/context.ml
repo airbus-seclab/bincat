@@ -1,4 +1,4 @@
-let k_bound = ref 10;;
+let unroll = ref 10;;
 
 type memory_model_t =
   | Flat
@@ -15,8 +15,10 @@ let call_conv = ref Cdecl
 		    
 let text = ref ""
 let ep = ref ""
-let offset_from_ep = ref ""
-
+let text_addr = ref ""
+let stack_addr = ref ""
+let data_addr = ref ""
+		    
 let address_sz = ref 32
 let operand_sz = ref 32
 let stack_width = ref 32

@@ -7,9 +7,8 @@ module Make:
     type t
 	   
     (** constructor *) 
-    val make: code:string -> ep:string -> o:string -> addr_sz:int -> t
-    (** code is the byte sequence of instructions to decode ; ep is the entry point ; o is the offset  *)
-    (** of the entry point from the start of the provided byte sequence *)
+    val make: code:string -> ep:string -> a:string -> addr_sz:int -> t
+    (** code is the byte sequence of instructions to decode ; ep is the entry point and a the address of its first byte *)
     (** addr_sz is the size in bits of the addresses *)
 				     
     (** returns the sub sequence starting at the given address *)

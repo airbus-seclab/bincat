@@ -34,7 +34,7 @@ module type T = sig
       (** string conversion *)
       val to_string: t -> string
 
-      (** returns 0 if the two offests are equal *)
+      (** returns 0 if the two offsets are equal *)
       (** a negative integer if the first parameter is less than the second one ; a positive integer otherwise *)
       val compare: t -> t -> int
 

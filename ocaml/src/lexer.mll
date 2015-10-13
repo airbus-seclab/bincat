@@ -13,6 +13,14 @@ rule token = parse
   | '[' 	{ LEFT_SQ_BRACKET }
   | ']' 	{ RIGHT_SQ_BRACKET }
   | '='         { EQUAL }
+  | '*'         { STAR }
+  | '@'         { AT }		
   | eof         { EOF }
   | "reg"       { REG }
+  | "mem"       { MEM }
+  | '#'         { comment lexbuf }
   | identifier 	{ STRING (Lexing.lexeme lexbuf) }
+
+and comment = parse
+  | '\n' { token lexbuf }
+  | _    { comment lexbuf }

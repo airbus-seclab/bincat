@@ -9,12 +9,13 @@ module Make (D: Data.T) =
 	c: string; 	(** the byte sequence containing the code *)	       
       }
 			   
-    let make ~code ~ep ~o ~addr_sz =
+    let make ~code ~ep ~a ~addr_sz =
+      let e = D.Address.of_string ep addr_sz in
       try
 	{
-	  e = D.Address.of_string ep addr_sz;
-	  o = D.Offset.of_int64 (D.Address.to_int64 (D.Address.of_string o addr_sz)) ;
-	  c = code
+	  e = e;
+	  o = D.Address.sub (D.Address.of_string a addr_sz) e;
+	  c = code;
 	}
       with _ -> raise Utils.Illegal_address
 		      

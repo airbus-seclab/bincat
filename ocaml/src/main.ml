@@ -12,8 +12,8 @@ module Make(Abi: Data.T) =
     module Cfa 	    = Fixpoint.Cfa
     module Code     = Fixpoint.Code
 		    
-    let process text o e resultfile =
-      let code   = Fixpoint.Code.make text o e !Context.address_sz in
+    let process text text_addr e resultfile =
+      let code   = Fixpoint.Code.make text text_addr e !Context.address_sz in
       let g, s   = Fixpoint.Cfa.make e				   in
       let segments = {
 	  Fixpoint.cs = Address.of_string (!Context.cs^":\x00") !Context.address_sz;
@@ -37,8 +37,8 @@ let process ~configfile ~resultfile =
   Parser.process Lexer.token lexbuf ;
   close_in cin;
   match !Context.memory_model with
-  | Context.Flat      -> Flat.process !Context.text !Context.offset_from_ep !Context.ep resultfile
-  | Context.Segmented -> Segmented.process !Context.text !Context.offset_from_ep !Context.ep resultfile;;
+  | Context.Flat      -> Flat.process !Context.text !Context.text_addr !Context.ep resultfile
+  | Context.Segmented -> Segmented.process !Context.text !Context.text_addr !Context.ep resultfile;;
 
 Callback.register "process" process;;
 
