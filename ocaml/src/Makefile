@@ -33,7 +33,7 @@ DIROPT = -I fixpoint -I +ocamlgraph -I domains -I data-struct -I utils -I disass
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) 
 CAMLLEX =ocamllex
-CAMLYACC=ocamlyacc
+MENHIR=menhir
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
@@ -65,19 +65,19 @@ $(LIBNAME): $(OBJS1)
 	$(CAMLOPT) -c $*.ml
 
 .mly.cmx:
-	$(CAMLYACC) $<
+	$(MENHIR) --explain $<
 	$(CAMLOPT) -c $*.mli
 	$(CAMLOPT) -c $*.ml
 
 .mly.cmi:
-	$(CAMLYACC) $<
+	$(MENHIR) --explain $<
 	$(CAMLC) -c $*.mli
 
 .mll.ml:
 	$(CAMLLEX) $<
 
 .mly.ml:
-	$(CAMLYACC) $<
+	$(MENHIR) --explain $<
 
 clean:
 	-rm -f .depend

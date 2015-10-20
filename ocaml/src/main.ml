@@ -14,7 +14,7 @@ module Make(Abi: Data.T) =
 		    
     let process text text_addr e resultfile =
       let code   = Fixpoint.Code.make text text_addr e !Context.address_sz in
-      let g, s   = Fixpoint.Cfa.make e				   in
+      let g, s   = Fixpoint.Cfa.make e in
       let segments = {
 	  Fixpoint.cs = Address.of_string (!Context.cs^":\x00") !Context.address_sz;
 	  Fixpoint.ds = Address.of_string (!Context.ds^":\x00") !Context.address_sz;
@@ -32,13 +32,16 @@ module Flat 	  = Make(Abi.Flat)
 module Segmented  = Make(Abi.Segmented)
 
 let process ~configfile ~resultfile =
-  let cin    = open_in configfile      in
+  let cin    =
+    try open_in configfile
+    with _ -> failwith "Opening configuration file failed"
+  in
   let lexbuf = Lexing.from_channel cin in
-  Parser.process Lexer.token lexbuf ;
+  Parser.process Lexer.token lexbuf;
   close_in cin;
   match !Context.memory_model with
-  | Context.Flat      -> Flat.process !Context.text !Context.text_addr !Context.ep resultfile
-  | Context.Segmented -> Segmented.process !Context.text !Context.text_addr !Context.ep resultfile;;
+  | Context.Flat      -> Flat.process !Context.text !Context.code_addr_start !Context.ep resultfile
+  | Context.Segmented -> Segmented.process !Context.text !Context.code_addr_start !Context.ep resultfile;;
 
 Callback.register "process" process;;
 

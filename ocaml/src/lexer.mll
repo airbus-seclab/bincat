@@ -2,25 +2,92 @@
   open Parser
 }
 
-let letter 	= ['a'-'z'] | ['A'-'Z'] 
-let digit 	= ['0'-'9']
-let symb        = '_' | '.' | '/'
-let identifier 	= (letter|digit|symb)*
-let white_space = ' ' | '\t' |'\r' | '\n' | "\r\n"
+(* utilities *)
+let letter 	 = ['a'-'z' 'A'-'Z'] 
+let digit 	 = ['0'-'9']
 
+(* integers *)
+let hexa_int     = ("0x" | "0x") ['0' -'9' 'a' - 'f' 'A'-'F']+
+let dec_int      = digit+
+let oct_int      = ("0o" | "0O") ['0'-'7']+
+let integer = hexa_int | dec_int | oct_int
+
+(* special characters *)
+let path_symbols = '.' | '/'
+let white_space  = [' ' '\t' '\r']+
+let newline 	 = "\r" | "\n" | "\r\n"
+
+(* left operands in configuration rules *)
+let value        = (digit | path_symbols | letter)*
+
+(* tokens *)
 rule token = parse
-  | white_space { token lexbuf }
-  | '[' 	{ LEFT_SQ_BRACKET }
-  | ']' 	{ RIGHT_SQ_BRACKET }
-  | '='         { EQUAL }
-  | '*'         { STAR }
-  | '@'         { AT }		
-  | eof         { EOF }
-  | "reg"       { REG }
-  | "mem"       { MEM }
-  | '#'         { comment lexbuf }
-  | identifier 	{ STRING (Lexing.lexeme lexbuf) }
+  (* escape tokens *)
+  | white_space 	    { token lexbuf }
+  | newline 		    { token lexbuf }
+  | '#'         	    { comment lexbuf }
+  (* section separators *)
+  | '[' 		    { LEFT_SQ_BRACKET }
+  | ']' 		    { RIGHT_SQ_BRACKET }
+  (* tainting rules for functions *)
+  | '='         	    { EQUAL }
+  | '*'         	    { STAR }
+  | '('         	    { LPAREN }
+  | ')'         	    { RPAREN }
+  | '<'         	    { LANGLE_BRACKET }
+  | '>'         	    { RANGLE_BRACKET }
+  | ','         	    { COMMA }
+  | '_'                     { UNDERSCORE }
+  | '@'         	    { AT }
+  (* end of file *)
+  | eof         	    { EOF }
+  (* specification of the intial configuration of a register *)
+  | "reg"       	    { REG }
+  (* specification of the intial configuration of a memory location *)
+  | "mem"       	    { MEM }
+  (* taint mask for a memory location or a register *)
+  | '!'         	    { TAINT }
+  (* state section *)
+  | "state"    		    { STATE }
+  (* setting section *)
+  | "settings"              { SETTINGS }
+  (* loader section *)
+  | "loader"                { LOADER }
+  (* binary section *)
+  | "binary"                { BINARY }
+  (* analyzer section *)
+  | "analyzer"  	    { ANALYZER }
+  (* settings tokens *)
+  | "mem-model" 	    { MEM_MODEL }
+  | "op-sz"     	    { OP_SZ }
+  | "mem-sz"    	    { MEM_SZ }
+  | "stack-width" 	    { STACK_WIDTH }
+  | "call-conv" 	    { CALL_CONV }
+  | "flat"      	    { FLAT }
+  | "segmented" 	    { SEGMENTED }
+  | "cdecl"     	    { CDECL }
+  | "stdcall"   	    { STDCALL }
+  | "fastcall"  	    { FASTCALL }
+  (* analyzer tokens *)
+  | "unroll"    	    { UNROLL }
+  (* loader tokens *)
+  | "rva-stack" 	    { RVA_STACK }
+  | "rva-data" 		    { RVA_DATA }
+  | "rva-code" 		    { RVA_CODE }
+  | "rva-code-end"          { RVA_CODE_END }
+  | "rva-entrypoint" 	    { RVA_ENTRYPOINT }
+  (* binary tokens *)			    
+  | "filepath" 		    { FILEPATH }
+  | "format" 		    { FORMAT }
+  | "pe" 		    { PE }
+  | "elf" 		    { ELF }
+  | "phys-textsection" 	    { PHYS_TEXTSECTION }
+  (* left operand of type integer *)
+  | integer as i 	    { INT i }
+  (* misc left operands *)
+  | value as v  	    { STRING v }
 
+(* skip comments *)			    
 and comment = parse
-  | '\n' { token lexbuf }
-  | _    { comment lexbuf }
+  | ['\n' '\r']   { token lexbuf }
+  | [^ '\n' '\r'] { comment lexbuf }

@@ -6,6 +6,7 @@ python 2.7
 pdflatex for documentation
 pytest for tests
 ocamldoc and doxygen for the documentation generation
+menhir for the configuration parsing in ocaml
 the library ocamlgraph
 IDA for the vizualisation
 Graphviz
