@@ -65,7 +65,7 @@ $(LIBNAME): $(OBJS1)
 	$(CAMLOPT) -c $*.ml
 
 .mly.cmx:
-	$(MENHIR) --explain $<
+	$(MENHIR) --dump $<
 	$(CAMLOPT) -c $*.mli
 	$(CAMLOPT) -c $*.ml
 
@@ -77,7 +77,7 @@ $(LIBNAME): $(OBJS1)
 	$(CAMLLEX) $<
 
 .mly.ml:
-	$(MENHIR) --explain $<
+	$(MENHIR) --dump $<
 
 clean:
 	-rm -f .depend
@@ -88,7 +88,7 @@ clean:
 	-rm -f data-struct/*.cm[ix] data-struct/*.o data-struct/*~
 	-rm -f disassembly/*.cm[ix] disassembly/*.o disassembly/*~ disassembly/*.so
 	-rm -f $(LIBNAME)
-	-rm -f lexer.ml lexer.mli parser.ml parser.mli
+	-rm -f lexer.ml lexer.mli parser.ml parser.mli parser.conflicts parser.automaton
 
 install: $(LIBNAME)
 	cp $(LIBNAME) $(LIBDIR)

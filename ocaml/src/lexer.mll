@@ -73,7 +73,7 @@ rule token = parse
   (* loader tokens *)
   | "rva-stack" 	    { RVA_STACK }
   | "rva-data" 		    { RVA_DATA }
-  | "rva-code" 		    { RVA_CODE }
+  | "rva-code-start" 		    { RVA_CODE }
   | "rva-code-end"          { RVA_CODE_END }
   | "rva-entrypoint" 	    { RVA_ENTRYPOINT }
   (* binary tokens *)			    
@@ -81,7 +81,7 @@ rule token = parse
   | "format" 		    { FORMAT }
   | "pe" 		    { PE }
   | "elf" 		    { ELF }
-  | "phys-textsection" 	    { PHYS_TEXTSECTION }
+  | "phys-code" 	    { PHYS_CODE }
   (* left operand of type integer *)
   | integer as i 	    { INT i }
   (* misc left operands *)
