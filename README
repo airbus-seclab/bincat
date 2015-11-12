@@ -2,6 +2,7 @@
 
 ocaml 3.12 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 ocamlfind
+zarith library
 python 2.7
 pdflatex for documentation
 pytest for tests
