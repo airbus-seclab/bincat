@@ -47,6 +47,8 @@ rule token = parse
   | "mem"       	    { MEM }
   (* taint mask for a memory location or a register *)
   | '!'         	    { TAINT }
+  (* mask for taint or value *)
+  | '?' 		    { MASK }
   (* state section *)
   | "state"    		    { STATE }
   (* setting section *)

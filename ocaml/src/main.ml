@@ -23,7 +23,7 @@ module Make(Abi: Data.T) =
 	  Fixpoint.fs = Address.of_string (!Context.fs^":\x00") !Context.address_sz;
 	  Fixpoint.gs = Address.of_string (!Context.gs^":\x00") !Context.address_sz;
 	}
-      in	
+      in
       let cfa = Fixpoint.process code g s segments in
       Cfa.print cfa resultfile
   end

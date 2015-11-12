@@ -74,7 +74,7 @@
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER UNROLL RVA_DATA RVA_CODE RVA_CODE_END RVA_STACK FLAT SEGMENTED BINARY STATE
-%token FORMAT PE ELF PHYS_CODE RVA_ENTRYPOINT FILEPATH
+%token FORMAT PE ELF PHYS_CODE RVA_ENTRYPOINT FILEPATH MASK
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER
 %token <string> STRING
 %token <string> INT
@@ -188,6 +188,11 @@
     | STAR 	 { Context.Buf_taint }
 	   
      init:
-    | TAINT t=INT 	{ None, Some t }
-    | i=INT 		{ Some i, None }
-    | i=INT TAINT t=INT { Some i, Some t }
+    | TAINT c=content 		  { None, Some c }
+    | c=content 		  { Some c, None }
+    | c1=content TAINT c2=content { Some c1, Some c2 }
+
+     content:
+    | t=INT 		{ Context.make_value t }
+    | t=INT MASK t2=INT { Context.make_value_from_mask t t2 }
+			

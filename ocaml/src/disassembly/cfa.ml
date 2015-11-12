@@ -153,6 +153,8 @@ module Make(Domain: Domain.T) =
       let label e    = G.E.label e*)
       let remove g v = G.remove_vertex g v
 
+      (* uncomment this code if a dot generation is needed *)
+      (*
       module DotAttr =
 	struct
 	  include G
@@ -165,10 +167,15 @@ module Make(Domain: Domain.T) =
 	  let default_vertex_attributes _v = []
 	end
       module Dot = Graph.Graphviz.Dot(DotAttr)
-				     
-      let print g dotfile =
-	let f = open_out_bin dotfile in
-	Dot.output_graph f g;
+					*)
+      let print g dumpfile =
+	let f = open_out dumpfile in
+	let print_ip s =
+	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in 
+	  Printf.fprintf f "ip = %s\n %s\n" (Domain.Asm.Address.to_string s.ip) abstract_values
+	in
+	G.iter_vertex print_ip g;
+	(*Dot.output_graph f g;*)
 	close_out f
 	
 	

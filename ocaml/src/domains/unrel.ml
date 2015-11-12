@@ -117,7 +117,7 @@ module Make(D: T) =
     let exp_to_addresses m e 	  = D.exp_to_addresses e (new ctx m)
     let remove_register v m 	  = Map.remove (K.R v) m	
     let contains m1 m2 		  = Map.for_all2 (fun v1 v2 -> D.contains (fst v1) (fst v2) && snd v1 >= snd v2) m1 m2
-    let to_string m 		  = Map.fold (fun k v l -> ((K.to_string k) ^" -> " ^ (D.to_string (fst v))) :: l) m []
+    let to_string m 		  = Map.fold (fun k v l -> ((K.to_string k) ^" = " ^ (D.to_string (fst v))) :: l) m []
 
     let equal m1 m2 = Map.for_all2 (fun d1 d2 -> D.equal (fst d1) (fst d2)) m1 m2
 				   

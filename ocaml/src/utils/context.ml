@@ -40,8 +40,14 @@ let gs = ref "\x00"
 
 		 
 (* initial state utilities *)
-	     
-type init = { content: string option; taint: string option }
+type value =
+  | Val of string
+  | Mask of string * string
+		       
+let make_value s = Val s
+let make_value_from_mask s1 s2 = Mask (s1, s2)
+				      
+type init = { content: value option; taint: value option }
 let initial_register_values = Hashtbl.create 10
 let initial_memory_values = Hashtbl.create 10
 					   
@@ -77,3 +83,5 @@ let add_tainting_rules libname fun_rules =
       Not_found -> Hashtbl.add tainting_tbl libname []; []
   in
   Hashtbl.replace tainting_tbl libname (fun_rules::cfuns)
+
+

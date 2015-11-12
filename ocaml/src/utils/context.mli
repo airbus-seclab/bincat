@@ -70,11 +70,6 @@ val fs: string ref
 (** address of the gs segment *)
 val gs: string ref
 
-(** _init_register r v t adds the intial value _v_ and the initial taint _t_ (None means no initial value) to the register _r_ in the intial configuration *)
-val init_register: string -> string option -> string option -> unit
-
-(** _init_memory a v t adds the intial value _v_ and the initial taint _t_ (None means no initial value) to the memory address _a_ in the intial configuration *)
-val init_memory: string -> string option -> string option -> unit
 
 (** tainting kind for function arguments *)
 type taint =
@@ -91,3 +86,18 @@ type tainting_fun = string * call_conv_t * taint option * taint list
 (** adds the tainting rules of the given function of the given libname *)
 val add_tainting_rules: string -> tainting_fun -> unit 
 
+(** type for definition of a mask on values or tainting *)
+type value
+
+(** converts a string into a value for register/memory content or taint *)
+val make_value: string -> value
+			    
+(** make_mask v1 v2 returns a value based on the mask of v1 and v2. *)
+(** that is returns the value representing the hexadecimal value v1 for which bits given by the hexadecimal value v2 are unknown *)
+val make_value_from_mask: string -> string -> value
+
+(** _init_register r v t adds the intial value _v_ and the initial taint _t_ (None means no initial value) to the register _r_ in the intial configuration *)
+val init_register: string -> value option -> value option -> unit
+
+(** _init_memory a v t adds the intial value _v_ and the initial taint _t_ (None means no initial value) to the memory address _a_ in the intial configuration *)
+val init_memory: string -> value option -> value option -> unit

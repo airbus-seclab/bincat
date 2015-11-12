@@ -10,7 +10,9 @@ module Make (D: Data.T) =
       }
 			   
     let make ~code ~ep ~a ~addr_sz =
+      print_endline ep;
       let e = D.Address.of_string ep addr_sz in
+      print_endline (D.Address.to_string e);
       try
 	{
 	  e = e;

@@ -65,7 +65,8 @@ struct
     | Maybe   of S.t option
 
   type t = o array option (** None is Top *)
-  (** Note that there are several Top : None and an array whose every cell contains Maybe None. Keep it as they are more precise : you know at least the size of the Top value (the length of the array) *)
+  (** Note that there are several Top : None and an array whose every cell contains Maybe None. 
+Keep it as they are more precise : you know at least the size of the Top value (the length of the array) *)
 
   let name 		 = "Data Tainting"
   let top 		 = None
@@ -144,19 +145,46 @@ struct
     | _       , _ 	 -> false
 
   let to_string v =
-    let to_string_b b =
+    let to_string_src b =
       match b with
 	Safe      	   -> "Safe"
       | Tainted s 	   -> "Tainted from " ^ ( S.to_string s )
       | Maybe (Some s)     -> "Tainted from " ^ ( S.to_string s ) ^ "?"
       | Maybe None 	   -> "Tainted ?"
     in
+    let to_string_i i =
+      if i <= 9 then
+	string_of_int i
+      else
+	String.make 1 (Char.chr (Char.code 'A' + (i-10)))
+    in
     match v with
       None    -> "Tainted ?"
-    | Some v' -> 
-      let s = ref "" in
-      Array.iteri (fun i b -> s := !s ^ (string_of_int i)^"->"^(to_string_b b)) v';
-      !s
+    | Some v' ->
+       let tainted = ref "" in
+       let maybe   = ref "" in
+       if (Array.length v') mod 8 = 0 then
+	 begin
+	   let n 	= (Array.length v') / 8 in
+	   let not_zero = ref false	        in
+	   for i=0 to n do
+	     let itainted = ref 0 in
+	     let imaybe   = ref 0 in
+	     for j = i to 2*i -1 do
+	       match v'.(j) with
+	       | Tainted _ -> itainted := !itainted + 1
+	       | Maybe _   -> imaybe := !imaybe + 1; not_zero := true
+	       | Safe      -> ()
+	     done;
+	     tainted := !tainted ^ (to_string_i !itainted);
+	     maybe   := !maybe ^ (to_string_i !imaybe)
+	   done;	   
+	   "!" ^ (!tainted) ^ (if !not_zero then "?" ^ (!maybe) else "")
+	 end
+       else
+	 let s = ref "" in
+	 Array.iteri (fun i b -> s := !s ^ (string_of_int i)^"->"^(to_string_src b)) v';
+	 "!" ^ (!s)
 
 
   let mem_to_addresses _e _sz _c = raise Utils.Enum_failure

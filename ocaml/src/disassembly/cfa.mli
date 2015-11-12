@@ -44,7 +44,7 @@ sig
   val make: string -> t * State.t
 
   (** cfa pretty printer *)
-  (** the string parameter is the file name *)
+  (** the string parameter is the file name of the dump *)
   val print: t -> string -> unit
 			       
   (** set the v field of given state by the given domain *)
