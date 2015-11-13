@@ -2,32 +2,15 @@
 module Make: functor (Domain: Domain.T) ->
 	     (** Fixpoint engine *)
 sig		     
-  module Dom:
-  sig
-    type t = Domain.t
-    val equal: t -> t -> bool
-  end
-  module Offset:
-  sig
-    type t
-    val one: t
-    val compare: t -> t -> int
-  end
-  module Address:
-  sig
-    type t = Domain.Asm.Address.t
-    val sub: t -> t -> Offset.t
-    val to_string: t -> string
-  end
-    
+ 
+  
   (** control flow automaton *)
   module Cfa:
   sig
     module State:
     sig
       type t
-      val ip: t -> Domain.Asm.Address.t
-      val abstract_value: t -> Domain.t 
+    
     end
 
     (** abstract data type *)
@@ -54,8 +37,6 @@ sig
     (** code is the byte sequence of instructions to decode ; ep is the entry point ; a is the address of the fistr byte in code  *)
     (** addr_sz is the size in bits of the addresses *)
 
-    (** string conversion *)
-    val to_string: t -> string
     end
 		      
   (** computes the fixpoint of the reachable CFA from the given intial one and the provided code *)

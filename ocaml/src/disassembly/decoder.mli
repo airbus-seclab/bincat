@@ -13,11 +13,11 @@ sig
 	  (** abstract data type of a state *)
 	  type t = {
 	      id: int; 	     (** unique identificator of the state *)
-	      mutable ip: Domain.Asm.Address.t ;  (** instruction pointer *)
+	      mutable ip: Domain.Asm.Address.t;  (** instruction pointer *)
 	      mutable v: Domain.t; 		  (** abstract value *)
 	      mutable ctx: ctx_t ; 		  (** context of decoding *)
 	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
-	      internal     : bool 	     (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
+	      internal: bool 	     (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
 	    }
 
 	  (** state comparison: returns 0 whenever they are the physically the same (do not compare the content) *)
