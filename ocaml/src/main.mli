@@ -2,8 +2,8 @@
 (** this module contains all exported symbols *)
 
 (** main function *)
-(** the configfile parameter is the configuration file of the analyzer (options, binary code, etc.) *)
-(** the resultfile paramter is the filename for the results of the analysis *)
+(** the configfile parameter is the configuration file of the analyzer (options, architecure, filename, etc.) *)
+(** the resultfile paramter is the filename where to dump the results of the analysis *)
 val process: configfile:string -> resultfile: string -> unit
 											  
 
