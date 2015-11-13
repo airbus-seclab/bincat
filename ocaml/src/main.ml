@@ -13,15 +13,15 @@ module Make(Abi: Data.T) =
     module Code     = Fixpoint.Code
 		    
     let process text text_addr e resultfile =
-      let code   = Fixpoint.Code.make text text_addr e !Context.address_sz in
+      let code   = Fixpoint.Code.make text text_addr e !Config.address_sz in
       let g, s   = Fixpoint.Cfa.make e in
       let segments = {
-	  Fixpoint.cs = Address.of_string (!Context.cs^":\x00") !Context.address_sz;
-	  Fixpoint.ds = Address.of_string (!Context.ds^":\x00") !Context.address_sz;
-	  Fixpoint.ss = Address.of_string (!Context.ss^":\x00") !Context.address_sz;
-	  Fixpoint.es = Address.of_string (!Context.es^":\x00") !Context.address_sz;
-	  Fixpoint.fs = Address.of_string (!Context.fs^":\x00") !Context.address_sz;
-	  Fixpoint.gs = Address.of_string (!Context.gs^":\x00") !Context.address_sz;
+	  Fixpoint.cs = Address.of_string (!Config.cs^":\x00") !Config.address_sz;
+	  Fixpoint.ds = Address.of_string (!Config.ds^":\x00") !Config.address_sz;
+	  Fixpoint.ss = Address.of_string (!Config.ss^":\x00") !Config.address_sz;
+	  Fixpoint.es = Address.of_string (!Config.es^":\x00") !Config.address_sz;
+	  Fixpoint.fs = Address.of_string (!Config.fs^":\x00") !Config.address_sz;
+	  Fixpoint.gs = Address.of_string (!Config.gs^":\x00") !Config.address_sz;
 	}
       in
       let cfa = Fixpoint.process code g s segments in
@@ -39,9 +39,9 @@ let process ~configfile ~resultfile =
   let lexbuf = Lexing.from_channel cin in
   Parser.process Lexer.token lexbuf;
   close_in cin;
-  match !Context.memory_model with
-  | Context.Flat      -> Flat.process !Context.text !Context.code_addr_start !Context.ep resultfile
-  | Context.Segmented -> Segmented.process !Context.text !Context.code_addr_start !Context.ep resultfile;;
+  match !Config.memory_model with
+  | Config.Flat      -> Flat.process !Config.text !Config.code_addr_start !Config.ep resultfile
+  | Config.Segmented -> Segmented.process !Config.text !Config.code_addr_start !Config.ep resultfile;;
 
 Callback.register "process" process;;
 

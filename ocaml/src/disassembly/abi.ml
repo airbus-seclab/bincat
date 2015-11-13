@@ -13,48 +13,48 @@ let stack_width = ref 32
 
 
 
-let one = Zarith.one
-let underflows o = Zarith.compare o Zarith.zero < 0 
-let overflows o sz = Zarith.compare o (Zarith.sub (Zarith.shift_left one sz) one) > 0
+let one = Z.one
+let underflows o = Z.compare o Z.zero < 0 
+let overflows o sz = Z.compare o (Z.sub (Z.shift_left one sz) one) > 0
 
 
 module M =
 struct
     
   module Word = struct
-    type t 	  = Zarith.t * int (* integer is the size in bits *)
+    type t 	  = Z.t * int (* integer is the size in bits *)
     let size w = snd w
     let compare (w1, sz1) (w2, sz2) = 
-      let n = Zarith.compare w1 w2 in
+      let n = Z.compare w1 w2 in
       if n = 0 then sz1 - sz2 else n
 
-    let zero sz	  = Zarith.zero, sz
-    let one sz	  = Zarith.one, sz
-    let of_int v sz   = Zarith.of_int v, sz
-    let to_int v      = Zarith.to_int (fst v)
-    let of_string v n = Zarith.of_string v, n
+    let zero sz	  = Z.zero, sz
+    let one sz	  = Z.one, sz
+    let of_int v sz   = Z.of_int v, sz
+    let to_int v      = Z.to_int (fst v)
+    let of_string v n = Z.of_string v, n
     let sign_extend (v, sz) n = 
       if sz >= n then (v, sz)
       else 
-	if Zarith.compare v Zarith.zero >= 0 then (v, n)
+	if Z.compare v Z.zero >= 0 then (v, n)
 	else 
 	  let s = ref v in
 	  for i = sz to n-1 do
-	    s := Zarith.add !s  (Zarith.of_int (1 lsl i))
+	    s := Z.add !s  (Z.of_int (1 lsl i))
 	  done;
 	  (!s, n)
     end
 
   module Offset = struct
-      include Zarith
-      let of_int64 i = i
+      include Z
+      let of_string i = Z.of_string i
     end
 end
 
 module O =
 struct
    
-  type t = Zarith.t * int (* integer is the size in bits *)
+  type t = Z.t * int (* integer is the size in bits *)
     
   let size o = snd o
 
@@ -63,21 +63,19 @@ struct
     if overflows o sz then raise (Invalid_argument "too high address");
     ()
       
-  let to_string o = Printf.sprintf "Ox%LX" (fst o)
+  let to_string o = Z.format "%x" (fst o)
 				    
-  let of_string o n =
-    Printf.printf "conversion of %s\n" o;
-    flush stdout;
+  let of_string o n = 
     try
-      (Zarith.of_string o), n
+      (Z.of_string o), n
     with _ -> raise (Invalid_argument "address format")
    
-  let compare (o1, _) (o2, _) = Zarith.compare o1 o2
+  let compare (o1, _) (o2, _) = Z.compare o1 o2
 	
-  let equal (o1, _) (o2, _) = (Zarith.compare o1 o2) = 0
+  let equal (o1, _) (o2, _) = (Z.compare o1 o2) = 0
     
   let add_offset (o, n) o' = 
-    let off = Zarith.add o o' in
+    let off = Z.add o o' in
     check off n;
     off, n
       
@@ -86,7 +84,7 @@ struct
   let to_word a sz = if sz = snd a then a else failwith "Abi.to_word"
 							
   let sub (o1, n1) (o2, n2) =
-    if n1 = n2 then Zarith.sub o1 o2
+    if n1 = n2 then Z.sub o1 o2
     else raise (Invalid_argument "address size")
 end
     
@@ -100,7 +98,6 @@ struct
     include O
     (** in that implementation the segment is simply forgotten *)
     let make _s o sz = (o, sz)
-    let to_int64 o = fst o      
     module Set = Set.Make(O)
   end
 end
@@ -111,9 +108,9 @@ struct
   module Address =
   struct
     module A = struct
-      type t = Zarith.t * O.t
+      type t = Z.t * O.t
      
-      let to_offset ((s, o): t) = O.add_offset o (Zarith.shift_left s 4)
+      let to_offset ((s, o): t) = O.add_offset o (Z.shift_left s 4)
 
       let check a = 
 	let o, sz = to_offset a in
@@ -123,20 +120,19 @@ struct
 
       let make s o sz =
 	let a, (o', _) = s in
-	if Zarith.compare o' Zarith.zero <> 0 then
+	if Z.compare o' Z.zero <> 0 then
 	  failwith "Malformed segment address"
 	else
 	  (a, (o, sz))
        	       
-      let to_string (s, (o, _)) = (Zarith.to_string (Zarith.shift_left s  4))  ^ ":" ^ (Zarith.to_string o)
-      let to_int64 (s, (o, _)) = Zarith.add (Zarith.shift_left s 4) o
-					   
+      let to_string (s, (o, _)) = (Z.to_string (Z.shift_left s  4))  ^ ":" ^ (Z.to_string o)
+									       					   
       let of_string a n = 
 	try
 	  let i = String.index a ':' in
 	  let s = String.sub a 0 i in
 	  let (o: string) = String.sub a (i+1) ((String.length a) - i - 1) in
-	  let a' = Zarith.of_string s, O.of_string o n in
+	  let a' = Z.of_string s, O.of_string o n in
 	  check a';
 	  a'
 	with _ -> failwith "Invalid address format"

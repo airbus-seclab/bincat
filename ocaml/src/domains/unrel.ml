@@ -99,7 +99,8 @@ module Make(D: T) =
 	      
     module Map = MapOpt.Make(K)
 
-    (** type of the Map from Dimension (register or memory) to abstract values. This contains also an upper bound of the number of times a dimension has been already set *)
+    (** type of the Map from Dimension (register or memory) to abstract values. *)
+    (**This contains also an upper bound of the number of times a dimension has been already set *)
     type t     = (D.t * int) Map.t
 				     
 		       
@@ -117,7 +118,7 @@ module Make(D: T) =
     let exp_to_addresses m e 	  = D.exp_to_addresses e (new ctx m)
     let remove_register v m 	  = Map.remove (K.R v) m	
     let contains m1 m2 		  = Map.for_all2 (fun v1 v2 -> D.contains (fst v1) (fst v2) && snd v1 >= snd v2) m1 m2
-    let to_string m 		  = Map.fold (fun k v l -> ((K.to_string k) ^" = " ^ (D.to_string (fst v))) :: l) m []
+    let to_string m 		  = Map.fold (fun k v l -> ((K.to_string k) ^ "\t=\t" ^ (D.to_string (fst v))) :: l) m []
 
     let equal m1 m2 = Map.for_all2 (fun d1 d2 -> D.equal (fst d1) (fst d2)) m1 m2
 				   
@@ -131,13 +132,13 @@ module Make(D: T) =
 	 let v2, n = Map.find (K.R r') m in
 	 Map.replace (K.R r') (D.combine v v2 l u, n+1) m
 		     
-    let taint_register r m   =
+    let taint_register r _t m   =
       (* we choose that tainting a register has no effect on the dimension that counts the number of times it has been set *)
       match D.taint_register r with
       | Some v -> let _, n = Map.find (K.R r) m in Map.replace (K.R r) (v, n) m
       | None   -> m
 		  
-    let taint_memory a m     =
+    let taint_memory a _t m     =
       (* we choose that tainting the memory has no effect on the dimension that counts the number of times it has been set *)
       match D.taint_memory a with
       | Some v -> let _, n = Map.find (K.M a) m in Map.replace (K.M a) (v, n) m
@@ -153,7 +154,11 @@ module Make(D: T) =
 	 match l with 
 	   [a] -> (* strong update *) let _, n = Map.find (K.M a) m in Map.replace (K.M a) (v', n+1) m
 	 | l   -> (* weak update   *) List.fold_left (fun m a -> let v, n = Map.find (K.M a) m in Map.replace (K.M a) (D.join v v', n+1) m) m l
-						     
+
+    let set_register_from_config _r _c _m = failwith "Unrel.set_register_from_context"
+
+    let set_memory_from_config _a _c _m = failwith "Unrel.set_memory_from_context"
+						    
     let join m1 m2 = Map.map2 (fun (v1, n1) (v2, n2) -> D.join v1 v2, max n1 n2) m1 m2
 
     let from_registers () =

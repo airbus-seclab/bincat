@@ -79,7 +79,7 @@ type taint =
 
 (** type used to store information provided by the configuration file about the tainting rules of a function *)
 (** the string is the name of the function *)
-(** the calling convention is set either to a specific one or the default one *)
+(** the calling convention is set either to a specific value or the default one *)
 (** the first taint type in the tuple is for the return type (None is for function without return value) ; the second one is for the list of arguments *)
 type tainting_fun = string * call_conv_t * taint option * taint list
 				   
@@ -96,8 +96,16 @@ val make_value: string -> value
 (** that is returns the value representing the hexadecimal value v1 for which bits given by the hexadecimal value v2 are unknown *)
 val make_value_from_mask: string -> string -> value
 
-(** _init_register r v t adds the intial value _v_ and the initial taint _t_ (None means no initial value) to the register _r_ in the intial configuration *)
-val init_register: string -> value option -> value option -> unit
+(** table of initial values for the registers. This table is filled with respect to of the configuration file *)
+val initial_register_content: (Register.t, value) Hashtbl.t
 
-(** _init_memory a v t adds the intial value _v_ and the initial taint _t_ (None means no initial value) to the memory address _a_ in the intial configuration *)
-val init_memory: string -> value option -> value option -> unit
+(** table of initial tainting for the registers. This table is filled with respect to of the configuration file *)
+val initial_register_tainting: (Register.t, value) Hashtbl.t
+
+(** table of initial values for the memory. This table is filled with respect to the configuration file *)
+(** the memory address is given as a string *)
+val initial_memory_content: (string, value) Hashtbl.t
+
+(** table of initial taintings for the memory. This table is filled with respect to the configuration file *)
+(** the memory address is given as a string *)
+val initial_memory_tainting: (string, value) Hashtbl.t

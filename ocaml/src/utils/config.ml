@@ -47,25 +47,11 @@ type value =
 let make_value s = Val s
 let make_value_from_mask s1 s2 = Mask (s1, s2)
 				      
-type init = { content: value option; taint: value option }
-let initial_register_values = Hashtbl.create 10
-let initial_memory_values = Hashtbl.create 10
-					   
-let init_register r v t = Hashtbl.add initial_register_values r { content = v; taint = t }
-				      
-let init_memory a v t =
-  let choose xprev x =
-    match xprev, x with
-	None, _ -> x
-      | Some _, None -> xprev
-      | Some _, Some _ -> x
-  in
-  try
-    let prev = Hashtbl.find initial_memory_values a in
-    let v'   = choose prev.content v                in
-    let t'   = choose prev.taint t                  in
-    Hashtbl.replace initial_memory_values a { content = v' ; taint = t' }
-  with Not_found -> Hashtbl.add initial_memory_values a { content = v; taint = t }
+let initial_register_content = Hashtbl.create 10
+let initial_memory_content = Hashtbl.create 10
+let initial_register_tainting = Hashtbl.create 10
+let initial_memory_tainting = Hashtbl.create 10					   
+
 
 (* tainting rules for functions *)
 type taint =

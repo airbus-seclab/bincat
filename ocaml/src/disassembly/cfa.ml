@@ -76,14 +76,23 @@ module Make(Domain: Domain.T) =
 		 
       (** CFA creation *)
       let make ip =
+	let init_value () =
+	  (* set every dimension (register and memory) either to bottom if non initialized or to a value provided by Context *)
+	  let bot = Domain.from_registers ()															       in
+	  let dc  = Hashtbl.fold Domain.set_register_from_config Config.initial_register_content bot								       in
+	  let dt  = Hashtbl.fold Domain.taint_register Config.initial_register_tainting dc									       in
+	  let dc' = Hashtbl.fold (fun a c d -> Domain.set_memory_from_config (Domain.Asm.Address.of_string a !Config.address_sz) c d) Config.initial_memory_content dt in
+	  Hashtbl.fold (fun a t d -> Domain.taint_memory (Domain.Asm.Address.of_string a !Config.address_sz) t d) Config.initial_memory_tainting dc'
+	in
+	  
 	let s = {
 	    id = 0;
-	    ip = Domain.Asm.Address.of_string ip !Context.address_sz;
-	    v = Domain.from_registers (); (* initialize every registers to bottom *)
+	    ip = Domain.Asm.Address.of_string ip !Config.address_sz;
+	    v = init_value(); 
 	    stmts = [];
 	    ctx = {
-		op_sz = !Context.operand_sz;
-		addr_sz = !Context.address_sz;
+		op_sz = !Config.operand_sz;
+		addr_sz = !Config.address_sz;
 	      };
 	    internal = false
 	}
@@ -148,34 +157,15 @@ module Make(Domain: Domain.T) =
 		     
       let succs g v  = G.succ g v
       let pred g v   = G.pred g v
-      (*let succ_e g v = G.succ_e g v
-      let dst e      = G.E.dst e
-      let label e    = G.E.label e*)
       let remove g v = G.remove_vertex g v
 
-      (* uncomment this code if a dot generation is needed *)
-      (*
-      module DotAttr =
-	struct
-	  include G
-	  let graph_attributes _g = []
-	  let edge_attributes _g = []
-	  let default_edge_attributes _g = []
-	  let get_subgraph _g = None
-	  let vertex_attributes _g = [`Shape `Box]
-	  let vertex_name v = Domain.Asm.Address.to_string v.ip
-	  let default_vertex_attributes _v = []
-	end
-      module Dot = Graph.Graphviz.Dot(DotAttr)
-					*)
       let print g dumpfile =
 	let f = open_out dumpfile in
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in 
-	  Printf.fprintf f "ip = %s\n %s\n" (Domain.Asm.Address.to_string s.ip) abstract_values
+	  Printf.fprintf f "[ address = 0x%s ]\n%s\n\n\n" (Domain.Asm.Address.to_string s.ip) abstract_values
 	in
 	G.iter_vertex print_ip g;
-	(*Dot.output_graph f g;*)
 	close_out f
 	
 	

@@ -22,8 +22,8 @@ module type T = sig
   (** Offset on a base address *)
   module Offset: sig
       type t
-      (** converts an int64 to an offset *)
-      val of_int64: Int64.t -> t
+      (** converts a string to an offset *)
+      val of_string: string -> t
 
       (** converts an integer to an offset *)
       val of_int: int -> t
@@ -48,10 +48,7 @@ module type T = sig
 
       (** size in bits *)
       val size: t -> int 
-		       
-      (** Int64 conversion *)
-      val to_int64: t -> Int64.t
-			   
+		       		   
       (** string conversion *)
       val to_string: t -> string
 			    

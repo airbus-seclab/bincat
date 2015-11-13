@@ -575,7 +575,7 @@ module Make(Domain: Domain.T) =
 	    Jcc_i -> s.current_ds <- s.segments.ds
 	  | _ -> ()
 	end;
-	if c = Esc then s.addr_sz <- !Context.address_sz
+	if c = Esc then s.addr_sz <- !Config.address_sz
 							       
 							       
       let push_prefix s c =
@@ -691,8 +691,8 @@ module Make(Domain: Domain.T) =
 	   let a' = Address.add_offset s.a (Offset.of_int 1) in
 	   let v, _ = Cfa.add_state s.g s.b s.a s.b.Cfa.State.v ([Directive (Push (Const (Address.to_word a' 32))) ; Store(V(T esp), 
 																BinOp(Sub, Lval (V (T esp)), 
-																      Const (Word.of_int !Context.stack_width (Register.size esp))))
-								   ]@(if far then [Directive (Push (Lval (V (T cs)))); Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int !Context.stack_width (Register.size esp))))] else []) @
+																      Const (Word.of_int !Config.stack_width (Register.size esp))))
+								   ]@(if far then [Directive (Push (Lval (V (T cs)))); Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int !Config.stack_width (Register.size esp))))] else []) @
 								     [Call v]) ({Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz}) false
 	   in
 	   [v]
@@ -788,10 +788,10 @@ module Make(Domain: Domain.T) =
 	| OR v -> or_xor_and_and Or v s
 				 
 	| POP v   	     -> 
-	   let esp' = V(if !Context.stack_width = Register.size esp then T esp else P(esp, 0, !Context.stack_width-1)) in
+	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
 	   let stmts = List.fold_left (fun stmts v -> 
-				       let n = if is_segment v then !Context.stack_width else s.operand_sz in
-				       [Directive (Pop v) ; Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int n !Context.stack_width)))]@stmts) [] v 
+				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
+				       [Directive (Pop v) ; Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int n !Config.stack_width)))]@stmts) [] v 
 	   in
 	   update s stmts 1
 		  
@@ -799,21 +799,21 @@ module Make(Domain: Domain.T) =
 	| PUSH v  	     -> 
 	   (* TODO: factorize with POP *)
 	   let t = T (Register.make (Register.fresh_name()) s.operand_sz) in
-	   let esp' = V(if !Context.stack_width = Register.size esp then T esp else P(esp, 0, !Context.stack_width-1)) in
+	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
 	   let stmts = List.fold_left (fun stmts v -> 
-				       let n = if is_segment v then !Context.stack_width else s.operand_sz in
+				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
 				       (* be careful: pushed value of esp is the value *before* starting PUSHA *)
 				       [if is_esp v then Directive(Push (Lval (V t))) else Directive (Push (Lval (V v))) ; 
-					Store(esp', BinOp(Add, Lval esp', Const (Word.of_int n !Context.stack_width)))]@stmts) [] v 
+					Store(esp', BinOp(Add, Lval esp', Const (Word.of_int n !Config.stack_width)))]@stmts) [] v 
 	   in 
 	   update s ((Store(V t, Lval esp'))::stmts) 1
 		  
 	| PUSH_i n -> 
 	   let sz = n*8 in
 	   let v = int_of_bytes s n in
-	   let esp' = V(if !Context.stack_width = Register.size esp then T esp else P(esp, 0, !Context.stack_width-1)) in
+	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
 	   let stmts = [Directive (Push (Const (Word.of_int v sz))) ; 
-			Store(esp', BinOp(Add, Lval esp', Const (Word.of_int  !Context.stack_width !Context.stack_width)))]
+			Store(esp', BinOp(Add, Lval esp', Const (Word.of_int  !Config.stack_width !Config.stack_width)))]
 			 
 	   in
 	   update s stmts 1
@@ -866,8 +866,8 @@ module Make(Domain: Domain.T) =
 	    g = g;
 	    a = a;
 	    o = 0;
-	    addr_sz = !Context.address_sz;
-	    operand_sz = !Context.operand_sz; 
+	    addr_sz = !Config.address_sz;
+	    operand_sz = !Config.operand_sz; 
 	    segments = seg ;
 	    rep_prefix = None;
 	    buf = text;

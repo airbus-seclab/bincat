@@ -26,3 +26,5 @@ let to_string r = r.name
 let size r = r.sz
 
 let used () = Set.elements !registers
+
+let of_name name = Set.choose (Set.filter (fun r -> r.name = name) !registers)

@@ -26,3 +26,5 @@ val compare: t -> t -> int
 (** returns the size in bits of the register *)
 val size: t -> int
 
+(** returns the register corresponding to the given name *)
+val of_name: string -> t

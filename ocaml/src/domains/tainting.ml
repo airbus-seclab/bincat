@@ -170,7 +170,7 @@ Keep it as they are more precise : you know at least the size of the Top value (
 	   for i=0 to n do
 	     let itainted = ref 0 in
 	     let imaybe   = ref 0 in
-	     for j = i to 2*i -1 do
+	     for j = i to 2*i - 1 do
 	       match v'.(j) with
 	       | Tainted _ -> itainted := !itainted + 1
 	       | Maybe _   -> imaybe := !imaybe + 1; not_zero := true
@@ -179,12 +179,12 @@ Keep it as they are more precise : you know at least the size of the Top value (
 	     tainted := !tainted ^ (to_string_i !itainted);
 	     maybe   := !maybe ^ (to_string_i !imaybe)
 	   done;	   
-	   "!" ^ (!tainted) ^ (if !not_zero then "?" ^ (!maybe) else "")
+	   "!\t" ^ (!tainted) ^ (if !not_zero then " ? " ^ (!maybe) else "")
 	 end
        else
 	 let s = ref "" in
 	 Array.iteri (fun i b -> s := !s ^ (string_of_int i)^"->"^(to_string_src b)) v';
-	 "!" ^ (!s)
+	 "\t!\t" ^ (!s)
 
 
   let mem_to_addresses _e _sz _c = raise Utils.Enum_failure

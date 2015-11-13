@@ -36,8 +36,8 @@ struct
 		  List.map (fun a -> Address.make n' a sz) offsets*)
 						   
   let default_ctx () = {
-      Cfa.State.op_sz = !Context.operand_sz; 
-      Cfa.State.addr_sz = !Context.address_sz;
+      Cfa.State.op_sz = !Config.operand_sz; 
+      Cfa.State.addr_sz = !Config.address_sz;
     }
 			 
   let process_stmt g (v: Cfa.State.t) _a _o stmt =

@@ -1,6 +1,6 @@
 SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
 	utils/mapOpt.mli utils/mapOpt.ml\
-	utils/context.mli utils/context.ml\
+	utils/config.mli utils/config.ml\
 	data-struct/asm.mli data-struct/asm.ml\
 	utils/utils.ml utils/utils.mli\
 	data-struct/code.mli data-struct/code.ml\
@@ -20,24 +20,22 @@ LIBNAME=libbincat.so
 
 LIBDIR ?= /usr/local/lib
 
-
-
 SRC1 = $(SRC:.mly=.ml)
 SRC2 = $(SRC1:.mll=.ml)
 OBJS1 = $(SRC2:.ml=.cmx)
-OBJS=$(filter-out %.mli, $(OBJS1))
+OBJS = $(filter-out %.mli, $(OBJS1))
 
 
-DIROPT = -I fixpoint -I +ocamlgraph -I domains -I data-struct -I utils -I disassembly
+DIROPT = -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly
 
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) 
 CAMLLEX =ocamllex
-MENHIR=menhir
+MENHIR  =menhir
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
-LIBX=graph.cmxa nums.cmxa
+LIBX=graph.cmxa nums.cmxa zarith.cmxa
 
 all: $(LIBNAME)
 

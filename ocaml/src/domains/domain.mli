@@ -48,16 +48,27 @@ module type T =
       val set_memory: Asm.exp -> int -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
       (**[set_memory e1 n e2 ctx m] returns the abstract value _m_ where the dimension _e1_ of size _n_ bits has been set to _e2_ *)
 
-      (** [taint_register r m] *) 
-      val taint_register: Register.t -> t -> t
-      (** returns _m_ where the register _r_ has been tainted *)
+      (** [taint_register r t m] *) 
+      val taint_register: Register.t -> Config.value -> t -> t
+      (** returns _m_ where the register _r_ has been tainted by value _t_ *)
       (** the identity is a sound return value *)
-					       
-      (** [taint_memory a m] *) 
-      val taint_memory: Asm.Address.t -> t -> t
-      (** returns _m_ where the address _a_ has been tainted *)
+      (** may raise an exception if the value size exceeds the register capacity *)
+
+      (** [set_register_from_config r c m] *)
+      val set_register_from_config: Register.t -> Config.value -> t -> t
+      (** returns _m_ where the register _r_ has been set to value _c_ *)
       (** the identity is a sound return value *)
-					      
+      (** may raise an exception if the size of _c_ exceeds the register capacity *)
+									   
+      (** [taint_memory a t m] *) 
+      val taint_memory: Asm.Address.t -> Config.value -> t -> t
+      (** returns _m_ where the address _a_ has been tainted by value _t_ *)
+      (** the identity is a sound return value *)
+
+      (** [set_memory_from_config a c m] *)
+      val set_memory_from_config: Asm.Address.t -> Config.value -> t -> t
+      (** returns _m_ where the memory address _a_ has been set to value _c_ *)
+      (** the identity is a sound return value *)		      
       (** top value *)	
       val top: t
 			
