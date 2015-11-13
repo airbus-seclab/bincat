@@ -57,19 +57,10 @@ sig
     (** string conversion *)
     val to_string: t -> string
     end
-
-    type segments = {
-	cs: Address.t;
-	ds: Address.t;
-	ss: Address.t;
-	es: Address.t;
-	fs: Address.t;
-	gs: Address.t
-      }
 		      
   (** computes the fixpoint of the reachable CFA from the given intial one and the provided code *)
     (** the given state is the initial state of the computation *)
-  val process: Code.t ->  Cfa.t -> Cfa.State.t -> segments -> Cfa.t
+  val process: Code.t ->  Cfa.t -> Cfa.State.t -> Cfa.t
 
  
  

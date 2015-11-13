@@ -15,16 +15,7 @@ module Make(Abi: Data.T) =
     let process text text_addr e resultfile =
       let code   = Fixpoint.Code.make text text_addr e !Config.address_sz in
       let g, s   = Fixpoint.Cfa.make e in
-      let segments = {
-	  Fixpoint.cs = Address.of_string (!Config.cs^":\x00") !Config.address_sz;
-	  Fixpoint.ds = Address.of_string (!Config.ds^":\x00") !Config.address_sz;
-	  Fixpoint.ss = Address.of_string (!Config.ss^":\x00") !Config.address_sz;
-	  Fixpoint.es = Address.of_string (!Config.es^":\x00") !Config.address_sz;
-	  Fixpoint.fs = Address.of_string (!Config.fs^":\x00") !Config.address_sz;
-	  Fixpoint.gs = Address.of_string (!Config.gs^":\x00") !Config.address_sz;
-	}
-      in
-      let cfa = Fixpoint.process code g s segments in
+      let cfa = Fixpoint.process code g s in
       Cfa.print cfa resultfile
   end
 

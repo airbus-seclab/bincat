@@ -119,28 +119,19 @@ struct
       with _ -> v (* raised as initial node corresponding to the entry point has no predecessor in the CFG *)
     in
     List.map filter vertices
-
-  type segments = {
-	cs: Address.t;
-	ds: Address.t;
-	ss: Address.t;
-	es: Address.t;
-	fs: Address.t;
-	gs: Address.t
-      }
 		    
-  let process code g s ctx =
+  let process code g s =
     let continue = ref true		     in
     let waiting = ref (Vertices.singleton s) in
-    let ctx' = {
-	Decoder.cs = ctx.cs;
-	Decoder.ds = ctx.ds;
-	Decoder.ss = ctx.ss;
-	Decoder.es = ctx.es;
-	Decoder.fs = ctx.fs;
-	Decoder.gs = ctx.gs;
-      }
-    in
+     let ctx' = {
+	  Decoder.cs = Address.of_string (!Config.cs^":\x00") !Config.address_sz;
+	  Decoder.ds = Address.of_string (!Config.ds^":\x00") !Config.address_sz;
+	  Decoder.ss = Address.of_string (!Config.ss^":\x00") !Config.address_sz;
+	  Decoder.es = Address.of_string (!Config.es^":\x00") !Config.address_sz;
+	  Decoder.fs = Address.of_string (!Config.fs^":\x00") !Config.address_sz;
+	  Decoder.gs = Address.of_string (!Config.gs^":\x00") !Config.address_sz;
+	}
+      in
     while !continue do
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
