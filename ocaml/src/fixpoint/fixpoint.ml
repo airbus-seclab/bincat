@@ -121,22 +121,14 @@ struct
     List.map filter vertices
 		    
   let process code g s =
-    let continue = ref true		     in
-    let waiting = ref (Vertices.singleton s) in
-     let ctx' = {
-	  Decoder.cs = Address.of_string (!Config.cs^":\x00") !Config.address_sz;
-	  Decoder.ds = Address.of_string (!Config.ds^":\x00") !Config.address_sz;
-	  Decoder.ss = Address.of_string (!Config.ss^":\x00") !Config.address_sz;
-	  Decoder.es = Address.of_string (!Config.es^":\x00") !Config.address_sz;
-	  Decoder.fs = Address.of_string (!Config.fs^":\x00") !Config.address_sz;
-	  Decoder.gs = Address.of_string (!Config.gs^":\x00") !Config.address_sz;
-	}
-      in
+    let continue = ref true		      in
+    let waiting  = ref (Vertices.singleton s) in
+     
     while !continue do
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
       let text' 	   = Code.sub code v.Cfa.State.ip						 in
-      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip ctx'		     		 in
+      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip      		     		 in
       let vertices' 	   = filter_vertices g vertices				     			 in
       let new_vertices = List.fold_left (fun l v' -> (update g v.Cfa.State.ip offset v')@l) [] vertices' in
       List.iter (fun v -> if not v.Cfa.State.internal then waiting := Vertices.add v !waiting) new_vertices;

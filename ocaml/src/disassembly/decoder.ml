@@ -73,7 +73,7 @@ module Make(Domain: Domain.T) =
       (***********************************************************************)
       (* Internal state of the decoder *)
       (***********************************************************************)
-      type segments = {
+      type segment_t = {
 	  cs: Address.t;
 	  ds: Address.t; 
 	  ss: Address.t;
@@ -90,10 +90,19 @@ module Make(Domain: Domain.T) =
 	  buf 	     : string;     (* buffer to decode *)
 	  mutable o 	     : int; (* offset into the buffer *)
 	  mutable rep_prefix: bool option;       (* None = no rep prefix ; Some true = rep prefix ; Some false = repne/repnz prefix *)
-	  segments: segments;								       
+	  segments: segment_t;								       
 	  mutable current_ds: Address.t;										    
 	}
-		     
+
+      let segments = {
+	  cs = Address.of_string (!Config.cs^":\x00") !Config.address_sz;
+	  ds = Address.of_string (!Config.ds^":\x00") !Config.address_sz;
+	  ss = Address.of_string (!Config.ss^":\x00") !Config.address_sz;
+	  es = Address.of_string (!Config.es^":\x00") !Config.address_sz;
+	  fs = Address.of_string (!Config.fs^":\x00") !Config.address_sz;
+	  gs = Address.of_string (!Config.gs^":\x00") !Config.address_sz;
+	}
+
       (***********************************************************************)
       (* Char transformations *)
       (***********************************************************************)
@@ -861,18 +870,18 @@ module Make(Domain: Domain.T) =
 		  
 	| XOR v -> or_xor_and_and Xor v s
 					    
-      let parse text g v a seg =
+      let parse text g v a =
 	let s = {
 	    g = g;
 	    a = a;
 	    o = 0;
 	    addr_sz = !Config.address_sz;
 	    operand_sz = !Config.operand_sz; 
-	    segments = seg ;
+	    segments = segments;
 	    rep_prefix = None;
 	    buf = text;
 	    b = v;
-	    current_ds = seg.ds
+	    current_ds = segments.ds
 	  }
 	in
 	let vertices =

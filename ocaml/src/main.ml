@@ -1,5 +1,6 @@
 module Make(Abi: Data.T) =
   struct
+    (* generation of all modules depending on memory model (main type of addresses) *)
     module Asm 	    = Asm.Make(Abi)
     module Ptr 	    = Ptr.Make(Asm)
     module UPtr     = (Unrel.Make(Ptr): Domain.T with module Asm = Asm)
@@ -33,10 +34,12 @@ let process ~configfile ~resultfile =
     try open_in configfile
     with _ -> failwith "Opening configuration file failed"
   in
+  
   (* parse the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
   Parser.process Lexer.token lexbuf;
   close_in cin;
+  
   (* launch the fixpoint corresponding to the memory model provided by the configuration file *)
   match !Config.memory_model with
   | Config.Flat      -> Flat.process !Config.text !Config.code_addr_start !Config.ep resultfile

@@ -65,15 +65,7 @@ sig
     val pred: t -> State.t -> State.t list
     val remove: t -> State.t -> unit
     end
-  
-  type segments = {
-      cs: Domain.Asm.Address.t;
-      ds: Domain.Asm.Address.t;
-      ss: Domain.Asm.Address.t;
-      es: Domain.Asm.Address.t;
-      fs: Domain.Asm.Address.t;
-      gs: Domain.Asm.Address.t;
-    }
-  val parse: string -> Cfa.t -> Cfa.State.t -> Domain.Asm.Address.t -> segments -> Cfa.State.t list * int												     
+
+  val parse: string -> Cfa.t -> Cfa.State.t -> Domain.Asm.Address.t -> Cfa.State.t list * int												     
 end
 
