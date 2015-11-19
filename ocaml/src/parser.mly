@@ -217,6 +217,6 @@
     | c1=content TAINT c2=content { Some c1, Some c2 }
 
      content:
-    | t=INT 		{ Config.make_value t }
-    | t=INT MASK t2=INT { Config.make_value_from_mask t t2 }
+    | t=INT 		{ Config.Bits (Z.to_bits (Z.of_string t)) }
+    | t=INT MASK t2=INT { Config.MBits (Z.to_bits (Z.of_string t), Z.to_bits (Z.of_string t2)) }
 			

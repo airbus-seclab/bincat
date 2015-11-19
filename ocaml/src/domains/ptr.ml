@@ -7,7 +7,7 @@ module Make(Asm: Asm.T) =
     module Asm = Asm
 
     type t =
-      I of Asm.Address.t option * Asm.Offset.t option (* a pointeur is a base address plus an offset on that base ; None is top *)
+      | I of Asm.Address.t option * Asm.Offset.t option (* a pointeur is a base address plus an offset on that base ; None is top *)
       | Bot (* bottom *)
 	  
     let bot _sz = Bot
@@ -35,7 +35,7 @@ module Make(Asm: Asm.T) =
     let exp_to_addresses _e _ctx = raise (Alarm.E (Alarm.Concretization name))
 					 
     let taint_memory _r = None (* None means that the module does not implement this functionality *)
-    let taint_register _m = None (* None means that the module does not implement this functionality *)
+    let taint_register _m _t = None (* None means that the module does not implement this functionality *)
 
     let equal p1 p2 =
       match p1, p2 with

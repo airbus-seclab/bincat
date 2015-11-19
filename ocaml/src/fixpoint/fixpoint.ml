@@ -8,7 +8,7 @@ struct
   (** the decoder module *)
   module Decoder = Decoder.Make(Domain)
   module Dom = Domain
-  module Offset = Domain.Asm.Offset
+
   module Address = Domain.Asm.Address
 
   (** the control flow automaton module *)

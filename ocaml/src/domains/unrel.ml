@@ -57,7 +57,7 @@ module type T = sig
     (** may raise an Exception if this set of addresses is too large *)
 								   
     (** taint the given register into the given abstract value *)
-    val taint_register: Register.t -> t option
+    val taint_register: Register.t -> Config.value -> t option
     (** None means that this functionality is not handled *)
 					
     (** taint the given address into the given abstract value *)
@@ -132,15 +132,15 @@ module Make(D: T) =
 	 let v2, n = Map.find (K.R r') m in
 	 Map.replace (K.R r') (D.combine v v2 l u, n+1) m
 		     
-    let taint_register r _t m   =
+    let taint_register r t m =
       (* we choose that tainting a register has no effect on the dimension that counts the number of times it has been set *)
-      match D.taint_register r with
+      match D.taint_register t with
       | Some v -> let _, n = Map.find (K.R r) m in Map.replace (K.R r) (v, n) m
       | None   -> m
 		  
-    let taint_memory a _t m     =
+    let taint_memory a t m =
       (* we choose that tainting the memory has no effect on the dimension that counts the number of times it has been set *)
-      match D.taint_memory a with
+      match D.taint_memory t with
       | Some v -> let _, n = Map.find (K.M a) m in Map.replace (K.M a) (v, n) m
       | None   -> m
 		  

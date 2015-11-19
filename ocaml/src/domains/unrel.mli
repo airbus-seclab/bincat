@@ -1,7 +1,7 @@
-(******************************************************************************)
-(* Functor generating unrelational abstract domains                           *)
-(* basically it is a map from Registers to abstract values                    *)
-(******************************************************************************)
+(*********************************************************************************)
+(* Functor generating unrelational abstract domains                              *)
+(* basically it is a map from Registers and Memory Addrresses to abstract values *)
+(*********************************************************************************)
 
 (** context *)
 class type ['addr, 'v] ctx_t =
@@ -59,12 +59,8 @@ module type T = sig
     val exp_to_addresses: Asm.exp -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
     (** may raise an Exception if this set of addresses is too large *)
 										   
-    (** taint the given register into the given abstract value *)
-    val taint_register: Register.t -> t option
-    (** None means that this functionality is not handled *)
-					
-    (** taint the given address into the given abstract value *)
-    val taint_memory: Asm.Address.t -> t option
+    (** taint the given Config.value *)
+    val taint_from_config: Register.t -> Config.value -> t option
     (** None means that this functionality is not handled *)
 				       
     (** join two abstract values *)

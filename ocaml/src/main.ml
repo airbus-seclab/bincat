@@ -37,7 +37,18 @@ let process ~configfile ~resultfile =
   
   (* parse the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
-  Parser.process Lexer.token lexbuf;
+  begin
+    try
+      lexbuf.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
+    Parser.process Lexer.token lexbuf
+    with
+    | Parser.Error ->
+       Printf.eprintf "Syntax error at %s\n" (string_of_position lexbuf.lex_start_p);
+       raise Parser.Error
+    | Failure "lexing: empty token" as e ->
+       Printf.eprintf "Parse error at %s\n" (string_of_position lexbuf.lex_start_p);
+       raise e
+  end;
   close_in cin;
   
   (* launch the fixpoint corresponding to the memory model provided by the configuration file *)

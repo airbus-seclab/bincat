@@ -71,6 +71,10 @@ val fs: string ref
 val gs: string ref
 
 
+type value =
+  | Bits of string (* string of bits *)
+  | MBits of string * string (* bit string with a mask as second element *)
+
 (** tainting kind for function arguments *)
 type taint =
   | No_taint
@@ -85,16 +89,6 @@ type tainting_fun = string * call_conv_t * taint option * taint list
 				   
 (** adds the tainting rules of the given function of the given libname *)
 val add_tainting_rules: string -> tainting_fun -> unit 
-
-(** type for definition of a mask on values or tainting *)
-type value
-
-(** converts a string into a value for register/memory content or taint *)
-val make_value: string -> value
-			    
-(** make_mask v1 v2 returns a value based on the mask of v1 and v2. *)
-(** that is returns the value representing the hexadecimal value v1 for which bits given by the hexadecimal value v2 are unknown *)
-val make_value_from_mask: string -> string -> value
 
 (** table of initial values for the registers. This table is filled with respect to of the configuration file *)
 val initial_register_content: (Register.t, value) Hashtbl.t

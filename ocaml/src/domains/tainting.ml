@@ -2,106 +2,94 @@
 (* Functor generating the unrelational abstract domain of data tainting       *)
 (******************************************************************************)
 
+(** immediate source of the current tainting (in the CFA) *)
+module ISrc =
+  struct
+    type s =
+      | R of Register.t  (** source of tainting is a register *)
+      | M of D.Address.t (** source of tainting is a memory address *)
+      | F of string      (** source of tainting is a function *)
 
-(** auxilary module in charge of keeping path information about the source of tainting *)
-module Src(D: Asm.T) =
-struct 
-  type src =
-    R  of Register.t
-  | M  of D.Address.t
+    (** data type for the source. None is used to represent that the source is the dimension itself (root of the tainting) *)
+    type t = s option
+	       
+    (** returns true whenever origins are equal *)
+    let equal p1 p2 =
+      match p1, p2 with
+      | None, None 	  -> true
+      | None, _ | _, None -> false
+      | Some s1, Some s2  ->
+	 match s1, s2 with
+	   R v1, R v2 -> Register.compare v1 v2 = 0
+	 | M a1, M a2 -> D.Address.equal a1 a2
+	 | F f1, F f2 -> String.compare f1 f2 = 0
+	 | _, _       -> false
+			   
+    let to_string s =
+      match s with
+	None 	-> "_"
+      | Some s' -> 
+	 match s with
+	 | R r -> Register.to_string r
+	 | M a -> D.Address.to_string a
+	 | F f -> f
+  end
 
-  type t = 
-    Leaf
-  | Path of src * t 
-  | Or	 of t * t 
+(** tainting of a bit vector *)
+module Taint =
+  struct
+    (** data type of a bit *)
+    type btaint = 
+      | Untainted (** untainted *)
+      | Tainted   (** tainted *)
+      | Maybe 	  (** top *)
 
-  let equal_src s1 s2 = 
-    match s1, s2 with
-	R v1, R v2 -> Register.compare v1 v2 = 0
-      | M a1, M a2 -> D.Address.equal a1 a2 
-      | _, _       -> false
+    let bjoin b1 b2 =
+      match b1, b2 with
+      | b, b' when b=b' -> b
+      | _, _            -> Maybe
 
-  let rec equal t1 t2 =
-    match t1, t2 with
-      Or (l1, r1), Or (l2, r2)     -> equal l1 l2 && equal r1 r2
-    | Path (v1, t1), Path (v2, t2) -> equal_src v1 v2 && equal t1 t2
-    | Leaf, Leaf 		   -> true
-    | _, _ 			   -> false
+    type t = o array 
+	       
+    let equal t1 t2 = Array.for_all2 (=) t1 t2
+    let join t1 t2 = Array.mapi (fun i v1 -> bjoin v1 v2.(i) v1
+  end
+    
 
-  let join t1 t2 = Or (t1, t2)
+				 module Value = Set.Make (struct type t = BTaint.t * ISrc.t * int (* the integer is the position in the immediate src *) let equal (t1, s1, p1) (t2, s2, p2) = BTaint.equal t1 t2 && ISrc.equal s1 s2 & p1 = p2 end)
 
-  let singleton s = Path (s, Leaf)
 
-  let rec contains t1 t2 =
-    match t1, t2 with
-	Leaf, Leaf 		     -> true
-      | Leaf, _ 		     -> false
-      | Or _, Leaf 		     -> true
-      | Or (l, r), Path _ 	     -> contains l t2 || contains r t2
-      | Path _, Leaf 		     -> true
-      | Or (l1, r1), Or (l2, r2)     -> contains l1 l2  && contains r1 r2
-      | Path (v1, t1), Path (v2, t2) -> equal_src v1 v2 && contains t1 t2
-      | Path _, _ 		     -> false
-
-  let string_of_src s =
-    match s with
-      R r  -> Register.to_string r
-    | M a  -> D.Address.to_string a
-
-  let rec to_string t =
-    match t with
-      Leaf 	  -> ""
-    | Or (t1, t2) -> (to_string t1) ^ "\n or\n" ^ (to_string t2) 
-    | Path (v, t) -> (string_of_src v) ^ " -> " ^ (to_string t)
-end
 
 module Make(Asm: Asm.T) =
+  (** all binary operations are supposed to compute on operands of the same size *)
 struct
-  module S = Src(Asm)
   module Asm = Asm
-  type o = 
-      Safe
-    | Tainted of S.t 
-    | Maybe   of S.t option
 
-  type t = o array option (** None is Top *)
-  (** Note that there are several Top : None and an array whose every cell contains Maybe None. 
-Keep it as they are more precise : you know at least the size of the Top value (the length of the array) *)
+  (** tainting data type represents the set of possible tainting values and immediate origins of a given dimension *)
+  type t = Value.t
 
   let name 		 = "Data Tainting"
-  let top 		 = None
 			     
-  (** initially everything is safe *)
-  let bot sz             = Some (Array.make sz Safe)
-  let is_top v 		 = v = None
-  let taint_register r = Some (Some (Array.make (Register.size r) (Tainted (S.singleton (S.R r)))))
-  let taint_memory a = Some (Some (Array.make (Asm.Address.size a) (Tainted (S.singleton(S.M a)))))
+  (** initially everything is untainted *)
+  let bot sz             = Array.make sz BTaint.Untainted
+				      
+  let is_top v 		 = Array.for_all (fun v -> v = BTaint.Maybe) v
+  
+  let taint_from_config v =
+      match v with
+      | Config.Bits b -> Array.copy b
+
+      | Config.MBits (b, m) ->
+	 let t = Array.copy b in
+	 for i=0 to !Context.address_sz-1 do
+	 if String.get m i = '1' then t.(i) <- Tainted;
+	 done;
+	 t
+
  
-  let join v1 v2 =
-    let join_b b1 b2 =
-      match b1, b2 with
-	Safe, Safe 				  -> Safe
-      | Tainted s1, Tainted s2 when S.equal s1 s2 -> b1
-      | Tainted s1, Tainted s2 			  -> Tainted (S.join s1 s2) 
-      | Safe	, Tainted s 
-      | Tainted s	, Safe 			  -> Tainted s
-      | Maybe (Some s1)	, Maybe (Some s2)
-      | Maybe (Some s1)    , Tainted s2
-      | Tainted s1, Maybe (Some s2) 		  -> Maybe (Some (S.join s1 s2)) 
-      | _		, Maybe s	
-      | Maybe s     , _		                  -> Maybe s
-    in
-    match v1, v2 with
-      None, _ | _, None -> None
-    | Some v1, Some v2  ->
-      let len1 	 = Array.length v1				  in
-      let len2 	 = Array.length v2				  in
-      let m, len = if len1 < len2 then len1, len2 else len2, len1 in
-      let v 	 = Array.make len (Maybe None)			  in
-      for i = 0 to m-1 do
-	v.(i) <- join_b v1.(i) v2.(i)
-      done;
-      Some v
+	   
+  let join v1 v2 = Array.mapi (fun i v1 -> BTaint.join v1 v2.(i)) v1
+   
 
   let for_all2 f v1 v2 =
     let len1 = Array.length v1 in
@@ -114,77 +102,15 @@ Keep it as they are more precise : you know at least the size of the Top value (
 	true
       with Exit -> false
 
-  let equal v1 v2 = 
-    let equal_b b1 b2 =
-      match b1, b2 with
-	Tainted s1     , Tainted s2 
-      | Maybe (Some s1), Maybe (Some s2) -> S.equal s1 s2
-      | Maybe None     , Maybe None 	 -> true
-      | Safe	       , Safe 	       	 -> true
-      | _	       , _ 	       	 -> false
-    in
-    match v1, v2 with
-      Some v1', Some v2' -> for_all2 equal_b v1' v2'
-    | None    , None 	 -> true
-    | _	      , _ 	 -> false
-
-  let contains v1 v2 =
-    let contains_b b1 b2 =
-      match b1, b2 with
-	Safe	       , Safe       	 -> true
-      | Safe	       , _ 	       	 -> false
-      | Tainted _      , Safe       	 -> true
-      | Tainted s1     , Tainted s2 
-      | Maybe (Some s1), Maybe (Some s2) -> S.contains s1 s2
-      | Maybe _	       , _ 	       	 -> true
-      | _	       , _ 	       	 -> false
-    in
-    match v1, v2 with
-      Some v1', Some v2' -> for_all2 contains_b v1' v2'
-    | None    , _ 	 -> true
-    | _       , _ 	 -> false
+  let equal v1 v2 = Value.equal
+  
+  let contains v1 v2 = Value.subset v2 v1 
 
   let to_string v =
-    let to_string_src b =
-      match b with
-	Safe      	   -> "Safe"
-      | Tainted s 	   -> "Tainted from " ^ ( S.to_string s )
-      | Maybe (Some s)     -> "Tainted from " ^ ( S.to_string s ) ^ "?"
-      | Maybe None 	   -> "Tainted ?"
+    let s = ref "" in
+    let src_to_string (b, s, p) =
     in
-    let to_string_i i =
-      if i <= 9 then
-	string_of_int i
-      else
-	String.make 1 (Char.chr (Char.code 'A' + (i-10)))
-    in
-    match v with
-      None    -> "Tainted ?"
-    | Some v' ->
-       let tainted = ref "" in
-       let maybe   = ref "" in
-       if (Array.length v') mod 8 = 0 then
-	 begin
-	   let n 	= (Array.length v') / 8 in
-	   let not_zero = ref false	        in
-	   for i=0 to n do
-	     let itainted = ref 0 in
-	     let imaybe   = ref 0 in
-	     for j = i to 2*i - 1 do
-	       match v'.(j) with
-	       | Tainted _ -> itainted := !itainted + 1
-	       | Maybe _   -> imaybe := !imaybe + 1; not_zero := true
-	       | Safe      -> ()
-	     done;
-	     tainted := !tainted ^ (to_string_i !itainted);
-	     maybe   := !maybe ^ (to_string_i !imaybe)
-	   done;	   
-	   "!\t" ^ (!tainted) ^ (if !not_zero then " ? " ^ (!maybe) else "")
-	 end
-       else
-	 let s = ref "" in
-	 Array.iteri (fun i b -> s := !s ^ (string_of_int i)^"->"^(to_string_src b)) v';
-	 "\t!\t" ^ (!s)
+    Value.fold (fun s v -> s := (src_to_string v) ^ (!s)) v
 
 
   let mem_to_addresses _e _sz _c = raise Utils.Enum_failure

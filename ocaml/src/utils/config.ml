@@ -38,15 +38,12 @@ let fs = ref "\x00"
 let gs = ref "\x00"
 
 
+type value =
+  | Bits of string (* string of bits *)
+  | MBits of string * string (* bit string with a mask as second element *)
 		 
 (* initial state utilities *)
-type value =
-  | Val of string
-  | Mask of string * string
-		       
-let make_value s = Val s
-let make_value_from_mask s1 s2 = Mask (s1, s2)
-				      
+		    
 let initial_register_content = Hashtbl.create 10
 let initial_memory_content = Hashtbl.create 10
 let initial_register_tainting = Hashtbl.create 10
