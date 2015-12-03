@@ -1,11 +1,11 @@
 
 type mode_t =
-  Protected 
+  | Protected 
  
   
 type format_t =
-  Pe
-| Elf 
+  | Pe
+  | Elf 
   
 let operand_sz = ref 32
 let address_sz = ref 32
@@ -28,10 +28,11 @@ struct
       let n = Z.compare w1 w2 in
       if n = 0 then sz1 - sz2 else n
 
-    let zero sz	  = Z.zero, sz
-    let one sz	  = Z.one, sz
-    let of_int v sz   = Z.of_int v, sz
-    let to_int v      = Z.to_int (fst v)
+    let zero sz	= Z.zero, sz
+    let one sz = Z.one, sz
+    let to_string w = Z.to_string (fst w)
+    let of_int v sz = Z.of_int v, sz
+    let to_int v = Z.to_int (fst v)
     let of_string v n = Z.of_string v, n
     let sign_extend (v, sz) n = 
       if sz >= n then (v, sz)

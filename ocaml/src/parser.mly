@@ -16,7 +16,10 @@
 
     (* name of binary file to analyze *)
     let filename = ref ""
-		       
+
+    (* returns the bit string of a given string representation of an integer *)
+    let to_bits t = Z.to_bits (Z.of_string t)
+   
     (* temporay table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
     let mandatory_items = [
@@ -212,11 +215,11 @@
     | STAR 	 { Config.Buf_taint }
 	   
      init:
-    | TAINT c=content 		  { None, Some c }
-    | c=content 		  { Some c, None }
-    | c1=content TAINT c2=content { Some c1, Some c2 }
+    | TAINT c=tcontent 	       { None, Some c }
+    | c=INT 		       { Some (to_bits c), None }
+    | c1=INT TAINT c2=tcontent { Some (to_bits c1), Some c2 }
 
-     content:
-    | t=INT 		{ Config.Bits (Z.to_bits (Z.of_string t)) }
-    | t=INT MASK t2=INT { Config.MBits (Z.to_bits (Z.of_string t), Z.to_bits (Z.of_string t2)) }
+     tcontent:
+    | t=INT 		{ Config.Bits (to_bits t)  }
+    | t=INT MASK t2=INT { Config.MBits (to_bits t, to_bits t2) }
 			

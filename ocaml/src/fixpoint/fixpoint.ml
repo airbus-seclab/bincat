@@ -41,7 +41,7 @@ struct
     }
 			 
   let process_stmt g (v: Cfa.State.t) _a _o stmt =
-    (* TODO factorize the two Jcc case and the CALL case *)
+    (* TODO factorize the two Jcc cases and the CALL case *)
     let s =  v.Cfa.State.v in
     match stmt with
       Asm.Store (_lv, _e) 	     -> failwith "Fixpoint.process_stmt, case Store: not implemented"

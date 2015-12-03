@@ -28,25 +28,20 @@ module type T = sig
     (** name of the abstract domain *)
     val name: string
 		
-    (** top abstract value *)
-    val top: t
-
     (** non initialized abstract value *)
     (** the integer is the size in bits of this value *)
     val bot: int -> t
 
-    (** returns true whenever the given value is top *)
-    val is_top: t -> bool
-		       
-    (** equality comparion : returns true whenever the two arguments are logically equal *)
-    val equal: t -> t -> bool
-
-    (** order comparison : returns true whenever the first argument is greater than the second one *)
-    val contains: t -> t -> bool
+    (** set comparison : returns true whenever the first argument is included in the second one *)
+    val subset: t -> t -> bool
 
     (** string conversion *)
     val to_string: t -> string
-			  
+
+    (** value generation from configuration *)
+    (** the integer paramater is the size in bits of the returned value *)
+    val of_config: Config.cvalue -> int -> t
+
     (** returns the evaluation of the given expression as an abstract value *)			    
     val eval_exp: Asm.exp -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
 												  
@@ -59,9 +54,11 @@ module type T = sig
     val exp_to_addresses: Asm.exp -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
     (** may raise an Exception if this set of addresses is too large *)
 										   
-    (** taint the given Config.value *)
-    val taint_from_config: Register.t -> Config.value -> t option
+    (** returns the tainted value corresponding to the given configuration *)
+    val taint_from_config: Config.tvalue -> t option
     (** None means that this functionality is not handled *)
+					
+  
 				       
     (** join two abstract values *)
     val join: t -> t -> t

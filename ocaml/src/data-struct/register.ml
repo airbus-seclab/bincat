@@ -16,7 +16,9 @@ let make s l =
   registers := Set.add v !registers;
   cid := !cid + 1;
   v
-  
+
+let equal v1 v2 = compare v1 v2 = 0
+				    
 let fresh_name () = "_bincat_tmp_"^(string_of_int !cid)
     
 let remove r = registers := Set.remove r !registers

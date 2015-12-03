@@ -76,9 +76,15 @@ module type T =
       | Undef                    		   (** undefined (decoding error) *)
       | Nop                      		   (** no operation *)
       | Directive of directive_t 		   (** directive/hint for the analyzer *)
-		       
+
+    (** expression equality (syntactic check *)
+    val equal_exp: exp -> exp -> bool
+				   
     (** string conversion of a statement *)
     val string_of_stmt: stmt -> string
+
+    (** string conversion of an expression *)
+    val string_of_exp: exp -> string
   end
     
 module Make(Data: Data.T) =
@@ -158,7 +164,79 @@ type stmt =
   | Nop                      		   (** no operation *)
   | Directive of directive_t 		   (** directive/hint for the analyzer *)
 
-		   
+let equal_unop op1 op2 =
+  match op1, op2 with
+  | Not, Not 		   -> true
+  | SignExt i1, SignExt i2 -> i1 = i2
+  | _, _ 		   -> false
+
+let string_of_binop op =
+  match op with
+  | Add    -> "+"
+  | Sub    -> "-"
+  | Mul    -> "*"
+  | Div    -> "/"
+  | Divs   -> "/"
+  | Shl    -> "<<"
+  | Shr    -> ">>"
+  | Shrs   -> ">>"
+  | Mod    -> "%"
+  | And    -> "&"
+  | Or 	   -> "|"
+  | Xor    -> "xor"
+  | CmpEq  -> "="
+  | CmpLeu -> "<="
+  | CmpLes -> "<="
+  | CmpLtu -> "<" 
+  | CmpLts -> "<"
+
+let string_of_unop op =
+  match op with
+  | Not       -> "!"
+  | SignExt i -> Printf.sprintf "SignExtension (%d)" i
+				
+let equal_reg r1 r2 =
+  match r1, r2 with
+  | T r1', T r2' 		     -> Register.equal r1' r2'
+  | P (r1', l1, u1), P (r2', l2, u2) -> Register.equal r1' r2' && l1 = l2 && u1 = u2
+  | _, _ 			     -> false
+										    
+let rec equal_lval lv1 lv2 =
+  match lv1, lv2 with
+  | V v1, V v2 		   -> equal_reg v1 v2
+  | M (e1, i1), M (e2, i2) -> i1 = i2 && equal_exp e1 e2
+  | _, _ 		   -> false
+
+and equal_exp e1 e2 =
+  match e1, e2 with
+  | Const c1, Const c2 				 -> Word.compare c1 c2 = 0
+  | BinOp (op1, e11, e12), BinOp (op2, e21, e22) -> op1 = op2 && equal_exp e11 e21 && equal_exp e12 e22
+  | UnOp (op1, e1'), UnOp (op2, e2') 		 -> equal_unop op1 op2 && equal_exp e1' e2'
+  | Lval lv1, Lval lv2 				 -> equal_lval lv1 lv2
+  | _, _ 					 -> false
+
+let string_of_reg r =
+  match r with
+  | T r' 	 -> Register.to_string r'
+  | P (r', l, u) -> Printf.sprintf "%s[%d, %d]" (Register.to_string r') l u
+
+
+				
+let rec string_of_lval lv =
+  match lv with
+  | V r       -> string_of_reg r
+  | M (e, i)  -> Printf.sprintf "M(%s)[:%d]" (string_of_exp e) i
+     
+and string_of_exp e =
+  match e with
+  | Const c 	       -> Word.to_string c
+  | Lval lv 	       -> string_of_lval lv
+  | BinOp (op, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_exp e1) (string_of_binop op) (string_of_exp e2)
+  | UnOp (op, e')      -> Printf.sprintf "%s %s" (string_of_unop op) (string_of_exp e')
+				    
+
+
+		
 let string_of_stmt s =
   match s with
     Load _  	-> "load"

@@ -20,9 +20,12 @@ val remove: t -> unit
 (** returns the name of the given register *)
 val to_string: t -> string
 
-(** register comparison *)
-val compare: t -> t -> int
+(** equality *)
+val equal: t -> t -> bool
 
+(** comparison *)
+val compare: t -> t -> int
+			 
 (** returns the size in bits of the register *)
 val size: t -> int
 

@@ -1,10 +1,6 @@
 (** Data module type *)
 module type T = sig
-  (** hypothesis :
-      - able to represent addresses range from 0 to 2^32 - 1
-      - some operations may raise Underflow or Overflow
-  *)
-    
+ 
   
   (** Word data type *)
   module Word : sig
@@ -15,7 +11,8 @@ module type T = sig
     val one: int -> t (** [one n] returns 1 on _n_ bits *)
     val of_int: int -> int -> t (** [of_int v sz] returns the conversion of _v_ on _sz_ bits *)
     val to_int: t -> int (** may raise Overflow *)
-    val of_string: string -> int -> t (** string conversion *)
+    val of_string: string -> int -> t (** conversion from string *)
+    val to_string: t -> string (** conversion to string *)
     val sign_extend: t -> int -> t (** sign extension. The integer is the width of the data *)
     end
 
@@ -40,6 +37,9 @@ module type T = sig
 
       (** the offset one *)
       val one: t
+
+      (** zero value *)
+      val zero: t
     end
 		   
   (** type of an address *)

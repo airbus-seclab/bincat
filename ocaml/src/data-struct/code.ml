@@ -31,5 +31,5 @@ module Make (D: Data.T) =
       for i = ((String.length c.c) -1) downto 0 do
 	s := (Printf.sprintf "\\x%X" (Char.code (String.get c.c i))) ^ !s
       done;
-      "entry point:\t" ^ (D.Address.to_string c.e) ^ "\ntext:\t        " ^ !s
+      Printf.sprintf "entry point:\t %s\ntext:\t        %s" (D.Address.to_string c.e) !s
   end

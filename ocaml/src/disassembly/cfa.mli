@@ -41,7 +41,7 @@ sig
       (** *)    
       type t
       (** the string is the value of the instruction pointer *)
-  val make: string -> t * State.t
+  val init: string -> t * State.t
 
   (** cfa pretty printer *)
   (** the string parameter is the file name of the dump *)

@@ -1,5 +1,5 @@
 (******************************************************************************)
-(* Functor generating unrelational abstract domains                           *)
+(* Functor generating common functions of unrelational abstract domains       *)
 (* basically it is a map from Registers to abstract values                    *)
 (******************************************************************************)
 
@@ -24,26 +24,22 @@ module type T = sig
 	   
     (** name of the abstract domain *)
     val name: string
-		
-    (** top abstract value *)
-    val top: t
 
     (** non initialized abstract value *)
     (** the integer is the size in bits on this value *)
     val bot: int -> t
 		      
-    (** returns true whenever the given parameter is top *)
-    val is_top: t -> bool
-			      
-    (** equality comparison : returns true whenever the two arguments are logically equal *)
-    val equal: t -> t -> bool
-		         
-    (** order comparison : returns true whenever the first argument is greater than the second one *)
-    val contains: t -> t -> bool
+    (** comparison *)
+    (** returns true whenever the concretization of the first paramater is included in the concretization of the second parameter *)
+    val subset: t -> t -> bool
 			      
     (** string conversion *)
     val to_string: t -> string
-			  
+
+    (** value generation from configuration *)
+    (** the integer paramater is the size in bits of the returned value *)
+    val of_config: Config.cvalue -> int -> t
+			       
     (** returns the evaluation of the given expression as an abstract value *)			    
     val eval_exp: Asm.exp -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
 												  
@@ -56,12 +52,8 @@ module type T = sig
     val exp_to_addresses: Asm.exp -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
     (** may raise an Exception if this set of addresses is too large *)
 								   
-    (** taint the given register into the given abstract value *)
-    val taint_register: Register.t -> Config.value -> t option
-    (** None means that this functionality is not handled *)
-					
-    (** taint the given address into the given abstract value *)
-    val taint_memory: Asm.Address.t -> t option
+    (** returns the tainted value corresponding to the given abstract value *)
+    val taint_from_config: Config.tvalue -> t option
     (** None means that this functionality is not handled *)
 				       
     (** join two abstract values *)
@@ -100,8 +92,10 @@ module Make(D: T) =
     module Map = MapOpt.Make(K)
 
     (** type of the Map from Dimension (register or memory) to abstract values. *)
-    (**This contains also an upper bound of the number of times a dimension has been already set *)
-    type t     = (D.t * int) Map.t
+    (**This contains also an upper bound of the number of times the given dimension has been already set *)
+    type t     =
+      | Val of (D.t * int) Map.t
+      | BOT
 				     
 		       
     class ['addr, 'v] ctx m =
@@ -110,58 +104,104 @@ module Make(D: T) =
       method get_val_from_memory a   = ((fst (Map.find (K.M a) m)): 'v)
     end
       
-    let name 			  = D.name
-    let top 		          = Map.empty      
-    let is_top m                  = Map.for_all (fun v -> D.is_top (fst v)) m	
-    let forget s 		  = Map.map (fun v -> D.top, (snd v)+1) s
-    let mem_to_addresses mem sz m = D.mem_to_addresses mem sz (new ctx m)
-    let exp_to_addresses m e 	  = D.exp_to_addresses e (new ctx m)
-    let remove_register v m 	  = Map.remove (K.R v) m	
-    let contains m1 m2 		  = Map.for_all2 (fun v1 v2 -> D.contains (fst v1) (fst v2) && snd v1 >= snd v2) m1 m2
-    let to_string m 		  = Map.fold (fun k v l -> ((K.to_string k) ^ "\t=\t" ^ (D.to_string (fst v))) :: l) m []
+    let name = D.name
 
-    let equal m1 m2 = Map.for_all2 (fun d1 d2 -> D.equal (fst d1) (fst d2)) m1 m2
+    let init () = Val Map.empty
+		      
+		    
+    let mem_to_addresses mem sz m =
+      match m with
+      | Val m' -> D.mem_to_addresses mem sz (new ctx m')
+      | BOT    -> raise Utils.Emptyset
+	 
+    let exp_to_addresses m e =
+      match m with
+      | Val m' -> D.exp_to_addresses e (new ctx m')
+      | BOT    -> raise Utils.Emptyset
+			
+    let remove_register v m =
+      match m with
+      | Val m' -> Val (Map.remove (K.R v) m')
+      | BOT    -> BOT
+		    
+    let subset m1 m2 =
+      match m1, m2 with
+      | BOT, _ 		 -> true
+      | _, BOT 		 -> false
+      |	Val m1', Val m2' -> Map.for_all2 (fun v1 v2 -> D.subset (fst v1) (fst v2)) m1' m2'
+					 
+    let to_string m =
+      match m with
+      |	BOT    -> ["_|_"]
+      | Val m' -> Map.fold (fun k v l -> ((K.to_string k) ^ "\t=\t" ^ (D.to_string (fst v))) :: l) m' []
 				   
-    let set_register r e c m = 
-      let v = D.eval_exp e c (new ctx m) in
-      match r with
-      |	Asm.T r' 	       ->
-	 let _, n = Map.find (K.R r') m in
-	 Map.replace (K.R r') (v, n+1) m
-      | Asm.P (r', l, u) -> 
-	 let v2, n = Map.find (K.R r') m in
-	 Map.replace (K.R r') (D.combine v v2 l u, n+1) m
+    let set_register r e c m =
+      match m with
+      |	BOT    -> BOT
+      | Val m' ->
+	 let v = D.eval_exp e c (new ctx m') in
+	 match r with
+	 |	Asm.T r' 	       ->
+		 let _, n = Map.find (K.R r') m' in
+		 Val (Map.replace (K.R r') (v, n+1) m')
+	 | Asm.P (r', l, u) -> 
+	    let v2, n = Map.find (K.R r') m' in
+	    Val (Map.replace (K.R r') (D.combine v v2 l u, n+1) m')
 		     
-    let taint_register r t m =
+    let taint_register_from_config r c m =
       (* we choose that tainting a register has no effect on the dimension that counts the number of times it has been set *)
-      match D.taint_register t with
-      | Some v -> let _, n = Map.find (K.R r) m in Map.replace (K.R r) (v, n) m
-      | None   -> m
+      match m with
+	BOT    -> BOT
+      | Val m' ->
+	 match D.taint_from_config c with
+	 | Some v -> let _, n = Map.find (K.R r) m' in Val (Map.replace (K.R r) (v, n) m')
+	 | None   -> m
 		  
-    let taint_memory a t m =
+    let taint_memory_from_config a c m =
       (* we choose that tainting the memory has no effect on the dimension that counts the number of times it has been set *)
-      match D.taint_memory t with
-      | Some v -> let _, n = Map.find (K.M a) m in Map.replace (K.M a) (v, n) m
-      | None   -> m
+      match m with
+      | BOT -> BOT
+      | Val m' ->
+	 match D.taint_from_config c with
+	 | Some v -> let _, n = Map.find (K.M a) m' in Val (Map.replace (K.M a) (v, n) m')
+	 | None   -> m
 		  
-    let set_memory dst sz src c m = 
-      let addr = c#mem_to_addresses dst sz in
-      match addr with 
-      |	None 	   -> raise (Alarm.E Alarm.Empty)
-      | Some addrs ->
-	 let v' = D.eval_exp src c (new ctx m) in 
-	 let l  = Asm.Address.Set.elements addrs in
-	 match l with 
-	   [a] -> (* strong update *) let _, n = Map.find (K.M a) m in Map.replace (K.M a) (v', n+1) m
-	 | l   -> (* weak update   *) List.fold_left (fun m a -> let v, n = Map.find (K.M a) m in Map.replace (K.M a) (D.join v v', n+1) m) m l
+    let set_memory dst sz src c m =
+      match m with
+      | BOT -> BOT
+      | Val m' ->
+	 let addr = c#mem_to_addresses dst sz in
+	 match addr with 
+	 | None       -> raise (Alarm.E Alarm.Empty)
+	 | Some addrs ->
+	    let v' = D.eval_exp src c (new ctx m') in 
+	    let l  = Asm.Address.Set.elements addrs in
+	    match l with 
+	      [a] -> (* strong update *) let _, n = Map.find (K.M a) m' in Val (Map.replace (K.M a) (v', n+1) m')
+	    | l   -> (* weak update   *) Val (List.fold_left (fun m a -> let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m) m' l)
 
-    let set_register_from_config _r _c _m = failwith "Unrel.set_register_from_context"
+    let set_register_from_config r c m =
+      match m with
+      | BOT -> BOT
+      | Val m' ->
+	 let v' = D.of_config c (Register.size r) in
+	   Val (Map.replace (K.R r) (v', 0) m')
 
-    let set_memory_from_config _a _c _m = failwith "Unrel.set_memory_from_context"
+    let set_memory_from_config a c m =
+      match m with
+      | Val m' -> Val (Map.replace (K.M a) (D.of_config c !Config.operand_sz, 0) m')
+      | BOT    -> BOT
+      
 						    
-    let join m1 m2 = Map.map2 (fun (v1, n1) (v2, n2) -> D.join v1 v2, max n1 n2) m1 m2
+    let join m1 m2 =
+      match m1, m2 with
+      | BOT, m | m, BOT -> m
+      | Val m1', Val m2' -> Val (Map.map2 (fun (v1, n1) (v2, n2) -> D.join v1 v2, max n1 n2) m1' m2')
 
-    let from_registers () =
-      List.fold_left (fun m r -> Map.add (K.R r) (D.bot (Register.size r), 0) m) Map.empty (Register.used ())
+    let from_registers m =
+      match m with
+      | BOT    -> BOT
+      | Val m' ->
+      Val (List.fold_left (fun m r -> Map.add (K.R r) (D.bot (Register.size r), 0) m) m' (Register.used ()))
   end
     

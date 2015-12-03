@@ -71,10 +71,14 @@ val fs: string ref
 val gs: string ref
 
 
-type value =
-  | Bits of string (* string of bits *)
-  | MBits of string * string (* bit string with a mask as second element *)
+(** initial tainting *)
+type tvalue =
+  | Bits of string (** string of bits *)
+  | MBits of string * string (** bit string with a mask as second element *)
 
+(** initial content of registers and memory locations *)
+type cvalue = string 
+		
 (** tainting kind for function arguments *)
 type taint =
   | No_taint
@@ -91,15 +95,15 @@ type tainting_fun = string * call_conv_t * taint option * taint list
 val add_tainting_rules: string -> tainting_fun -> unit 
 
 (** table of initial values for the registers. This table is filled with respect to of the configuration file *)
-val initial_register_content: (Register.t, value) Hashtbl.t
+val initial_register_content: (Register.t, cvalue) Hashtbl.t
 
 (** table of initial tainting for the registers. This table is filled with respect to of the configuration file *)
-val initial_register_tainting: (Register.t, value) Hashtbl.t
+val initial_register_tainting: (Register.t, tvalue) Hashtbl.t
 
 (** table of initial values for the memory. This table is filled with respect to the configuration file *)
 (** the memory address is given as a string *)
-val initial_memory_content: (string, value) Hashtbl.t
+val initial_memory_content: (string, cvalue) Hashtbl.t
 
 (** table of initial taintings for the memory. This table is filled with respect to the configuration file *)
 (** the memory address is given as a string *)
-val initial_memory_tainting: (string, value) Hashtbl.t
+val initial_memory_tainting: (string, tvalue) Hashtbl.t

@@ -75,9 +75,16 @@ module type T =
       | Undef                    		   (** undefined (decoding error) *)
       | Nop                      		   (** no operation *)
       | Directive of directive_t 		   (** directive/hint for the analyzer *)
-		       
+
+    (** returns true whenever the two expressions are syntactically eqqual *)
+    (** false otherwise *)
+    val equal_exp: exp -> exp -> bool
+			       
     (** string conversion of a statement *)
     val string_of_stmt: stmt -> string
+
+    (** string conversion of an expression *)
+    val string_of_exp: exp -> string
   end
     
 module Make(Data: Data.T) : T
