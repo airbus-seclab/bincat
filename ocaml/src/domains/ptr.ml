@@ -27,8 +27,6 @@ module Make(Asm: Asm.T) =
     let mem_to_addresses (_m: Asm.exp) (_sz) _ctx = raise (Alarm.E (Alarm.Concretization name))
     let exp_to_addresses _e _ctx = raise (Alarm.E (Alarm.Concretization name))
 					 
-    let taint_from_config _r = None (* None means that the module does not implement this functionality *)
-
     let equal p1 p2 =
       match p1, p2 with
       | BOT, BOT | TOP, TOP -> true
@@ -45,8 +43,12 @@ module Make(Asm: Asm.T) =
       if equal p1 p2 then p1
       else
 	TOP
-	  
+
+    let taint_of_config _c = BOT
+		     
     let of_config b sz = I (Asm.Address.of_string b sz, Asm.Offset.zero)
 
+    let enter_fun _fun _ctx = [], []
+    let leave_fun _ctx = [], []
   end
 

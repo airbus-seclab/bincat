@@ -52,7 +52,14 @@ module type T =
      and lval =
        | V of reg 	    (** a register *)
        | M of exp * int (** M(e, n) is a memory adress whose value is _e_ and width is _n_ bits *) 
-		      
+
+     (** type of boolean expressions *)
+    and bexp =
+      | BConst of Word.t
+      | BLval  of lval
+      | BBinOp of bbinop * bexp * bexp
+      | BUnOp  of bunop * bexp
+			    
     (** type of function calls *)
     type fct =
       | I of reg 	    (** indirect call from register *)
@@ -85,6 +92,9 @@ module type T =
 
     (** string conversion of an expression *)
     val string_of_exp: exp -> string
+
+    (** string conversion of a boolean expression *)
+    val string_of_bexp: bexp -> string
   end
     
 module Make(Data: Data.T) =
@@ -115,15 +125,21 @@ module Make(Data: Data.T) =
     | And    (** bitwise AND *)
     | Or     (** bitwise OR *)
     | Xor    (** bitwise XOR *)
+
+  (** type of bnary boolean operations *)
+  type bbinop =
     | CmpEq  (** comparison for equality *)
     | CmpLeu (** comparion less than equal on unsigned operands *)
     | CmpLes (** comparion less than equal on signed operands *)
     | CmpLtu (** comparion strictly less than on unsigned operands *)
     | CmpLts (** comparison strictly less than on signed operands *)
 	
-  (** type of unary operations *)
+  (** type of unary arithmetic operations *)
   type unop =
     | SignExt of int (** [SignExt n] is a sign extension on _n_ bit width *)
+
+  (** type of unary boolean operations *)
+  type bunop =
     | Not 	     (** Negation *)
 	
 	
@@ -140,6 +156,13 @@ type exp =
    | V of reg 	    (** a register *)
    | M of exp * int (** M(e, n) is a memory adress whose value is _e_ and width is _n_ bits *) 
 
+ (** type of boolean expressions *)
+    and bexp =
+      | BConst of Word.t
+      | BLval  of lval
+      | BBinOp of bbinop * bexp * bexp
+      | BUnOp  of bunop * bexp
+			    
 (** type of function calls *)
 type fct =
   | I of reg 	   (** indirect call from register *)
@@ -164,11 +187,7 @@ type stmt =
   | Nop                      		   (** no operation *)
   | Directive of directive_t 		   (** directive/hint for the analyzer *)
 
-let equal_unop op1 op2 =
-  match op1, op2 with
-  | Not, Not 		   -> true
-  | SignExt i1, SignExt i2 -> i1 = i2
-  | _, _ 		   -> false
+let equal_unop _op1 _op2 = true
 
 let string_of_binop op =
   match op with
@@ -184,15 +203,21 @@ let string_of_binop op =
   | And    -> "&"
   | Or 	   -> "|"
   | Xor    -> "xor"
+
+let string_of_bbinop op =
+  match op with
   | CmpEq  -> "="
   | CmpLeu -> "<="
   | CmpLes -> "<="
   | CmpLtu -> "<" 
   | CmpLts -> "<"
 
-let string_of_unop op =
+let string_of_bunop op =
   match op with
   | Not       -> "!"
+		   
+let string_of_unop op =
+  match op with
   | SignExt i -> Printf.sprintf "SignExtension (%d)" i
 				
 let equal_reg r1 r2 =
@@ -235,7 +260,12 @@ and string_of_exp e =
   | UnOp (op, e')      -> Printf.sprintf "%s %s" (string_of_unop op) (string_of_exp e')
 				    
 
-
+and string_of_bexp e =
+  match e with
+  | BConst c 	        -> Word.to_string c
+  | BLval lv 		-> string_of_lval lv
+  | BBinOp (op, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_bexp e1) (string_of_bbinop op) (string_of_bexp e2)
+  | BUnOp (op, e') 	-> Printf.sprintf "%s %s" (string_of_bunop op) (string_of_bexp e')
 		
 let string_of_stmt s =
   match s with

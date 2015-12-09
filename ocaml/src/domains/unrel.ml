@@ -21,7 +21,7 @@ module type T = sig
 
     (** abstract data type *)
     type t
-	   
+
     (** name of the abstract domain *)
     val name: string
 
@@ -37,7 +37,7 @@ module type T = sig
     val to_string: t -> string
 
     (** value generation from configuration *)
-    (** the integer paramater is the size in bits of the returned value *)
+    (** the integer paramater is the size in bits of the configuration value *)
     val of_config: Config.cvalue -> int -> t
 			       
     (** returns the evaluation of the given expression as an abstract value *)			    
@@ -49,19 +49,24 @@ module type T = sig
     (** never call the method ctx_t.to_addresses in this function *)
 										    
     (** returns the set of addresses associated to the given expression *)									
-    val exp_to_addresses: Asm.exp -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
+    val exp_to_addresses: Asm.exp -> int -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
     (** may raise an Exception if this set of addresses is too large *)
 								   
     (** returns the tainted value corresponding to the given abstract value *)
-    val taint_from_config: Config.tvalue -> t option
-    (** None means that this functionality is not handled *)
+    val taint_of_config: Config.tvalue -> t
 				       
     (** join two abstract values *)
     val join: t -> t -> t
 			  
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t 
-					   
+
+    (** transfer function when the given function is entered *)
+    val enter_fun: Asm.fct -> ctx -> (Register.t, t) list * (Asm.Address.t, t) list
+								    
+			  
+    (** tranfer function when the current function is returned *)
+    val leave_fun: ctx -> (Register.t, t) list * (Asm.Address.t, t) list
   end
 		  
 		  
@@ -104,10 +109,7 @@ module Make(D: T) =
       method get_val_from_memory a   = ((fst (Map.find (K.M a) m)): 'v)
     end
       
-    let name = D.name
-
-    let init () = Val Map.empty
-		      
+    let name = D.name		      
 		    
     let mem_to_addresses mem sz m =
       match m with
@@ -148,23 +150,6 @@ module Make(D: T) =
 	    let v2, n = Map.find (K.R r') m' in
 	    Val (Map.replace (K.R r') (D.combine v v2 l u, n+1) m')
 		     
-    let taint_register_from_config r c m =
-      (* we choose that tainting a register has no effect on the dimension that counts the number of times it has been set *)
-      match m with
-	BOT    -> BOT
-      | Val m' ->
-	 match D.taint_from_config c with
-	 | Some v -> let _, n = Map.find (K.R r) m' in Val (Map.replace (K.R r) (v, n) m')
-	 | None   -> m
-		  
-    let taint_memory_from_config a c m =
-      (* we choose that tainting the memory has no effect on the dimension that counts the number of times it has been set *)
-      match m with
-      | BOT -> BOT
-      | Val m' ->
-	 match D.taint_from_config c with
-	 | Some v -> let _, n = Map.find (K.M a) m' in Val (Map.replace (K.M a) (v, n) m')
-	 | None   -> m
 		  
     let set_memory dst sz src c m =
       match m with
@@ -174,34 +159,79 @@ module Make(D: T) =
 	 match addr with 
 	 | None       -> raise (Alarm.E Alarm.Empty)
 	 | Some addrs ->
-	    let v' = D.eval_exp src c (new ctx m') in 
+	    let v' = D.eval_exp src sz c (new ctx m') in 
 	    let l  = Asm.Address.Set.elements addrs in
 	    match l with 
 	      [a] -> (* strong update *) let _, n = Map.find (K.M a) m' in Val (Map.replace (K.M a) (v', n+1) m')
 	    | l   -> (* weak update   *) Val (List.fold_left (fun m a -> let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m) m' l)
-
-    let set_register_from_config r c m =
-      match m with
-      | BOT -> BOT
-      | Val m' ->
-	 let v' = D.of_config c (Register.size r) in
-	   Val (Map.replace (K.R r) (v', 0) m')
-
-    let set_memory_from_config a c m =
-      match m with
-      | Val m' -> Val (Map.replace (K.M a) (D.of_config c !Config.operand_sz, 0) m')
-      | BOT    -> BOT
-      
 						    
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT -> m
       | Val m1', Val m2' -> Val (Map.map2 (fun (v1, n1) (v2, n2) -> D.join v1 v2, max n1 n2) m1' m2')
 
-    let from_registers m =
+		       
+    let init () = Val (Map.empty)
+
+    let set_register_from_config r c m =
+      match D.name with
+      |	"Tainting" -> m
+      | _          -> 
+	 match m with
+	 | BOT -> BOT
+	 | Val m' ->
+	    let v' = D.of_config c (Register.size r) in
+	    Val (Map.replace (K.R r) (v', 0) m')
+
+    let set_memory_from_config a c m =
+       match D.name with
+      |	"Tainting" -> m
+      | _          -> 
+	 match m with
+	 | Val m' -> Val (Map.replace (K.M a) (D.of_config c !Config.operand_sz, 0) m')
+	 | BOT    -> BOT
+ 
+    let taint_memory_from_config a c m =
+      match D.name with
+      | "Tainting" ->
+	 begin
+	   (* we choose that tainting the memory has no effect on the dimension that counts the number of times it has been set *)
+	   match m with
+	   | BOT -> BOT
+	   | Val m' ->
+	      let v' = D.taint_of_config c in
+	      let _, n = Map.find (K.M a) m' in Val (Map.replace (K.M a) (v', n) m')
+	 end
+      | _         -> m
+
+    let taint_register_from_config r c m =
+      match D.name with
+      | "Tainting" ->
+	 begin
+	   (* we choose that tainting a register has no effect on the dimension that counts the number of times it has been set *)
+	   match m with
+	     BOT    -> BOT
+	   | Val m' ->
+	      let v' = D.taint_of_config c in
+	      let _, n = Map.find (K.R r) m' in Val (Map.replace (K.R r) (v', n) m')
+	 end
+      | _         -> m
+
+    let process_fun f m' =
+      let registers, memories = f (new ctx m') in
+      let m' = List.fold_left (fun m' (r, v) -> let _, n = Map.find (K.R r) m' in Map.replace (K.R r) (v, n)) m' registers in
+      List.fold_left (fun m' (a, v) -> let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v, n)) m' memories
+	     
+    let enter_fun f m =
       match m with
       | BOT    -> BOT
-      | Val m' ->
-      Val (List.fold_left (fun m r -> Map.add (K.R r) (D.bot (Register.size r), 0) m) m' (Register.used ()))
+      | Val m' -> Val (process_fun (D.enter_fun f) m')
+	
+
+    let leave_fun m =
+      match m with
+      | BOT    -> BOT
+      | Val m' -> Val (process_fun D.leave_fun m')
+	 
   end
     

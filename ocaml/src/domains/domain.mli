@@ -36,6 +36,10 @@ module type T =
 
       (** assignment into the given register of the given expression *)
       val set_register: Asm.reg -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
+
+      (** assignment into memory *) 
+      val set_memory: Asm.exp -> int -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
+      (**[set_memory e1 n e2 ctx m] returns the abstract value _m_ where the dimension _e1_ of size _n_ bits has been set to _e2_ *)
       
       (** returns the set of addresses corresponding to the given expression of size in bits given by the parameter *)
       val mem_to_addresses: Asm.exp -> int -> t -> Asm.Address.Set.t
@@ -44,40 +48,26 @@ module type T =
       (** returns the set of addresses corresponding to the given expression *)	
       val exp_to_addresses: t -> Asm.exp -> Asm.Address.Set.t
       (** may raise an exception if the set of addresses is too large *)
-
-      (** assignment into memory *) 
-      val set_memory: Asm.exp -> int -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
-      (**[set_memory e1 n e2 ctx m] returns the abstract value _m_ where the dimension _e1_ of size _n_ bits has been set to _e2_ *)
-
-      (** [taint_register_from_config r t m] *) 
-      val taint_register_from_config: Register.t -> Config.tvalue -> t -> t
-      (** returns _m_ where the register _r_ has been tainted by value _t_ *)
-      (** the identity is a sound return value *)
-      (** the size of the Config.value is supposed to be equal to the register size *)
-
-      (** [set_register_from_config r c m] *)
-      val set_register_from_config: Register.t -> Config.cvalue -> t -> t
-      (** returns _m_ where the register _r_ has been set to value _c_ *)
-      (** the _c_ value is built to fit exactly into the register (same size) *)
-      (** the identity is a sound return value *)
-   
-									   
-      (** [taint_memory_from_config a t m] *) 
-      val taint_memory_from_config: Asm.Address.t -> Config.tvalue -> t -> t
-      (** returns _m_ where the address _a_ has been tainted by value _t_ *)
-      (** the identity is a sound return value *)
-      (** the size of the Config.value is supposed to be equal to the address size *)
-
-      (** [set_memory_from_config a c m] *)
-      val set_memory_from_config: Asm.Address.t -> Config.cvalue -> t -> t
-      (** returns _m_ where the memory address _a_ has been set to value _c_ *)
-      (** the _c_ value is built to fit exactly into a memory location (same size) *)
-      (** the identity is a sound return value *)
 									  
       (** joins the two abstract values *)
       val join: t -> t -> t
 
-      (** create an abstract value from the given domain and the registers in Register.tbl *)
-      val from_registers: t -> t
+      (** [taint_register_from_config r c m] update the abstract value _m_ with the given tainting configuration _c_ for register _r_ *)
+      val taint_register_from_config: Register.t -> Config.tvalue -> t -> t
+
+      (** [taint_register_from_config a c m] update the abstract value _m_ with the given tainting configuration _c_ for the memory location _a_ *)
+      val taint_memory_from_config: Asm.Address.t -> Config.tvalue -> t -> t
+
+      (** [set_memory_from_config a c m]* update the abstract value _m_ with the value configuration for the memory location _a_ *)
+      val set_memory_from_config: Asm.Address.t -> Config.cvalue -> t -> t
+
+      (** [set_register_from_config r c m] update the abstract value _m_ with the value configuration for register _r_ *)
+      val set_register_from_config: Register.t -> Config.cvalue -> t -> t
+
+      (** transfer function when the given function is entered *)
+      val enter_fun: t -> Asm.fct -> t
+
+      (** tranfer function when the current function is returned *)
+      val leave_fun: t -> t
     end
       

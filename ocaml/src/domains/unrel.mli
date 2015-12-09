@@ -16,7 +16,7 @@ end
 
 
     
-(** Unrelational domain signature *)
+(** Partial unrelational domain signature *)
 module type T = sig
 
     (** the assembly intermediate language *)
@@ -39,11 +39,11 @@ module type T = sig
     val to_string: t -> string
 
     (** value generation from configuration *)
-    (** the integer paramater is the size in bits of the returned value *)
+    (** the integer paramater is the size in bits of the configuration value *)
     val of_config: Config.cvalue -> int -> t
 
     (** returns the evaluation of the given expression as an abstract value *)			    
-    val eval_exp: Asm.exp -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
+    val eval_exp: Asm.exp -> int -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
 												  
     (** returns the set of addresses associated to the memory expression of size _n_ where _n_ is the integer parameter *)
     val mem_to_addresses: Asm.exp -> int -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
@@ -55,10 +55,7 @@ module type T = sig
     (** may raise an Exception if this set of addresses is too large *)
 										   
     (** returns the tainted value corresponding to the given configuration *)
-    val taint_from_config: Config.tvalue -> t option
-    (** None means that this functionality is not handled *)
-					
-  
+    val taint_of_config: Config.tvalue -> t
 				       
     (** join two abstract values *)
     val join: t -> t -> t
@@ -66,6 +63,12 @@ module type T = sig
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t 
 
+    (** transfer function when entering the given function *)
+    val enter_fun: Asm.fct -> ctx -> (Register.t, t) list * (Asm.Address.t, t) list
+								    
+			  
+    (** tranfer function when the current function is returned *)
+    val leave_fun: ctx -> (Register.t, t) list * (Asm.Address.t, t) list
   end
 		  
 module Make(V: T): (Domain.T with module Asm = V.Asm)

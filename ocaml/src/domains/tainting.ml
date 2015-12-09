@@ -79,8 +79,8 @@ end
 					    
       let to_string b =
 	match b with
-	| BOT 	  -> "_|_"
-	| TOP 	  -> "T"
+	| BOT 	      -> "_|_"
+	| TOP 	      -> "T"
 	| Tainted s   -> Printf.sprintf "1(%s)" (Src.to_string s)
 	| Untainted s -> Printf.sprintf "0(%s)" (Src.to_string s)
     end
@@ -133,7 +133,7 @@ end
     | BOT, v | v, BOT -> v
     | Val v1, Val v2  -> Val (map2 Bit.join v1 v2)
  
-  let taint_from_config v =
+  let taint_of_config v =
     match v with
     | Config.Bits b ->
        let sz = String.length b       in
@@ -144,7 +144,7 @@ end
 	 else
 	   t.(i) <- Bit.Untainted (Src.Val Src.INPUT)
        done;
-       Some (Val t)
+       Val t
 	 
     | Config.MBits (b, m) ->
        let sz = String.length b       in
@@ -158,24 +158,22 @@ end
 	   else
 	     t.(i) <- Bit.Untainted (Src.Val Src.INPUT)
 	 done;
-	 Some (Val t)
-
-  let of_config _c sz = BOT
+	 Val t
    
-	   
  let to_string v =
    match v with
    | BOT    -> "_|_"
    | Val v  -> Array.fold_left (fun s b ->  s ^ (Bit.to_string b)) "" v
 
+ let of_config _c _sz = BOT
 
   let mem_to_addresses _e _sz _c = raise Utils.Enum_failure
-  let exp_to_addresses _e _c = raise Utils.Enum_failure
+  let exp_to_addresses _e _sz _c = raise Utils.Enum_failure
 
-  let eval_exp _e (_c: (Asm.exp, Asm.Address.Set.t) Domain.context) _ctx: t = failwith "Tainting.eval_exp: to complete"
-    (*match e with
-      Asm.Lval (Asm.V (Asm.T r)) ->
-      c#get_val_from_register r
+  let rec eval_exp e sz (c: (Asm.exp, Asm.Address.Set.t) Domain.context) ctx: t = 
+    match e with
+    | Asm.Lval (Asm.V (Asm.T r)) ->
+       c#get_val_from_register r
 							      
     | Asm.Lval (Asm.V (Asm.P (r, l, u))) -> 
        let e = ctx#get_val_from_register r in
@@ -195,15 +193,51 @@ end
 	    let addr_l = Asm.Address.Set.elements addr'		  in
 	    let v      = ctx#get_val_from_memory (List.hd addr_l) in 
 	    Val (List.fold_left (fun s a -> join s ( ctx#get_val_from_memory a )) v (List.tl addr_l))
-	  with _ -> raise Utils.Emptyset
-	end
+	  with _ -> BOT
+      end
+
+    | Asm.BinOp (op, e1, e2) when op = Asm.Add || op = Asm.Sub || op = Asm.Mul || op = Asm.Div || op = Asm.Divs || op = Asm.And || op = Asm.Or || (op = Asm.Xor && not Asm.equal e1 e2) ->
+       begin
+       let v1 = eval_exp c ctx in
+       let v2 = eval_exp c ctx in
+       	 match v1, v2 with
+	 | BOT, v | v, BOT -> BOT
+	 | Val v1, Val v2 ->
+	    let v =
+	      Array.map (fun b1 b2 ->
+		  match b1, b2 with 
+		  | Bit.Untainted _, Bit.Untainted _ 				    -> Bit.Untainted (Src.Exp e)
+		  | Bit.Tainted _, Bit.Tainted _ 				    -> Bit.Tainted (Src.Exp e)
+		  | Bit.Tainted _, Bit.Untainted _ | Bit.Untainted _, Bit.Tainted _ -> Bit.Tainted (Src.Exp e)
+		  | Bit.BOT, Bit.Tainted _ | Bit.Tainted _, Bit.BOT 		    -> Bit.Tainted (Src.Exp e) 
+		  | Bit.BOT, Bit.UnTainted _ | Bit.UnTainted _, Bit.BOT 	    -> Bit.UnTainted (Src.Exp e) (* by default unitialized tainted value is Untainted *)
+		  | Bit.TOP, Bit.Tainted _ | Bit.Tainted, Bit.TOP 		    -> Bit.Tainted (Src.Exp e)
+		  | Bit.TOP, _ | _, Bit.TOP 					    -> Bit.TOP
+		) v1 v2
+	    in
+	    Val v
+       end
+    | Asm.BinOp (Asm.Xor, e1, e2) -> Val (Array.make sz (Bit.Untainted (Src.Exp e)))
+
+    | Asm.BinOp (op, e1, e2) when op = Asm.CmpEq || op = Asm.CmpLeu || op = Asm.Cmples || op = Asm.CmpLtu || op = Asm.CmpLts -> failwith "Tainting.eval_exp: bool binop case not implemented"
+
+    | Asm.BinOp (Asm.Shl, _e1, _e2) -> failwith "Tainting.eval_exp: shl not implemented"
+
+    | Asm.BinOp (Asm.Shr, _e1, _e2) -> failwith "Tainting.eval_exp: shr not implemented"
+
+    | Asm.BinOp (Asm.Shrs, _e1, _e2) -> failwith "Tainting.eval_exp: shrs not implemented"
   
     | Asm.Const c      -> Val (Array.make (Asm.Word.size c) (Bit.Untainted (Src.Val Src.INPUT)))
-    | _ 	     -> failwith "Tainting.eval_exp: to complete"*)
 
+
+  let enter_fun _f _ctx = failwith "Tainting.enter_fun: to implement" 
+
+  let leave_fun _ctx = failwith "Tainting.leave_fun: to implement"
+      
   let combine v1 v2 l u =
-    failwith "Tainting.combine: to complete"
-      (*
+    match v1, v2 with
+    | BOT, _ | _, BOT -> BOT
+    | Val v1, Val v2 ->
     let n = Array.length v1 in
     let v = Array.make n Bit.BOT in
     for i = 0 to l-1 do
@@ -215,10 +249,10 @@ end
     for i = l to u do
       v.(i) <- v2.(i)
     done;
-    v
-       *)
+    Val v
+
   end
+				    
 
-		      
-
-
+		  
+   

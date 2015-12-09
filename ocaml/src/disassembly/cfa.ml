@@ -158,10 +158,7 @@ module Make(Domain: Domain.T) =
       (** returned CFA has only one node : the state whose ip is given by the parameter and whose domain field is generated from the Config module *)
       let init ip =
 	let init_value () =
-	  (* add every register to domains with bottom value *)
-	  let bot = Domain.from_registers Domain.bot in	
-	  (* update tainting value and contents for registers *)
-	  let dc  = init_registers bot in
+	  let dc  = init_registers (Domain.init()) in
 	  (* update tainting value and contents for memory locations *)
 	  init_memory dc								       
 
@@ -170,7 +167,7 @@ module Make(Domain: Domain.T) =
 	let s = {
 	    id = 0;
 	    ip = Domain.Asm.Address.of_string ip !Config.address_sz;
-	    v = init_value(); 
+	    v = init_value () ;
 	    stmts = [];
 	    ctx = {
 		op_sz = !Config.operand_sz;

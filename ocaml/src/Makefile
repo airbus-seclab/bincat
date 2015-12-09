@@ -1,37 +1,53 @@
-SRC=data-struct/data.mli data-struct/register.mli data-struct/register.ml\
-	utils/mapOpt.mli utils/mapOpt.ml\
-	utils/config.mli utils/config.ml\
-	data-struct/asm.mli data-struct/asm.ml\
-	utils/utils.ml utils/utils.mli\
-	data-struct/code.mli data-struct/code.ml\
-	domains/domain.mli\
-	fixpoint/alarm.mli fixpoint/alarm.ml\
-	domains/unrel.mli domains/unrel.ml domains/ptr.mli domains/ptr.ml\
-	disassembly/abi.mli disassembly/abi.ml\
-	domains/pair.mli domains/pair.ml\
-	domains/tainting.mli domains/tainting.ml\
-	disassembly/cfa.mli disassembly/cfa.ml\
-	disassembly/decoder.mli disassembly/decoder.ml\
-	fixpoint/fixpoint.mli fixpoint/fixpoint.ml\
-	parser.mly lexer.mll\
-	main.mli main.ml
+ML=\
+data-struct/register.ml\
+utils/mapOpt.ml\
+utils/config.ml\
+lexer.ml\
+parser.ml\
+data-struct/asm.ml\
+utils/utils.ml\
+data-struct/code.ml\
+fixpoint/alarm.ml\
+domains/unrel.ml domains/ptr.ml\
+disassembly/abi.ml\
+domains/pair.ml\
+domains/tainting.ml\
+disassembly/cfa.ml\
+disassembly/decoder.ml\
+fixpoint/fixpoint.ml\
+main.ml
+
+MLI=\
+data-struct/data.mli\
+data-struct/register.mli\
+utils/mapOpt.mli\
+utils/config.mli\
+utils/utils.mli\
+data-struct/code.ml\
+domains/domain.mli\
+fixpoint/alarm.mli\
+domains/unrel.mli\
+domains/ptr.mli\
+disassembly/abi.mli\
+domains/pair.mli\
+domains/tainting.mli\
+disassembly/cfa.mli\
+disassembly/decoder.mli\
+fixpoint/fixpoint.mli\
+main.mli
 
 LIBNAME=libbincat.so
 
 LIBDIR ?= /usr/local/lib
 
-SRC1 = $(SRC:.mly=.ml)
-SRC2 = $(SRC1:.mll=.ml)
-OBJS1 = $(SRC2:.ml=.cmx)
-OBJS = $(filter-out %.mli, $(OBJS1))
-
+CMX = $(ML:.ml=.cmx)
 
 DIROPT = -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly
 
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) 
 CAMLLEX =ocamllex
-MENHIR  =menhir
+MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
@@ -39,61 +55,42 @@ LIBX=graph.cmxa nums.cmxa zarith.cmxa
 
 all: $(LIBNAME)
 
-$(LIBNAME): $(OBJS1) 
-	$(CAMLOPT) -output-obj -fPIC -o $(LIBNAME) $(LIBX) $(OBJS)
+$(LIBNAME): $(CMX) 
+	$(CAMLOPT) -output-obj -fPIC -o $(LIBNAME) $(LIBX) $+
 
 
-.SUFFIXES:
-.SUFFIXES: .ml .mli .cmo .cmi .cmx .mll .mly
+%.cmx: %.ml %.mli
+	$(CAMLOPT) -c $(LIBX) $*.ml
 
-.ml.cmo:
-	$(CAMLC) -c $<
-
-.mli.cmi:
-	$(CAMLC) -c $<
-
-.ml.o:
-	$(CAMLOPT) -c $<
-
-.ml.cmx:
-	$(CAMLOPT) -c $<
-
-.mll.cmx:
-	$(CAMLLEX) $<
-	$(CAMLOPT) -c $*.ml
-
-.mly.cmx:
-	$(MENHIR) --dump $<
+%.cmi: %.mli
 	$(CAMLOPT) -c $*.mli
-	$(CAMLOPT) -c $*.ml
 
-.mly.cmi:
-	$(MENHIR) --explain $<
-	$(CAMLC) -c $*.mli
+%.cmx: %.ml
+	$(CAMLOPT) -c $(LIBX) $*.ml
 
-.mll.ml:
-	$(CAMLLEX) $<
+%.ml: %.mll
+	$(CAMLLEX) $*.mll
 
-.mly.ml:
-	$(MENHIR) --dump $<
+%.ml %.mli: %.mly
+	$(MENHIR) $*.mly
+
 
 clean:
 	-rm -f .depend
-	-rm -f *.cm[ix] *.o *~ ocamldoc.sty ocamldoc.out
-	-rm -f domains/*.cm[ix] domains/*.o domains/*~
-	-rm -f utils/*.cm[ix] utils/*.o utils/*~
-	-rm -f fixpoint/*.cm[ix] fixpoint/*.o fixpoint/*~
-	-rm -f data-struct/*.cm[ix] data-struct/*.o data-struct/*~
-	-rm -f disassembly/*.cm[ix] disassembly/*.o disassembly/*~ disassembly/*.so
+	-rm -f `find . -name "*.cm[ix]"`
+	-rm -f `find . -name  "*.o"`
+	-rm -f `find . -name "*~"`
+	-rm -f ocamldoc.sty ocamldoc.out
+	-rm -f disassembly/*.so
 	-rm -f $(LIBNAME)
-	-rm -f lexer.ml lexer.mli parser.ml parser.mli parser.conflicts parser.automaton
+	-rm -f lexer.ml lexer.mli parser.ml parser.mli *.conflicts *.automaton
 
 install: $(LIBNAME)
 	cp $(LIBNAME) $(LIBDIR)
 
-.depend: $(SRC)
+.depend: $(ML) $(MLI)
 	rm -f .depend
-	$(CAMLDEP) $(SRC) > .depend
+	-$(CAMLDEP) -native $+ > .depend
 
 doc: 
 	@mkdir -p $(DOCPATH)/html

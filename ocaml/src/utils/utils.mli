@@ -6,8 +6,5 @@ exception Bottom
 (** raised whenever the concretization of an address is a too long list *)
 exception Enum_failure
 
-(** raised whenever an empty abstract state/domain value is computed *)
-exception Emptyset
-
 (** raised whenever an address is not legal (out of code string, etc.) *)
 exception Illegal_address
