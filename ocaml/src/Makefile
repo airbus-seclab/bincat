@@ -22,7 +22,6 @@ data-struct/data.mli\
 data-struct/register.mli\
 utils/mapOpt.mli\
 utils/config.mli\
-utils/utils.mli\
 data-struct/code.ml\
 domains/domain.mli\
 fixpoint/alarm.mli\

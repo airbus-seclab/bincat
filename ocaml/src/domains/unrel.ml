@@ -62,11 +62,11 @@ module type T = sig
     val combine: t -> t -> int -> int -> t 
 
     (** transfer function when the given function is entered *)
-    val enter_fun: Asm.fct -> ctx -> (Register.t, t) list * (Asm.Address.t, t) list
+    val enter_fun: Asm.fct -> (Asm.Address.t, t) ctx_t -> (Register.t * t) list * (Asm.Address.t * t) list
 								    
 			  
     (** tranfer function when the current function is returned *)
-    val leave_fun: ctx -> (Register.t, t) list * (Asm.Address.t, t) list
+    val leave_fun: (Asm.Address.t, t) ctx_t -> (Register.t * t) list * (Asm.Address.t * t) list
   end
 		  
 		  
@@ -233,5 +233,5 @@ module Make(D: T) =
       | BOT    -> BOT
       | Val m' -> Val (process_fun D.leave_fun m')
 	 
-  end: (Domain.T with module Asm = V.Asm)
+  end (*: (Domain.T with module Asm = V.Asm)*)
     
