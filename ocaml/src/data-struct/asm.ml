@@ -30,6 +30,9 @@ module type T =
       | And    (** bitwise AND *)
       | Or     (** bitwise OR *)
       | Xor    (** bitwise XOR *)
+
+      (** type of binary boolean operations *)
+    type bbinop =
       | CmpEq  (** comparison for equality *)
       | CmpLeu (** comparion less than equal on unsigned operands *)
       | CmpLes (** comparion less than equal on signed operands *)
@@ -39,6 +42,9 @@ module type T =
     (** type of unary operations *)
     type unop =
       | SignExt of int (** [SignExt n] is a sign extension on _n_ bit width *)
+
+      (** type of boolean unary operation *)
+    type bunop =
       | Not 	     (** Negation *)
 	  
     (** type of expressions *)

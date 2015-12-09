@@ -233,5 +233,5 @@ module Make(D: T) =
       | BOT    -> BOT
       | Val m' -> Val (process_fun D.leave_fun m')
 	 
-  end
+  end: (Domain.T with module Asm = V.Asm)
     
