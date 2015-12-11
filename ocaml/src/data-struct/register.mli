@@ -18,7 +18,7 @@ val fresh_name: unit -> string
 val remove: t -> unit
 
 (** returns the name of the given register *)
-val to_string: t -> string
+val name: t -> string
 
 (** equality *)
 val equal: t -> t -> bool

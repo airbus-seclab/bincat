@@ -15,20 +15,17 @@ class type ['addr, 'v] ctx_t =
 end
 
 (** Unrelational domain signature *)
-module type T = sig
-
-    module Asm: Asm.T
-
+module type T =
+  sig
     (** abstract data type *)
     type t
+
+    (** for typing purpose only *)
+    module Asm: Asm.T
 
     (** name of the abstract domain *)
     val name: string
 
-    (** non initialized abstract value *)
-    (** the integer is the size in bits on this value *)
-    val bot: int -> t
-		      
     (** comparison *)
     (** returns true whenever the concretization of the first paramater is included in the concretization of the second parameter *)
     val subset: t -> t -> bool
@@ -41,7 +38,7 @@ module type T = sig
     val of_config: Config.cvalue -> int -> t
 			       
     (** returns the evaluation of the given expression as an abstract value *)			    
-    val eval_exp: Asm.exp -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
+    val eval_exp: Asm.exp -> int -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
 												  
     (** returns the set of addresses associated to the memory expression of size _n_ where _n_ is the integer parameter *)
     val mem_to_addresses: Asm.exp -> int -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
@@ -70,8 +67,8 @@ module type T = sig
   end
 		  
 		  
-module Make(D: T) = 
-  struct
+module Make(A: Asm.T)(D: T with module Asm = A) = 
+  (struct
 
     module Asm = D.Asm
 		   
@@ -90,7 +87,7 @@ module Make(D: T) =
 			     
 	let to_string x = 
 	  match x with 
-	  | R r -> Register.to_string r
+	  | R r -> Register.name r
 	  | M a -> Asm.Address.to_string a
       end
 	      
@@ -116,9 +113,9 @@ module Make(D: T) =
       | Val m' -> D.mem_to_addresses mem sz (new ctx m')
       | BOT    -> raise Utils.Emptyset
 	 
-    let exp_to_addresses m e =
+    let exp_to_addresses e sz m =
       match m with
-      | Val m' -> D.exp_to_addresses e (new ctx m')
+      | Val m' -> D.exp_to_addresses e sz (new ctx m')
       | BOT    -> raise Utils.Emptyset
 			
     let remove_register v m =
@@ -137,11 +134,11 @@ module Make(D: T) =
       |	BOT    -> ["_|_"]
       | Val m' -> Map.fold (fun k v l -> ((K.to_string k) ^ "\t=\t" ^ (D.to_string (fst v))) :: l) m' []
 				   
-    let set_register r e c m =
+    let set_register r e sz c m =
       match m with
       |	BOT    -> BOT
       | Val m' ->
-	 let v = D.eval_exp e c (new ctx m') in
+	 let v = D.eval_exp e sz c (new ctx m') in
 	 match r with
 	 |	Asm.T r' 	       ->
 		 let _, n = Map.find (K.R r') m' in
@@ -151,7 +148,7 @@ module Make(D: T) =
 	    Val (Map.replace (K.R r') (D.combine v v2 l u, n+1) m')
 		     
 		  
-    let set_memory dst sz src c m =
+    let set_memory dst src sz c m =
       match m with
       | BOT -> BOT
       | Val m' ->
@@ -219,10 +216,10 @@ module Make(D: T) =
 
     let process_fun f m' =
       let registers, memories = f (new ctx m') in
-      let m' = List.fold_left (fun m' (r, v) -> let _, n = Map.find (K.R r) m' in Map.replace (K.R r) (v, n)) m' registers in
-      List.fold_left (fun m' (a, v) -> let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v, n)) m' memories
+      let m' = List.fold_left (fun m' (r, v) -> let _, n = Map.find (K.R r) m' in Map.replace (K.R r) (v, n) m') m' registers in
+      List.fold_left (fun m' (a, v) -> let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v, n) m') m' memories
 	     
-    let enter_fun f m =
+    let enter_fun m f =
       match m with
       | BOT    -> BOT
       | Val m' -> Val (process_fun (D.enter_fun f) m')
@@ -233,5 +230,5 @@ module Make(D: T) =
       | BOT    -> BOT
       | Val m' -> Val (process_fun D.leave_fun m')
 	 
-  end (*: (Domain.T with module Asm = V.Asm)*)
+  end : Domain.T with module Asm = A)
     

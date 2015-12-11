@@ -35,10 +35,10 @@ module type T =
       val to_string: t -> string list
 
       (** assignment into the given register of the given expression *)
-      val set_register: Asm.reg -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
+      val set_register: Asm.reg -> Asm.exp -> int -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
 
       (** assignment into memory *) 
-      val set_memory: Asm.exp -> int -> Asm.exp -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
+      val set_memory: Asm.exp -> Asm.exp -> int -> (Asm.exp, Asm.Address.Set.t) context -> t -> t
       (**[set_memory e1 n e2 ctx m] returns the abstract value _m_ where the dimension _e1_ of size _n_ bits has been set to _e2_ *)
       
       (** returns the set of addresses corresponding to the given expression of size in bits given by the parameter *)
@@ -46,7 +46,7 @@ module type T =
       (** may raise an exception if the set of addresses is too large *)
 								     
       (** returns the set of addresses corresponding to the given expression *)	
-      val exp_to_addresses: t -> Asm.exp -> Asm.Address.Set.t
+      val exp_to_addresses: Asm.exp -> int -> t -> Asm.Address.Set.t
       (** may raise an exception if the set of addresses is too large *)
 									  
       (** joins the two abstract values *)
@@ -67,7 +67,7 @@ module type T =
       (** transfer function when the given function is entered *)
       val enter_fun: t -> Asm.fct -> t
 
-      (** tranfer function when the current function is returned *)
+      (** transfer function when the current function is returned *)
       val leave_fun: t -> t
     end
       

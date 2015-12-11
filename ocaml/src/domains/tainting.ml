@@ -4,13 +4,13 @@
 
 
 module Make(Asm: Asm.T) =
- 
   struct
     (** basically a tainting abstract value is a vector of bits *)
     (** the bit domain is implemented as the sub module Bit (see below) *)
     (** binary operations are supposed to process on bit vector of the same size *)
 
-  module Asm = Asm
+    module Asm = Asm
+ 
   (** abstract type of the source of (un)tainting of a bit *)
   (** we keep only trace of the immediate source of tainting (the complete trace may be recovered by iterating on pathes in the CFA *)
   module Src =
@@ -90,10 +90,7 @@ end
     | BOT
     | Val of Bit.t array
 
-
   let name = "Data Tainting"
-
-  let bot _sz = BOT
 			  
   (* iterators on bit vectors *)
   (* remember that binary iterators are supposed to proceed on vector of the same length *)
@@ -173,7 +170,7 @@ end
   let rec eval_exp e sz (c: (Asm.exp, Asm.Address.Set.t) Domain.context) ctx: t = 
     match e with
     | Asm.Lval (Asm.V (Asm.T r)) ->
-       c#get_val_from_register r
+       ctx#get_val_from_register r
 							      
     | Asm.Lval (Asm.V (Asm.P (r, l, u))) -> 
        let e = ctx#get_val_from_register r in
@@ -184,7 +181,7 @@ end
        end
 	 
     | Asm.Lval (Asm.M (m, sz)) -> 
-      let addr = ctx#mem_to_addresses m sz in
+      let addr = c#mem_to_addresses m sz in
       begin
 	match addr with
 	  None 	     -> BOT
@@ -192,40 +189,47 @@ end
 	  try
 	    let addr_l = Asm.Address.Set.elements addr'		  in
 	    let v      = ctx#get_val_from_memory (List.hd addr_l) in 
-	    Val (List.fold_left (fun s a -> join s ( ctx#get_val_from_memory a )) v (List.tl addr_l))
+	    List.fold_left (fun s a -> join s ( ctx#get_val_from_memory a )) v (List.tl addr_l)
 	  with _ -> BOT
       end
 
-    | Asm.BinOp (op, e1, e2) when op = Asm.Add || op = Asm.Sub || op = Asm.Mul || op = Asm.Div || op = Asm.Divs || op = Asm.And || op = Asm.Or || (op = Asm.Xor && not Asm.equal e1 e2) ->
+    | Asm.BinOp (Asm.Xor, e1, e2) when Asm.equal_exp e1 e2 -> Val (Array.make sz (Bit.Untainted ((Src.Val (Src.Exp e)))))
+					 
+    | Asm.BinOp (Asm.Add, e1, e2) | Asm.BinOp (Asm.Sub, e1, e2) | Asm.BinOp (Asm.Mul, e1, e2) | Asm.BinOp (Asm.Div, e1, e2) | Asm.BinOp (Asm.Divs, e1, e2) | Asm.BinOp (Asm.And, e1, e2) | Asm.BinOp (Asm.Or, e1, e2) | Asm.BinOp (Asm.Xor, e1, e2)  | Asm.BinOp(Asm.Mod, e1, e2) ->
        begin
-       let v1 = eval_exp c ctx in
-       let v2 = eval_exp c ctx in
+       let v1 = eval_exp e1 sz c ctx in
+       let v2 = eval_exp e2 sz c ctx in
        	 match v1, v2 with
-	 | BOT, v | v, BOT -> BOT
+	 | BOT, v | v, BOT -> v
 	 | Val v1, Val v2 ->
-	    let v =
-	      Array.map (fun b1 b2 ->
-		  match b1, b2 with 
-		  | Bit.Untainted _, Bit.Untainted _ 				    -> Bit.Untainted (Src.Exp e)
-		  | Bit.Tainted _, Bit.Tainted _ 				    -> Bit.Tainted (Src.Exp e)
-		  | Bit.Tainted _, Bit.Untainted _ | Bit.Untainted _, Bit.Tainted _ -> Bit.Tainted (Src.Exp e)
-		  | Bit.BOT, Bit.Tainted _ | Bit.Tainted _, Bit.BOT 		    -> Bit.Tainted (Src.Exp e) 
-		  | Bit.BOT, Bit.UnTainted _ | Bit.UnTainted _, Bit.BOT 	    -> Bit.UnTainted (Src.Exp e) (* by default unitialized tainted value is Untainted *)
-		  | Bit.TOP, Bit.Tainted _ | Bit.Tainted, Bit.TOP 		    -> Bit.Tainted (Src.Exp e)
-		  | Bit.TOP, _ | _, Bit.TOP 					    -> Bit.TOP
-		) v1 v2
-	    in
+	    let v = Array.make sz Bit.BOT in
+	    for i = 0 to sz-1 do
+	      v.(i) <-
+		begin
+		  match v1.(i), v2.(i) with 
+		  | Bit.Untainted _, Bit.Untainted _ 				     -> Bit.Untainted (Src.Val (Src.Exp e))
+		  | Bit.Tainted _, Bit.Tainted _ 				     -> Bit.Tainted (Src.Val (Src.Exp e))
+		  | Bit.Tainted _, Bit.Untainted _ | Bit.Untainted _, Bit.Tainted _  -> Bit.Tainted (Src.Val (Src.Exp e))
+		  | Bit.BOT, Bit.Tainted _ | Bit.Tainted _, Bit.BOT 		     -> Bit.Tainted (Src.Val (Src.Exp e))
+		  | Bit.BOT, Bit.Untainted _ | Bit.Untainted _, Bit.BOT 	     -> Bit.Untainted (Src.Val (Src.Exp e)) (* by default unitialized tainted value is Untainted *)
+		  | Bit.TOP, Bit.Tainted _ | Bit.Tainted _, Bit.TOP 		     -> Bit.Tainted (Src.Val (Src.Exp e))
+		  | Bit.TOP, _ | _, Bit.TOP 					     -> Bit.TOP
+		  | Bit.BOT, Bit.BOT 						     -> Bit.BOT
+		end
+	    done;
 	    Val v
        end
-    | Asm.BinOp (Asm.Xor, e1, e2) -> Val (Array.make sz (Bit.Untainted (Src.Exp e)))
 
-    | Asm.BinOp (op, e1, e2) when op = Asm.CmpEq || op = Asm.CmpLeu || op = Asm.Cmples || op = Asm.CmpLtu || op = Asm.CmpLts -> failwith "Tainting.eval_exp: bool binop case not implemented"
 
     | Asm.BinOp (Asm.Shl, _e1, _e2) -> failwith "Tainting.eval_exp: shl not implemented"
 
     | Asm.BinOp (Asm.Shr, _e1, _e2) -> failwith "Tainting.eval_exp: shr not implemented"
 
     | Asm.BinOp (Asm.Shrs, _e1, _e2) -> failwith "Tainting.eval_exp: shrs not implemented"
+						 
+    | Asm.BinOp _ -> failwith "Tainting.eval_exp: boolean binary operators not implemented"
+						 
+    | Asm.UnOp _ -> failwith "Tainting.eval_exp: unop not implemented"
   
     | Asm.Const c      -> Val (Array.make (Asm.Word.size c) (Bit.Untainted (Src.Val Src.INPUT)))
 
@@ -252,6 +256,7 @@ end
     Val v
 
   end
+
 				    
 
 		  

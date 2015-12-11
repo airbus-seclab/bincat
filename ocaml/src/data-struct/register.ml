@@ -23,7 +23,7 @@ let fresh_name () = "_bincat_tmp_"^(string_of_int !cid)
     
 let remove r = registers := Set.remove r !registers
 
-let to_string r = r.name
+let name r = r.name
 
 let size r = r.sz
 

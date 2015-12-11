@@ -21,9 +21,9 @@ struct
   module Asm = Domain.Asm
 
   (** computes the list of function targets (their addresses) from a value of type fct *)
-  let ft_to_addresses s f =
+  let ft_to_addresses s sz f =
     match f with
-      Asm.I r -> Address.Set.elements (Domain.exp_to_addresses s (Asm.Lval (Asm.V r)))
+      Asm.I r -> Address.Set.elements (Domain.exp_to_addresses (Asm.Lval (Asm.V r)) sz s)
     | Asm.D a -> [a]
 
   (** computes the list of jump targets (their addresses) from a value of type jmp_target *)
@@ -55,13 +55,18 @@ struct
       if b then v'::vertices 
       else vertices) [] addrs
 
-  | Asm.Call f -> 
-    let addrs = ft_to_addresses s f in
+    | Asm.Call f ->
+       let ctx = (v.Cfa.State.ctx: Cfa.State.ctx_t) in
+       let sz = ctx.Cfa.State.addr_sz in
+    let addrs = ft_to_addresses s sz f in
     List.fold_left (fun vertices a -> 
       let v', b = Cfa.add_state g v a s [] (default_ctx()) false in
       Cfa.add_edge g v v' None; 
       if b then v'::vertices 
       else vertices) [] addrs
+		   
+    | Asm.Return -> failwith "Fixpoint.process_stmt: ret"
+			     
   | Asm.Jcc (_, None) 	     -> []
   | Asm.Nop         	     -> []
 				  (*

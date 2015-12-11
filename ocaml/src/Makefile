@@ -8,13 +8,14 @@ data-struct/asm.ml\
 utils/utils.ml\
 data-struct/code.ml\
 fixpoint/alarm.ml\
-domains/unrel.ml domains/ptr.ml\
+domains/unrel.ml\
+domains/ptr.ml\
 disassembly/abi.ml\
 domains/pair.ml\
 domains/tainting.ml\
 disassembly/cfa.ml\
 disassembly/decoder.ml\
-fixpoint/fixpoint.ml\
+fixpoint/interpreter.ml\
 main.ml
 
 MLI=\
@@ -25,14 +26,7 @@ utils/config.mli\
 data-struct/code.ml\
 domains/domain.mli\
 fixpoint/alarm.mli\
-domains/ptr.mli\
 disassembly/abi.mli\
-domains/pair.mli\
-domains/tainting.mli\
-disassembly/cfa.mli\
-disassembly/decoder.mli\
-fixpoint/fixpoint.mli\
-main.mli
 
 LIBNAME=libbincat.so
 

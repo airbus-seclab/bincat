@@ -4,29 +4,16 @@
 
 module Make(Asm: Asm.T) =
   struct
-    module Asm = Asm
 
+    module Asm = Asm
+		   
     type t =
       | I of Asm.Address.t * Asm.Offset.t (* a pointer is a base address plus an offset on that base *)
       | BOT (* bottom *)
       | TOP (* top *)
-	  
-    let bot _sz = BOT
-			   
-    let to_string p =
-      match p with
-	I (b, o) -> Printf.sprintf "(%s, %s)"  (Asm.Address.to_string b)  (Asm.Offset.to_string o)
-      | TOP 	 -> "T"
-      | BOT 	 -> "_|_"
-		 
+
     let name = "Pointer"
-
-    let eval_exp _e = raise (Alarm.E (Alarm.Concretization name))
-    let combine _ _ _ _ = TOP
-
-    let mem_to_addresses (_m: Asm.exp) (_sz) _ctx = raise (Alarm.E (Alarm.Concretization name))
-    let exp_to_addresses _e _ctx = raise (Alarm.E (Alarm.Concretization name))
-					 
+   					 
     let equal p1 p2 =
       match p1, p2 with
       | BOT, BOT | TOP, TOP -> true
@@ -38,17 +25,34 @@ module Make(Asm: Asm.T) =
       | _, _ -> false   
 
     let subset = equal
+		   		 
+    let to_string p =
+      match p with
+	I (b, o) -> Printf.sprintf "(%s, %s)" (Asm.Address.to_string b)  (Asm.Offset.to_string o)
+      | TOP 	 -> "T"
+      | BOT 	 -> "_|_"
 		   
+    let of_config b sz = I (Asm.Address.of_string b sz, Asm.Offset.zero)
+			   
+    let eval_exp _e = raise (Alarm.E (Alarm.Concretization name))
+   
+
+    let mem_to_addresses (_m: Asm.exp) (_sz) _ctx = raise (Alarm.E (Alarm.Concretization name))
+    let exp_to_addresses _e _ctx = raise (Alarm.E (Alarm.Concretization name))
+
+    let taint_of_config _c = BOT
+		     
     let join p1 p2 =
       if equal p1 p2 then p1
       else
 	TOP
-
-    let taint_of_config _c = BOT
-		     
-    let of_config b sz = I (Asm.Address.of_string b sz, Asm.Offset.zero)
-
+  
+    let combine _ _ _ _ = TOP
+			    
     let enter_fun _fun _ctx = [], []
     let leave_fun _ctx = [], []
+
+  
   end
+
 

@@ -74,74 +74,78 @@ module Make(Domain: Domain.T) =
       (** type of a CFA *)
       type t = G.t
 
-      (** return the given domain updated byt the initial values and tainting for memory as provided by the Config module *)
-      let init_registers tbl =
-	let pad b sz =
-	  let n = String.length b in
-	  if n = sz then b
-	  else
-	    if n > sz then
-	      raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" (Register.name r)))
-	    else
-	      let s = String.make sz '0' in
-	      let o = sz - n + 1 in
-	      for i = 0 to n-1 do
-		String.set s (i+o) (String.get b i)
-	      done;
-	      s
-	in
-	
+
+      (* returns the extension of string b with '0' so that the returned string is of length sz *)
+      let pad b sz =
+	let n = String.length b in
+	if n = sz then b
+	else
+	    let s = String.make sz '0' in
+	    let o = sz - n + 1 in
+	    for i = 0 to n-1 do
+	      Bytes.set s (i+o) (String.get b i)
+	    done;
+	    s
+		     
+      (* return the given domain updated by the initial values and tainting for memory as provided by the Config module *)
+      let init_registers d =	
 	let pad_tainting_register v r =
 	  let sz = Register.size r in
+	  let name = Register.name r in
 	  match v with
-	  | Config.Bits b       -> Config.Bits (pad b sz)
-	  | Config.Mbits (b, m) -> Config.MBits (pad b sz, pad m sz)
+	  | Config.Bits b       ->
+	     if (String.length b) > sz then
+	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
+	     else
+	       Config.Bits (pad b sz)
+	  | Config.MBits (b, m) ->
+	     if (String.length b) > sz || (String.length m) > sz then
+	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
+	     else
+	       Config.MBits (pad b sz, pad m sz)
 	in						     
 
-	  let tbl' =  Hashtbl.fold (fun r v tbl -> Domain.taint_register_from_config tbl r (pad_tainting_register v r)) Config.initial_register_tainting tbl in
-	  Hashtbl.fold (fun r v tbl -> Domain.set_register_from_config tbl r (pad v (Register.size r))) Config.inital_register_content tbl'
+	  let d' =  Hashtbl.fold (fun r v d -> Domain.taint_register_from_config r (pad_tainting_register v r) d) Config.initial_register_tainting d in
+	  Hashtbl.fold (fun r v d -> Domain.set_register_from_config r (pad v (Register.size r)) d) Config.initial_register_content d'
 
       	
       (** return the given domain updated by the initial values and tainting for memory as provided by the Config module *)
-
-      let extended_memory_pad a b =
-	let split_and_pad s sz =
+      let split_and_pad s =
 	  let len = String.length s in
 	  let sz = !Config.operand_sz in
 	  let l = ref [] in
 	  for i = 0 to len-1 do
 	    try
-	      l := (String.sub s sz*i (sz*(i+1)-1))::!l
+	      l := (String.sub s (sz*i) (sz*(i+1)-1))::!l
 	    with
-	      _ -> l := pad (String.sub s i (len-(sz*i)))::!l
+	      _ -> l := pad (String.sub s i (len-(sz*i))) sz::!l
 	  done;
 	  List.rev !l
-			     
-	in
+		   
+      let extended_memory_pad a b =
 	let a' = Domain.Asm.Address.of_string a !Config.address_sz in
 	try
 	  [a', pad b !Config.operand_sz]
 	with _ ->
 	  let l = split_and_pad b in
-	  List.mapi (fun i v -> Domain.Asm.Address.add_const a' i, v) l 
+	  List.mapi (fun i v -> Domain.Asm.Address.add_offset a' (Domain.Asm.Offset.of_int i), v) l 
 
       let extended_tainting_memory_pad a t =
-	let a' = Domain.Asm.Address.of_string a !Config.address_sz in
 	match t with
-	| Config.Bits b -> List.map (fun (a', v') -> a', Config.Bits v') (split_and_pad b)
+	| Config.Bits b -> List.map (fun (a', v') -> a', Config.Bits v') (extended_memory_pad a b)
 	| Config.MBits (b, m) -> 
-	   let b' = split_and_pad b in
-	   let m' = split_abd_pad m in
+	   let b' = extended_memory_pad a b in
+	   let m' = extended_memory_pad a m in
 	   let nb' = List.length b' in
 	   let nm' = List.length m' in
 	   if nb' = nm' then
 	     List.map2 (fun (a, t) (_, m) -> a, Config.MBits (t, m)) b' m'
 	   else
 	     if nb' > nm' then
-	       List.mapi (fun i (a, t) -> if i < nm' then a, Config.Mbits (t, snd (List.nth i m)) else a, Config.Bits t) b'
+	       List.mapi (fun i (a, t) -> if i < nm' then a, Config.MBits (t, snd (List.nth m' i)) else a, Config.Bits t) b'
 	     else
 	       (* filling with '0' means that we suppose by default that memory is untainted *)
-	       List.mapi (fun i (a, m) -> if i < nb' then a, Config.Mbits (snd (List.nth i b'), m) else a, Config.MBits (String.make !Config.operand_sz '0', m)) m' 
+	       List.mapi (fun i (a, m) -> if i < nb' then a, Config.MBits (snd (List.nth b' i), m) else a, Config.MBits (String.make !Config.operand_sz '0', m)) m' 
 	     
       let init_memory tbl =
 	
@@ -150,7 +154,7 @@ module Make(Domain: Domain.T) =
 		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' c' d) d l) Config.initial_memory_content tbl
 	in
 	Hashtbl.fold (fun a t d ->
-	    let l = extended_tainting_memory_pad a b t in
+	    let l = extended_tainting_memory_pad a t in
 	    List.fold_left (fun d (a', c') -> Domain.taint_memory_from_config a' c' d) d l) Config.initial_memory_tainting dc'
 	
 		     
@@ -227,7 +231,7 @@ module Make(Domain: Domain.T) =
       (** updates the abstract value field of the given state *)
       let update_state s v'=
       	s.v <- Domain.join v' s.v;
-      	Domain.contains v' s.v
+      	Domain.subset s.v v'
 			  
       (** updates the context and statement fields of the given state *)
       let update_stmts s stmts op_sz addr_sz =
