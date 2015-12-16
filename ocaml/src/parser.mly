@@ -63,11 +63,11 @@
 	begin
 	  match c with
 	  None    -> ()
-	| Some c' -> Hashtbl.add memory_content a' c'
+	| Some c' -> Hashtbl.add memory_content a c'
 	end;
 	match t with
 	  None    -> ()
-	| Some t' -> Hashtbl.add memory_tainting a' t'
+	| Some t' -> Hashtbl.add memory_tainting a t'
 				 
       let update_mandatory key =
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
@@ -80,7 +80,7 @@
 	(* open the binary to pick up the text section *)
 	let fid  = open_in_bin !filename					                                                in
 	let o 	 = !phys_textsection_start			                                                                in
-	let len  = Int64.to_int (Int64.sub (Int64.of_string !Config.code_addr_end) (Int64.of_string !Config.code_addr_start)) in
+	let len  = Int64.to_int (Int64.sub (Int64.of_string !Config.code_addr_end) (Int64.of_string !Config.cs)) in
 	Config.text := String.make len '\x00';
 	let len' = Int64.of_int (input fid !Config.text o len)                                                                 in
 	if Int64.compare len' (Int64.of_int len) <> 0 then failwith "code extraction has failed";
@@ -103,8 +103,8 @@
 	in
 	Hashtbl.iter add_tainting_rules libraries;
 	(* updates memory locations with the value of the ds register *)
-	Hashtbl.iter (fun a c -> Hashtbl.add ("ds:"^a) c Config.initial_memory_content) memory_content;
-	Hashtbl.iter (fun a t -> Hashtbl.add ("ds:"^a) t Config.initial_memory_tainting) memory_tainting
+	Hashtbl.iter (fun a c -> Hashtbl.add Config.initial_memory_content (!Config.ds^":"^a) c) memory_content;
+	Hashtbl.iter (fun a t -> Hashtbl.add Config.initial_memory_tainting (!Config.ds^":"^a) t) memory_tainting
 	;;
 	
 	%}

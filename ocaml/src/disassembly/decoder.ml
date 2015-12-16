@@ -95,12 +95,12 @@ module Make(Domain: Domain.T) =
 	}
 
       let segments = {
-	  cs = Address.of_string (!Config.cs^":\x00") !Config.address_sz;
-	  ds = Address.of_string (!Config.ds^":\x00") !Config.address_sz;
-	  ss = Address.of_string (!Config.ss^":\x00") !Config.address_sz;
-	  es = Address.of_string (!Config.es^":\x00") !Config.address_sz;
-	  fs = Address.of_string (!Config.fs^":\x00") !Config.address_sz;
-	  gs = Address.of_string (!Config.gs^":\x00") !Config.address_sz;
+	  cs = Address.of_string !Config.cs !Config.address_sz;
+	  ds = Address.of_string !Config.ds !Config.address_sz;
+	  ss = Address.of_string !Config.ss !Config.address_sz;
+	  es = Address.of_string !Config.es !Config.address_sz;
+	  fs = Address.of_string !Config.fs !Config.address_sz;
+	  gs = Address.of_string !Config.gs !Config.address_sz;
 	}
 
       (***********************************************************************)

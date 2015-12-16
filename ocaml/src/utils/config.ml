@@ -44,10 +44,10 @@ type cvalue = string
 		
 (* initial state utilities *)
 		    
-let initial_register_content = Hashtbl.create 10
-let initial_memory_content = Hashtbl.create 10
-let initial_register_tainting = Hashtbl.create 10
-let initial_memory_tainting = Hashtbl.create 10					   
+let initial_register_content: (Register.t, cvalue) Hashtbl.t = Hashtbl.create 10
+let initial_memory_content: (string, cvalue) Hashtbl.t = Hashtbl.create 10
+let initial_register_tainting: (Register.t, tvalue) Hashtbl.t = Hashtbl.create 10
+let initial_memory_tainting: (string, tvalue) Hashtbl.t = Hashtbl.create 10					   
 
 
 (* tainting rules for functions *)
@@ -57,7 +57,8 @@ type taint =
   | Addr_taint
 
 type tainting_fun = string * call_conv_t * taint option * taint list
-let tainting_tbl = Hashtbl.create 7
+								
+let tainting_tbl: (string, tainting_fun list) Hashtbl.t = Hashtbl.create 7
 				  
 let add_tainting_rules libname fun_rules =
   let cfuns =
