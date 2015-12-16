@@ -21,10 +21,8 @@ let call_conv = ref Cdecl
 		    
 let text = ref ""
 let ep = ref ""
-let code_addr_start = ref ""
+
 let code_addr_end = ref ""
-let stack_addr = ref ""
-let data_addr = ref ""
 		    
 let address_sz = ref 32
 let operand_sz = ref 32

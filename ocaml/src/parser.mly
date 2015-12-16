@@ -17,6 +17,12 @@
     (* name of binary file to analyze *)
     let filename = ref ""
 
+    (* temporary table for initial content of memory locations *)
+    let memory_content = Hashtbl.create 10;;
+
+    (* temporary table for the initial tainting value of memory locations *)
+    let memory_tainting = Hashtbl.create 10;;
+					 
     (* returns the bit string of a given string representation of an integer *)
     let to_bits t = Z.to_bits (Z.of_string t)
    
@@ -52,16 +58,16 @@
 	| Some t' -> Hashtbl.add Config.initial_register_tainting r' t'
 
 
-      (** fills the tbale of initial values for the given memory address (of type string) *)
+      (** fills the table of initial values for the given memory address (of type string) *)
       let init_memory a (c, t) =
 	begin
 	  match c with
 	  None    -> ()
-	| Some c' -> Hashtbl.add Config.initial_memory_content a c'
+	| Some c' -> Hashtbl.add memory_content a' c'
 	end;
 	match t with
 	  None    -> ()
-	| Some t' -> Hashtbl.add Config.initial_memory_tainting a t'
+	| Some t' -> Hashtbl.add memory_tainting a' t'
 				 
       let update_mandatory key =
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
@@ -95,7 +101,11 @@
 	  in
 	  List.iter add (List.rev funs)
 	in
-	Hashtbl.iter add_tainting_rules libraries;;
+	Hashtbl.iter add_tainting_rules libraries;
+	(* updates memory locations with the value of the ds register *)
+	Hashtbl.iter (fun a c -> Hashtbl.add ("ds:"^a) c Config.initial_memory_content) memory_content;
+	Hashtbl.iter (fun a t -> Hashtbl.add ("ds:"^a) t Config.initial_memory_tainting) memory_tainting
+	;;
 	
 	%}
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
@@ -156,10 +166,10 @@
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | RVA_CODE EQUAL i=INT       { update_mandatory RVA_CODE; Config.code_addr_start := i }
+    | RVA_CODE EQUAL i=INT       { update_mandatory RVA_CODE; Config.cs := i }
     | RVA_CODE_END EQUAL i=INT   { update_mandatory RVA_CODE_END; Config.code_addr_end := i }
-    | RVA_DATA EQUAL i=INT       { update_mandatory RVA_DATA; Config.data_addr := i }
-    | RVA_STACK EQUAL i=INT      { update_mandatory RVA_STACK; Config.stack_addr := i }
+    | RVA_DATA EQUAL i=INT       { update_mandatory RVA_DATA; Config.ds := i }
+    | RVA_STACK EQUAL i=INT      { update_mandatory RVA_STACK; Config.ss := i }
     | RVA_ENTRYPOINT EQUAL i=INT { update_mandatory RVA_ENTRYPOINT; Config.ep := i }
     
       

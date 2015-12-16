@@ -159,7 +159,7 @@ module Make(A: Asm.T)(D: T with module Asm = A) =
 	    let v' = D.eval_exp src sz c (new ctx m') in 
 	    let l  = Asm.Address.Set.elements addrs in
 	    match l with 
-	      [a] -> (* strong update *) try let _, n = Map.find (K.M a) m' in Val (Map.replace (K.M a) (v', n+1) m') with Not_found -> Map.add (K.M a) (v', 0) m'
+	      [a] -> (* strong update *) Val (try let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
 	    | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
 						    
     let join m1 m2 =
@@ -226,8 +226,8 @@ module Make(A: Asm.T)(D: T with module Asm = A) =
 
     let process_fun f m' =
       let registers, memories = f (new ctx m') in
-      let m' = List.fold_left (fun m' (r, v) -> try let _, n = Map.find (K.R r) m' in Map.replace (K.R r) (v, n) m' with Not_found Map.add (K.R r) (v, 0) m') m' registers in
-      List.fold_left (fun m' (a, v) -> let _, n = Map.find (K.M a) m' in try Map.replace (K.M a) (v, n) m' with Not_found -> Map.add (K.R r) (v, 0) m') m' memories
+      let m' = List.fold_left (fun m' (r, v) -> try let _, n = Map.find (K.R r) m' in Map.replace (K.R r) (v, n) m' with Not_found -> Map.add (K.R r) (v, 0) m') m' registers in
+      List.fold_left (fun m' (a, v) -> let _, n = Map.find (K.M a) m' in try Map.replace (K.M a) (v, n) m' with Not_found -> Map.add (K.M a) (v, 0) m') m' memories
 	     
     let enter_fun m f =
       match m with

@@ -21,8 +21,7 @@ module Make(Abi: Data.T) =
       Interpreter.Cfa.print cfa resultfile
   end
     
-module Flat 	  = Make(Abi.Flat)
-module Segmented  = Make(Abi.Segmented)
+module I = Make(Abi)
 			
 (* string conversion of a position in the configuration file *)
 let string_of_position pos =
@@ -51,10 +50,9 @@ let process ~configfile ~resultfile =
        raise e
   end;
   close_in cin;
-  (* 3: launch the fixpoint corresponding to the memory model provided by the configuration file *)
-  match !Config.memory_model with
-  | Config.Flat      -> Flat.process !Config.text !Config.code_addr_start !Config.ep resultfile
-  | Config.Segmented -> Segmented.process !Config.text !Config.code_addr_start !Config.ep resultfile;;
+  (* 3: launch the interpreter *)
+  I.process !Config.text !Config.code_addr_start !Config.ep resultfile
+ ;; 
   
 (* enables the process function to be callable from the .so *)
 Callback.register "process" process;;

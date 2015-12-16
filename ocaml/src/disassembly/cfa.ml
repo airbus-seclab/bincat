@@ -179,6 +179,7 @@ module Make(Domain: Domain.T) =
       (** CFA creation *)
       (** returned CFA has only one node : the state whose ip is given by the parameter and whose domain field is generated from the Config module *)
       let init ip =
+	Decoder.init ();
 	let s = {
 	    id = 0;
 	    ip = Domain.Asm.Address.of_string ip !Config.address_sz;
