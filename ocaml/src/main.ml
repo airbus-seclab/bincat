@@ -9,11 +9,8 @@ module Make(Abi: Data.T) =
     module Domain      = Pair.Make(UPtr)(UTaint)
     module Address     = Domain.Asm.Address
     module Interpreter = Interpreter.Make(Domain)
-    module Cfa 	       = Interpreter.Cfa
-    module Code        = Interpreter.Code
 			
     let process text text_addr e resultfile =
-      Printf.printf 
       (* code generation *)
       let code   = Interpreter.Code.make text text_addr e !Config.address_sz in
       (* intial cfa with only an initial state *)
@@ -21,7 +18,7 @@ module Make(Abi: Data.T) =
       (* running the fixpoint engine *)
       let cfa 	 = Interpreter.process code g s	in
       (* dumping results *)
-      Cfa.print cfa resultfile
+      Interpreter.Cfa.print cfa resultfile
   end
     
 module Flat 	  = Make(Abi.Flat)
@@ -30,7 +27,8 @@ module Segmented  = Make(Abi.Segmented)
 (* string conversion of a position in the configuration file *)
 let string_of_position pos =
   Printf.sprintf "%d" pos.Lexing.lex_start_pos
-		 
+
+(* main function *)
 let process ~configfile ~resultfile =
   (* 1: open the configuration file *)
   let cin    =

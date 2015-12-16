@@ -13,16 +13,13 @@ module Make(Domain: Domain.T) =
 	   
 	  (** abstract data type of a state *)
 	  type t = {
-	      id: int; 	     (** unique identificator of the state *)
-	      mutable ip: Domain.Asm.Address.t;  (** instruction pointer *)
-	      mutable v: Domain.t; 		  (** abstract value *)
-	      mutable ctx: ctx_t ; 		  (** context of decoding *)
+	      id: int; 	     			   (** unique identificator of the state *)
+	      mutable ip: Domain.Asm.Address.t;    (** instruction pointer *)
+	      mutable v: Domain.t; 		   (** abstract value *)
+	      mutable ctx: ctx_t ; 		   (** context of decoding *)
 	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
-	      internal: bool 	     (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
+	      internal: bool 	     		   (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
 	    }
-
-	  let ip s = s.ip
-	  let abstract_value s = s.v
 				   
 	  (** the state identificator counter *)
 	  let state_cpt = ref 0
@@ -40,12 +37,6 @@ module Make(Domain: Domain.T) =
 					
 	  (** hashes a state *)
 	  let hash b 	= b.id
-			 
-	  (* (\** oracle providing information to domains *\) *)
-	  (* class context d = *)
-	  (* object *)
-	  (*   method mem_to_addresses m sz = Domain.mem_to_addresses m sz d *)
-	  (* end *)
 	    
 	end
 	  
@@ -61,8 +52,8 @@ module Make(Domain: Domain.T) =
 	  let compare l1 l2 = 
 	    match l1, l2 with
 	      None, None 	   -> 0
-	    | None, _ 	   -> -1
-	    | Some b1, Some b2 -> compare b1 b2
+	    | None, _ 	   	   -> -1
+	    | Some b1, Some b2 	   -> compare b1 b2
 	    | Some _, None 	   -> 1
 					
 	end
@@ -74,30 +65,40 @@ module Make(Domain: Domain.T) =
       (** type of a CFA *)
       type t = G.t
 
-
-      (* returns the extension of string b with '0' so that the returned string is of length sz *)
+      (* utilities for memory and register initialization with respect to the provided configuration *)
+      (***********************************************************************************************)
+		 
+      (* returns the extension of the string b with '0' so that the returned string is of length sz *)
+      (* length of b is supposed to be <= sz *)
+      (* it is used both for initializing memory and registers *)
       let pad b sz =
 	let n = String.length b in
 	if n = sz then b
 	else
+	  begin
 	    let s = String.make sz '0' in
-	    let o = sz - n + 1 in
+	    let o = sz - n  in
 	    for i = 0 to n-1 do
 	      Bytes.set s (i+o) (String.get b i)
 	    done;
 	    s
+	  end
 		     
-      (* return the given domain updated by the initial values and tainting for memory as provided by the Config module *)
-      let init_registers d =	
+      (* return the given domain updated by the initial values and intitial tainting for registers with respected ti the provided configuration *)
+      let init_registers d =
+
+	(* this function adds leading zero to the tainting value v so that the new value v' has the same length as the register v *)
 	let pad_tainting_register v r =
-	  let sz = Register.size r in
+	  let sz   = Register.size r in
 	  let name = Register.name r in
+	  
 	  match v with
 	  | Config.Bits b       ->
 	     if (String.length b) > sz then
 	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
 	       Config.Bits (pad b sz)
+			   
 	  | Config.MBits (b, m) ->
 	     if (String.length b) > sz || (String.length m) > sz then
 	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
@@ -105,23 +106,36 @@ module Make(Domain: Domain.T) =
 	       Config.MBits (pad b sz, pad m sz)
 	in						     
 
-	  let d' =  Hashtbl.fold (fun r v d -> Domain.taint_register_from_config r (pad_tainting_register v r) d) Config.initial_register_tainting d in
-	  Hashtbl.fold (fun r v d -> Domain.set_register_from_config r (pad v (Register.size r)) d) Config.initial_register_content d'
+	(* first the domain is updated with the "padded" tainting value for each register with initial tainting in the provided configuration *)
+	let d' =  Hashtbl.fold
+		    (fun r v d -> Domain.taint_register_from_config r (pad_tainting_register v r) d
+		    )
+		    Config.initial_register_tainting d
+	in
+	(* then the resulting domain d' is updated with the "padded" content for each register with initial content setting in the provided configuration *)  
+	Hashtbl.fold
+	  (fun r v d -> Domain.set_register_from_config r (pad v (Register.size r)) d
+	  )
+	  Config.initial_register_content d'
 
       	
-      (** return the given domain updated by the initial values and tainting for memory as provided by the Config module *)
+      (* return the given domain updated by the initial values and tainting for memory as provided by the Config module *)
+      (* as the intial value may not fit in one word the function returns a list of initial values (one per word) *)
       let split_and_pad s =
-	  let len = String.length s in
-	  let sz = !Config.operand_sz in
-	  let l = ref [] in
+	  let len = String.length s    in
+	  let sz  = !Config.operand_sz in
+	  let l   = ref []             in
 	  for i = 0 to len-1 do
 	    try
 	      l := (String.sub s (sz*i) (sz*(i+1)-1))::!l
 	    with
 	      _ -> l := pad (String.sub s i (len-(sz*i))) sz::!l
 	  done;
+	  (* do not forget to reverse the list to preserve the order of words to be those of their memory location *)
 	  List.rev !l
-		   
+
+      (* 1. split b into a list of string of size Config.operand_sz *)
+      (* 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
       let extended_memory_pad a b =
 	let a' = Domain.Asm.Address.of_string a !Config.address_sz in
 	try
@@ -130,6 +144,8 @@ module Make(Domain: Domain.T) =
 	  let l = split_and_pad b in
 	  List.mapi (fun i v -> Domain.Asm.Address.add_offset a' (Domain.Asm.Offset.of_int i), v) l 
 
+      (* 1. split b into a list of tainting values of size Config.operand_sz *)
+      (* 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
       let extended_tainting_memory_pad a t =
 	match t with
 	| Config.Bits b -> List.map (fun (a', v') -> a', Config.Bits v') (extended_memory_pad a b)
@@ -146,9 +162,10 @@ module Make(Domain: Domain.T) =
 	     else
 	       (* filling with '0' means that we suppose by default that memory is untainted *)
 	       List.mapi (fun i (a, m) -> if i < nb' then a, Config.MBits (snd (List.nth b' i), m) else a, Config.MBits (String.make !Config.operand_sz '0', m)) m' 
-	     
-      let init_memory tbl =
-	
+
+      (* main function to initialize memory locations both for content and tainting *)
+      (* this filling is done by iterating on tables in Config *)
+      let init_memory tbl =	
 	let dc' = Hashtbl.fold (fun a c d ->
 		      let l = extended_memory_pad a c in
 		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' c' d) d l) Config.initial_memory_content tbl
@@ -157,21 +174,16 @@ module Make(Domain: Domain.T) =
 	    let l = extended_tainting_memory_pad a t in
 	    List.fold_left (fun d (a', c') -> Domain.taint_memory_from_config a' c' d) d l) Config.initial_memory_tainting dc'
 	
-		     
+      (* end of init utilities *)	     
+      (*************************)
+
       (** CFA creation *)
       (** returned CFA has only one node : the state whose ip is given by the parameter and whose domain field is generated from the Config module *)
       let init ip =
-	let init_value () =
-	  let dc  = init_registers (Domain.init()) in
-	  (* update tainting value and contents for memory locations *)
-	  init_memory dc								       
-
-	in  
-	  
 	let s = {
 	    id = 0;
 	    ip = Domain.Asm.Address.of_string ip !Config.address_sz;
-	    v = init_value () ;
+	    v = init_memory (init_registers (Domain.init())) ;
 	    stmts = [];
 	    ctx = {
 		op_sz = !Config.operand_sz;
@@ -184,7 +196,8 @@ module Make(Domain: Domain.T) =
 	G.add_vertex g s;
 	g, s
  			       
-      
+      (* CFA utilities *)
+      (*****************)
 			     
       (** returns true whenever the two given contexts are equal *)
       let ctx_equal c1 c2 = c1.addr_sz = c2.addr_sz && c1.op_sz = c2.op_sz
