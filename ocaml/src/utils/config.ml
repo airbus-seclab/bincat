@@ -60,6 +60,7 @@ type taint =
 
 type tainting_fun = string * call_conv_t * taint option * taint list
 let tainting_tbl = Hashtbl.create 7
+				  
 let add_tainting_rules libname fun_rules =
   let cfuns =
     try

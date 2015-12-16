@@ -86,7 +86,6 @@ module Make(Domain: Domain.T) =
 		     
       (* return the given domain updated by the initial values and intitial tainting for registers with respected ti the provided configuration *)
       let init_registers d =
-
 	(* this function adds leading zero to the tainting value v so that the new value v' has the same length as the register v *)
 	let pad_tainting_register v r =
 	  let sz   = Register.size r in
@@ -165,7 +164,7 @@ module Make(Domain: Domain.T) =
 
       (* main function to initialize memory locations both for content and tainting *)
       (* this filling is done by iterating on tables in Config *)
-      let init_memory tbl =	
+      let init_memory tbl =
 	let dc' = Hashtbl.fold (fun a c d ->
 		      let l = extended_memory_pad a c in
 		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' c' d) d l) Config.initial_memory_content tbl
