@@ -9,7 +9,10 @@ let memory_model = ref Flat
 type format_t =
   | Pe
   | Elf
-      
+
+type mode_t =
+  | Protected
+    
 let format = ref Pe
 		 
 type call_conv_t =

@@ -74,12 +74,12 @@ module Make(Domain: Domain.T) =
       (* Internal state of the decoder *)
       (***********************************************************************)
       type segment_t = {
-	  cs: Address.t;
-	  ds: Address.t; 
-	  ss: Address.t;
-	  es: Address.t;
-	  fs: Address.t;
-	  gs: Address.t;
+	  cs: Word.t;
+	  ds: Word.t; 
+	  ss: Word.t;
+	  es: Word.t;
+	  fs: Word.t;
+	  gs: Word.t;
 	}
       type state = {
 	  mutable g 	     : Cfa.t; 	          (* current cfa *)
@@ -95,12 +95,12 @@ module Make(Domain: Domain.T) =
 	}
 
       let segments = {
-	  cs = Address.of_string !Config.cs !Config.address_sz;
-	  ds = Address.of_string !Config.ds !Config.address_sz;
-	  ss = Address.of_string !Config.ss !Config.address_sz;
-	  es = Address.of_string !Config.es !Config.address_sz;
-	  fs = Address.of_string !Config.fs !Config.address_sz;
-	  gs = Address.of_string !Config.gs !Config.address_sz;
+	  cs = Word.of_string !Config.cs 16;
+	  ds = Word.of_string !Config.ds 16;
+	  ss = Word.of_string !Config.ss 16;
+	  es = Word.of_string !Config.es 16;
+	  fs = Word.of_string !Config.fs 16;
+	  gs = Word.of_string !Config.gs 16;
 	}
 
       (***********************************************************************)

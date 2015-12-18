@@ -33,7 +33,7 @@ struct
     | Asm.R (_n, _r) -> failwith "the following commented code shows a confusion between what an offset and an address are supposed to represent "
   (*let n' = Segment.shift_left n 4 in
 		  let offsets = Address.Set.elements (Domain.exp_to_addresses s (Lval (V r))) in
-		  List.map (fun a -> Address.make n' a sz) offsets*)
+		  List.map (fun a -> Address.of_string (n'^":"^a) sz) offsets*)
 						   
   let default_ctx () = {
       Cfa.State.op_sz = !Config.operand_sz; 

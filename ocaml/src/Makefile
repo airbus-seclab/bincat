@@ -25,7 +25,6 @@ utils/mapOpt.mli\
 data-struct/code.ml\
 domains/domain.mli\
 fixpoint/alarm.mli\
-disassembly/abi.mli\
 
 LIBNAME=libbincat.so
 
