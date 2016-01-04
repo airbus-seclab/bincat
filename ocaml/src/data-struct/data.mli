@@ -57,10 +57,6 @@ module type T = sig
       (** in Segmented memory models _a_ is supposed to be of the form se:offset *)
       (** may raise Invalid if the given string is not a valid *)
       (** representation of an offset wrt to the size given by the int parameter *)
-
-      (** creates an address from a segment address and an offset on it *)
-      val make: t -> Offset.t -> int -> t
-      (** the integer is the size in bits of the address *)
 					   
       (** comparison of the two arguments *)
       val compare: t -> t -> int

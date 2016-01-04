@@ -14,7 +14,7 @@ module Make(Domain: Domain.T) =
     (************************************************************************)
 
     let register_tbl = Hashtbl.create 8;;
-      
+
     let eax = Register.make "eax" 32;;
     let ecx = Register.make "ecx" 32;;
     let edx = Register.make "edx" 32;;
@@ -91,7 +91,7 @@ module Make(Domain: Domain.T) =
 	  mutable o 	     : int; (* offset into the buffer *)
 	  mutable rep_prefix: bool option;       (* None = no rep prefix ; Some true = rep prefix ; Some false = repne/repnz prefix *)
 	  segments: segment_t;								       
-	  mutable current_ds: Address.t;										    
+	  mutable current_ds: Word.t;										    
 	}
 
       let segments = {

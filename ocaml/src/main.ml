@@ -1,6 +1,6 @@
 module Make(Abi: Data.T) =
   struct
-    (* generation of all modules depending on memory model (main type of addresses) *)
+    (* generation of all modules depending on the memory model (main type of addresses) *)
     module Asm 	       = Asm.Make(Abi)
     module Ptr 	       = (Ptr.Make(Asm): Unrel.T with module Asm = Asm)
     module UPtr        = (Unrel.Make(Asm)(Ptr): Domain.T with module Asm = Ptr.Asm)
@@ -51,7 +51,7 @@ let process ~configfile ~resultfile =
   end;
   close_in cin;
   (* 3: launch the interpreter *)
-  I.process !Config.text !Config.code_addr_start !Config.ep resultfile
+  I.process !Config.text !Config.ds !Config.ep resultfile
  ;; 
   
 (* enables the process function to be callable from the .so *)

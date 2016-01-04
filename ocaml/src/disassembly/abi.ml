@@ -38,6 +38,8 @@ module Word =
 	  (!s, n)
   end
 
+module Offset = Z
+		  
 module Address =
   struct
 
@@ -77,12 +79,12 @@ module Address =
 	  else
 	    raise (Invalid_argument "overflow when tried to convert an address to a word")
 		  
-	let sub (v1, sz1) (v2, sz2) =
-	  let v = Z.sub v1 v2 in
+	let sub v1 v2 =
+	  let v = Z.sub (fst v1) (fst v2) in
 	  if Z.compare v Z.zero < 0 then
 	    raise (Invalid_argument "invalid address substraction")
 	  else
-	    v, max sz1 sz2
+	    v
       end					       
 
     include A

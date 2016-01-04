@@ -128,7 +128,6 @@ struct
   let process code g s =
     let continue = ref true		      in
     let waiting  = ref (Vertices.singleton s) in
-     
     while !continue do
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
