@@ -84,6 +84,9 @@ rule token = parse
   | "pe" 		    { PE }
   | "elf" 		    { ELF }
   | "phys-code" 	    { PHYS_CODE }
+  | "mode"                  { MODE }
+  | "protected"             { PROTECTED }
+  | "real"                  { REAL }
   (* left operand of type integer *)
   | integer as i 	    { INT i }
   (* misc left operands *)

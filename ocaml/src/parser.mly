@@ -30,6 +30,7 @@
     let mandatory_keys = Hashtbl.create 20;;
     let mandatory_items = [
 	(MEM_MODEL, "mem-model", "settings");
+	(MODE, "mode", "settings");
 	(CALL_CONV, "call-conv", "settings");
 	(MEM_SZ, "mem-sz", "settings");
 	(OP_SZ, "op-sz", "settings");
@@ -111,7 +112,7 @@
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER UNROLL RVA_DATA RVA_CODE RVA_CODE_END RVA_STACK FLAT SEGMENTED BINARY STATE
-%token FORMAT PE ELF PHYS_CODE RVA_ENTRYPOINT FILEPATH MASK
+%token FORMAT PE ELF PHYS_CODE RVA_ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER
 %token <string> STRING
 %token <string> INT
@@ -144,6 +145,7 @@
     
       setting_item:
     | MEM_MODEL EQUAL m=memmodel { update_mandatory MEM_MODEL; Config.memory_model := m}
+    | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m}
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
     | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := int_of_string i with _ -> Printf.eprintf "illegal operand size"; exit (-1) }
     | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := int_of_string i with _ -> Printf.eprintf "illegal address size"; exit (-1) }
@@ -154,7 +156,10 @@
     | FLAT 	{ Config.Flat }
     | SEGMENTED { Config.Segmented }
     
-      
+      mmode:
+    | PROTECTED { Config.Protected }
+    | REAL 	{ Config.Real }
+	   
       callconv:
     | CDECL    { Config.Cdecl } 
     | FASTCALL { Config.Fastcall }

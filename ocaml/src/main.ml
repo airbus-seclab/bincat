@@ -13,11 +13,15 @@ module Make(Abi: Data.T) =
     let process text text_addr ep resultfile =
       (* code generation *)
       let ep'  = Domain.Asm.Address.of_string (text_addr^":"^ep) !Config.address_sz in
+      Printf.printf "ep = %s\n" (Domain.Asm.Address.to_string ep');
+      flush stdout;
       let o    = Domain.Asm.Offset.of_string ep                                     in
       let code = Interpreter.Code.make text ep' o                                   in
       (* intial cfa with only an initial state *)
       let g, s = Interpreter.Cfa.init ep'                                           in
       (* running the fixpoint engine *)
+      Printf.printf "cfa et etat initiaux ok\n";
+      flush stdout;
       let cfa  = Interpreter.process code g s	                                    in
       (* dumping results *)
       Interpreter.Cfa.print cfa resultfile

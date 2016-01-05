@@ -16,7 +16,10 @@ module Word =
 			    
     let one sz = Z.one, sz
 			  
-    let to_string w = Z.to_string (fst w)
+    let to_string w =
+      let s   = String.escaped "0x%"             in
+      let fmt = Printf.sprintf "%s%dx" s (snd w) in
+      Printf.sprintf "0x%s" (Z.format fmt (fst w))
 				  
     let of_int v sz = Z.of_int v, sz
 				    
@@ -48,22 +51,24 @@ module Address =
 	include Word
        	    
 	let of_string a n =
-	  let make s =
+	  if !Config.mode = Config.Protected then 
+	    let make s =
 	      let a' = Z.of_string s in
-	    if Z.compare a' Z.zero < 0 then
-	      raise (Invalid_argument "Tried to create negative address")
-	    else
-	      a'
-	  in
-	  try
-	    (* checks whether the address has a segment prefix *)
-	    let i = String.index a ':' in
-	    let s = String.sub a 0 i in
-	    let (o: string) = String.sub a (i+1) ((String.length a) - i - 1) in
-	    let s' = make s in
-	    Z.add (Z.shift_left s' 4) (make o), n
-	  with _ -> make a, n
-				     
+	      if Z.compare a' Z.zero < 0 then
+		raise (Invalid_argument "Tried to create negative address")
+	      else
+		a'
+	    in
+	    try
+	      (* checks whether the address has a segment prefix *)
+	      let i = String.index a ':'                             in
+	      let s = String.sub a 0 i                               in
+	      let o = String.sub a (i+1) ((String.length a) - i - 1) in
+	      Z.add (Z.shift_left (make s) 4) (make o), n 
+	    with _ -> make a, n
+	  else
+	    failwith "Address generation for this memory mode not yet managed"
+		     
 	let size a = snd a
 		     	 
 	let add_offset (s, sz) o' = 

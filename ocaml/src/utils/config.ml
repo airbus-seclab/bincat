@@ -12,7 +12,10 @@ type format_t =
 
 type mode_t =
   | Protected
-    
+  | Real
+
+let mode = ref Protected
+	       
 let format = ref Pe
 		 
 type call_conv_t =
@@ -23,7 +26,7 @@ type call_conv_t =
 let call_conv = ref Cdecl
 		    
 let text = ref ""
-let ep = ref ""
+let ep = ref "\x00"
 
 let code_addr_end = ref "\x00"
 		    

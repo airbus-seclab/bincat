@@ -111,6 +111,7 @@ module Make(Domain: Domain.T) =
 		    )
 		    Config.initial_register_tainting d
 	in
+
 	(* then the resulting domain d' is updated with the "padded" content for each register with initial content setting in the provided configuration *)  
 	Hashtbl.fold
 	  (fun r v d -> Domain.set_register_from_config r (pad v (Register.size r)) d
@@ -165,6 +166,8 @@ module Make(Domain: Domain.T) =
       (* main function to initialize memory locations both for content and tainting *)
       (* this filling is done by iterating on tables in Config *)
       let init_memory tbl =
+	Printf.printf "entree dans init_memory";
+	flush stdout;
 	let dc' = Hashtbl.fold (fun a c d ->
 		      let l = extended_memory_pad a c in
 		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' c' d) d l) Config.initial_memory_content tbl
