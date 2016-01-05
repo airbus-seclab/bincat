@@ -25,7 +25,7 @@ let call_conv = ref Cdecl
 let text = ref ""
 let ep = ref ""
 
-let code_addr_end = ref ""
+let code_addr_end = ref "\x00"
 		    
 let address_sz = ref 32
 let operand_sz = ref 32

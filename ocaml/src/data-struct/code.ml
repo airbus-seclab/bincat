@@ -9,22 +9,20 @@ module Make (D: Data.T) =
 	c: string; 	(** the byte sequence containing the code *)	       
       }
 			   
-    let make ~code ~ep ~a ~addr_sz =
-      let e = D.Address.of_string ep addr_sz in
-      try
-	{
-	  e = e;
-	  o = D.Address.sub (D.Address.of_string a addr_sz) e;
+    let make ~code ~ep ~o =
+   	{
+	  e = ep;
+	  o = o;
 	  c = code;
 	}
-      with _ -> raise Utils.Illegal_address
+   
 		      
     let sub v a =
       try
 	let o   = D.Offset.to_int (D.Address.sub a v.e) in
 	let len = (String.length v.c) - o               in
 	String.sub v.c o len 
-      with _ -> raise Utils.Illegal_address
+      with _ ->  raise Utils.Illegal_address
 
     let to_string c =
       let s = ref "" in

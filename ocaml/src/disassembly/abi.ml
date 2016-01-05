@@ -49,7 +49,7 @@ module Address =
        	    
 	let of_string a n =
 	  let make s =
-	     let a' = Z.of_string s in
+	      let a' = Z.of_string s in
 	    if Z.compare a' Z.zero < 0 then
 	      raise (Invalid_argument "Tried to create negative address")
 	    else

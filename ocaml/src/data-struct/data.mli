@@ -57,7 +57,7 @@ module type T = sig
       (** in Segmented memory models _a_ is supposed to be of the form se:offset *)
       (** may raise Invalid if the given string is not a valid *)
       (** representation of an offset wrt to the size given by the int parameter *)
-					   
+
       (** comparison of the two arguments *)
       val compare: t -> t -> int
       (** returns 0 if arguments are equal ; *)

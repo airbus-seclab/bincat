@@ -10,13 +10,15 @@ module Make(Abi: Data.T) =
     module Address     = Domain.Asm.Address
     module Interpreter = Interpreter.Make(Domain)
 			
-    let process text text_addr e resultfile =
+    let process text text_addr ep resultfile =
       (* code generation *)
-      let code   = Interpreter.Code.make text text_addr e !Config.address_sz in
+      let ep'  = Domain.Asm.Address.of_string (text_addr^":"^ep) !Config.address_sz in
+      let o    = Domain.Asm.Offset.of_string ep                                     in
+      let code = Interpreter.Code.make text ep' o                                   in
       (* intial cfa with only an initial state *)
-      let g, s   = Interpreter.Cfa.init e in
+      let g, s = Interpreter.Cfa.init ep'                                           in
       (* running the fixpoint engine *)
-      let cfa 	 = Interpreter.process code g s	in
+      let cfa  = Interpreter.process code g s	                                    in
       (* dumping results *)
       Interpreter.Cfa.print cfa resultfile
   end
