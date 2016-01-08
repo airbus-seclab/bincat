@@ -22,6 +22,22 @@ make install
 4. for the documentation (generated in directory doc)
 make doc
 
+=ocaml compilation
+If messages indicating that the -fPIC must be used used:
+/usr/bin/ld: /usr/local/lib/ocaml/libasmrun.a(fail.o): réadressage de R_X86_64_32 en vertu de « caml_exn_Failure » ne peut être utilisé lors de la création d'un objet partagé; recompilez avec -fPIC
+/usr/local/lib/ocaml/libasmrun.a: error adding symbols: Mauvaise valeur
+collect2: error: ld returned 1 exit status
+File "caml_startup", line 1:
+Error: Error during linking
+make[1]: *** [libbincat.so] Erreur 2
+
+Then ocaml must be recompiled. Ocaml v4.02.3's INSTALL file indicates that this bug has been fixed - but it still does not work.
+
+Use hardening-wrapper to recompile ocaml (a package is available in debian,
+ubuntu, archlinux...) to make sure this options is passed when ocaml gets
+compiled. The method proposed in the INSTALL file (./configure parameters) are
+not sufficient.
+
 =important remark
 be sure to have the directory src/bincat into your LD_LIBRARY_PATH variable
 
