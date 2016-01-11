@@ -5,9 +5,6 @@
       Printf.eprintf "missing %s in section %s\n" item section;
       exit (-1);;
 
-    (* physical address (offset in the binary file) of the code *)
-    let phys_textsection_start = ref 0
-				     
     (* current library name *)
     let libname = ref "";;
 		      
@@ -35,14 +32,17 @@
 	(MEM_SZ, "mem-sz", "settings");
 	(OP_SZ, "op-sz", "settings");
 	(STACK_WIDTH, "stack-width", "settings");
-	(RVA_STACK, "rva-stack", "loader");
-	(RVA_DATA, "rva-data", "loader");
-	(RVA_CODE, "rva-code", "loader");
-	(RVA_CODE_END, "rva-code-end", "loader");
-	(RVA_ENTRYPOINT, "rva-entrypoint", "loader");
+	(SS, "ss", "loader");
+	(DS, "ds", "loader");
+	(CS, "cs", "loader");
+	(ES, "es", "loader");
+	(FS, "fs", "loader");
+	(GS, "gs", "loader");
+	(ENTRYPOINT, "entrypoint", "loader");
+	(CODE_LENGTH, "code-length", "loader");
 	(FORMAT, "format", "binary");
-	(PHYS_CODE, "phys-code", "binary");
 	(FILEPATH, "filepath", "binary");
+	(PHYS_CODE_ADDR, "phys-code-addr", "loader");
       ];;	
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
@@ -61,14 +61,15 @@
 
       (** fills the table of initial values for the given memory address (of type string) *)
       let init_memory a (c, t) =
+	let a' = Z.of_string a in
 	begin
 	  match c with
 	  None    -> ()
-	| Some c' -> Hashtbl.add memory_content a c'
+	| Some c' -> Hashtbl.add memory_content a' c'
 	end;
 	match t with
 	  None    -> ()
-	| Some t' -> Hashtbl.add memory_tainting a t'
+	| Some t' -> Hashtbl.add memory_tainting a' t'
 				 
       let update_mandatory key =
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
@@ -79,12 +80,10 @@
 	(* check whether all mandatory items are provided *)
 	Hashtbl.iter (fun _ (pname, sname, b) -> if not b then missing_item pname sname) mandatory_keys;
 	(* open the binary to pick up the text section *)
-	let fid  = open_in_bin !filename					                                                in
-	let o 	 = !phys_textsection_start			                                                                in
-	let len  = Int64.to_int (Int64.sub (Int64.of_string !Config.code_addr_end) (Int64.of_string !Config.cs)) in
-	Config.text := String.make len '\x00';
-	let len' = Int64.of_int (input fid !Config.text o len)                                                                 in
-	if Int64.compare len' (Int64.of_int len) <> 0 then failwith "code extraction has failed";
+	let fid  = open_in_bin !filename in
+	Config.text := String.make !Config.code_length '\x00';
+	let len = input fid !Config.text 0 !Config.code_length in
+	if len <> !Config.code_length then failwith "code extraction has failed";
 	(* fill the table of tainting rules for each provided library *)
 	let add_tainting_rules l (c, funs) =
 	  let c' =
@@ -103,16 +102,22 @@
 	  List.iter add (List.rev funs)
 	in
 	Hashtbl.iter add_tainting_rules libraries;
-	(* updates memory locations with the value of the ds register *)
-	Hashtbl.iter (fun a c -> Hashtbl.add Config.initial_memory_content (!Config.ds^":"^a) c) memory_content;
-	Hashtbl.iter (fun a t -> Hashtbl.add Config.initial_memory_tainting (!Config.ds^":"^a) t) memory_tainting
+	(* updates memory locations with the value of the ds register if ds is not zero *)
+	if Z.equal !Config.ds Z.zero then
+	  if !Config.mode = Config.Protected then
+	  begin
+	    Hashtbl.iter (fun a c -> Hashtbl.add Config.initial_memory_content (Z.add !Config.ds a) c) memory_content;
+	    Hashtbl.iter (fun a t -> Hashtbl.add Config.initial_memory_tainting (Z.add !Config.ds a) t) memory_tainting
+	  end
+	  else
+	    failwith "only protected mode supported for the while"
 	;;
 	
 	%}
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
-%token ANALYZER UNROLL RVA_DATA RVA_CODE RVA_CODE_END RVA_STACK FLAT SEGMENTED BINARY STATE
-%token FORMAT PE ELF PHYS_CODE RVA_ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
+%token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
+%token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED PHYS_CODE_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER
 %token <string> STRING
 %token <string> INT
@@ -144,38 +149,42 @@
     | s=setting_item ss=settings { s; ss }
     
       setting_item:
-    | MEM_MODEL EQUAL m=memmodel { update_mandatory MEM_MODEL; Config.memory_model := m}
-    | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m}
+    | MEM_MODEL EQUAL m=memmodel { update_mandatory MEM_MODEL; Config.memory_model := m }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
     | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := int_of_string i with _ -> Printf.eprintf "illegal operand size"; exit (-1) }
     | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := int_of_string i with _ -> Printf.eprintf "illegal address size"; exit (-1) }
     | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := int_of_string i with _ -> Printf.eprintf "illegal stack width"; exit (-1) }
-    
-
+    | MODE EQUAL m=mmode        { update_mandatory MODE ; Config.mode := m }
+				 	
       memmodel:
     | FLAT 	{ Config.Flat }
     | SEGMENTED { Config.Segmented }
-    
-      mmode:
-    | PROTECTED { Config.Protected }
-    | REAL 	{ Config.Real }
-	   
+
       callconv:
     | CDECL    { Config.Cdecl } 
     | FASTCALL { Config.Fastcall }
     | STDCALL  { Config.Stdcall }
     
 
+      mmode:
+    | PROTECTED { Config.Protected }
+    | REAL 	{ Config.Real }
+
+	
       loader:
     | l=loader_item 	      { l }
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | RVA_CODE EQUAL i=INT       { update_mandatory RVA_CODE; Config.cs := i }
-    | RVA_CODE_END EQUAL i=INT   { update_mandatory RVA_CODE_END; Config.code_addr_end := i }
-    | RVA_DATA EQUAL i=INT       { update_mandatory RVA_DATA; Config.ds := i }
-    | RVA_STACK EQUAL i=INT      { update_mandatory RVA_STACK; Config.ss := i }
-    | RVA_ENTRYPOINT EQUAL i=INT { update_mandatory RVA_ENTRYPOINT; Config.ep := i }
+    | CS EQUAL i=INT          { update_mandatory CS; Config.cs := Z.of_string i }
+    | DS EQUAL i=INT          { update_mandatory DS; Config.ds := Z.of_string i }
+    | SS EQUAL i=INT          { update_mandatory SS; Config.ss := Z.of_string i }
+    | ES EQUAL i=INT 	      { update_mandatory ES; Config.es := Z.of_string i }
+    | FS EQUAL i=INT 	      { update_mandatory FS; Config.fs := Z.of_string i }
+    | GS EQUAL i=INT 	      { update_mandatory GS; Config.gs := Z.of_string i }
+    | CODE_LENGTH EQUAL i=INT { update_mandatory CODE_LENGTH; Config.code_length := int_of_string i }
+    | ENTRYPOINT EQUAL i=INT  { update_mandatory ENTRYPOINT; Config.ep := Z.of_string i }
+    | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := int_of_string i }
     
       
       binary:
@@ -185,8 +194,9 @@
       binary_item:
     | FILEPATH EQUAL f=STRING 	{ update_mandatory FILEPATH; filename := f }
     | FORMAT EQUAL f=format 	{ update_mandatory FORMAT; Config.format := f }
-    | PHYS_CODE EQUAL i=INT 	{ update_mandatory PHYS_CODE; phys_textsection_start := int_of_string i }
-					
+
+
+		
       format:
     | PE  { Config.Pe }
     | ELF { Config.Elf }

@@ -20,9 +20,6 @@ module type T =
     (** abstract data type *)
     type t
 
-    (** for typing purpose only *)
-    module Asm: Asm.T
-
     (** name of the abstract domain *)
     val name: string
 
@@ -34,19 +31,18 @@ module type T =
     val to_string: t -> string
 
     (** value generation from configuration *)
-    (** the integer paramater is the size in bits of the configuration value *)
-    val of_config: Config.cvalue -> int -> t
+    val of_config: Config.cvalue -> t
 			       
     (** returns the evaluation of the given expression as an abstract value *)			    
-    val eval_exp: Asm.exp -> int -> (Asm.exp, Asm.Address.Set.t) Domain.context -> (Asm.Address.t, t) ctx_t -> t
+    val eval_exp: Asm.exp -> int -> (Asm.exp, Data.Address.Set.t) Domain.context -> (Data.Address.t, t) ctx_t -> t
 												  
     (** returns the set of addresses associated to the memory expression of size _n_ where _n_ is the integer parameter *)
-    val mem_to_addresses: Asm.exp -> int -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
+    val mem_to_addresses: Asm.exp -> int -> (Data.Address.t, t) ctx_t -> Data.Address.Set.t
     (** may raise an Exception if this set of addresses is too large *)									  
     (** never call the method ctx_t.to_addresses in this function *)
 										    
     (** returns the set of addresses associated to the given expression *)									
-    val exp_to_addresses: Asm.exp -> int -> (Asm.Address.t, t) ctx_t -> Asm.Address.Set.t
+    val exp_to_addresses: Asm.exp -> int -> (Data.Address.t, t) ctx_t -> Data.Address.Set.t
     (** may raise an Exception if this set of addresses is too large *)
 								   
     (** returns the tainted value corresponding to the given abstract value *)
@@ -59,36 +55,34 @@ module type T =
     val combine: t -> t -> int -> int -> t 
 
     (** transfer function when the given function is entered *)
-    val enter_fun: Asm.fct -> (Asm.Address.t, t) ctx_t -> (Register.t * t) list * (Asm.Address.t * t) list
+    val enter_fun: Asm.fct -> (Data.Address.t, t) ctx_t -> (Register.t * t) list * (Data.Address.t * t) list
 								    
 			  
     (** tranfer function when the current function is returned *)
-    val leave_fun: (Asm.Address.t, t) ctx_t -> (Register.t * t) list * (Asm.Address.t * t) list
+    val leave_fun: (Data.Address.t, t) ctx_t -> (Register.t * t) list * (Data.Address.t * t) list
   end
 		  
 		  
-module Make(A: Asm.T)(D: T with module Asm = A) = 
-  (struct
-
-    module Asm = D.Asm
+module Make(D: T) = 
+  struct
 		   
     module K = 
       struct
 	type t = 
 	  | R of Register.t
-	  | M of Asm.Address.t
+	  | M of Data.Address.t
 		   	   
 	let compare v1 v2 = 
 	  match v1, v2 with
 	  | R r1, R r2 -> Register.compare r1 r2
-	  | M m1, M m2 -> Asm.Address.compare m1 m2
+	  | M m1, M m2 -> Data.Address.compare m1 m2
 	  | R _ , _    -> 1
 	  | _   , _    -> -1
 			     
 	let to_string x = 
 	  match x with 
 	  | R r -> Register.name r
-	  | M a -> Asm.Address.to_string a
+	  | M a -> Data.Address.to_string a
       end
 	      
     module Map = MapOpt.Make(K)
@@ -157,7 +151,7 @@ module Make(A: Asm.T)(D: T with module Asm = A) =
 	 | None       -> raise (Alarm.E Alarm.Empty)
 	 | Some addrs ->
 	    let v' = D.eval_exp src sz c (new ctx m') in 
-	    let l  = Asm.Address.Set.elements addrs in
+	    let l  = Data.Address.Set.elements addrs in
 	    match l with 
 	      [a] -> (* strong update *) Val (try let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
 	    | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
@@ -177,7 +171,7 @@ module Make(A: Asm.T)(D: T with module Asm = A) =
 	 match m with
 	 | BOT -> BOT
 	 | Val m' ->
-	    let v' = D.of_config c (Register.size r) in
+	    let v' = D.of_config c in
 	    try
 	      Val (Map.replace (K.R r) (v', 0) m')
 	    with Not_found -> Val (Map.add (K.R r) (v', 0) m')
@@ -189,7 +183,7 @@ module Make(A: Asm.T)(D: T with module Asm = A) =
 	 match m with
 	 | BOT    -> BOT
  	 | Val m' ->
-	    let v' = D.of_config c !Config.operand_sz in
+	    let v' = D.of_config c in
 	    try
 	      Val (Map.replace (K.M a) (v', 0) m')
 	    with Not_found -> Val (Map.add (K.M a) (v', 0) m')
@@ -240,5 +234,5 @@ module Make(A: Asm.T)(D: T with module Asm = A) =
       | BOT    -> BOT
       | Val m' -> Val (process_fun D.leave_fun m')
 	 
-  end : Domain.T with module Asm = A)
+  end
     

@@ -2,14 +2,10 @@
 (* Functor generating the unrelational abstract domain of data tainting       *)
 (******************************************************************************)
 
-
-module Make(Asm: Asm.T) =
-  struct
     (** basically a tainting abstract value is a vector of bits *)
     (** the bit domain is implemented as the sub module Bit (see below) *)
     (** binary operations are supposed to process on bit vector of the same size *)
 
-    module Asm = Asm
  
   (** abstract type of the source of (un)tainting of a bit *)
   (** we keep only trace of the immediate source of tainting (the complete trace may be recovered by iterating on pathes in the CFA *)
@@ -162,12 +158,12 @@ end
    | BOT    -> "_|_"
    | Val v  -> Array.fold_left (fun s b ->  s ^ (Bit.to_string b)) "" v
 
- let of_config _c _sz = BOT
+ let of_config _c = BOT
 
   let mem_to_addresses _e _sz _c = raise Utils.Enum_failure
   let exp_to_addresses _e _sz _c = raise Utils.Enum_failure
 
-  let rec eval_exp e sz (c: (Asm.exp, Asm.Address.Set.t) Domain.context) ctx: t = 
+  let rec eval_exp e sz (c: (Asm.exp, Data.Address.Set.t) Domain.context) ctx: t = 
     match e with
     | Asm.Lval (Asm.V (Asm.T r)) ->
        ctx#get_val_from_register r
@@ -187,7 +183,7 @@ end
 	  None 	     -> BOT
 	| Some addr' -> 
 	  try
-	    let addr_l = Asm.Address.Set.elements addr'		  in
+	    let addr_l = Data.Address.Set.elements addr'	  in
 	    let v      = ctx#get_val_from_memory (List.hd addr_l) in 
 	    List.fold_left (fun s a -> join s ( ctx#get_val_from_memory a )) v (List.tl addr_l)
 	  with _ -> BOT
@@ -231,7 +227,7 @@ end
 						 
     | Asm.UnOp _ -> failwith "Tainting.eval_exp: unop not implemented"
   
-    | Asm.Const c      -> Val (Array.make (Asm.Word.size c) (Bit.Untainted (Src.Val Src.INPUT)))
+    | Asm.Const c      -> Val (Array.make (Data.Word.size c) (Bit.Untainted (Src.Val Src.INPUT)))
 
 
   let enter_fun _f _ctx = failwith "Tainting.enter_fun: to implement" 
@@ -255,7 +251,6 @@ end
     done;
     Val v
 
-  end
 
 				    
 

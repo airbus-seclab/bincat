@@ -13,12 +13,12 @@ module Make(Domain: Domain.T) =
 	   
 	  (** abstract data type of a state *)
 	  type t = {
-	      id: int; 	     			   (** unique identificator of the state *)
-	      mutable ip: Domain.Asm.Address.t;    (** instruction pointer *)
-	      mutable v: Domain.t; 		   (** abstract value *)
-	      mutable ctx: ctx_t ; 		   (** context of decoding *)
-	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
-	      internal: bool 	     		   (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
+	      id: int; 	     		    (** unique identificator of the state *)
+	      mutable ip: Data.Address.t;   (** instruction pointer *)
+	      mutable v: Domain.t; 	    (** abstract value *)
+	      mutable ctx: ctx_t ; 	    (** context of decoding *)
+	      mutable stmts: Asm.stmt list; (** list of statements thas has lead to this state *)
+	      internal: bool 	     	    (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
 	    }
 				   
 	  (** the state identificator counter *)
@@ -137,12 +137,12 @@ module Make(Domain: Domain.T) =
       (* 1. split b into a list of string of size Config.operand_sz *)
       (* 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
       let extended_memory_pad a b =
-	let a' = Domain.Asm.Address.of_string a !Config.address_sz in
+	let a' = Data.Address.of_int a !Config.address_sz in
 	try
 	  [a', pad b !Config.operand_sz]
 	with _ ->
 	  let l = split_and_pad b in
-	  List.mapi (fun i v -> Domain.Asm.Address.add_offset a' (Domain.Asm.Offset.of_int i), v) l 
+	  List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int i), v) l 
 
       (* 1. split b into a list of tainting values of size Config.operand_sz *)
       (* 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
@@ -228,7 +228,7 @@ module Make(Domain: Domain.T) =
 	let rec find succs =
 	  match succs with
 	    s::succs' ->
-	    if Domain.Asm.Address.compare s.ip ip = 0 && ctx_equal s.ctx ctx && s.internal = i then
+	    if Data.Address.compare s.ip ip = 0 && ctx_equal s.ctx ctx && s.internal = i then
 	      begin
 		s.v <- Domain.join s.v v;
 		s
@@ -261,7 +261,7 @@ module Make(Domain: Domain.T) =
 	let f = open_out dumpfile in
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in 
-	  Printf.fprintf f "[ address = 0x%s ]\n%s\n\n\n" (Domain.Asm.Address.to_string s.ip) abstract_values
+	  Printf.fprintf f "[ address = 0x%s ]\n%s\n\n\n" (Data.Address.to_string s.ip) abstract_values
 	in
 	G.iter_vertex print_ip g;
 	close_out f

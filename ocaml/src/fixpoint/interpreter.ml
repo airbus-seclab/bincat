@@ -9,17 +9,11 @@ struct
   module Decoder = Decoder.Make(Domain)
   module Dom = Domain
 
-  module Address = Domain.Asm.Address
-
   (** the control flow automaton module *)
   module Cfa = Decoder.Cfa 
 
-  (** the code module *)
-  module Code = Code.Make(Domain.Asm)
-			 
-  (** the assembly language *)
-  module Asm = Domain.Asm
-
+  open Data
+	 
   (** computes the list of function targets (their addresses) from a value of type fct *)
   let ft_to_addresses s sz f =
     match f with

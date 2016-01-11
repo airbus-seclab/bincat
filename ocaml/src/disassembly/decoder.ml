@@ -7,7 +7,9 @@ module Make(Domain: Domain.T) =
 	     
     (** control flow automaton *)
     module Cfa = Cfa.Make(Domain)
-    open Domain.Asm
+
+    open Data
+    open Asm
 	   
     (************************************************************************)
     (* Creation of the general purpose registers *)
@@ -95,12 +97,12 @@ module Make(Domain: Domain.T) =
 	}
 
       let segments = {
-	  cs = Word.of_string !Config.cs 16;
-	  ds = Word.of_string !Config.ds 16;
-	  ss = Word.of_string !Config.ss 16;
-	  es = Word.of_string !Config.es 16;
-	  fs = Word.of_string !Config.fs 16;
-	  gs = Word.of_string !Config.gs 16;
+	  cs = Word.of_int !Config.cs 16;
+	  ds = Word.of_int !Config.ds 16;
+	  ss = Word.of_int !Config.ss 16;
+	  es = Word.of_int !Config.es 16;
+	  fs = Word.of_int !Config.fs 16;
+	  gs = Word.of_int !Config.gs 16;
 	}
 
       (***********************************************************************)
@@ -117,7 +119,7 @@ module Make(Domain: Domain.T) =
       let int_of_bytes s sz =
 	let n = ref 0 in
 	for _i = 0 to sz-1 do
-	  n := int_of_byte s + 2 * !n;
+	  n := (int_of_byte s) +  2 * !n;
 	  s.o <- s.o + 1
 	done;
 	!n;;
@@ -132,7 +134,7 @@ module Make(Domain: Domain.T) =
       ;; 
 	
       type token =
-	ADC of int
+	| ADC of int
 	| ADC_i of (reg * int) (* var is the destination register ; int is the length of the src immediate data *) 
 	| ADD   of int
 	| ADD_i of (reg * int) (* var is the destination register ; int is the length of the src immediate data *) 
@@ -222,7 +224,7 @@ module Make(Domain: Domain.T) =
 	| c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in JCC (v, 1) 
 	| '\x90' -> NOP 
 	| c when '\x91' <= c && c <= '\x97' -> XCHG ((Char.code c) - (Char.code '\x90'))
-	| '\x9a' -> CALL (D (Address.of_string ((string_of_int (int_of_bytes s 2))^":"^(string_of_int (int_of_bytes s (s.operand_sz / 8)))) (s.operand_sz+16)), true)    
+	| '\x9a' -> failwith "Decoder: 0x9a"   
 	| '\xa4' -> MOVS 8
 	| '\xa5' -> MOVS s.addr_sz
 	| '\xa6' -> CMPS 8
@@ -235,7 +237,7 @@ module Make(Domain: Domain.T) =
 	| '\xaf' -> SCAS s.addr_sz
 	| c when '\xe0' <= c && c <= '\xe2' -> LOOP ((Char.code c) - (Char.code '\xe0'))
 	| '\xe3' -> JECX
-	| '\xe8' -> CALL (D (Address.add_offset s.a (Offset.of_int ( (int_of_bytes s (s.operand_sz / 8)) + 1))), false) (* what happens if cs changes in that instruction ? value s.a is not correct ? *)
+	| '\xe8' -> failwith "Decoder: 0xe8"
 	| '\xe9' -> JMP (s.operand_sz / 8)
 	| '\xeb' -> JMP 1
 	| '\xf0' -> PREFIX c
@@ -327,8 +329,8 @@ module Make(Domain: Domain.T) =
 	| 0, _i -> M(failwith "Decoder.mod_rm_32 (case 2)", s.operand_sz), 0
 	| i, _j -> 
 	   let n, _w = 
-	     if i = 1 then 1, Word.sign_extend (Word.of_int (int_of_bytes s 1) 8) 32
-	     else 4, Word.of_int (int_of_bytes s 4) 32
+	     if i = 1 then 1, Word.sign_extend (Word.of_int (Z.of_int (int_of_bytes s 1)) 8) 32
+	     else 4, Word.of_int (Z.of_int (int_of_bytes s 4)) 32
 	   in
 	   M(failwith "Decoder.mod_rm_32 (case 3)", s.operand_sz), n
 										     
@@ -353,18 +355,18 @@ module Make(Domain: Domain.T) =
       (* flag statements *)
       (*******************************************************************************************************)
       let overflow_flag_stmts sz res op1 op2 =
-	let v  = Const (Word.of_int 31 sz)  in
+	let v  = Const (Word.of_int (Z.of_int 31) sz)  in
 	let e1 = BinOp (CmpEq, BinOp (Shrs, res, v), Const (Word.zero sz)) in
-	let e2 = BinOp (CmpEq, BinOp (Shrs, op1, v), Const (Word.one sz))  in 
-	let e3 = BinOp (CmpEq, BinOp (Shrs, op2, v), Const (Word.one sz))  in
-	let e  = BinOp (And, e1, BinOp(And, e2, e3))                      in
+	let e2 = BinOp (CmpEq, BinOp (Shrs, op1, v), Const (Word.one sz)) in 
+	let e3 = BinOp (CmpEq, BinOp (Shrs, op2, v), Const (Word.one sz)) in
+	let e  = BinOp (And, e1, BinOp(And, e2, e3))                 in
 	[Store (V (T fof), e)] 
 	  
       let clear_overflow_flag_stmts () = [Store (V (T fof), Const (Word.zero 1))]
 					   
       let carry_flag_stmts sz res op1 op2 =
 	(* TODO : factorize with overflow *)
-	let v  = Const (Word.of_int 31 sz)                              in
+	let v  = Const (Word.of_int (Z.of_int 31) sz)                      in
 	let e1 = BinOp (CmpEq, BinOp (Shrs, res, v), Const (Word.one sz))  in
 	let e2 = BinOp (CmpEq, BinOp (Shrs, op1, v), Const (Word.zero sz)) in 
 	let e3 = BinOp (CmpEq, BinOp (Shrs, op2, v), Const (Word.zero sz)) in
@@ -373,9 +375,9 @@ module Make(Domain: Domain.T) =
 	  
       let clear_carry_flag_stmts () 	  = [Store (V (T fcf), Const (Word.zero 1))] 
       let undefine_adjust_flag_stmts () = [Directive (Undefine faf)]
-      let sign_flag_stmts sz res 	  = [Store (V (T fsf), BinOp(Shrs, res, Const (Word.of_int 31 sz)))]
+      let sign_flag_stmts sz res 	  = [Store (V (T fsf), BinOp(Shrs, res, Const (Word.of_int (Z.of_int 31) sz)))]
       let zero_flag_stmts sz res 	  = [Store (V (T fzf), BinOp(Xor, res, Const (Word.one sz)))]
-      let adjust_flag_stmts sz res 	  = [Store (V (T faf), BinOp (And, BinOp(Shl, res, Const (Word.of_int 3 sz)), Const (Word.one sz)))]
+      let adjust_flag_stmts sz res 	  = [Store (V (T faf), BinOp (And, BinOp(Shl, res, Const (Word.of_int (Z.of_int 3) sz)), Const (Word.one sz)))]
 					      
 					      
 					      
@@ -383,12 +385,12 @@ module Make(Domain: Domain.T) =
 	(* fpf set if res contains an even number of 1 *)
 	(* we sum every bits and check whether this sum is even or odd *)
 	(* using the modulo of the divison by 2 *)
-	let nth i = BinOp (And, BinOp(Shr, res, Const (Word.of_int i sz)), Const (Word.one sz)) in
+	let nth i = BinOp (And, BinOp(Shr, res, Const (Word.of_int (Z.of_int i) sz)), Const (Word.one sz)) in
 	let e     = ref (nth 0)                                                                     in
 	for i = 1 to sz-1 do
 	  e := BinOp(Add, !e, nth i)
 	done;
-	[Store (V (T fzf), BinOp (CmpEq, BinOp(Mod, !e, Const (Word.of_int 2 sz)), Const (Word.zero sz)))]
+	[Store (V (T fzf), BinOp (CmpEq, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)))]
 	  
 	  
       (**************************************************************************************)
@@ -430,31 +432,31 @@ module Make(Domain: Domain.T) =
       let update s stmts o' =
 	s.o <- o';
 	let ctx = {Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz} in
-	let s, _ = Cfa.add_state s.g s.b (Address.add_offset s.a (Offset.of_int o')) s.b.Cfa.State.v stmts ctx false in
+	let s, _ = Cfa.add_state s.g s.b (Address.add_offset s.a (Z.of_int o')) s.b.Cfa.State.v stmts ctx false in
 	[s]
 
 	  
       let add_and_sub_immediate op carry_or_borrow s r sz = 
-	let w     = Word.of_int (int_of_bytes s sz) s.operand_sz				     in
-	let o     = UnOp (SignExt s.operand_sz, Const w)				     in 
+	let w     = Word.of_int (Z.of_int (int_of_bytes s sz)) s.operand_sz			     in
+	let o     = UnOp (SignExt s.operand_sz, Const w)				             in 
 	let stmts = add_and_sub_flag_stmts [Store (r, BinOp (op, Lval r, o))] sz carry_or_borrow r o in  
 	update s stmts (sz+1)
 	       
       let operands_from_mod_reg_rm v s =
-	let d 	= (v lsr 1) land 1 in
-	let n 	= int_of_byte s    in
+	let d 	= (v lsr 1) land 1       in
+	let n 	= int_of_byte s          in
 	let reg_field = (n lsr 3) land 7 in
-	let mod_field = n lsr 6	   in
-	let rm_field  = n land 7 	   in
+	let mod_field = n lsr 6	         in
+	let rm_field  = n land 7 	 in
 	mod_rm mod_field rm_field reg_field d s
 	 
       let binop_with_eax v s =
 	match Char.chr v with
 	  (* TODO: to be more readable, v should be a char not an int *)
-	  '\x04' | '\x0c' | '\x14' | '\x1c' | '\x24' | '\x2c' | '\x34' | '\x3c' -> P(eax, 0, 7), Word.of_int (int_of_byte s) 8, 1
+	  '\x04' | '\x0c' | '\x14' | '\x1c' | '\x24' | '\x2c' | '\x34' | '\x3c' -> P(eax, 0, 7), Word.of_int (Z.of_int (int_of_byte s)) 8, 1
 	  | '\x05' | '\x0d' | '\x15' | '\x1d' | '\x25' | '\x2d' | '\x35' | '\x3d' -> 
 									    let n = s.operand_sz / 8                              in
-									    let w = Word.of_int (int_of_bytes s n) s.operand_sz in 
+									    let w = Word.of_int (Z.of_int (int_of_bytes s n)) s.operand_sz in 
 									    let r = 
 									      if s.operand_sz = Register.size eax then T eax
 									      else P(eax, 0, s.operand_sz-1)    in
@@ -535,13 +537,13 @@ module Make(Domain: Domain.T) =
 	       
       let exp_of_cond v s n =
 	match v with
-	| 0 | 1   -> BinOp (CmpEq, Lval (V (T fof)), Const (Word.of_int (1-v) s.operand_sz)), int_of_bytes s n
-	| 2 | 3   -> BinOp (CmpEq, Lval (V (T fcf)), Const (Word.of_int (1-(v-2)) s.operand_sz)), int_of_bytes s n
-	| 4 | 5   -> BinOp (CmpEq, Lval (V (T fzf)), Const (Word.of_int (1-(v-4)) s.operand_sz)), int_of_bytes s n
+	| 0 | 1   -> BinOp (CmpEq, Lval (V (T fof)), Const (Word.of_int (Z.of_int (1-v)) s.operand_sz)), int_of_bytes s n
+	| 2 | 3   -> BinOp (CmpEq, Lval (V (T fcf)), Const (Word.of_int (Z.of_int (1-(v-2))) s.operand_sz)), int_of_bytes s n
+	| 4 | 5   -> BinOp (CmpEq, Lval (V (T fzf)), Const (Word.of_int (Z.of_int (1-(v-4))) s.operand_sz)), int_of_bytes s n
 	| 6       -> BinOp (Or, BinOp(CmpEq, Lval (V (T fcf)), Const (Word.one s.operand_sz)), BinOp(CmpEq, Lval (V (T fzf)), Const (Word.one s.operand_sz))), int_of_bytes s n
 	| 7       -> BinOp (And, BinOp(CmpEq, Lval (V (T fcf)), Const (Word.zero s.operand_sz)), BinOp(CmpEq, Lval (V (T fzf)), Const (Word.zero s.operand_sz))), int_of_bytes s n
-	| 8 | 9   -> BinOp (CmpEq, Lval (V (T fsf)), Const (Word.of_int (1-(v-8)) s.operand_sz)), int_of_bytes s n
-	| 10 | 11 -> BinOp (CmpEq, Lval (V (T fpf)), Const (Word.of_int (1-(v-10)) s.operand_sz)), int_of_bytes s n
+	| 8 | 9   -> BinOp (CmpEq, Lval (V (T fsf)), Const (Word.of_int (Z.of_int (1-(v-8))) s.operand_sz)), int_of_bytes s n
+	| 10 | 11 -> BinOp (CmpEq, Lval (V (T fpf)), Const (Word.of_int (Z.of_int (1-(v-10))) s.operand_sz)), int_of_bytes s n
 	| 12      -> UnOp (Not, BinOp(CmpEq, Lval (V (T fsf)), Lval (V (T fof)))), int_of_bytes s n
 	| 13      -> BinOp (CmpEq, Lval (V (T fsf)), Lval (V (T fof))), int_of_bytes s n
 	| 14      -> BinOp (Or, BinOp(CmpEq, Lval (V (T fzf)), Const (Word.one s.operand_sz)), UnOp(Not, BinOp(CmpEq, Lval (V (T fsf)), Lval (V (T fof))))), int_of_bytes s n
@@ -556,7 +558,7 @@ module Make(Domain: Domain.T) =
 	  JCC (v, n) ->
 	  (* TODO: factorize with JMP *)
 	  let e, o = exp_of_cond v s n in
-	  let a'   = Address.add_offset s.a (Offset.of_int o) in
+	  let a'   = Address.add_offset s.a (Z.of_int o) in
 	  update s [Jcc (Some e, Some (A a'))] o
 	| _ -> invalid_arg "Opcode.parse_two_bytes"
 			   
@@ -629,7 +631,7 @@ module Make(Domain: Domain.T) =
 	  if is_register_set str_stmt esi then 
 	    let len = Register.size esi							   in
 	    let lv  = V (if s.addr_sz <> len then P(esi, 0, s.addr_sz-1) else T esi)		   in
-	    let e   = BinOp(Add, Lval lv, BinOp(Mul, Const (Word.of_int 2 len), Lval (V (T fdf)))) in
+	    let e   = BinOp(Add, Lval lv, BinOp(Mul, Const (Word.of_int (Z.of_int 2) len), Lval (V (T fdf)))) in
 	    [Store(lv, BinOp(Add, Lval lv, e))]
 	  else []                                                                                                            in
 	let edi_stmt =
@@ -637,7 +639,7 @@ module Make(Domain: Domain.T) =
 	  if is_register_set str_stmt edi then 
 	    let len = Register.size edi in
 	    let lv = V(if s.addr_sz <> len then P(edi, 0, s.addr_sz-1) else T edi) in
-	    let e = BinOp(Add, Lval lv, BinOp(Mul, Const (Word.of_int 2 len), Lval (V (T fdf)))) in
+	    let e = BinOp(Add, Lval lv, BinOp(Mul, Const (Word.of_int (Z.of_int 2) len), Lval (V (T fdf)))) in
 	    [Store(lv, BinOp(Add, Lval lv, e))]
 	  else []
 	in
@@ -645,9 +647,9 @@ module Make(Domain: Domain.T) =
 	Cfa.update_stmts s.b [Jcc (Some test', Some (A s.a))] s.operand_sz s.addr_sz;
 	Cfa.add_edge s.g s.b rep_blk None;
 	let ctx = {Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz} in	
-	let instr_blk, _ = Cfa.add_state s.g rep_blk s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(CmpEq, Lval (V(T fdf)), Const (Word.of_int 1 1))), None)]) ctx true in 
+	let instr_blk, _ = Cfa.add_state s.g rep_blk s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(CmpEq, Lval (V(T fdf)), Const (Word.of_int Z.one 1))), None)]) ctx true in 
 	Cfa.add_edge s.g rep_blk instr_blk (Some true);
-	let step     	= Const (Word.of_int (i / 8) s.addr_sz) in
+	let step     	= Const (Word.of_int (Z.of_int (i / 8)) s.addr_sz) in
 	let decr     	= 
 	  if s.addr_sz <> len then 
 	    List.map (fun r -> Store(V (T r), BinOp(Sub, Lval (V (T r)), step))) regs    
@@ -697,11 +699,11 @@ module Make(Domain: Domain.T) =
 	| AND v -> or_xor_and_and And v s
 				  
 	| CALL (v, far) -> 
-	   let a' = Address.add_offset s.a (Offset.of_int 1) in
+	   let a' = Address.add_offset s.a (Z.of_int 1) in
 	   let v, _ = Cfa.add_state s.g s.b s.a s.b.Cfa.State.v ([Directive (Push (Const (Address.to_word a' 32))) ; Store(V(T esp), 
 																BinOp(Sub, Lval (V (T esp)), 
-																      Const (Word.of_int !Config.stack_width (Register.size esp))))
-								   ]@(if far then [Directive (Push (Lval (V (T cs)))); Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int !Config.stack_width (Register.size esp))))] else []) @
+																      Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))
+								   ]@(if far then [Directive (Push (Lval (V (T cs)))); Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
 								     [Call v]) ({Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz}) false
 	   in
 	   [v]
@@ -737,21 +739,21 @@ module Make(Domain: Domain.T) =
 	   (* TODO: factorize with JMP *)
 	   update_prefix s Jcc_i;
 	   let e, o = exp_of_cond v s n in
-	   let a' = Address.add_offset s.a (Offset.of_int o) in
+	   let a' = Address.add_offset s.a (Z.of_int o) in
 	   update s [Jcc (Some e, Some (A a'))] o
 		  
 	| JECX ->
 	   (* TODO: factorize with JMP *)
 	   update_prefix s Jcc_i;
 	   let o    = int_of_bytes s (s.operand_sz/8) in
-	   let a'   = Address.add_offset s.a (Offset.of_int o) in
+	   let a'   = Address.add_offset s.a (Z.of_int o) in
 	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P(ecx, 0, s.addr_sz-1) in
 	   let e    = BinOp(CmpEq, Lval (V ecx'), Const (Word.zero (Register.size ecx))) in
 	   update s [Jcc (Some e, Some (A a'))] o
 		  
 	| JMP i 	     ->
 	   let o  = int_of_bytes s i    in
-	   let a' = Address.add_offset s.a (Offset.of_int o) in
+	   let a' = Address.add_offset s.a (Z.of_int o) in
 	   update s [Jcc (None, Some (A a'))] o
 		  
 	| LODS i -> 
@@ -764,17 +766,17 @@ module Make(Domain: Domain.T) =
       
 	| LOOP i ->
 	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P (ecx, 0, s.addr_sz -1) in  
-	   let c = Const (Word.of_int 1 s.addr_sz) in
+	   let c = Const (Word.of_int Z.one s.addr_sz) in
 	   let stmts = add_and_sub_flag_stmts [Store(V ecx', BinOp(Sub, Lval (V ecx'), c))] s.addr_sz false (V ecx') c in 
 	   let e =
-	     let zero = Const (Word.of_int 0 s.addr_sz) in
+	     let zero = Const (Word.of_int Z.zero s.addr_sz) in
 	     let ecx_cond = BinOp(And, BinOp(failwith "LOOP GT signed or unsigned ?", zero, Lval (V ecx')), BinOp(failwith "LOOP GT signed or unsigned ?", Lval (V ecx'), zero)) in
 	     match i with
-	       0 -> (* loopne *)BinOp(And, BinOp(CmpEq, Lval (V (T (fzf))), Const (Word.of_int 1 (Register.size fzf))), ecx_cond)
-	     | 1 -> (* loope *) BinOp(And, BinOp(CmpEq, Lval (V (T (fzf))), Const (Word.of_int 0 (Register.size fzf))), ecx_cond)
+	       0 -> (* loopne *)BinOp(And, BinOp(CmpEq, Lval (V (T (fzf))), Const (Word.of_int Z.one (Register.size fzf))), ecx_cond)
+	     | 1 -> (* loope *) BinOp(And, BinOp(CmpEq, Lval (V (T (fzf))), Const (Word.of_int Z.zero (Register.size fzf))), ecx_cond)
 	     | _ -> (* loop *) ecx_cond
 	   in
-	   let a' = Address.add_offset s.a (Offset.of_int (int_of_bytes s 1)) in
+	   let a' = Address.add_offset s.a (Z.of_int (int_of_bytes s 1)) in
 	   Cfa.update_stmts s.b (stmts@[Jcc(Some e, Some (A a'))]) s.operand_sz s.addr_sz;
 	   s.o <- s.o + 1;
 	   Cfa.add_edge s.g s.b s.b (Some true);
@@ -800,7 +802,7 @@ module Make(Domain: Domain.T) =
 	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
 	   let stmts = List.fold_left (fun stmts v -> 
 				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
-				       [Directive (Pop v) ; Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int n !Config.stack_width)))]@stmts) [] v 
+				       [Directive (Pop v) ; Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int (Z.of_int n) !Config.stack_width)))]@stmts) [] v 
 	   in
 	   update s stmts 1
 		  
@@ -813,7 +815,7 @@ module Make(Domain: Domain.T) =
 				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
 				       (* be careful: pushed value of esp is the value *before* starting PUSHA *)
 				       [if is_esp v then Directive(Push (Lval (V t))) else Directive (Push (Lval (V v))) ; 
-					Store(esp', BinOp(Add, Lval esp', Const (Word.of_int n !Config.stack_width)))]@stmts) [] v 
+					Store(esp', BinOp(Add, Lval esp', Const (Word.of_int (Z.of_int n) !Config.stack_width)))]@stmts) [] v 
 	   in 
 	   update s ((Store(V t, Lval esp'))::stmts) 1
 		  
@@ -821,8 +823,8 @@ module Make(Domain: Domain.T) =
 	   let sz = n*8 in
 	   let v = int_of_bytes s n in
 	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
-	   let stmts = [Directive (Push (Const (Word.of_int v sz))) ; 
-			Store(esp', BinOp(Add, Lval esp', Const (Word.of_int  !Config.stack_width !Config.stack_width)))]
+	   let stmts = [Directive (Push (Const (Word.of_int (Z.of_int v) sz))) ; 
+			Store(esp', BinOp(Add, Lval esp', Const (Word.of_int  (Z.of_int !Config.stack_width) !Config.stack_width)))]
 			 
 	   in
 	   update s stmts 1

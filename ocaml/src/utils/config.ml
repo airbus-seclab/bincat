@@ -26,20 +26,20 @@ type call_conv_t =
 let call_conv = ref Cdecl
 		    
 let text = ref ""
-let ep = ref "\x00"
-
-let code_addr_end = ref "\x00"
+let code_length = ref 0
+let ep = ref Z.zero
+let phys_code_addr = ref 0
 		    
 let address_sz = ref 32
 let operand_sz = ref 32
 let stack_width = ref 32
 
-let cs = ref "\x00"
-let ds = ref "\x00"
-let ss = ref "\x00"
-let es = ref "\x00"
-let fs = ref "\x00"
-let gs = ref "\x00"
+let cs = ref Z.zero
+let ds = ref Z.zero
+let ss = ref Z.zero
+let es = ref Z.zero
+let fs = ref Z.zero
+let gs = ref Z.zero
 
 
 type tvalue =
@@ -51,9 +51,9 @@ type cvalue = string
 (* initial state utilities *)
 		    
 let initial_register_content: (Register.t, cvalue) Hashtbl.t = Hashtbl.create 10
-let initial_memory_content: (string, cvalue) Hashtbl.t = Hashtbl.create 10
+let initial_memory_content: (Z.t, cvalue) Hashtbl.t = Hashtbl.create 10 (* TODO: better signature would be keys of type Data.Address.t but this would imply that Config and Data would be mutually recursive (longer to implement) *)
 let initial_register_tainting: (Register.t, tvalue) Hashtbl.t = Hashtbl.create 10
-let initial_memory_tainting: (string, tvalue) Hashtbl.t = Hashtbl.create 10					   
+let initial_memory_tainting: (Z.t, tvalue) Hashtbl.t = Hashtbl.create 10 (* TODO: better signature would be keys of type Data.Address.t but this would imply that Config and Data would be mutually recursive (longer to implement) *)				   
 
 
 (* tainting rules for functions *)
