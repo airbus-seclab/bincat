@@ -175,6 +175,39 @@ Remarks:
 \section{Breakpoints}
 \section{Backtracking}
 
+\chapter{Implementation remarks}
+
+From Kinder:
+``The virtual memory available to a process is organized as one large,
+continous array. The stack, the heap and global variables all share
+this address space. The runtime environment initializes the stack and
+heap locations to reasonable values such that they do not interfere,
+and it uses buffer pages between these logical memory regions to
+detect overflows.
+
+Correct implementations of malloc (and its kernel-level equivalents
+available to drivers) guarantee thatr allocated memory blocks in the
+heap do not overlap.``
+
+=> on peut utiliser des regions abstraites pour Global, Stack et Heap.
+
+Actuellement, les sélecteurs de segments peuvent contenir des valeurs
+qui ne correspondent à aucun descripteur de segment.
+
+Special effort to be as generic as possible.
+Modules and functors that are achitecture dependent are:
+\begin{itemize}
+\item decoder.ml (x86 on 32 bits)
+\item abi.ml x86 because of need to know mode protected/real and
+  presence or not of segment selectors in the address generation from
+  a string
+\end{itemize}
+
+segment selectors register ar actually their content is ds is *ds (we
+suppose to have access to the segment descriptor directly from the
+selector register rather than an index to the LDT or GDT table that
+provides the value for the base address of the segment)
+
 \chapter{Glossary}
 \begin{itemize}
 \item control flow automaton
@@ -182,5 +215,6 @@ Remarks:
 \item decoding context
 \item program counter
 \end{itemize}
+
 
 \end{document}

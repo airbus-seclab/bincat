@@ -1,7 +1,6 @@
-module Make(D1: Domain.T)(D2: Domain.T with module Asm = D1.Asm) =(
+module Make(D1: Domain.T)(D2: Domain.T) =(
 struct
 
-  module Asm = D1.Asm
   type t    = D1.t * D2.t
   let name  = Printf.sprintf "( %s x %s)" D1.name D2.name
  
@@ -23,7 +22,7 @@ struct
       let a1' = D1.mem_to_addresses m sz v1 in
 	try
 	  let a2' = D2.mem_to_addresses m sz v2 in
-	  Asm.Address.Set.inter a1' a2'
+	  Data.Address.Set.inter a1' a2'
 	with
 	  Utils.Enum_failure -> a1'
     with
@@ -35,7 +34,7 @@ struct
       let a1' = D1.exp_to_addresses e sz v1 in
 	try
 	  let a2' = D2.exp_to_addresses e sz v2 in
-	  Asm.Address.Set.inter a1' a2'
+	  Data.Address.Set.inter a1' a2'
 	with
 	  Utils.Enum_failure -> a1'
     with

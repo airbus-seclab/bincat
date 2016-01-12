@@ -17,6 +17,7 @@ let path_symbols = '.' | '/'
 let white_space  = [' ' '\t' '\r']+
 let newline 	 = "\r" | "\n" | "\r\n"
 
+
 (* left operands in configuration rules *)
 let value        = (digit | path_symbols | letter)*
 
@@ -73,17 +74,20 @@ rule token = parse
   (* analyzer tokens *)
   | "unroll"    	    { UNROLL }
   (* loader tokens *)
-  | "rva-stack" 	    { RVA_STACK }
-  | "rva-data" 		    { RVA_DATA }
-  | "rva-code-start" 		    { RVA_CODE }
-  | "rva-code-end"          { RVA_CODE_END }
-  | "rva-entrypoint" 	    { RVA_ENTRYPOINT }
-  (* binary tokens *)			    
+  | "ss" 	    	    { SS }
+  | "ds" 		    { DS }
+  | "cs" 	    	    { CS }
+  | "es" 		    { ES }
+  | "fs" 		    { FS }
+  | "gs" 		    { GS }
+  | "code-length" 	    { CODE_LENGTH }
+  | "entrypoint" 	    { ENTRYPOINT }
+  (* binary tokens *)
+  | "phys-code-addr"        { PHYS_CODE_ADDR }
   | "filepath" 		    { FILEPATH }
   | "format" 		    { FORMAT }
   | "pe" 		    { PE }
   | "elf" 		    { ELF }
-  | "phys-code" 	    { PHYS_CODE }
   | "mode"                  { MODE }
   | "protected"             { PROTECTED }
   | "real"                  { REAL }

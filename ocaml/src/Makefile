@@ -1,7 +1,9 @@
 ML=\
 data-struct/register.ml\
 utils/mapOpt.ml\
+utils/bits.ml\
 utils/config.ml\
+data-struct/data.ml\
 lexer.ml\
 parser.ml\
 data-struct/asm.ml\
@@ -10,7 +12,6 @@ data-struct/code.ml\
 fixpoint/alarm.ml\
 domains/unrel.ml\
 domains/ptr.ml\
-disassembly/abi.ml\
 domains/pair.ml\
 domains/tainting.ml\
 disassembly/cfa.ml\
@@ -19,7 +20,6 @@ fixpoint/interpreter.ml\
 main.ml
 
 MLI=\
-data-struct/data.mli\
 data-struct/register.mli\
 utils/mapOpt.mli\
 domains/domain.mli\

@@ -13,12 +13,12 @@ module Make(Domain: Domain.T) =
 	   
 	  (** abstract data type of a state *)
 	  type t = {
-	      id: int; 	     			   (** unique identificator of the state *)
-	      mutable ip: Domain.Asm.Address.t;    (** instruction pointer *)
-	      mutable v: Domain.t; 		   (** abstract value *)
-	      mutable ctx: ctx_t ; 		   (** context of decoding *)
-	      mutable stmts: Domain.Asm.stmt list; (** list of statements thas has lead to this state *)
-	      internal: bool 	     		   (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
+	      id: int; 	     		    (** unique identificator of the state *)
+	      mutable ip: Data.Address.t;   (** instruction pointer *)
+	      mutable v: Domain.t; 	    (** abstract value *)
+	      mutable ctx: ctx_t ; 	    (** context of decoding *)
+	      mutable stmts: Asm.stmt list; (** list of statements thas has lead to this state *)
+	      internal: bool 	     	    (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
 	    }
 				   
 	  (** the state identificator counter *)
@@ -70,7 +70,7 @@ module Make(Domain: Domain.T) =
 		 
       (* returns the extension of the string b with '0' so that the returned string is of length sz *)
       (* length of b is supposed to be <= sz *)
-      (* it is used both for initializing memory and registers *)
+      (* it is used both for initializing successive memory locations (values and taint) and the taint of registers *)
       let pad b sz =
 	let n = String.length b in
 	if n = sz then b
@@ -90,31 +90,42 @@ module Make(Domain: Domain.T) =
 	let pad_tainting_register v r =
 	  let sz   = Register.size r in
 	  let name = Register.name r in
-	  
 	  match v with
 	  | Config.Bits b       ->
-	     if (String.length b) > sz then
+	     let b' = Bits.string_to_bit_string b in
+	     if (String.length b') > sz then
 	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
-	       Config.Bits (pad b sz)
+	       Config.Bits (pad b' sz)
 			   
 	  | Config.MBits (b, m) ->
-	     if (String.length b) > sz || (String.length m) > sz then
+	     let b' = Bits.string_to_bit_string b in
+	     let m' = Bits.string_to_bit_string m in
+	     if (String.length b') > sz || (String.length m') > sz then
 	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
-	       Config.MBits (pad b sz, pad m sz)
-	in						     
-
+	       Config.MBits (pad b' sz, pad m' sz)
+	in
+	(* checks whether the provided value is compatible with the capacity of the parameter of type Register _r_ and the size of words *)
+	let check_init_size r v =
+	  let len = String.length (Bits.string_to_bit_string v) in
+	  if len <= Register.size r && len <= !Config.operand_sz then
+	    Z.of_string v
+	    else
+	      begin
+		Printf.eprintf "value %s too large to fit into register %s\n" v (Register.name r);
+		raise Exit
+	      end
+	in
 	(* first the domain is updated with the "padded" tainting value for each register with initial tainting in the provided configuration *)
 	let d' =  Hashtbl.fold
 		    (fun r v d -> Domain.taint_register_from_config r (pad_tainting_register v r) d
 		    )
 		    Config.initial_register_tainting d
 	in
-
 	(* then the resulting domain d' is updated with the "padded" content for each register with initial content setting in the provided configuration *)  
 	Hashtbl.fold
-	  (fun r v d -> Domain.set_register_from_config r (pad v (Register.size r)) d
+	  (fun r v d -> Domain.set_register_from_config r (check_init_size r v) d
 	  )
 	  Config.initial_register_content d'
 
@@ -136,13 +147,13 @@ module Make(Domain: Domain.T) =
 
       (* 1. split b into a list of string of size Config.operand_sz *)
       (* 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
-      let extended_memory_pad a b =
-	let a' = Domain.Asm.Address.of_string a !Config.address_sz in
+      let extended_memory_pad a b  =
+	let a' = Data.Address.of_int a !Config.address_sz in
 	try
 	  [a', pad b !Config.operand_sz]
 	with _ ->
 	  let l = split_and_pad b in
-	  List.mapi (fun i v -> Domain.Asm.Address.add_offset a' (Domain.Asm.Offset.of_int i), v) l 
+	  List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int i), v) l 
 
       (* 1. split b into a list of tainting values of size Config.operand_sz *)
       (* 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
@@ -166,11 +177,10 @@ module Make(Domain: Domain.T) =
       (* main function to initialize memory locations both for content and tainting *)
       (* this filling is done by iterating on tables in Config *)
       let init_memory tbl =
-	Printf.printf "entree dans init_memory";
-	flush stdout;
 	let dc' = Hashtbl.fold (fun a c d ->
 		      let l = extended_memory_pad a c in
-		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' c' d) d l) Config.initial_memory_content tbl
+		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' (Z.of_string c') d) d l
+		    ) Config.initial_memory_content tbl
 	in
 	Hashtbl.fold (fun a t d ->
 	    let l = extended_tainting_memory_pad a t in
@@ -228,7 +238,7 @@ module Make(Domain: Domain.T) =
 	let rec find succs =
 	  match succs with
 	    s::succs' ->
-	    if Domain.Asm.Address.compare s.ip ip = 0 && ctx_equal s.ctx ctx && s.internal = i then
+	    if Data.Address.compare s.ip ip = 0 && ctx_equal s.ctx ctx && s.internal = i then
 	      begin
 		s.v <- Domain.join s.v v;
 		s
@@ -261,7 +271,7 @@ module Make(Domain: Domain.T) =
 	let f = open_out dumpfile in
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in 
-	  Printf.fprintf f "[ address = 0x%s ]\n%s\n\n\n" (Domain.Asm.Address.to_string s.ip) abstract_values
+	  Printf.fprintf f "[ address = 0x%s ]\n%s\n\n\n" (Data.Address.to_string s.ip) abstract_values
 	in
 	G.iter_vertex print_ip g;
 	close_out f
