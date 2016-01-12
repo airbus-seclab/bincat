@@ -43,7 +43,7 @@ let to_string p =
   | TOP      -> "T"
   | BOT      -> "_|_"
 		      
-let of_config c = I (Global, Z.of_string c)
+let of_config c = I (Global, c)
 		       
 let eval_exp _e = raise (Alarm.E (Alarm.Concretization name))
 			

@@ -31,7 +31,7 @@ module type T =
     val to_string: t -> string
 
     (** value generation from configuration *)
-    val of_config: Config.cvalue -> t
+    val of_config: Z.t -> t
 			       
     (** returns the evaluation of the given expression as an abstract value *)			    
     val eval_exp: Asm.exp -> int -> (Asm.exp, Data.Address.Set.t) Domain.context -> (Data.Address.t, t) ctx_t -> t

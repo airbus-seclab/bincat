@@ -202,6 +202,12 @@ Modules and functors that are achitecture dependent are:
   presence or not of segment selectors in the address generation from
   a string
 \end{itemize}
+
+segment selectors register ar actually their content is ds is *ds (we
+suppose to have access to the segment descriptor directly from the
+selector register rather than an index to the LDT or GDT table that
+provides the value for the base address of the segment)
+
 \chapter{Glossary}
 \begin{itemize}
 \item control flow automaton

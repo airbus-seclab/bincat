@@ -4,7 +4,7 @@
       (* error message printing *)
       Printf.eprintf "missing %s in section %s\n" item section;
       exit (-1);;
-
+       
     (* current library name *)
     let libname = ref "";;
 		      
@@ -20,11 +20,9 @@
     (* temporary table for the initial tainting value of memory locations *)
     let memory_tainting = Hashtbl.create 10;;
 					 
-    (* returns the bit string of a given string representation of an integer *)
-    let to_bits t = Z.to_bits (Z.of_string t)
-   
     (* temporay table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
+      
     let mandatory_items = [
 	(MEM_MODEL, "mem-model", "settings");
 	(MODE, "mode", "settings");
@@ -59,8 +57,8 @@
 	| Some t' -> Hashtbl.add Config.initial_register_tainting r' t'
 
 
-      (** fills the table of initial values for the given memory address (of type string) *)
-      let init_memory a (c, t) =
+      (** fills the table of initial values for the given memory address *)
+      let init_memory a ((c: Config.cvalue option), t) =
 	let a' = Z.of_string a in
 	begin
 	  match c with
@@ -102,11 +100,11 @@
 	  List.iter add (List.rev funs)
 	in
 	Hashtbl.iter add_tainting_rules libraries;
-	(* updates memory locations with the value of the ds register if ds is not zero *)
+	(* updates memory locations with the value of the ds segment selector if ds is not zero *)
 	if Z.equal !Config.ds Z.zero then
 	  if !Config.mode = Config.Protected then
 	  begin
-	    Hashtbl.iter (fun a c -> Hashtbl.add Config.initial_memory_content (Z.add !Config.ds a) c) memory_content;
+	    Hashtbl.iter (fun a (c: Config.cvalue) -> Hashtbl.add Config.initial_memory_content (Z.add !Config.ds a) c) memory_content;
 	    Hashtbl.iter (fun a t -> Hashtbl.add Config.initial_memory_tainting (Z.add !Config.ds a) t) memory_tainting
 	  end
 	  else
@@ -154,7 +152,7 @@
     | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := int_of_string i with _ -> Printf.eprintf "illegal operand size"; exit (-1) }
     | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := int_of_string i with _ -> Printf.eprintf "illegal address size"; exit (-1) }
     | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := int_of_string i with _ -> Printf.eprintf "illegal stack width"; exit (-1) }
-    | MODE EQUAL m=mmode        { update_mandatory MODE ; Config.mode := m }
+    | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m }
 				 	
       memmodel:
     | FLAT 	{ Config.Flat }
@@ -176,14 +174,14 @@
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | CS EQUAL i=INT          { update_mandatory CS; Config.cs := Z.of_string i }
-    | DS EQUAL i=INT          { update_mandatory DS; Config.ds := Z.of_string i }
-    | SS EQUAL i=INT          { update_mandatory SS; Config.ss := Z.of_string i }
-    | ES EQUAL i=INT 	      { update_mandatory ES; Config.es := Z.of_string i }
-    | FS EQUAL i=INT 	      { update_mandatory FS; Config.fs := Z.of_string i }
-    | GS EQUAL i=INT 	      { update_mandatory GS; Config.gs := Z.of_string i }
-    | CODE_LENGTH EQUAL i=INT { update_mandatory CODE_LENGTH; Config.code_length := int_of_string i }
-    | ENTRYPOINT EQUAL i=INT  { update_mandatory ENTRYPOINT; Config.ep := Z.of_string i }
+    | CS EQUAL i=INT          	 { update_mandatory CS; Config.cs := Z.of_string i }
+    | DS EQUAL i=INT          	 { update_mandatory DS; Config.ds := Z.of_string i }
+    | SS EQUAL i=INT          	 { update_mandatory SS; Config.ss := Z.of_string i }
+    | ES EQUAL i=INT 	      	 { update_mandatory ES; Config.es := Z.of_string i }
+    | FS EQUAL i=INT 	      	 { update_mandatory FS; Config.fs := Z.of_string i }
+    | GS EQUAL i=INT 	      	 { update_mandatory GS; Config.gs := Z.of_string i }
+    | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := int_of_string i }
+    | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := Z.of_string i }
     | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := int_of_string i }
     
       
@@ -241,10 +239,10 @@
 	   
      init:
     | TAINT c=tcontent 	       { None, Some c }
-    | c=INT 		       { Some (to_bits c), None }
-    | c1=INT TAINT c2=tcontent { Some (to_bits c1), Some c2 }
+    | c=INT 		       { Some c, None }
+    | c1=INT TAINT c2=tcontent { Some c1, Some c2 }
 
      tcontent:
-    | t=INT 		{ Config.Bits (to_bits t)  }
-    | t=INT MASK t2=INT { Config.MBits (to_bits t, to_bits t2) }
+    | t=INT 		{ Config.Bits (Bits.string_to_bit_string t)  }
+    | t=INT MASK t2=INT { Config.MBits (Bits.string_to_bit_string t, Bits.string_to_bit_string t2) }
 			

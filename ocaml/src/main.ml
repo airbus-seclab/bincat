@@ -19,7 +19,6 @@ let process ~configfile ~resultfile =
       cin
     with _ -> failwith "Opening configuration file failed"
   in
-  
   (* 2: parse the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
   begin
@@ -38,11 +37,12 @@ let process ~configfile ~resultfile =
   
   (* 3: generate code *)
   let code  = Code.make !Config.text !Config.ep                                                      in
-  
+ 
   (* 4: generate the initial cfa with only an initial state *)
   let ep'   = Data.Address.add_offset (Data.Address.of_int !Config.cs !Config.address_sz) !Config.ep in
   let g, s  = Interpreter.Cfa.init ep'                                                               in
-  
+
+   
   (* 5: runs the fixpoint engine *)
   let cfa  = Interpreter.process code g s                                                            in
   

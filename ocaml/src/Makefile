@@ -1,6 +1,7 @@
 ML=\
 data-struct/register.ml\
 utils/mapOpt.ml\
+utils/bits.ml\
 utils/config.ml\
 data-struct/data.ml\
 lexer.ml\
