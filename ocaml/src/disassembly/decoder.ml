@@ -63,14 +63,14 @@ module Make(Domain: Domain.T) =
 	
 	
       (***********************************************************************)
-      (* Creation of the segment registers *)
+      (* Creation of the segment registers (segment selectors and base are identified) that is why they are of 32-bit width rather than 16-bit *)
       (***********************************************************************)
-      let cs = Register.make "cs" 16;;
-      let ds = Register.make "ds" 16;;
-      let ss = Register.make "ss" 16;;
-      let es = Register.make "es" 16;;
-      let fs = Register.make "fs" 16;;
-      let gs = Register.make "gs" 16;;
+      let star_cs = Register.make "cs" 32;;
+      let star_ds = Register.make "ds" 32;;
+      let star_ss = Register.make "ss" 32;;
+      let star_es = Register.make "es" 32;;
+      let star_fs = Register.make "fs" 32;;
+      let star_gs = Register.make "gs" 32;;
 	
       (***********************************************************************)
       (* Internal state of the decoder *)
@@ -97,12 +97,12 @@ module Make(Domain: Domain.T) =
 	}
 
       let segments = {
-	  cs = Word.of_int !Config.cs 16;
-	  ds = Word.of_int !Config.ds 16;
-	  ss = Word.of_int !Config.ss 16;
-	  es = Word.of_int !Config.es 16;
-	  fs = Word.of_int !Config.fs 16;
-	  gs = Word.of_int !Config.gs 16;
+	  cs = Word.of_int !Config.star_cs 32;
+	  ds = Word.of_int !Config.star_ds 32;
+	  ss = Word.of_int !Config.star_ss 32;
+	  es = Word.of_int !Config.star_es 32;
+	  fs = Word.of_int !Config.star_fs 32;
+	  gs = Word.of_int !Config.star_gs 32;
 	}
 
       (***********************************************************************)
@@ -184,21 +184,21 @@ module Make(Domain: Domain.T) =
 	| c when '\x00' <= c && c <= '\x03' -> ADD (Char.code c)	
 	| '\x04' -> ADD_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)  
 	| '\x05' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in ADD_i (r', s.operand_sz / 8) 
-	| '\x06' -> let es' = if Register.size es = s.operand_sz then T es else P(es, 0, s.operand_sz-1) in PUSH [es']
-	| '\x07' -> let es' = if Register.size es = s.operand_sz then T es else P(es, 0, s.operand_sz-1) in POP [es']
+	| '\x06' -> let es' = if Register.size star_es = s.operand_sz then T star_es else P(star_es, 0, s.operand_sz-1) in PUSH [es']
+	| '\x07' -> let es' = if Register.size star_es = s.operand_sz then T star_es else P(star_es, 0, s.operand_sz-1) in POP [es']
 	| c when '\x08' <= c &&  c <= '\x0D' -> OR ((Char.code c) - (Char.code '\x08'))
-	| '\x0E' -> let cs' = if Register.size cs = s.operand_sz then T cs else P(cs, 0, s.operand_sz-1) in PUSH [cs']
+	| '\x0E' -> let cs' = if Register.size star_cs = s.operand_sz then T star_cs else P(star_cs, 0, s.operand_sz-1) in PUSH [cs']
 	| '\x0F' -> ESC
 	| c when '\x10' <= c && c <= '\x13' -> ADC ((Char.code c) - (Char.code '\x10'))
 	| '\x14' -> ADC_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
 	| '\x15' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in ADC_i (r', s.operand_sz / 8)
-	| '\x16' -> let ss' = if Register.size ss = s.operand_sz then T ss else P(ss, 0, s.operand_sz-1) in PUSH [ss']								 
-	| '\x17' -> let ss' = if Register.size ss = s.operand_sz then T ss else P(ss, 0, s.operand_sz-1) in POP [ss']
+	| '\x16' -> let ss' = if Register.size star_ss = s.operand_sz then T star_ss else P(star_ss, 0, s.operand_sz-1) in PUSH [ss']								 
+	| '\x17' -> let ss' = if Register.size star_ss = s.operand_sz then T star_ss else P(star_ss, 0, s.operand_sz-1) in POP [ss']
 	| '\x18' | '\x19' | '\x1A' | '\x1B' -> SBB ((Char.code c) - (Char.code '\x18'))
 	| '\x1c' -> SBB_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
 	| '\x1d' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in SBB_i (r', s.operand_sz / 8)
-	| '\x1E' -> let ds' = if Register.size ds = s.operand_sz then T ds else P(ds, 0, s.operand_sz-1) in PUSH [ds']
-	| '\x1F' -> let ds' = if Register.size ds = s.operand_sz then T ds else P(ds, 0, s.operand_sz-1) in POP [ds']
+	| '\x1E' -> let ds' = if Register.size star_ds = s.operand_sz then T star_ds else P(star_ds, 0, s.operand_sz-1) in PUSH [ds']
+	| '\x1F' -> let ds' = if Register.size star_ds = s.operand_sz then T star_ds else P(star_ds, 0, s.operand_sz-1) in POP [ds']
 	| c when '\x20' <= c && c <= '\x25' -> AND ((Char.code c) - (Char.code '\x20'))
 	| '\x26' -> PREFIX c
 	| c when '\x28' <= c && c <= '\x2B' -> SUB ((Char.code c) - (Char.code '\x28'))
@@ -678,7 +678,7 @@ module Make(Domain: Domain.T) =
       (****************************************************************************************)
       let is_segment r = 
 	match r with
-	  T r | P(r, _, _) -> Register.compare r cs = 0 || Register.compare r ds = 0 || Register.compare r ss = 0 || Register.compare r es = 0 || Register.compare r fs = 0 || Register.compare r gs = 0
+	  T r | P(r, _, _) -> Register.compare r star_cs = 0 || Register.compare r star_ds = 0 || Register.compare r star_ss = 0 || Register.compare r star_es = 0 || Register.compare r star_fs = 0 || Register.compare r star_gs = 0
       ;;
 	
       let is_esp r = 
@@ -703,7 +703,7 @@ module Make(Domain: Domain.T) =
 	   let v, _ = Cfa.add_state s.g s.b s.a s.b.Cfa.State.v ([Directive (Push (Const (Address.to_word a' 32))) ; Store(V(T esp), 
 																BinOp(Sub, Lval (V (T esp)), 
 																      Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))
-								   ]@(if far then [Directive (Push (Lval (V (T cs)))); Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
+								   ]@(if far then [Directive (Push (Lval (V (T star_cs)))); Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
 								     [Call v]) ({Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz}) false
 	   in
 	   [v]

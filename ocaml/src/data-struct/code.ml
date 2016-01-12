@@ -14,6 +14,8 @@ let make ~code ~ep =
     
     
 let sub v a =
+  Printf.printf "a = %s\n" (Data.Address.to_string a);
+  flush stdout;
   try
     let o   = Data.Address.to_int a   in
     let len = (String.length v.c) - o in

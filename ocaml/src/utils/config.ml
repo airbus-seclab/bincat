@@ -34,12 +34,12 @@ let address_sz = ref 32
 let operand_sz = ref 32
 let stack_width = ref 32
 
-let cs = ref Z.zero
-let ds = ref Z.zero
-let ss = ref Z.zero
-let es = ref Z.zero
-let fs = ref Z.zero
-let gs = ref Z.zero
+let star_cs = ref Z.zero
+let star_ds = ref Z.zero
+let star_ss = ref Z.zero
+let star_es = ref Z.zero
+let star_fs = ref Z.zero
+let star_gs = ref Z.zero
 
 
 type tvalue =

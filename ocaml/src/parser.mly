@@ -101,11 +101,11 @@
 	in
 	Hashtbl.iter add_tainting_rules libraries;
 	(* updates memory locations with the value of the ds segment selector if ds is not zero *)
-	if Z.equal !Config.ds Z.zero then
+	if Z.equal !Config.star_ds Z.zero then
 	  if !Config.mode = Config.Protected then
 	  begin
-	    Hashtbl.iter (fun a (c: Config.cvalue) -> Hashtbl.add Config.initial_memory_content (Z.add !Config.ds a) c) memory_content;
-	    Hashtbl.iter (fun a t -> Hashtbl.add Config.initial_memory_tainting (Z.add !Config.ds a) t) memory_tainting
+	    Hashtbl.iter (fun a (c: Config.cvalue) -> Hashtbl.add Config.initial_memory_content (Z.add !Config.star_ds a) c) memory_content;
+	    Hashtbl.iter (fun a t -> Hashtbl.add Config.initial_memory_tainting (Z.add !Config.star_ds a) t) memory_tainting
 	  end
 	  else
 	    failwith "only protected mode supported for the while"
@@ -174,12 +174,12 @@
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | CS EQUAL i=INT          	 { update_mandatory CS; Config.cs := Z.of_string i }
-    | DS EQUAL i=INT          	 { update_mandatory DS; Config.ds := Z.of_string i }
-    | SS EQUAL i=INT          	 { update_mandatory SS; Config.ss := Z.of_string i }
-    | ES EQUAL i=INT 	      	 { update_mandatory ES; Config.es := Z.of_string i }
-    | FS EQUAL i=INT 	      	 { update_mandatory FS; Config.fs := Z.of_string i }
-    | GS EQUAL i=INT 	      	 { update_mandatory GS; Config.gs := Z.of_string i }
+    | CS EQUAL i=INT          	 { update_mandatory CS; Config.star_cs := Z.of_string i }
+    | DS EQUAL i=INT          	 { update_mandatory DS; Config.star_ds := Z.of_string i }
+    | SS EQUAL i=INT          	 { update_mandatory SS; Config.star_ss := Z.of_string i }
+    | ES EQUAL i=INT 	      	 { update_mandatory ES; Config.star_es := Z.of_string i }
+    | FS EQUAL i=INT 	      	 { update_mandatory FS; Config.star_fs := Z.of_string i }
+    | GS EQUAL i=INT 	      	 { update_mandatory GS; Config.star_gs := Z.of_string i }
     | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := int_of_string i }
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := Z.of_string i }
     | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := int_of_string i }
