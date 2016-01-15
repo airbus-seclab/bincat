@@ -84,8 +84,8 @@ module Make(D: T) =
 			     
 	let to_string x = 
 	  match x with 
-	  | R r -> Register.name r
-	  | M a -> Data.Address.to_string a
+	  | R r -> "reg[" ^ (Register.name r) ^ "]"
+	  | M a -> "mem[" ^ (Data.Address.to_string a) ^ "]"
       end
 	      
     module Map = MapOpt.Make(K)
@@ -133,7 +133,7 @@ module Make(D: T) =
       | BOT, _ 		 -> true
       | _, BOT 		 -> false
       |	Val m1', Val m2' -> Map.for_all2 (fun v1 v2 -> D.subset (fst v1) (fst v2)) m1' m2'
-					 
+
     let to_string m =
       match m with
       |	BOT    -> ["?"]
