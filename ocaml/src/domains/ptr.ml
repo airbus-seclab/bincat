@@ -17,7 +17,9 @@ type t =
   | TOP (* top *)
       
 let name = "Pointer"
-   	     
+
+let bot = BOT
+	    
 let equal p1 p2 =
   match p1, p2 with
   | BOT, BOT | TOP, TOP -> true

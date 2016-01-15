@@ -86,8 +86,10 @@ end
     | BOT
     | Val of Bit.t array
 
-  let name = "Data Tainting"
-			  
+  let name = "Tainting" (* be sure that if this name changes then Unrel.taint_from_config is updated *)
+
+  let bot = BOT
+	      
   (* iterators on bit vectors *)
   (* remember that binary iterators are supposed to proceed on vector of the same length *)
   let map2 f v1 v2 =

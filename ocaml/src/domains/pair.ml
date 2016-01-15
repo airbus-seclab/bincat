@@ -6,6 +6,7 @@ struct
  
   let subset (v11, v12) (v21, v22)            = D1.subset v11 v21 && D2.subset v12 v22
   let to_string (v1, v2)                      = (D1.to_string v1) @ (D2.to_string v2)
+  let add_register r (v1, v2) 		      = D1.add_register r v1                , D2.add_register r v2
   let remove_register r (v1, v2)     	      = D1.remove_register r v1             , D2.remove_register r v2
   let set_register r e sz c (v1, v2)          = D1.set_register r e sz c v1         , D2.set_register r e sz c v2
   let taint_register_from_config r c (v1, v2) = D1.taint_register_from_config r c v1, D2.taint_register_from_config r c v2
