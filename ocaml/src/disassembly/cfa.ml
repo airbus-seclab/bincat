@@ -271,7 +271,7 @@ module Make(Domain: Domain.T) =
 	let f = open_out dumpfile in
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in 
-	  Printf.fprintf f "[ address = 0x%s ]\n%s\n\n\n" (Data.Address.to_string s.ip) abstract_values
+	  Printf.fprintf f "[address = %s]\n%s\n\n\n" (Data.Address.to_string s.ip) abstract_values
 	in
 	G.iter_vertex print_ip g;
 	close_out f
