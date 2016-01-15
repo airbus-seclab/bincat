@@ -92,23 +92,20 @@ module Make(Domain: Domain.T) =
 	  let name = Register.name r in
 	  match v with
 	  | Config.Bits b       ->
-	     let b' = Bits.string_to_bit_string b in
-	     if (String.length b') > sz then
+	     if (String.length b) > sz then
 	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
-	       Config.Bits (pad b' sz)
+	       Config.Bits (pad b sz)
 			   
 	  | Config.MBits (b, m) ->
-	     let b' = Bits.string_to_bit_string b in
-	     let m' = Bits.string_to_bit_string m in
-	     if (String.length b') > sz || (String.length m') > sz then
+	     if (String.length b) > sz || (String.length m) > sz then
 	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
-	       Config.MBits (pad b' sz, pad m' sz)
+	       Config.MBits (pad b sz, pad m sz)
 	in
 	(* checks whether the provided value is compatible with the capacity of the parameter of type Register _r_ and the size of words *)
 	let check_init_size r v =
-	  let len = String.length (Bits.string_to_bit_string v) in
+	  let len = String.length v in
 	  if len <= Register.size r && len <= !Config.operand_sz then
 	    Z.of_string v
 	    else

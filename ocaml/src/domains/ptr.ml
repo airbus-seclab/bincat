@@ -30,9 +30,9 @@ let subset = equal
 
 let string_of_region r =
   match r with
-  | Global -> "global"
-  | Stack  -> "stack"
-  | Heap   -> "heap"
+  | Global -> "Global"
+  | Stack  -> "Stack"
+  | Heap   -> "Heap"
 
 let string_of_offset o =
   let s   = String.escaped "0x%"   in
