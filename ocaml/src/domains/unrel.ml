@@ -23,6 +23,9 @@ module type T =
     (** name of the abstract domain *)
     val name: string
 
+    (** bottom value *)
+    val bot: t
+	       
     (** comparison *)
     (** returns true whenever the concretization of the first paramater is included in the concretization of the second parameter *)
     val subset: t -> t -> bool
@@ -111,7 +114,15 @@ module Make(D: T) =
       match m with
       | Val m' -> D.exp_to_addresses e sz (new ctx m')
       | BOT    -> raise Utils.Emptyset
-			
+
+    let add_register v m =
+      let add m' =
+	Val (Map.add (K.R v) (D.bot, 0) m')
+      in
+      match m with
+      | BOT    -> add Map.empty
+      | Val m' -> add m'
+	 
     let remove_register v m =
       match m with
       | Val m' -> Val (Map.remove (K.R v) m')
@@ -134,7 +145,7 @@ module Make(D: T) =
       | Val m' ->
 	 let v = D.eval_exp e sz c (new ctx m') in
 	 match r with
-	 |	Asm.T r' 	       ->
+	 | Asm.T r' 	    ->
 		 let _, n = Map.find (K.R r') m' in
 		 Val (Map.replace (K.R r') (v, n+1) m')
 	 | Asm.P (r', l, u) -> 
@@ -204,19 +215,19 @@ module Make(D: T) =
       | _         -> m
 
     let taint_register_from_config r c m =
-      match D.name with
-      | "Tainting" ->
-	 begin
+      Printf.printf "taint_register_from_config with %s\n" D.name;
+      flush stdout;
+      if String.compare D.name "Tainting" = 0 then
 	   (* we choose that tainting a register has no effect on the dimension that counts the number of times it has been set *)
 	   match m with
-	     BOT    -> BOT
+	     BOT    -> Printf.printf "youp\n"; flush stdout; BOT
 	   | Val m' ->
 	      let v' = D.taint_of_config c in
 	      try
 		Val (Map.replace (K.R r) (v', 0) m')
 	      with Not_found -> Val (Map.add (K.R r) (v', 0) m')
-	 end
-      | _         -> m
+      else
+	m
 
     let process_fun f m' =
       let registers, memories = f (new ctx m') in
