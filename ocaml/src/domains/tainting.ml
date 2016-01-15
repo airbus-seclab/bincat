@@ -157,7 +157,7 @@ end
    | BOT    -> "_"
    | Val v  ->
       let s = Array.fold_left (fun s b -> s ^ (Bit.to_string b) ^ " ; ") "" v in
-      "[" ^ (String.sub s 0 ((String.length s) -2)) ^ "]"
+      "[" ^ (String.sub s 0 ((String.length s) -3)) ^ "]"
 
  let of_config _c = BOT
 
