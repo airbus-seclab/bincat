@@ -18,7 +18,7 @@ type t =
       
 let name = "Pointer"
 
-let bot = BOT
+let bot _sz = BOT
 	    
 let equal p1 p2 =
   match p1, p2 with

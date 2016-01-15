@@ -24,7 +24,8 @@ module type T =
     val name: string
 
     (** bottom value *)
-    val bot: t
+    (** the integer parameter is the size in bits to return *)
+    val bot: int -> t
 	       
     (** comparison *)
     (** returns true whenever the concretization of the first paramater is included in the concretization of the second parameter *)
@@ -117,7 +118,7 @@ module Make(D: T) =
 
     let add_register v m =
       let add m' =
-	Val (Map.add (K.R v) (D.bot, 0) m')
+	Val (Map.add (K.R v) (D.bot (Register.size v), 0) m')
       in
       match m with
       | BOT    -> add Map.empty
