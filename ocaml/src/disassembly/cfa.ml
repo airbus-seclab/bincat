@@ -192,10 +192,11 @@ module Make(Domain: Domain.T) =
       (** CFA creation *)
       (** returned CFA has only one node : the state whose ip is given by the parameter and whose domain field is generated from the Config module *)
       let init ip =
+	let d = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	let s = {
 	    id = 0;
 	    ip = ip;
-	    v = init_memory (init_registers (Domain.init())) ;
+	    v = init_memory (init_registers d) ;
 	    stmts = [];
 	    ctx = {
 		op_sz = !Config.operand_sz;

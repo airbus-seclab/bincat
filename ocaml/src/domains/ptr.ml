@@ -42,8 +42,8 @@ let string_of_offset o =
 let to_string p =
   match p with
   | I (r, o) -> Printf.sprintf "(%s, %s)" (string_of_region r)  (string_of_offset o)
-  | TOP      -> "T"
-  | BOT      -> "_|_"
+  | TOP      -> "?"
+  | BOT      -> "_"
 		      
 let of_config c = I (Global, c)
 		       
