@@ -136,8 +136,8 @@ module Make(D: T) =
 					 
     let to_string m =
       match m with
-      |	BOT    -> ["_|_"]
-      | Val m' -> Map.fold (fun k v l -> ((K.to_string k) ^ "\t=\t" ^ (D.to_string (fst v))) :: l) m' []
+      |	BOT    -> ["?"]
+      | Val m' -> Map.fold (fun k v l -> ((D.name ^" "^K.to_string k) ^ " = " ^ (D.to_string (fst v))) :: l) m' []
 				   
     let set_register r e sz c m =
       match m with
@@ -215,12 +215,10 @@ module Make(D: T) =
       | _         -> m
 
     let taint_register_from_config r c m =
-      Printf.printf "taint_register_from_config with %s\n" D.name;
-      flush stdout;
       if String.compare D.name "Tainting" = 0 then
 	   (* we choose that tainting a register has no effect on the dimension that counts the number of times it has been set *)
 	   match m with
-	     BOT    -> Printf.printf "youp\n"; flush stdout; BOT
+	     BOT    -> BOT
 	   | Val m' ->
 	      let v' = D.taint_of_config c in
 	      try

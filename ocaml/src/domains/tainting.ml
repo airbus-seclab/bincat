@@ -44,7 +44,7 @@
       | Val (Exp e) -> Asm.string_of_exp e
       | Val (Fun f) -> f
       | Val INPUT   -> "INPUT"
-      | TOP         -> "T"
+      | TOP         -> "?"
 end
     
   (** abstract type of a bit *)
@@ -52,7 +52,6 @@ end
     struct
       (** data type *)
       type t =
-	| BOT 		     (** uninitialized tainting value *)
 	| Tainted of Src.t   (** bit is tainted. Its immediate source is the paramater of the constructor *)
 	| Untainted of Src.t (** bit is untainted. Its immediate source is the parameter of the constructor *)
 	| TOP 		     (** top *)
@@ -61,24 +60,20 @@ end
 	match b1, b2 with
 	| Tainted s1, Tainted s2     -> Src.subset s1 s2
 	| Untainted s1, Untainted s2 -> Src.subset s1 s2
-	| BOT, _ 	      	     -> true
 	| _, TOP 	      	     -> true
 	| _, _ 		      	     -> false
 
       let join b1 b2 =
 	match b1, b2 with
-	| BOT, b
-	| b, BOT 		     -> b
 	| Tainted s1, Tainted s2     -> Tainted (Src.join s1 s2)
 	| Untainted s1, Untainted s2 -> Untainted (Src.join s1 s2)
 	| _, _ 			     -> TOP
 					    
       let to_string b =
 	match b with
-	| BOT 	      -> "_|_"
-	| TOP 	      -> "T"
-	| Tainted s   -> Printf.sprintf "1(%s)" (Src.to_string s)
-	| Untainted s -> Printf.sprintf "0(%s)" (Src.to_string s)
+	| TOP 	      -> "?"
+	| Tainted s   -> Printf.sprintf "1: %s" (Src.to_string s)
+	| Untainted s -> Printf.sprintf "0: %s" (Src.to_string s)
     end
 
   (** abstract type of a tainting bit vector *)
@@ -89,12 +84,14 @@ end
   let name = "Tainting" (* be sure that if this name changes then Unrel.taint_from_config is updated *)
 
   let bot = BOT
-	      
+
+  let make sz = Array.make sz (Bit.Untainted (Src.Val Src.INPUT))
+			   
   (* iterators on bit vectors *)
   (* remember that binary iterators are supposed to proceed on vector of the same length *)
   let map2 f v1 v2 =
     let n = Array.length v1 in
-    let v = Array.make n Bit.BOT in
+    let v = make n	    in
     for i = 0 to n-1 do
       v.(i) <- f v1.(i) v2.(i)
     done;
@@ -131,8 +128,8 @@ end
   let taint_of_config v =
     match v with
     | Config.Bits b ->
-       let sz = String.length b       in
-       let t  = Array.make sz Bit.BOT in
+       let sz = String.length b in
+       let t  = make sz         in
        for i = 0 to sz-1 do
 	 if String.get b i = '1' then
 	   t.(i) <- Bit.Tainted (Src.Val Src.INPUT)
@@ -142,8 +139,8 @@ end
        Val t
 	 
     | Config.MBits (b, m) ->
-       let sz = String.length b       in
-       let t  = Array.make sz Bit.BOT in
+       let sz = String.length b in
+       let t  = make sz         in
 	 for i=0 to sz-1 do
 	   if String.get m i = '1' then
 	     t.(i) <- Bit.TOP
@@ -157,8 +154,10 @@ end
    
  let to_string v =
    match v with
-   | BOT    -> "_|_"
-   | Val v  -> Array.fold_left (fun s b ->  s ^ (Bit.to_string b)) "" v
+   | BOT    -> "_"
+   | Val v  ->
+      let s = Array.fold_left (fun s b -> s ^ (Bit.to_string b) ^ " ; ") "" v in
+      "[" ^ (String.sub s 0 ((String.length s) -2)) ^ "]"
 
  let of_config _c = BOT
 
@@ -200,7 +199,7 @@ end
        	 match v1, v2 with
 	 | BOT, v | v, BOT -> v
 	 | Val v1, Val v2 ->
-	    let v = Array.make sz Bit.BOT in
+	    let v = make sz in
 	    for i = 0 to sz-1 do
 	      v.(i) <-
 		begin
@@ -208,11 +207,8 @@ end
 		  | Bit.Untainted _, Bit.Untainted _ 				     -> Bit.Untainted (Src.Val (Src.Exp e))
 		  | Bit.Tainted _, Bit.Tainted _ 				     -> Bit.Tainted (Src.Val (Src.Exp e))
 		  | Bit.Tainted _, Bit.Untainted _ | Bit.Untainted _, Bit.Tainted _  -> Bit.Tainted (Src.Val (Src.Exp e))
-		  | Bit.BOT, Bit.Tainted _ | Bit.Tainted _, Bit.BOT 		     -> Bit.Tainted (Src.Val (Src.Exp e))
-		  | Bit.BOT, Bit.Untainted _ | Bit.Untainted _, Bit.BOT 	     -> Bit.Untainted (Src.Val (Src.Exp e)) (* by default unitialized tainted value is Untainted *)
 		  | Bit.TOP, Bit.Tainted _ | Bit.Tainted _, Bit.TOP 		     -> Bit.Tainted (Src.Val (Src.Exp e))
 		  | Bit.TOP, _ | _, Bit.TOP 					     -> Bit.TOP
-		  | Bit.BOT, Bit.BOT 						     -> Bit.BOT
 		end
 	    done;
 	    Val v
@@ -239,20 +235,21 @@ end
   let combine v1 v2 l u =
     match v1, v2 with
     | BOT, _ | _, BOT -> BOT
-    | Val v1, Val v2 ->
-    let n = Array.length v1 in
-    let v = Array.make n Bit.BOT in
-    for i = 0 to l-1 do
-      v.(i) <- v1.(i)
-    done;
-    for i = u+1 to n-1 do
-      v.(i) <- v1.(i)
-    done;
-    for i = l to u do
-      v.(i) <- v2.(i)
-    done;
-    Val v
 
+    | Val v1, Val v2 ->
+       let n = Array.length v1 in
+       let v = make n          in
+       for i = 0 to l-1 do
+	 v.(i) <- v1.(i)
+       done;
+       for i = u+1 to n-1 do
+	 v.(i) <- v1.(i)
+       done;
+       for i = l to u do
+	 v.(i) <- v2.(i)
+       done;
+       Val v
+	   
 
 				    
 
