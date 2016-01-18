@@ -1,0 +1,19 @@
+syntax: glob
+*.cmi
+*.cmx
+*.o
+*~
+*.so
+*.out
+lexer.ml
+parser.ml
+parser.mli
+*.orig
+__pycache__/*
+.coverage
+.depend
+*.pyc
+python/build
+*.egg-info
+*.swp
+*.egg
