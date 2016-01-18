@@ -7,7 +7,6 @@ struct
 
   (** the decoder module *)
   module Decoder = Decoder.Make(Domain)
-  module Dom = Domain
 
   (** the control flow automaton module *)
   module Cfa = Decoder.Cfa 
