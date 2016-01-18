@@ -13,13 +13,13 @@ let oct_int      = ("0o" | "0O") ['0'-'7']+
 let integer = hexa_int | dec_int | oct_int
 
 (* special characters *)
-let path_symbols = '.' | '/'
+let path_symbols = '.' | '/' 
 let white_space  = [' ' '\t' '\r']+
 let newline 	 = "\r" | "\n" | "\r\n"
 
 
 (* left operands in configuration rules *)
-let value        = (digit | path_symbols | letter)*
+let value        = (digit | path_symbols | letter | '_' )*
 
 (* tokens *)
 rule token = parse
