@@ -2,17 +2,10 @@
 (* abstract domain of concrete pointer                                        *)
 (******************************************************************************)
 
-
-type region =
-  | Global (** abstract base address of global variables and code *)
-  | Stack (** abstract base address of the stack *)
-  | Heap (** abstract base address of a dynamically allocated memory block *)
-
-
-type offset = Z.t (** offset from a region-based value *)
-		
+open Data
+       
 type t =
-  | I of region * offset
+  | I of Address.t
   | BOT (* bottom *)
   | TOP (* top *)
       
@@ -23,16 +16,12 @@ let bot _sz = BOT
 let equal p1 p2 =
   match p1, p2 with
   | BOT, BOT | TOP, TOP -> true
-  | I (r1, o1), I (r2, o2) -> r1 = r2 && Z.equal o1 o2
-  | _, _ -> false   
+  | I a1, I a2 		-> Address.equal a1 a2
+  | _, _ 		-> false   
 	      
 let subset = equal
 
-let string_of_region r =
-  match r with
-  | Global -> "Global"
-  | Stack  -> "Stack"
-  | Heap   -> "Heap"
+
 
 let string_of_offset o =
   let s   = String.escaped "0x%"   in
@@ -41,11 +30,11 @@ let string_of_offset o =
 		 
 let to_string p =
   match p with
-  | I (r, o) -> Printf.sprintf "(%s, %s)" (string_of_region r)  (string_of_offset o)
-  | TOP      -> "?"
-  | BOT      -> "_"
+  | I a -> Address.to_string a
+  | TOP -> "?"
+  | BOT -> "_"
 		      
-let of_config c = I (Global, c)
+let of_config r c sz = I (Address.of_string r c sz)
 		       
 let eval_exp _e = raise (Alarm.E (Alarm.Concretization name))
 			

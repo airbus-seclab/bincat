@@ -22,6 +22,7 @@ main.ml
 MLI=\
 data-struct/register.mli\
 utils/mapOpt.mli\
+data-struct/data.mli\
 domains/domain.mli\
 fixpoint/alarm.mli\
 

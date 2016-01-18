@@ -17,14 +17,14 @@ module Make(Domain: Domain.T) =
 
     let register_tbl = Hashtbl.create 8;;
 
-    let eax = Register.make "eax" 32;;
-    let ecx = Register.make "ecx" 32;;
-    let edx = Register.make "edx" 32;;
-    let ebx = Register.make "ebx" 32;;
-    let esp = Register.make "esp" 32;;
-    let ebp = Register.make "ebp" 32;;
-    let esi = Register.make "esi" 32;;
-    let edi = Register.make "edi" 32;;
+    let eax = Register.make name="eax" size=32;;
+    let ecx = Register.make name="ecx" size=32;;
+    let edx = Register.make name="edx" size=32;;
+    let ebx = Register.make name="ebx" size=32;;
+    let esp = Register.make name="esp" size=32 is_sp=true;;
+    let ebp = Register.make name="ebp" size=32;;
+    let esi = Register.make name="esi" size=32;;
+    let edi = Register.make name="edi" size=32;;
 
       Hashtbl.add register_tbl 0 eax;
       Hashtbl.add register_tbl 1 ecx;
@@ -43,34 +43,34 @@ module Make(Domain: Domain.T) =
       (*************************************************************************)
       (* Creation of the flag registers *)
       (*************************************************************************)
-      let fcf   = Register.make "cf" 1;; 
-      let fpf   = Register.make "pf" 1;; 
-      let faf   = Register.make "af" 1;;
-      let fzf   = Register.make "zf" 1;; 
-      let fsf   = Register.make "sf" 1;; 
-      let _ftf   = Register.make "tf" 1;; 
-      let _fif   = Register.make "if" 1;; 
-      let fdf   = Register.make "df" 1;; 
-      let fof   = Register.make "of" 1;; 
-      let _fiopl = Register.make "iopl" 2;; 
-      let _fnt   = Register.make "nt" 1;; 
-      let _frf   = Register.make "rf" 1;; 
-      let _fvm   = Register.make "vm" 1;; 
-      let _fac   = Register.make "ac" 1;; 
-      let _fvif  = Register.make "vif" 1;; 
-      let _fvip  = Register.make "vip" 1;; 
-      let _fid   = Register.make "id" 1;;
+      let fcf   = Register.make name="cf" size=1;; 
+      let fpf   = Register.make name="pf" size=1;; 
+      let faf   = Register.make name="af" size=1;;
+      let fzf   = Register.make name="zf" size=1;; 
+      let fsf   = Register.make name="sf" size=1;; 
+      let _ftf   = Register.make name="tf" size=1;; 
+      let _fif   = Register.make name="if" size=1;; 
+      let fdf   = Register.make name="df" size=1;; 
+      let fof   = Register.make name="of" size=1;; 
+      let _fiopl = Register.make name="iopl" size=2;; 
+      let _fnt   = Register.make name="nt" size=1;; 
+      let _frf   = Register.make name="rf" size=1;; 
+      let _fvm   = Register.make name="vm" size=1;; 
+      let _fac   = Register.make name="ac" size=1;; 
+      let _fvif  = Register.make name="vif" size=1;; 
+      let _fvip  = Register.make name="vip" size=1;; 
+      let _fid   = Register.make name="id" size=1;;
 	
 	
       (***********************************************************************)
       (* Creation of the segment registers (segment selectors and base are identified) that is why they are of 32-bit width rather than 16-bit *)
       (***********************************************************************)
-      let star_cs = Register.make "cs" 32;;
-      let star_ds = Register.make "ds" 32;;
-      let star_ss = Register.make "ss" 32;;
-      let star_es = Register.make "es" 32;;
-      let star_fs = Register.make "fs" 32;;
-      let star_gs = Register.make "gs" 32;;
+      let star_cs = Register.make name="cs" size=32;;
+      let star_ds = Register.make name="ds" size=32;;
+      let star_ss = Register.make name="ss" size=32;;
+      let star_es = Register.make name="es" size=32;;
+      let star_fs = Register.make name="fs" size=32;;
+      let star_gs = Register.make name="gs" size=32;;
 	
       (***********************************************************************)
       (* Internal state of the decoder *)
@@ -399,7 +399,7 @@ module Make(Domain: Domain.T) =
       let add_and_sub_flag_stmts istmts sz carry_or_borrow dst op2 =
 	(* TODO : simplify and factorize with inc_and_dec *)
 	let name        = Register.fresh_name () in
-	let v  	  = Register.make name sz  in
+	let v  	  = Register.make name=name size=sz  in
 	let tmp 	  = V (T v)		   in
 	let op1 	  = Lval tmp		   in
 	let res 	  = Lval dst		   in
@@ -508,7 +508,7 @@ module Make(Domain: Domain.T) =
 	  in
 	  let stmts =
 	    let name  = Register.fresh_name ()						   in
-	    let tmp   = Register.make name s.operand_sz					   in (* TODO: this size or (byte if binop_with_eax) or off ? *)
+	    let tmp   = Register.make name=name size=s.operand_sz					   in (* TODO: this size or (byte if binop_with_eax) or off ? *)
 	    let stmt  = Store (V (T tmp), BinOp(Sub, Lval dst, src))			   in
 	    let stmts = add_and_sub_flag_stmts [stmt] s.operand_sz false (V (T tmp)) src in
 	    stmts@[Directive (Remove tmp)]
@@ -520,8 +520,8 @@ module Make(Domain: Domain.T) =
       let inc_and_dec reg op s =
 	let dst 	  = V reg in
 	let name = Register.fresh_name () in
-	let v           = Register.make name s.operand_sz in
-	let tmp         = V (T v)				        in
+	let v           = Register.make name=name name=s.operand_sz in
+	let tmp         = V (T v)				    in
 	let op1         = Lval tmp			        in
 	let op2         = Const (Word.one s.operand_sz) in
 	let res         = Lval dst			        in
@@ -720,7 +720,7 @@ module Make(Domain: Domain.T) =
 	     else
 	       P (edi, 0, i-1), P (esi, 0, i-1)
 	   in
-	   let r = Register.make (Register.fresh_name()) i in
+	   let r = Register.make name=(Register.fresh_name()) size=i in
 	   let src = M (failwith "exp CMPS case 1", i) in
 	   let dst = M (failwith "exp CMPS case 2", i) in
 	   let stmts = add_and_sub_flag_stmts [Store(V(T r), BinOp(Sub, Lval dst, Lval src))] s.operand_sz false dst (Lval src) in
@@ -809,7 +809,7 @@ module Make(Domain: Domain.T) =
 	| PREFIX c -> push_prefix s c; decode s
 	| PUSH v  	     -> 
 	   (* TODO: factorize with POP *)
-	   let t = T (Register.make (Register.fresh_name()) s.operand_sz) in
+	   let t = T (Register.make name=(Register.fresh_name()) size=s.operand_sz) in
 	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
 	   let stmts = List.fold_left (fun stmts v -> 
 				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
@@ -840,7 +840,7 @@ module Make(Domain: Domain.T) =
 						  
 	| SCAS i ->
 	   update_prefix s Str ;
-	   let t = Register.make (Register.fresh_name()) i in
+	   let t = Register.make name=(Register.fresh_name()) size=i in
 	   let _edi', _eax' = 
 	     if i = Register.size edi then T edi, T eax
 	     else P (edi, 0, i-1), P (eax, 0, i-1)
@@ -861,7 +861,7 @@ module Make(Domain: Domain.T) =
 	| UNKNOWN 	     -> update s [Unknown] 1
 				       
 	| XCHG v          -> 
-	   let tmp = Register.make (Register.fresh_name()) s.operand_sz in
+	   let tmp = Register.make name=(Register.fresh_name()) size=s.operand_sz in
 	   let r = Hashtbl.find register_tbl v in
 	   let eax, r = if Register.size eax = s.operand_sz then T eax, T r else P(eax, 0, s.operand_sz-1), P(r, 0, s.operand_sz-1) in 
 	   let stmts = [Store(V (T tmp), Lval (V eax)) ; 

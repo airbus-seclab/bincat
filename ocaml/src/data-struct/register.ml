@@ -1,6 +1,6 @@
 module T =
 struct
-  type t = { name: string ; sz : int ; id : int }
+  type t = { name: string ; sz : int ; is_sp: bool; id : int }
   let compare v1 v2 = v1.id - v2.id
 end
 
@@ -11,8 +11,8 @@ module Set = Set.Make(T)
 (** contains currently used registers *)
 let registers = ref (Set.empty)
 
-let make s l = 
-  let  v = { name = s ; sz = l ; id = !cid } in
+let make ~name ?is_sp:(v=false)  ~size = 
+  let  v = { name = name ; sz = size ; is_sp = v ; id = !cid } in
   registers := Set.add v !registers;
   cid := !cid + 1;
   v
@@ -30,3 +30,5 @@ let size r = r.sz
 let used () = Set.elements !registers
 
 let of_name name = Set.choose (Set.filter (fun r -> r.name = name) !registers)
+
+let is_stack_pointer r = r.is_sp

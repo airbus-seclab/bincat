@@ -145,7 +145,7 @@ module Make(Domain: Domain.T) =
       (* 1. split b into a list of string of size Config.operand_sz *)
       (* 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
       let extended_memory_pad a b  =
-	let a' = Data.Address.of_int a !Config.address_sz in
+	let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
 	try
 	  [a', pad b !Config.operand_sz]
 	with _ ->

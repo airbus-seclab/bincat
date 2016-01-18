@@ -35,7 +35,8 @@ module type T =
     val to_string: t -> string
 
     (** value generation from configuration *)
-    val of_config: Z.t -> t
+    (** the size of the value is given by the int parameter *)
+    val of_config: Z.t -> int -> t
 			       
     (** returns the evaluation of the given expression as an abstract value *)			    
     val eval_exp: Asm.exp -> int -> (Asm.exp, Data.Address.Set.t) Domain.context -> (Data.Address.t, t) ctx_t -> t
@@ -183,7 +184,7 @@ module Make(D: T) =
 	 match m with
 	 | BOT -> BOT
 	 | Val m' ->
-	    let v' = D.of_config c in
+	    let v' = D.of_config c (Register.size r) in
 	    try
 	      Val (Map.replace (K.R r) (v', 0) m')
 	    with Not_found -> Val (Map.add (K.R r) (v', 0) m')
@@ -195,7 +196,7 @@ module Make(D: T) =
 	 match m with
 	 | BOT    -> BOT
  	 | Val m' ->
-	    let v' = D.of_config c in
+	    let v' = D.of_config c !Config.operand_sz in
 	    try
 	      Val (Map.replace (K.M a) (v', 0) m')
 	    with Not_found -> Val (Map.add (K.M a) (v', 0) m')
