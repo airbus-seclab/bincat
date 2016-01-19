@@ -815,7 +815,7 @@ module Make(Domain: Domain.T) =
 				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
 				       (* be careful: pushed value of esp is the value *before* starting PUSHA *)
 				       [if is_esp v then Directive(Push (Lval (V t))) else Directive (Push (Lval (V v))) ; 
-					Store(esp', BinOp(Add, Lval esp', Const (Word.of_int (Z.of_int n) !Config.stack_width)))]@stmts) [] v 
+					Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int (Z.of_int n) !Config.stack_width)))]@stmts) [] v 
 	   in 
 	   update s ((Store(V t, Lval esp'))::stmts) 1
 		  
@@ -824,7 +824,7 @@ module Make(Domain: Domain.T) =
 	   let v = int_of_bytes s n in
 	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
 	   let stmts = [Directive (Push (Const (Word.of_int (Z.of_int v) sz))) ; 
-			Store(esp', BinOp(Add, Lval esp', Const (Word.of_int  (Z.of_int !Config.stack_width) !Config.stack_width)))]
+			Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int  (Z.of_int !Config.stack_width) !Config.stack_width)))]
 			 
 	   in
 	   update s stmts 1
