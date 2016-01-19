@@ -11,12 +11,17 @@ module Set = Set.Make(T)
 (** contains currently used registers *)
 let registers = ref (Set.empty)
 
-let make ~name ?is_sp:(v=false)  ~size = 
-  let  v = { name = name ; sz = size ; is_sp = v ; id = !cid } in
+let imake name size is_sp =
+  let  v = { name = name ; sz = size ; is_sp = is_sp ; id = !cid } in
   registers := Set.add v !registers;
   cid := !cid + 1;
   v
+let make ~name ~size = imake name size false
+ 
+let make_sp ~name ~size = imake name size true
 
+let is_sp r = r.is_sp
+		
 let equal v1 v2 = compare v1 v2 = 0
 				    
 let fresh_name () = "_bincat_tmp_"^(string_of_int !cid)

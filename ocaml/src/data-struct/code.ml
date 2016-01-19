@@ -2,8 +2,8 @@
 (* Code module *)
 (**************************************************************************************************************************)
 type t = {
-    e: Data.Address.t; (** entry point *)
-    c: string; 	       (** the byte sequence containing the code *)	       
+    e: Z.t;    (** entry point *)
+    c: string; (** the byte sequence containing the code *)	       
   }
 			   
 let make ~code ~ep =
@@ -25,4 +25,4 @@ let to_string c =
   for i = ((String.length c.c) -1) downto 0 do
     s := (Printf.sprintf "\\x%X" (Char.code (String.get c.c i))) ^ !s
   done;
-  Printf.sprintf "entry point:\t %s\ntext:\t        %s" (Data.Address.to_string c.e) !s
+  Printf.sprintf "entry point:\t %s\ntext:\t        %s" (Data.Word.to_string (Data.Word.of_int c.e !Config.address_sz)) !s

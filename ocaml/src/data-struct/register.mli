@@ -7,11 +7,17 @@ type t
 val used: unit -> t list
 	   
 (** creates a register from the given string and size *)
-val make: name:string -> ?is_sp:bool -> size:int -> t
+val make: name:string -> size:int -> t
 (** may raise Invalid_argument if a register with that name already exists 
 or is a reserved name f *)
-(** the boolean parameter is true whenever the register is the stack pointer. False otherwise *)
 
+(** creates a stack pointer register from the given string and size *)
+val make_sp: name:string -> size:int -> t
+
+(** returns true whenever the given register is the default stack pointer *)
+(** false otherwise *)
+val is_sp: t -> bool
+		  
 (** returns a fresh register name *)
 val fresh_name: unit -> string
 

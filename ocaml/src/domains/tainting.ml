@@ -147,7 +147,7 @@ end
       let s = Array.fold_left (fun s b -> s ^ (Bit.to_string b) ^ ", ") "" v in
       "[" ^ (String.sub s 0 ((String.length s) -2)) ^ "]"
 
- let of_config _c sz = make sz
+ let of_config _r _c sz = make sz
 
   let mem_to_addresses _e _sz _c = raise Utils.Enum_failure
   let exp_to_addresses _e _sz _c = raise Utils.Enum_failure

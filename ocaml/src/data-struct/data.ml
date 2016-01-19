@@ -2,7 +2,12 @@
 module Word =
   struct
     type t = Z.t * int (* the integer is the size in bits *)
-		     
+
+    let to_string w =
+      let s   = String.escaped "0x%"             in
+      let fmt = Printf.sprintf "%s%dx" s (snd w) in
+      Printf.sprintf "0x%s" (Z.format fmt (fst w))
+
     let size w = snd w
 		     
     let compare (w1, sz1) (w2, sz2) = 
@@ -14,12 +19,16 @@ module Word =
     let zero sz	= Z.zero, sz
 			    
     let one sz = Z.one, sz
-			  
-    let to_string w =
-      let s   = String.escaped "0x%"             in
-      let fmt = Printf.sprintf "%s%dx" s (snd w) in
-      Printf.sprintf "0x%s" (Z.format fmt (fst w))
-				  
+
+    let add w1 w2 =
+      let w' = Z.add (fst w1) (fst w2) in
+      w', max (String.length (Z.to_bits w')) (max (size w1) (size w2))
+
+    let sub w1 w2 =
+      let w' = Z.sub (fst w1) (fst w2) in
+      w', String.length (Z.to_bits w')
+			
+   				  
     let of_int v sz = v, sz
 				    
     let to_int v = Z.to_int (fst v)
@@ -31,6 +40,8 @@ module Word =
 	  Printf.eprintf "word %s too large to fit into %d bits" v n;
 	  raise Exit
 	end
+      else
+	v', n
 
     let hash w = Z.hash (fst w)
 			
@@ -56,8 +67,8 @@ module Address =
       (* these memory regions are supposed not to overlap *)
       type region =
 	| Global (** abstract base address of global variables and code *)
-	| Stack (** abstract base address of the stack *)
-	| Heap (** abstract base address of a dynamically allocated memory block *)
+	| Stack  (** abstract base address of the stack *)
+	| Heap   (** abstract base address of a dynamically allocated memory block *)
 	    
 	    
       let string_of_region r =
@@ -83,17 +94,11 @@ module Address =
 	    
       let of_string r a n =
 	if !Config.mode = Config.Protected then 
-	  let a' = Z.of_string a in
-	  if Z.compare a' Z.zero < 0 then
+	  let w = Word.of_string a n in
+	  if Word.compare w(Word.zero n) < 0 then
 	    raise (Invalid_argument "Tried to create negative address")
 	  else
-	    if String.length (Z.to_bits a') > n then
-	      begin
-		Printf.eprintf "address %s too large to fit into %d bits" a n;
-		raise Exit
-	      end
-	    else
-	      r, (a', n)
+	      r, w
 	else
 	  failwith "Address generation for this memory mode not yet managed"
 
@@ -104,30 +109,31 @@ module Address =
 				   
       let of_int r i o = r, (i, o)
 			    
-      let size a = snd a
+      let size a = Word.size (snd a)
 		       
-      let add_offset ((r, s), sz) o' = 
-	let n = Z.add s o' in
-	if Z.size n > sz then
-	  raise (Invalid_argument "overflow when tried to add an offset to an address")
+      let add_offset (r, w) o' =
+	let n = Word.size w in
+	let w' = Word.add w (Word.of_int o' n) in
+	if Word.size w' > n then
+	  raise (Invalid_argument "overflow when tried to add an offset to an address: ")
 	else
-	  (r, n), sz
+	  r, w'
 	       
-      let to_word ((_r, v), sz') sz =
-	if sz >= sz' then
-	  v, sz'
+      let to_word (_r, w) sz =
+	if Word.size w >= sz then
+	  w
 	else
 	  raise (Invalid_argument "overflow when tried to convert an address to a word")
 		
       let sub v1 v2 =
 	match v1, v2 with
-	| ((r1, a1), _), ((r2, a2), _)  when r1 = r2 ->
-	   let v = Z.sub (fst a1) (fst a2) in
-	   if Z.compare v Z.zero < 0 then
+	| (r1, w1), (r2, w2)  when r1 = r2 ->
+	   let w = Word.sub w1 w2 in
+	   if Word.compare w (Word.zero (Word.size w1)) < 0 then
 	     raise (Invalid_argument "invalid address substraction")
 	   else
-	     v
-	| _, _ 					  -> raise (Invalid_argument "invalid address substraction")
+	     w
+	| _, _ 				   -> raise (Invalid_argument "invalid address substraction")
     end
     include A
     module Set = Set.Make(A)

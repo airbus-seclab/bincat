@@ -62,13 +62,13 @@ module type T =
       (** the size of the configuration is the same as the one of a memory word *)
       val taint_memory_from_config: Data.Address.t -> Config.tvalue -> t -> t
 
-      (** [set_memory_from_config a c m]* update the abstract value _m_ with the value configuration for the memory location _a_ *)
+      (** [set_memory_from_config a c m] update the abstract value _m_ with the value configuration for the memory location _a_ *)
       (** the size of the configuration is the same as the one of a memory word *)
-      val set_memory_from_config: Data.Address.t -> Z.t -> t -> t
+      val set_memory_from_config: Data.Address.t -> Data.Address.region -> Config.cvalue -> t -> t
 
       (** [set_register_from_config r c m] update the abstract value _m_ with the value configuration for register _r_ *)
       (** the size of the configuration is the same as the one of the register *)
-      val set_register_from_config: Register.t -> Z.t -> t -> t
+      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue -> t -> t
 
       (** transfer function when the given function is entered *)
       val enter_fun: t -> Asm.fct -> t

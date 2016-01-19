@@ -36,14 +36,14 @@ let process ~configfile ~resultfile =
   close_in cin;
   
   (* 3: generate code *)
-  let code  = Code.make !Config.text !Config.ep                                                           in
+  let code  = Code.make !Config.text !Config.ep                                                                                in
  
   (* 4: generate the initial cfa with only an initial state *)
-  let ep'   = Data.Address.add_offset (Data.Address.of_int !Config.star_cs !Config.address_sz) !Config.ep in
-  let g, s  = Interpreter.Cfa.init ep'                                                                    in
+  let ep'   = Data.Address.add_offset (Data.Address.of_int Data.Address. Global !Config.star_cs !Config.address_sz) !Config.ep in
+  let g, s  = Interpreter.Cfa.init ep'                                                                                         in
 
   (* 5: runs the fixpoint engine *)
-  let cfa  = Interpreter.process code g s                                                                 in
+  let cfa  = Interpreter.process code g s                                                                                      in
   
   (* 6: dumps the results *)
   Interpreter.Cfa.print cfa resultfile

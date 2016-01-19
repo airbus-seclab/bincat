@@ -107,7 +107,7 @@ module Make(Domain: Domain.T) =
 	let check_init_size r v =
 	  let len = String.length v in
 	  if len <= Register.size r && len <= !Config.operand_sz then
-	    Z.of_string v
+	    v
 	    else
 	      begin
 		Printf.eprintf "value %s too large to fit into register %s\n" v (Register.name r);
@@ -122,7 +122,10 @@ module Make(Domain: Domain.T) =
 	in
 	(* then the resulting domain d' is updated with the "padded" content for each register with initial content setting in the provided configuration *)  
 	Hashtbl.fold
-	  (fun r v d -> Domain.set_register_from_config r (check_init_size r v) d
+	  (fun r v d ->
+	    let region = if Register.is_sp r then Data.Address.Stack else Data.Address.Global
+	    in
+	    Domain.set_register_from_config r region (check_init_size r v) d
 	  )
 	  Config.initial_register_content d'
 
@@ -176,7 +179,7 @@ module Make(Domain: Domain.T) =
       let init_memory tbl =
 	let dc' = Hashtbl.fold (fun a c d ->
 		      let l = extended_memory_pad a c in
-		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' (Z.of_string c') d) d l
+		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' Data.Address.Global c' d) d l
 		    ) Config.initial_memory_content tbl
 	in
 	Hashtbl.fold (fun a t d ->

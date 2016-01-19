@@ -36,7 +36,7 @@ module type T =
 
     (** value generation from configuration *)
     (** the size of the value is given by the int parameter *)
-    val of_config: Z.t -> int -> t
+    val of_config: Data.Address.region -> Config.cvalue -> int -> t
 			       
     (** returns the evaluation of the given expression as an abstract value *)			    
     val eval_exp: Asm.exp -> int -> (Asm.exp, Data.Address.Set.t) Domain.context -> (Data.Address.t, t) ctx_t -> t
@@ -69,7 +69,7 @@ module type T =
 		  
 		  
 module Make(D: T) = 
-  struct
+  (struct
 		   
     module K = 
       struct
@@ -177,26 +177,26 @@ module Make(D: T) =
 		       
     let init () = Val (Map.empty)
 
-    let set_register_from_config r c m =
+    let set_register_from_config r region c m =
       match D.name with
       |	"Tainting" -> m
       | _          -> 
 	 match m with
 	 | BOT -> BOT
 	 | Val m' ->
-	    let v' = D.of_config c (Register.size r) in
+	    let v' = D.of_config region c (Register.size r) in
 	    try
 	      Val (Map.replace (K.R r) (v', 0) m')
 	    with Not_found -> Val (Map.add (K.R r) (v', 0) m')
 
-    let set_memory_from_config a c m =
+    let set_memory_from_config a region c m =
        match D.name with
       |	"Tainting" -> m
       | _          -> 
 	 match m with
 	 | BOT    -> BOT
  	 | Val m' ->
-	    let v' = D.of_config c !Config.operand_sz in
+	    let v' = D.of_config region c !Config.operand_sz in
 	    try
 	      Val (Map.replace (K.M a) (v', 0) m')
 	    with Not_found -> Val (Map.add (K.M a) (v', 0) m')
@@ -245,5 +245,5 @@ module Make(D: T) =
       | BOT    -> BOT
       | Val m' -> Val (process_fun D.leave_fun m')
 	 
-  end
+  end: Domain.T)
     

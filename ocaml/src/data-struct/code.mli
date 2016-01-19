@@ -2,9 +2,9 @@
     type t
 	   
     (** constructor *) 
-    val make: code:string -> ep:Data.Address.t -> t
+    val make: code:string -> ep:Z.t -> t
     (** code is the byte sequence of instructions to decode *)
-    (** ep is the address of the entry point in the code (ie an offset between the begining of the code and the entry point) *)
+    (** ep is the entry point in that sequence *)
 									      
 				     
     (** returns the sub sequence starting at the given address *)
