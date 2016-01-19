@@ -29,7 +29,8 @@ class AnalyzerConfig(object):
                               section)
                 sys.exit(1)
             zxidx = section.index("0x") # [address = 0xFF..FF]
-            address = int(section[zxidx:], 16)
+            sz = len(section) - (zxidx+1)
+            address = int(section[zxidx:zxidx+sz], 16)
             state = State(address)
             state.setFromAnalyzerOutput(config.items(section))
             self.stateAtEip[address] = state
@@ -52,7 +53,9 @@ class State(object):
         #: self.tainting[memory address or pointer name] =
         #: taint value (object)?
         self.tainting = {}
-
+        #: self.stmts = [statement of the intermediate language]
+        self.stmts = ""
+        
     def __eq__(self, other):
         result = False
         if set(self.ptrs.keys()) != set(other.ptrs.keys()):
@@ -81,11 +84,27 @@ class State(object):
                 self.tainting[k[9:]] = Tainting.fromAnalyzerOutput(v)
             elif k.startswith('pointer '):
                 self.ptrs[k[8:]] = PtrValue.fromAnalyzerOutput(v)
+            elif k.startswith('statements'):
+                self.stmts = Stmt.fromAnalyzerOutput(v) 
             else:
                 logging.error("Unrecognized key while parsing state: %s", k)
                 sys.exit(1)
 
+class Stmt(object):
+    def __init__(self, stmts):
+        self.stmts = stmts
 
+    def __ne__(self, other):
+            return not self.__eq__(other)
+
+    def __eq__(self, other):
+        return self.stmts == other.stmts
+     
+    @classmethod
+    def fromAnalyzerOutput(cls, s):
+        return cls(s)
+        
+                 
 class PtrValue(object):
     def __init__(self, region, address):
         self.region = region
@@ -127,7 +146,7 @@ def initialState(request):
 
 
 @pytest.fixture(scope='function')
-def analyzer(tmpdir):
+def analyzer(tmpdir, request):
     import mlbincat
 
     def run_analyzer(initialState, binarystr):
@@ -136,6 +155,11 @@ def analyzer(tmpdir):
         Run analyzer, get resulting state.
         """
         oldpath = tmpdir.chdir()
+
+        def resetpwd():  # test teardown; remove once init.ini is auto-generated
+            oldpath.chdir()
+        request.addfinalizer(resetpwd)
+
         initfile = str(tmpdir.join('init.ini'))
         with open(initfile, 'w+') as f:
             f.write(initialState)
@@ -148,7 +172,6 @@ def analyzer(tmpdir):
         mlbincat.process(initfile, outputfile)
         ac = AnalyzerConfig()
         ac.setStatesFromAnalyzerOutput(outputfile)
-        oldpath.chdir()
         return ac
     return run_analyzer
 
