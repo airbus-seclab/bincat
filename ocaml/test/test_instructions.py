@@ -156,6 +156,9 @@ def analyzer(tmpdir):
 def test_nop(analyzer, initialState):
     ac = analyzer(initialState, binarystr='\x90')
     assert ac.stateAtEip[0x00] == ac.stateAtEip[0x01]
+    # TODO add helper in AnalyzerConfig to perform a check at each eip
+    for eip in ac.stateAtEip.keys():
+        assert ac.stateAtEip[eip].ptrs['reg[esp]'].zone == 'stack'
 
 
 def test_pushebp(analyzer, initialState):
