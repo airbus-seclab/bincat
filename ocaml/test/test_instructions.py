@@ -47,7 +47,7 @@ class State(object):
     def __init__(self, address):
         self.address = ""
         #: self.ptrs[memory address or pointer name] =
-        #: ("memory zone", int value)
+        #: ("memory region", int address)
         self.ptrs = {}
         #: self.tainting[memory address or pointer name] =
         #: taint value (object)?
@@ -87,15 +87,15 @@ class State(object):
 
 
 class PtrValue(object):
-    def __init__(self, zone, value):
-        self.zone = zone
-        self.value = value
+    def __init__(self, region, address):
+        self.region = region
+        self.address = address
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __eq__(self, other):
-        return self.zone == other.zone and self.value == other.value
+        return self.region == other.region and self.address == other.address
 
     @classmethod
     def fromAnalyzerOutput(cls, s):
@@ -158,7 +158,7 @@ def test_nop(analyzer, initialState):
     assert ac.stateAtEip[0x00] == ac.stateAtEip[0x01]
     # TODO add helper in AnalyzerConfig to perform a check at each eip
     for eip in ac.stateAtEip.keys():
-        assert ac.stateAtEip[eip].ptrs['reg[esp]'].zone == 'stack'
+        assert ac.stateAtEip[eip].ptrs['reg[esp]'].region == 'stack'
 
 
 def test_pushebp(analyzer, initialState):
