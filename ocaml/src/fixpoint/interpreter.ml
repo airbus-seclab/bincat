@@ -119,16 +119,25 @@ struct
     List.map filter vertices
 		    
   let process code g s =
+    (* boolean variable used as condition for exploration of the CFA *)
     let continue = ref true		      in
+    (* set of waiting nodes in the CFA waiting to be processed *)
     let waiting  = ref (Vertices.singleton s) in
     while !continue do
+      (* a waiting node is randomly chosen to be explored *)
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
-      let text' 	   = Code.sub code v.Cfa.State.ip						 in
-      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip      		     		 in
-      let vertices' 	   = filter_vertices g vertices				     			 in
-      let new_vertices = List.fold_left (fun l v' -> (update g v.Cfa.State.ip offset v')@l) [] vertices' in
+      (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
+      let text' 	   = Code.sub code v.Cfa.State.ip						     in
+      (* the correspondig instruction is decoded and correponding successor vertices of v are computed       *)
+      (* the new instruction pointer is also returned                                                        *)
+      let vertices, offset = Decoder.parse text' g v v.Cfa.State.ip      		     		     in
+      (* only new vertices (ie not present in the current CFA) are added to the CFA as successors of v       *)
+      let vertices' 	   = filter_vertices g vertices				     			     in
+      let new_vertices     = List.fold_left (fun l v' -> (update g v.Cfa.State.ip offset v')@l) [] vertices' in
+      (* these new vertices are also added to the set of waiting vertices to be processed                    *)
       List.iter (fun v -> if not v.Cfa.State.internal then waiting := Vertices.add v !waiting) new_vertices;
+      (* boolean condition of loop iteration is updated                                                      *)
       continue := not (Vertices.is_empty !waiting);
     done;
     g
