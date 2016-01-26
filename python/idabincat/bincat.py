@@ -153,6 +153,17 @@ def getPointerSize():
     if  (compiler_info.cm & CM_MASK ) == CM_N16_F32 : return "32"
     if  (compiler_info.cm & CM_MASK ) == CM_N32_F48 : return "48"
 
+
+'''
+This function returns the first function entry point 
+this function returns the address of the first entry point
+'''
+def getFirstEntryPoint(): 
+    ord0 = GetEntryOrdinal(0)
+    funcname = GetFunctionName(ord0)
+    return ord0
+
+
 '''
 get main entry point 
 TODO find all entrypoints 
@@ -206,8 +217,9 @@ get code sections start/end
 '''
 def getCodeSection(ea):
     # in case we have more than one code section we apply the following heuristic 
-    # entry point must be in the code section 
-    ep = getMainEntryPoint()
+    # entry point must be in the code section
+    print("call GetCodeSegment ")  
+    ep = getFirstEntryPoint()
     for seg in Segments():
         seg_attributes = idc.GetSegmentAttr(SegStart(seg),idc.SEGATTR_TYPE)
         if seg_attributes  == idaapi.SEG_CODE and ( SegStart(seg) <= ep  <= SegEnd(seg)  )  : 
@@ -217,6 +229,27 @@ def getCodeSection(ea):
              if ea == 'end' :
                 print("[+] BinCAT::getCodeSection end %d ")%(SegStart(seg)) 
                 return( SegEnd(seg) )
+        else : 
+               print(" [+] BinCAT no Code section has been found \n")
+               return(-1) 
+
+
+'''
+get data sections start/end 
+'''
+def getDataSection(ea):
+    for seg in Segments():
+        seg_attributes = idc.GetSegmentAttr(SegStart(seg),idc.SEGATTR_TYPE)
+        if seg_attributes  == idaapi.SEG_DATA : 
+            if ea == 'start' :
+                print("[+] BinCAT::getDataSection start %d ")%(SegStart(seg)) 
+                return( SegStart(seg) )
+            if ea == 'end' :
+                print("[+] BinCAT::getDataSection end %d ")%(SegStart(seg)) 
+                return( SegEnd(seg) )
+
+
+
 
 '''
 get stack width 
@@ -272,45 +305,57 @@ class BinCATThread(threading.Thread):
          config  =  ConfigParser.RawConfigParser() 
          # global section : settings 
          config.add_section('settings')
-         config.set('settings','memmodel',getMemoryModel()) 
-         config.set('settings','callconv',getCallConvention())
-         # pointer size 
-         config.set('settings','address_size',getPointerSize())
+         config.set('settings','mem-model',getMemoryModel()) 
+         config.set('settings','call-conv',getCallConvention())
+         config.set('settings','mem-sz',32)
+         adr  = getCodeSection('start')
+         config.set('settings','op-sz', getBitness( adr ) )
+         config.set('settings','stack-width',getStackWidth())
 
          # global section:  binary file information 
          config.add_section('binary')
          config.set('binary','filepath',getBinaryPath())
          config.set('binary', 'format',getFileType())
-         config.set('binary','imagebase', hex(getImageBase()).rstrip('L'))
-         config.set('binary','entrypoint_main',hex(getMainEntryPoint()).rstrip('L'))
-         config.set('binary','entrypoint_main_raw', hex( getMainEntryPoint() - getImageBase() ).rstrip('L')   )
-         config.set('binary','textsection_start', hex( getCodeSection('start') ).rstrip('L') )
-         config.set('binary','testsection_end',hex(getCodeSection('end')).rstrip('L') )
-         config.set('binary','operand_size', getBitness(getCodeSection('start')))
-         config.set('binary','stack_width', getStackWidth())
+         config.set('binary','phys-code',  hex( getMainEntryPoint() - getImageBase() ).rstrip('L') )
+
+         #config.set('binary','imagebase', hex(getImageBase()).rstrip('L'))
+         #config.set('binary','entrypoint_main',hex(getMainEntryPoint()).rstrip('L'))
+         #config.set('binary','entrypoint_main_raw', hex( getMainEntryPoint() - getImageBase() ).rstrip('L')   )
+         #config.set('binary','textsection_start', hex( getCodeSection('start') ).rstrip('L') )
+         #config.set('binary','textsection_end',hex(getCodeSection('end')).rstrip('L') )
+         #config.set('binary','operand_size', getBitness(getCodeSection('start')))
+         
 
          # loader section 
          config.add_section('loader')
-         config.set('loader','stack_segment',0x0)
-         config.set('loader','data_segment',0x0)
-         config.set('loader','code_segment',0x0)
+         config.set('loader','rva-stack',hex(0))
+         config.set('loader','rva-data', hex( getDataSection('start') ).rstrip('L') )
+         config.set('loader','rva-code-start', hex( getCodeSection('start') ).rstrip('L'))
+         config.set('loader','rva-code-end',hex(getCodeSection('end')).rstrip('L'))
+         config.set('loader','rva-entrypoint', hex(getMainEntryPoint()).rstrip('L'))
+
+
+
 
 
          # state section 
          config.add_section('state')
-         config.set('state','reg[eax]',0x00)
-         config.set('state','reg[ebx]',0x01)
-         config.set('state','reg[ecx]',0x02)
-         config.set('state','reg[edx]',0x03)
-         config.set('state','reg[edi]',0x04)
-         config.set('state','reg[esi]',0x05)
-         config.set('state','reg[esp]',0x06)
-         config.set('state','reg[ebp]',0x07)
+         # a la main 
+         config.set('state','reg[eax]',hex(0))
+         config.set('state','reg[ebx]',hex(1))
+         config.set('state','reg[ecx]',hex(2))
+         config.set('state','reg[edx]',hex(3))
+         config.set('state','reg[edi]',hex(4))
+         config.set('state','reg[esi]',hex(5))
+         config.set('state','reg[esp]',hex(6))
+         config.set('state','reg[ebp]',hex(7))
 
 
          # analyzer config section 
          config.add_section('analyzer')
-         config.set('analyzer','kband',5)
+         config.set('analyzer','unroll',hex(5))
+
+          
 
          # config ini file should be in the same directory as bincat.py and analyzer 
          self.config_ini_path = GetIdaDirectory() + '/python/mymodule/' + self.config_ini_file         
@@ -321,10 +366,11 @@ class BinCATThread(threading.Thread):
      
      def run(self):
          parent , child = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  
-         fdnum = child.fileno() 
-         proc_analyzer= subprocess.Popen(['/opt/ida-6.7/python/mymodule/analyzer.py', '123456' ,'--commandfd', str(fdnum)],stdout=1)
+         fdnum = child.fileno()
+         # Ici lancer l'analyseur  
+         proc_analyzer= subprocess.Popen(['/opt/ida-6.8/python/mymodule/analyzer.py', '123456' ,'--commandfd', str(fdnum),'--inifile','nop.ini','--outfile','result.txt'],stdout=1)
          # generate confg ini file 
-         self.TestGenerateConfigFile() 
+         #self.TestGenerateConfigFile() 
          idaapi.msg("[BinCAT] BinCATThread::TestGenerateConfigFile()\n")
          #idaapi.msg("Analyzer debug messages %s \n"%analyzer_debug)
          parent.send(self.config_ini_file)

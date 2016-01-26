@@ -9,6 +9,12 @@ import cPickle
 import sys 
 import ConfigParser
 '''
+le module mlbincat --> /usr/lib/libbincat.so 
+'''
+import mlbincat 
+
+
+'''
 Purpose of this class is to simulate the analyzer 
 '''
 
@@ -55,6 +61,16 @@ class Analyzer:
     def printInput(self, address , mnemonics , opcodes ):
         print("[+] Analyzer has received the following paramaters : " )
 
+
+    def LaunchOcaml(self,inifile,outfile):
+        self.logger.info("[Analyzer] Launching OCaml stub")
+        try: 
+            mlbincat.process(inifile, outfile) 
+        except :
+            self.logger.info("[Analyzer] Exception when launching Ocaml stub")
+        
+        
+
 def main():
     
     a = Analyzer() 
@@ -65,9 +81,23 @@ def main():
     argsParser.add_argument('--mnemonics' ,action='store' ,help ='mnemonics to analyze')
     argsParser.add_argument('--opcode(s)' ,action='store' ,help ='opcodes to analyze')
     argsParser.add_argument('--commandfd' ,action='store' ,help ='file descriptor')
+    argsParser.add_argument('--inifile' ,action='store' ,help ='rule ini file')
+    argsParser.add_argument('--outfile' ,action='store' ,help ='output file')
+
 
     
     args = argsParser.parse_args()
+    a.logger.info("[Analyzer] Parsing command line: ")
+    print(args.inifile)
+    a.logger.info("[Analyzer] ini file : %s ",args.inifile)
+
+    print(args.outfile)
+    a.logger.info("[Analyzer] out file : %s ",args.outfile)
+
+    if  ( args.inifile and args.outfile ):
+        a.LaunchOcaml(args.inifile,args.outfile) 
+
+    
     print(args.address)
     print(args.commandfd)
     a.test( int(args.commandfd) ) 
