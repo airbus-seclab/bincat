@@ -18,11 +18,9 @@ import mlbincat
 Purpose of this class is to simulate the analyzer 
 '''
 
-
-
 class Analyzer:
     def __init__(self):
-        version = "[+] analyzer stub"
+        version = "[+] Analyzer::__init__ function"
         self.logger  =  logging.getLogger('BinCAT Analyzer')
         #analyzer_dir =  os.getcwd() + '/analyzer_log.txt' 
         self.analyzer_dir =  os.path.dirname(sys.argv[0]) + '/analyzer_log.txt' 
@@ -33,6 +31,18 @@ class Analyzer:
         self.logger.addHandler(self.logfile)
         self.logger.setLevel(logging.INFO)
         self.config =  ConfigParser.RawConfigParser() 
+        self.analyzer_socket = -1 
+
+
+    def initSocketFromFd(self,fd): 
+        # creation de la socket 
+        self.logger.info("[Analyzer] Initializing analyzer socket")
+        self.analyzer_socket = socket.fromfd( fd, socket.AF_UNIX, socket.SOCK_DGRAM)
+        self.logger.info("[Analyzer] socket.fromfd() ") 
+        message="[Analyzer] socket correctly created " 
+        self.analyzer_socket.send(message)        
+       
+
 
     def TestParseConfigFile(self,filename):
         # function to parse analyzer_config.ini file
@@ -42,11 +52,8 @@ class Analyzer:
                 
         return (self.config.items('settings'))                
 
-    def test(self,fd):
-        self.logger.info("[Analyzer] Analyzer stub loaded")
-        analyzer_socket = socket.fromfd( fd, socket.AF_UNIX, socket.SOCK_DGRAM)
-        self.logger.info("[Analyzer] socket.fromfd()  ok\n") 
-        message = analyzer_socket.recv(1024)      
+    def test(self):
+        message = self.analyzer_socket.recv(1024)      
         self.logger.info("[Analyzer] Analyzer received message %s",message)
        
         message = os.path.dirname(sys.argv[0]) + "/" + message  
@@ -55,19 +62,22 @@ class Analyzer:
         for k,v in result:
             message +=  k+" = "+v+"\n"
         message="[Ok] : \n" + message  
-        analyzer_socket.send(message)        
+        self.analyzer_socket.send(message)        
         self.logger.info("[Analyzer] Analyzer sent message  %s",message)
 
     def printInput(self, address , mnemonics , opcodes ):
         print("[+] Analyzer has received the following paramaters : " )
 
-
+# Cette fonction permet de lancer le stub Ocaml
     def LaunchOcaml(self,inifile,outfile):
         self.logger.info("[Analyzer] Launching OCaml stub")
         try: 
             mlbincat.process(inifile, outfile) 
         except :
             self.logger.info("[Analyzer] Exception when launching Ocaml stub")
+            error = "[Analyzer] Exception when launching Ocaml stub" 
+            self.analyzer_socket.send(error)        
+
         
         
 
@@ -94,14 +104,17 @@ def main():
     print(args.outfile)
     a.logger.info("[Analyzer] out file : %s ",args.outfile)
 
+    # create socket 
+    a.logger.info("[Analyzer] Creating Socket from IDA fd ")
+    a.initSocketFromFd(int(args.commandfd))
+
     if  ( args.inifile and args.outfile ):
         a.LaunchOcaml(args.inifile,args.outfile) 
 
     
     print(args.address)
     print(args.commandfd)
-    a.test( int(args.commandfd) ) 
-
+    #a.test() 
 
 
 

@@ -367,15 +367,28 @@ class BinCATThread(threading.Thread):
      def run(self):
          parent , child = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  
          fdnum = child.fileno()
+        
          # Ici lancer l'analyseur  
          proc_analyzer= subprocess.Popen(['/opt/ida-6.8/python/mymodule/analyzer.py', '123456' ,'--commandfd', str(fdnum),'--inifile','nop.ini','--outfile','result.txt'],stdout=1)
-         # generate confg ini file 
-         #self.TestGenerateConfigFile() 
-         idaapi.msg("[BinCAT] BinCATThread::TestGenerateConfigFile()\n")
+         idaapi.msg("[BinCAT] BinCATThread::subprocess.Popen(analyzer.py) OK  \n")
+
+         # une fois le thread de l'anlyzer cree, on attend un message en retour
+         msg = ''
+         msg = parent.recv(1000)
+         if (msg):
+             idaapi.msg("%s \n "%msg)
+
+         #  le deuxieme msg de l'analzer doit indiquer si le module mlbincat a ete charge
+         msg = ''
+         msg = parent.recv(1000)
+         if (msg):
+             idaapi.msg("%s \n "%msg)
+
+         #idaapi.msg("[BinCAT] BinCATThread::TestGenerateConfigFile()\n")
          #idaapi.msg("Analyzer debug messages %s \n"%analyzer_debug)
-         parent.send(self.config_ini_file)
+         #parent.send(self.config_ini_file)
          #child.close()
-         idaapi.msg("Analyzer response is %s\n"%parent.recv(1000)) 
+         #idaapi.msg("Analyzer response is %s\n"%parent.recv(1000)) 
 
        
 
