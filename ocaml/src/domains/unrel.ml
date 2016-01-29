@@ -43,13 +43,11 @@ module type T =
     val eval_exp: Asm.exp -> int -> Domain.oracle -> t ctx_t -> t
 												  
     (** returns the set of addresses associated to the memory expression of size _n_ where _n_ is the integer parameter *)
-    val mem_to_addresses: Asm.exp -> int -> t ctx_t -> Data.Address.Set.t
     (** may raise an exception if this set of addresses is too large *)									  
     (** never call the method ctx_t.to_addresses in this function *)
+    val mem_to_addresses: Asm.exp -> int -> t ctx_t -> Data.Address.Set.t
+   
 										    
-    (** returns the set of addresses associated to the given expression *)									
-    val exp_to_addresses: Asm.exp -> int -> t ctx_t -> Data.Address.Set.t
-    (** may raise an Exception if this set of addresses is too large *)
 								   
     (** returns the tainted value corresponding to the given abstract value *)
     val taint_of_config: Config.tvalue -> t
@@ -111,7 +109,7 @@ module Make(D: T) =
     let mem_to_addresses mem sz m =
       match m with
       | Val m' -> D.mem_to_addresses mem sz (new ctx m')
-      | BOT    -> raise Exceptions.Enum_failure (Printf.sprintf "Unrel.Make(%s)" D.name, "mem_to_addresses")
+      | BOT    -> raise (Exceptions.Enum_failure (Printf.sprintf "Unrel.Make(%s)" D.name, "mem_to_addresses"))
 	 
     let add_register v m =
       let add m' =

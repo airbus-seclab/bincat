@@ -36,11 +36,10 @@ let to_string p =
 		      
 let of_config r c sz = I (Address.of_string r c sz)
 		       
-let eval_exp _e = raise (Alarm.E (Alarm.Concretization name))
+let eval_exp _e = raise (Exceptions.Enum_failure (name, "eval_exp"))
 			
 			
-let mem_to_addresses (_m: Asm.exp) (_sz) _ctx = raise (Alarm.E (Alarm.Concretization name))
-let exp_to_addresses _e _ctx = raise (Alarm.E (Alarm.Concretization name))
+let mem_to_addresses (_m: Asm.exp) (_sz) _ctx = raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
 				     
 let taint_of_config _c = BOT
 			   

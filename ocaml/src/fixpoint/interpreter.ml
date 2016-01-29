@@ -25,7 +25,7 @@ struct
   (** computes the list of function targets (their addresses) from a value of type fct *)
   let ft_to_addresses s sz f =
     match f with
-      I r -> Address.Set.elements (D.exp_to_addresses (Lval (V r)) sz s)
+      I r -> Address.Set.elements (D.mem_to_addresses (Lval (V r)) sz s)
     | D a -> [a]
 
   (** computes the list of jump targets (their addresses) from a value of type jmp_target *)
@@ -34,7 +34,7 @@ struct
       A a -> [a]
     | R (_n, _r) -> failwith "the following commented code shows a confusion between what an offset and an address are supposed to represent "
   (*let n' = Segment.shift_left n 4 in
-		  let offsets = Address.Set.elements (D.exp_to_addresses s (Lval (V r))) in
+		  let offsets = Address.Set.elements (D.mem_to_addresses s (Lval (V r))) in
 		  List.map (fun a -> Address.of_string (n'^":"^a) sz) offsets*)
 						   
   let default_ctx () = {
@@ -135,7 +135,7 @@ struct
 	  let vertices'    = filter_vertices g new_vertices				     		        in
 	  List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
 	with
-	| Exceptions.Enum_failure (m, msg) -> Log.from_analysis m msg
+	| Exceptions.Enum_failure (m, msg) -> Log.from_analysis (m^"."^msg) "analysis stopped in that branch"
       end;
       (* boolean condition of loop iteration is updated                                                          *)
       continue := not (Vertices.is_empty !waiting);

@@ -17,20 +17,20 @@ struct
   let init ()    			      	= D1.init ()                          , D2.init ()
   let enter_fun (v1, v2) f                    	= D1.enter_fun v1 f                   , D2.enter_fun v2 f
   let leave_fun (v1, v2)                      	= D1.leave_fun v1                     , D2.leave_fun v2
-  let exp_to_addresses m sz (v1, v2) =
+  let mem_to_addresses m sz (v1, v2) =
     try
       let a1' = D1.mem_to_addresses m sz v1 in
 	try
 	  let a2' = D2.mem_to_addresses m sz v2 in
 	  Data.Address.Set.inter a1' a2'
 	with
-	  Exceptions.Enum_failure -> a1'
+	  Exceptions.Enum_failure _ -> a1'
     with
-      Exceptions.Enum_failure ->
+      Exceptions.Enum_failure _ ->
       try
 	D2.mem_to_addresses m sz v2
       with
-	Exceptions.Enum_failure _ -> raise (Exceptions.Enum_failure (Printf.sprintf "(%s x %s)" D1.name D2.name, "exp_to_addresses"))
+	Exceptions.Enum_failure _ -> raise (Exceptions.Enum_failure (Printf.sprintf "(%s x %s)" D1.name D2.name, "mem_to_addresses"))
   
 
 end: Domain.T)
