@@ -1,13 +1,14 @@
 (** Signature of abstract domains *)
 
-(** a context is a kind of oracle for a domain to get useful information (from other domains, etc.) *) 
-class type ['mem, 'addr] context =
+(** an oracle is provided to each domain to pick up useful information (from other domains for instance) *) 
+class type oracle =
   object
 
-    (** [mem_to_addresses a n] returns either *)
-    (** Top or the concrete address starting at the abstract address _a_ of _n_ bit width *) 
-  method mem_to_addresses: 'mem -> int -> 'addr option 
-  (** never call this method from T.exp_to_addresses (stack overflow) *)
+    (** [mem_to_addresses a n] returns the set of concrete addresses starting at _a_ and of _n_ bit width *)
+    (** never call to implement the function signature T.exp_to_addresses (stack overflow) *)
+    (** this method may raise an exception if the number of addresses is too large *)
+    method mem_to_addresses: Asm.exp -> int -> Data.Address.Set.t
+					      
 end
 
 module type T = 
@@ -36,19 +37,13 @@ module type T =
       (** string conversion *)
       val to_string: t -> string list
 
-      (** assignment into the given register of the given expression *)
-      val set_register: Asm.reg -> Asm.exp -> int -> (Asm.exp, Data.Address.Set.t) context -> t -> t
+      (** assignment into the given left value of the given expression *)
+      (** the integer is the size in bits of the expression *)
+      val set: Asm.lval -> Asm.exp -> oracle -> t -> t
 
-      (** assignment into memory *) 
-      val set_memory: Asm.exp -> Asm.exp -> int -> (Asm.exp, Data.Address.Set.t) context -> t -> t
-      (**[set_memory e1 n e2 ctx m] returns the abstract value _m_ where the dimension _e1_ of size _n_ bits has been set to _e2_ *)
       
       (** returns the set of addresses corresponding to the given expression of size in bits given by the parameter *)
       val mem_to_addresses: Asm.exp -> int -> t -> Data.Address.Set.t
-      (** may raise an exception if the set of addresses is too large *)
-								     
-      (** returns the set of addresses corresponding to the given expression *)	
-      val exp_to_addresses: Asm.exp -> int -> t -> Data.Address.Set.t
       (** may raise an exception if the set of addresses is too large *)
 									  
       (** joins the two abstract values *)

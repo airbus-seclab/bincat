@@ -149,12 +149,12 @@ end
 
  let of_config _r _c sz = make sz
 
-  let mem_to_addresses _e _sz _c = raise Utils.Enum_failure
-  let exp_to_addresses _e _sz _c = raise Utils.Enum_failure
+  let mem_to_addresses _e _sz _c = raise Utils.Enum_failure ("Tainting", "mem_to_addresses")
+  let exp_to_addresses _e _sz _c = raise Utils.Enum_failure ("Tainting", "exp_to_addresses")
 
   exception Bottom
 	      
-  let rec eval_exp e sz (c: (Asm.exp, Data.Address.Set.t) Domain.context) ctx: t = 
+  let rec eval_exp e sz (c: Domain.oracle) ctx: t = 
     match e with
     | Asm.Lval (Asm.V (Asm.T r)) ->
        ctx#get_val_from_register r

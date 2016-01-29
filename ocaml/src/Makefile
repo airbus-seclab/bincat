@@ -3,13 +3,13 @@ data-struct/register.ml\
 utils/mapOpt.ml\
 utils/bits.ml\
 utils/config.ml\
+utils/log.ml\
 data-struct/data.ml\
 lexer.ml\
 parser.ml\
 data-struct/asm.ml\
-utils/utils.ml\
+utils/exceptions.ml\
 data-struct/code.ml\
-fixpoint/alarm.ml\
 domains/unrel.ml\
 domains/ptr.ml\
 domains/pair.ml\
@@ -24,7 +24,6 @@ data-struct/register.mli\
 utils/mapOpt.mli\
 data-struct/data.mli\
 domains/domain.mli\
-fixpoint/alarm.mli\
 
 LIBNAME=libbincat.so
 
