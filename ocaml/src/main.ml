@@ -10,7 +10,7 @@ let string_of_position pos =
   Printf.sprintf "%d" pos.Lexing.lex_start_pos
 
 (* main function *)
-let process ~configfile ~resultfile =
+let process ~configfile ~resultfile ~logfile =
   (* 1: open the configuration file *)
   let cin    =
     try
@@ -19,7 +19,11 @@ let process ~configfile ~resultfile =
       cin
     with _ -> failwith "Opening configuration file failed"
   in
-  (* 2: parse the configuration file to fill configuration information *)
+
+  (* 2: open the log file *)
+  Log.init logfile;
+  
+  (* 3: parse the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
   begin
     try
@@ -35,18 +39,21 @@ let process ~configfile ~resultfile =
   end;
   close_in cin;
   
-  (* 3: generate code *)
+  (* 4: generate code *)
   let code  = Code.make !Config.text !Config.ep                                                                                in
  
-  (* 4: generate the initial cfa with only an initial state *)
+  (* 5: generate the initial cfa with only an initial state *)
   let ep'   = Data.Address.add_offset (Data.Address.of_int Data.Address. Global !Config.star_cs !Config.address_sz) !Config.ep in
   let g, s  = Interpreter.Cfa.init ep'                                                                                         in
 
-  (* 5: runs the fixpoint engine *)
+  (* 6: runs the fixpoint engine *)
   let cfa  = Interpreter.process code g s                                                                                      in
   
-  (* 6: dumps the results *)
-  Interpreter.Cfa.print cfa resultfile
+  (* 7: dumps the results *)
+  Interpreter.Cfa.print cfa resultfile;
+
+(* 8: close the log file *)
+  Log.close ()
  ;; 
   
 (* enables the process function to be callable from the .so *)

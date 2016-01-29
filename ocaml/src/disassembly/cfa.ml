@@ -263,11 +263,26 @@ module Make(Domain: Domain.T) =
       let update_stmts s stmts op_sz addr_sz =
       	s.stmts <- stmts;
       	s.ctx   <- {addr_sz = addr_sz; op_sz = op_sz}
-		     
+
+      (** returns the list of successors of the given vertex in the given CFA *)
       let succs g v  = G.succ g v
-      let pred g v   = G.pred g v
+
+      (** fold on all vertices of a graph *)
+      let fold_vertex f g i = G.fold_vertex f g i
+
+      (** iter on all vertices of a graph *)
+      let iter_vertex f g = G.iter_vertex f g
+					  
+      (** returns the unique predecessor of the given vertex in the given CFA *)
+      (** may raise an exception if the vertex has no predessor *)
+      let pred g v   =
+	try List.hd (G.pred g v)
+	with _ -> raise (Invalid_argument "vertex without predecessor")
+
+      (** remove the given vertex of the given CFA *)
       let remove g v = G.remove_vertex g v
 
+      (** dump the given CFA into the given file *) 
       let print g dumpfile =
 	let f = open_out dumpfile in
 	let print_ip s =

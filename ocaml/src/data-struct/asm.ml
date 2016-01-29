@@ -50,7 +50,7 @@ type exp =
  (** type of left values *)
  and lval =
    | V of reg 	    (** a register *)
-   | M of exp * int (** M(e, n) is a memory adress whose value is _e_ and width is _n_ bits *) 
+   | M of exp * int (** M(e, n) is a memory address whose value is _e_ and width is _n_ bits *) 
 		  
 			    
 (** type of function calls *)
@@ -61,14 +61,12 @@ type fct =
 (** type of directives for the analyzer *)
 type directive_t =
   | Remove of Register.t   (** remove the register *)
-  | Push of exp 	   (** push the expression on the stack *)
-  | Pop of reg 		   (** pop the stack and stores it on the given register *)
   | Undefine of Register.t (** forget the computed value of the given register *)
 		  
 (** type of statements *)
 type stmt =
   | Load  of lval * lval    		   (** load the second argument into the first one *)
-  | Store  of lval * exp    		   (** load the expression into the left value *)
+  | Store  of lval * exp    		   (** store the expression into the left value *)
   | Jcc	 of exp option * jmp_target option (** (un)conditional branch ; None expression is for unconditional jump ; None target is for intermediate block translation *)				    
   | Call of fct          		   (** call *)
   | Return         			   (** return *)
@@ -149,14 +147,14 @@ and string_of_exp e =
 					 
 let string_of_stmt s =
   match s with
-    Load _  	-> "load"
-  | Store _ 	-> "store"
-  | Jcc _ 	-> "jcc"
-  | Call _ 	-> "call"
-  | Return  	-> "return"
-  | Unknown 	-> "unknown"
-  | Undef 	-> "undef"
-  | Nop 	-> "nop"
-  | Directive _ -> "directive"
+    Load _  	     -> "load"
+  | Store (dst, src) -> Printf.sprintf "%s <- %s\n" (string_of_lval dst) (string_of_exp src)
+  | Jcc _ 	     -> "jcc"
+  | Call _ 	     -> "call"
+  | Return  	     -> "return"
+  | Unknown 	     -> "unknown"
+  | Undef 	     -> "undef"
+  | Nop 	     -> "nop"
+  | Directive _      -> "directive"
 
 		     

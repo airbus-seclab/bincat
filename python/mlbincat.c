@@ -32,14 +32,15 @@ static PyObject *process(PyObject *self, PyObject *args)
 
   char *configfile;
   char *resultfile;
+  char *logfile;
 
-  if (!PyArg_ParseTuple(args, "ss", &configfile, &resultfile))
+  if (!PyArg_ParseTuple(args, "sss", &configfile, &resultfile, &logfile))
     return NULL;
   if (!load_caml(&process_func, "process"))
     return NULL;
 
   value res;
-  res = caml_callback2_exn(*process_func, caml_copy_string(configfile), caml_copy_string(resultfile));
+  res = caml_callback3_exn(*process_func, caml_copy_string(configfile), caml_copy_string(resultfile), caml_copy_string(logfile));
   if (Is_exception_result(res)) {
     value exn = Extract_exception(res);
 	PyErr_SetString(OcamlException, (*caml_format_exception)(exn));

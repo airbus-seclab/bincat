@@ -189,42 +189,50 @@ module Make(Domain: Domain.T) =
 	| c when '\x08' <= c &&  c <= '\x0D' -> OR ((Char.code c) - (Char.code '\x08'))
 	| '\x0E' -> let cs' = if Register.size star_cs = s.operand_sz then T star_cs else P(star_cs, 0, s.operand_sz-1) in PUSH [cs']
 	| '\x0F' -> ESC
+		      
 	| c when '\x10' <= c && c <= '\x13' -> ADC ((Char.code c) - (Char.code '\x10'))
 	| '\x14' -> ADC_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
 	| '\x15' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in ADC_i (r', s.operand_sz / 8)
-	| '\x16' -> let ss' = if Register.size star_ss = s.operand_sz then T star_ss else P(star_ss, 0, s.operand_sz-1) in PUSH [ss']								 
-	| '\x17' -> let ss' = if Register.size star_ss = s.operand_sz then T star_ss else P(star_ss, 0, s.operand_sz-1) in POP [ss']
+	| '\x16' -> let ss' = if Register.size star_ss = s.operand_sz then T star_ss else P(star_ss, 0, s.operand_sz-1) in PUSH [ss']							   | '\x17' -> let ss' = if Register.size star_ss = s.operand_sz then T star_ss else P(star_ss, 0, s.operand_sz-1) in POP [ss']
 	| '\x18' | '\x19' | '\x1A' | '\x1B' -> SBB ((Char.code c) - (Char.code '\x18'))
 	| '\x1c' -> SBB_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
 	| '\x1d' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in SBB_i (r', s.operand_sz / 8)
 	| '\x1E' -> let ds' = if Register.size star_ds = s.operand_sz then T star_ds else P(star_ds, 0, s.operand_sz-1) in PUSH [ds']
 	| '\x1F' -> let ds' = if Register.size star_ds = s.operand_sz then T star_ds else P(star_ds, 0, s.operand_sz-1) in POP [ds']
+															       
 	| c when '\x20' <= c && c <= '\x25' -> AND ((Char.code c) - (Char.code '\x20'))
 	| '\x26' -> PREFIX c
 	| c when '\x28' <= c && c <= '\x2B' -> SUB ((Char.code c) - (Char.code '\x28'))
 	| '\x2C' -> SUB_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
 	| '\x2D' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in SUB_i (r', s.operand_sz / 8)	
 	| '\x2E' -> PREFIX c
+			   
 	| c when '\x30' <= c &&  c <= '\x35' -> XOR ((Char.code c) - (Char.code '\x30'))	
 	| '\x36' -> PREFIX c
 	| c when '\x38' <= c && c <= '\x3D' -> CMP ((Char.code c) - (Char.code '\x38')) 	
 	| '\x3E' -> PREFIX c
+			   
 	| c when '\x40' <= c && c <= '\x47' -> let r = Hashtbl.find register_tbl ((Char.code c) - (Char.code '\x47')) in if Register.size r = s.operand_sz then INC (T r) else INC (P(r, 0, s.operand_sz-1))
 	| c when '\x48' <= c && c <= '\x4f' -> let r = Hashtbl.find register_tbl ((Char.code c) - (Char.code '\x48')) in if Register.size r = s.operand_sz then DEC (T r) else DEC (P(r, 0, s.operand_sz-1))
+																						   
 	| c when '\x50' <= c &&  c <= '\x57' -> let v = (Char.code c) - (Char.code '\x50') in let r = Hashtbl.find register_tbl v in let r'= if Register.size r = s.operand_sz then T r else P (r, 0, s.operand_sz-1) in PUSH [r']
 	| c when '\x58' <= c && c <= '\x5F' -> let v = (Char.code c) - (Char.code '\x50') in 
 					       let r = Hashtbl.find register_tbl v in let r'= if Register.size r = s.operand_sz then T r else P (r, 0, s.operand_sz-1) in 
 										      POP [r']
+
 	| '\x60' -> let l = List.map (fun v -> let r = Hashtbl.find register_tbl v in if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1)) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in PUSH l
 	| '\x61' -> let l = List.map (fun v -> let r = Hashtbl.find register_tbl v in if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1)) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in POP l
 	| '\x64' -> PREFIX c
 	| '\x65' -> PREFIX c
 	| '\x68' -> PUSH_i 1
 	| '\x6A' -> PUSH_i (s.operand_sz / 8)
+
 	| c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in JCC (v, 1) 
+
 	| '\x90' -> NOP 
 	| c when '\x91' <= c && c <= '\x97' -> XCHG ((Char.code c) - (Char.code '\x90'))
 	| '\x9a' -> failwith "Decoder: 0x9a"   
+
 	| '\xa4' -> MOVS 8
 	| '\xa5' -> MOVS s.addr_sz
 	| '\xa6' -> CMPS 8
@@ -235,16 +243,19 @@ module Make(Domain: Domain.T) =
 	| '\xad' -> LODS s.addr_sz
 	| '\xae' -> SCAS 8
 	| '\xaf' -> SCAS s.addr_sz
+
 	| c when '\xe0' <= c && c <= '\xe2' -> LOOP ((Char.code c) - (Char.code '\xe0'))
 	| '\xe3' -> JECX
 	| '\xe8' -> failwith "Decoder: 0xe8"
 	| '\xe9' -> JMP (s.operand_sz / 8)
 	| '\xeb' -> JMP 1
+
 	| '\xf0' -> PREFIX c
 	| '\xf2' -> PREFIX c
 	| '\xf3' -> PREFIX c
 	| '\xf4' -> HLT
 	| '\xff' -> grp5 s (int_of_bytes s 1)
+
 	| _  -> UNKNOWN
 
       let second_token s (*TODO: factorize with token, \x70-\x7F*) = 
@@ -428,19 +439,22 @@ module Make(Domain: Domain.T) =
 		    (undefine_adjust_flag_stmts ())                    in
 	stmt::flags_stmts
 		
-		
-      let update s stmts o' =
+      (* add a new state with the given statements *)
+      (* an edge between the current state and this new state is added *)
+      (* the offset o' is used to set the ip field of the new state to the current ip plus this offset *)
+      let create s stmts o' =
 	s.o <- o';
 	let ctx = {Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz} in
-	let s, _ = Cfa.add_state s.g s.b (Address.add_offset s.a (Z.of_int o')) s.b.Cfa.State.v stmts ctx false in
-	[s]
+	let v, _ = Cfa.add_state s.g s.b (Address.add_offset s.a (Z.of_int o')) s.b.Cfa.State.v stmts ctx false in
+	Cfa.add_edge s.g s.b v None;
+	[v]
 
 	  
       let add_and_sub_immediate op carry_or_borrow s r sz = 
 	let w     = Word.of_int (Z.of_int (int_of_bytes s sz)) s.operand_sz			     in
 	let o     = UnOp (SignExt s.operand_sz, Const w)				             in 
 	let stmts = add_and_sub_flag_stmts [Store (r, BinOp (op, Lval r, o))] sz carry_or_borrow r o in  
-	update s stmts (sz+1)
+	create s stmts (sz+1)
 	       
       let operands_from_mod_reg_rm v s =
 	let d 	= (v lsr 1) land 1       in
@@ -477,8 +491,8 @@ module Make(Domain: Domain.T) =
 		add_and_sub_flag_stmts [stmt] s.operand_sz carry_or_borrow dst (Lval src), off
 	      end
 	  in
-	  update s stmts (off+2)
-	with Illegal -> update s [Undef] 2
+	  create s stmts (off+2)
+	with Illegal -> create s [Undef] 2
 			       
       let or_xor_and_and op v s =
 	(* Factorize with add_and_sub *)
@@ -496,8 +510,8 @@ module Make(Domain: Domain.T) =
 		or_xor_and_and_flag_stmts s.operand_sz stmt dst, off
 	      end
 	  in
-	  update s stmts (off+2)
-	with Illegal -> update s [Undef] 2
+	  create s stmts (off+2)
+	with Illegal -> create s [Undef] 2
 			       
       let cmp v s =
 	(* Factorize with add_and_sub *)
@@ -513,8 +527,8 @@ module Make(Domain: Domain.T) =
 	    let stmts = add_and_sub_flag_stmts [stmt] s.operand_sz false (V (T tmp)) src in
 	    stmts@[Directive (Remove tmp)]
 	  in
-	  update s stmts (off+2)
-	with Illegal -> update s [Undef] 2
+	  create s stmts (off+2)
+	with Illegal -> create s [Undef] 2
 			       
 			       
       let inc_and_dec reg op s =
@@ -533,7 +547,7 @@ module Make(Domain: Domain.T) =
 	  [Store(tmp, Lval dst) ; 
 	   Store (dst, BinOp (op, Lval dst, op2))] @ 
 	    flags_stmts @ [Directive (Remove v)]              in
-	update s stmts 1
+	create s stmts 1
 	       
       let exp_of_cond v s n =
 	match v with
@@ -559,7 +573,7 @@ module Make(Domain: Domain.T) =
 	  (* TODO: factorize with JMP *)
 	  let e, o = exp_of_cond v s n in
 	  let a'   = Address.add_offset s.a (Z.of_int o) in
-	  update s [Jcc (Some e, Some (A a'))] o
+	  create s [Jcc (Some e, Some (A a'))] o
 	| _ -> invalid_arg "Opcode.parse_two_bytes"
 			   
 			   
@@ -617,6 +631,7 @@ module Make(Domain: Domain.T) =
 	List.exists is_set stmts
 		    
       let make_rep s str_stmt regs i =
+	(* BE CAREFUL : be sure to return the vertices sorted by a topological order *)
 	let len      = Register.size ecx										       in
 	let lv       = V(if s.addr_sz <> len then P(ecx, 0, s.addr_sz-1) else T ecx)			       in
 	let ecx_decr = Store(lv, BinOp(Sub, Lval lv, Const (Word.one len)))						       in
@@ -649,7 +664,7 @@ module Make(Domain: Domain.T) =
 	let ctx = {Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz} in	
 	let instr_blk, _ = Cfa.add_state s.g rep_blk s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(CmpEq, Lval (V(T fdf)), Const (Word.of_int Z.one 1))), None)]) ctx true in 
 	Cfa.add_edge s.g rep_blk instr_blk (Some true);
-	let step     	= Const (Word.of_int (Z.of_int (i / 8)) s.addr_sz) in
+	let step     	= Const (Word.of_int (Z.of_int (i / Config.size_of_byte)) s.addr_sz) in
 	let decr     	= 
 	  if s.addr_sz <> len then 
 	    List.map (fun r -> Store(V (T r), BinOp(Sub, Lval (V (T r)), step))) regs    
@@ -696,14 +711,12 @@ module Make(Domain: Domain.T) =
 				    
 	| ADD_i (reg, n) -> add_and_sub_immediate Add false s (V reg) n
 						  
-	| AND v -> or_xor_and_and And v s
+   	| AND v -> or_xor_and_and And v s
 				  
 	| CALL (v, far) -> 
-	   let a' = Address.add_offset s.a (Z.of_int 1) in
-	   let v, _ = Cfa.add_state s.g s.b s.a s.b.Cfa.State.v ([Directive (Push (Const (Address.to_word a' 32))) ; Store(V(T esp), 
-																BinOp(Sub, Lval (V (T esp)), 
+	   let v, _ = Cfa.add_state s.g s.b s.a s.b.Cfa.State.v ([Store(V(T esp), BinOp(Sub, Lval (V (T esp)), 
 																      Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))
-								   ]@(if far then [Directive (Push (Lval (V (T star_cs)))); Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
+								   ]@(if far then [Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
 								     [Call v]) ({Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz}) false
 	   in
 	   [v]
@@ -731,7 +744,7 @@ module Make(Domain: Domain.T) =
 	| ESC ->
 	   (* TODO: factorize with JCC *) update_prefix s Esc; parse_two_bytes s
 									       
-	| HLT -> update s [] 1
+	| HLT -> create s [] 1
 			
 	| INC reg 	     -> inc_and_dec reg Add s
 					    
@@ -740,21 +753,21 @@ module Make(Domain: Domain.T) =
 	   update_prefix s Jcc_i;
 	   let e, o = exp_of_cond v s n in
 	   let a' = Address.add_offset s.a (Z.of_int o) in
-	   update s [Jcc (Some e, Some (A a'))] o
+	   create s [Jcc (Some e, Some (A a'))] o
 		  
 	| JECX ->
 	   (* TODO: factorize with JMP *)
 	   update_prefix s Jcc_i;
-	   let o    = int_of_bytes s (s.operand_sz/8) in
+	   let o    = int_of_bytes s (s.operand_sz/ Config.size_of_byte) in
 	   let a'   = Address.add_offset s.a (Z.of_int o) in
 	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P(ecx, 0, s.addr_sz-1) in
 	   let e    = BinOp(CmpEq, Lval (V ecx'), Const (Word.zero (Register.size ecx))) in
-	   update s [Jcc (Some e, Some (A a'))] o
+	   create s [Jcc (Some e, Some (A a'))] o
 		  
 	| JMP i 	     ->
 	   let o  = int_of_bytes s i    in
 	   let a' = Address.add_offset s.a (Z.of_int o) in
-	   update s [Jcc (None, Some (A a'))] o
+	   create s [Jcc (None, Some (A a'))] o
 		  
 	| LODS i -> 
 	   let _esi', _eax' =
@@ -794,40 +807,60 @@ module Make(Domain: Domain.T) =
 	   update_prefix s Str; 
 	   make_rep s stmts [esi ; edi] i
 		    
-	| NOP 	     ->  update s [Nop] 1
+	| NOP 	     ->  create s [Nop] 1
 				
 	| OR v -> or_xor_and_and Or v s
 				 
 	| POP v   	     -> 
-	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
+	   let esp'  = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1) in
 	   let stmts = List.fold_left (fun stmts v -> 
 				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
-				       [Directive (Pop v) ; Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int (Z.of_int n) !Config.stack_width)))]@stmts) [] v 
+				       [ Store (V v,
+						Lval (M (Lval (V esp'), n))) ;
+						Store(V esp', BinOp(Add, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)))
+				       ]@stmts
+			 ) [] v 
 	   in
-	   update s stmts 1
+	   create s stmts 1
 		  
 	| PREFIX c -> push_prefix s c; decode s
-	| PUSH v  	     -> 
+					      
+	| PUSH v  	     ->
 	   (* TODO: factorize with POP *)
-	   let t = T (Register.make ~name:(Register.fresh_name()) ~size:s.operand_sz) in
-	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
-	   let stmts = List.fold_left (fun stmts v -> 
-				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
-				       (* be careful: pushed value of esp is the value *before* starting PUSHA *)
-				       [if is_esp v then Directive(Push (Lval (V t))) else Directive (Push (Lval (V v))) ; 
-					Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int (Z.of_int n) !Config.stack_width)))]@stmts) [] v 
-	   in 
-	   update s ((Store(V t, Lval esp'))::stmts) 1
+	   let esp' = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1) in
+	   let t    = Register.make (Register.fresh_name ()) (Register.size esp)                                  in
+	   (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
+	   (* this is the purpose of the pre and post statements *)
+	   let pre, post =
+	     if List.exists (fun v -> match v with T r | P (r, _, _) -> Register.is_sp r) v then
+	       [ Store (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
+	     else
+	       [], []
+	   in
+	   let stmts = List.fold_left (
+			   fun stmts v ->
+			   let n = if is_segment v then !Config.stack_width else s.operand_sz in
+			   let s =
+			     if is_esp v then
+			       (* save the esp value to its value before the first push (see PUSHA specifications) *)
+			       Store (M (Lval (V esp'), n), Lval (V (T t)))
+			     else
+			       Store (M (Lval (V esp'), n), Lval (V v));
+			   in
+			   [ s ; Store (V esp', BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )(*update the stack pointer *)
+			   ] @ stmts
+			 ) [] v
+	   in
+	   create s (pre @ stmts @ post) 1
 		  
 	| PUSH_i n -> 
-	   let sz = n*8 in
-	   let v = int_of_bytes s n in
-	   let esp' = V(if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)) in
-	   let stmts = [Directive (Push (Const (Word.of_int (Z.of_int v) sz))) ; 
-			Store(esp', BinOp(Sub, Lval esp', Const (Word.of_int  (Z.of_int !Config.stack_width) !Config.stack_width)))]
-			 
+	   let c     = Const (Word.of_int (Z.of_int (int_of_bytes s n)) !Config.stack_width)                       in
+	   let esp'  = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1) in
+	   let stmts = [
+	       Store (M (Lval (V esp'), !Config.stack_width), c) ;
+	       Store (V esp', BinOp(Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (!Config.stack_width / Config.size_of_byte)) !Config.stack_width))) ]			 
 	   in
-	   update s stmts 1
+	   create s stmts 1
 		  
 	| SBB v	     -> add_and_sub Sub true v s
 				    
@@ -858,7 +891,7 @@ module Make(Domain: Domain.T) =
 	   in
 	   make_rep s [Store (M(failwith "exp STOS case 1", i), Lval (M(failwith "exp STOS case 2", i)))] [edi] i
 		    
-	| UNKNOWN 	     -> update s [Unknown] 1
+	| UNKNOWN 	     -> create s [Unknown] 1
 				       
 	| XCHG v          -> 
 	   let tmp = Register.make ~name:(Register.fresh_name()) ~size:s.operand_sz in
@@ -867,31 +900,31 @@ module Make(Domain: Domain.T) =
 	   let stmts = [Store(V (T tmp), Lval (V eax)) ; 
 			Store(V eax, Lval (V r)) ; 
 			Store(V r, Lval (V (T tmp))) ; Directive (Remove tmp)] in
-	   update s stmts 1
+	   create s stmts 1
 		  
 		  
 	| XOR v -> or_xor_and_and Xor v s
 					    
       let parse text g v a =
 	let s = {
-	    g = g;
-	    a = a;
-	    o = 0;
-	    addr_sz = !Config.address_sz;
+	    g 	       = g;
+	    a 	       = a;
+	    o 	       = 0;
+	    addr_sz    = !Config.address_sz;
 	    operand_sz = !Config.operand_sz; 
-	    segments = segments;
+	    segments   = segments;
 	    rep_prefix = None;
-	    buf = text;
-	    b = v;
-	    current_ds = segments.ds
+	    buf        = text;
+	    b 	       = v;
+	    current_ds = segments.ds;
 	  }
 	in
 	let vertices =
 	  try
 	    decode s
-	  with _ -> (*end of buffer *) update s [Unknown] 1
+	  with _ -> (*end of buffer *) []
 	in
-	vertices, s.o
+	vertices
   end
     (* end Decoder *)
 

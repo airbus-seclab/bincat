@@ -3,15 +3,16 @@
 (* basically it is a map from Registers to abstract values                    *)
 (******************************************************************************)
 
-(** context *)
-class type ['addr, 'v] ctx_t =
+(** internal oracle used by non functional domains (see signature T below) *)
+(** to pick up information from functional domain (ie functor Unrel.Make)  *)
+class type ['v] ctx_t =
   object
 
     (** returns the abstract value associated to the given register *)
     method get_val_from_register: Register.t -> 'v
 
     (** returns the abstract value associated to the given address *)
-    method get_val_from_memory  : 'addr -> 'v
+    method get_val_from_memory  : Data.Address.t -> 'v
 end
 
 (** Unrelational domain signature *)
@@ -39,16 +40,14 @@ module type T =
     val of_config: Data.Address.region -> Config.cvalue -> int -> t
 			       
     (** returns the evaluation of the given expression as an abstract value *)			    
-    val eval_exp: Asm.exp -> int -> (Asm.exp, Data.Address.Set.t) Domain.context -> (Data.Address.t, t) ctx_t -> t
+    val eval_exp: Asm.exp -> int -> Domain.oracle -> t ctx_t -> t
 												  
     (** returns the set of addresses associated to the memory expression of size _n_ where _n_ is the integer parameter *)
-    val mem_to_addresses: Asm.exp -> int -> (Data.Address.t, t) ctx_t -> Data.Address.Set.t
-    (** may raise an Exception if this set of addresses is too large *)									  
+    (** may raise an exception if this set of addresses is too large *)									  
     (** never call the method ctx_t.to_addresses in this function *)
+    val mem_to_addresses: Asm.exp -> int -> t ctx_t -> Data.Address.Set.t
+   
 										    
-    (** returns the set of addresses associated to the given expression *)									
-    val exp_to_addresses: Asm.exp -> int -> (Data.Address.t, t) ctx_t -> Data.Address.Set.t
-    (** may raise an Exception if this set of addresses is too large *)
 								   
     (** returns the tainted value corresponding to the given abstract value *)
     val taint_of_config: Config.tvalue -> t
@@ -60,11 +59,11 @@ module type T =
     val combine: t -> t -> int -> int -> t 
 
     (** transfer function when the given function is entered *)
-    val enter_fun: Asm.fct -> (Data.Address.t, t) ctx_t -> (Register.t * t) list * (Data.Address.t * t) list
+    val enter_fun: Asm.fct -> t ctx_t -> (Register.t * t) list * (Data.Address.t * t) list
 								    
 			  
     (** tranfer function when the current function is returned *)
-    val leave_fun: (Data.Address.t, t) ctx_t -> (Register.t * t) list * (Data.Address.t * t) list
+    val leave_fun: t ctx_t -> (Register.t * t) list * (Data.Address.t * t) list
   end
 		  
 		  
@@ -86,8 +85,8 @@ module Make(D: T) =
 			     
 	let to_string x = 
 	  match x with 
-	  | R r -> "reg[" ^ (Register.name r) ^ "]"
-	  | M a -> "mem[" ^ (Data.Address.to_string a) ^ "]"
+	  | R r -> "reg [" ^ (Register.name r) ^ "]"
+	  | M a -> "mem [" ^ (Data.Address.to_string a) ^ "]"
       end
 	      
     module Map = MapOpt.Make(K)
@@ -110,13 +109,8 @@ module Make(D: T) =
     let mem_to_addresses mem sz m =
       match m with
       | Val m' -> D.mem_to_addresses mem sz (new ctx m')
-      | BOT    -> raise Utils.Emptyset
+      | BOT    -> raise (Exceptions.Enum_failure (Printf.sprintf "Unrel.Make(%s)" D.name, "mem_to_addresses"))
 	 
-    let exp_to_addresses e sz m =
-      match m with
-      | Val m' -> D.exp_to_addresses e sz (new ctx m')
-      | BOT    -> raise Utils.Emptyset
-
     let add_register v m =
       let add m' =
 	Val (Map.add (K.R v) (D.bot (Register.size v), 0) m')
@@ -141,34 +135,34 @@ module Make(D: T) =
       |	BOT    -> ["?"]
       | Val m' -> Map.fold (fun k v l -> ((D.name ^" "^K.to_string k) ^ " = " ^ (D.to_string (fst v))) :: l) m' []
 				   
-    let set_register r e sz c m =
+    let set dst src c m =
       match m with
       |	BOT    -> BOT
       | Val m' ->
-	 let v = D.eval_exp e sz c (new ctx m') in
-	 match r with
-	 | Asm.T r' 	    ->
+	 match dst with
+	 | Asm.V r ->
+	    begin
+	      match r with
+	      | Asm.T r' 	    ->
+		 let v' = D.eval_exp src (Register.size r') c (new ctx m') in
 		 let _, n = Map.find (K.R r') m' in
-		 Val (Map.replace (K.R r') (v, n+1) m')
-	 | Asm.P (r', l, u) -> 
-	    let v2, n = Map.find (K.R r') m' in
-	    Val (Map.replace (K.R r') (D.combine v v2 l u, n+1) m')
-		     
-		  
-    let set_memory dst src sz c m =
-      match m with
-      | BOT -> BOT
-      | Val m' ->
-	 let addr = c#mem_to_addresses dst sz in
-	 match addr with 
-	 | None       -> raise (Alarm.E Alarm.Empty)
-	 | Some addrs ->
-	    let v' = D.eval_exp src sz c (new ctx m') in 
-	    let l  = Data.Address.Set.elements addrs in
-	    match l with 
-	      [a] -> (* strong update *) Val (try let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
-	    | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
-						    
+		 Val (Map.replace (K.R r') (v', n+1) m')
+	      | Asm.P (r', l, u) ->
+		 let v' = D.eval_exp src (u-l+1) c (new ctx m') in
+		 let v2, n = Map.find (K.R r') m' in
+		 Val (Map.replace (K.R r') (D.combine v' v2 l u, n+1) m')
+	    end
+
+	 | Asm.M (e, n) -> 
+		let addrs = D.mem_to_addresses e n (new ctx m') in		
+		let l  	  = Data.Address.Set.elements addrs     in
+		let v' 	  = D.eval_exp src n c (new ctx m')     in
+		match l with 
+		| [a] -> (* strong update *) Val (try let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
+		| l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
+
+
+						  
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT -> m
@@ -185,6 +179,7 @@ module Make(D: T) =
 	 | BOT -> BOT
 	 | Val m' ->
 	    let v' = D.of_config region c (Register.size r) in
+
 	    try
 	      Val (Map.replace (K.R r) (v', 0) m')
 	    with Not_found -> Val (Map.add (K.R r) (v', 0) m')

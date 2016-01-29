@@ -18,7 +18,7 @@ let sub v a =
     let o   = Data.Address.to_int a   in
     let len = (String.length v.c) - o in
     String.sub v.c o len 
-  with _ ->  raise Utils.Illegal_address
+  with _ ->  raise Exceptions.Illegal_address
 		   
 let to_string c =
   let s = ref "" in

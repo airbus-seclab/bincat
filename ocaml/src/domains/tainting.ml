@@ -84,7 +84,9 @@ end
   let make sz = Array.make sz (Bit.Untainted (Src.Val Src.INPUT))
 
   let bot sz = make sz
-			   
+
+  let top sz = Array.make sz Bit.TOP
+			  
   (* iterators on bit vectors *)
   (* remember that binary iterators are supposed to proceed on vector of the same length *)
   let map2 f v1 v2 =
@@ -148,13 +150,11 @@ end
       "[" ^ (String.sub s 0 ((String.length s) -2)) ^ "]"
 
  let of_config _r _c sz = make sz
+			       
+ let mem_to_addresses _e _sz _c = raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
 
-  let mem_to_addresses _e _sz _c = raise Utils.Enum_failure
-  let exp_to_addresses _e _sz _c = raise Utils.Enum_failure
 
-  exception Bottom
-	      
-  let rec eval_exp e sz (c: (Asm.exp, Data.Address.Set.t) Domain.context) ctx: t = 
+  let rec eval_exp e sz (c: Domain.oracle) ctx: t = 
     match e with
     | Asm.Lval (Asm.V (Asm.T r)) ->
        ctx#get_val_from_register r
@@ -163,23 +163,20 @@ end
        let c = ctx#get_val_from_register r in
        Array.sub c l (l-u+1)
 	 
-    | Asm.Lval (Asm.M (m, sz)) -> 
-      let addr = c#mem_to_addresses m sz in
-      begin
-	match addr with
-	  None 	     -> raise Bottom
-	| Some addr' -> 
-	  try
-	    let addr_l = Data.Address.Set.elements addr'	  in
-	    let v      = ctx#get_val_from_memory (List.hd addr_l) in 
-	    List.fold_left (fun s a -> join s ( ctx#get_val_from_memory a )) v (List.tl addr_l)
-	  with _ -> raise Bottom
+    | Asm.Lval (Asm.M (m, sz)) ->
+       begin
+	 try
+	   let addr   = c#mem_to_addresses m sz                  in
+	   let addr_l = Data.Address.Set.elements addr	         in
+	   let v      = ctx#get_val_from_memory (List.hd addr_l) in 
+	   List.fold_left (fun s a -> join s ( ctx#get_val_from_memory a )) v (List.tl addr_l)
+	 with
+	 | _ -> top sz
       end
 
     | Asm.BinOp (Asm.Xor, e1, e2) when Asm.equal_exp e1 e2 -> Array.make sz (Bit.Untainted ((Src.Val (Src.Exp e))))
 					 
     | Asm.BinOp (Asm.Add, e1, e2) | Asm.BinOp (Asm.Sub, e1, e2) | Asm.BinOp (Asm.Mul, e1, e2) | Asm.BinOp (Asm.Div, e1, e2) | Asm.BinOp (Asm.Divs, e1, e2) | Asm.BinOp (Asm.And, e1, e2) | Asm.BinOp (Asm.Or, e1, e2) | Asm.BinOp (Asm.Xor, e1, e2)  | Asm.BinOp(Asm.Mod, e1, e2) -> begin
-	try
        let v1 = eval_exp e1 sz c ctx in
        let v2 = eval_exp e2 sz c ctx in
        let v = make sz in
@@ -195,19 +192,18 @@ end
 		end
 	    done;
 	    v
-	with Bottom -> Array.make sz Bit.TOP
        end
 
 
-    | Asm.BinOp (Asm.Shl, _e1, _e2) -> Array.make sz Bit.TOP (* TODO: be more precise *)
+    | Asm.BinOp (Asm.Shl, _e1, _e2) -> top sz (* TODO: be more precise *)
 
-    | Asm.BinOp (Asm.Shr, _e1, _e2) -> Array.make sz Bit.TOP (* TODO: be more precise *)
+    | Asm.BinOp (Asm.Shr, _e1, _e2) -> top sz (* TODO: be more precise *)
 
-    | Asm.BinOp (Asm.Shrs, _e1, _e2) -> Array.make sz Bit.TOP (* TODO: be more precise *)
+    | Asm.BinOp (Asm.Shrs, _e1, _e2) -> top sz (* TODO: be more precise *)
 						 
-    | Asm.BinOp _ -> Array.make sz Bit.TOP (* TODO: be more precise *)
+    | Asm.BinOp _ -> top sz (* TODO: be more precise *)
 						 
-    | Asm.UnOp _ -> Array.make sz Bit.TOP (* TODO: be more precise *)
+    | Asm.UnOp _ -> top sz (* TODO: be more precise *)
   
     | Asm.Const _c      -> make sz
 
