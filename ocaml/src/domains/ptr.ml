@@ -3,6 +3,7 @@
 (******************************************************************************)
 
 open Data
+
        
 type t =
   | I of Address.t
@@ -39,7 +40,19 @@ let of_config r c sz = I (Address.of_string r c sz)
 let eval_exp _e = raise (Exceptions.Enum_failure (name, "eval_exp"))
 			
 			
-let mem_to_addresses (_m: Asm.exp) (_sz) _ctx = raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
+let mem_to_addresses (m: Asm.exp) sz (ctx: t Unrel.ctx_t) =
+  match m with
+  | Asm.Lval (Asm.V (Asm.T r)) when sz = Register.size r ->
+     begin
+       match ctx#get_val_from_register r with
+       | BOT | TOP -> raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
+       | I a       ->
+	    match ctx#get_val_from_memory a with
+	    | BOT | TOP -> raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
+	    | I a' -> Address.Set.singleton a'
+     end
+			     
+  | _ 						         -> raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
 				     
 let taint_of_config _c = BOT
 			   

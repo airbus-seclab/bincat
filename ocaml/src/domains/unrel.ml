@@ -138,12 +138,12 @@ module Make(D: T) =
     let set dst src c m =
       match m with
       |	BOT    -> BOT
-      | Val m' ->
+      | Val m' -> 
 	 match dst with
 	 | Asm.V r ->
 	    begin
 	      match r with
-	      | Asm.T r' 	    ->
+	      | Asm.T r' 	    -> 
 		 let v' = D.eval_exp src (Register.size r') c (new ctx m') in
 		 let _, n = Map.find (K.R r') m' in
 		 Val (Map.replace (K.R r') (v', n+1) m')

@@ -4,11 +4,9 @@
 let logfid = ref stdout
 
 (** open the given log file *)
-let init logfile =
-  try
-    logfid := open_out logfile
-  with
-    _ -> Printf.eprintf "Impossible to open the log file. Output will be on stdout\n"
+let init fname =
+  logfid := open_out fname
+
 
 (** dump a message provided by the analysis step *)
 let from_analysis module_name msg = Printf.fprintf (!logfid) "[analysis] %s: %s\n" module_name msg

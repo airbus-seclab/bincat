@@ -9,7 +9,7 @@
 #include <caml/memory.h>
 #include <caml/callback.h>
 #include <caml/printexc.h>
-
+#include <caml/compatibility.h>
 
 static PyObject *OcamlException;
 
@@ -40,6 +40,7 @@ static PyObject *process(PyObject *self, PyObject *args)
     return NULL;
 
   value res;
+
   res = caml_callback3_exn(*process_func, caml_copy_string(configfile), caml_copy_string(resultfile), caml_copy_string(logfile));
   if (Is_exception_result(res)) {
     value exn = Extract_exception(res);

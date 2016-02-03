@@ -20,7 +20,7 @@ let process ~configfile ~resultfile ~logfile =
     with _ -> failwith "Opening configuration file failed"
   in
 
-  (* 2: open the log file *)
+  (* 2: set the log file *)
   Log.init logfile;
   
   (* 3: parse the configuration file to fill configuration information *)
@@ -50,10 +50,7 @@ let process ~configfile ~resultfile ~logfile =
   let cfa  = Interpreter.process code g s                                                                                      in
   
   (* 7: dumps the results *)
-  Interpreter.Cfa.print cfa resultfile;
-
-(* 8: close the log file *)
-  Log.close ()
+  Interpreter.Cfa.print cfa resultfile
  ;; 
   
 (* enables the process function to be callable from the .so *)
