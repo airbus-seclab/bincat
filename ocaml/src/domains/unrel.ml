@@ -46,9 +46,7 @@ module type T =
     (** may raise an exception if this set of addresses is too large *)									  
     (** never call the method ctx_t.to_addresses in this function *)
     val mem_to_addresses: Asm.exp -> int -> t ctx_t -> Data.Address.Set.t
-   
-										    
-								   
+   																		   
     (** returns the tainted value corresponding to the given abstract value *)
     val taint_of_config: Config.tvalue -> t
 				       
@@ -101,7 +99,7 @@ module Make(D: T) =
     class ['addr, 'v] ctx m =
     object
       method get_val_from_register r = ((fst (Map.find (K.R r) m)): 'v)
-      method get_val_from_memory a   = ((fst (Map.find (K.M a) m)): 'v)
+      method get_val_from_memory a   = ((fst (Map.find (K.M a) m)): 'v) 
     end
       
     let name = D.name		      
@@ -140,7 +138,7 @@ module Make(D: T) =
       |	BOT    -> BOT
       | Val m' -> 
 	 match dst with
-	 | Asm.V r ->
+	 | Asm.V r -> 
 	    begin
 	      match r with
 	      | Asm.T r' 	    -> 
@@ -153,13 +151,20 @@ module Make(D: T) =
 		 Val (Map.replace (K.R r') (D.combine v' v2 l u, n+1) m')
 	    end
 
-	 | Asm.M (e, n) -> 
-		let addrs = D.mem_to_addresses e n (new ctx m') in		
-		let l  	  = Data.Address.Set.elements addrs     in
-		let v' 	  = D.eval_exp src n c (new ctx m')     in
-		match l with 
-		| [a] -> (* strong update *) Val (try let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
-		| l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
+	 | Asm.M (e, n) ->
+	    begin
+	      let addrs = 
+		match D.name with
+		| "Ptr" ->
+		   D.mem_to_addresses e n (new ctx m')
+		| _ -> c#mem_to_addresses e n 
+	      in
+	      let l  	= Data.Address.Set.elements addrs     in
+	      let v' 	= D.eval_exp src n c (new ctx m')     in
+	      match l with 
+	      | [a] -> (* strong update *) Val (try let _, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
+	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
+	    end
 
 
 						  

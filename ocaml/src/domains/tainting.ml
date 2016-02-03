@@ -52,7 +52,7 @@ end
     struct
       (** data type *)
       type t =
-	| Tainted of Src.t   (** bit is tainted. Its immediate source is the paramater of the constructor *)
+	| Tainted of Src.t   (** bit is tainted. Its immediate source is the parameter of the constructor *)
 	| Untainted of Src.t (** bit is untainted. Its immediate source is the parameter of the constructor *)
 	| TOP 		     (** top *)
 		       
@@ -150,8 +150,8 @@ end
       "[" ^ (String.sub s 0 ((String.length s) -2)) ^ "]"
 
  let of_config _r _c sz = make sz
-			       
- let mem_to_addresses _e _sz _c = raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
+			    
+ let mem_to_addresses _e _sz _c = raise (Exceptions.Enum_failure ("Tainting", "mem_to_addresses"))
 
 
   let rec eval_exp e sz (c: Domain.oracle) ctx: t = 

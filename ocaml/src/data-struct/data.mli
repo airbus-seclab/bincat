@@ -34,8 +34,7 @@ module Word: sig
     val of_int: Z.t -> int -> t
 
     (** integer conversion *)
-    (** may raise an exception when overflows *)
-    val to_int: t -> int
+    val to_int: t -> Z.t
 
     (** [of_string v n] generates the word corresponding to _v_ on _n_ bits *)
     val of_string: string -> int -> t
@@ -79,11 +78,14 @@ module Address: sig
   val to_string: t -> string
 			
   (** returns the offset of the address *)
-  val to_int: t -> int
+  val to_int: t -> Z.t
 		     
   (** generation from a given region, offset of type Z.t and size in bits *)
   val of_int: region -> Z.t -> int -> t
-					
+
+  (** generation drom a given word *)
+  val of_word: Word.t -> t
+				     
   (** returns the size in bits needed to the store the given address *)
   val size: t -> int
 		   
@@ -95,10 +97,9 @@ module Address: sig
   val to_word: t -> int -> Word.t
 			     
   (** returns the distance between two addresses into the same region *)
-  (** raises an exception otherwise *)
-  val sub: t -> t -> Word.t
+  val sub: t -> t -> Z.t
 		       
-		       
+
   (** set of addresses *)
   module Set: (Set.S with type elt = t)
 		

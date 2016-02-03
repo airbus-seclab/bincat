@@ -31,7 +31,7 @@ module Word =
    				  
     let of_int v sz = v, sz
 				    
-    let to_int v = Z.to_int (fst v)
+    let to_int v = fst v
 			    
     let of_string v n =
       let v' = Z.of_string v in
@@ -108,7 +108,9 @@ module Address =
       let to_int (_r, w) = Word.to_int w
 				   
       let of_int r i o = r, (i, o)
-			    
+
+      let of_word w = Global, w
+			     
       let size a = Word.size (snd a)
 		       
       let add_offset (r, w) o' =
@@ -132,8 +134,9 @@ module Address =
 	   if Word.compare w (Word.zero (Word.size w1)) < 0 then
 	     raise (Invalid_argument "invalid address substraction")
 	   else
-	     w
+	    Word.to_int w
 	| _, _ 				   -> raise (Invalid_argument "invalid address substraction")
+
     end
     include A
     module Set = Set.Make(A)

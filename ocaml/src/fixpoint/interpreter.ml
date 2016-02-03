@@ -132,7 +132,7 @@ struct
 	  (* these vertices are updated by their right abstract values and the new ip                            *)
 	  let new_vertices = update_abstract_values g vertices                                                   in
 	  (* among these computed vertices only new are added to the waiting set of vertices to compute          *)
-	  let vertices'    = filter_vertices g new_vertices				     		        in
+	  let vertices'    = filter_vertices g new_vertices				     		         in
 	  List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
 	with
 	| Exceptions.Enum_failure (m, msg) -> Log.from_analysis (m^"."^msg) "analysis stopped in that branch"

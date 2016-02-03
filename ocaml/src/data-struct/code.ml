@@ -15,8 +15,8 @@ let make ~code ~ep =
     
 let sub v a =
   try
-    let o   = Data.Address.to_int a   in
-    let len = (String.length v.c) - o in
+    let o   = Z.to_int (Data.Address.to_int a) in
+    let len = (String.length v.c) - o          in
     String.sub v.c o len 
   with _ ->  raise Exceptions.Illegal_address
 		   

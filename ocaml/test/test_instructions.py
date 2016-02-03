@@ -169,7 +169,8 @@ def analyzer(tmpdir, request):
 
         # TODO write to init
         outputfile = str(tmpdir.join('end.ini'))
-        mlbincat.process(initfile, outputfile)
+        logfile = str(tmpdir.join('log.txt'))
+        mlbincat.process(initfile, outputfile, logfile)
         ac = AnalyzerConfig()
         ac.setStatesFromAnalyzerOutput(outputfile)
         return ac
