@@ -22,7 +22,7 @@ module Make(Domain: Domain.T) =
 	    }
 				   
 	  (** the state identificator counter *)
-	  let state_cpt = ref 0
+	  let state_cpt = ref (-1)
 			      
 	  (** returns a fresh state identificator *)
 	  let new_state_id () = state_cpt := !state_cpt + 1; !state_cpt

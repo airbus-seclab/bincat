@@ -6,74 +6,33 @@
     (** the bit domain is implemented as the sub module Bit (see below) *)
     (** binary operations are supposed to process on bit vector of the same size *)
 
- 
-  (** abstract type of the source of (un)tainting of a bit *)
-  (** we keep only trace of the immediate source of tainting (the complete trace may be recovered by iterating on pathes in the CFA *)
-  module Src =
-  struct
-    type s =
-      | INPUT 	       (** source is the dimension itself *)
-      | Fun of string  (** source is a function (see the parsing of the configuration file) *)
-      | Exp of Asm.exp (** source is an assembly expression *) 
-		 
-    (** data type for the source *)
-    type t =
-      | TOP
-      | Val of s
-
-    let join s1 s2 =
-      match s1, s2 with
-      |	Val (Exp e1), Val (Exp e2) -> if Asm.equal_exp e1 e2 then s1 else TOP
-      | Val (Fun f1), Val (Fun f2) -> if f1 = f2 then s1 else TOP
-      | Val INPUT, Val INPUT 	   -> s1
-      | _, _ 			   -> TOP
-		  
-    (** subset *)			  
-    (** returns true whenever the concretization of the first parameter is a subset of the concretization of the second parameter *)
-    (** false otherwise *)
-    let subset s1 s2 =
-      match s1, s2 with
-      | Val (Exp e1), Val (Exp e2) -> Asm.equal_exp e1 e2
-      | Val (Fun f1), Val (Fun f2) -> f1 = f2
-      | Val INPUT, Val INPUT 	   -> true
-      | _, TOP 	       		   -> true
-      | _, _  	       		   -> false
-
-    let to_string s =
-      match s with
-      | Val (Exp e) -> Asm.string_of_exp e
-      | Val (Fun f) -> f
-      | Val INPUT   -> "INPUT"
-      | TOP         -> "?"
-end
     
   (** abstract type of a bit *)
   module Bit =
     struct
       (** data type *)
       type t =
-	| Tainted of Src.t   (** bit is tainted. Its immediate source is the parameter of the constructor *)
-	| Untainted of Src.t (** bit is untainted. Its immediate source is the parameter of the constructor *)
-	| TOP 		     (** top *)
+	| T   (** bit is tainted *)
+	| U   (** bit is untainted *)
+	| TOP (** top *)
 		       
       let subset b1 b2 =
 	match b1, b2 with
-	| Tainted s1, Tainted s2     -> Src.subset s1 s2
-	| Untainted s1, Untainted s2 -> Src.subset s1 s2
-	| _, TOP 	      	     -> true
-	| _, _ 		      	     -> false
+	| T, T | U, U -> true
+	| _, TOP      -> true
+	| _, _ 	      -> false
 
       let join b1 b2 =
 	match b1, b2 with
-	| Tainted s1, Tainted s2     -> Tainted (Src.join s1 s2)
-	| Untainted s1, Untainted s2 -> Untainted (Src.join s1 s2)
-	| _, _ 			     -> TOP
+	| T, T -> T
+	| U, U -> U
+	| _, _ -> TOP
 					    
       let to_string b =
 	match b with
-	| TOP 	      -> "?"
-	| Tainted s   -> Printf.sprintf "1: %s" (Src.to_string s)
-	| Untainted s -> Printf.sprintf "0: %s" (Src.to_string s)
+	| TOP -> "?"
+	| T   -> "1"
+	| U   -> "0"
     end
 
   (** abstract type of a tainting bit vector *)
@@ -81,7 +40,7 @@ end
 
   let name = "Tainting" (* be sure that if this name changes then Unrel.taint_from_config is updated *)
 
-  let make sz = Array.make sz (Bit.Untainted (Src.Val Src.INPUT))
+  let make sz = Array.make sz Bit.U
 
   let bot sz = make sz
 
@@ -125,9 +84,9 @@ end
        let t  = make sz         in
        for i = 0 to sz-1 do
 	 if String.get b i = '1' then
-	   t.(i) <- Bit.Tainted (Src.Val Src.INPUT)
+	   t.(i) <- Bit.T
 	 else
-	   t.(i) <- Bit.Untainted (Src.Val Src.INPUT)
+	   t.(i) <- Bit.U
        done;
        t
 	 
@@ -139,15 +98,15 @@ end
 	     t.(i) <- Bit.TOP
 	   else
 	     if String.get b i = '1' then
-	      t.(i) <- Bit.Tainted (Src.Val Src.INPUT)
+	      t.(i) <- Bit.T
 	   else
-	     t.(i) <- Bit.Untainted (Src.Val Src.INPUT)
+	     t.(i) <- Bit.U
 	 done;
 	 t
    
  let to_string v =
       let s = Array.fold_left (fun s b -> s ^ (Bit.to_string b) ^ ", ") "" v in
-      "[" ^ (String.sub s 0 ((String.length s) -2)) ^ "]"
+      Printf.sprintf ("%s") (String.sub s 0 ((String.length s) -2))
 
  let of_config _r _c sz = make sz
 			    
@@ -174,25 +133,12 @@ end
 	 | _ -> top sz
       end
 
-    | Asm.BinOp (Asm.Xor, e1, e2) when Asm.equal_exp e1 e2 -> Array.make sz (Bit.Untainted ((Src.Val (Src.Exp e))))
+    | Asm.BinOp (Asm.Xor, e1, e2) when Asm.equal_exp e1 e2 -> Array.make sz Bit.U
 					 
-    | Asm.BinOp (Asm.Add, e1, e2) | Asm.BinOp (Asm.Sub, e1, e2) | Asm.BinOp (Asm.Mul, e1, e2) | Asm.BinOp (Asm.Div, e1, e2) | Asm.BinOp (Asm.Divs, e1, e2) | Asm.BinOp (Asm.And, e1, e2) | Asm.BinOp (Asm.Or, e1, e2) | Asm.BinOp (Asm.Xor, e1, e2)  | Asm.BinOp(Asm.Mod, e1, e2) -> begin
+    | Asm.BinOp (Asm.Add, e1, e2) | Asm.BinOp (Asm.Sub, e1, e2) | Asm.BinOp (Asm.Mul, e1, e2) | Asm.BinOp (Asm.Div, e1, e2) | Asm.BinOp (Asm.Divs, e1, e2) | Asm.BinOp (Asm.And, e1, e2) | Asm.BinOp (Asm.Or, e1, e2) | Asm.BinOp (Asm.Xor, e1, e2)  | Asm.BinOp(Asm.Mod, e1, e2) ->
        let v1 = eval_exp e1 sz c ctx in
        let v2 = eval_exp e2 sz c ctx in
-       let v = make sz in
-	    for i = 0 to sz-1 do
-	      v.(i) <-
-		begin
-		  match v1.(i), v2.(i) with 
-		  | Bit.Untainted _, Bit.Untainted _ 				     -> Bit.Untainted (Src.Val (Src.Exp e))
-		  | Bit.Tainted _, Bit.Tainted _ 				     -> Bit.Tainted (Src.Val (Src.Exp e))
-		  | Bit.Tainted _, Bit.Untainted _ | Bit.Untainted _, Bit.Tainted _  -> Bit.Tainted (Src.Val (Src.Exp e))
-		  | Bit.TOP, Bit.Tainted _ | Bit.Tainted _, Bit.TOP 		     -> Bit.Tainted (Src.Val (Src.Exp e))
-		  | Bit.TOP, _ | _, Bit.TOP 					     -> Bit.TOP
-		end
-	    done;
-	    v
-       end
+       join v1 v2
 
 
     | Asm.BinOp (Asm.Shl, _e1, _e2) -> top sz (* TODO: be more precise *)
@@ -224,8 +170,7 @@ end
        for i = l to u do
 	 v.(i) <- v2.(i)
        done;
-       v
-	   
+       v   
 
 				    
 
