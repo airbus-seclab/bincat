@@ -371,9 +371,9 @@ module Make(Domain: Domain.T) =
 	let e2 = BinOp (CmpEq, BinOp (Shrs, op1, v), Const (Word.one sz)) in 
 	let e3 = BinOp (CmpEq, BinOp (Shrs, op2, v), Const (Word.one sz)) in
 	let e  = BinOp (And, e1, BinOp(And, e2, e3))                 in
-	[Store (V (T fof), e)] 
+	[Set (V (T fof), e)] 
 	  
-      let clear_overflow_flag_stmts () = [Store (V (T fof), Const (Word.zero 1))]
+      let clear_overflow_flag_stmts () = [Set (V (T fof), Const (Word.zero 1))]
 					   
       let carry_flag_stmts sz res op1 op2 =
 	(* TODO : factorize with overflow *)
@@ -382,13 +382,13 @@ module Make(Domain: Domain.T) =
 	let e2 = BinOp (CmpEq, BinOp (Shrs, op1, v), Const (Word.zero sz)) in 
 	let e3 = BinOp (CmpEq, BinOp (Shrs, op2, v), Const (Word.zero sz)) in
 	let e  = BinOp (And, e1, BinOp(And, e2, e3))                      in
-	[Store (V (T fcf), e)] 
+	[Set (V (T fcf), e)] 
 	  
-      let clear_carry_flag_stmts () 	  = [Store (V (T fcf), Const (Word.zero 1))] 
+      let clear_carry_flag_stmts () 	  = [Set (V (T fcf), Const (Word.zero 1))] 
       let undefine_adjust_flag_stmts () = [Directive (Undefine faf)]
-      let sign_flag_stmts sz res 	  = [Store (V (T fsf), BinOp(Shrs, res, Const (Word.of_int (Z.of_int 31) sz)))]
-      let zero_flag_stmts sz res 	  = [Store (V (T fzf), BinOp(Xor, res, Const (Word.one sz)))]
-      let adjust_flag_stmts sz res 	  = [Store (V (T faf), BinOp (And, BinOp(Shl, res, Const (Word.of_int (Z.of_int 3) sz)), Const (Word.one sz)))]
+      let sign_flag_stmts sz res 	  = [Set (V (T fsf), BinOp(Shrs, res, Const (Word.of_int (Z.of_int 31) sz)))]
+      let zero_flag_stmts sz res 	  = [Set (V (T fzf), BinOp(Xor, res, Const (Word.one sz)))]
+      let adjust_flag_stmts sz res 	  = [Set (V (T faf), BinOp (And, BinOp(Shl, res, Const (Word.of_int (Z.of_int 3) sz)), Const (Word.one sz)))]
 					      
 					      
 					      
@@ -401,7 +401,7 @@ module Make(Domain: Domain.T) =
 	for i = 1 to sz-1 do
 	  e := BinOp(Add, !e, nth i)
 	done;
-	[Store (V (T fzf), BinOp (CmpEq, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)))]
+	[Set (V (T fzf), BinOp (CmpEq, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)))]
 	  
 	  
       (**************************************************************************************)
@@ -423,10 +423,10 @@ module Make(Domain: Domain.T) =
 		    (adjust_flag_stmts sz res)    	   in
 	let stmts 	  =
 	  if carry_or_borrow then
-	    [Store(dst, BinOp(Add, Lval dst, Lval (V (T fcf)))) ] @ istmts
+	    [Set(dst, BinOp(Add, Lval dst, Lval (V (T fcf)))) ] @ istmts
 	  else
 	    istmts                        	   in
-	(Store (tmp, Lval dst)):: stmts @ flags_stmts @ [Directive (Remove v)]
+	(Set (tmp, Lval dst)):: stmts @ flags_stmts @ [Directive (Remove v)]
 							
       let or_xor_and_and_flag_stmts sz stmt dst =
 	let res 	  = Lval dst in
@@ -444,8 +444,8 @@ module Make(Domain: Domain.T) =
       (* the offset o' is used to set the ip field of the new state to the current ip plus this offset *)
       let create s stmts o' =
 	s.o <- o';
-	let ctx = {Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz} in
-	let v, _ = Cfa.add_state s.g s.b (Address.add_offset s.a (Z.of_int o')) s.b.Cfa.State.v stmts ctx false in
+	let ctx = { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz } in
+	let v   = Cfa.add_state s.g (Address.add_offset s.a (Z.of_int o')) s.b.Cfa.State.v stmts ctx false in
 	Cfa.add_edge s.g s.b v None;
 	[v]
 
@@ -453,7 +453,7 @@ module Make(Domain: Domain.T) =
       let add_and_sub_immediate op carry_or_borrow s r sz = 
 	let w     = Word.of_int (Z.of_int (int_of_bytes s sz)) s.operand_sz			     in
 	let o     = UnOp (SignExt s.operand_sz, Const w)				             in 
-	let stmts = add_and_sub_flag_stmts [Store (r, BinOp (op, Lval r, o))] sz carry_or_borrow r o in  
+	let stmts = add_and_sub_flag_stmts [Set (r, BinOp (op, Lval r, o))] sz carry_or_borrow r o in  
 	create s stmts (sz+1)
 	       
       let operands_from_mod_reg_rm v s =
@@ -482,12 +482,12 @@ module Make(Domain: Domain.T) =
 	  let stmts, off =
 	    try 
 	      let r, w, off = binop_with_eax v s			 in
-	      let stmt      = Store(V r, BinOp(op, Lval (V r), Const w)) in
+	      let stmt      = Set(V r, BinOp(op, Lval (V r), Const w)) in
 	      add_and_sub_flag_stmts [stmt] (off*8) carry_or_borrow (V r) (Const w), off
 	    with Exit -> 
 	      begin
 		let dst, src, off = operands_from_mod_reg_rm v s	     in
-		let stmt 	  = Store (dst, BinOp(op, Lval dst, Lval src)) in
+		let stmt 	  = Set (dst, BinOp(op, Lval dst, Lval src)) in
 		add_and_sub_flag_stmts [stmt] s.operand_sz carry_or_borrow dst (Lval src), off
 	      end
 	  in
@@ -500,13 +500,13 @@ module Make(Domain: Domain.T) =
 	  let stmts, off =
 	    try 
 	      let r, w, off = binop_with_eax v s in
-	      let stmt = Store(V r, BinOp(op, Lval (V r), Const w)) in
+	      let stmt = Set(V r, BinOp(op, Lval (V r), Const w)) in
 	      or_xor_and_and_flag_stmts (off*8) stmt (V r), off
 	    with Exit -> 
 	      begin
 		let dst, src, off = operands_from_mod_reg_rm v s 
 		in
-		let stmt = Store (dst, BinOp(op, Lval dst, Lval src)) in
+		let stmt = Set (dst, BinOp(op, Lval dst, Lval src)) in
 		or_xor_and_and_flag_stmts s.operand_sz stmt dst, off
 	      end
 	  in
@@ -523,7 +523,7 @@ module Make(Domain: Domain.T) =
 	  let stmts =
 	    let name  = Register.fresh_name ()						   in
 	    let tmp   = Register.make ~name:name ~size:s.operand_sz			   in (* TODO: this size or (byte if binop_with_eax) or off ? *)
-	    let stmt  = Store (V (T tmp), BinOp(Sub, Lval dst, src))			   in
+	    let stmt  = Set (V (T tmp), BinOp(Sub, Lval dst, src))			   in
 	    let stmts = add_and_sub_flag_stmts [stmt] s.operand_sz false (V (T tmp)) src in
 	    stmts@[Directive (Remove tmp)]
 	  in
@@ -544,8 +544,8 @@ module Make(Domain: Domain.T) =
 	    (zero_flag_stmts s.operand_sz res) @ (parity_flag_stmts s.operand_sz res) @
 	      (adjust_flag_stmts s.operand_sz res)                           in
 	let stmts       = 
-	  [Store(tmp, Lval dst) ; 
-	   Store (dst, BinOp (op, Lval dst, op2))] @ 
+	  [Set(tmp, Lval dst) ; 
+	   Set (dst, BinOp (op, Lval dst, op2))] @ 
 	    flags_stmts @ [Directive (Remove v)]              in
 	create s stmts 1
 	       
@@ -624,8 +624,8 @@ module Make(Domain: Domain.T) =
       let is_register_set stmts r =
 	let is_set stmt =
 	  match stmt with
-	    Store (V (T r'), _) when Register.compare r r' = 0 	   -> true
-	  | Store (V (P(r', _, _)), _) when Register.compare r r' = 0 -> true
+	    Set (V (T r'), _) when Register.compare r r' = 0 	   -> true
+	  | Set (V (P(r', _, _)), _) when Register.compare r r' = 0 -> true
 	  | _ 						   -> false
 	in
 	List.exists is_set stmts
@@ -634,7 +634,7 @@ module Make(Domain: Domain.T) =
 	(* BE CAREFUL : be sure to return the vertices sorted by a topological order *)
 	let len      = Register.size ecx										       in
 	let lv       = V(if s.addr_sz <> len then P(ecx, 0, s.addr_sz-1) else T ecx)			       in
-	let ecx_decr = Store(lv, BinOp(Sub, Lval lv, Const (Word.one len)))						       in
+	let ecx_decr = Set(lv, BinOp(Sub, Lval lv, Const (Word.one len)))						       in
 	let test     = BinOp(And, BinOp (failwith "CmpLtu or Cmpts ?", Lval lv, Const (Word.zero len)), BinOp(failwith "CmpLtu or Cmpts ?", Const (Word.zero len), Lval lv)) in (* lv <> 0 *)
 	let test'    = 
 	  if is_register_set str_stmt fzf then 
@@ -647,7 +647,7 @@ module Make(Domain: Domain.T) =
 	    let len = Register.size esi							   in
 	    let lv  = V (if s.addr_sz <> len then P(esi, 0, s.addr_sz-1) else T esi)		   in
 	    let e   = BinOp(Add, Lval lv, BinOp(Mul, Const (Word.of_int (Z.of_int 2) len), Lval (V (T fdf)))) in
-	    [Store(lv, BinOp(Add, Lval lv, e))]
+	    [Set(lv, BinOp(Add, Lval lv, e))]
 	  else []                                                                                                            in
 	let edi_stmt =
 	  (* TODO factorize with esi_stmt *)
@@ -655,30 +655,30 @@ module Make(Domain: Domain.T) =
 	    let len = Register.size edi in
 	    let lv = V(if s.addr_sz <> len then P(edi, 0, s.addr_sz-1) else T edi) in
 	    let e = BinOp(Add, Lval lv, BinOp(Mul, Const (Word.of_int (Z.of_int 2) len), Lval (V (T fdf)))) in
-	    [Store(lv, BinOp(Add, Lval lv, e))]
+	    [Set(lv, BinOp(Add, Lval lv, e))]
 	  else []
 	in
 	let rep_blk = s.b in 
 	Cfa.update_stmts s.b [Jcc (Some test', Some (A s.a))] s.operand_sz s.addr_sz;
 	Cfa.add_edge s.g s.b rep_blk None;
 	let ctx = {Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz} in	
-	let instr_blk, _ = Cfa.add_state s.g rep_blk s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(CmpEq, Lval (V(T fdf)), Const (Word.of_int Z.one 1))), None)]) ctx true in 
+	let instr_blk = Cfa.add_state s.g s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(CmpEq, Lval (V(T fdf)), Const (Word.of_int Z.one 1))), None)]) ctx true in 
 	Cfa.add_edge s.g rep_blk instr_blk (Some true);
 	let step     	= Const (Word.of_int (Z.of_int (i / Config.size_of_byte)) s.addr_sz) in
 	let decr     	= 
 	  if s.addr_sz <> len then 
-	    List.map (fun r -> Store(V (T r), BinOp(Sub, Lval (V (T r)), step))) regs    
+	    List.map (fun r -> Set(V (T r), BinOp(Sub, Lval (V (T r)), step))) regs    
 	  else
-	    List.map (fun r -> Store(V (P(r, 0, s.addr_sz-1)), BinOp(Sub, Lval(V (P(r, 0, s.addr_sz-1))), step))) regs                                          in
-	let decr_blk, _ = Cfa.add_state s.g instr_blk s.a instr_blk.Cfa.State.v decr ctx true in
+	    List.map (fun r -> Set(V (P(r, 0, s.addr_sz-1)), BinOp(Sub, Lval(V (P(r, 0, s.addr_sz-1))), step))) regs                                          in
+	let decr_blk = Cfa.add_state s.g s.a instr_blk.Cfa.State.v decr ctx true in
 	Cfa.add_edge s.g instr_blk decr_blk (Some true);
 	let incr     	= 
 	  if s.addr_sz <> len then 
-	    List.map (fun r -> Store(V (T r), BinOp(Add, Lval (V (T r)), step))) regs    
+	    List.map (fun r -> Set(V (T r), BinOp(Add, Lval (V (T r)), step))) regs    
 	  else
-	    List.map (fun r -> Store(V (P(r, 0, s.addr_sz-1)), BinOp(Add, Lval(V (P(r, 0, s.addr_sz-1))), step))) regs  
+	    List.map (fun r -> Set(V (P(r, 0, s.addr_sz-1)), BinOp(Add, Lval(V (P(r, 0, s.addr_sz-1))), step))) regs  
 	in
-	let incr_blk, _ = Cfa.add_state s.g instr_blk s.a instr_blk.Cfa.State.v incr ctx true
+	let incr_blk = Cfa.add_state s.g s.a instr_blk.Cfa.State.v incr ctx true
 					 
         in
 	Cfa.add_edge s.g instr_blk incr_blk (Some false);
@@ -714,9 +714,9 @@ module Make(Domain: Domain.T) =
    	| AND v -> or_xor_and_and And v s
 				  
 	| CALL (v, far) -> 
-	   let v, _ = Cfa.add_state s.g s.b s.a s.b.Cfa.State.v ([Store(V(T esp), BinOp(Sub, Lval (V (T esp)), 
+	   let v = Cfa.add_state s.g s.a s.b.Cfa.State.v ([Set(V(T esp), BinOp(Sub, Lval (V (T esp)), 
 																      Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))
-								   ]@(if far then [Store(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
+								   ]@(if far then [Set(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
 								     [Call v]) ({Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz}) false
 	   in
 	   [v]
@@ -736,7 +736,7 @@ module Make(Domain: Domain.T) =
 	   let r = Register.make ~name:(Register.fresh_name()) ~size:i in
 	   let src = M (failwith "exp CMPS case 1", i) in
 	   let dst = M (failwith "exp CMPS case 2", i) in
-	   let stmts = add_and_sub_flag_stmts [Store(V(T r), BinOp(Sub, Lval dst, Lval src))] s.operand_sz false dst (Lval src) in
+	   let stmts = add_and_sub_flag_stmts [Set(V(T r), BinOp(Sub, Lval dst, Lval src))] s.operand_sz false dst (Lval src) in
 	   make_rep s stmts [esi ; edi] i
 		    
 	| DEC reg 	     -> inc_and_dec reg Sub s
@@ -775,12 +775,12 @@ module Make(Domain: Domain.T) =
 	     else P(esi, 0, i-1), P(eax, 0, i-1)
 	   in
 	   update_prefix s Str; 
-	   make_rep s [Store(M (failwith "exp LODS case 1", i), Lval (M(failwith "exp LODS case 2", i)))] [esi] i
+	   make_rep s [Set(M (failwith "exp LODS case 1", i), Lval (M(failwith "exp LODS case 2", i)))] [esi] i
       
 	| LOOP i ->
 	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P (ecx, 0, s.addr_sz -1) in  
 	   let c = Const (Word.of_int Z.one s.addr_sz) in
-	   let stmts = add_and_sub_flag_stmts [Store(V ecx', BinOp(Sub, Lval (V ecx'), c))] s.addr_sz false (V ecx') c in 
+	   let stmts = add_and_sub_flag_stmts [Set(V ecx', BinOp(Sub, Lval (V ecx'), c))] s.addr_sz false (V ecx') c in 
 	   let e =
 	     let zero = Const (Word.of_int Z.zero s.addr_sz) in
 	     let ecx_cond = BinOp(And, BinOp(failwith "LOOP GT signed or unsigned ?", zero, Lval (V ecx')), BinOp(failwith "LOOP GT signed or unsigned ?", Lval (V ecx'), zero)) in
@@ -802,7 +802,7 @@ module Make(Domain: Domain.T) =
 	     else
 	       P (edi, 0, i-1), P (esi, 0, i-1)
 	   in
-	   let stmts = [Store(M(failwith "exp MOVS case 1", s.operand_sz), Lval (M((failwith "exp MOVS case 2", s.operand_sz))))]
+	   let stmts = [Set(M(failwith "exp MOVS case 1", s.operand_sz), Lval (M((failwith "exp MOVS case 2", s.operand_sz))))]
 	   in
 	   update_prefix s Str; 
 	   make_rep s stmts [esi ; edi] i
@@ -815,9 +815,9 @@ module Make(Domain: Domain.T) =
 	   let esp'  = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1) in
 	   let stmts = List.fold_left (fun stmts v -> 
 				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
-				       [ Store (V v,
+				       [ Set (V v,
 						Lval (M (Lval (V esp'), n))) ;
-						Store(V esp', BinOp(Add, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)))
+						Set(V esp', BinOp(Add, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)))
 				       ]@stmts
 			 ) [] v 
 	   in
@@ -833,7 +833,7 @@ module Make(Domain: Domain.T) =
 	   (* this is the purpose of the pre and post statements *)
 	   let pre, post =
 	     if List.exists (fun v -> match v with T r | P (r, _, _) -> Register.is_sp r) v then
-	       [ Store (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
+	       [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
 	     else
 	       [], []
 	   in
@@ -843,11 +843,11 @@ module Make(Domain: Domain.T) =
 			   let s =
 			     if is_esp v then
 			       (* save the esp value to its value before the first push (see PUSHA specifications) *)
-			       Store (M (Lval (V esp'), n), Lval (V (T t)))
+			       Set (M (Lval (V esp'), n), Lval (V (T t)))
 			     else
-			       Store (M (Lval (V esp'), n), Lval (V v));
+			       Set (M (Lval (V esp'), n), Lval (V v));
 			   in
-			   [ s ; Store (V esp', BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )(*update the stack pointer *)
+			   [ s ; Set (V esp', BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )(*update the stack pointer *)
 			   ] @ stmts
 			 ) [] v
 	   in
@@ -857,8 +857,8 @@ module Make(Domain: Domain.T) =
 	   let c     = Const (Word.of_int (Z.of_int (int_of_bytes s n)) !Config.stack_width)                       in
 	   let esp'  = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1) in
 	   let stmts = [
-	       Store (M (Lval (V esp'), !Config.stack_width), c) ;
-	       Store (V esp', BinOp(Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (!Config.stack_width / Config.size_of_byte)) !Config.stack_width))) ]			 
+	       Set (M (Lval (V esp'), !Config.stack_width), c) ;
+	       Set (V esp', BinOp(Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (!Config.stack_width / Config.size_of_byte)) !Config.stack_width))) ]			 
 	   in
 	   create s stmts 1
 		  
@@ -879,7 +879,7 @@ module Make(Domain: Domain.T) =
 	     else P (edi, 0, i-1), P (eax, 0, i-1)
 	   in
 	   let e = BinOp(Sub, Lval (M(failwith "exp SCAS case 1", i)), Lval (M(failwith "exp SCAS case 2", i))) in
-	   let stmts = add_and_sub_flag_stmts [Store(V(T t), e) ; Directive (Remove t)] i false (V (T t)) e in
+	   let stmts = add_and_sub_flag_stmts [Set(V(T t), e) ; Directive (Remove t)] i false (V (T t)) e in
 	   make_rep s stmts [edi] i
 		    
 		    
@@ -889,7 +889,7 @@ module Make(Domain: Domain.T) =
 	     if i = Register.size edi then T edi, T eax
 	     else P (edi, 0, i-1), P (eax, 0, i-1)
 	   in
-	   make_rep s [Store (M(failwith "exp STOS case 1", i), Lval (M(failwith "exp STOS case 2", i)))] [edi] i
+	   make_rep s [Set (M(failwith "exp STOS case 1", i), Lval (M(failwith "exp STOS case 2", i)))] [edi] i
 		    
 	| UNKNOWN 	     -> create s [Unknown] 1
 				       
@@ -897,9 +897,9 @@ module Make(Domain: Domain.T) =
 	   let tmp = Register.make ~name:(Register.fresh_name()) ~size:s.operand_sz in
 	   let r = Hashtbl.find register_tbl v in
 	   let eax, r = if Register.size eax = s.operand_sz then T eax, T r else P(eax, 0, s.operand_sz-1), P(r, 0, s.operand_sz-1) in 
-	   let stmts = [Store(V (T tmp), Lval (V eax)) ; 
-			Store(V eax, Lval (V r)) ; 
-			Store(V r, Lval (V (T tmp))) ; Directive (Remove tmp)] in
+	   let stmts = [Set(V (T tmp), Lval (V eax)) ; 
+			Set(V eax, Lval (V r)) ; 
+			Set(V r, Lval (V (T tmp))) ; Directive (Remove tmp)] in
 	   create s stmts 1
 		  
 		  

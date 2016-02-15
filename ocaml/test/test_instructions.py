@@ -118,6 +118,7 @@ class Stmt(object):
 
 
 class PtrValue(object):
+<<<<<<< local
     def __ne__(self, other):
         return not self.__eq__(other)
 
@@ -132,7 +133,12 @@ class PtrValue(object):
 class ConcretePtrValue(PtrValue):
     def __init__(self, region, address):
         self.region = region.lower()
+=======
+    def __init__(self, region, address, bot):
+        self.region = region
+>>>>>>> other
         self.address = address
+        self.bot = bot
 
     def __repr__(self):
         return "ConcretePtrValue(%s, %d)" % (self.region, self.address)
@@ -141,7 +147,8 @@ class ConcretePtrValue(PtrValue):
         return hash((type(self), self.region, self.address))
 
     def __eq__(self, other):
-        return self.region == other.region and self.address == other.address
+        
+        return self.bot == other.bot and self.region == other.region and self.address == other.address
 
     def __add__(self, other):
         if type(other) is not int:
@@ -153,10 +160,19 @@ class ConcretePtrValue(PtrValue):
 
     @classmethod
     def fromAnalyzerOutput(cls, s):
+<<<<<<< local
         z, v = s.split(',')
         v = int(v, 16)
         return cls(z, v)
 
+=======
+        try:
+            z, v = s[1:-1].split(',')
+            v = int(v, 16)
+            return cls(z, v, False)
+        except:
+            return cls(None, None, True)
+>>>>>>> other
 
 class AbstractPtrValue(PtrValue):
     def __init__(self, value):
@@ -226,14 +242,19 @@ def analyzer(tmpdir, request):
 
 def test_nop(analyzer, initialState):
     ac = analyzer(initialState, binarystr='\x90')
-    assert ac.stateAtEip[0x00] == ac.stateAtEip[0x01]
+    #assert ac.stateAtEip[0x00] == ac.stateAtEip[0x1]
     # TODO add helper in AnalyzerConfig to perform a check at each eip
     for eip in ac.stateAtEip.keys():
+<<<<<<< local
         assert ac.stateAtEip[eip].ptrs['reg']['esp'].region == 'stack'
+=======
+        assert ac.stateAtEip[eip].ptrs['reg [esp]'].region == 'Stack'
+>>>>>>> other
 
 
 def test_pushebp(analyzer, initialState):
     ac = analyzer(initialState, binarystr='\x55')
+<<<<<<< local
     stateBefore = ac.stateAtEip[0x00]
     stateAfter = ac.stateAtEip[0x01]
 
@@ -244,4 +265,9 @@ def test_pushebp(analyzer, initialState):
         stateBefore.ptrs['reg']['ebp']
 
     # TODO use edges described in .ini file
+=======
+    assert ac.stateAtEip[0x01].ptrs['reg [eax]'] == \
+        ac.stateAtEip[0x00].ptrs['reg [eax]']
+    # TODO check stack
+>>>>>>> other
     # TODO check that nothing else has changed

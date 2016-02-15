@@ -65,7 +65,7 @@ struct
 
     | Nop -> d
 	       
-    | Store (dst, src) -> D.set dst src (new oracle d) d
+    | Set (dst, src) -> D.set dst src (new oracle d) d
 		  
     | _       -> failwith ("Interpreter.process_stmt: "^ (string_of_stmt stmt) ^" not managed")
 

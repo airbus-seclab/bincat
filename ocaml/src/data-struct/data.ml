@@ -5,7 +5,7 @@ module Word =
 
     let to_string w =
       let s   = String.escaped "0x%"             in
-      let fmt = Printf.sprintf "%s%dx" s (snd w) in
+      let fmt = Printf.sprintf "%s%#dx" s (snd w) in
       Printf.sprintf "0x%s" (Z.format fmt (fst w))
 
     let size w = snd w

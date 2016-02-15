@@ -73,6 +73,7 @@ rule token = parse
   | "fastcall"  	    { FASTCALL }
   (* analyzer tokens *)
   | "unroll"    	    { UNROLL }
+  | "dotfile"               { DOTFILE }
   (* loader tokens *)
   | "star_ss" 	    	    { SS }
   | "star_ds" 		    { DS }
@@ -91,6 +92,7 @@ rule token = parse
   | "mode"                  { MODE }
   | "protected"             { PROTECTED }
   | "real"                  { REAL }
+
   (* left operand of type integer *)
   | integer as i 	    { INT i }
   (* misc left operands *)
