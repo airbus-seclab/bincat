@@ -5,6 +5,7 @@ import pytest
 import ConfigParser
 import logging
 import sys
+import collections
 
 
 class AnalyzerConfig(object):
@@ -28,7 +29,7 @@ class AnalyzerConfig(object):
                 logging.error("Unrecognized section in output file: %s",
                               section)
                 sys.exit(1)
-            zxidx = section.index("0x") # [address = 0xFF..FF]
+            zxidx = section.index("0x")  # [address = 0xFF..FF]
             sz = len(section) - (zxidx+1)
             address = int(section[zxidx:zxidx+sz], 16)
             state = State(address)
@@ -49,22 +50,23 @@ class State(object):
         self.address = ""
         #: self.ptrs[memory address or pointer name] =
         #: ("memory region", int address)
-        self.ptrs = {}
-        #: self.tainting[memory address or pointer name] =
+        self.ptrs = {'mem': {}, 'reg': {}}
+        #: self.tainting["reg" or "mem"][name or ConcretePtrValue object] =
         #: taint value (object)?
         self.tainting = {}
         #: self.stmts = [statement of the intermediate language]
         self.stmts = ""
-        
+
     def __eq__(self, other):
-        result = False
-        if set(self.ptrs.keys()) != set(other.ptrs.keys()):
+        if set(self.ptrs['mem'].keys()) != set(other.ptrs['mem'].keys()) or\
+                set(self.ptrs['reg'].keys()) != set(other.ptrs['reg'].keys()):
             # might have to be refined
             logging.error("different set of keys between states")
             return False
-        for ptr in self.ptrs.keys():
-            if (self.ptrs[ptr] != other.ptrs[ptr]):
-                return False
+        for ptrtype in 'mem', 'reg':
+            for ptr in self.ptrs[ptrtype].keys():
+                if (self.ptrs[ptrtype][ptr] != other.ptrs[ptrtype][ptr]):
+                    return False
         if set(self.tainting.keys()) != set(other.tainting.keys()):
             # might have to be refined
             logging.error("different set of keys between states")
@@ -83,12 +85,22 @@ class State(object):
             if k.startswith('tainting '):
                 self.tainting[k[9:]] = Tainting.fromAnalyzerOutput(v)
             elif k.startswith('pointer '):
-                self.ptrs[k[8:]] = PtrValue.fromAnalyzerOutput(v)
+                ptrloc = k[8:]
+                if ptrloc.startswith('mem ['):
+                    ptrtype = 'mem'
+                    key = ConcretePtrValue.fromAnalyzerOutput(ptrloc[6:-2])
+                elif ptrloc.startswith('reg ['):
+                    ptrtype = 'reg'
+                    key = ptrloc[5:-1]
+                else:
+                    raise NotImplementedError('Unsupported ptrtype')
+                self.ptrs[ptrtype][key] = PtrValue.fromAnalyzerOutput(v)
             elif k.startswith('statements'):
-                self.stmts = Stmt.fromAnalyzerOutput(v) 
+                self.stmts = Stmt.fromAnalyzerOutput(v)
             else:
                 logging.error("Unrecognized key while parsing state: %s", k)
                 sys.exit(1)
+
 
 class Stmt(object):
     def __init__(self, stmts):
@@ -99,28 +111,63 @@ class Stmt(object):
 
     def __eq__(self, other):
         return self.stmts == other.stmts
-     
+
     @classmethod
     def fromAnalyzerOutput(cls, s):
         return cls(s)
-        
-                 
-class PtrValue(object):
-    def __init__(self, region, address):
-        self.region = region
-        self.address = address
 
+
+class PtrValue(object):
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @classmethod
+    def fromAnalyzerOutput(cls, s):
+        if s.startswith('('):
+            return ConcretePtrValue.fromAnalyzerOutput(s[1:-1])
+        else:
+            return AbstractPtrValue.fromAnalyzerOutput(s)
+
+
+class ConcretePtrValue(PtrValue):
+    def __init__(self, region, address):
+        self.region = region.lower()
+        self.address = address
+
+    def __repr__(self):
+        return "ConcretePtrValue(%s, %d)" % (self.region, self.address)
+
+    def __hash__(self):
+        return hash((type(self), self.region, self.address))
 
     def __eq__(self, other):
         return self.region == other.region and self.address == other.address
 
+    def __add__(self, other):
+        if type(other) is not int:
+            raise NotImplemented
+        return ConcretePtrValue(self.region, self.address + other)
+
+    def __sub__(self, other):
+        return self + (-other)
+
     @classmethod
     def fromAnalyzerOutput(cls, s):
-        z, v = s[1:-1].split(',')
+        z, v = s.split(',')
         v = int(v, 16)
         return cls(z, v)
+
+
+class AbstractPtrValue(PtrValue):
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+    @classmethod
+    def fromAnalyzerOutput(cls, s):
+        return cls(s)
 
 
 class Tainting(object):
@@ -182,12 +229,19 @@ def test_nop(analyzer, initialState):
     assert ac.stateAtEip[0x00] == ac.stateAtEip[0x01]
     # TODO add helper in AnalyzerConfig to perform a check at each eip
     for eip in ac.stateAtEip.keys():
-        assert ac.stateAtEip[eip].ptrs['reg[esp]'].region == 'stack'
+        assert ac.stateAtEip[eip].ptrs['reg']['esp'].region == 'stack'
 
 
 def test_pushebp(analyzer, initialState):
     ac = analyzer(initialState, binarystr='\x55')
-    assert ac.stateAtEip[0x01].ptrs['reg[eax]'] == \
-        ac.stateAtEip[0x00].ptrs['reg[eax]'] + 1
-    # TODO check stack
+    stateBefore = ac.stateAtEip[0x00]
+    stateAfter = ac.stateAtEip[0x01]
+
+    assert stateAfter.ptrs['reg']['esp'] == \
+        stateBefore.ptrs['reg']['esp'] - 4
+
+    assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
+        stateBefore.ptrs['reg']['ebp']
+
+    # TODO use edges described in .ini file
     # TODO check that nothing else has changed
