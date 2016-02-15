@@ -41,6 +41,7 @@
 	(FORMAT, "format", "binary");
 	(FILEPATH, "filepath", "binary");
 	(PHYS_CODE_ADDR, "phys-code-addr", "loader");
+	(DOTFILE, "dotfile", "analyzer");
       ];;	
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
@@ -116,7 +117,7 @@
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED PHYS_CODE_ADDR
-%token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER
+%token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token <string> STRING
 %token <string> INT
 %start <unit> process
@@ -206,7 +207,7 @@
 				    
       analyzer_item:
     | UNROLL EQUAL i=INT { Config.unroll := int_of_string i }
-    
+    | DOTFILE EQUAL f=STRING { update_mandatory DOTFILE; Config.dotfile := f }
     
       state:
     | s=state_item 	    { s }

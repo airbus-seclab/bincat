@@ -266,18 +266,38 @@ module Make(Domain: Domain.T) =
       (** remove the given vertex of the given CFA *)
       let remove g v = G.remove_vertex g v
 
-      (** dump the given CFA into the given file *) 
-      let print g dumpfile =
+      (** dump the given CFA into the given file *)
+      (** dot generation is also processed *)
+      module GDot = struct
+	include G
+	let edge_attributes _e = []
+	let default_edge_attributes _e = []
+	let get_subgraph _g = None
+	let vertex_attributes _v = []
+	let default_vertex_attributes _v = []
+	let graph_attributes _g = []
+	let vertex_name v = string_of_int v.id
+      end
+      module Dot = Graph.Graphviz.Dot(GDot)
+				     
+      let print g dumpfile dotfile =
 	let f = open_out dumpfile in
+	(* state printing (detailed) *)
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
 	  let stmts = List.fold_left (fun s stmt -> s ^ " " ^ (Asm.string_of_stmt stmt)) "" s.stmts      in
 	  Printf.fprintf f "[address = %s, id = %d]\n\nstatements = %s\n\n%s\n" (Data.Address.to_string s.ip) s.id stmts abstract_values
 	in
 	G.iter_vertex print_ip g;
+	(* edge printing (summary) *)
 	Printf.fprintf f "[edges]\n";
-	G.iter_edges_e (fun e -> Printf.fprintf f "e = %d -> %d\n" (G.E.src e).id (G.E.dst e).id) g; 
-	close_out f
+	G.iter_edges_e (fun e -> Printf.fprintf f "e = %d -> %d\n" (G.E.src e).id (G.E.dst e).id) g;
+	close_out f;
+	(* dot generation *)	
+	let f' = open_out dotfile in
+	Dot.output_graph f' g;
+	close_out f'
+
 	
 	
     end
