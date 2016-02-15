@@ -22,7 +22,7 @@ module Make(Domain: Domain.T) =
 	    }
 				   
 	  (** the state identificator counter *)
-	  let state_cpt = ref (-1)
+	  let state_cpt = ref 0
 			      
 	  (** returns a fresh state identificator *)
 	  let new_state_id () = state_cpt := !state_cpt + 1; !state_cpt
@@ -218,38 +218,22 @@ module Make(Domain: Domain.T) =
       (** [add_state g pred ip s stmts ctx i] creates a new state in _g_ with
     - ip as instruction pointer;
     - stmts as list of statements;
-    - v as abstract value (if already in the CFA ; then previous value is joined with s)
-    - pred as ancestor;
+    - v as abstract value
     - ctx as decoding context
     - i is the boolean true for internal states ; false otherwise *)
-      let add_state g pred ip v stmts ctx i =
-	let add () =
-	  let v = {
-	      id = new_state_id();
-	      v 	= v;
-	      ip 	= ip;
-	      stmts = stmts ;
-	      ctx 	= ctx;
-	      internal = i
-	    }
+      let add_state g ip v stmts ctx i =
+	let v = {
+	    id       = new_state_id();
+	    v 	     = v;
+	    ip 	     = ip;
+	    stmts    = stmts ;
+	    ctx      = ctx;
+	    internal = i
+	  }
 	  in
 	  G.add_vertex g v;
 	  v
-	in
-	let rec find succs =
-	  match succs with
-	    s::succs' ->
-	    if Data.Address.compare s.ip ip = 0 && ctx_equal s.ctx ctx && s.internal = i then
-	      begin
-		s.v <- Domain.join s.v v;
-		s
-	      end
-	    else find succs'
-	  | _ -> raise Not_found
-	in
-	try
-	  find (G.succ g pred), false
-	with Not_found -> add (), true
+
 				    
       (** [add_edge g src dst l] adds in _g_ an edge _src_ -> _dst_ with label _l_ *)
       let add_edge g src dst l = G.add_edge_e g (G.E.create src l dst)
@@ -262,7 +246,7 @@ module Make(Domain: Domain.T) =
       (** updates the context and statement fields of the given state *)
       let update_stmts s stmts op_sz addr_sz =
       	s.stmts <- stmts;
-      	s.ctx   <- {addr_sz = addr_sz; op_sz = op_sz}
+      	s.ctx   <- { addr_sz = addr_sz; op_sz = op_sz }
 
       (** returns the list of successors of the given vertex in the given CFA *)
       let succs g v  = G.succ g v
@@ -288,9 +272,11 @@ module Make(Domain: Domain.T) =
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
 	  let stmts = List.fold_left (fun s stmt -> s ^ " " ^ (Asm.string_of_stmt stmt)) "" s.stmts      in
-	  Printf.fprintf f "[address = %s]\n\nstatements = %s\n\n%s\n" (Data.Address.to_string s.ip) stmts abstract_values
+	  Printf.fprintf f "[address = %s, id = %d]\n\nstatements = %s\n\n%s\n" (Data.Address.to_string s.ip) s.id stmts abstract_values
 	in
 	G.iter_vertex print_ip g;
+	Printf.fprintf f "[edges]\n";
+	G.iter_edges_e (fun e -> Printf.fprintf f "e = %d -> %d\n" (G.E.src e).id (G.E.dst e).id) g; 
 	close_out f
 	
 	

@@ -65,7 +65,7 @@ type directive_t =
 		  
 (** type of statements *)
 type stmt =
-  | Set of lval * exp    		   (** store the expression into the left value *)
+  | Set  of lval * exp    		   (** store the expression into the left value *)
   | Jcc	 of exp option * jmp_target option (** (un)conditional branch ; None expression is for unconditional jump ; None target is for intermediate block translation *)				    
   | Call of fct          		   (** call *)
   | Return         			   (** return *)
@@ -146,7 +146,7 @@ and string_of_exp e =
 					 
 let string_of_stmt s =
   match s with
-  | Set (dst, src) -> Printf.sprintf "%s <- %s" (string_of_lval dst) (string_of_exp src)
+  | Set (dst, src) -> Printf.sprintf "%s <- %s; " (string_of_lval dst) (string_of_exp src)
   | Jcc _ 	     -> "jcc"
   | Call _ 	     -> "call"
   | Return  	     -> "return"

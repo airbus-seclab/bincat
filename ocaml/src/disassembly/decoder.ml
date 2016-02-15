@@ -444,8 +444,8 @@ module Make(Domain: Domain.T) =
       (* the offset o' is used to set the ip field of the new state to the current ip plus this offset *)
       let create s stmts o' =
 	s.o <- o';
-	let ctx = {Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz} in
-	let v, _ = Cfa.add_state s.g s.b (Address.add_offset s.a (Z.of_int o')) s.b.Cfa.State.v stmts ctx false in
+	let ctx = { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz } in
+	let v   = Cfa.add_state s.g (Address.add_offset s.a (Z.of_int o')) s.b.Cfa.State.v stmts ctx false in
 	Cfa.add_edge s.g s.b v None;
 	[v]
 
@@ -662,7 +662,7 @@ module Make(Domain: Domain.T) =
 	Cfa.update_stmts s.b [Jcc (Some test', Some (A s.a))] s.operand_sz s.addr_sz;
 	Cfa.add_edge s.g s.b rep_blk None;
 	let ctx = {Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz} in	
-	let instr_blk, _ = Cfa.add_state s.g rep_blk s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(CmpEq, Lval (V(T fdf)), Const (Word.of_int Z.one 1))), None)]) ctx true in 
+	let instr_blk = Cfa.add_state s.g s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc(Some (BinOp(CmpEq, Lval (V(T fdf)), Const (Word.of_int Z.one 1))), None)]) ctx true in 
 	Cfa.add_edge s.g rep_blk instr_blk (Some true);
 	let step     	= Const (Word.of_int (Z.of_int (i / Config.size_of_byte)) s.addr_sz) in
 	let decr     	= 
@@ -670,7 +670,7 @@ module Make(Domain: Domain.T) =
 	    List.map (fun r -> Set(V (T r), BinOp(Sub, Lval (V (T r)), step))) regs    
 	  else
 	    List.map (fun r -> Set(V (P(r, 0, s.addr_sz-1)), BinOp(Sub, Lval(V (P(r, 0, s.addr_sz-1))), step))) regs                                          in
-	let decr_blk, _ = Cfa.add_state s.g instr_blk s.a instr_blk.Cfa.State.v decr ctx true in
+	let decr_blk = Cfa.add_state s.g s.a instr_blk.Cfa.State.v decr ctx true in
 	Cfa.add_edge s.g instr_blk decr_blk (Some true);
 	let incr     	= 
 	  if s.addr_sz <> len then 
@@ -678,7 +678,7 @@ module Make(Domain: Domain.T) =
 	  else
 	    List.map (fun r -> Set(V (P(r, 0, s.addr_sz-1)), BinOp(Add, Lval(V (P(r, 0, s.addr_sz-1))), step))) regs  
 	in
-	let incr_blk, _ = Cfa.add_state s.g instr_blk s.a instr_blk.Cfa.State.v incr ctx true
+	let incr_blk = Cfa.add_state s.g s.a instr_blk.Cfa.State.v incr ctx true
 					 
         in
 	Cfa.add_edge s.g instr_blk incr_blk (Some false);
@@ -714,7 +714,7 @@ module Make(Domain: Domain.T) =
    	| AND v -> or_xor_and_and And v s
 				  
 	| CALL (v, far) -> 
-	   let v, _ = Cfa.add_state s.g s.b s.a s.b.Cfa.State.v ([Set(V(T esp), BinOp(Sub, Lval (V (T esp)), 
+	   let v = Cfa.add_state s.g s.a s.b.Cfa.State.v ([Set(V(T esp), BinOp(Sub, Lval (V (T esp)), 
 																      Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))
 								   ]@(if far then [Set(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
 								     [Call v]) ({Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz}) false
