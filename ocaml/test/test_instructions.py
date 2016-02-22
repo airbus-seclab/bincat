@@ -5,7 +5,6 @@ import pytest
 import ConfigParser
 import logging
 import sys
-import collections
 
 
 class AnalyzerConfig(object):
@@ -25,13 +24,18 @@ class AnalyzerConfig(object):
         config = ConfigParser.ConfigParser()
         config.read(filename)
         for section in config.sections():
-            if not section.startswith('address = '):
+            if section == ('edges'):
+                continue
+            elif not section.startswith('address = '):
                 logging.error("Unrecognized section in output file: %s",
                               section)
                 sys.exit(1)
-            zxidx = section.index("0x")  # [address = 0xFF..FF]
-            sz = len(section) - (zxidx+1)
-            address = int(section[zxidx:zxidx+sz], 16)
+            addrtxt, nodeid = section[10:].rsplit(',', 1)
+            address = ConcretePtrValue.fromAnalyzerOutput(addrtxt)
+            # zxidx = section.index("0x")  # [address = 0xFF..FF]
+            # # new format XXX [address = (Global, 0x1), id = 1] - parse as ConcretePtrValue
+            # sz = len(section) - (zxidx+1)
+            # address = int(section[zxidx:zxidx+sz], 16)
             state = State(address)
             state.setFromAnalyzerOutput(config.items(section))
             self.stateAtEip[address] = state
@@ -141,7 +145,6 @@ class ConcretePtrValue(PtrValue):
         return hash((type(self), self.region, self.address))
 
     def __eq__(self, other):
-        
         return self.region == other.region and self.address == other.address
 
     def __add__(self, other):
@@ -154,6 +157,8 @@ class ConcretePtrValue(PtrValue):
 
     @classmethod
     def fromAnalyzerOutput(cls, s):
+        if s[0] == '(' and s[-1] == ')':
+            s = s[1:-1]
         z, v = s.split(',')
         v = int(v, 16)
         return cls(z, v)
@@ -190,6 +195,7 @@ class Tainting(object):
 def initialState(request):
     # TODO generate instead of using a fixed file, using States class
     # (not implemented yet)
+    # TODO return object
     return open(request.param, 'rb').read()
 
 
@@ -226,6 +232,7 @@ def analyzer(tmpdir, request):
 
 
 def test_nop(analyzer, initialState):
+    #TODO add initial concrete ptr to initialState
     ac = analyzer(initialState, binarystr='\x90')
     assert ac.stateAtEip[0x00] == ac.stateAtEip[0x1]
     # TODO add helper in AnalyzerConfig to perform a check at each eip
@@ -243,6 +250,21 @@ def test_pushebp(analyzer, initialState):
 
     assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
         stateBefore.ptrs['reg']['ebp']
+
+    # TODO use edges described in .ini file
+    # TODO check that nothing else has changed
+
+
+def test_pushesi(analyzer, initialState):
+    ac = analyzer(initialState, binarystr='\x55')
+    stateBefore = ac.stateAtEip[0x00]
+    stateAfter = ac.stateAtEip[0x01]
+
+    assert stateAfter.ptrs['reg']['esp'] == \
+        stateBefore.ptrs['reg']['esp'] - 4
+
+    assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
+        stateBefore.ptrs['reg']['esi']
 
     # TODO use edges described in .ini file
     # TODO check that nothing else has changed
