@@ -40,6 +40,13 @@ class AnalyzerConfig(object):
             state.setFromAnalyzerOutput(config.items(section))
             self.stateAtEip[address] = state
 
+    def getStateAt(self, eip):
+        if type(eip) is int:
+            addr = ConcretePtrValue("global", eip)
+        else:
+            addr = eip
+        return self.stateAtEip[addr]
+
     def exportToFile(self, filename, eip):
         # TODO
         pass
@@ -234,16 +241,16 @@ def analyzer(tmpdir, request):
 def test_nop(analyzer, initialState):
     #TODO add initial concrete ptr to initialState
     ac = analyzer(initialState, binarystr='\x90')
-    assert ac.stateAtEip[0x00] == ac.stateAtEip[0x1]
+    assert ac.getStateAt(0x00) == ac.getStateAt(0x1)
     # TODO add helper in AnalyzerConfig to perform a check at each eip
-    for eip in ac.stateAtEip.keys():
-        assert ac.stateAtEip[eip].ptrs['reg']['esp'].region == 'stack'
+    for state in ac.stateAtEip.values():
+        assert state.ptrs['reg']['esp'].region == 'stack'
 
 
 def test_pushebp(analyzer, initialState):
     ac = analyzer(initialState, binarystr='\x55')
-    stateBefore = ac.stateAtEip[0x00]
-    stateAfter = ac.stateAtEip[0x01]
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = ac.getStateAt(0x01)
 
     assert stateAfter.ptrs['reg']['esp'] == \
         stateBefore.ptrs['reg']['esp'] - 4
@@ -251,14 +258,14 @@ def test_pushebp(analyzer, initialState):
     assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
         stateBefore.ptrs['reg']['ebp']
 
-    # TODO use edges described in .ini file
+    # TODO use edges described in .ini file, do not hardcode addresses
     # TODO check that nothing else has changed
 
 
 def test_pushesi(analyzer, initialState):
-    ac = analyzer(initialState, binarystr='\x55')
-    stateBefore = ac.stateAtEip[0x00]
-    stateAfter = ac.stateAtEip[0x01]
+    ac = analyzer(initialState, binarystr='\x56')
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = ac.getStateAt(0x01)
 
     assert stateAfter.ptrs['reg']['esp'] == \
         stateBefore.ptrs['reg']['esp'] - 4
@@ -266,5 +273,5 @@ def test_pushesi(analyzer, initialState):
     assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
         stateBefore.ptrs['reg']['esi']
 
-    # TODO use edges described in .ini file
+    # TODO use edges described in .ini file, do not hardcode addresses
     # TODO check that nothing else has changed
