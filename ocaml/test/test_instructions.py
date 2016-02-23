@@ -5,6 +5,7 @@ import pytest
 import ConfigParser
 import logging
 import sys
+import copy
 
 
 class AnalyzerConfig(object):
@@ -64,27 +65,27 @@ class State(object):
         self.ptrs = {'mem': {}, 'reg': {}}
         #: self.tainting["reg" or "mem"][name or ConcretePtrValue object] =
         #: taint value (object)?
-        self.tainting = {}
+        self.tainting = {'mem': {}, 'reg': {}}
         #: self.stmts = [statement of the intermediate language]
         self.stmts = ""
 
     def __eq__(self, other):
-        if set(self.ptrs['mem'].keys()) != set(other.ptrs['mem'].keys()) or\
-                set(self.ptrs['reg'].keys()) != set(other.ptrs['reg'].keys()):
-            # might have to be refined
-            logging.error("different set of keys between states")
-            return False
-        for ptrtype in 'mem', 'reg':
-            for ptr in self.ptrs[ptrtype].keys():
-                if (self.ptrs[ptrtype][ptr] != other.ptrs[ptrtype][ptr]):
-                    return False
-        if set(self.tainting.keys()) != set(other.tainting.keys()):
-            # might have to be refined
-            logging.error("different set of keys between states")
-            return False
-        for t in (set(self.tainting.keys()) | set(other.tainting.keys())):
-            if self.tainting[t] != other.tainting[t]:
+        for region in 'mem', 'reg':
+            if set(self.ptrs[region].keys()) != set(other.ptrs[region].keys()):
+                # might have to be refined
+                logging.error("different set of %s keys between states : %s vs %s", region, self.ptrs[region].keys(), other.ptrs[region].keys())
                 return False
+            if set(self.tainting[region].keys()) != set(other.tainting[region].keys()):
+                # might have to be refined
+                logging.error("different set of tainting keys between states. Unique key: %s", set(self.tainting[region].keys()).symmetric_difference(set(other.tainting[region].keys())))
+                return False
+            for ptr in self.ptrs[region].keys():
+                if (self.ptrs[region][ptr] != other.ptrs[region][ptr]):
+                    logging.error("different ptr values between states %s", region)
+                    return False
+            for t in (set(self.tainting[region].keys()) | set(other.tainting[region].keys())):
+                if self.tainting[region][t] != other.tainting[region][t]:
+                    return False
         return True
 
     def setFromAnalyzerOutput(self, outputkv):
@@ -94,18 +95,27 @@ class State(object):
         """
         for k, v in outputkv:
             if k.startswith('tainting '):
-                self.tainting[k[9:]] = Tainting.fromAnalyzerOutput(v)
-            elif k.startswith('pointer '):
-                ptrloc = k[8:]
+                ptrloc = k[9:]
                 if ptrloc.startswith('mem ['):
-                    ptrtype = 'mem'
+                    region = 'mem'
                     key = ConcretePtrValue.fromAnalyzerOutput(ptrloc[6:-2])
                 elif ptrloc.startswith('reg ['):
-                    ptrtype = 'reg'
+                    region = 'reg'
                     key = ptrloc[5:-1]
                 else:
                     raise NotImplementedError('Unsupported ptrtype')
-                self.ptrs[ptrtype][key] = PtrValue.fromAnalyzerOutput(v)
+                self.tainting[region][key] = Tainting.fromAnalyzerOutput(v)
+            elif k.startswith('pointer '):
+                ptrloc = k[8:]
+                if ptrloc.startswith('mem ['):
+                    region = 'mem'
+                    key = ConcretePtrValue.fromAnalyzerOutput(ptrloc[6:-2])
+                elif ptrloc.startswith('reg ['):
+                    region = 'reg'
+                    key = ptrloc[5:-1]
+                else:
+                    raise NotImplementedError('Unsupported region')
+                self.ptrs[region][key] = PtrValue.fromAnalyzerOutput(v)
             elif k.startswith('statements'):
                 self.stmts = Stmt.fromAnalyzerOutput(v)
             else:
@@ -261,14 +271,17 @@ def test_push(analyzer, initialState, register):
     stateBefore = ac.getStateAt(0x00)
     stateAfter = ac.getStateAt(0x01)
 
-    assert stateAfter.ptrs['reg']['esp'] == \
-        stateBefore.ptrs['reg']['esp'] - 4
-
-    assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg']['esp'] -= 4
+    expectedStateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] = \
         stateBefore.ptrs['reg'][regname]
+    expectedStateAfter.tainting['mem'][stateBefore.ptrs['reg']['esp']] = \
+        stateBefore.tainting['reg'][regname]
+
+    assert expectedStateAfter == stateAfter
 
     # TODO use edges described in .ini file, do not hardcode addresses
-    # TODO check that nothing else has changed
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -279,14 +292,17 @@ def test_pop(analyzer, initialState, register):
     stateBefore = ac.getStateAt(0x00)
     stateAfter = ac.getStateAt(0x01)
 
-    assert stateAfter.ptrs['reg']['esp'] == \
-        stateBefore.ptrs['reg']['esp'] + 4
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg']['esp'] += 4
+    expectedStateAfter.ptrs['reg'][regname] = \
+        stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['esp']]
+    expectedStateAfter.tainting['reg'][regname] = \
+        stateBefore.tainting['mem'][stateBefore.ptrs['reg']['esp']]
 
-    assert stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
-        stateAfter.ptrs['reg'][regname]
+    assert expectedStateAfter == stateAfter
 
     # TODO use edges described in .ini file, do not hardcode addresses
-    # TODO check that nothing else has changed
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -296,9 +312,12 @@ def test_inc(analyzer, initialState, register):
     ac = analyzer(initialState, binarystr=chr(opcode))
     stateBefore = ac.getStateAt(0x00)
     stateAfter = ac.getStateAt(0x01)
+    expectedStateAfter = copy.deepcopy(stateBefore)
 
-    assert stateBefore.ptrs['reg'][regname] + 1 == \
-        stateAfter.ptrs['reg'][regname]
+    # XXX taint more bits?
+    expectedStateAfter.ptrs['reg'][regname] += 1
+
+    assert expectedStateAfter == stateAfter
 
     # TODO use edges described in .ini file, do not hardcode addresses
     # TODO check that nothing else has changed
@@ -311,9 +330,12 @@ def test_dec(analyzer, initialState, register):
     ac = analyzer(initialState, binarystr=chr(opcode))
     stateBefore = ac.getStateAt(0x00)
     stateAfter = ac.getStateAt(0x01)
+    expectedStateAfter = copy.deepcopy(stateBefore)
 
-    assert stateBefore.ptrs['reg'][regname] - 1 == \
-        stateAfter.ptrs['reg'][regname]
+    # XXX taint more bits?
+    expectedStateAfter.ptrs['reg'][regname] -= 1
+
+    assert expectedStateAfter == stateAfter
 
     # TODO use edges described in .ini file, do not hardcode addresses
     # TODO check that nothing else has changed
