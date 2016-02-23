@@ -247,8 +247,17 @@ def test_nop(analyzer, initialState):
         assert state.ptrs['reg']['esp'].region == 'stack'
 
 
-def test_pushebp(analyzer, initialState):
-    ac = analyzer(initialState, binarystr='\x55')
+# tests for opcodes 0x40-0x5F: inc, dec, push, pop
+testregisters = list(enumerate(
+ ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
+))
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_push(analyzer, initialState, register):
+    regid, regname = register
+    opcode = 0x50 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
     stateBefore = ac.getStateAt(0x00)
     stateAfter = ac.getStateAt(0x01)
 
@@ -256,22 +265,55 @@ def test_pushebp(analyzer, initialState):
         stateBefore.ptrs['reg']['esp'] - 4
 
     assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
-        stateBefore.ptrs['reg']['ebp']
+        stateBefore.ptrs['reg'][regname]
 
     # TODO use edges described in .ini file, do not hardcode addresses
     # TODO check that nothing else has changed
 
 
-def test_pushesi(analyzer, initialState):
-    ac = analyzer(initialState, binarystr='\x56')
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_pop(analyzer, initialState, register):
+    regid, regname = register
+    opcode = 0x58 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
     stateBefore = ac.getStateAt(0x00)
     stateAfter = ac.getStateAt(0x01)
 
     assert stateAfter.ptrs['reg']['esp'] == \
-        stateBefore.ptrs['reg']['esp'] - 4
+        stateBefore.ptrs['reg']['esp'] + 4
 
-    assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
-        stateBefore.ptrs['reg']['esi']
+    assert stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
+        stateAfter.ptrs['reg'][regname]
+
+    # TODO use edges described in .ini file, do not hardcode addresses
+    # TODO check that nothing else has changed
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_inc(analyzer, initialState, register):
+    regid, regname = register
+    opcode = 0x40 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = ac.getStateAt(0x01)
+
+    assert stateBefore.ptrs['reg'][regname] + 1 == \
+        stateAfter.ptrs['reg'][regname]
+
+    # TODO use edges described in .ini file, do not hardcode addresses
+    # TODO check that nothing else has changed
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_dec(analyzer, initialState, register):
+    regid, regname = register
+    opcode = 0x48 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = ac.getStateAt(0x01)
+
+    assert stateBefore.ptrs['reg'][regname] - 1 == \
+        stateAfter.ptrs['reg'][regname]
 
     # TODO use edges described in .ini file, do not hardcode addresses
     # TODO check that nothing else has changed
