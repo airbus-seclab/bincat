@@ -33,10 +33,6 @@ class AnalyzerConfig(object):
                 sys.exit(1)
             addrtxt, nodeid = section[10:].rsplit(',', 1)
             address = ConcretePtrValue.fromAnalyzerOutput(addrtxt)
-            # zxidx = section.index("0x")  # [address = 0xFF..FF]
-            # # new format XXX [address = (Global, 0x1), id = 1] - parse as ConcretePtrValue
-            # sz = len(section) - (zxidx+1)
-            # address = int(section[zxidx:zxidx+sz], 16)
             state = State(address)
             state.setFromAnalyzerOutput(config.items(section))
             self.stateAtEip[address] = state
@@ -320,7 +316,6 @@ def test_inc(analyzer, initialState, register):
     assert expectedStateAfter == stateAfter
 
     # TODO use edges described in .ini file, do not hardcode addresses
-    # TODO check that nothing else has changed
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -338,4 +333,3 @@ def test_dec(analyzer, initialState, register):
     assert expectedStateAfter == stateAfter
 
     # TODO use edges described in .ini file, do not hardcode addresses
-    # TODO check that nothing else has changed
