@@ -73,9 +73,9 @@ class Analyzer:
         self.logger.info("[Analyzer] Launching OCaml stub")
         try: 
             mlbincat.process(inifile, outfile) 
-        except :
-            self.logger.info("[Analyzer] Exception when launching Ocaml stub")
-            error = "[Analyzer] Exception when launching Ocaml stub" 
+        except Exception,e:
+            error = "[Analyzer] Exception when launching Ocaml stub (%s)"%e 
+            self.logger.info(error)
             self.analyzer_socket.send(error)        
 
         
@@ -85,7 +85,7 @@ def main():
     
     a = Analyzer() 
     a.logger.info("[Analyzer] Launching Analyzer main function : ")
-    
+    print("\n[*] Analyzer.py : entering main \n")
     argsParser = argparse.ArgumentParser(description="Analyzer arguments parsing . ")
     argsParser.add_argument('address' ,action='store' ,help ='offset in the binary')
     argsParser.add_argument('--mnemonics' ,action='store' ,help ='mnemonics to analyze')
@@ -106,7 +106,7 @@ def main():
 
     # create socket 
     a.logger.info("[Analyzer] Creating Socket from IDA fd ")
-    a.initSocketFromFd(int(args.commandfd))
+    #a.initSocketFromFd(int(args.commandfd))
 
     if  ( args.inifile and args.outfile ):
         a.LaunchOcaml(args.inifile,args.outfile) 
