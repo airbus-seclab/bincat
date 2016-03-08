@@ -58,10 +58,10 @@ class State(object):
     """
     def __init__(self, address):
         self.address = ""
-        #: self.ptrs[memory address or pointer name] =
+        #: self.ptrs['reg' or 'mem'][name or ConcretePtrValue object] =
         #: ("memory region", int address)
         self.ptrs = {'mem': {}, 'reg': {}}
-        #: self.tainting["reg" or "mem"][name or ConcretePtrValue object] =
+        #: self.tainting['reg' or 'mem'][name or ConcretePtrValue object] =
         #: taint value (object)?
         self.tainting = {'mem': {}, 'reg': {}}
         #: self.stmts = [statement of the intermediate language]
@@ -69,19 +69,30 @@ class State(object):
 
     def __eq__(self, other):
         for region in 'mem', 'reg':
-            if set(self.ptrs[region].keys()) != set(other.ptrs[region].keys()):
+            ptrKeys = set(self.ptrs[region].keys())
+            otherPtrKeys = set(other.ptrs[region].keys())
+            taintingKeys = set(self.tainting[region].keys())
+            otherTaintingKeys = set(other.tainting[region].keys())
+            allKeys = ptrKeys | otherPtrKeys | taintingKeys | otherTaintingKeys
+            if ptrKeys != otherPtrKeys:
                 # might have to be refined
-                logging.error("different set of %s keys between states : %s vs %s", region, self.ptrs[region].keys(), other.ptrs[region].keys())
+                logging.error(
+                    "different set of %s keys between states : %s vs %s",
+                    region, self.ptrs[region].keys(),
+                    other.ptrs[region].keys())
                 return False
-            if set(self.tainting[region].keys()) != set(other.tainting[region].keys()):
+            if taintingKeys != otherTaintingKeys:
                 # might have to be refined
-                logging.error("different set of tainting keys between states. Unique key: %s", set(self.tainting[region].keys()).symmetric_difference(set(other.tainting[region].keys())))
+                logging.error(
+                    "different set of tainting keys between states. Unique key: %s",
+                    taintingKeys.symmetric_difference(otherTaintingKeys))
                 return False
-            for ptr in self.ptrs[region].keys():
-                if (self.ptrs[region][ptr] != other.ptrs[region][ptr]):
-                    logging.error("different ptr values between states %s", region)
+            for key in allKeys:
+                if (self.ptrs[region][key] != other.ptrs[region][key]):
+                    logging.error("different ptr values between states %s %s",
+                                  region, key)
                     return False
-            for t in (set(self.tainting[region].keys()) | set(other.tainting[region].keys())):
+            for t in allKeys:
                 if self.tainting[region][t] != other.tainting[region][t]:
                     return False
         return True
