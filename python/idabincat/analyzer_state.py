@@ -97,6 +97,37 @@ class State(object):
                     return False
         return True
 
+    def listModifiedKeys(self, otherState):
+        """
+        Returns a list of (region, name) for which ptrs or tainting values
+        differ between self and otherState.
+        """
+        results = []
+        for region in 'mem', 'reg':
+            ptrKeys = set(self.ptrs[region].keys())
+            otherPtrKeys = set(otherState.ptrs[region].keys())
+            taintingKeys = set(self.tainting[region].keys())
+            otherTaintingKeys = set(otherState.tainting[region].keys())
+
+            for key in ptrKeys | otherPtrKeys:
+                if key not in self.ptrs[region] or \
+                        key not in otherState.ptrs[region]:
+                    results.append((region, key))
+                    continue
+                if self.ptrs[region][key] != otherState.ptrs[region][key]:
+                    results.append((region, key))
+
+            for key in taintingKeys | otherTaintingKeys:
+                if key not in self.tainting[region] or \
+                        key not in otherState.tainting[region]:
+                    results.append((region, key))
+                    continue
+                if self.tainting[region][key] != \
+                        otherState.tainting[region][key]:
+                    results.append((region, key))
+
+        return results
+
     def setFromAnalyzerOutput(self, outputkv):
         """
         :param outputkv: list of (key, value) tuples for each property set by
@@ -150,6 +181,9 @@ class Stmt(object):
 class PtrValue(object):
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __eq__(self, other):
+        raise NotImplementedError
 
     @classmethod
     def fromAnalyzerOutput(cls, s):
