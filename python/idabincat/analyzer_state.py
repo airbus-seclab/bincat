@@ -99,10 +99,10 @@ class State(object):
 
     def listModifiedKeys(self, otherState):
         """
-        Returns a list of (region, name) for which ptrs or tainting values
+        Returns a set of (region, name) for which ptrs or tainting values
         differ between self and otherState.
         """
-        results = []
+        results = set()
         for region in 'mem', 'reg':
             ptrKeys = set(self.ptrs[region].keys())
             otherPtrKeys = set(otherState.ptrs[region].keys())
@@ -112,19 +112,19 @@ class State(object):
             for key in ptrKeys | otherPtrKeys:
                 if key not in self.ptrs[region] or \
                         key not in otherState.ptrs[region]:
-                    results.append((region, key))
+                    results.add((region, key))
                     continue
                 if self.ptrs[region][key] != otherState.ptrs[region][key]:
-                    results.append((region, key))
+                    results.add((region, key))
 
             for key in taintingKeys | otherTaintingKeys:
                 if key not in self.tainting[region] or \
                         key not in otherState.tainting[region]:
-                    results.append((region, key))
+                    results.add((region, key))
                     continue
                 if self.tainting[region][key] != \
                         otherState.tainting[region][key]:
-                    results.append((region, key))
+                    results.add((region, key))
 
         return results
 
