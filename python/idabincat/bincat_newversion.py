@@ -35,6 +35,429 @@ if sys.platform.startswith('linux'):
 
 
 
+# ----------------------------------------------------------------------------------------------
+# Class : create config.ini file that holds the default parameters for the current idb file 
+
+class HelperConfigIniFile:
+
+        def __init__(self):
+                self.version = "0.0"
+                self.config_ini_path = None
+
+        def getFirstEntryPoint(self): 
+                ord0 = GetEntryOrdinal(0)
+                funcname = GetFunctionName(ord0)
+                return ord0
+
+        def getFileType(self):
+                self.ftypes = {idaapi.f_PE:"pe",idaapi.f_ELF:"elf",idaapi.f_MACHO:"macho"}
+                ida_db_info_structure = idaapi.get_inf_structure()
+                f_type = ida_db_info_structure.filetype
+                return self.ftypes[f_type]
+                
+
+
+        def getMemoryModel(self):
+                ida_db_info_structure = idaapi.get_inf_structure() 
+                compiler_info =  ida_db_info_structure.cc 
+                if  (compiler_info.cm & idaapi.C_PC_TINY == 1): return "tiny"
+                if  (compiler_info.cm & idaapi.C_PC_SMALL == 1): return "small"
+                if  (compiler_info.cm & idaapi.C_PC_COMPACT == 1): return "compact"
+                if  (compiler_info.cm & idaapi.C_PC_MEDIUM == 1): return "medium"
+                if  (compiler_info.cm & idaapi.C_PC_LARGE == 1): return "large"
+                if  (compiler_info.cm & idaapi.C_PC_HUGE == 1): return "huge"
+                if  (compiler_info.cm & idaapi.C_PC_FLAT == 3 ): return "flat"
+
+        def getCallConvention(self):
+                ida_db_info_structure = idaapi.get_inf_structure() 
+                compiler_info =  ida_db_info_structure.cc 
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_INVALID : return "invalid"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_UNKNOWN : return "unknown"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_VOIDARG : return "voidargs"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_CDECL : return "cdecl"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_ELLIPSIS : return "ellipsis"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_STDCALL : return "stdcall"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_PASCAL : return "pascal"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_FASTCALL : return "fastcall"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_THISCALL : return "thiscall"
+                if  (compiler_info.cm & CM_CC_MASK ) == CM_CC_MANUAL : return "manual"
+
+        def getBitness(self,ea):
+                bitness = idc.GetSegmentAttr( ea , idc.SEGATTR_BITNESS)
+                if  bitness == 0 :
+                        bitness = 16 
+                elif bitness == 1 :
+                        bitness = 32 
+                elif bitness == 2 :
+                        bitness = 64 
+                return bitness
+
+        def getStackWidth(self):
+                ida_db_info_structure = idaapi.get_inf_structure() 
+                if  ida_db_info_structure.is_64bit() :
+                        return(8*8)
+                else : 
+                        if ida_db_info_structure.is_32bit() :
+                                return(4*8)
+                        else :
+                                return(2*8)   
+
+
+        def getCodeSection(self,ea):
+                # in case we have more than one code section we apply the following heuristic 
+                # entry point must be in the code section
+                BinCATLogViewer.Log(" [+] BinCAT call GetCodeSegment ",SCOLOR_LOCNAME)
+  
+                ep = self.getFirstEntryPoint()
+                for seg in Segments():
+                        seg_attributes = idc.GetSegmentAttr(SegStart(seg),idc.SEGATTR_TYPE)
+                        if seg_attributes  == idaapi.SEG_CODE and ( SegStart(seg) <= ep  <= SegEnd(seg)  )  : 
+                                if ea == 'start' :
+                                        log= "[+] BinCAT::getCodeSection start %d "%SegStart(seg)
+                                        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+                                        return( SegStart(seg) )
+                                if ea == 'end' :
+                                        log = "[+] BinCAT::getCodeSection end %d "%SegStart(seg)
+                                        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+                                        return( SegEnd(seg) )
+                                else : 
+                                        log = "[+] BinCAT no Code section has been found"
+                                        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+                                        return(-1) 
+        def getDataSection(self,ea):
+                for seg in Segments():
+                        seg_attributes = idc.GetSegmentAttr(SegStart(seg),idc.SEGATTR_TYPE)
+                        if seg_attributes  == idaapi.SEG_DATA : 
+                                if ea == 'start' :
+                                        log= "[+] BinCAT::getDataSection start %d "%SegStart(seg)
+                                        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+                                        return( SegStart(seg) )
+                                if ea == 'end' :
+                                        log = "[+] BinCAT::getDataSection end %d "%SegStart(seg) 
+                                        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+                                        return( SegEnd(seg) )
+
+
+        def CreateIniFile(self):
+                # this function will grap the default parameters 
+                BinCATLogViewer.Log(" [+] BinCAT Creating ini configuration file",SCOLOR_LOCNAME)
+                self.configini = ConfigParser.RawConfigParser()
+                # [settings] section 
+                self.configini.add_section('settings')
+                self.configini.set('settings','mem-model',self.getMemoryModel()) 
+                self.configini.set('settings','call-conv',self.getCallConvention())
+                self.configini.set('settings','mem-sz',32)
+                adr  = self.getCodeSection('start')
+                self.configini.set('settings','op-sz', self.getBitness( adr ) )
+                self.configini.set('settings','stack-width',self.getStackWidth())
+
+                # [loader section] 
+                self.configini.add_section('loader')
+                self.configini.set('loader','rva-stack','0xFFFFFFFF') 
+                self.configini.set('loader','rva-data',hex(self.getDataSection('start')).strip('L'))
+                self.configini.set('loader','rva-code-start',hex(self.getCodeSection('start')).strip('L'))
+                self.configini.set('loader','rva-code-end',hex(self.getCodeSection('end')).strip('L'))
+                self.configini.set('loader','rva-entrypoint', hex(idaapi.get_inf_structure().startIP).strip('L') )
+
+                # [binary section] 
+                self.configini.add_section('binary')
+                self.configini.set('binary','filename',GetInputFile())
+                self.configini.set('binary','filepath',GetInputFilePath()) 
+                self.configini.set('binary','format',self.getFileType())
+                self.configini.set('binary','phys-code', hex(idaapi.get_fileregion_offset(self.getCodeSection('start'))) )
+                
+                # [analyzer section] 
+                self.configini.add_section('analyzer')
+                self.configini.set('analyzer','unroll',5)
+
+                # [state section] 
+                self.configini.add_section('state')
+
+                # config ini file should be in the same directory as the IDB file 
+                self.config_ini_path = GetIdbDir() + "config.ini"         
+                # writing configuration file
+                log = "[+] BinCAT Writing config.ini %s \n"%self.config_ini_path 
+                BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+
+                with open(self.config_ini_path,'w') as configfile:
+                        self.configini.write(configfile)
+
+
+
+# ----------------------------------------------------------------------------------------------
+# Class Constraintes editor 
+class ConstrainteEditorForm_t(QtWidgets.QDialog):
+
+        def __init__(self,parent):
+                super(ConstrainteEditorForm_t,self).__init__(parent)
+                
+                layout = QtWidgets.QGridLayout()
+                lblCstEditor = QtWidgets.QLabel(" Constraintes Editor : ") 
+                layout.addWidget(lblCstEditor,0,0)
+
+                self.notes = QtWidgets.QPlainTextEdit() 
+                self.notes.setFixedHeight(300)
+                self.notes.setFixedWidth(300)
+                self.notes.appendPlainText("reg[eax] = 0x00")
+                self.notes.appendPlainText("mem[0x4000] = 0x00")
+
+                # OK and cancel button
+                self.btnOK = QtWidgets.QPushButton('OK',self)
+                self.btnOK.setToolTip('Save Constraintes.')
+                self.btnOK.setFixedWidth(150)
+
+                self.btnCancel = QtWidgets.QPushButton('Cancel',self)
+                self.btnCancel.setToolTip('Cancel.')
+                self.btnCancel.setFixedWidth(150)
+
+
+                layout.addWidget(self.notes,1,0)
+                layout.addWidget(self.btnOK,2,0)
+                layout.addWidget(self.btnCancel,2,1)
+
+
+                layout.setColumnStretch(2,1)
+                layout.setRowStretch(3,1)
+
+                self.setLayout(layout)
+ 
+        
+        def show(self):
+                self.setFixedSize(400,400)
+                self.setWindowTitle("Constraintes Editor")
+                super(ConstrainteEditorForm_t,self).show()
+
+# ----------------------------------------------------------------------------------------------
+# Class AnalyzerConfForm : this forms is populated by the content of the nop.ini file 
+#       This form helps the en user to configure the analyzer
+
+class AnalyzerConfForm_t(QtWidgets.QDialog):
+
+        def btnCstrHandler(self):
+                CstEdit = ConstrainteEditorForm_t(self)
+                CstEdit.show()
+
+
+
+        def __init__(self,parent):
+                super(AnalyzerConfForm_t,self).__init__(parent)
+
+                # Get config ini file 
+                #hlpConfig = HelperConfigIniFile()
+                self.currentConfig = ConfigParser.ConfigParser()
+                self.currentConfig.read(hlpConfig.config_ini_path)
+
+
+                # based on the analyzer ini file (see test/nop.ini)
+                # Settings label 
+                lblSettings = QtWidgets.QLabel("[Settings] : ")
+                layout = QtWidgets.QGridLayout()
+                layout.addWidget(lblSettings,0,0)
+
+                
+
+                # mem-model 
+                lblmemmodel = QtWidgets.QLabel(" mem-model : ")
+                layout.addWidget(lblmemmodel,1,0)
+
+                self.iptmm = QtWidgets.QLineEdit(self)
+
+                self.iptmm.setText(self.currentConfig.get('settings','mem-model'))
+                self.iptmm.setMaxLength = 256
+                self.iptmm.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptmm,1,1)
+
+
+                # call-conv 
+                lblcallconv = QtWidgets.QLabel(" call-conv : ")
+                layout.addWidget(lblcallconv,2,0)
+               
+                self.iptcc = QtWidgets.QLineEdit(self)
+
+                self.iptcc.setText(self.currentConfig.get('settings','call-conv'))
+                self.iptcc.setMaxLength = 256
+                self.iptcc.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptcc,2,1)
+ 
+                # mem-size 
+                lblmemsize = QtWidgets.QLabel(" mem-size : ") 
+                layout.addWidget(lblmemsize,3,0)
+
+                self.iptms = QtWidgets.QLineEdit(self)
+
+                self.iptms.setText(self.currentConfig.get('settings','mem-sz'))
+                self.iptms.setMaxLength = 256
+                self.iptms.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptms,3,1)
+
+                # op-sz 
+                lblopsz = QtWidgets.QLabel(" op-sz : ") 
+                layout.addWidget(lblopsz,4,0)
+                self.iptos = QtWidgets.QLineEdit(self)
+
+                self.iptos.setText(self.currentConfig.get('settings','op-sz'))
+                self.iptos.setMaxLength = 256
+                self.iptos.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptos,4,1)
+
+                # stack-width
+                lblstackwidth = QtWidgets.QLabel(" stack-width : ") 
+                layout.addWidget(lblstackwidth,5,0)
+                self.iptsw = QtWidgets.QLineEdit(self)
+
+                self.iptsw.setText(self.currentConfig.get('settings','stack-width'))
+                self.iptsw.setMaxLength = 256
+                self.iptsw.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptsw,5,1)
+
+                # loader label 
+                lblLoader = QtWidgets.QLabel("[Loader] : ")
+                layout.addWidget(lblLoader,6,0)
+
+                # rva-stack 
+                lblrvastack = QtWidgets.QLabel(" rva-stack : ") 
+                layout.addWidget(lblrvastack,7,0)
+                self.iptrs = QtWidgets.QLineEdit(self)
+
+                self.iptrs.setText(self.currentConfig.get('loader','rva-stack'))
+                self.iptrs.setMaxLength = 256
+                self.iptrs.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptrs,7,1)
+
+                # rva-data 
+                lblrvadata = QtWidgets.QLabel(" rva-data : ") 
+                layout.addWidget(lblrvadata,8,0)
+                self.iptrd = QtWidgets.QLineEdit(self)
+
+                self.iptrd.setText(self.currentConfig.get('loader','rva-data'))
+                self.iptrd.setMaxLength = 256
+                self.iptrd.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptrd,8,1)
+
+                # rva-code-start 
+                lblrvacs = QtWidgets.QLabel(" rva-code-start : ") 
+                layout.addWidget(lblrvacs,9,0)
+                self.iptrvacs = QtWidgets.QLineEdit(self)
+
+                self.iptrvacs.setText(self.currentConfig.get('loader','rva-code-start'))
+                self.iptrvacs.setMaxLength = 256
+                self.iptrvacs.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptrvacs,9,1)
+                
+                # rva-code-end 
+                lblrvace = QtWidgets.QLabel(" rva-code-end : ") 
+                layout.addWidget(lblrvace,10,0)
+                self.iptrvace = QtWidgets.QLineEdit(self)
+
+                self.iptrvace.setText(self.currentConfig.get('loader','rva-code-end'))
+                self.iptrvace.setMaxLength = 256
+                self.iptrvace.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptrvace,10,1)
+
+                # rva-entrypoint 
+                lblrvaep = QtWidgets.QLabel(" rva-entrypoint : ") 
+                layout.addWidget(lblrvaep,11,0)
+                self.iptrvaep = QtWidgets.QLineEdit(self)
+
+                self.iptrvaep.setText(self.currentConfig.get('loader','rva-entrypoint'))
+                self.iptrvaep.setMaxLength = 256
+                self.iptrvaep.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptrvaep,11,1)
+
+                # Binary label 
+                lblBinary = QtWidgets.QLabel("[Binary] : ")
+                layout.addWidget(lblBinary,12,0)
+
+                # filepath 
+                lblfilepath = QtWidgets.QLabel(" filepath : ") 
+                layout.addWidget(lblfilepath,13,0)
+                self.iptfp = QtWidgets.QLineEdit(self)
+
+                self.iptfp.setText(self.currentConfig.get('binary','filename'))
+                self.iptfp.setMaxLength = 256
+                self.iptfp.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptfp,13,1)
+
+                # format 
+                lblformat = QtWidgets.QLabel(" format : ") 
+                layout.addWidget(lblformat,14,0)
+                self.iptfmt = QtWidgets.QLineEdit(self)
+
+                self.iptfmt.setText(self.currentConfig.get('binary','format'))
+                self.iptfmt.setMaxLength = 256
+                self.iptfmt.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptfmt,14,1)
+
+                # code section phys start adr  
+                lblpc = QtWidgets.QLabel(" phys-code : ") 
+                layout.addWidget(lblpc,15,0)
+                self.iptpc = QtWidgets.QLineEdit(self)
+
+                self.iptpc.setText(self.currentConfig.get('binary','phys-code'))
+                self.iptpc.setMaxLength = 256
+                self.iptpc.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptpc,15,1)
+
+                # analyzer label 
+                lblBinary = QtWidgets.QLabel("[Analyzer] : ")
+                layout.addWidget(lblBinary,16,0)
+
+                # unroll 
+                lblur = QtWidgets.QLabel(" unroll : ") 
+                layout.addWidget(lblur,17,0)
+                self.iptur = QtWidgets.QLineEdit(self)
+
+                self.iptur.setText(self.currentConfig.get('analyzer','unroll'))
+                self.iptur.setMaxLength = 256
+                self.iptur.setFixedWidth(200) 
+                
+                layout.addWidget(self.iptur,17,1)
+
+                # State label 
+                lblstate = QtWidgets.QLabel("[State] : ")
+                layout.addWidget(lblstate,18,0)
+
+                self.btnConstrainte = QtWidgets.QPushButton('Define tainting constraintes',self)
+                self.btnConstrainte.clicked.connect(self.btnCstrHandler)
+                layout.addWidget(self.btnConstrainte,18,1)
+
+
+                # OK and cancel button 
+                self.btnOK = QtWidgets.QPushButton('OK',self)
+                # TODO self.btnConstrainte.clicked.connect()
+                layout.addWidget(self.btnOK,19,0)
+
+                self.btnCancel = QtWidgets.QPushButton('Cancel',self)
+                # TODO self.btnConstrainte.clicked.connect()
+                layout.addWidget(self.btnCancel,19,1)
+                
+
+                # Setting the layout 
+                layout.setColumnStretch(4,1)
+                layout.setRowStretch(20,1)
+                self.setLayout(layout)
+                
+
+
+        def show(self):
+                # width x height
+                self.setFixedSize(350,575)
+                self.setWindowTitle("Analyzer Configuration")
+                super(AnalyzerConfForm_t,self).show()
+
 
 
 # ----------------------------------------------------------------------------------------------
@@ -61,8 +484,11 @@ class Analyzer(QtCore.QProcess):
         # the goal is exchange information using a qtcpsocket
         def procanalyzer_on_out(self):
                 buffer = str(self.readAllStandardOutput()).strip()
-                idaapi.msg(" [+] Analyzer standard output \n") 
-                idaapi.msg("%s\n"%buffer)
+                lines = buffer.splitlines()
+                for line in lines:
+                        if(line):
+                                BinCATLogViewer.Log(line,SCOLOR_DNAME)
+                
 
 
         def __init__(self):
@@ -91,8 +517,9 @@ class BinCATLog_t(simplecustviewer_t):
 
 
 
-        def Log(self,LogLine):
-                self.AddLine(LogLine)
+        def Log(self,LogLine,color):
+                coloredline = idaapi.COLSTR(LogLine,color)
+                self.AddLine(coloredline)
                 
 
  
@@ -138,10 +565,18 @@ class BinCATForm_t(PluginForm):
                 if fname :
                         self.iptAnalyzerPath.setText(fname[0])
 
+        def handler_btnAnalyzerConfig(self):
+                # Call AnalyzerConfForm_t 
+                bAc = AnalyzerConfForm_t(self.parent)
+                bAc.show()
+                idaapi.msg("handler_btnAnalyzerConfig()\n")
+
 
         # Called when the plugin form is created
         def OnCreate(self, form):
                 idaapi.msg("[+] BinCAT form created\n")
+                BinCATLogViewer.Log("[+] BinCAT form created",SCOLOR_LOCNAME)
+                
                 # Get parent widget 
                 self.parent = self.FormToPyQtWidget(form)
 
@@ -182,6 +617,7 @@ class BinCATForm_t(PluginForm):
 
                 # create a button for analyzer configuration form 
                 self.btnAnalyzerConfig = QtWidgets.QPushButton('Analyzer configuration',self.parent)
+                self.btnAnalyzerConfig.clicked.connect(self.handler_btnAnalyzerConfig)
 
                 # create a Layout 
                 layout = QtWidgets.QGridLayout()
@@ -198,6 +634,8 @@ class BinCATForm_t(PluginForm):
                               
                 self.parent.setLayout(layout)
 
+                idaapi.msg(" type(self) %s\n"%type(self))
+                idaapi.msg(" type(self.parent) %s \n"%type(self.parent))
                 # Launch the analyzer by calling init_analyzer()
                 self.init_Analyzer()
 
@@ -206,15 +644,38 @@ class BinCATForm_t(PluginForm):
         # Called when the plugin form is closed
         def OnClose(self,form):
                 idaapi.msg(" [+] BinCAT form closed\n")
+                BinCATLogViewer.Log(" [+] BinCAT form closed",SCOLOR_LOCNAME)
+                
                 global BinCATForm
-                del BinCATForm             
+                del BinCATForm   
 
- 
+                #f = idaapi.find_tform("BinCAT Log viewer")
+                #if f :
+                #        idaapi.close_tform(f,0) 
 
         def Show(self):
-                return PluginForm.Show(self,"BinCAT",options=PluginForm.FORM_PERSIST)
+                return PluginForm.Show(self,"BinCAT",options=PluginForm.FORM_PERSIST | PluginForm.FORM_TAB)
+# ----------------------------------------------------------------------------------------------
+# Action handler for BinCAT/ Taint current basic bloc 
+class HtooltipT(idaapi.action_handler_t):
+        def __init__(self):
+                idaapi.action_handler_t.__init__(self)
 
+        def activate(self,ctx):
+                idaapi.msg(" activating HtooltipT ")
+                idaapi.warning(" BinCAT: Tainting current Basic Bloc")
+                return 1
 
+        def update(self,ctx):
+                return idaapi.AST_ENABLE_ALWAYS
+
+# ----------------------------------------------------------------------------------------------
+# Class Hooks for BinCAT menu 
+
+class  Hooks(idaapi.UI_Hooks):
+        def populating_tform_popup(self,form,popup):
+                idaapi.msg("Hooks called \n")
+                idaapi.attach_action_to_popup(form,popup,"my:tooltip0","BinCAT/Tainting/",idaapi.SETMENU_APP)
 
 # ----------------------------------------------------------------------------------------------
 
@@ -228,7 +689,8 @@ def main():
 
         global BinCATForm
         global BinCATLogViewer
-
+        global hlpConfig
+        global hooks
         try:
                 BinCATForm
                 BinCATLogViewer 
@@ -237,12 +699,40 @@ def main():
                 BinCATLogViewer = BinCATLog_t()
 
         idaapi.msg("[+] BinCAT Starting main form\n")
-        BinCATForm.Show()
-        
         if BinCATLogViewer.Create(1):
                 BinCATLogViewer.Show()
-
+                idaapi.set_dock_pos("BinCAT Log viewer","Output window",idaapi.DP_LEFT) 
+                BinCATLogViewer.Log("[+] BinCAT Starting main form",SCOLOR_LOCNAME)
         
-         
+        BinCATForm.Show()
+
+        idaapi.set_dock_pos("BinCAT","IDA View-A",idaapi.DP_TAB) 
+                
+        # We create a disassembly view dedicated to BinCAT
+        idaapi.open_disasm_window("Tainting View")
+        idaapi.set_dock_pos("IDA View-Tainting View","IDA View-A",idaapi.DP_TAB) 
+
+        # set the focus to BinCAT view
+        ida_bincat_view = idaapi.find_tform("BinCAT")
+        idaapi.switchto_tform(ida_bincat_view,1)   
+
+        # creating BinCAT menu
+        BinCATLogViewer.Log("[+] BinCAT Creating Menus ",SCOLOR_LOCNAME)
+        tooltip_act0 = idaapi.action_desc_t('my:tooltip0','BinCAT : Taint this basic bloc', HtooltipT(),'','BinCAT action',-1)
+
+        idaapi.register_action(tooltip_act0)
+                
+        idaapi.attach_action_to_menu("View/","my:tooltip0",idaapi.SETMENU_APP)
+
+        BinCATLogViewer.Log("[+] BinCAT Setting Menu Hooks ",SCOLOR_LOCNAME)
+
+        hooks = Hooks()
+        hooks.hook()        
+
+
+        # Create a default config.ini file     
+        hlpConfig = HelperConfigIniFile()
+        hlpConfig.CreateIniFile()
+# ----------------------------------------------------------------------------------------------
 
 main()
