@@ -48,15 +48,6 @@ def analyzer(tmpdir, request):
     return run_analyzer
 
 
-def test_nop(analyzer, initialState):
-    # TODO add initial concrete ptr to initialState
-    ac = analyzer(initialState, binarystr='\x90')
-    assert ac.getStateAt(0x00) == ac.getStateAt(0x1)
-    # TODO add helper in AnalyzerConfig to perform a check at each eip
-    for state in ac.stateAtEip.values():
-        assert state.ptrs['reg']['esp'].region == 'stack'
-
-
 # tests for opcodes 0x40-0x5F: inc, dec, push, pop
 testregisters = list(enumerate(
  ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
@@ -64,7 +55,50 @@ testregisters = list(enumerate(
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_inc(analyzer, initialState, register):
+    """
+    Tests opcodes 0x40-0x47
+    """
+    regid, regname = register
+    opcode = 0x40 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = ac.getStateAt(0x01)
+    expectedStateAfter = copy.deepcopy(stateBefore)
+
+    # XXX taint more bits?
+    expectedStateAfter.ptrs['reg'][regname] += 1
+
+    assert expectedStateAfter == stateAfter
+
+    # TODO use edges described in .ini file, do not hardcode addresses
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_dec(analyzer, initialState, register):
+    """
+    Tests opcodes 0x48-0x4F
+    """
+    regid, regname = register
+    opcode = 0x48 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = ac.getStateAt(0x01)
+    expectedStateAfter = copy.deepcopy(stateBefore)
+
+    # XXX taint more bits?
+    expectedStateAfter.ptrs['reg'][regname] -= 1
+
+    assert expectedStateAfter == stateAfter
+
+    # TODO use edges described in .ini file, do not hardcode addresses
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_push(analyzer, initialState, register):
+    """
+    Tests opcodes 0x50-0x57
+    """
     regid, regname = register
     opcode = 0x50 + regid
     ac = analyzer(initialState, binarystr=chr(opcode))
@@ -86,6 +120,9 @@ def test_push(analyzer, initialState, register):
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_pop(analyzer, initialState, register):
+    """
+    Tests opcodes 0x58-0x5F
+    """
     regid, regname = register
     opcode = 0x58 + regid
     ac = analyzer(initialState, binarystr=chr(opcode))
@@ -105,35 +142,13 @@ def test_pop(analyzer, initialState, register):
     # TODO use edges described in .ini file, do not hardcode addresses
 
 
-@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
-def test_inc(analyzer, initialState, register):
-    regid, regname = register
-    opcode = 0x40 + regid
-    ac = analyzer(initialState, binarystr=chr(opcode))
-    stateBefore = ac.getStateAt(0x00)
-    stateAfter = ac.getStateAt(0x01)
-    expectedStateAfter = copy.deepcopy(stateBefore)
-
-    # XXX taint more bits?
-    expectedStateAfter.ptrs['reg'][regname] += 1
-
-    assert expectedStateAfter == stateAfter
-
-    # TODO use edges described in .ini file, do not hardcode addresses
-
-
-@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
-def test_dec(analyzer, initialState, register):
-    regid, regname = register
-    opcode = 0x48 + regid
-    ac = analyzer(initialState, binarystr=chr(opcode))
-    stateBefore = ac.getStateAt(0x00)
-    stateAfter = ac.getStateAt(0x01)
-    expectedStateAfter = copy.deepcopy(stateBefore)
-
-    # XXX taint more bits?
-    expectedStateAfter.ptrs['reg'][regname] -= 1
-
-    assert expectedStateAfter == stateAfter
-
-    # TODO use edges described in .ini file, do not hardcode addresses
+def test_nop(analyzer, initialState):
+    """
+    Tests opcode 0x90
+    """
+    # TODO add initial concrete ptr to initialState
+    ac = analyzer(initialState, binarystr='\x90')
+    assert ac.getStateAt(0x00) == ac.getStateAt(0x1)
+    # TODO add helper in AnalyzerConfig to perform a check at each eip
+    for state in ac.stateAtEip.values():
+        assert state.ptrs['reg']['esp'].region == 'stack'
