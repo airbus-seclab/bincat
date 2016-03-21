@@ -52,7 +52,7 @@ type tvalue =
   | Bits of string (* string of bits *)
   | MBits of string * string (* bit string with a mask as second element *)
 
-type cvalue = string
+type cvalue = Z.t
 		
 (* initial state utilities *)
 		    

@@ -96,7 +96,7 @@ rule token = parse
   | "real"                  { REAL }
 
   (* left operand of type integer *)
-  | integer as i 	    { INT i }
+  | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)
   | value as v  	    { STRING v }
 

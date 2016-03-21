@@ -34,11 +34,13 @@ module Word =
     let to_int v = fst v
 			    
     let of_string v n =
-      let v' = Z.of_string v in
-      if String.length (Z.to_bits v') > n then
+      try
+	let v' = Z.of_string v in
+	if String.length (Z.to_bits v') > n then
 	  Log.error (Printf.sprintf "word %s too large to fit into %d bits" v n)
-      else
-	v', n
+	else
+	  v', n
+      with _ -> Log.error (Printf.sprintf "Illegal conversion from Z.t to word of %s" v)
 
     let hash w = Z.hash (fst w)
 			

@@ -54,15 +54,14 @@
 
       (** fills the table of initial values for the given memory address *)
       let init_memory a ((c: Config.cvalue option), t) =
-	let a' = Z.of_string a in
 	begin
 	  match c with
 	  None    -> ()
-	| Some c' -> Hashtbl.add Config.initial_memory_content a' c'
+	| Some c' -> Hashtbl.add Config.initial_memory_content a c'
 	end;
 	match t with
 	  None    -> ()
-	| Some t' -> Hashtbl.add Config.initial_memory_tainting a' t'
+	| Some t' -> Hashtbl.add Config.initial_memory_tainting a t'
 				 
       let update_mandatory key =
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
@@ -105,7 +104,7 @@
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT 
 %token <string> STRING
-%token <string> INT
+%token <Z.t> INT
 %start <unit> process
 %%
 (* in every below rule a later rule in the file order may inhibit a previous rule *) 
@@ -137,9 +136,9 @@
       setting_item:
     | MEM_MODEL EQUAL m=memmodel { update_mandatory MEM_MODEL; Config.memory_model := m }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
-    | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := int_of_string i with _ -> Log.error "illegal operand size" }
-    | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := int_of_string i with _ -> Log.error "illegal address size" }
-    | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := int_of_string i with _ -> Log.error "illegal stack width" }
+    | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := Z.to_int i with _ -> Log.error "illegal operand size" }
+    | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := Z.to_int i with _ -> Log.error "illegal address size" }
+    | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := Z.to_int i with _ -> Log.error "illegal stack width" }
     | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m }
 				 	
       memmodel:
@@ -162,15 +161,15 @@
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | CS EQUAL i=INT          	 { update_mandatory CS; Config.cs := Z.of_string i }
-    | DS EQUAL i=INT          	 { update_mandatory DS; Config.ds := Z.of_string i }
-    | SS EQUAL i=INT          	 { update_mandatory SS; Config.ss := Z.of_string i }
-    | ES EQUAL i=INT 	      	 { update_mandatory ES; Config.es := Z.of_string i }
-    | FS EQUAL i=INT 	      	 { update_mandatory FS; Config.fs := Z.of_string i }
-    | GS EQUAL i=INT 	      	 { update_mandatory GS; Config.gs := Z.of_string i }
-    | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := int_of_string i }
-    | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := Z.of_string i }
-    | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := int_of_string i }
+    | CS EQUAL i=INT          	 { update_mandatory CS; Config.cs := i }
+    | DS EQUAL i=INT          	 { update_mandatory DS; Config.ds := i }
+    | SS EQUAL i=INT          	 { update_mandatory SS; Config.ss := i }
+    | ES EQUAL i=INT 	      	 { update_mandatory ES; Config.es := i }
+    | FS EQUAL i=INT 	      	 { update_mandatory FS; Config.fs := i }
+    | GS EQUAL i=INT 	      	 { update_mandatory GS; Config.gs := i }
+    | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := Z.to_int i }
+    | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
+    | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := Z.to_int i }
     
       
       binary:
@@ -192,7 +191,7 @@
     | g=gdt_item gg=gdt { g; gg }
 
       gdt_item:
-    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_mandatory GDT; Hashtbl.replace Config.gdt (Z.of_string i) (Z.of_string v) }
+    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_mandatory GDT; Hashtbl.replace Config.gdt i v }
 		       
       
       analyzer:
@@ -200,7 +199,7 @@
     | a=analyzer_item aa=analyzer { a; aa }
 				    
       analyzer_item:
-    | UNROLL EQUAL i=INT { Config.unroll := int_of_string i }
+    | UNROLL EQUAL i=INT { Config.unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING { update_mandatory DOTFILE; Config.dotfile := f }
     
       state:
@@ -238,6 +237,6 @@
     | c1=INT TAINT c2=tcontent { Some c1, Some c2 }
 
      tcontent:
-    | t=INT 		{ Config.Bits (Bits.string_to_bit_string t)  }
-    | t=INT MASK t2=INT { Config.MBits (Bits.string_to_bit_string t, Bits.string_to_bit_string t2) }
+    | t=INT 		{ Config.Bits (Bits.z_to_bit_string t)  }
+    | t=INT MASK t2=INT { Config.MBits (Bits.z_to_bit_string t, Bits.z_to_bit_string t2) }
 			

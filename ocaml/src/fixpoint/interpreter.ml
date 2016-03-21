@@ -148,7 +148,7 @@ struct
       continue := not (Vertices.is_empty !waiting);
     done;
     g
-
+    
 
 end
 

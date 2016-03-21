@@ -105,10 +105,16 @@ A state machine is a map
 \section{Edges}
 \chapter{Abstract Values}
 \section{Current Domains}
+\subsection{ptr}
+concrete ptr
+\subsection{tainting}
+3-valued vector: tainted/untainted/top
 
 \section{Reduced Product}
+no reduction
+
 \chapter{Fixpoint Computation}
-Implementation is in \verb|src/fixpoint/fixpoint.ml|
+Implementation is in \verb|src/fixpoint/interpreter.ml|
 
 A control flow automation \emph{A} is a data structure made of the following fields:
 \begin{itemize}
@@ -198,18 +204,23 @@ Special effort to be as generic as possible.
 Modules and functors that are achitecture dependent are:
 \begin{itemize}
 \item decoder.ml (x86 on 32 bits)
+\item parser.mly
+\item lexer.mll
 \item abi.ml x86 because of need to know mode protected/real and
   presence or not of segment selectors in the address generation from
   a string
+\item one line in main.ml that generates the address of the entry
+  point from the configuration file (and hence from !Config.cs)
 \end{itemize}
 
-segment selectors register ar actually their content is ds is *ds (we
-suppose to have access to the segment descriptor directly from the
-selector register rather than an index to the LDT or GDT table that
-provides the value for the base address of the segment)
 
+\chapter{Optimisations}
+dot not decode twice if the context is the same (including the
+internal state of the decoder)
 \chapter{known bugs}
 printed line of a bug in parsing is wrong
+\chapter{Quality improvements}
+add .mli
 \chapter{Glossary}
 \begin{itemize}
 \item control flow automaton
