@@ -8,15 +8,17 @@ file) using python classes.
 import ConfigParser
 import logging
 import sys
+from collections import defaultdict
 
 
 class AnalyzerState(object):
-    """
-    TODO move to separate file, re-use in IDA plugin
-    """
     def __init__(self):
         #: self.eip[EIP value] contains a State object
         self.stateAtEip = {}
+        #: self.edges[nodeid] = [target node ids]
+        self.edges = defaultdict(list)
+        #: self.idaddr[nodeid] = (region, addr)
+        self.nodeidaddr = {}
 
     def setBinaryFromString(self, string):
         # TODO
@@ -27,17 +29,22 @@ class AnalyzerState(object):
         config = ConfigParser.ConfigParser()
         config.read(filename)
         for section in config.sections():
-            if section == ('edges'):
+            if section == 'edges':
+                for edgename, edge in config.items(section):
+                    src, dst = edge.split(' -> ')
+                    self.edges[src].append(dst)
                 continue
             elif not section.startswith('address = '):
                 logging.error("Unrecognized section in output file: %s",
                               section)
                 sys.exit(1)
-            addrtxt, nodeid = section[10:].rsplit(',', 1)
+            # "address = (region, addr)"
+            addrtxt = section[10:]
             address = ConcretePtrValue.fromAnalyzerOutput(addrtxt)
             state = State(address)
             state.setFromAnalyzerOutput(config.items(section))
             self.stateAtEip[address] = state
+            self.nodeidaddr[state.nodeid] = address
 
     def getStateAt(self, eip):
         if type(eip) is int:
@@ -53,7 +60,6 @@ class AnalyzerState(object):
 
 class State(object):
     """
-    TODO move to separate file, re-use in IDA plugin
     TODO separate computed state from user-set state
     """
     def __init__(self, address):
@@ -66,6 +72,7 @@ class State(object):
         self.tainting = {'mem': {}, 'reg': {}}
         #: self.stmts = [statement of the intermediate language]
         self.stmts = ""
+        self.nodeid = ""
 
     def __eq__(self, other):
         for region in 'mem', 'reg':
@@ -158,6 +165,8 @@ class State(object):
                 self.ptrs[region][key] = PtrValue.fromAnalyzerOutput(v)
             elif k.startswith('statements'):
                 self.stmts = Stmt.fromAnalyzerOutput(v)
+            elif k == "id":
+                self.nodeid = v
             else:
                 logging.error("Unrecognized key while parsing state: %s", k)
                 sys.exit(1)

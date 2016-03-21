@@ -286,12 +286,12 @@ module Make(Domain: Domain.T) =
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
 	  let stmts = List.fold_left (fun s stmt -> s ^ " " ^ (Asm.string_of_stmt stmt)) "" s.stmts      in
-	  Printf.fprintf f "[address = %s, id = %d]\n\nstatements = %s\n\n%s\n" (Data.Address.to_string s.ip) s.id stmts abstract_values
+	  Printf.fprintf f "[address = %s]\nid = %d\nstatements = %s\n%s\n" (Data.Address.to_string s.ip) s.id stmts abstract_values
 	in
 	G.iter_vertex print_ip g;
 	(* edge printing (summary) *)
 	Printf.fprintf f "[edges]\n";
-	G.iter_edges_e (fun e -> Printf.fprintf f "e = %d -> %d\n" (G.E.src e).id (G.E.dst e).id) g;
+	G.iter_edges_e (fun e -> Printf.fprintf f "e%d_%d = %d -> %d\n" (G.E.src e).id (G.E.dst e).id (G.E.src e).id (G.E.dst e).id) g;
 	close_out f;
 	(* dot generation *)	
 	let f' = open_out dotfile in
