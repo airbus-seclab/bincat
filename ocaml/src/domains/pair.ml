@@ -17,20 +17,38 @@ struct
   let init ()    			      	= D1.init ()                          , D2.init ()
   let enter_fun (v1, v2) f                    	= D1.enter_fun v1 f                   , D2.enter_fun v2 f
   let leave_fun (v1, v2)                      	= D1.leave_fun v1                     , D2.leave_fun v2
+
+
+  (** two exceptions used for internal purpose of mem_to_addresses *)
+  exception Mem_v1
+  exception Mem_v2 of Data.Address.Set.t
+				
   let mem_to_addresses m sz (v1, v2) =
     try
-      let a1' = D1.mem_to_addresses m sz v1 in
-	try
-	  let a2' = D2.mem_to_addresses m sz v2 in
+      let a1' = try D1.mem_to_addresses m sz v1 with Exceptions.Enum_failure _ -> raise Mem_v1       in
+      let a2' = try D2.mem_to_addresses m sz v2 with Exceptions.Enum_failure _ -> raise (Mem_v2 a1') in
 	  Data.Address.Set.inter a1' a2'
-	with
-	  Exceptions.Enum_failure _ -> a1'
     with
-      Exceptions.Enum_failure _ ->
-      try
-	D2.mem_to_addresses m sz v2
-      with
-	Exceptions.Enum_failure _ -> raise (Exceptions.Enum_failure (Printf.sprintf "(%s x %s)" D1.name D2.name, "mem_to_addresses"))
-  
+    | Mem_v1 -> begin
+	try
+	  D2.mem_to_addresses m sz v2
+	with
+	| Exceptions.Enum_failure _ ->
+	  raise (Exceptions.Enum_failure (Printf.sprintf "(%s x %s)" D1.name D2.name, "mem_to_addresses"))
+      end
+    | Mem_v2 a1' -> a1'
 
+  (** two exceptions used for internal purpose of to_value *)
+  exception Cr_v1
+  exception Cr_v2 of Z.t
+
+  let value_of_register (v1, v2) r =
+    try
+      let v1' = try D1.value_of_register v1 r with _ -> raise Cr_v1       in
+      let v2' = try D2.value_of_register v2 r with _ -> raise (Cr_v2 v1') in
+      if Z.equal v1' v2' then v1' else raise Exceptions.Concretization
+    with
+    | Cr_v1    -> D2.value_of_register v2 r
+    | Cr_v2 v1'-> v1'			   
+    
 end: Domain.T)

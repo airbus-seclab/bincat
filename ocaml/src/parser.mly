@@ -2,8 +2,7 @@
    
     let missing_item item section =
       (* error message printing *)
-      Printf.eprintf "missing %s in section %s\n" item section;
-      exit (-1);;
+      Log.error (Printf.sprintf "missing %s in section %s\n" item section);;
        
     (* current library name *)
     let libname = ref "";;
@@ -13,13 +12,7 @@
 
     (* name of binary file to analyze *)
     let filename = ref ""
-
-    (* temporary table for initial content of memory locations *)
-    let memory_content = Hashtbl.create 10;;
-
-    (* temporary table for the initial tainting value of memory locations *)
-    let memory_tainting = Hashtbl.create 10;;
-					 
+ 
     (* temporay table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
       
@@ -42,6 +35,7 @@
 	(FILEPATH, "filepath", "binary");
 	(PHYS_CODE_ADDR, "phys-code-addr", "loader");
 	(DOTFILE, "dotfile", "analyzer");
+	(GDT, "gdt", "gdt");
       ];;	
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
@@ -64,11 +58,11 @@
 	begin
 	  match c with
 	  None    -> ()
-	| Some c' -> Hashtbl.add memory_content a' c'
+	| Some c' -> Hashtbl.add Config.initial_memory_content a' c'
 	end;
 	match t with
 	  None    -> ()
-	| Some t' -> Hashtbl.add memory_tainting a' t'
+	| Some t' -> Hashtbl.add Config.initial_memory_tainting a' t'
 				 
       let update_mandatory key =
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
@@ -100,16 +94,7 @@
 	  in
 	  List.iter add (List.rev funs)
 	in
-	Hashtbl.iter add_tainting_rules libraries;
-	(* updates memory locations with the value of the ds segment selector if ds is not zero *)
-	if Z.equal !Config.star_ds Z.zero then
-	  if !Config.mode = Config.Protected then
-	  begin
-	    Hashtbl.iter (fun a (c: Config.cvalue) -> Hashtbl.add Config.initial_memory_content (Z.add !Config.star_ds a) c) memory_content;
-	    Hashtbl.iter (fun a t -> Hashtbl.add Config.initial_memory_tainting (Z.add !Config.star_ds a) t) memory_tainting
-	  end
-	  else
-	    failwith "only protected mode supported for the while"
+	Hashtbl.iter add_tainting_rules libraries
 	;;
 	
 	%}
@@ -118,6 +103,7 @@
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED PHYS_CODE_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
+%token GDT 
 %token <string> STRING
 %token <string> INT
 %start <unit> process
@@ -132,11 +118,12 @@
     | ss=sections s=section    { ss; s }
     
       section:
-    | LEFT_SQ_BRACKET SETTINGS RIGHT_SQ_BRACKET s=settings  { s }
-    | LEFT_SQ_BRACKET LOADER RIGHT_SQ_BRACKET 	l=loader    { l }
-    | LEFT_SQ_BRACKET BINARY RIGHT_SQ_BRACKET 	b=binary    { b }
-    | LEFT_SQ_BRACKET STATE RIGHT_SQ_BRACKET  st=state      { st }
-    | LEFT_SQ_BRACKET ANALYZER RIGHT_SQ_BRACKET a=analyzer  { a }
+    | LEFT_SQ_BRACKET SETTINGS RIGHT_SQ_BRACKET s=settings   { s }
+    | LEFT_SQ_BRACKET LOADER RIGHT_SQ_BRACKET 	l=loader     { l }
+    | LEFT_SQ_BRACKET BINARY RIGHT_SQ_BRACKET 	b=binary     { b }
+    | LEFT_SQ_BRACKET STATE RIGHT_SQ_BRACKET  st=state       { st }
+    | LEFT_SQ_BRACKET ANALYZER RIGHT_SQ_BRACKET a=analyzer   { a }
+    | LEFT_SQ_BRACKET GDT RIGHT_SQ_BRACKET gdt=gdt 	     { gdt }
     | LEFT_SQ_BRACKET l=libname RIGHT_SQ_BRACKET lib=library { l; lib }
 
       libname:
@@ -150,9 +137,9 @@
       setting_item:
     | MEM_MODEL EQUAL m=memmodel { update_mandatory MEM_MODEL; Config.memory_model := m }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
-    | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := int_of_string i with _ -> Printf.eprintf "illegal operand size"; exit (-1) }
-    | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := int_of_string i with _ -> Printf.eprintf "illegal address size"; exit (-1) }
-    | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := int_of_string i with _ -> Printf.eprintf "illegal stack width"; exit (-1) }
+    | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := int_of_string i with _ -> Log.error "illegal operand size" }
+    | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := int_of_string i with _ -> Log.error "illegal address size" }
+    | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := int_of_string i with _ -> Log.error "illegal stack width" }
     | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m }
 				 	
       memmodel:
@@ -175,12 +162,12 @@
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | CS EQUAL i=INT          	 { update_mandatory CS; Config.star_cs := Z.of_string i }
-    | DS EQUAL i=INT          	 { update_mandatory DS; Config.star_ds := Z.of_string i }
-    | SS EQUAL i=INT          	 { update_mandatory SS; Config.star_ss := Z.of_string i }
-    | ES EQUAL i=INT 	      	 { update_mandatory ES; Config.star_es := Z.of_string i }
-    | FS EQUAL i=INT 	      	 { update_mandatory FS; Config.star_fs := Z.of_string i }
-    | GS EQUAL i=INT 	      	 { update_mandatory GS; Config.star_gs := Z.of_string i }
+    | CS EQUAL i=INT          	 { update_mandatory CS; Config.cs := Z.of_string i }
+    | DS EQUAL i=INT          	 { update_mandatory DS; Config.ds := Z.of_string i }
+    | SS EQUAL i=INT          	 { update_mandatory SS; Config.ss := Z.of_string i }
+    | ES EQUAL i=INT 	      	 { update_mandatory ES; Config.es := Z.of_string i }
+    | FS EQUAL i=INT 	      	 { update_mandatory FS; Config.fs := Z.of_string i }
+    | GS EQUAL i=INT 	      	 { update_mandatory GS; Config.gs := Z.of_string i }
     | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := int_of_string i }
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := Z.of_string i }
     | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := int_of_string i }
@@ -200,7 +187,14 @@
     | PE  { Config.Pe }
     | ELF { Config.Elf }
     
+      gdt:
+    | g=gdt_item 	{ g }
+    | g=gdt_item gg=gdt { g; gg }
 
+      gdt_item:
+    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_mandatory GDT; Hashtbl.replace Config.gdt (Z.of_string i) (Z.of_string v) }
+		       
+      
       analyzer:
     | a=analyzer_item 		  { a }
     | a=analyzer_item aa=analyzer { a; aa }

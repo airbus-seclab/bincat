@@ -93,13 +93,13 @@ module Make(Domain: Domain.T) =
 	  match v with
 	  | Config.Bits b       ->
 	     if (String.length b) > sz then
-	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
+	       Log.error (Printf.sprintf "Illegal initial tainting for register %s" name)
 	     else
 	       Config.Bits (pad b sz)
 			   
 	  | Config.MBits (b, m) ->
 	     if (String.length b) > sz || (String.length m) > sz then
-	       raise (Invalid_argument (Printf.sprintf "Illegal initial tainting for register %s" name))
+	       Log.error (Printf.sprintf "Illegal initial tainting for register %s" name)
 	     else
 	       Config.MBits (pad b sz, pad m sz)
 	in
@@ -108,11 +108,8 @@ module Make(Domain: Domain.T) =
 	  let len = String.length v in
 	  if len <= Register.size r && len <= !Config.operand_sz then
 	    v
-	    else
-	      begin
-		Printf.eprintf "value %s too large to fit into register %s\n" v (Register.name r);
-		raise Exit
-	      end
+	  else
+	    Log.error (Printf.sprintf "value %s too large to fit into register %s\n" v (Register.name r))
 	in
 	(* first the domain is updated with the "padded" tainting value for each register with initial tainting in the provided configuration *)
 	let d' =  Hashtbl.fold

@@ -74,13 +74,15 @@ rule token = parse
   (* analyzer tokens *)
   | "unroll"    	    { UNROLL }
   | "dotfile"               { DOTFILE }
+  (* GDT tokens *)
+  | "GDT"                   { GDT }
   (* loader tokens *)
-  | "star_ss" 	    	    { SS }
-  | "star_ds" 		    { DS }
-  | "star_cs" 	    	    { CS }
-  | "star_es" 		    { ES }
-  | "star_fs" 		    { FS }
-  | "star_gs" 		    { GS }
+  | "ss" 	    	    { SS }
+  | "ds" 		    { DS }
+  | "cs" 	    	    { CS }
+  | "es" 		    { ES }
+  | "fs" 		    { FS }
+  | "gs" 		    { GS }
   | "code-length" 	    { CODE_LENGTH }
   | "entrypoint" 	    { ENTRYPOINT }
   (* binary tokens *)

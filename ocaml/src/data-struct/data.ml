@@ -36,10 +36,7 @@ module Word =
     let of_string v n =
       let v' = Z.of_string v in
       if String.length (Z.to_bits v') > n then
-	begin
-	  Printf.eprintf "word %s too large to fit into %d bits" v n;
-	  raise Exit
-	end
+	  Log.error (Printf.sprintf "word %s too large to fit into %d bits" v n)
       else
 	v', n
 
@@ -55,7 +52,13 @@ module Word =
 	    s := Z.add !s  (Z.of_int (1 lsl i))
 	  done;
 	  (!s, n)
-	    
+
+    (** [troncate w n] returns the lowest n bits of w *)
+    let troncate (w, sz) n =
+      if sz < n then
+	w, sz
+      else
+	Z.logand w (Z.of_int ((1 lsl n) - 1)), n
   end
 
 (** Address Data Type *)
@@ -95,12 +98,12 @@ module Address =
       let of_string r a n =
 	if !Config.mode = Config.Protected then 
 	  let w = Word.of_string a n in
-	  if Word.compare w(Word.zero n) < 0 then
-	    raise (Invalid_argument "Tried to create negative address")
+	  if Word.compare w (Word.zero n) < 0 then
+	    Log.error "Tried to create negative address"
 	  else
 	      r, w
 	else
-	  failwith "Address generation for this memory mode not yet managed"
+	  Log.error "Address generation for this memory mode not yet managed"
 
       let to_string (r, w) = Printf.sprintf "(%s, %s)" (string_of_region r) (Word.to_string w)
 	
@@ -117,7 +120,10 @@ module Address =
 	let n = Word.size w in
 	let w' = Word.add w (Word.of_int o' n) in
 	if Word.size w' > n then
-	  raise (Invalid_argument "overflow when tried to add an offset to an address: ")
+	  begin
+	    Log.from_analysis "Data.Address" "overflow when tried to add an offset to an address: ";
+	    r, Word.troncate w' n
+	  end
 	else
 	  r, w'
 	       

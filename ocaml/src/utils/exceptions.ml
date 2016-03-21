@@ -4,3 +4,6 @@ exception Enum_failure of string * string
 
 (** raised when the address to compute has an unexpected format *)
 exception Illegal_address                
+
+(** raised when a concretization fails *)
+exception Concretization

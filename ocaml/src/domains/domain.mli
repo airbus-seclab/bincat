@@ -37,11 +37,14 @@ module type T =
       (** string conversion *)
       val to_string: t -> string list
 
+      (** int conversion of the given register *)
+      (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
+      val value_of_register: t -> Register.t -> Z.t
+			   
       (** assignment into the given left value of the given expression *)
       (** the integer is the size in bits of the expression *)
       val set: Asm.lval -> Asm.exp -> oracle -> t -> t
 
-      
       (** returns the set of addresses corresponding to the given expression of size in bits given by the parameter *)
       val mem_to_addresses: Asm.exp -> int -> t -> Data.Address.Set.t
       (** may raise an exception if the set of addresses is too large *)

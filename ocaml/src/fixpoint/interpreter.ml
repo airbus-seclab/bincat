@@ -11,7 +11,7 @@ struct
   (** the control flow automaton module *)
   module Cfa = Decoder.Cfa 
 
-  class oracle s =
+  class domain_oracle s =
   (object
     (* Be careful : never call this method to implement a function of signature D.mem_to_adresses (stack overflow) *)
       method mem_to_addresses e sz = D.mem_to_addresses e sz s
@@ -65,7 +65,7 @@ struct
 
     | Nop -> d
 	       
-    | Set (dst, src) -> D.set dst src (new oracle d) d
+    | Set (dst, src) -> D.set dst src (new domain_oracle d) d
 		  
     | _       -> failwith ("Interpreter.process_stmt: "^ (string_of_stmt stmt) ^" not managed")
 
@@ -104,8 +104,11 @@ struct
 	  l
       ) [] vertices
       
-    
-
+  (** oracle used by the decoder to know the current value of a register *)
+  class decoder_oracle s =
+  object
+    method value_of_register r = D.value_of_register s r
+  end
 
   (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial vertex s *)
   (** g is the initial CFA reduced to the singleton s *) 
@@ -114,6 +117,8 @@ struct
     let continue = ref true		      in
     (* set of waiting nodes in the CFA waiting to be processed *)
     let waiting  = ref (Vertices.singleton s) in
+    (* set d to the initial internal state of the decoder *)
+    let d = ref (Decoder.init ()) in
     while !continue do
       (* a waiting node is randomly chosen to be explored *)
       let v = Vertices.choose !waiting in
@@ -128,12 +133,14 @@ struct
 	  (* computed next step                                                                                  *)
 	  (* the new instruction pointer (offset variable) is also returned                                      *)
 	  (* Decoder.parse is supposed to return the vertices in a topological order                             *)
-	  let vertices     = Decoder.parse text' g v v.Cfa.State.ip      		     		         in
+	  let vertices, d'     = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)    in
 	  (* these vertices are updated by their right abstract values and the new ip                            *)
 	  let new_vertices = update_abstract_values g vertices                                                   in
 	  (* among these computed vertices only new are added to the waiting set of vertices to compute          *)
 	  let vertices'    = filter_vertices g new_vertices				     		         in
 	  List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
+	  (* udpate the internal state of the decoder *)
+	  d := d'
 	with
 	| Exceptions.Enum_failure (m, msg) -> Log.from_analysis (m^"."^msg) "analysis stopped in that branch"
       end;

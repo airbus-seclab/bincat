@@ -40,6 +40,8 @@
 
   let name = "Tainting" (* be sure that if this name changes then Unrel.taint_from_config is updated *)
 
+  let to_value _v = raise Exceptions.Concretization
+			  
   let make sz = Array.make sz Bit.U
 
   let bot sz = make sz
@@ -113,7 +115,8 @@
  let mem_to_addresses _e _sz _c = raise (Exceptions.Enum_failure ("Tainting", "mem_to_addresses"))
 
 
-  let rec eval_exp e sz (c: Domain.oracle) ctx: t = 
+ let eval_exp e sz (c: Domain.oracle) ctx: t =
+   let rec eval e =
     match e with
     | Asm.Lval (Asm.V (Asm.T r)) ->
        ctx#get_val_from_register r
@@ -134,26 +137,25 @@
       end
 
     | Asm.BinOp (Asm.Xor, e1, e2) when Asm.equal_exp e1 e2 -> Array.make sz Bit.U
-					 
-    | Asm.BinOp (Asm.Add, e1, e2) | Asm.BinOp (Asm.Sub, e1, e2) | Asm.BinOp (Asm.Mul, e1, e2) | Asm.BinOp (Asm.Div, e1, e2) | Asm.BinOp (Asm.Divs, e1, e2) | Asm.BinOp (Asm.And, e1, e2) | Asm.BinOp (Asm.Or, e1, e2) | Asm.BinOp (Asm.Xor, e1, e2)  | Asm.BinOp(Asm.Mod, e1, e2) ->
-       let v1 = eval_exp e1 sz c ctx in
-       let v2 = eval_exp e2 sz c ctx in
-       join v1 v2
+									  
+    | Asm.BinOp (_, e1, e2) -> join (eval e1) (eval e2)
+	    
+    | Asm.Const _c -> make sz
 
+    | _ -> top sz
+   in
+   eval e
 
-    | Asm.BinOp (Asm.Shl, _e1, _e2) -> top sz (* TODO: be more precise *)
-
-    | Asm.BinOp (Asm.Shr, _e1, _e2) -> top sz (* TODO: be more precise *)
-
-    | Asm.BinOp (Asm.Shrs, _e1, _e2) -> top sz (* TODO: be more precise *)
-						 
-    | Asm.BinOp _ -> top sz (* TODO: be more precise *)
-						 
-    | Asm.UnOp _ -> top sz (* TODO: be more precise *)
-  
-    | Asm.Const _c      -> make sz
-
-
+ let eval_bexp e sz c ctx =
+   let rec eval e =
+     match e with
+     | Asm.BBinOp (_, e1, e2) -> join (eval e1) (eval e2)
+     | Asm.Cmp (_, e1, e2)    -> join (eval_exp e1 sz c ctx) (eval_exp e2 sz c ctx) 
+     | Asm.BUnOp (_, e')      -> eval e'
+     | Asm.BConst _ 	      -> make sz
+   in
+   eval e
+	
   let enter_fun _f _ctx = failwith "Tainting.enter_fun: to implement" 
 
   let leave_fun _ctx = failwith "Tainting.leave_fun: to implement"

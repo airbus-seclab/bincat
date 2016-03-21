@@ -17,7 +17,7 @@ let process ~configfile ~resultfile ~logfile =
       let cin = open_in configfile in
       seek_in cin !Config.phys_code_addr;
       cin
-    with _ -> failwith "Opening configuration file failed"
+    with _ -> Log.error "Failed to open the configuration file"
   in
 
   (* 2: set the log file *)
@@ -28,26 +28,23 @@ let process ~configfile ~resultfile ~logfile =
   begin
     try
       lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
-    Parser.process Lexer.token lexbuf
+      Parser.process Lexer.token lexbuf
     with
-    | Parser.Error ->
-       Printf.eprintf "Syntax error at %s\n" (string_of_position lexbuf);
-       raise Parser.Error
-    | Failure "lexing: empty token" as e ->
-       Printf.eprintf "Parse error at %s\n" (string_of_position lexbuf);
-       raise e
+    | Parser.Error -> close_in cin; Log.error (Printf.sprintf "Syntax error at %s\n" (string_of_position lexbuf))
+
+    | Failure "lexing: empty token" -> close_in cin; Log.error (Printf.sprintf "Parse error at %s\n" (string_of_position lexbuf))
   end;
   close_in cin;
   
   (* 4: generate code *)
-  let code  = Code.make !Config.text !Config.ep                                                                                in
+  let code  = Code.make !Config.text !Config.ep                                                                           in
  
   (* 5: generate the initial cfa with only an initial state *)
-  let ep'   = Data.Address.add_offset (Data.Address.of_int Data.Address. Global !Config.star_cs !Config.address_sz) !Config.ep in
-  let g, s  = Interpreter.Cfa.init ep'                                                                                         in
+  let ep'   = Data.Address.add_offset (Data.Address.of_int Data.Address. Global !Config.cs !Config.address_sz) !Config.ep in (* TODO: not generic as its uses !Config.cs *)
+  let g, s  = Interpreter.Cfa.init ep'                                                                                    in
 
   (* 6: runs the fixpoint engine *)
-  let cfa  = Interpreter.process code g s                                                                                      in
+  let cfa  = Interpreter.process code g s                                                                                 in
   
   (* 7: dumps the results *)
   Interpreter.Cfa.print cfa resultfile !Config.dotfile

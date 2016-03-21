@@ -27,7 +27,10 @@ module type T =
     (** bottom value *)
     (** the integer parameter is the size in bits to return *)
     val bot: int -> t
-	       
+
+    (** conversion to values of type Z.t *)
+    val to_value: t -> Z.t
+			 
     (** comparison *)
     (** returns true whenever the concretization of the first paramater is included in the concretization of the second parameter *)
     val subset: t -> t -> bool
@@ -103,7 +106,15 @@ module Make(D: T) =
     end
       
     let name = D.name		      
-		    
+
+    let value_of_register m r =
+      match m with
+      | BOT    -> raise Exceptions.Concretization
+      | Val m' ->
+	 try
+	   let v, _ = Map.find (K.R r) m' in D.to_value v
+	 with _ -> raise Exceptions.Concretization
+				
     let mem_to_addresses mem sz m =
       match m with
       | Val m' -> D.mem_to_addresses mem sz (new ctx m')
@@ -132,7 +143,8 @@ module Make(D: T) =
       match m with
       |	BOT    -> ["?"]
       | Val m' -> Map.fold (fun k v l -> ((D.name ^" "^K.to_string k) ^ " = " ^ (D.to_string (fst v))) :: l) m' []
-				   
+
+			   
     let set dst src c m =
       match m with
       |	BOT    -> BOT

@@ -23,7 +23,10 @@ let equal p1 p2 =
 	      
 let subset = equal
 
-
+let to_value v =
+  match v with
+  | BOT | TOP -> raise Exceptions.Concretization
+  | Val a     -> Address.to_int a
 
 let string_of_offset o =
   let s   = String.escaped "0x%"   in
