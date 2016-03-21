@@ -67,7 +67,7 @@ struct
 	       
     | Set (dst, src) -> D.set dst src (new domain_oracle d) d
 		  
-    | _       -> failwith ("Interpreter.process_stmt: "^ (string_of_stmt stmt) ^" not managed")
+    | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt))
 
   (* update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
   (* vertices are supposed to be sorted in topological order *)

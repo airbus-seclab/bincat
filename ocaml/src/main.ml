@@ -37,7 +37,7 @@ let process ~configfile ~resultfile ~logfile =
   close_in cin;
   
   (* 4: generate code *)
-  let code  = Code.make !Config.text !Config.ep                                                                           in
+  let code  = Code.make !Config.text !Config.rva_code !Config.ep                                                          in
  
   (* 5: generate the initial cfa with only an initial state *)
   let ep'   = Data.Address.add_offset (Data.Address.of_int Data.Address.Global !Config.cs !Config.address_sz) !Config.ep  in (* TODO: not generic as its uses !Config.cs *)

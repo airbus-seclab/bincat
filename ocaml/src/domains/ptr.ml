@@ -39,7 +39,7 @@ let to_string p =
   | TOP -> "?"
   | BOT -> "_"
 		      
-let of_config r c sz = Val (Address.of_string r c sz)
+let of_config r c sz = Val (Address.of_int r c sz)
 		       
 let eval_exp e _sz _dom_ctx c =
   let rec eval e =

@@ -2,14 +2,14 @@
 (* Code module *)
 (**************************************************************************************************************************)
 type t = {
-    rva: Z.t   (** virtual address of the beginning of the code *)
+    rva: Z.t;   (** virtual address of the beginning of the code *)
     e: Z.t;    (** entry point, i.e. offset from the rva *)
     c: string; (** the byte sequence containing the code *)	       
   }
 			   
-let make ~code ~ep =
+let make ~code ~rva ~ep =
   {
-    rva = !Config.rva-code;
+    rva = rva;
     e 	= ep;
     c 	= code;
   }
@@ -17,8 +17,8 @@ let make ~code ~ep =
     
 let sub v a =
   try
-    let o   = Z.to_int (Z.sub (Data.Address.to_int a) rva) in
-    let len = (String.length v.c) - o         		   in
+    let o   = Z.to_int (Z.sub (Data.Address.to_int a) v.rva) in
+    let len = (String.length v.c) - o         		     in
     String.sub v.c o len 
   with _ ->  raise Exceptions.Illegal_address
 		   

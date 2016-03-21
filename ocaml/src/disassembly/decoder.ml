@@ -113,6 +113,7 @@ module Make(Domain: Domain.T) =
 	| Data_r 	    (* 1000 read only *)
 	| Data_rw   	    (* 1001 data *)
 	| Stack_r 	    (* 1010 read only *)
+	| Stack_rw          (* 1011 stack *)
 	| Code_x 	    (* 1100 execute only *)
 	| Code_rx 	    (* 1101 code execute or read *)
 	| ConformingCode_x  (* 1110 conforming code execute-only *)
@@ -123,10 +124,11 @@ module Make(Domain: Domain.T) =
 	| 8  -> Data_r
 	| 9  -> Data_rw
 	| 10 -> Stack_r
-	| 11 -> Code_x
-	| 12 -> Code_rx
-	| 13 -> ConformingCode_x
-	| 14 -> ConformingCode_rx
+	| 11 -> Stack_rw
+	| 12 -> Code_x
+	| 13 -> Code_rx
+	| 14 -> ConformingCode_x
+	| 15 -> ConformingCode_rx
 	| _  -> Log.error (Printf.sprintf "Illegal segment descriptor type %d\n" v)
 
       type tbl_entry = { base: int; limit: int; a: int; typ: segment_descriptor_type; dpl: privilege_level; p: int; u: int; x: int; d: int; g: int;}
@@ -378,7 +380,7 @@ module Make(Domain: Domain.T) =
 	let index = (b lsr 2) land 5 in
 	let base  = b land 5         in
 	match scale, index, base with
-	  _, 4, _  -> raise Illegal
+	  _, 4, _  -> Log.error "Illegal sib configuration"
 	| n, i, 5  -> 
 	   begin
 	     let _r = T (Hashtbl.find register_tbl i) in

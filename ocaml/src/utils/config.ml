@@ -33,7 +33,8 @@ let text = ref ""
 let code_length = ref 0
 let ep = ref Z.zero
 let phys_code_addr = ref 0
-		    
+let rva_code = ref Z.zero
+		   
 let address_sz = ref 32
 let operand_sz = ref 32
 let stack_width = ref 32

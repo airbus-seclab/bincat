@@ -85,6 +85,7 @@ rule token = parse
   | "gs" 		    { GS }
   | "code-length" 	    { CODE_LENGTH }
   | "entrypoint" 	    { ENTRYPOINT }
+  | "rva-code"              { RVA_CODE }
   (* binary tokens *)
   | "phys-code-addr"        { PHYS_CODE_ADDR }
   | "filepath" 		    { FILEPATH }

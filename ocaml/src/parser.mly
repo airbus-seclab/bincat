@@ -36,6 +36,7 @@
 	(PHYS_CODE_ADDR, "phys-code-addr", "loader");
 	(DOTFILE, "dotfile", "analyzer");
 	(GDT, "gdt", "gdt");
+	(RVA_CODE, "rva-code", "loader");
       ];;	
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
@@ -102,7 +103,7 @@
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED PHYS_CODE_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
-%token GDT 
+%token GDT RVA_CODE
 %token <string> STRING
 %token <Z.t> INT
 %start <unit> process
@@ -170,6 +171,7 @@
     | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
     | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := Z.to_int i }
+    | RVA_CODE EQUAL i=INT 	 { update_mandatory RVA_CODE; Config.rva_code := i }
     
       
       binary:
