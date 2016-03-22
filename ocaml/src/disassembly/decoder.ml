@@ -810,7 +810,17 @@ module Make(Domain: Domain.T) =
       let is_esp r = 
 	match r with 
 	  T r | P(r, _, _) -> Register.compare r esp = 0
-							 
+
+      (** common statement to set (a chunk of) esp *)
+      let set_esp esp' n =
+	Set (V esp', BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )
+
+      (** builds a left value from esp that is consistent with the stack width *)
+      let esp_lval () = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)
+
+      (** common value used for the decoding of push and pop *)
+      let size_push_pop v sz = if is_segment v then !Config.stack_width else sz
+									    
       let rec decode s =
 	let c = getchar s in
 	match parse s c with
@@ -922,14 +932,12 @@ module Make(Domain: Domain.T) =
 				
 	| OR v -> or_xor_and Or v s
 				 
-	| POP v   	     -> 
-	   let esp'  = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1) in
+	| POP v   	     ->
+	   let esp'  = esp_lval () in
 	   let stmts = List.fold_left (fun stmts v -> 
-				       let n = if is_segment v then !Config.stack_width else s.operand_sz in
+				       let n = size_push_pop v s.operand_sz in
 				       [ Set (V v,
-						Lval (M (Lval (V esp'), n))) ;
-						Set(V esp', BinOp(Add, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)))
-				       ]@stmts
+						Lval (M (Lval (V esp'), n))) ; set_esp esp' n ] @ stmts
 			 ) [] v 
 	   in
 	   create s stmts 1
@@ -938,7 +946,7 @@ module Make(Domain: Domain.T) =
 					      
 	| PUSH v  	     ->
 	   (* TODO: factorize with POP *)
-	   let esp' = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1) in
+	   let esp' = esp_lval () in
 	   let t    = Register.make (Register.fresh_name ()) (Register.size esp)                                  in
 	   (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
 	   (* this is the purpose of the pre and post statements *)
@@ -950,7 +958,7 @@ module Make(Domain: Domain.T) =
 	   in
 	   let stmts = List.fold_left (
 			   fun stmts v ->
-			   let n = if is_segment v then !Config.stack_width else s.operand_sz in
+			   let n = size_push_pop v s.operand_sz in 
 			   let s =
 			     if is_esp v then
 			       (* save the esp value to its value before the first push (see PUSHA specifications) *)
@@ -958,20 +966,17 @@ module Make(Domain: Domain.T) =
 			     else
 			       Set (M (Lval (V esp'), n), Lval (V v));
 			   in
-			   [ s ; Set (V esp', BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )(*update the stack pointer *)
-			   ] @ stmts
+			   [ s ; set_esp esp' n ] @ stmts
 			 ) [] v
 	   in
 	   create s (pre @ stmts @ post) 1
 		  
 	| PUSH_i n -> 
-	   let c     = Const (Word.of_int (Z.of_int (int_of_bytes s n)) !Config.stack_width)                       in
-	   let esp'  = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1) in
-	   let stmts = [
-	       Set (M (Lval (V esp'), !Config.stack_width), c) ;
-	       Set (V esp', BinOp(Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (!Config.stack_width / Config.size_of_byte)) !Config.stack_width))) ]			 
+	   let c     = Const (Word.of_int (Z.of_int (int_of_bytes s n)) !Config.stack_width)  in
+	   let esp'  = esp_lval ()							      in
+	   let stmts = [ Set (M (Lval (V esp'), !Config.stack_width), c) ; set_esp esp' !Config.stack_width ]			 
 	   in
-	   create s stmts 1
+	   create s stmts (n+1)
 		  
 	| SBB v	     -> add_sub Sub true v s
 				    
