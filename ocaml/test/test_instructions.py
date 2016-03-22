@@ -188,8 +188,8 @@ def test_mov_ebp_reg(analyzer, initialState, register):
 
     # build expected state
     expectedStateAfter = copy.deepcopy(stateBefore)
-    expectedStateAfter.ptrs['reg']['ebp'] = stateBefore.ptrs['reg'][regname]
-    expectedStateAfter.tainting['reg']['ebp'] = \
+    expectedStateAfter.ptrs['reg'][regname] = stateBefore.ptrs['reg'][regname]
+    expectedStateAfter.tainting['reg'][regname] = \
         stateBefore.tainting['reg'][regname]
     assert expectedStateAfter == stateAfter
 
