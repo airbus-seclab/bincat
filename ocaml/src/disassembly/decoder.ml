@@ -129,7 +129,7 @@ module Make(Domain: Domain.T) =
 	| 13 -> Code_rx
 	| 14 -> ConformingCode_x
 	| 15 -> ConformingCode_rx
-	| _  -> Log.error (Printf.sprintf "Illegal segment descriptor type %d\n" v)
+	| _  -> Log.error (Printf.sprintf "Illegal segment descriptor type %d" v)
 
       type tbl_entry = { base: int; limit: int; a: int; typ: segment_descriptor_type; dpl: privilege_level; p: int; u: int; x: int; d: int; g: int;}
 				  
@@ -203,10 +203,7 @@ module Make(Domain: Domain.T) =
       (* Lexing *)
       (***********************************************************************)
 	
-      let error_msg c =
-	Printf.printf "Unknown opcode 0x%x \n" (Char.code c) ; 
-	flush stdout 
-      ;; 
+      
 	
       type token =
 	| ADC of int
@@ -307,7 +304,7 @@ module Make(Domain: Domain.T) =
 
 	| '\x90' -> NOP 
 	| c when '\x91' <= c && c <= '\x97' -> XCHG ((Char.code c) - (Char.code '\x90'))
-	| '\x9a' -> failwith "Decoder: 0x9a"   
+
 
 	| '\xa4' -> MOVS 8
 	| '\xa5' -> MOVS s.addr_sz
@@ -322,7 +319,7 @@ module Make(Domain: Domain.T) =
 
 	| c when '\xe0' <= c && c <= '\xe2' -> LOOP ((Char.code c) - (Char.code '\xe0'))
 	| '\xe3' -> JECX
-	| '\xe8' -> failwith "Decoder: 0xe8"
+
 	| '\xe9' -> JMP (s.operand_sz / 8)
 	| '\xeb' -> JMP 1
 
@@ -332,13 +329,13 @@ module Make(Domain: Domain.T) =
 	| '\xf4' -> HLT
 	| '\xff' -> grp5 s (int_of_bytes s 1)
 
-	| _  -> UNKNOWN
+	| _  ->  Log.error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c))
 
       let second_token s (*TODO: factorize with token, \x70-\x7F*) = 
 	let c = getchar s in
 	match c with
 	| c when '\x80' <= c && c <= '\x8F' -> let v = (Char.code c) - (Char.code '\x80') in JCC (v, 1)
-	| _ -> error_msg c ; UNKNOWN
+	| _ -> Log.error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c))
 
 (********************************************************************************************)
 (* mod/rm byte decoding *)
