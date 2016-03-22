@@ -46,12 +46,26 @@ class AnalyzerState(object):
             self.stateAtEip[address] = state
             self.nodeidaddr[state.nodeid] = address
 
-    def getStateAt(self, eip):
+    def _intToConcretePtrValue(self, eip):
         if type(eip) is int:
             addr = ConcretePtrValue("global", eip)
         else:
             addr = eip
+        return addr
+
+    def getStateAt(self, eip):
+        addr = self._intToConcretePtrValue(eip)
         return self.stateAtEip[addr]
+
+    def listNextStates(self, eip):
+        """
+        Returns a list of destination States after executing instruction at eip
+        """
+        addr = self._intToConcretePtrValue(eip)
+        curStateId = self.stateAtEip[addr].nodeid
+        nextIds = self.edges[curStateId]
+        nextStates = [self.stateAtEip[self.nodeidaddr[i]] for i in nextIds]
+        return nextStates
 
     def exportToFile(self, filename, eip):
         # TODO
@@ -63,7 +77,10 @@ class State(object):
     TODO separate computed state from user-set state
     """
     def __init__(self, address):
-        self.address = ""
+        """
+        :param address: ConcretePtrValue instance
+        """
+        self.address = address
         #: self.ptrs['reg' or 'mem'][name or ConcretePtrValue object] =
         #: ("memory region", int address)
         self.ptrs = {'mem': {}, 'reg': {}}

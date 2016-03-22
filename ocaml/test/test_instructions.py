@@ -53,6 +53,16 @@ testregisters = list(enumerate(
 ))
 
 
+def getNextState(ac, curState):
+    """
+    Helper function: check that there is only one destination state, return it.
+    """
+    nextStates = ac.listNextStates(curState.address)
+    assert len(nextStates) == 1, \
+        "expected exactly 1 destination state after running this instruction"
+    return nextStates[0]
+
+
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_inc(analyzer, initialState, register):
     """
@@ -69,8 +79,6 @@ def test_inc(analyzer, initialState, register):
     expectedStateAfter.ptrs['reg'][regname] += 1
 
     assert expectedStateAfter == stateAfter
-
-    # TODO use edges described in .ini file, do not hardcode addresses
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -90,8 +98,6 @@ def test_dec(analyzer, initialState, register):
 
     assert expectedStateAfter == stateAfter
 
-    # TODO use edges described in .ini file, do not hardcode addresses
-
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_push(analyzer, initialState, register):
@@ -102,7 +108,7 @@ def test_push(analyzer, initialState, register):
     opcode = 0x50 + regid
     ac = analyzer(initialState, binarystr=chr(opcode))
     stateBefore = ac.getStateAt(0x00)
-    stateAfter = ac.getStateAt(0x01)
+    stateAfter = getNextState(ac, stateBefore)
 
     # build expected state
     expectedStateAfter = copy.deepcopy(stateBefore)
@@ -114,8 +120,6 @@ def test_push(analyzer, initialState, register):
 
     assert expectedStateAfter == stateAfter
 
-    # TODO use edges described in .ini file, do not hardcode addresses
-
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_pop(analyzer, initialState, register):
@@ -126,7 +130,7 @@ def test_pop(analyzer, initialState, register):
     opcode = 0x58 + regid
     ac = analyzer(initialState, binarystr=chr(opcode))
     stateBefore = ac.getStateAt(0x00)
-    stateAfter = ac.getStateAt(0x01)
+    stateAfter = getNextState(ac, stateBefore)
 
     # build expected state
     expectedStateAfter = copy.deepcopy(stateBefore)
@@ -138,8 +142,6 @@ def test_pop(analyzer, initialState, register):
 
     assert expectedStateAfter == stateAfter
 
-    # TODO use edges described in .ini file, do not hardcode addresses
-
 
 def test_nop(analyzer, initialState):
     """
@@ -147,10 +149,9 @@ def test_nop(analyzer, initialState):
     """
     # TODO add initial concrete ptr to initialState
     ac = analyzer(initialState, binarystr='\x90')
-    assert ac.getStateAt(0x00) == ac.getStateAt(0x1)
-    # TODO add helper in AnalyzerConfig to perform a check at each eip
-    for state in ac.stateAtEip.values():
-        assert state.ptrs['reg']['esp'].region == 'stack'
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+    assert stateBefore == stateAfter, "NOP should not change state"
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -159,7 +160,7 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     hexstr = "\x8b" + chr(0xec + regid)
     ac = analyzer(initialState, binarystr=hexstr)
     stateBefore = ac.getStateAt(0x00)
-    stateAfter = ac.getStateAt(0x02)
+    stateAfter = getNextState(ac, stateBefore)
 
     # build expected state
     expectedStateAfter = copy.deepcopy(stateBefore)
@@ -167,7 +168,6 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     expectedStateAfter.tainting['reg']['ebp'] = \
         stateBefore.tainting['reg'][regname]
     assert expectedStateAfter == stateAfter
-    # TODO use edges described in .ini file, do not hardcode addresses
 
 
 def test_sub(analyzer, initialState):
@@ -175,11 +175,10 @@ def test_sub(analyzer, initialState):
     hexstr = "81ec34120000"
     ac = analyzer(initialState, binarystr=hexstr)
     stateBefore = ac.getStateAt(0x00)
-    stateAfter = ac.getStateAt(0x02)
+    stateAfter = getNextState(ac, stateBefore)
 
     # build expected state
     expectedStateAfter = copy.deepcopy(stateBefore)
     expectedStateAfter.ptrs['reg']['esp'] = stateBefore.ptrs['reg']['esp'] \
         - 0x1234
     assert expectedStateAfter == stateAfter
-    # TODO use edges described in .ini file, do not hardcode addresses
