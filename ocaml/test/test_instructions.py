@@ -168,3 +168,18 @@ def test_mov_ebp_reg(analyzer, initialState, register):
         stateBefore.tainting['reg'][regname]
     assert expectedStateAfter == stateAfter
     # TODO use edges described in .ini file, do not hardcode addresses
+
+
+def test_sub(analyzer, initialState):
+    # sub esp, 0x1234
+    hexstr = "81ec34120000"
+    ac = analyzer(initialState, binarystr=hexstr)
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = ac.getStateAt(0x02)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg']['esp'] = stateBefore.ptrs['reg']['esp'] \
+        - 0x1234
+    assert expectedStateAfter == stateAfter
+    # TODO use edges described in .ini file, do not hardcode addresses
