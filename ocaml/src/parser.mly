@@ -162,12 +162,12 @@
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | CS EQUAL i=INT          	 { update_mandatory CS; Config.cs := i }
-    | DS EQUAL i=INT          	 { update_mandatory DS; Config.ds := i }
-    | SS EQUAL i=INT          	 { update_mandatory SS; Config.ss := i }
-    | ES EQUAL i=INT 	      	 { update_mandatory ES; Config.es := i }
-    | FS EQUAL i=INT 	      	 { update_mandatory FS; Config.fs := i }
-    | GS EQUAL i=INT 	      	 { update_mandatory GS; Config.gs := i }
+    | CS EQUAL i=init         	 { update_mandatory CS; init_register "cs" i }
+    | DS EQUAL i=init          	 { update_mandatory DS; init_register "ds" i }
+    | SS EQUAL i=init          	 { update_mandatory SS; init_register "ss" i }
+    | ES EQUAL i=init 	      	 { update_mandatory ES; init_register "es" i }
+    | FS EQUAL i=init 	      	 { update_mandatory FS; init_register "fs" i }
+    | GS EQUAL i=init 	      	 { update_mandatory GS; init_register "gs" i }
     | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
     | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := Z.to_int i }

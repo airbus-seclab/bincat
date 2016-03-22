@@ -100,14 +100,14 @@ module Make(Domain: Domain.T) =
       type segment_register_mask = { rpl: privilege_level; ti: table_indicator; index: Word.t }
 				     
       let get_segment_register_mask v =
-	let rpl = privilege_level_of_int (v land 3) in
+	let rpl = privilege_level_of_int (Z.to_int (Z.logand v (Z.of_int 3))) in
 	let ti =
-	  match (v lsr 2) land 1 with
+	  match Z.to_int (Z.logand (Z.shift_right v 2) Z.one) with
 	  | 0 -> GDT
 	  | 1 -> LDT
-	  | _ -> failwith "Only for exhaustive pattern matching"
+	  | _ -> Log.error "Invalid decription table selection"
 	in
-	{ rpl = rpl; ti = ti; index = Word.of_int (Z.of_int (v lsr 3)) index_sz }
+	{ rpl = rpl; ti = ti; index = Word.of_int (Z.shift_right v 3) index_sz }
 	  
       type segment_descriptor_type =
 	| Data_r 	    (* 1000 read only *)
@@ -118,6 +118,7 @@ module Make(Domain: Domain.T) =
 	| Code_rx 	    (* 1101 code execute or read *)
 	| ConformingCode_x  (* 1110 conforming code execute-only *)
 	| ConformingCode_rx (* 1111 conforming code execute or read *)
+	| UndefSegment      (* undefine *)
 
       let segment_descriptor_of_int v =
 	match v with
@@ -129,36 +130,40 @@ module Make(Domain: Domain.T) =
 	| 13 -> Code_rx
 	| 14 -> ConformingCode_x
 	| 15 -> ConformingCode_rx
-	| _  -> Log.error (Printf.sprintf "Illegal segment descriptor type %d" v)
+	| _  -> UndefSegment
 
-      type tbl_entry = { base: int; limit: int; a: int; typ: segment_descriptor_type; dpl: privilege_level; p: int; u: int; x: int; d: int; g: int;}
-				  
+      type tbl_entry = { base: Z.t; limit: Z.t; a: Z.t; typ: segment_descriptor_type; dpl: privilege_level; p: Z.t; u: Z.t; x: Z.t; d: Z.t; g: Z.t;}
+
+      (** return a high level representation of a  GDT/LDT entry *)
       let tbl_entry_of_int v =
-	let limit = v land 0xffff			     in
-	let v' 	  = v lsr 16				     in
-	let base  = v land 0xffff			     in
-	let v' 	  = v' lsr 16				     in
-	let base  = base + (v' land 0xff) lsl 16	     in
-	let v' 	  = v' lsr 8				     in
-	let a 	  = v' land 1				     in
-	let v' 	  = v' lsr 1				     in
-	let typ   = segment_descriptor_of_int (v' land 0x0f) in
-	let v' 	  = v' lsr 4				     in	
-	let dpl   = v' land 3				     in
-	let v' 	  = v' lsr 2				     in
-	let p 	  = v' land 1				     in
-	let v' 	  = v' lsr 1				     in 
-	let limit = limit + (v' land 0x0f) lsl 16	     in	
-	let v' 	  = v' lsr 4				     in
-	let u 	  = v' land 1				     in
-	let v' 	  = v' lsr 1				     in
-	let x 	  = v' land 1				     in
-	let v' 	  = v' lsr 1				     in
-	let d 	  = v' land 1				     in
-	let v' 	  = v' lsr 1				     in
-	let g 	  = v' land 1				     in
-	let base  = base + (v' lsr 1) lsl 24		     in
-	{ limit = limit; base = base; a = a; typ = typ; dpl = privilege_level_of_int dpl; p = p; u = u; x = x; d = d; g = g; }
+	let ffff  = Z.of_int 0xffff					   in
+	let ff 	  = Z.of_int 0xff					   in
+	let f 	  = Z.of_int 0x0f					   in
+	let limit = Z.logand v ffff    					   in
+	let v' 	  = Z.shift_right v 16	                                   in
+	let base  = Z.logand v ffff 					   in
+	let v' 	  = Z.shift_right v' 16	 			           in
+	let base  = Z.add base (Z.shift_left (Z.logand v' ff) 16)	   in
+	let v' 	  = Z.shift_right v' 8				   	   in
+	let a 	  = Z.logand v' Z.one				   	   in
+	let v' 	  = Z.shift_right v' 1  				   in
+	let typ   = segment_descriptor_of_int (Z.to_int (Z.logand v' f))   in
+	let v' 	  = Z.shift_right v' 4				 	   in	
+	let dpl   = Z.logand v' (Z.of_int 3)				   in
+	let v' 	  = Z.shift_right v' 2				 	   in
+	let p 	  = Z.logand v' Z.one				 	   in
+	let v' 	  = Z.shift_right v' 1        			 	   in 
+	let limit = Z.add limit (Z.shift_left (Z.logand v' f) 16)	   in	
+	let v' 	  = Z.shift_right v' 4				 	   in
+	let u 	  = Z.logand v' Z.one				 	   in
+	let v' 	  = Z.shift_right v' 1  			 	   in
+	let x 	  = Z.logand v' Z.one				 	   in
+	let v' 	  = Z.shift_right v' 1   		                   in
+	let d 	  = Z.logand v' Z.one				 	   in
+	let v' 	  = Z.shift_right v' 1  		    		   in
+	let g 	  = Z.logand v' Z.one				 	   in
+	let base  = Z.add base (Z.shift_left (Z.shift_right v' 1) 24)      in
+	{ limit = limit; base = base; a = a; typ = typ; dpl = privilege_level_of_int (Z.to_int dpl); p = p; u = u; x = x; d = d; g = g; }
 			 
       type desc_tbl = (Word.t, tbl_entry) Hashtbl.t (* the key is an offset in the table *)
 
@@ -236,19 +241,18 @@ module Make(Domain: Domain.T) =
 	| SBB_i of (reg * int) (* var is the destination register ; int is the length of the src immediate data *)
 	| SUB   of int 
 	| SUB_i of (reg * int) (* var is the destination register ; int is the length of the src immediate data *)    
-	| UNKNOWN
 	| XCHG  of int
 	| XOR   of int
       ;;
 	
 	
       let grp5 s v =
-	let nnn = (v lsr 3) land 7 in
-	let r = Hashtbl.find register_tbl (v land 7) in
+	let nnn = (v lsr 3) land 7		       in
+	let r 	= Hashtbl.find register_tbl (v land 7) in
 	match nnn with
 	  2 -> CALL (I (if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1)), false)
-	| 3 -> UNKNOWN (* can not be expressed in asm as it is a far CALL from memory where the selector is picked from [r][0:15] and the offset in [r][16:s.operand_sz-1] *)
-	| _ -> UNKNOWN
+	| _ -> Log.error "Unknown decoding value in grp5" (* can not be expressed in asm as it is a far CALL from memory where the selector is picked from [r][0:15] and the offset in [r][16:s.operand_sz-1] *)
+
 		 
 		 
       let parse s c =
@@ -998,7 +1002,6 @@ module Make(Domain: Domain.T) =
 	   in
 	   make_rep s [ Set (M(failwith "exp STOS case 1", i), Lval (M(failwith "exp STOS case 2", i))) ] [edi] i
 		    
-	| UNKNOWN 	     -> create s [Unknown] 1
 				       
 	| XCHG v          -> 
 	   let tmp = Register.make ~name:(Register.fresh_name()) ~size:s.operand_sz in
@@ -1041,27 +1044,27 @@ module Make(Domain: Domain.T) =
 	let gdt = Hashtbl.create 19 in
 	let idt = Hashtbl.create 15 in
 	(* builds the gdt *)
-	Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int (Z.mul o (Z.of_int 64)) 64) (tbl_entry_of_int (Z.to_int v))) Config.gdt;
+	Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int (Z.mul o (Z.of_int 64)) 64) (tbl_entry_of_int v)) Config.gdt;
 	let reg = Hashtbl.create 6 in
-	Hashtbl.add reg cs (get_segment_register_mask (Z.to_int !Config.cs));
-	Hashtbl.add reg ds (get_segment_register_mask (Z.to_int !Config.ds));
-	Hashtbl.add reg ss (get_segment_register_mask (Z.to_int !Config.ss));
-	Hashtbl.add reg es (get_segment_register_mask (Z.to_int !Config.es));
-	Hashtbl.add reg fs (get_segment_register_mask (Z.to_int !Config.fs));
-	Hashtbl.add reg gs (get_segment_register_mask (Z.to_int !Config.gs));
+	Hashtbl.add reg cs (get_segment_register_mask !Config.cs);
+	Hashtbl.add reg ds (get_segment_register_mask !Config.ds);
+	Hashtbl.add reg ss (get_segment_register_mask !Config.ss);
+	Hashtbl.add reg es (get_segment_register_mask !Config.es);
+	Hashtbl.add reg fs (get_segment_register_mask !Config.fs);
+	Hashtbl.add reg gs (get_segment_register_mask !Config.gs);
 	{ gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg; }
 
       let get_segments ctx =
 	let registers = Hashtbl.create 6 in
 	try
-	  Hashtbl.add registers cs (get_segment_register_mask (Z.to_int (ctx#value_of_register cs)));
-	  Hashtbl.add registers ds (get_segment_register_mask (Z.to_int (ctx#value_of_register ds)));
-	  Hashtbl.add registers ss (get_segment_register_mask (Z.to_int (ctx#value_of_register ss)));
-	  Hashtbl.add registers es (get_segment_register_mask (Z.to_int (ctx#value_of_register es)));
-	  Hashtbl.add registers fs (get_segment_register_mask (Z.to_int (ctx#value_of_register fs)));
-	  Hashtbl.add registers gs (get_segment_register_mask (Z.to_int (ctx#value_of_register gs)));
+	  Hashtbl.add registers cs (get_segment_register_mask (ctx#value_of_register cs));
+	  Hashtbl.add registers ds (get_segment_register_mask (ctx#value_of_register ds));
+	  Hashtbl.add registers ss (get_segment_register_mask (ctx#value_of_register ss));
+	  Hashtbl.add registers es (get_segment_register_mask (ctx#value_of_register es));
+	  Hashtbl.add registers fs (get_segment_register_mask (ctx#value_of_register fs));
+	  Hashtbl.add registers gs (get_segment_register_mask (ctx#value_of_register gs));
 	  registers
-	with _ -> Log.error "Overflow in a segment register" 
+	with _ -> Log.error "Decoder: overflow in a segment register" 
 	  
       let copy_segments s ctx = { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = get_segments ctx  }
 	

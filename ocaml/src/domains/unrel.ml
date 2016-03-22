@@ -150,17 +150,26 @@ module Make(D: T) =
       |	BOT    -> BOT
       | Val m' -> 
 	 match dst with
-	 | Asm.V r -> 
+	 | Asm.V r ->
 	    begin
 	      match r with
-	      | Asm.T r' 	    -> 
+	      | Asm.T r' 	    ->
 		 let v' = D.eval_exp src (Register.size r') c (new ctx m') in
-		 let _, n = Map.find (K.R r') m' in
-		 Val (Map.replace (K.R r') (v', n+1) m')
+		 begin
+		   try
+		     let _, n  = Map.find (K.R r') m' in
+		     Val (Map.replace (K.R r') (v', n+1) m')
+		   with
+		     Not_found -> Val (Map.add (K.R r') (v', 1) m')
+		 end
 	      | Asm.P (r', l, u) ->
-		 let v' = D.eval_exp src (u-l+1) c (new ctx m') in
-		 let v2, n = Map.find (K.R r') m' in
-		 Val (Map.replace (K.R r') (D.combine v' v2 l u, n+1) m')
+		 let sz    = u-l+1			       in
+		 let v'    = D.eval_exp src sz c (new ctx m')  in
+		 try
+		   let v2, n = Map.find (K.R r') m' in
+		   Val (Map.replace (K.R r') (D.combine v' v2 l u, n+1) m')
+		 with
+		   Not_found -> Val (Map.add (K.R r') (D.combine v' (D.bot (Register.size r')) l u, 1) m')
 	    end
 
 	 | Asm.M (e, n) ->

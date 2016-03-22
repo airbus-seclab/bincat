@@ -20,7 +20,7 @@ let sub v a =
     let o   = Z.to_int (Z.sub (Data.Address.to_int a) v.rva) in
     let len = (String.length v.c) - o         		     in
     String.sub v.c o len 
-  with _ ->  raise Exceptions.Illegal_address
+  with _ ->  Log.error (Printf.sprintf "Illegal address of code %s" (Data.Address.to_string a))
 		   
 let to_string c =
   let s = ref "" in

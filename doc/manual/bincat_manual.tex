@@ -213,6 +213,17 @@ Modules and functors that are achitecture dependent are:
   point from the configuration file (and hence from !Config.cs)
 \end{itemize}
 
+\chapter{segmentation}
+gestion partielle
+
+ce qui est fait:
+lexer et parser de GDT
+initialisation et chargement de la GDT et maj des registres de
+segments
+
+ce qui reste à faire
+- add offset of a mask of cs to the entry point (in main.ml) ;
+- the same for every access to memory, stack, code, heap (in decoder)
 
 \chapter{Optimisations}
 dot not decode twice if the context is the same (including the
@@ -223,6 +234,14 @@ printed line of a bug in parsing is wrong
 add  .mli signatures
 factorize more code between Cfa.extended_memory_pad and
 Cfa.pad_of_int 
+
+est-ce que !Config.cs, etc. sont encore utiles ?
+
+syntaxe du fichier de configuration
+
+vérifier l'alignement de la stack après push/pop cs/ds/ss/es/fs/gs
+\chapter{todo}
+outputs a dot file (empty for the while)
 \chapter{Glossary}
 \begin{itemize}
 \item control flow automaton

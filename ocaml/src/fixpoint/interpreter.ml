@@ -66,7 +66,9 @@ struct
     | Nop -> d
 	       
     | Set (dst, src) -> D.set dst src (new domain_oracle d) d
-		  
+
+    | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d'
+				       
     | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt))
 
   (* update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
