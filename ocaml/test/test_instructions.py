@@ -5,6 +5,7 @@ This file describes tests for single instructions
 
 import pytest
 import copy
+import binascii
 from idabincat import analyzer_state
 
 
@@ -72,7 +73,7 @@ def test_inc(analyzer, initialState, register):
     opcode = 0x40 + regid
     ac = analyzer(initialState, binarystr=chr(opcode))
     stateBefore = ac.getStateAt(0x00)
-    stateAfter = ac.getStateAt(0x01)
+    stateAfter = getNextState(ac, stateBefore)
     expectedStateAfter = copy.deepcopy(stateBefore)
 
     # XXX taint more bits?
@@ -90,7 +91,7 @@ def test_dec(analyzer, initialState, register):
     opcode = 0x48 + regid
     ac = analyzer(initialState, binarystr=chr(opcode))
     stateBefore = ac.getStateAt(0x00)
-    stateAfter = ac.getStateAt(0x01)
+    stateAfter = getNextState(ac, stateBefore)
     expectedStateAfter = copy.deepcopy(stateBefore)
 
     # XXX taint more bits?
@@ -143,22 +144,45 @@ def test_pop(analyzer, initialState, register):
     assert expectedStateAfter == stateAfter
 
 
-def test_nop(analyzer, initialState):
-    """
-    Tests opcode 0x90
-    """
-    # TODO add initial concrete ptr to initialState
-    ac = analyzer(initialState, binarystr='\x90')
+def test_sub(analyzer, initialState):
+    # sub esp, 0x1234
+    hexstr = "81ec34120000"
+    ac = analyzer(initialState, binarystr=binascii.unhexlify(hexstr))
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
-    assert stateBefore == stateAfter, "NOP should not change state"
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg']['esp'] = stateBefore.ptrs['reg']['esp'] \
+        - 0x1234
+    # TODO check taint
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_or_reg_ff(analyzer, initialState, register):
+    """
+    Tests opcodes 0xc8-0xcf - OR register with 0xff
+    """
+    # or ebx,0xffffffff
+    regid, regname = register
+    binstr = "\x83" + chr(0xc8 + regid) + "\xff"
+    ac = analyzer(initialState, binstr)
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg'][regname] = 0xffffffff
+    # TODO check taint
+    assert expectedStateAfter == stateAfter
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
     regid, regname = register
-    hexstr = "\x8b" + chr(0xec + regid)
-    ac = analyzer(initialState, binarystr=hexstr)
+    binstr = "\x8b" + chr(0xec + regid)
+    ac = analyzer(initialState, binarystr=binstr)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
 
@@ -170,15 +194,12 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     assert expectedStateAfter == stateAfter
 
 
-def test_sub(analyzer, initialState):
-    # sub esp, 0x1234
-    hexstr = "81ec34120000"
-    ac = analyzer(initialState, binarystr=hexstr)
+def test_nop(analyzer, initialState):
+    """
+    Tests opcode 0x90
+    """
+    # TODO add initial concrete ptr to initialState
+    ac = analyzer(initialState, binarystr='\x90')
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
-
-    # build expected state
-    expectedStateAfter = copy.deepcopy(stateBefore)
-    expectedStateAfter.ptrs['reg']['esp'] = stateBefore.ptrs['reg']['esp'] \
-        - 0x1234
-    assert expectedStateAfter == stateAfter
+    assert stateBefore == stateAfter, "NOP should not change state"
