@@ -48,7 +48,6 @@ def analyzer(tmpdir, request):
     return run_analyzer
 
 
-# tests for opcodes 0x40-0x5F: inc, dec, push, pop
 testregisters = list(enumerate(
  ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
 ))
@@ -152,3 +151,20 @@ def test_nop(analyzer, initialState):
     # TODO add helper in AnalyzerConfig to perform a check at each eip
     for state in ac.stateAtEip.values():
         assert state.ptrs['reg']['esp'].region == 'stack'
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_mov_ebp_reg(analyzer, initialState, register):
+    regid, regname = register
+    hexstr = "\x8b" + chr(0xec + regid)
+    ac = analyzer(initialState, binarystr=hexstr)
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = ac.getStateAt(0x02)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg']['ebp'] = stateBefore.ptrs['reg'][regname]
+    expectedStateAfter.tainting['reg']['ebp'] = \
+        stateBefore.tainting['reg'][regname]
+    assert expectedStateAfter == stateAfter
+    # TODO use edges described in .ini file, do not hardcode addresses
