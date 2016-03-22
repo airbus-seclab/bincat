@@ -65,6 +65,24 @@ def getNextState(ac, curState):
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_xor_reg_self(analyzer, initialState, register):
+    """
+    Tests opcode 0x33 - xor self
+    """
+    regid, regname = register
+    opcode = "0x33" + chr(0xc0 + regid + (regid << 3))
+    ac = analyzer(initialState, binarystr=opcode)
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+    expectedStateAfter = copy.deepcopy(stateBefore)
+
+    expectedStateAfter.ptrs['reg'][regname] = 0
+    # XXX check taint (not tainted)
+
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_inc(analyzer, initialState, register):
     """
     Tests opcodes 0x40-0x47
