@@ -299,8 +299,7 @@ module Make(Domain: Domain.T) =
 	(* state printing (detailed) *)
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
-	  let stmts = List.fold_left (fun s stmt -> s ^ " " ^ (Asm.string_of_stmt stmt)) "" s.stmts      in
-	  Printf.fprintf f "[address = %s]\nid = %d\nstatements = %s\n%s\n" (Data.Address.to_string s.ip) s.id stmts abstract_values
+	  Printf.fprintf f "[address = %s]\nid = %d\n%s\n" (Data.Address.to_string s.ip) s.id abstract_values
 	in
 	G.iter_vertex print_ip g;
 	(* edge printing (summary) *)
