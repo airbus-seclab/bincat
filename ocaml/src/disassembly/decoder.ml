@@ -322,11 +322,11 @@ module Make(Domain: Domain.T) =
 	| c when '\x38' <= c && c <= '\x3D'  -> CMP ((Char.code c) - (Char.code '\x38')) 	
 	| '\x3E' 			     -> PREFIX c
 			   
-	| c when '\x40' <= c && c <= '\x47' -> let r = find_reg s ((Char.code c) - (Char.code '\x47')) in INC r	
+	| c when '\x40' <= c && c <= '\x47' -> let r = find_reg s ((Char.code c) - (Char.code '\x40')) in INC r	
 	| c when '\x48' <= c && c <= '\x4f' -> let r = find_reg s ((Char.code c) - (Char.code '\x48')) in DEC r
 																						   
 	| c when '\x50' <= c &&  c <= '\x57' -> let r = find_reg s ((Char.code c) - (Char.code '\x50')) in PUSH [r]
-	| c when '\x58' <= c && c <= '\x5F'  -> let r = find_reg s ((Char.code c) - (Char.code '\x50')) in POP [r]
+	| c when '\x58' <= c && c <= '\x5F'  -> let r = find_reg s ((Char.code c) - (Char.code '\x58')) in POP [r]
 
 	| '\x60' -> let l = List.map (fun v -> find_reg s v) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in PUSH l
 	| '\x61' -> let l = List.map (fun v -> find_reg s v) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in POP l
@@ -488,18 +488,19 @@ module Make(Domain: Domain.T) =
       (** produce common statements to set the overflow flag and the adjust flag *) 
       let overflow flag n nth sz res op1 op2 =
 	(* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
-	let nth'      = Const (Word.of_int (Z.of_int nth) sz)	       	 in
-	let sign_res  = BinOp (Shrs, res, nth')	 	    	       	 in
-	let sign_op1  = BinOp (Shrs, op1, nth')	 	    	       	 in
-	let sign_op2  = BinOp (Shrs, op2, nth')	 	    	       	 in
-	let c1 	      = Cmp (Eq, sign_op1, sign_op2)   	       		 in
-	let c2 	      = BUnOp (Not, Cmp (Eq, sign_res, sign_op1))  	 in
-	let one_stmt  = Set (V (T flag), Const (Word.one n))		 in
-	let zero_stmt = Set (V (T flag), Const (Word.zero n))		 in
-	If (c1, [ If (c2, [ one_stmt ], [ zero_stmt ]) ], [ zero_stmt ]) 
+
+	let nth'      = Const (Word.of_int (Z.of_int nth) sz)	  in
+	let sign_res  = BinOp (Shrs, res, nth')	 	    	  in
+	let sign_op1  = BinOp (Shrs, op1, nth')	 	    	  in
+	let sign_op2  = BinOp (Shrs, op2, nth')	 	    	  in
+	let c1 	      = Cmp (Eq, sign_op1, sign_op2)   	       	  in
+	let c2 	      = BUnOp (Not, Cmp (Eq, sign_res, sign_op1)) in
+	let one_stmt  = Set (V (T flag), Const (Word.one n))	  in
+	let zero_stmt = Set (V (T flag), Const (Word.zero n))	  in
+	If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
 
       (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
-      let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (!Config.operand_sz -1) sz res op1 op2
+      let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (!Config.operand_sz-1) sz res op1 op2
 
       (** produce the statement to clear the overflow flag *)
       let clear_overflow_flag_stmts () = Set (V (T fof), Const (Word.zero fof_sz)) 
@@ -544,8 +545,8 @@ module Make(Domain: Domain.T) =
 	for i = 1 to 7 do
 	  e := BinOp(Add, !e, nth i)
 	done;
-	let if_stmt   = Set (V (T fzf), Const (Word.one fzf_sz))			                    in
-	let else_stmt = Set (V (T fzf), Const (Word.zero fzf_sz))			                    in
+	let if_stmt   = Set (V (T fpf), Const (Word.one fpf_sz))			                    in
+	let else_stmt = Set (V (T fpf), Const (Word.zero fpf_sz))			                    in
 	let c 	      = Cmp (Eq, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)) in
 	If(c, [ if_stmt ], [ else_stmt ]) 
 	  
@@ -556,7 +557,6 @@ module Make(Domain: Domain.T) =
 
       (** produces the list of statements for the flag settings involved in the ADD, ADC, SUB, SBB, ADD_i, SUB_i instructions *)
       let add_sub_flag_stmts istmts sz carry_or_borrow dst op op2 =
-	(* TODO : simplify and factorize with inc_and_dec *)
 	let name 	= Register.fresh_name ()	    in
 	let v  	 	= Register.make ~name:name ~size:sz in
 	let tmp  	= V (T v)		  	    in
@@ -574,7 +574,7 @@ module Make(Domain: Domain.T) =
 	  else
 	    istmts
 	in
-	(Set (tmp, Lval dst)):: stmts @ flags_stmts @ [Directive (Remove v)]
+	(Set (tmp, Lval dst)):: stmts @ flags_stmts @ [ Directive (Remove v) ]
 
       (** produces the list of statements for the flag settings involved in the OR, XOR, AND instructions *)
       (** together with the right statements for flag settings *)
@@ -696,7 +696,8 @@ module Make(Domain: Domain.T) =
 	let flags_stmts =
 	  [
 	    overflow_flag_stmts s.operand_sz res op1 op2; zero_flag_stmts s.operand_sz res;
-	    parity_flag_stmts s.operand_sz res          ; adjust_flag_stmts s.operand_sz res op1 op2
+	    parity_flag_stmts s.operand_sz res          ; adjust_flag_stmts s.operand_sz res op1 op2;
+	    sign_flag_stmts s.operand_sz res
 	  ]
 	in
 	let stmts = 
@@ -1112,7 +1113,7 @@ module Make(Domain: Domain.T) =
       let copy_segments s ctx = { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = get_segments ctx  }
 	
 	  
-	let parse text g is v a ctx =
+      let parse text g is v a ctx =
 	  let s' = {
 	    g 	       = g;
 	    a 	       = a;

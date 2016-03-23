@@ -76,6 +76,7 @@ struct
   (* update the abstract value field of each vertex *)
   let update_abstract_values g vertices =
     List.map (fun v ->
+	List.iter (fun s -> Printf.printf "%s" (Asm.string_of_stmt s)) v.Cfa.State.stmts; flush stdout;
 	let p = Cfa.pred g v in
 	let d' = List.fold_left (fun d stmt -> process_stmt g v d stmt) p.Cfa.State.v v.Cfa.State.stmts in
 	v.Cfa.State.v <- d';
@@ -135,7 +136,7 @@ struct
 	  (* computed next step                                                                                  *)
 	  (* the new instruction pointer (offset variable) is also returned                                      *)
 	  (* Decoder.parse is supposed to return the vertices in a topological order                             *)
-	  let vertices, d'     = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)    in
+	  let vertices, d' = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)        in
 	  (* these vertices are updated by their right abstract values and the new ip                            *)
 	  let new_vertices = update_abstract_values g vertices                                                   in
 	  (* among these computed vertices only new are added to the waiting set of vertices to compute          *)

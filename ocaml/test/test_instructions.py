@@ -114,7 +114,7 @@ def test_dec(analyzer, initialState, register):
 
     # XXX taint more bits?
     expectedStateAfter.ptrs['reg'][regname] -= 1
-
+   
     assert expectedStateAfter == stateAfter
 
 
