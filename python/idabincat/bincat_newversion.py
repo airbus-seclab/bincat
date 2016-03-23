@@ -187,6 +187,12 @@ class HelperConfigIniFile:
 # ----------------------------------------------------------------------------------------------
 # Class Constraintes editor 
 class ConstrainteEditorForm_t(QtWidgets.QDialog):
+        def btnOKHandler(self):
+                self.accept()
+
+        def btnCancelHandler(self):
+                self.reject()
+
 
         def __init__(self,parent):
                 super(ConstrainteEditorForm_t,self).__init__(parent)
@@ -205,10 +211,13 @@ class ConstrainteEditorForm_t(QtWidgets.QDialog):
                 self.btnOK = QtWidgets.QPushButton('OK',self)
                 self.btnOK.setToolTip('Save Constraintes.')
                 self.btnOK.setFixedWidth(150)
+                self.btnOK.clicked.connect(self.btnOKHandler)
+
 
                 self.btnCancel = QtWidgets.QPushButton('Cancel',self)
                 self.btnCancel.setToolTip('Cancel.')
                 self.btnCancel.setFixedWidth(150)
+                self.btnCancel.clicked.connect(self.btnCancelHandler)
 
 
                 layout.addWidget(self.notes,1,0)
@@ -237,7 +246,11 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
                 CstEdit = ConstrainteEditorForm_t(self)
                 CstEdit.show()
 
-
+        def btnCancelHandler(self):
+                self.reject()
+ 
+        def btnOKHandler(self):
+                self.accept() 
 
         def __init__(self,parent):
                 super(AnalyzerConfForm_t,self).__init__(parent)
@@ -437,11 +450,11 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
 
                 # OK and cancel button 
                 self.btnOK = QtWidgets.QPushButton('OK',self)
-                # TODO self.btnConstrainte.clicked.connect()
+                self.btnOK.clicked.connect(self.btnOKHandler)
                 layout.addWidget(self.btnOK,19,0)
 
                 self.btnCancel = QtWidgets.QPushButton('Cancel',self)
-                # TODO self.btnConstrainte.clicked.connect()
+                self.btnCancel.clicked.connect(self.btnCancelHandler)
                 layout.addWidget(self.btnCancel,19,1)
                 
 
@@ -522,6 +535,60 @@ class BinCATLog_t(simplecustviewer_t):
                 self.AddLine(coloredline)
                 
 
+# ----------------------------------------------------------------------------------------------
+# BinCAT Tainted values form 
+# This form containes the values of tainted registers and memory 
+
+class BinCATTaintedForm_t(PluginForm):
+
+        def OnCreate(self,form):
+                BinCATLogViewer.Log("[+] BinCAT Creating Tainted form ",SCOLOR_LOCNAME)
+                
+                # Get parent widget 
+                self.parent = self.FormToPyQtWidget(form)
+                self.registers_x86 = ['EAX','EBX','ECX','EDX','ESI','EDI','ESP','EBP']
+                 
+                # Main table 
+                self.table = QtWidgets.QTableWidget() 
+                self.table.setColumnCount(3)
+                self.table.setRowCount(len(self.registers_x86))
+
+                self.table.setHorizontalHeaderItem(0,QtWidgets.QTableWidgetItem("Registers"))
+                self.table.setHorizontalHeaderItem(1,QtWidgets.QTableWidgetItem("Tainted"))
+                self.table.setHorizontalHeaderItem(2,QtWidgets.QTableWidgetItem("Values"))
+
+                self.table.setColumnWidth(0, 80)
+                self.table.setColumnWidth(1, 80)
+                self.table.setColumnWidth(2, 100)
+
+                # populate table 
+                index = 0 
+                for reg in self.registers_x86:
+                        item = QtWidgets.QTableWidgetItem(reg)
+                        self.table.setItem(index, 0, item)
+                        index+=1
+
+                self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+                layout = QtWidgets.QGridLayout()
+                self.table.verticalHeader().setDefaultSectionSize(15)
+
+                layout.addWidget(self.table,0,0)
+                #label = QtWidgets.QLabel('Tainting :')
+                #layout.addWidget(label,0,0)
+
+                layout.setColumnStretch(0,1)
+                layout.setRowStretch(0,1)
+
+                self.parent.setLayout(layout)
+
+        # Called when the plugin form is closed
+        def OnClose(self,form):
+                BinCATLogViewer.Log(" [+] BinCAT Closing Tainted form ",SCOLOR_LOCNAME)
+                
+
+
+        def Show(self):
+                return PluginForm.Show(self,"BinCAT Tainting",options=PluginForm.FORM_PERSIST | PluginForm.FORM_TAB)
  
  
 # ----------------------------------------------------------------------------------------------
@@ -529,6 +596,11 @@ class BinCATLog_t(simplecustviewer_t):
 
 
 class BinCATForm_t(PluginForm):
+
+        # init local tcp port 
+        def init_Local_socket(self):
+                BinCATLogViewer.Log("[+] BinCAT : creating local socket ",SCOLOR_LOCNAME)
+
 
 
         # function : init_Analyzer() : launch eth analyzer.py process 
@@ -673,6 +745,17 @@ class HtooltipT(idaapi.action_handler_t):
 # Class Hooks for BinCAT menu 
 
 class  Hooks(idaapi.UI_Hooks):
+
+        def updating_actions(self,ctx):
+                if ctx.form_type ==  idaapi.BWN_DISASM:
+                        idaview =  get_tform_idaview(ctx.form)
+                        place, x , y = get_custom_viewer_place(idaview,False)
+                        #line =  get_custom_viewer_curline(idaview,False)
+                        if isCode(place.toea()):
+                                #SetColor(place.toea(),CIC_ITEM,0x0CE505)
+                                idaapi.msg("%s at EA: %08x \n" % (ctx.form_title,place.toea()))                        
+
+
         def populating_tform_popup(self,form,popup):
                 idaapi.msg("Hooks called \n")
                 idaapi.attach_action_to_popup(form,popup,"my:tooltip0","BinCAT/Tainting/",idaapi.SETMENU_APP)
@@ -691,12 +774,15 @@ def main():
         global BinCATLogViewer
         global hlpConfig
         global hooks
+        global BinCATTaintedForm
         try:
                 BinCATForm
-                BinCATLogViewer 
+                BinCATLogViewer
+                BinCATTaintedForm 
         except:
                 BinCATForm = BinCATForm_t() 
                 BinCATLogViewer = BinCATLog_t()
+                BinCATTaintedForm = BinCATTaintedForm_t() 
 
         idaapi.msg("[+] BinCAT Starting main form\n")
         if BinCATLogViewer.Create(1):
@@ -705,12 +791,15 @@ def main():
                 BinCATLogViewer.Log("[+] BinCAT Starting main form",SCOLOR_LOCNAME)
         
         BinCATForm.Show()
+        BinCATTaintedForm.Show() 
+        
 
         idaapi.set_dock_pos("BinCAT","IDA View-A",idaapi.DP_TAB) 
                 
         # We create a disassembly view dedicated to BinCAT
         idaapi.open_disasm_window("Tainting View")
         idaapi.set_dock_pos("IDA View-Tainting View","IDA View-A",idaapi.DP_TAB) 
+        idaapi.set_dock_pos("BinCAT Tainting","Functions window",idaapi.DP_TAB) 
 
         # set the focus to BinCAT view
         ida_bincat_view = idaapi.find_tform("BinCAT")
@@ -726,8 +815,15 @@ def main():
 
         BinCATLogViewer.Log("[+] BinCAT Setting Menu Hooks ",SCOLOR_LOCNAME)
 
-        hooks = Hooks()
-        hooks.hook()        
+
+        try :
+                hooks.unhook()
+                hooks = None 
+                idaapi.msg("unhooked")
+                
+        except:
+                hooks = Hooks()
+                hooks.hook()        
 
 
         # Create a default config.ini file     
