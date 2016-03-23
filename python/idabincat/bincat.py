@@ -369,17 +369,16 @@ class BinCATThread(threading.Thread):
          fdnum = child.fileno()
         
          # Ici lancer l'analyseur  
-         proc_analyzer= subprocess.Popen(['/opt/ida-6.8/python/mymodule/analyzer.py', '123456' ,'--commandfd', str(fdnum),'--inifile','nop.ini','--outfile','result.txt'],stdout=1)
+         proc_analyzer = subprocess.Popen(['/opt/ida-6.8/python/mymodule/analyzer.py', '123456' ,'--commandfd', str(fdnum),'--inifile','/tmp/nop.ini','--outfile','result.txt'],stdout=1)
+
          idaapi.msg("[BinCAT] BinCATThread::subprocess.Popen(analyzer.py) OK  \n")
 
          # une fois le thread de l'anlyzer cree, on attend un message en retour
-         msg = ''
          msg = parent.recv(1000)
          if (msg):
              idaapi.msg("%s \n "%msg)
 
-         #  le deuxieme msg de l'analzer doit indiquer si le module mlbincat a ete charge
-         msg = ''
+         #  le deuxieme msg de l'analyzer doit indiquer si le module mlbincat a ete charge
          msg = parent.recv(1000)
          if (msg):
              idaapi.msg("%s \n "%msg)

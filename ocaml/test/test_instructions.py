@@ -1,195 +1,19 @@
 #!/usr/bin/env python2
-# This file describes tests for single instructions
+"""
+This file describes tests for single instructions
+"""
 
 import pytest
-import ConfigParser
-import logging
-import sys
-import collections
-
-
-class AnalyzerConfig(object):
-    """
-    TODO move to separate file, re-use in IDA plugin
-    """
-    def __init__(self):
-        #: self.eip[EIP value] contains a State object
-        self.stateAtEip = {}
-
-    def setBinaryFromString(self, string):
-        # TODO
-        pass
-
-    def setStatesFromAnalyzerOutput(self, filename):
-        # Parse output ini file
-        config = ConfigParser.ConfigParser()
-        config.read(filename)
-        for section in config.sections():
-            if not section.startswith('address = '):
-                logging.error("Unrecognized section in output file: %s",
-                              section)
-                sys.exit(1)
-            zxidx = section.index("0x")  # [address = 0xFF..FF]
-            sz = len(section) - (zxidx+1)
-            address = int(section[zxidx:zxidx+sz], 16)
-            state = State(address)
-            state.setFromAnalyzerOutput(config.items(section))
-            self.stateAtEip[address] = state
-
-    def exportToFile(self, filename, eip):
-        # TODO
-        pass
-
-
-class State(object):
-    """
-    TODO move to separate file, re-use in IDA plugin
-    TODO separate computed state from user-set state
-    """
-    def __init__(self, address):
-        self.address = ""
-        #: self.ptrs[memory address or pointer name] =
-        #: ("memory region", int address)
-        self.ptrs = {'mem': {}, 'reg': {}}
-        #: self.tainting["reg" or "mem"][name or ConcretePtrValue object] =
-        #: taint value (object)?
-        self.tainting = {}
-        #: self.stmts = [statement of the intermediate language]
-        self.stmts = ""
-
-    def __eq__(self, other):
-        if set(self.ptrs['mem'].keys()) != set(other.ptrs['mem'].keys()) or\
-                set(self.ptrs['reg'].keys()) != set(other.ptrs['reg'].keys()):
-            # might have to be refined
-            logging.error("different set of keys between states")
-            return False
-        for ptrtype in 'mem', 'reg':
-            for ptr in self.ptrs[ptrtype].keys():
-                if (self.ptrs[ptrtype][ptr] != other.ptrs[ptrtype][ptr]):
-                    return False
-        if set(self.tainting.keys()) != set(other.tainting.keys()):
-            # might have to be refined
-            logging.error("different set of keys between states")
-            return False
-        for t in (set(self.tainting.keys()) | set(other.tainting.keys())):
-            if self.tainting[t] != other.tainting[t]:
-                return False
-        return True
-
-    def setFromAnalyzerOutput(self, outputkv):
-        """
-        :param outputkv: list of (key, value) tuples for each property set by
-            the analyzer at this EIP
-        """
-        for k, v in outputkv:
-            if k.startswith('tainting '):
-                self.tainting[k[9:]] = Tainting.fromAnalyzerOutput(v)
-            elif k.startswith('pointer '):
-                ptrloc = k[8:]
-                if ptrloc.startswith('mem ['):
-                    ptrtype = 'mem'
-                    key = ConcretePtrValue.fromAnalyzerOutput(ptrloc[6:-2])
-                elif ptrloc.startswith('reg ['):
-                    ptrtype = 'reg'
-                    key = ptrloc[5:-1]
-                else:
-                    raise NotImplementedError('Unsupported ptrtype')
-                self.ptrs[ptrtype][key] = PtrValue.fromAnalyzerOutput(v)
-            elif k.startswith('statements'):
-                self.stmts = Stmt.fromAnalyzerOutput(v)
-            else:
-                logging.error("Unrecognized key while parsing state: %s", k)
-                sys.exit(1)
-
-
-class Stmt(object):
-    def __init__(self, stmts):
-        self.stmts = stmts
-
-    def __ne__(self, other):
-            return not self.__eq__(other)
-
-    def __eq__(self, other):
-        return self.stmts == other.stmts
-
-    @classmethod
-    def fromAnalyzerOutput(cls, s):
-        return cls(s)
-
-
-class PtrValue(object):
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    @classmethod
-    def fromAnalyzerOutput(cls, s):
-        if s.startswith('('):
-            return ConcretePtrValue.fromAnalyzerOutput(s[1:-1])
-        else:
-            return AbstractPtrValue.fromAnalyzerOutput(s)
-
-
-class ConcretePtrValue(PtrValue):
-    def __init__(self, region, address):
-        self.region = region.lower()
-        self.address = address
-
-    def __repr__(self):
-        return "ConcretePtrValue(%s, %d)" % (self.region, self.address)
-
-    def __hash__(self):
-        return hash((type(self), self.region, self.address))
-
-    def __eq__(self, other):
-        
-        return self.region == other.region and self.address == other.address
-
-    def __add__(self, other):
-        if type(other) is not int:
-            raise NotImplemented
-        return ConcretePtrValue(self.region, self.address + other)
-
-    def __sub__(self, other):
-        return self + (-other)
-
-    @classmethod
-    def fromAnalyzerOutput(cls, s):
-        z, v = s.split(',')
-        v = int(v, 16)
-        return cls(z, v)
-
-
-class AbstractPtrValue(PtrValue):
-    def __init__(self, value):
-        self.value = value
-
-    def __eq__(self, other):
-        return self.value == other.value
-
-    @classmethod
-    def fromAnalyzerOutput(cls, s):
-        return cls(s)
-
-
-class Tainting(object):
-    def __init__(self, tainting):
-        self.tainting = tainting
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __eq__(self, other):
-        return self.tainting == other.tainting
-
-    @classmethod
-    def fromAnalyzerOutput(cls, s):
-        return cls(s)
+import copy
+import binascii
+from idabincat import analyzer_state
 
 
 @pytest.fixture(scope='function', params=['template0.ini'])
 def initialState(request):
     # TODO generate instead of using a fixed file, using States class
     # (not implemented yet)
+    # TODO return object
     return open(request.param, 'rb').read()
 
 
@@ -219,30 +43,199 @@ def analyzer(tmpdir, request):
         outputfile = str(tmpdir.join('end.ini'))
         logfile = str(tmpdir.join('log.txt'))
         mlbincat.process(initfile, outputfile, logfile)
-        ac = AnalyzerConfig()
+        ac = analyzer_state.AnalyzerState()
         ac.setStatesFromAnalyzerOutput(outputfile)
         return ac
     return run_analyzer
 
 
+testregisters = list(enumerate(
+ ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
+))
+
+
+def getNextState(ac, curState):
+    """
+    Helper function: check that there is only one destination state, return it.
+    """
+    nextStates = ac.listNextStates(curState.address)
+    assert len(nextStates) == 1, \
+        "expected exactly 1 destination state after running this instruction"
+    return nextStates[0]
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_xor_reg_self(analyzer, initialState, register):
+    """
+    Tests opcode 0x33 - xor self
+    """
+    regid, regname = register
+    opcode = "0x33" + chr(0xc0 + regid + (regid << 3))
+    ac = analyzer(initialState, binarystr=opcode)
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+    expectedStateAfter = copy.deepcopy(stateBefore)
+
+    expectedStateAfter.ptrs['reg'][regname] = 0
+    # XXX check taint (not tainted)
+
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_inc(analyzer, initialState, register):
+    """
+    Tests opcodes 0x40-0x47
+    """
+    regid, regname = register
+    opcode = 0x40 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+    expectedStateAfter = copy.deepcopy(stateBefore)
+
+    # XXX taint more bits?
+    expectedStateAfter.ptrs['reg'][regname] += 1
+
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_dec(analyzer, initialState, register):
+    """
+    Tests opcodes 0x48-0x4F
+    """
+    regid, regname = register
+    opcode = 0x48 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+    expectedStateAfter = copy.deepcopy(stateBefore)
+
+    # XXX taint more bits?
+    expectedStateAfter.ptrs['reg'][regname] -= 1
+
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_push(analyzer, initialState, register):
+    """
+    Tests opcodes 0x50-0x57
+    """
+    regid, regname = register
+    opcode = 0x50 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg']['esp'] -= 4
+    expectedStateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] = \
+        stateBefore.ptrs['reg'][regname]
+    expectedStateAfter.tainting['mem'][stateBefore.ptrs['reg']['esp']] = \
+        stateBefore.tainting['reg'][regname]
+
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_pop(analyzer, initialState, register):
+    """
+    Tests opcodes 0x58-0x5F
+    """
+    regid, regname = register
+    opcode = 0x58 + regid
+    ac = analyzer(initialState, binarystr=chr(opcode))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg']['esp'] += 4
+    expectedStateAfter.ptrs['reg'][regname] = \
+        stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['esp']]
+    expectedStateAfter.tainting['reg'][regname] = \
+        stateBefore.tainting['mem'][stateBefore.ptrs['reg']['esp']]
+
+    assert expectedStateAfter == stateAfter
+
+
+def test_sub(analyzer, initialState):
+    # sub esp, 0x1234
+    hexstr = "81ec34120000"
+    ac = analyzer(initialState, binarystr=binascii.unhexlify(hexstr))
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg']['esp'] = stateBefore.ptrs['reg']['esp'] \
+        - 0x1234
+    # TODO check taint
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_or_reg_ff(analyzer, initialState, register):
+    """
+    Tests opcodes 0xc8-0xcf - OR register with 0xff
+    """
+    # or ebx,0xffffffff
+    regid, regname = register
+    binstr = "\x83" + chr(0xc8 + regid) + "\xff"
+    ac = analyzer(initialState, binstr)
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg'][regname] = 0xffffffff
+    # TODO check taint
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_mov_reg_ebpm6(analyzer, initialState, register):
+    regid, regname = register
+    # mov    reg,DWORD PTR [ebp-0x6]
+    binstr = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
+    ac = analyzer(initialState, binarystr=binstr)
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg'][regname] = \
+        stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['ebp'] - 6]
+    expectedStateAfter.tainting['reg'][regname] = \
+        stateBefore.tainting['mem'][stateBefore.ptrs['reg']['ebp'] - 6]
+    assert expectedStateAfter == stateAfter
+
+
+@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+def test_mov_ebp_reg(analyzer, initialState, register):
+    regid, regname = register
+    binstr = "\x8b" + chr(0xec + regid)
+    ac = analyzer(initialState, binarystr=binstr)
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+
+    # build expected state
+    expectedStateAfter = copy.deepcopy(stateBefore)
+    expectedStateAfter.ptrs['reg'][regname] = stateBefore.ptrs['reg'][regname]
+    expectedStateAfter.tainting['reg'][regname] = \
+        stateBefore.tainting['reg'][regname]
+    assert expectedStateAfter == stateAfter
+
+
 def test_nop(analyzer, initialState):
+    """
+    Tests opcode 0x90
+    """
+    # TODO add initial concrete ptr to initialState
     ac = analyzer(initialState, binarystr='\x90')
-    assert ac.stateAtEip[0x00] == ac.stateAtEip[0x1]
-    # TODO add helper in AnalyzerConfig to perform a check at each eip
-    for eip in ac.stateAtEip.keys():
-        assert ac.stateAtEip[eip].ptrs['reg']['esp'].region == 'stack'
-
-
-def test_pushebp(analyzer, initialState):
-    ac = analyzer(initialState, binarystr='\x55')
-    stateBefore = ac.stateAtEip[0x00]
-    stateAfter = ac.stateAtEip[0x01]
-
-    assert stateAfter.ptrs['reg']['esp'] == \
-        stateBefore.ptrs['reg']['esp'] - 4
-
-    assert stateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] == \
-        stateBefore.ptrs['reg']['ebp']
-
-    # TODO use edges described in .ini file
-    # TODO check that nothing else has changed
+    stateBefore = ac.getStateAt(0x00)
+    stateAfter = getNextState(ac, stateBefore)
+    assert stateBefore == stateAfter, "NOP should not change state"
