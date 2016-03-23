@@ -76,6 +76,7 @@ module Make(Domain: Domain.T) =
       (***********************************************************************)
       (* Internal state of the decoder *)
       (***********************************************************************)
+
       (** GDT and LDT management *)
       type privilege_level =
 	| R0
@@ -95,10 +96,13 @@ module Make(Domain: Domain.T) =
 	| GDT
 	| LDT
 
+      (* size of an index in a description table *)
       let index_sz = 64
-		       
+
+      (** high level data structure of the content of a segment register *)
       type segment_register_mask = { rpl: privilege_level; ti: table_indicator; index: Word.t }
-				     
+
+      (** builds the high level representation of the given segment register *)
       let get_segment_register_mask v =
 	let rpl = privilege_level_of_int (Z.to_int (Z.logand v (Z.of_int 3))) in
 	let ti =
@@ -108,7 +112,8 @@ module Make(Domain: Domain.T) =
 	  | _ -> Log.error "Invalid decription table selection"
 	in
 	{ rpl = rpl; ti = ti; index = Word.of_int (Z.shift_right v 3) index_sz }
-	  
+
+      (** abstract data type of a segment type *)
       type segment_descriptor_type =
 	| Data_r 	    (* 1000 read only *)
 	| Data_rw   	    (* 1001 data *)
@@ -120,6 +125,7 @@ module Make(Domain: Domain.T) =
 	| ConformingCode_rx (* 1111 conforming code execute or read *)
 	| UndefSegment      (* undefine *)
 
+      (** converts the given integer into a segment type *)
       let segment_descriptor_of_int v =
 	match v with
 	| 8  -> Data_r
@@ -132,9 +138,10 @@ module Make(Domain: Domain.T) =
 	| 15 -> ConformingCode_rx
 	| _  -> UndefSegment
 
+      (** abstract data type of an entry of a decription table (GDT or LDT) *)
       type tbl_entry = { base: Z.t; limit: Z.t; a: Z.t; typ: segment_descriptor_type; dpl: privilege_level; p: Z.t; u: Z.t; x: Z.t; d: Z.t; g: Z.t;}
 
-      (** return a high level representation of a  GDT/LDT entry *)
+      (** return a high level representation of a GDT/LDT entry *)
       let tbl_entry_of_int v =
 	let ffff  = Z.of_int 0xffff					   in
 	let ff 	  = Z.of_int 0xff					   in
@@ -164,23 +171,31 @@ module Make(Domain: Domain.T) =
 	let g 	  = Z.logand v' Z.one				 	   in
 	let base  = Z.add base (Z.shift_left (Z.shift_right v' 1) 24)      in
 	{ limit = limit; base = base; a = a; typ = typ; dpl = privilege_level_of_int (Z.to_int dpl); p = p; u = u; x = x; d = d; g = g; }
-			 
-      type desc_tbl = (Word.t, tbl_entry) Hashtbl.t (* the key is an offset in the table *)
 
-      type segment_t = { mutable data: Register.t; gdt: desc_tbl; ldt: desc_tbl; idt: desc_tbl; reg: (Register.t, segment_register_mask) Hashtbl.t } (* data field contains the current segment register for data *)
+      (** data type of a decription table *)
+      type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
+
+      (** abstract data type for the segmentation field in the decoder state *)
+      type segment_t = {
+	  mutable data: Register.t;                          (** current segment register for data *)
+	  gdt: desc_tbl;                                     (** current content of the GDT *)
+	  ldt: desc_tbl;                                     (** current content of the LDT *)
+	  idt: desc_tbl;                                     (** current content of the IDT *)
+	  reg: (Register.t, segment_register_mask) Hashtbl.t (** current value of the segment registers *)
+	}
 
       (** complete internal state of the decoder *)
       (** only the segment field is exported out of the functor (see parse signature) for further reloading *)
       type state = {
-	  mutable g 	    : Cfa.t; 	   (* current cfa *)
-	  mutable b 	    : Cfa.State.t; (* state predecessor *)
-	  a 	     	    : Address.t;   (* current address to decode *)
-	  mutable addr_sz   : int;   	   (* current address size in bits *)
-	  mutable operand_sz: int;  	   (* current operand size in bits *)
-	  buf 	     	    : string;      (* buffer to decode *)
-	  mutable o 	    : int; 	   (* offset into the buffer *)
-	  mutable rep_prefix: bool option; (* None = no rep prefix ; Some true = rep prefix ; Some false = repne/repnz prefix *)
-	  mutable segments  : segment_t;   (* all about segmentation *)								       
+	  mutable g 	    : Cfa.t; 	   (** current cfa *)
+	  mutable b 	    : Cfa.State.t; (** state predecessor *)
+	  a 	     	    : Address.t;   (** current address to decode *)
+	  mutable addr_sz   : int;   	   (** current address size in bits *)
+	  mutable operand_sz: int;  	   (** current operand size in bits *)
+	  buf 	     	    : string;      (** buffer to decode *)
+	  mutable o 	    : int; 	   (** current offset to decode into the buffer *)
+	  mutable rep_prefix: bool option; (** None = no rep prefix ; Some true = rep prefix ; Some false = repne/repnz prefix *)
+	  mutable segments  : segment_t;   (** all about segmentation *)								       
 	}
 
       
@@ -188,18 +203,22 @@ module Make(Domain: Domain.T) =
       (***********************************************************************)
       (* Char transformations *)
       (***********************************************************************)
+
+      (** extract from the string code the current byte to decode *)
+      (** the offset field of the decoder state is increased *)
       let getchar s = 
 	let c = String.get s.buf s.o in
 	s.o <- s.o + 1;
 	c
- 
-      let int_of_byte s = Char.code (getchar s)
+
+      (** int conversion of a byte in the string code *)
+      let int_of_byte s = Z.of_int (Char.code (getchar s))
 				    
-				    
+      (** [int_of_bytes s sz] is an integer conversion of sz bytes of the string code s.buf *)  
       let int_of_bytes s sz =
-	let n = ref 0 in
+	let n = ref Z.zero in
 	for _i = 0 to sz-1 do
-	  n := (int_of_byte s) +  2 * !n;
+	  n := Z.add (int_of_byte s) (Z.shift_left !n 1);
 	  s.o <- s.o + 1
 	done;
 	!n;;
@@ -207,98 +226,110 @@ module Make(Domain: Domain.T) =
       (***********************************************************************)
       (* Lexing *)
       (***********************************************************************)
-	
-      
-	
-      type token =
-	| ADC of int
-	| ADC_i of (reg * int) (* var is the destination register ; int is the length of the src immediate data *) 
-	| ADD   of int
-	| ADD_i of (reg * int) (* var is the destination register ; int is the length of the src immediate data *) 
-	| AND   of int
-	| CALL of fct * bool (* true if far call *)
-	| CMP   of int
-	| CMPS of int (* size in bits ! *)
-	| DEC   of reg
-	| ESC (* 0x0F *)
-	| HLT
-	| INC   of reg
-	| JECX
-	| JCC   of int * int (* first is opcode ; second is the number of bytes to read to get the offset of the jump *)
-	| JMP   of int (* offset to add to the instruction pointer *)
-	| LODS of int (* size in bits *)
-	| LOOP of int (* stop condition : 0 (loopne) ; 1 (loope) ; 2 (loop) *)
-	| MOVS of int (* size in bits *)
-	| NOP
-	| OR of int
-	| POP   of reg list
-	| PREFIX of char 
-	| PUSH  of reg list
-	| PUSH_i of int (* number of bytes to push *)
-	| SCAS of int (* size in bits *)
-	| STOS of int (* size in bits *)
-	| SBB   of int 
-	| SBB_i of (reg * int) (* var is the destination register ; int is the length of the src immediate data *)
-	| SUB   of int 
-	| SUB_i of (reg * int) (* var is the destination register ; int is the length of the src immediate data *)    
-	| XCHG  of int
-	| XOR   of int
-      ;;
-	
-	
-      let grp5 s v =
-	let nnn = (v lsr 3) land 7		       in
-	let r 	= Hashtbl.find register_tbl (v land 7) in
-	match nnn with
-	  2 -> CALL (I (if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1)), false)
-	| _ -> Log.error "Unknown decoding value in grp5" (* can not be expressed in asm as it is a far CALL from memory where the selector is picked from [r][0:15] and the offset in [r][16:s.operand_sz-1] *)
 
-		 
-		 
+      (** tokens produced by the parsing of the opcodes *)
+      (** when provided, length of operations are expressed in number of bits *)
+      type token =
+	| ADC	 of int         (** add with carry ; the argument is the size of the operation *)
+	| ADC_i	 of (reg * int) (** add with carry between a register (first argument) and an immedidate data (length is the given by second argument) *)
+	| ADD  	 of int         (** add; the argument is the size of the operation *)
+	| ADD_i	 of (reg * int) (** add with carry between a register (first argument) and an immedidate data (length is the given by second argument) *)
+	| AND  	 of int         (** logical AND; the argument is the size of the operation *)
+	| CALL	 of fct * bool  (** function call; the boolean arguments indicates a far call (true) or a near call *)
+	| CMP  	 of int         (** CMP i is an unsigned comparison on operands of size i *)
+	| CMPS	 of int         (** CMPS i is a signed comparison on operands of size i *)
+	| DEC  	 of reg         (** decrementation of the given register *)
+	| ESC 		        (** escape to the two-byte opcode map *)
+	| HLT                   (** halt *)
+	| INC  	 of reg         (** incrementation of the given register *)
+	| JECXZ                 (** jump short if ecx is zero *)
+	| JCC  	 of int * int   (** JCC (o, n) is a jump such that o is its opcode ;  first is opcode ; second is the number of bytes to read to get the offset of the jump *)
+	| JMP  	 of int         (** JMP i add i to the instruction pointer *)
+	| LODS	 of int (* size in bits *)
+	| LOOP	 of int (* stop condition : 0 (loopne) ; 1 (loope) ; 2 (loop) *)
+	| MOVS	 of int (* size in bits *)
+	| NOP
+	| OR	 of int
+	| POP  	 of reg list
+	| PREFIX of char 
+	| PUSH 	 of reg list
+	| PUSH_i of int (* PUSH_i i push an immediate data of size i *)
+	| SCAS	 of int (* size in bits *)
+	| STOS	 of int (* size in bits *)
+	| SBB  	 of int 
+	| SBB_i	 of (reg * int) (* var is the destination register ; int is the length of the src immediate data *)
+	| SUB  	 of int 
+	| SUB_i	 of (reg * int) (* var is the destination register ; int is the length of the src immediate data *)    
+	| XCHG 	 of int
+	| XOR  	 of int (** XOR i is an exclusive or whose operands have size i *)
+      ;;
+
+      (** returns the right Asm.reg value from the given register and context of decoding *)
+      let to_reg s r =
+	if Register.size r = s.operand_sz then
+	  T r
+	else
+	  P (r, 0, s.operand_sz-1)
+
+      (** returns the right Asm.reg value from the register corresponding to the given numeber and context of decoding *)
+      let find_reg s n =
+	let r = Hashtbl.find register_tbl n in
+	to_reg s r
+	       
+      let grp5 s v =
+	let z7  = Z.of_int 7				               in
+	let nnn = Z.to_int (Z.logand (Z.shift_right v 3) z7)	       in
+	let r 	= Hashtbl.find register_tbl (Z.to_int (Z.logand v z7)) in
+	match nnn with
+	| 2 -> CALL (I (to_reg s r), false)
+	| _ -> Log.error "Unknown decoding value in grp5"
+      (* other cases can not be expressed in asm as it is a far CALL from memory where the selector is picked from [r][0:15] and the offset in [r][16:s.operand_sz-1] *)
+
+     
+
+      (** converts the given character into a token *)
       let parse s c =
 	match c with
-	| c when '\x00' <= c && c <= '\x03' -> ADD (Char.code c)	
-	| '\x04' -> ADD_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)  
-	| '\x05' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in ADD_i (r', s.operand_sz / 8) 
-	| '\x06' -> let es' = if Register.size es = s.operand_sz then T es else P(es, 0, s.operand_sz-1) in PUSH [es']
-	| '\x07' -> let es' = if Register.size es = s.operand_sz then T es else P(es, 0, s.operand_sz-1) in POP [es']
+	| c when '\x00' <= c && c <= '\x03'  -> ADD (Char.code c)	
+	| '\x04' 			     -> ADD_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)  
+	| '\x05' 			     -> let r = find_reg s 0 in ADD_i (r, s.operand_sz) 
+	| '\x06' 			     -> let es' = to_reg s es in PUSH [es']
+	| '\x07' 			     -> let es' = to_reg s es in POP [es']
 	| c when '\x08' <= c &&  c <= '\x0D' -> OR ((Char.code c) - (Char.code '\x08'))
-	| '\x0E' -> let cs' = if Register.size cs = s.operand_sz then T cs else P(cs, 0, s.operand_sz-1) in PUSH [cs']
-	| '\x0F' -> ESC
+	| '\x0E' 			     -> let cs' = to_reg s cs in PUSH [cs']
+	| '\x0F' 			     -> ESC
 		      
 	| c when '\x10' <= c && c <= '\x13' -> ADC ((Char.code c) - (Char.code '\x10'))
-	| '\x14' -> ADC_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
-	| '\x15' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in ADC_i (r', s.operand_sz / 8)
-	| '\x16' -> let ss' = if Register.size ss = s.operand_sz then T ss else P(ss, 0, s.operand_sz-1) in PUSH [ss']
-	| '\x17' -> let ss' = if Register.size ss = s.operand_sz then T ss else P(ss, 0, s.operand_sz-1) in POP [ss']
+	| '\x14' 			    -> ADC_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
+	| '\x15' 			    -> let r = find_reg s 0 in ADC_i (r, s.operand_sz)
+	| '\x16' 			    -> let ss' = to_reg s ss in PUSH [ss']
+	| '\x17' 			    -> let ss' = to_reg s ss in POP [ss']
 	| '\x18' | '\x19' | '\x1A' | '\x1B' -> SBB ((Char.code c) - (Char.code '\x18'))
-	| '\x1c' -> SBB_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
-	| '\x1d' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in SBB_i (r', s.operand_sz / 8)
-	| '\x1E' -> let ds' = if Register.size ds = s.operand_sz then T ds else P(ds, 0, s.operand_sz-1) in PUSH [ds']
-	| '\x1F' -> let ds' = if Register.size ds = s.operand_sz then T ds else P(ds, 0, s.operand_sz-1) in POP [ds']
+	| '\x1c' 			    -> SBB_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
+	| '\x1d' 			    -> let r = find_reg s 0 in SBB_i (r, s.operand_sz)
+	| '\x1E' 			    -> let ds' = to_reg s ds in PUSH [ds']
+	| '\x1F' 			    -> let ds' = to_reg s ds in POP [ds']
 															       
 	| c when '\x20' <= c && c <= '\x25' -> AND ((Char.code c) - (Char.code '\x20'))
-	| '\x26' -> PREFIX c
+	| '\x26' 			    -> PREFIX c
 	| c when '\x28' <= c && c <= '\x2B' -> SUB ((Char.code c) - (Char.code '\x28'))
-	| '\x2C' -> SUB_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
-	| '\x2D' -> let r = Hashtbl.find register_tbl 0 in let r' = if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1) in SUB_i (r', s.operand_sz / 8)	
-	| '\x2E' -> PREFIX c
+	| '\x2C' 			    -> SUB_i (P(Hashtbl.find register_tbl 0, 0, 7), 1)
+	| '\x2D' 			    -> let r = find_reg s 0 in SUB_i (r, s.operand_sz)	
+	| '\x2E' 			    -> PREFIX c
 			   
 	| c when '\x30' <= c &&  c <= '\x35' -> XOR ((Char.code c) - (Char.code '\x30'))	
-	| '\x36' -> PREFIX c
-	| c when '\x38' <= c && c <= '\x3D' -> CMP ((Char.code c) - (Char.code '\x38')) 	
-	| '\x3E' -> PREFIX c
+	| '\x36' 			     -> PREFIX c
+	| c when '\x38' <= c && c <= '\x3D'  -> CMP ((Char.code c) - (Char.code '\x38')) 	
+	| '\x3E' 			     -> PREFIX c
 			   
-	| c when '\x40' <= c && c <= '\x47' -> let r = Hashtbl.find register_tbl ((Char.code c) - (Char.code '\x47')) in if Register.size r = s.operand_sz then INC (T r) else INC (P(r, 0, s.operand_sz-1))
-	| c when '\x48' <= c && c <= '\x4f' -> let r = Hashtbl.find register_tbl ((Char.code c) - (Char.code '\x48')) in if Register.size r = s.operand_sz then DEC (T r) else DEC (P(r, 0, s.operand_sz-1))
+	| c when '\x40' <= c && c <= '\x47' -> let r = find_reg s ((Char.code c) - (Char.code '\x47')) in INC r	
+	| c when '\x48' <= c && c <= '\x4f' -> let r = find_reg s ((Char.code c) - (Char.code '\x48')) in DEC r
 																						   
-	| c when '\x50' <= c &&  c <= '\x57' -> let v = (Char.code c) - (Char.code '\x50') in let r = Hashtbl.find register_tbl v in let r'= if Register.size r = s.operand_sz then T r else P (r, 0, s.operand_sz-1) in PUSH [r']
-	| c when '\x58' <= c && c <= '\x5F' -> let v = (Char.code c) - (Char.code '\x50') in 
-					       let r = Hashtbl.find register_tbl v in let r'= if Register.size r = s.operand_sz then T r else P (r, 0, s.operand_sz-1) in 
-										      POP [r']
+	| c when '\x50' <= c &&  c <= '\x57' -> let r = find_reg s ((Char.code c) - (Char.code '\x50')) in PUSH [r]
+	| c when '\x58' <= c && c <= '\x5F'  -> let r = find_reg s ((Char.code c) - (Char.code '\x50')) in POP [r]
 
-	| '\x60' -> let l = List.map (fun v -> let r = Hashtbl.find register_tbl v in if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1)) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in PUSH l
-	| '\x61' -> let l = List.map (fun v -> let r = Hashtbl.find register_tbl v in if Register.size r = s.operand_sz then T r else P(r, 0, s.operand_sz-1)) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in POP l
+	| '\x60' -> let l = List.map (fun v -> find_reg s v) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in PUSH l
+	| '\x61' -> let l = List.map (fun v -> find_reg s v) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in POP l
 	| '\x64' -> PREFIX c
 	| '\x65' -> PREFIX c
 	| '\x68' -> PUSH_i 1
@@ -306,9 +337,8 @@ module Make(Domain: Domain.T) =
 
 	| c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in JCC (v, 1) 
 
-	| '\x90' -> NOP 
+	| '\x90' 			    -> NOP 
 	| c when '\x91' <= c && c <= '\x97' -> XCHG ((Char.code c) - (Char.code '\x90'))
-
 
 	| '\xa4' -> MOVS 8
 	| '\xa5' -> MOVS s.addr_sz
@@ -322,9 +352,9 @@ module Make(Domain: Domain.T) =
 	| '\xaf' -> SCAS s.addr_sz
 
 	| c when '\xe0' <= c && c <= '\xe2' -> LOOP ((Char.code c) - (Char.code '\xe0'))
-	| '\xe3' -> JECX
+	| '\xe3' 			    -> JECXZ
 
-	| '\xe9' -> JMP (s.operand_sz / 8)
+	| '\xe9' -> JMP (s.operand_sz / Config.size_of_byte)
 	| '\xeb' -> JMP 1
 
 	| '\xf0' -> PREFIX c
@@ -335,11 +365,12 @@ module Make(Domain: Domain.T) =
 
 	| _  ->  Log.error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c))
 
-      let second_token s (*TODO: factorize with token, \x70-\x7F*) = 
+      (** parsing of the second opcode map *)
+      let second_token s = 
 	let c = getchar s in
 	match c with
 	| c when '\x80' <= c && c <= '\x8F' -> let v = (Char.code c) - (Char.code '\x80') in JCC (v, 1)
-	| _ -> Log.error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c))
+	| _ 				    -> Log.error (Printf.sprintf "Unknown second opcode 0x%x \n" (Char.code c))
 
 (********************************************************************************************)
 (* mod/rm byte decoding *)
@@ -376,10 +407,10 @@ module Make(Domain: Domain.T) =
       exception Illegal
 		  
       let sib s mod_field =
-	let b     = int_of_bytes s 1 in
-	let scale = b lsr 5          in
-	let index = (b lsr 2) land 5 in
-	let base  = b land 5         in
+	let b     = Z.to_int (int_of_bytes s 1) in
+	let scale = b lsr 5         	        in
+	let index = (b lsr 2) land 5            in
+	let base  = b land 5        	        in
 	match scale, index, base with
 	  _, 4, _  -> Log.error "Illegal sib configuration"
 	| n, i, 5  -> 
@@ -411,14 +442,14 @@ module Make(Domain: Domain.T) =
 															      
       let mod_rm_32 mod_field rm_field s =
 	match mod_field, rm_field with
-	  3, i -> V(T (Hashtbl.find register_tbl i)), 0
+	  3, i -> V (T (Hashtbl.find register_tbl i)), 0
 	| i, 4 -> sib s (i*8)
-	| 0, 5 -> M(failwith "Decoder.mod_rm_32 (case 1)", s.operand_sz), 4
-	| 0, _i -> M(failwith "Decoder.mod_rm_32 (case 2)", s.operand_sz), 0
+	| 0, 5 -> M (failwith "Decoder.mod_rm_32 (case 1)", s.operand_sz), 4
+	| 0, _i -> M (failwith "Decoder.mod_rm_32 (case 2)", s.operand_sz), 0
 	| i, _j -> 
 	   let n, _w = 
-	     if i = 1 then 1, Word.sign_extend (Word.of_int (Z.of_int (int_of_bytes s 1)) 8) 32
-	     else 4, Word.of_int (Z.of_int (int_of_bytes s 4)) 32
+	     if i = 1 then 1, Word.sign_extend (Word.of_int (int_of_bytes s 1) Config.size_of_byte) 32
+	     else 4, Word.of_int (int_of_bytes s 4) 32
 	   in
 	   M(failwith "Decoder.mod_rm_32 (case 3)", s.operand_sz), n
 										     
@@ -442,10 +473,16 @@ module Make(Domain: Domain.T) =
       (*******************************************************************************************************)
       (* statements to set/clear the flags *)
       (*******************************************************************************************************)
+
+      (** size of the overflow flag register *)
       let fof_sz = Register.size fof
+      (** size of the carry flag register *)
       let fcf_sz = Register.size fcf
-      let fsf_sz = Register.size fsf								       
+      (** size of the sign flag register *)
+      let fsf_sz = Register.size fsf
+      (** size of the adjust flag *)
       let faf_sz = Register.size faf
+      (** size of the zero flag *)
       let fzf_sz = Register.size fzf
 				 
       (** produce common statements to set the overflow flag and the adjust flag *) 
@@ -471,7 +508,7 @@ module Make(Domain: Domain.T) =
       let carry_flag_stmts sz res op1 op op2 =
 	(* fcf is set if res is different from the result of SignExt (op1) op SignExtend (op2)  *)
 	let res' = BinOp (op, UnOp(SignExt (sz+1), op1), UnOp(SignExt (sz+1), op2)) in
-        let e    = BUnOp(Not, Cmp (Eq, res, res'))		                                      in
+        let e    = BUnOp(Not, Cmp (Eq, res, res'))		                    in
 	If (e, [ Set (V (T fcf), Const (Word.one fcf_sz)) ], [ Set (V (T fcf), Const (Word.zero fcf_sz)) ])
 
       (** produce the statement to unset the carry flag *)
@@ -516,6 +553,8 @@ module Make(Domain: Domain.T) =
       (**************************************************************************************)
       (* Decoding binary operations *)
       (**************************************************************************************)
+
+      (** produces the list of statements for the flag settings involved in the ADD, ADC, SUB, SBB, ADD_i, SUB_i instructions *)
       let add_sub_flag_stmts istmts sz carry_or_borrow dst op op2 =
 	(* TODO : simplify and factorize with inc_and_dec *)
 	let name 	= Register.fresh_name ()	    in
@@ -536,7 +575,9 @@ module Make(Domain: Domain.T) =
 	    istmts
 	in
 	(Set (tmp, Lval dst)):: stmts @ flags_stmts @ [Directive (Remove v)]
-							
+
+      (** produces the list of statements for the flag settings involved in the OR, XOR, AND instructions *)
+      (** together with the right statements for flag settings *)
       let or_xor_and_flag_stmts sz stmt dst =
 	let res 	= Lval dst in
 	let flags_stmts =
@@ -547,86 +588,88 @@ module Make(Domain: Domain.T) =
 	in
 	stmt::flags_stmts
 		
-      (* add a new state with the given statements *)
-      (* an edge between the current state and this new state is added *)
-      (* the offset o' is used to set the ip field of the new state to the current ip plus this offset *)
-      let create s stmts o' =
-	s.o <- o';
+      (** add a new state with the given statements *)
+      (** an edge between the current state and this new state is added *)
+      let create s stmts =
 	let ctx = { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz } in
-	let v   = Cfa.add_state s.g (Address.add_offset s.a (Z.of_int o')) s.b.Cfa.State.v stmts ctx false in
+	let v   = Cfa.add_state s.g (Address.add_offset s.a (Z.of_int s.o)) s.b.Cfa.State.v stmts ctx false in
 	Cfa.add_edge s.g s.b v None;
 	[v]
 
-	  
-      let add_sub_immediate op carry_or_borrow s r sz = 
-	let w     = Word.of_int (Z.of_int (int_of_bytes s sz)) s.operand_sz			     in
-	let o     = UnOp (SignExt s.operand_sz, Const w)				             in 
+      (** produces the list of statement corresponding to the token ADD_i (add with immediate operand) and SUB_i (sub with immediate operand) *)
+      (** together with the right statements for flag settings *)
+      let add_sub_immediate op carry_or_borrow s r sz =
+	let sz'   = sz / Config.size_of_byte                                                      in
+	let w     = Word.of_int (int_of_bytes s sz') s.operand_sz			          in
+	let o     = UnOp (SignExt s.operand_sz, Const w)				          in 
 	let stmts = add_sub_flag_stmts [Set (r, BinOp (op, Lval r, o))] sz carry_or_borrow r op o in  
-	create s stmts (sz+1)
+	create s stmts
+
 	       
       let operands_from_mod_reg_rm v s =
-	let d 	= (v lsr 1) land 1       in
-	let n 	= int_of_byte s          in
-	let reg_field = (n lsr 3) land 7 in
-	let mod_field = n lsr 6	         in
-	let rm_field  = n land 7 	 in
+	let d 	= (v lsr 1) land 1         in
+	let n 	= Z.to_int (int_of_byte s) in
+	let reg_field = (n lsr 3) land 7   in
+	let mod_field = n lsr 6	           in
+	let rm_field  = n land 7 	   in
 	mod_rm mod_field rm_field reg_field d s
 	 
       let binop_with_eax v s =
 	match Char.chr v with
 	  (* TODO: to be more readable, v should be a char not an int *)
-	  '\x04' | '\x0c' | '\x14' | '\x1c' | '\x24' | '\x2c' | '\x34' | '\x3c' -> P(eax, 0, 7), Word.of_int (Z.of_int (int_of_byte s)) 8, 1
-	  | '\x05' | '\x0d' | '\x15' | '\x1d' | '\x25' | '\x2d' | '\x35' | '\x3d' -> 
-									    let n = s.operand_sz / 8                              in
-									    let w = Word.of_int (Z.of_int (int_of_bytes s n)) s.operand_sz in 
-									    let r = 
-									      if s.operand_sz = Register.size eax then T eax
-									      else P(eax, 0, s.operand_sz-1)    in
-									    r, w, n
-	  | _ -> raise Exit
+	| '\x04' | '\x0c' | '\x14' | '\x1c'
+	| '\x24' | '\x2c' | '\x34' | '\x3c' -> P(eax, 0, 7), Word.of_int (int_of_byte s) Config.size_of_byte, 1
+
+	| '\x05' | '\x0d' | '\x15' | '\x1d'
+	| '\x25' | '\x2d' | '\x35' | '\x3d' ->
+				      let n = s.operand_sz / 8                            in
+				      let w = Word.of_int (int_of_bytes s n) s.operand_sz in 
+				      let r = to_reg s eax                                in
+				      r, w, n
+	| _ -> raise Exit
 		       
       let add_sub op carry_or_borrow v s =
 	try
-	  let stmts, off =
+	  let stmts =
 	    try 
 	      let r, w, off = binop_with_eax v s			 in
 	      let stmt      = Set(V r, BinOp(op, Lval (V r), Const w)) in
-	      add_sub_flag_stmts [stmt] (off*8) carry_or_borrow (V r) op (Const w), off
+	      add_sub_flag_stmts [stmt] (off*8) carry_or_borrow (V r) op (Const w)
 	    with Exit -> 
 	      begin
-		let dst, src, off = operands_from_mod_reg_rm v s	     in
+		let dst, src, _off = operands_from_mod_reg_rm v s	     in
 		let stmt 	  = Set (dst, BinOp(op, Lval dst, Lval src)) in
-		add_sub_flag_stmts [stmt] s.operand_sz carry_or_borrow dst op (Lval src), off
+		add_sub_flag_stmts [stmt] s.operand_sz carry_or_borrow dst op (Lval src)
 	      end
 	  in
-	  create s stmts (off+2)
-	with Illegal -> create s [Undef] 2
+	  create s stmts
+	with Illegal -> create s [Undef]
 			       
       let or_xor_and op v s =
 	(* Factorize with add_and_sub *)
 	try
-	  let stmts, off =
+	  let stmts =
 	    try 
 	      let r, w, off = binop_with_eax v s in
 	      let stmt = Set(V r, BinOp(op, Lval (V r), Const w)) in
-	      or_xor_and_flag_stmts (off*8) stmt (V r), off
+	      or_xor_and_flag_stmts (off*8) stmt (V r)
 	    with Exit -> 
 	      begin
-		let dst, src, off = operands_from_mod_reg_rm v s 
+		let dst, src, _off = operands_from_mod_reg_rm v s 
 		in
 		let stmt = Set (dst, BinOp(op, Lval dst, Lval src)) in
-		or_xor_and_flag_stmts s.operand_sz stmt dst, off
+		or_xor_and_flag_stmts s.operand_sz stmt dst
 	      end
 	  in
-	  create s stmts (off+2)
-	with Illegal -> create s [Undef] 2
+	  create s stmts
+	with Illegal -> create s [Undef]
 			       
       let cmp v s =
 	(* Factorize with add_and_sub *)
 	try
-	  let dst, src, off = 
-	    try  let r, w, o = binop_with_eax v s in V r, Const w, o
-	    with Exit -> let d, s, o = operands_from_mod_reg_rm v s in d, Lval s, o
+	  let dst, src = 
+	    try  let r, w, _o = binop_with_eax v s in V r, Const w
+	    with Exit -> let d, s, _o = operands_from_mod_reg_rm v s in d, Lval s
 	  in
 	  let stmts =
 	    let name  = Register.fresh_name ()						   in
@@ -635,17 +678,20 @@ module Make(Domain: Domain.T) =
 	    let stmts = add_sub_flag_stmts [stmt] s.operand_sz false (V (T tmp)) Sub src in
 	    stmts@[Directive (Remove tmp)]
 	  in
-	  create s stmts (off+2)
-	with Illegal -> create s [Undef] 2
+	  create s stmts
+	with Illegal -> create s [Undef]
 			       
-			       
+      (** [const c s] builds the asm constant c from the given context *)
+      let const s c = Const (Word.of_int (Z.of_int c) s.operand_sz)
+
+			    
       let inc_dec reg op s =
 	let dst 	= V reg                                       in
 	let name        = Register.fresh_name ()                      in
 	let v           = Register.make ~name:name ~size:s.operand_sz in
 	let tmp         = V (T v)				      in
 	let op1         = Lval tmp			              in
-	let op2         = Const (Word.one s.operand_sz)               in
+	let op2         = const s 1                                   in
 	let res         = Lval dst			              in
 	let flags_stmts =
 	  [
@@ -656,33 +702,37 @@ module Make(Domain: Domain.T) =
 	let stmts = 
 	  [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @ 
 	    flags_stmts @ [Directive (Remove v)]              in
-	create s stmts 1
-	       
+	create s stmts
+
+    
+      (** returns the asm condition of jmp statements from an expression *)
       let exp_of_cond v s n =
-	match v with
-	| 0 | 1   -> Cmp (Eq, Lval (V (T fof)), Const (Word.of_int (Z.of_int (1-v)) s.operand_sz)), int_of_bytes s n
-	| 2 | 3   -> Cmp (Eq, Lval (V (T fcf)), Const (Word.of_int (Z.of_int (1-(v-2))) s.operand_sz)), int_of_bytes s n
-	| 4 | 5   -> Cmp (Eq, Lval (V (T fzf)), Const (Word.of_int (Z.of_int (1-(v-4))) s.operand_sz)), int_of_bytes s n
-	| 6       -> BBinOp (LogOr, Cmp (Eq, Lval (V (T fcf)), Const (Word.one s.operand_sz)), Cmp (Eq, Lval (V (T fzf)), Const (Word.one s.operand_sz))), int_of_bytes s n
-	| 7       -> BBinOp (LogAnd, Cmp (Eq, Lval (V (T fcf)), Const (Word.zero s.operand_sz)), Cmp (Eq, Lval (V (T fzf)), Const (Word.zero s.operand_sz))), int_of_bytes s n
-	| 8 | 9   -> Cmp (Eq, Lval (V (T fsf)), Const (Word.of_int (Z.of_int (1-(v-8))) s.operand_sz)), int_of_bytes s n
-	| 10 | 11 -> Cmp (Eq, Lval (V (T fpf)), Const (Word.of_int (Z.of_int (1-(v-10))) s.operand_sz)), int_of_bytes s n
-	| 12      -> BUnOp (Not, Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof)))), int_of_bytes s n
-	| 13      -> Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof))), int_of_bytes s n
-	| 14      -> BBinOp (LogOr, Cmp (Eq, Lval (V (T fzf)), Const (Word.one s.operand_sz)), BUnOp(Not, Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof))))), int_of_bytes s n
-	| 15      -> BBinOp (LogAnd, Cmp (Eq, Lval (V (T fzf)), Const (Word.zero s.operand_sz)), Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof)))), int_of_bytes s n
-	| _       -> Log.error "Opcode.exp_of_cond: illegal value"
-				 
+	let const c = const s c	in
+	let e =
+	  match v with
+	  | 0 | 1   -> Cmp (Eq, Lval (V (T fof)), const (1-v))
+	  | 2 | 3   -> Cmp (Eq, Lval (V (T fcf)), const (1-(v-2)))
+	  | 4 | 5   -> Cmp (Eq, Lval (V (T fzf)), const (1-(v-4)))
+	  | 6       -> let c1 = const 1 in BBinOp (LogOr, Cmp (Eq, Lval (V (T fcf)), c1), Cmp (Eq, Lval (V (T fzf)), c1))											   
+	  | 7       -> let c0 = const 0 in BBinOp (LogAnd, Cmp (Eq, Lval (V (T fcf)), c0), Cmp (Eq, Lval (V (T fzf)), c0))
+	  | 8 | 9   -> Cmp (Eq, Lval (V (T fsf)), const (1-(v-8)))
+	  | 10 | 11 -> Cmp (Eq, Lval (V (T fpf)), const (1-(v-10)))
+	  | 12      -> BUnOp (Not, Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof))))
+	  | 13      -> Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof)))
+	  | 14      -> BBinOp (LogOr, Cmp (Eq, Lval (V (T fzf)), const 1), BUnOp(Not, Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof)))))
+	  | 15      -> BBinOp (LogAnd, Cmp (Eq, Lval (V (T fzf)), const 0), Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof))))
+	  | _       -> Log.error "Opcode.exp_of_cond: illegal value"
+	in
+	e, int_of_bytes s n
 				   
-				   
-				   
+				   				   
       let parse_two_bytes s =
 	match second_token s with
 	  JCC (v, n) ->
-	  (* TODO: factorize with JMP *)
-	  let e, o = exp_of_cond v s n in
-	  let a'   = Address.add_offset s.a (Z.of_int o) in
-	  create s [Jcc (e, Some (A a'))] o
+	  let e, o = exp_of_cond v s n        in
+	  let a'   = Address.add_offset s.a o in
+	  create s [Jcc (e, Some (A a'))]
+		 
 	| _ -> Log.error "Opcode.parse_two_bytes: opcode"
 			   
 			   
@@ -711,7 +761,7 @@ module Make(Domain: Domain.T) =
 	end;
 	if c = Esc then s.addr_sz <- !Config.address_sz
 							       
-							       
+      (** updates the decoder state with respect to the decoded prefix *)
       let push_prefix s c =
 	match c with
 	| '\xf0' -> Log.from_decoder (Printf.sprintf "Prefix 0x%X ignored \n" (Char.code c))
@@ -725,11 +775,9 @@ module Make(Domain: Domain.T) =
 	| '\x65' -> s.segments.data <- ss
 	| '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16
 	| '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16
-	| _ -> Log.error "not a prefix"
+	| _      -> Log.error "not a prefix"
 		     
 		     
-
-
       let is_register_set stmts r =
 	let is_set stmt =
 	  match stmt with
@@ -865,7 +913,7 @@ module Make(Domain: Domain.T) =
 	| ESC ->
 	   (* TODO: factorize with JCC *) update_prefix s Esc; parse_two_bytes s
 									       
-	| HLT -> create s [] 1
+	| HLT -> create s []
 			
 	| INC reg 	     -> inc_dec reg Add s
 					    
@@ -873,22 +921,22 @@ module Make(Domain: Domain.T) =
 	   (* TODO: factorize with JMP *)
 	   update_prefix s Jcc_i;
 	   let e, o = exp_of_cond v s n in
-	   let a' = Address.add_offset s.a (Z.of_int o) in
-	   create s [ Jcc (e, Some (A a')) ] o
+	   let a' = Address.add_offset s.a o in
+	   create s [ Jcc (e, Some (A a')) ]
 		  
-	| JECX ->
+	| JECXZ ->
 	   (* TODO: factorize with JMP *)
 	   update_prefix s Jcc_i;
 	   let o    = int_of_bytes s (s.operand_sz/ Config.size_of_byte) in
-	   let a'   = Address.add_offset s.a (Z.of_int o) in
+	   let a'   = Address.add_offset s.a o in
 	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P(ecx, 0, s.addr_sz-1) in
 	   let e    = Cmp (Eq, Lval (V ecx'), Const (Word.zero (Register.size ecx))) in
-	   create s [Jcc (e, Some (A a'))] o
+	   create s [Jcc (e, Some (A a'))]
 		  
 	| JMP i 	     ->
-	   let o  = int_of_bytes s i                    in
-	   let a' = Address.add_offset s.a (Z.of_int o) in
-	   create s [ Jcc (BConst true, Some (A a')) ] o
+	   let o  = int_of_bytes s i         in
+	   let a' = Address.add_offset s.a o in
+	   create s [ Jcc (BConst true, Some (A a')) ]
 		  
 	| LODS i -> 
 	   let _esi', _eax' =
@@ -899,6 +947,7 @@ module Make(Domain: Domain.T) =
 	   make_rep s [ Set(M (failwith "exp LODS case 1", i), Lval (M(failwith "exp LODS case 2", i))) ] [esi] i
       
 	| LOOP i ->
+	   (* TODO: check whether c and zero of length s.addr_sz rather than s.operand_sz *)
 	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P (ecx, 0, s.addr_sz -1) in  
 	   let c = Const (Word.of_int Z.one s.addr_sz) in
 	   let stmts = add_sub_flag_stmts [Set(V ecx', BinOp(Sub, Lval (V ecx'), c))] s.addr_sz false (V ecx') Sub c in 
@@ -910,9 +959,8 @@ module Make(Domain: Domain.T) =
 	     | 1 -> (* loope *)  BBinOp (LogAnd, Cmp (Eq, Lval (V (T (fzf))), Const (Word.of_int Z.zero (Register.size fzf))), ecx_cond)
 	     | _ -> (* loop *)  ecx_cond
 	   in
-	   let a' = Address.add_offset s.a (Z.of_int (int_of_bytes s 1)) in
+	   let a' = Address.add_offset s.a (int_of_bytes s 1) in
 	   Cfa.update_stmts s.b (stmts@[Jcc(e, Some (A a'))]) s.operand_sz s.addr_sz;
-	   s.o <- s.o + 1;
 	   Cfa.add_edge s.g s.b s.b (Some true);
 	   [s.b]
 	     
@@ -928,7 +976,7 @@ module Make(Domain: Domain.T) =
 	   update_prefix s Str; 
 	   make_rep s stmts [esi ; edi] i
 		    
-	| NOP 	     ->  create s [Nop] 1
+	| NOP 	     ->  create s [Nop]
 				
 	| OR v -> or_xor_and Or v s
 				 
@@ -940,7 +988,7 @@ module Make(Domain: Domain.T) =
 						Lval (M (Lval (V esp'), n))) ; set_esp esp' n ] @ stmts
 			 ) [] v 
 	   in
-	   create s stmts 1
+	   create s stmts
 		  
 	| PREFIX c -> push_prefix s c; decode s
 					      
@@ -969,14 +1017,14 @@ module Make(Domain: Domain.T) =
 			   [ s ; set_esp esp' n ] @ stmts
 			 ) [] v
 	   in
-	   create s (pre @ stmts @ post) 1
+	   create s (pre @ stmts @ post)
 		  
 	| PUSH_i n -> 
-	   let c     = Const (Word.of_int (Z.of_int (int_of_bytes s n)) !Config.stack_width)  in
+	   let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width)  in
 	   let esp'  = esp_lval ()							      in
 	   let stmts = [ Set (M (Lval (V esp'), !Config.stack_width), c) ; set_esp esp' !Config.stack_width ]			 
 	   in
-	   create s stmts (n+1)
+	   create s stmts
 		  
 	| SBB v	     -> add_sub Sub true v s
 				    
@@ -1015,7 +1063,7 @@ module Make(Domain: Domain.T) =
 	   let stmts = [ Set(V (T tmp), Lval (V eax)) ; 
 			Set(V eax, Lval (V r)) ; 
 			Set(V r, Lval (V (T tmp))) ; Directive (Remove tmp)] in
-	   create s stmts 1
+	   create s stmts
 		  
 		  
 	| XOR v -> or_xor_and Xor v s
@@ -1051,23 +1099,13 @@ module Make(Domain: Domain.T) =
 	(* builds the gdt *)
 	Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int (Z.mul o (Z.of_int 64)) 64) (tbl_entry_of_int v)) Config.gdt;
 	let reg = Hashtbl.create 6 in
-	Hashtbl.add reg cs (get_segment_register_mask !Config.cs);
-	Hashtbl.add reg ds (get_segment_register_mask !Config.ds);
-	Hashtbl.add reg ss (get_segment_register_mask !Config.ss);
-	Hashtbl.add reg es (get_segment_register_mask !Config.es);
-	Hashtbl.add reg fs (get_segment_register_mask !Config.fs);
-	Hashtbl.add reg gs (get_segment_register_mask !Config.gs);
+	List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
 	{ gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg; }
 
       let get_segments ctx =
 	let registers = Hashtbl.create 6 in
 	try
-	  Hashtbl.add registers cs (get_segment_register_mask (ctx#value_of_register cs));
-	  Hashtbl.add registers ds (get_segment_register_mask (ctx#value_of_register ds));
-	  Hashtbl.add registers ss (get_segment_register_mask (ctx#value_of_register ss));
-	  Hashtbl.add registers es (get_segment_register_mask (ctx#value_of_register es));
-	  Hashtbl.add registers fs (get_segment_register_mask (ctx#value_of_register fs));
-	  Hashtbl.add registers gs (get_segment_register_mask (ctx#value_of_register gs));
+	  List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
 	  registers
 	with _ -> Log.error "Decoder: overflow in a segment register" 
 	  
