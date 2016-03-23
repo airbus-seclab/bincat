@@ -85,7 +85,7 @@ def main():
     
     a = Analyzer() 
     a.logger.info("[Analyzer] Launching Analyzer main function : ")
-    print("\n[*] Analyzer.py : entering main \n")
+    print("\n[*] Analyzer : Entering main function. \n")
     argsParser = argparse.ArgumentParser(description="Analyzer arguments parsing . ")
     argsParser.add_argument('address' ,action='store' ,help ='offset in the binary')
     argsParser.add_argument('--mnemonics' ,action='store' ,help ='mnemonics to analyze')
@@ -98,11 +98,14 @@ def main():
     
     args = argsParser.parse_args()
     a.logger.info("[Analyzer] Parsing command line: ")
-    print(args.inifile)
     a.logger.info("[Analyzer] ini file : %s ",args.inifile)
-
-    print(args.outfile)
     a.logger.info("[Analyzer] out file : %s ",args.outfile)
+
+    print("[*] Analyzer : treatement of the following parameters:\n")
+    print(" - address : %s.\n"%args.address)
+    print(" - inifile : %s.\n"%args.inifile)
+    print(" - outfile : %s.\n"%args.outfile)
+   
 
     # create socket 
     a.logger.info("[Analyzer] Creating Socket from IDA fd ")
