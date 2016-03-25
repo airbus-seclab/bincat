@@ -14,63 +14,71 @@ struct
   class domain_oracle s =
   (object
     (* Be careful : never call this method to implement a function of signature D.mem_to_adresses (stack overflow) *)
-      method mem_to_addresses e sz = D.mem_to_addresses e sz s
+      method mem_to_addresses e = D.mem_to_addresses s e
     end: Domain.oracle)
     
-  open Data
   open Asm
 	 
   module Vertices = Set.Make(Cfa.State)
 			    
-  (** computes the list of function targets (their addresses) from a value of type fct *)
-  let ft_to_addresses s sz f =
-    match f with
-      I r -> Address.Set.elements (D.mem_to_addresses (Lval (V r)) sz s)
-    | D a -> [a]
-
-  (** computes the list of jump targets (their addresses) from a value of type jmp_target *)
-  let jmp_to_addresses _s j _sz =
-    match j with
-      A a -> [a]
-    | R (_n, _r) -> failwith "the following commented code shows a confusion between what an offset and an address are supposed to represent "
-  (*let n' = Segment.shift_left n 4 in
-		  let offsets = Address.Set.elements (D.mem_to_addresses s (Lval (V r))) in
-		  List.map (fun a -> Address.of_string (n'^":"^a) sz) offsets*)
+  
 						   
   let default_ctx () = {
       Cfa.State.op_sz = !Config.operand_sz; 
       Cfa.State.addr_sz = !Config.address_sz;
     }
-			 
+
+  let inv_cmp cmp =
+    match cmp with
+    | EQ  -> NEQ
+    | NEQ -> EQ
+    | LT  -> GEQ
+    | GEQ -> LT
+    | LEQ -> GT
+    | GT  -> LEQ
+
+  let restrict d e b =
+    let rec process e b =
+    match e with
+    | BConst b' 	      -> if b = b' then d else D.bot
+    | BUnOp (Not, e) 	      -> process e (not b)
+			       
+    | BBinOp (LogOr, e1, e2)  ->
+       let v1 = process e1 b in
+       let v2 = process e2 b in
+       if b then D.join v1 v2
+       else D.meet v1 v2
+					  
+    | BBinOp (LogAnd, e1, e2) ->
+       let v1 = process e1 b in
+       let v2 = process e2 b in
+       if b then D.meet v1 v2
+       else D.join v1 v2
+					  
+    | Asm.Cmp (cmp, e1, e2)    ->
+       let cmp' = if b then cmp else inv_cmp cmp in
+       D.compare d e1 cmp' e2
+    in
+    process e b
+    
   let process_stmt _g (_v: Cfa.State.t) d stmt =
-    match stmt with							   
-    (*| Jcc (None, Some e)  ->
-       let addr_sz = (* v.Cfa.State.ctx.addr_sz in *) failwith "Fixpoint.process_stmt, case Jcc: addr_sz field of v to compute" in
-    let addrs = jmp_to_addresses s e addr_sz in
-    List.fold_left (fun vertices a -> 
-      let v', b = Cfa.add_state g v a s [] (default_ctx()) false in
-      Cfa.add_edge g v v' None; 
-      if b then v'::vertices 
-      else vertices) [] addrs
-
-    | Call f ->
-       let ctx = (v.Cfa.State.ctx: Cfa.State.ctx_t) in
-       let sz = ctx.Cfa.State.addr_sz in
-    let addrs = ft_to_addresses s sz f in
-    List.fold_left (fun vertices a -> 
-      let v', b = Cfa.add_state g v a s [] (default_ctx()) false in
-      Cfa.add_edge g v v' None; 
-      if b then v'::vertices 
-      else vertices) [] addrs*)
-
+    let rec process d s =
+      match s with							   
     | Nop -> d
-	       
+
+    | If (e, then_stmts, else_stmts) ->
+       let then' = List.fold_left (fun d s -> process d s) (restrict d e true) then_stmts in
+       let else' = List.fold_left (fun d s -> process d s) (restrict d e false) else_stmts in
+       D.join then' else'
+	      
     | Set (dst, src) -> D.set dst src (new domain_oracle d) d
 
     | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d'
 				       
     | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt))
-
+    in
+    process d stmt
+	    
   (* update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
   (* vertices are supposed to be sorted in topological order *)
   (* update the abstract value field of each vertex *)
@@ -145,7 +153,7 @@ struct
 	  (* udpate the internal state of the decoder *)
 	  d := d'
 	with
-	| Exceptions.Enum_failure (m, msg) -> Log.from_analysis (m^"."^msg) "analysis stopped in that branch"
+	| Exceptions.Enum_failure -> Log.from_analysis "analysis stopped in that branch (too large value computed)"
       end;
       (* boolean condition of loop iteration is updated                                                          *)
       continue := not (Vertices.is_empty !waiting);

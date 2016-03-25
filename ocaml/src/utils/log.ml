@@ -9,7 +9,7 @@ let init fname =
 
 
 (** dump a message provided by the analysis step *)
-let from_analysis module_name msg = Printf.fprintf (!logfid) "[analysis] %s: %s\n" module_name msg
+let from_analysis msg = Printf.fprintf (!logfid) "[analysis] %s\n" msg
 
 (** dump a message produced by the decoding step *)
 let from_decoder msg = Printf.fprintf (!logfid) "[decoding] %s\n" msg

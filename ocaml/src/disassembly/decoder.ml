@@ -484,17 +484,19 @@ module Make(Domain: Domain.T) =
       let faf_sz = Register.size faf
       (** size of the zero flag *)
       let fzf_sz = Register.size fzf
+      (** size of the parity flag *)
+      let fpf_sz = Register.size fpf
 				 
       (** produce common statements to set the overflow flag and the adjust flag *) 
       let overflow flag n nth sz res op1 op2 =
 	(* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
-
+	let b1        = Const (Word.of_int Z.one 1)               in
 	let nth'      = Const (Word.of_int (Z.of_int nth) sz)	  in
-	let sign_res  = BinOp (Shrs, res, nth')	 	    	  in
-	let sign_op1  = BinOp (Shrs, op1, nth')	 	    	  in
-	let sign_op2  = BinOp (Shrs, op2, nth')	 	    	  in
-	let c1 	      = Cmp (Eq, sign_op1, sign_op2)   	       	  in
-	let c2 	      = BUnOp (Not, Cmp (Eq, sign_res, sign_op1)) in
+	let sign_res  = BinOp(And, BinOp (Shr, res, nth'), b1)    in
+	let sign_op1  = BinOp(And, BinOp (Shr, op1, nth'), b1)	  in
+	let sign_op2  = BinOp(And, BinOp (Shr, op2, nth'), b1)	  in
+	let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	       	  in
+	let c2 	      = BUnOp (Not, Cmp (EQ, sign_res, sign_op1)) in
 	let one_stmt  = Set (V (T flag), Const (Word.one n))	  in
 	let zero_stmt = Set (V (T flag), Const (Word.zero n))	  in
 	If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
@@ -506,11 +508,8 @@ module Make(Domain: Domain.T) =
       let clear_overflow_flag_stmts () = Set (V (T fof), Const (Word.zero fof_sz)) 
 
       (** produce the statement to set the carry flag according to the current operation whose operands are op1 and op2 and result is res *)
-      let carry_flag_stmts sz res op1 op op2 =
-	(* fcf is set if res is different from the result of SignExt (op1) op SignExtend (op2)  *)
-	let res' = BinOp (op, UnOp(SignExt (sz+1), op1), UnOp(SignExt (sz+1), op2)) in
-        let e    = BUnOp(Not, Cmp (Eq, res, res'))		                    in
-	If (e, [ Set (V (T fcf), Const (Word.one fcf_sz)) ], [ Set (V (T fcf), Const (Word.zero fcf_sz)) ])
+      let carry_flag_stmts _sz _res _op1 _op _op2 = Log.error "Decoder.carry_flag_stmts"
+	(* fcf is set if the sz+1 bit of the result is 1 *)
 
       (** produce the statement to unset the carry flag *)
       let clear_carry_flag_stmts () = Set (V (T fcf), Const (Word.zero fcf_sz))
@@ -520,12 +519,12 @@ module Make(Domain: Domain.T) =
 
       (** produce the statement to set the sign flag *)					    
       let sign_flag_stmts sz res =
-	let c = Cmp (Eq, Const (Word.one fsf_sz), BinOp(Shrs, res, Const (Word.of_int (Z.of_int 31) sz))) in
+	let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, Const (Word.of_int (Z.of_int 31) sz))) in
 	If (c, [ Set (V (T fsf), Const (Word.one fsf_sz)) ], [ Set (V (T fsf), Const (Word.zero fsf_sz))] ) 
 	     
       (** produce the statement to set the zero flag *)	
       let zero_flag_stmts sz res =
-	let c = Cmp (Eq, res, Const (Word.zero sz)) in
+	let c = Cmp (EQ, res, Const (Word.zero sz)) in
 	If (c, [ Set (V (T fzf), Const (Word.one fzf_sz))], [Set (V (T fzf), Const (Word.zero fzf_sz))])
 
       (** produce the statement to set the adjust flag *)
@@ -539,7 +538,7 @@ module Make(Domain: Domain.T) =
 	(* using the modulo of the divison by 2 *)
 	let nth i =
 	  let one = Const (Word.one (sz-i)) in
-	  BinOp (And, BinOp(Shrs, res, Const (Word.of_int (Z.of_int i) sz)), one)
+	  BinOp (And, BinOp(Shr, res, Const (Word.of_int (Z.of_int i) sz)), one)
 	in
 	let e = ref (nth 0) in
 	for i = 1 to 7 do
@@ -547,7 +546,7 @@ module Make(Domain: Domain.T) =
 	done;
 	let if_stmt   = Set (V (T fpf), Const (Word.one fpf_sz))			                    in
 	let else_stmt = Set (V (T fpf), Const (Word.zero fpf_sz))			                    in
-	let c 	      = Cmp (Eq, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)) in
+	let c 	      = Cmp (EQ, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)) in
 	If(c, [ if_stmt ], [ else_stmt ]) 
 	  
 	  
@@ -711,17 +710,17 @@ module Make(Domain: Domain.T) =
 	let const c = const s c	in
 	let e =
 	  match v with
-	  | 0 | 1   -> Cmp (Eq, Lval (V (T fof)), const (1-v))
-	  | 2 | 3   -> Cmp (Eq, Lval (V (T fcf)), const (1-(v-2)))
-	  | 4 | 5   -> Cmp (Eq, Lval (V (T fzf)), const (1-(v-4)))
-	  | 6       -> let c1 = const 1 in BBinOp (LogOr, Cmp (Eq, Lval (V (T fcf)), c1), Cmp (Eq, Lval (V (T fzf)), c1))											   
-	  | 7       -> let c0 = const 0 in BBinOp (LogAnd, Cmp (Eq, Lval (V (T fcf)), c0), Cmp (Eq, Lval (V (T fzf)), c0))
-	  | 8 | 9   -> Cmp (Eq, Lval (V (T fsf)), const (1-(v-8)))
-	  | 10 | 11 -> Cmp (Eq, Lval (V (T fpf)), const (1-(v-10)))
-	  | 12      -> BUnOp (Not, Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof))))
-	  | 13      -> Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof)))
-	  | 14      -> BBinOp (LogOr, Cmp (Eq, Lval (V (T fzf)), const 1), BUnOp(Not, Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof)))))
-	  | 15      -> BBinOp (LogAnd, Cmp (Eq, Lval (V (T fzf)), const 0), Cmp (Eq, Lval (V (T fsf)), Lval (V (T fof))))
+	  | 0 | 1   -> Cmp (EQ, Lval (V (T fof)), const (1-v))
+	  | 2 | 3   -> Cmp (EQ, Lval (V (T fcf)), const (1-(v-2)))
+	  | 4 | 5   -> Cmp (EQ, Lval (V (T fzf)), const (1-(v-4)))
+	  | 6       -> let c1 = const 1 in BBinOp (LogOr, Cmp (EQ, Lval (V (T fcf)), c1), Cmp (EQ, Lval (V (T fzf)), c1))											   
+	  | 7       -> let c0 = const 0 in BBinOp (LogAnd, Cmp (EQ, Lval (V (T fcf)), c0), Cmp (EQ, Lval (V (T fzf)), c0))
+	  | 8 | 9   -> Cmp (EQ, Lval (V (T fsf)), const (1-(v-8)))
+	  | 10 | 11 -> Cmp (EQ, Lval (V (T fpf)), const (1-(v-10)))
+	  | 12      -> BUnOp (Not, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))))
+	  | 13      -> Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))
+	  | 14      -> BBinOp (LogOr, Cmp (EQ, Lval (V (T fzf)), const 1), BUnOp(Not, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))))
+	  | 15      -> BBinOp (LogAnd, Cmp (EQ, Lval (V (T fzf)), const 0), Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))))
 	  | _       -> Log.error "Opcode.exp_of_cond: illegal value"
 	in
 	e, int_of_bytes s n
@@ -793,12 +792,12 @@ module Make(Domain: Domain.T) =
 	let len      = Register.size ecx					     in
 	let lv       = V(if s.addr_sz <> len then P(ecx, 0, s.addr_sz-1) else T ecx) in
 	let ecx_decr = Set(lv, BinOp(Sub, Lval lv, Const (Word.one len)))	     in
-	let test     = BUnOp (Not, Cmp (Eq, Lval lv, Const (Word.zero len)))         in (* lv <> 0 *)
+	let test     = BUnOp (Not, Cmp (EQ, Lval lv, Const (Word.zero len)))         in (* lv <> 0 *)
 	let test'    = 
 	  if is_register_set str_stmt fzf then
 	    let c = if s.rep_prefix = Some true then Const (Word.zero len) else Const (Word.one len)
 	    in
-	    BBinOp (LogOr, test, Cmp (Eq, Lval (V (T fzf)), c)) 
+	    BBinOp (LogOr, test, Cmp (EQ, Lval (V (T fzf)), c)) 
 	  else test
 	in
 	let esi_stmt = 
@@ -822,7 +821,7 @@ module Make(Domain: Domain.T) =
 	Cfa.update_stmts s.b [Jcc (test', Some (A s.a))] s.operand_sz s.addr_sz;
 	Cfa.add_edge s.g s.b rep_blk None;
 	let ctx = { Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz } in	
-	let instr_blk = Cfa.add_state s.g s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc( Cmp (Eq, Lval (V(T fdf)), Const (Word.of_int Z.one 1)), None)]) ctx true in 
+	let instr_blk = Cfa.add_state s.g s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc( Cmp (EQ, Lval (V(T fdf)), Const (Word.of_int Z.one 1)), None)]) ctx true in 
 	Cfa.add_edge s.g rep_blk instr_blk (Some true);
 	let step     	= Const (Word.of_int (Z.of_int (i / Config.size_of_byte)) s.addr_sz) in
 	let decr     	= 
@@ -931,7 +930,7 @@ module Make(Domain: Domain.T) =
 	   let o    = int_of_bytes s (s.operand_sz/ Config.size_of_byte) in
 	   let a'   = Address.add_offset s.a o in
 	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P(ecx, 0, s.addr_sz-1) in
-	   let e    = Cmp (Eq, Lval (V ecx'), Const (Word.zero (Register.size ecx))) in
+	   let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero (Register.size ecx))) in
 	   create s [Jcc (e, Some (A a'))]
 		  
 	| JMP i 	     ->
@@ -954,10 +953,10 @@ module Make(Domain: Domain.T) =
 	   let stmts = add_sub_flag_stmts [Set(V ecx', BinOp(Sub, Lval (V ecx'), c))] s.addr_sz false (V ecx') Sub c in 
 	   let e =
 	     let zero = Const (Word.of_int Z.zero s.addr_sz) in
-	     let ecx_cond = BUnOp (Not, Cmp (Eq, Lval (V ecx'), zero)) in
+	     let ecx_cond = BUnOp (Not, Cmp (EQ, Lval (V ecx'), zero)) in
 	     match i with
-	       0 -> (* loopne *) BBinOp (LogAnd, Cmp (Eq, Lval (V (T (fzf))), Const (Word.of_int Z.one (Register.size fzf))), ecx_cond)
-	     | 1 -> (* loope *)  BBinOp (LogAnd, Cmp (Eq, Lval (V (T (fzf))), Const (Word.of_int Z.zero (Register.size fzf))), ecx_cond)
+	       0 -> (* loopne *) BBinOp (LogAnd, Cmp (EQ, Lval (V (T (fzf))), Const (Word.of_int Z.one (Register.size fzf))), ecx_cond)
+	     | 1 -> (* loope *)  BBinOp (LogAnd, Cmp (EQ, Lval (V (T (fzf))), Const (Word.of_int Z.zero (Register.size fzf))), ecx_cond)
 	     | _ -> (* loop *)  ecx_cond
 	   in
 	   let a' = Address.add_offset s.a (int_of_bytes s 1) in

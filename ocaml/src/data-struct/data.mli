@@ -83,7 +83,7 @@ module Address: sig
   (** generation from a given region, offset of type Z.t and size in bits *)
   val of_int: region -> Z.t -> int -> t
 
-  (** generation drom a given word *)
+  (** generation from a given word *)
   val of_word: Word.t -> t
 				     
   (** returns the size in bits needed to the store the given address *)
@@ -98,7 +98,12 @@ module Address: sig
 			     
   (** returns the distance between two addresses into the same region *)
   val sub: t -> t -> Z.t
-		       
+
+  (** [binary op w1 w2] return the result of w1 op w2 with op expressed as a Z operator *)
+  val binary: (Z.t -> Z.t -> Z.t) -> t -> t -> t
+
+  (** [unary op w] return the result of op w with op expressed as a Z operator *)
+  val unary: (Z.t -> Z.t) -> t -> t
 
   (** set of addresses *)
   module Set: (Set.S with type elt = t)

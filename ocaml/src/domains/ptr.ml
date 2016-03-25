@@ -2,7 +2,7 @@
 (* abstract domain of concrete pointer                                        *)
 (******************************************************************************)
 
-open Asm
+
 module Address = Data.Address
 
        
@@ -13,7 +13,8 @@ type t =
       
 let name = "Pointer"
 
-let bot _sz = BOT
+let bot = BOT
+let top = TOP
 	    
 let equal p1 p2 =
   match p1, p2 with
@@ -38,45 +39,51 @@ let to_string p =
   | Val a -> Address.to_string a
   | TOP -> "?"
   | BOT -> "_"
+
+let of_word c = Val (Address.of_word c)
 		      
 let of_config r c sz = Val (Address.of_int r c sz)
-		       
-let eval_exp e _sz _dom_ctx c =
-  let rec eval e =
-    match e with
-    | Asm.Const c        -> Val (Address.of_word c)
-				
-    | Asm.Lval (V (T r)) -> c#get_val_from_register r
-						    
-    | Asm.BinOp (op, Asm.Const c, e') | Asm.BinOp (op, e', Asm.Const c) ->
-       begin
-	 match eval e' with
-	 | BOT -> BOT
-	 | TOP -> TOP
-	 | Val a  ->
-	    begin
-	      let c' = Data.Word.to_int c in
-	      match op with
-	      | Asm.Add -> begin try Val (Address.add_offset a c') with _ -> TOP end
-	      | Asm.Sub -> begin try Val (Address.add_offset a (Z.neg c')) with _ -> TOP end
-	      | _ -> TOP
-	    end
-	      
-       end
-       
-    | _ 		-> TOP
+			   
+(** [shift sh v1 v2] shift v1 by v2 in the direction given by sh *)
+let shift sh v1 v2 = sh v1 (Z.to_int v2)
+
+
+(** [binary sh v1 v2] computes v1 sh v2 *)
+let binary op v1 v2 =
+  let op' = 
+    match op with
+    | Asm.Add -> Z.add
+    | Asm.Sub -> Z.sub
+    | Asm.Mul -> Z.mul
+    | Asm.Div -> Z.div
+    | Asm.Shl -> shift Z.shift_left
+    | Asm.Shr -> shift Z.shift_right
+    | Asm.Mod -> (fun w1 w2 -> Z.sub w1 (Z.div w1 w2))
+    | Asm.And -> Z.logand
+    | Asm.Or  -> Z.logor
+    | Asm.Xor -> Z.logxor
   in
-  eval e
+  match v1, v2 with
+  | BOT, _ | _, BOT  -> BOT
+  | _, TOP | TOP, _  -> TOP
+  | Val v1', Val v2' ->
+    try
+      Val (Address.binary op' v1' v2')
+    with _ -> TOP
+		
+let unary _op v =
+  match v with
+  | BOT -> BOT
+  | TOP -> TOP
+  | Val _v' -> TOP (* sound but could be more precise *)
+
 			
-let mem_to_addresses (m: Asm.exp) sz (ctx: t Unrel.ctx_t) =
-  match m with
-  | Asm.Lval (Asm.V (Asm.T r)) when sz = Register.size r ->
-     begin
-       match ctx#get_val_from_register r with
-       | BOT | TOP -> raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
-       | Val a     -> Address.Set.singleton a
-     end
-  | _ 						         -> raise (Exceptions.Enum_failure (name, "mem_to_addresses"))
+let to_addresses v =
+  match v with
+  | BOT   -> raise Exceptions.Enum_failure
+  | TOP   -> raise Exceptions.Enum_failure
+  | Val a -> Address.Set.singleton a
+  
 				     
 let taint_of_config _c = BOT
 			   
@@ -84,12 +91,18 @@ let join p1 p2 =
   if equal p1 p2 then p1
   else
     TOP
+
+let meet p1 p2 =
+  if equal p1 p2 then p1
+  else
+    BOT
       
 let combine _ _ _ _ = TOP
 			
 let enter_fun _fun _ctx = [], []
 let leave_fun _ctx = [], []
 			   
-			   
+let extract _ _ _ = TOP
+let compare _ _ _ = Log.error "Ptr.compare"
 
 

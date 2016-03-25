@@ -7,7 +7,7 @@ class type oracle =
     (** [mem_to_addresses a n] returns the set of concrete addresses starting at _a_ and of _n_ bit width *)
     (** never call to implement the function signature T.exp_to_addresses (stack overflow) *)
     (** this method may raise an exception if the number of addresses is too large *)
-    method mem_to_addresses: Asm.exp -> int -> Data.Address.Set.t
+    method mem_to_addresses: Asm.exp -> Data.Address.Set.t
 					      
 end
 
@@ -22,8 +22,10 @@ module type T =
 
       (** returns the initial value *)
       val init: unit -> t
-			  
-      (** comparison *)
+
+      (** bottom value *)
+      val bot: t
+
       (** returns true whenever the concretization of the first argument is included in the concretization of the second argument *)
       (** false otherwise *)
       val subset: t -> t -> bool
@@ -44,14 +46,13 @@ module type T =
       (** assignment into the given left value of the given expression *)
       (** the integer is the size in bits of the expression *)
       val set: Asm.lval -> Asm.exp -> oracle -> t -> t
-
-      (** returns the set of addresses corresponding to the given expression of size in bits given by the parameter *)
-      val mem_to_addresses: Asm.exp -> int -> t -> Data.Address.Set.t
-      (** may raise an exception if the set of addresses is too large *)
 									  
       (** joins the two abstract values *)
       val join: t -> t -> t
 
+      (** meets the two abstract values *)
+      val meet: t -> t -> t
+			    
       (** [taint_register_from_config r c m] update the abstract value _m_ with the given tainting configuration _c_ for register _r_ *)
       (** the size of the configuration is the same as the one of the register *)
       val taint_register_from_config: Register.t -> Config.tvalue -> t -> t
@@ -73,5 +74,13 @@ module type T =
 
       (** transfer function when the current function is returned *)
       val leave_fun: t -> t
+
+      (** [compare v e1 c e2] restrict the given abstract value d to abstract value that satisfy the binary comparison (e1 c e2) *)
+      (** may raise exception Exceptions.EmptyEnv *)
+      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t
+
+      (** returns a set of addresses corresponding to the given expression *)
+      (** may raise an exeption if that set is too large *)
+      val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t
     end
       

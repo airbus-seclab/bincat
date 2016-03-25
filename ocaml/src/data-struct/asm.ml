@@ -17,12 +17,10 @@ type jmp_target =
 type binop =
   | Add    (** addition *)
   | Sub    (** substraction *)
-  | Mul    (** unsigned multiplication *)
-  | Div    (** unsigned division *)
-  | Divs   (** signed division *)
+  | Mul    (** multiplication *)
+  | Div    (** division *)
   | Shl    (** left logical shift *)
   | Shr    (** right logical shift *)
-  | Shrs   (** right logical shift with sign *)
   | Mod    (** unsigned modulo *)
   | And    (** bitwise AND *)
   | Or     (** bitwise OR *)
@@ -30,11 +28,12 @@ type binop =
 
 (** comparison operators *)
 type cmp =
-  | Eq  (** comparison for equality *)
-  | Leu (** comparion less than equal on unsigned operands *)
-  | Les (** comparion less than equal on signed operands *)
-  | Ltu (** comparion strictly less than on unsigned operands *)
-  | Lts (** comparison strictly less than on signed operands *)
+  | EQ  (** equality *)
+  | NEQ (** difference *)
+  | LEQ (** less than or equal to *)
+  | LT  (** strictly less than *)
+  | GEQ (** greater than or equal to *)
+  | GT  (** strictly greater than *)
 
   (** logical binary operators *)
 type logbinop =
@@ -45,8 +44,9 @@ type logbinop =
 type unop =
   | SignExt of int (** [SignExt n] is a sign extension on _n_ bit width *)
 
+(** logical unary operator *)
 type bunop =
-  | Not 	     (** Negation *)
+  | Not (** Negation *)
       
       
       
@@ -103,10 +103,8 @@ let string_of_binop op =
   | Sub    -> "-"
   | Mul    -> "*"
   | Div    -> "/"
-  | Divs   -> "/"
   | Shl    -> "<<"
   | Shr    -> ">>"
-  | Shrs   -> ">>"
   | Mod    -> "%"
   | And    -> "&"
   | Or 	   -> "|"
@@ -114,11 +112,13 @@ let string_of_binop op =
   
 let string_of_cmp c =
   match c with
-  | Eq  -> "="
-  | Leu -> "<="
-  | Les -> "<="
-  | Ltu -> "<" 
-  | Lts -> "<"
+  | EQ  -> "="
+  | NEQ -> "!="
+  | LEQ -> "<="
+  | LT  -> "<"
+  | GEQ -> "<="
+  | GT  -> ">" 
+
 
 let string_of_logbinop o =
   match o with

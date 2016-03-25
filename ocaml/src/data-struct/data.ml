@@ -55,12 +55,24 @@ module Word =
 	  done;
 	  (!s, n)
 
-    (** [troncate w n] returns the lowest n bits of w *)
-    let troncate (w, sz) n =
+    (** returns the lowest n bit of the given int *)
+    let truncate_int i n =
+      Z.logand i (Z.sub (Z.shift_left Z.one n) Z.one)
+	       
+    (** [truncate w n] returns the lowest n bits of w *)
+    let truncate (w, sz) n =
       if sz < n then
 	w, sz
       else
-	Z.logand w (Z.of_int ((1 lsl n) - 1)), n
+	truncate_int w n, n
+
+    (** binary operation on words supposed to have the same size *)
+    (** result is truncated to have size of the operands *)
+    let binary op (w1, sz) (w2, _) =
+      truncate_int (op w1 w2) sz, sz
+
+    let unary op (w, sz) =
+      truncate_int (op w) sz, sz
   end
 
 (** Address Data Type *)
@@ -123,8 +135,8 @@ module Address =
 	let w' = Word.add w (Word.of_int o' n) in
 	if Word.size w' > n then
 	  begin
-	    Log.from_analysis "Data.Address" "overflow when tried to add an offset to an address: ";
-	    r, Word.troncate w' n
+	    Log.from_analysis "Data.Address: overflow when tried to add an offset to an address: ";
+	    r, Word.truncate w' n
 	  end
 	else
 	  r, w'
@@ -140,11 +152,22 @@ module Address =
 	| (r1, w1), (r2, w2)  when r1 = r2 ->
 	   let w = Word.sub w1 w2 in
 	   if Word.compare w (Word.zero (Word.size w1)) < 0 then
-	     raise (Invalid_argument "invalid address substraction")
+	     Log.error "invalid address substraction"
 	   else
 	    Word.to_int w
-	| _, _ 				   -> raise (Invalid_argument "invalid address substraction")
+	| _, _ 	-> Log.error "invalid address substraction"
 
+      let binary op ((r1, w1): t) ((r2, w2): t): t =
+	let r' =
+	  match r1, r2 with
+	  | Global, r | r, Global -> r
+	  | r1, r2                ->
+	     if r1 = r2 then r1 else Log.error "Invalid binary operation on addresses of different regions"
+	in
+	  r', Word.binary op w1 w2
+
+      let unary op (r, w) = r, Word.unary op w
+					  
     end
     include A
     module Set = Set.Make(A)
