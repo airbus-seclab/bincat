@@ -219,7 +219,6 @@ module Make(Domain: Domain.T) =
 	let n = ref Z.zero in
 	for _i = 0 to sz-1 do
 	  n := Z.add (int_of_byte s) (Z.shift_left !n 1);
-	  s.o <- s.o + 1
 	done;
 	!n;;
 	
@@ -440,7 +439,8 @@ module Make(Domain: Domain.T) =
 	   | _      -> M(failwith "Decoder.mod_sib (case 10)", s.operand_sz), 4
 															      
 															      
-      let mod_rm_32 mod_field rm_field s =
+      let mod_rm_32 _mod_field _rm_field _s = Log.error "mod_rm_32"
+	(*
 	match mod_field, rm_field with
 	  3, i -> V (T (Hashtbl.find register_tbl i)), 0
 	| i, 4 -> sib s (i*8)
@@ -449,9 +449,9 @@ module Make(Domain: Domain.T) =
 	| i, _j -> 
 	   let n, _w = 
 	     if i = 1 then 1, Word.sign_extend (Word.of_int (int_of_bytes s 1) Config.size_of_byte) 32
-	     else 4, Word.of_int (int_of_bytes s 4) 32
+	     else 4, Word.of_int (int_of_bytes s 4) 32 
 	   in
-	   M(failwith "Decoder.mod_rm_32 (case 3)", s.operand_sz), n
+	   M(failwith "Decoder.mod_rm_32 (case 3)", s.operand_sz), n *)
 										     
       let mod_rm mod_field rm_field reg_field direction s =
 	let r             = Hashtbl.find register_tbl reg_field in
@@ -488,13 +488,13 @@ module Make(Domain: Domain.T) =
       let fpf_sz = Register.size fpf
 				 
       (** produce common statements to set the overflow flag and the adjust flag *) 
-      let overflow flag n nth sz res op1 op2 =
+      let overflow flag n nth res op1 op2 =
 	(* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
 	let b1        = Const (Word.of_int Z.one 1)               in
-	let nth'      = Const (Word.of_int (Z.of_int nth) sz)	  in
-	let sign_res  = BinOp(And, BinOp (Shr, res, nth'), b1)    in
-	let sign_op1  = BinOp(And, BinOp (Shr, op1, nth'), b1)	  in
-	let sign_op2  = BinOp(And, BinOp (Shr, op2, nth'), b1)	  in
+	let shn       = Shr nth                                   in
+	let sign_res  = BinOp(And, UnOp (shn, res), b1)           in
+	let sign_op1  = BinOp(And, UnOp (shn, op1), b1)	          in
+	let sign_op2  = BinOp(And, UnOp (shn, op2), b1)	          in
 	let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	       	  in
 	let c2 	      = BUnOp (Not, Cmp (EQ, sign_res, sign_op1)) in
 	let one_stmt  = Set (V (T flag), Const (Word.one n))	  in
@@ -502,7 +502,7 @@ module Make(Domain: Domain.T) =
 	If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
 
       (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
-      let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (!Config.operand_sz-1) sz res op1 op2
+      let overflow_flag_stmts res op1 op2 = overflow fof fof_sz (!Config.operand_sz-1) res op1 op2
 
       (** produce the statement to clear the overflow flag *)
       let clear_overflow_flag_stmts () = Set (V (T fof), Const (Word.zero fof_sz)) 
@@ -518,8 +518,8 @@ module Make(Domain: Domain.T) =
       let undefine_adjust_flag_stmts () = Directive (Forget faf)
 
       (** produce the statement to set the sign flag *)					    
-      let sign_flag_stmts sz res =
-	let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, Const (Word.of_int (Z.of_int 31) sz))) in
+      let sign_flag_stmts res =
+	let c = Cmp (EQ, Const (Word.one fsf_sz), UnOp(Shr 31, res)) in
 	If (c, [ Set (V (T fsf), Const (Word.one fsf_sz)) ], [ Set (V (T fsf), Const (Word.zero fsf_sz))] ) 
 	     
       (** produce the statement to set the zero flag *)	
@@ -529,7 +529,7 @@ module Make(Domain: Domain.T) =
 
       (** produce the statement to set the adjust flag *)
       (** faf is set if there is an overflow on the bit 3 *)
-      let adjust_flag_stmts sz res op1 op2 = overflow faf faf_sz 3 sz res op1 op2
+      let adjust_flag_stmts res op1 op2 = overflow faf faf_sz 3 res op1 op2
 					      
       (** produce the statement to set the parity flag *)					      
       let parity_flag_stmts sz res =
@@ -538,7 +538,7 @@ module Make(Domain: Domain.T) =
 	(* using the modulo of the divison by 2 *)
 	let nth i =
 	  let one = Const (Word.one (sz-i)) in
-	  BinOp (And, BinOp(Shr, res, Const (Word.of_int (Z.of_int i) sz)), one)
+	  BinOp (And, UnOp(Shr i, res), one)
 	in
 	let e = ref (nth 0) in
 	for i = 1 to 7 do
@@ -563,8 +563,8 @@ module Make(Domain: Domain.T) =
 	let res  	= Lval dst		  	    in
 	let flags_stmts =
 	  [
-	    carry_flag_stmts sz res op1 op op2; overflow_flag_stmts sz res op1 op2; zero_flag_stmts sz res;
-	    sign_flag_stmts sz res            ; parity_flag_stmts sz res          ; adjust_flag_stmts sz res op1 op2
+	    carry_flag_stmts sz res op1 op op2; overflow_flag_stmts res op1 op2; zero_flag_stmts sz res;
+	    sign_flag_stmts res            ; parity_flag_stmts sz res       ; adjust_flag_stmts res op1 op2
 	  ]
 	in
 	let stmts =
@@ -582,7 +582,7 @@ module Make(Domain: Domain.T) =
 	let flags_stmts =
 	  [
 	    clear_carry_flag_stmts (); clear_overflow_flag_stmts (); zero_flag_stmts sz res;
-	    sign_flag_stmts sz res   ; parity_flag_stmts sz res    ; undefine_adjust_flag_stmts ()
+	    sign_flag_stmts res   ; parity_flag_stmts sz res    ; undefine_adjust_flag_stmts ()
 	  ]
 	in
 	stmt::flags_stmts
@@ -694,9 +694,9 @@ module Make(Domain: Domain.T) =
 	let res         = Lval dst			              in
 	let flags_stmts =
 	  [
-	    overflow_flag_stmts s.operand_sz res op1 op2; zero_flag_stmts s.operand_sz res;
-	    parity_flag_stmts s.operand_sz res          ; adjust_flag_stmts s.operand_sz res op1 op2;
-	    sign_flag_stmts s.operand_sz res
+	    overflow_flag_stmts res op1 op2   ; zero_flag_stmts s.operand_sz res;
+	    parity_flag_stmts s.operand_sz res; adjust_flag_stmts res op1 op2;
+	    sign_flag_stmts res
 	  ]
 	in
 	let stmts = 

@@ -65,17 +65,11 @@
   let make sz = Val (val_make sz)
 		    
   let bot = BOT
+  let is_bot v = v = BOT
   let top = TOP
 			  
   (* iterators on bit vectors *)
   (* remember that binary iterators are supposed to proceed on vector of the same length *)
-  let map2 f v1 v2 =
-    let n = Array.length v1 in
-    let v = val_make n	    in
-    for i = 0 to n-1 do
-      v.(i) <- f v1.(i) v2.(i)
-    done;
-    v
 
   let for_all p v =
     try
@@ -92,7 +86,7 @@
 	if not (p v1.(i) v2.(i)) then raise Exit
       done;
       true
-    with Exit -> false
+    with _ -> false
 
   let val_subset v1 v2 = for_all2 Bit.subset v1 v2
 
@@ -101,8 +95,18 @@
     | BOT, _ | _, TOP   -> true
     | TOP, _ | _, BOT   -> false
     | Val v1', Val v2' 	-> val_subset v1' v2'
-				     
-  let val_join v1 v2 = map2 Bit.join v1 v2
+
+  let val_map2 f v1 v2 =
+    let n1 = Array.length v1 in
+    let n2 = Array.length v2 in
+    let n = if n1 <= n2 then n1 else n2 in
+    let v = val_make n in
+    for i = 0 to n-1 do
+      v.(i) <- f v1.(i) v2.(i)
+    done;
+    v
+    
+  let val_join v1 v2 = val_map2 Bit.join v1 v2
 
   let join v1 v2 =
     match v1, v2 with
@@ -110,7 +114,7 @@
     | _, TOP | TOP, _  -> TOP
     | Val v1', Val v2' -> Val (val_join v1' v2')
 			      
-  let val_meet v1 v2 = map2 Bit.meet v1 v2
+  let val_meet v1 v2 = val_map2 Bit.meet v1 v2
 
   let meet v1 v2 =
     match v1, v2 with
@@ -178,19 +182,56 @@
    | _, _ 		 -> false
 	       
  let binary op v1 v2 =
-   match op with
-   | Asm.Xor ->
-      begin
-	match v1, v2 with
-	| Val v1', Val v2' when val_equal v1' v2' ->
-	   Val (Array.make (Array.length v1') Bit.U)
-	| _, _ -> join v1 v2
-      end
-    | _     -> join v1 v2 (* sound but could be more precise *)
-
- let unary _op _v = Log.error "Tainting.unary"
+   match v1, v2 with
+   | BOT, _ | _, BOT  -> BOT
+   | TOP, _ | _, TOP  -> TOP
+   | Val v1', Val v2' -> 
+      match op with
+      | Asm.Xor when val_equal v1' v2' -> Val (Array.make (Array.length v1') Bit.U)
+      | Asm.And 		       -> meet v1 v2
+      | _ 			       -> join v1 v2 (* sound but could be more precise *)
 
 
+ let unary op v =
+   match v with
+   | BOT | TOP -> v
+   | Val v' ->
+      match op with
+      | Asm.SignExt n ->
+	 let sz = Array.length v' in
+	 if sz >= n then v
+	 else
+	   let vext = val_make n in
+	   let o = n-sz in
+	   for i=1 to sz-1 do
+	     vext.(i+o) <- v'.(i);
+	   done;
+	   (* set the sign bit *)
+	   vext.(0) <- v'.(0);
+	   Val vext
+      | Asm.Shr nb ->
+	 begin
+	   let sz = Array.length v' in
+	   try
+	     let v = val_make (sz-nb) in
+	     for i = nb to sz-nb-1 do
+	       v.(i+nb) <- v'.(i)
+	     done;
+	     Val v
+	   with _ -> TOP
+	 end
+      | Asm.Shl nb ->
+	 begin
+	   let sz = Array.length v' in
+	   try
+	     let v = val_make (sz-nb) in
+	     for i = nb to sz-1 do
+	       v.(i-nb) <- v'.(i)
+	     done;
+	     Val v
+	   with _ -> TOP
+	 end
+	   
   let enter_fun _f _ctx = Log.error "Tainting.enter_fun: to implement" 
 
   let leave_fun _ctx = Log.error "Tainting.leave_fun: to implement"
@@ -215,6 +256,6 @@
     with _ -> TOP
 
 let extract _ _ _ = TOP
-let compare _ _ _ = Log.error "Ptr.compare"
+let compare  _v1 _op _v2 = true
 		  
    

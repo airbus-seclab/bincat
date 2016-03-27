@@ -39,25 +39,25 @@ struct
 
   let restrict d e b =
     let rec process e b =
-    match e with
-    | BConst b' 	      -> if b = b' then d else D.bot
-    | BUnOp (Not, e) 	      -> process e (not b)
-			       
-    | BBinOp (LogOr, e1, e2)  ->
-       let v1 = process e1 b in
-       let v2 = process e2 b in
-       if b then D.join v1 v2
-       else D.meet v1 v2
-					  
-    | BBinOp (LogAnd, e1, e2) ->
-       let v1 = process e1 b in
-       let v2 = process e2 b in
-       if b then D.meet v1 v2
-       else D.join v1 v2
-					  
-    | Asm.Cmp (cmp, e1, e2)    ->
-       let cmp' = if b then cmp else inv_cmp cmp in
-       D.compare d e1 cmp' e2
+      match e with
+      | BConst b' 	      -> if b = b' then d else D.bot
+      | BUnOp (Not, e) 	      -> process e (not b)
+					 
+      | BBinOp (LogOr, e1, e2)  ->
+	 let v1 = process e1 b in
+	 let v2 = process e2 b in
+	 if b then D.join v1 v2
+	 else D.meet v1 v2
+		     
+      | BBinOp (LogAnd, e1, e2) ->
+	 let v1 = process e1 b in
+	 let v2 = process e2 b in
+	 if b then D.meet v1 v2
+	 else D.join v1 v2
+		     
+      | Asm.Cmp (cmp, e1, e2)    -> 
+	 let cmp' = if b then cmp else inv_cmp cmp in
+	 D.compare d e1 cmp' e2
     in
     process e b
     
@@ -84,7 +84,6 @@ struct
   (* update the abstract value field of each vertex *)
   let update_abstract_values g vertices =
     List.map (fun v ->
-	List.iter (fun s -> Printf.printf "%s" (Asm.string_of_stmt s)) v.Cfa.State.stmts; flush stdout;
 	let p = Cfa.pred g v in
 	let d' = List.fold_left (fun d stmt -> process_stmt g v d stmt) p.Cfa.State.v v.Cfa.State.stmts in
 	v.Cfa.State.v <- d';
@@ -104,16 +103,17 @@ struct
       && D.subset v'.Cfa.State.v v.Cfa.State.v
     in
     List.fold_left (fun l v ->
-	if not v.Cfa.State.internal then
-	  try
-	    Cfa.iter_vertex (fun v' ->
-		if v'.Cfa.State.internal || same v' v then raise Exit) g;
-	    v::l
-	  with
-	    Exit -> l
-	else
-	  l
-      ) [] vertices
+	try
+	  Cfa.iter_vertex (fun v' ->
+	      if v.Cfa.State.id = v'.Cfa.State.id then
+		()
+	      else
+		if same v v' then raise Exit
+	    ) g;
+	  v::l
+	with
+	  Exit -> l
+	) [] vertices
       
   (** oracle used by the decoder to know the current value of a register *)
   class decoder_oracle s =

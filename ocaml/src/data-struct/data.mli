@@ -42,8 +42,8 @@ module Word: sig
     (** hash function *)
     val hash: t -> int
 
-    (** [sign_extend w n] sign extends _w_ to be on _n_ bits *)
-    val sign_extend: t -> int -> t
+    (** [sign_extension w n] sign extends _w_ to be on _n_ bits *)
+    val size_extension: t -> int -> t
 	    
   end
 
@@ -105,6 +105,15 @@ module Address: sig
   (** [unary op w] return the result of op w with op expressed as a Z operator *)
   val unary: (Z.t -> Z.t) -> t -> t
 
+  (** left shift *)
+  val shift_left: t -> int -> t
+
+  (** right shift *)
+  val shift_right: t -> int -> t
+				 
+  (** extends the size in bits of the given address *)
+  val size_extension: t -> int -> t
+				    
   (** set of addresses *)
   module Set: (Set.S with type elt = t)
 		

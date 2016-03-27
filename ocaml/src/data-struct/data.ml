@@ -44,16 +44,10 @@ module Word =
 
     let hash w = Z.hash (fst w)
 			
-    let sign_extend (v, sz) n = 
+    let size_extension (v, sz) n = 
       if sz >= n then (v, sz)
       else 
-	if Z.compare v Z.zero >= 0 then (v, n)
-	else 
-	  let s = ref v in
-	  for i = sz to n-1 do
-	    s := Z.add !s  (Z.of_int (1 lsl i))
-	  done;
-	  (!s, n)
+	(v, n)
 
     (** returns the lowest n bit of the given int *)
     let truncate_int i n =
@@ -73,6 +67,10 @@ module Word =
 
     let unary op (w, sz) =
       truncate_int (op w) sz, sz
+
+    let shift_left (w, sz) i = Z.shift_left w i, sz-i
+    let shift_right (w, sz) i = Z.shift_right w i, sz-i
+							
   end
 
 (** Address Data Type *)
@@ -167,7 +165,11 @@ module Address =
 	  r', Word.binary op w1 w2
 
       let unary op (r, w) = r, Word.unary op w
-					  
+
+      let size_extension (r, w) sz = r, Word.size_extension w sz
+
+      let shift_left (r, w) i = r, Word.shift_left w i
+      let shift_right (r, w) i = r, Word.shift_right w i
     end
     include A
     module Set = Set.Make(A)

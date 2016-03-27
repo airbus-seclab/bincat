@@ -14,6 +14,7 @@ type t =
 let name = "Pointer"
 
 let bot = BOT
+let is_bot v = v = BOT
 let top = TOP
 	    
 let equal p1 p2 =
@@ -56,8 +57,6 @@ let binary op v1 v2 =
     | Asm.Sub -> Z.sub
     | Asm.Mul -> Z.mul
     | Asm.Div -> Z.div
-    | Asm.Shl -> shift Z.shift_left
-    | Asm.Shr -> shift Z.shift_right
     | Asm.Mod -> (fun w1 w2 -> Z.sub w1 (Z.div w1 w2))
     | Asm.And -> Z.logand
     | Asm.Or  -> Z.logor
@@ -71,11 +70,15 @@ let binary op v1 v2 =
       Val (Address.binary op' v1' v2')
     with _ -> TOP
 		
-let unary _op v =
+let unary op v =
   match v with
-  | BOT -> BOT
-  | TOP -> TOP
-  | Val _v' -> TOP (* sound but could be more precise *)
+  | BOT    -> BOT
+  | TOP    -> TOP
+  | Val v' ->
+     match op with
+     | Asm.Shl i     -> Val (Address.shift_left v' i)
+     | Asm.Shr i     -> Val (Address.shift_right v' i) (* TODO same optimization *)
+     | Asm.SignExt i -> Val (Address.size_extension v' i)
 
 			
 let to_addresses v =
@@ -86,7 +89,7 @@ let to_addresses v =
   
 				     
 let taint_of_config _c = BOT
-			   
+
 let join p1 p2 =
   if equal p1 p2 then p1
   else
@@ -103,6 +106,10 @@ let enter_fun _fun _ctx = [], []
 let leave_fun _ctx = [], []
 			   
 let extract _ _ _ = TOP
-let compare _ _ _ = Log.error "Ptr.compare"
+		      
+let compare v1 op v2 =
+  match op with
+  | Asm.EQ -> equal v1 v2
+  | _ 	   -> true (* sound but could be more precise *)
 
 

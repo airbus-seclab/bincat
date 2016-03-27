@@ -15,6 +15,9 @@ module type T =
     (** bottom value *)
     val bot: t
 
+    (** comparison to bottom *)
+    val is_bot: t -> bool
+		       
     (** top value *)
     val top: t
 	       
@@ -61,6 +64,7 @@ module type T =
 				  
     (** binary comparison *)
     val compare: t -> Asm.cmp -> t -> bool
+
   end
 		  
 		  
@@ -148,7 +152,7 @@ module Make(D: T) =
 	       in
 	       to_value addresses
 	     with
-	     | Exceptions.Enum_failure -> D.top
+	     | Exceptions.Enum_failure -> flush stdout; D.top
 	     | Exceptions.Empty        -> D.bot
 	   end
 	| Asm.BinOp (op, e1, e2) 	     -> D.binary op (eval e1) (eval e2)
@@ -175,8 +179,8 @@ module Make(D: T) =
 	      | Asm.T r' ->
 		 begin
 		   try
-		     let prev, n = Map.find (K.R r') m' in
-		     Val (Map.replace (K.R r') (D.join prev v', n+1) m')
+		     let _prev, n = Map.find (K.R r') m' in
+		     Val (Map.replace (K.R r') (v', n+1) m')
 		   with
 		     Not_found -> Val (Map.add (K.R r') (v', 1) m')
 		 end
@@ -197,7 +201,7 @@ module Make(D: T) =
 	      in
 	      let l  	= Data.Address.Set.elements addrs     in
 	      match l with 
-	      | [a] -> (* strong update *) Val (try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
+	      | [a] -> (* strong update *) Val (try let _v, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
 	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
 	    end
 
@@ -275,18 +279,34 @@ module Make(D: T) =
      	
     let leave_fun _m = Log.error "Unrel.leave_fun"
     
-    let restrict _m _e1 _v1 _op _v2 _e2 = Log.error "to do"
+    let val_restrict m e1 _v1 cmp _e2 v2 =
+      if D.name = "Ptrs" then 
+	match e1, cmp with
+	| Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ || cmp = Asm.LEQ ->
+	   let v, n = Map.find (K.R r) m in
+	   let v'   = D.meet v v2        in
+	   if D.is_bot v' then
+	     raise Exceptions.Empty
+	   else
+	     Map.replace (K.R r) (v', n) m
+	| _, _ -> m
+		  
+      else
+	(* identity is a sound default case *)
+	m
 		
-    let compare m e1 op e2 =
+    let compare m (e1: Asm.exp) op e2 =
       match m with
       | BOT -> BOT
       | Val m' ->
 	 let v1 = eval_exp m' e1 in
 	 let v2 = eval_exp m' e2 in
 	 if D.compare v1 op v2 then
-	   Val (restrict m e1 v1 op e2 v2)
+	   try
+	     Val (val_restrict m' e1 v1 op e2 v2)
+	   with Exceptions.Empty -> BOT
 	 else
-	   raise Exceptions.Empty
+	   BOT
 		      
   end: Domain.T)
     

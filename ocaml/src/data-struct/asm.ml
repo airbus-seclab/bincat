@@ -19,8 +19,6 @@ type binop =
   | Sub    (** substraction *)
   | Mul    (** multiplication *)
   | Div    (** division *)
-  | Shl    (** left logical shift *)
-  | Shr    (** right logical shift *)
   | Mod    (** unsigned modulo *)
   | And    (** bitwise AND *)
   | Or     (** bitwise OR *)
@@ -43,6 +41,8 @@ type logbinop =
 (** type of unary operations *)
 type unop =
   | SignExt of int (** [SignExt n] is a sign extension on _n_ bit width *)
+  | Shl     of int (** left logical shift *)
+  | Shr     of int (** right logical shift *)
 
 (** logical unary operator *)
 type bunop =
@@ -95,16 +95,15 @@ let equal_bunop op1 op2 =
 	      
 let equal_unop op1 op2 =
   match op1, op2 with
-  | SignExt i1, SignExt i2 -> i1 = i2
-				
+  | SignExt i1, SignExt i2 | Shl i1, Shl i2 | Shr i1, Shr i2 -> i1 = i2
+  | _, _ 						     -> false
+	      
 let string_of_binop op =
   match op with
   | Add    -> "+"
   | Sub    -> "-"
   | Mul    -> "*"
   | Div    -> "/"
-  | Shl    -> "<<"
-  | Shr    -> ">>"
   | Mod    -> "%"
   | And    -> "&"
   | Or 	   -> "|"
@@ -128,6 +127,8 @@ let string_of_logbinop o =
 let string_of_unop op =
   match op with
   | SignExt i -> Printf.sprintf "SignExtension (%d)" i
+  | Shl i     -> Printf.sprintf "<< %d" i
+  | Shr i     -> Printf.sprintf ">> %d" i
 
 let string_of_bunop op =
   match op with
