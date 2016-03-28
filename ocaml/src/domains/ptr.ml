@@ -109,7 +109,8 @@ let extract _ _ _ = TOP
 		      
 let compare v1 op v2 =
   match op with
-  | Asm.EQ -> equal v1 v2
-  | _ 	   -> true (* sound but could be more precise *)
+  | Asm.EQ  -> equal v1 v2
+  | Asm.NEQ -> not (equal v1 v2)
+  | _ 	    -> true (* sound but could be more precise *)
 
 
