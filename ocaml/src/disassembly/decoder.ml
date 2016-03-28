@@ -508,8 +508,13 @@ module Make(Domain: Domain.T) =
       let clear_overflow_flag_stmts () = Set (V (T fof), Const (Word.zero fof_sz)) 
 
       (** produce the statement to set the carry flag according to the current operation whose operands are op1 and op2 and result is res *)
-      let carry_flag_stmts _sz _res _op1 _op _op2 = Log.error "Decoder.carry_flag_stmts"
-	(* fcf is set if the sz+1 bit of the result is 1 *)
+      let carry_flag_stmts sz res op1 op op2 = 
+      (* fcf is set if the sz+1 bit of the result is 1 *)
+	let s 	 = SignExt (sz+1)	  in
+	let op1' = UnOp (s, op1)	  in
+	let op2' = UnOp (s, op2)	  in
+	let res' = BinOp (op, op1', op2') in
+	If ( Cmp (EQ, res, res'), [ Set (V (T faf), Const (Word.zero faf_sz)) ], [ Set (V (T faf), Const (Word.one faf_sz)) ] )
 
       (** produce the statement to unset the carry flag *)
       let clear_carry_flag_stmts () = Set (V (T fcf), Const (Word.zero fcf_sz))
