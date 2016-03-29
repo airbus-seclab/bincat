@@ -12,11 +12,8 @@ let string_of_position pos =
 (* main function *)
 let process ~configfile ~resultfile ~logfile =
   (* 1: open the configuration file *)
-  let cin    =
-    try
-      let cin = open_in configfile in
-      seek_in cin !Config.phys_code_addr;
-      cin
+  let cin =
+    try open_in configfile
     with _ -> Log.error "Failed to open the configuration file"
   in
 
