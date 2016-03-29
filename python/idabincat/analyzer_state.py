@@ -76,7 +76,7 @@ class State(object):
     """
     TODO separate computed state from user-set state
     """
-    def __init__(self, address):
+    def __init__(self, address, prettyname=""):
         """
         :param address: ConcretePtrValue instance
         """
@@ -90,6 +90,13 @@ class State(object):
         #: self.stmts = [statement of the intermediate language]
         self.stmts = ""
         self.nodeid = ""
+        self.prettyname = ""
+
+    def __repr__(self):
+        res = self.prettyname
+        if not res:
+            res = "State at address %s" % self.address
+        return res
 
     def __eq__(self, other):
         for region in 'mem', 'reg':
@@ -265,6 +272,9 @@ class AbstractPtrValue(PtrValue):
 class Tainting(object):
     def __init__(self, tainting):
         self.tainting = tainting
+
+    def __repr__(self):
+        return "Tainting(%s)" % self.tainting
 
     def __ne__(self, other):
         return not self.__eq__(other)
