@@ -159,6 +159,19 @@ class State(object):
 
         return results
 
+    def getPrintableDiff(self, other):
+        res = "\n--- %s\n+++ %s\n" % (self, other)
+        for region, address in self.listModifiedKeys(other):
+            res += "@@ %s %s @@\n" % (region, address)
+            if self.ptrs[region][address] != other.ptrs[region][address]:
+                res += "- %s\n" % self.ptrs[region][address]
+                res += "+ %s\n" % other.ptrs[region][address]
+            if self.tainting[region][address] != \
+                    other.tainting[region][address]:
+                res += "- %s\n" % self.tainting[region][address]
+                res += "+ %s\n" % other.tainting[region][address]
+        return res
+
     def setFromAnalyzerOutput(self, outputkv):
         """
         :param outputkv: list of (key, value) tuples for each property set by

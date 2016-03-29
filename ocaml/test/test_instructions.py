@@ -82,21 +82,9 @@ def prepareExpectedState(state):
     return s
 
 
-def showDiff(state1, state2):
-    res = "\n--- %s\n+++ %s\n" % (state1, state2)
-    for region, address in state1.listModifiedKeys(state2):
-        res += "--- %s %s ---\n" % (region, address)
-        if state1.ptrs[region][address] != state2.ptrs[region][address]:
-            res += "- %s\n" % state1.ptrs[region][address]
-            res += "+ %s\n" % state2.ptrs[region][address]
-        if state1.tainting[region][address] != state2.tainting[region][address]:
-            res += "- %s\n" % state1.tainting[region][address]
-            res += "+ %s\n" % state2.tainting[region][address]
-    return "States should be identical" + res
-
-
 def assertEqualStates(state1, state2):
-    assert state1 == state2, showDiff(state1, state2)
+    assert state1 == state2, "States should be identical" + \
+        state1.getPrintableDiff(state2)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
