@@ -736,7 +736,7 @@ module Make(Domain: Domain.T) =
 	  JCC (v, n) ->
 	  let e, o = exp_of_cond v s n        in
 	  let a'   = Address.add_offset s.a o in
-	  create s [Jcc (e, Some (A a'))]
+	  create s [If (e, [Jmp (Some (A a'))], [  ] )]
 		 
 	| _ -> Log.error "Opcode.parse_two_bytes: opcode"
 			   
@@ -823,10 +823,10 @@ module Make(Domain: Domain.T) =
 	  else []
 	in
 	let rep_blk = s.b in 
-	Cfa.update_stmts s.b [Jcc (test', Some (A s.a))] s.operand_sz s.addr_sz;
+	Cfa.update_stmts s.b [If (test', [Jmp (Some (A s.a))], [ ] )] s.operand_sz s.addr_sz;
 	Cfa.add_edge s.g s.b rep_blk None;
 	let ctx = { Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz } in	
-	let instr_blk = Cfa.add_state s.g s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [Jcc( Cmp (EQ, Lval (V(T fdf)), Const (Word.of_int Z.one 1)), None)]) ctx true in 
+	let instr_blk = Cfa.add_state s.g s.a rep_blk.Cfa.State.v (str_stmt @ [ecx_decr] @ esi_stmt @ edi_stmt @ [ If ( Cmp (EQ, Lval (V(T fdf)), Const (Word.of_int Z.one 1)), [Jmp None], [])]) ctx true in 
 	Cfa.add_edge s.g rep_blk instr_blk (Some true);
 	let step     	= Const (Word.of_int (Z.of_int (i / Config.size_of_byte)) s.addr_sz) in
 	let decr     	= 
@@ -927,7 +927,7 @@ module Make(Domain: Domain.T) =
 	   update_prefix s Jcc_i;
 	   let e, o = exp_of_cond v s n in
 	   let a' = Address.add_offset s.a o in
-	   create s [ Jcc (e, Some (A a')) ]
+	   create s [ If (e, [Jmp (Some (A a'))], [ ] ) ]
 		  
 	| JECXZ ->
 	   (* TODO: factorize with JMP *)
@@ -936,12 +936,12 @@ module Make(Domain: Domain.T) =
 	   let a'   = Address.add_offset s.a o in
 	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P(ecx, 0, s.addr_sz-1) in
 	   let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero (Register.size ecx))) in
-	   create s [Jcc (e, Some (A a'))]
+	   create s [If (e, [Jmp (Some (A a'))], [ ])]
 		  
 	| JMP i 	     ->
 	   let o  = int_of_bytes s i         in
 	   let a' = Address.add_offset s.a o in
-	   create s [ Jcc (BConst true, Some (A a')) ]
+	   create s [ If (BConst true, [Jmp (Some (A a')) ], [ ]) ]
 		  
 	| LODS i -> 
 	   let _esi', _eax' =
@@ -965,7 +965,7 @@ module Make(Domain: Domain.T) =
 	     | _ -> (* loop *)  ecx_cond
 	   in
 	   let a' = Address.add_offset s.a (int_of_bytes s 1) in
-	   Cfa.update_stmts s.b (stmts@[Jcc(e, Some (A a'))]) s.operand_sz s.addr_sz;
+	   Cfa.update_stmts s.b (stmts@[If (e, [Jmp (Some (A a'))], [ ])]) s.operand_sz s.addr_sz;
 	   Cfa.add_edge s.g s.b s.b (Some true);
 	   [s.b]
 	     

@@ -82,7 +82,7 @@ type directive_t =
 type stmt =
   | Set  of lval * exp    		   (** store the expression into the left value *)
   | If of bexp * (stmt list) * (stmt list) (** conditional statement *)
-  | Jcc	 of bexp * jmp_target option (** (un)conditional branch ; None expression is for unconditional jump ; None target is for intermediate block translation *)				    
+  | Jmp	 of jmp_target option (** jump; None target is for intermediate block translation *)				    
   | Call of fct          		   (** call *)
   | Return         			   (** return *)
   | Undef                    		   (** undefined (decoding error) *)
@@ -204,7 +204,7 @@ let string_of_stmt s =
   let rec to_string ind s =
     match s with
     | Set (dst, src)     	    -> Printf.sprintf "%s <- %s;\n" (string_of_lval dst) (string_of_exp src)
-    | Jcc (cond, target) 	    -> Printf.sprintf "if (%s)\n%sjmp %s;\n" (string_of_bexp cond) (ind^" ")(string_of_target target)
+    | Jmp target 	    -> Printf.sprintf "%sjmp %s;\n" (ind^" ")(string_of_target target)
     | If (cond, if_stmts, else_stmts) ->
        let ind' = ind ^ " " in
        Printf.sprintf "if (%s)\n%s%selse\n%s%s" (string_of_bexp cond) ind' (concat to_string ind' if_stmts) ind' (concat to_string ind' else_stmts)

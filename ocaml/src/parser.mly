@@ -73,7 +73,14 @@
 	(* check whether all mandatory items are provided *)
 	Hashtbl.iter (fun _ (pname, sname, b) -> if not b then missing_item pname sname) mandatory_keys;
 	(* open the binary to pick up the text section *)
-	let fid  = open_in_bin !filename in
+	let fid  =
+	  try
+	    let fid = open_in_bin !filename in
+	    seek_in fid !Config.phys_code_addr;
+	    fid
+	  with _ -> Log.error "failed to open the binary to analyze"
+			   
+	in
 	Config.text := String.make !Config.code_length '\x00';
 	let len = input fid !Config.text 0 !Config.code_length in
 	if len <> !Config.code_length then failwith "code extraction has failed";
