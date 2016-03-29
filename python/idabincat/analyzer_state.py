@@ -248,6 +248,10 @@ class ConcretePtrValue(PtrValue):
     def __sub__(self, other):
         return self + (-other)
 
+    @property
+    def value(self):
+        return (self.region, self.address)
+
     @classmethod
     def fromAnalyzerOutput(cls, s):
         if s[0] == '(' and s[-1] == ')':
@@ -260,6 +264,9 @@ class ConcretePtrValue(PtrValue):
 class AbstractPtrValue(PtrValue):
     def __init__(self, value):
         self.value = value
+
+    def __repr__(self):
+        return "AbstractPtrValue(%s)" % self.value
 
     def __eq__(self, other):
         return self.value == other.value
