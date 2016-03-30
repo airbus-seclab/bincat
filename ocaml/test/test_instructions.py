@@ -119,6 +119,8 @@ def test_inc(analyzer, initialState, register):
     for flag in ('of', 'sf', 'zf', 'af', 'pf'):
         clearFlag(expectedStateAfter, flag)
 
+    # XXX check flags
+    # XXX set zf properly
     # XXX taint more bits?
     expectedStateAfter.ptrs['reg'][regname] += 1
     # XXX flags should be tainted - known bug
@@ -138,9 +140,19 @@ def test_dec(analyzer, initialState, register):
     stateAfter = getNextState(ac, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
 
-    # XXX taint more bits?
     expectedStateAfter.ptrs['reg'][regname] -= 1
-   
+    # flags
+    for flag in ('of', 'sf', 'zf', 'af', 'pf'):
+        clearFlag(expectedStateAfter, flag)
+    if stateBefore.ptrs['reg'][regname].address == 1:
+        expectedStateAfter.ptrs['reg']['zf'].address = 1
+    # PF - inefficient but understandable way of counting set bits
+    nbBitsSet = \
+        bin(expectedStateAfter.ptrs['reg'][regname].address & 0xFF).count('1')
+    expectedStateAfter.ptrs['reg']['pf'].address = (nbBitsSet + 1) % 2
+    # XXX check flags
+
+    # XXX taint more bits?
     assertEqualStates(expectedStateAfter, stateAfter)
 
 

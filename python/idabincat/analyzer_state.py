@@ -120,8 +120,6 @@ class State(object):
                 return False
             for key in allKeys:
                 if (self.ptrs[region][key] != other.ptrs[region][key]):
-                    logging.error("different ptr values between states %s %s",
-                                  region, key)
                     return False
             for t in allKeys:
                 if self.tainting[region][t] != other.tainting[region][t]:
