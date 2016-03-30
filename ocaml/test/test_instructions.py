@@ -276,4 +276,4 @@ def test_nop(analyzer, initialState):
     ac = analyzer(initialState, binarystr='\x90')
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(stateBefore, stateAfter)
