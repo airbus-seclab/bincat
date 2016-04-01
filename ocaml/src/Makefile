@@ -75,7 +75,8 @@ clean:
 	-rm -f lexer.ml lexer.mli parser.ml parser.mli *.conflicts *.automaton
 
 install: $(LIBNAME)
-	cp $(LIBNAME) $(LIBDIR)
+	install -b $(LIBNAME) $(LIBDIR)
+	ldconfig
 
 .depend: $(ML) $(MLI)
 	rm -f .depend

@@ -16,14 +16,13 @@ all:
 
 install: all
 	@echo "Installing Ocaml part................................................"
-	make -C $(MLPATH) LIBDIR=$(MLLIBDIR) install
+	make -C $(MLPATH) install
 	@echo "Installing Python part..............................................."
 	make -C $(PYPATH) install
 
 
 test: all
-	make -C $(MLTESTPATH) all
-	py.test -q test/test_caml.py
+	make -C $(MLTESTPATH) test
 
 doc: all
 	@mkdir -p doc/generated
