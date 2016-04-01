@@ -230,6 +230,8 @@ dot not decode twice if the context is the same (including the
 internal state of the decoder)
 \chapter{known bugs}
 printed line of a bug in parsing is wrong
+
+overlap quand load/store mémoire pas géré
 \chapter{Quality improvements}
 add  .mli signatures
 factorize more code between Cfa.extended_memory_pad and
@@ -248,12 +250,11 @@ des hack sur le domaine if D.name = ``Tainting'' dans Unrel ?
 Unrel.compare could be done in one step rather than 2 (D.compare then
 val_restrict) + backward refinement
 
-quand au moins une valeur d'une condition est tainted alors le flag
-devrait l'etre aussi
 
 pas de règle implémentée pour tainter les flags (ex quand eax vaut
 zero apres decr il faudrait tager zf)
 
+segmentation: on ne teste que dpl = rpl
 \chapter{todo}
 outputs a dot file (empty for the while)
 \chapter{Glossary}
