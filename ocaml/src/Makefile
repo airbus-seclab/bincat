@@ -3,12 +3,12 @@ data-struct/register.ml\
 utils/mapOpt.ml\
 utils/bits.ml\
 utils/config.ml\
+utils/exceptions.ml\
 utils/log.ml\
 data-struct/data.ml\
 lexer.ml\
 parser.ml\
 data-struct/asm.ml\
-utils/exceptions.ml\
 data-struct/code.ml\
 domains/unrel.ml\
 domains/ptr.ml\

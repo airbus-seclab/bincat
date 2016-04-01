@@ -75,7 +75,7 @@ struct
 
     | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d'
 				       
-    | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt))
+    | _       -> raise (Exceptions.Error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt)))
     in
     process d stmt
 	    
@@ -123,7 +123,7 @@ struct
 
   (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial vertex s *)
   (** g is the initial CFA reduced to the singleton s *) 
-  let process code g s =
+  let process code g s (dump: Cfa.t -> unit) =
     (* boolean variable used as condition for exploration of the CFA *)
     let continue = ref true		      in
     (* set of waiting nodes in the CFA waiting to be processed *)
@@ -153,7 +153,8 @@ struct
 	  (* udpate the internal state of the decoder *)
 	  d := d'
 	with
-	| Exceptions.Enum_failure -> Log.from_analysis "analysis stopped in that branch (too large value computed)"
+	| Exceptions.Error msg -> dump g; Log.error msg
+	| Exceptions.Enum_failure -> dump g; Log.from_analysis "analysis stopped in that branch (too imprecise value computed)"
       end;
       (* boolean condition of loop iteration is updated                                                          *)
       continue := not (Vertices.is_empty !waiting);

@@ -93,13 +93,13 @@ module Make(Domain: Domain.T) =
 	  match v with
 	  | Config.Bits b       ->
 	     if (String.length b) > sz then
-	       Log.error (Printf.sprintf "Illegal initial tainting for register %s" name)
+	       raise (Exceptions.Error (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
 	       Config.Bits (pad b sz)
 			   
 	  | Config.MBits (b, m) ->
 	     if (String.length b) > sz || (String.length m) > sz then
-	       Log.error (Printf.sprintf "Illegal initial tainting for register %s" name)
+	       raise (Exceptions.Error (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
 	       Config.MBits (pad b sz, pad m sz)
 	in
@@ -110,7 +110,7 @@ module Make(Domain: Domain.T) =
 	  if len <= Register.size r && len <= !Config.operand_sz then
 	    v
 	  else
-	    Log.error (Printf.sprintf "value %s too large to fit into register %s\n" (Data.Word.to_string (Data.Word.of_int v len)) (Register.name r))
+	    raise (Exceptions.Error (Printf.sprintf "value %s too large to fit into register %s\n" (Data.Word.to_string (Data.Word.of_int v len)) (Register.name r)))
 	in
 	(* first the domain is updated with the "padded" tainting value for each register with initial tainting in the provided configuration *)
 	let d' =  Hashtbl.fold
@@ -294,7 +294,7 @@ module Make(Domain: Domain.T) =
       end
       module Dot = Graph.Graphviz.Dot(GDot)
 				     
-      let print g dumpfile dotfile =
+      let print dumpfile dotfile g =
 	let f = open_out dumpfile in
 	(* state printing (detailed) *)
 	let print_ip s =

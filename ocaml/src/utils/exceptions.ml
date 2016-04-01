@@ -9,3 +9,6 @@ exception Concretization
 
 (** raised when an abstract operation produces an empty value *)
 exception Empty
+
+(** raised when an unexpected behavior happens (undefined decoding, etc.) *)
+exception Error of string

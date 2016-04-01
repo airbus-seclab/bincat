@@ -105,7 +105,7 @@ module Make(Domain: Domain.T) =
 	  match Z.to_int (Z.logand (Z.shift_right v 2) Z.one) with
 	  | 0 -> GDT
 	  | 1 -> LDT
-	  | _ -> Log.error "Invalid decription table selection"
+	  | _ -> raise (Exceptions.Error "Invalid decription table selection")
 	in
 	{ rpl = rpl; ti = ti; index = Word.of_int (Z.shift_right v 3) index_sz }
 
@@ -237,10 +237,11 @@ module Make(Domain: Domain.T) =
 	      if c.rpl <= e.dpl then
 		e.base
 	      else
-		Log.error "illegal requested privileged level"
-	    with Not_found -> Log.error (Printf.sprintf "illegal requested index in %s Description Table" (if c.ti = GDT then "Global" else "Local"))
+		raise (Exceptions.Error "illegal requested privileged level")
+	  with Not_found ->
+	    raise (Exceptions.Error (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local")))
 	else
-	  Log.error "only protected mode supported"
+	  raise (Exceptions.Error "only protected mode supported")
 				
       (** initialization of the segmentation *)
       let init () =
@@ -258,7 +259,7 @@ module Make(Domain: Domain.T) =
 	try
 	  List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
 	  registers
-	with _ -> Log.error "Decoder: overflow in a segment register" 
+	with _ -> raise (Exceptions.Error "Decoder: overflow in a segment register") 
 	  
       let copy_segments s ctx = { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = get_segments ctx  }
 	
@@ -307,7 +308,7 @@ module Make(Domain: Domain.T) =
       let sib s reg md =
 	let c 		       = getchar s                                        in
 	let scale, index, base = mod_nnn_rm (Char.code c)                         in
-	if index = 4 then Log.error "Decoder: Illegal index value in sib (0x04)";
+	if index = 4 then raise (Exceptions.Error "Decoder: Illegal index value in sib (0x04)");
 	let index' 	       = find_reg index s.operand_sz                      in
 	let e 		       = UnOp (Shl scale, Lval (V index'))                in
 	match base with
@@ -355,7 +356,7 @@ module Make(Domain: Domain.T) =
 	       M (add_data_segment e', sz)
 		 
 	    | 3 -> V reg
-	    | _ -> Log.error "Decoder: illegal value for md in mod_reg_rm extraction"
+	    | _ -> raise (Exceptions.Error "Decoder: illegal value for md in mod_reg_rm extraction")
 			     
 	  in
 	  if direction = 0 then
@@ -367,7 +368,7 @@ module Make(Domain: Domain.T) =
 	  if direction = 0 then
 	    V rm', add_data_segment (disp s 32)
 	  else
-	    Log.error "Decoder: illegal direction for displacement only addressing mode"
+	    raise (Exceptions.Error "Decoder: illegal direction for displacement only addressing mode")
 		      
       (*******************************************************************************************************)
       (* statements to set/clear the flags *)
@@ -550,7 +551,7 @@ module Make(Domain: Domain.T) =
 	   | 5 -> add_sub s Sub false dst c sz
 	   | 6 -> or_xor_and s Xor dst c
 	   | 7 -> (* cmp: like the x86 spec it is implemented as a Sub *) add_sub s Sub false dst c sz
-	   | _ -> Log.error "Illegal nnn value in grp1"
+	   | _ -> raise (Exceptions.Error "Illegal nnn value in grp1")
 
    
     
@@ -568,7 +569,7 @@ module Make(Domain: Domain.T) =
 	begin
 	  match s.rep_prefix with
 	    Some _ when c = Str -> ()
-	  | Some _ when c = Esc -> Log.error "prefix with escape opcode not implemented"
+	  | Some _ when c = Esc -> raise (Exceptions.Error "prefix with escape opcode not implemented")
 	  | _ -> s.rep_prefix <- None
 	end;
 	begin
@@ -592,7 +593,7 @@ module Make(Domain: Domain.T) =
 	| '\x65' -> s.segments.data <- ss
 	| '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16
 	| '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16
-	| _      -> Log.error "not a prefix"
+	| _      -> raise (Exceptions.Error "not a prefix")
 		     
 		     
       let is_register_set stmts r =
@@ -745,7 +746,7 @@ module Make(Domain: Domain.T) =
 	    | 13      -> Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))
 	    | 14      -> BBinOp (LogOr, Cmp (EQ, Lval (V (T fzf)), const 1), BUnOp(Not, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))))
 	    | 15      -> BBinOp (LogAnd, Cmp (EQ, Lval (V (T fzf)), const 0), Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))))
-	    | _       -> Log.error "Opcode.exp_of_cond: illegal value"
+	    | _       -> raise (Exceptions.Error "Opcode.exp_of_cond: illegal value")
 	  in
 	  e, int_of_bytes s n
 			
@@ -912,7 +913,7 @@ module Make(Domain: Domain.T) =
 	  | '\x07' 			     -> let es' = to_reg es s.operand_sz in pop s [es']
 	  | c when '\x08' <= c &&  c <= '\x0D' -> or_xor_and s Or c
 	  | '\x0E' 			     -> let cs' = to_reg cs s.operand_sz in push s[cs']
-	  | '\x0F' 			     -> update_prefix s Esc; Log.error "Decoder: 0x0F to complete"
+	  | '\x0F' 			     -> update_prefix s Esc; raise (Exceptions.Error "Decoder: 0x0F to complete")
 									       
 	  | c when '\x10' <= c && c <= '\x13' -> add_sub s Add true c
 	  | '\x14' 			     -> add_sub_immediate s Add true eax Config.size_of_byte
@@ -956,7 +957,7 @@ module Make(Domain: Domain.T) =
 
 	| '\x80' -> grp1 s true
 	| '\x81' -> grp1 s false
-	| '\x82' -> Log.error "Undefined opcode 0x82"
+	| '\x82' -> raise (Exceptions.Error "Undefined opcode 0x82")
 	| '\x83' -> grp1 s true
 	  
 	| '\x90' 			    -> create s [Nop]
@@ -984,11 +985,11 @@ module Make(Domain: Domain.T) =
 	| '\xf0' as c -> push_prefix s c; decode s
 	| '\xf2' as c -> push_prefix s c; decode s
 	| '\xf3' as c -> push_prefix s c; decode s
-	| '\xf4' -> Log.error "Decoder stopped: HLT reached"
+	| '\xf4' -> raise (Exceptions.Error "Decoder stopped: HLT reached")
 
 			 
 
-	| c ->  Log.error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c))
+	| c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c)))
        in
        decode s
      

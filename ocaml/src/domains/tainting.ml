@@ -233,9 +233,9 @@
 	   with _ -> TOP
 	 end
 	   
-  let enter_fun _f _ctx = Log.error "Tainting.enter_fun: to implement" 
+  let enter_fun _f _ctx = raise (Exceptions.Error "Tainting.enter_fun: to implement")
 
-  let leave_fun _ctx = Log.error "Tainting.leave_fun: to implement"
+  let leave_fun _ctx = raise (Exceptions.Error "Tainting.leave_fun: to implement")
       
   let combine v1 v2 l u =
     match v1, v2 with

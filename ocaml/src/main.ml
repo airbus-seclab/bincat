@@ -39,9 +39,10 @@ let process ~configfile ~resultfile ~logfile =
   let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz                                       in 
   let g, s  = Interpreter.Cfa.init ep'                                                                                    in
   (* 6: runs the fixpoint engine *)
-  let cfa  = Interpreter.process code g s                                                                                 in
+    let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
+  let cfa  = Interpreter.process code g s dump                                                                            in
   (* 7: dumps the results *)
-  Interpreter.Cfa.print cfa resultfile !Config.dotfile
+  dump cfa
  ;; 
   
 (* enables the process function to be callable from the .so *)

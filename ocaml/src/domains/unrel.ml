@@ -275,9 +275,9 @@ module Make(D: T) =
       let m' = List.fold_left (fun m' (r, v) -> try let _, n = Map.find (K.R r) m' in Map.replace (K.R r) (v, n) m' with Not_found -> Map.add (K.R r) (v, 0) m') m' registers in
       List.fold_left (fun m' (a, v) -> let _, n = Map.find (K.M a) m' in try Map.replace (K.M a) (v, n) m' with Not_found -> Map.add (K.M a) (v, 0) m') m' memories *)
 	     
-    let enter_fun _m _f = Log.error "Unrel.enter_fun"
+    let enter_fun _m _f = raise (Exceptions.Error "Unrel.enter_fun")
      	
-    let leave_fun _m = Log.error "Unrel.leave_fun"
+    let leave_fun _m = raise (Exceptions.Error "Unrel.leave_fun")
     
     let val_restrict m e1 _v1 cmp _e2 v2 =
       if D.name = "Ptrs" then 

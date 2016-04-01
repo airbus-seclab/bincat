@@ -37,10 +37,10 @@ module Word =
       try
 	let v' = Z.of_string v in
 	if String.length (Z.to_bits v') > n then
-	  Log.error (Printf.sprintf "word %s too large to fit into %d bits" v n)
+	  raise (Exceptions.Error (Printf.sprintf "word %s too large to fit into %d bits" v n))
 	else
 	  v', n
-      with _ -> Log.error (Printf.sprintf "Illegal conversion from Z.t to word of %s" v)
+      with _ -> raise (Exceptions.Error (Printf.sprintf "Illegal conversion from Z.t to word of %s" v))
 
     let hash w = Z.hash (fst w)
 			
@@ -111,11 +111,11 @@ module Address =
 	if !Config.mode = Config.Protected then 
 	  let w = Word.of_string a n in
 	  if Word.compare w (Word.zero n) < 0 then
-	    Log.error "Tried to create negative address"
+	    raise (Exceptions.Error "Tried to create negative address")
 	  else
 	      r, w
 	else
-	  Log.error "Address generation for this memory mode not yet managed"
+	  raise (Exceptions.Error "Address generation for this memory mode not yet managed")
 
       let to_string (r, w) = Printf.sprintf "(%s, %s)" (string_of_region r) (Word.to_string w)
 	
@@ -143,24 +143,24 @@ module Address =
 	if Word.size w >= sz then
 	  w
 	else
-	  raise (Invalid_argument "overflow when tried to convert an address to a word")
+	  raise (Exceptions.Error "overflow when tried to convert an address to a word")
 		
       let sub v1 v2 =
 	match v1, v2 with
 	| (r1, w1), (r2, w2)  when r1 = r2 ->
 	   let w = Word.sub w1 w2 in
 	   if Word.compare w (Word.zero (Word.size w1)) < 0 then
-	     Log.error "invalid address substraction"
+	     raise (Exceptions.Error "invalid address substraction")
 	   else
 	    Word.to_int w
-	| _, _ 	-> Log.error "invalid address substraction"
+	| _, _ 	-> raise (Exceptions.Error "invalid address substraction")
 
       let binary op ((r1, w1): t) ((r2, w2): t): t =
 	let r' =
 	  match r1, r2 with
 	  | Global, r | r, Global -> r
 	  | r1, r2                ->
-	     if r1 = r2 then r1 else Log.error "Invalid binary operation on addresses of different regions"
+	     if r1 = r2 then r1 else raise (Exceptions.Error "Invalid binary operation on addresses of different regions")
 	in
 	  r', Word.binary op w1 w2
 
