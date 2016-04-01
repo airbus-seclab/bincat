@@ -85,7 +85,6 @@ type stmt =
   | Jmp	 of jmp_target option (** jump; None target is for intermediate block translation *)				    
   | Call of fct          		   (** call *)
   | Return         			   (** return *)
-  | Undef                    		   (** undefined (decoding error) *)
   | Nop                      		   (** no operation *)
   | Directive of directive_t 		   (** directive/hint for the analyzer *)
 		   
@@ -210,7 +209,6 @@ let string_of_stmt s =
        Printf.sprintf "if (%s)\n%s%selse\n%s%s" (string_of_bexp cond) ind' (concat to_string ind' if_stmts) ind' (concat to_string ind' else_stmts)
     | Call _ 	       		    -> "call\n"
     | Return  	       		    -> "ret\n"
-    | Undef 	       		    -> "undef\n"
     | Nop 	       		    -> "nop\n"
     | Directive d        	    -> Printf.sprintf "%s\n" (string_of_directive d)
   in
