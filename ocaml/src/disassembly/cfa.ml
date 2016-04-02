@@ -309,7 +309,8 @@ module Make(Domain: Domain.T) =
 	(* dot generation *)	
 	let f' = open_out dotfile in
 	Dot.output_graph f' g;
-	close_out f'
+	close_out f';
+	
 
 	
 	

@@ -153,8 +153,9 @@ struct
 	  (* udpate the internal state of the decoder *)
 	  d := d'
 	with
-	| Exceptions.Error msg -> dump g; Log.error msg
-	| Exceptions.Enum_failure -> dump g; Log.from_analysis "analysis stopped in that branch (too imprecise value computed)"
+	| Exceptions.Error msg 	  -> dump g; Log.error msg
+	| Exceptions.Enum_failure -> dump g; Log.error "analysis stopped in that branch (too imprecise value computed)"
+	| _ 			  -> dump g; Log.error "Interpreter error"
       end;
       (* boolean condition of loop iteration is updated                                                          *)
       continue := not (Vertices.is_empty !waiting);

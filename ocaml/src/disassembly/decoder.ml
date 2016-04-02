@@ -202,10 +202,11 @@ module Make(Domain: Domain.T) =
 
       (** extract from the string code the current byte to decode *)
       (** the offset field of the decoder state is increased *)
-      let getchar s = 
+      let getchar s =
 	let c = String.get s.buf s.o in
 	s.o <- s.o + 1;
 	c
+
 
       (** int conversion of a byte in the string code *)
       let int_of_byte s = Z.of_int (Char.code (getchar s))
@@ -213,8 +214,8 @@ module Make(Domain: Domain.T) =
       (** [int_of_bytes s sz] is an integer conversion of sz bytes of the string code s.buf *)  
       let int_of_bytes s sz =
 	let n = ref Z.zero in
-	for _i = 0 to sz-1 do
-	  n := Z.add (!n) (Z.shift_left (int_of_byte s) 8);
+	for i = 0 to sz-1 do
+	  n := Z.add (!n) (Z.shift_left (int_of_byte s) (8*i));
 	done;
 	!n;;
 
@@ -249,7 +250,7 @@ module Make(Domain: Domain.T) =
 	let gdt = Hashtbl.create 19 in
 	let idt = Hashtbl.create 15 in
 	(* builds the gdt *)
-	Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int (Z.mul o (Z.of_int 64)) 64) (tbl_entry_of_int v)) Config.gdt;
+	Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
 	let reg = Hashtbl.create 6 in
 	List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
 	{ gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg; }
@@ -536,11 +537,14 @@ module Make(Domain: Domain.T) =
 
      			     
       let grp1 s is_byte =
-	let v 		= (Char.code (getchar s))				           in
-	let dst, _src   = operands_from_mod_reg_rm s v                                     in
-	(* we do not use the source operand as grp1 has always an immediate data as second operand *)
-	let sz 	   	= if is_byte then Config.size_of_byte else s.operand_sz	           in
-	let c           = Const (Word.of_int (int_of_bytes s (sz/Config.size_of_byte)) sz) in
+	let v 	= (Char.code (getchar s))				           in
+	let sz 	= if is_byte then Config.size_of_byte else s.operand_sz	           in
+	let dst =
+	  match v lsr 6 with
+	  | 3 -> V (find_reg (v land 7) sz)
+	  | _ -> raise (Exceptions.Error "Unexpected mod in grp 1")
+	in
+	let c   = Const (Word.of_int (int_of_bytes s (sz/Config.size_of_byte)) sz) in
 	(* operation is encoded in bits 5,4,3 *)
 	   match ((v lsr 3) land 7) with
 	   | 0 -> add_sub s Add false dst c sz
@@ -991,9 +995,12 @@ module Make(Domain: Domain.T) =
 
 	| c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c)))
        in
-       decode s
-     
-      
+       try
+	 decode s
+       with
+       | Exceptions.Error _ as e -> raise e
+       | _ 			 -> raise (Exceptions.Error "decoding error")
+		    
       (** launch the decoder *)
       let parse text g is v a ctx =
 	  let s' = {
