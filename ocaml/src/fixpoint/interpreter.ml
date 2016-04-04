@@ -74,7 +74,9 @@ struct
     | Set (dst, src) -> D.set dst src (new domain_oracle d) d
 
     | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d'
-				       
+
+    | Directive (Forget r) -> D.forget r d
+				      
     | _       -> raise (Exceptions.Error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt)))
     in
     process d stmt

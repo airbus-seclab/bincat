@@ -122,7 +122,14 @@ module Make(D: T) =
       match m with
       | Val m' -> Val (Map.remove (K.R v) m')
       | BOT    -> BOT
-		    
+
+    let forget r m =
+      match m with
+      | Val m' ->
+	 let r' = K.R r in
+	 Val (try let _, n = Map.find r' m' in Map.replace r' (D.top, n) m' with _ -> Map.add r' (D.top, 0) m')
+      | BOT -> BOT
+		 
     let subset m1 m2 =
       match m1, m2 with
       | BOT, _ 		 -> true

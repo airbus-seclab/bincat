@@ -319,6 +319,7 @@ module Make(Domain: Domain.T) =
       exception Disp32
 		  
       let operands_from_mod_reg_rm s v =
+
 	let add_data_segment e =
 	  let m      = Hashtbl.find s.segments.reg s.segments.data in 
 	  let ds_val = get_base_address s m                        in
@@ -330,6 +331,7 @@ module Make(Domain: Domain.T) =
 	let sz          = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in
 	let rm' 	= find_reg rm sz 					     in
 	let reg         = find_reg reg sz                                            in
+	Printf.printf "operands_from_mod_reg_rm avec md=%d\n" md; flush stdout;
 	try
 	  let reg' =
 	    match md with
@@ -356,7 +358,7 @@ module Make(Domain: Domain.T) =
 	       let e' = BinOp (Add, e, disp s 32) in
 	       M (add_data_segment e', sz)
 		 
-	    | 3 -> V reg
+	    | 3 -> flush stdout; V reg
 	    | _ -> raise (Exceptions.Error "Decoder: illegal value for md in mod_reg_rm extraction")
 			     
 	  in
@@ -365,7 +367,7 @@ module Make(Domain: Domain.T) =
 	  else
 	    reg', Lval (V rm')
 	with
-	  Disp32 ->
+	  Disp32 -> 
 	  if direction = 0 then
 	    V rm', add_data_segment (disp s 32)
 	  else
@@ -535,26 +537,39 @@ module Make(Domain: Domain.T) =
       (* decoding of opcodes of group 1 to 5 *)
       (*****************************************************************************************)
 
-     			     
-      let grp1 s is_byte =
-	let v 	= (Char.code (getchar s))				           in
-	let sz 	= if is_byte then Config.size_of_byte else s.operand_sz	           in
+      let sign_extension_of_byte b nb =
+	if Z.compare (Z.logand b (Z.of_int Config.size_of_byte)) Z.zero = 0 then
+	  b
+	else
+	  let ff = ref "0xff" in
+	  for _i = 1 to nb-1 do
+	    ff := !ff ^ "ff"
+	  done;
+	  Z.add (Z.shift_left (Z.of_string !ff) Config.size_of_byte) b
+	
+      let grp1 s reg_sz imm_sz =
+	let v 	= (Char.code (getchar s)) in
 	let dst =
 	  match v lsr 6 with
-	  | 3 -> V (find_reg (v land 7) sz)
-	  | _ -> raise (Exceptions.Error "Unexpected mod in grp 1")
+	  | 3 -> V (find_reg (v land 7) reg_sz)
+	  | _ -> raise (Exceptions.Error "Decoder: unexpected mod field in group 1")
 	in
-	let c   = Const (Word.of_int (int_of_bytes s (sz/Config.size_of_byte)) sz) in
+	let i = int_of_bytes s (imm_sz / Config.size_of_byte) in
+	let i' =
+	  if reg_sz = imm_sz then i
+	  else sign_extension_of_byte i ((reg_sz / Config.size_of_byte)-1)
+	in
+	let c   = Const (Word.of_int i' reg_sz) in
 	(* operation is encoded in bits 5,4,3 *)
 	   match ((v lsr 3) land 7) with
-	   | 0 -> add_sub s Add false dst c sz
+	   | 0 -> add_sub s Add false dst c reg_sz
 	   | 1 -> or_xor_and s Or dst c 
-	   | 2 -> add_sub s Add true dst c sz
-	   | 3 -> add_sub s Sub true dst c sz
+	   | 2 -> add_sub s Add true dst c reg_sz
+	   | 3 -> add_sub s Sub true dst c reg_sz
 	   | 4 -> or_xor_and s And dst c
-	   | 5 -> add_sub s Sub false dst c sz
+	   | 5 -> add_sub s Sub false dst c reg_sz
 	   | 6 -> or_xor_and s Xor dst c
-	   | 7 -> (* cmp: like the x86 spec it is implemented as a Sub *) add_sub s Sub false dst c sz
+	   | 7 -> (* cmp: like the x86 spec it is implemented as a Sub *) add_sub s Sub false dst c reg_sz
 	   | _ -> raise (Exceptions.Error "Illegal nnn value in grp1")
 
    
@@ -956,51 +971,49 @@ module Make(Domain: Domain.T) =
 
 	  | '\x68' -> push_immediate s 1
 	  | '\x6A' -> push_immediate s (s.operand_sz / Config.size_of_byte)
-
-	| c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in jcc s v 1 
-
-	| '\x80' -> grp1 s true
-	| '\x81' -> grp1 s false
-	| '\x82' -> raise (Exceptions.Error "Undefined opcode 0x82")
-	| '\x83' -> grp1 s true
-	  
-	| '\x90' 			    -> create s [Nop]
+				     
+	  | c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in jcc s v 1 
+												   
+	  | '\x80' -> grp1 s Config.size_of_byte Config.size_of_byte
+	  | '\x81' -> grp1 s s.operand_sz s.operand_sz
+	  | '\x82' -> raise (Exceptions.Error "Undefined opcode 0x82")
+	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte
+			   
+	  | c when '\x88' <= c && c <= '\x8B' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in create s [ Set (dst, src) ]
+														
+	  | '\x90' 			    -> create s [Nop]
 						      
-	| c when '\x91' <= c && c <= '\x97' -> xchg s ((Char.code c) - (Char.code '\x90'))
-     
-
-	| '\xa4' -> movs s Config.size_of_byte
-	| '\xa5' -> movs s s.addr_sz
-	| '\xa6' -> cmps s Config.size_of_byte
-	| '\xa7' -> cmps s s.addr_sz
-	| '\xaa' -> stos s Config.size_of_byte
-	| '\xab' -> stos s s.addr_sz
-	| '\xac' -> lods s Config.size_of_byte
-	| '\xad' -> lods s s.addr_sz
-	| '\xae' -> scas s Config.size_of_byte
-	| '\xaf' -> scas s s.addr_sz
-
-	| c when '\xe0' <= c && c <= '\xe2' -> loop s ((Char.code c) - (Char.code '\xe0'))
-	| '\xe3' 			    -> jecxz s
-
-	| '\xe9' -> jmp s (s.operand_sz / Config.size_of_byte)
-	| '\xeb' -> jmp s 1
-
-	| '\xf0' as c -> push_prefix s c; decode s
-	| '\xf2' as c -> push_prefix s c; decode s
-	| '\xf3' as c -> push_prefix s c; decode s
-	| '\xf4' -> raise (Exceptions.Error "Decoder stopped: HLT reached")
-
-			 
-
-	| c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c)))
-       in
-       try
-	 decode s
-       with
-       | Exceptions.Error _ as e -> raise e
-       | _ 			 -> raise (Exceptions.Error "decoding error")
-		    
+	  | c when '\x91' <= c && c <= '\x97' -> xchg s ((Char.code c) - (Char.code '\x90'))
+						      
+						      
+	  | '\xa4' -> movs s Config.size_of_byte
+	  | '\xa5' -> movs s s.addr_sz
+	  | '\xa6' -> cmps s Config.size_of_byte
+	  | '\xa7' -> cmps s s.addr_sz
+	  | '\xaa' -> stos s Config.size_of_byte
+	  | '\xab' -> stos s s.addr_sz
+	  | '\xac' -> lods s Config.size_of_byte
+	  | '\xad' -> lods s s.addr_sz
+	  | '\xae' -> scas s Config.size_of_byte
+	  | '\xaf' -> scas s s.addr_sz
+			   
+	  | c when '\xe0' <= c && c <= '\xe2' -> loop s ((Char.code c) - (Char.code '\xe0'))
+	  | '\xe3' 			    -> jecxz s
+						     
+	  | '\xe9' -> jmp s (s.operand_sz / Config.size_of_byte)
+	  | '\xeb' -> jmp s 1
+			  
+	  | '\xf0' as c -> push_prefix s c; decode s
+	  | '\xf2' as c -> push_prefix s c; decode s
+	  | '\xf3' as c -> push_prefix s c; decode s
+	  | '\xf4' -> raise (Exceptions.Error "Decoder stopped: HLT reached")
+			    
+			    
+			    
+	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c)))
+	in
+	  decode s
+					      
       (** launch the decoder *)
       let parse text g is v a ctx =
 	  let s' = {
@@ -1017,7 +1030,9 @@ module Make(Domain: Domain.T) =
 	  in
 	  try
 	    decode s', s'.segments
-	  with _ -> (*end of buffer *) [], is
+	  with
+	  | Exceptions.Error _ as e -> raise e
+	  | _ 			    -> (*end of buffer *) [], is
   end
     (* end Decoder *)
 

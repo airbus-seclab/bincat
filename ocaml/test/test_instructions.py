@@ -218,7 +218,7 @@ def test_sub(analyzer, initialState):
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_or_reg_ff(analyzer, initialState, register):
     """
-    Tests opcodes 0xc8-0xcf - OR register with 0xff
+    OR register with 0xff
     """
     # or ebx,0xffffffff
     regid, regname = register
@@ -255,15 +255,15 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
     regid, regname = register
-    binstr = "\x8b" + chr(0xec + regid)
+    binstr = "\x8b" + chr(0x08 + regid)
     ac = analyzer(initialState, binarystr=binstr)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter.ptrs['reg'][regname] = stateBefore.ptrs['reg'][regname]
-    expectedStateAfter.tainting['reg'][regname] = \
+    expectedStateAfter.ptrs['reg']['ebp'] = stateBefore.ptrs['reg'][regname]
+    expectedStateAfter.tainting['reg']['ebp'] = \
         stateBefore.tainting['reg'][regname]
     assertEqualStates(expectedStateAfter, stateAfter)
 

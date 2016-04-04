@@ -29,7 +29,6 @@
 	| T, T 	          -> T
 	| U, U 	 	  -> U
 	| BOT, b | b, BOT -> b
-	| T, U | U, T 	  -> T
 	| _, _ 	 	  -> TOP
 
       let meet b1 b2 =

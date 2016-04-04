@@ -19,7 +19,8 @@ struct
   let bot 					= D1.bot                              , D2.bot 
   let enter_fun (v1, v2) f                    	= D1.enter_fun v1 f                   , D2.enter_fun v2 f
   let leave_fun (v1, v2)                      	= D1.leave_fun v1                     , D2.leave_fun v2
-  let compare (v1, v2) e1 c e2 			= D1.compare v1 e1 c e2               , D2.compare v2 e1 c e2
+  let compare (v1  , v2) e1 c e2 		= D1.compare v1 e1 c e2               , D2.compare v2 e1 c e2
+  let forget r (v1 , v2) 			= D1.forget r v1                      , D2.forget r v2
 
   (** two exceptions used for internal purpose of mem_to_addresses *)
   exception Mem_v1
