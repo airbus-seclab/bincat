@@ -111,28 +111,49 @@ module Make(Domain: Domain.T) =
 
       (** abstract data type of a segment type *)
       type segment_descriptor_type =
-	| Data_r 	    (* 1000 read only *)
-	| Data_rw   	    (* 1001 data *)
-	| Stack_r 	    (* 1010 read only *)
-	| Stack_rw          (* 1011 stack *)
-	| Code_x 	    (* 1100 execute only *)
-	| Code_rx 	    (* 1101 code execute or read *)
-	| ConformingCode_x  (* 1110 conforming code execute-only *)
-	| ConformingCode_rx (* 1111 conforming code execute or read *)
-	| UndefSegment      (* undefine *)
+	(* From Vol 3-17, Table 3.1 *)
+	(* Stack segments are data segments which must be read/write segments *)
+	(* loading the SS register with a segment selector for a nonwritable data segment generates a general-protection exception (#GP) *)
+	| Data_r   (* 0000 Data read only *)
+	| Data_ra   (* 0001 Data read only, accessed *)
+	| Data_rw   (* 0010 Data read/write *)
+	| Data_rwa  (* 0011 Data read/write, accessed *)
+	| Data_re   (* 0100 Data read only, expand-down *)
+	| Data_rea  (* 0101 Data read only, expand-dwon, accessed *)
+	| Data_rwe  (* 0110 Data read/write, expand-down *)
+	| Data_rwea  (* 0111 Data read/write, expand-down, accessed *)
+	    
+	| Code_e    (* 1000 Code execute-only *)
+	| Code_ea   (* 1001 Code execute-only, accessed *)
+	| Code_er   (* 1010 Code execute/read *)
+	| Code_era  (* 1011 Code execute/read, accessed *)
+	| Code_ec   (* 1100 Code execute-only, conforming *)
+	| Code_eca  (* 1101 Code execute-only, conforming, accessed *)
+	| Code_erc  (* 1110 Code execute/read, conforming *)
+	| Code_erca (* 1111 Code execute/read, conforming, accessed *)
+	| UndefSegment
 
       (** converts the given integer into a segment type *)
       let segment_descriptor_of_int v =
 	match v with
-	| 8  -> Data_r
-	| 9  -> Data_rw
-	| 10 -> Stack_r
-	| 11 -> Stack_rw
-	| 12 -> Code_x
-	| 13 -> Code_rx
-	| 14 -> ConformingCode_x
-	| 15 -> ConformingCode_rx
+	| 0  -> Data_r   (* 0000 Data read only *)
+	| 1  -> Data_ra   (* 0001 Data read only, accessed *)
+	| 2  -> Data_rw   (* 0010 Data read/write *)
+	| 3  -> Data_rwa  (* 0011 Data read/write, accessed *)
+	| 4  -> Data_re   (* 0100 Data read only, expand-down *)
+	| 5  -> Data_rea  (* 0101 Data read only, expand-dwon, accessed *)
+	| 6  -> Data_rwe  (* 0111 Data read/write, expand-down *)
+	| 7  -> Data_rwea  (* 0111 Data read/write, expand-down, accessed *)
+	| 8  -> Code_e    (* 1000 Code execute-only *)
+	| 9  -> Code_ea   (* 1001 Code execute-only, accessed *)
+	| 10 -> Code_er   (* 1010 Code execute/read *)
+	| 11 -> Code_era  (* 1011 Code execute/read, accessed *)
+	| 12 -> Code_ec   (* 1100 Code execute-only, conforming *)
+	| 13 -> Code_eca  (* 1101 Code execute-only, conforming, accessed *)
+	| 14 -> Code_erc  (* 1110 Code execute/read, conforming *)
+	| 15 -> Code_erca (* 1111 Code execute/read, conforming, accessed *)
 	| _  -> UndefSegment
+
 
       (** abstract data type of an entry of a decription table (GDT or LDT) *)
       type tbl_entry = { base: Z.t; limit: Z.t; a: Z.t; typ: segment_descriptor_type; dpl: privilege_level; p: Z.t; u: Z.t; x: Z.t; d: Z.t; g: Z.t;}
@@ -809,7 +830,9 @@ module Make(Domain: Domain.T) =
 	       let dt = if v'.ti = GDT then s.segments.gdt else s.segments.ldt in
 	       let e  = Hashtbl.find dt v'.index                               in
 	       if e.dpl = v'.rpl then
-		 if e.typ = Code_x || e.typ = Code_rx || e.typ = ConformingCode_x || e.typ = ConformingCode_rx then
+		 if e.typ = Code_e || e.typ = Code_ea || e.typ = Code_ea
+		    || e.typ = Code_er || e.typ = Code_era || e.typ = Code_ec || e.typ = Code_eca ||
+		 e.typ = Code_erc || e.typ = Code_erca then
 		   ()
 		 else
 		   Log.error "decoder: tried a far jump into non code segment"

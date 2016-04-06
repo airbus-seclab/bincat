@@ -7,7 +7,6 @@ let logfid = ref stdout
 let init fname =
   logfid := open_out fname
 
-
 (** dump a message provided by the analysis step *)
 let from_analysis msg = Printf.fprintf (!logfid) "[analysis] %s\n" msg
 
