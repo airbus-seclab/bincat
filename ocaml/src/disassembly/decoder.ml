@@ -243,7 +243,7 @@ module Make(Domain: Domain.T) =
 	    raise (Exceptions.Error (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local")))
 	else
 	  raise (Exceptions.Error "only protected mode supported")
-				
+
       (** initialization of the segmentation *)
       let init () =
 	let ldt = Hashtbl.create 5  in
@@ -329,9 +329,9 @@ module Make(Domain: Domain.T) =
 	let md, reg, rm = mod_nnn_rm (Char.code c)				     in
 	let direction 	= (v lsr 1) land 1   					     in
 	let sz          = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in
+	Printf.printf "md = %d\n reg = %d rm = %d" md reg rm; flush stdout;
 	let rm' 	= find_reg rm sz 					     in
 	let reg         = find_reg reg sz                                            in
-	Printf.printf "operands_from_mod_reg_rm avec md=%d\n" md; flush stdout;
 	try
 	  let reg' =
 	    match md with
@@ -583,20 +583,7 @@ module Make(Domain: Domain.T) =
 	| Esc
 	| Str
 	    
-	    
-      let update_prefix s c =
-	begin
-	  match s.rep_prefix with
-	    Some _ when c = Str -> ()
-	  | Some _ when c = Esc -> raise (Exceptions.Error "prefix with escape opcode not implemented")
-	  | _ -> s.rep_prefix <- None
-	end;
-	begin
-	  match c with
-	    Jcc_i -> s.segments.data <- ds
-	  | _ -> ()
-	end;
-	if c = Esc then s.addr_sz <- !Config.address_sz
+
 							       
       (** updates the decoder state with respect to the decoded prefix *)
       let push_prefix s c =
@@ -697,12 +684,10 @@ module Make(Domain: Domain.T) =
 	   in
 	   let stmts = [ Set(M(failwith "exp MOVS case 1", s.operand_sz), Lval (M((failwith "exp MOVS case 2", s.operand_sz)))) ]
 	   in
-	   update_prefix s Str; 
 	   make_rep s stmts [esi ; edi] i
 
 	(** state generation for CMPS *)
 	let cmps s i = 
-	   update_prefix s Str; 
 	  (* TODO factorize with CMP *)
 	   let _edi', _esi' =
 	     if Register.size edi = i then
@@ -722,12 +707,10 @@ module Make(Domain: Domain.T) =
 	     if i = Register.size esi then T esi, T eax
 	     else P(esi, 0, i-1), P(eax, 0, i-1)
 	   in
-	   update_prefix s Str; 
 	   make_rep s [ Set(M (failwith "exp LODS case 1", i), Lval (M(failwith "exp LODS case 2", i))) ] [esi] i
 
 	(** state generation for SCAS *)
 	let scas s i =
-	   update_prefix s Str ;
 	   let t = Register.make ~name:(Register.fresh_name()) ~size:i in
 	   let _edi', _eax' = 
 	     if i = Register.size edi then T edi, T eax
@@ -739,7 +722,6 @@ module Make(Domain: Domain.T) =
 
 	(** state generation for STOS *)
 	let stos s i =
-	  update_prefix s Str ; 
 	  let _edi', _eax' = 
 	    if i = Register.size edi then T edi, T eax
 	    else P (edi, 0, i-1), P (eax, 0, i-1)
@@ -750,26 +732,99 @@ module Make(Domain: Domain.T) =
 	(* State generation for loop, call and jump instructions *)
 	(****************************************************)
 	(** returns the asm condition of jmp statements from an expression *)
-	let exp_of_cond v s n =
-	  let const c = const s c in
-	  let e =
-	    match v with
-	    | 0 | 1   -> Cmp (EQ, Lval (V (T fof)), const (1-v))
-	    | 2 | 3   -> Cmp (EQ, Lval (V (T fcf)), const (1-(v-2)))
-	    | 4 | 5   -> Cmp (EQ, Lval (V (T fzf)), const (1-(v-4)))
-	    | 6       -> let c1 = const 1 in BBinOp (LogOr, Cmp (EQ, Lval (V (T fcf)), c1), Cmp (EQ, Lval (V (T fzf)), c1))											   
-	    | 7       -> let c0 = const 0 in BBinOp (LogAnd, Cmp (EQ, Lval (V (T fcf)), c0), Cmp (EQ, Lval (V (T fzf)), c0))
-	    | 8 | 9   -> Cmp (EQ, Lval (V (T fsf)), const (1-(v-8)))
-	    | 10 | 11 -> Cmp (EQ, Lval (V (T fpf)), const (1-(v-10)))
-	    | 12      -> BUnOp (Not, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))))
-	    | 13      -> Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))
-	    | 14      -> BBinOp (LogOr, Cmp (EQ, Lval (V (T fzf)), const 1), BUnOp(Not, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))))
-	    | 15      -> BBinOp (LogAnd, Cmp (EQ, Lval (V (T fzf)), const 0), Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))))
-	    | _       -> raise (Exceptions.Error "Opcode.exp_of_cond: illegal value")
-	  in
-	  e, int_of_bytes s n
+	let exp_of_cond v s =
+	  let const c  = const s c in
+	  let eq f = Cmp (EQ, Lval (V (T f)), const 1) in
+	  let neq f = Cmp (NEQ, Lval (V (T f)), const 1) in
+	  match v with
+	  | 0  -> eq fof
+	  | 1  -> neq fof
+	  | 2  -> eq fcf
+	  | 3  -> neq fcf
+	  | 4  -> eq fzf
+	  | 5  -> neq fzf
+	  | 6  -> BBinOp (LogOr, eq fcf, eq fzf)
+	  | 7  -> BBinOp (LogAnd, neq fcf, neq fzf)
+	  | 8  -> eq fsf
+	  | 9  -> neq fsf
+	  | 10 -> eq fpf
+	  | 11 -> neq fpf
+	  | 12 -> (* sf <> of *) Cmp (NEQ, Lval (V (T fsf)), Lval (V (T fof)))
+	  | 13 -> (* not (sf <> of) = sf = of *) Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))
+	  | 14 -> (* sf <> of || zf == 1 *) BBinOp (LogOr, Cmp (NEQ, Lval (V (T fsf)), Lval (V (T fof))), eq fzf)
+	  | 15 -> (* (not (sf <> zf || zf == 1) = sf == zf && zf <> 1 *) BBinOp (LogAnd, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))), neq fzf)
+	  | _  -> raise (Exceptions.Error "Opcode.exp_of_cond: illegal value")
+
 			
-	let loop s i = 
+
+	(** checks that the target is within the bounds of the code segment *)
+	let check_jmp s target =
+	  let csv = Hashtbl.find s.segments.reg cs						     in
+	  let s   = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
+	  let i   = Address.to_int target							     in
+	  if Z.compare s.base i < 0 && Z.compare i s.limit < 0 then
+	    ()
+	  else
+	    raise (Log.error "Decoder: jump target out of limits of the code segments (GP exception in protected mode)")
+
+	(** [create_jcc_stmts s e] creates the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
+	let create_jcc_stmts s e n =
+	  let o  = sign_extension_of_byte (int_of_bytes s 1) (n-1) in
+	  let a' = Address.add_offset s.a o					            in
+	  check_jmp s a';
+	  let na = Address.add_offset s.a Z.one					            in
+	  check_jmp s na;
+	  create s [ If (e, [Jmp (Some (A a'))], [ Jmp (Some (A na)) ] ) ]
+
+	(** jump statements on condition *)
+	 let jcc s v n =
+	   let e = exp_of_cond v s in
+	   create_jcc_stmts s e n
+
+	 (** jump if eCX is zero *)
+	 let jecxz s =
+	   let ecx' = to_reg ecx s.addr_sz				   in
+	   let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero s.addr_sz)) in
+	   create_jcc_stmts s e s.addr_sz
+
+	 (** unconditional jump by adding an offset to the current ip *)
+	 let relative_jmp s i =
+	   let o  = int_of_bytes s i in
+	   let o' =
+	     if i = 1 then sign_extension_of_byte o ((s.operand_sz / Config.size_of_byte)-1)
+	     else o
+	   in
+	   let a' = Address.add_offset s.a o' in
+	   check_jmp s a';
+	   create s [ Jmp (Some (A a')) ]
+
+	 (** statements of jump with absolute address as target *)
+	 let direct_jmp s =
+	   let sz = Register.size cs            in
+	   let v  = int_of_bytes s sz           in
+	   let v' = get_segment_register_mask v in
+	   (* check properties on the requested segment loading: type of segment + privilege level *)
+	   begin
+	     try
+	       let dt = if v'.ti = GDT then s.segments.gdt else s.segments.ldt in
+	       let e  = Hashtbl.find dt v'.index                               in
+	       if e.dpl = v'.rpl then
+		 if e.typ = Code_x || e.typ = Code_rx || e.typ = ConformingCode_x || e.typ = ConformingCode_rx then
+		   ()
+		 else
+		   Log.error "decoder: tried a far jump into non code segment"
+	       else Log.error "Illegal segment loading (privilege error)"
+	     with _ -> Log.error "Illegal segment loading requested (illegal index in the description table)"
+	   end;
+	   Hashtbl.replace s.segments.reg cs v';
+	   let a  = int_of_bytes s (s.operand_sz / Config.size_of_byte) in
+	   let o  = Address.of_int Address.Global a s.operand_sz        in
+	   let a' = Address.add_offset o v                              in
+	   check_jmp s a';
+	    (* creates the statements : the first one enables to update the interpreter with the new value of cs *)
+	   create s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (Some (A a')) ]
+		  
+	 let loop s i = 
 	  (* TODO: check whether c and zero of length s.addr_sz rather than s.operand_sz *)
 	  let ecx' = to_reg ecx s.addr_sz in
 	  let c = Const (Word.of_int Z.one s.addr_sz) in
@@ -795,30 +850,6 @@ module Make(Domain: Domain.T) =
 	   in
 	   [v]
 
-	     
-	 let jcc s v n =
-	   (* TODO: factorize with JMP *)
-	   update_prefix s Jcc_i;
-	   let e, o = exp_of_cond v s n in
-	   let a' = Address.add_offset s.a o in
-	   create s [ If (e, [Jmp (Some (A a'))], [ ] ) ]
-
-
-		  	 
-	 let jecxz s =
-	   (* TODO: factorize with JMP *)
-	   update_prefix s Jcc_i;
-	   let o    = int_of_bytes s (s.operand_sz/ Config.size_of_byte) in
-	   let a'   = Address.add_offset s.a o in
-	   let ecx' = if Register.size ecx = s.addr_sz then T ecx else P(ecx, 0, s.addr_sz-1) in
-	   let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero (Register.size ecx))) in
-	   create s [If (e, [Jmp (Some (A a'))], [ ])]
-
-	 let jmp s i = 
-	   let o  = int_of_bytes s i         in
-	   let a' = Address.add_offset s.a o in
-	   create s [ If (BConst true, [Jmp (Some (A a')) ], [ ]) ]
-		  
 		  
       (****************************************************************************************)
       (* Parsing *)
@@ -859,7 +890,7 @@ module Make(Domain: Domain.T) =
       let push s v =
 	(* TODO: factorize with POP *)
 	let esp' = esp_lval () in
-	let t    = Register.make (Register.fresh_name ()) (Register.size esp)                                  in
+	let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
 	(* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
 	(* this is the purpose of the pre and post statements *)
 	let pre, post =
@@ -868,25 +899,26 @@ module Make(Domain: Domain.T) =
 	  else
 	    [], []
 	in
-	let stmts = List.fold_left (
-			fun stmts v ->
-			let n = size_push_pop v s.operand_sz in 
-			let s =
-			  if is_esp v then
-			    (* save the esp value to its value before the first push (see PUSHA specifications) *)
-			    Set (M (Lval (V esp'), n), Lval (V (T t)))
-			  else
-			    Set (M (Lval (V esp'), n), Lval (V v));
-			in
-			[ s ; set_esp esp' n ] @ stmts
-		      ) [] v
+	let stmts =
+	  List.fold_left (
+	      fun stmts v ->
+	      let n = size_push_pop v s.operand_sz in 
+	      let s =
+		if is_esp v then
+		  (* save the esp value to its value before the first push (see PUSHA specifications) *)
+		  Set (M (Lval (V esp'), n), Lval (V (T t)))
+		else
+		  Set (M (Lval (V esp'), n), Lval (V v));
+	      in
+	      [ s ; set_esp esp' n ] @ stmts
+	    ) [] v
 	in
 	create s (pre @ stmts @ post)
 
       (** creates the state for the push of an immediate operands. Its size is given by the parameter *)
       let push_immediate s n =
-	let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width)  in
-	let esp'  = esp_lval ()							      in
+	let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width) in
+	let esp'  = esp_lval ()						       in
 	let stmts = [ Set (M (Lval (V esp'), !Config.stack_width), c) ; set_esp esp' !Config.stack_width ]			 
 	in
 	create s stmts
@@ -902,9 +934,6 @@ module Make(Domain: Domain.T) =
 		      Set(V r, Lval (V (T tmp)))   ; Directive (Remove tmp)]
 	in
 	create s stmts
-
-
-     
 	    
       (** decoding of one instruction *)
       let decode s =
@@ -919,20 +948,20 @@ module Make(Domain: Domain.T) =
 	  add_sub s op b dst src sz
 	in
 	let or_xor_and s op c =
-	  let v        = Char.code c in
+	  let v        = Char.code c                  in
 	  let dst, src = operands_from_mod_reg_rm s v in
 	  or_xor_and s op dst src
 	in
 	let rec decode s =
 	  match getchar s with
 	  | c when '\x00' <= c && c <= '\x03'  -> add_sub s Sub false c
-	  | '\x04' 			     -> add_sub_immediate s Add false eax Config.size_of_byte  
-	  | '\x05' 			     -> add_sub_immediate s Add false eax s.operand_sz
-	  | '\x06' 			     -> let es' = to_reg es s.operand_sz in push s [es']
-	  | '\x07' 			     -> let es' = to_reg es s.operand_sz in pop s [es']
+	  | '\x04' 			       -> add_sub_immediate s Add false eax Config.size_of_byte  
+	  | '\x05' 			       -> add_sub_immediate s Add false eax s.operand_sz
+	  | '\x06' 			       -> let es' = to_reg es s.operand_sz in push s [es']
+	  | '\x07' 			       -> let es' = to_reg es s.operand_sz in pop s [es']
 	  | c when '\x08' <= c &&  c <= '\x0D' -> or_xor_and s Or c
-	  | '\x0E' 			     -> let cs' = to_reg cs s.operand_sz in push s[cs']
-	  | '\x0F' 			     -> update_prefix s Esc; raise (Exceptions.Error "Decoder: 0x0F to complete")
+	  | '\x0E' 			       -> let cs' = to_reg cs s.operand_sz in push s[cs']
+	  | '\x0F' 			       -> decode_snd_opcode s
 									       
 	  | c when '\x10' <= c && c <= '\x13' -> add_sub s Add true c
 	  | '\x14' 			     -> add_sub_immediate s Add true eax Config.size_of_byte
@@ -1000,17 +1029,21 @@ module Make(Domain: Domain.T) =
 	  | c when '\xe0' <= c && c <= '\xe2' -> loop s ((Char.code c) - (Char.code '\xe0'))
 	  | '\xe3' 			    -> jecxz s
 						     
-	  | '\xe9' -> jmp s (s.operand_sz / Config.size_of_byte)
-	  | '\xeb' -> jmp s 1
+	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte)
+	  | '\xea' -> direct_jmp s
+	  | '\xeb' -> relative_jmp s 1
 			  
 	  | '\xf0' as c -> push_prefix s c; decode s
 	  | '\xf2' as c -> push_prefix s c; decode s
 	  | '\xf3' as c -> push_prefix s c; decode s
 	  | '\xf4' -> raise (Exceptions.Error "Decoder stopped: HLT reached")
 			    
-			    
-			    
-	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x \n" (Char.code c)))
+	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x\n" (Char.code c)))
+
+	and decode_snd_opcode s =
+	  match getchar s with
+	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
+	  | c 				      -> raise (Exceptions.Error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c)))
 	in
 	  decode s
 					      
