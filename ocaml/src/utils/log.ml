@@ -24,4 +24,4 @@ let error msg =
   Printf.fprintf !logfid "fatal error: %s\n" msg;
   flush stdout;
   close();
-  raise Exit
+  raise (Exceptions.Error msg) 
