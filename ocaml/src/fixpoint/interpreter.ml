@@ -106,6 +106,7 @@ struct
     in
     List.fold_left (fun l v ->
 	try
+	  (** explore if a greater abstract state of v has already been explored *)
 	  Cfa.iter_vertex (fun v' ->
 	      if v.Cfa.State.id = v'.Cfa.State.id then
 		()
@@ -136,6 +137,10 @@ struct
       (* a waiting node is randomly chosen to be explored *)
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
+      (* check whether the instruction pointer is in the black list of addresses to decode*)
+	  if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
+	    Log.from_analysis (Printf.sprintf "Address %s reached but not explored because it belongs to the cut off branches\n" (Data.Address.to_string v.Cfa.State.ip))
+	  else
       begin
 	try
 	  (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
