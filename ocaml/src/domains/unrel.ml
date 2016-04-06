@@ -159,7 +159,7 @@ module Make(D: T) =
 	       in
 	       to_value addresses
 	     with
-	     | Exceptions.Enum_failure -> flush stdout; D.top
+	     | Exceptions.Enum_failure -> D.top
 	     | Exceptions.Empty        -> D.bot
 	   end
 	| Asm.BinOp (op, e1, e2) 	     -> D.binary op (eval e1) (eval e2)

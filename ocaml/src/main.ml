@@ -7,7 +7,7 @@ module Interpreter = Interpreter.Make(Domain)
 				    
 (* string conversion of a position in the configuration file *)
 let string_of_position pos =
-  Printf.sprintf "%d" pos.Lexing.lex_start_pos
+  Printf.sprintf "%d" pos.Lexing.lex_curr_p.Lexing.pos_lnum
 
 (* main function *)
 let process ~configfile ~resultfile ~logfile =
@@ -27,20 +27,20 @@ let process ~configfile ~resultfile ~logfile =
       lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
       Parser.process Lexer.token lexbuf
     with
-    | Parser.Error -> close_in cin; Log.error (Printf.sprintf "Syntax error at %s\n" (string_of_position lexbuf))
+    | Parser.Error -> close_in cin; Log.error (Printf.sprintf "Syntax error near location %s\n" (string_of_position lexbuf))
 
-    | Failure "lexing: empty token" -> close_in cin; Log.error (Printf.sprintf "Parse error at %s\n" (string_of_position lexbuf))
+    | Failure "lexing: empty token" -> close_in cin; Log.error (Printf.sprintf "Parse error near location %s\n" (string_of_position lexbuf))
   end;
   close_in cin;
   
   (* 4: generate code *)
-  let code  = Code.make !Config.text !Config.rva_code !Config.ep                                                          in
+  let code  = Code.make !Config.text !Config.rva_code !Config.ep                    in
   (* 5: generate the initial cfa with only an initial state *)
-  let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz                                       in 
-  let g, s  = Interpreter.Cfa.init ep'                                                                                    in
+  let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in 
+  let g, s  = Interpreter.Cfa.init ep'                                              in
   (* 6: runs the fixpoint engine *)
-    let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
-  let cfa  = Interpreter.process code g s dump                                                                            in
+  let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa               in
+  let cfa  = Interpreter.process code g s dump                                      in
   (* 7: dumps the results *)
   dump cfa
  ;; 

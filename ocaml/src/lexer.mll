@@ -1,5 +1,12 @@
 {
   open Parser
+  open Lexing
+  let next_line lexbuf =
+    let pos = lexbuf.lex_curr_p in
+    lexbuf.lex_curr_p <-
+      { pos with pos_bol = lexbuf.lex_curr_pos;
+		 pos_lnum = pos.pos_lnum + 1
+      }
 }
 
 (* utilities *)
@@ -25,7 +32,7 @@ let value        = (digit | path_symbols | letter | '_' )*
 rule token = parse
   (* escape tokens *)
   | white_space 	    { token lexbuf }
-  | newline 		    { token lexbuf }
+  | newline 		    { next_line lexbuf; token lexbuf }
   | '#'         	    { comment lexbuf }
   (* section separators *)
   | '[' 		    { LEFT_SQ_BRACKET }
@@ -73,6 +80,9 @@ rule token = parse
   | "fastcall"  	    { FASTCALL }
   (* analyzer tokens *)
   | "unroll"    	    { UNROLL }
+  | "cut"                   { CUT }
+  (* address separator *)
+  | "," 		    { COMMA }
   | "dotfile"               { DOTFILE }
   (* GDT tokens *)
   | "GDT"                   { GDT }
@@ -95,7 +105,6 @@ rule token = parse
   | "mode"                  { MODE }
   | "protected"             { PROTECTED }
   | "real"                  { REAL }
-
   (* left operand of type integer *)
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)
@@ -103,5 +112,5 @@ rule token = parse
 
 (* skip comments *)			    
 and comment = parse
-  | ['\n' '\r']   { token lexbuf }
+  | ['\n' '\r']   { next_line lexbuf; token lexbuf }
   | [^ '\n' '\r'] { comment lexbuf }

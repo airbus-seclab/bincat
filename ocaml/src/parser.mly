@@ -110,7 +110,7 @@
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED PHYS_CODE_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
-%token GDT RVA_CODE
+%token GDT RVA_CODE CUT
 %token <string> STRING
 %token <Z.t> INT
 %start <unit> process
@@ -210,7 +210,12 @@
       analyzer_item:
     | UNROLL EQUAL i=INT { Config.unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING { update_mandatory DOTFILE; Config.dotfile := f }
-    
+    | CUT EQUAL l=addresses { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
+
+     addresses:
+    | i=INT { [ i ] }
+    | i=INT COMMA l=addresses { i::l }
+			      
       state:
     | s=state_item 	    { s }
     | s=state_item ss=state { s; ss }
