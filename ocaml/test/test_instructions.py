@@ -100,7 +100,7 @@ def prepareExpectedState(state):
     Copies existing state, sets its pretty name.
     """
     s = copy.deepcopy(state)
-    s.prettyname = "Expected state at address %s" % state.address
+    s.prettyname = "Expected state"
     return s
 
 
@@ -130,7 +130,7 @@ def test_xor_reg_self(analyzer, initialState, register):
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_inc(analyzer, initialState, register):
     """
-    Tests opcodes 0x40-0x47
+    Tests opcodes 0x40-0x47 == inc eax--edi
     """
     regid, regname = register
     opcode = 0x40 + regid
