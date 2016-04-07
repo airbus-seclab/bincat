@@ -161,11 +161,18 @@ class State(object):
         res = "\n--- %s\n+++ %s\n" % (self, other)
         for region, address in self.listModifiedKeys(other):
             res += "@@ %s %s @@\n" % (region, address)
-            if self.ptrs[region][address] != other.ptrs[region][address]:
+            if address not in self.ptrs[region]:
+                res += "+ %s\n" % other.ptrs[region][address]
+            elif address not in other.ptrs[region]:
+                res += "- %s\n" % self.ptrs[region][address]
+            elif self.ptrs[region][address] != other.ptrs[region][address]:
                 res += "- %s\n" % self.ptrs[region][address]
                 res += "+ %s\n" % other.ptrs[region][address]
-            if self.tainting[region][address] != \
-                    other.tainting[region][address]:
+            if address not in self.tainting[region]:
+                res += "+ %s\n" % other.tainting[region][address]
+            elif address not in other.tainting[region]:
+                res += "- %s\n" % self.tainting[region][address]
+            elif self.tainting[region][address] != other.tainting[region][address]:
                 res += "- %s\n" % self.tainting[region][address]
                 res += "+ %s\n" % other.tainting[region][address]
         return res
