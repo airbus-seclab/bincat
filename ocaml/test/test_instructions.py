@@ -32,6 +32,7 @@ def analyzer(tmpdir, request):
             oldpath.chdir()
         request.addfinalizer(resetpwd)
 
+        initialState = initialState.format(code_length = len(binarystr))
         initfile = str(tmpdir.join('init.ini'))
         with open(initfile, 'w+') as f:
             f.write(initialState)
