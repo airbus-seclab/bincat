@@ -65,6 +65,8 @@ module type T =
     (** binary comparison *)
     val compare: t -> Asm.cmp -> t -> bool
 
+    (** [untainted_value n] return an untainted value of size n *)
+    val untainted_value: int -> t
   end
 		  
 		  
@@ -146,7 +148,14 @@ module Make(D: T) =
       let rec eval e =
 	match e with
 	| Asm.Const c 			     -> D.of_word c
-	| Asm.Lval (Asm.V (Asm.T r)) 	     -> fst (Map.find (K.R r) m)
+	| Asm.Lval (Asm.V (Asm.T r)) 	     ->
+	   begin
+	     try fst (Map.find (K.R r) m)
+	     with Not_found ->
+	       match D.name with
+	       | "Tainting" -> D.untainted_value (Register.size r)
+	       | _ 	    -> D.bot
+	   end
 	| Asm.Lval (Asm.V (Asm.P (_r, _l, _u))) -> D.top (* can be more precise *)
 	| Asm.Lval (Asm.M (e, _n))            ->
 	   begin
@@ -162,8 +171,14 @@ module Make(D: T) =
 	     | Exceptions.Enum_failure -> D.top
 	     | Exceptions.Empty        -> D.bot
 	   end
-	| Asm.BinOp (op, e1, e2) 	     -> D.binary op (eval e1) (eval e2)
-	| Asm.UnOp (op, e) 		     -> D.unary op (eval e)
+	| Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
+	   begin
+	     match D.name with
+	     | "Tainting" -> D.untainted_value (Register.size r1)
+	     | _ 	  -> D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))
+	   end
+	| Asm.BinOp (op, e1, e2) -> D.binary op (eval e1) (eval e2)
+	| Asm.UnOp (op, e) 	 -> D.unary op (eval e)
       in
       eval e
 

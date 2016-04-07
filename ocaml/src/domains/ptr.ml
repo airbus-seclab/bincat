@@ -113,4 +113,4 @@ let compare v1 op v2 =
   | Asm.NEQ -> not (equal v1 v2)
   | _ 	    -> true (* sound but could be more precise *)
 
-
+let untainted_value _sz = BOT

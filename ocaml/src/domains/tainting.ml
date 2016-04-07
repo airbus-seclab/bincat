@@ -154,8 +154,8 @@
     | BOT    -> "_"
     | TOP    -> "?"
     | Val v' ->
-      let s = Array.fold_left (fun s b -> s ^ (Bit.to_string b) ^ ", ") "" v' in
-      Printf.sprintf ("%s") (String.sub s 0 ((String.length s) -2))
+      let s = Array.fold_left (fun s b -> s ^ (Bit.to_string b)) "" v' in
+      Printf.sprintf ("%s") (String.sub s 0 (String.length s))
 
  let of_word c = make (Data.Word.size c)
 		  
@@ -255,7 +255,9 @@
        Val v
     with _ -> TOP
 
-let extract _ _ _ = TOP
-let compare  _v1 _op _v2 = true
+  let untainted_value sz = make sz
+				
+  let extract _ _ _ = TOP
+  let compare  _v1 _op _v2 = true
 		  
    

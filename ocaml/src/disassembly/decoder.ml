@@ -350,7 +350,6 @@ module Make(Domain: Domain.T) =
 	let md, reg, rm = mod_nnn_rm (Char.code c)				     in
 	let direction 	= (v lsr 1) land 1   					     in
 	let sz          = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in
-	Printf.printf "md = %d\n reg = %d rm = %d" md reg rm; flush stdout;
 	let rm' 	= find_reg rm sz 					     in
 	let reg         = find_reg reg sz                                            in
 	try

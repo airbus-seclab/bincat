@@ -8,10 +8,6 @@ type reg =
   | T of Register.t 		(** a complete register *)
   | P of Register.t * int * int (** a chunk of a register P (r, l, u)  means the chunk of register r that ranges from bit l to bit r *)
 			      
-(** data type of jump targets *)
-type jmp_target = 
-  | A of Address.t        (** jump target is an address *)
-  | R of Register.t * reg (** R(s,r) means that the jump target is an address of segment _s_ whose value is the content _r_ *)
 		       
 (** type of binary operations *)
 type binop =
@@ -77,7 +73,12 @@ type fct =
 type directive_t =
   | Remove of Register.t   (** remove the register *)
   | Forget of Register.t (** forget the computed value of the given register *)
-		  
+
+(** data type of jump targets *)
+type jmp_target = 
+  | A of Address.t (** target is an absolute address *)
+  | R of exp       (** target is the value of the expression *)
+
 (** type of statements *)
 type stmt =
   | Set  of lval * exp    		   (** store the expression into the left value *)
@@ -181,8 +182,8 @@ let rec string_of_bexp e =
 
 let string_of_jmp_target t =
   match t with
-  | A a      -> Address.to_string a
-  | R (s, r) -> Printf.sprintf "%s:%s" (Register.name s) (string_of_reg r)
+  | A a -> Address.to_string a
+  | R e -> Printf.sprintf "%s" (string_of_exp e)
 			       
 let string_of_target t =
   match t with

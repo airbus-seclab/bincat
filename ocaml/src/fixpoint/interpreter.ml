@@ -61,7 +61,7 @@ struct
     in
     process e b
     
-  let process_stmt _g (_v: Cfa.State.t) d stmt =
+  let process_stmt _g (v: Cfa.State.t) d stmt =
     let rec process d s =
       match s with							   
     | Nop -> d
@@ -76,7 +76,22 @@ struct
     | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d'
 
     | Directive (Forget r) -> D.forget r d
-				      
+
+    | Jmp None -> d
+
+    | Jmp (Some (A a)) -> v.Cfa.State.ip <- a; d
+       
+    | Jmp (Some (R target)) ->
+       begin
+	 try
+	   let addresses = Data.Address.Set.elements (D.mem_to_addresses d target) in
+	   match addresses with
+	   | [a] -> v.Cfa.State.ip <- a; d
+	   | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+	   | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
+					    (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
+	 with Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+       end 			      
     | _       -> raise (Exceptions.Error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt)))
     in
     process d stmt
@@ -133,8 +148,7 @@ struct
   let process code g s (dump: Cfa.t -> unit) =
      (* check whether the instruction pointer is in the black list of addresses to decode*)
     if Config.SAddresses.mem (Data.Address.to_int s.Cfa.State.ip) !Config.blackAddresses then
-      Log.error (Printf.sprintf "Interpreter not started as the entry point belongs to the cut off branches\n"
-				(Data.Address.to_string v.Cfa.State.ip));
+      Log.error "Interpreter not started as the entry point belongs to the cut off branches\n";
     (* boolean variable used as condition for exploration of the CFA *)
     let continue = ref true		      in
     (* set of waiting nodes in the CFA waiting to be processed *)
@@ -145,7 +159,6 @@ struct
       (* a waiting node is randomly chosen to be explored *)
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
-     	
       begin
 	try
 	  (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
