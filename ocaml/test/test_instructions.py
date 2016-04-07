@@ -4,6 +4,7 @@ This file describes tests for single instructions
 """
 
 import pytest
+import subprocess
 import copy
 import binascii
 from idabincat import analyzer_state
@@ -104,8 +105,19 @@ def prepareExpectedState(state):
     return s
 
 
-def assertEqualStates(state1, state2):
-    assert state1 == state2, "States should be identical" + \
+def assertEqualStates(state1, state2, opcodes=None):
+    if opcodes:
+        try:
+            p = subprocess.Popen(["ndisasm", "-u", "-"], 
+                                 stdin=subprocess.PIPE, 
+                                 stdout=subprocess.PIPE)
+            out,err = p.communicate(opcodes)
+            out = "\n"+out
+        except OSError:
+            out = ""
+    else:
+        out = ""
+    assert state1 == state2, "States should be identical" + out + \
         state1.getPrintableDiff(state2)
 
 
@@ -153,7 +165,7 @@ def test_inc(analyzer, initialState, register):
     expectedStateAfter.ptrs['reg'][regname] += 1
     # XXX flags should be tainted - known bug
 
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -225,7 +237,7 @@ def test_pop(analyzer, initialState, register):
     expectedStateAfter.tainting['reg'][regname] = \
         stateBefore.tainting['mem'][stateBefore.ptrs['reg']['esp']]
 
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 def test_sub(analyzer, initialState):
@@ -259,7 +271,7 @@ def test_or_reg_ff(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.ptrs['reg'][regname] = 0xffffffff
     # TODO check taint
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -277,7 +289,7 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
         stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['ebp'] - 6]
     expectedStateAfter.tainting['reg'][regname] = \
         stateBefore.tainting['mem'][stateBefore.ptrs['reg']['ebp'] - 6]
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -293,7 +305,7 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     expectedStateAfter.ptrs['reg']['ebp'] = stateBefore.ptrs['reg'][regname]
     expectedStateAfter.tainting['reg']['ebp'] = \
         stateBefore.tainting['reg'][regname]
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 def test_nop(analyzer, initialState):
