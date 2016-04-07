@@ -73,6 +73,27 @@ def clearFlag(state, name):
     state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', 0x0)
     state.tainting['reg'][name] = analyzer_state.Tainting("0")
 
+def setFlag(state, name):
+    """
+    Set flag to 1, untainted - helper for tests
+    XXX for most tests, flags should inherit taint
+    """
+    state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', 1)
+    state.tainting['reg'][name] = analyzer_state.Tainting("0")
+
+def taintFlag(state, name):
+    """
+    Taint flag - helper for tests
+    XXX for most tests, flags should inherit taint
+    """
+    state.ptrs['reg'][name] = analyzer_state.AbstractPtrValue("?")
+    state.tainting['reg'][name] = analyzer_state.Tainting("?")
+
+def setReg(state, name, val, taint=0):
+    state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', val)
+    staint = "{0:0>32b}".format(taint)
+    state.tainting['reg'][name] = analyzer_state.Tainting(staint)
+
 
 def prepareExpectedState(state):
     """
