@@ -182,6 +182,94 @@ class HelperConfigIniFile:
                 with open(self.config_ini_path,'w') as configfile:
                         self.configini.write(configfile)
 
+# ----------------------------------------------------------------------------------------------
+# Class  Tainting Launcher Form 
+
+class TaintLaunchForm_t(QtWidgets.QDialog):
+        def btnStartHandler(self):
+                self.accept()
+
+        def CancelHandler(self):
+                idaapi.msg("Cancel button handler")
+                self.reject()
+
+        def foo(self, *args, **kargs):
+                idaapi.msg("Foo %r %r" % (args,kargs))
+
+        def __init__(self,parent):
+                super(TaintLaunchForm_t,self).__init__(parent)
+                
+                layout = QtWidgets.QGridLayout()
+                lblCstEditor = QtWidgets.QLabel(" Start taint analysis : ") 
+
+                # Start address 
+                lblStartAdr = QtWidgets.QLabel(" Start address : ") 
+                ipStartAdr = QtWidgets.QLineEdit(self)
+                ipStartAdr.setText(hex(here()).rstrip('L'))
+                               
+                # End address 
+                lblEndAdr = QtWidgets.QLabel(" End address   : ") 
+                ipEndAdr = QtWidgets.QLineEdit(self)
+
+                # Tainting element register or memory
+                lblTntElem = QtWidgets.QLabel(" Tainted element   : ") 
+
+                # radio button register
+                rbRegisters = QtWidgets.QRadioButton("Register")
+                ipRegs = QtWidgets.QLineEdit(self)
+                
+                # radio button memory 
+                rbMemory = QtWidgets.QRadioButton("Memory")
+                ipMemory = QtWidgets.QLineEdit(self)
+                
+                # Start , cancel and analyzer config buttons
+                self.btnStart = QtWidgets.QPushButton('Start',self)
+                self.btnStart.setToolTip('Save Constraints.')
+                self.btnStart.setFixedWidth(130)
+                idaapi.msg(" call connect btn \n ")
+                self.btnStart.clicked.connect(self.foo)
+
+
+                self.btnCancel = QtWidgets.QPushButton('Cancel',self)
+                self.btnCancel.setToolTip('Cancel.')
+                self.btnCancel.setFixedWidth(130)
+                self.btnCancel.clicked.connect(self.close)
+
+
+                self.btnAc = QtWidgets.QPushButton('Analyzer configuration',self)
+                self.btnAc.setToolTip('Configure the analyzer.')
+                self.btnAc.setFixedWidth(150)
+                #self.btnAc.clicked.connect()
+
+                layout.addWidget(lblCstEditor,0,0)
+
+                layout.addWidget(lblStartAdr,1,0)
+                layout.addWidget(ipStartAdr,1,1)
+                
+                layout.addWidget(lblEndAdr,2,0)
+                layout.addWidget(ipEndAdr,2,1)
+
+                layout.addWidget(rbRegisters,3,0)
+                layout.addWidget(ipRegs,3,1)
+
+                layout.addWidget(rbMemory,4,0)
+                layout.addWidget(ipMemory,4,1)
+
+                layout.addWidget(self.btnStart,5,0)
+                layout.addWidget(self.btnCancel,5,1)
+                layout.addWidget(self.btnAc,5,2)
+
+
+                layout.setColumnStretch(3,1)
+                layout.setRowStretch(6,1)
+
+                self.setLayout(layout)
+ 
+        
+        def show(self):
+                self.setFixedSize(460,200)
+                self.setWindowTitle(" Analysis launcher : ")
+                super(TaintLaunchForm_t,self).show()
 
 
 # ----------------------------------------------------------------------------------------------
@@ -209,7 +297,7 @@ class ConstrainteEditorForm_t(QtWidgets.QDialog):
 
                 # OK and cancel button
                 self.btnOK = QtWidgets.QPushButton('OK',self)
-                self.btnOK.setToolTip('Save Constraintes.')
+                self.btnOK.setToolTip('Save Constraints.')
                 self.btnOK.setFixedWidth(150)
                 self.btnOK.clicked.connect(self.btnOKHandler)
 
@@ -233,7 +321,7 @@ class ConstrainteEditorForm_t(QtWidgets.QDialog):
         
         def show(self):
                 self.setFixedSize(400,400)
-                self.setWindowTitle("Constraintes Editor")
+                self.setWindowTitle("Constraints Editor")
                 super(ConstrainteEditorForm_t,self).show()
 
 # ----------------------------------------------------------------------------------------------
@@ -443,7 +531,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
                 lblstate = QtWidgets.QLabel("[State] : ")
                 layout.addWidget(lblstate,18,0)
 
-                self.btnConstrainte = QtWidgets.QPushButton('Define tainting constraintes',self)
+                self.btnConstrainte = QtWidgets.QPushButton('Define tainting constraints',self)
                 self.btnConstrainte.clicked.connect(self.btnCstrHandler)
                 layout.addWidget(self.btnConstrainte,18,1)
 
@@ -598,7 +686,7 @@ class BinCATTaintedForm_t(PluginForm):
 class BinCATForm_t(PluginForm):
 
         # init local tcp port 
-        def init_Local_socket(self):
+        def init_Local_Socket(self):
                 BinCATLogViewer.Log("[+] BinCAT : creating local socket ",SCOLOR_LOCNAME)
 
 
@@ -643,6 +731,26 @@ class BinCATForm_t(PluginForm):
                 bAc.show()
                 idaapi.msg("handler_btnAnalyzerConfig()\n")
 
+        def handler_restartAnalyzer(self):
+                # check if the field is not empty 
+                if not self.iptAnalyzerPath.text():
+                        BinCATLogViewer.Log(" [+] BinCAT new analyzer path is empty.",SCOLOR_LOCNAME)
+                        idaapi.warning(" BinCAT: The analyer could not be started : new path is empty.")
+                else : 
+                        try:
+                                with open(self.iptAnalyzerPath.text()) as file:
+                                        #TODO check if the analyer.py is the correct stub 
+                                        BinCATLogViewer.Log(" [+] BinCAT : restarting analyzer.",SCOLOR_LOCNAME)
+                                        self.init_Analyzer()
+                                        
+                                                           
+                        except:
+                                BinCATLogViewer.Log(" [+] BinCAT new analyzer file could not be opened.",SCOLOR_LOCNAME)
+                                idaapi.warning(" BinCAT: The analyer could not be started : file not found.")
+                                                                
+                        
+                idaapi.msg("[+] BinCAT : new analyzer path %s.\n "%self.iptAnalyzerPath.text()) 
+
 
         # Called when the plugin form is created
         def OnCreate(self, form):
@@ -686,6 +794,7 @@ class BinCATForm_t(PluginForm):
                 self.btnAnalyzer = QtWidgets.QPushButton('restart',self.parent)
                 self.btnAnalyzer.setToolTip('restart analyzer.')
                 self.btnAnalyzer.setFixedWidth(150)
+                self.btnAnalyzer.clicked.connect(self.handler_restartAnalyzer)
 
                 # create a button for analyzer configuration form 
                 self.btnAnalyzerConfig = QtWidgets.QPushButton('Analyzer configuration',self.parent)
@@ -740,6 +849,36 @@ class HtooltipT(idaapi.action_handler_t):
 
         def update(self,ctx):
                 return idaapi.AST_ENABLE_ALWAYS
+# ----------------------------------------------------------------------------------------------
+# Action handler for BinCAT/ Taint current function 
+class HtooltipF(idaapi.action_handler_t):
+        def __init__(self):
+                idaapi.action_handler_t.__init__(self)
+
+        def activate(self,ctx):
+                idaapi.msg(" activating HtooltipF ")
+                idaapi.warning(" BinCAT: Tainting current Function")
+                return 1
+
+        def update(self,ctx):
+                return idaapi.AST_ENABLE_ALWAYS
+# ----------------------------------------------------------------------------------------------
+# Action handler for BinCAT/ Taint from here 
+class HtooltipH(idaapi.action_handler_t):
+        def __init__(self):
+                idaapi.action_handler_t.__init__(self)
+
+        def activate(self,ctx):
+                idaapi.msg(" activating HtooltipH ")
+                #idaapi.warning(" BinCAT: Tainting from current position : %08x "%here())
+                idaview = PluginForm.FormToPyQtWidget(get_tform_idaview(ctx.form))
+                AnalyzerLauncher = TaintLaunchForm_t(idaview)
+                AnalyzerLauncher.show()
+                
+                return 1
+
+        def update(self,ctx):
+                return idaapi.AST_ENABLE_ALWAYS
 
 # ----------------------------------------------------------------------------------------------
 # Class Hooks for BinCAT menu 
@@ -751,14 +890,16 @@ class  Hooks(idaapi.UI_Hooks):
                         idaview =  get_tform_idaview(ctx.form)
                         place, x , y = get_custom_viewer_place(idaview,False)
                         #line =  get_custom_viewer_curline(idaview,False)
-                        if isCode(place.toea()):
+                        if isCode(idaapi.getFlags(place.toea())):
                                 #SetColor(place.toea(),CIC_ITEM,0x0CE505)
                                 idaapi.msg("%s at EA: %08x \n" % (ctx.form_title,place.toea()))                        
 
 
         def populating_tform_popup(self,form,popup):
                 idaapi.msg("Hooks called \n")
-                idaapi.attach_action_to_popup(form,popup,"my:tooltip0","BinCAT/Tainting/",idaapi.SETMENU_APP)
+                #idaapi.attach_action_to_popup(form,popup,"my:tooltip0","BinCAT/Tainting/",idaapi.SETMENU_APP)
+                #idaapi.attach_action_to_popup(form,popup,"my:tooltip1","BinCAT/Tainting/",idaapi.SETMENU_APP)
+                idaapi.attach_action_to_popup(form,popup,"my:tooltip2","BinCAT/Tainting/",idaapi.SETMENU_APP)
 
 # ----------------------------------------------------------------------------------------------
 
@@ -807,9 +948,15 @@ def main():
 
         # creating BinCAT menu
         BinCATLogViewer.Log("[+] BinCAT Creating Menus ",SCOLOR_LOCNAME)
-        tooltip_act0 = idaapi.action_desc_t('my:tooltip0','BinCAT : Taint this basic bloc', HtooltipT(),'','BinCAT action',-1)
+        #tooltip_act0 = idaapi.action_desc_t('my:tooltip0','BinCAT : Taint this basic bloc', HtooltipT(),'','BinCAT action',-1)
+        #tooltip_act1 = idaapi.action_desc_t('my:tooltip1','BinCAT : Taint this function', HtooltipF(),'','BinCAT action',-1)
+        tooltip_act2 = idaapi.action_desc_t('my:tooltip2','BinCAT : Analyze from here', HtooltipH(),'','BinCAT action',-1)
 
-        idaapi.register_action(tooltip_act0)
+        # Registering BinCAT actions
+        #idaapi.register_action(tooltip_act0)
+        #idaapi.register_action(tooltip_act1)
+        idaapi.register_action(tooltip_act2)
+
                 
         idaapi.attach_action_to_menu("View/","my:tooltip0",idaapi.SETMENU_APP)
 
