@@ -115,13 +115,19 @@ def test_xor_reg_self(analyzer, initialState, register):
     Tests opcode 0x33 - xor self
     """
     regid, regname = register
-    opcode = "0x33" + chr(0xc0 + regid + (regid << 3))
+    opcode = "\x33" + chr(0xc0 + regid + (regid << 3))
     ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
 
-    expectedStateAfter.ptrs['reg'][regname] = 0
+    setReg(expectedStateAfter, regname, 0)
+    clearFlag(expectedStateAfter, "sf")
+    clearFlag(expectedStateAfter, "of")
+    clearFlag(expectedStateAfter, "cf")
+    setFlag(expectedStateAfter, "zf")
+    setFlag(expectedStateAfter, "pf")
+    taintFlag(expectedStateAfter, "af")
     # XXX check taint (not tainted)
 
     assertEqualStates(expectedStateAfter, stateAfter)
