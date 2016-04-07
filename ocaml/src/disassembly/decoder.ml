@@ -603,25 +603,6 @@ module Make(Domain: Domain.T) =
 	| Esc
 	| Str
 	    
-
-							       
-      (** updates the decoder state with respect to the decoded prefix *)
-      let push_prefix s c =
-	match c with
-	| '\xf0' -> Log.from_decoder (Printf.sprintf "Prefix 0x%X ignored \n" (Char.code c))
-	| '\xf2' -> s.rep_prefix <- Some false
-	| '\xf3' -> s.rep_prefix <- Some true
-	| '\x26' -> s.segments.data <- es
-	| '\x2e' -> s.segments.data <- cs (* will be set back to default value if the instruction is a jcc *)
-	| '\x36' -> s.segments.data <- ss
-	| '\x3e' -> s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *)
-	| '\x64' -> s.segments.data <- fs
-	| '\x65' -> s.segments.data <- ss
-	| '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16
-	| '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16
-	| _      -> raise (Exceptions.Error "not a prefix")
-		     
-		     
       let is_register_set stmts r =
 	let is_set stmt =
 	  match stmt with
@@ -986,29 +967,29 @@ module Make(Domain: Domain.T) =
 	  | '\x0F' 			       -> decode_snd_opcode s
 									       
 	  | c when '\x10' <= c && c <= '\x13' -> add_sub s Add true c
-	  | '\x14' 			     -> add_sub_immediate s Add true eax Config.size_of_byte
-	  | '\x15' 			     -> add_sub_immediate s Add true eax s.operand_sz
-	  | '\x16' 			     -> let ss' = to_reg ss s.operand_sz in push s [ss']
-	  | '\x17' 			     -> let ss' = to_reg ss s.operand_sz in pop s [ss']
-	  | c when '\x18' <= c && c <='\x1B' -> add_sub s Sub true c
-	  | '\x1C' 			     -> add_sub_immediate s Sub true eax Config.size_of_byte
-	  | '\x1D' 			     -> add_sub_immediate s Sub true eax s.operand_sz
-	  | '\x1E' 			     -> let ds' = to_reg ds s.operand_sz in push s [ds']
-	  | '\x1F' 			     -> let ds' = to_reg ds s.operand_sz in pop s [ds']
+	  | '\x14' 			      -> add_sub_immediate s Add true eax Config.size_of_byte
+	  | '\x15' 			      -> add_sub_immediate s Add true eax s.operand_sz
+	  | '\x16' 			      -> let ss' = to_reg ss s.operand_sz in push s [ss']
+	  | '\x17' 			      -> let ss' = to_reg ss s.operand_sz in pop s [ss']
+	  | c when '\x18' <= c && c <='\x1B'  -> add_sub s Sub true c
+	  | '\x1C' 			      -> add_sub_immediate s Sub true eax Config.size_of_byte
+	  | '\x1D' 			      -> add_sub_immediate s Sub true eax s.operand_sz
+	  | '\x1E' 			      -> let ds' = to_reg ds s.operand_sz in push s [ds']
+	  | '\x1F' 			      -> let ds' = to_reg ds s.operand_sz in pop s [ds']
 										       
 	  | c when '\x20' <= c && c <= '\x25' -> or_xor_and s And c
-	  | '\x26' 			    -> push_prefix s '\x26'; decode s
+	  | '\x26' 			      -> s.segments.data <- es; decode s
 	  | c when '\x28' <= c && c <= '\x2B' -> add_sub s Sub false c
-	  | '\x2C' 			    -> add_sub_immediate s Sub false eax Config.size_of_byte
-	  | '\x2D' 			    -> add_sub_immediate s Sub false eax s.operand_sz
-	  | '\x2E' 			    -> push_prefix s '\x2E'; decode s
+	  | '\x2C' 			      -> add_sub_immediate s Sub false eax Config.size_of_byte
+	  | '\x2D' 			      -> add_sub_immediate s Sub false eax s.operand_sz
+	  | '\x2E' 			      -> s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
 								       
 	  | c when '\x30' <= c &&  c <= '\x35' -> or_xor_and s Xor c
-	  | '\x36' 			       -> push_prefix s '\x36'; decode s
+	  | '\x36' 			       -> s.segments.data <- ss; decode s
 	  | c when '\x38' <= c && c <= '\x3B'  -> (* cmp *) add_sub s Sub false c
 	  | '\x3C' 			       -> add_sub_immediate s Sub false eax Config.size_of_byte
 	  | '\x3D' 			       -> add_sub_immediate s Sub false eax s.operand_sz
-	  | '\x3E' 			       -> push_prefix s '\x3E'; decode s
+	  | '\x3E' 			       -> s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
 									
 	  | c when '\x40' <= c && c <= '\x47' -> let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec r Add s	
 	  | c when '\x48' <= c && c <= '\x4f' -> let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec r Sub s
@@ -1016,9 +997,12 @@ module Make(Domain: Domain.T) =
 	  | c when '\x50' <= c && c <= '\x57' -> let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [r]
 	  | c when '\x58' <= c && c <= '\x5F' -> let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [r]
 															   
-	  | '\x60'                      -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
-	  | '\x61'                      -> let l = List.map (fun v -> find_reg v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
-	  | c when c='\x64' || c='\x65' -> push_prefix s c; decode s
+	  | '\x60'  -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
+	  | '\x61' -> let l = List.map (fun v -> find_reg v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
+	  | '\x64' -> s.segments.data <- fs; decode s
+	  | '\x65' -> s.segments.data <- ss; decode s
+	  | '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
+	  | '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
 
 	  | '\x68' -> push_immediate s 1
 	  | '\x6A' -> push_immediate s (s.operand_sz / Config.size_of_byte)
@@ -1050,14 +1034,14 @@ module Make(Domain: Domain.T) =
 			   
 	  | c when '\xe0' <= c && c <= '\xe2' -> loop s ((Char.code c) - (Char.code '\xe0'))
 	  | '\xe3' 			    -> jecxz s
-						     
+
 	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte)
 	  | '\xea' -> direct_jmp s
 	  | '\xeb' -> relative_jmp s 1
 			  
-	  | '\xf0' as c -> push_prefix s c; decode s
-	  | '\xf2' as c -> push_prefix s c; decode s
-	  | '\xf3' as c -> push_prefix s c; decode s
+	  | '\xf0' as c -> Log.from_decoder (Printf.sprintf "Prefix 0x%X ignored \n" (Char.code c)); decode s
+	  | '\xf2' as c -> s.rep_prefix <- Some false decode s
+	  | '\xf3' as c -> s.rep_prefix <- Some true; decode s
 	  | '\xf4' -> raise (Exceptions.Error "Decoder stopped: HLT reached")
 			    
 	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x\n" (Char.code c)))
