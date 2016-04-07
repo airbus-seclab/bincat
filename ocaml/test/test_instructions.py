@@ -139,8 +139,8 @@ def test_inc(analyzer, initialState, register):
     Tests opcodes 0x40-0x47 == inc eax--edi
     """
     regid, regname = register
-    opcode = 0x40 + regid
-    ac = analyzer(initialState, binarystr=chr(opcode))
+    opcode = chr(0x40 + regid)
+    ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
@@ -250,8 +250,8 @@ def test_or_reg_ff(analyzer, initialState, register):
     """
     # or ebx,0xffffffff
     regid, regname = register
-    binstr = "\x83" + chr(0xc8 + regid) + "\xff"
-    ac = analyzer(initialState, binstr)
+    opcode = "\x83" + chr(0xc8 + regid) + "\xff"
+    ac = analyzer(initialState, opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
 
@@ -266,8 +266,8 @@ def test_or_reg_ff(analyzer, initialState, register):
 def test_mov_reg_ebpm6(analyzer, initialState, register):
     regid, regname = register
     # mov    reg,DWORD PTR [ebp-0x6]
-    binstr = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
-    ac = analyzer(initialState, binarystr=binstr)
+    opcode = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
+    ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
 
@@ -283,8 +283,8 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
     regid, regname = register
-    binstr = "\x8b" + chr(0x08 + regid)
-    ac = analyzer(initialState, binarystr=binstr)
+    opcode = "\x8b" + chr(0x08 + regid)
+    ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
 
