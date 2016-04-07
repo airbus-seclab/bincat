@@ -269,7 +269,7 @@ def test_or_reg_ff(analyzer, initialState, register):
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter.ptrs['reg'][regname] = 0xffffffff
+    setReg(expectedStateAfter, regname, 0xffffffff)
     # TODO check taint
     assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
