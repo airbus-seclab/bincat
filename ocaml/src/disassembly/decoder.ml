@@ -869,8 +869,8 @@ module Make(Domain: Domain.T) =
 	  T r | P(r, _, _) -> Register.compare r esp = 0
 
       (** common statement to set (a chunk of) esp *)
-      let set_esp esp' n =
-	Set (V esp', BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )
+      let set_esp op esp' n =
+	Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )
 
       (** builds a left value from esp that is consistent with the stack width *)
       let esp_lval () = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)
@@ -884,7 +884,7 @@ module Make(Domain: Domain.T) =
 	let stmts = List.fold_left (fun stmts v -> 
 			let n = size_push_pop v s.operand_sz in
 			[ Set (V v,
-			       Lval (M (Lval (V esp'), n))) ; set_esp esp' n ] @ stmts
+			       Lval (M (Lval (V esp'), n))) ; set_esp Add esp' n ] @ stmts
 		      ) [] v 
 	in
 	create s stmts
@@ -913,7 +913,7 @@ module Make(Domain: Domain.T) =
 		else
 		  Set (M (Lval (V esp'), n), Lval (V v));
 	      in
-	      [ s ; set_esp esp' n ] @ stmts
+	      [ s ; set_esp Sub esp' n ] @ stmts
 	    ) [] v
 	in
 	create s (pre @ stmts @ post)
@@ -922,7 +922,7 @@ module Make(Domain: Domain.T) =
       let push_immediate s n =
 	let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width) in
 	let esp'  = esp_lval ()						       in
-	let stmts = [ Set (M (Lval (V esp'), !Config.stack_width), c) ; set_esp esp' !Config.stack_width ]			 
+	let stmts = [ Set (M (Lval (V esp'), !Config.stack_width), c) ; set_esp Sub esp' !Config.stack_width ]			 
 	in
 	create s stmts
 
@@ -997,7 +997,7 @@ module Make(Domain: Domain.T) =
 	  | c when '\x50' <= c && c <= '\x57' -> let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [r]
 	  | c when '\x58' <= c && c <= '\x5F' -> let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [r]
 															   
-	  | '\x60'  -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
+	  | '\x60' -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
 	  | '\x61' -> let l = List.map (fun v -> find_reg v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
 	  | '\x64' -> s.segments.data <- fs; decode s
 	  | '\x65' -> s.segments.data <- ss; decode s
@@ -1014,7 +1014,7 @@ module Make(Domain: Domain.T) =
 	  | '\x82' -> raise (Exceptions.Error "Undefined opcode 0x82")
 	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte
 			   
-	  | c when '\x88' <= c && c <= '\x8B' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in create s [ Set (dst, src) ]
+	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in create s [ Set (dst, src) ]
 														
 	  | '\x90' 			    -> create s [Nop]
 						      

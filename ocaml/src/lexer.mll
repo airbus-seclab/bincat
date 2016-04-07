@@ -105,6 +105,7 @@ rule token = parse
   | "mode"                  { MODE }
   | "protected"             { PROTECTED }
   | "real"                  { REAL }
+  | "assert"                { ASSERT }
   (* left operand of type integer *)
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)

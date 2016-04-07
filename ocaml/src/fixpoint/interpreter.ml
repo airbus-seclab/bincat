@@ -91,14 +91,17 @@ struct
 	   | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
 					    (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
 	 with Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-       end 			      
-    | _       -> raise (Exceptions.Error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt)))
+       end
+
+    | Call (A a) -> v.Cfa.State.ip <- a; apply_tainting d
+    | Ret -> Log.error "Interpreter: check assert (in assert_tainted and in_assert_untainted) of returning function + update d" 
+    | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt))
     in
+
     process d stmt
 	    
   (* update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
   (* vertices are supposed to be sorted in topological order *)
-  (* update the abstract value field of each vertex *)
   let update_abstract_values g vertices =
     List.map (fun v ->
 	let p = Cfa.pred g v in
