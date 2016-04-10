@@ -106,6 +106,10 @@ rule token = parse
   | "protected"             { PROTECTED }
   | "real"                  { REAL }
   | "assert"                { ASSERT }
+  | "call"                  { CALL }
+  | "U"                     { U }
+  | "T"                     { T }
+  | "imports"               { IMPORTS }
   (* left operand of type integer *)
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)

@@ -45,7 +45,11 @@ module type T =
       (** int conversion of the given register *)
       (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
       val value_of_register: t -> Register.t -> Z.t
-			   
+
+      (** int conversion of the given expression *)
+      (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
+      val value_of_exp: t -> Asm.exp -> Z.t
+						 
       (** assignment into the given left value of the given expression *)
       (** the integer is the size in bits of the expression *)
       val set: Asm.lval -> Asm.exp -> oracle -> t -> t
@@ -73,7 +77,7 @@ module type T =
       val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue -> t -> t
 
       (** transfer function when the given function is entered *)
-      val enter_fun: t -> Asm.fct -> t
+      val enter_fun: t -> Asm.jmp_target -> t
 
       (** transfer function when the current function is returned *)
       val leave_fun: t -> t

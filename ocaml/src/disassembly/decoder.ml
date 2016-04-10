@@ -788,17 +788,40 @@ module Make(Domain: Domain.T) =
 	   let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero s.addr_sz)) in
 	   create_jcc_stmts s e s.addr_sz
 
-	 (** unconditional jump by adding an offset to the current ip *)
-	 let relative_jmp s i =
+	 (** common behavior between relative jump and relative call *)
+	 let relative s i sz =
 	   let o  = int_of_bytes s i in
 	   let o' =
-	     if i = 1 then sign_extension_of_byte o ((s.operand_sz / Config.size_of_byte)-1)
+	     if i = 1 then sign_extension_of_byte o (( sz / Config.size_of_byte)-1)
 	     else o
 	   in
 	   let a' = Address.add_offset s.a o' in
 	   check_jmp s a';
+	   a'
+	
+	 (** unconditional jump by adding an offset to the current ip *)
+	 let relative_jmp s i =
+	   let a' = relative s i s.operand_sz in
 	   create s [ Jmp (Some (A a')) ]
 
+	 (** common statement to move (a chunk of) esp by a relative offset *)
+	 let set_esp op esp' n =
+	   Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )
+
+	 (** call with target as an offset from the current ip *)
+	 let relative_call s i =
+	   let a    = relative s i s.operand_sz                   in
+	   let cesp = M (Lval (V (T esp)), !Config.stack_width)   in
+	   let ip   = Const (Data.Address.to_word a s.operand_sz) in
+	   let stmts =
+	     [
+	       Set (cesp, ip);
+	       set_esp Sub (T esp) !Config.stack_width;
+	       Call (A a)
+	     ]
+	   in
+	   create s stmts
+	   
 	 (** statements of jump with absolute address as target *)
 	 let direct_jmp s =
 	   let sz = Register.size cs            in
@@ -845,13 +868,7 @@ module Make(Domain: Domain.T) =
 	  Cfa.add_edge s.g s.b s.b (Some true);
 	  [s.b]
 	    
-	let call (s: state) v far =
-	  let v = Cfa.add_state s.g s.a s.b.Cfa.State.v ([Set(V(T esp), BinOp(Sub, Lval (V (T esp)), 
-									      Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))
-							 ]@(if far then [Set(V(T esp), BinOp(Sub, Lval (V (T esp)), Const (Word.of_int (Z.of_int !Config.stack_width) (Register.size esp))))] else []) @
-							   [Call v]) ({Cfa.State.op_sz = s.operand_sz ; Cfa.State.addr_sz = s.addr_sz}) false
-	   in
-	   [v]
+	  
 
 		  
       (****************************************************************************************)
@@ -868,10 +885,7 @@ module Make(Domain: Domain.T) =
 	match r with 
 	  T r | P(r, _, _) -> Register.compare r esp = 0
 
-      (** common statement to set (a chunk of) esp *)
-      let set_esp op esp' n =
-	Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )
-
+     
       (** builds a left value from esp that is consistent with the stack width *)
       let esp_lval () = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)
 
@@ -897,7 +911,7 @@ module Make(Domain: Domain.T) =
 	(* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
 	(* this is the purpose of the pre and post statements *)
 	let pre, post =
-	  if List.exists (fun v -> match v with T r | P (r, _, _) -> Register.is_sp r) v then
+	  if List.exists (fun v -> match v with T r | P (r, _, _) -> Register.is_stack_pointer r) v then
 	    [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
 	  else
 	    [], []
@@ -934,7 +948,7 @@ module Make(Domain: Domain.T) =
 	let r     = find_reg v s.operand_sz					   in
 	let eax   = to_reg eax s.operand_sz					   in 
 	let stmts = [ Set(V (T tmp), Lval (V eax)); Set(V eax, Lval (V r)) ; 
-		      Set(V r, Lval (V (T tmp)))   ; Directive (Remove tmp)]
+		      Set(V r, Lval (V (T tmp)))  ; Directive (Remove tmp) ]
 	in
 	create s stmts
 	    
@@ -1031,17 +1045,19 @@ module Make(Domain: Domain.T) =
 	  | '\xad' -> lods s s.addr_sz
 	  | '\xae' -> scas s Config.size_of_byte
 	  | '\xaf' -> scas s s.addr_sz
-			   
+
+	  | '\xc3' -> create s [ Return; set_esp Add (T esp) !Config.stack_width; ]
+			     
 	  | c when '\xe0' <= c && c <= '\xe2' -> loop s ((Char.code c) - (Char.code '\xe0'))
 	  | '\xe3' 			    -> jecxz s
 
 	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte)
 	  | '\xea' -> direct_jmp s
 	  | '\xeb' -> relative_jmp s 1
-			  
-	  | '\xf0' as c -> Log.from_decoder (Printf.sprintf "Prefix 0x%X ignored \n" (Char.code c)); decode s
-	  | '\xf2' as c -> s.rep_prefix <- Some false decode s
-	  | '\xf3' as c -> s.rep_prefix <- Some true; decode s
+	  | '\xe8' -> relative_call s (s.operand_sz / Config.size_of_byte) 
+				    
+
+	  | '\xf1' -> Log.error "Undefined opcode 0xf1"
 	  | '\xf4' -> raise (Exceptions.Error "Decoder stopped: HLT reached")
 			    
 	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x\n" (Char.code c)))

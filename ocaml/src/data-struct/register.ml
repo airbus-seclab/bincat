@@ -19,8 +19,6 @@ let imake name size is_sp =
 let make ~name ~size = imake name size false
  
 let make_sp ~name ~size = imake name size true
-
-let is_sp r = r.is_sp
 		
 let equal v1 v2 = compare v1 v2 = 0
 				    
@@ -37,3 +35,5 @@ let used () = Set.elements !registers
 let of_name name = Set.choose (Set.filter (fun r -> r.name = name) !registers)
 
 let is_stack_pointer r = r.is_sp
+
+let stack_pointer () = Set.choose (Set.filter (fun r -> r.is_sp) !registers)

@@ -48,5 +48,12 @@ struct
     | Cr_v1    -> D2.value_of_register v2 r
     | Cr_v2 v1'-> v1'			   
 
-
+  let value_of_exp (v1, v2) e =
+    try
+      let v1' = try D1.value_of_exp v1 e with _ -> raise Cr_v1 in
+      let v2' = try D2.value_of_exp v2 e with _ -> raise (Cr_v2 v1') in
+      if Z.equal v1' v2' then v1' else raise Exceptions.Concretization
+    with
+    | Cr_v1    -> D2.value_of_exp v2 e
+    | Cr_v2 v1'-> v1'			   
 end: Domain.T)

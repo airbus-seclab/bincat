@@ -62,9 +62,9 @@ type cvalue = Z.t
 (* initial state utilities *)
 		    
 let initial_register_content: (Register.t, cvalue) Hashtbl.t = Hashtbl.create 10
-let initial_memory_content: (Z.t, cvalue) Hashtbl.t = Hashtbl.create 10 (* TODO: better signature would be keys of type Data.Address.t but this would imply that Config and Data would be mutually recursive (longer to implement) *)
+let initial_memory_content: (Z.t, cvalue) Hashtbl.t = Hashtbl.create 10 (* TODO: better signature would be keys of type Data.Address.t but this would imply that Config and Data would be mutually recursive *)
 let initial_register_tainting: (Register.t, tvalue) Hashtbl.t = Hashtbl.create 10
-let initial_memory_tainting: (Z.t, tvalue) Hashtbl.t = Hashtbl.create 10 (* TODO: better signature would be keys of type Data.Address.t but this would imply that Config and Data would be mutually recursive (longer to implement) *)				   
+let initial_memory_tainting: (Z.t, tvalue) Hashtbl.t = Hashtbl.create 10 (* TODO: better signature would be keys of type Data.Address.t but this would imply that Config and Data would be mutually recursive *)				   
 
 
 (* tainting rules for functions *)
@@ -73,7 +73,7 @@ type taint =
   | Buf_taint
   | Addr_taint
 
-type tainting_fun = string * call_conv_t * taint option * taint list
+type tainting_fun = string * (call_conv_t * taint option * taint list)
 								
 let tainting_tbl: (string, tainting_fun list) Hashtbl.t = Hashtbl.create 7
 				  
@@ -87,3 +87,10 @@ let add_tainting_rules libname fun_rules =
   Hashtbl.replace tainting_tbl libname (fun_rules::cfuns)
 
 
+(** data stuctures for the assertions *)
+let assert_untainted_functions: (Z.t, taint list) Hashtbl.t = Hashtbl.create 5
+let assert_tainted_functions: (Z.t, taint list) Hashtbl.t = Hashtbl.create 5
+
+(** import table *)
+(** first string is the function name, the second one its library *)
+let imports: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5

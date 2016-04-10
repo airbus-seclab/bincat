@@ -121,7 +121,7 @@ module Make(Domain: Domain.T) =
 	(* then the resulting domain d' is updated with the "padded" content for each register with initial content setting in the provided configuration *)  
 	Hashtbl.fold
 	  (fun r v d ->
-	    let region = if Register.is_sp r then Data.Address.Stack else Data.Address.Global
+	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global
 	    in
 	    Domain.set_register_from_config r region (check_init_size r v) d
 	  )

@@ -329,6 +329,11 @@ module Make(D: T) =
 	   with Exceptions.Empty -> BOT
 	 else
 	   BOT
-		      
+
+    let value_of_exp m e =
+      match m with
+      | BOT -> raise Exceptions.Empty
+      | Val m' -> D.to_value (eval_exp m' e)
+			   
   end: Domain.T)
     

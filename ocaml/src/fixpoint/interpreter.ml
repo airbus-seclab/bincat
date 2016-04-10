@@ -60,8 +60,11 @@ struct
 	 D.compare d e1 cmp' e2
     in
     process e b
-    
-  let process_stmt _g (v: Cfa.State.t) d stmt =
+
+  let apply_tainting _rules d = d (* TODO apply rules of type Config.tainting_fun *)
+  let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
+			   
+  let process_stmt _g (v: Cfa.State.t) d stmt fun_stack =
     let rec process d s =
       match s with							   
     | Nop -> d
@@ -90,11 +93,58 @@ struct
 	   | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
 	   | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
 					    (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
-	 with Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+	 with
+	 | Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
        end
 
-    | Call (A a) -> v.Cfa.State.ip <- a; apply_tainting d
-    | Ret -> Log.error "Interpreter: check assert (in assert_tainted and in_assert_untainted) of returning function + update d" 
+    | Call (A a) ->
+       let f =
+	 try
+	   Some (Hashtbl.find Config.imports (Data.Address.to_int a))
+	with Not_found -> None
+       in
+       fun_stack := (f, v.Cfa.State.ip)::!fun_stack;
+       v.Cfa.State.ip <- a;
+       d
+	   
+    | Return ->
+       begin
+	 try
+	   let f, a = List.hd !fun_stack in
+	   let d' =
+	     try
+	       match f with
+		 Some (libname, fname) -> (* function library call : try to apply tainting rules from config *)
+		 let rules =
+		   let funs = Hashtbl.find Config.tainting_tbl libname in
+		   fst (List.find (fun v -> String.compare (fst v) fname = 0) funs)
+		 in
+		 apply_tainting rules d
+	       | None -> (* internal functions : tainting rules from control flow and data flow are directly infered from analysis *) d
+	     with Not_found -> d
+	   in
+	   fun_stack := List.tl !fun_stack;
+	   (* check tainting rules *)
+	   check_tainting f a d';
+	   (* check whether instruction pointers supposed and effective agree *)
+	   try
+	     let rip         = Register.stack_pointer ()			                                            in
+	     let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T rip)), (Register.size rip)))) in
+	     begin
+	       match Data.Address.Set.elements ip_on_stack with
+	       | [ip_on_stack] ->
+		  if not (Data.Address.equal a ip_on_stack) then
+		    Log.error "Interpreter: computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction"
+		  else
+		    v.Cfa.State.ip <- a;
+	       | _ -> Log.error "Intepreter: too much values computed for the instruction pointer at return instruction" 
+	     end;
+	     d'
+	   with
+	     _ -> Log.error "Intepreter: computed instruction pointer at return instruction too imprecise or undefined"
+	 with
+	 | _ -> Log.from_analysis (Printf.sprintf "return instruction at %s without previous call instruction\n" (Data.Address.to_string v.Cfa.State.ip)); d
+       end
     | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt))
     in
 
@@ -102,10 +152,10 @@ struct
 	    
   (* update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
   (* vertices are supposed to be sorted in topological order *)
-  let update_abstract_values g vertices =
+  let update_abstract_values g vertices fun_stack =
     List.map (fun v ->
 	let p = Cfa.pred g v in
-	let d' = List.fold_left (fun d stmt -> process_stmt g v d stmt) p.Cfa.State.v v.Cfa.State.stmts in
+	let d' = List.fold_left (fun d stmt -> process_stmt g v d stmt fun_stack) p.Cfa.State.v v.Cfa.State.stmts in
 	v.Cfa.State.v <- d';
 	v
       ) vertices
@@ -158,6 +208,8 @@ struct
     let waiting  = ref (Vertices.singleton s) in
     (* set d to the initial internal state of the decoder *)
     let d = ref (Decoder.init ()) in
+    (* function stack *)
+    let fun_stack = ref [] in
     while !continue do
       (* a waiting node is randomly chosen to be explored *)
       let v = Vertices.choose !waiting in
@@ -174,7 +226,7 @@ struct
 	  (* Decoder.parse is supposed to return the vertices in a topological order                             *)
 	  let vertices, d' = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)        in
 	  (* these vertices are updated by their right abstract values and the new ip                            *)
-	  let new_vertices = update_abstract_values g vertices                                                   in
+	  let new_vertices = update_abstract_values g vertices fun_stack                                         in
 	  (* among these computed vertices only new are added to the waiting set of vertices to compute          *)
 	  let vertices'    = filter_vertices g new_vertices				     		         in
 	  List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';

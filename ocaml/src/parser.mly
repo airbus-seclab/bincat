@@ -97,7 +97,7 @@
 		None 	-> c'
 	      | Some c' -> c'
 	    in
-	    Config.add_tainting_rules l (fname, c', r, args)
+	    Config.add_tainting_rules l (fname, (c', r, args))
 	  in
 	  List.iter add (List.rev funs)
 	in
@@ -110,7 +110,7 @@
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED PHYS_CODE_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
-%token GDT RVA_CODE CUT ASSERT
+%token GDT RVA_CODE CUT ASSERT IMPORTS CALL U T
 %token <string> STRING
 %token <Z.t> INT
 %start <unit> process
@@ -132,8 +132,16 @@
     | LEFT_SQ_BRACKET ANALYZER RIGHT_SQ_BRACKET a=analyzer   { a }
     | LEFT_SQ_BRACKET GDT RIGHT_SQ_BRACKET gdt=gdt 	     { gdt }
     | LEFT_SQ_BRACKET l=libname RIGHT_SQ_BRACKET lib=library { l; lib }
-    | LEFT_SQ_BRACQET ASSERT RIGHT_BRACKET r=assert_rules  { r }
+    | LEFT_SQ_BRACKET ASSERT RIGHT_SQ_BRACKET r=assert_rules { r }
+    | LEFT_SQ_BRACKET IMPORTS RIGHT_SQ_BRACKET i=imports     { i }
 
+      imports:							     
+    |                     { () }
+    | i=import l=imports  { i ; l }
+
+      import:
+    | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.imports a (libname, fname) }
+			       
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
      	       
@@ -238,20 +246,21 @@
     | f=STRING 	a=arguments 			     		    { f, None, List.rev a }
 				   
       arguments:
-    | arg_list = delimited(LPAREN, separated_list(COMMA, argument), RPAREN) { arg_list }
+    | arg_list = delimited (LPAREN, separated_list (COMMA, argument), RPAREN) { arg_list }
 
      argument:
     | UNDERSCORE { Config.No_taint }
     | AT 	 { Config.Addr_taint }
     | STAR 	 { Config.Buf_taint }
 
-     assert_rules:
-    | assert_rule
-    | assert_rule assert_rules
+      assert_rules:
+    |                               { () }
+    | a=assert_rule aa=assert_rules { a ; aa }
 
      assert_rule:
-    | U EQUAL v = fun_rule { let f, c, a = v in let cl, funs = Hashtbl.find assert_untainted_libraries !libname in Hashtbl.replace assert_untainted_libraries !libname (cl, (f, c, a)::funs }
-    | T EQUAL v = fun_rule { let f, c, a = v in let cl, funs = Hashtbl.find assert_tainted_libraries !libname in Hashtbl.replace assert_tainted_libraries !libname (cl, (f, c, a)::funs }
+    | U EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_untainted_functions a arg }
+    | T EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_tainted_functions a arg }
+																 
      init:
     | TAINT c=tcontent 	       { None, Some c }
     | c=INT 		       { Some c, None }

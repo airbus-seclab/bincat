@@ -13,10 +13,6 @@ or is a reserved name f *)
 
 (** creates a stack pointer register from the given string and size *)
 val make_sp: name:string -> size:int -> t
-
-(** returns true whenever the given register is the default stack pointer *)
-(** false otherwise *)
-val is_sp: t -> bool
 		  
 (** returns a fresh register name *)
 val fresh_name: unit -> string
@@ -42,3 +38,8 @@ val of_name: string -> t
 (** returns true whenever the given register is the stack pointer *)
 (** false otherwise *)
 val is_stack_pointer: t -> bool
+
+(** returns the stack pointer *)
+(** may raise Not found *)
+(** randomly chosen if several registers have been taged as stack pointer *)
+val stack_pointer: unit -> t

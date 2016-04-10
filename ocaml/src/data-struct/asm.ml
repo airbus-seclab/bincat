@@ -45,7 +45,6 @@ type bunop =
   | Not (** Negation *)
       
       
-      
 (** type of expressions *)
 type exp =
   | Const of Word.t            (** a constant *)
@@ -64,10 +63,6 @@ type bexp =
   | BBinOp of logbinop * bexp * bexp
   | BConst of bool
 		
-(** type of function calls *)
-type fct =
-  | I of reg 	   (** indirect call from register *)
-  | D of Address.t (** direct call from address *)
 	   
 (** type of directives for the analyzer *)
 type directive_t =
@@ -83,8 +78,8 @@ type jmp_target =
 type stmt =
   | Set  of lval * exp    		   (** store the expression into the left value *)
   | If of bexp * (stmt list) * (stmt list) (** conditional statement *)
-  | Jmp	 of jmp_target option (** jump; None target is for intermediate block translation *)				    
-  | Call of fct          		   (** call *)
+  | Jmp	 of jmp_target option              (** jump; None target is for intermediate block translation *)				    
+  | Call of jmp_target          	   (** call *)
   | Return         			   (** return *)
   | Nop                      		   (** no operation *)
   | Directive of directive_t 		   (** directive/hint for the analyzer *)
