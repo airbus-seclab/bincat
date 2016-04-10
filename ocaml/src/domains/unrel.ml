@@ -157,7 +157,7 @@ module Make(D: T) =
 	       | _ 	    -> D.bot
 	   end
 	| Asm.Lval (Asm.V (Asm.P (_r, _l, _u))) -> D.top (* can be more precise *)
-	| Asm.Lval (Asm.M (e, _n))            ->
+	| Asm.Lval (Asm.M (e, n))            ->
 	   begin
 	     try
 	       let addresses = Data.Address.Set.elements (D.to_addresses (eval e)) in
@@ -170,6 +170,10 @@ module Make(D: T) =
 	     with
 	     | Exceptions.Enum_failure -> D.top
 	     | Exceptions.Empty        -> D.bot
+	     | Not_found               ->
+	       match D.name with
+	       | "Tainting" -> D.untainted_value n
+	       | _ 	    -> D.bot
 	   end
 	| Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
 	   begin
