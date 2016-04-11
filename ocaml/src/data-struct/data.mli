@@ -110,7 +110,10 @@ module Address: sig
 
   (** right shift *)
   val shift_right: t -> int -> t
-				 
+
+  (** negation *)
+  val neg: t -> t
+		  
   (** extends the size in bits of the given address *)
   val size_extension: t -> int -> t
 				    

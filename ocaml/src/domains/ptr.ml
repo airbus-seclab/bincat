@@ -79,6 +79,7 @@ let unary op v =
      | Asm.Shl i     -> Val (Address.shift_left v' i)
      | Asm.Shr i     -> Val (Address.shift_right v' i) (* TODO same optimization *)
      | Asm.SignExt i -> Val (Address.size_extension v' i)
+     | Asm.Not       -> Val (Address.neg v')
 
 			
 let to_addresses v =

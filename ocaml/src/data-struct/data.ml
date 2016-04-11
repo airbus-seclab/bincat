@@ -70,7 +70,7 @@ module Word =
 
     let shift_left (w, sz) i = Z.shift_left w i, sz-i
     let shift_right (w, sz) i = Z.shift_right w i, sz-i
-							
+    let neg (w, sz) = Z.neg w, sz			
   end
 
 (** Address Data Type *)
@@ -170,6 +170,7 @@ module Address =
 
       let shift_left (r, w) i = r, Word.shift_left w i
       let shift_right (r, w) i = r, Word.shift_right w i
+      let neg (r, w) = r, Word.neg w
     end
     include A
     module Set = Set.Make(A)

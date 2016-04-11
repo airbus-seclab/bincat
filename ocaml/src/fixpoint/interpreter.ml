@@ -40,8 +40,8 @@ struct
   let restrict d e b =
     let rec process e b =
       match e with
-      | BConst b' 	      -> if b = b' then d else D.bot
-      | BUnOp (Not, e) 	      -> process e (not b)
+      | BConst b' 	        -> if b = b' then d else D.bot
+      | BUnOp (LogNot, e) 	-> process e (not b)
 					 
       | BBinOp (LogOr, e1, e2)  ->
 	 let v1 = process e1 b in

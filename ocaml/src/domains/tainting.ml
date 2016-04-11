@@ -197,6 +197,7 @@
    | BOT | TOP -> v
    | Val v' ->
       match op with
+      | Asm.Not -> Val v'
       | Asm.SignExt n ->
 	 let sz = Array.length v' in
 	 if sz >= n then v
@@ -229,7 +230,7 @@
 	       v.(i-nb) <- v'.(i)
 	     done;
 	     Val v
-	   with _ -> TOP
+	   with _ -> TOP	      
 	 end
 	   
   let enter_fun _f _ctx = raise (Exceptions.Error "Tainting.enter_fun: to implement")

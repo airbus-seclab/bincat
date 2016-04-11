@@ -39,10 +39,11 @@ type unop =
   | SignExt of int (** [SignExt n] is a sign extension on _n_ bit width *)
   | Shl     of int (** left logical shift *)
   | Shr     of int (** right logical shift *)
+  | Not            (** negation *)
 
 (** logical unary operator *)
 type bunop =
-  | Not (** Negation *)
+  | LogNot (** Negation *)
       
       
 (** type of expressions *)
@@ -86,11 +87,12 @@ type stmt =
 		   
 let equal_bunop op1 op2 =
   match op1, op2 with
-  | Not, Not  -> true
+  | LogNot, LogNot  -> true
 	      
 let equal_unop op1 op2 =
   match op1, op2 with
   | SignExt i1, SignExt i2 | Shl i1, Shl i2 | Shr i1, Shr i2 -> i1 = i2
+  | Not, Not 						     -> true
   | _, _ 						     -> false
 	      
 let string_of_binop op =
@@ -124,10 +126,11 @@ let string_of_unop op =
   | SignExt i -> Printf.sprintf "SignExtension (%d)" i
   | Shl i     -> Printf.sprintf "<< %d" i
   | Shr i     -> Printf.sprintf ">> %d" i
+  | Not       -> "not"
 
 let string_of_bunop op =
   match op with
-  | Not       -> "!"
+  | LogNot       -> "!"
 		   
 let equal_reg r1 r2 =
   match r1, r2 with

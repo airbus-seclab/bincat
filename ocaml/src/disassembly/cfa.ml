@@ -45,7 +45,7 @@ module Make(Domain: Domain.T) =
 	struct
 
 	  (** None means no label ; true is used for a if-branch link between states ; false for a else-branch link between states *)
-	  type t = bool option
+	  type t = Asm.bexp option
 			
 	  let default = None
 			  
