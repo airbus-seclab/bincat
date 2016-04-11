@@ -9,7 +9,8 @@ RUN apt-get update
 RUN apt-get install -y dpkg-dev debhelper pkg-config quilt autotools-dev \
                        binutils-dev libiberty-dev libncurses5-dev \
                        libx11-dev zlib1g-dev dh-ocaml make ed \
-                       python python-pip python-setuptools python-dev python-pytest
+                       python python-pip python-setuptools python-dev python-pytest \
+                       vim nasm
 
 RUN apt-get source ocaml
 # Add '-cc "gcc -fPIC" to CONFIGURE_OPTS and remove forced static linking of libfd in debian/rules

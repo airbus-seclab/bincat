@@ -4,6 +4,7 @@ This file describes tests for single instructions
 """
 
 import pytest
+import subprocess
 import copy
 import binascii
 from idabincat import analyzer_state
@@ -32,6 +33,7 @@ def analyzer(tmpdir, request):
             oldpath.chdir()
         request.addfinalizer(resetpwd)
 
+        initialState = initialState.format(code_length = len(binarystr))
         initfile = str(tmpdir.join('init.ini'))
         with open(initfile, 'w+') as f:
             f.write(initialState)
@@ -72,18 +74,50 @@ def clearFlag(state, name):
     state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', 0x0)
     state.tainting['reg'][name] = analyzer_state.Tainting("0")
 
+def setFlag(state, name):
+    """
+    Set flag to 1, untainted - helper for tests
+    XXX for most tests, flags should inherit taint
+    """
+    state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', 1)
+    state.tainting['reg'][name] = analyzer_state.Tainting("0")
+
+def taintFlag(state, name):
+    """
+    Taint flag - helper for tests
+    XXX for most tests, flags should inherit taint
+    """
+    state.ptrs['reg'][name] = analyzer_state.AbstractPtrValue("?")
+    state.tainting['reg'][name] = analyzer_state.Tainting("?")
+
+def setReg(state, name, val, taint=0):
+    state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', val)
+    staint = "{0:0>32b}".format(taint)
+    state.tainting['reg'][name] = analyzer_state.Tainting(staint)
+
 
 def prepareExpectedState(state):
     """
     Copies existing state, sets its pretty name.
     """
     s = copy.deepcopy(state)
-    s.prettyname = "Expected state at address %s" % state.address
+    s.prettyname = "Expected state"
     return s
 
 
-def assertEqualStates(state1, state2):
-    assert state1 == state2, "States should be identical" + \
+def assertEqualStates(state1, state2, opcodes=None):
+    if opcodes:
+        try:
+            p = subprocess.Popen(["ndisasm", "-u", "-"], 
+                                 stdin=subprocess.PIPE, 
+                                 stdout=subprocess.PIPE)
+            out,err = p.communicate(opcodes)
+            out = "\n"+out
+        except OSError:
+            out = ""
+    else:
+        out = ""
+    assert state1 == state2, "States should be identical" + out + \
         state1.getPrintableDiff(state2)
 
 
@@ -93,13 +127,19 @@ def test_xor_reg_self(analyzer, initialState, register):
     Tests opcode 0x33 - xor self
     """
     regid, regname = register
-    opcode = "0x33" + chr(0xc0 + regid + (regid << 3))
+    opcode = "\x33" + chr(0xc0 + regid + (regid << 3))
     ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
 
-    expectedStateAfter.ptrs['reg'][regname] = 0
+    setReg(expectedStateAfter, regname, 0)
+    clearFlag(expectedStateAfter, "sf")
+    clearFlag(expectedStateAfter, "of")
+    clearFlag(expectedStateAfter, "cf")
+    setFlag(expectedStateAfter, "zf")
+    setFlag(expectedStateAfter, "pf")
+    taintFlag(expectedStateAfter, "af")
     # XXX check taint (not tainted)
 
     assertEqualStates(expectedStateAfter, stateAfter)
@@ -108,11 +148,11 @@ def test_xor_reg_self(analyzer, initialState, register):
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_inc(analyzer, initialState, register):
     """
-    Tests opcodes 0x40-0x47
+    Tests opcodes 0x40-0x47 == inc eax--edi
     """
     regid, regname = register
-    opcode = 0x40 + regid
-    ac = analyzer(initialState, binarystr=chr(opcode))
+    opcode = chr(0x40 + regid)
+    ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
@@ -125,7 +165,7 @@ def test_inc(analyzer, initialState, register):
     expectedStateAfter.ptrs['reg'][regname] += 1
     # XXX flags should be tainted - known bug
 
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -197,7 +237,7 @@ def test_pop(analyzer, initialState, register):
     expectedStateAfter.tainting['reg'][regname] = \
         stateBefore.tainting['mem'][stateBefore.ptrs['reg']['esp']]
 
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 def test_sub(analyzer, initialState):
@@ -222,24 +262,24 @@ def test_or_reg_ff(analyzer, initialState, register):
     """
     # or ebx,0xffffffff
     regid, regname = register
-    binstr = "\x83" + chr(0xc8 + regid) + "\xff"
-    ac = analyzer(initialState, binstr)
+    opcode = "\x83" + chr(0xc8 + regid) + "\xff"
+    ac = analyzer(initialState, opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter.ptrs['reg'][regname] = 0xffffffff
+    setReg(expectedStateAfter, regname, 0xffffffff)
     # TODO check taint
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_reg_ebpm6(analyzer, initialState, register):
     regid, regname = register
     # mov    reg,DWORD PTR [ebp-0x6]
-    binstr = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
-    ac = analyzer(initialState, binarystr=binstr)
+    opcode = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
+    ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
 
@@ -249,14 +289,14 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
         stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['ebp'] - 6]
     expectedStateAfter.tainting['reg'][regname] = \
         stateBefore.tainting['mem'][stateBefore.ptrs['reg']['ebp'] - 6]
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
     regid, regname = register
-    binstr = "\x8b" + chr(0x08 + regid)
-    ac = analyzer(initialState, binarystr=binstr)
+    opcode = "\x8b" + chr(0x08 + regid)
+    ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
 
@@ -265,7 +305,7 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     expectedStateAfter.ptrs['reg']['ebp'] = stateBefore.ptrs['reg'][regname]
     expectedStateAfter.tainting['reg']['ebp'] = \
         stateBefore.tainting['reg'][regname]
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 def test_nop(analyzer, initialState):

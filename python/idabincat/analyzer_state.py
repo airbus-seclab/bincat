@@ -126,46 +126,49 @@ class State(object):
                     return False
         return True
 
-    def listModifiedKeys(self, otherState):
+    def listModifiedKeys(self, other):
         """
         Returns a set of (region, name) for which ptrs or tainting values
-        differ between self and otherState.
+        differ between self and other.
         """
         results = set()
-        for region in 'mem', 'reg':
-            ptrKeys = set(self.ptrs[region].keys())
-            otherPtrKeys = set(otherState.ptrs[region].keys())
-            taintingKeys = set(self.tainting[region].keys())
-            otherTaintingKeys = set(otherState.tainting[region].keys())
+        regions = (set(self.ptrs.keys()) |
+                   set(self.tainting.keys()) |
+                   set(other.ptrs.keys()) |
+                   set(other.tainting.keys()))
+        for region in regions:
+            sPr = self.ptrs[region]
+            sTr = self.tainting[region]
+            oPr = other.ptrs[region]
+            oTr = other.tainting[region]
+            sPrK = set(sPr)
+            sTrK = set(sTr)
+            oPrK = set(oPr)
+            oTrK = set(oTr)
 
-            for key in ptrKeys | otherPtrKeys:
-                if key not in self.ptrs[region] or \
-                        key not in otherState.ptrs[region]:
-                    results.add((region, key))
-                    continue
-                if self.ptrs[region][key] != otherState.ptrs[region][key]:
-                    results.add((region, key))
+            results |= set((region,p) for p in sPrK ^ oPrK)
+            results |= set((region,p) for p in oPrK & sPrK if sPr[p] != oPr[p])
 
-            for key in taintingKeys | otherTaintingKeys:
-                if key not in self.tainting[region] or \
-                        key not in otherState.tainting[region]:
-                    results.add((region, key))
-                    continue
-                if self.tainting[region][key] != \
-                        otherState.tainting[region][key]:
-                    results.add((region, key))
-
+            results |= set((region,p) for p in sTrK ^ oTrK)
+            results |= set((region,p) for p in sTrK & oTrK if sTr[p] != oTr[p])
         return results
 
     def getPrintableDiff(self, other):
         res = "\n--- %s\n+++ %s\n" % (self, other)
         for region, address in self.listModifiedKeys(other):
             res += "@@ %s %s @@\n" % (region, address)
-            if self.ptrs[region][address] != other.ptrs[region][address]:
+            if address not in self.ptrs[region]:
+                res += "+ %s\n" % other.ptrs[region][address]
+            elif address not in other.ptrs[region]:
+                res += "- %s\n" % self.ptrs[region][address]
+            elif self.ptrs[region][address] != other.ptrs[region][address]:
                 res += "- %s\n" % self.ptrs[region][address]
                 res += "+ %s\n" % other.ptrs[region][address]
-            if self.tainting[region][address] != \
-                    other.tainting[region][address]:
+            if address not in self.tainting[region]:
+                res += "+ %s\n" % other.tainting[region][address]
+            elif address not in other.tainting[region]:
+                res += "- %s\n" % self.tainting[region][address]
+            elif self.tainting[region][address] != other.tainting[region][address]:
                 res += "- %s\n" % self.tainting[region][address]
                 res += "+ %s\n" % other.tainting[region][address]
         return res
