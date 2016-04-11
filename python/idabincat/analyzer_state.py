@@ -9,6 +9,7 @@ import ConfigParser
 import logging
 import sys
 from collections import defaultdict
+import mlbincat
 
 
 class AnalyzerState(object):
@@ -19,6 +20,17 @@ class AnalyzerState(object):
         self.edges = defaultdict(list)
         #: self.idaddr[nodeid] = (region, addr)
         self.nodeidaddr = {}
+
+    @classmethod
+    def run_analyzer(cls, initfile, outputfile, logfile):
+        """
+        Runs the analyzer using the given parameters.
+        Returns an AnalyzerState instance based on the analyzer's output.
+        """
+        mlbincat.process(initfile, outputfile, logfile)
+        ac = cls()
+        ac.setStatesFromAnalyzerOutput(outputfile)
+        return ac
 
     def setBinaryFromString(self, string):
         # TODO
