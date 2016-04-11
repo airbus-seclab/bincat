@@ -1016,6 +1016,7 @@ module Make(Domain: Domain.T) =
 	  | '\xf2' -> (* REP/REPE *) s.rep <- true; rep s Word.zero
 	  | '\xf3' -> (* REPNE *) s.repne <- true; rep s Word.one
 	  | '\xf4' -> raise (Exceptions.Error "Decoder stopped: HLT reached")
+	  | '\xf5' -> let fcf' = V (T fcf) in create s [ Set (fcf', UnOp (Not, Lval fcf')
 
 	  | '\xf6' -> grp3 s Config.size_of_byte label
 	  | '\xf7' -> grp3 s s.operand_sz label
