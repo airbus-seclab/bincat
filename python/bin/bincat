@@ -1,0 +1,23 @@
+#! /usr/bin/env python
+
+
+def main():
+    import mlbincat
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("inputfile", 
+                        help="Input state file")
+    parser.add_argument("outputfile",
+                        help="file to output computed states into")
+    parser.add_argument("logfile", 
+                        help="log file")
+
+    options = parser.parse_args()
+
+    mlbincat.process(options.inputfile, options.outputfile, options.logfile)
+
+
+if __name__ == "__main__":
+    main()
+

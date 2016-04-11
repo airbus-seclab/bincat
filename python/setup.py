@@ -29,6 +29,7 @@ setup(
     author_email     = 'sarah.zennou@airbus.com',
     description      = 'BINnary Code Analysis Toolkit',
     long_description = open('README.txt').read(),
+    scripts          = ['bin/bincat'],
     packages         = ['idabincat'],
     ext_modules      = [mlbincat],
     license          = 'GPLv2'
