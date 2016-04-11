@@ -453,7 +453,7 @@ module Make(Domain: Domain.T) =
       let clear_carry_flag_stmts () = Set (V (T fcf), Const (Word.zero fcf_sz))
 
       (** produce the statement to undefine the adjust flag *)
-      let undefine_adjust_flag_stmts () = Directive (Forget faf)
+      let undefine_adjust_flag_stmts () = Directive (Undef faf)
 
       (** produce the statement to set the sign flag *)					    
       let sign_flag_stmts res =
