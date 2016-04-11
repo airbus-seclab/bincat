@@ -1020,7 +1020,12 @@ module Make(Domain: Domain.T) =
 	  | '\xf6' -> grp3 s Config.size_of_byte label
 	  | '\xf7' -> grp3 s s.operand_sz label
 	  | '\xf8' -> let fcf' = V (T fcf) in create s [ Set (fcf', Const (Word.zero fcf_sz)) ]
-	     
+	  | '\xf9' -> let fcf' = V (T fcf) in create s [ Set (fcf', Const (Word.one fcf_sz)) ]
+	  | '\xfa' -> Log.error "CLI decoded. Interruptions not handled for the while"
+	  | '\xfb' -> Log.error "STI decoded. Interruptions not handled for the while"
+	  | '\xfc' -> let fdf' = V (T fdf) in create s [ Set (fdf', Const (Word.zero fdf_sz)) ]
+	  | '\xfd' -> let fdf' = V (T fdf) in create s [ Set (fdf', Const (Word.one fdf_sz)) ]
+						     
 	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x\n" (Char.code c)))
 
 	(** rep prefix *)
