@@ -6,7 +6,8 @@ zarith library
 python 2.7
 pdflatex for documentation
 pytest for tests
-ocamldoc and doxygen for the documentation generation
+ocamldoc for the ocaml documentation generation
+python2-sphinx for the python documentation generation
 menhir for the configuration parsing in ocaml
 the library ocamlgraph
 IDA for the vizualisation
