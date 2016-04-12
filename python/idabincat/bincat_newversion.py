@@ -18,7 +18,6 @@ import ConfigParser
 from collections import OrderedDict
 
 
-
 # Loading Qt packages 
 try:
 	from PyQt5 import QtCore, QtWidgets 
@@ -141,10 +140,16 @@ class HelperConfigIniFile:
         def CreateIniFile(self):
                 # this function will grap the default parameters 
                 BinCATLogViewer.Log(" [+] BinCAT Creating ini configuration file",SCOLOR_LOCNAME)
-                self.configini = ConfigParser.RawConfigParser()
+                #self.configini = ConfigParser.RawConfigParser()
+                self.configini = ConfigParser.ConfigParser()
+		self.configini.optionxform = str
+
+
                 # [settings] section 
                 self.configini.add_section('settings')
                 self.configini.set('settings','mem-model',self.getMemoryModel()) 
+                # TODO get cpu mode from idaapi ?  
+                self.configini.set('settings','mode','protected') 
                 self.configini.set('settings','call-conv',self.getCallConvention())
                 self.configini.set('settings','mem-sz',32)
                 adr  = self.getCodeSection('start')
@@ -153,25 +158,89 @@ class HelperConfigIniFile:
 
                 # [loader section] 
                 self.configini.add_section('loader')
-                self.configini.set('loader','rva-stack','0xFFFFFFFF') 
-                self.configini.set('loader','rva-data',hex(self.getDataSection('start')).strip('L'))
-                self.configini.set('loader','rva-code-start',hex(self.getCodeSection('start')).strip('L'))
-                self.configini.set('loader','rva-code-end',hex(self.getCodeSection('end')).strip('L'))
-                self.configini.set('loader','rva-entrypoint', hex(idaapi.get_inf_structure().startIP).strip('L') )
+                self.configini.set('loader','rva-code',hex(self.getCodeSection('start')).strip('L'))
+                self.configini.set('loader','entrypoint', hex(idaapi.get_inf_structure().startIP).strip('L') )
+                self.configini.set('loader','phys-code-addr', hex(idaapi.get_fileregion_offset(self.getCodeSection('start'))) )
+		# By default code-length is 0 
+                self.configini.set('loader','code-length', '0')
 
+                self.configini.set('loader','cs', '0x73')
+                self.configini.set('loader','ds', '0x7b')
+                self.configini.set('loader','ss', '0x7b')
+                self.configini.set('loader','es', '0x7b')
+                self.configini.set('loader','ds', '0x7b')
+                self.configini.set('loader','fs', '0x7b')
+                self.configini.set('loader','gs', '0x7b')
+                
                 # [binary section] 
                 self.configini.add_section('binary')
-                self.configini.set('binary','filename',GetInputFile())
+                #self.configini.set('binary','filename',GetInputFile())
                 self.configini.set('binary','filepath',GetInputFilePath()) 
                 self.configini.set('binary','format',self.getFileType())
-                self.configini.set('binary','phys-code', hex(idaapi.get_fileregion_offset(self.getCodeSection('start'))) )
-                
+
+
+                # [import] section
+                self.configini.add_section('imports')
+                self.configini.set('imports','0x04','libc,open')
+
+                # [GDT] section
+                self.configini.add_section('GDT')
+                self.configini.set('GDT','GDT[0]', '0x0000000000000000')
+                self.configini.set('GDT','GDT[1]','0x0000000000000000')
+                self.configini.set('GDT','GDT[2]','0x0000000000000000')
+                self.configini.set('GDT','GDT[3]','0x0000000000000000')
+                self.configini.set('GDT','GDT[4]','0x0000000000000000')
+                self.configini.set('GDT','GDT[5]','0x0000000000000000')
+                self.configini.set('GDT','GDT[6]','0x0000000000000000')
+                self.configini.set('GDT','GDT[7]','0x0000000000000000')
+                self.configini.set('GDT','GDT[8]','0x0000000000000000')
+                self.configini.set('GDT','GDT[9]','0x0000000000000000')
+                self.configini.set('GDT','GDT[10]','0x0000000000000000')
+                self.configini.set('GDT','GDT[11]','0x0000000000000000')
+                self.configini.set('GDT','GDT[12]','0x0000ffff00cf9b00')
+                self.configini.set('GDT','GDT[13]','0x0000ffff00cf9300')
+                self.configini.set('GDT','GDT[14]','0x0000ffff00cffb00')
+                self.configini.set('GDT','GDT[15]','0x0000ffff00cff300')
+                self.configini.set('GDT','GDT[16]','0xfac0206bf7008bb7')
+                self.configini.set('GDT','GDT[17]','0xd0000fffd4008254')
+                self.configini.set('GDT','GDT[18]','0x0000ffff00409a00')
+                self.configini.set('GDT','GDT[19]','0x0000ffff00009a00')
+                self.configini.set('GDT','GDT[20]','0x0000ffff00009200')
+                self.configini.set('GDT','GDT[21]','0x0000000000009200')
+                self.configini.set('GDT','GDT[22]','0x0000000000009200')
+                self.configini.set('GDT','GDT[23]','0x0000ffff00409a00')
+                self.configini.set('GDT','GDT[24]','0x0000ffff00009a00')
+                self.configini.set('GDT','GDT[25]','0x0000ffff00409200')
+                self.configini.set('GDT','GDT[26]','0x0000ffff00cf9200')
+                self.configini.set('GDT','GDT[27]','0x0000ffff368f9325')
+                self.configini.set('GDT','GDT[28]','0x1c800018f74091b8')
+                self.configini.set('GDT','GDT[29]','0x0000000000000000')
+                self.configini.set('GDT','GDT[30]','0x0000000000000000')
+                self.configini.set('GDT','GDT[31]','0x8800206bc1008980')
+ 
                 # [analyzer section] 
                 self.configini.add_section('analyzer')
                 self.configini.set('analyzer','unroll',5)
+                self.configini.set('analyzer','dotfile','cfa.dot')
 
                 # [state section] 
                 self.configini.add_section('state')
+                self.configini.set('state','reg[eax]','0x01 ! 0xff ? 0xf0')
+                self.configini.set('state','reg[ebx]','0x02')
+                self.configini.set('state','reg[ecx]','0x03')
+                self.configini.set('state','reg[edi]','0x04')
+                self.configini.set('state','reg[esi]','0x05')
+                self.configini.set('state','reg[esp]','0x06')
+                self.configini.set('state','reg[ebp]','0x07')
+
+                self.configini.set('state','mem[0x01]','0x1234567812345678 ! 0xff')
+
+                # [libc section] 
+                self.configini.add_section('libc')
+                self.configini.set('libc','call-conv','fastcall')
+                self.configini.set('libc','*','open(@, _)')
+                self.configini.set('libc','*','read<stdcall>(@, *, @)')
+
 
                 # config ini file should be in the same directory as the IDB file 
                 self.config_ini_path = GetIdbDir() + "config.ini"         
@@ -181,20 +250,114 @@ class HelperConfigIniFile:
 
                 with open(self.config_ini_path,'w') as configfile:
                         self.configini.write(configfile)
+# ----------------------------------------------------------------------------------------------
+# Class  Toto test form 
+# To delete 
+
+class Toto_t(QtWidgets.QDialog):
+
+        def foo(self, *args, **kargs):
+                idaapi.msg("Foo %r %r" % (args,kargs))
+
+
+        def __init__(self,parent):
+                super(Toto_t,self).__init__(parent)
+                 
+                layout = QtWidgets.QGridLayout()
+
+                self.btnCcl = QtWidgets.QPushButton('Cancel',self)
+                self.btnCcl.setToolTip('Cancel.')
+                self.btnCcl.setFixedWidth(130)
+                self.btnCcl.clicked.connect(self.foo)
+
+                layout.addWidget(self.btnCcl,1,0)
+
+                layout.setColumnStretch(2,1)
+                layout.setRowStretch(2,1)
+
+                self.setLayout(layout)
+ 
+        
+        def show(self):
+                self.setFixedSize(460,200)
+                self.setWindowTitle(" Toto dialog form : ")
+                super(Toto_t,self).show()
 
 # ----------------------------------------------------------------------------------------------
 # Class  Tainting Launcher Form 
 
 class TaintLaunchForm_t(QtWidgets.QDialog):
-        def btnStartHandler(self):
-                self.accept()
 
-        def CancelHandler(self):
-                idaapi.msg("Cancel button handler")
-                self.reject()
+        def rbRegistersHandler(self):
+               self.cbRegisters.setEnabled(True)
+               self.ipMemory.setDisabled(True) 
 
-        def foo(self, *args, **kargs):
-                idaapi.msg("Foo %r %r" % (args,kargs))
+        def rbMemoryHandler(self):
+               self.cbRegisters.setDisabled(True)
+               self.ipMemory.setEnabled(True) 
+
+        def cbRegistersHandler(self,text):
+                idaapi.msg(" selected register is %s \n "%text)
+
+
+        def btnLaunchAnalyzer(self):
+                BinCATLogViewer.Log("[+] BinCAT : Launching the analyzer",SCOLOR_LOCNAME)
+                # Test if End adress is not empty 
+                if  not self.ipEndAdr.text():
+                        idaapi.warning(" End address is empty")
+                else:   
+                        # load the config file  for read and update 
+                        self.currentConfig = ConfigParser.ConfigParser()
+			self.currentConfig.optionxform =  str
+
+                        self.currentConfig.read(hlpConfig.config_ini_path)
+                        # get the code length 
+                        # We apply  : code-length = Rva-code - startAddress + 2 
+                        cl = int(self.ipEndAdr.text(),16)  - int(self.ipStartAdr.text(),16) 
+
+			# code-length =  rva-code - entrypoint + cl
+                        rvacode = int(self.currentConfig.get('loader','rva-code'),16)
+                        self.currentConfig.set('loader','entrypoint',self.ipStartAdr.text())
+			ep =  int(self.ipStartAdr.text(),16)  
+			cl  = (ep - rvacode) + cl   
+
+                        # update config.ini file 
+                        self.currentConfig.set('loader','code-length',cl)
+
+                        with open(hlpConfig.config_ini_path,'w') as configFile:
+                                self.currentConfig.write(configFile)
+
+                        # start the analyzer
+                	analyzerpath = BinCATForm.iptAnalyzerPath.text() 
+                	inifile = hlpConfig.config_ini_path 
+                	outfile = GetIdbDir()+"result.txt"
+			logfile = GetIdbDir()+"logfile.txt"
+
+                	cmdline = "%s %s --inifile %s --outfile %s --logfile %s" % (
+                                os.path.join(PYTHON_PATH,PYTHON_BIN),analyzerpath,inifile,outfile,logfile)  
+ 
+                	# create Analyzer Object 
+                	self.analyzer = Analyzer() 
+                
+                	# start the process 
+                	try :
+                		idaapi.msg(" [+] BinCAT : Analyzer cmdline is :\n  %s \n "%cmdline)
+                        	self.analyzer.start(cmdline)
+                        	idaapi.msg(" ")
+                        
+                	except Exception as e:
+                        	idaapi.msg(" [+] BinCAT failed to launch the analyzer.py\n")
+                        	idaapi.msg("    Exception: %s\n%s"%(str(e),traceback.format_exc())) 
+
+			# close the form  : Bug : block the process 
+			#self.close()
+
+
+        def btnAnalyzerConfig(self):
+                BinCATLogViewer.Log("[+] BinCAT : Loading the analyzer configuration",SCOLOR_LOCNAME)
+                bAc = AnalyzerConfForm_t(self)
+                bAc.exec_()
+                 
 
         def __init__(self,parent):
                 super(TaintLaunchForm_t,self).__init__(parent)
@@ -204,31 +367,41 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
                 # Start address 
                 lblStartAdr = QtWidgets.QLabel(" Start address : ") 
-                ipStartAdr = QtWidgets.QLineEdit(self)
-                ipStartAdr.setText(hex(here()).rstrip('L'))
+                self.ipStartAdr = QtWidgets.QLineEdit(self)
+                self.ipStartAdr.setText(hex(here()).rstrip('L'))
                                
                 # End address 
                 lblEndAdr = QtWidgets.QLabel(" End address   : ") 
-                ipEndAdr = QtWidgets.QLineEdit(self)
+                self.ipEndAdr = QtWidgets.QLineEdit(self)
 
                 # Tainting element register or memory
                 lblTntElem = QtWidgets.QLabel(" Tainted element   : ") 
 
                 # radio button register
                 rbRegisters = QtWidgets.QRadioButton("Register")
-                ipRegs = QtWidgets.QLineEdit(self)
+                rbRegisters.toggled.connect(self.rbRegistersHandler)
+                self.cbRegisters = QtWidgets.QComboBox(self)
+
+                for reg in registers_x86:
+                        self.cbRegisters.addItem(reg)
+
+                self.cbRegisters.setDisabled(True)
+                self.cbRegisters.activated[str].connect(self.cbRegistersHandler)
+ 
+                #self.ipRegs = QtWidgets.QLineEdit(self)
+                #self.ipRegs.setDisabled(True)
                 
                 # radio button memory 
                 rbMemory = QtWidgets.QRadioButton("Memory")
-                ipMemory = QtWidgets.QLineEdit(self)
+                rbMemory.toggled.connect(self.rbMemoryHandler)
+                self.ipMemory = QtWidgets.QLineEdit(self)
+                self.ipMemory.setDisabled(True)
                 
                 # Start , cancel and analyzer config buttons
                 self.btnStart = QtWidgets.QPushButton('Start',self)
                 self.btnStart.setToolTip('Save Constraints.')
                 self.btnStart.setFixedWidth(130)
-                idaapi.msg(" call connect btn \n ")
-                self.btnStart.clicked.connect(self.foo)
-
+                self.btnStart.clicked.connect(self.btnLaunchAnalyzer)
 
                 self.btnCancel = QtWidgets.QPushButton('Cancel',self)
                 self.btnCancel.setToolTip('Cancel.')
@@ -239,21 +412,21 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                 self.btnAc = QtWidgets.QPushButton('Analyzer configuration',self)
                 self.btnAc.setToolTip('Configure the analyzer.')
                 self.btnAc.setFixedWidth(150)
-                #self.btnAc.clicked.connect()
-
+                self.btnAc.clicked.connect(self.btnAnalyzerConfig)
+                
                 layout.addWidget(lblCstEditor,0,0)
 
                 layout.addWidget(lblStartAdr,1,0)
-                layout.addWidget(ipStartAdr,1,1)
+                layout.addWidget(self.ipStartAdr,1,1)
                 
                 layout.addWidget(lblEndAdr,2,0)
-                layout.addWidget(ipEndAdr,2,1)
+                layout.addWidget(self.ipEndAdr,2,1)
 
                 layout.addWidget(rbRegisters,3,0)
-                layout.addWidget(ipRegs,3,1)
+                layout.addWidget(self.cbRegisters,3,1)
 
                 layout.addWidget(rbMemory,4,0)
-                layout.addWidget(ipMemory,4,1)
+                layout.addWidget(self.ipMemory,4,1)
 
                 layout.addWidget(self.btnStart,5,0)
                 layout.addWidget(self.btnCancel,5,1)
@@ -271,6 +444,95 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                 self.setWindowTitle(" Analysis launcher : ")
                 super(TaintLaunchForm_t,self).show()
 
+
+#---------------------------------------------------------------------------------------------
+# GDT Editor Form 
+
+class GDTEditorForm_t(QtWidgets.QDialog):
+
+        def btnOKHandler(self):
+                self.accept()
+
+        def btnCancelHandler(self):
+                self.reject()
+
+        def __init__(self,parent):
+                super(GDTEditorForm_t,self).__init__(parent)
+                
+                # Get config ini file 
+                #hlpConfig = HelperConfigIniFile()
+                self.currentConfig = ConfigParser.ConfigParser()
+                self.currentConfig.read(hlpConfig.config_ini_path)
+
+
+                # Main table 
+                self.table = QtWidgets.QTableWidget() 
+                # 2 columun 
+                self.table.setColumnCount(2)
+
+                self.table.setRowCount(len(self.currentConfig.options('GDT')))
+
+                self.table.setHorizontalHeaderItem(0,QtWidgets.QTableWidgetItem("GDT"))
+                self.table.setHorizontalHeaderItem(1,QtWidgets.QTableWidgetItem("Value"))
+
+                # Fill the table with GDT section 
+                index = 0 
+                for gdt in self.currentConfig.options('GDT'):
+                        item = QtWidgets.QTableWidgetItem(gdt)
+                        # setItem(row, column,item)
+                        self.table.setItem(index, 0, item)
+                        index+=1
+
+                index = 0 
+                for gdt in self.currentConfig.options('GDT'):
+                        item = QtWidgets.QTableWidgetItem(self.currentConfig.get('GDT', gdt ))
+                        # setItem(row, column,item)
+                        self.table.setItem(index, 1, item)
+                        index+=1
+
+
+                self.table.setColumnWidth(0, 80)
+                self.table.setColumnWidth(1, 160)
+
+                self.table.setMaximumWidth(300)
+                self.table.setMinimumWidth(300)
+                self.table.setMaximumHeight(400)
+                self.table.setMinimumHeight(400)
+
+                layout = QtWidgets.QGridLayout()
+
+                layout.addWidget(self.table,0,0)
+                #label = QtWidgets.QLabel('Tainting :')
+                #layout.addWidget(label,0,0)
+
+
+
+                # OK and Cancel button 
+                self.btnOK = QtWidgets.QPushButton('OK',self)
+                self.btnOK.setToolTip('Save GDT.')
+                self.btnOK.setFixedWidth(150)
+                self.btnOK.clicked.connect(self.btnOKHandler)
+
+
+                self.btnCancel = QtWidgets.QPushButton('Cancel',self)
+                self.btnCancel.setToolTip('Cancel.')
+                self.btnCancel.setFixedWidth(150)
+                self.btnCancel.clicked.connect(self.close)
+
+
+                layout.addWidget(self.btnOK,1,0)
+                layout.addWidget(self.btnCancel,1,1)
+
+
+                layout.setColumnStretch(0,1)
+                layout.setRowStretch(2,1)
+
+                self.setLayout(layout)
+
+        def show(self):
+                self.setFixedSize(460,500)
+                self.setWindowTitle(" GDT Editor : ")
+                super(GDTEditorForm_t,self).show()
 
 # ----------------------------------------------------------------------------------------------
 # Class Constraintes editor 
@@ -334,6 +596,16 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
                 CstEdit = ConstrainteEditorForm_t(self)
                 CstEdit.show()
 
+        def btnGDTHandler(self):
+                GdtEdit = GDTEditorForm_t(self)
+                GdtEdit.show()
+
+        def btnImportHandler(self):
+                idaapi.msg("TODO")
+
+        def btnSegsHandler(self):
+                idaapi.msg("TODO")
+
         def btnCancelHandler(self):
                 self.reject()
  
@@ -368,7 +640,6 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
                 self.iptmm.setFixedWidth(200) 
                 
                 layout.addWidget(self.iptmm,1,1)
-
 
                 # call-conv 
                 lblcallconv = QtWidgets.QLabel(" call-conv : ")
@@ -416,146 +687,153 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
                 
                 layout.addWidget(self.iptsw,5,1)
 
+                # mode
+                lblmode = QtWidgets.QLabel(" mode : ") 
+                layout.addWidget(lblmode,6,0)
+                self.ipmode = QtWidgets.QLineEdit(self)
+
+                self.ipmode.setText(self.currentConfig.get('settings','mode'))
+                self.ipmode.setMaxLength = 256
+                self.ipmode.setFixedWidth(200) 
+                
+                layout.addWidget(self.ipmode,6,1)
+
                 # loader label 
                 lblLoader = QtWidgets.QLabel("[Loader] : ")
-                layout.addWidget(lblLoader,6,0)
+                layout.addWidget(lblLoader,7,0)
 
-                # rva-stack 
-                lblrvastack = QtWidgets.QLabel(" rva-stack : ") 
-                layout.addWidget(lblrvastack,7,0)
-                self.iptrs = QtWidgets.QLineEdit(self)
-
-                self.iptrs.setText(self.currentConfig.get('loader','rva-stack'))
-                self.iptrs.setMaxLength = 256
-                self.iptrs.setFixedWidth(200) 
-                
-                layout.addWidget(self.iptrs,7,1)
-
-                # rva-data 
-                lblrvadata = QtWidgets.QLabel(" rva-data : ") 
-                layout.addWidget(lblrvadata,8,0)
-                self.iptrd = QtWidgets.QLineEdit(self)
-
-                self.iptrd.setText(self.currentConfig.get('loader','rva-data'))
-                self.iptrd.setMaxLength = 256
-                self.iptrd.setFixedWidth(200) 
-                
-                layout.addWidget(self.iptrd,8,1)
 
                 # rva-code-start 
-                lblrvacs = QtWidgets.QLabel(" rva-code-start : ") 
-                layout.addWidget(lblrvacs,9,0)
+                lblrvacs = QtWidgets.QLabel(" rva-code : ") 
+                layout.addWidget(lblrvacs,10,0)
                 self.iptrvacs = QtWidgets.QLineEdit(self)
 
-                self.iptrvacs.setText(self.currentConfig.get('loader','rva-code-start'))
+                self.iptrvacs.setText(self.currentConfig.get('loader','rva-code'))
                 self.iptrvacs.setMaxLength = 256
                 self.iptrvacs.setFixedWidth(200) 
                 
-                layout.addWidget(self.iptrvacs,9,1)
+                layout.addWidget(self.iptrvacs,10,1)
                 
-                # rva-code-end 
-                lblrvace = QtWidgets.QLabel(" rva-code-end : ") 
-                layout.addWidget(lblrvace,10,0)
-                self.iptrvace = QtWidgets.QLineEdit(self)
-
-                self.iptrvace.setText(self.currentConfig.get('loader','rva-code-end'))
-                self.iptrvace.setMaxLength = 256
-                self.iptrvace.setFixedWidth(200) 
-                
-                layout.addWidget(self.iptrvace,10,1)
 
                 # rva-entrypoint 
-                lblrvaep = QtWidgets.QLabel(" rva-entrypoint : ") 
-                layout.addWidget(lblrvaep,11,0)
+                lblrvaep = QtWidgets.QLabel(" entrypoint : ") 
+                layout.addWidget(lblrvaep,12,0)
                 self.iptrvaep = QtWidgets.QLineEdit(self)
 
-                self.iptrvaep.setText(self.currentConfig.get('loader','rva-entrypoint'))
+                self.iptrvaep.setText(self.currentConfig.get('loader','entrypoint'))
                 self.iptrvaep.setMaxLength = 256
                 self.iptrvaep.setFixedWidth(200) 
                 
-                layout.addWidget(self.iptrvaep,11,1)
+                layout.addWidget(self.iptrvaep,12,1)
+
+
+                # Segments
+                lblSegs = QtWidgets.QLabel("[Segments] : ")
+                layout.addWidget(lblSegs,13,0)
+
+                self.btnSegsEdit = QtWidgets.QPushButton('Edit/View Segments ',self)
+                self.btnSegsEdit.clicked.connect(self.btnSegsHandler)
+                layout.addWidget(self.btnSegsEdit,13,1)
+
 
                 # Binary label 
                 lblBinary = QtWidgets.QLabel("[Binary] : ")
-                layout.addWidget(lblBinary,12,0)
+                layout.addWidget(lblBinary,14,0)
 
                 # filepath 
                 lblfilepath = QtWidgets.QLabel(" filepath : ") 
-                layout.addWidget(lblfilepath,13,0)
+                layout.addWidget(lblfilepath,15,0)
                 self.iptfp = QtWidgets.QLineEdit(self)
 
-                self.iptfp.setText(self.currentConfig.get('binary','filename'))
+                self.iptfp.setText(self.currentConfig.get('binary','filepath'))
                 self.iptfp.setMaxLength = 256
                 self.iptfp.setFixedWidth(200) 
                 
-                layout.addWidget(self.iptfp,13,1)
+                layout.addWidget(self.iptfp,15,1)
 
                 # format 
                 lblformat = QtWidgets.QLabel(" format : ") 
-                layout.addWidget(lblformat,14,0)
+                layout.addWidget(lblformat,16,0)
                 self.iptfmt = QtWidgets.QLineEdit(self)
 
                 self.iptfmt.setText(self.currentConfig.get('binary','format'))
                 self.iptfmt.setMaxLength = 256
                 self.iptfmt.setFixedWidth(200) 
                 
-                layout.addWidget(self.iptfmt,14,1)
+                layout.addWidget(self.iptfmt,16,1)
 
                 # code section phys start adr  
-                lblpc = QtWidgets.QLabel(" phys-code : ") 
-                layout.addWidget(lblpc,15,0)
+                lblpc = QtWidgets.QLabel(" phys-code-addr : ") 
+                layout.addWidget(lblpc,17,0)
                 self.iptpc = QtWidgets.QLineEdit(self)
 
-                self.iptpc.setText(self.currentConfig.get('binary','phys-code'))
+                self.iptpc.setText(self.currentConfig.get('loader','phys-code-addr'))
                 self.iptpc.setMaxLength = 256
                 self.iptpc.setFixedWidth(200) 
                 
-                layout.addWidget(self.iptpc,15,1)
+                layout.addWidget(self.iptpc,17,1)
 
                 # analyzer label 
                 lblBinary = QtWidgets.QLabel("[Analyzer] : ")
-                layout.addWidget(lblBinary,16,0)
+                layout.addWidget(lblBinary,18,0)
 
                 # unroll 
                 lblur = QtWidgets.QLabel(" unroll : ") 
-                layout.addWidget(lblur,17,0)
+                layout.addWidget(lblur,19,0)
                 self.iptur = QtWidgets.QLineEdit(self)
 
                 self.iptur.setText(self.currentConfig.get('analyzer','unroll'))
                 self.iptur.setMaxLength = 256
                 self.iptur.setFixedWidth(200) 
                 
-                layout.addWidget(self.iptur,17,1)
+                layout.addWidget(self.iptur,19,1)
 
                 # State label 
                 lblstate = QtWidgets.QLabel("[State] : ")
-                layout.addWidget(lblstate,18,0)
+                layout.addWidget(lblstate,20,0)
 
                 self.btnConstrainte = QtWidgets.QPushButton('Define tainting constraints',self)
                 self.btnConstrainte.clicked.connect(self.btnCstrHandler)
-                layout.addWidget(self.btnConstrainte,18,1)
+                layout.addWidget(self.btnConstrainte,20,1)
 
+                # Import table
+                lblimport = QtWidgets.QLabel("[Imports] : ")
+                layout.addWidget(lblimport,21,0)
+
+                self.btnImportEdit = QtWidgets.QPushButton('Edit/View imports ',self)
+                self.btnImportEdit.clicked.connect(self.btnImportHandler)
+                layout.addWidget(self.btnImportEdit,21,1)
+
+
+
+                # GDT label 
+                lblgdt = QtWidgets.QLabel("[GDT] : ")
+                layout.addWidget(lblgdt,22,0)
+
+                self.btnGDTEdit = QtWidgets.QPushButton('Edit/View GDT ',self)
+                self.btnGDTEdit.clicked.connect(self.btnGDTHandler)
+                layout.addWidget(self.btnGDTEdit,22,1)
 
                 # OK and cancel button 
                 self.btnOK = QtWidgets.QPushButton('OK',self)
                 self.btnOK.clicked.connect(self.btnOKHandler)
-                layout.addWidget(self.btnOK,19,0)
+                layout.addWidget(self.btnOK,25,0)
 
                 self.btnCancel = QtWidgets.QPushButton('Cancel',self)
                 self.btnCancel.clicked.connect(self.btnCancelHandler)
-                layout.addWidget(self.btnCancel,19,1)
+                layout.addWidget(self.btnCancel,25,1)
                 
 
                 # Setting the layout 
                 layout.setColumnStretch(4,1)
-                layout.setRowStretch(20,1)
+                layout.setRowStretch(26,1)
                 self.setLayout(layout)
                 
 
 
         def show(self):
                 # width x height
-                self.setFixedSize(350,575)
+                self.setFixedSize(350,600)
                 self.setWindowTitle("Analyzer Configuration")
                 super(AnalyzerConfForm_t,self).show()
 
@@ -576,7 +854,8 @@ class Analyzer(QtCore.QProcess):
                 idaapi.msg(" [+] Analyzer new state : %s\n"%states[new_state])
 
         def procanalyzer_on_start(self):
-                idaapi.msg(" [+] Analyzer Starting call back\n")
+                BinCATLogViewer.Log("[*] Analyzer :  starting process \n",SCOLOR_DNAME)
+
 
         def procanalyzer_on_finish(self):
                 idaapi.msg(" [+] Analyzer Terminating call back\n") 
@@ -584,6 +863,7 @@ class Analyzer(QtCore.QProcess):
         # for a first test I use this callback to get analyzer output 
         # the goal is exchange information using a qtcpsocket
         def procanalyzer_on_out(self):
+		idaapi.msg(" [+] procanalyzer_on_out ")
                 buffer = str(self.readAllStandardOutput()).strip()
                 lines = buffer.splitlines()
                 for line in lines:
@@ -621,6 +901,7 @@ class BinCATLog_t(simplecustviewer_t):
         def Log(self,LogLine,color):
                 coloredline = idaapi.COLSTR(LogLine,color)
                 self.AddLine(coloredline)
+                self.Refresh()
                 
 
 # ----------------------------------------------------------------------------------------------
@@ -653,6 +934,7 @@ class BinCATTaintedForm_t(PluginForm):
                 index = 0 
                 for reg in self.registers_x86:
                         item = QtWidgets.QTableWidgetItem(reg)
+                        # setItem(row, column,item)
                         self.table.setItem(index, 0, item)
                         index+=1
 
@@ -696,20 +978,20 @@ class BinCATForm_t(PluginForm):
                 idaapi.msg(" [+] BinCAT : init_Analyzer() \n")
                 #TODO parse analyser config file 
                 analyzerpath = self.iptAnalyzerPath.text() 
-                address = hex(GetEntryPoint(GetEntryOrdinal(0))).rstrip('L')
-                port = 9001
-                inifile = "nop.ini"
-                outfile = "result.txt"
+                inifile = GetIdbDir()+"nop.ini"
+                outfile = GetIdbDir()+"result.txt"
+		logfile = GetIdbDir()+"logfile.txt"
 
-                cmdline = "%s %s %s --commandfd %s --inifile %s --outfile %s" % (
-                                os.path.join(PYTHON_PATH,PYTHON_BIN),analyzerpath,address,port,inifile,outfile)  
-                idaapi.msg(" [+] BinCAT : Analyzer cmdline is :\n  %s \n "%cmdline)
+                cmdline = "%s %s --inifile %s --outfile %s --logfile %s" % (
+                                os.path.join(PYTHON_PATH,PYTHON_BIN),analyzerpath,inifile,outfile,logfile)  
 
                 # create Analyzer Object 
                 self.analyzer = Analyzer() 
                 
                 # start the process 
                 try :
+
+                	idaapi.msg(" [+] BinCAT : Analyzer cmdline is :\n  %s \n "%cmdline)
                         self.analyzer.start(cmdline)
                         idaapi.msg(" ")
                         
@@ -871,9 +1153,12 @@ class HtooltipH(idaapi.action_handler_t):
         def activate(self,ctx):
                 idaapi.msg(" activating HtooltipH ")
                 #idaapi.warning(" BinCAT: Tainting from current position : %08x "%here())
-                idaview = PluginForm.FormToPyQtWidget(get_tform_idaview(ctx.form))
+                #idaview = PluginForm.FormToPyQtWidget(get_tform_idaview(ctx.form))
+                f = idaapi.find_tform("IDA View-Tainting View")        
+                idaview = PluginForm.FormToPyQtWidget(f)
                 AnalyzerLauncher = TaintLaunchForm_t(idaview)
-                AnalyzerLauncher.show()
+                #AnalyzerLauncher = Toto_t(idaview)
+                AnalyzerLauncher.exec_()
                 
                 return 1
 
@@ -910,7 +1195,7 @@ def main():
         if not idaapi.get_root_filename():
                 idaapi.msg(" [BinCAT] please load a file/idb before \n")
                 return
-
+        global registers_x86          
         global BinCATForm
         global BinCATLogViewer
         global hlpConfig
@@ -932,8 +1217,10 @@ def main():
                 BinCATLogViewer.Log("[+] BinCAT Starting main form",SCOLOR_LOCNAME)
         
         BinCATForm.Show()
-        BinCATTaintedForm.Show() 
-        
+        BinCATTaintedForm.Show()
+        # TODO : get the list of registers from IDA depending on the current cpu arch  
+        registers_x86 = ['EAX','EBX','ECX','EDX','ESI','EDI','ESP','EBP']
+           
 
         idaapi.set_dock_pos("BinCAT","IDA View-A",idaapi.DP_TAB) 
                 
