@@ -1,7 +1,7 @@
 (* generation of all modules depending on the memory model (main type of addresses) *)
-module Ptr        = Unrel.Make(Ptr)
-module Taint      = Unrel.Make(Tainting)
-module Domain      = Pair.Make(Ptr)(Taint)
+module Vector      = Vector.Make(Reduced_value_tainting)
+module Pointer     = Pointer.Make(Vector)
+module Domain      = Unrel.Make(Pointer)
 module Interpreter = Interpreter.Make(Domain)
 
 				    

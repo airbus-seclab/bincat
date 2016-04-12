@@ -10,10 +10,12 @@ lexer.ml\
 parser.ml\
 data-struct/asm.ml\
 data-struct/code.ml\
-domains/unrel.ml\
-domains/ptr.ml\
-domains/pair.ml\
+domains/value.ml\
 domains/tainting.ml\
+domains/unrel.ml\
+domains/vector.ml\
+domains/pointer.ml\
+domains/reduced_value_tainting.ml\
 disassembly/cfa.ml\
 disassembly/decoder.ml\
 fixpoint/interpreter.ml\

@@ -9,9 +9,6 @@ module type T =
     (** abstract data type *)
     type t
 
-    (** name of the abstract domain *)
-    val name: string
-
     (** bottom value *)
     val bot: t
 
@@ -65,8 +62,11 @@ module type T =
     (** binary comparison *)
     val compare: t -> Asm.cmp -> t -> bool
 
-    (** [untainted_value n] return an untainted value of size n *)
-    val untainted_value: int -> t
+    (** [untaint v] untaint v *)
+    val untaint: t -> t
+
+    (** default value. The integer is the size in bits of the dimension to initialise *)
+      val default: int -> t
   end
 		  
 		  
@@ -100,8 +100,6 @@ module Make(D: T) =
       | Val of (D.t * int) Map.t
       | BOT
 				     
-
-    let name = D.name		      
     let bot = BOT
 		
     let value_of_register m r =
@@ -112,9 +110,9 @@ module Make(D: T) =
 	   let v, _ = Map.find (K.R r) m' in D.to_value v
 	 with _ -> raise Exceptions.Concretization
 					 
-    let add_register v m =
+    let add_register r m =
       let add m' =
-	Val (Map.add (K.R v) (D.bot, 0) m')
+	Val (Map.add (K.R r) (D.default (Register.size r), 0) m')
       in
       match m with
       | BOT    -> add Map.empty
@@ -129,7 +127,7 @@ module Make(D: T) =
       match m with
       | Val m' ->
 	 let r' = K.R r in
-	 Val (try let _, n = Map.find r' m' in Map.replace r' (D.top, n) m' with _ -> Map.add r' (D.bot, 0) m')
+	 Val (try let _, n = Map.find r' m' in Map.replace r' (D.bot, n) m' with _ -> Map.add r' (D.bot, 0) m')
       | BOT -> BOT
 		 
     let subset m1 m2 =
@@ -141,7 +139,7 @@ module Make(D: T) =
     let to_string m =
       match m with
       |	BOT    -> ["?"]
-      | Val m' -> Map.fold (fun k v l -> ((D.name ^" "^K.to_string k) ^ " = " ^ (D.to_string (fst v))) :: l) m' []
+      | Val m' -> Map.fold (fun k v l -> ((K.to_string k) ^ " = " ^ (D.to_string (fst v))) :: l) m' []
 
     (** evaluates the given expression *)
     let eval_exp m e =
@@ -151,10 +149,7 @@ module Make(D: T) =
 	| Asm.Lval (Asm.V (Asm.T r)) 	     ->
 	   begin
 	     try fst (Map.find (K.R r) m)
-	     with Not_found ->
-	       match D.name with
-	       | "Tainting" -> D.untainted_value (Register.size r)
-	       | _ 	    -> D.bot
+	     with Not_found -> D.default (Register.size r)
 	   end
 	| Asm.Lval (Asm.V (Asm.P (_r, _l, _u))) -> D.top (* can be more precise *)
 	| Asm.Lval (Asm.M (e, n))            ->
@@ -170,17 +165,11 @@ module Make(D: T) =
 	     with
 	     | Exceptions.Enum_failure -> D.top
 	     | Exceptions.Empty        -> D.bot
-	     | Not_found               ->
-	       match D.name with
-	       | "Tainting" -> D.untainted_value n
-	       | _ 	    -> D.bot
+	     | Not_found               -> D.default n
 	   end
 	| Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
-	   begin
-	     match D.name with
-	     | "Tainting" -> D.untainted_value (Register.size r1)
-	     | _ 	  -> D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))
-	   end
+	   D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1)))
+
 	| Asm.BinOp (op, e1, e2) -> D.binary op (eval e1) (eval e2)
 	| Asm.UnOp (op, e) 	 -> D.unary op (eval e)
       in
@@ -193,7 +182,7 @@ module Make(D: T) =
 	 try D.to_addresses (eval_exp m' e)
 	 with _ -> raise Exceptions.Enum_failure
 			 
-    let set dst src c m =
+    let set dst src m =
       match m with
       |	BOT    -> BOT
       | Val m' ->
@@ -218,19 +207,11 @@ module Make(D: T) =
 		   Not_found -> raise Exceptions.Empty
 	    end
 	 | Asm.M (e, _n) ->
-	    begin
-	      let addrs = 
-		match D.name with
-		| "Ptr" ->
-		   D.to_addresses (eval_exp m' e)
-		| _ -> c#mem_to_addresses e 
-	      in
-	      let l  	= Data.Address.Set.elements addrs     in
+	      let addrs = D.to_addresses (eval_exp m' e)  in
+	      let l  	= Data.Address.Set.elements addrs in
 	      match l with 
 	      | [a] -> (* strong update *) Val (try let _v, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
 	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
-	    end
-
 						  
     let join m1 m2 =
       match m1, m2 with
@@ -245,68 +226,43 @@ module Make(D: T) =
     let init () = Val (Map.empty)
 
     let set_register_from_config r region c m =
-      match D.name with
-      |	"Tainting" -> m
-      | _          -> 
-	 match m with
-	 | BOT    -> BOT
-	 | Val m' ->
-	    let v' = D.of_config region c (Register.size r) in
-	    try
-	      Val (Map.replace (K.R r) (v', 0) m')
-	    with Not_found -> Val (Map.add (K.R r) (v', 0) m')
-
+      match m with
+      | BOT    -> BOT
+      | Val m' ->
+	 let v' = D.of_config region c (Register.size r) in
+	 try
+	   Val (Map.replace (K.R r) (v', 0) m')
+	 with Not_found -> Val (Map.add (K.R r) (v', 0) m')
+			       
     let set_memory_from_config a region c m =
-       match D.name with
-      |	"Tainting" -> m
-      | _          -> 
-	 match m with
-	 | BOT    -> BOT
- 	 | Val m' ->
-	    let v' = D.of_config region c !Config.operand_sz in
-	    try
-	      Val (Map.replace (K.M a) (v', 0) m')
-	    with Not_found -> Val (Map.add (K.M a) (v', 0) m')
+      match m with
+      | BOT    -> BOT
+      | Val m' ->
+	 let v' = D.of_config region c !Config.operand_sz in
+	 try
+	   Val (Map.replace (K.M a) (v', 0) m')
+	 with Not_found -> Val (Map.add (K.M a) (v', 0) m')
 				  
     let taint_memory_from_config a c m =
-      match D.name with
-      | "Tainting" ->
-	 begin
-	   (* we choose that tainting the memory has no effect on the dimension that counts the number of times it has been set *)
-	   match m with
-	   | BOT -> BOT
-	   | Val m' ->
-	      let v' = D.taint_of_config c in
-	      try
-		Val (Map.replace (K.M a) (v', 0) m')
-	      with Not_found -> Val (Map.add (K.M a) (v', 0) m')
-	 end
-      | _         -> m
+      match m with
+      | BOT -> BOT
+      | Val m' ->
+	 let v' = D.taint_of_config c in
+	 try
+	   Val (Map.replace (K.M a) (v', 0) m')
+	 with Not_found -> Val (Map.add (K.M a) (v', 0) m')
 
     let taint_register_from_config r c m =
-      if String.compare D.name "Tainting" = 0 then
-	   (* we choose that tainting a register has no effect on the dimension that counts the number of times it has been set *)
-	   match m with
-	     BOT    -> BOT
-	   | Val m' ->
-	      let v' = D.taint_of_config c in
-	      try
-		Val (Map.replace (K.R r) (v', 0) m')
-	      with Not_found -> Val (Map.add (K.R r) (v', 0) m')
-      else
-	m
+      match m with
+	BOT    -> BOT
+      | Val m' ->
+	 let v' = D.taint_of_config c in
+	 try
+	   Val (Map.replace (K.R r) (v', 0) m')
+	 with Not_found -> Val (Map.add (K.R r) (v', 0) m')
 
-    (* let process_fun _f _m' = 
-      let registers, memories = f (new ctx m') in
-      let m' = List.fold_left (fun m' (r, v) -> try let _, n = Map.find (K.R r) m' in Map.replace (K.R r) (v, n) m' with Not_found -> Map.add (K.R r) (v, 0) m') m' registers in
-      List.fold_left (fun m' (a, v) -> let _, n = Map.find (K.M a) m' in try Map.replace (K.M a) (v, n) m' with Not_found -> Map.add (K.M a) (v, 0) m') m' memories *)
-	     
-    let enter_fun _m _f = raise (Exceptions.Error "Unrel.enter_fun")
-     	
-    let leave_fun _m = raise (Exceptions.Error "Unrel.leave_fun")
     
     let val_restrict m e1 _v1 cmp _e2 v2 =
-      if D.name = "Ptrs" then 
 	match e1, cmp with
 	| Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ || cmp = Asm.LEQ ->
 	   let v, n = Map.find (K.R r) m in
@@ -316,10 +272,6 @@ module Make(D: T) =
 	   else
 	     Map.replace (K.R r) (v', n) m
 	| _, _ -> m
-		  
-      else
-	(* identity is a sound default case *)
-	m
 		
     let compare m (e1: Asm.exp) op e2 =
       match m with

@@ -906,8 +906,11 @@ module Make(Domain: Domain.T) =
 	    | _ -> Log.error (Printf.sprintf "Decoder: undefined behavior of REPNE/REPNZ with opcode %x" (Char.code c))
 	  else
 	    c
-	  
-      (** decoding of one instruction *)
+
+      let set_flag f sz = [ Set (V (T f), Const (Word.one sz)) ]
+      let clear_flag f sz = [ Set (V (T f), Const (Word.zero sz)) ]
+
+	  (** decoding of one instruction *)
       let decode s =
 	let to_size s v =
 	  if v land 1 = 1 then s.operand_sz
@@ -1019,12 +1022,12 @@ module Make(Domain: Domain.T) =
 	  | '\xf5' -> let fcf' = V (T fcf) in create s [ Set (fcf', UnOp (Not, Lval fcf')
 	  | '\xf6' -> grp3 s Config.size_of_byte label
 	  | '\xf7' -> grp3 s s.operand_sz label
-	  | '\xf8' -> let fcf' = V (T fcf) in create s [ Set (fcf', Const (Word.zero fcf_sz)) ]
-	  | '\xf9' -> let fcf' = V (T fcf) in create s [ Set (fcf', Const (Word.one fcf_sz)) ]
-	  | '\xfa' -> Log.error "CLI decoded. Interruptions not handled for the while"
-	  | '\xfb' -> Log.error "STI decoded. Interruptions not handled for the while"
-	  | '\xfc' -> let fdf' = V (T fdf) in create s [ Set (fdf', Const (Word.zero fdf_sz)) ]
-	  | '\xfd' -> let fdf' = V (T fdf) in create s [ Set (fdf', Const (Word.one fdf_sz)) ]
+	  | '\xf8' -> create s (clear_flag fcf fcf_sz) 
+	  | '\xf9' -> create s (set_flag fcf fcf_sz)
+	  | '\xfa' -> Log.from_decoder "entering privilege mode (CLI instruction)"; create s (clear_flag fif fif_sz)
+	  | '\xfb' -> Log.from_decoder "entering privilege mode (STI instruction)"; create s (set_flag fif fif_sz)
+	  | '\xfc' -> create s (clear_flag fdf fdf_sz)
+	  | '\xfd' -> create s (set_flag fdf fdf_sz)
 						     
 	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x\n" (Char.code c)))
 

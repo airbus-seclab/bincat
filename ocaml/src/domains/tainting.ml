@@ -41,4 +41,11 @@ let add = binary
 let sub = binary
 let xor = binary false
 let neg v = v
-	      
+
+(* finite lattice => widen = join *)
+let widen = join
+
+(* default tainting value is Untainted *)
+let default = U
+
+let untaint _t = U
