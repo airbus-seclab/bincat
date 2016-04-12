@@ -12,6 +12,10 @@ import mlbincat
 
 
 class AnalyzerState(object):
+    """
+    Interface to run the analyzer, and parse its output.
+    TODO also generate its input.
+    """
     def __init__(self):
         #: self.eip[EIP value] contains a State object
         self.stateAtEip = {}
@@ -32,11 +36,15 @@ class AnalyzerState(object):
         return ac
 
     def setBinaryFromString(self, string):
-        # TODO
+        """
+        TODO not implemented yet.
+        """
         pass
 
     def setStatesFromAnalyzerOutput(self, filename):
-        # Parse output ini file
+        """
+        Parses states contained in the analyzer's output file.
+        """
         config = ConfigParser.ConfigParser()
         config.read(filename)
         for section in config.sections():
@@ -65,6 +73,9 @@ class AnalyzerState(object):
         return addr
 
     def getStateAt(self, eip):
+        """
+        Returns state at provided EIP
+        """
         addr = self._intToConcretePtrValue(eip)
         return self.stateAtEip[addr]
 
@@ -79,12 +90,15 @@ class AnalyzerState(object):
         return nextStates
 
     def exportToFile(self, filename, eip):
-        # TODO
+        """
+        TODO not implemented yet.
+        """
         pass
 
 
 class State(object):
     """
+    Stores analyzer state at a specific address.
     TODO separate computed state from user-set state
     """
     def __init__(self, address, prettyname=""):
