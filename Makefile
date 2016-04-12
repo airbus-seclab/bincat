@@ -31,7 +31,7 @@ doc: all
 	@echo "Generating OCaml documentation......................................."
 	@make -C $(MLPATH) DOCPATH=$(DOCMLPATH) doc 
 	@echo "Generating Python documentation......................................"
-	@make -C $(PYPATH) DOCPATH=$(DOCPYPATH) doc
+	@make -C $(PYPATH) DOCPATH=$(DOCPYPATH) copydoc
 	@echo "Compiling reference manual..........................................."
 	@make -C $(DOCREFPATH) all
 
