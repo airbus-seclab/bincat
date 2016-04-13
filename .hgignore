@@ -17,3 +17,4 @@ python/build
 *.egg-info
 *.swp
 *.egg
+python/test/**
