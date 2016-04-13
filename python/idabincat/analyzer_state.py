@@ -8,7 +8,6 @@ import ConfigParser
 import logging
 import sys
 from collections import defaultdict
-import mlbincat
 
 
 class AnalyzerState(object):
@@ -34,6 +33,7 @@ class AnalyzerState(object):
         :param outputfile: path to the analyzer output file
         :param logfile: path to the analyzer log file
         """
+        import mlbincat
         mlbincat.process(initfile, outputfile, logfile)
         ac = cls()
         ac.setStatesFromAnalyzerOutput(outputfile)
