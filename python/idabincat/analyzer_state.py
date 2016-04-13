@@ -17,7 +17,7 @@ class AnalyzerState(object):
     TODO also generate its input.
     """
     def __init__(self):
-        #: self.eip[EIP value] contains a State object
+        #: self.stateAtEip[EIP value] contains a State object
         self.stateAtEip = {}
         #: self.edges[nodeid] = [target node ids]
         self.edges = defaultdict(list)
@@ -29,6 +29,10 @@ class AnalyzerState(object):
         """
         Runs the analyzer using the given parameters.
         Returns an AnalyzerState instance based on the analyzer's output.
+
+        :param initfile: path to the .ini file containing the initial state
+        :param outputfile: path to the analyzer output file
+        :param logfile: path to the analyzer log file
         """
         mlbincat.process(initfile, outputfile, logfile)
         ac = cls()
@@ -44,6 +48,8 @@ class AnalyzerState(object):
     def setStatesFromAnalyzerOutput(self, filename):
         """
         Parses states contained in the analyzer's output file.
+
+        :param filename: path to the analyzer output file
         """
         config = ConfigParser.ConfigParser()
         config.read(filename)
@@ -75,6 +81,8 @@ class AnalyzerState(object):
     def getStateAt(self, eip):
         """
         Returns state at provided EIP
+
+        :param eip: int or ConcretePtrValue
         """
         addr = self._intToConcretePtrValue(eip)
         return self.stateAtEip[addr]
@@ -82,6 +90,8 @@ class AnalyzerState(object):
     def listNextStates(self, eip):
         """
         Returns a list of destination States after executing instruction at eip
+
+        :param eip: int or ConcretePtrValue
         """
         addr = self._intToConcretePtrValue(eip)
         curStateId = self.stateAtEip[addr].nodeid
