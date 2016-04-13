@@ -3,7 +3,6 @@
 This file contains classes to manipulate the analyzer's state (output .ini
 file) using python classes.
 """
-# This file contains
 
 import ConfigParser
 import logging
