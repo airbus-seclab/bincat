@@ -349,8 +349,9 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                         	idaapi.msg(" [+] BinCAT failed to launch the analyzer.py\n")
                         	idaapi.msg("    Exception: %s\n%s"%(str(e),traceback.format_exc())) 
 
-			# close the form  : Bug : block the process 
-			#self.close()
+			# close the form  : Bug : block the process
+                        if self.analyzer.waitForStarted('100') :
+			        self.close()
 
 
         def btnAnalyzerConfig(self):

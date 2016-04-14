@@ -1,5 +1,4 @@
 #!/usr/bin/python 
-print("TOTO")
 # Imports 
 import os 
 import logging 
@@ -14,9 +13,6 @@ le module mlbincat --> /usr/lib/libbincat.so
 '''
 
         
-f =  open('/tmp/toto','w') 
-f.write('test')
-f.close()
 
 def main():
     logger  =  logging.getLogger('BinCAT Analyzer') 
@@ -55,9 +51,36 @@ def main():
     import analyzer_state
 
     a = analyzer_state.AnalyzerState()
-    states = a.run_analyzer(args.inifile,args.outfile,args.logfile) 
-    print(states)
-    
+    ac = a.run_analyzer(args.inifile,args.outfile,args.logfile) 
+    keys  = ac.stateAtEip.keys()
+    print("---- Taint analysis results ------\n")
+    for  key in keys :
+        state = ac.getStateAt(key.address)
+        print("----------------------------------\n")
+        print("Node id : %s - Rva : %s \n"  %(state.nodeid,hex(key.address).rstrip('L'))  )
+        for k , v  in state.ptrs.iteritems():
+             print("%s :  \n"%k)
+             if k == "mem":
+                 for x , y  in v.iteritems():
+                     if isinstance(x,analyzer_state.ConcretePtrValue):
+                         print("mem [0x%08x] = %s   \n"%(int(x.address),x.region))
+                     if isinstance(j,analyzer_state.ConcretePtrValue):
+                         print("reg[%s] = (%s , 0x%08x ) \n"%(i,j.region, int(j.address) ) )
+                     if isinstance(y,analyzer_state.ConcretePtrValue):
+                         print("mem [0x%08x] = %s   \n"%(int(y.address),y.region))
+                     if isinstance(x,analyzer_state.AbstractPtrValue):
+                         print("mem [] = %s   \n"%(x.value))
+                     if isinstance(y,analyzer_state.AbstractPtrValue):
+                         print("mem [] = %s   \n"%(y.value))
+
+             if k == "reg":
+                 for i , j in v.iteritems():
+                     if isinstance(j,analyzer_state.ConcretePtrValue):
+                         print("reg[%s] = (%s , 0x%08x ) \n"%(i,j.region, int(j.address) ) )
+                     if isinstance(j,analyzer_state.AbstractPtrValue):
+                         print("reg[%s] = (%s) \n"%(i,j.value) )
+
+                     
 
 
 
