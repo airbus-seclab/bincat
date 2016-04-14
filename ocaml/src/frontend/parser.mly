@@ -267,6 +267,6 @@
     | c1=INT TAINT c2=tcontent { Some c1, Some c2 }
 
      tcontent:
-    | t=INT 		{ Config.Bits (Bits.z_to_bit_string t)  }
-    | t=INT MASK t2=INT { Config.MBits (Bits.z_to_bit_string t, Bits.z_to_bit_string t2) }
+    | t=INT 		{ Config.Bits t  }
+    | t=INT MASK t2=INT { Config.MBits (t, t2) }
 			

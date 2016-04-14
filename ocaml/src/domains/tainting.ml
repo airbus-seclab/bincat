@@ -13,7 +13,14 @@ let join b1 b2 =
   | U, U 	    -> U
   | BOT, b | b, BOT -> b
   | _, _ 	    -> TOP
-			       
+
+let logor b1 b2 =
+  match b1, b2 with
+  | T, _ | _, T     -> T
+  | U, U 	    -> U
+  | BOT, b | b, BOT -> b
+  | _, _ 	    -> TOP
+			 
 let meet b1 b2 =
   match b1, b2 with
   | T, T 	     -> T

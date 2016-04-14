@@ -47,11 +47,11 @@ module type T =
 			    
       (** [taint_register_from_config r c m] update the abstract value _m_ with the given tainting configuration _c_ for register _r_ *)
       (** the size of the configuration is the same as the one of the register *)
-      val taint_register_from_config: Register.t -> Config.tvalue -> t -> t
+      val taint_register_from_config: Register.t -> Data.Address.region -> Config.tvalue -> t -> t
 
       (** [taint_register_from_config a c m] update the abstract value _m_ with the given tainting configuration _c_ for the memory location _a_ *)
       (** the size of the configuration is the same as the one of a memory word *)
-      val taint_memory_from_config: Data.Address.t -> Config.tvalue -> t -> t
+      val taint_memory_from_config: Data.Address.t -> Data.Address.region -> Config.tvalue -> t -> t
 
       (** [set_memory_from_config a c m] update the abstract value _m_ with the value configuration for the memory location _a_ *)
       (** the size of the configuration is the same as the one of a memory word *)

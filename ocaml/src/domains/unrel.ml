@@ -36,16 +36,14 @@ module type T =
     val of_config: Data.Address.region -> Config.cvalue -> int -> t
 
     (** returns the tainted value corresponding to the given abstract value *)
-    val taint_of_config: Config.tvalue -> t
+    (** the size of the value is given by the int parameter *)
+    val taint_of_config: Data.Address.region -> Config.tvalue -> int -> t
 				       
     (** join two abstract values *)
     val join: t -> t -> t
 
     (** meet the two abstract values *)
     val meet: t -> t -> t
-
-    (** [extract v l u] return v[l, u] *)
-    val extract: t -> int -> int -> t
 				      
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t 
@@ -194,8 +192,7 @@ module Make(D: T) =
 	      | Asm.T r' ->
 		 begin
 		   try
-		     let _prev, n = Map.find (K.R r') m' in
-		     Val (Map.replace (K.R r') (v', n+1) m')
+		     Val (Map.replace (K.R r') (v', 1) m')
 		   with
 		     Not_found -> Val (Map.add (K.R r') (v', 1) m')
 		 end
@@ -210,8 +207,8 @@ module Make(D: T) =
 	      let addrs = D.to_addresses (eval_exp m' e)  in
 	      let l  	= Data.Address.Set.elements addrs in
 	      match l with 
-	      | [a] -> (* strong update *) Val (try let _v, n = Map.find (K.M a) m' in Map.replace (K.M a) (v', n+1) m' with Not_found -> Map.add (K.M a) (v', 0) m')
-	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n+1) m with Not_found -> Map.add (K.M a) (v', 0) m)  m' l)
+	      | [a] -> (* strong update *) Val (try Map.replace (K.M a) (v', 1) m' with Not_found -> Map.add (K.M a) (v', 1) m')
+	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n) m with Not_found -> Map.add (K.M a) (v', 1) m)  m' l)
 						  
     let join m1 m2 =
       match m1, m2 with
@@ -231,8 +228,8 @@ module Make(D: T) =
       | Val m' ->
 	 let v' = D.of_config region c (Register.size r) in
 	 try
-	   Val (Map.replace (K.R r) (v', 0) m')
-	 with Not_found -> Val (Map.add (K.R r) (v', 0) m')
+	   Val (Map.replace (K.R r) (v', 1) m')
+	 with Not_found -> Val (Map.add (K.R r) (v', 1) m')
 			       
     let set_memory_from_config a region c m =
       match m with
@@ -240,23 +237,23 @@ module Make(D: T) =
       | Val m' ->
 	 let v' = D.of_config region c !Config.operand_sz in
 	 try
-	   Val (Map.replace (K.M a) (v', 0) m')
-	 with Not_found -> Val (Map.add (K.M a) (v', 0) m')
+	   Val (Map.replace (K.M a) (v', 1) m')
+	 with Not_found -> Val (Map.add (K.M a) (v', 1) m')
 				  
-    let taint_memory_from_config a c m =
+    let taint_memory_from_config a region c m =
       match m with
       | BOT -> BOT
       | Val m' ->
-	 let v' = D.taint_of_config c in
+	 let v' = D.taint_of_config region c !Config.operand_sz in
 	 try
 	   Val (Map.replace (K.M a) (v', 0) m')
 	 with Not_found -> Val (Map.add (K.M a) (v', 0) m')
 
-    let taint_register_from_config r c m =
+    let taint_register_from_config r region c m =
       match m with
 	BOT    -> BOT
       | Val m' ->
-	 let v' = D.taint_of_config c in
+	 let v' = D.taint_of_config region c (Register.size r) in
 	 try
 	   Val (Map.replace (K.R r) (v', 0) m')
 	 with Not_found -> Val (Map.add (K.R r) (v', 0) m')

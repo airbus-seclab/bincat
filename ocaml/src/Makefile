@@ -6,8 +6,8 @@ utils/config.ml\
 utils/exceptions.ml\
 utils/log.ml\
 data-struct/data.ml\
-lexer.ml\
-parser.ml\
+frontend/lexer.ml\
+frontend/parser.ml\
 data-struct/asm.ml\
 data-struct/code.ml\
 domains/value.ml\
@@ -33,7 +33,7 @@ LIBDIR ?= /usr/local/lib
 
 CMX = $(ML:.ml=.cmx)
 
-DIROPT = -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly
+DIROPT = -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
 
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) 
@@ -74,7 +74,7 @@ clean:
 	-rm -f ocamldoc.sty ocamldoc.out
 	-rm -f disassembly/*.so
 	-rm -f $(LIBNAME)
-	-rm -f lexer.ml lexer.mli parser.ml parser.mli *.conflicts *.automaton
+	-rm -f frontend/lexer.ml frontend/lexer.mli frontend/parser.ml frontend/parser.mli frontend/*.conflicts frontend/*.automaton
 
 install: $(LIBNAME)
 	install -b $(LIBNAME) $(LIBDIR)
