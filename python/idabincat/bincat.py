@@ -26,6 +26,16 @@ except:
         idaapi.msg("[+] BinCat : failed to load Qt libs from PyQt5 \n %s"% repr(sys.exc_info()))
         sys.exit(0) 
 
+
+# Loading analyzer_state 
+
+try:
+        import analyzer_state
+except:
+        idaapi.msg("[+] BinCat : failed to load analyzer_state \n %s"% repr(sys.exc_info()))
+        sys.exit(0) 
+
+
 #------------------------------------
 # setting environnement variables 
 if sys.platform.startswith('linux'):
@@ -859,7 +869,51 @@ class Analyzer(QtCore.QProcess):
 
 
         def procanalyzer_on_finish(self):
-                idaapi.msg(" [+] Analyzer Terminating call back\n") 
+                idaapi.msg(" [+] Analyzer process terminated \n") 
+                # get the result.txt file and parse it 
+                resultfile = GetIdbDir()+"result.txt"  
+
+                BinCATLogViewer.Log("[+] BinCAT : Parsing analyzer result file \n",SCOLOR_LOCNAME)
+                currentState = analyzer_state.AnalyzerState()
+                AnalyzerStates = currentState    
+                
+                AnalyzerStates.setStatesFromAnalyzerOutput(resultfile)
+                keys  = AnalyzerStates.stateAtEip.keys()
+                for  key in keys :
+                        idaapi.msg(" States addresses 0x%08x \n"%( int(key.address) ))
+
+
+                
+
+                # update the BinCATTaintedForm with the first state (nodeid=0)
+                idaapi.msg(" type(taintingview) = %s \n "%(type(BinCATTaintedForm)))
+
+                rc = BinCATTaintedForm.tablereg.rowCount()
+                for i in range(0,rc):
+                        BinCATTaintedForm.tablereg.removeRow(i)
+
+                BinCATTaintedForm.tablereg.setRowCount(0)
+                rc = BinCATTaintedForm.tablereg.rowCount()
+                # display only node 0 that corresponds to the start address state
+                for  key in keys :
+                        state = AnalyzerStates.getStateAt(key.address)
+                        if state.nodeid == "0":
+                                BinCATTaintedForm.nilabel.setText('Node Id : '+state.nodeid) 
+                                BinCATTaintedForm.alabel.setText('RVA address : '+hex(int(key.address))) 
+                                for k , v  in state.ptrs.iteritems():
+                                        if k == "mem":
+                                                pass
+                                        if k == "reg":
+                                                for i , j in v.iteritems():
+                                                        if isinstance(j,analyzer_state.ConcretePtrValue):
+                                                                BinCATTaintedForm.tablereg.insertRow(rc)
+                                                                item = QtWidgets.QTableWidgetItem(i)
+                                                                BinCATTaintedForm.tablereg.setItem(rc, 0, item)
+                                                                item = QtWidgets.QTableWidgetItem(hex(int(j.address)))
+                                                                BinCATTaintedForm.tablereg.setItem(rc, 2, item)
+                                                                rc+=1
+                                                        if isinstance(j,analyzer_state.AbstractPtrValue):
+                                                                pass
 
         # for a first test I use this callback to get analyzer output 
         # the goal is exchange information using a qtcpsocket
@@ -917,38 +971,39 @@ class BinCATTaintedForm_t(PluginForm):
                 # Get parent widget 
                 self.parent = self.FormToPyQtWidget(form)
                 self.registers_x86 = ['EAX','EBX','ECX','EDX','ESI','EDI','ESP','EBP']
-                 
-                # Main table 
-                self.table = QtWidgets.QTableWidget() 
-                self.table.setColumnCount(3)
-                self.table.setRowCount(len(self.registers_x86))
-
-                self.table.setHorizontalHeaderItem(0,QtWidgets.QTableWidgetItem("Registers"))
-                self.table.setHorizontalHeaderItem(1,QtWidgets.QTableWidgetItem("Tainted"))
-                self.table.setHorizontalHeaderItem(2,QtWidgets.QTableWidgetItem("Values"))
-
-                self.table.setColumnWidth(0, 80)
-                self.table.setColumnWidth(1, 80)
-                self.table.setColumnWidth(2, 100)
-
-                # populate table 
-                index = 0 
-                for reg in self.registers_x86:
-                        item = QtWidgets.QTableWidgetItem(reg)
-                        # setItem(row, column,item)
-                        self.table.setItem(index, 0, item)
-                        index+=1
-
-                self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
                 layout = QtWidgets.QGridLayout()
-                self.table.verticalHeader().setDefaultSectionSize(15)
+                self.tablereg = QtWidgets.QTableWidget() 
+                
+                #Node id label 
+                self.nilabel = QtWidgets.QLabel('Node Id :')
+                layout.addWidget(self.nilabel,0,0)
 
-                layout.addWidget(self.table,0,0)
-                #label = QtWidgets.QLabel('Tainting :')
-                #layout.addWidget(label,0,0)
+
+                #RVA address label 
+                self.alabel = QtWidgets.QLabel('RVA address :')
+                layout.addWidget(self.alabel,1,0)
+
+
+                # Main table 
+                self.tablereg.setColumnCount(3)
+                #self.table.setRowCount(len(self.registers_x86))
+
+                self.tablereg.setHorizontalHeaderItem(0,QtWidgets.QTableWidgetItem("Registers"))
+                self.tablereg.setHorizontalHeaderItem(1,QtWidgets.QTableWidgetItem("Tainted"))
+                self.tablereg.setHorizontalHeaderItem(2,QtWidgets.QTableWidgetItem("Values"))
+
+                self.tablereg.setColumnWidth(0, 80)
+                self.tablereg.setColumnWidth(1, 80)
+                self.tablereg.setColumnWidth(2, 100)
+
+
+                self.tablereg.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+                self.tablereg.verticalHeader().setDefaultSectionSize(15)
+
+                layout.addWidget(self.tablereg,2,0)
 
                 layout.setColumnStretch(0,1)
-                layout.setRowStretch(0,1)
+                layout.setRowStretch(3,1)
 
                 self.parent.setLayout(layout)
 
@@ -956,7 +1011,6 @@ class BinCATTaintedForm_t(PluginForm):
         def OnClose(self,form):
                 BinCATLogViewer.Log(" [+] BinCAT Closing Tainted form ",SCOLOR_LOCNAME)
                 
-
 
         def Show(self):
                 return PluginForm.Show(self,"BinCAT Tainting",options=PluginForm.FORM_PERSIST | PluginForm.FORM_TAB)
@@ -1202,6 +1256,7 @@ def main():
         global hlpConfig
         global hooks
         global BinCATTaintedForm
+        global AnalyzerStates
         try:
                 BinCATForm
                 BinCATLogViewer
@@ -1210,6 +1265,9 @@ def main():
                 BinCATForm = BinCATForm_t() 
                 BinCATLogViewer = BinCATLog_t()
                 BinCATTaintedForm = BinCATTaintedForm_t() 
+
+
+        AnalyzerStates = analyzer_state.AnalyzerState()
 
         idaapi.msg("[+] BinCAT Starting main form\n")
         if BinCATLogViewer.Create(1):
