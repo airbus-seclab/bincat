@@ -11,12 +11,6 @@ struct
   (** the control flow automaton module *)
   module Cfa = Decoder.Cfa 
 
-  class domain_oracle s =
-  (object
-    (* Be careful : never call this method to implement a function of signature D.mem_to_adresses (stack overflow) *)
-      method mem_to_addresses e = D.mem_to_addresses s e
-    end: Domain.oracle)
-    
   open Asm
 	 
   module Vertices = Set.Make(Cfa.State)
@@ -74,7 +68,7 @@ struct
        let else' = List.fold_left (fun d s -> process d s) (restrict d e false) else_stmts in
        D.join then' else'
 	      
-    | Set (dst, src) -> D.set dst src (new domain_oracle d) d
+    | Set (dst, src) -> D.set dst src d
 
     | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d'
 

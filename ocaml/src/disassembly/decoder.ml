@@ -46,7 +46,7 @@ module Make(Domain: Domain.T) =
       let fzf    = Register.make ~name:"zf" ~size:1;; 
       let fsf    = Register.make ~name:"sf" ~size:1;; 
       let _ftf   = Register.make ~name:"tf" ~size:1;; 
-      let _fif   = Register.make ~name:"if" ~size:1;; 
+      let fif    = Register.make ~name:"if" ~size:1;; 
       let fdf    = Register.make ~name:"df" ~size:1;; 
       let fof    = Register.make ~name:"of" ~size:1;; 
       let _fiopl = Register.make ~name:"iopl" ~size:2;; 
@@ -418,6 +418,10 @@ module Make(Domain: Domain.T) =
       let fzf_sz = Register.size fzf
       (** size of the parity flag *)
       let fpf_sz = Register.size fpf
+      (** size of the interrupt flag *)
+      let fif_sz = Register.size fif
+      (** size of the direction flag *)
+      let fdf_sz = Register.size fdf
 
 				 
       (** produce common statements to set the overflow flag and the adjust flag *) 
@@ -509,8 +513,7 @@ module Make(Domain: Domain.T) =
 
      
      
-      (** produces the list of statements for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)							 
-      let add_sub_stmts op b dst src sz =
+      (** produces the list of statements for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)				 let add_sub_stmts op b dst src sz =
 	let e =
 	  if b then BinOp (op, Lval dst, UnOp (SignExt sz, Lval (V (T fcf))))
 	  else Lval dst
@@ -906,8 +909,11 @@ module Make(Domain: Domain.T) =
 	    | _ -> Log.error (Printf.sprintf "Decoder: undefined behavior of REPNE/REPNZ with opcode %x" (Char.code c))
 	  else
 	    c
-	  
-      (** decoding of one instruction *)
+
+      let set_flag f sz = [ Set (V (T f), Const (Word.one sz)) ]
+      let clear_flag f sz = [ Set (V (T f), Const (Word.zero sz)) ]
+
+	  (** decoding of one instruction *)
       let decode s =
 	let to_size s v =
 	  if v land 1 = 1 then s.operand_sz
@@ -1015,11 +1021,17 @@ module Make(Domain: Domain.T) =
 	  | '\xf1' -> Log.error "Undefined opcode 0xf1"
 	  | '\xf2' -> (* REP/REPE *) s.rep <- true; rep s Word.zero
 	  | '\xf3' -> (* REPNE *) s.repne <- true; rep s Word.one
-	  | '\xf4' -> raise (Exceptions.Error "Decoder stopped: HLT reached")
-
+	  | '\xf4' -> Log.error "Decoder stopped: HLT reached"
+	  | '\xf5' -> let fcf' = V (T fcf) in create s [ Set (fcf', UnOp (Not, Lval fcf')) ] label
 	  | '\xf6' -> grp3 s Config.size_of_byte label
 	  | '\xf7' -> grp3 s s.operand_sz label
-			   
+	  | '\xf8' -> create s (clear_flag fcf fcf_sz) label
+	  | '\xf9' -> create s (set_flag fcf fcf_sz) label
+	  | '\xfa' -> Log.from_decoder "entering privilege mode (CLI instruction)"; create s (clear_flag fif fif_sz) label
+	  | '\xfb' -> Log.from_decoder "entering privilege mode (STI instruction)"; create s (set_flag fif fif_sz) label
+	  | '\xfc' -> create s (clear_flag fdf fdf_sz) label
+	  | '\xfd' -> create s (set_flag fdf fdf_sz) label
+						     
 	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x\n" (Char.code c)))
 
 	(** rep prefix *)

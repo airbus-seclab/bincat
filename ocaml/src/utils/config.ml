@@ -54,8 +54,8 @@ let gs = ref Z.zero
 
 
 type tvalue =
-  | Bits of string (* string of bits *)
-  | MBits of string * string (* bit string with a mask as second element *)
+  | Bits of Z.t
+  | MBits of Z.t * Z.t (* second element is a mask on the first one *)
 
 type cvalue = Z.t
 		

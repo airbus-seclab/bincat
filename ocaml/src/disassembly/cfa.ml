@@ -87,21 +87,21 @@ module Make(Domain: Domain.T) =
       (* return the given domain updated by the initial values and intitial tainting for registers with respected ti the provided configuration *)
       let init_registers d =
 	(* this function adds leading zero to the tainting value v so that the new value v' has the same length as the register v *)
-	let pad_tainting_register v r =
+	let check_tainting_register v r =
 	  let sz   = Register.size r in
 	  let name = Register.name r in
 	  match v with
 	  | Config.Bits b       ->
-	     if (String.length b) > sz then
+	     if (String.length (Bits.z_to_bit_string b)) > sz then
 	       raise (Exceptions.Error (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
-	       Config.Bits (pad b sz)
+	       Config.Bits b
 			   
 	  | Config.MBits (b, m) ->
-	     if (String.length b) > sz || (String.length m) > sz then
+	     if (String.length (Bits.z_to_bit_string b)) > sz || (String.length (Bits.z_to_bit_string m)) > sz then
 	       raise (Exceptions.Error (Printf.sprintf "Illegal initial tainting for register %s" name))
 	     else
-	       Config.MBits (pad b sz, pad m sz)
+	       Config.MBits (b, m)
 	in
 	(* checks whether the provided value is compatible with the capacity of the parameter of type Register _r_ and the size of words *)
 	let check_init_size r v =
@@ -114,7 +114,7 @@ module Make(Domain: Domain.T) =
 	in
 	(* first the domain is updated with the "padded" tainting value for each register with initial tainting in the provided configuration *)
 	let d' =  Hashtbl.fold
-		    (fun r v d -> Domain.taint_register_from_config r (pad_tainting_register v r) d
+		    (fun r v d -> Domain.taint_register_from_config r Data.Address.Global (check_tainting_register v r) d
 		    )
 		    Config.initial_register_tainting d
 	in
@@ -127,40 +127,38 @@ module Make(Domain: Domain.T) =
 	  )
 	  Config.initial_register_content d'
 
-      	
-      (* return the given domain updated by the initial values and tainting for memory as provided by the Config module *)
-      (* The intial value may not fit into one word the function returns a list of initial values (one per word) *)
-      let split_and_pad s =
-	  let len = String.length s    in
-	  let sz  = !Config.operand_sz in
-	  let l   = ref []             in
-	  for i = 0 to len-1 do
-	    try
-	      l := (String.sub s (sz*i) (sz*(i+1)-1))::!l
-	    with
-	      _ -> l := pad (String.sub s i (len-(sz*i))) sz::!l
-	  done;
-	  (* do not forget to reverse the list to preserve the order of words to be those of their memory location *)
-	  List.rev !l
+      (** builds 0xffff...ff with nb repetitions of the pattern ff *)
+      let ff nb =
+	let ff = Z.of_int 0xff in
+	let s = ref Z.zero in
+	for _i = 1 to nb do
+	  s := Z.add ff (Z.shift_left !s 8)
+	done;
+	!s
+	  
+      	(** splits the given integer into a sequence of integers that fit into !Config.operand_sz bits *)
+      let pad_of_int a i: (Data.Address.t * Config.cvalue) list =
+	let a'    = Data.Address.of_int Data.Address.Global a !Config.address_sz in
+	let nb    = !Config.operand_sz / Config.size_of_byte                     in
+	let mask  = ff nb                                                        in
+	let l     = ref []                                                       in
+	let n     = ref i                                                        in
+	while Z.compare !n Z.zero > 0 do
+	  l := (Z.logand mask !n)::!l;
+	  n := Z.shift_right !n !Config.operand_sz 
+	done;
+	List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int (i*nb)), v) (List.rev !l)
+	
 
-      (* 1. split b into a list of string of size Config.operand_sz *)
-      (* 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
-      let extended_memory_pad a b  =
-	let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
-	try
-	  [a', pad b !Config.operand_sz]
-	with _ -> 
-	  let l = split_and_pad b in
-	  List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int i), v) l 
-
+   		   
       (** 1. split b into a list of tainting values of size Config.operand_sz *)
       (** 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
       let extended_tainting_memory_pad a t =
 	match t with
-	| Config.Bits b -> List.map (fun (a', v') -> a', Config.Bits v') (extended_memory_pad a b)
+	| Config.Bits b -> List.map (fun (a', v') -> a', Config.Bits v') (pad_of_int a b)
 	| Config.MBits (b, m) -> 
-	   let b' = extended_memory_pad a b in
-	   let m' = extended_memory_pad a m in
+	   let b' = pad_of_int a b in
+	   let m' = pad_of_int a m in
 	   let nb' = List.length b' in
 	   let nm' = List.length m' in
 	   if nb' = nm' then
@@ -170,35 +168,20 @@ module Make(Domain: Domain.T) =
 	       List.mapi (fun i (a, t) -> if i < nm' then a, Config.MBits (t, snd (List.nth m' i)) else a, Config.Bits t) b'
 	     else
 	       (* filling with '0' means that we suppose by default that memory is untainted *)
-	       List.mapi (fun i (a, m) -> if i < nb' then a, Config.MBits (snd (List.nth b' i), m) else a, Config.MBits (String.make !Config.operand_sz '0', m)) m' 
+	       List.mapi (fun i (a, m) -> if i < nb' then a, Config.MBits (snd (List.nth b' i), m) else a, Config.MBits (Z.zero, m)) m' 
 
-      (** splits the given integer into a sequence of integers that fit into !Config.operand_sz bits *)
-      let pad_of_int a i sz: (Data.Address.t * Config.cvalue) list =
-	let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
-	let m = Z.shift_left Z.one sz in
-	if Z.compare i m < 0 then
-	  [a', i]
-	else
-	  let l = ref []				 in
-	  let n = ref i					 in
-	  let mask = Z.sub (Z.shift_left Z.one sz) Z.one in
-	  while !n > m do
-	    l := (Z.logand !n mask)::!l;
-	    n := Z.shift_right !n sz;
-	  done;
-	  List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int i), v) (List.rev !l)
-	  
+      
       (* main function to initialize memory locations both for content and tainting *)
       (* this filling is done by iterating on tables in Config *)
       let init_memory tbl =
 	let dc' = Hashtbl.fold (fun a c d ->
-		      let l = pad_of_int a c !Config.operand_sz in
+		      let l = pad_of_int a c in
 		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' Data.Address.Global c' d) d l
 		    ) Config.initial_memory_content tbl
 	in
 	Hashtbl.fold (fun a t d ->
 	    let l = extended_tainting_memory_pad a t in
-	    List.fold_left (fun d (a', c') -> Domain.taint_memory_from_config a' c' d) d l) Config.initial_memory_tainting dc'
+	    List.fold_left (fun d (a', c') -> Domain.taint_memory_from_config a' Data.Address.Global c' d) d l) Config.initial_memory_tainting dc'
 	
       (* end of init utilities *)	     
       (*************************)
@@ -206,11 +189,13 @@ module Make(Domain: Domain.T) =
       (** CFA creation *)
       (** returned CFA has only one node : the state whose ip is given by the parameter and whose domain field is generated from the Config module *)
       let init ip =
-	let d = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+	let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+	let d' = init_memory (init_registers d) in
+	
 	let s = {
 	    id = 0;
 	    ip = ip;
-	    v = init_memory (init_registers d) ;
+	    v = d';
 	    stmts = [];
 	    ctx = {
 		op_sz = !Config.operand_sz;
