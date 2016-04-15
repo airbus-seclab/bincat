@@ -14,6 +14,8 @@ __pycache__/*
 .depend
 *.pyc
 python/build
+python/doc/generated
+doc/generated
 *.egg-info
 *.swp
 *.egg
