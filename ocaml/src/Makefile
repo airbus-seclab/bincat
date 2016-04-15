@@ -75,6 +75,8 @@ clean:
 	-rm -f disassembly/*.so
 	-rm -f $(LIBNAME)
 	-rm -f frontend/lexer.ml frontend/lexer.mli frontend/parser.ml frontend/parser.mli frontend/*.conflicts frontend/*.automaton
+	# Files moved in revision 2097c09e19f8
+	-rm -f parser.ml parser.mli lexer.ml
 
 install: $(LIBNAME)
 	install -b $(LIBNAME) $(LIBDIR)
