@@ -300,10 +300,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         def rbRegistersHandler(self):
                self.cbRegisters.setEnabled(True)
-               self.ipMemory.setDisabled(True) 
+               #self.ipMemory.setDisabled(True) 
 
         def rbMemoryHandler(self):
-               self.cbRegisters.setDisabled(True)
+               #self.cbRegisters.setDisabled(True)
                self.ipMemory.setEnabled(True) 
 
         def cbRegistersHandler(self,text):
@@ -389,7 +389,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                 lblTntElem = QtWidgets.QLabel(" Tainted element   : ") 
 
                 # radio button register
-                rbRegisters = QtWidgets.QRadioButton("Register")
+                rbRegisters = QtWidgets.QCheckBox("Register")
                 rbRegisters.toggled.connect(self.rbRegistersHandler)
                 self.cbRegisters = QtWidgets.QComboBox(self)
 
@@ -403,7 +403,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                 #self.ipRegs.setDisabled(True)
                 
                 # radio button memory 
-                rbMemory = QtWidgets.QRadioButton("Memory")
+                rbMemory = QtWidgets.QCheckBox("Memory")
                 rbMemory.toggled.connect(self.rbMemoryHandler)
                 self.ipMemory = QtWidgets.QLineEdit(self)
                 self.ipMemory.setDisabled(True)
@@ -889,11 +889,19 @@ class Analyzer(QtCore.QProcess):
                 idaapi.msg(" type(taintingview) = %s \n "%(type(BinCATTaintedForm)))
 
                 rc = BinCATTaintedForm.tablereg.rowCount()
+                mc = BinCATTaintedForm.tablemem.rowCount()
+
                 for i in range(0,rc):
                         BinCATTaintedForm.tablereg.removeRow(i)
+                for i in range(0,mc):
+                        BinCATTaintedForm.tablemem.removeRow(i)
 
                 BinCATTaintedForm.tablereg.setRowCount(0)
+                BinCATTaintedForm.tablemem.setRowCount(0)
+                
                 rc = BinCATTaintedForm.tablereg.rowCount()
+                mc = BinCATTaintedForm.tablemem.rowCount()
+ 
                 # display only node 0 that corresponds to the start address state
                 for  key in keys :
                         state = AnalyzerStates.getStateAt(key.address)
@@ -902,18 +910,39 @@ class Analyzer(QtCore.QProcess):
                                 BinCATTaintedForm.alabel.setText('RVA address : '+hex(int(key.address))) 
                                 for k , v  in state.ptrs.iteritems():
                                         if k == "mem":
-                                                pass
+                                                for i , j in v.iteritems():
+                                                        if isinstance(i,analyzer_state.ConcretePtrValue):
+                                                                BinCATTaintedForm.tablemem.insertRow(mc)
+                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(i.address))  )
+                                                                BinCATTaintedForm.tablemem.setItem(mc, 0, item)
+                                                                item = QtWidgets.QTableWidgetItem(i.region)
+                                                                BinCATTaintedForm.tablemem.setItem(mc, 2, item)
+                                                                mc+=1
+                                                        if isinstance(j,analyzer_state.ConcretePtrValue):
+                                                                BinCATTaintedForm.tablemem.insertRow(mc)
+                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(j.address))  )
+                                                                BinCATTaintedForm.tablemem.setItem(mc, 0, item)
+                                                                item = QtWidgets.QTableWidgetItem(j.region)
+                                                                BinCATTaintedForm.tablemem.setItem(mc, 2, item)
+                                                                mc+=1
+
                                         if k == "reg":
                                                 for i , j in v.iteritems():
                                                         if isinstance(j,analyzer_state.ConcretePtrValue):
                                                                 BinCATTaintedForm.tablereg.insertRow(rc)
                                                                 item = QtWidgets.QTableWidgetItem(i)
                                                                 BinCATTaintedForm.tablereg.setItem(rc, 0, item)
-                                                                item = QtWidgets.QTableWidgetItem(hex(int(j.address)))
+                                                                item = QtWidgets.QTableWidgetItem( ('0x%08x'%(int(j.address))) )
                                                                 BinCATTaintedForm.tablereg.setItem(rc, 2, item)
                                                                 rc+=1
                                                         if isinstance(j,analyzer_state.AbstractPtrValue):
-                                                                pass
+                                                                BinCATTaintedForm.tablereg.insertRow(rc)
+                                                                item = QtWidgets.QTableWidgetItem(i)
+                                                                BinCATTaintedForm.tablereg.setItem(rc, 0, item)
+                                                                item = QtWidgets.QTableWidgetItem(j.value)
+                                                                BinCATTaintedForm.tablereg.setItem(rc, 2, item)
+                                                                rc+=1
+                                                                
 
         # for a first test I use this callback to get analyzer output 
         # the goal is exchange information using a qtcpsocket
@@ -970,9 +999,9 @@ class BinCATTaintedForm_t(PluginForm):
                 
                 # Get parent widget 
                 self.parent = self.FormToPyQtWidget(form)
-                self.registers_x86 = ['EAX','EBX','ECX','EDX','ESI','EDI','ESP','EBP']
                 layout = QtWidgets.QGridLayout()
                 self.tablereg = QtWidgets.QTableWidget() 
+                self.tablemem = QtWidgets.QTableWidget() 
                 
                 #Node id label 
                 self.nilabel = QtWidgets.QLabel('Node Id :')
@@ -984,15 +1013,14 @@ class BinCATTaintedForm_t(PluginForm):
                 layout.addWidget(self.alabel,1,0)
 
 
-                # Main table 
+                # Registers table 
                 self.tablereg.setColumnCount(3)
-                #self.table.setRowCount(len(self.registers_x86))
 
                 self.tablereg.setHorizontalHeaderItem(0,QtWidgets.QTableWidgetItem("Registers"))
                 self.tablereg.setHorizontalHeaderItem(1,QtWidgets.QTableWidgetItem("Tainted"))
-                self.tablereg.setHorizontalHeaderItem(2,QtWidgets.QTableWidgetItem("Values"))
+                self.tablereg.setHorizontalHeaderItem(2,QtWidgets.QTableWidgetItem("Value(s)"))
 
-                self.tablereg.setColumnWidth(0, 80)
+                self.tablereg.setColumnWidth(0, 100)
                 self.tablereg.setColumnWidth(1, 80)
                 self.tablereg.setColumnWidth(2, 100)
 
@@ -1002,8 +1030,27 @@ class BinCATTaintedForm_t(PluginForm):
 
                 layout.addWidget(self.tablereg,2,0)
 
+
+                # Memory table
+                self.tablemem.setColumnCount(3)
+
+                self.tablemem.setHorizontalHeaderItem(0,QtWidgets.QTableWidgetItem("Memory"))
+                self.tablemem.setHorizontalHeaderItem(1,QtWidgets.QTableWidgetItem("Tainted"))
+                self.tablemem.setHorizontalHeaderItem(2,QtWidgets.QTableWidgetItem("Value(s)"))
+
+                self.tablemem.setColumnWidth(0, 100)
+                self.tablemem.setColumnWidth(1, 80)
+                self.tablemem.setColumnWidth(2, 100)
+
+
+                self.tablemem.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+                self.tablemem.verticalHeader().setDefaultSectionSize(15)
+
+                layout.addWidget(self.tablemem,4,0)
+                
+
                 layout.setColumnStretch(0,1)
-                layout.setRowStretch(3,1)
+                layout.setRowStretch(5,1)
 
                 self.parent.setLayout(layout)
 
