@@ -513,8 +513,7 @@ module Make(Domain: Domain.T) =
 
      
      
-      (** produces the list of statements for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)							 
-      let add_sub_stmts op b dst src sz =
+      (** produces the list of statements for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)				 let add_sub_stmts op b dst src sz =
 	let e =
 	  if b then BinOp (op, Lval dst, UnOp (SignExt sz, Lval (V (T fcf))))
 	  else Lval dst

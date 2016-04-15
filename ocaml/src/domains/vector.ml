@@ -8,6 +8,10 @@ module type Val =
     type t
     (** bottom *) 
     val bot: t
+    (** comparison to bottom *)
+    val is_bot: t -> bool
+    (** comparison to top *)
+    val is_top: t -> bool
     (** default value *)
     val default: t
     (** conversion to value of type Z.t. May raise an exception *)
@@ -22,6 +26,8 @@ module type Val =
     val meet: t -> t -> t
     (** string conversion *)
     val to_string: t -> string
+    (** string conversion of the taint *)
+    val string_of_taint: t -> string
     (** add operation. The optional return value is None when no carry *)
     (** occurs in the result and Some c with c the carry value otherwise *)
     val add: t -> t -> t * (t option)
@@ -119,16 +125,18 @@ module Make(V: Val) =
 	done;
 	true
       with Exit -> false
-		     
+
+    let exists p v =
+      try
+	for i = 0 to (Array.length v) - 1 do
+	  if p v.(i) then raise Exit
+	done;
+	false
+      with Exit -> true
     let join v1 v2 = map2 V.join v1 v2
 
     let meet v1 v2 = map2 V.meet v1 v2
 
-    let to_string v =
-      let v = Array.fold_left (fun s v -> s ^ (V.to_string v)) "" v      in
-      let t = Array.fold_left (fun s v -> s ^(V.string_of_taint t)) "" v in
-      if String.length t = 0 then v
-      else Printf.sprintf "%s ! %s" v t
 
     (* common utility to add and sub *)
     let core_add_sub op v1 v2 =
@@ -279,23 +287,40 @@ module Make(V: Val) =
       r
 
     let to_value v =
-      let z = ref Z.zero in
-      for i = 0 to (Array.length v) - 1 do
-	let n = V.to_value v.(i) in
-	z := Z.add n (Z.shift_left !z 1)
-      done;
-      !z
-   
+      try
+	let z = ref Z.zero in
+	for i = 0 to (Array.length v) - 1 do
+	  let n = V.to_value v.(i) in
+	  z := Z.add n (Z.shift_left !z 1)
+	done;
+	!z
+      with _ -> raise Exceptions.Concretization
+
+    (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *) 
     let to_word v = Data.Word.of_int (to_value v) (Array.length v)
-      
+
+    let to_string v =
+      let v' =
+	if exists V.is_bot v then
+	  "_"
+	else
+	  if exists V.is_top v then
+	    "?"
+	  else
+	    Data.Word.to_string (to_word v)
+      in
+      let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "" v  in
+      if String.length t = 0 then v'
+      else Printf.sprintf "%s ! %s" v' t
     let to_addresses r v = Data.Address.Set.singleton (r, to_word v)
 
     let subset v1 v2 = for_all2 V.subset v1 v2
 
     let of_config c n =
-      let v = Array.make n V.default in
-      for i = 0 to n-1 do
-	v.(i) <- V.of_value (nth_of_value c i)
+      let v  = Array.make n V.default in
+      let n' = n-1                    in
+      for i = 0 to n' do
+	v.(n'-i) <- V.of_value (nth_of_value c i)
       done;
       v
 	

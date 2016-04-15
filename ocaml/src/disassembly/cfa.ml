@@ -143,21 +143,6 @@ module Make(Domain: Domain.T) =
 	  done;
 	  List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int i), v) (List.rev !l)
 
-		    
-      (* return the given domain updated by the initial values and tainting for memory as provided by the Config module *)
-      (* The intial value may not fit into one word the function returns a list of initial values (one per word) *)
-      let split_and_pad s =
-	  let len = String.length s    in
-	  let sz  = !Config.operand_sz in
-	  let l   = ref []             in
-	  for i = 0 to len-1 do
-	    try
-	      l := (String.sub s (sz*i) (sz*(i+1)-1))::!l
-	    with
-	      _ -> l := pad (String.sub s i (len-(sz*i))) sz::!l
-	  done;
-	  (* do not forget to reverse the list to preserve the order of words to be those of their memory location *)
-	  List.rev !l
    		   
       (** 1. split b into a list of tainting values of size Config.operand_sz *)
       (** 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
