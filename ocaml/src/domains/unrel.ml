@@ -157,7 +157,7 @@ module Make(D: T) =
 	       let addresses = Data.Address.Set.elements (D.to_addresses (eval e)) in
 	       let rec to_value a =
 		 match a with
-		 | a    -> fst (Map.find (K.M a) m)
+		 | [a]  -> fst (Map.find (K.M a) m)
 		 | a::l -> D.join (fst (Map.find (K.M a) m)) (to_value l)
 		 | []   -> D.bot
 	       in
