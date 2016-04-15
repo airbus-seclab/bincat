@@ -101,7 +101,7 @@ module type T =
     
 module Make(V: Val) =
   (struct
-    type t = V.t array
+    type t = V.t array (** bit order is little endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *) 
 
     let map2 f v1 v2 =
       let n = Array.length v1        in
@@ -282,8 +282,9 @@ module Make(V: Val) =
       let sz = Data.Word.size w	       in
       let w' = Data.Word.to_int w      in
       let r  = Array.make sz V.default in
-      for i = 0 to sz-1 do
-	r.(i) <- if Z.compare (nth_of_value w' i) Z.one = 0 then V.one else V.zero
+      let n' =sz-1 in
+      for i = 0 to n' do
+	r.(n'-i) <- if Z.compare (nth_of_value w' i) Z.one = 0 then V.one else V.zero
       done;
       r
 
@@ -330,15 +331,17 @@ module Make(V: Val) =
       in
       match t with
       | Config.Bits b ->
+	 let n' =n-1 in
 	 for i = 0 to n-1 do
-	   v.(i) <- V.taint_of_value (nth_of_value b i) v.(i)
+	   v.(n'-i) <- V.taint_of_value (nth_of_value b i) v.(i)
 	 done;
 	 v
       | Config.MBits (b, m) ->
-	 for i = 0 to n-1 do
+	 let n' = n-1 in
+	 for i = 0 to n' do
 	   let bnth = nth_of_value b i in
 	   let mnth = nth_of_value m i in
-	   v.(i) <- V.join (V.taint_of_value bnth v.(i)) (V.taint_of_value mnth v.(i))
+	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(i)) (V.taint_of_value mnth v.(i))
 	 done;
 	 v
 

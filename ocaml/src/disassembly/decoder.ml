@@ -231,7 +231,6 @@ module Make(Domain: Domain.T) =
 	s.o <- s.o + 1;
 	c
 
-
       (** int conversion of a byte in the string code *)
       let int_of_byte s = Z.of_int (Char.code (getchar s))
 				    
@@ -239,7 +238,7 @@ module Make(Domain: Domain.T) =
       let int_of_bytes s sz =
 	let n = ref Z.zero in
 	for i = 0 to sz-1 do
-	  n := Z.add (!n) (Z.shift_left (int_of_byte s) (8*i));
+	  n := Z.add !n (Z.shift_left (int_of_byte s) (i*Config.size_of_byte));
 	done;
 	!n;;
 
@@ -513,7 +512,8 @@ module Make(Domain: Domain.T) =
 
      
      
-      (** produces the list of statements for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)				 let add_sub_stmts op b dst src sz =
+      (** produces the list of statements for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)
+      let add_sub_stmts op b dst src sz =
 	let e =
 	  if b then BinOp (op, Lval dst, UnOp (SignExt sz, Lval (V (T fcf))))
 	  else Lval dst
@@ -869,7 +869,7 @@ module Make(Domain: Domain.T) =
 		else
 		  Set (M (Lval (V esp'), n), Lval (V v));
 	      in
-	      [ s ; set_esp Sub esp' n ] @ stmts
+	      [ set_esp Sub esp' n ; s ] @ stmts
 	    ) [] v
 	in
 	create s (pre @ stmts @ post) label
@@ -878,7 +878,7 @@ module Make(Domain: Domain.T) =
       let push_immediate s n label =
 	let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width) in
 	let esp'  = esp_lval ()						       in
-	let stmts = [ Set (M (Lval (V esp'), !Config.stack_width), c) ; set_esp Sub esp' !Config.stack_width ]			 
+	let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]			 
 	in
 	create s stmts label
 

@@ -151,7 +151,7 @@ module Make(D: T) =
 	     with Not_found -> D.default (Register.size r)
 	   end
 	| Asm.Lval (Asm.V (Asm.P (_r, _l, _u))) -> D.top (* can be more precise *)
-	| Asm.Lval (Asm.M (e, n))            ->
+	| Asm.Lval (Asm.M (e, n))               ->
 	   begin
 	     try
 	       let addresses = Data.Address.Set.elements (D.to_addresses (eval e)) in
@@ -205,8 +205,8 @@ module Make(D: T) =
 		   Not_found -> raise Exceptions.Empty
 	    end
 	 | Asm.M (e, _n) ->
-	      let addrs = D.to_addresses (eval_exp m' e)  in
-	      let l  	= Data.Address.Set.elements addrs in
+	    let addrs = D.to_addresses (eval_exp m' e)  in
+	    let l     = Data.Address.Set.elements addrs in
 	      match l with 
 	      | [a] -> (* strong update *) Val (try Map.replace (K.M a) (v', 1) m' with Not_found -> Map.add (K.M a) (v', 1) m')
 	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n) m with Not_found -> Map.add (K.M a) (v', 1) m)  m' l)
