@@ -3,7 +3,6 @@
 This file contains classes to manipulate the analyzer's state (output .ini
 file) using python classes.
 """
-# This file contains
 
 import ConfigParser
 import logging
@@ -12,20 +11,46 @@ from collections import defaultdict
 
 
 class AnalyzerState(object):
+    """
+    Interface to run the analyzer, and parse its output.
+    TODO also generate its input.
+    """
     def __init__(self):
-        #: self.eip[EIP value] contains a State object
+        #: self.stateAtEip[EIP value] contains a State object
         self.stateAtEip = {}
         #: self.edges[nodeid] = [target node ids]
         self.edges = defaultdict(list)
         #: self.idaddr[nodeid] = (region, addr)
         self.nodeidaddr = {}
 
+    @classmethod
+    def run_analyzer(cls, initfile, outputfile, logfile):
+        """
+        Runs the analyzer using the given parameters.
+        Returns an AnalyzerState instance based on the analyzer's output.
+
+        :param initfile: path to the .ini file containing the initial state
+        :param outputfile: path to the analyzer output file
+        :param logfile: path to the analyzer log file
+        """
+        import mlbincat
+        mlbincat.process(initfile, outputfile, logfile)
+        ac = cls()
+        ac.setStatesFromAnalyzerOutput(outputfile)
+        return ac
+
     def setBinaryFromString(self, string):
-        # TODO
+        """
+        TODO not implemented yet.
+        """
         pass
 
     def setStatesFromAnalyzerOutput(self, filename):
-        # Parse output ini file
+        """
+        Parses states contained in the analyzer's output file.
+
+        :param filename: path to the analyzer output file
+        """
         config = ConfigParser.ConfigParser()
         config.read(filename)
         for section in config.sections():
@@ -54,12 +79,19 @@ class AnalyzerState(object):
         return addr
 
     def getStateAt(self, eip):
+        """
+        Returns state at provided EIP
+
+        :param eip: int or ConcretePtrValue
+        """
         addr = self._intToConcretePtrValue(eip)
         return self.stateAtEip[addr]
 
     def listNextStates(self, eip):
         """
         Returns a list of destination States after executing instruction at eip
+
+        :param eip: int or ConcretePtrValue
         """
         addr = self._intToConcretePtrValue(eip)
         curStateId = self.stateAtEip[addr].nodeid
@@ -68,12 +100,15 @@ class AnalyzerState(object):
         return nextStates
 
     def exportToFile(self, filename, eip):
-        # TODO
+        """
+        TODO not implemented yet.
+        """
         pass
 
 
 class State(object):
     """
+    Stores analyzer state at a specific address.
     TODO separate computed state from user-set state
     """
     def __init__(self, address, prettyname=""):

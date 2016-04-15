@@ -978,8 +978,8 @@ module Make(Domain: Domain.T) =
 	  | '\x65' -> s.segments.data <- ss; decode s label
 	  | '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s label
 	  | '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s label
-	  | '\x68' -> push_immediate s 1 label
-	  | '\x6A' -> push_immediate s (s.operand_sz / Config.size_of_byte) label
+	  | '\x68' -> push_immediate s (s.operand_sz / Config.size_of_byte) label
+	  | '\x6A' -> push_immediate s 1 label
 				     
 	  | c when '\x6C' <= c && c <= '\x6F' -> Log.error "INS/OUTS instruction not precisely handled in that model"
 								   

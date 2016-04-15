@@ -5,7 +5,6 @@ Tests targeting the loading of binary files
 
 import pytest
 import copy
-import binascii
 from idabincat import analyzer_state
 
 
@@ -20,7 +19,6 @@ def initialState(request):
 
 @pytest.fixture(scope='function')
 def analyzer(tmpdir, request):
-    import mlbincat
 
     def run_analyzer(initialState, binarystr):
         """
@@ -43,9 +41,8 @@ def analyzer(tmpdir, request):
         # TODO write to init
         outputfile = str(tmpdir.join('end.ini'))
         logfile = str(tmpdir.join('log.txt'))
-        mlbincat.process(initfile, outputfile, logfile)
-        ac = analyzer_state.AnalyzerState()
-        ac.setStatesFromAnalyzerOutput(outputfile)
+        ac = analyzer_state.AnalyzerState.run_analyzer(initfile, outputfile,
+                                                       logfile)
         return ac
     return run_analyzer
 
