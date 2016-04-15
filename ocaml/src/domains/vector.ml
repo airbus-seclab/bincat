@@ -301,12 +301,9 @@ module Make(V: Val) =
 
     let to_string v =
       let v' =
-	if exists V.is_bot v then
-	  "_"
+	if exists V.is_bot v || exists V.is_top v then
+	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "" v
 	else
-	  if exists V.is_top v then
-	    "?"
-	  else
 	    Data.Word.to_string (to_word v)
       in
       let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "" v  in
