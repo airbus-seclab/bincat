@@ -60,15 +60,15 @@ let of_value z =
     else
       V.TOP, T.U
 	       
-let taint_of_value z =
-  if Z.compare Z.zero z = 0 then
-    V.BOT, T.U
+let taint_of_value z (v, _t) =
+  let t' =
+  if Z.compare Z.zero z = 0 then T.U
   else
-    if Z.compare Z.one z = 0 then
-      V.BOT, T.T
-    else
-      V.BOT, T.TOP
-
+    if Z.compare Z.one z = 0 then T.T
+    else T.TOP
+  in
+  v, t'
+	       
 let neg (v, t) = V.neg v, t
 
 let lt (v1, _t1) (v2, _t2) = V.lt v1 v2

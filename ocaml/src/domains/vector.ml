@@ -18,8 +18,8 @@ module type Val =
     val to_value: t -> Z.t
     (** conversion from Z.t value *)
     val of_value: Z.t -> t
-    (** taint conversion from Z.t value *)
-    val taint_of_value: Z.t -> t
+    (** taint the given value from Z.t value *)
+    val taint_of_value: Z.t -> t -> t
     (** abstract join *)
     val join: t -> t -> t
     (** abstract meet *)
@@ -93,7 +93,8 @@ module type T =
     (** the integer parameter is the size in bits of the config value *)
     val of_config: Config.cvalue -> int -> t
     (** conversion from a tainting value *)
-    val taint_of_config: Config.tvalue -> int -> t
+    (** the value option is a possible previous init *)
+    val taint_of_config: Config.tvalue -> int -> t option -> t
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t
   end
@@ -321,20 +322,23 @@ module Make(V: Val) =
       done;
       v
 	
-    let taint_of_config t n =
+    let taint_of_config t n (prev: t option) =
+      let v =
+	match prev with
+	| Some v' -> Array.copy v'
+	| None    -> Array.make n V.default
+      in
       match t with
       | Config.Bits b ->
-	 let v = Array.make n V.default in
 	 for i = 0 to n-1 do
-	   v.(i) <- V.taint_of_value (nth_of_value b i)
+	   v.(i) <- V.taint_of_value (nth_of_value b i) v.(i)
 	 done;
 	 v
       | Config.MBits (b, m) ->
-	 let v = Array.make n V.default in
 	 for i = 0 to n-1 do
 	   let bnth = nth_of_value b i in
 	   let mnth = nth_of_value m i in
-	   v.(i) <- V.join (V.taint_of_value bnth) (V.taint_of_value mnth)
+	   v.(i) <- V.join (V.taint_of_value bnth v.(i)) (V.taint_of_value mnth v.(i))
 	 done;
 	 v
 

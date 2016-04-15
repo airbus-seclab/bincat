@@ -37,7 +37,8 @@ module type T =
 
     (** returns the tainted value corresponding to the given abstract value *)
     (** the size of the value is given by the int parameter *)
-    val taint_of_config: Data.Address.region -> Config.tvalue -> int -> t
+    (** the option parameter is the previous init value *)
+    val taint_of_config: Data.Address.region -> Config.tvalue -> int -> t option -> t
 				       
     (** join two abstract values *)
     val join: t -> t -> t
@@ -239,24 +240,23 @@ module Make(D: T) =
 	 try
 	   Val (Map.replace (K.M a) (v', 1) m')
 	 with Not_found -> Val (Map.add (K.M a) (v', 1) m')
-				  
-    let taint_memory_from_config a region c m =
+
+    let taint_from_config dim sz region c m =
       match m with
       | BOT -> BOT
       | Val m' ->
-	 let v' = D.taint_of_config region c !Config.operand_sz in
+	 let prev =
+	   try Some (fst (Map.find dim m'))
+	   with Not_found -> None
+	 in
+	 let v' = D.taint_of_config region c sz prev in
 	 try
-	   Val (Map.replace (K.M a) (v', 0) m')
-	 with Not_found -> Val (Map.add (K.M a) (v', 0) m')
-
-    let taint_register_from_config r region c m =
-      match m with
-	BOT    -> BOT
-      | Val m' ->
-	 let v' = D.taint_of_config region c (Register.size r) in
-	 try
-	   Val (Map.replace (K.R r) (v', 0) m')
-	 with Not_found -> Val (Map.add (K.R r) (v', 0) m')
+	   Val (Map.replace dim (v', 0) m')
+	 with Not_found -> Val (Map.add dim (v', 0) m')
+			       
+    let taint_memory_from_config a region c m = taint_from_config (K.M a) !Config.operand_sz region c m 
+    
+    let taint_register_from_config r region c m = taint_from_config (K.R r) (Register.size r) region c m
 
     
     let val_restrict m e1 _v1 cmp _e2 v2 =
