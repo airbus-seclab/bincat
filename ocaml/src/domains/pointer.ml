@@ -50,15 +50,21 @@ module Make (V: Vector.T) =
       match p with
       | BOT 	   -> BOT
       | TOP 	   -> TOP
-      | Val (r, o) -> Val (r, V.unary op o)
-
+      | Val (r, o) ->
+	 try Val (r, V.unary op o)
+	 with _ -> BOT
+		     
     let binary op p1 p2 =
       match p1, p2 with
       | BOT, _ | _, BOT 	   -> BOT
       | TOP, _ | _, TOP 	   -> TOP
       | Val (r1, o1), Val (r2, o2) ->
 	 match r1, r2 with
-	 | Global, r | r, Global -> Val (r, V.binary op o1 o2)
+	 | Global, r | r, Global ->
+			begin
+			  try Val (r, V.binary op o1 o2)
+			  with _ -> BOT
+			end
 	 | r1, r2                ->
 	 if r1 = r2 then Val (r1, V.binary op o1 o2)
 	 else BOT

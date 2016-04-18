@@ -277,6 +277,7 @@ module Make(D: T) =
       | BOT -> BOT
       | Val m' ->
 	 let v1 = eval_exp m' e1 in
+	 Printf.printf "eval v1 = %s\n" (D.to_string v1); flush stdout;
 	 let v2 = eval_exp m' e2 in
 	 if D.compare v1 op v2 then
 	   try

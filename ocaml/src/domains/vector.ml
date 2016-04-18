@@ -208,18 +208,19 @@ module Make(V: Val) =
 
 	  
     let shl v i = 
-      let n  = Array.length v      in
-      let v' = Array.make n V.zero in
-      for j = n-1 downto n-i+1 do
-	v'.(j-i) <- v.(j)
+      let n  = Array.length v          in
+      let v' = Array.make (n-i) V.zero in
+      let o  = n-i                     in
+      for j = 0 to i-1 do
+	v'.(j) <- v.(j+o)
       done;
       v'
 
     let shr v i =
-      let n  = Array.length v      in
-      let v' = Array.make n V.zero in
+      let n  = Array.length v          in
+      let v' = Array.make (n-i) V.zero in
       for j = 0 to i-1 do
-	v'.(j+i) <- v.(j)
+	v'.(j) <- v.(j+i)
       done;
       v'
 
@@ -279,16 +280,18 @@ module Make(V: Val) =
       if n >= i then
 	v
       else
-	let sign = v.(0) in
-	let o    = n - i in
-	let v' =
-	  if V.is_zero sign then Array.make (n+i) V.zero
-	  else Array.make (n+i) V.one
-	in
-	for j = 0 to n-1 do
-	  v'.(j+o) <- v.(j)
-	done;
-	v'
+	begin
+	  let sign = v.(0) in
+	  let o    = i - n in
+	  let v' =
+	    if V.is_zero sign then Array.make i V.zero
+	    else Array.make i V.one
+	  in
+	  for j = 0 to n-1 do
+	    v'.(j+o) <- v.(j)
+	  done;
+	  v'
+	end
 	
     let unary op v =
       match op with

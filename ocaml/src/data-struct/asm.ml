@@ -36,7 +36,7 @@ type logbinop =
 
 (** type of unary operations *)
 type unop =
-  | SignExt of int (** [SignExt n] is a sign extension on _n_ bit width *)
+  | SignExt of int (** [SignExt n] is a sign extension such that the result is _n_ bit width *)
   | Shl     of int (** left logical shift *)
   | Shr     of int (** right logical shift *)
   | Not            (** negation *)
