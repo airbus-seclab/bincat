@@ -272,12 +272,10 @@ module Make(D: T) =
 	| _, _ -> m
 		
     let compare m (e1: Asm.exp) op e2 =
-      Printf.printf "Unrel.compare %s %s %s\n" (Asm.string_of_exp e1) (Asm.string_of_cmp op) (Asm.string_of_exp e2); flush stdout;
       match m with
       | BOT -> BOT
       | Val m' ->
 	 let v1 = eval_exp m' e1 in
-	 Printf.printf "eval v1 = %s\n" (D.to_string v1); flush stdout;
 	 let v2 = eval_exp m' e2 in
 	 if D.compare v1 op v2 then
 	   try

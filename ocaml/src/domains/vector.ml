@@ -187,7 +187,7 @@ module Make(V: Val) =
       v
 	     
     let add v1 v2 = core_add_sub V.add v1 v2
-    let sub v1 v2 = Printf.printf "%s - %s\n" (to_string v1) (to_string v2); flush stdout; core_add_sub V.sub v1 v2
+    let sub v1 v2 = core_add_sub V.sub v1 v2
 
     let xor v1 v2 = map2 V.xor v1 v2
     let logand v1 v2 = map2 V.logand v1 v2
@@ -211,16 +211,16 @@ module Make(V: Val) =
       let n  = Array.length v          in
       let v' = Array.make (n-i) V.zero in
       let o  = n-i                     in
-      for j = 0 to i-1 do
-	v'.(j) <- v.(j+o)
+      for j = 0 to o-1 do
+	v'.(j) <- v.(i+j)
       done;
       v'
 
     let shr v i =
       let n  = Array.length v          in
       let v' = Array.make (n-i) V.zero in
-      for j = 0 to i-1 do
-	v'.(j) <- v.(j+i)
+      for j = 0 to n-i-2 do
+	v'.(j) <- v.(j)
       done;
       v'
 
@@ -339,7 +339,7 @@ module Make(V: Val) =
       | Config.Bits b ->
 	 let n' =n-1 in
 	 for i = 0 to n-1 do
-	   v.(n'-i) <- V.taint_of_value (nth_of_value b i) v.(i)
+	   v.(n'-i) <- V.taint_of_value (nth_of_value b i) v.(n'-i)
 	 done;
 	 v
       | Config.MBits (b, m) ->
@@ -347,7 +347,7 @@ module Make(V: Val) =
 	 for i = 0 to n' do
 	   let bnth = nth_of_value b i in
 	   let mnth = nth_of_value m i in
-	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(i)) (V.taint_of_value mnth v.(i))
+	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(n'-i)) (V.taint_of_value mnth v.(n'-i))
 	 done;
 	 v
 

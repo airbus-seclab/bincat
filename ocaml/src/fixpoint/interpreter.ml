@@ -59,7 +59,6 @@ struct
   let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
 			   
   let process_stmt _g (v: Cfa.State.t) d stmt fun_stack =
-    Printf.printf "Interpreter.process_stmt %s\n" (Asm.string_of_stmt stmt); flush stdout;
     let rec process d s =
       match s with							   
     | Nop -> d

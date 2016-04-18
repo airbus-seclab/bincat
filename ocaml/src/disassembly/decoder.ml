@@ -478,8 +478,9 @@ module Make(Domain: Domain.T) =
 	(* we sum every bits and check whether this sum is even or odd *)
 	(* using the modulo of the divison by 2 *)
 	let nth i =
-	  let one = Const (Word.one (sz-i)) in
-	  BinOp (And, UnOp(Shr i, res), one)
+	  let sz' = sz-i in
+	  let one = Const (Word.one sz') in
+	  BinOp (And, UnOp(Shr (sz'-1), res), one)
 	in
 	let e = ref (nth 0) in
 	for i = 1 to 7 do
