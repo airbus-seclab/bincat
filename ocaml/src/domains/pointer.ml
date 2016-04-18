@@ -57,6 +57,9 @@ module Make (V: Vector.T) =
       | BOT, _ | _, BOT 	   -> BOT
       | TOP, _ | _, TOP 	   -> TOP
       | Val (r1, o1), Val (r2, o2) ->
+	 match r1, r2 with
+	 | Global, r | r, Global -> Val (r, V.binary op o1 o2)
+	 | r1, r2                ->
 	 if r1 = r2 then Val (r1, V.binary op o1 o2)
 	 else BOT
 		
