@@ -450,7 +450,7 @@ module Make(Domain: Domain.T) =
 	let op1' = UnOp (s, op1)	  in
 	let op2' = UnOp (s, op2)	  in
 	let res' = BinOp (op, op1', op2') in
-	If ( Cmp (EQ, res, res'), [ Set (V (T faf), Const (Word.zero faf_sz)) ], [ Set (V (T faf), Const (Word.one faf_sz)) ] )
+	If ( Cmp (EQ, UnOp (SignExt (sz+1), res), res'), [ Set (V (T faf), Const (Word.zero faf_sz)) ], [ Set (V (T faf), Const (Word.one faf_sz)) ] )
 
       (** produce the statement to unset the carry flag *)
       let clear_carry_flag_stmts () = Set (V (T fcf), Const (Word.zero fcf_sz))
