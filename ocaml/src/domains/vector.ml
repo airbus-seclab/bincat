@@ -173,7 +173,7 @@ module Make(V: Val) =
 	let c = 
 	  (* add the carry/borrow if present *)
 	  match !carry_borrow with
-	  | None -> None
+	  | None -> v.(i) <- v1.(i); None
 	  | Some b' -> let b', c' = op v1.(i) b' in v.(i) <- b'; c'
 	in
 	(* compute the ith bit of the result with the ith bit of the operand *)

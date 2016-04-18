@@ -897,7 +897,6 @@ module Make(Domain: Domain.T) =
 
       (** check whether an opcode is defined in a given state of the decoder *)
       let check_context s c =
-	Printf.printf "opcode = %x\n" (Char.code c); flush stdout;
 	if s.rep then
 	  match c with
 	  | c when '\x6C' <= c && c <= '\x6F' (* INS and OUTS *) || '\xA4' <= c && c <= '\xA5' (* MOVS *) -> c

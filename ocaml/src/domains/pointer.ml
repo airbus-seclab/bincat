@@ -4,7 +4,7 @@ module Make (V: Vector.T) =
   (struct
     type t =
       | BOT
-      | Val of (region * V.t) (** a pointer is a pair (r, o) where r is the regions it points-to and o an offset in that region *) 
+      | Val of (region * V.t) (** a pointer is a pair (r, o) where r is the region it points-to and o an offset in that region *) 
       | TOP
 
     let bot = BOT
