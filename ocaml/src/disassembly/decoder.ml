@@ -305,6 +305,17 @@ module Make(Domain: Domain.T) =
 	let r = Hashtbl.find register_tbl n in
 	to_reg r sz
 
+      (** sign extension of a byte on _nb_ bytes *)
+      let sign_extension_of_byte b nb =
+	if Z.compare (Z.logand b (Z.of_int (Config.size_of_byte - 1))) Z.zero = 0 then
+	  b
+	else
+	  let ff = ref "0xff" in
+	  for _i = 1 to nb-1 do
+	    ff := !ff ^ "ff"
+	  done;
+	  Z.add (Z.shift_left (Z.of_string !ff) Config.size_of_byte) b
+		
       (** add a new state with the given statements *)
       (** an edge between the current state and this new state is added *)
       let create s stmts label =
@@ -374,7 +385,8 @@ module Make(Domain: Domain.T) =
 		 if rm = 4 then sib s rm' md
 		 else Lval (V rm')
 	       in
-	       let e' = BinOp (Add, e, disp s 8) in
+	       let n = sign_extension_of_byte (int_of_bytes s 1) (!Config.operand_sz / Config.size_of_byte) in
+	       let e' = BinOp (Add, e, Const (Word.of_int n !Config.operand_sz)) in
 	       M (add_data_segment e', sz)
 	     	 
 	    | 2 ->
@@ -574,15 +586,6 @@ module Make(Domain: Domain.T) =
       (* decoding of opcodes of group 1 to 5 *)
       (*****************************************************************************************)
 
-      let sign_extension_of_byte b nb =
-	if Z.compare (Z.logand b (Z.of_int Config.size_of_byte)) Z.zero = 0 then
-	  b
-	else
-	  let ff = ref "0xff" in
-	  for _i = 1 to nb-1 do
-	    ff := !ff ^ "ff"
-	  done;
-	  Z.add (Z.shift_left (Z.of_string !ff) Config.size_of_byte) b
 
       let core_grp s i reg_sz =
 	let v 	= (Char.code (getchar s)) in

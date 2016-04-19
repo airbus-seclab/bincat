@@ -55,7 +55,8 @@ module Make (V: Vector.T) =
 	 with _ -> BOT
 		     
     let binary op p1 p2 =
-      match p1, p2 with
+      let r =
+	match p1, p2 with
       | BOT, _ | _, BOT 	   -> BOT
       | TOP, _ | _, TOP 	   -> TOP
       | Val (r1, o1), Val (r2, o2) ->
@@ -68,6 +69,9 @@ module Make (V: Vector.T) =
 	 | r1, r2                ->
 	 if r1 = r2 then Val (r1, V.binary op o1 o2)
 	 else BOT
+      in
+      Printf.printf "%s %s %s = %s\n" (to_string p1) (Asm.string_of_binop op) (to_string p2) (to_string r); flush stdout;
+      r
 		
     let of_word w = Val (Global, V.of_word w)
 

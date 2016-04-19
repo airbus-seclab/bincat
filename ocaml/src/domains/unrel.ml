@@ -144,6 +144,7 @@ module Make(D: T) =
     let eval_exp m e =
       Printf.printf "%s\n" (Asm.string_of_exp e); flush stdout;
       let rec eval e =
+	Printf.printf "%s\n" (Asm.string_of_exp e); flush stdout;
 	match e with
 	| Asm.Const c 			     -> D.of_word c
 	| Asm.Lval (Asm.V (Asm.T r)) 	     ->
