@@ -110,6 +110,9 @@ rule token = parse
   | "U"                     { U }
   | "T"                     { T }
   | "imports"               { IMPORTS }
+  | "stack"                 { STACK }
+  | ":"                     { RANGE }
+  | "heap"                  { HEAP}
   (* left operand of type integer *)
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)

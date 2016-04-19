@@ -324,9 +324,17 @@ module Make(V: Val) =
     let of_config c n =
       let v  = Array.make n V.default in
       let n' = n-1                    in
-      for i = 0 to n' do
-	v.(n'-i) <- V.of_value (nth_of_value c i)
-      done;
+      begin
+	match c with
+	| Config.Content c         ->
+	   for i = 0 to n' do
+	     v.(n'-i) <- V.of_value (nth_of_value c i)
+	   done
+	| Config.CMask (c, m) ->
+	   for i = 0 to n' do
+	     v.(n'-i) <- V.join (V.of_value (nth_of_value c i)) (V.of_value (nth_of_value m i))
+	   done
+      end;
       v
 	
     let taint_of_config t n (prev: t option) =
@@ -336,13 +344,13 @@ module Make(V: Val) =
 	| None    -> Array.make n V.default
       in
       match t with
-      | Config.Bits b ->
+      | Config.Taint b ->
 	 let n' =n-1 in
 	 for i = 0 to n-1 do
 	   v.(n'-i) <- V.taint_of_value (nth_of_value b i) v.(n'-i)
 	 done;
 	 v
-      | Config.MBits (b, m) ->
+      | Config.TMask (b, m) ->
 	 let n' = n-1 in
 	 for i = 0 to n' do
 	   let bnth = nth_of_value b i in

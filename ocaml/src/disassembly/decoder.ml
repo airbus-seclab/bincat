@@ -345,61 +345,61 @@ module Make(Domain: Domain.T) =
 	| _ 	        -> BinOp (Add, e, Lval (V reg))
 
       exception Disp32
-
+			 
       let add_segment s e sreg =
 	let m      = Hashtbl.find s.segments.reg sreg in 
 	let ds_val = get_base_address s m             in
 	BinOp(Add, e, Const (Word.of_int ds_val s.operand_sz))
 	
       let operands_from_mod_reg_rm s v =
-
 	let add_data_segment e = add_segment s e s.segments.data                            in	 
 	let c 		       = getchar s  						    in
 	let md, reg, rm        = mod_nnn_rm (Char.code c)				    in
 	let direction 	       = (v lsr 1) land 1   					    in
 	let sz                 = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in
 	let rm' 	       = find_reg rm sz 					    in
-	let reg                = find_reg reg sz                                            in
+	let reg'               = find_reg reg sz                                            in
 	try
-	  let reg' =
+	  let rm' =
 	    match md with
 	    | 0 ->
 	       begin
 		 match rm with
-		 | 4 -> M ( add_data_segment (sib s reg md), sz)
+		 | 4 -> M ( add_data_segment (sib s rm' md), sz)
 		 | 5 -> raise Disp32
-		 | _ -> M (add_data_segment (Lval (V reg)), sz)
+		 | _ -> M (add_data_segment (Lval (V rm')), sz)
 	       end						    
 	    | 1 ->
 	       let e =
-		 if rm = 4 then sib s reg md
-		 else Lval (V reg)
+		 if rm = 4 then sib s rm' md
+		 else Lval (V rm')
 	       in
 	       let e' = BinOp (Add, e, disp s 8) in
 	       M (add_data_segment e', sz)
 	     	 
 	    | 2 ->
 	       let e =
-		 if rm = 4 then sib s reg md
-		 else Lval (V reg)
+		 if rm = 4 then sib s rm' md
+		 else Lval (V rm')
 	       in
 	       let e' = BinOp (Add, e, disp s 32) in
 	       M (add_data_segment e', sz)
 		 
-	    | 3 -> flush stdout; V reg
+	    | 3 -> V rm'
+		     
 	    | _ -> raise (Exceptions.Error "Decoder: illegal value for md in mod_reg_rm extraction")
 			     
 	  in
 	  if direction = 0 then
-	    (V rm'), Lval (M (Lval reg', sz))
+	    rm', Lval (V reg')
 	  else
-	    reg', Lval (V rm')
+	    V reg', Lval rm'
 	with
-	  Disp32 -> 
-	  if direction = 0 then
-	    V rm', add_data_segment (disp s 32)
-	  else
-	    raise (Exceptions.Error "Decoder: illegal direction for displacement only addressing mode")
+	| Disp32 -> 
+	   if direction = 0 then
+	     V rm', add_data_segment (disp s 32)
+	   else
+	     Log.error "Decoder: illegal direction for displacement only addressing mode"
 		      
       (*******************************************************************************************************)
       (* statements to set/clear the flags *)
@@ -897,6 +897,7 @@ module Make(Domain: Domain.T) =
 
       (** check whether an opcode is defined in a given state of the decoder *)
       let check_context s c =
+	Printf.printf "opcode = %x\n" (Char.code c); flush stdout;
 	if s.rep then
 	  match c with
 	  | c when '\x6C' <= c && c <= '\x6F' (* INS and OUTS *) || '\xA4' <= c && c <= '\xA5' (* MOVS *) -> c
@@ -1010,12 +1011,12 @@ module Make(Domain: Domain.T) =
 
 	  | '\xc3' -> create s [ Return; set_esp Add (T esp) !Config.stack_width; ] label
 			     
-	  | '\xe3' 			      -> jecxz s label
+	  | '\xe3' -> jecxz s label
 
-	  | '\xe9' 			      -> relative_jmp s (s.operand_sz / Config.size_of_byte) label
-	  | '\xea' 			      -> direct_jmp s label
-	  | '\xeb' 			      -> relative_jmp s 1 label
-	  | '\xe8' 			      -> relative_call s (s.operand_sz / Config.size_of_byte) label
+	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte) label
+	  | '\xea' -> direct_jmp s label
+	  | '\xeb' -> relative_jmp s 1 label
+	  | '\xe8' -> relative_call s (s.operand_sz / Config.size_of_byte) label
 				    
 
 	  | '\xf0' -> Log.error "LOCK instruction found. Interpreter halts"
@@ -1060,7 +1061,7 @@ module Make(Domain: Domain.T) =
 	and decode_snd_opcode s label =
 	  match getchar s with
 	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte) label
-	  | c 				      -> raise (Exceptions.Error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c)))
+	  | c 				      -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
 	  decode s None
 					      

@@ -54,17 +54,23 @@ let gs = ref Z.zero
 
 
 type tvalue =
-  | Bits of Z.t
-  | MBits of Z.t * Z.t (* second element is a mask on the first one *)
+  | Taint of Z.t
+  | TMask of Z.t * Z.t (* second element is a mask on the first one *)
 
-type cvalue = Z.t
-		
+type cvalue =
+  | Content of Z.t
+  | CMask of Z.t * Z.t
+		 
 (* initial state utilities *)
 		    
 let initial_register_content: (Register.t, cvalue) Hashtbl.t = Hashtbl.create 10
-let initial_memory_content: (Z.t, cvalue) Hashtbl.t = Hashtbl.create 10 (* TODO: better signature would be keys of type Data.Address.t but this would imply that Config and Data would be mutually recursive *)
+let initial_memory_content: (Z.t * Z.t, cvalue) Hashtbl.t = Hashtbl.create 10 
 let initial_register_tainting: (Register.t, tvalue) Hashtbl.t = Hashtbl.create 10
-let initial_memory_tainting: (Z.t, tvalue) Hashtbl.t = Hashtbl.create 10 (* TODO: better signature would be keys of type Data.Address.t but this would imply that Config and Data would be mutually recursive *)				   
+let initial_memory_tainting: (Z.t * Z.t, tvalue) Hashtbl.t = Hashtbl.create 10 (* first element in the key is the address ; second one is the number of repetition *)
+let initial_stack_content: (Z.t * Z.t, cvalue) Hashtbl.t = Hashtbl.create 10
+let initial_stack_tainting: (Z.t * Z.t, tvalue) Hashtbl.t = Hashtbl.create 10
+let initial_heap_content: (Z.t * Z.t, cvalue) Hashtbl.t = Hashtbl.create 10
+let initial_heap_tainting: (Z.t * Z.t, tvalue) Hashtbl.t = Hashtbl.create 10
 
 
 (* tainting rules for functions *)
