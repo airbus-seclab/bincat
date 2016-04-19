@@ -545,7 +545,19 @@ module Make(Domain: Domain.T) =
 	let w   = Const (Word.of_int (int_of_bytes s sz') s.operand_sz) in
 	add_sub s op b r' w sz label
      
-		     
+
+      let cmp_stmts e1 e2 sz =
+	let tmp         = Register.make (Register.fresh_name ()) sz in
+	let res         = Lval (V (T tmp))                          in
+	let flag_stmts =
+	  [
+	    carry_flag_stmts sz res e1 Sub e2; overflow_flag_stmts res e1 e2; zero_flag_stmts sz res;
+	    sign_flag_stmts res              ; parity_flag_stmts sz res     ; adjust_flag_stmts res e1 e2
+	  ]
+	in
+	let set = Set (V (T tmp), BinOp (Sub, e1, e2)) in
+	(set::(flag_stmts)@[Directive (Remove tmp)])
+	       
       (** creates the states for OR, XOR, AND depending on the the given operator *)
       let or_xor_and s op dst src label =
 	let res   = Set (dst, BinOp(op, Lval dst, src)) in
@@ -582,11 +594,12 @@ module Make(Domain: Domain.T) =
 	in
 	create s stmts label
 
+		       
       (*****************************************************************************************)
       (* decoding of opcodes of group 1 to 5 *)
       (*****************************************************************************************)
 
-
+     	
       let core_grp s i reg_sz =
 	let v 	= (Char.code (getchar s)) in
 	let dst =
@@ -613,7 +626,7 @@ module Make(Domain: Domain.T) =
 	   | 4 -> or_xor_and s And dst c label 
 	   | 5 -> add_sub s Sub false dst c reg_sz label
 	   | 6 -> or_xor_and s Xor dst c label
-	   | 7 -> (* cmp: like the x86 spec it is implemented as a Sub *) add_sub s Sub false dst c reg_sz label
+	   | 7 -> create s (cmp_stmts (Lval dst) c reg_sz) label
 	   | _ -> Log.error "Illegal nnn value in grp1"
 
       let grp3 s sz label =
@@ -669,7 +682,7 @@ module Make(Domain: Domain.T) =
 	  let esi'  = V (to_reg esi i)                    in
 	  let medi' = M (add_segment s (Lval edi') es, i) in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
-	  create s ((add_sub_stmts Sub false medi' (Lval mesi') i) @ (inc_dec_wrt_df [edi' ; esi'] i)) label
+	  create s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi' ; esi'] i)) label
 
 	(** state generation for LODS *)
 	let lods s i label =
@@ -683,15 +696,16 @@ module Make(Domain: Domain.T) =
 	  let eax' = V (to_reg eax i)                    in
 	  let edi' = V (to_reg edi i)                    in
 	  let mem  = M (add_segment s (Lval edi') es, i) in
-	  create s ((add_sub_stmts Sub false eax' (Lval mem) i) @ (inc_dec_wrt_df [edi'] i)) label
+	  create s ((cmp_stmts (Lval eax') (Lval mem) i) @ (inc_dec_wrt_df [edi'] i) ) label
 
 
 	(** state generation for STOS *)
 	let stos s i label =
-	  let eax'  = V (to_reg eax i)                    in
-	  let edi'  = V (to_reg edi i)                    in
-	  let medi' = M (add_segment s (Lval edi') es, i) in
-	  create s ((Set (medi', Lval eax'))::(inc_dec_wrt_df [edi'] i)) label
+	  let eax'  = V (to_reg eax i)                     in
+	  let edi'  = V (to_reg edi i)                     in
+	  let medi' = M (add_segment s (Lval edi') es, i)  in
+	  let stmts = Set (medi', Lval eax')               in 
+	  create s (stmts::(inc_dec_wrt_df [edi'] i)) label
 		 
 	(****************************************************)
 	(* State generation for loop, call and jump instructions *)
