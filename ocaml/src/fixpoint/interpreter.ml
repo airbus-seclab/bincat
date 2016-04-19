@@ -159,16 +159,26 @@ struct
     
   (** [filter_vertices _g_ vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
   let filter_vertices g vertices =
-    let same v v' =
-      Data.Address.equal v.Cfa.State.ip v'.Cfa.State.ip
-      && v.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz
-      && v.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz
-      && v.Cfa.State.internal = v'.Cfa.State.internal
-      && D.subset v'.Cfa.State.v v.Cfa.State.v
+    List.map (fun (label, v) ->
+	match label with
+	| None -> v
+	| Some e -> v.Cfa.State.v <- restrict v.Cfa.State.v e true) vertices; v
+    let same prev v' =
+      if Data.Address.equal v.Cfa.State.ip v'.Cfa.State.ip then
+	begin
+	  v.Cfa.State.v <- D.join prev.Cfa.State.v v'.Cfa.State.v;
+	  (* first to conditions ensure the decoding context is the same *)
+	  prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
+						   prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
+						     (* fixpoint reached *)
+						     D.subset v'.Cfa.State.v prev.Cfa.State.v
+	end
+      else
+	false
     in
     List.fold_left (fun l v ->
 	try
-	   if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
+	  if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
 	     Log.from_analysis (Printf.sprintf "Address %s reached but not explored because it belongs to the cut off branches\n"
 					       (Data.Address.to_string v.Cfa.State.ip))
 	  else
@@ -201,15 +211,13 @@ struct
     (* set of waiting nodes in the CFA waiting to be processed *)
     let waiting  = ref (Vertices.singleton s) in
     (* set d to the initial internal state of the decoder *)
-    let d = ref (Decoder.init ()) in
+    let d = ref (Decoder.init ())             in
     (* function stack *)
-    let fun_stack = ref [] in
+    let fun_stack = ref []                    in
     while !continue do
       (* a waiting node is randomly chosen to be explored *)
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
-      List.iter (fun s -> Printf.printf "%s\n" (Asm.string_of_stmt s)) v.Cfa.State.stmts; flush stdout;
-      Printf.printf "-----------------------------\n"; flush stdout;
       begin
 	try
 	  (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)

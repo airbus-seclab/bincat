@@ -65,7 +65,10 @@ module type T =
     val untaint: t -> t
 
     (** default value. The integer is the size in bits of the dimension to initialise *)
-      val default: int -> t
+    val default: int -> t
+
+    (** returns the sub value between bits l and u *)
+    val extract: t -> int -> int -> t
   end
 		  
 		  
@@ -150,7 +153,14 @@ module Make(D: T) =
 	     try fst (Map.find (K.R r) m)
 	     with Not_found -> D.default (Register.size r)
 	   end
-	| Asm.Lval (Asm.V (Asm.P (_r, _l, _u))) -> D.top (* can be more precise *)
+	| Asm.Lval (Asm.V (Asm.P (r, l, u))) ->
+	   begin
+	     try
+	       let v = fst (Map.find (K.R r) m) in
+	       D.extract v l u
+	     with
+	     | Not_found -> D.default (u-l+1)
+	   end
 	| Asm.Lval (Asm.M (e, n))               ->
 	   begin
 	     try
@@ -215,7 +225,9 @@ module Make(D: T) =
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT  -> m
-      | Val m1', Val m2' -> Val (Map.map2 (fun (v1, n1) (v2, n2) -> D.join v1 v2, max n1 n2) m1' m2')
+      | Val m1', Val m2' -> let n = (max n1 n2) + 1                                 in
+			    let f = if n <= !Config.unroll then D.join else D.widen in
+			    Val (Map.map2 (fun (v1, n1) (v2, n2) -> f v1 v2, n) m1' m2')
 
     let meet m1 m2 =
       match m1, m2 with

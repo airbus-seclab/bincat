@@ -114,5 +114,9 @@ module Make (V: Vector.T) =
       | Val (r1, o1), Val (r2, o2) ->
 	 if r1 = r2 then Val (r1, V.combine o1 o2 l u)
 	 else BOT
-		
+
+    let extract p l u =
+      match p with
+      | BOT | TOP -> p
+      | Val (r, o) -> Val (r, V.extract o l u)	 
   end: Unrel.T)

@@ -18,7 +18,6 @@ module Make(Domain: Domain.T) =
 	      mutable v: Domain.t; 	    (** abstract value *)
 	      mutable ctx: ctx_t ; 	    (** context of decoding *)
 	      mutable stmts: Asm.stmt list; (** list of statements thas has lead to this state *)
-	      internal: bool 	     	    (** whenever this node has been added for technical reasons and not because it is a real basic blocks *)
 	    }
 				   
 	  (** the state identificator counter *)
@@ -232,7 +231,6 @@ module Make(Domain: Domain.T) =
 		op_sz = !Config.operand_sz;
 		addr_sz = !Config.address_sz;
 	      };
-	    internal = false
 	}
 	in
 	let g = G.create () in
@@ -245,20 +243,19 @@ module Make(Domain: Domain.T) =
       (** returns true whenever the two given contexts are equal *)
       let ctx_equal c1 c2 = c1.addr_sz = c2.addr_sz && c1.op_sz = c2.op_sz
 								    
-      (** [add_state g pred ip s stmts ctx i] creates a new state in _g_ with
+      (** [add_state g pred ip s stmts ctx] creates a new state in _g_ with
     - ip as instruction pointer;
     - stmts as list of statements;
     - v as abstract value
     - ctx as decoding context
-    - i is the boolean true for internal states ; false otherwise *)
-      let add_state g ip v stmts ctx i =
+       *)
+      let add_state g ip v stmts ctx =
 	let v = {
 	    id       = new_state_id();
 	    v 	     = v;
 	    ip 	     = ip;
 	    stmts    = stmts ;
 	    ctx      = ctx;
-	    internal = i
 	  }
 	  in
 	  G.add_vertex g v;

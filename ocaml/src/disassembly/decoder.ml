@@ -319,15 +319,15 @@ module Make(Domain: Domain.T) =
       (** add a new state with the given statements *)
       (** an edge between the current state and this new state is added *)
       let create s stmts label =
-	let ctx = { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz }                        in
-	let v   = Cfa.add_state s.g (Address.add_offset s.a (Z.of_int s.o)) s.b.Cfa.State.v stmts ctx false in
+	let ctx = { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz }                  in
+	let v   = Cfa.add_state s.g (Address.add_offset s.a (Z.of_int s.o)) s.b.Cfa.State.v stmts ctx in
 	let label' =
 	  match label with
 	  | None   -> None
 	  | Some f -> Some (f s)
 	in
 	Cfa.add_edge s.g s.b v label';
-	[v]
+	[label', v]
 
       (************************************************)
       (* MOD REG R/M *)
@@ -1066,13 +1066,13 @@ module Make(Domain: Domain.T) =
 	    if neg then BUnOp (LogNot, e)
 	    else e
 	    in
-	   (* thanks to check_context at the beginning of decode we know that next opcode is SCAS/LODS/etc. *)
+	   (* thanks to check_context at the beginning of decode we know that next opcode is SCAS/LODS/STOS/CMPS *)
 	   (* otherwise decoder halts *)
-	   let body = List.hd (decode s (Some (make_label false))) in
+	   let _edge, body = List.hd (decode s (Some (make_label false))) in
 	   (* add an edge body -> s.b for the loop *)
 	   Cfa.add_edge s.g body s.b None;
 	   (* TODO: optimize : label is built twice (one for the if true branch and once for the false branch *)
-	   body::(create s [] (Some (make_label true)))	    
+	   (None, body)::(create s [] (Some (make_label true)))	    
 	  
 	and decode_snd_opcode s label =
 	  match getchar s with

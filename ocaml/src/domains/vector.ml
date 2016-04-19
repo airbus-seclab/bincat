@@ -97,6 +97,8 @@ module type T =
     val taint_of_config: Config.tvalue -> int -> t option -> t
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t
+    (** return the value corresponding to bits l to u *)
+    val extract: t -> int -> int -> t
   end
     
 module Make(V: Val) =
@@ -370,5 +372,16 @@ module Make(V: Val) =
       v
 
     let compare v1 op v2 = for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-      
+
+    let extract v l u =
+      let len = Array.length v         in
+      let n   = u - l + 1              in
+      let v'  = Array.make n V.default in
+      let l'  = len-l-1                in
+      let u'  = len-u-1                in
+      for i = u' to l' do
+	v'.(i) <- v.(i)
+      done;
+      v'
+	
   end: T)
