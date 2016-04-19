@@ -141,12 +141,21 @@ module Make(Domain: Domain.T) =
 	!s
 	  
       (** splits the given integer into a sequence of integers that fit into !Config.operand_sz bits *)
-      let pad_of_int r a i: (Data.Address.t * Z.t) list =
-	let a'    = Data.Address.of_int r a !Config.address_sz in
+      let pad_of_int r a i rep: (Data.Address.t * Z.t) list =
+	let rep = Z.to_int rep in
+	let i' =
+	  let z = ref Z.zero in
+	  let n = String.length (Bits.z_to_bit_string i) in
+	  for _j = 1 to rep do
+	    z := Z.add (Z.shift_left !z n) i
+	  done;
+	  !z
+	in
+	let a'    = Data.Address.of_int r a !Config.operand_sz in
 	let nb    = !Config.operand_sz / Config.size_of_byte   in
 	let mask  = ff nb                                      in
 	let l     = ref []                                     in
-	let n     = ref i                                      in
+	let n     = ref i'                                     in
 	while Z.compare !n Z.zero > 0 do
 	  l := (Z.logand mask !n)::!l;
 	  n := Z.shift_right !n !Config.operand_sz 
@@ -156,12 +165,12 @@ module Make(Domain: Domain.T) =
    		   
       (** 1. split b into a list of tainting values of size Config.operand_sz *)
       (** 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
-      let extended_tainting_memory_pad r a t =
+      let extended_tainting_memory_pad r a t nb =
 	match t with
-	| Config.Taint b      -> List.map (fun (a', v') -> a', Config.Taint v') (pad_of_int r a b)
+	| Config.Taint b      -> List.map (fun (a', v') -> a', Config.Taint v') (pad_of_int r a b nb)
 	| Config.TMask (b, m) -> 
-	   let b' = pad_of_int r a b in
-	   let m' = pad_of_int r a m in
+	   let b' = pad_of_int r a b nb in
+	   let m' = pad_of_int r a m nb in
 	   let nb' = List.length b' in
 	   let nm' = List.length m' in
 	   if nb' = nm' then
@@ -173,12 +182,12 @@ module Make(Domain: Domain.T) =
 	       (* filling with '0' means that we suppose by default that memory is untainted *)
 	       List.mapi (fun i (a, m) -> if i < nb' then a, Config.TMask (snd (List.nth b' i), m) else a, Config.TMask (Z.zero, m)) m' 
 
-      let extended_content_memory_pad r a c =
+      let extended_content_memory_pad r a c nb =
 	match c with
-	  | Config.Content b    -> List.map (fun (a', v') -> a', Config.Content v') (pad_of_int r a b)
+	  | Config.Content b    -> List.map (fun (a', v') -> a', Config.Content v') (pad_of_int r a b nb)
 	  | Config.CMask (b, m) -> 
-	   let b' = pad_of_int r a b in
-	   let m' = pad_of_int r a m in
+	   let b' = pad_of_int r a b nb in
+	   let m' = pad_of_int r a m nb in
 	   let nb' = List.length b' in
 	   let nm' = List.length m' in
 	   if nb' = nm' then
@@ -192,30 +201,14 @@ module Make(Domain: Domain.T) =
       (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
       (* this filling is done by iterating on corresponding tables in Config *)
       let init_mem d region content_tbl tainting_tbl =
-	let repeat l n =
-	  let n' = Z.to_int n in
-	  match n' with
-	  | 0  -> []
-	  | 1  -> l
-	  | n' ->
-	     let o  = Z.of_int ((List.length l) * !Config.operand_sz) in
-	     let l' = ref []					      in
-	     for i = 1 to n'-1 do
-	       let o' = Z.mul o (Z.of_int i) in
-	       l' := !l' @ (List.map (fun (a, v) -> Data.Address.add_offset a o', v) l)
-	     done;
-	     l @ !l'
-	in
 	let dc' = Hashtbl.fold (fun (a, n) c d ->
-		      let l = extended_content_memory_pad region a c in
-		      let l' = repeat l n in
-		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' Data.Address.Global c' d) d l'
+		      let l = extended_content_memory_pad region a c n in
+		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' Data.Address.Global c' d) d l
 		    ) content_tbl d
 	in
 	Hashtbl.fold (fun (a, n) t d ->
-	    let l = extended_tainting_memory_pad region a t in
-	    let l' = repeat l n in
-	    List.fold_left (fun d (a', c') -> Domain.taint_memory_from_config a' Data.Address.Global c' d) d l') tainting_tbl dc'
+	    let l = extended_tainting_memory_pad region a t n in
+	    List.fold_left (fun d (a', c') -> Domain.taint_memory_from_config a' Data.Address.Global c' d) d l) tainting_tbl dc'
 	
       (* end of init utilities *)	     
       (*************************)

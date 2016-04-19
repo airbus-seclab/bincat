@@ -59,7 +59,6 @@ struct
   let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
 			   
   let process_stmt _g (v: Cfa.State.t) d stmt fun_stack =
-    Printf.printf "%s\n" (Asm.string_of_stmt stmt); flush stdout;
     let rec process d s =
       match s with							   
     | Nop -> d
@@ -209,6 +208,8 @@ struct
       (* a waiting node is randomly chosen to be explored *)
       let v = Vertices.choose !waiting in
       waiting := Vertices.remove v !waiting;
+      List.iter (fun s -> Printf.printf "%s\n" (Asm.string_of_stmt s)) v.Cfa.State.stmts; flush stdout;
+      Printf.printf "-----------------------------\n"; flush stdout;
       begin
 	try
 	  (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
