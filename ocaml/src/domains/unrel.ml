@@ -142,6 +142,7 @@ module Make(D: T) =
 
     (** evaluates the given expression *)
     let eval_exp m e =
+      Printf.printf "%s\n" (Asm.string_of_exp e); flush stdout;
       let rec eval e =
 	match e with
 	| Asm.Const c 			     -> D.of_word c
@@ -173,7 +174,9 @@ module Make(D: T) =
 	| Asm.BinOp (op, e1, e2) -> D.binary op (eval e1) (eval e2)
 	| Asm.UnOp (op, e) 	 -> D.unary op (eval e)
       in
-      eval e
+      let r = eval e in
+      Printf.printf "res = %s\n" (D.to_string r); flush stdout;
+      r
 
     let mem_to_addresses m e =
       match m with

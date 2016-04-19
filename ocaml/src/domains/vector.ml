@@ -110,10 +110,11 @@ module Make(V: Val) =
 	done;
 	false
       with Exit -> true
+
    		  
     let map2 f v1 v2 =
-      let n = Array.length v1        in
-      let v = Array.make n V.default in
+      let n = min (Array.length v1) (Array.length v2) in
+      let v = Array.make n V.default                  in
       for i = 0 to n-1 do
 	v.(i) <- f v1.(i) v2.(i)
       done;
@@ -125,15 +126,17 @@ module Make(V: Val) =
 	  if not (p v1.(i) v2.(i)) then raise Exit
 	done;
 	true
-      with Exit -> false
-
+      with
+      | Exit -> false
+      | _    -> true
+	       
     let for_all p v =
       try
 	for i = 0 to (Array.length v) -1 do
 	  if not (p v.(i)) then raise Exit
 	done;
 	true
-      with Exit -> false
+      with _ -> false
 
     let to_value v =
       try
@@ -208,9 +211,9 @@ module Make(V: Val) =
 
 	  
     let shl v i = 
-      let n  = Array.length v          in
-      let v' = Array.make (n-i) V.zero in
-      let o  = n-i                     in
+      let n  = Array.length v      in
+      let v' = Array.make n V.zero in
+      let o  = n-i                 in
       for j = 0 to o-1 do
 	v'.(j) <- v.(i+j)
       done;
