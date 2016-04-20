@@ -38,27 +38,9 @@ module Make(Domain: Domain.T) =
 	  let hash b 	= b.id
 	    
 	end
-	  
-      (** Abstract data type of edge labels *)
-      module Label = 
-	struct
 
-	  (** None means no label ; true is used for a if-branch link between states ; false for a else-branch link between states *)
-	  type t = Asm.bexp option
-			
-	  let default = None
-			  
-	  let compare l1 l2 = 
-	    match l1, l2 with
-	      None, None 	   -> 0
-	    | None, _ 	   	   -> -1
-	    | Some b1, Some b2 	   -> compare b1 b2
-	    | Some _, None 	   -> 1
-					
-	end
-      (** *)    
 	  
-      module G = Graph.Imperative.Digraph.ConcreteBidirectionalLabeled(State)(Label)
+      module G = Graph.Imperative.Digraph.ConcreteBidirectional(State)
       open State 
 	     
       (** type of a CFA *)
@@ -262,8 +244,8 @@ module Make(Domain: Domain.T) =
 	  v
 
 				    
-      (** [add_edge g src dst l] adds in _g_ an edge _src_ -> _dst_ with label _l_ *)
-      let add_edge g src dst l = G.add_edge_e g (G.E.create src l dst)
+      (** [add_edge g src dst] adds in _g_ an edge _src_ -> _dst_ *)
+      let add_edge g src dst = G.add_edge g src dst
 					      
       (** updates the abstract value field of the given state *)
       let update_state s v'=

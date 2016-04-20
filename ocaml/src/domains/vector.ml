@@ -24,6 +24,8 @@ module type Val =
     val join: t -> t -> t
     (** abstract meet *)
     val meet: t -> t -> t
+    (** widening *)
+    val widen: t -> t -> t
     (** string conversion *)
     val to_string: t -> string
     (** string conversion of the taint *)
@@ -73,6 +75,8 @@ module type T =
     val join: t -> t -> t
     (** abstract meet *)
     val meet: t -> t -> t
+    (** widening *)
+    val widen: t -> t -> t
     (** string conversion *)
     val to_string: t -> string
     (** binary operation *)
@@ -168,6 +172,10 @@ module Make(V: Val) =
 
     let meet v1 v2 = map2 V.meet v1 v2
 
+    let widen v1 v2 =
+      if Z.compare (to_value v1) (to_value v2) < 0 then
+	raise Exceptions.Enum_failure
+      else v1
 
     (* common utility to add and sub *)
     let core_add_sub op v1 v2 =

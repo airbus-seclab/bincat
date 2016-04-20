@@ -74,11 +74,9 @@ struct
 
     | Directive (Undef r) -> D.undefine r d
 
-    | Jmp None -> d
-
-    | Jmp (Some (A a)) -> v.Cfa.State.ip <- a; d
+    | Jmp (A a) -> v.Cfa.State.ip <- a; d
        
-    | Jmp (Some (R target)) ->
+    | Jmp (R target) ->
        begin
 	 try
 	   let addresses = Data.Address.Set.elements (D.mem_to_addresses d target) in
@@ -148,25 +146,20 @@ struct
   (* vertices are supposed to be sorted in topological order *)
   let update_abstract_values g vertices fun_stack =
     List.map (fun v ->
-	let p = Cfa.pred g v in
-	let d' = List.fold_left (fun d stmt -> process_stmt g v d stmt fun_stack) p.Cfa.State.v v.Cfa.State.stmts in
+	List.iter (fun s -> Printf.printf "%s\n" (Asm.string_of_stmt s)) v.Cfa.State.stmts; flush stdout; Printf.printf "-------------------\n"; flush stdout;
+	let d' = List.fold_left (fun d stmt -> process_stmt g v d stmt fun_stack) v.Cfa.State.v v.Cfa.State.stmts in
 	v.Cfa.State.v <- d';
 	v
       ) vertices
 
-  
-  let n = ref 0;;
     
   (** [filter_vertices _g_ vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
   let filter_vertices g vertices =
-    List.map (fun (label, v) ->
-	match label with
-	| None -> v
-	| Some e -> v.Cfa.State.v <- restrict v.Cfa.State.v e true) vertices; v
+    (* predicate to check whether a new vertex has to be explored or not *)
     let same prev v' =
-      if Data.Address.equal v.Cfa.State.ip v'.Cfa.State.ip then
+      if Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip then
 	begin
-	  v.Cfa.State.v <- D.join prev.Cfa.State.v v'.Cfa.State.v;
+	  v'.Cfa.State.v <- D.join prev.Cfa.State.v v'.Cfa.State.v;
 	  (* first to conditions ensure the decoding context is the same *)
 	  prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
 						   prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
@@ -178,21 +171,23 @@ struct
     in
     List.fold_left (fun l v ->
 	try
+	  (* filters on cutting instruction pointers *)
 	  if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
-	     Log.from_analysis (Printf.sprintf "Address %s reached but not explored because it belongs to the cut off branches\n"
-					       (Data.Address.to_string v.Cfa.State.ip))
+	    Log.from_analysis (Printf.sprintf "Address %s reached but not explored because it belongs to the cut off branches\n"
+					      (Data.Address.to_string v.Cfa.State.ip))
 	  else
-	  (** explore if a greater abstract state of v has already been explored *)
-	  Cfa.iter_vertex (fun v' ->
-	      if v.Cfa.State.id = v'.Cfa.State.id then
-		()
-	      else
-		if same v v' then raise Exit
-	    ) g;
+	    (** explore if a greater abstract state of v has already been explored *)
+	    Cfa.iter_vertex (fun v' ->
+		if v.Cfa.State.id = v'.Cfa.State.id then
+		  ()
+		else
+		  if same v v' then raise Exit
+	      ) g;
 	  v::l
 	with
 	  Exit -> l
-	) [] vertices
+      ) [] vertices
+    
       
   (** oracle used by the decoder to know the current value of a register *)
   class decoder_oracle s =

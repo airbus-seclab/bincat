@@ -45,7 +45,10 @@ module type T =
 
     (** meet the two abstract values *)
     val meet: t -> t -> t
-				      
+
+    (** widen the two abstract values *)
+    val widen: t -> t -> t
+			   
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t 
 
@@ -225,9 +228,15 @@ module Make(D: T) =
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT  -> m
-      | Val m1', Val m2' -> let n = (max n1 n2) + 1                                 in
-			    let f = if n <= !Config.unroll then D.join else D.widen in
-			    Val (Map.map2 (fun (v1, n1) (v2, n2) -> f v1 v2, n) m1' m2')
+      | Val m1', Val m2' ->
+	 let f (v1, n1) (v2, n2) =
+	   let n = (max n1 n2) + 1 in
+	   let v' =
+	     if n <= !Config.unroll then D.join v1 v2 else D.widen v1 v2
+	   in
+	   v', n
+	 in
+	 Val (Map.map2 (fun v1 v2 -> f v1 v2) m1' m2')
 
     let meet m1 m2 =
       match m1, m2 with

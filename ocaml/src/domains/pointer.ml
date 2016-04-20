@@ -38,6 +38,20 @@ module Make (V: Vector.T) =
 	 if r1 = r2 then Val (r1, V.join o1 o2)
 	 else TOP
 
+    let widen p1 p2 =
+      match p1, p2 with
+      | BOT, BOT 		   -> BOT
+      | BOT, _ 			   -> TOP
+      | TOP, _ | _, TOP		   -> TOP
+      | p, BOT                     -> p
+      | Val (r1, o1), Val (r2, o2) ->
+	 if r1 = r2 then
+	   try
+	     Val (r1, V.widen o1 o2)
+	   with Exceptions.Enum_failure -> TOP
+	 else TOP
+	   
+		    
     let meet p1 p2 =
       match p1, p2 with
       | TOP, p | p, TOP 	   -> p

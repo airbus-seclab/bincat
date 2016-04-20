@@ -318,16 +318,11 @@ module Make(Domain: Domain.T) =
 		
       (** add a new state with the given statements *)
       (** an edge between the current state and this new state is added *)
-      let create s stmts label =
+      let create s stmts =
 	let ctx = { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz }                  in
 	let v   = Cfa.add_state s.g (Address.add_offset s.a (Z.of_int s.o)) s.b.Cfa.State.v stmts ctx in
-	let label' =
-	  match label with
-	  | None   -> None
-	  | Some f -> Some (f s)
-	in
-	Cfa.add_edge s.g s.b v label';
-	[label', v]
+	Cfa.add_edge s.g s.b v;
+	[v]
 
       (************************************************)
       (* MOD REG R/M *)
@@ -535,15 +530,15 @@ module Make(Domain: Domain.T) =
 	add_sub_flag_stmts [res] sz dst op src 
 
 	(** produces the list of states for for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)
-	let add_sub s op b dst src sz label = create s (add_sub_stmts op b dst src sz) label
+	let add_sub s op b dst src sz = create s (add_sub_stmts op b dst src sz)
 
 	
       (** produces the state corresponding to an add or a sub with an immediate operand *)
-      let add_sub_immediate s op b r sz label =
+      let add_sub_immediate s op b r sz =
 	let r'  = V (to_reg r sz)                                       in
 	let sz' = sz / Config.size_of_byte                              in
 	let w   = Const (Word.of_int (int_of_bytes s sz') s.operand_sz) in
-	add_sub s op b r' w sz label
+	add_sub s op b r' w sz
      
 
       let cmp_stmts e1 e2 sz =
@@ -559,7 +554,7 @@ module Make(Domain: Domain.T) =
 	(set::(flag_stmts)@[Directive (Remove tmp)])
 	       
       (** creates the states for OR, XOR, AND depending on the the given operator *)
-      let or_xor_and s op dst src label =
+      let or_xor_and s op dst src =
 	let res   = Set (dst, BinOp(op, Lval dst, src)) in
 	let res'  = Lval dst			        in
 	let flag_stmts =
@@ -568,12 +563,12 @@ module Make(Domain: Domain.T) =
 	    sign_flag_stmts res'     ; parity_flag_stmts s.operand_sz res'; undefine_adjust_flag_stmts ()
 	  ]
 	in
-	create s (res::flag_stmts) label
+	create s (res::flag_stmts)
 		       
       (** [const c s] builds the asm constant c from the given context *)
       let const s c = Const (Word.of_int (Z.of_int c) s.operand_sz)
 			    
-      let inc_dec reg op s label =
+      let inc_dec reg op s =
 	let dst 	= V reg                                       in
 	let name        = Register.fresh_name ()                      in
 	let v           = Register.make ~name:name ~size:s.operand_sz in
@@ -592,7 +587,7 @@ module Make(Domain: Domain.T) =
 	  [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @ 
 	    flags_stmts @ [Directive (Remove v)]
 	in
-	create s stmts label
+	create s stmts
 
 		       
       (*****************************************************************************************)
@@ -609,7 +604,7 @@ module Make(Domain: Domain.T) =
 	in
 	dst, (v lsr 3) land 7
 	       
-      let grp1 s reg_sz imm_sz label =
+      let grp1 s reg_sz imm_sz =
 	let dst, nnn = core_grp s 1 reg_sz in
 	let i = int_of_bytes s (imm_sz / Config.size_of_byte) in
 	let i' =
@@ -619,20 +614,20 @@ module Make(Domain: Domain.T) =
 	let c   = Const (Word.of_int i' reg_sz) in
 	(* operation is encoded in bits 5,4,3 *)
 	   match nnn with
-	   | 0 -> add_sub s Add false dst c reg_sz label
-	   | 1 -> or_xor_and s Or dst c label 
-	   | 2 -> add_sub s Add true dst c reg_sz label
-	   | 3 -> add_sub s Sub true dst c reg_sz label
-	   | 4 -> or_xor_and s And dst c label 
-	   | 5 -> add_sub s Sub false dst c reg_sz label
-	   | 6 -> or_xor_and s Xor dst c label
-	   | 7 -> create s (cmp_stmts (Lval dst) c reg_sz) label
+	   | 0 -> add_sub s Add false dst c reg_sz
+	   | 1 -> or_xor_and s Or dst c
+	   | 2 -> add_sub s Add true dst c reg_sz
+	   | 3 -> add_sub s Sub true dst c reg_sz
+	   | 4 -> or_xor_and s And dst c
+	   | 5 -> add_sub s Sub false dst c reg_sz
+	   | 6 -> or_xor_and s Xor dst c
+	   | 7 -> create s (cmp_stmts (Lval dst) c reg_sz)
 	   | _ -> Log.error "Illegal nnn value in grp1"
 
-      let grp3 s sz label =
+      let grp3 s sz =
 	let dst, nnn = core_grp s 3 sz in
 	match nnn with
-	| 2 -> (* NOT *) create s [ Set (dst, UnOp (Not, Lval dst)) ] label
+	| 2 -> (* NOT *) create s [ Set (dst, UnOp (Not, Lval dst)) ]
 	| _ -> Log.error "Unknown operation in grp 3"
     
 			   
@@ -659,53 +654,56 @@ module Make(Domain: Domain.T) =
       (******************************************************************************************************)
 	(** common inc/dec depending on value of df in instructions SCAS/STOS/CMPS/MOVS *)
       let inc_dec_wrt_df regs i =
-	let c = Const (Word.of_int (Z.of_int (i / Config.size_of_byte)) i) in 
-	let inc_dec op r =
+	let inc_dec op r sz =
+	  let c = Const (Word.of_int (Z.of_int (i / Config.size_of_byte)) sz) in 
 	  Set (r, BinOp (op, Lval r, c))
 	in
 	  let istmts, estmts =
-	    List.fold_left (fun (istmts, estmts) r -> (inc_dec Add r)::istmts, (inc_dec Sub r)::estmts) ([], []) regs
+	    List.fold_left (fun (istmts, estmts) r ->
+		let r' = V (T r)         in
+		let sz = Register.size r in
+		(inc_dec Add r' sz)::istmts, (inc_dec Sub r' sz)::estmts) ([], []) regs
 	  in
-	  [ If ( Cmp (EQ, Lval (V (T fdf)), Const (Word.zero 1)), istmts, estmts ) ]
+	  [ If ( Cmp (EQ, Lval (V (T fdf)), Const (Word.zero fdf_sz)), istmts, estmts) ]
 
       (** state generation for MOVS *)			 
-      let movs s i label =
+      let movs s i =
 	let edi'  = V (to_reg edi i)                    in
 	let esi'  = V (to_reg esi i)                    in
 	let medi' = M (add_segment s (Lval edi') es, i) in
 	let mesi' = M (add_segment s (Lval esi') es, i) in
-	create s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi' ; esi'] i)) label
+	create s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi ; esi] i))
 
 	(** state generation for CMPS *)
-	let cmps s i label = 
+	let cmps s i = 
 	  let edi'  = V (to_reg edi i)                    in
 	  let esi'  = V (to_reg esi i)                    in
 	  let medi' = M (add_segment s (Lval edi') es, i) in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
-	  create s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi' ; esi'] i)) label
+	  create s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi ; esi] i))
 
 	(** state generation for LODS *)
-	let lods s i label =
+	let lods s i =
 	  let eax'  = V (to_reg eax i)                    in
 	  let esi'  = V (to_reg esi i)                    in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
-	  create s ((Set (eax', Lval mesi'))::(inc_dec_wrt_df [esi'] i)) label
+	  create s ((Set (eax', Lval mesi'))::(inc_dec_wrt_df [esi] i))
 
 	(** state generation for SCAS *)
-	let scas s i label =
+	let scas s i =
 	  let eax' = V (to_reg eax i)                    in
 	  let edi' = V (to_reg edi i)                    in
 	  let mem  = M (add_segment s (Lval edi') es, i) in
-	  create s ((cmp_stmts (Lval eax') (Lval mem) i) @ (inc_dec_wrt_df [edi'] i) ) label
+	  create s ((cmp_stmts (Lval eax') (Lval mem) i) @ (inc_dec_wrt_df [edi] i) )
 
 
 	(** state generation for STOS *)
-	let stos s i label =
+	let stos s i =
 	  let eax'  = V (to_reg eax i)                     in
 	  let edi'  = V (to_reg edi i)                     in
 	  let medi' = M (add_segment s (Lval edi') es, i)  in
 	  let stmts = Set (medi', Lval eax')               in 
-	  create s (stmts::(inc_dec_wrt_df [edi'] i)) label
+	  create s (stmts::(inc_dec_wrt_df [edi] i))
 		 
 	(****************************************************)
 	(* State generation for loop, call and jump instructions *)
@@ -747,24 +745,24 @@ module Make(Domain: Domain.T) =
 	    raise (Log.error "Decoder: jump target out of limits of the code segments (GP exception in protected mode)")
 
 	(** [create_jcc_stmts s e] creates the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
-	let create_jcc_stmts s e n label =
+	let create_jcc_stmts s e n =
 	  let o  = sign_extension_of_byte (int_of_bytes s 1) (n-1) in
-	  let a' = Address.add_offset s.a o					            in
+	  let a' = Address.add_offset s.a o			   in
 	  check_jmp s a';
-	  let na = Address.add_offset s.a Z.one					            in
+	  let na = Address.add_offset s.a Z.one			   in
 	  check_jmp s na;
-	  create s [ If (e, [Jmp (Some (A a'))], [ Jmp (Some (A na)) ] ) ] label
+	  create s [ If (e, [Jmp (A a')], [ Jmp (A na) ] ) ]
 
 	(** jump statements on condition *)
-	 let jcc s v n label =
+	 let jcc s v n =
 	   let e = exp_of_cond v s in
-	   create_jcc_stmts s e n label
+	   create_jcc_stmts s e n
 
 	 (** jump if eCX is zero *)
-	 let jecxz s label =
+	 let jecxz s =
 	   let ecx' = to_reg ecx s.addr_sz				   in
 	   let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero s.addr_sz)) in
-	   create_jcc_stmts s e s.addr_sz label
+	   create_jcc_stmts s e s.addr_sz
 
 	 (** common behavior between relative jump and relative call *)
 	 let relative s i sz =
@@ -778,16 +776,16 @@ module Make(Domain: Domain.T) =
 	   a'
 	
 	 (** unconditional jump by adding an offset to the current ip *)
-	 let relative_jmp s i label =
+	 let relative_jmp s i =
 	   let a' = relative s i s.operand_sz in
-	   create s [ Jmp (Some (A a')) ] label
+	   create s [ Jmp (A a') ]
 
 	 (** common statement to move (a chunk of) esp by a relative offset *)
 	 let set_esp op esp' n =
 	   Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )
 
 	 (** call with target as an offset from the current ip *)
-	 let relative_call s i label =
+	 let relative_call s i =
 	   let a    = relative s i s.operand_sz                   in
 	   let cesp = M (Lval (V (T esp)), !Config.stack_width)   in
 	   let ip   = Const (Data.Address.to_word a s.operand_sz) in
@@ -798,10 +796,10 @@ module Make(Domain: Domain.T) =
 	       Call (A a)
 	     ]
 	   in
-	   create s stmts label
+	   create s stmts
 	   
 	 (** statements of jump with absolute address as target *)
-	 let direct_jmp s label =
+	 let direct_jmp s =
 	   let sz = Register.size cs            in
 	   let v  = int_of_bytes s sz           in
 	   let v' = get_segment_register_mask v in
@@ -826,7 +824,7 @@ module Make(Domain: Domain.T) =
 	   let a' = Address.add_offset o v                              in
 	   check_jmp s a';
 	    (* creates the statements : the first one enables to update the interpreter with the new value of cs *)
-	   create s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (Some (A a')) ] label
+	   create s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (A a') ]
 		  
 	 
 
@@ -853,7 +851,7 @@ module Make(Domain: Domain.T) =
       let size_push_pop v sz = if is_segment v then !Config.stack_width else sz
 
       (** state generation for pop instructions *)
-      let pop s v label =
+      let pop s v =
 	let esp'  = esp_lval () in
 	let stmts = List.fold_left (fun stmts v -> 
 			let n = size_push_pop v s.operand_sz in
@@ -861,10 +859,10 @@ module Make(Domain: Domain.T) =
 			       Lval (M (Lval (V esp'), n))) ; set_esp Add esp' n ] @ stmts
 		      ) [] v 
 	in
-	create s stmts label
+	create s stmts
 
       (** generation of states for the push instructions *)
-      let push s v label =
+      let push s v =
 	(* TODO: factorize with POP *)
 	let esp' = esp_lval () in
 	let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
@@ -890,27 +888,27 @@ module Make(Domain: Domain.T) =
 	      [ set_esp Sub esp' n ; s ] @ stmts
 	    ) [] v
 	in
-	create s (pre @ stmts @ post) label
+	create s (pre @ stmts @ post)
 
       (** creates the state for the push of an immediate operands. Its size is given by the parameter *)
-      let push_immediate s n label =
+      let push_immediate s n =
 	let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width) in
 	let esp'  = esp_lval ()						       in
 	let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]			 
 	in
-	create s stmts label
+	create s stmts
 
       (********)
       (* misc *)
       (*****)
-      let xchg s v label = 
+      let xchg s v = 
 	let tmp   = Register.make ~name:(Register.fresh_name()) ~size:s.operand_sz in
 	let r     = find_reg v s.operand_sz					   in
 	let eax   = to_reg eax s.operand_sz					   in 
 	let stmts = [ Set(V (T tmp), Lval (V eax)); Set(V eax, Lval (V r)) ; 
 		      Set(V r, Lval (V (T tmp)))  ; Directive (Remove tmp) ]
 	in
-	create s stmts label
+	create s stmts
 
       (** check whether an opcode is defined in a given state of the decoder *)
       let check_context s c =
@@ -937,102 +935,102 @@ module Make(Domain: Domain.T) =
 	  if v land 1 = 1 then s.operand_sz
 	  else Config.size_of_byte
 	in
-	let add_sub s op b c label =
+	let add_sub s op b c =
 	  let v        = Char.code c		      in
 	  let dst, src = operands_from_mod_reg_rm s v in
 	  let sz       = to_size s v		      in
-	  add_sub s op b dst src sz label
+	  add_sub s op b dst src sz
 	in
-	let or_xor_and s op c label =
+	let or_xor_and s op c =
 	  let v        = Char.code c                  in
 	  let dst, src = operands_from_mod_reg_rm s v in
-	  or_xor_and s op dst src label
+	  or_xor_and s op dst src
 	in
-	let rec decode s label =
+	let rec decode s =
 	  match check_context s (getchar s) with
-	  | c when '\x00' <= c && c <= '\x03'  -> add_sub s Sub false c label
-	  | '\x04' 			       -> add_sub_immediate s Add false eax Config.size_of_byte label
-	  | '\x05' 			       -> add_sub_immediate s Add false eax s.operand_sz label
-	  | '\x06' 			       -> let es' = to_reg es s.operand_sz in push s [es'] label
-	  | '\x07' 			       -> let es' = to_reg es s.operand_sz in pop s [es'] label
-	  | c when '\x08' <= c &&  c <= '\x0D' -> or_xor_and s Or c label
-	  | '\x0E' 			       -> let cs' = to_reg cs s.operand_sz in push s [cs'] label
-	  | '\x0F' 			       -> decode_snd_opcode s label
+	  | c when '\x00' <= c && c <= '\x03'  -> add_sub s Sub false c 
+	  | '\x04' 			       -> add_sub_immediate s Add false eax Config.size_of_byte 
+	  | '\x05' 			       -> add_sub_immediate s Add false eax s.operand_sz
+	  | '\x06' 			       -> let es' = to_reg es s.operand_sz in push s [es']
+	  | '\x07' 			       -> let es' = to_reg es s.operand_sz in pop s [es']
+	  | c when '\x08' <= c &&  c <= '\x0D' -> or_xor_and s Or c
+	  | '\x0E' 			       -> let cs' = to_reg cs s.operand_sz in push s [cs']
+	  | '\x0F' 			       -> decode_snd_opcode s
 									       
-	  | c when '\x10' <= c && c <= '\x13' -> add_sub s Add true c label
-	  | '\x14' 			      -> add_sub_immediate s Add true eax Config.size_of_byte label
-	  | '\x15' 			      -> add_sub_immediate s Add true eax s.operand_sz label
-	  | '\x16' 			      -> let ss' = to_reg ss s.operand_sz in push s [ss'] label
-	  | '\x17' 			      -> let ss' = to_reg ss s.operand_sz in pop s [ss'] label
-	  | c when '\x18' <= c && c <='\x1B'  -> add_sub s Sub true c label
-	  | '\x1C' 			      -> add_sub_immediate s Sub true eax Config.size_of_byte label
-	  | '\x1D' 			      -> add_sub_immediate s Sub true eax s.operand_sz label
-	  | '\x1E' 			      -> let ds' = to_reg ds s.operand_sz in push s [ds'] label
-	  | '\x1F' 			      -> let ds' = to_reg ds s.operand_sz in pop s [ds'] label
+	  | c when '\x10' <= c && c <= '\x13' -> add_sub s Add true c
+	  | '\x14' 			      -> add_sub_immediate s Add true eax Config.size_of_byte
+	  | '\x15' 			      -> add_sub_immediate s Add true eax s.operand_sz
+	  | '\x16' 			      -> let ss' = to_reg ss s.operand_sz in push s [ss']
+	  | '\x17' 			      -> let ss' = to_reg ss s.operand_sz in pop s [ss']
+	  | c when '\x18' <= c && c <='\x1B'  -> add_sub s Sub true c
+	  | '\x1C' 			      -> add_sub_immediate s Sub true eax Config.size_of_byte
+	  | '\x1D' 			      -> add_sub_immediate s Sub true eax s.operand_sz
+	  | '\x1E' 			      -> let ds' = to_reg ds s.operand_sz in push s [ds']
+	  | '\x1F' 			      -> let ds' = to_reg ds s.operand_sz in pop s [ds']
 										       
-	  | c when '\x20' <= c && c <= '\x25' -> or_xor_and s And c label
-	  | '\x26' 			      -> s.segments.data <- es; decode s label
-	  | c when '\x28' <= c && c <= '\x2B' -> add_sub s Sub false c label
-	  | '\x2C' 			      -> add_sub_immediate s Sub false eax Config.size_of_byte label
-	  | '\x2D' 			      -> add_sub_immediate s Sub false eax s.operand_sz label
-	  | '\x2E' 			      -> s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s label
+	  | c when '\x20' <= c && c <= '\x25' -> or_xor_and s And c
+	  | '\x26' 			      -> s.segments.data <- es; decode s
+	  | c when '\x28' <= c && c <= '\x2B' -> add_sub s Sub false c
+	  | '\x2C' 			      -> add_sub_immediate s Sub false eax Config.size_of_byte
+	  | '\x2D' 			      -> add_sub_immediate s Sub false eax s.operand_sz
+	  | '\x2E' 			      -> s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
 								       
-	  | c when '\x30' <= c &&  c <= '\x35' -> or_xor_and s Xor c label
-	  | '\x36' 			       -> s.segments.data <- ss; decode s label
-	  | c when '\x38' <= c && c <= '\x3B'  -> (* cmp *) add_sub s Sub false c label
-	  | '\x3C' 			       -> add_sub_immediate s Sub false eax Config.size_of_byte label
-	  | '\x3D' 			       -> add_sub_immediate s Sub false eax s.operand_sz label
-	  | '\x3E' 			       -> s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s label
+	  | c when '\x30' <= c &&  c <= '\x35' -> or_xor_and s Xor c
+	  | '\x36' 			       -> s.segments.data <- ss; decode s
+	  | c when '\x38' <= c && c <= '\x3B'  -> (* cmp *) add_sub s Sub false c
+	  | '\x3C' 			       -> add_sub_immediate s Sub false eax Config.size_of_byte
+	  | '\x3D' 			       -> add_sub_immediate s Sub false eax s.operand_sz
+	  | '\x3E' 			       -> s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
 									
-	  | c when '\x40' <= c && c <= '\x47' -> let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec r Add s label
-	  | c when '\x48' <= c && c <= '\x4f' -> let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec r Sub s label
+	  | c when '\x40' <= c && c <= '\x47' -> let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec r Add s
+	  | c when '\x48' <= c && c <= '\x4f' -> let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec r Sub s
 															       
-	  | c when '\x50' <= c && c <= '\x57' -> let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [r] label
-	  | c when '\x58' <= c && c <= '\x5F' -> let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [r] label
+	  | c when '\x50' <= c && c <= '\x57' -> let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [r]
+	  | c when '\x58' <= c && c <= '\x5F' -> let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [r]
 															   
-	  | '\x60' -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l label
-	  | '\x61' -> let l = List.map (fun v -> find_reg v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l label
-	  | '\x64' -> s.segments.data <- fs; decode s label
-	  | '\x65' -> s.segments.data <- ss; decode s label
-	  | '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s label
-	  | '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s label
-	  | '\x68' -> push_immediate s (s.operand_sz / Config.size_of_byte) label
-	  | '\x6A' -> push_immediate s 1 label
+	  | '\x60' -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
+	  | '\x61' -> let l = List.map (fun v -> find_reg v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
+	  | '\x64' -> s.segments.data <- fs; decode s
+	  | '\x65' -> s.segments.data <- ss; decode s
+	  | '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
+	  | '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
+	  | '\x68' -> push_immediate s (s.operand_sz / Config.size_of_byte)
+	  | '\x6A' -> push_immediate s 1
 				     
 	  | c when '\x6C' <= c && c <= '\x6F' -> Log.error "INS/OUTS instruction not precisely handled in that model"
 								   
-	  | c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in jcc s v 1 label
+	  | c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in jcc s v 1
 												   
-	  | '\x80' -> grp1 s Config.size_of_byte Config.size_of_byte label
-	  | '\x81' -> grp1 s s.operand_sz s.operand_sz label
+	  | '\x80' -> grp1 s Config.size_of_byte Config.size_of_byte
+	  | '\x81' -> grp1 s s.operand_sz s.operand_sz
 	  | '\x82' -> raise (Exceptions.Error "Undefined opcode 0x82")
-	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte label
+	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte
 			   
-	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in create s [ Set (dst, src) ] label
+	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in create s [ Set (dst, src) ]
 														
-	  | '\x90' 			      -> create s [Nop] label
-	  | c when '\x91' <= c && c <= '\x97' -> xchg s ((Char.code c) - (Char.code '\x90')) label
+	  | '\x90' 			      -> create s [Nop]
+	  | c when '\x91' <= c && c <= '\x97' -> xchg s ((Char.code c) - (Char.code '\x90'))
 						      
 						      
-	  | '\xa4' -> movs s Config.size_of_byte label
-	  | '\xa5' -> movs s s.addr_sz label
-	  | '\xa6' -> cmps s Config.size_of_byte label
-	  | '\xa7' -> cmps s s.addr_sz label
-	  | '\xaa' -> stos s Config.size_of_byte label
-	  | '\xab' -> stos s s.addr_sz label
-	  | '\xac' -> lods s Config.size_of_byte label
-	  | '\xad' -> lods s s.addr_sz label
-	  | '\xae' -> scas s Config.size_of_byte label
-	  | '\xaf' -> scas s s.addr_sz label
+	  | '\xa4' -> movs s Config.size_of_byte
+	  | '\xa5' -> movs s s.addr_sz
+	  | '\xa6' -> cmps s Config.size_of_byte
+	  | '\xa7' -> cmps s s.addr_sz
+	  | '\xaa' -> stos s Config.size_of_byte
+	  | '\xab' -> stos s s.addr_sz
+	  | '\xac' -> lods s Config.size_of_byte
+	  | '\xad' -> lods s s.addr_sz
+	  | '\xae' -> scas s Config.size_of_byte
+	  | '\xaf' -> scas s s.addr_sz
 
-	  | '\xc3' -> create s [ Return; set_esp Add (T esp) !Config.stack_width; ] label
+	  | '\xc3' -> create s [ Return; set_esp Add (T esp) !Config.stack_width; ]
 			     
-	  | '\xe3' -> jecxz s label
+	  | '\xe3' -> jecxz s
 
-	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte) label
-	  | '\xea' -> direct_jmp s label
-	  | '\xeb' -> relative_jmp s 1 label
-	  | '\xe8' -> relative_call s (s.operand_sz / Config.size_of_byte) label
+	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte)
+	  | '\xea' -> direct_jmp s
+	  | '\xeb' -> relative_jmp s 1 
+	  | '\xe8' -> relative_call s (s.operand_sz / Config.size_of_byte)
 				    
 
 	  | '\xf0' -> Log.error "LOCK instruction found. Interpreter halts"
@@ -1040,46 +1038,40 @@ module Make(Domain: Domain.T) =
 	  | '\xf2' -> (* REP/REPE *) s.rep <- true; rep s Word.zero
 	  | '\xf3' -> (* REPNE *) s.repne <- true; rep s Word.one
 	  | '\xf4' -> Log.error "Decoder stopped: HLT reached"
-	  | '\xf5' -> let fcf' = V (T fcf) in create s [ Set (fcf', UnOp (Not, Lval fcf')) ] label
-	  | '\xf6' -> grp3 s Config.size_of_byte label
-	  | '\xf7' -> grp3 s s.operand_sz label
-	  | '\xf8' -> create s (clear_flag fcf fcf_sz) label
-	  | '\xf9' -> create s (set_flag fcf fcf_sz) label
-	  | '\xfa' -> Log.from_decoder "entering privilege mode (CLI instruction)"; create s (clear_flag fif fif_sz) label
-	  | '\xfb' -> Log.from_decoder "entering privilege mode (STI instruction)"; create s (set_flag fif fif_sz) label
-	  | '\xfc' -> create s (clear_flag fdf fdf_sz) label
-	  | '\xfd' -> create s (set_flag fdf fdf_sz) label
+	  | '\xf5' -> let fcf' = V (T fcf) in create s [ Set (fcf', UnOp (Not, Lval fcf')) ]
+	  | '\xf6' -> grp3 s Config.size_of_byte
+	  | '\xf7' -> grp3 s s.operand_sz
+	  | '\xf8' -> create s (clear_flag fcf fcf_sz)
+	  | '\xf9' -> create s (set_flag fcf fcf_sz)
+	  | '\xfa' -> Log.from_decoder "entering privilege mode (CLI instruction)"; create s (clear_flag fif fif_sz)
+	  | '\xfb' -> Log.from_decoder "entering privilege mode (STI instruction)"; create s (set_flag fif fif_sz)
+	  | '\xfc' -> create s (clear_flag fdf fdf_sz)
+	  | '\xfd' -> create s (set_flag fdf fdf_sz)
 						     
 	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x\n" (Char.code c)))
 
 	(** rep prefix *)
 	and rep s c =
-	  (* create a state with an empty set of statements for the exit from the loop body -> body *)
-	  let make_label neg s =
+	  let make_cond s =
 	    let ecx_cond  = Cmp (EQ, Lval (V (to_reg ecx s.addr_sz)), Const (c s.addr_sz)) in
 	    let eq_c_cond = Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz))                   in
-	    let e =
 	      if s.repe || s.repne then
 		BBinOp(LogOr, ecx_cond, eq_c_cond)
 	      else ecx_cond
 	    in
-	    if neg then BUnOp (LogNot, e)
-	    else e
-	    in
 	   (* thanks to check_context at the beginning of decode we know that next opcode is SCAS/LODS/STOS/CMPS *)
 	   (* otherwise decoder halts *)
-	   let _edge, body = List.hd (decode s (Some (make_label false))) in
-	   (* add an edge body -> s.b for the loop *)
-	   Cfa.add_edge s.g body s.b None;
-	   (* TODO: optimize : label is built twice (one for the if true branch and once for the false branch *)
-	   (None, body)::(create s [] (Some (make_label true)))	    
+	    let v = List.hd (decode s) in
+	    let blk = [ If (make_cond s, v.Cfa.State.stmts @ [ Jmp (A s.b.Cfa.State.ip) ], [ Jmp (A v.Cfa.State.ip) ]) ] in
+	    v.Cfa.State.stmts <- blk;
+	    [v]
 	  
-	and decode_snd_opcode s label =
+	and decode_snd_opcode s =
 	  match getchar s with
-	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte) label
+	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
 	  | c 				      -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
-	  decode s None
+	  decode s
 					      
       (** launch the decoder *)
       let parse text g is v a ctx =

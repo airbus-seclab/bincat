@@ -79,7 +79,7 @@ type jmp_target =
 type stmt =
   | Set  of lval * exp    		   (** store the expression into the left value *)
   | If of bexp * (stmt list) * (stmt list) (** conditional statement *)
-  | Jmp	 of jmp_target option              (** jump; None target is for intermediate block translation *)				    
+  | Jmp	 of jmp_target                     (** jump *)				    
   | Call of jmp_target          	   (** call *)
   | Return         			   (** return *)
   | Nop                      		   (** no operation *)
@@ -182,11 +182,6 @@ let string_of_jmp_target t =
   match t with
   | A a -> Address.to_string a
   | R e -> Printf.sprintf "%s" (string_of_exp e)
-			       
-let string_of_target t =
-  match t with
-  | None    -> "next"
-  | Some t' -> string_of_jmp_target t'
 
 let string_of_directive d =
   match d with
@@ -202,7 +197,7 @@ let string_of_stmt s =
   let rec to_string ind s =
     match s with
     | Set (dst, src)     	    -> Printf.sprintf "%s <- %s;\n" (string_of_lval dst) (string_of_exp src)
-    | Jmp target 	    -> Printf.sprintf "%sjmp %s;\n" (ind^" ")(string_of_target target)
+    | Jmp target 	    -> Printf.sprintf "%sjmp %s;\n" (ind^" ")(string_of_jmp_target target)
     | If (cond, if_stmts, else_stmts) ->
        let ind' = ind ^ " " in
        Printf.sprintf "if (%s)\n%s%selse\n%s%s" (string_of_bexp cond) ind' (concat to_string ind' if_stmts) ind' (concat to_string ind' else_stmts)
