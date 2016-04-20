@@ -18,9 +18,12 @@ clean:
 	rm -rf build bnew/*~ bnew/*.so
 	make -C doc clean
 
+test:
+	PYTHONPATH=. py.test
+
 checkenv:
 ifndef DOCPATH
 	$(error DOCPATH is not set)
 endif
 
-.PHONY: install clean doc copydoc checkenv
+.PHONY: install clean doc copydoc checkenv test
