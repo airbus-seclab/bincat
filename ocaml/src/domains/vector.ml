@@ -160,13 +160,13 @@ module Make(V: Val) =
     let to_string v =
       let v' =
 	if exists V.is_bot v || exists V.is_top v then
-	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "" v
+	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "0b" v
 	else
 	    Data.Word.to_string (to_word v)
       in
       let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "" v  in
-      if String.length t = 0 then v'
-      else Printf.sprintf "%s ! %s" v' t
+      if String.length t = 0 then Printf.sprintf "0b%s" v'
+      else Printf.sprintf "%s ! 0b%s" v' t
 	
     let join v1 v2 = map2 V.join v1 v2
 
