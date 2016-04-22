@@ -294,7 +294,7 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
     regid, regname = register
-    opcode = "\x8b" + chr(0x08 + regid)
+    opcode = "\x8b" + chr(0x28 + regid)
     ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
