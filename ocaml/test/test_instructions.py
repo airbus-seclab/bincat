@@ -141,7 +141,7 @@ def test_xor_reg_self(analyzer, initialState, register):
     taintFlag(expectedStateAfter, "af")
     # XXX check taint (not tainted)
 
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
