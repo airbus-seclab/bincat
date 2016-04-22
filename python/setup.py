@@ -30,7 +30,7 @@ setup(
     description      = 'BINnary Code Analysis Toolkit',
     long_description = open('README.txt').read(),
     scripts          = ['bin/bincat'],
-    packages         = ['idabincat'],
+    packages         = ['pybincat', 'pybincat/tools', 'idabincat'],
     ext_modules      = [mlbincat],
     license          = 'GPLv2'
 )
