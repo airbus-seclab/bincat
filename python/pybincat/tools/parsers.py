@@ -34,3 +34,15 @@ def parse_val(s):
     if top & bot:
         raise Exception("bits %#x are set both at top(?) and bottom(_)"%top&bot) 
     return val,tbvals["?"],tbvals["_"]
+
+def val2str(val, vtop, vbot):
+    try:
+        s = "%#x" % val
+        if vtop:
+            s+=",?=%#x" % vtop
+        if vbot:
+            s+=",_=%#x" % vbot
+    except:
+        s = repr((val, vtop, vbot))
+    return s
+
