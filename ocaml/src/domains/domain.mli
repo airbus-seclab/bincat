@@ -12,6 +12,9 @@ module type T =
       (** bottom value *)
       val bot: t
 
+      (** comparison to bot *)
+      val is_bot: t -> bool
+			 
       (** returns true whenever the concretization of the first argument is included in the concretization of the second argument *)
       (** false otherwise *)
       val subset: t -> t -> bool
@@ -28,6 +31,9 @@ module type T =
       (** string conversion *)
       val to_string: t -> string list
 
+      (** return the string representation of the value of the given register *)
+      val string_of_register: t -> Register.t -> string
+				     
       (** int conversion of the given register *)
       (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
       val value_of_register: t -> Register.t -> Z.t
@@ -44,7 +50,10 @@ module type T =
 
       (** meets the two abstract values *)
       val meet: t -> t -> t
-			    
+
+      (** widens the two abstract values *)
+      val widen: t -> t -> t
+			     
       (** [taint_register_from_config r c m] update the abstract value _m_ with the given tainting configuration _c_ for register _r_ *)
       (** the size of the configuration is the same as the one of the register *)
       val taint_register_from_config: Register.t -> Data.Address.region -> Config.tvalue -> t -> t

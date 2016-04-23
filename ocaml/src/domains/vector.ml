@@ -133,8 +133,7 @@ module Make(V: Val) =
 	done;
 	true
       with
-      | Exit -> false
-      | _    -> true
+      | _-> false
 	       
     let for_all p v =
       try
@@ -160,11 +159,11 @@ module Make(V: Val) =
     let to_string v =
       let v' =
 	if exists V.is_bot v || exists V.is_top v then
-	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "" v
+	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "0b" v
 	else
 	    Data.Word.to_string (to_word v)
       in
-      let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "" v  in
+      let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "0b" v  in
       if String.length t = 0 then v'
       else Printf.sprintf "%s ! %s" v' t
 	
@@ -173,7 +172,7 @@ module Make(V: Val) =
     let meet v1 v2 = map2 V.meet v1 v2
 
     let widen v1 v2 =
-      if Z.compare (to_value v1) (to_value v2) < 0 then
+      if Z.compare (to_value v1) (to_value v2) <> 0 then
 	raise Exceptions.Enum_failure
       else v1
 
@@ -379,16 +378,30 @@ module Make(V: Val) =
       done;
       v
 
-    let compare v1 op v2 = for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+    let exist2 p v1 v2 =
+      let n = min (Array.length v1) (Array.length v2) in
+      try
+	for i = 0 to n-1 do
+	  if p v1.(i) v2.(i) then raise Exit
+	done;
+	false
+      with
+      | Exit -> true
+      | _    -> false
+	       
+    let compare v1 op v2 =
+      match op with
+      | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+      | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+      | _       -> true
 
     let extract v l u =
-      let len = Array.length v         in
-      let n   = u - l + 1              in
-      let v'  = Array.make n V.default in
-      let l'  = len-l-1                in
-      let u'  = len-u-1                in
-      for i = u' to l' do
-	v'.(i) <- v.(i)
+      let sz = u - l + 1               in
+      let v' = Array.make sz V.default in
+      let n  = Array.length v          in 
+      let o  = n-u - 1                 in
+      for i = o to n-l-1 do
+	v'.(i-o) <- v.(i)
       done;
       v'
 	

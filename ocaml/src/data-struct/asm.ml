@@ -191,20 +191,20 @@ let string_of_directive d =
 let string_of_stmt s =
   (* internal function used to factorize code in the printing of If-stmt *)
   let concat to_string ind l =
-    List.fold_left (fun acc s -> Printf.sprintf "%s%s%s" acc ind (to_string ind s)) "" l
+    List.fold_left (fun acc s -> Printf.sprintf "%s%s" acc (to_string ind s)) "" l
   in
   (* ind is a string of spaces to be added to the beginning of a line *)
   let rec to_string ind s =
     match s with
-    | Set (dst, src)     	    -> Printf.sprintf "%s <- %s;\n" (string_of_lval dst) (string_of_exp src)
-    | Jmp target 	    -> Printf.sprintf "%sjmp %s;\n" (ind^" ")(string_of_jmp_target target)
+    | Set (dst, src)     	      -> Printf.sprintf "%s%s <- %s;\n" ind (string_of_lval dst) (string_of_exp src)
+    | Jmp target 	              -> Printf.sprintf "%sjmp %s;\n"  ind (string_of_jmp_target target)
     | If (cond, if_stmts, else_stmts) ->
-       let ind' = ind ^ " " in
-       Printf.sprintf "if (%s)\n%s%selse\n%s%s" (string_of_bexp cond) ind' (concat to_string ind' if_stmts) ind' (concat to_string ind' else_stmts)
-    | Call _ 	       		    -> "call\n"
-    | Return  	       		    -> "ret\n"
-    | Nop 	       		    -> "nop\n"
-    | Directive d        	    -> Printf.sprintf "%s\n" (string_of_directive d)
+       let ind' = ind ^ "\t" in
+       Printf.sprintf "%sif (%s)\n%s%selse\n%s" ind (string_of_bexp cond) (concat to_string ind' if_stmts) ind (concat to_string ind' else_stmts)
+    | Call _ 	       		     -> Printf.sprintf "%scall\n" ind
+    | Return  	       		     -> Printf.sprintf "%sret\n" ind
+    | Nop 	       		     -> Printf.sprintf "%snop\n" ind
+    | Directive d        	     -> Printf.sprintf "%s%s\n" ind (string_of_directive d)
   in
   to_string "" s
 		     

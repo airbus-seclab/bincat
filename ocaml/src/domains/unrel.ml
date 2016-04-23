@@ -99,25 +99,26 @@ module Make(D: T) =
 	      
     module Map = MapOpt.Make(K)
 
-    (** type of the Map from Dimension (register or memory) to abstract values. *)
-    (**This contains also an upper bound of the number of times the given dimension has been already set *)
+    (** type of the Map from Dimension (register or memory) to abstract values *)
     type t     =
-      | Val of (D.t * int) Map.t
+      | Val of D.t Map.t
       | BOT
 				     
     let bot = BOT
-		
+
+    let is_bot m = m = BOT
+			 
     let value_of_register m r =
       match m with
       | BOT    -> raise Exceptions.Concretization
       | Val m' ->
 	 try
-	   let v, _ = Map.find (K.R r) m' in D.to_value v
+	   let v = Map.find (K.R r) m' in D.to_value v
 	 with _ -> raise Exceptions.Concretization
 					 
     let add_register r m =
       let add m' =
-	Val (Map.add (K.R r) (D.default (Register.size r), 0) m')
+	Val (Map.add (K.R r) (D.default (Register.size r)) m')
       in
       match m with
       | BOT    -> add Map.empty
@@ -130,48 +131,51 @@ module Make(D: T) =
 
     let undefine r m =
       match m with
-      | Val m' ->
-	 let r' = K.R r in
-	 Val (try let _, n = Map.find r' m' in Map.replace r' (D.bot, n) m' with _ -> Map.add r' (D.bot, 0) m')
-      | BOT -> BOT
+      | Val m' -> Val (Map.add (K.R r) D.bot m')
+      | BOT    -> BOT
 		 
     let subset m1 m2 =
       match m1, m2 with
       | BOT, _ 		 -> true
       | _, BOT 		 -> false
-      |	Val m1', Val m2' -> Map.for_all2 (fun v1 v2 -> D.subset (fst v1) (fst v2)) m1' m2'
+      |	Val m1', Val m2' -> Map.for_all2 D.subset m1' m2'
 
     let to_string m =
       match m with
-      |	BOT    -> ["?"]
-      | Val m' -> Map.fold (fun k v l -> ((K.to_string k) ^ " = " ^ (D.to_string (fst v))) :: l) m' []
+      |	BOT    -> ["_"]
+      | Val m' -> Map.fold (fun k v l -> ((K.to_string k) ^ " = " ^ (D.to_string v)) :: l) m' []
 
+    let string_of_register m r =
+      match m with
+      | BOT -> "_"
+      | Val m' -> Printf.sprintf "%s = %s" (Register.name r) (D.to_string (Map.find (K.R r) m'))
+				 
     (** evaluates the given expression *)
     let eval_exp m e =
       let rec eval e =
 	match e with
 	| Asm.Const c 			     -> D.of_word c
-	| Asm.Lval (Asm.V (Asm.T r)) 	     ->
+	| Asm.Lval (Asm.V (Asm.T r)) 	     -> 
 	   begin
-	     try fst (Map.find (K.R r) m)
+	     try Map.find (K.R r) m
 	     with Not_found -> D.default (Register.size r)
 	   end
 	| Asm.Lval (Asm.V (Asm.P (r, l, u))) ->
 	   begin
 	     try
-	       let v = fst (Map.find (K.R r) m) in
+	       let v = Map.find (K.R r) m in
 	       D.extract v l u
 	     with
 	     | Not_found -> D.default (u-l+1)
 	   end
-	| Asm.Lval (Asm.M (e, n))               ->
+	| Asm.Lval (Asm.M (e, n))            ->
 	   begin
 	     try
 	       let addresses = Data.Address.Set.elements (D.to_addresses (eval e)) in
 	       let rec to_value a =
 		 match a with
-		 | [a]  -> fst (Map.find (K.M a) m)
-		 | a::l -> D.join (fst (Map.find (K.M a) m)) (to_value l)
+		 | [a]  -> D.extract (Map.find (K.M a) m) 0 (n-1)
+		 | a::l -> D.join (D.extract (Map.find (K.M a) m) 0 (n-1)) (to_value l)
 		 | []   -> D.bot
 	       in
 	       to_value addresses
@@ -194,6 +198,7 @@ module Make(D: T) =
       | Val m' ->
 	 try D.to_addresses (eval_exp m' e)
 	 with _ -> raise Exceptions.Enum_failure
+
 			 
     let set dst src m =
       match m with
@@ -204,45 +209,40 @@ module Make(D: T) =
 	 | Asm.V r ->
 	    begin
 	      match r with
-	      | Asm.T r' ->
-		 begin
-		   try
-		     Val (Map.replace (K.R r') (v', 1) m')
-		   with
-		     Not_found -> Val (Map.add (K.R r') (v', 1) m')
-		 end
+	      | Asm.T r' -> Val (Map.add (K.R r') v' m')
 	      | Asm.P (r', l, u) ->
 		 try
-		   let prev, n = Map.find (K.R r') m' in
-		   Val (Map.replace (K.R r') (D.combine prev v' l u, n+1) m')
+		   let prev = Map.find (K.R r') m' in
+		   Val (Map.replace (K.R r') (D.combine prev v' l u) m')
 		 with
-		   Not_found -> raise Exceptions.Empty
+		   Not_found -> BOT
 	    end
 	 | Asm.M (e, _n) ->
 	    let addrs = D.to_addresses (eval_exp m' e)  in
 	    let l     = Data.Address.Set.elements addrs in
 	      match l with 
-	      | [a] -> (* strong update *) Val (try Map.replace (K.M a) (v', 1) m' with Not_found -> Map.add (K.M a) (v', 1) m')
-	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v, n = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v', n) m with Not_found -> Map.add (K.M a) (v', 1) m)  m' l)
-						  
+	      | [a] -> (* strong update *) Val (Map.add (K.M a) v' m')
+	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)
+
+					       
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT  -> m
       | Val m1', Val m2' ->
-	 let f (v1, n1) (v2, n2) =
-	   let n = (max n1 n2) + 1 in
-	   let v' =
-	     if n <= !Config.unroll then D.join v1 v2 else D.widen v1 v2
-	   in
-	   v', n
-	 in
-	 Val (Map.map2 (fun v1 v2 -> f v1 v2) m1' m2')
+	 Val (Map.map2 D.join m1' m2')
 
     let meet m1 m2 =
       match m1, m2 with
       | BOT, _ | _, BOT  -> BOT
-      | Val m1', Val m2' -> Val (Map.map2 (fun (v1, n1) (v2, n2) -> D.meet v1 v2, max n1 n2) m1' m2')
-				
+      | Val m1', Val m2' -> Val (Map.map2 D.meet m1' m2')
+
+    let widen m1 m2 =
+      match m1, m2 with
+      | BOT, BOT 	 -> BOT
+      | BOT, _ 		 -> raise Exceptions.Enum_failure
+      | _, BOT           -> m1
+      | Val m1', Val m2' -> Val (Map.map2 D.widen m1' m2')
+			     
     let init () = Val (Map.empty)
 
     let set_register_from_config r region c m =
@@ -250,31 +250,25 @@ module Make(D: T) =
       | BOT    -> BOT
       | Val m' ->
 	 let v' = D.of_config region c (Register.size r) in
-	 try
-	   Val (Map.replace (K.R r) (v', 1) m')
-	 with Not_found -> Val (Map.add (K.R r) (v', 1) m')
+	 Val (Map.add (K.R r) v' m')
 			       
     let set_memory_from_config a region c m =
       match m with
       | BOT    -> BOT
       | Val m' ->
 	 let v' = D.of_config region c !Config.operand_sz in
-	 try
-	   Val (Map.replace (K.M a) (v', 1) m')
-	 with Not_found -> Val (Map.add (K.M a) (v', 1) m')
+	 Val (Map.add (K.M a) v' m')
 
     let taint_from_config dim sz region c m =
       match m with
       | BOT -> BOT
       | Val m' ->
 	 let prev =
-	   try Some (fst (Map.find dim m'))
+	   try Some (Map.find dim m')
 	   with Not_found -> None
 	 in
 	 let v' = D.taint_of_config region c sz prev in
-	 try
-	   Val (Map.replace dim (v', 0) m')
-	 with Not_found -> Val (Map.add dim (v', 0) m')
+	 Val (Map.add dim v' m')
 			       
     let taint_memory_from_config a region c m = taint_from_config (K.M a) !Config.operand_sz region c m 
     
@@ -284,12 +278,12 @@ module Make(D: T) =
     let val_restrict m e1 _v1 cmp _e2 v2 =
 	match e1, cmp with
 	| Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ || cmp = Asm.LEQ ->
-	   let v, n = Map.find (K.R r) m in
-	   let v'   = D.meet v v2        in
-	   if D.is_bot v' then
-	     raise Exceptions.Empty
-	   else
-	     Map.replace (K.R r) (v', n) m
+	     let v  = Map.find (K.R r) m in
+	     let v' = D.meet v v2        in
+	     if D.is_bot v' then
+	       raise Exceptions.Empty
+	     else
+	       Map.replace (K.R r) v' m
 	| _, _ -> m
 		
     let compare m (e1: Asm.exp) op e2 =
@@ -299,15 +293,13 @@ module Make(D: T) =
 	 let v1 = eval_exp m' e1 in
 	 let v2 = eval_exp m' e2 in
 	 if D.compare v1 op v2 then
-	   try
 	     Val (val_restrict m' e1 v1 op e2 v2)
-	   with Exceptions.Empty -> BOT
 	 else
-	   BOT
-
+	   raise Exceptions.Empty
+		 
     let value_of_exp m e =
       match m with
-      | BOT -> raise Exceptions.Empty
+      | BOT -> raise Exceptions.Concretization
       | Val m' -> D.to_value (eval_exp m' e)
 			   
   end: Domain.T)

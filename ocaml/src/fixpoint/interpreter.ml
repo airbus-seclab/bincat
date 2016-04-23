@@ -15,7 +15,6 @@ struct
 	 
   module Vertices = Set.Make(Cfa.State)
 			    
-  
 						   
   let default_ctx () = {
       Cfa.State.op_sz = !Config.operand_sz; 
@@ -57,31 +56,64 @@ struct
 
   let apply_tainting _rules d = d (* TODO apply rules of type Config.tainting_fun *)
   let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
-			   
-  let process_stmt _g (v: Cfa.State.t) d stmt fun_stack =
+
+  (* map from ip to int that enable to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
+  let unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
+							 
+  let process_stmt g (v: Cfa.State.t) d stmt fun_stack =
+    let copy a =
+      let v' = Cfa.copy_state g v in
+      v'.Cfa.State.stmts <- [];
+      v'.Cfa.State.ip <- a;
+      Cfa.add_edge g v v';
+      v'
+    in
     let rec process d s =
+      Printf.printf "%s\n" (Asm.string_of_stmt s); flush stdout;
       match s with							   
-    | Nop -> d
+    | Nop -> d, None
 
     | If (e, then_stmts, else_stmts) ->
-       let then' = List.fold_left (fun d s -> process d s) (restrict d e true) then_stmts in
-       let else' = List.fold_left (fun d s -> process d s) (restrict d e false) else_stmts in
-       D.join then' else'
+       let concat v l =
+	 match v with
+	 | None    -> l
+	 | Some l' -> l'@l
+       in
+       let then', tv' =  
+	 try
+	   List.fold_left (fun (d, l) s -> let d', v = process d s in d', concat v l) ((restrict d e true), []) then_stmts
+	 with Exceptions.Empty -> D.bot, []
+       in
+       let else', ev' =
+	 try List.fold_left (fun (d, l) s -> let d', v = process d s in d', concat v l) ((restrict d e false), []) else_stmts
+	 with Exceptions.Empty -> D.bot, []
+       in
+       let d' = D.join then' else' in
+       if D.is_bot d' then
+	 raise Exceptions.Empty
+       else
+	 let l = tv'@ev' in
+	 let r =
+	   if l = [] then None
+	   else Some l
+	 in
+	 d', r
+
 	      
-    | Set (dst, src) -> D.set dst src d
+    | Set (dst, src) -> D.set dst src d, None
 
-    | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d'
+    | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d', None
 
-    | Directive (Undef r) -> D.undefine r d
+    | Directive (Undef r) -> D.undefine r d, None
 
-    | Jmp (A a) -> v.Cfa.State.ip <- a; d
+    | Jmp (A a) -> d, Some [copy a] 
        
     | Jmp (R target) ->
        begin
 	 try
 	   let addresses = Data.Address.Set.elements (D.mem_to_addresses d target) in
 	   match addresses with
-	   | [a] -> v.Cfa.State.ip <- a; d
+	   | [a] -> d, Some [copy a]
 	   | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
 	   | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
 					    (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
@@ -95,14 +127,13 @@ struct
 	   Some (Hashtbl.find Config.imports (Data.Address.to_int a))
 	with Not_found -> None
        in
-       fun_stack := (f, v.Cfa.State.ip)::!fun_stack;
-       v.Cfa.State.ip <- a;
-       d
+       fun_stack := (f, v)::!fun_stack;
+       d, Some [copy a]
 	   
     | Return ->
        begin
 	 try
-	   let f, a = List.hd !fun_stack in
+	   let f, vstack = List.hd !fun_stack in
 	   let d' =
 	     try
 	       match f with
@@ -117,7 +148,7 @@ struct
 	   in
 	   fun_stack := List.tl !fun_stack;
 	   (* check tainting rules *)
-	   check_tainting f a d';
+	   check_tainting f vstack.Cfa.State.ip d';
 	   (* check whether instruction pointers supposed and effective agree *)
 	   try
 	     let rip         = Register.stack_pointer ()			                                            in
@@ -125,49 +156,84 @@ struct
 	     begin
 	       match Data.Address.Set.elements ip_on_stack with
 	       | [ip_on_stack] ->
-		  if not (Data.Address.equal a ip_on_stack) then
+		  if not (Data.Address.equal vstack.Cfa.State.ip ip_on_stack) then
 		    Log.error "Interpreter: computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction"
 		  else
-		    v.Cfa.State.ip <- a;
+		    ()
 	       | _ -> Log.error "Intepreter: too much values computed for the instruction pointer at return instruction" 
 	     end;
-	     d'
+	     let v' = Cfa.copy_state g vstack in
+	     v'.Cfa.State.stmts <- [];
+	     d', Some [v']
 	   with
 	     _ -> Log.error "Intepreter: computed instruction pointer at return instruction too imprecise or undefined"
 	 with
-	 | _ -> Log.from_analysis (Printf.sprintf "return instruction at %s without previous call instruction\n" (Data.Address.to_string v.Cfa.State.ip)); d
+	 | _ -> Log.error (Printf.sprintf "return instruction at %s without previous call instruction\n" (Data.Address.to_string v.Cfa.State.ip))
        end
     | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt))
     in
-
     process d stmt
-	    
-  (* update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
-  (* vertices are supposed to be sorted in topological order *)
-  let update_abstract_values g vertices fun_stack =
-    List.map (fun v ->
-	List.iter (fun s -> Printf.printf "%s\n" (Asm.string_of_stmt s)) v.Cfa.State.stmts; flush stdout; Printf.printf "-------------------\n"; flush stdout;
-	let d' = List.fold_left (fun d stmt -> process_stmt g v d stmt fun_stack) v.Cfa.State.v v.Cfa.State.stmts in
-	v.Cfa.State.v <- d';
-	v
-      ) vertices
+
+  (** widen the given vertex with all vertices in g that have the same ip as v *)
+  let widen g v =
+    let d = Cfa.fold_vertex (fun prev d ->
+	if v.Cfa.State.ip = prev.Cfa.State.ip then
+	  D.join d prev.Cfa.State.v
+	else
+	  d) g D.bot
+    in
+    v.Cfa.State.v <- D.widen d v.Cfa.State.v
+			     
+  (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
+  (** the widening may be also launched if the threshold is reached *)
+  let update_abstract_values g v ip fun_stack =
+    try
+    let d, l =
+      List.fold_left (fun (d, l) stmt ->
+	  let d', l' = process_stmt g v d stmt fun_stack in
+	  let l' =
+	  match l, l' with
+	  | None, l | l, None -> l
+	  | Some l, Some l' -> Some (l' @ l)
+	in
+	d', l'
+	) (v.Cfa.State.v, None) v.Cfa.State.stmts
+    in
+    let l =
+      match l with
+      | None ->
+	 begin
+	   let v' = Cfa.copy_state g v in
+	   v'.Cfa.State.ip <- ip;
+	   v'.Cfa.State.stmts <- [];
+	   v'.Cfa.State.v <- d;
+	   Cfa.add_edge g v v';
+	   [v']
+	 end
+      | Some l -> List.map (fun v -> v.Cfa.State.v <- d; v) l
+    in
+    List.iter (fun v -> let n =
+			  try let n' = (Hashtbl.find unroll_tbl v.Cfa.State.ip) + 1 in Hashtbl.replace unroll_tbl v.Cfa.State.ip n' ; n'
+			  with Not_found -> Hashtbl.add unroll_tbl v.Cfa.State.ip 1; 1
+			in
+			if n <= !Config.unroll then
+			  ()
+			else
+			  widen g v
+	      ) l;
+    l
+    with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
 
     
   (** [filter_vertices _g_ vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
   let filter_vertices g vertices =
     (* predicate to check whether a new vertex has to be explored or not *)
     let same prev v' =
-      if Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip then
-	begin
-	  v'.Cfa.State.v <- D.join prev.Cfa.State.v v'.Cfa.State.v;
-	  (* first to conditions ensure the decoding context is the same *)
-	  prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
-						   prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
-						     (* fixpoint reached *)
-						     D.subset v'.Cfa.State.v prev.Cfa.State.v
-	end
-      else
-	false
+      Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip &&
+	prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
+	  prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
+	    (* fixpoint reached *)
+	    D.subset v'.Cfa.State.v prev.Cfa.State.v
     in
     List.fold_left (fun l v ->
 	try
@@ -177,11 +243,11 @@ struct
 					      (Data.Address.to_string v.Cfa.State.ip))
 	  else
 	    (** explore if a greater abstract state of v has already been explored *)
-	    Cfa.iter_vertex (fun v' ->
-		if v.Cfa.State.id = v'.Cfa.State.id then
+	    Cfa.iter_vertex (fun prev ->
+		if v.Cfa.State.id = prev.Cfa.State.id then
 		  ()
 		else
-		  if same v v' then raise Exit
+		  if same prev v then raise Exit
 	      ) g;
 	  v::l
 	with
@@ -198,13 +264,15 @@ struct
   (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial vertex s *)
   (** g is the initial CFA reduced to the singleton s *) 
   let process code g s (dump: Cfa.t -> unit) =
-     (* check whether the instruction pointer is in the black list of addresses to decode*)
+     (* check whether the instruction pointer is in the black list of addresses to decode *)
     if Config.SAddresses.mem (Data.Address.to_int s.Cfa.State.ip) !Config.blackAddresses then
       Log.error "Interpreter not started as the entry point belongs to the cut off branches\n";
     (* boolean variable used as condition for exploration of the CFA *)
     let continue = ref true		      in
     (* set of waiting nodes in the CFA waiting to be processed *)
-    let waiting  = ref (Vertices.singleton s) in
+    let v0 = Cfa.copy_state g s in
+    Cfa.add_edge g s v0;
+    let waiting  = ref (Vertices.singleton v0) in
     (* set d to the initial internal state of the decoder *)
     let d = ref (Decoder.init ())             in
     (* function stack *)
@@ -217,20 +285,22 @@ struct
 	try
 	  (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
 	  let text'        = Code.sub code v.Cfa.State.ip						         in
-	  (* the corresponding instruction is decoded and the successor vertices of v are computed and added to  *)
+	  (* the corresponding instruction is decoded and the successor vertex of v are computed and added to    *)
 	  (* the CFA                                                                                             *)
 	  (* except the abstract value field which is set to v.Cfa.State.value. The right value will be          *)
 	  (* computed next step                                                                                  *)
 	  (* the new instruction pointer (offset variable) is also returned                                      *)
-	  (* Decoder.parse is supposed to return the vertices in a topological order                             *)
-	  let vertices, d' = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)        in
-	  (* these vertices are updated by their right abstract values and the new ip                            *)
-	  let new_vertices = update_abstract_values g vertices fun_stack                                         in
-	  (* among these computed vertices only new are added to the waiting set of vertices to compute          *)
-	  let vertices'    = filter_vertices g new_vertices				     		         in
-	  List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
-	  (* udpate the internal state of the decoder *)
-	  d := d'
+	  let r = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)                   in
+	  match r with
+	  | Some (v, ip', d') ->
+	     (* these vertices are updated by their right abstract values and the new ip                         *)
+	     let new_vertices = update_abstract_values g v ip' fun_stack                                         in
+	     (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
+	     let vertices'  = filter_vertices g new_vertices				     		         in
+	     List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
+	     (* udpate the internal state of the decoder *)
+	     d := d'
+	  | None -> ()
 	with
 	| Exceptions.Error msg 	  -> dump g; Log.error msg
 	| Exceptions.Enum_failure -> dump g; Log.error "analysis stopped in that branch (too imprecise value computed)"

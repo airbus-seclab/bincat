@@ -39,7 +39,6 @@ module Make(Domain: Domain.T) =
 	    
 	end
 
-	  
       module G = Graph.Imperative.Digraph.ConcreteBidirectional(State)
       open State 
 	     
@@ -243,6 +242,8 @@ module Make(Domain: Domain.T) =
 	  G.add_vertex g v;
 	  v
 
+      (** returns a fresh copy of the given state *)
+      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx
 				    
       (** [add_edge g src dst] adds in _g_ an edge _src_ -> _dst_ *)
       let add_edge g src dst = G.add_edge g src dst

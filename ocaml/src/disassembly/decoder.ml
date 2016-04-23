@@ -207,6 +207,7 @@ module Make(Domain: Domain.T) =
 	  mutable g 	    : Cfa.t; 	   (** current cfa *)
 	  mutable b 	    : Cfa.State.t; (** state predecessor *)
 	  a 	     	    : Address.t;   (** current address to decode *)
+	  mutable c         : char; (** current decoded byte *)
 	  mutable addr_sz   : int;   	   (** current address size in bits *)
 	  mutable operand_sz: int;  	   (** current operand size in bits *)
 	  buf 	     	    : string;      (** buffer to decode *)
@@ -229,6 +230,7 @@ module Make(Domain: Domain.T) =
       let getchar s =
 	let c = String.get s.buf s.o in
 	s.o <- s.o + 1;
+	s.c <- c;
 	c
 
       (** int conversion of a byte in the string code *)
@@ -316,13 +318,12 @@ module Make(Domain: Domain.T) =
 	  done;
 	  Z.add (Z.shift_left (Z.of_string !ff) Config.size_of_byte) b
 		
-      (** add a new state with the given statements *)
-      (** an edge between the current state and this new state is added *)
-      let create s stmts =
-	let ctx = { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz }                  in
-	let v   = Cfa.add_state s.g (Address.add_offset s.a (Z.of_int s.o)) s.b.Cfa.State.v stmts ctx in
-	Cfa.add_edge s.g s.b v;
-	[v]
+      (** update and return the current state with the given statements and the new instruction value *)
+      (** the context of decoding is also updated *)
+      let return s stmts =
+	s.b.Cfa.State.ctx <- { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz };
+	s.b.Cfa.State.stmts <- stmts;
+	s.b, Address.add_offset s.a (Z.of_int s.o)
 
       (************************************************)
       (* MOD REG R/M *)
@@ -487,7 +488,7 @@ module Make(Domain: Domain.T) =
 	let nth i =
 	  let sz' = sz-i in
 	  let one = Const (Word.one sz') in
-	  BinOp (And, UnOp(Shr (sz'-1), res), one)
+	  BinOp (And, UnOp(Shr i, res), one)
 	in
 	let e = ref (nth 0) in
 	for i = 1 to 7 do
@@ -530,7 +531,7 @@ module Make(Domain: Domain.T) =
 	add_sub_flag_stmts [res] sz dst op src 
 
 	(** produces the list of states for for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)
-	let add_sub s op b dst src sz = create s (add_sub_stmts op b dst src sz)
+	let add_sub s op b dst src sz = return s (add_sub_stmts op b dst src sz)
 
 	
       (** produces the state corresponding to an add or a sub with an immediate operand *)
@@ -553,7 +554,7 @@ module Make(Domain: Domain.T) =
 	let set = Set (V (T tmp), BinOp (Sub, e1, e2)) in
 	(set::(flag_stmts)@[Directive (Remove tmp)])
 	       
-      (** creates the states for OR, XOR, AND depending on the the given operator *)
+      (** returns the states for OR, XOR, AND depending on the the given operator *)
       let or_xor_and s op dst src =
 	let res   = Set (dst, BinOp(op, Lval dst, src)) in
 	let res'  = Lval dst			        in
@@ -563,7 +564,7 @@ module Make(Domain: Domain.T) =
 	    sign_flag_stmts res'     ; parity_flag_stmts s.operand_sz res'; undefine_adjust_flag_stmts ()
 	  ]
 	in
-	create s (res::flag_stmts)
+	return s (res::flag_stmts)
 		       
       (** [const c s] builds the asm constant c from the given context *)
       let const s c = Const (Word.of_int (Z.of_int c) s.operand_sz)
@@ -587,7 +588,7 @@ module Make(Domain: Domain.T) =
 	  [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @ 
 	    flags_stmts @ [Directive (Remove v)]
 	in
-	create s stmts
+	return s stmts
 
 		       
       (*****************************************************************************************)
@@ -621,13 +622,13 @@ module Make(Domain: Domain.T) =
 	   | 4 -> or_xor_and s And dst c
 	   | 5 -> add_sub s Sub false dst c reg_sz
 	   | 6 -> or_xor_and s Xor dst c
-	   | 7 -> create s (cmp_stmts (Lval dst) c reg_sz)
+	   | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
 	   | _ -> Log.error "Illegal nnn value in grp1"
 
       let grp3 s sz =
 	let dst, nnn = core_grp s 3 sz in
 	match nnn with
-	| 2 -> (* NOT *) create s [ Set (dst, UnOp (Not, Lval dst)) ]
+	| 2 -> (* NOT *) return s [ Set (dst, UnOp (Not, Lval dst)) ]
 	| _ -> Log.error "Unknown operation in grp 3"
     
 			   
@@ -668,42 +669,42 @@ module Make(Domain: Domain.T) =
 
       (** state generation for MOVS *)			 
       let movs s i =
-	let edi'  = V (to_reg edi i)                    in
-	let esi'  = V (to_reg esi i)                    in
+	let edi'  = V (to_reg edi s.operand_sz)                    in
+	let esi'  = V (to_reg esi s.operand_sz)                    in
 	let medi' = M (add_segment s (Lval edi') es, i) in
 	let mesi' = M (add_segment s (Lval esi') es, i) in
-	create s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi ; esi] i))
+	return s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi ; esi] i))
 
 	(** state generation for CMPS *)
 	let cmps s i = 
-	  let edi'  = V (to_reg edi i)                    in
-	  let esi'  = V (to_reg esi i)                    in
+	  let edi'  = V (to_reg edi s.operand_sz)         in
+	  let esi'  = V (to_reg esi s.operand_sz)         in
 	  let medi' = M (add_segment s (Lval edi') es, i) in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
-	  create s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi ; esi] i))
+	  return s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi ; esi] i))
 
 	(** state generation for LODS *)
 	let lods s i =
 	  let eax'  = V (to_reg eax i)                    in
-	  let esi'  = V (to_reg esi i)                    in
+	  let esi'  = V (to_reg esi s.operand_sz)         in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
-	  create s ((Set (eax', Lval mesi'))::(inc_dec_wrt_df [esi] i))
+	  return s ((Set (eax', Lval mesi'))::(inc_dec_wrt_df [esi] i))
 
 	(** state generation for SCAS *)
 	let scas s i =
 	  let eax' = V (to_reg eax i)                    in
-	  let edi' = V (to_reg edi i)                    in
+	  let edi' = V (to_reg edi s.operand_sz)         in
 	  let mem  = M (add_segment s (Lval edi') es, i) in
-	  create s ((cmp_stmts (Lval eax') (Lval mem) i) @ (inc_dec_wrt_df [edi] i) )
+	  return s ((cmp_stmts (Lval eax') (Lval mem) i) @ (inc_dec_wrt_df [edi] i) )
 
 
 	(** state generation for STOS *)
 	let stos s i =
-	  let eax'  = V (to_reg eax i)                     in
-	  let edi'  = V (to_reg edi i)                     in
-	  let medi' = M (add_segment s (Lval edi') es, i)  in
+	  let eax'  = V (to_reg eax i)                                in
+	  let edi'  = V (to_reg edi s.operand_sz)                     in
+	  let medi' = M (add_segment s (Lval edi') es, s.operand_sz)  in
 	  let stmts = Set (medi', Lval eax')               in 
-	  create s (stmts::(inc_dec_wrt_df [edi] i))
+	  return s (stmts::(inc_dec_wrt_df [edi] i))
 		 
 	(****************************************************)
 	(* State generation for loop, call and jump instructions *)
@@ -744,25 +745,25 @@ module Make(Domain: Domain.T) =
 	  else
 	    raise (Log.error "Decoder: jump target out of limits of the code segments (GP exception in protected mode)")
 
-	(** [create_jcc_stmts s e] creates the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
-	let create_jcc_stmts s e n =
+	(** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
+	let return_jcc_stmts s e n =
 	  let o  = sign_extension_of_byte (int_of_bytes s 1) (n-1) in
 	  let a' = Address.add_offset s.a o			   in
 	  check_jmp s a';
 	  let na = Address.add_offset s.a Z.one			   in
 	  check_jmp s na;
-	  create s [ If (e, [Jmp (A a')], [ Jmp (A na) ] ) ]
+	  return s [ If (e, [Jmp (A a')], [ Jmp (A na) ] ) ]
 
 	(** jump statements on condition *)
 	 let jcc s v n =
 	   let e = exp_of_cond v s in
-	   create_jcc_stmts s e n
+	   return_jcc_stmts s e n
 
 	 (** jump if eCX is zero *)
 	 let jecxz s =
 	   let ecx' = to_reg ecx s.addr_sz				   in
 	   let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero s.addr_sz)) in
-	   create_jcc_stmts s e s.addr_sz
+	   return_jcc_stmts s e s.addr_sz
 
 	 (** common behavior between relative jump and relative call *)
 	 let relative s i sz =
@@ -778,7 +779,7 @@ module Make(Domain: Domain.T) =
 	 (** unconditional jump by adding an offset to the current ip *)
 	 let relative_jmp s i =
 	   let a' = relative s i s.operand_sz in
-	   create s [ Jmp (A a') ]
+	   return s [ Jmp (A a') ]
 
 	 (** common statement to move (a chunk of) esp by a relative offset *)
 	 let set_esp op esp' n =
@@ -796,7 +797,7 @@ module Make(Domain: Domain.T) =
 	       Call (A a)
 	     ]
 	   in
-	   create s stmts
+	   return s stmts
 	   
 	 (** statements of jump with absolute address as target *)
 	 let direct_jmp s =
@@ -823,8 +824,8 @@ module Make(Domain: Domain.T) =
 	   let o  = Address.of_int Address.Global a s.operand_sz        in
 	   let a' = Address.add_offset o v                              in
 	   check_jmp s a';
-	    (* creates the statements : the first one enables to update the interpreter with the new value of cs *)
-	   create s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (A a') ]
+	    (* returns the statements : the first one enables to update the interpreter with the new value of cs *)
+	   return s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (A a') ]
 		  
 	 
 
@@ -859,7 +860,7 @@ module Make(Domain: Domain.T) =
 			       Lval (M (Lval (V esp'), n))) ; set_esp Add esp' n ] @ stmts
 		      ) [] v 
 	in
-	create s stmts
+	return s stmts
 
       (** generation of states for the push instructions *)
       let push s v =
@@ -888,15 +889,15 @@ module Make(Domain: Domain.T) =
 	      [ set_esp Sub esp' n ; s ] @ stmts
 	    ) [] v
 	in
-	create s (pre @ stmts @ post)
+	return s (pre @ stmts @ post)
 
-      (** creates the state for the push of an immediate operands. Its size is given by the parameter *)
+      (** returns the state for the push of an immediate operands. Its size is given by the parameter *)
       let push_immediate s n =
 	let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width) in
 	let esp'  = esp_lval ()						       in
 	let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]			 
 	in
-	create s stmts
+	return s stmts
 
       (********)
       (* misc *)
@@ -908,7 +909,7 @@ module Make(Domain: Domain.T) =
 	let stmts = [ Set(V (T tmp), Lval (V eax)); Set(V eax, Lval (V r)) ; 
 		      Set(V r, Lval (V (T tmp)))  ; Directive (Remove tmp) ]
 	in
-	create s stmts
+	return s stmts
 
       (** check whether an opcode is defined in a given state of the decoder *)
       let check_context s c =
@@ -1006,9 +1007,9 @@ module Make(Domain: Domain.T) =
 	  | '\x82' -> raise (Exceptions.Error "Undefined opcode 0x82")
 	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte
 			   
-	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in create s [ Set (dst, src) ]
+	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in return s [ Set (dst, src) ]
 														
-	  | '\x90' 			      -> create s [Nop]
+	  | '\x90' 			      -> return s [Nop]
 	  | c when '\x91' <= c && c <= '\x97' -> xchg s ((Char.code c) - (Char.code '\x90'))
 						      
 						      
@@ -1023,7 +1024,7 @@ module Make(Domain: Domain.T) =
 	  | '\xae' -> scas s Config.size_of_byte
 	  | '\xaf' -> scas s s.addr_sz
 
-	  | '\xc3' -> create s [ Return; set_esp Add (T esp) !Config.stack_width; ]
+	  | '\xc3' -> return s [ Return; set_esp Add (T esp) !Config.stack_width; ]
 			     
 	  | '\xe3' -> jecxz s
 
@@ -1038,40 +1039,43 @@ module Make(Domain: Domain.T) =
 	  | '\xf2' -> (* REP/REPE *) s.rep <- true; rep s Word.zero
 	  | '\xf3' -> (* REPNE *) s.repne <- true; rep s Word.one
 	  | '\xf4' -> Log.error "Decoder stopped: HLT reached"
-	  | '\xf5' -> let fcf' = V (T fcf) in create s [ Set (fcf', UnOp (Not, Lval fcf')) ]
+	  | '\xf5' -> let fcf' = V (T fcf) in return s [ Set (fcf', UnOp (Not, Lval fcf')) ]
 	  | '\xf6' -> grp3 s Config.size_of_byte
 	  | '\xf7' -> grp3 s s.operand_sz
-	  | '\xf8' -> create s (clear_flag fcf fcf_sz)
-	  | '\xf9' -> create s (set_flag fcf fcf_sz)
-	  | '\xfa' -> Log.from_decoder "entering privilege mode (CLI instruction)"; create s (clear_flag fif fif_sz)
-	  | '\xfb' -> Log.from_decoder "entering privilege mode (STI instruction)"; create s (set_flag fif fif_sz)
-	  | '\xfc' -> create s (clear_flag fdf fdf_sz)
-	  | '\xfd' -> create s (set_flag fdf fdf_sz)
+	  | '\xf8' -> return s (clear_flag fcf fcf_sz)
+	  | '\xf9' -> return s (set_flag fcf fcf_sz)
+	  | '\xfa' -> Log.from_decoder "entering privilege mode (CLI instruction)"; return s (clear_flag fif fif_sz)
+	  | '\xfb' -> Log.from_decoder "entering privilege mode (STI instruction)"; return s (set_flag fif fif_sz)
+	  | '\xfc' -> return s (clear_flag fdf fdf_sz)
+	  | '\xfd' -> return s (set_flag fdf fdf_sz)
 						     
-	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x\n" (Char.code c)))
+	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x" (Char.code c)))
 
 	(** rep prefix *)
 	and rep s c =
-	  let make_cond s =
-	    let ecx_cond  = Cmp (EQ, Lval (V (to_reg ecx s.addr_sz)), Const (c s.addr_sz)) in
-	    let eq_c_cond = Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz))                   in
-	      if s.repe || s.repne then
-		BBinOp(LogOr, ecx_cond, eq_c_cond)
-	      else ecx_cond
-	    in
+	    let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (c s.addr_sz)) in
 	   (* thanks to check_context at the beginning of decode we know that next opcode is SCAS/LODS/STOS/CMPS *)
 	   (* otherwise decoder halts *)
-	    let v = List.hd (decode s) in
-	    let blk = [ If (make_cond s, v.Cfa.State.stmts @ [ Jmp (A s.b.Cfa.State.ip) ], [ Jmp (A v.Cfa.State.ip) ]) ] in
+	    let v, ip = decode s in
+	    let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
+	    let zf_stmts =
+	      if s.repe || s.repne then
+		[ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Jmp (A a')], [ Jmp (A s.b.Cfa.State.ip) ]) ]
+	      else
+		[]
+	    in
+	    let ecx' = V (to_reg ecx s.addr_sz) in
+	    let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in
+	    let blk = [ If (ecx_cond, v.Cfa.State.stmts @ (ecx_stmt :: zf_stmts), [ Jmp (A a') ]) ] in
 	    v.Cfa.State.stmts <- blk;
-	    [v]
+	    v, ip
 	  
 	and decode_snd_opcode s =
 	  match getchar s with
 	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
 	  | c 				      -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
-	  decode s
+	  decode s;;
 					      
       (** launch the decoder *)
       let parse text g is v a ctx =
@@ -1079,6 +1083,7 @@ module Make(Domain: Domain.T) =
 	    g 	       = g;
 	    a 	       = a;
 	    o 	       = 0;
+	    c          = '\x00';
 	    addr_sz    = !Config.address_sz;
 	    operand_sz = !Config.operand_sz; 
 	    segments   = copy_segments is ctx;
@@ -1091,10 +1096,11 @@ module Make(Domain: Domain.T) =
 	    }
 	  in
 	  try
-	    decode s', s'.segments
+	    let v', ip = decode s' in
+	    Some (v', ip, s'.segments)
 	  with
 	  | Exceptions.Error _ as e -> raise e
-	  | _ 			    -> (*end of buffer *) [], is
+	  | _ 			    -> (*end of buffer *) None
   end
     (* end Decoder *)
 

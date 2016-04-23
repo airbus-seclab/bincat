@@ -55,7 +55,7 @@ module Make (V: Vector.T) =
     let meet p1 p2 =
       match p1, p2 with
       | TOP, p | p, TOP 	   -> p
-      | BOT, _ | _, BOT 	   -> BOT
+      | BOT, p | p, BOT 	   -> p
       | Val (r1, o1), Val (r2, o2) ->
 	 if r1 = r2 then Val (r1, V.meet o1 o2)
 	 else BOT
@@ -93,7 +93,7 @@ module Make (V: Vector.T) =
       | _, BOT 			   -> false
       | _, TOP | TOP, _		   -> true
       | Val (r1, o1), Val (r2, o2) ->
-	 if r1 = r2 then V.compare o1 op o2
+	 if r1 = r2 || r1 = Global || r2 = Global then V.compare o1 op o2
 	 else true
 
     let to_addresses p =
