@@ -15,7 +15,7 @@ copydoc: checkenv doc
 	cp -r doc/build/html $(DOCPATH)
 
 clean:
-	rm -rf build bnew/*~ bnew/*.so
+	rm -rf build
 	make -C doc clean
 
 checkenv:
