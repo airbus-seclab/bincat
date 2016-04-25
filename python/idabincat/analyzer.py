@@ -8,9 +8,6 @@ import cPickle
 import sys 
 import ConfigParser
 #import analyzer_state
-'''
-le module mlbincat --> /usr/lib/libbincat.so 
-'''
 
         
 
