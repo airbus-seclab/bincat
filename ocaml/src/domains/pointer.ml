@@ -19,8 +19,8 @@ module Make (V: Vector.T) =
 
     let to_string p =
       match p with
-      | BOT -> "_"
-      | TOP -> "?"
+      | BOT -> "(_,0b_)"
+      | TOP -> "(?,0b?)"
       | Val (r, o) -> Printf.sprintf "(%s, %s)" (string_of_region r) (V.to_string o)
 
     let default sz = Val (Global, V.default sz)

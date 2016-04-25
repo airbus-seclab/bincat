@@ -8,7 +8,8 @@ import ConfigParser
 import logging
 import sys
 from collections import defaultdict
-
+import re
+from  pybincat.tools import parsers
 
 class AnalyzerState(object):
     """
@@ -45,6 +46,8 @@ class AnalyzerState(object):
         """
         pass
 
+    re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
+
     def setStatesFromAnalyzerOutput(self, filename):
         """
         Parses states contained in the analyzer's output file.
@@ -64,16 +67,18 @@ class AnalyzerState(object):
                               section)
                 sys.exit(1)
             # "address = (region, addr)"
-            addrtxt = section[10:]
-            address = ConcretePtrValue.fromAnalyzerOutput(addrtxt)
+            m = self.re_val.match(section[10:])
+            if not m:
+                raise Exception("Cannot parse section name (%r)" % section)
+            address = PtrValue(m.group("region"), int(m.group("value"),0))
             state = State(address)
             state.setFromAnalyzerOutput(config.items(section))
             self.stateAtEip[address] = state
             self.nodeidaddr[state.nodeid] = address
 
-    def _intToConcretePtrValue(self, eip):
+    def _intToPtrValue(self, eip):
         if type(eip) is int:
-            addr = ConcretePtrValue("global", eip)
+            addr = PtrValue("global", eip)
         else:
             addr = eip
         return addr
@@ -82,18 +87,18 @@ class AnalyzerState(object):
         """
         Returns state at provided EIP
 
-        :param eip: int or ConcretePtrValue
+        :param eip: int or PtrValue
         """
-        addr = self._intToConcretePtrValue(eip)
+        addr = self._intToPtrValue(eip)
         return self.stateAtEip[addr]
 
     def listNextStates(self, eip):
         """
         Returns a list of destination States after executing instruction at eip
 
-        :param eip: int or ConcretePtrValue
+        :param eip: int or PtrValue
         """
-        addr = self._intToConcretePtrValue(eip)
+        addr = self._intToPtrValue(eip)
         curStateId = self.stateAtEip[addr].nodeid
         nextIds = self.edges[curStateId]
         nextStates = [self.stateAtEip[self.nodeidaddr[i]] for i in nextIds]
@@ -113,13 +118,13 @@ class State(object):
     """
     def __init__(self, address, prettyname=""):
         """
-        :param address: ConcretePtrValue instance
+        :param address: PtrValue instance
         """
         self.address = address
-        #: self.ptrs['reg' or 'mem'][name or ConcretePtrValue object] =
+        #: self.ptrs['reg' or 'mem'][name or PtrValue object] =
         #: ("memory region", int address)
         self.ptrs = {'mem': {}, 'reg': {}}
-        #: self.tainting['reg' or 'mem'][name or ConcretePtrValue object] =
+        #: self.tainting['reg' or 'mem'][name or PtrValue object] =
         #: taint value (object)?
         self.tainting = {'mem': {}, 'reg': {}}
         #: self.stmts = [statement of the intermediate language]
@@ -156,9 +161,6 @@ class State(object):
             for key in allKeys:
                 if (self.ptrs[region][key] != other.ptrs[region][key]):
                     return False
-            for t in allKeys:
-                if self.tainting[region][t] != other.tainting[region][t]:
-                    return False
         return True
 
     def listModifiedKeys(self, other):
@@ -167,25 +169,16 @@ class State(object):
         differ between self and other.
         """
         results = set()
-        regions = (set(self.ptrs.keys()) |
-                   set(self.tainting.keys()) |
-                   set(other.ptrs.keys()) |
-                   set(other.tainting.keys()))
+        regions = set(self.ptrs) | set(other.ptrs)
         for region in regions:
             sPr = self.ptrs[region]
-            sTr = self.tainting[region]
             oPr = other.ptrs[region]
-            oTr = other.tainting[region]
             sPrK = set(sPr)
-            sTrK = set(sTr)
             oPrK = set(oPr)
-            oTrK = set(oTr)
 
             results |= set((region,p) for p in sPrK ^ oPrK)
             results |= set((region,p) for p in oPrK & sPrK if sPr[p] != oPr[p])
 
-            results |= set((region,p) for p in sTrK ^ oTrK)
-            results |= set((region,p) for p in sTrK & oTrK if sTr[p] != oTr[p])
         return results
 
     def getPrintableDiff(self, other):
@@ -199,51 +192,35 @@ class State(object):
             elif self.ptrs[region][address] != other.ptrs[region][address]:
                 res += "- %s\n" % self.ptrs[region][address]
                 res += "+ %s\n" % other.ptrs[region][address]
-            if address not in self.tainting[region]:
-                res += "+ %s\n" % other.tainting[region][address]
-            elif address not in other.tainting[region]:
-                res += "- %s\n" % self.tainting[region][address]
-            elif self.tainting[region][address] != other.tainting[region][address]:
-                res += "- %s\n" % self.tainting[region][address]
-                res += "+ %s\n" % other.tainting[region][address]
         return res
 
+    re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
+    re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
     def setFromAnalyzerOutput(self, outputkv):
         """
         :param outputkv: list of (key, value) tuples for each property set by
             the analyzer at this EIP
         """
-        for k, v in outputkv:
-            if k.startswith('tainting '):
-                ptrloc = k[9:]
-                if ptrloc.startswith('mem ['):
-                    region = 'mem'
-                    key = ConcretePtrValue.fromAnalyzerOutput(ptrloc[6:-2])
-                elif ptrloc.startswith('reg ['):
-                    region = 'reg'
-                    key = ptrloc[5:-1]
-                else:
-                    raise NotImplementedError('Unsupported ptrtype')
-                self.tainting[region][key] = Tainting.fromAnalyzerOutput(v)
-            elif k.startswith('pointer '):
-                ptrloc = k[8:]
-                if ptrloc.startswith('mem ['):
-                    region = 'mem'
-                    key = ConcretePtrValue.fromAnalyzerOutput(ptrloc[6:-2])
-                elif ptrloc.startswith('reg ['):
-                    region = 'reg'
-                    key = ptrloc[5:-1]
-                else:
-                    raise NotImplementedError('Unsupported region')
-                self.ptrs[region][key] = PtrValue.fromAnalyzerOutput(v)
-            elif k.startswith('statements'):
-                self.stmts = Stmt.fromAnalyzerOutput(v)
-            elif k == "id":
-                self.nodeid = v
-            else:
-                logging.error("Unrecognized key while parsing state: %s", k)
-                sys.exit(1)
 
+        for i,(k,v) in enumerate(outputkv):
+            if k == "id":
+                self.nodeid = v
+                continue
+            m = self.re_region.match(k)
+            if not m:
+                raise Exception("Parsing error (entry %i, key=%r)" % (i,k))
+            region = m.group("region")
+            adrs = m.group("adrs")
+
+            m = self.re_valtaint.match(v)
+            if not m:
+                raise Exception("Parsing error (entry %i: value=%r)" % (i,v))
+            kind = m.group("kind")
+            val = m.group("value")
+            taint = m.group("taint")
+
+            self.ptrs[region][adrs] = PtrValue.fromAnalyzerOutput(kind, val, taint)
+            
 
 class Stmt(object):
     def __init__(self, stmts):
@@ -261,83 +238,50 @@ class Stmt(object):
 
 
 class PtrValue(object):
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __eq__(self, other):
-        raise NotImplementedError
-
-    @classmethod
-    def fromAnalyzerOutput(cls, s):
-        if s.startswith('('):
-            return ConcretePtrValue.fromAnalyzerOutput(s[1:-1])
-        else:
-            return AbstractPtrValue.fromAnalyzerOutput(s)
-
-
-class ConcretePtrValue(PtrValue):
-    def __init__(self, region, address):
+    def __init__(self, region, value, vtop=0, vbot=0, taint=0, ttop=0, tbot=0):
         self.region = region.lower()
-        self.address = address
+        self.value = value
+        self.vtop = vtop
+        self.vbot = vbot
+        self.taint = taint
+        self.ttop = ttop
+        self.tbot = tbot
 
     def __repr__(self):
-        return "ConcretePtrValue(%s, %d)" % (self.region, self.address)
+        return "PtrValue(%s, %s ! %s)" % (
+            self.region,
+            parsers.val2str(self.value, self.vtop, self.vbot),
+            parsers.val2str(self.taint, self.ttop, self.tbot))
 
     def __hash__(self):
-        return hash((type(self), self.region, self.address))
+        return hash((type(self), self.region, self.value,
+                     self.vtop, self.vbot, self.taint,
+                     self.ttop, self.tbot))
 
     def __eq__(self, other):
-        return self.region == other.region and self.address == other.address
-
-    def __add__(self, other):
-        if type(other) is not int:
-            raise NotImplemented
-        return ConcretePtrValue(self.region, self.address + other)
-
-    def __sub__(self, other):
-        return self + (-other)
-
-    @property
-    def value(self):
-        return (self.region, self.address)
-
-    @classmethod
-    def fromAnalyzerOutput(cls, s):
-        if s[0] == '(' and s[-1] == ')':
-            s = s[1:-1]
-        z, v = s.split(',')
-        v = int(v, 16)
-        return cls(z, v)
-
-
-class AbstractPtrValue(PtrValue):
-    def __init__(self, value):
-        self.value = value
-
-    def __repr__(self):
-        return "AbstractPtrValue(%s)" % self.value
-
-    def __eq__(self, other):
-        return self.value == other.value
-
-    @classmethod
-    def fromAnalyzerOutput(cls, s):
-        return cls(s)
-
-
-class Tainting(object):
-    def __init__(self, tainting):
-        self.tainting = tainting
-
-    def __repr__(self):
-        return "Tainting(%s)" % self.tainting
+        return (self.region == other.region 
+                and self.value == other.value and self.taint == other.taint
+                and self.vtop == other.vtop and self.ttop == other.ttop
+                and self.vbot == other.vbot and self.tbot == other.tbot)
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return not (self == other)
 
-    def __eq__(self, other):
-        return self.tainting == other.tainting
+    def __add__(self, other):
+        other = getattr(other, "value", other)
+        return self.__class__(self.region, self.value+other, 
+                              self.vtop, self.vbot, self.taint,
+                              self.ttop, self.tbot)
+    def __sub__(self, other):
+        other = getattr(other, "value", other)
+        return self.__class__(self.region, self.value-other, 
+                              self.vtop, self.vbot, self.taint,
+                              self.ttop, self.tbot)
 
     @classmethod
-    def fromAnalyzerOutput(cls, s):
-        return cls(s)
+    def fromAnalyzerOutput(cls, region, s, t):
+        value, vtop, vbot = parsers.parse_val(s)
+        taint, ttop, tbot = parsers.parse_val(t) if t is not None else (0,0,0)
+        return cls(region, value, vtop, vbot, taint, ttop, tbot)
+
+

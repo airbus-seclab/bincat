@@ -166,6 +166,7 @@ module Make(V: Val) =
       let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "0b" v  in
       if String.length t = 0 then v'
       else Printf.sprintf "%s ! %s" v' t
+
 	
     let join v1 v2 = map2 V.join v1 v2
 

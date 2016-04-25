@@ -2,6 +2,7 @@ PYTHON	   =python
 PYPATH	   =python
 MLPATH	   =ocaml/src
 MLTESTPATH =ocaml/test
+PYTESTPATH =python
 DPREFIX	   =/usr/local
 DOCMLPATH  =../../doc/generated/ocaml
 DOCPYPATH  =../doc/generated/python
@@ -25,6 +26,7 @@ install: all
 
 test: all
 	make -C $(MLTESTPATH) test
+	make -C $(PYTESTPATH) test
 
 doc: all
 	@mkdir -p doc/generated
