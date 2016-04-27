@@ -904,15 +904,16 @@ module Make(Domain: Domain.T) =
       let al  = V (P (eax, 0, 7)) 
       let fal = BinOp (And, Lval al, Const (Word.of_int (Z.of_string "0x0F") 8))
       let fal_gt_9 = Cmp (GT, fal, Const (Word.of_int (Z.of_int 9) 8))
-      let al_plus_6 = BinOp (Add, Lval al, Const (Word.of_int (Z.of_int 6) 8))
-      let faf_eq_1 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))	
-      let aaa s =
-	let ah  = V (P (eax, 24, 31)) in
-	let set = Set (al, fal)	      in
+      let faf_eq_1 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))
+			 
+      let core_aaa_aas s op =
+	let al_op_6 = BinOp (op, Lval al, Const (Word.of_int (Z.of_int 6) 8)) in
+	let ah      = V (P (eax, 24, 31))                                     in
+	let set     = Set (al, fal)	                                      in
 	let istmts =
 	  [
-	    Set (al, al_plus_6);
-	    Set (ah, BinOp(Add, Lval ah, Const (Word.one 8)));
+	    Set (al, al_op_6);
+	    Set (ah, BinOp(op, Lval ah, Const (Word.one 8)));
 	    set_flag faf;
 	    set_flag fcf;
 	    set
@@ -937,17 +938,21 @@ module Make(Domain: Domain.T) =
 	in
 	return s stmts
 
-      let daa s =
+	let aaa s = core_aaa_aas s Add
+	let aas s = core_aaa_aas s Sub
+				 
+      let core_daa_das s op =
 	let old_al = Register.make (Register.fresh_name()) 8				       in
 	let old_cf = Register.make (Register.fresh_name()) 1				       in
+	let al_op_6 = BinOp (op, Lval al, Const (Word.of_int (Z.of_int 6) 8)) in
 	let carry  = If(BBinOp (LogOr, Cmp (EQ, Lval (V (T old_cf)), Const (Word.one 1)), BBinOp (LogOr, fal_gt_9, faf_eq_1)), [set_flag fcf],[clear_flag fcf]) in
 	
 	let if1 = If (BBinOp (LogOr, fal_gt_9, faf_eq_1),
-		      [ Set(al, al_plus_6); carry; set_flag faf],
+		      [ Set(al, al_op_6); carry; set_flag faf],
 		      [clear_flag faf])
 	in
 	let if2 = If (BBinOp (LogOr, Cmp (GT, Lval (V (T old_al)), Const (Word.of_int (Z.of_int 0x99) 8)), Cmp(EQ, Lval (V (T old_cf)), Const (Word.one 1))),
-		      [Set (al, BinOp(Add, Lval al, Const (Word.of_int (Z.of_int 0x60) 8)))],
+		      [Set (al, BinOp(op, Lval al, Const (Word.of_int (Z.of_int 0x60) 8)))],
 		      [clear_flag fcf])
 	in
 	let stmts =
@@ -966,6 +971,10 @@ module Make(Domain: Domain.T) =
 	  ]
 	in
 	return s stmts
+	       
+      let daa s = core_daa_das s Add
+      let das s = core_daa_das s Sub
+	       
       (********)
       (* misc *)
       (*****)
@@ -1043,15 +1052,16 @@ module Make(Domain: Domain.T) =
 	  | '\x2C' 			      -> add_sub_immediate s Sub false eax Config.size_of_byte
 	  | '\x2D' 			      -> add_sub_immediate s Sub false eax s.operand_sz
 	  | '\x2E' 			      -> s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
+	  | '\x2F'                            -> das s
 								       
 	  | c when '\x30' <= c &&  c <= '\x35' -> or_xor_and s Xor c
 	  | '\x36' 			       -> s.segments.data <- ss; decode s
 	  | '\x37' 			       -> aaa s
-										
 	  | c when '\x38' <= c && c <= '\x3B'  -> (* cmp *) add_sub s Sub false c
 	  | '\x3C' 			       -> add_sub_immediate s Sub false eax Config.size_of_byte
 	  | '\x3D' 			       -> add_sub_immediate s Sub false eax s.operand_sz
 	  | '\x3E' 			       -> s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
+	  | '\x3F'                             -> aas s
 									
 	  | c when '\x40' <= c && c <= '\x47' -> let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec r Add s
 	  | c when '\x48' <= c && c <= '\x4f' -> let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec r Sub s
