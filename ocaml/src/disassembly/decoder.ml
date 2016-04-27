@@ -939,13 +939,10 @@ module Make(Domain: Domain.T) =
       let daa s =
 	let old_al = Register.make (Register.fresh_name()) 8				       in
 	let old_cf = Register.make (Register.fresh_name()) 1				       in
-	let rtmp   = Register.make (Register.fresh_name ()) 9				       in
-	let res    = Set (V (T rtmp), BinOp (Add, UnOp(SignExt 9, (Lval al)), Const (Word.of_int (Z.of_int 6) 9))) in
-	let mask   = BinOp (And, UnOp(Shr 8, Lval (V (T rtmp))), Const (Word.one 1))	       in
-	let carry  = If(BBinOp (LogOr, Cmp (EQ, Lval (V (T old_cf)), Const (Word.one 1)),Cmp (EQ, Const (Word.one 1), mask)), [set_flag fcf],[clear_flag fcf]) in
+	let carry  = If(BBinOp (LogOr, Cmp (EQ, Lval (V (T old_cf)), Const (Word.one 1)), BBinOp (LogOr, fal_gt_9, faf_eq_1)), [set_flag fcf],[clear_flag fcf]) in
 	
 	let if1 = If (BBinOp (LogOr, fal_gt_9, faf_eq_1),
-		      [ Set(al, al_plus_6); res; carry; set_flag faf],
+		      [ Set(al, al_plus_6); carry; set_flag faf],
 		      [clear_flag faf])
 	in
 	let if2 = If (BBinOp (LogOr, Cmp (GT, Lval (V (T old_al)), Const (Word.of_int (Z.of_int 0x99) 8)), Cmp(EQ, Lval (V (T old_cf)), Const (Word.one 1))),
@@ -959,9 +956,9 @@ module Make(Domain: Domain.T) =
 	    clear_flag fcf;
 	    if1;
 	    if2;
+	    undef_flag fof;
 	    Directive (Remove old_al);
-	    Directive (Remove old_cf);
-	    Directive (Remove rtmp)
+	    Directive (Remove old_cf)
 	  ]
 	in
 	return s stmts
