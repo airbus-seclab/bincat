@@ -999,7 +999,7 @@ module Make(Domain: Domain.T) =
 			 
       let arpl s =
 	let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s))  in
-	let dst           = V (P (to_segment_reg rm, 0, 1))     in
+	let dst           = V (P (Hashtbl.find register_tbl rm, 0, 1)) in
 	let src           = V (P (to_segment_reg reg, 0, 1))    in
 	let stmts = [
 	    If (Cmp(GT, Lval dst, Lval src),
@@ -1112,7 +1112,10 @@ module Make(Domain: Domain.T) =
 	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte
 			   
 	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in return s [ Set (dst, src) ]
-														
+	  | '\x8c' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V (find_reg rm 16) in let src = V (T (to_segment_reg reg)) in return s [ Set (dst, Lval src) ]
+
+	  | '\x8e' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V ( T (to_segment_reg reg)) in let src = V (find_reg rm 16) in return s [ Set (dst, Lval src) ]
+																		 
 	  | '\x90' 			      -> return s [Nop]
 	  | c when '\x91' <= c && c <= '\x97' -> xchg s ((Char.code c) - (Char.code '\x90'))
 						      
