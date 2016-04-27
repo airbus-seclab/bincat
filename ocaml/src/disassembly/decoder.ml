@@ -568,18 +568,18 @@ module Make(Domain: Domain.T) =
       (** [const c s] builds the asm constant c from the given context *)
       let const s c = Const (Word.of_int (Z.of_int c) s.operand_sz)
 			    
-      let inc_dec reg op s =
-	let dst 	= V reg                                       in
-	let name        = Register.fresh_name ()                      in
-	let v           = Register.make ~name:name ~size:s.operand_sz in
-	let tmp         = V (T v)				      in
-	let op1         = Lval tmp			              in
-	let op2         = const s 1                                   in
-	let res         = Lval dst			              in
+      let inc_dec reg op s sz =
+	let dst 	= reg                               in
+	let name        = Register.fresh_name ()            in
+	let v           = Register.make ~name:name ~size:sz in
+	let tmp         = V (T v)			    in
+	let op1         = Lval tmp			    in
+	let op2         = const s 1                         in
+	let res         = Lval dst			    in
 	let flags_stmts =
 	  [
-	    overflow_flag_stmts res op1 op2   ; zero_flag_stmts s.operand_sz res;
-	    parity_flag_stmts s.operand_sz res; adjust_flag_stmts res op1 op2;
+	    overflow_flag_stmts res op1 op2   ; zero_flag_stmts sz res;
+	    parity_flag_stmts sz res; adjust_flag_stmts res op1 op2;
 	    sign_flag_stmts res
 	  ]
 	in
@@ -626,11 +626,20 @@ module Make(Domain: Domain.T) =
 
       let grp3 s sz =
 	let dst, nnn = core_grp s 3 sz in
+	let stmts =
 	match nnn with
-	| 2 -> (* NOT *) return s [ Set (dst, UnOp (Not, Lval dst)) ]
+	| 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
 	| _ -> Log.error "Unknown operation in grp 3"
-    
-			   
+	in
+	return s stmts
+
+      let grp4 s =
+	let dst, nnn = core_grp s 4 Config.size_of_byte in
+	match nnn with
+	| 0 -> inc_dec dst Add s Config.size_of_byte
+	| 1 -> inc_dec dst Sub s Config.size_of_byte
+	| _ -> Log.error "Illegal opcode in grp 4"
+
       (*********************************************************************************************)
       (* Prefix management *)
       (*********************************************************************************************)
@@ -1085,8 +1094,8 @@ module Make(Domain: Domain.T) =
 	  | '\x3E' 			       -> s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
 	  | '\x3F'                             -> aas s
 									
-	  | c when '\x40' <= c && c <= '\x47' -> let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec r Add s
-	  | c when '\x48' <= c && c <= '\x4f' -> let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec r Sub s
+	  | c when '\x40' <= c && c <= '\x47' -> let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec (V r) Add s s.operand_sz
+	  | c when '\x48' <= c && c <= '\x4f' -> let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec (V r) Sub s s.operand_sz
 															       
 	  | c when '\x50' <= c && c <= '\x57' -> let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [r]
 	  | c when '\x58' <= c && c <= '\x5F' -> let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [r]
@@ -1161,7 +1170,7 @@ module Make(Domain: Domain.T) =
 	  | '\xfb' -> Log.from_decoder "entering privilege mode (STI instruction)"; return s (set_flag fif fif_sz)
 	  | '\xfc' -> return s (clear_flag fdf fdf_sz)
 	  | '\xfd' -> return s (set_flag fdf fdf_sz)
-						     
+	  | '\xfe' -> grp4 s					     
 	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x" (Char.code c)))
 
 	(** rep prefix *)
