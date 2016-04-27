@@ -1064,6 +1064,10 @@ module Make(Domain: Domain.T) =
 	  | '\xaf' -> scas s s.addr_sz
 
 	  | c when '\xb0' <= c && c <= '\xb3' -> let r = V (find_reg ((Char.code c) - (Char.code '\xb0')) Config.size_of_byte) in return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
+	  | c when '\xb4' <= c && c <= '\xb7' ->
+	     let n = (Char.code c) - (Char.code '\xb0')          in
+	     let r = V (P (Hashtbl.find register_tbl n, 24, 32)) in
+	     return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
 																  
 	  | '\xc3' -> return s [ Return; set_esp Add (T esp) !Config.stack_width; ]
 			     
