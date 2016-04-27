@@ -901,14 +901,17 @@ module Make(Domain: Domain.T) =
       (*******************)
       (* BCD *)
       (*******************)
+      let al  = V (P (eax, 0, 7)) 
+      let fal = BinOp (And, Lval al, Const (Word.of_int (Z.of_string "0x0F") 8))
+      let fal_gt_9 = Cmp (GT, fal, Const (Word.of_int (Z.of_int 9) 8))
+      let al_plus_6 = BinOp (Add, Lval al, Const (Word.of_int (Z.of_int 6) 8))
+      let faf_eq_1 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))	
       let aaa s =
-	let al  = V (P (eax, 0, 7))  			   			   in
-	let ah  = V (P (eax, 24, 31))			   			   in
-	let fal = BinOp (And, Lval al, Const (Word.of_int (Z.of_string "0x0F") 8)) in
-	let set = Set (al, fal)	   						   in
+	let ah  = V (P (eax, 24, 31)) in
+	let set = Set (al, fal)	      in
 	let istmts =
 	  [
-	    Set (al, BinOp (Add, Lval al, Const (Word.of_int (Z.of_int 6) 8)));
+	    Set (al, al_plus_6);
 	    Set (ah, BinOp(Add, Lval ah, Const (Word.one 8)));
 	    set_flag faf;
 	    set_flag fcf;
@@ -922,8 +925,7 @@ module Make(Domain: Domain.T) =
 	    set
 	  ]
 	in
-	let c2 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))			       in
-	let c  = BBinOp (LogOr, Cmp (GT, fal, Const (Word.of_int (Z.of_int 9) 8)), c2) in
+	let c  = BBinOp (LogOr, fal_gt_9, faf_eq_1) in
 	let stmts =
 	  [
 	    If (c, istmts, estmts);
@@ -933,7 +935,36 @@ module Make(Domain: Domain.T) =
 	  ]
 	in
 	return s stmts
-	       
+
+      let daa s =
+	let old_al = Register.make (Register.fresh_name()) 8				       in
+	let old_cf = Register.make (Register.fresh_name()) 1				       in
+	let rtmp   = Register.make (Register.fresh_name ()) 9				       in
+	let res    = Set (V (T rtmp), BinOp (Add, UnOp(SignExt 9, (Lval al)), Const (Word.of_int (Z.of_int 6) 9))) in
+	let mask   = BinOp (And, UnOp(Shr 8, Lval (V (T rtmp))), Const (Word.one 1))	       in
+	let carry  = If(BBinOp (LogOr, Cmp (EQ, Lval (V (T old_cf)), Const (Word.one 1)),Cmp (EQ, Const (Word.one 1), mask)), [set_flag fcf],[clear_flag fcf]) in
+	
+	let if1 = If (BBinOp (LogOr, fal_gt_9, faf_eq_1),
+		      [ Set(al, al_plus_6); res; carry; set_flag faf],
+		      [clear_flag faf])
+	in
+	let if2 = If (BBinOp (LogOr, Cmp (GT, Lval (V (T old_al)), Const (Word.of_int (Z.of_int 0x99) 8)), Cmp(EQ, Lval (V (T old_cf)), Const (Word.one 1))),
+		      [Set (al, BinOp(Add, Lval al, Const (Word.of_int (Z.of_int 0x60) 8)))],
+		      [clear_flag fcf])
+	in
+	let stmts =
+	  [
+	    Set (V (T old_al), Lval al);
+	    Set (V (T old_cf), Lval (V (T fcf)));
+	    clear_flag fcf;
+	    if1;
+	    if2;
+	    Directive (Remove old_al);
+	    Directive (Remove old_cf);
+	    Directive (Remove rtmp)
+	  ]
+	in
+	return s stmts
       (********)
       (* misc *)
       (*****)
@@ -1006,7 +1037,7 @@ module Make(Domain: Domain.T) =
 										       
 	  | c when '\x20' <= c && c <= '\x25' -> or_xor_and s And c
 	  | '\x26' 			      -> s.segments.data <- es; decode s
-									       
+	  | '\x27'                            -> daa s								       
 	  | c when '\x28' <= c && c <= '\x2B' -> add_sub s Sub false c
 	  | '\x2C' 			      -> add_sub_immediate s Sub false eax Config.size_of_byte
 	  | '\x2D' 			      -> add_sub_immediate s Sub false eax s.operand_sz
