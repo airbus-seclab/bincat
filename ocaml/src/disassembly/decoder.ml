@@ -987,6 +987,28 @@ module Make(Domain: Domain.T) =
 	in
 	return s stmts
 
+      let to_segment_reg n =
+	match n with
+	| 0 -> es
+	| 1 -> cs
+	| 2 -> ss
+	| 3 -> ds
+	| 4 -> fs
+	| 5 -> gs
+	| _ -> Log.error "Invalid conversion to segment register"
+			 
+      let arpl s =
+	let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s))  in
+	let dst           = V (P (to_segment_reg rm, 0, 1))     in
+	let src           = V (P (to_segment_reg reg, 0, 1))    in
+	let stmts = [
+	    If (Cmp(GT, Lval dst, Lval src),
+		[set_flag fzf; Set (dst, Lval src)],
+		[clear_flag fzf]
+	       )
+	  ]
+	in
+	return s stmts
       (** check whether an opcode is defined in a given state of the decoder *)
       let check_context s c =
 	if s.rep then
@@ -1071,7 +1093,8 @@ module Make(Domain: Domain.T) =
 															   
 	  | '\x60' -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
 	  | '\x61' -> let l = List.map (fun v -> find_reg v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
-													 
+
+	  | '\x63' -> arpl s
 	  | '\x64' -> s.segments.data <- fs; decode s
 	  | '\x65' -> s.segments.data <- gs; decode s
 	  | '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
