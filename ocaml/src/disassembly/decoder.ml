@@ -1029,8 +1029,9 @@ module Make(Domain: Domain.T) =
 															   
 	  | '\x60' -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
 	  | '\x61' -> let l = List.map (fun v -> find_reg v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
+													 
 	  | '\x64' -> s.segments.data <- fs; decode s
-	  | '\x65' -> s.segments.data <- ss; decode s
+	  | '\x65' -> s.segments.data <- gs; decode s
 	  | '\x66' -> s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
 	  | '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
 	  | '\x68' -> push_immediate s (s.operand_sz / Config.size_of_byte)
@@ -1042,7 +1043,7 @@ module Make(Domain: Domain.T) =
 												   
 	  | '\x80' -> grp1 s Config.size_of_byte Config.size_of_byte
 	  | '\x81' -> grp1 s s.operand_sz s.operand_sz
-	  | '\x82' -> raise (Exceptions.Error "Undefined opcode 0x82")
+	  | '\x82' -> Log.error ("Undefined opcode 0x82")
 	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte
 			   
 	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in return s [ Set (dst, src) ]
@@ -1062,6 +1063,8 @@ module Make(Domain: Domain.T) =
 	  | '\xae' -> scas s Config.size_of_byte
 	  | '\xaf' -> scas s s.addr_sz
 
+	  | c when '\xb0' <= c && c <= '\xb3' -> let r = V (find_reg ((Char.code c) - (Char.code '\xb0')) Config.size_of_byte) in return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
+																  
 	  | '\xc3' -> return s [ Return; set_esp Add (T esp) !Config.stack_width; ]
 			     
 	  | '\xe3' -> jecxz s
