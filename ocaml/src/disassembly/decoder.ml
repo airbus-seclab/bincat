@@ -1254,6 +1254,9 @@ module Make(Domain: Domain.T) =
 
 	  | '\xa0' -> push s [T fs]
 	  | '\xa1' -> pop s [T fs]
+
+	  | '\xa8' -> push s [T gs]
+	  | '\xa9' -> pop s [T gs]
 			  
 	  | '\xb2' -> load_far_ptr s ss
 
