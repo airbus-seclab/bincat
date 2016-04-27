@@ -1252,6 +1252,9 @@ module Make(Domain: Domain.T) =
 	  match getchar s with
 	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
 
+	  | '\xa0' -> push s [T fs]
+	  | '\xa1' -> pop s [T fs]
+			  
 	  | '\xb2' -> load_far_ptr s ss
 
 	  | '\xb4' -> load_far_ptr s fs
