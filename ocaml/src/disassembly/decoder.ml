@@ -1068,7 +1068,7 @@ module Make(Domain: Domain.T) =
 	     let n = (Char.code c) - (Char.code '\xb0')          in
 	     let r = V (P (Hashtbl.find register_tbl n, 24, 32)) in
 	     return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
-																  
+	  | c when '\xb8' <= c && c <= '\xb7' -> let r = V (find_reg ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/Config.size_of_byte)) s.operand_sz))]									  
 	  | '\xc3' -> return s [ Return; set_esp Add (T esp) !Config.stack_width; ]
 			     
 	  | '\xe3' -> jecxz s
