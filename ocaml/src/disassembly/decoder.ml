@@ -885,15 +885,15 @@ module Make(Domain: Domain.T) =
       let size_push_pop v sz = if is_segment v then !Config.stack_width else sz
 
       (** state generation for pop instructions *)
-      let pop s v =
+      let pop_stmts s v =
 	let esp'  = esp_lval () in
 	let stmts = List.fold_left (fun stmts v -> 
 			let n = size_push_pop v s.operand_sz in
 			[ Set (V v,
 			       Lval (M (Lval (V esp'), n))) ; set_esp Add esp' n ] @ stmts
-		      ) [] v 
-	in
-	return s stmts
+		      ) [] v
+				   
+	let pop s v = return s (pop_stmts s v)
 
       (** generation of states for the push instructions *)
       let push s v =
@@ -1178,7 +1178,12 @@ module Make(Domain: Domain.T) =
 	  | '\xc3' -> return s [ Return ] 
 	  | '\xc4' -> load_far_ptr s es
 	  | '\xc5' -> load_far_ptr s ds
-				   
+
+	  | '\xc9' ->
+	     let sp = V (to_reg esp s.operand_sz) in
+	     let bp = V (to_reg ebp s.operand_sz) in
+	     return s ( (Set (sp, Lval bp))::(pop_stmts s [ebp])
+					       
 	  | '\xcf' -> Log.error "IRET instruction decoded. Interpreter halts"
 				
 	  | '\xe3' -> jecxz s
