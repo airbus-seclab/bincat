@@ -1020,15 +1020,18 @@ module Make(Domain: Domain.T) =
       (********)
       (* misc *)
       (*****)
-      let xchg s v = 
-	let tmp   = Register.make ~name:(Register.fresh_name()) ~size:s.operand_sz in
-	let r     = find_reg v s.operand_sz					   in
-	let eax   = to_reg eax s.operand_sz					   in 
-	let stmts = [ Set(V (T tmp), Lval (V eax)); Set(V eax, Lval (V r)) ; 
-		      Set(V r, Lval (V (T tmp)))  ; Directive (Remove tmp) ]
+      let xchg s v1 v2 sz = 
+	let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
+	let stmts = [ Set(V (T tmp), Lval (V v1)); Set(V v1, Lval (V v2)) ; 
+		      Set(V v2, Lval (V (T tmp)))  ; Directive (Remove tmp) ]
 	in
 	return s stmts
 
+      let xchg_with_eax s v =
+	let eax = to_reg eax s.operand_sz in
+	let v'  = find_reg v s.operand_sz in
+	xchg s eax v' s.operand_sz
+	     
       let to_segment_reg n =
 	match n with
 	| 0 -> es
@@ -1152,14 +1155,16 @@ module Make(Domain: Domain.T) =
 	  | '\x81' -> grp1 s s.operand_sz s.operand_sz
 	  | '\x82' -> Log.error ("Undefined opcode 0x82")
 	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte
-			   
+
+	  | '\x86' -> let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm Config.size_of_byte) (find_reg reg Config.size_of_byte) Config.size_of_byte
+	  | '\x87' -> let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm s.operand_sz) (find_reg reg s.operand_sz) s.operand_sz
 	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in return s [ Set (dst, src) ]
 	  | '\x8c' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V (find_reg rm 16) in let src = V (T (to_segment_reg reg)) in return s [ Set (dst, Lval src) ]
 
 	  | '\x8e' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V ( T (to_segment_reg reg)) in let src = V (find_reg rm 16) in return s [ Set (dst, Lval src) ]
 																		 
 	  | '\x90' 			      -> return s [Nop]
-	  | c when '\x91' <= c && c <= '\x97' -> xchg s ((Char.code c) - (Char.code '\x90'))
+	  | c when '\x91' <= c && c <= '\x97' -> xchg_with_eax s ((Char.code c) - (Char.code '\x90'))
 						      
 						      
 	  | '\xa4' -> movs s Config.size_of_byte
