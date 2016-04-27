@@ -81,7 +81,7 @@ type stmt =
   | If of bexp * (stmt list) * (stmt list) (** conditional statement *)
   | Jmp	 of jmp_target                     (** jump *)				    
   | Call of jmp_target          	   (** call *)
-  | Return         			   (** return *)
+  | Return        		           (** return *)
   | Nop                      		   (** no operation *)
   | Directive of directive_t 		   (** directive/hint for the analyzer *)
 		   

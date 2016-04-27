@@ -624,6 +624,11 @@ module Make(Domain: Domain.T) =
 	   | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
 	   | _ -> Log.error "Illegal nnn value in grp1"
 
+      let grp2 s sz =
+	let _dst, nnn = core_grp s 2 sz in
+	match nnn with
+	| _ -> Log.error "Non decoded opcode in grp 2"
+			 
       let grp3 s sz =
 	let dst, nnn = core_grp s 3 sz in
 	let stmts =
@@ -639,6 +644,13 @@ module Make(Domain: Domain.T) =
 	| 0 -> inc_dec dst Add s Config.size_of_byte
 	| 1 -> inc_dec dst Sub s Config.size_of_byte
 	| _ -> Log.error "Illegal opcode in grp 4"
+
+      let grp5 s =
+	let dst, nnn = core_grp s 5 s.operand_sz in
+	match nnn with
+	| 0 -> inc_dec dst Add s s.operand_sz
+	| 1 -> inc_dec dst Sub s s.operand_sz
+	| _ -> Log.error "Non decoded opcode in grp 5"
 
       (*********************************************************************************************)
       (* Prefix management *)
@@ -713,6 +725,19 @@ module Make(Domain: Domain.T) =
 	  let medi' = M (add_segment s (Lval edi') ds, s.operand_sz)  in
 	  let stmts = Set (medi', Lval eax')                          in 
 	  return s (stmts::(inc_dec_wrt_df [edi] i))
+
+	(*************************)
+	(* State generation for loading far pointers *)
+	(*************************)
+	let load_far_ptr s sreg =
+	  let sreg' 	     = V (T sreg)						     in
+	  let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))			     in
+	  let reg'           = find_reg reg s.operand_sz			 	     in
+	  let n 	     = s.operand_sz / Config.size_of_byte			     in
+	  let src 	     = Const (Word.of_int (int_of_bytes s n) s.operand_sz)	     in
+	  let src' 	     = add_segment s src ds					     in
+	  let off 	     = BinOp (Add, src', Const (Word.of_int (Z.of_int n) s.addr_sz)) in
+	  return s [ Set (V reg', Lval (M (src', s.operand_sz))) ; Set (sreg', Lval (M (off, 16)))]
 		 
 	(****************************************************)
 	(* State generation for loop, call and jump instructions *)
@@ -1145,9 +1170,17 @@ module Make(Domain: Domain.T) =
 	     let n = (Char.code c) - (Char.code '\xb0')          in
 	     let r = V (P (Hashtbl.find register_tbl n, 24, 32)) in
 	     return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
-	  | c when '\xb8' <= c && c <= '\xb7' -> let r = V (find_reg ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/Config.size_of_byte)) s.operand_sz))]									  
-	  | '\xc3' -> return s [ Return; set_esp Add (T esp) !Config.stack_width; ]
-			     
+	  | c when '\xb8' <= c && c <= '\xb7' -> let r = V (find_reg ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/Config.size_of_byte)) s.operand_sz))]
+
+	  | '\xc0' -> grp2 s Config.size_of_byte
+	  | '\xc1' -> grp2 s s.operand_sz
+	  | '\xc2' -> return s [ Return; (* pop imm16 *) set_esp Add (T esp) 16; ]
+	  | '\xc3' -> return s [ Return ] 
+	  | '\xc4' -> load_far_ptr s es
+	  | '\xc5' -> load_far_ptr s ds
+				   
+	  | '\xcf' -> Log.error "IRET instruction decoded. Interpreter halts"
+				
 	  | '\xe3' -> jecxz s
 
 	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte)
@@ -1170,7 +1203,8 @@ module Make(Domain: Domain.T) =
 	  | '\xfb' -> Log.from_decoder "entering privilege mode (STI instruction)"; return s (set_flag fif fif_sz)
 	  | '\xfc' -> return s (clear_flag fdf fdf_sz)
 	  | '\xfd' -> return s (set_flag fdf fdf_sz)
-	  | '\xfe' -> grp4 s					     
+	  | '\xfe' -> grp4 s
+	  | '\xff' -> grp5 s
 	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x" (Char.code c)))
 
 	(** rep prefix *)
@@ -1195,6 +1229,11 @@ module Make(Domain: Domain.T) =
 	and decode_snd_opcode s =
 	  match getchar s with
 	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
+
+	  | '\xb2' -> load_far_ptr s ss
+
+	  | '\xb4' -> load_far_ptr s fs
+	  | '\xb5' -> load_far_ptr s gs
 	  | c 				      -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
 	  decode s;;
