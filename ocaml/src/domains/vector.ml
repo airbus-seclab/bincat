@@ -391,10 +391,10 @@ module Make(V: Val) =
       | _    -> false
 	       
     let compare v1 op v2 =
-      match op with
-      | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-      | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-      | _       -> true
+	match op with
+	| Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+	| Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+	| _       -> true
 
     let extract v l u =
       let sz = u - l + 1               in

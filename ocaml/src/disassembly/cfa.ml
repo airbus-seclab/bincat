@@ -302,10 +302,13 @@ module Make(Domain: Domain.T) =
 	Printf.fprintf f "[edges]\n";
 	G.iter_edges_e (fun e -> Printf.fprintf f "e%d_%d = %d -> %d\n" (G.E.src e).id (G.E.dst e).id (G.E.src e).id (G.E.dst e).id) g;
 	close_out f;
-	(* dot generation *)	
-	let f' = open_out dotfile in
-	Dot.output_graph f' g;
-	close_out f';
+	(* dot generation *)
+	if dotfile <> "" then
+	  begin
+	    let f' = open_out dotfile in
+	    Dot.output_graph f' g;
+	    close_out f'
+	  end
 	
 
 	

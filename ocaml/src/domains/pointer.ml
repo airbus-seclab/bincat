@@ -92,7 +92,7 @@ module Make (V: Vector.T) =
       | BOT, _ 			   -> op = Asm.LEQ || op = Asm.LT
       | _, BOT 			   -> false
       | _, TOP | TOP, _		   -> true
-      | Val (r1, o1), Val (r2, o2) ->
+      | Val (r1, o1), Val (r2, o2) -> 
 	 if r1 = r2 || r1 = Global || r2 = Global then V.compare o1 op o2
 	 else true
 

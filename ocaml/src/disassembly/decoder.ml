@@ -434,23 +434,29 @@ module Make(Domain: Domain.T) =
       (** produce common statements to set the overflow flag and the adjust flag *) 
       let overflow flag n nth res op1 op2 =
 	(* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
-	let b1        = Const (Word.of_int Z.one 1)                  in
-	let shn       = Shr nth                                      in
-	let sign_res  = BinOp(And, UnOp (shn, res), b1)              in
-	let sign_op1  = BinOp(And, UnOp (shn, op1), b1)	             in
-	let sign_op2  = BinOp(And, UnOp (shn, op2), b1)	             in
-	let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	       	     in
-	let c2 	      = BUnOp (LogNot, Cmp (EQ, sign_res, sign_op1)) in
-	let one_stmt  = Set (V (T flag), Const (Word.one n))	     in
-	let zero_stmt = Set (V (T flag), Const (Word.zero n))	     in
+	let b1        = Const (Word.of_int Z.one 1)           in
+	let shn       = Shr nth                               in
+	let sign_res  = BinOp(And, UnOp (shn, res), b1)       in
+	let sign_op1  = BinOp(And, UnOp (shn, op1), b1)	      in
+	let sign_op2  = BinOp(And, UnOp (shn, op2), b1)	      in
+	let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	      in
+	let c2 	      = Cmp (NEQ, sign_res, sign_op1)         in
+	let one_stmt  = Set (V (T flag), Const (Word.one n))  in
+	let zero_stmt = Set (V (T flag), Const (Word.zero n)) in
 	If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
 
       (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
       let overflow_flag_stmts res op1 op2 = overflow fof fof_sz (!Config.operand_sz-1) res op1 op2
 
-      (** produce the statement to clear the overflow flag *)
-      let clear_overflow_flag_stmts () = Set (V (T fof), Const (Word.zero fof_sz)) 
+      (** produce the statement to set the given flag *)
+      let set_flag f = Set (V (T f), Const (Word.one (Register.size f)))
 
+      (** produce the statement to clear the given flag *)
+      let clear_flag f = Set (V (T f), Const (Word.zero (Register.size f)))
+			     
+      (** produce the statement to undefine the given flag *)
+      let undef_flag f = Directive (Undef f)
+	
       (** produce the statement to set the carry flag according to the current operation whose operands are op1 and op2 and result is res *)
       let carry_flag_stmts sz res op1 op op2 = 
       (* fcf is set if the sz+1 bit of the result is 1 *)
@@ -458,37 +464,30 @@ module Make(Domain: Domain.T) =
 	let op1' = UnOp (s, op1)	  in
 	let op2' = UnOp (s, op2)	  in
 	let res' = BinOp (op, op1', op2') in
-	If ( Cmp (EQ, UnOp (SignExt (sz+1), res), res'), [ Set (V (T faf), Const (Word.zero faf_sz)) ], [ Set (V (T faf), Const (Word.one faf_sz)) ] )
+	If ( Cmp (EQ, UnOp (SignExt (sz+1), res), res'), [ clear_flag faf ], [ set_flag faf ] )
 
-      (** produce the statement to unset the carry flag *)
-      let clear_carry_flag_stmts () = Set (V (T fcf), Const (Word.zero fcf_sz))
-
-      (** produce the statement to undefine the adjust flag *)
-      let undefine_adjust_flag_stmts () = Directive (Undef faf)
-
-      (** produce the statement to set the sign flag *)					    
+      (** produce the statement to set the sign flag wrt to the given parameter *)					    
       let sign_flag_stmts res =
 	let c = Cmp (EQ, Const (Word.one fsf_sz), UnOp(Shr 31, res)) in
-	If (c, [ Set (V (T fsf), Const (Word.one fsf_sz)) ], [ Set (V (T fsf), Const (Word.zero fsf_sz))] ) 
+	If (c, [ set_flag fsf ], [ clear_flag fsf ] ) 
 	     
       (** produce the statement to set the zero flag *)	
       let zero_flag_stmts sz res =
 	let c = Cmp (EQ, res, Const (Word.zero sz)) in
-	If (c, [ Set (V (T fzf), Const (Word.one fzf_sz))], [Set (V (T fzf), Const (Word.zero fzf_sz))])
+	If (c, [ set_flag fzf ], [ clear_flag fzf ])
 
-      (** produce the statement to set the adjust flag *)
+      (** produce the statement to set the adjust flag wrt to the given parameters *)
       (** faf is set if there is an overflow on the bit 3 *)
       let adjust_flag_stmts res op1 op2 = overflow faf faf_sz 3 res op1 op2
 					      
-      (** produce the statement to set the parity flag *)					      
+      (** produce the statement to set the parity flag wrt to the given parameters *)					      
       let parity_flag_stmts sz res =
 	(* fpf is set if res contains an even number of 1 in the least significant byte *)
 	(* we sum every bits and check whether this sum is even or odd *)
 	(* using the modulo of the divison by 2 *)
 	let nth i =
-	  let sz' = sz-i in
-	  let one = Const (Word.one sz') in
-	  BinOp (And, UnOp(Shr i, res), one)
+	  let one = Const (Word.one sz) in
+	  BinOp (And, UnOp(SignExt sz, UnOp(Shr i, res)), one)
 	in
 	let e = ref (nth 0) in
 	for i = 1 to 7 do
@@ -560,8 +559,8 @@ module Make(Domain: Domain.T) =
 	let res'  = Lval dst			        in
 	let flag_stmts =
 	  [
-	    clear_carry_flag_stmts (); clear_overflow_flag_stmts ()       ; zero_flag_stmts s.operand_sz res';
-	    sign_flag_stmts res'     ; parity_flag_stmts s.operand_sz res'; undefine_adjust_flag_stmts ()
+	    clear_flag fcf; clear_flag fof; zero_flag_stmts s.operand_sz res';
+	    sign_flag_stmts res'; parity_flag_stmts s.operand_sz res'; undef_flag faf
 	  ]
 	in
 	return s (res::flag_stmts)
@@ -671,7 +670,7 @@ module Make(Domain: Domain.T) =
       let movs s i =
 	let edi'  = V (to_reg edi s.operand_sz)                    in
 	let esi'  = V (to_reg esi s.operand_sz)                    in
-	let medi' = M (add_segment s (Lval edi') es, i) in
+	let medi' = M (add_segment s (Lval edi') ds, i) in
 	let mesi' = M (add_segment s (Lval esi') es, i) in
 	return s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi ; esi] i))
 
@@ -679,7 +678,7 @@ module Make(Domain: Domain.T) =
 	let cmps s i = 
 	  let edi'  = V (to_reg edi s.operand_sz)         in
 	  let esi'  = V (to_reg esi s.operand_sz)         in
-	  let medi' = M (add_segment s (Lval edi') es, i) in
+	  let medi' = M (add_segment s (Lval edi') ds, i) in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
 	  return s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi ; esi] i))
 
@@ -702,8 +701,8 @@ module Make(Domain: Domain.T) =
 	let stos s i =
 	  let eax'  = V (to_reg eax i)                                in
 	  let edi'  = V (to_reg edi s.operand_sz)                     in
-	  let medi' = M (add_segment s (Lval edi') es, s.operand_sz)  in
-	  let stmts = Set (medi', Lval eax')               in 
+	  let medi' = M (add_segment s (Lval edi') ds, s.operand_sz)  in
+	  let stmts = Set (medi', Lval eax')                          in 
 	  return s (stmts::(inc_dec_wrt_df [edi] i))
 		 
 	(****************************************************)
@@ -899,6 +898,42 @@ module Make(Domain: Domain.T) =
 	in
 	return s stmts
 
+      (*******************)
+      (* BCD *)
+      (*******************)
+      let aaa s =
+	let al  = V (P (eax, 0, 7))  			   			   in
+	let ah  = V (P (eax, 24, 31))			   			   in
+	let fal = BinOp (And, Lval al, Const (Word.of_int (Z.of_string "0x0F") 8)) in
+	let set = Set (al, fal)	   						   in
+	let istmts =
+	  [
+	    Set (al, BinOp (Add, Lval al, Const (Word.of_int (Z.of_int 6) 8)));
+	    Set (ah, BinOp(Add, Lval ah, Const (Word.one 8)));
+	    set_flag faf;
+	    set_flag fcf;
+	    set
+	  ]
+	in
+	let estmts =
+	  [
+	    clear_flag faf;
+	    clear_flag fcf;
+	    set
+	  ]
+	in
+	let c2 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))			       in
+	let c  = BBinOp (LogOr, Cmp (GT, fal, Const (Word.of_int (Z.of_int 9) 8)), c2) in
+	let stmts =
+	  [
+	    If (c, istmts, estmts);
+	    undef_flag fof;
+	    undef_flag fsf;
+	    undef_flag fpf;
+	  ]
+	in
+	return s stmts
+	       
       (********)
       (* misc *)
       (*****)
@@ -971,6 +1006,7 @@ module Make(Domain: Domain.T) =
 										       
 	  | c when '\x20' <= c && c <= '\x25' -> or_xor_and s And c
 	  | '\x26' 			      -> s.segments.data <- es; decode s
+									       
 	  | c when '\x28' <= c && c <= '\x2B' -> add_sub s Sub false c
 	  | '\x2C' 			      -> add_sub_immediate s Sub false eax Config.size_of_byte
 	  | '\x2D' 			      -> add_sub_immediate s Sub false eax s.operand_sz
@@ -978,6 +1014,8 @@ module Make(Domain: Domain.T) =
 								       
 	  | c when '\x30' <= c &&  c <= '\x35' -> or_xor_and s Xor c
 	  | '\x36' 			       -> s.segments.data <- ss; decode s
+	  | '\x37' 			       -> aaa s
+										
 	  | c when '\x38' <= c && c <= '\x3B'  -> (* cmp *) add_sub s Sub false c
 	  | '\x3C' 			       -> add_sub_immediate s Sub false eax Config.size_of_byte
 	  | '\x3D' 			       -> add_sub_immediate s Sub false eax s.operand_sz

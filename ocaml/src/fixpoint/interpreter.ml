@@ -50,16 +50,17 @@ struct
 		     
       | Asm.Cmp (cmp, e1, e2)    -> 
 	 let cmp' = if b then cmp else inv_cmp cmp in
-	 D.compare d e1 cmp' e2
+	   D.compare d e1 cmp' e2
     in
-    process e b
+    process e b 
 
   let apply_tainting _rules d = d (* TODO apply rules of type Config.tainting_fun *)
   let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
 
   (* map from ip to int that enable to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
   let unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
-							 
+
+  (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
   let process_stmt g (v: Cfa.State.t) d stmt fun_stack =
     let copy a =
       let v' = Cfa.copy_state g v in
@@ -68,52 +69,53 @@ struct
       Cfa.add_edge g v v';
       v'
     in
+    let rec has_jmp stmts =
+      match stmts with
+	[] -> false
+      | s::stmts' ->
+	 let b =
+	   match s with
+	   | Call _ | Return  | Jmp _ -> true
+	   | If (_, istmts, estmts)   -> (has_jmp istmts) || (has_jmp estmts)
+	   | _ 			      -> false
+	 in
+	 b || (has_jmp stmts')
+    in
     let rec process d s =
-      Printf.printf "%s\n" (Asm.string_of_stmt s); flush stdout;
       match s with							   
-    | Nop -> d, None
+    | Nop -> [ d, None ]
 
     | If (e, then_stmts, else_stmts) ->
-       let concat v l =
-	 match v with
-	 | None    -> l
-	 | Some l' -> l'@l
-       in
-       let then', tv' =  
+       let then' =   
 	 try
-	   List.fold_left (fun (d, l) s -> let d', v = process d s in d', concat v l) ((restrict d e true), []) then_stmts
-	 with Exceptions.Empty -> D.bot, []
+	   List.fold_left (fun l s -> let d = fst (List.hd l) in let r = process d s in r@l) [ (restrict d e true), None] then_stmts
+	 with Exceptions.Empty -> [ D.bot, None ]
        in
-       let else', ev' =
-	 try List.fold_left (fun (d, l) s -> let d', v = process d s in d', concat v l) ((restrict d e false), []) else_stmts
-	 with Exceptions.Empty -> D.bot, []
+       let else' =
+	 try List.fold_left (fun l s -> let d = fst (List.hd l) in let r = process d s in r@l) [ (restrict d e false), None ] else_stmts
+	 with Exceptions.Empty -> [ D.bot, None ]
        in
-       let d' = D.join then' else' in
-       if D.is_bot d' then
-	 raise Exceptions.Empty
+       if has_jmp then_stmts || has_jmp else_stmts then
+	 then' @ else'
        else
-	 let l = tv'@ev' in
-	 let r =
-	   if l = [] then None
-	   else Some l
-	 in
-	 d', r
+	 let d' = D.join (fst (List.hd then')) (fst (List.hd else')) in
+	 [ d', None ]
 
 	      
-    | Set (dst, src) -> D.set dst src d, None
+    | Set (dst, src) -> [ D.set dst src d, None ]
 
-    | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; d', None
+    | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; [ d', None ]
 
-    | Directive (Undef r) -> D.undefine r d, None
+    | Directive (Undef r) -> [ D.undefine r d, None ]
 
-    | Jmp (A a) -> d, Some [copy a] 
+    | Jmp (A a) -> [ d, Some (copy a) ] 
        
     | Jmp (R target) ->
        begin
 	 try
 	   let addresses = Data.Address.Set.elements (D.mem_to_addresses d target) in
 	   match addresses with
-	   | [a] -> d, Some [copy a]
+	   | [a] -> [ d, Some (copy a) ]
 	   | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
 	   | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
 					    (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
@@ -128,7 +130,7 @@ struct
 	with Not_found -> None
        in
        fun_stack := (f, v)::!fun_stack;
-       d, Some [copy a]
+       [ d, Some (copy a) ]
 	   
     | Return ->
        begin
@@ -164,7 +166,8 @@ struct
 	     end;
 	     let v' = Cfa.copy_state g vstack in
 	     v'.Cfa.State.stmts <- [];
-	     d', Some [v']
+	     Cfa.add_edge g v v';
+	     [ d', Some v' ]
 	   with
 	     _ -> Log.error "Intepreter: computed instruction pointer at return instruction too imprecise or undefined"
 	 with
@@ -188,40 +191,38 @@ struct
   (** the widening may be also launched if the threshold is reached *)
   let update_abstract_values g v ip fun_stack =
     try
-    let d, l =
-      List.fold_left (fun (d, l) stmt ->
-	  let d', l' = process_stmt g v d stmt fun_stack in
-	  let l' =
-	  match l, l' with
-	  | None, l | l, None -> l
-	  | Some l, Some l' -> Some (l' @ l)
-	in
-	d', l'
-	) (v.Cfa.State.v, None) v.Cfa.State.stmts
-    in
     let l =
-      match l with
-      | None ->
-	 begin
-	   let v' = Cfa.copy_state g v in
-	   v'.Cfa.State.ip <- ip;
-	   v'.Cfa.State.stmts <- [];
-	   v'.Cfa.State.v <- d;
-	   Cfa.add_edge g v v';
-	   [v']
-	 end
-      | Some l -> List.map (fun v -> v.Cfa.State.v <- d; v) l
+      List.fold_left (fun l stmt ->
+	  let d = fst (List.hd l) in
+	  let l' = process_stmt g v d stmt fun_stack in
+	  match l' with
+	  | [d', None] -> (d', snd (List.hd l))::(List.tl l)
+	  | l'         -> l' @ l) [v.Cfa.State.v, None] v.Cfa.State.stmts
+    in
+    let l' =
+      List.map (fun (d, e) ->
+			match e with
+			| None ->
+			   begin
+			     let v' = Cfa.copy_state g v in
+			     v'.Cfa.State.ip <- ip;
+			     v'.Cfa.State.stmts <- [];
+			     v'.Cfa.State.v <- d;
+			     Cfa.add_edge g v v';
+			     v'
+			   end
+			| Some v' -> v'.Cfa.State.v <- d; v') l
     in
     List.iter (fun v -> let n =
-			  try let n' = (Hashtbl.find unroll_tbl v.Cfa.State.ip) + 1 in Hashtbl.replace unroll_tbl v.Cfa.State.ip n' ; n'
+			  try let n' = (Hashtbl.find unroll_tbl ip) + 1 in Hashtbl.replace unroll_tbl ip n' ; n'
 			  with Not_found -> Hashtbl.add unroll_tbl v.Cfa.State.ip 1; 1
 			in
 			if n <= !Config.unroll then
 			  ()
 			else
 			  widen g v
-	      ) l;
-    l
+	      ) l';
+    l'
     with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
 
     

@@ -106,8 +106,6 @@ module Make(D: T) =
 				     
     let bot = BOT
 
-    let is_bot m = m = BOT
-			 
     let value_of_register m r =
       match m with
       | BOT    -> raise Exceptions.Concretization
@@ -293,9 +291,11 @@ module Make(D: T) =
 	 let v1 = eval_exp m' e1 in
 	 let v2 = eval_exp m' e2 in
 	 if D.compare v1 op v2 then
+	   try
 	     Val (val_restrict m' e1 v1 op e2 v2)
+	   with Exceptions.Empty -> BOT
 	 else
-	   raise Exceptions.Empty
+	   BOT
 		 
     let value_of_exp m e =
       match m with
