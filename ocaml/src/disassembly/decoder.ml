@@ -884,16 +884,17 @@ module Make(Domain: Domain.T) =
       (** common value used for the decoding of push and pop *)
       let size_push_pop v sz = if is_segment v then !Config.stack_width else sz
 
-      (** state generation for pop instructions *)
+      (** statements generation for pop instructions *)
       let pop_stmts s v =
 	let esp'  = esp_lval () in
-	let stmts = List.fold_left (fun stmts v -> 
-			let n = size_push_pop v s.operand_sz in
-			[ Set (V v,
-			       Lval (M (Lval (V esp'), n))) ; set_esp Add esp' n ] @ stmts
-		      ) [] v
-				   
-	let pop s v = return s (pop_stmts s v)
+	List.fold_left (fun stmts v -> 
+	    let n = size_push_pop v s.operand_sz in
+	    [ Set (V v,
+		   Lval (M (Lval (V esp'), n))) ; set_esp Add esp' n ] @ stmts
+	  ) [] v
+
+      (** state generation for the pop instructions *)
+      let pop s v = return s (pop_stmts s v)
 
       (** generation of states for the push instructions *)
       let push s v =
@@ -932,6 +933,13 @@ module Make(Domain: Domain.T) =
 	in
 	return s stmts
 
+      (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
+      let mov_immediate s n =
+	let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))      			    in
+	let r 		   = V (find_reg reg n)						    in
+	let c              = Const (Word.of_int (int_of_bytes s (n/Config.size_of_byte)) n) in
+	return s [ Set (r, c) ]
+	       
       (*******************)
       (* BCD *)
       (*******************)
@@ -1178,14 +1186,18 @@ module Make(Domain: Domain.T) =
 	  | '\xc3' -> return s [ Return ] 
 	  | '\xc4' -> load_far_ptr s es
 	  | '\xc5' -> load_far_ptr s ds
-
+	  | '\xc6' -> mov_immediate s Config.size_of_byte
+	  | '\xc7' -> mov_immediate s s.operand_sz
+	     
 	  | '\xc9' ->
 	     let sp = V (to_reg esp s.operand_sz) in
-	     let bp = V (to_reg ebp s.operand_sz) in
-	     return s ( (Set (sp, Lval bp))::(pop_stmts s [ebp])
+	     let bp = to_reg ebp s.operand_sz     in
+	     return s ( (Set (sp, Lval (V bp)))::(pop_stmts s [bp]))
 					       
 	  | '\xcf' -> Log.error "IRET instruction decoded. Interpreter halts"
-				
+
+	  | c when '\xd8' <= c && c <= '\xdf' -> Log.error "ESC to coprocessor instruction set. Interpreter halts"
+							   
 	  | '\xe3' -> jecxz s
 
 	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte)
