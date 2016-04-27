@@ -932,6 +932,7 @@ module Make(Domain: Domain.T) =
 	    undef_flag fof;
 	    undef_flag fsf;
 	    undef_flag fpf;
+	    undef_flag fzf
 	  ]
 	in
 	return s stmts
@@ -956,6 +957,9 @@ module Make(Domain: Domain.T) =
 	    clear_flag fcf;
 	    if1;
 	    if2;
+	    sign_flag_stmts (Lval al);
+	    zero_flag_stmts 8 (Lval al);
+	    parity_flag_stmts 8 (Lval al);
 	    undef_flag fof;
 	    Directive (Remove old_al);
 	    Directive (Remove old_cf)
