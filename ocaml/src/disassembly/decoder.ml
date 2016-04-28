@@ -466,8 +466,8 @@ module Make(Domain: Domain.T) =
 	If ( Cmp (EQ, UnOp (SignExt (sz+1), res), res'), [ clear_flag fcf ], [ set_flag fcf ] )
 
       (** produce the statement to set the sign flag wrt to the given parameter *)					    
-      let sign_flag_stmts res =
-	let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, Const (Word.of_int (Z.of_int 31) 8))) in
+      let sign_flag_stmts sz res =
+	let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, Const (Word.of_int (Z.of_int (sz-1)) sz))) in
 	If (c, [ set_flag fsf ], [ clear_flag fsf ] ) 
 	     
       (** produce the statement to set the zero flag *)	
@@ -513,7 +513,7 @@ module Make(Domain: Domain.T) =
 	let flags_stmts =
 	  [
 	    carry_flag_stmts sz res op1 op op2; overflow_flag_stmts sz res op1 op2; zero_flag_stmts sz res;
-	    sign_flag_stmts res               ; parity_flag_stmts sz res       ; adjust_flag_stmts res op1 op2
+	    sign_flag_stmts sz res            ; parity_flag_stmts sz res       ; adjust_flag_stmts res op1 op2
 	  ]
 	in
 	(Set (tmp, Lval dst)):: istmts @ flags_stmts @ [ Directive (Remove v) ]
@@ -547,7 +547,7 @@ module Make(Domain: Domain.T) =
 	let flag_stmts =
 	  [
 	    carry_flag_stmts sz res e1 Sub e2; overflow_flag_stmts sz res e1 e2; zero_flag_stmts sz res;
-	    sign_flag_stmts res              ; parity_flag_stmts sz res     ; adjust_flag_stmts res e1 e2
+	    sign_flag_stmts sz res           ; parity_flag_stmts sz res     ; adjust_flag_stmts res e1 e2
 	  ]
 	in
 	let set = Set (V (T tmp), BinOp (Sub, e1, e2)) in
@@ -560,7 +560,7 @@ module Make(Domain: Domain.T) =
 	let flag_stmts =
 	  [
 	    clear_flag fcf; clear_flag fof; zero_flag_stmts s.operand_sz res';
-	    sign_flag_stmts res'; parity_flag_stmts s.operand_sz res'; undef_flag faf
+	    sign_flag_stmts s.operand_sz res'; parity_flag_stmts s.operand_sz res'; undef_flag faf
 	  ]
 	in
 	return s (res::flag_stmts)
@@ -580,7 +580,7 @@ module Make(Domain: Domain.T) =
 	  [
 	    overflow_flag_stmts sz res op1 op2   ; zero_flag_stmts sz res;
 	    parity_flag_stmts sz res; adjust_flag_stmts res op1 op2;
-	    sign_flag_stmts res
+	    sign_flag_stmts sz res
 	  ]
 	in
 	let stmts = 
@@ -1098,7 +1098,7 @@ module Make(Domain: Domain.T) =
 	    clear_flag fcf;
 	    if1;
 	    if2;
-	    sign_flag_stmts (Lval al);
+	    sign_flag_stmts 8 (Lval al);
 	    zero_flag_stmts 8 (Lval al);
 	    parity_flag_stmts 8 (Lval al);
 	    undef_flag fof;
@@ -1346,8 +1346,8 @@ module Make(Domain: Domain.T) =
 
 	  | '\xf0' -> Log.error "LOCK instruction found. Interpreter halts"
 	  | '\xf1' -> Log.error "Undefined opcode 0xf1"
-	  | '\xf2' -> (* REP/REPE *) s.rep <- true; rep s Word.zero
-	  | '\xf3' -> (* REPNE *) s.repne <- true; rep s Word.one
+	  | '\xf2' -> (* REPNE *) s.repne <- true; rep s Word.one
+	  | '\xf3' -> (* REP/REPE *) s.repne <- true; rep s Word.zero
 	  | '\xf4' -> Log.error "Decoder stopped: HLT reached"
 	  | '\xf5' -> let fcf' = V (T fcf) in return s [ Set (fcf', UnOp (Not, Lval fcf')) ]
 	  | '\xf6' -> grp3 s Config.size_of_byte
