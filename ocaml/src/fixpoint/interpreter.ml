@@ -62,7 +62,6 @@ struct
 
   (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
   let process_stmt g (v: Cfa.State.t) d stmt fun_stack =
-    Printf.printf "%s\n" (Asm.string_of_stmt stmt);
     flush stdout;
     let copy a =
       let v' = Cfa.copy_state g v in

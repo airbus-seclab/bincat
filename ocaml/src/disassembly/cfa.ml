@@ -286,7 +286,7 @@ module Make(Domain: Domain.T) =
 	let vertex_attributes _v = []
 	let default_vertex_attributes _v = []
 	let graph_attributes _g = []
-	let vertex_name v = string_of_int v.id
+	let vertex_name v = (string_of_int v.id)
       end
       module Dot = Graph.Graphviz.Dot(GDot)
 				     
@@ -295,7 +295,10 @@ module Make(Domain: Domain.T) =
 	(* state printing (detailed) *)
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
-	  Printf.fprintf f "[address = %s]\nid = %d\n%s\n" (Data.Address.to_string s.ip) s.id abstract_values
+	  Printf.fprintf f "[address = %s]\nid = %d\n" (Data.Address.to_string s.ip) s.id;
+	  if !Config.verbose then
+	    List.iter (fun stmt -> Printf.fprintf f "%s" (Asm.string_of_stmt stmt)) s.stmts;
+	  Printf.fprintf f "%s\n" abstract_values
 	in
 	G.iter_vertex print_ip g;
 	(* edge printing (summary) *)
