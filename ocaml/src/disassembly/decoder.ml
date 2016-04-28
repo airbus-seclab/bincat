@@ -1212,8 +1212,9 @@ module Make(Domain: Domain.T) =
 	  | '\x67' -> s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
 	  | '\x68' -> push_immediate s (s.operand_sz / Config.size_of_byte)
 	  | '\x6A' -> push_immediate s 1
-				     
-	  | c when '\x6C' <= c && c <= '\x6F' -> Log.error "INS/OUTS instruction not precisely handled in that model"
+
+	  | '\x6c' -> let m = add_segment s (Lval (V (P(edi, 0, 7)))) es in return s [ Set (M (m, 8), Lval (V (P (edx, 0, 7)))) ]
+	  | '\x6d' -> let n = s.operand_sz in let m = add_segment s (Lval (V (P(edi, 0, n-1)))) es in return s [ Set (M (m, n), Lval (V (P (edx, 0, n-1)))) ]
 								   
 	  | c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in jcc s v 1
 												   
