@@ -1347,7 +1347,7 @@ module Make(Domain: Domain.T) =
 	  | '\xf0' -> Log.error "LOCK instruction found. Interpreter halts"
 	  | '\xf1' -> Log.error "Undefined opcode 0xf1"
 	  | '\xf2' -> (* REPNE *) s.repne <- true; rep s Word.one
-	  | '\xf3' -> (* REP/REPE *) s.repne <- true; rep s Word.zero
+	  | '\xf3' -> (* REP/REPE *) s.repne <- false; rep s Word.zero
 	  | '\xf4' -> Log.error "Decoder stopped: HLT reached"
 	  | '\xf5' -> let fcf' = V (T fcf) in return s [ Set (fcf', UnOp (Not, Lval fcf')) ]
 	  | '\xf6' -> grp3 s Config.size_of_byte
@@ -1364,7 +1364,7 @@ module Make(Domain: Domain.T) =
 
 	(** rep prefix *)
 	and rep s c =
-	    let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (c s.addr_sz)) in
+	    let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
 	   (* thanks to check_context at the beginning of decode we know that next opcode is SCAS/LODS/STOS/CMPS *)
 	   (* otherwise decoder halts *)
 	    let v, ip = decode s in
