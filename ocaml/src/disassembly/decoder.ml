@@ -463,7 +463,7 @@ module Make(Domain: Domain.T) =
 	let op1' = UnOp (s, op1)	  in
 	let op2' = UnOp (s, op2)	  in
 	let res' = BinOp (op, op1', op2') in
-	If ( Cmp (EQ, UnOp (SignExt (sz+1), res), res'), [ clear_flag faf ], [ set_flag faf ] )
+	If ( Cmp (EQ, UnOp (SignExt (sz+1), res), res'), [ clear_flag fcf ], [ set_flag fcf ] )
 
       (** produce the statement to set the sign flag wrt to the given parameter *)					    
       let sign_flag_stmts res =
@@ -926,8 +926,8 @@ module Make(Domain: Domain.T) =
 	let reg         = V (find_reg rm sz)                 in
 	let dst =
 	  match md with
-	  | 0 -> reg
-	  | 1 -> M (add_segment s (Lval reg) s.segments.data, sz)
+	  | 0 -> M (add_segment s (Lval reg) s.segments.data, sz)
+	  | 3 -> reg
 	  | _ -> Log.error (Printf.sprintf "Decoder.core_grp %d: mod %d not managed" i md)
 	in
 	nnn, dst
@@ -952,11 +952,14 @@ module Make(Domain: Domain.T) =
 	   | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
 	   | _ -> Log.error "Illegal nnn value in grp1"
 
-      let grp2 s sz n =
-	let nnn, dst = core_grp s 2 sz in
+			    
+      let grp2 s sz _n =
+	let nnn, _dst = core_grp s 2 sz in
+	let _forget_flags = List.map (fun f -> Directive (Forget f)) [fpf ; fof ; fcf ; fsf ; fzf ; faf ] in
 	match nnn with
-	| 4 -> return s [ Set (dst, BinOp (Shl, Lval dst, n)) ]
-	| 5 -> return s [ Set (dst, BinOp (Shr, Lval dst, n)) ]
+(*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ]
+	| 5 -> return s [ Set (dst, BinOp (Shr, Lval dst, n)) ; flags ]
+	| 7 -> return s [ Set (dst, BinOp (Div, Lval dst, 2*n)) *)
 	| _ -> Log.error "Illegal opcode in grp 2"
 			 
       let grp3 s sz =

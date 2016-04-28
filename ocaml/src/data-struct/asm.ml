@@ -69,6 +69,7 @@ type bexp =
 type directive_t =
   | Remove of Register.t   (** remove the register *)
   | Undef of Register.t (** undefine the computed value of the given register *)
+  | Forget of Register.t (** forget the content of the given register *)
 
 (** data type of jump targets *)
 type jmp_target = 
@@ -187,6 +188,7 @@ let string_of_directive d =
   match d with
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
   | Undef r -> Printf.sprintf "undef %s" (Register.name r)
+  | Forget r -> Printf.sprintf "forget %s" (Register.name r)
 			       
 let string_of_stmt s =
   (* internal function used to factorize code in the printing of If-stmt *)
