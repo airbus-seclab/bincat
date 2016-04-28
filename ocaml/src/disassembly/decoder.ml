@@ -987,10 +987,12 @@ module Make(Domain: Domain.T) =
 	let stmts = f nbit                                                                                              in
 	return s ((stmt::stmts) @ [ undef_flag fof; undef_flag fsf; undef_flag fzf; undef_flag faf; undef_flag fpf])
 
+      let bts_stmt dst nbit = Set (dst, BinOp (Or, Lval dst, BinOp (Shl, Const (Data.Word.one 1), nbit)))
+      let btr_stmt dst nbit = Set (dst, BinOp (And, Lval dst, UnOp (Not, BinOp (Shl, Const (Data.Word.one 1), nbit))))
       let bt s dst src = core_bt s (fun _nbit -> []) dst src
-      let bts s dst src = core_bt s (fun nbit -> [ Set (dst, BinOp (Or, Lval dst, BinOp (Shl, Const (Data.Word.one 1), nbit)))]) dst src
-      let btr s dst src = core_bt s (fun _nbit -> []) dst src
-      let btc s dst src = core_bt s (fun _nbit -> []) dst src
+      let bts s dst src = core_bt s (fun nbit -> [bts_stmt dst nbit]) dst src
+      let btr s dst src = core_bt s (fun nbit -> [btr_stmt dst nbit]) dst src
+      let btc s dst src = core_bt s (fun nbit -> [If (Cmp (EQ, nbit, Const (Word.one 1)), [btr_stmt dst nbit], [bts_stmt dst nbit])]) dst src
 				  
       let grp8 s =
 	let nnn, dst = core_grp s 8 s.operand_sz                                                           in
