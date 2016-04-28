@@ -626,16 +626,16 @@ module Make(Domain: Domain.T) =
 
       (** state generation for MOVS *)			 
       let movs s i =
-	let edi'  = V (to_reg edi s.operand_sz)                    in
-	let esi'  = V (to_reg esi s.operand_sz)                    in
+	let edi'  = V (to_reg edi s.address_sz)         in
+	let esi'  = V (to_reg esi s.address_sz)         in
 	let medi' = M (add_segment s (Lval edi') ds, i) in
 	let mesi' = M (add_segment s (Lval esi') es, i) in
 	return s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi ; esi] i))
 
 	(** state generation for CMPS *)
 	let cmps s i = 
-	  let edi'  = V (to_reg edi s.operand_sz)         in
-	  let esi'  = V (to_reg esi s.operand_sz)         in
+	  let edi'  = V (to_reg edi s.address_sz)         in
+	  let esi'  = V (to_reg esi s.address_sz)         in
 	  let medi' = M (add_segment s (Lval edi') ds, i) in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
 	  return s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi ; esi] i))
@@ -643,26 +643,39 @@ module Make(Domain: Domain.T) =
 	(** state generation for LODS *)
 	let lods s i =
 	  let eax'  = V (to_reg eax i)                    in
-	  let esi'  = V (to_reg esi s.operand_sz)         in
+	  let esi'  = V (to_reg esi s.address_sz)         in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
 	  return s ((Set (eax', Lval mesi'))::(inc_dec_wrt_df [esi] i))
 
 	(** state generation for SCAS *)
 	let scas s i =
 	  let eax' = V (to_reg eax i)                    in
-	  let edi' = V (to_reg edi s.operand_sz)         in
+	  let edi' = V (to_reg edi s.address_sz)         in
 	  let mem  = M (add_segment s (Lval edi') es, i) in
 	  return s ((cmp_stmts (Lval eax') (Lval mem) i) @ (inc_dec_wrt_df [edi] i) )
 
 
 	(** state generation for STOS *)
 	let stos s i =
-	  let eax'  = V (to_reg eax i)                                in
-	  let edi'  = V (to_reg edi s.operand_sz)                     in
-	  let medi' = M (add_segment s (Lval edi') ds, s.operand_sz)  in
-	  let stmts = Set (medi', Lval eax')                          in 
+	  let eax'  = V (to_reg eax i)                     in
+	  let edi'  = V (to_reg edi s.address_sz)          in
+	  let medi' = M (add_segment s (Lval edi') ds, i)  in
+	  let stmts = Set (medi', Lval eax')               in 
 	  return s (stmts::(inc_dec_wrt_df [edi] i))
 
+	(** state generation for INS *)
+	let ins s i =
+	  let edi' = V (to_reg edi s.address_sz) in
+	  let edx' = V (to_reg edx i) in
+	  let m = add_segment s edi' es in
+	  return s [ Set (M (m, i), Lval edx'); (inc_dec_wrt_df [edi] i)]
+
+	(** state generation for OUTS *)
+	let outs s i =
+	   let edi' = V (to_reg edi s.address_sz) in
+	  let edx' = V (to_reg edx i) in
+	  let m = add_segment s edi' es in
+	  return s [ Set (edx', Lval (M (m, i))); (inc_dec_wrt_df [edi] i)]
 	(*************************)
 	(* State generation for loading far pointers *)
 	(*************************)
@@ -1213,9 +1226,11 @@ module Make(Domain: Domain.T) =
 	  | '\x68' -> push_immediate s (s.operand_sz / Config.size_of_byte)
 	  | '\x6A' -> push_immediate s 1
 
-	  | '\x6c' -> let m = add_segment s (Lval (V (P(edi, 0, 7)))) es in return s [ Set (M (m, 8), Lval (V (P (edx, 0, 7)))) ]
-	  | '\x6d' -> let n = s.address_sz in let m = add_segment s (Lval (V (P(edi, 0, n-1)))) es in return s [ Set (M (m, n), Lval (V (P (edx, 0, n-1)))) ]
-								   
+	  | '\x6c' -> ins s Config.size_of_byte
+	  | '\x6d' -> ins s s.address_size 
+	  | '\x6e' -> outs s Config.size_of_byte
+	  | '\x6f' -> outs s s.address_size
+			   
 	  | c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in jcc s v 1
 												   
 	  | '\x80' -> grp1 s Config.size_of_byte Config.size_of_byte
@@ -1267,7 +1282,10 @@ module Make(Domain: Domain.T) =
 	     let sp = V (to_reg esp s.operand_sz) in
 	     let bp = V (to_reg ebp s.operand_sz) in
 	     return s ( (Set (sp, Lval bp))::(pop_stmts s [bp]))
-					       
+
+	  | '\xcc' -> Log.error "INT 3 decoded. Interpreter halts"
+	  | '\xcd' -> let c = getchar s in Log.error (Printf.printf "INT %d decoded. Interpreter halts" (Char.code c))
+	  | '\xce' -> Log.error "INTO decoded. Interpreter halts"
 	  | '\xcf' -> Log.error "IRET instruction decoded. Interpreter halts"
 
 	  | c when '\xd8' <= c && c <= '\xdf' -> Log.error "ESC to coprocessor instruction set. Interpreter halts"
