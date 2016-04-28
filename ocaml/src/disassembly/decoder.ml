@@ -1214,7 +1214,7 @@ module Make(Domain: Domain.T) =
 	  | '\x6A' -> push_immediate s 1
 
 	  | '\x6c' -> let m = add_segment s (Lval (V (P(edi, 0, 7)))) es in return s [ Set (M (m, 8), Lval (V (P (edx, 0, 7)))) ]
-	  | '\x6d' -> let n = s.operand_sz in let m = add_segment s (Lval (V (P(edi, 0, n-1)))) es in return s [ Set (M (m, n), Lval (V (P (edx, 0, n-1)))) ]
+	  | '\x6d' -> let n = s.address_sz in let m = add_segment s (Lval (V (P(edi, 0, n-1)))) es in return s [ Set (M (m, n), Lval (V (P (edx, 0, n-1)))) ]
 								   
 	  | c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in jcc s v 1
 												   
