@@ -1276,6 +1276,11 @@ module Make(Domain: Domain.T) =
 	  | '\x90' 			      -> return s [Nop]
 	  | c when '\x91' <= c && c <= '\x97' -> xchg_with_eax s ((Char.code c) - (Char.code '\x90'))
 	  | '\x98' -> let dst = V (to_reg eax s.operand_sz) in return s [Set (dst, UnOp (SignExt s.operand_sz, Lval (V (to_reg eax (s.operand_sz / 2)))))]
+	  | '\x9a' ->
+	     let off = int_of_bytes s (s.operand_sz / Config.size_of_byte) in
+	     let cs' = get_base_address s (Hashtbl.find s.segments.reg cs) in
+	     let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
+	     return s [ Call (A a) ]
 	  | '\x9b' -> Log.error "WAIT decoder. Interpreter halts"
 	  | '\xa0' -> mov_with_eax s Config.size_of_byte true
 	  | '\xa1' -> mov_with_eax s s.operand_sz true
