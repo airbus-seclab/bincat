@@ -1232,7 +1232,7 @@ module Make(Domain: Domain.T) =
 																				
 	  | '\x90' 			      -> return s [Nop]
 	  | c when '\x91' <= c && c <= '\x97' -> xchg_with_eax s ((Char.code c) - (Char.code '\x90'))
-
+	  | '\x98' -> let dst = V (to_reg eax s.operand_sz) in return s [Set (dst, UnOp (SignExt s.operand_sz, Lval (V (to_reg eax (s.operand_sz / 2)))))]
 	  | '\x9b' -> Log.error "WAIT decoder. Interpreter halts"
 						      
 	  | '\xa4' -> movs s Config.size_of_byte
