@@ -955,8 +955,8 @@ module Make(Domain: Domain.T) =
       let grp2 s sz n =
 	let nnn, dst = core_grp s 2 sz in
 	match nnn with
-	| 4 -> return s [ (Set dst, BinOp (Shl, Lval dst, n) ]
-	| 5 -> return s [ (Set dst, BinOp (Shr, Lval dst, n) ]
+	| 4 -> return s [ Set (dst, BinOp (Shl, Lval dst, n)) ]
+	| 5 -> return s [ Set (dst, BinOp (Shr, Lval dst, n)) ]
 	| _ -> Log.error "Illegal opcode in grp 2"
 			 
       let grp3 s sz =
