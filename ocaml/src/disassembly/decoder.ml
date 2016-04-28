@@ -626,16 +626,16 @@ module Make(Domain: Domain.T) =
 
       (** state generation for MOVS *)			 
       let movs s i =
-	let edi'  = V (to_reg edi s.address_sz)         in
-	let esi'  = V (to_reg esi s.address_sz)         in
+	let edi'  = V (to_reg edi s.addr_sz)            in
+	let esi'  = V (to_reg esi s.addr_sz)            in
 	let medi' = M (add_segment s (Lval edi') ds, i) in
 	let mesi' = M (add_segment s (Lval esi') es, i) in
 	return s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi ; esi] i))
 
 	(** state generation for CMPS *)
 	let cmps s i = 
-	  let edi'  = V (to_reg edi s.address_sz)         in
-	  let esi'  = V (to_reg esi s.address_sz)         in
+	  let edi'  = V (to_reg edi s.addr_sz)            in
+	  let esi'  = V (to_reg esi s.addr_sz)            in
 	  let medi' = M (add_segment s (Lval edi') ds, i) in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
 	  return s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi ; esi] i))
@@ -643,14 +643,14 @@ module Make(Domain: Domain.T) =
 	(** state generation for LODS *)
 	let lods s i =
 	  let eax'  = V (to_reg eax i)                    in
-	  let esi'  = V (to_reg esi s.address_sz)         in
+	  let esi'  = V (to_reg esi s.addr_sz)            in
 	  let mesi' = M (add_segment s (Lval esi') es, i) in
 	  return s ((Set (eax', Lval mesi'))::(inc_dec_wrt_df [esi] i))
 
 	(** state generation for SCAS *)
 	let scas s i =
 	  let eax' = V (to_reg eax i)                    in
-	  let edi' = V (to_reg edi s.address_sz)         in
+	  let edi' = V (to_reg edi s.addr_sz)            in
 	  let mem  = M (add_segment s (Lval edi') es, i) in
 	  return s ((cmp_stmts (Lval eax') (Lval mem) i) @ (inc_dec_wrt_df [edi] i) )
 
@@ -658,24 +658,25 @@ module Make(Domain: Domain.T) =
 	(** state generation for STOS *)
 	let stos s i =
 	  let eax'  = V (to_reg eax i)                     in
-	  let edi'  = V (to_reg edi s.address_sz)          in
+	  let edi'  = V (to_reg edi s.addr_sz)             in
 	  let medi' = M (add_segment s (Lval edi') ds, i)  in
 	  let stmts = Set (medi', Lval eax')               in 
 	  return s (stmts::(inc_dec_wrt_df [edi] i))
 
 	(** state generation for INS *)
 	let ins s i =
-	  let edi' = V (to_reg edi s.address_sz) in
-	  let edx' = V (to_reg edx i) in
-	  let m = add_segment s edi' es in
-	  return s [ Set (M (m, i), Lval edx'); (inc_dec_wrt_df [edi] i)]
+	  let edi' = V (to_reg edi s.addr_sz)     in
+	  let edx' = V (to_reg edx i)             in
+	  let m    = add_segment s (Lval edi') es in
+	  return s ((Set (M (m, i), Lval edx'))::(inc_dec_wrt_df [edi] i))
 
 	(** state generation for OUTS *)
 	let outs s i =
-	   let edi' = V (to_reg edi s.address_sz) in
-	  let edx' = V (to_reg edx i) in
-	  let m = add_segment s edi' es in
-	  return s [ Set (edx', Lval (M (m, i))); (inc_dec_wrt_df [edi] i)]
+	   let edi' = V (to_reg edi s.addr_sz)     in
+	  let edx'  = V (to_reg edx i)             in
+	  let m     = add_segment s (Lval edi') es in
+	  return s ((Set (edx', Lval (M (m, i))))::(inc_dec_wrt_df [edi] i))
+		 
 	(*************************)
 	(* State generation for loading far pointers *)
 	(*************************)
@@ -742,6 +743,8 @@ module Make(Domain: Domain.T) =
 	   let e = exp_of_cond v s in
 	   return_jcc_stmts s e n
 
+	
+	   
 	 (** jump if eCX is zero *)
 	 let jecxz s =
 	   let ecx' = to_reg ecx s.addr_sz				   in
@@ -811,11 +814,9 @@ module Make(Domain: Domain.T) =
 	   return s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (A a') ]
 		  
 	 
-
-		  
-      (****************************************************************************************)
-      (* Parsing *)
-      (****************************************************************************************)
+	 (*******************)
+	 (* push/pop *)
+	 (***************)
       let is_segment lv = 
 	match lv with
 	| V (T r) | V (P(r, _, _)) ->
@@ -910,7 +911,7 @@ module Make(Domain: Domain.T) =
       (* decoding of opcodes of groups 1 to 8 *)
       (*****************************************************************************************)
 
-     	
+	
       let core_grp s i sz =
 	let md, nnn, rm = mod_nnn_rm (Char.code (getchar s)) in
 	let reg         = V (find_reg rm sz)                 in
@@ -1099,6 +1100,23 @@ module Make(Domain: Domain.T) =
       (********)
       (* misc *)
       (*****)
+      (** set bit on condition *)
+      let setcc s v n =
+	let e = exp_of_cond v s in
+	let _, _, rm = mod_nnn_rm (Char.code (getchar s)) in
+	let rm' =
+	  match rm with
+	  | 0 -> V (find_reg rm n)
+	  | _ -> let m = add_segment s (Lval (V (T (Hashtbl.find register_tbl rm)))) s.segments.data in M (m, n)
+	in
+	let ff =
+	  if n = Config.size_of_byte then
+	    Z.of_string "Oxff"
+	  else
+	    sign_extension_of_byte (Z.of_int 0xff) ((n-1) / Config.size_of_byte)
+	in
+	return s [If (e, [Set (rm', Const (Word.of_int ff n))], [Set (rm', Const (Word.zero n))])]
+	   
       let xchg s v1 v2 sz = 
 	let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
 	let stmts = [ Set(V (T tmp), Lval (V v1)); Set(V v1, Lval (V v2)) ; 
@@ -1227,9 +1245,9 @@ module Make(Domain: Domain.T) =
 	  | '\x6A' -> push_immediate s 1
 
 	  | '\x6c' -> ins s Config.size_of_byte
-	  | '\x6d' -> ins s s.address_size 
+	  | '\x6d' -> ins s s.addr_sz 
 	  | '\x6e' -> outs s Config.size_of_byte
-	  | '\x6f' -> outs s s.address_size
+	  | '\x6f' -> outs s s.addr_sz
 			   
 	  | c when '\x70' <= c && c <= '\x7F' -> let v = (Char.code c) - (Char.code '\x70') in jcc s v 1
 												   
@@ -1284,7 +1302,7 @@ module Make(Domain: Domain.T) =
 	     return s ( (Set (sp, Lval bp))::(pop_stmts s [bp]))
 
 	  | '\xcc' -> Log.error "INT 3 decoded. Interpreter halts"
-	  | '\xcd' -> let c = getchar s in Log.error (Printf.printf "INT %d decoded. Interpreter halts" (Char.code c))
+	  | '\xcd' -> let c = getchar s in Log.error (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
 	  | '\xce' -> Log.error "INTO decoded. Interpreter halts"
 	  | '\xcf' -> Log.error "IRET instruction decoded. Interpreter halts"
 
@@ -1341,7 +1359,7 @@ module Make(Domain: Domain.T) =
 	  | '\x01' -> grp7 s
 			   
 	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
-
+	  | c when '\x90' <= c && c <= '\x9f' -> let v = (Char.code c) - (Char.code '\x90') in setcc s v (s.operand_sz / Config.size_of_byte)
 	  | '\xa0' -> push s [V (T fs)]
 	  | '\xa1' -> pop s [V (T fs)]
 	  | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in bt s reg rm
