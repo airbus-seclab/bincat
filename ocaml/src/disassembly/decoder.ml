@@ -952,10 +952,12 @@ module Make(Domain: Domain.T) =
 	   | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
 	   | _ -> Log.error "Illegal nnn value in grp1"
 
-      let grp2 s sz =
-	let nnn, _dst = core_grp s 2 sz in
+      let grp2 s sz n =
+	let nnn, dst = core_grp s 2 sz in
 	match nnn with
-	| _ -> Log.error "Non decoded opcode in grp 2"
+	| 4 -> return s [ (Set dst, BinOp (Shl, Lval dst, n) ]
+	| 5 -> return s [ (Set dst, BinOp (Shr, Lval dst, n) ]
+	| _ -> Log.error "Illegal opcode in grp 2"
 			 
       let grp3 s sz =
 	let nnn, dst = core_grp s 3 sz in
@@ -1304,8 +1306,8 @@ module Make(Domain: Domain.T) =
 	     return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
 	  | c when '\xb8' <= c && c <= '\xb7' -> let r = V (find_reg ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/Config.size_of_byte)) s.operand_sz))]
 
-	  | '\xc0' -> grp2 s Config.size_of_byte
-	  | '\xc1' -> grp2 s s.operand_sz
+	  | '\xc0' -> grp2 s Config.size_of_byte (Const (Word.of_int (int_of_bytes s 1) Config.size_of_byte))
+	  | '\xc1' -> grp2 s s.operand_sz (Const (Word.of_int (int_of_bytes s (s.operand_sz / Config.size_of_byte)) s.operand_sz))
 	  | '\xc2' -> return s [ Return; (* pop imm16 *) set_esp Add (T esp) 16; ]
 	  | '\xc3' -> return s [ Return ] 
 	  | '\xc4' -> load_far_ptr s es
@@ -1324,6 +1326,11 @@ module Make(Domain: Domain.T) =
 	  | '\xce' -> Log.error "INTO decoded. Interpreter halts"
 	  | '\xcf' -> Log.error "IRET instruction decoded. Interpreter halts"
 
+	  | '\xd0' -> grp2 s Config.size_of_byte (Const (Word.one Config.size_of_byte))
+	  | '\xd1' -> grp2 s s.operand_sz (Const (Word.one s.operand_sz))
+	  | '\xd2' -> grp2 s Config.size_of_byte (Lval (V (to_reg ecx Config.size_of_byte)))
+	  | '\xd3' -> grp2 s s.operand_sz (Lval (V (to_reg ecx Config.size_of_byte)))
+	     
 	  | c when '\xd8' <= c && c <= '\xdf' -> Log.error "ESC to coprocessor instruction set. Interpreter halts"
 							   
 	  | '\xe3' -> jecxz s
