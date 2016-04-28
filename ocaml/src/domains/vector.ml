@@ -219,23 +219,33 @@ module Make(V: Val) =
 	done;
 	v'
 
-	  
-    let shl v i = 
-      let n  = Array.length v      in
-      let v' = Array.make n V.zero in
-      let o  = n-i                 in
-      for j = 0 to o-1 do
-	v'.(j) <- v.(i+j)
-      done;
-      v'
+    let ishl v i =
+      let n  = Array.length v        in
 
-    let shr v i =
-      let n  = Array.length v          in
-      let v' = Array.make (n-i) V.zero in
-      for j = 0 to n-i-2 do
-	v'.(j) <- v.(j)
-      done;
-      v'
+	let v' = Array.make n V.zero in
+	let o  = n-i                 in
+	for j = 0 to o-1 do
+	  v'.(j) <- v.(i+j)
+	done;
+	v'
+	  
+    let shl v1 v2 =
+      try
+	let i = Z.to_int (to_value v2) in
+	ishl v1 i
+      with _ -> raise Exceptions.Enum_failure
+
+    let shr v1 v2 =
+      let n  = Array.length v1           in
+      try
+	let i = Z.to_int (to_value v2)   in
+	let v' = Array.make (n-i) V.zero in
+	for j = 0 to n-i-2 do
+	  v'.(j) <- v1.(j)
+	done;
+	v'
+      with
+	_ -> raise Exceptions.Enum_failure
 
     let mul v1 v2 =
       let n   = 2*(Array.length v1) in
@@ -246,7 +256,7 @@ module Make(V: Val) =
 	  v
 	else
 	  let v' =
-	    if V.is_one v1.(i) then add v (shl v2' i)
+	    if V.is_one v1.(i) then add v (ishl v2' i)
 	    else v
 	  in
 	  loop (i-1) v'
@@ -285,6 +295,8 @@ module Make(V: Val) =
       | Asm.Mul -> mul v1 v2
       | Asm.Div -> div v1 v2
       | Asm.Mod -> modulo v1 v2
+      | Asm.Shl -> shl v1 v2
+      | Asm.Shr -> shr v2 v2
 			  
 
 	  
@@ -309,8 +321,6 @@ module Make(V: Val) =
     let unary op v =
       match op with
       | Asm.Not       -> Array.map V.neg v
-      | Asm.Shl i     -> shl v i
-      | Asm.Shr i     -> shr v i
       | Asm.SignExt i -> sign_extend v i
 	   
     let default sz = Array.make sz V.default

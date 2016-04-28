@@ -80,8 +80,10 @@ module Make (V: Vector.T) =
 			  with _ -> BOT
 			end
 	 | r1, r2                ->
-	 if r1 = r2 then Val (r1, V.binary op o1 o2)
-	 else BOT
+	    try
+	      if r1 = r2 then Val (r1, V.binary op o1 o2)
+	      else BOT
+	    with Exceptions.Enum_failure -> TOP
       
 		
     let of_word w = Val (Global, V.of_word w)

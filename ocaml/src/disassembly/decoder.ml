@@ -346,7 +346,7 @@ module Make(Domain: Domain.T) =
 	let scale, index, base = mod_nnn_rm (Char.code c)                         in
 	if index = 4 then raise (Exceptions.Error "Decoder: Illegal index value in sib (0x04)");
 	let index' 	       = find_reg index s.operand_sz                      in
-	let e 		       = UnOp (Shl scale, Lval (V index'))                in
+	let e 		       = BinOp (Shl, Lval (V index'), Const (Word.of_int (Z.of_int scale) 3))in
 	match base with
 	| 5 when md = 0 -> e
 	| _ 	        -> BinOp (Add, e, Lval (V reg))
@@ -435,10 +435,9 @@ module Make(Domain: Domain.T) =
       let overflow flag n nth res op1 op2 =
 	(* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
 	let b1        = Const (Word.of_int Z.one 1)           in
-	let shn       = Shr nth                               in
-	let sign_res  = BinOp(And, UnOp (shn, res), b1)       in
-	let sign_op1  = BinOp(And, UnOp (shn, op1), b1)	      in
-	let sign_op2  = BinOp(And, UnOp (shn, op2), b1)	      in
+	let sign_res  = BinOp(And, BinOp (Shr, res, nth), b1) in
+	let sign_op1  = BinOp(And, BinOp (Shr, op1, nth), b1) in
+	let sign_op2  = BinOp(And, BinOp (Shr, op2, nth), b1) in
 	let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	      in
 	let c2 	      = Cmp (NEQ, sign_res, sign_op1)         in
 	let one_stmt  = Set (V (T flag), Const (Word.one n))  in
@@ -446,7 +445,7 @@ module Make(Domain: Domain.T) =
 	If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
 
       (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
-      let overflow_flag_stmts res op1 op2 = overflow fof fof_sz (!Config.operand_sz-1) res op1 op2
+      let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (Const (Word.of_int (Z.of_int (sz-1)) sz)) res op1 op2
 
       (** produce the statement to set the given flag *)
       let set_flag f = Set (V (T f), Const (Word.one (Register.size f)))
@@ -468,7 +467,7 @@ module Make(Domain: Domain.T) =
 
       (** produce the statement to set the sign flag wrt to the given parameter *)					    
       let sign_flag_stmts res =
-	let c = Cmp (EQ, Const (Word.one fsf_sz), UnOp(Shr 31, res)) in
+	let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, Const (Word.of_int (Z.of_int 31) 8))) in
 	If (c, [ set_flag fsf ], [ clear_flag fsf ] ) 
 	     
       (** produce the statement to set the zero flag *)	
@@ -478,7 +477,7 @@ module Make(Domain: Domain.T) =
 
       (** produce the statement to set the adjust flag wrt to the given parameters *)
       (** faf is set if there is an overflow on the bit 3 *)
-      let adjust_flag_stmts res op1 op2 = overflow faf faf_sz 3 res op1 op2
+      let adjust_flag_stmts res op1 op2 = overflow faf faf_sz (Const (Word.of_int (Z.of_int 3) 2)) res op1 op2
 					      
       (** produce the statement to set the parity flag wrt to the given parameters *)					      
       let parity_flag_stmts sz res =
@@ -487,7 +486,8 @@ module Make(Domain: Domain.T) =
 	(* using the modulo of the divison by 2 *)
 	let nth i =
 	  let one = Const (Word.one sz) in
-	  BinOp (And, UnOp(SignExt sz, UnOp(Shr i, res)), one)
+	  let i' = Const (Word.of_int (Z.of_int i) sz) in
+	  BinOp (And, UnOp(SignExt sz, BinOp(Shr, res, i')), one)
 	in
 	let e = ref (nth 0) in
 	for i = 1 to 7 do
@@ -512,7 +512,7 @@ module Make(Domain: Domain.T) =
 	let res  	= Lval dst		  	    in
 	let flags_stmts =
 	  [
-	    carry_flag_stmts sz res op1 op op2; overflow_flag_stmts res op1 op2; zero_flag_stmts sz res;
+	    carry_flag_stmts sz res op1 op op2; overflow_flag_stmts sz res op1 op2; zero_flag_stmts sz res;
 	    sign_flag_stmts res               ; parity_flag_stmts sz res       ; adjust_flag_stmts res op1 op2
 	  ]
 	in
@@ -546,7 +546,7 @@ module Make(Domain: Domain.T) =
 	let res         = Lval (V (T tmp))                          in
 	let flag_stmts =
 	  [
-	    carry_flag_stmts sz res e1 Sub e2; overflow_flag_stmts res e1 e2; zero_flag_stmts sz res;
+	    carry_flag_stmts sz res e1 Sub e2; overflow_flag_stmts sz res e1 e2; zero_flag_stmts sz res;
 	    sign_flag_stmts res              ; parity_flag_stmts sz res     ; adjust_flag_stmts res e1 e2
 	  ]
 	in
@@ -578,7 +578,7 @@ module Make(Domain: Domain.T) =
 	let res         = Lval dst			    in
 	let flags_stmts =
 	  [
-	    overflow_flag_stmts res op1 op2   ; zero_flag_stmts sz res;
+	    overflow_flag_stmts sz res op1 op2   ; zero_flag_stmts sz res;
 	    parity_flag_stmts sz res; adjust_flag_stmts res op1 op2;
 	    sign_flag_stmts res
 	  ]
@@ -588,69 +588,6 @@ module Make(Domain: Domain.T) =
 	    flags_stmts @ [Directive (Remove v)]
 	in
 	return s stmts
-
-		       
-      (*****************************************************************************************)
-      (* decoding of opcodes of group 1 to 5 *)
-      (*****************************************************************************************)
-
-     	
-      let core_grp s i reg_sz =
-	let v 	= (Char.code (getchar s)) in
-	let dst =
-	  match v lsr 6 with
-	  | 3 -> V (find_reg (v land 7) reg_sz)
-	  | _ -> Log.error (Printf.sprintf "Decoder: unexpected mod field in group %d" i)
-	in
-	dst, (v lsr 3) land 7
-	       
-      let grp1 s reg_sz imm_sz =
-	let dst, nnn = core_grp s 1 reg_sz in
-	let i = int_of_bytes s (imm_sz / Config.size_of_byte) in
-	let i' =
-	  if reg_sz = imm_sz then i
-	  else sign_extension_of_byte i ((reg_sz / Config.size_of_byte)-1)
-	in
-	let c   = Const (Word.of_int i' reg_sz) in
-	(* operation is encoded in bits 5,4,3 *)
-	   match nnn with
-	   | 0 -> add_sub s Add false dst c reg_sz
-	   | 1 -> or_xor_and s Or dst c
-	   | 2 -> add_sub s Add true dst c reg_sz
-	   | 3 -> add_sub s Sub true dst c reg_sz
-	   | 4 -> or_xor_and s And dst c
-	   | 5 -> add_sub s Sub false dst c reg_sz
-	   | 6 -> or_xor_and s Xor dst c
-	   | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
-	   | _ -> Log.error "Illegal nnn value in grp1"
-
-      let grp2 s sz =
-	let _dst, nnn = core_grp s 2 sz in
-	match nnn with
-	| _ -> Log.error "Non decoded opcode in grp 2"
-			 
-      let grp3 s sz =
-	let dst, nnn = core_grp s 3 sz in
-	let stmts =
-	match nnn with
-	| 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
-	| _ -> Log.error "Unknown operation in grp 3"
-	in
-	return s stmts
-
-      let grp4 s =
-	let dst, nnn = core_grp s 4 Config.size_of_byte in
-	match nnn with
-	| 0 -> inc_dec dst Add s Config.size_of_byte
-	| 1 -> inc_dec dst Sub s Config.size_of_byte
-	| _ -> Log.error "Illegal opcode in grp 4"
-
-      let grp5 s =
-	let dst, nnn = core_grp s 5 s.operand_sz in
-	match nnn with
-	| 0 -> inc_dec dst Add s s.operand_sz
-	| 1 -> inc_dec dst Sub s s.operand_sz
-	| _ -> Log.error "Non decoded opcode in grp 5"
 
       (*********************************************************************************************)
       (* Prefix management *)
@@ -735,7 +672,7 @@ module Make(Domain: Domain.T) =
 	  let reg'           = find_reg reg s.operand_sz			 	     in
 	  let n 	     = s.operand_sz / Config.size_of_byte			     in
 	  let src 	     = Const (Word.of_int (int_of_bytes s n) s.operand_sz)	     in
-	  let src' 	     = add_segment s src ds					     in
+	  let src' 	     = add_segment s src s.segments.data			     in
 	  let off 	     = BinOp (Add, src', Const (Word.of_int (Z.of_int n) s.addr_sz)) in
 	  return s [ Set (V reg', Lval (M (src', s.operand_sz))) ; Set (sreg', Lval (M (off, 16)))]
 		 
@@ -866,59 +803,73 @@ module Make(Domain: Domain.T) =
       (****************************************************************************************)
       (* Parsing *)
       (****************************************************************************************)
-      let is_segment r = 
-	match r with
-	  T r | P(r, _, _) ->
+      let is_segment lv = 
+	match lv with
+	| V (T r) | V (P(r, _, _)) ->
 		 Register.compare r cs = 0 || Register.compare r ds = 0
 		 || Register.compare r ss = 0 || Register.compare r es = 0
 		 || Register.compare r fs = 0 || Register.compare r gs = 0
-	
-      let is_esp r = 
-	match r with 
-	  T r | P(r, _, _) -> Register.compare r esp = 0
-
+	| _ -> false
+		   
+      let is_esp lv = 
+	match lv with 
+	| V (T r) | V (P(r, _, _)) -> Register.compare r esp = 0
+	| _                        -> false
      
       (** builds a left value from esp that is consistent with the stack width *)
       let esp_lval () = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)
 
       (** common value used for the decoding of push and pop *)
-      let size_push_pop v sz = if is_segment v then !Config.stack_width else sz
+      let size_push_pop lv sz = if is_segment lv then !Config.stack_width else sz
 
       (** statements generation for pop instructions *)
-      let pop_stmts s v =
+      let pop_stmts s lv =
 	let esp'  = esp_lval () in
-	List.fold_left (fun stmts v -> 
-	    let n = size_push_pop v s.operand_sz in
-	    [ Set (V v,
+	List.fold_left (fun stmts lv -> 
+	    let n = size_push_pop lv s.operand_sz in
+	    [ Set (lv,
 		   Lval (M (Lval (V esp'), n))) ; set_esp Add esp' n ] @ stmts
-	  ) [] v
+	  ) [] lv
 
       (** state generation for the pop instructions *)
-      let pop s v = return s (pop_stmts s v)
+      let pop s lv = return s (pop_stmts s lv)
 
       (** generation of states for the push instructions *)
       let push s v =
-	(* TODO: factorize with POP *)
+	let with_stack_pointer lv =
+	  let rec has e =
+	    match e with
+	    | UnOp (_, e') -> has e'
+	    | BinOp (_, e1, e2) -> (has e1) || (has e2)
+	    | Lval lv -> in_lv lv
+	    | _ -> false
+	    and in_lv lv =
+	      match lv with
+	      | M (e, _) -> has e
+	      | V (T r) | V (P (r, _, _)) -> Register.is_stack_pointer r
+	  in
+	  in_lv lv
+	in	
 	let esp' = esp_lval () in
 	let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
 	(* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
 	(* this is the purpose of the pre and post statements *)
-	let pre, post =
-	  if List.exists (fun v -> match v with T r | P (r, _, _) -> Register.is_stack_pointer r) v then
+	let pre, post= 
+	  if List.exists with_stack_pointer v then
 	    [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
 	  else
 	    [], []
 	in
 	let stmts =
 	  List.fold_left (
-	      fun stmts v ->
-	      let n = size_push_pop v s.operand_sz in 
+	      fun stmts lv ->
+	      let n = size_push_pop lv s.operand_sz in 
 	      let s =
-		if is_esp v then
+		if is_esp lv then
 		  (* save the esp value to its value before the first push (see PUSHA specifications) *)
 		  Set (M (Lval (V esp'), n), Lval (V (T t)))
 		else
-		  Set (M (Lval (V esp'), n), Lval (V v));
+		  Set (M (Lval (V esp'), n), Lval lv);
 	      in
 	      [ set_esp Sub esp' n ; s ] @ stmts
 	    ) [] v
@@ -939,6 +890,119 @@ module Make(Domain: Domain.T) =
 	let r 		   = V (find_reg reg n)						    in
 	let c              = Const (Word.of_int (int_of_bytes s (n/Config.size_of_byte)) n) in
 	return s [ Set (r, c) ]
+
+	       
+		       
+      (*****************************************************************************************)
+      (* decoding of opcodes of groups 1 to 8 *)
+      (*****************************************************************************************)
+
+     	
+      let core_grp s i sz =
+	let md, nnn, rm = mod_nnn_rm (Char.code (getchar s)) in
+	let reg         = V (find_reg rm sz)                 in
+	let dst =
+	  match md with
+	  | 0 -> reg
+	  | 1 -> M (add_segment s (Lval reg) s.segments.data, sz)
+	  | _ -> Log.error (Printf.sprintf "Decoder.core_grp %d: mod %d not managed" i md)
+	in
+	nnn, dst
+	       
+      let grp1 s reg_sz imm_sz =
+	let nnn, dst = core_grp s 1 reg_sz in
+	let i = int_of_bytes s (imm_sz / Config.size_of_byte) in
+	let i' =
+	  if reg_sz = imm_sz then i
+	  else sign_extension_of_byte i ((reg_sz / Config.size_of_byte)-1)
+	in
+	let c   = Const (Word.of_int i' reg_sz) in
+	(* operation is encoded in bits 5,4,3 *)
+	   match nnn with
+	   | 0 -> add_sub s Add false dst c reg_sz
+	   | 1 -> or_xor_and s Or dst c
+	   | 2 -> add_sub s Add true dst c reg_sz
+	   | 3 -> add_sub s Sub true dst c reg_sz
+	   | 4 -> or_xor_and s And dst c
+	   | 5 -> add_sub s Sub false dst c reg_sz
+	   | 6 -> or_xor_and s Xor dst c
+	   | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
+	   | _ -> Log.error "Illegal nnn value in grp1"
+
+      let grp2 s sz =
+	let nnn, _dst = core_grp s 2 sz in
+	match nnn with
+	| _ -> Log.error "Non decoded opcode in grp 2"
+			 
+      let grp3 s sz =
+	let nnn, dst = core_grp s 3 sz in
+	let stmts =
+	match nnn with
+	| 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
+	| _ -> Log.error "Unknown operation in grp 3"
+	in
+	return s stmts
+
+      let grp4 s =
+	let nnn, dst = core_grp s 4 Config.size_of_byte in
+	match nnn with
+	| 0 -> inc_dec dst Add s Config.size_of_byte
+	| 1 -> inc_dec dst Sub s Config.size_of_byte
+	| _ -> Log.error "Illegal opcode in grp 4"
+
+      let grp5 s =
+	let nnn, dst = core_grp s 5 s.operand_sz in
+	match nnn with
+	| 0 -> inc_dec dst Add s s.operand_sz
+	| 1 -> inc_dec dst Sub s s.operand_sz
+	| 2 -> return s [ Call (R (Lval dst)) ]
+
+	| 4 -> return s [ Jmp (R (Lval dst)) ]
+
+	| 6 -> push s [dst]
+	| _ -> Log.error "Illegal opcode in grp 5"
+
+      let grp6 s =
+	let nnn, _dst = core_grp s 6 s.operand_sz in
+	match nnn with
+	| _ -> Log.error "Illegal opcode in grp 6"
+
+      let grp7 s =
+	let nnn, _dst = core_grp s 7 s.operand_sz in
+	match nnn with
+	| _ -> Log.error "Illegal opcode in grp 7"
+
+      let core_bt s f dst src =
+	let is_register =
+	  match dst with
+	  | V _ -> true
+	  | M _ -> false
+	in
+	let nth  =
+	  if is_register then BinOp (Mod, src, Const (Word.of_int (Z.of_int s.operand_sz) s.operand_sz))
+	  else src
+	in
+	let nbit  = BinOp (And, UnOp (SignExt s.operand_sz, BinOp (Shr, Lval dst, nth)), Const (Word.one s.operand_sz)) in
+	let stmt  = Set (V (T fcf), nbit)                                                                               in
+	let stmts = f nbit                                                                                              in
+	return s ((stmt::stmts) @ [ undef_flag fof; undef_flag fsf; undef_flag fzf; undef_flag faf; undef_flag fpf])
+
+      let bt s dst src = core_bt s (fun _nbit -> []) dst src
+      let bts s dst src = core_bt s (fun nbit -> [ Set (dst, BinOp (Or, Lval dst, BinOp (Shl, Const (Data.Word.one 1), nbit)))]) dst src
+      let btr s dst src = core_bt s (fun _nbit -> []) dst src
+      let btc s dst src = core_bt s (fun _nbit -> []) dst src
+				  
+      let grp8 s =
+	let nnn, dst = core_grp s 8 s.operand_sz                                                           in
+	let n = s.operand_sz / Config.size_of_byte - 1 in
+	let src      = Const (Word.of_int (sign_extension_of_byte (int_of_byte s) n) s.operand_sz) in
+	match nnn with
+	| 4 -> (* BT *) bt s dst src
+	| 5 -> (* BTS *) bts s dst src
+	| 6 -> (* BTR *) btr s dst src
+	| 7 -> (* BTC *) btc s dst src
+	| _ -> Log.error "Illegal opcode in grp 8"
+
 	       
       (*******************)
       (* BCD *)
@@ -1095,22 +1159,22 @@ module Make(Domain: Domain.T) =
 	  | c when '\x00' <= c && c <= '\x03'  -> add_sub s Sub false c 
 	  | '\x04' 			       -> add_sub_immediate s Add false eax Config.size_of_byte 
 	  | '\x05' 			       -> add_sub_immediate s Add false eax s.operand_sz
-	  | '\x06' 			       -> let es' = to_reg es s.operand_sz in push s [es']
-	  | '\x07' 			       -> let es' = to_reg es s.operand_sz in pop s [es']
+	  | '\x06' 			       -> let es' = to_reg es s.operand_sz in push s [V es']
+	  | '\x07' 			       -> let es' = to_reg es s.operand_sz in pop s [V es']
 	  | c when '\x08' <= c &&  c <= '\x0D' -> or_xor_and s Or c
-	  | '\x0E' 			       -> let cs' = to_reg cs s.operand_sz in push s [cs']
+	  | '\x0E' 			       -> let cs' = to_reg cs s.operand_sz in push s [V cs']
 	  | '\x0F' 			       -> decode_snd_opcode s
 									       
 	  | c when '\x10' <= c && c <= '\x13' -> add_sub s Add true c
 	  | '\x14' 			      -> add_sub_immediate s Add true eax Config.size_of_byte
 	  | '\x15' 			      -> add_sub_immediate s Add true eax s.operand_sz
-	  | '\x16' 			      -> let ss' = to_reg ss s.operand_sz in push s [ss']
-	  | '\x17' 			      -> let ss' = to_reg ss s.operand_sz in pop s [ss']
+	  | '\x16' 			      -> let ss' = to_reg ss s.operand_sz in push s [V ss']
+	  | '\x17' 			      -> let ss' = to_reg ss s.operand_sz in pop s [V ss']
 	  | c when '\x18' <= c && c <='\x1B'  -> add_sub s Sub true c
 	  | '\x1C' 			      -> add_sub_immediate s Sub true eax Config.size_of_byte
 	  | '\x1D' 			      -> add_sub_immediate s Sub true eax s.operand_sz
-	  | '\x1E' 			      -> let ds' = to_reg ds s.operand_sz in push s [ds']
-	  | '\x1F' 			      -> let ds' = to_reg ds s.operand_sz in pop s [ds']
+	  | '\x1E' 			      -> let ds' = to_reg ds s.operand_sz in push s [V ds']
+	  | '\x1F' 			      -> let ds' = to_reg ds s.operand_sz in pop s [V ds']
 										       
 	  | c when '\x20' <= c && c <= '\x25' -> or_xor_and s And c
 	  | '\x26' 			      -> s.segments.data <- es; decode s
@@ -1133,11 +1197,11 @@ module Make(Domain: Domain.T) =
 	  | c when '\x40' <= c && c <= '\x47' -> let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec (V r) Add s s.operand_sz
 	  | c when '\x48' <= c && c <= '\x4f' -> let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec (V r) Sub s s.operand_sz
 															       
-	  | c when '\x50' <= c && c <= '\x57' -> let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [r]
-	  | c when '\x58' <= c && c <= '\x5F' -> let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [r]
+	  | c when '\x50' <= c && c <= '\x57' -> let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [V r]
+	  | c when '\x58' <= c && c <= '\x5F' -> let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [V r]
 															   
-	  | '\x60' -> let l = List.map (fun v -> find_reg v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
-	  | '\x61' -> let l = List.map (fun v -> find_reg v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
+	  | '\x60' -> let l = List.map (fun v -> V (find_reg v s.operand_sz)) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
+	  | '\x61' -> let l = List.map (fun v -> V (find_reg v s.operand_sz)) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
 
 	  | '\x63' -> arpl s
 	  | '\x64' -> s.segments.data <- fs; decode s
@@ -1162,7 +1226,8 @@ module Make(Domain: Domain.T) =
 	  | '\x8c' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V (find_reg rm 16) in let src = V (T (to_segment_reg reg)) in return s [ Set (dst, Lval src) ]
 
 	  | '\x8e' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V ( T (to_segment_reg reg)) in let src = V (find_reg rm 16) in return s [ Set (dst, Lval src) ]
-																		 
+	  | '\x8f' -> let dst, _src = operands_from_mod_reg_rm s (Char.code (getchar s)) in pop s [dst]
+																				
 	  | '\x90' 			      -> return s [Nop]
 	  | c when '\x91' <= c && c <= '\x97' -> xchg_with_eax s ((Char.code c) - (Char.code '\x90'))
 						      
@@ -1196,8 +1261,8 @@ module Make(Domain: Domain.T) =
 	     
 	  | '\xc9' ->
 	     let sp = V (to_reg esp s.operand_sz) in
-	     let bp = to_reg ebp s.operand_sz     in
-	     return s ( (Set (sp, Lval (V bp)))::(pop_stmts s [bp]))
+	     let bp = V (to_reg ebp s.operand_sz) in
+	     return s ( (Set (sp, Lval bp))::(pop_stmts s [bp]))
 					       
 	  | '\xcf' -> Log.error "IRET instruction decoded. Interpreter halts"
 
@@ -1250,18 +1315,26 @@ module Make(Domain: Domain.T) =
 	  
 	and decode_snd_opcode s =
 	  match getchar s with
+	  | '\x00' -> grp6 s
+	  | '\x01' -> grp7 s
+			   
 	  | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
 
-	  | '\xa0' -> push s [T fs]
-	  | '\xa1' -> pop s [T fs]
-
-	  | '\xa8' -> push s [T gs]
-	  | '\xa9' -> pop s [T gs]
-			  
+	  | '\xa0' -> push s [V (T fs)]
+	  | '\xa1' -> pop s [V (T fs)]
+	  | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in bt s reg rm
+	  | '\xa8' -> push s [V (T gs)]
+	  | '\xa9' -> pop s [V (T gs)]
+	  | '\xab' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in bts s reg rm
+											 
 	  | '\xb2' -> load_far_ptr s ss
-
+	  | '\xb3' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in btr s reg rm
 	  | '\xb4' -> load_far_ptr s fs
 	  | '\xb5' -> load_far_ptr s gs
+	  
+	  | '\xba' -> grp8 s
+	  | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in btc s reg rm
+
 	  | c 				      -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
 	  decode s;;
