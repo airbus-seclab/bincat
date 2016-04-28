@@ -1317,7 +1317,8 @@ module Make(Domain: Domain.T) =
 	     let sp = V (to_reg esp s.operand_sz) in
 	     let bp = V (to_reg ebp s.operand_sz) in
 	     return s ( (Set (sp, Lval bp))::(pop_stmts s [bp]))
-
+	  | '\xca' -> return s (Return::(pop_stmts s [V (T cs)]))
+	  | '\xcb' -> return s (Return::(pop_stmts s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
 	  | '\xcc' -> Log.error "INT 3 decoded. Interpreter halts"
 	  | '\xcd' -> let c = getchar s in Log.error (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
 	  | '\xce' -> Log.error "INTO decoded. Interpreter halts"
