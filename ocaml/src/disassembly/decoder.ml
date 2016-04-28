@@ -905,7 +905,16 @@ module Make(Domain: Domain.T) =
 	let c              = Const (Word.of_int (int_of_bytes s (n/Config.size_of_byte)) n) in
 	return s [ Set (r, c) ]
 
-	       
+      (** returns the the state for the mov from/to eax *)
+      let mov_with_eax s n from =
+	let imm = int_of_bytes s (n/Config.size_of_byte) in
+	let leax = V (to_reg eax n) in
+	let lmem = M (add_segment s (Const (Word.of_int imm s.addr_sz)) s.segments.data, n) in
+	let dst, src =
+	  if from then lmem, Lval leax
+	  else leax, Lval lmem
+	in
+	return s [Set (dst, src)] 				      
 		       
       (*****************************************************************************************)
       (* decoding of opcodes of groups 1 to 8 *)
@@ -1268,7 +1277,10 @@ module Make(Domain: Domain.T) =
 	  | c when '\x91' <= c && c <= '\x97' -> xchg_with_eax s ((Char.code c) - (Char.code '\x90'))
 	  | '\x98' -> let dst = V (to_reg eax s.operand_sz) in return s [Set (dst, UnOp (SignExt s.operand_sz, Lval (V (to_reg eax (s.operand_sz / 2)))))]
 	  | '\x9b' -> Log.error "WAIT decoder. Interpreter halts"
-						      
+	  | '\xa0' -> mov_with_eax s Config.size_of_byte true
+	  | '\xa1' -> mov_with_eax s s.operand_sz true
+	  | '\xa2' -> mov_with_eax s Config.size_of_byte false
+	  | '\xa3' -> mov_with_eax s s.operand_sz false
 	  | '\xa4' -> movs s Config.size_of_byte
 	  | '\xa5' -> movs s s.addr_sz
 	  | '\xa6' -> cmps s Config.size_of_byte
