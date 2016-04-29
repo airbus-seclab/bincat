@@ -40,8 +40,8 @@ module Make (V: Vector.T) =
 
     let widen p1 p2 =
       match p1, p2 with
-      | BOT, BOT 		   -> BOT
-      | BOT, _ 			   -> TOP
+      | p, BOT 	
+      | BOT, p 			   -> p
       | TOP, _ | _, TOP		   -> TOP
       | p, BOT                     -> p
       | Val (r1, o1), Val (r2, o2) ->

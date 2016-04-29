@@ -232,8 +232,14 @@ module Make(D: T) =
       match m1, m2 with
       | BOT, m | m, BOT  -> m
       | Val m1', Val m2' ->
-	 Val (Map.map2 D.join m1' m2')
-
+	 try Val (Map.map2 D.join m1' m2')
+	 with _ ->
+	      let m = Map.empty in
+	      let m' = Map.fold (fun k v m -> Map.add k v m) m1' m in
+	      Val (Map.fold (fun k v m -> try let v' = Map.find k m1' in Map.replace k (D.join v v') m with Not_found -> Map.add k v m) m2' m')
+	     
+	      
+	   
     let meet m1 m2 =
       match m1, m2 with
       | BOT, _ | _, BOT  -> BOT
@@ -241,11 +247,18 @@ module Make(D: T) =
 
     let widen m1 m2 =
       match m1, m2 with
-      | BOT, BOT 	 -> BOT
-      | BOT, _ 		 -> raise Exceptions.Enum_failure
-      | _, BOT           -> m1
-      | Val m1', Val m2' -> Val (Map.map2 D.widen m1' m2')
-			     
+      | BOT, m | m, BOT  -> m
+      | Val m1', Val m2' ->
+	 try Val (Map.map2 D.widen m1' m2')
+	 with _ ->
+	   Printf.printf "tentative\n"; flush stdout;
+	   let m = Map.empty in
+	   let m' = Map.fold (fun k v m -> Map.add k v m) m1' m in
+	   let r = Val (Map.fold (fun k v m -> try let v' = Map.find k m1' in Map.replace k (D.widen v' v) m with Not_found -> Map.add k v m) m2' m') in
+	   Printf.printf "widening ok\n";
+	   flush stdout;
+	   r
+		  
     let init () = Val (Map.empty)
 
     let set_register_from_config r region c m =

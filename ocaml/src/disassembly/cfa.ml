@@ -140,7 +140,7 @@ module Make(Domain: Domain.T) =
 	  l := (Z.logand mask !n)::!l;
 	  n := Z.shift_right !n !Config.operand_sz 
 	done;
-	List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int (i*nb)), v) (List.rev !l)
+	List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int (i*nb)), v) (!l)
 	
    		   
       (** 1. split b into a list of tainting values of size Config.operand_sz *)
@@ -295,10 +295,9 @@ module Make(Domain: Domain.T) =
 	(* state printing (detailed) *)
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
-	  Printf.fprintf f "[address = %s]\nid = %d\n" (Data.Address.to_string s.ip) s.id;
+	  Printf.fprintf f "[address = %s]\nid = %d\n%s\n" (Data.Address.to_string s.ip) s.id abstract_values;
 	  if !Config.verbose then
-	    List.iter (fun stmt -> Printf.fprintf f "%s" (Asm.string_of_stmt stmt)) s.stmts;
-	  Printf.fprintf f "%s\n" abstract_values
+	    List.iter (fun stmt -> Printf.fprintf f "%s" (Asm.string_of_stmt stmt)) s.stmts
 	in
 	G.iter_vertex print_ip g;
 	(* edge printing (summary) *)

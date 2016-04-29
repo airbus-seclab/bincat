@@ -1,5 +1,5 @@
 let unroll = ref 10;;
-let verbose = ref false;;
+let verbose = ref true;;
   
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)

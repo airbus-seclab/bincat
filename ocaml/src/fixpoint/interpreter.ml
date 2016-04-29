@@ -182,13 +182,17 @@ struct
 
   (** widen the given vertex with all vertices in g that have the same ip as v *)
   let widen g v =
+    Printf.printf "entree dans le widening\n"; flush stdout;
     let d = Cfa.fold_vertex (fun prev d ->
-	if v.Cfa.State.ip = prev.Cfa.State.ip then
-	  D.join d prev.Cfa.State.v
+		if v.Cfa.State.ip = prev.Cfa.State.ip then
+		    D.join d prev.Cfa.State.v
 	else
 	  d) g D.bot
     in
-    v.Cfa.State.v <- D.widen d v.Cfa.State.v
+    Printf.printf "join ok\n"; flush stdout;
+    let r = D.widen d (D.join d v.Cfa.State.v) in
+    Printf.printf "widen ok\n"; flush stdout;
+    v.Cfa.State.v <- r
 			     
   (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
   (** the widening may be also launched if the threshold is reached *)
@@ -220,10 +224,11 @@ struct
 			  try let n' = (Hashtbl.find unroll_tbl ip) + 1 in Hashtbl.replace unroll_tbl ip n' ; n'
 			  with Not_found -> Hashtbl.add unroll_tbl v.Cfa.State.ip 1; 1
 			in
+			Printf.printf "ip = %s => nb = %d\n" (Data.Address.to_string ip) n; 
 			if n <= !Config.unroll then
 			  ()
-			else
-			  widen g v
+			else 
+			    widen g v
 	      ) l';
     l'
     with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
@@ -308,7 +313,7 @@ struct
 	with
 	| Exceptions.Error msg 	  -> dump g; Log.error msg
 	| Exceptions.Enum_failure -> dump g; Log.error "analysis stopped in that branch (too imprecise value computed)"
-	| _ 			  -> dump g; Log.error "Interpreter error"
+	| _			  -> dump g; Log.error "Interpreter error"
       end;
       (* boolean condition of loop iteration is updated                                                          *)
       continue := not (Vertices.is_empty !waiting);
