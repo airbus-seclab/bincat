@@ -131,6 +131,11 @@ module Make(D: T) =
       match m with
       | Val m' -> Val (Map.add (K.R r) D.bot m')
       | BOT    -> BOT
+
+    let forget r m =
+      match m with
+      | Val m' -> Val (Map.add (K.R r) D.top m')
+      | BOT -> BOT
 		 
     let subset m1 m2 =
       match m1, m2 with

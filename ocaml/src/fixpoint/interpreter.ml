@@ -107,6 +107,8 @@ struct
 
     | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; [ d', None ]
 
+    | Directive (Forget r) -> [ D.forget r d, None ]
+				
     | Directive (Undef r) -> [ D.undefine r d, None ]
 
     | Jmp (A a) -> [ d, Some (copy a) ] 
