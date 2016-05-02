@@ -875,74 +875,22 @@ class Analyzer(QtCore.QProcess):
 
                 BinCATLogViewer.Log("[+] BinCAT : Parsing analyzer result file \n",SCOLOR_LOCNAME)
                 currentState = analyzer_state.AnalyzerState()
-                AnalyzerStates = currentState    
-                
+                #AnalyzerStates = currentState
+    
                 AnalyzerStates.setStatesFromAnalyzerOutput(resultfile)
+                # Call DisplayState with the start address (nodeid = 0 )
+                startaddr_ea = ""
                 keys  = AnalyzerStates.stateAtEip.keys()
-                for  key in keys :
-                        idaapi.msg(" States addresses 0x%08x \n"%( int(key.address) ))
-
-
-                
-
-                # update the BinCATTaintedForm with the first state (nodeid=0)
-                idaapi.msg(" type(taintingview) = %s \n "%(type(BinCATTaintedForm)))
-
-                rc = BinCATTaintedForm.tablereg.rowCount()
-                mc = BinCATTaintedForm.tablemem.rowCount()
-
-                for i in range(0,rc):
-                        BinCATTaintedForm.tablereg.removeRow(i)
-                for i in range(0,mc):
-                        BinCATTaintedForm.tablemem.removeRow(i)
-
-                BinCATTaintedForm.tablereg.setRowCount(0)
-                BinCATTaintedForm.tablemem.setRowCount(0)
-                
-                rc = BinCATTaintedForm.tablereg.rowCount()
-                mc = BinCATTaintedForm.tablemem.rowCount()
- 
-                # display only node 0 that corresponds to the start address state
-                for  key in keys :
-                        state = AnalyzerStates.getStateAt(key.address)
+                for  k in keys :
+                        state = AnalyzerStates.getStateAt(k.address)
                         if state.nodeid == "0":
-                                BinCATTaintedForm.nilabel.setText('Node Id : '+state.nodeid) 
-                                BinCATTaintedForm.alabel.setText('RVA address : '+hex(int(key.address))) 
-                                for k , v  in state.ptrs.iteritems():
-                                        if k == "mem":
-                                                for i , j in v.iteritems():
-                                                        if isinstance(i,analyzer_state.ConcretePtrValue):
-                                                                BinCATTaintedForm.tablemem.insertRow(mc)
-                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(i.address))  )
-                                                                BinCATTaintedForm.tablemem.setItem(mc, 0, item)
-                                                                item = QtWidgets.QTableWidgetItem(i.region)
-                                                                BinCATTaintedForm.tablemem.setItem(mc, 2, item)
-                                                                mc+=1
-                                                        if isinstance(j,analyzer_state.ConcretePtrValue):
-                                                                BinCATTaintedForm.tablemem.insertRow(mc)
-                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(j.address))  )
-                                                                BinCATTaintedForm.tablemem.setItem(mc, 0, item)
-                                                                item = QtWidgets.QTableWidgetItem(j.region)
-                                                                BinCATTaintedForm.tablemem.setItem(mc, 2, item)
-                                                                mc+=1
+                                startaddr_ea = k.address
 
-                                        if k == "reg":
-                                                for i , j in v.iteritems():
-                                                        if isinstance(j,analyzer_state.ConcretePtrValue):
-                                                                BinCATTaintedForm.tablereg.insertRow(rc)
-                                                                item = QtWidgets.QTableWidgetItem(i)
-                                                                BinCATTaintedForm.tablereg.setItem(rc, 0, item)
-                                                                item = QtWidgets.QTableWidgetItem( ('0x%08x'%(int(j.address))) )
-                                                                BinCATTaintedForm.tablereg.setItem(rc, 2, item)
-                                                                rc+=1
-                                                        if isinstance(j,analyzer_state.AbstractPtrValue):
-                                                                BinCATTaintedForm.tablereg.insertRow(rc)
-                                                                item = QtWidgets.QTableWidgetItem(i)
-                                                                BinCATTaintedForm.tablereg.setItem(rc, 0, item)
-                                                                item = QtWidgets.QTableWidgetItem(j.value)
-                                                                BinCATTaintedForm.tablereg.setItem(rc, 2, item)
-                                                                rc+=1
-                                                                
+ 
+                BinCATTaintedForm.DisplayState(int(startaddr_ea)) 
+
+                
+
 
         # for a first test I use this callback to get analyzer output 
         # the goal is exchange information using a qtcpsocket
@@ -996,7 +944,9 @@ class BinCATTaintedForm_t(PluginForm):
 
         def OnCreate(self,form):
                 BinCATLogViewer.Log("[+] BinCAT Creating Tainted form ",SCOLOR_LOCNAME)
-                
+      
+                self.currentrva = 0
+          
                 # Get parent widget 
                 self.parent = self.FormToPyQtWidget(form)
                 layout = QtWidgets.QGridLayout()
@@ -1062,6 +1012,73 @@ class BinCATTaintedForm_t(PluginForm):
         def Show(self):
                 return PluginForm.Show(self,"BinCAT Tainting",options=PluginForm.FORM_PERSIST | PluginForm.FORM_TAB)
  
+        # Fill memory table and the registry table with content of the state 
+        # in : ea rva address 
+        def DisplayState(self,ea):
+
+                currentStates =  AnalyzerStates 
+
+                idaapi.msg(" DisplayState(0x%08x) \n"%(ea)) 
+                rc = self.tablereg.rowCount()
+                mc = self.tablemem.rowCount()
+
+                for i in range(0,rc):
+                        self.tablereg.removeRow(i)
+                for i in range(0,mc):
+                        self.tablemem.removeRow(i)
+
+                self.tablereg.setRowCount(0)
+                self.tablemem.setRowCount(0)
+                
+                rc = self.tablereg.rowCount()
+                mc = self.tablemem.rowCount()
+
+                self.currentrva = ea 
+
+                keys  = currentStates.stateAtEip.keys()
+                for  key in keys :
+                        state = currentStates.getStateAt(key.address)
+                        if int(key.address) == ea :
+                                self.nilabel.setText('Node Id : '+state.nodeid) 
+                                self.alabel.setText('RVA address : '+' 0x%08x'%(int(key.address))) 
+                                for k , v  in state.ptrs.iteritems():
+                                        if k == "mem":
+                                                for i , j in v.iteritems():
+                                                        if isinstance(i,analyzer_state.ConcretePtrValue):
+                                                                self.tablemem.insertRow(mc)
+                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(i.address))  )
+                                                                self.tablemem.setItem(mc, 0, item)
+                                                                item = QtWidgets.QTableWidgetItem(i.region)
+                                                                self.tablemem.setItem(mc, 2, item)
+                                                                mc+=1
+                                                        if isinstance(j,analyzer_state.ConcretePtrValue):
+                                                                self.tablemem.insertRow(mc)
+                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(j.address))  )
+                                                                self.tablemem.setItem(mc, 0, item)
+                                                                item = QtWidgets.QTableWidgetItem(j.region)
+                                                                self.tablemem.setItem(mc, 2, item)
+                                                                mc+=1
+
+                                        if k == "reg":
+                                                for i , j in v.iteritems():
+                                                        if isinstance(j,analyzer_state.ConcretePtrValue):
+                                                                self.tablereg.insertRow(rc)
+                                                                item = QtWidgets.QTableWidgetItem(i)
+                                                                self.tablereg.setItem(rc, 0, item)
+                                                                item = QtWidgets.QTableWidgetItem( ('0x%08x'%(int(j.address))) )
+                                                                self.tablereg.setItem(rc, 2, item)
+                                                                rc+=1
+                                                        if isinstance(j,analyzer_state.AbstractPtrValue):
+                                                                self.tablereg.insertRow(rc)
+                                                                item = QtWidgets.QTableWidgetItem(i)
+                                                                self.tablereg.setItem(rc, 0, item)
+                                                                item = QtWidgets.QTableWidgetItem(j.value)
+                                                                self.tablereg.setItem(rc, 2, item)
+                                                                rc+=1
+                                                                
+                
+
+
  
 # ----------------------------------------------------------------------------------------------
 # BinCAT main IDA PluginForm
@@ -1202,7 +1219,7 @@ class BinCATForm_t(PluginForm):
                 idaapi.msg(" type(self) %s\n"%type(self))
                 idaapi.msg(" type(self.parent) %s \n"%type(self.parent))
                 # Launch the analyzer by calling init_analyzer()
-                self.init_Analyzer()
+                #self.init_Analyzer()
 
                 
 
@@ -1269,7 +1286,6 @@ class HtooltipH(idaapi.action_handler_t):
 
 # ----------------------------------------------------------------------------------------------
 # Class Hooks for BinCAT menu 
-
 class  Hooks(idaapi.UI_Hooks):
 
         def updating_actions(self,ctx):
@@ -1277,10 +1293,18 @@ class  Hooks(idaapi.UI_Hooks):
                         idaview =  get_tform_idaview(ctx.form)
                         place, x , y = get_custom_viewer_place(idaview,False)
                         #line =  get_custom_viewer_curline(idaview,False)
-                        if isCode(idaapi.getFlags(place.toea())):
-                                #SetColor(place.toea(),CIC_ITEM,0x0CE505)
-                                idaapi.msg("%s at EA: %08x \n" % (ctx.form_title,place.toea()))                        
+                        if ctx.form_title == "IDA View-Tainting View": 
+                                if isCode(idaapi.getFlags(place.toea())):
+                                        #SetColor(place.toea(),CIC_ITEM,0x0CE505)
+                                        #idaapi.set_item_color(place.toea(),0x23ffff)
 
+                                        idaapi.msg("%s at EA: 0x%08x \n" % (ctx.form_title,place.toea()) ) 
+                                        # Call TaintedForm Displaystate(ea)
+                                        idaapi.msg(" BinCATTAintedForm.rva address = 0x%08x \n " %(BinCATTaintedForm.currentrva) )
+                                        if (BinCATTaintedForm.currentrva != place.toea()) : 
+                                                BinCATTaintedForm.DisplayState(place.toea()) 
+                                                idaapi.msg("EA: 0x%08x \n" % (place.toea()) ) 
+                                                
 
         def populating_tform_popup(self,form,popup):
                 idaapi.msg("Hooks called \n")
