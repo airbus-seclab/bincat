@@ -141,8 +141,14 @@ module Make(D: T) =
       match m1, m2 with
       | BOT, _ 		 -> true
       | _, BOT 		 -> false
-      |	Val m1', Val m2' -> Map.for_all2 D.subset m1' m2'
-
+      |	Val m1', Val m2' ->
+	 try Map.for_all2 D.subset m1' m2'
+	 with _ ->
+	   try 
+	     Map.iteri (fun k v1 -> try let v2 = Map.find k m2' in if not (D.subset v1 v2) then raise Exit with Not_found -> ()) m1';
+	     true
+	   with Exit -> false
+			  
     let to_string m =
       match m with
       |	BOT    -> ["_"]
@@ -251,13 +257,10 @@ module Make(D: T) =
       | Val m1', Val m2' ->
 	 try Val (Map.map2 D.widen m1' m2')
 	 with _ ->
-	   Printf.printf "tentative\n"; flush stdout;
 	   let m = Map.empty in
 	   let m' = Map.fold (fun k v m -> Map.add k v m) m1' m in
-	   let r = Val (Map.fold (fun k v m -> try let v' = Map.find k m1' in Map.replace k (D.widen v' v) m with Not_found -> Map.add k v m) m2' m') in
-	   Printf.printf "widening ok\n";
-	   flush stdout;
-	   r
+	   Val (Map.fold (fun k v m -> try let v' = Map.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Map.replace k v2 m with Not_found -> Map.add k v m) m2' m')
+	  
 		  
     let init () = Val (Map.empty)
 

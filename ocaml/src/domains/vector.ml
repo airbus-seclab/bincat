@@ -338,8 +338,7 @@ module Make(V: Val) =
 	r.(n'-i) <- if Z.compare (nth_of_value w' i) Z.one = 0 then V.one else V.zero
       done;
       r
-
-   
+ 
     let to_addresses r v = Data.Address.Set.singleton (r, to_word v)
 
     let subset v1 v2 = for_all2 V.subset v1 v2
@@ -355,7 +354,7 @@ module Make(V: Val) =
 	   done
 	| Config.CMask (c, m) ->
 	   for i = 0 to n' do
-	     v.(n'-i) <- V.join (V.of_value (nth_of_value c i)) (V.of_value (nth_of_value m i))
+	     v.(n'-i) <- V.join (V.of_value (nth_of_value c i)) (V.lognot ((V.of_value (nth_of_value m i)))
 	   done
       end;
       v
@@ -378,7 +377,7 @@ module Make(V: Val) =
 	 for i = 0 to n' do
 	   let bnth = nth_of_value b i in
 	   let mnth = nth_of_value m i in
-	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(n'-i)) (V.taint_of_value mnth v.(n'-i))
+	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(n'-i)) (V.lognot ((V.taint_of_value mnth v.(n'-i)))
 	 done;
 	 v
 

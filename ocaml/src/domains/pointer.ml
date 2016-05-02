@@ -43,12 +43,9 @@ module Make (V: Vector.T) =
       | p, BOT 	
       | BOT, p 			   -> p
       | TOP, _ | _, TOP		   -> TOP
-      | p, BOT                     -> p
       | Val (r1, o1), Val (r2, o2) ->
 	 if r1 = r2 then
-	   try
-	     Val (r1, V.widen o1 o2)
-	   with Exceptions.Enum_failure -> TOP
+	   Val (r1, V.widen o1 o2)
 	 else TOP
 	   
 		    

@@ -182,17 +182,14 @@ struct
 
   (** widen the given vertex with all vertices in g that have the same ip as v *)
   let widen g v =
-    Printf.printf "entree dans le widening\n"; flush stdout;
     let d = Cfa.fold_vertex (fun prev d ->
 		if v.Cfa.State.ip = prev.Cfa.State.ip then
 		    D.join d prev.Cfa.State.v
 	else
 	  d) g D.bot
     in
-    Printf.printf "join ok\n"; flush stdout;
-    let r = D.widen d (D.join d v.Cfa.State.v) in
-    Printf.printf "widen ok\n"; flush stdout;
-    v.Cfa.State.v <- r
+    v.Cfa.State.v <- D.widen d (D.join d v.Cfa.State.v)
+
 			     
   (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
   (** the widening may be also launched if the threshold is reached *)
@@ -253,7 +250,7 @@ struct
 	  else
 	    (** explore if a greater abstract state of v has already been explored *)
 	    Cfa.iter_vertex (fun prev ->
-		if v.Cfa.State.id = prev.Cfa.State.id then
+		if v.Cfa.State.id = prev.Cfa.State.id || prev.Cfa.State.id = 0 then
 		  ()
 		else
 		  if same prev v then raise Exit

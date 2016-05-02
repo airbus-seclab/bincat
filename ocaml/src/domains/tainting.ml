@@ -12,7 +12,8 @@ let join b1 b2 =
   | T, T 	    -> T
   | U, U 	    -> U
   | BOT, b | b, BOT -> b
-  | _, _ 	    -> TOP
+  | U, T | T, U     -> T
+  | _, _            -> TOP
 
 let logor b1 b2 =
   match b1, b2 with
@@ -26,7 +27,9 @@ let meet b1 b2 =
   | T, T 	     -> T
   | U, U 	    -> U
   | b, TOP | TOP, b -> b
-  | _, _ 	    -> BOT
+  | U, T | T, U     -> U
+  | BOT, _ | _, BOT -> BOT
+			 
 			       
 let to_string b =
   match b with
