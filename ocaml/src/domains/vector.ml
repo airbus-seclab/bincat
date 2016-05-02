@@ -24,6 +24,8 @@ module type Val =
     val join: t -> t -> t
     (** abstract meet *)
     val meet: t -> t -> t
+    (** widening *)
+    val widen: t -> t -> t
     (** string conversion *)
     val to_string: t -> string
     (** string conversion of the taint *)
@@ -73,6 +75,8 @@ module type T =
     val join: t -> t -> t
     (** abstract meet *)
     val meet: t -> t -> t
+    (** widening *)
+    val widen: t -> t -> t
     (** string conversion *)
     val to_string: t -> string
     (** binary operation *)
@@ -97,15 +101,26 @@ module type T =
     val taint_of_config: Config.tvalue -> int -> t option -> t
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t
+    (** return the value corresponding to bits l to u *)
+    val extract: t -> int -> int -> t
   end
     
 module Make(V: Val) =
   (struct
-    type t = V.t array
+    type t = V.t array (** bit order is little endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *) 
 
+    let exists p v =
+      try
+	for i = 0 to (Array.length v) - 1 do
+	  if p v.(i) then raise Exit
+	done;
+	false
+      with Exit -> true
+
+   		  
     let map2 f v1 v2 =
-      let n = Array.length v1        in
-      let v = Array.make n V.default in
+      let n = min (Array.length v1) (Array.length v2) in
+      let v = Array.make n V.default                  in
       for i = 0 to n-1 do
 	v.(i) <- f v1.(i) v2.(i)
       done;
@@ -117,42 +132,65 @@ module Make(V: Val) =
 	  if not (p v1.(i) v2.(i)) then raise Exit
 	done;
 	true
-      with Exit -> false
-
+      with
+      | _-> false
+	       
     let for_all p v =
       try
 	for i = 0 to (Array.length v) -1 do
 	  if not (p v.(i)) then raise Exit
 	done;
 	true
-      with Exit -> false
+      with _ -> false
 
-    let exists p v =
+    let to_value v =
       try
+	let z = ref Z.zero in
 	for i = 0 to (Array.length v) - 1 do
-	  if p v.(i) then raise Exit
+	  let n = V.to_value v.(i) in
+	  z := Z.add n (Z.shift_left !z 1)
 	done;
-	false
-      with Exit -> true
+	!z
+      with _ -> raise Exceptions.Concretization
+
+    (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *) 
+    let to_word v = Data.Word.of_int (to_value v) (Array.length v)
+				     
+    let to_string v =
+      let v' =
+	if exists V.is_bot v || exists V.is_top v then
+	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "0b" v
+	else
+	    Data.Word.to_string (to_word v)
+      in
+      let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "0b" v  in
+      if String.length t = 0 then v'
+      else Printf.sprintf "%s ! %s" v' t
+
+	
     let join v1 v2 = map2 V.join v1 v2
 
     let meet v1 v2 = map2 V.meet v1 v2
 
+    let widen v1 v2 =
+      if Z.compare (to_value v1) (to_value v2) <> 0 then
+	raise Exceptions.Enum_failure
+      else v1
 
     (* common utility to add and sub *)
     let core_add_sub op v1 v2 =
-      let n = Array.length v1        in
-      let v = Array.make n V.default in
+      let n = Array.length v1     in
+      let v = Array.make n V.zero in
       let carry_borrow = ref None in
-      for i = 0 to n - 1 do
+      for i = n-1 downto 0 do
 	let c = 
 	  (* add the carry/borrow if present *)
 	  match !carry_borrow with
-	  | None -> None
-	  | Some b' -> let b', c' = op v.(i) b' in v.(i) <- b'; c'
+	  | None -> v.(i) <- v1.(i); None
+	  | Some b' -> let b', c' = op v1.(i) b' in v.(i) <- b'; c'
 	in
 	(* compute the ith bit of the result with the ith bit of the operand *)
-	let b, c' = op v1.(i) v2.(i) in
+	let b, c' = op v.(i) v2.(i) in
 	v.(i) <- b;
 	(* update the new carry/borrow *)
 	match c with
@@ -181,22 +219,33 @@ module Make(V: Val) =
 	done;
 	v'
 
-	  
-    let shl v i = 
-      let n  = Array.length v      in
-      let v' = Array.make n V.zero in
-      for j = n-1 downto n-i+1 do
-	v'.(j-i) <- v.(j)
-      done;
-      v'
+    let ishl v i =
+      let n  = Array.length v        in
 
-    let shr v i =
-      let n  = Array.length v      in
-      let v' = Array.make n V.zero in
-      for j = 0 to i-1 do
-	v'.(j+i) <- v.(j)
-      done;
-      v'
+	let v' = Array.make n V.zero in
+	let o  = n-i                 in
+	for j = 0 to o-1 do
+	  v'.(j) <- v.(i+j)
+	done;
+	v'
+	  
+    let shl v1 v2 =
+      try
+	let i = Z.to_int (to_value v2) in
+	ishl v1 i
+      with _ -> raise Exceptions.Enum_failure
+
+    let shr v1 v2 =
+      let n  = Array.length v1           in
+      try
+	let i = Z.to_int (to_value v2)   in
+	let v' = Array.make (n-i) V.zero in
+	for j = 0 to n-i-2 do
+	  v'.(j) <- v1.(j)
+	done;
+	v'
+      with
+	_ -> raise Exceptions.Enum_failure
 
     let mul v1 v2 =
       let n   = 2*(Array.length v1) in
@@ -207,7 +256,7 @@ module Make(V: Val) =
 	  v
 	else
 	  let v' =
-	    if V.is_one v1.(i) then add v (shl v2' i)
+	    if V.is_one v1.(i) then add v (ishl v2' i)
 	    else v
 	  in
 	  loop (i-1) v'
@@ -246,6 +295,8 @@ module Make(V: Val) =
       | Asm.Mul -> mul v1 v2
       | Asm.Div -> div v1 v2
       | Asm.Mod -> modulo v1 v2
+      | Asm.Shl -> shl v1 v2
+      | Asm.Shr -> shr v2 v2
 			  
 
 	  
@@ -254,22 +305,22 @@ module Make(V: Val) =
       if n >= i then
 	v
       else
-	let sign = v.(0) in
-	let o    = n - i in
-	let v' =
-	  if V.is_zero sign then Array.make (n+i) V.zero
-	  else Array.make (n+i) V.one
-	in
-	for j = 0 to n-1 do
-	  v'.(j+o) <- v.(j)
-	done;
-	v'
+	begin
+	  let sign = v.(0) in
+	  let o    = i - n in
+	  let v' =
+	    if V.is_zero sign then Array.make i V.zero
+	    else Array.make i V.one
+	  in
+	  for j = 0 to n-1 do
+	    v'.(j+o) <- v.(j)
+	  done;
+	  v'
+	end
 	
     let unary op v =
       match op with
       | Asm.Not       -> Array.map V.neg v
-      | Asm.Shl i     -> shl v i
-      | Asm.Shr i     -> shr v i
       | Asm.SignExt i -> sign_extend v i
 	   
     let default sz = Array.make sz V.default
@@ -282,34 +333,12 @@ module Make(V: Val) =
       let sz = Data.Word.size w	       in
       let w' = Data.Word.to_int w      in
       let r  = Array.make sz V.default in
-      for i = 0 to sz-1 do
-	r.(i) <- if Z.compare (nth_of_value w' i) Z.one = 0 then V.one else V.zero
+      let n' =sz-1 in
+      for i = 0 to n' do
+	r.(n'-i) <- if Z.compare (nth_of_value w' i) Z.one = 0 then V.one else V.zero
       done;
       r
-
-    let to_value v =
-      try
-	let z = ref Z.zero in
-	for i = 0 to (Array.length v) - 1 do
-	  let n = V.to_value v.(i) in
-	  z := Z.add n (Z.shift_left !z 1)
-	done;
-	!z
-      with _ -> raise Exceptions.Concretization
-
-    (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *) 
-    let to_word v = Data.Word.of_int (to_value v) (Array.length v)
-
-    let to_string v =
-      let v' =
-	if exists V.is_bot v || exists V.is_top v then
-	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "" v
-	else
-	    Data.Word.to_string (to_word v)
-      in
-      let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "" v  in
-      if String.length t = 0 then v'
-      else Printf.sprintf "%s ! %s" v' t
+ 
     let to_addresses r v = Data.Address.Set.singleton (r, to_word v)
 
     let subset v1 v2 = for_all2 V.subset v1 v2
@@ -317,9 +346,17 @@ module Make(V: Val) =
     let of_config c n =
       let v  = Array.make n V.default in
       let n' = n-1                    in
-      for i = 0 to n' do
-	v.(n'-i) <- V.of_value (nth_of_value c i)
-      done;
+      begin
+	match c with
+	| Config.Content c         ->
+	   for i = 0 to n' do
+	     v.(n'-i) <- V.of_value (nth_of_value c i)
+	   done
+	| Config.CMask (c, m) ->
+	   for i = 0 to n' do
+	     v.(n'-i) <- V.join (V.of_value (nth_of_value c i)) (V.lognot ((V.of_value (nth_of_value m i)))
+	   done
+      end;
       v
 	
     let taint_of_config t n (prev: t option) =
@@ -329,16 +366,18 @@ module Make(V: Val) =
 	| None    -> Array.make n V.default
       in
       match t with
-      | Config.Bits b ->
+      | Config.Taint b ->
+	 let n' =n-1 in
 	 for i = 0 to n-1 do
-	   v.(i) <- V.taint_of_value (nth_of_value b i) v.(i)
+	   v.(n'-i) <- V.taint_of_value (nth_of_value b i) v.(n'-i)
 	 done;
 	 v
-      | Config.MBits (b, m) ->
-	 for i = 0 to n-1 do
+      | Config.TMask (b, m) ->
+	 let n' = n-1 in
+	 for i = 0 to n' do
 	   let bnth = nth_of_value b i in
 	   let mnth = nth_of_value m i in
-	   v.(i) <- V.join (V.taint_of_value bnth v.(i)) (V.taint_of_value mnth v.(i))
+	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(n'-i)) (V.lognot ((V.taint_of_value mnth v.(n'-i)))
 	 done;
 	 v
 
@@ -349,6 +388,31 @@ module Make(V: Val) =
       done;
       v
 
-    let compare v1 op v2 = for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-      
+    let exist2 p v1 v2 =
+      let n = min (Array.length v1) (Array.length v2) in
+      try
+	for i = 0 to n-1 do
+	  if p v1.(i) v2.(i) then raise Exit
+	done;
+	false
+      with
+      | Exit -> true
+      | _    -> false
+	       
+    let compare v1 op v2 =
+	match op with
+	| Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+	| Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+	| _       -> true
+
+    let extract v l u =
+      let sz = u - l + 1               in
+      let v' = Array.make sz V.default in
+      let n  = Array.length v          in 
+      let o  = n-u - 1                 in
+      for i = o to n-l-1 do
+	v'.(i-o) <- v.(i)
+      done;
+      v'
+	
   end: T)

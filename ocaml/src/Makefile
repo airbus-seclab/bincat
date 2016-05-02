@@ -27,7 +27,7 @@ utils/mapOpt.mli\
 data-struct/data.mli\
 domains/domain.mli\
 
-LIBNAME=libbincat.so
+LIBNAME=libmlbincat.so
 
 LIBDIR ?= /usr/local/lib
 

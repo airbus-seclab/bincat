@@ -4,7 +4,7 @@ module Make (V: Vector.T) =
   (struct
     type t =
       | BOT
-      | Val of (region * V.t) (** a pointer is a pair (r, o) where r is the regions it points-to and o an offset in that region *) 
+      | Val of (region * V.t) (** a pointer is a pair (r, o) where r is the region it points-to and o an offset in that region *) 
       | TOP
 
     let bot = BOT
@@ -19,8 +19,8 @@ module Make (V: Vector.T) =
 
     let to_string p =
       match p with
-      | BOT -> "_"
-      | TOP -> "?"
+      | BOT -> "(_,0b_)"
+      | TOP -> "(?,0b?)"
       | Val (r, o) -> Printf.sprintf "(%s, %s)" (string_of_region r) (V.to_string o)
 
     let default sz = Val (Global, V.default sz)
@@ -38,10 +38,21 @@ module Make (V: Vector.T) =
 	 if r1 = r2 then Val (r1, V.join o1 o2)
 	 else TOP
 
+    let widen p1 p2 =
+      match p1, p2 with
+      | p, BOT 	
+      | BOT, p 			   -> p
+      | TOP, _ | _, TOP		   -> TOP
+      | Val (r1, o1), Val (r2, o2) ->
+	 if r1 = r2 then
+	   Val (r1, V.widen o1 o2)
+	 else TOP
+	   
+		    
     let meet p1 p2 =
       match p1, p2 with
       | TOP, p | p, TOP 	   -> p
-      | BOT, _ | _, BOT 	   -> BOT
+      | BOT, p | p, BOT 	   -> p
       | Val (r1, o1), Val (r2, o2) ->
 	 if r1 = r2 then Val (r1, V.meet o1 o2)
 	 else BOT
@@ -50,15 +61,27 @@ module Make (V: Vector.T) =
       match p with
       | BOT 	   -> BOT
       | TOP 	   -> TOP
-      | Val (r, o) -> Val (r, V.unary op o)
-
+      | Val (r, o) ->
+	 try Val (r, V.unary op o)
+	 with _ -> BOT
+		     
     let binary op p1 p2 =
       match p1, p2 with
       | BOT, _ | _, BOT 	   -> BOT
       | TOP, _ | _, TOP 	   -> TOP
       | Val (r1, o1), Val (r2, o2) ->
-	 if r1 = r2 then Val (r1, V.binary op o1 o2)
-	 else BOT
+	 match r1, r2 with
+	 | Global, r | r, Global ->
+			begin
+			  try Val (r, V.binary op o1 o2)
+			  with _ -> BOT
+			end
+	 | r1, r2                ->
+	    try
+	      if r1 = r2 then Val (r1, V.binary op o1 o2)
+	      else BOT
+	    with Exceptions.Enum_failure -> TOP
+      
 		
     let of_word w = Val (Global, V.of_word w)
 
@@ -68,8 +91,8 @@ module Make (V: Vector.T) =
       | BOT, _ 			   -> op = Asm.LEQ || op = Asm.LT
       | _, BOT 			   -> false
       | _, TOP | TOP, _		   -> true
-      | Val (r1, o1), Val (r2, o2) ->
-	 if r1 = r2 then V.compare o1 op o2
+      | Val (r1, o1), Val (r2, o2) -> 
+	 if r1 = r2 || r1 = Global || r2 = Global then V.compare o1 op o2
 	 else true
 
     let to_addresses p =
@@ -104,5 +127,9 @@ module Make (V: Vector.T) =
       | Val (r1, o1), Val (r2, o2) ->
 	 if r1 = r2 then Val (r1, V.combine o1 o2 l u)
 	 else BOT
-		
+
+    let extract p l u =
+      match p with
+      | BOT | TOP -> p
+      | Val (r, o) -> Val (r, V.extract o l u)	 
   end: Unrel.T)

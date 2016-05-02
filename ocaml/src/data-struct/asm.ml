@@ -19,6 +19,8 @@ type binop =
   | And    (** bitwise AND *)
   | Or     (** bitwise OR *)
   | Xor    (** bitwise XOR *)
+  | Shl    (** left logical shift *)
+  | Shr    (** right logical shift *)
 
 (** comparison operators *)
 type cmp =
@@ -36,9 +38,7 @@ type logbinop =
 
 (** type of unary operations *)
 type unop =
-  | SignExt of int (** [SignExt n] is a sign extension on _n_ bit width *)
-  | Shl     of int (** left logical shift *)
-  | Shr     of int (** right logical shift *)
+  | SignExt of int (** [SignExt n] is a sign extension such that the result is _n_ bit width *)
   | Not            (** negation *)
 
 (** logical unary operator *)
@@ -69,6 +69,7 @@ type bexp =
 type directive_t =
   | Remove of Register.t   (** remove the register *)
   | Undef of Register.t (** undefine the computed value of the given register *)
+  | Forget of Register.t (** forget the content of the given register *)
 
 (** data type of jump targets *)
 type jmp_target = 
@@ -79,9 +80,9 @@ type jmp_target =
 type stmt =
   | Set  of lval * exp    		   (** store the expression into the left value *)
   | If of bexp * (stmt list) * (stmt list) (** conditional statement *)
-  | Jmp	 of jmp_target option              (** jump; None target is for intermediate block translation *)				    
+  | Jmp	 of jmp_target                     (** jump *)				    
   | Call of jmp_target          	   (** call *)
-  | Return         			   (** return *)
+  | Return        		           (** return *)
   | Nop                      		   (** no operation *)
   | Directive of directive_t 		   (** directive/hint for the analyzer *)
 		   
@@ -91,9 +92,9 @@ let equal_bunop op1 op2 =
 	      
 let equal_unop op1 op2 =
   match op1, op2 with
-  | SignExt i1, SignExt i2 | Shl i1, Shl i2 | Shr i1, Shr i2 -> i1 = i2
-  | Not, Not 						     -> true
-  | _, _ 						     -> false
+  | SignExt i1, SignExt i2 -> i1 = i2
+  | Not, Not 		   -> true
+  | _, _ 		   -> false
 	      
 let string_of_binop op =
   match op with
@@ -105,6 +106,8 @@ let string_of_binop op =
   | And    -> "&"
   | Or 	   -> "|"
   | Xor    -> "xor"
+  | Shr    -> ">>"
+  | Shl    -> "<<"
   
 let string_of_cmp c =
   match c with
@@ -124,8 +127,6 @@ let string_of_logbinop o =
 let string_of_unop op =
   match op with
   | SignExt i -> Printf.sprintf "SignExtension (%d)" i
-  | Shl i     -> Printf.sprintf "<< %d" i
-  | Shr i     -> Printf.sprintf ">> %d" i
   | Not       -> "not"
 
 let string_of_bunop op =
@@ -182,34 +183,30 @@ let string_of_jmp_target t =
   match t with
   | A a -> Address.to_string a
   | R e -> Printf.sprintf "%s" (string_of_exp e)
-			       
-let string_of_target t =
-  match t with
-  | None    -> "next"
-  | Some t' -> string_of_jmp_target t'
 
 let string_of_directive d =
   match d with
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
   | Undef r -> Printf.sprintf "undef %s" (Register.name r)
+  | Forget r -> Printf.sprintf "forget %s" (Register.name r)
 			       
 let string_of_stmt s =
   (* internal function used to factorize code in the printing of If-stmt *)
   let concat to_string ind l =
-    List.fold_left (fun acc s -> Printf.sprintf "%s%s%s" acc ind (to_string ind s)) "" l
+    List.fold_left (fun acc s -> Printf.sprintf "%s%s" acc (to_string ind s)) "" l
   in
   (* ind is a string of spaces to be added to the beginning of a line *)
   let rec to_string ind s =
     match s with
-    | Set (dst, src)     	    -> Printf.sprintf "%s <- %s;\n" (string_of_lval dst) (string_of_exp src)
-    | Jmp target 	    -> Printf.sprintf "%sjmp %s;\n" (ind^" ")(string_of_target target)
+    | Set (dst, src)     	      -> Printf.sprintf "%s%s <- %s;\n" ind (string_of_lval dst) (string_of_exp src)
+    | Jmp target 	              -> Printf.sprintf "%sjmp %s;\n"  ind (string_of_jmp_target target)
     | If (cond, if_stmts, else_stmts) ->
-       let ind' = ind ^ " " in
-       Printf.sprintf "if (%s)\n%s%selse\n%s%s" (string_of_bexp cond) ind' (concat to_string ind' if_stmts) ind' (concat to_string ind' else_stmts)
-    | Call _ 	       		    -> "call\n"
-    | Return  	       		    -> "ret\n"
-    | Nop 	       		    -> "nop\n"
-    | Directive d        	    -> Printf.sprintf "%s\n" (string_of_directive d)
+       let ind' = ind ^ "\t" in
+       Printf.sprintf "%sif (%s)\n%s%selse\n%s" ind (string_of_bexp cond) (concat to_string ind' if_stmts) ind (concat to_string ind' else_stmts)
+    | Call _ 	       		     -> Printf.sprintf "%scall\n" ind
+    | Return  	       		     -> Printf.sprintf "%sret\n" ind
+    | Nop 	       		     -> Printf.sprintf "%snop\n" ind
+    | Directive d        	     -> Printf.sprintf "%s%s\n" ind (string_of_directive d)
   in
   to_string "" s
 		     

@@ -70,29 +70,26 @@ def clearFlag(state, name):
     Set flag to 0, untainted - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', 0x0)
-    state.tainting['reg'][name] = analyzer_state.Tainting("0")
+    state.ptrs['reg'][name] = analyzer_state.PtrValue('global', 0x0)
 
 def setFlag(state, name):
     """
     Set flag to 1, untainted - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', 1)
-    state.tainting['reg'][name] = analyzer_state.Tainting("0")
+    state.ptrs['reg'][name] = analyzer_state.PtrValue('global', 1)
 
 def taintFlag(state, name):
     """
     Taint flag - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    state.ptrs['reg'][name] = analyzer_state.AbstractPtrValue("?")
-    state.tainting['reg'][name] = analyzer_state.Tainting("?")
+    p = state.ptrs['reg'][name]
+    p.taint=1
+    p.ttop = p.tbot = 0
 
 def setReg(state, name, val, taint=0):
-    state.ptrs['reg'][name] = analyzer_state.ConcretePtrValue('Global', val)
-    staint = "{0:0>32b}".format(taint)
-    state.tainting['reg'][name] = analyzer_state.Tainting(staint)
+    state.ptrs['reg'][name] = analyzer_state.PtrValue('global', val, taint=taint)
 
 
 def prepareExpectedState(state):
@@ -141,7 +138,7 @@ def test_xor_reg_self(analyzer, initialState, register):
     taintFlag(expectedStateAfter, "af")
     # XXX check taint (not tainted)
 
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -211,8 +208,6 @@ def test_push(analyzer, initialState, register):
     expectedStateAfter.ptrs['reg']['esp'] -= 4
     expectedStateAfter.ptrs['mem'][stateBefore.ptrs['reg']['esp']] = \
         stateBefore.ptrs['reg'][regname]
-    expectedStateAfter.tainting['mem'][stateBefore.ptrs['reg']['esp']] = \
-        stateBefore.tainting['reg'][regname]
 
     assertEqualStates(expectedStateAfter, stateAfter)
 
@@ -233,8 +228,6 @@ def test_pop(analyzer, initialState, register):
     expectedStateAfter.ptrs['reg']['esp'] += 4
     expectedStateAfter.ptrs['reg'][regname] = \
         stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['esp']]
-    expectedStateAfter.tainting['reg'][regname] = \
-        stateBefore.tainting['mem'][stateBefore.ptrs['reg']['esp']]
 
     assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
@@ -286,15 +279,13 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.ptrs['reg'][regname] = \
         stateBefore.ptrs['mem'][stateBefore.ptrs['reg']['ebp'] - 6]
-    expectedStateAfter.tainting['reg'][regname] = \
-        stateBefore.tainting['mem'][stateBefore.ptrs['reg']['ebp'] - 6]
     assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
     regid, regname = register
-    opcode = "\x8b" + chr(0x08 + regid)
+    opcode = "\x8b" + chr(0x28 + regid)
     ac = analyzer(initialState, binarystr=opcode)
     stateBefore = ac.getStateAt(0x00)
     stateAfter = getNextState(ac, stateBefore)
@@ -302,8 +293,6 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.ptrs['reg']['ebp'] = stateBefore.ptrs['reg'][regname]
-    expectedStateAfter.tainting['reg']['ebp'] = \
-        stateBefore.tainting['reg'][regname]
     assertEqualStates(expectedStateAfter, stateAfter, opcode)
 
 

@@ -17,7 +17,7 @@ class PyTest(Command):
 mlbincat = Extension(
     "mlbincat",
     sources=["mlbincat.c"],
-    libraries=["bincat"],
+    libraries=["mlbincat"],
     library_dirs=["../ocaml/src"],
 )
 
@@ -28,9 +28,8 @@ setup(
     author           = 'Sarah Zennou',
     author_email     = 'sarah.zennou@airbus.com',
     description      = 'BINnary Code Analysis Toolkit',
-    long_description = open('README.txt').read(),
     scripts          = ['bin/bincat'],
-    packages         = ['idabincat'],
+    packages         = ['pybincat', 'pybincat/tools', 'idabincat'],
     ext_modules      = [mlbincat],
     license          = 'GPLv2'
 )

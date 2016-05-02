@@ -15,12 +15,15 @@ copydoc: checkenv doc
 	cp -r doc/build/html $(DOCPATH)
 
 clean:
-	rm -rf build bnew/*~ bnew/*.so
+	rm -rf build
 	make -C doc clean
+
+test:
+	PYTHONPATH=. py.test
 
 checkenv:
 ifndef DOCPATH
 	$(error DOCPATH is not set)
 endif
 
-.PHONY: install clean doc copydoc checkenv
+.PHONY: install clean doc copydoc checkenv test

@@ -21,8 +21,8 @@ let meet b1 b2 =
   | ZERO, ZERO 	    	  -> ZERO
   | ONE, ONE 	    	  -> ONE
   | b, TOP | TOP, b 	  -> b
+  | BOT, _ | _, BOT 	  -> BOT
   | ONE, ZERO | ZERO, ONE -> ZERO
-  | _, _ 	    	  -> BOT
 			 
 let to_string b =
   match b with
@@ -87,8 +87,8 @@ let eq v1 v2 =
 			 
 let neq v1 v2 =
   match v1, v2 with
-  | BOT, BOT 	    	      -> true
-  | _, BOT | BOT, _ 	      -> false
+  | BOT, BOT 	    	      -> false
+  | _, BOT | BOT, _ 	      -> true
   | TOP, _ | _, TOP 	      -> true
   | ZERO, ZERO | ONE, ONE     -> false
   | _, _ 	    	      -> true
