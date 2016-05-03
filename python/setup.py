@@ -15,8 +15,8 @@ class PyTest(Command):
         raise SystemExit(errno)
 
 mlbincat = Extension(
-    "mlbincat",
-    sources=["mlbincat.c"],
+    "pybincat/mlbincat",
+    sources=["pybincat/mlbincat.c"],
     libraries=["mlbincat"],
     library_dirs=["../ocaml/src"],
 )
