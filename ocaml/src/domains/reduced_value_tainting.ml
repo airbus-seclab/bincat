@@ -69,7 +69,7 @@ let taint_of_value z (v, _t) =
   in
   v, t'
 	       
-let neg (v, t) = V.neg v, t
+let lognot (v, t) = V.lognot v, t
 
 let lt (v1, _t1) (v2, _t2) = V.lt v1 v2
 

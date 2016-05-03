@@ -5,8 +5,8 @@ open Data
        
 (** data type of register operands *)
 type reg = 
-  | T of Register.t 		(** a complete register *)
-  | P of Register.t * int * int (** a chunk of a register P (r, l, u)  means the chunk of register r that ranges from bit l to bit r *)
+  | T of Register.t 		(** a register *)
+  | P of Register.t * int * int (** a chunk of a register P (r, l, u) , i.e. r[l, u-1] *)
 			      
 		       
 (** type of binary operations *)
@@ -38,12 +38,13 @@ type logbinop =
 
 (** type of unary operations *)
 type unop =
-  | SignExt of int (** [SignExt n] is a sign extension such that the result is _n_ bit width *)
-  | Not            (** negation *)
+  | SignExt of int (** [SignExt n] is a sign extension to be on n bit width *)
+  | ZeroExt of int (** [ZeroExt n] is a zero extension to be on n bit width *)
+  | Not            (** not *)
 
 (** logical unary operator *)
 type bunop =
-  | LogNot (** Negation *)
+  | LogNot (** logical not *)
       
       
 (** type of expressions *)
@@ -56,13 +57,14 @@ type exp =
  (** type of left values *)
  and lval =
    | V of reg 	    (** a register *)
-   | M of exp * int (** M(e, n) is a memory address whose value is _e_ and width is _n_ bits *) 
-		  
+   | M of exp * int (** M(e, n): content of the memory address e on n bit width *) 
+
+(** boolean expression *)
 type bexp =
-  | BUnOp  of bunop * bexp
-  | Cmp    of cmp * exp * exp
-  | BBinOp of logbinop * bexp * bexp
-  | BConst of bool
+  | BUnOp  of bunop * bexp           (** unary boolean operation *)
+  | Cmp    of cmp * exp * exp        (** comparison *)
+  | BBinOp of logbinop * bexp * bexp (** binary boolean operation *)
+  | BConst of bool                   (** boolean constant true of false *)
 		
 	   
 (** type of directives for the analyzer *)
@@ -93,6 +95,7 @@ let equal_bunop op1 op2 =
 let equal_unop op1 op2 =
   match op1, op2 with
   | SignExt i1, SignExt i2 -> i1 = i2
+  | ZeroExt i1, ZeroExt i2 -> i1 = i2
   | Not, Not 		   -> true
   | _, _ 		   -> false
 	      
@@ -127,6 +130,7 @@ let string_of_logbinop o =
 let string_of_unop op =
   match op with
   | SignExt i -> Printf.sprintf "SignExtension (%d)" i
+  | ZeroExt i -> Printf.sprintf "ZeroExtension (%d)" i
   | Not       -> "not"
 
 let string_of_bunop op =

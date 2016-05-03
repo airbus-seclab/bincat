@@ -42,8 +42,8 @@ module type Val =
     val logand: t -> t -> t
     (** logical or *)
     val logor: t -> t -> t
-    (** bit neg *)
-    val neg: t -> t
+    (** bit not *)
+    val lognot: t -> t
     (** untaint *)
     val untaint: t -> t
     (** abstract value of 1 *)
@@ -320,8 +320,9 @@ module Make(V: Val) =
 	
     let unary op v =
       match op with
-      | Asm.Not       -> Array.map V.neg v
+      | Asm.Not       -> Array.map V.lognot v
       | Asm.SignExt i -> sign_extend v i
+      | Asm.ZeroExt i -> zero_extend v i
 	   
     let default sz = Array.make sz V.default
 
@@ -354,7 +355,7 @@ module Make(V: Val) =
 	   done
 	| Config.CMask (c, m) ->
 	   for i = 0 to n' do
-	     v.(n'-i) <- V.join (V.of_value (nth_of_value c i)) (V.lognot ((V.of_value (nth_of_value m i)))
+	     v.(n'-i) <- V.join (V.of_value (nth_of_value c i)) (V.lognot ((V.of_value (nth_of_value m i))))
 	   done
       end;
       v
@@ -377,7 +378,7 @@ module Make(V: Val) =
 	 for i = 0 to n' do
 	   let bnth = nth_of_value b i in
 	   let mnth = nth_of_value m i in
-	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(n'-i)) (V.lognot ((V.taint_of_value mnth v.(n'-i)))
+	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(n'-i)) (V.lognot ((V.taint_of_value mnth v.(n'-i))))
 	 done;
 	 v
 

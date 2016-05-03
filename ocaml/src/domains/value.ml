@@ -58,7 +58,7 @@ let xor b1 b2 =
   | ZERO, ONE | ONE, ZERO -> ONE
   | ONE, ONE 	    	  -> ZERO
 			 
-let neg v =
+let lognot v =
   match v with
   | BOT  -> BOT
   | TOP  -> TOP
