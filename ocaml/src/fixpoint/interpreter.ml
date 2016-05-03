@@ -276,9 +276,7 @@ struct
     (* boolean variable used as condition for exploration of the CFA *)
     let continue = ref true		      in
     (* set of waiting nodes in the CFA waiting to be processed *)
-    let v0 = Cfa.copy_state g s in
-    Cfa.add_edge g s v0;
-    let waiting  = ref (Vertices.singleton v0) in
+    let waiting  = ref (Vertices.singleton s) in
     (* set d to the initial internal state of the decoder *)
     let d = ref (Decoder.init ())             in
     (* function stack *)
