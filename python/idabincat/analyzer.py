@@ -45,9 +45,9 @@ def main():
     print(" - outfile : %s.\n"%args.outfile)
     print(" - logfile : %s.\n"%args.logfile)
    
-    import analyzer_state
+    from pybincat import state
 
-    a = analyzer_state.AnalyzerState()
+    a = state.AnalyzerState()
     ac = a.run_analyzer(args.inifile,args.outfile,args.logfile) 
     keys  = ac.stateAtEip.keys()
     print("---- Taint analysis results ------\n")

@@ -27,12 +27,12 @@ except:
         sys.exit(0) 
 
 
-# Loading analyzer_state 
+# Loading pybincat.state 
 
 try:
-        import analyzer_state
+        from pybincat import state
 except:
-        idaapi.msg("[+] BinCat : failed to load analyzer_state \n %s"% repr(sys.exc_info()))
+        idaapi.msg("[+] BinCat : failed to load pybincat.state \n %s"% repr(sys.exc_info()))
         sys.exit(0) 
 
 
@@ -874,7 +874,7 @@ class Analyzer(QtCore.QProcess):
                 resultfile = GetIdbDir()+"result.txt"  
 
                 BinCATLogViewer.Log("[+] BinCAT : Parsing analyzer result file \n",SCOLOR_LOCNAME)
-                currentState = analyzer_state.AnalyzerState()
+                currentState = state.AnalyzerState()
                 #AnalyzerStates = currentState
     
                 AnalyzerStates.setStatesFromAnalyzerOutput(resultfile)
@@ -1044,14 +1044,14 @@ class BinCATTaintedForm_t(PluginForm):
                                 for k , v  in state.ptrs.iteritems():
                                         if k == "mem":
                                                 for i , j in v.iteritems():
-                                                        if isinstance(i,analyzer_state.ConcretePtrValue):
+                                                        if isinstance(i,state.PtrValue):
                                                                 self.tablemem.insertRow(mc)
                                                                 item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(i.address))  )
                                                                 self.tablemem.setItem(mc, 0, item)
                                                                 item = QtWidgets.QTableWidgetItem(i.region)
                                                                 self.tablemem.setItem(mc, 2, item)
                                                                 mc+=1
-                                                        if isinstance(j,analyzer_state.ConcretePtrValue):
+                                                        if isinstance(j,state.PtrValue):
                                                                 self.tablemem.insertRow(mc)
                                                                 item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(j.address))  )
                                                                 self.tablemem.setItem(mc, 0, item)
@@ -1061,14 +1061,14 @@ class BinCATTaintedForm_t(PluginForm):
 
                                         if k == "reg":
                                                 for i , j in v.iteritems():
-                                                        if isinstance(j,analyzer_state.ConcretePtrValue):
+                                                        if isinstance(j,state.PtrValue):
                                                                 self.tablereg.insertRow(rc)
                                                                 item = QtWidgets.QTableWidgetItem(i)
                                                                 self.tablereg.setItem(rc, 0, item)
                                                                 item = QtWidgets.QTableWidgetItem( ('0x%08x'%(int(j.address))) )
                                                                 self.tablereg.setItem(rc, 2, item)
                                                                 rc+=1
-                                                        if isinstance(j,analyzer_state.AbstractPtrValue):
+                                                        if isinstance(j,state.PtrValue):
                                                                 self.tablereg.insertRow(rc)
                                                                 item = QtWidgets.QTableWidgetItem(i)
                                                                 self.tablereg.setItem(rc, 0, item)
@@ -1338,7 +1338,7 @@ def main():
                 BinCATTaintedForm = BinCATTaintedForm_t() 
 
 
-        AnalyzerStates = analyzer_state.AnalyzerState()
+        AnalyzerStates = state.AnalyzerState()
 
         idaapi.msg("[+] BinCAT Starting main form\n")
         if BinCATLogViewer.Create(1):
