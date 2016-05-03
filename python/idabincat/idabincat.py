@@ -360,8 +360,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                         	idaapi.msg("    Exception: %s\n%s"%(str(e),traceback.format_exc())) 
 
 			# close the form  : Bug : block the process
-                        if self.analyzer.waitForStarted('100') :
-			        self.close()
+#                        if self.analyzer.waitForStarted(100) :
+#			        self.close()
 
 
         def btnAnalyzerConfig(self):
@@ -874,7 +874,7 @@ class Analyzer(QtCore.QProcess):
                 resultfile = GetIdbDir()+"result.txt"  
 
                 BinCATLogViewer.Log("[+] BinCAT : Parsing analyzer result file \n",SCOLOR_LOCNAME)
-                currentState = state.AnalyzerState()
+#                currentState = state.AnalyzerState()
                 #AnalyzerStates = currentState
     
                 AnalyzerStates.setStatesFromAnalyzerOutput(resultfile)
@@ -882,12 +882,12 @@ class Analyzer(QtCore.QProcess):
                 startaddr_ea = ""
                 keys  = AnalyzerStates.stateAtEip.keys()
                 for  k in keys :
-                        state = AnalyzerStates.getStateAt(k.address)
+                        state = AnalyzerStates.getStateAt(k.value)
                         if state.nodeid == "0":
-                                startaddr_ea = k.address
-
+                                startaddr_ea = k.value
+                idaapi.msg("==>, %r" % startaddr_ea)
  
-                BinCATTaintedForm.DisplayState(int(startaddr_ea)) 
+                BinCATTaintedForm.DisplayState(startaddr_ea) 
 
                 
 
@@ -1037,23 +1037,25 @@ class BinCATTaintedForm_t(PluginForm):
 
                 keys  = currentStates.stateAtEip.keys()
                 for  key in keys :
-                        state = currentStates.getStateAt(key.address)
-                        if int(key.address) == ea :
+                        state = currentStates.getStateAt(key.value)
+                        if int(key.value) == ea :
                                 self.nilabel.setText('Node Id : '+state.nodeid) 
-                                self.alabel.setText('RVA address : '+' 0x%08x'%(int(key.address))) 
+                                self.alabel.setText('RVA address : '+' 0x%08x'%(key.value)) 
                                 for k , v  in state.ptrs.iteritems():
                                         if k == "mem":
                                                 for i , j in v.iteritems():
-                                                        if isinstance(i,state.PtrValue):
+                                                        if type(i) is str:
+                                                                continue #XXX
+                                                        if i.is_concrete():
                                                                 self.tablemem.insertRow(mc)
-                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(i.address))  )
+                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(i.value))  )
                                                                 self.tablemem.setItem(mc, 0, item)
                                                                 item = QtWidgets.QTableWidgetItem(i.region)
                                                                 self.tablemem.setItem(mc, 2, item)
                                                                 mc+=1
-                                                        if isinstance(j,state.PtrValue):
+                                                        if j.is_concrete():
                                                                 self.tablemem.insertRow(mc)
-                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(j.address))  )
+                                                                item = QtWidgets.QTableWidgetItem(  ('0x%08x'%int(j.value))  )
                                                                 self.tablemem.setItem(mc, 0, item)
                                                                 item = QtWidgets.QTableWidgetItem(j.region)
                                                                 self.tablemem.setItem(mc, 2, item)
@@ -1061,14 +1063,14 @@ class BinCATTaintedForm_t(PluginForm):
 
                                         if k == "reg":
                                                 for i , j in v.iteritems():
-                                                        if isinstance(j,state.PtrValue):
+                                                        if j.is_concrete():
                                                                 self.tablereg.insertRow(rc)
                                                                 item = QtWidgets.QTableWidgetItem(i)
                                                                 self.tablereg.setItem(rc, 0, item)
-                                                                item = QtWidgets.QTableWidgetItem( ('0x%08x'%(int(j.address))) )
+                                                                item = QtWidgets.QTableWidgetItem( ('0x%08x'%(int(j.value))) )
                                                                 self.tablereg.setItem(rc, 2, item)
                                                                 rc+=1
-                                                        if isinstance(j,state.PtrValue):
+                                                        else:
                                                                 self.tablereg.insertRow(rc)
                                                                 item = QtWidgets.QTableWidgetItem(i)
                                                                 self.tablereg.setItem(rc, 0, item)
