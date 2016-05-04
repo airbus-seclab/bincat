@@ -9,7 +9,8 @@ import logging
 import sys
 from collections import defaultdict
 import re
-from  pybincat.tools import parsers
+from pybincat.tools import parsers
+
 
 class AnalyzerState(object):
     """
@@ -70,7 +71,7 @@ class AnalyzerState(object):
             m = self.re_val.match(section[10:])
             if not m:
                 raise Exception("Cannot parse section name (%r)" % section)
-            address = PtrValue(m.group("region"), int(m.group("value"),0))
+            address = PtrValue(m.group("region"), int(m.group("value"), 0))
             state = State(address)
             state.setFromAnalyzerOutput(config.items(section))
             self.stateAtEip[address] = state
@@ -155,7 +156,8 @@ class State(object):
             if taintingKeys != otherTaintingKeys:
                 # might have to be refined
                 logging.error(
-                    "different set of tainting keys between states. Unique key: %s",
+                    "different set of tainting keys between states. "
+                    "Unique key: %s",
                     taintingKeys.symmetric_difference(otherTaintingKeys))
                 return False
             for key in allKeys:
@@ -176,8 +178,9 @@ class State(object):
             sPrK = set(sPr)
             oPrK = set(oPr)
 
-            results |= set((region,p) for p in sPrK ^ oPrK)
-            results |= set((region,p) for p in oPrK & sPrK if sPr[p] != oPr[p])
+            results |= set((region, p) for p in sPrK ^ oPrK)
+            results |= set((region, p) for p in oPrK & sPrK
+                           if sPr[p] != oPr[p])
 
         return results
 
@@ -196,31 +199,33 @@ class State(object):
 
     re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
     re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
+
     def setFromAnalyzerOutput(self, outputkv):
         """
         :param outputkv: list of (key, value) tuples for each property set by
             the analyzer at this EIP
         """
 
-        for i,(k,v) in enumerate(outputkv):
+        for i, (k, v) in enumerate(outputkv):
             if k == "id":
                 self.nodeid = v
                 continue
             m = self.re_region.match(k)
             if not m:
-                raise Exception("Parsing error (entry %i, key=%r)" % (i,k))
+                raise Exception("Parsing error (entry %i, key=%r)" % (i, k))
             region = m.group("region")
             adrs = m.group("adrs")
 
             m = self.re_valtaint.match(v)
             if not m:
-                raise Exception("Parsing error (entry %i: value=%r)" % (i,v))
+                raise Exception("Parsing error (entry %i: value=%r)" % (i, v))
             kind = m.group("kind")
             val = m.group("value")
             taint = m.group("taint")
 
-            self.ptrs[region][adrs] = PtrValue.fromAnalyzerOutput(kind, val, taint)
-            
+            self.ptrs[region][adrs] = \
+                PtrValue.fromAnalyzerOutput(kind, val, taint)
+
 
 class Stmt(object):
     def __init__(self, stmts):
@@ -259,32 +264,31 @@ class PtrValue(object):
                      self.ttop, self.tbot))
 
     def __eq__(self, other):
-        return (self.region == other.region 
-                and self.value == other.value and self.taint == other.taint
-                and self.vtop == other.vtop and self.ttop == other.ttop
-                and self.vbot == other.vbot and self.tbot == other.tbot)
+        return (self.region == other.region and
+                self.value == other.value and self.taint == other.taint and
+                self.vtop == other.vtop and self.ttop == other.ttop and
+                self.vbot == other.vbot and self.tbot == other.tbot)
 
     def __ne__(self, other):
         return not (self == other)
 
     def __add__(self, other):
         other = getattr(other, "value", other)
-        return self.__class__(self.region, self.value+other, 
+        return self.__class__(self.region, self.value+other,
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
+
     def __sub__(self, other):
         other = getattr(other, "value", other)
-        return self.__class__(self.region, self.value-other, 
+        return self.__class__(self.region, self.value-other,
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
+
     def is_concrete(self):
         return self.vtop == 0 and self.vbot == 0
-        
 
     @classmethod
     def fromAnalyzerOutput(cls, region, s, t):
         value, vtop, vbot = parsers.parse_val(s)
-        taint, ttop, tbot = parsers.parse_val(t) if t is not None else (0,0,0)
+        taint, ttop, tbot = parsers.parse_val(t) if t is not None else (0, 0, 0)
         return cls(region, value, vtop, vbot, taint, ttop, tbot)
-
-
