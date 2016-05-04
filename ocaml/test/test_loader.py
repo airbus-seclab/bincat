@@ -5,7 +5,7 @@ Tests targeting the loading of binary files
 
 import pytest
 import copy
-from idabincat import analyzer_state
+from pybincat import state
 
 
 @pytest.fixture(scope='function', params=['init-5055-read-last-only.ini',
@@ -41,7 +41,7 @@ def analyzer(tmpdir, request):
         # TODO write to init
         outputfile = str(tmpdir.join('end.ini'))
         logfile = str(tmpdir.join('log.txt'))
-        ac = analyzer_state.AnalyzerState.run_analyzer(initfile, outputfile,
+        ac = state.AnalyzerState.run_analyzer(initfile, outputfile,
                                                        logfile)
         return ac
     return run_analyzer

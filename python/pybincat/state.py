@@ -34,7 +34,7 @@ class AnalyzerState(object):
         :param outputfile: path to the analyzer output file
         :param logfile: path to the analyzer log file
         """
-        import mlbincat
+        from pybincat import mlbincat
         mlbincat.process(initfile, outputfile, logfile)
         ac = cls()
         ac.setStatesFromAnalyzerOutput(outputfile)
@@ -277,6 +277,9 @@ class PtrValue(object):
         return self.__class__(self.region, self.value-other, 
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
+    def is_concrete(self):
+        return self.vtop == 0 and self.vbot == 0
+        
 
     @classmethod
     def fromAnalyzerOutput(cls, region, s, t):

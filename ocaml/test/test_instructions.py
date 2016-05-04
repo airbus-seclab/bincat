@@ -7,7 +7,7 @@ import pytest
 import subprocess
 import copy
 import binascii
-from idabincat import analyzer_state
+from pybincat import state
 
 
 @pytest.fixture(scope='function', params=['template0.ini'])
@@ -20,7 +20,6 @@ def initialState(request):
 
 @pytest.fixture(scope='function')
 def analyzer(tmpdir, request):
-    import mlbincat
 
     def run_analyzer(initialState, binarystr):
         """
@@ -44,7 +43,7 @@ def analyzer(tmpdir, request):
         # TODO write to init
         outputfile = str(tmpdir.join('end.ini'))
         logfile = str(tmpdir.join('log.txt'))
-        ac = analyzer_state.AnalyzerState.run_analyzer(initfile, outputfile,
+        ac = state.AnalyzerState.run_analyzer(initfile, outputfile,
                                                        logfile)
         return ac
     return run_analyzer
@@ -65,31 +64,31 @@ def getNextState(ac, curState):
     return nextStates[0]
 
 
-def clearFlag(state, name):
+def clearFlag(my_state, name):
     """
     Set flag to 0, untainted - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    state.ptrs['reg'][name] = analyzer_state.PtrValue('global', 0x0)
+    my_state.ptrs['reg'][name] = state.PtrValue('global', 0x0)
 
-def setFlag(state, name):
+def setFlag(my_state, name):
     """
     Set flag to 1, untainted - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    state.ptrs['reg'][name] = analyzer_state.PtrValue('global', 1)
+    my_state.ptrs['reg'][name] = state.PtrValue('global', 1)
 
-def taintFlag(state, name):
+def taintFlag(my_state, name):
     """
     Taint flag - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    p = state.ptrs['reg'][name]
+    p = my_state.ptrs['reg'][name]
     p.taint=1
     p.ttop = p.tbot = 0
 
-def setReg(state, name, val, taint=0):
-    state.ptrs['reg'][name] = analyzer_state.PtrValue('global', val, taint=taint)
+def setReg(my_state, name, val, taint=0):
+    my_state.ptrs['reg'][name] = state.PtrValue('global', val, taint=taint)
 
 
 def prepareExpectedState(state):

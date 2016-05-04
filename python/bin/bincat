@@ -2,7 +2,7 @@
 
 
 def main():
-    import mlbincat
+    from pybincat import mlbincat
     import argparse
 
     parser = argparse.ArgumentParser()
