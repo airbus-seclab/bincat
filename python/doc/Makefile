@@ -53,7 +53,7 @@ clean:
 	rm -rf $(BUILDDIR)/*
 
 .PHONY generate:
-	$(SPHINXAPIDOC) -f -o source ../idabincat setup
+	$(SPHINXAPIDOC) -f -o source .. ../setup.py ../idabincat/idabincat.py
 
 .PHONY: html
 html:
