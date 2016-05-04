@@ -27,7 +27,10 @@ def analyzer(tmpdir, request):
         """
         oldpath = tmpdir.chdir()
 
-        def resetpwd():  # test teardown; remove once init.ini is auto-generated
+        def resetpwd():
+            """
+            test teardown; remove once init.ini is auto-generated
+            """
             oldpath.chdir()
         request.addfinalizer(resetpwd)
 
@@ -42,7 +45,7 @@ def analyzer(tmpdir, request):
         outputfile = str(tmpdir.join('end.ini'))
         logfile = str(tmpdir.join('log.txt'))
         ac = state.AnalyzerState.run_analyzer(initfile, outputfile,
-                                                       logfile)
+                                              logfile)
         return ac
     return run_analyzer
 

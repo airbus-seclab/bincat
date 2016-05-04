@@ -28,11 +28,14 @@ def analyzer(tmpdir, request):
         """
         oldpath = tmpdir.chdir()
 
-        def resetpwd():  # test teardown; remove once init.ini is auto-generated
+        def resetpwd():
+            """
+            test teardown; remove once init.ini is auto-generated
+            """
             oldpath.chdir()
         request.addfinalizer(resetpwd)
 
-        initialState = initialState.format(code_length = len(binarystr))
+        initialState = initialState.format(code_length=len(binarystr))
         initfile = str(tmpdir.join('init.ini'))
         with open(initfile, 'w+') as f:
             f.write(initialState)
@@ -44,13 +47,13 @@ def analyzer(tmpdir, request):
         outputfile = str(tmpdir.join('end.ini'))
         logfile = str(tmpdir.join('log.txt'))
         ac = state.AnalyzerState.run_analyzer(initfile, outputfile,
-                                                       logfile)
+                                              logfile)
         return ac
     return run_analyzer
 
 
 testregisters = list(enumerate(
- ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
+    ['eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi']
 ))
 
 
@@ -71,6 +74,7 @@ def clearFlag(my_state, name):
     """
     my_state.ptrs['reg'][name] = state.PtrValue('global', 0x0)
 
+
 def setFlag(my_state, name):
     """
     Set flag to 1, untainted - helper for tests
@@ -78,14 +82,16 @@ def setFlag(my_state, name):
     """
     my_state.ptrs['reg'][name] = state.PtrValue('global', 1)
 
+
 def taintFlag(my_state, name):
     """
     Taint flag - helper for tests
     XXX for most tests, flags should inherit taint
     """
     p = my_state.ptrs['reg'][name]
-    p.taint=1
+    p.taint = 1
     p.ttop = p.tbot = 0
+
 
 def setReg(my_state, name, val, taint=0):
     my_state.ptrs['reg'][name] = state.PtrValue('global', val, taint=taint)
@@ -103,10 +109,10 @@ def prepareExpectedState(state):
 def assertEqualStates(state1, state2, opcodes=None):
     if opcodes:
         try:
-            p = subprocess.Popen(["ndisasm", "-u", "-"], 
-                                 stdin=subprocess.PIPE, 
+            p = subprocess.Popen(["ndisasm", "-u", "-"],
+                                 stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE)
-            out,err = p.communicate(opcodes)
+            out, err = p.communicate(opcodes)
             out = "\n"+out
         except OSError:
             out = ""
