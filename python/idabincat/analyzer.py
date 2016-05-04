@@ -77,10 +77,6 @@ def main():
                     else:
                         print("reg[%s] = (%s) \n"%(i,j.value) )
 
-                     
 
-
-
-
-
-main()
+if __name__ == '__main__':
+    main()
