@@ -287,38 +287,6 @@ class HelperConfigIniFile:
             self.configini.write(configfile)
 
 
-class Toto_t(QtWidgets.QDialog):
-    """
-    Class  Toto test form
-    To delete
-    """
-
-    def foo(self, *args, **kargs):
-        idaapi.msg("Foo %r %r" % (args, kargs))
-
-    def __init__(self, parent):
-        super(Toto_t, self).__init__(parent)
-
-        layout = QtWidgets.QGridLayout()
-
-        self.btnCcl = QtWidgets.QPushButton('Cancel', self)
-        self.btnCcl.setToolTip('Cancel.')
-        self.btnCcl.setFixedWidth(130)
-        self.btnCcl.clicked.connect(self.foo)
-
-        layout.addWidget(self.btnCcl, 1, 0)
-
-        layout.setColumnStretch(2, 1)
-        layout.setRowStretch(2, 1)
-
-        self.setLayout(layout)
-
-    def show(self):
-        self.setFixedSize(460, 200)
-        self.setWindowTitle(" Toto dialog form: ")
-        super(Toto_t, self).show()
-
-
 class TaintLaunchForm_t(QtWidgets.QDialog):
     """
     Class  Tainting Launcher Form
@@ -1314,7 +1282,6 @@ class HtooltipH(idaapi.action_handler_t):
         f = idaapi.find_tform("IDA View-Tainting View")
         idaview = idaapi.PluginForm.FormToPyQtWidget(f)
         AnalyzerLauncher = TaintLaunchForm_t(idaview)
-        # AnalyzerLauncher = Toto_t(idaview)
         AnalyzerLauncher.exec_()
 
         return 1
