@@ -1199,9 +1199,9 @@ class BinCATForm_t(idaapi.PluginForm):
         # create input: analyzer path
         self.iptAnalyzerPath = QtWidgets.QLineEdit(self.parent)
 
-        # analyzer.py file has to be placed by default in IDADIR/BinCAT
-        self.iptAnalyzerPath.setText(
-            idaapi.idadir('python/BinCAT/python/idabincat/analyzer.py'))
+        defaultAnalyzerFile = os.path.join(os.path.dirname(__file__),
+                                           'analyzer.py')
+        self.iptAnalyzerPath.setText(idaapi.idadir(defaultAnalyzerFile))
         self.iptAnalyzerPath.setMaxLength = 256
         self.iptAnalyzerPath.setFixedWidth(300)
 
