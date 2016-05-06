@@ -656,7 +656,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
 
         # based on the analyzer ini file (see test/nop.ini)
         # Settings label
-        lblSettings = QtWidgets.QLabel("[Settings]: ")
+        lblSettings = QtWidgets.QLabel("[Settings]")
         layout = QtWidgets.QGridLayout()
         layout.addWidget(lblSettings, 0, 0)
 
@@ -730,7 +730,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         layout.addWidget(self.ipmode, 6, 1)
 
         # loader label
-        lblLoader = QtWidgets.QLabel("[Loader]: ")
+        lblLoader = QtWidgets.QLabel("[Loader]")
         layout.addWidget(lblLoader, 7, 0)
 
         # rva-code-start
@@ -756,7 +756,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         layout.addWidget(self.iptrvaep, 12, 1)
 
         # Segments
-        lblSegs = QtWidgets.QLabel("[Segments]: ")
+        lblSegs = QtWidgets.QLabel("[Segments]")
         layout.addWidget(lblSegs, 13, 0)
 
         self.btnSegsEdit = QtWidgets.QPushButton('Edit/View Segments ', self)
@@ -764,7 +764,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btnSegsEdit, 13, 1)
 
         # Binary label
-        lblBinary = QtWidgets.QLabel("[Binary]: ")
+        lblBinary = QtWidgets.QLabel("[Binary]")
         layout.addWidget(lblBinary, 14, 0)
 
         # filepath
@@ -801,7 +801,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         layout.addWidget(self.iptpc, 17, 1)
 
         # analyzer label
-        lblBinary = QtWidgets.QLabel("[Analyzer]: ")
+        lblBinary = QtWidgets.QLabel("[Analyzer]")
         layout.addWidget(lblBinary, 18, 0)
 
         # unroll
@@ -816,7 +816,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         layout.addWidget(self.iptur, 19, 1)
 
         # State label
-        lblstate = QtWidgets.QLabel("[State]: ")
+        lblstate = QtWidgets.QLabel("[State]")
         layout.addWidget(lblstate, 20, 0)
 
         self.btnConstrainte = QtWidgets.QPushButton(
@@ -825,7 +825,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btnConstrainte, 20, 1)
 
         # Import table
-        lblimport = QtWidgets.QLabel("[Imports]: ")
+        lblimport = QtWidgets.QLabel("[Imports]")
         layout.addWidget(lblimport, 21, 0)
 
         self.btnImportEdit = QtWidgets.QPushButton('Edit/View imports ', self)
@@ -833,7 +833,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btnImportEdit, 21, 1)
 
         # GDT label
-        lblgdt = QtWidgets.QLabel("[GDT]: ")
+        lblgdt = QtWidgets.QLabel("[GDT]")
         layout.addWidget(lblgdt, 22, 0)
 
         self.btnGDTEdit = QtWidgets.QPushButton('Edit/View GDT ', self)
@@ -1255,7 +1255,7 @@ class BinCATForm_t(idaapi.PluginForm):
 
     def Show(self):
         return idaapi.PluginForm.Show(
-            self, "BinCAT",
+            self, "BinCAT Configuration",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_TAB))
 
