@@ -1201,7 +1201,7 @@ class BinCATForm_t(idaapi.PluginForm):
 
         # analyzer.py file has to be placed by default in IDADIR/BinCAT
         self.iptAnalyzerPath.setText(
-            idaapi.idadir('python/BinCAT/analyzer.py'))
+            idaapi.idadir('python/BinCAT/python/idabincat/analyzer.py'))
         self.iptAnalyzerPath.setMaxLength = 256
         self.iptAnalyzerPath.setFixedWidth(300)
 
