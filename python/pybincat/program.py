@@ -7,6 +7,7 @@ from pybincat import PyBinCATException
 from pybincat import mlbincat
 import tempfile
 
+
 class PyBinCATParseError(PyBinCATException):
     pass
 
@@ -20,16 +21,15 @@ class Program(object):
         self.nodes = nodes
         self.logs = None
 
-    @classmethod 
+    @classmethod
     def parse(cls, filename, logs=None):
-        
+
         states = {}
         edges = defaultdict(list)
         nodes = {}
 
         config = ConfigParser.ConfigParser()
         config.read(filename)
-
 
         for section in config.sections():
             if section == 'edges':
@@ -38,7 +38,7 @@ class Program(object):
                     edges[src].append(dst)
                 continue
             elif section.startswith('address = '):
-                m = self.re_val.match(section[10:])
+                m = cls.re_val.match(section[10:])
                 if m:
                     address = Value(m.group("region"), int(m.group("value"), 0))
                     state = State.parse(address, config.items(section))
@@ -53,10 +53,10 @@ class Program(object):
         return program
 
     @classmethod
-    def from_analyze(cls, initfile):
+    def from_analysis(cls, initfile):
         outfile = tempfile.NamedTemporaryFile()
         logfile = tempfile.NamedTemporaryFile()
-        
+
         mlbincat.process(initfile, outfile.name, logfile.name)
 
         return Program.parse(outfile.name, logs=logfile.name)
@@ -66,18 +66,18 @@ class Program(object):
         initfile = tempfile.NamedTemporaryFile()
         initfile.write(str(state))
         initfile.close()
-        
-        return from_analyze(cls, initfile.name)
+
+        return cls.from_analysis(initfile.name)
 
     def __getitem__(self, pc):
         return self.states[pc]
 
     def next_states(self, pc):
         node = self[pc].node_id
-        return [ self[nn] for nn in self.edges.get(node,[]) ]
-        
+        return [self[nn] for nn in self.edges.get(node, [])]
 
- State(object):
+
+class State(object):
     def __init__(self, address, node_id=None):
         self.address = address
         self.node_id = node_id
@@ -89,9 +89,8 @@ class Program(object):
         :param outputkv: list of (key, value) tuples for each property set by
             the analyzer at this EIP
         """
-        node_id = None
-        
-        new_state = State(program, address)
+
+        new_state = State(address)
 
         for i, (k, v) in enumerate(outputkv):
             if k == "id":
@@ -123,7 +122,6 @@ class Program(object):
 
     re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
     re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
-
 
     def __eq__(self, other):
         if set(self.region.keys()) != set(other.region.keys()):
@@ -158,7 +156,7 @@ class Program(object):
         return results
 
     def diff(self, other):
-        res = [ "--- %s" % self, "+++ %s" % other) ]
+        res = [("--- %s" % self, "+++ %s" % other)]
         for region, address in self.listModifiedKeys(other):
             res.append("@@ %s %s @@" % (region, address))
             if address not in self.regions[region]:
@@ -171,10 +169,12 @@ class Program(object):
         return "\n".join(res)
 
     def __str__(self):
-        #XXX
+        # XXX
         return "[Not implemented :(]"
-        
-        
+
+    def __repr__(self):
+        return "State at address %s" % self.address
+
 
 class Value(object):
     def __init__(self, region, value, vtop=0, vbot=0, taint=0, ttop=0, tbot=0):
@@ -193,10 +193,16 @@ class Value(object):
         return cls(region, value, vtop, vbot, taint, ttop, tbot)
 
     def __repr__(self):
-        return "Value(%s, %s ! %s)" % (
+        return "PtrValue(%s, %s ! %s)" % (
             self.region,
-            parsers.val2str(self.value, self.vtop, self.vbot),
-            parsers.val2str(self.taint, self.ttop, self.tbot))
+            self.__valuerepr__(),
+            self.__taintrepr__())
+
+    def __valuerepr__(self):
+        return parsers.val2str(self.value, self.vtop, self.vbot)
+
+    def __taintrepr__(self):
+        parsers.val2str(self.taint, self.ttop, self.tbot)
 
     def __hash__(self):
         return hash((type(self), self.region, self.value,
@@ -226,4 +232,3 @@ class Value(object):
 
     def is_concrete(self):
         return self.vtop == 0 and self.vbot == 0
-
