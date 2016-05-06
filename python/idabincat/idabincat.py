@@ -126,8 +126,8 @@ class HelperConfigIniFile:
             else:
                 return(2*8)
 
-    def getCodeSection(self, ea):
-        # in case we have more than one code section we apply the following
+    def getCodeSection(self):
+        # in case we have more than one code section we apply the following:
         # heuristic entry point must be in the code section
         BinCATLogViewer.Log("[+] BinCAT call GetCodeSegment ",
                             idaapi.SCOLOR_LOCNAME)
@@ -138,36 +138,32 @@ class HelperConfigIniFile:
                 idc.SegStart(seg), idc.SEGATTR_TYPE)
             if (seg_attributes == idaapi.SEG_CODE and
                     (idc.SegStart(seg) <= ep <= idc.SegEnd(seg))):
-                if ea == 'start':
-                    log = ("[+] BinCAT::getCodeSection start %d " %
-                           idc.SegStart(seg))
-                    BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-                    return(idc.SegStart(seg))
-                if ea == 'end':
-                    log = ("[+] BinCAT::getCodeSection end %d " %
-                           idc.SegStart(seg))
-                    BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-                    return(idc.SegEnd(seg))
-                else:
-                    log = "[+] BinCAT no Code section has been found"
-                    BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-                    return(-1)
+                start = SegStart(seg)
+                end = SegEnd(seg)
+                break 
+        else:
+            log = "[+] BinCAT no Code section has been found"
+            BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+            return -1
+        log= "[+] Code section found at %#x:%#x " % (start, end)
+        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+        return start,end
 
-    def getDataSection(self, ea):
+    def getDataSection(self):
         for seg in idautils.Segments():
             seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg),
                                                 idc.SEGATTR_TYPE)
             if seg_attributes == idaapi.SEG_DATA:
-                if ea == 'start':
-                    log = ("[+] BinCAT::getDataSection start %d " %
-                           idc.SegStart(seg))
-                    BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-                    return(idc.SegStart(seg))
-                if ea == 'end':
-                    log = ("[+] BinCAT::getDataSection end %d " %
-                           idc.SegStart(seg))
-                    BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-                    return(idc.SegEnd(seg))
+                start = SegStart(seg)
+                end = SegEnd(seg)
+                break 
+        else:
+            log = "[+] BinCAT no Data section has been found"
+            BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+            return -1
+        log= "[+] Data section found at %#x:%#x " % (start, end)
+        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+        return start,end
 
     def CreateIniFile(self):
         # this function will grap the default parameters
@@ -184,20 +180,20 @@ class HelperConfigIniFile:
         self.configini.set('settings', 'mode', 'protected')
         self.configini.set('settings', 'call-conv', self.getCallConvention())
         self.configini.set('settings', 'mem-sz', 32)
-        adr = self.getCodeSection('start')
-        self.configini.set('settings', 'op-sz', self.getBitness(adr))
+        code_start, code_end = self.getCodeSection()
+        self.configini.set('settings', 'op-sz', self.getBitness(code_start))
         self.configini.set('settings', 'stack-width', self.getStackWidth())
 
         # [loader section]
         self.configini.add_section('loader')
         self.configini.set(
-            'loader', 'rva-code', hex(self.getCodeSection('start')).strip('L'))
+            'loader', 'rva-code', hex(code_start).strip('L'))
         self.configini.set(
             'loader', 'entrypoint',
             hex(idaapi.get_inf_structure().startIP).strip('L'))
         self.configini.set(
             'loader', 'phys-code-addr',
-            hex(idaapi.get_fileregion_offset(self.getCodeSection('start'))))
+            hex(idaapi.get_fileregion_offset(code_start)))
         # By default code-length is 0
         self.configini.set('loader', 'code-length', '0')
 
