@@ -17,7 +17,9 @@ class Program(object):
 
     def __init__(self, states, edges, nodes):
         self.states = states
+        #: nodeid -> list of nodeid
         self.edges = edges
+        #: nodes_id -> address
         self.nodes = nodes
         self.logs = None
 
@@ -69,12 +71,32 @@ class Program(object):
 
         return cls.from_analysis(initfile.name)
 
+    def _toValue(self, eip):
+        if type(eip) in [int, long]:
+            addr = Value("global", eip)
+        elif type(eip) is Value:
+            addr = eip
+        elif type(eip) is str:
+            addr = Value("global", int(eip))
+        # else:
+        #     logging.error(
+        #         "Invalid address %s (type %s) in AnalyzerState._toValue",
+        #         eip, type(eip))
+        #     addr = None
+        return addr
+
     def __getitem__(self, pc):
-        return self.states[pc]
+        """
+        Returns state at provided PC if it exists, else None.
+
+        :param eip: int, str or Value
+        """
+        ptr = self._toValue(pc)
+        return self.states.get(ptr, None)
 
     def next_states(self, pc):
         node = self[pc].node_id
-        return [self[nn] for nn in self.edges.get(node, [])]
+        return [self[self.nodes[nn]] for nn in self.edges.get(node, [])]
 
 
 class State(object):
@@ -110,11 +132,14 @@ class State(object):
             taint = m.group("taint")
 
             new_state[region][adrs] = Value.parse(kind, val, taint)
+        return new_state
 
     def __getitem__(self, item):
         return self.regions[item]
 
     def __getattr__(self, attr):
+        if attr.startswith('__'):  # avoid failure in copy.deepcopy()
+            raise AttributeError(attr)
         try:
             return self.regions[attr]
         except KeyError:
@@ -124,9 +149,9 @@ class State(object):
     re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
 
     def __eq__(self, other):
-        if set(self.region.keys()) != set(other.region.keys()):
+        if set(self.regions.keys()) != set(other.regions.keys()):
             return False
-        for region in self.region.keys():
+        for region in self.regions.keys():
             self_region_keys = set(self.regions[region].keys())
             other_region_keys = set(other.regions[region].keys())
             if self_region_keys != other_region_keys:
@@ -155,9 +180,15 @@ class State(object):
 
         return results
 
-    def diff(self, other):
-        res = [("--- %s" % self, "+++ %s" % other)]
-        for region, address in self.listModifiedKeys(other):
+    def diff(self, other, pns="", pno=""):
+        """
+        :param pns: pretty name for self
+        :param pno: pretty name for other
+        """
+        pns += str(self)
+        pno += str(other)
+        res = ["--- %s" % pns, "+++ %s" % pno]
+        for region, address in self.list_modified_keys(other):
             res.append("@@ %s %s @@" % (region, address))
             if address not in self.regions[region]:
                 res.append("+ %s" % other.regions[region][address])
@@ -167,10 +198,6 @@ class State(object):
                 res.append("- %s" % self.regions[region][address])
                 res.append("+ %s" % other.regions[region][address])
         return "\n".join(res)
-
-    def __str__(self):
-        # XXX
-        return "[Not implemented :(]"
 
     def __repr__(self):
         return "State at address %s" % self.address
@@ -193,7 +220,7 @@ class Value(object):
         return cls(region, value, vtop, vbot, taint, ttop, tbot)
 
     def __repr__(self):
-        return "PtrValue(%s, %s ! %s)" % (
+        return "Value(%s, %s ! %s)" % (
             self.region,
             self.__valuerepr__(),
             self.__taintrepr__())
