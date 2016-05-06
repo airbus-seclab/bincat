@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 
 # version IDA 6.8
@@ -39,7 +39,7 @@ except:
 # ------------------------------------
 # setting environnement variables
 if sys.platform.startswith('linux'):
-    PYTHON_BIN = 'python'
+    PYTHON_BIN = 'python2'
     PYTHON_PATH = os.path.normpath('/usr/bin')
 
 # -----------------------------------------------------------------------------
