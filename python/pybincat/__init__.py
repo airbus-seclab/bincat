@@ -1,0 +1,3 @@
+
+class PyBinCATException(Exception):
+    pass
