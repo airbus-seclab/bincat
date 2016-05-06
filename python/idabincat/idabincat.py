@@ -960,6 +960,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         layout = QtWidgets.QGridLayout()
         self.tablereg = QtWidgets.QTableWidget()
         self.tablemem = QtWidgets.QTableWidget()
+        self.tablereg.setSortingEnabled(True)
+        self.tablemem.setSortingEnabled(True)
 
         # Node id label
         self.nilabel = QtWidgets.QLabel('Node Id:')
@@ -1033,9 +1035,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
     # in: ea rva address
     def DisplayState(self, ea):
 
-        currentStates = AnalyzerStates
-
-        idaapi.msg(" DisplayState(0x%08x) \n" % (ea))
+        # XXX Use Qt ModelView instead
         rc = self.tablereg.rowCount()
         mc = self.tablemem.rowCount()
 
@@ -1052,51 +1052,53 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
         self.currentrva = ea
 
-        keys = currentStates.stateAtEip.keys()
-        for key in keys:
-            state = currentStates.getStateAt(key.value)
-            if int(key.value) == ea:
-                self.nilabel.setText('Node Id: ' + state.nodeid)
-                self.alabel.setText('RVA address: ' + ' 0x%08x' % (key.value))
-                for k, v in state.ptrs.iteritems():
-                    if k == "mem":
-                        for i, j in v.iteritems():
-                            if type(i) is str:
-                                continue  # XXX
-                            if i.is_concrete():
-                                self.tablemem.insertRow(mc)
-                                item = QtWidgets.QTableWidgetItem(
-                                    ('0x%08x' % int(i.value)))
-                                self.tablemem.setItem(mc, 0, item)
-                                item = QtWidgets.QTableWidgetItem(i.region)
-                                self.tablemem.setItem(mc, 2, item)
-                                mc += 1
-                            if j.is_concrete():
-                                self.tablemem.insertRow(mc)
-                                item = QtWidgets.QTableWidgetItem(
-                                    ('0x%08x' % int(j.value)))
-                                self.tablemem.setItem(mc, 0, item)
-                                item = QtWidgets.QTableWidgetItem(j.region)
-                                self.tablemem.setItem(mc, 2, item)
-                                mc += 1
+        state = AnalyzerStates.getStateAt(ea)
+        if not state:
+            return
 
-                    if k == "reg":
-                        for i, j in v.iteritems():
-                            if j.is_concrete():
-                                self.tablereg.insertRow(rc)
-                                item = QtWidgets.QTableWidgetItem(i)
-                                self.tablereg.setItem(rc, 0, item)
-                                item = QtWidgets.QTableWidgetItem(
-                                    ('0x%08x' % (int(j.value))))
-                                self.tablereg.setItem(rc, 2, item)
-                                rc += 1
-                            else:
-                                self.tablereg.insertRow(rc)
-                                item = QtWidgets.QTableWidgetItem(i)
-                                self.tablereg.setItem(rc, 0, item)
-                                item = QtWidgets.QTableWidgetItem(j.value)
-                                self.tablereg.setItem(rc, 2, item)
-                                rc += 1
+        self.nilabel.setText('Node Id: ' + state.nodeid)
+        self.alabel.setText('RVA address: ' + ' 0x%08x' % ea)
+        for k, v in state.ptrs.iteritems():
+            if k == "mem":
+                for i, j in v.iteritems():
+                    if type(i) is str:
+                        continue  # XXX
+                    if i.is_concrete():
+                        self.tablemem.insertRow(mc)
+                        item = QtWidgets.QTableWidgetItem(
+                            ('0x%08x' % int(i.value)))
+                        self.tablemem.setItem(mc, 0, item)
+                        item = QtWidgets.QTableWidgetItem(i.region)
+                        self.tablemem.setItem(mc, 2, item)
+                        mc += 1
+                    if j.is_concrete():
+                        self.tablemem.insertRow(mc)
+                        item = QtWidgets.QTableWidgetItem(
+                            ('0x%08x' % int(j.value)))
+                        self.tablemem.setItem(mc, 0, item)
+                        item = QtWidgets.QTableWidgetItem(j.region)
+                        self.tablemem.setItem(mc, 2, item)
+                        mc += 1
+
+            if k == "reg":
+                for i, j in v.iteritems():
+                    if j.is_concrete():
+                        self.tablereg.insertRow(rc)
+                        item = QtWidgets.QTableWidgetItem(i)
+                        self.tablereg.setItem(rc, 0, item)
+                        item = QtWidgets.QTableWidgetItem(
+                            ('0x%08x' % (int(j.value))))
+                        self.tablereg.setItem(rc, 2, item)
+                        rc += 1
+                    else:
+                        self.tablereg.insertRow(rc)
+                        item = QtWidgets.QTableWidgetItem(i)
+                        self.tablereg.setItem(rc, 0, item)
+                        item = QtWidgets.QTableWidgetItem(j.value)
+                        self.tablereg.setItem(rc, 2, item)
+                        rc += 1
+        self.tablereg.sortItems(0)
+        self.tablemem.sortItems(0)
 
 
 class BinCATForm_t(idaapi.PluginForm):

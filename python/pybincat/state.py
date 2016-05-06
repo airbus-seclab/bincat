@@ -77,29 +77,36 @@ class AnalyzerState(object):
             self.stateAtEip[address] = state
             self.nodeidaddr[state.nodeid] = address
 
-    def _intToPtrValue(self, eip):
-        if type(eip) is int:
+    def _toPtrValue(self, eip):
+        if type(eip) in [int, long]:
             addr = PtrValue("global", eip)
-        else:
+        elif type(eip) is PtrValue:
             addr = eip
+        elif type(eip) is str:
+            addr = int(eip)
+        else:
+            logging.error(
+                "Invalid address %s (type %s) in AnalyzerState._toPtrValue",
+                eip, type(eip))
+            addr = None
         return addr
 
     def getStateAt(self, eip):
         """
-        Returns state at provided EIP
+        Returns state at provided EIP if it exists, else None.
 
-        :param eip: int or PtrValue
+        :param eip: int, str or PtrValue
         """
-        addr = self._intToPtrValue(eip)
-        return self.stateAtEip[addr]
+        addr = self._toPtrValue(eip)
+        return self.stateAtEip.get(addr, None)
 
     def listNextStates(self, eip):
         """
         Returns a list of destination States after executing instruction at eip
 
-        :param eip: int or PtrValue
+        :param eip: int, str or PtrValue
         """
-        addr = self._intToPtrValue(eip)
+        addr = self._toPtrValue(eip)
         curStateId = self.stateAtEip[addr].nodeid
         nextIds = self.edges[curStateId]
         nextStates = [self.stateAtEip[self.nodeidaddr[i]] for i in nextIds]
