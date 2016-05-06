@@ -1355,7 +1355,7 @@ class Hooks(idaapi.UI_Hooks):
         # idaapi.attach_action_to_popup(form, popup, "my:tooltip1",
         #                               "BinCAT/Tainting/", idaapi.SETMENU_APP)
         idaapi.attach_action_to_popup(form, popup, "my:tooltip2",
-                                      "BinCAT/Tainting/", idaapi.SETMENU_APP)
+                                      "BinCAT/", idaapi.SETMENU_APP)
 
 
 def main():
@@ -1415,7 +1415,7 @@ def main():
     #     'my:tooltip1', 'BinCAT: Taint this function', HtooltipF(), '',
     #     'BinCAT action', -1)
     tooltip_act2 = idaapi.action_desc_t(
-        'my:tooltip2', 'BinCAT: Analyze from here', HtooltipH(), '',
+        'my:tooltip2', 'Analyze from here', HtooltipH(), '',
         'BinCAT action', -1)
 
     # Registering BinCAT actions
