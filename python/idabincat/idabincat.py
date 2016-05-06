@@ -85,36 +85,22 @@ class HelperConfigIniFile:
     def getCallConvention(self):
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_INVALID:
-            return "invalid"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_UNKNOWN:
-            return "unknown"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_VOIDARG:
-            return "voidargs"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_CDECL:
-            return "cdecl"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_ELLIPSIS:
-            return "ellipsis"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_STDCALL:
-            return "stdcall"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_PASCAL:
-            return "pascal"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_FASTCALL:
-            return "fastcall"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_THISCALL:
-            return "thiscall"
-        if (compiler_info.cm & idaapi.CM_CC_MASK) == idaapi.CM_CC_MANUAL:
-            return "manual"
+        return {
+            idaapi.CM_CC_INVALID: "invalid",
+            idaapi.CM_CC_UNKNOWN: "unknown",
+            idaapi.CM_CC_VOIDARG: "voidargs",
+            idaapi.CM_CC_CDECL: "cdecl",
+            idaapi.CM_CC_ELLIPSIS: "ellipsis",
+            idaapi.CM_CC_STDCALL: "stdcall",
+            idaapi.CM_CC_PASCAL: "pascal",
+            idaapi.CM_CC_FASTCALL: "fastcall",
+            idaapi.CM_CC_THISCALL: "thiscall",
+            idaapi.CM_CC_MANUAL: "manual",
+        }[compiler_info.cm & CM_CC_MASK]
 
     def getBitness(self, ea):
         bitness = idc.GetSegmentAttr(ea, idc.SEGATTR_BITNESS)
-        if bitness == 0:
-            bitness = 16
-        elif bitness == 1:
-            bitness = 32
-        elif bitness == 2:
-            bitness = 64
-        return bitness
+        return {0: 16, 1:32, 2:64}[bitness]
 
     def getStackWidth(self):
         ida_db_info_structure = idaapi.get_inf_structure()
