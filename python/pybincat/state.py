@@ -130,7 +130,7 @@ class State(object):
         """
         self.address = address
         #: self.ptrs['reg' or 'mem'][name or PtrValue object] =
-        #: ("memory region", int address)
+        #: PtrValue
         self.ptrs = {'mem': {}, 'reg': {}}
         #: self.tainting['reg' or 'mem'][name or PtrValue object] =
         #: taint value (object)?
@@ -262,8 +262,14 @@ class PtrValue(object):
     def __repr__(self):
         return "PtrValue(%s, %s ! %s)" % (
             self.region,
-            parsers.val2str(self.value, self.vtop, self.vbot),
-            parsers.val2str(self.taint, self.ttop, self.tbot))
+            self.__valuerepr__(),
+            self.__taintrepr__())
+
+    def __valuerepr__(self):
+        return parsers.val2str(self.value, self.vtop, self.vbot)
+
+    def __taintrepr__(self):
+        parsers.val2str(self.taint, self.ttop, self.tbot)
 
     def __hash__(self):
         return hash((type(self), self.region, self.value,
