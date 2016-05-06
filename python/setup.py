@@ -17,7 +17,7 @@ class PyTest(Command):
 mlbincat = Extension(
     "pybincat/mlbincat",
     sources=["pybincat/mlbincat.c"],
-    libraries=["mlbincat"],
+    libraries=["bincat"],
     library_dirs=["../ocaml/src"],
 )
 
