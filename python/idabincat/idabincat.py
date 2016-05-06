@@ -96,11 +96,11 @@ class HelperConfigIniFile:
             idaapi.CM_CC_FASTCALL: "fastcall",
             idaapi.CM_CC_THISCALL: "thiscall",
             idaapi.CM_CC_MANUAL: "manual",
-        }[compiler_info.cm & CM_CC_MASK]
+        }[compiler_info.cm & idaapi.CM_CC_MASK]
 
     def getBitness(self, ea):
         bitness = idc.GetSegmentAttr(ea, idc.SEGATTR_BITNESS)
-        return {0: 16, 1:32, 2:64}[bitness]
+        return {0: 16, 1: 32, 2: 64}[bitness]
 
     def getStackWidth(self):
         ida_db_info_structure = idaapi.get_inf_structure()
@@ -124,32 +124,32 @@ class HelperConfigIniFile:
                 idc.SegStart(seg), idc.SEGATTR_TYPE)
             if (seg_attributes == idaapi.SEG_CODE and
                     (idc.SegStart(seg) <= ep <= idc.SegEnd(seg))):
-                start = SegStart(seg)
-                end = SegEnd(seg)
-                break 
+                start = idc.SegStart(seg)
+                end = idc.SegEnd(seg)
+                break
         else:
             log = "[+] BinCAT no Code section has been found"
-            BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+            BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
             return -1
-        log= "[+] Code section found at %#x:%#x " % (start, end)
-        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
-        return start,end
+        log = "[+] Code section found at %#x:%#x " % (start, end)
+        BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
+        return start, end
 
     def getDataSection(self):
         for seg in idautils.Segments():
             seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg),
                                                 idc.SEGATTR_TYPE)
             if seg_attributes == idaapi.SEG_DATA:
-                start = SegStart(seg)
-                end = SegEnd(seg)
-                break 
+                start = idc.SegStart(seg)
+                end = idc.SegEnd(seg)
+                break
         else:
             log = "[+] BinCAT no Data section has been found"
-            BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
+            BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
             return -1
-        log= "[+] Data section found at %#x:%#x " % (start, end)
-        BinCATLogViewer.Log(log,SCOLOR_LOCNAME)
-        return start,end
+        log = "[+] Data section found at %#x:%#x " % (start, end)
+        BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
+        return start, end
 
     def CreateIniFile(self):
         # this function will grap the default parameters
@@ -922,6 +922,11 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.ResizeToContents)
         self.tablemem.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
+
+        self.tablereg.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Interactive)
+        self.tablemem.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Interactive)
 
         splitter = QtWidgets.QSplitter()
         layout.addWidget(splitter, 0, 0)
