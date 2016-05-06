@@ -969,6 +969,11 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.alabel = QtWidgets.QLabel('RVA address:')
         layout.addWidget(self.alabel, 1, 0)
 
+        # Splitter, contains registers & memory tables
+        self.splitter = QtWidgets.QSplitter()
+        self.splitter.setOrientation(QtCore.Qt.Vertical)
+        layout.addWidget(self.splitter, 2, 0)
+
         # Registers table
         self.tablereg.setColumnCount(3)
 
@@ -987,7 +992,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             QtWidgets.QAbstractItemView.SelectRows)
         self.tablereg.verticalHeader().setDefaultSectionSize(15)
 
-        layout.addWidget(self.tablereg, 2, 0)
+        self.splitter.addWidget(self.tablereg)
 
         # Memory table
         self.tablemem.setColumnCount(3)
@@ -1007,10 +1012,9 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             QtWidgets.QAbstractItemView.SelectRows)
         self.tablemem.verticalHeader().setDefaultSectionSize(15)
 
-        layout.addWidget(self.tablemem, 4, 0)
+        self.splitter.addWidget(self.tablemem)
 
-        layout.setColumnStretch(0, 1)
-        layout.setRowStretch(5, 1)
+        layout.setRowStretch(2, 1)
 
         self.parent.setLayout(layout)
 
