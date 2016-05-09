@@ -348,28 +348,27 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ipEndAddr = QtWidgets.QLineEdit(self)
         self.ipEndAddr.setText(endAddr)
 
-        # Tainting element register or memory XXX never used
-        lblTntElem = QtWidgets.QLabel(" Tainted element   : ")
-
+        # XXX re-enable when its settings are actually used
         # radio button register
-        rbRegisters = QtWidgets.QCheckBox("Register")
-        rbRegisters.toggled.connect(self.rbRegistersHandler)
-        self.cbRegisters = QtWidgets.QComboBox(self)
+        # rbRegisters = QtWidgets.QCheckBox("Register")
+        # rbRegisters.toggled.connect(self.rbRegistersHandler)
+        # self.cbRegisters = QtWidgets.QComboBox(self)
 
-        for reg in registers_x86:
-            self.cbRegisters.addItem(reg)
+        # for reg in registers_x86:
+        #     self.cbRegisters.addItem(reg)
 
-        self.cbRegisters.setDisabled(True)
-        self.cbRegisters.activated[str].connect(self.cbRegistersHandler)
+        # self.cbRegisters.setDisabled(True)
+        # self.cbRegisters.activated[str].connect(self.cbRegistersHandler)
 
         # self.ipRegs = QtWidgets.QLineEdit(self)
         # self.ipRegs.setDisabled(True)
 
+        # XXX re-enable when its settings are actually used
         # radio button memory
-        rbMemory = QtWidgets.QCheckBox("Memory")
-        rbMemory.toggled.connect(self.rbMemoryHandler)
-        self.ipMemory = QtWidgets.QLineEdit(self)
-        self.ipMemory.setDisabled(True)
+        # rbMemory = QtWidgets.QCheckBox("Memory")
+        # rbMemory.toggled.connect(self.rbMemoryHandler)
+        # self.ipMemory = QtWidgets.QLineEdit(self)
+        # self.ipMemory.setDisabled(True)
 
         # Start, cancel and analyzer config buttons
         self.btnStart = QtWidgets.QPushButton('Start', self)
@@ -382,10 +381,11 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btnCancel.setFixedWidth(130)
         self.btnCancel.clicked.connect(self.close)
 
-        self.btnAc = QtWidgets.QPushButton('Analyzer configuration', self)
-        self.btnAc.setToolTip('Configure the analyzer.')
-        self.btnAc.setFixedWidth(150)
-        self.btnAc.clicked.connect(self.btnAnalyzerConfig)
+        # XXX re-enable when its settings are actually used
+        # self.btnAc = QtWidgets.QPushButton('Analyzer configuration', self)
+        # self.btnAc.setToolTip('Configure the analyzer.')
+        # self.btnAc.setFixedWidth(150)
+        # self.btnAc.clicked.connect(self.btnAnalyzerConfig)
 
         layout.addWidget(lblCstEditor, 0, 0)
 
@@ -395,15 +395,15 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout.addWidget(lblEndAddr, 2, 0)
         layout.addWidget(self.ipEndAddr, 2, 1)
 
-        layout.addWidget(rbRegisters, 3, 0)
-        layout.addWidget(self.cbRegisters, 3, 1)
+        # layout.addWidget(rbRegisters, 3, 0)
+        # layout.addWidget(self.cbRegisters, 3, 1)
 
-        layout.addWidget(rbMemory, 4, 0)
-        layout.addWidget(self.ipMemory, 4, 1)
+        # layout.addWidget(rbMemory, 4, 0)
+        # layout.addWidget(self.ipMemory, 4, 1)
 
         layout.addWidget(self.btnStart, 5, 0)
         layout.addWidget(self.btnCancel, 5, 1)
-        layout.addWidget(self.btnAc, 5, 2)
+        # layout.addWidget(self.btnAc, 5, 2)
 
         layout.setColumnStretch(3, 1)
         layout.setRowStretch(6, 1)
@@ -1101,16 +1101,17 @@ class BinCATForm_t(idaapi.PluginForm):
         self.btnNewAnalyzer.setToolTip('set a new analyzer.py path')
         self.btnNewAnalyzer.clicked.connect(self.handler_btnNewAnalyzer)
 
-        # restart button for the analyzer
-        self.btnAnalyzer = QtWidgets.QPushButton('restart', self.parent)
-        self.btnAnalyzer.setToolTip('restart analyzer.')
-        self.btnAnalyzer.setFixedWidth(150)
-        self.btnAnalyzer.clicked.connect(self.handler_restartAnalyzer)
+        # # restart button for the analyzer
+        # self.btnAnalyzer = QtWidgets.QPushButton('restart', self.parent)
+        # self.btnAnalyzer.setToolTip('restart analyzer.')
+        # self.btnAnalyzer.setFixedWidth(150)
+        # self.btnAnalyzer.clicked.connect(self.handler_restartAnalyzer)
 
-        # create a button for analyzer configuration form
-        self.btnAnalyzerConfig = QtWidgets.QPushButton(
-            'Analyzer configuration', self.parent)
-        self.btnAnalyzerConfig.clicked.connect(self.handler_btnAnalyzerConfig)
+        # XXX re-enable when its settings are actually used
+        # # create a button for analyzer configuration form
+        # self.btnAnalyzerConfig = QtWidgets.QPushButton(
+        #     'Analyzer configuration', self.parent)
+        # self.btnAnalyzerConfig.clicked.connect(self.handler_btnAnalyzerConfig)
 
         # create a Layout
         layout = QtWidgets.QGridLayout()
@@ -1118,9 +1119,10 @@ class BinCATForm_t(idaapi.PluginForm):
         layout.addWidget(self.input, 0, 1)
         layout.addWidget(lblAnalyzerPath, 1, 0)
         layout.addWidget(self.iptAnalyzerPath, 1, 1)
-        layout.addWidget(self.btnAnalyzer, 1, 3)
+        # layout.addWidget(self.btnAnalyzer, 1, 3)
         layout.addWidget(self.btnNewAnalyzer, 1, 2)
-        layout.addWidget(self.btnAnalyzerConfig, 2, 0)
+
+        # layout.addWidget(self.btnAnalyzerConfig, 2, 0)
 
         layout.setColumnStretch(4, 1)
         layout.setRowStretch(3, 1)
