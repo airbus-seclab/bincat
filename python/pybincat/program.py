@@ -4,7 +4,6 @@ from collections import defaultdict
 import re
 from pybincat.tools import parsers
 from pybincat import PyBinCATException
-from pybincat import mlbincat
 import tempfile
 
 
@@ -55,21 +54,38 @@ class Program(object):
         return program
 
     @classmethod
-    def from_analysis(cls, initfile):
+    def from_analysis(cls, initfname):
+        """
+        Runs analysis from provided init file
+        """
         outfile = tempfile.NamedTemporaryFile()
         logfile = tempfile.NamedTemporaryFile()
 
-        mlbincat.process(initfile, outfile.name, logfile.name)
-
-        return Program.parse(outfile.name, logs=logfile.name)
+        return cls.from_filenames(initfname, outfile.name, logfile.name)
 
     @classmethod
     def from_state(cls, state):
+        """
+        Runs analysis.
+        """
         initfile = tempfile.NamedTemporaryFile()
         initfile.write(str(state))
         initfile.close()
 
         return cls.from_analysis(initfile.name)
+
+    @classmethod
+    def from_filenames(cls, initfname, outfname, logfname):
+        """
+        Runs analysis, using provided filenames.
+
+        :param initfname: string, path to init file
+        :param outfname: string, path to output file
+        :param logfname: string, path to log file
+        """
+        from pybincat import mlbincat
+        mlbincat.process(initfname, outfname, logfname)
+        return Program.parse(outfname, logs=logfname)
 
     def _toValue(self, eip):
         if type(eip) in [int, long]:
@@ -103,6 +119,7 @@ class State(object):
     def __init__(self, address, node_id=None):
         self.address = address
         self.node_id = node_id
+        #: typical keys: 'mem', 'reg', 'nodeid'
         self.regions = defaultdict(dict)
 
     @classmethod
@@ -123,6 +140,8 @@ class State(object):
                 raise PyBinCATException("Parsing error (entry %i, key=%r)" % (i, k))
             region = m.group("region")
             adrs = m.group("adrs")
+            if region == 'mem' and adrs.startswith('(') and adrs.endswith(')'):
+                region, adrs = adrs[1:-1].split(', ')
 
             m = cls.re_valtaint.match(v)
             if not m:

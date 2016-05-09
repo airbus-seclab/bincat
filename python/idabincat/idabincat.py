@@ -8,6 +8,7 @@ import os
 import sys
 import traceback
 import ConfigParser
+import tempfile
 
 try:
     import idaapi
@@ -22,18 +23,18 @@ except ImportError:
 try:
     from PyQt5 import QtCore, QtWidgets
 except:
-    idaapi.msg("[+] BinCat: failed to load Qt libs from PyQt5 \n %s" %
+    idaapi.msg("[+] BinCat: failed to load Qt libs from PyQt5 \n %s\n" %
                repr(sys.exc_info()))
-    sys.exit(0)
+    sys.exit(1)
 
 # Loading pybincat.state
 
 try:
-    from pybincat import state
+    from pybincat import program
 except:
-    idaapi.msg("[+] BinCat: failed to load pybincat.state \n %s" %
+    idaapi.msg("[+] BinCat: failed to load pybincat.program \n %s\n" %
                repr(sys.exc_info()))
-    sys.exit(0)
+    sys.exit(1)
 
 
 # ------------------------------------
@@ -42,15 +43,19 @@ if sys.platform.startswith('linux'):
     PYTHON_BIN = 'python2'
     PYTHON_PATH = os.path.normpath('/usr/bin')
 
-# -----------------------------------------------------------------------------
-# Class: create config.ini file that holds the default parameters for the
-# current idb file
 
-
-class HelperConfigIniFile:
+class AnalyzerConfig:
+    """
+    Generates a configuration file for the analyzer.
+    """
     def __init__(self):
         self.version = "0.0"
-        self.config_ini_path = None
+        #: int
+        self.code_length = None
+        #: int
+        self.entrypoint = None
+        #: int
+        self.rva_code, _ = self.getCodeSection()
 
     def getFirstEntryPoint(self):
         ord0 = idc.GetEntryOrdinal(0)
@@ -151,128 +156,122 @@ class HelperConfigIniFile:
         BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
         return start, end
 
-    def CreateIniFile(self):
-        # this function will grap the default parameters
-        BinCATLogViewer.Log("[+] BinCAT Creating ini configuration file",
-                            idaapi.SCOLOR_LOCNAME)
-        # self.configini = ConfigParser.RawConfigParser()
-        self.configini = ConfigParser.ConfigParser()
-        self.configini.optionxform = str
+    def getConfigParser(self):
+        """
+        Returns a new ConfigParser instance
+        """
+        # this function will use the default parameters
+        config = ConfigParser.ConfigParser()
+        config.optionxform = str
 
         # [settings] section
-        self.configini.add_section('settings')
-        self.configini.set('settings', 'mem-model', self.getMemoryModel())
+        config.add_section('settings')
+        config.set('settings', 'mem-model', self.getMemoryModel())
         # TODO get cpu mode from idaapi ?
-        self.configini.set('settings', 'mode', 'protected')
-        self.configini.set('settings', 'call-conv', self.getCallConvention())
-        self.configini.set('settings', 'mem-sz', 32)
-        code_start, code_end = self.getCodeSection()
-        self.configini.set('settings', 'op-sz', self.getBitness(code_start))
-        self.configini.set('settings', 'stack-width', self.getStackWidth())
+        config.set('settings', 'mode', 'protected')
+        config.set('settings', 'call-conv', self.getCallConvention())
+        config.set('settings', 'mem-sz', 32)
+        config.set('settings', 'op-sz', self.getBitness(self.rva_code))
+        config.set('settings', 'stack-width', self.getStackWidth())
 
         # [loader section]
-        self.configini.add_section('loader')
-        self.configini.set(
-            'loader', 'rva-code', hex(code_start).strip('L'))
-        self.configini.set(
+        config.add_section('loader')
+        config.set(
+            'loader', 'rva-code', hex(self.rva_code).strip('L'))
+        config.set(
             'loader', 'entrypoint',
             hex(idaapi.get_inf_structure().startIP).strip('L'))
-        self.configini.set(
+        config.set(
             'loader', 'phys-code-addr',
-            hex(idaapi.get_fileregion_offset(code_start)))
+            hex(idaapi.get_fileregion_offset(self.rva_code)))
         # By default code-length is 0
-        self.configini.set('loader', 'code-length', '0')
+        config.set('loader', 'code-length', '0')
 
-        self.configini.set('loader', 'cs', '0x73')
-        self.configini.set('loader', 'ds', '0x7b')
-        self.configini.set('loader', 'ss', '0x7b')
-        self.configini.set('loader', 'es', '0x7b')
-        self.configini.set('loader', 'ds', '0x7b')
-        self.configini.set('loader', 'fs', '0x7b')
-        self.configini.set('loader', 'gs', '0x7b')
+        config.set('loader', 'cs', '0x73')
+        config.set('loader', 'ds', '0x7b')
+        config.set('loader', 'ss', '0x7b')
+        config.set('loader', 'es', '0x7b')
+        config.set('loader', 'ds', '0x7b')
+        config.set('loader', 'fs', '0x7b')
+        config.set('loader', 'gs', '0x7b')
+        config.set('loader', 'code-length', self.code_length)
+        config.set('loader', 'entrypoint', self.entrypoint)
 
         # [binary section]
-        self.configini.add_section('binary')
-        # self.configini.set('binary', 'filename', GetInputFile())
-        self.configini.set('binary', 'filepath', idc.GetInputFilePath())
-        self.configini.set('binary', 'format', self.getFileType())
+        config.add_section('binary')
+        # config.set('binary', 'filename', GetInputFile())
+        config.set('binary', 'filepath', idc.GetInputFilePath())
+        config.set('binary', 'format', self.getFileType())
 
         # [import] section
-        self.configini.add_section('imports')
-        self.configini.set('imports', '0x04', 'libc, open')
+        config.add_section('imports')
+        config.set('imports', '0x04', 'libc, open')
 
         # [GDT] section
-        self.configini.add_section('GDT')
-        self.configini.set('GDT', 'GDT[0]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[1]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[2]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[3]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[4]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[5]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[6]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[7]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[8]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[9]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[10]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[11]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[12]', '0x0000ffff00cf9b00')
-        self.configini.set('GDT', 'GDT[13]', '0x0000ffff00cf9300')
-        self.configini.set('GDT', 'GDT[14]', '0x0000ffff00cffb00')
-        self.configini.set('GDT', 'GDT[15]', '0x0000ffff00cff300')
-        self.configini.set('GDT', 'GDT[16]', '0xfac0206bf7008bb7')
-        self.configini.set('GDT', 'GDT[17]', '0xd0000fffd4008254')
-        self.configini.set('GDT', 'GDT[18]', '0x0000ffff00409a00')
-        self.configini.set('GDT', 'GDT[19]', '0x0000ffff00009a00')
-        self.configini.set('GDT', 'GDT[20]', '0x0000ffff00009200')
-        self.configini.set('GDT', 'GDT[21]', '0x0000000000009200')
-        self.configini.set('GDT', 'GDT[22]', '0x0000000000009200')
-        self.configini.set('GDT', 'GDT[23]', '0x0000ffff00409a00')
-        self.configini.set('GDT', 'GDT[24]', '0x0000ffff00009a00')
-        self.configini.set('GDT', 'GDT[25]', '0x0000ffff00409200')
-        self.configini.set('GDT', 'GDT[26]', '0x0000ffff00cf9200')
-        self.configini.set('GDT', 'GDT[27]', '0x0000ffff368f9325')
-        self.configini.set('GDT', 'GDT[28]', '0x1c800018f74091b8')
-        self.configini.set('GDT', 'GDT[29]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[30]', '0x0000000000000000')
-        self.configini.set('GDT', 'GDT[31]', '0x8800206bc1008980')
+        config.add_section('GDT')
+        config.set('GDT', 'GDT[0]', '0x0000000000000000')
+        config.set('GDT', 'GDT[1]', '0x0000000000000000')
+        config.set('GDT', 'GDT[2]', '0x0000000000000000')
+        config.set('GDT', 'GDT[3]', '0x0000000000000000')
+        config.set('GDT', 'GDT[4]', '0x0000000000000000')
+        config.set('GDT', 'GDT[5]', '0x0000000000000000')
+        config.set('GDT', 'GDT[6]', '0x0000000000000000')
+        config.set('GDT', 'GDT[7]', '0x0000000000000000')
+        config.set('GDT', 'GDT[8]', '0x0000000000000000')
+        config.set('GDT', 'GDT[9]', '0x0000000000000000')
+        config.set('GDT', 'GDT[10]', '0x0000000000000000')
+        config.set('GDT', 'GDT[11]', '0x0000000000000000')
+        config.set('GDT', 'GDT[12]', '0x0000ffff00cf9b00')
+        config.set('GDT', 'GDT[13]', '0x0000ffff00cf9300')
+        config.set('GDT', 'GDT[14]', '0x0000ffff00cffb00')
+        config.set('GDT', 'GDT[15]', '0x0000ffff00cff300')
+        config.set('GDT', 'GDT[16]', '0xfac0206bf7008bb7')
+        config.set('GDT', 'GDT[17]', '0xd0000fffd4008254')
+        config.set('GDT', 'GDT[18]', '0x0000ffff00409a00')
+        config.set('GDT', 'GDT[19]', '0x0000ffff00009a00')
+        config.set('GDT', 'GDT[20]', '0x0000ffff00009200')
+        config.set('GDT', 'GDT[21]', '0x0000000000009200')
+        config.set('GDT', 'GDT[22]', '0x0000000000009200')
+        config.set('GDT', 'GDT[23]', '0x0000ffff00409a00')
+        config.set('GDT', 'GDT[24]', '0x0000ffff00009a00')
+        config.set('GDT', 'GDT[25]', '0x0000ffff00409200')
+        config.set('GDT', 'GDT[26]', '0x0000ffff00cf9200')
+        config.set('GDT', 'GDT[27]', '0x0000ffff368f9325')
+        config.set('GDT', 'GDT[28]', '0x1c800018f74091b8')
+        config.set('GDT', 'GDT[29]', '0x0000000000000000')
+        config.set('GDT', 'GDT[30]', '0x0000000000000000')
+        config.set('GDT', 'GDT[31]', '0x8800206bc1008980')
 
         # [analyzer section]
-        self.configini.add_section('analyzer')
-        self.configini.set('analyzer', 'unroll', 5)
-        self.configini.set('analyzer', 'dotfile', 'cfa.dot')
+        config.add_section('analyzer')
+        config.set('analyzer', 'unroll', 5)
+        config.set('analyzer', 'dotfile', 'cfa.dot')
 
         # [state section]
-        self.configini.add_section('state')
-        self.configini.set('state', 'reg[eax]', '0x01 ! 0xff ? 0xf0')
-        self.configini.set('state', 'reg[ebx]', '0x02')
-        self.configini.set('state', 'reg[ecx]', '0x03')
-        self.configini.set('state', 'reg[edi]', '0x04')
-        self.configini.set('state', 'reg[esi]', '0x05')
-        self.configini.set('state', 'reg[esp]', '0x06')
-        self.configini.set('state', 'reg[ebp]', '0x07')
+        config.add_section('state')
+        config.set('state', 'reg[eax]', '0x01 ! 0xff ? 0xf0')
+        config.set('state', 'reg[ebx]', '0x02')
+        config.set('state', 'reg[ecx]', '0x03')
+        config.set('state', 'reg[edi]', '0x04')
+        config.set('state', 'reg[esi]', '0x05')
+        config.set('state', 'reg[esp]', '0x06')
+        config.set('state', 'reg[ebp]', '0x07')
 
-        self.configini.set('state', 'mem[0x01]', '0x1234567812345678 ! 0xff')
+        config.set('state', 'mem[0x01]', '0x1234567812345678 ! 0xff')
 
         # [libc section]
-        self.configini.add_section('libc')
-        self.configini.set('libc', 'call-conv', 'fastcall')
-        self.configini.set('libc', '*', 'open(@, _)')
-        self.configini.set('libc', '*', 'read<stdcall>(@, *, @)')
+        config.add_section('libc')
+        config.set('libc', 'call-conv', 'fastcall')
+        config.set('libc', '*', 'open(@, _)')
+        config.set('libc', '*', 'read<stdcall>(@, *, @)')
+        return config
 
-        # config ini file should be in the same directory as the IDB file
-        self.config_ini_path = idautils.GetIdbDir() + "config.ini"
-        # writing configuration file
-        log = "[+] BinCAT Writing config.ini %s \n" % self.config_ini_path
-        BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-
-        with open(self.config_ini_path, 'w') as configfile:
-            self.configini.write(configfile)
+    def write(self, filepath):
+        with open(filepath, 'w') as configfile:
+            self.getConfigParser().write(configfile)
 
 
 class TaintLaunchForm_t(QtWidgets.QDialog):
-    """
-    Class  Tainting Launcher Form
-    """
 
     def rbRegistersHandler(self):
         self.cbRegisters.setEnabled(True)
@@ -293,53 +292,39 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             idaapi.warning(" End address is empty")
         else:
             # load the config file  for read and update
-            self.currentConfig = ConfigParser.ConfigParser()
-            self.currentConfig.optionxform = str
+            cf = AnalyzerConfig()
 
-            self.currentConfig.read(hlpConfig.config_ini_path)
             # get the code length
             # We apply: code-length = Rva-code - startAddress + 2
-            cl = (int(self.ipEndAdr.text(), 16) -
-                  int(self.ipStartAdr.text(), 16))
+            # XXX description does not match code
+            startAddr = int(self.ipStartAdr.text(), 16)
+            endAddr = int(self.ipEndAdr.text(), 16)
+            cl = endAddr - startAddr
 
             # code-length =  rva-code - entrypoint + cl
-            rvacode = int(self.currentConfig.get('loader', 'rva-code'), 16)
-            self.currentConfig.set('loader', 'entrypoint',
-                                   self.ipStartAdr.text())
-            ep = int(self.ipStartAdr.text(), 16)
-            cl = (ep - rvacode) + cl
+            # XXX description does not match code
+            rvacode = cf.rva_code
+            cf.entrypoint = startAddr
 
-            # update config.ini file
-            self.currentConfig.set('loader', 'code-length', cl)
+            cf.code_length = (startAddr - rvacode) + cl
 
-            with open(hlpConfig.config_ini_path, 'w') as configFile:
-                self.currentConfig.write(configFile)
+            path = tempfile.mkdtemp(suffix='bincat')
+            initfname = os.path.join(path, "init.ini")
+            outfname = os.path.join(path, "out.ini")
+            logfname = os.path.join(path, "analyzer.log")
 
-            # start the analyzer
+            log = "Current analyzer path: %s \n" % path
+            BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
+
+            cf.write(initfname)
+
             analyzerpath = BinCATForm.iptAnalyzerPath.text()
-            inifile = hlpConfig.config_ini_path
-            outfile = idautils.GetIdbDir() + "result.txt"
-            logfile = idautils.GetIdbDir() + "logfile.txt"
+            self.analyzer = Analyzer(initfname, outfname, logfname,
+                                     analyzerpath)
+            self.analyzer.run()
 
-            cmdline = "%s %s --inifile %s --outfile %s --logfile %s" % (
-                os.path.join(PYTHON_PATH, PYTHON_BIN),
-                analyzerpath, inifile, outfile, logfile)
-
-            # create Analyzer Object
-            self.analyzer = Analyzer()
-
-            # start the process
-            try:
-                idaapi.msg(
-                    "[+] BinCAT: Analyzer cmdline is:\n  %s \n " % cmdline)
-                self.analyzer.start(cmdline)
-                idaapi.msg(" ")
-
-            except Exception as e:
-                idaapi.msg("[+] BinCAT failed to launch the analyzer.py\n")
-                idaapi.msg("    Exception: %s\n%s" % (str(e),
-                                                      traceback.format_exc()))
-
+            # XXX
+            # when analyzer is garbage collected, the QProcess gets killed
             # close the form: Bug: block the process
 #                        if self.analyzer.waitForStarted(100):
 #                               self.close()
@@ -434,9 +419,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
 
 class GDTEditorForm_t(QtWidgets.QDialog):
-    """
-    GDT Editor Form
-    """
 
     def btnOKHandler(self):
         self.accept()
@@ -447,10 +429,8 @@ class GDTEditorForm_t(QtWidgets.QDialog):
     def __init__(self, parent):
         super(GDTEditorForm_t, self).__init__(parent)
 
-        # Get config ini file
-        # hlpConfig = HelperConfigIniFile()
-        self.currentConfig = ConfigParser.ConfigParser()
-        self.currentConfig.read(hlpConfig.config_ini_path)
+        # XXX write to config object
+        self.currentConfig = PluginState.currentConfig.getConfigParser()
 
         # Main table
         self.table = QtWidgets.QTableWidget()
@@ -519,10 +499,8 @@ class GDTEditorForm_t(QtWidgets.QDialog):
         super(GDTEditorForm_t, self).show()
 
 
-class ConstrainteEditorForm_t(QtWidgets.QDialog):
-    """
-    Class Constraintes editor
-    """
+class ConstraintEditorForm_t(QtWidgets.QDialog):
+
     def btnOKHandler(self):
         self.accept()
 
@@ -530,10 +508,10 @@ class ConstrainteEditorForm_t(QtWidgets.QDialog):
         self.reject()
 
     def __init__(self, parent):
-        super(ConstrainteEditorForm_t, self).__init__(parent)
+        super(ConstraintEditorForm_t, self).__init__(parent)
 
         layout = QtWidgets.QGridLayout()
-        lblCstEditor = QtWidgets.QLabel(" Constraintes Editor: ")
+        lblCstEditor = QtWidgets.QLabel("Initial state:")
         layout.addWidget(lblCstEditor, 0, 0)
 
         self.notes = QtWidgets.QPlainTextEdit()
@@ -565,7 +543,7 @@ class ConstrainteEditorForm_t(QtWidgets.QDialog):
     def show(self):
         self.setFixedSize(400, 400)
         self.setWindowTitle("Constraints Editor")
-        super(ConstrainteEditorForm_t, self).show()
+        super(ConstraintEditorForm_t, self).show()
 
 
 class AnalyzerConfForm_t(QtWidgets.QDialog):
@@ -577,7 +555,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
     """
 
     def btnCstrHandler(self):
-        CstEdit = ConstrainteEditorForm_t(self)
+        CstEdit = ConstraintEditorForm_t(self)
         CstEdit.show()
 
     def btnGDTHandler(self):
@@ -599,10 +577,8 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
     def __init__(self, parent):
         super(AnalyzerConfForm_t, self).__init__(parent)
 
-        # Get config ini file
-        # hlpConfig = HelperConfigIniFile()
-        self.currentConfig = ConfigParser.ConfigParser()
-        self.currentConfig.read(hlpConfig.config_ini_path)
+        # XXX write to config object
+        self.currentConfig = PluginState.currentConfig.getConfigParser()
 
         # based on the analyzer ini file (see test/nop.ini)
         # Settings label
@@ -769,10 +745,10 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         lblstate = QtWidgets.QLabel("[State]")
         layout.addWidget(lblstate, 20, 0)
 
-        self.btnConstrainte = QtWidgets.QPushButton(
-            'Define tainting constraints', self)
-        self.btnConstrainte.clicked.connect(self.btnCstrHandler)
-        layout.addWidget(self.btnConstrainte, 20, 1)
+        self.btnConstraint = QtWidgets.QPushButton(
+            'Define', self)
+        self.btnConstraint.clicked.connect(self.btnCstrHandler)
+        layout.addWidget(self.btnConstraint, 20, 1)
 
         # Import table
         lblimport = QtWidgets.QLabel("[Imports]")
@@ -818,6 +794,37 @@ class Analyzer(QtCore.QProcess):
     The idea is to implement callbacks on main Qprocess signals
     """
 
+    def __init__(self, initfname, outfname, logfname, analyzerpath):
+        # XXX move analyzerpath to config class?
+        QtCore.QProcess.__init__(self)
+        # Qprocess signal handlers
+        self.error.connect(self.procanalyzer_on_error)
+        self.readyReadStandardOutput.connect(self.procanalyzer_on_out)
+        self.stateChanged.connect(self.procanalyzer_on_state_change)
+        self.started.connect(self.procanalyzer_on_start)
+        self.finished.connect(self.procanalyzer_on_finish)
+
+        self.initfname = initfname
+        self.outfname = outfname
+        self.logfname = logfname
+        self.analyzerpath = analyzerpath
+
+    def run(self):
+        cmdline = "%s %s --inifile %s --outfile %s --logfile %s" % (
+            os.path.join(PYTHON_PATH, PYTHON_BIN),
+            self.analyzerpath, self.initfname, self.outfname, self.logfname)
+        # start the process
+        try:
+            idaapi.msg(
+                "[+] BinCAT: Analyzer cmdline is:\n  %s \n " % cmdline)
+            self.start(cmdline)
+            idaapi.msg("[+] Analyzer started\n")
+
+        except Exception as e:
+            idaapi.msg("[+] BinCAT failed to launch the analyzer.py\n")
+            idaapi.msg("    Exception: %s\n%s" % (str(e),
+                                                  traceback.format_exc()))
+
     def procanalyzer_on_error(self, error):
         errors = ["Failed to start", "Crashed", "TimedOut", "Read Error",
                   "Write Error", "Unknown Error"]
@@ -833,21 +840,18 @@ class Analyzer(QtCore.QProcess):
 
     def procanalyzer_on_finish(self):
         idaapi.msg("[+] Analyzer process terminated \n")
-        # get the result.txt file and parse it
-        resultfile = idautils.GetIdbDir() + "result.txt"
 
-        BinCATLogViewer.Log("[+] BinCAT: Parsing analyzer result file \n",
+        BinCATLogViewer.Log("[+] BinCAT: Parsing analyzer result file\n",
                             idaapi.SCOLOR_LOCNAME)
-        #  currentState = state.AnalyzerState()
-        # ibcState.AnalyzerStates = currentState
 
-        ibcState.AnalyzerStates.setStatesFromAnalyzerOutput(resultfile)
+        ibcState.program = program.Program.parse(self.outfname,
+                                                 logs=self.logfname)
         # Update current RVA to start address (nodeid = 0)
         startaddr_ea = ""
-        keys = ibcState.AnalyzerStates.stateAtEip.keys()
+        keys = ibcState.program.states.keys()
         for k in keys:
-            state = ibcState.AnalyzerStates.getStateAt(k.value)
-            if state.nodeid == "0":
+            state = ibcState.program[k.value]
+            if state.node_id == "0":
                 startaddr_ea = k.value
         idaapi.msg("==>, %r" % startaddr_ea)
 
@@ -862,15 +866,6 @@ class Analyzer(QtCore.QProcess):
         for line in lines:
             if(line):
                 BinCATLogViewer.Log(line, idaapi.SCOLOR_DNAME)
-
-    def __init__(self):
-        QtCore.QProcess.__init__(self)
-        # attribute different handlers to Qprocess states
-        self.error.connect(self.procanalyzer_on_error)
-        self.readyReadStandardOutput.connect(self.procanalyzer_on_out)
-        self.stateChanged.connect(self.procanalyzer_on_state_change)
-        self.started.connect(self.procanalyzer_on_start)
-        self.finished.connect(self.procanalyzer_on_finish)
 
 
 class BinCATLog_t(idaapi.simplecustviewer_t):
@@ -909,25 +904,6 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.parent = self.FormToPyQtWidget(form)
         layout = QtWidgets.QGridLayout()
 
-        self.tablereg = QtWidgets.QTableView()
-        self.tablemem = QtWidgets.QTableView()
-
-        self.tablereg.setSortingEnabled(True)
-        self.tablemem.setSortingEnabled(True)
-
-        self.tablereg.setModel(ibcState.regmodel)
-        self.tablemem.setModel(ibcState.memmodel)
-
-        self.tablereg.verticalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
-        self.tablemem.verticalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
-
-        self.tablereg.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Interactive)
-        self.tablemem.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Interactive)
-
         splitter = QtWidgets.QSplitter()
         layout.addWidget(splitter, 0, 0)
         # Node id label
@@ -938,15 +914,19 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.alabel = QtWidgets.QLabel('RVA address:')
         splitter.addWidget(self.alabel)
 
-        # Splitter, contains registers & memory tables
-        self.splitter = QtWidgets.QSplitter()
-        self.splitter.setOrientation(QtCore.Qt.Vertical)
-        layout.addWidget(self.splitter, 2, 0)
+        # Value Taint Table
+        self.vttable = QtWidgets.QTableView()
+        self.vttable.setSortingEnabled(True)
+        self.vttable.setModel(ibcState.vtmodel)
+        self.vttable.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
 
-        self.splitter.addWidget(self.tablereg)
-        self.splitter.addWidget(self.tablemem)
+        self.vttable.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch)
 
-        layout.setRowStretch(2, 1)
+        layout.addWidget(self.vttable, 1, 0)
+
+        layout.setRowStretch(1, 0)
 
         self.parent.setLayout(layout)
 
@@ -965,44 +945,36 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.alabel.setText('RVA: 0x%08x' % ea)
         state = ibcState.currentState
         if state:
-            self.nilabel.setText('Node Id: %s' % state.nodeid)
+            self.nilabel.setText('Node Id: %s' % state.node_id)
         else:
             self.nilabel.setText('No data')
 
 
-class TaintingModel(QtCore.QAbstractTableModel):
+class ValueTaintModel(QtCore.QAbstractTableModel):
     """
     Used as model in BinCATTaintedForm TableView widgets.
 
     Contains tainting and values for either registers or memory addresses
     """
-    def __init__(self, region, *args, **kwargs):
-        """
-        :param region: "reg" or "mem"
-        """
-        self.region = region
-        if region == "reg":
-            self.headers = ["Register", "Region", "Value", "Taint"]
-        elif region == "mem":
-            self.headers = ["Memory", "Region", "Value", "Taint"]
+    def __init__(self, *args, **kwargs):
+        self.headers = ["Address", "Region", "Value", "Taint"]
         self.colswidths = [50, 50, 90, 90]
-        #: list of row registers or addresses
+        #: list of (region, addr)
         self.rows = []
-        super(TaintingModel, self).__init__(*args, **kwargs)
+        super(ValueTaintModel, self).__init__(*args, **kwargs)
 
     def endResetModel(self):
         """
         Rebuild a list of rows
         """
         state = ibcState.currentState
-        if not state:
-            self.rows = []
-        else:
-            ptrKeys = set(state.ptrs[self.region].keys())
-            taintingKeys = set(state.tainting[self.region].keys())
-            keys = sorted(ptrKeys | taintingKeys)
-            self.rows = keys
-        super(TaintingModel, self).endResetModel()
+        self.rows = []
+        if state:
+            for region in state.regions:
+                for addrs in state.regions[region]:
+                    self.rows.append((region, addrs))
+
+        super(ValueTaintModel, self).endResetModel()
 
     def headerData(self, section, orientation, role):
         if orientation != QtCore.Qt.Horizontal:
@@ -1018,19 +990,19 @@ class TaintingModel(QtCore.QAbstractTableModel):
         col = index.column()
         if role == QtCore.Qt.SizeHintRole:
             return QtCore.QSize(self.colswidths[col], 20)
-        rowname = self.rows[index.row()]
-        if col == 0:  # name
-            return str(rowname)
+        region, addr = self.rows[index.row()]
+        if col == 0:  # addr
+            return str(addr)
+        elif col == 1:  # region
+            return region
         else:
-            ptr = ibcState.currentState.ptrs[self.region].get(rowname, "")
-            if not ptr:
+            v = ibcState.currentState[region][addr]
+            if not v:
                 return ""
-        if col == 1:  # region
-            return ptr.region
-        elif col == 2:  # value
-            return ptr.__valuerepr__()
+        if col == 2:  # value
+            return v.__valuerepr__()
         elif col == 3:  # taint
-            return ptr.__taintrepr__()
+            return v.__taintrepr__()
 
     def rowCount(self, parent):
         return len(self.rows)
@@ -1048,35 +1020,6 @@ class BinCATForm_t(idaapi.PluginForm):
     def init_Local_Socket(self):
         BinCATLogViewer.Log(
             "[+] BinCAT: creating local socket ", idaapi.SCOLOR_LOCNAME)
-
-    # function: init_Analyzer(): launch eth analyzer.py process
-    def init_Analyzer(self):
-        idaapi.msg("[+] BinCAT: init_Analyzer() \n")
-        # TODO parse analyser config file
-        analyzerpath = self.iptAnalyzerPath.text()
-        inifile = idautils.GetIdbDir() + "nop.ini"
-        outfile = idautils.GetIdbDir() + "result.txt"
-        logfile = idautils.GetIdbDir() + "logfile.txt"
-
-        cmdline = (
-            "%s %s --inifile %s --outfile %s --logfile %s" %
-            (os.path.join(PYTHON_PATH, PYTHON_BIN),
-             analyzerpath, inifile, outfile, logfile))
-
-        # create Analyzer Object
-        self.analyzer = Analyzer()
-
-        # start the process
-        try:
-
-            idaapi.msg("[+] BinCAT: Analyzer cmdline is:\n  %s \n " % cmdline)
-            self.analyzer.start(cmdline)
-            idaapi.msg(" ")
-
-        except Exception as e:
-            idaapi.msg("[+] BinCAT failed to launch the analyzer.py\n")
-            idaapi.msg(
-                "    Exception: %s\n%s" % (str(e), traceback.format_exc()))
 
     # handler for btnNewAnalyzer
     def handler_btnNewAnalyzer(self):
@@ -1145,7 +1088,7 @@ class BinCATForm_t(idaapi.PluginForm):
 
         defaultAnalyzerFile = os.path.join(os.path.dirname(__file__),
                                            'analyzer.py')
-        self.iptAnalyzerPath.setText(idaapi.idadir(defaultAnalyzerFile))
+        self.iptAnalyzerPath.setText(defaultAnalyzerFile)
         self.iptAnalyzerPath.setMaxLength = 256
         self.iptAnalyzerPath.setFixedWidth(300)
 
@@ -1180,11 +1123,6 @@ class BinCATForm_t(idaapi.PluginForm):
 
         self.parent.setLayout(layout)
 
-        idaapi.msg(" type(self) %s\n" % type(self))
-        idaapi.msg(" type(self.parent) %s \n" % type(self.parent))
-        # Launch the analyzer by calling init_analyzer()
-        # self.init_Analyzer()
-
     # Called when the plugin form is closed
     def OnClose(self, form):
         idaapi.msg("[+] BinCAT form closed\n")
@@ -1212,8 +1150,8 @@ class HtooltipT(idaapi.action_handler_t):
         idaapi.action_handler_t.__init__(self)
 
     def activate(self, ctx):
-        idaapi.msg(" activating HtooltipT ")
-        idaapi.warning(" BinCAT: Tainting current Basic Bloc")
+        # idaapi.msg(" activating HtooltipT ")
+        # idaapi.warning(" BinCAT: Tainting current Basic Bloc")
         return 1
 
     def update(self, ctx):
@@ -1228,8 +1166,8 @@ class HtooltipF(idaapi.action_handler_t):
         idaapi.action_handler_t.__init__(self)
 
     def activate(self, ctx):
-        idaapi.msg(" activating HtooltipF ")
-        idaapi.warning(" BinCAT: Tainting current Function")
+        # idaapi.msg(" activating HtooltipF ")
+        # idaapi.warning(" BinCAT: Tainting current Function")
         return 1
 
     def update(self, ctx):
@@ -1294,23 +1232,22 @@ class PluginState():
     Container for plugin state related data & methods.
     """
     def __init__(self):
-        self.regmodel = TaintingModel("reg")
-        self.memmodel = TaintingModel("mem")
+        self.vtmodel = ValueTaintModel()
         self.currentEA = None
-        self.AnalyzerStates = None
+        self.program = None
         self.currentState = None
+        self.currentConfig = AnalyzerConfig()
 
     def setCurrentEA(self, ea):
         idaapi.msg("setCurrent %s" % ea)
         if ea == self.currentEA:
             return
-        self.regmodel.beginResetModel()
-        self.memmodel.beginResetModel()
+        self.vtmodel.beginResetModel()
         self.currentEA = ea
-        self.currentState = self.AnalyzerStates.getStateAt(ea)
+        if self.program:
+            self.currentState = self.program[ea]
         BinCATTaintedForm.updateCurrentEA(ea)
-        self.regmodel.endResetModel()
-        self.memmodel.endResetModel()
+        self.vtmodel.endResetModel()
 
 
 def main():
@@ -1318,27 +1255,21 @@ def main():
     if not idaapi.get_root_filename():
         idaapi.msg("[BinCAT] please load a file/idb before \n")
         return
+    # TODO remove unnecessary globals
     global registers_x86
     global BinCATForm
     global BinCATLogViewer
-    global hlpConfig
     global hooks
     global BinCATTaintedForm
 
-    #: IDA BinCAT plugin state. TODO remove all other globals
+    BinCATLogViewer = BinCATLog_t()
+
+    BinCATForm = BinCATForm_t()
+    BinCATTaintedForm = BinCATTaintedForm_t()
+
+    #: IDA BinCAT plugin state.
     global ibcState
     ibcState = PluginState()
-
-    try:
-        BinCATForm
-        BinCATLogViewer
-        BinCATTaintedForm
-    except:
-        BinCATForm = BinCATForm_t()
-        BinCATLogViewer = BinCATLog_t()
-        BinCATTaintedForm = BinCATTaintedForm_t()
-
-    ibcState.AnalyzerStates = state.AnalyzerState()
 
     idaapi.msg("[+] BinCAT Starting main form\n")
     if BinCATLogViewer.Create(1):
@@ -1396,9 +1327,6 @@ def main():
         hooks = Hooks()
         hooks.hook()
 
-    # Create a default config.ini file
-    hlpConfig = HelperConfigIniFile()
-    hlpConfig.CreateIniFile()
 # ----------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":

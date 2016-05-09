@@ -4,7 +4,6 @@ import os
 import logging
 import argparse
 import sys
-# import analyzer_state
 
 
 def main():
@@ -41,14 +40,13 @@ def main():
     logger.info("[Analyzer] out file: %s ", args.outfile)
     logger.info("[Analyzer] log file: %s ", args.logfile)
 
-    from pybincat import state
+    from pybincat import program
 
-    a = state.AnalyzerState()
-    ac = a.run_analyzer(args.inifile, args.outfile, args.logfile)
-    keys = ac.stateAtEip.keys()
+    p = program.Program.from_filenames(args.inifile, args.outfile,
+                                       args.logfile)
     print("---- Taint analysis results ------\n")
-    for key in keys:
-        state = ac.getStateAt(key.value)
+    for key in p.states:
+        state = p[key.value]
         print("----------------------------------\n")
         print("Node id: %s - Rva: %s \n" %
               (state.nodeid, hex(key.value).rstrip('L')))
