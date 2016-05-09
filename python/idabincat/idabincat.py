@@ -960,6 +960,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             for region in state.regions:
                 for addrs in state.regions[region]:
                     self.rows.append((region, addrs))
+            self.rows.sort()
 
         super(ValueTaintModel, self).endResetModel()
 
