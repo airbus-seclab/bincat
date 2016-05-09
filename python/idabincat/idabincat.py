@@ -797,7 +797,6 @@ class Analyzer(QtCore.QProcess):
         QtCore.QProcess.__init__(self)
         # Qprocess signal handlers
         self.error.connect(self.procanalyzer_on_error)
-        self.readyReadStandardOutput.connect(self.procanalyzer_on_out)
         self.stateChanged.connect(self.procanalyzer_on_state_change)
         self.started.connect(self.procanalyzer_on_start)
         self.finished.connect(self.procanalyzer_on_finish)
@@ -854,16 +853,6 @@ class Analyzer(QtCore.QProcess):
         idaapi.msg("==>, %r" % startaddr_ea)
 
         ibcState.setCurrentEA(startaddr_ea)
-
-    # for a first test I use this callback to get analyzer output
-    # the goal is exchange information using a qtcpsocket
-    def procanalyzer_on_out(self):
-        idaapi.msg("[+] procanalyzer_on_out ")
-        buffer = str(self.readAllStandardOutput()).strip()
-        lines = buffer.splitlines()
-        for line in lines:
-            if(line):
-                BinCATLogViewer.Log(line, idaapi.SCOLOR_DNAME)
 
 
 class BinCATLog_t(idaapi.simplecustviewer_t):
@@ -1013,11 +1002,6 @@ class BinCATForm_t(idaapi.PluginForm):
     """
     BinCAT main IDA PluginForm
     """
-
-    # init local tcp port
-    def init_Local_Socket(self):
-        BinCATLogViewer.Log(
-            "[+] BinCAT: creating local socket ", idaapi.SCOLOR_LOCNAME)
 
     # handler for btnNewAnalyzer
     def handler_btnNewAnalyzer(self):
