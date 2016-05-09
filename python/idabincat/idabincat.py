@@ -362,7 +362,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ipStartAdr.setText(hex(idc.here()).rstrip('L'))
 
         # End address
-        lblEndAdr = QtWidgets.QLabel(" End address   : ")
+        lblEndAdr = QtWidgets.QLabel(" End address: ")
         self.ipEndAdr = QtWidgets.QLineEdit(self)
 
         # Tainting element register or memory XXX never used
