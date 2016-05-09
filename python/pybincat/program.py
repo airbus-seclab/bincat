@@ -16,7 +16,7 @@ class Program(object):
 
     def __init__(self, states, edges, nodes):
         self.states = states
-        #: nodeid -> list of nodeid
+        #: nodeid -> list of nodeid (string)
         self.edges = edges
         #: nodes_id -> address
         self.nodes = nodes
@@ -133,7 +133,7 @@ class State(object):
 
         for i, (k, v) in enumerate(outputkv):
             if k == "id":
-                new_state.node_id = v
+                new_state.node_id = str(v)
                 continue
             m = cls.re_region.match(k)
             if not m:
@@ -182,7 +182,7 @@ class State(object):
 
     def list_modified_keys(self, other):
         """
-        Returns a set of (region, name) for which regions or tainting values
+        Returns a set of (region, name) for which value or tainting
         differ between self and other.
         """
         results = set()

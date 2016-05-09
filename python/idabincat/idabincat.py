@@ -21,7 +21,7 @@ except ImportError:
 
 # Loading Qt packages
 try:
-    from PyQt5 import QtCore, QtWidgets
+    from PyQt5 import QtCore, QtWidgets, QtGui
 except:
     idaapi.msg("[+] BinCat: failed to load Qt libs from PyQt5 \n %s\n" %
                repr(sys.exc_info()))
@@ -909,7 +909,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.ResizeToContents)
 
         self.vttable.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch)
+            QtWidgets.QHeaderView.Interactive)
 
         layout.addWidget(self.vttable, 1, 0)
 
@@ -948,6 +948,9 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         self.colswidths = [50, 50, 90, 90]
         #: list of (region, addr)
         self.rows = []
+        self.changedRows = set()
+        self.diffFont = QtGui.QFont()
+        self.diffFont.setBold(True)
         super(ValueTaintModel, self).__init__(*args, **kwargs)
 
     def endResetModel(self):
@@ -955,12 +958,24 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         Rebuild a list of rows
         """
         state = ibcState.currentState
+        #: list of (region, addr)
         self.rows = []
+        self.changedRows = set()
         if state:
             for region in state.regions:
                 for addrs in state.regions[region]:
                     self.rows.append((region, addrs))
             self.rows.sort()
+
+            # find parent state
+            parents = [nodeid for nodeid in ibcState.program.edges
+                       if state.node_id in ibcState.program.edges[nodeid]]
+            for pnode in parents:
+                paddr = ibcState.program.nodes[pnode]
+                pstate = ibcState.program.states[paddr]
+                for k in state.list_modified_keys(pstate):
+                    if k in self.rows:
+                        self.changedRows.add(self.rows.index(k))
 
         super(ValueTaintModel, self).endResetModel()
 
@@ -973,11 +988,17 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             return QtCore.QSize(self.colswidths[section], 20)
 
     def data(self, index, role):
-        if role != QtCore.Qt.DisplayRole:
-            return
         col = index.column()
         if role == QtCore.Qt.SizeHintRole:
+            # XXX not obeyed. why?
             return QtCore.QSize(self.colswidths[col], 20)
+        elif role == QtCore.Qt.FontRole:
+            if index.row() in self.changedRows:
+                return self.diffFont
+            else:
+                return
+        elif role != QtCore.Qt.DisplayRole:
+            return
         region, addr = self.rows[index.row()]
         if col == 0:  # addr
             return str(addr)
@@ -1224,7 +1245,7 @@ class PluginState():
         self.analyzer = None
 
     def setCurrentEA(self, ea, force=False):
-        idaapi.msg("setCurrent %s" % ea)
+        idaapi.msg("set current EA to %s\n" % ea)
         if not (force or ea != self.currentEA):
             return
         self.vtmodel.beginResetModel()
