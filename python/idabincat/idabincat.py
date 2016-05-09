@@ -287,22 +287,18 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
     def btnLaunchAnalyzer(self):
         BinCATLogViewer.Log("[+] BinCAT: Launching the analyzer",
                             idaapi.SCOLOR_LOCNAME)
-        # Test if End adress is not empty
-        if not self.ipEndAdr.text():
+        # Test if End address is not empty
+        if not self.ipEndAddr.text():
             idaapi.warning(" End address is empty")
         else:
             # load the config file  for read and update
             cf = AnalyzerConfig()
 
             # get the code length
-            # We apply: code-length = Rva-code - startAddress + 2
-            # XXX description does not match code
-            startAddr = int(self.ipStartAdr.text(), 16)
-            endAddr = int(self.ipEndAdr.text(), 16)
+            startAddr = int(self.ipStartAddr.text(), 16)
+            endAddr = int(self.ipEndAddr.text(), 16)
             cl = endAddr - startAddr
 
-            # code-length =  rva-code - entrypoint + cl
-            # XXX description does not match code
             rvacode = cf.rva_code
             cf.entrypoint = startAddr
 
@@ -319,15 +315,11 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             cf.write(initfname)
 
             analyzerpath = BinCATForm.iptAnalyzerPath.text()
-            self.analyzer = Analyzer(initfname, outfname, logfname,
-                                     analyzerpath)
-            self.analyzer.run()
+            ibcState.analyzer = Analyzer(initfname, outfname, logfname,
+                                         analyzerpath)
+            ibcState.analyzer.run()
 
-            # XXX
-            # when analyzer is garbage collected, the QProcess gets killed
-            # close the form: Bug: block the process
-#                        if self.analyzer.waitForStarted(100):
-#                               self.close()
+            self.close()
 
     def btnAnalyzerConfig(self):
         BinCATLogViewer.Log("[+] BinCAT: Loading the analyzer configuration",
@@ -340,15 +332,21 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         layout = QtWidgets.QGridLayout()
         lblCstEditor = QtWidgets.QLabel(" Start taint analysis: ")
+        currentEA = idc.here()
 
         # Start address
-        lblStartAdr = QtWidgets.QLabel(" Start address: ")
-        self.ipStartAdr = QtWidgets.QLineEdit(self)
-        self.ipStartAdr.setText(hex(idc.here()).rstrip('L'))
+        lblStartAddr = QtWidgets.QLabel(" Start address: ")
+        self.ipStartAddr = QtWidgets.QLineEdit(self)
+        self.ipStartAddr.setText(hex(currentEA).rstrip('L'))
 
-        # End address
-        lblEndAdr = QtWidgets.QLabel(" End address: ")
-        self.ipEndAdr = QtWidgets.QLineEdit(self)
+        # Use current basic block address as default end address
+        endAddr = ""
+        for block in idaapi.FlowChart(idaapi.get_func(idc.here())):
+            if block.startEA <= currentEA and block.endEA >= currentEA:
+                endAddr = hex(block.endEA).rstrip('L')
+        lblEndAddr = QtWidgets.QLabel(" End address: ")
+        self.ipEndAddr = QtWidgets.QLineEdit(self)
+        self.ipEndAddr.setText(endAddr)
 
         # Tainting element register or memory XXX never used
         lblTntElem = QtWidgets.QLabel(" Tainted element   : ")
@@ -391,11 +389,11 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         layout.addWidget(lblCstEditor, 0, 0)
 
-        layout.addWidget(lblStartAdr, 1, 0)
-        layout.addWidget(self.ipStartAdr, 1, 1)
+        layout.addWidget(lblStartAddr, 1, 0)
+        layout.addWidget(self.ipStartAddr, 1, 1)
 
-        layout.addWidget(lblEndAdr, 2, 0)
-        layout.addWidget(self.ipEndAdr, 2, 1)
+        layout.addWidget(lblEndAddr, 2, 0)
+        layout.addWidget(self.ipEndAddr, 2, 1)
 
         layout.addWidget(rbRegisters, 3, 0)
         layout.addWidget(self.cbRegisters, 3, 1)
@@ -715,7 +713,7 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
 
         layout.addWidget(self.iptfmt, 16, 1)
 
-        # code section phys start adr
+        # code section phys start addr
         lblpc = QtWidgets.QLabel(" phys-code-addr: ")
         layout.addWidget(lblpc, 17, 0)
         self.iptpc = QtWidgets.QLineEdit(self)
@@ -1237,6 +1235,8 @@ class PluginState():
         self.program = None
         self.currentState = None
         self.currentConfig = AnalyzerConfig()
+        # Analyzer instance
+        self.analyzer = None
 
     def setCurrentEA(self, ea):
         idaapi.msg("setCurrent %s" % ea)
