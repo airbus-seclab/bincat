@@ -850,9 +850,9 @@ class Analyzer(QtCore.QProcess):
             state = ibcState.program[k.value]
             if state.node_id == "0":
                 startaddr_ea = k.value
-        idaapi.msg("==>, %r" % startaddr_ea)
+                break
 
-        ibcState.setCurrentEA(startaddr_ea)
+        ibcState.setCurrentEA(startaddr_ea, force=True)
 
 
 class BinCATLog_t(idaapi.simplecustviewer_t):
@@ -1222,9 +1222,9 @@ class PluginState():
         # Analyzer instance
         self.analyzer = None
 
-    def setCurrentEA(self, ea):
+    def setCurrentEA(self, ea, force=False):
         idaapi.msg("setCurrent %s" % ea)
-        if ea == self.currentEA:
+        if not (force or ea != self.currentEA):
             return
         self.vtmodel.beginResetModel()
         self.currentEA = ea
