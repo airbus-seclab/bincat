@@ -102,7 +102,10 @@ def prepareExpectedState(state):
     return copy.deepcopy(state)
 
 
-def assertEqualStates(state, expectedState, opcodes=None):
+def assertEqualStates(state, expectedState, opcodes=""):
+    """
+    :param opcodes: str
+    """
     if opcodes:
         try:
             p = subprocess.Popen(["ndisasm", "-u", "-"],
@@ -173,8 +176,8 @@ def test_dec(analyzer, initialState, register):
     Tests opcodes 0x48-0x4F
     """
     regid, regname = register
-    opcode = 0x48 + regid
-    prgm = analyzer(initialState, binarystr=chr(opcode))
+    opcode = chr(0x48 + regid)
+    prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
@@ -201,8 +204,8 @@ def test_push(analyzer, initialState, register):
     Tests opcodes 0x50-0x57
     """
     regid, regname = register
-    opcode = 0x50 + regid
-    prgm = analyzer(initialState, binarystr=chr(opcode))
+    opcode = chr(0x50 + regid)
+    prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
 
@@ -221,8 +224,8 @@ def test_pop(analyzer, initialState, register):
     Tests opcodes 0x58-0x5F
     """
     regid, regname = register
-    opcode = 0x58 + regid
-    prgm = analyzer(initialState, binarystr=chr(opcode))
+    opcode = chr(0x58 + regid)
+    prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
 
@@ -281,7 +284,7 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter['reg'][regname] = \
-        stateBefore['mem'][stateBefore['reg']['ebp'] - 6]
+        stateBefore['stack'][stateBefore['reg']['ebp'].value - 6]
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 

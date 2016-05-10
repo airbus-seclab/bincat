@@ -120,6 +120,7 @@ class State(object):
         self.address = address
         self.node_id = node_id
         #: typical keys: 'mem', 'reg', 'nodeid'
+        # TODO use Value objects as subkeys
         self.regions = defaultdict(dict)
 
     @classmethod
@@ -211,7 +212,7 @@ class State(object):
         pno += str(other)
         res = ["--- %s" % pns, "+++ %s" % pno]
         for region, address in self.list_modified_keys(other):
-            res.append("@@ %s %#x @@" % (region, address))
+            res.append("@@ %s %s @@" % (region, address))
             if address not in self.regions[region]:
                 res.append("+ %s" % other.regions[region][address])
             elif address not in other.regions[region]:
