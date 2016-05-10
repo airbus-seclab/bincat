@@ -141,7 +141,10 @@ class State(object):
             region = m.group("region")
             adrs = m.group("adrs")
             if region == 'mem' and adrs.startswith('(') and adrs.endswith(')'):
+                # ex. "(region, 0xabcd)"
+                # region in ['stack', 'global', 'heap', stack'
                 region, adrs = adrs[1:-1].split(', ')
+                adrs = int(adrs, 16)
 
             m = cls.re_valtaint.match(v)
             if not m:
@@ -208,7 +211,7 @@ class State(object):
         pno += str(other)
         res = ["--- %s" % pns, "+++ %s" % pno]
         for region, address in self.list_modified_keys(other):
-            res.append("@@ %s %s @@" % (region, address))
+            res.append("@@ %s %#x @@" % (region, address))
             if address not in self.regions[region]:
                 res.append("+ %s" % other.regions[region][address])
             elif address not in other.regions[region]:
