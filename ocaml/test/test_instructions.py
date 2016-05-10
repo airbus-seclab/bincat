@@ -110,7 +110,6 @@ def assertEqualStates(state, expectedState, opcodes=None):
                                  stdout=subprocess.PIPE)
             out, err = p.communicate(str(opcodes))
             out = "\n"+out
-            print out
         except OSError:
             out = ""
     else:
