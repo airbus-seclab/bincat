@@ -36,14 +36,16 @@ def analyzer(tmpdir, request):
         request.addfinalizer(resetpwd)
 
         initialState = initialState.format(code_length=len(binarystr))
-        initfile = str(tmpdir.join('init.ini'))
-        with open(initfile, 'w+') as f:
+        initfname = str(tmpdir.join('init.ini'))
+        with open(initfname, 'w+') as f:
             f.write(initialState)
         binfile = str(tmpdir.join('file.bin'))
         with open(binfile, 'w+') as f:
             f.write(binarystr)
 
-        p = program.Program.from_analysis(initfile)
+        outfname = str(tmpdir.join('end.ini'))
+        logfname = str(tmpdir.join('log.txt'))
+        p = program.Program.from_filenames(initfname, outfname, logfname)
         return p
     return run_analyzer
 
