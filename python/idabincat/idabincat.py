@@ -9,6 +9,7 @@ import sys
 import traceback
 import ConfigParser
 import tempfile
+import StringIO
 
 try:
     import idaapi
@@ -56,6 +57,18 @@ class AnalyzerConfig:
         self.entrypoint = None
         #: int
         self.rva_code, _ = self.getCodeSection()
+
+    def __str__(self):
+        sio = StringIO.StringIO()
+        self.getConfigParser().write(sio)
+        sio.seek(0)
+        return sio.read()
+
+    def setStartStopAddr(self, startAddr, stopAddr):
+        cl = stopAddr - startAddr
+        rvacode = self.rva_code
+        self.entrypoint = startAddr
+        self.code_length = (startAddr - rvacode) + cl
 
     def getFirstEntryPoint(self):
         ord0 = idc.GetEntryOrdinal(0)
@@ -271,6 +284,44 @@ class AnalyzerConfig:
             self.getConfigParser().write(configfile)
 
 
+class EditConfigurationFileForm_t(QtWidgets.QDialog):
+    def __init__(self, parent):
+        super(EditConfigurationFileForm_t, self).__init__(parent)
+        layout = QtWidgets.QGridLayout()
+
+        self.configtxt = QtWidgets.QPlainTextEdit()
+        self.configtxt.setFixedHeight(900)
+        self.configtxt.setFixedWidth(350)
+
+        startAddr = int(self.parent().ipStartAddr.text(), 16)
+        stopAddr = int(self.parent().ipStopAddr.text(), 16)
+        ibcState.currentConfig.setStartStopAddr(startAddr, stopAddr)
+
+        self.configtxt.appendPlainText(str(ibcState.currentConfig))
+
+        self.btnStart = QtWidgets.QPushButton('Start', self)
+        self.btnStart.setFixedWidth(130)
+        self.btnStart.clicked.connect(self.btnLaunchAnalyzer)
+
+        self.btnCancel = QtWidgets.QPushButton('Cancel', self)
+        self.btnCancel.setFixedWidth(130)
+        self.btnCancel.clicked.connect(self.close)
+
+        layout.addWidget(self.configtxt, 1, 0, 1, 2)
+        layout.addWidget(self.btnStart, 2, 0)
+        layout.addWidget(self.btnCancel, 2, 1)
+        self.setLayout(layout)
+
+    def btnLaunchAnalyzer(self):
+        ibcState.startAnalysis(self.configtxt.toPlainText())
+        self.close()
+
+    def show(self):
+        self.setFixedSize(1000, 400)
+        self.setWindowTitle("Edit configuration")
+        super(TaintLaunchForm_t, self).show()
+
+
 class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def rbRegistersHandler(self):
@@ -287,37 +338,21 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
     def btnLaunchAnalyzer(self):
         BinCATLogViewer.Log("[+] BinCAT: Launching the analyzer",
                             idaapi.SCOLOR_LOCNAME)
-        # Test if End address is not empty
-        if not self.ipEndAddr.text():
-            idaapi.warning(" End address is empty")
+        # Test if stop address is not empty
+        if not self.ipStopAddr.text():
+            idaapi.warning(" Stop address is empty")
+            return
+        if self.editChkBox.isChecked():
+            # display edit form
+            editdlg = EditConfigurationFileForm_t(self)
+            editdlg.exec_()
+            self.close()
         else:
-            # load the config file  for read and update
-            cf = AnalyzerConfig()
-
-            # get the code length
+            # start analysis
             startAddr = int(self.ipStartAddr.text(), 16)
-            endAddr = int(self.ipEndAddr.text(), 16)
-            cl = endAddr - startAddr
-
-            rvacode = cf.rva_code
-            cf.entrypoint = startAddr
-
-            cf.code_length = (startAddr - rvacode) + cl
-
-            path = tempfile.mkdtemp(suffix='bincat')
-            initfname = os.path.join(path, "init.ini")
-            outfname = os.path.join(path, "out.ini")
-            logfname = os.path.join(path, "analyzer.log")
-
-            log = "Current analyzer path: %s \n" % path
-            BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-
-            cf.write(initfname)
-
-            analyzerpath = BinCATForm.iptAnalyzerPath.text()
-            ibcState.analyzer = Analyzer(initfname, outfname, logfname,
-                                         analyzerpath)
-            ibcState.analyzer.run()
+            stopAddr = int(self.ipStopAddr.text(), 16)
+            ibcState.currentConfig.setStartStopAddr(startAddr, stopAddr)
+            ibcState.startAnalysis()
 
             self.close()
 
@@ -339,14 +374,14 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ipStartAddr = QtWidgets.QLineEdit(self)
         self.ipStartAddr.setText(hex(currentEA).rstrip('L'))
 
-        # Use current basic block address as default end address
-        endAddr = ""
+        # Use current basic block address as default stop address
+        stopAddr = ""
         for block in idaapi.FlowChart(idaapi.get_func(idc.here())):
-            if block.startEA <= currentEA and block.endEA >= currentEA:
-                endAddr = hex(block.endEA).rstrip('L')
-        lblEndAddr = QtWidgets.QLabel(" End address: ")
-        self.ipEndAddr = QtWidgets.QLineEdit(self)
-        self.ipEndAddr.setText(endAddr)
+            if block.startEA <= currentEA <= block.endEA:
+                stopAddr = hex(block.endEA).rstrip('L')
+        lblStopAddr = QtWidgets.QLabel(" Stop address: ")
+        self.ipStopAddr = QtWidgets.QLineEdit(self)
+        self.ipStopAddr.setText(stopAddr)
 
         # XXX re-enable when its settings are actually used
         # radio button register
@@ -370,14 +405,15 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         # self.ipMemory = QtWidgets.QLineEdit(self)
         # self.ipMemory.setDisabled(True)
 
+        self.editChkBox = QtWidgets.QCheckBox(
+            "Edit configuration file before running")
+
         # Start, cancel and analyzer config buttons
         self.btnStart = QtWidgets.QPushButton('Start', self)
-        self.btnStart.setToolTip('Save Constraints.')
         self.btnStart.setFixedWidth(130)
         self.btnStart.clicked.connect(self.btnLaunchAnalyzer)
 
         self.btnCancel = QtWidgets.QPushButton('Cancel', self)
-        self.btnCancel.setToolTip('Cancel.')
         self.btnCancel.setFixedWidth(130)
         self.btnCancel.clicked.connect(self.close)
 
@@ -392,8 +428,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout.addWidget(lblStartAddr, 1, 0)
         layout.addWidget(self.ipStartAddr, 1, 1)
 
-        layout.addWidget(lblEndAddr, 2, 0)
-        layout.addWidget(self.ipEndAddr, 2, 1)
+        layout.addWidget(lblStopAddr, 2, 0)
+        layout.addWidget(self.ipStopAddr, 2, 1)
+
+        layout.addWidget(self.editChkBox, 3, 0, 1, 2)
 
         # layout.addWidget(rbRegisters, 3, 0)
         # layout.addWidget(self.cbRegisters, 3, 1)
@@ -401,12 +439,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         # layout.addWidget(rbMemory, 4, 0)
         # layout.addWidget(self.ipMemory, 4, 1)
 
-        layout.addWidget(self.btnStart, 5, 0)
-        layout.addWidget(self.btnCancel, 5, 1)
-        # layout.addWidget(self.btnAc, 5, 2)
-
-        layout.setColumnStretch(3, 1)
-        layout.setRowStretch(6, 1)
+        layout.addWidget(self.btnStart, 4, 0)
+        layout.addWidget(self.btnCancel, 4, 1)
 
         self.setLayout(layout)
 
@@ -1188,7 +1222,7 @@ class HtooltipH(idaapi.action_handler_t):
         idaapi.action_handler_t.__init__(self)
 
     def activate(self, ctx):
-        idaapi.msg(" activating HtooltipH ")
+        # idaapi.msg(" activating HtooltipH ")
         # idaapi.warning(" BinCAT: Tainting from current position: %08x " %
         # here())
         # idaview =
@@ -1219,10 +1253,7 @@ class Hooks(idaapi.UI_Hooks):
                     # SetColor(place.toea(), CIC_ITEM, 0x0CE505)
                     # idaapi.set_item_color(place.toea(), 0x23ffff)
 
-                    idaapi.msg("%s at EA: 0x%08x \n" %
-                               (ctx.form_title, place.toea()))
                     ibcState.setCurrentEA(place.toea())
-                    idaapi.msg("EA: 0x%08x \n" % (place.toea()))
 
     def populating_tform_popup(self, form, popup):
         # idaapi.attach_action_to_popup(form, popup, "my:tooltip0",
@@ -1247,7 +1278,7 @@ class PluginState():
         self.analyzer = None
 
     def setCurrentEA(self, ea, force=False):
-        idaapi.msg("set current EA to %s\n" % ea)
+        idaapi.msg("set current EA to 0x%08x\n" % ea)
         if not (force or ea != self.currentEA):
             return
         self.vtmodel.beginResetModel()
@@ -1256,6 +1287,26 @@ class PluginState():
             self.currentState = self.program[ea]
         BinCATTaintedForm.updateCurrentEA(ea)
         self.vtmodel.endResetModel()
+
+    def startAnalysis(self, configStr=None):
+        path = tempfile.mkdtemp(suffix='bincat')
+        initfname = os.path.join(path, "init.ini")
+        outfname = os.path.join(path, "out.ini")
+        logfname = os.path.join(path, "analyzer.log")
+
+        log = "Current analyzer path: %s \n" % path
+        BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
+
+        if configStr:
+            with open(initfname, 'wb') as f:
+                f.write(configStr)
+        else:
+            self.currentConfig.write(initfname)
+
+        analyzerpath = BinCATForm.iptAnalyzerPath.text()
+        ibcState.analyzer = Analyzer(initfname, outfname, logfname,
+                                     analyzerpath)
+        ibcState.analyzer.run()
 
 
 def main():

@@ -248,7 +248,7 @@ class Value(object):
         return parsers.val2str(self.value, self.vtop, self.vbot)
 
     def __taintrepr__(self):
-        parsers.val2str(self.taint, self.ttop, self.tbot)
+        return parsers.val2str(self.taint, self.ttop, self.tbot)
 
     def __hash__(self):
         return hash((type(self), self.region, self.value,
