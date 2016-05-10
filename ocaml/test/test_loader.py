@@ -72,7 +72,7 @@ def assertEqualStates(state, expectedState, opcodes=None):
             p = subprocess.Popen(["ndisasm", "-u", "-"],
                                  stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE)
-            out, err = p.communicate(opcodes)
+            out, err = p.communicate(str(opcodes))
             out = "\n"+out
         except OSError:
             out = ""
@@ -103,7 +103,7 @@ def test_decode_5055_full(analyzer):
     expectedState1['stack'][expectedState1['reg']['esp'].value] = \
         stateInit['reg']['eax']
 
-    expectedState1.address += 1
+    expectedState1.address += 1  # not checked, cosmetic when debugging only
 
     expectedState2 = copy.deepcopy(expectedState1)
     expectedState2['reg']['esp'] -= 4
@@ -128,7 +128,8 @@ def test_decode_5055_lastbyte(analyzer):
     expectedState2['reg']['esp'] -= 4
     expectedState2['stack'][expectedState2['reg']['esp'].value] = \
         state1['reg']['ebp']
-    expectedState2.address += 1
+
+    expectedState2.address += 1  # not checked, cosmetic when debugging only
 
     assert len(prgm.edges) == 1
     assertEqualStates(state2, expectedState2)

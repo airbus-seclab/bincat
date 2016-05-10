@@ -108,8 +108,9 @@ def assertEqualStates(state, expectedState, opcodes=None):
             p = subprocess.Popen(["ndisasm", "-u", "-"],
                                  stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE)
-            out, err = p.communicate(opcodes)
+            out, err = p.communicate(str(opcodes))
             out = "\n"+out
+            print out
         except OSError:
             out = ""
     else:
@@ -209,7 +210,7 @@ def test_push(analyzer, initialState, register):
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter['reg']['esp'] -= 4
-    expectedStateAfter['mem'][stateBefore['reg']['esp']] = \
+    expectedStateAfter['stack'][expectedStateAfter['reg']['esp'].value] = \
         stateBefore['reg'][regname]
 
     assertEqualStates(stateAfter, expectedStateAfter)
@@ -230,7 +231,7 @@ def test_pop(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter['reg']['esp'] += 4
     expectedStateAfter['reg'][regname] = \
-        stateBefore['mem'][stateBefore['reg']['esp']]
+        stateBefore['stack'][stateBefore['reg']['esp'].value]
 
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
