@@ -96,20 +96,22 @@ module Make(Domain: Domain.T) =
 	  end;
 	  v
 	in
-	(* first the domain is updated with the tainting value for each register with initial tainting in the provided configuration *)
-	let d' =  Hashtbl.fold
-		    (fun r v d -> Domain.taint_register_from_config r Data.Address.Global (check_tainting_register v r) d
-		    )
-		    Config.initial_register_tainting d
-	in
-	(* then the resulting domain d' is updated with the content for each register with initial content setting in the provided configuration *)  
+	let d' =
+	  (*first the domain d' is updated with the content for each register with initial content setting in the provided configuration *)  
 	Hashtbl.fold
 	  (fun r v d ->
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global
 	    in
 	    Domain.set_register_from_config r region (check_init_size r v) d
 	  )
-	  Config.initial_register_content d'
+	  Config.initial_register_content d
+	in
+	(* second the resulting domain is updated with the tainting value for each register with initial tainting in the provided configuration *)
+	Hashtbl.fold
+	  (fun r v d -> Domain.taint_register_from_config r Data.Address.Global (check_tainting_register v r) d
+	  )
+	  Config.initial_register_tainting d'
+	
 
       (** builds 0xffff...ff with nb repetitions of the pattern ff *)
       let ff nb =

@@ -62,7 +62,6 @@ struct
 
   (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
   let process_stmt g (v: Cfa.State.t) d stmt fun_stack =
-    flush stdout;
     let copy a =
       let v' = Cfa.copy_state g v in
       v'.Cfa.State.stmts <- [];
@@ -72,7 +71,7 @@ struct
     in
     let rec has_jmp stmts =
       match stmts with
-	[] -> false
+      |	[] -> false
       | s::stmts' ->
 	 let b =
 	   match s with
@@ -172,7 +171,7 @@ struct
 	     Cfa.add_edge g v v';
 	     [ d', Some v' ]
 	   with
-	     _ -> Log.error "Intepreter: computed instruction pointer at return instruction too imprecise or undefined"
+	     _ -> Log.error "Interpreter: computed instruction pointer at return instruction too imprecise or undefined"
 	 with
 	 | _ -> Log.error (Printf.sprintf "return instruction at %s without previous call instruction\n" (Data.Address.to_string v.Cfa.State.ip))
        end
@@ -221,7 +220,6 @@ struct
 			  try let n' = (Hashtbl.find unroll_tbl ip) + 1 in Hashtbl.replace unroll_tbl ip n' ; n'
 			  with Not_found -> Hashtbl.add unroll_tbl v.Cfa.State.ip 1; 1
 			in
-			Printf.printf "ip = %s => nb = %d\n" (Data.Address.to_string ip) n; 
 			if n <= !Config.unroll then
 			  ()
 			else 

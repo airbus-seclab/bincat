@@ -1379,6 +1379,7 @@ module Make(Domain: Domain.T) =
 	    let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in
 	    let blk = [ If (ecx_cond, v.Cfa.State.stmts @ (ecx_stmt :: zf_stmts), [ Jmp (A a') ]) ] in
 	    v.Cfa.State.stmts <- blk;
+	    List.iter (fun s -> Printf.printf "%s\n" (Asm.string_of_stmt s)) blk; flush stdout;
 	    v, ip
 	  
 	and decode_snd_opcode s =
@@ -1403,7 +1404,7 @@ module Make(Domain: Domain.T) =
 	  | '\xba' -> grp8 s
 	  | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in btc s reg rm
 
-	  | c 				      -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
+	  | c 	   -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
 	  decode s;;
 					      

@@ -8,6 +8,8 @@ module type Val =
     type t
     (** bottom *) 
     val bot: t
+    (** top *)
+    val top: t
     (** comparison to bottom *)
     val is_bot: t -> bool
     (** comparison to top *)
@@ -60,6 +62,8 @@ module type Val =
     val subset: t -> t -> bool
     (** comparison *)
     val compare: t -> Asm.cmp -> t -> bool
+    (** undefine the taint of the given value *)
+    val forget_taint: t -> t
   end
     
 (** signature of vector *)
@@ -164,7 +168,7 @@ module Make(V: Val) =
 	    Data.Word.to_string (to_word v)
       in
       let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "0b" v  in
-      if String.length t = 0 then v'
+      if String.length t = 2 then v'
       else Printf.sprintf "%s ! %s" v' t
 
 	
@@ -355,7 +359,11 @@ module Make(V: Val) =
 	   done
 	| Config.CMask (c, m) ->
 	   for i = 0 to n' do
-	     v.(n'-i) <- V.join (V.of_value (nth_of_value c i)) (V.lognot ((V.of_value (nth_of_value m i))))
+	     let mnth = nth_of_value m i in
+	     if Z.compare mnth Z.zero = 0 then
+	       v.(n'-i) <- V.of_value (nth_of_value c i)
+	   else
+	     v.(n'-i) <- V.top
 	   done
       end;
       v
@@ -369,7 +377,7 @@ module Make(V: Val) =
       match t with
       | Config.Taint b ->
 	 let n' =n-1 in
-	 for i = 0 to n-1 do
+	 for i = 0 to n' do
 	   v.(n'-i) <- V.taint_of_value (nth_of_value b i) v.(n'-i)
 	 done;
 	 v
@@ -378,7 +386,10 @@ module Make(V: Val) =
 	 for i = 0 to n' do
 	   let bnth = nth_of_value b i in
 	   let mnth = nth_of_value m i in
-	   v.(n'-i) <- V.join (V.taint_of_value bnth v.(n'-i)) (V.lognot ((V.taint_of_value mnth v.(n'-i))))
+	   if Z.compare mnth Z.zero = 0 then
+	     v.(n'-i) <- V.taint_of_value bnth v.(n'-i)
+	   else
+	     v.(n'-i) <- V.forget_taint v.(n'-i)
 	 done;
 	 v
 

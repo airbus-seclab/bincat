@@ -7,12 +7,15 @@ module T = Tainting
 type t = V.t * T.t
 
 let bot = V.BOT, T.BOT
+let top = V.TOP, T.TOP
 		   
 let is_bot (v, _t) = v = V.BOT
 let is_top (v, _t) = v = V.TOP
 			      
 let to_value (v, _t) = V.to_value v
-				  
+
+let forget_taint (v, _t) = v, T.TOP
+				
 let join (v1, t1) (v2, t2) = V.join v1 v2, T.join t1 t2
 
 let meet (v1, t1) (v2, t2) = V.meet v1 v2, T.meet t1 t2
