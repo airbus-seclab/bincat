@@ -248,7 +248,7 @@ struct
 	  else
 	    (** explore if a greater abstract state of v has already been explored *)
 	    Cfa.iter_vertex (fun prev ->
-		if v.Cfa.State.id = prev.Cfa.State.id || prev.Cfa.State.id = 0 then
+		if v.Cfa.State.id = prev.Cfa.State.id then
 		  ()
 		else
 		  if same prev v then raise Exit

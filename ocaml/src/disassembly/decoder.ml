@@ -970,8 +970,8 @@ module Make(Domain: Domain.T) =
 
 			    
       let grp2 s sz _n =
-	let nnn, _dst = core_grp s 2 sz in
-	let _forget_flags = List.map (fun f -> Directive (Forget f)) [fpf ; fof ; fcf ; fsf ; fzf ; faf ] in
+	let nnn, _dst     = core_grp s 2 sz in
+	let _forget_flags = List.map (fun f -> Directive (Forget f)) [fpf; fof; fcf; fsf; fzf; faf] in
 	match nnn with
 (*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ]
 	| 5 -> return s [ Set (dst, BinOp (Shr, Lval dst, n)) ; flags ]
