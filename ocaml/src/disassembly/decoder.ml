@@ -983,6 +983,7 @@ module Make(Domain: Domain.T) =
 	let stmts =
 	match nnn with
 	| 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
+	| 3 -> (* NEG *) [ Set (dst, BinOp (Sub, Const (Word.zero sz), Lval dst)) ]
 	| _ -> Log.error "Unknown operation in grp 3"
 	in
 	return s stmts
