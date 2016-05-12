@@ -803,7 +803,7 @@ module Make(Domain: Domain.T) =
 		 else
 		   Log.error "decoder: tried a far jump into non code segment"
 	       else Log.error "Illegal segment loading (privilege error)"
-	     with _ -> Log.error "Illegal segment loading requested (illegal index in the description table)"
+	     with _ -> Log.error "Illegal segment loading request (illegal index in the description table)"
 	   end;
 	   Hashtbl.replace s.segments.reg cs v';
 	   let a  = int_of_bytes s (s.operand_sz / Config.size_of_byte) in
@@ -812,8 +812,24 @@ module Make(Domain: Domain.T) =
 	   check_jmp s a';
 	    (* returns the statements : the first one enables to update the interpreter with the new value of cs *)
 	   return s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (A a') ]
-		  
-	 
+
+	 (* statements for LOOP/LOOPE/LOOPNE *)
+	 let loop s c =
+	   let ecx' = V (if Register.size ecx = s.addr_sz then T ecx else P (ecx, 0, s.addr_sz-1)) in
+	   let dec_stmt  = Set (ecx', BinOp(Sub, Lval ecx', Const (Word.one s.addr_sz))) in
+	   let o  = int_of_bytes s 1                                                           in
+	   let a' = Address.add_offset s.a o                                                   in
+	   check_jmp s a';
+	   let fzf_cond cst = Cmp (EQ, Lval (V (T fzf)), Const (cst fzf_sz)) in
+	   let ecx_cond = Cmp (NEQ, Lval ecx', Const (Word.zero s.addr_sz)) in
+	   let cond =
+	     match c with
+	     | '\xe0' -> BBinOp (LogAnd, fzf_cond Word.zero, ecx_cond)
+	     | '\xe1' -> BBinOp (LogAnd, fzf_cond Word.one, ecx_cond)
+	     | '\xe2' -> ecx_cond
+	     | _      -> Log.error "Unexpected use of Decoder.loop"
+	   in
+	   return s [ dec_stmt ; If (cond, [Jmp (A (a'))], [ ]) ]
 	 (*******************)
 	 (* push/pop *)
 	 (***************)
@@ -1335,7 +1351,8 @@ module Make(Domain: Domain.T) =
 	  | '\xd3' -> grp2 s s.operand_sz (Lval (V (to_reg ecx Config.size_of_byte)))
 	     
 	  | c when '\xd8' <= c && c <= '\xdf' -> Log.error "ESC to coprocessor instruction set. Interpreter halts"
-							   
+
+	  | c when '\xe0' <= c && c <= '\xe2' -> loop s c
 	  | '\xe3' -> jecxz s
 
 	  | '\xe9' -> relative_jmp s (s.operand_sz / Config.size_of_byte)
