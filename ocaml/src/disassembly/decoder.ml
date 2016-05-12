@@ -372,7 +372,7 @@ module Make(Domain: Domain.T) =
 	    | 0 ->
 	       begin
 		 match rm with
-		 | 4 -> M ( add_data_segment (sib s rm' md), sz)
+		 | 4 -> M (add_data_segment (sib s rm' md), sz)
 		 | 5 -> raise Disp32
 		 | _ -> M (add_data_segment (Lval (V rm')), sz)
 	       end						    
@@ -1400,10 +1400,23 @@ module Make(Domain: Domain.T) =
 	  | '\xb3' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in btr s reg rm
 	  | '\xb4' -> load_far_ptr s fs
 	  | '\xb5' -> load_far_ptr s gs
-	  
+
+	  | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in
+		      let r = Register.make (Register.fresh_name ()) s.operand_sz in
+		      return s [ Set (V (T r), rm) ;
+				 Set (reg, UnOp(ZeroExt s.operand_sz, Lval (V (P (r, 0, 8)))));
+				 Directive (Remove r) ]
+	  | '\xb7' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
+											      
 	  | '\xba' -> grp8 s
 	  | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in btc s reg rm
 
+	  | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in
+		      let r = Register.make (Register.fresh_name ()) s.operand_sz in
+		      return s [ Set (V (T r), rm) ;
+				 Set (reg, UnOp(SignExt s.operand_sz, Lval (V (P (r, 0, 8)))));
+				 Directive (Remove r) ]
+	  | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ]
 	  | c 	   -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
 	  decode s;;
