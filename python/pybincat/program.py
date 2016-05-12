@@ -4,7 +4,6 @@ from collections import defaultdict
 import re
 from pybincat.tools import parsers
 from pybincat import PyBinCATException
-from pybincat import mlbincat
 import tempfile
 
 
@@ -17,7 +16,7 @@ class Program(object):
 
     def __init__(self, states, edges, nodes):
         self.states = states
-        #: nodeid -> list of nodeid
+        #: nodeid -> list of nodeid (string)
         self.edges = edges
         #: nodes_id -> address
         self.nodes = nodes
@@ -55,21 +54,38 @@ class Program(object):
         return program
 
     @classmethod
-    def from_analysis(cls, initfile):
+    def from_analysis(cls, initfname):
+        """
+        Runs analysis from provided init file
+        """
         outfile = tempfile.NamedTemporaryFile()
         logfile = tempfile.NamedTemporaryFile()
 
-        mlbincat.process(initfile, outfile.name, logfile.name)
-
-        return Program.parse(outfile.name, logs=logfile.name)
+        return cls.from_filenames(initfname, outfile.name, logfile.name)
 
     @classmethod
     def from_state(cls, state):
+        """
+        Runs analysis.
+        """
         initfile = tempfile.NamedTemporaryFile()
         initfile.write(str(state))
         initfile.close()
 
         return cls.from_analysis(initfile.name)
+
+    @classmethod
+    def from_filenames(cls, initfname, outfname, logfname):
+        """
+        Runs analysis, using provided filenames.
+
+        :param initfname: string, path to init file
+        :param outfname: string, path to output file
+        :param logfname: string, path to log file
+        """
+        from pybincat import mlbincat
+        mlbincat.process(initfname, outfname, logfname)
+        return Program.parse(outfname, logs=logfname)
 
     def _toValue(self, eip):
         if type(eip) in [int, long]:
@@ -103,6 +119,8 @@ class State(object):
     def __init__(self, address, node_id=None):
         self.address = address
         self.node_id = node_id
+        #: typical keys: 'mem', 'reg', 'nodeid'
+        # TODO use Value objects as subkeys
         self.regions = defaultdict(dict)
 
     @classmethod
@@ -116,13 +134,18 @@ class State(object):
 
         for i, (k, v) in enumerate(outputkv):
             if k == "id":
-                new_state.node_id = v
+                new_state.node_id = str(v)
                 continue
             m = cls.re_region.match(k)
             if not m:
                 raise PyBinCATException("Parsing error (entry %i, key=%r)" % (i, k))
             region = m.group("region")
             adrs = m.group("adrs")
+            if region == 'mem' and adrs.startswith('(') and adrs.endswith(')'):
+                # ex. "(region, 0xabcd)"
+                # region in ['stack', 'global', 'heap', stack'
+                region, adrs = adrs[1:-1].split(', ')
+                adrs = int(adrs, 16)
 
             m = cls.re_valtaint.match(v)
             if not m:
@@ -163,7 +186,7 @@ class State(object):
 
     def list_modified_keys(self, other):
         """
-        Returns a set of (region, name) for which regions or tainting values
+        Returns a set of (region, name) for which value or tainting
         differ between self and other.
         """
         results = set()
@@ -229,7 +252,7 @@ class Value(object):
         return parsers.val2str(self.value, self.vtop, self.vbot)
 
     def __taintrepr__(self):
-        parsers.val2str(self.taint, self.ttop, self.tbot)
+        return parsers.val2str(self.taint, self.ttop, self.tbot)
 
     def __hash__(self):
         return hash((type(self), self.region, self.value,

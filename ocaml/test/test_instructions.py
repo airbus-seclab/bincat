@@ -36,14 +36,16 @@ def analyzer(tmpdir, request):
         request.addfinalizer(resetpwd)
 
         initialState = initialState.format(code_length=len(binarystr))
-        initfile = str(tmpdir.join('init.ini'))
-        with open(initfile, 'w+') as f:
+        initfname = str(tmpdir.join('init.ini'))
+        with open(initfname, 'w+') as f:
             f.write(initialState)
         binfile = str(tmpdir.join('file.bin'))
         with open(binfile, 'w+') as f:
             f.write(binarystr)
 
-        p = program.Program.from_analysis(initfile)
+        outfname = str(tmpdir.join('end.ini'))
+        logfname = str(tmpdir.join('log.txt'))
+        p = program.Program.from_filenames(initfname, outfname, logfname)
         return p
     return run_analyzer
 
@@ -53,11 +55,11 @@ testregisters = list(enumerate(
 ))
 
 
-def getNextState(ac, curState):
+def getNextState(prgm, curState):
     """
     Helper function: check that there is only one destination state, return it.
     """
-    nextStates = ac.next_states(curState.address)
+    nextStates = prgm.next_states(curState.address)
     assert len(nextStates) == 1, \
         "expected exactly 1 destination state after running this instruction"
     nextState = nextStates[0]
@@ -100,13 +102,16 @@ def prepareExpectedState(state):
     return copy.deepcopy(state)
 
 
-def assertEqualStates(state, expectedState, opcodes=None):
+def assertEqualStates(state, expectedState, opcodes=""):
+    """
+    :param opcodes: str
+    """
     if opcodes:
         try:
             p = subprocess.Popen(["ndisasm", "-u", "-"],
                                  stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE)
-            out, err = p.communicate(opcodes)
+            out, err = p.communicate(str(opcodes))
             out = "\n"+out
         except OSError:
             out = ""
@@ -125,9 +130,9 @@ def test_xor_reg_self(analyzer, initialState, register):
     """
     regid, regname = register
     opcode = "\x33" + chr(0xc0 + regid + (regid << 3))
-    program = analyzer(initialState, binarystr=opcode)
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
 
     setReg(expectedStateAfter, regname, 0)
@@ -149,9 +154,9 @@ def test_inc(analyzer, initialState, register):
     """
     regid, regname = register
     opcode = chr(0x40 + regid)
-    program = analyzer(initialState, binarystr=opcode)
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
     for flag in ('of', 'sf', 'zf', 'af', 'pf'):
         clearFlag(expectedStateAfter, flag)
@@ -162,7 +167,7 @@ def test_inc(analyzer, initialState, register):
     expectedStateAfter['reg'][regname] += 1
     # XXX flags should be tainted - known bug
 
-    assertEqualStates(expectedStateAfter, stateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -171,10 +176,10 @@ def test_dec(analyzer, initialState, register):
     Tests opcodes 0x48-0x4F
     """
     regid, regname = register
-    opcode = 0x48 + regid
-    program = analyzer(initialState, binarystr=chr(opcode))
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    opcode = chr(0x48 + regid)
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
 
     expectedStateAfter['reg'][regname] -= 1
@@ -190,7 +195,7 @@ def test_dec(analyzer, initialState, register):
     # XXX check flags
 
     # XXX taint more bits?
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -199,18 +204,18 @@ def test_push(analyzer, initialState, register):
     Tests opcodes 0x50-0x57
     """
     regid, regname = register
-    opcode = 0x50 + regid
-    program = analyzer(initialState, binarystr=chr(opcode))
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    opcode = chr(0x50 + regid)
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter['reg']['esp'] -= 4
-    expectedStateAfter['mem'][stateBefore['reg']['esp']] = \
+    expectedStateAfter['stack'][expectedStateAfter['reg']['esp'].value] = \
         stateBefore['reg'][regname]
 
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -219,33 +224,33 @@ def test_pop(analyzer, initialState, register):
     Tests opcodes 0x58-0x5F
     """
     regid, regname = register
-    opcode = 0x58 + regid
-    program = analyzer(initialState, binarystr=chr(opcode))
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    opcode = chr(0x58 + regid)
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter['reg']['esp'] += 4
     expectedStateAfter['reg'][regname] = \
-        stateBefore['mem'][stateBefore['reg']['esp']]
+        stateBefore['stack'][stateBefore['reg']['esp'].value]
 
-    assertEqualStates(expectedStateAfter, stateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
 def test_sub(analyzer, initialState):
     # sub esp, 0x1234
     hexstr = "81ec34120000"
-    program = analyzer(initialState, binarystr=binascii.unhexlify(hexstr))
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    prgm = analyzer(initialState, binarystr=binascii.unhexlify(hexstr))
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter['reg']['esp'] = stateBefore['reg']['esp'] \
         - 0x1234
     # TODO check taint
-    assertEqualStates(expectedStateAfter, stateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -256,15 +261,15 @@ def test_or_reg_ff(analyzer, initialState, register):
     # or ebx,0xffffffff
     regid, regname = register
     opcode = "\x83" + chr(0xc8 + regid) + "\xff"
-    program = analyzer(initialState, opcode)
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    prgm = analyzer(initialState, opcode)
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     setReg(expectedStateAfter, regname, 0xffffffff)
     # TODO check taint
-    assertEqualStates(expectedStateAfter, stateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -272,29 +277,29 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     regid, regname = register
     # mov    reg,DWORD PTR [ebp-0x6]
     opcode = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
-    program = analyzer(initialState, binarystr=opcode)
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter['reg'][regname] = \
-        stateBefore['mem'][stateBefore['reg']['ebp'] - 6]
-    assertEqualStates(expectedStateAfter, stateAfter, opcode)
+        stateBefore['stack'][stateBefore['reg']['ebp'].value - 6]
+    assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
     regid, regname = register
     opcode = "\x8b" + chr(0x28 + regid)
-    program = analyzer(initialState, binarystr=opcode)
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter['reg']['ebp'] = stateBefore['reg'][regname]
-    assertEqualStates(expectedStateAfter, stateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
 def test_nop(analyzer, initialState):
@@ -302,7 +307,7 @@ def test_nop(analyzer, initialState):
     Tests opcode 0x90
     """
     # TODO add initial concrete ptr to initialState
-    program = analyzer(initialState, binarystr='\x90')
-    stateBefore = program[0x00]
-    stateAfter = getNextState(program, stateBefore)
+    prgm = analyzer(initialState, binarystr='\x90')
+    stateBefore = prgm[0x00]
+    stateAfter = getNextState(prgm, stateBefore)
     assertEqualStates(stateBefore, stateAfter)
