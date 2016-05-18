@@ -49,7 +49,7 @@ def main():
         state = p[key.value]
         print("----------------------------------\n")
         print("Node id: %s - Rva: %s \n" %
-              (state.nodeid, hex(key.value).rstrip('L')))
+              (state.node_id, hex(key.value).rstrip('L')))
         for k, v in state.ptrs.iteritems():
             print("%s: \n" % k)
             if k == "mem":
