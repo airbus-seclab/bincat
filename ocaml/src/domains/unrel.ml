@@ -170,6 +170,7 @@ module Make(D: T) =
 	     with Not_found -> D.default (Register.size r)
 	   end
 	| Asm.Lval (Asm.V (Asm.P (r, l, u))) ->
+	   Printf.printf "extract\n"; flush stdout;
 	   begin
 	     try
 	       let v = Map.find (K.R r) m in
@@ -199,7 +200,9 @@ module Make(D: T) =
 	| Asm.BinOp (op, e1, e2) -> D.binary op (eval e1) (eval e2)
 	| Asm.UnOp (op, e) 	 -> D.unary op (eval e)
       in
-      eval e
+      let r = eval e in
+      Printf.printf "eval %s = %s\n" (Asm.string_of_exp e) (D.to_string r); flush stdout;
+      r
 
     let mem_to_addresses m e =
       match m with
