@@ -328,3 +328,23 @@ def test_nop(analyzer, initialState):
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
     assertEqualStates(stateBefore, stateAfter)
+
+
+def test_and_esp(analyzer, initialState):
+    """
+    Test   and %esp,0xfffffff0
+    """
+    opcode = "\x83\xe4\xf0"
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm[0]
+    stateAfter = getNextState(prgm, stateBefore)
+    expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter["reg"]["esp"] &= 0xfffffff0
+    esp = expectedStateAfter["reg"]["esp"].value
+    clearFlag(expectedStateAfter, "of")
+    clearFlag(expectedStateAfter, "cf")
+    calc_zf(expectedStateAfter, esp)
+    calc_sf(expectedStateAfter, esp)
+    calc_pf(expectedStateAfter, esp)
+
+    assertEqualStates(stateAfter, expectedStateAfter, opcode)
