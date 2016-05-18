@@ -9,6 +9,7 @@ DOCPYPATH  =../doc/generated/python
 DOCGENPATH =doc/generated
 DOCREFPATH =doc/manual
 MLLIBDIR=../../python/idabincat
+IDAPATH   ?= $(HOME)/ida-6.9
 
 all:
 	@echo "Compiling OCaml part................................................."
@@ -23,6 +24,12 @@ install: all
 	@echo "Installing Python part..............................................."
 	make -C $(PYPATH) install
 
+IDAinstall:# install
+	@echo "Linking pybincat and idabincat inside IDA Python ...................."
+	rm -f "${IDAPATH}/python/pybincat"
+	ln -s $$(python -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAPATH}/python/pybincat"
+	rm -f "${IDAPATH}/python/idabincat"
+	ln -s $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAPATH}/python/idabincat"
 
 test: all
 	make -C $(MLTESTPATH) test
@@ -59,5 +66,6 @@ dist: clean
 	cp -r ocaml bincat-dist
 	cp -r doc bincat-dist
 	tar -czf bincat.tar.gz bincat-dist
-.PHONY: install clean
+
+.PHONY: install clean IDAinstall
 
