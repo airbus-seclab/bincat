@@ -119,9 +119,8 @@ class State(object):
     def __init__(self, address, node_id=None):
         self.address = address
         self.node_id = node_id
-        #: typical keys: 'mem', 'reg', 'nodeid'
-        # TODO use Value objects as subkeys
-        self.regions = defaultdict(dict)
+        #: Value -> Value
+        self.regaddrs = {}
 
     @classmethod
     def parse(cls, address, outputkv):
@@ -145,7 +144,6 @@ class State(object):
                 # ex. "(region, 0xabcd)"
                 # region in ['stack', 'global', 'heap', stack'
                 region, adrs = adrs[1:-1].split(', ')
-                adrs = int(adrs, 16)
 
             m = cls.re_valtaint.match(v)
             if not m:
@@ -154,17 +152,21 @@ class State(object):
             val = m.group("value")
             taint = m.group("taint")
 
-            new_state[region][adrs] = Value.parse(kind, val, taint)
+            regaddr = Value.parse(region, adrs, '0')
+            new_state[regaddr] = Value.parse(kind, val, taint)
         return new_state
 
     def __getitem__(self, item):
-        return self.regions[item]
+        return self.regaddrs[item]
+
+    def __setitem__(self, item, val):
+        self.regaddrs[item] = val
 
     def __getattr__(self, attr):
         if attr.startswith('__'):  # avoid failure in copy.deepcopy()
             raise AttributeError(attr)
         try:
-            return self.regions[attr]
+            return self.regaddrs[attr]
         except KeyError:
             raise AttributeError(attr)
 
@@ -172,16 +174,11 @@ class State(object):
     re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
 
     def __eq__(self, other):
-        if set(self.regions.keys()) != set(other.regions.keys()):
+        if set(self.regaddrs.keys()) != set(other.regaddrs.keys()):
             return False
-        for region in self.regions.keys():
-            self_region_keys = set(self.regions[region].keys())
-            other_region_keys = set(other.regions[region].keys())
-            if self_region_keys != other_region_keys:
+        for regaddr in self.regaddrs.keys():
+            if self.regaddrs[regaddr] != other.regaddrs[regaddr]:
                 return False
-            for key in self_region_keys:
-                if (self.regions[region][key] != other.regions[region][key]):
-                    return False
         return True
 
     def list_modified_keys(self, other):
@@ -189,18 +186,14 @@ class State(object):
         Returns a set of (region, name) for which value or tainting
         differ between self and other.
         """
-        results = set()
-        regions = set(self.regions) | set(other.regions)
-        for region in regions:
-            sPr = self.regions[region]
-            oPr = other.regions[region]
-            sPrK = set(sPr)
-            oPrK = set(oPr)
-
-            results |= set((region, p) for p in sPrK ^ oPrK)
-            results |= set((region, p) for p in oPrK & sPrK
-                           if sPr[p] != oPr[p])
-
+        # List keys present in only one of the states
+        sRA = set(self.regaddrs)
+        oRA = set(other.regaddrs)
+        results = sRA.symmetric_difference(oRA)
+        # Check values
+        for regaddr in sRA & oRA:
+            if self[regaddr] != other[regaddr]:
+                results.add(regaddr)
         return results
 
     def diff(self, other, pns="", pno=""):
@@ -211,15 +204,17 @@ class State(object):
         pns += str(self)
         pno += str(other)
         res = ["--- %s" % pns, "+++ %s" % pno]
-        for region, address in self.list_modified_keys(other):
+        for regaddr in self.list_modified_keys(other):
+            region = regaddr.region
+            address = regaddr.value
             res.append("@@ %s %s @@" % (region, address))
-            if address not in self.regions[region]:
-                res.append("+ %s" % other.regions[region][address])
-            elif address not in other.regions[region]:
-                res.append("- %s" % self.regions[region][address])
-            elif self.regions[region][address] != other.regions[region][address]:
-                res.append("- %s" % self.regions[region][address])
-                res.append("+ %s" % other.regions[region][address])
+            if regaddr not in self.regaddrs:
+                res.append("+ %s" % other.regaddrs[regaddr])
+            elif regaddr not in other.regaddrs:
+                res.append("- %s" % self.regaddrs[regaddr])
+            elif self.regaddrs[regaddr] != other.regaddrs[regaddr]:
+                res.append("- %s" % self.regaddrs[regaddr])
+                res.append("+ %s" % other.regaddrs[regaddr])
         return "\n".join(res)
 
     def __repr__(self):

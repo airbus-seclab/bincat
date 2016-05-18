@@ -1,5 +1,7 @@
 def parse_val(s):
-    # XXX add support for registers
+    if s[0] not in '0123456789_?' or '_bincat_tmp' in s:
+        # it's a register
+        return s, 0, 0
     tbvals = dict.fromkeys(["?", "_"], 0)
     val = None
     bdict = {"0x": (16, "f"),
