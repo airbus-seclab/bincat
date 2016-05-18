@@ -99,16 +99,18 @@ def test_decode_5055_full(analyzer):
 
     expectedState1 = copy.deepcopy(stateInit)
 
-    expectedState1['reg']['esp'] -= 4
-    expectedState1['stack'][expectedState1['reg']['esp'].value] = \
-        stateInit['reg']['eax']
+    expectedState1[program.Value('reg', 'esp')] -= 4
+    expectedState1[program.Value(
+        'stack', expectedState1[program.Value('reg', 'esp')].value)] = \
+        stateInit[program.Value('reg', 'eax')]
 
-    expectedState1.address += 1  # not checked, cosmetic when debugging only
+    expectedState1.address += 1  # not checked, cosmetic for debugging only
 
     expectedState2 = copy.deepcopy(expectedState1)
-    expectedState2['reg']['esp'] -= 4
-    expectedState2['stack'][expectedState2['reg']['esp'].value] = \
-        expectedState1['reg']['ebp']
+    expectedState2[program.Value('reg', 'esp')] -= 4
+    expectedState2[program.Value(
+        'stack', expectedState2[program.Value('reg', 'esp')].value)] = \
+        expectedState1[program.Value('reg', 'ebp')]
     expectedState2.address += 1
 
     assert len(prgm.edges) == 2
@@ -125,11 +127,12 @@ def test_decode_5055_lastbyte(analyzer):
     state2 = getNextState(prgm, state1)
 
     expectedState2 = copy.deepcopy(state1)
-    expectedState2['reg']['esp'] -= 4
-    expectedState2['stack'][expectedState2['reg']['esp'].value] = \
-        state1['reg']['ebp']
+    expectedState2[program.Value('reg', 'esp')] -= 4
+    expectedState2[program.Value(
+        'stack', expectedState2[program.Value('reg', 'esp')].value)] = \
+        state1[program.Value('reg', 'ebp')]
 
-    expectedState2.address += 1  # not checked, cosmetic when debugging only
+    expectedState2.address += 1  # not checked, cosmetic for debugging only
 
     assert len(prgm.edges) == 1
     assertEqualStates(state2, expectedState2)

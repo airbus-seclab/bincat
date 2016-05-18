@@ -73,7 +73,8 @@ def clearFlag(my_state, name):
     Set flag to 0, untainted - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    my_state['reg'][name] = program.Value('global', 0x0)
+    v = program.Value('reg', name)
+    my_state[v] = program.Value('global', 0x0)
 
 
 def setFlag(my_state, name):
@@ -81,7 +82,8 @@ def setFlag(my_state, name):
     Set flag to 1, untainted - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    my_state['reg'][name] = program.Value('global', 1)
+    v = program.Value('reg', name)
+    my_state[v] = program.Value('global', 1)
 
 def calc_zf(my_state, val):
     zf = 1 if val == 0 else 0
@@ -106,13 +108,15 @@ def taintFlag(my_state, name):
     Taint flag - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    p = my_state['reg'][name]
+    v = program.Value('reg', name)
+    p = my_state[v]
     p.taint = 1
     p.ttop = p.tbot = 0
 
 
 def setReg(my_state, name, val, taint=0):
-    my_state['reg'][name] = program.Value('global', val, taint=taint)
+    v = program.Value('reg', name)
+    my_state[v] = program.Value('global', val, taint=taint)
 
 
 def prepareExpectedState(state):
@@ -151,14 +155,15 @@ def test_xor_reg_self(analyzer, initialState, register):
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
 
     setReg(expectedStateAfter, regname, 0)
     clearFlag(expectedStateAfter, "sf")
     clearFlag(expectedStateAfter, "of")
     clearFlag(expectedStateAfter, "cf")
+    clearFlag(expectedStateAfter, "af")
     setFlag(expectedStateAfter, "zf")
     setFlag(expectedStateAfter, "pf")
-    taintFlag(expectedStateAfter, "af")
     # XXX check taint (not tainted)
 
     assertEqualStates(stateAfter, expectedStateAfter)
@@ -175,13 +180,14 @@ def test_inc(analyzer, initialState, register):
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
     for flag in ('of', 'sf', 'zf', 'af', 'pf'):
         clearFlag(expectedStateAfter, flag)
 
     # XXX check flags
     # XXX set zf properly
     # XXX taint more bits?
-    expectedStateAfter['reg'][regname] += 1
+    expectedStateAfter[program.Value('reg', regname)] += 1
     # XXX flags should be tainted - known bug
 
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
@@ -198,17 +204,19 @@ def test_dec(analyzer, initialState, register):
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
 
-    expectedStateAfter['reg'][regname] -= 1
+    expectedStateAfter[program.Value('reg', regname)] -= 1
     # flags
     for flag in ('of', 'sf', 'zf', 'af', 'pf'):
         clearFlag(expectedStateAfter, flag)
-    if stateBefore['reg'][regname].address == 1:
-        expectedStateAfter['reg']['zf'].address = 1
+    if stateBefore[program.Value('reg', regname)].value == 1:
+        expectedStateAfter[program.Value('reg', 'zf')].value = 1
     # PF - inefficient but understandable way of counting set bits
-    nbBitsSet = \
-        bin(expectedStateAfter['reg'][regname].address & 0xFF).count('1')
-    expectedStateAfter['reg']['pf'].address = (nbBitsSet + 1) % 2
+    nbBitsSet = bin(expectedStateAfter[
+        program.Value('reg', regname)].value & 0xFF).count('1')
+    expectedStateAfter[program.Value('reg', 'pf')].value = \
+        (nbBitsSet + 1) % 2
     # XXX check flags
 
     # XXX taint more bits?
@@ -228,9 +236,11 @@ def test_push(analyzer, initialState, register):
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter['reg']['esp'] -= 4
-    expectedStateAfter['stack'][expectedStateAfter['reg']['esp'].value] = \
-        stateBefore['reg'][regname]
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
+    expectedStateAfter[program.Value('reg', 'esp')] -= 4
+    expectedStateAfter[program.Value(
+        'stack', expectedStateAfter[program.Value('reg', 'esp')].value)] = \
+        stateBefore[program.Value('reg', regname)]
 
     assertEqualStates(stateAfter, expectedStateAfter)
 
@@ -248,9 +258,11 @@ def test_pop(analyzer, initialState, register):
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter['reg']['esp'] += 4
-    expectedStateAfter['reg'][regname] = \
-        stateBefore['stack'][stateBefore['reg']['esp'].value]
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
+    expectedStateAfter[program.Value('reg', 'esp')] += 4
+    expectedStateAfter[program.Value('reg', regname)] = \
+        stateBefore[program.Value(
+            'stack', stateBefore[program.Value('reg', 'esp')].value)]
 
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
@@ -264,8 +276,9 @@ def test_sub(analyzer, initialState):
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter['reg']['esp'] = stateBefore['reg']['esp'] \
-        - 0x1234
+    expectedStateAfter.address += len(hexstr)  # pretty debug msg
+    expectedStateAfter[program.Value('reg', 'esp')] = \
+        stateBefore[program.Value('reg', 'esp')] - 0x1234
     # TODO check taint
     assertEqualStates(stateAfter, expectedStateAfter)
 
@@ -284,6 +297,7 @@ def test_or_reg_ff(analyzer, initialState, register):
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
     setReg(expectedStateAfter, regname, 0xffffffff)
     # TODO check taint
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
@@ -300,8 +314,10 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter['reg'][regname] = \
-        stateBefore['stack'][stateBefore['reg']['ebp'].value - 6]
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
+    expectedStateAfter[program.Value('reg', regname)] = \
+        stateBefore[program.Value(
+            'stack', stateBefore[program.Value('reg', 'ebp')].value - 6)]
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
@@ -315,7 +331,9 @@ def test_mov_ebp_reg(analyzer, initialState, register):
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter['reg']['ebp'] = stateBefore['reg'][regname]
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
+    expectedStateAfter[program.Value('reg', 'ebp')] = \
+        stateBefore[program.Value('reg', regname)]
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
@@ -339,8 +357,8 @@ def test_and_esp(analyzer, initialState):
     stateBefore = prgm[0]
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter["reg"]["esp"] &= 0xfffffff0
-    esp = expectedStateAfter["reg"]["esp"].value
+    expectedStateAfter[program.Value("reg", "esp")] &= 0xfffffff0
+    esp = expectedStateAfter[program.Value("reg", "esp")].value
     clearFlag(expectedStateAfter, "of")
     clearFlag(expectedStateAfter, "cf")
     calc_zf(expectedStateAfter, esp)
