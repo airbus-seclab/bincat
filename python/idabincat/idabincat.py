@@ -206,7 +206,7 @@ class AnalyzerConfig:
         config.set('loader', 'fs', '0x7b')
         config.set('loader', 'gs', '0x7b')
         config.set('loader', 'code-length', self.code_length)
-        config.set('loader', 'entrypoint', self.entrypoint)
+        config.set('loader', 'entrypoint', hex(self.entrypoint))
 
         # [binary section]
         config.add_section('binary')
