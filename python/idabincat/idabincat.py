@@ -56,7 +56,11 @@ class AnalyzerConfig:
         #: int
         self.entrypoint = None
         #: int
-        self.rva_code, _ = self.getCodeSection()
+
+    @property
+    def rva_code(self):
+        rva,_ = self.getCodeSection(self.entrypoint)
+        return rva
 
     def __str__(self):
         sio = StringIO.StringIO()
@@ -130,27 +134,23 @@ class AnalyzerConfig:
             else:
                 return(2*8)
 
-    def getCodeSection(self):
+    def getCodeSection(self, entrypoint):
         # in case we have more than one code section we apply the following:
         # heuristic entry point must be in the code section
         BinCATLogViewer.Log("[+] BinCAT call GetCodeSegment ",
                             idaapi.SCOLOR_LOCNAME)
 
-        ep = self.getFirstEntryPoint()
         for seg in idautils.Segments():
-            seg_attributes = idc.GetSegmentAttr(
-                idc.SegStart(seg), idc.SEGATTR_TYPE)
-            if (seg_attributes == idaapi.SEG_CODE and
-                    (idc.SegStart(seg) <= ep <= idc.SegEnd(seg))):
-                start = idc.SegStart(seg)
-                end = idc.SegEnd(seg)
+            seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg), idc.SEGATTR_TYPE)
+            start = idc.SegStart(seg)
+            end = idc.SegEnd(seg)
+            idaapi.msg(" - seg %#08x -> %#08x %#02x\n" % (start, end, seg_attributes))
+            if seg_attributes == idaapi.SEG_CODE and start <= entrypoint <= end:
                 break
         else:
-            log = "[+] BinCAT no Code section has been found"
-            BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-            return -1
-        log = "[+] Code section found at %#x:%#x " % (start, end)
-        BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
+            idaapi.msg("[+] BinCAT no code section has been found for entrypoint %#08x\n" % entrypoint)
+            return -1,-1
+        idaapi.msg("[+] Code section found at %#x:%#x\n" % (start, end))
         return start, end
 
     def getDataSection(self):
@@ -164,7 +164,7 @@ class AnalyzerConfig:
         else:
             log = "[+] BinCAT no Data section has been found"
             BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-            return -1
+            return -1,-1
         log = "[+] Data section found at %#x:%#x " % (start, end)
         BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
         return start, end
