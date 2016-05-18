@@ -83,6 +83,23 @@ def setFlag(my_state, name):
     """
     my_state['reg'][name] = program.Value('global', 1)
 
+def calc_zf(my_state, val):
+    zf = 1 if val == 0 else 0
+    setReg(my_state, "zf", zf)
+
+def calc_sf(my_state, val):
+    sf = 1 if val & 0x80000000!= 0 else 0
+    setReg(my_state, "sf", sf)
+
+def calc_pf(my_state, val):
+    par = ((val >> 1) & 0x55555555) + (val & 0x55555555)
+    par = ((par >> 2) & 0x33333333) + (par & 0x33333333)
+    par = ((par >> 4) & 0x0f0f0f0f) + (par & 0x0f0f0f0f)
+    par = ((par >> 8) & 0x00ff00ff) + (par & 0x00ff00ff)
+    par = (par >> 16) + (par & 0xffff)
+    par &= 1
+    pf = 0 if par else 1
+    setReg(my_state, "pf", pf)
 
 def taintFlag(my_state, name):
     """
