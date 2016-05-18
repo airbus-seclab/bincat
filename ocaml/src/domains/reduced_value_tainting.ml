@@ -79,5 +79,5 @@ let lognot (v, t) = V.lognot v, t
 let lt (v1, _t1) (v2, _t2) = V.lt v1 v2
 
 let logor (v1, t1) (v2, t2) = V.join v1 v2, T.join t1 t2
-let logand (v1, t1) (v2, t2) = V.join v1 v2, T.join t1 t2
+let logand (v1, t1) (v2, t2) = V.meet v1 v2, T.join t1 t2
 
