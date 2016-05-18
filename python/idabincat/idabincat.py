@@ -839,6 +839,11 @@ class Analyzer(QtCore.QProcess):
         self.analyzerpath = analyzerpath
 
     def run(self):
+        npp = os.path.dirname(os.path.dirname(self.analyzerpath))
+        env = QtCore.QProcessEnvironment.systemEnvironment()
+        env.insert("PYTHONPATH", npp+":"+env.value("PYTHONPATH"))
+        self.setProcessEnvironment(env)
+        
         cmdline = "%s %s --inifile %s --outfile %s --logfile %s" % (
             os.path.join(PYTHON_PATH, PYTHON_BIN),
             self.analyzerpath, self.initfname, self.outfname, self.logfname)
