@@ -72,10 +72,6 @@ class AnalyzerConfig:
         self.entrypoint = start
         self.code_length = stop - self.rva_code
 
-    def getFirstEntryPoint(self):
-        ord0 = idc.GetEntryOrdinal(0)
-        return ord0
-
     def getFileType(self):
         self.ftypes = {idaapi.f_PE: "pe",
                        idaapi.f_ELF: "elf",
