@@ -887,11 +887,14 @@ class Analyzer(QtCore.QProcess):
             BinCATLogViewer.Log("[+] BinCAT ERROR: analyzer returned exit code=%i\n" % exitcode,
                                 idaapi.SCOLOR_ERROR)
             idaapi.msg("BinCAT ERROR, exitcode=%i\n" % exitcode)
-            idaapi.msg("stdout ----------------\n")
+            idaapi.msg("---- stdout ----------------\n")
             idaapi.msg(str(self.readAllStandardOutput()))
-            idaapi.msg("stderr ----------------\n")
+            idaapi.msg("---- stderr ----------------\n")
             idaapi.msg(str(self.readAllStandardError()))
-            idaapi.msg("-----------------------\n")
+        idaapi.msg("---- logfile ---------------\n")
+        if os.path.exists(self.logfname):
+            idaapi.msg(open(self.logfname).read())
+        idaapi.msg("----------------------------\n")
 
 
 
