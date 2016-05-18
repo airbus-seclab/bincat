@@ -68,11 +68,9 @@ class AnalyzerConfig:
         sio.seek(0)
         return sio.read()
 
-    def setStartStopAddr(self, startAddr, stopAddr):
-        cl = stopAddr - startAddr
-        rvacode = self.rva_code
-        self.entrypoint = startAddr
-        self.code_length = (startAddr - rvacode) + cl
+    def setStartStopAddr(self, start, stop):
+        self.entrypoint = start
+        self.code_length = stop - self.rva_code
 
     def getFirstEntryPoint(self):
         ord0 = idc.GetEntryOrdinal(0)
