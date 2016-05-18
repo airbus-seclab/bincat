@@ -990,7 +990,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     def __init__(self, *args, **kwargs):
         self.headers = ["Address", "Region", "Value", "Taint"]
         self.colswidths = [50, 50, 90, 90]
-        #: list of (region, addr)
+        #: list of Value (addresses)
         self.rows = []
         self.changedRows = set()
         self.diffFont = QtGui.QFont()
@@ -1002,14 +1002,11 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         Rebuild a list of rows
         """
         state = ibcState.currentState
-        #: list of (region, addr)
+        #: list of Values (addresses)
         self.rows = []
         self.changedRows = set()
         if state:
-            for region in state.regions:
-                for addrs in state.regions[region]:
-                    self.rows.append((region, addrs))
-            self.rows.sort()
+            self.rows = sorted(state.regaddrs)
 
             # find parent state
             parents = [nodeid for nodeid in ibcState.program.edges
@@ -1043,13 +1040,15 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                 return
         elif role != QtCore.Qt.DisplayRole:
             return
-        region, addr = self.rows[index.row()]
+        regaddr = self.rows[index.row()]
+        region = regaddr.region
+        addr = regaddr.value
         if col == 0:  # addr
             return str(addr)
         elif col == 1:  # region
             return region
         else:
-            v = ibcState.currentState[region][addr]
+            v = ibcState.currentState[regaddr]
             if not v:
                 return ""
         if col == 2:  # value

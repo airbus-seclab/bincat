@@ -5,6 +5,7 @@ import re
 from pybincat.tools import parsers
 from pybincat import PyBinCATException
 import tempfile
+import functools
 
 
 class PyBinCATParseError(PyBinCATException):
@@ -15,6 +16,7 @@ class Program(object):
     re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
 
     def __init__(self, states, edges, nodes):
+        #: Value (address) -> State
         self.states = states
         #: nodeid -> list of nodeid (string)
         self.edges = edges
@@ -221,6 +223,7 @@ class State(object):
         return "State at address %s" % self.address
 
 
+@functools.total_ordering
 class Value(object):
     def __init__(self, region, value, vtop=0, vbot=0, taint=0, ttop=0, tbot=0):
         self.region = region.lower()
@@ -263,6 +266,9 @@ class Value(object):
     def __ne__(self, other):
         return not (self == other)
 
+    def __lt__(self, other):
+        return (self.region, self.value) < (other.region, other.value)
+
     def __add__(self, other):
         other = getattr(other, "value", other)
         return self.__class__(self.region, self.value+other,
@@ -279,6 +285,7 @@ class Value(object):
         other = getattr(other, "value", other)
         self.value &= other
         return self
+
     def __ior__(self, other):
         other = getattr(other, "value", other)
         self.value |= other
