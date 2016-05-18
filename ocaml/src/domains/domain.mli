@@ -11,7 +11,7 @@ module type T =
 
       (** bottom value *)
       val bot: t
-		 
+			 
       (** returns true whenever the concretization of the first argument is included in the concretization of the second argument *)
       (** false otherwise *)
       val subset: t -> t -> bool

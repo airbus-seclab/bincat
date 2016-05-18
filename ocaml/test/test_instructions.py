@@ -141,7 +141,7 @@ def test_xor_reg_self(analyzer, initialState, register):
     clearFlag(expectedStateAfter, "cf")
     setFlag(expectedStateAfter, "zf")
     setFlag(expectedStateAfter, "pf")
-    taintFlag(expectedStateAfter, "af")
+    clearFlag(expectedStateAfter, "af")
     # XXX check taint (not tainted)
 
     assertEqualStates(stateAfter, expectedStateAfter)

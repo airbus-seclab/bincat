@@ -829,7 +829,7 @@ module Make(Domain: Domain.T) =
 	     | '\xe2' -> ecx_cond
 	     | _      -> Log.error "Unexpected use of Decoder.loop"
 	   in
-	   return s [ dec_stmt ; If (cond, [Jmp (A (a'))], [ ]) ]
+	   return s [ dec_stmt ; If (cond, [Jmp (A (a'))], [ Jmp (A (Address.add_offset s.a (Z.of_int s.o)))]) ]
 	 (*******************)
 	 (* push/pop *)
 	 (***************)
@@ -1389,7 +1389,7 @@ module Make(Domain: Domain.T) =
 	    let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
 	    let zf_stmts =
 	      if s.repe || s.repne then
-		[ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Jmp (A a')], [ Jmp (A s.b.Cfa.State.ip) ]) ]
+		[ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Jmp (A a')], [Jmp (A v.Cfa.State.ip) ]) ]
 	      else
 		[]
 	    in
@@ -1397,7 +1397,6 @@ module Make(Domain: Domain.T) =
 	    let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in
 	    let blk = [ If (ecx_cond, v.Cfa.State.stmts @ (ecx_stmt :: zf_stmts), [ Jmp (A a') ]) ] in
 	    v.Cfa.State.stmts <- blk;
-	    List.iter (fun s -> Printf.printf "%s\n" (Asm.string_of_stmt s)) blk; flush stdout;
 	    v, ip
 	  
 	and decode_snd_opcode s =

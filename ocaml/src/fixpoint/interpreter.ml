@@ -61,13 +61,17 @@ struct
   let unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
 
   (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-  let process_stmt g (v: Cfa.State.t) d stmt fun_stack =
-    let copy a =
+  let process_stmts g (v: Cfa.State.t) fun_stack =
+    let copy v d =
       let v' = Cfa.copy_state g v in
       v'.Cfa.State.stmts <- [];
-      v'.Cfa.State.ip <- a;
+      v'.Cfa.State.v <- d;
       Cfa.add_edge g v v';
       v'
+    in
+    let update v d =
+      v.Cfa.State.v <- d;
+      v
     in
     let rec has_jmp stmts =
       match stmts with
@@ -81,49 +85,52 @@ struct
 	 in
 	 b || (has_jmp stmts')
     in
-    let rec process d s =
+    let rec process vertices s =
       match s with							   
-    | Nop -> [ d, None ]
+    | Nop -> vertices
 
     | If (e, then_stmts, else_stmts) ->
-       let then' =   
-	 try
-	   List.fold_left (fun l s -> let d = fst (List.hd l) in let r = process d s in r@l) [ (restrict d e true), None] then_stmts
-	 with Exceptions.Empty -> [ D.bot, None ]
-       in
-       let else' =
-	 try List.fold_left (fun l s -> let d = fst (List.hd l) in let r = process d s in r@l) [ (restrict d e false), None ] else_stmts
-	 with Exceptions.Empty -> [ D.bot, None ]
-       in
+       let then' = process_list (List.fold_left (fun l v ->
+				     try (copy v (restrict v.Cfa.State.v e true))::l
+				     with Exceptions.Empty -> l) [] vertices) then_stmts in
+
+       let else' = process_list (List.fold_left (fun l v ->
+				     try (copy v (restrict v.Cfa.State.v e false))::l
+				     with Exceptions.Empty -> l) []  vertices) else_stmts in
        if has_jmp then_stmts || has_jmp else_stmts then
 	 then' @ else'
        else
-	 let d' = D.join (fst (List.hd then')) (fst (List.hd else')) in
-	 [ d', None ]
-
+	 let vertices' = List.mapi (fun i v ->
+			     let di = (List.nth then' i).Cfa.State.v    in
+			     let de = (List.nth else' i).Cfa.State.v    in
+			     v.Cfa.State.v <- D.join di de; v) vertices in
+	 List.iter (fun v -> Cfa.remove_state g v) (then'@else');
+	 vertices'
+     
 	      
-    | Set (dst, src) -> [ D.set dst src d, None ]
+    | Set (dst, src) -> List.map (fun v -> update v (D.set dst src v.Cfa.State.v)) vertices
 
-    | Directive (Remove r) -> let d' = D.remove_register r d in Register.remove r; [ d', None ]
+    | Directive (Remove r) -> List.map (fun v -> update v (D.remove_register r v.Cfa.State.v)) vertices
 
-    | Directive (Forget r) -> [ D.forget r d, None ]
+    | Directive (Forget r) -> List.map (fun v -> update v (D.forget r v.Cfa.State.v)) vertices
 				
-    | Directive (Undef r) -> [ D.undefine r d, None ]
+    | Directive (Undef r) -> List.map (fun v -> update v (D.undefine r v.Cfa.State.v)) vertices
 
-    | Jmp (A a) -> [ d, Some (copy a) ] 
+    | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices 
        
     | Jmp (R target) ->
-       begin
+	 List.map (fun v ->
 	 try
-	   let addresses = Data.Address.Set.elements (D.mem_to_addresses d target) in
+	   let addresses = Data.Address.Set.elements (D.mem_to_addresses v.Cfa.State.v target) in
 	   match addresses with
-	   | [a] -> [ d, Some (copy a) ]
+	   | [a] -> v.Cfa.State.ip <- a; v
 	   | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
 	   | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
 					    (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
 	 with
 	 | Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-       end
+	   ) vertices
+
 
     | Call (A a) ->
        let f =
@@ -132,52 +139,61 @@ struct
 	with Not_found -> None
        in
        fun_stack := (f, v)::!fun_stack;
-       [ d, Some (copy a) ]
+       List.map (fun v -> v.Cfa.State.ip <- a; v) vertices 
 	   
     | Return ->
-       begin
-	 try
-	   let f, vstack = List.hd !fun_stack in
-	   let d' =
+       List.map (fun v ->
+	 
 	     try
-	       match f with
-		 Some (libname, fname) -> (* function library call : try to apply tainting rules from config *)
-		 let rules =
-		   let funs = Hashtbl.find Config.tainting_tbl libname in
-		   fst (List.find (fun v -> String.compare (fst v) fname = 0) funs)
-		 in
-		 apply_tainting rules d
-	       | None -> (* internal functions : tainting rules from control flow and data flow are directly infered from analysis *) d
-	     with Not_found -> d
-	   in
-	   fun_stack := List.tl !fun_stack;
-	   (* check tainting rules *)
-	   check_tainting f vstack.Cfa.State.ip d';
-	   (* check whether instruction pointers supposed and effective agree *)
-	   try
-	     let rip         = Register.stack_pointer ()			                                            in
-	     let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T rip)), (Register.size rip)))) in
-	     begin
-	       match Data.Address.Set.elements ip_on_stack with
-	       | [ip_on_stack] ->
-		  if not (Data.Address.equal vstack.Cfa.State.ip ip_on_stack) then
-		    Log.error "Interpreter: computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction"
-		  else
-		    ()
-	       | _ -> Log.error "Intepreter: too much values computed for the instruction pointer at return instruction" 
-	     end;
-	     let v' = Cfa.copy_state g vstack in
-	     v'.Cfa.State.stmts <- [];
-	     Cfa.add_edge g v v';
-	     [ d', Some v' ]
-	   with
-	     _ -> Log.error "Interpreter: computed instruction pointer at return instruction too imprecise or undefined"
-	 with
-	 | _ -> Log.error (Printf.sprintf "return instruction at %s without previous call instruction\n" (Data.Address.to_string v.Cfa.State.ip))
-       end
-    | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt stmt))
+	       let d = v.Cfa.State.v in
+	       let f, vstack = List.hd !fun_stack in
+	       let d' =
+		 try
+		   match f with
+		     Some (libname, fname) -> (* function library call : try to apply tainting rules from config *)
+		     let rules =
+		       let funs = Hashtbl.find Config.tainting_tbl libname in
+		       fst (List.find (fun v -> String.compare (fst v) fname = 0) funs)
+		     in
+		     apply_tainting rules d
+		   | None -> (* internal functions : tainting rules from control flow and data flow are directly infered from analysis *) d
+		 with Not_found -> d
+	       in
+	       fun_stack := List.tl !fun_stack;
+	       (* check tainting rules *)
+	       check_tainting f vstack.Cfa.State.ip d';
+	       (* check whether instruction pointers supposed and effective agree *)
+	       try
+		 let rip         = Register.stack_pointer ()			                                            in
+		 let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T rip)), (Register.size rip)))) in
+		 begin
+		   match Data.Address.Set.elements ip_on_stack with
+		   | [ip_on_stack] ->
+		      if not (Data.Address.equal vstack.Cfa.State.ip ip_on_stack) then
+			Log.error "Interpreter: computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction"
+		      else
+			()
+		   | _ -> Log.error "Intepreter: too much values computed for the instruction pointer at return instruction"
+		 end;
+		 v.Cfa.State.ip <- vstack.Cfa.State.ip; v
+	       with
+	       | _ -> Log.error "Interpreter: computed instruction pointer at return instruction too imprecise or undefined"
+	     with
+	     | _ -> Log.error (Printf.sprintf "return instruction at %s without previous call instruction\n" (Data.Address.to_string v.Cfa.State.ip))
+	  
+	 ) vertices
+		
+       
+    | _       -> Log.error (Printf.sprintf "Interpreter.process_stmt: %s statement" (string_of_stmt s))
+			   
+    and process_list vertices stmts =
+      match stmts with
+      | s::stmts -> let new_vertices = process vertices s in process_list new_vertices stmts 
+      | []       -> vertices
     in
-    process d stmt
+    (* TODO 1 optimize: concat statements at the beginning and at the end reverse the list rather than add one by one to the end of the field Cfa.State.stmts *)
+    (* TODO 2 optimize: avoid creating vertices in If-statements without jump and then deleting them. Possible ? *)
+    process_list [copy v v.Cfa.State.v] v.Cfa.State.stmts
 
   (** widen the given vertex with all vertices in g that have the same ip as v *)
   let widen g v =
@@ -194,29 +210,10 @@ struct
   (** the widening may be also launched if the threshold is reached *)
   let update_abstract_values g v ip fun_stack =
     try
-    let l =
-      List.fold_left (fun l stmt ->
-	  let d = fst (List.hd l) in
-	  let l' = process_stmt g v d stmt fun_stack in
-	  match l' with
-	  | [d', None] -> (d', snd (List.hd l))::(List.tl l)
-	  | l'         -> l' @ l) [v.Cfa.State.v, None] v.Cfa.State.stmts
-    in
-    let l' =
-      List.map (fun (d, e) ->
-			match e with
-			| None ->
-			   begin
-			     let v' = Cfa.copy_state g v in
-			     v'.Cfa.State.ip <- ip;
-			     v'.Cfa.State.stmts <- [];
-			     v'.Cfa.State.v <- d;
-			     Cfa.add_edge g v v';
-			     v'
-			   end
-			| Some v' -> v'.Cfa.State.v <- d; v') l
-    in
-    List.iter (fun v -> let n =
+    let l = process_stmts g v fun_stack in
+    List.iter (fun v ->
+	v.Cfa.State.ip <- ip;
+	let n =
 			  try let n' = (Hashtbl.find unroll_tbl ip) + 1 in Hashtbl.replace unroll_tbl ip n' ; n'
 			  with Not_found -> Hashtbl.add unroll_tbl v.Cfa.State.ip 1; 1
 			in
@@ -224,12 +221,12 @@ struct
 			  ()
 			else 
 			    widen g v
-	      ) l';
-    l'
+      ) l;
+    l
     with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
 
     
-  (** [filter_vertices _g_ vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
+  (** [filter_vertices g vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
   let filter_vertices g vertices =
     (* predicate to check whether a new vertex has to be explored or not *)
     let same prev v' =

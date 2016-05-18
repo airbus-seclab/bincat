@@ -244,6 +244,8 @@ module Make(Domain: Domain.T) =
 	  G.add_vertex g v;
 	  v
 
+      let remove_state g v = G.remove_vertex g v
+	
       (** returns a fresh copy of the given state *)
       let copy_state g s = add_state g s.ip s.v s.stmts s.ctx
 				    
