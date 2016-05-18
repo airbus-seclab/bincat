@@ -871,22 +871,29 @@ class Analyzer(QtCore.QProcess):
 
     def procanalyzer_on_finish(self):
         idaapi.msg("[+] Analyzer process terminated \n")
+        exitcode = self.exitCode()
+        if exitcode == 0:
+            BinCATLogViewer.Log("[+] BinCAT: Parsing analyzer result file\n",
+                                idaapi.SCOLOR_LOCNAME)
 
-        BinCATLogViewer.Log("[+] BinCAT: Parsing analyzer result file\n",
-                            idaapi.SCOLOR_LOCNAME)
+            ibcState.program = program.Program.parse(self.outfname,
+                                                     logs=self.logfname)
+            # Update current RVA to start address (nodeid = 0)
+            node0 = ibcState.program.nodes["0"]
 
-        ibcState.program = program.Program.parse(self.outfname,
-                                                 logs=self.logfname)
-        # Update current RVA to start address (nodeid = 0)
-        startaddr_ea = ""
-        keys = ibcState.program.states.keys()
-        for k in keys:
-            state = ibcState.program[k.value]
-            if state.node_id == "0":
-                startaddr_ea = k.value
-                break
+            startaddr_ea = node0.value
+            ibcState.setCurrentEA(startaddr_ea, force=True)
+        else:
+            BinCATLogViewer.Log("[+] BinCAT ERROR: analyzer returned exit code=%i\n" % exitcode,
+                                idaapi.SCOLOR_ERROR)
+            idaapi.msg("BinCAT ERROR, exitcode=%i\n" % exitcode)
+            idaapi.msg("stdout ----------------\n")
+            idaapi.msg(str(self.readAllStandardOutput()))
+            idaapi.msg("stderr ----------------\n")
+            idaapi.msg(str(self.readAllStandardError()))
+            idaapi.msg("-----------------------\n")
 
-        ibcState.setCurrentEA(startaddr_ea, force=True)
+
 
 
 class BinCATLog_t(idaapi.simplecustviewer_t):
