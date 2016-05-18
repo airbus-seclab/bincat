@@ -848,16 +848,17 @@ class Analyzer(QtCore.QProcess):
             os.path.join(PYTHON_PATH, PYTHON_BIN),
             self.analyzerpath, self.initfname, self.outfname, self.logfname)
         # start the process
+        idaapi.msg(
+            "[+] BinCAT: Analyzer cmdline is:\n  %s \n " % cmdline)
         try:
-            idaapi.msg(
-                "[+] BinCAT: Analyzer cmdline is:\n  %s \n " % cmdline)
             self.start(cmdline)
-            idaapi.msg("[+] Analyzer started\n")
-
         except Exception as e:
             idaapi.msg("[+] BinCAT failed to launch the analyzer.py\n")
             idaapi.msg("    Exception: %s\n%s" % (str(e),
                                                   traceback.format_exc()))
+        else:
+            idaapi.msg("[+] Analyzer started\n")
+
 
     def procanalyzer_on_error(self, error):
         errors = ["Failed to start", "Crashed", "TimedOut", "Read Error",
