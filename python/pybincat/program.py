@@ -280,5 +280,14 @@ class Value(object):
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
 
+    def __iand__(self, other):
+        other = getattr(other, "value", other)
+        self.value &= other
+        return self
+    def __ior__(self, other):
+        other = getattr(other, "value", other)
+        self.value |= other
+        return self
+
     def is_concrete(self):
         return self.vtop == 0 and self.vbot == 0
