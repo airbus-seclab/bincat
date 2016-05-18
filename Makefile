@@ -53,7 +53,7 @@ clean:
 	-rm -rf $(DOCGENPATH)
 	-rm -rf $(PYPATH)/tests/__pycache__
 	-rm -rf bincat-dist
-	-rm bincat.tar.gz
+	-rm -f bincat.tar.gz
 	@make -C $(DOCREFPATH) clean
 
 

@@ -6,4 +6,4 @@ all:
 	@$(LATEX) $(DOCFILE)
 
 clean:
-	-rm *~ *.aux *.log *.toc *.pdf *.html
+	-rm -f *~ *.aux *.log *.toc *.pdf *.html
