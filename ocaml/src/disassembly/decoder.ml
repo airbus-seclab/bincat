@@ -727,7 +727,7 @@ module Make(Domain: Domain.T) =
 	  if Z.compare s.base i < 0 && Z.compare i s.limit < 0 then
 	    ()
 	  else
-	    raise (Log.error "Decoder: jump target out of limits of the code segments (GP exception in protected mode)")
+	    Log.error "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"
 
 	(** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
 	let return_jcc_stmts s e n =
