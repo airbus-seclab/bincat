@@ -312,6 +312,7 @@ def test_or_reg_ff(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     setReg(expectedStateAfter, regname, 0xffffffff)
+    undefBitFlag(expectedStateAfter, "af")
     # TODO check taint
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
