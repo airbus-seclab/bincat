@@ -81,6 +81,7 @@ rule token = parse
   (* analyzer tokens *)
   | "unroll"    	    { UNROLL }
   | "cut"                   { CUT }
+  | "verbose"               { VERBOSE }
   (* address separator *)
   | "," 		    { COMMA }
   | "dotfile"               { DOTFILE }
@@ -112,7 +113,7 @@ rule token = parse
   | "imports"               { IMPORTS }
   | "stack"                 { STACK }
   | ":"                     { RANGE }
-  | "heap"                  { HEAP}
+  | "heap"                  { HEAP }
   (* left operand of type integer *)
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)
