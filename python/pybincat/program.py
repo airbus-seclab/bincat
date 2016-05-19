@@ -209,6 +209,8 @@ class State(object):
         for regaddr in self.list_modified_keys(other):
             region = regaddr.region
             address = regaddr.value
+            if regaddr.is_concrete() and isinstance(address, int):
+                address = "%#08x" % address
             res.append("@@ %s %s @@" % (region, address))
             if regaddr not in self.regaddrs:
                 res.append("+ %s" % other.regaddrs[regaddr])
