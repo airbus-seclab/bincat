@@ -86,11 +86,11 @@ install: $(LIBNAME)
 	rm -f .depend
 	-$(CAMLDEP) -native $+ > .depend
 
-doc: 
+doc: $(ML) $(MLI)
 	@mkdir -p $(DOCPATH)/html
 	@mkdir -p $(DOCPATH)/latex
 	@$(CAMLDOC) -html $^ -d $(DOCPATH)/html $(DIROPT) $(SRC)
-	@$(CAMLDOC) -latex $^ -d $(DOCPATH)/latex
+	@$(CAMLDOC) -latex $^ -d $(DOCPATH)/latex $(DIROPT) $(SRC)
 
 .PHONY: depend all clean install
 
