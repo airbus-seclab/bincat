@@ -106,6 +106,8 @@ module Make(D: T) =
 				     
     let bot = BOT
 
+    let is_bot m = m = BOT
+			 
     let value_of_register m r =
       match m with
       | BOT    -> raise Exceptions.Concretization
@@ -200,7 +202,7 @@ module Make(D: T) =
 	| Asm.UnOp (op, e) 	 -> D.unary op (eval e)
       in
       eval e
-
+      
     let mem_to_addresses m e =
       match m with
       | BOT -> raise Exceptions.Enum_failure
