@@ -18,6 +18,7 @@ module Make(Domain: Domain.T) =
 	      mutable v: Domain.t; 	    (** abstract value *)
 	      mutable ctx: ctx_t ; 	    (** context of decoding *)
 	      mutable stmts: Asm.stmt list; (** list of statements thas has lead to this state *)
+	      mutable final: bool;          (** true whenever a widen operator has been applied to the v field *)
 	    }
 				   
 	  (** the state identificator counter *)
@@ -209,6 +210,7 @@ module Make(Domain: Domain.T) =
 	    id = 0;
 	    ip = ip;
 	    v = d';
+	    final = false;
 	    stmts = [];
 	    ctx = {
 		op_sz = !Config.operand_sz;
@@ -232,20 +234,23 @@ module Make(Domain: Domain.T) =
     - v as abstract value
     - ctx as decoding context
        *)
-      let add_state g ip v stmts ctx =
+      let add_state g ip v stmts ctx final =
 	let v = {
 	    id       = new_state_id();
 	    v 	     = v;
 	    ip 	     = ip;
 	    stmts    = stmts ;
 	    ctx      = ctx;
+	    final    = final;
 	  }
 	  in
 	  G.add_vertex g v;
 	  v
 
+      let remove_state g v = G.remove_vertex g v
+	
       (** returns a fresh copy of the given state *)
-      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx
+      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx s.final
 				    
       (** [add_edge g src dst] adds in _g_ an edge _src_ -> _dst_ *)
       let add_edge g src dst = G.add_edge g src dst
@@ -299,7 +304,9 @@ module Make(Domain: Domain.T) =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
 	  Printf.fprintf f "[address = %s]\nid = %d\n%s\n" (Data.Address.to_string s.ip) s.id abstract_values;
 	  if !Config.verbose then
-	    List.iter (fun stmt -> Printf.fprintf f "%s" (Asm.string_of_stmt stmt)) s.stmts
+	    List.iter (fun stmt -> Printf.fprintf f "%s" (Asm.string_of_stmt stmt)) s.stmts;
+	  if s.final then
+	    Printf.fprintf f "final = true\n"
 	in
 	G.iter_vertex print_ip g;
 	(* edge printing (summary) *)

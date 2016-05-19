@@ -133,7 +133,7 @@ module Address =
 	let w' = Word.add w (Word.of_int o' n) in
 	if Word.size w' > n then
 	  begin
-	    Log.from_analysis "Data.Address: overflow when tried to add an offset to an address: ";
+	    Log.from_analysis "Data.Address: overflow when tried to add an offset to an address";
 	    r, Word.truncate w' n
 	  end
 	else

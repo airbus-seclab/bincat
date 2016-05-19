@@ -432,9 +432,9 @@ module Make(Domain: Domain.T) =
 
 				 
       (** produce common statements to set the overflow flag and the adjust flag *) 
-      let overflow flag n nth res op1 op2 =
+      let overflow flag n nth res sz op1 op2 =
 	(* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
-	let b1        = Const (Word.of_int Z.one 1)           in
+	let b1        = Const (Word.of_int Z.one sz)          in
 	let sign_res  = BinOp(And, BinOp (Shr, res, nth), b1) in
 	let sign_op1  = BinOp(And, BinOp (Shr, op1, nth), b1) in
 	let sign_op2  = BinOp(And, BinOp (Shr, op2, nth), b1) in
@@ -445,7 +445,7 @@ module Make(Domain: Domain.T) =
 	If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
 
       (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
-      let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (Const (Word.of_int (Z.of_int (sz-1)) sz)) res op1 op2
+      let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (Const (Word.of_int (Z.of_int (sz-1)) sz)) res 1 op1 op2
 
       (** produce the statement to set the given flag *)
       let set_flag f = Set (V (T f), Const (Word.one (Register.size f)))
@@ -476,8 +476,8 @@ module Make(Domain: Domain.T) =
 	If (c, [ set_flag fzf ], [ clear_flag fzf ])
 
       (** produce the statement to set the adjust flag wrt to the given parameters *)
-      (** faf is set if there is an overflow on the bit 3 *)
-      let adjust_flag_stmts res op1 op2 = overflow faf faf_sz (Const (Word.of_int (Z.of_int 3) 2)) res op1 op2
+      (** faf is set if there is an overflow on the bit 4 *)
+      let adjust_flag_stmts res sz op1 op2 = overflow faf faf_sz (Const (Word.of_int (Z.of_int 4) sz)) res (sz-4) op1 op2
 					      
       (** produce the statement to set the parity flag wrt to the given parameters *)					      
       let parity_flag_stmts sz res =
@@ -513,7 +513,7 @@ module Make(Domain: Domain.T) =
 	let flags_stmts =
 	  [
 	    carry_flag_stmts sz res op1 op op2; overflow_flag_stmts sz res op1 op2; zero_flag_stmts sz res;
-	    sign_flag_stmts sz res            ; parity_flag_stmts sz res       ; adjust_flag_stmts res op1 op2
+	    sign_flag_stmts sz res            ; parity_flag_stmts sz res       ; adjust_flag_stmts res sz op1 op2
 	  ]
 	in
 	(Set (tmp, Lval dst)):: istmts @ flags_stmts @ [ Directive (Remove v) ]
@@ -547,7 +547,7 @@ module Make(Domain: Domain.T) =
 	let flag_stmts =
 	  [
 	    carry_flag_stmts sz res e1 Sub e2; overflow_flag_stmts sz res e1 e2; zero_flag_stmts sz res;
-	    sign_flag_stmts sz res           ; parity_flag_stmts sz res     ; adjust_flag_stmts res e1 e2
+	    sign_flag_stmts sz res           ; parity_flag_stmts sz res     ; adjust_flag_stmts res sz e1 e2
 	  ]
 	in
 	let set = Set (V (T tmp), BinOp (Sub, e1, e2)) in
@@ -579,7 +579,7 @@ module Make(Domain: Domain.T) =
 	let flags_stmts =
 	  [
 	    overflow_flag_stmts sz res op1 op2   ; zero_flag_stmts sz res;
-	    parity_flag_stmts sz res; adjust_flag_stmts res op1 op2;
+	    parity_flag_stmts sz res; adjust_flag_stmts res sz op1 op2;
 	    sign_flag_stmts sz res
 	  ]
 	in
@@ -829,7 +829,7 @@ module Make(Domain: Domain.T) =
 	     | '\xe2' -> ecx_cond
 	     | _      -> Log.error "Unexpected use of Decoder.loop"
 	   in
-	   return s [ dec_stmt ; If (cond, [Jmp (A (a'))], [ ]) ]
+	   return s [ dec_stmt ; If (cond, [Jmp (A (a'))], [ Jmp (A (Address.add_offset s.a (Z.of_int s.o)))]) ]
 	 (*******************)
 	 (* push/pop *)
 	 (***************)
@@ -970,8 +970,8 @@ module Make(Domain: Domain.T) =
 
 			    
       let grp2 s sz _n =
-	let nnn, _dst = core_grp s 2 sz in
-	let _forget_flags = List.map (fun f -> Directive (Forget f)) [fpf ; fof ; fcf ; fsf ; fzf ; faf ] in
+	let nnn, _dst     = core_grp s 2 sz in
+	let _forget_flags = List.map (fun f -> Directive (Forget f)) [fpf; fof; fcf; fsf; fzf; faf] in
 	match nnn with
 (*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ]
 	| 5 -> return s [ Set (dst, BinOp (Shr, Lval dst, n)) ; flags ]
@@ -1389,7 +1389,7 @@ module Make(Domain: Domain.T) =
 	    let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
 	    let zf_stmts =
 	      if s.repe || s.repne then
-		[ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Jmp (A a')], [ Jmp (A s.b.Cfa.State.ip) ]) ]
+		[ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Jmp (A a')], [Jmp (A v.Cfa.State.ip) ]) ]
 	      else
 		[]
 	    in
@@ -1397,7 +1397,6 @@ module Make(Domain: Domain.T) =
 	    let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in
 	    let blk = [ If (ecx_cond, v.Cfa.State.stmts @ (ecx_stmt :: zf_stmts), [ Jmp (A a') ]) ] in
 	    v.Cfa.State.stmts <- blk;
-	    List.iter (fun s -> Printf.printf "%s\n" (Asm.string_of_stmt s)) blk; flush stdout;
 	    v, ip
 	  
 	and decode_snd_opcode s =
