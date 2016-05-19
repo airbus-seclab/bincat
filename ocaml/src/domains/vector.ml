@@ -247,7 +247,6 @@ module Make(V: Val) =
 	for j = 0 to n-i-2 do
 	  v'.(j) <- v1.(j)
 	done;
-	Printf.printf " %s >> %s = %s\n" (to_string v1) (to_string v2) (to_string v'); flush stdout;
 	v'
       with
 	_ -> raise Exceptions.Enum_failure
@@ -320,7 +319,6 @@ module Make(V: Val) =
 	  for j = 0 to n-1 do
 	    v'.(j+o) <- v.(j)
 	  done;
-	  Printf.printf "sign extend of %s = %s\n" (to_string v) (to_string v'); flush stdout;
 	  v'
 	end
 	

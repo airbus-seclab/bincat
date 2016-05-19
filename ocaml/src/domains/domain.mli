@@ -11,6 +11,9 @@ module type T =
 
       (** bottom value *)
       val bot: t
+
+      (** comparison to bottom *)
+      val is_bot: t -> bool
 			 
       (** returns true whenever the concretization of the first argument is included in the concretization of the second argument *)
       (** false otherwise *)

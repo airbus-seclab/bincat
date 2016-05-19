@@ -106,6 +106,8 @@ module Make(D: T) =
 				     
     let bot = BOT
 
+    let is_bot m = m = BOT
+			 
     let value_of_register m r =
       match m with
       | BOT    -> raise Exceptions.Concretization
@@ -170,7 +172,6 @@ module Make(D: T) =
 	     with Not_found -> D.default (Register.size r)
 	   end
 	| Asm.Lval (Asm.V (Asm.P (r, l, u))) ->
-	   Printf.printf "extract\n"; flush stdout;
 	   begin
 	     try
 	       let v = Map.find (K.R r) m in
@@ -200,10 +201,8 @@ module Make(D: T) =
 	| Asm.BinOp (op, e1, e2) -> D.binary op (eval e1) (eval e2)
 	| Asm.UnOp (op, e) 	 -> D.unary op (eval e)
       in
-      let r = eval e in
-      Printf.printf "eval %s = %s\n" (Asm.string_of_exp e) (D.to_string r); flush stdout;
-      r
-
+      eval e
+      
     let mem_to_addresses m e =
       match m with
       | BOT -> raise Exceptions.Enum_failure

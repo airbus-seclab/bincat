@@ -222,7 +222,7 @@ struct
 			else 
 			    widen g v
       ) l;
-    l
+    List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then begin Cfa.remove_state g v; l' end else v::l') [] l
     with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
 
     
