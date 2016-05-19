@@ -89,13 +89,13 @@ class Program(object):
         mlbincat.process(initfname, outfname, logfname)
         return Program.parse(outfname, logs=logfname)
 
-    def _toValue(self, eip):
+    def _toValue(self, eip, region="global"):
         if type(eip) in [int, long]:
-            addr = Value("global", eip)
+            addr = Value(region, eip)
         elif type(eip) is Value:
             addr = eip
         elif type(eip) is str:
-            addr = Value("global", int(eip))
+            addr = Value(region, int(eip))
         # else:
         #     logging.error(
         #         "Invalid address %s (type %s) in AnalyzerState._toValue",

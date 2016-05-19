@@ -4,6 +4,7 @@ import os
 import logging
 import argparse
 import sys
+from pybincat.tools import parsers
 
 
 def main():
@@ -28,7 +29,7 @@ def main():
     parser.add_argument(
         '--logfile', '-l', type=str, help='Analyzer log file', required=True)
     parser.add_argument(
-        "--diff", "-d", nargs=2, metavar=('NODEID1', 'NODEID2'),
+        "--diff", "-d", nargs=2, metavar=('ADDR1', 'ADDR2'),
         help="Display diff between 2 states")
     parser.add_argument(
         "--verbose", "-v", action="count", default=0,
@@ -55,14 +56,16 @@ def main():
     if args.diff:
         # fetch states
         try:
-            state1 = p.states[p.nodes[args.diff[0]]]
+            v = program.Value('global', parsers.parse_val(args.diff[0])[0])
+            state1 = p.states[v]
         except KeyError:
-            logger.error("Node id %s does not exist", args.diff[0])
+            logger.error("No State is defined at address %s", args.diff[0])
             sys.exit(1)
         try:
-            state2 = p.states[p.nodes[args.diff[1]]]
+            v = program.Value('global', parsers.parse_val(args.diff[1])[0])
+            state2 = p.states[v]
         except KeyError:
-            logger.error("Node id %s does not exist", args.diff[0])
+            logger.error("No State is defined at address %s", args.diff[1])
             sys.exit(1)
         print state1.diff(state2)
 
