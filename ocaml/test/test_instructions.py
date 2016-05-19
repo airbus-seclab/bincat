@@ -85,13 +85,25 @@ def setFlag(my_state, name):
     v = program.Value('reg', name)
     my_state[v] = program.Value('global', 1)
 
+
+def undefBitFlag(my_state, name):
+    """
+    Set flag to undefined.
+    XXX specify register len?
+    """
+    v = program.Value('reg', name)
+    my_state[v] = program.Value('_', 0, vbot=1)
+
+
 def calc_zf(my_state, val):
     zf = 1 if val == 0 else 0
     setReg(my_state, "zf", zf)
 
+
 def calc_sf(my_state, val):
-    sf = 1 if val & 0x80000000!= 0 else 0
+    sf = 1 if val & 0x80000000 != 0 else 0
     setReg(my_state, "sf", sf)
+
 
 def calc_pf(my_state, val):
     par = ((val >> 1) & 0x55555555) + (val & 0x55555555)
@@ -102,6 +114,7 @@ def calc_pf(my_state, val):
     par &= 1
     pf = 0 if par else 1
     setReg(my_state, "pf", pf)
+
 
 def taintFlag(my_state, name):
     """
@@ -161,7 +174,7 @@ def test_xor_reg_self(analyzer, initialState, register):
     clearFlag(expectedStateAfter, "sf")
     clearFlag(expectedStateAfter, "of")
     clearFlag(expectedStateAfter, "cf")
-    clearFlag(expectedStateAfter, "af")
+    undefBitFlag(expectedStateAfter, "af")
     setFlag(expectedStateAfter, "zf")
     setFlag(expectedStateAfter, "pf")
     # XXX check taint (not tainted)
