@@ -2,10 +2,10 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    = $(SPHINXOPTS)
+SPHINXOPTS    =
 SPHINXBUILD  ?= sphinx-build2
 SPHINXAPIDOC ?= sphinx-apidoc2
-PAPER         = $(PAPER)
+PAPER         =
 BUILDDIR      = build
 
 # User-friendly check for sphinx-build2
