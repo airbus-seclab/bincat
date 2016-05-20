@@ -12,7 +12,7 @@ class PyBinCATParseError(PyBinCATException):
     pass
 
 
-class Program(object):
+class CFA(object):
     re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
 
     def __init__(self, states, edges, nodes):
@@ -50,10 +50,10 @@ class Program(object):
                     continue
             raise PyBinCATException("Cannot parse section name (%r)" % section)
 
-        program = cls(states, edges, nodes)
+        cfa = cls(states, edges, nodes)
         if logs:
-            program.logs = open(logs).read()
-        return program
+            cfa.logs = open(logs).read()
+        return cfa
 
     @classmethod
     def from_analysis(cls, initfname):
@@ -87,7 +87,7 @@ class Program(object):
         """
         from pybincat import mlbincat
         mlbincat.process(initfname, outfname, logfname)
-        return Program.parse(outfname, logs=logfname)
+        return cls.parse(outfname, logs=logfname)
 
     def _toValue(self, eip, region="global"):
         if type(eip) in [int, long]:

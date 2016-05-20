@@ -31,9 +31,9 @@ except:
 # Loading pybincat.state
 
 try:
-    from pybincat import program
+    from pybincat import cfa
 except:
-    idaapi.msg("[+] BinCat: failed to load pybincat.program \n %s\n" %
+    idaapi.msg("[+] BinCat: failed to load pybincat.cfa \n %s\n" %
                repr(sys.exc_info()))
     sys.exit(1)
 
@@ -876,10 +876,10 @@ class Analyzer(QtCore.QProcess):
             BinCATLogViewer.Log("[+] BinCAT: Parsing analyzer result file\n",
                                 idaapi.SCOLOR_LOCNAME)
 
-            ibcState.program = program.Program.parse(self.outfname,
-                                                     logs=self.logfname)
+            ibcState.cfa = cfa.CFA.parse(self.outfname,
+                                         logs=self.logfname)
             # Update current RVA to start address (nodeid = 0)
-            node0 = ibcState.program.nodes["0"]
+            node0 = ibcState.cfa.nodes["0"]
 
             startaddr_ea = node0.value
             ibcState.setCurrentEA(startaddr_ea, force=True)
@@ -1009,11 +1009,11 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             self.rows = sorted(state.regaddrs)
 
             # find parent state
-            parents = [nodeid for nodeid in ibcState.program.edges
-                       if state.node_id in ibcState.program.edges[nodeid]]
+            parents = [nodeid for nodeid in ibcState.cfa.edges
+                       if state.node_id in ibcState.cfa.edges[nodeid]]
             for pnode in parents:
-                paddr = ibcState.program.nodes[pnode]
-                pstate = ibcState.program.states[paddr]
+                paddr = ibcState.cfa.nodes[pnode]
+                pstate = ibcState.cfa.states[paddr]
                 for k in state.list_modified_keys(pstate):
                     if k in self.rows:
                         self.changedRows.add(self.rows.index(k))
@@ -1280,7 +1280,7 @@ class PluginState():
     def __init__(self):
         self.vtmodel = ValueTaintModel()
         self.currentEA = None
-        self.program = None
+        self.cfa = None
         self.currentState = None
         self.currentConfig = AnalyzerConfig()
         # Analyzer instance
@@ -1292,8 +1292,8 @@ class PluginState():
             return
         self.vtmodel.beginResetModel()
         self.currentEA = ea
-        if self.program:
-            self.currentState = self.program[ea]
+        if self.cfa:
+            self.currentState = self.cfa[ea]
         BinCATTaintedForm.updateCurrentEA(ea)
         self.vtmodel.endResetModel()
 
