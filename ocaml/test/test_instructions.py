@@ -355,6 +355,9 @@ def test_or_reg_ff(analyzer, initialState, register):
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_reg_ebpm6(analyzer, initialState, register):
+    """
+    mov eax,[ebp-0x6]
+    """
     regid, regname = register
     # mov    reg,DWORD PTR [ebp-0x6]
     opcode = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
@@ -366,13 +369,16 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     expectedStateAfter[program.Value('reg', regname)] = \
-        stateBefore[program.Value(
-            'stack', stateBefore[program.Value('reg', 'ebp')].value - 6)]
+        dereference_data(stateBefore,
+                         stateBefore[program.Value('reg', 'ebp')] - 6)
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
+    """
+    mov ebp,[eax]
+    """
     # XXX test avec esp, ebp --> undefined behaviour
     regid, regname = register
     opcode = "\x8b" + chr(0x28 + regid)
