@@ -55,6 +55,15 @@ testregisters = list(enumerate(
 ))
 
 
+def assertNoNextState(prgm, curState):
+    """
+    Helper function: check that there is no destination state.
+    """
+    nextStates = prgm.next_states(curState.address)
+    assert len(nextStates) == 0, \
+        "This state is expected NOT to have any destination state."
+
+
 def getNextState(prgm, curState):
     """
     Helper function: check that there is only one destination state, return it.
@@ -140,13 +149,10 @@ def setReg(my_state, name, val, taint=0):
 def dereference_data(my_state, ptr):
     # XXX use proper sizes when setting {v,t}{bot,top}
     if ptr.vbot != 0:
-        # XXX decide expected behaviour
-        newptr = copy.copy(ptr)
-        newptr.value = 0
-        newptr.vbot = 0xffffffff
-        newptr.vtop = 0
-        return newptr
+        # Analysis stops here, exception is returned
+        return None
     elif ptr.vtop != 0:
+        # XXX decide expected behaviour, add value to test this
         newptr = copy.copy(ptr)
         newptr.value = 0
         newptr.vbot = 0
@@ -356,10 +362,9 @@ def test_or_reg_ff(analyzer, initialState, register):
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_reg_ebpm6(analyzer, initialState, register):
     """
-    mov eax,[ebp-0x6]
+    mov reg,[ebp-0x6]
     """
     regid, regname = register
-    # mov    reg,DWORD PTR [ebp-0x6]
     opcode = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
     prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm[0x00]
@@ -374,26 +379,33 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
-@pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
+# "ebp" and "esp" have no sense for this instruction (sib, disp32 instead)
+@pytest.mark.parametrize('register',
+                         testregisters[:4] + testregisters[6:],
+                         ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
     """
-    mov ebp,[eax]
+    mov ebp,[reg]
     """
-    # XXX test avec esp, ebp --> undefined behaviour
     regid, regname = register
     opcode = "\x8b" + chr(0x28 + regid)
 
     prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm[0x00]
-    stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
-    expectedStateAfter[program.Value('reg', 'ebp')] = \
-        dereference_data(stateBefore,
-                         stateBefore[program.Value('reg', regname)])
+    newvalue = dereference_data(stateBefore,
+                                stateBefore[program.Value('reg', regname)])
+    if newvalue is None:
+        # dereferenced pointer contains BOTTOM
+        assertNoNextState(prgm, stateBefore)
+        return
+
+    expectedStateAfter[program.Value('reg', 'ebp')] = newvalue
     # stateBefore[stateBefore[program.Value('reg', regname)] + 0xfff300]
+    stateAfter = getNextState(prgm, stateBefore)
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
