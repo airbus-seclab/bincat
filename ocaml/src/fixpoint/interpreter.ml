@@ -188,7 +188,12 @@ struct
 			   
     and process_list vertices stmts =
       match stmts with
-      | s::stmts -> let new_vertices = process vertices s in process_list new_vertices stmts 
+      | s::stmts ->
+	 let new_vertices =
+	   try process vertices s
+	   with Exceptions.Bot_deref -> [] (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
+	 in
+	 process_list new_vertices stmts 
       | []       -> vertices
     in
     (* TODO 1 optimize: concat statements at the beginning and at the end reverse the list rather than add one by one to the end of the field Cfa.State.stmts *)
@@ -303,8 +308,8 @@ struct
 	  | None -> ()
 	with
 	| Exceptions.Error msg 	  -> dump g; Log.error msg
-	| Exceptions.Enum_failure -> dump g; Log.error "analysis stopped in that branch (too imprecise value computed)"
-	| _			  -> dump g; Log.error "Interpreter error"
+	| Exceptions.Enum_failure -> dump g; Log.error "analysis stopped (computed value too much imprecise)"
+	| e			  -> dump g; raise e
       end;
       (* boolean condition of loop iteration is updated                                                          *)
       continue := not (Vertices.is_empty !waiting);

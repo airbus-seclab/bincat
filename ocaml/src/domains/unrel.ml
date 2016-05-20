@@ -187,13 +187,14 @@ module Make(D: T) =
 		 match a with
 		 | [a]  -> D.extract (Map.find (K.M a) m) 0 (n-1)
 		 | a::l -> D.join (D.extract (Map.find (K.M a) m) 0 (n-1)) (to_value l)
-		 | []   -> D.bot
+		 | []   -> raise Exceptions.Bot_deref
 	       in
 	       to_value addresses
 	     with
-	     | Exceptions.Enum_failure -> D.top
-	     | Exceptions.Empty        -> D.bot
-	     | Not_found               -> D.default n
+	     | Exceptions.Enum_failure               -> D.top
+	     | Not_found | Exceptions.Concretization ->
+			    Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]: analysis stop in that context" (Asm.string_of_exp e));
+			    raise Exceptions.Bot_deref
 	   end
 	| Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
 	   D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1)))

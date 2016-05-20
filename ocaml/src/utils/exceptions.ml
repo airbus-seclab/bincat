@@ -13,3 +13,5 @@ exception Empty
 (** raised when an unexpected behavior happens (undefined decoding, etc.) *)
 exception Error of string
 
+(** raised when an undefine dereference occurs *)
+exception Bot_deref
