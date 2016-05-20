@@ -137,6 +137,33 @@ def setReg(my_state, name, val, taint=0):
     my_state[v] = program.Value('global', val, taint=taint)
 
 
+def dereference_data(my_state, ptr):
+    # XXX use proper sizes when setting {v,t}{bot,top}
+    if ptr.vbot != 0:
+        # XXX decide expected behaviour
+        newptr = copy.copy(ptr)
+        newptr.value = 0
+        newptr.vbot = 0xffffffff
+        newptr.vtop = 0
+        return newptr
+    elif ptr.vtop != 0:
+        newptr = copy.copy(ptr)
+        newptr.value = 0
+        newptr.vbot = 0
+        newptr.vtop = 0xffffffff
+        return newptr
+    else:  # concrete value
+        # XXX decode offset value from LDT, GDT, ds
+        newptr = copy.copy(ptr)
+        newptr.tbot = 0
+        newptr.ttop = 0
+        newptr.taint = 0
+        res = my_state[newptr + 0xfff300]
+        if ptr.ttop != 0:
+            res.ttop = 0xffffffff
+        return res
+
+
 def prepareExpectedState(state):
     return copy.deepcopy(state)
 
@@ -328,6 +355,9 @@ def test_or_reg_ff(analyzer, initialState, register):
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_reg_ebpm6(analyzer, initialState, register):
+    """
+    mov eax,[ebp-0x6]
+    """
     regid, regname = register
     # mov    reg,DWORD PTR [ebp-0x6]
     opcode = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
@@ -339,15 +369,20 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     expectedStateAfter[program.Value('reg', regname)] = \
-        stateBefore[program.Value(
-            'stack', stateBefore[program.Value('reg', 'ebp')].value - 6)]
+        dereference_data(stateBefore,
+                         stateBefore[program.Value('reg', 'ebp')] - 6)
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
+    """
+    mov ebp,[eax]
+    """
+    # XXX test avec esp, ebp --> undefined behaviour
     regid, regname = register
     opcode = "\x8b" + chr(0x28 + regid)
+
     prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
@@ -356,7 +391,9 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     expectedStateAfter[program.Value('reg', 'ebp')] = \
-        stateBefore[program.Value('reg', regname)]
+        dereference_data(stateBefore,
+                         stateBefore[program.Value('reg', regname)])
+    # stateBefore[stateBefore[program.Value('reg', regname)] + 0xfff300]
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
