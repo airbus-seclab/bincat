@@ -143,7 +143,11 @@ def taintFlag(my_state, name):
 
 def setReg(my_state, name, val, taint=0):
     v = cfa.Value('reg', name)
-    my_state[v] = cfa.Value('global', val, taint=taint)
+    if name == 'esp':
+        region = 'stack'
+    else:
+        region = 'global'
+    my_state[v] = cfa.Value(region, val, taint=taint)
 
 
 def dereference_data(my_state, ptr):
@@ -242,8 +246,6 @@ def test_inc(analyzer, initialState, register):
     calc_zf(expectedStateAfter, newregvalue)
     clearFlag(expectedStateAfter, 'of')  # XXX compute properly
 
-    # XXX check flags
-    # XXX set zf properly
     # XXX taint more bits?
     # XXX flags should be tainted - known bug
 
@@ -324,16 +326,25 @@ def test_pop(analyzer, initialState, register):
 
 def test_sub(analyzer, initialState):
     # sub esp, 0x1234
-    hexstr = "81ec34120000"
-    prgm = analyzer(initialState, binarystr=binascii.unhexlify(hexstr))
+    opcode = binascii.unhexlify("81ec34120000")
+    prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter.address += len(hexstr)  # pretty debug msg
-    expectedStateAfter[cfa.Value('reg', 'esp')] = \
-        stateBefore[cfa.Value('reg', 'esp')] - 0x1234
+    expectedStateAfter.address += len(opcode)  # pretty debug msg
+
+    reg = cfa.Value('reg', 'esp')
+    regvalue = stateBefore[reg].value
+    newregvalue = stateBefore[reg].value - 0x1234
+    calc_af(expectedStateAfter, regvalue, newregvalue, 0x1234)
+    calc_pf(expectedStateAfter, newregvalue)
+    calc_sf(expectedStateAfter, newregvalue)
+    calc_zf(expectedStateAfter, newregvalue)
+    clearFlag(expectedStateAfter, 'of')  # XXX compute properly
+    clearFlag(expectedStateAfter, "cf")  # XXX compute properly
+    expectedStateAfter[cfa.Value('reg', 'esp')] -= 0x1234
     # TODO check taint
     assertEqualStates(stateAfter, expectedStateAfter)
 
@@ -355,6 +366,11 @@ def test_or_reg_ff(analyzer, initialState, register):
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     setReg(expectedStateAfter, regname, 0xffffffff)
     undefBitFlag(expectedStateAfter, "af")
+    calc_pf(expectedStateAfter, 0xffffffff)
+    calc_sf(expectedStateAfter, 0xffffffff)
+    calc_zf(expectedStateAfter, 0xffffffff)
+    clearFlag(expectedStateAfter, "of")
+    clearFlag(expectedStateAfter, "cf")
     # TODO check taint
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 

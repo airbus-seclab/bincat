@@ -283,7 +283,10 @@ class Value(object):
 
     def __sub__(self, other):
         other = getattr(other, "value", other)
-        return self.__class__(self.region, self.value-other,
+        newvalue = self.value-other
+        # clear value where top or bottom mask is not null
+        # XXX finish implementation
+        return self.__class__(self.region, newvalue,
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
 
