@@ -32,6 +32,7 @@ LIBNAME=libbincat.so
 LIBDIR ?= /usr/local/lib
 
 CMX = $(ML:.ml=.cmx)
+CMI = $(MLI:.mli=.cmi)
 
 DIROPT = -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
 
@@ -89,8 +90,8 @@ install: $(LIBNAME)
 doc: $(ML) $(MLI)
 	@mkdir -p $(DOCPATH)/html
 	@mkdir -p $(DOCPATH)/latex
-	@$(CAMLDOC) -html $^ -d $(DOCPATH)/html $(DIROPT) $(SRC)
-	@$(CAMLDOC) -latex $^ -d $(DOCPATH)/latex $(DIROPT) $(SRC)
+	@$(CAMLDOC) -html $^ -d $(DOCPATH)/html $(DIROPT) 
+	@$(CAMLDOC) -latex $^ -d $(DOCPATH)/latex $(DIROPT)
 
 .PHONY: depend all clean install
 

@@ -105,7 +105,7 @@ module Make(Domain: Domain.T) =
 	  match Z.to_int (Z.logand (Z.shift_right v 2) Z.one) with
 	  | 0 -> GDT
 	  | 1 -> LDT
-	  | _ -> raise (Exceptions.Error "Invalid decription table selection")
+	  | _ -> Log.error "Invalid decription table selection"
 	in
 	{ rpl = rpl; ti = ti; index = Word.of_int (Z.shift_right v 3) index_sz }
 
@@ -263,11 +263,11 @@ module Make(Domain: Domain.T) =
 	      if c.rpl <= e.dpl then
 		e.base
 	      else
-		raise (Exceptions.Error "illegal requested privileged level")
+		Log.error "illegal requested privileged level"
 	  with Not_found ->
-	    raise (Exceptions.Error (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local")))
+	    Log.error (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
 	else
-	  raise (Exceptions.Error "only protected mode supported")
+	  Log.error "only protected mode supported"
 
       (** initialization of the segmentation *)
       let init () =
@@ -285,7 +285,7 @@ module Make(Domain: Domain.T) =
 	try
 	  List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
 	  registers
-	with _ -> raise (Exceptions.Error "Decoder: overflow in a segment register") 
+	with _ -> Log.error "Decoder: overflow in a segment register"
 	  
       let copy_segments s ctx = { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = get_segments ctx  }
 	
@@ -344,7 +344,7 @@ module Make(Domain: Domain.T) =
       let sib s reg md =
 	let c 		       = getchar s                                        in
 	let scale, index, base = mod_nnn_rm (Char.code c)                         in
-	if index = 4 then raise (Exceptions.Error "Decoder: Illegal index value in sib (0x04)");
+	if index = 4 then Log.error "Decoder: Illegal index value in sib (0x04)";
 	let index' 	       = find_reg index s.operand_sz                      in
 	let e 		       = BinOp (Shl, Lval (V index'), Const (Word.of_int (Z.of_int scale) 3))in
 	match base with
@@ -395,7 +395,7 @@ module Make(Domain: Domain.T) =
 		 
 	    | 3 -> V rm'
 		     
-	    | _ -> raise (Exceptions.Error "Decoder: illegal value for md in mod_reg_rm extraction")
+	    | _ -> Log.error "Decoder: illegal value for md in mod_reg_rm extraction"
 			     
 	  in
 	  if direction = 0 then
@@ -715,7 +715,7 @@ module Make(Domain: Domain.T) =
 	  | 13 -> (* not (sf <> of) = sf = of *) Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))
 	  | 14 -> (* sf <> of || zf == 1 *) BBinOp (LogOr, Cmp (NEQ, Lval (V (T fsf)), Lval (V (T fof))), eq fzf)
 	  | 15 -> (* (not (sf <> zf || zf == 1) = sf == zf && zf <> 1 *) BBinOp (LogAnd, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))), neq fzf)
-	  | _  -> raise (Exceptions.Error "Opcode.exp_of_cond: illegal value")
+	  | _  -> Log.error "Opcode.exp_of_cond: illegal value"
 
 			
 
@@ -1378,7 +1378,7 @@ module Make(Domain: Domain.T) =
 	  | '\xfd' -> return s (set_flag fdf fdf_sz)
 	  | '\xfe' -> grp4 s
 	  | '\xff' -> grp5 s
-	  | c ->  raise (Exceptions.Error (Printf.sprintf "Unknown opcode 0x%x" (Char.code c)))
+	  | c ->  Log.error (Printf.sprintf "Unknown opcode 0x%x" (Char.code c))
 
 	(** rep prefix *)
 	and rep s c =

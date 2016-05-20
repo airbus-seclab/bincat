@@ -302,11 +302,9 @@ module Make(Domain: Domain.T) =
 	(* state printing (detailed) *)
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
-	  Printf.fprintf f "[address = %s]\nid = %d\n%s\n" (Data.Address.to_string s.ip) s.id abstract_values;
+	  Printf.fprintf f "[address = %s]\nid = %d\nfinal = %s\n%s\n" (Data.Address.to_string s.ip) s.id (string_of_bool s.final) abstract_values;
 	  if !Config.verbose then
 	    List.iter (fun stmt -> Printf.fprintf f "%s" (Asm.string_of_stmt stmt)) s.stmts;
-	  if s.final then
-	    Printf.fprintf f "final = true\n"
 	in
 	G.iter_vertex print_ip g;
 	(* edge printing (summary) *)

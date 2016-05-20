@@ -123,6 +123,7 @@ class State(object):
         self.node_id = node_id
         #: Value -> Value
         self.regaddrs = {}
+        self.final = False
 
     @classmethod
     def parse(cls, address, outputkv):
@@ -136,6 +137,9 @@ class State(object):
         for i, (k, v) in enumerate(outputkv):
             if k == "id":
                 new_state.node_id = str(v)
+                continue
+            if k == "final":
+                new_state.final = True if v == 'true' else False
                 continue
             m = cls.re_region.match(k)
             if not m:

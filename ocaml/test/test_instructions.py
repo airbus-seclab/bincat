@@ -95,14 +95,19 @@ def undefBitFlag(my_state, name):
     my_state[v] = program.Value('_', 0, vbot=1)
 
 
+def calc_af(my_state, op1, op2, val):
+    af = ((val ^ op1 ^ op2) & 0x4) >> 3
+    setReg(my_state, 'af', af)
+
+
 def calc_zf(my_state, val):
     zf = 1 if val == 0 else 0
-    setReg(my_state, "zf", zf)
+    setReg(my_state, 'zf', zf)
 
 
 def calc_sf(my_state, val):
     sf = 1 if val & 0x80000000 != 0 else 0
-    setReg(my_state, "sf", sf)
+    setReg(my_state, 'sf', sf)
 
 
 def calc_pf(my_state, val):
@@ -113,7 +118,7 @@ def calc_pf(my_state, val):
     par = (par >> 16) + (par & 0xffff)
     par &= 1
     pf = 0 if par else 1
-    setReg(my_state, "pf", pf)
+    setReg(my_state, 'pf', pf)
 
 
 def taintFlag(my_state, name):
@@ -130,6 +135,33 @@ def taintFlag(my_state, name):
 def setReg(my_state, name, val, taint=0):
     v = program.Value('reg', name)
     my_state[v] = program.Value('global', val, taint=taint)
+
+
+def dereference_data(my_state, ptr):
+    # XXX use proper sizes when setting {v,t}{bot,top}
+    if ptr.vbot != 0:
+        # XXX decide expected behaviour
+        newptr = copy.copy(ptr)
+        newptr.value = 0
+        newptr.vbot = 0xffffffff
+        newptr.vtop = 0
+        return newptr
+    elif ptr.vtop != 0:
+        newptr = copy.copy(ptr)
+        newptr.value = 0
+        newptr.vbot = 0
+        newptr.vtop = 0xffffffff
+        return newptr
+    else:  # concrete value
+        # XXX decode offset value from LDT, GDT, ds
+        newptr = copy.copy(ptr)
+        newptr.tbot = 0
+        newptr.ttop = 0
+        newptr.taint = 0
+        res = my_state[newptr + 0xfff300]
+        if ptr.ttop != 0:
+            res.ttop = 0xffffffff
+        return res
 
 
 def prepareExpectedState(state):
@@ -194,13 +226,19 @@ def test_inc(analyzer, initialState, register):
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
-    for flag in ('of', 'sf', 'zf', 'af', 'pf'):
-        clearFlag(expectedStateAfter, flag)
+
+    expectedStateAfter[program.Value('reg', regname)] += 1
+    regvalue = stateBefore[program.Value('reg', regname)].value
+    newregvalue = expectedStateAfter[program.Value('reg', regname)].value
+    calc_af(expectedStateAfter, regvalue, newregvalue, 1)
+    calc_pf(expectedStateAfter, newregvalue)
+    calc_sf(expectedStateAfter, newregvalue)
+    calc_zf(expectedStateAfter, newregvalue)
+    clearFlag(expectedStateAfter, 'of')  # XXX compute properly
 
     # XXX check flags
     # XXX set zf properly
     # XXX taint more bits?
-    expectedStateAfter[program.Value('reg', regname)] += 1
     # XXX flags should be tainted - known bug
 
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
@@ -220,17 +258,15 @@ def test_dec(analyzer, initialState, register):
     expectedStateAfter.address += len(opcode)  # pretty debug msg
 
     expectedStateAfter[program.Value('reg', regname)] -= 1
+    regvalue = stateBefore[program.Value('reg', regname)].value
+    newregvalue = expectedStateAfter[program.Value('reg', regname)].value
+
     # flags
-    for flag in ('of', 'sf', 'zf', 'af', 'pf'):
-        clearFlag(expectedStateAfter, flag)
-    if stateBefore[program.Value('reg', regname)].value == 1:
-        expectedStateAfter[program.Value('reg', 'zf')].value = 1
-    # PF - inefficient but understandable way of counting set bits
-    nbBitsSet = bin(expectedStateAfter[
-        program.Value('reg', regname)].value & 0xFF).count('1')
-    expectedStateAfter[program.Value('reg', 'pf')].value = \
-        (nbBitsSet + 1) % 2
-    # XXX check flags
+    calc_af(expectedStateAfter, regvalue, newregvalue, -1)
+    calc_pf(expectedStateAfter, newregvalue)
+    calc_sf(expectedStateAfter, newregvalue)
+    calc_zf(expectedStateAfter, newregvalue)
+    clearFlag(expectedStateAfter, 'of')  # XXX compute properly
 
     # XXX taint more bits?
     assertEqualStates(stateAfter, expectedStateAfter)
@@ -319,6 +355,9 @@ def test_or_reg_ff(analyzer, initialState, register):
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_reg_ebpm6(analyzer, initialState, register):
+    """
+    mov eax,[ebp-0x6]
+    """
     regid, regname = register
     # mov    reg,DWORD PTR [ebp-0x6]
     opcode = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
@@ -330,15 +369,20 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     expectedStateAfter[program.Value('reg', regname)] = \
-        stateBefore[program.Value(
-            'stack', stateBefore[program.Value('reg', 'ebp')].value - 6)]
+        dereference_data(stateBefore,
+                         stateBefore[program.Value('reg', 'ebp')] - 6)
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_mov_ebp_reg(analyzer, initialState, register):
+    """
+    mov ebp,[eax]
+    """
+    # XXX test avec esp, ebp --> undefined behaviour
     regid, regname = register
     opcode = "\x8b" + chr(0x28 + regid)
+
     prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm[0x00]
     stateAfter = getNextState(prgm, stateBefore)
@@ -347,7 +391,9 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     expectedStateAfter[program.Value('reg', 'ebp')] = \
-        stateBefore[program.Value('reg', regname)]
+        dereference_data(stateBefore,
+                         stateBefore[program.Value('reg', regname)])
+    # stateBefore[stateBefore[program.Value('reg', regname)] + 0xfff300]
     assertEqualStates(stateAfter, expectedStateAfter, opcode)
 
 

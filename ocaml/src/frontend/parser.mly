@@ -40,6 +40,13 @@
       ];;	
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
+      (** set the Config.verbose reference *)
+      let update_verbose v =
+	match String.uppercase v with
+	| "TRUE"  -> Config.verbose := true
+	| "FALSE" -> Config.verbose := false
+	| _ 	  -> Log.error "Illegal boolean value for verbose mode"
+	   
       (** fills the table of initial values for the given register *)
       let init_register r (c, t) =
 	let r' = Register.of_name r in
@@ -114,7 +121,7 @@
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED PHYS_CODE_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
-%token GDT RVA_CODE CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP
+%token GDT RVA_CODE CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
 %token <string> STRING
 %token <Z.t> INT
 %start <unit> process
@@ -223,6 +230,7 @@
     | UNROLL EQUAL i=INT { Config.unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING { update_mandatory DOTFILE; Config.dotfile := f }
     | CUT EQUAL l=addresses { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
+    | VERBOSE EQUAL v=STRING { update_verbose v }
 
      addresses:
     | i=INT { [ i ] }
