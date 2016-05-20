@@ -6,7 +6,7 @@ Tests targeting the loading of binary files
 import pytest
 import copy
 import subprocess
-from pybincat import program
+from pybincat import cfa
 
 
 @pytest.fixture(scope='function', params=['init-5055-read-last-only.ini',
@@ -44,17 +44,17 @@ def analyzer(tmpdir, request):
 
         outfname = str(tmpdir.join('end.ini'))
         logfname = str(tmpdir.join('log.txt'))
-        p = program.Program.from_filenames(initfname, outfname, logfname)
+        p = cfa.CFA.from_filenames(initfname, outfname, logfname)
         return p
     return run_analyzer
 
 
-def getNextState(program, curState):
+def getNextState(cfa, curState):
     """
     Helper function: check that there is only one destination state, return it.
     XXX factor code
     """
-    nextStates = program.next_states(curState.address)
+    nextStates = cfa.next_states(curState.address)
     assert len(nextStates) == 1, \
         "expected exactly 1 destination state after running this instruction"
     nextState = nextStates[0]
@@ -78,8 +78,8 @@ def assertEqualStates(state, expectedState, opcodes=None):
             out = ""
     else:
         out = ""
-    assert type(state) is program.State
-    assert type(expectedState) is program.State
+    assert type(state) is cfa.State
+    assert type(expectedState) is cfa.State
     assert state == expectedState, "States should be identical\n" + out + \
         state.diff(expectedState, "Observed ", "Expected ")
 
@@ -99,18 +99,18 @@ def test_decode_5055_full(analyzer):
 
     expectedState1 = copy.deepcopy(stateInit)
 
-    expectedState1[program.Value('reg', 'esp')] -= 4
-    expectedState1[program.Value(
-        'stack', expectedState1[program.Value('reg', 'esp')].value)] = \
-        stateInit[program.Value('reg', 'eax')]
+    expectedState1[cfa.Value('reg', 'esp')] -= 4
+    expectedState1[cfa.Value(
+        'stack', expectedState1[cfa.Value('reg', 'esp')].value)] = \
+        stateInit[cfa.Value('reg', 'eax')]
 
     expectedState1.address += 1  # not checked, cosmetic for debugging only
 
     expectedState2 = copy.deepcopy(expectedState1)
-    expectedState2[program.Value('reg', 'esp')] -= 4
-    expectedState2[program.Value(
-        'stack', expectedState2[program.Value('reg', 'esp')].value)] = \
-        expectedState1[program.Value('reg', 'ebp')]
+    expectedState2[cfa.Value('reg', 'esp')] -= 4
+    expectedState2[cfa.Value(
+        'stack', expectedState2[cfa.Value('reg', 'esp')].value)] = \
+        expectedState1[cfa.Value('reg', 'ebp')]
     expectedState2.address += 1
 
     assert len(prgm.edges) == 2
@@ -127,10 +127,10 @@ def test_decode_5055_lastbyte(analyzer):
     state2 = getNextState(prgm, state1)
 
     expectedState2 = copy.deepcopy(state1)
-    expectedState2[program.Value('reg', 'esp')] -= 4
-    expectedState2[program.Value(
-        'stack', expectedState2[program.Value('reg', 'esp')].value)] = \
-        state1[program.Value('reg', 'ebp')]
+    expectedState2[cfa.Value('reg', 'esp')] -= 4
+    expectedState2[cfa.Value(
+        'stack', expectedState2[cfa.Value('reg', 'esp')].value)] = \
+        state1[cfa.Value('reg', 'ebp')]
 
     expectedState2.address += 1  # not checked, cosmetic for debugging only
 

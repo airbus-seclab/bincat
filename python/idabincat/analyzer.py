@@ -48,21 +48,21 @@ def main():
     logger.info("[Analyzer] out file: %s ", args.outfile)
     logger.info("[Analyzer] log file: %s ", args.logfile)
 
-    from pybincat import program
+    from pybincat import cfa
 
-    p = program.Program.from_filenames(args.inifile, args.outfile,
+    p = cfa.CFA.from_filenames(args.inifile, args.outfile,
                                        args.logfile)
 
     if args.diff:
         # fetch states
         try:
-            v = program.Value('global', parsers.parse_val(args.diff[0])[0])
+            v = cfa.Value('global', parsers.parse_val(args.diff[0])[0])
             state1 = p.states[v]
         except KeyError:
             logger.error("No State is defined at address %s", args.diff[0])
             sys.exit(1)
         try:
-            v = program.Value('global', parsers.parse_val(args.diff[1])[0])
+            v = cfa.Value('global', parsers.parse_val(args.diff[1])[0])
             state2 = p.states[v]
         except KeyError:
             logger.error("No State is defined at address %s", args.diff[1])
