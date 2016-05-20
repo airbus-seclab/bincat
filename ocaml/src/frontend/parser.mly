@@ -42,10 +42,10 @@
 
       (** set the Config.verbose reference *)
       let update_verbose v =
-	match String.capitalize v with
-	| "TRUE" -> Config.verbose := true
+	match String.uppercase v with
+	| "TRUE"  -> Config.verbose := true
 	| "FALSE" -> Config.verbose := false
-	| _ -> Log.error "Illegal boolean value for verbose mode"
+	| _ 	  -> Log.error "Illegal boolean value for verbose mode"
 	   
       (** fills the table of initial values for the given register *)
       let init_register r (c, t) =
