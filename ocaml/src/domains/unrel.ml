@@ -185,17 +185,26 @@ module Make(D: T) =
 	       let addresses = Data.Address.Set.elements (D.to_addresses (eval e)) in
 	       let rec to_value a =
 		 match a with
-		 | [a]  -> D.extract (Map.find (K.M a) m) 0 (n-1)
-		 | a::l -> D.join (D.extract (Map.find (K.M a) m) 0 (n-1)) (to_value l)
+		 | [a]  ->
+		    let k = K.M a        in
+		    let v = Map.find k m in
+		    D.extract v 0 (n-1)
+		 | a::l ->
+		    let k = K.M a        in
+		    let v = Map.find k m in
+		    D.join (D.extract v 0 (n-1)) (to_value l)
 		 | []   -> raise Exceptions.Bot_deref
 	       in
 	       to_value addresses
 	     with
 	     | Exceptions.Enum_failure               -> D.top
 	     | Not_found | Exceptions.Concretization ->
-			    Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]: analysis stop in that context" (Asm.string_of_exp e));
+			    Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]: analysis stops in that context" (Asm.string_of_exp e));
 			    raise Exceptions.Bot_deref
 	   end
+	| Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 && Register.is_stack_pointer r1 ->
+	   D.of_config Data.Address.Stack (Config.Content Z.zero) (Register.size r1)
+		       
 	| Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
 	   D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1)))
 
