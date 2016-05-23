@@ -169,7 +169,7 @@ module Make(D: T) =
 	| Asm.Lval (Asm.V (Asm.T r)) 	     -> 
 	   begin
 	     try Map.find (K.R r) m
-	     with Not_found -> D.default (Register.size r)
+	     with Not_found -> D.bot
 	   end
 	| Asm.Lval (Asm.V (Asm.P (r, l, u))) ->
 	   begin
@@ -177,7 +177,7 @@ module Make(D: T) =
 	       let v = Map.find (K.R r) m in
 	       D.extract v l u
 	     with
-	     | Not_found -> D.default (u-l+1)
+	     | Not_found -> D.bot
 	   end
 	| Asm.Lval (Asm.M (e, n))            ->
 	   begin
@@ -226,25 +226,28 @@ module Make(D: T) =
       |	BOT    -> BOT
       | Val m' ->
 	 let v' = eval_exp m' src in
-	 match dst with
-	 | Asm.V r ->
-	    begin
-	      match r with
-	      | Asm.T r' -> Val (Map.add (K.R r') v' m')
-	      | Asm.P (r', l, u) ->
-		 try
-		   let prev = Map.find (K.R r') m' in
-		   Val (Map.replace (K.R r') (D.combine prev v' l u) m')
-		 with
-		   Not_found -> BOT
-	    end
-	 | Asm.M (e, _n) ->
-	    let addrs = D.to_addresses (eval_exp m' e)  in
-	    let l     = Data.Address.Set.elements addrs in
+	 if D.is_bot v' then
+	   BOT
+	 else
+	   match dst with
+	   | Asm.V r ->
+	      begin
+		match r with
+		| Asm.T r' -> Val (Map.add (K.R r') v' m')
+		| Asm.P (r', l, u) ->
+		   try
+		     let prev = Map.find (K.R r') m' in
+		     Val (Map.replace (K.R r') (D.combine prev v' l u) m')
+		   with
+		     Not_found -> BOT
+	      end
+	   | Asm.M (e, _n) ->
+	      let addrs = D.to_addresses (eval_exp m' e)  in
+	      let l     = Data.Address.Set.elements addrs in
 	      match l with 
 	      | [a] -> (* strong update *) Val (Map.add (K.M a) v' m')
 	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)
-
+					       
 					       
     let join m1 m2 =
       match m1, m2 with
@@ -323,6 +326,9 @@ module Make(D: T) =
       | Val m' ->
 	 let v1 = eval_exp m' e1 in
 	 let v2 = eval_exp m' e2 in
+	 if D.is_bot v1 || D.is_bot v2 then
+	   BOT
+	 else
 	 if D.compare v1 op v2 then
 	   try
 	     Val (val_restrict m' e1 v1 op e2 v2)

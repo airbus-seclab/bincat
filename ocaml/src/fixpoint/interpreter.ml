@@ -52,7 +52,9 @@ struct
 	 let cmp' = if b then cmp else inv_cmp cmp in
 	   D.compare d e1 cmp' e2
     in
-    process e b 
+    let d' = process e b in
+    if D.is_bot d' then raise Exceptions.Empty
+    else d'
 
   let apply_tainting _rules d = d (* TODO apply rules of type Config.tainting_fun *)
   let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
@@ -100,12 +102,26 @@ struct
        if has_jmp then_stmts || has_jmp else_stmts then
 	 then' @ else'
        else
-	 let vertices' = List.mapi (fun i v ->
-			     let di = (List.nth then' i).Cfa.State.v    in
-			     let de = (List.nth else' i).Cfa.State.v    in
-			     v.Cfa.State.v <- D.join di de; v) vertices in
-	 List.iter (fun v -> Cfa.remove_state g v) (then'@else');
-	 vertices'
+	 begin
+	   
+	   List.map (fun v ->
+	       let vi = try process_list [copy v (restrict v.Cfa.State.v e true)] then_stmts with Exceptions.Empty -> [] in
+	       let ve = try process_list [copy v (restrict v.Cfa.State.v e false)] else_stmts with Exceptions.Empty -> [] in
+	       let di = try (List.hd vi).Cfa.State.v with _ -> D.bot in
+	       let de = try (List.hd ve).Cfa.State.v with _ -> D.bot in
+	       v.Cfa.State.v <- D.join di de;
+	       begin try Cfa.remove_state g (List.hd vi) with _ -> () end;
+	       begin try Cfa.remove_state g (List.hd ve) with _ -> () end;
+	       v) vertices
+			  (*
+	   let vertices' = List.mapi (fun i v ->
+			       let di = (List.nth then' i).Cfa.State.v    in
+			       let de = (List.nth else' i).Cfa.State.v    in
+			       v.Cfa.State.v <- D.join di de; v) vertices in
+	   List.iter (fun v -> Cfa.remove_state g v) (then'@else');
+	   vertices'
+	    *)
+	 end
      
 	      
     | Set (dst, src) -> List.map (fun v -> update v (D.set dst src v.Cfa.State.v)) vertices

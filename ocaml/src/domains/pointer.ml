@@ -9,8 +9,12 @@ module Make (V: Vector.T) =
 
     let bot = BOT
     let top = TOP
-    let is_bot p = p = BOT
-			 
+    let is_bot p =
+      match p with
+      | BOT -> true
+      | Val (_, v) when V.is_bot v -> true
+      | _ -> false
+	       
     let to_value p =
       match p with
       | BOT         -> raise Exceptions.Empty
@@ -66,6 +70,7 @@ module Make (V: Vector.T) =
 	 with _ -> BOT
 		     
     let binary op p1 p2 =
+      Printf.printf "p1= %s p2=%s\n" (to_string p1) (to_string p2); flush stdout;
       match p1, p2 with
       | BOT, _ | _, BOT 	   -> BOT
       | TOP, _ | _, TOP 	   -> TOP

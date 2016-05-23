@@ -71,6 +71,8 @@ module type T =
   sig
     (** abstract data type *)
     type t
+    (** comparison to bottom *)
+    val is_bot: t -> bool
     (** default value *)
     val default: int -> t
     (** value conversion. May raise an exception *)
@@ -121,6 +123,7 @@ module Make(V: Val) =
 	false
       with Exit -> true
 
+    let is_bot v = exists V.is_bot v
    		  
     let map2 f v1 v2 =
       let n = min (Array.length v1) (Array.length v2) in
@@ -244,10 +247,11 @@ module Make(V: Val) =
       try
 	let i = Z.to_int (to_value v2)   in
 	let v' = Array.make (n-i) V.zero in
-	for j = 0 to n-i-2 do
+	for j = 0 to n-i-1 do
 	  v'.(j) <- v1.(j)
 	done;
 	v'
+
       with
 	_ -> raise Exceptions.Enum_failure
 
@@ -300,7 +304,7 @@ module Make(V: Val) =
       | Asm.Div -> div v1 v2
       | Asm.Mod -> modulo v1 v2
       | Asm.Shl -> shl v1 v2
-      | Asm.Shr -> shr v2 v2
+      | Asm.Shr -> shr v1 v2
 			  
 
 	  
