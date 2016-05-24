@@ -20,17 +20,19 @@ except ImportError:
     sys.exit(1)
 
 
-
 def info(msg):
     BinCATLogViewer.Log(msg, idaapi.SCOLOR_DEFAULT)
+
 
 def important_info(msg):
     idaapi.msg("[BinCAT] %s" % msg)
     BinCATLogViewer.Log(msg, idaapi.SCOLOR_LOCNAME)
 
+
 def warning(msg):
     idaapi.msg("[BinCAT] WARNING: %s" % msg)
     BinCATLogViewer.Log(msg, idaapi.SCOLOR_ERROR)
+
 
 def error(msg):
     BinCATLogViewer.Log(msg, idaapi.SCOLOR_ERROR)
@@ -42,16 +44,15 @@ try:
     from PyQt5 import QtCore, QtWidgets, QtGui
 except:
     idaapi.warning("[BinCAT] Failed to load Qt libs from PyQt5 \n%s\n" %
-               repr(sys.exc_info()))
+                   repr(sys.exc_info()))
     sys.exit(1)
-
-# Loading pybincat.state
 
 try:
     from pybincat import cfa
 except:
-    idaapi.warning("[BinCAT] Failed to load 'pybincat.cfa' python module\n%s\n" %
-               repr(sys.exc_info()))
+    idaapi.warning(
+        "[BinCAT] Failed to load 'pybincat.cfa' python module\n%s\n" %
+        repr(sys.exc_info()))
     sys.exit(1)
 
 
@@ -76,7 +77,7 @@ class AnalyzerConfig:
 
     @property
     def rva_code(self):
-        rva,_ = self.getCodeSection(self.entrypoint)
+        rva, _ = self.getCodeSection(self.entrypoint)
         return rva
 
     def __str__(self):
@@ -150,14 +151,18 @@ class AnalyzerConfig:
         # heuristic entry point must be in the code section
 
         for seg in idautils.Segments():
-            seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg), idc.SEGATTR_TYPE)
+            seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg),
+                                                idc.SEGATTR_TYPE)
             start = idc.SegStart(seg)
             end = idc.SegEnd(seg)
-            if seg_attributes == idaapi.SEG_CODE and start <= entrypoint <= end:
+            if (seg_attributes == idaapi.SEG_CODE and
+                    start <= entrypoint <= end):
                 break
         else:
-            error("BinCAT no code section has been found for entrypoint %#08x\n" % entrypoint)
-            return -1,-1
+            error(
+                "BinCAT no code section has been found for entrypoint %#08x\n"
+                % entrypoint)
+            return -1, -1
         info("Code section found at %#x:%#x\n" % (start, end))
         return start, end
 
@@ -171,7 +176,7 @@ class AnalyzerConfig:
                 break
         else:
             warning("no Data section has been found")
-            return -1,-1
+            return -1, -1
         info("Data section found at %#x:%#x " % (start, end))
         return start, end
 
@@ -863,7 +868,6 @@ class Analyzer(QtCore.QProcess):
         else:
             info("Analyzer started\n")
 
-
     def procanalyzer_on_error(self, error):
         errors = ["Failed to start", "Crashed", "TimedOut", "Read Error",
                   "Write Error", "Unknown Error"]
@@ -885,9 +889,9 @@ class Analyzer(QtCore.QProcess):
             ibcState.cfa = cfa.CFA.parse(self.outfname,
                                          logs=self.logfname)
             # Update current RVA to start address (nodeid = 0)
-            node0 = ibcState.cfa.nodes["0"]
+            node0 = ibcState.cfa['0']
 
-            startaddr_ea = node0.value
+            startaddr_ea = node0.address.value
             ibcState.setCurrentEA(startaddr_ea, force=True)
         else:
             error("ERROR: analyzer returned exit code=%i\n" % exitcode)
@@ -899,8 +903,6 @@ class Analyzer(QtCore.QProcess):
         if os.path.exists(self.logfname):
             info(open(self.logfname).read())
         info("----------------------------\n")
-
-
 
 
 class BinCATLog_t(idaapi.simplecustviewer_t):
@@ -972,6 +974,9 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
                      idaapi.PluginForm.FORM_TAB))
 
     def updateCurrentEA(self, ea):
+        """
+        :param ea: int or long
+        """
         self.alabel.setText('RVA: 0x%08x' % ea)
         state = ibcState.currentState
         if state:
@@ -1011,8 +1016,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             parents = [nodeid for nodeid in ibcState.cfa.edges
                        if state.node_id in ibcState.cfa.edges[nodeid]]
             for pnode in parents:
-                paddr = ibcState.cfa.nodes[pnode]
-                pstate = ibcState.cfa.states[paddr]
+                pstate = ibcState.cfa[pnode]
                 for k in state.list_modified_keys(pstate):
                     if k in self.rows:
                         self.changedRows.add(self.rows.index(k))
@@ -1259,12 +1263,20 @@ class PluginState():
         self.analyzer = None
 
     def setCurrentEA(self, ea, force=False):
+        """
+        :param ea: int or long
+        """
         if not (force or ea != self.currentEA):
             return
         self.vtmodel.beginResetModel()
         self.currentEA = ea
         if self.cfa:
-            self.currentState = self.cfa[ea]
+            node_ids = self.cfa.node_id_from_addr(ea)
+            if node_ids:
+                # XXX add UI to choose state when several exist at this address
+                self.currentState = self.cfa[node_ids[0]]
+            else:
+                self.currentState = None
         BinCATTaintedForm.updateCurrentEA(ea)
         self.vtmodel.endResetModel()
 

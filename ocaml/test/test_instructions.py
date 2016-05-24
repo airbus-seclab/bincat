@@ -68,7 +68,7 @@ def getNextState(prgm, curState):
     """
     Helper function: check that there is only one destination state, return it.
     """
-    nextStates = prgm.next_states(curState.address)
+    nextStates = prgm.next_states(curState.node_id)
     assert len(nextStates) == 1, \
         "expected exactly 1 destination state after running this instruction"
     nextState = nextStates[0]
@@ -207,7 +207,7 @@ def test_xor_reg_self(analyzer, initialState, register):
     regid, regname = register
     opcode = "\x33" + chr(0xc0 + regid + (regid << 3))
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
@@ -232,7 +232,7 @@ def test_inc(analyzer, initialState, register):
     regid, regname = register
     opcode = chr(0x40 + regid)
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
@@ -260,7 +260,7 @@ def test_dec(analyzer, initialState, register):
     regid, regname = register
     opcode = chr(0x48 + regid)
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
@@ -288,7 +288,7 @@ def test_push(analyzer, initialState, register):
     regid, regname = register
     opcode = chr(0x50 + regid)
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
@@ -310,7 +310,7 @@ def test_pop(analyzer, initialState, register):
     regid, regname = register
     opcode = chr(0x58 + regid)
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
@@ -328,7 +328,7 @@ def test_sub(analyzer, initialState):
     # sub esp, 0x1234
     opcode = binascii.unhexlify("81ec34120000")
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
@@ -358,7 +358,7 @@ def test_or_reg_ff(analyzer, initialState, register):
     regid, regname = register
     opcode = "\x83" + chr(0xc8 + regid) + "\xff"
     prgm = analyzer(initialState, opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
@@ -383,7 +383,7 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     regid, regname = register
     opcode = "\x8b" + chr(0x45 + (regid << 3)) + "\xfa"
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
 
     # build expected state
@@ -407,7 +407,11 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     opcode = "\x8b" + chr(0x28 + regid)
 
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
+    print type(stateBefore), stateBefore
+    print prgm.edges
+    print prgm.nodes
+    print prgm.nodes['0']
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
@@ -431,7 +435,7 @@ def test_nop(analyzer, initialState):
     """
     # TODO add initial concrete ptr to initialState
     prgm = analyzer(initialState, binarystr='\x90')
-    stateBefore = prgm[0x00]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
     assertEqualStates(stateBefore, stateAfter)
 
@@ -442,7 +446,7 @@ def test_and_esp(analyzer, initialState):
     """
     opcode = "\x83\xe4\xf0"
     prgm = analyzer(initialState, binarystr=opcode)
-    stateBefore = prgm[0]
+    stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter[cfa.Value("reg", "esp")] &= 0xfffffff0
