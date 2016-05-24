@@ -408,10 +408,6 @@ def test_mov_ebp_reg(analyzer, initialState, register):
 
     prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm['0']
-    print type(stateBefore), stateBefore
-    print prgm.edges
-    print prgm.nodes
-    print prgm.nodes['0']
 
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
