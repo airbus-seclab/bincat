@@ -39,8 +39,9 @@ module Make (V: Vector.T) =
       | BOT, p | p, BOT 	   -> p
       | TOP, _ | _, TOP 	   -> TOP
       | Val (r1, o1), Val (r2, o2) ->
-	 if r1 = r2 then Val (r1, V.join o1 o2)
-	 else TOP
+	 match r1, r2 with
+	 | Global, r | r, Global -> Val (r, V.join o1 o2)
+	 | _, _ -> BOT
 
     let widen p1 p2 =
       match p1, p2 with
@@ -48,9 +49,10 @@ module Make (V: Vector.T) =
       | BOT, p 			   -> p
       | TOP, _ | _, TOP		   -> TOP
       | Val (r1, o1), Val (r2, o2) ->
-	 if r1 = r2 then
-	   Val (r1, V.widen o1 o2)
-	 else TOP
+	 match r1, r2 with
+	 | Global, r | r, Global ->
+			Val (r, V.widen o1 o2)
+	 | _, _ -> BOT
 	   
 		    
     let meet p1 p2 =
@@ -58,8 +60,10 @@ module Make (V: Vector.T) =
       | TOP, p | p, TOP 	   -> p
       | BOT, p | p, BOT 	   -> p
       | Val (r1, o1), Val (r2, o2) ->
-	 if r1 = r2 then Val (r1, V.meet o1 o2)
-	 else BOT
+	 match r1, r2 with
+	 | Global, r | r, Global ->
+	 Val (r, V.meet o1 o2)
+	 | _, _ -> BOT
 
     let unary op p =
       match p with
@@ -70,7 +74,6 @@ module Make (V: Vector.T) =
 	 with _ -> BOT
 		     
     let binary op p1 p2 =
-      Printf.printf "p1= %s p2=%s\n" (to_string p1) (to_string p2); flush stdout;
       match p1, p2 with
       | BOT, _ | _, BOT 	   -> BOT
       | TOP, _ | _, TOP 	   -> TOP

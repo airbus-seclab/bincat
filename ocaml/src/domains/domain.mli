@@ -22,9 +22,6 @@ module type T =
       (** remove the given register from the given abstract value *)	
       val remove_register: Register.t -> t -> t
 
-      (** undefine the value of the register (ie set to bottom) *)
-      val undefine: Register.t -> t -> t
-
       (** forget the value of the register (ie set to top) *)
       val forget: Register.t -> t -> t
 				       

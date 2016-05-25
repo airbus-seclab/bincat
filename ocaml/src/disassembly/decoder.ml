@@ -454,7 +454,7 @@ module Make(Domain: Domain.T) =
       let clear_flag f = Set (V (T f), Const (Word.zero (Register.size f)))
 			     
       (** produce the statement to undefine the given flag *)
-      let undef_flag f = Directive (Undef f)
+      let undef_flag f = Directive (Forget f)
 	
       (** produce the statement to set the carry flag according to the current operation whose operands are op1 and op2 and result is res *)
       let carry_flag_stmts sz res op1 op op2 = 

@@ -129,10 +129,6 @@ module Make(D: T) =
       | Val m' -> Val (Map.remove (K.R v) m')
       | BOT    -> BOT
 
-    let undefine r m =
-      match m with
-      | Val m' -> Val (Map.add (K.R r) D.bot m')
-      | BOT    -> BOT
 
     let forget r m =
       match m with

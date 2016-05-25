@@ -48,7 +48,7 @@ struct
 	 if b then D.meet v1 v2
 	 else D.join v1 v2
 		     
-      | Asm.Cmp (cmp, e1, e2)    -> 
+      | Asm.Cmp (cmp, e1, e2)    ->
 	 let cmp' = if b then cmp else inv_cmp cmp in
 	   D.compare d e1 cmp' e2
     in
@@ -112,15 +112,7 @@ struct
 	       v.Cfa.State.v <- D.join di de;
 	       begin try Cfa.remove_state g (List.hd vi) with _ -> () end;
 	       begin try Cfa.remove_state g (List.hd ve) with _ -> () end;
-	       v) vertices
-			  (*
-	   let vertices' = List.mapi (fun i v ->
-			       let di = (List.nth then' i).Cfa.State.v    in
-			       let de = (List.nth else' i).Cfa.State.v    in
-			       v.Cfa.State.v <- D.join di de; v) vertices in
-	   List.iter (fun v -> Cfa.remove_state g v) (then'@else');
-	   vertices'
-	    *)
+	       v) vertices		
 	 end
      
 	      
@@ -129,8 +121,6 @@ struct
     | Directive (Remove r) -> List.map (fun v -> update v (D.remove_register r v.Cfa.State.v)) vertices
 
     | Directive (Forget r) -> List.map (fun v -> update v (D.forget r v.Cfa.State.v)) vertices
-				
-    | Directive (Undef r) -> List.map (fun v -> update v (D.undefine r v.Cfa.State.v)) vertices
 
     | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices 
        
@@ -232,7 +222,7 @@ struct
   (** the widening may be also launched if the threshold is reached *)
   let update_abstract_values g v ip fun_stack =
     try
-    let l = process_stmts g v fun_stack in
+      let l = process_stmts g v fun_stack in
     List.iter (fun v ->
 	v.Cfa.State.ip <- ip;
 	let n =
