@@ -29,8 +29,8 @@ def main():
     parser.add_argument(
         '--logfile', '-l', type=str, help='Analyzer log file', required=True)
     parser.add_argument(
-        "--diff", "-d", nargs=2, metavar=('ADDR1', 'ADDR2'),
-        help="Display diff between 2 states")
+        "--diff", "-d", nargs=2, metavar=('NODEID1', 'NODEID2'),
+        help="Display diff between 2 node ids")
     parser.add_argument(
         "--verbose", "-v", action="count", default=0,
         help="Be more verbose (can be used several times).")
@@ -56,16 +56,14 @@ def main():
     if args.diff:
         # fetch states
         try:
-            v = cfa.Value('global', parsers.parse_val(args.diff[0])[0])
-            state1 = p.states[v]
+            state1 = p[args.diff[0]]
         except KeyError:
-            logger.error("No State is defined at address %s", args.diff[0])
+            logger.error("No State is defined having node_id %s", args.diff[0])
             sys.exit(1)
         try:
-            v = cfa.Value('global', parsers.parse_val(args.diff[1])[0])
-            state2 = p.states[v]
+            state2 = p[args.diff[1]]
         except KeyError:
-            logger.error("No State is defined at address %s", args.diff[1])
+            logger.error("No State is defined having node_id %s", args.diff[1])
             sys.exit(1)
         print state1.diff(state2)
 

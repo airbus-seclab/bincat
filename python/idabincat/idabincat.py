@@ -20,21 +20,39 @@ except ImportError:
     sys.exit(1)
 
 
+def info(msg):
+    BinCATLogViewer.Log(msg, idaapi.SCOLOR_DEFAULT)
+
+
+def important_info(msg):
+    idaapi.msg("[BinCAT] %s" % msg)
+    BinCATLogViewer.Log(msg, idaapi.SCOLOR_LOCNAME)
+
+
+def warning(msg):
+    idaapi.msg("[BinCAT] WARNING: %s" % msg)
+    BinCATLogViewer.Log(msg, idaapi.SCOLOR_ERROR)
+
+
+def error(msg):
+    BinCATLogViewer.Log(msg, idaapi.SCOLOR_ERROR)
+    idaapi.warning("[BinCAT] ERROR: %s" % msg)
+
+
 # Loading Qt packages
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
 except:
-    idaapi.msg("[+] BinCat: failed to load Qt libs from PyQt5 \n %s\n" %
-               repr(sys.exc_info()))
+    idaapi.warning("[BinCAT] Failed to load Qt libs from PyQt5 \n%s\n" %
+                   repr(sys.exc_info()))
     sys.exit(1)
-
-# Loading pybincat.state
 
 try:
     from pybincat import cfa
 except:
-    idaapi.msg("[+] BinCat: failed to load pybincat.cfa \n %s\n" %
-               repr(sys.exc_info()))
+    idaapi.warning(
+        "[BinCAT] Failed to load 'pybincat.cfa' python module\n%s\n" %
+        repr(sys.exc_info()))
     sys.exit(1)
 
 
@@ -59,7 +77,7 @@ class AnalyzerConfig:
 
     @property
     def rva_code(self):
-        rva,_ = self.getCodeSection(self.entrypoint)
+        rva, _ = self.getCodeSection(self.entrypoint)
         return rva
 
     def __str__(self):
@@ -131,20 +149,21 @@ class AnalyzerConfig:
     def getCodeSection(self, entrypoint):
         # in case we have more than one code section we apply the following:
         # heuristic entry point must be in the code section
-        BinCATLogViewer.Log("[+] BinCAT call GetCodeSegment ",
-                            idaapi.SCOLOR_LOCNAME)
 
         for seg in idautils.Segments():
-            seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg), idc.SEGATTR_TYPE)
+            seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg),
+                                                idc.SEGATTR_TYPE)
             start = idc.SegStart(seg)
             end = idc.SegEnd(seg)
-            idaapi.msg(" - seg %#08x -> %#08x %#02x\n" % (start, end, seg_attributes))
-            if seg_attributes == idaapi.SEG_CODE and start <= entrypoint <= end:
+            if (seg_attributes == idaapi.SEG_CODE and
+                    start <= entrypoint <= end):
                 break
         else:
-            idaapi.msg("[+] BinCAT no code section has been found for entrypoint %#08x\n" % entrypoint)
-            return -1,-1
-        idaapi.msg("[+] Code section found at %#x:%#x\n" % (start, end))
+            error(
+                "BinCAT no code section has been found for entrypoint %#08x\n"
+                % entrypoint)
+            return -1, -1
+        info("Code section found at %#x:%#x\n" % (start, end))
         return start, end
 
     def getDataSection(self):
@@ -156,11 +175,9 @@ class AnalyzerConfig:
                 end = idc.SegEnd(seg)
                 break
         else:
-            log = "[+] BinCAT no Data section has been found"
-            BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
-            return -1,-1
-        log = "[+] Data section found at %#x:%#x " % (start, end)
-        BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
+            warning("no Data section has been found")
+            return -1, -1
+        info("Data section found at %#x:%#x " % (start, end))
         return start, end
 
     def getConfigParser(self):
@@ -327,11 +344,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ipMemory.setEnabled(True)
 
     def cbRegistersHandler(self, text):
-        idaapi.msg(" selected register is %s \n " % text)
+        info("selected register is %s \n " % text)
 
     def btnLaunchAnalyzer(self):
-        BinCATLogViewer.Log("[+] BinCAT: Launching the analyzer",
-                            idaapi.SCOLOR_LOCNAME)
+        important_info("Launching the analyzer\n")
         # Test if stop address is not empty
         if not self.ipStopAddr.text():
             idaapi.warning(" Stop address is empty")
@@ -351,8 +367,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             self.close()
 
     def btnAnalyzerConfig(self):
-        BinCATLogViewer.Log("[+] BinCAT: Loading the analyzer configuration",
-                            idaapi.SCOLOR_LOCNAME)
+        info("Loading the analyzer configuration")
         bAc = AnalyzerConfForm_t(self)
         bAc.exec_()
 
@@ -589,10 +604,10 @@ class AnalyzerConfForm_t(QtWidgets.QDialog):
         GdtEdit.show()
 
     def btnImportHandler(self):
-        idaapi.msg("TODO")
+        idaapi.warning("TODO")
 
     def btnSegsHandler(self):
-        idaapi.msg("TODO")
+        idaapi.warning("TODO")
 
     def btnCancelHandler(self):
         self.reject()
@@ -844,59 +859,50 @@ class Analyzer(QtCore.QProcess):
             os.path.join(PYTHON_PATH, PYTHON_BIN),
             self.analyzerpath, self.initfname, self.outfname, self.logfname)
         # start the process
-        idaapi.msg(
-            "[+] BinCAT: Analyzer cmdline is:\n  %s \n " % cmdline)
+        info("Analyzer cmdline: [%s]" % cmdline)
         try:
             self.start(cmdline)
         except Exception as e:
-            idaapi.msg("[+] BinCAT failed to launch the analyzer.py\n")
-            idaapi.msg("    Exception: %s\n%s" % (str(e),
-                                                  traceback.format_exc()))
+            error("BinCAT failed to launch the analyzer.py\n")
+            info("Exception: %s\n%s" % (str(e), traceback.format_exc()))
         else:
-            idaapi.msg("[+] Analyzer started\n")
-
+            info("Analyzer started\n")
 
     def procanalyzer_on_error(self, error):
         errors = ["Failed to start", "Crashed", "TimedOut", "Read Error",
                   "Write Error", "Unknown Error"]
-        idaapi.msg("[+] Analyzer error: %s\n" % errors[error])
+        error("Analyzer error: %s\n" % errors[error])
 
     def procanalyzer_on_state_change(self, new_state):
         states = ["Not running", "Starting", "Running"]
-        idaapi.msg("[+] Analyzer new state: %s\n" % states[new_state])
+        info("Analyzer new state: %s\n" % states[new_state])
 
     def procanalyzer_on_start(self):
-        BinCATLogViewer.Log("[*] Analyzer:  starting process \n",
-                            idaapi.SCOLOR_DNAME)
+        important_info("Analyzer: starting process\n")
 
     def procanalyzer_on_finish(self):
-        idaapi.msg("[+] Analyzer process terminated \n")
+        important_info("Analyzer process terminated \n")
         exitcode = self.exitCode()
         if exitcode == 0:
-            BinCATLogViewer.Log("[+] BinCAT: Parsing analyzer result file\n",
-                                idaapi.SCOLOR_LOCNAME)
+            info("Parsing analyzer result file\n")
 
             ibcState.cfa = cfa.CFA.parse(self.outfname,
                                          logs=self.logfname)
             # Update current RVA to start address (nodeid = 0)
-            node0 = ibcState.cfa.nodes["0"]
+            node0 = ibcState.cfa['0']
 
-            startaddr_ea = node0.value
+            startaddr_ea = node0.address.value
             ibcState.setCurrentEA(startaddr_ea, force=True)
         else:
-            BinCATLogViewer.Log("[+] BinCAT ERROR: analyzer returned exit code=%i\n" % exitcode,
-                                idaapi.SCOLOR_ERROR)
-            idaapi.msg("BinCAT ERROR, exitcode=%i\n" % exitcode)
-            idaapi.msg("---- stdout ----------------\n")
-            idaapi.msg(str(self.readAllStandardOutput()))
-            idaapi.msg("---- stderr ----------------\n")
-            idaapi.msg(str(self.readAllStandardError()))
-        idaapi.msg("---- logfile ---------------\n")
+            error("ERROR: analyzer returned exit code=%i\n" % exitcode)
+            info("---- stdout ----------------\n")
+            info(str(self.readAllStandardOutput()))
+            info("---- stderr ----------------\n")
+            info(str(self.readAllStandardError()))
+        info("---- logfile ---------------\n")
         if os.path.exists(self.logfname):
-            idaapi.msg(open(self.logfname).read())
-        idaapi.msg("----------------------------\n")
-
-
+            info(open(self.logfname).read())
+        info("----------------------------\n")
 
 
 class BinCATLog_t(idaapi.simplecustviewer_t):
@@ -906,7 +912,6 @@ class BinCATLog_t(idaapi.simplecustviewer_t):
     def Create(self, sn=None):
         # Form title
         title = "BinCAT Log viewer"
-        idaapi.msg("[+] BinCAT log view created \n")
         # create the custom view
         if not idaapi.simplecustviewer_t.Create(self, title):
             return False
@@ -914,8 +919,9 @@ class BinCATLog_t(idaapi.simplecustviewer_t):
         return True
 
     def Log(self, LogLine, color):
-        coloredline = idaapi.COLSTR(LogLine, color)
-        self.AddLine(coloredline)
+        for l in LogLine.splitlines():
+            coloredline = idaapi.COLSTR(l, color)
+            self.AddLine(coloredline)
         self.Refresh()
 
 
@@ -926,9 +932,6 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
     """
 
     def OnCreate(self, form):
-        BinCATLogViewer.Log("[+] BinCAT Creating Tainted form ",
-                            idaapi.SCOLOR_LOCNAME)
-
         self.currentrva = 0
 
         # Get parent widget
@@ -961,10 +964,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
         self.parent.setLayout(layout)
 
-    # Called when the plugin form is closed
     def OnClose(self, form):
-        BinCATLogViewer.Log("[+] BinCAT Closing Tainted form ",
-                            idaapi.SCOLOR_LOCNAME)
+        pass
 
     def Show(self):
         return idaapi.PluginForm.Show(
@@ -973,6 +974,9 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
                      idaapi.PluginForm.FORM_TAB))
 
     def updateCurrentEA(self, ea):
+        """
+        :param ea: int or long
+        """
         self.alabel.setText('RVA: 0x%08x' % ea)
         state = ibcState.currentState
         if state:
@@ -1012,8 +1016,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             parents = [nodeid for nodeid in ibcState.cfa.edges
                        if state.node_id in ibcState.cfa.edges[nodeid]]
             for pnode in parents:
-                paddr = ibcState.cfa.nodes[pnode]
-                pstate = ibcState.cfa.states[paddr]
+                pstate = ibcState.cfa[pnode]
                 for k in state.list_modified_keys(pstate):
                     if k in self.rows:
                         self.changedRows.add(self.rows.index(k))
@@ -1081,40 +1084,25 @@ class BinCATForm_t(idaapi.PluginForm):
         # Call AnalyzerConfForm_t
         bAc = AnalyzerConfForm_t(self.parent)
         bAc.show()
-        idaapi.msg("handler_btnAnalyzerConfig()\n")
 
     def handler_restartAnalyzer(self):
         # check if the field is not empty
         if not self.iptAnalyzerPath.text():
-            BinCATLogViewer.Log(
-                "[+] BinCAT new analyzer path is empty.",
-                idaapi.SCOLOR_LOCNAME)
-            idaapi.warning(
-                "BinCAT: The analyer could not be started: new path is empty.")
+            error("New analyzer path is empty")
         else:
             try:
                 with open(self.iptAnalyzerPath.text()) as f:
                     # TODO check if the analyer.py is the correct stub
-                    BinCATLogViewer.Log("[+] BinCAT: restarting analyzer.",
-                                        idaapi.SCOLOR_LOCNAME)
+                    important_info("Restarting analyzer.")
                     self.init_Analyzer()
 
             except:
-                BinCATLogViewer.Log(
-                    "[+] BinCAT new analyzer file could not be opened.",
-                    idaapi.SCOLOR_LOCNAME)
-                idaapi.warning(
-                    "BinCAT: The analyer could not be started: "
-                    "file not found.")
-
-        idaapi.msg("[+] BinCAT: new analyzer path %s.\n " %
-                   self.iptAnalyzerPath.text())
+                error("New analyzer file could not be opened.")
+            else:
+                info("New analyzer path %s.\n " % self.iptAnalyzerPath.text())
 
     # Called when the plugin form is created
     def OnCreate(self, form):
-        idaapi.msg("[+] BinCAT form created\n")
-        BinCATLogViewer.Log("[+] BinCAT form created", idaapi.SCOLOR_LOCNAME)
-
         # Get parent widget
         self.parent = self.FormToPyQtWidget(form)
 
@@ -1174,9 +1162,6 @@ class BinCATForm_t(idaapi.PluginForm):
 
     # Called when the plugin form is closed
     def OnClose(self, form):
-        idaapi.msg("[+] BinCAT form closed\n")
-        BinCATLogViewer.Log("[+] BinCAT form closed", idaapi.SCOLOR_LOCNAME)
-
         global BinCATForm
         del BinCATForm
 
@@ -1199,8 +1184,6 @@ class HtooltipT(idaapi.action_handler_t):
         idaapi.action_handler_t.__init__(self)
 
     def activate(self, ctx):
-        # idaapi.msg(" activating HtooltipT ")
-        # idaapi.warning(" BinCAT: Tainting current Basic Bloc")
         return 1
 
     def update(self, ctx):
@@ -1215,8 +1198,6 @@ class HtooltipF(idaapi.action_handler_t):
         idaapi.action_handler_t.__init__(self)
 
     def activate(self, ctx):
-        # idaapi.msg(" activating HtooltipF ")
-        # idaapi.warning(" BinCAT: Tainting current Function")
         return 1
 
     def update(self, ctx):
@@ -1231,11 +1212,6 @@ class HtooltipH(idaapi.action_handler_t):
         idaapi.action_handler_t.__init__(self)
 
     def activate(self, ctx):
-        # idaapi.msg(" activating HtooltipH ")
-        # idaapi.warning(" BinCAT: Tainting from current position: %08x " %
-        # here())
-        # idaview =
-        # idaapi.PluginForm.FormToPyQtWidget(get_tform_idaview(ctx.form))
         f = idaapi.find_tform("IDA View-Tainting View")
         idaview = idaapi.PluginForm.FormToPyQtWidget(f)
         AnalyzerLauncher = TaintLaunchForm_t(idaview)
@@ -1287,13 +1263,20 @@ class PluginState():
         self.analyzer = None
 
     def setCurrentEA(self, ea, force=False):
-        idaapi.msg("set current EA to 0x%08x\n" % ea)
+        """
+        :param ea: int or long
+        """
         if not (force or ea != self.currentEA):
             return
         self.vtmodel.beginResetModel()
         self.currentEA = ea
         if self.cfa:
-            self.currentState = self.cfa[ea]
+            node_ids = self.cfa.node_id_from_addr(ea)
+            if node_ids:
+                # XXX add UI to choose state when several exist at this address
+                self.currentState = self.cfa[node_ids[0]]
+            else:
+                self.currentState = None
         BinCATTaintedForm.updateCurrentEA(ea)
         self.vtmodel.endResetModel()
 
@@ -1303,8 +1286,7 @@ class PluginState():
         outfname = os.path.join(path, "out.ini")
         logfname = os.path.join(path, "analyzer.log")
 
-        log = "Current analyzer path: %s \n" % path
-        BinCATLogViewer.Log(log, idaapi.SCOLOR_LOCNAME)
+        info("Current analyzer path: %s \n" % path)
 
         if configStr:
             with open(initfname, 'wb') as f:
@@ -1319,9 +1301,9 @@ class PluginState():
 
 
 def main():
-    idaapi.msg("[+] BinCAT plugin loaded\n")
+    idaapi.msg("[BinCAT] Plugin loaded\n")
     if not idaapi.get_root_filename():
-        idaapi.msg("[BinCAT] please load a file/idb before \n")
+        idaapi.error("[BinCAT] please load a file/idb before \n")
         return
     # TODO remove unnecessary globals
     global registers_x86
@@ -1339,13 +1321,10 @@ def main():
     global ibcState
     ibcState = PluginState()
 
-    idaapi.msg("[+] BinCAT Starting main form\n")
     if BinCATLogViewer.Create(1):
         BinCATLogViewer.Show()
         idaapi.set_dock_pos("BinCAT Log viewer", "Output window",
                             idaapi.DP_LEFT)
-        BinCATLogViewer.Log("[+] BinCAT Starting main form",
-                            idaapi.SCOLOR_LOCNAME)
 
     BinCATForm.Show()
     BinCATTaintedForm.Show()
@@ -1365,7 +1344,6 @@ def main():
     idaapi.switchto_tform(ida_bincat_view, 1)
 
     # creating BinCAT menu
-    BinCATLogViewer.Log("[+] BinCAT Creating Menus ", idaapi.SCOLOR_LOCNAME)
     # tooltip_act0 = idaapi.action_desc_t(
     #     'my:tooltip0', 'BinCAT: Taint this basic bloc', HtooltipT(), '',
     #     'BinCAT action', -1)
@@ -1383,17 +1361,16 @@ def main():
 
     idaapi.attach_action_to_menu("View/", "my:tooltip0", idaapi.SETMENU_APP)
 
-    BinCATLogViewer.Log("[+] BinCAT Setting Menu Hooks ",
-                        idaapi.SCOLOR_LOCNAME)
-
     try:
         hooks.unhook()
         hooks = None
-        idaapi.msg("unhooked")
+        idaapi.msg("[BinCATA] Unhooked")
 
     except:
         hooks = Hooks()
         hooks.hook()
+
+    info("IDABinCAT ready.")
 
 # ----------------------------------------------------------------------------------------------
 

@@ -13,21 +13,24 @@ class PyBinCATParseError(PyBinCATException):
 
 
 class CFA(object):
-    re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
+    """
+    Holds State for each defined node_id.
+    Several node_ids may share the same address (ex. loops, partitions)
+    """
 
     def __init__(self, states, edges, nodes):
-        #: Value (address) -> State
+        #: Value (address) -> [node_id]. Nodes marked "final" come first.
         self.states = states
-        #: nodeid -> list of nodeid (string)
+        #: node_id (string) -> list of node_id (string)
         self.edges = edges
-        #: nodes_id -> address
+        #: node_id (string) -> State
         self.nodes = nodes
         self.logs = None
 
     @classmethod
     def parse(cls, filename, logs=None):
 
-        states = {}
+        states = defaultdict(list)
         edges = defaultdict(list)
         nodes = {}
 
@@ -40,14 +43,16 @@ class CFA(object):
                     src, dst = edge.split(' -> ')
                     edges[src].append(dst)
                 continue
-            elif section.startswith('address = '):
-                m = cls.re_val.match(section[10:])
-                if m:
-                    address = Value(m.group("region"), int(m.group("value"), 0))
-                    state = State.parse(address, config.items(section))
-                    states[address] = state
-                    nodes[state.node_id] = address
-                    continue
+            elif section.startswith('node = '):
+                node_id = section[7:]
+                state = State.parse(node_id, config.items(section))
+                address = state.address
+                if state.final:
+                    states[address].insert(0, state.node_id)
+                else:
+                    states[address].append(state.node_id)
+                nodes[state.node_id] = state
+                continue
             raise PyBinCATException("Cannot parse section name (%r)" % section)
 
         cfa = cls(states, edges, nodes)
@@ -103,22 +108,26 @@ class CFA(object):
         #     addr = None
         return addr
 
-    def __getitem__(self, pc):
+    def __getitem__(self, node_id):
         """
-        Returns state at provided PC if it exists, else None.
-
-        :param eip: int, str or Value
+        Returns State at provided node_ids if it exists, else None.
         """
-        ptr = self._toValue(pc)
-        return self.states.get(ptr, None)
+        return self.nodes.get(node_id, None)
 
-    def next_states(self, pc):
-        node = self[pc].node_id
-        return [self[self.nodes[nn]] for nn in self.edges.get(node, [])]
+    def node_id_from_addr(self, addr):
+        addr = self._toValue(addr)
+        return self.states[addr]
+
+    def next_states(self, node_id):
+        """
+        Returns a list of State
+        """
+        return [self[n] for n in self.edges[node_id]]
 
 
 class State(object):
-    def __init__(self, address, node_id=None):
+    re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
+    def __init__(self, node_id, address=None):
         self.address = address
         self.node_id = node_id
         #: Value -> Value
@@ -126,18 +135,22 @@ class State(object):
         self.final = False
 
     @classmethod
-    def parse(cls, address, outputkv):
+    def parse(cls, node_id, outputkv):
         """
         :param outputkv: list of (key, value) tuples for each property set by
             the analyzer at this EIP
         """
 
-        new_state = State(address)
+        new_state = State(node_id)
 
         for i, (k, v) in enumerate(outputkv):
-            if k == "id":
-                new_state.node_id = str(v)
-                continue
+            if k == "address":
+                m = cls.re_val.match(v)
+                if m:
+                    address = Value(m.group("region"),
+                                    int(m.group("value"), 0))
+                    new_state.address = address
+                    continue
             if k == "final":
                 new_state.final = True if v == 'true' else False
                 continue
@@ -284,8 +297,8 @@ class Value(object):
     def __sub__(self, other):
         other = getattr(other, "value", other)
         newvalue = self.value-other
-        # clear value where top or bottom mask is not null
-        # XXX finish implementation
+        # XXX clear value where top or bottom mask is not null
+        # XXX complete implementation
         return self.__class__(self.region, newvalue,
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)

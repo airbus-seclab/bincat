@@ -49,12 +49,12 @@ def analyzer(tmpdir, request):
     return run_analyzer
 
 
-def getNextState(cfa, curState):
+def getNextState(prgm, curState):
     """
     Helper function: check that there is only one destination state, return it.
-    XXX factor code
+    XXX factor code with other tests
     """
-    nextStates = cfa.next_states(curState.address)
+    nextStates = prgm.next_states(curState.node_id)
     assert len(nextStates) == 1, \
         "expected exactly 1 destination state after running this instruction"
     nextState = nextStates[0]
@@ -91,7 +91,7 @@ def test_decode_5055_full(analyzer):
     filename = 'init-5055-read-all.ini'
     initialState = open(filename, 'rb').read()
     prgm = analyzer(initialState, binarystr='\x50\x55')
-    stateInit = prgm[0x00]
+    stateInit = prgm['0']
     #: after push eax
     state1 = getNextState(prgm, stateInit)
     #: after push ebp
@@ -122,7 +122,8 @@ def test_decode_5055_lastbyte(analyzer):
     filename = 'init-5055-read-lastbyte.ini'
     initialState = open(filename, 'rb').read()
     prgm = analyzer(initialState, binarystr='\x50\x55')
-    state1 = prgm[0x1000]
+    state1 = prgm['0']
+    # XXX check address is 0x1000
     #: after push ebp
     state2 = getNextState(prgm, state1)
 
