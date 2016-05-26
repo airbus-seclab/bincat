@@ -58,6 +58,8 @@ module type Val =
     val is_zero: t -> bool
     (** strictly less than comparison *)
     val lt: t -> t -> bool
+    (** greater than or equal to comparison *)
+    val geq: t -> t -> bool
     (** check whether the first abstract value is included in the second one *)
     val subset: t -> t -> bool
     (** comparison *)
@@ -271,20 +273,29 @@ module Make(V: Val) =
       in
       loop (n-1) v
 
+    (** returns true whenever v1 >= v2 *)
+    let geq v1 v2 =
+      try
+	for i = 0 to (Array.length v1) - 1 do
+	  if not (V.geq v1.(i) v2.(i)) then raise Exit
+	done;
+	true
+      with Exit -> false
+
     (** return v1 / v2, modulo *)
     let core_div v1 v2 =
       (* check first that v2 is not zero *)
       if for_all V.is_zero v2 then
 	Log.error "Division by zero"
       else
-	let n   = Array.length v1        in
-	let v   = Array.make n V.default in
-	let one = Array.make n V.one     in 
+	let n   = Array.length v1     in
+	let v   = Array.make n V.zero in
+	let one = Array.make n V.one  in 
 	let rec loop v r =
-	  if for_all2 (fun b1 b2 -> V.lt b1 b2) r v2 then
+	  if geq r v2 then
 	    loop (add v one) (sub r v2)
 	  else
-	    v, r
+	    v, r	      
 	in
 	loop v v1
 	
