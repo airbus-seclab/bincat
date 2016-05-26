@@ -12,15 +12,14 @@ let join b1 b2 =
   | T, T 	    -> T
   | U, U 	    -> U
   | BOT, b | b, BOT -> b
-  | U, T | T, U     -> T
   | _, _            -> TOP
 
 let logor b1 b2 =
   match b1, b2 with
-  | T, _ | _, T     -> T
-  | U, U 	    -> U
-  | BOT, b | b, BOT -> b
-  | _, _ 	    -> TOP
+  | T, T | U, T | T, U -> T
+  | U, U 	       -> U
+  | BOT, _ | _, BOT    -> BOT
+  | _, _ 	       -> TOP
 			 
 let meet b1 b2 =
   match b1, b2 with

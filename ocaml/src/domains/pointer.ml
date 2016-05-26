@@ -41,7 +41,9 @@ module Make (V: Vector.T) =
       | Val (r1, o1), Val (r2, o2) ->
 	 match r1, r2 with
 	 | Global, r | r, Global -> Val (r, V.join o1 o2)
-	 | _, _ -> BOT
+	 | r1, r2 ->
+	    if r1 = r2 then Val (r1, V.join o1 o2)
+	    else BOT
 
     let widen p1 p2 =
       match p1, p2 with
@@ -52,7 +54,9 @@ module Make (V: Vector.T) =
 	 match r1, r2 with
 	 | Global, r | r, Global ->
 			Val (r, V.widen o1 o2)
-	 | _, _ -> BOT
+	 | r1, r2 ->
+	    if r1 = r2 then Val (r1, V.widen o1 o2)
+	    else BOT
 	   
 		    
     let meet p1 p2 =
@@ -62,8 +66,10 @@ module Make (V: Vector.T) =
       | Val (r1, o1), Val (r2, o2) ->
 	 match r1, r2 with
 	 | Global, r | r, Global ->
-	 Val (r, V.meet o1 o2)
-	 | _, _ -> BOT
+			Val (r, V.meet o1 o2)
+	 | r1, r2 ->
+	    if r1 = r2 then Val (r1, V.meet o1 o2)
+	    else BOT
 
     let unary op p =
       match p with

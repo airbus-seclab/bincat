@@ -101,7 +101,7 @@ def undefBitFlag(my_state, name):
     XXX specify register len?
     """
     v = cfa.Value('reg', name)
-    my_state[v] = cfa.Value('_', 0, vbot=1)
+    my_state[v] = cfa.Value('?', 0, vtop=1)
 
 
 def calc_af(my_state, op1, op2, val):
