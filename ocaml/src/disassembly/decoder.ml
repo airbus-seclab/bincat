@@ -309,7 +309,7 @@ module Make(Domain: Domain.T) =
 
       (** sign extension of a byte on _nb_ bytes *)
       let sign_extension_of_byte b nb =
-	if Z.compare (Z.logand b (Z.of_int (Config.size_of_byte - 1))) Z.zero = 0 then
+	if Z.compare (Z.shift_right b 7) Z.zero = 0 then
 	  b
 	else
 	  let ff = ref "0xff" in

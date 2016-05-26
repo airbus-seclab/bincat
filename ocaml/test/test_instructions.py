@@ -354,7 +354,7 @@ def test_or_reg_ff(analyzer, initialState, register):
     """
     OR register with 0xff
     """
-    # or ebx,0xffffffff
+    # or reg,0xffffffff
     regid, regname = register
     opcode = "\x83" + chr(0xc8 + regid) + "\xff"
     prgm = analyzer(initialState, opcode)

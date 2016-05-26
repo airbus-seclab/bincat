@@ -20,10 +20,10 @@ let meet b1 b2 =
   match b1, b2 with
   | ZERO, ZERO 	    	  -> ZERO
   | ONE, ONE 	    	  -> ONE
-  | b, TOP | TOP, b 	  -> b
   | BOT, _ | _, BOT 	  -> BOT
   | ONE, ZERO | ZERO, ONE -> ZERO
-			 
+  | _, TOP | TOP, _ 	  -> TOP
+			       
 let to_string b =
   match b with
   | TOP  -> "?"
