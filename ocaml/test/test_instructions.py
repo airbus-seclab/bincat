@@ -449,6 +449,7 @@ def test_and_esp(analyzer, initialState):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter[cfa.Value("reg", "esp")] &= 0xfffffff0
     esp = expectedStateAfter[cfa.Value("reg", "esp")].value
+    undefBitFlag(expectedStateAfter, "af")
     clearFlag(expectedStateAfter, "of")
     clearFlag(expectedStateAfter, "cf")
     calc_zf(expectedStateAfter, esp)
