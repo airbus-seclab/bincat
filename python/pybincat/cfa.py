@@ -215,7 +215,7 @@ class State(object):
                 results.add(regaddr)
         return results
 
-    def diff(self, other, pns="", pno=""):
+    def diff(self, other, pns="", pno="", parent=None):
         """
         :param pns: pretty name for self
         :param pno: pretty name for other
@@ -223,12 +223,16 @@ class State(object):
         pns += str(self)
         pno += str(other)
         res = ["--- %s" % pns, "+++ %s" % pno]
+        if parent:
+            res.append("000 Parent %s" % str(parent))
         for regaddr in self.list_modified_keys(other):
             region = regaddr.region
             address = regaddr.value
             if regaddr.is_concrete() and isinstance(address, int):
                 address = "%#08x" % address
             res.append("@@ %s %s @@" % (region, address))
+            if (parent is not None) and (regaddr in parent.regaddrs):
+                res.append("0 %s" % parent.regaddrs[regaddr])
             if regaddr not in self.regaddrs:
                 res.append("+ %s" % other.regaddrs[regaddr])
             elif regaddr not in other.regaddrs:

@@ -176,7 +176,7 @@ def prepareExpectedState(state):
     return copy.deepcopy(state)
 
 
-def assertEqualStates(state, expectedState, opcodes=""):
+def assertEqualStates(state, expectedState, opcodes="", prgm=None):
     """
     :param opcodes: str
     """
@@ -193,8 +193,12 @@ def assertEqualStates(state, expectedState, opcodes=""):
         out = ""
     assert type(state) is cfa.State
     assert type(expectedState) is cfa.State
+    if prgm:
+        parent = prgm['0']
+    else:
+        parent = None
     assert state == expectedState, "States should be identical\n" + out + \
-        state.diff(expectedState, "Observed ", "Expected ")
+        state.diff(expectedState, "Observed ", "Expected ", parent)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -219,7 +223,7 @@ def test_xor_reg_self(analyzer, initialState, register):
     setFlag(expectedStateAfter, "pf")
     # XXX check taint (not tainted)
 
-    assertEqualStates(stateAfter, expectedStateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -247,7 +251,7 @@ def test_inc(analyzer, initialState, register):
     # XXX taint more bits?
     # XXX flags should be tainted - known bug
 
-    assertEqualStates(stateAfter, expectedStateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -275,7 +279,7 @@ def test_dec(analyzer, initialState, register):
     clearFlag(expectedStateAfter, 'of')  # XXX compute properly
 
     # XXX taint more bits?
-    assertEqualStates(stateAfter, expectedStateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -297,7 +301,7 @@ def test_push(analyzer, initialState, register):
         'stack', expectedStateAfter[cfa.Value('reg', 'esp')].value)] = \
         stateBefore[cfa.Value('reg', regname)]
 
-    assertEqualStates(stateAfter, expectedStateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -319,7 +323,7 @@ def test_pop(analyzer, initialState, register):
         stateBefore[cfa.Value(
             'stack', stateBefore[cfa.Value('reg', 'esp')].value)]
 
-    assertEqualStates(stateAfter, expectedStateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 def test_sub(analyzer, initialState):
@@ -344,7 +348,7 @@ def test_sub(analyzer, initialState):
     clearFlag(expectedStateAfter, "cf")  # XXX compute properly
     expectedStateAfter[cfa.Value('reg', 'esp')] -= 0x1234
     # TODO check taint
-    assertEqualStates(stateAfter, expectedStateAfter)
+    assertEqualStates(stateAfter, expectedStateAfter, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -370,7 +374,7 @@ def test_or_reg_ff(analyzer, initialState, register):
     clearFlag(expectedStateAfter, "of")
     clearFlag(expectedStateAfter, "cf")
     # TODO check taint
-    assertEqualStates(stateAfter, expectedStateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -390,7 +394,7 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     expectedStateAfter[cfa.Value('reg', regname)] = \
         dereference_data(stateBefore,
                          stateBefore[cfa.Value('reg', 'ebp')] - 6)
-    assertEqualStates(stateAfter, expectedStateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 # "ebp" and "esp" have no sense for this instruction (sib, disp32 instead)
@@ -420,7 +424,7 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     expectedStateAfter[cfa.Value('reg', 'ebp')] = newvalue
     # stateBefore[stateBefore[cfa.Value('reg', regname)] + 0xfff300]
     stateAfter = getNextState(prgm, stateBefore)
-    assertEqualStates(stateAfter, expectedStateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 def test_nop(analyzer, initialState):
@@ -431,7 +435,7 @@ def test_nop(analyzer, initialState):
     prgm = analyzer(initialState, binarystr='\x90')
     stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
-    assertEqualStates(stateBefore, stateAfter)
+    assertEqualStates(stateBefore, stateAfter, prgm=prgm)
 
 
 def test_and_esp(analyzer, initialState):
@@ -451,4 +455,4 @@ def test_and_esp(analyzer, initialState):
     calc_sf(expectedStateAfter, esp)
     calc_pf(expectedStateAfter, esp)
 
-    assertEqualStates(stateAfter, expectedStateAfter, opcode)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
