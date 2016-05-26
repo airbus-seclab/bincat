@@ -120,11 +120,9 @@ def calc_sf(my_state, val):
 
 
 def calc_pf(my_state, val):
-    par = ((val >> 1) & 0x55555555) + (val & 0x55555555)
-    par = ((par >> 2) & 0x33333333) + (par & 0x33333333)
-    par = ((par >> 4) & 0x0f0f0f0f) + (par & 0x0f0f0f0f)
-    par = ((par >> 8) & 0x00ff00ff) + (par & 0x00ff00ff)
-    par = (par >> 16) + (par & 0xffff)
+    par = val ^ (val >> 1)
+    par = par ^ (par >> 2)
+    par = par ^ (par >> 4)
     par &= 1
     pf = 0 if par else 1
     setReg(my_state, 'pf', pf)
