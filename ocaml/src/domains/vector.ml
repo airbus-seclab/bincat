@@ -274,13 +274,16 @@ module Make(V: Val) =
       loop (n-1) v
 
     (** returns true whenever v1 >= v2 *)
+    exception Res of bool
     let geq v1 v2 =
       try
 	for i = 0 to (Array.length v1) - 1 do
-	  if not (V.geq v1.(i) v2.(i)) then raise Exit
+	  if V.lt v1.(i) v2.(i) then raise (Res false)
+	  else
+	    if V.lt v2.(i) v1.(i) then raise (Res true)
 	done;
 	true
-      with Exit -> false
+      with Res b -> b
 
     (** return v1 / v2, modulo *)
     let core_div v1 v2 =
