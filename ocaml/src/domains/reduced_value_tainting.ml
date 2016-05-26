@@ -79,6 +79,13 @@ let lognot (v, t) = V.lognot v, t
 let lt (v1, _t1) (v2, _t2) = V.lt v1 v2
 let geq (v1, _t1) (v2, _t2) = V.geq v1 v2
 
-let logor (v1, t1) (v2, t2) = V.join v1 v2, T.join t1 t2
-let logand (v1, t1) (v2, t2) = V.meet v1 v2, T.join t1 t2
+let logor (v1, t1) (v2, t2) =
+  match (v1, t1), (v2, t2) with
+  | (V.ONE, T.U), _ | _, (V.ONE, T.U) -> V.ONE, T.U
+  | _, _ 			      -> V.join v1 v2, T.join t1 t2
+				 
+let logand (v1, t1) (v2, t2) =
+match (v1, t1), (v2, t2) with
+  | (V.ZERO, T.U), _ | _, (V.ZERO, T.U) -> V.ZERO, T.U
+  | _, _ 			        -> V.meet v1 v2, T.join t1 t2
 
