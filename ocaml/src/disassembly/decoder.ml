@@ -846,7 +846,7 @@ module Make(Domain: Domain.T) =
 	| V (T r) | V (P(r, _, _)) -> Register.compare r esp = 0
 	| _                        -> false
      
-      (** builds a left value from esp that is consistent with the stack width *)
+      (** builds a left value from esp which is consistent with the stack width *)
       let esp_lval () = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)
 
       (** common value used for the decoding of push and pop *)

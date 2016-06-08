@@ -12,6 +12,8 @@ module type Val =
     val top: t
     (** comparison to bottom *)
     val is_bot: t -> bool
+    (** returns true whenever the bit may be tainted *)
+    val is_tainted: t -> bool
     (** comparison to top *)
     val is_top: t -> bool
     (** default value *)
@@ -48,6 +50,10 @@ module type Val =
     val lognot: t -> t
     (** untaint *)
     val untaint: t -> t
+    (** taint *)
+    val taint: t -> t
+    (** weak taint *)
+    val weak_taint: t -> t
     (** abstract value of 1 *)
     val one: t
     (** comparison to one *)
@@ -75,6 +81,8 @@ module type T =
     type t
     (** comparison to bottom *)
     val is_bot: t -> bool
+    (** returns true whenever at least one bit may be tainted *)
+    val is_tainted: t -> bool
     (** default value *)
     val default: int -> t
     (** value conversion. May raise an exception *)
@@ -93,6 +101,10 @@ module type T =
     val unary: Asm.unop -> t -> t
     (** untaint *)
     val untaint: t -> t
+    (** taint *)
+    val taint: t -> t
+    (** weak taint *)
+    val weak_taint: t -> t
     (** conversion from word *)
     val of_word: Data.Word.t -> t
     (** comparison *)
@@ -350,6 +362,10 @@ module Make(V: Val) =
 
     let untaint v = Array.map V.untaint v
 
+    let taint v = Array.map V.taint v
+
+    let weak_taint v = Array.map V.weak_taint v
+				 
     let nth_of_value v i = Z.logand (Z.shift_right v i) Z.one
 				    
     let of_word w =
@@ -444,5 +460,6 @@ module Make(V: Val) =
 	v'.(i-o) <- v.(i)
       done;
       v'
-	
+
+    let is_tainted v = exists V.is_tainted v
   end: T)

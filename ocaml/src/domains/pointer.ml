@@ -34,6 +34,16 @@ module Make (V: Vector.T) =
       | TOP | BOT  -> p
       | Val (r, o) -> Val (r, V.untaint o)
 
+    let taint p =
+      match p with
+      | TOP | BOT  -> p
+      | Val (r, o) -> Val (r, V.taint o)
+
+    let weak_taint  p =
+      match p with
+      | TOP | BOT  -> p
+      | Val (r, o) -> Val (r, V.weak_taint o)
+			  
     let join p1 p2 =
       match p1, p2 with
       | BOT, p | p, BOT 	   -> p
@@ -145,5 +155,11 @@ module Make (V: Vector.T) =
     let extract p l u =
       match p with
       | BOT | TOP -> p
-      | Val (r, o) -> Val (r, V.extract o l u)	 
+      | Val (r, o) -> Val (r, V.extract o l u)
+
+    let is_tainted p =
+      match p with
+      | BOT 	   -> false
+      | TOP 	   -> true
+      | Val (_, o) -> V.is_tainted o
   end: Unrel.T)

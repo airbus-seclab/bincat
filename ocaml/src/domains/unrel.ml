@@ -14,7 +14,10 @@ module type T =
 
     (** comparison to bottom *)
     val is_bot: t -> bool
-		       
+
+    (** returns true whenever the given value may be tainted *)
+    val is_tainted: t -> bool
+	
     (** top value *)
     val top: t
 	       
@@ -67,6 +70,12 @@ module type T =
     (** [untaint v] untaint v *)
     val untaint: t -> t
 
+    (** taint the given value *)
+    val taint: t -> t
+
+    (** weak taint the given value *)
+    val weak_taint: t -> t
+			   
     (** default value. The integer is the size in bits of the dimension to initialise *)
     val default: int -> t
 
@@ -158,62 +167,90 @@ module Make(D: T) =
       | Val m' -> Printf.sprintf "%s = %s" (Register.name r) (D.to_string (Map.find (K.R r) m'))
 				 
     (** evaluates the given expression *)
-    let eval_exp m e =
-      let rec eval e =
+    (** an updated map is also returned as taint may be changed during a pointer dereference *)
+    (** no change on value *)
+    let rec eval m e =
 	match e with
-	| Asm.Const c 			     -> D.of_word c
+	| Asm.Const c 			     -> D.of_word c, m
 	| Asm.Lval (Asm.V (Asm.T r)) 	     -> 
 	   begin
-	     try Map.find (K.R r) m
-	     with Not_found -> D.bot
+	     try Map.find (K.R r) m, m
+	     with Not_found -> D.bot, m
 	   end
 	| Asm.Lval (Asm.V (Asm.P (r, l, u))) ->
 	   begin
 	     try
 	       let v = Map.find (K.R r) m in
-	       D.extract v l u
+	       D.extract v l u, m
 	     with
-	     | Not_found -> D.bot
+	     | Not_found -> D.bot, m
 	   end
 	| Asm.Lval (Asm.M (e, n))            ->
 	   begin
 	     try
-	       let addresses = Data.Address.Set.elements (D.to_addresses (eval e)) in
-	       let rec to_value a =
+	       let r, m = eval m e in
+	       let addresses = Data.Address.Set.elements (D.to_addresses r) in
+	       let rec to_value m a =
 		 match a with
 		 | [a]  ->
 		    let k = K.M a        in
 		    let v = Map.find k m in
-		    D.extract v 0 (n-1)
+		    let v', m' =
+		      if D.is_tainted r then
+			begin
+			  let v' = D.taint v in
+			  let m' = Map.replace k v' m in
+			  v', m'
+			end
+		      else
+			v, m
+		    in
+		    D.extract v' 0 (n-1), m'
 		 | a::l ->
 		    let k = K.M a        in
 		    let v = Map.find k m in
-		    D.join (D.extract v 0 (n-1)) (to_value l)
+		    let v', m' =
+		      if D.is_tainted r then
+			begin
+			  let v' = D.weak_taint v in
+			  let m' = Map.replace k v' m in
+			  v', m'
+			end
+		      else
+			v, m
+		    in
+		    let newv, m' = to_value m' l in
+		    D.join (D.extract v' 0 (n-1)) newv, m'
 		 | []   -> raise Exceptions.Bot_deref
 	       in
-	       to_value addresses
+	       to_value m addresses
 	     with
-	     | Exceptions.Enum_failure               -> D.top
+	     | Exceptions.Enum_failure               -> D.top, m
 	     | Not_found | Exceptions.Concretization ->
 			    Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]: analysis stops in that context" (Asm.string_of_exp e));
 			    raise Exceptions.Bot_deref
 	   end
+	     
 	| Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 && Register.is_stack_pointer r1 ->
-	   D.of_config Data.Address.Stack (Config.Content Z.zero) (Register.size r1)
+	   D.of_config Data.Address.Stack (Config.Content Z.zero) (Register.size r1), m
 		       
 	| Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
-	   D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1)))
+	   D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))), m
 
-	| Asm.BinOp (op, e1, e2) -> D.binary op (eval e1) (eval e2)
-	| Asm.UnOp (op, e) 	 -> D.unary op (eval e)
-      in
-      eval e
+	| Asm.BinOp (op, e1, e2) ->
+	   let v1, m' = eval m e1 in
+	   let v2, m' = eval m' e2 in
+	   D.binary op v1 v2, m'
+	| Asm.UnOp (op, e) 	 ->
+	   let v, m' = eval m e in D.unary op v, m'
+     
       
     let mem_to_addresses m e =
       match m with
       | BOT -> raise Exceptions.Enum_failure
       | Val m' ->
-	 try D.to_addresses (eval_exp m' e)
+	 let v, _m' = eval m' e in
+	 try D.to_addresses v
 	 with _ -> raise Exceptions.Enum_failure
 
 			 
@@ -221,7 +258,7 @@ module Make(D: T) =
       match m with
       |	BOT    -> BOT
       | Val m' ->
-	 let v' = eval_exp m' src in
+	 let v', m' = eval m' src in
 	 if D.is_bot v' then
 	   BOT
 	 else
@@ -238,7 +275,8 @@ module Make(D: T) =
 		     Not_found -> BOT
 	      end
 	   | Asm.M (e, _n) ->
-	      let addrs = D.to_addresses (eval_exp m' e)  in
+	      let v, m' = eval m' e in
+	      let addrs = D.to_addresses v in
 	      let l     = Data.Address.Set.elements addrs in
 	      match l with 
 	      | [a] -> (* strong update *) Val (Map.add (K.M a) v' m')
@@ -320,8 +358,8 @@ module Make(D: T) =
       match m with
       | BOT -> BOT
       | Val m' ->
-	 let v1 = eval_exp m' e1 in
-	 let v2 = eval_exp m' e2 in
+	 let v1, _m = eval m' e1 in
+	 let v2, _m = eval m' e2 in
 	 if D.is_bot v1 || D.is_bot v2 then
 	   BOT
 	 else
@@ -335,7 +373,7 @@ module Make(D: T) =
     let value_of_exp m e =
       match m with
       | BOT -> raise Exceptions.Concretization
-      | Val m' -> D.to_value (eval_exp m' e)
+      | Val m' -> let v, _m = eval m' e in D.to_value v
 			   
   end: Domain.T)
     

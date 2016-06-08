@@ -45,7 +45,9 @@ let string_of_taint (_v, t) = T.to_string t
 let default = V.default, T.default
 			   
 let untaint (v, t) = v, T.untaint t
-
+let taint (v, t) = v, T.taint t
+let weak_taint (v, t) = v, T.weak_taint t
+					
 let compare (v1, _t1) op (v2, _t2) = V.compare v1 op v2
 
 let one = V.ONE, T.U
@@ -89,3 +91,4 @@ match (v1, t1), (v2, t2) with
   | (V.ZERO, T.U), _ | _, (V.ZERO, T.U) -> V.ZERO, T.U
   | _, _ 			        -> V.meet v1 v2, T.join t1 t2
 
+let is_tainted (_v, t) = T.is_tainted t

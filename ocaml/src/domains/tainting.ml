@@ -58,3 +58,10 @@ let widen = join
 let default = U
 
 let untaint _t = U
+let taint _t = T
+let weak_taint _t = TOP
+		      
+let is_tainted t =
+  match t with
+  | T | TOP -> true
+  | _ 	    -> false
