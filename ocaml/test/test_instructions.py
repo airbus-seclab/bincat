@@ -167,7 +167,7 @@ def dereference_data(my_state, ptr):
         newptr.ttop = 0
         newptr.taint = 0
         res = my_state[newptr + 0xfff300]
-        if ptr.ttop != 0:
+        if ptr.ttop != 0 or ptr.taint != 0:
             res.ttop = 0xffffffff
         return res
 
