@@ -852,21 +852,8 @@ module Make(Domain: Domain.T) =
       (** common value used for the decoding of push and pop *)
       let size_push_pop lv sz = if is_segment lv then !Config.stack_width else sz
 
-      (** statements generation for pop instructions *)
-      let pop_stmts s lv =
-	let esp'  = esp_lval () in
-	List.fold_left (fun stmts lv -> 
-	    let n = size_push_pop lv s.operand_sz in
-	    [ Set (lv,
-		   Lval (M (Lval (V esp'), n))) ; set_esp Add esp' n ] @ stmts
-	  ) [] lv
-
-      (** state generation for the pop instructions *)
-      let pop s lv = return s (pop_stmts s lv)
-
-      (** generation of states for the push instructions *)
-      let push s v =
-	let with_stack_pointer lv =
+      (** returns true whenever the left value contains the stack register *)
+      let with_stack_pointer lv =
 	  let rec has e =
 	    match e with
 	    | UnOp (_, e') -> has e'
@@ -879,7 +866,24 @@ module Make(Domain: Domain.T) =
 	      | V (T r) | V (P (r, _, _)) -> Register.is_stack_pointer r
 	  in
 	  in_lv lv
-	in	
+		
+      (** statements generation for pop instructions *)
+      let pop_stmts s lv =
+	let esp'  = esp_lval () in
+	List.fold_left (fun stmts lv -> 
+	    let n = size_push_pop lv s.addr_sz in
+	    let incr = set_esp Add esp' n in
+	    if with_stack_pointer lv then
+		[ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n/8)) s.operand_sz)), s.operand_sz))) ] @ stmts
+	    else
+	    [ Set (lv, Lval (M (Lval (V esp'), s.operand_sz))) ; incr ] @ stmts
+	  ) [] lv
+
+      (** state generation for the pop instructions *)
+      let pop s lv = return s (pop_stmts s lv)
+
+      (** generation of states for the push instructions *)
+      let push s v =	
 	let esp' = esp_lval () in
 	let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
 	(* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
@@ -893,13 +897,13 @@ module Make(Domain: Domain.T) =
 	let stmts =
 	  List.fold_left (
 	      fun stmts lv ->
-	      let n = size_push_pop lv s.operand_sz in 
+	      let n = size_push_pop lv s.addr_sz in 
 	      let s =
 		if is_esp lv then
 		  (* save the esp value to its value before the first push (see PUSHA specifications) *)
-		  Set (M (Lval (V esp'), n), Lval (V (T t)))
+		  Set (M (Lval (V esp'), s.operand_sz), Lval (V (T t)))
 		else
-		  Set (M (Lval (V esp'), n), Lval lv);
+		  Set (M (Lval (V esp'), s.operand_sz), Lval lv);
 	      in
 	      [ set_esp Sub esp' n ; s ] @ stmts
 	    ) [] v
