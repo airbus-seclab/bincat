@@ -240,7 +240,11 @@ module Make(D: T) =
 	| _ 					 -> ()
       in
       try
-	process e;
+	begin
+	  match e with
+	  | Asm.Lval (Asm.M (e', _)) -> process e'
+	  | _ -> ()
+	end;
 	v
       with Exit -> if strong then D.taint v else D.weak_taint v
 	      
@@ -255,6 +259,7 @@ module Make(D: T) =
 	   match dst with
 	   | Asm.V r ->
 	      begin
+		let v' = update_taint true m' src v' in
 		match r with
 		| Asm.T r' -> Val (Map.add (K.R r') v' m')
 		| Asm.P (r', l, u) ->
@@ -268,8 +273,8 @@ module Make(D: T) =
 	      let addrs = D.to_addresses (eval_exp m' e) in
 	      let l     = Data.Address.Set.elements addrs in
 	      match l with 
-	      | [a] -> (* strong update *) let v' = update_taint true m' e v' in Val (Map.add (K.M a) v' m')
-	      | l   -> (* weak update   *) let v' = update_taint false m' e v' in Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)
+	      | [a] -> (* strong update *) Printf.printf "cas strong\n"; flush stdout; let v' = update_taint true m' src v' in Val (Map.add (K.M a) v' m')
+	      | l   -> (* weak update   *) let v' = update_taint false m' src v' in Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)
 					       
 					       
     let join m1 m2 =
