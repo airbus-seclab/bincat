@@ -15,7 +15,7 @@ module type T =
     (** comparison to bottom *)
     val is_bot: t -> bool
 
-    (** returns true whenever at least one bit of the parameter is tainted. False otherwise *)
+    (** returns true whenever at least one bit of the parameter may be tainted. False otherwise *)
     val is_tainted: t -> bool
 			   
     (** top value *)
@@ -231,7 +231,7 @@ module Make(D: T) =
 
     (** [update_taint strong m e v] (weak-)taint v if at least one bit of one of the registers in e is tainted *)
     (** the taint is strong when the boolean strong is true ; weak otherwise *)
-    let update_taint strong m e v =
+    let weak_taint m e v =
       let rec process e =
 	match e with
 	| Asm.Lval (Asm.V (Asm.T r)) | Asm.Lval (Asm.V (Asm.P (r, _, _))) -> let r' = Map.find (K.R r) m in if D.is_tainted r' then raise Exit else ()
@@ -246,20 +246,20 @@ module Make(D: T) =
 	  | _ -> ()
 	end;
 	v
-      with Exit -> if strong then D.taint v else D.weak_taint v
+      with Exit -> D.weak_taint v
 	      
     let set dst src m =
       match m with
       |	BOT    -> BOT
       | Val m' ->
 	 let v' = eval_exp m' src in
+	 let v' = weak_taint m' src v' in 
 	 if D.is_bot v' then
 	   BOT
 	 else
 	   match dst with
 	   | Asm.V r ->
 	      begin
-		let v' = update_taint true m' src v' in
 		match r with
 		| Asm.T r' -> Val (Map.add (K.R r') v' m')
 		| Asm.P (r', l, u) ->
@@ -273,8 +273,8 @@ module Make(D: T) =
 	      let addrs = D.to_addresses (eval_exp m' e) in
 	      let l     = Data.Address.Set.elements addrs in
 	      match l with 
-	      | [a] -> (* strong update *) Printf.printf "cas strong\n"; flush stdout; let v' = update_taint true m' src v' in Val (Map.add (K.M a) v' m')
-	      | l   -> (* weak update   *) let v' = update_taint false m' src v' in Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)
+	      | [a] -> (* strong update *) Val (Map.add (K.M a) v' m')
+	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)
 					       
 					       
     let join m1 m2 =
