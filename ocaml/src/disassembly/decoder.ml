@@ -863,7 +863,7 @@ module Make(Domain: Domain.T) =
 	    and in_lv lv =
 	      match lv with
 	      | M (e, _) -> has e
-	      | V (T r) | V (P (r, _, _)) -> Register.is_stack_pointer r
+	      | V (T r) | V (P (r, _, _)) -> if Register.compare r cs = 0 then Log.error "Illegal POP CS"; Register.is_stack_pointer r
 	  in
 	  in_lv lv
 		
