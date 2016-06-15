@@ -166,7 +166,37 @@ module Make(D: T) =
       | BOT -> "_"
       | Val m' -> Printf.sprintf "%s = %s" (Register.name r) (D.to_string (Map.find (K.R r) m'))
 
-				 
+(** computes the value read from a set of consecutive values in the map around address a *) 
+    let build_value m a sz =
+      let rec search i =
+	if i >= !Config.operand_sz then raise Not_found
+	else
+	  let a' = Data.Address.add_offset a (Z.of_int i) in
+	  if Map.mem (K.M a') m then a'
+	  else search (i+1)
+      in
+      try
+	(* 1. find the key k in the map that address a belongs to *)
+	(* it is such that k <= a <= k+Config.operand_sz *)
+	let k  = search 0				                in
+	(* 2. we compute from key k the word starting at address k and of length sz *)
+	let u  = !Config.operand_sz - (Z.to_int (Data.Address.sub a k)) in
+	let m0 = D.extract (Map.find (K.M k) m) 0 (u-1)                 in
+	let o  = !Config.operand_sz / 8			                in
+	let rec build i sz =
+	  if sz <= 0 then m0
+	  else
+	    let a  = Data.Address.add_offset k (Z.of_int (i*o))   		   in
+	    let m1 = Map.find (K.M a) m		       				   in
+	    let m1'= D.extract m1 ((!Config.operand_sz)-sz) (!Config.operand_sz-1) in
+	    let m2 = build (i+1) (sz-(!Config.operand_sz))			   in
+	    (* m2 + (m1' << Config.operand_sz) *)
+	    D.binary Asm.Add m2 (D.binary Asm.Shl m1' (D.of_word (Data.Word.of_int (Z.of_int (!Config.operand_sz)) sz)))
+	in
+	build o (sz-u)
+	with Not_found -> D.bot
+	  
+			  
     (** evaluates the given expression *)
     let eval_exp m e =
       let rec eval e =
@@ -193,13 +223,9 @@ module Make(D: T) =
 	       let rec to_value a =
 		 match a with
 		 | [a]  ->
-		    let k = K.M a        in
-		    let v = Map.find k m in
-		    D.extract v 0 (n-1)
+		    build_value m a n
 		 | a::l ->
-		    let k = K.M a        in
-		    let v = Map.find k m in
-		    D.join (D.extract v 0 (n-1)) (to_value l)
+		    D.join (build_value m a n) (to_value l)
 		 | []   -> raise Exceptions.Bot_deref
 	       in
 	       to_value addresses
@@ -247,7 +273,9 @@ module Make(D: T) =
 	end;
 	v
       with Exit -> D.weak_taint v
-	      
+
+    
+			  
     let set dst src m =
       match m with
       |	BOT    -> BOT
