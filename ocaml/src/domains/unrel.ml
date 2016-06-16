@@ -91,19 +91,22 @@ module Make(D: T) =
       struct
 	type t = 
 	  | R of Register.t
-	  | M of Data.Address.t
+	  | M of Data.Address.t * Data.Address.t (* interval of addresses *)
 		   	   
 	let compare v1 v2 = 
 	  match v1, v2 with
 	  | R r1, R r2 -> Register.compare r1 r2
-	  | M m1, M m2 -> Data.Address.compare m1 m2
+	  | M (m11, m12), M (m21, m22) ->
+	     if m12 < m21 then -1
+	     else if m22 < m11 then 1
+	     else 0
 	  | R _ , _    -> 1
 	  | _   , _    -> -1
 			     
 	let to_string x = 
 	  match x with 
 	  | R r -> "reg [" ^ (Register.name r) ^ "]"
-	  | M a -> "mem [" ^ (Data.Address.to_string a) ^ "]"
+	  | M (a, a') -> "mem [" ^ (Data.Address.to_string a) ^ "," ^(Data.Address.to_string a') ^ "]"
       end
 	      
     module Map = MapOpt.Make(K)
@@ -168,32 +171,31 @@ module Make(D: T) =
 
 (** computes the value read from a set of consecutive values in the map around address a *) 
     let build_value m a sz =
-      let rec search i =
-	if i >= !Config.operand_sz then raise Not_found
-	else
-	  let a' = Data.Address.add_offset a (Z.of_int i) in
-	  if Map.mem (K.M a') m then a'
-	  else search (i+1)
-      in
       try
 	(* 1. find the key k in the map that address a belongs to *)
 	(* it is such that k <= a <= k+Config.operand_sz *)
-	let k  = search 0				                in
-	(* 2. we compute from key k the word starting at address k and of length sz *)
-	let u  = !Config.operand_sz - (Z.to_int (Data.Address.sub a k)) in
-	let m0 = D.extract (Map.find (K.M k) m) 0 (u-1)                 in
-	let o  = !Config.operand_sz / 8			                in
-	let rec build i sz =
-	  if sz <= 0 then m0
-	  else
-	    let a  = Data.Address.add_offset k (Z.of_int (i*o))   		   in
-	    let m1 = Map.find (K.M a) m		       				   in
-	    let m1'= D.extract m1 ((!Config.operand_sz)-sz) (!Config.operand_sz-1) in
-	    let m2 = build (i+1) (sz-(!Config.operand_sz))			   in
-	    (* m2 + (m1' << Config.operand_sz) *)
-	    D.binary Asm.Add m2 (D.binary Asm.Shl m1' (D.of_word (Data.Word.of_int (Z.of_int (!Config.operand_sz)) sz)))
+	let within a k =
+	  match k with
+	  | K.R _ -> -1
+	  | K.M (a1, a2) -> 
+	     if Data.Address.compare a1 a < 0 then
+	       -1
+	     else
+	       if Data.Address.compare a a2 > 0 then 1
+	       else 0
 	in
-	build o (sz-u)
+	let k, m0  = Map.find_key (within a) m in
+	match k with
+	| K.R _        -> Log.error "Implementation error in Unrel: the found key should be a pair of addresses"
+	| K.M (a1, a2) ->
+	   let o   = Data.Address.sub a a1	       in
+	   let len = Data.Address.sub a2 a1	       in
+	   let v   = D.binary Asm.Shr m0 (D.of_word (Data.Word.of_int o (8*(Z.to_int len)))) in
+	   let len' = (Z.to_int len) - (Z.to_int o)    in
+	   if len' >= sz then
+	     D.extract v (sz-1) (len'-sz)
+	   else
+	     D.bot
 	with Not_found -> D.bot
 	  
 			  
@@ -274,8 +276,7 @@ module Make(D: T) =
 	v
       with Exit -> D.weak_taint v
 
-    
-			  
+  	
     let set dst src m =
       match m with
       |	BOT    -> BOT
@@ -300,9 +301,10 @@ module Make(D: T) =
 	   | Asm.M (e, _n) ->
 	      let addrs = D.to_addresses (eval_exp m' e) in
 	      let l     = Data.Address.Set.elements addrs in
-	      match l with 
-	      | [a] -> (* strong update *) Val (Map.add (K.M a) v' m')
-	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)
+	      match l with
+	      | _ -> failwith "to implement"
+	      (*| [a] -> (* strong update *) Val (Map.add (K.M a) v' m')
+	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)*)
 					       
 					       
     let join m1 m2 =
@@ -347,7 +349,7 @@ module Make(D: T) =
       | BOT    -> BOT
       | Val m' ->
 	 let v' = D.of_config region c !Config.operand_sz in
-	 Val (Map.add (K.M a) v' m')
+	 Val (Map.add (K.M (a, Data.Address.add_offset a (Z.of_int (!Config.operand_sz / 8)))) v' m')
 
     let taint_from_config dim sz region c m =
       match m with
@@ -360,7 +362,7 @@ module Make(D: T) =
 	 let v' = D.taint_of_config region c sz prev in
 	 Val (Map.add dim v' m')
 			       
-    let taint_memory_from_config a region c m = taint_from_config (K.M a) !Config.operand_sz region c m 
+    let taint_memory_from_config a region c m = taint_from_config (K.M (a, Data.Address.add_offset a (Z.of_int (!Config.operand_sz / 8)))) !Config.operand_sz region c m 
     
     let taint_register_from_config r region c m = taint_from_config (K.R r) (Register.size r) region c m
 

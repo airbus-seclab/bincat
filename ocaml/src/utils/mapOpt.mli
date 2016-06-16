@@ -47,6 +47,9 @@ sig
     (** [find x m] returns the current binding of [x] in [m],
 	or raises [Not_found] if no such binding exists. *)
 
+  val find_key: (key -> int) -> 'a t -> key * 'a
+  (** [find_key p x] returns the key k and its associated value in [x] that satisfies predicate [p k = 0] or raises [Not_found] if no such binding exists *)
+					   
   val remove: key -> 'a t -> 'a t
     (** [remove x m] returns a map containing the same bindings as
 	[m], except for [x] which is unbound in the returned map.

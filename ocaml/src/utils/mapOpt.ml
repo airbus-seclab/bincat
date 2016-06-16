@@ -81,6 +81,17 @@ module Make(Ord: OrderedType) = struct
 	| Node (Empty, v, _, _, _) -> v
 	| Node (l, _, _, _, _) -> min_key l
 
+    let find_key p x =
+      let rec find x =
+	match x with
+	| Empty -> raise Not_found
+	| Node (l, k, v, r, _) ->
+	   if p k = 0 then k, v
+	   else if p k < 0 then find l
+	   else find r
+      in
+      find x
+	   
     let rec mem x = function
         Empty ->
           false
