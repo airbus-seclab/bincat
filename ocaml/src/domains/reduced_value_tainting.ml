@@ -6,10 +6,8 @@ module T = Tainting
 
 type t = V.t * T.t
 
-let bot = V.BOT, T.BOT
 let top = V.TOP, T.TOP
 		   
-let is_bot (v, _t) = v = V.BOT
 let is_top (v, _t) = v = V.TOP
 			      
 let to_value (v, _t) = V.to_value v
@@ -41,8 +39,6 @@ let widen (v1, t1) (v2, t2) = V.widen v1 v2, T.widen t1 t2
 let to_string (v, _t) = V.to_string v
 				    
 let string_of_taint (_v, t) = T.to_string t
-					  
-let default = V.default, T.default
 			   
 let untaint (v, t) = v, T.untaint t
 let taint (v, t) = v, T.taint t

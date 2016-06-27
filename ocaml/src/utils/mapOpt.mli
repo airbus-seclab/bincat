@@ -49,7 +49,12 @@ sig
 
   val find_key: (key -> int) -> 'a t -> key * 'a
   (** [find_key p x] returns the key k and its associated value in [x] that satisfies predicate [p k = 0] or raises [Not_found] if no such binding exists *)
-					   
+  (** if several keys satisfy the predicate then the first uncountered one is returned *)
+
+  val find_all_keys: (key -> bool) -> 'a t -> (key * 'a) list
+  (** [find_all_keys p x] returns the list of k and associated values in [x] that satisfy predicate p *)
+  (** order in returned keys is left branch keys <= current key <= right branch keys *)
+						       
   val remove: key -> 'a t -> 'a t
     (** [remove x m] returns a map containing the same bindings as
 	[m], except for [x] which is unbound in the returned map.

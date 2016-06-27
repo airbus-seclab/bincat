@@ -91,7 +91,18 @@ module Make(Ord: OrderedType) = struct
 	   else find r
       in
       find x
-	   
+
+    let find_all_keys p x =
+      let rec find x =
+	match x with
+	| Empty -> []
+	| Node (l, k, v, r, _) ->
+	   let l' = find l in
+	   let r' = find r in
+	   l' @ (if p k then (k, v)::r' else r')
+      in
+      find x
+		      
     let rec mem x = function
         Empty ->
           false
@@ -333,4 +344,5 @@ module Make(Ord: OrderedType) = struct
       match m with
 	| Node (l, _, _, r, _) -> cardinal l + cardinal r + 1
 	| Empty -> 0
+
 end

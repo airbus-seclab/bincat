@@ -6,18 +6,12 @@ module type Val =
   sig
     (** abstract data type *)
     type t
-    (** bottom *) 
-    val bot: t
     (** top *)
     val top: t
-    (** comparison to bottom *)
-    val is_bot: t -> bool
     (** returns true whenever the bit may be tainted *)
     val is_tainted: t -> bool
     (** comparison to top *)
     val is_top: t -> bool
-    (** default value *)
-    val default: t
     (** conversion to value of type Z.t. May raise an exception *)
     val to_value: t -> Z.t
     (** conversion from Z.t value *)
@@ -79,12 +73,10 @@ module type T =
   sig
     (** abstract data type *)
     type t
-    (** comparison to bottom *)
-    val is_bot: t -> bool
+    (** top on sz bit-width *)
+    val top: int -> t
     (** returns true whenever at least one bit may be tainted *)
     val is_tainted: t -> bool
-    (** default value *)
-    val default: int -> t
     (** value conversion. May raise an exception *)
     val to_value: t -> Z.t
     (** abstract join *)
@@ -121,14 +113,20 @@ module type T =
     val taint_of_config: Config.tvalue -> int -> t option -> t
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t
-    (** return the value corresponding to bits l to u *)
+    (** return the value corresponding to bits l to u may raise an exception if range bits exceeds the capacity of the vector *)
     val extract: t -> int -> int -> t
+    (** [from_position v i len] returns the sub-vector v[i]...v[i-len-1] may raise an exception if i > |v| or i-len-1 < 0 *)
+    val from_position: t -> int -> int -> t
+    (** returns the concatenation of the two given vectors *)
+    val concat: t -> t -> t			    
   end
     
 module Make(V: Val) =
   (struct
     type t = V.t array (** bit order is little endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *) 
 
+    let top sz = Array.make sz V.top
+			    
     let exists p v =
       try
 	for i = 0 to (Array.length v) - 1 do
@@ -136,12 +134,10 @@ module Make(V: Val) =
 	done;
 	false
       with Exit -> true
-
-    let is_bot v = exists V.is_bot v
    		  
     let map2 f v1 v2 =
       let n = min (Array.length v1) (Array.length v2) in
-      let v = Array.make n V.default                  in
+      let v = Array.make n V.top                      in
       for i = 0 to n-1 do
 	v.(i) <- f v1.(i) v2.(i)
       done;
@@ -179,7 +175,7 @@ module Make(V: Val) =
 				     
     let to_string v =
       let v' =
-	if exists V.is_bot v || exists V.is_top v then
+	if exists V.is_top v then
 	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "0b" v
 	else
 	    Data.Word.to_string (to_word v)
@@ -357,8 +353,6 @@ module Make(V: Val) =
       | Asm.Not       -> Array.map V.lognot v
       | Asm.SignExt i -> sign_extend v i
       | Asm.ZeroExt i -> zero_extend v i
-	   
-    let default sz = Array.make sz V.default
 
     let untaint v = Array.map V.untaint v
 
@@ -369,9 +363,9 @@ module Make(V: Val) =
     let nth_of_value v i = Z.logand (Z.shift_right v i) Z.one
 				    
     let of_word w =
-      let sz = Data.Word.size w	       in
-      let w' = Data.Word.to_int w      in
-      let r  = Array.make sz V.default in
+      let sz = Data.Word.size w	   in
+      let w' = Data.Word.to_int w  in
+      let r  = Array.make sz V.top in
       let n' =sz-1 in
       for i = 0 to n' do
 	r.(n'-i) <- if Z.compare (nth_of_value w' i) Z.one = 0 then V.one else V.zero
@@ -383,8 +377,8 @@ module Make(V: Val) =
     let subset v1 v2 = for_all2 V.subset v1 v2
 
     let of_config c n =
-      let v  = Array.make n V.default in
-      let n' = n-1                    in
+      let v  = Array.make n V.top in
+      let n' = n-1                in
       begin
 	match c with
 	| Config.Content c         ->
@@ -406,7 +400,7 @@ module Make(V: Val) =
       let v =
 	match prev with
 	| Some v' -> Array.copy v'
-	| None    -> Array.make n V.default
+	| None    -> Array.make n V.top
       in
       match t with
       | Config.Taint b ->
@@ -452,14 +446,33 @@ module Make(V: Val) =
 	| _       -> true
 
     let extract v l u =
-      let sz = u - l + 1               in
-      let v' = Array.make sz V.default in
-      let n  = Array.length v          in 
-      let o  = n-u - 1                 in
+      let sz = Array.length v      in
+      let v' = Array.make sz V.top in
+      let n  = Array.length v      in 
+      let o  = n-u - 1             in
       for i = o to n-l-1 do
 	v'.(i-o) <- v.(i)
       done;
       v'
 
+    let from_position v l len =
+      let v' = Array.make len V.top in
+      for i = l to l+len-1 do
+	v'.(i-l) <- v.(i)
+      done;
+      v'
+	
     let is_tainted v = exists V.is_tainted v
+
+    let concat v1 v2 =
+      let len1 = Array.length v1 in
+      let len2 = Array.length v2 in
+      let v = Array.make (len1+len2) V.top in
+      for i = 0 to len1-1 do
+	v.(i) <- v1.(i)
+      done;
+      for i = 0 to len2-1 do
+	v.(len1+i) <- v2.(i)
+      done;
+      v
   end: T)

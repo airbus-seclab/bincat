@@ -9,11 +9,7 @@ module Make (V: Vector.T) =
 
     let bot = BOT
     let top = TOP
-    let is_bot p =
-      match p with
-      | BOT -> true
-      | Val (_, v) when V.is_bot v -> true
-      | _ -> false
+    let is_bot p = p = BOT
 	       
     let to_value p =
       match p with
@@ -26,8 +22,6 @@ module Make (V: Vector.T) =
       | BOT -> "(_,0b_)"
       | TOP -> "(?,0b?)"
       | Val (r, o) -> Printf.sprintf "(%s, %s)" (string_of_region r) (V.to_string o)
-
-    let default sz = Val (Global, V.default sz)
 
     let untaint p =
       match p with
@@ -154,12 +148,37 @@ module Make (V: Vector.T) =
 
     let extract p l u =
       match p with
-      | BOT | TOP -> p
-      | Val (r, o) -> Val (r, V.extract o l u)
+      | BOT | TOP  -> p
+      | Val (r, o) ->
+	 try
+	   Val (r, V.extract o l u)
+	 with _ -> BOT
 
+    let from_position p i len =
+      match p with
+      | BOT | TOP -> p
+      | Val (r, o) ->
+	 try
+	   Val (r, V.from_position o i len)
+	 with _ -> BOT
+		     
     let is_tainted p =
       match p with
       | BOT 	   -> false
       | TOP 	   -> true
       | Val (_, o) -> V.is_tainted o
+
+    let rec concat l =
+      match l with
+      |	[ ] -> BOT
+      | [v] -> v
+      | v::l' ->
+	 let v' = concat l' in
+	 match v, v' with
+	 | BOT, _ | _, BOT -> BOT
+	 | TOP, _ | _, TOP -> TOP
+	 | Val (r1, o1), Val (r2, o2 ) ->
+	    if r1 = r2 then 
+	      Val (r1, V.concat o1 o2)
+	    else BOT
   end: Unrel.T)

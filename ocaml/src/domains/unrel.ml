@@ -76,11 +76,14 @@ module type T =
     (** [weak_taint v] weak taint v *)
     val weak_taint: t -> t
 
-    (** default value. The integer is the size in bits of the dimension to initialise *)
-    val default: int -> t
-
     (** returns the sub value between bits l and u *)
     val extract: t -> int -> int -> t
+
+    (** [from_position v p len] returns the sub value from bit p to bit p-len-1 *)
+    val from_position: t -> int -> int -> t
+
+    (** [concat [v1; v2 ; ... ; vn] ] returns value v such that v = v1 << |v2+...+vn| + v2 << |v3+...+vn| + ... + vn *)
+    val concat: t list -> t
   end
 		  
 		  
@@ -130,7 +133,7 @@ module Make(D: T) =
 					 
     let add_register r m =
       let add m' =
-	Val (Map.add (K.R r) (D.default (Register.size r)) m')
+	Val (Map.add (K.R r) D.bot m')
       in
       match m with
       | BOT    -> add Map.empty
@@ -169,29 +172,30 @@ module Make(D: T) =
       | BOT -> "_"
       | Val m' -> Printf.sprintf "%s = %s" (Register.name r) (D.to_string (Map.find (K.R r) m'))
 
-(** computes the value read from a set of consecutive values in the map around address a *) 
+    (** compute the position of the address a with respect to key k of type K.t *)
+    (** remember that registers (key K.R) are before any address in the order defined in K *)
+    let where a k =
+      match k with
+      | K.R _ -> -1
+      | K.M (a1, a2) -> 
+	 if Data.Address.compare a1 a < 0 then
+	   -1
+	 else
+	   if Data.Address.compare a a2 > 0 then 1
+	   else 0 (* return 0 if a1 <= a <= a2 *)
+		  
+(** computes the value read from a the map around at the key k containing address a *) 
     let build_value m a sz =
       try
-	(* 1. find the key k in the map that address a belongs to *)
-	(* it is such that k <= a <= k+Config.operand_sz *)
-	let within a k =
-	  match k with
-	  | K.R _ -> -1
-	  | K.M (a1, a2) -> 
-	     if Data.Address.compare a1 a < 0 then
-	       -1
-	     else
-	       if Data.Address.compare a a2 > 0 then 1
-	       else 0
-	in
-	let k, m0  = Map.find_key (within a) m in
+	(* find the key k in the map that address a belongs to *)
+	let k, m0  = Map.find_key (where a) m in
 	match k with
 	| K.R _        -> Log.error "Implementation error in Unrel: the found key should be a pair of addresses"
 	| K.M (a1, a2) ->
-	   let o   = Data.Address.sub a a1	       in
-	   let len = Data.Address.sub a2 a1	       in
+	   let o   = Data.Address.sub a a1	      					     in
+	   let len = Data.Address.sub a2 a1	      					     in
 	   let v   = D.binary Asm.Shr m0 (D.of_word (Data.Word.of_int o (8*(Z.to_int len)))) in
-	   let len' = (Z.to_int len) - (Z.to_int o)    in
+	   let len' = (Z.to_int len) - (Z.to_int o)   					     in
 	   if len' >= sz then
 	     D.extract v (sz-1) (len'-sz)
 	   else
@@ -276,7 +280,84 @@ module Make(D: T) =
 	v
       with Exit -> D.weak_taint v
 
-  	
+
+    let write_in_memory a m v sz strong =
+      let nb = sz / 8					   in
+      let min  = Data.Address.add_offset a (Z.of_int (-1)) in
+      let max  = Data.Address.add_offset a (Z.of_int nb)   in
+      let rec to_list i =
+	if i <= sz then
+	  (Data.Address.add_offset a (Z.of_int i))::(to_list (i+1))
+	else []
+      in
+      let addrs = to_list (-1) in
+      let within k =
+	(* TODO: optimize the search scanning by removing already found addresses in list addrs + avoid exploring all the map by knowing how it is structured *)
+	match k with
+	| K.M (l', u') -> List.exists (fun a' -> ((Data.Address.compare l' a' <= 0 ) && (Data.Address.compare a' u' <= 0))) addrs
+	| _ 	       -> false 
+      in
+      let keys = Map.find_all_keys within m in
+      let before l pv =
+	D.from_position pv 0 ((Z.to_int (Data.Address.sub a l))*8) 
+      in
+      let inpart u pv =
+	if strong then v
+	else
+	  if Data.Address.compare (Data.Address.add_offset a (Z.of_int (nb-1))) u <= 0 then
+	    D.join v (D.from_position pv ((Z.to_int (Data.Address.sub u a))*8) sz)
+	  else raise Exceptions.Empty
+      in
+      let after u' pv =
+	let pos = Z.to_int (Data.Address.sub u' max) in
+	D.from_position pv pos ((pos+1)*8)
+      in
+      let rec split l =
+	match l with
+	| [ K.M (l, u), v]    -> (l, u, v), []
+	| (K.M _ as k, _)::l' -> let e, l' = split l' in e, k::l'
+	| _ 		      -> raise Exceptions.Empty
+      in
+      match keys with
+	[ K.M (l1, u1) as k, pv1 ] ->
+	if Data.Address.compare u1 min = 0 then
+	  if strong then
+	    let m' = Map.remove k m in
+	    Map.add (K.M (l1, Data.Address.add_offset a (Z.of_int (nb-1)))) (D.concat [pv1 ; v]) m'
+	  else
+	    raise Exceptions.Empty
+	else
+	  if Data.Address.compare l1 max = 0 then
+	    if strong then
+	      let m' = Map.remove k m in
+	      Map.add (K.M (a, u1)) (D.concat [v ; pv1]) m'
+	    else raise Exceptions.Empty
+	  else
+	    let w1 = before l1 pv1 in
+	    let w2 = inpart u1 pv1 in
+	    let w3 = after u1 pv1 in
+	    let m' = Map.remove k m in
+	    Map.add (K.M (a, u1)) (D.concat [ w1 ; w2 ; w3 ]) m'
+
+	| (K.M (l1, u1) as k1, pv1)::l ->
+	   if strong then
+	     let b =
+	       if Data.Address.compare u1 min = 0 then pv1
+	       else before l1 pv1
+	     in
+	     let m' = Map.remove k1 m in
+	     let (l, u, pv), r = split l in
+	     let w3 =
+	       if Data.Address.compare l max = 0 then pv
+	       else after u pv
+	     in
+	     let m' = Map.remove (K.M (l, u)) m' in
+	     let m' = List.fold_left (fun m k -> Map.remove k m) m' r in
+	     Map.add (K.M (l1, u)) (D.concat [b ; v ; w3]) m'
+	   else raise Exceptions.Empty
+		      
+	| _ -> raise Exceptions.Empty	     
+	
     let set dst src m =
       match m with
       |	BOT    -> BOT
@@ -298,14 +379,14 @@ module Make(D: T) =
 		   with
 		     Not_found -> BOT
 	      end
-	   | Asm.M (e, _n) ->
+	   | Asm.M (e, n) ->
 	      let addrs = D.to_addresses (eval_exp m' e) in
 	      let l     = Data.Address.Set.elements addrs in
-	      match l with
-	      | _ -> failwith "to implement"
-	      (*| [a] -> (* strong update *) Val (Map.add (K.M a) v' m')
-	      | l   -> (* weak update   *) Val (List.fold_left (fun m a ->  try let v = Map.find (K.M a) m' in Map.replace (K.M a) (D.join v v') m with Not_found -> Map.add (K.M a) v' m)  m' l)*)
-					       
+	      try
+		match l with
+		| [a] -> (* strong update *) Val (write_in_memory a m' v' n true)
+		| l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false) m' l)
+		with Exceptions.Empty -> BOT			       
 					       
     let join m1 m2 =
       match m1, m2 with
