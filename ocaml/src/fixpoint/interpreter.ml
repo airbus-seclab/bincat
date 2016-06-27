@@ -94,7 +94,7 @@ struct
 	   let de = List.fold_left (fun d s -> process_value d s) (restrict d e false) else_stmts in
 	   D.join di de
 		  
-      | Set (dst, src) 			    -> D.set dst src d
+      | Set (dst, src) 			    -> D.set dst src d 
       | Directive (Remove r) 		    -> D.remove_register r d
       | Directive (Forget r) 		    -> D.forget r d
       | _ 				    -> raise Jmp_exn
@@ -194,8 +194,6 @@ struct
 	 process_list new_vertices stmts 
       | []       -> vertices
     in
-    (* TODO 1 optimize: concat statements at the beginning and at the end reverse the list rather than add one by one to the end of the field Cfa.State.stmts *)
-    (* TODO 2 optimize: avoid creating vertices in If-statements without jump and then deleting them. Possible ? *)
     process_list [copy v v.Cfa.State.v] v.Cfa.State.stmts
     
 

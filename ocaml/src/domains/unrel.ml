@@ -355,7 +355,11 @@ module Make(D: T) =
 	     let m' = List.fold_left (fun m k -> Map.remove k m) m' r in
 	     Map.add (K.M (l1, u)) (D.concat [b ; v ; w3]) m'
 	   else raise Exceptions.Empty
-		      
+	| [] ->
+	   if strong then
+	     Map.add (K.M (a, Data.Address.add_offset a (Z.of_int (nb-1)))) v m
+	   else
+	     raise Exceptions.Empty	  
 	| _ -> raise Exceptions.Empty	     
 	
     let set dst src m =
@@ -363,7 +367,7 @@ module Make(D: T) =
       |	BOT    -> BOT
       | Val m' ->
 	 let v' = eval_exp m' src in
-	 let v' = weak_taint m' src v' in 
+	 let v' = weak_taint m' src v' in
 	 if D.is_bot v' then
 	   BOT
 	 else
@@ -430,7 +434,8 @@ module Make(D: T) =
       | BOT    -> BOT
       | Val m' ->
 	 let v' = D.of_config region c !Config.operand_sz in
-	 Val (Map.add (K.M (a, Data.Address.add_offset a (Z.of_int (!Config.operand_sz / 8)))) v' m')
+	 let n = Z.of_int ((!Config.operand_sz) / 8 - 1) in
+	 Val (Map.add (K.M (a, Data.Address.add_offset a n)) v' m')
 
     let taint_from_config dim sz region c m =
       match m with
@@ -443,7 +448,9 @@ module Make(D: T) =
 	 let v' = D.taint_of_config region c sz prev in
 	 Val (Map.add dim v' m')
 			       
-    let taint_memory_from_config a region c m = taint_from_config (K.M (a, Data.Address.add_offset a (Z.of_int (!Config.operand_sz / 8)))) !Config.operand_sz region c m 
+    let taint_memory_from_config a region c m =
+      let n = Z.of_int ((!Config.operand_sz) / 8 - 1) in
+      taint_from_config (K.M (a, Data.Address.add_offset a n)) !Config.operand_sz region c m 
     
     let taint_register_from_config r region c m = taint_from_config (K.R r) (Register.size r) region c m
 

@@ -26,7 +26,7 @@ module Word =
 
     let sub w1 w2 =
       let w' = Z.sub (fst w1) (fst w2) in
-      w', String.length (Z.to_bits w')
+      w', max (String.length (Z.to_bits w')) (max (size w1) (size w2))
 			
    				  
     let of_int v sz = v, sz
