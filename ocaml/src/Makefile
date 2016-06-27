@@ -48,7 +48,7 @@ LIBX=graph.cmxa nums.cmxa zarith.cmxa
 all: $(LIBNAME)
 
 $(LIBNAME): $(CMX) 
-	$(CAMLOPT) -output-obj -fPIC -o $(LIBNAME) $(LIBX) $+
+	$(CAMLOPT) -output-obj -fPIC -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
 
 
 %.cmx: %.ml %.mli
