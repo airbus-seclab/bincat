@@ -107,12 +107,21 @@ struct
 	   match s with 
 	   | If (e, then_stmts, else_stmts) ->
 	      let then' = process_list (List.fold_left (fun l v ->
-					    try (copy v (restrict v.Cfa.State.v e true))::l
+					    try
+					      let d = restrict v.Cfa.State.v e true in
+					      if D.is_bot d then
+						l
+					      else (copy v d)::l
 					    with Exceptions.Empty -> l) [] vertices) then_stmts in
 	      
 	      let else' = process_list (List.fold_left (fun l v ->
-					    try (copy v (restrict v.Cfa.State.v e false))::l
-					    with Exceptions.Empty -> l) []  vertices) else_stmts in
+					    try
+					      let d = restrict v.Cfa.State.v e false in
+					      if D.is_bot d then
+						l
+					      else (copy v d)::l
+					    with Exceptions.Empty -> l)
+					     []  vertices) else_stmts in
 	      then' @ else'
 
 	   | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices 

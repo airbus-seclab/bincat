@@ -178,7 +178,7 @@ module Make(D: T) =
       match k with
       | K.R _ -> -1
       | K.M (a1, a2) -> 
-	 if Data.Address.compare a1 a < 0 then
+	 if Data.Address.compare a a1 < 0 then
 	   -1
 	 else
 	   if Data.Address.compare a a2 > 0 then 1
@@ -190,17 +190,9 @@ module Make(D: T) =
 	(* find the key k in the map that address a belongs to *)
 	let k, m0  = Map.find_key (where a) m in
 	match k with
-	| K.R _        -> Log.error "Implementation error in Unrel: the found key should be a pair of addresses"
-	| K.M (a1, a2) ->
-	   let o   = Data.Address.sub a a1	      					     in
-	   let len = Data.Address.sub a2 a1	      					     in
-	   let v   = D.binary Asm.Shr m0 (D.of_word (Data.Word.of_int o (8*(Z.to_int len)))) in
-	   let len' = (Z.to_int len) - (Z.to_int o)   					     in
-	   if len' >= sz then
-	     D.extract v (sz-1) (len'-sz)
-	   else
-	     D.bot
-	with Not_found -> D.bot
+	| K.R _      -> Log.error "Implementation error in Unrel: the found key should be a pair of addresses"
+	| K.M (_, u) -> D.from_position m0 (((Z.to_int (Data.Address.sub u a))+1)*8-1) sz
+	with _ -> D.bot
 	  
 			  
     (** evaluates the given expression *)
@@ -217,7 +209,7 @@ module Make(D: T) =
 	   begin
 	     try
 	       let v = Map.find (K.R r) m in
-	       D.extract v l u
+	       D.extract v l u 
 	     with
 	     | Not_found -> D.bot
 	   end
@@ -228,10 +220,8 @@ module Make(D: T) =
 	       let addresses = Data.Address.Set.elements (D.to_addresses r) in
 	       let rec to_value a =
 		 match a with
-		 | [a]  ->
-		    build_value m a n
-		 | a::l ->
-		    D.join (build_value m a n) (to_value l)
+		 | [a]  -> build_value m a n
+		 | a::l -> D.join (build_value m a n) (to_value l)
 		 | []   -> raise Exceptions.Bot_deref
 	       in
 	       to_value addresses
@@ -251,7 +241,7 @@ module Make(D: T) =
 	| Asm.BinOp (op, e1, e2) -> D.binary op (eval e1) (eval e2)
 	| Asm.UnOp (op, e) 	 -> D.unary op (eval e)
       in
-      eval e
+      eval e 
       
     let mem_to_addresses m e =
       match m with
@@ -305,7 +295,7 @@ module Make(D: T) =
 	if strong then v
 	else
 	  if Data.Address.compare (Data.Address.add_offset a (Z.of_int (nb-1))) u <= 0 then
-	    D.join v (D.from_position pv ((Z.to_int (Data.Address.sub u a))*8) sz)
+	    D.join v (D.from_position pv (((Z.to_int (Data.Address.sub u a))+1)*8-1) sz)
 	  else raise Exceptions.Empty
       in
       let after u' pv =
