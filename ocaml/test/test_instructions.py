@@ -279,7 +279,7 @@ def test_dec(analyzer, initialState, register):
     clearFlag(expectedStateAfter, 'of')  # XXX compute properly
 
     # XXX taint more bits?
-    assertEqualStates(stateAfter, expectedStateAfter, prgm=prgm)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
