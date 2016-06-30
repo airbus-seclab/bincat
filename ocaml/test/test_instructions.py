@@ -223,7 +223,7 @@ def test_xor_reg_self(analyzer, initialState, register):
     setFlag(expectedStateAfter, "pf")
     # XXX check taint (not tainted)
 
-    assertEqualStates(stateAfter, expectedStateAfter, prgm=prgm)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -301,7 +301,7 @@ def test_push(analyzer, initialState, register):
         'stack', expectedStateAfter[cfa.Value('reg', 'esp')].value)] = \
         stateBefore[cfa.Value('reg', regname)]
 
-    assertEqualStates(stateAfter, expectedStateAfter, prgm=prgm)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -348,7 +348,7 @@ def test_sub(analyzer, initialState):
     clearFlag(expectedStateAfter, "cf")  # XXX compute properly
     expectedStateAfter[cfa.Value('reg', 'esp')] -= 0x1234
     # TODO check taint
-    assertEqualStates(stateAfter, expectedStateAfter, prgm=prgm)
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
@@ -432,10 +432,11 @@ def test_nop(analyzer, initialState):
     Tests opcode 0x90
     """
     # TODO add initial concrete ptr to initialState
-    prgm = analyzer(initialState, binarystr='\x90')
+    opcode = '\x90'
+    prgm = analyzer(initialState, binarystr=opcode)
     stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
-    assertEqualStates(stateBefore, stateAfter, prgm=prgm)
+    assertEqualStates(stateBefore, stateAfter, opcode, prgm=prgm)
 
 
 def test_and_esp(analyzer, initialState):

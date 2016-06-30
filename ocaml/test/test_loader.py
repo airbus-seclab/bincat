@@ -90,7 +90,8 @@ def test_decode_5055_full(analyzer):
     """
     filename = 'init-5055-read-all.ini'
     initialState = open(filename, 'rb').read()
-    prgm = analyzer(initialState, binarystr='\x50\x55')
+    binarystr = '\x50\x55'
+    prgm = analyzer(initialState, binarystr=binarystr)
     stateInit = prgm['0']
     #: after push eax
     state1 = getNextState(prgm, stateInit)
@@ -114,14 +115,15 @@ def test_decode_5055_full(analyzer):
     expectedState2.address += 1
 
     assert len(prgm.edges) == 2
-    assertEqualStates(state1, expectedState1)
-    assertEqualStates(state2, expectedState2)
+    assertEqualStates(state1, expectedState1, binarystr[0])
+    assertEqualStates(state2, expectedState2, binarystr[1])
 
 
 def test_decode_5055_lastbyte(analyzer):
     filename = 'init-5055-read-lastbyte.ini'
     initialState = open(filename, 'rb').read()
-    prgm = analyzer(initialState, binarystr='\x50\x55')
+    binarystr = '\x50\x55'
+    prgm = analyzer(initialState, binarystr=binarystr)
     state1 = prgm['0']
     # XXX check address is 0x1000
     #: after push ebp
@@ -136,6 +138,6 @@ def test_decode_5055_lastbyte(analyzer):
     expectedState2.address += 1  # not checked, cosmetic for debugging only
 
     assert len(prgm.edges) == 1
-    assertEqualStates(state2, expectedState2)
+    assertEqualStates(state2, expectedState2, binarystr[1])
 
 # TODO test with entrypoint != rva-code
