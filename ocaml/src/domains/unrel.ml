@@ -109,7 +109,7 @@ module Make(D: T) =
 	let to_string x = 
 	  match x with 
 	  | R r -> "reg [" ^ (Register.name r) ^ "]"
-	  | M (a, a') -> "mem [" ^ (Data.Address.to_string a) ^ "," ^(Data.Address.to_string a') ^ "]"
+	  | M (a, a') -> "mem [" ^ (Data.Address.to_string a) ^ ", " ^(Data.Address.to_string a') ^ "]"
       end
 	      
     module Map = MapOpt.Make(K)

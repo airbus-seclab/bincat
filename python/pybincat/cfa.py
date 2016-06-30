@@ -127,6 +127,7 @@ class CFA(object):
 
 class State(object):
     re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
+
     def __init__(self, node_id, address=None):
         self.address = address
         self.node_id = node_id
@@ -160,9 +161,14 @@ class State(object):
             region = m.group("region")
             adrs = m.group("adrs")
             if region == 'mem' and adrs.startswith('(') and adrs.endswith(')'):
-                # ex. "(region, 0xabcd)"
-                # region in ['stack', 'global', 'heap', stack'
-                region, adrs = adrs[1:-1].split(', ')
+                # ex. "(region, 0xabcd), (region, 0xabce)"
+                # region in ['stack', 'global', 'heap']
+                adr_begin, adr_end = adrs[1:-1].split('), (')
+                region1, adrs = adr_begin.split(', ')
+                region2, adr2 = adr_end.split(', ')
+                assert region1 == region2
+                # XXX store region size, use ordered list, allow non-aligned
+                # access...
 
             m = cls.re_valtaint.match(v)
             if not m:
