@@ -276,7 +276,7 @@ module Make(D: T) =
       let min  = Data.Address.add_offset a (Z.of_int (-1)) in
       let max  = Data.Address.add_offset a (Z.of_int nb)   in
       let rec to_list i =
-	if i <= sz then
+	if i <= nb then
 	  (Data.Address.add_offset a (Z.of_int i))::(to_list (i+1))
 	else []
       in
@@ -309,7 +309,7 @@ module Make(D: T) =
 	| _ 		      -> raise Exceptions.Empty
       in
       match keys with
-	[ K.M (l1, u1) as k, pv1 ] ->
+	[ K.M (l1, u1) as k, pv1 ] -> Printf.printf "one key found: [%s, %s] for %s\n" (Data.Address.to_string l1) (Data.Address.to_string u1) (Data.Address.to_string a); flush stdout;
 	if Data.Address.compare u1 min = 0 then
 	  if strong then
 	    let m' = Map.remove k m in
@@ -424,8 +424,10 @@ module Make(D: T) =
       | BOT    -> BOT
       | Val m' ->
 	 let v' = D.of_config region c !Config.operand_sz in
+	 Val (write_in_memory a m' v' !Config.operand_sz true)
+	     (*
 	 let n = Z.of_int ((!Config.operand_sz) / 8 - 1) in
-	 Val (Map.add (K.M (a, Data.Address.add_offset a n)) v' m')
+	 Val (Map.add (K.M (a, Data.Address.add_offset a n)) v' m') *)
 
     let taint_from_config dim sz region c m =
       match m with
