@@ -94,8 +94,19 @@ module Address =
 
       type t = region * Word.t
 
+      let compare_region r1 r2 =
+	match r1, r2 with
+	| Global, Global -> 0
+	| Global, _ -> -1
+	| Stack, Stack -> 0
+	| Stack, Global -> 1
+	| Stack, Heap -> -1
+	| Heap, Heap -> 0
+	| Heap, Global -> 1
+	| Heap, Stack -> 1
+			
       let compare (r1, w1) (r2, w2) =
-	let n = compare r1 r2 in
+	let n = compare_region r1 r2 in
 	if n <> 0 then
 	  n
 	else

@@ -293,7 +293,7 @@ module Make(V: Val) =
 	true
       with Res b -> b
 
-    (** return v1 / v2, modulo *)
+    (** return v1 / v2, modulo of v1 / v2 *)
     let core_div v1 v2 =
       (* check first that v2 is not zero *)
       if for_all V.is_zero v2 then
@@ -446,21 +446,18 @@ module Make(V: Val) =
 	| _       -> true
 
     let extract v l u =
-      let sz = Array.length v      in
-      let v' = Array.make sz V.top in
-      let n  = Array.length v      in 
-      let o  = n-u - 1             in
+      let v' = Array.make (u-l+1) V.top in
+      let n  = Array.length v           in 
+      let o  = n-u - 1                  in
       for i = o to n-l-1 do
 	v'.(i-o) <- v.(i)
       done;
       v'
 
     let from_position v l len =
-      let v' = Array.make len V.top in
-      for i = l to l+len-1 do
-	v'.(i-l) <- v.(i)
-      done;
-      v'
+      let n = Array.length v in
+      Array.sub v (n-l-1) len
+
 	
     let is_tainted v = exists V.is_tainted v
 
