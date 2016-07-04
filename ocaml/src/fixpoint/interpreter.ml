@@ -62,15 +62,17 @@ struct
 
   exception Jmp_exn
   (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-  let process_stmts g (v: Cfa.State.t) fun_stack =
-    let copy v d =
+  let process_stmts g (v: Cfa.State.t) ip fun_stack =
+    let copy v d is_pred =
       let v' = Cfa.copy_state g v in
       v'.Cfa.State.stmts <- [];
       v'.Cfa.State.v <- d;
-      Cfa.add_edge g v v';
+      if is_pred then
+	Cfa.add_edge g v v'
+      else
+	Cfa.add_edge g (Cfa.pred g v) v';
       v'
     in
-
     let rec has_jmp stmts =
       match stmts with
       |	[] -> false
@@ -111,7 +113,8 @@ struct
 					      let d = restrict v.Cfa.State.v e true in
 					      if D.is_bot d then
 						l
-					      else (copy v d)::l
+					      else
+						(copy v d false)::l
 					    with Exceptions.Empty -> l) [] vertices) then_stmts in
 	      
 	      let else' = process_list (List.fold_left (fun l v ->
@@ -119,9 +122,10 @@ struct
 					      let d = restrict v.Cfa.State.v e false in
 					      if D.is_bot d then
 						l
-					      else (copy v d)::l
+					      else (copy v d false)::l
 					    with Exceptions.Empty -> l)
-					     []  vertices) else_stmts in
+						       []  vertices) else_stmts in
+	      List.iter (fun v -> Cfa.remove_state g v) vertices;
 	      then' @ else'
 
 	   | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices 
@@ -147,7 +151,7 @@ struct
 		with Not_found -> None
 	      in
 	      fun_stack := (f, v)::!fun_stack;
-	      List.map (fun v -> v.Cfa.State.ip <- a; v) vertices 
+	      List.map (fun v -> v.Cfa.State.ip <- a; v) vertices
 		       
 	   | Return ->
 	      List.map (fun v ->
@@ -203,7 +207,10 @@ struct
 	 process_list new_vertices stmts 
       | []       -> vertices
     in
-    process_list [copy v v.Cfa.State.v] v.Cfa.State.stmts
+    let vstart = copy v v.Cfa.State.v true
+    in
+    vstart.Cfa.State.ip <- ip;
+    process_list [vstart] v.Cfa.State.stmts
     
 
   (** widen the given vertex with all vertices in g that have the same ip as v *)
@@ -222,9 +229,8 @@ struct
   (** the widening may be also launched if the threshold is reached *)
   let update_abstract_values g v ip fun_stack =
     try
-      let l = process_stmts g v fun_stack in
+      let l = process_stmts g v ip fun_stack in
     List.iter (fun v ->
-	v.Cfa.State.ip <- ip;
 	let n =
 			  try let n' = (Hashtbl.find unroll_tbl ip) + 1 in Hashtbl.replace unroll_tbl ip n' ; n'
 			  with Not_found -> Hashtbl.add unroll_tbl v.Cfa.State.ip 1; 1
@@ -234,7 +240,7 @@ struct
 			else 
 			    widen g v
       ) l;
-    List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then begin Cfa.remove_state g v; l' end else v::l') [] l
+    List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then begin Cfa.remove_state g v; l' end else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
     with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
 
     
