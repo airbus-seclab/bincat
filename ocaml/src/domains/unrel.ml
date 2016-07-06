@@ -271,7 +271,6 @@ module Make(D: T) =
 
 
     let write_in_memory a m v sz strong =
-      Printf.printf "write in memory of size %d at %s\n" sz (Data.Address.to_string a); flush stdout;
       let nb = sz / 8					   in
       let min  = Data.Address.add_offset a (Z.of_int (-1)) in
       let max  = Data.Address.add_offset a (Z.of_int nb)   in
