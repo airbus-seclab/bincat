@@ -40,8 +40,7 @@ module type T =
 
     (** returns the tainted value corresponding to the given abstract value *)
     (** the size of the value is given by the int parameter *)
-    (** the option parameter is the previous init value *)
-    val taint_of_config: Data.Address.region -> Config.tvalue -> int -> t option -> t
+    val taint_of_config: Config.tvalue -> int -> t  -> t
 				       
     (** join two abstract values *)
     val join: t -> t -> t
@@ -272,6 +271,7 @@ module Make(D: T) =
 
 
     let write_in_memory a m v sz strong =
+      Printf.printf "write in memory of size %d at %s\n" sz (Data.Address.to_string a); flush stdout;
       let nb = sz / 8					   in
       let min  = Data.Address.add_offset a (Z.of_int (-1)) in
       let max  = Data.Address.add_offset a (Z.of_int nb)   in
@@ -288,8 +288,8 @@ module Make(D: T) =
 	| _ 	       -> false 
       in
       let keys = Map.find_all_keys within m in
-      let before l pv =
-	D.from_position pv 0 ((Z.to_int (Data.Address.sub a l))*8) 
+      let before l u pv =
+	D.from_position pv ((Z.to_int (Data.Address.sub u l)*8+7)) ((Z.to_int (Data.Address.sub a l))*8) 
       in
       let inpart u pv =
 	if strong then v
@@ -309,7 +309,7 @@ module Make(D: T) =
 	| _ 		      -> raise Exceptions.Empty
       in
       match keys with
-	[ K.M (l1, u1) as k, pv1 ] -> Printf.printf "one key found: [%s, %s] for %s\n" (Data.Address.to_string l1) (Data.Address.to_string u1) (Data.Address.to_string a); flush stdout;
+	[ K.M (l1, u1) as k, pv1 ] ->
 	if Data.Address.compare u1 min = 0 then
 	  if strong then
 	    let m' = Map.remove k m in
@@ -323,17 +323,17 @@ module Make(D: T) =
 	      Map.add (K.M (a, u1)) (D.concat [v ; pv1]) m'
 	    else raise Exceptions.Empty
 	  else
-	    let w1 = before l1 pv1 in
+	    let w1 = before l1 u1 pv1 in
 	    let w2 = inpart u1 pv1 in
 	    let w3 = after u1 pv1 in
 	    let m' = Map.remove k m in
 	    Map.add (K.M (a, u1)) (D.concat [ w1 ; w2 ; w3 ]) m'
 
-	| (K.M (l1, u1) as k1, pv1)::l ->
+      | (K.M (l1, u1) as k1, pv1)::l ->
 	   if strong then
 	     let b =
 	       if Data.Address.compare u1 min = 0 then pv1
-	       else before l1 pv1
+	       else before l1 u1 pv1
 	     in
 	     let m' = Map.remove k1 m in
 	     let (l, u, pv), r = split l in
@@ -412,41 +412,56 @@ module Make(D: T) =
 		  
     let init () = Val (Map.empty)
 
+    let concat v nb =
+      let rec acc nb =
+	if nb = 1 then
+	  [v]
+	else
+	  v::(acc (nb-1))
+      in
+      D.concat (acc nb)
+
+    let size_of_content c =
+      let sz = 
+	match c with
+	| Config.Content z | Config.CMask (z, _) -> Z.numbits z
+      in
+      if sz < !Config.operand_sz then
+	!Config.operand_sz
+      else
+	if sz mod !Config.operand_sz <> 0 then
+	  !Config.operand_sz * (sz / !Config.operand_sz + 1)
+	else
+	  sz
+      
+
+    (** builds an abstract tainted value from a config concrete tainted value *)
+    let of_config region (c, t) sz =
+      let v' = D.of_config region c sz in
+      match t with
+      | Some t' -> D.taint_of_config t' sz v'
+      | None 	-> v'
+		  
+    let set_memory_from_config a region (c, t) nb m =
+      if nb > 0 then
+	match m with
+	| BOT    -> BOT
+	| Val m' ->
+	   let sz = max (size_of_content c) !Config.operand_sz in
+	   let vt = of_config region (c, t) sz in
+	   let r  = concat vt nb in 
+	   Val (write_in_memory a m' r (sz*nb) true)
+      else
+	m
+	  
     let set_register_from_config r region c m =
       match m with
       | BOT    -> BOT
       | Val m' ->
-	 let v' = D.of_config region c (Register.size r) in
-	 Val (Map.add (K.R r) v' m')
-			       
-    let set_memory_from_config a region c m =
-      match m with
-      | BOT    -> BOT
-      | Val m' ->
-	 let v' = D.of_config region c !Config.operand_sz in
-	 Val (write_in_memory a m' v' !Config.operand_sz true)
-	     (*
-	 let n = Z.of_int ((!Config.operand_sz) / 8 - 1) in
-	 Val (Map.add (K.M (a, Data.Address.add_offset a n)) v' m') *)
+	 let sz = Register.size r in
+	 let vt = of_config region c sz in
+	 Val (Map.add (K.R r) vt m')
 
-    let taint_from_config dim sz region c m =
-      match m with
-      | BOT -> BOT
-      | Val m' ->
-	 let prev =
-	   try Some (Map.find dim m')
-	   with Not_found -> None
-	 in
-	 let v' = D.taint_of_config region c sz prev in
-	 Val (Map.add dim v' m')
-			       
-    let taint_memory_from_config a region c m =
-      let n = Z.of_int ((!Config.operand_sz) / 8 - 1) in
-      taint_from_config (K.M (a, Data.Address.add_offset a n)) !Config.operand_sz region c m 
-    
-    let taint_register_from_config r region c m = taint_from_config (K.R r) (Register.size r) region c m
-
-    
     let val_restrict m e1 _v1 cmp _e2 v2 =
 	match e1, cmp with
 	| Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ || cmp = Asm.LEQ ->

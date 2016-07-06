@@ -53,22 +53,14 @@ module type T =
 
       (** widens the two abstract values *)
       val widen: t -> t -> t
-			     
-      (** [taint_register_from_config r c m] update the abstract value _m_ with the given tainting configuration _c_ for register _r_ *)
-      (** the size of the configuration is the same as the one of the register *)
-      val taint_register_from_config: Register.t -> Data.Address.region -> Config.tvalue -> t -> t
 
-      (** [taint_register_from_config a c m] update the abstract value _m_ with the given tainting configuration _c_ for the memory location _a_ *)
-      (** the size of the configuration is the same as the one of a memory word *)
-      val taint_memory_from_config: Data.Address.t -> Data.Address.region -> Config.tvalue -> t -> t
+      (** [set_memory_from_config a c nb m] update the abstract value in _m_ with the value configuration _c_ (pair content * tainting value ) for the memory location _a_ *)
+      (** the integer _nb_ is the number of consecutive configurations _c_ to set *)
+      val set_memory_from_config: Data.Address.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> int -> t -> t
 
-      (** [set_memory_from_config a c m] update the abstract value _m_ with the value configuration for the memory location _a_ *)
-      (** the size of the configuration is the same as the one of a memory word *)
-      val set_memory_from_config: Data.Address.t -> Data.Address.region -> Config.cvalue -> t -> t
-
-      (** [set_register_from_config r c m] update the abstract value _m_ with the value configuration for register _r_ *)
-      (** the size of the configuration is the same as the one of the register *)
-      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue -> t -> t
+      (** [set_register_from_config r c nb m] update the abstract value _m_ with the value configuration (pair content * tainting value) for register _r_ *)
+      (** the integer _nb_ is the number of consecutive configuration _t_ to set *)
+      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> t -> t
 
       (** [compare v e1 c e2] restrict the given abstract value d to abstract value that satisfy the binary comparison (e1 c e2) *)
       (** may raise exception Exceptions.EmptyEnv *)

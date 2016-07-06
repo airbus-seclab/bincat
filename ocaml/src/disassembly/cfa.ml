@@ -74,44 +74,33 @@ module Make(Domain: Domain.T) =
 	let check_mask b m sz name =
 	 if (String.length (Bits.z_to_bit_string b)) > sz || (String.length (Bits.z_to_bit_string m)) > sz then
 	   Log.error (Printf.sprintf "Illegal initialization for register %s" name)
-	  in
-	(* this function adds leading zero to the tainting value v so that the new value v' has the same length as the register v *)
-	let check_tainting_register v r =
-	  let sz   = Register.size r in
-	  let name = Register.name r in
-	  begin
-	    match v with
-	    | Config.Taint b      -> check b sz name			   
-	    | Config.TMask (b, m) -> check_mask b m sz name
-	  end;
-	  v
 	in
-	(* checks whether the provided value is compatible with the capacity of the parameter of type Register _r_ and the size of words *)
-	let check_init_size r v =
+	(* checks whether the provided value is compatible with the capacity of the parameter of type Register _r_ *)
+	let check_init_size r (c, t) =
 	  let sz   = Register.size r in
 	  let name = Register.name r in
 	  begin
-	  match v with
+	  match c with
 	  | Config.Content c    -> check c sz name
 	  | Config.CMask (b, m) -> check_mask b m sz name
 	  end;
-	  v
+	  begin
+	    match t with
+	    | Some (Config.Taint c)      -> check c sz name
+	    | Some (Config.TMask (b, m)) -> check_mask b m sz name
+	    | _ -> ()
+	  end;
+	  (c, t)
 	in
-	let d' =
-	  (*first the domain d' is updated with the content for each register with initial content setting in the provided configuration *)  
+	  (* the domain d' is updated with the content for each register with initial content and tainting value given in the configuration file *)  
 	Hashtbl.fold
 	  (fun r v d ->
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global
 	    in
 	    Domain.set_register_from_config r region (check_init_size r v) d
 	  )
-	  Config.initial_register_content d
-	in
-	(* second the resulting domain is updated with the tainting value for each register with initial tainting in the provided configuration *)
-	Hashtbl.fold
-	  (fun r v d -> Domain.taint_register_from_config r Data.Address.Global (check_tainting_register v r) d
-	  )
-	  Config.initial_register_tainting d'
+	  Config.register_content d
+
 	
 
       (** builds 0xffff...ff with nb repetitions of the pattern ff *)
@@ -122,77 +111,14 @@ module Make(Domain: Domain.T) =
 	  s := Z.add ff (Z.shift_left !s 8)
 	done;
 	!s
-	  
-      (** splits the given integer into a sequence of integers that fit into !Config.operand_sz bits *)
-      let pad_of_int r a i rep: (Data.Address.t * Z.t) list =
-	let rep = Z.to_int rep in
-	let i' =
-	  let z = ref Z.zero in
-	  let n = String.length (Bits.z_to_bit_string i) in
-	  for _j = 1 to rep do
-	    z := Z.add (Z.shift_left !z n) i
-	  done;
-	  !z
-	in
-	let a'    = Data.Address.of_int r a !Config.operand_sz in
-	let nb    = !Config.operand_sz / Config.size_of_byte   in
-	let mask  = ff nb                                      in
-	let l     = ref []                                     in
-	let n     = ref i'                                     in
-	while Z.compare !n Z.zero > 0 do
-	  l := (Z.logand mask !n)::!l;
-	  n := Z.shift_right !n !Config.operand_sz 
-	done;
-	List.mapi (fun i v -> Data.Address.add_offset a' (Z.of_int (i*nb)), v) (!l)
-	
-   		   
-      (** 1. split b into a list of tainting values of size Config.operand_sz *)
-      (** 2. associates to each element of this list its address. First element has address a ; second one has a+1, etc. *)
-      let extended_tainting_memory_pad r a t nb =
-	match t with
-	| Config.Taint b      -> List.map (fun (a', v') -> a', Config.Taint v') (pad_of_int r a b nb)
-	| Config.TMask (b, m) -> 
-	   let b' = pad_of_int r a b nb in
-	   let m' = pad_of_int r a m nb in
-	   let nb' = List.length b' in
-	   let nm' = List.length m' in
-	   if nb' = nm' then
-	     List.map2 (fun (a, t) (_, m) -> a, Config.TMask (t, m)) b' m'
-	   else
-	     if nb' > nm' then
-	       List.mapi (fun i (a, t) -> if i < nm' then a, Config.TMask (t, snd (List.nth m' i)) else a, Config.Taint t) b'
-	     else
-	       (* filling with '0' means that we suppose by default that memory is untainted *)
-	       List.mapi (fun i (a, m) -> if i < nb' then a, Config.TMask (snd (List.nth b' i), m) else a, Config.TMask (Z.zero, m)) m' 
-
-      let extended_content_memory_pad r a c nb =
-	match c with
-	  | Config.Content b    -> List.map (fun (a', v') -> a', Config.Content v') (pad_of_int r a b nb)
-	  | Config.CMask (b, m) -> 
-	   let b' = pad_of_int r a b nb in
-	   let m' = pad_of_int r a m nb in
-	   let nb' = List.length b' in
-	   let nm' = List.length m' in
-	   if nb' = nm' then
-	     List.map2 (fun (a, t) (_, m) -> a, Config.CMask (t, m)) b' m'
-	   else
-	     if nb' > nm' then
-	       List.mapi (fun i (a, t) -> if i < nm' then a, Config.CMask (t, snd (List.nth m' i)) else a, Config.Content t) b'
-	     else
-	      Log.error "Decoder: illegal mask for range assignment"
-			 
+   
       (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
       (* this filling is done by iterating on corresponding tables in Config *)
-      let init_mem d region content_tbl tainting_tbl =
-	let dc' = Hashtbl.fold (fun (a, n) c d ->
-		      let l = extended_content_memory_pad region a c n in
-		      List.fold_left (fun d (a', c') -> Domain.set_memory_from_config a' Data.Address.Global c' d) d l
+      let init_mem d region content_tbl =
+	Hashtbl.fold (fun (a, nb) c d ->
+	    let a' = Data.Address.of_int region a !Config.address_sz in
+	    Domain.set_memory_from_config a' Data.Address.Global c nb d
 		    ) content_tbl d
-	in
-	Hashtbl.fold (fun (a, n) t d ->
-	    let l = extended_tainting_memory_pad region a t n in
-	    List.fold_left (fun d (a', c') -> Domain.taint_memory_from_config a' Data.Address.Global c' d) d l) tainting_tbl dc'
-	
       (* end of init utilities *)	     
       (*************************)
 
@@ -201,11 +127,11 @@ module Make(Domain: Domain.T) =
       let init ip =
 	let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
-	let d' = init_mem (init_registers d) Data.Address.Global Config.initial_memory_content Config.initial_memory_tainting in
+	let d' = init_mem (init_registers d) Data.Address.Global Config.memory_content in
 	(* init of the Stack memory *)
-	let d' = init_mem d' Data.Address.Stack Config.initial_stack_content Config.initial_stack_tainting in
+	let d' = init_mem d' Data.Address.Stack Config.stack_content in
 	(* init of the Heap memory *)
-	let d' = init_mem d' Data.Address.Heap Config.initial_heap_content Config.initial_heap_tainting in
+	let d' = init_mem d' Data.Address.Heap Config.heap_content in
 	let s = {
 	    id = 0;
 	    ip = ip;

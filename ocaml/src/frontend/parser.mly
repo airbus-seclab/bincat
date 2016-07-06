@@ -47,34 +47,9 @@
 	| "FALSE" -> Config.verbose := false
 	| _ 	  -> Log.error "Illegal boolean value for verbose mode"
 	   
-      (** fills the table of initial values for the given register *)
-      let init_register r (c, t) =
-	let r' = Register.of_name r in
-	begin
-	  match c with
-	  None    -> ()
-	| Some c' -> Hashtbl.add Config.initial_register_content r' c'
-	end;
-	match t with
-	  None    -> ()
-	| Some t' -> Hashtbl.add Config.initial_register_tainting r' t'
-
-
-      (** fills the table of initial values for the given memory address *)
-      let core_init_mem a ((c: Config.cvalue option), t) content_tbl tainting_tbl =
-	begin
-	  match c with
-	  None    -> ()
-	| Some c' -> Hashtbl.add content_tbl a c'
-	end;
-	match t with
-	  None    -> ()
-	| Some t' -> Hashtbl.add tainting_tbl a t'
-
-      let init_memory a c = core_init_mem a c Config.initial_memory_content Config.initial_memory_tainting
-      let init_stack a c = core_init_mem a c Config.initial_stack_content Config.initial_stack_tainting
-      let init_heap a c = core_init_mem	a c Config.initial_heap_content Config.initial_heap_tainting
-					
+      (** update the register table in configuration module *)
+      let init_register rname v = Hashtbl.add Config.register_content (Register.of_name rname) v
+					     
       let update_mandatory key =
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
 	Hashtbl.replace mandatory_keys key (kname, sname, true);;
@@ -242,13 +217,13 @@
 
       state_item:
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET EQUAL v=init    { init_register r v }
-    | MEM LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init    { init_memory m v }
-    | STACK LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init  { init_stack m v }
-    | HEAP LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init   { init_heap m v }
+    | MEM LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init    { Hashtbl.add Config.memory_content m v }
+    | STACK LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init  { Hashtbl.add Config.stack_content m v }
+    | HEAP LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init   { Hashtbl.add Config.heap_content m v }
 
       repeat:
-    | i=INT { (i, Z.one) }
-    | i=INT STAR n=INT { (i, n) }
+    | i=INT { (i, 1) }
+    | i=INT STAR n=STRING { (i, int_of_string n) }
 		       
       library:
     | l=library_item 		{ l }
@@ -280,9 +255,9 @@
     | T EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_tainted_functions a arg }
 																 
      init:
-    | TAINT c=tcontent 	            { None, Some c }
-    | c=mcontent 	            { Some c, None }
-    | c1=mcontent TAINT c2=tcontent { Some c1, Some c2 }
+    | TAINT tcontent 	            { Log.error "Parser: illegal initial content: undefined content with defined tainting value" }
+    | c=mcontent 	            { c, None }
+    | c1=mcontent TAINT c2=tcontent { c1, Some c2 }
 
       mcontent:
     | m=INT 		{ Config.Content m }

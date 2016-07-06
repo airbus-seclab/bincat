@@ -127,14 +127,10 @@ module Make (V: Vector.T) =
 	 if r1 = r2 then V.subset o1 o2
 	 else true
 
-    let taint_of_config r t n prev =
+    let taint_of_config t n prev =
       match prev with
-      | None -> Val (r, V.taint_of_config t n None)
-      | Some p ->
-	 match p with
-	 | BOT 		-> Val (r, V.taint_of_config t n None)
-	 | TOP 		-> Val (r, V.taint_of_config t n None)
-	 | Val (_r', o) -> Val (r, V.taint_of_config t n (Some o)) 
+      | Val (r, o) -> Val (r, V.taint_of_config t n (Some o))
+      | _ 	   -> prev
 			      
     let of_config r c n = Val (r, V.of_config c n)
 

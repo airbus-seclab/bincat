@@ -228,6 +228,7 @@ struct
   (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
   (** the widening may be also launched if the threshold is reached *)
   let update_abstract_values g v ip fun_stack =
+    List.iter (fun s -> Printf.printf "%s " (Asm.string_of_stmt s)) v.Cfa.State.stmts; flush stdout;
     try
       let l = process_stmts g v ip fun_stack in
     List.iter (fun v ->

@@ -61,17 +61,15 @@ type tvalue =
 type cvalue =
   | Content of Z.t
   | CMask of Z.t * Z.t
-		 
-(* initial state utilities *)
-		    
-let initial_register_content: (Register.t, cvalue) Hashtbl.t = Hashtbl.create 10
-let initial_memory_content: (Z.t * Z.t, cvalue) Hashtbl.t = Hashtbl.create 10 
-let initial_register_tainting: (Register.t, tvalue) Hashtbl.t = Hashtbl.create 10
-let initial_memory_tainting: (Z.t * Z.t, tvalue) Hashtbl.t = Hashtbl.create 10 (* first element in the key is the address ; second one is the number of repetition *)
-let initial_stack_content: (Z.t * Z.t, cvalue) Hashtbl.t = Hashtbl.create 10
-let initial_stack_tainting: (Z.t * Z.t, tvalue) Hashtbl.t = Hashtbl.create 10
-let initial_heap_content: (Z.t * Z.t, cvalue) Hashtbl.t = Hashtbl.create 10
-let initial_heap_tainting: (Z.t * Z.t, tvalue) Hashtbl.t = Hashtbl.create 10
+
+(* tables for initialize global memory, stack and heap *)
+(* first element in the key is the address ; second one is the number of repetition *)		 
+type ctbl = (Z.t * int, cvalue * (tvalue option)) Hashtbl.t
+   
+let register_content: (Register.t, cvalue * tvalue option) Hashtbl.t = Hashtbl.create 10
+let memory_content: ctbl = Hashtbl.create 10 
+let stack_content: ctbl = Hashtbl.create 10
+let heap_content: ctbl = Hashtbl.create 10
 
 
 (* tainting rules for functions *)
