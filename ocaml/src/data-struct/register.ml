@@ -8,9 +8,13 @@ let cid = ref 0
 include T
 module Set = Set.Make(T)
 
-(** contains currently used registers *)
+(* contains currently used registers *)
 let registers = ref (Set.empty)
 
+let clean () =
+  registers := Set.empty;
+  cid := 0
+	     
 let imake name size is_sp =
   let  v = { name = name ; sz = size ; is_sp = is_sp ; id = !cid } in
   registers := Set.add v !registers;

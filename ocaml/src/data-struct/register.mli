@@ -43,3 +43,6 @@ val is_stack_pointer: t -> bool
 (** may raise Not found *)
 (** randomly chosen if several registers have been taged as stack pointer *)
 val stack_pointer: unit -> t
+
+(** empty global references *)
+val clean: unit -> unit

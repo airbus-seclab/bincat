@@ -1,8 +1,3 @@
-(* generation of all modules depending on the memory model (main type of addresses) *)
-module Vector      = Vector.Make(Reduced_value_tainting)
-module Pointer     = Pointer.Make(Vector)
-module Domain      = Unrel.Make(Pointer)
-module Interpreter = Interpreter.Make(Domain)
 
 				    
 (* string conversion of a position in the configuration file *)
@@ -11,6 +6,12 @@ let string_of_position pos =
 
 (* main function *)
 let process ~configfile ~resultfile ~logfile =
+  (* generation of all modules depending on the memory model (main type of addresses) *)
+  let module Vector      = Vector.Make(Reduced_value_tainting) in
+  let module Pointer     = Pointer.Make(Vector) in
+  let module Domain      = Unrel.Make(Pointer) in
+  let module Interpreter = Interpreter.Make(Domain) in
+
   (* 1: open the configuration file *)
   let cin =
     try open_in configfile
