@@ -1,8 +1,3 @@
-(* generation of all modules depending on the memory model (main type of addresses) *)
-module Vector      = Vector.Make(Reduced_value_tainting)
-module Pointer     = Pointer.Make(Vector)
-module Domain      = Unrel.Make(Pointer)
-module Interpreter = Interpreter.Make(Domain)
 
 				    
 (* string conversion of a position in the configuration file *)
@@ -11,15 +6,22 @@ let string_of_position pos =
 
 (* main function *)
 let process ~configfile ~resultfile ~logfile =
-  (* 1: open the configuration file *)
+   (* 0 cleaning global data structures *)
+  Config.clear_tables();
+  Register.clear();
+  (* generation of all modules depending on the memory model (main type of addresses) *)
+  let module Vector      = Vector.Make(Reduced_value_tainting) in
+  let module Pointer     = Pointer.Make(Vector) in
+  let module Domain      = Unrel.Make(Pointer) in
+  let module Interpreter = Interpreter.Make(Domain) in
+ 
+  (*1 set the log file *)
+  Log.init logfile;
+  (* 2: open the configuration file *)
   let cin =
     try open_in configfile
-    with _ -> Log.error "Failed to open the configuration file"
+    with Sys_error _ -> Log.error "Failed to open the configuration file"
   in
-
-  (* 2: set the log file *)
-  Log.init logfile;
-  
   (* 3: parse the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
   begin
@@ -32,11 +34,10 @@ let process ~configfile ~resultfile ~logfile =
     | Failure "lexing: empty token" -> close_in cin; Log.error (Printf.sprintf "Parse error near location %s\n" (string_of_position lexbuf))
   end;
   close_in cin;
-  
   (* 4: generate code *)
   let code  = Code.make !Config.text !Config.rva_code !Config.ep                    in
   (* 5: generate the initial cfa with only an initial state *)
-  let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in 
+  let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
   let g, s  = Interpreter.Cfa.init ep'                                              in
   (* 6: runs the fixpoint engine *)
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa               in

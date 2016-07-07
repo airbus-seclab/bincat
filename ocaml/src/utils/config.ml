@@ -99,3 +99,12 @@ let assert_tainted_functions: (Z.t, taint list) Hashtbl.t = Hashtbl.create 5
 (** import table *)
 (** first string is the function name, the second one its library *)
 let imports: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
+
+let clear_tables () =
+  Hashtbl.clear assert_untainted_functions;
+  Hashtbl.clear assert_tainted_functions;
+  Hashtbl.clear tainting_tbl;
+  Hashtbl.clear memory_content;
+  Hashtbl.clear stack_content;
+  Hashtbl.clear heap_content;
+  Hashtbl.clear imports
