@@ -45,4 +45,4 @@ val is_stack_pointer: t -> bool
 val stack_pointer: unit -> t
 
 (** empty global references *)
-val clean: unit -> unit
+val clear: unit -> unit

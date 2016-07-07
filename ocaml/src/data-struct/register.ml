@@ -11,7 +11,7 @@ module Set = Set.Make(T)
 (* contains currently used registers *)
 let registers = ref (Set.empty)
 
-let clean () =
+let clear () =
   registers := Set.empty;
   cid := 0
 	     
