@@ -222,8 +222,8 @@
     | HEAP LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init   { Hashtbl.add Config.heap_content m v }
 
       repeat:
-    | i=INT { (i, 1) }
-    | i=INT STAR n=STRING { (i, int_of_string n) }
+    | i=INT { i, 1 }
+    | i=INT STAR n=INT { i, Z.to_int n }
 		       
       library:
     | l=library_item 		{ l }
