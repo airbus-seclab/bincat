@@ -43,7 +43,8 @@ let process ~configfile ~resultfile ~logfile =
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa               in
   let cfa  = Interpreter.process code g s dump                                      in
   (* 7: dumps the results *)
-  dump cfa
+  dump cfa;
+  Log.close()
  ;; 
   
 (* enables the process function to be callable from the .so *)
