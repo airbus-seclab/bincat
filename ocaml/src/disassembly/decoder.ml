@@ -357,24 +357,18 @@ module Make(Domain: Domain.T) =
 	let m      = Hashtbl.find s.segments.reg sreg in 
 	let ds_val = get_base_address s m             in
 	BinOp(Add, e, Const (Word.of_int ds_val s.operand_sz))
-	
-      let operands_from_mod_reg_rm s v =
-	let add_data_segment e = add_segment s e s.segments.data                            in	 
-	let c 		       = getchar s  						    in
-	let md, reg, rm        = mod_nnn_rm (Char.code c)				    in
-	let direction 	       = (v lsr 1) land 1   					    in
-	let sz                 = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in
-	let rm' 	       = find_reg rm sz 					    in
-	let reg'               = find_reg reg sz                                            in
-	try
-	  let rm' =
-	    match md with
+	     
+      let add_data_segment s e = add_segment s e s.segments.data
+	  
+      let exp_of_md s md rm sz =
+	let rm' = find_reg rm sz in
+	match md with
 	    | 0 ->
 	       begin
 		 match rm with
-		 | 4 -> M (add_data_segment (sib s rm' md), sz)
+		 | 4 -> M (add_data_segment s (sib s rm' md), sz)
 		 | 5 -> raise Disp32
-		 | _ -> M (add_data_segment (Lval (V rm')), sz)
+		 | _ -> M (add_data_segment s (Lval (V rm')), sz)
 	       end						    
 	    | 1 ->
 	       let e =
@@ -383,7 +377,7 @@ module Make(Domain: Domain.T) =
 	       in
 	       let n = sign_extension_of_byte (int_of_bytes s 1) (!Config.operand_sz / Config.size_of_byte) in
 	       let e' = BinOp (Add, e, Const (Word.of_int n !Config.operand_sz)) in
-	       M (add_data_segment e', sz)
+	       M (add_data_segment s e', sz)
 	     	 
 	    | 2 ->
 	       let e =
@@ -391,13 +385,20 @@ module Make(Domain: Domain.T) =
 		 else Lval (V rm')
 	       in
 	       let e' = BinOp (Add, e, disp s 32) in
-	       M (add_data_segment e', sz)
+	       M (add_data_segment s e', sz)
 		 
 	    | 3 -> V rm'
 		     
 	    | _ -> Log.error "Decoder: illegal value for md in mod_reg_rm extraction"
 			     
-	  in
+      let operands_from_mod_reg_rm s v =
+	let c 		       = getchar s  						    in
+	let md, reg, rm        = mod_nnn_rm (Char.code c)				    in
+	let direction 	       = (v lsr 1) land 1   					    in
+	let sz                 = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in
+	let reg'               = find_reg reg sz                                            in
+	try
+	  let rm' = exp_of_md s md rm sz in
 	  if direction = 0 then
 	    rm', Lval (V reg')
 	  else
@@ -405,7 +406,7 @@ module Make(Domain: Domain.T) =
 	with
 	| Disp32 -> 
 	   if direction = 0 then
-	     V rm', add_data_segment (disp s 32)
+	     V (find_reg rm sz), add_data_segment s (disp s 32)
 	   else
 	     Log.error "Decoder: illegal direction for displacement only addressing mode"
 		      
@@ -941,19 +942,20 @@ module Make(Domain: Domain.T) =
       (*****************************************************************************************)
 
 	
-      let core_grp s i sz =
+      let core_grp s sz =
 	let md, nnn, rm = mod_nnn_rm (Char.code (getchar s)) in
-	let reg         = V (find_reg rm sz)                 in
-	let dst =
+	  let dst = exp_of_md s md rm sz in
+	(*
 	  match md with
 	  | 0 -> M (add_segment s (Lval reg) s.segments.data, sz)
+	  
 	  | 3 -> reg
 	  | _ -> Log.error (Printf.sprintf "Decoder.core_grp %d: mod %d not managed" i md)
-	in
-	nnn, dst
+	in*)
+	  nnn, dst
 	       
       let grp1 s reg_sz imm_sz =
-	let nnn, dst = core_grp s 1 reg_sz in
+	let nnn, dst = core_grp s reg_sz in
 	let i = int_of_bytes s (imm_sz / Config.size_of_byte) in
 	let i' =
 	  if reg_sz = imm_sz then i
@@ -974,7 +976,7 @@ module Make(Domain: Domain.T) =
 
 			    
       let grp2 s sz _n =
-	let nnn, _dst     = core_grp s 2 sz in
+	let nnn, _dst     = core_grp s sz in
 	let _forget_flags = List.map (fun f -> Directive (Forget f)) [fpf; fof; fcf; fsf; fzf; faf] in
 	match nnn with
 (*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ]
@@ -983,7 +985,7 @@ module Make(Domain: Domain.T) =
 	| _ -> Log.error "Illegal opcode in grp 2"
 			 
       let grp3 s sz =
-	let nnn, dst = core_grp s 3 sz in
+	let nnn, dst = core_grp s sz in
 	let stmts =
 	match nnn with
 	| 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
@@ -993,14 +995,14 @@ module Make(Domain: Domain.T) =
 	return s stmts
 
       let grp4 s =
-	let nnn, dst = core_grp s 4 Config.size_of_byte in
+	let nnn, dst = core_grp s Config.size_of_byte in
 	match nnn with
 	| 0 -> inc_dec dst Add s Config.size_of_byte
 	| 1 -> inc_dec dst Sub s Config.size_of_byte
 	| _ -> Log.error "Illegal opcode in grp 4"
 
       let grp5 s =
-	let nnn, dst = core_grp s 5 s.operand_sz in
+	let nnn, dst = core_grp s s.operand_sz in
 	match nnn with
 	| 0 -> inc_dec dst Add s s.operand_sz
 	| 1 -> inc_dec dst Sub s s.operand_sz
@@ -1012,12 +1014,12 @@ module Make(Domain: Domain.T) =
 	| _ -> Log.error "Illegal opcode in grp 5"
 
       let grp6 s =
-	let nnn, _dst = core_grp s 6 s.operand_sz in
+	let nnn, _dst = core_grp s s.operand_sz in
 	match nnn with
 	| _ -> Log.error "Illegal opcode in grp 6"
 
       let grp7 s =
-	let nnn, _dst = core_grp s 7 s.operand_sz in
+	let nnn, _dst = core_grp s s.operand_sz in
 	match nnn with
 	| _ -> Log.error "Illegal opcode in grp 7"
 
@@ -1044,7 +1046,7 @@ module Make(Domain: Domain.T) =
       let btc s dst src = core_bt s (fun nbit -> [If (Cmp (EQ, nbit, Const (Word.one 1)), [btr_stmt dst nbit], [bts_stmt dst nbit])]) dst src
 				  
       let grp8 s =
-	let nnn, dst = core_grp s 8 s.operand_sz                                                           in
+	let nnn, dst = core_grp s s.operand_sz                                                           in
 	let n = s.operand_sz / Config.size_of_byte - 1 in
 	let src      = Const (Word.of_int (sign_extension_of_byte (int_of_byte s) n) s.operand_sz) in
 	match nnn with
@@ -1223,7 +1225,9 @@ module Make(Domain: Domain.T) =
 	  or_xor_and s op dst src
 	in
 	let rec decode s =
-	  match check_context s (getchar s) with
+	  let r = check_context s (getchar s) in
+	  Printf.printf "decoding %x\n" (Char.code r); flush stdout;
+	  match r with
 	  | c when '\x00' <= c && c <= '\x03'  -> add_sub s Sub false c 
 	  | '\x04' 			       -> add_sub_immediate s Add false eax Config.size_of_byte 
 	  | '\x05' 			       -> add_sub_immediate s Add false eax s.operand_sz
