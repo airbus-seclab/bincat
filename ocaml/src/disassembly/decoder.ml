@@ -368,7 +368,8 @@ module Make(Domain: Domain.T) =
 		 match rm with
 		 | 4 -> M (add_data_segment s (sib s rm' md), sz)
 		 | 5 -> raise Disp32
-		 | _ -> M (add_data_segment s (Lval (V rm')), sz)
+		 | _ ->
+		    let o = Lval (M (Lval (V rm'), s.operand_sz)) in M (add_data_segment s o, sz)
 	       end						    
 	    | 1 ->
 	       let e =
@@ -376,7 +377,7 @@ module Make(Domain: Domain.T) =
 		 else Lval (V rm')
 	       in
 	       let n = sign_extension_of_byte (int_of_bytes s 1) (!Config.operand_sz / Config.size_of_byte) in
-	       let e' = BinOp (Add, e, Const (Word.of_int n !Config.operand_sz)) in
+	       let e' = Lval (M (BinOp (Add, e, Const (Word.of_int n !Config.operand_sz)), s.operand_sz)) in
 	       M (add_data_segment s e', sz)
 	     	 
 	    | 2 ->
@@ -384,7 +385,7 @@ module Make(Domain: Domain.T) =
 		 if rm = 4 then sib s rm' md
 		 else Lval (V rm')
 	       in
-	       let e' = BinOp (Add, e, disp s 32) in
+	       let e' = Lval (M (BinOp (Add, e, disp s 32), s.operand_sz)) in
 	       M (add_data_segment s e', sz)
 		 
 	    | 3 -> V rm'
@@ -1225,9 +1226,7 @@ module Make(Domain: Domain.T) =
 	  or_xor_and s op dst src
 	in
 	let rec decode s =
-	  let r = check_context s (getchar s) in
-	  Printf.printf "decoding %x\n" (Char.code r); flush stdout;
-	  match r with
+	  match check_context s (getchar s) with
 	  | c when '\x00' <= c && c <= '\x03'  -> add_sub s Sub false c 
 	  | '\x04' 			       -> add_sub_immediate s Add false eax Config.size_of_byte 
 	  | '\x05' 			       -> add_sub_immediate s Add false eax s.operand_sz
