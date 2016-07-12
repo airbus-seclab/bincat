@@ -725,6 +725,7 @@ module Make(Domain: Domain.T) =
 	  let csv = Hashtbl.find s.segments.reg cs						     in
 	  let s   = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
 	  let i   = Address.to_int target							     in
+	  Printf.printf "jump target is %s\n" (Address.to_string target); flush stdout;
 	  if Z.compare s.base i < 0 && Z.compare i s.limit < 0 then
 	    ()
 	  else
@@ -759,7 +760,7 @@ module Make(Domain: Domain.T) =
 	     if i = 1 then sign_extension_of_byte o (( sz / Config.size_of_byte)-1)
 	     else o
 	   in
-	   let a' = Address.add_offset s.a o' in
+	   let a' = Address.add_offset s.a (Z.add (Z.of_int s.o) o') in
 	   check_jmp s a';
 	   a'
 	
