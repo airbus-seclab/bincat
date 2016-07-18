@@ -48,6 +48,6 @@ let process ~configfile ~resultfile ~logfile =
  ;; 
   
 (* enables the process function to be callable from the .so *)
-Callback.register "process" process;;
+   Callback.register "process" process;;
 
 

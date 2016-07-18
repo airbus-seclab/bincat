@@ -726,7 +726,8 @@ module Make(Domain: Domain.T) =
 	  let s   = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
 	  let i   = Address.to_int target							     in
 	  Printf.printf "jump target is %s\n" (Address.to_string target); flush stdout;
-	  if Z.compare s.base i < 0 && Z.compare i s.limit < 0 then
+	  Printf.printf "bounds are: %x and %x\n" (Z.to_int s.base) (Z.to_int s.limit); flush stdout;
+	  if Z.compare (Z.add s.base i) s.limit >= 0 then
 	    ()
 	  else
 	    Log.error "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"

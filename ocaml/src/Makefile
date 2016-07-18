@@ -36,6 +36,7 @@ CMI = $(MLI:.mli=.cmi)
 
 DIROPT = -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
 
+
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) 
 CAMLLEX =ocamllex
@@ -43,12 +44,12 @@ MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
-LIBX=graph.cmxa nums.cmxa zarith.cmxa
-
+LIBX=unix.cmxa graph.cmxa nums.cmxa zarith.cmxa
+CFLAGS=-ccopt -dynamiclib -ccopt -L/usr/local/lib/ocaml -ccopt -lasmrun
 all: $(LIBNAME)
 
 $(LIBNAME): $(CMX) 
-	$(CAMLOPT) -output-obj -fPIC -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
+	$(CAMLOPT) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
 
 
 %.cmx: %.ml %.mli
@@ -81,7 +82,6 @@ clean:
 
 install: $(LIBNAME)
 	install -b $(LIBNAME) $(LIBDIR)
-	ldconfig
 
 .depend: $(ML) $(MLI)
 	rm -f .depend

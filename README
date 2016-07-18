@@ -18,7 +18,7 @@ Graphviz
 1. unzip this archive and enter it
 2. compilation
 make
-3. installation.
+3. installation
 make install
 4. for the documentation (generated in directory doc)
 make doc
@@ -51,3 +51,9 @@ Two solutions may be applied when compiling the Python using python2 setup.py bu
   /usr/local/include/caml -> /usr/local/lib/ocaml/caml/). This seems to be done
   in the debian packages.
 * export C_INCLUDE_PATH=/usr/lib/ocaml
+
+=mac os installation
+by default non initialized external symobols are not exported by ranlib.
+Hence some symbols in _caml_table are not exported which resul in a link failure.
+To avoid this, type
+ranlib -c /path/to/the/lib/libsasmrun.a
