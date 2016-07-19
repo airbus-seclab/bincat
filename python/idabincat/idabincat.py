@@ -58,7 +58,7 @@ except:
 
 # ------------------------------------
 # setting environnement variables
-if sys.platform.startswith('linux'):
+if sys.platform.startswith('linux') || sys.platform.startswith('darwin'):
     PYTHON_BIN = 'python2'
     PYTHON_PATH = os.path.normpath('/usr/bin')
 
@@ -1127,7 +1127,7 @@ class BinCATForm_t(idaapi.PluginForm):
         self.iptAnalyzerPath.setMaxLength = 256
         self.iptAnalyzerPath.setFixedWidth(300)
 
-        # button to choose another analyer
+        # button to choose another analyzer
         self.btnNewAnalyzer = QtWidgets.QPushButton('...', self.parent)
         self.btnNewAnalyzer.setToolTip('set a new analyzer.py path')
         self.btnNewAnalyzer.clicked.connect(self.handler_btnNewAnalyzer)
