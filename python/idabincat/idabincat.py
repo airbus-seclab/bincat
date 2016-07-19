@@ -58,7 +58,7 @@ except:
 
 # ------------------------------------
 # setting environnement variables
-if sys.platform.startswith('linux') || sys.platform.startswith('darwin'):
+if (sys.platform.startswith('linux') or sys.platform.startswith('darwin')):
     PYTHON_BIN = 'python2'
     PYTHON_PATH = os.path.normpath('/usr/bin')
 
