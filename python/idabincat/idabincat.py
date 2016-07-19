@@ -1364,7 +1364,7 @@ def main():
     try:
         hooks.unhook()
         hooks = None
-        idaapi.msg("[BinCATA] Unhooked")
+        idaapi.msg("[BinCAT] Unhooked")
 
     except:
         hooks = Hooks()
