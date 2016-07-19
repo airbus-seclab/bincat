@@ -45,11 +45,19 @@ CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
 LIBX=unix.cmxa graph.cmxa nums.cmxa zarith.cmxa
-CFLAGS=-ccopt -dynamiclib -ccopt -L$(LIBDIR)/ocaml -ccopt -lasmrun
+
+OS:=$(shell uname)
+ifeq ($(OS), Darwin)
+SHARED=-ccopt -dynamiclib
+else
+SHARED=-shared
+endif
+
+CFLAGS=-ccopt -L$(LIBDIR)/ocaml -ccopt -lasmrun
 all: $(LIBNAME)
 
 $(LIBNAME): $(CMX) 
-	$(CAMLOPT) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
+	$(CAMLOPT) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
 
 
 %.cmx: %.ml %.mli
