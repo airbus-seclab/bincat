@@ -45,7 +45,7 @@ CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
 LIBX=unix.cmxa graph.cmxa nums.cmxa zarith.cmxa
-CFLAGS=-ccopt -dynamiclib -ccopt -L/usr/local/lib/ocaml -ccopt -lasmrun
+CFLAGS=-ccopt -dynamiclib -ccopt -L$(LIBDIR)/ocaml -ccopt -lasmrun
 all: $(LIBNAME)
 
 $(LIBNAME): $(CMX) 
