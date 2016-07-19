@@ -1,7 +1,7 @@
 #!/usr/bin/python2
 
 
-# version IDA 6.8
+# version IDA 6.9
 
 # Imports
 import os
