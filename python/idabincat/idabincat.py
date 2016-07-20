@@ -893,7 +893,8 @@ class Analyzer(QtCore.QProcess):
     def procanalyzer_on_error(self, error):
         errors = ["Failed to start", "Crashed", "TimedOut", "Read Error",
                   "Write Error", "Unknown Error"]
-        error("Analyzer error: %s\n" % errors[error])
+        errtxt = errors.get(error, "Unspecified error %s" % error)
+        error("Analyzer error: %s\n" % errtxt)
 
     def procanalyzer_on_state_change(self, new_state):
         states = ["Not running", "Starting", "Running"]
