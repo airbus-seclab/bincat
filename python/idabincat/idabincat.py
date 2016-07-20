@@ -893,7 +893,10 @@ class Analyzer(QtCore.QProcess):
     def procanalyzer_on_error(self, error):
         errors = ["Failed to start", "Crashed", "TimedOut", "Read Error",
                   "Write Error", "Unknown Error"]
-        errtxt = errors.get(error, "Unspecified error %s" % error)
+        try:
+            errtxt = errors[error]
+        except IndexError:
+            errtxt = "Unspecified error %s" % error
         error("Analyzer error: %s\n" % errtxt)
 
     def procanalyzer_on_state_change(self, new_state):
