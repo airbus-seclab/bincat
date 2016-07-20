@@ -304,12 +304,6 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.configtxt.setFixedHeight(900)
         self.configtxt.setFixedWidth(350)
 
-        startAddr = int(self.parent().ipStartAddr.text(), 16)
-        stopAddr = int(self.parent().ipStopAddr.text(), 16)
-        ibcState.currentConfig.setStartStopAddr(startAddr, stopAddr)
-
-        self.configtxt.appendPlainText(str(ibcState.currentConfig))
-
         self.btnStart = QtWidgets.QPushButton('Start', self)
         self.btnStart.setFixedWidth(130)
         self.btnStart.clicked.connect(self.btnLaunchAnalyzer)
@@ -322,6 +316,15 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btnStart, 2, 0)
         layout.addWidget(self.btnCancel, 2, 1)
         self.setLayout(layout)
+
+    def set_addresses(self, startAddr, stopAddr):
+        startAddr = int(self.parent().ipStartAddr.text(), 16)
+        stopAddr = int(self.parent().ipStopAddr.text(), 16)
+        ibcState.currentConfig.setStartStopAddr(startAddr, stopAddr)
+        self.configtxt.appendPlainText(str(ibcState.currentConfig))
+
+    def set_config(self, config_txt):
+        self.configtxt.appendPlainText(config_txt)
 
     def btnLaunchAnalyzer(self):
         ibcState.startAnalysis(self.configtxt.toPlainText())
@@ -346,25 +349,41 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
     def cbRegistersHandler(self, text):
         info("selected register is %s \n " % text)
 
-    def btnLaunchAnalyzer(self):
+    def launch_analysis(self):
         important_info("Launching the analyzer\n")
         # Test if stop address is not empty
         if not self.ipStopAddr.text():
             idaapi.warning(" Stop address is empty")
             return
-        if self.editChkBox.isChecked():
-            # display edit form
-            editdlg = EditConfigurationFileForm_t(self)
-            editdlg.exec_()
-            self.close()
-        else:
-            # start analysis
-            startAddr = int(self.ipStartAddr.text(), 16)
-            stopAddr = int(self.ipStopAddr.text(), 16)
-            ibcState.currentConfig.setStartStopAddr(startAddr, stopAddr)
-            ibcState.startAnalysis()
+        startAddr = int(self.ipStartAddr.text(), 16)
+        stopAddr = int(self.ipStopAddr.text(), 16)
+        ibcState.currentConfig.setStartStopAddr(startAddr, stopAddr)
+        ibcState.startAnalysis()
 
-            self.close()
+        self.close()
+
+    def edit_config(self):
+        # display edit form
+        startAddr = int(self.ipStartAddr.text(), 16)
+        stopAddr = int(self.ipStopAddr.text(), 16)
+        editdlg = EditConfigurationFileForm_t(self)
+        editdlg.set_addresses(startAddr, stopAddr)
+        editdlg.exec_()
+        self.close()
+
+    def choose_file(self):
+        options = QtWidgets.QFileDialog.Options()
+        default_filename = os.path.join(os.path.dirname(__file__),
+                                        'init.ini')
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Choose configuration file", default_filename,
+            "Configuration files (*.ini)", options=options)
+        if not filename or not os.path.exists(filename):
+            return
+        editdlg = EditConfigurationFileForm_t(self)
+        editdlg.set_config(open(filename, 'r').read())
+        editdlg.exec_()
+        self.close()
 
     def btnAnalyzerConfig(self):
         info("Loading the analyzer configuration")
@@ -375,7 +394,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         super(TaintLaunchForm_t, self).__init__(parent)
 
         layout = QtWidgets.QGridLayout()
-        lblCstEditor = QtWidgets.QLabel(" Start taint analysis: ")
+        lblCstEditor = QtWidgets.QLabel("BinCAT analysis parameters")
         currentEA = idc.here()
 
         # Start address
@@ -414,16 +433,18 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         # self.ipMemory = QtWidgets.QLineEdit(self)
         # self.ipMemory.setDisabled(True)
 
-        self.editChkBox = QtWidgets.QCheckBox(
-            "Edit configuration file before running")
 
         # Start, cancel and analyzer config buttons
+        self.btnLoad = QtWidgets.QPushButton('Load configuration file...', self)
+        self.btnLoad.clicked.connect(self.choose_file)
+
+        self.btnEditConf = QtWidgets.QPushButton('Edit configuration...', self)
+        self.btnEditConf.clicked.connect(self.edit_config)
+
         self.btnStart = QtWidgets.QPushButton('Start', self)
-        self.btnStart.setFixedWidth(130)
-        self.btnStart.clicked.connect(self.btnLaunchAnalyzer)
+        self.btnStart.clicked.connect(self.launch_analysis)
 
         self.btnCancel = QtWidgets.QPushButton('Cancel', self)
-        self.btnCancel.setFixedWidth(130)
         self.btnCancel.clicked.connect(self.close)
 
         # XXX re-enable when its settings are actually used
@@ -440,13 +461,14 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout.addWidget(lblStopAddr, 2, 0)
         layout.addWidget(self.ipStopAddr, 2, 1)
 
-        layout.addWidget(self.editChkBox, 3, 0, 1, 2)
-
         # layout.addWidget(rbRegisters, 3, 0)
         # layout.addWidget(self.cbRegisters, 3, 1)
 
         # layout.addWidget(rbMemory, 4, 0)
         # layout.addWidget(self.ipMemory, 4, 1)
+
+        layout.addWidget(self.btnLoad, 3, 0)
+        layout.addWidget(self.btnEditConf, 3, 1)
 
         layout.addWidget(self.btnStart, 4, 0)
         layout.addWidget(self.btnCancel, 4, 1)
@@ -854,7 +876,7 @@ class Analyzer(QtCore.QProcess):
         env = QtCore.QProcessEnvironment.systemEnvironment()
         env.insert("PYTHONPATH", npp+":"+env.value("PYTHONPATH"))
         self.setProcessEnvironment(env)
-        
+
         cmdline = "%s %s --inifile %s --outfile %s --logfile %s" % (
             os.path.join(PYTHON_PATH, PYTHON_BIN),
             self.analyzerpath, self.initfname, self.outfname, self.logfname)
