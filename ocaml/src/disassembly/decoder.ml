@@ -946,14 +946,7 @@ module Make(Domain: Domain.T) =
 	
       let core_grp s sz =
 	let md, nnn, rm = mod_nnn_rm (Char.code (getchar s)) in
-	  let dst = exp_of_md s md rm sz in
-	(*
-	  match md with
-	  | 0 -> M (add_segment s (Lval reg) s.segments.data, sz)
-	  
-	  | 3 -> reg
-	  | _ -> Log.error (Printf.sprintf "Decoder.core_grp %d: mod %d not managed" i md)
-	in*)
+	let dst 	= exp_of_md s md rm sz		     in
 	  nnn, dst
 	       
       let grp1 s reg_sz imm_sz =
@@ -976,14 +969,37 @@ module Make(Domain: Domain.T) =
 	   | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
 	   | _ -> Log.error "Illegal nnn value in grp1"
 
-			    
-      let grp2 s sz _n =
-	let nnn, _dst     = core_grp s sz in
-	let _forget_flags = List.map (fun f -> Directive (Forget f)) [fpf; fof; fcf; fsf; fzf; faf] in
+
+      let shr_stmt dst sz n =
+	let sz' = Const (Word.of_int (Z.of_int sz) sz) in
+	let one = Const (Word.of_int Z.one sz) in
+	let ldst = Lval dst in
+	let cf_stmt =
+	  let c = Cmp (LT, sz', n) in
+	  If (c,
+	    [undef_flag fcf],
+	    [Set (V (T fcf), BinOp (And, ldst, one))])
+	in
+	let of_stmt =
+	  let c = Cmp (EQ, sz', one) in
+	  let sz1 = Const (Word.of_int (Z.of_int (sz-1)) sz) in
+	  let mask = BinOp(Shl, one, sz1) in
+	  If (c,
+	    [Set (V (T fof), BinOp(Shr, BinOp (And, ldst, mask), sz1))]
+	  ,
+	    [undef_flag fof])
+	in
+	let c = Cmp (EQ, ldst, sz') in
+	If (c,
+	    (Set (dst, BinOp (Shr, ldst, n)))::[cf_stmt ; of_stmt ; undef_flag faf],
+	    [])
+	  
+      let grp2 s sz n =
+	let nnn, dst = core_grp s sz in
 	match nnn with
-(*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ]
-	| 5 -> return s [ Set (dst, BinOp (Shr, Lval dst, n)) ; flags ]
-	| 7 -> return s [ Set (dst, BinOp (Div, Lval dst, 2*n)) *)
+	(*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ] *)
+	| 5 -> return s [shr_stmt dst sz n]
+(*	| 7 -> return s [ Set (dst, BinOp (Div, Lval dst, 2*n)) *)
 	| _ -> Log.error "Illegal opcode in grp 2"
 			 
       let grp3 s sz =
