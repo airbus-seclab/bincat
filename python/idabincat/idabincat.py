@@ -1,9 +1,5 @@
-#!/usr/bin/python2
-
-
 # version IDA 6.9
 
-# Imports
 import os
 import sys
 import traceback
@@ -11,59 +7,110 @@ import ConfigParser
 import tempfile
 import StringIO
 
+import idaapi
+import idc
+import idautils
+
+PYTHON_BIN = 'python2'
+PYTHON_PATH = os.path.normpath('/usr/bin')
+ANALYZER_BIN = os.path.join(os.path.dirname(__file__), 'idabincat',
+                            'analyzer.py')
+
 try:
-    import idaapi
-    import idc
-    import idautils
-except ImportError:
-    print("This file is an IDA Pro plugin, it should only be loaded in IDA")
-    sys.exit(1)
+    from PyQt5 import QtCore, QtWidgets, QtGui
+except:
+    idaapi.warning(
+        "[BinCAT] Failed to load Qt libs from PyQt5 \n%s\n" %
+        repr(sys.exc_info()))
 
 
+class bincat_plugin(idaapi.plugin_t):
+    # variables required by IDA
+    flags = 0  # normal plugin
+    wanted_name = "BinCAT Plugin"
+    wanted_hotkey = "Ctrl-Shift-B"
+    comment = "Interface to the BinCAT analyzer"
+    help = ""
+    initialized = False
+
+    # IDA API methods: init, run, term
+    def init(self):
+        # Loading Qt packages
+
+        try:
+            from pybincat import cfa as cfa_module
+            global cfa_module
+        except:
+            idaapi.warning(
+                "[BinCAT] Failed to load 'pybincat.cfa' python module\n%s\n" %
+                repr(sys.exc_info()))
+            return idaapi.PLUGIN_SKIP
+        return idaapi.PLUGIN_OK
+
+    def run(self, args):
+        if self.initialized:
+            return
+        self.initialized = True
+
+        PluginState.log_panel = BinCATLog_t()
+        if PluginState.log_panel.Create(1):
+            PluginState.log_panel.Show()
+            idaapi.set_dock_pos("BinCAT Log viewer", "Output window",
+                                idaapi.DP_LEFT)
+
+        PluginState.BinCATTaintedForm = BinCATTaintedForm_t()
+        PluginState.BinCATTaintedForm.Show()
+        idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
+
+        # We create a disassembly view dedicated to BinCAT
+        idaapi.open_disasm_window("Tainting View")
+        idaapi.set_dock_pos("IDA View-Tainting View", "IDA View-A",
+                            idaapi.DP_TAB)
+        idaapi.set_dock_pos("BinCAT Tainting", "Functions window",
+                            idaapi.DP_TAB)
+
+        # set the focus to BinCAT view
+        ida_bincat_view = idaapi.find_tform("BinCAT")
+        idaapi.switchto_tform(ida_bincat_view, 1)
+        tooltip_act2 = idaapi.action_desc_t(
+            'my:tooltip2', 'Analyze from here', HtooltipH(), '',
+            'BinCAT action', -1)
+        idaapi.register_action(tooltip_act2)
+
+        idaapi.attach_action_to_menu("View/", "my:tooltip0",
+                                     idaapi.SETMENU_APP)
+        PluginState.hooks = Hooks()
+        PluginState.hooks.hook()
+
+        info("IDABinCAT ready.")
+
+    def term(self):
+        if PluginState.hooks:
+            PluginState.hooks.unhook()
+            PluginState.hooks = None
+
+
+# Logging methods
 def info(msg):
-    BinCATLogViewer.Log(msg, idaapi.SCOLOR_DEFAULT)
+    PluginState.log_panel.Log(msg, idaapi.SCOLOR_DEFAULT)
 
 
 def important_info(msg):
     idaapi.msg("[BinCAT] %s" % msg)
-    BinCATLogViewer.Log(msg, idaapi.SCOLOR_LOCNAME)
+    PluginState.log_panel.Log(msg, idaapi.SCOLOR_LOCNAME)
 
 
 def warning(msg):
     idaapi.msg("[BinCAT] WARNING: %s" % msg)
-    BinCATLogViewer.Log(msg, idaapi.SCOLOR_ERROR)
+    PluginState.log_panel.Log(msg, idaapi.SCOLOR_ERROR)
 
 
 def error(msg):
-    BinCATLogViewer.Log(msg, idaapi.SCOLOR_ERROR)
     idaapi.warning("[BinCAT] ERROR: %s" % msg)
+    PluginState.log_panel.Log(msg, idaapi.SCOLOR_ERROR)
 
 
-# Loading Qt packages
-try:
-    from PyQt5 import QtCore, QtWidgets, QtGui
-except:
-    idaapi.warning("[BinCAT] Failed to load Qt libs from PyQt5 \n%s\n" %
-                   repr(sys.exc_info()))
-    sys.exit(1)
-
-try:
-    from pybincat import cfa
-except:
-    idaapi.warning(
-        "[BinCAT] Failed to load 'pybincat.cfa' python module\n%s\n" %
-        repr(sys.exc_info()))
-    sys.exit(1)
-
-
-# ------------------------------------
-# setting environnement variables
-if (sys.platform.startswith('linux') or sys.platform.startswith('darwin')):
-    PYTHON_BIN = 'python2'
-    PYTHON_PATH = os.path.normpath('/usr/bin')
-
-
-class AnalyzerConfig:
+class AnalyzerConfig(object):
     """
     Generates a configuration file for the analyzer.
     """
@@ -73,7 +120,6 @@ class AnalyzerConfig:
         self.code_length = None
         #: int
         self.entrypoint = None
-        #: int
 
     @property
     def rva_code(self):
@@ -320,14 +366,14 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
     def set_addresses(self, startAddr, stopAddr):
         startAddr = int(self.parent().ipStartAddr.text(), 16)
         stopAddr = int(self.parent().ipStopAddr.text(), 16)
-        ibcState.currentConfig.setStartStopAddr(startAddr, stopAddr)
-        self.configtxt.appendPlainText(str(ibcState.currentConfig))
+        PluginState.currentConfig.setStartStopAddr(startAddr, stopAddr)
+        self.configtxt.appendPlainText(str(PluginState.currentConfig))
 
     def set_config(self, config_txt):
         self.configtxt.appendPlainText(config_txt)
 
     def btnLaunchAnalyzer(self):
-        ibcState.startAnalysis(self.configtxt.toPlainText())
+        PluginState.startAnalysis(self.configtxt.toPlainText())
         self.close()
 
     def show(self):
@@ -340,10 +386,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def rbRegistersHandler(self):
         self.cbRegisters.setEnabled(True)
-        # self.ipMemory.setDisabled(True)
 
     def rbMemoryHandler(self):
-        # self.cbRegisters.setDisabled(True)
         self.ipMemory.setEnabled(True)
 
     def cbRegistersHandler(self, text):
@@ -357,8 +401,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             return
         startAddr = int(self.ipStartAddr.text(), 16)
         stopAddr = int(self.ipStopAddr.text(), 16)
-        ibcState.currentConfig.setStartStopAddr(startAddr, stopAddr)
-        ibcState.startAnalysis()
+        PluginState.currentConfig.setStartStopAddr(startAddr, stopAddr)
+        PluginState.startAnalysis()
 
         self.close()
 
@@ -385,57 +429,30 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         editdlg.exec_()
         self.close()
 
-    def btnAnalyzerConfig(self):
-        info("Loading the analyzer configuration")
-        bAc = AnalyzerConfForm_t(self)
-        bAc.exec_()
-
     def __init__(self, parent):
         super(TaintLaunchForm_t, self).__init__(parent)
 
         layout = QtWidgets.QGridLayout()
         lblCstEditor = QtWidgets.QLabel("BinCAT analysis parameters")
-        currentEA = idc.here()
+        PluginState.currentEA = idc.here()
 
         # Start address
         lblStartAddr = QtWidgets.QLabel(" Start address: ")
         self.ipStartAddr = QtWidgets.QLineEdit(self)
-        self.ipStartAddr.setText(hex(currentEA).rstrip('L'))
+        self.ipStartAddr.setText(hex(PluginState.currentEA).rstrip('L'))
 
         # Use current basic block address as default stop address
         stopAddr = ""
         for block in idaapi.FlowChart(idaapi.get_func(idc.here())):
-            if block.startEA <= currentEA <= block.endEA:
+            if block.startEA <= PluginState.currentEA <= block.endEA:
                 stopAddr = hex(block.endEA).rstrip('L')
         lblStopAddr = QtWidgets.QLabel(" Stop address: ")
         self.ipStopAddr = QtWidgets.QLineEdit(self)
         self.ipStopAddr.setText(stopAddr)
 
-        # XXX re-enable when its settings are actually used
-        # radio button register
-        # rbRegisters = QtWidgets.QCheckBox("Register")
-        # rbRegisters.toggled.connect(self.rbRegistersHandler)
-        # self.cbRegisters = QtWidgets.QComboBox(self)
-
-        # for reg in registers_x86:
-        #     self.cbRegisters.addItem(reg)
-
-        # self.cbRegisters.setDisabled(True)
-        # self.cbRegisters.activated[str].connect(self.cbRegistersHandler)
-
-        # self.ipRegs = QtWidgets.QLineEdit(self)
-        # self.ipRegs.setDisabled(True)
-
-        # XXX re-enable when its settings are actually used
-        # radio button memory
-        # rbMemory = QtWidgets.QCheckBox("Memory")
-        # rbMemory.toggled.connect(self.rbMemoryHandler)
-        # self.ipMemory = QtWidgets.QLineEdit(self)
-        # self.ipMemory.setDisabled(True)
-
-
         # Start, cancel and analyzer config buttons
-        self.btnLoad = QtWidgets.QPushButton('Load configuration file...', self)
+        self.btnLoad = QtWidgets.QPushButton('Load configuration file...',
+                                             self)
         self.btnLoad.clicked.connect(self.choose_file)
 
         self.btnEditConf = QtWidgets.QPushButton('Edit configuration...', self)
@@ -447,12 +464,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btnCancel = QtWidgets.QPushButton('Cancel', self)
         self.btnCancel.clicked.connect(self.close)
 
-        # XXX re-enable when its settings are actually used
-        # self.btnAc = QtWidgets.QPushButton('Analyzer configuration', self)
-        # self.btnAc.setToolTip('Configure the analyzer.')
-        # self.btnAc.setFixedWidth(150)
-        # self.btnAc.clicked.connect(self.btnAnalyzerConfig)
-
         layout.addWidget(lblCstEditor, 0, 0)
 
         layout.addWidget(lblStartAddr, 1, 0)
@@ -460,12 +471,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         layout.addWidget(lblStopAddr, 2, 0)
         layout.addWidget(self.ipStopAddr, 2, 1)
-
-        # layout.addWidget(rbRegisters, 3, 0)
-        # layout.addWidget(self.cbRegisters, 3, 1)
-
-        # layout.addWidget(rbMemory, 4, 0)
-        # layout.addWidget(self.ipMemory, 4, 1)
 
         layout.addWidget(self.btnLoad, 3, 0)
         layout.addWidget(self.btnEditConf, 3, 1)
@@ -481,375 +486,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         super(TaintLaunchForm_t, self).show()
 
 
-class GDTEditorForm_t(QtWidgets.QDialog):
-
-    def btnOKHandler(self):
-        self.accept()
-
-    def btnCancelHandler(self):
-        self.reject()
-
-    def __init__(self, parent):
-        super(GDTEditorForm_t, self).__init__(parent)
-
-        # XXX write to config object
-        self.currentConfig = PluginState.currentConfig.getConfigParser()
-
-        # Main table
-        self.table = QtWidgets.QTableWidget()
-        # 2 columun
-        self.table.setColumnCount(2)
-
-        self.table.setRowCount(len(self.currentConfig.options('GDT')))
-
-        self.table.setHorizontalHeaderItem(
-            0, QtWidgets.QTableWidgetItem("GDT"))
-        self.table.setHorizontalHeaderItem(
-            1, QtWidgets.QTableWidgetItem("Value"))
-
-        # Fill the table with GDT section
-        index = 0
-        for gdt in self.currentConfig.options('GDT'):
-            item = QtWidgets.QTableWidgetItem(gdt)
-            # setItem(row, column, item)
-            self.table.setItem(index, 0, item)
-            index += 1
-
-        index = 0
-        for gdt in self.currentConfig.options('GDT'):
-            item = QtWidgets.QTableWidgetItem(
-                self.currentConfig.get('GDT', gdt))
-            # setItem(row, column, item)
-            self.table.setItem(index, 1, item)
-            index += 1
-
-        self.table.setColumnWidth(0, 80)
-        self.table.setColumnWidth(1, 160)
-
-        self.table.setMaximumWidth(300)
-        self.table.setMinimumWidth(300)
-        self.table.setMaximumHeight(400)
-        self.table.setMinimumHeight(400)
-
-        layout = QtWidgets.QGridLayout()
-
-        layout.addWidget(self.table, 0, 0)
-        # label = QtWidgets.QLabel('Tainting:')
-        # layout.addWidget(label, 0, 0)
-
-        # OK and Cancel button
-        self.btnOK = QtWidgets.QPushButton('OK', self)
-        self.btnOK.setToolTip('Save GDT.')
-        self.btnOK.setFixedWidth(150)
-        self.btnOK.clicked.connect(self.btnOKHandler)
-
-        self.btnCancel = QtWidgets.QPushButton('Cancel', self)
-        self.btnCancel.setToolTip('Cancel.')
-        self.btnCancel.setFixedWidth(150)
-        self.btnCancel.clicked.connect(self.close)
-
-        layout.addWidget(self.btnOK, 1, 0)
-        layout.addWidget(self.btnCancel, 1, 1)
-
-        layout.setColumnStretch(0, 1)
-        layout.setRowStretch(2, 1)
-
-        self.setLayout(layout)
-
-    def show(self):
-        self.setFixedSize(460, 500)
-        self.setWindowTitle(" GDT Editor: ")
-        super(GDTEditorForm_t, self).show()
-
-
-class ConstraintEditorForm_t(QtWidgets.QDialog):
-
-    def btnOKHandler(self):
-        self.accept()
-
-    def btnCancelHandler(self):
-        self.reject()
-
-    def __init__(self, parent):
-        super(ConstraintEditorForm_t, self).__init__(parent)
-
-        layout = QtWidgets.QGridLayout()
-        lblCstEditor = QtWidgets.QLabel("Initial state:")
-        layout.addWidget(lblCstEditor, 0, 0)
-
-        self.notes = QtWidgets.QPlainTextEdit()
-        self.notes.setFixedHeight(300)
-        self.notes.setFixedWidth(300)
-        self.notes.appendPlainText("reg[eax] = 0x00")
-        self.notes.appendPlainText("mem[0x4000] = 0x00")
-
-        # OK and cancel button
-        self.btnOK = QtWidgets.QPushButton('OK', self)
-        self.btnOK.setToolTip('Save Constraints.')
-        self.btnOK.setFixedWidth(150)
-        self.btnOK.clicked.connect(self.btnOKHandler)
-
-        self.btnCancel = QtWidgets.QPushButton('Cancel', self)
-        self.btnCancel.setToolTip('Cancel.')
-        self.btnCancel.setFixedWidth(150)
-        self.btnCancel.clicked.connect(self.btnCancelHandler)
-
-        layout.addWidget(self.notes, 1, 0)
-        layout.addWidget(self.btnOK, 2, 0)
-        layout.addWidget(self.btnCancel, 2, 1)
-
-        layout.setColumnStretch(2, 1)
-        layout.setRowStretch(3, 1)
-
-        self.setLayout(layout)
-
-    def show(self):
-        self.setFixedSize(400, 400)
-        self.setWindowTitle("Constraints Editor")
-        super(ConstraintEditorForm_t, self).show()
-
-
-class AnalyzerConfForm_t(QtWidgets.QDialog):
-    """
-    Class AnalyzerConfForm: this forms is populated by the content of the
-    nop.ini file
-
-    This form helps the en user to configure the analyzer
-    """
-
-    def btnCstrHandler(self):
-        CstEdit = ConstraintEditorForm_t(self)
-        CstEdit.show()
-
-    def btnGDTHandler(self):
-        GdtEdit = GDTEditorForm_t(self)
-        GdtEdit.show()
-
-    def btnImportHandler(self):
-        idaapi.warning("TODO")
-
-    def btnSegsHandler(self):
-        idaapi.warning("TODO")
-
-    def btnCancelHandler(self):
-        self.reject()
-
-    def btnOKHandler(self):
-        self.accept()
-
-    def __init__(self, parent):
-        super(AnalyzerConfForm_t, self).__init__(parent)
-
-        # XXX write to config object
-        self.currentConfig = PluginState.currentConfig.getConfigParser()
-
-        # based on the analyzer ini file (see test/nop.ini)
-        # Settings label
-        lblSettings = QtWidgets.QLabel("[Settings]")
-        layout = QtWidgets.QGridLayout()
-        layout.addWidget(lblSettings, 0, 0)
-
-        # mem-model
-        lblmemmodel = QtWidgets.QLabel(" mem-model: ")
-        layout.addWidget(lblmemmodel, 1, 0)
-
-        self.iptmm = QtWidgets.QLineEdit(self)
-
-        self.iptmm.setText(self.currentConfig.get('settings', 'mem-model'))
-        self.iptmm.setMaxLength = 256
-        self.iptmm.setFixedWidth(200)
-
-        layout.addWidget(self.iptmm, 1, 1)
-
-        # call-conv
-        lblcallconv = QtWidgets.QLabel(" call-conv: ")
-        layout.addWidget(lblcallconv, 2, 0)
-
-        self.iptcc = QtWidgets.QLineEdit(self)
-
-        self.iptcc.setText(self.currentConfig.get('settings', 'call-conv'))
-        self.iptcc.setMaxLength = 256
-        self.iptcc.setFixedWidth(200)
-
-        layout.addWidget(self.iptcc, 2, 1)
-
-        # mem-size
-        lblmemsize = QtWidgets.QLabel(" mem-size: ")
-        layout.addWidget(lblmemsize, 3, 0)
-
-        self.iptms = QtWidgets.QLineEdit(self)
-
-        self.iptms.setText(self.currentConfig.get('settings', 'mem-sz'))
-        self.iptms.setMaxLength = 256
-        self.iptms.setFixedWidth(200)
-
-        layout.addWidget(self.iptms, 3, 1)
-
-        # op-sz
-        lblopsz = QtWidgets.QLabel(" op-sz: ")
-        layout.addWidget(lblopsz, 4, 0)
-        self.iptos = QtWidgets.QLineEdit(self)
-
-        self.iptos.setText(self.currentConfig.get('settings', 'op-sz'))
-        self.iptos.setMaxLength = 256
-        self.iptos.setFixedWidth(200)
-
-        layout.addWidget(self.iptos, 4, 1)
-
-        # stack-width
-        lblstackwidth = QtWidgets.QLabel(" stack-width: ")
-        layout.addWidget(lblstackwidth, 5, 0)
-        self.iptsw = QtWidgets.QLineEdit(self)
-
-        self.iptsw.setText(self.currentConfig.get('settings', 'stack-width'))
-        self.iptsw.setMaxLength = 256
-        self.iptsw.setFixedWidth(200)
-
-        layout.addWidget(self.iptsw, 5, 1)
-
-        # mode
-        lblmode = QtWidgets.QLabel(" mode: ")
-        layout.addWidget(lblmode, 6, 0)
-        self.ipmode = QtWidgets.QLineEdit(self)
-
-        self.ipmode.setText(self.currentConfig.get('settings', 'mode'))
-        self.ipmode.setMaxLength = 256
-        self.ipmode.setFixedWidth(200)
-
-        layout.addWidget(self.ipmode, 6, 1)
-
-        # loader label
-        lblLoader = QtWidgets.QLabel("[Loader]")
-        layout.addWidget(lblLoader, 7, 0)
-
-        # rva-code-start
-        lblrvacs = QtWidgets.QLabel(" rva-code: ")
-        layout.addWidget(lblrvacs, 10, 0)
-        self.iptrvacs = QtWidgets.QLineEdit(self)
-
-        self.iptrvacs.setText(self.currentConfig.get('loader', 'rva-code'))
-        self.iptrvacs.setMaxLength = 256
-        self.iptrvacs.setFixedWidth(200)
-
-        layout.addWidget(self.iptrvacs, 10, 1)
-
-        # rva-entrypoint
-        lblrvaep = QtWidgets.QLabel(" entrypoint: ")
-        layout.addWidget(lblrvaep, 12, 0)
-        self.iptrvaep = QtWidgets.QLineEdit(self)
-
-        self.iptrvaep.setText(self.currentConfig.get('loader', 'entrypoint'))
-        self.iptrvaep.setMaxLength = 256
-        self.iptrvaep.setFixedWidth(200)
-
-        layout.addWidget(self.iptrvaep, 12, 1)
-
-        # Segments
-        lblSegs = QtWidgets.QLabel("[Segments]")
-        layout.addWidget(lblSegs, 13, 0)
-
-        self.btnSegsEdit = QtWidgets.QPushButton('Edit/View Segments ', self)
-        self.btnSegsEdit.clicked.connect(self.btnSegsHandler)
-        layout.addWidget(self.btnSegsEdit, 13, 1)
-
-        # Binary label
-        lblBinary = QtWidgets.QLabel("[Binary]")
-        layout.addWidget(lblBinary, 14, 0)
-
-        # filepath
-        lblfilepath = QtWidgets.QLabel(" filepath: ")
-        layout.addWidget(lblfilepath, 15, 0)
-        self.iptfp = QtWidgets.QLineEdit(self)
-
-        self.iptfp.setText(self.currentConfig.get('binary', 'filepath'))
-        self.iptfp.setMaxLength = 256
-        self.iptfp.setFixedWidth(200)
-
-        layout.addWidget(self.iptfp, 15, 1)
-
-        # format
-        lblformat = QtWidgets.QLabel(" format: ")
-        layout.addWidget(lblformat, 16, 0)
-        self.iptfmt = QtWidgets.QLineEdit(self)
-
-        self.iptfmt.setText(self.currentConfig.get('binary', 'format'))
-        self.iptfmt.setMaxLength = 256
-        self.iptfmt.setFixedWidth(200)
-
-        layout.addWidget(self.iptfmt, 16, 1)
-
-        # code section phys start addr
-        lblpc = QtWidgets.QLabel(" phys-code-addr: ")
-        layout.addWidget(lblpc, 17, 0)
-        self.iptpc = QtWidgets.QLineEdit(self)
-
-        self.iptpc.setText(self.currentConfig.get('loader', 'phys-code-addr'))
-        self.iptpc.setMaxLength = 256
-        self.iptpc.setFixedWidth(200)
-
-        layout.addWidget(self.iptpc, 17, 1)
-
-        # analyzer label
-        lblBinary = QtWidgets.QLabel("[Analyzer]")
-        layout.addWidget(lblBinary, 18, 0)
-
-        # unroll
-        lblur = QtWidgets.QLabel(" unroll: ")
-        layout.addWidget(lblur, 19, 0)
-        self.iptur = QtWidgets.QLineEdit(self)
-
-        self.iptur.setText(self.currentConfig.get('analyzer', 'unroll'))
-        self.iptur.setMaxLength = 256
-        self.iptur.setFixedWidth(200)
-
-        layout.addWidget(self.iptur, 19, 1)
-
-        # State label
-        lblstate = QtWidgets.QLabel("[State]")
-        layout.addWidget(lblstate, 20, 0)
-
-        self.btnConstraint = QtWidgets.QPushButton(
-            'Define', self)
-        self.btnConstraint.clicked.connect(self.btnCstrHandler)
-        layout.addWidget(self.btnConstraint, 20, 1)
-
-        # Import table
-        lblimport = QtWidgets.QLabel("[Imports]")
-        layout.addWidget(lblimport, 21, 0)
-
-        self.btnImportEdit = QtWidgets.QPushButton('Edit/View imports ', self)
-        self.btnImportEdit.clicked.connect(self.btnImportHandler)
-        layout.addWidget(self.btnImportEdit, 21, 1)
-
-        # GDT label
-        lblgdt = QtWidgets.QLabel("[GDT]")
-        layout.addWidget(lblgdt, 22, 0)
-
-        self.btnGDTEdit = QtWidgets.QPushButton('Edit/View GDT ', self)
-        self.btnGDTEdit.clicked.connect(self.btnGDTHandler)
-        layout.addWidget(self.btnGDTEdit, 22, 1)
-
-        # OK and cancel button
-        self.btnOK = QtWidgets.QPushButton('OK', self)
-        self.btnOK.clicked.connect(self.btnOKHandler)
-        layout.addWidget(self.btnOK, 25, 0)
-
-        self.btnCancel = QtWidgets.QPushButton('Cancel', self)
-        self.btnCancel.clicked.connect(self.btnCancelHandler)
-        layout.addWidget(self.btnCancel, 25, 1)
-
-        # Setting the layout
-        layout.setColumnStretch(4, 1)
-        layout.setRowStretch(26, 1)
-        self.setLayout(layout)
-
-    def show(self):
-        # width x height
-        self.setFixedSize(350, 600)
-        self.setWindowTitle("Analyzer Configuration")
-        super(AnalyzerConfForm_t, self).show()
-
-
 class Analyzer(QtCore.QProcess):
     """
     Class Analyzer that inherits from Qprocess
@@ -857,8 +493,7 @@ class Analyzer(QtCore.QProcess):
     The idea is to implement callbacks on main Qprocess signals
     """
 
-    def __init__(self, initfname, outfname, logfname, analyzerpath):
-        # XXX move analyzerpath to config class?
+    def __init__(self, initfname, outfname, logfname):
         QtCore.QProcess.__init__(self)
         # Qprocess signal handlers
         self.error.connect(self.procanalyzer_on_error)
@@ -869,17 +504,16 @@ class Analyzer(QtCore.QProcess):
         self.initfname = initfname
         self.outfname = outfname
         self.logfname = logfname
-        self.analyzerpath = analyzerpath
 
     def run(self):
-        npp = os.path.dirname(os.path.dirname(self.analyzerpath))
+        npp = os.path.dirname(os.path.dirname(ANALYZER_BIN))
         env = QtCore.QProcessEnvironment.systemEnvironment()
         env.insert("PYTHONPATH", npp+":"+env.value("PYTHONPATH"))
         self.setProcessEnvironment(env)
 
         cmdline = "%s %s --inifile %s --outfile %s --logfile %s" % (
             os.path.join(PYTHON_PATH, PYTHON_BIN),
-            self.analyzerpath, self.initfname, self.outfname, self.logfname)
+            ANALYZER_BIN, self.initfname, self.outfname, self.logfname)
         # start the process
         info("Analyzer cmdline: [%s]" % cmdline)
         try:
@@ -890,13 +524,13 @@ class Analyzer(QtCore.QProcess):
         else:
             info("Analyzer started\n")
 
-    def procanalyzer_on_error(self, error):
+    def procanalyzer_on_error(self, err):
         errors = ["Failed to start", "Crashed", "TimedOut", "Read Error",
                   "Write Error", "Unknown Error"]
         try:
-            errtxt = errors[error]
+            errtxt = errors[err]
         except IndexError:
-            errtxt = "Unspecified error %s" % error
+            errtxt = "Unspecified error %s" % err
         error("Analyzer error: %s\n" % errtxt)
 
     def procanalyzer_on_state_change(self, new_state):
@@ -912,13 +546,13 @@ class Analyzer(QtCore.QProcess):
         if exitcode == 0:
             info("Parsing analyzer result file\n")
 
-            ibcState.cfa = cfa.CFA.parse(self.outfname,
-                                         logs=self.logfname)
+            PluginState.cfa = cfa_module.CFA.parse(self.outfname,
+                                                   logs=self.logfname)
             # Update current RVA to start address (nodeid = 0)
-            node0 = ibcState.cfa['0']
+            node0 = PluginState.cfa['0']
 
             startaddr_ea = node0.address.value
-            ibcState.setCurrentEA(startaddr_ea, force=True)
+            PluginState.setCurrentEA(startaddr_ea, force=True)
         else:
             error("ERROR: analyzer returned exit code=%i\n" % exitcode)
             info("---- stdout ----------------\n")
@@ -977,7 +611,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         # Value Taint Table
         self.vttable = QtWidgets.QTableView()
         self.vttable.setSortingEnabled(True)
-        self.vttable.setModel(ibcState.vtmodel)
+        self.vttable.setModel(PluginState.vtmodel)
         self.vttable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
 
@@ -1004,7 +638,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         :param ea: int or long
         """
         self.alabel.setText('RVA: 0x%08x' % ea)
-        state = ibcState.currentState
+        state = PluginState.currentState
         if state:
             self.nilabel.setText('Node Id: %s' % state.node_id)
         else:
@@ -1031,7 +665,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         """
         Rebuild a list of rows
         """
-        state = ibcState.currentState
+        state = PluginState.currentState
         #: list of Values (addresses)
         self.rows = []
         self.changedRows = set()
@@ -1039,10 +673,10 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             self.rows = sorted(state.regaddrs)
 
             # find parent state
-            parents = [nodeid for nodeid in ibcState.cfa.edges
-                       if state.node_id in ibcState.cfa.edges[nodeid]]
+            parents = [nodeid for nodeid in PluginState.cfa.edges
+                       if state.node_id in PluginState.cfa.edges[nodeid]]
             for pnode in parents:
-                pstate = ibcState.cfa[pnode]
+                pstate = PluginState.cfa[pnode]
                 for k in state.list_modified_keys(pstate):
                     if k in self.rows:
                         self.changedRows.add(self.rows.index(k))
@@ -1077,7 +711,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         elif col == 1:  # region
             return region
         else:
-            v = ibcState.currentState[regaddr]
+            v = PluginState.currentState[regaddr]
             if not v:
                 return ""
         if col == 2:  # value
@@ -1090,116 +724,6 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
 
     def columnCount(self, parent):
         return len(self.headers)
-
-
-class BinCATForm_t(idaapi.PluginForm):
-    """
-    BinCAT main IDA PluginForm
-    """
-
-    # handler for btnNewAnalyzer
-    def handler_btnNewAnalyzer(self):
-        options = QtWidgets.QFileDialog.Options()
-        fname = QtWidgets.QFileDialog.getOpenFileName(
-            self.parent, 'Open file', idc.GetIdaDirectory(),
-            "Python files (*.py)", options=options)
-        if fname:
-            self.iptAnalyzerPath.setText(fname[0])
-
-    def handler_btnAnalyzerConfig(self):
-        # Call AnalyzerConfForm_t
-        bAc = AnalyzerConfForm_t(self.parent)
-        bAc.show()
-
-    def handler_restartAnalyzer(self):
-        # check if the field is not empty
-        if not self.iptAnalyzerPath.text():
-            error("New analyzer path is empty")
-        else:
-            try:
-                with open(self.iptAnalyzerPath.text()) as f:
-                    # TODO check if the analyer.py is the correct stub
-                    important_info("Restarting analyzer.")
-                    self.init_Analyzer()
-
-            except:
-                error("New analyzer file could not be opened.")
-            else:
-                info("New analyzer path %s.\n " % self.iptAnalyzerPath.text())
-
-    # Called when the plugin form is created
-    def OnCreate(self, form):
-        # Get parent widget
-        self.parent = self.FormToPyQtWidget(form)
-
-        # create a label
-        label = QtWidgets.QLabel('IDB file:')
-
-        # create an input box
-        self.input = QtWidgets.QLineEdit(self.parent)
-        self.input.setText(idc.GetIdbPath())
-        self.input.setMaxLength = 256
-        self.input.setFixedWidth(300)
-
-        # create label: analyzer path
-        lblAnalyzerPath = QtWidgets.QLabel('Analyzer path:')
-
-        # create input: analyzer path
-        self.iptAnalyzerPath = QtWidgets.QLineEdit(self.parent)
-
-        defaultAnalyzerFile = os.path.join(os.path.dirname(__file__),
-                                           'analyzer.py')
-        self.iptAnalyzerPath.setText(defaultAnalyzerFile)
-        self.iptAnalyzerPath.setMaxLength = 256
-        self.iptAnalyzerPath.setFixedWidth(300)
-
-        # button to choose another analyzer
-        self.btnNewAnalyzer = QtWidgets.QPushButton('...', self.parent)
-        self.btnNewAnalyzer.setToolTip('set a new analyzer.py path')
-        self.btnNewAnalyzer.clicked.connect(self.handler_btnNewAnalyzer)
-
-        # # restart button for the analyzer
-        # self.btnAnalyzer = QtWidgets.QPushButton('restart', self.parent)
-        # self.btnAnalyzer.setToolTip('restart analyzer.')
-        # self.btnAnalyzer.setFixedWidth(150)
-        # self.btnAnalyzer.clicked.connect(self.handler_restartAnalyzer)
-
-        # XXX re-enable when its settings are actually used
-        # # create a button for analyzer configuration form
-        # self.btnAnalyzerConfig = QtWidgets.QPushButton(
-        #     'Analyzer configuration', self.parent)
-        # self.btnAnalyzerConfig.clicked.connect(self.handler_btnAnalyzerConfig)
-
-        # create a Layout
-        layout = QtWidgets.QGridLayout()
-        layout.addWidget(label, 0, 0)
-        layout.addWidget(self.input, 0, 1)
-        layout.addWidget(lblAnalyzerPath, 1, 0)
-        layout.addWidget(self.iptAnalyzerPath, 1, 1)
-        # layout.addWidget(self.btnAnalyzer, 1, 3)
-        layout.addWidget(self.btnNewAnalyzer, 1, 2)
-
-        # layout.addWidget(self.btnAnalyzerConfig, 2, 0)
-
-        layout.setColumnStretch(4, 1)
-        layout.setRowStretch(3, 1)
-
-        self.parent.setLayout(layout)
-
-    # Called when the plugin form is closed
-    def OnClose(self, form):
-        global BinCATForm
-        del BinCATForm
-
-        # f = idaapi.find_tform("BinCAT Log viewer")
-        # if f:
-        # idaapi.close_tform(f, 0)
-
-    def Show(self):
-        return idaapi.PluginForm.Show(
-            self, "BinCAT Configuration",
-            options=(idaapi.PluginForm.FORM_PERSIST |
-                     idaapi.PluginForm.FORM_TAB))
 
 
 class HtooltipT(idaapi.action_handler_t):
@@ -1264,49 +788,49 @@ class Hooks(idaapi.UI_Hooks):
                     # SetColor(place.toea(), CIC_ITEM, 0x0CE505)
                     # idaapi.set_item_color(place.toea(), 0x23ffff)
 
-                    ibcState.setCurrentEA(place.toea())
+                    PluginState.setCurrentEA(place.toea())
 
     def populating_tform_popup(self, form, popup):
-        # idaapi.attach_action_to_popup(form, popup, "my:tooltip0",
-        #                               "BinCAT/Tainting/", idaapi.SETMENU_APP)
-        # idaapi.attach_action_to_popup(form, popup, "my:tooltip1",
-        #                               "BinCAT/Tainting/", idaapi.SETMENU_APP)
         idaapi.attach_action_to_popup(form, popup, "my:tooltip2",
                                       "BinCAT/", idaapi.SETMENU_APP)
 
 
-class PluginState():
+class PluginState(object):
     """
-    Container for plugin state related data & methods.
+    Container for (static) plugin state related data & methods.
     """
-    def __init__(self):
-        self.vtmodel = ValueTaintModel()
-        self.currentEA = None
-        self.cfa = None
-        self.currentState = None
-        self.currentConfig = AnalyzerConfig()
-        # Analyzer instance
-        self.analyzer = None
+    log_panel = None
+    vtmodel = ValueTaintModel()
+    currentEA = None
+    cfa = None
+    currentState = None
+    currentConfig = AnalyzerConfig()
+    #: Analyzer instance
+    analyzer = None
+    BinCATTaintedForm = None
+    hooks = None
 
-    def setCurrentEA(self, ea, force=False):
+    @staticmethod
+    def setCurrentEA(ea, force=False):
         """
         :param ea: int or long
         """
-        if not (force or ea != self.currentEA):
+        if not (force or ea != PluginState.currentEA):
             return
-        self.vtmodel.beginResetModel()
-        self.currentEA = ea
-        if self.cfa:
-            node_ids = self.cfa.node_id_from_addr(ea)
+        PluginState.vtmodel.beginResetModel()
+        PluginState.currentEA = ea
+        if PluginState.cfa:
+            node_ids = PluginState.cfa.node_id_from_addr(ea)
             if node_ids:
                 # XXX add UI to choose state when several exist at this address
-                self.currentState = self.cfa[node_ids[0]]
+                PluginState.currentState = PluginState.cfa[node_ids[0]]
             else:
-                self.currentState = None
-        BinCATTaintedForm.updateCurrentEA(ea)
-        self.vtmodel.endResetModel()
+                PluginState.currentState = None
+        PluginState.BinCATTaintedForm.updateCurrentEA(ea)
+        PluginState.vtmodel.endResetModel()
 
-    def startAnalysis(self, configStr=None):
+    @staticmethod
+    def startAnalysis(configStr=None):
         path = tempfile.mkdtemp(suffix='bincat')
         initfname = os.path.join(path, "init.ini")
         outfname = os.path.join(path, "out.ini")
@@ -1318,87 +842,11 @@ class PluginState():
             with open(initfname, 'wb') as f:
                 f.write(configStr)
         else:
-            self.currentConfig.write(initfname)
+            PluginState.currentConfig.write(initfname)
 
-        analyzerpath = BinCATForm.iptAnalyzerPath.text()
-        ibcState.analyzer = Analyzer(initfname, outfname, logfname,
-                                     analyzerpath)
-        ibcState.analyzer.run()
+        PluginState.analyzer = Analyzer(initfname, outfname, logfname)
+        PluginState.analyzer.run()
 
 
-def main():
-    idaapi.msg("[BinCAT] Plugin loaded\n")
-    if not idaapi.get_root_filename():
-        idaapi.error("[BinCAT] please load a file/idb before \n")
-        return
-    # TODO remove unnecessary globals
-    global registers_x86
-    global BinCATForm
-    global BinCATLogViewer
-    global hooks
-    global BinCATTaintedForm
-
-    BinCATLogViewer = BinCATLog_t()
-
-    BinCATForm = BinCATForm_t()
-    BinCATTaintedForm = BinCATTaintedForm_t()
-
-    #: IDA BinCAT plugin state.
-    global ibcState
-    ibcState = PluginState()
-
-    if BinCATLogViewer.Create(1):
-        BinCATLogViewer.Show()
-        idaapi.set_dock_pos("BinCAT Log viewer", "Output window",
-                            idaapi.DP_LEFT)
-
-    BinCATForm.Show()
-    BinCATTaintedForm.Show()
-    # TODO: get the list of registers from IDA depending on the current cpu
-    # arch
-    registers_x86 = ['EAX', 'EBX', 'ECX', 'EDX', 'ESI', 'EDI', 'ESP', 'EBP']
-
-    idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
-
-    # We create a disassembly view dedicated to BinCAT
-    idaapi.open_disasm_window("Tainting View")
-    idaapi.set_dock_pos("IDA View-Tainting View", "IDA View-A", idaapi.DP_TAB)
-    idaapi.set_dock_pos("BinCAT Tainting", "Functions window", idaapi.DP_TAB)
-
-    # set the focus to BinCAT view
-    ida_bincat_view = idaapi.find_tform("BinCAT")
-    idaapi.switchto_tform(ida_bincat_view, 1)
-
-    # creating BinCAT menu
-    # tooltip_act0 = idaapi.action_desc_t(
-    #     'my:tooltip0', 'BinCAT: Taint this basic bloc', HtooltipT(), '',
-    #     'BinCAT action', -1)
-    # tooltip_act1 = idaapi.action_desc_t(
-    #     'my:tooltip1', 'BinCAT: Taint this function', HtooltipF(), '',
-    #     'BinCAT action', -1)
-    tooltip_act2 = idaapi.action_desc_t(
-        'my:tooltip2', 'Analyze from here', HtooltipH(), '',
-        'BinCAT action', -1)
-
-    # Registering BinCAT actions
-    # idaapi.register_action(tooltip_act0)
-    # idaapi.register_action(tooltip_act1)
-    idaapi.register_action(tooltip_act2)
-
-    idaapi.attach_action_to_menu("View/", "my:tooltip0", idaapi.SETMENU_APP)
-
-    try:
-        hooks.unhook()
-        hooks = None
-        idaapi.msg("[BinCAT] Unhooked")
-
-    except:
-        hooks = Hooks()
-        hooks.hook()
-
-    info("IDABinCAT ready.")
-
-# ----------------------------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    main()
+def PLUGIN_ENTRY():
+    return bincat_plugin()
