@@ -57,7 +57,7 @@ CFLAGS=-ccopt -L$(LIBDIR) -ccopt -lasmrun
 all: $(LIBNAME)
 
 $(LIBNAME): $(CMX) 
-	$(CAMLOPT) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
+	$(CAMLOPT) -output-obj -fPIC -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
 
 
 %.cmx: %.ml %.mli
