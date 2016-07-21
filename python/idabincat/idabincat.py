@@ -1,4 +1,5 @@
 # version IDA 6.9
+# runs the "bincat" command from ida
 
 import os
 import sys
@@ -10,11 +11,6 @@ import StringIO
 import idaapi
 import idc
 import idautils
-
-PYTHON_BIN = 'python2'
-PYTHON_PATH = os.path.normpath('/usr/bin')
-ANALYZER_BIN = os.path.join(os.path.dirname(__file__), 'idabincat',
-                            'analyzer.py')
 
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
@@ -506,14 +502,8 @@ class Analyzer(QtCore.QProcess):
         self.logfname = logfname
 
     def run(self):
-        npp = os.path.dirname(os.path.dirname(ANALYZER_BIN))
-        env = QtCore.QProcessEnvironment.systemEnvironment()
-        env.insert("PYTHONPATH", npp+":"+env.value("PYTHONPATH"))
-        self.setProcessEnvironment(env)
-
-        cmdline = "%s %s --inifile %s --outfile %s --logfile %s" % (
-            os.path.join(PYTHON_PATH, PYTHON_BIN),
-            ANALYZER_BIN, self.initfname, self.outfname, self.logfname)
+        cmdline = "bincat %s %s %s" % (self.initfname, self.outfname,
+                                       self.logfname)
         # start the process
         info("Analyzer cmdline: [%s]" % cmdline)
         try:

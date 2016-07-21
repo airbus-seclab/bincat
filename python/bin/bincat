@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 
 
 def main():
@@ -6,11 +6,11 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("inputfile", 
+    parser.add_argument("inputfile",
                         help="Input state file")
     parser.add_argument("outputfile",
                         help="file to output computed states into")
-    parser.add_argument("logfile", 
+    parser.add_argument("logfile",
                         help="log file")
 
     options = parser.parse_args()
@@ -20,4 +20,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
