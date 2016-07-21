@@ -57,3 +57,17 @@ by default non initialized external symobols are not exported by ranlib.
 Hence some symbols in _caml_table are not exported which resul in a link failure.
 To avoid this, type
 ranlib -c /path/to/the/lib/libsasmrun.a
+
+=ida plugin installation
+
+* Copy or create a symlink to python/idabincat/idabincat.py in your IDA
+  installation folder's plugin/ directory, or in your ~/.idapro/plugins
+  directory
+
+* Make the pybincat package available in your idapython distribution. To do so,
+  you may copy or create a symlink to the python/pybincat/ folder in your IDA
+  installation folder's plugin/ directory, or in your ~/.idapro/plugins
+  directory.
+
+* Make sure the "bincat" command is in your path (make install should have
+  taken care of that)
