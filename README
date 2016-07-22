@@ -13,6 +13,9 @@ the library ocamlgraph
 IDA for the vizualisation
 Graphviz
 
+on Debian Sid :
+apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-dev
+
 =installation
 
 1. unzip this archive and enter it
