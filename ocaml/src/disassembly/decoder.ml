@@ -999,8 +999,13 @@ module Make(Domain: Domain.T) =
 	    (Set (dst, BinOp (Shr, ldst, n)))::[cf_stmt ; of_stmt ; undef_flag faf],
 	    [])
 	  
-      let grp2 s sz n =
+      let grp2 s sz e =
 	let nnn, dst = core_grp s sz in
+	let n =
+	  match e with
+	  | Some e' -> e'
+	  | None -> Const (Word.of_int (int_of_bytes s (sz / Config.size_of_byte)) sz)
+	in
 	match nnn with
 	(*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ] *)
 	| 5 -> return s [shr_stmt dst sz n]
@@ -1356,8 +1361,8 @@ module Make(Domain: Domain.T) =
 	  | c when '\xb8' <= c && c <= '\xbf' -> (* mov immediate word or double into word or double register *)
 	     let r = V (find_reg ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/Config.size_of_byte)) s.operand_sz))]
 
-	  | '\xc0' -> (* shift grp2 with byte size*) grp2 s Config.size_of_byte (Const (Word.of_int (int_of_bytes s 1) Config.size_of_byte))
-	  | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz (Const (Word.of_int (int_of_bytes s (s.operand_sz / Config.size_of_byte)) s.operand_sz))
+	  | '\xc0' -> (* shift grp2 with byte size*) grp2 s Config.size_of_byte None
+	  | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
 	  | '\xc2' -> (* RET NEAR and pop word *) return s [ Return; (* pop imm16 *) set_esp Add (T esp) 16; ]
 	  | '\xc3' -> (* RET NEAR *) return s [ Return ] 
 	  | '\xc4' -> (* LES *) load_far_ptr s es
@@ -1376,10 +1381,10 @@ module Make(Domain: Domain.T) =
 	  | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
 	  | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
 
-	  | '\xd0' -> (* grp2 shift with byte size *) grp2 s Config.size_of_byte (Const (Word.one Config.size_of_byte))
-	  | '\xd1' -> (* grp2 shift with word or double size *) grp2 s s.operand_sz (Const (Word.one s.operand_sz))
-	  | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s Config.size_of_byte (Lval (V (to_reg ecx Config.size_of_byte)))
-	  | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Lval (V (to_reg ecx Config.size_of_byte)))
+	  | '\xd0' -> (* grp2 shift with byte size *) grp2 s Config.size_of_byte None
+	  | '\xd1' -> (* grp2 shift with word or double size *) grp2 s s.operand_sz None 
+	  | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s Config.size_of_byte (Some (Lval (V (to_reg ecx Config.size_of_byte))))
+	  | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx Config.size_of_byte))))
 	     
 	  | c when '\xd8' <= c && c <= '\xdf' -> (* ESC (escape to coprocessor instruction set *) error s.a "ESC to coprocessor instruction set. Interpreter halts"
 
