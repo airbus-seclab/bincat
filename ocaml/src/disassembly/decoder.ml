@@ -72,7 +72,7 @@ module Make(Domain: Domain.T) =
       (***********************************************************************)
       (* Internal state of the decoder *)
       (***********************************************************************)
-
+ 		  
       (** GDT and LDT management *)
       type privilege_level =
 	| R0
@@ -220,7 +220,11 @@ module Make(Domain: Domain.T) =
 	}
 
       
+     (** fatal error reporting *)
+      let error a msg =
+	Log.error (Printf.sprintf "at %s: %s" (Address.to_string a) msg)
 
+		  
       (***********************************************************************)
       (* Char transformations *)
       (***********************************************************************)
@@ -263,11 +267,11 @@ module Make(Domain: Domain.T) =
 	      if c.rpl <= e.dpl then
 		e.base
 	      else
-		Log.error "illegal requested privileged level"
+		error s.a "illegal requested privileged level"
 	  with Not_found ->
-	    Log.error (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+	    error s.a (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
 	else
-	  Log.error "only protected mode supported"
+	  error s.a "only protected mode supported"
 
       (** initialization of the segmentation *)
       let init () =
@@ -280,14 +284,14 @@ module Make(Domain: Domain.T) =
 	List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
 	{ gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
 
-      let get_segments ctx =
+      let get_segments a ctx =
 	let registers = Hashtbl.create 6 in
 	try
 	  List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
 	  registers
-	with _ -> Log.error "Decoder: overflow in a segment register"
+	with _ -> error a "Decoder: overflow in a segment register"
 	  
-      let copy_segments s ctx = { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = get_segments ctx  }
+      let copy_segments s a ctx = { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = get_segments a ctx  }
 	
 
 
@@ -344,7 +348,7 @@ module Make(Domain: Domain.T) =
       let sib s reg md =
 	let c 		       = getchar s                                        in
 	let scale, index, base = mod_nnn_rm (Char.code c)                         in
-	if index = 4 then Log.error "Decoder: Illegal index value in sib (0x04)";
+	if index = 4 then error s.a "Decoder: Illegal index value in sib (0x04)";
 	let index' 	       = find_reg index s.operand_sz                      in
 	let e 		       = BinOp (Shl, Lval (V index'), Const (Word.of_int (Z.of_int scale) 3))in
 	match base with
@@ -389,7 +393,7 @@ module Make(Domain: Domain.T) =
 		 
 	    | 3 -> V rm'
 		     
-	    | _ -> Log.error "Decoder: illegal value for md in mod_reg_rm extraction"
+	    | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 			     
       let operands_from_mod_reg_rm s v =
 	let c 		       = getchar s  						    in
@@ -408,7 +412,7 @@ module Make(Domain: Domain.T) =
 	   if direction = 0 then
 	     V (find_reg rm sz), add_data_segment s (disp s 32)
 	   else
-	     Log.error "Decoder: illegal direction for displacement only addressing mode"
+	     error s.a "Decoder: illegal direction for displacement only addressing mode"
 		      
       (*******************************************************************************************************)
       (* statements to set/clear the flags *)
@@ -716,12 +720,13 @@ module Make(Domain: Domain.T) =
 	  | 13 -> (* not (sf <> of) = sf = of *) Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))
 	  | 14 -> (* sf <> of || zf == 1 *) BBinOp (LogOr, Cmp (NEQ, Lval (V (T fsf)), Lval (V (T fof))), eq fzf)
 	  | 15 -> (* (not (sf <> zf || zf == 1) = sf == zf && zf <> 1 *) BBinOp (LogAnd, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))), neq fzf)
-	  | _  -> Log.error "Opcode.exp_of_cond: illegal value"
+	  | _  -> error s.a "Opcode.exp_of_cond: illegal value"
 
 			
 
 	(** checks that the target is within the bounds of the code segment *)
-	let check_jmp s target =
+	let check_jmp (s: state) target =
+	  let a = s.a in
 	  let csv = Hashtbl.find s.segments.reg cs						     in
 	  let s   = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
 	  let i   = Address.to_int target							     in
@@ -730,7 +735,7 @@ module Make(Domain: Domain.T) =
 	  if Z.compare (Z.add s.base i) s.limit >= 0 then
 	    ()
 	  else
-	    Log.error "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"
+	    error a "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"
 
 	(** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
 	let return_jcc_stmts s e n =
@@ -804,9 +809,9 @@ module Make(Domain: Domain.T) =
 		 e.typ = Code_erc || e.typ = Code_erca then
 		   ()
 		 else
-		   Log.error "decoder: tried a far jump into non code segment"
-	       else Log.error "Illegal segment loading (privilege error)"
-	     with _ -> Log.error "Illegal segment loading request (illegal index in the description table)"
+		   error s.a "decoder: tried a far jump into non code segment"
+	       else error s.a "Illegal segment loading (privilege error)"
+	     with _ -> error s.a "Illegal segment loading request (illegal index in the description table)"
 	   end;
 	   Hashtbl.replace s.segments.reg cs v';
 	   let a  = int_of_bytes s (s.operand_sz / Config.size_of_byte) in
@@ -830,7 +835,7 @@ module Make(Domain: Domain.T) =
 	     | '\xe0' -> BBinOp (LogAnd, fzf_cond Word.zero, ecx_cond)
 	     | '\xe1' -> BBinOp (LogAnd, fzf_cond Word.one, ecx_cond)
 	     | '\xe2' -> ecx_cond
-	     | _      -> Log.error "Unexpected use of Decoder.loop"
+	     | _      -> error s.a "Unexpected use of Decoder.loop"
 	   in
 	   return s [ dec_stmt ; If (cond, [Jmp (A (a'))], [ Jmp (A (Address.add_offset s.a (Z.of_int s.o)))]) ]
 	 (*******************)
@@ -856,7 +861,7 @@ module Make(Domain: Domain.T) =
       let size_push_pop lv sz = if is_segment lv then !Config.stack_width else sz
 
       (** returns true whenever the left value contains the stack register *)
-      let with_stack_pointer lv =
+      let with_stack_pointer a lv =
 	  let rec has e =
 	    match e with
 	    | UnOp (_, e') -> has e'
@@ -866,7 +871,7 @@ module Make(Domain: Domain.T) =
 	    and in_lv lv =
 	      match lv with
 	      | M (e, _) -> has e
-	      | V (T r) | V (P (r, _, _)) -> if Register.compare r cs = 0 then Log.error "Illegal POP CS"; Register.is_stack_pointer r
+	      | V (T r) | V (P (r, _, _)) -> if Register.compare r cs = 0 then error a "Illegal POP CS"; Register.is_stack_pointer r
 	  in
 	  in_lv lv
 		
@@ -876,7 +881,7 @@ module Make(Domain: Domain.T) =
 	List.fold_left (fun stmts lv -> 
 	    let n = size_push_pop lv s.addr_sz in
 	    let incr = set_esp Add esp' n in
-	    if with_stack_pointer lv then
+	    if with_stack_pointer s.a lv then
 		[ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n/8)) s.operand_sz)), s.operand_sz))) ] @ stmts
 	    else
 	    [ Set (lv, Lval (M (Lval (V esp'), s.operand_sz))) ; incr ] @ stmts
@@ -886,13 +891,13 @@ module Make(Domain: Domain.T) =
       let pop s lv = return s (pop_stmts s lv)
 
       (** generation of states for the push instructions *)
-      let push s v =	
+      let push (s: state) v =	
 	let esp' = esp_lval () in
 	let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
 	(* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
 	(* this is the purpose of the pre and post statements *)
 	let pre, post= 
-	  if List.exists with_stack_pointer v then
+	  if List.exists (with_stack_pointer s.a) v then
 	    [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
 	  else
 	    [], []
@@ -967,7 +972,7 @@ module Make(Domain: Domain.T) =
 	   | 5 -> add_sub s Sub false dst c reg_sz
 	   | 6 -> or_xor_and s Xor dst c
 	   | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
-	   | _ -> Log.error "Illegal nnn value in grp1"
+	   | _ -> error s.a "Illegal nnn value in grp1"
 
 
       let shr_stmt dst sz n =
@@ -1000,7 +1005,7 @@ module Make(Domain: Domain.T) =
 	(*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ] *)
 	| 5 -> return s [shr_stmt dst sz n]
 (*	| 7 -> return s [ Set (dst, BinOp (Div, Lval dst, 2*n)) *)
-	| _ -> Log.error "Illegal opcode in grp 2"
+	| _ -> error s.a "Illegal opcode in grp 2"
 			 
       let grp3 s sz =
 	let nnn, dst = core_grp s sz in
@@ -1008,7 +1013,7 @@ module Make(Domain: Domain.T) =
 	match nnn with
 	| 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
 	| 3 -> (* NEG *) [ Set (dst, BinOp (Sub, Const (Word.zero sz), Lval dst)) ]
-	| _ -> Log.error "Unknown operation in grp 3"
+	| _ -> error s.a "Unknown operation in grp 3"
 	in
 	return s stmts
 
@@ -1017,7 +1022,7 @@ module Make(Domain: Domain.T) =
 	match nnn with
 	| 0 -> inc_dec dst Add s Config.size_of_byte
 	| 1 -> inc_dec dst Sub s Config.size_of_byte
-	| _ -> Log.error "Illegal opcode in grp 4"
+	| _ -> error s.a "Illegal opcode in grp 4"
 
       let grp5 s =
 	let nnn, dst = core_grp s s.operand_sz in
@@ -1029,17 +1034,17 @@ module Make(Domain: Domain.T) =
 	| 4 -> return s [ Jmp (R (Lval dst)) ]
 
 	| 6 -> push s [dst]
-	| _ -> Log.error "Illegal opcode in grp 5"
+	| _ -> error s.a "Illegal opcode in grp 5"
 
       let grp6 s =
 	let nnn, _dst = core_grp s s.operand_sz in
 	match nnn with
-	| _ -> Log.error "Illegal opcode in grp 6"
+	| _ -> error s.a "Unknown opcode in grp 6"
 
       let grp7 s =
 	let nnn, _dst = core_grp s s.operand_sz in
 	match nnn with
-	| _ -> Log.error "Illegal opcode in grp 7"
+	| _ -> error s.a "Unknown opcode in grp 7"
 
       let core_bt s f dst src =
 	let is_register =
@@ -1072,7 +1077,7 @@ module Make(Domain: Domain.T) =
 	| 5 -> (* BTS *) bts s dst src
 	| 6 -> (* BTR *) btr s dst src
 	| 7 -> (* BTC *) btc s dst src
-	| _ -> Log.error "Illegal opcode in grp 8"
+	| _ -> error s.a "Illegal opcode in grp 8"
 
 	       
       (*******************)
@@ -1184,7 +1189,7 @@ module Make(Domain: Domain.T) =
 	let v'  = find_reg v s.operand_sz in
 	xchg s eax v' s.operand_sz
 	     
-      let to_segment_reg n =
+      let to_segment_reg a n =
 	match n with
 	| 0 -> es
 	| 1 -> cs
@@ -1192,12 +1197,12 @@ module Make(Domain: Domain.T) =
 	| 3 -> ds
 	| 4 -> fs
 	| 5 -> gs
-	| _ -> Log.error "Invalid conversion to segment register"
+	| _ -> error a "Invalid conversion to segment register"
 			 
-      let arpl s =
+      let arpl (s: state) =
 	let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s))  in
 	let dst           = V (P (Hashtbl.find register_tbl rm, 0, 1)) in
-	let src           = V (P (to_segment_reg reg, 0, 1))    in
+	let src           = V (P (to_segment_reg s.a reg, 0, 1))    in
 	let stmts = [
 	    If (Cmp(GT, Lval dst, Lval src),
 		[set_flag fzf; Set (dst, Lval src)],
@@ -1213,12 +1218,12 @@ module Make(Domain: Domain.T) =
 	  | c when '\x6C' <= c && c <= '\x6F' (* INS and OUTS *) || '\xA4' <= c && c <= '\xA5' (* MOVS *) -> c
 	  | c when '\xAE' <= c && c <= '\xAF' -> (* CMPS *) s.repe <- true; c
 	  | c when '\xA6' <= c && c <= '\xA7' -> (* SCAS *) s.repe <-true; c
-	  | _ -> Log.error (Printf.sprintf "Decoder: undefined behavior of REP with opcode %x" (Char.code c))
+	  | _ -> error s.a (Printf.sprintf "Decoder: undefined behavior of REP with opcode %x" (Char.code c))
 	else
 	  if s.repne then
 	    match c with
 	    | c when '\xA6' <= c && c <= '\xA7' || '\xAE' <= c && c <= '\xAF' -> c
-	    | _ -> Log.error (Printf.sprintf "Decoder: undefined behavior of REPNE/REPNZ with opcode %x" (Char.code c))
+	    | _ -> error s.a (Printf.sprintf "Decoder: undefined behavior of REPNE/REPNZ with opcode %x" (Char.code c))
 	  else
 	    c
 
@@ -1308,15 +1313,15 @@ module Make(Domain: Domain.T) =
 												   
 	  | '\x80' -> grp1 s Config.size_of_byte Config.size_of_byte
 	  | '\x81' -> grp1 s s.operand_sz s.operand_sz
-	  | '\x82' -> Log.error ("Undefined opcode 0x82")
+	  | '\x82' -> error s.a ("Undefined opcode 0x82")
 	  | '\x83' -> grp1 s s.operand_sz Config.size_of_byte
 
 	  | '\x86' -> let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm Config.size_of_byte) (find_reg reg Config.size_of_byte) Config.size_of_byte
 	  | '\x87' -> let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm s.operand_sz) (find_reg reg s.operand_sz) s.operand_sz
 	  | c when '\x88' <= c && c <= '\x8b' -> let dst, src = operands_from_mod_reg_rm s (Char.code c) in return s [ Set (dst, src) ]
-	  | '\x8c' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V (find_reg rm 16) in let src = V (T (to_segment_reg reg)) in return s [ Set (dst, Lval src) ]
+	  | '\x8c' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V (find_reg rm 16) in let src = V (T (to_segment_reg s.a reg)) in return s [ Set (dst, Lval src) ]
 
-	  | '\x8e' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V ( T (to_segment_reg reg)) in let src = V (find_reg rm 16) in return s [ Set (dst, Lval src) ]
+	  | '\x8e' -> let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V ( T (to_segment_reg s.a reg)) in let src = V (find_reg rm 16) in return s [ Set (dst, Lval src) ]
 	  | '\x8f' -> let dst, _src = operands_from_mod_reg_rm s (Char.code (getchar s)) in pop s [dst]
 																				
 	  | '\x90' 			      -> return s [Nop]
@@ -1327,7 +1332,7 @@ module Make(Domain: Domain.T) =
 	     let cs' = get_base_address s (Hashtbl.find s.segments.reg cs) in
 	     let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
 	     return s [ Call (A a) ]
-	  | '\x9b' -> Log.error "WAIT decoder. Interpreter halts"
+	  | '\x9b' -> error s.a "WAIT decoder. Interpreter halts"
 	  | '\xa0' -> mov_with_eax s Config.size_of_byte true
 	  | '\xa1' -> mov_with_eax s s.operand_sz true
 	  | '\xa2' -> mov_with_eax s Config.size_of_byte false
@@ -1365,17 +1370,17 @@ module Make(Domain: Domain.T) =
 	     return s ( (Set (sp, Lval bp))::(pop_stmts s [bp]))
 	  | '\xca' -> return s (Return::(pop_stmts s [V (T cs)]))
 	  | '\xcb' -> return s (Return::(pop_stmts s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
-	  | '\xcc' -> Log.error "INT 3 decoded. Interpreter halts"
-	  | '\xcd' -> let c = getchar s in Log.error (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
-	  | '\xce' -> Log.error "INTO decoded. Interpreter halts"
-	  | '\xcf' -> Log.error "IRET instruction decoded. Interpreter halts"
+	  | '\xcc' -> error s.a "INT 3 decoded. Interpreter halts"
+	  | '\xcd' -> let c = getchar s in error s.a (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
+	  | '\xce' -> error s.a "INTO decoded. Interpreter halts"
+	  | '\xcf' -> error s.a "IRET instruction decoded. Interpreter halts"
 
 	  | '\xd0' -> grp2 s Config.size_of_byte (Const (Word.one Config.size_of_byte))
 	  | '\xd1' -> grp2 s s.operand_sz (Const (Word.one s.operand_sz))
 	  | '\xd2' -> grp2 s Config.size_of_byte (Lval (V (to_reg ecx Config.size_of_byte)))
 	  | '\xd3' -> grp2 s s.operand_sz (Lval (V (to_reg ecx Config.size_of_byte)))
 	     
-	  | c when '\xd8' <= c && c <= '\xdf' -> Log.error "ESC to coprocessor instruction set. Interpreter halts"
+	  | c when '\xd8' <= c && c <= '\xdf' -> error s.a "ESC to coprocessor instruction set. Interpreter halts"
 
 	  | c when '\xe0' <= c && c <= '\xe2' -> loop s c
 	  | '\xe3' -> jecxz s
@@ -1386,11 +1391,11 @@ module Make(Domain: Domain.T) =
 	  | '\xe8' -> relative_call s (s.operand_sz / Config.size_of_byte)
 				    
 
-	  | '\xf0' -> Log.error "LOCK instruction found. Interpreter halts"
-	  | '\xf1' -> Log.error "Undefined opcode 0xf1"
+	  | '\xf0' -> error s.a "LOCK instruction found. Interpreter halts"
+	  | '\xf1' -> error s.a "Undefined opcode 0xf1"
 	  | '\xf2' -> (* REPNE *) s.repne <- true; rep s Word.one
 	  | '\xf3' -> (* REP/REPE *) s.repne <- false; rep s Word.zero
-	  | '\xf4' -> Log.error "Decoder stopped: HLT reached"
+	  | '\xf4' -> error s.a "Decoder stopped: HLT reached"
 	  | '\xf5' -> let fcf' = V (T fcf) in return s [ Set (fcf', UnOp (Not, Lval fcf')) ]
 	  | '\xf6' -> grp3 s Config.size_of_byte
 	  | '\xf7' -> grp3 s s.operand_sz
@@ -1402,7 +1407,7 @@ module Make(Domain: Domain.T) =
 	  | '\xfd' -> return s (set_flag fdf fdf_sz)
 	  | '\xfe' -> grp4 s
 	  | '\xff' -> grp5 s
-	  | c ->  Log.error (Printf.sprintf "Unknown opcode 0x%x" (Char.code c))
+	  | c ->  error s.a (Printf.sprintf "Unknown opcode 0x%x" (Char.code c))
 
 	(** rep prefix *)
 	and rep s c =
@@ -1458,7 +1463,7 @@ module Make(Domain: Domain.T) =
 				 Set (reg, UnOp(SignExt s.operand_sz, Lval (V (P (r, 0, 8)))));
 				 Directive (Remove r) ]
 	  | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s (Char.code (getchar s)) in return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ]
-	  | c 	   -> Log.error (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
+	  | c 	   -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
 	  decode s;;
 					      
@@ -1471,7 +1476,7 @@ module Make(Domain: Domain.T) =
 	    c          = '\x00';
 	    addr_sz    = !Config.address_sz;
 	    operand_sz = !Config.operand_sz; 
-	    segments   = copy_segments is ctx;
+	    segments   = copy_segments is a ctx;
 	    rep_prefix = None;
 	    buf        = text;
 	    b 	       = v;
