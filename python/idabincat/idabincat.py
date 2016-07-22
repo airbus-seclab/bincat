@@ -58,18 +58,8 @@ class bincat_plugin(idaapi.plugin_t):
         PluginState.BinCATTaintedForm.Show()
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
 
-        # We create a disassembly view dedicated to BinCAT
-        idaapi.open_disasm_window("Tainting View")
-        idaapi.set_dock_pos("IDA View-Tainting View", "IDA View-A",
-                            idaapi.DP_TAB)
-        idaapi.set_dock_pos("BinCAT Tainting", "Functions window",
-                            idaapi.DP_TAB)
-
-        # set the focus to BinCAT view
-        ida_bincat_view = idaapi.find_tform("BinCAT")
-        idaapi.switchto_tform(ida_bincat_view, 1)
         tooltip_act2 = idaapi.action_desc_t(
-            'my:tooltip2', 'Analyze from here', HtooltipH(), '',
+            'my:tooltip2', 'Analyze from here', HtooltipH(), 'Ctrl-Shift-A',
             'BinCAT action', -1)
         idaapi.register_action(tooltip_act2)
 
@@ -102,7 +92,7 @@ def warning(msg):
 
 
 def error(msg):
-    idaapi.warning("[BinCAT] ERROR: %s" % msg)
+    idaapi.msg("[BinCAT] ERROR: %s" % msg)
     PluginState.log_panel.Log(msg, idaapi.SCOLOR_ERROR)
 
 
@@ -346,7 +336,7 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.configtxt.setFixedHeight(900)
         self.configtxt.setFixedWidth(350)
 
-        self.btnStart = QtWidgets.QPushButton('Start', self)
+        self.btnStart = QtWidgets.QPushButton('&Start', self)
         self.btnStart.setFixedWidth(130)
         self.btnStart.clicked.connect(self.btnLaunchAnalyzer)
 
@@ -447,18 +437,19 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ipStopAddr.setText(stopAddr)
 
         # Start, cancel and analyzer config buttons
-        self.btnLoad = QtWidgets.QPushButton('Load configuration file...',
+        self.btnLoad = QtWidgets.QPushButton('&Load configuration file...',
                                              self)
         self.btnLoad.clicked.connect(self.choose_file)
 
-        self.btnEditConf = QtWidgets.QPushButton('Edit configuration...', self)
+        self.btnEditConf = QtWidgets.QPushButton('&Edit configuration...', self)
         self.btnEditConf.clicked.connect(self.edit_config)
 
-        self.btnStart = QtWidgets.QPushButton('Start', self)
+        self.btnStart = QtWidgets.QPushButton('&Start', self)
         self.btnStart.clicked.connect(self.launch_analysis)
 
         self.btnCancel = QtWidgets.QPushButton('Cancel', self)
         self.btnCancel.clicked.connect(self.close)
+
 
         layout.addWidget(lblCstEditor, 0, 0)
 
@@ -475,6 +466,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btnCancel, 4, 1)
 
         self.setLayout(layout)
+
+        self.btnStart.setFocus()
 
     def show(self):
         self.setFixedSize(460, 200)
@@ -544,11 +537,11 @@ class Analyzer(QtCore.QProcess):
             startaddr_ea = node0.address.value
             PluginState.setCurrentEA(startaddr_ea, force=True)
         else:
-            error("ERROR: analyzer returned exit code=%i\n" % exitcode)
-            info("---- stdout ----------------\n")
-            info(str(self.readAllStandardOutput()))
-            info("---- stderr ----------------\n")
-            info(str(self.readAllStandardError()))
+            error("analyzer returned exit code=%i\n" % exitcode)
+            important_info("---- stdout ----------------\n")
+            important_info(str(self.readAllStandardOutput()))
+            important_info("---- stderr ----------------\n")
+            important_info(str(self.readAllStandardError()))
         info("---- logfile ---------------\n")
         if os.path.exists(self.logfname):
             info(open(self.logfname).read())
