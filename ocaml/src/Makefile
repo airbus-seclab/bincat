@@ -29,7 +29,7 @@ domains/domain.mli\
 
 LIBNAME=libbincat.so
 
-LIBDIR:=$(shell ocamlc -where)
+CAMLLIBDIR:=$(shell ocamlc -where)
 
 CMX = $(ML:.ml=.cmx)
 CMI = $(MLI:.mli=.cmi)
@@ -53,7 +53,7 @@ else
 SHARED=-output-obj -runtime-variant _pic
 endif
 
-CFLAGS=-ccopt -L$(LIBDIR) -ccopt -lasmrun
+CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -lasmrun
 all: $(LIBNAME)
 
 $(LIBNAME): $(CMX) 
