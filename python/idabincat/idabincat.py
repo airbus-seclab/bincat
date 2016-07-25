@@ -60,7 +60,7 @@ class bincat_plugin(idaapi.plugin_t):
 
         # TODO : change to menu item ?
         tooltip_act2 = idaapi.action_desc_t(
-            'my:tooltip2', 'Analyze from here', HtooltipH(), 'Ctrl-Shift-A',
+            'my:tooltip2', 'Analyze from here', handle_analyze_here(), 'Ctrl-Shift-A',
             'BinCAT action', -1)
         idaapi.register_action(tooltip_act2)
 
@@ -335,18 +335,17 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         layout = QtWidgets.QGridLayout()
 
         self.configtxt = QtWidgets.QPlainTextEdit()
-        self.configtxt.setFixedHeight(900)
-        self.configtxt.setFixedWidth(350)
+        self.configtxt.setSizePolicy( QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding );
 
         self.btnStart = QtWidgets.QPushButton('&Start', self)
-        self.btnStart.setFixedWidth(130)
+#        self.btnStart.setFixedWidth(130)
         self.btnStart.clicked.connect(self.btnLaunchAnalyzer)
 
         self.btnCancel = QtWidgets.QPushButton('Cancel', self)
-        self.btnCancel.setFixedWidth(130)
+#        self.btnCancel.setFixedWidth(130)
         self.btnCancel.clicked.connect(self.close)
 
-        layout.addWidget(self.configtxt, 1, 0, 1, 2)
+        layout.addWidget(self.configtxt, 1, 0, 1, 0)
         layout.addWidget(self.btnStart, 2, 0)
         layout.addWidget(self.btnCancel, 2, 1)
         self.setLayout(layout)
@@ -638,7 +637,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     """
     def __init__(self, *args, **kwargs):
         self.headers = ["Address", "Region", "Value", "Taint"]
-        self.colswidths = [50, 50, 90, 90]
+        self.colswidths = [90, 90, 150, 150]
         #: list of Value (addresses)
         self.rows = []
         self.changedRows = set()
@@ -692,7 +691,10 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         region = regaddr.region
         addr = regaddr.value
         if col == 0:  # addr
-            return str(addr)
+            if region == "mem":
+                return "0x%x" % addr
+            else:
+                return str(addr)
         elif col == 1:  # region
             return region
         else:
@@ -711,9 +713,9 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
 
-class HtooltipT(idaapi.action_handler_t):
+class handle_analyze_block(idaapi.action_handler_t):
     """
-    Action handler for BinCAT/ Taint current basic bloc
+    Action handler for BinCAT/ Taint current basic block
     """
     def __init__(self):
         idaapi.action_handler_t.__init__(self)
@@ -725,7 +727,7 @@ class HtooltipT(idaapi.action_handler_t):
         return idaapi.AST_ENABLE_ALWAYS
 
 
-class HtooltipF(idaapi.action_handler_t):
+class handle_analyze_func(idaapi.action_handler_t):
     """
     Action handler for BinCAT/ Taint current function
     """
@@ -739,7 +741,7 @@ class HtooltipF(idaapi.action_handler_t):
         return idaapi.AST_ENABLE_ALWAYS
 
 
-class HtooltipH(idaapi.action_handler_t):
+class handle_analyze_here(idaapi.action_handler_t):
     """
     Action handler for BinCAT/ Taint from here
     """
