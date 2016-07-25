@@ -38,7 +38,7 @@ DIROPT = -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I da
 
 
 CAMLC   =ocamlc $(DIROPT)
-CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) -runtime-variant _pic
+CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) 
 CAMLLEX =ocamllex
 MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
@@ -50,7 +50,7 @@ OS:=$(shell uname)
 ifeq ($(OS), Darwin)
 SHARED=-ccopt -dynamiclib
 else
-SHARED=-output-obj
+SHARED=-output-obj -runtime-variant _pic
 endif
 
 CFLAGS=-ccopt -L$(LIBDIR) -ccopt -lasmrun
