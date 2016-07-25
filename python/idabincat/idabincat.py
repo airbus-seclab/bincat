@@ -23,7 +23,7 @@ except:
 class bincat_plugin(idaapi.plugin_t):
     # variables required by IDA
     flags = 0  # normal plugin
-    wanted_name = "BinCAT Plugin"
+    wanted_name = "BinCAT"
     wanted_hotkey = "Ctrl-Shift-B"
     comment = "Interface to the BinCAT analyzer"
     help = ""
@@ -63,12 +63,12 @@ class bincat_plugin(idaapi.plugin_t):
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
 
         # TODO : change to menu item ?
-        tooltip_act2 = idaapi.action_desc_t(
-            'my:tooltip2', 'Analyze from here', handle_analyze_here(), 'Ctrl-Shift-A',
+        ana_from_here_act = idaapi.action_desc_t(
+            'bincat:ana_from_here', 'Analyze from here', handle_analyze_here(), 'Ctrl-Shift-A',
             'BinCAT action', -1)
-        idaapi.register_action(tooltip_act2)
+        idaapi.register_action(ana_from_here_act)
 
-        idaapi.attach_action_to_menu("View/", "my:tooltip0",
+        idaapi.attach_action_to_menu("Edit/BinCAT", "bincat:ana_from_here",
                                      idaapi.SETMENU_APP)
         PluginState.hooks = Hooks()
         PluginState.hooks.hook()
@@ -804,7 +804,7 @@ class Hooks(idaapi.UI_Hooks):
 
     def populating_tform_popup(self, form, popup):
         if idaapi.get_tform_type(form) == idaapi.BWN_DISASM:
-            idaapi.attach_action_to_popup(form, popup, "my:tooltip2",
+            idaapi.attach_action_to_popup(form, popup, "bincat:ana_from_here",
                                           "BinCAT/", idaapi.SETMENU_APP)
 
 
