@@ -339,7 +339,8 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         layout = QtWidgets.QGridLayout()
 
         self.configtxt = QtWidgets.QPlainTextEdit()
-        self.configtxt.setSizePolicy( QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding );
+        self.configtxt.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                                     QtWidgets.QSizePolicy.Expanding)
 
         self.btnStart = QtWidgets.QPushButton('&Start', self)
 #        self.btnStart.setFixedWidth(130)
@@ -446,7 +447,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                                              self)
         self.btnLoad.clicked.connect(self.choose_file)
 
-        self.btnEditConf = QtWidgets.QPushButton('&Edit configuration...', self)
+        self.btnEditConf = QtWidgets.QPushButton('&Edit configuration...',
+                                                 self)
         self.btnEditConf.clicked.connect(self.edit_config)
 
         self.btnStart = QtWidgets.QPushButton('&Start', self)
@@ -454,7 +456,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         self.btnCancel = QtWidgets.QPushButton('Cancel', self)
         self.btnCancel.clicked.connect(self.close)
-
 
         layout.addWidget(lblCstEditor, 0, 0)
 
