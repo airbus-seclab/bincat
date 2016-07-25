@@ -302,6 +302,7 @@ class AnalyzerConfig(object):
         config.add_section('analyzer')
         config.set('analyzer', 'unroll', 5)
         config.set('analyzer', 'dotfile', 'cfa.dot')
+        config.set('analyzer', 'verbose', 'false')
 
         # [state section]
         config.add_section('state')
