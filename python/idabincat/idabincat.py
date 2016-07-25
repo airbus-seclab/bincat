@@ -57,8 +57,8 @@ class bincat_plugin(idaapi.plugin_t):
         PluginState.BinCATTaintedForm = BinCATTaintedForm_t()
         PluginState.BinCATTaintedForm.Show()
 
-        PluginState.BinCATStatementsForm = BinCATStatementsForm_t()
-        PluginState.BinCATStatementsForm.Show()
+        PluginState.BinCATDebugForm = BinCATDebugForm_t()
+        PluginState.BinCATDebugForm.Show()
 
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
 
@@ -573,24 +573,50 @@ class BinCATLog_t(idaapi.simplecustviewer_t):
         self.Refresh()
 
 
-class BinCATStatementsForm_t(idaapi.PluginForm):
+class BinCATDebugForm_t(idaapi.PluginForm):
     """
-    BinCAT Statements form.
+    BinCAT Debug form.
     """
     def OnCreate(self, form):
         self.parent = self.FormToPyQtWidget(form)
-        self.listview = QtWidgets.QListView()
-        self.listview.setModel(PluginState.stmtmodel)
         layout = QtWidgets.QGridLayout()
-        layout.addWidget(self.listview, 0, 0)
+
+        self.stmt_lbl = QtWidgets.QLabel("Statements")
+        self.stmt_data = QtWidgets.QLabel()
+        self.bytes_lbl = QtWidgets.QLabel("Bytes")
+        self.bytes_data = QtWidgets.QLabel()
+
+        self.stmt_data.setTextInteractionFlags(
+            QtCore.Qt.TextSelectableByMouse |
+            QtCore.Qt.TextSelectableByKeyboard)
+        self.stmt_data.setWordWrap(True)
+        self.bytes_data.setTextInteractionFlags(
+            QtCore.Qt.TextSelectableByMouse |
+            QtCore.Qt.TextSelectableByKeyboard)
+        self.bytes_data.setWordWrap(True)
+
+        layout.addWidget(self.stmt_lbl, 0, 0)
+        layout.addWidget(self.stmt_data, 0, 1)
+        layout.addWidget(self.bytes_lbl, 1, 0)
+        layout.addWidget(self.bytes_data, 1, 1)
+        layout.setColumnStretch(0, 0)
+        layout.setColumnStretch(1, 1)
         self.parent.setLayout(layout)
+
+    def update(self, state):
+        if state:
+            self.stmt_data.setText(state.statements)
+            self.bytes_data.setText(state.bytes)
+        else:
+            self.stmt_data.setText("")
+            self.bytes_data.setText("")
 
     def OnClose(self, form):
         pass
 
     def Show(self):
         return idaapi.PluginForm.Show(
-            self, "BinCAT Statements",
+            self, "BinCAT Debugging",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_TAB))
 
@@ -814,7 +840,6 @@ class PluginState(object):
     """
     log_panel = None
     vtmodel = ValueTaintModel()
-    stmtmodel = QtCore.QStringListModel()
     currentEA = None
     cfa = None
     currentState = None
@@ -822,6 +847,7 @@ class PluginState(object):
     #: Analyzer instance
     analyzer = None
     BinCATTaintedForm = None
+    BinCATDebugForm = None
     hooks = None
 
     @staticmethod
@@ -838,13 +864,11 @@ class PluginState(object):
             if node_ids:
                 # XXX add UI to choose state when several exist at this address
                 PluginState.currentState = PluginState.cfa[node_ids[0]]
-                PluginState.stmtmodel.setStringList(
-                    PluginState.currentState.statements)
             else:
                 PluginState.currentState = None
-                PluginState.stmtmodel.setStringList([])
         PluginState.BinCATTaintedForm.updateCurrentEA(ea)
         PluginState.vtmodel.endResetModel()
+        PluginState.BinCATDebugForm.update(PluginState.currentState)
 
     @staticmethod
     def startAnalysis(configStr=None):

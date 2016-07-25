@@ -134,7 +134,7 @@ class State(object):
         #: Value -> Value
         self.regaddrs = {}
         self.final = False
-        self.statements = []
+        self.statements = ""
         self.bytes = ""
 
     @classmethod
@@ -158,10 +158,10 @@ class State(object):
                 new_state.final = True if v == 'true' else False
                 continue
             if k == "statements":
-                new_state.statements = v.split('\n')
+                new_state.statements = v
                 continue
             if k == "bytes":
-                new_state.statements = v
+                new_state.bytes = v
                 continue
             m = cls.re_region.match(k)
             if not m:
