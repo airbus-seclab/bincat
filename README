@@ -74,3 +74,11 @@ ranlib -c /path/to/the/lib/libsasmrun.a
 
 * Make sure the "bincat" command is in your path (make install should have
   taken care of that)
+
+=ida plugin usage
+
+* Load the plugin by using the Ctrl-Shift-B shortcut, or using the
+  "Edit -> Plugins -> BinCAT" menu
+
+* Select an instruction in any IDA view, then use the Ctrl-Shift-A shortcut, or
+  the "BinCAT -> Analyze from here" context menu
