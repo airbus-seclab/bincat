@@ -207,7 +207,7 @@ module Make(Domain: Domain.T) =
 	  mutable g 	    : Cfa.t; 	   (** current cfa *)
 	  mutable b 	    : Cfa.State.t; (** state predecessor *)
 	  a 	     	    : Address.t;   (** current address to decode *)
-	  mutable c         : char; (** current decoded byte *)
+	  mutable c         : char list; (** current decoded bytes in reverse order  *)
 	  mutable addr_sz   : int;   	   (** current address size in bits *)
 	  mutable operand_sz: int;  	   (** current operand size in bits *)
 	  buf 	     	    : string;      (** buffer to decode *)
@@ -234,7 +234,7 @@ module Make(Domain: Domain.T) =
       let getchar s =
 	let c = String.get s.buf s.o in
 	s.o <- s.o + 1;
-	s.c <- c;
+	s.c <- c::s.c;
 	c
 
       (** int conversion of a byte in the string code *)
@@ -327,6 +327,7 @@ module Make(Domain: Domain.T) =
       let return s stmts =
 	s.b.Cfa.State.ctx <- { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz };
 	s.b.Cfa.State.stmts <- stmts;
+	s.b.Cfa.State.bytes <- List.rev s.c;
 	s.b, Address.add_offset s.a (Z.of_int s.o)
 
       (************************************************)
@@ -1480,7 +1481,7 @@ module Make(Domain: Domain.T) =
 	    g 	       = g;
 	    a 	       = a;
 	    o 	       = 0;
-	    c          = '\x00';
+	    c          = [];
 	    addr_sz    = !Config.address_sz;
 	    operand_sz = !Config.operand_sz; 
 	    segments   = copy_segments is a ctx;

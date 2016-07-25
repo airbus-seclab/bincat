@@ -19,6 +19,7 @@ module Make(Domain: Domain.T) =
 	      mutable ctx: ctx_t ; 	    (** context of decoding *)
 	      mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
 	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
+	      mutable bytes: char list      (** corresponding list of bytes *)
 	    }
 				   
 	  (** the state identificator counter *)
@@ -138,6 +139,7 @@ module Make(Domain: Domain.T) =
 	    v = d';
 	    final = false;
 	    stmts = [];
+	    bytes = [];
 	    ctx = {
 		op_sz = !Config.operand_sz;
 		addr_sz = !Config.address_sz;
@@ -160,7 +162,7 @@ module Make(Domain: Domain.T) =
     - v as abstract value
     - ctx as decoding context
        *)
-      let add_state g ip v stmts ctx final =
+      let add_state g ip v stmts ctx final bytes =
 	let v = {
 	    id       = new_state_id();
 	    v 	     = v;
@@ -168,6 +170,7 @@ module Make(Domain: Domain.T) =
 	    stmts    = stmts ;
 	    ctx      = ctx;
 	    final    = final;
+	    bytes    = bytes;
 	  }
 	  in
 	  G.add_vertex g v;
@@ -176,7 +179,7 @@ module Make(Domain: Domain.T) =
       let remove_state g v = G.remove_vertex g v
 	
       (** returns a fresh copy of the given state *)
-      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx s.final
+      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx s.final s.bytes
 				    
       (** [add_edge g src dst] adds in _g_ an edge _src_ -> _dst_ *)
       let add_edge g src dst = G.add_edge g src dst
@@ -228,7 +231,8 @@ module Make(Domain: Domain.T) =
 	(* state printing (detailed) *)
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
-	  Printf.fprintf f "[node = %d]\naddress = %s\nfinal = %s\n%s" s.id (Data.Address.to_string s.ip) (string_of_bool s.final) abstract_values;
+	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%x" (Char.code c))) "" s.bytes in
+	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes=%s\nfinal = %s\n%s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final) abstract_values;
 	  if !Config.verbose then
 	    begin
 	      Printf.fprintf f "statements =";

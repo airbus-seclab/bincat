@@ -31,8 +31,8 @@ IDAinstall:# install
 	@echo "Linking pybincat and idabincat inside IDA Python ...................."
 	rm -f "${IDAPATH}/python/pybincat"
 	ln -s $$(python -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAPATH}/python/pybincat"
-	rm -f "${IDAPATH}/python/idabincat"
-	ln -s $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAPATH}/python/idabincat"
+	rm -f "${IDAPATH}/plugins/idabincat"
+	ln -s $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAPATH}/plugins/idabincat"
 
 test: all
 	make -C $(MLTESTPATH) test
@@ -57,7 +57,7 @@ clean:
 	-rm -rf $(PYPATH)/tests/__pycache__
 	-rm -rf bincat-dist
 	-rm -f bincat.tar.gz
-	@make -C $(DOCREFPATH) clean
+	@make -C $(DOCREFPATH) clean || /bin/true
 
 
 dist: clean
