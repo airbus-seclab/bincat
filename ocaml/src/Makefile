@@ -50,8 +50,10 @@ LIBX=unix.cmxa graph.cmxa nums.cmxa zarith.cmxa
 OS:=$(shell uname)
 ifeq ($(OS), Darwin)
 SHARED=-ccopt -dynamiclib
+LDCONFIG=true
 else
 SHARED=-output-obj -runtime-variant _pic
+LDCONFIG=ldconfig
 endif
 
 CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -lasmrun
@@ -90,8 +92,8 @@ clean:
 	-rm -f parser.ml parser.mli lexer.ml
 
 install: $(LIBNAME)
-	install -m 0644 -o root -g root $(LIBNAME) $(LIBDIR)
-	ldconfig $(LIBDIR)
+	install $(LIBNAME) $(LIBDIR)
+	$(LDCONFIG) $(LIBDIR)
 
 .depend: $(ML) $(MLI)
 	rm -f .depend
