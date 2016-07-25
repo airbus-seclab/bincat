@@ -90,7 +90,7 @@ clean:
 	-rm -f parser.ml parser.mli lexer.ml
 
 install: $(LIBNAME)
-	install -m 0644 -o root -g root $(LIBNAME) $(LIBDIR)
+	install -m 0644 $(LIBNAME) $(LIBDIR)
 	ldconfig $(LIBDIR)
 
 .depend: $(ML) $(MLI)
