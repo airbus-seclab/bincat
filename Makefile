@@ -1,9 +1,12 @@
+export DESTDIR=/
+export PREFIX=/usr/local
+
 PYTHON	   =python
 PYPATH	   =python
 MLPATH	   =ocaml/src
 MLTESTPATH =ocaml/test
 PYTESTPATH =python
-DPREFIX	   =/usr/local
+DPREFIX	   =$(PREFIX)
 DOCMLPATH  =../../doc/generated/ocaml
 DOCPYPATH  =../doc/generated/python
 DOCGENPATH =doc/generated
