@@ -34,7 +34,7 @@ class CFA(object):
         edges = defaultdict(list)
         nodes = {}
 
-        config = ConfigParser.ConfigParser()
+        config = ConfigParser.RawConfigParser()
         config.read(filename)
 
         for section in config.sections():
@@ -134,6 +134,7 @@ class State(object):
         #: Value -> Value
         self.regaddrs = {}
         self.final = False
+        self.statements = []
 
     @classmethod
     def parse(cls, node_id, outputkv):
@@ -154,6 +155,9 @@ class State(object):
                     continue
             if k == "final":
                 new_state.final = True if v == 'true' else False
+                continue
+            if k == "statements":
+                new_state.statements = v.split('\n')
                 continue
             m = cls.re_region.match(k)
             if not m:

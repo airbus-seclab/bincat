@@ -56,6 +56,10 @@ class bincat_plugin(idaapi.plugin_t):
 
         PluginState.BinCATTaintedForm = BinCATTaintedForm_t()
         PluginState.BinCATTaintedForm.Show()
+
+        PluginState.BinCATStatementsForm = BinCATStatementsForm_t()
+        PluginState.BinCATStatementsForm.Show()
+
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
 
         # TODO : change to menu item ?
@@ -218,7 +222,7 @@ class AnalyzerConfig(object):
         Returns a new ConfigParser instance
         """
         # this function will use the default parameters
-        config = ConfigParser.ConfigParser()
+        config = ConfigParser.RawConfigParser()
         config.optionxform = str
 
         # [settings] section
@@ -303,7 +307,7 @@ class AnalyzerConfig(object):
         config.add_section('analyzer')
         config.set('analyzer', 'unroll', 5)
         config.set('analyzer', 'dotfile', 'cfa.dot')
-        config.set('analyzer', 'verbose', 'false')
+        config.set('analyzer', 'verbose', 'true')
 
         # [state section]
         config.add_section('state')
@@ -569,6 +573,28 @@ class BinCATLog_t(idaapi.simplecustviewer_t):
         self.Refresh()
 
 
+class BinCATStatementsForm_t(idaapi.PluginForm):
+    """
+    BinCAT Statements form.
+    """
+    def OnCreate(self, form):
+        self.parent = self.FormToPyQtWidget(form)
+        self.listview = QtWidgets.QListView()
+        self.listview.setModel(PluginState.stmtmodel)
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(self.listview, 0, 0)
+        self.parent.setLayout(layout)
+
+    def OnClose(self, form):
+        pass
+
+    def Show(self):
+        return idaapi.PluginForm.Show(
+            self, "BinCAT Statements",
+            options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_TAB))
+
+
 class BinCATTaintedForm_t(idaapi.PluginForm):
     """
     BinCAT Tainted values form
@@ -788,6 +814,7 @@ class PluginState(object):
     """
     log_panel = None
     vtmodel = ValueTaintModel()
+    stmtmodel = QtCore.QStringListModel()
     currentEA = None
     cfa = None
     currentState = None
@@ -811,8 +838,11 @@ class PluginState(object):
             if node_ids:
                 # XXX add UI to choose state when several exist at this address
                 PluginState.currentState = PluginState.cfa[node_ids[0]]
+                PluginState.stmtmodel.setStringList(
+                    PluginState.currentState.statements)
             else:
                 PluginState.currentState = None
+                PluginState.stmtmodel.setStringList([])
         PluginState.BinCATTaintedForm.updateCurrentEA(ea)
         PluginState.vtmodel.endResetModel()
 
