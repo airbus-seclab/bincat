@@ -200,15 +200,15 @@ let string_of_stmt s =
   (* ind is a string of spaces to be added to the beginning of a line *)
   let rec to_string ind s =
     match s with
-    | Set (dst, src)     	      -> Printf.sprintf "%s%s <- %s;\n" ind (string_of_lval dst) (string_of_exp src)
-    | Jmp target 	              -> Printf.sprintf "%sjmp %s;\n"  ind (string_of_jmp_target target)
+    | Set (dst, src)     	      -> Printf.sprintf "%s%s <- %s;" ind (string_of_lval dst) (string_of_exp src)
+    | Jmp target 	              -> Printf.sprintf "%sjmp %s;"  ind (string_of_jmp_target target)
     | If (cond, if_stmts, else_stmts) ->
        let ind' = ind ^ "\t" in
-       Printf.sprintf "%sif (%s)\n%s%selse\n%s" ind (string_of_bexp cond) (concat to_string ind' if_stmts) ind (concat to_string ind' else_stmts)
-    | Call _ 	       		     -> Printf.sprintf "%scall\n" ind
-    | Return  	       		     -> Printf.sprintf "%sret\n" ind
-    | Nop 	       		     -> Printf.sprintf "%snop\n" ind
-    | Directive d        	     -> Printf.sprintf "%s%s\n" ind (string_of_directive d)
+       Printf.sprintf "%sif (%s)\n  %s%s else\n  %s" ind (string_of_bexp cond) (concat to_string ind' if_stmts) ind (concat to_string ind' else_stmts)
+    | Call _ 	       		     -> Printf.sprintf "%scall" ind
+    | Return  	       		     -> Printf.sprintf "%sret" ind
+    | Nop 	       		     -> Printf.sprintf "%snop" ind
+    | Directive d        	     -> Printf.sprintf "%s%s" ind (string_of_directive d)
   in
   to_string "" s
 		     
