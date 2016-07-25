@@ -135,6 +135,7 @@ class State(object):
         self.regaddrs = {}
         self.final = False
         self.statements = []
+        self.bytes = ""
 
     @classmethod
     def parse(cls, node_id, outputkv):
@@ -158,6 +159,9 @@ class State(object):
                 continue
             if k == "statements":
                 new_state.statements = v.split('\n')
+                continue
+            if k == "bytes":
+                new_state.statements = v
                 continue
             m = cls.re_region.match(k)
             if not m:
