@@ -156,38 +156,57 @@ module Make(Domain: Domain.T) =
 
 
       (** abstract data type of an entry of a decription table (GDT or LDT) *)
-      type tbl_entry = { base: Z.t; limit: Z.t; a: Z.t; typ: segment_descriptor_type; dpl: privilege_level; p: Z.t; u: Z.t; x: Z.t; d: Z.t; g: Z.t;}
+      type tbl_entry = { 
+            limit: Z.t;
+            base: Z.t; 
+            typ: segment_descriptor_type;
+            s: Z.t;
+            dpl: privilege_level;
+            p: Z.t;
+            avl: Z.t;
+            l: Z.t;
+            db: Z.t;
+            g: Z.t;}
 
       (** return a high level representation of a GDT/LDT entry *)
       let tbl_entry_of_int v =
+	let ffffff= Z.of_int 0xffffff   			   in
 	let ffff  = Z.of_int 0xffff					   in
-	let ff 	  = Z.of_int 0xff					   in
 	let f 	  = Z.of_int 0x0f					   in
 	let limit = Z.logand v ffff    					   in
 	let v' 	  = Z.shift_right v 16	                                   in
-	let base  = Z.logand v ffff 					   in
-	let v' 	  = Z.shift_right v' 16	 			           in
-	let base  = Z.add base (Z.shift_left (Z.logand v' ff) 16)	   in
-	let v' 	  = Z.shift_right v' 8				   	   in
-	let a 	  = Z.logand v' Z.one				   	   in
-	let v' 	  = Z.shift_right v' 1  				   in
+	let base  = Z.logand v ffffff 					   in
+	let v' 	  = Z.shift_right v' 24	 			           in
 	let typ   = segment_descriptor_of_int (Z.to_int (Z.logand v' f))   in
 	let v' 	  = Z.shift_right v' 4				 	   in	
+	let s 	  = Z.logand v' Z.one				 	   in
+	let v' 	  = Z.shift_right v' 1        			 	   in 
 	let dpl   = Z.logand v' (Z.of_int 3)				   in
 	let v' 	  = Z.shift_right v' 2				 	   in
 	let p 	  = Z.logand v' Z.one				 	   in
 	let v' 	  = Z.shift_right v' 1        			 	   in 
 	let limit = Z.add limit (Z.shift_left (Z.logand v' f) 16)	   in	
 	let v' 	  = Z.shift_right v' 4				 	   in
-	let u 	  = Z.logand v' Z.one				 	   in
+	let avl	  = Z.logand v' Z.one				 	   in
 	let v' 	  = Z.shift_right v' 1  			 	   in
-	let x 	  = Z.logand v' Z.one				 	   in
+	let l 	  = Z.logand v' Z.one				 	   in
 	let v' 	  = Z.shift_right v' 1   		                   in
-	let d 	  = Z.logand v' Z.one				 	   in
+	let db 	  = Z.logand v' Z.one				 	   in
 	let v' 	  = Z.shift_right v' 1  		    		   in
 	let g 	  = Z.logand v' Z.one				 	   in
-	let base  = Z.add base (Z.shift_left (Z.shift_right v' 1) 24)      in
-	{ limit = limit; base = base; a = a; typ = typ; dpl = privilege_level_of_int (Z.to_int dpl); p = p; u = u; x = x; d = d; g = g; }
+	let v' 	  = Z.shift_right v' 1  		    		   in
+	let base  = Z.add base (Z.shift_left v' 24)      in
+	{ 
+        limit = limit;
+        base = base;
+        typ = typ;
+        s = s;
+        dpl = privilege_level_of_int (Z.to_int dpl);
+        p = p;
+        avl = avl;
+        l = l;
+        db = db;
+        g = g; }
 
       (** data type of a decription table *)
       type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
