@@ -58,6 +58,7 @@ class bincat_plugin(idaapi.plugin_t):
         PluginState.BinCATTaintedForm.Show()
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
 
+        # TODO : change to menu item ?
         tooltip_act2 = idaapi.action_desc_t(
             'my:tooltip2', 'Analyze from here', HtooltipH(), 'Ctrl-Shift-A',
             'BinCAT action', -1)
@@ -767,16 +768,16 @@ class Hooks(idaapi.UI_Hooks):
             idaview = idaapi.get_tform_idaview(ctx.form)
             place, x, y = idaapi.get_custom_viewer_place(idaview, False)
             # line =  get_custom_viewer_curline(idaview, False)
-            if ctx.form_title == "IDA View-Tainting View":
-                if idaapi.isCode(idaapi.getFlags(place.toea())):
-                    # SetColor(place.toea(), CIC_ITEM, 0x0CE505)
-                    # idaapi.set_item_color(place.toea(), 0x23ffff)
+            if idaapi.isCode(idaapi.getFlags(place.toea())):
+                # SetColor(place.toea(), CIC_ITEM, 0x0CE505)
+                # idaapi.set_item_color(place.toea(), 0x23ffff)
 
-                    PluginState.setCurrentEA(place.toea())
+                PluginState.setCurrentEA(place.toea())
 
     def populating_tform_popup(self, form, popup):
-        idaapi.attach_action_to_popup(form, popup, "my:tooltip2",
-                                      "BinCAT/", idaapi.SETMENU_APP)
+        if idaapi.get_tform_type(form) == idaapi.BWN_DISASM:
+            idaapi.attach_action_to_popup(form, popup, "my:tooltip2",
+                                          "BinCAT/", idaapi.SETMENU_APP)
 
 
 class PluginState(object):
