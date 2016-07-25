@@ -1,5 +1,5 @@
 export DESTDIR=/
-export PREFIX=/usr/local
+export PREFIX=usr/local
 
 PYTHON	   =python
 PYPATH	   =python
