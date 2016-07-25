@@ -404,7 +404,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         editdlg = EditConfigurationFileForm_t(self)
         editdlg.set_addresses(startAddr, stopAddr)
         editdlg.exec_()
-        self.close()
 
     def choose_file(self):
         options = QtWidgets.QFileDialog.Options()
