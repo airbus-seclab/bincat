@@ -175,6 +175,7 @@ class State(object):
                 region1, adrs = adr_begin.split(', ')
                 region2, adr2 = adr_end.split(', ')
                 assert region1 == region2
+                region = region1
                 # XXX store region size, use ordered list, allow non-aligned
                 # access...
 

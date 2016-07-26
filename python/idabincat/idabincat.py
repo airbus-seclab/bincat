@@ -688,7 +688,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     Contains tainting and values for either registers or memory addresses
     """
     def __init__(self, *args, **kwargs):
-        self.headers = ["Address", "Region", "Value", "Taint"]
+        self.headers = ["Region", "Address", "Value", "Taint"]
         self.colswidths = [90, 90, 150, 150]
         #: list of Value (addresses)
         self.rows = []
@@ -696,6 +696,17 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         self.diffFont = QtGui.QFont()
         self.diffFont.setBold(True)
         super(ValueTaintModel, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def rowcmp(row):
+        """
+        Used as key function to sort rows.
+        Memory first, then registers.
+        """
+        if row.region == 'reg':
+            return (1, row)
+        else:
+            return (0, row)
 
     def endResetModel(self):
         """
@@ -706,7 +717,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         self.rows = []
         self.changedRows = set()
         if state:
-            self.rows = sorted(state.regaddrs)
+            self.rows = sorted(state.regaddrs, key=ValueTaintModel.rowcmp)
 
             # find parent state
             parents = [nodeid for nodeid in PluginState.cfa.edges
@@ -742,13 +753,13 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         regaddr = self.rows[index.row()]
         region = regaddr.region
         addr = regaddr.value
-        if col == 0:  # addr
+        if col == 0:  # region
+            return region
+        elif col == 1:  # addr
             if region == "mem":
                 return "0x%x" % addr
             else:
                 return str(addr)
-        elif col == 1:  # region
-            return region
         else:
             v = PluginState.currentState[regaddr]
             if not v:
