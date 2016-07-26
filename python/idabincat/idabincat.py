@@ -669,6 +669,9 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.vttable.setModel(PluginState.vtmodel)
         self.vttable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
+        # width from the model are not respected, not sure why...
+        for idx, w in enumerate(PluginState.vtmodel.colswidths):
+            self.vttable.setColumnWidth(idx, w)
 
         self.vttable.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
@@ -707,7 +710,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     Contains tainting and values for either registers or memory addresses
     """
     def __init__(self, *args, **kwargs):
-        self.headers = ["Source region", "Location", "Destination region", "Value", "Taint"]
+        self.headers = ["Src region", "Location", "Dst region", "Value", "Taint"]
         self.colswidths = [90, 90, 90, 150, 150]
         #: list of Value (addresses)
         self.rows = []
