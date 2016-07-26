@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # version IDA 6.9
 # runs the "bincat" command from ida
 
@@ -7,6 +8,7 @@ import traceback
 import ConfigParser
 import tempfile
 import StringIO
+import logging
 
 import idaapi
 import idc
@@ -20,6 +22,10 @@ except:
         repr(sys.exc_info()))
 
 
+# Logging
+bc_log = logging.getLogger('bincat')
+bc_log.setLevel(logging.DEBUG)
+
 class bincat_plugin(idaapi.plugin_t):
     # variables required by IDA
     flags = 0  # normal plugin
@@ -31,14 +37,13 @@ class bincat_plugin(idaapi.plugin_t):
 
     # IDA API methods: init, run, term
     def init(self):
-        # Loading Qt packages
 
         try:
             from pybincat import cfa as cfa_module
             global cfa_module
         except:
-            idaapi.warning(
-                "[BinCAT] Failed to load 'pybincat.cfa' python module\n%s\n" %
+            bc_log.warning(
+                "Failed to load 'pybincat.cfa' python module\n%s",
                 repr(sys.exc_info()))
             return idaapi.PLUGIN_SKIP
         return idaapi.PLUGIN_OK
@@ -47,12 +52,6 @@ class bincat_plugin(idaapi.plugin_t):
         if self.initialized:
             return
         self.initialized = True
-
-        PluginState.log_panel = BinCATLog_t()
-        if PluginState.log_panel.Create(1):
-            PluginState.log_panel.Show()
-            idaapi.set_dock_pos("BinCAT Log viewer", "Output window",
-                                idaapi.DP_LEFT)
 
         PluginState.BinCATTaintedForm = BinCATTaintedForm_t()
         PluginState.BinCATTaintedForm.Show()
@@ -73,7 +72,7 @@ class bincat_plugin(idaapi.plugin_t):
         PluginState.hooks = Hooks()
         PluginState.hooks.hook()
 
-        info("IDABinCAT ready.")
+        bc_log.info("IDABinCAT ready.")
 
     def term(self):
         if PluginState.hooks:
@@ -81,27 +80,10 @@ class bincat_plugin(idaapi.plugin_t):
             PluginState.hooks = None
 
 
-# Logging methods
-def info(msg):
-    PluginState.log_panel.Log(msg, idaapi.SCOLOR_DEFAULT)
-
-
-def important_info(msg):
-    idaapi.msg("[BinCAT] %s" % msg)
-    PluginState.log_panel.Log(msg, idaapi.SCOLOR_LOCNAME)
-
-
-def warning(msg):
-    idaapi.msg("[BinCAT] WARNING: %s" % msg)
-    PluginState.log_panel.Log(msg, idaapi.SCOLOR_ERROR)
-
-
-def error(msg):
-    idaapi.msg("[BinCAT] ERROR: %s" % msg)
-    PluginState.log_panel.Log(msg, idaapi.SCOLOR_ERROR)
-
-
 class AnalyzerConfig(object):
+    ftypes = {idaapi.f_PE: "pe",
+                   idaapi.f_ELF: "elf",
+                   idaapi.f_MACHO: "macho"}
     """
     Generates a configuration file for the analyzer.
     """
@@ -133,32 +115,32 @@ class AnalyzerConfig(object):
         self.analysis_end = stop
 
     def getFileType(self):
-        self.ftypes = {idaapi.f_PE: "pe",
-                       idaapi.f_ELF: "elf",
-                       idaapi.f_MACHO: "macho"}
         ida_db_info_structure = idaapi.get_inf_structure()
         f_type = ida_db_info_structure.filetype
         return self.ftypes[f_type]
 
-    def getMemoryModel(self):
+    @staticmethod
+    def getMemoryModel():
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
-        if (compiler_info.cm & idaapi.C_PC_TINY == 1):
+        # XXX check correctness, should be == CONSTANT ?
+        if compiler_info.cm & idaapi.C_PC_TINY == 1:
             return "tiny"
-        if (compiler_info.cm & idaapi.C_PC_SMALL == 1):
+        if compiler_info.cm & idaapi.C_PC_SMALL == 1:
             return "small"
-        if (compiler_info.cm & idaapi.C_PC_COMPACT == 1):
+        if compiler_info.cm & idaapi.C_PC_COMPACT == 1:
             return "compact"
-        if (compiler_info.cm & idaapi.C_PC_MEDIUM == 1):
+        if compiler_info.cm & idaapi.C_PC_MEDIUM == 1:
             return "medium"
-        if (compiler_info.cm & idaapi.C_PC_LARGE == 1):
+        if compiler_info.cm & idaapi.C_PC_LARGE == 1:
             return "large"
-        if (compiler_info.cm & idaapi.C_PC_HUGE == 1):
+        if compiler_info.cm & idaapi.C_PC_HUGE == 1:
             return "huge"
-        if (compiler_info.cm & idaapi.C_PC_FLAT == 3):
+        if compiler_info.cm & idaapi.C_PC_FLAT == 3:
             return "flat"
 
-    def getCallConvention(self):
+    @staticmethod
+    def getCallConvention():
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
         return {
@@ -174,21 +156,24 @@ class AnalyzerConfig(object):
             idaapi.CM_CC_MANUAL: "manual",
         }[compiler_info.cm & idaapi.CM_CC_MASK]
 
-    def getBitness(self, ea):
+    @staticmethod
+    def getBitness(ea):
         bitness = idc.GetSegmentAttr(ea, idc.SEGATTR_BITNESS)
         return {0: 16, 1: 32, 2: 64}[bitness]
 
-    def getStackWidth(self):
+    @staticmethod
+    def getStackWidth():
         ida_db_info_structure = idaapi.get_inf_structure()
         if ida_db_info_structure.is_64bit():
-            return(8*8)
+            return 8*8
         else:
             if ida_db_info_structure.is_32bit():
-                return(4*8)
+                return 4*8
             else:
-                return(2*8)
+                return 2*8
 
-    def getCodeSection(self, entrypoint):
+    @staticmethod
+    def getCodeSection(entrypoint):
         # in case we have more than one code section we apply the following:
         # heuristic entry point must be in the code section
 
@@ -201,14 +186,15 @@ class AnalyzerConfig(object):
                     start <= entrypoint <= end):
                 break
         else:
-            error(
-                "BinCAT no code section has been found for entrypoint %#08x\n"
-                % entrypoint)
+            bc_log.error("No code section has been found for entrypoint %#08x",
+                         entrypoint)
             return -1, -1
-        info("Code section found at %#x:%#x\n" % (start, end))
+        bc_log.debug("Code section found at %#x:%#x", start, end)
         return start, end
 
-    def getDataSection(self):
+    # XXX check if we need to return RODATA ?
+    @staticmethod
+    def getDataSection():
         for seg in idautils.Segments():
             seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg),
                                                 idc.SEGATTR_TYPE)
@@ -217,9 +203,9 @@ class AnalyzerConfig(object):
                 end = idc.SegEnd(seg)
                 break
         else:
-            warning("no Data section has been found")
+            bc_log.warning("no Data section has been found")
             return -1, -1
-        info("Data section found at %#x:%#x " % (start, end))
+        bc_log.debug("Data section found at %#x:%#x ", start, end)
         return start, end
 
     def getConfigParser(self):
@@ -377,6 +363,47 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         super(TaintLaunchForm_t, self).show()
 
 
+class BinCATConfigForm_t(QtWidgets.QDialog):
+
+    def __init__(self, parent):
+        super(BinCATConfigForm_t, self).__init__(parent)
+
+        layout = QtWidgets.QGridLayout()
+
+        lblDefaultBhv = QtWidgets.QLabel("Default behaviour")
+        # Save config in IDB
+        self.chkSave = QtWidgets.QCheckBox('&Save configuration to IDB',
+                                             self)
+        self.chkLoad = QtWidgets.QCheckBox('&Load configuration from IDB',
+                                             self)
+
+        self.btnStart = QtWidgets.QPushButton('&Save', self)
+        self.btnStart.clicked.connect(self.save_config)
+
+        self.btnCancel = QtWidgets.QPushButton('Cancel', self)
+        self.btnCancel.clicked.connect(self.close)
+
+        layout.addWidget(lblDefaultBhv, 0, 0)
+
+        layout.addWidget(self.chkSave, 1, 0)
+        layout.addWidget(self.chkLoad, 2, 0)
+        layout.addWidget(self.btnStart, 3, 0)
+        layout.addWidget(self.btnCancel, 3, 1)
+
+        self.setLayout(layout)
+
+        self.btnStart.setFocus()
+
+
+    def save_config(self):
+        return
+
+    def show(self):
+        self.setFixedSize(460, 200)
+        self.setWindowTitle("BinCAT configuration")
+        super(TaintLaunchForm_t, self).show()
+
+
 class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def rbRegistersHandler(self):
@@ -386,13 +413,13 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ipMemory.setEnabled(True)
 
     def cbRegistersHandler(self, text):
-        info("selected register is %s \n " % text)
+        bc_log.debug("selected register is %s ", text)
 
     def launch_analysis(self):
-        important_info("Launching the analyzer\n")
+        bc_log.info("Launching the analyzer")
         # Test if stop address is not empty
         if not self.ipStopAddr.text():
-            idaapi.warning(" Stop address is empty")
+            idaapi.bc_log.warning(" Stop address is empty")
             return
         startAddr = int(self.ipStartAddr.text(), 16)
         stopAddr = int(self.ipStopAddr.text(), 16)
@@ -400,6 +427,11 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         PluginState.startAnalysis()
 
         self.close()
+
+    def bincat_config(self):
+        # display config window
+        bc_conf_form = BinCATConfigForm_t(self)
+        bc_conf_form.exec_()
 
     def edit_config(self):
         # display edit form
@@ -445,13 +477,16 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ipStopAddr.setText(stopAddr)
 
         # Start, cancel and analyzer config buttons
-        self.btnLoad = QtWidgets.QPushButton('&Load configuration file...',
+        self.btnLoad = QtWidgets.QPushButton('&Load analyzer config',
                                              self)
         self.btnLoad.clicked.connect(self.choose_file)
 
-        self.btnEditConf = QtWidgets.QPushButton('&Edit configuration...',
+        self.btnEditConf = QtWidgets.QPushButton('&Edit analyzer config',
                                                  self)
         self.btnEditConf.clicked.connect(self.edit_config)
+
+        self.btnBCConf = QtWidgets.QPushButton('Cfg', self)
+        self.btnBCConf.clicked.connect(self.bincat_config)
 
         self.btnStart = QtWidgets.QPushButton('&Start', self)
         self.btnStart.clicked.connect(self.launch_analysis)
@@ -460,6 +495,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btnCancel.clicked.connect(self.close)
 
         layout.addWidget(lblCstEditor, 0, 0)
+        layout.addWidget(self.btnBCConf, 0, 1, QtCore.Qt.AlignRight)
 
         layout.addWidget(lblStartAddr, 1, 0)
         layout.addWidget(self.ipStartAddr, 1, 1)
@@ -506,14 +542,14 @@ class Analyzer(QtCore.QProcess):
         cmdline = "bincat %s %s %s" % (self.initfname, self.outfname,
                                        self.logfname)
         # start the process
-        info("Analyzer cmdline: [%s]" % cmdline)
+        bc_log.debug("Analyzer cmdline: [%s]", cmdline)
         try:
             self.start(cmdline)
         except Exception as e:
-            error("BinCAT failed to launch the analyzer.py\n")
-            info("Exception: %s\n%s" % (str(e), traceback.format_exc()))
+            bc_log.error("BinCAT failed to launch the analyzer.py")
+            bc_log.warning("Exception: %s\n%s", str(e), traceback.format_exc())
         else:
-            info("Analyzer started\n")
+            bc_log.info("Analyzer started.")
 
     def procanalyzer_on_error(self, err):
         errors = ["Failed to start", "Crashed", "TimedOut", "Read Error",
@@ -522,20 +558,20 @@ class Analyzer(QtCore.QProcess):
             errtxt = errors[err]
         except IndexError:
             errtxt = "Unspecified error %s" % err
-        error("Analyzer error: %s\n" % errtxt)
+        bc_log.error("Analyzer error: %s", errtxt)
 
     def procanalyzer_on_state_change(self, new_state):
         states = ["Not running", "Starting", "Running"]
-        info("Analyzer new state: %s\n" % states[new_state])
+        bc_log.debug("Analyzer new state: %s", states[new_state])
 
     def procanalyzer_on_start(self):
-        important_info("Analyzer: starting process\n")
+        bc_log.info("Analyzer: starting process")
 
     def procanalyzer_on_finish(self):
-        important_info("Analyzer process terminated \n")
+        bc_log.info("Analyzer process terminated")
         exitcode = self.exitCode()
         if exitcode == 0:
-            info("Parsing analyzer result file\n")
+            bc_log.debug("Parsing analyzer result file")
 
             PluginState.cfa = cfa_module.CFA.parse(self.outfname,
                                                    logs=self.logfname)
@@ -545,35 +581,15 @@ class Analyzer(QtCore.QProcess):
             startaddr_ea = node0.address.value
             PluginState.setCurrentEA(startaddr_ea, force=True)
         else:
-            error("analyzer returned exit code=%i\n" % exitcode)
-            important_info("---- stdout ----------------\n")
-            important_info(str(self.readAllStandardOutput()))
-            important_info("---- stderr ----------------\n")
-            important_info(str(self.readAllStandardError()))
-        info("---- logfile ---------------\n")
+            bc_log.error("analyzer returned exit code=%i", exitcode)
+            bc_log.info("---- stdout ----------------")
+            bc_log.info(str(self.readAllStandardOutput()))
+            bc_log.info("---- stderr ----------------")
+            bc_log.info(str(self.readAllStandardError()))
+        bc_log.debug("---- logfile ---------------")
         if os.path.exists(self.logfname):
-            info(open(self.logfname).read())
-        info("----------------------------\n")
-
-
-class BinCATLog_t(idaapi.simplecustviewer_t):
-    """
-    BinCAT log viewer
-    """
-    def Create(self, sn=None):
-        # Form title
-        title = "BinCAT Log viewer"
-        # create the custom view
-        if not idaapi.simplecustviewer_t.Create(self, title):
-            return False
-
-        return True
-
-    def Log(self, LogLine, color):
-        for l in LogLine.splitlines():
-            coloredline = idaapi.COLSTR(l, color)
-            self.AddLine(coloredline)
-        self.Refresh()
+            bc_log.debug(open(self.logfname).read())
+        bc_log.debug("----------------------------")
 
 
 class BinCATDebugForm_t(idaapi.PluginForm):
@@ -653,6 +669,9 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.vttable.setModel(PluginState.vtmodel)
         self.vttable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
+        # width from the model are not respected, not sure why...
+        for idx, w in enumerate(PluginState.vtmodel.colswidths):
+            self.vttable.setColumnWidth(idx, w)
 
         self.vttable.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
@@ -691,8 +710,8 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     Contains tainting and values for either registers or memory addresses
     """
     def __init__(self, *args, **kwargs):
-        self.headers = ["Region", "Address", "Value", "Taint"]
-        self.colswidths = [90, 90, 150, 150]
+        self.headers = ["Src region", "Location", "Dst region", "Value", "Taint"]
+        self.colswidths = [90, 90, 90, 150, 150]
         #: list of Value (addresses)
         self.rows = []
         self.changedRows = set()
@@ -755,21 +774,22 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             return
         regaddr = self.rows[index.row()]
         region = regaddr.region
-        addr = regaddr.value
         if col == 0:  # region
             return region
         elif col == 1:  # addr
-            if region == "mem":
-                return "0x%x" % addr
+            if region in ["global", "stack", "heap"]:
+                return regaddr.__valuerepr__()
             else:
-                return str(addr)
+                return str(regaddr.value)
         else:
             v = PluginState.currentState[regaddr]
             if not v:
                 return ""
-        if col == 2:  # value
+        if col == 2:  # destination region
+            return v.region
+        if col == 3:  # value
             return v.__valuerepr__()
-        elif col == 3:  # taint
+        elif col == 4:  # taint
             return v.__taintrepr__()
 
     def rowCount(self, parent):
@@ -891,7 +911,7 @@ class PluginState(object):
         outfname = os.path.join(path, "out.ini")
         logfname = os.path.join(path, "analyzer.log")
 
-        info("Current analyzer path: %s \n" % path)
+        bc_log.debug("Current analyzer path: %s", path)
 
         if configStr:
             with open(initfname, 'wb') as f:

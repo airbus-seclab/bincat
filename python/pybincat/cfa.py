@@ -8,6 +8,22 @@ import tempfile
 import functools
 
 
+def reg_len(regname):
+    """
+    Return length in bits
+    """
+    # register list from decoder.ml
+    if regname in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
+        return 32
+    if regname in ["cs", "ds", "ss", "es", "fs", "gs"]:
+        return 16
+    if regname in ["cf", "pf", "af", "zf", "sf", "tf", "if", "df", "of", "nt",
+                   "rf", "vm", "ac", "vif", "vip", "id"]:
+        return 1
+    if regname == "iopl":
+        return 2
+
+
 class PyBinCATParseError(PyBinCATException):
     pass
 
@@ -96,11 +112,11 @@ class CFA(object):
 
     def _toValue(self, eip, region="global"):
         if type(eip) in [int, long]:
-            addr = Value(region, eip)
+            addr = Value(region, eip, 0)
         elif type(eip) is Value:
             addr = eip
         elif type(eip) is str:
-            addr = Value(region, int(eip))
+            addr = Value(region, int(eip), 0)
         # else:
         #     logging.error(
         #         "Invalid address %s (type %s) in AnalyzerState._toValue",
@@ -127,6 +143,8 @@ class CFA(object):
 
 class State(object):
     re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
+    re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
+    re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
 
     def __init__(self, node_id, address=None):
         self.address = address
@@ -151,7 +169,7 @@ class State(object):
                 m = cls.re_val.match(v)
                 if m:
                     address = Value(m.group("region"),
-                                    int(m.group("value"), 0))
+                                    int(m.group("value"), 0), 0)
                     new_state.address = address
                     continue
             if k == "final":
@@ -168,7 +186,7 @@ class State(object):
                 raise PyBinCATException("Parsing error (entry %i, key=%r)" % (i, k))
             region = m.group("region")
             adrs = m.group("adrs")
-            if region == 'mem' and adrs.startswith('(') and adrs.endswith(')'):
+            if region == 'mem':
                 # ex. "(region, 0xabcd), (region, 0xabce)"
                 # region in ['stack', 'global', 'heap']
                 adr_begin, adr_end = adrs[1:-1].split('), (')
@@ -176,8 +194,12 @@ class State(object):
                 region2, adr2 = adr_end.split(', ')
                 assert region1 == region2
                 region = region1
+                length = (parsers.parse_val(adr2)[0] -
+                          parsers.parse_val(adrs)[0]) * 8
                 # XXX store region size, use ordered list, allow non-aligned
                 # access...
+            elif region == 'reg':
+                length = reg_len(adrs)
 
             m = cls.re_valtaint.match(v)
             if not m:
@@ -186,8 +208,8 @@ class State(object):
             val = m.group("value")
             taint = m.group("taint")
 
-            regaddr = Value.parse(region, adrs, '0')
-            new_state[regaddr] = Value.parse(kind, val, taint)
+            regaddr = Value.parse(region, adrs, '0', 0)
+            new_state[regaddr] = Value.parse(kind, val, taint, length)
         return new_state
 
     def __getitem__(self, item):
@@ -203,9 +225,6 @@ class State(object):
             return self.regaddrs[attr]
         except KeyError:
             raise AttributeError(attr)
-
-    re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
-    re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
 
     def __eq__(self, other):
         if set(self.regaddrs.keys()) != set(other.regaddrs.keys()):
@@ -263,9 +282,11 @@ class State(object):
 
 @functools.total_ordering
 class Value(object):
-    def __init__(self, region, value, vtop=0, vbot=0, taint=0, ttop=0, tbot=0):
+    def __init__(self, region, value, length, vtop=0, vbot=0, taint=0, ttop=0,
+                 tbot=0):
         self.region = region.lower()
         self.value = value
+        self.length = length
         self.vtop = vtop
         self.vbot = vbot
         self.taint = taint
@@ -273,10 +294,13 @@ class Value(object):
         self.tbot = tbot
 
     @classmethod
-    def parse(cls, region, s, t):
+    def parse(cls, region, s, t, length):
         value, vtop, vbot = parsers.parse_val(s)
         taint, ttop, tbot = parsers.parse_val(t) if t is not None else (0, 0, 0)
-        return cls(region, value, vtop, vbot, taint, ttop, tbot)
+        return cls(region, value, length, vtop, vbot, taint, ttop, tbot)
+
+    def __len__(self):
+        return self.length
 
     def __repr__(self):
         return "Value(%s, %s ! %s)" % (
@@ -285,10 +309,10 @@ class Value(object):
             self.__taintrepr__())
 
     def __valuerepr__(self):
-        return parsers.val2str(self.value, self.vtop, self.vbot)
+        return parsers.val2str(self.value, self.vtop, self.vbot, self.length)
 
     def __taintrepr__(self):
-        return parsers.val2str(self.taint, self.ttop, self.tbot)
+        return parsers.val2str(self.taint, self.ttop, self.tbot, self.length)
 
     def __hash__(self):
         return hash((type(self), self.region, self.value,
