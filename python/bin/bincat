@@ -19,7 +19,7 @@ def main():
     options = parser.parse_args()
 
     from pybincat import cfa
-    p = cfa.CFA.from_filenames(options.inifile, options.outfile,
+    p = cfa.CFA.from_filenames(options.inputfile, options.outputfile,
                                options.logfile)
 
     if options.diff:
