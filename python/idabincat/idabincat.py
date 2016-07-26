@@ -707,8 +707,8 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     Contains tainting and values for either registers or memory addresses
     """
     def __init__(self, *args, **kwargs):
-        self.headers = ["Region", "Address", "Value", "Taint"]
-        self.colswidths = [90, 90, 150, 150]
+        self.headers = ["Source region", "Location", "Destination region", "Value", "Taint"]
+        self.colswidths = [90, 90, 90, 150, 150]
         #: list of Value (addresses)
         self.rows = []
         self.changedRows = set()
@@ -771,21 +771,22 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             return
         regaddr = self.rows[index.row()]
         region = regaddr.region
-        addr = regaddr.value
         if col == 0:  # region
             return region
         elif col == 1:  # addr
-            if region == "mem":
-                return "0x%x" % addr
+            if region in ["global", "stack", "heap"]:
+                return regaddr.__valuerepr__()
             else:
-                return str(addr)
+                return str(regaddr.value)
         else:
             v = PluginState.currentState[regaddr]
             if not v:
                 return ""
-        if col == 2:  # value
+        if col == 2:  # destination region
+            return v.region
+        if col == 3:  # value
             return v.__valuerepr__()
-        elif col == 3:  # taint
+        elif col == 4:  # taint
             return v.__taintrepr__()
 
     def rowCount(self, parent):

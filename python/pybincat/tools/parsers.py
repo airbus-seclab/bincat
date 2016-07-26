@@ -40,13 +40,22 @@ def parse_val(s):
     return val, tbvals["?"], tbvals["_"]
 
 
-def val2str(val, vtop, vbot):
+def val2str(val, vtop, vbot, length):
     try:
-        s = "%#x" % val
+        if length == 0:
+            fstring = '0x{0:x}'
+        else:
+            if length % 4 == 0:
+                length = length / 4 + 2
+                fstring = ('0x{0:0>%dx}' % length)
+            else:
+                fstring = ('0b{0:0>%db}' % length)
+        s = fstring.format(val)
+
         if vtop:
-            s += ",?=%#x" % vtop
+            s += ",?=" + fstring.format(vtop)
         if vbot:
-            s += ",_=%#x" % vbot
+            s += ",_=" + fstring.format(vbot)
     except:
         s = repr((val, vtop, vbot))
     return s
