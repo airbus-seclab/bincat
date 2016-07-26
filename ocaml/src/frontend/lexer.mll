@@ -68,11 +68,11 @@ rule token = parse
   (* analyzer section *)
   | "analyzer"  	    { ANALYZER }
   (* settings tokens *)
-  | "mem-model" 	    { MEM_MODEL }
-  | "op-sz"     	    { OP_SZ }
-  | "mem-sz"    	    { MEM_SZ }
-  | "stack-width" 	    { STACK_WIDTH }
-  | "call-conv" 	    { CALL_CONV }
+  | "mem_model" 	    { MEM_MODEL }
+  | "op_sz"     	    { OP_SZ }
+  | "mem_sz"    	    { MEM_SZ }
+  | "stack_width" 	    { STACK_WIDTH }
+  | "call_conv" 	    { CALL_CONV }
   | "flat"      	    { FLAT }
   | "segmented" 	    { SEGMENTED }
   | "cdecl"     	    { CDECL }
@@ -94,11 +94,11 @@ rule token = parse
   | "es" 		    { ES }
   | "fs" 		    { FS }
   | "gs" 		    { GS }
-  | "code-length" 	    { CODE_LENGTH }
-  | "entrypoint" 	    { ENTRYPOINT }
-  | "rva-code"              { RVA_CODE }
+  | "code_va"              { CODE_VA }
+  | "code_length" 	    { CODE_LENGTH }
+  | "code_phys"        { CODE_PHYS_ADDR }
+  | "analysis_ep" 	    { ENTRYPOINT }
   (* binary tokens *)
-  | "phys-code-addr"        { PHYS_CODE_ADDR }
   | "filepath" 		    { FILEPATH }
   | "format" 		    { FORMAT }
   | "pe" 		    { PE }

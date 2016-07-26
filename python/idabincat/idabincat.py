@@ -108,14 +108,19 @@ class AnalyzerConfig(object):
     def __init__(self):
         self.version = "0.0"
         #: int
-        self.code_length = None
+        self.analysis_ep = None
         #: int
-        self.entrypoint = None
+        self.analysis_end = None
 
     @property
-    def rva_code(self):
-        rva, _ = self.getCodeSection(self.entrypoint)
-        return rva
+    def code_va(self):
+        va, _ = self.getCodeSection(self.analysis_ep)
+        return va
+
+    @property
+    def code_length(self):
+        va, end = self.getCodeSection(self.analysis_ep)
+        return end-va
 
     def __str__(self):
         sio = StringIO.StringIO()
@@ -124,8 +129,8 @@ class AnalyzerConfig(object):
         return sio.read()
 
     def setStartStopAddr(self, start, stop):
-        self.entrypoint = start
-        self.code_length = stop - self.rva_code
+        self.analysis_ep = start
+        self.analysis_end = stop
 
     def getFileType(self):
         self.ftypes = {idaapi.f_PE: "pe",
@@ -227,26 +232,26 @@ class AnalyzerConfig(object):
 
         # [settings] section
         config.add_section('settings')
-        config.set('settings', 'mem-model', self.getMemoryModel())
+        config.set('settings', 'mem_model', self.getMemoryModel())
         # TODO get cpu mode from idaapi ?
         config.set('settings', 'mode', 'protected')
-        config.set('settings', 'call-conv', self.getCallConvention())
-        config.set('settings', 'mem-sz', 32)
-        config.set('settings', 'op-sz', self.getBitness(self.rva_code))
-        config.set('settings', 'stack-width', self.getStackWidth())
+        config.set('settings', 'call_conv', self.getCallConvention())
+        config.set('settings', 'mem_sz', 32)
+        config.set('settings', 'op_sz', self.getBitness(self.code_va))
+        config.set('settings', 'stack_width', self.getStackWidth())
 
         # [loader section]
         config.add_section('loader')
+        # code section va
         config.set(
-            'loader', 'rva-code', hex(self.rva_code).strip('L'))
+            'loader', 'code_va', hex(self.code_va).strip('L'))
+        # code section offset
         config.set(
-            'loader', 'entrypoint',
-            hex(idaapi.get_inf_structure().startIP).strip('L'))
-        config.set(
-            'loader', 'phys-code-addr',
-            hex(idaapi.get_fileregion_offset(self.rva_code)))
-        # By default code-length is 0
-        config.set('loader', 'code-length', '0')
+            'loader', 'code_phys',
+            hex(idaapi.get_fileregion_offset(self.code_va)))
+        # code section length
+        config.set('loader', 'code_length', hex(self.code_length).strip('L'))
+        config.set('loader', 'analysis_ep', hex(self.analysis_ep))
 
         config.set('loader', 'cs', '0x73')
         config.set('loader', 'ds', '0x7b')
@@ -255,8 +260,6 @@ class AnalyzerConfig(object):
         config.set('loader', 'ds', '0x7b')
         config.set('loader', 'fs', '0x7b')
         config.set('loader', 'gs', '0x7b')
-        config.set('loader', 'code-length', self.code_length)
-        config.set('loader', 'entrypoint', hex(self.entrypoint))
 
         # [binary section]
         config.add_section('binary')
@@ -323,7 +326,7 @@ class AnalyzerConfig(object):
 
         # [libc section]
         config.add_section('libc')
-        config.set('libc', 'call-conv', 'fastcall')
+        config.set('libc', 'call_conv', 'fastcall')
         config.set('libc', '*', 'open(@, _)')
         config.set('libc', '*', 'read<stdcall>(@, *, @)')
         return config

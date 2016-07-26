@@ -17,26 +17,26 @@
     let mandatory_keys = Hashtbl.create 20;;
       
     let mandatory_items = [
-	(MEM_MODEL, "mem-model", "settings");
+	(MEM_MODEL, "mem_model", "settings");
 	(MODE, "mode", "settings");
-	(CALL_CONV, "call-conv", "settings");
-	(MEM_SZ, "mem-sz", "settings");
-	(OP_SZ, "op-sz", "settings");
-	(STACK_WIDTH, "stack-width", "settings");
+	(CALL_CONV, "call_conv", "settings");
+	(MEM_SZ, "mem_sz", "settings");
+	(OP_SZ, "op_sz", "settings");
+	(STACK_WIDTH, "stack_width", "settings");
 	(SS, "ss", "loader");
 	(DS, "ds", "loader");
 	(CS, "cs", "loader");
 	(ES, "es", "loader");
 	(FS, "fs", "loader");
 	(GS, "gs", "loader");
-	(ENTRYPOINT, "entrypoint", "loader");
-	(CODE_LENGTH, "code-length", "loader");
+	(ENTRYPOINT, "analyser_ep", "loader");
+	(CODE_LENGTH, "code_length", "loader");
 	(FORMAT, "format", "binary");
 	(FILEPATH, "filepath", "binary");
-	(PHYS_CODE_ADDR, "phys-code-addr", "loader");
+	(CODE_PHYS_ADDR, "code_phys", "loader");
 	(DOTFILE, "dotfile", "analyzer");
 	(GDT, "gdt", "gdt");
-	(RVA_CODE, "rva-code", "loader");
+	(CODE_VA, "code_va", "loader");
       ];;	
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
@@ -94,9 +94,9 @@
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
-%token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED PHYS_CODE_ADDR
+%token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
-%token GDT RVA_CODE CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
+%token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
 %token <string> STRING
 %token <Z.t> INT
 %start <unit> process
@@ -171,8 +171,8 @@
     | GS EQUAL i=init 	      	 { update_mandatory GS; init_register "gs" i }
     | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
-    | PHYS_CODE_ADDR EQUAL i=INT { update_mandatory PHYS_CODE_ADDR; Config.phys_code_addr := Z.to_int i }
-    | RVA_CODE EQUAL i=INT 	 { update_mandatory RVA_CODE; Config.rva_code := i }
+    | CODE_PHYS_ADDR EQUAL i=INT { update_mandatory CODE_PHYS_ADDR; Config.phys_code_addr := Z.to_int i }
+    | CODE_VA EQUAL i=INT 	 { update_mandatory CODE_VA; Config.rva_code := i }
     
       
       binary:
