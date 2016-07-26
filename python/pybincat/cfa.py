@@ -196,8 +196,7 @@ class State(object):
                 region = region1
                 length = (parsers.parse_val(adr2)[0] -
                           parsers.parse_val(adrs)[0]) * 8
-                # XXX store region size, use ordered list, allow non-aligned
-                # access...
+                # XXX allow non-aligned access
             elif region == 'reg':
                 length = reg_len(adrs)
 
