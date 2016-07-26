@@ -751,8 +751,6 @@ module Make(Domain: Domain.T) =
 	  let csv = Hashtbl.find s.segments.reg cs						     in
 	  let s   = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
 	  let i   = Address.to_int target							     in
-	  Printf.printf "jump target is %s\n" (Address.to_string target); flush stdout;
-	  Printf.printf "bounds are: %x and %x\n" (Z.to_int s.base) (Z.to_int s.limit); flush stdout;
 	  if Z.compare (Z.add s.base i) s.limit >= 0 then
 	    ()
 	  else

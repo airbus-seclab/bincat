@@ -190,7 +190,7 @@ module Make(D: T) =
 	let k, m0  = Map.find_key (where a) m in
 	match k with
 	| K.R _      -> Log.error "Implementation error in Unrel: the found key should be a pair of addresses"
-	| K.M (_, u) -> D.from_position m0 (((Z.to_int (Data.Address.sub u a))+1)*8-1) sz
+	| K.M (_l, u) -> D.from_position m0 (((Z.to_int (Data.Address.sub u a))+1)*8-1) sz
 	with _ -> D.bot
 	  
 			  
