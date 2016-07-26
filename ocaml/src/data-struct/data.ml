@@ -161,10 +161,10 @@ module Address =
 	| (r1, w1), (r2, w2)  when r1 = r2 ->
 	   let w = Word.sub w1 w2 in
 	   if Word.compare w (Word.zero (Word.size w1)) < 0 then
-	     raise (Exceptions.Error "invalid address substraction")
+	     Log.error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)) 
 	   else
 	    Word.to_int w
-	| _, _ 	-> raise (Exceptions.Error "invalid address substraction")
+	| _, _ 	-> Log.error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)) 
 
       let binary op ((r1, w1): t) ((r2, w2): t): t =
 	let r' =

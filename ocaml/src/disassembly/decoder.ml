@@ -97,7 +97,6 @@ module Make(Domain: Domain.T) =
 
       (** high level data structure of the content of a segment register *)
       type segment_register_mask = { rpl: privilege_level; ti: table_indicator; index: Word.t }
-
       (** builds the high level representation of the given segment register *)
       let get_segment_register_mask v =
 	let rpl = privilege_level_of_int (Z.to_int (Z.logand v (Z.of_int 3))) in
@@ -175,7 +174,7 @@ module Make(Domain: Domain.T) =
 	let f 	  = Z.of_int 0x0f					   in
 	let limit = Z.logand v ffff    					   in
 	let v' 	  = Z.shift_right v 16	                                   in
-	let base  = Z.logand v ffffff 					   in
+	let base  = Z.logand v' ffffff 					   in
 	let v' 	  = Z.shift_right v' 24	 			           in
 	let typ   = segment_descriptor_of_int (Z.to_int (Z.logand v' f))   in
 	let v' 	  = Z.shift_right v' 4				 	   in	
@@ -278,20 +277,7 @@ module Make(Domain: Domain.T) =
 	{ rpl = privilege_level_of_int lvl; ti = if ti = 0 then GDT else LDT; index = Word.of_int (Z.of_int index) 13 }
 
       (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
-      let get_base_address s c =
-	if !Config.mode = Config.Protected then
-	  let dt = if c.ti = GDT then s.segments.gdt else s.segments.ldt in 
-	  try
-	      let e = Hashtbl.find dt c.index in
-	      if c.rpl <= e.dpl then
-		e.base
-	      else
-		error s.a "illegal requested privileged level"
-	  with Not_found ->
-	    error s.a (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
-	else
-	  error s.a "only protected mode supported"
-
+     
       (** initialization of the segmentation *)
       let init () =
 	let ldt = Hashtbl.create 5  in
@@ -376,9 +362,24 @@ module Make(Domain: Domain.T) =
 	| _ 	        -> BinOp (Add, e, Lval (V reg))
 
       exception Disp32
-			 
+		  
+      let get_base_address s c =
+	if !Config.mode = Config.Protected then
+	  let dt = if c.ti = GDT then s.segments.gdt else s.segments.ldt in 
+	  try
+	      let e = Hashtbl.find dt c.index in
+	      if c.rpl <= e.dpl then
+		e.base
+	      else
+		error s.a "illegal requested privileged level"
+	  with Not_found ->
+	    error s.a (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+	else
+	  error s.a "only protected mode supported"
+
+		
       let add_segment s e sreg =
-	let m      = Hashtbl.find s.segments.reg sreg in 
+	let m      = Hashtbl.find s.segments.reg sreg in
 	let ds_val = get_base_address s m             in
 	BinOp(Add, e, Const (Word.of_int ds_val s.operand_sz))
 	     
@@ -390,9 +391,9 @@ module Make(Domain: Domain.T) =
 	    | 0 ->
 	       begin
 		 match rm with
-		 | 4 -> M (sib s rm' md, sz)
+		 | 4 -> M (add_data_segment s (sib s rm' md), sz)
 		 | 5 -> raise Disp32
-		 | _ -> M (Lval (V rm'), sz)
+		 | _ -> M (add_data_segment s (Lval (V rm')), sz)
 	       end						    
 	    | 1 ->
 	       let e =
@@ -401,7 +402,7 @@ module Make(Domain: Domain.T) =
 	       in
 	       let n = sign_extension_of_byte (int_of_bytes s 1) (!Config.operand_sz / Config.size_of_byte) in
 	       let e' = BinOp (Add, e, Const (Word.of_int n !Config.operand_sz)) in
-	       M (e', sz)
+	       M (add_data_segment s e', sz)
 	     	 
 	    | 2 ->
 	       let e =
@@ -770,7 +771,6 @@ module Make(Domain: Domain.T) =
 	 let jcc s v n =
 	   let e = exp_of_cond v s in
 	   return_jcc_stmts s e n
-
 	
 	   
 	 (** jump if eCX is zero *)

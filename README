@@ -74,6 +74,9 @@ ranlib -c /path/to/the/lib/libsasmrun.a
 
 * Make sure the "bincat" command is in your path (make install should have
   taken care of that)
+  For mac installation, add in /etc/launchd.conf the line
+  setenv PATH /usr/bin:/bin:/usr/sbin/sbin:/usr/local/bin:/path/to/bincat
+  where /path/to/bincat is the result of which bincat
 
 =ida plugin usage
 
