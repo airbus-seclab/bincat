@@ -2,7 +2,6 @@ import StringIO
 import ConfigParser
 import idaapi
 import idautils
-import idc
 import logging
 
 # Logging
@@ -88,7 +87,7 @@ class AnalyzerConfig(object):
 
     @staticmethod
     def getBitness(ea):
-        bitness = idc.GetSegmentAttr(ea, idc.SEGATTR_BITNESS)
+        bitness = idaapi.getseg(ea).bitness
         return {0: 16, 1: 32, 2: 64}[bitness]
 
     @staticmethod
@@ -106,37 +105,26 @@ class AnalyzerConfig(object):
     def getCodeSection(entrypoint):
         # in case we have more than one code section we apply the following:
         # heuristic entry point must be in the code section
-
-        for seg in idautils.Segments():
-            seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg),
-                                                idc.SEGATTR_TYPE)
-            start = idc.SegStart(seg)
-            end = idc.SegEnd(seg)
-            if (seg_attributes == idaapi.SEG_CODE and
-                    start <= entrypoint <= end):
-                break
+        for n in xrange(idaapi.get_segm_qty()):
+            seg = idaapi.getnseg(n)
+            if (seg.type == idaapi.SEG_CODE and
+                    seg.startEA <= entrypoint <= seg.endEA):
+                return seg.startEA, seg.endEA
         else:
             bc_log.error("No code section has been found for entrypoint %#08x",
                          entrypoint)
             return -1, -1
-        bc_log.debug("Code section found at %#x:%#x", start, end)
-        return start, end
 
     # XXX check if we need to return RODATA ?
     @staticmethod
     def getDataSection():
-        for seg in idautils.Segments():
-            seg_attributes = idc.GetSegmentAttr(idc.SegStart(seg),
-                                                idc.SEGATTR_TYPE)
-            if seg_attributes == idaapi.SEG_DATA:
-                start = idc.SegStart(seg)
-                end = idc.SegEnd(seg)
-                break
+        for n in xrange(idaapi.get_segm_qty()):
+            seg = idaapi.getnseg(n)
+            if seg.type == idaapi.SEG_DATA:
+                return seg.startEA, seg.endEA
         else:
             bc_log.warning("no Data section has been found")
             return -1, -1
-        bc_log.debug("Data section found at %#x:%#x ", start, end)
-        return start, end
 
     def getConfigParser(self):
         """
@@ -180,7 +168,7 @@ class AnalyzerConfig(object):
         # [binary section]
         config.add_section('binary')
         # config.set('binary', 'filename', GetInputFile())
-        config.set('binary', 'filepath', idc.GetInputFilePath())
+        config.set('binary', 'filepath', idaapi.get_input_file_path())
         config.set('binary', 'format', self.getFileType())
 
         # [import] section

@@ -8,7 +8,6 @@ import traceback
 import tempfile
 import logging
 import idaapi
-import idc
 import idautils
 from idabincat.analyzer_conf import AnalyzerConfig
 
@@ -217,7 +216,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         layout = QtWidgets.QGridLayout()
         lblCstEditor = QtWidgets.QLabel("BinCAT analysis parameters")
-        PluginState.currentEA = idc.here()
+        PluginState.currentEA = idaapi.get_screen_ea()
 
         # Start address
         lblStartAddr = QtWidgets.QLabel(" Start address: ")
@@ -226,7 +225,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         # Use current basic block address as default stop address
         stopAddr = ""
-        for block in idaapi.FlowChart(idaapi.get_func(idc.here())):
+        for block in idaapi.FlowChart(idaapi.get_func(idaapi.get_screen_ea())):
             if block.startEA <= PluginState.currentEA <= block.endEA:
                 stopAddr = hex(block.endEA).rstrip('L')
         lblStopAddr = QtWidgets.QLabel(" Stop address: ")
