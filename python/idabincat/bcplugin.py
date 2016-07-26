@@ -8,7 +8,6 @@ import traceback
 import tempfile
 import logging
 import idaapi
-import idautils
 from idabincat.analyzer_conf import AnalyzerConfig
 
 try:
@@ -21,6 +20,7 @@ except:
 # Logging
 bc_log = logging.getLogger('bincat')
 bc_log.setLevel(logging.DEBUG)
+
 
 class bincat_plugin(idaapi.plugin_t):
     # variables required by IDA
@@ -59,8 +59,8 @@ class bincat_plugin(idaapi.plugin_t):
 
         # TODO : change to menu item ?
         ana_from_here_act = idaapi.action_desc_t(
-            'bincat:ana_from_here', 'Analyze from here', handle_analyze_here(), 'Ctrl-Shift-A',
-            'BinCAT action', -1)
+            'bincat:ana_from_here', 'Analyze from here', handle_analyze_here(),
+            'Ctrl-Shift-A', 'BinCAT action', -1)
         idaapi.register_action(ana_from_here_act)
 
         idaapi.attach_action_to_menu("Edit/BinCAT", "bincat:ana_from_here",
@@ -74,8 +74,6 @@ class bincat_plugin(idaapi.plugin_t):
         if PluginState.hooks:
             PluginState.hooks.unhook()
             PluginState.hooks = None
-
-
 
 
 class EditConfigurationFileForm_t(QtWidgets.QDialog):
@@ -129,9 +127,9 @@ class BinCATConfigForm_t(QtWidgets.QDialog):
         lblDefaultBhv = QtWidgets.QLabel("Default behaviour")
         # Save config in IDB
         self.chkSave = QtWidgets.QCheckBox('&Save configuration to IDB',
-                                             self)
+                                           self)
         self.chkLoad = QtWidgets.QCheckBox('&Load configuration from IDB',
-                                             self)
+                                           self)
 
         self.btnStart = QtWidgets.QPushButton('&Save', self)
         self.btnStart.clicked.connect(self.save_config)
@@ -149,7 +147,6 @@ class BinCATConfigForm_t(QtWidgets.QDialog):
         self.setLayout(layout)
 
         self.btnStart.setFocus()
-
 
     def save_config(self):
         return
