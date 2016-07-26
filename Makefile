@@ -31,8 +31,8 @@ IDAinstall:# install
 	@echo "Linking pybincat and idabincat inside IDA Python ...................."
 	rm -rf "${IDAPATH}/plugins/pybincat"
 	cp -r $$(python -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAPATH}/plugins/pybincat"
-	rm -f "${IDAPATH}/plugins/idabincat.py"
-	cp $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/idabincat.py "${IDAPATH}/plugins/idabincat.py"
+	rm -f "${IDAPATH}/plugins/bcplugin.py"
+	cp $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAPATH}/plugins/bcplugin.py"
 
 test: all
 	make -C $(MLTESTPATH) test

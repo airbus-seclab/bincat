@@ -63,7 +63,7 @@ ranlib -c /path/to/the/lib/libsasmrun.a
 
 =ida plugin installation
 
-* Copy or create a symlink to python/idabincat/idabincat.py in your IDA
+* Copy or create a symlink to python/idabincat/bcplugin.py in your IDA
   installation folder's plugin/ directory, or in your ~/.idapro/plugins
   directory
 
