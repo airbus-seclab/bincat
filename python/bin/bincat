@@ -12,10 +12,29 @@ def main():
                         help="file to output computed states into")
     parser.add_argument("logfile",
                         help="log file")
+    parser.add_argument(
+        "--diff", "-d", nargs=2, metavar=('NODEID1', 'NODEID2'),
+        help="Display diff between 2 node ids")
 
     options = parser.parse_args()
 
-    mlbincat.process(options.inputfile, options.outputfile, options.logfile)
+    from pybincat import cfa
+    p = cfa.CFA.from_filenames(options.inifile, options.outfile,
+                               options.logfile)
+
+    if options.diff:
+        # fetch states
+        try:
+            state1 = p[options.diff[0]]
+        except KeyError:
+            logger.error("No State is defined having node_id %s", options.diff[0])
+            sys.exit(1)
+        try:
+            state2 = p[options.diff[1]]
+        except KeyError:
+            logger.error("No State is defined having node_id %s", options.diff[1])
+            sys.exit(1)
+        print state1.diff(state2)
 
 
 if __name__ == "__main__":
