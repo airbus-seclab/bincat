@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # version IDA 6.9
 # runs the "bincat" command from ida
 
@@ -18,7 +19,6 @@ except:
     idaapi.warning(
         "[BinCAT] Failed to load Qt libs from PyQt5 \n%s\n" %
         repr(sys.exc_info()))
-
 
 class bincat_plugin(idaapi.plugin_t):
     # variables required by IDA
@@ -377,6 +377,47 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         super(TaintLaunchForm_t, self).show()
 
 
+class BinCATConfigForm_t(QtWidgets.QDialog):
+
+    def __init__(self, parent):
+        super(BinCATConfigForm_t, self).__init__(parent)
+
+        layout = QtWidgets.QGridLayout()
+
+        lblDefaultBhv = QtWidgets.QLabel("Default behaviour")
+        # Save config in IDB
+        self.chkSave = QtWidgets.QCheckBox('&Save configuration to IDB',
+                                             self)
+        self.chkLoad = QtWidgets.QCheckBox('&Load configuration from IDB',
+                                             self)
+
+        self.btnStart = QtWidgets.QPushButton('&Save', self)
+        self.btnStart.clicked.connect(self.save_config)
+
+        self.btnCancel = QtWidgets.QPushButton('Cancel', self)
+        self.btnCancel.clicked.connect(self.close)
+
+        layout.addWidget(lblDefaultBhv, 0, 0)
+
+        layout.addWidget(self.chkSave, 1, 0)
+        layout.addWidget(self.chkLoad, 2, 0)
+        layout.addWidget(self.btnStart, 3, 0)
+        layout.addWidget(self.btnCancel, 3, 1)
+
+        self.setLayout(layout)
+
+        self.btnStart.setFocus()
+
+
+    def save_config(self):
+        return
+
+    def show(self):
+        self.setFixedSize(460, 200)
+        self.setWindowTitle("BinCAT configuration")
+        super(TaintLaunchForm_t, self).show()
+
+
 class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def rbRegistersHandler(self):
@@ -400,6 +441,11 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         PluginState.startAnalysis()
 
         self.close()
+
+    def bincat_config(self):
+        # display config window
+        bc_conf_form = BinCATConfigForm_t(self)
+        bc_conf_form.exec_()
 
     def edit_config(self):
         # display edit form
@@ -445,13 +491,16 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ipStopAddr.setText(stopAddr)
 
         # Start, cancel and analyzer config buttons
-        self.btnLoad = QtWidgets.QPushButton('&Load configuration file...',
+        self.btnLoad = QtWidgets.QPushButton('&Load analyzer config',
                                              self)
         self.btnLoad.clicked.connect(self.choose_file)
 
-        self.btnEditConf = QtWidgets.QPushButton('&Edit configuration...',
+        self.btnEditConf = QtWidgets.QPushButton('&Edit analyzer config',
                                                  self)
         self.btnEditConf.clicked.connect(self.edit_config)
+
+        self.btnBCConf = QtWidgets.QPushButton('Cfg', self)
+        self.btnBCConf.clicked.connect(self.bincat_config)
 
         self.btnStart = QtWidgets.QPushButton('&Start', self)
         self.btnStart.clicked.connect(self.launch_analysis)
@@ -460,6 +509,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btnCancel.clicked.connect(self.close)
 
         layout.addWidget(lblCstEditor, 0, 0)
+        layout.addWidget(self.btnBCConf, 0, 1, QtCore.Qt.AlignRight)
 
         layout.addWidget(lblStartAddr, 1, 0)
         layout.addWidget(self.ipStartAddr, 1, 1)
