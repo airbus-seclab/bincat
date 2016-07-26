@@ -338,7 +338,7 @@ module Make(Domain: Domain.T) =
       (************************************************)
       (* MOD REG R/M *)
       (************************************************)
-      (** [mod_nnn_rm v] decompose from v the triple (mod, nnn, rm) where mod are its bits 7-6, nn its bits 5,4,3 and rm its bits 2, 1, 0 *)
+      (** [mod_nnn_rm v] split from v into the triple (mod, nnn, rm) where mod are its bits 7-6, nnn its bits 5,4,3 and rm its bits 2, 1, 0 *)
       let mod_nnn_rm v =
 	let rm 	= v land 7	   in
 	let nnn = (v lsr 3) land 7 in
@@ -354,7 +354,6 @@ module Make(Domain: Domain.T) =
       let sib s reg md =
 	let c 		       = getchar s                                        in
 	let scale, index, base = mod_nnn_rm (Char.code c)                         in
-	if index = 4 then error s.a "Decoder: Illegal index value in sib (0x04)";
 	let index' 	       = find_reg index s.operand_sz                      in
 	let e 		       = BinOp (Shl, Lval (V index'), Const (Word.of_int (Z.of_int scale) 3))in
 	match base with
@@ -386,6 +385,7 @@ module Make(Domain: Domain.T) =
       let add_data_segment s e = add_segment s e s.segments.data
 	  
       let exp_of_md s md rm sz =
+	Log.debug (Printf.sprintf "exp_of_md: md = %d" md);
 	let rm' = find_reg rm sz in
 	match md with
 	    | 0 ->
@@ -404,7 +404,7 @@ module Make(Domain: Domain.T) =
 	       let e' = BinOp (Add, e, Const (Word.of_int n !Config.operand_sz)) in
 	       M (add_data_segment s e', sz)
 	     	 
-	    | 2 ->
+	    | 2 -> 
 	       let e =
 		 if rm = 4 then sib s rm' md
 		 else Lval (V rm')
@@ -418,6 +418,7 @@ module Make(Domain: Domain.T) =
 			     
       let operands_from_mod_reg_rm s v =
 	let c 		       = getchar s  						    in
+	Log.debug (Printf.sprintf "operands_from_mod_reg_rm in %x" (Char.code c));
 	let md, reg, rm        = mod_nnn_rm (Char.code c)				    in
 	let direction 	       = (v lsr 1) land 1   					    in
 	let sz                 = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in

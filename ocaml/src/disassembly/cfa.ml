@@ -231,7 +231,7 @@ module Make(Domain: Domain.T) =
 	(* state printing (detailed) *)
 	let print_ip s =
 	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
-	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%x" (Char.code c))) "" s.bytes in
+	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%2x" (Char.code c))) "" s.bytes in
 	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal = %s\n%s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final) abstract_values;
 	  if !Config.verbose then
 	    begin
