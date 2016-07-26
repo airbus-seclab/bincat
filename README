@@ -67,8 +67,9 @@ ranlib -c /path/to/the/lib/libsasmrun.a
   installation folder's plugin/ directory, or in your ~/.idapro/plugins
   directory
 
-* Make the pybincat package available in your idapython distribution. To do so,
-  you may copy or create a symlink to the python/pybincat/ folder in your IDA
+* Make the pybincat & idabincat packages available in your idapython
+  distribution. To do so, you may copy or create a symlink to the
+  python/pybincat/ and python/idabindat folders in your IDA
   installation folder's plugin/ directory, or in your ~/.idapro/plugins
   directory.
 
