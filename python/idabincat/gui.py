@@ -350,12 +350,20 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     def rowcmp(row):
         """
         Used as key function to sort rows.
-        Memory first, then registers.
+        order: gp registers, zf, memory, other flags, segment registers
         """
         if row.region == 'reg':
-            return (1, row)
+            if row.value in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi",
+                             "edi"]:
+                return (0, row)
+            elif row.value == 'zf':
+                return (1, row)
+            elif row.value in ["cs", "ds", "ss", "es", "fs", "gs"]:
+                return (4, row)
+            else:
+                return (3, row)
         else:
-            return (0, row)
+            return (2, row)
 
     def endResetModel(self):
         """
