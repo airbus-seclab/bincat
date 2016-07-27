@@ -18,6 +18,7 @@ except:
         repr(sys.exc_info()))
 
 # Logging
+logging.basicConfig(level=logging.DEBUG)
 bc_log = logging.getLogger('bincat')
 bc_log.setLevel(logging.DEBUG)
 
