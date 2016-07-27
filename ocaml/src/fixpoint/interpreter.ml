@@ -240,7 +240,7 @@ struct
 			else 
 			    widen g v
       ) l;
-    List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then begin Cfa.remove_state g v; l' end else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
+    List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then begin Log.from_analysis (Printf.sprintf "unreachable state at address %s" (Data.Address.to_string ip)); Cfa.remove_state g v; l' end else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
     with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
 
     
