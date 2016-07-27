@@ -43,11 +43,11 @@ def parse_val(s):
 def val2str(val, vtop, vbot, length):
     try:
         if length == 0:
-            fstring = '0x{0:X}'
+            fstring = '{0:X}'
         else:
             if length % 4 == 0:
                 length = length / 4 + 2
-                fstring = ('0x{0:0>%dX}' % length)
+                fstring = ('{0:0>%dX}' % length)
             else:
                 fstring = ('0b{0:0>%db}' % length)
         s = fstring.format(val)
