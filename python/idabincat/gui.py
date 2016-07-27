@@ -30,8 +30,8 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.btn_cancel.clicked.connect(self.close)
 
         layout.addWidget(self.configtxt, 1, 0, 1, 0)
-        layout.addWidget(self.btnStart, 2, 0)
-        layout.addWidget(self.btnCancel, 2, 1)
+        layout.addWidget(self.btn_start, 2, 0)
+        layout.addWidget(self.btn_cancel, 2, 1)
         self.setLayout(layout)
 
     def set_addresses(self, start_addr, stop_addr):
@@ -43,7 +43,7 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
     def set_config(self, config_txt):
         self.configtxt.appendPlainText(config_txt)
 
-    def btnLaunchAnalyzer(self):
+    def btn_launch_analyzer(self):
         self.s.start_analysis(self.configtxt.toPlainText())
         self.close()
 
@@ -82,7 +82,7 @@ class BinCATConfigForm_t(QtWidgets.QDialog):
 
         self.setLayout(layout)
 
-        self.btnStart.setFocus()
+        self.btn_start.setFocus()
 
     def save_config(self):
         return
@@ -177,14 +177,14 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def bincat_config(self):
         # display config window
-        bc_conf_form = BinCATConfigForm_t(self)
+        bc_conf_form = BinCATConfigForm_t(self, self.s)
         bc_conf_form.exec_()
 
     def edit_config(self):
         # display edit form
         start_addr = int(self.ip_start_addr.text(), 16)
         stop_addr = int(self.ip_stop_addr.text(), 16)
-        editdlg = EditConfigurationFileForm_t(self)
+        editdlg = EditConfigurationFileForm_t(self, self.s)
         editdlg.set_addresses(start_addr, stop_addr)
         editdlg.exec_()
 
@@ -197,7 +197,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             "Configuration files (*.ini)", options=options)
         if not filename or not os.path.exists(filename):
             return
-        editdlg = EditConfigurationFileForm_t(self)
+        editdlg = EditConfigurationFileForm_t(self, self.s)
         editdlg.set_config(open(filename, 'r').read())
         editdlg.exec_()
         self.close()
