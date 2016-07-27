@@ -207,8 +207,8 @@ let string_of_stmt s extended =
     | Set (dst, src)     	      -> Printf.sprintf "%s%s <- %s;" ind (string_of_lval dst extended) (string_of_exp src extended)
     | Jmp target 	              -> Printf.sprintf "%sjmp %s;"  ind (string_of_jmp_target target extended)
     | If (cond, if_stmts, else_stmts) ->
-       let ind' = ind ^ "\t" in
-       Printf.sprintf "%sif (%s)%s%selse  %s" ind (string_of_bexp cond extended) (concat to_string ind' if_stmts) ind (concat to_string ind' else_stmts)
+       let ind' = ind ^ "____" in
+       Printf.sprintf "%sif (%s)\n %s\n %selse\n %s" ind (string_of_bexp cond extended) (concat to_string ind' if_stmts) ind (concat to_string ind' else_stmts)
     | Call _ 	       		     -> Printf.sprintf "%scall" ind
     | Return  	       		     -> Printf.sprintf "%sret" ind
     | Nop 	       		     -> Printf.sprintf "%snop" ind
