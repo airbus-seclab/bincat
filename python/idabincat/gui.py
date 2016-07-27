@@ -343,8 +343,10 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         #: list of Value (addresses)
         self.rows = []
         self.changed_rows = set()
-        self.diff_font = QtGui.QFont()
-        self.diff_font.setBold(True)
+        self.default_font = QtGui.QFont("AnyStyle")
+        self.mono_font = QtGui.QFont("Monospace")
+        self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
+        self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
 
     @staticmethod
     def rowcmp(row):
@@ -402,9 +404,15 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             return QtCore.QSize(self.colswidths[col], 20)
         elif role == QtCore.Qt.FontRole:
             if index.row() in self.changed_rows:
-                return self.diff_font
+                if col in [1, 3, 4]:
+                    return self.diff_font_mono
+                else:
+                    return self.diff_font
             else:
-                return
+                if col in [1, 3, 4]:
+                    return self.mono_font
+                else:
+                    return self.default_font
         elif role != QtCore.Qt.DisplayRole:
             return
         regaddr = self.rows[index.row()]
