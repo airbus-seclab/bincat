@@ -1,7 +1,6 @@
 import StringIO
 import ConfigParser
 import idaapi
-import idautils
 import logging
 
 # Logging
@@ -25,31 +24,31 @@ class AnalyzerConfig(object):
 
     @property
     def code_va(self):
-        va, _ = self.getCodeSection(self.analysis_ep)
+        va, _ = self.get_code_section(self.analysis_ep)
         return va
 
     @property
     def code_length(self):
-        va, end = self.getCodeSection(self.analysis_ep)
+        va, end = self.get_code_section(self.analysis_ep)
         return end-va
 
     def __str__(self):
         sio = StringIO.StringIO()
-        self.getConfigParser().write(sio)
+        self.get_config_parser().write(sio)
         sio.seek(0)
         return sio.read()
 
-    def setStartStopAddr(self, start, stop):
+    def set_start_stop_addr(self, start, stop):
         self.analysis_ep = start
         self.analysis_end = stop
 
-    def getFileType(self):
+    def get_file_type(self):
         ida_db_info_structure = idaapi.get_inf_structure()
         f_type = ida_db_info_structure.filetype
         return self.ftypes[f_type]
 
     @staticmethod
-    def getMemoryModel():
+    def get_memory_model():
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
         # XXX check correctness, should be == CONSTANT ?
@@ -69,7 +68,7 @@ class AnalyzerConfig(object):
             return "flat"
 
     @staticmethod
-    def getCallConvention():
+    def get_call_convention():
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
         return {
@@ -86,12 +85,12 @@ class AnalyzerConfig(object):
         }[compiler_info.cm & idaapi.CM_CC_MASK]
 
     @staticmethod
-    def getBitness(ea):
+    def get_bitness(ea):
         bitness = idaapi.getseg(ea).bitness
         return {0: 16, 1: 32, 2: 64}[bitness]
 
     @staticmethod
-    def getStackWidth():
+    def get_stack_width():
         ida_db_info_structure = idaapi.get_inf_structure()
         if ida_db_info_structure.is_64bit():
             return 8*8
@@ -102,7 +101,7 @@ class AnalyzerConfig(object):
                 return 2*8
 
     @staticmethod
-    def getCodeSection(entrypoint):
+    def get_code_section(entrypoint):
         # in case we have more than one code section we apply the following:
         # heuristic entry point must be in the code section
         for n in xrange(idaapi.get_segm_qty()):
@@ -110,23 +109,21 @@ class AnalyzerConfig(object):
             if (seg.type == idaapi.SEG_CODE and
                     seg.startEA <= entrypoint <= seg.endEA):
                 return seg.startEA, seg.endEA
-        else:
-            bc_log.error("No code section has been found for entrypoint %#08x",
-                         entrypoint)
-            return -1, -1
+        bc_log.error("No code section has been found for entrypoint %#08x",
+                     entrypoint)
+        return -1, -1
 
     # XXX check if we need to return RODATA ?
     @staticmethod
-    def getDataSection():
+    def get_data_section():
         for n in xrange(idaapi.get_segm_qty()):
             seg = idaapi.getnseg(n)
             if seg.type == idaapi.SEG_DATA:
                 return seg.startEA, seg.endEA
-        else:
-            bc_log.warning("no Data section has been found")
-            return -1, -1
+        bc_log.warning("no Data section has been found")
+        return -1, -1
 
-    def getConfigParser(self):
+    def get_config_parser(self):
         """
         Returns a new ConfigParser instance
         """
@@ -136,13 +133,13 @@ class AnalyzerConfig(object):
 
         # [settings] section
         config.add_section('settings')
-        config.set('settings', 'mem_model', self.getMemoryModel())
+        config.set('settings', 'mem_model', self.get_memory_model())
         # TODO get cpu mode from idaapi ?
         config.set('settings', 'mode', 'protected')
-        config.set('settings', 'call_conv', self.getCallConvention())
+        config.set('settings', 'call_conv', self.get_call_convention())
         config.set('settings', 'mem_sz', 32)
-        config.set('settings', 'op_sz', self.getBitness(self.code_va))
-        config.set('settings', 'stack_width', self.getStackWidth())
+        config.set('settings', 'op_sz', self.get_bitness(self.code_va))
+        config.set('settings', 'stack_width', self.get_stack_width())
 
         # [loader section]
         config.add_section('loader')
@@ -169,7 +166,7 @@ class AnalyzerConfig(object):
         config.add_section('binary')
         # config.set('binary', 'filename', GetInputFile())
         config.set('binary', 'filepath', idaapi.get_input_file_path())
-        config.set('binary', 'format', self.getFileType())
+        config.set('binary', 'format', self.get_file_type())
 
         # [import] section
         config.add_section('imports')
@@ -237,4 +234,4 @@ class AnalyzerConfig(object):
 
     def write(self, filepath):
         with open(filepath, 'w') as configfile:
-            self.getConfigParser().write(configfile)
+            self.get_config_parser().write(configfile)
