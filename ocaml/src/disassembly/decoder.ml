@@ -383,38 +383,40 @@ module Make(Domain: Domain.T) =
 	BinOp(Add, e, Const (Word.of_int ds_val s.operand_sz))
 	     
       let add_data_segment s e = add_segment s e s.segments.data
-	  
-      let exp_of_md s md rm sz =
-	let rm' = find_reg rm sz in
+
+      let md_from_mem s md rm sz =
+	let rm' = find_reg rm s.addr_sz in
 	match md with
-	    | 0 ->
+	  | 0 ->
 	       begin
 		 match rm with
-		 | 4 -> M (add_data_segment s (sib s rm' md), sz)
+		 | 4 -> sib s rm' md
 		 | 5 -> raise Disp32
-		 | _ -> M (add_data_segment s (Lval (V rm')), sz)
+		 | _ -> Lval (V rm')
 	       end						    
 	    | 1 ->
 	       let e =
 		 if rm = 4 then sib s rm' md
 		 else Lval (V rm')
 	       in
-	       let n = sign_extension_of_byte (int_of_bytes s 1) (!Config.operand_sz / Config.size_of_byte) in
-	       let e' = BinOp (Add, e, Const (Word.of_int n !Config.operand_sz)) in
-	       M (add_data_segment s e', sz)
+	       let n = sign_extension_of_byte (int_of_bytes s 1) (sz / Config.size_of_byte) in
+	       BinOp (Add, e, Const (Word.of_int n sz))
 	     	 
 	    | 2 -> 
 	       let e =
 		 if rm = 4 then sib s rm' md
 		 else Lval (V rm')
 	       in
-	       let e' = BinOp (Add, e, disp s 32) in
-	       M (add_data_segment s e', sz)
+	       BinOp (Add, e, disp s 32)
+	    | _ -> Log.error "Decoder: illegal value in md_from_mem"
+
 		 
-	    | 3 -> V rm'
-		     
-	    | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
-			     
+      let exp_of_md s md rm sz =
+	match md with
+	| n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)						 
+	| 3 -> V (find_reg rm s.addr_sz)
+	| _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
+
       let operands_from_mod_reg_rm s v =
 	let c 		       = getchar s  						    in
 	let md, reg, rm        = mod_nnn_rm (Char.code c)				    in
@@ -430,10 +432,24 @@ module Make(Domain: Domain.T) =
 	with
 	| Disp32 -> 
 	   if direction = 0 then
-	     V (find_reg rm sz), add_data_segment s (disp s 32)
+	     V (find_reg rm s.addr_sz), add_data_segment s (disp s 32)
 	   else
 	     error s.a "Decoder: illegal direction for displacement only addressing mode"
-		      
+
+      let lea s =
+	let c = getchar s in
+	let md, reg, rm = mod_nnn_rm (Char.code c) in
+	if md = 3 then
+	  Log.error "Illegal mod field in LEA"
+	else
+	  let reg' = find_reg reg s.addr_sz in
+	  let src =
+	    try
+	      md_from_mem s md rm s.addr_sz
+	    with Disp32 -> disp s 32
+	  in
+	  return s [ Set(V reg', src) ]
+			
       (*******************************************************************************************************)
       (* statements to set/clear the flags *)
       (*******************************************************************************************************)
@@ -1257,7 +1273,7 @@ module Make(Domain: Domain.T) =
       let set_flag f sz = [ Set (V (T f), Const (Word.one sz)) ]
       let clear_flag f sz = [ Set (V (T f), Const (Word.zero sz)) ]
 
-	  (** decoding of one instruction *)
+      (** decoding of one instruction *)
       let decode s =
 	let to_size s v =
 	  if v land 1 = 1 then s.operand_sz
@@ -1347,7 +1363,7 @@ module Make(Domain: Domain.T) =
 	  | '\x87' -> (* XCHG word or double-word registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm s.operand_sz) (find_reg reg s.operand_sz) s.operand_sz
 	  | c when '\x88' <= c && c <= '\x8b' -> (* MOV *) let dst, src = operands_from_mod_reg_rm s (Char.code c) in return s [ Set (dst, src) ]
 	  | '\x8c' -> (* MOV with segment as src *) let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V (find_reg rm 16) in let src = V (T (to_segment_reg s.a reg)) in return s [ Set (dst, Lval src) ]
-
+	  | '\x8d' -> (* LEA *) lea s
 	  | '\x8e' -> (* MOV with segment as dst *) let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V ( T (to_segment_reg s.a reg)) in let src = V (find_reg rm 16) in return s [ Set (dst, Lval src) ]
 	  | '\x8f' -> (* POP of word or double word *) let dst, _src = operands_from_mod_reg_rm s (Char.code (getchar s)) in pop s [dst]
 																				
