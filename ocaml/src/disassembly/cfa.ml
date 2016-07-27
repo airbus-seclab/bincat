@@ -236,7 +236,7 @@ module Make(Domain: Domain.T) =
 	  if !Config.verbose then
 	    begin
 	      Printf.fprintf f "statements =";
-	      List.iter (fun stmt -> Printf.fprintf f " %s\n" (Asm.string_of_stmt stmt)) s.stmts;
+	      List.iter (fun stmt -> Printf.fprintf f " %s\n" (Asm.string_of_stmt stmt false)) s.stmts;
 	    end;
 	  Printf.fprintf f "\n";
 	in

@@ -145,7 +145,6 @@ struct
 		       
 		       
 	   | Call (A a) ->
-	      Printf.printf "Call %s\n" (Data.Address.to_string a); flush stdout;
 	      let f =
 		try
 		  Some (Hashtbl.find Config.imports (Data.Address.to_int a))

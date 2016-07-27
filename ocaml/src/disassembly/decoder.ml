@@ -385,7 +385,6 @@ module Make(Domain: Domain.T) =
       let add_data_segment s e = add_segment s e s.segments.data
 	  
       let exp_of_md s md rm sz =
-	Log.debug (Printf.sprintf "exp_of_md: md = %d" md);
 	let rm' = find_reg rm sz in
 	match md with
 	    | 0 ->
@@ -418,7 +417,6 @@ module Make(Domain: Domain.T) =
 			     
       let operands_from_mod_reg_rm s v =
 	let c 		       = getchar s  						    in
-	Log.debug (Printf.sprintf "operands_from_mod_reg_rm in %x" (Char.code c));
 	let md, reg, rm        = mod_nnn_rm (Char.code c)				    in
 	let direction 	       = (v lsr 1) land 1   					    in
 	let sz                 = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in
@@ -798,20 +796,25 @@ module Make(Domain: Domain.T) =
 	 let set_esp op esp' n =
 	   Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )
 
-	 (** call with target as an offset from the current ip *)
-	 let relative_call s i =
-	   let a    = relative s i s.operand_sz                   in
+
+	 let call s t =
 	   let cesp = M (Lval (V (T esp)), !Config.stack_width)   in
-	   let ip   = Const (Data.Address.to_word a s.operand_sz) in
+	   let ip' = Data.Address.add_offset s.a (Z.of_int s.o) in
+	   let ip   = Const (Data.Address.to_word ip' s.operand_sz) in
 	   let stmts =
 	     [
-	       Set (cesp, ip);
 	       set_esp Sub (T esp) !Config.stack_width;
-	       Call (A a)
+	       Set (cesp, ip);
+	       Call t
 	     ]
 	   in
 	   return s stmts
-	   
+
+	 (** call with target as an offset from the current ip *)
+	 let relative_call s i =
+	   let a = relative s i s.operand_sz in
+	   call s (A a)
+		
 	 (** statements of jump with absolute address as target *)
 	 let direct_jmp s =
 	   let sz = Register.size cs            in
@@ -1053,7 +1056,7 @@ module Make(Domain: Domain.T) =
 	match nnn with
 	| 0 -> inc_dec dst Add s s.operand_sz
 	| 1 -> inc_dec dst Sub s s.operand_sz
-	| 2 -> return s [ Call (R (Lval dst)) ]
+	| 2 -> call s (R (Lval dst))
 
 	| 4 -> return s [ Jmp (R (Lval dst)) ]
 
@@ -1355,7 +1358,7 @@ module Make(Domain: Domain.T) =
 	     let off = int_of_bytes s (s.operand_sz / Config.size_of_byte) in
 	     let cs' = get_base_address s (Hashtbl.find s.segments.reg cs) in
 	     let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
-	     return s [ Call (A a) ]
+	     call s (A a)
 	  | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
 	  | '\xa0' -> (* PUSHF *) mov_with_eax s Config.size_of_byte true
 	  | '\xa1' -> (* POPF *) mov_with_eax s s.operand_sz true

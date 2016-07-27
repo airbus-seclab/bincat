@@ -227,7 +227,7 @@ module Make(D: T) =
 	     with
 	     | Exceptions.Enum_failure               -> D.top
 	     | Not_found | Exceptions.Concretization ->
-			    Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]: analysis stops in that context" (Asm.string_of_exp e));
+			    Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]: analysis stops in that context" (Asm.string_of_exp e true));
 			    raise Exceptions.Bot_deref
 	   end
 	     

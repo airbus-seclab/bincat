@@ -126,9 +126,13 @@ let string_of_logbinop o =
   | LogAnd -> "&&"
   | LogOr  -> "||"
 		 		
-let string_of_unop op =
+let string_of_unop op extended =
   match op with
-  | SignExt i -> Printf.sprintf "SignExtension (%d)" i
+  | SignExt i ->
+     if extended then
+       Printf.sprintf "SignExtension (%d)" i
+     else
+       ""
   | ZeroExt i -> Printf.sprintf "ZeroExtension (%d)" i
   | Not       -> "not"
 
@@ -163,36 +167,36 @@ let string_of_reg r =
 				   
 				   
 				   
-let rec string_of_lval lv =
+let rec string_of_lval lv extended =
   match lv with
   | V r       -> string_of_reg r
-  | M (e, i)  -> Printf.sprintf "M(%s)[:%d]" (string_of_exp e) i
+  | M (e, i)  -> Printf.sprintf "M(%s)[:%d]" (string_of_exp e extended) i
      
-and string_of_exp e =
+and string_of_exp e extended =
   match e with
   | Const c 	       -> Word.to_string c
-  | Lval lv 	       -> string_of_lval lv
-  | BinOp (op, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_exp e1) (string_of_binop op) (string_of_exp e2)
-  | UnOp (op, e')      -> Printf.sprintf "%s %s" (string_of_unop op) (string_of_exp e')
+  | Lval lv 	       -> string_of_lval lv extended
+  | BinOp (op, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_exp e1 extended) (string_of_binop op) (string_of_exp e2 extended)
+  | UnOp (op, e')      -> Printf.sprintf "%s %s" (string_of_unop op extended) (string_of_exp e' extended)
 
-let rec string_of_bexp e =
+let rec string_of_bexp e extended =
   match e with
-  | BUnOp (o, e')      -> Printf.sprintf "%s %s" (string_of_bunop o) (string_of_bexp e')
-  | BBinOp (o, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_bexp e1) (string_of_logbinop o) (string_of_bexp e2)
-  | Cmp (c, e1, e2)    -> Printf.sprintf "(%s %s %s)" (string_of_exp e1) (string_of_cmp c) (string_of_exp e2)
+  | BUnOp (o, e')      -> Printf.sprintf "%s %s" (string_of_bunop o) (string_of_bexp e' extended)
+  | BBinOp (o, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_bexp e1 extended) (string_of_logbinop o) (string_of_bexp e2 extended)
+  | Cmp (c, e1, e2)    -> Printf.sprintf "%s %s %s" (string_of_exp e1 extended) (string_of_cmp c) (string_of_exp e2 extended)
   | BConst b 	       -> string_of_bool b
 
-let string_of_jmp_target t =
+let string_of_jmp_target t extended =
   match t with
   | A a -> Address.to_string a
-  | R e -> Printf.sprintf "%s" (string_of_exp e)
+  | R e -> Printf.sprintf "%s" (string_of_exp e extended)
 
 let string_of_directive d =
   match d with
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
   | Forget r -> Printf.sprintf "forget %s" (Register.name r)
 			       
-let string_of_stmt s =
+let string_of_stmt s extended =
   (* internal function used to factorize code in the printing of If-stmt *)
   let concat to_string ind l =
     List.fold_left (fun acc s -> Printf.sprintf "%s%s" acc (to_string ind s)) "" l
@@ -200,11 +204,11 @@ let string_of_stmt s =
   (* ind is a string of spaces to be added to the beginning of a line *)
   let rec to_string ind s =
     match s with
-    | Set (dst, src)     	      -> Printf.sprintf "%s%s <- %s;" ind (string_of_lval dst) (string_of_exp src)
-    | Jmp target 	              -> Printf.sprintf "%sjmp %s;"  ind (string_of_jmp_target target)
+    | Set (dst, src)     	      -> Printf.sprintf "%s%s <- %s;" ind (string_of_lval dst extended) (string_of_exp src extended)
+    | Jmp target 	              -> Printf.sprintf "%sjmp %s;"  ind (string_of_jmp_target target extended)
     | If (cond, if_stmts, else_stmts) ->
        let ind' = ind ^ "\t" in
-       Printf.sprintf "%sif (%s)\n  %s%s else\n  %s" ind (string_of_bexp cond) (concat to_string ind' if_stmts) ind (concat to_string ind' else_stmts)
+       Printf.sprintf "%sif (%s)%s%selse  %s" ind (string_of_bexp cond extended) (concat to_string ind' if_stmts) ind (concat to_string ind' else_stmts)
     | Call _ 	       		     -> Printf.sprintf "%scall" ind
     | Return  	       		     -> Printf.sprintf "%sret" ind
     | Nop 	       		     -> Printf.sprintf "%snop" ind
