@@ -442,7 +442,7 @@ module Make(Domain: Domain.T) =
 	if md = 3 then
 	  Log.error "Illegal mod field in LEA"
 	else
-	  let reg' = find_reg reg sz in
+	  let reg' = find_reg reg s.operand_sz in
 	  let src =
 	    try
 	      md_from_mem s md rm s.addr_sz
