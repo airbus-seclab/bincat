@@ -432,7 +432,7 @@ module Make(Domain: Domain.T) =
 	with
 	| Disp32 -> 
 	   if direction = 0 then
-	     V (find_reg rm s.addr_sz), add_data_segment s (disp s 32)
+	     V (find_reg rm sz), add_data_segment s (disp s 32)
 	   else
 	     error s.a "Decoder: illegal direction for displacement only addressing mode"
 
@@ -442,13 +442,18 @@ module Make(Domain: Domain.T) =
 	if md = 3 then
 	  Log.error "Illegal mod field in LEA"
 	else
-	  let reg' = find_reg reg s.addr_sz in
+	  let reg' = find_reg reg sz in
 	  let src =
 	    try
 	      md_from_mem s md rm s.addr_sz
 	    with Disp32 -> disp s 32
 	  in
-	  return s [ Set(V reg', src) ]
+	  let src'=
+	    if s.addr_sz < s.operand_sz then
+	      UnOp(ZeroExt s.addr_sz, src)
+	    else src
+	  in
+	  return s [ Set(V reg', src') ]
 			
       (*******************************************************************************************************)
       (* statements to set/clear the flags *)
