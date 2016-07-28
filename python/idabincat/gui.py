@@ -244,7 +244,7 @@ class BinCATDebugForm_t(idaapi.PluginForm):
 
     def update(self, state):
         if state:
-            self.stmt_data.setText(state.statements)
+            self.stmt_data.setText(state.statements.replace('____', '    '))
             self.bytes_data.setText(state.bytes)
         else:
             self.stmt_data.setText("")

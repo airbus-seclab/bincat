@@ -148,6 +148,9 @@ class State(object):
         node0 = cfa['0']
         startaddr_ea = node0.address.value
         self.set_current_ea(startaddr_ea, force=True)
+        for v in cfa.states:
+            ea = v.value
+            idaapi.set_item_color(ea, 0xCCCCCC)
 
     def set_current_ea(self, ea, force=False):
         """
