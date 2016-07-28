@@ -350,22 +350,40 @@ module Make(Domain: Domain.T) =
 	let n = int_of_bytes s (nb/Config.size_of_byte) in
 	Const (Word.of_int n nb)
 
+      exception Disp32
+
+		  
       (** returns the expression associated to a sib *)
       let sib s md =
 	let c 		       = getchar s                in
 	let scale, index, base = mod_nnn_rm (Char.code c) in
-	let index' 	       = find_reg index s.addr_sz in
-	let lv 		       = Lval (V index')          in
-	let e 		       =
-	  if scale = 0 then
-	    lv
+	let base' =
+	  let lv = Lval (V (find_reg base s.addr_sz)) in
+	  if base = 5 then
+	    if md = 0 then Const (Word.of_int (int_of_bytes s 1) s.addr_sz)
+	    else
+	      let d =
+		let n = if md = 1 then 1 else 4 in
+		Const (Word.of_int (int_of_bytes s n) s.addr_sz)
+	      in
+	      BinOp (Add, lv, d)
 	  else
-	    BinOp (Shr, lv, Const (Word.of_int (Z.of_int scale) s.addr_sz)) in
-	match base with
-	| 5 when md = 0 -> e
-	| _ 	        -> BinOp (Add, e, Lval (V (find_reg base s.addr_sz)))
+	    lv
+	in
+	let index' = find_reg index s.addr_sz in
+	let lv = Lval (V index') in
+	if index = 4 then
+	  base'
+	else
+	  let scaled_index =
+	    if scale = 0 then
+	      lv
+	    else
+	      BinOp (Shl, lv, Const (Word.of_int (Z.of_int scale) s.addr_sz))
+	  in
+	  BinOp (Add, base', scaled_index)
 
-      exception Disp32
+	
 		  
       let get_base_address s c =
 	if !Config.mode = Config.Protected then
@@ -394,6 +412,7 @@ module Make(Domain: Domain.T) =
 
       let md_from_mem s md rm sz =
 	let rm' = find_reg rm s.addr_sz in
+	Log.debug (Printf.sprintf "md = %d rm = %d" md rm);
 	match md with
 	  | 0 ->
 	       begin
@@ -402,21 +421,22 @@ module Make(Domain: Domain.T) =
 		 | 5 -> raise Disp32
 		 | _ -> Lval (V rm')
 	       end						    
-	    | 1 ->
-	       let e =
-		 if rm = 4 then sib s md
-		 else Lval (V rm')
-	       in
-	       let n = sign_extension_of_byte (int_of_bytes s 1) (sz / Config.size_of_byte) in
-	       BinOp (Add, e, Const (Word.of_int n sz))
-	     	 
-	    | 2 -> 
-	       let e =
-		 if rm = 4 then sib s md
-		 else Lval (V rm')
-	       in
-	       BinOp (Add, e, disp s 32)
-	    | _ -> Log.error "Decoder: illegal value in md_from_mem"
+	  | 1 ->
+	     let e =
+	       if rm = 4 then sib s md
+	       else Lval (V rm')
+	     in
+	     let n = sign_extension_of_byte (int_of_bytes s 1) (sz / Config.size_of_byte) in
+	     let n' = Const (Word.of_int n sz) in
+	     BinOp (Add, e, n')
+	     
+	  | 2 -> 
+	     let e =
+	       if rm = 4 then sib s md
+	       else Lval (V rm')
+	     in
+	     BinOp (Add, e, disp s 32)
+	  | _ -> Log.error "Decoder: illegal value in md_from_mem"
 
 		 
       let exp_of_md s md rm sz =
