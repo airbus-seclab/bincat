@@ -806,9 +806,10 @@ module Make(Domain: Domain.T) =
 	(** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
 	let return_jcc_stmts s e n =
 	  let o  = sign_extension_of_byte (int_of_bytes s 1) (n-1) in
-	  let a' = Address.add_offset s.a o			   in
+	  let ip = Address.add_offset s.a (Z.of_int s.o) in
+	  let a' = Address.add_offset ip o			   in
 	  check_jmp s a';
-	  let na = Address.add_offset s.a Z.one			   in
+	  let na = Address.add_offset ip Z.one	   in
 	  check_jmp s na;
 	  return s [ If (e, [Jmp (A a')], [ Jmp (A na) ] ) ]
 
