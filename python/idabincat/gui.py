@@ -23,7 +23,7 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.configtxt.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                                      QtWidgets.QSizePolicy.Expanding)
 
-        self.btn_start = QtWidgets.QPushButton('&Start', self)
+        self.btn_start = QtWidgets.QPushButton('&Save', self)
         self.btn_start.clicked.connect(self.btn_launch_analyzer)
 
         self.btn_cancel = QtWidgets.QPushButton('Cancel', self)
@@ -44,7 +44,7 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.configtxt.appendPlainText(config_txt)
 
     def btn_launch_analyzer(self):
-        self.s.start_analysis(self.configtxt.toPlainText())
+        self.s.current_config.read_string(self.configtxt.toPlainText())
         self.close()
 
     def show(self):
@@ -101,6 +101,9 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout = QtWidgets.QGridLayout()
         lbl_cst_editor = QtWidgets.QLabel("BinCAT analysis parameters")
         self.s.current_ea = idaapi.get_screen_ea()
+
+        # Load config for address if it exists
+        self.s.current_config.for_address(self.s.current_ea)
 
         # Start address
         lbl_start_addr = QtWidgets.QLabel(" Start address: ")
@@ -200,7 +203,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         editdlg = EditConfigurationFileForm_t(self, self.s)
         editdlg.set_config(open(filename, 'r').read())
         editdlg.exec_()
-        self.close()
 
     def show(self):
         self.setFixedSize(460, 200)

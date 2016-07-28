@@ -2,6 +2,7 @@ import StringIO
 import ConfigParser
 import idaapi
 import logging
+import idabincat.netnode
 
 # Logging
 bc_log = logging.getLogger('bincat-cfg')
@@ -21,6 +22,8 @@ class AnalyzerConfig(object):
         self.analysis_ep = None
         #: int
         self.analysis_end = None
+        self.netnode = idabincat.netnode.Netnode()
+        self.config = None
 
     @property
     def code_va(self):
@@ -34,9 +37,14 @@ class AnalyzerConfig(object):
 
     def __str__(self):
         sio = StringIO.StringIO()
-        self.get_config_parser().write(sio)
+        self.config.write(sio)
         sio.seek(0)
         return sio.read()
+
+    def read_string(self, string):
+        sio = StringIO.StringIO(string)
+        self.config.readfp(sio)
+        return self
 
     def set_start_stop_addr(self, start, stop):
         self.analysis_ep = start
@@ -123,13 +131,15 @@ class AnalyzerConfig(object):
         bc_log.warning("no Data section has been found")
         return -1, -1
 
-    def get_config_parser(self):
+    def get_default_config(self, ea):
         """
         Returns a new ConfigParser instance
         """
         # this function will use the default parameters
         config = ConfigParser.RawConfigParser()
         config.optionxform = str
+
+        self.analysis_ep = ea
 
         # [settings] section
         config.add_section('settings')
@@ -234,4 +244,23 @@ class AnalyzerConfig(object):
 
     def write(self, filepath):
         with open(filepath, 'w') as configfile:
-            self.get_config_parser().write(configfile)
+            self.config.write(configfile)
+
+    def save_to_idb(self, address):
+        self.netnode[address] = str(self)
+
+    def load_from_idb(self, address):
+        if address in self.netnode:
+            return self.netnode[address]
+        else:
+            return None
+
+    def save_as_default(self):
+        self.netnode["default"] = str(self)
+
+    def for_address(self, address):
+        c = self.load_from_idb(address)
+        if c:
+            self.read_string(c)
+        else:
+            self.config = self.get_default_config(address)
