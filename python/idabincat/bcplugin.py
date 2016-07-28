@@ -36,6 +36,7 @@ class BincatPlugin(idaapi.plugin_t):
 
     # IDA API methods: init, run, term
     def init(self):
+        # TODO restore state and GUI if stored
         try:
             from pybincat import cfa as cfa_module
             global cfa_module
@@ -55,6 +56,7 @@ class BincatPlugin(idaapi.plugin_t):
         bc_log.info("IDABinCAT ready.")
 
     def term(self):
+        # TODO save plugin state in DB
         if self.state:
             self.state.gui.term()
 
