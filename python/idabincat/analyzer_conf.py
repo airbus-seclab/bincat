@@ -1,3 +1,5 @@
+# Fuck Python.
+from __future__ import absolute_import
 import StringIO
 import ConfigParser
 import idaapi
