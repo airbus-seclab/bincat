@@ -170,7 +170,7 @@ let string_of_reg r =
 let rec string_of_lval lv extended =
   match lv with
   | V r       -> string_of_reg r
-  | M (e, i)  -> Printf.sprintf "(%d)[%s]" (string_of_exp e extended) i
+  | M (e, i)  -> Printf.sprintf "(%d)[%s]" i (string_of_exp e extended)
      
 and string_of_exp e extended =
   match e with
