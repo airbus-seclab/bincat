@@ -58,6 +58,7 @@ class BincatPlugin(idaapi.plugin_t):
     def term(self):
         # TODO save plugin state in DB
         if self.state:
+            self.state.clear_background()
             self.state.gui.term()
 
 
@@ -151,13 +152,18 @@ class State(object):
         self.hooks = None
         self.gui = GUI(self)
 
-    def analysis_finish_cb(self, cfa):
-        # reset background color for previous analysis
+    def clear_background(self):
+        """
+        reset background color for previous analysis
+        """
         if self.cfa:
             color = idaapi.calc_bg_color(idaapi.NIF_BG_COLOR)
             for v in self.cfa.states:
                 ea = v.value
                 idaapi.set_item_color(ea, color)
+
+    def analysis_finish_cb(self, cfa):
+        self.clear_background()
         self.cfa = cfa
         # Update current RVA to start address (nodeid = 0)
         node0 = cfa['0']
