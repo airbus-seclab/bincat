@@ -809,9 +809,8 @@ module Make(Domain: Domain.T) =
 	  let ip = Address.add_offset s.a (Z.of_int s.o) in
 	  let a' = Address.add_offset ip o			   in
 	  check_jmp s a';
-	  let na = Address.add_offset ip Z.one	   in
-	  check_jmp s na;
-	  return s [ If (e, [Jmp (A a')], [ Jmp (A na) ] ) ]
+	  check_jmp s ip;
+	  return s [ If (e, [Jmp (A a')], [ Jmp (A ip) ] ) ]
 
 	(** jump statements on condition *)
 	 let jcc s v n =
