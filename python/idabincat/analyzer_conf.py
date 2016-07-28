@@ -23,7 +23,8 @@ class AnalyzerConfig(object):
         #: int
         self.analysis_end = None
         self.netnode = idabincat.netnode.Netnode()
-        self.config = None
+        self.config = ConfigParser.RawConfigParser()
+        self.config.optionxform = str
 
     @property
     def code_va(self):
@@ -261,6 +262,7 @@ class AnalyzerConfig(object):
     def for_address(self, address):
         c = self.load_from_idb(address)
         if c:
+            bc_log.info("loaded config from IDB for address %x", address)
             self.read_string(c)
         else:
             self.config = self.get_default_config(address)

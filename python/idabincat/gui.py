@@ -131,6 +131,9 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btn_bc_conf = QtWidgets.QPushButton('Cfg', self)
         self.btn_bc_conf.clicked.connect(self.bincat_config)
 
+        self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB',
+                                            self)
+
         self.btn_start = QtWidgets.QPushButton('&Start', self)
         self.btn_start.clicked.connect(self.launch_analysis)
 
@@ -149,8 +152,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btn_load, 3, 0)
         layout.addWidget(self.btn_edit_conf, 3, 1)
 
-        layout.addWidget(self.btn_start, 4, 0)
-        layout.addWidget(self.btn_cancel, 4, 1)
+        layout.addWidget(self.chk_save, 4, 0)
+
+        layout.addWidget(self.btn_start, 5, 0)
+        layout.addWidget(self.btn_cancel, 5, 1)
 
         self.setLayout(layout)
 
@@ -174,6 +179,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         start_addr = int(self.ip_start_addr.text(), 16)
         stop_addr = int(self.ip_stop_addr.text(), 16)
         self.s.current_config.set_start_stop_addr(start_addr, stop_addr)
+
+        if self.chk_save.isChecked():
+            self.s.current_config.save_to_idb(int(self.ip_start_addr.text(), 16))
+
         self.s.start_analysis()
 
         self.close()
