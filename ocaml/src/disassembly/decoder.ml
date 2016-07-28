@@ -351,14 +351,19 @@ module Make(Domain: Domain.T) =
 	Const (Word.of_int n nb)
 
       (** returns the expression associated to a sib *)
-      let sib s reg md =
-	let c 		       = getchar s                                        in
-	let scale, index, base = mod_nnn_rm (Char.code c)                         in
-	let index' 	       = find_reg index s.operand_sz                      in
-	let e 		       = BinOp (Shl, Lval (V index'), Const (Word.of_int (Z.of_int scale) 3))in
+      let sib s md =
+	let c 		       = getchar s                in
+	let scale, index, base = mod_nnn_rm (Char.code c) in
+	let index' 	       = find_reg index s.addr_sz in
+	let lv 		       = Lval (V index')          in
+	let e 		       =
+	  if scale = 0 then
+	    lv
+	  else
+	    BinOp (Shr, lv, Const (Word.of_int (Z.of_int scale) s.addr_sz)) in
 	match base with
 	| 5 when md = 0 -> e
-	| _ 	        -> BinOp (Add, e, Lval (V reg))
+	| _ 	        -> BinOp (Add, e, Lval (V (find_reg base s.addr_sz)))
 
       exception Disp32
 		  
@@ -390,13 +395,13 @@ module Make(Domain: Domain.T) =
 	  | 0 ->
 	       begin
 		 match rm with
-		 | 4 -> sib s rm' md
+		 | 4 -> sib s md
 		 | 5 -> raise Disp32
 		 | _ -> Lval (V rm')
 	       end						    
 	    | 1 ->
 	       let e =
-		 if rm = 4 then sib s rm' md
+		 if rm = 4 then sib s md
 		 else Lval (V rm')
 	       in
 	       let n = sign_extension_of_byte (int_of_bytes s 1) (sz / Config.size_of_byte) in
@@ -404,7 +409,7 @@ module Make(Domain: Domain.T) =
 	     	 
 	    | 2 -> 
 	       let e =
-		 if rm = 4 then sib s rm' md
+		 if rm = 4 then sib s md
 		 else Lval (V rm')
 	       in
 	       BinOp (Add, e, disp s 32)

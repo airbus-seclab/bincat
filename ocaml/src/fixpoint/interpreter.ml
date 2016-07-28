@@ -218,8 +218,8 @@ struct
     let d = Cfa.fold_vertex (fun prev d ->
 		if v.Cfa.State.ip = prev.Cfa.State.ip then
 		    D.join d prev.Cfa.State.v
-	else
-	  d) g D.bot
+		else
+		  d) g D.bot
     in
     v.Cfa.State.final <- true;
     v.Cfa.State.v <- D.widen d (D.join d v.Cfa.State.v)
