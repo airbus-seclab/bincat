@@ -385,7 +385,10 @@ module Make(Domain: Domain.T) =
       let add_segment s e sreg =
 	let m      = Hashtbl.find s.segments.reg sreg in
 	let ds_val = get_base_address s m             in
-	BinOp(Add, e, Const (Word.of_int ds_val s.operand_sz))
+	if Z.compare ds_val Z.zero = 0 then
+	  e
+	else
+	  BinOp(Add, e, Const (Word.of_int ds_val s.operand_sz))
 	     
       let add_data_segment s e = add_segment s e s.segments.data
 
