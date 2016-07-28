@@ -126,7 +126,7 @@ class Analyzer(QtCore.QProcess):
         if cfa:
             self.finish_cb(cfa)
         else:
-            bc_log("Empty result file.")
+            bc_log.info("Empty result file.")
         bc_log.info("---- stdout ----------------")
         bc_log.info(str(self.readAllStandardOutput()))
         bc_log.info("---- stderr ----------------")

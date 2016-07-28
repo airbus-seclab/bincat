@@ -163,7 +163,7 @@ class AnalyzerConfig(object):
             hex(idaapi.get_fileregion_offset(self.code_va)))
         # code section length
         config.set('loader', 'code_length', hex(self.code_length).strip('L'))
-        config.set('loader', 'analysis_ep', hex(self.analysis_ep))
+        config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
 
         config.set('loader', 'cs', '0x73')
         config.set('loader', 'ds', '0x7b')
