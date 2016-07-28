@@ -143,6 +143,12 @@ class State(object):
         self.gui = GUI(self)
 
     def analysis_finish_cb(self, cfa):
+        # reset background color for previous analysis
+        if self.cfa:
+            color = idaapi.calc_bg_color(idaapi.NIF_BG_COLOR)
+            for v in self.cfa.states:
+                ea = v.value
+                idaapi.set_item_color(ea, color)
         self.cfa = cfa
         # Update current RVA to start address (nodeid = 0)
         node0 = cfa['0']
