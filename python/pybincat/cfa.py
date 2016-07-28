@@ -51,7 +51,12 @@ class CFA(object):
         nodes = {}
 
         config = ConfigParser.RawConfigParser()
-        config.read(filename)
+        try:
+            config.read(filename)
+        except ConfigParser.ParsingError:
+            return None
+        if len(config.sections()) == 0:
+            return None
 
         for section in config.sections():
             if section == 'edges':

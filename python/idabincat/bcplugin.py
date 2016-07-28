@@ -100,6 +100,7 @@ class Analyzer(QtCore.QProcess):
         except IndexError:
             errtxt = "Unspecified error %s" % err
         bc_log.error("Analyzer error: %s", errtxt)
+        self.process_output()
 
     def procanalyzer_on_state_change(self, new_state):
         states = ["Not running", "Starting", "Running"]
@@ -111,17 +112,23 @@ class Analyzer(QtCore.QProcess):
     def procanalyzer_on_finish(self):
         bc_log.info("Analyzer process terminated")
         exitcode = self.exitCode()
-        if exitcode == 0:
-            bc_log.debug("Parsing analyzer result file")
+        bc_log.error("analyzer returned exit code=%i", exitcode)
+        self.process_output()
 
-            cfa = cfa_module.CFA.parse(self.outfname, logs=self.logfname)
+    def process_output(self):
+        """
+        Try to process analyzer output.
+        """
+        bc_log.debug("Parsing analyzer result file")
+        cfa = cfa_module.CFA.parse(self.outfname, logs=self.logfname)
+        if cfa:
             self.finish_cb(cfa)
         else:
-            bc_log.error("analyzer returned exit code=%i", exitcode)
-            bc_log.info("---- stdout ----------------")
-            bc_log.info(str(self.readAllStandardOutput()))
-            bc_log.info("---- stderr ----------------")
-            bc_log.info(str(self.readAllStandardError()))
+            bc_log("Empty result file.")
+        bc_log.info("---- stdout ----------------")
+        bc_log.info(str(self.readAllStandardOutput()))
+        bc_log.info("---- stderr ----------------")
+        bc_log.info(str(self.readAllStandardError()))
         bc_log.debug("---- logfile ---------------")
         if os.path.exists(self.logfname):
             bc_log.debug(open(self.logfname).read())
