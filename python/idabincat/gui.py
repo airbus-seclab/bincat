@@ -226,6 +226,7 @@ class BinCATDebugForm_t(idaapi.PluginForm):
     def __init__(self, state):
         super(BinCATDebugForm_t, self).__init__()
         self.s = state
+        self.closed = True
 
     def OnCreate(self, form):
         self.parent = self.FormToPyQtWidget(form)
@@ -254,6 +255,8 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         self.parent.setLayout(layout)
 
     def update(self, state):
+        if self.closed:
+            return
         if state:
             self.stmt_data.setText(state.statements.replace('____', '    '))
             self.bytes_data.setText(state.bytes)
@@ -262,9 +265,11 @@ class BinCATDebugForm_t(idaapi.PluginForm):
             self.bytes_data.setText("")
 
     def OnClose(self, form):
+        self.closed = True
         pass
 
     def Show(self):
+        self.closed = False
         return idaapi.PluginForm.Show(
             self, "BinCAT Debugging",
             options=(idaapi.PluginForm.FORM_PERSIST |
@@ -281,6 +286,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         super(BinCATTaintedForm_t, self).__init__()
         self.s = state
         self.vtmodel = vtmodel
+        self.closed = True
 
     def OnCreate(self, form):
         self.currentrva = 0
@@ -319,9 +325,11 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.parent.setLayout(layout)
 
     def OnClose(self, form):
+        self.closed = True
         pass
 
     def Show(self):
+        self.closed = False
         return idaapi.PluginForm.Show(
             self, "BinCAT Tainting",
             options=(idaapi.PluginForm.FORM_PERSIST |
@@ -331,6 +339,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         """
         :param ea: int or long
         """
+        if self.closed:
+            return
         self.alabel.setText('RVA: 0x%08x' % ea)
         state = self.s.current_state
         if state:
