@@ -1063,20 +1063,20 @@ module Make(Domain: Domain.T) =
 	    [undef_flag fof])
 	in
 	let c = Cmp (EQ, ldst, sz') in
-	If (c,
-	    (Set (dst, BinOp (Shr, ldst, n)))::[cf_stmt ; of_stmt ; undef_flag faf],
-	    [])
+	[Set (dst, BinOp (Shr, ldst, n));
+	If (c, [cf_stmt ; of_stmt ; undef_flag faf],
+	    [])]
 	  
       let grp2 s sz e =
 	let nnn, dst = core_grp s sz in
 	let n =
 	  match e with
 	  | Some e' -> e'
-	  | None -> Const (Word.of_int (int_of_bytes s (sz / Config.size_of_byte)) sz)
+	  | None -> Const (Word.of_int (int_of_bytes s 1) sz)
 	in
 	match nnn with
 	(*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ] *)
-	| 5 -> return s [shr_stmt dst sz n]
+	| 5 -> return s (shr_stmt dst sz n)
 (*	| 7 -> return s [ Set (dst, BinOp (Div, Lval dst, 2*n)) *)
 	| _ -> error s.a "Illegal opcode in grp 2"
 			 
