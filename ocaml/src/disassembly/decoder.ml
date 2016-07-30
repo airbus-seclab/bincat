@@ -1573,7 +1573,7 @@ module Make(Domain: Domain.T) =
 	  | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
 		      let r = Register.make (Register.fresh_name ()) s.operand_sz in
 		      return s [ Set (V (T r), rm) ;
-				 Set (reg, UnOp(ZeroExt s.operand_sz, Lval (V (P (r, 0, 8)))));
+				 Set (reg, UnOp(ZeroExt s.operand_sz, Lval (V (P (r, 0, 7)))));
 				 Directive (Remove r) ]
 	  | '\xb7' -> 
 	     let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
@@ -1585,7 +1585,7 @@ module Make(Domain: Domain.T) =
 	  | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
 		      let r = Register.make (Register.fresh_name ()) s.operand_sz in
 		      return s [ Set (V (T r), rm) ;
-				 Set (reg, UnOp(SignExt s.operand_sz, Lval (V (P (r, 0, 8)))));
+				 Set (reg, UnOp(SignExt s.operand_sz, Lval (V (P (r, 0, 7)))));
 				 Directive (Remove r) ]
 	  | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s !Config.operand_sz 1 in return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ]
 	  | c 	   -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
