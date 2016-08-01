@@ -8,6 +8,7 @@ import traceback
 import tempfile
 import logging
 import idaapi
+import idabincat.netnode
 from idabincat.analyzer_conf import AnalyzerConfig
 from idabincat.gui import GUI
 
@@ -36,7 +37,6 @@ class BincatPlugin(idaapi.plugin_t):
 
     # IDA API methods: init, run, term
     def init(self):
-        # TODO restore state and GUI if stored
         try:
             from pybincat import cfa as cfa_module
             global cfa_module
@@ -56,7 +56,6 @@ class BincatPlugin(idaapi.plugin_t):
         bc_log.info("IDABinCAT ready.")
 
     def term(self):
-        # TODO save plugin state in DB
         if self.state:
             self.state.clear_background()
             self.state.gui.term()
@@ -113,7 +112,7 @@ class Analyzer(QtCore.QProcess):
         bc_log.info("Analyzer: starting process")
 
     def procanalyzer_on_finish(self):
-        bc_log.info("Analyzer process terminated")
+        bc_log.info("Analyzer process finished")
         exitcode = self.exitCode()
         bc_log.error("analyzer returned exit code=%i", exitcode)
         self.process_output()
@@ -122,12 +121,6 @@ class Analyzer(QtCore.QProcess):
         """
         Try to process analyzer output.
         """
-        bc_log.debug("Parsing analyzer result file")
-        cfa = cfa_module.CFA.parse(self.outfname, logs=self.logfname)
-        if cfa:
-            self.finish_cb(cfa)
-        else:
-            bc_log.info("Empty result file.")
         bc_log.info("---- stdout ----------------")
         bc_log.info(str(self.readAllStandardOutput()))
         bc_log.info("---- stderr ----------------")
@@ -136,6 +129,7 @@ class Analyzer(QtCore.QProcess):
         if os.path.exists(self.logfname):
             bc_log.debug(open(self.logfname).read())
         bc_log.debug("----------------------------")
+        self.finish_cb(self.outfname, self.logfname)
 
 
 class State(object):
@@ -151,6 +145,24 @@ class State(object):
         self.analyzer = None
         self.hooks = None
         self.gui = GUI(self)
+        self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
+        self.load_from_idb()
+
+    def load_from_idb(self):
+        if "out.ini" in self.netnode and "analyzer.log" in self.netnode:
+            bc_log.info("Loading analysis results from idb")
+            path = tempfile.mkdtemp(suffix='bincat')
+            outfname = os.path.join(path, "out.ini")
+            logfname = os.path.join(path, "analyzer.log")
+            with open(outfname, 'w') as outfp:
+                outfp.write(self.netnode["out.ini"])
+            with open(logfname, 'w') as logfp:
+                logfp.write(self.netnode["analyzer.log"])
+            if "current_ea" in self.netnode:
+                ea = self.netnode["current_ea"]
+            else:
+                ea = None
+            self.analysis_finish_cb(outfname, logfname, ea)
 
     def clear_background(self):
         """
@@ -162,16 +174,30 @@ class State(object):
                 ea = v.value
                 idaapi.set_item_color(ea, color)
 
-    def analysis_finish_cb(self, cfa):
+    def analysis_finish_cb(self, outfname, logfname, ea=None):
+        bc_log.debug("Parsing analyzer result file")
+        cfa = cfa_module.CFA.parse(outfname, logs=logfname)
         self.clear_background()
-        self.cfa = cfa
+        if cfa:
+            self.cfa = cfa
+            # XXX add user preference for saving to idb?
+            bc_log.info("Storing analysis results to idb")
+            self.netnode["out.ini"] = open(outfname).read()
+            self.netnode["analyzer.log"] = open(logfname).read()
+        else:
+            bc_log.info("Empty result file.")
+        bc_log.debug("----------------------------")
         # Update current RVA to start address (nodeid = 0)
-        node0 = cfa['0']
-        startaddr_ea = node0.address.value
-        self.set_current_ea(startaddr_ea, force=True)
+        if ea is not None:
+            current_ea = ea
+        else:
+            node0 = cfa['0']
+            current_ea = node0.address.value
+        self.set_current_ea(current_ea, force=True)
         for v in cfa.states:
             ea = v.value
-            idaapi.set_item_color(ea, 0xCCCCCC)
+            idaapi.set_item_color(ea, 0xCDCFCE)
+        self.netnode["current_ea"] = current_ea
 
     def set_current_ea(self, ea, force=False):
         """
