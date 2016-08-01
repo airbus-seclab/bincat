@@ -103,7 +103,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.s.current_ea = idaapi.get_screen_ea()
 
         # Load config for address if it exists
-        self.s.current_config.for_address(self.s.current_ea)
+        self.s.current_config.for_address(self.s, self.s.current_ea)
 
         # Start address
         lbl_start_addr = QtWidgets.QLabel(" Start address: ")

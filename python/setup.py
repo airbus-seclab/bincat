@@ -21,6 +21,8 @@ mlbincat = Extension(
     library_dirs=["../ocaml/src"],
 )
 
+package_data_files = ['idabincat/conf/*ini']
+
 setup(
     cmdclass = {'test': PyTest},
     name             = 'BinCAT',
@@ -31,5 +33,8 @@ setup(
     scripts          = ['bin/bincat'],
     packages         = ['pybincat', 'pybincat/tools', 'idabincat'],
     ext_modules      = [mlbincat],
+    package_data = {
+        'idabincat': package_data_files
+    },
     license          = 'GPLv2'
 )

@@ -13,6 +13,7 @@ DOCGENPATH =doc/generated
 DOCREFPATH =doc/manual
 MLLIBDIR=../../python/idabincat
 IDAPATH   ?= $(HOME)/ida-6.9
+IDAUSR	?= $(HOME)/.idapro
 
 all:
 	@echo "Compiling OCaml part................................................."
@@ -35,6 +36,9 @@ IDAinstall:# install
 	cp -r $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAPATH}/plugins/idabincat"
 	rm -f "${IDAPATH}/plugins/bcplugin.py"
 	cp $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAPATH}/plugins/bcplugin.py"
+	mkdir -p $(IDAUSR)/idabincat
+	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
+	
 
 test: all
 	make -C $(MLTESTPATH) test
