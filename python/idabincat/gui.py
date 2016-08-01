@@ -482,6 +482,20 @@ class HandleAnalyzeHere(idaapi.action_handler_t):
     def update(self, ctx):
         return idaapi.AST_ENABLE_ALWAYS
 
+class HandleShowWindows(idaapi.action_handler_t):
+    """
+    Action handler for BinCAT/Show windows
+    """
+    def __init__(self, gui):
+        self.gui = gui
+
+    def activate(self, ctx):
+        self.gui.BinCATTaintedForm.Show()
+        self.gui.BinCATDebugForm.Show()
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
 
 class Hooks(idaapi.UI_Hooks):
     """
@@ -524,13 +538,19 @@ class GUI(object):
 
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
 
-        # TODO : change to menu item ?
         ana_from_here_act = idaapi.action_desc_t(
             'bincat:ana_from_here', 'Analyze from here',
             HandleAnalyzeHere(self.s), 'Ctrl-Shift-A', 'BinCAT action', -1)
         idaapi.register_action(ana_from_here_act)
 
-        idaapi.attach_action_to_menu("Edit/BinCAT", "bincat:ana_from_here",
+        ana_from_here_act = idaapi.action_desc_t(
+            'bincat:show_windows', 'Show BinCAT windows',
+            HandleShowWindows(self), '', 'BinCAT action', -1)
+        idaapi.register_action(ana_from_here_act)
+
+        idaapi.attach_action_to_menu("Edit/BinCAT/analyse", "bincat:ana_from_here",
+                                     idaapi.SETMENU_APP)
+        idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:show_windows",
                                      idaapi.SETMENU_APP)
         self.hooks = Hooks(state)
         self.hooks.hook()
