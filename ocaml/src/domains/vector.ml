@@ -246,7 +246,6 @@ module Make(V: Val) =
 	v'
 	  
     let shl v1 v2 =
-      Log.debug (Printf.sprintf "%s << %s" (to_string v1) (to_string v2));
       try
 	let i = Z.to_int (to_value v2) in
 	ishl v1 i
