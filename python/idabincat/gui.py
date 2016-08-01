@@ -54,8 +54,8 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
 
 
 class BinCATConfigForm_t(QtWidgets.QDialog):
-    def __init__(self, parent, state):
-        super(BinCATConfigForm_t, self).__init__(parent)
+    def __init__(self, state):
+        super(BinCATConfigForm_t, self).__init__()
         self.s = state
 
         layout = QtWidgets.QGridLayout()
@@ -186,11 +186,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.s.start_analysis()
 
         self.close()
-
-    def bincat_config(self):
-        # display config window
-        bc_conf_form = BinCATConfigForm_t(self, self.s)
-        bc_conf_form.exec_()
 
     def edit_config(self):
         # display edit form
@@ -482,6 +477,22 @@ class HandleAnalyzeHere(idaapi.action_handler_t):
     def update(self, ctx):
         return idaapi.AST_ENABLE_ALWAYS
 
+class HandleGlobalConfig(idaapi.action_handler_t):
+    """
+    Action handler for BinCAT/Configure
+    """
+    def __init__(self, state):
+        self.state = state
+
+    def activate(self, ctx):
+        # display config window
+        bc_conf_form = BinCATConfigForm_t(self.state)
+        bc_conf_form.exec_()
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
 class HandleShowWindows(idaapi.action_handler_t):
     """
     Action handler for BinCAT/Show windows
@@ -538,19 +549,28 @@ class GUI(object):
 
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
 
+        # Analyse from here menu
         ana_from_here_act = idaapi.action_desc_t(
             'bincat:ana_from_here', 'Analyze from here',
             HandleAnalyzeHere(self.s), 'Ctrl-Shift-A', 'BinCAT action', -1)
         idaapi.register_action(ana_from_here_act)
-
-        ana_from_here_act = idaapi.action_desc_t(
-            'bincat:show_windows', 'Show BinCAT windows',
-            HandleShowWindows(self), '', 'BinCAT action', -1)
-        idaapi.register_action(ana_from_here_act)
-
         idaapi.attach_action_to_menu("Edit/BinCAT/analyse", "bincat:ana_from_here",
                                      idaapi.SETMENU_APP)
+
+        # "Show windows" menu
+        show_windows_act = idaapi.action_desc_t(
+            'bincat:show_windows', 'Show BinCAT windows',
+            HandleShowWindows(self), '', 'BinCAT action', -1)
+        idaapi.register_action(show_windows_act)
         idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:show_windows",
+                                     idaapi.SETMENU_APP)
+
+        # "Configure" menu
+        glob_conf_act = idaapi.action_desc_t(
+            'bincat:glob_conf_act', 'Configure',
+            HandleGlobalConfig(self.s), '', 'BinCAT action', -1)
+        idaapi.register_action(glob_conf_act)
+        idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:glob_conf_act",
                                      idaapi.SETMENU_APP)
         self.hooks = Hooks(state)
         self.hooks.hook()
