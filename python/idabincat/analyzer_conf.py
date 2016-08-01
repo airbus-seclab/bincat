@@ -220,7 +220,10 @@ class AnalyzerConfig(object):
         self.netnode["default"] = str(self)
 
     def for_address(self, state, address):
-        c = self.load_from_idb(address)
+        if state.options.get("options", "load_from_idb") == "True":
+            c = self.load_from_idb(address)
+        else:
+            c = None
         if c:
             bc_log.info("loaded config from IDB for address %x", address)
             self.reset_from_str(c)

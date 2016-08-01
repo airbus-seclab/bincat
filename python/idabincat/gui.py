@@ -96,7 +96,6 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         self.s.options.set("options","save_to_idb", str(self.chk_save.isChecked()))
         self.s.options.set("options","load_from_idb", str(self.chk_load.isChecked()))
         self.s.save_options()
-        bc_log.debug(repr(self.s.options.items("options")))
         self.close()
         return
 
@@ -133,28 +132,22 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ip_stop_addr.setText(stop_addr)
 
         # Start, cancel and analyzer config buttons
-        self.btn_load = QtWidgets.QPushButton('&Load analyzer config',
-                                              self)
+        self.btn_load = QtWidgets.QPushButton('&Load analyzer config')
         self.btn_load.clicked.connect(self.choose_file)
 
-        self.btn_edit_conf = QtWidgets.QPushButton('&Edit analyzer config',
-                                                   self)
+        self.btn_edit_conf = QtWidgets.QPushButton('&Edit analyzer config')
         self.btn_edit_conf.clicked.connect(self.edit_config)
 
-        self.btn_bc_conf = QtWidgets.QPushButton('Cfg', self)
-        self.btn_bc_conf.clicked.connect(self.bincat_config)
+        self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
+        self.chk_save.setChecked(self.s.options.get("options", "save_to_idb") == "True")
 
-        self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB',
-                                            self)
-
-        self.btn_start = QtWidgets.QPushButton('&Start', self)
+        self.btn_start = QtWidgets.QPushButton('&Start')
         self.btn_start.clicked.connect(self.launch_analysis)
 
-        self.btn_cancel = QtWidgets.QPushButton('Cancel', self)
+        self.btn_cancel = QtWidgets.QPushButton('Cancel')
         self.btn_cancel.clicked.connect(self.close)
 
         layout.addWidget(lbl_cst_editor, 0, 0)
-        layout.addWidget(self.btn_bc_conf, 0, 1, QtCore.Qt.AlignRight)
 
         layout.addWidget(lbl_start_addr, 1, 0)
         layout.addWidget(self.ip_start_addr, 1, 1)
