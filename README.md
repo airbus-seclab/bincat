@@ -1,6 +1,6 @@
-=dependencies
+## Dependencies
 
-ocaml 3.12 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
+ocaml 4.02.3 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 ocamlfind
 zarith library >=1.4
 python 2.7
@@ -16,7 +16,7 @@ Graphviz
 on Debian Sid :
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-dev
 
-=installation
+## Installation
 
 1. unzip this archive and enter it
 2. compilation
@@ -26,42 +26,33 @@ make install
 4. for the documentation (generated in directory doc)
 make doc
 
-=ocaml compilation
-If messages indicating that the -fPIC must be used used:
-/usr/bin/ld: /usr/local/lib/ocaml/libasmrun.a(fail.o): réadressage de R_X86_64_32 en vertu de « caml_exn_Failure » ne peut être utilisé lors de la création d'un objet partagé; recompilez avec -fPIC
-/usr/local/lib/ocaml/libasmrun.a: error adding symbols: Mauvaise valeur
-collect2: error: ld returned 1 exit status
-File "caml_startup", line 1:
-Error: Error during linking
-make[1]: *** [libbincat.so] Erreur 2
+### ocaml compilation
+If messages indicating that the -fPIC must be used, update your OCaml installation to 4.02.3.
 
-Then ocaml must be recompiled. Ocaml v4.02.3's INSTALL file indicates that this bug has been fixed - but it still does not work.
-
-Use hardening-wrapper to recompile ocaml (a package is available in debian,
-ubuntu, archlinux...) to make sure this options is passed when ocaml gets
-compiled. The method proposed in the INSTALL file (./configure parameters) are
-not sufficient.
-
-=important remark
+### important remark
 be sure to have the directory src/bincat into your LD_LIBRARY_PATH variable
 
-=ocaml headers
+### ocaml headers
 OCAML headers are not installed in /usr/include or /usr/local/include, where
 gcc looks for them, when installing from source.
 
 Two solutions may be applied when compiling the Python using python2 setup.py build:
+
 * Create a symlink (/usr/include/caml -> /usr/lib/ocaml/caml/, or
   /usr/local/include/caml -> /usr/local/lib/ocaml/caml/). This seems to be done
   in the debian packages.
-* export C_INCLUDE_PATH=/usr/lib/ocaml
+* `export C_INCLUDE_PATH=/usr/lib/ocaml`
 
-=mac os installation
+### mac os installation
 by default non initialized external symobols are not exported by ranlib.
-Hence some symbols in _caml_table are not exported which resul in a link failure.
+Hence some symbols in ` _caml_table` are not exported which resul in a link failure.
 To avoid this, type
-ranlib -c /path/to/the/lib/libsasmrun.a
 
-=ida plugin installation
+```
+ranlib -c /path/to/the/lib/libsasmrun.a
+```
+
+### IDA plugin installation
 
 * Copy or create a symlink to python/idabincat/bcplugin.py in your IDA
   installation folder's plugin/ directory, or in your ~/.idapro/plugins
@@ -79,10 +70,25 @@ ranlib -c /path/to/the/lib/libsasmrun.a
   setenv PATH /usr/bin:/bin:/usr/sbin/sbin:/usr/local/bin:/path/to/bincat
   where /path/to/bincat is the result of which bincat
 
-=ida plugin usage
+## IDA plugin usage
 
+
+### Quick start
 * Load the plugin by using the Ctrl-Shift-B shortcut, or using the
   "Edit -> Plugins -> BinCAT" menu
 
 * Select an instruction in any IDA view, then use the Ctrl-Shift-A shortcut, or
   the "BinCAT -> Analyze from here" context menu
+
+### Configuration
+Default config and options are stored in `$IDAUSR/idabincat/conf`.
+
+#### Options
+Global options can be configured through the "Edit/BinCAT/Options" menu:
+* Autostart : autoload BinCAT at startup
+* Load from IDB : load analyzer config by default if one is stored in IDB at cursor address
+* Save to IDB : default state for "save to idb" checkbox 
+
+
+#### Analyzer configuration files
+Default config for analyzer.
