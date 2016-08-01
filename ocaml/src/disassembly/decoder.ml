@@ -1375,10 +1375,10 @@ module Make(Domain: Domain.T) =
 	  | '\x2E' -> (* data segment = cs *) s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
 	  | '\x2F' -> (* DAS *) das s
 
-	  | '\x30' -> (* XOR *) or_xor_and s And Config.size_of_byte 0
-	  | '\x31' -> (* XOR *) or_xor_and s And s.operand_sz 0
-	  | '\x32' -> (* XOR *) or_xor_and s And Config.size_of_byte 1
-	  | '\x33' -> (* XOR *) or_xor_and s And s.operand_sz 1
+	  | '\x30' -> (* XOR *) or_xor_and s Xor Config.size_of_byte 0
+	  | '\x31' -> (* XOR *) or_xor_and s Xor s.operand_sz 0
+	  | '\x32' -> (* XOR *) or_xor_and s Xor Config.size_of_byte 1
+	  | '\x33' -> (* XOR *) or_xor_and s Xor s.operand_sz 1
 				    
 	  | '\x36' -> (* data segment = ss *) s.segments.data <- ss; decode s
 	  | '\x37' -> (* AAA *) aaa s
