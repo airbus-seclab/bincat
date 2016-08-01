@@ -444,22 +444,20 @@ module Make(Domain: Domain.T) =
 	| 3 -> V (find_reg rm s.addr_sz)
 	| _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
-      let operands_from_mod_reg_rm s v =
-	let c 		       = getchar s  						    in
-	let md, reg, rm        = mod_nnn_rm (Char.code c)				    in
-	let direction 	       = (v lsr 1) land 1   					    in
-	let sz                 = if v land 1 = 0 then Config.size_of_byte else s.operand_sz in
-	let reg'               = find_reg reg sz                                            in
+      let operands_from_mod_reg_rm s sz direction =
+	let c = getchar s in
+	let md, reg, rm = mod_nnn_rm (Char.code c) in
+	let reg' = find_reg reg s.addr_sz in
 	try
 	  let rm' = exp_of_md s md rm sz in
 	  if direction = 0 then
-	    rm', Lval (V reg'), sz
+	    rm', Lval (V reg')
 	  else
-	    V reg', Lval rm', sz
+	    V reg', Lval rm'
 	with
 	| Disp32 -> 
 	   if direction = 0 then
-	     V (find_reg rm sz), add_data_segment s (disp s 32), sz
+	     V (find_reg rm sz), add_data_segment s (disp s 32)
 	   else
 	     error s.a "Decoder: illegal direction for displacement only addressing mode"
 
@@ -810,7 +808,7 @@ module Make(Domain: Domain.T) =
 	  let a' = Address.add_offset ip o			   in
 	  check_jmp s a';
 	  check_jmp s ip;
-	  return s [ If (e, [Jmp (A a')], [ Jmp (A ip) ] ) ]
+	  return s [ If (e, [ Jmp (A ip) ], [Jmp (A a')]) ]
 
 	(** jump statements on condition *)
 	 let jcc s v n =
@@ -1065,20 +1063,20 @@ module Make(Domain: Domain.T) =
 	    [undef_flag fof])
 	in
 	let c = Cmp (EQ, ldst, sz') in
-	If (c,
-	    (Set (dst, BinOp (Shr, ldst, n)))::[cf_stmt ; of_stmt ; undef_flag faf],
-	    [])
+	[Set (dst, BinOp (Shr, ldst, n));
+	If (c, [cf_stmt ; of_stmt ; undef_flag faf],
+	    [])]
 	  
       let grp2 s sz e =
 	let nnn, dst = core_grp s sz in
 	let n =
 	  match e with
 	  | Some e' -> e'
-	  | None -> Const (Word.of_int (int_of_bytes s (sz / Config.size_of_byte)) sz)
+	  | None -> Const (Word.of_int (int_of_bytes s 1) sz)
 	in
 	match nnn with
 	(*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ] *)
-	| 5 -> return s [shr_stmt dst sz n]
+	| 5 -> return s (shr_stmt dst sz n)
 (*	| 7 -> return s [ Set (dst, BinOp (Div, Lval dst, 2*n)) *)
 	| _ -> error s.a "Illegal opcode in grp 2"
 			 
@@ -1307,66 +1305,95 @@ module Make(Domain: Domain.T) =
 
       (** decoding of one instruction *)
       let decode s =
-	let to_size s v =
-	  if v land 1 = 1 then s.operand_sz
-	  else Config.size_of_byte
-	in
-	let add_sub s op b c =
-	  let v        = Char.code c		      in
-	  let dst, src, _ = operands_from_mod_reg_rm s v in
-	  let sz          = to_size s v		      in
+	let add_sub s op b sz direction =
+	  let dst, src = operands_from_mod_reg_rm s sz direction in
 	  add_sub s op b dst src sz
 	in
-	let or_xor_and s op c =
-	  let v        = Char.code c                  in
-	  let dst, src, _sz = operands_from_mod_reg_rm s v in
+	let or_xor_and s op sz direction =
+	  let dst, src = operands_from_mod_reg_rm s sz direction in
 	  or_xor_and s op dst src
+	in
+	let cmp s sz direction =					 
+	  let dst, src = operands_from_mod_reg_rm s sz direction in
+	  return s (cmp_stmts (Lval dst) src sz)
+	in
+	let mov s sz direction =
+	  let dst, src = operands_from_mod_reg_rm s sz direction in
+	  return s [ Set (dst, src) ]
 	in
 	let rec decode s =
 	  match check_context s (getchar s) with
-	  | c when '\x00' <= c && c <= '\x03'  -> (* ADD *) add_sub s Sub false c 
-	  | '\x04' 			       -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax Config.size_of_byte 
-	  | '\x05' 			       -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz
-	  | '\x06' 			       -> (* PUSH es *) let es' = to_reg es s.operand_sz in push s [V es']
-	  | '\x07' 			       -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
-	  | c when '\x08' <= c &&  c <= '\x0D' -> (* OR *) or_xor_and s Or c
-	  | '\x0E' 			       -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs']
-	  | '\x0F' 			       -> (* 2-byte escape *) decode_snd_opcode s
-									       
-	  | c when '\x10' <= c && c <= '\x13' -> (* ADC *) add_sub s Add true c
-	  | '\x14' 			      -> (* ADC AL with immediate *) add_sub_immediate s Add true eax Config.size_of_byte
-	  | '\x15' 			      -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz
-	  | '\x16' 			      -> (* PUSH ss *) let ss' = to_reg ss s.operand_sz in push s [V ss']
-	  | '\x17' 			      -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
-	  | c when '\x18' <= c && c <='\x1B'  -> (* SBB *) add_sub s Sub true c
-	  | '\x1C' 			      -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax Config.size_of_byte
-	  | '\x1D' 			      -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz
-	  | '\x1E' 			      -> (* PUSH ds *) let ds' = to_reg ds s.operand_sz in push s [V ds']
-	  | '\x1F' 			      -> (* POP ds *) let ds' = to_reg ds s.operand_sz in pop s [V ds']
-										       
-	  | c when '\x20' <= c && c <= '\x25' -> (* AND *) or_xor_and s And c
-	  | '\x26' 			      -> (* data segment = es *) s.segments.data <- es; decode s
-	  | '\x27'                            -> (* DAA *) daa s								       
-	  | c when '\x28' <= c && c <= '\x2B' -> (* sub *) add_sub s Sub false c
-	  | '\x2C' 			      -> (* SUB AL with immediate *) add_sub_immediate s Sub false eax Config.size_of_byte
-	  | '\x2D' 			      -> (* SUB eAX with immediate *) add_sub_immediate s Sub false eax s.operand_sz
-	  | '\x2E' 			      -> (* data segment = cs *) s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
-	  | '\x2F'                            -> (* DAS *) das s
-								       
-	  | c when '\x30' <= c &&  c <= '\x35' -> (* XOR *) or_xor_and s Xor c
-	  | '\x36' 			       -> (* data segment = ss *) s.segments.data <- ss; decode s
-	  | '\x37' 			       -> (* AAA *) aaa s
-	  | c when '\x38' <= c && c <= '\x3B'  -> (* CMP *)
-	     let dst, src, sz = operands_from_mod_reg_rm s (Char.code c) in
-	     return s (cmp_stmts (Lval dst) src sz)
-	  | '\x3C' 			       -> (* CMP AL with immediate *)
+	  | '\x00' -> (* ADD *) add_sub s Add false Config.size_of_byte 0
+	  | '\x01' -> (* ADD *) add_sub s Add false s.operand_sz 0
+	  | '\x02' -> (* ADD *) add_sub s Add false Config.size_of_byte 1
+	  | '\x03' -> (* ADD *) add_sub s Add false s.operand_sz 1
+	  | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax Config.size_of_byte 
+	  | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz
+	  | '\x06' -> (* PUSH es *) let es' = to_reg es s.operand_sz in push s [V es']
+	  | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
+	  | '\x08' -> (* OR *) or_xor_and s Or Config.size_of_byte 0
+	  | '\x09' -> (* OR *) or_xor_and s Or s.operand_sz 0
+	  | '\x0A' -> (* OR *) or_xor_and s Or Config.size_of_byte 1
+	  | '\x0B' -> (* OR *) or_xor_and s Or s.operand_sz 1
+
+					  
+	  | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs']
+	  | '\x0F' -> (* 2-byte escape *) decode_snd_opcode s
+											
+	  | '\x10' -> (* ADC *) add_sub s Add true Config.size_of_byte 0
+	  | '\x11' -> (* ADC *) add_sub s Add true s.operand_sz 0
+	  | '\x12' -> (* ADC *) add_sub s Add true Config.size_of_byte 1
+	  | '\x13' -> (* ADC *) add_sub s Add true s.operand_sz 1
+	
+	  | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax Config.size_of_byte
+	  | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz
+	  | '\x16' -> (* PUSH ss *) let ss' = to_reg ss s.operand_sz in push s [V ss']
+	  | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
+
+	  | '\x18' -> (* SBB *) add_sub s Sub true Config.size_of_byte 0
+	  | '\x19' -> (* SBB *) add_sub s Sub true s.operand_sz 0
+	  | '\x1A' -> (* SBB *) add_sub s Sub true Config.size_of_byte 1
+	  | '\x1B' -> (* SBB *) add_sub s Sub true s.operand_sz 1
+	  | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax Config.size_of_byte
+	  | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz
+	  | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds s.operand_sz in push s [V ds']
+	  | '\x1F' -> (* POP ds *) let ds' = to_reg ds s.operand_sz in pop s [V ds']
+
+	  | '\x20' -> (* AND *) or_xor_and s And Config.size_of_byte 0
+	  | '\x21' -> (* AND *) or_xor_and s And s.operand_sz 0
+	  | '\x22' -> (* AND *) or_xor_and s And Config.size_of_byte 1
+	  | '\x23' -> (* AND *) or_xor_and s And s.operand_sz 1
+					  
+	  | '\x26' -> (* data segment = es *) s.segments.data <- es; decode s
+	  | '\x27' -> (* DAA *) daa s
+	  | '\x28' -> (* SUB *) add_sub s Sub false Config.size_of_byte 0
+	  | '\x29' -> (* SUB *) add_sub s Sub false s.operand_sz 0
+	  | '\x2A' -> (* SUB *) add_sub s Sub false Config.size_of_byte 1
+	  | '\x2B' -> (* SUB *) add_sub s Sub false s.operand_sz 1
+	  | '\x2C' -> (* SUB AL with immediate *) add_sub_immediate s Sub false eax Config.size_of_byte
+	  | '\x2D' -> (* SUB eAX with immediate *) add_sub_immediate s Sub false eax s.operand_sz
+	  | '\x2E' -> (* data segment = cs *) s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
+	  | '\x2F' -> (* DAS *) das s
+
+	  | '\x30' -> (* XOR *) or_xor_and s And Config.size_of_byte 0
+	  | '\x31' -> (* XOR *) or_xor_and s And s.operand_sz 0
+	  | '\x32' -> (* XOR *) or_xor_and s And Config.size_of_byte 1
+	  | '\x33' -> (* XOR *) or_xor_and s And s.operand_sz 1
+				    
+	  | '\x36' -> (* data segment = ss *) s.segments.data <- ss; decode s
+	  | '\x37' -> (* AAA *) aaa s
+	  | '\x38' -> (* CMP *) cmp s Config.size_of_byte 0
+	  | '\x39' -> (* CMP *) cmp s s.operand_sz 0
+	  | '\x3A' -> (* CMP *) cmp s Config.size_of_byte 1
+	  | '\x3B' -> (* CMP *) cmp s s.operand_sz 1					   
+	  | '\x3C' -> (* CMP AL with immediate *)
 	     let i = Const (Word.of_int (int_of_bytes s 1) Config.size_of_byte) in
 	     return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) i Config.size_of_byte)
-	  | '\x3D' 			       -> (* CMP eAX with immediate *)
+	  | '\x3D' -> (* CMP eAX with immediate *)
 	     let i = Const (Word.of_int (int_of_bytes s (s.operand_sz / Config.size_of_byte)) s.operand_sz) in
 	     return s (cmp_stmts (Lval (V (P (eax, 0, s.operand_sz-1)))) i s.operand_sz)
-	  | '\x3E' 			       -> (* data segment = ds *) s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
-	  | '\x3F'                             -> (* AAS *) aas s
+	  | '\x3E' -> (* data segment = ds *) s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
+	  | '\x3F' -> (* AAS *) aas s
 									
 	  | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec (V r) Add s s.operand_sz
 	  | c when '\x48' <= c && c <= '\x4f' -> (* DEC *) let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec (V r) Sub s s.operand_sz
@@ -1399,11 +1426,25 @@ module Make(Domain: Domain.T) =
 
 	  | '\x86' -> (* XCHG byte registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm Config.size_of_byte) (find_reg reg Config.size_of_byte) Config.size_of_byte
 	  | '\x87' -> (* XCHG word or double-word registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm s.operand_sz) (find_reg reg s.operand_sz) s.operand_sz
-	  | c when '\x88' <= c && c <= '\x8b' -> (* MOV *) let dst, src, _sz = operands_from_mod_reg_rm s (Char.code c) in return s [ Set (dst, src) ]
-	  | '\x8c' -> (* MOV with segment as src *) let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V (find_reg rm 16) in let src = V (T (to_segment_reg s.a reg)) in return s [ Set (dst, Lval src) ]
+	  | '\x88' -> (* MOV *) mov s Config.size_of_byte 0
+	  | '\x89' -> (* MOV *) mov s s.operand_sz 0
+	  | '\x8A' -> (* MOV *) mov s Config.size_of_byte 1
+	  | '\x8B' -> (* MOV *) mov s s.operand_sz 1
+
+      
+	  | '\x8c' -> (* MOV with segment as src *)
+	     let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in
+	     let dst = V (find_reg rm 16) in
+	     let src = V (T (to_segment_reg s.a reg)) in
+	     return s [ Set (dst, Lval src) ]
+		    
 	  | '\x8d' -> (* LEA *) lea s
-	  | '\x8e' -> (* MOV with segment as dst *) let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in let dst = V ( T (to_segment_reg s.a reg)) in let src = V (find_reg rm 16) in return s [ Set (dst, Lval src) ]
-	  | '\x8f' -> (* POP of word or double word *) let dst, _src, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in pop s [dst]
+	  | '\x8e' -> (* MOV with segment as dst *)
+	     let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in
+	     let dst = V ( T (to_segment_reg s.a reg)) in
+	     let src = V (find_reg rm 16) in
+	     return s [ Set (dst, Lval src) ]
+	  | '\x8f' -> (* POP of word or double word *) let dst, _src = operands_from_mod_reg_rm s s.operand_sz 0 in pop s [dst]
 																				
 	  | '\x90' 			      -> (* NOP *) return s [Nop]
 	  | c when '\x91' <= c && c <= '\x97' -> (* XCHG word or double-word with eAX *) xchg_with_eax s ((Char.code c) - (Char.code '\x90'))
@@ -1520,32 +1561,33 @@ module Make(Domain: Domain.T) =
 	  | c when '\x90' <= c && c <= '\x9f' -> let v = (Char.code c) - (Char.code '\x90') in setcc s v (s.operand_sz / Config.size_of_byte)
 	  | '\xa0' -> push s [V (T fs)]
 	  | '\xa1' -> pop s [V (T fs)]
-	  | '\xa3' -> let reg, rm, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in bt s reg rm
 	  | '\xa8' -> push s [V (T gs)]
 	  | '\xa9' -> pop s [V (T gs)]
-	  | '\xab' -> let reg, rm, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in bts s reg rm
+	  | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
 											 
 	  | '\xb2' -> load_far_ptr s ss
-	  | '\xb3' -> let reg, rm, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in btr s reg rm
+	  | '\xb3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btr s reg rm
 	  | '\xb4' -> load_far_ptr s fs
 	  | '\xb5' -> load_far_ptr s gs
 
-	  | '\xb6' -> let reg, rm, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in
+	  | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
 		      let r = Register.make (Register.fresh_name ()) s.operand_sz in
 		      return s [ Set (V (T r), rm) ;
-				 Set (reg, UnOp(ZeroExt s.operand_sz, Lval (V (P (r, 0, 8)))));
+				 Set (reg, UnOp(ZeroExt s.operand_sz, Lval (V (P (r, 0, 7)))));
 				 Directive (Remove r) ]
-	  | '\xb7' -> let reg, rm, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
+	  | '\xb7' -> 
+	     let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
+	     return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
 											      
 	  | '\xba' -> grp8 s
-	  | '\xbb' -> let reg, rm, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in btc s reg rm
+	  | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btc s reg rm
 
-	  | '\xbe' -> let reg, rm, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in
+	  | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
 		      let r = Register.make (Register.fresh_name ()) s.operand_sz in
 		      return s [ Set (V (T r), rm) ;
-				 Set (reg, UnOp(SignExt s.operand_sz, Lval (V (P (r, 0, 8)))));
+				 Set (reg, UnOp(SignExt s.operand_sz, Lval (V (P (r, 0, 7)))));
 				 Directive (Remove r) ]
-	  | '\xbf' -> let reg, rm, _sz = operands_from_mod_reg_rm s (Char.code (getchar s)) in return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ]
+	  | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s !Config.operand_sz 1 in return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ]
 	  | c 	   -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
 	in
 	  decode s;;

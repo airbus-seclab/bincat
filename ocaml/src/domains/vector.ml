@@ -238,7 +238,6 @@ module Make(V: Val) =
 
     let ishl v i =
       let n  = Array.length v        in
-
 	let v' = Array.make n V.zero in
 	let o  = n-i                 in
 	for j = 0 to o-1 do

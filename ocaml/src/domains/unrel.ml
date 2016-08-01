@@ -214,8 +214,8 @@ module Make(D: T) =
 	   end
 	| Asm.Lval (Asm.M (e, n))            ->
 	   begin
+	     let r = eval e in
 	     try
-	       let r = eval e in
 	       let addresses = Data.Address.Set.elements (D.to_addresses r) in
 	       let rec to_value a =
 		 match a with
@@ -227,7 +227,7 @@ module Make(D: T) =
 	     with
 	     | Exceptions.Enum_failure               -> D.top
 	     | Not_found | Exceptions.Concretization ->
-			    Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]: analysis stops in that context" (Asm.string_of_exp e true));
+			    Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]=[%s]: analysis stops in that context" (Asm.string_of_exp e true) (D.to_string r));
 			    raise Exceptions.Bot_deref
 	   end
 	     
