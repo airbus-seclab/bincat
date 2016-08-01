@@ -53,44 +53,57 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         super(EditConfigurationFileForm_t, self).show()
 
 
-class BinCATConfigForm_t(QtWidgets.QDialog):
+class BinCATOptionsForm_t(QtWidgets.QDialog):
     def __init__(self, state):
-        super(BinCATConfigForm_t, self).__init__()
+        super(BinCATOptionsForm_t, self).__init__()
         self.s = state
 
         layout = QtWidgets.QGridLayout()
 
+        lbl_plug_opts = QtWidgets.QLabel("Plugin options")
+        self.chk_start = QtWidgets.QCheckBox('Start &plugin automatically')
+
         lbl_default_bhv = QtWidgets.QLabel("Default behaviour")
-        # Save config in IDB
-        self.chk_save = QtWidgets.QCheckBox('&Save configuration to IDB',
-                                            self)
-        self.chk_load = QtWidgets.QCheckBox('&Load configuration from IDB',
-                                            self)
+        # Save config in IDB by default
+        self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
+        self.chk_load = QtWidgets.QCheckBox('&Load configuration from IDB')
 
-        self.btn_start = QtWidgets.QPushButton('&Save', self)
-        self.btn_start.clicked.connect(self.save_config)
+        btn_start = QtWidgets.QPushButton('&Save', self)
+        btn_start.clicked.connect(self.save_config)
 
-        self.btn_cancel = QtWidgets.QPushButton('Cancel', self)
-        self.btn_cancel.clicked.connect(self.close)
+        btn_cancel = QtWidgets.QPushButton('Cancel', self)
+        btn_cancel.clicked.connect(self.close)
 
         layout.addWidget(lbl_default_bhv, 0, 0)
-
         layout.addWidget(self.chk_save, 1, 0)
         layout.addWidget(self.chk_load, 2, 0)
-        layout.addWidget(self.btn_start, 3, 0)
-        layout.addWidget(self.btn_cancel, 3, 1)
+        layout.addWidget(lbl_plug_opts, 3, 0)
+        layout.addWidget(self.chk_start, 4, 0)
+        layout.addWidget(btn_start, 5, 0)
+        layout.addWidget(btn_cancel, 5, 1)
 
         self.setLayout(layout)
 
-        self.btn_start.setFocus()
+        btn_start.setFocus()
+
+
+        self.chk_start.setChecked(self.s.options.get("options", "autostart") == "True")
+        self.chk_save.setChecked(self.s.options.get("options", "save_to_idb") == "True")
+        self.chk_load.setChecked(self.s.options.get("options", "load_from_idb") == "True")
 
     def save_config(self):
+        self.s.options.set("options","autostart", str(self.chk_start.isChecked()))
+        self.s.options.set("options","save_to_idb", str(self.chk_save.isChecked()))
+        self.s.options.set("options","load_from_idb", str(self.chk_load.isChecked()))
+        self.s.save_options()
+        bc_log.debug(repr(self.s.options.items("options")))
+        self.close()
         return
 
     def show(self):
         self.setFixedSize(460, 200)
         self.setWindowTitle("BinCAT configuration")
-        super(BinCATConfigForm_t, self).show()
+        super(BinCATOptionsForm_t, self).show()
 
 
 class TaintLaunchForm_t(QtWidgets.QDialog):
@@ -477,16 +490,16 @@ class HandleAnalyzeHere(idaapi.action_handler_t):
     def update(self, ctx):
         return idaapi.AST_ENABLE_ALWAYS
 
-class HandleGlobalConfig(idaapi.action_handler_t):
+class HandleOptions(idaapi.action_handler_t):
     """
-    Action handler for BinCAT/Configure
+    Action handler for BinCAT/Options
     """
     def __init__(self, state):
         self.state = state
 
     def activate(self, ctx):
         # display config window
-        bc_conf_form = BinCATConfigForm_t(self.state)
+        bc_conf_form = BinCATOptionsForm_t(self.state)
         bc_conf_form.exec_()
         return 1
 
@@ -565,12 +578,12 @@ class GUI(object):
         idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:show_windows",
                                      idaapi.SETMENU_APP)
 
-        # "Configure" menu
-        glob_conf_act = idaapi.action_desc_t(
-            'bincat:glob_conf_act', 'Configure',
-            HandleGlobalConfig(self.s), '', 'BinCAT action', -1)
-        idaapi.register_action(glob_conf_act)
-        idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:glob_conf_act",
+        # "Options" menu
+        options_act = idaapi.action_desc_t(
+            'bincat:options_act', 'Options',
+            HandleOptions(self.s), '', 'BinCAT action', -1)
+        idaapi.register_action(options_act)
+        idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:options_act",
                                      idaapi.SETMENU_APP)
         self.hooks = Hooks(state)
         self.hooks.hook()

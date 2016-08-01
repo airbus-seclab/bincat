@@ -6,6 +6,7 @@ import os
 import sys
 import traceback
 import tempfile
+import ConfigParser
 import logging
 import idaapi
 import idabincat.netnode
@@ -45,15 +46,20 @@ class BincatPlugin(idaapi.plugin_t):
                 "Failed to load 'pybincat.cfa' python module\n%s",
                 repr(sys.exc_info()))
             return idaapi.PLUGIN_SKIP
-        return idaapi.PLUGIN_OK
+        self.state = State()
+        bc_log.info("IDABinCAT ready.")
+
+        if self.state.options.get("options", "autostart") == "True":
+            bc_log.info("Autostarting")
+            return idaapi.PLUGIN_KEEP
+        else:
+            return idaapi.PLUGIN_OK
 
     def run(self, args):
         if self.initialized:
             return
         self.initialized = True
-        self.state = State()
 
-        bc_log.info("IDABinCAT ready.")
 
     def term(self):
         if self.state:
@@ -153,6 +159,19 @@ class State(object):
         self.gui = GUI(self)
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
         self.load_from_idb()
+
+        # Plugin options
+        def_options = {'save_to_idb' : "False", "load_from_idb": "True", "autostart": "False"}
+        self.options = ConfigParser.ConfigParser(defaults=def_options)
+        self.options.optionxform = str
+        if len(self.options.read(os.path.join(self.config_path, "conf", "options.ini"))) != 1:
+            self.options.add_section("options")
+
+    # Save current options to file
+    def save_options(self):
+        optfile = open(os.path.join(self.config_path, "conf", "options.ini"), "w")
+        self.options.write(optfile)
+        optfile.close()
 
     def load_from_idb(self):
         if "out.ini" in self.netnode and "analyzer.log" in self.netnode:
