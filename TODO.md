@@ -7,7 +7,7 @@
 ## Plugin IDA
 * colorer les lignes teintées
 * GDT par défaut
-* fichier de conf par défaut externe
+* installer correctement le fichier de conf (BUG)
 
 ## Global
 * tester sous Windows ?
