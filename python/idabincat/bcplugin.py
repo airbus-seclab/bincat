@@ -140,6 +140,12 @@ class State(object):
         self.current_ea = None
         self.cfa = None
         self.current_state = None
+        # Configuration files path
+        idausr = os.getenv('IDAUSR')
+        if not idausr:
+            idausr = os.path.join(os.getenv("HOME"), ".idapro")
+            bc_log.warning("IDAUSR not defined, using %s", idausr)
+        self.config_path = os.path.join(idausr, "idabincat")
         self.current_config = AnalyzerConfig()
         #: Analyzer instance
         self.analyzer = None
