@@ -44,7 +44,7 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.configtxt.appendPlainText(config_txt)
 
     def btn_launch_analyzer(self):
-        self.s.current_config.read_string(self.configtxt.toPlainText())
+        self.s.current_config.reset_from_str(self.configtxt.toPlainText())
         self.close()
 
     def show(self):

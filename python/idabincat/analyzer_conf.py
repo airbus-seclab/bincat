@@ -44,8 +44,10 @@ class AnalyzerConfig(object):
         sio.seek(0)
         return sio.read()
 
-    def read_string(self, string):
+    def reset_from_str(self, string):
         sio = StringIO.StringIO(string)
+        self.config = ConfigParser.RawConfigParser()
+        self.config.optionxform = str
         self.config.readfp(sio)
         return self
 
@@ -265,6 +267,6 @@ class AnalyzerConfig(object):
         c = self.load_from_idb(address)
         if c:
             bc_log.info("loaded config from IDB for address %x", address)
-            self.read_string(c)
+            self.reset_from_str(c)
         else:
             self.config = self.get_default_config(address)
