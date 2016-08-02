@@ -49,20 +49,19 @@ class AnalyzerConfig(object):
     def get_memory_model():
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
-        # XXX check correctness, should be == CONSTANT ?
-        if compiler_info.cm & idaapi.C_PC_TINY == 1:
+        if compiler_info.cm & idaapi.C_PC_TINY == idaapi.C_PC_TINY:
             return "tiny"
-        if compiler_info.cm & idaapi.C_PC_SMALL == 1:
+        if compiler_info.cm & idaapi.C_PC_SMALL == idaapi.C_PC_SMALL:
             return "small"
-        if compiler_info.cm & idaapi.C_PC_COMPACT == 1:
+        if compiler_info.cm & idaapi.C_PC_COMPACT == idaapi.C_PC_COMPACT:
             return "compact"
-        if compiler_info.cm & idaapi.C_PC_MEDIUM == 1:
+        if compiler_info.cm & idaapi.C_PC_MEDIUM == idaapi.C_PC_MEDIUM:
             return "medium"
-        if compiler_info.cm & idaapi.C_PC_LARGE == 1:
+        if compiler_info.cm & idaapi.C_PC_LARGE == idaapi.C_PC_LARGE:
             return "large"
-        if compiler_info.cm & idaapi.C_PC_HUGE == 1:
+        if compiler_info.cm & idaapi.C_PC_HUGE == idaapi.C_PC_HUGE:
             return "huge"
-        if compiler_info.cm & idaapi.C_PC_FLAT == 3:
+        if compiler_info.cm & idaapi.C_PC_FLAT == idaapi.C_PC_FLAT:
             return "flat"
 
     @staticmethod
@@ -182,7 +181,7 @@ class AnalyzerConfig(object):
         # Load default GDT/Segment registers according to file type
         ftype = AnalyzerConfig.get_file_type()
         if ftype == "pe":
-            os_specific = os.path.join(state.config_path, "conf", "windows.ini") 
+            os_specific = os.path.join(state.config_path, "conf", "windows.ini")
         elif ftype == "elf":
             os_specific = os.path.join(state.config_path, "conf", "linux.ini")
         bc_log.debug("Reading OS config from %s", os_specific)
