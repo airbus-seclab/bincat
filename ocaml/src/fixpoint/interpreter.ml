@@ -191,8 +191,7 @@ struct
 		    with
 		    | _ -> Log.error "Interpreter: computed instruction pointer at return instruction too imprecise or undefined"
 		  with
-		  | _ -> Log.from_analysis (Printf.sprintf "return instruction at %s without previous call instruction\n" (Data.Address.to_string v.Cfa.State.ip))
-				   
+		  | _ -> Log.error (Printf.sprintf "return instruction at %s without previous call instruction\n" (Data.Address.to_string v.Cfa.State.ip))
 		) vertices
 		       
 	   | _       -> vertices
