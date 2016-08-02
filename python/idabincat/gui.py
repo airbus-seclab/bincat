@@ -227,9 +227,13 @@ class BinCATDebugForm_t(idaapi.PluginForm):
     def __init__(self, state):
         super(BinCATDebugForm_t, self).__init__()
         self.s = state
-        self.closed = True
+        self.shown = False
+        self.created = False
+        self.stmt_txt = ""
+        self.bytes_txt = ""
 
     def OnCreate(self, form):
+        self.created = True
         self.parent = self.FormToPyQtWidget(form)
         layout = QtWidgets.QGridLayout()
 
@@ -246,6 +250,7 @@ class BinCATDebugForm_t(idaapi.PluginForm):
             QtCore.Qt.TextSelectableByMouse |
             QtCore.Qt.TextSelectableByKeyboard)
         self.bytes_data.setWordWrap(True)
+        self.settxt()
 
         layout.addWidget(self.stmt_lbl, 0, 0)
         layout.addWidget(self.stmt_data, 0, 1)
@@ -255,22 +260,26 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         layout.setColumnStretch(1, 1)
         self.parent.setLayout(layout)
 
+    def settxt(self):
+        self.stmt_data.setText(self.stmt_txt)
+        self.bytes_data.setText(self.bytes_txt)
+
     def update(self, state):
-        if self.closed:
-            return
         if state:
-            self.stmt_data.setText(state.statements.replace('____', '    '))
-            self.bytes_data.setText(state.bytes)
+            self.stmt_txt = state.statements.replace('____', '    ')
+            self.bytes_txt = state.bytes
         else:
-            self.stmt_data.setText("")
-            self.bytes_data.setText("")
+            self.stmt_txt = ""
+            self.bytes_txt = ""
+        if self.created and self.shown:
+            self.settxt()
 
     def OnClose(self, form):
-        self.closed = True
+        self.shown = False
         pass
 
     def Show(self):
-        self.closed = False
+        self.shown = True
         return idaapi.PluginForm.Show(
             self, "BinCAT Debugging",
             options=(idaapi.PluginForm.FORM_PERSIST |
@@ -287,9 +296,12 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         super(BinCATTaintedForm_t, self).__init__()
         self.s = state
         self.vtmodel = vtmodel
-        self.closed = True
+        self.shown = False
+        self.created = False
+        self.rvatxt = ""
 
     def OnCreate(self, form):
+        self.created = True
         self.currentrva = 0
 
         # Get parent widget
@@ -303,7 +315,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         splitter.addWidget(self.nilabel)
 
         # RVA address label
-        self.alabel = QtWidgets.QLabel('RVA address:')
+        self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
         splitter.addWidget(self.alabel)
 
         # Value Taint Table
@@ -326,11 +338,10 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.parent.setLayout(layout)
 
     def OnClose(self, form):
-        self.closed = True
-        pass
+        self.shown = False
 
     def Show(self):
-        self.closed = False
+        self.shown = True
         return idaapi.PluginForm.Show(
             self, "BinCAT Tainting",
             options=(idaapi.PluginForm.FORM_PERSIST |
@@ -340,9 +351,10 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         """
         :param ea: int or long
         """
-        if self.closed:
+        self.rvatxt = '0x%08x' % ea
+        if not (self.shown and self.created):
             return
-        self.alabel.setText('RVA: 0x%08x' % ea)
+        self.alabel.setText('RVA: %s' % self.rvatxt)
         state = self.s.current_state
         if state:
             self.nilabel.setText('Node Id: %s' % state.node_id)
