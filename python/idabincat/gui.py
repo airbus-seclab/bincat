@@ -86,15 +86,20 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
 
         btn_start.setFocus()
 
-
-        self.chk_start.setChecked(self.s.options.get("options", "autostart") == "True")
-        self.chk_save.setChecked(self.s.options.get("options", "save_to_idb") == "True")
-        self.chk_load.setChecked(self.s.options.get("options", "load_from_idb") == "True")
+        self.chk_start.setChecked(
+            self.s.options.get("options", "autostart") == "True")
+        self.chk_save.setChecked(
+            self.s.options.get("options", "save_to_idb") == "True")
+        self.chk_load.setChecked(
+            self.s.options.get("options", "load_from_idb") == "True")
 
     def save_config(self):
-        self.s.options.set("options","autostart", str(self.chk_start.isChecked()))
-        self.s.options.set("options","save_to_idb", str(self.chk_save.isChecked()))
-        self.s.options.set("options","load_from_idb", str(self.chk_load.isChecked()))
+        self.s.options.set("options", "autostart",
+                           str(self.chk_start.isChecked()))
+        self.s.options.set("options", "save_to_idb",
+                           str(self.chk_save.isChecked()))
+        self.s.options.set("options", "load_from_idb",
+                           str(self.chk_load.isChecked()))
         self.s.save_options()
         self.close()
         return
@@ -139,7 +144,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btn_edit_conf.clicked.connect(self.edit_config)
 
         self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
-        self.chk_save.setChecked(self.s.options.get("options", "save_to_idb") == "True")
+        self.chk_save.setChecked(
+            self.s.options.get("options", "save_to_idb") == "True")
 
         self.btn_start = QtWidgets.QPushButton('&Start')
         self.btn_start.clicked.connect(self.launch_analysis)
@@ -187,7 +193,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.s.current_config.set_start_stop_addr(start_addr, stop_addr)
 
         if self.chk_save.isChecked():
-            self.s.current_config.save_to_idb(int(self.ip_start_addr.text(), 16))
+            self.s.current_config.save_to_idb(
+                int(self.ip_start_addr.text(), 16))
 
         self.s.start_analysis()
 
@@ -495,6 +502,7 @@ class HandleAnalyzeHere(idaapi.action_handler_t):
     def update(self, ctx):
         return idaapi.AST_ENABLE_ALWAYS
 
+
 class HandleOptions(idaapi.action_handler_t):
     """
     Action handler for BinCAT/Options
@@ -511,6 +519,7 @@ class HandleOptions(idaapi.action_handler_t):
     def update(self, ctx):
         return idaapi.AST_ENABLE_ALWAYS
 
+
 class HandleShowWindows(idaapi.action_handler_t):
     """
     Action handler for BinCAT/Show windows
@@ -525,6 +534,7 @@ class HandleShowWindows(idaapi.action_handler_t):
 
     def update(self, ctx):
         return idaapi.AST_ENABLE_ALWAYS
+
 
 class Hooks(idaapi.UI_Hooks):
     """
@@ -572,7 +582,8 @@ class GUI(object):
             'bincat:ana_from_here', 'Analyze from here...',
             HandleAnalyzeHere(self.s), 'Ctrl-Shift-A', 'BinCAT action', -1)
         idaapi.register_action(ana_from_here_act)
-        idaapi.attach_action_to_menu("Edit/BinCAT/analyse", "bincat:ana_from_here",
+        idaapi.attach_action_to_menu("Edit/BinCAT/analyse",
+                                     "bincat:ana_from_here",
                                      idaapi.SETMENU_APP)
 
         # "Show windows" menu
@@ -580,7 +591,8 @@ class GUI(object):
             'bincat:show_windows', 'Show BinCAT windows',
             HandleShowWindows(self), '', 'BinCAT action', -1)
         idaapi.register_action(show_windows_act)
-        idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:show_windows",
+        idaapi.attach_action_to_menu("Edit/BinCAT/show_win",
+                                     "bincat:show_windows",
                                      idaapi.SETMENU_APP)
 
         # "Options" menu
@@ -588,7 +600,8 @@ class GUI(object):
             'bincat:options_act', 'Options...',
             HandleOptions(self.s), '', 'BinCAT action', -1)
         idaapi.register_action(options_act)
-        idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:options_act",
+        idaapi.attach_action_to_menu("Edit/BinCAT/show_win",
+                                     "bincat:options_act",
                                      idaapi.SETMENU_APP)
         self.hooks = Hooks(state)
         self.hooks.hook()

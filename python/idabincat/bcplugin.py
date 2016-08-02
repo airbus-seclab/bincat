@@ -161,10 +161,11 @@ class State(object):
         self.load_from_idb()
 
         # Plugin options
-        def_options = {'save_to_idb' : "False", "load_from_idb": "True", "autostart": "False"}
+        def_options = {'save_to_idb': "False", "load_from_idb": "True", "autostart": "False"}
         self.options = ConfigParser.ConfigParser(defaults=def_options)
         self.options.optionxform = str
-        if len(self.options.read(os.path.join(self.config_path, "conf", "options.ini"))) != 1:
+        configfile = os.path.join(self.config_path, "conf", "options.ini")
+        if len(self.options.read(configfile)) != 1:
             self.options.add_section("options")
 
     # Save current options to file
