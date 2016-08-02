@@ -132,10 +132,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.ip_stop_addr.setText(stop_addr)
 
         # Start, cancel and analyzer config buttons
-        self.btn_load = QtWidgets.QPushButton('&Load analyzer config')
+        self.btn_load = QtWidgets.QPushButton('&Load analyzer config...')
         self.btn_load.clicked.connect(self.choose_file)
 
-        self.btn_edit_conf = QtWidgets.QPushButton('&Edit analyzer config')
+        self.btn_edit_conf = QtWidgets.QPushButton('&Edit analyzer config...')
         self.btn_edit_conf.clicked.connect(self.edit_config)
 
         self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
@@ -569,7 +569,7 @@ class GUI(object):
 
         # Analyse from here menu
         ana_from_here_act = idaapi.action_desc_t(
-            'bincat:ana_from_here', 'Analyze from here',
+            'bincat:ana_from_here', 'Analyze from here...',
             HandleAnalyzeHere(self.s), 'Ctrl-Shift-A', 'BinCAT action', -1)
         idaapi.register_action(ana_from_here_act)
         idaapi.attach_action_to_menu("Edit/BinCAT/analyse", "bincat:ana_from_here",
@@ -585,7 +585,7 @@ class GUI(object):
 
         # "Options" menu
         options_act = idaapi.action_desc_t(
-            'bincat:options_act', 'Options',
+            'bincat:options_act', 'Options...',
             HandleOptions(self.s), '', 'BinCAT action', -1)
         idaapi.register_action(options_act)
         idaapi.attach_action_to_menu("Edit/BinCAT/show_win", "bincat:options_act",
