@@ -147,9 +147,12 @@ class AnalyzerConfig(object):
         config.optionxform = str
 
         # Load default part
-        bc_log.debug("Reading config from %s", os.path.join(state.config_path, "conf", "default.ini"))
-        config.read(os.path.join(state.config_path, "conf", "default.ini"))
-        bc_log.info(str(config))
+        configfile = os.path.join(state.config_path, "conf", "default.ini")
+        bc_log.debug("Reading config from %s", configfile)
+        r = config.read(configfile)
+        if len(r) != 1:
+            bc_log.warning("Default config file %s could not be found",
+                           configfile)
 
         self.analysis_ep = ea
 
