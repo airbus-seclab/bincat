@@ -176,13 +176,13 @@ struct
 		    check_tainting f vstack.Cfa.State.ip d';
 		    (* check whether instruction pointers supposed and effective agree *)
 		    try
-		      let rip         = Register.stack_pointer ()			                                            in
-		      let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T rip)), (Register.size rip)))) in
+		      let sp         = Register.stack_pointer ()			                                            in
+		      let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
 		      begin
 			match Data.Address.Set.elements ip_on_stack with
 			| [ip_on_stack] ->
 			   if not (Data.Address.equal vstack.Cfa.State.ip ip_on_stack) then
-			     Log.error "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction"
+			     Log.error (Printf.sprintf "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction" (Data.Address.to_string vstack.Cfa.State.ip) (Data.Address.to_string ip_on_stack))
 			   else
 			     ()
 			| _ -> Log.error "Intepreter: too much values computed for the instruction pointer at return instruction"
