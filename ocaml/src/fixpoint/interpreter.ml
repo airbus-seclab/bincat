@@ -182,7 +182,7 @@ struct
 			match Data.Address.Set.elements ip_on_stack with
 			| [ip_on_stack] ->
 			   if not (Data.Address.equal vstack.Cfa.State.ip ip_on_stack) then
-			     Log.from_analysis "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction"
+			     Log.error "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction"
 			   else
 			     ()
 			| _ -> Log.error "Intepreter: too much values computed for the instruction pointer at return instruction"
