@@ -155,7 +155,6 @@ struct
 
             | Return ->
               List.map (fun v ->
-
                   try
                       let d = v.Cfa.State.v in
                       let f, vstack = List.hd !fun_stack in
