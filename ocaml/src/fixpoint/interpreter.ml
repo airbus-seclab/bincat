@@ -80,7 +80,7 @@ struct
 	 let b =
 	   match s with
 	   | Call _ | Return  | Jmp _ -> true
-	   | If (_, istmts, estmts)   -> (has_jmp istmts) || (has_jmp estmts)
+	   | If (_, tstmts, estmts)   -> (has_jmp tstmts) || (has_jmp estmts)
 	   | _ 			      -> false
 	 in
 	 b || (has_jmp stmts')
