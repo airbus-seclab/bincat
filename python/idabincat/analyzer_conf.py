@@ -1,5 +1,6 @@
 # Fuck Python.
 from __future__ import absolute_import
+import functools
 import os
 import StringIO
 import ConfigParser
@@ -123,6 +124,26 @@ class AnalyzerConfig(object):
         bc_log.warning("no Data section has been found")
         return -1, -1
 
+    @staticmethod
+    def add_imp_to_dict(imports, module, ea, name, ordinal):
+        if not name:
+            imports[ea] = (module, ordinal)
+        else:
+            imports[ea] = (module, name)
+        return True
+
+    @staticmethod
+    def get_imports():
+        imports = {}
+        nimps = idaapi.get_import_module_qty()
+        for i in xrange(0, nimps):
+            name = idaapi.get_import_module_name(i)
+            imp_cb = functools.partial(AnalyzerConfig.add_imp_to_dict, imports, name)
+            idaapi.enum_import_names(i, imp_cb)
+        return imports
+
+
+
     def __str__(self):
         sio = StringIO.StringIO()
         self.config.write(sio)
@@ -206,10 +227,15 @@ class AnalyzerConfig(object):
         # [state section]
         # TODO : generate "?" config for all registers by default ?
 
-        # TODO actually use IDA info here
+        imports = self.get_imports()
         # [import] section
-        ## config.add_section('imports')
-        ## config.set('imports', '0x04', 'libc, open')
+        config.add_section('imports')
+        for ea,imp in imports.iteritems():
+            if imp[0]:
+                name = "%s, %s" % imp
+            else:
+                name = imp[1]
+            config.set('imports', ("0x%x" % ea), name)
         # [libc section]
         ## config.add_section('libc')
         ## config.set('libc', 'call_conv', 'fastcall')
