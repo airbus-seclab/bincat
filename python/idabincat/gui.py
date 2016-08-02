@@ -129,9 +129,13 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         # Use current basic block address as default stop address
         stop_addr = ""
-        for block in idaapi.FlowChart(idaapi.get_func(idaapi.get_screen_ea())):
-            if block.startEA <= self.s.current_ea <= block.endEA:
-                stop_addr = hex(block.endEA).rstrip('L')
+        try:
+            for block in idaapi.FlowChart(idaapi.get_func(idaapi.get_screen_ea())):
+                if block.startEA <= self.s.current_ea <= block.endEA:
+                    stop_addr = hex(block.endEA).rstrip('L')
+        except:
+            # We may not be in a function, default to zero
+            stop_addr = "0"
         lbl_stop_addr = QtWidgets.QLabel(" Stop address: ")
         self.ip_stop_addr = QtWidgets.QLineEdit(self)
         self.ip_stop_addr.setText(stop_addr)

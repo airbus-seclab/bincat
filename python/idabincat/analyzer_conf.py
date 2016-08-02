@@ -43,7 +43,10 @@ class AnalyzerConfig(object):
     def get_file_type():
         ida_db_info_structure = idaapi.get_inf_structure()
         f_type = ida_db_info_structure.filetype
-        return AnalyzerConfig.ftypes[f_type]
+        if f_type in AnalyzerConfig.ftypes:
+            return AnalyzerConfig.ftypes[f_type]
+        else:
+            return "binary"
 
     @staticmethod
     def get_memory_model():
@@ -158,7 +161,7 @@ class AnalyzerConfig(object):
         # [settings] section
         config.add_section('settings')
         config.set('settings', 'mem_model', self.get_memory_model())
-        # TODO get cpu mode from idaapi ?
+        # IDA doesn't really support real mode
         config.set('settings', 'mode', 'protected')
         config.set('settings', 'call_conv', self.get_call_convention())
         config.set('settings', 'mem_sz', 32)
@@ -182,15 +185,21 @@ class AnalyzerConfig(object):
         ftype = AnalyzerConfig.get_file_type()
         if ftype == "pe":
             os_specific = os.path.join(state.config_path, "conf", "windows.ini")
-        elif ftype == "elf":
+        else: # default to Linux config if not windows
             os_specific = os.path.join(state.config_path, "conf", "linux.ini")
         bc_log.debug("Reading OS config from %s", os_specific)
         config.read(os_specific)
 
         # [binary section]
         config.add_section('binary')
-        # TODO check file path
-        config.set('binary', 'filepath', idaapi.get_input_file_path())
+        input_file = idaapi.get_input_file_path()
+        try:
+            open(input_file, "r").close()
+        except IOError:
+            bc_log.warning("Cannot open binary %s for reading, you should patch"
+                            " your config manually", input_file)
+
+        config.set('binary', 'filepath', input_file)
         config.set('binary', 'format', self.get_file_type())
 
 
