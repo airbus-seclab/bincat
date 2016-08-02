@@ -147,6 +147,7 @@ class AnalyzerConfig(object):
         config.optionxform = str
 
         # Load default part
+        bc_log.debug("Reading config from %s", os.path.join(state.config_path, "conf", "default.ini"))
         config.read(os.path.join(state.config_path, "conf", "default.ini"))
         bc_log.info(str(config))
 
@@ -178,9 +179,11 @@ class AnalyzerConfig(object):
         # Load default GDT/Segment registers according to file type
         ftype = AnalyzerConfig.get_file_type()
         if ftype == "pe":
-            config.read(os.path.join(state.config_path, "conf", "windows.ini"))
+            os_specific = os.path.join(state.config_path, "conf", "windows.ini") 
         elif ftype == "elf":
-            config.read(os.path.join(state.config_path, "conf", "linux.ini"))
+            os_specific = os.path.join(state.config_path, "conf", "linux.ini")
+        bc_log.debug("Reading OS config from %s", os_specific)
+        config.read(os_specific)
 
         # [binary section]
         config.add_section('binary')
