@@ -53,20 +53,10 @@ class AnalyzerConfig(object):
     def get_memory_model():
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
-        if compiler_info.cm & idaapi.C_PC_TINY == idaapi.C_PC_TINY:
-            return "tiny"
-        if compiler_info.cm & idaapi.C_PC_SMALL == idaapi.C_PC_SMALL:
-            return "small"
-        if compiler_info.cm & idaapi.C_PC_COMPACT == idaapi.C_PC_COMPACT:
-            return "compact"
-        if compiler_info.cm & idaapi.C_PC_MEDIUM == idaapi.C_PC_MEDIUM:
-            return "medium"
-        if compiler_info.cm & idaapi.C_PC_LARGE == idaapi.C_PC_LARGE:
-            return "large"
-        if compiler_info.cm & idaapi.C_PC_HUGE == idaapi.C_PC_HUGE:
-            return "huge"
         if compiler_info.cm & idaapi.C_PC_FLAT == idaapi.C_PC_FLAT:
             return "flat"
+        else:
+            return "segmented"
 
     @staticmethod
     def get_call_convention():
