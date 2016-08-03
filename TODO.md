@@ -7,7 +7,6 @@
 
 ## Plugin IDA
 * colorer les lignes teintées
-* GDT par défaut
 * installer correctement le fichier de conf (BUG)
 
 ## Global
