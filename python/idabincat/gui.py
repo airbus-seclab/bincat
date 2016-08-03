@@ -34,6 +34,9 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btn_cancel, 2, 1)
         self.setLayout(layout)
 
+    def sizeHint(self):
+        return QtCore.QSize(700, 1200)
+
     def set_addresses(self, start_addr, stop_addr):
         start_addr = int(self.parent().ip_start_addr.text(), 16)
         stop_addr = int(self.parent().ip_stop_addr.text(), 16)
