@@ -161,8 +161,18 @@ class WebAnalyzer(object):
         # check whether file has already been uploaded
         check_res = requests.head(server_url + "/download/%s" % sha256)
         if check_res.status_code == 404:
+            # Confirmation dialog before uploading file?
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText("Do you really want to upload %s to %s?" %
+                           (binary_file, server_url))
+            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes |
+                                      QtWidgets.QMessageBox.No)
+            msgBox.setIcon(QtWidgets.QMessageBox.Question)
+            ret = msgBox.exec_()
+            if ret == QtWidgets.QMessageBox.No:
+                bc_log.info("Upload aborted.")
+                return
             # upload
-            # XXX Add confirmation dialog before uploading file?
             upload_res = requests.put(
                 server_url + "/add",
                 files={'file': ('file', open(binary_file, 'rb').read())})
