@@ -9,6 +9,5 @@
 * colorer les lignes teintées
 
 ## Global
-* tester sous Windows ?
-* webservice pour permettre au plugin de marcher avec un bincat distant
+* faire marcher `bincat` sous windows ?
 * spécifier les sections de data et leurs adresses (physiques/virtuelles) pour permettre à bincat de les lire dans le binaire direct
