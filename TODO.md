@@ -7,7 +7,6 @@
 
 ## Plugin IDA
 * colorer les lignes teintées
-* installer correctement le fichier de conf (BUG)
 
 ## Global
 * tester sous Windows ?
