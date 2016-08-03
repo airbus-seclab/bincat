@@ -180,10 +180,6 @@ class WebAnalyzer(object):
                 bc_log.error("Error while uploading binary file "
                              "to BinCAT analysis server.")
                 return
-        # file has been uploaded, run analysis
-
-        # generate init file
-
         run_res = requests.post(
             server_url + "/analyze",
             files={'init.ini': ('init.ini', init_ini_str)})
@@ -201,7 +197,6 @@ class WebAnalyzer(object):
             outfp.write(files["out.ini"])
         with open(self.logfname, 'w') as logfp:
             logfp.write(files["analyzer.log"])
-        # output stderr
         self.finish_cb(self.outfname, self.logfname)
 
 
