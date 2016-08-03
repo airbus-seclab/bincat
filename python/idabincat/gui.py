@@ -60,8 +60,6 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
 
         layout = QtWidgets.QGridLayout()
 
-        lbl_plug_opts = QtWidgets.QLabel("Plugin options")
-        self.chk_start = QtWidgets.QCheckBox('Start &plugin automatically')
 
         lbl_default_bhv = QtWidgets.QLabel("Default behaviour")
         # Save config in IDB by default
@@ -74,13 +72,22 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         btn_cancel = QtWidgets.QPushButton('Cancel', self)
         btn_cancel.clicked.connect(self.close)
 
+        lbl_plug_opts = QtWidgets.QLabel("Plugin options")
+        self.chk_start = QtWidgets.QCheckBox('Start &plugin automatically')
+        self.chk_remote = QtWidgets.QCheckBox('Use &remote bincat')
+        lbl_url = QtWidgets.QLabel("Remote URL:")
+        self.url = QtWidgets.QLineEdit(self)
+
         layout.addWidget(lbl_default_bhv, 0, 0)
         layout.addWidget(self.chk_save, 1, 0)
         layout.addWidget(self.chk_load, 2, 0)
         layout.addWidget(lbl_plug_opts, 3, 0)
         layout.addWidget(self.chk_start, 4, 0)
-        layout.addWidget(btn_start, 5, 0)
-        layout.addWidget(btn_cancel, 5, 1)
+        layout.addWidget(self.chk_remote, 5, 0)
+        layout.addWidget(lbl_url, 6, 0)
+        layout.addWidget(self.url, 7, 0)
+        layout.addWidget(btn_start, 8, 0)
+        layout.addWidget(btn_cancel, 8, 1)
 
         self.setLayout(layout)
 
@@ -92,6 +99,11 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
             self.s.options.get("options", "save_to_idb") == "True")
         self.chk_load.setChecked(
             self.s.options.get("options", "load_from_idb") == "True")
+        self.chk_remote.setChecked(
+            self.s.options.get("options", "web_analyzer") == "True")
+        url = self.s.options.get("options", "server_url")
+        self.url.setText(url)
+
 
     def save_config(self):
         self.s.options.set("options", "autostart",
@@ -100,6 +112,9 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
                            str(self.chk_save.isChecked()))
         self.s.options.set("options", "load_from_idb",
                            str(self.chk_load.isChecked()))
+        self.s.options.set("options", "web_analyzer",
+                           str(self.chk_remote.isChecked()))
+        self.s.options.set("options", "server_url", self.url.text())
         self.s.save_options()
         self.close()
         return

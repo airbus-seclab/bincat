@@ -230,6 +230,7 @@ class State(object):
         # Plugin options
         def_options = {'save_to_idb': "False",
                        "load_from_idb": "True",
+                       "server_url": "http://localhost:5000",
                        "web_analyzer": "False",
                        "autostart": "False"}
         self.options = ConfigParser.ConfigParser(defaults=def_options)
