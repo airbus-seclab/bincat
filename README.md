@@ -101,6 +101,7 @@ Only IDA plugin is supported on Windows.
 
 ### Dependencies
 The plugin requires the `requests` module to work:
+
 * Get it from https://pypi.python.org/pypi/requests/
 * Extract it
 * Run `python setup.py build`
@@ -110,7 +111,7 @@ The plugin requires the `requests` module to work:
 ### Plugin install
 * Copy the `python\idabincat` folder to your IDA's `plugins` directory
 * Copy `python\idabincat\bcplugin.py` to your IDA's `plugins` directory
-* Copy the `python\idabincat\conf` folder to `%APPDATA%/Hex-Rays/IDA Pro` (or your `IDAUSR` dir)
+* Copy the `python\idabincat\conf` folder to `%APPDATA%\Hex-Rays\IDA Pro` (or your `IDAUSR` dir)
 * Configure your server address
 
 ## IDA plugin usage
