@@ -8,6 +8,8 @@ import traceback
 import tempfile
 import ConfigParser
 import logging
+import re
+import requests
 import idaapi
 import idabincat.netnode
 from idabincat.analyzer_conf import AnalyzerConfig
@@ -60,18 +62,15 @@ class BincatPlugin(idaapi.plugin_t):
             return
         self.initialized = True
 
-
     def term(self):
         if self.state:
             self.state.clear_background()
             self.state.gui.term()
 
 
-class Analyzer(QtCore.QProcess):
+class LocalAnalyzer(QtCore.QProcess):
     """
-    Class Analyzer that inherits from Qprocess
-
-    The idea is to implement callbacks on main Qprocess signals
+    Runs BinCAT locally using QProcess.
     """
 
     def __init__(self, initfname, outfname, logfname, finish_cb):
@@ -138,6 +137,63 @@ class Analyzer(QtCore.QProcess):
         self.finish_cb(self.outfname, self.logfname)
 
 
+class WebAnalyzer(object):
+    def __init__(self, initfname, outfname, logfname, finish_cb):
+        self.initfname = initfname
+        self.outfname = outfname
+        self.logfname = logfname
+        self.finish_cb = finish_cb
+
+    def run(self):
+        # XXX add preference
+        server_url = "http://localhost:5000"
+        sha256 = idaapi.retrieve_input_file_sha256().lower()
+        binary_file = idaapi.get_input_file_path()
+        # patch filepath (XXX dirty, rework AnalyzerConfig?) - set filepath to
+        # sha256
+        bc_log.debug("PATH %s", binary_file)
+        init_ini_str = re.sub(
+            '^filepath = .+$',
+            'filepath = %s' % sha256,
+            open(self.initfname).read(),
+            flags=re.MULTILINE)
+        bc_log.debug(init_ini_str)
+        # check whether file has already been uploaded
+        check_res = requests.head(server_url + "/download/%s" % sha256)
+        if check_res.status_code == 404:
+            # upload
+            # XXX Add confirmation dialog before uploading file?
+            upload_res = requests.put(
+                server_url + "/add",
+                files={'file': ('file', open(binary_file, 'rb').read())})
+            if upload_res.status_code != 200:
+                print("error while uploading file")
+                return
+        # file has been uploaded, run analysis
+
+        # generate init file
+
+        run_res = requests.post(
+            server_url + "/analyze",
+            files={'init.ini': ('init.ini', init_ini_str)})
+        if run_res.status_code != 200:
+            print("error while uploading file")
+            print(run_res.content)
+            return
+        files = run_res.json()
+        bc_log.info("---- stdout+stderr ----------------")
+        bc_log.info(files['stdout'])
+        bc_log.debug("---- logfile ---------------")
+        bc_log.info(files['analyzer.log'])
+        bc_log.debug("----------------------------")
+        with open(self.outfname, 'w') as outfp:
+            outfp.write(files["out.ini"])
+        with open(self.logfname, 'w') as logfp:
+            logfp.write(files["analyzer.log"])
+        # output stderr
+        self.finish_cb(self.outfname, self.logfname)
+
+
 class State(object):
     """
     Container for (static) plugin state related data & methods.
@@ -158,15 +214,20 @@ class State(object):
             bc_log.warning("IDAUSR not defined, using %s", idausr)
         self.config_path = os.path.join(idausr, "idabincat")
         self.current_config = AnalyzerConfig()
-        #: Analyzer instance
+        #: Analyzer instance - protects against merciless garbage collector
         self.analyzer = None
         self.hooks = None
         self.gui = GUI(self)
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
         self.load_from_idb()
+        # XXX Add preference (Local or Web)
+        self.analyzer_class = WebAnalyzer
+        # self.analyzer_class = LocalAnalyzer
 
         # Plugin options
-        def_options = {'save_to_idb': "False", "load_from_idb": "True", "autostart": "False"}
+        def_options = {'save_to_idb': "False",
+                       "load_from_idb": "True",
+                       "autostart": "False"}
         self.options = ConfigParser.ConfigParser(defaults=def_options)
         self.options.optionxform = str
         configfile = os.path.join(self.config_path, "conf", "options.ini")
@@ -175,7 +236,8 @@ class State(object):
 
     # Save current options to file
     def save_options(self):
-        optfile = open(os.path.join(self.config_path, "conf", "options.ini"), "w")
+        optfile = open(
+            os.path.join(self.config_path, "conf", "options.ini"), "w")
         self.options.write(optfile)
         optfile.close()
 
@@ -261,8 +323,10 @@ class State(object):
         else:
             self.current_config.write(initfname)
 
-        self.analyzer = Analyzer(initfname, outfname, logfname,
-                                 self.analysis_finish_cb)
+        # instance variable: we don't want the garbage collector to delete the
+        # *Analyzer instance, killing an unlucky QProcess in the process
+        self.analyzer = self.analyzer_class(
+            initfname, outfname, logfname, self.analysis_finish_cb)
         self.analyzer.run()
 
 

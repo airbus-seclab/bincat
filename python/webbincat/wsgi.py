@@ -89,7 +89,8 @@ def analyze():
             "No filepath in [binary] section in supplied init.ini file.", 400)
     if not SHA256_RE.match(binary_name):
         return flask.make_response(
-            "Binary filepath is not a valid sha256 hex string.", 400)
+            "Binary filepath (%s) is not a valid sha256 hex string."
+            % binary_name, 400)
     binpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'], binary_name)
     if not os.path.exists(binpath):
         return flask.make_response(
@@ -106,12 +107,22 @@ def analyze():
     init_file.save(os.path.join(dirname, 'init.ini'))
     os.link(binpath, os.path.join(dirname, binary_name))
     # run bincat
-    stdout = run_bincat(dirname)
+    err, stdout = run_bincat(dirname)
 
     # gather outputs
     result['stdout'] = stdout
-    result['analyzer.log'] = open(os.path.join(dirname, 'analyzer.log')).read()
-    result['out.ini'] = open(os.path.join(dirname, 'out.ini')).read()
+    result['errorcode'] = err
+    logfname = os.path.join(dirname, 'analyzer.log')
+    if os.path.isfile(logfname):
+        result['analyzer.log'] = open(logfname).read()
+    else:
+        result['analyzer.log'] = ""
+    outfname = os.path.join(dirname, 'out.ini')
+    if os.path.isfile(outfname):
+        result['out.ini'] = open(outfname).read()
+    else:
+        result['out.ini'] = ""
+
     os.chdir(cwd)
     shutil.rmtree(dirname)
 
@@ -121,7 +132,7 @@ def analyze():
 def run_bincat(dirname):
     # do not use chroot: not compatible with grsec
     cmdline = ("%s --nosound --caps.drop=all"
-               # " --quiet"
+               " --quiet"
                " --private"  # new /root, /home
                " --private-dev"  # new /dev, few devices
                " --private-etc=ld.so.cache,ld.so.conf,ld.so.conf.d"  # new /etc
@@ -133,10 +144,16 @@ def run_bincat(dirname):
                " --whitelist=%s"  # only allow current analysis dir from /tmp
                " -- ") % (firejail, dirname)
     cmdline += "bincat init.ini out.ini analyzer.log"
-    out = subprocess.check_output(
-        cmdline.split(' '),
-        stderr=subprocess.STDOUT)
-    return out
+    err = 0
+    try:
+        out = subprocess.check_output(
+            cmdline.split(' '),
+            stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as exc:
+        err = exc.returncode
+        out = exc.output
+
+    return err, out
 
 
 if __name__ == "__main__":
