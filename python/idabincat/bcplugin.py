@@ -149,7 +149,12 @@ class State(object):
         # Configuration files path
         idausr = os.getenv('IDAUSR')
         if not idausr:
-            idausr = os.path.join(os.getenv("HOME"), ".idapro")
+            if os.name == "nt":
+                idausr = os.path.join(os.getenv("APPDATA"), "Hex-Rays", "IDA Pro")
+            elif os.name == "posix":
+                idausr = os.path.join(os.getenv("HOME"), ".idapro")
+            else:
+                raise RuntimeError
             bc_log.warning("IDAUSR not defined, using %s", idausr)
         self.config_path = os.path.join(idausr, "idabincat")
         self.current_config = AnalyzerConfig()
