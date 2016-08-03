@@ -73,7 +73,7 @@ class LocalAnalyzer(QtCore.QProcess):
     Runs BinCAT locally using QProcess.
     """
 
-    def __init__(self, initfname, outfname, logfname, finish_cb):
+    def __init__(self, initfname, outfname, logfname, options, finish_cb):
         QtCore.QProcess.__init__(self)
         # Qprocess signal handlers
         self.error.connect(self.procanalyzer_on_error)
@@ -138,15 +138,15 @@ class LocalAnalyzer(QtCore.QProcess):
 
 
 class WebAnalyzer(object):
-    def __init__(self, initfname, outfname, logfname, finish_cb):
+    def __init__(self, initfname, outfname, logfname, options, finish_cb):
         self.initfname = initfname
         self.outfname = outfname
         self.logfname = logfname
         self.finish_cb = finish_cb
+        self.server_url = options.get("options", "server_url")
 
     def run(self):
-        # XXX add preference
-        server_url = "http://localhost:5000"
+        server_url = self.server_url
         sha256 = idaapi.retrieve_input_file_sha256().lower()
         binary_file = idaapi.get_input_file_path()
         # patch filepath (XXX dirty, rework AnalyzerConfig?) - set filepath to
@@ -221,19 +221,23 @@ class State(object):
         self.gui = GUI(self)
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
         self.load_from_idb()
-        # XXX Add preference (Local or Web)
-        self.analyzer_class = WebAnalyzer
-        # self.analyzer_class = LocalAnalyzer
 
         # Plugin options
         def_options = {'save_to_idb': "False",
                        "load_from_idb": "True",
+                       "web_analyzer": "False",
                        "autostart": "False"}
         self.options = ConfigParser.ConfigParser(defaults=def_options)
         self.options.optionxform = str
         configfile = os.path.join(self.config_path, "conf", "options.ini")
         if len(self.options.read(configfile)) != 1:
             self.options.add_section("options")
+
+        if (self.options.get("options", "web_analyzer") == "True" and
+            self.options.get("options", "server_url") != ""):
+            self.analyzer_class = WebAnalyzer
+        else:
+            self.analyzer_class = LocalAnalyzer
 
     # Save current options to file
     def save_options(self):
@@ -327,7 +331,7 @@ class State(object):
         # instance variable: we don't want the garbage collector to delete the
         # *Analyzer instance, killing an unlucky QProcess in the process
         self.analyzer = self.analyzer_class(
-            initfname, outfname, logfname, self.analysis_finish_cb)
+            initfname, outfname, logfname, self.options, self.analysis_finish_cb)
         self.analyzer.run()
 
 
