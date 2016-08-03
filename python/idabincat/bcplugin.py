@@ -167,7 +167,8 @@ class WebAnalyzer(object):
                 server_url + "/add",
                 files={'file': ('file', open(binary_file, 'rb').read())})
             if upload_res.status_code != 200:
-                print("error while uploading file")
+                bc_log.error("Error while uploading binary file "
+                             "to BinCAT analysis server.")
                 return
         # file has been uploaded, run analysis
 
@@ -177,8 +178,8 @@ class WebAnalyzer(object):
             server_url + "/analyze",
             files={'init.ini': ('init.ini', init_ini_str)})
         if run_res.status_code != 200:
-            print("error while uploading file")
-            print(run_res.content)
+            bc_log.error("Error while uploading analysis configuration file "
+                         "to BinCAT analysis server.")
             return
         files = run_res.json()
         bc_log.info("---- stdout+stderr ----------------")

@@ -14,9 +14,10 @@ import flask
 # To smoke test, run "firejail --private bincat"
 # tested with firejail 0.9.40
 
-# check existence of binary storage folder
 SHA256_RE = re.compile('[a-fA-F0-9]{64}')
 app = flask.Flask(__name__)
+
+# check existence of binary storage folder
 if 'BINARY_STORAGE_FOLDER' not in app.config:
     app.config['BINARY_STORAGE_FOLDER'] = '/tmp/bincat_web'
 
