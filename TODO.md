@@ -4,6 +4,7 @@
 * sortir les informations nécessaires à l'affichage de la teinte
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
+* tests QEMU
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse
