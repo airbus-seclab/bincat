@@ -58,6 +58,7 @@ class BincatPlugin(idaapi.plugin_t):
             return idaapi.PLUGIN_OK
 
     def run(self, args):
+        self.state.gui.show_windows()
         if self.initialized:
             return
         self.initialized = True
@@ -223,9 +224,7 @@ class State(object):
         #: Analyzer instance - protects against merciless garbage collector
         self.analyzer = None
         self.hooks = None
-        self.gui = GUI(self)
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
-        self.load_from_idb()
 
         # Plugin options
         def_options = {'save_to_idb': "False",
@@ -240,10 +239,14 @@ class State(object):
             self.options.add_section("options")
 
         if (self.options.get("options", "web_analyzer") == "True" and
-            self.options.get("options", "server_url") != ""):
+                self.options.get("options", "server_url") != ""):
             self.analyzer_class = WebAnalyzer
         else:
             self.analyzer_class = LocalAnalyzer
+
+        self.gui = GUI(self, self.options.get("options", "autostart") == "True")
+        if self.options.get("options", "load_from_idb") == "True":
+            self.load_from_idb()
 
     # Save current options to file
     def save_options(self):

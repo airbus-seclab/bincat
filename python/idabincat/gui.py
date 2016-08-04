@@ -514,9 +514,9 @@ class HandleAnalyzeHere(idaapi.action_handler_t):
         self.s = state
 
     def activate(self, ctx):
-        f = idaapi.find_tform("IDA View-Tainting View")
-        idaview = idaapi.PluginForm.FormToPyQtWidget(f)
-        AnalyzerLauncher = TaintLaunchForm_t(idaview, self.s)
+        self.s.gui.show_windows()
+
+        AnalyzerLauncher = TaintLaunchForm_t(None, self.s)
         AnalyzerLauncher.exec_()
 
         return 1
@@ -550,8 +550,7 @@ class HandleShowWindows(idaapi.action_handler_t):
         self.gui = gui
 
     def activate(self, ctx):
-        self.gui.BinCATTaintedForm.Show()
-        self.gui.BinCATDebugForm.Show()
+        self.gui.show_windows()
         return 1
 
     def update(self, ctx):
@@ -585,18 +584,20 @@ class Hooks(idaapi.UI_Hooks):
 
 
 class GUI(object):
-    def __init__(self, state):
+    def __init__(self, state, show_win=True):
         """
         Instanciate BinCAT views
         """
         self.s = state
         self.vtmodel = ValueTaintModel(state)
         self.BinCATTaintedForm = BinCATTaintedForm_t(state, self.vtmodel)
-        self.BinCATTaintedForm.Show()
-
         self.BinCATDebugForm = BinCATDebugForm_t(state)
-        self.BinCATDebugForm.Show()
 
+        if show_win:
+            self.BinCATDebugForm.Show()
+            self.BinCATTaintedForm.Show()
+
+        # XXX fix
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
 
         # Analyse from here menu
@@ -627,6 +628,11 @@ class GUI(object):
                                      idaapi.SETMENU_APP)
         self.hooks = Hooks(state)
         self.hooks.hook()
+
+    def show_windows(self):
+        self.BinCATDebugForm.Show()
+        self.BinCATTaintedForm.Show()
+
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()
