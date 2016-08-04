@@ -6,6 +6,9 @@
 * gérer des chemins UTF-8 dans le .ini ?
 
 ## Plugin IDA
+* gérer des traces multiples à la même adresse
+* importer les valeurs concrètes depuis le debugger (mémoire et registres)
+* fenetre de registre jolie (couleur pour la teinte)
 * colorer les lignes teintées
 
 ## Global
