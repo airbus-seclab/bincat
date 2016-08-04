@@ -31,7 +31,7 @@ setup(
     author_email     = 'sarah.zennou@airbus.com',
     description      = 'BINnary Code Analysis Toolkit',
     scripts          = ['bin/bincat'],
-    packages         = ['pybincat', 'pybincat/tools', 'idabincat'],
+    packages         = ['pybincat', 'pybincat/tools', 'idabincat', 'webbincat'],
     ext_modules      = [mlbincat],
     package_data = {
         'idabincat': package_data_files

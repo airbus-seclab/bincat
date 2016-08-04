@@ -1,5 +1,5 @@
 import ConfigParser
-import distutils
+import distutils.spawn
 import hashlib
 import os
 import shutil
