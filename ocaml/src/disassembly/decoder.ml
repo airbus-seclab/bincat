@@ -1456,10 +1456,10 @@ struct
               let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
               call s (A a)
             | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
-            | '\xa0' -> (* PUSHF *) mov_with_eax s Config.size_of_byte true
-            | '\xa1' -> (* POPF *) mov_with_eax s s.operand_sz true
-            | '\xa2' -> (* SAHF *) mov_with_eax s Config.size_of_byte false
-            | '\xa3' -> (* LAHF *) mov_with_eax s s.operand_sz false
+            | '\xa0' -> (* MOV EAX *) mov_with_eax s Config.size_of_byte true
+            | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz true
+            | '\xa2' -> (* MOV EAX *) mov_with_eax s Config.size_of_byte false
+            | '\xa3' -> (* MOV EAX *) mov_with_eax s s.operand_sz false
             | '\xa4' -> (* MOVSB *) movs s Config.size_of_byte
             | '\xa5' -> (* MOVSW *) movs s s.addr_sz
             | '\xa6' -> (* CMPSB *) cmps s Config.size_of_byte
