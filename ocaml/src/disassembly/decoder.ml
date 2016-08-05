@@ -569,6 +569,69 @@ struct
         let c 	      = Cmp (EQ, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)) in
         If(c, [ if_stmt ], [ else_stmt ]) 
 
+    (** builds a value equivalent to the EFLAGS register from the state *)
+    let get_eflags = let eflags0 = Lval (V (T fcf)) in 
+        (*  bit 1 : reserved *)
+        let eflags2 = BinOp(Shl,  Lval (V (T fpf)), Const (Word.of_int (Z.of_int 2) 32)) in
+        (*  bit 3 : reserved *)
+        let eflags4 = BinOp(Shl, Lval (V (T faf)), Const (Word.of_int (Z.of_int 4) 32)) in
+        (*  bit 5 : reserved *)
+        let eflags6 = BinOp(Shl, Lval (V (T fzf)), Const (Word.of_int (Z.of_int 6) 32)) in
+        let eflags7 = BinOp(Shl, Lval (V (T fsf)), Const (Word.of_int (Z.of_int 7) 32)) in
+        let eflags8 = BinOp(Shl, Lval (V (T _ftf)), Const (Word.of_int (Z.of_int 8) 32)) in
+        let eflags9 = BinOp(Shl, Lval (V (T fif)), Const (Word.of_int (Z.of_int 9) 32)) in
+        let eflags10 = BinOp(Shl, Lval (V (T fdf)), Const (Word.of_int (Z.of_int 10) 32)) in
+        let eflags11 = BinOp(Shl, Lval (V (T fof)), Const (Word.of_int (Z.of_int 11) 32)) in
+        let eflags12_13 = BinOp(Shl, Lval (V (T _fiopl)), Const (Word.of_int (Z.of_int 12) 32)) in
+        let eflags14 = BinOp(Shl, Lval (V (T _fnt)), Const (Word.of_int (Z.of_int 14) 32)) in
+        (*  bit 15 : reserved *)
+        let eflags16 = BinOp(Shl, Lval (V (T _frf)), Const (Word.of_int (Z.of_int 16) 32)) in
+        let eflags17 = BinOp(Shl, Lval (V (T _fvm)), Const (Word.of_int (Z.of_int 17) 32)) in
+        let eflags18 = BinOp(Shl, Lval (V (T _fac)), Const (Word.of_int (Z.of_int 18) 32)) in
+        let eflags19 = BinOp(Shl, Lval (V (T _fvif)), Const (Word.of_int (Z.of_int 19) 32)) in
+        let eflags20 = BinOp(Shl, Lval (V (T _fvip)), Const (Word.of_int (Z.of_int 20) 32)) in
+        let eflags21 = BinOp(Shl, Lval (V (T _fid)), Const (Word.of_int (Z.of_int 21) 32)) in
+        let eflags_c0 = eflags0 in
+        let eflags_c2 = BinOp(Or, eflags_c0, eflags2) in
+        let eflags_c4 = BinOp(Or, eflags_c2, eflags4) in
+        let eflags_c6 = BinOp(Or, eflags_c4, eflags6) in
+        let eflags_c7 = BinOp(Or, eflags_c6, eflags7) in
+        let eflags_c8 = BinOp(Or, eflags_c7, eflags8) in
+        let eflags_c9 = BinOp(Or, eflags_c8, eflags9) in
+        let eflags_c10 = BinOp(Or, eflags_c9, eflags10) in
+        let eflags_c11 = BinOp(Or, eflags_c10, eflags11) in
+        let eflags_c12 = BinOp(Or, eflags_c11, eflags12_13) in
+        let eflags_c14 = BinOp(Or, eflags_c12, eflags14) in
+        let eflags_c16 = BinOp(Or, eflags_c14, eflags16) in
+        let eflags_c17 = BinOp(Or, eflags_c16, eflags17) in
+        let eflags_c18 = BinOp(Or, eflags_c17, eflags18) in
+        let eflags_c19 = BinOp(Or, eflags_c18, eflags19) in
+        let eflags_c20 = BinOp(Or, eflags_c19, eflags20) in
+        let eflags_c21 = BinOp(Or, eflags_c20, eflags21) in eflags_c21
+
+    (** Set the flags from EFLAGS value*)
+    let set_eflags eflags sz =
+        let one = Const (Word.of_int Z.one sz) in
+        let set_f flg value = Set (V (T flg), value) in
+            (* XXX check perms and validity *)
+            [set_f fcf  (BinOp(And, eflags, one));
+             set_f fpf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 2) 32))), one));
+             set_f faf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 4) 32))), one));
+             set_f fzf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 6) 32))), one));
+             set_f fsf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 7) 32))), one));
+             set_f _ftf (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 8) 32))), one));
+             set_f fif  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 9) 32))), one));
+             set_f fdf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 10) 32))), one));
+             set_f fof  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 11) 32))), one));
+             set_f _fiopl (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 12) 32))),  Const (Word.of_int (Z.of_int 3) 32)));
+             set_f _fnt   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 14) 32))), one));
+             set_f _frf   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 16) 32))), one));
+             set_f _fvm   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 17) 32))), one));
+             set_f _fac   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 18) 32))), one));
+             set_f _fvif  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 19) 32))), one));
+             set_f _fvip  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 20) 32))), one));
+             set_f _fid   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 21) 32))), one));
+             ]
 
     (**************************************************************************************)
     (* State generation of binary logical/arithmetic operations *)
@@ -959,8 +1022,16 @@ struct
     (** state generation for the pop instructions *)
     let pop s lv = return s (pop_stmts s lv)
 
+    let popf s sz =
+        let name        = Register.fresh_name ()            in
+        let v           = Register.make ~name:name ~size:sz in
+        let tmp         = V (T v)			    in
+            let stmt = set_eflags (Lval tmp) sz in
+            let popst = pop_stmts s [tmp] in
+            return s (popst @ stmt @ [Directive (Remove v)])
+
     (** generation of states for the push instructions *)
-    let push (s: state) v =	
+    let push (s: state) v pre_stmts post_stmts =
         let esp' = esp_lval () in
         let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
         (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
@@ -985,7 +1056,7 @@ struct
                     [ set_esp Sub esp' n ; s ] @ stmts
             ) [] v
         in
-        return s (pre @ stmts @ post)
+        return s (pre_stmts @ pre @ stmts @ post @ post_stmts)
 
     (** returns the state for the push of an immediate operands. Its size is given by the parameter *)
     let push_immediate s n =
@@ -994,6 +1065,13 @@ struct
         let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]			 
         in
         return s stmts
+
+    let pushf s sz =
+        let name        = Register.fresh_name ()            in
+        let v           = Register.make ~name:name ~size:sz in
+        let tmp         = V (T v)			    in
+        let stmt = [Set(tmp, get_eflags)] in 
+        push s [tmp] stmt [Directive (Remove v)]
 
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
     let mov_immediate s n =
@@ -1011,7 +1089,7 @@ struct
             if from then lmem, Lval leax
             else leax, Lval lmem
         in
-        return s [Set (dst, src)] 				      
+        return s [Set (dst, src)]
 
     (*****************************************************************************************)
     (* decoding of opcodes of groups 1 to 8 *)
@@ -1107,7 +1185,7 @@ struct
 
         | 4 -> return s [ Jmp (R (Lval dst)) ]
 
-        | 6 -> push s [dst]
+        | 6 -> push s [dst] [] []
         | _ -> error s.a "Illegal opcode in grp 5"
 
     let grp6 s =
@@ -1330,7 +1408,7 @@ struct
             | '\x03' -> (* ADD *) add_sub s Add false s.operand_sz 1
             | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax Config.size_of_byte 
             | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz
-            | '\x06' -> (* PUSH es *) let es' = to_reg es s.operand_sz in push s [V es']
+            | '\x06' -> (* PUSH es *) let es' = to_reg es s.operand_sz in push s [V es'] [] []
             | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
             | '\x08' -> (* OR *) or_xor_and s Or Config.size_of_byte 0
             | '\x09' -> (* OR *) or_xor_and s Or s.operand_sz 0
@@ -1338,7 +1416,7 @@ struct
             | '\x0B' -> (* OR *) or_xor_and s Or s.operand_sz 1
 
 
-            | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs']
+            | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs'] [] []
             | '\x0F' -> (* 2-byte escape *) decode_snd_opcode s
 
             | '\x10' -> (* ADC *) add_sub s Add true Config.size_of_byte 0
@@ -1348,7 +1426,7 @@ struct
 
             | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax Config.size_of_byte
             | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz
-            | '\x16' -> (* PUSH ss *) let ss' = to_reg ss s.operand_sz in push s [V ss']
+            | '\x16' -> (* PUSH ss *) let ss' = to_reg ss s.operand_sz in push s [V ss'] [] []
             | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
 
             | '\x18' -> (* SBB *) add_sub s Sub true Config.size_of_byte 0
@@ -1357,7 +1435,7 @@ struct
             | '\x1B' -> (* SBB *) add_sub s Sub true s.operand_sz 1
             | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax Config.size_of_byte
             | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz
-            | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds s.operand_sz in push s [V ds']
+            | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds s.operand_sz in push s [V ds'] [] []
             | '\x1F' -> (* POP ds *) let ds' = to_reg ds s.operand_sz in pop s [V ds']
 
             | '\x20' -> (* AND *) or_xor_and s And Config.size_of_byte 0
@@ -1399,10 +1477,10 @@ struct
             | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec (V r) Add s s.operand_sz
             | c when '\x48' <= c && c <= '\x4f' -> (* DEC *) let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec (V r) Sub s s.operand_sz
 
-            | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [V r]
+            | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [V r] [] []
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [V r]
 
-            | '\x60' -> (* PUSHA *) let l = List.map (fun v -> V (find_reg v s.operand_sz)) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
+            | '\x60' -> (* PUSHA *) let l = List.map (fun v -> V (find_reg v s.operand_sz)) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l [] []
             | '\x61' -> (* POPA *) let l = List.map (fun v -> V (find_reg v s.operand_sz)) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
 
             | '\x63' -> (* ARPL *) arpl s
@@ -1456,6 +1534,8 @@ struct
               let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
               call s (A a)
             | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
+            | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
+            | '\x9d' -> (* POPF *) popf s s.operand_sz
             | '\xa0' -> (* MOV EAX *) mov_with_eax s Config.size_of_byte true
             | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz true
             | '\xa2' -> (* MOV EAX *) mov_with_eax s Config.size_of_byte false
@@ -1560,9 +1640,9 @@ struct
 
             | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
             | c when '\x90' <= c && c <= '\x9f' -> let v = (Char.code c) - (Char.code '\x90') in setcc s v (s.operand_sz / Config.size_of_byte)
-            | '\xa0' -> push s [V (T fs)]
+            | '\xa0' -> push s [V (T fs)] [] []
             | '\xa1' -> pop s [V (T fs)]
-            | '\xa8' -> push s [V (T gs)]
+            | '\xa8' -> push s [V (T gs)] [] []
             | '\xa9' -> pop s [V (T gs)]
             | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
 
