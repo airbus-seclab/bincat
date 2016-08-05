@@ -142,7 +142,6 @@ struct
         let add_offset (r, w) o' =
             let n = Word.size w in
             let w' = Word.add w (Word.of_int o' n) in
-            Log.from_decoder (Printf.sprintf "word size: %d" (Word.size w'));
             if Word.size w' > n then
                 begin
                     Log.from_analysis "Data.Address: overflow when tried to add an offset to an address";
