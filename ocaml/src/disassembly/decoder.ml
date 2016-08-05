@@ -1031,7 +1031,7 @@ struct
             return s (popst @ stmt @ [Directive (Remove v)])
 
     (** generation of states for the push instructions *)
-    let push (s: state) v pre_stmts post_stmts =
+    let push_stmts (s: state) v =
         let esp' = esp_lval () in
         let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
         (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
@@ -1046,17 +1046,19 @@ struct
             List.fold_left (
                 fun stmts lv ->
                     let n = size_push_pop lv s.addr_sz in 
-                    let s =
+                    let st =
                         if is_esp lv then
                             (* save the esp value to its value before the first push (see PUSHA specifications) *)
                             Set (M (Lval (V esp'), s.operand_sz), Lval (V (T t)))
                         else
                             Set (M (Lval (V esp'), s.operand_sz), Lval lv);
                     in
-                    [ set_esp Sub esp' n ; s ] @ stmts
+                    [ set_esp Sub esp' n ; st ] @ stmts
             ) [] v
         in
-        return s (pre_stmts @ pre @ stmts @ post @ post_stmts)
+        (pre @ stmts @ post)
+
+    let push s v = return s (push_stmts s v)
 
     (** returns the state for the push of an immediate operands. Its size is given by the parameter *)
     let push_immediate s n =
@@ -1067,11 +1069,12 @@ struct
         return s stmts
 
     let pushf s sz =
+        (* XXX should AND EFLAGS with 00FCFFFFH) *)
         let name        = Register.fresh_name ()            in
         let v           = Register.make ~name:name ~size:sz in
         let tmp         = V (T v)			    in
         let stmt = [Set(tmp, get_eflags)] in 
-        push s [tmp] stmt [Directive (Remove v)]
+        return s (stmt @ (push_stmts s [tmp]) @ [Directive (Remove v)])
 
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
     let mov_immediate s n =
@@ -1185,7 +1188,7 @@ struct
 
         | 4 -> return s [ Jmp (R (Lval dst)) ]
 
-        | 6 -> push s [dst] [] []
+        | 6 -> push s [dst]
         | _ -> error s.a "Illegal opcode in grp 5"
 
     let grp6 s =
@@ -1408,7 +1411,7 @@ struct
             | '\x03' -> (* ADD *) add_sub s Add false s.operand_sz 1
             | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax Config.size_of_byte 
             | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz
-            | '\x06' -> (* PUSH es *) let es' = to_reg es s.operand_sz in push s [V es'] [] []
+            | '\x06' -> (* PUSH es *) let es' = to_reg es s.operand_sz in push s [V es']
             | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
             | '\x08' -> (* OR *) or_xor_and s Or Config.size_of_byte 0
             | '\x09' -> (* OR *) or_xor_and s Or s.operand_sz 0
@@ -1416,7 +1419,7 @@ struct
             | '\x0B' -> (* OR *) or_xor_and s Or s.operand_sz 1
 
 
-            | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs'] [] []
+            | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs']
             | '\x0F' -> (* 2-byte escape *) decode_snd_opcode s
 
             | '\x10' -> (* ADC *) add_sub s Add true Config.size_of_byte 0
@@ -1426,7 +1429,7 @@ struct
 
             | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax Config.size_of_byte
             | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz
-            | '\x16' -> (* PUSH ss *) let ss' = to_reg ss s.operand_sz in push s [V ss'] [] []
+            | '\x16' -> (* PUSH ss *) let ss' = to_reg ss s.operand_sz in push s [V ss']
             | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
 
             | '\x18' -> (* SBB *) add_sub s Sub true Config.size_of_byte 0
@@ -1435,7 +1438,7 @@ struct
             | '\x1B' -> (* SBB *) add_sub s Sub true s.operand_sz 1
             | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax Config.size_of_byte
             | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz
-            | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds s.operand_sz in push s [V ds'] [] []
+            | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds s.operand_sz in push s [V ds']
             | '\x1F' -> (* POP ds *) let ds' = to_reg ds s.operand_sz in pop s [V ds']
 
             | '\x20' -> (* AND *) or_xor_and s And Config.size_of_byte 0
@@ -1477,10 +1480,10 @@ struct
             | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec (V r) Add s s.operand_sz
             | c when '\x48' <= c && c <= '\x4f' -> (* DEC *) let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec (V r) Sub s s.operand_sz
 
-            | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [V r] [] []
+            | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [V r]
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [V r]
 
-            | '\x60' -> (* PUSHA *) let l = List.map (fun v -> V (find_reg v s.operand_sz)) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l [] []
+            | '\x60' -> (* PUSHA *) let l = List.map (fun v -> V (find_reg v s.operand_sz)) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
             | '\x61' -> (* POPA *) let l = List.map (fun v -> V (find_reg v s.operand_sz)) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
 
             | '\x63' -> (* ARPL *) arpl s
@@ -1640,9 +1643,9 @@ struct
 
             | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
             | c when '\x90' <= c && c <= '\x9f' -> let v = (Char.code c) - (Char.code '\x90') in setcc s v (s.operand_sz / Config.size_of_byte)
-            | '\xa0' -> push s [V (T fs)] [] []
+            | '\xa0' -> push s [V (T fs)]
             | '\xa1' -> pop s [V (T fs)]
-            | '\xa8' -> push s [V (T gs)] [] []
+            | '\xa8' -> push s [V (T gs)]
             | '\xa9' -> pop s [V (T gs)]
             | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
 
