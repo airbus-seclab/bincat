@@ -1030,7 +1030,7 @@ struct
             let popst = pop_stmts s [tmp] in
             return s (popst @ stmt @ [Directive (Remove v)])
 
-    (** generation of states for the push instructions *)
+    (** generation of statements for the push instructions *)
     let push_stmts (s: state) v =
         let esp' = esp_lval () in
         let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
@@ -1058,6 +1058,7 @@ struct
         in
         (pre @ stmts @ post)
 
+    (** state generation for the push instructions *)
     let push s v = return s (push_stmts s v)
 
     (** returns the state for the push of an immediate operands. Its size is given by the parameter *)
