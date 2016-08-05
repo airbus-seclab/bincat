@@ -4,6 +4,10 @@
 let string_of_position pos =
   Printf.sprintf "%d" pos.Lexing.lex_curr_p.Lexing.pos_lnum
 
+let print_exc exc raw_bt = 
+    Printf.fprintf stdout "%s" (Printexc.to_string exc);
+    Printexc.print_raw_backtrace stdout raw_bt
+
 (* main function *)
 let process ~configfile ~resultfile ~logfile =
    (* 0 cleaning global data structures *)
@@ -17,6 +21,8 @@ let process ~configfile ~resultfile ~logfile =
  
   (*1 set the log file *)
   Log.init logfile;
+  Printexc.record_backtrace true;
+  Printexc.set_uncaught_exception_handler print_exc;
   (* 2: open the configuration file *)
   let cin =
     try open_in configfile
@@ -44,6 +50,7 @@ let process ~configfile ~resultfile ~logfile =
   let cfa  = Interpreter.process code g s dump                                      in
   (* 7: dumps the results *)
   dump cfa;
+  Printexc.print_backtrace stdout;
   Log.close()
  ;; 
   

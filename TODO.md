@@ -6,6 +6,7 @@
 * gérer des chemins UTF-8 dans le .ini ?
 * tests QEMU
 * perfs : stack[0x1000*0x1000] = 0 est lent.
+* vérifier popf/pushf (surtout les privilèges etc)
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse

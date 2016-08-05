@@ -23,6 +23,7 @@ let debug  msg = Printf.fprintf !logfid "[debug] %s\n" msg; flush !logfid
 let close () = close_out !logfid
 
 let error msg =
+  Printexc.print_raw_backtrace !logfid (Printexc.get_callstack 100);
   Printf.fprintf !logfid "fatal error: %s\n" msg;
   flush !logfid;
   flush stdout;
