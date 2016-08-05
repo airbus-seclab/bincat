@@ -177,6 +177,10 @@ struct
                       try
                           let sp         = Register.stack_pointer ()			                                            in
                           let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
+                          v.Cfa.State.ip <- List.hd (Data.Address.Set.elements ip_on_stack); v
+                          (*
+                          XXX FUGLY HACK
+                          
                           begin
                               match Data.Address.Set.elements ip_on_stack with
                               | [ip_on_stack] ->
@@ -186,7 +190,7 @@ struct
                                     ()
                               | _ -> Log.error "Intepreter: too much values computed for the instruction pointer at return instruction"
                           end;
-                          v.Cfa.State.ip <- vstack.Cfa.State.ip; v
+                          v.Cfa.State.ip <- vstack.Cfa.State.ip; v*)
                       with
                       | _ -> Log.error "Interpreter: computed instruction pointer at return instruction too imprecise or undefined"
                   with
