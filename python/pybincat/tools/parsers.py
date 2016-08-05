@@ -46,7 +46,7 @@ def val2str(val, vtop, vbot, length):
             fstring = '{0:X}'
         else:
             if length % 4 == 0:
-                length = length / 4 + 2
+                length = length / 4
                 fstring = ('{0:0>%dX}' % length)
             else:
                 fstring = ('0b{0:0>%db}' % length)
