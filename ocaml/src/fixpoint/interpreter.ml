@@ -61,7 +61,6 @@ struct
     let unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
 
     let process_ret fun_stack v =
-      Printf.printf "process_ret\n"; flush stdout;
       let d = v.Cfa.State.v in
       let d', ipstack =
           try
