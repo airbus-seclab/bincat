@@ -102,7 +102,6 @@ struct
 	     | None -> ()
 	   end;
 	   v
-	| [] -> Printf.printf "empty !\n"; flush stdout; raise Exit
 	| _ -> Printf.printf "plein !\n"; flush stdout; raise Exit
       with
 	_ -> Log.error "computed instruction pointer at return instruction is either undefined or imprecise"
