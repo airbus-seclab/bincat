@@ -97,12 +97,12 @@ struct
 	     match ipstack with
 	     | Some ip' -> 
 		if not (Data.Address.equal ip' a) then
-		  Log.from_analysis (Printf.sprintf "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET intruction"
+		  Log.from_analysis (Printf.sprintf "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET instruction"
 						    (Data.Address.to_string ip') (Data.Address.to_string a))
 	     | None -> ()
 	   end;
 	   v
-	| _ -> Printf.printf "plein !\n"; flush stdout; raise Exit
+	| _ -> raise Exit
       with
 	_ -> Log.error "computed instruction pointer at return instruction is either undefined or imprecise"
 
