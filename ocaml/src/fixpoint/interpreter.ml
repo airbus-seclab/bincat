@@ -197,7 +197,7 @@ struct
                       Some (Hashtbl.find Config.imports (Data.Address.to_int a))
                   with Not_found -> None
               in
-              fun_stack := (f, Data.Address.add_offset a Z.one)::!fun_stack;
+              fun_stack := (f, ip)::!fun_stack;
               List.map (fun v -> v.Cfa.State.ip <- a; v) vertices
 
             | Return -> List.map (process_ret fun_stack) vertices
