@@ -346,9 +346,10 @@ struct
         md, nnn, rm	 
 
     (** returns the sub expression used in a displacement *)
-    let disp s nb =
+    let disp s nb sz =
+        (* TODO : signed *)
         let n = int_of_bytes s (nb/Config.size_of_byte) in
-        Const (Word.of_int n nb)
+        Const (Word.of_int n sz)
 
     exception Disp32
 
@@ -359,16 +360,17 @@ struct
         let scale, index, base = mod_nnn_rm (Char.code c) in
         let base' =
             let lv = Lval (V (find_reg base s.addr_sz)) in
-            if base = 5 then
-                if md = 0 then Const (Word.of_int (int_of_bytes s 4) s.addr_sz)
-                else
-                    let d =
-                        let n = if md = 1 then 1 else 4 in
-                        Const (Word.of_int (int_of_bytes s n) s.addr_sz)
-                    in
-                    BinOp (Add, lv, d)
-            else
-                lv
+                match md with
+                | 0 -> if base = 5 then
+                        (* [scaled index] + disp32 *)
+                        disp s 32 s.addr_sz
+                       else
+                        lv
+                (* [scaled index] + disp8 *)
+                | 1 -> BinOp (Add, lv, disp s 8 s.addr_sz)
+                (* [scaled index] + disp32 *)
+                | 2 -> BinOp (Add, lv, disp s 32 s.addr_sz)
+                | _ -> Log.error "Decoder: illegal value in sib"
         in
         let index' = find_reg index s.addr_sz in
         let lv = Lval (V index') in
@@ -412,30 +414,28 @@ struct
 
     let md_from_mem s md rm sz =
         let rm' = find_reg rm s.addr_sz in
-        match md with
-        | 0 ->
-          begin
-              match rm with
-              | 4 -> sib s md
-              | 5 -> raise Disp32
-              | _ -> Lval (V rm')
-          end						    
-        | 1 ->
-          let e =
-              if rm = 4 then sib s md
-              else Lval (V rm')
-          in
-          let n = sign_extension_of_byte (int_of_bytes s 1) (sz / Config.size_of_byte) in
-          let n' = Const (Word.of_int n sz) in
-          BinOp (Add, e, n')
+        if rm = 4 then
+            sib s md
+        else
+            match md with
+            | 0 ->
+              begin
+                  match rm with
+                  | 5 -> raise Disp32
+                  | _ -> Lval (V rm')
+              end						    
+            | 1 ->
+              let e =
+                  Lval (V rm')
+              in
+              BinOp (Add, e, disp s 8 sz)
 
-        | 2 -> 
-          let e =
-              if rm = 4 then sib s md
-              else Lval (V rm')
-          in
-          BinOp (Add, e, disp s 32)
-        | _ -> Log.error "Decoder: illegal value in md_from_mem"
+            | 2 -> 
+              let e =
+                  Lval (V rm')
+              in
+              BinOp (Add, e, disp s 32 sz)
+            | _ -> Log.error "Decoder: illegal value in md_from_mem"
 
 
     let exp_of_md s md rm sz =
@@ -457,7 +457,7 @@ struct
         with
         | Disp32 -> 
           if direction = 0 then
-              V (find_reg rm sz), add_data_segment s (disp s 32)
+              V (find_reg rm sz), add_data_segment s (disp s 32 sz)
           else
               error s.a "Decoder: illegal direction for displacement only addressing mode"
 
@@ -471,7 +471,7 @@ struct
             let src =
                 try
                     md_from_mem s md rm s.addr_sz
-                with Disp32 -> disp s 32
+                with Disp32 -> disp s 32 s.addr_sz
             in
             let src'=
                 if s.addr_sz < s.operand_sz then
