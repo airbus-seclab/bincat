@@ -360,13 +360,19 @@ struct
         let base' =
             let lv = Lval (V (find_reg base s.addr_sz)) in
             if base = 5 then
-                if md = 0 then Const (Word.of_int (int_of_bytes s 1) s.addr_sz)
+                if md = 0 then 
+                    (* [scaled index] + disp32 *)
+                    Const (Word.of_int (int_of_bytes s 4) s.addr_sz)
                 else
                     let d =
-                        let n = if md = 1 then 1 else 4 in
+                        let n = if md = 1 then 
+                                    1  (* [scaled index] + disp8 + [EBP] *)
+                                else 
+                                    4 (* [scaled index] + disp32 + [EBP] *)
+                        in
                         Const (Word.of_int (int_of_bytes s n) s.addr_sz)
                     in
-                    BinOp (Add, lv, d)
+                        BinOp (Add, lv, d)
             else
                 lv
         in
@@ -410,34 +416,33 @@ struct
 
     let add_data_segment s e = add_segment s e s.segments.data
 
+    (** expression for Mod R/M decoding when Mod == 0, 1 or 2 *)
     let md_from_mem s md rm sz =
         let rm' = find_reg rm s.addr_sz in
-        match md with
-        | 0 ->
-          begin
-              match rm with
-              | 4 -> sib s md
-              | 5 -> raise Disp32
-              | _ -> Lval (V rm')
-          end						    
-        | 1 ->
-          let e =
-              if rm = 4 then sib s md
-              else Lval (V rm')
-          in
-          let n = sign_extension_of_byte (int_of_bytes s 1) (sz / Config.size_of_byte) in
-          let n' = Const (Word.of_int n sz) in
-          BinOp (Add, e, n')
+        if rm = 4 then
+            (** when decoding a sib byte, the displacement is only parsed once *)
+            sib s md
+        else
+            match md with
+            | 0 ->
+              begin
+                  match rm with
+                  | 5 -> raise Disp32
+                  | _ -> Lval (V rm')
+              end						    
+            | 1 ->
+              let e = Lval (V rm') in
+              let n = sign_extension_of_byte (int_of_bytes s 1) (sz / Config.size_of_byte) in
+              let n' = Const (Word.of_int n sz) in
+              BinOp (Add, e, n')
 
-        | 2 -> 
-          let e =
-              if rm = 4 then sib s md
-              else Lval (V rm')
-          in
-          BinOp (Add, e, disp s 32)
-        | _ -> Log.error "Decoder: illegal value in md_from_mem"
+            | 2 -> 
+              let e = Lval (V rm') in
+              BinOp (Add, e, disp s 32)
+            | _ -> Log.error "Decoder: illegal value in md_from_mem"
 
 
+    (** returns experssion for Mod bits in Mod R/M *)
     let exp_of_md s md rm sz =
         match md with
         | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)						 
