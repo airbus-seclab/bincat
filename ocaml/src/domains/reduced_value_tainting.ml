@@ -36,9 +36,13 @@ let sub (v1, t1) (v2, t2) = core_sub_add V.sub (v1, t1) (v2, t2)
 (* be careful: never reduce during widening *)
 let widen (v1, t1) (v2, t2) = V.widen v1 v2, T.widen t1 t2
 						     
+let to_char (v, _t) = V.to_char v
+
 let to_string (v, _t) = V.to_string v
 				    
 let string_of_taint (_v, t) = T.to_string t
+
+let char_of_taint (_v, t) = T.to_char t
 			   
 let untaint (v, t) = v, T.untaint t
 let taint (v, t) = v, T.taint t

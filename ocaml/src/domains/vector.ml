@@ -24,8 +24,12 @@ module type Val =
     val meet: t -> t -> t
     (** widening *)
     val widen: t -> t -> t
+    (** char conversion *)
+    val to_char: t -> char
     (** string conversion *)
     val to_string: t -> string
+    (** char conversion of the taint *)
+    val char_of_taint: t -> char
     (** string conversion of the taint *)
     val string_of_taint: t -> string
     (** add operation. The optional return value is None when no carry *)
@@ -176,15 +180,19 @@ module Make(V: Val) =
     let to_string v =
         let v' =
             if exists V.is_top v then
-            (* TODO optimize *)
-                Array.fold_left (fun s v -> s ^ (V.to_string v)) "0b" v
+                let v_bytes = Bytes.create (Array.length v) in
+                let set_char = (fun i c -> Bytes.set v_bytes i (V.to_char c)) in
+                Array.iteri set_char v ;
+                "0b"^Bytes.to_string v_bytes
             else
                 Data.Word.to_string (to_word v)
         in
-        (* TODO optimize *)
-        let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "0b" v  in
-        if String.length t = 2 then v'
-        else Printf.sprintf "%s ! %s" v' t
+        let taint_bytes = Bytes.create ((Array.length v)) in
+        let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
+            Array.iteri set_taint_char v;
+            let t = "0b"^Bytes.to_string taint_bytes in
+            if String.length t = 2 then v'
+            else Printf.sprintf "%s ! %s" v' t
 
 	
     let join v1 v2 = map2 V.join v1 v2

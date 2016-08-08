@@ -22,16 +22,21 @@ let meet b1 b2 =
   | U, U 	    -> U
   | b, TOP | TOP, b -> b
   | U, T | T, U     -> U
-			 
-			       
+
+let to_char b =
+  match b with
+  | TOP -> '?'
+  | T   -> '1'
+  | U   -> '0'
+
 let to_string b =
   match b with
   | TOP -> "?"
   | T   -> "1"
   | U   -> "0"
-	     
+
 let equal b1 b2 = b1 = b2
-			 
+
 let binary carry t1 t2 =
   match t1, t2 with
   | TOP, _ | _, TOP -> TOP

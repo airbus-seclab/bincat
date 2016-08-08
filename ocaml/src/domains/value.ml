@@ -18,12 +18,18 @@ let meet b1 b2 =
   | ONE, ZERO | ZERO, ONE -> ZERO
   | _, TOP | TOP, _ 	  -> TOP
 			       
+let to_char b =
+  match b with
+  | TOP  -> '?'
+  | ZERO -> '0'
+  | ONE  -> '1'
+
 let to_string b =
   match b with
   | TOP  -> "?"
   | ZERO -> "0"
   | ONE  -> "1"
-	     
+
 let equal b1 b2 = b1 = b2
 			 
 let add b1 b2 =
