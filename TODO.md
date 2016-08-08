@@ -5,8 +5,8 @@
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
 * tests QEMU
-* perfs : stack[0x1000*0x1000] = 0 est lent : Vector.to_string à patcher
 * vérifier popf/pushf (surtout les privilèges etc)
+* perf memory init
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse
