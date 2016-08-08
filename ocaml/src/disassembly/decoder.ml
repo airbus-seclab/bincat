@@ -441,7 +441,12 @@ struct
     let exp_of_md s md rm sz =
         match md with
         | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)						 
-        | 3 -> V (find_reg rm s.addr_sz)
+        | 3 ->
+            if sz == 32
+            then
+                V (find_reg rm s.addr_sz)
+            else
+                Log.error "ModRM with size != 32 not handled yet"
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
     let operands_from_mod_reg_rm s sz direction =
