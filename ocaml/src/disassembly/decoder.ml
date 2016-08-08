@@ -360,7 +360,7 @@ struct
         let base' =
             let lv = Lval (V (find_reg base s.addr_sz)) in
             if base = 5 then
-                if md = 0 then Const (Word.of_int (int_of_bytes s 1) s.addr_sz)
+                if md = 0 then Const (Word.of_int (int_of_bytes s 4) s.addr_sz)
                 else
                     let d =
                         let n = if md = 1 then 1 else 4 in
