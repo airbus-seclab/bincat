@@ -471,14 +471,5 @@ module Make(V: Val) =
     let is_tainted v = exists V.is_tainted v
 
     let concat v1 v2 =
-      let len1 = Array.length v1 in
-      let len2 = Array.length v2 in
-      let v = Array.make (len1+len2) V.top in
-      for i = 0 to len1-1 do
-	v.(i) <- v1.(i)
-      done;
-      for i = 0 to len2-1 do
-	v.(len1+i) <- v2.(i)
-      done;
-      v
+        Array.append v1 v2
   end: T)
