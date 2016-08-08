@@ -9,7 +9,11 @@ import tempfile
 import ConfigParser
 import logging
 import re
-import requests
+try:
+    import requests
+except:
+    # log message will be displayed later
+    pass
 import idaapi
 import idabincat.netnode
 from idabincat.analyzer_conf import AnalyzerConfig
@@ -147,6 +151,10 @@ class WebAnalyzer(object):
         self.server_url = options.get("options", "server_url")
 
     def run(self):
+        if 'requests' not in sys.modules:
+            bc_log.error("python requests modules could not be imported, "
+                         "so remote BinCAT cannot be used.")
+            return
         server_url = self.server_url
         sha256 = idaapi.retrieve_input_file_sha256().lower()
         binary_file = idaapi.get_input_file_path()
