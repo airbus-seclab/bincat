@@ -254,10 +254,10 @@ module Make(V: Val) =
       with _ -> raise Exceptions.Enum_failure
 
     let shr v1 v2 =
-      let n  = Array.length v1           in
+      let n = Array.length v1 in
       try
-	let i = Z.to_int (to_value v2)   in
-	let v' = Array.make (n-i) V.zero in
+	let i = Z.to_int (to_value v2) in
+	let v' = Array.make n V.zero in
 	for j = 0 to n-i-1 do
 	  v'.(j) <- v1.(j)
 	done;
