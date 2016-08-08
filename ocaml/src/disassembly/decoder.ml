@@ -570,45 +570,47 @@ struct
         If(c, [ if_stmt ], [ else_stmt ]) 
 
     (** builds a value equivalent to the EFLAGS register from the state *)
-    let get_eflags = let eflags0 = Lval (V (T fcf)) in 
-        (*  bit 1 : reserved *)
-        let eflags2 = BinOp(Shl,  Lval (V (T fpf)), Const (Word.of_int (Z.of_int 2) 32)) in
-        (*  bit 3 : reserved *)
-        let eflags4 = BinOp(Shl, Lval (V (T faf)), Const (Word.of_int (Z.of_int 4) 32)) in
-        (*  bit 5 : reserved *)
-        let eflags6 = BinOp(Shl, Lval (V (T fzf)), Const (Word.of_int (Z.of_int 6) 32)) in
-        let eflags7 = BinOp(Shl, Lval (V (T fsf)), Const (Word.of_int (Z.of_int 7) 32)) in
-        let eflags8 = BinOp(Shl, Lval (V (T _ftf)), Const (Word.of_int (Z.of_int 8) 32)) in
-        let eflags9 = BinOp(Shl, Lval (V (T fif)), Const (Word.of_int (Z.of_int 9) 32)) in
-        let eflags10 = BinOp(Shl, Lval (V (T fdf)), Const (Word.of_int (Z.of_int 10) 32)) in
-        let eflags11 = BinOp(Shl, Lval (V (T fof)), Const (Word.of_int (Z.of_int 11) 32)) in
-        let eflags12_13 = BinOp(Shl, Lval (V (T _fiopl)), Const (Word.of_int (Z.of_int 12) 32)) in
-        let eflags14 = BinOp(Shl, Lval (V (T _fnt)), Const (Word.of_int (Z.of_int 14) 32)) in
-        (*  bit 15 : reserved *)
-        let eflags16 = BinOp(Shl, Lval (V (T _frf)), Const (Word.of_int (Z.of_int 16) 32)) in
-        let eflags17 = BinOp(Shl, Lval (V (T _fvm)), Const (Word.of_int (Z.of_int 17) 32)) in
-        let eflags18 = BinOp(Shl, Lval (V (T _fac)), Const (Word.of_int (Z.of_int 18) 32)) in
-        let eflags19 = BinOp(Shl, Lval (V (T _fvif)), Const (Word.of_int (Z.of_int 19) 32)) in
-        let eflags20 = BinOp(Shl, Lval (V (T _fvip)), Const (Word.of_int (Z.of_int 20) 32)) in
-        let eflags21 = BinOp(Shl, Lval (V (T _fid)), Const (Word.of_int (Z.of_int 21) 32)) in
-        let eflags_c0 = eflags0 in
-        let eflags_c2 = BinOp(Or, eflags_c0, eflags2) in
-        let eflags_c4 = BinOp(Or, eflags_c2, eflags4) in
-        let eflags_c6 = BinOp(Or, eflags_c4, eflags6) in
-        let eflags_c7 = BinOp(Or, eflags_c6, eflags7) in
-        let eflags_c8 = BinOp(Or, eflags_c7, eflags8) in
-        let eflags_c9 = BinOp(Or, eflags_c8, eflags9) in
-        let eflags_c10 = BinOp(Or, eflags_c9, eflags10) in
-        let eflags_c11 = BinOp(Or, eflags_c10, eflags11) in
-        let eflags_c12 = BinOp(Or, eflags_c11, eflags12_13) in
-        let eflags_c14 = BinOp(Or, eflags_c12, eflags14) in
-        let eflags_c16 = BinOp(Or, eflags_c14, eflags16) in
-        let eflags_c17 = BinOp(Or, eflags_c16, eflags17) in
-        let eflags_c18 = BinOp(Or, eflags_c17, eflags18) in
-        let eflags_c19 = BinOp(Or, eflags_c18, eflags19) in
-        let eflags_c20 = BinOp(Or, eflags_c19, eflags20) in
-        let eflags_c21 = BinOp(Or, eflags_c20, eflags21) in eflags_c21
-
+    let get_eflags () =
+      let eflags0 = Lval (V (T fcf)) in 
+      (*  bit 1 : reserved *)
+      let eflags2 = UnOp (ZeroExt 32, BinOp(Shl,  Lval (V (T fpf)), Const (Word.of_int (Z.of_int 2) 32))) in
+      (*  bit 3 : reserved *)
+      let eflags4 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T faf)), Const (Word.of_int (Z.of_int 4) 32))) in
+      (*  bit 5 : reserved *)
+      let eflags6 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fzf)), Const (Word.of_int (Z.of_int 6) 32))) in
+      let eflags7 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fsf)), Const (Word.of_int (Z.of_int 7) 32))) in
+      let eflags8 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _ftf)), Const (Word.of_int (Z.of_int 8) 32))) in
+      let eflags9 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fif)), Const (Word.of_int (Z.of_int 9) 32))) in
+      let eflags10 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fdf)), Const (Word.of_int (Z.of_int 10) 32))) in
+      let eflags11 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fof)), Const (Word.of_int (Z.of_int 11) 32))) in
+      let eflags12_13 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _fiopl)), Const (Word.of_int (Z.of_int 12) 32))) in
+      let eflags14 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _fnt)), Const (Word.of_int (Z.of_int 14) 32))) in
+      (*  bit 15 : reserved *)
+      let eflags16 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _frf)), Const (Word.of_int (Z.of_int 16) 32))) in
+      let eflags17 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvm)), Const (Word.of_int (Z.of_int 17) 32))) in
+      let eflags18 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fac)), Const (Word.of_int (Z.of_int 18) 32))) in
+      let eflags19 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvif)), Const (Word.of_int (Z.of_int 19) 32))) in
+      let eflags20 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvip)), Const (Word.of_int (Z.of_int 20) 32))) in
+      let eflags21 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fid)), Const (Word.of_int (Z.of_int 21) 32))) in
+      let eflags_c0 = eflags0 in
+      let eflags_c2 = BinOp(Or, eflags_c0, eflags2) in
+      let eflags_c4 = BinOp(Or, eflags_c2, eflags4) in
+      let eflags_c6 = BinOp(Or, eflags_c4, eflags6) in
+      let eflags_c7 = BinOp(Or, eflags_c6, eflags7) in
+      let eflags_c8 = BinOp(Or, eflags_c7, eflags8) in
+      let eflags_c9 = BinOp(Or, eflags_c8, eflags9) in
+      let eflags_c10 = BinOp(Or, eflags_c9, eflags10) in
+      let eflags_c11 = BinOp(Or, eflags_c10, eflags11) in
+      let eflags_c12 = BinOp(Or, eflags_c11, eflags12_13) in
+      let eflags_c14 = BinOp(Or, eflags_c12, eflags14) in
+      let eflags_c16 = BinOp(Or, eflags_c14, eflags16) in
+      let eflags_c17 = BinOp(Or, eflags_c16, eflags17) in
+      let eflags_c18 = BinOp(Or, eflags_c17, eflags18) in
+      let eflags_c19 = BinOp(Or, eflags_c18, eflags19) in
+      let eflags_c20 = BinOp(Or, eflags_c19, eflags20) in
+      let eflags_c21 = BinOp(Or, eflags_c20, eflags21) in
+      eflags_c21
+							    
     (** Set the flags from EFLAGS value*)
     let set_eflags eflags sz =
         let one = Const (Word.of_int Z.one sz) in
@@ -1070,11 +1072,17 @@ struct
         return s stmts
 
     let pushf s sz =
-        (* XXX should AND EFLAGS with 00FCFFFFH) *)
         let name        = Register.fresh_name ()            in
         let v           = Register.make ~name:name ~size:sz in
         let tmp         = V (T v)			    in
-        let stmt = [Set(tmp, get_eflags)] in 
+	let e = get_eflags () in
+	let e' = 
+	  if sz = 16 then
+	    (* if sz = 16 should AND EFLAGS with 00FCFFFFH) *)
+	    BinOp(And, e, Const (Word.of_int (Z.of_int 0x00FCFFFF) 32))
+	  else e
+	in
+        let stmt = [Set(tmp, e')] in 
         return s (stmt @ (push_stmts s [tmp]) @ [Directive (Remove v)])
 
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
