@@ -6,6 +6,7 @@
 * gérer des chemins UTF-8 dans le .ini ?
 * tests QEMU
 * vérifier popf/pushf (surtout les privilèges etc)
+* perf memory init
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse
