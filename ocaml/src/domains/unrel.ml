@@ -411,15 +411,11 @@ module Make(D: T) =
 
         let init () = Val (Map.empty)
 
-        let concat v nb =
-            let rec acc nb =
-                if nb = 1 then
-                    [v]
-                else
-                    v::(acc (nb-1))
-            in
-            D.concat (acc nb)
+        let build v nb =
+            let v_array = Array.make nb v in
+            D.concat (Array.to_list v_array)
 
+        (** returns size of content, rounded to the next multiple of Config.operand_sz *)
         let size_of_content c =
             let sz = 
                 match c with
@@ -435,21 +431,21 @@ module Make(D: T) =
 
 
         (** builds an abstract tainted value from a config concrete tainted value *)
-        let of_config region (c, t) sz =
-            let v' = D.of_config region c sz in
-            match t with
-            | Some t' -> D.taint_of_config t' sz v'
+        let of_config region (content, taint) sz =
+            let v' = D.of_config region content sz in
+            match taint with
+            | Some taint' -> D.taint_of_config taint' sz v'
             | None 	-> v'
 
-        let set_memory_from_config a region (c, t) nb m =
+        let set_memory_from_config addr region (content, taint) nb m =
             if nb > 0 then
                 match m with
                 | BOT    -> BOT
                 | Val m' ->
-                  let sz = max (size_of_content c) !Config.operand_sz in
-                  let vt = of_config region (c, t) sz in
-                  let r  = concat vt nb in 
-                  Val (write_in_memory a m' r (sz*nb) true)
+                  let sz = size_of_content content in
+                  let val_taint = of_config region (content, taint) sz in
+                  let r  = build val_taint nb in 
+                  Val (write_in_memory addr m' r (sz*nb) true)
             else
                 m
 
