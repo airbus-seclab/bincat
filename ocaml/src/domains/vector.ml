@@ -161,28 +161,30 @@ module Make(V: Val) =
       with _ -> false
 
     let to_value v =
-      try
-	let z = ref Z.zero in
-	for i = 0 to (Array.length v) - 1 do
-	  let n = V.to_value v.(i) in
-	  z := Z.add n (Z.shift_left !z 1)
-	done;
-	!z
-      with _ -> raise Exceptions.Concretization
+        try
+            let z = ref Z.zero in
+            for i = 0 to (Array.length v) - 1 do
+                let n = V.to_value v.(i) in
+                z := Z.add n (Z.shift_left !z 1)
+            done;
+            !z
+        with _ -> raise Exceptions.Concretization
 
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *) 
     let to_word v = Data.Word.of_int (to_value v) (Array.length v)
 				     
     let to_string v =
-      let v' =
-	if exists V.is_top v then
-	  Array.fold_left (fun s v -> s ^ (V.to_string v)) "0b" v
-	else
-	    Data.Word.to_string (to_word v)
-      in
-      let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "0b" v  in
-      if String.length t = 2 then v'
-      else Printf.sprintf "%s ! %s" v' t
+        let v' =
+            if exists V.is_top v then
+            (* TODO optimize *)
+                Array.fold_left (fun s v -> s ^ (V.to_string v)) "0b" v
+            else
+                Data.Word.to_string (to_word v)
+        in
+        (* TODO optimize *)
+        let t = Array.fold_left (fun s v -> s ^(V.string_of_taint v)) "0b" v  in
+        if String.length t = 2 then v'
+        else Printf.sprintf "%s ! %s" v' t
 
 	
     let join v1 v2 = map2 V.join v1 v2

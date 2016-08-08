@@ -39,7 +39,7 @@ DIROPT = -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I da
 
 
 CAMLC   =ocamlc $(DIROPT)
-CAMLOPT =ocamlopt -w Ael -warn-error +a-7-50 $(DIROPT) 
+CAMLOPT =ocamlopt -g -w Ael -warn-error +a-7-50 $(DIROPT) 
 CAMLLEX =ocamllex
 MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
