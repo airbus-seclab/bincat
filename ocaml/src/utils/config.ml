@@ -18,6 +18,7 @@ let memory_model = ref Flat
 type format_t =
   | Pe
   | Elf
+  | Binary
 
 type mode_t =
   | Protected

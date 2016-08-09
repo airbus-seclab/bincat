@@ -187,6 +187,7 @@
       format:
     | PE  { Config.Pe }
     | ELF { Config.Elf }
+    | BINARY { Config.Binary }
     
       gdt:
     | g=gdt_item 	{ g }
