@@ -204,11 +204,11 @@ module Make(D: T) =
                       try Map.find (K.R r) m
                       with Not_found -> D.bot
                   end
-                | Asm.Lval (Asm.V (Asm.P (r, l, u))) ->
+                | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
                   begin
                       try
                           let v = Map.find (K.R r) m in
-                          D.extract v l u 
+                          D.extract v low up
                       with
                       | Not_found -> D.bot
                   end
@@ -365,10 +365,10 @@ module Make(D: T) =
                     begin
                         match r with
                         | Asm.T r' -> Val (Map.add (K.R r') v' m')
-                        | Asm.P (r', l, u) ->
+                        | Asm.P (r', low, up) ->
                           try
                               let prev = Map.find (K.R r') m' in
-                              Val (Map.replace (K.R r') (D.combine prev v' l u) m')
+                              Val (Map.replace (K.R r') (D.combine prev v' low up) m')
                           with
                             Not_found -> BOT
                     end
