@@ -127,7 +127,7 @@ end
 
 module Make(V: Val) =
     (struct
-        type t = V.t array (** bit order is little endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *) 
+        type t = V.t array (** bit order is big endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *) 
 
         let top sz = Array.make sz V.top
 
@@ -430,10 +430,16 @@ module Make(V: Val) =
               done;
               v
 
-        let combine v1 v2 l u =
+        let combine v1 v2 low up =
+            Log.debug (Printf.sprintf "Vector.combine : v1 = %s" (to_string v1));
+            Log.debug (Printf.sprintf "Vector.combine : v2 = %s" (to_string v2));
+            Log.debug (Printf.sprintf "Vector.combine : low = %d, up = %d" low up);
             let v = Array.copy v1 in
-            for i = l to u do
-                v.(i) <- v2.(i)
+            let n = Array.length v1 in 
+            let j = ref 0 in
+            for i = (n-1-up) to (n-1-low) do
+                v.(i) <- v2.(!j);
+                j := !j + 1;
             done;
             v
 
@@ -455,6 +461,8 @@ module Make(V: Val) =
             | _       -> true
 
         let extract v low up =
+            Log.debug (Printf.sprintf "Vector.extract : v = %s" (to_string v));
+            Log.debug (Printf.sprintf "Vector.extract : low = %d, up = %d" low up);
             let v' = Array.make (up-low+1) V.top in
             let n  = Array.length v           in 
             let o  = n-up - 1                  in
