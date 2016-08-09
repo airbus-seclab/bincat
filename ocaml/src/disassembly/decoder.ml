@@ -27,7 +27,7 @@ struct
     let esi = Register.make ~name:"esi" ~size:32;;
     let edi = Register.make ~name:"edi" ~size:32;;
 
-    Hashtbl.add register_tbl 0 eax;;   
+    Hashtbl.add register_tbl 0 eax;;
     Hashtbl.add register_tbl 1 ecx;;
     Hashtbl.add register_tbl 2 edx;;
     Hashtbl.add register_tbl 3 ebx;;
@@ -40,22 +40,22 @@ struct
     (*************************************************************************)
     (* Creation of the flag registers *)
     (*************************************************************************)
-    let fcf    = Register.make ~name:"cf" ~size:1;; 
-    let fpf    = Register.make ~name:"pf" ~size:1;; 
+    let fcf    = Register.make ~name:"cf" ~size:1;;
+    let fpf    = Register.make ~name:"pf" ~size:1;;
     let faf    = Register.make ~name:"af" ~size:1;;
-    let fzf    = Register.make ~name:"zf" ~size:1;; 
-    let fsf    = Register.make ~name:"sf" ~size:1;; 
-    let _ftf   = Register.make ~name:"tf" ~size:1;; 
-    let fif    = Register.make ~name:"if" ~size:1;; 
-    let fdf    = Register.make ~name:"df" ~size:1;; 
-    let fof    = Register.make ~name:"of" ~size:1;; 
-    let _fiopl = Register.make ~name:"iopl" ~size:2;; 
-    let _fnt   = Register.make ~name:"nt" ~size:1;; 
-    let _frf   = Register.make ~name:"rf" ~size:1;; 
-    let _fvm   = Register.make ~name:"vm" ~size:1;; 
-    let _fac   = Register.make ~name:"ac" ~size:1;; 
-    let _fvif  = Register.make ~name:"vif" ~size:1;; 
-    let _fvip  = Register.make ~name:"vip" ~size:1;; 
+    let fzf    = Register.make ~name:"zf" ~size:1;;
+    let fsf    = Register.make ~name:"sf" ~size:1;;
+    let _ftf   = Register.make ~name:"tf" ~size:1;;
+    let fif    = Register.make ~name:"if" ~size:1;;
+    let fdf    = Register.make ~name:"df" ~size:1;;
+    let fof    = Register.make ~name:"of" ~size:1;;
+    let _fiopl = Register.make ~name:"iopl" ~size:2;;
+    let _fnt   = Register.make ~name:"nt" ~size:1;;
+    let _frf   = Register.make ~name:"rf" ~size:1;;
+    let _fvm   = Register.make ~name:"vm" ~size:1;;
+    let _fac   = Register.make ~name:"ac" ~size:1;;
+    let _fvif  = Register.make ~name:"vif" ~size:1;;
+    let _fvip  = Register.make ~name:"vip" ~size:1;;
     let _fid   = Register.make ~name:"id" ~size:1;;
 
 
@@ -155,9 +155,9 @@ struct
 
 
     (** abstract data type of an entry of a decription table (GDT or LDT) *)
-    type tbl_entry = { 
+    type tbl_entry = {
         limit: Z.t;
-        base: Z.t; 
+        base: Z.t;
         typ: segment_descriptor_type;
         s: Z.t;
         dpl: privilege_level;
@@ -177,14 +177,14 @@ struct
         let base  = Z.logand v' ffffff 					   in
         let v' 	  = Z.shift_right v' 24	 			           in
         let typ   = segment_descriptor_of_int (Z.to_int (Z.logand v' f))   in
-        let v' 	  = Z.shift_right v' 4				 	   in	
+        let v' 	  = Z.shift_right v' 4				 	   in
         let s 	  = Z.logand v' Z.one				 	   in
-        let v' 	  = Z.shift_right v' 1        			 	   in 
+        let v' 	  = Z.shift_right v' 1        			 	   in
         let dpl   = Z.logand v' (Z.of_int 3)				   in
         let v' 	  = Z.shift_right v' 2				 	   in
         let p 	  = Z.logand v' Z.one				 	   in
-        let v' 	  = Z.shift_right v' 1        			 	   in 
-        let limit = Z.add limit (Z.shift_left (Z.logand v' f) 16)	   in	
+        let v' 	  = Z.shift_right v' 1        			 	   in
+        let limit = Z.add limit (Z.shift_left (Z.logand v' f) 16)	   in
         let v' 	  = Z.shift_right v' 4				 	   in
         let avl	  = Z.logand v' Z.one				 	   in
         let v' 	  = Z.shift_right v' 1  			 	   in
@@ -195,7 +195,7 @@ struct
         let g 	  = Z.logand v' Z.one				 	   in
         let v' 	  = Z.shift_right v' 1  		    		   in
         let base  = Z.add base (Z.shift_left v' 24)      in
-        { 
+        {
             limit = limit;
             base = base;
             typ = typ;
@@ -258,7 +258,7 @@ struct
     (** int conversion of a byte in the string code *)
     let int_of_byte s = Z.of_int (Char.code (getchar s))
 
-    (** [int_of_bytes s sz] is an integer conversion of sz bytes of the string code s.buf *)  
+    (** [int_of_bytes s sz] is an integer conversion of sz bytes of the string code s.buf *)
     let int_of_bytes s sz =
         let n = ref Z.zero in
         for i = 0 to sz-1 do
@@ -272,7 +272,7 @@ struct
             i
         else
             let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
-            (* ffff00.. mask *) 
+            (* ffff00.. mask *)
             let ff00 = (Z.logxor ff ((Z.sub (Z.shift_left (Z.one) sz) Z.one))) in
             Z.logor ff00 i
 
@@ -284,9 +284,9 @@ struct
         if imm_sz > sz then
             Log.error "Immediate size bigger than target size"
         else
-            let i = int_of_bytes s (imm_sz/8) in 
+            let i = int_of_bytes s (imm_sz/8) in
             if sign_ext then
-                if imm_sz = sz then 
+                if imm_sz = sz then
                     i
                 else
                     sign_extension i imm_sz sz
@@ -376,7 +376,7 @@ struct
         let rm 	= v land 7	   in
         let nnn = (v lsr 3) land 7 in
         let md 	= (v lsr 6)	   in
-        md, nnn, rm	 
+        md, nnn, rm
 
     (** returns the sub expression used in a displacement *)
     let disp s nb sz =
@@ -421,7 +421,7 @@ struct
 
     let get_base_address s c =
         if !Config.mode = Config.Protected then
-            let dt = if c.ti = GDT then s.segments.gdt else s.segments.ldt in 
+            let dt = if c.ti = GDT then s.segments.gdt else s.segments.ldt in
             try
                 let e = Hashtbl.find dt c.index in
                 if c.rpl <= e.dpl then
@@ -455,18 +455,18 @@ struct
                   match rm with
                   | 5 -> raise Disp32
                   | _ -> rm_lv
-              end						    
+              end
             | 1 ->
               BinOp (Add, rm_lv, disp s 8 sz)
 
-            | 2 -> 
+            | 2 ->
               BinOp (Add, rm_lv, disp s 32 sz)
             | _ -> Log.error "Decoder: illegal value in md_from_mem"
 
 
     let exp_of_md s md rm sz =
         match md with
-        | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)						 
+        | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)
         | 3 ->
             (* special case for ah ch dh bh *)
             if sz = 8 && rm >= 4 then
@@ -486,7 +486,7 @@ struct
             else
                 reg_v, Lval rm'
         with
-        | Disp32 -> 
+        | Disp32 ->
           if direction = 0 then
               find_reg_v rm sz, add_data_segment s (disp s 32 sz)
           else
@@ -533,7 +533,7 @@ struct
     let fdf_sz = Register.size fdf
 
 
-    (** produce common statements to set the overflow flag and the adjust flag *) 
+    (** produce common statements to set the overflow flag and the adjust flag *)
     let overflow flag n nth res sz op1 op2 =
         (* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
         let b1        = Const (Word.of_int Z.one sz)          in
@@ -559,7 +559,7 @@ struct
     let undef_flag f = Directive (Forget f)
 
     (** produce the statement to set the carry flag according to the current operation whose operands are op1 and op2 and result is res *)
-    let carry_flag_stmts sz res op1 op op2 = 
+    let carry_flag_stmts sz res op1 op op2 =
         (* fcf is set if the sz+1 bit of the result is 1 *)
         let s 	 = SignExt (sz+1)	  in
         let op1' = UnOp (s, op1)	  in
@@ -567,12 +567,12 @@ struct
         let res' = BinOp (op, op1', op2') in
         If ( Cmp (EQ, UnOp (SignExt (sz+1), res), res'), [ clear_flag fcf ], [ set_flag fcf ] )
 
-    (** produce the statement to set the sign flag wrt to the given parameter *)					    
+    (** produce the statement to set the sign flag wrt to the given parameter *)
     let sign_flag_stmts sz res =
         let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, Const (Word.of_int (Z.of_int (sz-1)) sz))) in
-        If (c, [ set_flag fsf ], [ clear_flag fsf ] ) 
+        If (c, [ set_flag fsf ], [ clear_flag fsf ] )
 
-    (** produce the statement to set the zero flag *)	
+    (** produce the statement to set the zero flag *)
     let zero_flag_stmts sz res =
         let c = Cmp (EQ, res, Const (Word.zero sz)) in
         If (c, [ set_flag fzf ], [ clear_flag fzf ])
@@ -581,7 +581,7 @@ struct
     (** faf is set if there is an overflow on the bit 4 *)
     let adjust_flag_stmts res sz op1 op2 = overflow faf faf_sz (Const (Word.of_int (Z.of_int 4) sz)) res (sz-4) op1 op2
 
-    (** produce the statement to set the parity flag wrt to the given parameters *)					      
+    (** produce the statement to set the parity flag wrt to the given parameters *)
     let parity_flag_stmts sz res =
         (* fpf is set if res contains an even number of 1 in the least significant byte *)
         (* we sum every bits and check whether this sum is even or odd *)
@@ -598,11 +598,11 @@ struct
         let if_stmt   = Set (V (T fpf), Const (Word.one fpf_sz))			                    in
         let else_stmt = Set (V (T fpf), Const (Word.zero fpf_sz))			                    in
         let c 	      = Cmp (EQ, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)) in
-        If(c, [ if_stmt ], [ else_stmt ]) 
+        If(c, [ if_stmt ], [ else_stmt ])
 
     (** builds a value equivalent to the EFLAGS register from the state *)
     let get_eflags () =
-      let eflags0 = Lval (V (T fcf)) in 
+      let eflags0 = Lval (V (T fcf)) in
       (*  bit 1 : reserved *)
       let eflags2 = UnOp (ZeroExt 32, BinOp(Shl,  Lval (V (T fpf)), Const (Word.of_int (Z.of_int 2) 32))) in
       (*  bit 3 : reserved *)
@@ -641,7 +641,7 @@ struct
       let eflags_c20 = BinOp(Or, eflags_c19, eflags20) in
       let eflags_c21 = BinOp(Or, eflags_c20, eflags21) in
       eflags_c21
-							    
+
     (** Set the flags from EFLAGS value*)
     let set_eflags eflags sz =
         let one = Const (Word.of_int Z.one sz) in
@@ -694,7 +694,7 @@ struct
             else Lval dst
         in
         let res = [Set (dst, BinOp(op, e, src))] in
-        add_sub_flag_stmts res sz dst op src 
+        add_sub_flag_stmts res sz dst op src
 
     (** produces the list of states for for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)
     let add_sub s op b dst src sz = return s (add_sub_stmts op b dst src sz)
@@ -760,8 +760,8 @@ struct
                 sign_flag_stmts sz res
             ]
         in
-        let stmts = 
-            [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @ 
+        let stmts =
+            [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @
             flags_stmts @ [Directive (Remove v)]
         in
         return s stmts
@@ -790,7 +790,7 @@ struct
     (** common inc/dec depending on value of df in instructions SCAS/STOS/CMPS/MOVS *)
     let inc_dec_wrt_df regs i =
         let inc_dec op r sz =
-            let c = Const (Word.of_int (Z.of_int (i / 8)) sz) in 
+            let c = Const (Word.of_int (Z.of_int (i / 8)) sz) in
             Set (r, BinOp (op, Lval r, c))
         in
         let istmts, estmts =
@@ -801,7 +801,7 @@ struct
         in
         [ If ( Cmp (EQ, Lval (V (T fdf)), Const (Word.zero fdf_sz)), istmts, estmts) ]
 
-    (** state generation for MOVS *)			 
+    (** state generation for MOVS *)
     let movs s i =
         let edi'  = V (to_reg edi s.addr_sz)            in
         let esi'  = V (to_reg esi s.addr_sz)            in
@@ -810,7 +810,7 @@ struct
         return s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi ; esi] i))
 
     (** state generation for CMPS *)
-    let cmps s i = 
+    let cmps s i =
         let edi'  = V (to_reg edi s.addr_sz)            in
         let esi'  = V (to_reg esi s.addr_sz)            in
         let medi' = M (add_segment s (Lval edi') ds, i) in
@@ -837,7 +837,7 @@ struct
         let eax'  = V (to_reg eax i)                     in
         let edi'  = V (to_reg edi s.addr_sz)             in
         let medi' = M (add_segment s (Lval edi') ds, i)  in
-        let stmts = Set (medi', Lval eax')               in 
+        let stmts = Set (medi', Lval eax')               in
         return s (stmts::(inc_dec_wrt_df [edi] i))
 
     (** state generation for INS *)
@@ -1012,7 +1012,7 @@ struct
     (*******************)
     (* push/pop *)
     (***************)
-    let is_segment lv = 
+    let is_segment lv =
         match lv with
         | V (T r) | V (P(r, _, _)) ->
           Register.compare r cs = 0 || Register.compare r ds = 0
@@ -1020,8 +1020,8 @@ struct
           || Register.compare r fs = 0 || Register.compare r gs = 0
         | _ -> false
 
-    let is_esp lv = 
-        match lv with 
+    let is_esp lv =
+        match lv with
         | V (T r) | V (P(r, _, _)) -> Register.compare r esp = 0
         | _                        -> false
 
@@ -1049,7 +1049,7 @@ struct
     (** statements generation for pop instructions *)
     let pop_stmts s lv =
         let esp'  = esp_lval () in
-        List.fold_left (fun stmts lv -> 
+        List.fold_left (fun stmts lv ->
             let n = size_push_pop lv s.addr_sz in
             let incr = set_esp Add esp' n in
             if with_stack_pointer s.a lv then
@@ -1075,7 +1075,7 @@ struct
         let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
         (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
         (* this is the purpose of the pre and post statements *)
-        let pre, post= 
+        let pre, post=
             if List.exists (with_stack_pointer s.a) v then
                 [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
             else
@@ -1084,7 +1084,7 @@ struct
         let stmts =
             List.fold_left (
                 fun stmts lv ->
-                    let n = size_push_pop lv s.addr_sz in 
+                    let n = size_push_pop lv s.addr_sz in
                     let st =
                         if is_esp lv then
                             (* save the esp value to its value before the first push (see PUSHA specifications) *)
@@ -1104,7 +1104,7 @@ struct
     let push_immediate s n =
         let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width) in
         let esp'  = esp_lval ()						       in
-        let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]			 
+        let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]
         in
         return s stmts
 
@@ -1112,14 +1112,14 @@ struct
         let name        = Register.fresh_name ()            in
         let v           = Register.make ~name:name ~size:sz in
         let tmp         = V (T v)			    in
-	let e = get_eflags () in
-	let e' = 
-	  if sz = 16 then
-	    (* if sz = 16 should AND EFLAGS with 00FCFFFFH) *)
-	    BinOp(And, e, Const (Word.of_int (Z.of_int 0x00FCFFFF) 32))
-	  else e
-	in
-        let stmt = [Set(tmp, e')] in 
+        let e = get_eflags () in
+        let e' =
+            if sz = 16 then
+                (* if sz = 16 should AND EFLAGS with 00FCFFFFH) *)
+                BinOp(And, e, Const (Word.of_int (Z.of_int 0x00FCFFFF) 32))
+            else e
+        in
+        let stmt = [Set(tmp, e')] in
         return s (stmt @ (push_stmts s [tmp]) @ [Directive (Remove v)])
 
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
@@ -1159,7 +1159,7 @@ struct
         | 1 -> or_xor_and s Or dst imm
         | 2 -> add_sub s Add true dst imm reg_sz
         | 3 -> add_sub s Sub true dst imm reg_sz
-        | 4 -> or_xor_and s And dst imm 
+        | 4 -> or_xor_and s And dst imm
         | 5 -> add_sub s Sub false dst imm reg_sz
         | 6 -> or_xor_and s Xor dst imm
         | 7 -> return s (cmp_stmts (Lval dst) imm reg_sz)
@@ -1278,7 +1278,7 @@ struct
     (*******************)
     (* BCD *)
     (*******************)
-    let al  = V (P (eax, 0, 7)) 
+    let al  = V (P (eax, 0, 7))
     let fal = BinOp (And, Lval al, Const (Word.of_int (Z.of_string "0x0F") 8))
     let fal_gt_9 = Cmp (GT, fal, Const (Word.of_int (Z.of_int 9) 8))
     let faf_eq_1 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))
@@ -1362,9 +1362,9 @@ struct
         let dst = exp_of_md s md rm 8 in
         return s [If (e, [Set (dst, Const (Word.one 8))], [Set (dst, Const (Word.zero 8))])]
 
-    let xchg s v1 v2 sz = 
+    let xchg s v1 v2 sz =
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
-        let stmts = [ Set(V (T tmp), Lval (V v1)); Set(V v1, Lval (V v2)) ; 
+        let stmts = [ Set(V (T tmp), Lval (V v1)); Set(V v1, Lval (V v2)) ;
                       Set(V v2, Lval (V (T tmp)))  ; Directive (Remove tmp) ]
         in
         return s stmts
@@ -1499,7 +1499,7 @@ struct
             | '\x38' -> (* CMP *) cmp_mrm s 8 0
             | '\x39' -> (* CMP *) cmp_mrm s s.operand_sz 0
             | '\x3A' -> (* CMP *) cmp_mrm s 8 1
-            | '\x3B' -> (* CMP *) cmp_mrm s s.operand_sz 1					   
+            | '\x3B' -> (* CMP *) cmp_mrm s s.operand_sz 1
             | '\x3C' -> (* CMP AL with immediate *)
               let i = Const (Word.of_int (int_of_bytes s 1) 8) in
               return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) i 8)
@@ -1527,7 +1527,7 @@ struct
             | '\x6A' -> (* PUSH byte *) push_immediate s 1
 
             | '\x6c' -> (* INSB *) ins s 8
-            | '\x6d' -> (* INSW/D *) ins s s.addr_sz 
+            | '\x6d' -> (* INSW/D *) ins s s.addr_sz
             | '\x6e' -> (* OUTSB *) outs s 8
             | '\x6f' -> (* OUTSW/D *) outs s s.addr_sz
 
@@ -1597,7 +1597,7 @@ struct
             | '\xc0' -> (* shift grp2 with byte size*) grp2 s 8 None
             | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
             | '\xc2' -> (* RET NEAR and pop word *) return s [ Return; (* pop imm16 *) set_esp Add (T esp) (s.addr_sz + 16); ]
-            | '\xc3' -> (* RET NEAR *) return s [ Return; set_esp Add (T esp) s.addr_sz; ] 
+            | '\xc3' -> (* RET NEAR *) return s [ Return; set_esp Add (T esp) s.addr_sz; ]
             | '\xc4' -> (* LES *) load_far_ptr s es
             | '\xc5' -> (* LDS *) load_far_ptr s ds
             | '\xc6' -> (* MOV with byte *) mov_immediate s 8
@@ -1615,7 +1615,7 @@ struct
             | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
 
             | '\xd0' -> (* grp2 shift with byte size *) grp2 s 8 None
-            | '\xd1' -> (* grp2 shift with word or double size *) grp2 s s.operand_sz None 
+            | '\xd1' -> (* grp2 shift with word or double size *) grp2 s s.operand_sz None
             | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s 8 (Some (Lval (V (to_reg ecx 8))))
             | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx 8))))
 
@@ -1673,7 +1673,7 @@ struct
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
 
-            | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - (Char.code '\x80') in jcc s cond 
+            | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - (Char.code '\x80') in jcc s cond
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - (Char.code '\x90') in setcc s cond
             | '\xa0' -> push s [V (T fs)]
             | '\xa1' -> pop s [V (T fs)]
@@ -1691,7 +1691,7 @@ struct
               return s [ Set (V (T r), rm) ;
                          Set (reg, UnOp(ZeroExt s.operand_sz, Lval (V (P (r, 0, 7)))));
                          Directive (Remove r) ]
-            | '\xb7' -> 
+            | '\xb7' ->
               let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
 
@@ -1716,7 +1716,7 @@ struct
             o 	       = 0;
             c          = [];
             addr_sz    = !Config.address_sz;
-            operand_sz = !Config.operand_sz; 
+            operand_sz = !Config.operand_sz;
             segments   = copy_segments is a ctx;
             rep_prefix = None;
             buf        = text;
