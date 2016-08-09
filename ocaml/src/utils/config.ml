@@ -7,8 +7,6 @@ let blackAddresses = ref SAddresses.empty
 		       
 let dotfile = ref "";;
   
-let size_of_byte = 8
-		     
 type memory_model_t =
   | Flat
   | Segmented

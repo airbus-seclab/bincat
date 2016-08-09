@@ -262,7 +262,7 @@ struct
     let int_of_bytes s sz =
         let n = ref Z.zero in
         for i = 0 to sz-1 do
-            n := Z.add !n (Z.shift_left (int_of_byte s) (i*Config.size_of_byte));
+            n := Z.add !n (Z.shift_left (int_of_byte s) (i*8));
         done;
         !n;;
 
@@ -278,11 +278,12 @@ struct
 
 
     (** helper to get immediate *)
+    (* TODO : use helper everywhere *)
     let get_imm s imm_sz sz sign_ext =
         if imm_sz > sz then
             Log.error "Immediate size bigger than target size"
         else
-            let i = int_of_bytes s imm_sz in 
+            let i = int_of_bytes s (imm_sz/8) in 
                 let sign_i = 
                     if sign_ext then
                        if imm_sz = sz then 
@@ -385,7 +386,7 @@ struct
     (** returns the sub expression used in a displacement *)
     let disp s nb sz =
         (* TODO : signed *)
-        let n = int_of_bytes s (nb/Config.size_of_byte) in
+        let n = int_of_bytes s (nb/8) in
         Const (Word.of_int n sz)
 
     exception Disp32
@@ -707,7 +708,7 @@ struct
     (** produces the state corresponding to an add or a sub with an immediate operand *)
     let add_sub_immediate s op b r sz =
         let r'  = V (to_reg r sz)                                       in
-        let sz' = sz / Config.size_of_byte                              in
+        let sz' = sz / 8                              in
         let w   = Const (Word.of_int (int_of_bytes s sz') s.operand_sz) in
         add_sub s op b r' w sz
 
@@ -794,7 +795,7 @@ struct
     (** common inc/dec depending on value of df in instructions SCAS/STOS/CMPS/MOVS *)
     let inc_dec_wrt_df regs i =
         let inc_dec op r sz =
-            let c = Const (Word.of_int (Z.of_int (i / Config.size_of_byte)) sz) in 
+            let c = Const (Word.of_int (Z.of_int (i / 8)) sz) in 
             Set (r, BinOp (op, Lval r, c))
         in
         let istmts, estmts =
@@ -865,7 +866,7 @@ struct
         let sreg' 	     = V (T sreg)						     in
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))			     in
         let reg'           = find_reg reg s.operand_sz			 	     in
-        let n 	     = s.operand_sz / Config.size_of_byte			     in
+        let n 	     = s.operand_sz / 8			     in
         let src 	     = Const (Word.of_int (int_of_bytes s n) s.operand_sz)	     in
         let src' 	     = add_segment s src s.segments.data			     in
         let off 	     = BinOp (Add, src', Const (Word.of_int (Z.of_int n) s.addr_sz)) in
@@ -936,7 +937,7 @@ struct
     let relative s i sz =
         let o  = int_of_bytes s i in
         let o' =
-            if i = 1 then sign_extension_of_byte o (( sz / Config.size_of_byte)-1)
+            if i = 1 then sign_extension_of_byte o (( sz / 8)-1)
             else o
         in
         let a' = Address.add_offset s.a (Z.add (Z.of_int s.o) o') in
@@ -950,7 +951,7 @@ struct
 
     (** common statement to move (a chunk of) esp by a relative offset *)
     let set_esp op esp' n =
-        Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / Config.size_of_byte)) !Config.stack_width)) )
+        Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / 8)) !Config.stack_width)) )
 
 
     let call s t =
@@ -993,7 +994,7 @@ struct
             with _ -> error s.a "Illegal segment loading request (illegal index in the description table)"
         end;
         Hashtbl.replace s.segments.reg cs v';
-        let a  = int_of_bytes s (s.operand_sz / Config.size_of_byte) in
+        let a  = int_of_bytes s (s.operand_sz / 8) in
         let o  = Address.of_int Address.Global a s.operand_sz        in
         let a' = Address.add_offset o v                              in
         check_jmp s a';
@@ -1134,12 +1135,12 @@ struct
     let mov_immediate s n =
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))      			    in
         let r 		   = find_reg_v reg n						    in
-        let c              = Const (Word.of_int (int_of_bytes s (n/Config.size_of_byte)) n) in
+        let c              = Const (Word.of_int (int_of_bytes s (n/8)) n) in
         return s [ Set (r, c) ]
 
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
-        let imm = int_of_bytes s (n/Config.size_of_byte) in
+        let imm = int_of_bytes s (n/8) in
         let leax = V (to_reg eax n) in
         let lmem = M (add_segment s (Const (Word.of_int imm s.addr_sz)) s.segments.data, n) in
         let dst, src =
@@ -1160,10 +1161,10 @@ struct
 
     let grp1 s reg_sz imm_sz =
         let nnn, dst = core_grp s reg_sz in
-        let i = int_of_bytes s (imm_sz / Config.size_of_byte) in
+        let i = int_of_bytes s (imm_sz / 8) in
         let i' =
             if reg_sz = imm_sz then i
-            else sign_extension_of_byte i ((reg_sz / Config.size_of_byte)-1)
+            else sign_extension_of_byte i ((reg_sz / 8)-1)
         in
         let c   = Const (Word.of_int i' reg_sz) in
         (* operation is encoded in bits 5,4,3 *)
@@ -1227,10 +1228,10 @@ struct
         return s stmts
 
     let grp4 s =
-        let nnn, dst = core_grp s Config.size_of_byte in
+        let nnn, dst = core_grp s 8 in
         match nnn with
-        | 0 -> inc_dec dst Add s Config.size_of_byte
-        | 1 -> inc_dec dst Sub s Config.size_of_byte
+        | 0 -> inc_dec dst Add s 8
+        | 1 -> inc_dec dst Sub s 8
         | _ -> error s.a "Illegal opcode in grp 4"
 
     let grp5 s =
@@ -1279,7 +1280,7 @@ struct
 
     let grp8 s =
         let nnn, dst = core_grp s s.operand_sz                                                           in
-        let n = s.operand_sz / Config.size_of_byte - 1 in
+        let n = s.operand_sz / 8 - 1 in
         let src      = Const (Word.of_int (sign_extension_of_byte (int_of_byte s) n) s.operand_sz) in
         match nnn with
         | 4 -> (* BT *) bt s dst src
@@ -1379,10 +1380,10 @@ struct
             | _ -> let m = add_segment s (Lval (V (T (Hashtbl.find register_tbl rm)))) s.segments.data in M (m, n)
         in
         let ff =
-            if n = Config.size_of_byte then
+            if n = 8 then
                 Z.of_string "Oxff"
             else
-                sign_extension_of_byte (Z.of_int 0xff) ((n-1) / Config.size_of_byte)
+                sign_extension_of_byte (Z.of_int 0xff) ((n-1) / 8)
         in
         return s [If (e, [Set (rm', Const (Word.of_int ff n))], [Set (rm', Const (Word.zero n))])]
 
@@ -1455,17 +1456,17 @@ struct
         in
         let rec decode s =
             match check_context s (getchar s) with
-            | '\x00' -> (* ADD *) add_sub_mrm s Add false Config.size_of_byte 0
+            | '\x00' -> (* ADD *) add_sub_mrm s Add false 8 0
             | '\x01' -> (* ADD *) add_sub_mrm s Add false s.operand_sz 0
-            | '\x02' -> (* ADD *) add_sub_mrm s Add false Config.size_of_byte 1
+            | '\x02' -> (* ADD *) add_sub_mrm s Add false 8 1
             | '\x03' -> (* ADD *) add_sub_mrm s Add false s.operand_sz 1
-            | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax Config.size_of_byte
+            | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax 8
             | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz
             | '\x06' -> (* PUSH es *) let es' = to_reg es s.operand_sz in push s [V es']
             | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
-            | '\x08' -> (* OR *) or_xor_and_mrm s Or Config.size_of_byte 0
+            | '\x08' -> (* OR *) or_xor_and_mrm s Or 8 0
             | '\x09' -> (* OR *) or_xor_and_mrm s Or s.operand_sz 0
-            | '\x0A' -> (* OR *) or_xor_and_mrm s Or Config.size_of_byte 1
+            | '\x0A' -> (* OR *) or_xor_and_mrm s Or 8 1
             | '\x0B' -> (* OR *) or_xor_and_mrm s Or s.operand_sz 1
             | '\x0C' -> (* OR imm8 *) or_xor_and_eax s Or 8 8
             | '\x0D' -> (* OR imm *) or_xor_and_eax s Or s.operand_sz s.operand_sz
@@ -1474,61 +1475,61 @@ struct
             | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs']
             | '\x0F' -> (* 2-byte escape *) decode_snd_opcode s
 
-            | '\x10' -> (* ADC *) add_sub_mrm s Add true Config.size_of_byte 0
+            | '\x10' -> (* ADC *) add_sub_mrm s Add true 8 0
             | '\x11' -> (* ADC *) add_sub_mrm s Add true s.operand_sz 0
-            | '\x12' -> (* ADC *) add_sub_mrm s Add true Config.size_of_byte 1
+            | '\x12' -> (* ADC *) add_sub_mrm s Add true 8 1
             | '\x13' -> (* ADC *) add_sub_mrm s Add true s.operand_sz 1
 
-            | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax Config.size_of_byte
+            | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax 8
             | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz
             | '\x16' -> (* PUSH ss *) let ss' = to_reg ss s.operand_sz in push s [V ss']
             | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
 
-            | '\x18' -> (* SBB *) add_sub_mrm s Sub true Config.size_of_byte 0
+            | '\x18' -> (* SBB *) add_sub_mrm s Sub true 8 0
             | '\x19' -> (* SBB *) add_sub_mrm s Sub true s.operand_sz 0
-            | '\x1A' -> (* SBB *) add_sub_mrm s Sub true Config.size_of_byte 1
+            | '\x1A' -> (* SBB *) add_sub_mrm s Sub true 8 1
             | '\x1B' -> (* SBB *) add_sub_mrm s Sub true s.operand_sz 1
-            | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax Config.size_of_byte
+            | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax 8
             | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz
             | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds s.operand_sz in push s [V ds']
             | '\x1F' -> (* POP ds *) let ds' = to_reg ds s.operand_sz in pop s [V ds']
 
-            | '\x20' -> (* AND *) or_xor_and_mrm s And Config.size_of_byte 0
+            | '\x20' -> (* AND *) or_xor_and_mrm s And 8 0
             | '\x21' -> (* AND *) or_xor_and_mrm s And s.operand_sz 0
-            | '\x22' -> (* AND *) or_xor_and_mrm s And Config.size_of_byte 1
+            | '\x22' -> (* AND *) or_xor_and_mrm s And 8 1
             | '\x23' -> (* AND *) or_xor_and_mrm s And s.operand_sz 1
             | '\x24' -> (* AND imm8 *) or_xor_and_eax s And 8 8
             | '\x25' -> (* AND imm *) or_xor_and_eax s And s.operand_sz s.operand_sz
 
             | '\x26' -> (* data segment = es *) s.segments.data <- es; decode s
             | '\x27' -> (* DAA *) daa s
-            | '\x28' -> (* SUB *) add_sub_mrm s Sub false Config.size_of_byte 0
+            | '\x28' -> (* SUB *) add_sub_mrm s Sub false 8 0
             | '\x29' -> (* SUB *) add_sub_mrm s Sub false s.operand_sz 0
-            | '\x2A' -> (* SUB *) add_sub_mrm s Sub false Config.size_of_byte 1
+            | '\x2A' -> (* SUB *) add_sub_mrm s Sub false 8 1
             | '\x2B' -> (* SUB *) add_sub_mrm s Sub false s.operand_sz 1
-            | '\x2C' -> (* SUB AL with immediate *) add_sub_immediate s Sub false eax Config.size_of_byte
+            | '\x2C' -> (* SUB AL with immediate *) add_sub_immediate s Sub false eax 8
             | '\x2D' -> (* SUB eAX with immediate *) add_sub_immediate s Sub false eax s.operand_sz
             | '\x2E' -> (* data segment = cs *) s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
             | '\x2F' -> (* DAS *) das s
 
-            | '\x30' -> (* XOR *) or_xor_and_mrm s Xor Config.size_of_byte 0
+            | '\x30' -> (* XOR *) or_xor_and_mrm s Xor 8 0
             | '\x31' -> (* XOR *) or_xor_and_mrm s Xor s.operand_sz 0
-            | '\x32' -> (* XOR *) or_xor_and_mrm s Xor Config.size_of_byte 1
+            | '\x32' -> (* XOR *) or_xor_and_mrm s Xor 8 1
             | '\x33' -> (* XOR *) or_xor_and_mrm s Xor s.operand_sz 1
             | '\x34' -> (* XOR imm8 *) or_xor_and_eax s Xor 8 8
             | '\x35' -> (* XOR imm *) or_xor_and_eax s Xor s.operand_sz s.operand_sz
 
             | '\x36' -> (* data segment = ss *) s.segments.data <- ss; decode s
             | '\x37' -> (* AAA *) aaa s
-            | '\x38' -> (* CMP *) cmp_mrm s Config.size_of_byte 0
+            | '\x38' -> (* CMP *) cmp_mrm s 8 0
             | '\x39' -> (* CMP *) cmp_mrm s s.operand_sz 0
-            | '\x3A' -> (* CMP *) cmp_mrm s Config.size_of_byte 1
+            | '\x3A' -> (* CMP *) cmp_mrm s 8 1
             | '\x3B' -> (* CMP *) cmp_mrm s s.operand_sz 1					   
             | '\x3C' -> (* CMP AL with immediate *)
-              let i = Const (Word.of_int (int_of_bytes s 1) Config.size_of_byte) in
-              return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) i Config.size_of_byte)
+              let i = Const (Word.of_int (int_of_bytes s 1) 8) in
+              return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) i 8)
             | '\x3D' -> (* CMP eAX with immediate *)
-              let i = Const (Word.of_int (int_of_bytes s (s.operand_sz / Config.size_of_byte)) s.operand_sz) in
+              let i = Const (Word.of_int (int_of_bytes s (s.operand_sz / 8)) s.operand_sz) in
               return s (cmp_stmts (Lval (V (P (eax, 0, s.operand_sz-1)))) i s.operand_sz)
             | '\x3E' -> (* data segment = ds *) s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
             | '\x3F' -> (* AAS *) aas s
@@ -1547,26 +1548,26 @@ struct
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
             | '\x66' -> (* operand size switch *) s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
-            | '\x68' -> (* PUSH immediate *) push_immediate s (s.operand_sz / Config.size_of_byte)
+            | '\x68' -> (* PUSH immediate *) push_immediate s (s.operand_sz / 8)
             | '\x6A' -> (* PUSH byte *) push_immediate s 1
 
-            | '\x6c' -> (* INSB *) ins s Config.size_of_byte
+            | '\x6c' -> (* INSB *) ins s 8
             | '\x6d' -> (* INSW/D *) ins s s.addr_sz 
-            | '\x6e' -> (* OUTSB *) outs s Config.size_of_byte
+            | '\x6e' -> (* OUTSB *) outs s 8
             | '\x6f' -> (* OUTSW/D *) outs s s.addr_sz
 
             | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - (Char.code '\x70') in jcc s v 1
 
-            | '\x80' -> (* grp1 opcode table *) grp1 s Config.size_of_byte Config.size_of_byte
+            | '\x80' -> (* grp1 opcode table *) grp1 s 8 8
             | '\x81' -> (* grp1 opcode table *) grp1 s s.operand_sz s.operand_sz
             | '\x82' -> error s.a ("Undefined opcode 0x82")
-            | '\x83' -> (* grp1 opcode table *) grp1 s s.operand_sz Config.size_of_byte
+            | '\x83' -> (* grp1 opcode table *) grp1 s s.operand_sz 8
 
-            | '\x86' -> (* XCHG byte registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm Config.size_of_byte) (find_reg reg Config.size_of_byte) Config.size_of_byte
+            | '\x86' -> (* XCHG byte registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm 8) (find_reg reg 8) 8
             | '\x87' -> (* XCHG word or double-word registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm s.operand_sz) (find_reg reg s.operand_sz) s.operand_sz
-            | '\x88' -> (* MOV *) mov_mrm s Config.size_of_byte 0
+            | '\x88' -> (* MOV *) mov_mrm s 8 0
             | '\x89' -> (* MOV *) mov_mrm s s.operand_sz 0
-            | '\x8A' -> (* MOV *) mov_mrm s Config.size_of_byte 1
+            | '\x8A' -> (* MOV *) mov_mrm s 8 1
             | '\x8B' -> (* MOV *) mov_mrm s s.operand_sz 1
 
 
@@ -1588,43 +1589,43 @@ struct
             | c when '\x91' <= c && c <= '\x97' -> (* XCHG word or double-word with eAX *) xchg_with_eax s ((Char.code c) - (Char.code '\x90'))
             | '\x98' -> (* CBW *) let dst = V (to_reg eax s.operand_sz) in return s [Set (dst, UnOp (SignExt s.operand_sz, Lval (V (to_reg eax (s.operand_sz / 2)))))]
             | '\x9a' -> (* CALL *)
-              let off = int_of_bytes s (s.operand_sz / Config.size_of_byte) in
+              let off = int_of_bytes s (s.operand_sz / 8) in
               let cs' = get_base_address s (Hashtbl.find s.segments.reg cs) in
               let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
               call s (A a)
             | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
             | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
             | '\x9d' -> (* POPF *) popf s s.operand_sz
-            | '\xa0' -> (* MOV EAX *) mov_with_eax s Config.size_of_byte true
+            | '\xa0' -> (* MOV EAX *) mov_with_eax s 8 true
             | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz true
-            | '\xa2' -> (* MOV EAX *) mov_with_eax s Config.size_of_byte false
+            | '\xa2' -> (* MOV EAX *) mov_with_eax s 8 false
             | '\xa3' -> (* MOV EAX *) mov_with_eax s s.operand_sz false
-            | '\xa4' -> (* MOVSB *) movs s Config.size_of_byte
+            | '\xa4' -> (* MOVSB *) movs s 8
             | '\xa5' -> (* MOVSW *) movs s s.addr_sz
-            | '\xa6' -> (* CMPSB *) cmps s Config.size_of_byte
+            | '\xa6' -> (* CMPSB *) cmps s 8
             | '\xa7' -> (* CMPSW *) cmps s s.addr_sz
-            | '\xaa' -> (* STOS on byte *) stos s Config.size_of_byte
+            | '\xaa' -> (* STOS on byte *) stos s 8
             | '\xab' -> (* STOS *) stos s s.addr_sz
-            | '\xac' -> (* LODS on byte *) lods s Config.size_of_byte
+            | '\xac' -> (* LODS on byte *) lods s 8
             | '\xad' -> (* LODS *) lods s s.addr_sz
-            | '\xae' -> (* SCAS on byte *) scas s Config.size_of_byte
+            | '\xae' -> (* SCAS on byte *) scas s 8
             | '\xaf' -> (* SCAS *) scas s s.addr_sz
 
-            | c when '\xb0' <= c && c <= '\xb3' -> (* MOV immediate byte into byte register *) let r = (find_reg_v ((Char.code c) - (Char.code '\xb0')) Config.size_of_byte) in return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
+            | c when '\xb0' <= c && c <= '\xb3' -> (* MOV immediate byte into byte register *) let r = (find_reg_v ((Char.code c) - (Char.code '\xb0')) 8) in return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
             | c when '\xb4' <= c && c <= '\xb7' -> (* MOV immediate byte into byte register (higher part) *)
               let n = (Char.code c) - (Char.code '\xb0')          in
               let r = V (P (Hashtbl.find register_tbl n, 24, 32)) in
-              return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
+              return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
             | c when '\xb8' <= c && c <= '\xbf' -> (* mov immediate word or double into word or double register *)
-              let r = (find_reg_v ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/Config.size_of_byte)) s.operand_sz))]
+              let r = (find_reg_v ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/8)) s.operand_sz))]
 
-            | '\xc0' -> (* shift grp2 with byte size*) grp2 s Config.size_of_byte None
+            | '\xc0' -> (* shift grp2 with byte size*) grp2 s 8 None
             | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
             | '\xc2' -> (* RET NEAR and pop word *) return s [ Return; (* pop imm16 *) set_esp Add (T esp) (s.addr_sz + 16); ]
             | '\xc3' -> (* RET NEAR *) return s [ Return; set_esp Add (T esp) s.addr_sz; ] 
             | '\xc4' -> (* LES *) load_far_ptr s es
             | '\xc5' -> (* LDS *) load_far_ptr s ds
-            | '\xc6' -> (* MOV with byte *) mov_immediate s Config.size_of_byte
+            | '\xc6' -> (* MOV with byte *) mov_immediate s 8
             | '\xc7' -> (* MOV with word or double *) mov_immediate s s.operand_sz
 
             | '\xc9' -> (* LEAVE *)
@@ -1638,18 +1639,18 @@ struct
             | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
             | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
 
-            | '\xd0' -> (* grp2 shift with byte size *) grp2 s Config.size_of_byte None
+            | '\xd0' -> (* grp2 shift with byte size *) grp2 s 8 None
             | '\xd1' -> (* grp2 shift with word or double size *) grp2 s s.operand_sz None 
-            | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s Config.size_of_byte (Some (Lval (V (to_reg ecx Config.size_of_byte))))
-            | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx Config.size_of_byte))))
+            | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s 8 (Some (Lval (V (to_reg ecx 8))))
+            | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx 8))))
 
             | c when '\xd8' <= c && c <= '\xdf' -> (* ESC (escape to coprocessor instruction set *) error s.a "ESC to coprocessor instruction set. Interpreter halts"
 
             | c when '\xe0' <= c && c <= '\xe2' -> (* LOOPNE/LOOPE/LOOP *) loop s c
             | '\xe3' -> (* JCXZ *) jecxz s
 
-            | '\xe8' -> (* relative call *) relative_call s (s.operand_sz / Config.size_of_byte)
-            | '\xe9' -> (* JMP to near relative address (offset has word or double word size) *) relative_jmp s (s.operand_sz / Config.size_of_byte)
+            | '\xe8' -> (* relative call *) relative_call s (s.operand_sz / 8)
+            | '\xe9' -> (* JMP to near relative address (offset has word or double word size) *) relative_jmp s (s.operand_sz / 8)
             | '\xea' -> (* JMP to near absolute address *) direct_jmp s
             | '\xeb' -> (* JMP to near relative address (offset has byte size) *) relative_jmp s 1 
 
@@ -1661,7 +1662,7 @@ struct
             | '\xf3' -> (* REP/REPE *) s.repne <- false; rep s Word.zero
             | '\xf4' -> (* HLT *) error s.a "Decoder stopped: HLT reached"
             | '\xf5' -> (* CMC *) let fcf' = V (T fcf) in return s [ Set (fcf', UnOp (Not, Lval fcf')) ]
-            | '\xf6' -> (* shift to grp3 with byte size *) grp3 s Config.size_of_byte
+            | '\xf6' -> (* shift to grp3 with byte size *) grp3 s 8
             | '\xf7' -> (* shift to grp3 with word or double word size *) grp3 s s.operand_sz
             | '\xf8' -> (* CLC *) return s (clear_flag fcf fcf_sz)
             | '\xf9' -> (* STC *) return s (set_flag fcf fcf_sz)
@@ -1697,8 +1698,8 @@ struct
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
 
-            | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / Config.size_of_byte)
-            | c when '\x90' <= c && c <= '\x9f' -> let v = (Char.code c) - (Char.code '\x90') in setcc s v (s.operand_sz / Config.size_of_byte)
+            | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / 8)
+            | c when '\x90' <= c && c <= '\x9f' -> let v = (Char.code c) - (Char.code '\x90') in setcc s v (s.operand_sz / 8)
             | '\xa0' -> push s [V (T fs)]
             | '\xa1' -> pop s [V (T fs)]
             | '\xa8' -> push s [V (T gs)]
