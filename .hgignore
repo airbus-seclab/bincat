@@ -20,3 +20,4 @@ doc/generated
 *.swp
 *.egg
 python/test/**
+tags
