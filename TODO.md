@@ -7,6 +7,8 @@
 * tests QEMU
 * vérifier popf/pushf (surtout les privilèges etc)
 * perf memory init
+* fix If dans l'interpreteur
+* programme de test : binaire => statements (à la metasm-shell)
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse
