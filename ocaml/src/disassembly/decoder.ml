@@ -285,18 +285,13 @@ struct
             Log.error "Immediate size bigger than target size"
         else
             let i = int_of_bytes s (imm_sz/8) in 
-                let sign_i = 
-                    if sign_ext then
-                       if imm_sz = sz then 
-                           i
-                       else
-                          (* sign ext *)
-                           sign_extension i imm_sz sz
-                    else
-                        i
-            in
-                  Log.debug (Printf.sprintf "get_imm (%d %d %B): %d" imm_sz sz sign_ext (Z.to_int sign_i));
-                sign_i
+            if sign_ext then
+                if imm_sz = sz then 
+                    i
+                else
+                    sign_extension i imm_sz sz
+            else
+                i
 
     let get_imm s imm_sz sz sign_ext =
         Const (Word.of_int (get_imm_int s imm_sz sz sign_ext) sz)
