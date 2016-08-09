@@ -1467,6 +1467,8 @@ struct
             | '\x09' -> (* OR *) or_xor_and_mrm s Or s.operand_sz 0
             | '\x0A' -> (* OR *) or_xor_and_mrm s Or Config.size_of_byte 1
             | '\x0B' -> (* OR *) or_xor_and_mrm s Or s.operand_sz 1
+            | '\x0C' -> (* OR imm8 *) or_xor_and_eax s Or 8 8
+            | '\x0D' -> (* OR imm *) or_xor_and_eax s Or s.operand_sz s.operand_sz
 
 
             | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs']
@@ -1513,6 +1515,8 @@ struct
             | '\x31' -> (* XOR *) or_xor_and_mrm s Xor s.operand_sz 0
             | '\x32' -> (* XOR *) or_xor_and_mrm s Xor Config.size_of_byte 1
             | '\x33' -> (* XOR *) or_xor_and_mrm s Xor s.operand_sz 1
+            | '\x34' -> (* XOR imm8 *) or_xor_and_eax s Xor 8 8
+            | '\x35' -> (* XOR imm *) or_xor_and_eax s Xor s.operand_sz s.operand_sz
 
             | '\x36' -> (* data segment = ss *) s.segments.data <- ss; decode s
             | '\x37' -> (* AAA *) aaa s
