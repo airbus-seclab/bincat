@@ -317,11 +317,11 @@ struct
         to_reg r sz
 
     (** returns the slice from 8 to 15 of the given register index *)
-	       
+
     let get_h_slice n =
       let r = Hashtbl.find register_tbl n in
       P (r, 8, 15)
-		
+
     (** sign extension of a byte on _nb_ bytes *)
     let sign_extension_of_byte b nb =
         if Z.compare (Z.shift_right b 7) Z.zero = 0 then
@@ -448,17 +448,17 @@ struct
         match md with
         | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)						 
         | 3 ->
-            if sz = 32
-            then
-                V (find_reg rm s.addr_sz)
+            (* special case for ah ch dh bh *)
+            if sz = 8 && rm >= 4 then
+                V (get_h_slice (rm-4))
             else
-                Log.error (Printf.sprintf "ModRM with size %d != 32 not handled yet" sz)
+                V (find_reg rm sz)
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
     let operands_from_mod_reg_rm s sz direction =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
-        let reg' = find_reg reg s.addr_sz in
+        let reg' = find_reg reg sz in
         try
             let rm' = exp_of_md s md rm sz in
             if direction = 0 then
