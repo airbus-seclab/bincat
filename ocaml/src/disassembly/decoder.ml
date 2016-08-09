@@ -442,7 +442,7 @@ struct
         match md with
         | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)						 
         | 3 ->
-            if sz == 32
+            if sz = 32
             then
                 V (find_reg rm s.addr_sz)
             else
