@@ -277,9 +277,10 @@ struct
             Z.logor ff00 i
 
 
-    (** helper to get immediate *)
+    (** helper to get immediate of _imm_sz_ bits into a _sz_ int, doing
+        _sign_ext_ if true*)
     (* TODO : use helper everywhere *)
-    let get_imm s imm_sz sz sign_ext =
+    let get_imm_int s imm_sz sz sign_ext =
         if imm_sz > sz then
             Log.error "Immediate size bigger than target size"
         else
@@ -294,12 +295,11 @@ struct
                     else
                         i
             in
-            Const (Word.of_int sign_i sz)
+                  Log.debug (Printf.sprintf "get_imm (%d %d %B): %d" imm_sz sz sign_ext (Z.to_int sign_i));
+                sign_i
 
-    (* TODO : remove *)
-    let sign_extension_of_byte n nb =
-        sign_extension n 8 (nb*8)
-               
+    let get_imm s imm_sz sz sign_ext =
+        Const (Word.of_int (get_imm_int s imm_sz sz sign_ext) sz)
 
     (************************************************************************************)
     (* segmentation *)
@@ -913,8 +913,8 @@ struct
             error a "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"
 
     (** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
-    let return_jcc_stmts s e n =
-        let o  = sign_extension_of_byte (int_of_bytes s 1) (n-1) in
+    let return_jcc_stmts s e =
+        let o  = get_imm_int s 8 s.addr_sz true in
         let ip = Address.add_offset s.a (Z.of_int s.o) in
         let a' = Address.add_offset ip o			   in
         check_jmp s a';
@@ -922,31 +922,27 @@ struct
         return s [ If (e, [ Jmp (A a') ], [Jmp (A ip)]) ]
 
     (** jump statements on condition *)
-    let jcc s v n =
+    let jcc s v =
         let e = exp_of_cond v s in
-        return_jcc_stmts s e n
+        return_jcc_stmts s e
 
 
     (** jump if eCX is zero *)
     let jecxz s =
         let ecx' = to_reg ecx s.addr_sz				   in
         let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero s.addr_sz)) in
-        return_jcc_stmts s e s.addr_sz
+        return_jcc_stmts s e
 
     (** common behavior between relative jump and relative call *)
-    let relative s i sz =
-        let o  = int_of_bytes s i in
-        let o' =
-            if i = 1 then sign_extension_of_byte o (( sz / 8)-1)
-            else o
-        in
-        let a' = Address.add_offset s.a (Z.add (Z.of_int s.o) o') in
+    let relative s off_sz sz =
+        let delta = get_imm_int s off_sz sz true in
+        let a' = Address.add_offset s.a (Z.add (Z.of_int s.o) delta) in
         check_jmp s a';
         a'
 
     (** unconditional jump by adding an offset to the current ip *)
-    let relative_jmp s i =
-        let a' = relative s i s.operand_sz in
+    let relative_jmp s off_sz =
+        let a' = relative s off_sz s.operand_sz in
         return s [ Jmp (A a') ]
 
     (** common statement to move (a chunk of) esp by a relative offset *)
@@ -969,8 +965,8 @@ struct
         return s stmts
 
     (** call with target as an offset from the current ip *)
-    let relative_call s i =
-        let a = relative s i s.operand_sz in
+    let relative_call s off_sz =
+        let a = relative s off_sz s.operand_sz in
         call s (A a)
 
     (** statements of jump with absolute address as target *)
@@ -1161,22 +1157,17 @@ struct
 
     let grp1 s reg_sz imm_sz =
         let nnn, dst = core_grp s reg_sz in
-        let i = int_of_bytes s (imm_sz / 8) in
-        let i' =
-            if reg_sz = imm_sz then i
-            else sign_extension_of_byte i ((reg_sz / 8)-1)
-        in
-        let c   = Const (Word.of_int i' reg_sz) in
+        let imm = get_imm s imm_sz reg_sz true in
         (* operation is encoded in bits 5,4,3 *)
         match nnn with
-        | 0 -> add_sub s Add false dst c reg_sz
-        | 1 -> or_xor_and s Or dst c
-        | 2 -> add_sub s Add true dst c reg_sz
-        | 3 -> add_sub s Sub true dst c reg_sz
-        | 4 -> or_xor_and s And dst c 
-        | 5 -> add_sub s Sub false dst c reg_sz
-        | 6 -> or_xor_and s Xor dst c
-        | 7 -> return s (cmp_stmts (Lval dst) c reg_sz)
+        | 0 -> add_sub s Add false dst imm reg_sz
+        | 1 -> or_xor_and s Or dst imm
+        | 2 -> add_sub s Add true dst imm reg_sz
+        | 3 -> add_sub s Sub true dst imm reg_sz
+        | 4 -> or_xor_and s And dst imm 
+        | 5 -> add_sub s Sub false dst imm reg_sz
+        | 6 -> or_xor_and s Xor dst imm
+        | 7 -> return s (cmp_stmts (Lval dst) imm reg_sz)
         | _ -> error s.a "Illegal nnn value in grp1"
 
 
@@ -1280,13 +1271,12 @@ struct
 
     let grp8 s =
         let nnn, dst = core_grp s s.operand_sz                                                           in
-        let n = s.operand_sz / 8 - 1 in
-        let src      = Const (Word.of_int (sign_extension_of_byte (int_of_byte s) n) s.operand_sz) in
+        let imm = get_imm s 8 s.operand_sz false in
         match nnn with
-        | 4 -> (* BT *) bt s dst src
-        | 5 -> (* BTS *) bts s dst src
-        | 6 -> (* BTR *) btr s dst src
-        | 7 -> (* BTC *) btc s dst src
+        | 4 -> (* BT *) bt s dst imm
+        | 5 -> (* BTS *) bts s dst imm
+        | 6 -> (* BTR *) btr s dst imm
+        | 7 -> (* BTC *) btc s dst imm
         | _ -> error s.a "Illegal opcode in grp 8"
 
 
@@ -1370,22 +1360,12 @@ struct
     (********)
     (* misc *)
     (*****)
-    (** set bit on condition *)
-    let setcc s v n =
-        let e = exp_of_cond v s in
-        let _, _, rm = mod_nnn_rm (Char.code (getchar s)) in
-        let rm' =
-            match rm with
-            | 0 -> find_reg_v rm n
-            | _ -> let m = add_segment s (Lval (V (T (Hashtbl.find register_tbl rm)))) s.segments.data in M (m, n)
-        in
-        let ff =
-            if n = 8 then
-                Z.of_string "Oxff"
-            else
-                sign_extension_of_byte (Z.of_int 0xff) ((n-1) / 8)
-        in
-        return s [If (e, [Set (rm', Const (Word.of_int ff n))], [Set (rm', Const (Word.zero n))])]
+    (** set byte on condition *)
+    let setcc s cond =
+        let e = exp_of_cond cond s in
+        let md, _, rm = mod_nnn_rm (Char.code (getchar s)) in
+        let dst = exp_of_md s md rm 8 in
+        return s [If (e, [Set (dst, Const (Word.one 8))], [Set (dst, Const (Word.zero 8))])]
 
     let xchg s v1 v2 sz = 
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
@@ -1556,7 +1536,7 @@ struct
             | '\x6e' -> (* OUTSB *) outs s 8
             | '\x6f' -> (* OUTSW/D *) outs s s.addr_sz
 
-            | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - (Char.code '\x70') in jcc s v 1
+            | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - (Char.code '\x70') in jcc s v
 
             | '\x80' -> (* grp1 opcode table *) grp1 s 8 8
             | '\x81' -> (* grp1 opcode table *) grp1 s s.operand_sz s.operand_sz
@@ -1649,10 +1629,10 @@ struct
             | c when '\xe0' <= c && c <= '\xe2' -> (* LOOPNE/LOOPE/LOOP *) loop s c
             | '\xe3' -> (* JCXZ *) jecxz s
 
-            | '\xe8' -> (* relative call *) relative_call s (s.operand_sz / 8)
-            | '\xe9' -> (* JMP to near relative address (offset has word or double word size) *) relative_jmp s (s.operand_sz / 8)
+            | '\xe8' -> (* relative call *) relative_call s s.operand_sz
+            | '\xe9' -> (* JMP to near relative address (offset has word or double word size) *) relative_jmp s s.operand_sz
             | '\xea' -> (* JMP to near absolute address *) direct_jmp s
-            | '\xeb' -> (* JMP to near relative address (offset has byte size) *) relative_jmp s 1 
+            | '\xeb' -> (* JMP to near relative address (offset has byte size) *) relative_jmp s 8
 
 
 
@@ -1698,8 +1678,8 @@ struct
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
 
-            | c when '\x80' <= c && c <= '\x8f' -> let v = (Char.code c) - (Char.code '\x80') in jcc s v (s.operand_sz / 8)
-            | c when '\x90' <= c && c <= '\x9f' -> let v = (Char.code c) - (Char.code '\x90') in setcc s v (s.operand_sz / 8)
+            | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - (Char.code '\x80') in jcc s cond 
+            | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - (Char.code '\x90') in setcc s cond
             | '\xa0' -> push s [V (T fs)]
             | '\xa1' -> pop s [V (T fs)]
             | '\xa8' -> push s [V (T gs)]
