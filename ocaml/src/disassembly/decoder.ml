@@ -316,6 +316,12 @@ struct
         let r = Hashtbl.find register_tbl n in
         to_reg r sz
 
+    (** returns the slice from 8 to 15 of the given register index *)
+	       
+    let get_h_slice n =
+      let r = Hashtbl.find register_tbl n in
+      P (r, 8, 15)
+		
     (** sign extension of a byte on _nb_ bytes *)
     let sign_extension_of_byte b nb =
         if Z.compare (Z.shift_right b 7) Z.zero = 0 then
