@@ -138,9 +138,9 @@ struct
               if has_jmp then_stmts || has_jmp else_stmts then
                   raise Jmp_exn
               else
-                  let di = List.fold_left (fun d s -> process_value d s) (restrict d e true) then_stmts in
+                  let dt = List.fold_left (fun d s -> process_value d s) (restrict d e true) then_stmts in
                   let de = List.fold_left (fun d s -> process_value d s) (restrict d e false) else_stmts in
-                  D.join di de
+                  D.join dt de
 
             | Set (dst, src) 			    -> D.set dst src d 
             | Directive (Remove r) 		    -> let d' = D.remove_register r d in Register.remove r; d'
