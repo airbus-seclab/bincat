@@ -62,7 +62,7 @@ class AnalyzerConfig(object):
     def get_call_convention():
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
-        return {
+        cc =  {
             idaapi.CM_CC_INVALID: "invalid",
             idaapi.CM_CC_UNKNOWN: "unknown",
             idaapi.CM_CC_VOIDARG: "voidargs",
@@ -74,6 +74,11 @@ class AnalyzerConfig(object):
             idaapi.CM_CC_THISCALL: "thiscall",
             idaapi.CM_CC_MANUAL: "manual",
         }[compiler_info.cm & idaapi.CM_CC_MASK]
+        # XXX
+        if cc not in ("stdcall", "cdecl", "fastcall"):
+            return "stdcall"
+        else:
+            return cc
 
     @staticmethod
     def get_bitness(ea):
@@ -224,7 +229,7 @@ class AnalyzerConfig(object):
             if imp[0]:
                 name = "%s, %s" % imp
             else:
-                name = imp[1]
+                name = "all,%s" % imp[1]
             config.set('imports', ("0x%x" % ea), name)
         # [libc section]
         ## config.add_section('libc')
