@@ -446,7 +446,7 @@ struct
             then
                 V (find_reg rm s.addr_sz)
             else
-                Log.error "ModRM with size != 32 not handled yet"
+                Log.error (Printf.sprintf "ModRM with size %d != 32 not handled yet" sz)
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
     let operands_from_mod_reg_rm s sz direction =
