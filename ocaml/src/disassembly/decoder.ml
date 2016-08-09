@@ -345,10 +345,18 @@ struct
         else
             P (r, 0, sz-1)
 
-    (** returns the right Asm.reg value from the register corresponding to the given numeber and context of decoding *)
+    (** returns the right Asm.reg value from the register corresponding to the given number and context of decoding *)
     let find_reg n sz =
         let r = Hashtbl.find register_tbl n in
         to_reg r sz
+
+    (** returns the right Lval from the register corresponding to the given number and context of decoding *)
+    let find_reg_lv n sz =
+        Lval ( V ( find_reg n sz ) )
+
+    (** returns the right V from the register corresponding to the given number and context of decoding *)
+    let find_reg_v n sz =
+        V ( find_reg n sz )
 
     (** returns the slice from 8 to 15 of the given register index *)
 
@@ -388,29 +396,28 @@ struct
         let c 		       = getchar s                in
         let scale, index, base = mod_nnn_rm (Char.code c) in
         let base' =
-            let lv = Lval (V (find_reg base s.addr_sz)) in
-                match md with
-                | 0 -> if base = 5 then
-                        (* [scaled index] + disp32 *)
-                        disp s 32 s.addr_sz
-                       else
-                        lv
-                (* [scaled index] + disp8 *)
-                | 1 -> BinOp (Add, lv, disp s 8 s.addr_sz)
-                (* [scaled index] + disp32 *)
-                | 2 -> BinOp (Add, lv, disp s 32 s.addr_sz)
-                | _ -> Log.error "Decoder: illegal value in sib"
+            let lv = find_reg_lv base s.addr_sz in
+            match md with
+            | 0 -> if base = 5 then
+                  (* [scaled index] + disp32 *)
+                  disp s 32 s.addr_sz
+              else
+                  lv
+            (* [scaled index] + disp8 *)
+            | 1 -> BinOp (Add, lv, disp s 8 s.addr_sz)
+            (* [scaled index] + disp32 *)
+            | 2 -> BinOp (Add, lv, disp s 32 s.addr_sz)
+            | _ -> Log.error "Decoder: illegal value in sib"
         in
-        let index' = find_reg index s.addr_sz in
-        let lv = Lval (V index') in
+        let index_lv = find_reg_lv index s.addr_sz in
         if index = 4 then
             base'
         else
             let scaled_index =
                 if scale = 0 then
-                    lv
+                    index_lv
                 else
-                    BinOp (Shl, lv, Const (Word.of_int (Z.of_int scale) s.addr_sz))
+                    BinOp (Shl, index_lv, Const (Word.of_int (Z.of_int scale) s.addr_sz))
             in
             BinOp (Add, base', scaled_index)
 
@@ -442,7 +449,7 @@ struct
     let add_data_segment s e = add_segment s e s.segments.data
 
     let md_from_mem s md rm sz =
-        let rm' = find_reg rm s.addr_sz in
+        let rm_lv = find_reg_lv rm s.addr_sz in
         if rm = 4 then
             sib s md
         else
@@ -451,19 +458,13 @@ struct
               begin
                   match rm with
                   | 5 -> raise Disp32
-                  | _ -> Lval (V rm')
+                  | _ -> rm_lv
               end						    
             | 1 ->
-              let e =
-                  Lval (V rm')
-              in
-              BinOp (Add, e, disp s 8 sz)
+              BinOp (Add, rm_lv, disp s 8 sz)
 
             | 2 -> 
-              let e =
-                  Lval (V rm')
-              in
-              BinOp (Add, e, disp s 32 sz)
+              BinOp (Add, rm_lv, disp s 32 sz)
             | _ -> Log.error "Decoder: illegal value in md_from_mem"
 
 
@@ -481,17 +482,17 @@ struct
     let operands_from_mod_reg_rm s sz direction =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
-        let reg' = find_reg reg sz in
+        let reg_v = find_reg_v reg sz in
         try
             let rm' = exp_of_md s md rm sz in
             if direction = 0 then
-                rm', Lval (V reg')
+                rm', Lval reg_v
             else
-                V reg', Lval rm'
+                reg_v, Lval rm'
         with
         | Disp32 -> 
           if direction = 0 then
-              V (find_reg rm sz), add_data_segment s (disp s 32 sz)
+              find_reg_v rm sz, add_data_segment s (disp s 32 sz)
           else
               error s.a "Decoder: illegal direction for displacement only addressing mode"
 
@@ -501,7 +502,7 @@ struct
         if md = 3 then
             Log.error "Illegal mod field in LEA"
         else
-            let reg' = find_reg reg s.operand_sz in
+            let reg_v = find_reg_v reg s.operand_sz in
             let src =
                 try
                     md_from_mem s md rm s.addr_sz
@@ -512,7 +513,7 @@ struct
                     UnOp(ZeroExt s.addr_sz, src)
                 else src
             in
-            return s [ Set(V reg', src') ]
+            return s [ Set(reg_v, src') ]
 
     (*******************************************************************************************************)
     (* statements to set/clear the flags *)
@@ -736,9 +737,9 @@ struct
         return s (res::flag_stmts)
 
     let or_xor_and_eax s op sz imm_sz =
-        let dst = V(find_reg 0 sz) in
+        let eax = find_reg_v 0 sz in
         let imm = get_imm s imm_sz sz false in
-            or_xor_and s op dst imm
+            or_xor_and s op eax imm
 
     let or_xor_and_mrm s op sz direction =
         let dst, src = operands_from_mod_reg_rm s sz direction in
@@ -1132,7 +1133,7 @@ struct
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
     let mov_immediate s n =
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))      			    in
-        let r 		   = V (find_reg reg n)						    in
+        let r 		   = find_reg_v reg n						    in
         let c              = Const (Word.of_int (int_of_bytes s (n/Config.size_of_byte)) n) in
         return s [ Set (r, c) ]
 
@@ -1374,7 +1375,7 @@ struct
         let _, _, rm = mod_nnn_rm (Char.code (getchar s)) in
         let rm' =
             match rm with
-            | 0 -> V (find_reg rm n)
+            | 0 -> find_reg_v rm n
             | _ -> let m = add_segment s (Lval (V (T (Hashtbl.find register_tbl rm)))) s.segments.data in M (m, n)
         in
         let ff =
@@ -1534,8 +1535,8 @@ struct
             | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [V r]
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [V r]
 
-            | '\x60' -> (* PUSHA *) let l = List.map (fun v -> V (find_reg v s.operand_sz)) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
-            | '\x61' -> (* POPA *) let l = List.map (fun v -> V (find_reg v s.operand_sz)) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
+            | '\x60' -> (* PUSHA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
+            | '\x61' -> (* POPA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
 
             | '\x63' -> (* ARPL *) arpl s
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
@@ -1567,7 +1568,7 @@ struct
 
             | '\x8c' -> (* MOV with segment as src *)
               let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in
-              let dst = V (find_reg rm 16) in
+              let dst = find_reg_v rm 16 in
               let src = V (T (to_segment_reg s.a reg)) in
               return s [ Set (dst, Lval src) ]
 
@@ -1575,7 +1576,7 @@ struct
             | '\x8e' -> (* MOV with segment as dst *)
               let _mod, reg, rm = mod_nnn_rm (Char.code (getchar s)) in
               let dst = V ( T (to_segment_reg s.a reg)) in
-              let src = V (find_reg rm 16) in
+              let src = find_reg_v rm 16 in
               return s [ Set (dst, Lval src) ]
             | '\x8f' -> (* POP of word or double word *) let dst, _src = operands_from_mod_reg_rm s s.operand_sz 0 in pop s [dst]
 
@@ -1605,13 +1606,13 @@ struct
             | '\xae' -> (* SCAS on byte *) scas s Config.size_of_byte
             | '\xaf' -> (* SCAS *) scas s s.addr_sz
 
-            | c when '\xb0' <= c && c <= '\xb3' -> (* MOV immediate byte into byte register *) let r = V (find_reg ((Char.code c) - (Char.code '\xb0')) Config.size_of_byte) in return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
+            | c when '\xb0' <= c && c <= '\xb3' -> (* MOV immediate byte into byte register *) let r = (find_reg_v ((Char.code c) - (Char.code '\xb0')) Config.size_of_byte) in return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
             | c when '\xb4' <= c && c <= '\xb7' -> (* MOV immediate byte into byte register (higher part) *)
               let n = (Char.code c) - (Char.code '\xb0')          in
               let r = V (P (Hashtbl.find register_tbl n, 24, 32)) in
               return s [Set (r, Const (Word.of_int (int_of_byte s) Config.size_of_byte))]
             | c when '\xb8' <= c && c <= '\xbf' -> (* mov immediate word or double into word or double register *)
-              let r = V (find_reg ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/Config.size_of_byte)) s.operand_sz))]
+              let r = (find_reg_v ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/Config.size_of_byte)) s.operand_sz))]
 
             | '\xc0' -> (* shift grp2 with byte size*) grp2 s Config.size_of_byte None
             | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
