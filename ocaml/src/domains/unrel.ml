@@ -75,7 +75,7 @@ sig
     (** [weak_taint v] weak taint v *)
     val weak_taint: t -> t
 
-    (** returns the sub value between bits l and u *)
+    (** returns the sub value between bits low and up *)
     val extract: t -> int -> int -> t
 
     (** [from_position v p len] returns the sub value from bit p to bit p-len-1 *)
