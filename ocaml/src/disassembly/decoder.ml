@@ -1279,7 +1279,7 @@ struct
     (* BCD *)
     (*******************)
     let al  = V (P (eax, 0, 7))
-    let fal = BinOp (And, Lval al, Const (Word.of_int (Z.of_string "0x0F") 8))
+    let fal = BinOp (And, Lval al, Const (Word.of_int (Z.of_int 0xF) 8))
     let fal_gt_9 = Cmp (GT, fal, Const (Word.of_int (Z.of_int 9) 8))
     let faf_eq_1 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))
 
@@ -1509,11 +1509,11 @@ struct
             | '\x3E' -> (* data segment = ds *) s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
             | '\x3F' -> (* AAS *) aas s
 
-            | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - (Char.code '\x40')) s.operand_sz in inc_dec (V r) Add s s.operand_sz
-            | c when '\x48' <= c && c <= '\x4f' -> (* DEC *) let r = find_reg ((Char.code c) - (Char.code '\x48')) s.operand_sz in inc_dec (V r) Sub s s.operand_sz
+            | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - 0x40) s.operand_sz in inc_dec (V r) Add s s.operand_sz
+            | c when '\x48' <= c && c <= '\x4f' -> (* DEC *) let r = find_reg ((Char.code c) - 0x48) s.operand_sz in inc_dec (V r) Sub s s.operand_sz
 
-            | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - (Char.code '\x50')) s.operand_sz in push s [V r]
-            | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - (Char.code '\x58')) s.operand_sz in pop s [V r]
+            | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - 0x50) s.operand_sz in push s [V r]
+            | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - 0x58) s.operand_sz in pop s [V r]
 
             | '\x60' -> (* PUSHA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
             | '\x61' -> (* POPA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
@@ -1531,7 +1531,7 @@ struct
             | '\x6e' -> (* OUTSB *) outs s 8
             | '\x6f' -> (* OUTSW/D *) outs s s.addr_sz
 
-            | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - (Char.code '\x70') in jcc s v
+            | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - 0x70 in jcc s v
 
             | '\x80' -> (* grp1 opcode table *) grp1 s 8 8
             | '\x81' -> (* grp1 opcode table *) grp1 s s.operand_sz s.operand_sz
@@ -1561,7 +1561,7 @@ struct
             | '\x8f' -> (* POP of word or double word *) let dst, _src = operands_from_mod_reg_rm s s.operand_sz 0 in pop s [dst]
 
             | '\x90' 			      -> (* NOP *) return s [Nop]
-            | c when '\x91' <= c && c <= '\x97' -> (* XCHG word or double-word with eAX *) xchg_with_eax s ((Char.code c) - (Char.code '\x90'))
+            | c when '\x91' <= c && c <= '\x97' -> (* XCHG word or double-word with eAX *) xchg_with_eax s ((Char.code c) - 0x90)
             | '\x98' -> (* CBW *) let dst = V (to_reg eax s.operand_sz) in return s [Set (dst, UnOp (SignExt s.operand_sz, Lval (V (to_reg eax (s.operand_sz / 2)))))]
             | '\x9a' -> (* CALL *)
               let off = int_of_bytes s (s.operand_sz / 8) in
@@ -1586,13 +1586,13 @@ struct
             | '\xae' -> (* SCAS on byte *) scas s 8
             | '\xaf' -> (* SCAS *) scas s s.addr_sz
 
-            | c when '\xb0' <= c && c <= '\xb3' -> (* MOV immediate byte into byte register *) let r = (find_reg_v ((Char.code c) - (Char.code '\xb0')) 8) in return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
+            | c when '\xb0' <= c && c <= '\xb3' -> (* MOV immediate byte into byte register *) let r = (find_reg_v ((Char.code c) - 0xb0) 8) in return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
             | c when '\xb4' <= c && c <= '\xb7' -> (* MOV immediate byte into byte register (higher part) *)
-              let n = (Char.code c) - (Char.code '\xb0')          in
+              let n = (Char.code c) - 0xb0          in
               let r = V (P (Hashtbl.find register_tbl n, 24, 32)) in
               return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
             | c when '\xb8' <= c && c <= '\xbf' -> (* mov immediate word or double into word or double register *)
-              let r = (find_reg_v ((Char.code c) - (Char.code '\xb8')) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/8)) s.operand_sz))]
+              let r = (find_reg_v ((Char.code c) - 0xb8) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/8)) s.operand_sz))]
 
             | '\xc0' -> (* shift grp2 with byte size*) grp2 s 8 None
             | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
@@ -1672,9 +1672,11 @@ struct
             match getchar s with
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
+            (* CMOVcc *)
+            (*| c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond *) 
 
-            | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - (Char.code '\x80') in jcc s cond
-            | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - (Char.code '\x90') in setcc s cond
+            | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond
+            | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
             | '\xa0' -> push s [V (T fs)]
             | '\xa1' -> pop s [V (T fs)]
             | '\xa8' -> push s [V (T gs)]
