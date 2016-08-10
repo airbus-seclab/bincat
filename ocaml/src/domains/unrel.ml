@@ -314,7 +314,6 @@ module Make(D: T) =
                 let len = ((Z.to_int (Data.Address.sub addr low))*8) in
                 Log.debug (Printf.sprintf "before(low, up) : %s %s" (Data.Address.to_string low) (Data.Address.to_string up));
                 Log.debug (Printf.sprintf "before : pvalue %s" (D.to_string pvalue));
-                Log.debug (Printf.sprintf "pend : %d , len %d " pend len);
                 D.from_position pvalue pend len
             in
             let inpart up pvalue =
@@ -328,7 +327,6 @@ module Make(D: T) =
             let after up' pv =
                 Log.debug (Printf.sprintf "after : %s %s" (Data.Address.to_string up') (D.to_string pv));
                 let pos = Z.to_int (Data.Address.sub up' max_addr) in
-                Log.debug (Printf.sprintf "from_position %d %d" pos ((pos)*8));
                 D.from_position pv pos ((pos)*8)
             in
             let rec split l =
@@ -360,9 +358,10 @@ module Make(D: T) =
                   let w1 = before low up match_val in
                   let w2 = inpart up match_val in
                   let w3 = after up match_val in
-                  let m' = Map.remove k domain in
-                  Log.debug (Printf.sprintf "w1 : %s ; w2 : %s; w3 : %s" (D.to_string w1) (D.to_string w2)(D.to_string w3));
-                  Map.add (K.M (addr, up)) (D.concat [ w1 ; w2 ; w3 ]) m'
+                  let m' = Map.remove k domain in 
+                  let new_val = D.concat [ w1 ; w2 ; w3 ] in 
+                  Log.debug (Printf.sprintf "w1 : %s ; w2 : %s; w3 : %s => new_val : %s" (D.to_string w1) (D.to_string w2)(D.to_string w3)(D.to_string new_val));
+                  Map.add (K.M (low, up)) new_val m'
 
             | (K.M (l1, u1) as k1, pv1)::l ->
               if strong then

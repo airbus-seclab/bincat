@@ -472,6 +472,7 @@ module Make(V: Val) =
             v'
 
         let from_position v l len =
+            Log.debug (Printf.sprintf "Vector.from_position %s %d %d" (to_string v) l len);
             let n = Array.length v in
             Array.sub v (n-l-1) len
 

@@ -151,6 +151,7 @@ module Make (V: Vector.T) =
 	 with _ -> BOT
 
     let from_position p i len =
+      Log.debug (Printf.sprintf "Pointer.from_position %s %d %d" (to_string p) i len);
       match p with
       | BOT | TOP -> p
       | Val (r, o) ->
@@ -173,15 +174,18 @@ module Make (V: Vector.T) =
 	Val(region, newoffset)
 
     let rec concat l =
+     Log.debug (Printf.sprintf "concat len %d" (List.length l) );
       match l with
       |	[ ] -> BOT
-      | [v] -> v
+      | [v] -> Log.debug (Printf.sprintf "concat single : %s" (to_string v) );v
       | v::l' ->
 	 let v' = concat l' in
+     Log.debug (Printf.sprintf "concat : %s %s" (to_string v) (to_string v'));
 	 match v, v' with
 	 | BOT, _ | _, BOT -> BOT
 	 | TOP, _ | _, TOP -> TOP
 	 | Val (r1, o1), Val (r2, o2 ) ->
+        Log.debug (Printf.sprintf "concat r1, r2 : %s %s" (Data.Address.string_of_region r1) (Data.Address.string_of_region r2));
 	    if r1 = r2 then
 	      Val (r1, V.concat o1 o2)
 	    else BOT
