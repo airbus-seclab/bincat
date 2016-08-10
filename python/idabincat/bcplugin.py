@@ -52,19 +52,26 @@ class BincatPlugin(idaapi.plugin_t):
                 "Failed to load 'pybincat.cfa' python module\n%s",
                 repr(sys.exc_info()))
             return idaapi.PLUGIN_SKIP
-        self.state = State()
-        bc_log.info("IDABinCAT ready.")
-
-        if self.state.options.get("options", "autostart") == "True":
-            bc_log.info("Autostarting")
-            return idaapi.PLUGIN_KEEP
-        else:
+        options = PluginOptions()
+        if options.get("autostart") != "True":
+            # will initialize later
             return idaapi.PLUGIN_OK
 
+        self.initialized = True
+        bc_log.info("Autostarting")
+        return idaapi.PLUGIN_KEEP
+
+        self.state = State(options)
+        bc_log.info("IDABinCAT ready.")
+
     def run(self, args):
-        self.state.gui.show_windows()
         if self.initialized:
             return
+        options = PluginOptions()
+        self.state = State(options)
+        bc_log.info("IDABinCAT ready.")
+        # XXX move
+        self.state.gui.show_windows()
         self.initialized = True
 
     def term(self):
@@ -148,7 +155,7 @@ class WebAnalyzer(object):
         self.outfname = outfname
         self.logfname = logfname
         self.finish_cb = finish_cb
-        self.server_url = options.get("options", "server_url")
+        self.server_url = options.get("server_url")
 
     def run(self):
         if 'requests' not in sys.modules:
@@ -209,30 +216,20 @@ class WebAnalyzer(object):
         self.finish_cb(self.outfname, self.logfname)
 
 
-class State(object):
-    """
-    Container for (static) plugin state related data & methods.
-    """
+class PluginOptions(object):
     def __init__(self):
-        self.current_ea = None
-        self.cfa = None
-        self.current_state = None
         # Configuration files path
         idausr = os.getenv('IDAUSR')
         if not idausr:
             if os.name == "nt":
-                idausr = os.path.join(os.getenv("APPDATA"), "Hex-Rays", "IDA Pro")
+                idausr = os.path.join(
+                    os.getenv("APPDATA"), "Hex-Rays", "IDA Pro")
             elif os.name == "posix":
                 idausr = os.path.join(os.getenv("HOME"), ".idapro")
             else:
                 raise RuntimeError
             bc_log.warning("IDAUSR not defined, using %s", idausr)
         self.config_path = os.path.join(idausr, "idabincat")
-        self.current_config = AnalyzerConfig()
-        #: Analyzer instance - protects against merciless garbage collector
-        self.analyzer = None
-        self.hooks = None
-        self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
 
         # Plugin options
         def_options = {'save_to_idb': "False",
@@ -242,26 +239,50 @@ class State(object):
                        "autostart": "False"}
         self.options = ConfigParser.ConfigParser(defaults=def_options)
         self.options.optionxform = str
-        configfile = os.path.join(self.config_path, "conf", "options.ini")
-        if len(self.options.read(configfile)) != 1:
+        self.configfile = os.path.join(self.config_path, "conf", "options.ini")
+        if len(self.options.read(self.configfile)) != 1:
             self.options.add_section("options")
 
-        if (self.options.get("options", "web_analyzer") == "True" and
-                self.options.get("options", "server_url") != ""):
-            self.analyzer_class = WebAnalyzer
-        else:
-            self.analyzer_class = LocalAnalyzer
+    def get(self, name):
+        return self.options.get("options", name)
 
-        self.gui = GUI(self, self.options.get("options", "autostart") == "True")
-        if self.options.get("options", "load_from_idb") == "True":
+    def set(self, name, value):
+        self.options.set("options", name, value)
+        pass
+
+    def save(self):
+        with open(self.configfile, "w") as optfile:
+            self.options.write(optfile)
+
+
+class State(object):
+    """
+    Container for (static) plugin state related data & methods.
+    """
+    def __init__(self, options):
+        self.current_ea = None
+        self.options = options
+        self.cfa = None
+        self.current_state = None
+        self.current_config = AnalyzerConfig()
+        #: Analyzer instance - protects against merciless garbage collector
+        self.analyzer = None
+        self.hooks = None
+        self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
+
+        self.gui = GUI(self)
+        if self.options.get("load_from_idb") == "True":
             self.load_from_idb()
 
-    # Save current options to file
-    def save_options(self):
-        optfile = open(
-            os.path.join(self.config_path, "conf", "options.ini"), "w")
-        self.options.write(optfile)
-        optfile.close()
+    def new_analyzer(self, *args, **kwargs):
+        """
+        returns current Analyzer class (web or local)
+        """
+        if (self.options.get("web_analyzer") == "True" and
+                self.options.get("server_url") != ""):
+            return WebAnalyzer(*args, **kwargs)
+        else:
+            return LocalAnalyzer(*args, **kwargs)
 
     def load_from_idb(self):
         if "out.ini" in self.netnode and "analyzer.log" in self.netnode:
@@ -318,8 +339,10 @@ class State(object):
         """
         :param ea: int or long
         """
+        bc_log.info("SET CURRENT EA %02X" % ea)
         if not (force or ea != self.current_ea):
             return
+        bc_log.info("(REAL) SET CURRENT EA %02X" % ea)
         self.gui.before_change_ea()
         self.current_ea = ea
         if self.cfa:
@@ -347,7 +370,7 @@ class State(object):
 
         # instance variable: we don't want the garbage collector to delete the
         # *Analyzer instance, killing an unlucky QProcess in the process
-        self.analyzer = self.analyzer_class(
+        self.analyzer = self.new_analyzer(
             initfname, outfname, logfname, self.options, self.analysis_finish_cb)
         self.analyzer.run()
 

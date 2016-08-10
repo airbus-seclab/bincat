@@ -63,7 +63,6 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
 
         layout = QtWidgets.QGridLayout()
 
-
         lbl_default_bhv = QtWidgets.QLabel("Default behaviour")
         # Save config in IDB by default
         self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
@@ -97,28 +96,23 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         btn_start.setFocus()
 
         self.chk_start.setChecked(
-            self.s.options.get("options", "autostart") == "True")
+            self.s.options.get("autostart") == "True")
         self.chk_save.setChecked(
-            self.s.options.get("options", "save_to_idb") == "True")
+            self.s.options.get("save_to_idb") == "True")
         self.chk_load.setChecked(
-            self.s.options.get("options", "load_from_idb") == "True")
+            self.s.options.get("load_from_idb") == "True")
         self.chk_remote.setChecked(
-            self.s.options.get("options", "web_analyzer") == "True")
-        url = self.s.options.get("options", "server_url")
+            self.s.options.get("web_analyzer") == "True")
+        url = self.s.options.get("server_url")
         self.url.setText(url)
 
-
     def save_config(self):
-        self.s.options.set("options", "autostart",
-                           str(self.chk_start.isChecked()))
-        self.s.options.set("options", "save_to_idb",
-                           str(self.chk_save.isChecked()))
-        self.s.options.set("options", "load_from_idb",
-                           str(self.chk_load.isChecked()))
-        self.s.options.set("options", "web_analyzer",
-                           str(self.chk_remote.isChecked()))
-        self.s.options.set("options", "server_url", self.url.text())
-        self.s.save_options()
+        self.s.options.set("autostart", str(self.chk_start.isChecked()))
+        self.s.options.set("save_to_idb", str(self.chk_save.isChecked()))
+        self.s.options.set("load_from_idb", str(self.chk_load.isChecked()))
+        self.s.options.set("web_analyzer", str(self.chk_remote.isChecked()))
+        self.s.options.set("server_url", self.url.text())
+        self.s.options.save()
         self.close()
         return
 
@@ -167,7 +161,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
         self.chk_save.setChecked(
-            self.s.options.get("options", "save_to_idb") == "True")
+            self.s.options.get("save_to_idb") == "True")
 
         self.btn_start = QtWidgets.QPushButton('&Start')
         self.btn_start.clicked.connect(self.launch_analysis)
@@ -584,7 +578,7 @@ class Hooks(idaapi.UI_Hooks):
 
 
 class GUI(object):
-    def __init__(self, state, show_win=True):
+    def __init__(self, state):
         """
         Instanciate BinCAT views
         """
@@ -593,9 +587,7 @@ class GUI(object):
         self.BinCATTaintedForm = BinCATTaintedForm_t(state, self.vtmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
 
-        if show_win:
-            self.BinCATDebugForm.Show()
-            self.BinCATTaintedForm.Show()
+        self.show_windows()
 
         # XXX fix
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
@@ -626,13 +618,13 @@ class GUI(object):
         idaapi.attach_action_to_menu("Edit/BinCAT/show_win",
                                      "bincat:options_act",
                                      idaapi.SETMENU_APP)
+        bc_log.info("HOOKING")
         self.hooks = Hooks(state)
         self.hooks.hook()
 
     def show_windows(self):
         self.BinCATDebugForm.Show()
         self.BinCATTaintedForm.Show()
-
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()

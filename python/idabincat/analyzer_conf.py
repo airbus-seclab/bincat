@@ -164,8 +164,9 @@ class AnalyzerConfig(object):
         config = ConfigParser.RawConfigParser()
         config.optionxform = str
 
-        # Load default part
-        configfile = os.path.join(state.config_path, "conf", "default.ini")
+        # Load default part - XXX move this logic to PluginOptions
+        configfile = os.path.join(state.options.config_path, "conf",
+                                  "default.ini")
         bc_log.debug("Reading config from %s", configfile)
         r = config.read(configfile)
         if len(r) != 1:
@@ -199,10 +200,11 @@ class AnalyzerConfig(object):
 
         # Load default GDT/Segment registers according to file type
         ftype = AnalyzerConfig.get_file_type()
+        # XXX move this logic to PluginOptions
         if ftype == "pe":
-            os_specific = os.path.join(state.config_path, "conf", "windows.ini")
-        else: # default to Linux config if not windows
-            os_specific = os.path.join(state.config_path, "conf", "linux.ini")
+            os_specific = os.path.join(state.options.config_path, "conf", "windows.ini")
+        else:  # default to Linux config if not windows
+            os_specific = os.path.join(state.options.config_path, "conf", "linux.ini")
         bc_log.debug("Reading OS config from %s", os_specific)
         config.read(os_specific)
 
@@ -213,11 +215,10 @@ class AnalyzerConfig(object):
             open(input_file, "r").close()
         except IOError:
             bc_log.warning("Cannot open binary %s for reading, you should patch"
-                            " your config manually", input_file)
+                           " your config manually", input_file)
 
         config.set('binary', 'filepath', input_file)
         config.set('binary', 'format', self.get_file_type())
-
 
         # [state section]
         # TODO : generate "?" config for all registers by default ?
@@ -225,17 +226,17 @@ class AnalyzerConfig(object):
         imports = self.get_imports()
         # [import] section
         config.add_section('imports')
-        for ea,imp in imports.iteritems():
+        for ea, imp in imports.iteritems():
             if imp[0]:
                 name = "%s, %s" % imp
             else:
                 name = "all,%s" % imp[1]
             config.set('imports', ("0x%x" % ea), name)
         # [libc section]
-        ## config.add_section('libc')
-        ## config.set('libc', 'call_conv', 'fastcall')
-        ## config.set('libc', '*', 'open(@, _)')
-        ## config.set('libc', '*', 'read<stdcall>(@, *, @)')
+        # config.add_section('libc')
+        # config.set('libc', 'call_conv', 'fastcall')
+        # config.set('libc', '*', 'open(@, _)')
+        # config.set('libc', '*', 'read<stdcall>(@, *, @)')
         return config
 
     def write(self, filepath):
@@ -255,7 +256,7 @@ class AnalyzerConfig(object):
         self.netnode["default"] = str(self)
 
     def for_address(self, state, address):
-        if state.options.get("options", "load_from_idb") == "True":
+        if state.options.get("load_from_idb") == "True":
             c = self.load_from_idb(address)
         else:
             c = None
