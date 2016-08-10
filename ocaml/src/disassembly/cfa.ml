@@ -115,11 +115,11 @@ module Make(Domain: Domain.T) =
    
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding tables in Config *)
-    let init_mem d region content_tbl =
-        Hashtbl.fold (fun (addr, nb) c d ->
+    let init_mem domain region content_tbl =
+        Hashtbl.fold (fun (addr, nb) content domain ->
                             let addr' = Data.Address.of_int region addr !Config.address_sz in
-                            Domain.set_memory_from_config addr' Data.Address.Global c nb d
-                     ) content_tbl d
+                            Domain.set_memory_from_config addr' Data.Address.Global content nb domain
+                     ) content_tbl domain
       (* end of init utilities *)	     
       (*************************)
 
