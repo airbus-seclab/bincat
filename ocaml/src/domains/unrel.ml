@@ -277,10 +277,16 @@ module Make(D: T) =
             let nb = sz / 8					   in
             let min  = Data.Address.add_offset a (Z.of_int (-1)) in
             let max  = Data.Address.add_offset a (Z.of_int nb)   in
-            let rec to_list i =
-                if i <= nb then
-                    (Data.Address.add_offset a (Z.of_int i))::(to_list (i+1))
-                else []
+            let to_array first =
+                let arr = Array.make (nb-first) a in
+                    for i = first to nb-1 do
+                        arr.(i) <- Data.Address.add_offset a (Z.of_int i);
+                    done;
+                arr in
+            (* TODO : get rid of the list, but f*cking OCaml doesn't include
+               Array.exists *)
+            let to_list i =
+                Array.to_list (to_array (i+1))
             in
             let addrs = to_list (-1) in
             let within k =
