@@ -164,6 +164,14 @@ module Make (V: Vector.T) =
       | TOP 	   -> true
       | Val (_, o) -> V.is_tainted o
 
+    let of_repeat_val v v_len nb =
+      match v with
+      | BOT -> BOT
+      | TOP -> TOP
+      | Val (region, offset) ->
+	let newoffset = V.of_repeat_val offset v_len nb in
+	Val(region, newoffset)
+
     let rec concat l =
       match l with
       |	[ ] -> BOT

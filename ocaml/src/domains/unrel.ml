@@ -81,6 +81,9 @@ sig
     (** [from_position v p len] returns the sub value from bit p to bit p-len-1 *)
     val from_position: t -> int -> int -> t
 
+    (** [of_repeat_val val v_len nb] repeats provided pattern val having length v_len, nb times**)
+    val of_repeat_val: t -> int -> int -> t
+
     (** [concat [v1; v2 ; ... ; vn] ] returns value v such that v = v1 << |v2+...+vn| + v2 << |v3+...+vn| + ... + vn *)
     val concat: t list -> t
 end
@@ -411,10 +414,6 @@ module Make(D: T) =
 
         let init () = Val (Map.empty)
 
-        let build v nb =
-            let v_array = Array.make nb v in
-            D.concat (Array.to_list v_array)
-
         (** returns size of content, rounded to the next multiple of Config.operand_sz *)
         let size_of_content c =
             let sz = 
@@ -444,7 +443,7 @@ module Make(D: T) =
                 | Val m' ->
                   let sz = size_of_content content in
                   let val_taint = of_config region (content, taint) sz in
-                  let r  = build val_taint nb in 
+                  let r = D.of_repeat_val val_taint sz nb in
                   Val (write_in_memory addr m' r (sz*nb) true)
             else
                 m

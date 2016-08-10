@@ -121,6 +121,8 @@ sig
     val extract: t -> int -> int -> t
     (** [from_position v i len] returns the sub-vector v[i]...v[i-len-1] may raise an exception if i > |v| or i-len-1 < 0 *)
     val from_position: t -> int -> int -> t
+    (** [of_repeat_val v v_len nb] returns the concatenation of pattern v having length v_len, nb times *)
+    val of_repeat_val: t -> int -> int -> t
     (** returns the concatenation of the two given vectors *)
     val concat: t -> t -> t			    
 end
@@ -475,6 +477,12 @@ module Make(V: Val) =
 
 
         let is_tainted v = exists V.is_tainted v
+
+        let of_repeat_val v v_len nb =
+          let access_mod idx =
+            v.(idx mod v_len) in
+          let v_array = Array.init (nb*v_len) access_mod in
+          v_array
 
         let concat v1 v2 =
             Array.append v1 v2
