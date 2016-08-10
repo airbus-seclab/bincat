@@ -286,11 +286,14 @@ class State(object):
 
 @functools.total_ordering
 class Value(object):
-    def __init__(self, region, value, length, vtop=0, vbot=0, taint=0, ttop=0,
+    def __init__(self, region, value, length=None, vtop=0, vbot=0, taint=0, ttop=0,
                  tbot=0):
         self.region = region.lower()
         self.value = value
-        self.length = length
+        if not length and region == 'reg':
+            self.length = reg_len(value)
+        else:
+            self.length = length
         self.vtop = vtop
         self.vbot = vbot
         self.taint = taint

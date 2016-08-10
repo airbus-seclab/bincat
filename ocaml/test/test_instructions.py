@@ -82,8 +82,8 @@ def clearFlag(my_state, name):
     Set flag to 0, untainted - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    v = cfa.Value('reg', name)
-    my_state[v] = cfa.Value('global', 0x0)
+    v = cfa.Value('reg', name, cfa.reg_len(name))
+    my_state[v] = cfa.Value('global', 0x0, cfa.reg_len(name))
 
 
 def setFlag(my_state, name):
@@ -91,8 +91,8 @@ def setFlag(my_state, name):
     Set flag to 1, untainted - helper for tests
     XXX for most tests, flags should inherit taint
     """
-    v = cfa.Value('reg', name)
-    my_state[v] = cfa.Value('global', 1)
+    v = cfa.Value('reg', name, cfa.reg_len(name))
+    my_state[v] = cfa.Value('global', 1, cfa.reg_len(name))
 
 
 def undefBitFlag(my_state, name):
@@ -100,8 +100,8 @@ def undefBitFlag(my_state, name):
     Set flag to undefined.
     XXX specify register len?
     """
-    v = cfa.Value('reg', name)
-    my_state[v] = cfa.Value('?', 0, vtop=1)
+    v = cfa.Value('reg', name, cfa.reg_len(name))
+    my_state[v] = cfa.Value('?', 0, cfa.reg_len(name), vtop=1)
 
 
 def calc_af(my_state, op1, op2, val):
@@ -140,12 +140,12 @@ def taintFlag(my_state, name):
 
 
 def setReg(my_state, name, val, taint=0):
-    v = cfa.Value('reg', name)
+    v = cfa.Value('reg', name, cfa.reg_len(name))
     if name == 'esp':
         region = 'stack'
     else:
         region = 'global'
-    my_state[v] = cfa.Value(region, val, taint=taint)
+    my_state[v] = cfa.Value(region, val, cfa.reg_len(name), taint=taint)
 
 
 def dereference_data(my_state, ptr):
