@@ -155,7 +155,7 @@ class WebAnalyzer(object):
             bc_log.error("python requests modules could not be imported, "
                          "so remote BinCAT cannot be used.")
             return
-        server_url = self.server_url
+        server_url = self.server_url.rstrip('/')
         sha256 = idaapi.retrieve_input_file_sha256().lower()
         binary_file = idaapi.get_input_file_path()
         # patch filepath (XXX dirty, rework AnalyzerConfig?) - set filepath to
