@@ -1,0 +1,15 @@
+PKG zarith ocamlgraph
+S ocaml/src
+S ocaml/src/disassembly
+S ocaml/src/domains
+S ocaml/src/utils
+S ocaml/src/fixpoint
+S ocaml/src/data-struct
+S ocaml/src/frontend
+B ocaml/src
+B ocaml/src/disassembly
+B ocaml/src/domains
+B ocaml/src/utils
+B ocaml/src/fixpoint
+B ocaml/src/data-struct
+B ocaml/src/frontend
