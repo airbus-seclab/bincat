@@ -4,13 +4,13 @@ module Make (V: Vector.T) =
   (struct
     type t =
       | BOT
-      | Val of (region * V.t) (** a pointer is a pair (r, o) where r is the region it points-to and o an offset in that region *) 
+      | Val of (region * V.t) (** a pointer is a pair (r, o) where r is the region it points-to and o an offset in that region *)
       | TOP
 
     let bot = BOT
     let top = TOP
     let is_bot p = p = BOT
-	       
+
     let to_value p =
       match p with
       | BOT         -> raise Exceptions.Empty
@@ -37,7 +37,7 @@ module Make (V: Vector.T) =
       match p with
       | TOP | BOT  -> p
       | Val (r, o) -> Val (r, V.weak_taint o)
-			  
+
     let join p1 p2 =
       match p1, p2 with
       | BOT, p | p, BOT 	   -> p
@@ -51,7 +51,7 @@ module Make (V: Vector.T) =
 
     let widen p1 p2 =
       match p1, p2 with
-      | p, BOT 	
+      | p, BOT
       | BOT, p 			   -> p
       | TOP, _ | _, TOP		   -> TOP
       | Val (r1, o1), Val (r2, o2) ->
@@ -61,8 +61,8 @@ module Make (V: Vector.T) =
 	 | r1, r2 ->
 	    if r1 = r2 then Val (r1, V.widen o1 o2)
 	    else BOT
-	   
-		    
+
+
     let meet p1 p2 =
       match p1, p2 with
       | TOP, p | p, TOP 	   -> p
@@ -82,7 +82,7 @@ module Make (V: Vector.T) =
       | Val (r, o) ->
 	 try Val (r, V.unary op o)
 	 with _ -> BOT
-		     
+
     let binary op p1 p2 =
       match p1, p2 with
       | BOT, _ | _, BOT 	   -> BOT
@@ -99,8 +99,8 @@ module Make (V: Vector.T) =
 	      if r1 = r2 then Val (r1, V.binary op o1 o2)
 	      else BOT
 	    with Exceptions.Enum_failure -> TOP
-      
-		
+
+
     let of_word w = Val (Global, V.of_word w)
 
     let compare p1 op p2 =
@@ -109,7 +109,7 @@ module Make (V: Vector.T) =
       | BOT, _ 			   -> op = Asm.LEQ || op = Asm.LT
       | _, BOT 			   -> false
       | _, TOP | TOP, _		   -> true
-      | Val (r1, o1), Val (r2, o2) -> 
+      | Val (r1, o1), Val (r2, o2) ->
 	 if r1 = r2 || r1 = Global || r2 = Global then V.compare o1 op o2
 	 else true
 
@@ -131,7 +131,7 @@ module Make (V: Vector.T) =
       match prev with
       | Val (r, o) -> Val (r, V.taint_of_config t n (Some o))
       | _ 	   -> prev
-			      
+
     let of_config r c n = Val (r, V.of_config c n)
 
     let combine p1 p2 l u =
@@ -157,7 +157,7 @@ module Make (V: Vector.T) =
 	 try
 	   Val (r, V.from_position o i len)
 	 with _ -> BOT
-		     
+
     let is_tainted p =
       match p with
       | BOT 	   -> false
@@ -182,7 +182,7 @@ module Make (V: Vector.T) =
 	 | BOT, _ | _, BOT -> BOT
 	 | TOP, _ | _, TOP -> TOP
 	 | Val (r1, o1), Val (r2, o2 ) ->
-	    if r1 = r2 then 
+	    if r1 = r2 then
 	      Val (r1, V.concat o1 o2)
 	    else BOT
   end: Unrel.T)

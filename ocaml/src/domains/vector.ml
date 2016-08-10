@@ -124,12 +124,12 @@ sig
     (** [of_repeat_val v v_len nb] returns the concatenation of pattern v having length v_len, nb times *)
     val of_repeat_val: t -> int -> int -> t
     (** returns the concatenation of the two given vectors *)
-    val concat: t -> t -> t			    
+    val concat: t -> t -> t
 end
 
 module Make(V: Val) =
     (struct
-        type t = V.t array (** bit order is big endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *) 
+        type t = V.t array (** bit order is big endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *)
 
         let top sz = Array.make sz V.top
 
@@ -176,7 +176,7 @@ module Make(V: Val) =
                 !z
             with _ -> raise Exceptions.Concretization
 
-        (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *) 
+        (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
         let to_word v = Data.Word.of_int (to_value v) (Array.length v)
 
         let to_string v =
@@ -212,7 +212,7 @@ module Make(V: Val) =
             let v = Array.make n V.zero in
             let carry_borrow = ref None in
             for i = n-1 downto 0 do
-                let c = 
+                let c =
                     (* add the carry/borrow if present *)
                     match !carry_borrow with
                     | None -> v.(i) <- v1.(i); None
@@ -312,12 +312,12 @@ module Make(V: Val) =
             else
                 let n   = Array.length v1     in
                 let v   = Array.make n V.zero in
-                let one = Array.make n V.one  in 
+                let one = Array.make n V.one  in
                 let rec loop v r =
                     if geq r v2 then
                         loop (add v one) (sub r v2)
                     else
-                        v, r	      
+                        v, r
                 in
                 loop v v1
 
@@ -437,7 +437,7 @@ module Make(V: Val) =
             Log.debug (Printf.sprintf "Vector.combine : v2 = %s" (to_string v2));
             Log.debug (Printf.sprintf "Vector.combine : low = %d, up = %d" low up);
             let v = Array.copy v1 in
-            let n = Array.length v1 in 
+            let n = Array.length v1 in
             let j = ref 0 in
             for i = (n-1-up) to (n-1-low) do
                 v.(i) <- v2.(!j);
@@ -464,7 +464,7 @@ module Make(V: Val) =
 
         let extract v low up =
             let v' = Array.make (up-low+1) V.top in
-            let n  = Array.length v           in 
+            let n  = Array.length v           in
             let o  = n-up - 1                  in
             for i = o to n-low-1 do
                 v'.(i-o) <- v.(i)
