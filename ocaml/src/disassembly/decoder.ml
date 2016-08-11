@@ -1248,7 +1248,7 @@ struct
         match nnn with
         | _ -> error s.a "Unknown opcode in grp 7"
 
-    let core_bt s f dst src =
+    let core_bt s fct dst src =
         let is_register =
             match dst with
             | V _ -> true
@@ -1259,16 +1259,16 @@ struct
             else src
         in
         let nbit  = BinOp (And, UnOp (SignExt s.operand_sz, BinOp (Shr, Lval dst, nth)), Const (Word.one s.operand_sz)) in
-        let stmt  = Set (V (T fcf), nbit)                                                                               in
-        let stmts = f nbit                                                                                              in
+        let stmt  = Set (V (T fcf), nbit) in
+        let stmts = fct nth nbit in
         return s ((stmt::stmts) @ [ undef_flag fof; undef_flag fsf; undef_flag fzf; undef_flag faf; undef_flag fpf])
 
     let bts_stmt dst nbit = Set (dst, BinOp (Or, Lval dst, BinOp (Shl, Const (Data.Word.one 1), nbit)))
     let btr_stmt dst nbit = Set (dst, BinOp (And, Lval dst, UnOp (Not, BinOp (Shl, Const (Data.Word.one 1), nbit))))
-    let bt s dst src = core_bt s (fun _nbit -> []) dst src
-    let bts s dst src = core_bt s (fun nbit -> [bts_stmt dst nbit]) dst src
-    let btr s dst src = core_bt s (fun nbit -> [btr_stmt dst nbit]) dst src
-    let btc s dst src = core_bt s (fun nbit -> [If (Cmp (EQ, nbit, Const (Word.one 1)), [btr_stmt dst nbit], [bts_stmt dst nbit])]) dst src
+    let bt s dst src = core_bt s (fun _nth _nbit -> []) dst src
+    let bts s dst src = core_bt s (fun nth _nbit -> [bts_stmt dst nth]) dst src
+    let btr s dst src = core_bt s (fun nth _nbit -> [btr_stmt dst nth]) dst src
+    let btc s dst src = core_bt s (fun _nth nbit -> [If (Cmp (EQ, nbit, Const (Word.one 1)), [btr_stmt dst nbit], [bts_stmt dst nbit])]) dst src
 
     let grp8 s =
         let nnn, dst = core_grp s s.operand_sz                                                           in
@@ -1685,6 +1685,8 @@ struct
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
             | '\xa0' -> push s [V (T fs)]
             | '\xa1' -> pop s [V (T fs)]
+            (*| '\xa2' -> cpuid *)
+            | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bt s reg rm 
             | '\xa8' -> push s [V (T gs)]
             | '\xa9' -> pop s [V (T gs)]
             | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
