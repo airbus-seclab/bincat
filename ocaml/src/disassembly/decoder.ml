@@ -753,7 +753,7 @@ struct
         let dst, src = operands_from_mod_reg_rm s sz direction in
         or_xor_and s op dst src sz
 
-    let test s dst src sz =
+    let test_stmts dst src sz =
         let name 	= Register.fresh_name ()	    in
         let v  	 	= Register.make ~name:name ~size:sz in
         let tmp  	= V (T v)		  	    in
@@ -761,12 +761,12 @@ struct
         let res'  = Lval dst			        in
         let flag_stmts =
             [
-                clear_flag fcf; clear_flag fof; zero_flag_stmts s.operand_sz res';
-                sign_flag_stmts s.operand_sz res'; 
-                parity_flag_stmts s.operand_sz res'; undef_flag faf
+                clear_flag fcf; clear_flag fof; zero_flag_stmts sz res';
+                sign_flag_stmts sz res'; 
+                parity_flag_stmts sz res'; undef_flag faf
             ]
         in
-        return s ([tmp_calc] @ flag_stmts @ [ Directive (Remove v) ])
+        ([tmp_calc] @ flag_stmts @ [ Directive (Remove v) ])
 
     let inc_dec reg op s sz =
         let dst 	= reg                               in
@@ -1306,6 +1306,7 @@ struct
         let nnn, dst = core_grp s sz in
         let stmts =
             match nnn with
+            | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts dst imm sz
             | 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
             | 3 -> (* NEG *) [ Set (dst, BinOp (Sub, Const (Word.zero sz), Lval dst)) ]
             | 4 -> (* MUL *) mul_stmts (Lval dst) sz
@@ -1637,8 +1638,8 @@ struct
             | '\x81' -> (* grp1 opcode table *) grp1 s s.operand_sz s.operand_sz
             | '\x82' -> error s.a ("Undefined opcode 0x82")
             | '\x83' -> (* grp1 opcode table *) grp1 s s.operand_sz 8
-            | '\x84' -> (* TEST /r8 *) let dst, src = (operands_from_mod_reg_rm s 8 0) in test s dst src 8
-            | '\x85' -> (* TEST /r *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 0 in test s dst src s.operand_sz
+            | '\x84' -> (* TEST /r8 *) let dst, src = (operands_from_mod_reg_rm s 8 0) in return s (test_stmts dst src 8)
+            | '\x85' -> (* TEST /r *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 0 in return s (test_stmts dst src s.operand_sz)
             | '\x86' -> (* XCHG byte registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm 8) (find_reg reg 8) 8
             | '\x87' -> (* XCHG word or double-word registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm s.operand_sz) (find_reg reg s.operand_sz) s.operand_sz
             | '\x88' -> (* MOV *) mov_mrm s 8 0
@@ -1680,8 +1681,8 @@ struct
             | '\xa5' -> (* MOVSW *) movs s s.addr_sz
             | '\xa6' -> (* CMPSB *) cmps s 8
             | '\xa7' -> (* CMPSW *) cmps s s.addr_sz
-            | '\xa8' -> (* TEST AL, imm8 *) test s (find_reg_v 0 8) (get_imm s 8 8 false) 8
-            | '\xa9' -> (* TEST xAX, imm *) test s (find_reg_v 0 s.operand_sz) (get_imm s s.operand_sz s.operand_sz false) s.operand_sz 
+            | '\xa8' -> (* TEST AL, imm8 *) return s (test_stmts (find_reg_v 0 8) (get_imm s 8 8 false) 8)
+            | '\xa9' -> (* TEST xAX, imm *) return s (test_stmts (find_reg_v 0 s.operand_sz) (get_imm s s.operand_sz s.operand_sz false) s.operand_sz )
             | '\xaa' -> (* STOS on byte *) stos s 8
             | '\xab' -> (* STOS *) stos s s.addr_sz
             | '\xac' -> (* LODS on byte *) lods s 8
