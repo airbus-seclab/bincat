@@ -11,9 +11,10 @@
 * programme de test : binaire => statements (à la metasm-shell)
 * à clarifier : pointer n'est pas un pointer mais une valeur
 * BUG : revoir tout write_in_memory
+* pouvoir spécifier la valeur d'un registre ou adress mémoire à une adresse différente de celle de début
 
 ## Plugin IDA
-* gérer des traces multiples à la même adresse
+* gérer des traces multiples à la même adresse (afficher tous les états, pas juste celui marqué "final")
 * importer les valeurs concrètes depuis le debugger (mémoire et registres)
 * fenetre de registre jolie (couleur pour la teinte)
 * colorer les lignes teintées
