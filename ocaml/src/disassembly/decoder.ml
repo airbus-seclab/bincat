@@ -743,7 +743,7 @@ struct
 
 
     (** [const c s] builds the asm constant c from the given context *)
-    let const s c = Const (Word.of_int (Z.of_int c) s.operand_sz)
+    let const c sz = Const (Word.of_int (Z.of_int c) sz)
 
     let inc_dec reg op s sz =
         let dst 	= reg                               in
@@ -751,7 +751,7 @@ struct
         let v           = Register.make ~name:name ~size:sz in
         let tmp         = V (T v)			    in
         let op1         = Lval tmp			    in
-        let op2         = const s 1                         in
+        let op2         = const 1 sz                        in
         let res         = Lval dst			    in
         let flags_stmts =
             [
@@ -872,9 +872,8 @@ struct
     (****************************************************)
     (** returns the asm condition of jmp statements from an expression *)
     let exp_of_cond v s =
-        let const c  = const s c in
-        let eq f  = Cmp (EQ, Lval (V (T f)), const 1)  in
-        let neq f = Cmp (NEQ, Lval (V (T f)), const 1) in
+        let eq f  = Cmp (EQ, Lval (V (T f)), const 1 1)  in
+        let neq f = Cmp (NEQ, Lval (V (T f)), const 1 1) in
         match v with
         | 0  -> eq fof
         | 1  -> neq fof
