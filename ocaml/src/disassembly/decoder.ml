@@ -304,6 +304,8 @@ struct
             else
                 i
 
+    (** helper to get immediate of _imm_sz_ bits into a _sz_ Const, doing
+        _sign_ext_ if true*)
     let get_imm s imm_sz sz sign_ext =
         const_of_Z (get_imm_int s imm_sz sz sign_ext) sz
 
@@ -712,8 +714,8 @@ struct
     (** produces the state corresponding to an add or a sub with an immediate operand *)
     let add_sub_immediate s op b r sz =
         let r'  = V (to_reg r sz)                                       in
-        let sz' = sz / 8                              in
-        let w   = const_of_Z (int_of_bytes s sz') s.operand_sz in
+        (* TODO : check if should sign extend *)
+        let w   = get_imm s sz s.operand_sz false in
         add_sub s op b r' w sz
 
 
@@ -866,10 +868,9 @@ struct
         let sreg' 	     = V (T sreg)						     in
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))			     in
         let reg'           = find_reg reg s.operand_sz			 	     in
-        let n 	     = s.operand_sz / 8			     in
-        let src 	     = const_of_Z (int_of_bytes s n) s.operand_sz	     in
+        let src 	     = get_imm s s.operand_sz s.operand_sz false in
         let src' 	     = add_segment s src s.segments.data			     in
-        let off 	     = BinOp (Add, src', const n s.addr_sz) in
+        let off 	     = BinOp (Add, src', const (s.operand_sz /8) s.addr_sz) in
         return s [ Set (V reg', Lval (M (src', s.operand_sz))) ; Set (sreg', Lval (M (off, 16)))]
 
     (****************************************************)
@@ -1105,9 +1106,9 @@ struct
     (** state generation for the push instructions *)
     let push s v = return s (push_stmts s v)
 
-    (** returns the state for the push of an immediate operands. Its size is given by the parameter *)
-    let push_immediate s n =
-        let c     = const_of_Z (int_of_bytes s n) !Config.stack_width in
+    (** returns the state for the push of an immediate operands. _sz_ in bits *)
+    let push_immediate s sz =
+        let c     = get_imm s sz !Config.stack_width false in
         let esp'  = esp_lval ()						       in
         let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]
         in
@@ -1131,7 +1132,7 @@ struct
     let mov_immediate s n =
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))      			    in
         let r 		   = find_reg_v reg n						    in
-        let c              = const_of_Z (int_of_bytes s (n/8)) n in
+        let c              = get_imm s n n false in
         return s [ Set (r, c) ]
 
     (** returns the the state for the mov from/to eax *)
@@ -1277,7 +1278,7 @@ struct
         let n =
             match e with
             | Some e' -> e'
-            | None -> const_of_Z (int_of_bytes s 1) sz
+            | None -> get_imm s 8 sz false
         in
         match nnn with
         | 4 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
@@ -1584,10 +1585,10 @@ struct
             | '\x3A' -> (* CMP *) cmp_mrm s 8 1
             | '\x3B' -> (* CMP *) cmp_mrm s s.operand_sz 1
             | '\x3C' -> (* CMP AL with immediate *)
-              let i = const_of_Z (int_of_bytes s 1) 8 in
-              return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) i 8)
+              let imm = get_imm s 8 8 false in
+              return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) imm 8)
             | '\x3D' -> (* CMP eAX with immediate *)
-              let i = Const (Word.of_int (int_of_bytes s (s.operand_sz / 8)) s.operand_sz) in
+              let i = get_imm s s.operand_sz s.operand_sz false in
               return s (cmp_stmts (Lval (V (P (eax, 0, s.operand_sz-1)))) i s.operand_sz)
             | '\x3E' -> (* data segment = ds *) s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
             | '\x3F' -> (* AAS *) aas s
@@ -1606,8 +1607,8 @@ struct
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
             | '\x66' -> (* operand size switch *) s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
-            | '\x68' -> (* PUSH immediate *) push_immediate s (s.operand_sz / 8)
-            | '\x6A' -> (* PUSH byte *) push_immediate s 1
+            | '\x68' -> (* PUSH immediate *) push_immediate s s.operand_sz
+            | '\x6A' -> (* PUSH byte *) push_immediate s 8
 
             | '\x6c' -> (* INSB *) ins s 8
             | '\x6d' -> (* INSW/D *) ins s s.addr_sz
