@@ -606,8 +606,8 @@ struct
         for i = 1 to 7 do
             e := BinOp(Add, !e, nth i)
         done;
-        let if_stmt   = set_flag fcf			                    in
-        let else_stmt = clear_flag fcf in
+        let if_stmt   = set_flag fpf			                    in
+        let else_stmt = clear_flag fpf in
         let c 	      = Cmp (EQ, BinOp(Mod, !e, const 2 sz), Const (Word.zero sz)) in
         If(c, [ if_stmt ], [ else_stmt ])
 
