@@ -308,26 +308,34 @@ module Make(D: T) =
             in
             let all_addrs = Map.find_all_keys within domain in
             List.iter (fun (_, t) ->   Log.debug (Printf.sprintf "all_addrs : %s" (D.to_string t))) all_addrs;
+            (* TODO : make endianness agnostic ! *)
             let before low up pvalue =
                 (* get data from pvalue from low to 'addr' *)
                 let pend = ((Z.to_int (Data.Address.sub up low)*8+7)) in 
                 let len = ((Z.to_int (Data.Address.sub addr low))*8) in
                 Log.debug (Printf.sprintf "before(low, up) : %s %s" (Data.Address.to_string low) (Data.Address.to_string up));
                 Log.debug (Printf.sprintf "before : pvalue %s" (D.to_string pvalue));
-                D.from_position pvalue pend len
+                let res = D.from_position pvalue pend len in
+                Log.debug (Printf.sprintf "before : result %s" (D.to_string res));
+                res
             in
             let inpart up pvalue =
                 Log.debug (Printf.sprintf "inpart(up, pv) : %s %s"  (Data.Address.to_string up)(D.to_string pvalue));
-                if strong then value
+                if strong then 
+                    let res = value in Log.debug (Printf.sprintf "inpart : (strong) result %s" (D.to_string res));
+                    res
                 else
-                if Data.Address.compare max_addr up <= 0 then
-                    D.join value (D.from_position pvalue (((Z.to_int (Data.Address.sub up addr))+1)*8-1) sz)
-                else raise Exceptions.Empty
+                    if Data.Address.compare max_addr up <= 0 then
+                        let res = 
+                        D.join value (D.from_position pvalue (((Z.to_int (Data.Address.sub up addr))+1)*8-1) sz) in
+                        Log.debug (Printf.sprintf "inpart : result %s" (D.to_string res));
+                        res
+                    else raise Exceptions.Empty
             in
             let after up' pv =
-                Log.debug (Printf.sprintf "after : %s %s" (Data.Address.to_string up') (D.to_string pv));
+                Log.debug (Printf.sprintf "after : up: %s, max : %s, pv : %s" (Data.Address.to_string up') (Data.Address.to_string max_addr) (D.to_string pv));
                 let pos = Z.to_int (Data.Address.sub up' max_addr) in
-                D.from_position pv pos ((pos)*8)
+                D.from_position pv pos (pos*8)
             in
             let rec split l =
                 match l with
@@ -364,6 +372,7 @@ module Make(D: T) =
                   Map.add (K.M (low, up)) new_val m'
 
             | (K.M (l1, u1) as k1, pv1)::l ->
+              Log.debug (Printf.sprintf "write_in_memory : list");
               if strong then
                   let b =
                       if Data.Address.compare u1 min_addr = 0 then pv1
