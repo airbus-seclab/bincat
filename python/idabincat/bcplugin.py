@@ -60,9 +60,8 @@ class BincatPlugin(idaapi.plugin_t):
         bc_log.info("Autostarting")
 
         self.state = State(options)
-        bc_log.info("IDABinCAT ready.")
-        self.state.gui.show_windows()
         self.initialized = True
+        bc_log.info("IDABinCAT ready.")
         return idaapi.PLUGIN_KEEP
 
     def run(self, args):
@@ -70,10 +69,9 @@ class BincatPlugin(idaapi.plugin_t):
             return
         options = PluginOptions()
         self.state = State(options)
-        bc_log.info("IDABinCAT ready.")
         # XXX move
-        self.state.gui.show_windows()
         self.initialized = True
+        bc_log.info("IDABinCAT ready.")
 
     def term(self):
         if self.state:
