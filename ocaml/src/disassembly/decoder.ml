@@ -1140,6 +1140,12 @@ struct
         in
         return s [Set (dst, src)]
 
+    (** [cmovcc s cond] returns the statements for cond. mov : cond is the condition *)
+    let cmovcc s cond =
+        let dst, src  = operands_from_mod_reg_rm s s.operand_sz 0 in
+        let cond_stmt = exp_of_cond cond s in
+        return s [ If (cond_stmt, [ Set(dst, src) ], []) ]
+
     (*****************************************************************************************)
     (* decoding of opcodes of groups 1 to 8 *)
     (*****************************************************************************************)
@@ -1673,7 +1679,7 @@ struct
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
             (* CMOVcc *)
-            (*| c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond *) 
+            | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond 
 
             | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
