@@ -13,6 +13,28 @@ struct
 
 
     (************************************************************************)
+    (* Generic Helpers *)
+    (* TODO : move to another file ? *)
+    (************************************************************************)
+
+    (** [const c sz] builds the asm constant of size _sz_ from int _c_ *)
+    let const c sz = Const (Word.of_int (Z.of_int c) sz)
+
+    (** [const_of_Z z sz] builds the asm constant of size _sz_ from Z _z_ *)
+    let const_of_Z z sz = Const (Word.of_int z sz)
+
+    (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
+    let sign_extension i sz nb =
+        if Z.compare (Z.shift_right i (sz-1)) Z.zero = 0 then
+            i
+        else
+            let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
+            (* ffff00.. mask *)
+            let ff00 = (Z.logxor ff ((Z.sub (Z.shift_left (Z.one) sz) Z.one))) in
+            Z.logor ff00 i
+
+
+    (************************************************************************)
     (* Creation of the general purpose registers *)
     (************************************************************************)
 
@@ -244,7 +266,7 @@ struct
 
 
     (***********************************************************************)
-    (* Char transformations *)
+    (* State helpers *)
     (***********************************************************************)
 
     (** extract from the string code the current byte to decode *)
@@ -266,23 +288,12 @@ struct
         done;
         !n;;
 
-    (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
-    let sign_extension i sz nb =
-        if Z.compare (Z.shift_right i (sz-1)) Z.zero = 0 then
-            i
-        else
-            let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
-            (* ffff00.. mask *)
-            let ff00 = (Z.logxor ff ((Z.sub (Z.shift_left (Z.one) sz) Z.one))) in
-            Z.logor ff00 i
-
-
     (** helper to get immediate of _imm_sz_ bits into a _sz_ int, doing
         _sign_ext_ if true*)
     (* TODO : use helper everywhere *)
     let get_imm_int s imm_sz sz sign_ext =
         if imm_sz > sz then
-            Log.error "Immediate size bigger than target size"
+            error s.a "Immediate size bigger than target size"
         else
             let i = int_of_bytes s (imm_sz/8) in
             if sign_ext then
@@ -294,7 +305,15 @@ struct
                 i
 
     let get_imm s imm_sz sz sign_ext =
-        Const (Word.of_int (get_imm_int s imm_sz sz sign_ext) sz)
+        const_of_Z (get_imm_int s imm_sz sz sign_ext) sz
+
+    (** update and return the current state with the given statements and the new instruction value *)
+    (** the context of decoding is also updated *)
+    let return s stmts =
+        s.b.Cfa.State.ctx <- { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz };
+        s.b.Cfa.State.stmts <- stmts;
+        s.b.Cfa.State.bytes <- List.rev s.c;
+        s.b, Address.add_offset s.a (Z.of_int s.o)
 
     (************************************************************************************)
     (* segmentation *)
@@ -328,7 +347,30 @@ struct
 
     let copy_segments s a ctx = { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = get_segments a ctx  }
 
+    let get_base_address s c =
+        if !Config.mode = Config.Protected then
+            let dt = if c.ti = GDT then s.segments.gdt else s.segments.ldt in
+            try
+                let e = Hashtbl.find dt c.index in
+                if c.rpl <= e.dpl then
+                    e.base
+                else
+                    error s.a "illegal requested privileged level"
+            with Not_found ->
+                error s.a (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+        else
+            error s.a "only protected mode supported"
 
+
+    let add_segment s e sreg =
+        let m      = Hashtbl.find s.segments.reg sreg in
+        let ds_val = get_base_address s m             in
+        if Z.compare ds_val Z.zero = 0 then
+            e
+        else
+            BinOp(Add, e, const_of_Z ds_val s.operand_sz)
+
+    let add_data_segment s e = add_segment s e s.segments.data
 
     (************************************************************************************)
     (* common utilities *)
@@ -360,17 +402,11 @@ struct
       let r = Hashtbl.find register_tbl n in
       P (r, 8, 15)
 
-    (** update and return the current state with the given statements and the new instruction value *)
-    (** the context of decoding is also updated *)
-    let return s stmts =
-        s.b.Cfa.State.ctx <- { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz };
-        s.b.Cfa.State.stmts <- stmts;
-        s.b.Cfa.State.bytes <- List.rev s.c;
-        s.b, Address.add_offset s.a (Z.of_int s.o)
 
     (************************************************)
     (* MOD REG R/M *)
     (************************************************)
+
     (** [mod_nnn_rm v] split from v into the triple (mod, nnn, rm) where mod are its bits 7-6, nnn its bits 5,4,3 and rm its bits 2, 1, 0 *)
     let mod_nnn_rm v =
         let rm 	= v land 7	   in
@@ -382,10 +418,9 @@ struct
     let disp s nb sz =
         (* TODO : signed *)
         let n = int_of_bytes s (nb/8) in
-        Const (Word.of_int n sz)
+        const_of_Z n sz
 
     exception Disp32
-
 
     (** returns the expression associated to a sib *)
     let sib s md =
@@ -403,7 +438,7 @@ struct
             | 1 -> BinOp (Add, lv, disp s 8 s.addr_sz)
             (* [scaled index] + disp32 *)
             | 2 -> BinOp (Add, lv, disp s 32 s.addr_sz)
-            | _ -> Log.error "Decoder: illegal value in sib"
+            | _ -> error s.a "Decoder: illegal value in sib"
         in
         let index_lv = find_reg_lv index s.addr_sz in
         if index = 4 then
@@ -413,37 +448,11 @@ struct
                 if scale = 0 then
                     index_lv
                 else
-                    BinOp (Shl, index_lv, Const (Word.of_int (Z.of_int scale) s.addr_sz))
+                    BinOp (Shl, index_lv, const scale s.addr_sz)
             in
             BinOp (Add, base', scaled_index)
 
-
-
-    let get_base_address s c =
-        if !Config.mode = Config.Protected then
-            let dt = if c.ti = GDT then s.segments.gdt else s.segments.ldt in
-            try
-                let e = Hashtbl.find dt c.index in
-                if c.rpl <= e.dpl then
-                    e.base
-                else
-                    error s.a "illegal requested privileged level"
-            with Not_found ->
-                error s.a (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
-        else
-            error s.a "only protected mode supported"
-
-
-    let add_segment s e sreg =
-        let m      = Hashtbl.find s.segments.reg sreg in
-        let ds_val = get_base_address s m             in
-        if Z.compare ds_val Z.zero = 0 then
-            e
-        else
-            BinOp(Add, e, Const (Word.of_int ds_val s.operand_sz))
-
-    let add_data_segment s e = add_segment s e s.segments.data
-
+    (** returns the statements for a memory operation encoded in _md_ _rm_ *)
     let md_from_mem s md rm sz =
         let rm_lv = find_reg_lv rm s.addr_sz in
         if rm = 4 then
@@ -461,9 +470,9 @@ struct
 
             | 2 ->
               BinOp (Add, rm_lv, disp s 32 sz)
-            | _ -> Log.error "Decoder: illegal value in md_from_mem"
+            | _ -> error s.a "Decoder: illegal value in md_from_mem"
 
-
+    (** returns the statements for a mod/rm with _md_ _rm_ *)
     let exp_of_md s md rm sz =
         match md with
         | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)
@@ -496,7 +505,7 @@ struct
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
         if md = 3 then
-            Log.error "Illegal mod field in LEA"
+            error s.a "Illegal mod field in LEA"
         else
             let reg_v = find_reg_v reg s.operand_sz in
             let src =
@@ -547,7 +556,7 @@ struct
         If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
 
     (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
-    let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (Const (Word.of_int (Z.of_int (sz-1)) sz)) res 1 op1 op2
+    let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (const (sz-1) sz) res 1 op1 op2
 
     (** produce the statement to set the given flag *)
     let set_flag f = Set (V (T f), Const (Word.one (Register.size f)))
@@ -569,7 +578,7 @@ struct
 
     (** produce the statement to set the sign flag wrt to the given parameter *)
     let sign_flag_stmts sz res =
-        let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, Const (Word.of_int (Z.of_int (sz-1)) sz))) in
+        let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, const (sz-1) sz)) in
         If (c, [ set_flag fsf ], [ clear_flag fsf ] )
 
     (** produce the statement to set the zero flag *)
@@ -579,7 +588,7 @@ struct
 
     (** produce the statement to set the adjust flag wrt to the given parameters *)
     (** faf is set if there is an overflow on the bit 4 *)
-    let adjust_flag_stmts res sz op1 op2 = overflow faf faf_sz (Const (Word.of_int (Z.of_int 4) sz)) res (sz-4) op1 op2
+    let adjust_flag_stmts res sz op1 op2 = overflow faf faf_sz (const 4 sz) res (sz-4) op1 op2
 
     (** produce the statement to set the parity flag wrt to the given parameters *)
     let parity_flag_stmts sz res =
@@ -588,7 +597,7 @@ struct
         (* using the modulo of the divison by 2 *)
         let nth i =
             let one = Const (Word.one sz) in
-            let i' = Const (Word.of_int (Z.of_int i) sz) in
+            let i' = const i sz in
             BinOp (And, UnOp(SignExt sz, BinOp(Shr, res, i')), one)
         in
         let e = ref (nth 0) in
@@ -597,32 +606,32 @@ struct
         done;
         let if_stmt   = Set (V (T fpf), Const (Word.one fpf_sz))			                    in
         let else_stmt = Set (V (T fpf), Const (Word.zero fpf_sz))			                    in
-        let c 	      = Cmp (EQ, BinOp(Mod, !e, Const (Word.of_int (Z.of_int 2) sz)), Const (Word.zero sz)) in
+        let c 	      = Cmp (EQ, BinOp(Mod, !e, const 2 sz), Const (Word.zero sz)) in
         If(c, [ if_stmt ], [ else_stmt ])
 
     (** builds a value equivalent to the EFLAGS register from the state *)
     let get_eflags () =
       let eflags0 = Lval (V (T fcf)) in
       (*  bit 1 : reserved *)
-      let eflags2 = UnOp (ZeroExt 32, BinOp(Shl,  Lval (V (T fpf)), Const (Word.of_int (Z.of_int 2) 32))) in
+      let eflags2 = UnOp (ZeroExt 32, BinOp(Shl,  Lval (V (T fpf)), const 2 32)) in
       (*  bit 3 : reserved *)
-      let eflags4 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T faf)), Const (Word.of_int (Z.of_int 4) 32))) in
+      let eflags4 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T faf)), const 4 32)) in
       (*  bit 5 : reserved *)
-      let eflags6 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fzf)), Const (Word.of_int (Z.of_int 6) 32))) in
-      let eflags7 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fsf)), Const (Word.of_int (Z.of_int 7) 32))) in
-      let eflags8 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _ftf)), Const (Word.of_int (Z.of_int 8) 32))) in
-      let eflags9 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fif)), Const (Word.of_int (Z.of_int 9) 32))) in
-      let eflags10 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fdf)), Const (Word.of_int (Z.of_int 10) 32))) in
-      let eflags11 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fof)), Const (Word.of_int (Z.of_int 11) 32))) in
-      let eflags12_13 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _fiopl)), Const (Word.of_int (Z.of_int 12) 32))) in
-      let eflags14 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _fnt)), Const (Word.of_int (Z.of_int 14) 32))) in
+      let eflags6 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fzf)), const 6 32)) in
+      let eflags7 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fsf)), const 7 32)) in
+      let eflags8 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _ftf)), const 8 32)) in
+      let eflags9 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fif)), const 9 32)) in
+      let eflags10 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fdf)), const 10 32)) in
+      let eflags11 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fof)), const 11 32)) in
+      let eflags12_13 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _fiopl)), const 12 32)) in
+      let eflags14 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _fnt)), const 14 32)) in
       (*  bit 15 : reserved *)
-      let eflags16 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _frf)), Const (Word.of_int (Z.of_int 16) 32))) in
-      let eflags17 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvm)), Const (Word.of_int (Z.of_int 17) 32))) in
-      let eflags18 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fac)), Const (Word.of_int (Z.of_int 18) 32))) in
-      let eflags19 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvif)), Const (Word.of_int (Z.of_int 19) 32))) in
-      let eflags20 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvip)), Const (Word.of_int (Z.of_int 20) 32))) in
-      let eflags21 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fid)), Const (Word.of_int (Z.of_int 21) 32))) in
+      let eflags16 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _frf)), const 16 32)) in
+      let eflags17 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvm)), const 17 32)) in
+      let eflags18 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fac)), const 18 32)) in
+      let eflags19 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvif)), const 19 32)) in
+      let eflags20 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvip)), const 20 32)) in
+      let eflags21 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fid)), const 21 32)) in
       let eflags_c0 = eflags0 in
       let eflags_c2 = BinOp(Or, eflags_c0, eflags2) in
       let eflags_c4 = BinOp(Or, eflags_c2, eflags4) in
@@ -648,22 +657,22 @@ struct
         let set_f flg value = Set (V (T flg), value) in
             (* XXX check perms and validity *)
             [set_f fcf  (BinOp(And, eflags, one));
-             set_f fpf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 2) 32))), one));
-             set_f faf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 4) 32))), one));
-             set_f fzf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 6) 32))), one));
-             set_f fsf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 7) 32))), one));
-             set_f _ftf (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 8) 32))), one));
-             set_f fif  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 9) 32))), one));
-             set_f fdf  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 10) 32))), one));
-             set_f fof  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 11) 32))), one));
-             set_f _fiopl (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 12) 32))),  Const (Word.of_int (Z.of_int 3) 32)));
-             set_f _fnt   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 14) 32))), one));
-             set_f _frf   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 16) 32))), one));
-             set_f _fvm   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 17) 32))), one));
-             set_f _fac   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 18) 32))), one));
-             set_f _fvif  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 19) 32))), one));
-             set_f _fvip  (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 20) 32))), one));
-             set_f _fid   (BinOp(And, (BinOp (Shr, eflags, Const (Word.of_int (Z.of_int 21) 32))), one));
+             set_f fpf  (BinOp(And, (BinOp (Shr, eflags, const 2 32)), one));
+             set_f faf  (BinOp(And, (BinOp (Shr, eflags, const 4 32)), one));
+             set_f fzf  (BinOp(And, (BinOp (Shr, eflags, const 6 32)), one));
+             set_f fsf  (BinOp(And, (BinOp (Shr, eflags, const 7 32)), one));
+             set_f _ftf (BinOp(And, (BinOp (Shr, eflags, const 8 32)), one));
+             set_f fif  (BinOp(And, (BinOp (Shr, eflags, const 9 32)), one));
+             set_f fdf  (BinOp(And, (BinOp (Shr, eflags, const 10 32)), one));
+             set_f fof  (BinOp(And, (BinOp (Shr, eflags, const 11 32)), one));
+             set_f _fiopl (BinOp(And, (BinOp (Shr, eflags, const 12 32)),  const 3 32));
+             set_f _fnt   (BinOp(And, (BinOp (Shr, eflags, const 14 32)), one));
+             set_f _frf   (BinOp(And, (BinOp (Shr, eflags, const 16 32)), one));
+             set_f _fvm   (BinOp(And, (BinOp (Shr, eflags, const 17 32)), one));
+             set_f _fac   (BinOp(And, (BinOp (Shr, eflags, const 18 32)), one));
+             set_f _fvif  (BinOp(And, (BinOp (Shr, eflags, const 19 32)), one));
+             set_f _fvip  (BinOp(And, (BinOp (Shr, eflags, const 20 32)), one));
+             set_f _fid   (BinOp(And, (BinOp (Shr, eflags, const 21 32)), one));
              ]
 
     (**************************************************************************************)
@@ -704,7 +713,7 @@ struct
     let add_sub_immediate s op b r sz =
         let r'  = V (to_reg r sz)                                       in
         let sz' = sz / 8                              in
-        let w   = Const (Word.of_int (int_of_bytes s sz') s.operand_sz) in
+        let w   = const_of_Z (int_of_bytes s sz') s.operand_sz in
         add_sub s op b r' w sz
 
 
@@ -740,10 +749,6 @@ struct
     let or_xor_and_mrm s op sz direction =
         let dst, src = operands_from_mod_reg_rm s sz direction in
         or_xor_and s op dst src
-
-
-    (** [const c s] builds the asm constant c from the given context *)
-    let const c sz = Const (Word.of_int (Z.of_int c) sz)
 
     let inc_dec reg op s sz =
         let dst 	= reg                               in
@@ -790,7 +795,7 @@ struct
     (** common inc/dec depending on value of df in instructions SCAS/STOS/CMPS/MOVS *)
     let inc_dec_wrt_df regs i =
         let inc_dec op r sz =
-            let c = Const (Word.of_int (Z.of_int (i / 8)) sz) in
+            let c = const (i / 8) sz in
             Set (r, BinOp (op, Lval r, c))
         in
         let istmts, estmts =
@@ -862,9 +867,9 @@ struct
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))			     in
         let reg'           = find_reg reg s.operand_sz			 	     in
         let n 	     = s.operand_sz / 8			     in
-        let src 	     = Const (Word.of_int (int_of_bytes s n) s.operand_sz)	     in
+        let src 	     = const_of_Z (int_of_bytes s n) s.operand_sz	     in
         let src' 	     = add_segment s src s.segments.data			     in
-        let off 	     = BinOp (Add, src', Const (Word.of_int (Z.of_int n) s.addr_sz)) in
+        let off 	     = BinOp (Add, src', const n s.addr_sz) in
         return s [ Set (V reg', Lval (M (src', s.operand_sz))) ; Set (sreg', Lval (M (off, 16)))]
 
     (****************************************************)
@@ -941,7 +946,7 @@ struct
 
     (** common statement to move (a chunk of) esp by a relative offset *)
     let set_esp op esp' n =
-        Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / 8)) !Config.stack_width)) )
+        Set (V esp', BinOp (op, Lval (V esp'), const (n / 8) !Config.stack_width))
 
 
     let call s t =
@@ -989,7 +994,7 @@ struct
         let a' = Address.add_offset o v                              in
         check_jmp s a';
         (* returns the statements : the first one enables to update the interpreter with the new value of cs *)
-        return s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (A a') ]
+        return s [ Set (V (T cs), const_of_Z v (Register.size cs)) ; Jmp (A a') ]
 
     (* statements for LOOP/LOOPE/LOOPNE *)
     let loop s c =
@@ -1053,7 +1058,7 @@ struct
             let n = size_push_pop lv s.addr_sz in
             let incr = set_esp Add esp' n in
             if with_stack_pointer s.a lv then
-                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n/8)) s.operand_sz)), s.operand_sz))) ] @ stmts
+                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) s.operand_sz), s.operand_sz))) ] @ stmts
             else
                 [ Set (lv, Lval (M (Lval (V esp'), s.operand_sz))) ; incr ] @ stmts
         ) [] lv
@@ -1102,7 +1107,7 @@ struct
 
     (** returns the state for the push of an immediate operands. Its size is given by the parameter *)
     let push_immediate s n =
-        let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width) in
+        let c     = const_of_Z (int_of_bytes s n) !Config.stack_width in
         let esp'  = esp_lval ()						       in
         let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]
         in
@@ -1116,7 +1121,7 @@ struct
         let e' =
             if sz = 16 then
                 (* if sz = 16 should AND EFLAGS with 00FCFFFFH) *)
-                BinOp(And, e, Const (Word.of_int (Z.of_int 0x00FCFFFF) 32))
+                BinOp(And, e, const 0x00FCFFFF 32)
             else e
         in
         let stmt = [Set(tmp, e')] in
@@ -1126,14 +1131,14 @@ struct
     let mov_immediate s n =
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))      			    in
         let r 		   = find_reg_v reg n						    in
-        let c              = Const (Word.of_int (int_of_bytes s (n/8)) n) in
+        let c              = const_of_Z (int_of_bytes s (n/8)) n in
         return s [ Set (r, c) ]
 
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
         let imm = int_of_bytes s (n/8) in
         let leax = V (to_reg eax n) in
-        let lmem = M (add_segment s (Const (Word.of_int imm s.addr_sz)) s.segments.data, n) in
+        let lmem = M (add_segment s (const_of_Z imm s.addr_sz) s.segments.data, n) in
         let dst, src =
             if from then lmem, Lval leax
             else leax, Lval lmem
@@ -1188,7 +1193,7 @@ struct
         | _ -> error s.a "Illegal nnn value in grp1"
 
     let shift_l_stmt dst sz n =
-        let sz' = Const (Word.of_int (Z.of_int sz) sz) in
+        let sz' = const sz sz in
         let one = Const (Word.one sz) in
         let ldst = Lval dst in
         let cf_stmt =
@@ -1223,10 +1228,10 @@ struct
         [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops)]
 
     let shift_r_stmt dst sz n arith =
-        let sz' = Const (Word.of_int (Z.of_int sz) sz) in
+        let sz' = const sz sz in
         let one = Const (Word.one sz) in
         let ldst = Lval dst in
-        let dst_sz_min_one = Const (Word.of_int (Z.of_int (sz-1)) sz) in
+        let dst_sz_min_one = const (sz-1) sz in
         let dst_msb = BinOp(And, Const (Word.one sz), BinOp(Shr, ldst, dst_sz_min_one)) in
         let cf_stmt =
             let c = Cmp (LT, sz', n) in
@@ -1272,7 +1277,7 @@ struct
         let n =
             match e with
             | Some e' -> e'
-            | None -> Const (Word.of_int (int_of_bytes s 1) sz)
+            | None -> const_of_Z (int_of_bytes s 1) sz
         in
         match nnn with
         | 4 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
@@ -1327,7 +1332,7 @@ struct
             | M _ -> false
         in
         let nth  =
-            if is_register then BinOp (Mod, src, Const (Word.of_int (Z.of_int s.operand_sz) s.operand_sz))
+            if is_register then BinOp (Mod, src, const s.operand_sz s.operand_sz)
             else src
         in
         let nbit  = BinOp (And, UnOp (SignExt s.operand_sz, BinOp (Shr, Lval dst, nth)), Const (Word.one s.operand_sz)) in
@@ -1357,12 +1362,12 @@ struct
     (* BCD *)
     (*******************)
     let al  = V (P (eax, 0, 7))
-    let fal = BinOp (And, Lval al, Const (Word.of_int (Z.of_int 0xF) 8))
-    let fal_gt_9 = Cmp (GT, fal, Const (Word.of_int (Z.of_int 9) 8))
+    let fal = BinOp (And, Lval al, const 0xF 8)
+    let fal_gt_9 = Cmp (GT, fal, const 9 8)
     let faf_eq_1 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))
 
     let core_aaa_aas s op =
-        let al_op_6 = BinOp (op, Lval al, Const (Word.of_int (Z.of_int 6) 8)) in
+        let al_op_6 = BinOp (op, Lval al, const 6 8) in
         let ah      = V (P (eax, 24, 31))                                     in
         let set     = Set (al, fal)	                                      in
         let istmts =
@@ -1399,15 +1404,15 @@ struct
     let core_daa_das s op =
         let old_al = Register.make (Register.fresh_name()) 8				       in
         let old_cf = Register.make (Register.fresh_name()) 1				       in
-        let al_op_6 = BinOp (op, Lval al, Const (Word.of_int (Z.of_int 6) 8)) in
+        let al_op_6 = BinOp (op, Lval al, const 6 8) in
         let carry  = If(BBinOp (LogOr, Cmp (EQ, Lval (V (T old_cf)), Const (Word.one 1)), BBinOp (LogOr, fal_gt_9, faf_eq_1)), [set_flag fcf],[clear_flag fcf]) in
 
         let if1 = If (BBinOp (LogOr, fal_gt_9, faf_eq_1),
                       [ Set(al, al_op_6); carry; set_flag faf],
                       [clear_flag faf])
         in
-        let if2 = If (BBinOp (LogOr, Cmp (GT, Lval (V (T old_al)), Const (Word.of_int (Z.of_int 0x99) 8)), Cmp(EQ, Lval (V (T old_cf)), Const (Word.one 1))),
-                      [Set (al, BinOp(op, Lval al, Const (Word.of_int (Z.of_int 0x60) 8)))],
+        let if2 = If (BBinOp (LogOr, Cmp (GT, Lval (V (T old_al)), const 0x99 8), Cmp(EQ, Lval (V (T old_cf)), Const (Word.one 1))),
+                      [Set (al, BinOp(op, Lval al, const 0x60 8))],
                       [clear_flag fcf])
         in
         let stmts =
@@ -1579,7 +1584,7 @@ struct
             | '\x3A' -> (* CMP *) cmp_mrm s 8 1
             | '\x3B' -> (* CMP *) cmp_mrm s s.operand_sz 1
             | '\x3C' -> (* CMP AL with immediate *)
-              let i = Const (Word.of_int (int_of_bytes s 1) 8) in
+              let i = const_of_Z (int_of_bytes s 1) 8 in
               return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) i 8)
             | '\x3D' -> (* CMP eAX with immediate *)
               let i = Const (Word.of_int (int_of_bytes s (s.operand_sz / 8)) s.operand_sz) in
