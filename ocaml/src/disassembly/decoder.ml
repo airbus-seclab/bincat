@@ -732,14 +732,14 @@ struct
         (set::(flag_stmts)@[Directive (Remove tmp)])
 
     (** returns the states for OR, XOR, AND depending on the the given operator *)
-    let or_xor_and s op dst src =
+    let or_xor_and s op dst src sz =
         let res   = Set (dst, BinOp(op, Lval dst, src)) in
         let res'  = Lval dst			        in
         let flag_stmts =
             [
-                clear_flag fcf; clear_flag fof; zero_flag_stmts s.operand_sz res';
-                sign_flag_stmts s.operand_sz res'; 
-                parity_flag_stmts s.operand_sz res'; undef_flag faf
+                clear_flag fcf; clear_flag fof; zero_flag_stmts sz res';
+                sign_flag_stmts sz res'; 
+                parity_flag_stmts sz res'; undef_flag faf
             ]
         in
         return s (res::flag_stmts)
@@ -747,11 +747,11 @@ struct
     let or_xor_and_eax s op sz imm_sz =
         let eax = find_reg_v 0 sz in
         let imm = get_imm s imm_sz sz false in
-            or_xor_and s op eax imm
+            or_xor_and s op eax imm sz
 
     let or_xor_and_mrm s op sz direction =
         let dst, src = operands_from_mod_reg_rm s sz direction in
-        or_xor_and s op dst src
+        or_xor_and s op dst src sz
 
     let test s dst src sz =
         let name 	= Register.fresh_name ()	    in
@@ -1200,12 +1200,12 @@ struct
         (* operation is encoded in bits 5,4,3 *)
         match nnn with
         | 0 -> add_sub s Add false dst imm reg_sz
-        | 1 -> or_xor_and s Or dst imm
+        | 1 -> or_xor_and s Or dst imm reg_sz
         | 2 -> add_sub s Add true dst imm reg_sz
         | 3 -> add_sub s Sub true dst imm reg_sz
-        | 4 -> or_xor_and s And dst imm
+        | 4 -> or_xor_and s And dst imm reg_sz
         | 5 -> add_sub s Sub false dst imm reg_sz
-        | 6 -> or_xor_and s Xor dst imm
+        | 6 -> or_xor_and s Xor dst imm reg_sz
         | 7 -> return s (cmp_stmts (Lval dst) imm reg_sz)
         | _ -> error s.a "Illegal nnn value in grp1"
 
