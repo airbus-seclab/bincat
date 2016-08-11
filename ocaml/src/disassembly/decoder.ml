@@ -305,7 +305,7 @@ struct
                 i
 
     let get_imm s imm_sz sz sign_ext =
-        Const (Word.of_int (get_imm_int s imm_sz sz sign_ext) sz)
+        const_of_Z (get_imm_int s imm_sz sz sign_ext) sz
 
     (** update and return the current state with the given statements and the new instruction value *)
     (** the context of decoding is also updated *)
@@ -368,7 +368,7 @@ struct
         if Z.compare ds_val Z.zero = 0 then
             e
         else
-            BinOp(Add, e, Const (Word.of_int ds_val s.operand_sz))
+            BinOp(Add, e, const_of_Z ds_val s.operand_sz)
 
     let add_data_segment s e = add_segment s e s.segments.data
 
@@ -418,7 +418,7 @@ struct
     let disp s nb sz =
         (* TODO : signed *)
         let n = int_of_bytes s (nb/8) in
-        Const (Word.of_int n sz)
+        const_of_Z n sz
 
     exception Disp32
 
@@ -713,7 +713,7 @@ struct
     let add_sub_immediate s op b r sz =
         let r'  = V (to_reg r sz)                                       in
         let sz' = sz / 8                              in
-        let w   = Const (Word.of_int (int_of_bytes s sz') s.operand_sz) in
+        let w   = const_of_Z (int_of_bytes s sz') s.operand_sz in
         add_sub s op b r' w sz
 
 
@@ -795,7 +795,7 @@ struct
     (** common inc/dec depending on value of df in instructions SCAS/STOS/CMPS/MOVS *)
     let inc_dec_wrt_df regs i =
         let inc_dec op r sz =
-            let c = Const (Word.of_int (Z.of_int (i / 8)) sz) in
+            let c = const (i / 8) sz in
             Set (r, BinOp (op, Lval r, c))
         in
         let istmts, estmts =
@@ -867,7 +867,7 @@ struct
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))			     in
         let reg'           = find_reg reg s.operand_sz			 	     in
         let n 	     = s.operand_sz / 8			     in
-        let src 	     = Const (Word.of_int (int_of_bytes s n) s.operand_sz)	     in
+        let src 	     = const_of_Z (int_of_bytes s n) s.operand_sz	     in
         let src' 	     = add_segment s src s.segments.data			     in
         let off 	     = BinOp (Add, src', const n s.addr_sz) in
         return s [ Set (V reg', Lval (M (src', s.operand_sz))) ; Set (sreg', Lval (M (off, 16)))]
@@ -946,7 +946,7 @@ struct
 
     (** common statement to move (a chunk of) esp by a relative offset *)
     let set_esp op esp' n =
-        Set (V esp', BinOp (op, Lval (V esp'), Const (Word.of_int (Z.of_int (n / 8)) !Config.stack_width)) )
+        Set (V esp', BinOp (op, Lval (V esp'), const (n / 8) !Config.stack_width))
 
 
     let call s t =
@@ -994,7 +994,7 @@ struct
         let a' = Address.add_offset o v                              in
         check_jmp s a';
         (* returns the statements : the first one enables to update the interpreter with the new value of cs *)
-        return s [ Set (V (T cs), Const (Word.of_int v (Register.size cs))) ; Jmp (A a') ]
+        return s [ Set (V (T cs), const_of_Z v (Register.size cs)) ; Jmp (A a') ]
 
     (* statements for LOOP/LOOPE/LOOPNE *)
     let loop s c =
@@ -1058,7 +1058,7 @@ struct
             let n = size_push_pop lv s.addr_sz in
             let incr = set_esp Add esp' n in
             if with_stack_pointer s.a lv then
-                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), Const (Word.of_int (Z.of_int (n/8)) s.operand_sz)), s.operand_sz))) ] @ stmts
+                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) s.operand_sz), s.operand_sz))) ] @ stmts
             else
                 [ Set (lv, Lval (M (Lval (V esp'), s.operand_sz))) ; incr ] @ stmts
         ) [] lv
@@ -1107,7 +1107,7 @@ struct
 
     (** returns the state for the push of an immediate operands. Its size is given by the parameter *)
     let push_immediate s n =
-        let c     = Const (Word.of_int (int_of_bytes s n) !Config.stack_width) in
+        let c     = const_of_Z (int_of_bytes s n) !Config.stack_width in
         let esp'  = esp_lval ()						       in
         let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]
         in
@@ -1131,14 +1131,14 @@ struct
     let mov_immediate s n =
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))      			    in
         let r 		   = find_reg_v reg n						    in
-        let c              = Const (Word.of_int (int_of_bytes s (n/8)) n) in
+        let c              = const_of_Z (int_of_bytes s (n/8)) n in
         return s [ Set (r, c) ]
 
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
         let imm = int_of_bytes s (n/8) in
         let leax = V (to_reg eax n) in
-        let lmem = M (add_segment s (Const (Word.of_int imm s.addr_sz)) s.segments.data, n) in
+        let lmem = M (add_segment s (const_of_Z imm s.addr_sz) s.segments.data, n) in
         let dst, src =
             if from then lmem, Lval leax
             else leax, Lval lmem
@@ -1231,7 +1231,7 @@ struct
         let sz' = const sz sz in
         let one = Const (Word.one sz) in
         let ldst = Lval dst in
-        let dst_sz_min_one = Const (Word.of_int (Z.of_int (sz-1)) sz) in
+        let dst_sz_min_one = const (sz-1) sz in
         let dst_msb = BinOp(And, Const (Word.one sz), BinOp(Shr, ldst, dst_sz_min_one)) in
         let cf_stmt =
             let c = Cmp (LT, sz', n) in
@@ -1277,7 +1277,7 @@ struct
         let n =
             match e with
             | Some e' -> e'
-            | None -> Const (Word.of_int (int_of_bytes s 1) sz)
+            | None -> const_of_Z (int_of_bytes s 1) sz
         in
         match nnn with
         | 4 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
@@ -1584,7 +1584,7 @@ struct
             | '\x3A' -> (* CMP *) cmp_mrm s 8 1
             | '\x3B' -> (* CMP *) cmp_mrm s s.operand_sz 1
             | '\x3C' -> (* CMP AL with immediate *)
-              let i = Const (Word.of_int (int_of_bytes s 1) 8) in
+              let i = const_of_Z (int_of_bytes s 1) 8 in
               return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) i 8)
             | '\x3D' -> (* CMP eAX with immediate *)
               let i = Const (Word.of_int (int_of_bytes s (s.operand_sz / 8)) s.operand_sz) in
