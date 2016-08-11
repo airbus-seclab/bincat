@@ -536,7 +536,7 @@ struct
     (** produce common statements to set the overflow flag and the adjust flag *)
     let overflow flag n nth res sz op1 op2 =
         (* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
-        let b1        = Const (Word.of_int Z.one sz)          in
+        let b1        = Const (Word.one sz)          in
         let sign_res  = BinOp(And, BinOp (Shr, res, nth), b1) in
         let sign_op1  = BinOp(And, BinOp (Shr, op1, nth), b1) in
         let sign_op2  = BinOp(And, BinOp (Shr, op2, nth), b1) in
@@ -644,7 +644,7 @@ struct
 
     (** Set the flags from EFLAGS value*)
     let set_eflags eflags sz =
-        let one = Const (Word.of_int Z.one sz) in
+        let one = Const (Word.one sz) in
         let set_f flg value = Set (V (T flg), value) in
             (* XXX check perms and validity *)
             [set_f fcf  (BinOp(And, eflags, one));
@@ -1188,30 +1188,85 @@ struct
         | 7 -> return s (cmp_stmts (Lval dst) imm reg_sz)
         | _ -> error s.a "Illegal nnn value in grp1"
 
-
-    let shr_stmt dst sz n =
+    let shift_l_stmt dst sz n =
         let sz' = Const (Word.of_int (Z.of_int sz) sz) in
-        let one = Const (Word.of_int Z.one sz) in
+        let one = Const (Word.one sz) in
         let ldst = Lval dst in
         let cf_stmt =
             let c = Cmp (LT, sz', n) in
             If (c,
                 [undef_flag fcf],
-                [Set (V (T fcf), BinOp (And, ldst, one))])
+                (* CF is the last bit having been "evicted out" *)
+                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n)))))])
         in
         let of_stmt =
-            let c = Cmp (EQ, sz', one) in
-            let sz1 = Const (Word.of_int (Z.of_int (sz-1)) sz) in
-            let mask = BinOp(Shl, one, sz1) in
-            If (c,
-                [Set (V (T fof), BinOp(Shr, BinOp (And, ldst, mask), sz1))]
-                ,
-                [undef_flag fof])
+                let is_one = Cmp (EQ, n, one) in
+                let op = 
+                       (* last bit having been "evicted out"  xor CF*)
+                       Set (V (T fof), 
+                        BinOp(Xor, Lval (V (T fcf)),
+                        BinOp (And, one, 
+                        (BinOp(Shr, ldst, 
+                         BinOp(Sub, sz', n))))))
+                in
+                    If (is_one,    (* OF is set if n == 1 only *)
+                        [op] ,
+                        [undef_flag fof])
         in
-        let c = Cmp (EQ, ldst, sz') in
-        [Set (dst, BinOp (Shr, ldst, n));
-         If (c, [cf_stmt ; of_stmt ; undef_flag faf],
-             [])]
+        let ops = 
+                [ 
+                 Set (dst, BinOp (Shl, ldst, n));
+                 (* previous cf is used in of_stmt *)
+                 of_stmt; cf_stmt; undef_flag faf;
+                ]
+        in
+        (* If shifted by zero, do nothing, else do the rest *)
+        [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops)]
+
+    let shift_r_stmt dst sz n arith =
+        let sz' = Const (Word.of_int (Z.of_int sz) sz) in
+        let one = Const (Word.one sz) in
+        let ldst = Lval dst in
+        let dst_sz_min_one = Const (Word.of_int (Z.of_int (sz-1)) sz) in
+        let dst_msb = BinOp(And, Const (Word.one sz), BinOp(Shr, ldst, dst_sz_min_one)) in
+        let cf_stmt =
+            let c = Cmp (LT, sz', n) in
+            If (c,
+                [undef_flag fcf],
+                (* CF is the last bit having been "evicted out" *)
+                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub,n, one)))))])
+        in
+        let of_stmt =
+                let is_one = Cmp (EQ, n, one) in
+                let op = 
+                    if arith then
+                        (clear_flag fof)
+                    else
+                        (* MSB of original dest *)
+                        (Set (V (T fof), dst_msb))
+                in
+                    If (is_one,    (* OF is set if n == 1 only *)
+                        [op] ,
+                        [undef_flag fof])
+        in
+        let ops = 
+            if arith then
+                [ 
+                (* Compute sign extend mask if needed *)
+                 If (Cmp (EQ, dst_msb, one),
+                    [Set (dst, BinOp(Or, BinOp (Shr, ldst, n), one))], (* TODO :extend *)
+                    [Set (dst, BinOp (Shr, ldst, n))] (* no extend *)
+                    );
+                 cf_stmt ; of_stmt ; undef_flag faf;
+                ]
+            else
+                [ 
+                 Set (dst, BinOp (Shr, ldst, n));
+                 cf_stmt ; of_stmt ; undef_flag faf;
+                ]
+        in
+        (* If shifted by zero, do nothing, else do the rest *)
+        [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops)]
 
     let grp2 s sz e =
         let nnn, dst = core_grp s sz in
@@ -1221,9 +1276,9 @@ struct
             | None -> Const (Word.of_int (int_of_bytes s 1) sz)
         in
         match nnn with
-        (*	| 4 -> return s [ Set (dst, BinOp (Mul, Lval dst, n)) ;  ] *)
-        | 5 -> return s (shr_stmt dst sz n)
-        (*	| 7 -> return s [ Set (dst, BinOp (Div, Lval dst, 2*n)) *)
+        | 4 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
+        | 5 -> return s (shift_r_stmt dst sz n false) (* SHR *)
+       	| 7 -> return s (shift_r_stmt dst sz n true) (* SAR *)
         | _ -> error s.a "Illegal opcode in grp 2"
 
     let grp3 s sz =
