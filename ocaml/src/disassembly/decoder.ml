@@ -1009,9 +1009,10 @@ struct
             | _      -> error s.a "Unexpected use of Decoder.loop"
         in
         return s [ dec_stmt ; If (cond, [Jmp (A (a'))], [ Jmp (A (Address.add_offset s.a (Z.of_int s.o)))]) ]
+
     (*******************)
-    (* push/pop *)
-    (***************)
+    (* push/pop        *)
+    (*******************)
     let is_segment lv =
         match lv with
         | V (T r) | V (P(r, _, _)) ->
@@ -1146,6 +1147,22 @@ struct
         let cond_stmt = exp_of_cond cond s in
         return s [ If (cond_stmt, [ Set(dst, src) ], []) ]
 
+    (*******************************)
+    (* multiplication and division *)
+    (*******************************)
+
+    let mul_stmts dst sz =
+        let eax_v = (find_reg_v 0 sz) in
+        let mul_s = [ Set(eax_v, (BinOp(Mul, (Lval eax_v), dst))) ] in
+        let flags_stmts = [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
+            (* The OF and CF flags are set to 0 if the upper half of the result
+               is 0; otherwise, they are set to 1.  *)
+            If(Cmp(EQ, Const (Word.zero sz), Lval (V( P(eax, sz/2, sz-1)))),
+                [clear_flag fcf; clear_flag fof],
+                [set_flag fcf; set_flag fof])
+            ] in
+        mul_s @ flags_stmts
+
     (*****************************************************************************************)
     (* decoding of opcodes of groups 1 to 8 *)
     (*****************************************************************************************)
@@ -1215,6 +1232,7 @@ struct
             match nnn with
             | 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
             | 3 -> (* NEG *) [ Set (dst, BinOp (Sub, Const (Word.zero sz), Lval dst)) ]
+            | 4 -> (* MUL *) mul_stmts (Lval dst) sz
             | _ -> error s.a "Unknown operation in grp 3"
         in
         return s stmts
