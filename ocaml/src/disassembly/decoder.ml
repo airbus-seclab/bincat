@@ -580,7 +580,7 @@ struct
 
     (** produce the statement to set the sign flag wrt to the given parameter *)
     let sign_flag_stmts sz res =
-        let c = Cmp (EQ, Const (Word.one fsf_sz), BinOp(Shr, res, const (sz-1) sz)) in
+        let c = Cmp (EQ, const 1 sz, BinOp(Shr, res, const (sz-1) sz)) in
         If (c, [ set_flag fsf ], [ clear_flag fsf ] )
 
     (** produce the statement to set the zero flag *)
@@ -598,7 +598,7 @@ struct
         (* we sum every bits and check whether this sum is even or odd *)
         (* using the modulo of the divison by 2 *)
         let nth i =
-            let one = Const (Word.one sz) in
+            let one = const 1 sz in
             let i' = const i sz in
             BinOp (And, UnOp(SignExt sz, BinOp(Shr, res, i')), one)
         in
@@ -606,8 +606,8 @@ struct
         for i = 1 to 7 do
             e := BinOp(Add, !e, nth i)
         done;
-        let if_stmt   = Set (V (T fpf), Const (Word.one fpf_sz))			                    in
-        let else_stmt = Set (V (T fpf), Const (Word.zero fpf_sz))			                    in
+        let if_stmt   = set_flag fcf			                    in
+        let else_stmt = clear_flag fcf in
         let c 	      = Cmp (EQ, BinOp(Mod, !e, const 2 sz), Const (Word.zero sz)) in
         If(c, [ if_stmt ], [ else_stmt ])
 
@@ -738,7 +738,8 @@ struct
         let flag_stmts =
             [
                 clear_flag fcf; clear_flag fof; zero_flag_stmts s.operand_sz res';
-                sign_flag_stmts s.operand_sz res'; parity_flag_stmts s.operand_sz res'; undef_flag faf
+                sign_flag_stmts s.operand_sz res'; 
+                parity_flag_stmts s.operand_sz res'; undef_flag faf
             ]
         in
         return s (res::flag_stmts)
@@ -896,7 +897,7 @@ struct
         | 12 -> (* sf <> of *) Cmp (NEQ, Lval (V (T fsf)), Lval (V (T fof)))
         | 13 -> (* not (sf <> of) = sf = of *) Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof)))
         | 14 -> (* sf <> of || zf == 1 *) BBinOp (LogOr, Cmp (NEQ, Lval (V (T fsf)), Lval (V (T fof))), eq fzf)
-        | 15 -> (* (not (sf <> zf || zf == 1) = sf == zf && zf <> 1 *) BBinOp (LogAnd, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))), neq fzf)
+        | 15 -> (* GT : zf == 0 && sf == of *) BBinOp (LogAnd, Cmp (EQ, Lval (V (T fsf)), Lval (V (T fof))), neq fzf)
         | _  -> error s.a "Opcode.exp_of_cond: illegal value"
 
 
