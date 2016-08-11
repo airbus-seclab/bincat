@@ -137,7 +137,16 @@ class AnalyzerConfig(object):
             idaapi.enum_import_names(i, imp_cb)
         return imports
 
-
+    @staticmethod
+    def get_registers_with_state():
+        regs = {}
+        for regname in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
+            regs[regname] = "0?0xFFFFFFFF"
+        for regname in ["cf", "pf", "af", "zf", "sf", "tf", "if", "df", "of", "nt",
+                        "rf", "vm", "ac", "vif", "vip", "id"]:
+            regs[regname] = "0?1"
+        regs["iopl"] = "3"
+        return regs
 
     def __str__(self):
         sio = StringIO.StringIO()
@@ -221,7 +230,10 @@ class AnalyzerConfig(object):
         config.set('binary', 'format', self.get_file_type())
 
         # [state section]
-        # TODO : generate "?" config for all registers by default ?
+        config.add_section("state")
+        regs = AnalyzerConfig.get_registers_with_state()
+        for rname, val in regs.iteritems():
+            config.set("state", ("reg[%s]" % rname), val)
 
         imports = self.get_imports()
         # [import] section
