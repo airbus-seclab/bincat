@@ -338,10 +338,8 @@ class State(object):
         """
         :param ea: int or long
         """
-        bc_log.info("SET CURRENT EA %02X" % ea)
         if not (force or ea != self.current_ea):
             return
-        bc_log.info("(REAL) SET CURRENT EA %02X" % ea)
         self.gui.before_change_ea()
         self.current_ea = ea
         if self.cfa:
