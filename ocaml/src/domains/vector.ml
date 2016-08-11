@@ -263,13 +263,15 @@ module Make(V: Val) =
                 ishl v1 i
             with _ -> raise Exceptions.Enum_failure
 
-        let shr v1 v2 =
-            let n = Array.length v1 in
+        let shr v n =
+            Log.debug (Printf.sprintf "Vector.shr(%s,%s)" (to_string v) (to_string n));
+            let v_len = Array.length v in
             try
-                let i = Z.to_int (to_value v2) in
-                let v' = Array.make n V.zero in
-                for j = 0 to n-i-1 do
-                    v'.(j) <- v1.(j)
+                let n_i = Z.to_int (to_value n) in
+                Log.debug (Printf.sprintf "Vector: %d" n_i);
+                let v' = Array.make v_len V.zero in
+                for j = 0 to v_len-n_i-1 do
+                    v'.(j+n_i) <- v.(j)
                 done;
                 v'
 
