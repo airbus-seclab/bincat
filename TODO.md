@@ -18,6 +18,7 @@
 * importer les valeurs concrètes depuis le debugger (mémoire et registres)
 * fenetre de registre jolie (couleur pour la teinte)
 * colorer les lignes teintées
+* désactiver les contrôles "start address" et "stop address" lorsqu'une configuration a été chargée par l'utilisateur, ou modifiée
 
 ## Global
 * faire marcher `bincat` sous windows ?
