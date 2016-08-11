@@ -618,7 +618,6 @@ class GUI(object):
         idaapi.attach_action_to_menu("Edit/BinCAT/show_win",
                                      "bincat:options_act",
                                      idaapi.SETMENU_APP)
-        bc_log.info("HOOKING")
         self.hooks = Hooks(state)
         self.hooks.hook()
 

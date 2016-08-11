@@ -57,12 +57,13 @@ class BincatPlugin(idaapi.plugin_t):
             # will initialize later
             return idaapi.PLUGIN_OK
 
-        self.initialized = True
         bc_log.info("Autostarting")
-        return idaapi.PLUGIN_KEEP
 
         self.state = State(options)
         bc_log.info("IDABinCAT ready.")
+        self.state.gui.show_windows()
+        self.initialized = True
+        return idaapi.PLUGIN_KEEP
 
     def run(self, args):
         if self.initialized:
