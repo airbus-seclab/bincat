@@ -9,6 +9,8 @@
 * perf memory init
 * fix If dans l'interpreteur
 * programme de test : binaire => statements (à la metasm-shell)
+* à clarifier : pointer n'est pas un pointer mais une valeur
+* BUG : revoir tout write_in_memory
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse
