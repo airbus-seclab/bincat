@@ -738,7 +738,7 @@ struct
         let flag_stmts =
             [
                 clear_flag fcf; clear_flag fof; zero_flag_stmts sz res';
-                sign_flag_stmts sz res'; 
+                sign_flag_stmts sz res';
                 parity_flag_stmts sz res'; undef_flag faf
             ]
         in
@@ -762,7 +762,7 @@ struct
         let flag_stmts =
             [
                 clear_flag fcf; clear_flag fof; zero_flag_stmts sz res';
-                sign_flag_stmts sz res'; 
+                sign_flag_stmts sz res';
                 parity_flag_stmts sz res'; undef_flag faf
             ]
         in
@@ -1222,20 +1222,20 @@ struct
         in
         let of_stmt =
                 let is_one = Cmp (EQ, n, one) in
-                let op = 
+                let op =
                        (* last bit having been "evicted out"  xor CF*)
-                       Set (V (T fof), 
+                       Set (V (T fof),
                         BinOp(Xor, Lval (V (T fcf)),
-                        BinOp (And, one, 
-                        (BinOp(Shr, ldst, 
+                        BinOp (And, one,
+                        (BinOp(Shr, ldst,
                          BinOp(Sub, sz', n))))))
                 in
                     If (is_one,    (* OF is set if n == 1 only *)
                         [op] ,
                         [undef_flag fof])
         in
-        let ops = 
-                [ 
+        let ops =
+                [
                  Set (dst, BinOp (Shl, ldst, n));
                  (* previous cf is used in of_stmt *)
                  of_stmt; cf_stmt; undef_flag faf;
@@ -1259,7 +1259,7 @@ struct
         in
         let of_stmt =
                 let is_one = Cmp (EQ, n, one) in
-                let op = 
+                let op =
                     if arith then
                         (clear_flag fof)
                     else
@@ -1270,9 +1270,9 @@ struct
                         [op] ,
                         [undef_flag fof])
         in
-        let ops = 
+        let ops =
             if arith then
-                [ 
+                [
                 (* Compute sign extend mask if needed *)
                  If (Cmp (EQ, dst_msb, one),
                     [Set (dst, BinOp(Or, BinOp (Shr, ldst, n), one))], (* TODO :extend *)
@@ -1281,7 +1281,7 @@ struct
                  cf_stmt ; of_stmt ; undef_flag faf;
                 ]
             else
-                [ 
+                [
                  Set (dst, BinOp (Shr, ldst, n));
                  cf_stmt ; of_stmt ; undef_flag faf;
                 ]
@@ -1777,14 +1777,14 @@ struct
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
             (* CMOVcc *)
-            | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond 
+            | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
 
             | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
             | '\xa0' -> push s [V (T fs)]
             | '\xa1' -> pop s [V (T fs)]
             (*| '\xa2' -> cpuid *)
-            | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bt s reg rm 
+            | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bt s reg rm
             | '\xa8' -> push s [V (T gs)]
             | '\xa9' -> pop s [V (T gs)]
             | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
