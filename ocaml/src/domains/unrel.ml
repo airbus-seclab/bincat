@@ -220,6 +220,7 @@ module Make(D: T) =
                       let r = eval e in
                       try
                           let addresses = Data.Address.Set.elements (D.to_addresses r) in
+                          List.iter (fun a -> Log.debug (Printf.sprintf "deref : %s, %d" (Data.Address.to_string a) n)) addresses;
                           let rec to_value a =
                               match a with
                               | [a]  -> build_value m a n
