@@ -61,51 +61,51 @@ struct
     let unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
 
     let process_ret fun_stack v =
-      let d = v.Cfa.State.v in
-      let d', ipstack =
-          try
-	    let f, ipstack = List.hd !fun_stack in
-	    fun_stack := List.tl !fun_stack;	
-	    (* check and apply tainting rules *)
-            match f with
-            | Some (libname, fname) -> (* function library: try to apply tainting rules from config *)
-	       begin
-		 try
-		   let rules =
-		     let funs = Hashtbl.find Config.tainting_tbl libname in
-		     fst (List.find (fun v -> String.compare (fst v) fname = 0) funs)
-		   in
-		   let d' = apply_tainting rules d in
-		   check_tainting f ipstack d';
-		   d', Some ipstack
-		 with
-		 | Not_found -> d, Some ipstack
-	       end
-            | None -> (* internal functions : tainting rules from control flow and data flow are directly infered from analysis *) d, Some ipstack
-	  with
-	  | _ -> Log.from_analysis "RET without previous CALL"; d, None
-      in   
-      (* check whether instruction pointers supposed and effective agree *)
-      try
-        let sp = Register.stack_pointer () in
-        let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
-	match Data.Address.Set.elements (ip_on_stack) with
-	| [a] ->
-	   v.Cfa.State.ip <- a;
-	   begin
-	     match ipstack with
-	     | Some ip' -> 
-		if not (Data.Address.equal ip' a) then
-		  Log.from_analysis (Printf.sprintf "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET instruction"
-						    (Data.Address.to_string ip') (Data.Address.to_string a))
-	     | None -> ()
-	   end;
-	   v
-	| _ -> raise Exit
-      with
-	_ -> Log.error "computed instruction pointer at return instruction is either undefined or imprecise"
+        let d = v.Cfa.State.v in
+        let d', ipstack =
+            try
+                let f, ipstack = List.hd !fun_stack in
+                fun_stack := List.tl !fun_stack;	
+                (* check and apply tainting rules *)
+                match f with
+                | Some (libname, fname) -> (* function library: try to apply tainting rules from config *)
+                  begin
+                      try
+                          let rules =
+                              let funs = Hashtbl.find Config.tainting_tbl libname in
+                              fst (List.find (fun v -> String.compare (fst v) fname = 0) funs)
+                          in
+                          let d' = apply_tainting rules d in
+                          check_tainting f ipstack d';
+                          d', Some ipstack
+                      with
+                      | Not_found -> d, Some ipstack
+                  end
+                | None -> (* internal functions : tainting rules from control flow and data flow are directly infered from analysis *) d, Some ipstack
+            with
+            | _ -> Log.from_analysis "RET without previous CALL"; d, None
+        in   
+        (* check whether instruction pointers supposed and effective agree *)
+        try
+            let sp = Register.stack_pointer () in
+            let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
+            match Data.Address.Set.elements (ip_on_stack) with
+            | [a] ->
+              v.Cfa.State.ip <- a;
+              begin
+                  match ipstack with
+                  | Some ip' -> 
+                    if not (Data.Address.equal ip' a) then
+                        Log.from_analysis (Printf.sprintf "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET instruction"
+                                               (Data.Address.to_string ip') (Data.Address.to_string a))
+                  | None -> ()
+              end;
+              v
+            | _ -> raise Exit
+        with
+          _ -> Log.error "computed instruction pointer at return instruction is either undefined or imprecise"
 
-		
+
     exception Jmp_exn
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let process_stmts g (v: Cfa.State.t) ip fun_stack =
@@ -149,7 +149,7 @@ struct
 
         in
         let rec process_vertices vertices s =
-	    try
+            try
                 List.map (fun v -> v.Cfa.State.v <- process_value v.Cfa.State.v s; v) vertices
             with Jmp_exn ->
             match s with 
@@ -200,7 +200,7 @@ struct
               List.map (fun v -> v.Cfa.State.ip <- a; v) vertices
 
             | Return -> List.map (process_ret fun_stack) vertices
-             
+
             | _       -> vertices
 
         and process_list vertices stmts =
