@@ -227,7 +227,9 @@ module Make(D: T) =
                               | a::l -> D.join (build_value m a n) (to_value l)
                               | []   -> raise Exceptions.Bot_deref
                           in
-                          to_value addresses
+                          let value = to_value addresses
+                          in
+                          Log.debug (D.to_string value); value
                       with
                       | Exceptions.Enum_failure               -> D.top
                       | Not_found | Exceptions.Concretization ->
