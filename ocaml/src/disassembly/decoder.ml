@@ -1145,11 +1145,10 @@ struct
         return s (stmt @ (push_stmts s [tmp]) @ [Directive (Remove v)])
 
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
-    let mov_immediate s n =
-        let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))      			    in
-        let r 		   = find_reg_v reg n						    in
-        let c              = get_imm s n n false in
-        return s [ Set (r, c) ]
+    let mov_immediate s sz =
+        let dst, _ = operands_from_mod_reg_rm s sz 0 in
+        let imm = get_imm s sz sz false in
+        return s [ Set (dst, imm) ]
 
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
