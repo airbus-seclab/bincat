@@ -235,18 +235,17 @@ module Make(V: Val) =
         let logand v1 v2 = map2 V.logand v1 v2
         let logor v1 v2 = map2 V.logor v1 v2
 
-
-        let zero_extend v n =
-            let n' = Array.length v in
-            if n <= n' then
+        let zero_extend v new_sz =
+            let sz = Array.length v in
+            if new_sz <= sz then
                 v
             else
-                let o  = n - n'              in
-                let v' = Array.make n V.zero in
-                for i = 0 to n'-1 do
-                    v'.(i+o) <- v.(i)
+                let o  = new_sz - sz              in
+                let new_v = Array.make new_sz V.zero in
+                for i = 0 to sz-1 do
+                    new_v.(i+o) <- v.(i)
                 done;
-                v'
+                new_v
 
         let ishl v i =
             let n  = Array.length v        in
@@ -434,18 +433,28 @@ module Make(V: Val) =
               done;
               v
 
+        (** copy bits from low to up of v2 to v1,
+         *  vectors can be of differing sizes *)
         let combine v1 v2 low up =
             Log.debug (Printf.sprintf "Vector.combine : v1 = %s" (to_string v1));
             Log.debug (Printf.sprintf "Vector.combine : v2 = %s" (to_string v2));
             Log.debug (Printf.sprintf "Vector.combine : low = %d, up = %d" low up);
-            let v = Array.copy v1 in
-            let n = Array.length v1 in
-            let j = ref 0 in
-            for i = (n-1-up) to (n-1-low) do
-                v.(i) <- v2.(!j);
-                j := !j + 1;
-            done;
-            v
+            if low > up then
+                Log.error "Vector.combine : low > up"
+            else
+                let sz1 = Array.length v1 in
+                let sz2 = Array.length v2 in
+                if low >= sz1 || up >= sz1 || low >= sz2 || up >= sz2 then
+                    Log.error "Vector.combine : low or up > vector len"
+                else
+                    let v = Array.copy v1 in
+                    let j = ref (sz2-1-up) in
+                    for i = (sz1-1-up) to (sz1-1-low) do
+                        v.(i) <- v2.(!j);
+                        j := !j + 1;
+                    done;
+                    Log.debug (Printf.sprintf "Vector.combine : res = %s" (to_string v));
+                    v
 
         let exist2 p v1 v2 =
             let n = min (Array.length v1) (Array.length v2) in
