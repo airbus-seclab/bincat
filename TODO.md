@@ -6,9 +6,7 @@
 * gérer des chemins UTF-8 dans le .ini ?
 * tests QEMU : gérer le `printf` => directive magique ?
 * vérifier popf/pushf (surtout les privilèges etc)
-* perf memory init
-* fix If dans l'interpreteur
-* programme de test : binaire => statements (à la metasm-shell)
+* écrire un programme de test : binaire => statements (à la metasm-shell)
 * à clarifier : pointer n'est pas un pointer mais une valeur
 * BUG : revoir tout write_in_memory
 * pouvoir spécifier la valeur d'un registre ou adress mémoire à une adresse différente de celle de début
