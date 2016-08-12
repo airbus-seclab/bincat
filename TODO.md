@@ -1,6 +1,11 @@
 ## Ocaml
 * Utiliser au moins TROIS caractères pour toutes les variables (oui, si, vraiment.)
+
+* Fixer les init mémoire :
+* mem[0]=0x0000000012345678 donne (Global,0),(Global 3) = 0x12345678
 * gérer la mémoire par octet pas par mot (pour l'init)
+
+
 * sortir les informations nécessaires à l'affichage de la teinte
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
@@ -10,6 +15,7 @@
 * à clarifier : pointer n'est pas un pointer mais une valeur
 * BUG : revoir tout write_in_memory
 * pouvoir spécifier la valeur d'un registre ou adress mémoire à une adresse différente de celle de début
+* attention aux accès mémoire en lecture => il faut gérer l'endianness (cf table CRC32)
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse (afficher tous les états, pas juste celui marqué "final")
