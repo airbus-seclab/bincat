@@ -25,13 +25,13 @@ struct
 
     (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
     let sign_extension i sz nb =
-        if Z.compare (Z.shift_right i (sz-1)) Z.zero = 0 then
-            i
-        else
+        if Z.testbit i (sz-1) then
             let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
             (* ffff00.. mask *)
             let ff00 = (Z.logxor ff ((Z.sub (Z.shift_left (Z.one) sz) Z.one))) in
             Z.logor ff00 i
+        else
+            i
 
 
     (************************************************************************)
@@ -281,6 +281,7 @@ struct
     let int_of_byte s = Z.of_int (Char.code (getchar s))
 
     (** [int_of_bytes s sz] is an integer conversion of sz bytes of the string code s.buf *)
+    (* TODO check if Z.of_bits could work *)
     let int_of_bytes s sz =
         let n = ref Z.zero in
         for i = 0 to sz-1 do
@@ -290,7 +291,6 @@ struct
 
     (** helper to get immediate of _imm_sz_ bits into a _sz_ int, doing
         _sign_ext_ if true*)
-    (* TODO : use helper everywhere *)
     let get_imm_int s imm_sz sz sign_ext =
         if imm_sz > sz then
             error s.a "Immediate size bigger than target size"
@@ -418,9 +418,7 @@ struct
 
     (** returns the sub expression used in a displacement *)
     let disp s nb sz =
-        (* TODO : signed *)
-        let n = int_of_bytes s (nb/8) in
-        const_of_Z n sz
+        get_imm s nb sz true 
 
     exception Disp32
 
