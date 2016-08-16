@@ -47,7 +47,11 @@ let process ~configfile ~resultfile ~logfile =
   let g, s  = Interpreter.Cfa.init ep'                                              in
   (* 6: runs the fixpoint engine *)
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa               in
-  let cfa  = Interpreter.process code g s dump                                      in
+  let cfa  =
+    if !Config.analysis = Config.Forward then
+      Interpreter.forward code g s dump
+    else Interpreter.backward code g s dump
+  in
   (* 7: dumps the results *)
   dump cfa;
   Printexc.print_backtrace stdout;
