@@ -930,7 +930,7 @@ struct
     let return_jcc_stmts s e =
         let o  = get_imm_int s 8 s.addr_sz true in
         let ip = Address.add_offset s.a (Z.of_int s.o) in
-        let a' = Address.add_offset ip o			   in
+        let a' = Address.add_offset ip o in
         check_jmp s a';
         check_jmp s ip;
         return s [ If (e, [ Jmp (A a') ], [Jmp (A ip)]) ]

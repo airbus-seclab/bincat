@@ -35,6 +35,7 @@
 	(FILEPATH, "filepath", "binary");
 	(CODE_PHYS_ADDR, "code_phys", "loader");
 	(DOTFILE, "dotfile", "analyzer");
+	(ANALYSIS, "analysis", "analyzer");
 	(GDT, "gdt", "gdt");
 	(CODE_VA, "code_va", "loader");
       ];;	
@@ -96,6 +97,7 @@
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
+%token ANALYSIS FORWARD BACKWARD
 %token <string> STRING
 %token <Z.t> INT
 %start <unit> process
@@ -202,10 +204,16 @@
     | a=analyzer_item aa=analyzer { a; aa }
 				    
       analyzer_item:
-    | UNROLL EQUAL i=INT { Config.unroll := Z.to_int i }
-    | DOTFILE EQUAL f=STRING { update_mandatory DOTFILE; Config.dotfile := f }
-    | CUT EQUAL l=addresses { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
-    | VERBOSE EQUAL v=STRING { update_verbose v }
+    | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
+    | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }
+    | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
+    | VERBOSE EQUAL v=STRING 	     { update_verbose v }
+    | ANALYSIS EQUAL v=analysis_kind { update_mandatory ANALYSIS; Config.analysis := v }
+
+      analysis_kind:
+    | FORWARD  { Config.Forward }
+    | BACKWARD { Config.Backward }
+				
 
      addresses:
     | i=INT { [ i ] }

@@ -156,21 +156,21 @@ struct
             | If (e, then_stmts, else_stmts) ->
               let then' = process_list (List.fold_left (fun l v ->
                   try
-                      let d = restrict v.Cfa.State.v e true in
+                    let d = restrict v.Cfa.State.v e true in
                       if D.is_bot d then
                           l
                       else
                           (copy v d false)::l
-                  with Exceptions.Empty -> l) [] vertices) then_stmts in
-
+                  with Exceptions.Empty -> l) [] vertices) then_stmts
+	      in
               let else' = process_list (List.fold_left (fun l v ->
                   try
                       let d = restrict v.Cfa.State.v e false in
                       if D.is_bot d then
                           l
                       else (copy v d false)::l
-                  with Exceptions.Empty -> l)
-                  []  vertices) else_stmts in
+                  with Exceptions.Empty -> l) [] vertices) else_stmts
+	      in
               List.iter (fun v -> Cfa.remove_state g v) vertices;
               then' @ else'
 
@@ -338,6 +338,7 @@ struct
             continue := not (Vertices.is_empty !waiting);
         done;
         g
+
 
 
 end
