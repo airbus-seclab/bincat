@@ -22,6 +22,12 @@ type mode_t =
   | Protected
   | Real
 
+type analysis_t =
+  | Forward
+  | Backward
+
+let analysis = ref Forward
+			
 let mode = ref Protected
 	       
 let format = ref Pe

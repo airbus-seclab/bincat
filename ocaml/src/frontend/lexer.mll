@@ -115,6 +115,9 @@ rule token = parse
   | "stack"                 { STACK }
   | ":"                     { RANGE }
   | "heap"                  { HEAP }
+  | "analysis" 		    { ANALYSIS }
+  | "forward" 		    { FORWARD }
+  | "backward" 		    { BACKWARD }
   (* left operand of type integer *)
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)
