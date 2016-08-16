@@ -133,26 +133,28 @@ module Make(Domain: Domain.T) =
 	let d' = init_mem d' Data.Address.Stack Config.stack_content in
 	(* init of the Heap memory *)
 	let d' = init_mem d' Data.Address.Heap Config.heap_content in
-	let s = {
-	    id = 0;
-	    ip = ip;
-	    v = d';
-	    final = false;
-	    stmts = [];
-	    bytes = [];
-	    ctx = {
-		op_sz = !Config.operand_sz;
-		addr_sz = !Config.address_sz;
-	      };
-	}
-	in
-	let g = G.create () in
-	G.add_vertex g s;
-	g, s
- 			       
+	{
+	  id = 0;
+	  ip = ip;
+	  v = d';
+	  final = false;
+	  stmts = [];
+	  bytes = [];
+	  ctx = {
+	      op_sz = !Config.operand_sz;
+	      addr_sz = !Config.address_sz;
+	    }
+ 	}
+
+					
       (* CFA utilities *)
       (*****************)
-			     
+      (** create an empty CFA *)	  
+      let create () = G.create ()
+
+      (** add a vertex to the given CFA *)
+      let add_vertex g s = G.add_vertex g s
+					
       (** returns true whenever the two given contexts are equal *)
       let ctx_equal c1 c2 = c1.addr_sz = c2.addr_sz && c1.op_sz = c2.op_sz
 								    

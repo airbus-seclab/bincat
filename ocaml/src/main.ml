@@ -40,19 +40,17 @@ let process ~configfile ~resultfile ~logfile =
     | Failure "lexing: empty token" -> close_in cin; Log.error (Printf.sprintf "Parse error near location %s\n" (string_of_position lexbuf))
   end;
   close_in cin;
-  (* 4: generate code *)
-  let code  = Code.make !Config.text !Config.rva_code !Config.ep                    in
-  (* 5: generate the initial cfa with only an initial state *)
+  (* 4: generate the initial state *)
   let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-  let g, s  = Interpreter.Cfa.init ep'                                              in
-  (* 6: runs the fixpoint engine *)
+  let s  = Interpreter.Cfa.init ep'                                              in
+  (* 5: runs the fixpoint engine either forward or backward *)
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa               in
   let cfa  =
     if !Config.analysis = Config.Forward then
-      Interpreter.forward code g s dump
-    else Interpreter.backward code g s dump
+      Interpreter.forward s dump
+    else Interpreter.backward s dump
   in
-  (* 7: dumps the results *)
+  (* 6: dumps the results *)
   dump cfa;
   Printexc.print_backtrace stdout;
   Log.close()
