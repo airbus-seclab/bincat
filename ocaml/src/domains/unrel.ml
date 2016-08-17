@@ -386,7 +386,6 @@ module Make(D: T) =
 		    | None, None -> [ w2 ]
 		  in
                   let new_val = D.concat l in 
-                  (*Log.debug (Printf.sprintf "w1 : %s ; w2 : %s; w3 : %s => new_val : %s" (D.to_string w1) (D.to_string w2)(D.to_string w3)(D.to_string new_val));*)
                   Map.add (K.M (low, up)) new_val m'
 
             | (K.M (l1, u1) as k1, pv1)::l ->
