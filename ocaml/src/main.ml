@@ -1,10 +1,10 @@
 
-				    
+
 (* string conversion of a position in the configuration file *)
 let string_of_position pos =
   Printf.sprintf "%d" pos.Lexing.lex_curr_p.Lexing.pos_lnum
 
-let print_exc exc raw_bt = 
+let print_exc exc raw_bt =
     Printf.fprintf stdout "%s" (Printexc.to_string exc);
     Printexc.print_raw_backtrace stdout raw_bt
 
@@ -18,7 +18,7 @@ let process ~configfile ~resultfile ~logfile =
   let module Pointer     = Pointer.Make(Vector) in
   let module Domain      = Unrel.Make(Pointer) in
   let module Interpreter = Interpreter.Make(Domain) in
- 
+
   (*1 set the log file *)
   Log.init logfile;
   Printexc.record_backtrace true;
@@ -40,22 +40,39 @@ let process ~configfile ~resultfile ~logfile =
     | Failure "lexing: empty token" -> close_in cin; Log.error (Printf.sprintf "Parse error near location %s\n" (string_of_position lexbuf))
   end;
   close_in cin;
-  (* 4: generate the initial state *)
-  let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-  let s  = Interpreter.Cfa.init ep'                                              in
-  (* 5: runs the fixpoint engine either forward or backward *)
+
+  (* 6: runs the fixpoint engine *)
+
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa               in
-  let cfa  =
-    if !Config.analysis = Config.Forward then
-      Interpreter.forward s dump
-    else Interpreter.backward s dump
+  let cfa = match !Config.analysis with
+   | Config.Forward Config.Bin ->
+       (* 4: generate code *)
+       let code  = Code.make !Config.text !Config.rva_code !Config.ep                    in
+       (* 5: generate the initial cfa with only an initial state *)
+       let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+       let g, s  = Interpreter.Cfa.init ep'                                              in
+       Interpreter.forward_bin code g s dump;
+   | Config.Forward Config.Cfa ->
+       let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file in
+       let find_initstate id = id (** XXX actually search state *)
+       in
+       let init_state = find_initstate 0 in
+       Interpreter.forward_cfa orig_cfa init_state;
+  | Config.Backward -> 
+       let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file in
+       (* XXX find state having requested address orig_cfa & final=true *)
+       let ep_state = 0 in
+       Interpreter.backward orig_cfa ep_state dump
   in
-  (* 6: dumps the results *)
+
+  (* 7: dumps the results *)
+  if !Config.store_mcfa = true then
+    Interpreter.Cfa.marshal !Config.mcfa_file cfa;
   dump cfa;
   Printexc.print_backtrace stdout;
   Log.close()
- ;; 
-  
+ ;;
+
 (* enables the process function to be callable from the .so *)
    Callback.register "process" process;;
 

@@ -1,6 +1,6 @@
 (** the control flow automaton module *)
 module Make(Domain: Domain.T) =
-    struct			
+    struct
 	  (** Abstract data type of nodes of the CFA *)
 	  module State =
 	    struct
@@ -10,7 +10,7 @@ module Make(Domain: Domain.T) =
 	      addr_sz: int; (** size in bits of the addresses *)
 	      op_sz  : int; (** size in bits of operands *)
 	    }
-	   
+
 	  (** abstract data type of a state *)
 	  type t = {
 	      id: int; 	     		    (** unique identificator of the state *)
@@ -21,35 +21,35 @@ module Make(Domain: Domain.T) =
 	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
 	      mutable bytes: char list      (** corresponding list of bytes *)
 	    }
-				   
+
 	  (** the state identificator counter *)
 	  let state_cpt = ref 0
-			      
+
 	  (** returns a fresh state identificator *)
 	  let new_state_id () = state_cpt := !state_cpt + 1; !state_cpt
-							      
+
 	  (** state equality returns true whenever they are the physically the same (do not compare the content) *)
 	  let equal s1 s2   = s1.id = s2.id
-					
+
 	  (** state comparison: returns 0 whenever they are the physically the same (do not compare the content) *)
 	  let compare s1 s2 = s1.id - s2.id
 	  (** otherwise return a negative integer if the first state has been created before the second one; *)
 	  (** a positive integer if it has been created later *)
-					
+
 	  (** hashes a state *)
 	  let hash b 	= b.id
-	    
+
 	end
 
       module G = Graph.Imperative.Digraph.ConcreteBidirectional(State)
-      open State 
-	     
+      open State
+
       (** type of a CFA *)
       type t = G.t
 
       (* utilities for memory and register initialization with respect to the provided configuration *)
       (***********************************************************************************************)
-		 
+
       (* returns the extension of the string b with '0' so that the returned string is of length sz *)
       (* length of b is supposed to be <= sz *)
       (* it is used both for initializing successive memory locations (values and taint) and the taint of registers *)
@@ -65,7 +65,7 @@ module Make(Domain: Domain.T) =
 	    done;
 	    s
 	  end
-		     
+
       (* return the given domain updated by the initial values and intitial tainting for registers with respected ti the provided configuration *)
       let init_registers d =
 	let check b sz name =
@@ -93,7 +93,7 @@ module Make(Domain: Domain.T) =
 	  end;
 	  (c, t)
 	in
-	  (* the domain d' is updated with the content for each register with initial content and tainting value given in the configuration file *)  
+	  (* the domain d' is updated with the content for each register with initial content and tainting value given in the configuration file *)
 	Hashtbl.fold
 	  (fun r v d ->
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global
@@ -102,7 +102,7 @@ module Make(Domain: Domain.T) =
 	  )
 	  Config.register_content d
 
-	
+
 
       (** builds 0xffff...ff with nb repetitions of the pattern ff *)
       let ff nb =
@@ -112,7 +112,7 @@ module Make(Domain: Domain.T) =
 	  s := Z.add ff (Z.shift_left !s 8)
 	done;
 	!s
-   
+
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding tables in Config *)
     let init_mem domain region content_tbl =
@@ -120,7 +120,7 @@ module Make(Domain: Domain.T) =
                             let addr' = Data.Address.of_int region addr !Config.address_sz in
                             Domain.set_memory_from_config addr' Data.Address.Global content nb domain
                      ) content_tbl domain
-      (* end of init utilities *)	     
+      (* end of init utilities *)
       (*************************)
 
       (** CFA creation *)
@@ -133,31 +133,28 @@ module Make(Domain: Domain.T) =
 	let d' = init_mem d' Data.Address.Stack Config.stack_content in
 	(* init of the Heap memory *)
 	let d' = init_mem d' Data.Address.Heap Config.heap_content in
-	{
-	  id = 0;
-	  ip = ip;
-	  v = d';
-	  final = false;
-	  stmts = [];
-	  bytes = [];
-	  ctx = {
-	      op_sz = !Config.operand_sz;
-	      addr_sz = !Config.address_sz;
-	    }
- 	}
+	let s = {
+	    id = 0;
+	    ip = ip;
+	    v = d';
+	    final = false;
+	    stmts = [];
+	    bytes = [];
+	    ctx = {
+		op_sz = !Config.operand_sz;
+		addr_sz = !Config.address_sz;
+	      };
+	}
+	in
+	let g = G.create () in
+	G.add_vertex g s;
+	g, s
 
-					
       (* CFA utilities *)
       (*****************)
-      (** create an empty CFA *)	  
-      let create () = G.create ()
-
-      (** add a vertex to the given CFA *)
-      let add_vertex g s = G.add_vertex g s
-					
       (** returns true whenever the two given contexts are equal *)
       let ctx_equal c1 c2 = c1.addr_sz = c2.addr_sz && c1.op_sz = c2.op_sz
-								    
+
       (** [add_state g pred ip s stmts ctx] creates a new state in _g_ with
     - ip as instruction pointer;
     - stmts as list of statements;
@@ -179,18 +176,18 @@ module Make(Domain: Domain.T) =
 	  v
 
       let remove_state g v = G.remove_vertex g v
-	
+
       (** returns a fresh copy of the given state *)
       let copy_state g s = add_state g s.ip s.v s.stmts s.ctx s.final s.bytes
-				    
+
       (** [add_edge g src dst] adds in _g_ an edge _src_ -> _dst_ *)
       let add_edge g src dst = G.add_edge g src dst
-					      
+
       (** updates the abstract value field of the given state *)
       let update_state s v'=
       	s.v <- Domain.join v' s.v;
       	Domain.subset s.v v'
-			  
+
       (** updates the context and statement fields of the given state *)
       let update_stmts s stmts op_sz addr_sz =
       	s.stmts <- stmts;
@@ -204,7 +201,7 @@ module Make(Domain: Domain.T) =
 
       (** iter on all vertices of a graph *)
       let iter_vertex f g = G.iter_vertex f g
-					  
+
       (** returns the unique predecessor of the given vertex in the given CFA *)
       (** may raise an exception if the vertex has no predessor *)
       let pred g v   =
@@ -227,7 +224,7 @@ module Make(Domain: Domain.T) =
 	let vertex_name v = (string_of_int v.id)
       end
       module Dot = Graph.Graphviz.Dot(GDot)
-				     
+
       let print dumpfile dotfile g =
 	let f = open_out dumpfile in
 	(* state printing (detailed) *)
@@ -254,9 +251,17 @@ module Make(Domain: Domain.T) =
 	    Dot.output_graph f' g;
 	    close_out f'
 	  end
-	
 
-	
-	
+      let marshal outfname cfa =
+	let cfa_marshal_fd = open_out_bin outfname in
+	Marshal.to_channel cfa_marshal_fd cfa [];
+	close_out cfa_marshal_fd;;
+
+      let unmarshal infname =
+	let cfa_marshal_fd = open_in_bin infname in
+	let origcfa = Marshal.from_channel cfa_marshal_fd in
+	close_in cfa_marshal_fd;
+        origcfa;
+
     end
   (** module Cfa *)

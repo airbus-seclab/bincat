@@ -1,16 +1,16 @@
 let unroll = ref 10;;
 let verbose = ref false;;
-  
+
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
-		       
+
 let dotfile = ref "";;
-  
+
 type memory_model_t =
   | Flat
   | Segmented
-      
+
 let memory_model = ref Flat
 
 type format_t =
@@ -22,35 +22,43 @@ type mode_t =
   | Protected
   | Real
 
+type analysis_src =
+  | Bin
+  | Cfa
+
 type analysis_t =
-  | Forward
+  | Forward of analysis_src
   | Backward
 
-let analysis = ref Forward
-			
+let analysis = ref (Forward Bin);;
+
 let mode = ref Protected
-	       
+
+let mcfa_file = ref "";;
+let load_mcfa = ref false;;
+let store_mcfa = ref false;;
+
 let format = ref Pe
-		 
+
 type call_conv_t =
   | Cdecl
   | Stdcall
   | Fastcall
 
 let call_conv = ref Cdecl
-		    
+
 let text = ref ""
 let code_length = ref 0
 let ep = ref Z.zero
 let phys_code_addr = ref 0
 let rva_code = ref Z.zero
-		   
+
 let address_sz = ref 32
 let operand_sz = ref 32
 let stack_width = ref 32
 
 let gdt: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 19
-			 
+
 let cs = ref Z.zero
 let ds = ref Z.zero
 let ss = ref Z.zero
@@ -68,11 +76,11 @@ type cvalue =
   | CMask of Z.t * Z.t
 
 (* tables for initialize global memory, stack and heap *)
-(* first element in the key is the address ; second one is the number of repetition *)		 
+(* first element in the key is the address ; second one is the number of repetition *)
 type ctbl = (Z.t * int, cvalue * (tvalue option)) Hashtbl.t
-   
+
 let register_content: (Register.t, cvalue * tvalue option) Hashtbl.t = Hashtbl.create 10
-let memory_content: ctbl = Hashtbl.create 10 
+let memory_content: ctbl = Hashtbl.create 10
 let stack_content: ctbl = Hashtbl.create 10
 let heap_content: ctbl = Hashtbl.create 10
 
@@ -84,9 +92,9 @@ type taint =
   | Addr_taint
 
 type tainting_fun = string * (call_conv_t * taint option * taint list)
-								
+
 let tainting_tbl: (string, tainting_fun list) Hashtbl.t = Hashtbl.create 7
-				  
+
 let add_tainting_rules libname fun_rules =
   let cfuns =
     try

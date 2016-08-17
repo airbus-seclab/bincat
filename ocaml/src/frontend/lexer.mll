@@ -10,7 +10,7 @@
 }
 
 (* utilities *)
-let letter 	 = ['a'-'z' 'A'-'Z'] 
+let letter 	 = ['a'-'z' 'A'-'Z']
 let digit 	 = ['0'-'9']
 
 (* integers *)
@@ -82,9 +82,11 @@ rule token = parse
   | "unroll"    	    { UNROLL }
   | "cut"                   { CUT }
   | "verbose"               { VERBOSE }
+  | "dotfile"               { DOTFILE }
+  | "store_marshalled_cfa"  { STORE_MCFA }
+  | "marshalled_cfa_file"   { MCFA_FILE }
   (* address separator *)
   | "," 		    { COMMA }
-  | "dotfile"               { DOTFILE }
   (* GDT tokens *)
   | "GDT"                   { GDT }
   (* loader tokens *)
@@ -94,10 +96,10 @@ rule token = parse
   | "es" 		    { ES }
   | "fs" 		    { FS }
   | "gs" 		    { GS }
-  | "code_va"              { CODE_VA }
-  | "code_length" 	    { CODE_LENGTH }
-  | "code_phys"        { CODE_PHYS_ADDR }
-  | "analysis_ep" 	    { ENTRYPOINT }
+  | "code_va"               { CODE_VA }
+  | "code_length"           { CODE_LENGTH }
+  | "code_phys"             { CODE_PHYS_ADDR }
+  | "analysis_ep"           { ENTRYPOINT }
   (* binary tokens *)
   | "filepath" 		    { FILEPATH }
   | "format" 		    { FORMAT }
@@ -115,15 +117,16 @@ rule token = parse
   | "stack"                 { STACK }
   | ":"                     { RANGE }
   | "heap"                  { HEAP }
-  | "analysis" 		    { ANALYSIS }
-  | "forward" 		    { FORWARD }
-  | "backward" 		    { BACKWARD }
+  | "analysis"              { ANALYSIS }
+  | "forward_binary"        { FORWARD_BIN }
+  | "forward_cfa"           { FORWARD_CFA }
+  | "backward"              { BACKWARD }
   (* left operand of type integer *)
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)
   | value as v  	    { STRING v }
 
-(* skip comments *)			    
+(* skip comments *)
 and comment = parse
   | ['\n' '\r']   { next_line lexbuf; token lexbuf }
   | [^ '\n' '\r'] { comment lexbuf }
