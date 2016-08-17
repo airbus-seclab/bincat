@@ -293,7 +293,7 @@ struct
 
     (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial vertex s *)
     (** g is the initial CFA reduced to the singleton s *) 
-    let forward code g s (dump: Cfa.t -> unit) =
+    let forward_bin code g s (dump: Cfa.t -> unit) =
         (* check whether the instruction pointer is in the black list of addresses to decode *)
         if Config.SAddresses.mem (Data.Address.to_int s.Cfa.State.ip) !Config.blackAddresses then
             Log.error "Interpreter not started as the entry point belongs to the cut off branches\n";
@@ -339,7 +339,8 @@ struct
         done;
         g
 
-    let backward _code _g _s _dump = failwith "Interpreter.backward: not implemented"
+    let backward _g _s _dump = failwith "Interpreter.backward: not implemented"
+    let forward_cfa _orig_cfa _ep_state = failwith "Interpreter.forward_cfa: not implemented"
 
 end
 

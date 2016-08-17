@@ -1,21 +1,21 @@
 %{
-   
+
     let missing_item item section =
       (* error message printing *)
       Log.error (Printf.sprintf "missing %s in section %s\n" item section);;
-       
+
     (* current library name *)
     let libname = ref "";;
-		      
+
     (* temporary table to store tainting rules on functions of a given library *)
     let libraries = Hashtbl.create 7;;
 
     (* name of binary file to analyze *)
     let filename = ref ""
- 
+
     (* temporay table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
-      
+
     let mandatory_items = [
 	(MEM_MODEL, "mem_model", "settings");
 	(MODE, "mode", "settings");
@@ -36,25 +36,27 @@
 	(CODE_PHYS_ADDR, "code_phys", "loader");
 	(DOTFILE, "dotfile", "analyzer");
 	(ANALYSIS, "analysis", "analyzer");
+	(STORE_MCFA, "store_marshalled_cfa", "analyzer");
+	(MCFA_FILE, "marshalled_cfa_file", "analyzer");
 	(GDT, "gdt", "gdt");
 	(CODE_VA, "code_va", "loader");
-      ];;	
+      ];;
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
-      (** set the Config.verbose reference *)
-      let update_verbose v =
+      (** set the corresponding option reference (ex. Config.verbose) *)
+      let update_boolean optname opt v =
 	match String.uppercase v with
-	| "TRUE"  -> Config.verbose := true
-	| "FALSE" -> Config.verbose := false
-	| _ 	  -> Log.error "Illegal boolean value for verbose mode"
-	   
+	| "TRUE"  -> opt := true
+	| "FALSE" -> opt := false
+	| _ 	  -> Log.error (Printf.sprintf "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
+
       (** update the register table in configuration module *)
       let init_register rname v = Hashtbl.add Config.register_content (Register.of_name rname) v
-					     
+
       let update_mandatory key =
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
 	Hashtbl.replace mandatory_keys key (kname, sname, true);;
-	
+
       (** footer function *)
       let check_context () =
 	(* check whether all mandatory items are provided *)
@@ -66,7 +68,7 @@
 	    seek_in fid !Config.phys_code_addr;
 	    fid
 	  with _ -> Log.error "failed to open the binary to analyze"
-			   
+
 	in
 	Config.text := String.make !Config.code_length '\x00';
     really_input fid !Config.text 0 !Config.code_length;
@@ -89,7 +91,7 @@
 	in
 	Hashtbl.iter add_tainting_rules libraries
 	;;
-	
+
 	%}
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
@@ -97,20 +99,20 @@
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
-%token ANALYSIS FORWARD BACKWARD
+%token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA MCFA_FILE
 %token <string> STRING
 %token <Z.t> INT
 %start <unit> process
 %%
-(* in every below rule a later rule in the file order may inhibit a previous rule *) 
+(* in every below rule a later rule in the file order may inhibit a previous rule *)
   process:
       | s=sections EOF { s; check_context () }
-	
-      
+
+
     sections:
     | s=section 	       { s }
     | ss=sections s=section    { ss; s }
-    
+
       section:
     | LEFT_SQ_BRACKET SETTINGS RIGHT_SQ_BRACKET s=settings   { s }
     | LEFT_SQ_BRACKET LOADER RIGHT_SQ_BRACKET 	l=loader     { l }
@@ -122,20 +124,20 @@
     | LEFT_SQ_BRACKET ASSERT RIGHT_SQ_BRACKET r=assert_rules { r }
     | LEFT_SQ_BRACKET IMPORTS RIGHT_SQ_BRACKET i=imports     { i }
 
-      imports:							     
+      imports:
     |                     { () }
     | i=import l=imports  { i ; l }
 
       import:
     | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.imports a (libname, fname) }
-			       
+
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
-     	       
+
       settings:
     | s=setting_item 		 { s }
     | s=setting_item ss=settings { s; ss }
-    
+
       setting_item:
     | MEM_MODEL EQUAL m=memmodel { update_mandatory MEM_MODEL; Config.memory_model := m }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
@@ -143,22 +145,22 @@
     | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := Z.to_int i with _ -> Log.error "illegal address size" }
     | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := Z.to_int i with _ -> Log.error "illegal stack width" }
     | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m }
-				 	
+
       memmodel:
     | FLAT 	{ Config.Flat }
     | SEGMENTED { Config.Segmented }
 
       callconv:
-    | CDECL    { Config.Cdecl } 
+    | CDECL    { Config.Cdecl }
     | FASTCALL { Config.Fastcall }
     | STDCALL  { Config.Stdcall }
-    
+
 
       mmode:
     | PROTECTED { Config.Protected }
     | REAL 	{ Config.Real }
 
-	
+
       loader:
     | l=loader_item 	      { l }
     | l=loader_item ll=loader { l; ll }
@@ -174,51 +176,54 @@
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
     | CODE_PHYS_ADDR EQUAL i=INT { update_mandatory CODE_PHYS_ADDR; Config.phys_code_addr := Z.to_int i }
     | CODE_VA EQUAL i=INT 	 { update_mandatory CODE_VA; Config.rva_code := i }
-    
-      
+
+
       binary:
     | b=binary_item 	      { b }
     | b=binary_item bb=binary { b; bb }
-	
+
       binary_item:
     | FILEPATH EQUAL f=STRING 	{ update_mandatory FILEPATH; filename := f }
     | FORMAT EQUAL f=format 	{ update_mandatory FORMAT; Config.format := f }
 
 
-		
+
       format:
     | PE  { Config.Pe }
     | ELF { Config.Elf }
     | BINARY { Config.Binary }
-    
+
       gdt:
     | g=gdt_item 	{ g }
     | g=gdt_item gg=gdt { g; gg }
 
       gdt_item:
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_mandatory GDT; Hashtbl.replace Config.gdt i v }
-		       
-      
+
+
       analyzer:
     | a=analyzer_item 		  { a }
     | a=analyzer_item aa=analyzer { a; aa }
-				    
+
       analyzer_item:
     | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }
     | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
-    | VERBOSE EQUAL v=STRING 	     { update_verbose v }
+    | VERBOSE EQUAL v=STRING 	     { update_boolean "verbose" Config.verbose v }
     | ANALYSIS EQUAL v=analysis_kind { update_mandatory ANALYSIS; Config.analysis := v }
+    | MCFA_FILE EQUAL f=STRING       { update_mandatory MCFA_FILE; Config.mcfa_file := f }
+    | STORE_MCFA EQUAL v=STRING      { update_mandatory STORE_MCFA; update_boolean "store_mcfa" Config.store_mcfa v }
 
       analysis_kind:
-    | FORWARD  { Config.Forward }
+    | FORWARD_BIN  { Config.Forward Config.Bin }
+    | FORWARD_CFA  { Config.Forward Config.Cfa }
     | BACKWARD { Config.Backward }
-				
+
 
      addresses:
     | i=INT { [ i ] }
     | i=INT COMMA l=addresses { i::l }
-			      
+
       state:
     | s=state_item 	    { s }
     | s=state_item ss=state { s; ss }
@@ -232,7 +237,7 @@
       repeat:
     | i=INT { i, 1 }
     | i=INT STAR n=INT { i, Z.to_int n }
-		       
+
       library:
     | l=library_item 		{ l }
     | l=library_item ll=library { l; ll }
@@ -241,11 +246,11 @@
     | CALL_CONV EQUAL c=callconv  { let funs = snd (Hashtbl.find libraries !libname) in Hashtbl.replace libraries !libname (Some c, funs)  }
     | v=fun_rule 		  { let f, c, a = v in let cl, funs = Hashtbl.find libraries !libname in Hashtbl.replace libraries !libname (cl, (f, c, None, a)::funs) }
     | r=argument EQUAL v=fun_rule { let f, c, a = v in let cl, funs = Hashtbl.find libraries !libname in Hashtbl.replace libraries !libname (cl, (f, c, Some r, a)::funs) }
-  			     
+
       fun_rule:
     | f=STRING LANGLE_BRACKET c=callconv RANGLE_BRACKET a=arguments { f, Some c, List.rev a }
     | f=STRING 	a=arguments 			     		    { f, None, List.rev a }
-				   
+
       arguments:
     | arg_list = delimited (LPAREN, separated_list (COMMA, argument), RPAREN) { arg_list }
 
@@ -261,7 +266,7 @@
      assert_rule:
     | U EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_untainted_functions a arg }
     | T EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_tainted_functions a arg }
-																 
+
      init:
     | TAINT tcontent 	            { Log.error "Parser: illegal initial content: undefined content with defined tainting value" }
     | c=mcontent 	            { c, None }
@@ -270,8 +275,8 @@
       mcontent:
     | m=INT 		{ Config.Content m }
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
-				      
+
      tcontent:
     | t=INT 		{ Config.Taint t }
     | t=INT MASK t2=INT { Config.TMask (t, t2) }
-			
+
