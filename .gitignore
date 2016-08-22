@@ -1,4 +1,3 @@
-syntax: glob
 *.cmi
 *.cmx
 *.o
