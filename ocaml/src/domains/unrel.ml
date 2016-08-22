@@ -147,11 +147,11 @@ module Make(D: T) =
             | BOT    -> BOT
 
 
-	let forget m =
-	  match m with
-	  | BOT -> BOT
-	  | Val m' -> Val (Map.map (fun _ -> D.top) m')
-			  
+        let forget m =
+            match m with
+            | BOT -> BOT
+            | Val m' -> Val (Map.map (fun _ -> D.top) m')
+
         let forget_register r m =
             match m with
             | Val m' -> Val (Map.add (K.R r) D.top m')
@@ -174,10 +174,6 @@ module Make(D: T) =
             |	BOT    -> ["_"]
             | Val m' -> Map.fold (fun k v l -> ((K.to_string k) ^ " = " ^ (D.to_string v)) :: l) m' []
 
-        let string_of_register m r =
-            match m with
-            | BOT -> "_"
-            | Val m' -> Printf.sprintf "%s = %s" (Register.name r) (D.to_string (Map.find (K.R r) m'))
 
         (** compute the position of the address a with respect to key k of type K.t *)
         (** remember that registers (key K.R) are before any address in the order defined in K *)
@@ -287,9 +283,9 @@ module Make(D: T) =
             let max_addr = Data.Address.add_offset addr (Z.of_int (nb-1))   in
             let to_array first =
                 let arr = Array.make (nb-first) addr in
-                    for i = first to nb-1 do
-                        arr.(i) <- Data.Address.add_offset addr (Z.of_int i);
-                    done;
+                for i = first to nb-1 do
+                    arr.(i) <- Data.Address.add_offset addr (Z.of_int i);
+                done;
                 arr in
             (* TODO : get rid of the list, but f*cking OCaml doesn't include
                Array.exists *)
@@ -306,29 +302,29 @@ module Make(D: T) =
                 match domain with
                 | K.M (low', up') -> 
 
-                     let has_it = List.exists (fun addr' ->
-                    ((Data.Address.compare low' addr' <= 0 ) && (* XXX CHECK if < or <= *)
-                     (Data.Address.compare addr' up' <= 0))) addrs (* SAME *)
-                     in
-                     Log.debug (Printf.sprintf "within %s:%s %B" (Data.Address.to_string low')(Data.Address.to_string up') has_it);
-                     has_it
+                  let has_it = List.exists (fun addr' ->
+                      ((Data.Address.compare low' addr' <= 0 ) && (* XXX CHECK if < or <= *)
+                       (Data.Address.compare addr' up' <= 0))) addrs (* SAME *)
+                  in
+                  Log.debug (Printf.sprintf "within %s:%s %B" (Data.Address.to_string low')(Data.Address.to_string up') has_it);
+                  has_it
                 | _ 	       -> false 
             in
             let all_addrs = Map.find_all_keys within domain in
             List.iter (fun (_, t) ->   Log.debug (Printf.sprintf "all_addrs : %s" (D.to_string t))) all_addrs;
             (* TODO : make endianness agnostic ! *)
             let before low up pvalue =
-	      if Data.Address.compare low addr = 0 then
-		None
-	      else
-                (* get data from pvalue from low to 'addr' *)
-                let pend = ((Z.to_int (Data.Address.sub up low)*8+7)) in 
-                let len = ((Z.to_int (Data.Address.sub addr low))*8) in
-                Log.debug (Printf.sprintf "before(low, up) : %s %s" (Data.Address.to_string low) (Data.Address.to_string up));
-                Log.debug (Printf.sprintf "before : pvalue %s" (D.to_string pvalue));
-                let res = D.from_position pvalue pend len in
-                Log.debug (Printf.sprintf "before : result %s" (D.to_string res));
-                Some res
+                if Data.Address.compare low addr = 0 then
+                    None
+                else
+                    (* get data from pvalue from low to 'addr' *)
+                    let pend = ((Z.to_int (Data.Address.sub up low)*8+7)) in 
+                    let len = ((Z.to_int (Data.Address.sub addr low))*8) in
+                    Log.debug (Printf.sprintf "before(low, up) : %s %s" (Data.Address.to_string low) (Data.Address.to_string up));
+                    Log.debug (Printf.sprintf "before : pvalue %s" (D.to_string pvalue));
+                    let res = D.from_position pvalue pend len in
+                    Log.debug (Printf.sprintf "before : result %s" (D.to_string res));
+                    Some res
             in
             let inpart up pvalue =
                 Log.debug (Printf.sprintf "inpart(up, pv) : %s %s"  (Data.Address.to_string up)(D.to_string pvalue));
@@ -336,22 +332,22 @@ module Make(D: T) =
                     let res = value in Log.debug (Printf.sprintf "inpart : (strong) result %s" (D.to_string res));
                     res
                 else
-                    if Data.Address.compare max_addr up <= 0 then
-                        let res = 
+                if Data.Address.compare max_addr up <= 0 then
+                    let res = 
                         D.join value (D.from_position pvalue (((Z.to_int (Data.Address.sub up addr))+1)*8-1) sz) in
-                        Log.debug (Printf.sprintf "inpart : result %s" (D.to_string res));
-                        res
-                    else raise Exceptions.Empty
+                    Log.debug (Printf.sprintf "inpart : result %s" (D.to_string res));
+                    res
+                else raise Exceptions.Empty
             in
             let after up' pv =
-	      if Data.Address.compare up' max_addr = 0 then
-		None
-	      else
-		begin
-                  Log.debug (Printf.sprintf "after : up: %s, max : %s, pv : %s" (Data.Address.to_string up') (Data.Address.to_string max_addr) (D.to_string pv));
-                  let pos = Z.to_int (Data.Address.sub up' max_addr) in
-                  Some (D.from_position pv pos (pos*8))
-		end
+                if Data.Address.compare up' max_addr = 0 then
+                    None
+                else
+                    begin
+                        Log.debug (Printf.sprintf "after : up: %s, max : %s, pv : %s" (Data.Address.to_string up') (Data.Address.to_string max_addr) (D.to_string pv));
+                        let pos = Z.to_int (Data.Address.sub up' max_addr) in
+                        Some (D.from_position pv pos (pos*8))
+                    end
             in
             let rec split l =
                 match l with
@@ -360,7 +356,7 @@ module Make(D: T) =
                 | _ 		      -> raise Exceptions.Empty
             in
             match all_addrs with
-              (* only one address in the domain *)
+            (* only one address in the domain *)
               [ K.M (low, up) as k, match_val ] ->
               if Data.Address.compare up min_addr = 0 then
                   (* new address is at the end of an existing chunk :
@@ -383,31 +379,31 @@ module Make(D: T) =
                   let w2 = inpart up match_val in
                   let w3 = after up match_val in
                   let m' = Map.remove k domain in
-		  let l =
-		    match w1, w3 with
-		    | Some w1', Some w3' -> [ w1' ; w2 ; w3' ]
-		    | None, Some w3' -> [ w2 ; w3' ]
-		    | Some w1', None -> [w1' ; w2 ]
-		    | None, None -> [ w2 ]
-		  in
+                  let l =
+                      match w1, w3 with
+                      | Some w1', Some w3' -> [ w1' ; w2 ; w3' ]
+                      | None, Some w3' -> [ w2 ; w3' ]
+                      | Some w1', None -> [w1' ; w2 ]
+                      | None, None -> [ w2 ]
+                  in
                   let new_val = D.concat l in 
                   Map.add (K.M (low, up)) new_val m'
 
             | (K.M (l1, u1) as k1, pv1)::l ->
               Log.debug (Printf.sprintf "write_in_memory : list");
               if strong then
-                let b =
-		  match before l1 u1 pv1 with
-		  | None -> pv1
-		  | Some w -> w
-                in
+                  let b =
+                      match before l1 u1 pv1 with
+                      | None -> pv1
+                      | Some w -> w
+                  in
                   let m' = Map.remove k1 domain in
                   let (l, u, pv), r = split l in
                   let w3 =
-		    match after u pv with
-		    | None -> pv
-		    | Some w -> w
-		  in
+                      match after u pv with
+                      | None -> pv
+                      | Some w -> w
+                  in
                   let m' = Map.remove (K.M (l, u)) m' in
                   let m' = List.fold_left (fun domain k -> Map.remove k domain) m' r in
                   Map.add (K.M (l1, u)) (D.concat [b ; value ; w3]) m'
