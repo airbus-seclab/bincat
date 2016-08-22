@@ -108,6 +108,10 @@ module Make(D: T) =
                       if addr1 < m2_low then -1
                       else if m2_high < addr1 then 1
                       else 0
+                | Mem_Itv (m1_low, m1_high), Mem addr2 ->
+                      if m1_high < addr2 then -1
+                      else if addr2 < m1_low then 1
+                      else 0
                 | Mem_Itv (m1_low, m1_high), Mem_Itv (m2_low, m2_high) ->
                       if m1_high < m2_low then -1
                       else if m2_high < m1_low then 1
@@ -187,49 +191,58 @@ module Make(D: T) =
         (** Memory access function *)
         (***************************)
 
-        (** compute the position of the address a with respect to key k of type K.t *)
+        (* Helper to get an array of addresses : base..(base+nb-1) *)
+        let get_addr_array base nb =
+            let arr = Array.make nb base in
+            for i = 0 to nb-1 do
+                arr.(i) <- Data.Address.add_offset base (Z.of_int i);
+            done;
+            arr
+        let get_addr_list base nb =
+            Array.to_list (get_addr_array base nb)
+
+        (** check if key matches the given _addresses_ **)
         (** remember that registers (key Key.Reg) are before any address in the order defined in K *)
-        let where addr k =
-            match k with
-            | Key.Reg _ -> -1
-            | Key.Mem addr_k -> Data.Address.compare addr addr_k
-            | Key.Mem_Itv (a1, a2) ->
-              if Data.Address.compare addr a1 < 0 then
+        let where addresses key =
+            match key with
+            | Key.Reg _ -> false
+            (* utiliser sz ici *)
+            | Key.Mem addr_k -> List.exists (fun addr_l -> (Data.Address.compare addr_l addr_k) = 0) addresses
+            | Key.Mem_Itv (a_low, a_high) ->
+              if Data.Address.compare addr a_low < 0 then
                   -1
               else
-              if Data.Address.compare addr a2 > 0 then 1
-              else 0 (* return 0 if a1 <= a <= a2 *)
+                  if Data.Address.compare addr a_high > 0 then 1
+                  else 0 (* return 0 if a1 <= a <= a2 *)
 
         (** computes the value read from a the map around at the key k containing address a *)
-        let build_value m addr sz =
+        let get_mem_value map addr sz =
             try
-                (* find the key k in the map that address a belongs to *)
-                let k, m0  = Map.find_key (where addr) m in
-                match k with
+                (* expand the address + size to a list of addresses *)
+                let exp_addrs = get_addr_list addr sz/8 in
+                (* find the keys k in the map that address _addr_ belongs to *)
+                let keys = Map.find_all_keys (where exp_addrs) map in
+                match key with
                 | Key.Reg _      -> Log.error "Implementation error in Unrel: the found key should be a pair of addresses"
-                | Key.Mem_Itv (_l, u) -> D.from_position m0 (((Z.to_int (Data.Address.sub u addr))+1)*8-1) sz
-                | Key.Mem addr -> D.from_position m0 (((Z.to_int (Data.Address.sub addr addr))+1)*8-1) sz
+                (* We try to read in an interval of memory defined at init *)
+                | Key.Mem_Itv (addr_low, addr_high) -> 
+                    (* check that we don't try to read outsize of the interval *)
+                    if Data.Address.compare (Data.Address.add_offset addr sz) addr_high > 1 then
+                        D.bot
+                    else
+                        D.of_repeat_val map_val 8 sz
+                (* Read memory directly *)
+                | Key.Mem addr -> map_val 
             with _ -> D.bot
 
         let write_in_memory addr domain value sz strong =
             let nb = sz / 8					   in
             let min_addr = addr in
             let max_addr = Data.Address.add_offset addr (Z.of_int (nb-1))   in
-            let to_array first =
-                let arr = Array.make (nb-first) addr in
-                for i = first to nb-1 do
-                    arr.(i) <- Data.Address.add_offset addr (Z.of_int i);
-                done;
-                arr in
-            (* TODO : get rid of the list, but f*cking OCaml doesn't include
-               Array.exists *)
-            let to_list i =
-                Array.to_list (to_array (i+1))
-            in
             Log.debug ("----------------------");
             Log.debug (Printf.sprintf "write_in_memory : %s %s %d" (Data.Address.to_string addr) (D.to_string value) sz);
             Log.debug (Printf.sprintf "write_in_memory : min_addr : %s max_addr : %s" (Data.Address.to_string min_addr) (Data.Address.to_string max_addr));
-            let addrs = to_list (-1) in
+            let addrs = get_addr_list addr nb in
             List.iter (fun t ->   Log.debug (Printf.sprintf "addrs : %s" (Data.Address.to_string t))) addrs;
             let within domain =
                 (* TODO: optimize the search scanning by removing already found addresses in list addrs + avoid exploring all the map by knowing how it is structured *)
@@ -380,8 +393,8 @@ module Make(D: T) =
                           List.iter (fun a -> Log.debug (Printf.sprintf "deref : %s, %d" (Data.Address.to_string a) n)) addresses;
                           let rec to_value a =
                               match a with
-                              | [a]  -> build_value m a n
-                              | a::l -> D.join (build_value m a n) (to_value l)
+                              | [a]  -> get_mem_value m a n
+                              | a::l -> D.join (get_mem_value m a n) (to_value l)
                               | []   -> raise Exceptions.Bot_deref
                           in
                           let value = to_value addresses
