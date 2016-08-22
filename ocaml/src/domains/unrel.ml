@@ -174,7 +174,6 @@ module Make(D: T) =
             |	BOT    -> ["_"]
             | Val m' -> Map.fold (fun k v l -> ((K.to_string k) ^ " = " ^ (D.to_string v)) :: l) m' []
 
-
         (** compute the position of the address a with respect to key k of type K.t *)
         (** remember that registers (key K.R) are before any address in the order defined in K *)
         let where a k =
