@@ -123,17 +123,21 @@ module Make(Domain: Domain.T) =
       (* end of init utilities *)
       (*************************)
 
-      (** CFA creation *)
-      (** returned CFA has only one node : the state whose ip is given by the parameter and whose domain field is generated from the Config module *)
-      let init ip =
-	let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+    (** CFA creation *)
+    (** return the abstract value generated from the Config module *)
+    let init_abstract_value () =
+      let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
 	let d' = init_mem (init_registers d) Data.Address.Global Config.memory_content in
 	(* init of the Stack memory *)
 	let d' = init_mem d' Data.Address.Stack Config.stack_content in
 	(* init of the Heap memory *)
-	let d' = init_mem d' Data.Address.Heap Config.heap_content in
-	let s = {
+	init_mem d' Data.Address.Heap Config.heap_content
+	
+      (** returned CFA has only one node : the state whose ip is given by the parameter and whose domain field is generated from the Config module *)
+      let init ip =
+	let d' = init_abstract_value () in
+	{
 	    id = 0;
 	    ip = ip;
 	    v = d';
@@ -145,10 +149,7 @@ module Make(Domain: Domain.T) =
 		addr_sz = !Config.address_sz;
 	      };
 	}
-	in
-	let g = G.create () in
-	G.add_vertex g s;
-	g, s
+	
 
       (* CFA utilities *)
       (*****************)
@@ -175,6 +176,9 @@ module Make(Domain: Domain.T) =
 	  G.add_vertex g v;
 	  v
 
+      let create () = G.create ()
+      let add_vertex g s = G.add_vertex g s
+					
       let remove_state g v = G.remove_vertex g v
 
       (** returns a fresh copy of the given state *)
@@ -208,6 +212,20 @@ module Make(Domain: Domain.T) =
 	try List.hd (G.pred g v)
 	with _ -> raise (Invalid_argument "vertex without predecessor")
 
+      (** returns the state with the highest id and which has the given addr as ip field *)
+      let last_addr g ip =
+	let s = ref None in
+	let last s' =
+	  if Data.Address.compare s'.ip ip = 0 then
+	    match !s with
+	    | None -> s := Some s'
+	    | Some prev -> if prev.id < s'.id then s := Some s'
+	in
+	G.iter_vertex last g;
+	match !s with
+	| None -> raise Not_found
+	| Some s'   -> s'
+			   
       (** remove the given vertex of the given CFA *)
       let remove g v = G.remove_vertex g v
 

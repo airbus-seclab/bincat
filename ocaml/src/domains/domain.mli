@@ -12,6 +12,9 @@ module type T =
       (** bottom value *)
       val bot: t
 
+      (** make all computed dimensions to top *)
+      val forget: t -> t
+		      
       (** comparison to bottom *)
       val is_bot: t -> bool
 		 
@@ -23,7 +26,7 @@ module type T =
       val remove_register: Register.t -> t -> t
 
       (** forget the value of the register (ie set to top) *)
-      val forget: Register.t -> t -> t
+      val forget_register: Register.t -> t -> t
 				       
       (** add the given register to the given abstract value *)
       val add_register: Register.t -> t -> t

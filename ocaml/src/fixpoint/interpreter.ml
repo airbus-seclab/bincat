@@ -144,7 +144,7 @@ struct
 
             | Set (dst, src) 			    -> D.set dst src d 
             | Directive (Remove r) 		    -> let d' = D.remove_register r d in Register.remove r; d'
-            | Directive (Forget r) 		    -> D.forget r d
+            | Directive (Forget r) 		    -> D.forget_register r d
             | _ 				    -> raise Jmp_exn
 
         in
@@ -335,12 +335,58 @@ struct
                 | Exceptions.Enum_failure -> dump g; Log.error "analysis stopped (computed value too much imprecise)"
                 | e			  -> dump g; raise e
             end;
-            (* boolean condition of loop iteration is updated                                                          *)
+            (* boolean condition of loop iteration is updated *)
             continue := not (Vertices.is_empty !waiting);
         done;
         g
 
-    let backward _g _s _dump = failwith "Interpreter.backward: not implemented"
+    (** backward transfert function on the given abstract value *) 
+    let back_process d stmt =
+      match stmt with
+      | Call _
+      | Return
+      | Jmp _
+      | Nop -> d
+      | Directive (Forget _) -> d 
+      | Directive (Remove r) -> D.add_register r d
+      | Set (dst, src) ->
+	 begin
+	   match dst, src with
+	   | V (T r1), Lval (V (T r2)) when Register.size r1 = Register.size r2 -> D.set (V (T r2)) (Lval (V (T r1))) d
+	   | _, _ -> D.forget d
+	 end
+      | If _ -> D.forget d
+      
+    let back_update_abstract_value v d =
+      let d' = List.fold_left back_process d (List.rev v.Cfa.State.stmts) in
+      v.Cfa.State.v <- D.meet v.Cfa.State.v d'
+
+    let back_filter _g _v = ()
+      
+    let backward g s dump =
+      if D.is_bot s.Cfa.State.v then
+	begin
+	  dump g;
+	  Log.error "backward analysis not started: empty meet with previous forward computed value"
+	end
+      else
+	let continue = ref true in
+	let waiting = ref (Vertices.singleton s) in
+	try
+	  while !continue do
+	    let v = Vertices.choose !waiting in
+	    waiting := Vertices.remove v !waiting;
+	    let pred = Cfa.pred g v in
+	    back_update_abstract_value pred v.Cfa.State.v;
+	    back_filter g pred;
+	    if not (D.is_bot pred.Cfa.State.v) then
+	      waiting := Vertices.add pred !waiting;
+	    continue := not (Vertices.is_empty !waiting)
+	  done;
+	  g
+	with
+	| Failure "hd" -> dump g; Log.error "entry node of the CFA reached"
+	
     let forward_cfa _orig_cfa _ep_state = failwith "Interpreter.forward_cfa: not implemented"
 
 end

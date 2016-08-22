@@ -135,7 +135,7 @@ module Make(D: T) =
 
         let add_register r m =
             let add m' =
-                Val (Map.add (K.R r) D.bot m')
+                Val (Map.add (K.R r) D.top m')
             in
             match m with
             | BOT    -> add Map.empty
@@ -147,7 +147,12 @@ module Make(D: T) =
             | BOT    -> BOT
 
 
-        let forget r m =
+	let forget m =
+	  match m with
+	  | BOT -> BOT
+	  | Val m' -> Val (Map.map (fun _ -> D.top) m')
+			  
+        let forget_register r m =
             match m with
             | Val m' -> Val (Map.add (K.R r) D.top m')
             | BOT -> BOT

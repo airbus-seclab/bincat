@@ -49,20 +49,29 @@ let process ~configfile ~resultfile ~logfile =
        (* 4: generate code *)
        let code  = Code.make !Config.text !Config.rva_code !Config.ep                    in
        (* 5: generate the initial cfa with only an initial state *)
-       let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-       let g, s  = Interpreter.Cfa.init ep'                                              in
-       Interpreter.forward_bin code g s dump;
+       let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+       let s  = Interpreter.Cfa.init ep' in
+	let g = Interpreter.Cfa.create () in
+	Interpreter.Cfa.add_vertex g s;
+	Interpreter.forward_bin code g s dump
+				
    | Config.Forward Config.Cfa ->
        let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file in
        let find_initstate id = id (** XXX actually search state *)
        in
        let init_state = find_initstate 0 in
-       Interpreter.forward_cfa orig_cfa init_state;
+       Interpreter.forward_cfa orig_cfa init_state
+			       
   | Config.Backward -> 
        let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file in
        (* XXX find state having requested address orig_cfa & final=true *)
-       let ep_state = 0 in
-       Interpreter.backward orig_cfa ep_state dump
+       let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+       let d = Interpreter.Cfa.init_abstract_value () in
+       try
+	 let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
+	 prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
+	 Interpreter.backward orig_cfa prev_s dump
+       with Not_found -> Log.error "entry point of the backward analysis not in the given CFA"
   in
 
   (* 7: dumps the results *)
