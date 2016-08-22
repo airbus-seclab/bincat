@@ -927,25 +927,25 @@ struct
             error a "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"
 
     (** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
-    let return_jcc_stmts s e =
-        let o  = get_imm_int s 8 s.addr_sz true in
+    let return_jcc_stmts s cond_exp imm_sz =
+        let o  = get_imm_int s imm_sz s.addr_sz true in
         let ip = Address.add_offset s.a (Z.of_int s.o) in
         let a' = Address.add_offset ip o in
         check_jmp s a';
         check_jmp s ip;
-        return s [ If (e, [ Jmp (A a') ], [Jmp (A ip)]) ]
+        return s [ If (cond_exp, [ Jmp (A a') ], [Jmp (A ip)]) ]
 
     (** jump statements on condition *)
-    let jcc s v =
-        let e = exp_of_cond v s in
-        return_jcc_stmts s e
+    let jcc s cond imm_sz =
+        let cond_exp = exp_of_cond cond s in
+        return_jcc_stmts s cond_exp imm_sz
 
 
     (** jump if eCX is zero *)
     let jecxz s =
         let ecx' = to_reg ecx s.addr_sz				   in
         let e    = Cmp (EQ, Lval (V ecx'), Const (Word.zero s.addr_sz)) in
-        return_jcc_stmts s e
+        return_jcc_stmts s e 8
 
     (** common behavior between relative jump and relative call *)
     let relative s off_sz sz =
@@ -1629,7 +1629,7 @@ struct
             | '\x6e' -> (* OUTSB *) outs s 8
             | '\x6f' -> (* OUTSW/D *) outs s s.addr_sz
 
-            | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - 0x70 in jcc s v
+            | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - 0x70 in jcc s v 8
 
             | '\x80' -> (* grp1 opcode table *) grp1 s 8 8
             | '\x81' -> (* grp1 opcode table *) grp1 s s.operand_sz s.operand_sz
@@ -1776,7 +1776,7 @@ struct
             (* CMOVcc *)
             | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
 
-            | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond
+            | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
             | '\xa0' -> push s [V (T fs)]
             | '\xa1' -> pop s [V (T fs)]
