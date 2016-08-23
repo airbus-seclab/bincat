@@ -1,16 +1,14 @@
-
-
 (* string conversion of a position in the configuration file *)
 let string_of_position pos =
   Printf.sprintf "%d" pos.Lexing.lex_curr_p.Lexing.pos_lnum
-
+		 
 let print_exc exc raw_bt =
-    Printf.fprintf stdout "%s" (Printexc.to_string exc);
-    Printexc.print_raw_backtrace stdout raw_bt
+  Printf.fprintf stdout "%s" (Printexc.to_string exc);
+  Printexc.print_raw_backtrace stdout raw_bt
 
-(* main function *)
+(** main function *)
 let process ~configfile ~resultfile ~logfile =
-   (* 0 cleaning global data structures *)
+  (* 0 cleaning global data structures *)
   Config.clear_tables();
   Register.clear();
   (* generation of all modules depending on the memory model (main type of addresses) *)
@@ -23,6 +21,7 @@ let process ~configfile ~resultfile ~logfile =
   Log.init logfile;
   Printexc.record_backtrace true;
   Printexc.set_uncaught_exception_handler print_exc;
+
   (* 2: open the configuration file *)
   let cin =
     try open_in configfile
@@ -36,42 +35,41 @@ let process ~configfile ~resultfile ~logfile =
       Parser.process Lexer.token lexbuf
     with
     | Parser.Error -> close_in cin; Log.error (Printf.sprintf "Syntax error near location %s\n" (string_of_position lexbuf))
-
+					      
     | Failure "lexing: empty token" -> close_in cin; Log.error (Printf.sprintf "Parse error near location %s\n" (string_of_position lexbuf))
   end;
   close_in cin;
 
   (* 6: runs the fixpoint engine *)
-
-  let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa               in
-  let cfa = match !Config.analysis with
-   | Config.Forward Config.Bin ->
+  let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
+  
+  (* internal function to launch backward/forwrad analysis from a preivous CFA and config *)
+  let from_cfa fixpoint =
+  let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file in
+  let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+  let d = Interpreter.Cfa.init_abstract_value () in
+  try
+    let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
+    prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
+    fixpoint orig_cfa prev_s dump
+  with Not_found -> Log.error "entry point of the analysis not in the given CFA"
+  in
+  let cfa =
+    match !Config.analysis with
+    | Config.Forward Config.Bin ->
        (* 4: generate code *)
-       let code  = Code.make !Config.text !Config.rva_code !Config.ep                    in
+       let code  = Code.make !Config.text !Config.rva_code !Config.ep in
        (* 5: generate the initial cfa with only an initial state *)
        let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
        let s  = Interpreter.Cfa.init ep' in
-	let g = Interpreter.Cfa.create () in
-	Interpreter.Cfa.add_vertex g s;
-	Interpreter.forward_bin code g s dump
-				
-   | Config.Forward Config.Cfa ->
-       let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file in
-       let find_initstate id = id (** XXX actually search state *)
-       in
-       let init_state = find_initstate 0 in
-       Interpreter.forward_cfa orig_cfa init_state
+       let g = Interpreter.Cfa.create () in
+       Interpreter.Cfa.add_vertex g s;
+       Interpreter.forward_bin code g s dump
 			       
-  | Config.Backward -> 
-       let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file in
-       (* XXX find state having requested address orig_cfa & final=true *)
-       let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-       let d = Interpreter.Cfa.init_abstract_value () in
-       try
-	 let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
-	 prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
-	 Interpreter.backward orig_cfa prev_s dump
-       with Not_found -> Log.error "entry point of the backward analysis not in the given CFA"
+    | Config.Forward Config.Cfa -> from_cfa Interpreter.forward_cfa
+					    
+    | Config.Backward -> from_cfa Interpreter.backward
+				  
   in
 
   (* 7: dumps the results *)
