@@ -103,19 +103,19 @@ module Make(D: T) =
                 match v1, v2 with
                 | Reg r1, Reg r2 -> Register.compare r1 r2
                 | Mem addr1, Mem addr2 ->
-                      Data.Address.compare addr1 addr2
+                  Data.Address.compare addr1 addr2
                 | Mem addr1, Mem_Itv (m2_low, m2_high) ->
-                      if addr1 < m2_low then -1
-                      else if m2_high < addr1 then 1
-                      else 0
+                  if addr1 < m2_low then -1
+                  else if m2_high < addr1 then 1
+                  else 0
                 | Mem_Itv (m1_low, m1_high), Mem addr2 ->
-                      if m1_high < addr2 then -1
-                      else if addr2 < m1_low then 1
-                      else 0
+                  if m1_high < addr2 then -1
+                  else if addr2 < m1_low then 1
+                  else 0
                 | Mem_Itv (m1_low, m1_high), Mem_Itv (m2_low, m2_high) ->
-                      if m1_high < m2_low then -1
-                      else if m2_high < m1_low then 1
-                      else 0
+                  if m1_high < m2_low then -1
+                  else if m2_high < m1_low then 1
+                  else 0
                 | Reg _ , _    -> 1
                 | _   , _    -> -1
 
@@ -212,25 +212,15 @@ module Make(D: T) =
               if Data.Address.compare addr a_low < 0 then
                   -1
               else
-                  if Data.Address.compare addr a_high > 0 then 1
-                  else 0 (* return 0 if a1 <= a <= a2 *)
-
-        (* returns the byte value from the given _key_ and _addr_ *)
-        let get_mem_byte_from_key addr key =
-                match key with
-                | Key.Reg _      -> Log.error "Implementation error in Unrel: the found key should be a pair of addresses"
-                (* We try to read in an interval of memory defined at init *)
-                | Key.Mem_Itv (addr_low, addr_high) ->
-                        Map.find key
-                (* Read memory directly *)
-                | Key.Mem addr -> Map.find key
+              if Data.Address.compare addr a_high > 0 then 1
+              else 0 (* return 0 if a1 <= a <= a2 *)
 
         (** computes the value read from the map where _addr_ is located *)
         let get_mem_value map addr sz =
             try
                 (* expand the address + size to a list of addresses *)
                 let exp_addrs = get_addr_list addr (sz/8) in
-                (* find the corresponding keys in the map *)
+                (* find the corresponding keys in the map, will raise [Not_found] if no addr matches *)
                 let key_vals = List.rev_map (fun cur_addr -> Map.find_key (where cur_addr) map) exp_addrs in
                 (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
                 let vals = List.map (fun k_v -> snd k_v) key_vals in
@@ -238,131 +228,56 @@ module Make(D: T) =
             with _ -> D.bot
 
         let write_in_memory addr domain value sz strong =
-            let nb = sz / 8					   in
-            let min_addr = addr in
-            let max_addr = Data.Address.add_offset addr (Z.of_int (nb-1))   in
-            Log.debug ("----------------------");
-            Log.debug (Printf.sprintf "write_in_memory : %s %s %d" (Data.Address.to_string addr) (D.to_string value) sz);
-            Log.debug (Printf.sprintf "write_in_memory : min_addr : %s max_addr : %s" (Data.Address.to_string min_addr) (Data.Address.to_string max_addr));
+            let nb = sz / 8 in
             let addrs = get_addr_list addr nb in
-            List.iter (fun t ->   Log.debug (Printf.sprintf "addrs : %s" (Data.Address.to_string t))) addrs;
-            let within domain =
-                (* TODO: optimize the search scanning by removing already found addresses in list addrs + avoid exploring all the map by knowing how it is structured *)
-                match domain with
-                | Key.Mem_Itv (low', up') ->
-
-                  let has_it = List.exists (fun addr' ->
-                      ((Data.Address.compare low' addr' <= 0 ) && (* XXX CHECK if < or <= *)
-                       (Data.Address.compare addr' up' <= 0))) addrs (* SAME *)
-                  in
-                  Log.debug (Printf.sprintf "within %s:%s %B" (Data.Address.to_string low')(Data.Address.to_string up') has_it);
-                  has_it
-                | _ 	       -> false
+            (* computes the (addr, byte) tuples *)
+            (* TODO : check extract vs from_position *)
+            (* helper to update one byte in memory *)
+            let safe_find addr =
+                try 
+                    [Map.find_key (where addr) domain]
+                with Not_found -> []
             in
-            let all_addrs = Map.find_all_keys within domain in
-            List.iter (fun (_, t) ->   Log.debug (Printf.sprintf "all_addrs : %s" (D.to_string t))) all_addrs;
-            (* TODO : make endianness agnostic ! *)
-            let before low up pvalue =
-                if Data.Address.compare low addr = 0 then
-                    None
-                else
-                    (* get data from pvalue from low to 'addr' *)
-                    let pend = ((Z.to_int (Data.Address.sub up low)*8+7)) in
-                    let len = ((Z.to_int (Data.Address.sub addr low))*8) in
-                    Log.debug (Printf.sprintf "before(low, up) : %s %s" (Data.Address.to_string low) (Data.Address.to_string up));
-                    Log.debug (Printf.sprintf "before : pvalue %s" (D.to_string pvalue));
-                    let res = D.from_position pvalue pend len in
-                    Log.debug (Printf.sprintf "before : result %s" (D.to_string res));
-                    Some res
-            in
-            let inpart up pvalue =
-                Log.debug (Printf.sprintf "inpart(up, pv) : %s %s"  (Data.Address.to_string up)(D.to_string pvalue));
-                if strong then
-                    let res = value in Log.debug (Printf.sprintf "inpart : (strong) result %s" (D.to_string res));
-                    res
-                else
-                if Data.Address.compare max_addr up <= 0 then
-                    let res =
-                        D.join value (D.from_position pvalue (((Z.to_int (Data.Address.sub up addr))+1)*8-1) sz) in
-                    Log.debug (Printf.sprintf "inpart : result %s" (D.to_string res));
-                    res
-                else raise Exceptions.Empty
-            in
-            let after up' pv =
-                if Data.Address.compare up' max_addr = 0 then
-                    None
-                else
-                    begin
-                        Log.debug (Printf.sprintf "after : up: %s, max : %s, pv : %s" (Data.Address.to_string up') (Data.Address.to_string max_addr) (D.to_string pv));
-                        let pos = Z.to_int (Data.Address.sub up' max_addr) in
-                        Some (D.from_position pv pos (pos*8))
-                    end
-            in
-            let rec split l =
-                match l with
-                | [ Key.Mem_Itv (l, u), v]    -> (l, u, v), []
-                | (Key.Mem_Itv _ as k, _)::l' -> let e, l' = split l' in e, k::l'
-                | _ 		      -> raise Exceptions.Empty
-            in
-            match all_addrs with
-            (* only one address in the domain *)
-              [ Key.Mem_Itv (low, up) as k, match_val ] ->
-              if Data.Address.compare up min_addr = 0 then
-                  (* new address is at the end of an existing chunk :
-                   * merge *)
+            let update_one_key (addr, byte) = 
+                let key = safe_find addr in
+                match key with
+                | [Key.Reg _, _] -> Log.error "Implementation error in Unrel: the found key is a Reg"
+                (* single byte to update *)
+                | [Key.Mem (_) as addr_k, match_val] ->
+                  let dom' = Map.remove addr_k domain in
                   if strong then
-                      let m' = Map.remove k domain in
-                      Map.add (Key.Mem_Itv (low, Data.Address.add_offset addr (Z.of_int (nb-1)))) (D.concat [match_val ; value]) m'
+                      Map.add addr_k byte dom'
+                  else
+                      Map.add addr_k (D.join byte match_val) dom'
+                (* we have to split the interval *)
+                | [Key.Mem_Itv (low_addr, high_addr) as key, match_val] ->
+                  let dom' = Map.remove key domain in
+                  (* addr just below the new byte *)
+                  let addr_before = Data.Address.dec addr  in
+                  (* addr just after the new byte *)
+                  let addr_after = Data.Address.inc addr in
+                  (* add the new interval just before *)
+                  let dom' = Map.add (Key.Mem_Itv (low_addr, addr_before)) match_val dom' in
+                  (* add the new interval just after *)
+                  let dom' = Map.add (Key.Mem_Itv (addr_after, high_addr)) match_val dom' in
+                  if strong then
+                      Map.add (Key.Mem(addr)) byte dom'
+                  else
+                      Map.add (Key.Mem(addr)) (D.join byte match_val) dom'
+                (* the addr was not previously seen *)
+                | [] -> if strong then
+                      Map.add (Key.Mem(addr)) byte domain
                   else
                       raise Exceptions.Empty
-              else
-              if Data.Address.compare low max_addr = 0 then
-                  (* new data is right before an existing chunk :
-                   * merge *)
-                  if strong then
-                      let m' = Map.remove k domain in
-                      Map.add (Key.Mem_Itv (addr, up)) (D.concat [value ; match_val]) m'
-                  else raise Exceptions.Empty
-              else
-                  let w1 = before low up match_val in
-                  let w2 = inpart up match_val in
-                  let w3 = after up match_val in
-                  let m' = Map.remove k domain in
-                  let l =
-                      match w1, w3 with
-                      | Some w1', Some w3' -> [ w1' ; w2 ; w3' ]
-                      | None, Some w3' -> [ w2 ; w3' ]
-                      | Some w1', None -> [w1' ; w2 ]
-                      | None, None -> [ w2 ]
-                  in
-                  let new_val = D.concat l in
-                  Map.add (Key.Mem_Itv (low, up)) new_val m'
+                | _::_ -> Log.error "Implementation error in Unrel: the found key is a List"
+            in
+            let rec do_update new_mem map = 
+                match new_mem with
+                | [] -> map
+                | new_val::l -> do_update l (update_one_key new_val) in
+            let new_mem = List.mapi (fun i addr -> (addr, (D.extract value (i*8) ((i+1)*8)))) addrs
+            in do_update new_mem domain
 
-            | (Key.Mem_Itv (l1, u1) as k1, pv1)::l ->
-              Log.debug (Printf.sprintf "write_in_memory : list");
-              if strong then
-                  let b =
-                      match before l1 u1 pv1 with
-                      | None -> pv1
-                      | Some w -> w
-                  in
-                  let m' = Map.remove k1 domain in
-                  let (l, u, pv), r = split l in
-                  let w3 =
-                      match after u pv with
-                      | None -> pv
-                      | Some w -> w
-                  in
-                  let m' = Map.remove (Key.Mem_Itv (l, u)) m' in
-                  let m' = List.fold_left (fun domain k -> Map.remove k domain) m' r in
-                  Map.add (Key.Mem_Itv (l1, u)) (D.concat [b ; value ; w3]) m'
-              else raise Exceptions.Empty
-            | [] ->
-              if strong then
-                  Map.add (Key.Mem_Itv (addr, Data.Address.add_offset addr (Z.of_int (nb-1)))) value domain
-              else
-                  raise Exceptions.Empty
-            | _ -> raise Exceptions.Empty
 
 
         (***************************)

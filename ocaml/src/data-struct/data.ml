@@ -139,6 +139,7 @@ struct
 
         let size a = Word.size (snd a)
 
+
         let add_offset (r, w) o' =
             let n = Word.size w in
             let w' = Word.add w (Word.of_int o' n) in
@@ -149,6 +150,9 @@ struct
                 end
             else
                 r, w'
+
+        let dec (r, w) = add_offset (r, w) (Z.minus_one)
+        let inc (r, w) = add_offset (r, w) (Z.one)
 
         let to_word (_r, w) sz =
             if Word.size w >= sz then
