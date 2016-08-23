@@ -198,16 +198,16 @@ module Make(D: T) =
                 arr.(i) <- Data.Address.add_offset base (Z.of_int i);
             done;
             arr
+
         let get_addr_list base nb =
             Array.to_list (get_addr_array base nb)
 
-        (** check if key matches the given _addresses_ **)
+        (** compare the given _addr_ to key, for use in MapOpt.find_key **)
         (** remember that registers (key Key.Reg) are before any address in the order defined in K *)
-        let where addresses key =
+        let where addr key =
             match key with
-            | Key.Reg _ -> false
-            (* utiliser sz ici *)
-            | Key.Mem addr_k -> List.exists (fun addr_l -> (Data.Address.compare addr_l addr_k) = 0) addresses
+            | Key.Reg _ -> -1
+            | Key.Mem addr_k -> Data.Address.compare addr addr_k
             | Key.Mem_Itv (a_low, a_high) ->
               if Data.Address.compare addr a_low < 0 then
                   -1
@@ -215,24 +215,26 @@ module Make(D: T) =
                   if Data.Address.compare addr a_high > 0 then 1
                   else 0 (* return 0 if a1 <= a <= a2 *)
 
-        (** computes the value read from a the map around at the key k containing address a *)
-        let get_mem_value map addr sz =
-            try
-                (* expand the address + size to a list of addresses *)
-                let exp_addrs = get_addr_list addr sz/8 in
-                (* find the keys k in the map that address _addr_ belongs to *)
-                let keys = Map.find_all_keys (where exp_addrs) map in
+        (* returns the byte value from the given _key_ and _addr_ *)
+        let get_mem_byte_from_key addr key =
                 match key with
                 | Key.Reg _      -> Log.error "Implementation error in Unrel: the found key should be a pair of addresses"
                 (* We try to read in an interval of memory defined at init *)
-                | Key.Mem_Itv (addr_low, addr_high) -> 
-                    (* check that we don't try to read outsize of the interval *)
-                    if Data.Address.compare (Data.Address.add_offset addr sz) addr_high > 1 then
-                        D.bot
-                    else
-                        D.of_repeat_val map_val 8 sz
+                | Key.Mem_Itv (addr_low, addr_high) ->
+                        Map.find key
                 (* Read memory directly *)
-                | Key.Mem addr -> map_val 
+                | Key.Mem addr -> Map.find key
+
+        (** computes the value read from the map where _addr_ is located *)
+        let get_mem_value map addr sz =
+            try
+                (* expand the address + size to a list of addresses *)
+                let exp_addrs = get_addr_list addr (sz/8) in
+                (* find the corresponding keys in the map *)
+                let key_vals = List.rev_map (fun cur_addr -> Map.find_key (where cur_addr) map) exp_addrs in
+                (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
+                let vals = List.map (fun k_v -> snd k_v) key_vals in
+                D.concat vals
             with _ -> D.bot
 
         let write_in_memory addr domain value sz strong =
