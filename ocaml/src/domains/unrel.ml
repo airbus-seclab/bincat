@@ -256,10 +256,20 @@ module Make(D: T) =
                   let addr_before = Data.Address.dec addr  in
                   (* addr just after the new byte *)
                   let addr_after = Data.Address.inc addr in
-                  (* add the new interval just before *)
-                  let dom' = Map.add (Key.Mem_Itv (low_addr, addr_before)) match_val dom' in
-                  (* add the new interval just after *)
-                  let dom' = Map.add (Key.Mem_Itv (addr_after, high_addr)) match_val dom' in
+                  (* add the new interval just before, if it's not empty *)
+                  let dom' = 
+                    if Data.Address.equal addr low_addr then
+                        dom'
+                    else
+                        Map.add (Key.Mem_Itv (low_addr, addr_before)) match_val dom'
+                  in
+                  (* add the new interval just after, if its not empty *)
+                  let dom' = 
+                    if Data.Address.equal addr high_addr then
+                        dom'
+                    else
+                        Map.add (Key.Mem_Itv (addr_after, high_addr)) match_val dom'
+                  in
                   if strong then
                       Map.add (Key.Mem(addr)) byte dom'
                   else
