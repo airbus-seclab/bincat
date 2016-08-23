@@ -228,10 +228,11 @@ module Make(D: T) =
             with _ -> D.bot
 
         let write_in_memory addr domain value sz strong =
+            Log.debug (Printf.sprintf "write_in_memory : %s %s %d %B" (Data.Address.to_string addr) (D.to_string value) sz strong);
+            Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));
             let nb = sz / 8 in
             let addrs = get_addr_list addr nb in
-            (* computes the (addr, byte) tuples *)
-            (* TODO : check extract vs from_position *)
+            List.iter (fun t ->   Log.debug (Printf.sprintf "addrs : %s" (Data.Address.to_string t))) addrs;
             (* helper to update one byte in memory *)
             let safe_find addr =
                 try 
@@ -285,8 +286,9 @@ module Make(D: T) =
                 match new_mem with
                 | [] -> map
                 | new_val::l -> do_update l (update_one_key new_val) in
-            let new_mem = List.mapi (fun i addr -> (addr, (D.extract value (i*8) ((i+1)*8)))) addrs
-            in do_update new_mem domain
+            let new_mem = List.mapi (fun i addr -> (addr, (D.extract value (i*8) ((i+1)*8-1)))) addrs in
+            List.iter (fun (a,v) ->   Log.debug (Printf.sprintf "addr,v : %s %s" (Data.Address.to_string a) (D.to_string v))) new_mem;
+            do_update new_mem domain
 
 
 
