@@ -236,8 +236,12 @@ module Make(D: T) =
             (* helper to update one byte in memory *)
             let safe_find addr =
                 try 
-                    [Map.find_key (where addr) domain]
-                with Not_found -> []
+                    let res = Map.find_key (where addr) domain in 
+                    Log.debug (Printf.sprintf "safe_find addr -> key : %s -> [%s]" (Data.Address.to_string addr) (Key.to_string (fst res)));
+                    [res]
+                with Not_found ->
+                   Log.debug (Printf.sprintf "safe_find addr -> key : %s -> []" (Data.Address.to_string addr));
+                   []
             in
             let update_one_key (addr, byte) = 
                 let key = safe_find addr in
@@ -283,11 +287,12 @@ module Make(D: T) =
                 | _::_ -> Log.error "Implementation error in Unrel: the found key is a List"
             in
             let rec do_update new_mem map = 
+                Log.debug "do_update";
+                List.iter (fun (a,v) ->   Log.debug (Printf.sprintf "addr,v : %s %s" (Data.Address.to_string a) (D.to_string v))) new_mem;
                 match new_mem with
                 | [] -> map
                 | new_val::l -> do_update l (update_one_key new_val) in
             let new_mem = List.mapi (fun i addr -> (addr, (D.extract value (i*8) ((i+1)*8-1)))) addrs in
-            List.iter (fun (a,v) ->   Log.debug (Printf.sprintf "addr,v : %s %s" (Data.Address.to_string a) (D.to_string v))) new_mem;
             do_update new_mem domain
 
 
