@@ -230,21 +230,22 @@ module Make(D: T) =
         let write_in_memory addr domain value sz strong =
             Log.debug (Printf.sprintf "write_in_memory : %s %s %d %B" (Data.Address.to_string addr) (D.to_string value) sz strong);
             Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));
+
             let nb = sz / 8 in
             let addrs = get_addr_list addr nb in
             List.iter (fun t ->   Log.debug (Printf.sprintf "addrs : %s" (Data.Address.to_string t))) addrs;
             (* helper to update one byte in memory *)
-            let safe_find addr =
+            let safe_find addr dom =
                 try 
-                    let res = Map.find_key (where addr) domain in 
+                    let res = Map.find_key (where addr) dom in 
                     Log.debug (Printf.sprintf "safe_find addr -> key : %s -> [%s]" (Data.Address.to_string addr) (Key.to_string (fst res)));
                     [res]
                 with Not_found ->
                    Log.debug (Printf.sprintf "safe_find addr -> key : %s -> []" (Data.Address.to_string addr));
                    []
             in
-            let update_one_key (addr, byte) = 
-                let key = safe_find addr in
+            let update_one_key (addr, byte) domain =
+                let key = safe_find addr domain in
                 match key with
                 | [Key.Reg _, _] -> Log.error "Implementation error in Unrel: the found key is a Reg"
                 (* single byte to update *)
@@ -291,7 +292,7 @@ module Make(D: T) =
                 List.iter (fun (a,v) ->   Log.debug (Printf.sprintf "addr,v : %s %s" (Data.Address.to_string a) (D.to_string v))) new_mem;
                 match new_mem with
                 | [] -> map
-                | new_val::l -> do_update l (update_one_key new_val) in
+                | new_val::l -> do_update l (update_one_key new_val map) in
             let new_mem = List.mapi (fun i addr -> (addr, (D.extract value (i*8) ((i+1)*8-1)))) addrs in
             do_update new_mem domain
 
