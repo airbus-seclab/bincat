@@ -217,6 +217,8 @@ module Make(D: T) =
 
         (** computes the value read from the map where _addr_ is located *)
         let get_mem_value map addr sz =
+            (*Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));*)
+            Log.debug (Printf.sprintf "get_mem_value : %s %d" (Data.Address.to_string addr) sz );
             try
                 (* expand the address + size to a list of addresses *)
                 let exp_addrs = get_addr_list addr (sz/8) in
@@ -224,16 +226,17 @@ module Make(D: T) =
                 let key_vals = List.rev_map (fun cur_addr -> Map.find_key (where cur_addr) map) exp_addrs in
                 (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
                 let vals = List.map (fun k_v -> snd k_v) key_vals in
-                D.concat vals
+                let res = D.concat vals in
+                Log.debug (Printf.sprintf "get_mem_value result : %s" (D.to_string res));
+                res
             with _ -> D.bot
 
         let write_in_memory addr domain value sz strong =
             Log.debug (Printf.sprintf "write_in_memory : %s %s %d %B" (Data.Address.to_string addr) (D.to_string value) sz strong);
-            Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));
+            (*Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));*)
 
             let nb = sz / 8 in
             let addrs = get_addr_list addr nb in
-            List.iter (fun t ->   Log.debug (Printf.sprintf "addrs : %s" (Data.Address.to_string t))) addrs;
             (* helper to update one byte in memory *)
             let safe_find addr dom =
                 try 
@@ -288,8 +291,8 @@ module Make(D: T) =
                 | _::_ -> Log.error "Implementation error in Unrel: the found key is a List"
             in
             let rec do_update new_mem map = 
-                Log.debug "do_update";
-                List.iter (fun (a,v) ->   Log.debug (Printf.sprintf "addr,v : %s %s" (Data.Address.to_string a) (D.to_string v))) new_mem;
+(*                Log.debug "do_update";
+                List.iter (fun (a,v) ->   Log.debug (Printf.sprintf "addr,v : %s %s" (Data.Address.to_string a) (D.to_string v))) new_mem;*)
                 match new_mem with
                 | [] -> map
                 | new_val::l -> do_update l (update_one_key new_val map) in
@@ -325,7 +328,6 @@ module Make(D: T) =
                       let r = eval e in
                       try
                           let addresses = Data.Address.Set.elements (D.to_addresses r) in
-                          List.iter (fun a -> Log.debug (Printf.sprintf "deref : %s, %d" (Data.Address.to_string a) n)) addresses;
                           let rec to_value a =
                               match a with
                               | [a]  -> get_mem_value m a n
@@ -334,7 +336,7 @@ module Make(D: T) =
                           in
                           let value = to_value addresses
                           in
-                          Log.debug (D.to_string value); value
+                          value
                       with
                       | Exceptions.Enum_failure               -> D.top
                       | Not_found | Exceptions.Concretization ->
