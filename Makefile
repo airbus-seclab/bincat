@@ -76,5 +76,8 @@ dist: clean
 	cp -r doc bincat-dist
 	tar -czf bincat.tar.gz bincat-dist
 
-.PHONY: install clean IDAinstall
+tags:
+	otags -vi -r ocaml
+
+.PHONY: install clean IDAinstall tags
 
