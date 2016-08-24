@@ -361,12 +361,6 @@ module Make(D: Domain.T) =
       let d' = List.fold_left back_process d (List.rev v.Cfa.State.stmts) in
       v.Cfa.State.v <- D.meet v.Cfa.State.v d'
 			      
-    let back_unroll g v =
-      if v.Cfa.State.final then
-	
-      else
-	v
-			      
     let backward g s dump =
       if D.is_bot s.Cfa.State.v then
 	begin
@@ -383,8 +377,8 @@ module Make(D: Domain.T) =
 	    let pred = Cfa.pred g v in
 	    back_update_abstract_value pred v.Cfa.State.v;
 	    if not (D.is_bot pred.Cfa.State.v) then
-		let pred' = back_unroll g pred in
-		waiting := Vertices.add pred' !waiting;
+		(*let pred' = back_unroll g pred in*)
+		waiting := Vertices.add pred !waiting;
 	    continue := not (Vertices.is_empty !waiting)
 	  done;
 	  g
