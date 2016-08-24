@@ -36,7 +36,7 @@ struct
     let of_string v n =
         try
             let v' = Z.of_string v in
-            if String.length (Z.to_bits v') > n then
+            if Z.numbits v' > n then
                 raise (Exceptions.Error (Printf.sprintf "word %s too large to fit into %d bits" v n))
             else
                 v', n
