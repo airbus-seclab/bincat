@@ -1,12 +1,6 @@
 {
   open Parser
   open Lexing
-  let next_line lexbuf =
-    let pos = lexbuf.lex_curr_p in
-    lexbuf.lex_curr_p <-
-      { pos with pos_bol = lexbuf.lex_curr_pos;
-		 pos_lnum = pos.pos_lnum + 1
-      }
 }
 
 (* utilities *)
@@ -14,7 +8,8 @@ let letter 	 = ['a'-'z' 'A'-'Z']
 let digit 	 = ['0'-'9']
 
 (* integers *)
-let hexa_int     = ("0x" | "0x") ['0' -'9' 'a' - 'f' 'A'-'F']+
+let hex_digits = ['0' -'9' 'a' - 'f' 'A'-'F']+
+let hexa_int     = ("0X" | "0x") hex_digits
 let dec_int      = digit+
 let oct_int      = ("0o" | "0O") ['0'-'7']+
 let integer = hexa_int | dec_int | oct_int
@@ -32,7 +27,7 @@ let value        = (digit | path_symbols | letter | '_' | '-' | '@')*
 rule token = parse
   (* escape tokens *)
   | white_space 	    { token lexbuf }
-  | newline 		    { next_line lexbuf; token lexbuf }
+  | newline 		    { new_line lexbuf; token lexbuf }
   | '#'         	    { comment lexbuf }
   (* section separators *)
   | '[' 		    { LEFT_SQ_BRACKET }
@@ -129,5 +124,5 @@ rule token = parse
 
 (* skip comments *)
 and comment = parse
-  | ['\n' '\r']   { next_line lexbuf; token lexbuf }
+  | ['\n' '\r']   { new_line lexbuf; token lexbuf }
   | [^ '\n' '\r'] { comment lexbuf }

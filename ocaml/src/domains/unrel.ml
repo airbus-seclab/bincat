@@ -123,7 +123,7 @@ module Make(D: T) =
                 match x with
                 | Reg r -> "reg [" ^ (Register.name r) ^ "]"
                 | Mem_Itv (low_a, high_a) -> "mem [" ^ (Data.Address.to_string low_a) ^ ", " ^(Data.Address.to_string high_a) ^ "]"
-                | Mem addr -> "mem [" ^ (Data.Address.to_string addr) ^ "]"
+                | Mem addr -> "mem [" ^ (Data.Address.to_string addr) ^ ", " ^ (Data.Address.to_string (Data.Address.inc addr)) ^"]"
         end
 
         (* For Ocaml non-gurus : creates a Map type which uses MapOpt with keys of type Key *)
