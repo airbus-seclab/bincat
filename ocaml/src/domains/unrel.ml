@@ -230,12 +230,13 @@ module Make(D: T) =
                 res
             with _ -> D.bot
 
-        let write_in_memory addr domain value sz strong =
+        let write_in_memory addr domain value sz strong big_endian =
             Log.debug (Printf.sprintf "write_in_memory : %s %s %d %B" (Data.Address.to_string addr) (D.to_string value) sz strong);
             (*Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));*)
 
             let nb = sz / 8 in
             let addrs = get_addr_list addr nb in
+            let addrs = if big_endian then List.rev addrs else addrs in
             (* helper to update one byte in memory *)
             let safe_find addr dom =
                 try 
@@ -407,8 +408,8 @@ module Make(D: T) =
                     let l     = Data.Address.Set.elements addrs in
                     try
                         match l with
-                        | [a] -> (* strong update *) Val (write_in_memory a m' v' n true)
-                        | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false) m' l)
+                        | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false)
+                        | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l)
                     with Exceptions.Empty -> BOT
 
         let join m1 m2 =
@@ -472,7 +473,12 @@ module Make(D: T) =
                   let sz = size_of_content content in
                   let val_taint = of_config region (content, taint) sz in
                   let r = D.of_repeat_val val_taint sz nb in
-                  Val (write_in_memory addr domain' r (sz*nb) true)
+                  let big_endian = 
+                    match content with 
+                    | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
+                    | _ -> false
+                    in
+                      Val (write_in_memory addr domain' r (sz*nb) true big_endian)
             else
                 domain
 
