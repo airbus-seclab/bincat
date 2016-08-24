@@ -446,6 +446,7 @@ module Make(D: T) =
             let sz =
                 match c with
                 | Config.Content z | Config.CMask (z, _) -> Z.numbits z
+                | Config.Bytes b | Config.Bytes_Mask (b, _) -> Log.debug b; (String.length b)*4
             in
             if sz < !Config.operand_sz then
                 !Config.operand_sz
