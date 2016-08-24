@@ -223,9 +223,8 @@ module Make(D: T) =
                 (* expand the address + size to a list of addresses *)
                 let exp_addrs = get_addr_list addr (sz/8) in
                 (* find the corresponding keys in the map, will raise [Not_found] if no addr matches *)
-                let key_vals = List.rev_map (fun cur_addr -> Map.find_key (where cur_addr) map) exp_addrs in
+                let vals = List.rev_map (fun cur_addr -> snd (Map.find_key (where cur_addr) map)) exp_addrs in
                 (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
-                let vals = List.map (fun k_v -> snd k_v) key_vals in
                 let res = D.concat vals in
                 Log.debug (Printf.sprintf "get_mem_value result : %s" (D.to_string res));
                 res
@@ -253,11 +252,10 @@ module Make(D: T) =
                 | [Key.Reg _, _] -> Log.error "Implementation error in Unrel: the found key is a Reg"
                 (* single byte to update *)
                 | [Key.Mem (_) as addr_k, match_val] ->
-                  let dom' = Map.remove addr_k domain in
                   if strong then
-                      Map.add addr_k byte dom'
+                      Map.replace addr_k byte domain
                   else
-                      Map.add addr_k (D.join byte match_val) dom'
+                      Map.replace addr_k (D.join byte match_val) domain
                 (* we have to split the interval *)
                 | [Key.Mem_Itv (low_addr, high_addr) as key, match_val] ->
                   let dom' = Map.remove key domain in
