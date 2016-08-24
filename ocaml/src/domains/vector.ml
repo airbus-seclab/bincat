@@ -13,11 +13,11 @@ sig
     (** comparison to top *)
     val is_top: t -> bool
     (** conversion to value of type Z.t. May raise an exception *)
-    val to_value: t -> Z.t
+    val to_z: t -> Z.t
     (** conversion from Z.t value *)
-    val of_value: Z.t -> t
+    val of_z: Z.t -> t
     (** taint the given value from Z.t value *)
-    val taint_of_value: Z.t -> t -> t
+    val taint_of_z: Z.t -> t -> t
     (** abstract join *)
     val join: t -> t -> t
     (** abstract meet *)
@@ -82,7 +82,7 @@ sig
     (** returns true whenever at least one bit may be tainted *)
     val is_tainted: t -> bool
     (** value conversion. May raise an exception *)
-    val to_value: t -> Z.t
+    val to_z: t -> Z.t
     (** abstract join *)
     val join: t -> t -> t
     (** abstract meet *)
@@ -166,18 +166,18 @@ module Make(V: Val) =
                 true
             with _ -> false
 
-        let to_value v =
+        let to_z v =
             try
                 let z = ref Z.zero in
                 for i = 0 to (Array.length v) - 1 do
-                    let n = V.to_value v.(i) in
+                    let n = V.to_z v.(i) in
                     z := Z.add n (Z.shift_left !z 1)
                 done;
                 !z
             with _ -> raise Exceptions.Concretization
 
         (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
-        let to_word v = Data.Word.of_int (to_value v) (Array.length v)
+        let to_word v = Data.Word.of_int (to_z v) (Array.length v)
 
         let to_string v =
             let v' =
@@ -202,7 +202,7 @@ module Make(V: Val) =
         let meet v1 v2 = map2 V.meet v1 v2
 
         let widen v1 v2 =
-            if Z.compare (to_value v1) (to_value v2) <> 0 then
+            if Z.compare (to_z v1) (to_z v2) <> 0 then
                 raise Exceptions.Enum_failure
             else v1
 
@@ -258,7 +258,7 @@ module Make(V: Val) =
 
         let shl v1 v2 =
             try
-                let i = Z.to_int (to_value v2) in
+                let i = Z.to_int (to_z v2) in
                 ishl v1 i
             with _ -> raise Exceptions.Enum_failure
 
@@ -266,7 +266,7 @@ module Make(V: Val) =
             Log.debug (Printf.sprintf "Vector.shr(%s,%s)" (to_string v) (to_string n));
             let v_len = Array.length v in
             try
-                let n_i = Z.to_int (to_value n) in
+                let n_i = Z.to_int (to_z n) in
                 Log.debug (Printf.sprintf "Vector: %d" n_i);
                 let v' = Array.make v_len V.zero in
                 for j = 0 to v_len-n_i-1 do
@@ -372,7 +372,8 @@ module Make(V: Val) =
 
         let weak_taint v = Array.map V.weak_taint v
 
-        let nth_of_value v i = Z.logand (Z.shift_right v i) Z.one
+        let nth_of_z_as_val v i = if Z.testbit v i then V.one else V.zero
+        let nth_of_z v i = if Z.testbit v i then Z.one else Z.zero
 
         let of_word w =
             let sz = Data.Word.size w	   in
@@ -380,7 +381,7 @@ module Make(V: Val) =
             let r  = Array.make sz V.top in
             let n' =sz-1 in
             for i = 0 to n' do
-                r.(n'-i) <- if Z.compare (nth_of_value w' i) Z.one = 0 then V.one else V.zero
+                r.(n'-i) <- nth_of_z_as_val w' i 
             done;
             r
 
@@ -395,15 +396,14 @@ module Make(V: Val) =
                 match c with
                 | Config.Content c         ->
                   for i = 0 to n' do
-                      v.(n'-i) <- V.of_value (nth_of_value c i)
+                      v.(n'-i) <- nth_of_z_as_val c i
                   done
                 | Config.CMask (c, m) ->
                   for i = 0 to n' do
-                      let mnth = nth_of_value m i in
-                      if Z.compare mnth Z.zero = 0 then
-                          v.(n'-i) <- V.of_value (nth_of_value c i)
-                      else
+                      if Z.testbit m i then
                           v.(n'-i) <- V.top
+                      else
+                          v.(n'-i) <- nth_of_z_as_val c i
                   done
             end;
             v
@@ -418,16 +418,16 @@ module Make(V: Val) =
             | Config.Taint b ->
               let n' =n-1 in
               for i = 0 to n' do
-                  v.(n'-i) <- V.taint_of_value (nth_of_value b i) v.(n'-i)
+                  v.(n'-i) <- V.taint_of_z (nth_of_z b i) v.(n'-i)
               done;
               v
             | Config.TMask (b, m) ->
               let n' = n-1 in
               for i = 0 to n' do
-                  let bnth = nth_of_value b i in
-                  let mnth = nth_of_value m i in
+                  let bnth = nth_of_z b i in
+                  let mnth = nth_of_z m i in
                   if Z.compare mnth Z.zero = 0 then
-                      v.(n'-i) <- V.taint_of_value bnth v.(n'-i)
+                      v.(n'-i) <- V.taint_of_z bnth v.(n'-i)
                   else
                       v.(n'-i) <- V.forget_taint v.(n'-i)
               done;

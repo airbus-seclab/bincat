@@ -11,11 +11,11 @@ module Make (V: Vector.T) =
         let top = TOP
         let is_bot p = p = BOT
 
-        let to_value p =
+        let to_z p =
             match p with
             | BOT         -> raise Exceptions.Empty
             | TOP         -> raise Exceptions.Enum_failure
-            | Val (_r, v) -> V.to_value v
+            | Val (_r, v) -> V.to_z v
 
         let to_string p =
             match p with
