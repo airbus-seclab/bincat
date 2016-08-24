@@ -101,6 +101,7 @@
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA MCFA_FILE
 %token <string> STRING
+%token <string> HEX_BYTES
 %token <Z.t> INT
 %start <unit> process
 %%
@@ -273,8 +274,8 @@
     | c1=mcontent TAINT c2=tcontent { c1, Some c2 }
 
       mcontent:
-    | PIPE s=STRING PIPE 		            { Config.Bytes s }
-    | PIPE s=STRING PIPE 	MASK m=INT 	{ Config.Bytes_Mask (s, m) }
+    | s=HEX_BYTES { Config.Bytes s }
+    | s=HEX_BYTES MASK m=INT 	{ Config.Bytes_Mask (s, m) }
     | m=INT 		{ Config.Content m }
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 

@@ -1,7 +1,9 @@
 {
   open Parser
   open Lexing
+    exception SyntaxError of string
 }
+
 
 (* utilities *)
 let letter 	 = ['a'-'z' 'A'-'Z']
@@ -41,7 +43,7 @@ rule token = parse
   | '>'         	    { RANGLE_BRACKET }
   | ','         	    { COMMA }
   | '_'                     { UNDERSCORE }
-  | '|'         	    { PIPE }
+  | '|'         	    { read_bytes (Buffer.create 17) lexbuf }
   | '@'         	    { AT }
   (* end of file *)
   | eof         	    { EOF }
@@ -126,3 +128,13 @@ rule token = parse
 and comment = parse
   | ['\n' '\r']   { new_line lexbuf; token lexbuf }
   | [^ '\n' '\r'] { comment lexbuf }
+ 
+and read_bytes buf =
+  parse
+  | '|'       { HEX_BYTES (Buffer.contents buf) }
+  | hex_digits
+    { Buffer.add_string buf (Lexing.lexeme lexbuf);
+        read_bytes buf lexbuf
+    }
+  | _ { raise (SyntaxError ("Illegal byte character: " ^ Lexing.lexeme lexbuf)) }
+  | eof { raise (SyntaxError ("String is not terminated")) }
