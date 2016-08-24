@@ -394,6 +394,12 @@ module Make(V: Val) =
             let n' = n-1                in
             begin
                 match c with
+                | Config.Bytes b         ->
+                  let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 2)) in
+                      for i = 0 to n' do
+                          v.(n'-i) <- nth_of_z_as_val (get_byte b i) i
+                      done
+                | Config.Bytes_Mask (_, _) -> Log.error "Bytes init with mask is not handled yet !"
                 | Config.Content c         ->
                   for i = 0 to n' do
                       v.(n'-i) <- nth_of_z_as_val c i

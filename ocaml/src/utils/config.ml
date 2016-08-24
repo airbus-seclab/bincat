@@ -74,6 +74,8 @@ type tvalue =
 type cvalue =
   | Content of Z.t
   | CMask of Z.t * Z.t
+  | Bytes of string
+  | Bytes_Mask of (string * Z.t)
 
 (* tables for initialize global memory, stack and heap *)
 (* first element in the key is the address ; second one is the number of repetition *)

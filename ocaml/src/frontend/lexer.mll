@@ -46,6 +46,7 @@ rule token = parse
   | '>'         	    { RANGLE_BRACKET }
   | ','         	    { COMMA }
   | '_'                     { UNDERSCORE }
+  | '|'         	    { PIPE }
   | '@'         	    { AT }
   (* end of file *)
   | eof         	    { EOF }
