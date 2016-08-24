@@ -35,7 +35,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* parsing the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
   let string_of_position pos =
-  Printf.sprintf "%d" pos.Lexing.lex_curr_p.Lexing.pos_lnum
+      Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
   in
   begin
     try
@@ -44,11 +44,11 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     with
     | Parser.Error ->
        close_in cin;
-       Log.error (Printf.sprintf "Syntax error near location %s\n" (string_of_position lexbuf))
+       Log.error (Printf.sprintf "Syntax error near location %s" (string_of_position lexbuf))
 		 
     | Failure "lexing: empty token" ->
        close_in cin;
-       Log.error (Printf.sprintf "Parse error near location %s\n" (string_of_position lexbuf))
+       Log.error (Printf.sprintf "Parse error near location %s" (string_of_position lexbuf))
   end;
   close_in cin;
 
