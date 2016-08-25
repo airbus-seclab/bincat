@@ -384,7 +384,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 																      
     (******************** BACKWARD *******************************)
     (*************************************************************)
-		     
+    let inv_exp (dst: Asm.lval) (src: Asm.exp): (Asm.lval * Asm.exp) =
+      match src with
+      | Lval lv -> lv, Lval dst
+      | _ -> Log.debug "Backward analysis: inversion of expression failed"; failwith "inv_exp" 
 	
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
@@ -399,9 +402,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Directive (Remove r) -> D.add_register r d
 	| Set (dst, src) ->
 	   begin
-	     match dst, src with
-	     | V (T r1), Lval (V (T r2)) when Register.size r1 = Register.size r2 -> D.set (V (T r2)) (Lval (V (T r1))) d
-	     | _, _ -> D.forget d
+	     try
+	       let dst', src' = inv_exp dst src in
+	       D.set dst' src' d
+	   with Failure _ -> D.forget d
 	   end
 	| If (e, istmts, estmts) ->
 	   match branch with
