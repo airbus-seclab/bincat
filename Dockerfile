@@ -24,5 +24,5 @@ RUN cd BinCAT && make && make install
 WORKDIR /
 ENV FLASK_APP webbincat.wsgi
 
-ENTRYPOINT python -m flask run --host=0.0.0.0 --port 5000
+CMD python -m flask run --host=0.0.0.0 --port 5000
 EXPOSE 5000
