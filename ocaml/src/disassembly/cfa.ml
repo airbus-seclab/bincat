@@ -254,10 +254,9 @@ module Make(Domain: Domain.T) =
 	let f = open_out dumpfile in
 	(* state printing (detailed) *)
 	let print_ip s =
-	  let abstract_values  = List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v) in
 	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
 	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal = %s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final);
-      abstract_values;
+      List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
 	  if !Config.verbose then
 	    begin
 	      Printf.fprintf f "statements =";
