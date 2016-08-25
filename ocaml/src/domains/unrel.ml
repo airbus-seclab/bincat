@@ -230,6 +230,67 @@ module Make(D: T) =
                 res
             with _ -> D.bot
 
+        (** helper to look for a an address in map, returns an option with None
+            if no key matches *)
+        let safe_find addr dom : (Map.key * 'a) option  =
+            try
+                let res = Map.find_key (where addr) dom in
+                Log.debug (Printf.sprintf "safe_find addr -> key : %s -> [%s]" (Data.Address.to_string addr) (Key.to_string (fst res)));
+                Some res
+            with Not_found ->
+               Log.debug (Printf.sprintf "safe_find addr -> key : %s -> []" (Data.Address.to_string addr));
+               None
+
+        (** helper to split an interval at _addr_, returns a map with nothing
+            at _addr_ but _itv_ split in 2 *)
+        let split_itv domain itv addr =
+              let map_val = Map.find itv domain in
+              match itv with
+                | Key.Mem_Itv (low_addr, high_addr) ->
+                  let dom' = Map.remove itv domain in
+                  (* addr just below the new byte *)
+                  let addr_before = Data.Address.dec addr  in
+                  (* addr just after the new byte *)
+                  let addr_after = Data.Address.inc addr in
+                  (* add the new interval just before, if it's not empty *)
+                  let dom' =
+                    if Data.Address.equal addr low_addr then
+                        dom'
+                    else
+                        Map.add (Key.Mem_Itv (low_addr, addr_before)) map_val dom'
+                  in
+                  (* add the new interval just after, if its not empty *)
+                    if Data.Address.equal addr high_addr then
+                        dom'
+                    else
+                        Map.add (Key.Mem_Itv (addr_after, high_addr)) map_val dom'
+                | _ -> Log.error "Trying to split a non itv"
+
+        (* strong update of memory with _byte_ repeated _nb_ times *)
+        let write_repeat_byte_in_mem addr domain byte nb =
+            let addrs = get_addr_list addr nb in
+            (* helper to remove keys to be overwritten, splitting Mem_Itv
+               as necessary *)
+            let delete_mem  addr domain =
+                let key = safe_find addr domain in
+                match key with
+                | None -> domain;
+                | Some (Key.Reg _,_) ->  Log.error "Implementation error in Unrel: the found key is a Reg"
+                (* We have a byte, delete it *)
+                | Some (Key.Mem (_) as addr_k, _) -> Map.remove addr_k domain
+                | Some (Key.Mem_Itv (_, _) as key, _) ->
+                    split_itv domain key addr
+            in
+            let rec do_cleanup addrs map =
+                match addrs with
+                | [] -> map
+                | to_del::l -> do_cleanup l (delete_mem to_del map) in
+            let dom_clean = do_cleanup addrs domain in
+            Map.add (Key.Mem_Itv (addr, (Data.Address.add_offset addr (Z.of_int nb)))) byte dom_clean
+
+
+        (* Write _value_ of size _sz_ in _domain_ at _addr_, in
+           _big_endian_ if needed. _strong_ means strong update *)
         let write_in_memory addr domain value sz strong big_endian =
             Log.debug (Printf.sprintf "write_in_memory : %s %s %d %B" (Data.Address.to_string addr) (D.to_string value) sz strong);
             (*Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));*)
@@ -237,15 +298,6 @@ module Make(D: T) =
             let nb = sz / 8 in
             let addrs = get_addr_list addr nb in
             let addrs = if big_endian then List.rev addrs else addrs in
-            let safe_find addr dom =
-                try 
-                    let res = Map.find_key (where addr) dom in 
-                    Log.debug (Printf.sprintf "safe_find addr -> key : %s -> [%s]" (Data.Address.to_string addr) (Key.to_string (fst res)));
-                    Some res
-                with Not_found ->
-                   Log.debug (Printf.sprintf "safe_find addr -> key : %s -> []" (Data.Address.to_string addr));
-                   None
-            in
             (* helper to update one byte in memory *)
             let update_one_key (addr, byte) domain =
                 let key = safe_find addr domain in
@@ -258,37 +310,19 @@ module Make(D: T) =
                   else
                       Map.replace addr_k (D.join byte match_val) domain
                 (* we have to split the interval *)
-                | Some (Key.Mem_Itv (low_addr, high_addr) as key, match_val) ->
-                  let dom' = Map.remove key domain in
-                  (* addr just below the new byte *)
-                  let addr_before = Data.Address.dec addr  in
-                  (* addr just after the new byte *)
-                  let addr_after = Data.Address.inc addr in
-                  (* add the new interval just before, if it's not empty *)
-                  let dom' = 
-                    if Data.Address.equal addr low_addr then
-                        dom'
-                    else
-                        Map.add (Key.Mem_Itv (low_addr, addr_before)) match_val dom'
-                  in
-                  (* add the new interval just after, if its not empty *)
-                  let dom' = 
-                    if Data.Address.equal addr high_addr then
-                        dom'
-                    else
-                        Map.add (Key.Mem_Itv (addr_after, high_addr)) match_val dom'
-                  in
-                  if strong then
-                      Map.add (Key.Mem(addr)) byte dom'
-                  else
-                      Map.add (Key.Mem(addr)) (D.join byte match_val) dom'
+                | Some (Key.Mem_Itv (_, _) as key, match_val) ->
+                  let dom' = split_itv domain key addr in
+                      if strong then
+                          Map.add (Key.Mem(addr)) byte dom'
+                      else
+                          Map.add (Key.Mem(addr)) (D.join byte match_val) dom'
                 (* the addr was not previously seen *)
                 | None -> if strong then
                       Map.add (Key.Mem(addr)) byte domain
                   else
                       raise Exceptions.Empty
             in
-            let rec do_update new_mem map = 
+            let rec do_update new_mem map =
 (*                Log.debug "do_update";
                 List.iter (fun (a,v) ->   Log.debug (Printf.sprintf "addr,v : %s %s" (Data.Address.to_string a) (D.to_string v))) new_mem;*)
                 match new_mem with
@@ -443,7 +477,7 @@ module Make(D: T) =
 
         (** returns size of content, rounded to the next multiple of Config.operand_sz *)
         let size_of_content c =
-            let round_sz sz = 
+            let round_sz sz =
                 if sz < !Config.operand_sz then
                     !Config.operand_sz
                 else
@@ -471,13 +505,18 @@ module Make(D: T) =
                 | Val domain' ->
                   let sz = size_of_content content in
                   let val_taint = of_config region (content, taint) sz in
-                  let r = D.of_repeat_val val_taint sz nb in
-                  let big_endian = 
-                    match content with 
-                    | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
-                    | _ -> false
-                    in
-                      Val (write_in_memory addr domain' r (sz*nb) true big_endian)
+                  if nb > 1 then
+                    if sz != 8 then
+                        Log.error "Repeated memory init only works with bytes"
+                    else
+                        Val (write_repeat_byte_in_mem addr domain' val_taint nb)
+                  else
+                      let big_endian =
+                        match content with
+                        | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
+                        | _ -> false
+                        in
+                          Val (write_in_memory addr domain' val_taint sz true big_endian)
             else
                 domain
 
