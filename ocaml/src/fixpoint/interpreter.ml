@@ -224,7 +224,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		    
         | Set (dst, src) 			    -> D.set dst src d 
         | Directive (Remove r) 		    -> let d' = D.remove_register r d in Register.remove r; d'
-        | Directive (Forget r) 		    -> D.forget_register r d
+        | Directive (Forget r) 		    -> D.forget_lval (V (T r)) d
         | _ 				    -> raise Jmp_exn
 						     
       in
@@ -384,9 +384,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 																      
     (******************** BACKWARD *******************************)
     (*************************************************************)
-    let inv_exp (dst: Asm.lval) (src: Asm.exp): (Asm.lval * Asm.exp) =
+    let rec inv_exp (dst: Asm.lval) (src: Asm.exp): (Asm.lval * Asm.exp) =
       match src with
       | Lval lv -> lv, Lval dst
+      | UnOp (Not, src') ->
+	 let dst', src' = inv_exp dst src' in
+	 dst', UnOp (Not, src')
       | _ -> Log.debug "Backward analysis: inversion of expression failed"; failwith "inv_exp" 
 	
     (** backward transfert function on the given abstract value *)
@@ -405,7 +408,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     try
 	       let dst', src' = inv_exp dst src in
 	       D.set dst' src' d
-	   with Failure _ -> D.forget_lval d dst
+	   with Failure _ -> D.forget_lval dst d
 	   end
 	| If (e, istmts, estmts) ->
 	   match branch with

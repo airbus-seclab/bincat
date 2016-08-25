@@ -157,7 +157,7 @@ module Make(D: T) =
             | Val m' ->
 	       begin
 		 match lv with
-		 | V (T r) -> Val (Map.add (K.R r) D.top m')
+		 | Asm.V (Asm.T r) -> Val (Map.add (K.R r) D.top m')
 		 | _ -> forget m (*TODO: could be more precise *)
 	       end
             | BOT -> BOT
