@@ -64,7 +64,7 @@ let lognot v =
 let widen = join
 	      
 (* conversion to Z.t. May raise an exception if the conversion fails *)
-let to_value v =
+let to_z v =
   match v with
   | TOP  -> raise Exceptions.Concretization
   | ZERO -> Z.zero

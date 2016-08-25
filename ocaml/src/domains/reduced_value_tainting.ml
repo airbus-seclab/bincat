@@ -10,7 +10,7 @@ let top = V.TOP, T.TOP
 		   
 let is_top (v, _t) = v = V.TOP
 			      
-let to_value (v, _t) = V.to_value v
+let to_z (v, _t) = V.to_z v
 
 let forget_taint (v, _t) = v, T.TOP
 				
@@ -58,7 +58,7 @@ let is_zero (v, _t) = v = V.ZERO
 	      
 let subset (v1, _t1) (v2, _t2) = V.subset v1 v2
 					  
-let of_value z =
+let of_z z =
   if Z.compare z Z.zero = 0 then
     V.ZERO, T.U
   else 
@@ -67,7 +67,7 @@ let of_value z =
     else
       V.TOP, T.U
 	       
-let taint_of_value z (v, _t) =
+let taint_of_z z (v, _t) =
   let t' =
   if Z.compare Z.zero z = 0 then T.U
   else

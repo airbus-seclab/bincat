@@ -22,7 +22,7 @@ sig
     val top: t
 
     (** conversion to values of type Z.t *)
-    val to_value: t -> Z.t
+    val to_z: t -> Z.t
 
     (** converts a word into an abstract value *)
     val of_word: Data.Word.t -> t
@@ -130,7 +130,7 @@ module Make(D: T) =
             | BOT    -> raise Exceptions.Concretization
             | Val m' ->
               try
-                  let v = Map.find (K.R r) m' in D.to_value v
+                  let v = Map.find (K.R r) m' in D.to_z v
               with _ -> raise Exceptions.Concretization
 
         let add_register r m =
@@ -551,7 +551,7 @@ module Make(D: T) =
         let value_of_exp m e =
             match m with
             | BOT -> raise Exceptions.Concretization
-            | Val m' -> D.to_value (eval_exp m' e)
+            | Val m' -> D.to_z (eval_exp m' e)
 
     end: Domain.T)
 
