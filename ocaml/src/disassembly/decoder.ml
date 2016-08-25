@@ -465,8 +465,8 @@ struct
                   | 5 -> raise Disp32
                   | _ -> rm_lv
               end
-            | 1 ->
-              BinOp (Add, rm_lv, disp s 8 sz)
+            | 1 -> 
+              BinOp (Add, rm_lv, UnOp(ZeroExt s.addr_sz, disp s 8 sz))
 
             | 2 ->
               BinOp (Add, rm_lv, disp s 32 sz)
