@@ -237,28 +237,28 @@ module Make(D: T) =
             let nb = sz / 8 in
             let addrs = get_addr_list addr nb in
             let addrs = if big_endian then List.rev addrs else addrs in
-            (* helper to update one byte in memory *)
             let safe_find addr dom =
                 try 
                     let res = Map.find_key (where addr) dom in 
                     Log.debug (Printf.sprintf "safe_find addr -> key : %s -> [%s]" (Data.Address.to_string addr) (Key.to_string (fst res)));
-                    [res]
+                    Some res
                 with Not_found ->
                    Log.debug (Printf.sprintf "safe_find addr -> key : %s -> []" (Data.Address.to_string addr));
-                   []
+                   None
             in
+            (* helper to update one byte in memory *)
             let update_one_key (addr, byte) domain =
                 let key = safe_find addr domain in
                 match key with
-                | [Key.Reg _, _] -> Log.error "Implementation error in Unrel: the found key is a Reg"
+                | Some (Key.Reg _, _) -> Log.error "Implementation error in Unrel: the found key is a Reg"
                 (* single byte to update *)
-                | [Key.Mem (_) as addr_k, match_val] ->
+                | Some (Key.Mem (_) as addr_k, match_val) ->
                   if strong then
                       Map.replace addr_k byte domain
                   else
                       Map.replace addr_k (D.join byte match_val) domain
                 (* we have to split the interval *)
-                | [Key.Mem_Itv (low_addr, high_addr) as key, match_val] ->
+                | Some (Key.Mem_Itv (low_addr, high_addr) as key, match_val) ->
                   let dom' = Map.remove key domain in
                   (* addr just below the new byte *)
                   let addr_before = Data.Address.dec addr  in
@@ -283,11 +283,10 @@ module Make(D: T) =
                   else
                       Map.add (Key.Mem(addr)) (D.join byte match_val) dom'
                 (* the addr was not previously seen *)
-                | [] -> if strong then
+                | None -> if strong then
                       Map.add (Key.Mem(addr)) byte domain
                   else
                       raise Exceptions.Empty
-                | _::_ -> Log.error "Implementation error in Unrel: the found key is a List"
             in
             let rec do_update new_mem map = 
 (*                Log.debug "do_update";
