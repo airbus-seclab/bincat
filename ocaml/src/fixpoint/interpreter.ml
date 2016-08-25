@@ -386,26 +386,34 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (*************************************************************)
 		     
 	
-    (** backward transfert function on the given abstract value *) 
-    let back_process (d: D.t) (stmt: Asm.stmt): D.t =
-      match stmt with
-      | Call _
-      | Return
-      | Jmp _
-      | Nop -> d
-      | Directive (Forget _) -> d 
-      | Directive (Remove r) -> D.add_register r d
-      | Set (dst, src) ->
-	 begin
-	   match dst, src with
-	   | V (T r1), Lval (V (T r2)) when Register.size r1 = Register.size r2 -> D.set (V (T r2)) (Lval (V (T r1))) d
-	   | _, _ -> D.forget d
-	 end
-      | If _ -> D.forget d
+    (** backward transfert function on the given abstract value *)
+    (** BE CAREFUL: this function does not apply to nested if statements *)
+    let back_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : D.t =
+      let rec back d stmt =
+	match stmt with
+	| Call _
+	| Return
+	| Jmp _
+	| Nop -> d
+	| Directive (Forget _) -> d 
+	| Directive (Remove r) -> D.add_register r d
+	| Set (dst, src) ->
+	   begin
+	     match dst, src with
+	     | V (T r1), Lval (V (T r2)) when Register.size r1 = Register.size r2 -> D.set (V (T r2)) (Lval (V (T r1))) d
+	     | _, _ -> D.forget d
+	   end
+	| If (e, istmts, estmts) ->
+	   match branch with
+	   | Some true -> let d' = List.fold_left back d istmts in restrict d' e true
+	   | Some false -> let d' = List.fold_left back d estmts in restrict d' e false
+	   | None -> Log.error "illegal branch value for backward analysis"
+      in
+      back d stmt
 
     let back_update_abstract_value (g:Cfa.t) (pred: Cfa.State.t) (v: Cfa.State.t) (ip: Data.Address.t): unit =
       let back _g v _ip =
-	let d' = List.fold_left back_process v.Cfa.State.v pred.Cfa.State.stmts in
+	let d' = List.fold_left (back_process v.Cfa.State.branch) v.Cfa.State.v pred.Cfa.State.stmts in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
 	[pred]
       in
@@ -415,6 +423,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     let back_unroll g v pred =
       if v.Cfa.State.final then
 	begin
+	  v.Cfa.State.final <- false;
 	  let new_pred = Cfa.copy_state g v in
 	  new_pred.Cfa.State.back_loop <- true;
 	  Cfa.remove_edge g pred v;
@@ -453,7 +462,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  g
 	with
 	| Failure "hd" -> Log.from_analysis "entry node of the CFA reached"; g
-	| _ -> dump g; Log.error "unexpected error"
+	| e -> dump g; raise e
 
     (********** FORWARD FROM CFA ***************)
     (*******************************************)
