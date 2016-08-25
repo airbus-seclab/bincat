@@ -25,8 +25,8 @@ module type T =
       (** remove the given register from the given abstract value *)	
       val remove_register: Register.t -> t -> t
 
-      (** forget the value of the register (ie set to top) *)
-      val forget_register: Register.t -> t -> t
+      (** forget the value of the given lvalue (ie set to top) *)
+      val forget_lval: Asm.lval -> t -> t
 				       
       (** add the given register to the given abstract value *)
       val add_register: Register.t -> t -> t

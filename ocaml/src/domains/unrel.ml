@@ -160,14 +160,19 @@ module Make(D: T) =
             | BOT    -> BOT
 
 
-        let forget m =
+	let forget m =
+	  match m with
+	  | BOT -> BOT
+	  | Val m' -> Val (Map.map (fun _ -> D.top) m')
+			  
+        let forget_lval lv m =
             match m with
-            | BOT -> BOT
-            | Val m' -> Val (Map.map (fun _ -> D.top) m')
-
-        let forget_register r m =
-            match m with
-            | Val m' -> Val (Map.add (Key.Reg r) D.top m')
+            | Val m' ->
+	       begin
+		 match lv with
+		 | Asm.V (Asm.T r) -> Val (Map.add (Key.Reg r) D.top m')
+		 | _ -> forget m (*TODO: could be more precise *)
+	       end
             | BOT -> BOT
 
         let subset m1 m2 =

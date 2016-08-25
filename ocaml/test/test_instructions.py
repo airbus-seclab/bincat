@@ -7,6 +7,7 @@ import pytest
 import subprocess
 import copy
 import binascii
+import os.path
 from pybincat import cfa
 
 
@@ -15,7 +16,9 @@ def initialState(request):
     # TODO generate instead of using a fixed file, using States class
     # (not implemented yet)
     # TODO return object
-    return open(request.param, 'rb').read()
+    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            request.param)
+    return open(filepath, 'rb').read()
 
 
 @pytest.fixture(scope='function')
