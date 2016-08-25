@@ -384,13 +384,21 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 																      
     (******************** BACKWARD *******************************)
     (*************************************************************)
-    let rec inv_exp (dst: Asm.lval) (src: Asm.exp): (Asm.lval * Asm.exp) =
+    let back_add_sub op dst e1 e2 d =
+      match e1, e2 with
+      | Lval lv1, Lval lv2 ->
+	 let e = Lval dst in
+	 let d' = D.set lv1 (BinOp (op, e, e2)) d in
+	 D.set lv2 (BinOp (Sub, e, e1)) d'
+      | _ -> D.forget_lval dst d
+			   
+    let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): D.t =
       match src with
-      | Lval lv -> lv, Lval dst
-      | UnOp (Not, src') ->
-	 let dst', src' = inv_exp dst src' in
-	 dst', UnOp (Not, src')
-      | _ -> Log.debug "Backward analysis: inversion of expression failed"; failwith "inv_exp" 
+      | Lval lv -> D.set lv (Lval dst) d
+      | UnOp (Not, Lval lv) -> D.set lv (UnOp (Not, Lval dst)) d 
+      | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
+      | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
+      | _ -> D.forget_lval dst d 
 	
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
@@ -403,13 +411,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Nop -> d
 	| Directive (Forget _) -> d 
 	| Directive (Remove r) -> D.add_register r d
-	| Set (dst, src) ->
-	   begin
-	     try
-	       let dst', src' = inv_exp dst src in
-	       D.set dst' src' d
-	   with Failure _ -> D.forget_lval dst d
-	   end
+	| Set (dst, src) -> back_set dst src d
 	| If (e, istmts, estmts) ->
 	   match branch with
 	   | Some true -> let d' = List.fold_left back d istmts in restrict d' e true
