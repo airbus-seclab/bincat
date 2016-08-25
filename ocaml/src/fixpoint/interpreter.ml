@@ -405,7 +405,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     try
 	       let dst', src' = inv_exp dst src in
 	       D.set dst' src' d
-	   with Failure _ -> D.forget d
+	   with Failure _ -> D.forget_lval d dst
 	   end
 	| If (e, istmts, estmts) ->
 	   match branch with
