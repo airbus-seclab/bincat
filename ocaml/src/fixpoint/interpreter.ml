@@ -312,8 +312,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
           try
             (* filters on cutting instruction pointers *)
             if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
+              begin
               Log.from_analysis (Printf.sprintf "Address %s reached but not explored because it belongs to the cut off branches\n"
-						(Data.Address.to_string v.Cfa.State.ip))
+						(Data.Address.to_string v.Cfa.State.ip));
+              raise Exit
+              end
             else
               (** explore if a greater abstract state of v has already been explored *)
               Cfa.iter_vertex (fun prev ->
