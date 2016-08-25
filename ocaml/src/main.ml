@@ -55,7 +55,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* defining the dump function to provide to the fixpoint engine *)
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
   
-  (* internal function to launch backward/forwrad analysis from a preivous CFA and config *)
+  (* internal function to launch backward/forwrad analysis from a previous CFA and config *)
   let from_cfa fixpoint =
   let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file			       in
   let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
