@@ -395,13 +395,18 @@ module Make(V: Val) =
             begin
                 match c with
                 | Config.Bytes b         ->
-                  Log.debug (Printf.sprintf "vector.of_config bytes : %s %d" b n);
                   let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-                      for i = 0 to n' do
+                  for i = 0 to n' do
+                      v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
+                  done;
+                | Config.Bytes_Mask (b, m) -> 
+                  let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+                  for i = 0 to n' do
+                      if Z.testbit m i then
+                          v.(n'-i) <- V.top
+                      else
                           v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
-                      done;
-                  Log.debug (to_string v)
-                | Config.Bytes_Mask (_, _) -> Log.error "Bytes init with mask is not handled yet !"
+                  done;
                 | Config.Content c         ->
                   for i = 0 to n' do
                       v.(n'-i) <- nth_of_z_as_val c i
@@ -484,7 +489,7 @@ module Make(V: Val) =
             | _       -> true
 
         let extract v low up =
-(*            Log.debug (Printf.sprintf "Vector.extract %s %d %d" (to_string v) low up);*)
+            (*            Log.debug (Printf.sprintf "Vector.extract %s %d %d" (to_string v) low up);*)
             let v' = Array.make (up-low+1) V.top in
             let n  = Array.length v           in
             let o  = n-up - 1                  in
@@ -502,10 +507,10 @@ module Make(V: Val) =
         let is_tainted v = exists V.is_tainted v
 
         let of_repeat_val v v_len nb =
-          let access_mod idx =
-            v.(idx mod v_len) in
-          let v_array = Array.init (nb*v_len) access_mod in
-          v_array
+            let access_mod idx =
+                v.(idx mod v_len) in
+            let v_array = Array.init (nb*v_len) access_mod in
+            v_array
 
         let concat v1 v2 =
             Array.append v1 v2
