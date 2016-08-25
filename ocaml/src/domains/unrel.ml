@@ -444,18 +444,18 @@ module Make(D: T) =
 
         (** returns size of content, rounded to the next multiple of Config.operand_sz *)
         let size_of_content c =
-            let sz =
-                match c with
-                | Config.Content z | Config.CMask (z, _) -> Z.numbits z
-                | Config.Bytes b | Config.Bytes_Mask (b, _) -> Log.debug b; (String.length b)*4
+            let round_sz sz = 
+                if sz < !Config.operand_sz then
+                    !Config.operand_sz
+                else
+                if sz mod !Config.operand_sz <> 0 then
+                    !Config.operand_sz * (sz / !Config.operand_sz + 1)
+                else
+                    sz
             in
-            if sz < !Config.operand_sz then
-                !Config.operand_sz
-            else
-            if sz mod !Config.operand_sz <> 0 then
-                !Config.operand_sz * (sz / !Config.operand_sz + 1)
-            else
-                sz
+            match c with
+            | Config.Content z | Config.CMask (z, _) -> round_sz (Z.numbits z)
+            | Config.Bytes b | Config.Bytes_Mask (b, _) -> Log.debug (Printf.sprintf "size_of_content %s" b); (String.length b)*4
 
 
         (** builds an abstract tainted value from a config concrete tainted value *)
