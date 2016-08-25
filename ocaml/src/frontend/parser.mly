@@ -268,6 +268,7 @@
     | U EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_untainted_functions a arg }
     | T EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_tainted_functions a arg }
 
+    (* memory and register init *)
      init:
     | TAINT tcontent 	            { Log.error "Parser: illegal initial content: undefined content with defined tainting value" }
     | c=mcontent 	            { c, None }

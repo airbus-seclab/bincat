@@ -43,7 +43,8 @@ rule token = parse
   | '>'         	    { RANGLE_BRACKET }
   | ','         	    { COMMA }
   | '_'                     { UNDERSCORE }
-  | '|'         	    { read_bytes (Buffer.create 17) lexbuf }
+  (* byte string *)
+  | '|'         	    { read_bytes (Buffer.create 80) lexbuf }
   | '@'         	    { AT }
   (* end of file *)
   | eof         	    { EOF }
@@ -128,13 +129,18 @@ rule token = parse
 and comment = parse
   | ['\n' '\r']   { new_line lexbuf; token lexbuf }
   | [^ '\n' '\r'] { comment lexbuf }
- 
+
+(* read bytes spec : |[0-9A-F]+| *)
 and read_bytes buf =
   parse
-  | '|'       { HEX_BYTES (Buffer.contents buf) }
+  | '|'       { if Buffer.length buf mod 2 != 0 then
+                    raise (SyntaxError "Byte string length should be even !")
+                else
+                    HEX_BYTES (Buffer.contents buf)
+              }
   | hex_digits
-    { Buffer.add_string buf (Lexing.lexeme lexbuf);
-        read_bytes buf lexbuf
-    }
+        { Buffer.add_string buf (Lexing.lexeme lexbuf);
+          read_bytes buf lexbuf
+        }
   | _ { raise (SyntaxError ("Illegal byte character: " ^ Lexing.lexeme lexbuf)) }
-  | eof { raise (SyntaxError ("String is not terminated")) }
+  | eof { raise (SyntaxError ("Byte string is not terminated")) }
