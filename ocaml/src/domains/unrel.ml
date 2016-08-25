@@ -121,9 +121,9 @@ module Make(D: T) =
 
             let to_string x =
                 match x with
-                | Reg r -> "reg [" ^ (Register.name r) ^ "]"
-                | Mem_Itv (low_a, high_a) -> "mem [" ^ (Data.Address.to_string low_a) ^ ", " ^(Data.Address.to_string high_a) ^ "]"
-                | Mem addr -> "mem [" ^ (Data.Address.to_string addr) ^ ", " ^ (Data.Address.to_string (Data.Address.inc addr)) ^"]"
+                | Reg r -> Printf.sprintf "reg [%s]"  (Register.name r)
+                | Mem_Itv (low_a, high_a) -> Printf.sprintf "mem [%s, %s]" (Data.Address.to_string low_a) (Data.Address.to_string high_a) 
+                | Mem addr -> Printf.sprintf "mem [%s, %s]" (Data.Address.to_string addr) (Data.Address.to_string (Data.Address.inc addr))
         end
 
         (* For Ocaml non-gurus : creates a Map type which uses MapOpt with keys of type Key *)
@@ -185,7 +185,7 @@ module Make(D: T) =
         let to_string m =
             match m with
             |	BOT    -> ["_"]
-            | Val m' -> Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) m' []
+            | Val m' -> Map.fold (fun k v l -> (Printf.sprintf "%s = %s" (Key.to_string k) (D.to_string v)) :: l) m' []
 
         (***************************)
         (** Memory access function *)
