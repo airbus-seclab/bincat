@@ -19,6 +19,8 @@ qu'un état par instruction x86)
 * BUG : revoir tout write_in_memory (en cours dans la branche byte_mem)
 * pouvoir spécifier la valeur d'un registre ou adress mémoire à une adresse différente de celle de début
 * gérer l'ordre des initialisation mémoires dans le .ini pour pouvoir écraser certaines parties déjà initialisées
+* numeric log levels (not just verbose)
+* log categories (mem, vectors, etc.)
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse (afficher tous les états, pas juste celui marqué "final")
