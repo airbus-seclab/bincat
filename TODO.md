@@ -13,9 +13,9 @@
 * vérifier popf/pushf (surtout les privilèges etc)
 * écrire un programme de test : binaire => statements (à la metasm-shell)
 * à clarifier : pointer n'est pas un pointer mais une valeur
-* BUG : revoir tout write_in_memory
+* BUG : revoir tout write_in_memory (en cours dans la branche byte_mem)
 * pouvoir spécifier la valeur d'un registre ou adress mémoire à une adresse différente de celle de début
-* attention aux accès mémoire en lecture => il faut gérer l'endianness (cf table CRC32)
+* gérer l'ordre des initialisation mémoires dans le .ini pour pouvoir écraser certaines parties déjà initialisées
 
 ## Plugin IDA
 * gérer des traces multiples à la même adresse (afficher tous les états, pas juste celui marqué "final")
