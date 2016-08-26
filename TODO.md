@@ -18,6 +18,9 @@ qu'un état par instruction x86) (ou pas, à discuter)
 * numeric log levels (not just verbose)
 * log categories (mem, vectors, etc.)
 
+Hard :
+* use a shared data structure to store memory only once for all states
+
 ## Plugin IDA
 * gérer des traces multiples à la même adresse (afficher tous les états, pas juste celui marqué "final")
 * importer les valeurs concrètes depuis le debugger (mémoire et registres)
