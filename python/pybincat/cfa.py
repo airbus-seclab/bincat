@@ -188,7 +188,7 @@ class State(object):
 
     def parse_regaddrs(self):
         self._regaddr = {}        
-        for i, (k, v) in enumerate(self._outputkv):
+        for k, v in self._outputkv.iter_items()
             m = cls.re_region.match(k)
             if not m:
                 raise PyBinCATException("Parsing error (entry %i, key=%r)" % (i, k))
