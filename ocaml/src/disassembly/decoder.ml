@@ -572,13 +572,16 @@ struct
     let undef_flag f = Directive (Forget f)
 
     (** produce the statement to set the carry flag according to the current operation whose operands are op1 and op2 and result is res *)
-    let carry_flag_stmts sz res op1 op op2 =
-        (* fcf is set if the sz+1 bit of the result is 1 *)
-        let s 	 = SignExt (sz+1)	  in
-        let op1' = UnOp (s, op1)	  in
-        let op2' = UnOp (s, op2)	  in
-        let res' = BinOp (op, op1', op2') in
-        If ( Cmp (EQ, UnOp (SignExt (sz+1), res), res'), [ clear_flag fcf ], [ set_flag fcf ] )
+    let carry_flag_stmts sz op1 op op2 =
+      (* fcf is set if the sz+1 bit of the result is 1 *)
+      let sz' = sz+1 in
+      let s 	 = ZeroExt (sz')	  in
+      let op1' = UnOp (s, op1)	  in
+      let op2' = UnOp (s, op2)	  in
+      let res' = BinOp (op, op1', op2') in
+      let shifted_res = BinOp (Shr, res', Const (Word.of_int (Z.of_int sz) (sz'))) in
+      let one = Const (Word.one sz') in
+      If ( Cmp (EQ, shifted_res, one), [ set_flag fcf ], [ clear_flag fcf ] )
 
     (** produce the statement to set the sign flag wrt to the given parameter *)
     let sign_flag_stmts sz res =
@@ -692,7 +695,7 @@ struct
         let res  	= Lval dst		  	    in
         let flags_stmts =
             [
-                carry_flag_stmts sz res op1 op op2; overflow_flag_stmts sz res op1 op2; zero_flag_stmts sz res;
+                carry_flag_stmts sz op1 op op2; overflow_flag_stmts sz res op1 op2; zero_flag_stmts sz res;
                 sign_flag_stmts sz res            ; parity_flag_stmts sz res       ; adjust_flag_stmts res sz op1 op2
             ]
         in
@@ -726,7 +729,7 @@ struct
         let res         = Lval (V (T tmp))                          in
         let flag_stmts =
             [
-                carry_flag_stmts sz res e1 Sub e2; overflow_flag_stmts sz res e1 e2; zero_flag_stmts sz res;
+                carry_flag_stmts sz e1 Sub e2; overflow_flag_stmts sz res e1 e2; zero_flag_stmts sz res;
                 sign_flag_stmts sz res           ; parity_flag_stmts sz res     ; adjust_flag_stmts res sz e1 e2
             ]
         in
