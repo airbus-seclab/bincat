@@ -487,7 +487,11 @@ struct
     let operands_from_mod_reg_rm s sz direction =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
-        let reg_v = find_reg_v reg sz in
+        let reg_v =
+	  if sz = 8 && reg >= 4 then
+	    V (get_h_slice (reg-4))
+	  else
+	    find_reg_v reg sz in
         try
             let rm' = exp_of_md s md rm sz in
             if direction = 0 then
