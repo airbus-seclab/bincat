@@ -1793,7 +1793,7 @@ struct
                 if s.repe || s.repne then
                     [ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Jmp (A a')], [Jmp (A v.Cfa.State.ip) ]) ]
                 else
-                    []
+                    [ Jmp (A v.Cfa.State.ip) ]
             in
             let ecx' = V (to_reg ecx s.addr_sz) in
             let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in
