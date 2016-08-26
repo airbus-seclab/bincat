@@ -29,6 +29,7 @@ domains/domain.mli\
 
 LIBNAME=libbincat.so
 LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
+BINDIR=$(DESTDIR)/$(PREFIX)/bin/
 
 CAMLLIBDIR:=$(shell ocamlc -where)
 
@@ -93,8 +94,9 @@ clean:
 	# Files moved in revision 2097c09e19f8
 	-rm -f parser.ml parser.mli lexer.ml
 
-install: $(LIBNAME)
+install: $(LIBNAME) bincat_native
 	install $(LIBNAME) $(LIBDIR)
+	install bincat_native $(BINDIR)
 	$(LDCONFIG) $(LIBDIR)
 
 .depend: $(ML) $(MLI)
