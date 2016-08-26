@@ -101,4 +101,3 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
 (* enables the process function to be callable from the .so *)
    Callback.register "process" process;;
 
-

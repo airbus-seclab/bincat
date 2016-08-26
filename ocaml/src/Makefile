@@ -62,6 +62,8 @@ all: $(LIBNAME)
 $(LIBNAME): $(CMX) 
 	$(CAMLOPT) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
 
+bincat_native: $(CMX)  bincat_native.cmx
+	$(CAMLOPT)  $(CFLAGS) -o bincat_native $(LIBX) $(OCAMLOPT) $+
 
 %.cmx: %.ml %.mli
 	$(CAMLOPT) -c $(LIBX) $*.ml
