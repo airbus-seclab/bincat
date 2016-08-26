@@ -1,4 +1,5 @@
 (** the control flow automaton module *)
+
 module Make(Domain: Domain.T) =
     struct
 	  (** Abstract data type of nodes of the CFA *)
@@ -19,6 +20,8 @@ module Make(Domain: Domain.T) =
 	      mutable ctx: ctx_t ; 	    (** context of decoding *)
 	      mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
 	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
+	      mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
+	      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	      mutable bytes: char list      (** corresponding list of bytes *)
 	    }
 
@@ -143,6 +146,8 @@ module Make(Domain: Domain.T) =
 	    ip = ip;
 	    v = d';
 	    final = false;
+	    back_loop = false;
+	    branch = None;
 	    stmts = [];
 	    bytes = [];
 	    ctx = {
@@ -163,7 +168,7 @@ module Make(Domain: Domain.T) =
     - v as abstract value
     - ctx as decoding context
        *)
-      let add_state g ip v stmts ctx final bytes =
+      let add_state g ip v stmts ctx final back_loop branch bytes =
 	let v = {
 	    id       = new_state_id();
 	    v 	     = v;
@@ -171,19 +176,24 @@ module Make(Domain: Domain.T) =
 	    stmts    = stmts ;
 	    ctx      = ctx;
 	    final    = final;
+	    back_loop = back_loop;
+	    branch = branch;
 	    bytes    = bytes;
 	  }
 	  in
 	  G.add_vertex g v;
 	  v
 
+      let add_vertex g v = G.add_vertex g v
+					
       let create () = G.create ()
-      let add_vertex g s = G.add_vertex g s
 					
       let remove_state g v = G.remove_vertex g v
 
+      let remove_edge g src dst = G.remove_edge g src dst
+						   
       (** returns a fresh copy of the given state *)
-      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx s.final s.bytes
+      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx s.final s.back_loop s.branch s.bytes
 
       (** [add_edge g src dst] adds in _g_ an edge _src_ -> _dst_ *)
       let add_edge g src dst = G.add_edge g src dst
@@ -227,9 +237,6 @@ module Make(Domain: Domain.T) =
 	| None -> raise Not_found
 	| Some s'   -> s'
 			   
-      (** remove the given vertex of the given CFA *)
-      let remove g v = G.remove_vertex g v
-
       (** dump the given CFA into the given file *)
       (** dot generation is also processed *)
       module GDot = struct
@@ -248,9 +255,9 @@ module Make(Domain: Domain.T) =
 	let f = open_out dumpfile in
 	(* state printing (detailed) *)
 	let print_ip s =
-	  let abstract_values = List.fold_left (fun s v -> v ^ "\n" ^ s) "" (Domain.to_string s.v) in
 	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
-	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal = %s\n%s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final) abstract_values;
+	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal = %s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final);
+      List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
 	  if !Config.verbose then
 	    begin
 	      Printf.fprintf f "statements =";

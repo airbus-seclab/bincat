@@ -6,6 +6,7 @@ Tests targeting the loading of binary files
 import pytest
 import copy
 import subprocess
+import os.path
 from pybincat import cfa
 
 
@@ -15,7 +16,9 @@ def initialState(request):
     # TODO generate instead of using a fixed file, using States class
     # (not implemented yet)
     # TODO return object
-    return open(request.param, 'rb').read()
+    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            request.param)
+    return open(filepath, 'rb').read()
 
 
 @pytest.fixture(scope='function')
@@ -89,7 +92,9 @@ def test_decode_5055_full(analyzer):
     Fully analyze input file containing 0x5055
     """
     filename = 'init-5055-read-all.ini'
-    initialState = open(filename, 'rb').read()
+    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            filename)
+    initialState = open(filepath, 'rb').read()
     binarystr = '\x50\x55'
     prgm = analyzer(initialState, binarystr=binarystr)
     stateInit = prgm['0']
@@ -121,7 +126,9 @@ def test_decode_5055_full(analyzer):
 
 def test_decode_5055_lastbyte(analyzer):
     filename = 'init-5055-read-lastbyte.ini'
-    initialState = open(filename, 'rb').read()
+    filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            filename)
+    initialState = open(filepath, 'rb').read()
     binarystr = '\x50\x55'
     prgm = analyzer(initialState, binarystr=binarystr)
     state1 = prgm['0']

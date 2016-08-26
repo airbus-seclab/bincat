@@ -121,9 +121,9 @@ module Make(D: T) =
 			     
         let to_string x =
           match x with
-          | Reg r -> "reg [" ^ (Register.name r) ^ "]"
-          | Mem_Itv (low_a, high_a) -> "mem [" ^ (Data.Address.to_string low_a) ^ ", " ^(Data.Address.to_string high_a) ^ "]"
-          | Mem addr -> "mem [" ^ (Data.Address.to_string addr) ^ ", " ^ (Data.Address.to_string (Data.Address.inc addr)) ^"]"
+          | Reg r -> Printf.sprintf "reg [%s]"  (Register.name r)
+          | Mem_Itv (low_a, high_a) -> Printf.sprintf "mem [%s, %s]" (Data.Address.to_string low_a) (Data.Address.to_string high_a) 
+          | Mem addr -> Printf.sprintf "mem [%s, %s]" (Data.Address.to_string addr) (Data.Address.to_string (Data.Address.inc addr))
       end
 	
     (* For Ocaml non-gurus : creates a Map type which uses MapOpt with keys of type Key *)
@@ -165,9 +165,14 @@ module Make(D: T) =
       | BOT -> BOT
       | Val m' -> Val (Map.map (fun _ -> D.top) m')
 		      
-    let forget_register r m =
+    let forget_lval lv m =
       match m with
-      | Val m' -> Val (Map.add (Key.Reg r) D.top m')
+      | Val m' ->
+	 begin
+	   match lv with
+	   | Asm.V (Asm.T r) -> Val (Map.add (Key.Reg r) D.top m')
+	   | _ -> forget m (*TODO: could be more precise *)
+	 end
       | BOT -> BOT
 		 
     let subset m1 m2 =
@@ -185,7 +190,7 @@ module Make(D: T) =
     let to_string m =
       match m with
       |	BOT    -> ["_"]
-      | Val m' -> Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) m' []
+      | Val m' -> Map.fold (fun k v l -> (Printf.sprintf "%s = %s" (Key.to_string k) (D.to_string v)) :: l) m' []
 			   
     (***************************)
     (** Memory access function *)
@@ -198,7 +203,7 @@ module Make(D: T) =
         arr.(i) <- Data.Address.add_offset base (Z.of_int i);
       done;
       arr
-
+	
     let get_addr_list base nb =
       Array.to_list (get_addr_array base nb)
 		    

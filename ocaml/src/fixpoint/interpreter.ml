@@ -1,26 +1,69 @@
-(******************************************************************************)
-(* Functor generating the fixpoint iterator on abstract states                *)
-(******************************************************************************)
+(** Fipoint iterator *)
 
-module Make(D: Domain.T) =
-  struct
+(** external signature of the module *)
+module type T =
+  sig
+    type domain
+    module Cfa:
+    sig
+      type t
+      module State:
+      sig
+	(** data type for the decoding context *)
+	  type ctx_t = {
+	      addr_sz: int; (** size in bits of the addresses *)
+	      op_sz  : int; (** size in bits of operands *)
+	    }
+
+	  (** abstract data type of a state *)
+	  type t = {
+	      id: int; 	     		    (** unique identificator of the state *)
+	      mutable ip: Data.Address.t;   (** instruction pointer *)
+	      mutable v: domain; 	    (** abstract value *)
+	      mutable ctx: ctx_t ; 	    (** context of decoding *)
+	      mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
+	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
+	      mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
+	      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
+	      mutable bytes: char list      (** corresponding list of bytes *)
+	    }
+      end
+      val init: Data.Address.t -> State.t
+      val create: unit -> t
+      val add_vertex: t -> State.t -> unit
+      val print: string -> string -> t -> unit
+      val unmarshal: string -> t
+      val marshal: string -> t -> unit
+      val init_abstract_value: unit -> domain
+      val last_addr: t -> Data.Address.t -> State.t
+    end
+    val forward_bin: Code.t -> Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
+    val forward_cfa: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t 
+    val backward: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
+  end
     
-    (** the decoder module *)
+module Make(D: Domain.T): (T with type domain = D.t) =
+  struct
+
+    type domain = D.t
+		    
+    (** Decoder *)
     module Decoder = Decoder.Make(D)
 				 
-    (** the control flow automaton module *)
+    (** Control Flow Automaton *)
     module Cfa = Decoder.Cfa 
-		   
+			      
     open Asm
-	   
-    module Vertices = Set.Make(Cfa.State)
+	    				    
+    (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
+    let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 10
 
-
-    let default_ctx () = {
+    (*let default_ctx () = {
         Cfa.State.op_sz = !Config.operand_sz; 
         Cfa.State.addr_sz = !Config.address_sz;
-      }
-
+      }*)
+			   
+    (** opposite the given comparison operator *)
     let inv_cmp cmp =
       match cmp with
       | EQ  -> NEQ
@@ -35,7 +78,7 @@ module Make(D: Domain.T) =
         match e with
         | BConst b' 		  -> if b = b' then d else D.bot
         | BUnOp (LogNot, e) 	  -> process e (not b)
-					   
+					     
         | BBinOp (LogOr, e1, e2)  ->
            let v1 = process e1 b in
            let v2 = process e2 b in
@@ -53,13 +96,49 @@ module Make(D: Domain.T) =
            D.compare d e1 cmp' e2
       in
       process e b
-	      
+
+	      		   
+    (** widen the given vertex with all previous vertices that have the same ip as v *)
+    let widen v jd =
+      let join_vd = D.join jd v.Cfa.State.v in
+      v.Cfa.State.final <- true;
+      v.Cfa.State.v <- D.widen jd join_vd
+			       
+			       
+    (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
+    (** the widening may be also launched if the threshold is reached *)
+    let update_abstract_values g v ip process_stmts =
+      try
+        let l = process_stmts g v ip in
+        List.iter (fun v ->
+            let n, jd =
+              try
+		let n', jd' = Hashtbl.find unroll_tbl ip in
+		let d' = D.join jd' v.Cfa.State.v in
+		Hashtbl.replace unroll_tbl ip (n'+1, d'); n', d'
+              with Not_found ->
+		Hashtbl.add unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
+		1, v.Cfa.State.v
+            in
+            if n <= !Config.unroll then
+              ()
+            else 
+              widen v jd
+          ) l;
+        List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
+                                      begin
+					Log.from_analysis (Printf.sprintf "unreachable state at address %s" (Data.Address.to_string ip));
+					Cfa.remove_state g v; l'
+                                      end
+				    else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
+      with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
+								
+ 
+    (*************************** Forward from binary file ************************)
+    (*****************************************************************************)
     let apply_tainting _rules d = d (* TODO apply rules of type Config.tainting_fun *)
     let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
 				    
-    (* map from ip to int that enable to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
-    let unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
-								     
     let process_ret fun_stack v =
       let d = v.Cfa.State.v in
       let d', ipstack =
@@ -81,7 +160,7 @@ module Make(D: Domain.T) =
                with
                | Not_found -> d, Some ipstack
              end
-          | None -> (* internal functions : tainting rules from control flow and data flow are directly infered from analysis *) d, Some ipstack
+          | None -> (* internal functions: tainting rules from control flow and data flow are directly infered from analysis *) d, Some ipstack
         with
         | _ -> Log.from_analysis "RET without previous CALL"; d, None
       in   
@@ -108,11 +187,12 @@ module Make(D: Domain.T) =
 		       
     exception Jmp_exn
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let process_stmts g (v: Cfa.State.t) ip fun_stack =
-      let copy v d is_pred =
+    let process_stmts fun_stack g (v: Cfa.State.t) ip =
+      let copy v d branch is_pred =
         let v' = Cfa.copy_state g v in
         v'.Cfa.State.stmts <- [];
         v'.Cfa.State.v <- d;
+	v'.Cfa.State.branch <- branch;
         if is_pred then
           Cfa.add_edge g v v'
         else
@@ -144,7 +224,7 @@ module Make(D: Domain.T) =
 		    
         | Set (dst, src) 			    -> D.set dst src d 
         | Directive (Remove r) 		    -> let d' = D.remove_register r d in Register.remove r; d'
-        | Directive (Forget r) 		    -> D.forget_register r d
+        | Directive (Forget r) 		    -> D.forget_lval (V (T r)) d
         | _ 				    -> raise Jmp_exn
 						     
       in
@@ -160,7 +240,7 @@ module Make(D: Domain.T) =
 						if D.is_bot d then
 						  l
 						else
-						  (copy v d false)::l
+						  (copy v d (Some true) false)::l
 					      with Exceptions.Empty -> l) [] vertices) then_stmts
 		in
 		let else' = process_list (List.fold_left (fun l v ->
@@ -168,7 +248,7 @@ module Make(D: Domain.T) =
 						let d = restrict v.Cfa.State.v e false in
 						if D.is_bot d then
 						  l
-						else (copy v d false)::l
+						else (copy v d (Some false) false)::l
 					      with Exceptions.Empty -> l) [] vertices) else_stmts
 		in
 		List.iter (fun v -> Cfa.remove_state g v) vertices;
@@ -213,48 +293,11 @@ module Make(D: Domain.T) =
            process_list new_vertices stmts 
         | []       -> vertices
       in
-      let vstart = copy v v.Cfa.State.v true
+      let vstart = copy v v.Cfa.State.v None true
       in
       vstart.Cfa.State.ip <- ip;
       process_list [vstart] v.Cfa.State.stmts
-		   
-		   
-    (** widen the given vertex with all vertices in g that have the same ip as v *)
-    let widen g v =
-      let d = Cfa.fold_vertex (fun prev d ->
-		  if v.Cfa.State.ip = prev.Cfa.State.ip then
-                    D.join d prev.Cfa.State.v
-		  else
-                    d) g D.bot
-      in
-      v.Cfa.State.final <- true;
-      v.Cfa.State.v <- D.widen d (D.join d v.Cfa.State.v)
-			       
-			       
-    (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
-    (** the widening may be also launched if the threshold is reached *)
-    let update_abstract_values g v ip fun_stack =
-      try
-        let l = process_stmts g v ip fun_stack in
-        List.iter (fun v ->
-            let n =
-              try let n' = (Hashtbl.find unroll_tbl ip) + 1 in Hashtbl.replace unroll_tbl ip n' ; n'
-              with Not_found -> Hashtbl.add unroll_tbl v.Cfa.State.ip 1; 1
-            in
-            if n <= !Config.unroll then
-              ()
-            else 
-              widen g v
-          ) l;
-        List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
-                                      begin
-					Log.from_analysis (Printf.sprintf "unreachable state at address %s" (Data.Address.to_string ip));
-					Cfa.remove_state g v; l'
-                                      end
-				    else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
-      with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
-																      
-																      
+
     (** [filter_vertices g vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
     let filter_vertices g vertices =
       (* predicate to check whether a new vertex has to be explored or not *)
@@ -269,8 +312,11 @@ module Make(D: Domain.T) =
           try
             (* filters on cutting instruction pointers *)
             if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
+              begin
               Log.from_analysis (Printf.sprintf "Address %s reached but not explored because it belongs to the cut off branches\n"
-						(Data.Address.to_string v.Cfa.State.ip))
+						(Data.Address.to_string v.Cfa.State.ip));
+              raise Exit
+              end
             else
               (** explore if a greater abstract state of v has already been explored *)
               Cfa.iter_vertex (fun prev ->
@@ -284,8 +330,7 @@ module Make(D: Domain.T) =
             Exit -> l
         ) [] vertices
 		     
-		     
-    (** oracle used by the decoder to know the current value of a register *)
+  (** oracle used by the decoder to know the current value of a register *)
     class decoder_oracle s =
     object
       method value_of_register r = D.value_of_register s r
@@ -293,8 +338,8 @@ module Make(D: Domain.T) =
       
     (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial vertex s *)
     (** g is the initial CFA reduced to the singleton s *) 
-      
-    let forward_bin code g s (dump: Cfa.t -> unit) =
+    let forward_bin (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+      let module Vertices = Set.Make(Cfa.State) in
       (* check whether the instruction pointer is in the black list of addresses to decode *)
       if Config.SAddresses.mem (Data.Address.to_int s.Cfa.State.ip) !Config.blackAddresses then
         Log.error "Interpreter not started as the entry point belongs to the cut off branches\n";
@@ -323,7 +368,7 @@ module Make(D: Domain.T) =
             match r with
             | Some (v, ip', d') ->
                (* these vertices are updated by their right abstract values and the new ip                         *)
-               let new_vertices = update_abstract_values g v ip' fun_stack                                         in
+               let new_vertices = update_abstract_values g v ip' (process_stmts fun_stack)                         in
                (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
                let vertices'  = filter_vertices g new_vertices				     		         in
                List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
@@ -338,36 +383,81 @@ module Make(D: Domain.T) =
         (* boolean condition of loop iteration is updated *)
         continue := not (Vertices.is_empty !waiting);
       done;
-      g
+      g								      
+																      
+    (******************** BACKWARD *******************************)
+    (*************************************************************)
+    let back_add_sub op dst e1 e2 d =
+      match e1, e2 with
+      | Lval lv1, Lval lv2 ->
+	 let e = Lval dst in
+	 let d' = D.set lv1 (BinOp (op, e, e2)) d in
+	 D.set lv2 (BinOp (Sub, e, e1)) d'
+      | _ -> D.forget_lval dst d
+			   
+    let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): D.t =
+      match src with
+      | Lval lv -> D.set lv (Lval dst) d
+      | UnOp (Not, Lval lv) -> D.set lv (UnOp (Not, Lval dst)) d 
+      | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
+      | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
+      | _ -> D.forget_lval dst d 
 	
-    (** backward transfert function on the given abstract value *) 
-    let back_process d stmt =
-      match stmt with
-      | Call _
-      | Return
-      | Jmp _
-      | Nop -> d
-      | Directive (Forget _) -> d 
-      | Directive (Remove r) -> D.add_register r d
-      | Set (dst, src) ->
-	 begin
-	   match dst, src with
-	   | V (T r1), Lval (V (T r2)) when Register.size r1 = Register.size r2 -> D.set (V (T r2)) (Lval (V (T r1))) d
-	   | _, _ -> D.forget d
-	 end
-      | If _ -> D.forget d
-			 
-    let back_update_abstract_value v d =
-      let d' = List.fold_left back_process d (List.rev v.Cfa.State.stmts) in
-      v.Cfa.State.v <- D.meet v.Cfa.State.v d'
+    (** backward transfert function on the given abstract value *)
+    (** BE CAREFUL: this function does not apply to nested if statements *)
+    let back_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : D.t =
+      let rec back d stmt =
+	match stmt with
+	| Call _
+	| Return
+	| Jmp _
+	| Nop -> d
+	| Directive (Forget _) -> d 
+	| Directive (Remove r) -> D.add_register r d
+	| Set (dst, src) -> back_set dst src d
+	| If (e, istmts, estmts) ->
+	   match branch with
+	   | Some true -> let d' = List.fold_left back d istmts in restrict d' e true
+	   | Some false -> let d' = List.fold_left back d estmts in restrict d' e false
+	   | None -> Log.error "illegal branch value for backward analysis"
+      in
+      back d stmt
+
+    let back_update_abstract_value (g:Cfa.t) (pred: Cfa.State.t) (v: Cfa.State.t) (ip: Data.Address.t): unit =
+      let back _g v _ip =
+	let d' = List.fold_left (back_process v.Cfa.State.branch) v.Cfa.State.v pred.Cfa.State.stmts in
+	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
+	[pred]
+      in
+      let _ = update_abstract_values g v ip back in
+      ()
 			      
-    let backward g s dump =
+    let back_unroll g v pred =
+      if v.Cfa.State.final then
+	begin
+	  v.Cfa.State.final <- false;
+	  let new_pred = Cfa.copy_state g v in
+	  new_pred.Cfa.State.back_loop <- true;
+	  Cfa.remove_edge g pred v;
+	  Cfa.add_vertex g new_pred;
+	  Cfa.add_edge g pred new_pred;
+	  Cfa.add_edge g new_pred v;
+	  new_pred
+	end
+      else
+	begin
+	  pred.Cfa.State.v <- v.Cfa.State.v;
+	  pred
+	end
+			      
+    let backward (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
       if D.is_bot s.Cfa.State.v then
 	begin
 	  dump g;
 	  Log.error "backward analysis not started: empty meet with previous forward computed value"
 	end
       else
+	let module Vertices = Set.Make(Cfa.State) in
 	let continue = ref true in
 	let waiting = ref (Vertices.singleton s) in
 	try
@@ -375,18 +465,20 @@ module Make(D: Domain.T) =
 	    let v = Vertices.choose !waiting in
 	    waiting := Vertices.remove v !waiting;
 	    let pred = Cfa.pred g v in
-	    back_update_abstract_value pred v.Cfa.State.v;
-	    if not (D.is_bot pred.Cfa.State.v) then
-		(*let pred' = back_unroll g pred in*)
-		waiting := Vertices.add pred !waiting;
+	    back_update_abstract_value g pred v pred.Cfa.State.ip;
+	    let pred' = back_unroll g v pred in
+	    let vertices = filter_vertices g [pred'] in
+	    List.iter (fun v -> waiting := Vertices.add v !waiting) vertices;
 	    continue := not (Vertices.is_empty !waiting)
 	  done;
 	  g
 	with
-	| Failure "hd" -> dump g; Log.error "entry node of the CFA reached"
-					    
-    let forward_cfa _orig_cfa _ep_state _dump = failwith "Interpreter.forward_cfa: not implemented"
+	| Failure "hd" -> Log.from_analysis "entry node of the CFA reached"; g
+	| e -> dump g; raise e
+
+    (********** FORWARD FROM CFA ***************)
+    (*******************************************)
+    let forward_cfa (_orig_cfa: Cfa.t) (_ep_state: Cfa.State.t) (_dump: Cfa.t -> unit): Cfa.t = failwith "Interpreter.forward_cfa: not implemented"
 						   
   end
-    
-    
+     
