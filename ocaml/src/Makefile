@@ -57,7 +57,7 @@ LDCONFIG=ldconfig
 endif
 
 CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -lasmrun
-all: $(LIBNAME)
+all: $(LIBNAME) bincat_native
 
 $(LIBNAME): $(CMX) 
 	$(CAMLOPT) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
