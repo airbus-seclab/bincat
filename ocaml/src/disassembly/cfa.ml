@@ -87,6 +87,7 @@ module Make(Domain: Domain.T) =
 	  match c with
 	  | Config.Content c    -> check c sz name
 	  | Config.CMask (b, m) -> check_mask b m sz name
+	  | _ -> Log.error "Illegal memory init \"|xx|\" spec used for register"
 	  end;
 	  begin
 	    match t with

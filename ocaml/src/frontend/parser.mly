@@ -93,7 +93,7 @@
 	;;
 
 	%}
-%token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
+%token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR PIPE AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
@@ -101,6 +101,7 @@
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA MCFA_FILE
 %token <string> STRING
+%token <string> HEX_BYTES
 %token <Z.t> INT
 %start <unit> process
 %%
@@ -267,12 +268,15 @@
     | U EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_untainted_functions a arg }
     | T EQUAL LPAREN CALL a=INT RPAREN arg=arguments { Hashtbl.replace Config.assert_tainted_functions a arg }
 
+    (* memory and register init *)
      init:
     | TAINT tcontent 	            { Log.error "Parser: illegal initial content: undefined content with defined tainting value" }
     | c=mcontent 	            { c, None }
     | c1=mcontent TAINT c2=tcontent { c1, Some c2 }
 
       mcontent:
+    | s=HEX_BYTES { Config.Bytes s }
+    | s=HEX_BYTES MASK m=INT 	{ Config.Bytes_Mask (s, m) }
     | m=INT 		{ Config.Content m }
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 

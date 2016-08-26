@@ -36,7 +36,7 @@ struct
     let of_string v n =
         try
             let v' = Z.of_string v in
-            if String.length (Z.to_bits v') > n then
+            if Z.numbits v' > n then
                 raise (Exceptions.Error (Printf.sprintf "word %s too large to fit into %d bits" v n))
             else
                 v', n
@@ -139,6 +139,7 @@ struct
 
         let size a = Word.size (snd a)
 
+
         let add_offset (r, w) o' =
             let n = Word.size w in
             let w' = Word.add w (Word.of_int o' n) in
@@ -149,6 +150,9 @@ struct
                 end
             else
                 r, w'
+
+        let dec (r, w) = add_offset (r, w) (Z.minus_one)
+        let inc (r, w) = add_offset (r, w) (Z.one)
 
         let to_word (_r, w) sz =
             if Word.size w >= sz then

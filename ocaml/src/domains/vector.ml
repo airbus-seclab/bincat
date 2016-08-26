@@ -394,6 +394,19 @@ module Make(V: Val) =
             let n' = n-1                in
             begin
                 match c with
+                | Config.Bytes b         ->
+                  let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+                  for i = 0 to n' do
+                      v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
+                  done;
+                | Config.Bytes_Mask (b, m) -> 
+                  let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+                  for i = 0 to n' do
+                      if Z.testbit m i then
+                          v.(n'-i) <- V.top
+                      else
+                          v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
+                  done;
                 | Config.Content c         ->
                   for i = 0 to n' do
                       v.(n'-i) <- nth_of_z_as_val c i
@@ -433,7 +446,7 @@ module Make(V: Val) =
               done;
               v
 
-        (** copy bits from low to up of v2 to v1,
+        (** copy bits from v2 to bits from low to up of v1,
          *  vectors can be of differing sizes *)
         let combine v1 v2 low up =
             Log.debug (Printf.sprintf "Vector.combine : v1 = %s" (to_string v1));
@@ -444,11 +457,11 @@ module Make(V: Val) =
             else
                 let sz1 = Array.length v1 in
                 let sz2 = Array.length v2 in
-                if low >= sz1 || up >= sz1 || low >= sz2 || up >= sz2 then
+                if low >= sz1 || up >= sz1 || up-low+1 > sz2 then
                     Log.error "Vector.combine : low or up > vector len"
                 else
                     let v = Array.copy v1 in
-                    let j = ref (sz2-1-up) in
+                    let j = ref 0 in
                     for i = (sz1-1-up) to (sz1-1-low) do
                         v.(i) <- v2.(!j);
                         j := !j + 1;
@@ -476,6 +489,7 @@ module Make(V: Val) =
             | _       -> true
 
         let extract v low up =
+            (*            Log.debug (Printf.sprintf "Vector.extract %s %d %d" (to_string v) low up);*)
             let v' = Array.make (up-low+1) V.top in
             let n  = Array.length v           in
             let o  = n-up - 1                  in
@@ -493,10 +507,10 @@ module Make(V: Val) =
         let is_tainted v = exists V.is_tainted v
 
         let of_repeat_val v v_len nb =
-          let access_mod idx =
-            v.(idx mod v_len) in
-          let v_array = Array.init (nb*v_len) access_mod in
-          v_array
+            let access_mod idx =
+                v.(idx mod v_len) in
+            let v_array = Array.init (nb*v_len) access_mod in
+            v_array
 
         let concat v1 v2 =
             Array.append v1 v2

@@ -33,9 +33,6 @@ module type T =
 					     
       (** string conversion *)
       val to_string: t -> string list
-
-      (** return the string representation of the value of the given register *)
-      val string_of_register: t -> Register.t -> string
 				     
       (** int conversion of the given register *)
       (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)

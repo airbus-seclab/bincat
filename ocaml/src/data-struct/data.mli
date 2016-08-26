@@ -92,6 +92,11 @@ module Address: sig
   (** add an offset to the given address *)
   val add_offset: t -> Z.t -> t
 				
+  (** add one to the given address *)
+  val inc: t -> t
+
+  (** substract one to the given address *)
+  val dec: t -> t
 				
   (** conversion to a word whose size is given by the integer parameter *)
   val to_word: t -> int -> Word.t
