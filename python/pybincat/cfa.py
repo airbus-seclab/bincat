@@ -67,7 +67,7 @@ class CFA(object):
                 continue
             elif section.startswith('node = '):
                 node_id = section[7:]
-                state = State.parse(node_id, config.items(section))
+                state = State.parse(node_id, dict(config.items(section)))
                 address = state.address
                 if state.final:
                     states[address].insert(0, state.node_id)
@@ -152,14 +152,20 @@ class State(object):
     re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
     re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
 
-    def __init__(self, node_id, address=None):
+    def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
         self.node_id = node_id
         #: Value -> Value
-        self.regaddrs = {}
+        self._regaddrs = {}
         self.final = False
         self.statements = ""
         self.bytes = ""
+
+    @property
+    def regaddrs(self):
+        if self._regaddrs is None:
+            self.parse_regaddrs()
+        return self._regaddrs
 
     @classmethod
     def parse(cls, node_id, outputkv):
@@ -169,24 +175,20 @@ class State(object):
         """
 
         new_state = State(node_id)
+        addr = outputkv.pop("address")
+        m = cls.re_val.match(addr)
+        new_state.address = Value(m.group("region"), int(m.group("value"), 0), 0)
+        new_state.final = outputkv.pop("final", None) == "true"
+        new_state.statements = outputkv.pop("statements", "")
+        new_state.bytes = outputkv.pop("bytes", "")
+        new_state._outputkv = outputkv
+        new_state._regaddrs = None
+        return new_state
 
-        for i, (k, v) in enumerate(outputkv):
-            if k == "address":
-                m = cls.re_val.match(v)
-                if m:
-                    address = Value(m.group("region"),
-                                    int(m.group("value"), 0), 0)
-                    new_state.address = address
-                    continue
-            if k == "final":
-                new_state.final = True if v == 'true' else False
-                continue
-            if k == "statements":
-                new_state.statements = v
-                continue
-            if k == "bytes":
-                new_state.bytes = v
-                continue
+
+    def parse_regaddrs(self):
+        self._regaddr = {}        
+        for i, (k, v) in enumerate(self._outputkv):
             m = cls.re_region.match(k)
             if not m:
                 raise PyBinCATException("Parsing error (entry %i, key=%r)" % (i, k))
@@ -214,8 +216,8 @@ class State(object):
             taint = m.group("taint")
 
             regaddr = Value.parse(region, adrs, '0', 0)
-            new_state[regaddr] = Value.parse(kind, val, taint, length)
-        return new_state
+            self._regaddrs[regaddr] = Value.parse(kind, val, taint, length)
+        del(self._outputkv)
 
     def __getitem__(self, item):
         return self.regaddrs[item]
