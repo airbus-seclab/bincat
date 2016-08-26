@@ -466,7 +466,7 @@ struct
                   | _ -> rm_lv
               end
             | 1 -> 
-              BinOp (Add, rm_lv, UnOp(ZeroExt s.addr_sz, disp s 8 sz))
+              BinOp (Add, rm_lv, UnOp(SignExt s.addr_sz, disp s 8 sz))
 
             | 2 ->
               BinOp (Add, rm_lv, disp s 32 sz)
