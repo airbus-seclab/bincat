@@ -187,11 +187,11 @@ class State(object):
 
 
     def parse_regaddrs(self):
-        self._regaddr = {}        
-        for k, v in self._outputkv.iter_items()
-            m = cls.re_region.match(k)
+        self._regaddrs = {}
+        for k, v in self._outputkv.iteritems():
+            m = self.re_region.match(k)
             if not m:
-                raise PyBinCATException("Parsing error (entry %i, key=%r)" % (i, k))
+                raise PyBinCATException("Parsing error (key=%r)" % (k,))
             region = m.group("region")
             adrs = m.group("adrs")
             if region == 'mem':
@@ -208,9 +208,9 @@ class State(object):
             elif region == 'reg':
                 length = reg_len(adrs)
 
-            m = cls.re_valtaint.match(v)
+            m = self.re_valtaint.match(v)
             if not m:
-                raise PyBinCATException("Parsing error (entry %i: value=%r)" % (i, v))
+                raise PyBinCATException("Parsing error (value=%r)" % (v,))
             kind = m.group("kind")
             val = m.group("value")
             taint = m.group("taint")
