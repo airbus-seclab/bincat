@@ -20,3 +20,4 @@ doc/generated
 *.egg
 python/test/**
 tags
+ocaml/src/bincat_native
