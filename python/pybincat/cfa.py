@@ -10,18 +10,19 @@ import functools
 
 def reg_len(regname):
     """
-    Return length in bits
+    Return register length in bits
     """
-    # register list from decoder.ml
-    if regname in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
-        return 32
-    if regname in ["cs", "ds", "ss", "es", "fs", "gs"]:
-        return 16
-    if regname in ["cf", "pf", "af", "zf", "sf", "tf", "if", "df", "of", "nt",
-                   "rf", "vm", "ac", "vif", "vip", "id"]:
-        return 1
-    if regname == "iopl":
-        return 2
+    return {
+        "eax" : 32, "ebx" : 32, "ecx" : 32, "edx" : 32,
+        "esi" : 32, "edi" : 32, "esp" : 32, "ebp" : 32,
+        "ax" : 16, "bx" : 16, "cx" : 16, "dx" : 16,
+        "si" : 16, "di" : 16, "sp" : 16, "bp" : 16,
+        "cs" : 16, "ds" : 16, "es" : 16, "ss" : 16, "fs" : 16, "gs" : 16, 
+        "iopl": 2,
+        "cf" : 1, "pf" : 1, "af" : 1, "zf" : 1, "sf" : 1, "tf" : 1, "if" : 1,
+        "df" : 1, "of" : 1, "nt" : 1, "rf" : 1, "vm" : 1, "ac" : 1, "vif" : 1,
+        "vip" : 1, "id" : 1,
+    }[regname]
 
 
 class PyBinCATParseError(PyBinCATException):
