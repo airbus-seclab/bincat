@@ -98,7 +98,7 @@ class LocalAnalyzer(QtCore.QProcess):
         self.finish_cb = finish_cb
 
     def run(self):
-        cmdline = "bincat %s %s %s" % (self.initfname, self.outfname,
+        cmdline = "bincat_native %s %s %s" % (self.initfname, self.outfname,
                                        self.logfname)
         # start the process
         bc_log.debug("Analyzer cmdline: [%s]", cmdline)
