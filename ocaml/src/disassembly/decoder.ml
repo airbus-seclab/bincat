@@ -1251,7 +1251,7 @@ struct
         [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops)]
 
     let core_rotate dst src op sz count =
-      let cf_stmt = Set (V (T fcf), BinOp (And, BinOp(op, Lval dst, Const (Word.of_int (Z.of_int (sz-1)) sz))), Const (Word.one 1)) in
+      let cf_stmt = Set (V (T fcf), BinOp(op, Lval dst, Const (Word.of_int (Z.of_int (sz-1)) sz))) in
       (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
       let of_stmt = If (Cmp (EQ, count, Const (Word.one sz)), [Set (V (T fof), Lval (V (T fcf)))], [undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
