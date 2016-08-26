@@ -436,7 +436,7 @@ module Make(D: T) =
               begin
                 match r with
                 | Asm.T r' -> Val (Map.add (Key.Reg r') v' m')
-                | Asm.P (r', low, up) ->
+                | Asm.P (r', low, up) -> 
                    try
                      let prev = Map.find (Key.Reg r') m' in
                      Val (Map.replace (Key.Reg r') (D.combine prev v' low up) m')
