@@ -132,7 +132,7 @@ class CFA(object):
 
     def __getitem__(self, node_id):
         """
-        Returns State at provided node_ids if it exists, else None.
+        Returns State at provided node_id if it exists, else None.
         """
         return self.nodes.get(node_id, None)
 
@@ -368,3 +368,8 @@ class Value(object):
 
     def is_concrete(self):
         return self.vtop == 0 and self.vbot == 0
+
+    def is_tainted(self):
+        return (self.taint != 0 or
+                self.ttop != 0 or
+                self.tbot != 0)
