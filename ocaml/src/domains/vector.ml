@@ -194,7 +194,13 @@ module Make(V: Val) =
             in
             let taint_bytes = Bytes.create ((Array.length v)) in
 	    let t =
-	      try Data.Word.to_string (to_word V.taint_to_z v)
+	      try
+		let all = ref true in
+		let r = to_word (fun v -> let t = V.taint_to_z v in if Z.compare t Z.one <> 0 then all := false; t) v in
+		if !all then
+		  "ALL"
+		else
+		Data.Word.to_string r
 	      with _ -> 
 		  let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
 		  Array.iteri set_taint_char v;
