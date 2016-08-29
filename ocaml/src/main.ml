@@ -57,14 +57,14 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   
   (* internal function to launch backward/forwrad analysis from a previous CFA and config *)
   let from_cfa fixpoint =
-  let orig_cfa = Interpreter.Cfa.unmarshal !Config.mcfa_file			       in
-  let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-  let d        = Interpreter.Cfa.init_abstract_value ()				       in
-  try
-    let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
-    prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
-    fixpoint orig_cfa prev_s dump
-  with Not_found -> Log.error "entry point of the analysis not in the given CFA"
+    let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
+    let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+    let d        = Interpreter.Cfa.init_abstract_value ()				       in
+    try
+      let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
+      prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
+      fixpoint orig_cfa prev_s dump
+    with Not_found -> Log.error "entry point of the analysis not in the given CFA"
   in
 
   (* launching the right analysis depending on the value of !Config.analysis *)
@@ -92,7 +92,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
 
   (* dumping results *)
   if !Config.store_mcfa = true then
-    Interpreter.Cfa.marshal !Config.mcfa_file cfa;
+    Interpreter.Cfa.marshal !Config.out_mcfa_file cfa;
   dump cfa;
   Printexc.print_backtrace stdout;
   Log.close()

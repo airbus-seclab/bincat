@@ -62,3 +62,9 @@ let is_tainted t =
   match t with
   | T | TOP -> true
   | _ 	    -> false
+
+let to_z t =
+  match t with
+  | U -> Z.zero
+  | T -> Z.one
+  | _ -> raise Exceptions.Concretization

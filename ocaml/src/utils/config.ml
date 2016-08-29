@@ -34,7 +34,9 @@ let analysis = ref (Forward Bin);;
 
 let mode = ref Protected
 
-let mcfa_file = ref "";;
+let in_mcfa_file = ref "";;
+let out_mcfa_file = ref "";;
+  
 let load_mcfa = ref false;;
 let store_mcfa = ref false;;
 

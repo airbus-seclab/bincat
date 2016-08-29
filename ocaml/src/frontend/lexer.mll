@@ -83,7 +83,8 @@ rule token = parse
   | "verbose"               { VERBOSE }
   | "dotfile"               { DOTFILE }
   | "store_marshalled_cfa"  { STORE_MCFA }
-  | "marshalled_cfa_file"   { MCFA_FILE }
+  | "in_marshalled_cfa_file"   { IN_MCFA_FILE }
+  | "out_marshalled_cfa_file"   { OUT_MCFA_FILE }
   (* address separator *)
   | "," 		    { COMMA }
   (* GDT tokens *)

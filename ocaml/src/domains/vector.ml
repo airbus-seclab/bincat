@@ -14,6 +14,8 @@ sig
     val is_top: t -> bool
     (** conversion to value of type Z.t. May raise an exception *)
     val to_z: t -> Z.t
+    (** conversion of the taint value of the parameter into a Z value. May raise an exception *)
+    val taint_to_z: t -> Z.t
     (** conversion from Z.t value *)
     val of_z: Z.t -> t
     (** taint the given value from Z.t value *)
@@ -166,18 +168,19 @@ module Make(V: Val) =
                 true
             with _ -> false
 
-        let to_z v =
+        let v_to_z conv v =
             try
                 let z = ref Z.zero in
                 for i = 0 to (Array.length v) - 1 do
-                    let n = V.to_z v.(i) in
+                    let n = conv v.(i) in
                     z := Z.add n (Z.shift_left !z 1)
                 done;
                 !z
             with _ -> raise Exceptions.Concretization
 
+	let to_z v = v_to_z V.to_z v 
         (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
-        let to_word v = Data.Word.of_int (to_z v) (Array.length v)
+        let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
 
         let to_string v =
             let v' =
@@ -187,14 +190,18 @@ module Make(V: Val) =
                     Array.iteri set_char v ;
                     "0b"^Bytes.to_string v_bytes
                 else
-                    Data.Word.to_string (to_word v)
+                    Data.Word.to_string (to_word V.to_z v)
             in
             let taint_bytes = Bytes.create ((Array.length v)) in
-            let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
-            Array.iteri set_taint_char v;
-            let t = "0b"^Bytes.to_string taint_bytes in
-            if String.length t = 2 then v'
-            else Printf.sprintf "%s ! %s" v' t
+	    let t =
+	      try Data.Word.to_string (to_word V.taint_to_z v)
+	      with _ -> 
+		  let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
+		  Array.iteri set_taint_char v;
+		  "0b"^Bytes.to_string taint_bytes
+	    in
+              if String.length t = 2 then v'
+              else Printf.sprintf "%s ! %s" v' t
 
 
         let join v1 v2 = map2 V.join v1 v2
@@ -385,7 +392,7 @@ module Make(V: Val) =
             done;
             r
 
-        let to_addresses r v = Data.Address.Set.singleton (r, to_word v)
+        let to_addresses r v = Data.Address.Set.singleton (r, to_word V.to_z v)
 
         let subset v1 v2 = for_all2 V.subset v1 v2
 

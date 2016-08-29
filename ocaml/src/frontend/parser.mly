@@ -37,7 +37,8 @@
 	(DOTFILE, "dotfile", "analyzer");
 	(ANALYSIS, "analysis", "analyzer");
 	(STORE_MCFA, "store_marshalled_cfa", "analyzer");
-	(MCFA_FILE, "marshalled_cfa_file", "analyzer");
+	(IN_MCFA_FILE, "in_marshalled_cfa_file", "analyzer");
+	(OUT_MCFA_FILE, "out_marshalled_cfa_file", "analyzer");
 	(GDT, "gdt", "gdt");
 	(CODE_VA, "code_va", "loader");
       ];;
@@ -99,7 +100,7 @@
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
-%token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA MCFA_FILE
+%token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <Z.t> INT
@@ -212,7 +213,8 @@
     | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | VERBOSE EQUAL v=STRING 	     { update_boolean "verbose" Config.verbose v }
     | ANALYSIS EQUAL v=analysis_kind { update_mandatory ANALYSIS; Config.analysis := v }
-    | MCFA_FILE EQUAL f=STRING       { update_mandatory MCFA_FILE; Config.mcfa_file := f }
+    | IN_MCFA_FILE EQUAL f=STRING       { update_mandatory IN_MCFA_FILE; Config.in_mcfa_file := f }
+    | OUT_MCFA_FILE EQUAL f=STRING       { update_mandatory OUT_MCFA_FILE; Config.out_mcfa_file := f }
     | STORE_MCFA EQUAL v=STRING      { update_mandatory STORE_MCFA; update_boolean "store_mcfa" Config.store_mcfa v }
 
       analysis_kind:

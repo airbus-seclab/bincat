@@ -75,7 +75,9 @@ let taint_of_z z (v, _t) =
     else T.TOP
   in
   v, t'
-	       
+
+let taint_to_z (_v, t) = T.to_z t
+				
 let lognot (v, t) = V.lognot v, t
 
 let lt (v1, _t1) (v2, _t2) = V.lt v1 v2
