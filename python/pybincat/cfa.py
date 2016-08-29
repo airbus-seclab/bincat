@@ -10,18 +10,19 @@ import functools
 
 def reg_len(regname):
     """
-    Return length in bits
+    Return register length in bits
     """
-    # register list from decoder.ml
-    if regname in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
-        return 32
-    if regname in ["cs", "ds", "ss", "es", "fs", "gs"]:
-        return 16
-    if regname in ["cf", "pf", "af", "zf", "sf", "tf", "if", "df", "of", "nt",
-                   "rf", "vm", "ac", "vif", "vip", "id"]:
-        return 1
-    if regname == "iopl":
-        return 2
+    return {
+        "eax" : 32, "ebx" : 32, "ecx" : 32, "edx" : 32,
+        "esi" : 32, "edi" : 32, "esp" : 32, "ebp" : 32,
+        "ax" : 16, "bx" : 16, "cx" : 16, "dx" : 16,
+        "si" : 16, "di" : 16, "sp" : 16, "bp" : 16,
+        "cs" : 16, "ds" : 16, "es" : 16, "ss" : 16, "fs" : 16, "gs" : 16, 
+        "iopl": 2,
+        "cf" : 1, "pf" : 1, "af" : 1, "zf" : 1, "sf" : 1, "tf" : 1, "if" : 1,
+        "df" : 1, "of" : 1, "nt" : 1, "rf" : 1, "vm" : 1, "ac" : 1, "vif" : 1,
+        "vip" : 1, "id" : 1,
+    }[regname]
 
 
 class PyBinCATParseError(PyBinCATException):
@@ -66,7 +67,7 @@ class CFA(object):
                 continue
             elif section.startswith('node = '):
                 node_id = section[7:]
-                state = State.parse(node_id, config.items(section))
+                state = State.parse(node_id, dict(config.items(section)))
                 address = state.address
                 if state.final:
                     states[address].insert(0, state.node_id)
@@ -151,14 +152,20 @@ class State(object):
     re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
     re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
 
-    def __init__(self, node_id, address=None):
+    def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
         self.node_id = node_id
         #: Value -> Value
-        self.regaddrs = {}
+        self._regaddrs = {}
         self.final = False
         self.statements = ""
         self.bytes = ""
+
+    @property
+    def regaddrs(self):
+        if self._regaddrs is None:
+            self.parse_regaddrs()
+        return self._regaddrs
 
     @classmethod
     def parse(cls, node_id, outputkv):
@@ -168,27 +175,23 @@ class State(object):
         """
 
         new_state = State(node_id)
+        addr = outputkv.pop("address")
+        m = cls.re_val.match(addr)
+        new_state.address = Value(m.group("region"), int(m.group("value"), 0), 0)
+        new_state.final = outputkv.pop("final", None) == "true"
+        new_state.statements = outputkv.pop("statements", "")
+        new_state.bytes = outputkv.pop("bytes", "")
+        new_state._outputkv = outputkv
+        new_state._regaddrs = None
+        return new_state
 
-        for i, (k, v) in enumerate(outputkv):
-            if k == "address":
-                m = cls.re_val.match(v)
-                if m:
-                    address = Value(m.group("region"),
-                                    int(m.group("value"), 0), 0)
-                    new_state.address = address
-                    continue
-            if k == "final":
-                new_state.final = True if v == 'true' else False
-                continue
-            if k == "statements":
-                new_state.statements = v
-                continue
-            if k == "bytes":
-                new_state.bytes = v
-                continue
-            m = cls.re_region.match(k)
+
+    def parse_regaddrs(self):
+        self._regaddrs = {}
+        for k, v in self._outputkv.iteritems():
+            m = self.re_region.match(k)
             if not m:
-                raise PyBinCATException("Parsing error (entry %i, key=%r)" % (i, k))
+                raise PyBinCATException("Parsing error (key=%r)" % (k,))
             region = m.group("region")
             adrs = m.group("adrs")
             if region == 'mem':
@@ -205,16 +208,16 @@ class State(object):
             elif region == 'reg':
                 length = reg_len(adrs)
 
-            m = cls.re_valtaint.match(v)
+            m = self.re_valtaint.match(v)
             if not m:
-                raise PyBinCATException("Parsing error (entry %i: value=%r)" % (i, v))
+                raise PyBinCATException("Parsing error (value=%r)" % (v,))
             kind = m.group("kind")
             val = m.group("value")
             taint = m.group("taint")
 
             regaddr = Value.parse(region, adrs, '0', 0)
-            new_state[regaddr] = Value.parse(kind, val, taint, length)
-        return new_state
+            self._regaddrs[regaddr] = Value.parse(kind, val, taint, length)
+        del(self._outputkv)
 
     def __getitem__(self, item):
         return self.regaddrs[item]
