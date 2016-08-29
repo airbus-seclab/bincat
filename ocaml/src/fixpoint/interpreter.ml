@@ -186,7 +186,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    with
               _ -> Log.error "computed instruction pointer at return instruction is either undefined or imprecise"
 	  end
-	with Failure "hd" -> Log.from_analysis "RET without previous CALL"; None
+	with Failure "hd" -> Log.from_analysis (Printf.sprintf "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None
 		       
     exception Jmp_exn
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
