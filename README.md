@@ -1,4 +1,5 @@
-## Dependencies
+## Install (Linux / MacOS)
+### Dependencies
 
 * ocaml 4.02.3 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * ocamlfind
@@ -18,26 +19,25 @@ on Debian Sid:
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-dev
 ```
 
-## Install (Linux / MacOS)
 
 1. unzip this archive and enter it
 2. compilation
 
-    ```
-    make
-    ```
+```
+make pute
+```
 
 3. installation
 
-    ```
-    make install
-    ```
+```
+make install
+```
 
 4. for the documentation (generated in directory doc)
 
-    ```
-    make doc
-    ```
+```
+make doc
+```
 
 ### ocaml compilation
 If messages indicating that the `-fPIC` must be used, update your OCaml installation to 4.02.3.
@@ -57,7 +57,7 @@ setup.py build`:
   done in the debian packages.
 * `export C_INCLUDE_PATH=/usr/lib/ocaml`
 
-### mac os installation
+### MacOS installation
 By default non initialized external symobols are not exported by `ranlib`.
 Hence some symbols in `_caml_table` are not exported which results in a link
 failure.
@@ -73,14 +73,14 @@ ranlib -c /path/to/the/lib/libsasmrun.a
   installation folder's `plugins/` directory, or in your `~/.idapro/plugins`
   directory
 
-* Make the pybincat & idabincat packages available in your idapython
+* Make the `pybincat` & `idabincat` packages available in your IDAPython
   distribution. To do so, you may copy or create a symlink to the
   `python/pybincat/` and `python/idabindat` folders in your IDA
   installation folder's `plugins/` directory, or in your `~/.idapro/plugins`
   directory.
 
-* Make sure the `bincat` command is in your path (`make install` should have
-  taken care of that).
+* Make sure the `bincat` and `bincat_native` commands are in your path (`make
+  install` should have taken care of that).
 
 * On MacOS, add the following line to `/etc/launchd.conf`:
   ```
@@ -89,7 +89,9 @@ ranlib -c /path/to/the/lib/libsasmrun.a
   where `/path/to/bincat` is the output of `which bincat`
 
 * If there's a problem with `hashlib` on Debian, do the following:
-```
+
+
+```bash
 wget http://archive.debian.org/debian-security/pool/updates/main/o/openssl/libssl0.9.8_0.9.8o-4squeeze14_i386.deb
 sha256sum libssl0.9.8_0.9.8o-4squeeze14_i386.deb | grep 3c2391187c88e732545a11f545ccd2abf224c17a717e73588f1ebedb15d932ad
 if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
@@ -97,7 +99,7 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 
 ## Install (Windows)
 
-Only IDA plugin is supported on Windows.
+**Only IDA plugin is supported on Windows.**
 
 ### Dependencies
 The plugin requires the `requests` module to work:
@@ -109,13 +111,12 @@ The plugin requires the `requests` module to work:
 
 
 ### Plugin install
-* Copy the `python\idabincat` folder to your IDA's `plugins` directory
+* Copy the `python\idabincat` and `python\pybincat` folders to your IDA's `plugins` directory
 * Copy `python\idabincat\bcplugin.py` to your IDA's `plugins` directory
-* Copy the `python\idabincat\conf` folder to `%APPDATA%\Hex-Rays\IDA Pro` (or your `IDAUSR` dir)
+* Copy the `python\idabincat\conf` folder to `%APPDATA%\Hex-Rays\IDA Pro\idabincat` (or `%IDAUSR%\idabincat` dir)
 * Configure your server address
 
 ## IDA plugin usage
-
 
 ### Quick start
 * Load the plugin by using the `Ctrl-Shift-B` shortcut, or using the

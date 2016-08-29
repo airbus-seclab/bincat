@@ -1225,29 +1225,51 @@ struct
                 [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n)))))])
         in
         let of_stmt =
-                let is_one = Cmp (EQ, n, one) in
-                let op =
-                       (* last bit having been "evicted out"  xor CF*)
-                       Set (V (T fof),
-                        BinOp(Xor, Lval (V (T fcf)),
-                        BinOp (And, one,
-                        (BinOp(Shr, ldst,
-                         BinOp(Sub, sz', n))))))
-                in
-                    If (is_one,    (* OF is set if n == 1 only *)
-                        [op] ,
-                        [undef_flag fof])
+          let is_one = Cmp (EQ, n, one) in
+          let op =
+            (* last bit having been "evicted out"  xor CF*)
+            Set (V (T fof),
+                 BinOp(Xor, Lval (V (T fcf)),
+                       BinOp (And, one,
+                              (BinOp(Shr, ldst,
+				     BinOp(Sub, sz', n))))))
+          in
+          If (is_one,    (* OF is set if n == 1 only *)
+              [op] ,
+              [undef_flag fof])
         in
+	let lv = Lval dst in
         let ops =
                 [
                  Set (dst, BinOp (Shl, ldst, n));
                  (* previous cf is used in of_stmt *)
                  of_stmt; cf_stmt; undef_flag faf;
-                ]
+                 (sign_flag_stmts sz lv) ; (zero_flag_stmts sz lv) ; (parity_flag_stmts sz lv)
+		]
         in
         (* If shifted by zero, do nothing, else do the rest *)
         [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops)]
 
+    let core_rotate dst src op sz count =
+      let cf_stmt = Set (V (T fcf), BinOp(op, Lval dst, Const (Word.of_int (Z.of_int (sz-1)) sz))) in
+      (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
+      let of_stmt = If (Cmp (EQ, count, Const (Word.one sz)), [Set (V (T fof), Lval (V (T fcf)))], [undef_flag fof]) in
+      (* beware of that : of_stmt has to be analysed *after* having set cf *)
+      let stmts =  [Set (dst, src) ; cf_stmt ; of_stmt ] in
+      [ If (Cmp(EQ, count, Const (Word.zero sz)), [], stmts)]
+	
+    let rotate_l_stmt dst sz count =
+      let high = BinOp (Shr, Lval dst, BinOp (Sub, Const (Word.of_int (Z.of_int (sz-1)) sz), count)) in
+      let low = BinOp (Shl, Lval dst, count) in
+      let src = BinOp (Add, high, low) in
+      core_rotate dst src Shl sz count
+
+    let rotate_r_stmt dst sz count =
+      let high = BinOp (Shl, Lval dst, count) in
+      let low = BinOp (Shr, Lval dst, BinOp(Sub, Const (Word.of_int (Z.of_int (sz-1)) sz), count)) in
+      let src = BinOp(Add, high, low) in
+      core_rotate dst src Shr sz count
+		  
     let shift_r_stmt dst sz n arith =
         let sz' = const sz sz in
         let one = Const (Word.one sz) in
@@ -1291,7 +1313,8 @@ struct
                 ]
         in
         (* If shifted by zero, do nothing, else do the rest *)
-        [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops)]
+	let res = Lval dst in
+        [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
 
     let grp2 s sz e =
         let nnn, dst = core_grp s sz in
@@ -1301,6 +1324,8 @@ struct
             | None -> get_imm s 8 sz false
         in
         match nnn with
+	| 0 -> return s (rotate_l_stmt dst sz n) (* ROL *)
+	| 1 -> return s (rotate_r_stmt dst sz n) (* ROR *)
         | 4 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
         | 5 -> return s (shift_r_stmt dst sz n false) (* SHR *)
        	| 7 -> return s (shift_r_stmt dst sz n true) (* SAR *)
@@ -1722,8 +1747,8 @@ struct
             | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
             | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
 
-            | '\xd0' -> (* grp2 shift with byte size *) grp2 s 8 None
-            | '\xd1' -> (* grp2 shift with word or double size *) grp2 s s.operand_sz None
+            | '\xd0' -> (* grp2 shift with one on byte size *) grp2 s 8 (Some (Const (Word.one 8)))
+            | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (Const (Word.one s.operand_sz)))
             | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s 8 (Some (Lval (V (to_reg ecx 8))))
             | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx 8))))
 
@@ -1768,7 +1793,7 @@ struct
                 if s.repe || s.repne then
                     [ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Jmp (A a')], [Jmp (A v.Cfa.State.ip) ]) ]
                 else
-                    []
+                    [ Jmp (A v.Cfa.State.ip) ]
             in
             let ecx' = V (to_reg ecx s.addr_sz) in
             let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in

@@ -1,49 +1,49 @@
 (** Word data type *)
 module Word =
-struct
+  struct
     type t = Z.t * int (* the integer is the size in bits *)
-
+		     
     let to_string w =
-        let s   = String.escaped "0x%"             in
-        let fmt = Printf.sprintf "%s%#dx" s (snd w) in
-        Printf.sprintf "0x%s" (Z.format fmt (fst w))
-
+      let s   = String.escaped "0x%"             in
+      let fmt = Printf.sprintf "%s%#dx" s (snd w) in
+      Printf.sprintf "0x%s" (Z.format fmt (fst w))
+		     
     let size w = snd w
-
+		     
     let compare (w1, sz1) (w2, sz2) = 
-        let n = Z.compare w1 w2 in
-        if n = 0 then sz1 - sz2 else n
-
+      let n = Z.compare w1 w2 in
+      if n = 0 then sz1 - sz2 else n
+				     
     let equal v1 v2 = compare v1 v2 = 0
-
+					
     let zero sz	= Z.zero, sz
-
+			    
     let one sz = Z.one, sz
-
+			  
     let add w1 w2 =
-        let w' = Z.add (fst w1) (fst w2) in
-        w', max (Z.numbits w') (max (size w1) (size w2))
-
+      let w' = Z.add (fst w1) (fst w2) in
+      w', max (Z.numbits w') (max (size w1) (size w2))
+	      
     let sub w1 w2 =
-        let w' = Z.sub (fst w1) (fst w2) in
-        w', max (Z.numbits w') (max (size w1) (size w2))
-
-
+      let w' = Z.sub (fst w1) (fst w2) in
+      w', max (Z.numbits w') (max (size w1) (size w2))
+	      
+	      
     let of_int v sz = v, sz
-
+			   
     let to_int v = fst v
-
+		       
     let of_string v n =
         try
-            let v' = Z.of_string v in
-            if Z.numbits v' > n then
-                raise (Exceptions.Error (Printf.sprintf "word %s too large to fit into %d bits" v n))
-            else
-                v', n
+          let v' = Z.of_string v in
+          if Z.numbits v' > n then
+            raise (Exceptions.Error (Printf.sprintf "word %s too large to fit into %d bits" v n))
+          else
+            v', n
         with _ -> raise (Exceptions.Error (Printf.sprintf "Illegal conversion from Z.t to word of %s" v))
-
+			
     let hash w = Z.hash (fst w)
-
+			
     let size_extension (v, sz) n = 
         if sz >= n then (v, sz)
         else 
