@@ -564,11 +564,7 @@ class Hooks(idaapi.UI_Hooks):
         if ctx.form_type == idaapi.BWN_DISASM:
             idaview = idaapi.get_tform_idaview(ctx.form)
             place, x, y = idaapi.get_custom_viewer_place(idaview, False)
-            # line =  get_custom_viewer_curline(idaview, False)
             if idaapi.isCode(idaapi.getFlags(place.toea())):
-                # SetColor(place.toea(), CIC_ITEM, 0x0CE505)
-                # idaapi.set_item_color(place.toea(), 0x23ffff)
-
                 self.s.set_current_ea(place.toea())
 
     def populating_tform_popup(self, form, popup):

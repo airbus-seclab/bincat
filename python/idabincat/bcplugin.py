@@ -329,9 +329,35 @@ class State(object):
             node0 = cfa['0']
             current_ea = node0.address.value
         self.set_current_ea(current_ea, force=True)
-        for v in cfa.states:
-            ea = v.value
-            idaapi.set_item_color(ea, 0xCDCFCE)
+        tainted_set = set()
+        for addr, nodeids in cfa.states.items():
+            if addr in tainted_set:
+                # address already seen, is tainted
+                continue
+            ea = addr.value
+            for n_id in nodeids:
+                # is it tainted?
+                # find children state
+                state = cfa[n_id]
+                children = cfa.edges[n_id]
+                tainted = False
+                for cnode in children:
+                    cstate = cfa[cnode]
+                    for k in state.list_modified_keys(cstate):
+                        if k.is_tainted():
+                            tainted = True
+                            break
+                        val = cstate[k]
+                        if val.is_tainted():
+                            tainted = True
+                            break
+                    if tainted:
+                        break
+
+            if tainted:
+                idaapi.set_item_color(ea, 0xDDFFDD)
+            else:
+                idaapi.set_item_color(ea, 0xCDCFCE)
         self.netnode["current_ea"] = current_ea
 
     def set_current_ea(self, ea, force=False):
