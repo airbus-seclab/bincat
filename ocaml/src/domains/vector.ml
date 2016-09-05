@@ -200,17 +200,13 @@ module Make(V: Val) =
                 if !all then
                     "ALL"
                 else
-                    let s = Data.Word.to_string r in
-                    if String.compare s "0x0" == 0 then
-                        "0"
-                    else
-                        s
+                    Data.Word.to_string r
             with _ -> 
                 let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
                 Array.iteri set_taint_char v;
                 "0b"^Bytes.to_string taint_bytes
         in
-        if String.length t = 2 then v'
+        if String.compare t "0x0" == 0 then v'
         else Printf.sprintf "%s!%s" v' t
 
 
