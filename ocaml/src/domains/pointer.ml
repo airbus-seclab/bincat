@@ -19,8 +19,8 @@ module Make (V: Vector.T) =
 
         let to_string p =
             match p with
-            | BOT -> "(_,0b_)"
-            | TOP -> "(?,0b?)"
+            | BOT -> "B0x_"
+            | TOP -> "T0x?"
             | Val (r, o) -> Printf.sprintf "%c%s" (char_of_region r) (V.to_string o)
 
         let untaint p =
