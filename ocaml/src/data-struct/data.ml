@@ -3,10 +3,7 @@ module Word =
   struct
     type t = Z.t * int (* the integer is the size in bits *)
 		     
-    let to_string w =
-      let s   = String.escaped "0x%"             in
-      let fmt = Printf.sprintf "%s%#dx" s (snd w) in
-      Printf.sprintf "0x%s" (Z.format fmt (fst w))
+    let to_string w = Z.format "%#x" (fst w)
 		     
     let size w = snd w
 		     
