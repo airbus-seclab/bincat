@@ -219,7 +219,6 @@ module Make(D: T) =
         let itv_to_str itv = let low = fst itv in let high = !(snd itv) in 
             let addr_str = Printf.sprintf "mem[%s, %s]" (Data.Address.to_string low) (Data.Address.to_string high) in
             let len = Z.to_int (Data.Address.sub high low) in
-            Log.debug (Printf.sprintf "itv_to_str(%s)" addr_str);
             let strs = let indices = Array.make len 0 in 
                 for offset = 0 to len-1 do
                     indices.(offset) <- offset
@@ -228,9 +227,6 @@ module Make(D: T) =
             in Printf.sprintf "%s = %s" addr_str strs
         in 
         let itvs = Map.fold build_itv m [] in 
-            Log.debug "coleasce_to_strs ENTER";
-            List.iter (fun v -> Log.debug (Printf.sprintf "%s, %s" (Data.Address.to_string (fst v)) (Data.Address.to_string !(snd v)))) itvs;
-            Log.debug "coleasce_to_strs END";
         List.fold_left (fun strs v -> (itv_to_str v)::strs) strs itvs
     
     let non_itv_to_str k v =
