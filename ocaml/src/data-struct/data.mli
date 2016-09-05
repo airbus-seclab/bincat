@@ -57,8 +57,8 @@ module Address: sig
     | Heap (** abstract base address of a dynamically allocated memory block *)
 	
 	
-  (** string conversion of a region *)
-  val string_of_region: region -> string
+  (** char conversion of a region *)
+  val char_of_region: region -> char
 				    
   (** data type of an address *)
   type t = region * Word.t
