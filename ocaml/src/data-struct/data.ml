@@ -145,7 +145,6 @@ struct
             let w' = Word.add w (Word.of_int o' n) in
             if Word.size w' > n then
                 begin
-                    Log.from_analysis (Printf.sprintf "Data.Address: overflow when tried to add an offset (%s) to an address (%s)" (Word.to_string (o', n)) (Word.to_string w));
                     r, Word.truncate w' n
                 end
             else
