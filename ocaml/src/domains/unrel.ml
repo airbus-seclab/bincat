@@ -224,7 +224,7 @@ module Make(D: T) =
                     indices.(offset) <- offset
                 done ;
                 Array.fold_left (fun strs off -> Printf.sprintf "%s, %s" strs (D.to_string (Map.find (Key.Mem (Data.Address.add_offset low (Z.of_int off))) m))) "" indices 
-            in Printf.sprintf "%s = %s" addr_str strs
+            in Printf.sprintf "%s = %s" addr_str (String.sub strs 2 ((String.length strs)-2))
         in 
         let itvs = Map.fold build_itv m [] in 
         List.fold_left (fun strs v -> (itv_to_str v)::strs) strs itvs
