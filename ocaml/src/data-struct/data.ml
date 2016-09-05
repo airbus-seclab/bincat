@@ -88,9 +88,9 @@ struct
 
         let string_of_region r =
             match r with
-            | Global -> "Global"
-            | Stack  -> "Stack"
-            | Heap   -> "Heap"
+            | Global -> "G"
+            | Stack  -> "S"
+            | Heap   -> "H"
 
         type t = region * Word.t
 

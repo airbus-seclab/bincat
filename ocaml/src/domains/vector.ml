@@ -178,36 +178,40 @@ module Make(V: Val) =
                 !z
             with _ -> raise Exceptions.Concretization
 
-	let to_z v = v_to_z V.to_z v 
-        (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
-        let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
+    let to_z v = v_to_z V.to_z v 
+    (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
+    let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
 
-        let to_string v =
-            let v' =
-                if exists V.is_top v then
-                    let v_bytes = Bytes.create (Array.length v) in
-                    let set_char = (fun i c -> Bytes.set v_bytes i (V.to_char c)) in
-                    Array.iteri set_char v ;
-                    "0b"^Bytes.to_string v_bytes
+    let to_string v =
+        let v' =
+            if exists V.is_top v then
+                let v_bytes = Bytes.create (Array.length v) in
+                let set_char = (fun i c -> Bytes.set v_bytes i (V.to_char c)) in
+                Array.iteri set_char v ;
+                "0b"^Bytes.to_string v_bytes
+            else
+                Data.Word.to_string (to_word V.to_z v)
+        in
+        let taint_bytes = Bytes.create ((Array.length v)) in
+        let t =
+            try
+                let all = ref true in
+                let r = to_word (fun v -> let t = V.taint_to_z v in if Z.compare t Z.one <> 0 then all := false; t) v in
+                if !all then
+                    "ALL"
                 else
-                    Data.Word.to_string (to_word V.to_z v)
-            in
-            let taint_bytes = Bytes.create ((Array.length v)) in
-	    let t =
-	      try
-		let all = ref true in
-		let r = to_word (fun v -> let t = V.taint_to_z v in if Z.compare t Z.one <> 0 then all := false; t) v in
-		if !all then
-		  "ALL"
-		else
-		Data.Word.to_string r
-	      with _ -> 
-		  let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
-		  Array.iteri set_taint_char v;
-		  "0b"^Bytes.to_string taint_bytes
-	    in
-              if String.length t = 2 then v'
-              else Printf.sprintf "%s ! %s" v' t
+                    let s = Data.Word.to_string r in
+                    if String.compare s "0x0" == 0 then
+                        "0"
+                    else
+                        s
+            with _ -> 
+                let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
+                Array.iteri set_taint_char v;
+                "0b"^Bytes.to_string taint_bytes
+        in
+        if String.length t = 2 then v'
+        else Printf.sprintf "%s!%s" v' t
 
 
         let join v1 v2 = map2 V.join v1 v2

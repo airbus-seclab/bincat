@@ -21,7 +21,10 @@ module Make (V: Vector.T) =
             match p with
             | BOT -> "(_,0b_)"
             | TOP -> "(?,0b?)"
-            | Val (r, o) -> Printf.sprintf "(%s, %s)" (string_of_region r) (V.to_string o)
+            | Val (r, o) -> if r != Global then
+                                Printf.sprintf "(%s,%s)" (string_of_region r) (V.to_string o)
+                            else
+                                V.to_string o
 
         let untaint p =
             match p with
