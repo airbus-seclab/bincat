@@ -408,16 +408,15 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 			   
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): D.t =
       match src with
-      | Lval lv -> Printf.printf "%s <- %s\n" (Asm.string_of_lval lv true) (Asm.string_of_exp (Lval dst) true); flush stdout; D.set lv (Lval dst) d
+      | Lval lv -> D.set lv (Lval dst) d
       | UnOp (Not, Lval lv) -> D.set lv (UnOp (Not, Lval dst)) d 
       | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
-      | BinOp (Sub, e1, e2) -> flush stdout; back_add_sub Add dst e1 e2 d
+      | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
       | _ -> D.forget_lval dst d 
 	
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
     let back_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : D.t =
-      Printf.printf "entering back_process to invert %s\n" (Asm.string_of_stmt stmt true);
       let rec back d stmt =
 	match stmt with
 	| Call _
@@ -437,11 +436,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
     let back_update_abstract_value (g:Cfa.t) (pred: Cfa.State.t) (v: Cfa.State.t) (ip: Data.Address.t): unit =
       let back _g v _ip =
-	List.iter (fun s -> Printf.printf "back statement of %s\n" (Asm.string_of_stmt s true)) (List.rev pred.Cfa.State.stmts); flush stdout;
-	Printf.printf "*************\n"; flush stdout;
 	let d' = List.fold_left (back_process v.Cfa.State.branch) v.Cfa.State.v (List.rev pred.Cfa.State.stmts) in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
-	if D.is_bot pred.Cfa.State.v then Printf.printf "empty after meet\n"; flush stdout;
 	[pred]
       in
       let _ = update_abstract_values g v ip back in

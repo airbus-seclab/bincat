@@ -468,10 +468,11 @@ module Make(D: T) =
       match m1, m2 with
       | BOT, _ | _, BOT  -> BOT
       | Val m1', Val m2' ->
-	 Map.iteri (fun k _ -> if Map.mem k m2' = false then Printf.printf "missing %s in m2'" (Key.to_string k)) m1'; flush stdout;
-	 Map.iteri (fun k _ -> if Map.mem k m1' = false then Printf.printf "missing %s in m1'" (Key.to_string k)) m2'; flush stdout; 
-	 try Val (Map.map2 D.meet m1' m2')
-	 with _ -> Printf.printf "c'est ici que ca renvoie bot\n"; flush stdout; BOT
+	 let m' = Map.empty in
+	 let m' = Map.fold (fun k v1 m' -> try let v2 = Map.find k m2' in Map.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
+	 let m' = Map.fold (fun k v2 m' -> if Map.mem k m' then m' else try let v1 = Map.find k m1' in Map.add k (D.meet v1 v2) m' with Not_found -> m') m2' m' in
+	 if Map.is_empty m' then BOT
+	 else Val m'
 				
     let widen m1 m2 =
       match m1, m2 with
