@@ -268,6 +268,9 @@ class State(object):
         self.analyzer = None
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
+        # for debugging purposes - to interact with this object from the console
+        bc_state = self
+        global bc_state
 
         self.gui = GUI(self)
         if self.options.get("load_from_idb") == "True":
@@ -347,7 +350,11 @@ class State(object):
                         if k.is_tainted():
                             tainted = True
                             break
-                        val = cstate[k]
+                        try:
+                            val = cstate[k]
+                        except:
+                            bc_log.info("Exception: k %s n_id %s cnode %s" % (str(k), str(n_id), str(cnode)))
+                            raise
                         if val.is_tainted():
                             tainted = True
                             break

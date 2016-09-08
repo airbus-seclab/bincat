@@ -473,11 +473,11 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         elif role != QtCore.Qt.DisplayRole:
             return
         regaddr = self.rows[index.row()]
-        region = regaddr.region
+        region = regaddr.prettyregion
         if col == 0:  # region
             return region
         elif col == 1:  # addr
-            if region in ["global", "stack", "heap"]:
+            if region in ["g", "s", "h"]:
                 return regaddr.__valuerepr__()
             else:
                 return str(regaddr.value)
@@ -486,7 +486,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             if not v:
                 return ""
         if col == 2:  # destination region
-            return v.region
+            return v.prettyregion
         if col == 3:  # value
             return v.__valuerepr__()
         elif col == 4:  # taint

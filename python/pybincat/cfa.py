@@ -13,16 +13,20 @@ def reg_len(regname):
     Return register length in bits
     """
     return {
-        "eax" : 32, "ebx" : 32, "ecx" : 32, "edx" : 32,
-        "esi" : 32, "edi" : 32, "esp" : 32, "ebp" : 32,
-        "ax" : 16, "bx" : 16, "cx" : 16, "dx" : 16,
-        "si" : 16, "di" : 16, "sp" : 16, "bp" : 16,
-        "cs" : 16, "ds" : 16, "es" : 16, "ss" : 16, "fs" : 16, "gs" : 16, 
+        "eax": 32, "ebx": 32, "ecx": 32, "edx": 32,
+        "esi": 32, "edi": 32, "esp": 32, "ebp": 32,
+        "ax": 16, "bx": 16, "cx": 16, "dx": 16,
+        "si": 16, "di": 16, "sp": 16, "bp": 16,
+        "cs": 16, "ds": 16, "es": 16, "ss": 16, "fs": 16, "gs": 16,
         "iopl": 2,
-        "cf" : 1, "pf" : 1, "af" : 1, "zf" : 1, "sf" : 1, "tf" : 1, "if" : 1,
-        "df" : 1, "of" : 1, "nt" : 1, "rf" : 1, "vm" : 1, "ac" : 1, "vif" : 1,
-        "vip" : 1, "id" : 1,
+        "cf": 1, "pf": 1, "af": 1, "zf": 1, "sf": 1, "tf": 1, "if": 1,
+        "df": 1, "of": 1, "nt": 1, "rf": 1, "vm": 1, "ac": 1, "vif": 1,
+        "vip": 1, "id": 1,
     }[regname]
+
+#: maps short region names to pretty names
+PRETTY_REGIONS = {'g': 'global', 's': 'stack', 'h': 'heap',
+                  'b': 'bottom', 't': 'top'} # used for pointers only
 
 
 class PyBinCATParseError(PyBinCATException):
@@ -116,7 +120,7 @@ class CFA(object):
         mlbincat.process(initfname, outfname, logfname)
         return cls.parse(outfname, logs=logfname)
 
-    def _toValue(self, eip, region="global"):
+    def _toValue(self, eip, region="g"):
         if type(eip) in [int, long]:
             addr = Value(region, eip, 0)
         elif type(eip) is Value:
@@ -148,9 +152,33 @@ class CFA(object):
 
 
 class State(object):
-    re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
-    re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
-    re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
+    """
+    Contains memory & registers status
+
+    bincat output format examples:
+    reg [eax] = S0xfff488!0
+    111  222    33333333333
+
+    mem[G0x1234, G0x1236] = G0x20, G0x0
+    111 2222222222222222    33333  3333 <-- list of 2 valtaint
+
+    mem[G0x24*32] = G0b????1111!0b????0000
+    111 22222222    3333333333333333333333 <-- list of 1 valtaint
+
+    1: src region (overridden with src region contained in address for memory)
+    2: address
+    3: dst region, value, taint (valtaint)
+
+    example valtaints: G0x1234 G0x12!0xF0 S0x12!ALL
+    """
+    #: split src region + address (left of '=')
+    re_region_addr = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
+    #: split value
+
+    re_valtaint = re.compile(
+        "(?P<memreg>[a-zA-Z])(?P<value>0[xb][0-9a-fA-F_?]+)(?P<taint>!\s+)?")
+    # re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
+    # re_valtaint = re.compile("\((?P<memreg>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
@@ -164,7 +192,13 @@ class State(object):
     @property
     def regaddrs(self):
         if self._regaddrs is None:
-            self.parse_regaddrs()
+            try:
+                self.parse_regaddrs()
+            except Exception as e:
+                import traceback
+                traceback.print_exc(e)
+                raise PyBinCATException(
+                    "Cannot parse regaddrs at address %s" % self.address)
         return self._regaddrs
 
     @classmethod
@@ -176,8 +210,8 @@ class State(object):
 
         new_state = State(node_id)
         addr = outputkv.pop("address")
-        m = cls.re_val.match(addr)
-        new_state.address = Value(m.group("region"), int(m.group("value"), 0), 0)
+        m = cls.re_valtaint.match(addr)
+        new_state.address = Value(m.group("memreg"), int(m.group("value"), 0), 0)
         new_state.final = outputkv.pop("final", None) == "true"
         new_state.statements = outputkv.pop("statements", "")
         new_state.bytes = outputkv.pop("bytes", "")
@@ -185,38 +219,69 @@ class State(object):
         new_state._regaddrs = None
         return new_state
 
-
     def parse_regaddrs(self):
         self._regaddrs = {}
         for k, v in self._outputkv.iteritems():
-            m = self.re_region.match(k)
+            m = self.re_region_addr.match(k)
             if not m:
                 raise PyBinCATException("Parsing error (key=%r)" % (k,))
             region = m.group("region")
-            adrs = m.group("adrs")
-            if region == 'mem':
-                # ex. "(region, 0xabcd), (region, 0xabce)"
-                # region in ['stack', 'global', 'heap']
-                adr_begin, adr_end = adrs[1:-1].split('), (')
-                region1, adrs = adr_begin.split(', ')
-                region2, adr2 = adr_end.split(', ')
-                assert region1 == region2
-                region = region1
-                length = (parsers.parse_val(adr2)[0] -
-                          parsers.parse_val(adrs)[0]) * 8
-                # XXX allow non-aligned access
-            elif region == 'reg':
-                length = reg_len(adrs)
+            addr = m.group("addr")
+            if region == "mem":
+                # use memreg as region instead of 'mem'
+                # ex. "s0xabcd, s0xabce" "g0x24*32"
+                # region in ['s', 'g', 'h']
+                if '*' in addr:
+                    # single repeated value
+                    regaddr, l = addr.split('*')
+                    length = int(l)
+                    m = self.re_valtaint.match(regaddr)
+                    region, addr = m.group('memreg'), m.group('value')
+                    v = ', '.join([v] * length)
+                else:
+                    regaddr1, regaddr2 = addr.split(', ')
+                    m = self.re_valtaint.match(regaddr1)
+                    region1, addr = m.group('memreg'), m.group('value')
+                    m = self.re_valtaint.match(regaddr2)
+                    region2, addr2 = m.group('memreg'), m.group('value')
+                    assert region1 == region2
+                    region = region1
+                    length = (parsers.parse_val(addr2)[0] -
+                              parsers.parse_val(addr)[0]) * 8
+                    # XXX allow non-aligned access
+            elif region == "reg":
+                length = reg_len(addr)
 
-            m = self.re_valtaint.match(v)
-            if not m:
-                raise PyBinCATException("Parsing error (value=%r)" % (v,))
-            kind = m.group("kind")
-            val = m.group("value")
-            taint = m.group("taint")
+            # build value
+            concat_value = None
+            prev_memreg = None
+            #: offset to last saved address - used in case different memreg
+            #: values are present
+            saved_offset = 0
+            regaddr = Value.parse(region, addr, '0', 0)
+            for idx, val in enumerate(v.split(', ')):
+                m = self.re_valtaint.match(val)
+                if not m:
+                    raise PyBinCATException("Parsing error (value=%r)" % (v,))
+                memreg = m.group("memreg")
+                strval = m.group("value")
+                taint = m.group("taint")
+                new_value = Value.parse(memreg, strval, taint, length)
+                if prev_memreg == memreg:
+                    # concatenate
+                    if concat_value is None:
+                        concat_value = new_value
+                    else:
+                        concat_value = concat_value & new_value
+                else:
+                    if prev_memreg is not None:
+                        # save previous value
+                        self._regaddrs[regaddr+saved_offset] = concat_value
+                        concat_value = None
+                        saved_offset = idx
+                    prev_memreg = memreg
 
-            regaddr = Value.parse(region, adrs, '0', 0)
-            self._regaddrs[regaddr] = Value.parse(kind, val, taint, length)
+            self._regaddrs[regaddr+saved_offset] = concat_value
         del(self._outputkv)
 
     def __getitem__(self, item):
@@ -230,7 +295,7 @@ class State(object):
             raise AttributeError(attr)
         try:
             return self.regaddrs[attr]
-        except KeyError:
+        except KeyError as e:
             raise AttributeError(attr)
 
     def __eq__(self, other):
@@ -289,8 +354,8 @@ class State(object):
 
 @functools.total_ordering
 class Value(object):
-    def __init__(self, region, value, length=None, vtop=0, vbot=0, taint=0, ttop=0,
-                 tbot=0):
+    def __init__(self, region, value, length=None, vtop=0, vbot=0, taint=0,
+                 ttop=0, tbot=0):
         self.region = region.lower()
         self.value = value
         if not length and region == 'reg':
@@ -306,8 +371,17 @@ class Value(object):
     @classmethod
     def parse(cls, region, s, t, length):
         value, vtop, vbot = parsers.parse_val(s)
-        taint, ttop, tbot = parsers.parse_val(t) if t is not None else (0, 0, 0)
+        if t is None or t == "NONE":
+            taint, ttop, tbot = (0, 0, 0)
+        elif t == "ALL":
+            taint, ttop, tbot = (2**length-1, 0, 0)
+        else:
+            taint, ttop, tbot = parsers.parse_val(t)
         return cls(region, value, length, vtop, vbot, taint, ttop, tbot)
+
+    @property
+    def prettyregion(self):
+        return PRETTY_REGIONS.get(self.region, self.region)
 
     def __len__(self):
         return self.length
@@ -343,9 +417,29 @@ class Value(object):
 
     def __add__(self, other):
         other = getattr(other, "value", other)
+        if other == 0:
+            # special case, useful when the value is a register name
+            return self
         return self.__class__(self.region, self.value+other,
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
+
+    def __and__(self, other):
+        """ concatenation """
+        if self.region != other.region:
+            raise TypeError(
+                "Concatenation can only be performed between Value objects "
+                "having the same region. %s != %s", self.region, other.region)
+        return self.__class__(
+            region=self.region,
+            value=(self.value << other.length) + other.value,
+            length=self.length+other.length,
+            vtop=(self.vtop << other.length) + other.vtop,
+            vbot=(self.vbot << other.length) + other.vbot,
+            taint=(self.taint << other.length) + other.taint,
+            ttop=(self.ttop << other.length) + other.ttop,
+            tbot=(self.tbot << other.length) + other.tbot,
+            )
 
     def __sub__(self, other):
         other = getattr(other, "value", other)
