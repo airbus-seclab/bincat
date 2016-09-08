@@ -432,7 +432,7 @@ module Make(D: T) =
            BOT
          else
            match dst with
-           | Asm.V r ->
+           | Asm.V r -> 
               begin
                 match r with
                 | Asm.T r' -> Val (Map.add (Key.Reg r') v' m')
@@ -467,7 +467,11 @@ module Make(D: T) =
     let meet m1 m2 =
       match m1, m2 with
       | BOT, _ | _, BOT  -> BOT
-      | Val m1', Val m2' -> Val (Map.map2 D.meet m1' m2')
+      | Val m1', Val m2' ->
+	 Map.iteri (fun k _ -> if Map.mem k m2' = false then Printf.printf "missing %s in m2'" (Key.to_string k)) m1'; flush stdout;
+	 Map.iteri (fun k _ -> if Map.mem k m1' = false then Printf.printf "missing %s in m1'" (Key.to_string k)) m2'; flush stdout; 
+	 try Val (Map.map2 D.meet m1' m2')
+	 with _ -> Printf.printf "c'est ici que ca renvoie bot\n"; flush stdout; BOT
 				
     let widen m1 m2 =
       match m1, m2 with
