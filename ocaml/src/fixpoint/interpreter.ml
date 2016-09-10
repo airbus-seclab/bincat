@@ -25,7 +25,8 @@ module type T =
 	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
 	      mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
 	      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
-	      mutable bytes: char list      (** corresponding list of bytes *)
+	      mutable bytes: char list;      (** corresponding list of bytes *)
+	      mutable is_tainted: bool; (** true whenever a source left value is the stmt list (field stmts) is tainted *)
 	    }
       end
       val init: Data.Address.t -> State.t
