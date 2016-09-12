@@ -148,6 +148,7 @@ class CFA(object):
 
 
 class State(object):
+    __slots__ = ['re_val', 're_region', 're_valtaint', 'address', 'node_id', '_regaddrs', 'final', 'statements', 'bytes', 'tainted', '_outputkv']
     re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
     re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
     re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>(NONE|ALL|[x0-9a-fA-F_,=? ]+)))?.*\).*")
@@ -291,6 +292,8 @@ class State(object):
 
 @functools.total_ordering
 class Value(object):
+    __slots__ = ['vtop', 'vbot', 'taint', 'ttop', 'tbot', 'length', 'value', 'region']
+
     def __init__(self, region, value, length=None, vtop=0, vbot=0, taint=0, ttop=0,
                  tbot=0):
         self.region = region.lower()
