@@ -237,7 +237,7 @@ class AnalyzerConfig(object):
                 config.set("state", ("reg[%s]" % rname), val)
         # Default stack
         config.set("state", "reg[esp]", "0x2000")
-        config.set("state", "mem[0x1000*8192]", "|00|!0xFF")
+        config.set("state", "stack[0x1000*8192]", "|00|!0xFF")
 
         imports = self.get_imports()
         # [import] section
