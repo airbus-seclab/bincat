@@ -192,11 +192,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     exception Jmp_exn
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let process_stmts fun_stack g (v: Cfa.State.t) ip =
-      let copy v d branch is_pred =
+      let copy v d branch is_pred is_tainted =
+	(* TODO: optimize with Cfa.State.copy that copies every field and then here some are updated => copy them directly *)
         let v' = Cfa.copy_state g v in
         v'.Cfa.State.stmts <- [];
         v'.Cfa.State.v <- d;
 	v'.Cfa.State.branch <- branch;
+	if is_tainted then
+	  v'.Cfa.State.is_tainted <- is_tainted;
         if is_pred then
           Cfa.add_edge g v v'
         else
@@ -217,34 +220,35 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       in
       let rec process_value d s =
         match s with
-        | Nop 				    -> d
+        | Nop 				    -> d, false
         | If (e, then_stmts, else_stmts) 	    ->
            if has_jmp then_stmts || has_jmp else_stmts then
              raise Jmp_exn
            else
-             let dt = List.fold_left (fun d s -> process_value d s) (restrict d e true) then_stmts in
-             let de = List.fold_left (fun d s -> process_value d s) (restrict d e false) else_stmts in
-             D.join dt de
+             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') ((restrict d e true), false) then_stmts in
+             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') ((restrict d e false), false) else_stmts in
+             D.join dt de, bt||be
 		    
-        | Set (dst, src) 			    -> D.set dst src d 
-        | Directive (Remove r) 		    -> let d' = D.remove_register r d in Register.remove r; d'
-        | Directive (Forget r) 		    -> D.forget_lval (V (T r)) d
+        | Set (dst, src) 			    -> D.set dst src d, D.is_tainted src d
+        | Directive (Remove r) 		    -> let d' = D.remove_register r d in Register.remove r; d', false
+        | Directive (Forget r) 		    -> D.forget_lval (V (T r)) d, false
         | _ 				    -> raise Jmp_exn
 						     
       in
       let rec process_vertices vertices s =
         try
-          List.map (fun v -> v.Cfa.State.v <- process_value v.Cfa.State.v s; v) vertices
+          List.map (fun v -> let v', is_tainted = process_value v.Cfa.State.v s in v.Cfa.State.v <- v'; if is_tainted then v.Cfa.State.is_tainted <- is_tainted; v) vertices
         with Jmp_exn ->
              match s with 
              | If (e, then_stmts, else_stmts) ->
+		let b = D.is_tainted_bexp e v.Cfa.State.v in
 		let then' = process_list (List.fold_left (fun l v ->
 					      try
 						let d = restrict v.Cfa.State.v e true in
 						if D.is_bot d then
 						  l
 						else
-						  (copy v d (Some true) false)::l
+						  (copy v d (Some true) false b)::l
 					      with Exceptions.Empty -> l) [] vertices) then_stmts
 		in
 		let else' = process_list (List.fold_left (fun l v ->
@@ -252,7 +256,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 						let d = restrict v.Cfa.State.v e false in
 						if D.is_bot d then
 						  l
-						else (copy v d (Some false) false)::l
+						else (copy v d (Some false) false b)::l
 					      with Exceptions.Empty -> l) [] vertices) else_stmts
 		in
 		List.iter (fun v -> Cfa.remove_state g v) vertices;
@@ -301,7 +305,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
            process_list new_vertices stmts 
         | []       -> vertices
       in
-      let vstart = copy v v.Cfa.State.v None true
+      let vstart = copy v v.Cfa.State.v None true false
       in
       vstart.Cfa.State.ip <- ip;
       process_list [vstart] v.Cfa.State.stmts

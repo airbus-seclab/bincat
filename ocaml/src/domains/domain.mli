@@ -70,5 +70,10 @@ module type T =
       (** may raise an exeption if that set is too large *)
       val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t
 
+      (** returns true whenever at least one left value of the given expression is tainted *)
+      val is_tainted: Asm.exp -> t -> bool
+
+      (** returns true whenever at least one left value of the given boolean expression is tainted *)
+      val is_tainted_bexp: Asm.bexp -> t -> bool
     end
       
