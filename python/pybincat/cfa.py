@@ -160,6 +160,7 @@ class State(object):
         self.final = False
         self.statements = ""
         self.bytes = ""
+        self.tainted = False
 
     @property
     def regaddrs(self):
@@ -181,6 +182,7 @@ class State(object):
         new_state.final = outputkv.pop("final", None) == "true"
         new_state.statements = outputkv.pop("statements", "")
         new_state.bytes = outputkv.pop("bytes", "")
+        new_state.tainted = outputkv.pop("tainted", "False") == "true"
         new_state._outputkv = outputkv
         new_state._regaddrs = None
         return new_state
