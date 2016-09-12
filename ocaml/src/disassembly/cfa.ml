@@ -259,7 +259,7 @@ module Make(Domain: Domain.T) =
 	(* state printing (detailed) *)
 	let print_ip s =
 	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
-	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\n tainted=%s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (string_of_bool s.is_tainted);
+	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (string_of_bool s.is_tainted);
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
 	  if !Config.verbose then
 	    begin
