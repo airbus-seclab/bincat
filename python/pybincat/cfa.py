@@ -148,9 +148,10 @@ class CFA(object):
 
 
 class State(object):
+    __slots__ = ['re_val', 're_region', 're_valtaint', 'address', 'node_id', '_regaddrs', 'final', 'statements', 'bytes', 'tainted', '_outputkv']
     re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
     re_region = re.compile("(?P<region>reg|mem)\s*\[(?P<adrs>[^]]+)\]")
-    re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
+    re_valtaint = re.compile("\((?P<kind>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>(NONE|ALL|[x0-9a-fA-F_,=? ]+)))?.*\).*")
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
@@ -291,6 +292,8 @@ class State(object):
 
 @functools.total_ordering
 class Value(object):
+    __slots__ = ['vtop', 'vbot', 'taint', 'ttop', 'tbot', 'length', 'value', 'region']
+
     def __init__(self, region, value, length=None, vtop=0, vbot=0, taint=0, ttop=0,
                  tbot=0):
         self.region = region.lower()
@@ -308,7 +311,12 @@ class Value(object):
     @classmethod
     def parse(cls, region, s, t, length):
         value, vtop, vbot = parsers.parse_val(s)
-        taint, ttop, tbot = parsers.parse_val(t) if t is not None else (0, 0, 0)
+        if t is None or t == "NONE":
+            taint, ttop, tbot = (0, 0, 0)
+        elif t == "ALL":
+            taint, ttop, tbot = (2**length-1, 0, 0)
+        else:
+            taint, ttop, tbot = parsers.parse_val(t)
         return cls(region, value, length, vtop, vbot, taint, ttop, tbot)
 
     def __len__(self):
