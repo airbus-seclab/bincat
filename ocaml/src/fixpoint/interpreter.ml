@@ -191,15 +191,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		       
     exception Jmp_exn
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let process_stmts fun_stack g (v: Cfa.State.t) ip =
-      let copy v d branch is_pred is_tainted =
+    let process_stmts fun_stack g (v: Cfa.State.t) ip: Cfa.State.t list =
+      let copy v d branch is_pred =
 	(* TODO: optimize with Cfa.State.copy that copies every field and then here some are updated => copy them directly *)
         let v' = Cfa.copy_state g v in
         v'.Cfa.State.stmts <- [];
         v'.Cfa.State.v <- d;
 	v'.Cfa.State.branch <- branch;
-	if is_tainted then
-	  v'.Cfa.State.is_tainted <- is_tainted;
         if is_pred then
           Cfa.add_edge g v v'
         else
@@ -235,34 +233,34 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         | _ 				    -> raise Jmp_exn
 						     
       in
-      let rec process_vertices vertices s =
+      let rec process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
         try
-          List.map (fun v -> let v', is_tainted = process_value v.Cfa.State.v s in v.Cfa.State.v <- v'; if is_tainted then v.Cfa.State.is_tainted <- is_tainted; v) vertices
+          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
         with Jmp_exn ->
              match s with 
              | If (e, then_stmts, else_stmts) ->
 		let b = D.is_tainted_bexp e v.Cfa.State.v in
-		let then' = process_list (List.fold_left (fun l v ->
+		let (then': Cfa.State.t list), bt = process_list (List.fold_left (fun l v ->
 					      try
 						let d = restrict v.Cfa.State.v e true in
 						if D.is_bot d then
 						  l
 						else
-						  (copy v d (Some true) false b)::l
+						  (copy v d (Some true) false)::l
 					      with Exceptions.Empty -> l) [] vertices) then_stmts
 		in
-		let else' = process_list (List.fold_left (fun l v ->
+		let else', be = process_list (List.fold_left (fun l v ->
 					      try
 						let d = restrict v.Cfa.State.v e false in
 						if D.is_bot d then
 						  l
-						else (copy v d (Some false) false b)::l
+						else (copy v d (Some false) false)::l
 					      with Exceptions.Empty -> l) [] vertices) else_stmts
 		in
 		List.iter (fun v -> Cfa.remove_state g v) vertices;
-		then' @ else'
+		then' @ else', b||be||bt
 			  
-             | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices 
+             | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
 				     
              | Jmp (R target) ->
 		List.map (fun v ->
@@ -275,7 +273,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 						       (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
                     | Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-		  ) vertices
+		  ) vertices, false
 			 
 			 
              | Call (A a) ->
@@ -285,31 +283,33 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                   with Not_found -> None
 		in
 		fun_stack := (f, ip)::!fun_stack;
-		List.map (fun v -> v.Cfa.State.ip <- a; v) vertices
+		List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false
 			 
              | Return -> List.fold_left (fun l v ->
 			     let v' = process_ret fun_stack v in
 			     match v' with
 			     | None -> l
-			     | Some v -> v::l) [] vertices
+			     | Some v -> v::l) [] vertices, false
 				  
-             | _       -> vertices
+             | _       -> vertices, false
 			    
-      and process_list vertices stmts =
+      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * bool) =
         match stmts with
         | s::stmts ->
-           let new_vertices =
+           let (new_vertices: Cfa.State.t list), (b: bool) =
              try process_vertices vertices s
-             with Exceptions.Bot_deref -> [] (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
+             with Exceptions.Bot_deref -> [], false (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
            in
-           process_list new_vertices stmts 
-        | []       -> vertices
+           let vert, b' = process_list new_vertices stmts in vert, (b||b')
+        | []       -> vertices, false
       in
-      let vstart = copy v v.Cfa.State.v None true false
+      let vstart = copy v v.Cfa.State.v None true
       in
       vstart.Cfa.State.ip <- ip;
       vstart.Cfa.State.is_tainted <- false;
-      process_list [vstart] v.Cfa.State.stmts
+      let vertices, b = process_list [vstart] v.Cfa.State.stmts in
+      if b then v.Cfa.State.is_tainted <- true;
+      vertices
 
     (** [filter_vertices g vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
     let filter_vertices g vertices =
