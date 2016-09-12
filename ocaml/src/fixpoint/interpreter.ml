@@ -308,6 +308,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let vstart = copy v v.Cfa.State.v None true false
       in
       vstart.Cfa.State.ip <- ip;
+      vstart.Cfa.State.is_tainted <- false;
       process_list [vstart] v.Cfa.State.stmts
 
     (** [filter_vertices g vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
