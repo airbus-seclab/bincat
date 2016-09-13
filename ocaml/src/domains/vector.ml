@@ -460,7 +460,7 @@ module Make(V: Val) =
               v
 
         (** copy bits from v2 to bits from low to up of v1,
-         *  vectors can be of differing sizes *)
+         *  vectors can be of different sizes *)
         let combine v1 v2 low up =
             Log.debug (Printf.sprintf "Vector.combine : v1 = %s" (to_string v1));
             Log.debug (Printf.sprintf "Vector.combine : v2 = %s" (to_string v2));
@@ -473,15 +473,16 @@ module Make(V: Val) =
                 if low >= sz1 || up >= sz1 || up-low+1 > sz2 then
                     Log.error "Vector.combine : low or up > vector len"
                 else
-                    let v = Array.copy v1 in
-                    let j = ref 0 in
-                    for i = (sz1-1-up) to (sz1-1-low) do
-                        v.(i) <- v2.(!j);
-                        j := !j + 1;
-                    done;
+		  begin
+		    let v = Array.copy v1 in
+		    let j = ref (sz2-1-up) in
+		    for i = (sz1-1-up) to (sz1-1-low) do
+		      v.(i) <- v2.(!j);
+		      j := !j+1;
+		    done;
                     Log.debug (Printf.sprintf "Vector.combine : res = %s" (to_string v));
                     v
-
+		  end
         let exist2 p v1 v2 =
             let n = min (Array.length v1) (Array.length v2) in
             try
