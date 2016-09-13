@@ -74,23 +74,25 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       | LEQ -> GT
       | GT  -> LEQ
 		 
-    let restrict d e b =
+    let restrict (d: D.t) (e: Asm.bexp) (b: bool): (D.t * bool) =
       let rec process e b =
         match e with
-        | BConst b' 		  -> if b = b' then d else D.bot
+        | BConst b' 		  -> if b = b' then d, false else D.bot, false
         | BUnOp (LogNot, e) 	  -> process e (not b)
 					     
         | BBinOp (LogOr, e1, e2)  ->
-           let v1 = process e1 b in
-           let v2 = process e2 b in
-           if b then D.join v1 v2
-           else D.meet v1 v2
+           let v1, b1 = process e1 b in
+           let v2, b2 = process e2 b in
+	   let is_tainted = b1||b2 in
+           if b then D.join v1 v2, is_tainted
+           else D.meet v1 v2, is_tainted
 		       
         | BBinOp (LogAnd, e1, e2) ->
-           let v1 = process e1 b in
-           let v2 = process e2 b in
-           if b then D.meet v1 v2
-           else D.join v1 v2
+           let v1, b1 = process e1 b in
+           let v2, b2 = process e2 b in
+	   let is_tainted = b1||b2 in
+           if b then D.meet v1 v2, is_tainted
+           else D.join v1 v2, is_tainted
 		       
         | Asm.Cmp (cmp, e1, e2)   ->
            let cmp' = if b then cmp else inv_cmp cmp in
@@ -141,7 +143,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
 				    
     let process_ret fun_stack v =
-     
       try
 	begin
 	let d = v.Cfa.State.v in
@@ -170,7 +171,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    (* check whether instruction pointers supposed and effective agree *)
 	    try
               let sp = Register.stack_pointer () in
-              let ip_on_stack = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
+              let ip_on_stack, is_tainted = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
               match Data.Address.Set.elements (ip_on_stack) with
               | [a] ->
 		 v.Cfa.State.ip <- a;
@@ -182,16 +183,39 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 							  (Data.Address.to_string ip') (Data.Address.to_string a))
 		   | None -> ()
 		 end;
-		 Some v
+		 Some v, is_tainted
               | _ -> raise Exit
 	    with
               _ -> Log.error "computed instruction pointer at return instruction is either undefined or imprecise"
 	  end
-	with Failure "hd" -> Log.from_analysis (Printf.sprintf "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None
+	with Failure "hd" -> Log.from_analysis (Printf.sprintf "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, false
 		       
     exception Jmp_exn
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let process_stmts fun_stack g (v: Cfa.State.t) ip: Cfa.State.t list =
+      let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp): (Cfa.State.t list * bool) =
+		List.fold_left (fun (l, b) v ->
+                    try
+		      let addrs, is_tainted = D.mem_to_addresses v.Cfa.State.v target in
+                      let addresses = Data.Address.Set.elements addrs in
+                      match addresses with
+                      | [a] -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
+                      | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                      | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
+						       (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
+                    with
+                    | Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+		  ) ([], false) vertices
+
+      in
+      let add_to_fun_stack a =
+	let f =
+          try
+            Some (Hashtbl.find Config.imports (Data.Address.to_int a))
+          with Not_found -> None
+	in
+	fun_stack := (f, ip)::!fun_stack
+      in
       let copy v d branch is_pred =
 	(* TODO: optimize with Cfa.State.copy that copies every field and then here some are updated => copy them directly *)
         let v' = Cfa.copy_state g v in
@@ -223,11 +247,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
            if has_jmp then_stmts || has_jmp else_stmts then
              raise Jmp_exn
            else
-             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') ((restrict d e true), false) then_stmts in
-             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') ((restrict d e false), false) else_stmts in
+             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e true) then_stmts in
+             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e false) else_stmts in
              D.join dt de, bt||be
 		    
-        | Set (dst, src) 			    -> D.set dst src d, D.is_tainted src d
+        | Set (dst, src) 		    -> D.set dst src d
         | Directive (Remove r) 		    -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		    -> D.forget_lval (V (T r)) d, false
         | _ 				    -> raise Jmp_exn
@@ -239,68 +263,59 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         with Jmp_exn ->
              match s with 
              | If (e, then_stmts, else_stmts) ->
-		let b = D.is_tainted_bexp e v.Cfa.State.v in
-		let (then': Cfa.State.t list), bt = process_list (List.fold_left (fun l v ->
+		let (then': Cfa.State.t list), bt =
+		  let vertices', b = (List.fold_left (fun (l, b) v ->
 					      try
-						let d = restrict v.Cfa.State.v e true in
+						let d, is_tainted = restrict v.Cfa.State.v e true in
 						if D.is_bot d then
-						  l
+						  l, b
 						else
-						  (copy v d (Some true) false)::l
-					      with Exceptions.Empty -> l) [] vertices) then_stmts
+						  (copy v d (Some true) false)::l, b||is_tainted
+					      with Exceptions.Empty -> l, b) ([], false) vertices)
+		  in
+		  let vert, b' = process_list vertices' then_stmts in
+		  vert, b||b'
 		in
-		let else', be = process_list (List.fold_left (fun l v ->
+		let else', be =
+		  let vertices', b = (List.fold_left (fun (l, b) v ->
 					      try
-						let d = restrict v.Cfa.State.v e false in
+						let d, is_tainted = restrict v.Cfa.State.v e false in
 						if D.is_bot d then
-						  l
-						else (copy v d (Some false) false)::l
-					      with Exceptions.Empty -> l) [] vertices) else_stmts
+						  l, b
+						else (copy v d (Some false) false)::l, b||is_tainted
+					      with Exceptions.Empty -> l, b) ([], false) vertices)
+		  in
+		  let vert, b' = process_list vertices' else_stmts in
+		  vert, b||b'
 		in
 		List.iter (fun v -> Cfa.remove_state g v) vertices;
-		then' @ else', b||be||bt
-			  
+		then' @ else', be||bt
+
              | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
 				     
-             | Jmp (R target) ->
-		List.map (fun v ->
-                    try
-                      let addresses = Data.Address.Set.elements (D.mem_to_addresses v.Cfa.State.v target) in
-                      match addresses with
-                      | [a] -> v.Cfa.State.ip <- a; v
-                      | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-                      | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
-						       (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
-                    with
-                    | Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-		  ) vertices, false
+             | Jmp (R target) -> fold_to_target (fun _a -> ()) vertices target
 			 
-			 
-             | Call (A a) ->
-		let f =
-                  try
-                    Some (Hashtbl.find Config.imports (Data.Address.to_int a))
-                  with Not_found -> None
-		in
-		fun_stack := (f, ip)::!fun_stack;
-		List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false
-			 
-             | Return -> List.fold_left (fun l v ->
-			     let v' = process_ret fun_stack v in
+             | Call (A a) -> add_to_fun_stack a; List.iter (fun v -> v.Cfa.State.ip <- a) vertices; vertices, false
+	
+	     | Call (R target) -> fold_to_target add_to_fun_stack vertices target
+		
+             | Return -> List.fold_left (fun (l, b) v ->
+			     let v', b' = process_ret fun_stack v in
 			     match v' with
-			     | None -> l
-			     | Some v -> v::l) [] vertices, false
+			     | None -> l, b||b'
+			     | Some v -> v::l, b||b') ([], false) vertices
 				  
              | _       -> vertices, false
 			    
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * bool) =
         match stmts with
         | s::stmts ->
-           let (new_vertices: Cfa.State.t list), (b: bool) =
-             try process_vertices vertices s
-             with Exceptions.Bot_deref -> [], false (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
-           in
-           let vert, b' = process_list new_vertices stmts in vert, (b||b')
+	   begin
+	     try
+               let (new_vertices: Cfa.State.t list), (b: bool) = process_vertices vertices s in
+               let vert, b' = process_list new_vertices stmts in vert, (b||b')
+	     with Exceptions.Bot_deref -> [], false (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
+	   end
         | []       -> vertices, false
       in
       let vstart = copy v v.Cfa.State.v None true
@@ -404,46 +419,52 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       match e1, e2 with
       | Lval lv1, Lval lv2 ->
 	 let e = Lval dst in
-	 let d' = D.set lv1 (BinOp (op, e, e2)) d in
-	 D.set lv2 (BinOp (op, e, e1)) d'
+	 let d', b = D.set lv1 (BinOp (op, e, e2)) d in
+	 let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
+	 d, b||b'
+		 
       | Lval lv, e
       | e, Lval lv -> 
 	 let e' = Lval dst in
 	 D.set lv (BinOp (op, e', e)) d
-      | _ -> D.forget_lval dst d
+      | _ -> D.forget_lval dst d, false
 			   
-    let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): D.t =
+    let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * bool) =
       match src with
       | Lval lv -> D.set lv (Lval dst) d
       | UnOp (Not, Lval lv) -> D.set lv (UnOp (Not, Lval dst)) d 
       | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
       | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
-      | _ -> D.forget_lval dst d 
+      | _ -> D.forget_lval dst d, false 
 	
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
-    let back_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : D.t =
+    let back_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * bool) =
       let rec back d stmt =
 	match stmt with
 	| Call _
 	| Return
 	| Jmp _
-	| Nop -> d
-	| Directive (Forget _) -> d 
-	| Directive (Remove r) -> D.add_register r d
+	| Nop -> d, false
+	| Directive (Forget _) -> d, false 
+	| Directive (Remove r) -> D.add_register r d, false
 	| Set (dst, src) -> back_set dst src d
 	| If (e, istmts, estmts) ->
 	   match branch with
-	   | Some true -> let d' = List.fold_left back d istmts in restrict d' e true
-	   | Some false -> let d' = List.fold_left back d estmts in restrict d' e false
+	   | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', b||b') (d, false) istmts in let v, b' = restrict d' e true in v, b||b'
+	   | Some false -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', b||b') (d, false) estmts in let v, b' = restrict d' e false in v, b||b'
 	   | None -> Log.error "illegal branch value for backward analysis"
       in
       back d stmt
 
     let back_update_abstract_value (g:Cfa.t) (pred: Cfa.State.t) (v: Cfa.State.t) (ip: Data.Address.t): unit =
       let back _g v _ip =
-	let d' = List.fold_left (back_process v.Cfa.State.branch) v.Cfa.State.v (List.rev pred.Cfa.State.stmts) in
+	let d', is_tainted = List.fold_left (fun (d, b) s ->
+				 let d', b' = back_process v.Cfa.State.branch d s in
+				 d', b||b') (v.Cfa.State.v, false) (List.rev pred.Cfa.State.stmts)
+       in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
+	pred.Cfa.State.is_tainted <- is_tainted;
 	[pred]
       in
       let _ = update_abstract_values g v ip back in

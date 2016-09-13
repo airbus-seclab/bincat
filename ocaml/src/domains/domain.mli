@@ -43,7 +43,8 @@ module type T =
       val value_of_exp: t -> Asm.exp -> Z.t
 						 
       (** assignment into the given left value of the given expression *)
-      val set: Asm.lval -> Asm.exp -> t -> t
+      (** returns true whenever one left value of the source expression is tainted *)
+      val set: Asm.lval -> Asm.exp -> t -> t * bool
 									  
       (** joins the two abstract values *)
       val join: t -> t -> t
@@ -64,16 +65,15 @@ module type T =
 
       (** [compare v e1 c e2] restrict the given abstract value d to abstract value that satisfy the binary comparison (e1 c e2) *)
       (** may raise exception Exceptions.EmptyEnv *)
-      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t
+      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> (t * bool)
 
       (** returns a set of addresses corresponding to the given expression *)
       (** may raise an exeption if that set is too large *)
-      val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t
+      (** the returned boolean is true whenever the ptr or the given referenced value is tainted *)
+      val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t * bool
 
       (** returns true whenever at least one left value of the given expression is tainted *)
       val is_tainted: Asm.exp -> t -> bool
 
-      (** returns true whenever at least one left value of the given boolean expression is tainted *)
-      val is_tainted_bexp: Asm.bexp -> t -> bool
     end
       

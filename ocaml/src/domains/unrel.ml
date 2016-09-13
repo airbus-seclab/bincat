@@ -346,52 +346,68 @@ module Make(D: T) =
     (***************************)
 		
     (** evaluates the given expression *)
-    let eval_exp m e =
+    let eval_exp m e: (D.t * bool) =
       let rec eval e =
         match e with
-        | Asm.Const c 			     -> D.of_word c
+        | Asm.Const c 			     -> D.of_word c, false
         | Asm.Lval (Asm.V (Asm.T r)) 	     ->
            begin
-             try Map.find (Key.Reg r) m
-             with Not_found -> D.bot
+             try
+	       let v = Map.find (Key.Reg r) m in
+	       v, D.is_tainted v
+             with Not_found -> D.bot, false
            end
         | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
            begin
              try
                let v = Map.find (Key.Reg r) m in
-               D.extract v low up
+               let v' = D.extract v low up in
+	       v', D.is_tainted v'
              with
-             | Not_found -> D.bot
+             | Not_found -> D.bot, false
            end
         | Asm.Lval (Asm.M (e, n))            ->
            begin
-             let r = eval e in
+             let r, b = eval e in
              try
                let addresses = Data.Address.Set.elements (D.to_addresses r) in
                let rec to_value a =
                  match a with
-                 | [a]  -> get_mem_value m a n
-                 | a::l -> D.join (get_mem_value m a n) (to_value l)
+                 | [a]  -> let v = get_mem_value m a n in v, D.is_tainted v
+                 | a::l ->
+		    let v = get_mem_value m a n in
+		    let v', b' = to_value l in
+		    D.join v v', (D.is_tainted v)||b||b'
+							
                  | []   -> raise Exceptions.Bot_deref
                in
                let value = to_value addresses
                in
                value
              with
-             | Exceptions.Enum_failure               -> D.top
+             | Exceptions.Enum_failure               -> D.top, true
              | Not_found | Exceptions.Concretization ->
                             Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]=[%s]: analysis stops in that context" (Asm.string_of_exp e true) (D.to_string r));
                             raise Exceptions.Bot_deref
            end
 	     
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 && Register.is_stack_pointer r1 ->
-           D.of_config Data.Address.Stack (Config.Content Z.zero) (Register.size r1)
+           let v = D.of_config Data.Address.Stack (Config.Content Z.zero) (Register.size r1) in
+	   v, D.is_tainted v
 		       
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
-           D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1)))
+           D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))), false
 		     
-        | Asm.BinOp (op, e1, e2) -> D.binary op (eval e1) (eval e2)
-        | Asm.UnOp (op, e) 	 -> D.unary op (eval e)
+        | Asm.BinOp (op, e1, e2) ->
+	   let v1, b1 = eval e1 in
+	   let v2, b2 = eval e2 in
+	   let v = D.binary op v1 v2 in
+	   v, b1 || b2 || (D.is_tainted v)
+			    
+        | Asm.UnOp (op, e) ->
+	   let v, b = eval e in
+	   let v' = D.unary op v in
+	   v', b || (D.is_tainted v')
       in
       eval e
 	   
@@ -399,7 +415,7 @@ module Make(D: T) =
       match m with
       | BOT -> raise Exceptions.Enum_failure
       | Val m' ->
-         try D.to_addresses (eval_exp m' e)
+         try let v, b = eval_exp m' e in D.to_addresses v, b
          with _ -> raise Exceptions.Enum_failure
 			 
 			 
@@ -423,35 +439,37 @@ module Make(D: T) =
       with Exit -> D.weak_taint v
 				
 				
-    let set dst src m =
+    let set dst src m: (t * bool) =
       match m with
-      |	BOT    -> BOT
+      |	BOT    -> BOT, false
       | Val m' ->
-         let v' = eval_exp m' src in
+         let v', _ = eval_exp m' src in
          let v' = weak_taint m' src v' in
+	 let b = D.is_tainted v' in
          if D.is_bot v' then
-           BOT
+           BOT, b
          else
            match dst with
            | Asm.V r -> 
               begin
                 match r with
-                | Asm.T r' -> Val (Map.add (Key.Reg r') v' m')
+                | Asm.T r' -> Val (Map.add (Key.Reg r') v' m'), b
                 | Asm.P (r', low, up) -> 
                    try
                      let prev = Map.find (Key.Reg r') m' in
-                     Val (Map.replace (Key.Reg r') (D.combine prev v' low up) m')
+                     Val (Map.replace (Key.Reg r') (D.combine prev v' low up) m'), b
                    with
-                     Not_found -> BOT
+                     Not_found -> BOT, false
               end
            | Asm.M (e, n) ->
-              let addrs = D.to_addresses (eval_exp m' e) in
+	      let v, b = eval_exp m' e in
+              let addrs = D.to_addresses v in
               let l     = Data.Address.Set.elements addrs in
               try
                 match l with
-                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false)
-                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l)
-              with Exceptions.Empty -> BOT
+                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), b
+                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), b
+              with Exceptions.Empty -> BOT, false
 					 
     let join m1 m2 =
       match m1, m2 with
@@ -551,26 +569,26 @@ module Make(D: T) =
            Map.replace (Key.Reg r) v' m
       | _, _ -> m
 		  
-    let compare m (e1: Asm.exp) op e2 =
+    let compare m (e1: Asm.exp) op e2: (t* bool) =
       match m with
-      | BOT -> BOT
+      | BOT -> BOT, false
       | Val m' ->
-         let v1 = eval_exp m' e1 in
-         let v2 = eval_exp m' e2 in
+         let v1, b1 = eval_exp m' e1 in
+         let v2, b2 = eval_exp m' e2 in
          if D.is_bot v1 || D.is_bot v2 then
-           BOT
+           BOT, false
          else
            if D.compare v1 op v2 then
              try
-               Val (val_restrict m' e1 v1 op e2 v2)
-             with Exceptions.Empty -> BOT
+               Val (val_restrict m' e1 v1 op e2 v2), b1||b2
+             with Exceptions.Empty -> BOT, false
            else
-             BOT
+             BOT, false
 	       
     let value_of_exp m e =
       match m with
       | BOT -> raise Exceptions.Concretization
-      | Val m' -> D.to_z (eval_exp m' e)
+      | Val m' -> D.to_z (fst (eval_exp m' e))
 
     let rec process_tainted e m' =
 	match e with
@@ -582,28 +600,16 @@ module Make(D: T) =
 	match lv with
 	| Asm.V (Asm.T r) -> D.is_tainted (Map.find (Key.Reg r) m')
 	| Asm.V (Asm.P (r, l, u)) -> D.is_tainted (D.extract (Map.find (Key.Reg r) m') l u)
-	| Asm.M (e, _) ->
-	   let addrs = D.to_addresses (eval_exp m' (Asm.Lval lv)) in
+	| Asm.M _ ->
+	   let v, b = eval_exp m' (Asm.Lval lv) in
+	   let addrs = D.to_addresses v in
            let l     = Data.Address.Set.elements addrs in
-	   (List.exists (fun a -> D.is_tainted (Map.find (Key.Mem a) m')) l) || (process_tainted e m')
+	   (List.exists (fun a -> D.is_tainted (Map.find (Key.Mem a) m')) l) || b
 										  
     let is_tainted e m =
       match m with
       | BOT -> false
       | Val m' -> try process_tainted e m' with Not_found -> false
-
-    let is_tainted_bexp c m =
-      let rec process c m' =
-	match c with
-	| Asm.BUnOp (_, c) -> process c m'
-	| Asm.BBinOp (_, c1, c2) -> (process c1 m') || (process c2 m')
-	| Asm.Cmp (_, e1, e2) -> (process_tainted e1 m') || (process_tainted e2 m')
-	| Asm.BConst _ -> false
-      in
-      match m with
-      | BOT -> false
-      | Val m' -> process c m'
-
   end: Domain.T)
     
     
