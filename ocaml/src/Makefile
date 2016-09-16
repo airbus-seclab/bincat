@@ -61,6 +61,7 @@ CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -lasmrun
 all: $(LIBNAME) bincat_native
 
 $(LIBNAME): $(CMX) 
+	rm -f bincat_native.cmx
 	$(CAMLOPT) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
 
 bincat_native: $(CMX)  bincat_native.cmx

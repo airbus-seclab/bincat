@@ -14,15 +14,15 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   let module Pointer 	 = Pointer.Make(Vector)		       in
   let module Domain 	 = Unrel.Make(Pointer)		       in
   let module Interpreter = Interpreter.Make(Domain)	       in
-
+  
   (* setting the log file *)
   Log.init logfile;
-
+  
   (* setting the backtrace parameters for debugging purpose *)
   Printexc.record_backtrace true;
   let print_exc exc raw_bt =
-  Printf.fprintf stdout "%s" (Printexc.to_string exc);
-  Printexc.print_raw_backtrace stdout raw_bt
+    Printf.fprintf stdout "%s" (Printexc.to_string exc);
+    Printexc.print_raw_backtrace stdout raw_bt
   in
   Printexc.set_uncaught_exception_handler print_exc;
 
@@ -35,7 +35,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* parsing the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
   let string_of_position pos =
-      Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
+    Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
   in
   begin
     try
@@ -51,7 +51,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
        Log.error (Printf.sprintf "Parse error near location %s" (string_of_position lexbuf))
   end;
   close_in cin;
-
+  
   (* defining the dump function to provide to the fixpoint engine *)
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
   
@@ -59,14 +59,15 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   let from_cfa fixpoint =
     let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
     let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-    let d        = Interpreter.Cfa.init_abstract_value ()				       in
+    let d        = Interpreter.Cfa.init_abstract_value () in
     try
       let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
       prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
       fixpoint orig_cfa prev_s dump
-    with Not_found -> Log.error "entry point of the analysis not in the given CFA"
+    with
+    | Not_found -> Log.error "entry point of the analysis not in the given CFA"
   in
-
+  
   (* launching the right analysis depending on the value of !Config.analysis *)
   let cfa =
     match !Config.analysis with
@@ -81,15 +82,15 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
        let g 	= Interpreter.Cfa.create ()					        in
        Interpreter.Cfa.add_vertex g s;
        Interpreter.forward_bin code g s dump
-
+			       
     (* forward analysis from a CFA *)
     | Config.Forward Config.Cfa -> from_cfa Interpreter.forward_cfa
-
+					    
     (* backwrad analysis from a CFA *)
     | Config.Backward -> from_cfa Interpreter.backward
 				  
   in
-
+  
   (* dumping results *)
   if !Config.store_mcfa = true then
     Interpreter.Cfa.marshal !Config.out_mcfa_file cfa;
@@ -97,7 +98,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   Printexc.print_backtrace stdout;
   Log.close()
  ;;
-
-(* enables the process function to be callable from the .so *)
+   
+   (* enables the process function to be callable from the .so *)
    Callback.register "process" process;;
-
+   

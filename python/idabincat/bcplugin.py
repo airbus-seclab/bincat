@@ -338,28 +338,14 @@ class State(object):
                 # address already seen, is tainted
                 continue
             ea = addr.value
+            tainted = False
             for n_id in nodeids:
                 # is it tainted?
                 # find children state
                 state = cfa[n_id]
-                children = cfa.edges[n_id]
-                tainted = False
-                for cnode in children:
-                    cstate = cfa[cnode]
-                    for k in state.list_modified_keys(cstate):
-                        if k.is_tainted():
-                            tainted = True
-                            break
-                        try:
-                            val = cstate[k]
-                        except:
-                            bc_log.info("Exception: k %s n_id %s cnode %s" % (str(k), str(n_id), str(cnode)))
-                            raise
-                        if val.is_tainted():
-                            tainted = True
-                            break
-                    if tainted:
-                        break
+                if state.tainted:
+                    tainted = True
+                    break
 
             if tainted:
                 idaapi.set_item_color(ea, 0xDDFFDD)

@@ -488,9 +488,15 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         if col == 2:  # destination region
             return v.prettyregion
         if col == 3:  # value
-            return v.__valuerepr__()
+            strval = v.__valuerepr__()
+            if len(strval) > 50:
+                strval = strval[:50] + '...'
+            return strval
         elif col == 4:  # taint
-            return v.__taintrepr__()
+            strval = v.__taintrepr__()
+            if len(strval) > 50:
+                strval = strval[:50] + '...'
+            return strval
 
     def rowCount(self, parent):
         return len(self.rows)

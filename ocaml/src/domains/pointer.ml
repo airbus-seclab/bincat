@@ -72,7 +72,9 @@ module Make (V: Vector.T) =
               | Global, r | r, Global ->
                 Val (r, V.meet o1 o2)
               | r1, r2 ->
-                if r1 = r2 then Val (r1, V.meet o1 o2)
+                 if r1 = r2 then
+		   try Val (r1, V.meet o1 o2)
+		   with _ -> BOT
                 else BOT
 
         let unary op p =
@@ -188,4 +190,5 @@ module Make (V: Vector.T) =
                 if r1 = r2 then
                     Val (r1, V.concat o1 o2)
                 else BOT
+
     end: Unrel.T)

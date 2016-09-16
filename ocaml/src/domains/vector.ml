@@ -525,6 +525,6 @@ module Make(V: Val) =
             let v_array = Array.init (nb*v_len) access_mod in
             v_array
 
-        let concat v1 v2 =
-            Array.append v1 v2
+        let concat v1 v2 = Array.append v1 v2
+					
     end: T)

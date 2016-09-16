@@ -233,7 +233,11 @@ class AnalyzerConfig(object):
         config.add_section("state")
         regs = AnalyzerConfig.get_registers_with_state()
         for rname, val in regs.iteritems():
-            config.set("state", ("reg[%s]" % rname), val)
+            if rname != "esp":
+                config.set("state", ("reg[%s]" % rname), val)
+        # Default stack
+        config.set("state", "reg[esp]", "0x2000")
+        config.set("state", "stack[0x1000*8192]", "|00|!0xFF")
 
         imports = self.get_imports()
         # [import] section

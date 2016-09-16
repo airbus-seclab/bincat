@@ -171,14 +171,13 @@ class State(object):
 
     example valtaints: G0x1234 G0x12!0xF0 S0x12!ALL
     """
+    __slots__ = ['re_region_addr', 're_valtaint', 'address', 'node_id', '_regaddrs', 'final', 'statements', 'bytes', 'tainted', '_outputkv']
     #: split src region + address (left of '=')
     re_region_addr = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
     #: split value
 
     re_valtaint = re.compile(
         "(?P<memreg>[a-zA-Z])(?P<value>0[xb][0-9a-fA-F_?]+)(?P<taint>!\s+)?")
-    # re_val = re.compile("\((?P<region>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\)")
-    # re_valtaint = re.compile("\((?P<memreg>[^,]+)\s*,\s*(?P<value>[x0-9a-fA-F_,=? ]+)\s*(!\s*(?P<taint>[x0-9a-fA-F_,=? ]+))?.*\).*")
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
@@ -188,6 +187,7 @@ class State(object):
         self.final = False
         self.statements = ""
         self.bytes = ""
+        self.tainted = False
 
     @property
     def regaddrs(self):
@@ -215,6 +215,7 @@ class State(object):
         new_state.final = outputkv.pop("final", None) == "true"
         new_state.statements = outputkv.pop("statements", "")
         new_state.bytes = outputkv.pop("bytes", "")
+        new_state.tainted = outputkv.pop("tainted", "False") == "true"
         new_state._outputkv = outputkv
         new_state._regaddrs = None
         return new_state
@@ -354,6 +355,8 @@ class State(object):
 
 @functools.total_ordering
 class Value(object):
+    __slots__ = ['vtop', 'vbot', 'taint', 'ttop', 'tbot', 'length', 'value', 'region']
+
     def __init__(self, region, value, length=None, vtop=0, vbot=0, taint=0,
                  ttop=0, tbot=0):
         self.region = region.lower()

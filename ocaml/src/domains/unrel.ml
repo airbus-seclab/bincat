@@ -86,6 +86,7 @@ module type T =
 					    
     (** [concat [v1; v2 ; ... ; vn] ] returns value v such that v = v1 << |v2+...+vn| + v2 << |v3+...+vn| + ... + vn *)
     val concat: t list -> t
+
   end
     
     
@@ -480,7 +481,7 @@ module Make(D: T) =
            BOT
          else
            match dst with
-           | Asm.V r ->
+           | Asm.V r -> 
               begin
                 match r with
                 | Asm.T r' -> Val (Map.add (Key.Reg r') v' m')
@@ -515,7 +516,11 @@ module Make(D: T) =
     let meet m1 m2 =
       match m1, m2 with
       | BOT, _ | _, BOT  -> BOT
-      | Val m1', Val m2' -> Val (Map.map2 D.meet m1' m2')
+      | Val m1', Val m2' ->
+	 let m' = Map.empty in
+	 let m' = Map.fold (fun k v1 m' -> try let v2 = Map.find k m2' in Map.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
+	 if Map.is_empty m' then BOT
+	 else Val m'
 				
     let widen m1 m2 =
       match m1, m2 with
@@ -614,7 +619,39 @@ module Make(D: T) =
       match m with
       | BOT -> raise Exceptions.Concretization
       | Val m' -> D.to_z (eval_exp m' e)
-			 
-			 end: Domain.T)
+
+    let rec process_tainted e m' =
+	match e with
+	| Asm.BinOp (_, e1, e2) -> (process_tainted e1 m') || (process_tainted e2 m')
+	| Asm.UnOp (_, e') -> process_tainted e' m'
+	| Asm.Lval lv -> process_lval_tainted lv m'
+	| _ -> false
+      and process_lval_tainted lv m' =
+	match lv with
+	| Asm.V (Asm.T r) -> D.is_tainted (Map.find (Key.Reg r) m')
+	| Asm.V (Asm.P (r, l, u)) -> D.is_tainted (D.extract (Map.find (Key.Reg r) m') l u)
+	| Asm.M (e, _) ->
+	   let addrs = D.to_addresses (eval_exp m' (Asm.Lval lv)) in
+           let l     = Data.Address.Set.elements addrs in
+	   (List.exists (fun a -> D.is_tainted (Map.find (Key.Mem a) m')) l) || (process_tainted e m')
+										  
+    let is_tainted e m =
+      match m with
+      | BOT -> false
+      | Val m' -> try process_tainted e m' with Not_found -> false
+
+    let is_tainted_bexp c m =
+      let rec process c m' =
+	match c with
+	| Asm.BUnOp (_, c) -> process c m'
+	| Asm.BBinOp (_, c1, c2) -> (process c1 m') || (process c2 m')
+	| Asm.Cmp (_, e1, e2) -> (process_tainted e1 m') || (process_tainted e2 m')
+	| Asm.BConst _ -> false
+      in
+      match m with
+      | BOT -> false
+      | Val m' -> process c m'
+
+  end: Domain.T)
     
     
