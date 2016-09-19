@@ -1824,10 +1824,7 @@ struct
             | '\xb5' -> load_far_ptr s gs
 
             | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 1 in
-              let r = Register.make (Register.fresh_name ()) s.operand_sz in
-              return s [ Set (V (T r), rm) ;
-                         Set (reg, UnOp(ZeroExt s.operand_sz, Lval (V (P (r, 0, 7)))));
-                         Directive (Remove r) ]
+              return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
             | '\xb7' ->
               let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
