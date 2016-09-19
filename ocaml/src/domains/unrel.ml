@@ -101,28 +101,24 @@ module Make(D: T) =
           | Mem of Data.Address.t                      (* address to single byte *)
 		     
         let compare v1 v2 =
-              match v1, v2 with
-              | Reg r1, Reg r2 -> Register.compare r1 r2
-              | Mem addr1, Mem addr2 ->
-                 Data.Address.compare addr1 addr2
-              | Mem addr1, Mem_Itv (m2_low, m2_high) ->
-                 if (Data.Address.compare addr1 m2_low) < 0 then
-                    -1
-                 else 
-                    if (Data.Address.compare m2_high  addr1) > 0 then
-                        1
-                    else 
-                        0
-              | Mem_Itv (m1_low, m1_high), Mem addr2 ->
-                 if m1_high < addr2 then -1
-                 else if addr2 < m1_low then 1
-                 else 0
-              | Mem_Itv (m1_low, m1_high), Mem_Itv (m2_low, m2_high) ->
-                 if m1_high < m2_low then -1
-                 else if m2_high < m1_low then 1
-                 else 0
-              | Reg _ , _    -> 1
-              | _   , _    -> -1
+            match v1, v2 with
+            | Reg r1, Reg r2 -> Register.compare r1 r2
+            | Mem addr1, Mem addr2 ->
+              Data.Address.compare addr1 addr2
+            | Mem addr1, Mem_Itv (m2_low, m2_high) ->
+              if addr1 < m2_low then -1
+              else if m2_high < addr1 then 1
+              else 0
+            | Mem_Itv (m1_low, m1_high), Mem addr2 ->
+              if m1_high < addr2 then -1
+              else if addr2 < m1_low then 1
+              else 0
+            | Mem_Itv (m1_low, m1_high), Mem_Itv (m2_low, m2_high) ->
+              if m1_high < m2_low then -1
+              else if m2_high < m1_low then 1
+              else 0
+            | Reg _ , _    -> 1
+            | _   , _    -> -1
 			     
         let to_string x =
           match x with
