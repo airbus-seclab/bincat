@@ -215,7 +215,7 @@ module Make(D: T) =
         in
         let itv_to_str itv = let low = !(fst itv) in let high = snd itv in 
             let addr_str = Printf.sprintf "mem[%s, %s]" (Data.Address.to_string low) (Data.Address.to_string high) in
-            let len = Z.to_int (Data.Address.sub high low) in
+            let len = (Z.to_int (Data.Address.sub high low))+1 in
             let strs = let indices = Array.make len 0 in 
                 for offset = 0 to len-1 do
                     indices.(offset) <- offset
