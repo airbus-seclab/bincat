@@ -38,6 +38,7 @@ class CFA(object):
     Holds State for each defined node_id.
     Several node_ids may share the same address (ex. loops, partitions)
     """
+    _valcache = {}
 
     def __init__(self, states, edges, nodes):
         #: Value (address) -> [node_id]. Nodes marked "final" come first.
@@ -262,29 +263,35 @@ class State(object):
             #: values are present
             saved_offset = 0
             regaddr = Value.parse(region, addr, '0', 0)
-            for idx, val in enumerate(v.split(', ')):
-                m = self.re_valtaint.match(val)
-                if not m:
-                    raise PyBinCATException("Parsing error (value=%r)" % (v,))
-                memreg = m.group("memreg")
-                strval = m.group("value")
-                taint = m.group("taint")
-                new_value = Value.parse(memreg, strval, taint, length)
-                if prev_memreg == memreg or prev_memreg is None:
-                    # concatenate
-                    if concat_value is None:
-                        concat_value = [new_value]
+            if v not in CFA._valcache:
+                off_vals = []
+                for idx, val in enumerate(v.split(', ')):
+                    m = self.re_valtaint.match(val)
+                    if not m:
+                        raise PyBinCATException(
+                            "Parsing error (value=%r)" % (v,))
+                    memreg = m.group("memreg")
+                    strval = m.group("value")
+                    taint = m.group("taint")
+                    new_value = Value.parse(memreg, strval, taint, length)
+                    if prev_memreg == memreg or prev_memreg is None:
+                        # concatenate
+                        if concat_value is None:
+                            concat_value = [new_value]
+                        else:
+                            concat_value.append(new_value)
                     else:
-                        concat_value.append(new_value)
-                else:
-                    if prev_memreg is not None:
-                        # save previous value
-                        self._regaddrs[regaddr+saved_offset] = concat_value
-                        concat_value = None
-                        saved_offset = idx
-                    prev_memreg = memreg
+                        if prev_memreg is not None:
+                            # save previous value
+                            off_vals.append((saved_offset, concat_value))
+                            concat_value = None
+                            saved_offset = idx
+                        prev_memreg = memreg
 
-            self._regaddrs[regaddr+saved_offset] = concat_value
+                off_vals.append((saved_offset, concat_value))
+                CFA._valcache[v] = off_vals
+            for off, val in CFA._valcache[v]:
+                self._regaddrs[regaddr+off] = val
         del(self._outputkv)
 
     def __getitem__(self, item):
