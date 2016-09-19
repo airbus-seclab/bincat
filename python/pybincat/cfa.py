@@ -401,6 +401,10 @@ class Value(object):
     @classmethod
     def parse(cls, region, s, t, length):
         value, vtop, vbot = parsers.parse_val(s)
+        if type(value) is int:
+            value &= 2**length-1
+            vtop &= 2**length-1
+            vbot &= 2**length-1
         if t is None or t == "NONE":
             taint, ttop, tbot = (0, 0, 0)
         elif t == "ALL":
