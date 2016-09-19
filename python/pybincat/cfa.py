@@ -180,7 +180,7 @@ class State(object):
     #: split value
 
     re_valtaint = re.compile(
-        "(?P<memreg>[a-zA-Z])(?P<value>0[xb][0-9a-fA-F_?]+)(?P<taint>!\s+)?")
+        "(?P<memreg>[a-zA-Z])(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
