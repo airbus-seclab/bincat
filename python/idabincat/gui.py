@@ -495,7 +495,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                 if idx > 50:
                     strval = concatv.__valuerepr__() + '...'
                     break
-                concatv &= nextv
+                concatv = concatv & nextv
             if not strval:
                 strval = concatv.__valuerepr__()
             return strval
@@ -507,7 +507,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                 if idx > 50:
                     strval = concatv.__taintrepr__() + '...'
                     break
-                concatv &= nextv
+                concatv = concatv & nextv
             if not strval:
                 strval = concatv.__taintrepr__()
             return strval
