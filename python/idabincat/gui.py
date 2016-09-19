@@ -477,7 +477,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         if col == 0:  # region
             return region
         elif col == 1:  # addr
-            if region in ["g", "s", "h"]:
+            if region in ["global", "stack", "heap"]:
                 return regaddr.__valuerepr__()
             else:
                 return str(regaddr.value)
