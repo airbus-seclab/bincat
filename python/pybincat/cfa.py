@@ -438,6 +438,8 @@ class Value(object):
                      self.ttop, self.tbot))
 
     def __eq__(self, other):
+        if type(other) != Value:
+            return False
         return (self.region == other.region and
                 self.value == other.value and self.taint == other.taint and
                 self.vtop == other.vtop and self.ttop == other.ttop and
