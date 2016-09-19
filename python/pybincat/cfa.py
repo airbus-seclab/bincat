@@ -28,6 +28,13 @@ def reg_len(regname):
 PRETTY_REGIONS = {'g': 'global', 's': 'stack', 'h': 'heap',
                   'b': 'bottom', 't': 'top'} # used for pointers only
 
+#: split src region + address (left of '=')
+RE_REGION_ADDR = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
+#: split value
+
+RE_VALTAINT = re.compile(
+    "(?P<memreg>[a-zA-Z])(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
+
 
 class PyBinCATParseError(PyBinCATException):
     pass
@@ -172,15 +179,8 @@ class State(object):
 
     example valtaints: G0x1234 G0x12!0xF0 S0x12!ALL
     """
-    __slots__ = ['re_region_addr', 're_valtaint', 'address', 'node_id',
-                 '_regaddrs', 'final', 'statements', 'bytes', 'tainted',
-                 '_outputkv']
-    #: split src region + address (left of '=')
-    re_region_addr = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
-    #: split value
-
-    re_valtaint = re.compile(
-        "(?P<memreg>[a-zA-Z])(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
+    __slots__ = ['address', 'node_id', '_regaddrs', 'final', 'statements',
+                 'bytes', 'tainted', '_outputkv']
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
@@ -213,7 +213,7 @@ class State(object):
 
         new_state = State(node_id)
         addr = outputkv.pop("address")
-        m = cls.re_valtaint.match(addr)
+        m = RE_VALTAINT.match(addr)
         new_state.address = Value(m.group("memreg"), int(m.group("value"), 0), 0)
         new_state.final = outputkv.pop("final", None) == "true"
         new_state.statements = outputkv.pop("statements", "")
@@ -226,7 +226,7 @@ class State(object):
     def parse_regaddrs(self):
         self._regaddrs = {}
         for k, v in self._outputkv.iteritems():
-            m = self.re_region_addr.match(k)
+            m = RE_REGION_ADDR.match(k)
             if not m:
                 raise PyBinCATException("Parsing error (key=%r)" % (k,))
             region = m.group("region")
@@ -239,14 +239,14 @@ class State(object):
                     # single repeated value
                     regaddr, l = addr.split('*')
                     length = 8
-                    m = self.re_valtaint.match(regaddr)
+                    m = RE_VALTAINT.match(regaddr)
                     region, addr = m.group('memreg'), m.group('value')
                     v = ', '.join([v] * length)
                 else:
                     regaddr1, regaddr2 = addr.split(', ')
-                    m = self.re_valtaint.match(regaddr1)
+                    m = RE_VALTAINT.match(regaddr1)
                     region1, addr = m.group('memreg'), m.group('value')
-                    m = self.re_valtaint.match(regaddr2)
+                    m = RE_VALTAINT.match(regaddr2)
                     region2, addr2 = m.group('memreg'), m.group('value')
                     assert region1 == region2
                     region = region1
@@ -265,7 +265,7 @@ class State(object):
             if v not in CFA._valcache:
                 off_vals = []
                 for idx, val in enumerate(v.split(', ')):
-                    m = self.re_valtaint.match(val)
+                    m = RE_VALTAINT.match(val)
                     if not m:
                         raise PyBinCATException(
                             "Parsing error (value=%r)" % (v,))
