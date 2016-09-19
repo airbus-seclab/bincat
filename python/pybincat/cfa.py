@@ -456,7 +456,7 @@ class Value(object):
         if other == 0:
             # special case, useful when the value is a register name
             return self
-        return self.__class__(self.region, self.value+other,
+        return self.__class__(self.region, self.value+other, self.length,
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
 
@@ -482,7 +482,7 @@ class Value(object):
         newvalue = self.value-other
         # XXX clear value where top or bottom mask is not null
         # XXX complete implementation
-        return self.__class__(self.region, newvalue,
+        return self.__class__(self.region, newvalue, self.length,
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
 
