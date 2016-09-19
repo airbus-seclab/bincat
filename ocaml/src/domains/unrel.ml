@@ -122,7 +122,7 @@ module Make(D: T) =
 			     
         let to_string x =
           match x with
-          | Reg r -> Printf.sprintf "reg [%s]"  (Register.name r)
+          | Reg r -> Printf.sprintf "reg[%s]"  (Register.name r)
           | Mem_Itv (low_a, high_a) -> Printf.sprintf "mem[%s*%s]" (Data.Address.to_string low_a) (Z.to_string (Data.Address.sub high_a low_a))
           | Mem addr -> Printf.sprintf "mem[%s*1]" (Data.Address.to_string addr)
       end
