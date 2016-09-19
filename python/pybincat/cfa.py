@@ -171,7 +171,9 @@ class State(object):
 
     example valtaints: G0x1234 G0x12!0xF0 S0x12!ALL
     """
-    __slots__ = ['re_region_addr', 're_valtaint', 'address', 'node_id', '_regaddrs', 'final', 'statements', 'bytes', 'tainted', '_outputkv']
+    __slots__ = ['re_region_addr', 're_valtaint', 'address', 'node_id',
+                 '_regaddrs', 'final', 'statements', 'bytes', 'tainted',
+                 '_outputkv']
     #: split src region + address (left of '=')
     re_region_addr = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
     #: split value
@@ -182,7 +184,7 @@ class State(object):
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
         self.node_id = node_id
-        #: Value -> Value
+        #: Value -> [Value]. Either 1 value, or a list of 1-byte Values.
         self._regaddrs = {}
         self.final = False
         self.statements = ""
@@ -268,12 +270,12 @@ class State(object):
                 strval = m.group("value")
                 taint = m.group("taint")
                 new_value = Value.parse(memreg, strval, taint, length)
-                if prev_memreg == memreg:
+                if prev_memreg == memreg or prev_memreg is None:
                     # concatenate
                     if concat_value is None:
-                        concat_value = new_value
+                        concat_value = [new_value]
                     else:
-                        concat_value = concat_value & new_value
+                        concat_value.append(new_value)
                 else:
                     if prev_memreg is not None:
                         # save previous value
@@ -286,9 +288,28 @@ class State(object):
         del(self._outputkv)
 
     def __getitem__(self, item):
-        return self.regaddrs[item]
+        """
+        Return list of Value
+        """
+        if type(item) is not Value:
+            raise KeyError
+        if item in self.regaddrs:
+            return self.regaddrs[item]
+        else:
+            # looking for address in list of 1-byte Value
+            for addr in self.regaddrs:
+                if addr.region != item.region:
+                    continue
+                vlist = self.regaddrs[addr]
+                v0 = vlist[0]
+                if not v0.value < item.value:
+                    continue
+                if v0.value + len(vlist) >= item.value:
+                    return self.regaddrs[item][item.value-v0.value:]
+            raise IndexError
 
     def __setitem__(self, item, val):
+        # XXX allow random access
         self.regaddrs[item] = val
 
     def __getattr__(self, attr):
