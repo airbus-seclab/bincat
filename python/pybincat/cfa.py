@@ -262,7 +262,7 @@ class State(object):
             #: values are present
             saved_offset = 0
             regaddr = Value.parse(region, addr, '0', 0)
-            if v not in CFA._valcache:
+            if (v, length) not in CFA._valcache:
                 off_vals = []
                 for idx, val in enumerate(v.split(', ')):
                     m = RE_VALTAINT.match(val)
@@ -288,8 +288,8 @@ class State(object):
                         prev_memreg = memreg
 
                 off_vals.append((saved_offset, concat_value))
-                CFA._valcache[v] = off_vals
-            for off, val in CFA._valcache[v]:
+                CFA._valcache[(v, length)] = off_vals
+            for off, val in CFA._valcache[(v, length)]:
                 self._regaddrs[regaddr+off] = val
         del(self._outputkv)
 
