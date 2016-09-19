@@ -26,7 +26,7 @@ def reg_len(regname):
 
 #: maps short region names to pretty names
 PRETTY_REGIONS = {'g': 'global', 's': 'stack', 'h': 'heap',
-                  'b': 'bottom', 't': 'top'} # used for pointers only
+                  'b': 'bottom', 't': 'top'}  # used for pointers only
 
 #: split src region + address (left of '=')
 RE_REGION_ADDR = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
