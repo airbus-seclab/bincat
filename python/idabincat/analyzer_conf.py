@@ -165,7 +165,7 @@ class AnalyzerConfig(object):
         self.analysis_ep = start
         self.analysis_end = stop
 
-    def get_default_config(self, state, ea):
+    def get_default_config(self, state, ea_start, ea_end):
         """
         Returns a new ConfigParser instance, created for the current IDB
         """
@@ -182,7 +182,11 @@ class AnalyzerConfig(object):
             bc_log.warning("Default config file %s could not be found",
                            configfile)
 
-        self.analysis_ep = ea
+        # Needed to call get_bitness and others
+        if not self.analysis_ep:
+            self.analysis_ep = ea_start
+        if not self.analysis_end:
+            self.analysis_end = ea_end
 
         # [settings] section
         config.add_section('settings')
@@ -205,7 +209,15 @@ class AnalyzerConfig(object):
             hex(idaapi.get_fileregion_offset(self.code_va)))
         # code section length
         config.set('loader', 'code_length', hex(self.code_length).strip('L'))
+
         config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
+        # Add end as cut
+        try:
+            cut = config.get('analyzer', 'cut')
+            cut += ", "+hex(self.analysis_end).strip('L')
+        except ConfigParser.NoOptionError:
+            cut = hex(self.analysis_end).strip('L')
+        config.set('analyzer', 'cut', cut)
 
         # Load default GDT/Segment registers according to file type
         ftype = AnalyzerConfig.get_file_type()
@@ -233,7 +245,11 @@ class AnalyzerConfig(object):
         config.add_section("state")
         regs = AnalyzerConfig.get_registers_with_state()
         for rname, val in regs.iteritems():
-            config.set("state", ("reg[%s]" % rname), val)
+            if rname != "esp":
+                config.set("state", ("reg[%s]" % rname), val)
+        # Default stack
+        config.set("state", "reg[esp]", "0x2000")
+        config.set("state", "stack[0x1000*8192]", "|00|!0xFF")
 
         imports = self.get_imports()
         # [import] section
@@ -267,13 +283,13 @@ class AnalyzerConfig(object):
     def save_as_default(self):
         self.netnode["default"] = str(self)
 
-    def for_address(self, state, address):
+    def for_address(self, state, addr_start, addr_end):
         if state.options.get("load_from_idb") == "True":
-            c = self.load_from_idb(address)
+            c = self.load_from_idb(addr_start)
         else:
             c = None
         if c:
-            bc_log.info("loaded config from IDB for address %x", address)
+            bc_log.info("loaded config from IDB for address %x", addr_start)
             self.reset_from_str(c)
         else:
-            self.config = self.get_default_config(state, address)
+            self.config = self.get_default_config(state, addr_start, addr_end)
