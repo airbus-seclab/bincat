@@ -297,6 +297,7 @@ module Make(D: T) =
       let map_val = Map.find itv domain in
       match itv with
       | Key.Mem_Itv (low_addr, high_addr) ->
+        Log.debug (Printf.sprintf "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr));
          let dom' = Map.remove itv domain in
          (* addr just below the new byte *)
          let addr_before = Data.Address.dec addr  in
@@ -304,16 +305,20 @@ module Make(D: T) =
          let addr_after = Data.Address.inc addr in
          (* add the new interval just before, if it's not empty *)
          let dom' =
-           if Data.Address.equal addr low_addr then
+           if Data.Address.equal addr low_addr || Data.Address.equal low_addr addr_before then begin
              dom'
-           else
+           end else begin
              Map.add (Key.Mem_Itv (low_addr, addr_before)) map_val dom'
+           end
          in
          (* add the new interval just after, if its not empty *)
-         if Data.Address.equal addr high_addr then
+         let res = if Data.Address.equal addr high_addr || Data.Address.equal addr_after high_addr then begin
            dom'
-         else
-           Map.add (Key.Mem_Itv (addr_after, high_addr)) map_val dom'
+         end else begin
+             Map.add (Key.Mem_Itv (addr_after, high_addr)) map_val dom'
+         end
+         in
+         res
       | _ -> Log.error "Trying to split a non itv"
 		       
     (* strong update of memory with _byte_ repeated _nb_ times *)
