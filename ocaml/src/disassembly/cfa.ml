@@ -226,6 +226,10 @@ module Make(Domain: Domain.T) =
 	try List.hd (G.pred g v)
 	with _ -> raise (Invalid_argument "vertex without predecessor")
 
+      (** returns every node without successor in the given CFA *)
+      let last g =
+	G.fold (fun l v -> if succ g v = [] then v::l else l) [] g
+	       
       (** returns the state with the highest id and which has the given addr as ip field *)
       let last_addr g ip =
 	let s = ref None in

@@ -1,6 +1,7 @@
 let unroll = ref 10;;
 let verbose = ref false;;
-
+let refinements = ref 2;;
+  
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty

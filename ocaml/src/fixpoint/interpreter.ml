@@ -41,6 +41,7 @@ module type T =
     val forward_bin: Code.t -> Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
     val forward_cfa: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t 
     val backward: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
+    val interleave: Code.t -> Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
   end
     
 module Make(D: Domain.T): (T with type domain = D.t) =
@@ -58,14 +59,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    				    
     (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
     let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 10
-
-    (*let default_ctx () = {
-        Cfa.State.op_sz = !Config.operand_sz; 
-        Cfa.State.addr_sz = !Config.address_sz;
-      }*)
 			   
     (** opposite the given comparison operator *)
-    let inv_cmp cmp =
+    let inv_cmp (cmp: Asm.Cmp): Asm.Cmp =
       match cmp with
       | EQ  -> NEQ
       | NEQ -> EQ
@@ -110,7 +106,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 			       
     (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
     (** the widening may be also launched if the threshold is reached *)
-    let update_abstract_values g v ip process_stmts =
+    let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
       try
         let l = process_stmts g v ip in
         List.iter (fun v ->
@@ -396,7 +392,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             match r with
             | Some (v, ip', d') ->
                (* these vertices are updated by their right abstract values and the new ip                         *)
-               let new_vertices = update_abstract_values g v ip' (process_stmts fun_stack)                         in
+               let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                         in
                (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
                let vertices'  = filter_vertices g new_vertices				     		         in
                List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
@@ -412,7 +408,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         continue := not (Vertices.is_empty !waiting);
       done;
       g								      
-																      
+	
+   
     (******************** BACKWARD *******************************)
     (*************************************************************)
     let back_add_sub op dst e1 e2 d =
@@ -439,7 +436,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
-    let back_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * bool) =
+    let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * bool) =
       let rec back d stmt =
 	match stmt with
 	| Call _
@@ -457,18 +454,18 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       in
       back d stmt
 
-    let back_update_abstract_value (g:Cfa.t) (pred: Cfa.State.t) (v: Cfa.State.t) (ip: Data.Address.t): unit =
-      let back _g v _ip =
+    let back_update_abstract_value (g:Cfa.t) (pred: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
+      let backward _g v _ip =
 	let d', is_tainted = List.fold_left (fun (d, b) s ->
-				 let d', b' = back_process v.Cfa.State.branch d s in
+				 let d', b' = backward_process v.Cfa.State.branch d s in
 				 d', b||b') (v.Cfa.State.v, false) (List.rev pred.Cfa.State.stmts)
        in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
 	pred.Cfa.State.is_tainted <- is_tainted;
 	[pred]
       in
-      let _ = update_abstract_values g v ip back in
-      ()
+      update_abstract_value g v ip backward
+      
 			      
     let back_unroll g v pred =
       if v.Cfa.State.final then
@@ -487,12 +484,60 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  pred.Cfa.State.v <- v.Cfa.State.v;
 	  pred
 	end
-			      
-    let backward (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
-      if D.is_bot s.Cfa.State.v then
+
+    (*************************************)
+    (* FORWARD AUXILARY FUNCTIONS ON CFA *)
+    (*************************************)
+    let unroll g v succ =
+      if v.Cfa.State.final then
+	begin
+	  v.Cfa.State.final <- false;
+	  let new_succ = Cfa.copy_state g v in
+	  new_pred.Cfa.State.forward_loop <- true;
+	  Cfa.remove_edge g v succ;
+	  Cfa.add_vertex g v new_succ;
+	  Cfa.add_edge g v new_succ;
+	  Cfa.add_edge g new_succ succ;
+	  new_succ
+	end
+      else
+	begin
+	  succ.Cfa.State.v <- v.Cfa.State.v;
+	  succ
+	end
+
+    let forward_process (d: D.t) (s: Asm.stmt): (D.t * bool) =
+      let rec forward s =
+	match s with
+	| Asm.Nop -> d
+	| Asm.Directive (Asm.Forget _) -> d
+	| Asm.Directive (Asm.Remove _) -> d
+	| Asm.Set (dst, src) -> D.set dst src d
+	| Asm.Return -> try fun_stack:=(List.tl fun_stack); with Invalid_argument _ -> ?; d FACTORISER 
+	| Asm.Call (A _) -> fun_stack:= a::d
+	| Asm.Call (R target) ->
+      
+    let forward_abstract_value (g:Cfa.t) (succ: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
+      let forward _g v _ip =
+	let d', is_tainted = List.fold_left (fun (d, b) s ->
+				 let d', b' = forward_process d s in
+				 d', b||b') (v.Cfa.State.v, false) (succ.Cfa.State.stmts)
+       in
+      	succ.Cfa.State.v <- D.meet succ.Cfa.State.v d';
+	succ.Cfa.State.is_tainted <- is_tainted;
+	[succ]
+      in
+      update_abstract_value g v ip forward
+    (****************************)
+    (* FIXPOINT ON CFA *)
+    (****************************)
+      let cfa_iteration (update_abstract_value: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list -> Cfa.State.t list)
+			(next: Cfa.t -> Cfa.State.t -> Cfa.State.t list)
+		      (unroll: Cfa.t -> Cfa.State.t -> Cfa.State.t -> Cfa.State.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+	if D.is_bot s.Cfa.State.v then
 	begin
 	  dump g;
-	  Log.error "backward analysis not started: empty meet with previous forward computed value"
+	  Log.error "analysis not started: empty meet with previous computed value"
 	end
       else
 	let module Vertices = Set.Make(Cfa.State) in
@@ -502,21 +547,40 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  while !continue do
 	    let v = Vertices.choose !waiting in
 	    waiting := Vertices.remove v !waiting;
-	    let pred = Cfa.pred g v in
-	    back_update_abstract_value g pred v pred.Cfa.State.ip;
-	    let pred' = back_unroll g v pred in
-	    let vertices = filter_vertices g [pred'] in
-	    List.iter (fun v -> waiting := Vertices.add v !waiting) vertices;
+	    let v' = next g v in
+	    let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v' v'.Cfa.State.ip [v'])@l) [] v' in
+	    let new_vertices' = List.map (unroll g v) new_vertices in
+	    let vertices' = filter_vertices g new_vertices' in
+	    List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
 	    continue := not (Vertices.is_empty !waiting)
 	  done;
 	  g
 	with
 	| Invalid_argument _ -> Log.from_analysis "entry node of the CFA reached"; g
 	| e -> dump g; raise e
-
-    (********** FORWARD FROM CFA ***************)
-    (*******************************************)
-    let forward_cfa (_orig_cfa: Cfa.t) (_ep_state: Cfa.State.t) (_dump: Cfa.t -> unit): Cfa.t = failwith "Interpreter.forward_cfa: not implemented"
-						   
+			     
+      let backward (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+	cfa_iteration (fun g v ip vert -> back_update_abstract_value g v ip (List.hd vert))
+		      (fun g v -> [Cfa.pred g v]) back_unroll g s dump		    
+  
+      let forward_cfa (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+	let fun_stack = ref [] in
+	cfa_iteration (fun g v ip vert -> update_abstract_value g (List.hd vert) ip (process_stmts fun_stack)) Cfa.succs unroll g s dump
+      
+    (************* INTERLEAVING OF FORWARD/BACKWARD ANALYSES *******)
+    (******************************************************)
+    let interleave (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+      let rec process i cfa =
+	if i < !Config.refinements then
+	  begin
+	    Hashtbl.clear unroll_tbl;
+	    let last = Cfa.last g in
+	    let cfa' = List.fold_left (fun cfa s -> let cfa' = backward cfa s dump in Hashtbl.clear unroll_tbl; cfa') cfa last in
+	    process (i+1) (forward_cfa cfa' s dump)
+	  end
+	else
+	  cfa
+      in
+      process 0 (foward_bin code g s dump)
   end
      
