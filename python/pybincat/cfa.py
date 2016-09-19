@@ -238,7 +238,7 @@ class State(object):
                 if '*' in addr:
                     # single repeated value
                     regaddr, l = addr.split('*')
-                    length = int(l)
+                    length = 8
                     m = self.re_valtaint.match(regaddr)
                     region, addr = m.group('memreg'), m.group('value')
                     v = ', '.join([v] * length)
@@ -250,8 +250,7 @@ class State(object):
                     region2, addr2 = m.group('memreg'), m.group('value')
                     assert region1 == region2
                     region = region1
-                    length = (parsers.parse_val(addr2)[0] -
-                              parsers.parse_val(addr)[0]) * 8
+                    length = 8
                     # XXX allow non-aligned access
             elif region == "reg":
                 length = reg_len(addr)
