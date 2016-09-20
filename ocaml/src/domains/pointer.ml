@@ -19,9 +19,9 @@ module Make (V: Vector.T) =
 
         let to_string p =
             match p with
-            | BOT -> "(_,0b_)"
-            | TOP -> "(?,0b?)"
-            | Val (r, o) -> Printf.sprintf "(%s, %s)" (string_of_region r) (V.to_string o)
+            | BOT -> "B0x_"
+            | TOP -> "T0x?"
+            | Val (r, o) -> Printf.sprintf "%c%s" (char_of_region r) (V.to_string o)
 
         let untaint p =
             match p with
@@ -187,7 +187,6 @@ module Make (V: Vector.T) =
               | BOT, _ | _, BOT -> BOT
               | TOP, _ | _, TOP -> TOP
               | Val (r1, o1), Val (r2, o2 ) ->
-                Log.debug (Printf.sprintf "concat r1, r2 : %s %s" (Data.Address.string_of_region r1) (Data.Address.string_of_region r2));
                 if r1 = r2 then
                     Val (r1, V.concat o1 o2)
                 else BOT

@@ -101,30 +101,30 @@ module Make(D: T) =
           | Mem of Data.Address.t                      (* address to single byte *)
 		     
         let compare v1 v2 =
-          match v1, v2 with
-          | Reg r1, Reg r2 -> Register.compare r1 r2
-          | Mem addr1, Mem addr2 ->
-             Data.Address.compare addr1 addr2
-          | Mem addr1, Mem_Itv (m2_low, m2_high) ->
-             if addr1 < m2_low then -1
-             else if m2_high < addr1 then 1
-             else 0
-          | Mem_Itv (m1_low, m1_high), Mem addr2 ->
-             if m1_high < addr2 then -1
-             else if addr2 < m1_low then 1
-             else 0
-          | Mem_Itv (m1_low, m1_high), Mem_Itv (m2_low, m2_high) ->
-             if m1_high < m2_low then -1
-             else if m2_high < m1_low then 1
-             else 0
-          | Reg _ , _    -> 1
-          | _   , _    -> -1
+            match v1, v2 with
+            | Reg r1, Reg r2 -> Register.compare r1 r2
+            | Mem addr1, Mem addr2 ->
+              Data.Address.compare addr1 addr2
+            | Mem addr1, Mem_Itv (m2_low, m2_high) ->
+              if addr1 < m2_low then -1
+              else if m2_high < addr1 then 1
+              else 0
+            | Mem_Itv (m1_low, m1_high), Mem addr2 ->
+              if m1_high < addr2 then -1
+              else if addr2 < m1_low then 1
+              else 0
+            | Mem_Itv (m1_low, m1_high), Mem_Itv (m2_low, m2_high) ->
+              if m1_high < m2_low then -1
+              else if m2_high < m1_low then 1
+              else 0
+            | Reg _ , _    -> 1
+            | _   , _    -> -1
 			     
         let to_string x =
           match x with
-          | Reg r -> Printf.sprintf "reg [%s]"  (Register.name r)
-          | Mem_Itv (low_a, high_a) -> Printf.sprintf "mem [%s, %s]" (Data.Address.to_string low_a) (Data.Address.to_string high_a) 
-          | Mem addr -> Printf.sprintf "mem [%s, %s]" (Data.Address.to_string addr) (Data.Address.to_string (Data.Address.inc addr))
+          | Reg r -> Printf.sprintf "reg[%s]"  (Register.name r)
+          | Mem_Itv (low_a, high_a) -> Printf.sprintf "mem[%s*%s]" (Data.Address.to_string low_a) (Z.to_string (Data.Address.sub high_a low_a))
+          | Mem addr -> Printf.sprintf "mem[%s*1]" (Data.Address.to_string addr)
       end
 	
     (* For Ocaml non-gurus : creates a Map type which uses MapOpt with keys of type Key *)
@@ -188,10 +188,56 @@ module Make(D: T) =
              true
            with Exit -> false
 			  
+
+    let coleasce_to_strs (m : D.t Map.t) (strs : string list) =
+        let addr_zero = Data.Address.of_int Data.Address.Global Z.zero 0 in
+        let prev_addr = ref addr_zero in
+        let in_itv = ref false in
+        let build_itv k _v itvs : ((Data.Address.t ref * Data.Address.t) list) =
+            match k with
+            | Key.Reg _ -> in_itv := false; prev_addr := addr_zero; itvs
+            | Key.Mem_Itv (_low_addr, _high_addr) -> in_itv := false; prev_addr := addr_zero; itvs
+            | Key.Mem (addr) -> let new_itv =
+                                    if !in_itv && Data.Address.compare (!prev_addr) (Data.Address.inc addr) == 0 then
+                                        begin
+                                            (* continue byte string *)
+                                            prev_addr := addr;
+                                            let cur_start = fst (List.hd itvs) in cur_start := addr;
+                                            itvs
+                                        end else begin
+                                        (* not contiguous, create new itv *)
+                                        in_itv := true;
+                                        prev_addr := addr;
+                                        let new_head = (ref addr, addr) in
+                                        new_head :: itvs
+                                    end
+              in new_itv
+        in
+        let itv_to_str itv = let low = !(fst itv) in let high = snd itv in 
+            let addr_str = Printf.sprintf "mem[%s, %s]" (Data.Address.to_string low) (Data.Address.to_string high) in
+            let len = (Z.to_int (Data.Address.sub high low))+1 in
+            let strs = let indices = Array.make len 0 in 
+                for offset = 0 to len-1 do
+                    indices.(offset) <- offset
+                done ;
+                let buffer = Buffer.create (len*10) in 
+                Array.iter (fun off -> Printf.bprintf buffer ", %s" (D.to_string (Map.find (Key.Mem (Data.Address.add_offset low (Z.of_int off))) m))) indices ;
+                Buffer.contents buffer
+            in Printf.sprintf "%s = %s" addr_str (String.sub strs 2 ((String.length strs)-2))
+        in 
+        let itvs = Map.fold build_itv m [] in 
+        List.fold_left (fun strs v -> (itv_to_str v)::strs) strs itvs
+    
+    let non_itv_to_str k v =
+        match k with
+        | Key.Reg _ | Key.Mem_Itv(_,_) -> Printf.sprintf "%s = %s" (Key.to_string k) (D.to_string v)
+        | _ -> ""
+
     let to_string m =
       match m with
       |	BOT    -> ["_"]
-      | Val m' -> Map.fold (fun k v l -> (Printf.sprintf "%s = %s" (Key.to_string k) (D.to_string v)) :: l) m' []
+      | Val m' -> let non_itv = Map.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m' [] in
+                  coleasce_to_strs m' non_itv
 			   
     (***************************)
     (** Memory access function *)
@@ -241,10 +287,8 @@ module Make(D: T) =
     let safe_find addr dom : (Map.key * 'a) option  =
       try
         let res = Map.find_key (where addr) dom in
-        Log.debug (Printf.sprintf "safe_find addr -> key : %s -> [%s]" (Data.Address.to_string addr) (Key.to_string (fst res)));
         Some res
       with Not_found ->
-        Log.debug (Printf.sprintf "safe_find addr -> key : %s -> []" (Data.Address.to_string addr));
         None
 	  
     (** helper to split an interval at _addr_, returns a map with nothing
@@ -253,6 +297,7 @@ module Make(D: T) =
       let map_val = Map.find itv domain in
       match itv with
       | Key.Mem_Itv (low_addr, high_addr) ->
+        Log.debug (Printf.sprintf "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr));
          let dom' = Map.remove itv domain in
          (* addr just below the new byte *)
          let addr_before = Data.Address.dec addr  in
@@ -260,16 +305,20 @@ module Make(D: T) =
          let addr_after = Data.Address.inc addr in
          (* add the new interval just before, if it's not empty *)
          let dom' =
-           if Data.Address.equal addr low_addr then
+           if Data.Address.equal addr low_addr || Data.Address.equal low_addr addr_before then begin
              dom'
-           else
+           end else begin
              Map.add (Key.Mem_Itv (low_addr, addr_before)) map_val dom'
+           end
          in
          (* add the new interval just after, if its not empty *)
-         if Data.Address.equal addr high_addr then
+         let res = if Data.Address.equal addr high_addr || Data.Address.equal addr_after high_addr then begin
            dom'
-         else
-           Map.add (Key.Mem_Itv (addr_after, high_addr)) map_val dom'
+         end else begin
+             Map.add (Key.Mem_Itv (addr_after, high_addr)) map_val dom'
+         end
+         in
+         res
       | _ -> Log.error "Trying to split a non itv"
 		       
     (* strong update of memory with _byte_ repeated _nb_ times *)
@@ -591,25 +640,26 @@ module Make(D: T) =
       | Val m' -> D.to_z (fst (eval_exp m' e))
 
     let rec process_tainted e m' =
-	match e with
-	| Asm.BinOp (_, e1, e2) -> (process_tainted e1 m') || (process_tainted e2 m')
-	| Asm.UnOp (_, e') -> process_tainted e' m'
-	| Asm.Lval lv -> process_lval_tainted lv m'
-	| _ -> false
-      and process_lval_tainted lv m' =
-	match lv with
-	| Asm.V (Asm.T r) -> D.is_tainted (Map.find (Key.Reg r) m')
-	| Asm.V (Asm.P (r, l, u)) -> D.is_tainted (D.extract (Map.find (Key.Reg r) m') l u)
-	| Asm.M _ ->
-	   let v, b = eval_exp m' (Asm.Lval lv) in
-	   let addrs = D.to_addresses v in
-           let l     = Data.Address.Set.elements addrs in
-	   (List.exists (fun a -> D.is_tainted (Map.find (Key.Mem a) m')) l) || b
-										  
+        match e with
+        | Asm.BinOp (_, e1, e2) -> (process_tainted e1 m') || (process_tainted e2 m')
+        | Asm.UnOp (_, e') -> process_tainted e' m'
+        | Asm.Lval lv -> process_lval_tainted lv m'
+        | _ -> false
+        and process_lval_tainted lv m' =
+            match lv with
+            | Asm.V (Asm.T r) -> D.is_tainted (Map.find (Key.Reg r) m')
+            | Asm.V (Asm.P (r, l, u)) -> D.is_tainted (D.extract (Map.find (Key.Reg r) m') l u)
+            | Asm.M (e, _) ->
+              let v, _ = eval_exp m' (Asm.Lval lv) in
+              let addrs = D.to_addresses v in
+              let l     = Data.Address.Set.elements addrs in
+              (List.exists (fun a -> D.is_tainted (get_mem_value m' a 8)) l) || (process_tainted e m')
+
     let is_tainted e m =
-      match m with
-      | BOT -> false
-      | Val m' -> try process_tainted e m' with Not_found -> false
+        match m with
+        | BOT -> false
+        | Val m' -> try process_tainted e m' with Not_found -> false
+
   end: Domain.T)
     
     

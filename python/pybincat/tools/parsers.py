@@ -1,3 +1,13 @@
+def memoize(f):
+    """ Memoization decorator for a function taking a single argument """
+    class memodict(dict):
+        def __missing__(self, key):
+            ret = self[key] = f(key)
+            return ret
+    return memodict().__getitem__
+
+
+@memoize
 def parse_val(s):
     if s[0] not in '0123456789_?' or '_bincat_tmp' in s:
         # it's a register

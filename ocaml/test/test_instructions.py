@@ -86,7 +86,7 @@ def clearFlag(my_state, name):
     XXX for most tests, flags should inherit taint
     """
     v = cfa.Value('reg', name, cfa.reg_len(name))
-    my_state[v] = cfa.Value('global', 0x0, cfa.reg_len(name))
+    my_state[v] = [cfa.Value('g', 0x0, cfa.reg_len(name))]
 
 
 def setFlag(my_state, name):
@@ -95,7 +95,7 @@ def setFlag(my_state, name):
     XXX for most tests, flags should inherit taint
     """
     v = cfa.Value('reg', name, cfa.reg_len(name))
-    my_state[v] = cfa.Value('global', 1, cfa.reg_len(name))
+    my_state[v] = [cfa.Value('g', 1, cfa.reg_len(name))]
 
 
 def undefBitFlag(my_state, name):
@@ -104,7 +104,7 @@ def undefBitFlag(my_state, name):
     XXX specify register len?
     """
     v = cfa.Value('reg', name, cfa.reg_len(name))
-    my_state[v] = cfa.Value('?', 0, cfa.reg_len(name), vtop=1)
+    my_state[v] = [cfa.Value('t', 0, cfa.reg_len(name), vtop=1)]
 
 
 def calc_af(my_state, op1, op2, val):
@@ -137,7 +137,7 @@ def taintFlag(my_state, name):
     XXX for most tests, flags should inherit taint
     """
     v = cfa.Value('reg', name)
-    p = my_state[v]
+    p = my_state[v][0]
     p.taint = 1
     p.ttop = p.tbot = 0
 
@@ -145,13 +145,14 @@ def taintFlag(my_state, name):
 def setReg(my_state, name, val, taint=0):
     v = cfa.Value('reg', name, cfa.reg_len(name))
     if name == 'esp':
-        region = 'stack'
+        region = 's'
     else:
-        region = 'global'
-    my_state[v] = cfa.Value(region, val, cfa.reg_len(name), taint=taint)
+        region = 'g'
+    my_state[v] = [cfa.Value(region, val, cfa.reg_len(name), taint=taint)]
 
 
 def dereference_data(my_state, ptr):
+    print "dereference", ptr
     # XXX use proper sizes when setting {v,t}{bot,top}
     if ptr.vbot != 0:
         # Analysis stops here, exception is returned
@@ -242,9 +243,9 @@ def test_inc(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
 
-    expectedStateAfter[cfa.Value('reg', regname)] += 1
-    regvalue = stateBefore[cfa.Value('reg', regname)].value
-    newregvalue = expectedStateAfter[cfa.Value('reg', regname)].value
+    expectedStateAfter[cfa.Value('reg', regname)][0] += 1
+    regvalue = stateBefore[cfa.Value('reg', regname)][0].value
+    newregvalue = expectedStateAfter[cfa.Value('reg', regname)][0].value
     calc_af(expectedStateAfter, regvalue, newregvalue, 1)
     calc_pf(expectedStateAfter, newregvalue)
     calc_sf(expectedStateAfter, newregvalue)
@@ -270,9 +271,9 @@ def test_dec(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
 
-    expectedStateAfter[cfa.Value('reg', regname)] -= 1
-    regvalue = stateBefore[cfa.Value('reg', regname)].value
-    newregvalue = expectedStateAfter[cfa.Value('reg', regname)].value
+    expectedStateAfter[cfa.Value('reg', regname)][0] -= 1
+    regvalue = stateBefore[cfa.Value('reg', regname)][0].value
+    newregvalue = expectedStateAfter[cfa.Value('reg', regname)][0].value
 
     # flags
     calc_af(expectedStateAfter, regvalue, newregvalue, -1)
@@ -299,9 +300,9 @@ def test_push(analyzer, initialState, register):
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
-    expectedStateAfter[cfa.Value('reg', 'esp')] -= 4
+    expectedStateAfter[cfa.Value('reg', 'esp')][0] -= 4
     expectedStateAfter[cfa.Value(
-        'stack', expectedStateAfter[cfa.Value('reg', 'esp')].value)] = \
+        's', expectedStateAfter[cfa.Value('reg', 'esp')][0].value)] = \
         stateBefore[cfa.Value('reg', regname)]
 
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
@@ -321,10 +322,10 @@ def test_pop(analyzer, initialState, register):
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
-    expectedStateAfter[cfa.Value('reg', 'esp')] += 4
-    expectedStateAfter[cfa.Value('reg', regname)] = \
+    expectedStateAfter[cfa.Value('reg', 'esp')][0] += 4
+    expectedStateAfter[cfa.Value('reg', regname)][0] = \
         stateBefore[cfa.Value(
-            'stack', stateBefore[cfa.Value('reg', 'esp')].value)]
+            's', stateBefore[cfa.Value('reg', 'esp')][0].value)]
 
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
@@ -341,15 +342,15 @@ def test_sub(analyzer, initialState):
     expectedStateAfter.address += len(opcode)  # pretty debug msg
 
     reg = cfa.Value('reg', 'esp')
-    regvalue = stateBefore[reg].value
-    newregvalue = stateBefore[reg].value - 0x1234
+    regvalue = stateBefore[reg][0].value
+    newregvalue = stateBefore[reg][0].value - 0x1234
     calc_af(expectedStateAfter, regvalue, newregvalue, 0x1234)
     calc_pf(expectedStateAfter, newregvalue)
     calc_sf(expectedStateAfter, newregvalue)
     calc_zf(expectedStateAfter, newregvalue)
     clearFlag(expectedStateAfter, 'of')  # XXX compute properly
     clearFlag(expectedStateAfter, "cf")  # XXX compute properly
-    expectedStateAfter[cfa.Value('reg', 'esp')] -= 0x1234
+    expectedStateAfter[cfa.Value('reg', 'esp')][0].value -= 0x1234
     # TODO check taint
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
@@ -394,9 +395,9 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
-    expectedStateAfter[cfa.Value('reg', regname)] = \
+    expectedStateAfter[cfa.Value('reg', regname)][0] = \
         dereference_data(stateBefore,
-                         stateBefore[cfa.Value('reg', 'ebp')] - 6)
+                         stateBefore[cfa.Value('reg', 'ebp')][0] - 6)
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
@@ -418,7 +419,7 @@ def test_mov_ebp_reg(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     newvalue = dereference_data(stateBefore,
-                                stateBefore[cfa.Value('reg', regname)])
+                                stateBefore[cfa.Value('reg', regname)][0])
     if newvalue is None:
         # dereferenced pointer contains BOTTOM
         assertNoNextState(prgm, stateBefore)
@@ -451,8 +452,8 @@ def test_and_esp(analyzer, initialState):
     stateBefore = prgm['0']
     stateAfter = getNextState(prgm, stateBefore)
     expectedStateAfter = prepareExpectedState(stateBefore)
-    expectedStateAfter[cfa.Value("reg", "esp")] &= 0xfffffff0
-    esp = expectedStateAfter[cfa.Value("reg", "esp")].value
+    expectedStateAfter[cfa.Value("reg", "esp")][0].value &= 0xfffffff0
+    esp = expectedStateAfter[cfa.Value("reg", "esp")][0].value
     undefBitFlag(expectedStateAfter, "af")
     clearFlag(expectedStateAfter, "of")
     clearFlag(expectedStateAfter, "cf")

@@ -484,14 +484,14 @@ struct
                 V (find_reg rm sz)
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
-    let operands_from_mod_reg_rm s sz direction =
+    let operands_from_mod_reg_rm s sz ?(dst_sz = sz) direction =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
         let reg_v =
-	  if sz = 8 && reg >= 4 then
-	    V (get_h_slice (reg-4))
-	  else
-	    find_reg_v reg sz in
+            if dst_sz = 8 && reg >= 4 then
+                V (get_h_slice (reg-4))
+            else
+                find_reg_v reg dst_sz in
         try
             let rm' = exp_of_md s md rm sz in
             if direction = 0 then
@@ -1823,11 +1823,8 @@ struct
             | '\xb4' -> load_far_ptr s fs
             | '\xb5' -> load_far_ptr s gs
 
-            | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 1 in
-              let r = Register.make (Register.fresh_name ()) s.operand_sz in
-              return s [ Set (V (T r), rm) ;
-                         Set (reg, UnOp(ZeroExt s.operand_sz, Lval (V (P (r, 0, 7)))));
-                         Directive (Remove r) ]
+            | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 1 in
+              return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
             | '\xb7' ->
               let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
