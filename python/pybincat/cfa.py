@@ -286,7 +286,7 @@ class State(object):
                             off_vals.append((saved_offset, concat_value))
                             concat_value = None
                             saved_offset = idx
-                        prev_memreg = memreg
+                    prev_memreg = memreg
 
                 off_vals.append((saved_offset, concat_value))
                 CFA._valcache[(v, length)] = off_vals
