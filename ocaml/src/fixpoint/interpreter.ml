@@ -24,6 +24,7 @@ module type T =
 	      mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
 	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
 	      mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
+	      mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
 	      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	      mutable bytes: char list;      (** corresponding list of bytes *)
 	      mutable is_tainted: bool; (** true whenever a source left value is the stmt list (field stmts) is tainted *)
@@ -61,7 +62,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 10
 			   
     (** opposite the given comparison operator *)
-    let inv_cmp (cmp: Asm.Cmp): Asm.Cmp =
+    let inv_cmp (cmp: Asm.cmp): Asm.cmp =
       match cmp with
       | EQ  -> NEQ
       | NEQ -> EQ
@@ -137,7 +138,38 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (*****************************************************************************)
     let apply_tainting _rules d = d (* TODO apply rules of type Config.tainting_fun *)
     let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
-				    
+
+    (** returns true whenever the given list of statements has a jump stmt (Jmp, Call, Return) *)
+    let rec has_jmp stmts =
+        match stmts with
+        |	[] -> false
+        | s::stmts' ->
+           let b =
+             match s with
+             | Call _ | Return  | Jmp _ -> true
+             | If (_, tstmts, estmts)   -> (has_jmp tstmts) || (has_jmp estmts)
+             | _ 			      -> false
+           in
+           b || (has_jmp stmts')
+    
+    exception Jmp_exn
+    let rec process_value (d: D.t) (s: Asm.stmt) =
+        match s with
+        | Nop 				 -> d, false
+        | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts       
+        | Set (dst, src) 		 -> D.set dst src d
+        | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
+        | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
+        | _ 				 -> raise Jmp_exn
+						     
+    and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
+      if has_jmp then_stmts || has_jmp else_stmts then
+             raise Jmp_exn
+           else
+             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e true) then_stmts in
+             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e false) else_stmts in
+             D.join dt de, bt||be
+				 
     let process_ret fun_stack v =
       try
 	begin
@@ -186,7 +218,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  end
 	with Failure "hd" -> Log.from_analysis (Printf.sprintf "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, false
 		       
-    exception Jmp_exn
+
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let process_stmts fun_stack g (v: Cfa.State.t) ip: Cfa.State.t list =
       let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp): (Cfa.State.t list * bool) =
@@ -224,69 +256,35 @@ module Make(D: Domain.T): (T with type domain = D.t) =
           Cfa.add_edge g (Cfa.pred g v) v';
         v'
       in
-      let rec has_jmp stmts =
-        match stmts with
-        |	[] -> false
-        | s::stmts' ->
-           let b =
-             match s with
-             | Call _ | Return  | Jmp _ -> true
-             | If (_, tstmts, estmts)   -> (has_jmp tstmts) || (has_jmp estmts)
-             | _ 			      -> false
-           in
-           b || (has_jmp stmts')
-      in
-      let rec process_value d s =
-        match s with
-        | Nop 				    -> d, false
-        | If (e, then_stmts, else_stmts) 	    ->
-           if has_jmp then_stmts || has_jmp else_stmts then
-             raise Jmp_exn
-           else
-             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e true) then_stmts in
-             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e false) else_stmts in
-             D.join dt de, bt||be
-		    
-        | Set (dst, src) 		    -> D.set dst src d
-        | Directive (Remove r) 		    -> let d' = D.remove_register r d in Register.remove r; d', false
-        | Directive (Forget r) 		    -> D.forget_lval (V (T r)) d, false
-        | _ 				    -> raise Jmp_exn
-						     
-      in
-      let rec process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
-        try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
-        with Jmp_exn ->
-             match s with 
-             | If (e, then_stmts, else_stmts) ->
-		let (then': Cfa.State.t list), bt =
-		  let vertices', b = (List.fold_left (fun (l, b) v ->
+      
+
+      let rec process_if_with_jmp (vertices: Cfa.State.t list) (e: Asm.bexp) (istmts: Asm.stmt list) (estmts: Asm.stmt list) =
+	let process_branch stmts branch =
+	  let vertices', b = (List.fold_left (fun (l, b) v ->
 					      try
-						let d, is_tainted = restrict v.Cfa.State.v e true in
+						let d, is_tainted = restrict v.Cfa.State.v e branch in
 						if D.is_bot d then
 						  l, b
 						else
 						  (copy v d (Some true) false)::l, b||is_tainted
 					      with Exceptions.Empty -> l, b) ([], false) vertices)
-		  in
-		  let vert, b' = process_list vertices' then_stmts in
-		  vert, b||b'
-		in
-		let else', be =
-		  let vertices', b = (List.fold_left (fun (l, b) v ->
-					      try
-						let d, is_tainted = restrict v.Cfa.State.v e false in
-						if D.is_bot d then
-						  l, b
-						else (copy v d (Some false) false)::l, b||is_tainted
-					      with Exceptions.Empty -> l, b) ([], false) vertices)
-		  in
-		  let vert, b' = process_list vertices' else_stmts in
-		  vert, b||b'
-		in
-		List.iter (fun v -> Cfa.remove_state g v) vertices;
-		then' @ else', be||bt
-
+	  in
+	  let vert, b' = process_list vertices' stmts in
+	  vert, b||b'
+	in
+	let then', bt = process_branch istmts true in
+	let else', be = process_branch estmts false in
+	List.iter (fun v -> Cfa.remove_state g v) vertices;
+	then' @ else', be||bt
+      	    
+      
+      and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
+        try
+          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
+        with Jmp_exn ->
+             match s with 
+             | If (e, then_stmts, else_stmts) ->  process_if_with_jmp vertices e then_stmts else_stmts 
+		
              | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
 				     
              | Jmp (R target) -> fold_to_target (fun _a -> ()) vertices target
@@ -493,9 +491,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	begin
 	  v.Cfa.State.final <- false;
 	  let new_succ = Cfa.copy_state g v in
-	  new_pred.Cfa.State.forward_loop <- true;
+	  new_succ.Cfa.State.forward_loop <- true;
 	  Cfa.remove_edge g v succ;
-	  Cfa.add_vertex g v new_succ;
+	  Cfa.add_vertex g new_succ;
 	  Cfa.add_edge g v new_succ;
 	  Cfa.add_edge g new_succ succ;
 	  new_succ
@@ -506,21 +504,35 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  succ
 	end
 
-    let forward_process (d: D.t) (s: Asm.stmt): (D.t * bool) =
-      let rec forward s =
-	match s with
-	| Asm.Nop -> d
-	| Asm.Directive (Asm.Forget _) -> d
-	| Asm.Directive (Asm.Remove _) -> d
-	| Asm.Set (dst, src) -> D.set dst src d
-	| Asm.Return -> try fun_stack:=(List.tl fun_stack); with Invalid_argument _ -> ?; d FACTORISER 
-	| Asm.Call (A _) -> fun_stack:= a::d
-	| Asm.Call (R target) ->
       
+    let forward_process (d: D.t) (stmt: Asm.stmt) (branch: bool option): (D.t * bool) =
+      let rec forward (d: D.t) (stmt: Asm.stmt): (D.t * bool) =
+	match stmt with
+	| Asm.Nop 
+	| Asm.Directive (Asm.Forget _) 
+	| Asm.Directive (Asm.Remove _) 
+	| Asm.Jmp (Asm.A _)
+	| Asm.Return
+	| Asm.Call (Asm.A _) -> d, false
+	| Asm.Set (dst, src) -> D.set dst src d
+	| Asm.If (e, istmts, estmts) ->
+	   begin
+	     try process_if d e istmts estmts
+	     with Jmp_exn ->
+	       match branch with
+	       | Some true -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', b||b') (restrict d e true) istmts
+	       | Some false -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', b||b') (restrict d e false) estmts
+	       | None -> Log.error "Illegal call to Interpreter.forward_process"
+	   end
+	| Asm.Call (Asm.R _) -> D.forget d, true
+	| Asm.Jmp (Asm.R _) -> D.forget d, true (* TODO may be more precise but check whether the target is really in the CFA. If not then go back to forward_bin for that branch *)
+      in
+      forward d stmt
+	      
     let forward_abstract_value (g:Cfa.t) (succ: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
       let forward _g v _ip =
 	let d', is_tainted = List.fold_left (fun (d, b) s ->
-				 let d', b' = forward_process d s in
+				 let d', b' = forward_process d s (succ.Cfa.State.branch) in
 				 d', b||b') (v.Cfa.State.v, false) (succ.Cfa.State.stmts)
        in
       	succ.Cfa.State.v <- D.meet succ.Cfa.State.v d';
@@ -533,7 +545,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (****************************)
       let cfa_iteration (update_abstract_value: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list -> Cfa.State.t list)
 			(next: Cfa.t -> Cfa.State.t -> Cfa.State.t list)
-		      (unroll: Cfa.t -> Cfa.State.t -> Cfa.State.t -> Cfa.State.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+			(unroll: Cfa.t -> Cfa.State.t -> Cfa.State.t -> Cfa.State.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
 	if D.is_bot s.Cfa.State.v then
 	begin
 	  dump g;
@@ -564,8 +576,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      (fun g v -> [Cfa.pred g v]) back_unroll g s dump		    
   
       let forward_cfa (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
-	let fun_stack = ref [] in
-	cfa_iteration (fun g v ip vert -> update_abstract_value g (List.hd vert) ip (process_stmts fun_stack)) Cfa.succs unroll g s dump
+	cfa_iteration (fun g v ip vert -> List.fold_left (fun l v' -> (forward_abstract_value g v ip v')@l) [] vert)
+		      Cfa.succs unroll g s dump
       
     (************* INTERLEAVING OF FORWARD/BACKWARD ANALYSES *******)
     (******************************************************)
@@ -581,6 +593,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	else
 	  cfa
       in
-      process 0 (foward_bin code g s dump)
+      process 0 (forward_bin code g s dump)
   end
      

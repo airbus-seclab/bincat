@@ -21,6 +21,7 @@ module Make(Domain: Domain.T) =
 	      mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
 	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
 	      mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
+	      mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
 	      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	      mutable bytes: char list;      (** corresponding list of bytes *)
 	      mutable is_tainted: bool (** true whenever a source left value is the stmt list (field stmts) is tainted *)
@@ -148,6 +149,7 @@ module Make(Domain: Domain.T) =
 	    v = d';
 	    final = false;
 	    back_loop = false;
+	    forward_loop = false;
 	    branch = None;
 	    stmts = [];
 	    bytes = [];
@@ -170,7 +172,7 @@ module Make(Domain: Domain.T) =
     - v as abstract value
     - ctx as decoding context
        *)
-      let add_state g ip v stmts ctx final back_loop branch bytes is_tainted =
+      let add_state g ip v stmts ctx final back_loop forward_loop branch bytes is_tainted =
 	let v = {
 	    id       = new_state_id();
 	    v 	     = v;
@@ -179,6 +181,7 @@ module Make(Domain: Domain.T) =
 	    ctx      = ctx;
 	    final    = final;
 	    back_loop = back_loop;
+	    forward_loop = forward_loop;
 	    branch = branch;
 	    bytes    = bytes;
 	    is_tainted = is_tainted;
@@ -196,7 +199,7 @@ module Make(Domain: Domain.T) =
       let remove_edge g src dst = G.remove_edge g src dst
 						   
       (** returns a fresh copy of the given state *)
-      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx s.final s.back_loop s.branch s.bytes s.is_tainted
+      let copy_state g s = add_state g s.ip s.v s.stmts s.ctx s.final s.back_loop s.forward_loop s.branch s.bytes s.is_tainted
 
       (** [add_edge g src dst] adds in _g_ an edge _src_ -> _dst_ *)
       let add_edge g src dst = G.add_edge g src dst
@@ -228,7 +231,7 @@ module Make(Domain: Domain.T) =
 
       (** returns every node without successor in the given CFA *)
       let last g =
-	G.fold (fun l v -> if succ g v = [] then v::l else l) [] g
+	G.fold_vertex (fun v l -> if succs g v = [] then v::l else l) g []
 	       
       (** returns the state with the highest id and which has the given addr as ip field *)
       let last_addr g ip =
