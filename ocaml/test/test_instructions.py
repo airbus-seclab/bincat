@@ -152,7 +152,6 @@ def setReg(my_state, name, val, taint=0):
 
 
 def dereference_data(my_state, ptr):
-    print "dereference", ptr
     # XXX use proper sizes when setting {v,t}{bot,top}
     if ptr.vbot != 0:
         # Analysis stops here, exception is returned

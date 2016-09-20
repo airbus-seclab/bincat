@@ -286,7 +286,7 @@ class State(object):
                             off_vals.append((saved_offset, concat_value))
                             concat_value = None
                             saved_offset = idx
-                        prev_memreg = memreg
+                    prev_memreg = memreg
 
                 off_vals.append((saved_offset, concat_value))
                 CFA._valcache[(v, length)] = off_vals
@@ -402,7 +402,7 @@ class Value(object):
     @classmethod
     def parse(cls, region, s, t, length):
         value, vtop, vbot = parsers.parse_val(s)
-        if type(value) is int:
+        if type(value) is int and length != 0:
             value &= 2**length-1
             vtop &= 2**length-1
             vbot &= 2**length-1

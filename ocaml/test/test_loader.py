@@ -48,6 +48,15 @@ def analyzer(tmpdir, request):
         outfname = str(tmpdir.join('end.ini'))
         logfname = str(tmpdir.join('log.txt'))
         p = cfa.CFA.from_filenames(initfname, outfname, logfname)
+        # concatenate Values: State.regaddrs's values are lists of exactly 1
+        # Value
+        for state in p.nodes.values():
+            for regaddr, val in state.regaddrs.items():
+                # integer representation
+                concatv = val[-1]
+                for nextv in val[-2::-1]:
+                    concatv = concatv & nextv
+                state.regaddrs[regaddr] = [concatv]
         return p
     return run_analyzer
 
@@ -105,18 +114,19 @@ def test_decode_5055_full(analyzer):
 
     expectedState1 = copy.deepcopy(stateInit)
 
-    expectedState1[cfa.Value('reg', 'esp')] -= 4
+    expectedState1[cfa.Value('reg', 'esp')][0].value -= 4
     expectedState1[cfa.Value(
-        'stack', expectedState1[cfa.Value('reg', 'esp')].value)] = \
+        's', expectedState1[cfa.Value('reg', 'esp')][0].value)] = \
         stateInit[cfa.Value('reg', 'eax')]
 
     expectedState1.address += 1  # not checked, cosmetic for debugging only
 
-    expectedState2 = copy.deepcopy(expectedState1)
-    expectedState2[cfa.Value('reg', 'esp')] -= 4
+    expectedState2 = copy.deepcopy(stateInit)
+    expectedState2[cfa.Value('reg', 'esp')][0].value -= 8
+    concatv = [expectedState1[cfa.Value('reg', 'eax')][0] &
+               expectedState1[cfa.Value('reg', 'ebp')][0]]
     expectedState2[cfa.Value(
-        'stack', expectedState2[cfa.Value('reg', 'esp')].value)] = \
-        expectedState1[cfa.Value('reg', 'ebp')]
+        's', expectedState2[cfa.Value('reg', 'esp')][0].value)] = concatv
     expectedState2.address += 1
 
     assert len(prgm.edges) == 2
@@ -137,9 +147,9 @@ def test_decode_5055_lastbyte(analyzer):
     state2 = getNextState(prgm, state1)
 
     expectedState2 = copy.deepcopy(state1)
-    expectedState2[cfa.Value('reg', 'esp')] -= 4
+    expectedState2[cfa.Value('reg', 'esp')][0].value -= 4
     expectedState2[cfa.Value(
-        'stack', expectedState2[cfa.Value('reg', 'esp')].value)] = \
+        's', expectedState2[cfa.Value('reg', 'esp')][0].value)] = \
         state1[cfa.Value('reg', 'ebp')]
 
     expectedState2.address += 1  # not checked, cosmetic for debugging only
