@@ -89,6 +89,7 @@ class CFA(object):
                 continue
             raise PyBinCATException("Cannot parse section name (%r)" % section)
 
+        CFA._valcache = dict()
         cfa = cls(states, edges, nodes)
         if logs:
             cfa.logs = open(logs).read()
