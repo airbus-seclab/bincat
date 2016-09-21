@@ -309,6 +309,28 @@ class BinCATDebugForm_t(idaapi.PluginForm):
                      idaapi.PluginForm.FORM_TAB))
 
 
+## http://stackoverflow.com/questions/35397943/how-to-make-a-fast-qtableview-with-html-formatted-and-clickable-cells
+## Class to represent tainted data with colors in the BinCATTaintedForm_t
+class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
+    def paint(self, painter, options, index):
+        self.initStyleOption(options, index)
+
+        painter.save()
+
+        doc = QtGui.QTextDocument()
+        doc.setHtml(options.text)
+
+        options.text = ""
+        options.widget.style().drawControl(QtWidgets.QStyle.CE_ItemViewItem, options, painter)
+
+        painter.translate(options.rect.left(), options.rect.top())
+        clip = QtCore.QRectF(0, 0, options.rect.width(), options.rect.height())
+        doc.drawContents(painter, clip)
+
+        painter.restore()
+
+
+
 class BinCATTaintedForm_t(idaapi.PluginForm):
     """
     BinCAT Tainted values form
@@ -343,8 +365,10 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
         # Value Taint Table
         self.vttable = QtWidgets.QTableView()
+        self.vttable.setItemDelegate(RegisterItemDelegate())
         self.vttable.setSortingEnabled(True)
         self.vttable.setModel(self.vtmodel)
+        self.vttable.setShowGrid(False)
         self.vttable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
         # width from the model are not respected, not sure why...
@@ -383,7 +407,6 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             self.nilabel.setText('Node Id: %s' % state.node_id)
         else:
             self.nilabel.setText('No data')
-
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
     """
