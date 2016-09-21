@@ -50,18 +50,23 @@ def parse_val(s):
     return val, tbvals["?"], tbvals["_"]
 
 
-def val2str(val, vtop, vbot, length):
-    try:
+def val2str(val, vtop, vbot, length, base=None):
+    if base == 16 or not base:
         if length == 0:
             fstring = '{0:X}'
         else:
             if length % 4 == 0:
                 length = length / 4
-                fstring = ('{0:0>%dX}' % length)
             else:
-                fstring = ('0b{0:0>%db}' % length)
-        s = fstring.format(val)
+                length = (length / 4)+1
+            fstring = ('{0:0>%dX}' % length)
+    elif base == 2:
+        fstring = ('0b{0:0>%db}' % length)
+    else:
+        raise ValueError("Invalid base")
 
+    try:
+        s = fstring.format(val)
         if vtop:
             s += ",?=" + fstring.format(vtop)
         if vbot:

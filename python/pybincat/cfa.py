@@ -427,11 +427,11 @@ class Value(object):
             self.__valuerepr__(),
             self.__taintrepr__())
 
-    def __valuerepr__(self):
-        return parsers.val2str(self.value, self.vtop, self.vbot, self.length)
+    def __valuerepr__(self, base=None):
+        return parsers.val2str(self.value, self.vtop, self.vbot, self.length, base)
 
-    def __taintrepr__(self):
-        return parsers.val2str(self.taint, self.ttop, self.tbot, self.length)
+    def __taintrepr__(self, base=None):
+        return parsers.val2str(self.taint, self.ttop, self.tbot, self.length, base)
 
     def __hash__(self):
         return hash((type(self), self.region, self.value,
