@@ -50,7 +50,7 @@ def parse_val(s):
     return val, tbvals["?"], tbvals["_"]
 
 
-def val2str(val, vtop, vbot, length, base=None):
+def val2str(val, vtop, vbot, length, base=None, merged=False):
     if base == 16 or not base:
         if length == 0:
             fstring = '{0:X}'
@@ -65,12 +65,17 @@ def val2str(val, vtop, vbot, length, base=None):
     else:
         raise ValueError("Invalid base")
 
-    try:
-        s = fstring.format(val)
-        if vtop:
-            s += ",?=" + fstring.format(vtop)
-        if vbot:
-            s += ",_=" + fstring.format(vbot)
-    except:
-        s = repr((val, vtop, vbot))
+    s = fstring.format(val)
+    if vtop:
+        s_top = fstring.format(vtop)
+        if merged:
+            s = "".join(v if t == '0' else '?' for v, t in zip(s, s_top))
+        else:
+            s = ",?=" + s_top
+    if vbot:
+        s_bot = fstring.format(vbot)
+        if merged:
+            s = "".join(v if t == '0' else '_' for v, t in zip(s, s_bot))
+        else:
+            s += ",_=" + s_bot
     return s
