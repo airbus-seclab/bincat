@@ -377,6 +377,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
         self.vttable.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
+        self.vttable.horizontalHeader().setStretchLastSection(True)
+        self.vttable.horizontalHeader().setMinimumHeight(36)
 
         layout.addWidget(self.vttable, 1, 0)
 
@@ -417,9 +419,8 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(ValueTaintModel, self).__init__(*args, **kwargs)
         self.s = state
-        self.headers = ["Src region", "Location", "Dst region", "Value",
-                        "Taint"]
-        self.colswidths = [90, 90, 90, 150, 150]
+        self.headers = ["Src region", "Location", "Dst region", "Value"]
+        self.colswidths = [90, 105, 90, 250]
         #: list of Value (addresses)
         self.rows = []
         self.changed_rows = set()
@@ -446,6 +447,23 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                 return (3, row)
         else:
             return (2, row)
+
+    @staticmethod
+    def color_valtaint(strval, strtaint):
+        if len(strval) != len(strtaint):
+            raise ValueError("value and taint strings are of different length", strval, strtaint)
+        color_str = ""
+        for i, c in enumerate(strval):
+            if strtaint[i] == 'F': # full taint
+                color_str += "<font color='green'>"+c+"</font>"
+            elif strtaint[i] == '0': # no taint
+                color_str += c
+            elif strtaint[i] == '?': # unknown taint
+                color_str += "<font color='cyan'>"+c+"</font>"
+            else: # no fully tainted
+                color_str += "<font color='yellow'>"+c+"</font>"
+        return color_str
+
 
     def endResetModel(self):
         """
@@ -484,12 +502,12 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             return QtCore.QSize(self.colswidths[col], 20)
         elif role == QtCore.Qt.FontRole:
             if index.row() in self.changed_rows:
-                if col in [1, 3, 4]:
+                if col in [1, 3]:
                     return self.diff_font_mono
                 else:
                     return self.diff_font
             else:
-                if col in [1, 3, 4]:
+                if col in [1, 3]:
                     return self.mono_font
                 else:
                     return self.default_font
@@ -516,23 +534,22 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             strval = ''
             for idx, nextv in enumerate(v[1:]):
                 if idx > 50:
-                    strval = concatv.__valuerepr__() + '...'
+                    strval = concatv.__valuerepr__(16,True) + '...'
                     break
                 concatv = concatv & nextv
             if not strval:
-                strval = concatv.__valuerepr__()
-            return strval
-        elif col == 4:  # taint
-            # XXX cache?
+                strval = concatv.__valuerepr__(16,True)
             concatv = v[0]
-            strval = ''
+            strtaint = ''
             for idx, nextv in enumerate(v[1:]):
                 if idx > 50:
-                    strval = concatv.__taintrepr__() + '...'
+                    strtaint = concatv.__taintrepr__(16,True) + '...'
                     break
                 concatv = concatv & nextv
-            if not strval:
-                strval = concatv.__taintrepr__()
+            if not strtaint:
+                strtaint = concatv.__taintrepr__(16,True)
+            if strtaint != "":
+                strval = ValueTaintModel.color_valtaint(strval, strtaint)
             return strval
 
     def rowCount(self, parent):
