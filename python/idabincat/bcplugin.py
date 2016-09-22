@@ -263,6 +263,7 @@ class State(object):
         self.options = options
         self.cfa = None
         self.current_state = None
+        self.current_node_ids = []
         self.current_config = AnalyzerConfig()
         #: Analyzer instance - protects against merciless garbage collector
         self.analyzer = None
@@ -353,7 +354,13 @@ class State(object):
                 idaapi.set_item_color(ea, 0xCDCFCE)
         self.netnode["current_ea"] = current_ea
 
-    def set_current_ea(self, ea, force=False):
+    def set_current_node(self, node_id):
+        bc_log.debug("set_current_node(%s)", node_id)
+        if self.cfa:
+            if self.cfa[node_id]:
+                self.set_current_ea(self.current_state.address.value, force=True, node_id=node_id)
+
+    def set_current_ea(self, ea, force=False, node_id=None):
         """
         :param ea: int or long
         """
@@ -364,10 +371,14 @@ class State(object):
         if self.cfa:
             node_ids = self.cfa.node_id_from_addr(ea)
             if node_ids:
-                # XXX add UI to choose state when several exist at this address
-                self.current_state = self.cfa[node_ids[0]]
+                if node_id in node_ids:
+                    self.current_state = self.cfa[node_id]
+                else:
+                    self.current_state = self.cfa[node_ids[0]]
+                self.current_node_ids = node_ids
             else:
                 self.current_state = None
+                self.current_node_ids = []
         self.gui.after_change_ea()
 
     def start_analysis(self, config_str=None):

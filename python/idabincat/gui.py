@@ -359,6 +359,19 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.nilabel = QtWidgets.QLabel('Node Id:')
         splitter.addWidget(self.nilabel)
 
+        # Node combobox
+        self.node_select = QtWidgets.QComboBox()
+        for i in self.s.current_node_ids:
+            self.node_select.addItem(i)
+        if self.s.current_state:
+            self.node_select.setCurrentText(self.s.current_state.node_id)
+        self.node_select.currentTextChanged.connect(self.update_node)
+        splitter.addWidget(self.node_select)
+
+        # Node count
+        self.ncnt_label = QtWidgets.QLabel('Node count:')
+        splitter.addWidget(self.ncnt_label)
+
         # RVA address label
         self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
         splitter.addWidget(self.alabel)
@@ -396,6 +409,13 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_TAB))
 
+    @QtCore.pyqtSlot(str)
+    def update_node(self, node):
+        if node != "" and not self.s.current_state or node != self.s.current_state.node_id:
+            self.node_select.blockSignals(True)
+            self.s.set_current_node(node)
+            self.node_select.blockSignals(False)
+
     def update_current_ea(self, ea):
         """
         :param ea: int or long
@@ -406,7 +426,11 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.alabel.setText('RVA: %s' % self.rvatxt)
         state = self.s.current_state
         if state:
-            self.nilabel.setText('Node Id: %s' % state.node_id)
+            self.node_select.clear()
+            for i in self.s.current_node_ids:
+                self.node_select.addItem(i)
+            self.node_select.setCurrentText(self.s.current_state.node_id)
+            self.ncnt_label.setText('Node Count: %s' % len(self.s.current_node_ids))
         else:
             self.nilabel.setText('No data')
 
