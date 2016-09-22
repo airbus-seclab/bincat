@@ -1832,11 +1832,8 @@ struct
             | '\xba' -> grp8 s
             | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btc s reg rm
 
-            | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8 1 in
-              let r = Register.make (Register.fresh_name ()) s.operand_sz in
-              return s [ Set (V (T r), rm) ;
-                         Set (reg, UnOp(SignExt s.operand_sz, Lval (V (P (r, 0, 7)))));
-                         Directive (Remove r) ]
+            | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
+              return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
             | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s !Config.operand_sz 1 in return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ]
             | c 	   -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
         in
