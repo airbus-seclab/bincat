@@ -361,7 +361,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
         # Node combobox
         self.node_select = QtWidgets.QComboBox()
-        for i in self.s.current_node_ids:
+        for i in sorted(self.s.current_node_ids):
             self.node_select.addItem(i)
         if self.s.current_state:
             self.node_select.setCurrentText(self.s.current_state.node_id)
@@ -426,10 +426,12 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.alabel.setText('RVA: %s' % self.rvatxt)
         state = self.s.current_state
         if state:
+            self.node_select.blockSignals(True)
             self.node_select.clear()
-            for i in self.s.current_node_ids:
+            for i in sorted(self.s.current_node_ids, key=int):
                 self.node_select.addItem(i)
             self.node_select.setCurrentText(self.s.current_state.node_id)
+            self.node_select.blockSignals(False)
             self.ncnt_label.setText('Node Count: %s' % len(self.s.current_node_ids))
         else:
             self.nilabel.setText('No data')
