@@ -65,7 +65,10 @@ def val2str(val, vtop, vbot, length, base=None, merged=False):
     else:
         raise ValueError("Invalid base")
 
-    s = fstring.format(val)
+    if type(val) == str:
+        s = val
+    else:
+        s = fstring.format(val)
     if vtop:
         s_top = fstring.format(vtop)
         if merged:
