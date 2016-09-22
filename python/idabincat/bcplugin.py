@@ -355,7 +355,6 @@ class State(object):
         self.netnode["current_ea"] = current_ea
 
     def set_current_node(self, node_id):
-        bc_log.debug("set_current_node(%s)", node_id)
         if self.cfa:
             if self.cfa[node_id]:
                 self.set_current_ea(self.current_state.address.value, force=True, node_id=node_id)

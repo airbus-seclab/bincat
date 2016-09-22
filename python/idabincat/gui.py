@@ -411,7 +411,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
     @QtCore.pyqtSlot(str)
     def update_node(self, node):
-        if node != "" and not self.s.current_state or node != self.s.current_state.node_id:
+        if node != "" and (not self.s.current_state or node != self.s.current_state.node_id):
             self.node_select.blockSignals(True)
             self.s.set_current_node(node)
             self.node_select.blockSignals(False)
