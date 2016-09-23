@@ -242,7 +242,7 @@ class State(object):
                     length = 8
                     m = RE_VALTAINT.match(regaddr)
                     region, addr = m.group('memreg'), m.group('value')
-                    v = ', '.join([v] * length)
+                    v = ', '.join([v] * int(l))
                 else:
                     regaddr1, regaddr2 = addr.split(', ')
                     m = RE_VALTAINT.match(regaddr1)
