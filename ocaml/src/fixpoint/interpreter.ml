@@ -99,10 +99,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
 	      		   
     (** widen the given vertex with all previous vertices that have the same ip as v *)
-    let widen v jd =
-      let join_vd = D.join jd v.Cfa.State.v in
+    let widen prev v =
+      let join_v = D.join prev v.Cfa.State.v in
       v.Cfa.State.final <- true;
-      v.Cfa.State.v <- D.widen jd join_vd
+      v.Cfa.State.v <- D.widen prev join_v
 			       
 			       
     (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
@@ -115,7 +115,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
               try
 		let n', jd' = Hashtbl.find unroll_tbl ip in
 		let d' = D.join jd' v.Cfa.State.v in
-		Hashtbl.replace unroll_tbl ip (n'+1, d'); n', d'
+		Hashtbl.replace unroll_tbl ip (n'+1, d'); n'+1, jd'
               with Not_found ->
 		Hashtbl.add unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
 		1, v.Cfa.State.v
@@ -123,7 +123,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             if n <= !Config.unroll then
               ()
             else 
-              widen v jd
+              widen jd v
           ) l;
         List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
                                       begin
