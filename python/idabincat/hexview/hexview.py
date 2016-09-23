@@ -98,9 +98,9 @@ class HexItemDelegate(QItemDelegate):
 class HexTableModel(QAbstractTableModel):
     FILTER = ''.join([(len(repr(chr(x)))==3 or chr(x) == "\\") and chr(x) or '.' for x in range(256)])
 
-    def __init__(self, buf, parent=None, *args):
+    def __init__(self, meminfo, parent=None, *args):
         super(HexTableModel, self).__init__(parent, *args)
-        self._buf = buf
+        self._meminfo = meminfo
         self._colors = ColorModel(self)
         self._borders = BorderModel(self)
 
@@ -148,10 +148,11 @@ class HexTableModel(QAbstractTableModel):
         return self.index(r, c)
 
     def rowCount(self, parent):
-        if len(self._buf) % 0x10 != 0:
-            return (len(self._buf) // 0x10) + 1
+        length = self._meminfo.length
+        if length % 0x10 != 0:
+            return length + 1
         else:
-            return len(self._buf) // 0x10
+            return length // 0x10
 
     def columnCount(self, parent):
         return 0x21
@@ -160,7 +161,7 @@ class HexTableModel(QAbstractTableModel):
         if not index.isValid():
             return None
 
-        elif self.qindex2index(index) >= len(self._buf):
+        elif self.qindex2index(index) >= self._meminfo.length:
             return None
 
         col = index.column()
@@ -168,15 +169,8 @@ class HexTableModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             if col == 0x10:
                 return ""
-
-            c = self._buf[bindex]
-            if isinstance(c, str):
-                # python2.7 mmap is a str interface, not bytearray
-                c = ord(c)
-            if col > 0x10:
-                return chr(c).translate(HexTableModel.FILTER)
-            else:
-                return "%02x" % (c)
+            # XXX handle ASCII part
+            return self._meminfo[bindex]
 
         elif role == Qt.BackgroundRole:
             # don't color the divider column
@@ -198,7 +192,7 @@ class HexTableModel(QAbstractTableModel):
 
     @property
     def data_length(self):
-        return len(self._buf)
+        return self._meminfo.length
 
     def headerData(self, section, orientation, role):
         if role != Qt.DisplayRole:
@@ -557,11 +551,11 @@ Origin = namedtuple("Origin", ["offset", "name"])
 class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     originsChanged = pyqtSignal()
 
-    def __init__(self, buf, parent=None):
+    def __init__(self, meminfo, parent=None):
         super(HexViewWidget, self).__init__()
         self.setupUi(self)
-        self._buf = buf
-        self._model = HexTableModel(self._buf)
+        self._meminfo = meminfo
+        self._model = HexTableModel(self._meminfo)
 
         self._colored_regions = intervaltree.IntervalTree()
         self._origins = []
@@ -737,7 +731,7 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     def _selected_data(self):
         start = self._hsm.start
         end = self._hsm.end
-        return self._buf[start:end]
+        return self._meminfo[start:end]
 
     def _handle_copy_binary(self):
         mime = QMimeData()
