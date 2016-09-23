@@ -312,7 +312,7 @@ class State(object):
                 if not v0.value < item.value:
                     continue
                 if v0.value + len(vlist) >= item.value:
-                    return self.regaddrs[item][item.value-v0.value:]
+                    return vlist[item.value-v0.value:]
             raise IndexError
 
     def mem_ranges(self):
