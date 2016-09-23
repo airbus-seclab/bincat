@@ -266,7 +266,6 @@ class Meminfo():
         if not in_range:
             return "__"
         else:
-            bc_log.debug(addr_value)
             values = self.state[addr_value]
             return values[0].__valuerepr__(16, True)
 
