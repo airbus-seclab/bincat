@@ -2,13 +2,15 @@
 # version IDA 6.9
 # runs the "bincat" command from ida
 
-import os
-import sys
-import traceback
-import tempfile
 import ConfigParser
+import hashlib
 import logging
+import os
 import re
+import StringIO
+import sys
+import tempfile
+import traceback
 try:
     import requests
 except:
@@ -83,27 +85,50 @@ class BincatPlugin(idaapi.plugin_t):
             self.state.gui.term()
 
 
-class LocalAnalyzer(QtCore.QProcess):
+class Analyzer(object):
+    def __init__(self, path, options, finish_cb):
+        self.path = path
+        self.options = options
+        self.finish_cb = finish_cb
+
+    @property
+    def initfname(self):
+        return os.path.join(self.path, "init.ini")
+
+    @property
+    def outfname(self):
+        return os.path.join(self.path, "out.ini")
+
+    @property
+    def cfainfname(self):
+        return os.path.join(self.path, "cfain.marshal")
+
+    @property
+    def cfaoutfname(self):
+        return os.path.join(self.path, "cfaout.marshal")
+
+    @property
+    def logfname(self):
+        return os.path.join(self.path, "analyzer.log")
+
+
+class LocalAnalyzer(Analyzer, QtCore.QProcess):
     """
     Runs BinCAT locally using QProcess.
     """
 
-    def __init__(self, initfname, outfname, logfname, options, finish_cb):
+    def __init__(self, *args, **kwargs):
         QtCore.QProcess.__init__(self)
+        Analyzer.__init__(self, *args, **kwargs)
         # Qprocess signal handlers
         self.error.connect(self.procanalyzer_on_error)
         self.stateChanged.connect(self.procanalyzer_on_state_change)
         self.started.connect(self.procanalyzer_on_start)
         self.finished.connect(self.procanalyzer_on_finish)
 
-        self.initfname = initfname
-        self.outfname = outfname
-        self.logfname = logfname
-        self.finish_cb = finish_cb
-
     def run(self):
         cmdline = "bincat_native %s %s %s" % (self.initfname, self.outfname,
-                                       self.logfname)
+                                              self.logfname)
         # start the process
         bc_log.debug("Analyzer cmdline: [%s]", cmdline)
         try:
@@ -147,18 +172,16 @@ class LocalAnalyzer(QtCore.QProcess):
         bc_log.info(str(self.readAllStandardError()))
         bc_log.debug("---- logfile ---------------")
         if os.path.exists(self.logfname):
-            bc_log.debug(open(self.logfname).read())
+            with open(self.logfname) as f:
+                bc_log.debug(f.read())
         bc_log.debug("----------------------------")
-        self.finish_cb(self.outfname, self.logfname)
+        self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
-class WebAnalyzer(object):
-    def __init__(self, initfname, outfname, logfname, options, finish_cb):
-        self.initfname = initfname
-        self.outfname = outfname
-        self.logfname = logfname
-        self.finish_cb = finish_cb
-        self.server_url = options.get("server_url")
+class WebAnalyzer(Analyzer):
+    def __init__(self, *args, **kwargs):
+        Analyzer.__init__(self, *args, **kwargs)
+        self.server_url = self.options.get("server_url")
 
     def run(self):
         if 'requests' not in sys.modules:
@@ -176,6 +199,14 @@ class WebAnalyzer(object):
             'filepath = %s' % sha256,
             open(self.initfname).read(),
             flags=re.MULTILINE)
+        if os.path.exists(self.cfainfname):
+            with open(self.cfainfname, 'r') as f:
+                cfa_sha256 = hashlib.sha256(f.read())
+            init_ini_str = re.sub(
+                '^in_marshalled_cfa_file = .+$',
+                'in_marshalled_cfa_file = %s' % cfa_sha256,
+                init_ini_str,
+                flags=re.MULTILINE)
         bc_log.debug(init_ini_str)
         # check whether file has already been uploaded
         check_res = requests.head(server_url + "/download/%s" % sha256)
@@ -216,7 +247,12 @@ class WebAnalyzer(object):
             outfp.write(files["out.ini"])
         with open(self.logfname, 'w') as logfp:
             logfp.write(files["analyzer.log"])
-        self.finish_cb(self.outfname, self.logfname)
+        cfa_sha256 = files["cfaout.marshal"]
+        with open(self.cfaoutfname, 'w') as cfaoutfp:
+            cfaout_marshal_str = requests.get(server_url + "/download/" +
+                                              cfa_sha256).content
+            cfaoutfp.write(cfaout_marshal_str)
+        self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
 class PluginOptions(object):
@@ -274,6 +310,8 @@ class State(object):
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
         # for debugging purposes - to interact with this object from the console
+        # XXX store in idb after encoding?
+        self.last_cfaout_marshal = None
         bc_state = self
         global bc_state
 
@@ -305,7 +343,8 @@ class State(object):
                 ea = self.netnode["current_ea"]
             else:
                 ea = None
-            self.analysis_finish_cb(outfname, logfname, ea)
+            self.analysis_finish_cb(outfname, logfname, cfaoutfname=None,
+                                    ea=ea)
 
     def clear_background(self):
         """
@@ -317,31 +356,39 @@ class State(object):
                 ea = v.value
                 idaapi.set_item_color(ea, color)
 
-    def analysis_finish_cb(self, outfname, logfname, ea=None):
+    def analysis_finish_cb(self, outfname, logfname, cfaoutfname, ea=None):
         bc_log.debug("Parsing analyzer result file")
         cfa = cfa_module.CFA.parse(outfname, logs=logfname)
         self.clear_background()
         if cfa:
             self.cfa = cfa
-            # XXX add user preference for saving to idb?
+            # XXX add user preference for saving to idb? in that case, store
+            # reference to marshalled cfa elsewhere
             bc_log.info("Storing analysis results to idb")
-            self.netnode["out.ini"] = open(outfname).read()
-            self.netnode["analyzer.log"] = open(logfname).read()
+            with open(outfname, 'r') as f:
+                self.netnode["out.ini"] = f.read()
+            with open(logfname, 'r') as f:
+                self.netnode["analyzer.log"] = f.read()
+            if cfaoutfname is not None:
+                with open(cfaoutfname, 'r') as f:
+                    self.last_cfaout_marshal = f.read()
         else:
-            bc_log.info("Empty result file.")
+            bc_log.info("Empty or unparseable result file.")
         bc_log.debug("----------------------------")
         # Update current RVA to start address (nodeid = 0)
+        current_ea = None
         if ea is not None:
             current_ea = ea
+        # elif '0' in cfa:
         else:
             node0 = cfa['0']
-            current_ea = node0.address.value
+            if node0:
+                current_ea = node0.address.value
+            else:
+                current_ea = -1
         self.set_current_ea(current_ea, force=True)
-        tainted_set = set()
+        self.netnode["current_ea"] = current_ea
         for addr, nodeids in cfa.states.items():
-            if addr in tainted_set:
-                # address already seen, is tainted
-                continue
             ea = addr.value
             tainted = False
             for n_id in nodeids:
@@ -356,7 +403,6 @@ class State(object):
                 idaapi.set_item_color(ea, 0xDDFFDD)
             else:
                 idaapi.set_item_color(ea, 0xCDCFCE)
-        self.netnode["current_ea"] = current_ea
 
     def set_current_node(self, node_id):
         if self.cfa:
@@ -385,23 +431,41 @@ class State(object):
         self.gui.after_change_ea()
 
     def start_analysis(self, config_str=None):
+        # Creates new temporary dir. File structure:
+        # input files: init.ini, cfain.marshal
+        # output files: out.ini, cfaout.marshal
+
         path = tempfile.mkdtemp(suffix='bincat')
-        initfname = os.path.join(path, "init.ini")
-        outfname = os.path.join(path, "out.ini")
-        logfname = os.path.join(path, "analyzer.log")
-
-        bc_log.debug("Current analyzer path: %s", path)
-
-        if config_str:
-            with open(initfname, 'wb') as f:
-                f.write(config_str)
-        else:
-            self.current_config.write(initfname)
 
         # instance variable: we don't want the garbage collector to delete the
         # *Analyzer instance, killing an unlucky QProcess in the process
-        self.analyzer = self.new_analyzer(
-            initfname, outfname, logfname, self.options, self.analysis_finish_cb)
+        self.analyzer = self.new_analyzer(path, self.options,
+                                          self.analysis_finish_cb)
+
+        bc_log.debug("Current analyzer path: %s", path)
+
+        # get RawConfigParser object
+        if config_str:
+            config = ConfigParser.RawConfigParser()
+            config.config.optionxform = str
+            config.readfp(StringIO.StringIO(config_str))
+        else:
+            config = self.current_config.config
+        config.set('analyzer', 'out_marshalled_cfa_file',
+                   self.analyzer.cfaoutfname)
+        config.set('analyzer', 'in_marshalled_cfa_file',
+                   self.analyzer.cfainfname)
+        config.set('analyzer', 'store_marshalled_cfa', 'true')
+        analysis_method = config.get('analyzer', 'analysis').lower()
+        if analysis_method in ("forward_cfa", "backward"):
+            if self.last_cfaout_marshal is None:
+                bc_log.error("No marshalled CFA has been recorded - run a "
+                             "forward analysis first.")
+                return
+            with open(self.analyzer.cfainfname, 'w') as f:
+                f.write(self.last_cfaout_marshal)
+        with open(self.analyzer.initfname, 'w') as f:
+            config.write(f)
         self.analyzer.run()
 
 

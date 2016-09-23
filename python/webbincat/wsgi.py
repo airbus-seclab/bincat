@@ -51,15 +51,21 @@ def download(sha256):
 def upload():
     if 'file' not in flask.request.files:
         return flask.make_response(
-            "No file named 'file' has been uploaded.", 400)
+            "This request was expected to include a file named 'file'.", 400)
     f = flask.request.files['file']
-    h = hashlib.new('sha256')
-    h.update(f.read())
-    sha256 = h.hexdigest().lower()
-    f.seek(0)
-    f.save(os.path.join(app.config['BINARY_STORAGE_FOLDER'], sha256))
+    sha256 = store_to_file(f.read())
     result = {'sha256': sha256}
     return flask.make_response(flask.jsonify(**result), 200)
+
+
+def store_to_file(s):
+    h = hashlib.new('sha256')
+    h.update(s)
+    sha256 = h.hexdigest().lower()
+    fname = os.path.join(app.config['BINARY_STORAGE_FOLDER'], sha256)
+    with open(fname, 'w') as f:
+        f.write(s)
+    return sha256
 
 
 @app.route("/analyze", methods=['POST'])
@@ -74,39 +80,57 @@ def analyze():
     # validation: valid ini file + referenced binary file has already been
     # uploaded
     config = ConfigParser.RawConfigParser()
+    config.optionxform = str
     try:
         config.readfp(init_file)
     except ConfigParser.MissingSectionHeaderError:
         return flask.make_response(
             "Supplied init.ini file format is incorrect (missing section "
             "header).", 400)
-    if not config.has_section("binary"):
-        return flask.make_response(
-            "No [binary] section in supplied init.ini file.", 400)
-    try:
-        binary_name = config.get('binary', 'filepath').lower()
-    except ConfigParser.NoOptionError:
-        return flask.make_response(
-            "No filepath in [binary] section in supplied init.ini file.", 400)
-    if not SHA256_RE.match(binary_name):
-        return flask.make_response(
-            "Binary filepath (%s) is not a valid sha256 hex string."
-            % binary_name, 400)
-    binpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'], binary_name)
-    if not os.path.exists(binpath):
-        return flask.make_response(
-            "Binary file %s has not yet been uploaded." % binary_name, 400)
+    # check required sections are present
+    for section in ["binary", "analyzer"]:
+        if not config.has_section(section):
+            return flask.make_response(
+                "No [%s] section in supplied init.ini file." % section, 400)
+    # check required values are present
+    for section, key in [("binary", "filepath"),
+                         ("analyzer", "in_marshalled_cfa_file"),
+                         ("analyzer", "store_marshalled_cfa"),
+                         ("analyzer", "analysis")]:
+        try:
+            config.get(section, key)
+        except ConfigParser.NoOptionError:
+            return flask.make_response(
+                "No %s key in [%s] section in supplied init.ini file."
+                % (section, key), 400)
+    binary_name = config.get('binary', 'filepath').lower()
+    analysis_method = config.get('analyzer', 'analysis').lower()
+    in_marshalled_cfa_file = config.get('analyzer', 'in_marshalled_cfa_file').lower()
+    input_files = [binary_name]
+    if analysis_method in ("forward_cfa", "backward"):
+        input_files.append(in_marshalled_cfa_file)
+    for fname in input_files:
+        if not SHA256_RE.match(fname):
+            return flask.make_response(
+                "Filepath (%s) is not a valid sha256 hex string."
+                % fname, 400)
+        fpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'], fname)
+        if not os.path.exists(fpath):
+            return flask.make_response(
+                "Input file %s has not yet been uploaded." % fname, 400)
     # ini file references a known file, proceeding
     # I miss python3's tempfile.TemporaryDirectory...
     dirname = tempfile.mkdtemp('bincat-web-analysis')
-    app.logger.debug("created %s %s", dirname, str(os.path.exists(dirname)))
+    app.logger.debug("created %s", dirname)
 
     cwd = os.getcwd()
     os.chdir(dirname)  # bincat outputs .dot in cwd
+    config.set('analyzer', 'out_marshalled_cfa_file', 'cfaout.marshal')
     # prepare input files
-    init_file.seek(0)
-    init_file.save(os.path.join(dirname, 'init.ini'))
-    os.link(binpath, os.path.join(dirname, binary_name))
+    config.write(open(os.path.join(dirname, 'init.ini'), 'w'))
+    for fname in input_files:
+        os.link(os.path.join(app.config['BINARY_STORAGE_FOLDER'], fname),
+                os.path.join(dirname, binary_name))
     # run bincat
     err, stdout = run_bincat(dirname)
 
@@ -114,13 +138,23 @@ def analyze():
     result['stdout'] = stdout
     result['errorcode'] = err
     logfname = os.path.join(dirname, 'analyzer.log')
+    if config.get('analyzer', 'store_marshalled_cfa') == 'true':
+        with open('cfaout.marshal') as f:
+            # store result?
+            s = f.read()
+            fname = store_to_file(s)
+            result['cfaout.marshal'] = fname
     if os.path.isfile(logfname):
-        result['analyzer.log'] = open(logfname).read()
+        with open(logfname) as f:
+            s = f.read()
+            store_to_file(s)
+            result['analyzer.log'] = s
     else:
         result['analyzer.log'] = ""
     outfname = os.path.join(dirname, 'out.ini')
     if os.path.isfile(outfname):
-        result['out.ini'] = open(outfname).read()
+        with open(outfname) as f:
+            result['out.ini'] = f.read()
     else:
         result['out.ini'] = ""
 
