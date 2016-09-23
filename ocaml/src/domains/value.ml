@@ -84,7 +84,7 @@ let neq v1 v2 =
 			 
 let leq v1 v2 =
   match v1, v2 with
-  | TOP, _ | _, TOP    		      -> true
+  | _, TOP    		      	      -> true
   | ZERO, ZERO | ONE, ONE | ZERO, ONE -> true
   | _, _ 	       		      -> false
 			    
