@@ -169,8 +169,14 @@ class HexTableModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             if col == 0x10:
                 return ""
-            # XXX handle ASCII part
-            return self._meminfo[bindex]
+            if col < 0x10:
+                return self._meminfo[bindex]
+            else:
+                try:
+                    return chr(int(self._meminfo[bindex], 16))
+                except ValueError:
+                    return '?'
+
 
         elif role == Qt.BackgroundRole:
             # don't color the divider column
