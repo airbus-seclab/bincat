@@ -44,6 +44,10 @@ class BincatPlugin(idaapi.plugin_t):
 
     # IDA API methods: init, run, term
     def init(self):
+        procname = idaapi.get_inf_structure().get_proc_name()
+        if procname[0] != 'metapc':
+            bc_log.info("Not on x86, not loading BinCAT")
+            return idaapi.PLUGIN_SKIP
         try:
             from pybincat import cfa as cfa_module
             global cfa_module
