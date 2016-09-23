@@ -315,6 +315,31 @@ class State(object):
                     return self.regaddrs[item][item.value-v0.value:]
             raise IndexError
 
+    def mem_ranges(self):
+        """
+        Return a dict of regions pointing to a list of tuples
+        the tuples indicate the valid memory ranges
+        ranges are sorted and coleasced
+        """
+        ranges = defaultdict(list)
+        for addr in self.regaddrs.keys():
+            if addr.region != 'reg':
+                ranges[addr.region].append((addr.value, addr.value+len(self.regaddrs[addr])-1))
+        # Sort ranges
+        for region in ranges:
+            ranges[region].sort(key=lambda x: x[0])
+            # merge (XXX handle overlap)
+            merged = []
+            last_addr = None
+            for crange in ranges[region]:
+                if last_addr and crange[0] == (last_addr+1):
+                    merged[-1] = (merged[-1][0], crange[1])
+                else:
+                    merged.append(crange)
+                last_addr = crange[1]
+            ranges[region] = merged
+        return ranges
+
     def __setitem__(self, item, val):
         # XXX allow random access
         self.regaddrs[item] = val
