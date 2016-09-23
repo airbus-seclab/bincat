@@ -6,6 +6,8 @@ import os
 import logging
 import idaapi
 from PyQt5 import QtCore, QtWidgets, QtGui
+import idabincat.hexview as hexview
+import pybincat.cfa as cfa
 
 # Logging
 bc_log = logging.getLogger('bincat.gui')
@@ -242,6 +244,116 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.setWindowTitle(" Analysis launcher: ")
         super(TaintLaunchForm_t, self).show()
 
+
+class Meminfo():
+    """
+        Helper class to access memory as a str
+    """
+    def __init__(self, state, region, ranges):
+        self.state = state
+        self.region = region
+        self.ranges = ranges
+        self.start = ranges[0][0]
+        self.length = ranges[-1][1]-self.start
+
+    def __getitem__(self, index):
+        """ relative get """
+        if index < 0 or index >= self.length:
+            raise IndexError
+        abs_addr = index+self.start
+        addr_value = cfa.Value(self.region, abs_addr, 32)
+        in_range = filter(lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
+        if not in_range:
+            return "__"
+        else:
+            bc_log.debug(addr_value)
+            values = self.state[addr_value]
+            return values[0].__valuerepr__(16, True)
+
+
+class BinCATHexForm_t(idaapi.PluginForm):
+    """
+    BinCAT hex form.
+    """
+    def __init__(self, state):
+        super(BinCATHexForm_t, self).__init__()
+        self.s = state
+        self.shown = False
+        self.created = False
+        self.hexwidget = None
+        self.region_select = None
+        self.range_select = None
+        self.layout = None
+        self.mem_ranges = None
+
+    @QtCore.pyqtSlot(str)
+    def update_range(self, crange):
+        cur_reg = self.region_select.currentText()
+        cur_range = self.mem_ranges[cur_reg][crange]
+        meminfo = Meminfo(self.s.current_state, cur_reg, [cur_range])
+        self.layout.removeWidget(self.hexwidget)
+        self.hexwidget = hexview.HexViewWidget(meminfo, self.parent)
+        self.layout.addWidget(self.hexwidget, 1, 0)
+
+    @QtCore.pyqtSlot(str)
+    def update_region(self, region):
+        if region != "":
+            self.range_select.blockSignals(True)
+            self.range_select.clear()
+            for r in self.mem_ranges[region]:
+                self.range_select.addItem("%08x-%08x" % r)
+            self.range_select.blockSignals(False)
+            self.range_select.setCurrentIndex(0)
+
+    def OnCreate(self, form):
+        self.created = True
+        self.parent = self.FormToPyQtWidget(form)
+        self.layout = QtWidgets.QGridLayout()
+
+        self.region_select = QtWidgets.QComboBox()
+        self.region_select.currentTextChanged.connect(self.update_region)
+        self.range_select = QtWidgets.QComboBox()
+        self.range_select.currentIndexChanged.connect(self.update_range)
+
+        self.hexwidget = hexview.HexViewWidget(None, self.FormToPyQtWidget(form))
+        self.layout.addWidget(self.region_select, 0, 0)
+        self.layout.addWidget(self.range_select, 0, 1)
+        self.layout.addWidget(self.hexwidget, 1, 0, 2, 1)
+        self.hexwidget.show()
+        self.parent.setLayout(self.layout)
+
+    def update_current_ea(self, ea):
+        """
+        :param ea: int or long
+        """
+        if not (self.shown and self.created):
+            return
+
+        if self.s.current_state:
+            self.mem_ranges = self.s.current_state.mem_ranges()
+            self.region_select.blockSignals(True)
+            self.region_select.clear()
+            for k in self.mem_ranges.keys():
+                self.region_select.addItem(k)
+            self.region_select.blockSignals(False)
+
+            self.range_select.blockSignals(True)
+            self.range_select.clear()
+            for r in self.mem_ranges.values()[0]:
+                self.range_select.addItem("%08x-%08x" % r)
+            self.range_select.blockSignals(False)
+
+
+    def OnClose(self, form):
+        self.shown = False
+        pass
+
+    def Show(self):
+        self.shown = True
+        return idaapi.PluginForm.Show(
+            self, "BinCAT Hex",
+            options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_TAB))
 
 class BinCATDebugForm_t(idaapi.PluginForm):
     """
@@ -668,6 +780,7 @@ class GUI(object):
         self.vtmodel = ValueTaintModel(state)
         self.BinCATTaintedForm = BinCATTaintedForm_t(state, self.vtmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
+        self.BinCATHexForm = BinCATHexForm_t(state)
 
         self.show_windows()
 
@@ -706,6 +819,7 @@ class GUI(object):
     def show_windows(self):
         self.BinCATDebugForm.Show()
         self.BinCATTaintedForm.Show()
+        self.BinCATHexForm.Show()
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()
@@ -714,6 +828,7 @@ class GUI(object):
         self.BinCATTaintedForm.update_current_ea(self.s.current_ea)
         self.vtmodel.endResetModel()
         self.BinCATDebugForm.update(self.s.current_state)
+        self.BinCATHexForm.update_current_ea(self.s.current_ea)
 
     def term(self):
         if self.hooks:
