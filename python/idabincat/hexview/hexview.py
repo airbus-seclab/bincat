@@ -3,7 +3,6 @@ import base64
 import binascii
 from collections import namedtuple
 
-import hexdump
 import intervaltree
 
 from PyQt5.QtGui import QIcon
@@ -709,7 +708,6 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         add_action(copy_menu, "Copy selection (binary)", self._handle_copy_binary)
         add_action(copy_menu, "Copy selection (text)", self._handle_copy_text)
         add_action(copy_menu, "Copy selection (hex)", self._handle_copy_hex)
-        add_action(copy_menu, "Copy selection (hexdump)", self._handle_copy_hexdump)
         add_action(copy_menu, "Copy selection (base64)", self._handle_copy_base64)
 
         menu.addSeparator()  # -----------------------------------------------------------------
@@ -755,12 +753,6 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     def _handle_copy_hex(self):
         mime = QMimeData()
         mime.setText(binascii.b2a_hex(self._selected_data))
-        QApplication.clipboard().setMimeData(mime)
-
-    def _handle_copy_hexdump(self):
-        mime = QMimeData()
-        t = hexdump.hexdump(self._selected_data, result="return")
-        mime.setText(t)
         QApplication.clipboard().setMimeData(mime)
 
     def _handle_copy_base64(self):
