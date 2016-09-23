@@ -309,10 +309,10 @@ class State(object):
                     continue
                 vlist = self.regaddrs[addr]
                 v0 = vlist[0]
-                if not v0.value < item.value:
+                if item.value < addr.value:
                     continue
-                if v0.value + len(vlist) >= item.value:
-                    return vlist[item.value-v0.value:]
+                if addr.value + len(vlist) >= item.value:
+                    return vlist[item.value-addr.value:]
             raise IndexError
 
     def mem_ranges(self):
