@@ -42,9 +42,11 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         stop_addr = int(self.parent().ip_stop_addr.text(), 16)
         self.s.current_config.set_start_stop_addr(start_addr, stop_addr)
         self.configtxt.appendPlainText(str(self.s.current_config))
+        self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
     def set_config(self, config_txt):
         self.configtxt.appendPlainText(config_txt)
+        self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
     def btn_launch_analyzer(self):
         self.s.current_config.reset_from_str(self.configtxt.toPlainText())
@@ -53,6 +55,7 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
     def show(self):
         self.setFixedSize(1000, 400)
         self.setWindowTitle("Edit configuration")
+        self.configtxt.setFocus()
         super(EditConfigurationFileForm_t, self).show()
 
 
