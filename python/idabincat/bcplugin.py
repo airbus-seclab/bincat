@@ -201,7 +201,9 @@ class WebAnalyzer(Analyzer):
             flags=re.MULTILINE)
         if os.path.exists(self.cfainfname):
             with open(self.cfainfname, 'r') as f:
-                cfa_sha256 = hashlib.sha256(f.read())
+                h = hashlib.new('sha256')
+                h.update(f.read())
+                cfa_sha256 = h.hexdigest().lower()
             init_ini_str = re.sub(
                 '^in_marshalled_cfa_file = .+$',
                 'in_marshalled_cfa_file = %s' % cfa_sha256,
@@ -209,7 +211,11 @@ class WebAnalyzer(Analyzer):
                 flags=re.MULTILINE)
         bc_log.debug(init_ini_str)
         # check whether file has already been uploaded
-        check_res = requests.head(server_url + "/download/%s" % sha256)
+        try:
+            check_res = requests.head(server_url + "/download/%s" % sha256)
+        except requests.exceptions.ConnectionError as e:
+            bc_log.error("Error when contacting the BinCAT server: %s", e)
+            return
         if check_res.status_code == 404:
             # Confirmation dialog before uploading file?
             msgBox = QtWidgets.QMessageBox()
@@ -247,11 +253,13 @@ class WebAnalyzer(Analyzer):
             outfp.write(files["out.ini"])
         with open(self.logfname, 'w') as logfp:
             logfp.write(files["analyzer.log"])
-        cfa_sha256 = files["cfaout.marshal"]
-        with open(self.cfaoutfname, 'w') as cfaoutfp:
-            cfaout_marshal_str = requests.get(server_url + "/download/" +
-                                              cfa_sha256).content
-            cfaoutfp.write(cfaout_marshal_str)
+        if "cfaout.marshal" in files:
+            # might be absent when analysis failed
+            cfa_sha256 = files["cfaout.marshal"]
+            with open(self.cfaoutfname, 'w') as cfaoutfp:
+                cfaout_marshal_str = requests.get(server_url + "/download/" +
+                                                  cfa_sha256).content
+                cfaoutfp.write(cfaout_marshal_str)
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
@@ -360,8 +368,8 @@ class State(object):
         bc_log.debug("Parsing analyzer result file")
         cfa = cfa_module.CFA.parse(outfname, logs=logfname)
         self.clear_background()
+        self.cfa = cfa
         if cfa:
-            self.cfa = cfa
             # XXX add user preference for saving to idb? in that case, store
             # reference to marshalled cfa elsewhere
             bc_log.info("Storing analysis results to idb")
@@ -376,18 +384,23 @@ class State(object):
             bc_log.info("Empty or unparseable result file.")
         bc_log.debug("----------------------------")
         # Update current RVA to start address (nodeid = 0)
-        current_ea = None
+        # by default, use current ea - e.g, in case there is no results (cfa is
+        # None) or no node 0 (happens in backward mode)
+        current_ea = self.current_ea
         if ea is not None:
             current_ea = ea
-        # elif '0' in cfa:
         else:
-            node0 = cfa['0']
-            if node0:
-                current_ea = node0.address.value
-            else:
-                current_ea = -1
+            try:
+                node0 = cfa['0']
+                if node0:
+                    current_ea = node0.address.value
+            except (KeyError, TypeError):
+                # no cfa is None, or no node0
+                pass
         self.set_current_ea(current_ea, force=True)
         self.netnode["current_ea"] = current_ea
+        if not cfa:
+            return
         for addr, nodeids in cfa.states.items():
             ea = addr.value
             tainted = False
@@ -417,17 +430,20 @@ class State(object):
             return
         self.gui.before_change_ea()
         self.current_ea = ea
+        nonempty_state = False
         if self.cfa:
             node_ids = self.cfa.node_id_from_addr(ea)
             if node_ids:
+                nonempty_state = True
                 if node_id in node_ids:
                     self.current_state = self.cfa[node_id]
                 else:
                     self.current_state = self.cfa[node_ids[0]]
                 self.current_node_ids = node_ids
-            else:
-                self.current_state = None
-                self.current_node_ids = []
+        if not nonempty_state:
+            self.current_state = None
+            self.current_node_ids = []
+
         self.gui.after_change_ea()
 
     def start_analysis(self, config_str=None):

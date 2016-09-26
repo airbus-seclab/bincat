@@ -130,7 +130,7 @@ def analyze():
     config.write(open(os.path.join(dirname, 'init.ini'), 'w'))
     for fname in input_files:
         os.link(os.path.join(app.config['BINARY_STORAGE_FOLDER'], fname),
-                os.path.join(dirname, binary_name))
+                os.path.join(dirname, fname))
     # run bincat
     err, stdout = run_bincat(dirname)
 
@@ -139,11 +139,12 @@ def analyze():
     result['errorcode'] = err
     logfname = os.path.join(dirname, 'analyzer.log')
     if config.get('analyzer', 'store_marshalled_cfa') == 'true':
-        with open('cfaout.marshal') as f:
-            # store result?
-            s = f.read()
-            fname = store_to_file(s)
-            result['cfaout.marshal'] = fname
+        if os.path.isfile('cfaout.marshal'):
+            with open('cfaout.marshal') as f:
+                # store result?
+                s = f.read()
+                fname = store_to_file(s)
+                result['cfaout.marshal'] = fname
     if os.path.isfile(logfname):
         with open(logfname) as f:
             s = f.read()
