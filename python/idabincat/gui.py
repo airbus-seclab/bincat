@@ -256,6 +256,22 @@ class Meminfo():
         self.start = ranges[0][0]
         self.length = ranges[-1][1]-self.start
 
+    @staticmethod
+    def color_valtaint(strval, strtaint):
+        if len(strval) != len(strtaint):
+            raise ValueError("value and taint strings are of different length", strval, strtaint)
+        color_str = ""
+        for i, c in enumerate(strval):
+            if strtaint[i] == 'F': # full taint
+                color_str += "<font color='green'>"+c+"</font>"
+            elif strtaint[i] == '0': # no taint
+                color_str += c
+            elif strtaint[i] == '?': # unknown taint
+                color_str += "<font color='cyan'>"+c+"</font>"
+            else: # no fully tainted
+                color_str += "<font color='yellow'>"+c+"</font>"
+        return color_str
+
     def __getitem__(self, index):
         """ relative get """
         if index < 0 or index >= self.length:
@@ -267,7 +283,7 @@ class Meminfo():
             return "__"
         else:
             values = self.state[addr_value]
-            return values[0].__valuerepr__(16, True)
+            return Meminfo.color_valtaint(values[0].__valuerepr__(16, True), values[0].__taintrepr__(16, True))
 
 
 class BinCATHexForm_t(idaapi.PluginForm):
@@ -302,7 +318,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
             for r in self.mem_ranges[region]:
                 self.range_select.addItem("%08x-%08x" % r)
             self.range_select.blockSignals(False)
-            self.range_select.setCurrentIndex(0)
+            self.update_range(0)
 
     def OnCreate(self, form):
         self.created = True
@@ -583,22 +599,6 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         else:
             return (2, row)
 
-    @staticmethod
-    def color_valtaint(strval, strtaint):
-        if len(strval) != len(strtaint):
-            raise ValueError("value and taint strings are of different length", strval, strtaint)
-        color_str = ""
-        for i, c in enumerate(strval):
-            if strtaint[i] == 'F': # full taint
-                color_str += "<font color='green'>"+c+"</font>"
-            elif strtaint[i] == '0': # no taint
-                color_str += c
-            elif strtaint[i] == '?': # unknown taint
-                color_str += "<font color='cyan'>"+c+"</font>"
-            else: # no fully tainted
-                color_str += "<font color='yellow'>"+c+"</font>"
-        return color_str
-
 
     def endResetModel(self):
         """
@@ -679,7 +679,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             if not strtaint:
                 strtaint = concatv.__taintrepr__(16,True)
             if strtaint != "":
-                strval = ValueTaintModel.color_valtaint(strval, strtaint)
+                strval = Meminfo.color_valtaint(strval, strtaint)
             return strval
 
     def rowCount(self, parent):
