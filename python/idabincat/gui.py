@@ -556,8 +556,8 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(ValueTaintModel, self).__init__(*args, **kwargs)
         self.s = state
-        self.headers = ["Src region", "Location", "Dst region", "Value"]
-        self.colswidths = [90, 105, 90, 250]
+        self.headers = ["register", "Value"]
+        self.colswidths = [90, 90]
         #: list of Value (addresses)
         self.rows = []
         self.changed_rows = set()
@@ -611,7 +611,8 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         self.rows = []
         self.changed_rows = set()
         if state:
-            self.rows = sorted(state.regaddrs, key=ValueTaintModel.rowcmp)
+            self.rows = filter(lambda x : x.region == "reg", state.regaddrs)
+            self.rows = sorted(self.rows, key=ValueTaintModel.rowcmp)
 
             # find parent state
             parents = [nodeid for nodeid in self.s.cfa.edges
@@ -652,21 +653,15 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             return
         regaddr = self.rows[index.row()]
         region = regaddr.prettyregion
-        if col == 0:  # region
-            return region
-        elif col == 1:  # addr
-            if region in ["global", "stack", "heap"]:
-                return regaddr.__valuerepr__()
-            else:
-                return str(regaddr.value)
-        else:
-            v = self.s.current_state[regaddr]
-            if not v:
-                return ""
-        if col == 2:  # destination region
-            return v[0].prettyregion
-        if col == 3:  # value
-            # XXX cache?
+
+        if region != "reg":
+            return
+        if col == 0:  # register name
+            return str(regaddr.value)
+        v = self.s.current_state[regaddr]
+        if not v:
+            return ""
+        if col == 1:  # value
             concatv = v[0]
             strval = ''
             for idx, nextv in enumerate(v[1:]):
