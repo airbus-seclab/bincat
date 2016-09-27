@@ -608,7 +608,7 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
             self.view.setColumnWidth(i, 35)
         self.view.setColumnWidth(0x10, 15)
         for i in range(0x11, 0x22):
-            self.view.setColumnWidth(i, 17)
+            self.view.setColumnWidth(i, 21)
 
         self._hsm = HexItemSelectionModel(self._model, self.view)
         self.view.setSelectionModel(self._hsm)

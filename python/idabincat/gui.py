@@ -4,6 +4,7 @@
 
 import os
 import logging
+import string
 import idaapi
 from PyQt5 import QtCore, QtWidgets, QtGui
 import idabincat.hexview as hexview
@@ -267,7 +268,7 @@ class Meminfo():
             elif strtaint[i] == '0': # no taint
                 color_str += c
             elif strtaint[i] == '?': # unknown taint
-                color_str += "<font color='cyan'>"+c+"</font>"
+                color_str += "<font color='blue'>"+c+"</font>"
             else: # no fully tainted
                 color_str += "<font color='yellow'>"+c+"</font>"
         return color_str
@@ -284,9 +285,12 @@ class Meminfo():
         else:
             value = self.state[addr_value][0]
             if value.is_concrete():
-                return chr(value.value)
-            else:
-                return "?"
+                char = chr(value.value)
+                if char in string.printable:
+                    return char
+                else:
+                    return '.'
+            return "?"
 
     def __getitem__(self, index):
         """ relative get """
