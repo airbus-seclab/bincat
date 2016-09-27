@@ -274,8 +274,8 @@ class State(object):
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
         # for debugging purposes - to interact with this object from the console
-        bc_state = self
         global bc_state
+        bc_state = self
 
         self.gui = GUI(self)
         if self.options.get("load_from_idb") == "True":
