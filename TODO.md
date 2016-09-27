@@ -6,7 +6,6 @@ qu'un état par instruction x86) (ou pas, à discuter)
 * supprimer les maj de flags entre deux instructions pour ceux qui sont set/undef sans avoir été testés
 
 
-* sortir les informations nécessaires à l'affichage de la teinte
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
 * tests QEMU : gérer le `printf` => directive magique ?
@@ -22,10 +21,7 @@ Hard :
 * use a shared data structure to store memory only once for all states
 
 ## Plugin IDA
-* gérer des traces multiples à la même adresse (afficher tous les états, pas juste celui marqué "final")
 * importer les valeurs concrètes depuis le debugger (mémoire et registres)
-* fenetre de registre jolie (couleur pour la teinte)
-* colorer les lignes teintées
 * désactiver les contrôles "start address" et "stop address" lorsqu'une configuration a été chargée par l'utilisateur, ou modifiée
 
 ## Global
