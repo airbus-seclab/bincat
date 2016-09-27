@@ -272,6 +272,22 @@ class Meminfo():
                 color_str += "<font color='yellow'>"+c+"</font>"
         return color_str
 
+    def char(self, index):
+        """ relative get of ASCII char """
+        if index < 0 or index >= self.length:
+            raise IndexError
+        abs_addr = index+self.start
+        addr_value = cfa.Value(self.region, abs_addr, 32)
+        in_range = filter(lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
+        if not in_range:
+            return "__"
+        else:
+            value = self.state[addr_value][0]
+            if value.is_concrete():
+                return chr(value.value)
+            else:
+                return "?"
+
     def __getitem__(self, index):
         """ relative get """
         if index < 0 or index >= self.length:
@@ -308,7 +324,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
         meminfo = Meminfo(self.s.current_state, cur_reg, [cur_range])
         self.layout.removeWidget(self.hexwidget)
         self.hexwidget = hexview.HexViewWidget(meminfo, self.parent)
-        self.layout.addWidget(self.hexwidget, 1, 0)
+        self.layout.addWidget(self.hexwidget, 1, 0, 1, 2)
 
     @QtCore.pyqtSlot(str)
     def update_region(self, region):
