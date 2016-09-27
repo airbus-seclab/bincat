@@ -224,7 +224,7 @@ class HexTableModel(QAbstractTableModel):
             else:
                 return ""
         elif orientation == Qt.Vertical:
-            return "%04X" % (section * 0x10)
+            return "%08X" % (section * 0x10 + self._meminfo.start)
 
         else:
             return None
