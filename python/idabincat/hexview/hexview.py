@@ -168,7 +168,7 @@ class HexTableModel(QAbstractTableModel):
     def rowCount(self, parent):
         length = self._meminfo.length
         if length % 0x10 != 0:
-            return length + 1
+            return (length // 0x10) + 1
         else:
             return length // 0x10
 
