@@ -12,6 +12,7 @@ from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtGui import QFontDatabase
 from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QTextDocument
 import PyQt5.QtCore as QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QSize
@@ -20,15 +21,17 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtCore import QModelIndex
 from PyQt5.QtCore import QItemSelection
 from PyQt5.QtCore import QItemSelectionModel
+from PyQt5.QtCore import QRectF
 from PyQt5.QtCore import QAbstractTableModel
 from PyQt5.QtWidgets import QMenu
+from PyQt5.QtWidgets import QStyle
 from PyQt5.QtWidgets import QAction
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QTableView
 from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QInputDialog
-from PyQt5.QtWidgets import QItemDelegate
+from PyQt5.QtWidgets import QStyledItemDelegate
 from PyQt5.QtWidgets import QAbstractItemView
 
 from .hexview_auto import Ui_Form as HexViewBase
@@ -68,7 +71,7 @@ def make_color_icon(color):
         return QIcon(pixmap)
 
 
-class HexItemDelegate(QItemDelegate):
+class HexItemDelegate(QStyledItemDelegate):
     def __init__(self, model, parent, *args):
         super(HexItemDelegate, self).__init__(parent)
         self._model = model
@@ -78,6 +81,21 @@ class HexItemDelegate(QItemDelegate):
         border = self._model.data(qindex, ROLE_BORDER)
 
         if border is None:
+            self.initStyleOption(option, qindex)
+
+            qpainter.save()
+
+            doc = QTextDocument()
+            doc.setHtml(option.text)
+
+            option.text = ""
+            option.widget.style().drawControl(QStyle.CE_ItemViewItem, option, qpainter)
+
+            qpainter.translate(option.rect.left(), option.rect.top())
+            clip = QRectF(0, 0, option.rect.width(), option.rect.height())
+            doc.drawContents(qpainter, clip)
+
+            qpainter.restore()
             return
 
         qpainter.setPen(border.theme.color)
