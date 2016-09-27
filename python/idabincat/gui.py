@@ -337,9 +337,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
         cur_reg = self.region_select.currentText()
         cur_range = self.mem_ranges[cur_reg][crange]
         meminfo = Meminfo(self.s.current_state, cur_reg, [cur_range])
-        self.layout.removeWidget(self.hexwidget)
-        self.hexwidget = hexview.HexViewWidget(meminfo, self.parent)
-        self.layout.addWidget(self.hexwidget, 1, 0, 1, 2)
+        self.hexwidget.setNewMem(meminfo)
 
     @QtCore.pyqtSlot(str)
     def update_region(self, region):
@@ -360,6 +358,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.region_select.currentTextChanged.connect(self.update_region)
         self.range_select = QtWidgets.QComboBox()
         self.range_select.currentIndexChanged.connect(self.update_range)
+        self.hexwidget = hexview.HexViewWidget(Meminfo(None, None, [[0, 0]]), self.parent)
+        self.layout.addWidget(self.hexwidget, 1, 0, 1, 2)
 
         self.layout.addWidget(self.region_select, 0, 0)
         self.layout.addWidget(self.range_select, 0, 1)

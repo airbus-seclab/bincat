@@ -110,7 +110,17 @@ class HexTableModel(QAbstractTableModel):
 
     def __init__(self, meminfo, parent=None, *args):
         super(HexTableModel, self).__init__(parent, *args)
+        self._meminfo = None
+        self._rowcount = None
+        self.setNewMem(meminfo)
+
+    def setNewMem(self, meminfo):
         self._meminfo = meminfo
+        length = self._meminfo.length
+        self._rowcount =  (length // 0x10)
+        self._lastcol = length%16
+        if self._lastcol != 0:
+            self._rowcount += 1
 
     @staticmethod
     def qindex2index(index):
@@ -135,11 +145,7 @@ class HexTableModel(QAbstractTableModel):
         return self.index(r, c)
 
     def rowCount(self, parent):
-        length = self._meminfo.length
-        if length % 0x10 != 0:
-            return (length // 0x10) + 1
-        else:
-            return length // 0x10
+        return self._rowcount
 
     def columnCount(self, parent):
         return 0x21
@@ -147,13 +153,18 @@ class HexTableModel(QAbstractTableModel):
     def data(self, index, role):
         if not index.isValid():
             return None
+        elif index.row() == (self._rowcount-1):
+            col = index.column()
+            if col > 0x10:
+                col -= 0x11
+            if col > self._lastcol:
+                return None
 
-        elif self.qindex2index(index) >= self._meminfo.length:
-            return None
-
-        col = index.column()
-        bindex = self.qindex2index(index)
         if role == Qt.DisplayRole:
+            col = index.column()
+            bindex = self.qindex2index(index)
+            if bindex >= self._meminfo.length:
+                return None
             if col == 0x10:
                 return ""
             if col < 0x10:
@@ -579,6 +590,13 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self.view.setItemDelegate(HexItemDelegate(self._model, self))
 
         self.statusLabel.setText("")
+
+
+    def setNewMem(self, meminfo):
+        self._model.beginResetModel()
+        self._meminfo = meminfo
+        self._model.setNewMem(meminfo)
+        self._model.endResetModel()
 
     def getModel(self):
         return self._model
