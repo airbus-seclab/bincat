@@ -314,11 +314,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.range_select = QtWidgets.QComboBox()
         self.range_select.currentIndexChanged.connect(self.update_range)
 
-        self.hexwidget = hexview.HexViewWidget(None, self.FormToPyQtWidget(form))
         self.layout.addWidget(self.region_select, 0, 0)
         self.layout.addWidget(self.range_select, 0, 1)
-        self.layout.addWidget(self.hexwidget, 1, 0, 2, 1)
-        self.hexwidget.show()
         self.parent.setLayout(self.layout)
 
     def update_current_ea(self, ea):
@@ -341,6 +338,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
             for r in self.mem_ranges.values()[0]:
                 self.range_select.addItem("%08x-%08x" % r)
             self.range_select.blockSignals(False)
+            self.update_range(0)
 
 
     def OnClose(self, form):
