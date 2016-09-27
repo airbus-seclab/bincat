@@ -1,7 +1,6 @@
 from collections import namedtuple
 from collections import defaultdict
 
-import funcy
 from intervaltree import IntervalTree
 from PyQt5.QtCore import QObject
 from PyQt5.QtCore import pyqtSignal
@@ -78,7 +77,7 @@ class ColorModel(QObject):
             results = self._db[begin]
         else:
             results = self._db[begin:end]
-        return funcy.pluck_attr("data", results)
+        return map(lambda x: x.data, results)
 
     def is_index_colored(self, index):
         return len(self._db[index]) > 0
