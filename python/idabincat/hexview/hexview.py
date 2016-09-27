@@ -60,39 +60,24 @@ from PyQt5.QtWidgets import QAbstractItemView
 from .hexview_auto import Ui_Form as HexViewBase
 from .common import h
 from .common import LoggingObject
-from .tablecellstylemodels import row_start_index
-from .tablecellstylemodels import row_end_index
-from .tablecellstylemodels import row_number
-from .tablecellstylemodels import ROLE_BORDER
-from .tablecellstylemodels import ColorModel
-from .tablecellstylemodels import BorderModel
 
-NamedColor = namedtuple("NamedColor", ["name", "qcolor"])
-QT_COLORS = (
-        NamedColor("red", Qt.red),
-        NamedColor("green", Qt.green),
-        NamedColor("blue", Qt.blue),
-        NamedColor("black", Qt.black),
-        NamedColor("dark red", Qt.darkRed),
-        NamedColor("dark green", Qt.darkGreen),
-        NamedColor("dark blue", Qt.darkBlue),
-        NamedColor("cyan", Qt.cyan),
-        NamedColor("magenta", Qt.magenta),
-        NamedColor("yellow", Qt.yellow),
-        NamedColor("gray", Qt.gray),
-        NamedColor("dark cyan", Qt.darkCyan),
-        NamedColor("dark magenta", Qt.darkMagenta),
-        NamedColor("dark yellow", Qt.darkYellow),
-        NamedColor("dark gray", Qt.darkGray),
-        NamedColor("light gray", Qt.lightGray),
-)
+def row_start_index(index):
+    """ get index of the start of the 0x10 byte row containing the given index """
+    return index - (index % 0x10)
 
 
-def make_color_icon(color):
-        pixmap = QPixmap(10, 10)
-        pixmap.fill(color)
-        return QIcon(pixmap)
+def row_end_index(index):
+    """ get index of the end of the 0x10 byte row containing the given index """
+    return index - (index % 0x10) + 0xF
 
+
+def row_number(index):
+    """ get row number of the 0x10 byte row containing the given index """
+    return index // 0x10
+
+
+def column_number(index):
+    return index % 0x10
 
 class HexItemDelegate(QStyledItemDelegate):
     def __init__(self, model, parent, *args):
@@ -101,39 +86,23 @@ class HexItemDelegate(QStyledItemDelegate):
 
     def paint(self, qpainter, option, qindex):
         super(HexItemDelegate, self).paint(qpainter, option, qindex)
-        border = self._model.data(qindex, ROLE_BORDER)
 
-        if border is None:
-            self.initStyleOption(option, qindex)
+        self.initStyleOption(option, qindex)
 
-            qpainter.save()
+        qpainter.save()
 
-            doc = QTextDocument()
-            doc.setHtml(option.text)
+        doc = QTextDocument()
+        doc.setHtml(option.text)
 
-            option.text = ""
-            option.widget.style().drawControl(QStyle.CE_ItemViewItem, option, qpainter)
+        option.text = ""
+        option.widget.style().drawControl(QStyle.CE_ItemViewItem, option, qpainter)
 
-            qpainter.translate(option.rect.left(), option.rect.top())
-            clip = QRectF(0, 0, option.rect.width(), option.rect.height())
-            doc.drawContents(qpainter, clip)
+        qpainter.translate(option.rect.left(), option.rect.top())
+        clip = QRectF(0, 0, option.rect.width(), option.rect.height())
+        doc.drawContents(qpainter, clip)
 
-            qpainter.restore()
-            return
-
-        qpainter.setPen(border.theme.color)
-        r = option.rect
-        if border.top:
-            qpainter.drawLine(r.topLeft(), r.topRight())
-
-        if border.bottom:
-            qpainter.drawLine(r.bottomLeft(), r.bottomRight())
-
-        if border.left:
-            qpainter.drawLine(r.topLeft(), r.bottomLeft())
-
-        if border.right:
-            qpainter.drawLine(r.topRight(), r.bottomRight())
+        qpainter.restore()
+        return
 
 
 class HexTableModel(QAbstractTableModel):
@@ -142,29 +111,6 @@ class HexTableModel(QAbstractTableModel):
     def __init__(self, meminfo, parent=None, *args):
         super(HexTableModel, self).__init__(parent, *args)
         self._meminfo = meminfo
-        self._colors = ColorModel(self)
-        self._borders = BorderModel(self)
-
-        self._colors.rangeChanged.connect(self._handle_color_range_changed)
-        self._borders.rangeChanged.connect(self._handle_border_range_changed)
-
-    def getColorModel(self):
-        return self._colors
-
-    def setColorModel(self, color_model):
-        self._colors.rangeChanged.disconnect(self._handle_color_range_changed)
-        self._colors = color_model
-        self._colors.rangeChanged.connect(self._handle_color_range_changed)
-        # TODO: re-render all cells
-
-    def getBorderModel(self):
-        return self._borders
-
-    def setBorderModel(self, color_model):
-        self._borders.rangeChanged.disconnect(self._handle_border_range_changed)
-        self._borders = color_model
-        self._borders.rangeChanged.connect(self._handle_border_range_changed)
-        # TODO: re-render all cells
 
     @staticmethod
     def qindex2index(index):
@@ -214,22 +160,6 @@ class HexTableModel(QAbstractTableModel):
                 return self._meminfo[bindex]
             else:
                 return self._meminfo.char(bindex)
-
-        elif role == Qt.BackgroundRole:
-            # don't color the divider column
-            if col == 0x10:
-                return None
-
-            color = self._colors.get_color(bindex)
-            if color is not None:
-                return QBrush(color)
-            return None
-
-        elif role == ROLE_BORDER:
-            if col == 0x10:
-                return None
-            return self._borders.get_border(bindex)
-
         else:
             return None
 
@@ -259,13 +189,6 @@ class HexTableModel(QAbstractTableModel):
             qic = self.index2qindexc(i)
             self.dataChanged.emit(qib, qib)
             self.dataChanged.emit(qic, qic)
-
-    def _handle_color_range_changed(self, range):
-        self._emit_data_changed(range.begin, range.end + 1)
-
-    def _handle_border_range_changed(self, range):
-        self._emit_data_changed(range.begin, range.end + 1)
-
 
 class HexItemSelectionModel(QItemSelectionModel):
     selectionRangeChanged = pyqtSignal([int])
@@ -660,14 +583,6 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     def getModel(self):
         return self._model
 
-    def getColorModel(self):
-        """ this is a shortcut, to make it easy to add/remove colored ranges """
-        return self.getModel().getColorModel()
-
-    def getBorderModel(self):
-        """ this is a shortcut, to make it easy to add/remove bordered ranges """
-        return self.getModel().getBorderModel()
-
     def getSelectionModel(self):
         return self._hsm
 
@@ -708,38 +623,6 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
             a.triggered.connect(handler)
             menu.addAction(a)
 
-        add_action(menu, "Color selection", self._handle_color_selection)
-
-        # duplication here with vstructui
-        color_menu = menu.addMenu("Color selection...")
-
-        # need to escape the closure capture on the color loop variable below
-        # hint from: http://stackoverflow.com/a/6035865/87207
-        def make_color_selection_handler(color):
-            return lambda: self._handle_color_selection(color=color)
-
-        for color in QT_COLORS:
-            add_action(color_menu, "{:s}".format(color.name),
-                       make_color_selection_handler(color.qcolor), make_color_icon(color.qcolor))
-
-        start = self._hsm.start
-        end = self._hsm.end
-        cm = self.getColorModel()
-        if (start == end and cm.is_index_colored(start)) or cm.is_region_colored(start, end):
-            def make_remove_color_handler(r):
-                return lambda: self._handle_remove_color_range(r)
-
-            remove_color_menu = menu.addMenu("Remove color...")
-            for cr in cm.get_region_colors(start, end):
-                pixmap = QPixmap(10, 10)
-                pixmap.fill(cr.color)
-                icon = QIcon(pixmap)
-                add_action(remove_color_menu,
-                       "Remove color [{:s}, {:s}], len: {:s}".format(h(cr.begin), h(cr.end), h(cr.end - cr.begin)),
-                       make_remove_color_handler(cr), make_color_icon(cr.color))
-
-        menu.addSeparator()  # -----------------------------------------------------------------
-
         add_action(menu, "Copy selection (binary)", self._handle_copy_binary)
         copy_menu = menu.addMenu("Copy...")
         add_action(copy_menu, "Copy selection (binary)", self._handle_copy_binary)
@@ -754,21 +637,6 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
 
     def _handle_context_menu_requested(self, qpoint):
         self.get_context_menu(qpoint).exec_(self.view.mapToGlobal(qpoint))
-
-    def _handle_color_selection(self, color=None):
-        # qt seems to set non-existant keyword args to False, so we manually reset to None
-        if not color:
-            color = None
-
-        s = self._hsm.start
-        e = self._hsm.end + 1
-        range = self.getColorModel().color_region(s, e, color=color)
-        self._hsm.bselect(-1, -1)
-        # seems to be a bit of duplication here and in the ColorModel?
-        self._colored_regions.addi(s, e, range)
-
-    def _handle_remove_color_range(self, range):
-        self.getColorModel().clear_range(range)
 
     @property
     def _selected_data(self):
