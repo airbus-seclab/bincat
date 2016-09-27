@@ -256,6 +256,8 @@ class Meminfo():
         self.ranges = ranges
         self.start = ranges[0][0]
         self.length = ranges[-1][1]-self.start
+        self.char_cache = {}
+        self.hex_cache = {}
 
     @staticmethod
     def color_valtaint(strval, strtaint):
@@ -277,33 +279,42 @@ class Meminfo():
         """ relative get of ASCII char """
         if index < 0 or index >= self.length:
             raise IndexError
+        if self.char_cache.has_key(index):
+            return self.char_cache[index]
         abs_addr = index+self.start
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
         if not in_range:
-            return "__"
+            res = "_"
         else:
             value = self.state[addr_value][0]
             if value.is_concrete():
                 char = chr(value.value)
                 if char in string.printable:
-                    return char
+                    res = char
                 else:
-                    return '.'
-            return "?"
+                    res = '.'
+            else:
+                res = "?"
+        self.char_cache[index] = res
+        return res
 
     def __getitem__(self, index):
         """ relative get """
         if index < 0 or index >= self.length:
             raise IndexError
+        if self.hex_cache.has_key(index):
+            return self.hex_cache[index]
         abs_addr = index+self.start
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
         if not in_range:
-            return "__"
+            res = "__"
         else:
             values = self.state[addr_value]
-            return Meminfo.color_valtaint(values[0].__valuerepr__(16, True), values[0].__taintrepr__(16, True))
+            res = Meminfo.color_valtaint(values[0].__valuerepr__(16, True), values[0].__taintrepr__(16, True))
+        self.hex_cache[index] = res
+        return res
 
 
 class BinCATHexForm_t(idaapi.PluginForm):
