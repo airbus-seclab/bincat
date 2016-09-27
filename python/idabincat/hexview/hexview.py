@@ -26,8 +26,6 @@ import base64
 import binascii
 from collections import namedtuple
 
-import intervaltree
-
 from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QBrush
 from PyQt5.QtGui import QPixmap
@@ -534,7 +532,6 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self._meminfo = meminfo
         self._model = HexTableModel(self._meminfo)
 
-        self._colored_regions = intervaltree.IntervalTree()
         self._origins = []
 
         # ripped from pyuic5 ui/hexview.ui
