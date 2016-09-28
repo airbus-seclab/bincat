@@ -104,7 +104,7 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 ### Dependencies
 The plugin requires the `requests` module to work:
 
-* Get it from https://pypi.python.org/pypi/requests/
+* Get it from <https://pypi.python.org/pypi/requests/>
 * Extract it
 * Run `python setup.py build`
 * Copy the `build\lib\requests` folder to IDA's `plugins` directory
@@ -139,3 +139,10 @@ Global options can be configured through the `Edit/BinCAT/Options` menu:
 
 #### Analyzer configuration files
 Default config for analyzer.
+
+### Licenses
+
+The BinCAT IDA plugin includes code from
+[python-pyqt5-hexview](https://github.com/williballenthin/python-pyqt5-hexview)
+by Willi Ballenthin, released under the Apache License 2.0.
+
