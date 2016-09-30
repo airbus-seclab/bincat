@@ -91,8 +91,6 @@ class HexItemDelegate(QStyledItemDelegate):
         self._model = model
 
     def paint(self, qpainter, option, qindex):
-        super(HexItemDelegate, self).paint(qpainter, option, qindex)
-
         self.initStyleOption(option, qindex)
 
         qpainter.save()
