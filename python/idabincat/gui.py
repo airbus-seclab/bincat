@@ -251,11 +251,12 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
 class Meminfo():
     """
-        Helper class to access memory as a str
+    Helper class to access memory as a str
     """
     def __init__(self, state, region, ranges):
         self.state = state
         self.region = region
+        #: list of ranges: [[begin int, end int], ...]
         self.ranges = ranges
         self.start = ranges[0][0]
         self.length = ranges[-1][1]-self.start
@@ -265,16 +266,17 @@ class Meminfo():
     @staticmethod
     def color_valtaint(strval, strtaint):
         if len(strval) != len(strtaint):
-            raise ValueError("value and taint strings are of different length", strval, strtaint)
+            raise ValueError("value and taint strings are of different length",
+                             strval, strtaint)
         color_str = ""
         for i, c in enumerate(strval):
-            if strtaint[i] == 'F': # full taint
+            if strtaint[i] == 'F':  # full taint
                 color_str += "<font color='green'>"+c+"</font>"
-            elif strtaint[i] == '0': # no taint
+            elif strtaint[i] == '0':  # no taint
                 color_str += c
-            elif strtaint[i] == '?': # unknown taint
+            elif strtaint[i] == '?':  # unknown taint
                 color_str += "<font color='blue'>"+c+"</font>"
-            else: # no fully tainted
+            else:  # not fully tainted
                 color_str += "<font color='yellow'>"+c+"</font>"
         return color_str
 
@@ -282,11 +284,12 @@ class Meminfo():
         """ relative get of ASCII char """
         if index < 0 or index >= self.length:
             raise IndexError
-        if self.char_cache.has_key(index):
+        if index in self.char_cache:
             return self.char_cache[index]
         abs_addr = index+self.start
         addr_value = cfa.Value(self.region, abs_addr, 32)
-        in_range = filter(lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
+        in_range = filter(
+            lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
         if not in_range:
             res = "_"
         else:
@@ -306,16 +309,19 @@ class Meminfo():
         """ relative get """
         if index < 0 or index >= self.length:
             raise IndexError
-        if self.hex_cache.has_key(index):
+        if index in self.hex_cache:
             return self.hex_cache[index]
         abs_addr = index+self.start
         addr_value = cfa.Value(self.region, abs_addr, 32)
-        in_range = filter(lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
+        in_range = filter(
+            lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
         if not in_range:
             res = "__"
         else:
             values = self.state[addr_value]
-            res = Meminfo.color_valtaint(values[0].__valuerepr__(16, True), values[0].__taintrepr__(16, True))
+            res = Meminfo.color_valtaint(
+                values[0].__valuerepr__(16, True),
+                values[0].__taintrepr__(16, True))
         self.hex_cache[index] = res
         return res
 
@@ -339,6 +345,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
     def update_range(self, crange):
         cur_reg = self.region_select.currentText()
         cur_range = self.mem_ranges[cur_reg][crange]
+        # XXX only create a new Meminfo object on EA change, load ranges from
+        # state in Meminfo __init__ ?
         meminfo = Meminfo(self.s.current_state, cur_reg, [cur_range])
         self.hexwidget.setNewMem(meminfo)
 
@@ -361,7 +369,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.region_select.currentTextChanged.connect(self.update_region)
         self.range_select = QtWidgets.QComboBox()
         self.range_select.currentIndexChanged.connect(self.update_range)
-        self.hexwidget = hexview.HexViewWidget(Meminfo(None, None, [[0, 0]]), self.parent)
+        self.hexwidget = hexview.HexViewWidget(
+            Meminfo(None, None, [[0, 0]]), self.parent)
         self.layout.addWidget(self.hexwidget, 1, 0, 1, 2)
 
         self.layout.addWidget(self.region_select, 0, 0)
@@ -390,7 +399,6 @@ class BinCATHexForm_t(idaapi.PluginForm):
             self.range_select.blockSignals(False)
             self.update_range(0)
 
-
     def OnClose(self, form):
         self.shown = False
         pass
@@ -401,6 +409,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
             self, "BinCAT Hex",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_TAB))
+
 
 class BinCATDebugForm_t(idaapi.PluginForm):
     """
@@ -468,9 +477,11 @@ class BinCATDebugForm_t(idaapi.PluginForm):
                      idaapi.PluginForm.FORM_TAB))
 
 
-## http://stackoverflow.com/questions/35397943/how-to-make-a-fast-qtableview-with-html-formatted-and-clickable-cells
-## Class to represent tainted data with colors in the BinCATTaintedForm_t
 class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
+    """
+    http://stackoverflow.com/questions/35397943/how-to-make-a-fast-qtableview-with-html-formatted-and-clickable-cells
+    Represents tainted data with colors in the BinCATTaintedForm_t
+    """
     def paint(self, painter, options, index):
         self.initStyleOption(options, index)
 
@@ -480,14 +491,14 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
         doc.setHtml(options.text)
 
         options.text = ""
-        options.widget.style().drawControl(QtWidgets.QStyle.CE_ItemViewItem, options, painter)
+        options.widget.style().drawControl(
+            QtWidgets.QStyle.CE_ItemViewItem, options, painter)
 
         painter.translate(options.rect.left(), options.rect.top())
         clip = QtCore.QRectF(0, 0, options.rect.width(), options.rect.height())
         doc.drawContents(painter, clip)
 
         painter.restore()
-
 
 
 class BinCATTaintedForm_t(idaapi.PluginForm):
@@ -570,7 +581,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
     @QtCore.pyqtSlot(str)
     def update_node(self, node):
-        if node != "" and (not self.s.current_state or node != self.s.current_state.node_id):
+        if node != "" and (not self.s.current_state or
+                           node != self.s.current_state.node_id):
             self.node_select.blockSignals(True)
             self.s.set_current_node(node)
             self.node_select.blockSignals(False)
@@ -591,9 +603,11 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
                 self.node_select.addItem(i)
             self.node_select.setCurrentText(self.s.current_state.node_id)
             self.node_select.blockSignals(False)
-            self.ncnt_label.setText('Node Count: %s' % len(self.s.current_node_ids))
+            self.ncnt_label.setText(
+                'Node Count: %s' % len(self.s.current_node_ids))
         else:
             self.nilabel.setText('No data')
+
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
     """
@@ -633,7 +647,6 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         else:
             return (2, row)
 
-
     def endResetModel(self):
         """
         Rebuild a list of rows
@@ -643,7 +656,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         self.rows = []
         self.changed_rows = set()
         if state:
-            self.rows = filter(lambda x : x.region == "reg", state.regaddrs)
+            self.rows = filter(lambda x: x.region == "reg", state.regaddrs)
             self.rows = sorted(self.rows, key=ValueTaintModel.rowcmp)
 
             # find parent state
@@ -698,20 +711,20 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             strval = ''
             for idx, nextv in enumerate(v[1:]):
                 if idx > 50:
-                    strval = concatv.__valuerepr__(16,True) + '...'
+                    strval = concatv.__valuerepr__(16, True) + '...'
                     break
                 concatv = concatv & nextv
             if not strval:
-                strval = concatv.__valuerepr__(16,True)
+                strval = concatv.__valuerepr__(16, True)
             concatv = v[0]
             strtaint = ''
             for idx, nextv in enumerate(v[1:]):
                 if idx > 50:
-                    strtaint = concatv.__taintrepr__(16,True) + '...'
+                    strtaint = concatv.__taintrepr__(16, True) + '...'
                     break
                 concatv = concatv & nextv
             if not strtaint:
-                strtaint = concatv.__taintrepr__(16,True)
+                strtaint = concatv.__taintrepr__(16, True)
             if strtaint != "":
                 strval = Meminfo.color_valtaint(strval, strtaint)
             return strval

@@ -59,23 +59,31 @@ from .hexview_auto import Ui_Form as HexViewBase
 from .common import h
 from .common import LoggingObject
 
+
 def row_start_index(index):
-    """ get index of the start of the 0x10 byte row containing the given index """
+    """
+    get index of the start of the 0x10 byte row containing the given index
+    """
     return index - (index % 0x10)
 
 
 def row_end_index(index):
-    """ get index of the end of the 0x10 byte row containing the given index """
+    """
+    get index of the end of the 0x10 byte row containing the given index
+    """
     return index - (index % 0x10) + 0xF
 
 
 def row_number(index):
-    """ get row number of the 0x10 byte row containing the given index """
+    """
+    get row number of the 0x10 byte row containing the given index
+    """
     return index // 0x10
 
 
 def column_number(index):
     return index % 0x10
+
 
 class HexItemDelegate(QStyledItemDelegate):
     def __init__(self, model, parent, *args):
@@ -93,7 +101,8 @@ class HexItemDelegate(QStyledItemDelegate):
         doc.setHtml(option.text)
 
         option.text = ""
-        option.widget.style().drawControl(QStyle.CE_ItemViewItem, option, qpainter)
+        option.widget.style().drawControl(QStyle.CE_ItemViewItem, option,
+                                          qpainter)
 
         qpainter.translate(option.rect.left(), option.rect.top())
         clip = QRectF(0, 0, option.rect.width(), option.rect.height())
@@ -104,7 +113,9 @@ class HexItemDelegate(QStyledItemDelegate):
 
 
 class HexTableModel(QAbstractTableModel):
-    FILTER = ''.join([(len(repr(chr(x)))==3 or chr(x) == "\\") and chr(x) or '.' for x in range(256)])
+    FILTER = ''.join(
+        [(len(repr(chr(x))) == 3 or chr(x) == "\\") and chr(x) or
+         '.' for x in range(256)])
 
     def __init__(self, meminfo, parent=None, *args):
         super(HexTableModel, self).__init__(parent, *args)
@@ -115,14 +126,17 @@ class HexTableModel(QAbstractTableModel):
     def setNewMem(self, meminfo):
         self._meminfo = meminfo
         length = self._meminfo.length
-        self._rowcount =  (length // 0x10)
-        self._lastcol = length%16
+        self._rowcount = (length // 0x10)
+        self._lastcol = length % 16
         if self._lastcol != 0:
             self._rowcount += 1
 
     @staticmethod
     def qindex2index(index):
-        """ from a QIndex (row/column coordinate system), get the buffer index of the byte """
+        """
+        from a QIndex (row/column coordinate system), get the buffer index of
+        the byte
+        """
         r = index.row()
         c = index.column()
         if c > 0x10:
@@ -131,13 +145,19 @@ class HexTableModel(QAbstractTableModel):
             return (0x10 * r) + c
 
     def index2qindexb(self, index):
-        """ from a buffer index, get the QIndex (row/column coordinate system) of the byte pane """
+        """
+        from a buffer index, get the QIndex (row/column coordinate system) of
+        the byte pane
+        """
         r = index // 0x10
         c = index % 0x10
         return self.index(r, c)
 
     def index2qindexc(self, index):
-        """ from a buffer index, get the QIndex (row/column coordinate system) of the char pane """
+        """
+        from a buffer index, get the QIndex (row/column coordinate system) of
+        the char pane
+        """
         r = (index // 0x10)
         c = index % 0x10 + 0x11
         return self.index(r, c)
@@ -199,6 +219,7 @@ class HexTableModel(QAbstractTableModel):
             self.dataChanged.emit(qib, qib)
             self.dataChanged.emit(qic, qic)
 
+
 class HexItemSelectionModel(QItemSelectionModel):
     selectionRangeChanged = pyqtSignal([int])
 
@@ -219,9 +240,14 @@ class HexItemSelectionModel(QItemSelectionModel):
         self.end = None
 
     def _bselect(self, selection, start_bindex, end_bindex):
-        """ add the given buffer indices to the given QItemSelection, both byte and char panes """
-        selection.select(self._model.index2qindexb(start_bindex), self._model.index2qindexb(end_bindex))
-        selection.select(self._model.index2qindexc(start_bindex), self._model.index2qindexc(end_bindex))
+        """
+        add the given buffer indices to the given QItemSelection,
+        both byte and char panes
+        """
+        selection.select(self._model.index2qindexb(start_bindex),
+                         self._model.index2qindexb(end_bindex))
+        selection.select(self._model.index2qindexc(start_bindex),
+                         self._model.index2qindexc(end_bindex))
 
     def _do_select(self, start_bindex, end_bindex):
         """
@@ -260,7 +286,8 @@ class HexItemSelectionModel(QItemSelectionModel):
         else:
             # many lines
             self._bselect(selection, start_bindex, row_end_index(start_bindex))
-            self._bselect(selection, row_start_index(start_bindex) + 0x10, row_end_index(end_bindex) - 0x10)
+            self._bselect(selection, row_start_index(start_bindex) + 0x10,
+                          row_end_index(end_bindex) - 0x10)
             self._bselect(selection, row_start_index(end_bindex), end_bindex)
 
         self.select(selection, QItemSelectionModel.SelectCurrent)
@@ -273,8 +300,8 @@ class HexItemSelectionModel(QItemSelectionModel):
         return self._do_select(start_bindex, end_bindex)
 
     def handle_move_key(self, key):
-        if self._start_qindex == self._model.index2qindexc(self.start) or \
-            self._start_qindex == self._model.index2qindexb(self.start):
+        if (self._start_qindex == self._model.index2qindexc(self.start) or
+                self._start_qindex == self._model.index2qindexb(self.start)):
             i = self.end
         else:
             i = self.start
@@ -318,8 +345,8 @@ class HexItemSelectionModel(QItemSelectionModel):
     def handle_select_key(self, key):
         i = None
         j = None
-        if self._start_qindex == self._model.index2qindexc(self.start) or \
-            self._start_qindex == self._model.index2qindexb(self.start):
+        if (self._start_qindex == self._model.index2qindexc(self.start) or
+                self._start_qindex == self._model.index2qindexb(self.start)):
             i = self.end
             j = self.start
         else:
@@ -538,10 +565,12 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         #   at commit 6c9edffd32706097d7eba8814d306ea1d997b25a
         # so we can add our custom HexTableView instance
         self.view = HexTableView(self)
-        sizePolicy = QSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
+        sizePolicy = QSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.view.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.view.sizePolicy().hasHeightForWidth())
         self.view.setSizePolicy(sizePolicy)
         self.view.setMinimumSize(QSize(660, 0))
         self.view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
@@ -556,7 +585,8 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self.mainLayout.insertWidget(0, self.view)
         # end rip
 
-        # TODO: provide a HexViewWidget.setModel method, and don't build it ourselves
+        # TODO: provide a HexViewWidget.setModel method, and don't build it
+        # ourselves
         self.view.setModel(self._model)
         for i in range(0x10):
             self.view.setColumnWidth(i, 35)
@@ -568,9 +598,11 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self.view.setSelectionModel(self._hsm)
 
         self.view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.view.customContextMenuRequested.connect(self._handle_context_menu_requested)
+        self.view.customContextMenuRequested.connect(
+            self._handle_context_menu_requested)
 
-        self._hsm.selectionRangeChanged.connect(self._handle_selection_range_changed)
+        self._hsm.selectionRangeChanged.connect(
+            self._handle_selection_range_changed)
 
         self.originsChanged.connect(self._handle_origins_changed)
 
@@ -580,14 +612,12 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         f = QFont("Monospace")
         f = QFontDatabase.systemFont(QFontDatabase.FixedFont)
 
-
         self.view.setFont(f)
         self.statusLabel.setFont(f)
 
         self.view.setItemDelegate(HexItemDelegate(self._model, self))
 
         self.statusLabel.setText("")
-
 
     def setNewMem(self, meminfo):
         self._model.beginResetModel()
@@ -640,12 +670,14 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
 
         add_action(menu, "Copy selection (binary)", self._handle_copy_binary)
         copy_menu = menu.addMenu("Copy...")
-        add_action(copy_menu, "Copy selection (binary)", self._handle_copy_binary)
+        add_action(copy_menu, "Copy selection (binary)",
+                   self._handle_copy_binary)
         add_action(copy_menu, "Copy selection (text)", self._handle_copy_text)
         add_action(copy_menu, "Copy selection (hex)", self._handle_copy_hex)
-        add_action(copy_menu, "Copy selection (base64)", self._handle_copy_base64)
+        add_action(copy_menu, "Copy selection (base64)",
+                   self._handle_copy_base64)
 
-        menu.addSeparator()  # -----------------------------------------------------------------
+        menu.addSeparator()  # --------------------------------------
 
         add_action(menu, "Add origin", lambda: self._handle_add_origin(index))
         return menu
