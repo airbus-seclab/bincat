@@ -24,7 +24,7 @@ apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-d
 2. compilation
 
 ```
-make pute
+make
 ```
 
 3. installation
