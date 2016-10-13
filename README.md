@@ -4,6 +4,7 @@
 * ocaml 4.02.3 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * ocamlfind
 * zarith library >=1.4
+* newspeak  hg clone https://sarah_zennou@bitbucket.org/iwseclabs/c2newspeak
 * python 2.7
 * pdflatex for documentation
 * pytest for tests
@@ -16,7 +17,7 @@
 
 on Debian Sid:
 ```
-apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-dev
+apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-dev python-setuptools python-dev
 ```
 
 
@@ -27,7 +28,7 @@ apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-d
 make
 ```
 
-3. installation
+3. installation (as a super user)
 
 ```
 make install
