@@ -36,7 +36,7 @@ CAMLLIBDIR:=$(shell ocamlc -where)
 CMX = $(ML:.ml=.cmx)
 CMI = $(MLI:.mli=.cmi)
 
-DIROPT = -I /home/sarah/Tools/c2newspeak/src -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
+DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
 
 
 CAMLC   =ocamlc $(DIROPT)
@@ -46,7 +46,7 @@ MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
-LIBX=unix.cmxa graph.cmxa nums.cmxa str.cmxa Npk.cmx zarith.cmxa
+LIBX=unix.cmxa graph.cmxa nums.cmxa str.cmxa npk.cmx zarith.cmxa
 
 OS:=$(shell uname)
 ifeq ($(OS), Darwin)
