@@ -125,6 +125,8 @@ rule token = parse
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)
   | value as v  	    { STRING v }
+  | "headers"  	    { HEADER }
+      
 
 (* skip comments *)
 and comment = parse
