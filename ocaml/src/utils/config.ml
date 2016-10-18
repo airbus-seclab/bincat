@@ -109,7 +109,8 @@ let add_tainting_rules libname fun_rules =
   in
   Hashtbl.replace tainting_tbl libname (fun_rules::cfuns)
 
-
+let add_typing_rules _ = failwith "Config.add_typing_rules: to implement"
+  
 (** data stuctures for the assertions *)
 let assert_untainted_functions: (Z.t, taint list) Hashtbl.t = Hashtbl.create 5
 let assert_tainted_functions: (Z.t, taint list) Hashtbl.t = Hashtbl.create 5
