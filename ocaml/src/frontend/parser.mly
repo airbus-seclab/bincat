@@ -13,6 +13,9 @@
     (* name of binary file to analyze *)
     let filename = ref ""
 
+    (* name of the npk file containing function headers *)
+    let npk_header = ref ""
+      
     (* temporay table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
 
@@ -90,7 +93,8 @@
 	  in
 	  List.iter add (List.rev funs)
 	in
-	Hashtbl.iter add_tainting_rules libraries
+	Hashtbl.iter add_tainting_rules libraries;
+	(* complete the table of function rules with type information *)
 	;;
 
 	%}
@@ -132,10 +136,11 @@
 
       import:
     | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.imports a (libname, fname) }
+    
 
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
-
+    | HEADER EQUAL npkname=STRING { npk_header := npkname }
       settings:
     | s=setting_item 		 { s }
     | s=setting_item ss=settings { s; ss }
