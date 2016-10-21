@@ -8,7 +8,7 @@
     let libname = ref "";;
 
     (* temporary table to store tainting rules on functions of a given library *)
-    let libraries = Hashtbl.create 7;;
+    let libraries: (string, Config.call_conv_t option * ((string * Config.call_conv_t option * Config.taint_t option * Config.taint_t list) list)) Hashtbl.t = Hashtbl.create 7;;
 
     (* name of binary file to analyze *)
     let filename = ref ""
@@ -89,7 +89,7 @@
 		None 	-> c'
 	      | Some c' -> c'
 	    in
-	    Config.add_tainting_rules l (fname, (c', r, args))
+	    Config.add_tainting_rules l fname c' r args
 	  in
 	  List.iter add (List.rev funs)
 	in
@@ -139,7 +139,7 @@
     | i=import l=imports  { i ; l }
 
       import:
-    | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.imports a (libname, fname) }
+    | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
     
 
       libname:

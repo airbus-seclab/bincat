@@ -89,41 +89,76 @@ let memory_content: ctbl = Hashtbl.create 10
 let stack_content: ctbl = Hashtbl.create 10
 let heap_content: ctbl = Hashtbl.create 10
 
-
-(* tainting rules for functions *)
-type taint =
+let import_tbl: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
+(* tainting and typing rules for functions *)
+type taint_t =
   | No_taint
   | Buf_taint
   | Addr_taint
-
-type tainting_fun = string * (call_conv_t * taint option * taint list)
-
-let tainting_tbl: (string, tainting_fun list) Hashtbl.t = Hashtbl.create 7
-
-let add_tainting_rules libname fun_rules =
-  let cfuns =
-    try
-      Hashtbl.find tainting_tbl libname
-    with
-      Not_found -> Hashtbl.add tainting_tbl libname []; []
-  in
-  Hashtbl.replace tainting_tbl libname (fun_rules::cfuns)
+      
+type typ_t = Npk.Newspeak.typ option
+  
+(** rule for an argument of a function or its returned value *)
+type arg_t = typ_t * taint_t
+  
+type fun_t = {
+  call_conv: call_conv_t;
+  ret: arg_t option;
+  args: arg_t list;
+}
+  
+type fid = int
+let fid_cpt = ref 0	       
+(** key is the address of the function code or import index *)
+let fid_offset_tbl: (Z.t, fid) Hashtbl.t = Hashtbl.create 5
+(** key is (function name, library name) *)
+let fid_fname_tbl: ((string * string), fid) Hashtbl.t = Hashtbl.create 5 
+let funs_tbl: (fid, fun_t) Hashtbl.t = Hashtbl.create 7 
+  
+let add_tainting_rules (libname: string) (fname: string) (callconv: call_conv_t) (taint_ret: taint_t option) (taint_args: taint_t list) =
+ try
+      let fid = Hashtbl.find fid_fname_tbl (fname, libname) in
+      let f = Hashtbl.find funs_tbl fid in
+      let ret' =
+	match taint_ret, f.ret with
+	| Some t, Some typ -> Some (fst typ, t)
+	| None, None -> None
+	|_, _ -> failwith (Printf.sprintf "Incompatible configuration for function %s (library %s)" fname libname)   
+      in 
+      Hashtbl.replace funs_tbl fid {
+	f with ret = ret';
+	  args = List.map2 (fun parg narg -> fst parg, narg) f.args taint_args
+      }
+ with
+   Not_found ->
+     Hashtbl.add fid_fname_tbl (fname, libname) !fid_cpt;
+     let ret' =
+       match taint_ret with
+       | Some t -> Some (None, t)
+       | None -> None 
+      in
+     Hashtbl.add funs_tbl !fid_cpt {
+       call_conv = callconv;
+       ret = ret';
+       args = List.map (fun a -> None, a) taint_args
+     };
+     fid_cpt := !fid_cpt + 1
 
 let add_typing_rules _ = failwith "Config.add_typing_rules: to implement"
-  
-(** data stuctures for the assertions *)
-let assert_untainted_functions: (Z.t, taint list) Hashtbl.t = Hashtbl.create 5
-let assert_tainted_functions: (Z.t, taint list) Hashtbl.t = Hashtbl.create 5
 
-(** import table *)
-(** first string is the function name, the second one its library *)
-let imports: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
+
+(** data stuctures for the assertions *)
+let assert_untainted_functions: (Z.t, taint_t list) Hashtbl.t = Hashtbl.create 5
+let assert_tainted_functions: (Z.t, taint_t list) Hashtbl.t = Hashtbl.create 5
+
+
 
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;
   Hashtbl.clear assert_tainted_functions;
-  Hashtbl.clear tainting_tbl;
+  Hashtbl.clear funs_tbl;
+  Hashtbl.clear fid_fname_tbl;
   Hashtbl.clear memory_content;
   Hashtbl.clear stack_content;
   Hashtbl.clear heap_content;
-  Hashtbl.clear imports
+  Hashtbl.clear funs_tbl

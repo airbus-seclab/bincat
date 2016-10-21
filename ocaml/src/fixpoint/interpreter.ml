@@ -136,9 +136,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
  
     (*************************** Forward from binary file ************************)
     (*****************************************************************************)
-    let apply_tainting _rules d = d (* TODO apply rules of type Config.tainting_fun *)
-    let check_tainting _f _a _d = () (* TODO check both in Config.assert_untainted_functions and Config.assert_tainted_functions *)
-
+   
     (** returns true whenever the given list of statements has a jump stmt (Jmp, Call, Return) *)
     let rec has_jmp stmts =
         match stmts with
@@ -175,28 +173,15 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	begin
 	let d = v.Cfa.State.v in
 	let d', ipstack =
-	 
-            let f, ipstack = List.hd !fun_stack in
+            let _f, ipstack = List.hd !fun_stack in
             fun_stack := List.tl !fun_stack;	
-            (* check and apply tainting rules *)
-            match f with
-            | Some (libname, fname) -> (* function library: try to apply tainting rules from config *)
-               begin
-		 try
-                   let rules =
-                     let funs = Hashtbl.find Config.tainting_tbl libname in
-                     fst (List.find (fun v -> String.compare (fst v) fname = 0) funs)
-                   in
-                   let d' = apply_tainting rules d in
-                   check_tainting f ipstack d';
-                   d', Some ipstack
-		 with
-		 | Not_found -> d, Some ipstack
-               end
-            | None -> (* internal functions: tainting rules from control flow and data flow are directly infered from analysis *) d, Some ipstack
-     
+            (* check and apply tainting and typing rules *)
+	    (* 1. check for assert *)
+	    (* 2. taint ret *)
+	    (* 3. type ret *)
+            d, Some ipstack
 	    in   
-	    (* check whether instruction pointers supposed and effective agree *)
+	    (* check whether instruction pointers supposed and effective do agree *)
 	    try
               let sp = Register.stack_pointer () in
               let ip_on_stack, is_tainted = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
@@ -239,7 +224,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let add_to_fun_stack a =
 	let f =
           try
-            Some (Hashtbl.find Config.imports (Data.Address.to_int a))
+            Some (Hashtbl.find Config.import_tbl (Data.Address.to_int a))
           with Not_found -> None
 	in
 	fun_stack := (f, ip)::!fun_stack
