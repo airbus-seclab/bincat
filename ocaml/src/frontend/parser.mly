@@ -46,7 +46,7 @@
 
       (** set the corresponding option reference (ex. Config.verbose) *)
       let update_boolean optname opt v =
-	match String.uppercase v with
+	match String.uppercase_ascii v with
 	| "TRUE"  -> opt := true
 	| "FALSE" -> opt := false
 	| _ 	  -> Log.error (Printf.sprintf "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
