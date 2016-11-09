@@ -46,7 +46,7 @@ MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
-LIBX=unix.cmxa graph.cmxa nums.cmxa str.cmxa npk.cmx zarith.cmxa
+LIBX=unix.cmxa graph.cmxa nums.cmxa str.cmxa zarith.cmxa newspeak.cmxa
 
 OS:=$(shell uname)
 ifeq ($(OS), Darwin)
