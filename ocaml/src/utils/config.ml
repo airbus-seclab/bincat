@@ -96,7 +96,7 @@ type taint_t =
   | Buf_taint
   | Addr_taint
       
-type typ_t = Npk.Newspeak.typ option
+type typ_t = Newspeak.typ option
   
 (** rule for an argument of a function or its returned value *)
 type arg_t = typ_t * taint_t

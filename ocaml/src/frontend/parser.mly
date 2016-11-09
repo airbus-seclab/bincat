@@ -96,8 +96,8 @@
 	Hashtbl.iter add_tainting_rules libraries;
 	(* complete the table of function rules with type information *)
 	try
-	  let p = Npk.Newspeak.read !npk_header in	  
-	  Config.add_typing_rules p.Npk.Newspeak.fundecs
+	  let p = Newspeak.read !npk_header in	  
+	  Config.add_typing_rules p.Newspeak.fundecs
 	with _ -> Log.error "failed to load headers from npk file"
 	;;
 
