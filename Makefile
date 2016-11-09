@@ -12,7 +12,7 @@ DOCPYPATH  =../doc/generated/python
 DOCGENPATH =doc/generated
 DOCREFPATH =doc/manual
 MLLIBDIR=../../python/idabincat
-IDAPATH   ?= $(HOME)/ida-6.9
+IDAPATH   ?= $(HOME)/ida-6.95
 IDAUSR	?= $(HOME)/.idapro
 
 all:
