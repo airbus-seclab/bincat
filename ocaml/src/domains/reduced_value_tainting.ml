@@ -76,13 +76,16 @@ let taint_of_z z (v, _t) =
   in
   v, t'
 
-let taint_to_z (_v, t) = T.to_z t
-				
+let taint_to_z (_, t) = T.to_z t
+  
+let equal (v1, _) (v2, _) = V.equal v1 v2
+
+let geq (v1, _) (v2, _) = V.geq v1 v2
+
+let lt (v1, _) (v2, _) = V.lt v1 v2
+
 let lognot (v, t) = V.lognot v, t
-
-let lt (v1, _t1) (v2, _t2) = V.lt v1 v2
-let geq (v1, _t1) (v2, _t2) = V.geq v1 v2
-
+  
 let logor (v1, t1) (v2, t2) =
   match (v1, t1), (v2, t2) with
   | (V.ONE, T.U), _ | _, (V.ONE, T.U) -> V.ONE, T.U

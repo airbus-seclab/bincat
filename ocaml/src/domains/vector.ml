@@ -67,6 +67,7 @@ sig
     (** greater than or equal to comparison *)
     val geq: t -> t -> bool
     (** check whether the first abstract value is included in the second one *)
+      (** comparison *)
     val subset: t -> t -> bool
     (** comparison *)
     val compare: t -> Asm.cmp -> t -> bool
@@ -135,14 +136,12 @@ module Make(V: Val) =
 
         let top sz = Array.make sz V.top
 
-        let exists p v =
-            try
-                for i = 0 to (Array.length v) - 1 do
-                    if p v.(i) then raise Exit
-                done;
-                false
-            with Exit -> true
-
+	let exists p v =
+	  try
+	    Array.iter (fun b -> if p b then raise Exit) v;
+	    false
+	  with Exit -> true
+	    
         let map2 f v1 v2 =
             let n = min (Array.length v1) (Array.length v2) in
             let v = Array.make n V.top                      in
@@ -151,6 +150,11 @@ module Make(V: Val) =
             done;
             v
 
+	(* let iter2 f v1 v2 =
+	  for i = 0 to (Array.length v1) -1 do
+	    f v1.(i) v2.(i)
+	  done
+	*)
         let for_all2 p v1 v2 =
             try
                 for i = 0 to (Array.length v1)-1 do
@@ -212,23 +216,8 @@ module Make(V: Val) =
 
         let join v1 v2 = map2 V.join v1 v2
 
-	let exists p v =
-	  try
-	    Array.iter (fun b -> if p b then raise Exit) v;
-	    false
-	  with Exit -> true
-	    
-        let meet v1 v2 =
-	  if exists (fun b -> V.is_top b) v1 then
-	    v2
-	  else
-	    if exists (fun b -> V.is_top b) v2 then
-	      v1
-	    else
-	      if Z.compare (to_z v1) (to_z v2) <> 0 then
-		raise Exceptions.Enum_failure
-              else v1
-	    
+        let meet v1 v2 = map2 V.meet v1 v2
+
         let widen v1 v2 =
             if Z.compare (to_z v1) (to_z v2) <> 0 then
                 raise Exceptions.Enum_failure

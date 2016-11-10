@@ -12,10 +12,10 @@ let join b1 b2 =
 
 let logor b1 b2 =
   match b1, b2 with
-  | T, T | U, T | T, U -> T
-  | U, U 	       -> U
-  | _, _ 	       -> TOP
-			 
+  | T, _ | _, T -> T
+  | U, U 	-> U
+  | _, _ 	-> TOP
+
 let meet b1 b2 =
   match b1, b2 with
   | T, T 	     -> T

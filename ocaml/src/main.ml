@@ -17,7 +17,6 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   
   (* setting the log file *)
   Log.init logfile;
-  Log.debug "init ok";
   (* setting the backtrace parameters for debugging purpose *)
   Printexc.record_backtrace true;
   let print_exc exc raw_bt =
@@ -62,8 +61,6 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     let d        = Interpreter.Cfa.init_abstract_value () in
     try
       let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
-      Log.debug (Printf.sprintf "Dans CFA en FW esp = %s" (Data.Word.to_string (Data.Word.of_int (Domain.value_of_register prev_s.Interpreter.Cfa.State.v (Register.of_name "esp")) 32)));
-      Log.debug (Printf.sprintf "Nouvel etat esp = %s" (Data.Word.to_string (Data.Word.of_int (Domain.value_of_register d (Register.of_name "esp")) 32)));
       prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
       fixpoint orig_cfa prev_s dump
     with

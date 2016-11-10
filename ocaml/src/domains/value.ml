@@ -15,7 +15,7 @@ let meet b1 b2 =
   match b1, b2 with
   | ZERO, ZERO 	    	  -> ZERO
   | ONE, ONE 	    	  -> ONE
-  | ONE, ZERO | ZERO, ONE -> ZERO
+  | ONE, ZERO | ZERO, ONE -> TOP
   | _, TOP | TOP, _ 	  -> TOP
 			       
 let to_char b =
@@ -30,7 +30,11 @@ let to_string b =
   | ZERO -> "0"
   | ONE  -> "1"
 
-let equal b1 b2 = b1 = b2
+let equal b1 b2 =
+  match b1, b2 with
+  | TOP, _ | _, TOP 
+  | ZERO, ZERO | ONE, ONE -> true
+  | _, _ -> false 
 			 
 let add b1 b2 =
   match b1, b2 with
@@ -62,7 +66,17 @@ let lognot v =
 		     
 (* finite lattice => widen = join *)
 let widen = join
-	      
+
+let logand v1 v2 =
+  match v1, v2 with
+  | ZERO, _ | _, ZERO -> ZERO
+  | _, _ -> TOP
+
+let logor v1 v2 =
+  match v1, v2 with
+  | ONE, _ | _, ONE -> ONE
+  | _, _ -> TOP
+     
 (* conversion to Z.t. May raise an exception if the conversion fails *)
 let to_z v =
   match v with
