@@ -4,7 +4,7 @@
 * ocaml 4.02.3 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * ocamlfind
 * zarith library >=1.4
-* newspeak  hg clone https://sarah_zennou@bitbucket.org/iwseclabs/c2newspeak
+* newspeak
 * python 2.7
 * pdflatex for documentation
 * pytest for tests

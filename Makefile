@@ -33,12 +33,12 @@ IDAinstall:# install
 	rm -rf "${IDAPATH}/plugins/pybincat"
 	cp -r $$(python -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAPATH}/plugins/pybincat"
 	rm -rf "${IDAPATH}/plugins/idabincat"
+	@echo $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')
 	cp -r $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAPATH}/plugins/idabincat"
 	rm -f "${IDAPATH}/plugins/bcplugin.py"
 	cp $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAPATH}/plugins/bcplugin.py"
 	mkdir -p $(IDAUSR)/idabincat
 	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
-	
 
 test: all
 	make -C $(MLTESTPATH) test
