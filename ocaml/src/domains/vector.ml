@@ -212,10 +212,22 @@ module Make(V: Val) =
 
         let join v1 v2 = map2 V.join v1 v2
 
-        let meet v1 v2 = 
-	  if Z.compare (to_z v1) (to_z v2) <> 0 then
-            raise Exceptions.Enum_failure
-          else v1
+	let exists p v =
+	  try
+	    Array.iter (fun b -> if p b then raise Exit) v;
+	    false
+	  with Exit -> true
+	    
+        let meet v1 v2 =
+	  if exists (fun b -> V.is_top b) v1 then
+	    v2
+	  else
+	    if exists (fun b -> V.is_top b) v2 then
+	      v1
+	    else
+	      if Z.compare (to_z v1) (to_z v2) <> 0 then
+		raise Exceptions.Enum_failure
+              else v1
 	    
         let widen v1 v2 =
             if Z.compare (to_z v1) (to_z v2) <> 0 then
