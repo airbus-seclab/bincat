@@ -141,11 +141,11 @@
 
       import:
     | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
-    
+    | HEADER EQUAL npkname=STRING { npk_header := npkname }    
 
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
-    | HEADER EQUAL npkname=STRING { npk_header := npkname }
+
       settings:
     | s=setting_item 		 { s }
     | s=setting_item ss=settings { s; ss }

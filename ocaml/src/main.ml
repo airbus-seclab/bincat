@@ -17,7 +17,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   
   (* setting the log file *)
   Log.init logfile;
-  
+  Log.debug "init ok";
   (* setting the backtrace parameters for debugging purpose *)
   Printexc.record_backtrace true;
   let print_exc exc raw_bt =
@@ -55,13 +55,15 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* defining the dump function to provide to the fixpoint engine *)
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
   
-  (* internal function to launch backward/forwrad analysis from a previous CFA and config *)
+  (* internal function to launch backward/forward analysis from a previous CFA and config *)
   let from_cfa fixpoint =
     let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
     let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
     let d        = Interpreter.Cfa.init_abstract_value () in
     try
       let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
+      Log.debug (Printf.sprintf "Dans CFA en FW esp = %s" (Data.Word.to_string (Data.Word.of_int (Domain.value_of_register prev_s.Interpreter.Cfa.State.v (Register.of_name "esp")) 32)));
+      Log.debug (Printf.sprintf "Nouvel etat esp = %s" (Data.Word.to_string (Data.Word.of_int (Domain.value_of_register d (Register.of_name "esp")) 32)));
       prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
       fixpoint orig_cfa prev_s dump
     with
@@ -86,7 +88,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     (* forward analysis from a CFA *)
     | Config.Forward Config.Cfa -> from_cfa Interpreter.forward_cfa
 					    
-    (* backwrad analysis from a CFA *)
+    (* backward analysis from a CFA *)
     | Config.Backward -> from_cfa Interpreter.backward
 				  
   in

@@ -410,12 +410,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       | _ -> D.forget_lval dst d, false
 			   
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * bool) =
+      Log.debug "back_set";
       match src with
       | Lval lv -> D.set lv (Lval dst) d
-      | UnOp (Not, Lval lv) -> D.set lv (UnOp (Not, Lval dst)) d 
+      | UnOp (Not, Lval lv) -> Log.debug "second case";D.set lv (UnOp (Not, Lval dst)) d 
       | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
       | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
-      | _ -> D.forget_lval dst d, false 
+      | _ -> Log.debug "default case"; D.forget_lval dst d, false 
 	
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
@@ -438,11 +439,16 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       back d stmt
 
     let back_update_abstract_value (g:Cfa.t) (pred: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
+      Log.debug (Printf.sprintf "back_udpdate_abstract_value at %s (pred is at %s)" (Data.Address.to_string v.Cfa.State.ip) (Data.Address.to_string pred.Cfa.State.ip));
       let backward _g v _ip =
 	let d', is_tainted = List.fold_left (fun (d, b) s ->
-				 let d', b' = backward_process v.Cfa.State.branch d s in
-				 d', b||b') (v.Cfa.State.v, false) (List.rev pred.Cfa.State.stmts)
-       in
+	  let d', b' = backward_process v.Cfa.State.branch d s in
+	  Log.debug (Printf.sprintf "back_process for %s" (Asm.string_of_stmt s true));
+	  if D.is_bot d' then
+	  Log.debug "returns bot";
+	  d', b||b') (v.Cfa.State.v, false) (List.rev pred.Cfa.State.stmts)
+	in
+	Log.debug "meet";
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
 	pred.Cfa.State.is_tainted <- is_tainted;
 	[pred]
@@ -557,6 +563,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| e -> dump g; raise e
 			     
       let backward (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+	Log.debug "entree dans backward";
+	Log.debug (Printf.sprintf "esp = %s" (Data.Word.to_string (Data.Word.of_int (D.value_of_register s.Cfa.State.v (Register.of_name "esp")) 32)));
 	cfa_iteration (fun g v ip vert -> back_update_abstract_value g v ip (List.hd vert))
 		      (fun g v -> [Cfa.pred g v]) back_unroll g s dump		    
   
