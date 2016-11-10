@@ -36,7 +36,7 @@ CAMLLIBDIR:=$(shell ocamlc -where)
 CMX = $(ML:.ml=.cmx)
 CMI = $(MLI:.mli=.cmi)
 
-DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I +ocamlgraph -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
+DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
 
 
 CAMLC   =ocamlc $(DIROPT)
