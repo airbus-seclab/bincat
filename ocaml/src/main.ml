@@ -76,7 +76,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     | Config.Forward Config.Bin ->
        (* 6: generate code *)
        let code = Code.make !Config.text !Config.rva_code !Config.ep		        in
-       (* 7: generate the vnitial cfa with only an initial state *)
+       (* 7: generate the nitial cfa with only an initial state *)
        let ep' 	= Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
        let s  	= Interpreter.Cfa.init ep'					        in
        let g 	= Interpreter.Cfa.create ()					        in
