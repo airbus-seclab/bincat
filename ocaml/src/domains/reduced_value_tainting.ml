@@ -86,14 +86,8 @@ let lt (v1, _) (v2, _) = V.lt v1 v2
 
 let lognot (v, t) = V.lognot v, t
   
-let logor (v1, t1) (v2, t2) =
-  match (v1, t1), (v2, t2) with
-  | (V.ONE, T.U), _ | _, (V.ONE, T.U) -> V.ONE, T.U
-  | _, _ 			      -> V.join v1 v2, T.join t1 t2
+let logor (v1, t1) (v2, t2) = V.logor v1 v2, T.logor t1 t2
 				 
-let logand (v1, t1) (v2, t2) =
-match (v1, t1), (v2, t2) with
-  | (V.ZERO, T.U), _ | _, (V.ZERO, T.U) -> V.ZERO, T.U
-  | _, _ 			        -> V.meet v1 v2, T.join t1 t2
+let logand (v1, t1) (v2, t2) = V.logand v1 v2, T.logor t1 t2
 
 let is_tainted (_v, t) = T.is_tainted t

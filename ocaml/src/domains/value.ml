@@ -15,7 +15,7 @@ let meet b1 b2 =
   match b1, b2 with
   | ZERO, ZERO 	    	  -> ZERO
   | ONE, ONE 	    	  -> ONE
-  | ONE, ZERO | ZERO, ONE -> TOP
+  | ONE, ZERO | ZERO, ONE -> raise Exceptions.Empty
   | _, TOP | TOP, _ 	  -> TOP
 			       
 let to_char b =
@@ -70,11 +70,13 @@ let widen = join
 let logand v1 v2 =
   match v1, v2 with
   | ZERO, _ | _, ZERO -> ZERO
+  | ONE, ONE -> ONE
   | _, _ -> TOP
 
 let logor v1 v2 =
   match v1, v2 with
   | ONE, _ | _, ONE -> ONE
+  | ZERO, ZERO -> ZERO  
   | _, _ -> TOP
      
 (* conversion to Z.t. May raise an exception if the conversion fails *)
