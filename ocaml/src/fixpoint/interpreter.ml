@@ -433,11 +433,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	   match branch with
 	   | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', b||b') (d, false) istmts in let v, b' = restrict d' e true in v, b||b'
 	   | Some false -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', b||b') (d, false) estmts in let v, b' = restrict d' e false in v, b||b'
-	   | None -> Log.error "illegal branch value for backward analysis"
+	   | None -> D.forget d, false
       in
       back d stmt
 
-    let back_update_abstract_value (g:Cfa.t) (pred: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
+    let back_update_abstract_value (g:Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (pred: Cfa.State.t): Cfa.State.t list =
       let backward _g v _ip =
 	let d', is_tainted = List.fold_left (fun (d, b) s ->
 	  let d', b' = backward_process v.Cfa.State.branch d s in
@@ -463,10 +463,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  new_pred
 	end
       else
-	begin
-	  pred.Cfa.State.v <- v.Cfa.State.v;
-	  pred
-	end
+	pred
 
     (*************************************)
     (* FORWARD AUXILARY FUNCTIONS ON CFA *)
@@ -484,10 +481,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  new_succ
 	end
       else
-	begin
-	  succ.Cfa.State.v <- v.Cfa.State.v;
-	  succ
-	end
+	succ
 
       
     let forward_process (d: D.t) (stmt: Asm.stmt) (branch: bool option): (D.t * bool) =
@@ -545,7 +539,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    let v = Vertices.choose !waiting in
 	    waiting := Vertices.remove v !waiting;
 	    let v' = next g v in
-	    let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v v.Cfa.State.ip [v'])@l) [] v' in
+	    let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v v'.Cfa.State.ip [v'])@l) [] v' in
 	    let new_vertices' = List.map (unroll g v) new_vertices in
 	    let vertices' = filter_vertices g new_vertices' in
 	    List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
