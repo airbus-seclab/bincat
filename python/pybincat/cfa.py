@@ -403,7 +403,7 @@ class State(object):
         return "\n".join(res)
 
     def __repr__(self):
-        return "State at address %s" % self.address
+        return "State at address %s (node=%s)" % (self.address, self.node_id)
 
 
 @functools.total_ordering
