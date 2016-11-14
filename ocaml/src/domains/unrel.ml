@@ -503,7 +503,6 @@ module Make(D: T) =
               begin
                 match r with
                 | Asm.T r' ->
- Log.debug (Printf.sprintf "muf: %s <- %s" (Register.name r') (D.to_string v'));
 		   Val (Map.add (Key.Reg r') v' m'), b
                 | Asm.P (r', low, up) -> 
                    try
@@ -538,12 +537,16 @@ module Make(D: T) =
       match m1, m2 with
       | BOT, _ | _, BOT  -> BOT
       | Val m1', Val m2' ->
-	 let m' = Map.empty in
-	 let m' = Map.fold (fun k v1 m' ->
-	   Log.debug (Printf.sprintf "key = %s" (Key.to_string k));
-	   try let v2 = Map.find k m2' in Map.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
-	 if Map.is_empty m' then BOT
-	 else Val m'
+	 if Map.is_empty m1' then
+	   m2
+	 else
+	   if Map.is_empty m2' then
+	   m1
+	   else
+	     let m' = Map.empty in
+	     let m' = Map.fold (fun k v1 m' ->
+	       try let v2 = Map.find k m2' in Map.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
+	     Val m'
 				
     let widen m1 m2 =
       match m1, m2 with
