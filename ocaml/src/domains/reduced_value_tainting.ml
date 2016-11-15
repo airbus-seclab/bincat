@@ -16,7 +16,7 @@ let forget_taint (v, _t) = v, T.TOP
 				
 let join (v1, t1) (v2, t2) = V.join v1 v2, T.join t1 t2
 
-let meet (v1, t1) (v2, t2) = V.meet v1 v2, T.logor t1 t2
+let meet (v1, t1) (v2, t2) = V.meet v1 v2, T.meet t1 t2
 						  
 let xor (v1, t1) (v2, t2) = V.xor v1 v2, T.logor t1 t2
 
@@ -88,6 +88,6 @@ let lognot (v, t) = V.lognot v, t
   
 let logor (v1, t1) (v2, t2) = V.logor v1 v2, T.logor t1 t2
 				 
-let logand (v1, t1) (v2, t2) = V.logand v1 v2, T.logor t1 t2
+let logand (v1, t1) (v2, t2) = V.logand v1 v2, T.logand t1 t2
 
 let is_tainted (_v, t) = T.is_tainted t

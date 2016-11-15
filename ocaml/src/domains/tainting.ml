@@ -16,6 +16,15 @@ let logor b1 b2 =
   | U, U 	-> U
   | _, _ 	-> TOP
 
+let logand b1 b2 =
+  match b1, b2 with
+  | T, T -> T
+  | T, U | U, T -> U
+  | U, U -> U
+  | TOP, U | U, TOP -> TOP
+  | TOP, _ | _, TOP -> TOP
+
+   
 let meet b1 b2 =
   match b1, b2 with
   | T, T 	     -> T
