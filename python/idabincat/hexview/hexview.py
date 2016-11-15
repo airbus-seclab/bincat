@@ -49,6 +49,7 @@ from PyQt5.QtWidgets import QStyle
 from PyQt5.QtWidgets import QAction
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QTableView
+from PyQt5.QtWidgets import QHeaderView
 from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWidgets import QInputDialog
@@ -88,6 +89,14 @@ def column_number(index):
 class HexItemDelegate(QStyledItemDelegate):
     def __init__(self, model, parent, *args):
         super(HexItemDelegate, self).__init__(parent)
+        # compute size hint for hex view
+        doc = QTextDocument()
+        doc.setHtml("<font color='green'>DF</font>")
+        self.hex_hint = QtCore.QSize(doc.idealWidth()-doc.documentMargin(), 22)
+        # compute size hint for char view
+        doc2 = QTextDocument()
+        doc2.setHtml("O")
+        self.char_hint = QtCore.QSize(doc2.idealWidth()-doc.documentMargin(), 22)
         self._model = model
 
     def paint(self, qpainter, option, qindex):
@@ -108,6 +117,12 @@ class HexItemDelegate(QStyledItemDelegate):
 
         qpainter.restore()
         return
+
+    def sizeHint(self, option, qindex):
+        if qindex.column() < 0x10:
+            return self.hex_hint
+        else:
+            return self.char_hint
 
 
 class HexTableModel(QAbstractTableModel):
@@ -176,7 +191,7 @@ class HexTableModel(QAbstractTableModel):
             if col > self._lastcol:
                 return None
 
-        if role == Qt.DisplayRole:
+        elif role == Qt.DisplayRole:
             col = index.column()
             bindex = self.qindex2index(index)
             if bindex >= self._meminfo.length:
@@ -195,6 +210,8 @@ class HexTableModel(QAbstractTableModel):
         return self._meminfo.length
 
     def headerData(self, section, orientation, role):
+        # if role == QtCore.Qt.SizeHintRole:
+        #     return QtCore.QSize(21, 20)
         if role != Qt.DisplayRole:
             return None
 
@@ -577,20 +594,18 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self.view.setShowGrid(False)
         self.view.setWordWrap(False)
         self.view.setObjectName("view")
-        self.view.horizontalHeader().setDefaultSectionSize(35)
-        self.view.horizontalHeader().setMinimumSectionSize(35)
-        self.view.verticalHeader().setDefaultSectionSize(31)
+        self.view.verticalHeader().setDefaultSectionSize(25)
         self.mainLayout.insertWidget(0, self.view)
         # end rip
 
         # TODO: provide a HexViewWidget.setModel method, and don't build it
         # ourselves
         self.view.setModel(self._model)
-        for i in range(0x10):
-            self.view.setColumnWidth(i, 35)
-        self.view.setColumnWidth(0x10, 15)
-        for i in range(0x11, 0x22):
-            self.view.setColumnWidth(i, 21)
+        self.hheader = self.view.horizontalHeader()
+        self.hheader.setSectionResizeMode(QHeaderView.ResizeToContents)
+        # separator column
+        self.hheader.setSectionResizeMode(0x10, QHeaderView.Interactive)
+        self.view.setColumnWidth(0x10, 5)
 
         self._hsm = HexItemSelectionModel(self._model, self.view)
         self.view.setSelectionModel(self._hsm)
