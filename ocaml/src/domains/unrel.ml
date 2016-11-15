@@ -465,7 +465,7 @@ module Make(D: T) =
          try let v, b = eval_exp m' e in D.to_addresses v, b
          with _ -> raise Exceptions.Enum_failure
 
-    (** [span_taint strong m e v] span the taint of the strongest *tainted* value of e to all its of v *)
+    (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all its of v *)
     (** if e is untainted then nothing *)
     let span_taint m e (v: D.t) =
       let rec process e =
@@ -504,16 +504,16 @@ module Make(D: T) =
                      let prev = Map.find (Key.Reg r') m' in		    
                      Val (Map.replace (Key.Reg r') (D.combine prev v' low up) m'), b
                    with
-                     Not_found -> BOT, false
+                     Not_found -> BOT, b
               end
            | Asm.M (e, n) ->
-	      let v, b = eval_exp m' e in
+	      let v, b' = eval_exp m' e in
               let addrs = D.to_addresses v in
               let l     = Data.Address.Set.elements addrs in
               try
                 match l with
-                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), b
-                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), b
+                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), b||b'
+                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), b||b'
               with Exceptions.Empty -> BOT, false
 					 
     let join m1 m2 =
