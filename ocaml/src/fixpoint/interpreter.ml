@@ -27,7 +27,7 @@ module type T =
 	      mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
 	      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	      mutable bytes: char list;      (** corresponding list of bytes *)
-	      mutable is_tainted: bool; (** true whenever a source left value is the stmt list (field stmts) is tainted *)
+	      mutable is_tainted: bool; (** true whenever a source left value is the stmt list (field stmts) may be tainted *)
 	    }
       end
       val init: Data.Address.t -> State.t
@@ -80,14 +80,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         | BBinOp (LogOr, e1, e2)  ->
            let v1, b1 = process e1 b in
            let v2, b2 = process e2 b in
-	   let is_tainted = b1||b2 in
+	   let is_tainted = if b then b1||b2 else b1&&b2 in
            if b then D.join v1 v2, is_tainted
            else D.meet v1 v2, is_tainted
 		       
         | BBinOp (LogAnd, e1, e2) ->
            let v1, b1 = process e1 b in
            let v2, b2 = process e2 b in
-	   let is_tainted = b1||b2 in
+	   let is_tainted = if b then b1&&b2 else b1||b2 in
            if b then D.meet v1 v2, is_tainted
            else D.join v1 v2, is_tainted
 		       

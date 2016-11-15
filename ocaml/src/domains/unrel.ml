@@ -269,7 +269,6 @@ module Make(D: T) =
 		  
     (** computes the value read from the map where _addr_ is located *)
     let get_mem_value map addr sz =
-      (*Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));*)
       Log.debug (Printf.sprintf "get_mem_value : %s %d" (Data.Address.to_string addr) sz );
       try
         (* expand the address + size to a list of addresses *)
@@ -348,7 +347,6 @@ module Make(D: T) =
            _big_endian_ if needed. _strong_ means strong update *)
     let write_in_memory addr domain value sz strong big_endian =
       Log.debug (Printf.sprintf "write_in_memory : %s %s %d %B" (Data.Address.to_string addr) (D.to_string value) sz strong);
-      (*Log.debug (Printf.sprintf "state : %s" ((List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc s)) "" ( Map.fold (fun k v l -> ((Key.to_string k) ^ " = " ^ (D.to_string v)) :: l) domain [] )));*)
       
       let nb = sz / 8 in
       let addrs = get_addr_list addr nb in
@@ -378,8 +376,6 @@ module Make(D: T) =
                     raise Exceptions.Empty
       in
       let rec do_update new_mem map =
-	(*                Log.debug "do_update";
-                List.iter (fun (a,v) ->   Log.debug (Printf.sprintf "addr,v : %s %s" (Data.Address.to_string a) (D.to_string v))) new_mem;*)
         match new_mem with
         | [] -> map
         | new_val::l ->
@@ -422,7 +418,7 @@ module Make(D: T) =
                let addresses = Data.Address.Set.elements (D.to_addresses r) in
                let rec to_value a =
                  match a with
-                 | [a]  -> let v = get_mem_value m a n in v, D.is_tainted v
+                 | [a]  -> let v = get_mem_value m a n in v, b || (D.is_tainted v)
                  | a::l ->
 		    let v = get_mem_value m a n in
 		    let v', b' = to_value l in
@@ -467,34 +463,12 @@ module Make(D: T) =
          try let v, b = eval_exp m' e in D.to_addresses v, b
          with _ -> raise Exceptions.Enum_failure
 			 
-			 
-    (** [update_taint strong m e v] (weak-)taint v if at least one bit of one of the registers in e is tainted *)
-    (** the taint is strong when the boolean strong is true ; weak otherwise *)
-    let weak_taint m e v =
-      let rec process e =
-        match e with
-        | Asm.Lval (Asm.V (Asm.T r)) | Asm.Lval (Asm.V (Asm.P (r, _, _))) -> let r' = Map.find (Key.Reg r) m in if D.is_tainted r' then raise Exit else ()
-        | Asm.BinOp (_, e1, e2) 			 -> process e1; process e2
-        | Asm.UnOp (_, e') 				 -> process e'
-        | _ 					 -> ()
-      in
-      try
-        begin
-          match e with
-          | Asm.Lval (Asm.M (e', _)) -> process e'
-          | _ -> ()
-        end;
-        v
-      with Exit -> D.weak_taint v
-				
 				
     let set dst src m: (t * bool) =
       match m with
       |	BOT    -> BOT, false
       | Val m' ->
-         let v', _ = eval_exp m' src in
-         let v' = weak_taint m' src v' in
-	 let b = D.is_tainted v' in
+         let v', b = eval_exp m' src in
          if D.is_bot v' then
            BOT, b
          else
