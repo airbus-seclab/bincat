@@ -72,8 +72,8 @@ module type T =
     (** [taint v] taint v *)
     val taint: t -> t
 		      
-    (** [weak_taint v] weak taint v *)
-    val weak_taint: t -> t
+    (** [span_taint v t] span taint t on each bit o v *)
+    val span_taint: t -> Tainting.t -> t
 
     (** returns the sub value between bits low and up *)
     val extract: t -> int -> int -> t
@@ -87,6 +87,8 @@ module type T =
     (** [concat [v1; v2 ; ... ; vn] ] returns value v such that v = v1 << |v2+...+vn| + v2 << |v3+...+vn| + ... + vn *)
     val concat: t list -> t
 
+      (** returns the minimal taint value of the given parameter *)
+      val get_minimal_taint: t -> Tainting.t
   end
     
     
@@ -462,13 +464,32 @@ module Make(D: T) =
       | Val m' ->
          try let v, b = eval_exp m' e in D.to_addresses v, b
          with _ -> raise Exceptions.Enum_failure
-			 
+
+    (** [span_taint strong m e v] span the taint of the strongest *tainted* value of e to all its of v *)
+    (** if e is untainted then nothing *)
+    let span_taint m e (v: D.t) =
+      let rec process e =
+        match e with
+        | Asm.Lval (Asm.V (Asm.T r)) | Asm.Lval (Asm.V (Asm.P (r, _, _))) ->
+	   let r' = Map.find (Key.Reg r) m in
+	   D.get_minimal_taint r'
+	     
+        | Asm.BinOp (_, e1, e2) 			 -> Tainting.min (process e1) (process e2)
+        | Asm.UnOp (_, e') 				 -> process e'
+        | _ 					 -> Tainting.U
+      in
+      match e with
+      | Asm.Lval (Asm.M (e', _)) -> D.span_taint v (process e')
+      | _ -> v
+				
 				
     let set dst src m: (t * bool) =
       match m with
       |	BOT    -> BOT, false
       | Val m' ->
-         let v', b = eval_exp m' src in
+         let v', _ = eval_exp m' src in
+         let v' = span_taint m' src v' in
+	 let b = D.is_tainted v' in
          if D.is_bot v' then
            BOT, b
          else

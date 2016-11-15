@@ -33,10 +33,10 @@ module Make (V: Vector.T) =
             | TOP | BOT  -> p
             | Val (r, o) -> Val (r, V.taint o)
 
-        let weak_taint  p =
+        let span_taint p t =
             match p with
             | TOP | BOT  -> p
-            | Val (r, o) -> Val (r, V.weak_taint o)
+            | Val (r, o) -> Val (r, V.span_taint o t)
 
         let join p1 p2 =
             match p1, p2 with
@@ -191,4 +191,9 @@ module Make (V: Vector.T) =
                     Val (r1, V.concat o1 o2)
                 else BOT
 
+	let get_minimal_taint p =
+	  match p with
+	  | TOP | BOT -> Tainting.TOP
+	  | Val (_, o) -> V.get_minimal_taint o
+	     
     end: Unrel.T)

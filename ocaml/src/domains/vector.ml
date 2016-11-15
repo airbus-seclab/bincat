@@ -52,8 +52,8 @@ sig
     val untaint: t -> t
     (** taint *)
     val taint: t -> t
-    (** weak taint *)
-    val weak_taint: t -> t
+    (** update taint *)
+    val update_taint: Tainting.t -> t -> t
     (** abstract value of 1 *)
     val one: t
     (** comparison to one *)
@@ -73,6 +73,8 @@ sig
     val compare: t -> Asm.cmp -> t -> bool
     (** undefine the taint of the given value *)
     val forget_taint: t -> t
+      (** returns the taint value of the given parameter *)
+    val get_taint: t -> Tainting.t
 end
 
 (** signature of vector *)
@@ -102,8 +104,8 @@ sig
     val untaint: t -> t
     (** taint *)
     val taint: t -> t
-    (** weak taint *)
-    val weak_taint: t -> t
+    (** span taint *)
+    val span_taint: t -> Tainting.t -> t
     (** conversion from word *)
     val of_word: Data.Word.t -> t
     (** comparison *)
@@ -128,6 +130,8 @@ sig
     val of_repeat_val: t -> int -> int -> t
     (** returns the concatenation of the two given vectors *)
     val concat: t -> t -> t
+(** returns the minimal taint value of the given parameter *)
+    val get_minimal_taint: t -> Tainting.t
 end
 
 module Make(V: Val) =
@@ -387,7 +391,11 @@ module Make(V: Val) =
 
         let taint v = Array.map V.taint v
 
-        let weak_taint v = Array.map V.weak_taint v
+        let span_taint v t = Array.map (V.update_taint t) v
+	  
+	let get_minimal_taint v =
+	  Array.fold_left (fun acc v -> Tainting.min acc (V.get_taint v)) Tainting.U v
+	  
 
         let nth_of_z_as_val v i = if Z.testbit v i then V.one else V.zero
         let nth_of_z v i = if Z.testbit v i then Z.one else Z.zero

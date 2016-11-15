@@ -46,10 +46,12 @@ let char_of_taint (_v, t) = T.to_char t
 			   
 let untaint (v, t) = v, T.untaint t
 let taint (v, t) = v, T.taint t
-let weak_taint (v, t) = v, T.weak_taint t
+let update_taint t' (v, _) = v, t'
 					
 let compare (v1, _t1) op (v2, _t2) = V.compare v1 op v2
 
+let get_taint (_, t) = t
+  
 let one = V.ONE, T.U
 let is_one (v, _t) = v = V.ONE 
 			    

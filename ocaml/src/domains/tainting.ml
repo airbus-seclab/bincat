@@ -65,7 +65,13 @@ let default = U
 
 let untaint _t = U
 let taint _t = T
-let weak_taint _t = TOP
+
+let min t1 t2 =
+  match t1, t2 with
+  | U, t  | t, U -> t
+  | T, _  | _, T -> T
+  | _, _ -> TOP
+     
 		      
 let is_tainted t =
   match t with
