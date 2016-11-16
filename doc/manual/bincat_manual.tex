@@ -15,6 +15,25 @@
 can be found in html and latex format for both python and ocaml \newline
 in doc/generated/[python|ocaml]/[html|latex]
 
+\chapter{Color rules for tainting analysis}
+in Bincat Tainting Vue
+green : tainted
+black not tainted
+blue: unknown tainting
+yellow: partial tainting
 
+in IDA view:
+gray: instruction has been analysed
+green: at least one operand source of the instruction is tainted
 
+rule for call:
+- a call is colored if at least one of its instruction is colored
+- ecx is tainted in repne scasb if at least one bit of edi is tainted. It receives the strongest tainted value of edi
+
+noms Node dans BinCAT View
+ALL, NONE
+
+idee formation:
+sur le meme code, mettre un taintage sur puis rejouer avec taintage incertain ou en backward
+trouver un endroit de taint imprecise et faire clic droit taint/untaint de la destination (on ne le fait que sur des set)
 \end{document}

@@ -18,5 +18,15 @@ let z_to_bit_string i =
 let string_to_bit_string i = z_to_bit_string (Z.of_string i) 
 					     
 
+
+
+(** builds 0xffff...ff with nb repetitions of the pattern ff *)
+let ff nb =
+  let ff = Z.of_int 0xff in
+  let s = ref Z.zero in
+  for _i = 1 to nb do
+    s := Z.add ff (Z.shift_left !s 8)
+  done;
+  !s
 					  
        

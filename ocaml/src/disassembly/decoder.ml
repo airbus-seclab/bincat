@@ -14,7 +14,6 @@ struct
 
     (************************************************************************)
     (* Generic Helpers *)
-    (* TODO : move to another file ? *)
     (************************************************************************)
 
     (** [const c sz] builds the asm constant of size _sz_ from int _c_ *)
@@ -253,10 +252,10 @@ struct
         buf 	     	    : string;      (** buffer to decode *)
         mutable o 	    : int; 	   (** current offset to decode into the buffer *)
         mutable rep_prefix: bool option; (** None = no rep prefix ; Some true = rep prefix ; Some false = repne/repnz prefix *)
-        mutable segments  : segment_t;   (** all about segmentation *)
-        mutable rep: bool;               (** true whenever a REP opcode has been decoded *)
-        mutable repe: bool;              (** true whenever a REPE opcode has been decoded *)
-        mutable repne: bool;             (** true whenever a REPNE opcode has been decoded *)
+      mutable segments  : segment_t;   (** all about segmentation *)
+      mutable rep: bool;               (** true whenever a REP opcode has been decoded *)
+      mutable repe: bool;              (** true whenever a REPE opcode has been decoded *)
+      mutable repne: bool;             (** true whenever a REPNE opcode has been decoded *)
     }
 
 
@@ -312,7 +311,7 @@ struct
     (** update and return the current state with the given statements and the new instruction value *)
     (** the context of decoding is also updated *)
     let return s stmts =
-        s.b.Cfa.State.ctx <- { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz };
+      s.b.Cfa.State.ctx <- { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz };
         s.b.Cfa.State.stmts <- stmts;
         s.b.Cfa.State.bytes <- List.rev s.c;
         s.b, Address.add_offset s.a (Z.of_int s.o)
@@ -320,6 +319,7 @@ struct
     (************************************************************************************)
     (* segmentation *)
     (************************************************************************************)
+	  
     (** builds information from a value as supposed to contained in a segment register *)
     let mask_of_segment_register_content v =
         let lvl   = v land 3         in
@@ -329,16 +329,6 @@ struct
 
     (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
 
-    (** initialization of the segmentation *)
-    let init () =
-        let ldt = Hashtbl.create 5  in
-        let gdt = Hashtbl.create 19 in
-        let idt = Hashtbl.create 15 in
-        (* builds the gdt *)
-        Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
-        let reg = Hashtbl.create 6 in
-        List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
-        { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
 
     let get_segments a ctx =
         let registers = Hashtbl.create 6 in
@@ -1839,6 +1829,17 @@ struct
         in
         decode s;;
 
+     (** initialization of the decoder *)
+    let init () =
+      let ldt = Hashtbl.create 5  in
+      let gdt = Hashtbl.create 19 in
+      let idt = Hashtbl.create 15 in
+        (* builds the gdt *)
+      Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
+        let reg = Hashtbl.create 6 in
+        List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
+        { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
+	  
     (** launch the decoder *)
     let parse text g is v a ctx =
         let s' = {

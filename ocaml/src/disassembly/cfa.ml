@@ -109,16 +109,6 @@ module Make(Domain: Domain.T) =
 	  Config.register_content d
 
 
-
-      (** builds 0xffff...ff with nb repetitions of the pattern ff *)
-      let ff nb =
-	let ff = Z.of_int 0xff in
-	let s = ref Z.zero in
-	for _i = 1 to nb do
-	  s := Z.add ff (Z.shift_left !s 8)
-	done;
-	!s
-
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding tables in Config *)
     let init_mem domain region content_tbl =

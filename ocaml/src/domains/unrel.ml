@@ -571,14 +571,22 @@ module Make(D: T) =
       | Config.Content z | Config.CMask (z, _) -> round_sz (Z.numbits z)
       | Config.Bytes b | Config.Bytes_Mask (b, _) -> Log.debug (Printf.sprintf "size_of_content %s" b); (String.length b)*4
 															    
-															    
+
     (** builds an abstract tainted value from a config concrete tainted value *)
     let of_config region (content, taint) sz =
       let v' = D.of_config region content sz in
       match taint with
       | Some taint' -> D.taint_of_config taint' sz v'
       | None 	-> v'
-		     
+
+    let taint_register_mask reg taint m =
+      match m with
+      | BOT -> BOT
+      | Val m' ->
+	 let k = Key.Reg reg in
+	 let v = Map.find k m' in
+	 Val (Map.replace k (D.taint_of_config taint (Register.size reg) v) m')
+	  
     let set_memory_from_config addr region (content, taint) nb domain =
       if nb > 0 then
         match domain with

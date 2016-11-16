@@ -62,7 +62,10 @@ module type T =
       (** [set_register_from_config r c nb m] update the abstract value _m_ with the value configuration (pair content * tainting value) for register _r_ *)
       (** the integer _nb_ is the number of consecutive configuration _t_ to set *)
       val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> t -> t
-
+     
+      (** apply the given taint mask to the given register *)
+      val taint_register_mask: Register.t -> Config.tvalue -> t -> t
+	
       (** [compare v e1 c e2] restrict the given abstract value d to abstract value that satisfy the binary comparison (e1 c e2) *)
       (** may raise exception Exceptions.EmptyEnv *)
       val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> (t * bool)

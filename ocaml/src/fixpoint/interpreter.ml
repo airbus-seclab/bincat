@@ -268,7 +268,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
           List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
         with Jmp_exn ->
              match s with 
-             | If (e, then_stmts, else_stmts) ->  process_if_with_jmp vertices e then_stmts else_stmts 
+             | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
 		
              | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
 				     
@@ -358,6 +358,27 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let d = ref (Decoder.init ())             in
       (* function stack *)
       let fun_stack = ref []                    in
+      (* compute override rules to apply *)
+      let overrides = Hashtbl.create 5 in
+      Hashtbl.iter (fun z rules ->
+	let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
+	let check reg vals =
+	      (* check the size of taint mask is compatible with the size of the register *)
+	  let len = Register.size reg in
+	  List.iter (fun v -> if String.length (Bits.z_to_bit_string v) > len then
+	      Log.error (Printf.sprintf "Illegal taint mask for register %s" (Register.name reg))) vals
+	in
+	let rules' =
+	  List.map (fun (reg, rule) ->
+	    begin
+	      match rule with
+	      | Config.Taint v -> check reg [v]
+	      | Config.TMask (v, m) -> check reg [v ; m]
+	    end;
+	    D.taint_register_mask reg rule) rules
+	in
+	Hashtbl.add overrides ip rules'
+      ) Config.override;
       while !continue do
         (* a waiting node is randomly chosen to be explored *)
         let v = Vertices.choose !waiting in
@@ -376,7 +397,17 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             | Some (v, ip', d') ->
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                         in
-               (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
+	       	(* add overrides if needed *)
+	       let new_vertices =
+		 try
+		   let rules = Hashtbl.find overrides v.Cfa.State.ip in
+		   Log.from_analysis "applied tainting override";
+		   List.map (fun v ->
+		     v.Cfa.State.v <- List.fold_left (fun d f -> f d) v.Cfa.State.v rules; v) new_vertices
+		 with
+		   Not_found -> new_vertices
+	       in
+	       (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
                let vertices'  = filter_vertices g new_vertices				     		         in
                List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
                (* udpate the internal state of the decoder *)

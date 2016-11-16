@@ -80,6 +80,8 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
+let override: (Z.t, ((Register.t * tvalue) list)) Hashtbl.t = Hashtbl.create 5
+    
 (* tables for initialize global memory, stack and heap *)
 (* first element in the key is the address ; second one is the number of repetition *)
 type ctbl = (Z.t * int, cvalue * (tvalue option)) Hashtbl.t
@@ -161,4 +163,5 @@ let clear_tables () =
   Hashtbl.clear memory_content;
   Hashtbl.clear stack_content;
   Hashtbl.clear heap_content;
-  Hashtbl.clear funs_tbl
+  Hashtbl.clear funs_tbl;
+  Hashtbl.clear override

@@ -42,6 +42,7 @@ rule token = parse
   | '<'         	    { LANGLE_BRACKET }
   | '>'         	    { RANGLE_BRACKET }
   | ','         	    { COMMA }
+  | ';'         	    { SEMI_COLON }
   | '_'                     { UNDERSCORE }
   (* byte string *)
   | '|'         	    { read_bytes (Buffer.create 80) lexbuf }
@@ -126,6 +127,9 @@ rule token = parse
   (* misc left operands *)
   | value as v  	    { STRING v }
   | "headers"  	    { HEADER }
+  | "override"      { OVERRIDE }
+  | "ALL"  	    { ALL }
+  | "NONE"  	    { NONE }
       
 
 (* skip comments *)

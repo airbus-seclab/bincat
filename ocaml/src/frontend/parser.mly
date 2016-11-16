@@ -15,8 +15,9 @@
 
     (* name of the npk file containing function headers *)
     let npk_header = ref ""
-      
-    (* temporay table used to check that all mandatory elements are filled in the configuration file *)
+
+    
+    (* temporary table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
 
     let mandatory_items = [
@@ -108,9 +109,10 @@
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
-%token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE
+%token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token <string> STRING
+%token OVERRIDE NONE ALL
+%token <string> STRING 
 %token <string> HEX_BYTES
 %token <Z.t> INT
 %start <unit> process
@@ -134,7 +136,26 @@
     | LEFT_SQ_BRACKET l=libname RIGHT_SQ_BRACKET lib=library { l; lib }
     | LEFT_SQ_BRACKET ASSERT RIGHT_SQ_BRACKET r=assert_rules { r }
     | LEFT_SQ_BRACKET IMPORTS RIGHT_SQ_BRACKET i=imports     { i }
+    | LEFT_SQ_BRACKET OVERRIDE RIGHT_SQ_BRACKET o=overrides     { o }
 
+    overrides:
+    |                     { () }
+    | o=override l=overrides { o ; l }
+
+    override:
+    | a=INT EQUAL l = tainting_rules { Hashtbl.replace Config.override a l }
+
+    tainting_rules:
+    |                     { [] }
+    | t=tainting SEMI_COLON l=tainting_rules { t::l }
+    
+    tainting:
+    | r=STRING COMMA ALL { let reg = Register.of_name r in (reg, Config.Taint (Bits.ff ((Register.size reg)/8))) }
+    | r=STRING COMMA NONE { (Register.of_name r, Config.Taint Z.zero) }
+    | r=STRING COMMA s=tcontent { (Register.of_name r, s) }
+
+    
+    
       imports:
     |                     { () }
     | i=import l=imports  { i ; l }
