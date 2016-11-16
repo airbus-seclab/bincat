@@ -340,10 +340,12 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.range_select = None
         self.layout = None
         self.mem_ranges = None
+        self.pretty_to_int_map = \
+            dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
 
     @QtCore.pyqtSlot(str)
     def update_range(self, crange):
-        cur_reg = self.region_select.currentText()
+        cur_reg = self.pretty_to_int_map[self.region_select.currentText()]
         cur_range = self.mem_ranges[cur_reg][crange]
         # XXX only create a new Meminfo object on EA change, load ranges from
         # state in Meminfo __init__ ?
@@ -351,7 +353,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.hexwidget.setNewMem(meminfo)
 
     @QtCore.pyqtSlot(str)
-    def update_region(self, region):
+    def update_region(self, pretty_region):
+        region = self.pretty_to_int_map[pretty_region]
         if region != "":
             self.range_select.blockSignals(True)
             self.range_select.clear()
@@ -389,7 +392,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
             self.region_select.blockSignals(True)
             self.region_select.clear()
             for k in self.mem_ranges.keys():
-                self.region_select.addItem(k)
+                self.region_select.addItem(cfa.PRETTY_REGIONS.get(k, k))
             self.region_select.blockSignals(False)
 
             self.range_select.blockSignals(True)
