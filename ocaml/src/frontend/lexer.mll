@@ -125,11 +125,12 @@ rule token = parse
   (* left operand of type integer *)
   | integer as i 	    { INT (Z.of_string i) }
   (* misc left operands *)
-  | value as v  	    { STRING v }
   | "headers"  	    { HEADER }
   | "override"      { OVERRIDE }
   | "ALL"  	    { ALL }
   | "NONE"  	    { NONE }
+  | value as v      { STRING v }
+ 
       
 
 (* skip comments *)

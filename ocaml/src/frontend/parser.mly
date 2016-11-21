@@ -97,10 +97,10 @@
 	Hashtbl.iter add_tainting_rules libraries;
 	(* complete the table of function rules with type information *)
 	if String.compare !npk_header "" <> 0 then
-	  try
-	    let p = Newspeak.read !npk_header in	  
-	    Config.add_typing_rules p.Newspeak.fundecs
-	  with _ -> Log.error "failed to load headers from npk file"
+	    try
+	      let p = Newspeak.read !npk_header in	  
+	      Config.add_typing_rules p.Newspeak.fundecs
+	    with _ -> Log.error "failed to load headers from npk file"
 	;;
 
 	%}
@@ -153,8 +153,6 @@
     | r=STRING COMMA ALL { let reg = Register.of_name r in (reg, Config.Taint (Bits.ff ((Register.size reg)/8))) }
     | r=STRING COMMA NONE { (Register.of_name r, Config.Taint Z.zero) }
     | r=STRING COMMA s=tcontent { (Register.of_name r, s) }
-
-    
     
       imports:
     |                     { () }
