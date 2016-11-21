@@ -649,26 +649,11 @@ module Make(D: T) =
       | BOT -> raise Exceptions.Concretization
       | Val m' -> D.to_z (fst (eval_exp m' e))
 
-    let rec process_tainted e m' =
-        match e with
-        | Asm.BinOp (_, e1, e2) -> (process_tainted e1 m') || (process_tainted e2 m')
-        | Asm.UnOp (_, e') -> process_tainted e' m'
-        | Asm.Lval lv -> process_lval_tainted lv m'
-        | _ -> false
-        and process_lval_tainted lv m' =
-            match lv with
-            | Asm.V (Asm.T r) -> D.is_tainted (Map.find (Key.Reg r) m')
-            | Asm.V (Asm.P (r, l, u)) -> D.is_tainted (D.extract (Map.find (Key.Reg r) m') l u)
-            | Asm.M (e, _) ->
-              let v, _ = eval_exp m' (Asm.Lval lv) in
-              let addrs = D.to_addresses v in
-              let l     = Data.Address.Set.elements addrs in
-              (List.exists (fun a -> D.is_tainted (get_mem_value m' a 8)) l) || (process_tainted e m')
 
     let is_tainted e m =
         match m with
         | BOT -> false
-        | Val m' -> try process_tainted e m' with Not_found -> false
+        | Val m' -> snd (eval_exp m' e)
 
   end: Domain.T)
     

@@ -158,6 +158,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         | Set (dst, src) 		 -> D.set dst src d
         | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
+	| Directive (Taint (e, r)) 	 ->
+	   Log.debug (Printf.sprintf "%s" (Asm.string_of_stmt s false));
+	  let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
+	  Log.debug (Printf.sprintf "is_tainted = %s" (string_of_bool (D.is_tainted e d))); 
+	   if D.is_tainted e d then
+	     D.taint_register_mask r mask d, true
+	   else
+	     d, false
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
@@ -459,6 +467,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Nop -> d, false
 	| Directive (Forget _) -> d, false 
 	| Directive (Remove r) -> D.add_register r d, false
+	| Directive (Taint _) -> D.forget d, false
 	| Set (dst, src) -> back_set dst src d
 	| If (e, istmts, estmts) ->
 	   match branch with
@@ -520,7 +529,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	match stmt with
 	| Asm.Nop 
 	| Asm.Directive (Asm.Forget _) 
-	| Asm.Directive (Asm.Remove _) 
+	| Asm.Directive (Asm.Remove _)
+	| Asm.Directive (Asm.Taint _)
 	| Asm.Jmp (Asm.A _)
 	| Asm.Return
 	| Asm.Call (Asm.A _) -> d, false

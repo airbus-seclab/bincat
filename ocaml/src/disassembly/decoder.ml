@@ -1787,7 +1787,27 @@ struct
             in
             let ecx' = V (to_reg ecx s.addr_sz) in
             let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in
-            let blk = [ If (ecx_cond, v.Cfa.State.stmts @ (ecx_stmt :: zf_stmts), [ Jmp (A a') ]) ] in
+	    let t_cond =
+	      match List.hd (s.c) with
+	      | '\x6c' | '\x6e' -> BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), 8)), Lval (V (to_reg edx 8))) (* INS/OUTS on one byte *)
+	      | '\x6d' | '\x6f' -> BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), s.addr_sz)), Lval (V (to_reg edx s.addr_sz))) (* INS/OUTS *)
+	      | '\xa4' | '\xa6' -> BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), 8)), Lval (M (Lval (V (to_reg esi s.addr_sz)), 8))) (* MOVS/CMPS on one byte *)
+	      | '\xa5' | '\xa7' -> BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), s.addr_sz)), Lval (M (Lval (V (to_reg esi s.addr_sz)), s.addr_sz))) (* MOVS/CMPS on one byte *)
+	      | '\xaa' -> BinOp (Or, Lval (V (to_reg eax 8)), Lval (M (Lval (V (to_reg edi s.addr_sz)), 8))) (* STOS on one byte *)
+	      | '\xab' -> BinOp (Or, Lval (V (to_reg eax s.addr_sz)), Lval (M (Lval (V (to_reg edi s.addr_sz)), s.addr_sz))) (* STOS *)
+	      | '\xac' -> BinOp (Or, Lval (V (to_reg eax 8)), Lval (M (Lval (V (to_reg esi s.addr_sz)), 8))) (* LODS on one byte *)
+	      | '\xad' -> BinOp (Or, Lval (V (to_reg eax s.addr_sz)), Lval (M (Lval (V (to_reg esi s.addr_sz)), s.addr_sz))) (* LODS *)
+	      | '\xae' -> BinOp (Or, Lval (V (to_reg eax 8)), Lval (M (Lval (V (to_reg edi s.addr_sz)), 8))) (* SCAS on one byte *)
+	      | '\xaf' -> BinOp (Or, Lval (V (to_reg eax s.addr_sz)), Lval (M (Lval (V (to_reg edi s.addr_sz)), s.addr_sz))) (* SCAS *)
+	      | _ -> error s.a "Illegal opcode for REP/REPNE"	 
+	    in
+	    let taint_stmt = Directive (Taint (t_cond, ecx)) in 
+            let blk = 
+	      [
+		If (ecx_cond,
+		    v.Cfa.State.stmts @ (ecx_stmt :: taint_stmt :: zf_stmts),
+		    [ Jmp (A a'); taint_stmt])
+	      ] in
             v.Cfa.State.stmts <- blk;
             v, ip
 
