@@ -820,12 +820,15 @@ struct
         [ If ( Cmp (EQ, Lval (V (T fdf)), Const (Word.zero fdf_sz)), istmts, estmts) ]
 
     (** state generation for MOVS *)
+    let taint_cmps_movs s i =
+      Directive (Taint (BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), i)), Lval (M (Lval (V (to_reg esi s.addr_sz)), i))), ecx))
+	
     let movs s i =
         let edi'  = V (to_reg edi s.addr_sz)            in
         let esi'  = V (to_reg esi s.addr_sz)            in
         let medi' = M (add_segment s (Lval edi') ds, i) in
         let mesi' = M (add_segment s (Lval esi') es, i) in
-        return s ((Set (medi', Lval mesi'))::(inc_dec_wrt_df [edi ; esi] i))
+        return s ((Set (medi', Lval mesi'))::(taint_cmps_movs s i)::(inc_dec_wrt_df [edi ; esi] i))
 
     (** state generation for CMPS *)
     let cmps s i =
@@ -833,21 +836,23 @@ struct
         let esi'  = V (to_reg esi s.addr_sz)            in
         let medi' = M (add_segment s (Lval edi') ds, i) in
         let mesi' = M (add_segment s (Lval esi') es, i) in
-        return s ((cmp_stmts (Lval medi') (Lval mesi') i) @ (inc_dec_wrt_df [edi ; esi] i))
+        return s ((cmp_stmts (Lval medi') (Lval mesi') i) @ ((taint_cmps_movs s i)::(inc_dec_wrt_df [edi ; esi] i)))
 
     (** state generation for LODS *)
     let lods s i =
         let eax'  = V (to_reg eax i)                    in
         let esi'  = V (to_reg esi s.addr_sz)            in
         let mesi' = M (add_segment s (Lval esi') es, i) in
-        return s ((Set (eax', Lval mesi'))::(inc_dec_wrt_df [esi] i))
+	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg esi s.addr_sz)), 8))), ecx)) in
+        return s ((Set (eax', Lval mesi'))::taint_stmt::(inc_dec_wrt_df [esi] i))
 
     (** state generation for SCAS *)
     let scas s i =
         let eax' = V (to_reg eax i)                    in
         let edi' = V (to_reg edi s.addr_sz)            in
         let mem  = M (add_segment s (Lval edi') es, i) in
-        return s ((cmp_stmts (Lval eax') (Lval mem) i) @ (inc_dec_wrt_df [edi] i) )
+	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in 
+        return s ((cmp_stmts (Lval eax') (Lval mem) i) @ [taint_stmt] @ (inc_dec_wrt_df [edi] i) )
 
 
     (** state generation for STOS *)
@@ -856,21 +861,25 @@ struct
         let edi'  = V (to_reg edi s.addr_sz)             in
         let medi' = M (add_segment s (Lval edi') ds, i)  in
         let stmts = Set (medi', Lval eax')               in
-        return s (stmts::(inc_dec_wrt_df [edi] i))
+	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in
+        return s (stmts::taint_stmt::(inc_dec_wrt_df [edi] i))
 
     (** state generation for INS *)
+    let taint_ins_outs s i =
+      Directive (Taint (BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), i)), Lval (M (Lval (V (to_reg esi s.addr_sz)), i))), ecx))
+	
     let ins s i =
         let edi' = V (to_reg edi s.addr_sz)     in
         let edx' = V (to_reg edx i)             in
         let m    = add_segment s (Lval edi') es in
-        return s ((Set (M (m, i), Lval edx'))::(inc_dec_wrt_df [edi] i))
+        return s ((Set (M (m, i), Lval edx'))::(taint_ins_outs s i)::(inc_dec_wrt_df [edi] i))
 
     (** state generation for OUTS *)
     let outs s i =
         let edi' = V (to_reg edi s.addr_sz)     in
         let edx'  = V (to_reg edx i)             in
         let m     = add_segment s (Lval edi') es in
-        return s ((Set (edx', Lval (M (m, i))))::(inc_dec_wrt_df [edi] i))
+        return s ((Set (edx', Lval (M (m, i))))::(taint_ins_outs s i)::(inc_dec_wrt_df [edi] i))
 
     (*************************)
     (* State generation for loading far pointers *)
@@ -1786,27 +1795,12 @@ struct
                     [ Jmp (A v.Cfa.State.ip) ]
             in
             let ecx' = V (to_reg ecx s.addr_sz) in
-            let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in
-	    let t_cond =
-	      match List.hd (s.c) with
-	      | '\x6c' | '\x6e' -> BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), 8)), Lval (V (to_reg edx 8))) (* INS/OUTS on one byte *)
-	      | '\x6d' | '\x6f' -> BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), s.addr_sz)), Lval (V (to_reg edx s.addr_sz))) (* INS/OUTS *)
-	      | '\xa4' | '\xa6' -> BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), 8)), Lval (M (Lval (V (to_reg esi s.addr_sz)), 8))) (* MOVS/CMPS on one byte *)
-	      | '\xa5' | '\xa7' -> BinOp (Or, Lval (M (Lval (V (to_reg edi s.addr_sz)), s.addr_sz)), Lval (M (Lval (V (to_reg esi s.addr_sz)), s.addr_sz))) (* MOVS/CMPS on one byte *)
-	      | '\xaa' -> BinOp (Or, Lval (V (to_reg eax 8)), Lval (M (Lval (V (to_reg edi s.addr_sz)), 8))) (* STOS on one byte *)
-	      | '\xab' -> BinOp (Or, Lval (V (to_reg eax s.addr_sz)), Lval (M (Lval (V (to_reg edi s.addr_sz)), s.addr_sz))) (* STOS *)
-	      | '\xac' -> BinOp (Or, Lval (V (to_reg eax 8)), Lval (M (Lval (V (to_reg esi s.addr_sz)), 8))) (* LODS on one byte *)
-	      | '\xad' -> BinOp (Or, Lval (V (to_reg eax s.addr_sz)), Lval (M (Lval (V (to_reg esi s.addr_sz)), s.addr_sz))) (* LODS *)
-	      | '\xae' -> BinOp (Or, Lval (V (to_reg eax 8)), Lval (M (Lval (V (to_reg edi s.addr_sz)), 8))) (* SCAS on one byte *)
-	      | '\xaf' -> BinOp (Or, Lval (V (to_reg eax s.addr_sz)), Lval (M (Lval (V (to_reg edi s.addr_sz)), s.addr_sz))) (* SCAS *)
-	      | _ -> error s.a "Illegal opcode for REP/REPNE"	 
-	    in
-	    let taint_stmt = Directive (Taint (t_cond, ecx)) in 
+            let ecx_stmt = Set (ecx', BinOp (Sub, Lval ecx', Const (Word.one s.addr_sz))) in    
             let blk = 
 	      [
 		If (ecx_cond,
-		    v.Cfa.State.stmts @ (ecx_stmt :: taint_stmt :: zf_stmts),
-		    [ Jmp (A a'); taint_stmt])
+		    v.Cfa.State.stmts @ (ecx_stmt :: zf_stmts),
+		    [ Jmp (A a')])
 	      ] in
             v.Cfa.State.stmts <- blk;
             v, ip

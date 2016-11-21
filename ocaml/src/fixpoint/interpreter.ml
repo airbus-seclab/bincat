@@ -159,9 +159,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
 	| Directive (Taint (e, r)) 	 ->
-	   Log.debug (Printf.sprintf "%s" (Asm.string_of_stmt s false));
 	  let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
-	  Log.debug (Printf.sprintf "is_tainted = %s" (string_of_bool (D.is_tainted e d))); 
 	   if D.is_tainted e d then
 	     D.taint_register_mask r mask d, true
 	   else
@@ -181,7 +179,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	begin
 	let d = v.Cfa.State.v in
 	let d', ipstack =
-            let _f, ipstack = List.hd !fun_stack in
+            let _f, ipstack, _v = List.hd !fun_stack in
             fun_stack := List.tl !fun_stack;	
             (* check and apply tainting and typing rules *)
 	    (* 1. check for assert *)
@@ -235,7 +233,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             Some (Hashtbl.find Config.import_tbl (Data.Address.to_int a))
           with Not_found -> None
 	in
-	fun_stack := (f, ip)::!fun_stack
+	fun_stack := (f, ip, v)::!fun_stack
       in
       let copy v d branch is_pred =
 	(* TODO: optimize with Cfa.State.copy that copies every field and then here some are updated => copy them directly *)
@@ -310,7 +308,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       vstart.Cfa.State.ip <- ip;
       vstart.Cfa.State.is_tainted <- false;
       let vertices, b = process_list [vstart] v.Cfa.State.stmts in
-      if b then v.Cfa.State.is_tainted <- true;
+      if b then
+	begin
+	  v.Cfa.State.is_tainted <- true;
+	  List.iter (fun (_f, _ip, v) -> v.Cfa.State.is_tainted <- true) !fun_stack
+	end;
       vertices
 
     (** [filter_vertices g vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)

@@ -4,7 +4,6 @@
 * regrouper les suites d'instruction décodées en basic blocks (pluôt
 qu'un état par instruction x86) (ou pas, à discuter)
 * supprimer les maj de flags entre deux instructions pour ceux qui sont set/undef sans avoir été testés
-* regrouper les check/maj des SCAS/STOS/CMPS/LODS pour éviter plusieurs pattern matching sur l'opcode
 * changer la modélisation des flags gérés en "if" pour qu'ils puissent etre tainted
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
