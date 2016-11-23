@@ -404,7 +404,6 @@ class BinCATHexForm_t(idaapi.PluginForm):
 
     def OnClose(self, form):
         self.shown = False
-        pass
 
     def Show(self):
         self.shown = True
@@ -470,7 +469,6 @@ class BinCATDebugForm_t(idaapi.PluginForm):
 
     def OnClose(self, form):
         self.shown = False
-        pass
 
     def Show(self):
         self.shown = True
@@ -825,6 +823,10 @@ class OverridesModel(QtCore.QAbstractTableModel):
             return False
         col = index.column()
         row = index.row()
+        if col == 0:
+            if not all(c in 'abcdefABCDEF0123456789' for c in value):
+                return False
+            value = int(value, 16)
         if row > len(self.s.overrides):
             # new row
             r = [""] * len(self.headers)
@@ -922,7 +924,7 @@ class HandleAddOverride(idaapi.action_handler_t):
         mask, res = QtWidgets.QInputDialog.getText(
             None,
             "Add Taint override for %s" % highlighted,
-            "Taint value")
+            "Taint value (ALL, NONE, 0b001, 0xabc)")
         if not res:
             return 1  # refresh IDA windows
         self.s.overrides.append((address, highlighted, mask))
