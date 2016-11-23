@@ -104,7 +104,7 @@ class AnalyzerConfig(object):
         for n in xrange(idaapi.get_segm_qty()):
             seg = idaapi.getnseg(n)
             if (seg.type == idaapi.SEG_CODE and
-                    seg.startEA <= entrypoint <= seg.endEA):
+                    seg.startEA <= entrypoint < seg.endEA):
                 return seg.startEA, seg.endEA
         bc_log.error("No code section has been found for entrypoint %#08x",
                      entrypoint)
