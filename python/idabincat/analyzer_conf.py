@@ -302,8 +302,8 @@ class AnalyzerConfig(object):
         # 2. Add sections from overrides argument
         ov_by_eip = collections.defaultdict(set)
         for (eip, register, value) in overrides:
-            ov_by_eip[eip].add("%s,%s" % (register, value))
+            ov_by_eip[eip].add("%s, %s;" % (register, value))
         # 3. Add to config
         for eip, ov_set in ov_by_eip.items():
-            hex_addr = "%x" % eip
-            self.config.set("override", hex_addr, ';'.join(ov_set))
+            hex_addr = "0x%x" % eip
+            self.config.set("override", hex_addr, ''.join(ov_set))
