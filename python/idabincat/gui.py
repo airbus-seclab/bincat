@@ -404,7 +404,6 @@ class BinCATHexForm_t(idaapi.PluginForm):
 
     def OnClose(self, form):
         self.shown = False
-        pass
 
     def Show(self):
         self.shown = True
@@ -470,7 +469,6 @@ class BinCATDebugForm_t(idaapi.PluginForm):
 
     def OnClose(self, form):
         self.shown = False
-        pass
 
     def Show(self):
         self.shown = True
@@ -507,7 +505,7 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
 class BinCATTaintedForm_t(idaapi.PluginForm):
     """
     BinCAT Tainted values form
-    This form containes the values of tainted registers and memory
+    This form displays the values of tainted registers and memory
     """
 
     def __init__(self, state, vtmodel):
@@ -739,6 +737,155 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
 
+class BinCATOverridesForm_t(idaapi.PluginForm):
+    """
+    BinCAT Overrides display form
+    Displays taint overrides defined by the user.
+    An override is defined by:
+    * an address
+    * a register name (memory: not supported yet)
+    * a taint value
+    """
+
+    def __init__(self, state, overrides_model):
+        super(BinCATOverridesForm_t, self).__init__()
+        self.s = state
+        self.model = overrides_model
+        self.shown = False
+        self.created = False
+
+    def OnCreate(self, form):
+        self.created = True
+        self.currentrva = 0
+
+        # Get parent widget
+        self.parent = self.FormToPyQtWidget(form)
+        layout = QtWidgets.QGridLayout()
+
+        # Node id label
+        self.label = QtWidgets.QLabel('List of taint overrides (user-defined)')
+        layout.addWidget(self.label, 0, 0)
+
+        # Overrides Taint Table
+        self.table = BinCATOverridesView(self.model)
+        self.table.setSortingEnabled(True)
+        self.table.setModel(self.model)
+        self.s.overrides.register_callbacks(
+            self.model.beginResetModel, self.model.endResetModel)
+        self.table.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        # self.table.horizontalHeader().setMinimumHeight(36)
+
+        layout.addWidget(self.table, 1, 0)
+
+        self.btn_run = QtWidgets.QPushButton('&Re-run analysis', self.parent)
+        self.btn_run.clicked.connect(self.s.re_run)
+        layout.addWidget(self.btn_run, 2, 0)
+
+        layout.setRowStretch(1, 0)
+
+        self.parent.setLayout(layout)
+
+    def OnClose(self, form):
+        self.shown = False
+
+    def Show(self):
+        self.shown = True
+        return idaapi.PluginForm.Show(
+            self, "BinCAT Overrides",
+            options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_TAB))
+
+
+class OverridesModel(QtCore.QAbstractTableModel):
+    def __init__(self, state, *args, **kwargs):
+        super(OverridesModel, self).__init__(*args, **kwargs)
+        self.s = state
+        self.headers = ["eip", "register", "taint"]
+
+    def data(self, index, role):
+        if role != QtCore.Qt.DisplayRole:
+            return
+        col = index.column()
+        row = index.row()
+        rawdata = self.s.overrides[row][col]
+        if col == 0:
+            return "%x" % rawdata
+        else:
+            return str(rawdata)
+
+    def setData(self, index, value, role):
+        if role != QtCore.Qt.EditRole:
+            return False
+        col = index.column()
+        row = index.row()
+        if col == 0:
+            if not all(c in 'abcdefABCDEF0123456789' for c in value):
+                return False
+            value = int(value, 16)
+        if row > len(self.s.overrides):
+            # new row
+            r = [""] * len(self.headers)
+            r[col] = value
+            self.s.overrides.append(r)
+        else:
+            # existing row
+            r = list(self.s.overrides[row])
+            r[col] = value
+            self.s.overrides[row] = r
+        return True  # success
+
+    def headerData(self, section, orientation, role):
+        if orientation != QtCore.Qt.Horizontal:
+            return
+        if role == QtCore.Qt.DisplayRole:
+            return self.headers[section]
+
+    def flags(self, index):
+        return (QtCore.Qt.ItemIsEditable
+                | QtCore.Qt.ItemIsSelectable
+                | QtCore.Qt.ItemIsEnabled)
+
+    def rowCount(self, parent):
+        return len(self.s.overrides)
+
+    def columnCount(self, parent):
+        return len(self.headers)
+
+    def remove_row(self, index):
+        del self.s.overrides[index]
+
+
+class BinCATOverridesView(QtWidgets.QTableView):
+    def __init__(self, model, parent=None):
+        super(BinCATOverridesView, self).__init__(parent)
+        self.m = model
+        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+
+    def contextMenuEvent(self, event):
+        if (self.m.rowCount(None) == 0 or
+                len(self.selectedIndexes()) == 0):
+            return
+        menu = QtWidgets.QMenu(self)
+        action = QtWidgets.QAction('Remove', self)
+        action.triggered.connect(self.m.remove_row)
+        menu.addAction(action)
+        menu.popup(QtGui.QCursor.pos())
+
+    def remove_row(self):
+        try:
+            index = self.table.selectedIndexes()[0].row()
+        except IndexError:
+            bc_log.warning("Could not identify selected row")
+            return
+        self.m.remove_row(index)
+
+
 class HandleAnalyzeHere(idaapi.action_handler_t):
     """
     Action handler for BinCAT/ Taint from here
@@ -753,6 +900,34 @@ class HandleAnalyzeHere(idaapi.action_handler_t):
         AnalyzerLauncher = TaintLaunchForm_t(None, self.s)
         AnalyzerLauncher.exec_()
 
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+
+class HandleAddOverride(idaapi.action_handler_t):
+    """
+    Action handler for BinCAT/Add Override
+    base class is not a newstyle class...
+    """
+    def __init__(self, state):
+        self.s = state
+
+    def activate(self, ctx):
+        self.s.gui.show_windows()
+
+        highlighted = idaapi.get_highlighted_identifier()
+        if highlighted is None:
+            highlighted = ''
+        address = self.s.current_ea
+        mask, res = QtWidgets.QInputDialog.getText(
+            None,
+            "Add Taint override for %s" % highlighted,
+            "Taint value (ALL, NONE, 0b001, 0xabc)")
+        if not res:
+            return 1  # refresh IDA windows
+        self.s.overrides.append((address, highlighted, mask))
         return 1
 
     def update(self, ctx):
@@ -811,6 +986,8 @@ class Hooks(idaapi.UI_Hooks):
         if idaapi.get_tform_type(form) == idaapi.BWN_DISASM:
             idaapi.attach_action_to_popup(form, popup, "bincat:ana_from_here",
                                           "BinCAT/", idaapi.SETMENU_APP)
+            idaapi.attach_action_to_popup(form, popup, "bincat:add_override",
+                                          "BinCAT/", idaapi.SETMENU_APP)
 
 
 class GUI(object):
@@ -823,6 +1000,9 @@ class GUI(object):
         self.BinCATTaintedForm = BinCATTaintedForm_t(state, self.vtmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
         self.BinCATHexForm = BinCATHexForm_t(state)
+        self.overrides_model = OverridesModel(state)
+        self.BinCATOverridesForm = BinCATOverridesForm_t(
+            state, self.overrides_model)
 
         self.show_windows()
 
@@ -837,6 +1017,11 @@ class GUI(object):
         idaapi.attach_action_to_menu("Edit/BinCAT/analyse",
                                      "bincat:ana_from_here",
                                      idaapi.SETMENU_APP)
+        # Add taint override menu
+        add_taint_override_act = idaapi.action_desc_t(
+            'bincat:add_override', 'Add taint override',
+            HandleAddOverride(self.s), 'Ctrl-Shift-O')
+        idaapi.register_action(add_taint_override_act)
 
         # "Show windows" menu
         show_windows_act = idaapi.action_desc_t(
@@ -861,6 +1046,7 @@ class GUI(object):
     def show_windows(self):
         self.BinCATDebugForm.Show()
         self.BinCATTaintedForm.Show()
+        self.BinCATOverridesForm.Show()
         self.BinCATHexForm.Show()
 
     def before_change_ea(self):

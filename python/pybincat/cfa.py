@@ -257,13 +257,13 @@ class State(object):
                 length = reg_len(addr)
 
             # build value
-            concat_value = None
-            prev_memreg = None
+            concat_value = []
             #: offset to last saved address - used in case different memreg
             #: values are present
             saved_offset = 0
             regaddr = Value.parse(region, addr, '0', 0)
             if (v, length) not in CFA._valcache:
+                # add to cache
                 off_vals = []
                 for idx, val in enumerate(v.split(', ')):
                     m = RE_VALTAINT.match(val)
@@ -274,19 +274,8 @@ class State(object):
                     strval = m.group("value")
                     taint = m.group("taint")
                     new_value = Value.parse(memreg, strval, taint, length)
-                    if prev_memreg == memreg or prev_memreg is None:
-                        # concatenate
-                        if concat_value is None:
-                            concat_value = [new_value]
-                        else:
-                            concat_value.append(new_value)
-                    else:
-                        if prev_memreg is not None:
-                            # save previous value
-                            off_vals.append((saved_offset, concat_value))
-                            concat_value = None
-                            saved_offset = idx
-                    prev_memreg = memreg
+                    # concatenate
+                    concat_value.append(new_value)
 
                 off_vals.append((saved_offset, concat_value))
                 CFA._valcache[(v, length)] = off_vals

@@ -2,6 +2,7 @@
 # version IDA 6.9
 # runs the "bincat" command from ida
 
+import collections
 import ConfigParser
 import hashlib
 import logging
@@ -317,6 +318,7 @@ class State(object):
         self.analyzer = None
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
+        self.overrides = OverridesState()
         # for debugging purposes - to interact with this object from the console
         # XXX store in idb after encoding?
         self.last_cfaout_marshal = None
@@ -460,13 +462,15 @@ class State(object):
 
         bc_log.debug("Current analyzer path: %s", path)
 
-        # get RawConfigParser object
         if config_str:
-            config = ConfigParser.RawConfigParser()
-            config.config.optionxform = str
-            config.readfp(StringIO.StringIO(config_str))
-        else:
-            config = self.current_config.config
+            c = ConfigParser.RawConfigParser()
+            c.config.optionxform = str
+            c.readfp(StringIO.StringIO(config_str))
+            self.current_config.config = c
+        # Update overrides
+        self.current_config.update_overrides(self.overrides)
+        # Set correct file names
+        config = self.current_config.config
         config.set('analyzer', 'out_marshalled_cfa_file',
                    self.analyzer.cfaoutfname)
         config.set('analyzer', 'in_marshalled_cfa_file',
@@ -483,6 +487,61 @@ class State(object):
         with open(self.analyzer.initfname, 'w') as f:
             config.write(f)
         self.analyzer.run()
+
+    def re_run(self):
+        """
+        Re-run analysis, taking new overrides settings into account
+        """
+        self.start_analysis()
+
+
+class OverridesState(collections.MutableSequence):
+    """
+    Acts as a List object, wraps write access with calls to properly invalidate
+    models associated with View GUI objects.
+    """
+    def __init__(self):
+        #: list of ("eip", "register name", "taint mask")
+        self._overrides = []  # XXX store in idb
+        #: list of functions to be called prior to updating overrides
+        self.pre_callbacks = []
+        #: list of functions to be called after updating overrides
+        self.post_callbacks = []
+        #: cache
+
+    def register_callbacks(self, pre_cb, post_cb):
+        if pre_cb:
+            self.pre_callbacks.append(pre_cb)
+        if post_cb:
+            self.post_callbacks.append(post_cb)
+
+    def __getitem__(self, index):
+        # no need for wrappers - values should be tuples
+        return self._overrides[index]
+
+    def _callback_wrap(f):
+        def wrap(self, *args, **kwargs):
+            for cb in self.pre_callbacks:
+                cb()
+            f(self, *args, **kwargs)
+            for cb in self.post_callbacks:
+                cb()
+        return wrap
+
+    @_callback_wrap
+    def __setitem__(self, index, value):
+        self._overrides[index] = tuple(value)
+
+    @_callback_wrap
+    def __delitem__(self, item):
+        del self._overrides[item]
+
+    def __len__(self):
+        return len(self._overrides)
+
+    @_callback_wrap
+    def insert(self, index, value):
+        self._overrides.insert(index, tuple(value))
 
 
 def PLUGIN_ENTRY():

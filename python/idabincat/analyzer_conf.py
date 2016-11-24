@@ -1,5 +1,6 @@
 # Fuck Python.
 from __future__ import absolute_import
+import collections
 import functools
 import os
 import StringIO
@@ -103,7 +104,7 @@ class AnalyzerConfig(object):
         for n in xrange(idaapi.get_segm_qty()):
             seg = idaapi.getnseg(n)
             if (seg.type == idaapi.SEG_CODE and
-                    seg.startEA <= entrypoint <= seg.endEA):
+                    seg.startEA <= entrypoint < seg.endEA):
                 return seg.startEA, seg.endEA
         bc_log.error("No code section has been found for entrypoint %#08x",
                      entrypoint)
@@ -293,3 +294,16 @@ class AnalyzerConfig(object):
             self.reset_from_str(c)
         else:
             self.config = self.get_default_config(state, addr_start, addr_end)
+
+    def update_overrides(self, overrides):
+        # 1. Empty existing overrides sections
+        self.config.remove_section("override")
+        self.config.add_section("override")
+        # 2. Add sections from overrides argument
+        ov_by_eip = collections.defaultdict(set)
+        for (eip, register, value) in overrides:
+            ov_by_eip[eip].add("%s, %s;" % (register, value))
+        # 3. Add to config
+        for eip, ov_set in ov_by_eip.items():
+            hex_addr = "0x%x" % eip
+            self.config.set("override", hex_addr, ''.join(ov_set))
