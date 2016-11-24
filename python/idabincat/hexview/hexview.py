@@ -182,6 +182,8 @@ class HexTableModel(QAbstractTableModel):
         return 0x21
 
     def data(self, index, role):
+        if role != Qt.DisplayRole:
+            return None
         if not index.isValid():
             return None
         elif index.row() == (self._rowcount-1):
@@ -191,19 +193,16 @@ class HexTableModel(QAbstractTableModel):
             if col > self._lastcol:
                 return None
 
-        elif role == Qt.DisplayRole:
-            col = index.column()
-            bindex = self.qindex2index(index)
-            if bindex >= self._meminfo.length:
-                return None
-            if col == 0x10:
-                return ""
-            if col < 0x10:
-                return self._meminfo[bindex]
-            else:
-                return self._meminfo.char(bindex)
-        else:
+        col = index.column()
+        bindex = self.qindex2index(index)
+        if bindex >= self._meminfo.length:
             return None
+        if col == 0x10:
+            return ""
+        if col < 0x10:
+            return self._meminfo[bindex]
+        else:
+            return self._meminfo.char(bindex)
 
     @property
     def data_length(self):
