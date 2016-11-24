@@ -12,7 +12,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* generating modules needed for the analysis *)
   let module Vector 	 = Vector.Make(Reduced_value_tainting) in
   let module Pointer 	 = Pointer.Make(Vector)		       in
-  let module Domain 	 = Unrel.Make(Pointer)		       in
+  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer)  in
   let module Interpreter = Interpreter.Make(Domain)	       in
   
   (* setting the log file *)

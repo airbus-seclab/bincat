@@ -200,7 +200,7 @@ module Make(V: Val) =
             else
                 Data.Word.to_string (to_word V.to_z v)
         in
-        let taint_bytes = Bytes.create ((Array.length v)) in
+        let taint_bytes = Bytes.create (Array.length v) in
         let t =
             try
                 let all = ref true in

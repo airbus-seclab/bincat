@@ -93,48 +93,13 @@ module type T =
     
     
 module Make(D: T) =
-  (struct
+  struct
     
-    module Key =
-      struct
-        type t =
-          | Reg of Register.t
-          | Mem_Itv of Data.Address.t * Data.Address.t (* interval of addresses, from init *)
-          | Mem of Data.Address.t                      (* address to single byte *)
-		     
-        let compare v1 v2 =
-            match v1, v2 with
-            | Reg r1, Reg r2 -> Register.compare r1 r2
-            | Mem addr1, Mem addr2 ->
-              Data.Address.compare addr1 addr2
-            | Mem addr1, Mem_Itv (m2_low, m2_high) ->
-              if addr1 < m2_low then -1
-              else if m2_high < addr1 then 1
-              else 0
-            | Mem_Itv (m1_low, m1_high), Mem addr2 ->
-              if m1_high < addr2 then -1
-              else if addr2 < m1_low then 1
-              else 0
-            | Mem_Itv (m1_low, m1_high), Mem_Itv (m2_low, m2_high) ->
-              if m1_high < m2_low then -1
-              else if m2_high < m1_low then 1
-              else 0
-            | Reg _ , _    -> 1
-            | _   , _    -> -1
-			     
-        let to_string x =
-          match x with
-          | Reg r -> Printf.sprintf "reg[%s]"  (Register.name r)
-          | Mem_Itv (low_a, high_a) -> Printf.sprintf "mem[%s*%s]" (Data.Address.to_string low_a) (Z.to_string (Data.Address.sub high_a low_a))
-          | Mem addr -> Printf.sprintf "mem[%s*1]" (Data.Address.to_string addr)
-      end
-	
-    (* For Ocaml non-gurus : creates a Map type which uses MapOpt with keys of type Key *)
-    module Map = MapOpt.Make(Key)
+   
 			    
     (** type of the Map from Dimension (register or memory) to abstract values *)
     type t     =
-      | Val of D.t Map.t (* For Ocaml non-gurus : Val is a Map, indexed by Key, with values of D.t *)
+      | Val of D.t Env.t (* For Ocaml non-gurus : Val is a Map, indexed by Key, with values of D.t *)
       | BOT
 	  
     let bot = BOT
@@ -146,34 +111,34 @@ module Make(D: T) =
       | BOT    -> raise Exceptions.Concretization
       | Val m' ->
          try
-           let v = Map.find (Key.Reg r) m' in D.to_z v
+           let v = Env.find (Env.Key.Reg r) m' in D.to_z v
          with _ -> raise Exceptions.Concretization
 			 
     let add_register r m =
       let add m' =
-        Val (Map.add (Key.Reg r) D.top m')
+        Val (Env.add (Env.Key.Reg r) D.top m')
       in
       match m with
-      | BOT    -> add Map.empty
+      | BOT    -> add Env.empty
       | Val m' -> add m'
 		      
     let remove_register v m =
       match m with
-      | Val m' -> Val (Map.remove (Key.Reg v) m')
+      | Val m' -> Val (Env.remove (Env.Key.Reg v) m')
       | BOT    -> BOT
 		    
 		    
     let forget m =
       match m with
       | BOT -> BOT
-      | Val m' -> Val (Map.map (fun _ -> D.top) m')
+      | Val m' -> Val (Env.map (fun _ -> D.top) m')
 		      
     let forget_lval lv m =
       match m with
       | Val m' ->
 	 begin
 	   match lv with
-	   | Asm.V (Asm.T r) -> Val (Map.add (Key.Reg r) D.top m')
+	   | Asm.V (Asm.T r) -> Val (Env.add (Env.Key.Reg r) D.top m')
 	   | _ -> forget m (*TODO: could be more precise *)
 	 end
       | BOT -> BOT
@@ -183,23 +148,23 @@ module Make(D: T) =
       | BOT, _ 		 -> true
       | _, BOT 		 -> false
       |	Val m1', Val m2' ->
-         try Map.for_all2 D.subset m1' m2'
+         try Env.for_all2 D.subset m1' m2'
          with _ ->
            try
-             Map.iteri (fun k v1 -> try let v2 = Map.find k m2' in if not (D.subset v1 v2) then raise Exit with Not_found -> ()) m1';
+             Env.iteri (fun k v1 -> try let v2 = Env.find k m2' in if not (D.subset v1 v2) then raise Exit with Not_found -> ()) m1';
              true
            with Exit -> false
 			  
 
-    let coleasce_to_strs (m : D.t Map.t) (strs : string list) =
+    let coleasce_to_strs (m : D.t Env.t) (strs : string list) =
         let addr_zero = Data.Address.of_int Data.Address.Global Z.zero 0 in
         let prev_addr = ref addr_zero in
         let in_itv = ref false in
         let build_itv k _v itvs : ((Data.Address.t ref * Data.Address.t) list) =
             match k with
-            | Key.Reg _ -> in_itv := false; prev_addr := addr_zero; itvs
-            | Key.Mem_Itv (_low_addr, _high_addr) -> in_itv := false; prev_addr := addr_zero; itvs
-            | Key.Mem (addr) -> let new_itv =
+            | Env.Key.Reg _ -> in_itv := false; prev_addr := addr_zero; itvs
+            | Env.Key.Mem_Itv (_low_addr, _high_addr) -> in_itv := false; prev_addr := addr_zero; itvs
+            | Env.Key.Mem (addr) -> let new_itv =
                                     if !in_itv && Data.Address.compare (!prev_addr) (Data.Address.inc addr) == 0 then
                                         begin
                                             (* continue byte string *)
@@ -223,22 +188,22 @@ module Make(D: T) =
                     indices.(offset) <- offset
                 done ;
                 let buffer = Buffer.create (len*10) in 
-                Array.iter (fun off -> Printf.bprintf buffer ", %s" (D.to_string (Map.find (Key.Mem (Data.Address.add_offset low (Z.of_int off))) m))) indices ;
+                Array.iter (fun off -> Printf.bprintf buffer ", %s" (D.to_string (Env.find (Env.Key.Mem (Data.Address.add_offset low (Z.of_int off))) m))) indices ;
                 Buffer.contents buffer
             in Printf.sprintf "%s = %s" addr_str (String.sub strs 2 ((String.length strs)-2))
         in 
-        let itvs = Map.fold build_itv m [] in 
+        let itvs = Env.fold build_itv m [] in 
         List.fold_left (fun strs v -> (itv_to_str v)::strs) strs itvs
     
     let non_itv_to_str k v =
         match k with
-        | Key.Reg _ | Key.Mem_Itv(_,_) -> Printf.sprintf "%s = %s" (Key.to_string k) (D.to_string v)
+        | Env.Key.Reg _ | Env.Key.Mem_Itv(_,_) -> Printf.sprintf "%s = %s" (Env.Key.to_string k) (D.to_string v)
         | _ -> ""
 
     let to_string m =
       match m with
       |	BOT    -> ["_"]
-      | Val m' -> let non_itv = Map.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m' [] in
+      | Val m' -> let non_itv = Env.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m' [] in
                   coleasce_to_strs m' non_itv
 			   
     (***************************)
@@ -257,12 +222,12 @@ module Make(D: T) =
       Array.to_list (get_addr_array base nb)
 		    
     (** compare the given _addr_ to key, for use in MapOpt.find_key **)
-    (** remember that registers (key Key.Reg) are before any address in the order defined in K *)
+    (** remember that registers (key Env.Key.Reg) are before any address in the order defined in K *)
     let where addr key =
       match key with
-      | Key.Reg _ -> -1
-      | Key.Mem addr_k -> Data.Address.compare addr addr_k
-      | Key.Mem_Itv (a_low, a_high) ->
+      | Env.Key.Reg _ -> -1
+      | Env.Key.Mem addr_k -> Data.Address.compare addr addr_k
+      | Env.Key.Mem_Itv (a_low, a_high) ->
          if Data.Address.compare addr a_low < 0 then
            -1
          else
@@ -276,7 +241,7 @@ module Make(D: T) =
         (* expand the address + size to a list of addresses *)
         let exp_addrs = get_addr_list addr (sz/8) in
         (* find the corresponding keys in the map, will raise [Not_found] if no addr matches *)
-        let vals = List.rev_map (fun cur_addr -> snd (Map.find_key (where cur_addr) map)) exp_addrs in
+        let vals = List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs in
         (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
         let res = D.concat vals in
         Log.debug (Printf.sprintf "get_mem_value result : %s" (D.to_string res));
@@ -285,9 +250,9 @@ module Make(D: T) =
 		  
     (** helper to look for a an address in map, returns an option with None
             if no key matches *)
-    let safe_find addr dom : (Map.key * 'a) option  =
+    let safe_find addr dom : (Env.key * 'a) option  =
       try
-        let res = Map.find_key (where addr) dom in
+        let res = Env.find_key (where addr) dom in
         Some res
       with Not_found ->
         None
@@ -295,11 +260,11 @@ module Make(D: T) =
     (** helper to split an interval at _addr_, returns a map with nothing
             at _addr_ but _itv_ split in 2 *)
     let split_itv domain itv addr =
-      let map_val = Map.find itv domain in
+      let map_val = Env.find itv domain in
       match itv with
-      | Key.Mem_Itv (low_addr, high_addr) ->
+      | Env.Key.Mem_Itv (low_addr, high_addr) ->
         Log.debug (Printf.sprintf "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr));
-         let dom' = Map.remove itv domain in
+         let dom' = Env.remove itv domain in
          (* addr just below the new byte *)
          let addr_before = Data.Address.dec addr  in
          (* addr just after the new byte *)
@@ -309,14 +274,14 @@ module Make(D: T) =
            if Data.Address.equal addr low_addr || Data.Address.equal low_addr addr_before then begin
              dom'
            end else begin
-             Map.add (Key.Mem_Itv (low_addr, addr_before)) map_val dom'
+             Env.add (Env.Key.Mem_Itv (low_addr, addr_before)) map_val dom'
            end
          in
          (* add the new interval just after, if its not empty *)
          let res = if Data.Address.equal addr high_addr || Data.Address.equal addr_after high_addr then begin
            dom'
          end else begin
-             Map.add (Key.Mem_Itv (addr_after, high_addr)) map_val dom'
+             Env.add (Env.Key.Mem_Itv (addr_after, high_addr)) map_val dom'
          end
          in
          res
@@ -331,10 +296,10 @@ module Make(D: T) =
         let key = safe_find addr domain in
         match key with
         | None -> domain;
-        | Some (Key.Reg _,_) ->  Log.error "Implementation error in Unrel: the found key is a Reg"
+        | Some (Env.Key.Reg _,_) ->  Log.error "Implementation error in Unrel: the found key is a Reg"
         (* We have a byte, delete it *)
-        | Some (Key.Mem (_) as addr_k, _) -> Map.remove addr_k domain
-        | Some (Key.Mem_Itv (_, _) as key, _) ->
+        | Some (Env.Key.Mem (_) as addr_k, _) -> Env.remove addr_k domain
+        | Some (Env.Key.Mem_Itv (_, _) as key, _) ->
            split_itv domain key addr
       in
       let rec do_cleanup addrs map =
@@ -342,7 +307,7 @@ module Make(D: T) =
         | [] -> map
         | to_del::l -> do_cleanup l (delete_mem to_del map) in
       let dom_clean = do_cleanup addrs domain in
-      Map.add (Key.Mem_Itv (addr, (Data.Address.add_offset addr (Z.of_int nb)))) byte dom_clean
+      Env.add (Env.Key.Mem_Itv (addr, (Data.Address.add_offset addr (Z.of_int nb)))) byte dom_clean
 	      
 	      
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
@@ -357,23 +322,23 @@ module Make(D: T) =
       let update_one_key (addr, byte) domain =
         let key = safe_find addr domain in
         match key with
-        | Some (Key.Reg _, _) -> Log.error "Implementation error in Unrel: the found key is a Reg"
+        | Some (Env.Key.Reg _, _) -> Log.error "Implementation error in Unrel: the found key is a Reg"
         (* single byte to update *)
-        | Some (Key.Mem (_) as addr_k, match_val) ->
+        | Some (Env.Key.Mem (_) as addr_k, match_val) ->
            if strong then
-             Map.replace addr_k byte domain
+             Env.replace addr_k byte domain
            else
-             Map.replace addr_k (D.join byte match_val) domain
+             Env.replace addr_k (D.join byte match_val) domain
         (* we have to split the interval *)
-        | Some (Key.Mem_Itv (_, _) as key, match_val) ->
+        | Some (Env.Key.Mem_Itv (_, _) as key, match_val) ->
            let dom' = split_itv domain key addr in
            if strong then
-             Map.add (Key.Mem(addr)) byte dom'
+             Env.add (Env.Key.Mem(addr)) byte dom'
            else
-             Map.add (Key.Mem(addr)) (D.join byte match_val) dom'
+             Env.add (Env.Key.Mem(addr)) (D.join byte match_val) dom'
         (* the addr was not previously seen *)
         | None -> if strong then
-                    Map.add (Key.Mem(addr)) byte domain
+                    Env.add (Env.Key.Mem(addr)) byte domain
                   else
                     raise Exceptions.Empty
       in
@@ -400,14 +365,14 @@ module Make(D: T) =
         | Asm.Lval (Asm.V (Asm.T r)) 	     ->
            begin
              try
-	       let v = Map.find (Key.Reg r) m in
+	       let v = Env.find (Env.Key.Reg r) m in
 	       v, D.is_tainted v
              with Not_found -> D.bot, false
            end
         | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
            begin
              try
-               let v = Map.find (Key.Reg r) m in
+               let v = Env.find (Env.Key.Reg r) m in
                let v' = D.extract v low up in
 	       v', D.is_tainted v'
              with
@@ -465,30 +430,41 @@ module Make(D: T) =
          try let v, b = eval_exp m' e in D.to_addresses v, b
          with _ -> raise Exceptions.Enum_failure
 
-    (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all its of v *)
-    (** if e is untainted then nothing *)
+    (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v *)
+    (** if e is untainted then nothing is done *)
     let span_taint m e (v: D.t) =
       let rec process e =
         match e with
-        | Asm.Lval (Asm.V (Asm.T r)) | Asm.Lval (Asm.V (Asm.P (r, _, _))) ->
-	   let r' = Map.find (Key.Reg r) m in
+        | Asm.Lval (Asm.V (Asm.T r)) ->
+	   let r' = Env.find (Env.Key.Reg r) m in
 	   D.get_minimal_taint r'
-	     
+	| Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
+	   let r' =  Env.find (Env.Key.Reg r) m in
+	   D.get_minimal_taint (D.extract r' low up)
+	| Asm.Lval (Asm.M (_e', _n)) -> Tainting.T   
         | Asm.BinOp (_, e1, e2) 			 -> Tainting.min (process e1) (process e2)
         | Asm.UnOp (_, e') 				 -> process e'
         | _ 					 -> Tainting.U
       in
       match e with
-      | Asm.Lval (Asm.M (e', _)) -> D.span_taint v (process e')
+      | Asm.Lval (Asm.M (e', _)) ->
+	 begin
+	   let taint = process e' in
+	   match taint with
+	   | Tainting.U -> v
+	   | _ -> D.span_taint v taint
+	 end
       | _ -> v
 				
 				
     let set dst src m: (t * bool) =
+      Log.debug (Printf.sprintf "Unrel.set %s <- %s ..........." (Asm.string_of_lval dst true) (Asm.string_of_exp src true));
       match m with
       |	BOT    -> BOT, false
       | Val m' ->
          let v', _ = eval_exp m' src in
          let v' = span_taint m' src v' in
+	 Log.debug (Printf.sprintf "span result = %s" (D.to_string v'));
 	 let b = D.is_tainted v' in
          if D.is_bot v' then
            BOT, b
@@ -498,11 +474,11 @@ module Make(D: T) =
               begin
                 match r with
                 | Asm.T r' ->
-		   Val (Map.add (Key.Reg r') v' m'), b
-                | Asm.P (r', low, up) -> 
+		   Val (Env.add (Env.Key.Reg r') v' m'), b
+                | Asm.P (r', low, up) ->
                    try
-                     let prev = Map.find (Key.Reg r') m' in		    
-                     Val (Map.replace (Key.Reg r') (D.combine prev v' low up) m'), b
+                     let prev = Env.find (Env.Key.Reg r') m' in		    
+                     Val (Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'), b
                    with
                      Not_found -> BOT, b
               end
@@ -520,11 +496,11 @@ module Make(D: T) =
       match m1, m2 with
       | BOT, m | m, BOT  -> m
       | Val m1', Val m2' ->
-         try Val (Map.map2 D.join m1' m2')
+         try Val (Env.map2 D.join m1' m2')
          with _ ->
-           let m = Map.empty in
-           let m' = Map.fold (fun k v m -> Map.add k v m) m1' m in
-           Val (Map.fold (fun k v m -> try let v' = Map.find k m1' in Map.replace k (D.join v v') m with Not_found -> Map.add k v m) m2' m')
+           let m = Env.empty in
+           let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
+           Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in Env.replace k (D.join v v') m with Not_found -> Env.add k v m) m2' m')
 	       
 	       
 
@@ -532,29 +508,29 @@ module Make(D: T) =
       match m1, m2 with
       | BOT, _ | _, BOT  -> BOT
       | Val m1', Val m2' ->
-	 if Map.is_empty m1' then
+	 if Env.is_empty m1' then
 	   m2
 	 else
-	   if Map.is_empty m2' then
+	   if Env.is_empty m2' then
 	   m1
 	   else
-	     let m' = Map.empty in
-	     let m' = Map.fold (fun k v1 m' ->
-	       try let v2 = Map.find k m2' in Map.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
+	     let m' = Env.empty in
+	     let m' = Env.fold (fun k v1 m' ->
+	       try let v2 = Env.find k m2' in Env.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
 	     Val m'
 				
     let widen m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT  -> m
       | Val m1', Val m2' ->
-         try Val (Map.map2 D.widen m1' m2')
+         try Val (Env.map2 D.widen m1' m2')
          with _ ->
-           let m = Map.empty in
-           let m' = Map.fold (fun k v m -> Map.add k v m) m1' m in
-           Val (Map.fold (fun k v m -> try let v' = Map.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Map.replace k v2 m with Not_found -> Map.add k v m) m2' m')
+           let m = Env.empty in
+           let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
+           Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2' m')
 	       
 	       
-    let init () = Val (Map.empty)
+    let init () = Val (Env.empty)
 		      
     (** returns size of content, rounded to the next multiple of Config.operand_sz *)
     let size_of_content c =
@@ -583,9 +559,9 @@ module Make(D: T) =
       match m with
       | BOT -> BOT
       | Val m' ->
-	 let k = Key.Reg reg in
-	 let v = Map.find k m' in
-	 Val (Map.replace k (D.taint_of_config taint (Register.size reg) v) m')
+	 let k = Env.Key.Reg reg in
+	 let v = Env.find k m' in
+	 Val (Env.replace k (D.taint_of_config taint (Register.size reg) v) m')
 	  
     let set_memory_from_config addr region (content, taint) nb domain =
       if nb > 0 then
@@ -615,17 +591,17 @@ module Make(D: T) =
       | Val m' ->
          let sz = Register.size r in
          let vt = of_config region c sz in
-         Val (Map.add (Key.Reg r) vt m')
+         Val (Env.add (Env.Key.Reg r) vt m')
 	     
     let val_restrict m e1 _v1 cmp _e2 v2 =
       match e1, cmp with
       | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ || cmp = Asm.LEQ ->
-         let v  = Map.find (Key.Reg r) m in
+         let v  = Env.find (Env.Key.Reg r) m in
          let v' = D.meet v v2        in
          if D.is_bot v' then
            raise Exceptions.Empty
          else
-           Map.replace (Key.Reg r) v' m
+           Env.replace (Env.Key.Reg r) v' m
       | _, _ -> m
 		  
     let compare m (e1: Asm.exp) op e2: (t* bool) =
@@ -655,6 +631,7 @@ module Make(D: T) =
         | BOT -> false
         | Val m' -> snd (eval_exp m' e)
 
-  end: Domain.T)
+
+  end
     
     

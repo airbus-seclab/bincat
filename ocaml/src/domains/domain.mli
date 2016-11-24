@@ -78,5 +78,7 @@ module type T =
       (** returns true whenever at least one left value of the given expression is tainted *)
       val is_tainted: Asm.exp -> t -> bool
 
+    (** [set_type lv t m] type the left value lv with type t *)
+      val set_type: Asm.lval -> Typing.t -> t -> t
     end
       

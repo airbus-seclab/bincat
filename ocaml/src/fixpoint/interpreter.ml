@@ -164,6 +164,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     D.taint_register_mask r mask d, true
 	   else
 	     d, false
+	| Directive (Type (lv, t)) ->  D.set_type lv t d, false 
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
@@ -470,6 +471,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Directive (Forget _) -> d, false 
 	| Directive (Remove r) -> D.add_register r d, false
 	| Directive (Taint _) -> D.forget d, false
+	| Directive (Type _) -> D.forget d, false
 	| Set (dst, src) -> back_set dst src d
 	| If (e, istmts, estmts) ->
 	   match branch with
@@ -533,6 +535,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Asm.Directive (Asm.Forget _) 
 	| Asm.Directive (Asm.Remove _)
 	| Asm.Directive (Asm.Taint _)
+	| Asm.Directive (Asm.Type _)
 	| Asm.Jmp (Asm.A _)
 	| Asm.Return
 	| Asm.Call (Asm.A _) -> d, false

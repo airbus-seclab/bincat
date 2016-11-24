@@ -71,7 +71,8 @@ type bexp =
 type directive_t =
   | Remove of Register.t   (** remove the register *)
   | Forget of Register.t (** forget the content of the given register *)
-  | Taint of exp * Register.t (** conditional tainting: if the expression is true then the register must be tainted *) 
+  | Taint of exp * Register.t (** conditional tainting: if the expression is true then the register must be tainted *)
+  | Type of lval * Typing.t (** type the left value with the given type *)   
 
 (** data type of jump targets *)
 type jmp_target = 
@@ -197,6 +198,7 @@ let string_of_directive d =
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
   | Forget r -> Printf.sprintf "forget %s" (Register.name r)
   | Taint (e, r) -> Printf.sprintf "if is_tainted (%s) taint %s" (string_of_exp e false) (Register.name r)
+  | Type (lv, t) -> Printf.sprintf "type(%s, %s)" (string_of_lval lv false) (Typing.to_string t) 
 			       
 let string_of_stmt s extended =
   (* internal function used to factorize code in the printing of If-stmt *)
