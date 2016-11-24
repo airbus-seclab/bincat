@@ -1484,6 +1484,16 @@ struct
     (********)
     (* misc *)
     (*****)
+
+    (** CWD / CDQ **)
+    (* sign extend AX to DX:AX (16 bits) or *)
+    (* sign extend EAX to EDX:EAX (32 bits) *)
+    let cwd_cdq s =
+        let d_edx = V (to_reg edx s.operand_sz) in
+        let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(s.operand_sz*2) in
+        let sign_ext = Set (V (T tmp), UnOp (SignExt (s.operand_sz*2), Lval (V (to_reg eax s.operand_sz)))) in
+        return s [sign_ext; Set (d_edx, Lval (V (P (tmp, s.operand_sz, (s.operand_sz*2-1))))); Directive (Remove tmp)]
+
     (** set byte on condition *)
     let setcc s cond =
         let e = exp_of_cond cond s in
@@ -1693,6 +1703,7 @@ struct
             | '\x90' 			      -> (* NOP *) return s [Nop]
             | c when '\x91' <= c && c <= '\x97' -> (* XCHG word or double-word with eAX *) xchg_with_eax s ((Char.code c) - 0x90)
             | '\x98' -> (* CBW *) let dst = V (to_reg eax s.operand_sz) in return s [Set (dst, UnOp (SignExt s.operand_sz, Lval (V (to_reg eax (s.operand_sz / 2)))))]
+            | '\x99' -> (* CWD / CDQ *) cwd_cdq s
             | '\x9a' -> (* CALL *)
               let off = int_of_bytes s (s.operand_sz / 8) in
               let cs' = get_base_address s (Hashtbl.find s.segments.reg cs) in
