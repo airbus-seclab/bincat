@@ -1188,13 +1188,21 @@ struct
         mul_s @ flags_stmts
 
     let idiv_stmts (reg : Asm.exp)  sz =
+        let min_int_z = (Z.of_int (1 lsl (sz-1))) in
+        let min_int_const = (Const (Word.of_int min_int_z (sz*2))) in
+        let max_int_z = (Z.sub min_int_z Z.one) in
+        let max_int_const = (Const (Word.of_int max_int_z (sz*2))) in
         let eax_r = (to_reg eax sz) in let eax_lv = Lval( V (eax_r)) in
         let edx_r = (to_reg edx sz) in let edx_lv = Lval( V (edx_r)) in
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let tmp_div   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let set_tmp = Set (V (T tmp), BinOp(Or, BinOp(Shl, edx_lv, Const (Word.of_int (Z.of_int sz) sz)), eax_lv)) in
         [set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg)); 
-         (* TODO : assert *)
+         Assert (
+            BBinOp(LogOr,
+                  Cmp(GT, Lval( V (T tmp_div)), max_int_const),
+                  Cmp(LT, Lval( V (T tmp_div)), min_int_const)),
+            "Divide error");
          (* compute remainder *)
          Set (V(edx_r), BinOp(Mod, Lval(V(T tmp)), reg));
          Set (V(eax_r), Lval (V (P (tmp_div, 0, sz-1))));
