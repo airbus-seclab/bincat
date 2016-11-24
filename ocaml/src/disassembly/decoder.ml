@@ -1196,7 +1196,7 @@ struct
         [set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg)); 
          (* TODO : assert *)
          (* compute remainder *)
-         Set (V(edx_r), BinOp(Sub, Lval(V(T tmp)), Lval(V(T tmp_div))));
+         Set (V(edx_r), BinOp(Mod, Lval(V(T tmp)), reg));
          Set (V(eax_r), Lval (V (P (tmp_div, 0, sz-1))));
          Directive (Remove tmp); Directive (Remove tmp_div)]
 
