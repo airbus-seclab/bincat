@@ -45,6 +45,7 @@ class CFA(object):
     Holds State for each defined node_id.
     Several node_ids may share the same address (ex. loops, partitions)
     """
+    #: Cache to speed up value parsing. (str, length) -> [Value, ...]
     _valcache = {}
 
     def __init__(self, states, edges, nodes):
@@ -258,9 +259,6 @@ class State(object):
 
             # build value
             concat_value = []
-            #: offset to last saved address - used in case different memreg
-            #: values are present
-            saved_offset = 0
             regaddr = Value.parse(region, addr, '0', 0)
             if (v, length) not in CFA._valcache:
                 # add to cache
@@ -277,10 +275,10 @@ class State(object):
                     # concatenate
                     concat_value.append(new_value)
 
-                off_vals.append((saved_offset, concat_value))
+                off_vals.append(concat_value)
                 CFA._valcache[(v, length)] = off_vals
-            for off, val in CFA._valcache[(v, length)]:
-                self._regaddrs[regaddr+off] = val
+            for val in CFA._valcache[(v, length)]:
+                self._regaddrs[regaddr] = val
         del(self._outputkv)
 
     def __getitem__(self, item):
