@@ -161,11 +161,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         | Set (dst, src) 		 -> D.set dst src d
         | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
-	| Directive (Unroll e) ->
+	| Directive (Unroll (e, bs)) ->
 	   begin
 	     try
 	       let n = (Z.to_int (D.value_of_exp d e)) + 1 in
-	       unroll_nb := n;
+	       unroll_nb := min (max !unroll_nb n) bs;
 	       Log.from_analysis (Printf.sprintf "automatic loop unrolling detection. Computed value is %d" n)
 	     with _ -> ()
 	   end;

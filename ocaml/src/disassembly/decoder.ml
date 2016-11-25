@@ -1838,7 +1838,7 @@ struct
 	      ]
 	    in
             if not (s.repe || s.repne) then
-	      v.Cfa.State.stmts <- (Directive (Unroll (Lval (V (T ecx)))))::blk
+	      v.Cfa.State.stmts <- (Directive (Unroll (Lval (V (T ecx)), 10000)))::blk
 	    else
 	      v.Cfa.State.stmts <- blk;
             v, ip
