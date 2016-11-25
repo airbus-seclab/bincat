@@ -288,7 +288,6 @@ module Make(V: Val) =
             let v_len = Array.length v in
             try
                 let n_i = Z.to_int (to_z n) in
-                Log.debug (Printf.sprintf "Vector: %d" n_i);
                 let v' = Array.make v_len V.zero in
                 for j = 0 to v_len-n_i-1 do
                     v'.(j+n_i) <- v.(j)
@@ -475,9 +474,6 @@ module Make(V: Val) =
         (** copy bits from v2 to bits from low to up of v1,
          *  vectors can be of different sizes *)
         let combine v1 v2 low up =
-            Log.debug (Printf.sprintf "Vector.combine : v1 = %s (%d)" (to_string v1) (Array.length v1));
-            Log.debug (Printf.sprintf "Vector.combine : v2 = %s (%d)" (to_string v2) (Array.length v2));
-            Log.debug (Printf.sprintf "Vector.combine : low = %d, up = %d" low up);
             if low > up || (up-low+1) > (Array.length v2) then
                 Log.error "Vector.combine : low > up or length of src < up-low+1 "
             else
@@ -493,7 +489,6 @@ module Make(V: Val) =
 		      v.(i) <- v2.(!j);
 		      j := !j+1;
 		    done;
-                    Log.debug (Printf.sprintf "Vector.combine : res = %s" (to_string v));
                     v
 		  end
         let exist2 p v1 v2 =
@@ -525,7 +520,6 @@ module Make(V: Val) =
             v'
 
         let from_position v l len =
-            Log.debug (Printf.sprintf "Vector.from_position %s %d %d" (to_string v) l len);
             let n = Array.length v in
             Array.sub v (n-l-1) len
 

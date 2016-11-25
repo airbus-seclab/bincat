@@ -27,7 +27,7 @@ module type T =
 	      mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
 	      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	      mutable bytes: char list;      (** corresponding list of bytes *)
-	      mutable is_tainted: bool; (** true whenever a source left value is the stmt list (field stmts) may be tainted *)
+	    mutable is_tainted: bool; (** true whenever a source left value is the stmt list (field stmts) may be tainted *)
 	    }
       end
       val init: Data.Address.t -> State.t
@@ -43,6 +43,7 @@ module type T =
     val forward_cfa: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t 
     val backward: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
     val interleave: Code.t -> Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
+    val init: unit -> unit
   end
     
 module Make(D: Domain.T): (T with type domain = D.t) =
@@ -60,7 +61,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    				    
     (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
     let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 10
-			   
+    (* current unroll value *)
+    let unroll_nb = ref 0
     (** opposite the given comparison operator *)
     let inv_cmp (cmp: Asm.cmp): Asm.cmp =
       match cmp with
@@ -120,7 +122,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		Hashtbl.add unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
 		1, v.Cfa.State.v
             in
-            if n <= !Config.unroll then
+            if n <= !unroll_nb then
               ()
             else 
               widen jd v
@@ -152,12 +154,27 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     
     exception Jmp_exn
     let rec process_value (d: D.t) (s: Asm.stmt) =
+      Log.debug (Printf.sprintf "%s" (Asm.string_of_stmt s false));
         match s with
         | Nop 				 -> d, false
         | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts       
         | Set (dst, src) 		 -> D.set dst src d
         | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
+	| Directive (Unroll e) ->
+	   begin
+	     try
+	       let n = (Z.to_int (D.value_of_exp d e)) + 1 in
+	       unroll_nb := n;
+	       Log.from_analysis (Printf.sprintf "automatic loop unrolling detection. Computed value is %d" n)
+	     with _ -> ()
+	   end;
+	  d, false
+	| Directive (Default_unroll) ->
+	   Log.from_analysis "set unroll parameter to its default value";
+	  unroll_nb := !Config.unroll;
+	  d, false
+
 	| Directive (Taint (e, r)) 	 ->
 	  let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
 	   if D.is_tainted e d then
@@ -472,6 +489,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Directive (Remove r) -> D.add_register r d, false
 	| Directive (Taint _) -> D.forget d, false
 	| Directive (Type _) -> D.forget d, false
+	| Directive (Unroll _) -> d, false
+	| Directive Default_unroll -> d, false
 	| Set (dst, src) -> back_set dst src d
     | Assert (_bexp, _msg) -> d, false (* TODO *)
 	| If (e, istmts, estmts) ->
@@ -537,6 +556,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Asm.Directive (Asm.Remove _)
 	| Asm.Directive (Asm.Taint _)
 	| Asm.Directive (Asm.Type _)
+	| Asm.Directive (Asm.Unroll _)
+	| Asm.Directive Asm.Default_unroll
 	| Asm.Jmp (Asm.A _)
 	| Asm.Return
 	| Asm.Call (Asm.A _) -> d, false
@@ -608,7 +629,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       
     (************* INTERLEAVING OF FORWARD/BACKWARD ANALYSES *******)
     (******************************************************)
-    let interleave (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+  	  
+      let interleave (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
       let rec process i cfa =
 	if i < !Config.refinements then
 	  begin
@@ -621,5 +643,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  cfa
       in
       process 0 (forward_bin code g s dump)
+
+      let init () = unroll_nb := !Config.unroll
+
   end
      

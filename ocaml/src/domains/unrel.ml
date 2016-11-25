@@ -458,13 +458,11 @@ module Make(D: T) =
 				
 				
     let set dst src m: (t * bool) =
-      Log.debug (Printf.sprintf "Unrel.set %s <- %s ..........." (Asm.string_of_lval dst true) (Asm.string_of_exp src true));
       match m with
       |	BOT    -> BOT, false
       | Val m' ->
          let v', _ = eval_exp m' src in
          let v' = span_taint m' src v' in
-	 Log.debug (Printf.sprintf "span result = %s" (D.to_string v'));
 	 let b = D.is_tainted v' in
          if D.is_bot v' then
            BOT, b
@@ -545,7 +543,7 @@ module Make(D: T) =
       in
       match c with
       | Config.Content z | Config.CMask (z, _) -> round_sz (Z.numbits z)
-      | Config.Bytes b | Config.Bytes_Mask (b, _) -> Log.debug (Printf.sprintf "size_of_content %s" b); (String.length b)*4
+      | Config.Bytes b | Config.Bytes_Mask (b, _) -> (String.length b)*4
 															    
 
     (** builds an abstract tainted value from a config concrete tainted value *)
