@@ -144,9 +144,11 @@ class AnalyzerConfig(object):
         regs = {}
         for regname in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
             regs[regname] = "0?0xFFFFFFFF"
-        for regname in ["cf", "pf", "af", "zf", "sf", "tf", "if", "df", "of", "nt",
+        for regname in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
                         "rf", "vm", "ac", "vif", "vip", "id"]:
             regs[regname] = "0?1"
+
+        regs["df"] = "0"
         regs["iopl"] = "3"
         return regs
 
