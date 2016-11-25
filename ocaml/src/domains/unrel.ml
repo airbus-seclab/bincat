@@ -458,11 +458,13 @@ module Make(D: T) =
 				
 				
     let set dst src m: (t * bool) =
+      Log.debug (Printf.sprintf "Unrel.set %s <- %s ..........." (Asm.string_of_lval dst true) (Asm.string_of_exp src true));
       match m with
       |	BOT    -> BOT, false
       | Val m' ->
          let v', _ = eval_exp m' src in
          let v' = span_taint m' src v' in
+	 Log.debug (Printf.sprintf "span result = %s" (D.to_string v'));
 	 let b = D.is_tainted v' in
          if D.is_bot v' then
            BOT, b
@@ -493,7 +495,7 @@ module Make(D: T) =
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT  -> m
-      | Val m1', Val m2' -> (*Val (Env.join m1' m2')*)
+      | Val m1', Val m2' ->
          try Val (Env.map2 D.join m1' m2')
          with _ ->
            let m = Env.empty in

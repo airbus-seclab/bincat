@@ -828,15 +828,7 @@ struct
         let esi'  = V (to_reg esi s.addr_sz)            in
         let medi' = M (add_segment s (Lval edi') ds, i) in
         let mesi' = M (add_segment s (Lval esi') es, i) in
-	let s1 = Set (medi', Lval mesi') in
-	let s2 = inc_dec_wrt_df [edi ; esi] i in
-	let stmts =
-	  if s.rep then
-	    s1::(taint_cmps_movs s i)::s2
-	  else
-	    s1::s2
-	in
-	return s stmts
+        return s ((Set (medi', Lval mesi'))::(taint_cmps_movs s i)::(inc_dec_wrt_df [edi ; esi] i))
 
     (** state generation for CMPS *)
     let cmps s i =
@@ -844,15 +836,7 @@ struct
         let esi'  = V (to_reg esi s.addr_sz)            in
         let medi' = M (add_segment s (Lval edi') ds, i) in
         let mesi' = M (add_segment s (Lval esi') es, i) in
-	let s1 = cmp_stmts (Lval medi') (Lval mesi') i in
-	let s2 = inc_dec_wrt_df [edi ; esi] i in
-	let stmts =
-	  if s.rep then
-	    s1@((taint_cmps_movs s i)::s2)
-	  else
-	    s1@s2
-	in
-	return s stmts
+        return s ((cmp_stmts (Lval medi') (Lval mesi') i) @ ((taint_cmps_movs s i)::(inc_dec_wrt_df [edi ; esi] i)))
 
     (** state generation for LODS *)
     let lods s i =
@@ -860,40 +844,15 @@ struct
         let esi'  = V (to_reg esi s.addr_sz)            in
         let mesi' = M (add_segment s (Lval esi') es, i) in
 	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg esi s.addr_sz)), 8))), ecx)) in
-	let s1 = Set (eax', Lval mesi') in
-	let s2 = inc_dec_wrt_df [esi] i in
-	let stmts =
-	  if s.rep then
-	    s1::taint_stmt::s2
-	  else
-	    s1::s2
-	in
-        return s stmts
+        return s ((Set (eax', Lval mesi'))::taint_stmt::(inc_dec_wrt_df [esi] i))
 
     (** state generation for SCAS *)
     let scas s i =
         let eax' = V (to_reg eax i)                    in
         let edi' = V (to_reg edi s.addr_sz)            in
-        let mem  = M (add_segment s (Lval edi') es, i) in	
-	let s1 =
-	  let typ =
-	    match i with
-	    | 8 -> Types.TChar
-	    | 16 -> Types.TWord
-	    | 32 -> Types.TDWord
-	    | _ -> Log.error "Illegal operand size in scas"   
-	  in
-	  Directive (Type (mem, typ))::(cmp_stmts (Lval eax') (Lval mem) i)
-	in
-	let s2 = inc_dec_wrt_df [edi] i in
-	let stmts =
-	  if s.rep then
-	    let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in
-	    s1 @ [taint_stmt] @ s2
-	  else
-	    s1 @ s2
-	in
-        return s stmts
+        let mem  = M (add_segment s (Lval edi') es, i) in
+	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in 
+        return s ((cmp_stmts (Lval eax') (Lval mem) i) @ [taint_stmt] @ (inc_dec_wrt_df [edi] i) )
 
 
     (** state generation for STOS *)
@@ -902,15 +861,8 @@ struct
         let edi'  = V (to_reg edi s.addr_sz)             in
         let medi' = M (add_segment s (Lval edi') ds, i)  in
         let stmts = Set (medi', Lval eax')               in
-	let inc_dec = inc_dec_wrt_df [edi] i in
-	let stmts' =
-	  if s.rep then 
-	    let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in
-	    stmts::taint_stmt::inc_dec
-	  else
-	    stmts::inc_dec
-	in
-        return s stmts'
+	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in
+        return s (stmts::taint_stmt::(inc_dec_wrt_df [edi] i))
 
     (** state generation for INS *)
     let taint_ins_outs s i =
@@ -920,30 +872,14 @@ struct
         let edi' = V (to_reg edi s.addr_sz)     in
         let edx' = V (to_reg edx i)             in
         let m    = add_segment s (Lval edi') es in
-	let s1 = Set (M (m, i), Lval edx') in
-	let s2 = inc_dec_wrt_df [edi] i in
-	let stmts =
-	  if s.rep then
-	    s1::(taint_ins_outs s i)::s2
-	  else
-	    s1::s2
-	in
-	return s stmts
+        return s ((Set (M (m, i), Lval edx'))::(taint_ins_outs s i)::(inc_dec_wrt_df [edi] i))
 
     (** state generation for OUTS *)
     let outs s i =
         let edi' = V (to_reg edi s.addr_sz)     in
         let edx'  = V (to_reg edx i)             in
         let m     = add_segment s (Lval edi') es in
-	let s1 = Set (edx', Lval (M (m, i))) in
-	let s2 = inc_dec_wrt_df [edi] i in
-	let stmts =
-	  if s.rep then
-	    s1::(taint_ins_outs s i)::s2
-	  else
-	    s1::s2
-	in
-	return s stmts
+        return s ((Set (edx', Lval (M (m, i))))::(taint_ins_outs s i)::(inc_dec_wrt_df [edi] i))
 
     (*************************)
     (* State generation for loading far pointers *)
@@ -1866,8 +1802,7 @@ struct
 		    v.Cfa.State.stmts @ (ecx_stmt :: zf_stmts),
 		    [ Jmp (A a')])
 	      ] in
-	    let ecx_type = Directive (Type (V (T ecx), Types.TInt 32)) in
-            v.Cfa.State.stmts <- ecx_type::blk;
+            v.Cfa.State.stmts <- blk;
             v, ip
 
         and decode_snd_opcode s =

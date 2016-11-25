@@ -1,4 +1,4 @@
-(** high level types *)
+(** abstract domain of type reconstruction *)
 
 (** abstract data type *)
 type t =
@@ -15,19 +15,7 @@ let to_string t =
   | TWord -> "char16"     
   | TDWord -> "char32"
   | TInt n -> "int"^(string_of_int n)
-  | TUnknown -> "?"
-     
-(** join *)
-let join t1 t2 =
-  Log.debug (Printf.sprintf "Types.join %s %s" (to_string t1) (to_string t2));  
-  match t1, t2 with
-  | TChar, TChar -> t1
-  | TWord, TWord -> t1 
-  | TDWord, TDWord -> t1
-  | TInt n1, TInt n2 when n1 = n2 -> t1
-  | _, _ -> TUnknown
-     
-
+  | TUnknown -> ""
 
 (** comparison *)
 let leq t1 t2 =
