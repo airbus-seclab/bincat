@@ -16,6 +16,9 @@ qu'un état par instruction x86) (ou pas, à discuter)
 * numeric log levels (not just verbose)
 * log categories (mem, vectors, etc.)
 
+Bugs:
+* autoriser les '?' dans les noms de fonctions
+
 Hard :
 * use a shared data structure to store memory only once for all states
 
@@ -27,5 +30,3 @@ Hard :
 * faire marcher `bincat` sous windows ?
 * spécifier les sections de data et leurs adresses (physiques/virtuelles) pour permettre à bincat de les lire dans le binaire direct
 * gérer des diffs de mémoire seulement ? (bcp d'instructions ne touchent pas la mémoire, ça éviterait de perdre du temps à tout réécrire.)
-
-
