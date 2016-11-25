@@ -111,7 +111,7 @@
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token OVERRIDE NONE ALL
+%token OVERRIDE NONE ALL SECTIONS ENTRY
 %token <string> STRING 
 %token <string> HEX_BYTES
 %token <Z.t> INT
@@ -132,6 +132,7 @@
     | LEFT_SQ_BRACKET BINARY RIGHT_SQ_BRACKET 	b=binary     { b }
     | LEFT_SQ_BRACKET STATE RIGHT_SQ_BRACKET  st=state       { st }
     | LEFT_SQ_BRACKET ANALYZER RIGHT_SQ_BRACKET a=analyzer   { a }
+    | LEFT_SQ_BRACKET SECTIONS RIGHT_SQ_BRACKET s=data_sections   { s }
     | LEFT_SQ_BRACKET GDT RIGHT_SQ_BRACKET gdt=gdt 	     { gdt }
     | LEFT_SQ_BRACKET l=libname RIGHT_SQ_BRACKET lib=library { l; lib }
     | LEFT_SQ_BRACKET ASSERT RIGHT_SQ_BRACKET r=assert_rules { r }
@@ -251,6 +252,8 @@
     | FORWARD_CFA  { Config.Forward Config.Cfa }
     | BACKWARD { Config.Backward }
 
+      data_sections:
+    | ENTRY EQUAL virt_addr=INT COMMA virt_size=INT COMMA raw_addr=INT COMMA raw_size= INT { Hashtbl.add Config.sections virt_addr (virt_size, raw_addr, raw_size) }
 
      addresses:
     | i=INT { [ i ] }

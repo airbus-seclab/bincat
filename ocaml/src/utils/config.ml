@@ -91,6 +91,9 @@ let memory_content: ctbl = Hashtbl.create 10
 let stack_content: ctbl = Hashtbl.create 10
 let heap_content: ctbl = Hashtbl.create 10
 
+type sec_tbl = (Z.t * Z.t * Z.t)
+let sections:  sec_tbl = Hashtbl.create 10
+
 let import_tbl: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
 (* tainting and typing rules for functions *)
 type taint_t =
