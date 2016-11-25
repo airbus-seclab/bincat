@@ -473,6 +473,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Directive (Taint _) -> D.forget d, false
 	| Directive (Type _) -> D.forget d, false
 	| Set (dst, src) -> back_set dst src d
+    | Assert (_bexp, _msg) -> d, false (* TODO *)
 	| If (e, istmts, estmts) ->
 	   match branch with
 	   | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', b||b') (d, false) istmts in let v, b' = restrict d' e true in v, b||b'
@@ -540,6 +541,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Asm.Return
 	| Asm.Call (Asm.A _) -> d, false
 	| Asm.Set (dst, src) -> D.set dst src d
+    | Assert (_bexp, _msg) -> d, false (* TODO *)
 	| Asm.If (e, istmts, estmts) ->
 	   begin
 	     try process_if d e istmts estmts

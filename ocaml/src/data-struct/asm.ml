@@ -88,6 +88,7 @@ type stmt =
   | Return        		           (** return *)
   | Nop                      		   (** no operation *)
   | Directive of directive_t 		   (** directive/hint for the analyzer *)
+  | Assert of bexp * string    (** an assert for invalid results *)
 		   
 let equal_bunop op1 op2 =
   match op1, op2 with
@@ -217,6 +218,7 @@ let string_of_stmt s extended =
     | Return  	       		     -> Printf.sprintf "%sret" ind
     | Nop 	       		     -> Printf.sprintf "%snop" ind
     | Directive d        	     -> Printf.sprintf "%s%s" ind (string_of_directive d)
+    | Assert (bexp, msg) -> Printf.sprintf "Assert (%s, %s)" (string_of_bexp bexp extended) msg
   in
   to_string "" s
 		     

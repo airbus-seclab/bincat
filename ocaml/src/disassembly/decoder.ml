@@ -1187,6 +1187,28 @@ struct
             ] in
         mul_s @ flags_stmts
 
+    let idiv_stmts (reg : Asm.exp)  sz =
+        let min_int_z = (Z.of_int (1 lsl (sz-1))) in
+        let min_int_const = (Const (Word.of_int min_int_z (sz*2))) in
+        let max_int_z = (Z.sub min_int_z Z.one) in
+        let max_int_const = (Const (Word.of_int max_int_z (sz*2))) in
+        let eax_r = (to_reg eax sz) in let eax_lv = Lval( V (eax_r)) in
+        let edx_r = (to_reg edx sz) in let edx_lv = Lval( V (edx_r)) in
+        let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
+        let tmp_div   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
+        let set_tmp = Set (V (T tmp), BinOp(Or, BinOp(Shl, edx_lv, Const (Word.of_int (Z.of_int sz) sz)), eax_lv)) in
+        [set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg)); 
+         Assert (
+            BBinOp(LogOr,
+                  Cmp(GT, Lval( V (T tmp_div)), max_int_const),
+                  Cmp(LT, Lval( V (T tmp_div)), min_int_const)),
+            "Divide error");
+         (* compute remainder *)
+         Set (V(edx_r), BinOp(Mod, Lval(V(T tmp)), reg));
+         Set (V(eax_r), Lval (V (P (tmp_div, 0, sz-1))));
+         Directive (Remove tmp); Directive (Remove tmp_div)]
+
+
     (*****************************************************************************************)
     (* decoding of opcodes of groups 1 to 8 *)
     (*****************************************************************************************)
@@ -1331,13 +1353,14 @@ struct
         | _ -> error s.a "Illegal opcode in grp 2"
 
     let grp3 s sz =
-        let nnn, dst = core_grp s sz in
+        let nnn, reg = core_grp s sz in
         let stmts =
             match nnn with
-            | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts dst imm sz
-            | 2 -> (* NOT *) [ Set (dst, UnOp (Not, Lval dst)) ]
-            | 3 -> (* NEG *) [ Set (dst, BinOp (Sub, Const (Word.zero sz), Lval dst)) ]
-            | 4 -> (* MUL *) mul_stmts (Lval dst) sz
+            | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts reg imm sz
+            | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
+            | 3 -> (* NEG *) [ Set (reg, BinOp (Sub, Const (Word.zero sz), Lval reg)) ]
+            | 4 -> (* MUL *) mul_stmts (Lval reg) sz
+            | 7 -> (* IDIV *) idiv_stmts (Lval reg) sz
             | _ -> error s.a "Unknown operation in grp 3"
         in
         return s stmts
@@ -1484,6 +1507,16 @@ struct
     (********)
     (* misc *)
     (*****)
+
+    (** CWD / CDQ **)
+    (* sign extend AX to DX:AX (16 bits) or *)
+    (* sign extend EAX to EDX:EAX (32 bits) *)
+    let cwd_cdq s =
+        let d_edx = V (to_reg edx s.operand_sz) in
+        let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(s.operand_sz*2) in
+        let sign_ext = Set (V (T tmp), UnOp (SignExt (s.operand_sz*2), Lval (V (to_reg eax s.operand_sz)))) in
+        return s [sign_ext; Set (d_edx, Lval (V (P (tmp, s.operand_sz, (s.operand_sz*2-1))))); Directive (Remove tmp)]
+
     (** set byte on condition *)
     let setcc s cond =
         let e = exp_of_cond cond s in
@@ -1693,6 +1726,7 @@ struct
             | '\x90' 			      -> (* NOP *) return s [Nop]
             | c when '\x91' <= c && c <= '\x97' -> (* XCHG word or double-word with eAX *) xchg_with_eax s ((Char.code c) - 0x90)
             | '\x98' -> (* CBW *) let dst = V (to_reg eax s.operand_sz) in return s [Set (dst, UnOp (SignExt s.operand_sz, Lval (V (to_reg eax (s.operand_sz / 2)))))]
+            | '\x99' -> (* CWD / CDQ *) cwd_cdq s
             | '\x9a' -> (* CALL *)
               let off = int_of_bytes s (s.operand_sz / 8) in
               let cs' = get_base_address s (Hashtbl.find s.segments.reg cs) in

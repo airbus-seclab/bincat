@@ -333,15 +333,16 @@ module Make(V: Val) =
                 Log.error "Division by zero"
             else
                 let n   = Array.length v1     in
-                let v   = Array.make n V.zero in
-                let one = Array.make n V.one  in
-                let rec loop v r =
-                    if geq r v2 then
-                        loop (add v one) (sub r v2)
+                let res   = Array.make n V.zero in
+                let one = Array.make n V.zero in
+                one.(n-1) <- V.one;
+                let rec loop res rem =
+                    if geq rem v2 then
+                        loop (add res one) (sub rem v2)
                     else
-                        v, r
+                        res, rem
                 in
-                loop v v1
+                loop res v1
 
 
         let div v1 v2 = fst (core_div v1 v2)
