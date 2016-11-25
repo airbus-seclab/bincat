@@ -105,6 +105,7 @@ class AnalyzerConfig(object):
             seg = idaapi.getnseg(n)
             if (seg.type == idaapi.SEG_CODE and
                     seg.startEA <= entrypoint < seg.endEA):
+                # TODO : check PE/ELF for **physical** (raw) section size
                 return seg.startEA, seg.endEA
         bc_log.error("No code section has been found for entrypoint %#08x",
                      entrypoint)
