@@ -8,7 +8,7 @@ utils/log.ml\
 data-struct/data.ml\
 frontend/lexer.ml\
 frontend/parser.ml\
-domains/typing.ml\
+data-struct/types.ml\
 data-struct/asm.ml\
 data-struct/code.ml\
 domains/env.ml\
