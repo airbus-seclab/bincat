@@ -233,15 +233,30 @@ module Make(D: T) =
          else
            if Data.Address.compare addr a_high > 0 then 1
            else 0 (* return 0 if a1 <= a <= a2 *)
-		  
-    (** computes the value read from the map where _addr_ is located *)
+	
+    (** computes the value read from the map where _addr_ is located 
+        The logic is the following:
+            1) expand the base address and size to an array of addrs
+            2) check "map" for existence
+            3) if "map" contains the adresses, get the values and concat them
+            4) else check in the "sections" maps and read from the file (or raise Not_found)
+    **)
     let get_mem_value map addr sz =
       Log.debug (Printf.sprintf "get_mem_value : %s %d" (Data.Address.to_string addr) sz );
       try
         (* expand the address + size to a list of addresses *)
         let exp_addrs = get_addr_list addr (sz/8) in
+
         (* find the corresponding keys in the map, will raise [Not_found] if no addr matches *)
-        let vals = List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs in
+        let vals = 
+        try
+            List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs
+        with Not_found ->
+            (** not in mem map, check file sections *)
+            List.find (fun cur_addr 
+            List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs
+        in
+
         (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
         let res = D.concat vals in
         Log.debug (Printf.sprintf "get_mem_value result : %s" (D.to_string res));

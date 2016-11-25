@@ -253,7 +253,7 @@
     | BACKWARD { Config.Backward }
 
       data_sections:
-    | ENTRY EQUAL virt_addr=INT COMMA virt_size=INT COMMA raw_addr=INT COMMA raw_size= INT { Hashtbl.add Config.sections virt_addr (virt_size, raw_addr, raw_size) }
+    | ENTRY EQUAL virt_addr=INT COMMA virt_size=INT COMMA raw_addr=INT COMMA raw_size=INT COMMA name=STRING { List.append Config.sections (virt_addr, virt_size, raw_addr, raw_size, name) }
 
      addresses:
     | i=INT { [ i ] }
