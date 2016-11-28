@@ -11,6 +11,7 @@ import idaapi
 import idc
 import logging
 import idabincat.netnode
+import idautils
 
 # Logging
 bc_log = logging.getLogger('bincat-cfg')
@@ -28,6 +29,17 @@ class pesection_t(ctypes.Structure):
                  ("s_nreloc", ctypes.c_ushort),
                  ("s_nlnno", ctypes.c_ushort),
                  ("s_flags", ctypes.c_int)]
+
+# For some reason, IDA stores the Elf64 hdr, even for 32 bits files...
+class elf_ph_t(ctypes.Structure):
+     _fields_ = [("p_type", ctypes.c_uint),
+                 ("p_flags", ctypes.c_uint),
+                 ("p_offset", ctypes.c_ulonglong),
+                 ("p_vaddr", ctypes.c_ulonglong),
+                 ("p_paddr", ctypes.c_ulonglong),
+                 ("p_filesz", ctypes.c_ulonglong),
+                 ("p_memsz", ctypes.c_ulonglong),
+                 ("p_align", ctypes.c_ulonglong)]
 
 class AnalyzerConfig(object):
     ftypes = {idaapi.f_PE: "pe",
@@ -131,12 +143,24 @@ class AnalyzerConfig(object):
         res = []
         if AnalyzerConfig.get_file_type() == "pe":
             # IDA doesn't store the raw size of sections, we need to get the
+            # headers...
             n = idaapi.netnode("$ PE header")
+            imagebase = n.altval(idautils.peutils_t.PE_ALT_IMAGEBASE)
             i = 1
             while n.supval(i) != None:
                 raw = n.supval(i)
                 sec = pesection_t.from_buffer_copy(raw)
-                res.append([sec.s_name, sec.s_vaddr, sec.s_vsize, sec.s_scnptr, sec.s_psize])
+                res.append([sec.s_name, imagebase+sec.s_vaddr, sec.s_vsize, sec.s_scnptr, sec.s_psize])
+                i += 1
+            return res
+        elif AnalyzerConfig.get_file_type() == "elf":
+            n = idaapi.netnode("$ elfnode")
+            i = 0 # ELF PH start at 0
+            while n.supval(i, 'p') != None:
+                raw = n.supval(i, 'p') # program headers
+                ph = elf_ph_t.from_buffer_copy(raw)
+                if ph.p_type == 1: # PT_LOAD
+                    res.append(["ph%d" % i, ph.p_vaddr, ph.p_memsz, ph.p_offset, ph.p_filesz])
                 i += 1
             return res
 
