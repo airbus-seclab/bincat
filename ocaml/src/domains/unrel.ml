@@ -263,7 +263,7 @@ module Make(D: T) =
             else
                 match !mapped_file with
                 | None -> Log.error "File not mapped!"
-                | Some map -> D.of_word (Data.Word.of_int (Z.of_int (Bigarray.Genarray.get map [|(Z.to_int offset)|])) 8)
+                | Some map -> D.of_word (Data.Word.of_int (Z.of_int (Bigarray.Genarray.get map [|(Z.to_int (Z.add sec.raw_addr offset))|])) 8)
 
 
     (** computes the value read from the map where _addr_ is located 
@@ -284,6 +284,7 @@ module Make(D: T) =
         try
             List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs
         with Not_found ->
+            Log.debug "\tNot found in mapping, checking sections";
             (** not in mem map, check file sections, again, will raise [Not_found] if not matched *)
             List.rev_map (fun cur_addr -> read_from_sections cur_addr) exp_addrs
         in
