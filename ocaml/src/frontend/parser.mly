@@ -108,7 +108,7 @@
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token OVERRIDE NONE ALL SECTIONS ENTRY
+%token OVERRIDE NONE ALL SECTION SECTIONS ENTRY
 %token <string> STRING 
 %token <string> HEX_BYTES
 %token <Z.t> INT
@@ -250,7 +250,11 @@
     | BACKWARD { Config.Backward }
 
       data_sections:
-    | ENTRY EQUAL virt_addr=INT COMMA virt_size=INT COMMA raw_addr=INT COMMA raw_size=INT COMMA name=STRING { Config.sections :=  (virt_addr, virt_size, raw_addr, raw_size, name)::(!Config.sections) }
+    | s=section_item { s }
+    | s=section_item ss = data_sections{ s ; ss }
+
+      section_item:
+    | SECTION LEFT_SQ_BRACKET name=STRING RIGHT_SQ_BRACKET EQUAL virt_addr=INT COMMA virt_size=INT COMMA raw_addr=INT COMMA raw_size=INT { Config.sections :=  (virt_addr, virt_size, raw_addr, raw_size, name)::(!Config.sections)  }
 
      addresses:
     | i=INT { [ i ] }

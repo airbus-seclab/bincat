@@ -68,6 +68,7 @@ rule token = parse
   (* analyzer section *)
   | "analyzer"  	    { ANALYZER }
   (* sections section *)
+  | "section"  	    { SECTION }
   | "sections"  	    { SECTIONS }
   (* settings tokens *)
   | "mem_model" 	    { MEM_MODEL }
