@@ -41,6 +41,9 @@ let out_mcfa_file = ref "";;
 let load_mcfa = ref false;;
 let store_mcfa = ref false;;
 
+(* name of binary file to analyze *)
+let binary = ref "";;
+
 let format = ref Pe
 
 type call_conv_t =
@@ -91,8 +94,8 @@ let memory_content: ctbl = Hashtbl.create 10
 let stack_content: ctbl = Hashtbl.create 10
 let heap_content: ctbl = Hashtbl.create 10
 
-type 
-let sections = ref [] (* (Z.t * Z.t * Z.t * Z.t * string) list = ref [] *)
+type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
+let sections: sec_t = ref []
 
 let import_tbl: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
 

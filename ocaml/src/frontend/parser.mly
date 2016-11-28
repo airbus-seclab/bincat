@@ -10,9 +10,6 @@
     (* temporary table to store tainting rules on functions of a given library *)
     let libraries: (string, Config.call_conv_t option * ((string * Config.call_conv_t option * Config.taint_t option * Config.taint_t list) list)) Hashtbl.t = Hashtbl.create 7;;
 
-    (* name of binary file to analyze *)
-    let filename = ref ""
-
     (* name of the npk file containing function headers *)
     let npk_header = ref ""
 
@@ -69,7 +66,7 @@
 	(* open the binary to pick up the text section *)
 	let fid  =
 	  try
-	    let fid = open_in_bin !filename in
+	    let fid = open_in_bin !Config.binary in
 	    seek_in fid !Config.phys_code_addr;
 	    fid
 	  with _ -> Log.error "failed to open the binary to analyze"
@@ -215,7 +212,7 @@
     | b=binary_item bb=binary { b; bb }
 
       binary_item:
-    | FILEPATH EQUAL f=STRING 	{ update_mandatory FILEPATH; filename := f }
+    | FILEPATH EQUAL f=STRING 	{ update_mandatory FILEPATH; Config.binary := f }
     | FORMAT EQUAL f=format 	{ update_mandatory FORMAT; Config.format := f }
 
 
@@ -253,7 +250,7 @@
     | BACKWARD { Config.Backward }
 
       data_sections:
-    | ENTRY EQUAL virt_addr=INT COMMA virt_size=INT COMMA raw_addr=INT COMMA raw_size=INT COMMA name=STRING { List.append Config.sections (virt_addr, virt_size, raw_addr, raw_size, name) }
+    | ENTRY EQUAL virt_addr=INT COMMA virt_size=INT COMMA raw_addr=INT COMMA raw_size=INT COMMA name=STRING { Config.sections :=  (virt_addr, virt_size, raw_addr, raw_size, name)::(!Config.sections) }
 
      addresses:
     | i=INT { [ i ] }
