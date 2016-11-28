@@ -73,8 +73,10 @@ type directive_t =
   | Forget of Register.t (** forget the content of the given register *)
   | Taint of exp * Register.t (** conditional tainting: if the expression is true then the register must be tainted *)
   | Type of lval * Typing.t (** type the left value with the given type *)
-  | Unroll of exp (** set the current unroll value to the value of the given expression *)
+  | Unroll of exp * int (** Unroll (e, bs) set the current unroll value to tmin (e, bs) *)
   | Default_unroll (** set the current unroll value to the default value (in Config) *)
+  | Unroll_until of exp * cmp * exp * int * int (** Unroll (e, cmp terminator, bs, sz) set the current unroll value to tmin (n, bs) where n is an offset from memory [e].
+This offset is the minimal integer where (sz)[e] cmp terminator is true *)
 
 (** data type of jump targets *)
 type jmp_target = 
@@ -202,8 +204,9 @@ let string_of_directive d =
   | Forget r -> Printf.sprintf "forget %s" (Register.name r)
   | Taint (e, r) -> Printf.sprintf "if is_tainted (%s) taint %s" (string_of_exp e false) (Register.name r)
   | Type (lv, t) -> Printf.sprintf "type(%s, %s)" (string_of_lval lv false) (Typing.to_string t)
-  | Unroll e -> Printf.sprintf "unroll current loop %s times" (string_of_exp e false)
+  | Unroll (e, bs) -> Printf.sprintf "unroll current loop min (%s, %d) times" (string_of_exp e false) bs
   | Default_unroll -> "set unroll value ot its default value"
+  | Unroll_until (e, cmp, terminator, ub, sz) -> Printf.sprintf "unroll current loop min (n, %d) times with n = minimal offset from e such that (%d)[%s+n] %s %s" ub sz (string_of_exp e false) (string_of_cmp cmp) (string_of_exp terminator false)
      
 			       
 let string_of_stmt s extended =

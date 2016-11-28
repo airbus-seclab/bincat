@@ -80,5 +80,11 @@ module type T =
 
     (** [set_type lv t m] type the left value lv with type t *)
       val set_type: Asm.lval -> Typing.t -> t -> t
+
+
+      (** [get_address_of addr terminator upper_bound sz m] scans memory to get *)
+      (** the lowest offset o <= upper_bound from address addr such that (sz)[addr+o] cmp terminator is true *)
+      (** may raise an exception if not found or memory too much imprecise *)
+      val get_offset_from: Asm.exp -> Asm.cmp -> Asm.exp -> int -> int -> t -> int
     end
       

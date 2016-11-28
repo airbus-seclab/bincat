@@ -1577,6 +1577,12 @@ struct
     let set_flag f sz = [ Set (V (T f), Const (Word.one sz)) ]
     let clear_flag f sz = [ Set (V (T f), Const (Word.zero sz)) ]
 
+    (** directive for automatic unrolling in rep instructions *)
+    let unroll_scas (cmp: cmp) s i: stmt =
+      let edi' = V (to_reg edi s.addr_sz) in
+      let mem  = add_segment s (Lval edi') es in
+      Directive (Unroll_until (mem, cmp, Lval (V (to_reg eax i)), 10000, i))
+      
     (** decoding of one instruction *)
     let decode s =
         let add_sub_mrm s op b sz direction =
@@ -1796,7 +1802,6 @@ struct
             | '\xeb' -> (* JMP to near relative address (offset has byte size) *) relative_jmp s 8
 
 
-
             | '\xf0' -> (* LOCK *) error s.a "LOCK instruction found. Interpreter halts"
             | '\xf1' -> (* undefined *) error s.a "Undefined opcode 0xf1"
             | '\xf2' -> (* REPNE *) s.repne <- true; rep s Word.one
@@ -1818,13 +1823,14 @@ struct
         (** rep prefix *)
         and rep s c =
             let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
-            (* thanks to check_context at the beginning of decode we know that next opcode is SCAS/LODS/STOS/CMPS *)
+            (* because of check_context at the beginning of decode we know that next opcode is SCAS/LODS/STOS/CMPS *)
             (* otherwise decoder halts *)
             let v, ip = decode s in
             let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
             let zf_stmts =
                 if s.repe || s.repne then
-                    [ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Jmp (A a')], [Jmp (A v.Cfa.State.ip) ]) ]
+                  [ If (Cmp (EQ, Lval (V (T fzf)), Const (c fzf_sz)), [Directive Default_unroll ; Jmp (A a')],
+			[Jmp (A v.Cfa.State.ip) ]) ]
                 else
                     [ Jmp (A v.Cfa.State.ip) ]
             in
@@ -1838,10 +1844,19 @@ struct
 	      ]
 	    in
             if not (s.repe || s.repne) then
-	      v.Cfa.State.stmts <- (Directive (Unroll (Lval (V (T ecx)))))::blk
+	      v.Cfa.State.stmts <- (Directive (Unroll (Lval (V (T ecx)), 10000)))::blk
 	    else
-	      v.Cfa.State.stmts <- blk;
-            v, ip
+	      begin
+		let cmp = if s.repne then EQ else NEQ in
+		  let stmts =
+		    match (List.hd (List.tl v.Cfa.State.bytes)) with
+		    | '\xae' -> (unroll_scas cmp s 8)::blk
+		    | '\xaf' -> (unroll_scas cmp s s.addr_sz)::blk
+		    | _ -> blk  
+		  in
+		  v.Cfa.State.stmts <- stmts
+	      end;
+	    v, ip
 
         and decode_snd_opcode s =
             match getchar s with

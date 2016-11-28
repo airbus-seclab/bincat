@@ -43,7 +43,6 @@ module type T =
     val forward_cfa: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t 
     val backward: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
     val interleave: Code.t -> Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
-    val init: unit -> unit
   end
     
 module Make(D: Domain.T): (T with type domain = D.t) =
@@ -61,8 +60,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    				    
     (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
     let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 10
+      
     (* current unroll value *)
-    let unroll_nb = ref 0
+    (* None is for the default value set in Config *)
+    let unroll_nb = ref None
     (** opposite the given comparison operator *)
     let inv_cmp (cmp: Asm.cmp): Asm.cmp =
       match cmp with
@@ -122,7 +123,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		Hashtbl.add unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
 		1, v.Cfa.State.v
             in
-            if n <= !unroll_nb then
+	    let nb_max =
+	      match !unroll_nb with
+	      | None -> !Config.unroll
+	      | Some n -> n
+	    in
+            if n <= nb_max then
               ()
             else 
               widen jd v
@@ -151,36 +157,51 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              | _ 			      -> false
            in
            b || (has_jmp stmts')
-    
+
+    let unroll_wrapper (f: unit -> int): unit =
+      try
+	match !unroll_nb with
+	| Some _ -> ()
+	| None ->
+	   let n = f () in
+	   unroll_nb := Some n;
+	   Log.from_analysis (Printf.sprintf "automatic loop unrolling detection. Computed value is 0x%x" n)
+      with _ -> ()
+      
     exception Jmp_exn
+      
     let rec process_value (d: D.t) (s: Asm.stmt) =
-      Log.debug (Printf.sprintf "%s" (Asm.string_of_stmt s false));
         match s with
         | Nop 				 -> d, false
         | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts       
         | Set (dst, src) 		 -> D.set dst src d
         | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
-	| Directive (Unroll e) ->
-	   begin
-	     try
-	       let n = (Z.to_int (D.value_of_exp d e)) + 1 in
-	       unroll_nb := n;
-	       Log.from_analysis (Printf.sprintf "automatic loop unrolling detection. Computed value is %d" n)
-	     with _ -> ()
-	   end;
-	  d, false
+	| Directive (Unroll (e, bs)) ->
+	   let f () = min ((Z.to_int (D.value_of_exp d e)) + 1) bs in
+	   unroll_wrapper f;
+	   d, false
+	     
 	| Directive (Default_unroll) ->
 	   Log.from_analysis "set unroll parameter to its default value";
-	  unroll_nb := !Config.unroll;
+	  unroll_nb := None;
 	  d, false
 
+	| Asm.Directive (Asm.Unroll_until (addr, cmp, terminator, upper_bound, sz)) ->
+	   Log.debug (Asm.string_of_stmt s true);
+	   let f () =
+	     D.get_offset_from addr cmp terminator upper_bound sz d
+	   in
+	   unroll_wrapper f;
+	   d, false
+	    
 	| Directive (Taint (e, r)) 	 ->
 	  let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
 	   if D.is_tainted e d then
 	     D.taint_register_mask r mask d, true
 	   else
 	     d, false
+
 	| Directive (Type (lv, t)) ->  D.set_type lv t d, false 
         | _ 				 -> raise Jmp_exn
 						     
@@ -490,6 +511,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Directive (Taint _) -> D.forget d, false
 	| Directive (Type _) -> D.forget d, false
 	| Directive (Unroll _) -> d, false
+	| Directive (Unroll_until _) -> d, false
 	| Directive Default_unroll -> d, false
 	| Set (dst, src) -> back_set dst src d
     | Assert (_bexp, _msg) -> d, false (* TODO *)
@@ -557,6 +579,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Asm.Directive (Asm.Taint _)
 	| Asm.Directive (Asm.Type _)
 	| Asm.Directive (Asm.Unroll _)
+	| Asm.Directive (Asm.Unroll_until _)
 	| Asm.Directive Asm.Default_unroll
 	| Asm.Jmp (Asm.A _)
 	| Asm.Return
@@ -644,7 +667,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       in
       process 0 (forward_bin code g s dump)
 
-      let init () = unroll_nb := !Config.unroll
 
   end
      
