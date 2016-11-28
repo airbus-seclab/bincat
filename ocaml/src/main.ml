@@ -50,6 +50,9 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
        Log.error (Printf.sprintf "Parse error near location %s" (string_of_position lexbuf))
   end;
   close_in cin;
+
+  (* initialisation of the interpreter *)
+  Interpreter.init();
   
   (* defining the dump function to provide to the fixpoint engine *)
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in

@@ -45,6 +45,7 @@ class CFA(object):
     Holds State for each defined node_id.
     Several node_ids may share the same address (ex. loops, partitions)
     """
+    #: Cache to speed up value parsing. (str, length) -> [Value, ...]
     _valcache = {}
 
     def __init__(self, states, edges, nodes):
@@ -180,14 +181,16 @@ class State(object):
 
     example valtaints: G0x1234 G0x12!0xF0 S0x12!ALL
     """
-    __slots__ = ['address', 'node_id', '_regaddrs', 'final', 'statements',
-                 'bytes', 'tainted', '_outputkv']
+    __slots__ = ['address', 'node_id', '_regaddrs', '_regtypes', 'final',
+                 'statements', 'bytes', 'tainted', '_outputkv']
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
         self.node_id = node_id
         #: Value -> [Value]. Either 1 value, or a list of 1-byte Values.
         self._regaddrs = {}
+        #: Value -> "type"
+        self._regtypes = {}
         self.final = False
         self.statements = ""
         self.bytes = ""
@@ -202,8 +205,22 @@ class State(object):
                 import traceback
                 traceback.print_exc(e)
                 raise PyBinCATException(
-                    "Cannot parse regaddrs at address %s" % self.address)
+                    "Cannot parse taint or type data at address %s" %
+                    self.address)
         return self._regaddrs
+
+    @property
+    def regtypes(self):
+        if self._regtypes is None:
+            try:
+                self.parse_regaddrs()
+            except Exception as e:
+                import traceback
+                traceback.print_exc(e)
+                raise PyBinCATException(
+                    "Cannot parse taint or type data at address %s" %
+                    self.address)
+        return self._regtypes
 
     @classmethod
     def parse(cls, node_id, outputkv):
@@ -222,11 +239,22 @@ class State(object):
         new_state.tainted = outputkv.pop("tainted", "False") == "true"
         new_state._outputkv = outputkv
         new_state._regaddrs = None
+        new_state._regtypes = None
         return new_state
 
     def parse_regaddrs(self):
+        """
+        Parses entries containing taint & type data
+        """
         self._regaddrs = {}
+        self._regtypes = {}
         for k, v in self._outputkv.iteritems():
+            if k.startswith("T-"):
+                typedata = True
+                k = k[2:]
+            else:
+                typedata = False
+
             m = RE_REGION_ADDR.match(k)
             if not m:
                 raise PyBinCATException("Parsing error (key=%r)" % (k,))
@@ -258,10 +286,10 @@ class State(object):
 
             # build value
             concat_value = []
-            #: offset to last saved address - used in case different memreg
-            #: values are present
-            saved_offset = 0
             regaddr = Value.parse(region, addr, '0', 0)
+            if typedata:
+                self._regtypes[regaddr] = v.split(', ')
+                continue
             if (v, length) not in CFA._valcache:
                 # add to cache
                 off_vals = []
@@ -277,10 +305,10 @@ class State(object):
                     # concatenate
                     concat_value.append(new_value)
 
-                off_vals.append((saved_offset, concat_value))
+                off_vals.append(concat_value)
                 CFA._valcache[(v, length)] = off_vals
-            for off, val in CFA._valcache[(v, length)]:
-                self._regaddrs[regaddr+off] = val
+            for val in CFA._valcache[(v, length)]:
+                self._regaddrs[regaddr] = val
         del(self._outputkv)
 
     def __getitem__(self, item):
