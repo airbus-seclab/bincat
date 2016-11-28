@@ -61,7 +61,7 @@ SHARED=-output-obj -runtime-variant _pic
 LDCONFIG=ldconfig
 endif
 
-CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -lasmrun
+CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmrun
 all: $(LIBNAME) bincat_native
 
 $(LIBNAME): $(CMX) 

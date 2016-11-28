@@ -687,6 +687,42 @@ module Make(D: T) =
         | Val m' -> snd (eval_exp m' e)
 
 
+    let get_offset_from (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t): int =
+      match m with
+      | BOT -> raise Not_found
+      | Val m' ->
+	 let v, _ = eval_exp m' addr in
+	 let addrs = Data.Address.Set.elements (D.to_addresses v) in
+	 let term = fst (eval_exp m' terminator) in
+	 let off = sz / 8 in
+	 let rec find (a: Data.Address.t) (o: int): int =
+	   if o > upper_bound then
+	     raise Not_found
+	   else
+	     let a' = Data.Address.add_offset a (Z.of_int o) in
+	     let v = get_mem_value m' a' sz in
+	     if D.compare v cmp term then
+	       o
+	     else
+	       find a (o+off)
+	 in
+	 match addrs with
+	 | [a] -> find a 0
+	 | _::_ ->
+	    let res = List.fold_left (fun acc a ->
+	      try
+		let n = find a 0 in
+		match acc with
+		| None -> Some n
+		| Some prev -> Some (max prev n)
+	      with _ -> acc) None addrs
+	    in
+	    begin
+	      match res with
+	      | Some n -> n
+	      | None -> raise Not_found
+	    end
+	 | [] -> raise Not_found
   end
     
     

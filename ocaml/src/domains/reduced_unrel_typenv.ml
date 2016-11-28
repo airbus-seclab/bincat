@@ -64,6 +64,8 @@ module Make(D: Unrel.T) =
     let is_tainted e (uenv, _tenv) = U.is_tainted e uenv
        
   let set_type _lv _typ (uenv, tenv) = uenv, T.forget tenv
-   
+
+  let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv) =
+    U.get_offset_from addr cmp terminator upper_bound sz uenv
  end:
    Domain.T)
