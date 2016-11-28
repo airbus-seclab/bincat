@@ -1,5 +1,6 @@
 # Fuck Python.
 from __future__ import absolute_import
+import ctypes
 import collections
 import functools
 import os
@@ -15,6 +16,18 @@ import idabincat.netnode
 bc_log = logging.getLogger('bincat-cfg')
 bc_log.setLevel(logging.DEBUG)
 
+# Needed because IDA doesn't store s_psize
+class pesection_t(ctypes.Structure):
+     _fields_ = [("s_name", ctypes.c_char * 8),
+                 ("s_vsize", ctypes.c_uint),
+                 ("s_vaddr", ctypes.c_uint),
+                 ("s_psize", ctypes.c_uint),
+                 ("s_scnptr", ctypes.c_int),
+                 ("s_relptr", ctypes.c_int),
+                 ("s_lnnoptr", ctypes.c_int),
+                 ("s_nreloc", ctypes.c_ushort),
+                 ("s_nlnno", ctypes.c_ushort),
+                 ("s_flags", ctypes.c_int)]
 
 class AnalyzerConfig(object):
     ftypes = {idaapi.f_PE: "pe",
@@ -113,15 +126,22 @@ class AnalyzerConfig(object):
                      entrypoint)
         return -1, -1
 
-    # XXX check if we need to return RODATA ?
     @staticmethod
-    def get_data_section():
-        for n in xrange(idaapi.get_segm_qty()):
-            seg = idaapi.getnseg(n)
-            if seg.type == idaapi.SEG_DATA:
-                return seg.startEA, seg.endEA
+    def get_sections():
+        res = []
+        if AnalyzerConfig.get_file_type() == "pe":
+            # IDA doesn't store the raw size of sections, we need to get the
+            n = idaapi.netnode("$ PE header")
+            i = 1
+            while n.supval(i) != None:
+                raw = n.supval(i)
+                sec = pesection_t.from_buffer_copy(raw)
+                res.append([sec.s_name, sec.s_vaddr, sec.s_vsize, sec.s_scnptr, sec.s_psize])
+                i += 1
+            return res
+
         bc_log.warning("no Data section has been found")
-        return -1, -1
+        return []
 
     @staticmethod
     def add_imp_to_dict(imports, module, ea, name, ordinal):
@@ -252,6 +272,11 @@ class AnalyzerConfig(object):
 
         config.set('binary', 'filepath', input_file)
         config.set('binary', 'format', self.get_file_type())
+
+        # [sections section]
+        config.add_section("sections")
+        for s in AnalyzerConfig.get_sections():
+            config.set("sections", "section[%s]" % s[0], "0x%x, 0x%x, 0x%x, 0x%x" % (s[1], s[2], s[3], s[4]))
 
         # [state section]
         config.add_section("state")
