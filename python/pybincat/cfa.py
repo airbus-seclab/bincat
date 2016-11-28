@@ -148,6 +148,8 @@ class CFA(object):
         """
         Returns State at provided node_id if it exists, else None.
         """
+        if type(node_id) is int:
+            node_id = str(node_id)
         return self.nodes.get(node_id, None)
 
     def node_id_from_addr(self, addr):
@@ -315,6 +317,9 @@ class State(object):
         """
         Return list of Value
         """
+        if type(item) is str:
+            # register, used for debugging (ex. human input from IDA)
+            item = Value('reg', item, '0', 0)
         if type(item) is not Value:
             raise KeyError
         if item in self.regaddrs:
