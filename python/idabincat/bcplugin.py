@@ -388,7 +388,7 @@ class State(object):
                 self.netnode["out.ini"] = f.read()
             with open(logfname, 'r') as f:
                 self.netnode["analyzer.log"] = f.read()
-            if cfaoutfname is not None:
+            if cfaoutfname is not None and os.path.isfile(cfaoutfname):
                 with open(cfaoutfname, 'r') as f:
                     self.last_cfaout_marshal = f.read()
         else:
