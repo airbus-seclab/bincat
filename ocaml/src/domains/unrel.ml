@@ -291,7 +291,6 @@ module Make(D: T) =
 
         (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
         let res = D.concat vals in
-        Log.debug (Printf.sprintf "get_mem_value result : %s" (D.to_string res));
         res
       with _ -> D.bot
 		  
@@ -360,8 +359,6 @@ module Make(D: T) =
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
            _big_endian_ if needed. _strong_ means strong update *)
     let write_in_memory addr domain value sz strong big_endian =
-      Log.debug (Printf.sprintf "write_in_memory : %s %s %d %B" (Data.Address.to_string addr) (D.to_string value) sz strong);
-      
       let nb = sz / 8 in
       let addrs = get_addr_list addr nb in
       let addrs = if big_endian then List.rev addrs else addrs in

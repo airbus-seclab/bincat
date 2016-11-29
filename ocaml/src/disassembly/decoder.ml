@@ -851,8 +851,16 @@ struct
         let eax' = V (to_reg eax i)                    in
         let edi' = V (to_reg edi s.addr_sz)            in
         let mem  = M (add_segment s (Lval edi') es, i) in
-	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in 
-        return s ((cmp_stmts (Lval eax') (Lval mem) i) @ [taint_stmt] @ (inc_dec_wrt_df [edi] i) )
+	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in
+	let typ =
+	  match i with
+	  | 8 -> Types.TChar
+	  | 16 -> Types.TWord
+	  | 32 -> Types.TDWord
+	  | _ -> Types.TInt i
+	in
+	let type_stmt = Directive (Type (mem, typ)) in 
+        return s ((cmp_stmts (Lval eax') (Lval mem) i) @ [type_stmt ; taint_stmt] @ (inc_dec_wrt_df [edi] i) )
 
 
     (** state generation for STOS *)
@@ -1859,8 +1867,9 @@ struct
 		    [Directive Default_unroll ; Jmp (A a')])
 	      ]
 	    in
-            if not (s.repe || s.repne) then
-	      v.Cfa.State.stmts <- (Directive (Unroll (Lval (V (T ecx)), 10000)))::blk
+            if not (s.repe || s.repne) then 
+	      v.Cfa.State.stmts <- [ Directive (Type (V (T ecx), Types.TInt (Register.size ecx)));
+				     Directive (Unroll (Lval (V (T ecx)), 10000)) ] @ blk
 	    else
 	      begin
 		let cmp = if s.repne then EQ else NEQ in

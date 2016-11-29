@@ -31,16 +31,30 @@ module Make(D: Unrel.T) =
 
   let add_register r (uenv, tenv) = U.add_register r uenv, T.add_register r tenv
 
-  let to_string (uenv, _tenv) = U.to_string uenv
-
+  let to_string (uenv, tenv) = (U.to_string uenv) @ (T.to_string tenv)
+    
   let value_of_register (uenv, _tenv) r = U.value_of_register uenv r
 
   let value_of_exp (uenv, _tenv) e = U.value_of_exp uenv e
 
-  let set lv e (uenv, tenv) =
-    let uenv', b = U.set lv e uenv in
-    (uenv', T.forget tenv), b
-
+  let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv): t): t =
+   let tenv' =
+     match lv with
+     | Asm.V (Asm.T r) -> if typ = Types.TUnknown then T.forget_register r tenv else T.set_register r typ tenv
+     | Asm.V (Asm.P (r, _, _)) -> T.forget_register r tenv
+     | Asm.M _ ->
+	let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) in
+	match Data.Address.Set.elements addrs with
+	| [a] -> if typ = Types.TUnknown then T.forget_address a tenv else T.set_address a typ tenv
+	| l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
+   in
+   uenv, tenv'
+     
+  let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*bool =
+   let uenv', b = U.set lv e uenv in
+   let typ = T.of_exp e tenv in
+   set_type lv typ (uenv', tenv), b
+     
   let join (uenv1, tenv1) (uenv2, tenv2) = U.join uenv1 uenv2, T.join tenv1 tenv2
 
   let meet (uenv1, tenv1) (uenv2, tenv2) = U.meet uenv1 uenv2, T.meet tenv1 tenv2
@@ -61,9 +75,8 @@ module Make(D: Unrel.T) =
 
   let mem_to_addresses (uenv, _tenv) e = U.mem_to_addresses uenv e
 
-    let is_tainted e (uenv, _tenv) = U.is_tainted e uenv
+  let is_tainted e (uenv, _tenv) = U.is_tainted e uenv
        
-  let set_type _lv _typ (uenv, tenv) = uenv, T.forget tenv
 
   let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv) =
     U.get_offset_from addr cmp terminator upper_bound sz uenv

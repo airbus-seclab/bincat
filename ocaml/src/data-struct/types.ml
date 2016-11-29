@@ -17,6 +17,24 @@ let to_string t =
   | TInt n -> "int"^(string_of_int n)
   | TUnknown -> ""
 
+(** join *)
+let join t1 t2 =
+  match t1, t2 with
+  | TChar, TChar -> t1
+  | TWord, TWord -> t1 
+  | TDWord, TDWord -> t1
+  | TInt n1, TInt n2 when n1 = n2 -> t1
+  | _, _ -> TUnknown
+     
+(** join *)
+let meet t1 t2 =
+  match t1, t2 with
+  | TChar, TChar -> t1
+  | TWord, TWord -> t1 
+  | TDWord, TDWord -> t1
+  | TInt n1, TInt n2 when n1 = n2 -> t1
+  | _, _ -> raise Exceptions.Empty
+     
 (** comparison *)
 let leq t1 t2 =
   match t1, t2 with

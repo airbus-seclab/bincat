@@ -188,7 +188,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  d, false
 
 	| Asm.Directive (Asm.Unroll_until (addr, cmp, terminator, upper_bound, sz)) ->
-	   Log.debug (Asm.string_of_stmt s true);
 	   let f () =
 	     D.get_offset_from addr cmp terminator upper_bound sz d
 	   in
@@ -202,7 +201,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	   else
 	     d, false
 
-	| Directive (Type (lv, t)) ->  D.set_type lv t d, false 
+	| Directive (Type (lv, t)) -> D.set_type lv t d, false 
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
