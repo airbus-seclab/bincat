@@ -41,8 +41,6 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         return QtCore.QSize(700, 1200)
 
     def set_addresses(self, start_addr, stop_addr):
-        start_addr = int(self.parent().ip_start_addr.text(), 16)
-        stop_addr = int(self.parent().ip_stop_addr.text(), 16)
         self.s.current_config.set_start_stop_addr(start_addr, stop_addr)
         self.configtxt.appendPlainText(str(self.s.current_config))
         self.configtxt.moveCursor(QtGui.QTextCursor.Start)
@@ -137,14 +135,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         lbl_cst_editor = QtWidgets.QLabel("BinCAT analysis parameters")
         self.s.current_ea = idaapi.get_screen_ea()
 
-        # Use current basic block address as default stop address
+        # Use current function end address as default stop address
         stop_addr = 0
-        try:
-            for block in idaapi.FlowChart(idaapi.get_func(idaapi.get_screen_ea())):
-                if block.startEA <= self.s.current_ea <= block.endEA:
-                    stop_addr = block.endEA
-        except:
-            pass
+        f = idaapi.get_func(idaapi.get_screen_ea())
+        stop_addr = f.endEA
 
         # Load config for address if it exists
         self.s.current_config.for_address(self.s, self.s.current_ea, stop_addr)
@@ -156,7 +150,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         lbl_stop_addr = QtWidgets.QLabel(" Stop address: ")
         self.ip_stop_addr = QtWidgets.QLineEdit(self)
-        self.ip_stop_addr.setText(hex(stop_addr).rstrip('L'))
+        cut = self.s.current_config.analysis_end
+        if cut is None:
+            self.ip_stop_addr.setText(hex(stop_addr).rstrip('L'))
+        self.ip_stop_addr.setText(cut)
 
         # Start, cancel and analyzer config buttons
         self.btn_load = QtWidgets.QPushButton('&Load analyzer config...')
@@ -206,12 +203,11 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def launch_analysis(self):
         bc_log.info("Launching the analyzer")
-        # Test if stop address is not empty
-        if not self.ip_stop_addr.text():
-            idaapi.bc_log.warning(" Stop address is empty")
-            return
         start_addr = int(self.ip_start_addr.text(), 16)
-        stop_addr = int(self.ip_stop_addr.text(), 16)
+        if self.ip_stop_addr.text() == "":
+            stop_addr = None
+        else:
+            stop_addr = self.ip_stop_addr.text()
         self.s.current_config.set_start_stop_addr(start_addr, stop_addr)
 
         if self.chk_save.isChecked():
@@ -225,9 +221,9 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
     def edit_config(self):
         # display edit form
         start_addr = int(self.ip_start_addr.text(), 16)
-        stop_addr = int(self.ip_stop_addr.text(), 16)
+        stop_addr_str = self.ip_stop_addr.text()
         editdlg = EditConfigurationFileForm_t(self, self.s)
-        editdlg.set_addresses(start_addr, stop_addr)
+        editdlg.set_addresses(start_addr, stop_addr_str)
         editdlg.exec_()
 
     def choose_file(self):

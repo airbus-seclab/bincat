@@ -205,6 +205,10 @@ class AnalyzerConfig(object):
         return sio.read()
 
     def reset_from_str(self, string):
+        #: int
+        self.analysis_ep = None
+        #: int
+        self.analysis_end = None
         sio = StringIO.StringIO(string)
         self.config = ConfigParser.RawConfigParser()
         self.config.optionxform = str
@@ -213,24 +217,24 @@ class AnalyzerConfig(object):
 
     @staticmethod
     def update_cut(config, end):
-        # Add end as cut
-        ends = hex(end).strip('L')
+        end_list = end.split(',')
         try:
             cut = config.get('analyzer', 'cut')
             cut_split = cut.split(',')
-            if ends not in cut_split:
-                cut_split.append(ends)
+            cut_split = list(set(cut_split+end_list))
             cut = ",".join(cut_split)
         except ConfigParser.NoOptionError:
-            cut = ends
+            cut = end
         config.set('analyzer', 'cut', cut)
 
     def set_start_stop_addr(self, start, stop):
+        # Stop can be several addresses as a string, comma separated
         self.analysis_ep = start
         self.analysis_end = stop
         if self.config is not None:
             self.config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
-            AnalyzerConfig.update_cut(self.config, stop)
+            if stop != None:
+                AnalyzerConfig.update_cut(self.config, stop)
 
     def get_default_config(self, state, ea_start, ea_end):
         """
@@ -253,7 +257,7 @@ class AnalyzerConfig(object):
         if not self.analysis_ep:
             self.analysis_ep = ea_start
         if not self.analysis_end:
-            self.analysis_end = ea_end
+            self.analysis_end = hex(ea_end).strip('L')
 
         # [settings] section
         config.add_section('settings')
