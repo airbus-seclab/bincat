@@ -1,18 +1,45 @@
 # Fuck Python.
 from __future__ import absolute_import
+import ctypes
 import collections
 import functools
 import os
+import os.path
 import StringIO
 import ConfigParser
 import idaapi
+import idc
 import logging
 import idabincat.netnode
+import idautils
 
 # Logging
 bc_log = logging.getLogger('bincat-cfg')
 bc_log.setLevel(logging.DEBUG)
 
+# Needed because IDA doesn't store s_psize
+class pesection_t(ctypes.Structure):
+     _fields_ = [("s_name", ctypes.c_char * 8),
+                 ("s_vsize", ctypes.c_uint),
+                 ("s_vaddr", ctypes.c_uint),
+                 ("s_psize", ctypes.c_uint),
+                 ("s_scnptr", ctypes.c_int),
+                 ("s_relptr", ctypes.c_int),
+                 ("s_lnnoptr", ctypes.c_int),
+                 ("s_nreloc", ctypes.c_ushort),
+                 ("s_nlnno", ctypes.c_ushort),
+                 ("s_flags", ctypes.c_int)]
+
+# For some reason, IDA stores the Elf64 hdr, even for 32 bits files...
+class elf_ph_t(ctypes.Structure):
+     _fields_ = [("p_type", ctypes.c_uint),
+                 ("p_flags", ctypes.c_uint),
+                 ("p_offset", ctypes.c_ulonglong),
+                 ("p_vaddr", ctypes.c_ulonglong),
+                 ("p_paddr", ctypes.c_ulonglong),
+                 ("p_filesz", ctypes.c_ulonglong),
+                 ("p_memsz", ctypes.c_ulonglong),
+                 ("p_align", ctypes.c_ulonglong)]
 
 class AnalyzerConfig(object):
     ftypes = {idaapi.f_PE: "pe",
@@ -111,15 +138,34 @@ class AnalyzerConfig(object):
                      entrypoint)
         return -1, -1
 
-    # XXX check if we need to return RODATA ?
     @staticmethod
-    def get_data_section():
-        for n in xrange(idaapi.get_segm_qty()):
-            seg = idaapi.getnseg(n)
-            if seg.type == idaapi.SEG_DATA:
-                return seg.startEA, seg.endEA
+    def get_sections():
+        res = []
+        if AnalyzerConfig.get_file_type() == "pe":
+            # IDA doesn't store the raw size of sections, we need to get the
+            # headers...
+            n = idaapi.netnode("$ PE header")
+            imagebase = n.altval(idautils.peutils_t.PE_ALT_IMAGEBASE)
+            i = 1
+            while n.supval(i) != None:
+                raw = n.supval(i)
+                sec = pesection_t.from_buffer_copy(raw)
+                res.append([sec.s_name, imagebase+sec.s_vaddr, sec.s_vsize, sec.s_scnptr, sec.s_psize])
+                i += 1
+            return res
+        elif AnalyzerConfig.get_file_type() == "elf":
+            n = idaapi.netnode("$ elfnode")
+            i = 0 # ELF PH start at 0
+            while n.supval(i, 'p') != None:
+                raw = n.supval(i, 'p') # program headers
+                ph = elf_ph_t.from_buffer_copy(raw)
+                if ph.p_type == 1: # PT_LOAD
+                    res.append(["ph%d" % i, ph.p_vaddr, ph.p_memsz, ph.p_offset, ph.p_filesz])
+                i += 1
+            return res
+
         bc_log.warning("no Data section has been found")
-        return -1, -1
+        return []
 
     @staticmethod
     def add_imp_to_dict(imports, module, ea, name, ordinal):
@@ -236,14 +282,25 @@ class AnalyzerConfig(object):
         # [binary section]
         config.add_section('binary')
         input_file = idaapi.get_input_file_path()
-        try:
-            open(input_file, "r").close()
-        except IOError:
+        if not os.path.isfile(input_file):
+            # get_input_file_path returns file path from IDB, which may not
+            # exist locally if IDB has been moved (eg. send idb+binary to
+            # another analyst)
+            guessed_path = idc.GetIdbPath().replace('idb', 'exe')
+            if os.path.isfile(guessed_path):
+                input_file = guessed_path
+
+        if not os.path.isfile(input_file):
             bc_log.warning("Cannot open binary %s for reading, you should patch"
                            " your config manually", input_file)
 
         config.set('binary', 'filepath', input_file)
         config.set('binary', 'format', self.get_file_type())
+
+        # [sections section]
+        config.add_section("sections")
+        for s in AnalyzerConfig.get_sections():
+            config.set("sections", "section[%s]" % s[0], "0x%x, 0x%x, 0x%x, 0x%x" % (s[1], s[2], s[3], s[4]))
 
         # [state section]
         config.add_section("state")

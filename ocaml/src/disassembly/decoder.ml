@@ -1184,16 +1184,31 @@ struct
     (*******************************)
 
     let mul_stmts dst sz =
-        let eax_v = (find_reg_v 0 sz) in
-        let mul_s = [ Set(eax_v, (BinOp(Mul, (Lval eax_v), dst))) ] in
+        let eax_r = (to_reg eax sz) in let eax_lv = Lval( V (eax_r)) in
+        let edx_r = (to_reg edx sz) in
+        let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
+        let mul_s =
+            if sz = 8 (* dest == AX *) then begin
+                [ Set(V(to_reg eax 16), BinOp(Mul, eax_lv, dst));
+                  Set(V(T tmp), Lval(V(to_reg eax 16)))] (* for flags *)
+            end else begin
+                (** dest is split over (E)DX:(E)AX *)
+                [ Set(V(T tmp), BinOp(Mul, eax_lv, dst));
+                  Set (V(eax_r), Lval (V (P (tmp, 0, sz-1))));
+                  Set (V(edx_r), Lval (V (P (tmp, sz, sz*2-1))));
+                ]
+            end in
         let flags_stmts = [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
             (* The OF and CF flags are set to 0 if the upper half of the result
                is 0; otherwise, they are set to 1.  *)
-            If(Cmp(EQ, Const (Word.zero sz), Lval (V( P(eax, sz/2, sz-1)))),
+            If(Cmp(EQ, Const (Word.zero sz), Lval (V( P(tmp, sz, sz*2-1)))),
                 [clear_flag fcf; clear_flag fof],
                 [set_flag fcf; set_flag fof])
             ] in
-        mul_s @ flags_stmts
+        mul_s @ flags_stmts @ [ Directive (Remove tmp) ]
+
+    let imul_stmts dst sz =
+        mul_stmts dst sz
 
     let idiv_stmts (reg : Asm.exp)  sz =
         let min_int_z = (Z.of_int (1 lsl (sz-1))) in
@@ -1205,7 +1220,7 @@ struct
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let tmp_div   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let set_tmp = Set (V (T tmp), BinOp(Or, BinOp(Shl, edx_lv, Const (Word.of_int (Z.of_int sz) sz)), eax_lv)) in
-        [set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg)); 
+        [set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg));
          Assert (
             BBinOp(LogOr,
                   Cmp(GT, Lval( V (T tmp_div)), max_int_const),
@@ -1368,6 +1383,7 @@ struct
             | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
             | 3 -> (* NEG *) [ Set (reg, BinOp (Sub, Const (Word.zero sz), Lval reg)) ]
             | 4 -> (* MUL *) mul_stmts (Lval reg) sz
+            | 5 -> (* IMUL *) imul_stmts (Lval reg) sz
             | 7 -> (* IDIV *) idiv_stmts (Lval reg) sz
             | _ -> error s.a "Unknown operation in grp 3"
         in

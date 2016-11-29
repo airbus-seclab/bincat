@@ -28,5 +28,5 @@ Hard :
 
 ## Global
 * faire marcher `bincat` sous windows ?
-* spécifier les sections de data et leurs adresses (physiques/virtuelles) pour permettre à bincat de les lire dans le binaire direct
 * gérer des diffs de mémoire seulement ? (bcp d'instructions ne touchent pas la mémoire, ça éviterait de perdre du temps à tout réécrire.)
+* GDB stub pour l'accès à la mémoire (utile pour les processus qui tournent mais aussi pour les binaires compliqués (relocs etc.))

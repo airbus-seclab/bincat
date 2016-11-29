@@ -17,6 +17,7 @@ try:
 except:
     # log message will be displayed later
     pass
+import idc
 import idaapi
 import idabincat.netnode
 from idabincat.analyzer_conf import AnalyzerConfig
@@ -192,6 +193,14 @@ class WebAnalyzer(Analyzer):
         server_url = self.server_url.rstrip('/')
         sha256 = idaapi.retrieve_input_file_sha256().lower()
         binary_file = idaapi.get_input_file_path()
+        if not os.path.isfile(binary_file):
+            # get_input_file_path returns file path from IDB, which may not
+            # exist locally if IDB has been moved (eg. send idb+binary to
+            # another analyst)
+            guessed_path = idc.GetIdbPath().replace('idb', 'exe')
+            if os.path.isfile(guessed_path):
+                binary_file = guessed_path
+
         # patch filepath (XXX dirty, rework AnalyzerConfig?) - set filepath to
         # sha256
         bc_log.debug("PATH %s", binary_file)
@@ -379,7 +388,7 @@ class State(object):
                 self.netnode["out.ini"] = f.read()
             with open(logfname, 'r') as f:
                 self.netnode["analyzer.log"] = f.read()
-            if cfaoutfname is not None:
+            if cfaoutfname is not None and os.path.isfile(cfaoutfname):
                 with open(cfaoutfname, 'r') as f:
                     self.last_cfaout_marshal = f.read()
         else:

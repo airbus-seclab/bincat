@@ -67,6 +67,9 @@ rule token = parse
   | "binary"                { BINARY }
   (* analyzer section *)
   | "analyzer"  	    { ANALYZER }
+  (* sections section *)
+  | "section"  	    { SECTION }
+  | "sections"  	    { SECTIONS }
   (* settings tokens *)
   | "mem_model" 	    { MEM_MODEL }
   | "op_sz"     	    { OP_SZ }
@@ -86,6 +89,8 @@ rule token = parse
   | "store_marshalled_cfa"  { STORE_MCFA }
   | "in_marshalled_cfa_file"   { IN_MCFA_FILE }
   | "out_marshalled_cfa_file"   { OUT_MCFA_FILE }
+  (* sections tokens *)
+  | "entry"         { ENTRY }
   (* address separator *)
   | "," 		    { COMMA }
   (* GDT tokens *)

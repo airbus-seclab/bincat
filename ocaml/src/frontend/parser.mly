@@ -10,9 +10,6 @@
     (* temporary table to store tainting rules on functions of a given library *)
     let libraries: (string, Config.call_conv_t option * ((string * Config.call_conv_t option * Config.taint_t option * Config.taint_t list) list)) Hashtbl.t = Hashtbl.create 7;;
 
-    (* name of binary file to analyze *)
-    let filename = ref ""
-
     (* name of the npk file containing function headers *)
     let npk_header = ref ""
 
@@ -69,7 +66,7 @@
 	(* open the binary to pick up the text section *)
 	let fid  =
 	  try
-	    let fid = open_in_bin !filename in
+	    let fid = open_in_bin !Config.binary in
 	    seek_in fid !Config.phys_code_addr;
 	    fid
 	  with _ -> Log.error "failed to open the binary to analyze"
@@ -111,7 +108,7 @@
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token OVERRIDE NONE ALL
+%token OVERRIDE NONE ALL SECTION SECTIONS ENTRY
 %token <string> STRING 
 %token <string> HEX_BYTES
 %token <Z.t> INT
@@ -132,6 +129,7 @@
     | LEFT_SQ_BRACKET BINARY RIGHT_SQ_BRACKET 	b=binary     { b }
     | LEFT_SQ_BRACKET STATE RIGHT_SQ_BRACKET  st=state       { st }
     | LEFT_SQ_BRACKET ANALYZER RIGHT_SQ_BRACKET a=analyzer   { a }
+    | LEFT_SQ_BRACKET SECTIONS RIGHT_SQ_BRACKET s=data_sections   { s }
     | LEFT_SQ_BRACKET GDT RIGHT_SQ_BRACKET gdt=gdt 	     { gdt }
     | LEFT_SQ_BRACKET l=libname RIGHT_SQ_BRACKET lib=library { l; lib }
     | LEFT_SQ_BRACKET ASSERT RIGHT_SQ_BRACKET r=assert_rules { r }
@@ -214,7 +212,7 @@
     | b=binary_item bb=binary { b; bb }
 
       binary_item:
-    | FILEPATH EQUAL f=STRING 	{ update_mandatory FILEPATH; filename := f }
+    | FILEPATH EQUAL f=STRING 	{ update_mandatory FILEPATH; Config.binary := f }
     | FORMAT EQUAL f=format 	{ update_mandatory FORMAT; Config.format := f }
 
 
@@ -251,6 +249,12 @@
     | FORWARD_CFA  { Config.Forward Config.Cfa }
     | BACKWARD { Config.Backward }
 
+      data_sections:
+    | s=section_item { s }
+    | s=section_item ss = data_sections{ s ; ss }
+
+      section_item:
+    | SECTION LEFT_SQ_BRACKET name=STRING RIGHT_SQ_BRACKET EQUAL virt_addr=INT COMMA virt_size=INT COMMA raw_addr=INT COMMA raw_size=INT { Config.sections :=  (virt_addr, virt_size, raw_addr, raw_size, name)::(!Config.sections)  }
 
      addresses:
     | i=INT { [ i ] }

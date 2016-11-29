@@ -924,7 +924,7 @@ class HandleAddOverride(idaapi.action_handler_t):
         mask, res = QtWidgets.QInputDialog.getText(
             None,
             "Add Taint override for %s" % highlighted,
-            "Taint value (ALL, NONE, 0b001, 0xabc)")
+            "Taint value for %s (e.g. ALL, NONE, 0b001, 0xabc)" % highlighted)
         if not res:
             return 1  # refresh IDA windows
         self.s.overrides.append((address, highlighted, mask))

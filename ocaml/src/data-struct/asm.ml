@@ -13,8 +13,10 @@ type reg =
 type binop =
   | Add    (** addition *)
   | Sub    (** substraction *)
-  | Mul    (** multiplication *)
-  | Div    (** division *)
+  | Mul    (** unsigned multiplication *)
+  | Div    (** unsigned division *)
+  | IMul   (** signed multiplication *)
+  | IDiv   (** signed division *)
   | Mod    (** unsigned modulo *)
   | And    (** bitwise AND *)
   | Or     (** bitwise OR *)
@@ -109,6 +111,8 @@ let string_of_binop op =
   match op with
   | Add    -> "+"
   | Sub    -> "-"
+  | IMul   -> "*"
+  | IDiv   -> "/"
   | Mul    -> "*"
   | Div    -> "/"
   | Mod    -> "%"
