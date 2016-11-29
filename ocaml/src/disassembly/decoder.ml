@@ -1184,6 +1184,7 @@ struct
                 [ Set(V(to_reg eax 16), BinOp(Mul, eax_lv, dst));
                   Set(V(T tmp), Lval(V(to_reg eax 16)))] (* for flags *)
             end else begin
+                (** dest is split over (E)DX:(E)AX *)
                 [ Set(V(T tmp), BinOp(Mul, eax_lv, dst));
                   Set (V(eax_r), Lval (V (P (tmp, 0, sz-1))));
                   Set (V(edx_r), Lval (V (P (tmp, sz, sz*2-1))));
