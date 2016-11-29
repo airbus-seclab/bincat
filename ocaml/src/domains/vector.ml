@@ -313,6 +313,9 @@ module Make(V: Val) =
             in
             loop (n-1) v
 
+        (** TODO vérifier que c'est correct *)
+        let imul v1 v2 = mul v1 v2
+
         (** returns true whenever v1 >= v2 *)
         exception Res of bool
         let geq v1 v2 =
@@ -344,6 +347,9 @@ module Make(V: Val) =
                 loop res v1
 
 
+        (** TODO vérifier que c'est correct *)
+        let idiv v1 v2 = fst (core_div v1 v2)
+
         let div v1 v2 = fst (core_div v1 v2)
 
         let modulo v1 v2 = snd (core_div v1 v2)
@@ -355,6 +361,8 @@ module Make(V: Val) =
             | Asm.Xor -> xor v1 v2
             | Asm.And -> logand v1 v2
             | Asm.Or  -> logor v1 v2
+            | Asm.IMul -> imul v1 v2
+            | Asm.IDiv -> idiv v1 v2
             | Asm.Mul -> mul v1 v2
             | Asm.Div -> div v1 v2
             | Asm.Mod -> modulo v1 v2

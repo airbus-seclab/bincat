@@ -1198,6 +1198,9 @@ struct
             ] in
         mul_s @ flags_stmts @ [ Directive (Remove tmp) ]
 
+    let imul_stmts dst sz =
+        mul_stmts dst sz
+
     let idiv_stmts (reg : Asm.exp)  sz =
         let min_int_z = (Z.of_int (1 lsl (sz-1))) in
         let min_int_const = (Const (Word.of_int min_int_z (sz*2))) in
@@ -1208,7 +1211,7 @@ struct
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let tmp_div   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let set_tmp = Set (V (T tmp), BinOp(Or, BinOp(Shl, edx_lv, Const (Word.of_int (Z.of_int sz) sz)), eax_lv)) in
-        [set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg)); 
+        [set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg));
          Assert (
             BBinOp(LogOr,
                   Cmp(GT, Lval( V (T tmp_div)), max_int_const),
@@ -1371,6 +1374,7 @@ struct
             | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
             | 3 -> (* NEG *) [ Set (reg, BinOp (Sub, Const (Word.zero sz), Lval reg)) ]
             | 4 -> (* MUL *) mul_stmts (Lval reg) sz
+            | 5 -> (* IMUL *) imul_stmts (Lval reg) sz
             | 7 -> (* IDIV *) idiv_stmts (Lval reg) sz
             | _ -> error s.a "Unknown operation in grp 3"
         in
