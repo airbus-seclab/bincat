@@ -211,9 +211,26 @@ class AnalyzerConfig(object):
         self.config.readfp(sio)
         return self
 
+    @staticmethod
+    def update_cut(config, end):
+        # Add end as cut
+        ends = hex(end).strip('L')
+        try:
+            cut = config.get('analyzer', 'cut')
+            cut_split = cut.split(',')
+            if ends not in cut_split:
+                cut_split.append(ends)
+            cut = ",".join(cut_split)
+        except ConfigParser.NoOptionError:
+            cut = ends
+        config.set('analyzer', 'cut', cut)
+
     def set_start_stop_addr(self, start, stop):
         self.analysis_ep = start
         self.analysis_end = stop
+        if self.config is not None:
+            self.config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
+            AnalyzerConfig.update_cut(self.config, stop)
 
     def get_default_config(self, state, ea_start, ea_end):
         """
@@ -261,13 +278,7 @@ class AnalyzerConfig(object):
         config.set('loader', 'code_length', hex(self.code_length).strip('L'))
 
         config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
-        # Add end as cut
-        try:
-            cut = config.get('analyzer', 'cut')
-            cut += ", "+hex(self.analysis_end).strip('L')
-        except ConfigParser.NoOptionError:
-            cut = hex(self.analysis_end).strip('L')
-        config.set('analyzer', 'cut', cut)
+        AnalyzerConfig.update_cut(config, self.analysis_end)
 
         # Load default GDT/Segment registers according to file type
         ftype = AnalyzerConfig.get_file_type()
