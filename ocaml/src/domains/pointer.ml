@@ -153,7 +153,7 @@ module Make (V: Vector.T) =
               with _ -> BOT
 
         let from_position p i len =
-            Log.debug (Printf.sprintf "Pointer.from_position %s %d %d" (to_string p) i len);
+            Log.debug_lvl (Printf.sprintf "Pointer.from_position %s %d %d" (to_string p) i len) 3;
             match p with
             | BOT | TOP -> p
             | Val (r, o) ->
@@ -176,13 +176,13 @@ module Make (V: Vector.T) =
               Val(region, newoffset)
 
         let rec concat l =
-            Log.debug (Printf.sprintf "concat len %d" (List.length l) );
+            Log.debug_lvl (Printf.sprintf "concat len %d" (List.length l)) 4; 
             match l with
             |	[ ] -> BOT
-            | [v] -> Log.debug (Printf.sprintf "concat single : %s" (to_string v) );v
+            | [v] -> Log.debug_lvl (Printf.sprintf "concat single : %s" (to_string v)) 4; v
             | v::l' ->
               let v' = concat l' in
-              Log.debug (Printf.sprintf "concat : %s %s" (to_string v) (to_string v'));
+              Log.debug_lvl (Printf.sprintf "concat : %s %s" (to_string v) (to_string v')) 4;
               match v, v' with
               | BOT, _ | _, BOT -> BOT
               | TOP, _ | _, TOP -> TOP

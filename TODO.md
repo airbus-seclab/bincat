@@ -13,7 +13,6 @@ qu'un état par instruction x86) (ou pas, à discuter)
 * à clarifier : pointer n'est pas un pointer mais une valeur
 * pouvoir spécifier la valeur d'un registre ou adress mémoire à une adresse différente de celle de début
 * gérer l'ordre des initialisation mémoires dans le .ini pour pouvoir écraser certaines parties déjà initialisées
-* numeric log levels (not just verbose)
 * log categories (mem, vectors, etc.)
 
 Bugs:
