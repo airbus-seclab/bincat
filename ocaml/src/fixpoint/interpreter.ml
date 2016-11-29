@@ -201,7 +201,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	   else
 	     d, false
 
-	| Directive (Type (lv, t)) ->  D.set_type lv t d, false 
+	| Directive (Type (lv, t)) -> D.set_type lv t d, false 
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =

@@ -236,7 +236,6 @@ module Make(D: T) =
 		  
     (** computes the value read from the map where _addr_ is located *)
     let get_mem_value map addr sz =
-      Log.debug (Printf.sprintf "get_mem_value : %s %d" (Data.Address.to_string addr) sz );
       try
         (* expand the address + size to a list of addresses *)
         let exp_addrs = get_addr_list addr (sz/8) in
@@ -244,7 +243,6 @@ module Make(D: T) =
         let vals = List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs in
         (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
         let res = D.concat vals in
-        Log.debug (Printf.sprintf "get_mem_value result : %s" (D.to_string res));
         res
       with _ -> D.bot
 		  
@@ -263,7 +261,6 @@ module Make(D: T) =
       let map_val = Env.find itv domain in
       match itv with
       | Env.Key.Mem_Itv (low_addr, high_addr) ->
-        Log.debug (Printf.sprintf "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr));
          let dom' = Env.remove itv domain in
          (* addr just below the new byte *)
          let addr_before = Data.Address.dec addr  in
@@ -313,8 +310,6 @@ module Make(D: T) =
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
            _big_endian_ if needed. _strong_ means strong update *)
     let write_in_memory addr domain value sz strong big_endian =
-      Log.debug (Printf.sprintf "write_in_memory : %s %s %d %B" (Data.Address.to_string addr) (D.to_string value) sz strong);
-      
       let nb = sz / 8 in
       let addrs = get_addr_list addr nb in
       let addrs = if big_endian then List.rev addrs else addrs in

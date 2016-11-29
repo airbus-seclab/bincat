@@ -37,7 +37,7 @@ module Make(D: Unrel.T) =
 
   let value_of_exp (uenv, _tenv) e = U.value_of_exp uenv e
 
- let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv): t): t =
+  let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv): t): t =
    let tenv' =
      match lv with
      | Asm.V (Asm.T r) -> if typ = Types.TUnknown then T.forget_register r tenv else T.set_register r typ tenv
@@ -50,7 +50,7 @@ module Make(D: Unrel.T) =
    in
    uenv, tenv'
      
- let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*bool =
+  let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*bool =
    let uenv', b = U.set lv e uenv in
    let typ = T.of_exp e tenv in
    set_type lv typ (uenv', tenv), b
