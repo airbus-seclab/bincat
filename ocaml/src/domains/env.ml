@@ -36,3 +36,10 @@ module Key =
  (* For Ocaml non-gurus : creates a Map type which uses MapOpt with keys of type Key *)
 module Map = MapOpt.Make(Key)
 include Map
+
+
+(* apply f v1 v2 for every pair (k, v1), (k, v2) in m1 and m2. If k is not a key of m2 then (k, v1) is added to the result *)
+let join f m1 m2 =
+  let m = empty in
+  let m' = fold (fun k v m -> add k v m) m1 m in
+  fold (fun k v m -> try let v' = find k m1 in replace k (f v v') m with Not_found -> add k v m) m2 m'

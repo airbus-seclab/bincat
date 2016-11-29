@@ -188,7 +188,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  d, false
 
 	| Asm.Directive (Asm.Unroll_until (addr, cmp, terminator, upper_bound, sz)) ->
-	   Log.debug (Asm.string_of_stmt s true);
 	   let f () =
 	     D.get_offset_from addr cmp terminator upper_bound sz d
 	   in
