@@ -55,7 +55,7 @@ module Make(D: Unrel.T) =
     try
       let typ = T.of_exp e tenv in
       set_type lv typ (uenv', tenv), b
-    with _ -> (uenv', T.forget tenv), b
+    with _ -> set_type lv Types.TUnknown (uenv', tenv), b
        
   let join (uenv1, tenv1) (uenv2, tenv2) = U.join uenv1 uenv2, T.join tenv1 tenv2
 
