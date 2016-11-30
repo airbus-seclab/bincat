@@ -72,7 +72,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     match !Config.analysis with
       
     (* forward analysis from a binary *)
-    | Config.Forward Config.Bin ->
+    | Config.Forward Config.Bin -> 
        (* 6: generate code *)
        let code = Code.make !Config.text !Config.rva_code !Config.ep		        in
        (* 7: generate the nitial cfa with only an initial state *)
