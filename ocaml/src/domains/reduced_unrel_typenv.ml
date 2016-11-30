@@ -69,6 +69,8 @@ module Make(D: Unrel.T) =
 
   let taint_register_mask r c (uenv, tenv) = U.taint_register_mask r c uenv, tenv
 
+  let taint_address_mask a c (uenv, tenv) = U.taint_address_mask a c uenv, tenv
+    
   let compare (uenv, tenv) e1 cmp e2 =
     let uenv', b = U.compare uenv e1 cmp e2 in
     (uenv', tenv), b

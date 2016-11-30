@@ -13,7 +13,9 @@
     (* name of the npk file containing function headers *)
     let npk_header = ref ""
 
-    
+    (* current override address *)
+    let override_addr = ref Z.zero
+      
     (* temporary table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
 
@@ -108,7 +110,7 @@
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token OVERRIDE NONE ALL SECTION SECTIONS ENTRY
+%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS ENTRY
 %token <string> STRING 
 %token <string> HEX_BYTES
 %token <Z.t> INT
@@ -141,16 +143,44 @@
     | o=override l=overrides { o ; l }
 
     override:
-    | a=INT EQUAL l = tainting_rules { Hashtbl.replace Config.override a l }
+    |                     { () }
+    | a=override_addr EQUAL i = override_item { a ; i }
 
-    tainting_rules:
-    |                     { [] }
-    | t=tainting SEMI_COLON l=tainting_rules { t::l }
+    override_addr:
+    | a=INT  { override_addr := a } 
+
+    override_item:
+    |                     { () }
+    | t=tainting_reg SEMI_COLON override_item {
+      try
+	let l = Hashtbl.find Config.reg_override !override_addr in
+	Hashtbl.replace Config.reg_override !override_addr (t::l)
+      with Not_found -> Hashtbl.add Config.reg_override !override_addr [t] }
+    | c=tainting_addr SEMI_COLON override_item {
+      let (tbl, a, o) = c in
+      try
+	let l' = Hashtbl.find tbl a in
+	Hashtbl.replace tbl !override_addr ((a, o)::l')
+      with Not_found -> Hashtbl.add tbl !override_addr [(a, o)]
+    }
     
-    tainting:
-    | r=STRING COMMA ALL { let reg = Register.of_name r in (reg, Config.Taint (Bits.ff ((Register.size reg)/8))) }
-    | r=STRING COMMA NONE { (Register.of_name r, Config.Taint Z.zero) }
-    | r=STRING COMMA s=tcontent { (Register.of_name r, s) }
+    tainting_reg:
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_ALL {
+      let reg = Register.of_name r in
+      (reg, Config.Taint (Bits.ff ((Register.size reg )/8))) }
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_NONE { (Register.of_name r, Config.Taint Z.zero) }
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA s=tcontent { (Register.of_name r, s) } 
+
+    tainting_addr:
+    | MEM LEFT_SQ_BRACKET a=INT MEM LEFT_SQ_BRACKET COMMA c = tainting_addr_content { Config.mem_override, a, c }
+    | HEAP LEFT_SQ_BRACKET a=INT MEM LEFT_SQ_BRACKET COMMA c = tainting_addr_content { Config.heap_override, a, c }
+    | STACK LEFT_SQ_BRACKET a=INT MEM LEFT_SQ_BRACKET COMMA c = tainting_addr_content { Config.stack_override, a, c }
+    
+
+    tainting_addr_content:
+    | TAINT_ALL { Config.Taint (Z.of_string "ff") }
+    | TAINT_NONE { Config.Taint Z.zero }
+    | s=tcontent { s }
     
       imports:
     |                     { () }
