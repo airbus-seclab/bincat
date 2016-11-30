@@ -67,9 +67,16 @@ class CFA(object):
         config = ConfigParser.RawConfigParser()
         try:
             config.read(filename)
-        except ConfigParser.ParsingError:
-            return None
+        except ConfigParser.ParsingError as e:
+            estr = str(e)
+            if len(estr) > 400:
+                estr = estr[:200] + '\n...\n' + estr[-200:]
+            raise PyBinCATException(
+                "Invalid INI format for parsed output file %s.\n%s" %
+                (filename, estr))
         if len(config.sections()) == 0:
+            raise PyBinCATException(
+                "Parsing error: no sections in %s" % filename)
             return None
 
         for section in config.sections():
