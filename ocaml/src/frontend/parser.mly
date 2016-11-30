@@ -172,9 +172,9 @@
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA s=tcontent { (Register.of_name r, s) } 
 
     tainting_addr:
-    | MEM LEFT_SQ_BRACKET a=INT MEM LEFT_SQ_BRACKET COMMA c = tainting_addr_content { Config.mem_override, a, c }
-    | HEAP LEFT_SQ_BRACKET a=INT MEM LEFT_SQ_BRACKET COMMA c = tainting_addr_content { Config.heap_override, a, c }
-    | STACK LEFT_SQ_BRACKET a=INT MEM LEFT_SQ_BRACKET COMMA c = tainting_addr_content { Config.stack_override, a, c }
+    | MEM LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.mem_override, a, c }
+    | HEAP LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.heap_override, a, c }
+    | STACK LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.stack_override, a, c }
     
 
     tainting_addr_content:
