@@ -54,10 +54,11 @@ module Make(D: Unrel.T) =
      
   let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*bool =
     let uenv', b = U.set lv e uenv in
-    let typ = T.of_exp e tenv in
-    let _, tenv' = set_type lv typ (uenv, tenv) in
-    (uenv', tenv'), b
-    
+    try
+      let typ = T.of_exp e tenv in
+      let _, tenv' = set_type lv typ (uenv, tenv) in
+      (uenv', tenv'), b
+    with _ -> set_type lv Types.TUnknown (uenv', tenv), b
        
   let join (uenv1, tenv1) (uenv2, tenv2) = U.join uenv1 uenv2, T.join tenv1 tenv2
 
