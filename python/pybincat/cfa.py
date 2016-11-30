@@ -258,7 +258,7 @@ class State(object):
         self._regaddrs = {}
         self._regtypes = {}
         for k, v in self._outputkv.iteritems():
-            if k.startswith("T-"):
+            if k.startswith("t-"):
                 typedata = True
                 k = k[2:]
             else:
