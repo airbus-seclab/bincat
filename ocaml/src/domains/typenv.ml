@@ -18,13 +18,13 @@
  let meet env1 env2 =
    match env1, env2 with
    | BOT, env | env, BOT -> env
-   | Val env1', Val env2' -> try Val (Env.join Types.meet env1' env2') with Exceptions.Empty -> BOT
+   | Val env1', Val env2' -> try Val (Env.join Types.meet env1' env2') with _ -> Log.debug_lvl "no no no !" 4; BOT
  
 
  let forget env =
    match env with
    | BOT -> BOT
-   | Val env' -> Val (Env.map (fun _ -> Types.TUnknown) env')
+   | Val _ -> Val (Env.empty)
    
  let subset env1 env2 =
    match env1, env2 with
