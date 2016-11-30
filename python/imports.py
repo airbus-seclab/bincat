@@ -122,12 +122,11 @@ res = sink.res()
 for s in structs:
     if "struct " not in s:
         search = r"(^\s*(?:typedef )?)\b%s\b"%s
-        print search
         res = re.sub(re.compile(search, re.MULTILINE), r"\1struct %s" % s, res)
 
 res += "\n\n"+"\n".join(imports)
 
 fname = askfile_c(1, "*.h", "Save to header")
-c=open(fname, "wt+")
+c = open(fname, "wt+")
 c.write(res)
 c.close()
