@@ -132,8 +132,8 @@ rule token = parse
   (* misc left operands *)
   | "headers"  	    { HEADER }
   | "override"      { OVERRIDE }
-  | "ALL"  	    { ALL }
-  | "NONE"  	    { NONE }
+  | "TAINT_ALL"  	    { TAINT_ALL }
+  | "TAINT_NONE"  	    { TAINT_NONE }
   | value as v      { STRING v }
  
       

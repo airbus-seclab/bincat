@@ -65,6 +65,10 @@ module type T =
      
       (** apply the given taint mask to the given register *)
       val taint_register_mask: Register.t -> Config.tvalue -> t -> t
+
+      (** apply the given taint mask to the given address *)
+      (** the size of the mask is supposed to be one byte long *)
+      val taint_address_mask: Data.Address.t -> Config.tvalue -> t -> t
 	
       (** [compare v e1 c e2] restrict the given abstract value d to abstract value that satisfy the binary comparison (e1 c e2) *)
       (** may raise exception Exceptions.EmptyEnv *)
