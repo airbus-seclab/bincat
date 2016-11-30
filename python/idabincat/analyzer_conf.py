@@ -205,15 +205,36 @@ class AnalyzerConfig(object):
         return sio.read()
 
     def reset_from_str(self, string):
+        #: int
+        self.analysis_ep = None
+        #: int
+        self.analysis_end = None
         sio = StringIO.StringIO(string)
         self.config = ConfigParser.RawConfigParser()
         self.config.optionxform = str
         self.config.readfp(sio)
         return self
 
+    @staticmethod
+    def update_cut(config, end):
+        end_list = end.split(',')
+        try:
+            cut = config.get('analyzer', 'cut')
+            cut_split = cut.split(',')
+            cut_split = list(set(cut_split+end_list))
+            cut = ",".join(cut_split)
+        except ConfigParser.NoOptionError:
+            cut = end
+        config.set('analyzer', 'cut', cut)
+
     def set_start_stop_addr(self, start, stop):
+        # Stop can be several addresses as a string, comma separated
         self.analysis_ep = start
         self.analysis_end = stop
+        if self.config is not None:
+            self.config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
+            if stop != None:
+                AnalyzerConfig.update_cut(self.config, stop)
 
     def get_default_config(self, state, ea_start, ea_end):
         """
@@ -236,7 +257,7 @@ class AnalyzerConfig(object):
         if not self.analysis_ep:
             self.analysis_ep = ea_start
         if not self.analysis_end:
-            self.analysis_end = ea_end
+            self.analysis_end = hex(ea_end).strip('L')
 
         # [settings] section
         config.add_section('settings')
@@ -261,13 +282,7 @@ class AnalyzerConfig(object):
         config.set('loader', 'code_length', hex(self.code_length).strip('L'))
 
         config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
-        # Add end as cut
-        try:
-            cut = config.get('analyzer', 'cut')
-            cut += ", "+hex(self.analysis_end).strip('L')
-        except ConfigParser.NoOptionError:
-            cut = hex(self.analysis_end).strip('L')
-        config.set('analyzer', 'cut', cut)
+        AnalyzerConfig.update_cut(config, self.analysis_end)
 
         # Load default GDT/Segment registers according to file type
         ftype = AnalyzerConfig.get_file_type()
@@ -310,7 +325,7 @@ class AnalyzerConfig(object):
                 config.set("state", ("reg[%s]" % rname), val)
         # Default stack
         config.set("state", "reg[esp]", "0x2000")
-        config.set("state", "stack[0x1000*8192]", "|00|!0xFF")
+        config.set("state", "stack[0x1000*8192]", "|00|?0xFF")
 
         imports = self.get_imports()
         # [import] section

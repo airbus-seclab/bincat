@@ -284,6 +284,7 @@ module Make(V: Val) =
             with _ -> raise Exceptions.Enum_failure
 
         let shr v n =
+            Log.debug_lvl (Printf.sprintf "Vector.shr(%s,%s)" (to_string v) (to_string n)) 4;
             let v_len = Array.length v in
             try
                 let n_i = Z.to_int (to_z n) in

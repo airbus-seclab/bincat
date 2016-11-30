@@ -274,6 +274,7 @@ module Make(D: T) =
             4) else check in the "sections" maps and read from the file (or raise Not_found)
     **)
     let get_mem_value map addr sz =
+      Log.debug (Printf.sprintf "get_mem_value : %s %d" (Data.Address.to_string addr) sz);
       try
         (* expand the address + size to a list of addresses *)
         let exp_addrs = get_addr_list addr (sz/8) in
@@ -308,6 +309,7 @@ module Make(D: T) =
       let map_val = Env.find itv domain in
       match itv with
       | Env.Key.Mem_Itv (low_addr, high_addr) ->
+        Log.debug_lvl (Printf.sprintf "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr)) 4;
          let dom' = Env.remove itv domain in
          (* addr just below the new byte *)
          let addr_before = Data.Address.dec addr  in

@@ -11,9 +11,7 @@ qu'un état par instruction x86) (ou pas, à discuter)
 * vérifier popf/pushf (surtout les privilèges etc)
 * écrire un programme de test : binaire => statements (à la metasm-shell)
 * à clarifier : pointer n'est pas un pointer mais une valeur
-* pouvoir spécifier la valeur d'un registre ou adress mémoire à une adresse différente de celle de début
 * gérer l'ordre des initialisation mémoires dans le .ini pour pouvoir écraser certaines parties déjà initialisées
-* numeric log levels (not just verbose)
 * log categories (mem, vectors, etc.)
 
 Bugs:

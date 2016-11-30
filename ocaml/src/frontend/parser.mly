@@ -268,7 +268,7 @@
     | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }
     | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
-    | VERBOSE EQUAL v=STRING 	     { update_boolean "verbose" Config.verbose v }
+    | VERBOSE EQUAL i=INT 	     { Config.verbose := Z.to_int i }
     | ANALYSIS EQUAL v=analysis_kind { update_mandatory ANALYSIS; Config.analysis := v }
     | IN_MCFA_FILE EQUAL f=STRING       { update_mandatory IN_MCFA_FILE; Config.in_mcfa_file := f }
     | OUT_MCFA_FILE EQUAL f=STRING       { update_mandatory OUT_MCFA_FILE; Config.out_mcfa_file := f }

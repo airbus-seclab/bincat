@@ -258,7 +258,7 @@ module Make(Domain: Domain.T) =
 	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
 	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (string_of_bool s.is_tainted);
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
-	  if !Config.verbose then
+	  if !Config.verbose > 1 then
 	    begin
 	      Printf.fprintf f "statements =";
 	      List.iter (fun stmt -> Printf.fprintf f " %s\n" (Asm.string_of_stmt stmt false)) s.stmts;

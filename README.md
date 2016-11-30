@@ -141,7 +141,16 @@ Global options can be configured through the `Edit/BinCAT/Options` menu:
 #### Analyzer configuration files
 Default config for analyzer.
 
-### Licenses
+## Usage
+
+### Log levels
+
+1. basic info
+2. more info
+3. debug
+4. advanced debug
+
+## Licenses
 
 The BinCAT IDA plugin includes code from
 [python-pyqt5-hexview](https://github.com/williballenthin/python-pyqt5-hexview)
