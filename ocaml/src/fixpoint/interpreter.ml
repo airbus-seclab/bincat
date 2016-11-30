@@ -433,8 +433,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
 	let check vals =
 	  List.iter (fun v ->
-	    Log.debug (Printf.sprintf "size = %d" (String.length (Bits.z_to_bit_string v)));
-	    if String.length (Bits.z_to_bit_string v) > 8 then
+	    let sz = String.length (Bits.z_to_bit_string v) in
+	    if  sz <> 8 && sz <> 0 then
 	      Log.error (Printf.sprintf "Illegal taint mask for address %s" (Data.Address.to_string ip))) vals
 	in
 	let rules' =
