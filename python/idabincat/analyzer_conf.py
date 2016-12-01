@@ -207,12 +207,17 @@ class AnalyzerConfig(object):
     def reset_from_str(self, string):
         #: int
         self.analysis_ep = None
-        #: int
+        #: string
         self.analysis_end = None
         sio = StringIO.StringIO(string)
         self.config = ConfigParser.RawConfigParser()
         self.config.optionxform = str
         self.config.readfp(sio)
+        self.analysis_ep = int(self.config.get("loader", "analysis_ep"), 16)
+        try:
+            self.analysis_end = self.config.get("analyzer", "cut")
+        except ConfigParser.NoOptionError:
+            self.analysis_end = ""
         return self
 
     @staticmethod
@@ -359,6 +364,8 @@ class AnalyzerConfig(object):
     def save_as_default(self):
         self.netnode["default"] = str(self)
 
+    # Get config for addr_start, from IDB if activated and present
+    # Return True if loaded from IDB, False if default
     def for_address(self, state, addr_start, addr_end):
         if state.options.get("load_from_idb") == "True":
             c = self.load_from_idb(addr_start)
@@ -367,8 +374,10 @@ class AnalyzerConfig(object):
         if c:
             bc_log.info("loaded config from IDB for address %x", addr_start)
             self.reset_from_str(c)
+            return True
         else:
             self.config = self.get_default_config(state, addr_start, addr_end)
+            return False
 
     def update_overrides(self, overrides):
         # 1. Empty existing overrides sections
