@@ -1,4 +1,3 @@
-# Fuck Python.
 from __future__ import absolute_import
 import ctypes
 import collections
@@ -19,61 +18,45 @@ bc_log.setLevel(logging.DEBUG)
 
 # Needed because IDA doesn't store s_psize
 class pesection_t(ctypes.Structure):
-     _fields_ = [("s_name", ctypes.c_char * 8),
-                 ("s_vsize", ctypes.c_uint),
-                 ("s_vaddr", ctypes.c_uint),
-                 ("s_psize", ctypes.c_uint),
-                 ("s_scnptr", ctypes.c_int),
-                 ("s_relptr", ctypes.c_int),
-                 ("s_lnnoptr", ctypes.c_int),
-                 ("s_nreloc", ctypes.c_ushort),
-                 ("s_nlnno", ctypes.c_ushort),
-                 ("s_flags", ctypes.c_int)]
+    _fields_ = [("s_name", ctypes.c_char * 8),
+                ("s_vsize", ctypes.c_uint),
+                ("s_vaddr", ctypes.c_uint),
+                ("s_psize", ctypes.c_uint),
+                ("s_scnptr", ctypes.c_int),
+                ("s_relptr", ctypes.c_int),
+                ("s_lnnoptr", ctypes.c_int),
+                ("s_nreloc", ctypes.c_ushort),
+                ("s_nlnno", ctypes.c_ushort),
+                ("s_flags", ctypes.c_int)]
 
 # For some reason, IDA stores the Elf64 hdr, even for 32 bits files...
 class elf_ph_t(ctypes.Structure):
-     _fields_ = [("p_type", ctypes.c_uint),
-                 ("p_flags", ctypes.c_uint),
-                 ("p_offset", ctypes.c_ulonglong),
-                 ("p_vaddr", ctypes.c_ulonglong),
-                 ("p_paddr", ctypes.c_ulonglong),
-                 ("p_filesz", ctypes.c_ulonglong),
-                 ("p_memsz", ctypes.c_ulonglong),
-                 ("p_align", ctypes.c_ulonglong)]
+    _fields_ = [("p_type", ctypes.c_uint),
+                ("p_flags", ctypes.c_uint),
+                ("p_offset", ctypes.c_ulonglong),
+                ("p_vaddr", ctypes.c_ulonglong),
+                ("p_paddr", ctypes.c_ulonglong),
+                ("p_filesz", ctypes.c_ulonglong),
+                ("p_memsz", ctypes.c_ulonglong),
+                ("p_align", ctypes.c_ulonglong)]
 
-class AnalyzerConfig(object):
+
+class ConfigHelpers(object):
+    """
+    Holds helpers, that transform data obtained from ida API.
+
+    Used to generate default configuration.
+    """
     ftypes = {idaapi.f_PE: "pe",
               idaapi.f_ELF: "elf",
               idaapi.f_MACHO: "macho"}
-    """
-    Handles configuration files for the analyzer.
-    """
-    def __init__(self):
-        self.version = "0.0"
-        #: int
-        self.analysis_ep = None
-        #: int
-        self.analysis_end = None
-        self.netnode = idabincat.netnode.Netnode()
-        self.config = ConfigParser.RawConfigParser()
-        self.config.optionxform = str
-
-    @property
-    def code_va(self):
-        va, _ = self.get_code_section(self.analysis_ep)
-        return va
-
-    @property
-    def code_length(self):
-        va, end = self.get_code_section(self.analysis_ep)
-        return end-va
 
     @staticmethod
     def get_file_type():
         ida_db_info_structure = idaapi.get_inf_structure()
         f_type = ida_db_info_structure.filetype
-        if f_type in AnalyzerConfig.ftypes:
-            return AnalyzerConfig.ftypes[f_type]
+        if f_type in ConfigHelpers.ftypes:
+            return ConfigHelpers.ftypes[f_type]
         else:
             return "binary"
 
@@ -90,7 +73,7 @@ class AnalyzerConfig(object):
     def get_call_convention():
         ida_db_info_structure = idaapi.get_inf_structure()
         compiler_info = ida_db_info_structure.cc
-        cc =  {
+        cc = {
             idaapi.CM_CC_INVALID: "invalid",
             idaapi.CM_CC_UNKNOWN: "unknown",
             idaapi.CM_CC_VOIDARG: "voidargs",
@@ -128,7 +111,7 @@ class AnalyzerConfig(object):
     def get_code_section(entrypoint):
         # in case we have more than one code section we apply the following:
         # heuristic entry point must be in the code section
-        for n in xrange(idaapi.get_segm_qty()):
+        for n in range(idaapi.get_segm_qty()):
             seg = idaapi.getnseg(n)
             if (seg.type == idaapi.SEG_CODE and
                     seg.startEA <= entrypoint < seg.endEA):
@@ -141,26 +124,28 @@ class AnalyzerConfig(object):
     @staticmethod
     def get_sections():
         res = []
-        if AnalyzerConfig.get_file_type() == "pe":
+        if ConfigHelpers.get_file_type() == "pe":
             # IDA doesn't store the raw size of sections, we need to get the
             # headers...
             n = idaapi.netnode("$ PE header")
             imagebase = n.altval(idautils.peutils_t.PE_ALT_IMAGEBASE)
             i = 1
-            while n.supval(i) != None:
+            while n.supval(i) is not None:
                 raw = n.supval(i)
                 sec = pesection_t.from_buffer_copy(raw)
-                res.append([sec.s_name, imagebase+sec.s_vaddr, sec.s_vsize, sec.s_scnptr, sec.s_psize])
+                res.append([sec.s_name, imagebase+sec.s_vaddr, sec.s_vsize,
+                            sec.s_scnptr, sec.s_psize])
                 i += 1
             return res
-        elif AnalyzerConfig.get_file_type() == "elf":
+        elif ConfigHelpers.get_file_type() == "elf":
             n = idaapi.netnode("$ elfnode")
-            i = 0 # ELF PH start at 0
-            while n.supval(i, 'p') != None:
-                raw = n.supval(i, 'p') # program headers
+            i = 0  # ELF PH start at 0
+            while n.supval(i, 'p') is not None:
+                raw = n.supval(i, 'p')  # program headers
                 ph = elf_ph_t.from_buffer_copy(raw)
-                if ph.p_type == 1: # PT_LOAD
-                    res.append(["ph%d" % i, ph.p_vaddr, ph.p_memsz, ph.p_offset, ph.p_filesz])
+                if ph.p_type == 1:  # PT_LOAD
+                    res.append(["ph%d" % i, ph.p_vaddr, ph.p_memsz,
+                                ph.p_offset, ph.p_filesz])
                 i += 1
             return res
 
@@ -179,24 +164,50 @@ class AnalyzerConfig(object):
     def get_imports():
         imports = {}
         nimps = idaapi.get_import_module_qty()
-        for i in xrange(0, nimps):
+        for i in range(0, nimps):
             name = idaapi.get_import_module_name(i)
-            imp_cb = functools.partial(AnalyzerConfig.add_imp_to_dict, imports, name)
+            imp_cb = functools.partial(ConfigHelpers.add_imp_to_dict,
+                                       imports, name)
             idaapi.enum_import_names(i, imp_cb)
         return imports
 
     @staticmethod
     def get_registers_with_state():
         regs = {}
-        for regname in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
-            regs[regname] = "0?0xFFFFFFFF"
-        for regname in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
-                        "rf", "vm", "ac", "vif", "vip", "id"]:
-            regs[regname] = "0?1"
+        for name in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
+            regs[name] = "0?0xFFFFFFFF"
+        for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
+                     "rf", "vm", "ac", "vif", "vip", "id"]:
+            regs[name] = "0?1"
 
         regs["df"] = "0"
         regs["iopl"] = "3"
         return regs
+
+
+class AnalyzerConfig(object):
+    """
+    Handles configuration files for the analyzer.
+    """
+    def __init__(self):
+        self.version = "0.0"
+        #: int
+        self.analysis_ep = None
+        #: int
+        self.analysis_end = None
+        self.netnode = idabincat.netnode.Netnode()
+        self.config = ConfigParser.RawConfigParser()
+        self.config.optionxform = str
+
+    @property
+    def code_va(self):
+        va, _ = ConfigHelpers.get_code_section(self.analysis_ep)
+        return va
+
+    @property
+    def code_length(self):
+        va, end = ConfigHelpers.get_code_section(self.analysis_ep)
+        return end-va
 
     def __str__(self):
         sio = StringIO.StringIO()
@@ -237,8 +248,9 @@ class AnalyzerConfig(object):
         self.analysis_ep = start
         self.analysis_end = stop
         if self.config is not None:
-            self.config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
-            if stop != None:
+            self.config.set('loader', 'analysis_ep',
+                            hex(self.analysis_ep).strip('L'))
+            if stop is not None:
                 AnalyzerConfig.update_cut(self.config, stop)
 
     def get_default_config(self, state, ea_start, ea_end):
@@ -264,13 +276,13 @@ class AnalyzerConfig(object):
 
         # [settings] section
         config.add_section('settings')
-        config.set('settings', 'mem_model', self.get_memory_model())
+        config.set('settings', 'mem_model', ConfigHelpers.get_memory_model())
         # IDA doesn't really support real mode
         config.set('settings', 'mode', 'protected')
-        config.set('settings', 'call_conv', self.get_call_convention())
+        config.set('settings', 'call_conv', ConfigHelpers.get_call_convention())
         config.set('settings', 'mem_sz', 32)
-        config.set('settings', 'op_sz', self.get_bitness(self.code_va))
-        config.set('settings', 'stack_width', self.get_stack_width())
+        config.set('settings', 'op_sz', ConfigHelpers.get_bitness(self.code_va))
+        config.set('settings', 'stack_width', ConfigHelpers.get_stack_width())
 
         # [loader section]
         config.add_section('loader')
@@ -288,12 +300,14 @@ class AnalyzerConfig(object):
         AnalyzerConfig.update_cut(config, self.analysis_end)
 
         # Load default GDT/Segment registers according to file type
-        ftype = AnalyzerConfig.get_file_type()
+        ftype = ConfigHelpers.get_file_type()
         # XXX move this logic to PluginOptions
         if ftype == "pe":
-            os_specific = os.path.join(state.options.config_path, "conf", "windows.ini")
+            os_specific = os.path.join(
+                state.options.config_path, "conf", "windows.ini")
         else:  # default to Linux config if not windows
-            os_specific = os.path.join(state.options.config_path, "conf", "linux.ini")
+            os_specific = os.path.join(
+                state.options.config_path, "conf", "linux.ini")
         bc_log.debug("Reading OS config from %s", os_specific)
         config.read(os_specific)
 
@@ -309,20 +323,21 @@ class AnalyzerConfig(object):
                 input_file = guessed_path
 
         if not os.path.isfile(input_file):
-            bc_log.warning("Cannot open binary %s for reading, you should patch"
-                           " your config manually", input_file)
+            bc_log.warning("Cannot open binary %s for reading, you should "
+                           "patch your config manually", input_file)
 
         config.set('binary', 'filepath', input_file)
-        config.set('binary', 'format', self.get_file_type())
+        config.set('binary', 'format', ftype)
 
         # [sections section]
         config.add_section("sections")
-        for s in AnalyzerConfig.get_sections():
-            config.set("sections", "section[%s]" % s[0], "0x%x, 0x%x, 0x%x, 0x%x" % (s[1], s[2], s[3], s[4]))
+        for s in ConfigHelpers.get_sections():
+            config.set("sections", "section[%s]" % s[0],
+                       "0x%x, 0x%x, 0x%x, 0x%x" % (s[1], s[2], s[3], s[4]))
 
         # [state section]
         config.add_section("state")
-        regs = AnalyzerConfig.get_registers_with_state()
+        regs = ConfigHelpers.get_registers_with_state()
         for rname, val in regs.iteritems():
             if rname != "esp":
                 config.set("state", ("reg[%s]" % rname), val)
@@ -330,7 +345,7 @@ class AnalyzerConfig(object):
         config.set("state", "reg[esp]", "0x2000")
         config.set("state", "stack[0x1000*8192]", "|00|?0xFF")
 
-        imports = self.get_imports()
+        imports = ConfigHelpers.get_imports()
         # [import] section
         config.add_section('imports')
         for ea, imp in imports.iteritems():
