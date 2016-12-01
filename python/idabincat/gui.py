@@ -127,6 +127,11 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
 
 
 class TaintLaunchForm_t(QtWidgets.QDialog):
+    def set_current_addresses(self, config):
+        self.ip_start_addr.setText(hex(config.analysis_ep).rstrip('L'))
+        cut = config.analysis_end or ""
+        self.ip_stop_addr.setText(cut)
+
     def __init__(self, parent, state):
         super(TaintLaunchForm_t, self).__init__(parent)
         self.s = state
@@ -140,20 +145,12 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         f = idaapi.get_func(idaapi.get_screen_ea())
         stop_addr = f.endEA
 
-        # Load config for address if it exists
-        self.s.current_config.for_address(self.s, self.s.current_ea, stop_addr)
-
         # Start address
         lbl_start_addr = QtWidgets.QLabel(" Start address: ")
         self.ip_start_addr = QtWidgets.QLineEdit(self)
-        self.ip_start_addr.setText(hex(self.s.current_ea).rstrip('L'))
 
         lbl_stop_addr = QtWidgets.QLabel(" Stop address: ")
         self.ip_stop_addr = QtWidgets.QLineEdit(self)
-        cut = self.s.current_config.analysis_end
-        if cut is None:
-            self.ip_stop_addr.setText(hex(stop_addr).rstrip('L'))
-        self.ip_stop_addr.setText(cut)
 
         # Start, cancel and analyzer config buttons
         self.btn_load = QtWidgets.QPushButton('&Load analyzer config...')
@@ -192,6 +189,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         self.btn_start.setFocus()
 
+        # Load config for address if it exists
+        from_idb = self.s.current_config.for_address(self.s, self.s.current_ea, stop_addr)
+        self.set_current_addresses(self.s.current_config)
+
     def rbRegistersHandler(self):
         self.cb_registers.setEnabled(True)
 
@@ -224,7 +225,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         stop_addr_str = self.ip_stop_addr.text()
         editdlg = EditConfigurationFileForm_t(self, self.s)
         editdlg.set_addresses(start_addr, stop_addr_str)
-        editdlg.exec_()
+        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
+            self.set_current_addresses(self.s.current_config)
 
     def choose_file(self):
         options = QtWidgets.QFileDialog.Options()
@@ -237,7 +239,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             return
         editdlg = EditConfigurationFileForm_t(self, self.s)
         editdlg.set_config(open(filename, 'r').read())
-        editdlg.exec_()
+        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
+            self.set_current_addresses(self.s.current_config)
 
     def show(self):
         self.setFixedSize(460, 200)
