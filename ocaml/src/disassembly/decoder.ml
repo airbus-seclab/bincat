@@ -1303,14 +1303,14 @@ struct
       [ If (Cmp(EQ, count, Const (Word.zero sz)), [], stmts)]
 	
     let rotate_l_stmt dst sz count =
-      let high = BinOp (Shr, Lval dst, BinOp (Sub, Const (Word.of_int (Z.of_int (sz-1)) sz), count)) in
+      let high = BinOp (Shr, Lval dst, BinOp (Sub, Const (Word.of_int (Z.of_int sz) sz), count)) in
       let low = BinOp (Shl, Lval dst, count) in
       let src = BinOp (Add, high, low) in
       core_rotate dst src Shl sz count
 
     let rotate_r_stmt dst sz count =
       let high = BinOp (Shl, Lval dst, count) in
-      let low = BinOp (Shr, Lval dst, BinOp(Sub, Const (Word.of_int (Z.of_int (sz-1)) sz), count)) in
+      let low = BinOp (Shr, Lval dst, BinOp(Sub, Const (Word.of_int (Z.of_int sz) sz), count)) in
       let src = BinOp(Add, high, low) in
       core_rotate dst src Shr sz count
 		  
