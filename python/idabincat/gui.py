@@ -26,14 +26,14 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.configtxt.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                                      QtWidgets.QSizePolicy.Expanding)
 
-        self.btn_start = QtWidgets.QPushButton('&Save', self)
-        self.btn_start.clicked.connect(self.btn_launch_analyzer)
+        self.btn_save = QtWidgets.QPushButton('&Save', self)
+        self.btn_save.clicked.connect(self.use_config)
 
         self.btn_cancel = QtWidgets.QPushButton('Cancel', self)
-        self.btn_cancel.clicked.connect(self.close)
+        self.btn_cancel.clicked.connect(self.reject)
 
         layout.addWidget(self.configtxt, 1, 0, 1, 0)
-        layout.addWidget(self.btn_start, 2, 0)
+        layout.addWidget(self.btn_save, 2, 0)
         layout.addWidget(self.btn_cancel, 2, 1)
         self.setLayout(layout)
 
@@ -49,9 +49,9 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.configtxt.appendPlainText(config_txt)
         self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
-    def btn_launch_analyzer(self):
+    def use_config(self):
         self.s.current_config.reset_from_str(self.configtxt.toPlainText())
-        self.close()
+        self.accept()
 
     def show(self):
         self.setFixedSize(1000, 400)
