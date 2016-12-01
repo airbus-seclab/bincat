@@ -59,7 +59,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     open Asm
 	    				    
     (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
-    let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 10
+    let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 1000
       
     (* current unroll value *)
     (* None is for the default value set in Config *)
