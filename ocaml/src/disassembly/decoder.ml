@@ -8,6 +8,9 @@ struct
     (** control flow automaton *)
     module Cfa = Cfa.Make(Domain)
 
+    (** import table *)
+    module Imports = Imports.Make(Domain)
+      
     open Data
     open Asm
 
@@ -1930,7 +1933,6 @@ struct
       Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
         let reg = Hashtbl.create 6 in
         List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
-	(* fills the import table with stubs *)
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
 	  
     (** launch the decoder *)
