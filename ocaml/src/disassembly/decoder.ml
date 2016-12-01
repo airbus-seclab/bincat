@@ -292,7 +292,7 @@ struct
         _sign_ext_ if true*)
     let get_imm_int s imm_sz sz sign_ext =
         if imm_sz > sz then
-            error s.a "Immediate size bigger than target size"
+            error s.a (Printf.sprintf "Immediate size (%d) bigger than target size (%d)" imm_sz sz)
         else
             let i = int_of_bytes s (imm_sz/8) in
             if sign_ext then
@@ -459,7 +459,7 @@ struct
               BinOp (Add, rm_lv, UnOp(SignExt s.addr_sz, disp s 8 sz))
 
             | 2 ->
-              BinOp (Add, rm_lv, disp s 32 sz)
+              BinOp (Add, rm_lv, disp s s.addr_sz s.addr_sz)
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
