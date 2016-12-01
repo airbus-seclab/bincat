@@ -157,7 +157,8 @@ let add_tainting_rules (libname: string) (fname: string) (callconv: call_conv_t)
      };
      fid_cpt := !fid_cpt + 1
 
-let add_typing_rules _ = failwith "Config.add_typing_rules: to implement"
+let add_typing_rules _gdecls = failwith "Not implemented"
+  
 
 
 (** data stuctures for the assertions *)

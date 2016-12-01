@@ -98,7 +98,7 @@
 	if String.compare !npk_header "" <> 0 then
 	    try
 	      let p = Newspeak.read !npk_header in	  
-	      Config.add_typing_rules p.Newspeak.fundecs
+	      Config.add_typing_rules p.Newspeak.globals
 	    with _ -> Log.error "failed to load headers from npk file"
 	;;
 

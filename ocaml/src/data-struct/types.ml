@@ -6,6 +6,7 @@ type t =
   | TWord (* 16 bits *)
   | TDWord (* 32 bits *)
   | TInt of int (* integer on n bits *)
+  (*  | TRegion of int list * int (* list of offsets + size *) *)
   | TUnknown (* no type information *)
 
 (** string conversion *)
