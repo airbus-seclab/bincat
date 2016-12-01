@@ -1924,6 +1924,29 @@ struct
         in
         decode s;;
 
+    (** initialization of the import table *)
+    let init_imports () =
+      (* creates the import table from import section *)
+      Hashtbl.iter (fun a (libname, fname) ->
+	let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
+	let fundec =  {
+	  Imports.libname = libname;
+	  Imports.name = fname;
+	  prologue = [];
+	  stub = [];
+	  epilogue = [];
+	}
+	in
+	Hashtbl.add Imports.tbl a' fundec) Config.import_tbl;
+      Hashtbl.iter (fun a f -> Log.debug_lvl (Printf.sprintf "at %s import %s" (Data.Address.to_string a) f.Imports.name) 0) Imports.tbl
+      
+      (* adds typing information to prologue and epilogue *)
+	(* Hashtbl.iter (fun ) Config.typing_rules; *)
+      (* adds tainting information to prologue and epilogue *)
+	(* Hashtbl.iter () Config.tainting_rules; *)
+      (* adds stub *)
+	(* Hashtbl.iter () Imports.tbl *)
+      
      (** initialization of the decoder *)
     let init () =
       let ldt = Hashtbl.create 5  in
@@ -1933,6 +1956,7 @@ struct
       Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
         let reg = Hashtbl.create 6 in
         List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
+	init_imports();
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
 	  
     (** launch the decoder *)
