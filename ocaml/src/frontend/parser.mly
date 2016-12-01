@@ -75,7 +75,7 @@
 
 	in
 	Config.text := String.make !Config.code_length '\x00';
-    really_input fid !Config.text 0 !Config.code_length;
+	really_input fid !Config.text 0 !Config.code_length;
 	(* fill the table of tainting rules for each provided library *)
 	let add_tainting_rules l (c, funs) =
 	  let c' =
@@ -89,7 +89,7 @@
 		None 	-> c'
 	      | Some c' -> c'
 	    in
-	    Config.add_tainting_rules l fname c' r args
+	    Hashtbl.replace Config.tainting_rules (l, fname) (c', r, args)
 	  in
 	  List.iter add (List.rev funs)
 	in
@@ -98,7 +98,8 @@
 	if String.compare !npk_header "" <> 0 then
 	    try
 	      let p = Newspeak.read !npk_header in	  
-	      Config.add_typing_rules p.Newspeak.globals
+	      Hashtbl.iter (fun s f ->
+		Hashtbl.add Config.typing_rules s f) p.Newspeak.fundecs
 	    with _ -> Log.error "failed to load headers from npk file"
 	;;
 
