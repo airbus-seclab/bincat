@@ -259,10 +259,8 @@ class AnalyzerConfig(object):
                            configfile)
 
         # Needed to call get_bitness and others
-        if not self.analysis_ep:
-            self.analysis_ep = ea_start
-        if not self.analysis_end:
-            self.analysis_end = hex(ea_end).strip('L')
+        self.analysis_ep = ea_start
+        self.analysis_end = hex(ea_end).strip('L')
 
         # [settings] section
         config.add_section('settings')

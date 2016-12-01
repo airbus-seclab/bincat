@@ -190,7 +190,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btn_start.setFocus()
 
         # Load config for address if it exists
-        from_idb = self.s.current_config.for_address(self.s, self.s.current_ea, stop_addr)
+        self.s.current_config.for_address(self.s, self.s.current_ea, stop_addr)
         self.set_current_addresses(self.s.current_config)
 
     def rbRegistersHandler(self):
