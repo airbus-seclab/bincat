@@ -1968,7 +1968,7 @@ struct
 	       Log.from_analysis "Typing information for function without import address ignored"; ()  
 	   ) Config.typing_rules;
 	(* adds tainting information to prologue and epilogue *)
-	(* Hashtbl.iter () Config.tainting_rules; *)
+	Hashtbl.iter (fun (_libname, _funame) (_callconv, _taint_ret, _taint_args) -> () ) Config.tainting_rules
 
 	| _ -> Log.debug "Calling convention not managed. Typing and tainting directives ignored"
 	
