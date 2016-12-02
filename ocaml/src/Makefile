@@ -44,7 +44,7 @@ DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgrap
 
 
 CAMLC   =ocamlc $(DIROPT)
-CAMLOPT =ocamlopt -g -w Ael -warn-error +a-7-50 $(DIROPT) 
+CAMLOPT =ocamlopt -g -w Ael -warn-error +a-7-50-42 $(DIROPT)
 CAMLLEX =ocamllex
 MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)

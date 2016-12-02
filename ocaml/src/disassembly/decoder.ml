@@ -933,12 +933,15 @@ struct
     let check_jmp (s: state) target =
         let a = s.a in
         let csv = Hashtbl.find s.segments.reg cs						     in
-        let s   = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
-        let i   = Address.to_int target							     in
-        if Z.compare (Z.add s.base i) s.limit >= 0 then
+        let seg : tbl_entry  = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
+        (* compute limit according to granularity *)
+        let limit = if (Z.compare (seg:tbl_entry).g Z.one) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
+        let target_int   = Address.to_int target							     in
+        let linear_target = (Z.add seg.base target_int) in
+        if Z.compare linear_target limit < 0 then
             ()
         else
-            error a "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"
+            error a (Printf.sprintf "Decoder: jump target (%s) out of limits of the code segment (%s) (GP exception in protected mode)" (Z.to_string linear_target) (Z.to_string limit))
 
     (** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
     let return_jcc_stmts s cond_exp imm_sz =
