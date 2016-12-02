@@ -189,7 +189,7 @@ struct
         avl: Z.t;
         l: Z.t;
         db: Z.t;
-        g: Z.t;}
+        gran: Z.t;}
 
     (** return a high level representation of a GDT/LDT entry *)
     let tbl_entry_of_int v =
@@ -229,7 +229,7 @@ struct
             avl = avl;
             l = l;
             db = db;
-            g = g; }
+            gran = g; }
 
     (** data type of a decription table *)
     type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
@@ -932,7 +932,7 @@ struct
         let csv = Hashtbl.find s.segments.reg cs						     in
         let seg : tbl_entry  = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
         (* compute limit according to granularity *)
-        let limit = if (Z.compare (seg:tbl_entry).g Z.one) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
+        let limit = if (Z.compare seg.gran Z.zero) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
         let target_int   = Address.to_int target							     in
         let linear_target = (Z.add seg.base target_int) in
         if Z.compare linear_target limit < 0 then
