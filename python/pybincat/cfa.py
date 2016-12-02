@@ -214,8 +214,8 @@ class State(object):
                 import traceback
                 traceback.print_exc(e)
                 raise PyBinCATException(
-                    "Cannot parse taint or type data at address %s" %
-                    self.address)
+                    "Cannot parse taint or type data at address %s\n%s" %
+                    (self.address, e))
         return self._regaddrs
 
     @property
@@ -227,8 +227,8 @@ class State(object):
                 import traceback
                 traceback.print_exc(e)
                 raise PyBinCATException(
-                    "Cannot parse taint or type data at address %s" %
-                    self.address)
+                    "Cannot parse taint or type data at address %s\n%s" %
+                    (self.address, e))
         return self._regtypes
 
     @classmethod
@@ -258,7 +258,7 @@ class State(object):
         self._regaddrs = {}
         self._regtypes = {}
         for k, v in self._outputkv.iteritems():
-            if k.startswith("T-"):
+            if k.startswith("t-"):
                 typedata = True
                 k = k[2:]
             else:

@@ -295,7 +295,7 @@ struct
         _sign_ext_ if true*)
     let get_imm_int s imm_sz sz sign_ext =
         if imm_sz > sz then
-            error s.a "Immediate size bigger than target size"
+            error s.a (Printf.sprintf "Immediate size (%d) bigger than target size (%d)" imm_sz sz)
         else
             let i = int_of_bytes s (imm_sz/8) in
             if sign_ext then
@@ -462,7 +462,7 @@ struct
               BinOp (Add, rm_lv, UnOp(SignExt s.addr_sz, disp s 8 sz))
 
             | 2 ->
-              BinOp (Add, rm_lv, disp s 32 sz)
+              BinOp (Add, rm_lv, disp s s.addr_sz s.addr_sz)
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
@@ -494,7 +494,7 @@ struct
         with
         | Disp32 ->
           if direction = 0 then
-              find_reg_v rm sz, add_data_segment s (disp s 32 sz)
+              find_reg_v reg s.operand_sz, Lval( M(add_data_segment s (disp s 32 32), sz))
           else
               error s.a "Decoder: illegal direction for displacement only addressing mode"
 
@@ -1300,14 +1300,14 @@ struct
       [ If (Cmp(EQ, count, Const (Word.zero sz)), [], stmts)]
 	
     let rotate_l_stmt dst sz count =
-      let high = BinOp (Shr, Lval dst, BinOp (Sub, Const (Word.of_int (Z.of_int (sz-1)) sz), count)) in
+      let high = BinOp (Shr, Lval dst, BinOp (Sub, Const (Word.of_int (Z.of_int sz) sz), count)) in
       let low = BinOp (Shl, Lval dst, count) in
       let src = BinOp (Add, high, low) in
       core_rotate dst src Shl sz count
 
     let rotate_r_stmt dst sz count =
       let high = BinOp (Shl, Lval dst, count) in
-      let low = BinOp (Shr, Lval dst, BinOp(Sub, Const (Word.of_int (Z.of_int (sz-1)) sz), count)) in
+      let low = BinOp (Shr, Lval dst, BinOp(Sub, Const (Word.of_int (Z.of_int sz) sz), count)) in
       let src = BinOp(Add, high, low) in
       core_rotate dst src Shr sz count
 		  
@@ -1902,10 +1902,10 @@ struct
             | '\xb4' -> load_far_ptr s fs
             | '\xb5' -> load_far_ptr s gs
 
-            | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 1 in
+            | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 0 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
             | '\xb7' ->
-              let reg, rm = operands_from_mod_reg_rm s 16 1 in
+              let reg, rm = operands_from_mod_reg_rm s 16 0 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
 
             | '\xba' -> grp8 s
