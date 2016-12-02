@@ -35,9 +35,9 @@
         Env.iteri (fun k v2 ->
  	  try
  	    let v1 = Env.find k env1' in
-	   if not (Types.leq v1 v2) then
+	   if not (Types.subset v1 v2) then
  	     raise Exit
-	  with Not_found -> if v2 = Types.TUnknown then () else raise Exit
+	  with Not_found -> if v2 = Types.TUNKNOWN then () else raise Exit
         ) env2';
 	true
       with Exit -> false
@@ -94,7 +94,7 @@ let of_exp (e: Asm.exp) (env: t): Types.t =
      | Asm.Lval (Asm.V (Asm.T r)) ->
 	begin
 	  try Env.find (Env.Key.Reg r) env'
-	  with Not_found -> Types.TUnknown
+	  with Not_found -> Types.TUNKNOWN
 	end
-     | _ -> Types.TUnknown
+     | _ -> Types.TUNKNOWN
      
