@@ -47,11 +47,11 @@ let binary = ref "";;
 let format = ref Pe
 
 type call_conv_t =
-  | Cdecl
-  | Stdcall
-  | Fastcall
+  | CDECL
+  | STDCALL
+  | FASTCALL
 
-let call_conv = ref Cdecl
+let call_conv = ref CDECL
 
 let text = ref ""
 let code_length = ref 0

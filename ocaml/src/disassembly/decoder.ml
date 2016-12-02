@@ -855,13 +855,7 @@ struct
         let edi' = V (to_reg edi s.addr_sz)            in
         let mem  = M (add_segment s (Lval edi') es, i) in
 	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in
-	let typ =
-	  match i with
-	  | 8 -> Types.TChar
-	  | 16 -> Types.TWord
-	  | 32 -> Types.TDWord
-	  | _ -> Types.TInt i
-	in
+	let typ = Types.TInt i in
 	let type_stmt = Directive (Type (mem, typ)) in 
         return s ((cmp_stmts (Lval eax') (Lval mem) i) @ [type_stmt ; taint_stmt] @ (inc_dec_wrt_df [edi] i) )
 
@@ -1924,6 +1918,28 @@ struct
         in
         decode s;;
 
+    (** converts a signature function to typing directives for stdcall *)
+    (** with respect to the stdcall calling convention *)
+    let forget_reserved_registers_stdcall () =
+      	[ Directive (Forget eax) ; Directive (Forget ecx) ; Directive (Forget edx) ]
+
+    let type_directives_stdcall (typing_rule: Newspeak.fundec): (Asm.stmt list * Asm.stmt list) =
+      let epilogue =
+	[ Directive (Type (V (T eax), Types.typ_of_npk (snd (List.hd (typing_rule.Newspeak.rets))))) ]
+      in
+      let off = !Config.stack_width / 8 in
+      let sz, prologue =  List.fold_left (fun (sz, stmts) (_name, typ) ->
+	let lv = M (BinOp (Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz) !Config.stack_width)), off) in 
+	sz+(!Config.stack_width), (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
+      ) (0, []) (typing_rule.Newspeak.args)
+      in
+      (* add volatile registers + stack cleaning to the prologue *)
+      let sz' = sz / 8 in
+      let clean_stack = Asm.Set (V (T esp), BinOp(Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz') (Register.size esp)))) in
+      prologue, (clean_stack::(forget_reserved_registers_stdcall ())) @ epilogue
+
+    let default_stub_stdcall () = [ Directive (Forget eax) ]
+      
     (** initialization of the import table *)
     let init_imports () =
       (* creates the import table from import section *)
@@ -1932,20 +1948,30 @@ struct
 	let fundec =  {
 	  Imports.libname = libname;
 	  Imports.name = fname;
-	  prologue = [];
-	  stub = [];
-	  epilogue = [];
+	  Imports.prologue = [];
+	  Imports.stub = [];
+	  Imports.epilogue = [];
 	}
 	in
 	Hashtbl.add Imports.tbl a' fundec) Config.import_tbl;
-      Hashtbl.iter (fun a f -> Log.debug_lvl (Printf.sprintf "at %s import %s" (Data.Address.to_string a) f.Imports.name) 0) Imports.tbl
-      
       (* adds typing information to prologue and epilogue *)
-	(* Hashtbl.iter (fun ) Config.typing_rules; *)
-      (* adds tainting information to prologue and epilogue *)
+      match !Config.call_conv with
+	| Config.STDCALL ->
+	   Hashtbl.iter (fun name typing_rule ->
+	     try
+	       let a, fundec = Imports.search_by_name name in
+	       let prologue, epilogue = type_directives_stdcall typing_rule in 
+	       Hashtbl.replace Imports.tbl a
+		 { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
+		   Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = default_stub_stdcall () }
+	     with Not_found ->
+	       Log.from_analysis "Typing information for function without import address ignored"; ()  
+	   ) Config.typing_rules;
+	(* adds tainting information to prologue and epilogue *)
 	(* Hashtbl.iter () Config.tainting_rules; *)
-      (* adds stub *)
-	(* Hashtbl.iter () Imports.tbl *)
+
+	| _ -> Log.debug "Calling convention not managed. Typing and tainting directives ignored"
+	
       
      (** initialization of the decoder *)
     let init () =

@@ -211,9 +211,9 @@
     | SEGMENTED { Config.Segmented }
 
       callconv:
-    | CDECL    { Config.Cdecl }
-    | FASTCALL { Config.Fastcall }
-    | STDCALL  { Config.Stdcall }
+    | CDECL    { Config.CDECL }
+    | FASTCALL { Config.FASTCALL }
+    | STDCALL  { Config.STDCALL }
 
 
       mmode:
