@@ -1,47 +1,95 @@
-(** abstract domain of type reconstruction *)
+(** abstract data type for type reconstruction *)
 
 (** abstract data type *)
 type t =
-  | TChar (* Char on 8 bits *)
-  | TWord (* 16 bits *)
-  | TDWord (* 32 bits *)
-  | TInt of int (* integer on n bits *)
-  | TUnknown (* no type information *)
+  | TInt of int
+  | TPTR
+  | TStruct of field list * size_t
+  | TUNKNOWN
+      
+and field = offset * t
 
+and size_t = int
+
+and offset = int
+  
 (** string conversion *)
-let to_string t =
-  match t with
-  | TChar -> "char8"
-  | TWord -> "char16"     
-  | TDWord -> "char32"
-  | TInt n -> "int"^(string_of_int n)
-  | TUnknown -> ""
 
+let rec to_string t =
+  match t with
+  | TInt 8 -> "BYTE"
+  | TInt 16 -> "WORD"
+  | TInt 32 -> "DWORD"
+  | TPTR -> "PTR"
+  | TInt n -> "Int"^(string_of_int n)
+  | TStruct (fields, _) -> "{" ^ List.fold_left (fun acc field -> (string_of_field field)^";"^acc) "" fields ^ "}"
+  | TUNKNOWN -> ""  
+
+and string_of_field (offset, typ) = (string_of_int offset)^": "^(to_string typ)
+  
+  (** convert a typ to its pointer counterpart if it is not a basic type *)
+  let to_ptr typ =
+    match typ with
+    | TStruct _ -> TPTR
+    | _ -> typ
+
+  let rec identical typ1 typ2 =
+    match typ1, typ2 with
+    | TInt n1, TInt n2 when n1 = n2 -> true
+    | TPTR, TPTR -> true
+    | TStruct (s1, sz1) , TStruct (s2, sz2) ->
+       if sz1 <> sz2 then
+	 false
+       else
+	 begin
+	   try
+	     List.for_all2 (fun (o1, t1) (o2, t2) -> o1 = o2 && (identical t1 t2)) s1 s2
+	   with _-> false
+	 end
+    | _, _ -> false	 
+       
 (** join *)
+  let join_of_struct fields1 fields2 =
+    List.map2 (fun (o1, t1) (o2, t2) ->
+      if o1 = o2 then
+	if identical t1 t2 then (o1, t1) else (o1, TUNKNOWN)
+      else
+	raise Exit) fields1 fields2
+      
 let join t1 t2 =
   match t1, t2 with
-  | TChar, TChar -> t1
-  | TWord, TWord -> t1 
-  | TDWord, TDWord -> t1
   | TInt n1, TInt n2 when n1 = n2 -> t1
-  | _, _ -> TUnknown
+  | TPTR, TPTR -> t1 
+  | TStruct (fields1, sz1), TStruct (fields2, _) ->
+     begin
+       try TStruct (join_of_struct fields1 fields2, sz1) with _ -> TUNKNOWN
+     end
+  | _, _ -> TUNKNOWN
      
-(** join *)
+(** meet *)
+let meet_of_struct fields1 fields2 =
+  try
+    List.map2 (fun (o1, t1) (o2, t2) ->
+      if o1 = o2 && identical t1 t2 then (o1, t1) else raise Exceptions.Empty) fields1 fields2
+  with _ -> raise Exceptions.Empty
+      
 let meet t1 t2 =
   match t1, t2 with
-  | TChar, TChar -> t1
-  | TWord, TWord -> t1 
-  | TDWord, TDWord -> t1
   | TInt n1, TInt n2 when n1 = n2 -> t1
+  | TPTR, TPTR -> t1 
+  | TStruct (fields1, sz1), TStruct (fields2, _) -> TStruct (meet_of_struct fields1 fields2, sz1)
   | _, _ -> raise Exceptions.Empty
-     
-(** comparison *)
-let leq t1 t2 =
+
+let subset t1 t2 =
   match t1, t2 with
-  | TChar, TChar
-  | TWord, TWord
-  | TDWord , TDWord -> true
-  | _, TUnknown -> true
-  | TInt n1, TInt n2 when n1 = n2 -> true
-  | _, _ -> false
-  
+  | TUNKNOWN, TUNKNOWN -> true
+  | _, _ -> identical t1 t2
+
+
+let rec typ_of_npk npk_t =
+  match npk_t with
+  | Newspeak.Scalar (Newspeak.Int (_, sz)) -> TInt sz
+  | Newspeak.Scalar Newspeak.Ptr -> TPTR
+  | Newspeak.Region (s, z) -> TStruct (List.map (fun (o, t) -> o, typ_of_npk t) s, z)
+  | _ -> TUNKNOWN
+     

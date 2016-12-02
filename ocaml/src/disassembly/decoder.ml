@@ -8,6 +8,9 @@ struct
     (** control flow automaton *)
     module Cfa = Cfa.Make(Domain)
 
+    (** import table *)
+    module Imports = Imports.Make(Domain)
+      
     open Data
     open Asm
 
@@ -186,7 +189,7 @@ struct
         avl: Z.t;
         l: Z.t;
         db: Z.t;
-        g: Z.t;}
+        gran: Z.t;}
 
     (** return a high level representation of a GDT/LDT entry *)
     let tbl_entry_of_int v =
@@ -226,7 +229,7 @@ struct
             avl = avl;
             l = l;
             db = db;
-            g = g; }
+            gran = g; }
 
     (** data type of a decription table *)
     type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
@@ -292,7 +295,7 @@ struct
         _sign_ext_ if true*)
     let get_imm_int s imm_sz sz sign_ext =
         if imm_sz > sz then
-            error s.a "Immediate size bigger than target size"
+            error s.a (Printf.sprintf "Immediate size (%d) bigger than target size (%d)" imm_sz sz)
         else
             let i = int_of_bytes s (imm_sz/8) in
             if sign_ext then
@@ -459,7 +462,7 @@ struct
               BinOp (Add, rm_lv, UnOp(SignExt s.addr_sz, disp s 8 sz))
 
             | 2 ->
-              BinOp (Add, rm_lv, disp s 32 sz)
+              BinOp (Add, rm_lv, disp s s.addr_sz s.addr_sz)
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
@@ -852,13 +855,7 @@ struct
         let edi' = V (to_reg edi s.addr_sz)            in
         let mem  = M (add_segment s (Lval edi') es, i) in
 	let taint_stmt = Directive (Taint (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i))), ecx)) in
-	let typ =
-	  match i with
-	  | 8 -> Types.TChar
-	  | 16 -> Types.TWord
-	  | 32 -> Types.TDWord
-	  | _ -> Types.TInt i
-	in
+	let typ = Types.TInt i in
 	let type_stmt = Directive (Type (mem, typ)) in 
         return s ((cmp_stmts (Lval eax') (Lval mem) i) @ [type_stmt ; taint_stmt] @ (inc_dec_wrt_df [edi] i) )
 
@@ -933,12 +930,15 @@ struct
     let check_jmp (s: state) target =
         let a = s.a in
         let csv = Hashtbl.find s.segments.reg cs						     in
-        let s   = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
-        let i   = Address.to_int target							     in
-        if Z.compare (Z.add s.base i) s.limit >= 0 then
+        let seg : tbl_entry  = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
+        (* compute limit according to granularity *)
+        let limit = if (Z.compare seg.gran Z.zero) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
+        let target_int   = Address.to_int target							     in
+        let linear_target = (Z.add seg.base target_int) in
+        if Z.compare linear_target limit < 0 then
             ()
         else
-            error a "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"
+            error a (Printf.sprintf "Decoder: jump target (%s) out of limits of the code segment (%s) (GP exception in protected mode)" (Z.to_string linear_target) (Z.to_string limit))
 
     (** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
     let return_jcc_stmts s cond_exp imm_sz =
@@ -1921,6 +1921,61 @@ struct
         in
         decode s;;
 
+    (** converts a signature function to typing directives for stdcall *)
+    (** with respect to the stdcall calling convention *)
+    let forget_reserved_registers_stdcall () =
+      	[ Directive (Forget eax) ; Directive (Forget ecx) ; Directive (Forget edx) ]
+
+    let type_directives_stdcall (typing_rule: Newspeak.fundec): (Asm.stmt list * Asm.stmt list) =
+      let epilogue =
+	[ Directive (Type (V (T eax), Types.typ_of_npk (snd (List.hd (typing_rule.Newspeak.rets))))) ]
+      in
+      let off = !Config.stack_width / 8 in
+      let sz, prologue =  List.fold_left (fun (sz, stmts) (_name, typ) ->
+	let lv = M (BinOp (Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz) !Config.stack_width)), off) in 
+	sz+(!Config.stack_width), (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
+      ) (0, []) (typing_rule.Newspeak.args)
+      in
+      (* add volatile registers + stack cleaning to the prologue *)
+      let sz' = sz / 8 in
+      let clean_stack = Asm.Set (V (T esp), BinOp(Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz') (Register.size esp)))) in
+      prologue, (clean_stack::(forget_reserved_registers_stdcall ())) @ epilogue
+
+    let default_stub_stdcall () = [ Directive (Forget eax) ]
+      
+    (** initialization of the import table *)
+    let init_imports () =
+      (* creates the import table from import section *)
+      Hashtbl.iter (fun a (libname, fname) ->
+	let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
+	let fundec =  {
+	  Imports.libname = libname;
+	  Imports.name = fname;
+	  Imports.prologue = [];
+	  Imports.stub = [];
+	  Imports.epilogue = [];
+	}
+	in
+	Hashtbl.add Imports.tbl a' fundec) Config.import_tbl;
+      (* adds typing information to prologue and epilogue *)
+      match !Config.call_conv with
+	| Config.STDCALL ->
+	   Hashtbl.iter (fun name typing_rule ->
+	     try
+	       let a, fundec = Imports.search_by_name name in
+	       let prologue, epilogue = type_directives_stdcall typing_rule in 
+	       Hashtbl.replace Imports.tbl a
+		 { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
+		   Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = default_stub_stdcall () }
+	     with Not_found ->
+	       Log.from_analysis "Typing information for function without import address ignored"; ()  
+	   ) Config.typing_rules;
+	(* adds tainting information to prologue and epilogue *)
+	Hashtbl.iter (fun (_libname, _funame) (_callconv, _taint_ret, _taint_args) -> () ) Config.tainting_rules
+
+	| _ -> Log.debug "Calling convention not managed. Typing and tainting directives ignored"
+	
+      
      (** initialization of the decoder *)
     let init () =
       let ldt = Hashtbl.create 5  in
@@ -1930,6 +1985,7 @@ struct
       Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
         let reg = Hashtbl.create 6 in
         List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
+	init_imports();
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
 	  
     (** launch the decoder *)

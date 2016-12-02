@@ -14,12 +14,19 @@ def imp_cb(ea, name, ord_nb):
     # Get type
     imp_t = tinfo_t()
     if get_tinfo2(ea, imp_t):
-        # Iterate over ret type and args
-        for i in range(-1, imp_t.get_nargs()):
-            arg_t = imp_t.get_nth_arg(i)
-            # cvar.idati is the "local types"
-            import_type(cvar.idati, -1, str(arg_t), 0)
-        imports.append(print_type(ea, True) + " {}")
+        if not imp_t.is_func():
+            imports.append(print_type(ea, True) + ";")
+        else:
+            # Iterate over ret type and args
+            for i in range(-1, imp_t.get_nargs()):
+                arg_t = imp_t.get_nth_arg(i)
+                if arg_t.is_ptr_or_array():
+                    no_ptr = arg_t
+                    no_ptr.remove_ptr_or_array()
+                    import_name(str(no_ptr))
+
+                import_name(str(arg_t))
+            imports.append(print_type(ea, True) + " {}")
     return True
 
 nimps = idaapi.get_import_module_qty()
