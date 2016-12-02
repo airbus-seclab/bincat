@@ -36,21 +36,18 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btn_save, 2, 0)
         layout.addWidget(self.btn_cancel, 2, 1)
         self.setLayout(layout)
+        self.configtxt.appendPlainText(str(self.s.edit_config))
+        self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
     def sizeHint(self):
         return QtCore.QSize(700, 1200)
-
-    def set_addresses(self, start_addr, stop_addr):
-        self.s.current_config.set_start_stop_addr(start_addr, stop_addr)
-        self.configtxt.appendPlainText(str(self.s.current_config))
-        self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
     def set_config(self, config_txt):
         self.configtxt.appendPlainText(config_txt)
         self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
     def use_config(self):
-        self.s.current_config.reset_from_str(self.configtxt.toPlainText())
+        self.s.edit_config.load_from_str(self.configtxt.toPlainText())
         self.accept()
 
     def show(self):
@@ -127,9 +124,10 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
 
 
 class TaintLaunchForm_t(QtWidgets.QDialog):
-    def set_current_addresses(self, config):
-        self.ip_start_addr.setText(hex(config.analysis_ep).rstrip('L'))
-        cut = config.analysis_end or ""
+    def update_from_edit_config(self):
+        config = self.s.edit_config
+        self.ip_start_addr.setText(config.analysis_ep)
+        cut = config.stop_address or ""
         self.ip_stop_addr.setText(cut)
 
     def __init__(self, parent, state):
@@ -190,8 +188,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btn_start.setFocus()
 
         # Load config for address if it exists
-        self.s.current_config.for_address(self.s, self.s.current_ea, stop_addr)
-        self.set_current_addresses(self.s.current_config)
+        self.s.edit_config.load_for_address(self.s.current_ea, stop_addr)
+        self.update_from_edit_config()
 
     def rbRegistersHandler(self):
         self.cb_registers.setEnabled(True)
@@ -209,11 +207,15 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             stop_addr = None
         else:
             stop_addr = self.ip_stop_addr.text()
-        self.s.current_config.set_start_stop_addr(start_addr, stop_addr)
+        self.s.edit_config.analysis_ep = start_addr
+        self.s.edit_config.stop_address = stop_addr
 
         if self.chk_save.isChecked():
-            self.s.current_config.save_to_idb(
+            self.s.edit_config.save_for_address(
                 int(self.ip_start_addr.text(), 16))
+
+        # XXX copy?
+        self.s.current_config = self.s.edit_config
 
         self.s.start_analysis()
 
@@ -221,12 +223,13 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def edit_config(self):
         # display edit form
-        start_addr = int(self.ip_start_addr.text(), 16)
-        stop_addr_str = self.ip_stop_addr.text()
+        start_addr = self.ip_start_addr.text()
+        stop_addr = self.ip_stop_addr.text()
+        self.s.edit_config.analysis_ep = start_addr
+        self.s.edit_config.stop_address = stop_addr
         editdlg = EditConfigurationFileForm_t(self, self.s)
-        editdlg.set_addresses(start_addr, stop_addr_str)
         if editdlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.set_current_addresses(self.s.current_config)
+            self.update_from_edit_config()
 
     def choose_file(self):
         options = QtWidgets.QFileDialog.Options()
@@ -240,7 +243,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         editdlg = EditConfigurationFileForm_t(self, self.s)
         editdlg.set_config(open(filename, 'r').read())
         if editdlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.set_current_addresses(self.s.current_config)
+            self.update_from_edit_config()
 
     def show(self):
         self.setFixedSize(460, 200)

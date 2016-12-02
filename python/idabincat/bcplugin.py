@@ -322,13 +322,16 @@ class State(object):
         self.cfa = None
         self.current_state = None
         self.current_node_ids = []
-        self.current_config = AnalyzerConfig()
+        #: last run config
+        self.current_config = None
+        #: config to be edited
+        self.edit_config = AnalyzerConfig(self)
         #: Analyzer instance - protects against merciless garbage collector
         self.analyzer = None
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
         self.overrides = OverridesState()
-        # for debugging purposes - to interact with this object from the console
+        # for debugging purposes, to interact with this object from the console
         # XXX store in idb after encoding?
         self.last_cfaout_marshal = None
         global bc_state
@@ -472,20 +475,14 @@ class State(object):
         bc_log.debug("Current analyzer path: %s", path)
 
         if config_str:
-            c = ConfigParser.RawConfigParser()
-            c.config.optionxform = str
-            c.readfp(StringIO.StringIO(config_str))
-            self.current_config.config = c
+            self.current_config.load_from_str(config_str)
         # Update overrides
         self.current_config.update_overrides(self.overrides)
         # Set correct file names
-        config = self.current_config.config
-        config.set('analyzer', 'out_marshalled_cfa_file',
-                   self.analyzer.cfaoutfname)
-        config.set('analyzer', 'in_marshalled_cfa_file',
-                   self.analyzer.cfainfname)
-        config.set('analyzer', 'store_marshalled_cfa', 'true')
-        analysis_method = config.get('analyzer', 'analysis').lower()
+        config = self.current_config
+        config.set_cfa_options('true', self.analyzer.cfainfname,
+                               self.analyzer.cfaoutfname)
+        analysis_method = config.analysis_method
         if analysis_method in ("forward_cfa", "backward"):
             if self.last_cfaout_marshal is None:
                 bc_log.error("No marshalled CFA has been recorded - run a "
@@ -493,8 +490,7 @@ class State(object):
                 return
             with open(self.analyzer.cfainfname, 'w') as f:
                 f.write(self.last_cfaout_marshal)
-        with open(self.analyzer.initfname, 'w') as f:
-            config.write(f)
+        config.write(self.analyzer.initfname)
         self.analyzer.run()
 
     def re_run(self):

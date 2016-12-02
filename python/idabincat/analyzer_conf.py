@@ -189,80 +189,114 @@ class AnalyzerConfig(object):
     """
     Handles configuration files for the analyzer.
     """
-    def __init__(self):
+    def __init__(self, state):
         self.version = "0.0"
-        #: int
-        self.analysis_ep = None
-        #: int
-        self.analysis_end = None
         self.netnode = idabincat.netnode.Netnode()
-        self.config = ConfigParser.RawConfigParser()
-        self.config.optionxform = str
+        self._config = ConfigParser.RawConfigParser()
+        self._config.optionxform = str
+        #: bcplugin.State instance, to fetch current configuration data
+        self.state = state
+
+    # Convenience access functions
+    @property
+    def analysis_ep(self):
+        return self._config.get('loader', 'analysis_ep')
 
     @property
-    def code_va(self):
-        va, _ = ConfigHelpers.get_code_section(self.analysis_ep)
-        return va
+    def stop_address(self):
+        return self._config.get('analyzer', 'cut')
 
     @property
-    def code_length(self):
-        va, end = ConfigHelpers.get_code_section(self.analysis_ep)
-        return end-va
+    def analysis_method(self):
+        return self._config.get('analyzer', 'analysis').lower()
+
+    # Configuration modification functions - edit currently loaded config
+    @analysis_ep.setter
+    def analysis_ep(self, value):
+        if type(value) in (int, long):
+            value = "0x%X" % value
+        self._config.set('loader', 'analysis_ep', value)
+
+    @stop_address.setter
+    def stop_address(self, value):
+        if type(value) in (int, long):
+            value = "0x%X" % value
+        if value is None:
+            value = ""
+        self._config.set('analyzer', 'cut', value)
+
+    def set_cfa_options(self, store_cfa="true", in_cfa="", out_cfa=""):
+        self._config.set('analyzer', 'store_marshalled_cfa', store_cfa)
+        self._config.set('analyzer', 'out_marshalled_cfa_file', out_cfa)
+        self._config.set('analyzer', 'in_marshalled_cfa_file', in_cfa)
+
+    def update_overrides(self, overrides):
+        # 1. Empty existing overrides sections
+        self._config.remove_section("override")
+        self._config.add_section("override")
+        # 2. Add sections from overrides argument
+        ov_by_eip = collections.defaultdict(set)
+        for (eip, register, value) in overrides:
+            ov_by_eip[eip].add("%s, %s;" % (register, value))
+        # 3. Add to config
+        for eip, ov_set in ov_by_eip.items():
+            hex_addr = "0x%x" % eip
+            self._config.set("override", hex_addr, ''.join(ov_set))
+
+    # Input functions: load a config from default values, a string, or the IDB
+    def load_from_str(self, string):
+        sio = StringIO.StringIO(string)
+        self._config = ConfigParser.RawConfigParser()
+        self._config.optionxform = str
+        self._config.readfp(sio)
+
+    def load_for_address(self, analysis_start_va, analysis_stop_va):
+        """
+        Get config for analysis_start_va, from IDB if activated and present
+        Return True if loaded from IDB, False if default
+        """
+        c_str = None
+        if self.state.options.get("load_from_idb") == "True":
+            if analysis_start_va in self.netnode:
+                c_str = self.netnode[analysis_start_va]
+        if c_str:
+            bc_log.info("loaded config from IDB for address %x",
+                        analysis_start_va)
+            self.load_from_str(c_str)
+            return True
+        else:
+            self._load_default_config(analysis_start_va, analysis_stop_va)
+            return False
+
+    # Output functions: save config to idb, a file, the IDB (for a given
+    # address, or as default)
+    def write(self, filepath):
+        with open(filepath, 'w') as configfile:
+            self._config.write(configfile)
+
+    def save_for_address(self, address):
+        self.netnode[address] = str(self)
+
+    def save_as_default(self):
+        self.netnode["default"] = str(self)
 
     def __str__(self):
         sio = StringIO.StringIO()
-        self.config.write(sio)
+        self._config.write(sio)
         sio.seek(0)
         return sio.read()
 
-    def reset_from_str(self, string):
-        #: int
-        self.analysis_ep = None
-        #: string
-        self.analysis_end = None
-        sio = StringIO.StringIO(string)
-        self.config = ConfigParser.RawConfigParser()
-        self.config.optionxform = str
-        self.config.readfp(sio)
-        self.analysis_ep = int(self.config.get("loader", "analysis_ep"), 16)
-        try:
-            self.analysis_end = self.config.get("analyzer", "cut")
-        except ConfigParser.NoOptionError:
-            self.analysis_end = ""
-        return self
-
-    @staticmethod
-    def update_cut(config, end):
-        end_list = end.split(',')
-        try:
-            cut = config.get('analyzer', 'cut')
-            cut_split = cut.split(',')
-            cut_split = list(set(cut_split+end_list))
-            cut = ",".join(cut_split)
-        except ConfigParser.NoOptionError:
-            cut = end
-        config.set('analyzer', 'cut', cut)
-
-    def set_start_stop_addr(self, start, stop):
-        # Stop can be several addresses as a string, comma separated
-        self.analysis_ep = start
-        self.analysis_end = stop
-        if self.config is not None:
-            self.config.set('loader', 'analysis_ep',
-                            hex(self.analysis_ep).strip('L'))
-            if stop is not None:
-                AnalyzerConfig.update_cut(self.config, stop)
-
-    def get_default_config(self, state, ea_start, ea_end):
+    # Internal helper functions
+    def _load_default_config(self, analysis_start_va, analysis_stop_va):
         """
-        Returns a new ConfigParser instance, created for the current IDB
+        Sets current config to default config for the given entry point
         """
         # this function will use the default parameters
         config = ConfigParser.RawConfigParser()
         config.optionxform = str
 
         # Load default part - XXX move this logic to PluginOptions
-        configfile = os.path.join(state.options.config_path, "conf",
+        configfile = os.path.join(self.state.options.config_path, "conf",
                                   "default.ini")
         bc_log.debug("Reading config from %s", configfile)
         r = config.read(configfile)
@@ -270,9 +304,9 @@ class AnalyzerConfig(object):
             bc_log.warning("Default config file %s could not be found",
                            configfile)
 
-        # Needed to call get_bitness and others
-        self.analysis_ep = ea_start
-        self.analysis_end = hex(ea_end).strip('L')
+        code_start_va, code_end_va = ConfigHelpers.get_code_section(
+            analysis_start_va)
+        code_len = code_end_va - code_start_va
 
         # [settings] section
         config.add_section('settings')
@@ -281,33 +315,31 @@ class AnalyzerConfig(object):
         config.set('settings', 'mode', 'protected')
         config.set('settings', 'call_conv', ConfigHelpers.get_call_convention())
         config.set('settings', 'mem_sz', 32)
-        config.set('settings', 'op_sz', ConfigHelpers.get_bitness(self.code_va))
+        config.set('settings', 'op_sz',
+                   ConfigHelpers.get_bitness(code_start_va))
         config.set('settings', 'stack_width', ConfigHelpers.get_stack_width())
 
         # [loader section]
         config.add_section('loader')
         # code section va
-        config.set(
-            'loader', 'code_va', hex(self.code_va).strip('L'))
+        config.set('loader', 'code_va', "0x%X" % code_start_va)
         # code section offset
-        config.set(
-            'loader', 'code_phys',
-            hex(idaapi.get_fileregion_offset(self.code_va)))
+        config.set('loader', 'code_phys',
+                   hex(idaapi.get_fileregion_offset(code_start_va)))
         # code section length
-        config.set('loader', 'code_length', hex(self.code_length).strip('L'))
+        config.set('loader', 'code_length', "0x%0X" % code_len)
 
-        config.set('loader', 'analysis_ep', hex(self.analysis_ep).strip('L'))
-        AnalyzerConfig.update_cut(config, self.analysis_end)
+        config.set('loader', 'analysis_ep', "0x%0X" % analysis_start_va)
 
         # Load default GDT/Segment registers according to file type
         ftype = ConfigHelpers.get_file_type()
         # XXX move this logic to PluginOptions
         if ftype == "pe":
             os_specific = os.path.join(
-                state.options.config_path, "conf", "windows.ini")
+                self.state.options.config_path, "conf", "windows.ini")
         else:  # default to Linux config if not windows
             os_specific = os.path.join(
-                state.options.config_path, "conf", "linux.ini")
+                self.state.options.config_path, "conf", "linux.ini")
         bc_log.debug("Reading OS config from %s", os_specific)
         config.read(os_specific)
 
@@ -359,48 +391,6 @@ class AnalyzerConfig(object):
         # config.set('libc', 'call_conv', 'fastcall')
         # config.set('libc', '*', 'open(@, _)')
         # config.set('libc', '*', 'read<stdcall>(@, *, @)')
-        return config
-
-    def write(self, filepath):
-        with open(filepath, 'w') as configfile:
-            self.config.write(configfile)
-
-    def save_to_idb(self, address):
-        self.netnode[address] = str(self)
-
-    def load_from_idb(self, address):
-        if address in self.netnode:
-            return self.netnode[address]
-        else:
-            return None
-
-    def save_as_default(self):
-        self.netnode["default"] = str(self)
-
-    # Get config for addr_start, from IDB if activated and present
-    # Return True if loaded from IDB, False if default
-    def for_address(self, state, addr_start, addr_end):
-        if state.options.get("load_from_idb") == "True":
-            c = self.load_from_idb(addr_start)
-        else:
-            c = None
-        if c:
-            bc_log.info("loaded config from IDB for address %x", addr_start)
-            self.reset_from_str(c)
-            return True
-        else:
-            self.config = self.get_default_config(state, addr_start, addr_end)
-            return False
-
-    def update_overrides(self, overrides):
-        # 1. Empty existing overrides sections
-        self.config.remove_section("override")
-        self.config.add_section("override")
-        # 2. Add sections from overrides argument
-        ov_by_eip = collections.defaultdict(set)
-        for (eip, register, value) in overrides:
-            ov_by_eip[eip].add("%s, %s;" % (register, value))
-        # 3. Add to config
-        for eip, ov_set in ov_by_eip.items():
-            hex_addr = "0x%x" % eip
-            self.config.set("override", hex_addr, ''.join(ov_set))
+        self._config = config
+        self.analysis_ep = analysis_start_va
+        self.stop_address = analysis_stop_va
