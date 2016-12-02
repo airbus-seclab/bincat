@@ -494,7 +494,7 @@ struct
         with
         | Disp32 ->
           if direction = 0 then
-              find_reg_v reg s.operand_sz, Lval( M(add_data_segment s (disp s 32 32), sz))
+              find_reg_v rm sz, add_data_segment s (disp s 32 sz)
           else
               error s.a "Decoder: illegal direction for displacement only addressing mode"
 
@@ -1905,10 +1905,10 @@ struct
             | '\xb4' -> load_far_ptr s fs
             | '\xb5' -> load_far_ptr s gs
 
-            | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 0 in
+            | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 1 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
             | '\xb7' ->
-              let reg, rm = operands_from_mod_reg_rm s 16 0 in
+              let reg, rm = operands_from_mod_reg_rm s 16 1 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
 
             | '\xba' -> grp8 s
