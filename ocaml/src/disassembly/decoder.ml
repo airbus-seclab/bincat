@@ -413,8 +413,6 @@ struct
     let disp s nb sz =
         get_imm s nb sz true 
 
-    exception Disp32
-
     (** returns the expression associated to a sib *)
     let sib s md =
         let c 		       = getchar s                in
@@ -455,7 +453,7 @@ struct
             | 0 ->
               begin
                   match rm with
-                  | 5 -> raise Disp32
+                  | 5 -> disp s s.addr_sz s.addr_sz
                   | _ -> rm_lv
               end
             | 1 -> 
@@ -485,15 +483,11 @@ struct
                 V (get_h_slice (reg-4))
             else
                 find_reg_v reg dst_sz in
-        try
             let rm' = exp_of_md s md rm sz in
             if direction = 0 then
                 rm', Lval reg_v
             else
                 reg_v, Lval rm'
-        with
-        | Disp32 ->
-          find_reg_v reg s.operand_sz, Lval( M(add_data_segment s (disp s 32 32), sz))
 
     let lea s =
         let c = getchar s in
@@ -502,11 +496,7 @@ struct
             error s.a "Illegal mod field in LEA"
         else
             let reg_v = find_reg_v reg s.operand_sz in
-            let src =
-                try
-                    md_from_mem s md rm s.addr_sz
-                with Disp32 -> disp s 32 s.addr_sz
-            in
+            let src = md_from_mem s md rm s.addr_sz in
             let src'=
                 if s.addr_sz < s.operand_sz then
                     UnOp(ZeroExt s.addr_sz, src)
@@ -1401,7 +1391,6 @@ struct
         | 2 -> call s (R (Lval dst))
 
         | 4 -> return s [ Jmp (R (Lval dst)) ]
-
         | 6 -> push s [dst]
         | _ -> error s.a "Illegal opcode in grp 5"
 
