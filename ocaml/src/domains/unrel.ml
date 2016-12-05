@@ -622,7 +622,7 @@ module Make(D: T) =
 	 let k = Env.Key.Mem a in
 	 let v = Env.find k m' in
 	 Val (Env.replace k (D.taint_of_config taint 8 v) m')
-	   
+
     let set_memory_from_config addr region (content, taint) nb domain =
       if nb > 0 then
         match domain with

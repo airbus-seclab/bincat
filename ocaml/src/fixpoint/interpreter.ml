@@ -144,6 +144,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
  
     (*************************** Forward from binary file ************************)
     (*****************************************************************************)
+
    
     (** returns true whenever the given list of statements has a jump stmt (Jmp, Call, Return) *)
     let rec has_jmp stmts =
@@ -194,13 +195,31 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	   unroll_wrapper f;
 	   d, false
 	    
-	| Directive (Taint (e, r)) 	 ->
-	  let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
-	   if D.is_tainted e d then
-	     D.taint_register_mask r mask d, true
-	   else
-	     d, false
-
+	| Directive (Taint (e, lv)) 	 ->
+	   begin
+	     let cond =
+	       match e with
+	       | None -> true
+	       | Some c -> D.is_tainted c d  
+	     in
+	     match lv with
+	     | V (T r) ->
+	       let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
+	       if cond then
+		 D.taint_register_mask r mask d, true
+	       else
+		 d, false
+	     | M (_, 8) ->
+		if cond then
+		  try
+		    match Data.Address.Set.elements (fst (D.mem_to_addresses d (Lval lv))) with
+		    | [a] -> D.taint_address_mask a (Config.Taint (Z.of_int 0xff)) d, true
+		    | _ -> raise Exit 
+		  with _ -> Log.from_analysis "Tainting directive ignored"; d, false
+		else
+		  d, false
+	     | _ -> Log.from_analysis (Printf.sprintf "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
+	   end
 	| Directive (Type (lv, t)) -> D.set_type lv t d, false 
         | _ 				 -> raise Jmp_exn
 						     
@@ -306,7 +325,19 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	List.iter (fun v -> Cfa.remove_state g v) vertices;
 	then' @ else', be||bt
       	    
-      
+      and  import_call vertices a =     
+	let fundec = Hashtbl.find Decoder.Imports.tbl a in
+	Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
+	let b =
+	  List.fold_left (fun b v ->
+	  let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
+	  let d', b' =
+	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
+	  in
+	  v.Cfa.State.v <- d';
+	  b||b') false vertices
+	in vertices, b
+	
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
         try
           List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
@@ -318,8 +349,15 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 				     
              | Jmp (R target) -> fold_to_target (fun _a -> ()) vertices target
 			 
-             | Call (A a) -> add_to_fun_stack a; List.iter (fun v -> v.Cfa.State.ip <- a) vertices; vertices, false
-	
+             | Call (A a) ->
+		begin
+		  try
+		    import_call vertices a 
+		  with Not_found ->
+		    add_to_fun_stack a;
+		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
+		    vertices, false
+		end
 	     | Call (R target) -> fold_to_target add_to_fun_stack vertices target
 		
              | Return -> List.fold_left (fun (l, b) v ->

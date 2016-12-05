@@ -73,7 +73,7 @@ type bexp =
 type directive_t =
   | Remove of Register.t   (** remove the register *)
   | Forget of Register.t (** forget the content of the given register *)
-  | Taint of exp * Register.t (** conditional tainting: if the expression is true then the register must be tainted *)
+  | Taint of exp option * lval (** conditional tainting: if the expression is true then the left value must be tainted. None is for unconditional taintin *)
   | Type of lval * Types.t (** type the left value with the given type *)
   | Unroll of exp * int (** Unroll (e, bs) set the current unroll value to tmin (e, bs) *)
   | Default_unroll (** set the current unroll value to the default value (in Config) *)
@@ -206,7 +206,14 @@ let string_of_directive d =
   match d with
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
   | Forget r -> Printf.sprintf "forget %s" (Register.name r)
-  | Taint (e, r) -> Printf.sprintf "if is_tainted (%s) taint %s" (string_of_exp e false) (Register.name r)
+  | Taint (e, lv) ->
+     begin
+       match e with
+       | None -> Printf.sprintf "taint %s" (string_of_lval lv false)
+       | Some e' -> 
+	  Printf.sprintf "if is_tainted (%s) taint %s" (string_of_exp e' false) (string_of_lval lv false)
+     end
+       
   | Type (lv, t) -> Printf.sprintf "type(%s, %s)" (string_of_lval lv false) (Types.to_string t)
   | Unroll (e, bs) -> Printf.sprintf "unroll current loop min (%s, %d) times" (string_of_exp e false) bs
   | Default_unroll -> "set unroll value ot its default value"

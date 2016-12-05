@@ -89,7 +89,7 @@ let stack_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
 let heap_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
   
     
-(* tables for initialize global memory, stack and heap *)
+(* tables for the initialisation of the global memory, stack and heap *)
 (* first element in the key is the address ; second one is the number of repetition *)
 type ctbl = (Z.t * int, cvalue * (tvalue option)) Hashtbl.t
 
