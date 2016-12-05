@@ -72,7 +72,10 @@ let es = ref Z.zero
 let fs = ref Z.zero
 let gs = ref Z.zero
 
-
+(* if true then an interleave of backward then forward analysis from a CFA will be processed *)
+(** after the first forward analysis from binary has been performed *) 
+let interleave = ref false
+  
 type tvalue =
   | Taint of Z.t
   | TMask of Z.t * Z.t (* second element is a mask on the first one *)
@@ -100,7 +103,7 @@ let heap_content: ctbl = Hashtbl.create 10
 
 type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
 let sections: sec_t = ref []
-
+  
 let import_tbl: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
 
 (* tainting and typing rules for functions *)
