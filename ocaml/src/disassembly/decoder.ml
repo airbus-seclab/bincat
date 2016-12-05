@@ -493,10 +493,7 @@ struct
                 reg_v, Lval rm'
         with
         | Disp32 ->
-          if direction = 0 then
-              find_reg_v rm sz, add_data_segment s (disp s 32 sz)
-          else
-              error s.a "Decoder: illegal direction for displacement only addressing mode"
+          find_reg_v reg s.operand_sz, Lval( M(add_data_segment s (disp s 32 32), sz))
 
     let lea s =
         let c = getchar s in
