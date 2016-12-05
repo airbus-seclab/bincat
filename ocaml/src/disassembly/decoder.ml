@@ -189,7 +189,7 @@ struct
         avl: Z.t;
         l: Z.t;
         db: Z.t;
-        g: Z.t;}
+        gran: Z.t;}
 
     (** return a high level representation of a GDT/LDT entry *)
     let tbl_entry_of_int v =
@@ -229,7 +229,7 @@ struct
             avl = avl;
             l = l;
             db = db;
-            g = g; }
+            gran = g; }
 
     (** data type of a decription table *)
     type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
@@ -493,10 +493,7 @@ struct
                 reg_v, Lval rm'
         with
         | Disp32 ->
-          if direction = 0 then
-              find_reg_v reg s.operand_sz, Lval( M(add_data_segment s (disp s 32 32), sz))
-          else
-              error s.a "Decoder: illegal direction for displacement only addressing mode"
+          find_reg_v reg s.operand_sz, Lval( M(add_data_segment s (disp s 32 32), sz))
 
     let lea s =
         let c = getchar s in
@@ -930,12 +927,15 @@ struct
     let check_jmp (s: state) target =
         let a = s.a in
         let csv = Hashtbl.find s.segments.reg cs						     in
-        let s   = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
-        let i   = Address.to_int target							     in
-        if Z.compare (Z.add s.base i) s.limit >= 0 then
+        let seg : tbl_entry  = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
+        (* compute limit according to granularity *)
+        let limit = if (Z.compare seg.gran Z.zero) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
+        let target_int   = Address.to_int target							     in
+        let linear_target = (Z.add seg.base target_int) in
+        if Z.compare linear_target limit < 0 then
             ()
         else
-            error a "Decoder: jump target out of limits of the code segments (GP exception in protected mode)"
+            error a (Printf.sprintf "Decoder: jump target (%s) out of limits of the code segment (%s) (GP exception in protected mode)" (Z.to_string linear_target) (Z.to_string limit))
 
     (** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
     let return_jcc_stmts s cond_exp imm_sz =
@@ -1902,10 +1902,10 @@ struct
             | '\xb4' -> load_far_ptr s fs
             | '\xb5' -> load_far_ptr s gs
 
-            | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 0 in
+            | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 1 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
             | '\xb7' ->
-              let reg, rm = operands_from_mod_reg_rm s 16 0 in
+              let reg, rm = operands_from_mod_reg_rm s 16 1 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
 
             | '\xba' -> grp8 s
