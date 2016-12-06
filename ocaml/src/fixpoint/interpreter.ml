@@ -42,7 +42,7 @@ module type T =
     val forward_bin: Code.t -> Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
     val forward_cfa: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t 
     val backward: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
-    val interleave: Code.t -> Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
+    val interleave_from_cfa: Cfa.t -> (Cfa.t -> unit) -> Cfa.t
   end
     
 module Make(D: Domain.T): (T with type domain = D.t) =
@@ -716,20 +716,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (************* INTERLEAVING OF FORWARD/BACKWARD ANALYSES *******)
     (******************************************************)
   	  
-      let interleave (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
-      let rec process i cfa =
-	if i < !Config.refinements then
-	  begin
-	    Hashtbl.clear unroll_tbl;
-	    let last = Cfa.last g in
-	    let cfa' = List.fold_left (fun cfa s -> let cfa' = backward cfa s dump in Hashtbl.clear unroll_tbl; cfa') cfa last in
-	    process (i+1) (forward_cfa cfa' s dump)
-	  end
-	else
-	  cfa
-      in
-      process 0 (forward_bin code g s dump)
-
-
+      let interleave_from_cfa (g: Cfa.t) (dump: Cfa.t -> unit): Cfa.t =
+	let process mode cfa =
+	  Hashtbl.clear unroll_tbl;
+	  List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.last cfa)
+	in
+	let g_bwd = process backward g in
+	process forward_cfa g_bwd
   end
      
