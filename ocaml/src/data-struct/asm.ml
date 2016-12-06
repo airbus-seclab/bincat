@@ -55,6 +55,7 @@ type exp =
   | Lval  of lval 	       (** a left value *)
   | BinOp of binop * exp * exp (** a binary operation *)
   | UnOp  of unop * exp        (** a unary operation *)
+  | TernOp of bexp * Word.t * Word.t (** special ternary operator to handle flag update *)   
 		      
  (** type of left values *)
  and lval =
@@ -62,7 +63,7 @@ type exp =
    | M of exp * int (** M(e, n): content of the memory address e on n bit width *) 
 
 (** boolean expression *)
-type bexp =
+and bexp =
   | BUnOp  of bunop * bexp           (** unary boolean operation *)
   | Cmp    of cmp * exp * exp        (** comparison *)
   | BBinOp of logbinop * bexp * bexp (** binary boolean operation *)
@@ -189,8 +190,9 @@ and string_of_exp e extended =
   | Lval lv 	       -> string_of_lval lv extended
   | BinOp (op, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_exp e1 extended) (string_of_binop op) (string_of_exp e2 extended)
   | UnOp (op, e')      -> Printf.sprintf "%s %s" (string_of_unop op extended) (string_of_exp e' extended)
+  | TernOp (c, w1, w2) -> Printf.sprintf "%s?%s:%s" (string_of_bexp c true) (Word.to_string w1) (Word.to_string w2)  
 
-let rec string_of_bexp e extended =
+and string_of_bexp e extended =
   match e with
   | BUnOp (o, e')      -> Printf.sprintf "%s %s" (string_of_bunop o) (string_of_bexp e' extended)
   | BBinOp (o, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_bexp e1 extended) (string_of_logbinop o) (string_of_bexp e2 extended)
@@ -221,7 +223,7 @@ let string_of_directive d =
      
 			       
 let string_of_stmt s extended =
-  (* internal function used to factorize code in the printing of If-stmt *)
+    (* internal function used to factorize code in the printing of If-stmt *)
   let concat to_string ind l =
     List.fold_left (fun acc s -> Printf.sprintf "%s\n %s" acc (to_string ind s)) "" l
   in

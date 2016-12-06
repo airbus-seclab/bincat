@@ -545,9 +545,9 @@ struct
         let sign_op2  = BinOp(And, BinOp (Shr, op2, nth), b1) in
         let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	      in
         let c2 	      = Cmp (NEQ, sign_res, sign_op1)         in
-        let one_stmt  = Set (V (T flag), Const (Word.one n))  in
-        let zero_stmt = Set (V (T flag), Const (Word.zero n)) in
-        If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
+       (* let one_stmt  = Set (V (T flag), Const (Word.one n))  in
+          let zero_stmt = Set (V (T flag), Const (Word.zero n)) in*)
+        Set(V (T flag), (TernOp (BBinOp (LogAnd, c1, c2), Word.one n, Word.zero n)))
 
     (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
     let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (const (sz-1) sz) res 1 op1 op2
@@ -571,17 +571,20 @@ struct
       let res' = BinOp (op, op1', op2') in
       let shifted_res = BinOp (Shr, res', Const (Word.of_int (Z.of_int sz) (sz'))) in
       let one = Const (Word.one sz') in
-      If ( Cmp (EQ, shifted_res, one), [ set_flag fcf ], [ clear_flag fcf ] )
+      let n = Register.size fcf in
+      Set (V (T fcf), TernOp( Cmp (EQ, shifted_res, one), Word.one n, Word.zero n ))
 
     (** produce the statement to set the sign flag wrt to the given parameter *)
     let sign_flag_stmts sz res =
-        let c = Cmp (EQ, const 1 sz, BinOp(Shr, res, const (sz-1) sz)) in
-        If (c, [ set_flag fsf ], [ clear_flag fsf ] )
+      let c = Cmp (EQ, const 1 sz, BinOp(Shr, res, const (sz-1) sz)) in
+      let n = Register.size fsf in
+      Set (V (T fsf), TernOp (c, Word.one n, Word.zero n))
 
     (** produce the statement to set the zero flag *)
     let zero_flag_stmts sz res =
-        let c = Cmp (EQ, res, Const (Word.zero sz)) in
-        If (c, [ set_flag fzf ], [ clear_flag fzf ])
+      let c = Cmp (EQ, res, Const (Word.zero sz)) in
+      let n = Register.size fzf in
+        Set (V (T fzf), TernOp (c, Word.one n, Word.zero n))
 
     (** produce the statement to set the adjust flag wrt to the given parameters *)
     (** faf is set if there is an overflow on the bit 4 *)
@@ -601,10 +604,9 @@ struct
         for i = 1 to 7 do
             e := BinOp(Add, !e, nth i)
         done;
-        let if_stmt   = set_flag fpf			                    in
-        let else_stmt = clear_flag fpf in
         let c 	      = Cmp (EQ, BinOp(Mod, !e, const 2 sz), Const (Word.zero sz)) in
-        If(c, [ if_stmt ], [ else_stmt ])
+	let n = Register.size fpf in
+        Set (V (T fpf), TernOp (c, Word.one n, Word.zero n))
 
     (** builds a value equivalent to the EFLAGS register from the state *)
     let get_eflags () =

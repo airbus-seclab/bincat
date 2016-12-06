@@ -563,6 +563,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
     let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * bool) =
+      Log.debug (Printf.sprintf "backward of %s" (Asm.string_of_stmt stmt true));
       let rec back d stmt =
 	match stmt with
 	| Call _
@@ -587,6 +588,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       back d stmt
 
     let back_update_abstract_value (g:Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (pred: Cfa.State.t): Cfa.State.t list =
+      Log.debug (Printf.sprintf "back stmt at %s" (Data.Address.to_string ip));
       let backward _g v _ip =
 	let d', is_tainted = List.fold_left (fun (d, b) s ->
 	  let d', b' = backward_process v.Cfa.State.branch d s in
@@ -691,11 +693,16 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	let waiting = ref (Vertices.singleton s) in
 	try
 	  while !continue do
+	    Log.debug "cfa_iteration loop";
 	    let v = Vertices.choose !waiting in
 	    waiting := Vertices.remove v !waiting;
 	    let v' = next g v in
 	    let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v v'.Cfa.State.ip [v'])@l) [] v' in
+	     if List.length new_vertices = 0 then
+	      Log.debug "no new vertices after update_abstract_value";
 	    let new_vertices' = List.map (unroll g v) new_vertices in
+	    if List.length new_vertices' = 0 then
+	      Log.debug "no new vertices after unroll";
 	    let vertices' = filter_vertices g new_vertices' in
 	    List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
 	    continue := not (Vertices.is_empty !waiting)
@@ -717,6 +724,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (******************************************************)
   	  
       let interleave_from_cfa (g: Cfa.t) (dump: Cfa.t -> unit): Cfa.t =
+	Log.debug "entering interleaving mode";
 	let process mode cfa =
 	  Hashtbl.clear unroll_tbl;
 	  List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.last cfa)

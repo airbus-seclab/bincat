@@ -400,9 +400,21 @@ module Make(D: T) =
     (***************************)
     (** Non mem functions  :)  *)
     (***************************)
-		
+    (** opposite the given comparison operator *)
+    let inv_cmp (cmp: Asm.cmp): Asm.cmp =
+      (* TODO factorize with Interpreter *)
+      match cmp with
+      | Asm.EQ  -> Asm.NEQ
+      | Asm.NEQ -> Asm.EQ
+      | Asm.LT  -> Asm.GEQ
+      | Asm.GEQ -> Asm.LT
+      | Asm.LEQ -> Asm.GT
+      | Asm.GT  -> Asm.LEQ
+
+
+  
     (** evaluates the given expression *)
-    let eval_exp m e: (D.t * bool) =
+    let rec eval_exp m e: (D.t * bool) =
       let rec eval e =
         match e with
         | Asm.Const c 			     -> D.of_word c, false
@@ -464,9 +476,81 @@ module Make(D: T) =
 	   let v, b = eval e in
 	   let v' = D.unary op v in
 	   v', b || (D.is_tainted v')
+
+	| Asm.TernOp (c, w1, w2) ->
+	   let r, b = eval_bexp c true in
+	   if r then
+	     let r2, b2 = eval_bexp c false in
+	     if r2 then
+	       let v1, _ = eval (Asm.Const w1) in
+	       let v2, _ = eval (Asm.Const w2) in
+	       D.join v1 v2, b||b2
+	     else
+	       fst (eval (Asm.Const w1)), b
+	   else
+	     let r2, b2 = eval_bexp c false in
+	     if r2 then
+	       fst (eval (Asm.Const w2)), b2
+	     else
+	       D.bot, false
+      (* TODO: factorize with Interpreter.restrict *)
+      and eval_bexp c b: bool * bool =
+	match c with
+	| Asm.BConst b' 		  -> if b = b' then true, false else false, false
+        | Asm.BUnOp (Asm.LogNot, e) 	  -> eval_bexp e (not b)
+					     
+        | Asm.BBinOp (Asm.LogOr, e1, e2)  ->
+           let v1, b1 = eval_bexp e1 b in
+           let v2, b2 = eval_bexp e2 b in
+           if b then v1||v2, b1||b2
+           else v1&&v2, b1&&b2
+		       
+        | Asm.BBinOp (Asm.LogAnd, e1, e2) ->
+           let v1, b1 = eval_bexp e1 b in
+           let v2, b2 = eval_bexp e2 b in
+           if b then v1&&v2, b1&&b2
+           else v1||v2, b1||b2
+		       
+        | Asm.Cmp (cmp, e1, e2)   ->
+           let cmp' = if b then cmp else inv_cmp cmp in
+           compare_env m e1 cmp' e2
       in
       eval e
-	   
+	
+    and compare_env env (e1: Asm.exp) op e2 =
+      let v1, b1 = eval_exp env e1 in
+      let v2, b2 = eval_exp env e2 in
+      D.compare v1 op v2, b1||b2
+
+
+	 let val_restrict m e1 _v1 cmp _e2 v2 =
+      match e1, cmp with
+      | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ || cmp = Asm.LEQ ->
+         let v  = Env.find (Env.Key.Reg r) m in
+         let v' = D.meet v v2        in
+         if D.is_bot v' then
+           raise Exceptions.Empty
+         else
+           Env.replace (Env.Key.Reg r) v' m
+      | _, _ -> m
+		  
+    (* TODO factorize with compare_env *)
+    let compare m (e1: Asm.exp) op e2 =
+      match m with
+      | BOT -> BOT, false
+      | Val m' ->
+	 let v1, b1 = eval_exp m' e1 in
+         let v2, b2 = eval_exp m' e2 in
+         if D.is_bot v1 || D.is_bot v2 then
+           BOT, false
+         else
+           if D.compare v1 op v2 then
+             try
+               Val (val_restrict m' e1 v1 op e2 v2), b1||b2
+             with Exceptions.Empty -> BOT, false
+           else
+             BOT, false
+      	
     let mem_to_addresses m e =
       match m with
       | BOT -> raise Exceptions.Enum_failure
@@ -664,21 +748,7 @@ module Make(D: T) =
            Env.replace (Env.Key.Reg r) v' m
       | _, _ -> m
 		  
-    let compare m (e1: Asm.exp) op e2: (t* bool) =
-      match m with
-      | BOT -> BOT, false
-      | Val m' ->
-         let v1, b1 = eval_exp m' e1 in
-         let v2, b2 = eval_exp m' e2 in
-         if D.is_bot v1 || D.is_bot v2 then
-           BOT, false
-         else
-           if D.compare v1 op v2 then
-             try
-               Val (val_restrict m' e1 v1 op e2 v2), b1||b2
-             with Exceptions.Empty -> BOT, false
-           else
-             BOT, false
+   
 	       
     let value_of_exp m e =
       match m with
