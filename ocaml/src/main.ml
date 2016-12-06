@@ -80,7 +80,14 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
        let s  	= Interpreter.Cfa.init ep'					        in
        let g 	= Interpreter.Cfa.create ()					        in
        Interpreter.Cfa.add_vertex g s;
-       Interpreter.forward_bin code g s dump
+       let cfa =
+	 Interpreter.forward_bin code g s dump
+       in
+       (* launch an interleaving of backward/forward if an inferred property can be backward propagated *)
+       if !Config.interleave then
+	 Interpreter.interleave_from_cfa cfa dump
+       else
+	 cfa
 			       
     (* forward analysis from a CFA *)
     | Config.Forward Config.Cfa -> from_cfa Interpreter.forward_cfa
