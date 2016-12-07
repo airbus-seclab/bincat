@@ -1,4 +1,4 @@
-(** Fipoint iterator *)
+(** Fixpoint iterator *)
 
 (** external signature of the module *)
 module type T =
@@ -132,13 +132,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
               ()
             else 
               widen jd v
-          ) l;
-        List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
+        ) l;
+
+       List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
                                       begin
 					Log.from_analysis (Printf.sprintf "unreachable state at address %s" (Data.Address.to_string ip));
 					Cfa.remove_state g v; l'
                                       end
-				    else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
+	 else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
       with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
 								
  
@@ -268,6 +269,21 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
+    let import_call vertices a =
+      let fundec = Hashtbl.find Decoder.Imports.tbl a in
+      Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
+      let b =
+	List.fold_left (fun b v ->
+	  let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
+	  if stmts <> [] then
+	    Config.interleave := true;
+	  let d', b' =
+	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
+	  in
+	  v.Cfa.State.v <- d';
+	  b||b') false vertices
+      in vertices, b
+		
     let process_stmts fun_stack g (v: Cfa.State.t) ip: Cfa.State.t list =
       let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp): (Cfa.State.t list * bool) =
 		List.fold_left (fun (l, b) v ->
@@ -275,7 +291,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      let addrs, is_tainted = D.mem_to_addresses v.Cfa.State.v target in
                       let addresses = Data.Address.Set.elements addrs in
                       match addresses with
-                      | [a] -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
+                      | [a] ->
+			 begin
+			   try import_call [v] a
+			   with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
+			 end
                       | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                       | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
 						       (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
@@ -325,21 +345,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	List.iter (fun v -> Cfa.remove_state g v) vertices;
 	then' @ else', be||bt
       	    
-      and  import_call vertices a =     
-	let fundec = Hashtbl.find Decoder.Imports.tbl a in
-	Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
-	let b =
-	  List.fold_left (fun b v ->
-	    let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
-	    if stmts <> [] then
-	      Config.interleave := true;
-	  let d', b' =
-	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
-	  in
-	  v.Cfa.State.v <- d';
-	  b||b') false vertices
-	in vertices, b
-	
+     
+	 
+
+	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
         try
           List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
@@ -347,8 +356,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              match s with 
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
 		
-             | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
-				     
+             | Jmp (A a) ->
+		begin
+		  try
+		    import_call vertices a
+		  with Not_found ->
+		    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
+		end
+		  
              | Jmp (R target) -> fold_to_target (fun _a -> ()) vertices target
 			 
              | Call (A a) ->
@@ -563,7 +578,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
     let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * bool) =
-      Log.debug (Printf.sprintf "backward of %s" (Asm.string_of_stmt stmt true));
       let rec back d stmt =
 	match stmt with
 	| Call _
@@ -578,7 +592,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Directive (Unroll_until _) -> d, false
 	| Directive Default_unroll -> d, false
 	| Set (dst, src) -> back_set dst src d
-    | Assert (_bexp, _msg) -> d, false (* TODO *)
+	| Assert (_bexp, _msg) -> d, false (* TODO *)
 	| If (e, istmts, estmts) ->
 	   match branch with
 	   | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', b||b') (d, false) istmts in let v, b' = restrict d' e true in v, b||b'
@@ -588,12 +602,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       back d stmt
 
     let back_update_abstract_value (g:Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (pred: Cfa.State.t): Cfa.State.t list =
-      Log.debug (Printf.sprintf "back stmt at %s" (Data.Address.to_string ip));
       let backward _g v _ip =
 	let d', is_tainted = List.fold_left (fun (d, b) s ->
 	  let d', b' = backward_process v.Cfa.State.branch d s in
 	  d', b||b') (v.Cfa.State.v, false) (List.rev pred.Cfa.State.stmts)
 	in
+	let d' = D.meet pred.Cfa.State.v d' in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
 	pred.Cfa.State.is_tainted <- is_tainted;
 	[pred]
@@ -693,16 +707,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	let waiting = ref (Vertices.singleton s) in
 	try
 	  while !continue do
-	    Log.debug "cfa_iteration loop";
 	    let v = Vertices.choose !waiting in
 	    waiting := Vertices.remove v !waiting;
 	    let v' = next g v in
 	    let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v v'.Cfa.State.ip [v'])@l) [] v' in
-	     if List.length new_vertices = 0 then
-	      Log.debug "no new vertices after update_abstract_value";
 	    let new_vertices' = List.map (unroll g v) new_vertices in
-	    if List.length new_vertices' = 0 then
-	      Log.debug "no new vertices after unroll";
 	    let vertices' = filter_vertices g new_vertices' in
 	    List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
 	    continue := not (Vertices.is_empty !waiting)
