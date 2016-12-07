@@ -108,7 +108,7 @@ The plugin requires the `requests` module to work:
 * Get it from <https://pypi.python.org/pypi/requests/>
 * Extract it
 * Run `python setup.py build`
-* Copy the `build\lib\requests` folder to IDA's `plugins` directory
+* Copy the `build\lib\requests` folder to IDA's `python` directory
 
 
 ### Plugin install
