@@ -269,6 +269,21 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
+    let import_call vertices a =
+      let fundec = Hashtbl.find Decoder.Imports.tbl a in
+      Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
+      let b =
+	List.fold_left (fun b v ->
+	  let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
+	  if stmts <> [] then
+	    Config.interleave := true;
+	  let d', b' =
+	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
+	  in
+	  v.Cfa.State.v <- d';
+	  b||b') false vertices
+      in vertices, b
+		
     let process_stmts fun_stack g (v: Cfa.State.t) ip: Cfa.State.t list =
       let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp): (Cfa.State.t list * bool) =
 		List.fold_left (fun (l, b) v ->
@@ -276,7 +291,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      let addrs, is_tainted = D.mem_to_addresses v.Cfa.State.v target in
                       let addresses = Data.Address.Set.elements addrs in
                       match addresses with
-                      | [a] -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
+                      | [a] ->
+			 begin
+			   try import_call [v] a
+			   with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
+			 end
                       | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                       | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
 						       (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
@@ -326,21 +345,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	List.iter (fun v -> Cfa.remove_state g v) vertices;
 	then' @ else', be||bt
       	    
-      and  import_call vertices a =     
-	let fundec = Hashtbl.find Decoder.Imports.tbl a in
-	Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
-	let b =
-	  List.fold_left (fun b v ->
-	    let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
-	    if stmts <> [] then
-	      Config.interleave := true;
-	  let d', b' =
-	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
-	  in
-	  v.Cfa.State.v <- d';
-	  b||b') false vertices
-	in vertices, b
-	
+     
+	 
+
+	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
         try
           List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
@@ -348,9 +356,15 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              match s with 
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
 		
-             | Jmp (A a) -> Log.debug (Printf.sprintf "Jmp to %s" (Data.Address.to_string a)); List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
-				     
-             | Jmp (R target) -> Log.debug "Indirect jump"; fold_to_target (fun _a -> ()) vertices target
+             | Jmp (A a) ->
+		begin
+		  try
+		    import_call vertices a
+		  with Not_found ->
+		    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
+		end
+		  
+             | Jmp (R target) -> fold_to_target (fun _a -> ()) vertices target
 			 
              | Call (A a) ->
 		begin
