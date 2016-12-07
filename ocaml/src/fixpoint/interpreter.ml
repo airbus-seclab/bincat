@@ -1,4 +1,4 @@
-(** Fipoint iterator *)
+(** Fixpoint iterator *)
 
 (** external signature of the module *)
 module type T =
@@ -132,13 +132,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
               ()
             else 
               widen jd v
-          ) l;
-        List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
+        ) l;
+
+       List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
                                       begin
 					Log.from_analysis (Printf.sprintf "unreachable state at address %s" (Data.Address.to_string ip));
 					Cfa.remove_state g v; l'
                                       end
-				    else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
+	 else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
       with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
 								
  
@@ -347,9 +348,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              match s with 
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
 		
-             | Jmp (A a) -> List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
+             | Jmp (A a) -> Log.debug (Printf.sprintf "Jmp to %s" (Data.Address.to_string a)); List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
 				     
-             | Jmp (R target) -> fold_to_target (fun _a -> ()) vertices target
+             | Jmp (R target) -> Log.debug "Indirect jump"; fold_to_target (fun _a -> ()) vertices target
 			 
              | Call (A a) ->
 		begin
@@ -563,7 +564,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (** backward transfert function on the given abstract value *)
     (** BE CAREFUL: this function does not apply to nested if statements *)
     let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * bool) =
-      Log.debug (Printf.sprintf "backward of %s" (Asm.string_of_stmt stmt true));
       let rec back d stmt =
 	match stmt with
 	| Call _
@@ -578,7 +578,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Directive (Unroll_until _) -> d, false
 	| Directive Default_unroll -> d, false
 	| Set (dst, src) -> back_set dst src d
-    | Assert (_bexp, _msg) -> d, false (* TODO *)
+	| Assert (_bexp, _msg) -> d, false (* TODO *)
 	| If (e, istmts, estmts) ->
 	   match branch with
 	   | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', b||b') (d, false) istmts in let v, b' = restrict d' e true in v, b||b'
@@ -588,12 +588,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       back d stmt
 
     let back_update_abstract_value (g:Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (pred: Cfa.State.t): Cfa.State.t list =
-      Log.debug (Printf.sprintf "back stmt at %s" (Data.Address.to_string ip));
       let backward _g v _ip =
 	let d', is_tainted = List.fold_left (fun (d, b) s ->
 	  let d', b' = backward_process v.Cfa.State.branch d s in
 	  d', b||b') (v.Cfa.State.v, false) (List.rev pred.Cfa.State.stmts)
 	in
+	let d' = D.meet pred.Cfa.State.v d' in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
 	pred.Cfa.State.is_tainted <- is_tainted;
 	[pred]
@@ -693,16 +693,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	let waiting = ref (Vertices.singleton s) in
 	try
 	  while !continue do
-	    Log.debug "cfa_iteration loop";
 	    let v = Vertices.choose !waiting in
 	    waiting := Vertices.remove v !waiting;
 	    let v' = next g v in
 	    let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v v'.Cfa.State.ip [v'])@l) [] v' in
-	     if List.length new_vertices = 0 then
-	      Log.debug "no new vertices after update_abstract_value";
 	    let new_vertices' = List.map (unroll g v) new_vertices in
-	    if List.length new_vertices' = 0 then
-	      Log.debug "no new vertices after unroll";
 	    let vertices' = filter_vertices g new_vertices' in
 	    List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
 	    continue := not (Vertices.is_empty !waiting)

@@ -983,7 +983,8 @@ struct
 
     (** call with target as an offset from the current ip *)
     let relative_call s off_sz =
-        let a = relative s off_sz s.operand_sz in
+      let a = relative s off_sz s.operand_sz in
+      Log.debug (Printf.sprintf "relative call to %s" (Data.Address.to_string a));
         call s (A a)
 
     (** statements of jump with absolute address as target *)
@@ -1970,7 +1971,7 @@ struct
 		 { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
 		   Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = default_stub_stdcall () }
 	     with Not_found ->
-	       Log.from_analysis "Typing information for function without import address ignored"; ()  
+	       Log.from_analysis (Printf.sprintf "from config file: Typing information for function %s without import address ignored" name); ()  
 	   ) Config.typing_rules;
 	(* adds tainting information to prologue and epilogue *)
 	  Hashtbl.iter (fun (_libname, funame) (callconv, taint_ret, taint_args) ->
