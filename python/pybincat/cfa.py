@@ -195,6 +195,7 @@ class State(object):
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
+        #: str
         self.node_id = node_id
         #: Value -> [Value]. Either 1 value, or a list of 1-byte Values.
         self._regaddrs = {}

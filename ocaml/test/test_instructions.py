@@ -176,7 +176,9 @@ def dereference_data(my_state, ptr):
 
 
 def prepareExpectedState(state):
-    return copy.deepcopy(state)
+    newstate = copy.deepcopy(state)
+    newstate.node_id = str(int(newstate.node_id)+1)
+    return newstate
 
 
 def assertEqualStates(state, expectedState, opcodes="", prgm=None):
