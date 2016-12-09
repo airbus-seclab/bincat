@@ -1918,15 +1918,17 @@ struct
 	
     let type_directives_cdecl (typing_rule: Newspeak.fundec): (Asm.stmt list * Asm.stmt list * int) =
       let epilogue =
-	[ Directive (Type (V (T eax), Types.typ_of_npk (snd (List.hd (typing_rule.Newspeak.rets))))) ]
+	try
+	  [ Directive (Type (V (T eax), Types.typ_of_npk (snd (List.hd (typing_rule.Newspeak.rets))))) ]
+	with _ -> []
       in
       let off = !Config.stack_width / 8 in
       let sz, prologue =  List.fold_left (fun (sz, stmts) (_name, typ) ->
 	let lv = M (BinOp (Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz) !Config.stack_width)), off) in 
 	sz+(!Config.stack_width), (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
       ) (0, []) (typing_rule.Newspeak.args)
-      in 
-      prologue, epilogue, sz
+      in
+      prologue, epilogue@(forget_reserved_registers_stdcall ()), sz
 
    
     let taint_directives_stdcall taint_ret taint_args =

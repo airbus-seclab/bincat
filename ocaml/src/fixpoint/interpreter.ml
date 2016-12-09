@@ -231,8 +231,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e true) then_stmts in
              let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e false) else_stmts in
              D.join dt de, bt||be
-				 
-    let process_ret fun_stack v =
+
+    type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t) list ref
+      
+    let process_ret (fun_stack: fun_stack_t) v =
       try
 	begin
 	let d = v.Cfa.State.v in
@@ -269,9 +271,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let import_call vertices a =
+    let import_call vertices a (fun_stack: fun_stack_t) =
       let fundec = Hashtbl.find Decoder.Imports.tbl a in
       Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
+      let _, ipstack, _ = List.hd (!fun_stack) in
+   
       let b =
 	List.fold_left (fun b v ->
 	  let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
@@ -281,10 +285,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
 	  in
 	  v.Cfa.State.v <- d';
+	  v.Cfa.State.ip <- ipstack;
+	  fun_stack := List.tl !fun_stack;
 	  b||b') false vertices
       in vertices, b
 		
-    let process_stmts fun_stack g (v: Cfa.State.t) ip: Cfa.State.t list =
+    let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
       let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp): (Cfa.State.t list * bool) =
 		List.fold_left (fun (l, b) v ->
                     try
@@ -293,10 +299,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                       match addresses with
                       | [a] ->
 			 begin
-			   try import_call [v] a
+			   try import_call [v] a fun_stack
 			   with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
 			 end
-                      | [ ] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                      | [] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                       | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
 						       (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
@@ -344,10 +350,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	let else', be = process_branch estmts false in
 	List.iter (fun v -> Cfa.remove_state g v) vertices;
 	then' @ else', be||bt
-      	    
      
-	 
-
 	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
         try
@@ -359,17 +362,18 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              | Jmp (A a) ->
 		begin
 		  try
-		    import_call vertices a
+		    import_call vertices a fun_stack
 		  with Not_found ->
-		    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false 
+		    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false		      
 		end
 		  
-             | Jmp (R target) -> fold_to_target (fun _a -> ()) vertices target
+             | Jmp (R target) ->
+		fold_to_target (fun _a -> ()) vertices target
 			 
              | Call (A a) ->
 		begin
 		  try
-		    import_call vertices a 
+		    import_call vertices a fun_stack
 		  with Not_found ->
 		    add_to_fun_stack a;
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;

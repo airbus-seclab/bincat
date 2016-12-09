@@ -30,7 +30,6 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     try open_in configfile
     with Sys_error _ -> Log.error "Failed to open the configuration file"
   in
-  
   (* parsing the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
   let string_of_position pos =
