@@ -100,7 +100,6 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   if !Config.store_mcfa = true then
     Interpreter.Cfa.marshal !Config.out_mcfa_file cfa;
   dump cfa;
-  Printexc.print_backtrace stdout;
   Log.close()
  ;;
    
