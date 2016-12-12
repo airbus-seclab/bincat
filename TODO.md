@@ -23,6 +23,8 @@ Hard :
 ## Plugin IDA
 * importer les valeurs concrètes depuis le debugger (mémoire et registres)
 * installer windows
+* fenêtre pour gérer les .ini
+* right-click -> taint argument (alloc buffer and all)
 
 ## Global
 * faire marcher `bincat` sous windows ?

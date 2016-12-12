@@ -191,35 +191,23 @@ class WebAnalyzer(Analyzer):
                          "so remote BinCAT cannot be used.")
             return
         server_url = self.server_url.rstrip('/')
-        sha256 = idaapi.retrieve_input_file_sha256().lower()
         binary_file = idaapi.get_input_file_path()
-        if not os.path.isfile(binary_file):
-            # get_input_file_path returns file path from IDB, which may not
-            # exist locally if IDB has been moved (eg. send idb+binary to
-            # another analyst)
-            guessed_path = idc.GetIdbPath().replace('idb', 'exe')
-            if os.path.isfile(guessed_path):
-                binary_file = guessed_path
 
-        # patch filepath (XXX dirty, rework AnalyzerConfig?) - set filepath to
-        # sha256
-        bc_log.debug("PATH %s", binary_file)
-        init_ini_str = re.sub(
-            '^filepath = .+$',
-            'filepath = %s' % sha256,
-            open(self.initfname).read(),
-            flags=re.MULTILINE)
+        # patch filepath - set filepath to sha256
+        with open(binary_file, 'r') as f:
+            h = hashlib.new('sha256')
+            h.update(f.read())
+            sha256 = h.hexdigest().lower()
+        self.current_config.binary_filepath = sha256
+        # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
             with open(self.cfainfname, 'r') as f:
                 h = hashlib.new('sha256')
                 h.update(f.read())
                 cfa_sha256 = h.hexdigest().lower()
-            init_ini_str = re.sub(
-                '^in_marshalled_cfa_file = .+$',
-                'in_marshalled_cfa_file = %s' % cfa_sha256,
-                init_ini_str,
-                flags=re.MULTILINE)
-        bc_log.debug(init_ini_str)
+                self.current_config.in_marshalled_cfa_file = cfa_sha256
+        # write patched config file
+        init_ini_str = str(self.current_config)
         # check whether file has already been uploaded
         try:
             check_res = requests.head(server_url + "/download/%s" % sha256)
@@ -460,10 +448,38 @@ class State(object):
 
         self.gui.after_change_ea()
 
+    def guess_filepath(self):
+        filepath = self.current_config.binary_filepath
+        if os.path.isfile(filepath):
+            return filepath
+        # try to use idaapi.get_input_file_path
+        filepath = idaapi.get_input_file_path()
+        if os.path.isfile(filepath):
+            return filepath
+        # get_input_file_path returns file path from IDB, which may not
+        # exist locally if IDB has been moved (eg. send idb+binary to
+        # another analyst)
+        filepath = idc.GetIdbPath().replace('idb', 'exe')
+        if os.path.isfile(filepath):
+            return filepath
+        # give up
+        return None
+
     def start_analysis(self, config_str=None):
-        # Creates new temporary dir. File structure:
-        # input files: init.ini, cfain.marshal
-        # output files: out.ini, cfaout.marshal
+        """
+        Creates new temporary dir. File structure:
+        input files: init.ini, cfain.marshal
+        output files: out.ini, cfaout.marshal
+        """
+        if config_str:
+            self.current_config.load_from_str(config_str)
+        binary_filepath = self.guess_filepath()
+        if not binary_filepath:
+            bc_log.error(
+                "File %s does not exit. Please fix path in configuration.",
+                binary_filepath)
+            return
+        bc_log.debug("Using %s as source binary path", binary_filepath)
 
         path = tempfile.mkdtemp(suffix='bincat')
 
@@ -474,15 +490,12 @@ class State(object):
 
         bc_log.debug("Current analyzer path: %s", path)
 
-        if config_str:
-            self.current_config.load_from_str(config_str)
         # Update overrides
         self.current_config.update_overrides(self.overrides)
         # Set correct file names
-        config = self.current_config
-        config.set_cfa_options('true', self.analyzer.cfainfname,
-                               self.analyzer.cfaoutfname)
-        analysis_method = config.analysis_method
+        self.current_config.set_cfa_options('true', self.analyzer.cfainfname,
+                                            self.analyzer.cfaoutfname)
+        analysis_method = self.current_config.analysis_method
         if analysis_method in ("forward_cfa", "backward"):
             if self.last_cfaout_marshal is None:
                 bc_log.error("No marshalled CFA has been recorded - run a "
@@ -490,7 +503,7 @@ class State(object):
                 return
             with open(self.analyzer.cfainfname, 'w') as f:
                 f.write(self.last_cfaout_marshal)
-        config.write(self.analyzer.initfname)
+        self.current_config.write(self.analyzer.initfname)
         self.analyzer.run()
 
     def re_run(self):

@@ -210,6 +210,14 @@ class AnalyzerConfig(object):
     def analysis_method(self):
         return self._config.get('analyzer', 'analysis').lower()
 
+    @property
+    def binary_filepath(self):
+        return self._config.get('binary', 'filepath')
+
+    @property
+    def in_marshalled_cfa_file(self):
+        return self._config.get('analyzer', 'in_marshalled_cfa_file')
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
@@ -224,6 +232,14 @@ class AnalyzerConfig(object):
         if value is None:
             value = ""
         self._config.set('analyzer', 'cut', value)
+
+    @binary_filepath.setter
+    def binary_filepath(self, value):
+        self._config.set('binary', 'filepath', value)
+
+    @in_marshalled_cfa_file.setter
+    def in_marshalled_cfa_file(self, value):
+        return self._config.set('analyzer', 'in_marshalled_cfa_file', value)
 
     def set_cfa_options(self, store_cfa="true", in_cfa="", out_cfa=""):
         self._config.set('analyzer', 'store_marshalled_cfa', store_cfa)
