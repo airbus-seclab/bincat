@@ -984,7 +984,6 @@ struct
     (** call with target as an offset from the current ip *)
     let relative_call s off_sz =
       let a = relative s off_sz s.operand_sz in
-      Log.debug (Printf.sprintf "relative call to %s" (Data.Address.to_string a));
         call s (A a)
 
     (** statements of jump with absolute address as target *)
@@ -1913,10 +1912,13 @@ struct
     (** converts a signature function to typing directives for stdcall *)
     (** with respect to the stdcall calling convention *)
     let forget_reserved_registers_stdcall () =
-      	[ Directive (Forget eax) ; Directive (Forget ecx) ; Directive (Forget edx) ]
+      	[ Directive (Forget ecx) ; Directive (Forget edx) ]
   
-	
+
+    let forget_reserved_registers_cdecl = forget_reserved_registers_stdcall
+      
     let type_directives_cdecl (typing_rule: Newspeak.fundec): (Asm.stmt list * Asm.stmt list * int) =
+      Log.debug "Decoder.type_reictives_cdecl";
       let epilogue =
 	try
 	  [ Directive (Type (V (T eax), Types.typ_of_npk (snd (List.hd (typing_rule.Newspeak.rets))))) ]
@@ -1928,7 +1930,7 @@ struct
 	sz+(!Config.stack_width), (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
       ) (0, []) (typing_rule.Newspeak.args)
       in
-      prologue, epilogue@(forget_reserved_registers_stdcall ()), sz
+      prologue, epilogue@(forget_reserved_registers_cdecl ()), sz
 
    
     let taint_directives_stdcall taint_ret taint_args =
@@ -1958,6 +1960,23 @@ struct
 
     let taint_directives_cdecl = taint_directives_stdcall
 
+      
+    let get_stub name =
+      match !Config.call_conv with
+      | Config.STDCALL ->
+	 begin
+	   try
+	     Hashtbl.find Imports.stdcall_stubs name
+	   with Not_found -> default_stub_stdcall ()
+	 end
+      | Config.CDECL ->
+	 begin
+	   try
+	     Hashtbl.find Imports.cdecl_stubs name
+	   with Not_found -> default_stub_cdecl ()
+	 end 
+      | _ -> Log.error "calling convention not managed for the while"   
+	   
     let replace_types type_directive =
 	Hashtbl.iter (fun name typing_rule ->
 	     try
@@ -1965,7 +1984,7 @@ struct
 	       let prologue, epilogue = type_directive typing_rule in 
 	       Hashtbl.replace Imports.tbl a
 		 { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
-		   Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = default_stub_stdcall () }
+		   Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = get_stub name}
 	     with Not_found ->
 	       Log.from_analysis (Printf.sprintf "from config file: Typing information for function %s without import address ignored" name); ()  
 	) Config.typing_rules
@@ -1976,7 +1995,8 @@ struct
       Hashtbl.replace Imports.tbl a
 	{ fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
 	  Imports.epilogue = fundec.Imports.epilogue@epilogue ;  }
-	
+
+   
     (** initialization of the import table *)
     let init_imports () =
       (* creates the import table from import section *)
@@ -2003,9 +2023,12 @@ struct
 	  Hashtbl.iter (fun (_libname, funame) (callconv, taint_ret, taint_args) ->
 	    try
 	      match callconv with
-	      | Config.STDCALL -> replace_taint taint_directives_stdcall funame taint_ret taint_args
+	      | Config.STDCALL ->
+		 replace_taint taint_directives_stdcall funame taint_ret taint_args
 		
-	      | Config.CDECL -> replace_taint taint_directives_cdecl funame taint_ret taint_args 
+	      | Config.CDECL ->
+		 replace_taint taint_directives_cdecl funame taint_ret taint_args
+		  
 	      | _ -> raise (Failure "calling convention not supported")
 	    with 
 	      Not_found ->

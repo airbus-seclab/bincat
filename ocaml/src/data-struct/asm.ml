@@ -79,7 +79,8 @@ type directive_t =
   | Unroll of exp * int (** Unroll (e, bs) set the current unroll value to tmin (e, bs) *)
   | Default_unroll (** set the current unroll value to the default value (in Config) *)
   | Unroll_until of exp * cmp * exp * int * int (** Unroll (e, cmp terminator, bs, sz) set the current unroll value to tmin (n, bs) where n is an offset from memory [e].
-This offset is the minimal integer where (sz)[e] cmp terminator is true *)
+						    This offset is the minimal integer where (sz)[e] cmp terminator is true *)
+  | Stub of string * (exp list) (** Stub (f, args) is the stub of the function f with args as arguments *)    
 
 (** data type of jump targets *)
 type jmp_target = 
@@ -220,6 +221,7 @@ let string_of_directive d =
   | Unroll (e, bs) -> Printf.sprintf "unroll current loop min (%s, %d) times" (string_of_exp e false) bs
   | Default_unroll -> "set unroll value ot its default value"
   | Unroll_until (e, cmp, terminator, ub, sz) -> Printf.sprintf "unroll current loop min (n, %d) times with n = minimal offset from e such that (%d)[%s+n] %s %s" ub sz (string_of_exp e false) (string_of_cmp cmp) (string_of_exp terminator false)
+  | Stub (f, _) -> Printf.sprintf "stub of %s" f
      
 			       
 let string_of_stmt s extended =

@@ -55,7 +55,17 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 				 
     (** Control Flow Automaton *)
     module Cfa = Decoder.Cfa 
-			      
+
+    (** stubs *)
+    module Stubs =
+    struct
+      let sprintf d _args = D.forget d, false
+	  
+      let process d fun_name args: D.t * bool =
+	match fun_name with
+	| "sprintf" -> sprintf d args
+	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name); d, false
+    end
     open Asm
 	    				    
     (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
@@ -221,7 +231,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		  d, false
 	     | _ -> Log.from_analysis (Printf.sprintf "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
 	   end
-	| Directive (Type (lv, t)) -> D.set_type lv t d, false 
+	| Directive (Type (lv, t)) -> D.set_type lv t d, false
+	| Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
@@ -595,6 +606,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Directive (Unroll _) -> d, false
 	| Directive (Unroll_until _) -> d, false
 	| Directive Default_unroll -> d, false
+	| Directive (Stub _) -> d, false
 	| Set (dst, src) -> back_set dst src d
 	| Assert (_bexp, _msg) -> d, false (* TODO *)
 	| If (e, istmts, estmts) ->
@@ -662,6 +674,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Asm.Directive (Asm.Taint _)
 	| Asm.Directive (Asm.Type _)
 	| Asm.Directive (Asm.Unroll _)
+	| Asm.Directive (Asm.Stub _)
 	| Asm.Directive (Asm.Unroll_until _)
 	| Asm.Directive Asm.Default_unroll
 	| Asm.Jmp (Asm.A _)

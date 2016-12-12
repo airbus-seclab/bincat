@@ -9,7 +9,7 @@ struct
   }
 
   let tbl: (Data.Address.t, fun_type) Hashtbl.t = Hashtbl.create 5
-
+      
   exception Found of (Data.Address.t * fun_type)
   let search_by_name (fun_name: string): (Data.Address.t * fun_type) =
     try
@@ -21,4 +21,24 @@ struct
       raise Not_found
     with Found pair -> pair 
 
+  open Asm
+  let esp = Register.of_name "esp"
+
+  let arg n =
+    BinOp (Add, Lval (V (T esp)), Const (Data.Word.of_int (Z.of_int n) !Config.stack_width))
+      
+  let sprintf_stdcall =
+    let buf = arg 4 in
+    let format = arg 8 in
+    let va_arg = arg 12 in
+    let res = Register.of_name "eax" in
+    [ Directive (Stub ("sprintf",  [Lval (V (T res)) ; buf ; format ; va_arg])) ]
+
+  let sprintf_cdecl = sprintf_stdcall
+
+  let stdcall_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
+  let cdecl_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
+
+    Hashtbl.add stdcall_stubs "sprintf" sprintf_stdcall;;
+    Hashtbl.add cdecl_stubs "sprintf" sprintf_cdecl
 end
