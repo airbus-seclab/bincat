@@ -21,7 +21,7 @@ module type T =
 	      mutable ip: Data.Address.t;   (** instruction pointer *)
 	      mutable v: domain; 	    (** abstract value *)
 	      mutable ctx: ctx_t ; 	    (** context of decoding *)
-	      mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
+	      mutable stmts: Asm.stmt list; (** list of statements of the successor state *)
 	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
 	      mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
 	      mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
@@ -49,7 +49,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
   struct
 
     type domain = D.t
-		    
+
     (** Decoder *)
     module Decoder = Decoder.Make(D)
 				 
@@ -59,7 +59,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (** stubs *)
     module Stubs =
     struct
-      let sprintf d _args = D.forget d, false
+      let sprintf d args =
+	match args with
+	| [_ret ; _buf ; _format ; _va_arg] -> D.forget d, false
+	| _ -> Log.error "invalid call to sprintf stub" 
 	  
       let process d fun_name args: D.t * bool =
 	match fun_name with
@@ -67,7 +70,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name); d, false
     end
     open Asm
-	    				    
+      
     (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
     let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 1000
       
@@ -365,6 +368,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
         try
+	  Log.debug (Printf.sprintf "%s\n" (Asm.string_of_stmt s true));
           List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
         with Jmp_exn ->
              match s with 
@@ -750,7 +754,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (******************************************************)
   	  
       let interleave_from_cfa (g: Cfa.t) (dump: Cfa.t -> unit): Cfa.t =
-	Log.debug "entering interleaving mode";
+	Log.from_analysis "entering interleaving mode";
 	let process mode cfa =
 	  Hashtbl.clear unroll_tbl;
 	  List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.last cfa)

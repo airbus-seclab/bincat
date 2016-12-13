@@ -22,12 +22,13 @@ struct
     with Found pair -> pair 
 
   open Asm
-  let esp = Register.of_name "esp"
+  let esp () = Register.of_name "esp"
 
   let arg n =
-    BinOp (Add, Lval (V (T esp)), Const (Data.Word.of_int (Z.of_int n) !Config.stack_width))
+    let esp = Register.of_name "esp" in
+    BinOp (Add, Lval (V (T (esp))), Const (Data.Word.of_int (Z.of_int n) !Config.stack_width))
       
-  let sprintf_stdcall =
+  let sprintf_stdcall () =
     let buf = arg 4 in
     let format = arg 8 in
     let va_arg = arg 12 in
@@ -39,6 +40,7 @@ struct
   let stdcall_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
   let cdecl_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
 
-    Hashtbl.add stdcall_stubs "sprintf" sprintf_stdcall;;
-    Hashtbl.add cdecl_stubs "sprintf" sprintf_cdecl
+  let init () =
+    Hashtbl.add stdcall_stubs "sprintf" (sprintf_stdcall ());
+    Hashtbl.add cdecl_stubs "sprintf" (sprintf_cdecl ());;
 end

@@ -5,54 +5,52 @@
     - [rfile] as result file
     - [lfile] as log file *)
 let process (configfile:string) (resultfile:string) (logfile:string): unit =
-    (* cleaning global data structures *)
-    Config.clear_tables();
-    Register.clear();
-
-    (* generating modules needed for the analysis *)
-    let module Vector 	 = Vector.Make(Reduced_value_tainting) in
-    let module Pointer 	 = Pointer.Make(Vector)		       in
-    let module Domain 	 = Reduced_unrel_typenv.Make(Pointer)  in
-    let module Interpreter = Interpreter.Make(Domain)	       in
-
-    (* setting the log file *)
-    Log.init logfile;
-    (* setting the backtrace parameters for debugging purpose *)
-    Printexc.record_backtrace true;
-    let print_exc exc raw_bt =
-        Printf.fprintf stdout "%s" (Printexc.to_string exc);
-        Printexc.print_raw_backtrace stdout raw_bt
-    in
-    Printexc.set_uncaught_exception_handler print_exc;
-
-    (* opening the configuration file *)
-    let cin =
-        try open_in configfile
-        with Sys_error _ -> Log.error "Failed to open the configuration file"
-    in
+  (* cleaning global data structures *)
+  Config.clear_tables();
+  Register.clear();
+  (* generating modules needed for the analysis *)
+  let module Vector 	 = Vector.Make(Reduced_value_tainting) in
+  let module Pointer 	 = Pointer.Make(Vector)		       in
+  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer)  in
+  let module Interpreter = Interpreter.Make(Domain)	       in
+  (* setting the log file *)
+  Log.init logfile;
+  (* setting the backtrace parameters for debugging purpose *)
+  Printexc.record_backtrace true;
+  let print_exc exc raw_bt =
+    Printf.fprintf stdout "%s" (Printexc.to_string exc);
+    Printexc.print_raw_backtrace stdout raw_bt
+  in
+  Printexc.set_uncaught_exception_handler print_exc;
+  
+  (* opening the configuration file *)
+  let cin =
+    try open_in configfile
+    with Sys_error _ -> Log.error "Failed to open the configuration file"
+  in
     (* parsing the configuration file to fill configuration information *)
-    let lexbuf = Lexing.from_channel cin in
-    let string_of_position pos =
-        Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
-    in
-    begin
-        try
-            lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
-            Parser.process Lexer.token lexbuf
-        with
-        | Parser.Error ->
-          close_in cin;
-          Log.error (Printf.sprintf "Syntax error near location %s" (string_of_position lexbuf))
-
-        | Failure "lexing: empty token" ->
-          close_in cin;
-          Log.error (Printf.sprintf "Parse error near location %s" (string_of_position lexbuf))
-    end;
-    close_in cin;
-
-    (* defining the dump function to provide to the fixpoint engine *)
-    let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
-
+  let lexbuf = Lexing.from_channel cin in
+  let string_of_position pos =
+    Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
+  in
+  begin
+    try
+      lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
+      Parser.process Lexer.token lexbuf
+    with
+    | Parser.Error ->
+       close_in cin;
+      Log.error (Printf.sprintf "Syntax error near location %s" (string_of_position lexbuf))
+	
+    | Failure "lexing: empty token" ->
+       close_in cin;
+      Log.error (Printf.sprintf "Parse error near location %s" (string_of_position lexbuf))
+  end;
+  close_in cin;
+  
+  (* defining the dump function to provide to the fixpoint engine *)
+  let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
+  
     (* internal function to launch backward/forward analysis from a previous CFA and config *)
     let from_cfa fixpoint =
         let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in

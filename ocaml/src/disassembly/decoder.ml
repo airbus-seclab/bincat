@@ -2000,6 +2000,7 @@ struct
     (** initialization of the import table *)
     let init_imports () =
       (* creates the import table from import section *)
+      Imports.init ();
       Hashtbl.iter (fun a (libname, fname) ->
 	let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
 	let fundec =  {
