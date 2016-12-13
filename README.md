@@ -12,7 +12,7 @@
 * python2-sphinx for the python documentation generation
 * menhir for the configuration parsing in ocaml
 * the ocamlgraph library
-* IDA for the vizualisation
+* IDA >= 6.9 (for the plugin)
 * Graphviz
 
 on Debian Sid:
