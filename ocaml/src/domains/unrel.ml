@@ -762,7 +762,7 @@ module Make(D: T) =
         | Val m' -> snd (eval_exp m' e)
 
 
-    let get_offset_from (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t): int =
+    let get_offset_from (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t): int=
       match m with
       | BOT -> raise Not_found
       | Val m' ->

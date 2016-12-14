@@ -69,25 +69,26 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	      the third one at va_args + 2*!Config.stack_width/8, etc. *) 
 	   begin
 	     try
-	       let len = ref 0 in
 	       let sz = !Config.stack_width in
-	       let format_str_addr, is_tainted = D.mem_to_addresses d format_addr in
-	       match Data.Address.Set.elements format_str_addr with
-	       | [_a] ->    
-		  let len' = Data.Word.of_int (Z.of_int !len) sz in
-		  let res = failwith "to implement" in
-		  [ Asm.Set (dst, res) ; Asm.Set (ret, Asm.Const len') ], is_tainted
-	       | [] -> Log.error "invalid address of the format string in sprintf call"
-	       | _ -> raise Exceptions.Enum_failure
-	     with Exceptions.Enum_failure ->
-	       Log.error "Unknown address of the format string for sprintf"
+	       let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
+	       let len = D.get_offset_from format_addr Asm.EQ zero 1000 8 d in
+	       let _format_string = D.value_of_exp d (Asm.Lval (Asm.M (format_addr, len*8))) in
+	       let len' = Data.Word.of_int (Z.of_int (len*8)) sz in
+	       let res = failwith "to implement" in
+	       [ Asm.Set (dst, res) ; Asm.Set (ret, Asm.Const len') ]
+		 
+	     with
+	     | Exceptions.Enum_failure ->
+		Log.error "sprintf: Unknown address of the format string or imprecise value of the format string"		  	  
+	     | Not_found ->
+		Log.error "address of the null terminator of the format string in sprintf not found"
 	   end
 	| _ -> Log.error "invalid call to sprintf stub" 
 	  
-      let process d fun_name args: Asm.stmt list * bool =
+      let process d fun_name args: Asm.stmt list =
 	match fun_name with
 	| "sprintf" -> sprintf d args
-	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name);  [], false
+	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name);  []
     end
     open Asm
       
@@ -256,8 +257,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	   end
 	| Directive (Type (lv, t)) -> D.set_type lv t d, false
 	| Directive (Stub (fun_name, args)) ->
-	   let stmts, is_tainted = Stubs.process d fun_name args in
-	   List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (d, is_tainted) stmts
+	   let stmts = Stubs.process d fun_name args in
+	   List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (d, false) stmts
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
