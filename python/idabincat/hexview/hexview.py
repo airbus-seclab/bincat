@@ -95,7 +95,7 @@ class HexItemDelegate(QStyledItemDelegate):
         self.hex_hint = QtCore.QSize(doc.idealWidth()-doc.documentMargin(), 22)
         # compute size hint for char view
         doc2 = QTextDocument()
-        doc2.setHtml("O")
+        doc2.setHtml("W")
         self.char_hint = QtCore.QSize(doc2.idealWidth()-doc.documentMargin(), 22)
         self._model = model
 
