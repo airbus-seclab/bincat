@@ -158,20 +158,21 @@ def dereference_data(my_state, ptr):
         return None
     elif ptr.vtop != 0:
         # XXX decide expected behaviour, add value to test this
-        newptr = copy.copy(ptr)
+        newptr = copy.deepcopy(ptr)
         newptr.value = 0
         newptr.vbot = 0
         newptr.vtop = 0xffffffff
         return newptr
     else:  # concrete value
         # XXX decode offset value from LDT, GDT, ds
-        newptr = copy.copy(ptr)
+        newptr = copy.deepcopy(ptr)
         newptr.tbot = 0
         newptr.ttop = 0
         newptr.taint = 0
-        res = my_state[newptr + 0xfff300]
+        res = copy.deepcopy(my_state[newptr])
         if ptr.ttop != 0 or ptr.taint != 0:
-            res.ttop = 0xffffffff
+            for r in res:
+                r.taint = 0xff
         return res
 
 
@@ -324,7 +325,7 @@ def test_pop(analyzer, initialState, register):
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
     expectedStateAfter[cfa.Value('reg', 'esp')][0] += 4
-    expectedStateAfter[cfa.Value('reg', regname)][0] = \
+    expectedStateAfter[cfa.Value('reg', regname)] = \
         stateBefore[cfa.Value(
             's', stateBefore[cfa.Value('reg', 'esp')][0].value)]
 
@@ -350,7 +351,7 @@ def test_sub(analyzer, initialState):
     calc_sf(expectedStateAfter, newregvalue)
     calc_zf(expectedStateAfter, newregvalue)
     clearFlag(expectedStateAfter, 'of')  # XXX compute properly
-    clearFlag(expectedStateAfter, "cf")  # XXX compute properly
+    clearFlag(expectedStateAfter, 'cf')  # XXX compute properly
     expectedStateAfter[cfa.Value('reg', 'esp')][0].value -= 0x1234
     # TODO check taint
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
@@ -396,7 +397,7 @@ def test_mov_reg_ebpm6(analyzer, initialState, register):
     # build expected state
     expectedStateAfter = prepareExpectedState(stateBefore)
     expectedStateAfter.address += len(opcode)  # pretty debug msg
-    expectedStateAfter[cfa.Value('reg', regname)][0] = \
+    expectedStateAfter[cfa.Value('reg', regname)] = \
         dereference_data(stateBefore,
                          stateBefore[cfa.Value('reg', 'ebp')][0] - 6)
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
@@ -427,7 +428,6 @@ def test_mov_ebp_reg(analyzer, initialState, register):
         return
 
     expectedStateAfter[cfa.Value('reg', 'ebp')] = newvalue
-    # stateBefore[stateBefore[cfa.Value('reg', regname)] + 0xfff300]
     stateAfter = getNextState(prgm, stateBefore)
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
