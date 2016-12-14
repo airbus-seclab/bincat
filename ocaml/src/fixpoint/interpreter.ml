@@ -61,13 +61,33 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     struct
       let sprintf d args =
 	match args with
-	| [_ret ; _buf ; _format ; _va_arg] -> D.forget d, false
+	| [Asm.Lval ret ; Asm.Lval dst ; format_addr ; _va_args] ->
+	   (* ret has to contain the number of bytes stored in dst ;
+	      format_addr is the address of the format string ;
+	      va_args is the address of the first parameter 
+	      (hence the second one will be at va_args + !Config.stack_width/8, 
+	      the third one at va_args + 2*!Config.stack_width/8, etc. *) 
+	   begin
+	     try
+	       let len = ref 0 in
+	       let sz = !Config.stack_width in
+	       let format_str_addr, is_tainted = D.mem_to_addresses d format_addr in
+	       match Data.Address.Set.elements format_str_addr with
+	       | [_a] ->    
+		  let len' = Data.Word.of_int (Z.of_int !len) sz in
+		  let res = failwith "to implement" in
+		  [ Asm.Set (dst, res) ; Asm.Set (ret, Asm.Const len') ], is_tainted
+	       | [] -> Log.error "invalid address of the format string in sprintf call"
+	       | _ -> raise Exceptions.Enum_failure
+	     with Exceptions.Enum_failure ->
+	       Log.error "Unknown address of the format string for sprintf"
+	   end
 	| _ -> Log.error "invalid call to sprintf stub" 
 	  
-      let process d fun_name args: D.t * bool =
+      let process d fun_name args: Asm.stmt list * bool =
 	match fun_name with
 	| "sprintf" -> sprintf d args
-	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name); d, false
+	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name);  [], false
     end
     open Asm
       
@@ -163,7 +183,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (** returns true whenever the given list of statements has a jump stmt (Jmp, Call, Return) *)
     let rec has_jmp stmts =
         match stmts with
-        |	[] -> false
+        | [] -> false
         | s::stmts' ->
            let b =
              match s with
@@ -235,7 +255,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     | _ -> Log.from_analysis (Printf.sprintf "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
 	   end
 	| Directive (Type (lv, t)) -> D.set_type lv t d, false
-	| Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
+	| Directive (Stub (fun_name, args)) ->
+	   let stmts, is_tainted = Stubs.process d fun_name args in
+	   List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (d, is_tainted) stmts
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
@@ -368,13 +390,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
         try
-	  Log.debug (Printf.sprintf "%s\n" (Asm.string_of_stmt s true));
           List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
         with Jmp_exn ->
              match s with 
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
 		
              | Jmp (A a) ->
+		Log.debug (Printf.sprintf "Jmp %s" (Data.Address.to_string a));
 		begin
 		  try
 		    import_call vertices a fun_stack
@@ -386,6 +408,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		fold_to_target (fun _a -> ()) vertices target
 			 
              | Call (A a) ->
+		Log.debug (Printf.sprintf "Call %s" (Data.Address.to_string a));
 		begin
 		  try
 		    import_call vertices a fun_stack

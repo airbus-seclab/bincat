@@ -2042,6 +2042,7 @@ struct
       
      (** initialization of the decoder *)
     let init () =
+      init_imports();
       let ldt = Hashtbl.create 5  in
       let gdt = Hashtbl.create 19 in
       let idt = Hashtbl.create 15 in
