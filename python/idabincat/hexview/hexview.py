@@ -95,7 +95,7 @@ class HexItemDelegate(QStyledItemDelegate):
         self.hex_hint = QtCore.QSize(doc.idealWidth()-doc.documentMargin(), 22)
         # compute size hint for char view
         doc2 = QTextDocument()
-        doc2.setHtml("O")
+        doc2.setHtml("W")
         self.char_hint = QtCore.QSize(doc2.idealWidth()-doc.documentMargin(), 22)
         self._model = model
 
@@ -593,7 +593,8 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self.view.setShowGrid(False)
         self.view.setWordWrap(False)
         self.view.setObjectName("view")
-        self.view.verticalHeader().setDefaultSectionSize(25)
+        self.view.verticalHeader().setSectionResizeMode(
+            QHeaderView.ResizeToContents)
         self.mainLayout.insertWidget(0, self.view)
         # end rip
 

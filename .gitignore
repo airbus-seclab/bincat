@@ -21,3 +21,4 @@ doc/generated
 python/test/**
 tags
 ocaml/src/bincat_native
+ocaml/test/.cache
