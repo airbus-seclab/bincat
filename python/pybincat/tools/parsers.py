@@ -52,7 +52,7 @@ def parse_val(s):
 
 def val2str(val, vtop, vbot, length, base=None, merged=False):
     if base == 16 or not base:
-        if length == 0:
+        if length == 0 or length is None:
             fstring = '{0:X}'
         else:
             if length % 4 == 0:

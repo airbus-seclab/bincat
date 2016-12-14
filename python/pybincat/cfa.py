@@ -195,6 +195,7 @@ class State(object):
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
+        #: str
         self.node_id = node_id
         #: Value -> [Value]. Either 1 value, or a list of 1-byte Values.
         self._regaddrs = {}
@@ -289,7 +290,7 @@ class State(object):
                     assert region1 == region2
                     region = region1
                     length = 8
-                    # XXX allow non-aligned access
+                    # XXX allow non-aligned access (current: assume no overlap)
             elif region == "reg":
                 length = reg_len(addr)
 
@@ -370,12 +371,45 @@ class State(object):
         return ranges
 
     def __setitem__(self, item, val):
-        # XXX allow random access
-        self.regaddrs[item] = val
+        if type(val[0]) is list:
+            val = val[0]
+        if type(item.value) is str:
+            # register, overwrite
+            self.regaddrs[item] = val
+            return
+        if len(val) == 1 and val[0].length > 8:
+            val = val[0].split_to_bytelist()
+        for (idx, v) in enumerate(val):
+            addr = item.value + idx
+            recorded = False
+            for e_key, e_val in self.regaddrs.items():
+                # existing keys in regaddrs
+                if type(e_key.value) is str:
+                    continue
+                # e_val: list of Values, or one Value
+                if len(e_val) == 1 and e_val[0].length > 8:
+                    if (e_key.value > addr or
+                            e_key.value + e_val[0].length < addr):
+                        continue
+                    # existing value needs to be split, too
+                    self.regaddrs[e_key] = e_val[0].split_to_bytelist()
+                else:
+                    if (e_key.value > addr or
+                            e_key.value + len(e_val) < addr):
+                        continue
+                if len(self.regaddrs[e_key]) == (addr - e_key.value):
+                    # appending at the end of existing key e_key
+                    self.regaddrs[e_key].append(v)
+                else:
+                    # value replacement in an existing key
+                    self.regaddrs[e_key][(addr - e_key.value)] = v
+                recorded = True
+                break
+            if not recorded:
+                # new key
+                self.regaddrs[item+idx] = [val[idx]]
 
     def __getattr__(self, attr):
-        if attr.startswith('__'):  # avoid failure in copy.deepcopy()
-            raise AttributeError(attr)
         try:
             return self.regaddrs[attr]
         except KeyError as e:
@@ -385,8 +419,21 @@ class State(object):
         if set(self.regaddrs.keys()) != set(other.regaddrs.keys()):
             return False
         for regaddr in self.regaddrs.keys():
-            if self.regaddrs[regaddr] != other.regaddrs[regaddr]:
-                return False
+            if ((len(self.regaddrs[regaddr]) > 1) ^
+                    (len(other.regaddrs[regaddr]) > 1)):
+                # split required, one of them only is split
+                s = self.regaddrs[regaddr]
+                o = other.regaddrs[regaddr]
+                if len(self.regaddrs[regaddr]) == 1:
+                    s = s[0].split_to_bytelist()
+                else:
+                    o = o[0].split_to_bytelist()
+                if s != o:
+                    return False
+            else:
+                # no split required
+                if self.regaddrs[regaddr] != other.regaddrs[regaddr]:
+                    return False
         return True
 
     def list_modified_keys(self, other):
@@ -413,7 +460,7 @@ class State(object):
         pno += str(other)
         res = ["--- %s" % pns, "+++ %s" % pno]
         if parent:
-            res.append("000 Parent %s" % str(parent))
+            res.insert(0, "000 Parent %s" % str(parent))
         for regaddr in self.list_modified_keys(other):
             region = regaddr.region
             address = regaddr.value
@@ -421,14 +468,14 @@ class State(object):
                 address = "%#08x" % address
             res.append("@@ %s %s @@" % (region, address))
             if (parent is not None) and (regaddr in parent.regaddrs):
-                res.append("0 %s" % parent.regaddrs[regaddr])
+                res.append("0 %s" % (parent.regaddrs[regaddr]))
             if regaddr not in self.regaddrs:
                 res.append("+ %s" % other.regaddrs[regaddr])
             elif regaddr not in other.regaddrs:
                 res.append("- %s" % self.regaddrs[regaddr])
             elif self.regaddrs[regaddr] != other.regaddrs[regaddr]:
-                res.append("- %s" % self.regaddrs[regaddr])
-                res.append("+ %s" % other.regaddrs[regaddr])
+                res.append("- %s" % (self.regaddrs[regaddr]))
+                res.append("+ %s" % (other.regaddrs[regaddr]))
         return "\n".join(res)
 
     def __repr__(self):
@@ -541,6 +588,34 @@ class Value(object):
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
 
+    def __getitem__(self, idx):
+        if type(idx) is slice:
+            if idx.step is not None:
+                raise TypeError
+            start = idx.start
+            stop = idx.stop
+        else:
+            start = idx
+            stop = idx + 1
+        if start >= self.length or start < 0:
+            raise IndexError
+        if stop > self.length or stop <= 0:
+            raise IndexError
+        if stop - start <= 0:
+            raise IndexError
+
+        def mask(x):
+            return (x >> (8*start)) & (2**(8*(stop-start))-1)
+
+        return Value(self.region,
+                     mask(self.value),
+                     8*(stop-start),
+                     mask(self.vtop),
+                     mask(self.vbot),
+                     mask(self.taint),
+                     mask(self.ttop),
+                     mask(self.tbot))
+
     def is_concrete(self):
         return self.vtop == 0 and self.vbot == 0
 
@@ -548,3 +623,17 @@ class Value(object):
         return (self.taint != 0 or
                 self.ttop != 0 or
                 self.tbot != 0)
+
+    def split_to_bytelist(self):
+        """
+        Return a list of 8-byte long Values, having the same value as self
+        """
+        result = []
+
+        def mask(x, pos):
+            return (x >> pos) & 0xFF
+
+        for i in range(self.length/8):
+            result.append(self[i])
+
+        return result

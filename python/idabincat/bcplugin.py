@@ -7,8 +7,6 @@ import ConfigParser
 import hashlib
 import logging
 import os
-import re
-import StringIO
 import sys
 import tempfile
 import traceback
@@ -187,7 +185,7 @@ class WebAnalyzer(Analyzer):
 
     def run(self):
         if 'requests' not in sys.modules:
-            bc_log.error("python requests modules could not be imported, "
+            bc_log.error("python module 'requests' could not be imported, "
                          "so remote BinCAT cannot be used.")
             return
         server_url = self.server_url.rstrip('/')

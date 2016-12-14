@@ -75,7 +75,7 @@ def getNextState(prgm, curState):
     return nextState
 
 
-def assertEqualStates(state, expectedState, opcodes=None):
+def assertEqualStates(state, expectedState, opcodes="", prgm=None):
     """
     XXX factor code
     """
@@ -92,8 +92,18 @@ def assertEqualStates(state, expectedState, opcodes=None):
         out = ""
     assert type(state) is cfa.State
     assert type(expectedState) is cfa.State
+    if prgm:
+        parent = prgm['0']
+    else:
+        parent = None
     assert state == expectedState, "States should be identical\n" + out + \
-        state.diff(expectedState, "Observed ", "Expected ")
+        state.diff(expectedState, "Observed ", "Expected ", parent)
+
+
+def prepareExpectedState(state):
+    newstate = copy.deepcopy(state)
+    newstate.node_id = str(int(newstate.node_id)+1)
+    return newstate
 
 
 def test_decode_5055_full(analyzer):
@@ -112,7 +122,7 @@ def test_decode_5055_full(analyzer):
     #: after push ebp
     state2 = getNextState(prgm, state1)
 
-    expectedState1 = copy.deepcopy(stateInit)
+    expectedState1 = prepareExpectedState(stateInit)
 
     expectedState1[cfa.Value('reg', 'esp')][0].value -= 4
     expectedState1[cfa.Value(
@@ -121,7 +131,7 @@ def test_decode_5055_full(analyzer):
 
     expectedState1.address += 1  # not checked, cosmetic for debugging only
 
-    expectedState2 = copy.deepcopy(stateInit)
+    expectedState2 = prepareExpectedState(stateInit)
     expectedState2[cfa.Value('reg', 'esp')][0].value -= 8
     concatv = [expectedState1[cfa.Value('reg', 'eax')][0] &
                expectedState1[cfa.Value('reg', 'ebp')][0]]
@@ -130,8 +140,8 @@ def test_decode_5055_full(analyzer):
     expectedState2.address += 1
 
     assert len(prgm.edges) == 2
-    assertEqualStates(state1, expectedState1, binarystr[0])
-    assertEqualStates(state2, expectedState2, binarystr[1])
+    assertEqualStates(state1, expectedState1, binarystr[0], prgm)
+    assertEqualStates(state2, expectedState2, binarystr[1], prgm)
 
 
 def test_decode_5055_lastbyte(analyzer):
@@ -142,19 +152,26 @@ def test_decode_5055_lastbyte(analyzer):
     binarystr = '\x50\x55'
     prgm = analyzer(initialState, binarystr=binarystr)
     state1 = prgm['0']
-    # XXX check address is 0x1000
     #: after push ebp
     state2 = getNextState(prgm, state1)
 
-    expectedState2 = copy.deepcopy(state1)
+    expectedState2 = prepareExpectedState(state1)
     expectedState2[cfa.Value('reg', 'esp')][0].value -= 4
+    print state1[cfa.Value('reg', 'ebp')]
+
+    zk = cfa.Value('s', expectedState2[cfa.Value('reg', 'esp')][0].value)
+    print zk
+    #print zk in expectedState2[
+
     expectedState2[cfa.Value(
         's', expectedState2[cfa.Value('reg', 'esp')][0].value)] = \
         state1[cfa.Value('reg', 'ebp')]
+    print "zk", zk
+    print "e2", type(expectedState2[zk]), "e3"
 
     expectedState2.address += 1  # not checked, cosmetic for debugging only
 
     assert len(prgm.edges) == 1
-    assertEqualStates(state2, expectedState2, binarystr[1])
+    assertEqualStates(state2, expectedState2, binarystr[1], prgm=prgm)
 
 # TODO test with entrypoint != rva-code
