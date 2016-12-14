@@ -593,7 +593,8 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self.view.setShowGrid(False)
         self.view.setWordWrap(False)
         self.view.setObjectName("view")
-        self.view.verticalHeader().setDefaultSectionSize(25)
+        self.view.verticalHeader().setSectionResizeMode(
+            QHeaderView.ResizeToContents)
         self.mainLayout.insertWidget(0, self.view)
         # end rip
 

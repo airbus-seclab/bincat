@@ -555,6 +555,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.vttable.setSortingEnabled(True)
         self.vttable.setModel(self.vtmodel)
         self.vttable.setShowGrid(False)
+        self.vttable.verticalHeader().setVisible(False)
         self.vttable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
         # width from the model are not respected, not sure why...
@@ -621,7 +622,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(ValueTaintModel, self).__init__(*args, **kwargs)
         self.s = state
-        self.headers = ["register", "Value"]
+        self.headers = ["register", "value"]
         self.colswidths = [90, 90]
         #: list of Value (addresses)
         self.rows = []
@@ -770,6 +771,7 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
 
         # Overrides Taint Table
         self.table = BinCATOverridesView(self.model)
+        self.table.verticalHeader().setVisible(False)
         self.table.setSortingEnabled(True)
         self.table.setModel(self.model)
         self.s.overrides.register_callbacks(
