@@ -192,20 +192,23 @@ class WebAnalyzer(Analyzer):
         binary_file = idaapi.get_input_file_path()
 
         # patch filepath - set filepath to sha256
+        temp_config = AnalyzerConfig(None)  # No reference to State - not used
+        with open(self.initfname, 'r') as f:
+            temp_config.load_from_str(f.read())
         with open(binary_file, 'r') as f:
             h = hashlib.new('sha256')
             h.update(f.read())
             sha256 = h.hexdigest().lower()
-        self.current_config.binary_filepath = sha256
+        temp_config.binary_filepath = sha256
         # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
             with open(self.cfainfname, 'r') as f:
                 h = hashlib.new('sha256')
                 h.update(f.read())
                 cfa_sha256 = h.hexdigest().lower()
-                self.current_config.in_marshalled_cfa_file = cfa_sha256
+                temp_config.in_marshalled_cfa_file = cfa_sha256
         # write patched config file
-        init_ini_str = str(self.current_config)
+        init_ini_str = str(temp_config)
         # check whether file has already been uploaded
         try:
             check_res = requests.head(server_url + "/download/%s" % sha256)
