@@ -809,13 +809,38 @@ class OverridesModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(OverridesModel, self).__init__(*args, **kwargs)
         self.s = state
-        self.headers = ["eip", "register", "taint"]
+        self.headers = ["eip", "addr or reg", "taint"]
 
     def data(self, index, role):
-        if role != QtCore.Qt.DisplayRole:
+        if role not in (QtCore.Qt.ForegroundRole, QtCore.Qt.DisplayRole,
+                        QtCore.Qt.EditRole, QtCore.Qt.ToolTipRole):
             return
         col = index.column()
         row = index.row()
+        if role == QtCore.Qt.ToolTipRole:
+            if col == 1:
+                return "Example valid addresses: reg[eax], mem[0x1234]"
+            if col == 2:
+                return "Example taint values: TAINT_ALL, TAINT_NONE, 0x1234"
+            return
+        if role == QtCore.Qt.ForegroundRole:
+            # basic syntax checking
+            if col not in (1, 2):
+                return
+            txt = self.s.overrides[row][col]
+            if col == 1:
+                if txt.startswith('reg[') and txt.endswith(']'):
+                    return
+                if txt.startswith('mem[') and txt.endswith(']'):
+                    return
+                if txt.startswith('mem[0x') and txt.endswith(']'):
+                    return
+            else:  # Taint column
+                if txt in ("TAINT_ALL", "TAINT_NONE"):
+                    return
+                if txt.startswith("0x") or txt.startswith("0b"):
+                    return
+            return QtGui.QBrush(QtCore.Qt.red)
         rawdata = self.s.overrides[row][col]
         if col == 0:
             return "%x" % rawdata
