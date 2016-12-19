@@ -6,6 +6,7 @@ import os
 import logging
 import string
 import idaapi
+import idautils
 from PyQt5 import QtCore, QtWidgets, QtGui
 import idabincat.hexview as hexview
 import pybincat.cfa as cfa
@@ -957,7 +958,17 @@ class HandleAddOverride(idaapi.action_handler_t):
             highlighted)
         if not res:
             return 1  # refresh IDA windows
-        self.s.overrides.append((address, highlighted, mask))
+        # guess whether highlighted text is register or address
+        try:
+            # is it a register?
+            idautils.procregs.__getattr__(highlighted)
+        except AttributeError:
+            # assume it's a memory address
+            htype = "mem"
+        else:
+            htype = "reg"
+        htext = "%s[%s]" % (htype, highlighted)
+        self.s.overrides.append((address, htext, mask))
         return 1
 
     def update(self, ctx):
