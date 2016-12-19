@@ -886,11 +886,13 @@ class OverridesModel(QtCore.QAbstractTableModel):
     def columnCount(self, parent):
         return len(self.headers)
 
-    def remove_row(self, index):
-        del self.s.overrides[index]
+    def remove_row(self, checked):
+        del self.s.overrides[BinCATOverridesView.clickedIndex]
 
 
 class BinCATOverridesView(QtWidgets.QTableView):
+    clickedIndex = None
+
     def __init__(self, model, parent=None):
         super(BinCATOverridesView, self).__init__(parent)
         self.m = model
@@ -905,6 +907,7 @@ class BinCATOverridesView(QtWidgets.QTableView):
         action = QtWidgets.QAction('Remove', self)
         action.triggered.connect(self.m.remove_row)
         menu.addAction(action)
+        BinCATOverridesView.clickedIndex = self.indexAt(event.pos()).row()
         menu.popup(QtGui.QCursor.pos())
 
     def remove_row(self):
