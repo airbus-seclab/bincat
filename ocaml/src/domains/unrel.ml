@@ -23,7 +23,11 @@ module type T =
 	       
     (** conversion to values of type Z.t *)
     val to_z: t -> Z.t
-		     
+
+    (** char conversion *)
+    (** may raise an exception if conversion fail (not a concrete value or too large) *)
+    val to_char: t -> char
+      
     (** converts a word into an abstract value *)
     val of_word: Data.Word.t -> t
 				  
@@ -762,7 +766,7 @@ module Make(D: T) =
         | Val m' -> snd (eval_exp m' e)
 
 
-    let get_offset_from (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t): int=
+    let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t): (int * D.t list) =
       match m with
       | BOT -> raise Not_found
       | Val m' ->
@@ -770,19 +774,20 @@ module Make(D: T) =
 	 let addrs = Data.Address.Set.elements (D.to_addresses v) in
 	 let term = fst (eval_exp m' terminator) in
 	 let off = sz / 8 in
-	 let rec find (a: Data.Address.t) (o: int): int =
-	   if o > upper_bound then
+	 let rec find (a: Data.Address.t) (o: int): (int * D.t list) =
+	   if o >= upper_bound then
 	     raise Not_found
 	   else
 	     let a' = Data.Address.add_offset a (Z.of_int o) in
 	     let v = get_mem_value m' a' sz in
 	     if D.compare v cmp term then
-	       o
+	       o, [v] 
 	     else
-	       find a (o+off)
+	       let o', l = find a (o+off) in
+	       o', v::l
 	 in
 	 match addrs with
-	 | [a] -> find a 0
+	 | [a] -> let o, l = find a 0 in o, List.rev l
 	 | _::_ ->
 	    let res = List.fold_left (fun acc a ->
 	      try
@@ -798,6 +803,17 @@ module Make(D: T) =
 	      | None -> raise Not_found
 	    end
 	 | [] -> raise Not_found
+
+    let get_bytes e cmp terminator upper_bound m: Bytes.t =
+      try
+	let len, vals = i_get_bytes e cmp terminator upper_bound 8 m in
+	let bytes = Bytes.create len in
+      (* TODO: endianess ! *)
+	List.iteri (fun i v -> Bytes.set bytes i (D.to_char v)) vals;
+	bytes
+      with _ -> raise Exceptions.Concretization
+	
+    let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m)
   end
     
     

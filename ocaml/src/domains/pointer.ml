@@ -17,6 +17,12 @@ module Make (V: Vector.T) =
             | TOP         -> raise Exceptions.Enum_failure
             | Val (_r, v) -> V.to_z v
 
+	let to_char p =
+	  match p with
+            | BOT         -> raise Exceptions.Empty
+            | TOP         -> raise Exceptions.Enum_failure
+            | Val (_r, v) -> V.to_char v
+	       
         let to_string p =
             match p with
             | BOT -> "B0x_"
@@ -178,7 +184,7 @@ module Make (V: Vector.T) =
         let rec concat l =
             Log.debug_lvl (Printf.sprintf "concat len %d" (List.length l)) 4; 
             match l with
-            |	[ ] -> BOT
+            | [ ] -> BOT
             | [v] -> Log.debug_lvl (Printf.sprintf "concat single : %s" (to_string v)) 4; v
             | v::l' ->
               let v' = concat l' in

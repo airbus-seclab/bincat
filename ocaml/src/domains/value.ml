@@ -85,7 +85,13 @@ let to_z v =
   | TOP  -> raise Exceptions.Concretization
   | ZERO -> Z.zero
   | ONE  -> Z.one
-   
+
+let to_int v =
+  match v with
+  | TOP  -> raise Exceptions.Concretization
+  | ZERO -> 0
+  | ONE  -> 1
+    
 let eq v1 v2 =
   match v1, v2 with
   | TOP, _ | _, TOP 	      -> true

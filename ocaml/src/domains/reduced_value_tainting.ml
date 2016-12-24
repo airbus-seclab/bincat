@@ -12,6 +12,8 @@ let is_top (v, _t) = v = V.TOP
 			      
 let to_z (v, _t) = V.to_z v
 
+let to_int (v, _t) = V.to_int v
+  
 let forget_taint (v, _t) = v, T.TOP
 				
 let join (v1, t1) (v2, t2) = V.join v1 v2, T.join t1 t2

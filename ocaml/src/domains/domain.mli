@@ -66,23 +66,20 @@ module type T =
       (** apply the given taint mask to the given register *)
       val taint_register_mask: Register.t -> Config.tvalue -> t -> t
 
-      (** apply the given taint mask to the given address *)
-      (** the size of the mask is supposed to be one byte long *)
+      (** apply the given taint mask to the given memory address *)
       val taint_address_mask: Data.Address.t -> Config.tvalue -> t -> t
-	
-      (** [compare v e1 c e2] restrict the given abstract value d to abstract value that satisfy the binary comparison (e1 c e2) *)
-      (** may raise exception Exceptions.EmptyEnv *)
-      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> (t * bool)
 
-      (** returns a set of addresses corresponding to the given expression *)
-      (** may raise an exeption if that set is too large *)
-      (** the returned boolean is true whenever the ptr or the given referenced value is tainted *)
+      (** comparison *)
+      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t * bool
+
+      (** returns the set of addresses pointed by the given expression *)
+      (** may raise an exception *)
+      (** the returned boolean is true whenever the pointer is tainted *)
       val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t * bool
-
-      (** returns true whenever at least one left value of the given expression is tainted *)
+	
       val is_tainted: Asm.exp -> t -> bool
 
-    (** [set_type lv t m] type the left value lv with type t *)
+      (** [set_type lv t m] type the left value lv with type t *)
       val set_type: Asm.lval -> Types.t -> t -> t
 
 
@@ -90,5 +87,13 @@ module type T =
       (** the lowest offset o <= upper_bound from address addr such that (sz)[addr+o] cmp terminator is true *)
       (** may raise an exception if not found or memory too much imprecise *)
       val get_offset_from: Asm.exp -> Asm.cmp -> Asm.exp -> int -> int -> t -> int
+	
+      (** [get_bytes e cmp terminator length_bound d] *)
+      (** return the byte sequence b1...bn from address e such that *)
+      (** n is the minimal index <= length_bound with M[e+i] cmp *)
+      (** terminator is true in d *)
+      (** size of terminator is 8-bit width *)
+      (** raise Not_found if no such sequence exists *)
+      val get_bytes: Asm.exp -> Asm.cmp -> Asm.exp -> int -> t -> Bytes.t 
     end
       

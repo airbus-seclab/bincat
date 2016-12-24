@@ -14,6 +14,8 @@ sig
     val is_top: t -> bool
     (** conversion to value of type Z.t. May raise an exception *)
     val to_z: t -> Z.t
+    (** int conversion. May raise an exception *)
+    val to_int: t -> int
     (** conversion of the taint value of the parameter into a Z value. May raise an exception *)
     val taint_to_z: t -> Z.t
     (** conversion from Z.t value *)
@@ -88,6 +90,8 @@ sig
     val is_tainted: t -> bool
     (** value conversion. May raise an exception *)
     val to_z: t -> Z.t
+    (** char conversion. May raise an exception *)
+    val to_char: t -> char
     (** abstract join *)
     val join: t -> t -> t
     (** abstract meet *)
@@ -186,6 +190,18 @@ module Make(V: Val) =
                 !z
             with _ -> raise Exceptions.Concretization
 
+	let to_char (v: t): char =
+	  if Array.length v <> 8 then
+	    raise Exceptions.Concretization
+	  else
+	    begin
+	      let c = ref 0 in
+	      for i = 0 to 7 do
+		c := (V.to_int v.(i)) + ((!c) lsl 1)
+	      done;
+	      char_of_int !c
+	    end
+	      
     let to_z v = v_to_z V.to_z v 
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
     let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)

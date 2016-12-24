@@ -87,5 +87,8 @@ module Make(D: Unrel.T) =
 
   let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv) =
     U.get_offset_from addr cmp terminator upper_bound sz uenv
+
+  let get_bytes addr cmp terminator upper_bound (uenv, _tenv) =
+    U.get_bytes addr cmp terminator upper_bound uenv
  end:
    Domain.T)
