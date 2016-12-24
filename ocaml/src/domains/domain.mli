@@ -94,6 +94,7 @@ module type T =
       (** terminator is true in d *)
       (** size of terminator is 8-bit width *)
       (** raise Not_found if no such sequence exists *)
-      val get_bytes: Asm.exp -> Asm.cmp -> Asm.exp -> int -> t -> Bytes.t 
+      (** the return integer is the length of the return string wrt to the given terminator *)
+      val get_bytes: Asm.exp -> Asm.cmp -> Asm.exp -> int -> t -> int * Bytes.t 
     end
       

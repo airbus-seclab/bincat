@@ -804,13 +804,13 @@ module Make(D: T) =
 	    end
 	 | [] -> raise Not_found
 
-    let get_bytes e cmp terminator upper_bound m: Bytes.t =
+    let get_bytes e cmp terminator upper_bound m: int * Bytes.t =
       try
 	let len, vals = i_get_bytes e cmp terminator upper_bound 8 m in
 	let bytes = Bytes.create len in
       (* TODO: endianess ! *)
 	List.iteri (fun i v -> Bytes.set bytes i (D.to_char v)) vals;
-	bytes
+	len, bytes
       with _ -> raise Exceptions.Concretization
 	
     let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m)

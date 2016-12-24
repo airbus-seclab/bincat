@@ -71,8 +71,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     try
 	       let sz = !Config.stack_width in
 	       let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
-	       let len = D.get_offset_from format_addr Asm.EQ zero 1000 8 d in
-	       let _format_string = D.value_of_exp d (Asm.Lval (Asm.M (format_addr, len*8))) in
+	       let len, _format_string = D.get_bytes format_addr Asm.EQ zero 1000 d in
 	       let len' = Data.Word.of_int (Z.of_int (len*8)) sz in
 	       let res = failwith "to implement" in
 	       [ Asm.Set (dst, res) ; Asm.Set (ret, Asm.Const len') ]
