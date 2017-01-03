@@ -814,6 +814,11 @@ module Make(D: T) =
       with _ -> raise Exceptions.Concretization
 	
     let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m)
+
+    let copy _m _dst _arg _sz = failwith "to implement"
+     
+
+    let copy_until _m _dst _arg _terminator _upper_bound = failwith "to implement" 
   end
     
     

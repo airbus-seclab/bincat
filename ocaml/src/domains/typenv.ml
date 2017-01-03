@@ -7,7 +7,9 @@
    | Val of Types.t Env.t (** a map from Memory/Reg to a type *)
  
  let init () = Val (Env.empty)
- 
+
+ let top = Val (Env.empty)
+   
  let join env1 env2 =
    match env1, env2 with
    | BOT, env | env, BOT -> env
@@ -98,3 +100,6 @@ let of_exp (e: Asm.exp) (env: t): Types.t =
 	end
      | _ -> Types.TUNKNOWN
      
+
+
+    

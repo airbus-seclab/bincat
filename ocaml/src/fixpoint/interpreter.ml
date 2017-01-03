@@ -59,9 +59,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (** stubs *)
     module Stubs =
     struct
-      let sprintf d args =
+      let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
 	match args with
-	| [Asm.Lval ret ; Asm.Lval dst ; format_addr ; _va_args] ->
+	| [Asm.Lval ret ; Asm.Lval dst ; format_addr ; va_args] ->
 	   (* ret has to contain the number of bytes stored in dst ;
 	      format_addr is the address of the format string ;
 	      va_args is the address of the first parameter 
@@ -69,25 +69,56 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	      the third one at va_args + 2*!Config.stack_width/8, etc. *) 
 	   begin
 	     try
-	       let sz = !Config.stack_width in
 	       let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
-	       let len, _format_string = D.get_bytes format_addr Asm.EQ zero 1000 d in
-	       let len' = Data.Word.of_int (Z.of_int (len*8)) sz in
-	       let res = failwith "to implement" in
-	       [ Asm.Set (dst, res) ; Asm.Set (ret, Asm.Const len') ]
+	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 d in
+	       let copy_arg d off arg: int * D.t =
+		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int off) !Config.address_sz)), 8) in
+		 match Bytes.get format_string off with		
+		 | 'd' -> !Config.stack_width, D.copy d dst' arg !Config.stack_width
+		 | 's' -> D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero !Config.operand_sz)) 10000
+		 | _ -> Log.error "Unknown format in format string"
+	       in
+	       let rec copy_char d c (off: int) len: int * D.t =
+		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int off) !Config.address_sz)), 8) in
+		 let d' = D.copy d dst' (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) 8 in
+		 fill_buffer d' (off+1) 0 len	    
+	       and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int): int * D.t =
+		 if off < str_len then
+		   match state_id with
+		   | 0 ->
+		      begin
+			match Bytes.get format_string off with
+			| '%' -> fill_buffer d (off+1) 2 len
+			| '\\' -> fill_buffer d (off+1) 1 len
+			| c -> copy_char d c off len
+		      end
+		   | 1 ->
+		      let c = Bytes.get format_string off in
+		      copy_char d c off len
+		      
+		   | _ (* = 2 ie previous char is % *) ->
+		      let arg = Asm.BinOp (Asm.Add, va_args, Asm.Const (Data.Word.of_int (Z.of_int off) !Config.address_sz)) in
+		      let buf_len, d' = copy_arg d (off+1) arg in
+		      fill_buffer d' (off+2) 0 (len+1+buf_len) 
+		 else
+		   0, d
+		   
+	       in
+	       let len', d' = fill_buffer d 0 0 0 in	       
+	       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
 		 
 	     with
-	     | Exceptions.Enum_failure ->
+	     | Exceptions.Enum_failure | Exceptions.Concretization ->
 		Log.error "sprintf: Unknown address of the format string or imprecise value of the format string"		  	  
 	     | Not_found ->
 		Log.error "address of the null terminator of the format string in sprintf not found"
 	   end
 	| _ -> Log.error "invalid call to sprintf stub" 
 	  
-      let process d fun_name args: Asm.stmt list =
+      let process d fun_name (args: Asm.exp list): D.t * bool =
 	match fun_name with
 	| "sprintf" -> sprintf d args
-	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name);  []
+	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name); d, false
     end
     open Asm
       
@@ -255,9 +286,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     | _ -> Log.from_analysis (Printf.sprintf "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
 	   end
 	| Directive (Type (lv, t)) -> D.set_type lv t d, false
-	| Directive (Stub (fun_name, args)) ->
-	   let stmts = Stubs.process d fun_name args in
-	   List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (d, false) stmts
+	| Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
