@@ -138,4 +138,4 @@ let compare v1 op v2 =
   | Asm.LT  -> lt v1 v2
   | Asm.GT  -> gt v1 v2
 		  
-let subset v1 v2 = leq v1 v2
+let subset v1 v2 = eq v1 v2

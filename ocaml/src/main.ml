@@ -82,7 +82,8 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
           in
           (* launch an interleaving of backward/forward if an inferred property can be backward propagated *)
           (*if !Config.interleave then*)
-          Interpreter.interleave_from_cfa cfa dump
+        (*Interpreter.interleave_from_cfa cfa dump*)
+	  cfa
         (* else
              cfa *)
 

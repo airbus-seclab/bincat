@@ -269,6 +269,8 @@ module Make(V: Val) =
         let sub v1 v2 = core_add_sub V.sub v1 v2
 
         let xor v1 v2 = map2 V.xor v1 v2
+
+
         let logand v1 v2 = map2 V.logand v1 v2
         let logor v1 v2 = map2 V.logor v1 v2
 

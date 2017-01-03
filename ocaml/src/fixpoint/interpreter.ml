@@ -481,6 +481,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
     (** [filter_vertices g vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
     let filter_vertices g vertices =
+      Log.debug "entree dans filter_vertices";
       (* predicate to check whether a new vertex has to be explored or not *)
       let same prev v' =
         Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip &&
@@ -504,7 +505,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                   if v.Cfa.State.id = prev.Cfa.State.id then
                     ()
                   else
-                    if same prev v then raise Exit
+                    if same prev v then begin Log.debug (Printf.sprintf "same with ip = %s and ids new=%d, prev=%d!" (Data.Address.to_string v.Cfa.State.ip) v.Cfa.State.id prev.Cfa.State.id); raise Exit end
                 ) g;
             v::l
           with
@@ -592,9 +593,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             (* the new instruction pointer (offset variable) is also returned                                      *)
             let r = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)                   in
             match r with
-            | Some (v, ip', d') ->
+            | Some (v, ip', d') -> Log.debug "cas 1";
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                         in
+	       Log.debug "updated";
 	       	(* add overrides if needed *)
 	       let new_vertices =
 		 try
@@ -605,8 +607,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 with
 		   Not_found -> new_vertices
 	       in
+	       Log.debug "overrided";
 	       (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
                let vertices'  = filter_vertices g new_vertices				     		         in
+	       Log.debug (Printf.sprintf "nb de nouvelles vertices = %d" (List.length vertices'));
                List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
                (* udpate the internal state of the decoder *)
                d := d'
@@ -780,7 +784,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	let waiting = ref (Vertices.singleton s) in
 	try
 	  while !continue do
-	    let v = Vertices.choose !waiting in
+	    let v = Vertices.choose !waiting in	
 	    waiting := Vertices.remove v !waiting;
 	    let v' = next g v in
 	    let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v v'.Cfa.State.ip [v'])@l) [] v' in

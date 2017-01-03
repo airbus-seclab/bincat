@@ -131,10 +131,10 @@ module Make (V: Vector.T) =
             match p1, p2 with
             | BOT, _ | _, TOP 	   -> true
             | _, BOT | TOP, _            -> false
-            | Val (r1, o1), Val (r2, o2) ->
+            | Val (r1, o1), Val (r2, o2) -> 
               if r1 = r2 then V.subset o1 o2
-              else true
-
+              else false
+		  
         let taint_of_config t n prev =
             match prev with
             | Val (r, o) -> Val (r, V.taint_of_config t n (Some o))
