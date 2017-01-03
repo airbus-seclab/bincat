@@ -1164,9 +1164,9 @@ struct
 
     (** [cmovcc s cond] returns the statements for cond. mov : cond is the condition *)
     let cmovcc s cond =
-        let dst, src  = operands_from_mod_reg_rm s s.operand_sz 0 in
+        let dst, src  = operands_from_mod_reg_rm s s.operand_sz 1 in
         let cond_stmt = exp_of_cond cond s in
-        return s [ If (cond_stmt, [ Set(dst, src) ], []) ]
+        return s [ If (cond_stmt, [ Set (dst, src) ], []) ]
 
     (*******************************)
     (* multiplication and division *)
@@ -1918,7 +1918,7 @@ struct
     let forget_reserved_registers_cdecl = forget_reserved_registers_stdcall
       
     let type_directives_cdecl (typing_rule: Newspeak.fundec): (Asm.stmt list * Asm.stmt list * int) =
-      Log.debug "Decoder.type_reictives_cdecl";
+      Log.debug "Decoder.type_directives_cdecl";
       let epilogue =
 	try
 	  [ Directive (Type (V (T eax), Types.typ_of_npk (snd (List.hd (typing_rule.Newspeak.rets))))) ]
