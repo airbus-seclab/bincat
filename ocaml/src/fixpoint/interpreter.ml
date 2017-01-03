@@ -505,7 +505,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                   if v.Cfa.State.id = prev.Cfa.State.id then
                     ()
                   else
-                    if same prev v then begin Log.debug (Printf.sprintf "same with ip = %s and ids new=%d, prev=%d!" (Data.Address.to_string v.Cfa.State.ip) v.Cfa.State.id prev.Cfa.State.id); raise Exit end
+                    if same prev v then raise Exit
                 ) g;
             v::l
           with
@@ -593,10 +593,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             (* the new instruction pointer (offset variable) is also returned                                      *)
             let r = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)                   in
             match r with
-            | Some (v, ip', d') -> Log.debug "cas 1";
+            | Some (v, ip', d') -> 
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                         in
-	       Log.debug "updated";
 	       	(* add overrides if needed *)
 	       let new_vertices =
 		 try
@@ -607,10 +606,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 with
 		   Not_found -> new_vertices
 	       in
-	       Log.debug "overrided";
 	       (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
-               let vertices'  = filter_vertices g new_vertices				     		         in
-	       Log.debug (Printf.sprintf "nb de nouvelles vertices = %d" (List.length vertices'));
+               let vertices'  = filter_vertices g new_vertices in
                List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
                (* udpate the internal state of the decoder *)
                d := d'
