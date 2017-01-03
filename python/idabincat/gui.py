@@ -6,6 +6,7 @@ import os
 import logging
 import string
 import idaapi
+import idautils
 from PyQt5 import QtCore, QtWidgets, QtGui
 import idabincat.hexview as hexview
 import pybincat.cfa as cfa
@@ -809,13 +810,38 @@ class OverridesModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(OverridesModel, self).__init__(*args, **kwargs)
         self.s = state
-        self.headers = ["eip", "register", "taint"]
+        self.headers = ["eip", "addr or reg", "taint"]
 
     def data(self, index, role):
-        if role != QtCore.Qt.DisplayRole:
+        if role not in (QtCore.Qt.ForegroundRole, QtCore.Qt.DisplayRole,
+                        QtCore.Qt.EditRole, QtCore.Qt.ToolTipRole):
             return
         col = index.column()
         row = index.row()
+        if role == QtCore.Qt.ToolTipRole:
+            if col == 1:
+                return "Example valid addresses: reg[eax], mem[0x1234]"
+            if col == 2:
+                return "Example taint values: TAINT_ALL, TAINT_NONE, 0x1234"
+            return
+        if role == QtCore.Qt.ForegroundRole:
+            # basic syntax checking
+            if col not in (1, 2):
+                return
+            txt = self.s.overrides[row][col]
+            if col == 1:
+                if txt.startswith('reg[') and txt.endswith(']'):
+                    return
+                if txt.startswith('mem[') and txt.endswith(']'):
+                    return
+                if txt.startswith('mem[0x') and txt.endswith(']'):
+                    return
+            else:  # Taint column
+                if txt in ("TAINT_ALL", "TAINT_NONE"):
+                    return
+                if txt.startswith("0x") or txt.startswith("0b"):
+                    return
+            return QtGui.QBrush(QtCore.Qt.red)
         rawdata = self.s.overrides[row][col]
         if col == 0:
             return "%x" % rawdata
@@ -860,11 +886,13 @@ class OverridesModel(QtCore.QAbstractTableModel):
     def columnCount(self, parent):
         return len(self.headers)
 
-    def remove_row(self, index):
-        del self.s.overrides[index]
+    def remove_row(self, checked):
+        del self.s.overrides[BinCATOverridesView.clickedIndex]
 
 
 class BinCATOverridesView(QtWidgets.QTableView):
+    clickedIndex = None
+
     def __init__(self, model, parent=None):
         super(BinCATOverridesView, self).__init__(parent)
         self.m = model
@@ -879,6 +907,7 @@ class BinCATOverridesView(QtWidgets.QTableView):
         action = QtWidgets.QAction('Remove', self)
         action.triggered.connect(self.m.remove_row)
         menu.addAction(action)
+        BinCATOverridesView.clickedIndex = self.indexAt(event.pos()).row()
         menu.popup(QtGui.QCursor.pos())
 
     def remove_row(self):
@@ -932,7 +961,17 @@ class HandleAddOverride(idaapi.action_handler_t):
             highlighted)
         if not res:
             return 1  # refresh IDA windows
-        self.s.overrides.append((address, highlighted, mask))
+        # guess whether highlighted text is register or address
+        try:
+            # is it a register?
+            idautils.procregs.__getattr__(highlighted)
+        except AttributeError:
+            # assume it's a memory address
+            htype = "mem"
+        else:
+            htype = "reg"
+        htext = "%s[%s]" % (htype, highlighted)
+        self.s.overrides.append((address, htext, mask))
         return 1
 
     def update(self, ctx):

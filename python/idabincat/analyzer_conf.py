@@ -194,7 +194,8 @@ class AnalyzerConfig(object):
         self.netnode = idabincat.netnode.Netnode()
         self._config = ConfigParser.RawConfigParser()
         self._config.optionxform = str
-        #: bcplugin.State instance, to fetch current configuration data
+        #: bcplugin.State instance, to fetch current configuration data.
+        #: state is never modified from AnalyzerConfig
         self.state = state
 
     # Convenience access functions
