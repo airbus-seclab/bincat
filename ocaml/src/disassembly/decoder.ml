@@ -1918,7 +1918,6 @@ struct
     let forget_reserved_registers_cdecl = forget_reserved_registers_stdcall
       
     let type_directives_cdecl (typing_rule: Newspeak.fundec): (Asm.stmt list * Asm.stmt list * int) =
-      Log.debug "Decoder.type_directives_cdecl";
       let epilogue =
 	try
 	  [ Directive (Type (V (T eax), Types.typ_of_npk (snd (List.hd (typing_rule.Newspeak.rets))))) ]
