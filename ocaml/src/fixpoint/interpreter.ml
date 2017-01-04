@@ -142,7 +142,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 1000
 
     (* Hash table to store number of times a function has been analysed *)
-    let _fun_unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
+    let fun_unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
       
     (* current unroll value *)
     (* None is for the default value set in Config *)
@@ -399,6 +399,15 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
       in
       let add_to_fun_stack a =
+	begin
+	    try
+	      let n' = (Hashtbl.find fun_unroll_tbl a) + 1 in
+	      if n' <= !Config.fun_unroll then
+		  Hashtbl.replace fun_unroll_tbl a n'
+	      else
+		Log.error (Printf.sprintf "function at %s has been analysed more than %d times. Analysis stops" (Data.Address.to_string a) !Config.fun_unroll)
+	  with Not_found -> Hashtbl.add fun_unroll_tbl a 1
+	end;
 	let f =
           try
             Some (Hashtbl.find Config.import_tbl (Data.Address.to_int a))
