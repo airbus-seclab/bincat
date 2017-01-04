@@ -59,7 +59,22 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (** stubs *)
     module Stubs =
     struct
+      let strlen (d: D.t) (args: Asm.exp list): D.t * bool =
+	Log.from_analysis "strlen stub";
+	match args with
+	| [Asm.Lval ret ; buf] ->
+	   let zero = Asm.Const (Data.Word.zero !Config.operand_sz) in
+	   let len = D.get_offset_from buf Asm.EQ zero !Config.operand_sz 10000 d in
+	   if len > !Config.unroll then
+	     begin
+	       Log.from_analysis (Printf.sprintf "updates automatic loop unrolling with the computed string length = %d" len);
+	       Config.unroll := len
+	     end;
+	   D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
+	| _ -> Log.error "invalid call to strlen stub"
+	   
       let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
+	Log.from_analysis "sprintf stub";
 	match args with
 	| [Asm.Lval ret ; Asm.Lval dst ; format_addr ; va_args] ->
 	   (* ret has to contain the number of bytes stored in dst ;
@@ -118,6 +133,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let process d fun_name (args: Asm.exp list): D.t * bool =
 	match fun_name with
 	| "sprintf" -> sprintf d args
+	| "strlen" -> strlen d args
 	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name); d, false
     end
     open Asm
@@ -194,8 +210,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    in
             if n <= nb_max then
               ()
-            else 
-              widen jd v
+            else
+	      begin
+		Log.from_analysis (Printf.sprintf "widening occurs at %s" (Data.Address.to_string ip));
+		widen jd v
+	      end
         ) l;
 
        List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
@@ -300,6 +319,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t) list ref
       
     let process_ret (fun_stack: fun_stack_t) v =
+      Log.debug (Printf.sprintf "return instruction found at %s" (Data.Address.to_string v.Cfa.State.ip));
       try
 	begin
 	let d = v.Cfa.State.v in
@@ -317,7 +337,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
               let sp = Register.stack_pointer () in
               let ip_on_stack, is_tainted = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
               match Data.Address.Set.elements (ip_on_stack) with
-              | [a] ->
+              | [a] -> 
 		 v.Cfa.State.ip <- a;
 		 begin
 		   match ipstack with
@@ -425,7 +445,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
 		
              | Jmp (A a) ->
-		Log.debug (Printf.sprintf "Jmp %s" (Data.Address.to_string a));
 		begin
 		  try
 		    import_call vertices a fun_stack
@@ -437,7 +456,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		fold_to_target (fun _a -> ()) vertices target
 			 
              | Call (A a) ->
-		Log.debug (Printf.sprintf "Call %s" (Data.Address.to_string a));
 		begin
 		  try
 		    import_call vertices a fun_stack
@@ -481,7 +499,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
     (** [filter_vertices g vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
     let filter_vertices g vertices =
-      Log.debug "entree dans filter_vertices";
       (* predicate to check whether a new vertex has to be explored or not *)
       let same prev v' =
         Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip &&

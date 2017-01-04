@@ -17,9 +17,7 @@ module Make(D: Unrel.T) =
   let is_bot (uenv, _tenv) = U.is_bot uenv
 
   let subset (uenv1, tenv1) (uenv2, tenv2) =
-    let r = U.subset uenv1 uenv2 && T.subset tenv1 tenv2 in
-    Log.debug (Printf.sprintf "res = %s" (string_of_bool r));
-    r
+    U.subset uenv1 uenv2 && T.subset tenv1 tenv2
 
   let remove_register r (uenv, tenv) = U.remove_register r uenv, T.remove_register r tenv
 

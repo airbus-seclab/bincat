@@ -1,3 +1,4 @@
+(* TODO: move parts depending on x86 architecture (eax for instance in result) into a subdirectory x86 *)
 module Make(D: Domain.T) =
 struct
   type fun_type = {
@@ -37,10 +38,20 @@ struct
 
   let sprintf_cdecl = sprintf_stdcall
 
+  let strlen_stdcall () =
+    let buf = arg 4 in
+    let res = Register.of_name "eax" in
+    [ Directive (Stub ("strlen",  [Lval (V (T res)) ; buf])) ]
+
+  let strlen_cdecl = strlen_stdcall
+    
   let stdcall_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
   let cdecl_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
 
   let init () =
     Hashtbl.add stdcall_stubs "sprintf" (sprintf_stdcall ());
-    Hashtbl.add cdecl_stubs "sprintf" (sprintf_cdecl ());;
+    Hashtbl.add cdecl_stubs "sprintf" (sprintf_cdecl ());
+    Hashtbl.add stdcall_stubs "strlen" (strlen_stdcall ());
+    Hashtbl.add cdecl_stubs "strlen" (strlen_cdecl ());;
+  
 end
