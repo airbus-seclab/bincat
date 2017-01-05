@@ -85,12 +85,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	   begin
 	     try
 	       let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
-	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 d in
+	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
 	       let copy_arg d off arg: int * D.t =
 		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int off) !Config.address_sz)), 8) in
 		 match Bytes.get format_string off with		
 		 | 'd' -> !Config.stack_width, D.copy d dst' arg !Config.stack_width
-		 | 's' -> D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero !Config.operand_sz)) 10000
+		 | 's' -> D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000
 		 | _ -> Log.error "Unknown format in format string"
 	       in
 	       let rec copy_char d c (off: int) len: int * D.t =

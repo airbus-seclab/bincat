@@ -88,20 +88,20 @@ module type T =
       (** may raise an exception if not found or memory too much imprecise *)
       val get_offset_from: Asm.exp -> Asm.cmp -> Asm.exp -> int -> int -> t -> int
 	
-      (** [get_bytes e cmp terminator length_bound d] *)
+      (** [get_bytes e cmp terminator term_sz length_bound d] *)
       (** return the byte sequence b1...bn from address e such that *)
       (** n is the minimal index <= length_bound with M[e+i] cmp *)
       (** terminator is true in d *)
       (** size of terminator is 8-bit width *)
       (** raise Not_found if no such sequence exists *)
       (** the return integer is the length of the return string wrt to the given terminator *)
-      val get_bytes: Asm.exp -> Asm.cmp -> Asm.exp -> int -> t -> int * Bytes.t
+      val get_bytes: Asm.exp -> Asm.cmp -> Asm.exp -> int -> int -> t -> int * Bytes.t
 
       (** [copy d dst arg sz] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d *)
       val copy: t -> Asm.lval -> Asm.exp -> int -> t
 
-    (** [copy_until d dst arg term bound] copy the bits of dst into address [arg] until the first occurence of term is found into dst. This occurence may be at most at address [arg+bound] raise an exception if the upper bound is exceeded of dst is undefined in d 
+    (** [copy_until d dst arg term term_sz bound] copy the bits of dst into address [arg] until the first occurence of term is found into dst. This occurence may be at most at address [arg+bound] raise an exception if the upper bound is exceeded of dst is undefined in d 
 	it returns also the number of copied bits *)
-      val copy_until: t -> Asm.lval -> Asm.exp -> Asm.exp -> int -> int * t
+      val copy_until: t -> Asm.lval -> Asm.exp -> Asm.exp -> int -> int -> int * t
     end
       

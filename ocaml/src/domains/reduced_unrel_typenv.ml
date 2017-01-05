@@ -89,14 +89,14 @@ module Make(D: Unrel.T) =
   let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv) =
     U.get_offset_from addr cmp terminator upper_bound sz uenv
 
-  let get_bytes addr cmp terminator upper_bound (uenv, _tenv) =
-    U.get_bytes addr cmp terminator upper_bound uenv
+  let get_bytes addr cmp terminator upper_bound term_sz (uenv, _tenv) =
+    U.get_bytes addr cmp terminator upper_bound term_sz uenv
 
   let copy (uenv, _tenv) dst src sz: t =
     U.copy uenv dst src sz, T.top
 
-  let copy_until (uenv, _tenv) dst arg terminator upper_bound =
-    let len, uenv' = U.copy_until uenv dst arg terminator upper_bound in
+  let copy_until (uenv, _tenv) dst arg terminator term_sz upper_bound =
+    let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound in
     len, (uenv', T.top)
  end:
    Domain.T)

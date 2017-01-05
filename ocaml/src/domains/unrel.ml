@@ -804,9 +804,9 @@ module Make(D: T) =
 	    end
 	 | [] -> raise Not_found
 
-    let get_bytes e cmp terminator upper_bound m: int * Bytes.t =
+    let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t): int * Bytes.t =
       try
-	let len, vals = i_get_bytes e cmp terminator upper_bound 8 m in
+	let len, vals = i_get_bytes e cmp terminator upper_bound sz m in
 	let bytes = Bytes.create len in
       (* TODO: endianess ! *)
 	List.iteri (fun i v -> Bytes.set bytes i (D.to_char v)) vals;
@@ -829,8 +829,30 @@ module Make(D: T) =
 	 end
       | BOT -> BOT
      
-
-    let copy_until _m _dst _arg _terminator _upper_bound = failwith "to implement" 
+	      
+    let copy_until m dst e terminator term_sz upper_bound: int * t =
+      match m with
+      | Val m' ->
+	 begin
+	   let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' (Asm.Lval dst)))) in
+	   let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m in
+	   let copy_byte a m' strong =
+	     let m', _ =
+	       List.fold_left (fun (m', i) byte ->
+	       let a' = Data.Address.add_offset a (Z.of_int i) in
+	       (write_in_memory a' m' byte 8 strong false), i+1) (m', 0) bytes
+	     in
+	     m'
+	   in						     
+	   let m' =
+	     match addrs with
+	     | [a] -> copy_byte a m' true
+	     | _::_  -> List.fold_left (fun m' a -> copy_byte a m' false) m' addrs
+	     | [] -> raise Exceptions.Concretization
+	   in
+	   len, Val m'
+	 end
+      | BOT -> 0, BOT
   end
     
     
