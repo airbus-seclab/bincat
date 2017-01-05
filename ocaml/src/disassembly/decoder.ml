@@ -1886,8 +1886,7 @@ struct
             | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bt s reg rm
             | '\xa8' -> push s [V (T gs)]
             | '\xa9' -> pop s [V (T gs)]
-            | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
-
+            | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm		 
             | '\xb2' -> load_far_ptr s ss
             | '\xb3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btr s reg rm
             | '\xb4' -> load_far_ptr s fs

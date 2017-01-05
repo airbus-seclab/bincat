@@ -92,7 +92,7 @@ module Make(D: Unrel.T) =
   let get_bytes addr cmp terminator upper_bound (uenv, _tenv) =
     U.get_bytes addr cmp terminator upper_bound uenv
 
-  let copy (uenv, _tenv) dst src sz =
+  let copy (uenv, _tenv) dst src sz: t =
     U.copy uenv dst src sz, T.top
 
   let copy_until (uenv, _tenv) dst arg terminator upper_bound =

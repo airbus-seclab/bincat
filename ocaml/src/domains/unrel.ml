@@ -815,7 +815,19 @@ module Make(D: T) =
 	
     let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m)
 
-    let copy _m _dst _arg _sz = failwith "to implement"
+
+    let copy m dst arg sz: t =
+      match m with
+      | Val m' ->
+	 begin
+	   let v = fst (eval_exp m' arg) in
+	   let addrs = fst (eval_exp m' (Asm.Lval dst)) in
+	   match Data.Address.Set.elements (D.to_addresses addrs) with
+	   | [a] -> Val (write_in_memory a m' v sz true false)
+	   | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
+	   | [ ] -> raise Exceptions.Concretization
+	 end
+      | BOT -> BOT
      
 
     let copy_until _m _dst _arg _terminator _upper_bound = failwith "to implement" 
