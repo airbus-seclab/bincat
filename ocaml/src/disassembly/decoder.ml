@@ -1172,32 +1172,51 @@ struct
     (* multiplication and division *)
     (*******************************)
 
-    let mul_stmts dst sz =
+    let mul_stmts op src sz =
         let eax_r = (to_reg eax sz) in let eax_lv = Lval( V (eax_r)) in
         let edx_r = (to_reg edx sz) in
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let mul_s =
             if sz = 8 (* dest == AX *) then begin
-                [ Set(V(to_reg eax 16), BinOp(Mul, eax_lv, dst));
+                [ Set(V(to_reg eax 16), BinOp(op, eax_lv, src));
                   Set(V(T tmp), Lval(V(to_reg eax 16)))] (* for flags *)
             end else begin
                 (** dest is split over (E)DX:(E)AX *)
-                [ Set(V(T tmp), BinOp(Mul, eax_lv, dst));
+                [ Set(V(T tmp), BinOp(op, eax_lv, src));
                   Set (V(eax_r), Lval (V (P (tmp, 0, sz-1))));
                   Set (V(edx_r), Lval (V (P (tmp, sz, sz*2-1))));
                 ]
             end in
+        let flags_stmts =
+            if op = Mul then begin
+                [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
+                (* The OF and CF flags are set to 0 if the upper half of the result
+                   is 0; otherwise, they are set to 1.  *)
+                If(Cmp(EQ, Const (Word.zero sz), Lval (V( P(tmp, sz, sz*2-1)))),
+                    [clear_flag fcf; clear_flag fof],
+                    [set_flag fcf; set_flag fof])
+                ]
+            end else begin
+                [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
+                (* The OF and CF flags are set to 0 if the full size result (tmp) equals
+                   the normal size result; otherwise, they are set to 1.  *)
+                   (* TODO FIX ME *)
+                ]
+            end in
+        mul_s @ flags_stmts @ [ Directive (Remove tmp) ]
+
+    let imul_stmts s (dst:Asm.lval) (src1:Asm.exp) (src2:Asm.exp) =
+        let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(s.operand_sz*2) in
+        let imul_s = [ Set(V(T tmp), BinOp(IMul, src1, src2));
+                      Set(dst, Lval(V(P(tmp, 0, s.operand_sz-1)))) ] in
         let flags_stmts = [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
-            (* The OF and CF flags are set to 0 if the upper half of the result
-               is 0; otherwise, they are set to 1.  *)
-            If(Cmp(EQ, Const (Word.zero sz), Lval (V( P(tmp, sz, sz*2-1)))),
+            (* The OF and CF flags are set to 0 if the full size result (tmp) equals
+               the normal size result; otherwise, they are set to 1.  *)
+            If(Cmp(EQ, Lval(V(T tmp)), Lval(dst)),
                 [clear_flag fcf; clear_flag fof],
                 [set_flag fcf; set_flag fof])
             ] in
-        mul_s @ flags_stmts @ [ Directive (Remove tmp) ]
-
-    let imul_stmts dst sz =
-        mul_stmts dst sz
+        return s (imul_s @ flags_stmts @ [ Directive (Remove tmp) ])
 
     let idiv_stmts (reg : Asm.exp)  sz =
         let min_int_z = (Z.of_int (1 lsl (sz-1))) in
@@ -1371,8 +1390,8 @@ struct
             | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts reg imm sz
             | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
             | 3 -> (* NEG *) [ Set (reg, BinOp (Sub, Const (Word.zero sz), Lval reg)) ]
-            | 4 -> (* MUL *) mul_stmts (Lval reg) sz
-            | 5 -> (* IMUL *) imul_stmts (Lval reg) sz
+            | 4 -> (* MUL *) mul_stmts Mul (Lval reg) sz
+            | 5 -> (* IMUL *) mul_stmts IMul (Lval reg) sz
             | 7 -> (* IDIV *) idiv_stmts (Lval reg) sz
             | _ -> error s.a "Unknown operation in grp 3"
         in
@@ -1887,6 +1906,7 @@ struct
             | '\xa8' -> push s [V (T gs)]
             | '\xa9' -> pop s [V (T gs)]
             | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
+            | '\xaf' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in imul_stmts s reg (Lval reg) rm
 
             | '\xb2' -> load_far_ptr s ss
             | '\xb3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btr s reg rm
