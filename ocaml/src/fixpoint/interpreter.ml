@@ -139,7 +139,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     open Asm
       
     (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
-    let unroll_tbl: (Data.Address.t, int * D.t) Hashtbl.t = Hashtbl.create 1000
+    let unroll_tbl: ((Data.Address.t, int * D.t) Hashtbl.t) ref = ref (Hashtbl.create 1000)
 
     (* Hash table to store number of times a function has been analysed *)
     let fun_unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
@@ -199,11 +199,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         List.iter (fun v ->
             let n, jd =
               try
-		let n', jd' = Hashtbl.find unroll_tbl ip in
+		let n', jd' = Hashtbl.find !unroll_tbl ip in
 		let d' = D.join jd' v.Cfa.State.v in
-		Hashtbl.replace unroll_tbl ip (n'+1, d'); n'+1, jd'
+		Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
               with Not_found ->
-		Hashtbl.add unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
+		Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
 		1, v.Cfa.State.v
             in
 	    let nb_max =
@@ -319,21 +319,21 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e false) else_stmts in
              D.join dt de, bt||be
 
-    type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t) list ref
+    type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
       
     let process_ret (fun_stack: fun_stack_t) v =
       Log.debug (Printf.sprintf "return instruction found at %s" (Data.Address.to_string v.Cfa.State.ip));
       try
 	begin
 	let d = v.Cfa.State.v in
-	let d', ipstack =
-            let _f, ipstack, _v = List.hd !fun_stack in
+	let d', ipstack, prev_unroll_tbl =
+            let _f, ipstack, _v, prev_unroll_tbl = List.hd !fun_stack in
             fun_stack := List.tl !fun_stack;	
             (* check and apply tainting and typing rules *)
 	    (* 1. check for assert *)
 	    (* 2. taint ret *)
 	    (* 3. type ret *)
-            d, Some ipstack
+            d, Some ipstack, prev_unroll_tbl
 	    in   
 	    (* check whether instruction pointers supposed and effective do agree *)
 	    try
@@ -350,6 +350,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 							  (Data.Address.to_string ip') (Data.Address.to_string a))
 		   | None -> ()
 		 end;
+		 unroll_tbl := prev_unroll_tbl;
 		 Some v, is_tainted
               | _ -> raise Exit
 	    with
@@ -362,8 +363,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     let import_call vertices a (fun_stack: fun_stack_t) =
       let fundec = Hashtbl.find Decoder.Imports.tbl a in
       Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
-      let _, ipstack, _ = List.hd (!fun_stack) in
-   
+      let _, ipstack, _, prev_unroll_tbl = List.hd (!fun_stack) in
+      unroll_tbl := prev_unroll_tbl;
       let b =
 	List.fold_left (fun b v ->
 	  let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
@@ -413,7 +414,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             Some (Hashtbl.find Config.import_tbl (Data.Address.to_int a))
           with Not_found -> None
 	in
-	fun_stack := (f, ip, v)::!fun_stack
+	fun_stack := (f, ip, v, !unroll_tbl)::!fun_stack;
+	unroll_tbl := Hashtbl.create 1000
       in
       let copy v d branch is_pred =
 	(* TODO: optimize with Cfa.State.copy that copies every field and then here some are updated => copy them directly *)
@@ -505,7 +507,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       if b then
 	begin
 	  v.Cfa.State.is_tainted <- true;
-	  List.iter (fun (_f, _ip, v) -> v.Cfa.State.is_tainted <- true) !fun_stack
+	  List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.is_tainted <- true) !fun_stack
 	end;
       vertices
 
@@ -624,7 +626,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             match r with
             | Some (v, ip', d') -> 
                (* these vertices are updated by their right abstract values and the new ip                         *)
-               let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                         in
+               let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
 	       	(* add overrides if needed *)
 	       let new_vertices =
 		 try
@@ -838,7 +840,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let interleave_from_cfa (g: Cfa.t) (dump: Cfa.t -> unit): Cfa.t =
 	Log.from_analysis "entering interleaving mode";
 	let process mode cfa =
-	  Hashtbl.clear unroll_tbl;
+	  Hashtbl.clear !unroll_tbl;
 	  List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.last cfa)
 	in
 	let g_bwd = process backward g in
