@@ -1172,6 +1172,9 @@ struct
     (* multiplication and division *)
     (*******************************)
 
+    (* Generic multiplication statements for implicit destination registers.
+       Multiply EAX/AX/AL with src with destination EDX:EAX/DX:AX/AX.
+       op is either Mul or Imul for unsigned / signed multiplication *)
     let mul_stmts op src sz =
         let eax_r = (to_reg eax sz) in let eax_lv = Lval( V (eax_r)) in
         let edx_r = (to_reg edx sz) in
@@ -1187,63 +1190,72 @@ struct
                   Set (V(edx_r), Lval (V (P (tmp, sz, sz*2-1))));
                 ]
             end in
+        let clr_f = [clear_flag fcf; clear_flag fof] in
+        let set_f = [set_flag fcf; set_flag fof] in 
         let flags_stmts =
             if op = Mul then begin
-                [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
                 (* The OF and CF flags are set to 0 if the upper half of the result
                    is 0; otherwise, they are set to 1.  *)
-                If(Cmp(EQ, Const (Word.zero sz), Lval (V( P(tmp, sz, sz*2-1)))),
-                    [clear_flag fcf; clear_flag fof],
-                    [set_flag fcf; set_flag fof])
-                ]
-            end else begin
-                [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
+                [ If(Cmp(EQ, Const (Word.zero sz), Lval (V( P(tmp, sz, sz*2-1)))),
+                    clr_f, set_f) ]
+            end else begin (* IMul *) 
                 (* The OF and CF flags are set to 0 if the full size result (tmp) equals
-                   the normal size result; otherwise, they are set to 1.  *)
-                   (* TODO FIX ME *)
-                ]
+                   the src size result; otherwise, they are set to 1.  *)
+                if sz = 8  then begin (* AL == AX *)
+                    [  If(Cmp(EQ, Lval (V(to_reg eax 16)), UnOp(SignExt 16, Lval(V(to_reg eax 8)))),
+                        clr_f, set_f) ]
+                end else begin (* SignExt((E)AX) == (E)DX:(E)AX *)
+                    [ If(Cmp(EQ, Lval(V(T tmp)), UnOp(SignExt (sz*2), Lval(V(eax_r)))),
+                        clr_f, set_f) ]
+                end
             end in
-        mul_s @ flags_stmts @ [ Directive (Remove tmp) ]
+        mul_s @ [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf; ] @ flags_stmts @ [ Directive (Remove tmp) ]
 
+    (* Signed multiplication with explicit destination register *)
     let imul_stmts s (dst:Asm.lval) (src1:Asm.exp) (src2:Asm.exp) =
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(s.operand_sz*2) in
         let imul_s = [ Set(V(T tmp), BinOp(IMul, src1, src2));
-                      Set(dst, Lval(V(P(tmp, 0, s.operand_sz-1)))) ] in
-        let flags_stmts = [ undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
-            (* The OF and CF flags are set to 0 if the full size result (tmp) equals
-               the normal size result; otherwise, they are set to 1.  *)
-            If(Cmp(EQ, Lval(V(T tmp)), Lval(dst)),
-                [clear_flag fcf; clear_flag fof],
-                [set_flag fcf; set_flag fof])
+                       Set(dst, Lval(V(P(tmp, 0, s.operand_sz-1)))) ] in
+        let flags_stmts =
+            [   undef_flag fsf;  undef_flag fzf; undef_flag faf; undef_flag fpf;
+                (* The OF and CF flags are set to 0 if the full size result (tmp) equals
+                   the normal size result; otherwise, they are set to 1.  *)
+                If(Cmp(EQ, Lval(V(T tmp)), UnOp(SignExt (s.operand_sz*2), Lval dst)),
+                    [clear_flag fcf; clear_flag fof],
+                    [set_flag fcf; set_flag fof])
             ] in
         return s (imul_s @ flags_stmts @ [ Directive (Remove tmp) ])
 
     let idiv_stmts (reg : Asm.exp)  sz =
+        (* Useful boundaries for flags *)
         let min_int_z = (Z.of_int (1 lsl (sz-1))) in
         let min_int_const = (Const (Word.of_int min_int_z (sz*2))) in
         let max_int_z = (Z.sub min_int_z Z.one) in
         let max_int_const = (Const (Word.of_int max_int_z (sz*2))) in
+
         let eax_r = (to_reg eax sz) in let eax_lv = Lval( V (eax_r)) in
         let edx_r = (to_reg edx sz) in let edx_lv = Lval( V (edx_r)) in
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let tmp_div   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
+
+        (* tmp <- (E)AX:(E)DX *)
+        (* TODO : fix for 8 bits *)
         let set_tmp = Set (V (T tmp), BinOp(Or, BinOp(Shl, edx_lv, Const (Word.of_int (Z.of_int sz) sz)), eax_lv)) in
-        [set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg));
-         Assert (
-            BBinOp(LogOr,
-                  Cmp(GT, Lval( V (T tmp_div)), max_int_const),
-                  Cmp(LT, Lval( V (T tmp_div)), min_int_const)),
-            "Divide error");
-         (* compute remainder *)
-         Set (V(edx_r), BinOp(Mod, Lval(V(T tmp)), reg));
-         Set (V(eax_r), Lval (V (P (tmp_div, 0, sz-1))));
-         Directive (Remove tmp); Directive (Remove tmp_div)]
+            [ set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg));
+              Assert (
+                BBinOp(LogOr,
+                      Cmp(GT, Lval( V (T tmp_div)), max_int_const),
+                      Cmp(LT, Lval( V (T tmp_div)), min_int_const)),
+                "Divide error");
+              (* compute remainder *)
+              Set (V(edx_r), BinOp(Mod, Lval(V(T tmp)), reg));
+              Set (V(eax_r), Lval (V (P (tmp_div, 0, sz-1))));
+              Directive (Remove tmp); Directive (Remove tmp_div) ]
 
 
     (*****************************************************************************************)
     (* decoding of opcodes of groups 1 to 8 *)
     (*****************************************************************************************)
-
 
     let core_grp s sz =
         let md, nnn, rm = mod_nnn_rm (Char.code (getchar s)) in
