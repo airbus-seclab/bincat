@@ -1125,7 +1125,7 @@ struct
 
     (** returns the state for the push of an immediate operands. _sz_ in bits *)
     let push_immediate s sz =
-        let c     = get_imm s sz !Config.stack_width false in
+        let c     = get_imm s sz !Config.stack_width true in
         let esp'  = esp_lval ()						       in
         let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]
         in
