@@ -349,6 +349,16 @@ module Make(V: Val) =
             loop ((Array.length v1)-1) res
 
         let imul v1 v2 =
+            Log.debug_lvl (Printf.sprintf "Vector.imul((%d)%s, (%d)%s)" (Array.length v1) (to_string v1) (Array.length v2) (to_string v2)) 4;
+            let v1_len = Array.length v1 in
+            let v2_len = Array.length v2 in
+            let long_v1 = sign_extend v1 (v1_len*2) in
+            let long_v2 = sign_extend v2 (v2_len*2) in
+            let fullres = mul long_v1 long_v2 in
+                Log.debug_lvl (Printf.sprintf "Vector.imul fullres = %s" (to_string fullres)) 6;
+            let res = Array.sub fullres (v1_len*2) (v1_len*2) in
+                Log.debug_lvl (Printf.sprintf "Vector.imul return %s" (to_string res)) 4;
+                res
 
         (** returns true whenever v1 >= v2 *)
         exception Res of bool
