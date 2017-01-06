@@ -182,13 +182,13 @@ module Make (V: Vector.T) =
               Val(region, newoffset)
 
         let rec concat l =
-            Log.debug_lvl (Printf.sprintf "concat len %d" (List.length l)) 4; 
+            Log.debug_lvl (Printf.sprintf "concat len %d" (List.length l)) 6;
             match l with
             | [ ] -> BOT
-            | [v] -> Log.debug_lvl (Printf.sprintf "concat single : %s" (to_string v)) 4; v
+            | [v] -> Log.debug_lvl (Printf.sprintf "concat single : %s" (to_string v)) 6; v
             | v::l' ->
               let v' = concat l' in
-              Log.debug_lvl (Printf.sprintf "concat : %s %s" (to_string v) (to_string v')) 4;
+              Log.debug_lvl (Printf.sprintf "concat : %s %s" (to_string v) (to_string v')) 6;
               match v, v' with
               | BOT, _ | _, BOT -> BOT
               | TOP, _ | _, TOP -> TOP
