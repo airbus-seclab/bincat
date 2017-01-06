@@ -334,22 +334,21 @@ module Make(V: Val) =
 
         let mul v1 v2 =
             let n   = 2*(Array.length v1) in
-            let v   = Array.make n V.zero in
+            let res = Array.make n V.zero in
             let v2' = zero_extend v2 n    in
-            let rec loop i v =
+            let rec loop i res =
                 if i = 0 then
-                    v
+                    res
                 else
                     let v' =
-                        if V.is_one v1.(i) then add v (ishl v2' i)
-                        else v
+                        if V.is_one v1.(i) then add res (ishl v2' ((Array.length v1)-1-i))
+                        else res
                     in
                     loop (i-1) v'
             in
-            loop (n-1) v
+            loop ((Array.length v1)-1) res
 
-        (** TODO vérifier que c'est correct *)
-        let imul v1 v2 = mul v1 v2
+        let imul v1 v2 =
 
         (** returns true whenever v1 >= v2 *)
         exception Res of bool
