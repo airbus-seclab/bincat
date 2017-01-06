@@ -233,7 +233,6 @@ module Make(V: Val) =
         if String.compare t "0x0" == 0 then v'
         else Printf.sprintf "%s!%s" v' t
 
-
         let join v1 v2 = map2 V.join v1 v2
 
         let meet v1 v2 = map2 V.meet v1 v2
@@ -273,6 +272,24 @@ module Make(V: Val) =
 
         let logand v1 v2 = map2 V.logand v1 v2
         let logor v1 v2 = map2 V.logor v1 v2
+
+        let sign_extend v i =
+            let n = Array.length v in
+            if n >= i then
+                v
+            else
+                begin
+                    let sign = v.(0) in
+                    let o    = i - n in
+                    let v' =
+                        if V.is_zero sign then Array.make i V.zero
+                        else Array.make i V.one
+                    in
+                    for j = 0 to n-1 do
+                        v'.(j+o) <- v.(j)
+                    done;
+                    v'
+                end
 
         let zero_extend v new_sz =
             let sz = Array.length v in
@@ -389,23 +406,6 @@ module Make(V: Val) =
 
 
 
-        let sign_extend v i =
-            let n = Array.length v in
-            if n >= i then
-                v
-            else
-                begin
-                    let sign = v.(0) in
-                    let o    = i - n in
-                    let v' =
-                        if V.is_zero sign then Array.make i V.zero
-                        else Array.make i V.one
-                    in
-                    for j = 0 to n-1 do
-                        v'.(j+o) <- v.(j)
-                    done;
-                    v'
-                end
 
         let unary op v =
             match op with
