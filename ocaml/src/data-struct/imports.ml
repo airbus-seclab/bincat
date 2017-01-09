@@ -23,12 +23,16 @@ struct
     with Found pair -> pair 
 
   open Asm
+
+  (* x86 depend *)
   let esp () = Register.of_name "esp"
 
+  (* x86 dependent *)
   let arg n =
     let esp = Register.of_name "esp" in
-    BinOp (Add, Lval (V (T (esp))), Const (Data.Word.of_int (Z.of_int n) !Config.stack_width))
-      
+    Lval (M (BinOp (Add, Lval (V (T (esp))), Const (Data.Word.of_int (Z.of_int n) !Config.stack_width)), !Config.stack_width))
+
+  (* x86 dependent *)
   let sprintf_stdcall () =
     let buf = arg 4 in
     let format = arg 8 in
