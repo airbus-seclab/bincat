@@ -9,7 +9,7 @@ The IDA plugin will then be installed and configured to use bincat as a webapp.
 
 ### Install
 
-* install IDA (v0.9 or later version) with bundled Python
+* install IDA (v6.9 or later version) with bundled Python
 * run ```docker build -t bincat .```
 * copy or symlink BinCAT plugin and libs into IDA plugins folder
 ```
@@ -18,7 +18,7 @@ ln -s $(pwd)/python//{idabincat,pybincat,idabincat/bcplugin.py} ~/.idapro/plugin
 ```
 * install Python <i>requests</i> library for IDA's bundled Python
 ```
-virtualenv /tmp/installrequests
+virtualenv -p $(which python2) /tmp/installrequests
 . /tmp/installrequests/bin/activate
 pip install requests
 deactivate
@@ -31,10 +31,9 @@ mkdir -p ~/.idapro/idabincat
 cp -a python/idabincat/conf ~/.idapro/idabincat/
 ```
 
-
 ### Configuration
 
-* run bincat docker microservice: ```docker run -p 5000:5000 bincat```
+* run `bincat` Docker microservice: `docker run -p 5000:5000 bincat`
 * run IDA
 * launch bincat plugin (Ctrl-Shift-B)
 * If there's a problem with `hashlib` on Debian, do the following:
@@ -45,10 +44,10 @@ sha256sum libssl0.9.8_0.9.8o-4squeeze14_i386.deb | grep -q 3c2391187c88e732545a1
 if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 ```
 
-* Configure IDA bincat plugin:<br>
-  go to <i>Edit > BinCAT > Options...</i> menu<br>
-  check <i>use remote bincat</i><br>
-  Remote URL: http://localhost:5000
+* Configure IDA bincat plugin:
+  *  go to *Edit > BinCAT > Options...* menu
+  *  check *use remote bincat*
+  *  Remote URL: http://localhost:5000
 
 * Now you can run analyses (Ctrl-Shilft-A)
 
