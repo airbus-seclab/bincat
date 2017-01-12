@@ -199,7 +199,7 @@ module Make(V: Val) =
 	      for i = 0 to 7 do
 		c := (V.to_int v.(i)) + ((!c) lsl 1)
 	      done;
-	      char_of_int !c
+	      Char.chr !c
 	    end
 	      
     let to_z v = v_to_z V.to_z v 

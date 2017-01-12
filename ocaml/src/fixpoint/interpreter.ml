@@ -86,40 +86,43 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     try
 	       let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
 	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
-	       let copy_arg d off arg: int * D.t =
-		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int off) !Config.address_sz)), 8) in
+	       let off_arg = !Config.stack_width / 8 in
+	       let copy_arg d off len arg: int * D.t =
+		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)), 8) in
 		 match Bytes.get format_string off with		
-		 | 'd' -> !Config.stack_width, D.copy d dst' arg !Config.stack_width
+		 | 'd' -> !Config.stack_width, D.copy d dst' arg !Config.operand_sz
 		 | 's' -> D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000
 		 | _ -> Log.error "Unknown format in format string"
 	       in
-	       let rec copy_char d c (off: int) len: int * D.t =
-		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int off) !Config.address_sz)), 8) in
+	       let rec copy_char d c (off: int) len arg_nb: int * D.t =
+		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)), 8) in
 		 let d' = D.copy d dst' (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) 8 in
-		 fill_buffer d' (off+1) 0 len	    
-	       and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int): int * D.t =
+		 Log.debug (Printf.sprintf "copy %c at address %s" c (Asm.string_of_lval dst' true));
+		 fill_buffer d' (off+1) 0 (len+1) arg_nb	    
+	       and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int) arg_nb: int * D.t =
 		 if off < str_len then
 		   match state_id with
 		   | 0 ->
 		      begin
 			match Bytes.get format_string off with
-			| '%' -> fill_buffer d (off+1) 2 len
-			| '\\' -> fill_buffer d (off+1) 1 len
-			| c -> copy_char d c off len
+			| '%' -> fill_buffer d (off+1) 2 len arg_nb
+			| '\\' -> fill_buffer d (off+1) 1 len arg_nb
+			| c -> copy_char d c off len arg_nb
 		      end
 		   | 1 ->
 		      let c = Bytes.get format_string off in
-		      copy_char d c off len
+		      copy_char d c off len arg_nb 
 		      
 		   | _ (* = 2 ie previous char is % *) ->
-		      let arg = Asm.BinOp (Asm.Add, va_args, Asm.Const (Data.Word.of_int (Z.of_int off) !Config.address_sz)) in
-		      let buf_len, d' = copy_arg d (off+1) arg in
-		      fill_buffer d' (off+2) 0 (len+1+buf_len) 
+		      let arg = Asm.BinOp (Asm.Add, va_args, Asm.Const (Data.Word.of_int (Z.of_int (arg_nb*off_arg)) !Config.stack_width)) in
+		      let buf_len, d' = copy_arg d off len arg in
+		      fill_buffer d' (off+1) 0 (len+buf_len) (arg_nb+1)
 		 else
-		   0, d
+		   len, d
 		   
 	       in
-	       let len', d' = fill_buffer d 0 0 0 in	       
+	       let len', d' = fill_buffer d 0 0 0 0 in
+	       Log.debug (Printf.sprintf "sprintf will return %d" len');
 	       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
 		 
 	     with

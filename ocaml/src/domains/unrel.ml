@@ -781,13 +781,13 @@ module Make(D: T) =
 	     let a' = Data.Address.add_offset a (Z.of_int o) in
 	     let v = get_mem_value m' a' sz in
 	     if D.compare v cmp term then
-	       o, [v] 
+	       o, [] 
 	     else
 	       let o', l = find a (o+off) in
 	       o', v::l
 	 in
 	 match addrs with
-	 | [a] -> let o, l = find a 0 in o, List.rev l
+	 | [a] -> find a 0 
 	 | _::_ ->
 	    let res = List.fold_left (fun acc a ->
 	      try
@@ -808,8 +808,9 @@ module Make(D: T) =
       try
 	let len, vals = i_get_bytes e cmp terminator upper_bound sz m in
 	let bytes = Bytes.create len in
-      (* TODO: endianess ! *)
-	List.iteri (fun i v -> Bytes.set bytes i (D.to_char v)) vals;
+	(* TODO: endianess ! *)
+	List.iteri (fun i v ->
+	  Bytes.set bytes i (D.to_char v)) vals;
 	len, bytes
       with _ -> raise Exceptions.Concretization
 	
@@ -823,7 +824,8 @@ module Make(D: T) =
 	   let v = fst (eval_exp m' arg) in
 	   let addrs = fst (eval_exp m' (Asm.Lval dst)) in
 	   match Data.Address.Set.elements (D.to_addresses addrs) with
-	   | [a] -> Val (write_in_memory a m' v sz true false)
+	   | [a] ->
+	      Val (write_in_memory a m' v sz true false)
 	   | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
 	   | [ ] -> raise Exceptions.Concretization
 	 end
@@ -839,7 +841,7 @@ module Make(D: T) =
 	   let copy_byte a m' strong =
 	     let m', _ =
 	       List.fold_left (fun (m', i) byte ->
-	       let a' = Data.Address.add_offset a (Z.of_int i) in
+		 let a' = Data.Address.add_offset a (Z.of_int i) in
 	       (write_in_memory a' m' byte 8 strong false), i+1) (m', 0) bytes
 	     in
 	     m'
