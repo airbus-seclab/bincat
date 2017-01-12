@@ -87,17 +87,39 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
 	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
 	       let off_arg = !Config.stack_width / 8 in
-	       let copy_arg d off len arg: int * D.t =
-		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)), 8) in
+	       let copy_num d dst c off len arg: int * int * D.t =
+		 let rec compute digit_nb off =
+		   match Bytes.get format_string off with
+		   | c when '0' <= c && c <= '9' ->
+		      let n = ((Char.code c) - (Char.code '0')) in
+		      compute (digit_nb*10+n) (off+1)
+		   | 'x' ->
+		      let width = digit_nb*4 in
+		      let len' = width / 8 in
+		      let arg' =
+		      if width <= !Config.stack_width then
+			(* value is on the stack *)			
+			arg
+		      else
+			Asm.Lval (Asm.M (arg, !Config.address_sz))
+		      in
+		      off, len'+len, D.copy d dst arg' width
+		   (* value is in memory *)
+		   | _ -> Log.error "Unknown numerical format in format string"
+		 in
+		 compute ((Char.code c) - (Char.code '0')) off
+	       in
+	       let copy_arg d off len arg: int * int * D.t =
+		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width)), 8) in
 		 match Bytes.get format_string off with		
-		 | 'd' -> !Config.stack_width, D.copy d dst' arg !Config.operand_sz
-		 | 's' -> D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000
+		 | 'd' -> off+1, !Config.stack_width, D.copy d dst' arg !Config.operand_sz
+		 | 's' -> let sz, d' = D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 in off+1, sz, d'
+		 | c when '0' <= c && c <= '9' -> copy_num d dst' c (off+1) len arg
 		 | _ -> Log.error "Unknown format in format string"
 	       in
 	       let rec copy_char d c (off: int) len arg_nb: int * D.t =
 		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)), 8) in
 		 let d' = D.copy d dst' (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) 8 in
-		 Log.debug (Printf.sprintf "copy %c at address %s" c (Asm.string_of_lval dst' true));
 		 fill_buffer d' (off+1) 0 (len+1) arg_nb	    
 	       and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int) arg_nb: int * D.t =
 		 if off < str_len then
@@ -115,14 +137,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      
 		   | _ (* = 2 ie previous char is % *) ->
 		      let arg = Asm.BinOp (Asm.Add, va_args, Asm.Const (Data.Word.of_int (Z.of_int (arg_nb*off_arg)) !Config.stack_width)) in
-		      let buf_len, d' = copy_arg d off len arg in
-		      fill_buffer d' (off+1) 0 (len+buf_len) (arg_nb+1)
+		      let off', buf_len, d' = copy_arg d off len arg in
+		      fill_buffer d' off' 0 (len+buf_len) (arg_nb+1)
 		 else
 		   len, d
 		   
 	       in
 	       let len', d' = fill_buffer d 0 0 0 0 in
-	       Log.debug (Printf.sprintf "sprintf will return %d" len');
 	       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
 		 
 	     with
