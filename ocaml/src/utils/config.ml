@@ -1,5 +1,5 @@
 let unroll = ref 10;;
-let fun_unroll = ref 10;;
+let fun_unroll = ref 15;;
 let verbose = ref 1;;
 
   

@@ -1069,6 +1069,25 @@ struct
         in
         in_lv lv
 
+    (* replace all occurence of prev_reg by new_reg into lv *)
+    let replace_reg lv prev_reg new_reg =
+      let rec replace_lv lv =
+	match lv with
+	 | M (e, n) -> M (replace_exp e, n)
+         | V (T r) when Register.compare r prev_reg = 0 -> V (T new_reg)
+	 | V (P (r, l, u)) when Register.compare r prev_reg = 0 -> V (P (new_reg, l, u)) 
+	 | _ -> lv  
+      and replace_exp e =
+	match e with
+	| Lval lv -> Lval (replace_lv lv)
+	| UnOp(op, e) -> UnOp (op, replace_exp e)
+	| BinOp (op, e1, e2) -> BinOp (op, replace_exp e1, replace_exp e2)
+	| _ -> e
+      in
+      replace_lv lv
+      
+	  
+	     
     (** statements generation for pop instructions *)
     let pop_stmts s lv =
         let esp'  = esp_lval () in
@@ -1077,6 +1096,7 @@ struct
             let incr = set_esp Add esp' n in
             if with_stack_pointer s.a lv then
                 [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) s.operand_sz), s.operand_sz))) ] @ stmts
+
             else
                 [ Set (lv, Lval (M (Lval (V esp'), s.operand_sz))) ; incr ] @ stmts
         ) [] lv
@@ -1099,23 +1119,28 @@ struct
         (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
         (* this is the purpose of the pre and post statements *)
         let pre, post=
-            if List.exists (with_stack_pointer s.a) v then
-                [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
+          if List.exists (with_stack_pointer s.a) v then
+	    begin
+	      Log.debug "with stack pointer";
+              [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
+	    end
             else
                 [], []
         in
+   
         let stmts =
             List.fold_left (
                 fun stmts lv ->
                     let n = size_push_pop lv s.addr_sz in
                     let st =
-                        if is_esp lv then
+                        if with_stack_pointer s.a lv then
                             (* save the esp value to its value before the first push (see PUSHA specifications) *)
-                            Set (M (Lval (V esp'), s.operand_sz), Lval (V (T t)))
+                            Set (M (Lval (V esp'), s.operand_sz), Lval (replace_reg lv esp t))
                         else
                             Set (M (Lval (V esp'), s.operand_sz), Lval lv);
                     in
                     [ set_esp Sub esp' n ; st ] @ stmts
+
             ) [] v
         in
         (pre @ stmts @ post)

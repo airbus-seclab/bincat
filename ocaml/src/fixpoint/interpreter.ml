@@ -124,6 +124,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       in
 	       let copy_arg d off len arg: int * int * D.t =
 		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width)), 8) in
+		 Log.debug (Printf.sprintf "copy at %s" (Asm.string_of_lval dst' true));
 		 match Bytes.get format_string off with		
 		 | 'd' -> off+1, !Config.stack_width, D.copy d dst' arg !Config.operand_sz
 		 | 's' -> let sz, d' = D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 in off+1, sz, d'
@@ -132,6 +133,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       in
 	       let rec copy_char d c (off: int) len arg_nb: int * D.t =
 		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)), 8) in
+		 Log.debug (Printf.sprintf "copy_char at %s" (Asm.string_of_lval dst' true));
 		 let d' = D.copy d dst' (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) 8 in
 		 fill_buffer d' (off+1) 0 (len+1) arg_nb	    
 	       and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int) arg_nb: int * D.t =
@@ -399,11 +401,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let import_call vertices a (fun_stack: fun_stack_t) =
+    let import_call vertices a (ip: Data.Address.t) =
       let fundec = Hashtbl.find Decoder.Imports.tbl a in
       Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
-      let _, ipstack, _, prev_unroll_tbl = List.hd (!fun_stack) in
-      unroll_tbl := prev_unroll_tbl;
       let b =
 	List.fold_left (fun b v ->
 	  let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
@@ -413,8 +413,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
 	  in
 	  v.Cfa.State.v <- d';
-	  v.Cfa.State.ip <- ipstack;
-	  fun_stack := List.tl !fun_stack;
+	  v.Cfa.State.ip <- ip;
 	  b||b') false vertices
       in vertices, b
 		
@@ -427,7 +426,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                       match addresses with
                       | [a] ->
 			 begin
-			   try import_call [v] a fun_stack
+			   try import_call [v] a ip
 			   with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
 			 end
                       | [] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
@@ -500,7 +499,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              | Jmp (A a) ->
 		begin
 		  try
-		    import_call vertices a fun_stack
+		    import_call vertices a ip
 		  with Not_found ->
 		    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false		      
 		end
@@ -511,7 +510,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              | Call (A a) ->
 		begin
 		  try
-		    import_call vertices a fun_stack
+		    import_call vertices a ip
 		  with Not_found ->
 		    add_to_fun_stack a;
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
