@@ -98,10 +98,10 @@ module type T =
       val get_bytes: Asm.exp -> Asm.cmp -> Asm.exp -> int -> int -> t -> int * Bytes.t
 
       (** [copy d dst arg sz] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d *)
-      val copy: t -> Asm.lval -> Asm.exp -> int -> t
+      val copy: t -> Asm.exp -> Asm.exp -> int -> t
 
-    (** [copy_until d dst arg term term_sz bound] copy the bits of dst into address [arg] until the first occurence of term is found into dst. This occurence may be at most at address [arg+bound] raise an exception if the upper bound is exceeded of dst is undefined in d 
+    (** [copy_until d dst arg term term_sz bound] copy the bits of dst into address arg until the first occurence of term is found into dst. This occurence may be at most at address [arg+bound] raise an exception if the upper bound is exceeded of dst is undefined in d 
 	it returns also the number of copied bits *)
-      val copy_until: t -> Asm.lval -> Asm.exp -> Asm.exp -> int -> int -> int * t
+      val copy_until: t -> Asm.exp -> Asm.exp -> Asm.exp -> int -> int -> int * t
     end
       

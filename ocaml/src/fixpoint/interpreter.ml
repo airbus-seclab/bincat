@@ -76,12 +76,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let memcpy (d: D.t) (args: Asm.exp list): D.t * bool =
 	Log.from_analysis "memcpy stub";
 	match args with
-	| [Asm.Lval ret ; Asm.Lval dst ; src ; sz] ->
+	| [Asm.Lval ret ; dst ; src ; sz] ->
 	   begin
 	     try
 	       let n = Z.to_int (D.value_of_exp d sz) in
 	       let d' = D.copy d dst src n in
-	       D.set ret (Asm.Lval dst) d'
+	       D.set ret dst d'
 	     with _ -> Log.error "too large copy size in memcpy stub"
 	   end
 	| _ -> Log.error "invalid call to memcpy stub"
@@ -123,8 +123,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 compute ((Char.code c) - (Char.code '0')) off
 	       in
 	       let copy_arg d off len arg: int * int * D.t =
-		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width)), 8) in
-		 Log.debug (Printf.sprintf "copy at %s" (Asm.string_of_lval dst' true));
+		 let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
 		 match Bytes.get format_string off with		
 		 | 'd' -> off+1, !Config.stack_width, D.copy d dst' arg !Config.operand_sz
 		 | 's' -> let sz, d' = D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 in off+1, sz, d'
@@ -132,8 +131,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 | _ -> Log.error "Unknown format in format string"
 	       in
 	       let rec copy_char d c (off: int) len arg_nb: int * D.t =
-		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)), 8) in
-		 Log.debug (Printf.sprintf "copy_char at %s" (Asm.string_of_lval dst' true));
+		 let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)) in
 		 let d' = D.copy d dst' (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) 8 in
 		 fill_buffer d' (off+1) 0 (len+1) arg_nb	    
 	       and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int) arg_nb: int * D.t =
