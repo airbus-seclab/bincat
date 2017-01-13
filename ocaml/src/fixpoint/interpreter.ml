@@ -411,6 +411,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
 	  in
 	  v.Cfa.State.v <- d';
+	  Log.debug (Printf.sprintf "current value of ip=%s" (Data.Address.to_string v.Cfa.State.ip));
 	  v.Cfa.State.ip <- ip;
 	  b||b') false vertices
       in vertices, b
