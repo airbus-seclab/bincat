@@ -205,7 +205,10 @@ class AnalyzerConfig(object):
 
     @property
     def stop_address(self):
-        return self._config.get('analyzer', 'cut')
+        try:
+            return self._config.get('analyzer', 'cut')
+        except ConfigParser.NoOptionError:
+            return ""
 
     @property
     def analysis_method(self):
@@ -230,9 +233,10 @@ class AnalyzerConfig(object):
     def stop_address(self, value):
         if type(value) in (int, long):
             value = "0x%X" % value
-        if value is None:
-            value = ""
-        self._config.set('analyzer', 'cut', value)
+        if value is None or value=="":
+            self._config.remove_option('analyzer', 'cut')
+        else:
+            self._config.set('analyzer', 'cut', value)
 
     @binary_filepath.setter
     def binary_filepath(self, value):
