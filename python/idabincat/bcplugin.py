@@ -189,12 +189,12 @@ class WebAnalyzer(Analyzer):
                          "so remote BinCAT cannot be used.")
             return
         server_url = self.server_url.rstrip('/')
-        binary_file = idaapi.get_input_file_path()
 
         # patch filepath - set filepath to sha256
         temp_config = AnalyzerConfig(None)  # No reference to State - not used
         with open(self.initfname, 'r') as f:
             temp_config.load_from_str(f.read())
+        binary_file = temp_config.binary_filepath
         with open(binary_file, 'r') as f:
             h = hashlib.new('sha256')
             h.update(f.read())
@@ -481,6 +481,7 @@ class State(object):
                 binary_filepath)
             return
         bc_log.debug("Using %s as source binary path", binary_filepath)
+        self.current_config.binary_filepath = binary_filepath
 
         path = tempfile.mkdtemp(suffix='bincat')
 
