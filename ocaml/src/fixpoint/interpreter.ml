@@ -72,6 +72,19 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     end;
 	   D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
 	| _ -> Log.error "invalid call to strlen stub"
+
+      let memcpy (d: D.t) (args: Asm.exp list): D.t * bool =
+	Log.from_analysis "memcpy stub";
+	match args with
+	| [Asm.Lval ret ; Asm.Lval dst ; src ; Asm.Const w] ->
+	   begin
+	     try
+	       let n = Z.to_int (Data.Word.to_int w) in
+	       let d' = D.copy d dst src n in
+	       D.set ret (Asm.Lval dst) d'
+	     with _ -> Log.error "too large copy size in memcpy stub"
+	   end
+	| _ -> Log.error "invalid call to memcpy stub"
 	   
       let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
 	Log.from_analysis "sprintf stub";
@@ -156,8 +169,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  
       let process d fun_name (args: Asm.exp list): D.t * bool =
 	match fun_name with
+	| "memcpy" -> memcpy d args
 	| "sprintf" -> sprintf d args
 	| "strlen" -> strlen d args
+	   
 	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name); d, false
     end
     open Asm
