@@ -1,3 +1,57 @@
+## Quick Install/Configuration on Linux (using docker)
+
+These commands will build BinCAT from scratch and have it run as a
+webapp microservice in a docker container (no need to worry about
+dependencies, except for docker itself).
+
+The IDA plugin will then be installed and configured to use bincat as a webapp.
+
+
+### Install
+
+* install IDA (v6.9 or later version) with bundled Python
+* run ```docker build -t bincat .```
+* copy or symlink BinCAT plugin and libs into IDA plugins folder
+```
+mkdir -p ~/.idapro/plugins
+ln -s $(pwd)/python//{idabincat,pybincat,idabincat/bcplugin.py} ~/.idapro/plugins/
+```
+* install Python <i>requests</i> library for IDA's bundled Python
+```
+virtualenv -p $(which python2) /tmp/installrequests
+. /tmp/installrequests/bin/activate
+pip install requests
+deactivate
+cp -a /tmp/installrequests/lib/python*/site-packages/requests ~/.idapro/plugins/
+rm -rf /tmp/installrequests
+```
+* install BinCAT configuration files
+```
+mkdir -p ~/.idapro/idabincat
+cp -a python/idabincat/conf ~/.idapro/idabincat/
+```
+
+### Configuration
+
+* run `bincat` Docker microservice: `docker run -p 5000:5000 bincat`
+* run IDA
+* launch bincat plugin (Ctrl-Shift-B)
+* If there's a problem with `hashlib` on Debian, do the following:
+
+```bash
+wget http://archive.debian.org/debian-security/pool/updates/main/o/openssl/libssl0.9.8_0.9.8o-4squeeze14_i386.deb
+sha256sum libssl0.9.8_0.9.8o-4squeeze14_i386.deb | grep -q 3c2391187c88e732545a11f545ccd2abf224c17a717e73588f1ebedb15d932ad
+if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
+```
+
+* Configure IDA bincat plugin:
+  *  go to *Edit > BinCAT > Options...* menu
+  *  check *use remote bincat*
+  *  Remote URL: http://localhost:5000
+
+* Now you can run analyses (Ctrl-Shilft-A)
+
+
 ## Install (Linux / MacOS)
 ### Dependencies
 
