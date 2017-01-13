@@ -48,11 +48,22 @@ struct
     [ Directive (Stub ("strlen",  [Lval (V (T res)) ; buf])) ]
 
   let strlen_cdecl = strlen_stdcall
+
+  let memcpy_stdcall () =
+    let dst = arg 4 in
+    let src = arg 8 in
+    let sz = arg 12 in
+    let res = Register.of_name "eax" in
+    [ Directive (Stub ("sprintf",  [Lval (V (T res)) ; dst ; src ; sz])) ]
+
+  let memcpy_cdecl = memcpy_stdcall
     
   let stdcall_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
   let cdecl_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
 
   let init () =
+    Hashtbl.add stdcall_stubs "memcpy" (sprintf_stdcall ());
+    Hashtbl.add cdecl_stubs "memcpy" (sprintf_cdecl ());
     Hashtbl.add stdcall_stubs "sprintf" (sprintf_stdcall ());
     Hashtbl.add cdecl_stubs "sprintf" (sprintf_cdecl ());
     Hashtbl.add stdcall_stubs "strlen" (strlen_stdcall ());

@@ -76,10 +76,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let memcpy (d: D.t) (args: Asm.exp list): D.t * bool =
 	Log.from_analysis "memcpy stub";
 	match args with
-	| [Asm.Lval ret ; Asm.Lval dst ; src ; Asm.Const w] ->
+	| [Asm.Lval ret ; Asm.Lval dst ; src ; sz] ->
 	   begin
 	     try
-	       let n = Z.to_int (Data.Word.to_int w) in
+	       let n = Z.to_int (D.value_of_exp d sz) in
 	       let d' = D.copy d dst src n in
 	       D.set ret (Asm.Lval dst) d'
 	     with _ -> Log.error "too large copy size in memcpy stub"
