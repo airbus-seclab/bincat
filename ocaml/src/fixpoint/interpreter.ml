@@ -95,7 +95,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      compute (digit_nb*10+n) (off+1)
 		   | 'x' ->
 		      let width = digit_nb*4 in
-		      let len' = width / 8 in
+		      let len' = digit_nb / 2 in
 		      let arg' =
 		      if width <= !Config.stack_width then
 			(* value is on the stack *)			
