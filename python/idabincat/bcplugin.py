@@ -181,62 +181,36 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
 class WebAnalyzer(Analyzer):
     def __init__(self, *args, **kwargs):
         Analyzer.__init__(self, *args, **kwargs)
-        self.server_url = self.options.get("server_url")
+        self.server_url = self.options.get("server_url").rstrip("/")
 
     def run(self):
         if 'requests' not in sys.modules:
             bc_log.error("python module 'requests' could not be imported, "
                          "so remote BinCAT cannot be used.")
             return
-        server_url = self.server_url.rstrip('/')
-
-        # patch filepath - set filepath to sha256
+        # create temporary AnalyzerConfig to replace referenced file names with
+        # sha256 of their contents
         temp_config = AnalyzerConfig(None)  # No reference to State - not used
         with open(self.initfname, 'r') as f:
             temp_config.load_from_str(f.read())
-        binary_file = temp_config.binary_filepath
-        with open(binary_file, 'r') as f:
-            h = hashlib.new('sha256')
-            h.update(f.read())
-            sha256 = h.hexdigest().lower()
+        # patch filepath - set filepath to sha256, upload file
+        sha256 = self.sha256_digest(temp_config.binary_filepath)
+        if not self.upload_file(temp_config.binary_filepath, sha256):
+            return
         temp_config.binary_filepath = sha256
+        # patch [imports] headers - replace with sha256, upload file
+        headers_sha256 = self.sha256_digest(temp_config.headers_file)
+        if not self.upload_file(temp_config.headers_file, headers_sha256):
+            return
+        temp_config.headers_file = headers_sha256
         # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
-            with open(self.cfainfname, 'r') as f:
-                h = hashlib.new('sha256')
-                h.update(f.read())
-                cfa_sha256 = h.hexdigest().lower()
-                temp_config.in_marshalled_cfa_file = cfa_sha256
+            cfa_sha256 = self.sha256_digest(self.cfainfname)
+            temp_config.in_marshalled_cfa_file = cfa_sha256
         # write patched config file
         init_ini_str = str(temp_config)
-        # check whether file has already been uploaded
-        try:
-            check_res = requests.head(server_url + "/download/%s" % sha256)
-        except requests.exceptions.ConnectionError as e:
-            bc_log.error("Error when contacting the BinCAT server: %s", e)
-            return
-        if check_res.status_code == 404:
-            # Confirmation dialog before uploading file?
-            msgBox = QtWidgets.QMessageBox()
-            msgBox.setText("Do you really want to upload %s to %s?" %
-                           (binary_file, server_url))
-            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes |
-                                      QtWidgets.QMessageBox.No)
-            msgBox.setIcon(QtWidgets.QMessageBox.Question)
-            ret = msgBox.exec_()
-            if ret == QtWidgets.QMessageBox.No:
-                bc_log.info("Upload aborted.")
-                return
-            # upload
-            upload_res = requests.put(
-                server_url + "/add",
-                files={'file': ('file', open(binary_file, 'rb').read())})
-            if upload_res.status_code != 200:
-                bc_log.error("Error while uploading binary file "
-                             "to BinCAT analysis server.")
-                return
         run_res = requests.post(
-            server_url + "/analyze",
+            self.server_url + "/analyze",
             files={'init.ini': ('init.ini', init_ini_str)})
         if run_res.status_code != 200:
             bc_log.error("Error while uploading analysis configuration file "
@@ -256,10 +230,47 @@ class WebAnalyzer(Analyzer):
             # might be absent when analysis failed
             cfa_sha256 = files["cfaout.marshal"]
             with open(self.cfaoutfname, 'w') as cfaoutfp:
-                cfaout_marshal_str = requests.get(server_url + "/download/" +
-                                                  cfa_sha256).content
+                cfaout_marshal_str = requests.get(
+                    self.server_url + "/download/" + cfa_sha256).content
                 cfaoutfp.write(cfaout_marshal_str)
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
+
+    def sha256_digest(self, path):
+        with open(path, 'r') as f:
+            h = hashlib.new('sha256')
+            h.update(f.read())
+            sha256 = h.hexdigest().lower()
+        return sha256
+
+    def upload_file(self, path, sha256):
+        # check whether file has already been uploaded
+        try:
+            check_res = requests.head(
+                self.server_url + "/download/%s" % sha256)
+        except requests.exceptions.ConnectionError as e:
+            bc_log.error("Error when contacting the BinCAT server: %s", e)
+            return
+        if check_res.status_code == 404:
+            # Confirmation dialog before uploading file?
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText("Do you really want to upload %s to %s?" %
+                           (path, self.server_url))
+            msgBox.setStandardButtons(QtWidgets.QMessageBox.Yes |
+                                      QtWidgets.QMessageBox.No)
+            msgBox.setIcon(QtWidgets.QMessageBox.Question)
+            ret = msgBox.exec_()
+            if ret == QtWidgets.QMessageBox.No:
+                bc_log.info("Upload aborted.")
+                return
+            # upload
+            upload_res = requests.put(
+                self.server_url + "/add",
+                files={'file': ('file', open(path, 'rb').read())})
+            if upload_res.status_code != 200:
+                bc_log.error("Error while uploading binary file "
+                             "to BinCAT analysis server.")
+                return
+        return True
 
 
 class PluginOptions(object):
