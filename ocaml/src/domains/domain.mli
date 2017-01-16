@@ -103,5 +103,9 @@ module type T =
     (** [copy_until d dst arg term term_sz bound] copy the bits of dst into address arg until the first occurence of term is found into dst. This occurence may be at most at address [arg+bound] raise an exception if the upper bound is exceeded of dst is undefined in d 
 	it returns also the number of copied bits *)
       val copy_until: t -> Asm.exp -> Asm.exp -> Asm.exp -> int -> int -> int * t
+
+      (** copy_register r dst src return dst where value of r has been replaced by ist value in src *)
+      (** may raise an exception if r is unbounded in src *)
+      val copy_register: Register.t -> t -> t -> t
     end
       

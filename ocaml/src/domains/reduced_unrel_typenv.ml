@@ -98,5 +98,8 @@ module Make(D: Unrel.T) =
   let copy_until (uenv, _tenv) dst arg terminator term_sz upper_bound =
     let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound in
     len, (uenv', T.top)
+
+  let copy_register r (uenv, _tenv) (usrc, _tsrc) =
+    U.copy_register r uenv usrc, T.top
  end:
    Domain.T)

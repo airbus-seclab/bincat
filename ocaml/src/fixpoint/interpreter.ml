@@ -413,8 +413,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  v.Cfa.State.v <- d';
 	  let pred = pred_fun v in
 	  v.Cfa.State.ip <- Data.Address.add_offset pred.Cfa.State.ip (Z.of_int (List.length pred.Cfa.State.bytes));
+	  (* set back the stack register to its pred value *)
+	  let stack_register = Register.stack_pointer () in
+	  v.Cfa.State.v <- D.copy_register stack_register v.Cfa.State.v pred.Cfa.State.v;
 	  b||b') false vertices
-      in vertices, b
+      in
+      vertices, b
 		
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
       let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) (ip_pred: Cfa.State.t -> Cfa.State.t) : (Cfa.State.t list * bool) =
@@ -508,7 +512,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 			 
              | Call (A a) ->
 		begin
-		  try
+		  try		   
 		    import_call vertices a (fun v -> Cfa.pred g v)
 		  with Not_found ->
 		    add_to_fun_stack a;

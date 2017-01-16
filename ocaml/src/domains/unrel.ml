@@ -830,7 +830,15 @@ module Make(D: T) =
 	   | [ ] -> raise Exceptions.Concretization
 	 end
       | BOT -> BOT
-     
+
+    let copy_register r dst src =
+      let k = Env.Key.Reg r in
+      match dst, src with
+      | Val dst', Val src' -> let v = Env.find k src' in Val (Env.replace k v dst')
+      | BOT, Val src' -> let v = Env.find k src' in Val (let m = Env.empty in Env.add k v m)
+      | _, _ -> BOT
+	    
+
 	      
     let copy_until m dst e terminator term_sz upper_bound: int * t =
       match m with
