@@ -822,7 +822,7 @@ module Make(D: T) =
       | Val m' ->
 	 begin
 	   let v = fst (eval_exp m' arg) in
-	   let addrs = fst (eval_exp m' (Asm.Lval dst)) in
+	   let addrs = fst (eval_exp m' dst) in
 	   match Data.Address.Set.elements (D.to_addresses addrs) with
 	   | [a] ->
 	      Val (write_in_memory a m' v sz true false)
@@ -836,7 +836,7 @@ module Make(D: T) =
       match m with
       | Val m' ->
 	 begin
-	   let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' (Asm.Lval dst)))) in
+	   let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' dst))) in
 	   let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m in
 	   let copy_byte a m' strong =
 	     let m', _ =

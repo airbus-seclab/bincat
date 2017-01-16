@@ -76,12 +76,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let memcpy (d: D.t) (args: Asm.exp list): D.t * bool =
 	Log.from_analysis "memcpy stub";
 	match args with
-	| [Asm.Lval ret ; Asm.Lval dst ; src ; sz] ->
+	| [Asm.Lval ret ; dst ; src ; sz] ->
 	   begin
 	     try
 	       let n = Z.to_int (D.value_of_exp d sz) in
 	       let d' = D.copy d dst src n in
-	       D.set ret (Asm.Lval dst) d'
+	       D.set ret dst d'
 	     with _ -> Log.error "too large copy size in memcpy stub"
 	   end
 	| _ -> Log.error "invalid call to memcpy stub"
@@ -123,7 +123,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 compute ((Char.code c) - (Char.code '0')) off
 	       in
 	       let copy_arg d off len arg: int * int * D.t =
-		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width)), 8) in
+		 let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
 		 match Bytes.get format_string off with		
 		 | 'd' -> off+1, !Config.stack_width, D.copy d dst' arg !Config.operand_sz
 		 | 's' -> let sz, d' = D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 in off+1, sz, d'
@@ -131,7 +131,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 | _ -> Log.error "Unknown format in format string"
 	       in
 	       let rec copy_char d c (off: int) len arg_nb: int * D.t =
-		 let dst' = Asm.M (Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)), 8) in
+		 let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)) in
 		 let d' = D.copy d dst' (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) 8 in
 		 fill_buffer d' (off+1) 0 (len+1) arg_nb	    
 	       and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int) arg_nb: int * D.t =
@@ -399,11 +399,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let import_call vertices a (fun_stack: fun_stack_t) =
+    let import_call vertices a (pred_fun: Cfa.State.t -> Cfa.State.t) =
       let fundec = Hashtbl.find Decoder.Imports.tbl a in
       Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
-      let _, ipstack, _, prev_unroll_tbl = List.hd (!fun_stack) in
-      unroll_tbl := prev_unroll_tbl;
       let b =
 	List.fold_left (fun b v ->
 	  let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
@@ -413,13 +411,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
 	  in
 	  v.Cfa.State.v <- d';
-	  v.Cfa.State.ip <- ipstack;
-	  fun_stack := List.tl !fun_stack;
+	  let pred = pred_fun v in
+	  v.Cfa.State.ip <- Data.Address.add_offset pred.Cfa.State.ip (Z.of_int (List.length pred.Cfa.State.bytes));
 	  b||b') false vertices
       in vertices, b
 		
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
-      let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp): (Cfa.State.t list * bool) =
+      let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) (ip_pred: Cfa.State.t -> Cfa.State.t) : (Cfa.State.t list * bool) =
 		List.fold_left (fun (l, b) v ->
                     try
 		      let addrs, is_tainted = D.mem_to_addresses v.Cfa.State.v target in
@@ -427,7 +425,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                       match addresses with
                       | [a] ->
 			 begin
-			   try import_call [v] a fun_stack
+			   try import_call [v] a ip_pred
 			   with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
 			 end
                       | [] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
@@ -500,24 +498,24 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              | Jmp (A a) ->
 		begin
 		  try
-		    import_call vertices a fun_stack
+		    import_call vertices a (fun v -> Cfa.pred g (Cfa.pred g v))
 		  with Not_found ->
 		    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false		      
 		end
 		  
              | Jmp (R target) ->
-		fold_to_target (fun _a -> ()) vertices target
+		fold_to_target (fun _a -> ()) vertices target (fun v -> Cfa.pred g (Cfa.pred g v))
 			 
              | Call (A a) ->
 		begin
 		  try
-		    import_call vertices a fun_stack
+		    import_call vertices a (fun v -> Cfa.pred g v)
 		  with Not_found ->
 		    add_to_fun_stack a;
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
 		    vertices, false
 		end
-	     | Call (R target) -> fold_to_target add_to_fun_stack vertices target
+	     | Call (R target) -> fold_to_target add_to_fun_stack vertices target (fun v -> Cfa.pred g v)
 		
              | Return -> List.fold_left (fun (l, b) v ->
 			     let v', b' = process_ret fun_stack v in
