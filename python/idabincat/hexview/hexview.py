@@ -29,6 +29,7 @@ from collections import namedtuple
 from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QBrush
 from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPainter
 from PyQt5.QtGui import QMouseEvent
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtGui import QFontDatabase
@@ -87,36 +88,50 @@ def column_number(index):
 
 
 class HexItemDelegate(QStyledItemDelegate):
+    pixcache = {}
+
     def __init__(self, model, parent, *args):
         super(HexItemDelegate, self).__init__(parent)
         # compute size hint for hex view
-        doc = QTextDocument()
-        doc.setHtml("<font color='green'>DF</font>")
-        self.hex_hint = QtCore.QSize(doc.idealWidth()-doc.documentMargin(), 22)
+        dh = QTextDocument()
+        dh.setHtml("<font color='green'>DF</font>")
+        self.hex_hint = QtCore.QSize(dh.idealWidth()-dh.documentMargin(), 22)
         # compute size hint for char view
-        doc2 = QTextDocument()
-        doc2.setHtml("W")
-        self.char_hint = QtCore.QSize(doc2.idealWidth()-doc.documentMargin(), 22)
+        dc = QTextDocument()
+        dc.setHtml("W")
+        self.char_hint = QtCore.QSize(dc.idealWidth()-dc.documentMargin(), 22)
         self._model = model
+
+    def get_pixmap(self, txt):
+        """
+        store pixmap cache. Switch to LRU cache if too much memory is used.
+        """
+        if txt in HexItemDelegate.pixcache:
+            return HexItemDelegate.pixcache[txt]
+
+        # FIXME use correct size? on non-hdpi screen, 15x22 real size
+        pixmap = QPixmap(40, 40)
+        pixmap.fill(Qt.white)
+
+        doc = QTextDocument()
+        doc.setHtml(txt)
+        painter = QPainter()
+        painter.begin(pixmap)
+        doc.drawContents(painter)
+        painter.end()
+        HexItemDelegate.pixcache[txt] = pixmap
+        return pixmap
 
     def paint(self, qpainter, option, qindex):
         self.initStyleOption(option, qindex)
 
         qpainter.save()
 
-        doc = QTextDocument()
-        doc.setHtml(option.text)
-
-        option.text = ""
-        option.widget.style().drawControl(QStyle.CE_ItemViewItem, option,
-                                          qpainter)
+        pixmap = self.get_pixmap(option.text)
 
         qpainter.translate(option.rect.left(), option.rect.top())
-        clip = QRectF(0, 0, option.rect.width(), option.rect.height())
-        doc.drawContents(qpainter, clip)
-
+        qpainter.drawPixmap(0, 0, pixmap)
         qpainter.restore()
-        return
 
     def sizeHint(self, option, qindex):
         if qindex.column() < 0x10:
