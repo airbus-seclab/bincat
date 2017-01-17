@@ -664,7 +664,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	) tbl)
 	[(Config.mem_override, Data.Address.Global) ;
 	 (Config.stack_override, Data.Address.Stack) ; (Config.heap_override, Data.Address.Heap)];
-      let nb = ref 0 in
       while !continue do
         (* a waiting node is randomly chosen to be explored *)
         let v = Vertices.choose !waiting in
@@ -679,13 +678,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             (* computed next step                                                                                  *)
             (* the new instruction pointer (offset variable) is also returned                                      *)
             let r = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)                   in
-	    Log.debug (Printf.sprintf "%s" (Data.Address.to_string v.Cfa.State.ip));
-	    if String.compare (Data.Address.to_string v.Cfa.State.ip) "G0x911" = 0 then
-	      begin
-		Log.debug (Printf.sprintf "entering G0x911 (%d)" !nb);
-		List.iter (fun s -> Log.debug (Printf.sprintf "%s" s)) (D.to_string v.Cfa.State.v);
-		nb := !nb +1
-	      end;
+	    Log.debug (Printf.sprintf "%s" (Data.Address.to_string v.Cfa.State.ip));	    
             match r with
             | Some (v, ip', d') ->
                (* these vertices are updated by their right abstract values and the new ip                         *)
