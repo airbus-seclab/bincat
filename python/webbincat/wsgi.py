@@ -105,10 +105,18 @@ def analyze():
                 % (section, key), 400)
     binary_name = config.get('binary', 'filepath').lower()
     analysis_method = config.get('analyzer', 'analysis').lower()
-    in_marshalled_cfa_file = config.get('analyzer', 'in_marshalled_cfa_file').lower()
     input_files = [binary_name]
     if analysis_method in ("forward_cfa", "backward"):
+        in_marshalled_cfa_file = \
+            config.get('analyzer', 'in_marshalled_cfa_file').lower()
         input_files.append(in_marshalled_cfa_file)
+    if config.has_section("imports"):
+        try:
+            headers_fname = config.get("imports", "headers")
+            input_files.append(headers_fname)
+        except ConfigParser.NoOptionError:
+            # this is not mandatory
+            pass
     for fname in input_files:
         if not SHA256_RE.match(fname):
             return flask.make_response(

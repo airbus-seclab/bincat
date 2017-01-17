@@ -222,6 +222,10 @@ class AnalyzerConfig(object):
     def in_marshalled_cfa_file(self):
         return self._config.get('analyzer', 'in_marshalled_cfa_file')
 
+    @property
+    def headers_file(self):
+        return self._config.get('imports', 'headers')
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
@@ -245,6 +249,10 @@ class AnalyzerConfig(object):
     @in_marshalled_cfa_file.setter
     def in_marshalled_cfa_file(self, value):
         return self._config.set('analyzer', 'in_marshalled_cfa_file', value)
+
+    @headers_file.setter
+    def headers_file(self, value):
+        self._config.set('imports', 'headers', value)
 
     def set_cfa_options(self, store_cfa="true", in_cfa="", out_cfa=""):
         self._config.set('analyzer', 'store_marshalled_cfa', store_cfa)
