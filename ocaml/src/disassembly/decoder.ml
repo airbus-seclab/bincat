@@ -1120,10 +1120,7 @@ struct
         (* this is the purpose of the pre and post statements *)
         let pre, post=
           if List.exists (with_stack_pointer s.a) v then
-	    begin
-	      Log.debug "with stack pointer";
               [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
-	    end
             else
                 [], []
         in

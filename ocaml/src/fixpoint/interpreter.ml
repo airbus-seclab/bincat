@@ -100,7 +100,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
 	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
 	       let off_arg = !Config.stack_width / 8 in
-	       let copy_num d dst c off len arg: int * int * D.t =
+	       let copy_num d dst c off arg: int * int * D.t =
 		 let rec compute digit_nb off =
 		   match Bytes.get format_string off with
 		   | c when '0' <= c && c <= '9' ->
@@ -116,7 +116,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      else
 			Asm.Lval (Asm.M (arg, !Config.address_sz))
 		      in
-		      off, len'+len, D.copy d dst arg' width
+		      Log.debug (Printf.sprintf "len' = %d" len');
+		      off, len', D.copy d dst arg' width
 		   (* value is in memory *)
 		   | _ -> Log.error "Unknown numerical format in format string"
 		 in
@@ -127,7 +128,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 match Bytes.get format_string off with		
 		 | 'd' -> off+1, !Config.stack_width, D.copy d dst' arg !Config.operand_sz
 		 | 's' -> let sz, d' = D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 in off+1, sz, d'
-		 | c when '0' <= c && c <= '9' -> copy_num d dst' c (off+1) len arg
+		 | c when '0' <= c && c <= '9' -> copy_num d dst' c (off+1) arg
 		 | _ -> Log.error "Unknown format in format string"
 	       in
 	       let rec copy_char d c (off: int) len arg_nb: int * D.t =
@@ -153,7 +154,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      let off', buf_len, d' = copy_arg d off len arg in
 		      fill_buffer d' off' 0 (len+buf_len) (arg_nb+1)
 		 else
-		   len, d
+		    (* add a zero to the end of the buffer *)
+		   begin
+		     let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
+		     Log.debug (Printf.sprintf "add a zero at %s" (Asm.string_of_exp dst' true));
+		    len, D.copy d dst' (Asm.Const (Data.Word.of_int Z.zero 8)) 8
+		   end
+
 		   
 	       in
 	       let len', d' = fill_buffer d 0 0 0 0 in
@@ -305,9 +312,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
 	| Directive (Unroll (e, bs)) ->
-	   let f () = min ((Z.to_int (D.value_of_exp d e)) + 1) bs in
-	   unroll_wrapper f;
-	   d, false
+	   begin
+	     try
+	       let f () = min ((Z.to_int (D.value_of_exp d e)) + 1) bs in
+	       unroll_wrapper f
+	     with _ -> ()
+	   end;
+	  d, false
 	     
 	| Directive (Default_unroll) ->
 	   Log.from_analysis "set unroll parameter to its default value";
@@ -315,10 +326,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  d, false
 
 	| Asm.Directive (Asm.Unroll_until (addr, cmp, terminator, upper_bound, sz)) ->
-	   let f () =
-	     D.get_offset_from addr cmp terminator upper_bound sz d
-	   in
-	   unroll_wrapper f;
+	   begin
+	     try
+	       let f () =
+		 D.get_offset_from addr cmp terminator upper_bound sz d
+	       in
+	       unroll_wrapper f;
+	     with _ -> ()
+	   end;
 	   d, false
 	    
 	| Directive (Taint (e, lv)) 	 ->
@@ -361,7 +376,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
       
     let process_ret (fun_stack: fun_stack_t) v =
-      Log.debug (Printf.sprintf "return instruction found at %s" (Data.Address.to_string v.Cfa.State.ip));
       try
 	begin
 	let d = v.Cfa.State.v in
@@ -650,6 +664,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	) tbl)
 	[(Config.mem_override, Data.Address.Global) ;
 	 (Config.stack_override, Data.Address.Stack) ; (Config.heap_override, Data.Address.Heap)];
+      let nb = ref 0 in
       while !continue do
         (* a waiting node is randomly chosen to be explored *)
         let v = Vertices.choose !waiting in
@@ -664,8 +679,15 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             (* computed next step                                                                                  *)
             (* the new instruction pointer (offset variable) is also returned                                      *)
             let r = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)                   in
+	    Log.debug (Printf.sprintf "%s" (Data.Address.to_string v.Cfa.State.ip));
+	    if String.compare (Data.Address.to_string v.Cfa.State.ip) "G0x911" = 0 then
+	      begin
+		Log.debug (Printf.sprintf "entering G0x911 (%d)" !nb);
+		List.iter (fun s -> Log.debug (Printf.sprintf "%s" s)) (D.to_string v.Cfa.State.v);
+		nb := !nb +1
+	      end;
             match r with
-            | Some (v, ip', d') -> 
+            | Some (v, ip', d') ->
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
 	       	(* add overrides if needed *)
