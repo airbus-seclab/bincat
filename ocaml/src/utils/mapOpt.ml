@@ -24,8 +24,7 @@ module Make(Ord: OrderedType) = struct
       Node(l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
 
     let bal l x d r =
-      let hl = match l with Empty -> 0 | Node(_, _, _, _, h) -> h in
-      let hr = match r with Empty -> 0 | Node(_, _, _, _, h) -> h in
+      let hl = height l and hr = height r in
       if hl > hr + 2 then begin
         match l with
           Empty -> invalid_arg "MapOpt.bal"
