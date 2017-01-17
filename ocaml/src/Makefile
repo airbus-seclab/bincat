@@ -14,12 +14,12 @@ data-struct/asm.ml\
 data-struct/code.ml\
 domains/env.ml\
 domains/typenv.ml\
-domains/value.ml\
+domains/bit.ml\
 domains/tainting.ml\
 domains/unrel.ml\
 domains/vector.ml\
 domains/pointer.ml\
-domains/reduced_value_tainting.ml\
+domains/reduced_bit_tainting.ml\
 domains/reduced_unrel_typenv.ml\
 disassembly/cfa.ml\
 disassembly/decoder.ml\
