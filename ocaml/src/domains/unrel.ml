@@ -36,7 +36,7 @@ module type T =
 				  
     (** comparison *)
     (** returns true whenever the concretization of the first parameter is included in the concretization of the second parameter *)
-    val subset: t -> t -> bool
+    val is_subset: t -> t -> bool
 			    
     (** string conversion *)
     val to_string: t -> string
@@ -181,15 +181,15 @@ module Make(D: T) =
 	 end
       | BOT -> BOT
 		 
-    let subset m1 m2 =
+    let is_subset m1 m2 =
       match m1, m2 with
       | BOT, _ 		 -> true
       | _, BOT 		 -> false
       |	Val m1', Val m2' ->
-         try Env.for_all2 D.subset m1' m2'
+         try Env.for_all2 D.is_subset m1' m2'
          with _ ->
            try
-             Env.iteri (fun k v1 -> try let v2 = Env.find k m2' in if not (D.subset v1 v2) then raise Exit with Not_found -> ()) m1';
+             Env.iteri (fun k v1 -> try let v2 = Env.find k m2' in if not (D.is_subset v1 v2) then raise Exit with Not_found -> ()) m1';
              true
            with Exit -> false
 			  

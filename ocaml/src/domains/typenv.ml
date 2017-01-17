@@ -28,7 +28,7 @@
    | BOT -> BOT
    | Val _ -> Val (Env.empty)
    
- let subset env1 env2 =
+ let is_subset env1 env2 =
    match env1, env2 with
    | BOT, _ -> true
    | _, BOT -> false
@@ -37,7 +37,7 @@
         Env.iteri (fun k v2 ->
  	  try
  	    let v1 = Env.find k env1' in
-	   if not (Types.subset v1 v2) then
+	   if not (Types.is_subset v1 v2) then
  	     raise Exit
 	  with Not_found -> if v2 = Types.TUNKNOWN then () else raise Exit
         ) env2';

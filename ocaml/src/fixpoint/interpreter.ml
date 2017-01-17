@@ -677,7 +677,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
           prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
             prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
               (* fixpoint reached *)
-              D.subset v'.Cfa.State.v prev.Cfa.State.v
+              D.is_subset v'.Cfa.State.v prev.Cfa.State.v
       in
       List.fold_left (fun l v ->
           try

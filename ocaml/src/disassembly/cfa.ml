@@ -197,7 +197,7 @@ module Make(Domain: Domain.T) =
       (** updates the abstract value field of the given state *)
       let update_state s v'=
       	s.v <- Domain.join v' s.v;
-      	Domain.subset s.v v'
+      	Domain.is_subset s.v v'
 
       (** updates the context and statement fields of the given state *)
       let update_stmts s stmts op_sz addr_sz =

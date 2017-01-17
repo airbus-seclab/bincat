@@ -20,7 +20,7 @@ module type T =
 		 
       (** returns true whenever the concretization of the first argument is included in the concretization of the second argument *)
       (** false otherwise *)
-      val subset: t -> t -> bool
+      val is_subset: t -> t -> bool
  	       
       (** remove the given register from the given abstract value *)	
       val remove_register: Register.t -> t -> t

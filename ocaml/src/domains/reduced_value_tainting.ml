@@ -61,9 +61,9 @@ let is_one (v, _t) = v = V.ONE
 
 let zero = V.ZERO, T.U
 let is_zero (v, _t) = v = V.ZERO
-
-let subset (v1, _t1) (v2, _t2) = V.subset v1 v2
-
+	      
+let is_subset (v1, _t1) (v2, _t2) = V.is_subset v1 v2
+					  
 let of_z z =
   if Z.compare z Z.zero = 0 then
     V.ZERO, T.U
