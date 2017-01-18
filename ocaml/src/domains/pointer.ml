@@ -22,6 +22,7 @@ module Make (V: Vector.T) =
             | BOT         -> raise Exceptions.Empty
             | TOP         -> raise Exceptions.Enum_failure
             | Val (_r, v) -> V.to_char v
+
 	       
         let to_string p =
             match p with

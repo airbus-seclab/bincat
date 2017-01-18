@@ -831,6 +831,49 @@ module Make(D: T) =
 	 end
       | BOT -> BOT
 
+    let copy_hex m dst src nb capitalise pad: t =
+      (* TODO generalise to non concrete src value *)
+      match m with
+      | Val m' ->
+	 begin
+	   let vsrc = fst (eval_exp m' src) in
+	   (* HACK : not portable if format in D.to_string changes *)
+	   let src = D.to_string vsrc in
+	   let str_src = String.sub src 3 ((String.length src)-3) in
+	   (* pad with the pad parameter if nb < !Config.operand_sz / 8 *)
+	   let sz = !Config.operand_sz / 8 in
+	   let nb_pad = sz - nb in
+	   let str_src =
+	     if nb_pad = 0 then str_src
+	     else
+	       if nb_pad > 0 then (String.make nb_pad pad) ^ str_src
+	       else
+		 Log.error "illegal value for size in copy_hex"
+	   in
+	   let vdst = fst (eval_exp m' dst) in
+	   let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
+	   match dst_addrs with
+	   | [dst_addr] ->	     
+	      let znb = Z.of_int sz in
+	      let rec write m' o =
+		if Z.compare o znb < 0 then
+		  let c = String.get str_src (Z.to_int o) in
+		  let c' = if capitalise then Char.uppercase c else c in
+		  let dst = Data.Address.add_offset dst_addr o in
+		  let i' = Z.of_int (Char.code c') in
+		  let r = D.of_word (Data.Word.of_int i' 8) in
+		  let v' = if D.is_tainted r then D.taint r else r in
+		  write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
+		else		  
+		    m'
+	      in
+	      Val (write m' Z.zero)
+	
+	   | [] -> raise Exceptions.Empty
+	   | _  -> Val (Env.empty) (* TODO could be more precise *)
+	 end
+      | BOT -> BOT	 
+
     let copy_register r dst src =
       let k = Env.Key.Reg r in
       match dst, src with

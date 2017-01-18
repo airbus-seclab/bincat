@@ -4,7 +4,7 @@
 * regrouper les suites d'instruction décodées en basic blocks (pluôt
 qu'un état par instruction x86) (ou pas, à discuter)
 * supprimer les maj de flags entre deux instructions pour ceux qui sont set/undef sans avoir été testés
-* changer la modélisation des flags gérés en "if" pour qu'ils puissent etre tainted
+
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
 * tests QEMU : gérer le `printf` => directive magique ?
@@ -16,7 +16,9 @@ qu'un état par instruction x86) (ou pas, à discuter)
 
 Bugs:
 * autoriser les '?' dans les noms de fonctions
-
+* Jmp et Return dans les boucles doivent en faire sortir. Attention au directives de default_unroll qui suit un jmp repne et à l'incr de esp après le ret qui doivent tout de même être exec
+* caractère échappement des format string est le %
+* mettre un message quand code dans rep/repe/repne n'est pas stos/scas/etc.
 Hard :
 * use a shared data structure to store memory only once for all states
 

@@ -85,9 +85,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     with _ -> Log.error "too large copy size in memcpy stub"
 	   end
 	| _ -> Log.error "invalid call to memcpy stub"
-	   
+
       let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
-	Log.from_analysis "sprintf stub";
 	match args with
 	| [Asm.Lval ret ; Asm.Lval dst ; format_addr ; va_args] ->
 	   (* ret has to contain the number of bytes stored in dst ;
@@ -101,33 +100,36 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
 	       let off_arg = !Config.stack_width / 8 in
 	       let copy_num d dst c off arg: int * int * D.t =
+		 Log.debug "entering copy_num";
 		 let rec compute digit_nb off =
 		   match Bytes.get format_string off with
 		   | c when '0' <= c && c <= '9' ->
 		      let n = ((Char.code c) - (Char.code '0')) in
 		      compute (digit_nb*10+n) (off+1)
-		   | 'x' ->
+		   | 'x' | 'X' ->
 		      let width = digit_nb*4 in
 		      let len' = digit_nb / 2 in
 		      let arg' =
 		      if width <= !Config.stack_width then
-			(* value is on the stack *)			
 			arg
 		      else
-			Asm.Lval (Asm.M (arg, !Config.address_sz))
-		      in
-		      Log.debug (Printf.sprintf "len' = %d" len');
-		      off, len', D.copy d dst arg' width
+			Log.error "format for hex in sprintf too large"
+		      in		      
+		      off+1, len', D.copy_hex d dst arg' len' (Char.compare c 'X' = 0) '0'
 		   (* value is in memory *)
 		   | _ -> Log.error "Unknown numerical format in format string"
 		 in
-		 compute ((Char.code c) - (Char.code '0')) off
+		 let n = ((Char.code c) - (Char.code '0')) in
+		 if n = 0 then
+		   compute n off
+		 else
+		   Log.error "numerical format in sprintf starting by non zero digit not managed"
 	       in
 	       let copy_arg d off len arg: int * int * D.t =
 		 let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
 		 match Bytes.get format_string off with		
-		 | 'd' -> off+1, !Config.stack_width, D.copy d dst' arg !Config.operand_sz
-		 | 's' -> let sz, d' = D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 in off+1, sz, d'
+		 | 's' ->
+		    let sz, d' = D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 in off+1, sz, d'
 		 | c when '0' <= c && c <= '9' -> copy_num d dst' c (off+1) arg
 		 | _ -> Log.error "Unknown format in format string"
 	       in
@@ -156,8 +158,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 else
 		    (* add a zero to the end of the buffer *)
 		   begin
-		     let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
-		     Log.debug (Printf.sprintf "add a zero at %s" (Asm.string_of_exp dst' true));
+		     let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in		    
 		    len, D.copy d dst' (Asm.Const (Data.Word.of_int Z.zero 8)) 8
 		   end
 
@@ -272,7 +273,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 					Cfa.remove_state g v; l'
                                       end
 	 else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
-      with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No more reachable states from %s\n" (Data.Address.to_string ip)); []
+      with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 								
  
     (*************************** Forward from binary file ************************)

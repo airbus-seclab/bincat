@@ -100,6 +100,9 @@ module type T =
       (** [copy d dst arg sz] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d *)
       val copy: t -> Asm.exp -> Asm.exp -> int -> t
 
+	(** [copy_hex d dst arg sz is_hex pad] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d or arg cannot be concretised; If is_hex is true then letters are capitalized ; pad is the character to pad if sz <> !Config.operand_sz / 8 *)
+      val copy_hex: t -> Asm.exp -> Asm.exp -> int -> bool -> char -> t
+
     (** [copy_until d dst arg term term_sz bound] copy the bits of dst into address arg until the first occurence of term is found into dst. This occurence may be at most at address [arg+bound] raise an exception if the upper bound is exceeded of dst is undefined in d 
 	it returns also the number of copied bits *)
       val copy_until: t -> Asm.exp -> Asm.exp -> Asm.exp -> int -> int -> int * t

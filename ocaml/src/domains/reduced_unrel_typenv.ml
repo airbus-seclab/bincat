@@ -95,6 +95,9 @@ module Make(D: Unrel.T) =
   let copy (uenv, _tenv) dst src sz: t =
     U.copy uenv dst src sz, T.top
 
+  let copy_hex (uenv, _tenv) dst src sz capitalise pad: t =
+    U.copy_hex uenv dst src sz capitalise pad, T.top
+
   let copy_until (uenv, _tenv) dst arg terminator term_sz upper_bound =
     let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound in
     len, (uenv', T.top)

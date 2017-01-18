@@ -201,7 +201,8 @@ module Make(V: Val) =
 	      done;
 	      Char.chr !c
 	    end
-	      
+
+
     let to_z v = v_to_z V.to_z v 
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
     let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
