@@ -26,6 +26,7 @@ import base64
 import binascii
 from collections import namedtuple
 
+from PyQt5.QtGui import QColor
 from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QBrush
 from PyQt5.QtGui import QPixmap
@@ -102,16 +103,22 @@ class HexItemDelegate(QStyledItemDelegate):
         self.char_hint = QtCore.QSize(dc.idealWidth()-dc.documentMargin(), 22)
         self._model = model
 
-    def get_pixmap(self, txt):
+    def get_pixmap(self, txt, hl, rect):
         """
         store pixmap cache. Switch to LRU cache if too much memory is used.
         """
-        if txt in HexItemDelegate.pixcache:
-            return HexItemDelegate.pixcache[txt]
+        if (hl, txt) in HexItemDelegate.pixcache:
+            return HexItemDelegate.pixcache[(hl, txt)]
 
         # FIXME use correct size? on non-hdpi screen, 15x22 real size
-        pixmap = QPixmap(40, 40)
-        pixmap.fill(Qt.white)
+        pixmap = QPixmap(rect.width(), rect.height())
+        if hl:
+            # Carefully measured using the gimp. YMMV.
+            # Used to be done using proper Qt API calls before pixmap cache was
+            # introduced in revision 731562b77ece9301f61de6626432891dfc34ba91
+            pixmap.fill(QColor.fromRgb(48, 140, 198))
+        else:
+            pixmap.fill(Qt.white)
 
         doc = QTextDocument()
         doc.setHtml(txt)
@@ -127,7 +134,9 @@ class HexItemDelegate(QStyledItemDelegate):
 
         qpainter.save()
 
-        pixmap = self.get_pixmap(option.text)
+        pixmap = self.get_pixmap(option.text,
+                                 option.state & QStyle.State_Selected,
+                                 option.rect)
 
         qpainter.translate(option.rect.left(), option.rect.top())
         qpainter.drawPixmap(0, 0, pixmap)
