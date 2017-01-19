@@ -262,7 +262,7 @@ class Meminfo():
         #: list of ranges: [[begin int, end int], ...]
         self.ranges = ranges
         self.start = ranges[0][0]
-        self.length = ranges[-1][1]-self.start
+        self.length = ranges[-1][1]-self.start+1
         self.char_cache = {}
         self.hex_cache = {}
 
