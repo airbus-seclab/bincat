@@ -385,8 +385,9 @@ class State(object):
             for e_key, e_val in self.regaddrs.items():
                 # existing keys in regaddrs
                 if type(e_key.value) is str:
+                    # e_key is a register, item is a memory address => skip
                     continue
-                # e_val: list of Values, or one Value
+                # e_val: list of Values, or one Value.
                 if len(e_val) == 1 and e_val[0].length > 8:
                     if (e_key.value > addr or
                             e_key.value + e_val[0].length < addr):
@@ -397,9 +398,13 @@ class State(object):
                     if (e_key.value > addr or
                             e_key.value + len(e_val) < addr):
                         continue
-                if len(self.regaddrs[e_key]) == (addr - e_key.value):
+                if len(e_val) == (addr - e_key.value):
                     # appending at the end of existing key e_key
                     self.regaddrs[e_key].append(v)
+                    if item+idx+1 in self.regaddrs:
+                        # merge with next allocated block
+                        self.regaddrs[e_key].extend(self.regaddrs[e_key+idx+1])
+                        del self.regaddrs[item+idx+1]
                 else:
                     # value replacement in an existing key
                     self.regaddrs[e_key][(addr - e_key.value)] = v
@@ -408,6 +413,10 @@ class State(object):
             if not recorded:
                 # new key
                 self.regaddrs[item+idx] = [val[idx]]
+                if item+idx+1 in self.regaddrs:
+                    # merge with next allocated block
+                    self.regaddrs[item+idx].extend(self.regaddrs[item+idx+1])
+                    del self.regaddrs[item+idx+1]
 
     def __getattr__(self, attr):
         try:
