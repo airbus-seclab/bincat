@@ -376,7 +376,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.range_select = QtWidgets.QComboBox()
         self.range_select.currentIndexChanged.connect(self.update_range)
         self.hexwidget = hexview.HexViewWidget(
-            Meminfo(None, None, [[0, 0]]), self.parent)
+            Meminfo(None, None, [[0, -1]]), self.parent)
         self.layout.addWidget(self.hexwidget, 1, 0, 1, 2)
 
         self.layout.addWidget(self.region_select, 0, 0)

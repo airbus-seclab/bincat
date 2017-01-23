@@ -162,14 +162,12 @@ class HexTableModel(QAbstractTableModel):
 
     def setNewMem(self, meminfo):
         self._meminfo = meminfo
-        length = self._meminfo.length
-        self._rowcount = (length // 0x10)
-        self._lastcol = length % 16
-        if self._lastcol != 0:
-            self._rowcount += 1
+        self._length = self._meminfo.length
+        self._firstcol = self._meminfo.start % 16
+        self._lastcol = self._meminfo.ranges[-1][1] % 16
+        self._rowcount = (self._firstcol + self._length + 0xf) // 0x10
 
-    @staticmethod
-    def qindex2index(index):
+    def qindex2index(self, index):
         """
         from a QIndex (row/column coordinate system), get the buffer index of
         the byte
@@ -177,15 +175,16 @@ class HexTableModel(QAbstractTableModel):
         r = index.row()
         c = index.column()
         if c > 0x10:
-            return (0x10 * r) + c - 0x11
+            return (0x10 * r) + c - 0x11 - self._firstcol
         else:
-            return (0x10 * r) + c
+            return (0x10 * r) + c - self._firstcol
 
     def index2qindexb(self, index):
         """
         from a buffer index, get the QIndex (row/column coordinate system) of
         the byte pane
         """
+        index += self._firstcol
         r = index // 0x10
         c = index % 0x10
         return self.index(r, c)
@@ -195,6 +194,7 @@ class HexTableModel(QAbstractTableModel):
         from a buffer index, get the QIndex (row/column coordinate system) of
         the char pane
         """
+        index += self._firstcol
         r = (index // 0x10)
         c = index % 0x10 + 0x11
         return self.index(r, c)
@@ -219,7 +219,9 @@ class HexTableModel(QAbstractTableModel):
 
         col = index.column()
         bindex = self.qindex2index(index)
-        if bindex >= self._meminfo.length:
+        if bindex < 0:
+            return None
+        if bindex >= self._firstcol + self._length:
             return None
         if col == 0x10:
             return ""
@@ -230,7 +232,7 @@ class HexTableModel(QAbstractTableModel):
 
     @property
     def data_length(self):
-        return self._meminfo.length
+        return self._length + self._firstcol
 
     def headerData(self, section, orientation, role):
         # if role == QtCore.Qt.SizeHintRole:
@@ -244,7 +246,7 @@ class HexTableModel(QAbstractTableModel):
             else:
                 return ""
         elif orientation == Qt.Vertical:
-            return "%08X" % (section * 0x10 + self._meminfo.start)
+            return "%08X" % (section * 0x10 + (self._meminfo.start & 0xFFFFFFF0))
 
         else:
             return None
