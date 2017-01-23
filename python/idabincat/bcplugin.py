@@ -503,7 +503,7 @@ class State(object):
         if not binary_filepath:
             bc_log.error(
                 "File %s does not exit. Please fix path in configuration.",
-                binary_filepath)
+                self.current_config.binary_filepath)
             return
         bc_log.debug("Using %s as source binary path", binary_filepath)
         self.current_config.binary_filepath = binary_filepath
