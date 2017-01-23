@@ -173,7 +173,14 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         bc_log.debug("---- logfile ---------------")
         if os.path.exists(self.logfname):
             with open(self.logfname) as f:
-                bc_log.debug(f.read())
+                log_lines = f.read().splitlines()
+                if len(log_lines) > 100:
+                    bc_log.debug(
+                        "---- Only the last 100 log lines are displayed here ---")
+                    bc_log.debug("---- See full log in %s ---" % self.logfname)
+                for line in log_lines[:100]:
+                    bc_log.debug(line)
+
         bc_log.debug("----------------------------")
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
@@ -217,15 +224,21 @@ class WebAnalyzer(Analyzer):
                          "to BinCAT analysis server.")
             return
         files = run_res.json()
-        bc_log.info("---- stdout+stderr ----------------")
-        bc_log.info(files['stdout'])
-        bc_log.debug("---- logfile ---------------")
-        bc_log.info(files['analyzer.log'])
-        bc_log.debug("----------------------------")
         with open(self.outfname, 'w') as outfp:
             outfp.write(files["out.ini"])
         with open(self.logfname, 'w') as logfp:
             logfp.write(files["analyzer.log"])
+        bc_log.info("---- stdout+stderr ----------------")
+        bc_log.info(files['stdout'])
+        bc_log.debug("---- logfile ---------------")
+        log_lines = files['analyzer.log'].split('\n')
+        if len(log_lines) > 100:
+            bc_log.debug(
+                "---- Only the last 100 log lines are displayed here ---")
+            bc_log.debug("---- See full log in %s ---" % self.logfname)
+        for line in log_lines[:100]:
+            bc_log.debug(line)
+        bc_log.debug("----------------------------")
         if "cfaout.marshal" in files:
             # might be absent when analysis failed
             cfa_sha256 = files["cfaout.marshal"]
@@ -434,7 +447,8 @@ class State(object):
     def set_current_node(self, node_id):
         if self.cfa:
             if self.cfa[node_id]:
-                self.set_current_ea(self.current_state.address.value, force=True, node_id=node_id)
+                self.set_current_ea(self.current_state.address.value,
+                                    force=True, node_id=node_id)
 
     def set_current_ea(self, ea, force=False, node_id=None):
         """
@@ -489,7 +503,7 @@ class State(object):
         if not binary_filepath:
             bc_log.error(
                 "File %s does not exit. Please fix path in configuration.",
-                binary_filepath)
+                self.current_config.binary_filepath)
             return
         bc_log.debug("Using %s as source binary path", binary_filepath)
         self.current_config.binary_filepath = binary_filepath
