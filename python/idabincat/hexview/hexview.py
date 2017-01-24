@@ -201,7 +201,7 @@ class HexTableModel(QAbstractTableModel):
         if col == 0x10:
             return ""
         if col < 0x10:
-            return self._meminfo[bindex]
+            return self._meminfo.html_color(bindex)
         else:
             return self._meminfo.char(bindex)
 
@@ -720,27 +720,38 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     def _selected_data(self):
         start = self._hsm.start
         end = self._hsm.end
-        return self._meminfo[start:end]
+        return self._meminfo.hexstr(slice(start, end))
 
     def _handle_copy_binary(self):
         mime = QMimeData()
         # mime type suggested here: http://stackoverflow.com/a/6783972/87207
-        mime.setData("application/octet-stream", self._selected_data)
+        try:
+            mime.setData("application/octet-stream",
+                         binascii.a2b_hex(self._selected_data))
+        except TypeError:
+            raise Exception("TOP values are not supported yet")
         QApplication.clipboard().setMimeData(mime)
 
     def _handle_copy_text(self):
         mime = QMimeData()
-        mime.setText(self._selected_data)
+        try:
+            mime.setText(binascii.a2b_hex(self._selected_data))
+        except TypeError:
+            raise Exception("TOP values are not supported yet")
         QApplication.clipboard().setMimeData(mime)
 
     def _handle_copy_hex(self):
         mime = QMimeData()
-        mime.setText(binascii.b2a_hex(self._selected_data))
+        mime.setText(self._selected_data)
         QApplication.clipboard().setMimeData(mime)
 
     def _handle_copy_base64(self):
         mime = QMimeData()
-        mime.setText(base64.b64encode(self._selected_data))
+        try:
+            mime.setText(base64.b64encode(
+                binascii.a2b_hex(self._selected_data)))
+        except TypeError:
+            raise Exception("TOP values are not supported yet")
         QApplication.clipboard().setMimeData(mime)
 
     def add_origin(self, origin):
