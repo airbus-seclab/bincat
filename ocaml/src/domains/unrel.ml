@@ -82,7 +82,7 @@ module type T =
     (** [taint v] taint v *)
     val taint: t -> t
 		      
-    (** [span_taint v t] span taint t on each bit o v *)
+    (** [span_taint v t] span taint t on each bit of v *)
     val span_taint: t -> Tainting.t -> t
 
     (** returns the sub value between bits low and up *)
