@@ -693,7 +693,7 @@ module Make(D: T) =
       let v' = D.of_config region content sz in
       match taint with
       | Some taint' -> D.taint_of_config taint' sz v'
-      | None 	-> v'
+      | None 	-> D.taint_of_config (Config.Taint Z.zero) sz v'
 
     let taint_register_mask reg taint m =
       match m with
