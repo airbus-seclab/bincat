@@ -378,13 +378,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         match stmts with
         | [] -> false
         | s::stmts' ->
-           let b =
              match s with
              | Call _ | Return  | Jmp _ -> true
              | If (_, tstmts, estmts)   -> (has_jmp tstmts) || (has_jmp estmts)
-             | _ 			      -> false
-           in
-           b || (has_jmp stmts')
+             | _ 		        -> (has_jmp stmts')
 
     let unroll_wrapper (f: unit -> int): unit =
       try

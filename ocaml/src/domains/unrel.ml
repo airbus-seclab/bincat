@@ -142,8 +142,8 @@ module Make(D: T) =
 	     let v = Env.find (Env.Key.Reg r) m' in D.to_string v
 	     
     let add_register r m =
-      let add m' =
-        Val (Env.add (Env.Key.Reg r) D.top m')
+      let add x =
+        Val (Env.add (Env.Key.Reg r) D.top x)
       in
       match m with
       | BOT    -> add Env.empty
