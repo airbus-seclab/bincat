@@ -166,9 +166,12 @@ def analyze():
             result['out.ini'] = f.read()
     else:
         result['out.ini'] = ""
+    with open(os.path.join(dirname, 'stdout.txt'), 'w') as f:
+        # for server-side debugging purposes
+        f.write(result['stdout'])
 
     os.chdir(cwd)
-    shutil.rmtree(dirname)
+    # shutil.rmtree(dirname)
 
     return flask.make_response(flask.jsonify(**result), 200)
 
