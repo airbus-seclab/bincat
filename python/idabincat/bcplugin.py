@@ -537,7 +537,15 @@ class State(object):
         """
         Re-run analysis, taking new overrides settings into account
         """
-        self.start_analysis()
+        if self.start_analysis is None:
+            # XXX upload all required files in Web Analyzer
+            # XXX Store all required files in IDB
+            bc_log.error(
+                "You have to run the analysis first using the 'Analyze From "
+                "here (Ctrl-Shift-A)' menu - reloading previous results from "
+                "IDB is not yet supported.")
+        else:
+            self.start_analysis()
 
 
 class OverridesState(collections.MutableSequence):
