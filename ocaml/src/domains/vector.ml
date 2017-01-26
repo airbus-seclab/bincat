@@ -334,7 +334,8 @@ module Make(V: Val) =
             with
               _ -> raise Exceptions.Enum_failure
 
-        let mul v1 v2 =
+        (* TODO: fix cleanly taint propagation, ugly trick for SSTIC *)
+        let mul v2 v1 =
             let n   = 2*(Array.length v1) in
             let res = Array.make n V.zero in
             let v2' = zero_extend v2 n    in
