@@ -383,10 +383,6 @@ class AnalyzerConfig(object):
             if os.path.isfile(guessed_path):
                 input_file = guessed_path
 
-        if not os.path.isfile(input_file):
-            bc_log.warning("Cannot open binary %s for reading, you should "
-                           "patch your config manually", input_file)
-
         config.set('binary', 'filepath', input_file)
         config.set('binary', 'format', ftype)
 
