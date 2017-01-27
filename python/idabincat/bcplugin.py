@@ -186,6 +186,8 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
 
 
 class WebAnalyzer(Analyzer):
+    API_VERSION = "1.0"
+
     def __init__(self, *args, **kwargs):
         Analyzer.__init__(self, *args, **kwargs)
         self.server_url = self.options.get("server_url").rstrip("/")
@@ -195,6 +197,21 @@ class WebAnalyzer(Analyzer):
             bc_log.error("python module 'requests' could not be imported, "
                          "so remote BinCAT cannot be used.")
             return
+        # Check server version
+        try:
+            version_req = requests.get(self.server_url + "/version")
+            srv_api_version = str(version_req.text)
+        except:
+            bc_log.error(
+                "BinCAT server at %s could not be reached." % self.server_url)
+            return
+        if srv_api_version != WebAnalyzer.API_VERSION:
+            bc_log.error(
+                "API mismatch: this plugin supports version %s, while server "
+                "supports version %s." % (WebAnalyzer.API_VERSION,
+                                          srv_api_version))
+            return
+
         # create temporary AnalyzerConfig to replace referenced file names with
         # sha256 of their contents
         temp_config = AnalyzerConfig(None)  # No reference to State - not used

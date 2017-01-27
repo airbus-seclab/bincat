@@ -16,6 +16,7 @@ import flask
 
 SHA256_RE = re.compile('[a-fA-F0-9]{64}')
 app = flask.Flask(__name__)
+API_VERSION = "1.0"
 
 # check existence of binary storage folder
 if 'BINARY_STORAGE_FOLDER' not in app.config:
@@ -31,6 +32,17 @@ firejail = distutils.spawn.find_executable("firejail")
 if firejail is None:
     app.logger.error("firejail has not been installed")
     sys.exit(1)
+
+
+@app.route("/")
+def home():
+    return flask.make_response(
+        "This server runs BinCAT, API version %s" % API_VERSION, 200)
+
+
+@app.route("/version")
+def version():
+    return API_VERSION
 
 
 @app.route("/download/<sha256>", methods=['HEAD', 'GET'])
