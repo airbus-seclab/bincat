@@ -4,13 +4,17 @@ These commands will build BinCAT from scratch and have it run as a
 webapp microservice in a docker container (no need to worry about
 dependencies, except for docker itself).
 
+If you have access to a BinCAT remote server, where the docker container is
+running, you may skip any docker-related steps.
+
 The IDA plugin will then be installed and configured to use bincat as a webapp.
 
 
 ### Install
 
+#### IDA plugin
+
 * install IDA (v6.9 or later version) with bundled Python
-* run ```docker build -t bincat .```
 * copy or symlink BinCAT plugin and libs into IDA plugins folder
 ```
 mkdir -p ~/.idapro/plugins
@@ -31,9 +35,20 @@ mkdir -p ~/.idapro/idabincat
 cp -a python/idabincat/conf ~/.idapro/idabincat/
 ```
 
-### Configuration
+#### Build the docker container
+You may skip this step if you already have access to a remote BinCAT server.
 
-* run `bincat` Docker microservice: `docker run -p 5000:5000 bincat`
+* run ```docker build -t bincat .```
+
+
+### Using BinCAT
+
+#### Run the docker container
+You may skip this step if you already have access to a remote BinCAT server.
+
+* run the `bincat` Docker microservice: `docker run -p 5000:5000 bincat`
+
+#### Configure the IDA plugin
 * run IDA
 * launch bincat plugin (Ctrl-Shift-B)
 * If there's a problem with `hashlib` on Debian, do the following:
@@ -47,9 +62,9 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 * Configure IDA bincat plugin:
   *  go to *Edit > BinCAT > Options...* menu
   *  check *use remote bincat*
-  *  Remote URL: http://localhost:5000
+  *  Remote URL: http://localhost:5000 (or the URL of a remote BinCAT server)
 
-* Now you can run analyses (Ctrl-Shilft-A)
+* Now you can run analyses (Ctrl-Shift-A)
 
 
 ## Install (Linux / MacOS)
@@ -58,7 +73,7 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 * ocaml 4.02.3 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * ocamlfind
 * zarith library >=1.4
-* newspeak
+* newspeak (https://github.com/airbus-seclab/c2newspeak)
 * python 2.7
 * pdflatex for documentation
 * pytest for tests
