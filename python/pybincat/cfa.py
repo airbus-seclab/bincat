@@ -76,7 +76,8 @@ class CFA(object):
                 (filename, estr))
         if len(config.sections()) == 0:
             raise PyBinCATException(
-                "Parsing error: no sections in %s" % filename)
+                "Parsing error: no sections in %s, check analysis logs" %
+                filename)
             return None
 
         for section in config.sections():
