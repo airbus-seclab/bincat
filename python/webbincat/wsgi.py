@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import flask
+import zlib
 
 # Make sure bincat is properly installed, and that none of the required files
 # reside in your home dir
@@ -45,15 +46,21 @@ def version():
     return API_VERSION
 
 
-@app.route("/download/<sha256>", methods=['HEAD', 'GET'])
-def download(sha256):
+@app.route("/download/<sha256>/<string:compression>", methods=['HEAD', 'GET'])
+@app.route("/download/<sha256>", methods=['HEAD', 'GET'],
+           defaults={'compression': 'none'})
+def download(sha256, compression):
     if not SHA256_RE.match(sha256):
         return flask.make_response(
             "SHA256 expected as endpoint parameter.", 400)
     sha256 = sha256.lower()
     filename = os.path.join(app.config['BINARY_STORAGE_FOLDER'], sha256)
     if os.path.isfile(filename):
-        return open(filename, 'r').read()
+        with open(filename, 'r') as f:
+            if compression == 'zlib':
+                return zlib.compress(f.read())
+            else:
+                return f.read()
     else:
         return flask.make_response(
             "No file having sha256=%s has been uploaded." % sha256, 404)
@@ -65,19 +72,32 @@ def upload():
         return flask.make_response(
             "This request was expected to include a file named 'file'.", 400)
     f = flask.request.files['file']
-    sha256 = store_to_file(f.read())
+    sha256 = store_string_to_file(f.read())
     result = {'sha256': sha256}
     return flask.make_response(flask.jsonify(**result), 200)
 
 
-def store_to_file(s):
-    h = hashlib.new('sha256')
-    h.update(s)
-    sha256 = h.hexdigest().lower()
-    fname = os.path.join(app.config['BINARY_STORAGE_FOLDER'], sha256)
+def store_string_to_file(s, alt_path=None):
+    """
+    Write file to storage, with hardlink to alt_path if supplied
+    """
+    h = calc_sha256(s)
+    fname = os.path.join(app.config['BINARY_STORAGE_FOLDER'], h)
     with open(fname, 'w') as f:
         f.write(s)
-    return sha256
+    if alt_path is not None:
+        try:
+            os.link(fname, alt_path)
+        except OSError:
+            # file exists, ignore
+            pass
+    return h
+
+
+def calc_sha256(s):
+    h = hashlib.new('sha256')
+    h.update(s)
+    return h.hexdigest().lower()
 
 
 @app.route("/analyze", methods=['POST'])
@@ -138,7 +158,7 @@ def analyze():
         if not os.path.exists(fpath):
             return flask.make_response(
                 "Input file %s has not yet been uploaded." % fname, 400)
-    # ini file references a known file, proceeding
+    # ini file references known input files, proceeding
     # I miss python3's tempfile.TemporaryDirectory...
     dirname = tempfile.mkdtemp('bincat-web-analysis')
     app.logger.debug("created %s", dirname)
@@ -154,33 +174,52 @@ def analyze():
     # run bincat
     err, stdout = run_bincat(dirname)
 
-    # gather outputs
-    result['stdout'] = stdout
+    # gather and store outputs
+    stdout_sha256 = store_string_to_file(
+        stdout, os.path.join(dirname, 'stdout.txt'))
+    result['stdout.txt'] = stdout_sha256
+
     result['errorcode'] = err
-    logfname = os.path.join(dirname, 'analyzer.log')
     if config.get('analyzer', 'store_marshalled_cfa') == 'true':
         if os.path.isfile('cfaout.marshal'):
             with open('cfaout.marshal') as f:
-                # store result?
-                s = f.read()
-                fname = store_to_file(s)
+                fname = calc_sha256(f.read())
+                fpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'],
+                                     fname)
+                try:
+                    os.link('cfaout.marshal', fpath)
+                except OSError:
+                    # file exists, ignore
+                    pass
                 result['cfaout.marshal'] = fname
+    logfname = os.path.join(dirname, 'analyzer.log')
     if os.path.isfile(logfname):
         with open(logfname) as f:
-            s = f.read()
-            store_to_file(s)
-            result['analyzer.log'] = s
+            fname = calc_sha256(f.read())
+            fpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'],
+                                 fname)
+            try:
+                os.link(logfname, fpath)
+            except OSError:
+                # file exists, ignore
+                pass
+            result['analyzer.log'] = fname
     else:
         result['analyzer.log'] = ""
     outfname = os.path.join(dirname, 'out.ini')
     if os.path.isfile(outfname):
         with open(outfname) as f:
-            result['out.ini'] = f.read()
+            fname = calc_sha256(f.read())
+            fpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'],
+                                 fname)
+            try:
+                os.link(outfname, fpath)
+            except OSError:
+                # file exists, ignore
+                pass
+            result['out.ini'] = fname
     else:
         result['out.ini'] = ""
-    with open(os.path.join(dirname, 'stdout.txt'), 'w') as f:
-        # for server-side debugging purposes
-        f.write(result['stdout'])
 
     os.chdir(cwd)
     # shutil.rmtree(dirname)
