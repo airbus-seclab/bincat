@@ -566,28 +566,36 @@ module Make(D: T) =
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v *)
     (** if e is untainted then nothing is done *)
     let span_taint m e (v: D.t) =
-      let rec process e =
+        Log.debug_lvl (Printf.sprintf "span_taint(%s)"  (Asm.string_of_exp e true)) 6;
+        let rec process e =
+            match e with
+            | Asm.Lval (Asm.V (Asm.T r)) ->
+              let r' = Env.find (Env.Key.Reg r) m in
+              D.get_minimal_taint r'
+            | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
+              let r' =  Env.find (Env.Key.Reg r) m in
+              D.get_minimal_taint (D.extract r' low up)
+            | Asm.Lval (Asm.M (_e', _n)) -> Tainting.T
+            | Asm.BinOp (_, e1, e2) -> Tainting.min (process e1) (process e2)
+            | Asm.UnOp (_, e') -> process e'
+            | _ -> Tainting.U
+        in
         match e with
-        | Asm.Lval (Asm.V (Asm.T r)) ->
-	   let r' = Env.find (Env.Key.Reg r) m in
-	   D.get_minimal_taint r'
-	| Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
-	   let r' =  Env.find (Env.Key.Reg r) m in
-	   D.get_minimal_taint (D.extract r' low up)
-	| Asm.Lval (Asm.M (_e', _n)) -> Tainting.T   
-        | Asm.BinOp (_, e1, e2) 			 -> Tainting.min (process e1) (process e2)
-        | Asm.UnOp (_, e') 				 -> process e'
-        | _ 					 -> Tainting.U
-      in
-      match e with
-      | Asm.Lval (Asm.M (e', _)) ->
-	 begin
-	   let taint = process e' in
-	   match taint with
-	   | Tainting.U -> v
-	   | _ -> D.span_taint v taint
-	 end
-      | _ -> v
+        | Asm.BinOp (_, _e1, Asm.Lval (Asm.M (e2_m, _))) ->
+          begin
+              let taint = process e2_m in
+              match taint with
+              | Tainting.U -> v
+              | _ -> D.span_taint v taint
+          end
+        | Asm.Lval (Asm.M (e', _)) ->
+          begin
+              let taint = process e' in
+              match taint with
+              | Tainting.U -> v
+              | _ -> D.span_taint v taint
+          end
+        | _ -> v
 				
 				
     let set dst src m: (t * bool) =
@@ -694,7 +702,7 @@ module Make(D: T) =
       let v' = D.of_config region content sz in
       match taint with
       | Some taint' -> D.taint_of_config taint' sz v'
-      | None 	-> v'
+      | None 	-> D.taint_of_config (Config.Taint Z.zero) sz v'
 
     let taint_register_mask reg taint m =
       match m with

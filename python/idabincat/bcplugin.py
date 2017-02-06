@@ -10,6 +10,7 @@ import os
 import sys
 import tempfile
 import traceback
+import zlib
 try:
     import requests
 except:
@@ -174,18 +175,20 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         if os.path.exists(self.logfname):
             with open(self.logfname) as f:
                 log_lines = f.read().splitlines()
-                if len(log_lines) > 100:
-                    bc_log.debug(
-                        "---- Only the last 100 log lines are displayed here ---")
-                    bc_log.debug("---- See full log in %s ---" % self.logfname)
-                for line in log_lines[:100]:
-                    bc_log.debug(line)
+            if len(log_lines) > 100:
+                bc_log.debug(
+                    "---- Only the last 100 log lines are displayed here ---")
+                bc_log.debug("---- See full log in %s ---" % self.logfname)
+            for line in log_lines[:100]:
+                bc_log.debug(line)
 
         bc_log.debug("----------------------------")
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
 class WebAnalyzer(Analyzer):
+    API_VERSION = "1.0"
+
     def __init__(self, *args, **kwargs):
         Analyzer.__init__(self, *args, **kwargs)
         self.server_url = self.options.get("server_url").rstrip("/")
@@ -195,6 +198,21 @@ class WebAnalyzer(Analyzer):
             bc_log.error("python module 'requests' could not be imported, "
                          "so remote BinCAT cannot be used.")
             return
+        # Check server version
+        try:
+            version_req = requests.get(self.server_url + "/version")
+            srv_api_version = str(version_req.text)
+        except:
+            bc_log.error(
+                "BinCAT server at %s could not be reached." % self.server_url)
+            return
+        if srv_api_version != WebAnalyzer.API_VERSION:
+            bc_log.error(
+                "API mismatch: this plugin supports version %s, while server "
+                "supports version %s." % (WebAnalyzer.API_VERSION,
+                                          srv_api_version))
+            return
+
         # create temporary AnalyzerConfig to replace referenced file names with
         # sha256 of their contents
         temp_config = AnalyzerConfig(None)  # No reference to State - not used
@@ -216,6 +234,7 @@ class WebAnalyzer(Analyzer):
             temp_config.in_marshalled_cfa_file = cfa_sha256
         # write patched config file
         init_ini_str = str(temp_config)
+        # --- Run analysis
         run_res = requests.post(
             self.server_url + "/analyze",
             files={'init.ini': ('init.ini', init_ini_str)})
@@ -225,11 +244,12 @@ class WebAnalyzer(Analyzer):
             return
         files = run_res.json()
         with open(self.outfname, 'w') as outfp:
-            outfp.write(files["out.ini"])
+
+            outfp.write(self.download_file(files["out.ini"]))
         with open(self.logfname, 'w') as logfp:
-            logfp.write(files["analyzer.log"])
+            logfp.write(self.download_file(files["analyzer.log"]))
         bc_log.info("---- stdout+stderr ----------------")
-        bc_log.info(files['stdout'])
+        bc_log.info(files['stdout.txt'])
         bc_log.debug("---- logfile ---------------")
         log_lines = files['analyzer.log'].split('\n')
         if len(log_lines) > 100:
@@ -240,13 +260,14 @@ class WebAnalyzer(Analyzer):
             bc_log.debug(line)
         bc_log.debug("----------------------------")
         if "cfaout.marshal" in files:
-            # might be absent when analysis failed
-            cfa_sha256 = files["cfaout.marshal"]
+            # might be absent (ex. when analysis failed, or not requested)
             with open(self.cfaoutfname, 'w') as cfaoutfp:
-                cfaout_marshal_str = requests.get(
-                    self.server_url + "/download/" + cfa_sha256).content
-                cfaoutfp.write(cfaout_marshal_str)
+                cfaoutfp.write(self.download_file(files["cfaout.marshal"]))
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
+
+    def download_file(self, fname):
+        r = requests.get(self.server_url + '/download/' + fname + '/zlib')
+        return zlib.decompress(r.content)
 
     def sha256_digest(self, path):
         with open(path, 'r') as f:
@@ -537,7 +558,15 @@ class State(object):
         """
         Re-run analysis, taking new overrides settings into account
         """
-        self.start_analysis()
+        if self.start_analysis is None:
+            # XXX upload all required files in Web Analyzer
+            # XXX Store all required files in IDB
+            bc_log.error(
+                "You have to run the analysis first using the 'Analyze From "
+                "here (Ctrl-Shift-A)' menu - reloading previous results from "
+                "IDB is not yet supported.")
+        else:
+            self.start_analysis()
 
 
 class OverridesState(collections.MutableSequence):

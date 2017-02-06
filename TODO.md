@@ -21,6 +21,8 @@ Bugs:
 * mettre un message quand code dans rep/repe/repne n'est pas stos/scas/etc.
 Hard :
 * use a shared data structure to store memory only once for all states
+* mem deref with taint in displacement expression
+* multiplication when only one operand is tainted
 
 ## Plugin IDA
 * importer les valeurs concrètes depuis le debugger (mémoire et registres)

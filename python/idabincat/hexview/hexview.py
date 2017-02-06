@@ -63,31 +63,6 @@ from .common import h
 from .common import LoggingObject
 
 
-def row_start_index(index):
-    """
-    get index of the start of the 0x10 byte row containing the given index
-    """
-    return index - (index % 0x10)
-
-
-def row_end_index(index):
-    """
-    get index of the end of the 0x10 byte row containing the given index
-    """
-    return index - (index % 0x10) + 0xF
-
-
-def row_number(index):
-    """
-    get row number of the 0x10 byte row containing the given index
-    """
-    return index // 0x10
-
-
-def column_number(index):
-    return index % 0x10
-
-
 class HexItemDelegate(QStyledItemDelegate):
     pixcache = {}
 
@@ -162,14 +137,12 @@ class HexTableModel(QAbstractTableModel):
 
     def setNewMem(self, meminfo):
         self._meminfo = meminfo
-        length = self._meminfo.length
-        self._rowcount = (length // 0x10)
-        self._lastcol = length % 16
-        if self._lastcol != 0:
-            self._rowcount += 1
+        self._length = self._meminfo.length
+        self._firstcol = self._meminfo.start % 16
+        self._lastcol = self._meminfo.ranges[-1][1] % 16
+        self._rowcount = (self._firstcol + self._length + 0xf) // 0x10
 
-    @staticmethod
-    def qindex2index(index):
+    def qindex2index(self, index):
         """
         from a QIndex (row/column coordinate system), get the buffer index of
         the byte
@@ -177,15 +150,16 @@ class HexTableModel(QAbstractTableModel):
         r = index.row()
         c = index.column()
         if c > 0x10:
-            return (0x10 * r) + c - 0x11
+            return (0x10 * r) + c - 0x11 - self._firstcol
         else:
-            return (0x10 * r) + c
+            return (0x10 * r) + c - self._firstcol
 
     def index2qindexb(self, index):
         """
         from a buffer index, get the QIndex (row/column coordinate system) of
         the byte pane
         """
+        index += self._firstcol
         r = index // 0x10
         c = index % 0x10
         return self.index(r, c)
@@ -195,6 +169,7 @@ class HexTableModel(QAbstractTableModel):
         from a buffer index, get the QIndex (row/column coordinate system) of
         the char pane
         """
+        index += self._firstcol
         r = (index // 0x10)
         c = index % 0x10 + 0x11
         return self.index(r, c)
@@ -219,18 +194,20 @@ class HexTableModel(QAbstractTableModel):
 
         col = index.column()
         bindex = self.qindex2index(index)
-        if bindex >= self._meminfo.length:
+        if bindex < 0:
+            return None
+        if bindex >= self._firstcol + self._length:
             return None
         if col == 0x10:
             return ""
         if col < 0x10:
-            return self._meminfo[bindex]
+            return self._meminfo.html_color(bindex)
         else:
             return self._meminfo.char(bindex)
 
     @property
     def data_length(self):
-        return self._meminfo.length
+        return self._length + self._firstcol
 
     def headerData(self, section, orientation, role):
         # if role == QtCore.Qt.SizeHintRole:
@@ -244,7 +221,7 @@ class HexTableModel(QAbstractTableModel):
             else:
                 return ""
         elif orientation == Qt.Vertical:
-            return "%08X" % (section * 0x10 + self._meminfo.start)
+            return "%08X" % (section * 0x10 + (self._meminfo.start & 0xFFFFFFF0))
 
         else:
             return None
@@ -313,20 +290,33 @@ class HexItemSelectionModel(QItemSelectionModel):
         if start_bindex > end_bindex:
             start_bindex, end_bindex = end_bindex, start_bindex
 
+        start_qindex = self._model.index2qindexb(start_bindex)
+        start_row = start_qindex.row()
+        start_col = start_qindex.column()
+        #: binary index of the 1st column on the row containing start_bindex
+        start_row_start_idx = start_bindex - start_col
+        #: binary index of the last column on the row containing start_bindex
+        start_row_end_idx = start_bindex + (0xf-start_col)
+        end_qindex = self._model.index2qindexb(end_bindex)
+        end_row = end_qindex.row()
+        end_col = end_qindex.column()
+        end_row_start_idx = end_bindex - end_col
+        end_row_end_idx = end_bindex + (0xf-end_col)
+
         selection = QItemSelection()
-        if row_number(end_bindex) - row_number(start_bindex) == 0:
+        if end_row == start_row:
             # all on one line
             self._bselect(selection, start_bindex, end_bindex)
-        elif row_number(end_bindex) - row_number(start_bindex) == 1:
+        elif end_row - start_row == 1:
             # two lines
-            self._bselect(selection, start_bindex, row_end_index(start_bindex))
-            self._bselect(selection, row_start_index(end_bindex), end_bindex)
+            self._bselect(selection, start_bindex, start_row_end_idx)
+            self._bselect(selection, end_row_start_idx, end_bindex)
         else:
             # many lines
-            self._bselect(selection, start_bindex, row_end_index(start_bindex))
-            self._bselect(selection, row_start_index(start_bindex) + 0x10,
-                          row_end_index(end_bindex) - 0x10)
-            self._bselect(selection, row_start_index(end_bindex), end_bindex)
+            self._bselect(selection, start_bindex, start_row_end_idx)
+            self._bselect(selection, start_row_start_idx + 0x10,
+                          end_row_end_idx - 0x10)
+            self._bselect(selection, end_row_start_idx, end_bindex)
 
         self.select(selection, QItemSelectionModel.SelectCurrent)
         self.start = start_bindex
@@ -346,7 +336,8 @@ class HexItemSelectionModel(QItemSelectionModel):
         if key == QKeySequence.MoveToEndOfDocument:
             i = self._model.data_length - 1
         elif key == QKeySequence.MoveToEndOfLine:
-            i = row_end_index(i)
+            i_col = self._model.index2qindexb(i).column()
+            i = i + 0xf - i_col
         elif key == QKeySequence.MoveToNextChar:
             i += 1
         elif key == QKeySequence.MoveToNextLine:
@@ -366,7 +357,8 @@ class HexItemSelectionModel(QItemSelectionModel):
         elif key == QKeySequence.MoveToStartOfDocument:
             i = 0x0
         elif key == QKeySequence.MoveToStartOfLine:
-            i = row_start_index(i)
+            i_col = self._model.index2qindexb(i).column()
+            i = i - i_col
         else:
             raise RuntimeError("Unexpected movement key: %s" % (key))
 
@@ -394,7 +386,8 @@ class HexItemSelectionModel(QItemSelectionModel):
         if key == QKeySequence.SelectEndOfDocument:
             i = self._model.data_length - 1
         elif key == QKeySequence.SelectEndOfLine:
-            i = row_end_index(i)
+            i_col = self._model.index2qindexb(i).column()
+            i = i + 0xf - i_col
         elif key == QKeySequence.SelectNextChar:
             i += 1
         elif key == QKeySequence.SelectNextLine:
@@ -414,7 +407,8 @@ class HexItemSelectionModel(QItemSelectionModel):
         elif key == QKeySequence.SelectStartOfDocument:
             i = 0x0
         elif key == QKeySequence.SelectStartOfLine:
-            i = row_start_index(i)
+            i_col = self._model.index2qindexb(i).column()
+            i = i - i_col
         else:
             raise RuntimeError("Unexpected select key: %s" % (key))
 
@@ -726,27 +720,38 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     def _selected_data(self):
         start = self._hsm.start
         end = self._hsm.end
-        return self._meminfo[start:end]
+        return self._meminfo.hexstr(slice(start, end))
 
     def _handle_copy_binary(self):
         mime = QMimeData()
         # mime type suggested here: http://stackoverflow.com/a/6783972/87207
-        mime.setData("application/octet-stream", self._selected_data)
+        try:
+            mime.setData("application/octet-stream",
+                         binascii.a2b_hex(self._selected_data))
+        except TypeError:
+            raise Exception("TOP values are not supported yet")
         QApplication.clipboard().setMimeData(mime)
 
     def _handle_copy_text(self):
         mime = QMimeData()
-        mime.setText(self._selected_data)
+        try:
+            mime.setText(binascii.a2b_hex(self._selected_data))
+        except TypeError:
+            raise Exception("TOP values are not supported yet")
         QApplication.clipboard().setMimeData(mime)
 
     def _handle_copy_hex(self):
         mime = QMimeData()
-        mime.setText(binascii.b2a_hex(self._selected_data))
+        mime.setText(self._selected_data)
         QApplication.clipboard().setMimeData(mime)
 
     def _handle_copy_base64(self):
         mime = QMimeData()
-        mime.setText(base64.b64encode(self._selected_data))
+        try:
+            mime.setText(base64.b64encode(
+                binascii.a2b_hex(self._selected_data)))
+        except TypeError:
+            raise Exception("TOP values are not supported yet")
         QApplication.clipboard().setMimeData(mime)
 
     def add_origin(self, origin):

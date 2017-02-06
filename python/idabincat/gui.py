@@ -264,7 +264,7 @@ class Meminfo():
         self.start = ranges[0][0]
         self.length = ranges[-1][1]-self.start+1
         self.char_cache = {}
-        self.hex_cache = {}
+        self.html_cache = {}
 
     @staticmethod
     def color_valtaint(strval, strtaint):
@@ -283,20 +283,15 @@ class Meminfo():
                 color_str += "<font color='yellow'>"+c+"</font>"
         return color_str
 
-    def char(self, index):
+    def char(self, idx):
         """ relative get of ASCII char """
-        if index < 0 or index >= self.length:
-            raise IndexError
-        if index in self.char_cache:
-            return self.char_cache[index]
-        abs_addr = index+self.start
-        addr_value = cfa.Value(self.region, abs_addr, 32)
-        in_range = filter(
-            lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
-        if not in_range:
+        if idx in self.char_cache:
+            return self.char_cache[idx]
+        values = self[idx]
+        if len(values) == 0 or values[0] is None:
             res = "_"
         else:
-            value = self.state[addr_value][0]
+            value = values[0]
             if value.is_concrete():
                 char = chr(value.value)
                 if char in string.printable:
@@ -305,27 +300,42 @@ class Meminfo():
                     res = '.'
             else:
                 res = "?"
-        self.char_cache[index] = res
+        self.char_cache[idx] = res
         return res
 
-    def __getitem__(self, index):
-        """ relative get """
-        if index < 0 or index >= self.length:
+    def html_color(self, idx):
+        # often used => cache
+        if idx in self.html_cache:
+            return self.html_cache[idx]
+        values = self[idx]
+        if len(values) == 0 or values[0] is None:
+            res = "__"
+        res = Meminfo.color_valtaint(
+            values[0].__valuerepr__(16, True),
+            values[0].__taintrepr__(16, True))
+        self.html_cache[idx] = res
+        return res
+
+    def hexstr(self, idx):
+        if isinstance(idx, slice):
+            return "".join(
+                [self.hexstr(i) for i in
+                 range(idx.start, idx.stop+1, idx.step if idx.step else 1)])
+        values = self[idx]
+        return values[0].__valuerepr__(16, True)
+
+    def __getitem__(self, idx):
+        """ relative get - returns [Value, Value, ...]"""
+        if idx < 0 or idx >= self.length:
             raise IndexError
-        if index in self.hex_cache:
-            return self.hex_cache[index]
-        abs_addr = index+self.start
+        abs_addr = idx+self.start
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(
             lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
         if not in_range:
-            res = "__"
+            res = None
         else:
-            values = self.state[addr_value]
-            res = Meminfo.color_valtaint(
-                values[0].__valuerepr__(16, True),
-                values[0].__taintrepr__(16, True))
-        self.hex_cache[index] = res
+            res = self.state[addr_value]
         return res
 
 
@@ -376,7 +386,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.range_select = QtWidgets.QComboBox()
         self.range_select.currentIndexChanged.connect(self.update_range)
         self.hexwidget = hexview.HexViewWidget(
-            Meminfo(None, None, [[0, 0]]), self.parent)
+            Meminfo(None, None, [[0, -1]]), self.parent)
         self.layout.addWidget(self.hexwidget, 1, 0, 1, 2)
 
         self.layout.addWidget(self.region_select, 0, 0)
