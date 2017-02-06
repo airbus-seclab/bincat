@@ -100,22 +100,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
 	       let off_arg = !Config.stack_width / 8 in
 	       let copy_num d dst c off arg: int * int * D.t =
-		 Log.debug "entering copy_num";
 		 let rec compute digit_nb off =
 		   match Bytes.get format_string off with
 		   | c when '0' <= c && c <= '9' ->
 		      let n = ((Char.code c) - (Char.code '0')) in
 		      compute (digit_nb*10+n) (off+1)
 		   | 'x' | 'X' ->
-		      let width = digit_nb*4 in
-		      let len' = digit_nb / 2 in
-		      let arg' =
-		      if width <= !Config.stack_width then
-			arg
-		      else
-			Log.error "format for hex in sprintf too large"
-		      in		      
-		      off+1, len', D.copy_hex d dst arg' len' (Char.compare c 'X' = 0) '0'
+		      off+1, digit_nb, D.copy_hex d dst arg digit_nb (Char.compare c 'X' = 0) '0'
 		   (* value is in memory *)
 		   | _ -> Log.error "Unknown numerical format in format string"
 		 in

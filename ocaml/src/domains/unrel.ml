@@ -469,7 +469,8 @@ module Make(D: T) =
 		       
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
            D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))), false
-		     
+
+	     
         | Asm.BinOp (op, e1, e2) ->
 	   let v1, b1 = eval e1 in
 	   let v2, b2 = eval e2 in
@@ -848,21 +849,19 @@ module Make(D: T) =
 	   (* HACK : not portable if format in D.to_string changes *)
 	   let src = D.to_string vsrc in
 	   let str_src = String.sub src 3 ((String.length src)-3) in
-	   (* pad with the pad parameter if nb < !Config.operand_sz / 8 *)
+	   (* pad with the pad parameter if needed *)
 	   let sz = !Config.operand_sz / 8 in
-	   let nb_pad = sz - nb in
+	   let nb_pad = nb - sz in
 	   let str_src =
-	     if nb_pad = 0 then str_src
+	     if nb_pad <= 0 then str_src
 	     else
-	       if nb_pad > 0 then (String.make nb_pad pad) ^ str_src
-	       else
-		 Log.error "illegal value for size in copy_hex"
+	       (String.make nb_pad pad) ^ str_src
 	   in
 	   let vdst = fst (eval_exp m' dst) in
 	   let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
 	   match dst_addrs with
 	   | [dst_addr] ->	     
-	      let znb = Z.of_int sz in
+	      let znb = Z.of_int nb in
 	      let rec write m' o =
 		if Z.compare o znb < 0 then
 		  let c = String.get str_src (Z.to_int o) in
