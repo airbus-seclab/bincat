@@ -469,7 +469,8 @@ module Make(D: T) =
 		       
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
            D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))), false
-		     
+
+	     
         | Asm.BinOp (op, e1, e2) ->
 	   let v1, b1 = eval e1 in
 	   let v2, b2 = eval e2 in
@@ -853,7 +854,6 @@ module Make(D: T) =
 	   match dst_addrs with
 	   | [dst_addr] ->	     
 	      let znb = Z.of_int nb in
-	      Log.debug (Printf.sprintf "size = %d, str = %s" nb str_src);
 	      let rec write m' o =
 		if Z.compare o znb < 0 then
 		  let c = String.get str_src (Z.to_int o) in
