@@ -62,6 +62,7 @@ let rva_code = ref Z.zero
 
 let address_sz = ref 32
 let operand_sz = ref 32
+let size_of_long () = !operand_sz
 let stack_width = ref 32
 
 let gdt: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 19

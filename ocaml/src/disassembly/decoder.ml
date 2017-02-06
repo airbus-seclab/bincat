@@ -1160,8 +1160,8 @@ struct
         let tmp         = V (T v)			    in
         let e = get_eflags () in
         let e' =
-            if sz = 16 then
-                (* if sz = 16 should AND EFLAGS with 00FCFFFFH) *)
+            if sz = 32 then
+                (* if sz = 32 should AND EFLAGS with 00FCFFFFH) *)
                 BinOp(And, e, const 0x00FCFFFF 32)
             else e
         in
@@ -2059,8 +2059,8 @@ struct
    
     (** initialization of the import table *)
     let init_imports () =
+      Imports.init();
       (* creates the import table from import section *)
-      Imports.init ();
       Hashtbl.iter (fun a (libname, fname) ->
 	let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
 	let fundec =  {
@@ -2110,7 +2110,6 @@ struct
       Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
         let reg = Hashtbl.create 6 in
         List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
-	init_imports();
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
 	  
     (** launch the decoder *)

@@ -86,93 +86,165 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	   end
 	| _ -> Log.error "invalid call to memcpy stub"
 
+      let print (d: D.t) ret format_addr va_args (to_buffer: Asm.exp option): D.t * bool =
+	     (* ret has to contain the number of bytes stored in dst ;
+		format_addr is the address of the format string ;
+		va_args is the address of the first parameter 
+		(hence the second one will be at va_args + !Config.stack_width/8, 
+		the third one at va_args + 2*!Config.stack_width/8, etc. *) 
+	try
+	  let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
+	  let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
+	  Log.debug (Printf.sprintf "format string = %s (len=%d)" format_string str_len);
+	  let off_arg = !Config.stack_width / 8 in
+	  let copy_num d len c off arg pad_char pad_left: int * int * D.t =
+	    let rec compute digit_nb off =
+	      match Bytes.get format_string off with
+	      | c when '0' <= c && c <= '9' ->
+		 let n = ((Char.code c) - (Char.code '0')) in
+		 compute (digit_nb*10+n) (off+1)
+	      | 'l' -> 
+		 begin
+		   let c = Bytes.get format_string (off+1) in 
+		   match c with
+		   | 'x' | 'X' ->
+		      let sz = Config.size_of_long () in
+		      Log.from_analysis (Printf.sprintf "hypothesis used in format string: size of long = %d bits" sz);
+		      let dump =
+			match to_buffer with
+			| Some dst ->
+			   let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
+			   D.copy_hex d dst'
+			| _ -> D.print_hex d
+		      in
+		      let d' = dump arg digit_nb (Char.compare c 'X' = 0) pad_char pad_left sz in
+		      off+2, digit_nb, d'
+		   | _ ->  Log.error "Unknown format in format string"
+		 end
+	      | 'x' | 'X' ->
+		 let copy =
+		   match to_buffer with
+		   | Some dst ->
+		      let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
+		      D.copy_hex d dst'
+		   | _ -> D.print_hex d
+		 in
+		 off+1, digit_nb, copy arg digit_nb (Char.compare c 'X' = 0) pad_char pad_left !Config.operand_sz
+	      | 's' ->
+		 let dump =
+		   match to_buffer with
+		   | Some dst ->
+		      let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))
+		      in
+		      D.copy_chars d dst'
+		   | _ -> D.print_chars d
+		 in
+		 off+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
+		   
+	      (* value is in memory *)
+	      | _ -> Log.error "Unknown format in format string"
+	    in
+	    let n = ((Char.code c) - (Char.code '0')) in
+	    compute n off
+	  in
+	  let copy_arg d off len arg: int * int * D.t =
+	    match Bytes.get format_string off with		
+	    | 's' ->
+	       let dump =
+		 match to_buffer with
+		 | Some dst ->
+		    let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
+		    D.copy_until d dst'
+		 | None ->
+		   D.print_until d
+	       in
+	       let sz, d' = dump arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in off+1, sz, d'
+	    | c when '0' <= c && c <= '9' -> copy_num d len c (off+1) arg '0' true
+	    | ' ' -> copy_num d len '0' (off+1) arg ' ' true  
+	    | '-' -> copy_num d len '0' (off+1) arg ' ' false
+	    | _ -> Log.error "Unknown format in format string"
+	  in
+	  let rec copy_char d c (off: int) len arg_nb: int * D.t =
+	    let src = (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) in
+	    let dump =
+	      match to_buffer with
+	      | Some dst -> D.copy d (Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)))
+	      | _ -> D.print d
+	    in
+	    let d' = dump src 8 in
+	    fill_buffer d' (off+1) 0 (len+1) arg_nb	    
+	  and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int) arg_nb: int * D.t =	    
+	    if off < str_len then
+	      match state_id with
+	      | 0 -> 
+		 begin
+		   match Bytes.get format_string off with
+		   | '%' -> fill_buffer d (off+1) 1 len arg_nb
+		   | c -> copy_char d c off len arg_nb
+		 end
+	      | 1 ->
+		 let c = Bytes.get format_string off in
+		 begin
+		   match c with
+		   | '%' -> copy_char d c off len arg_nb 
+		   | _ -> fill_buffer d off 2 len arg_nb
+		 end
+	      | _ (* = 2 ie previous char is % *) ->
+		 let arg = Asm.Lval (Asm.M (Asm.BinOp (Asm.Add, va_args, Asm.Const (Data.Word.of_int (Z.of_int (arg_nb*off_arg)) !Config.stack_width)), !Config.stack_width)) in
+		 let off', buf_len, d' = copy_arg d off len arg in
+		 fill_buffer d' off' 0 (len+buf_len) (arg_nb+1)
+	    else
+	      (* add a zero to the end of the buffer *)
+	      match to_buffer with
+	      | Some dst ->	
+		 let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
+		 len, D.copy d dst' (Asm.Const (Data.Word.of_int Z.zero 8)) 8
+	      | None -> len, d
+		
+	  in
+	  let len', d' = fill_buffer d 0 0 0 0 in
+	  D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
+	    
+	with
+	| Exceptions.Enum_failure | Exceptions.Concretization ->
+	   Log.error "(s)printf: Unknown address of the format string or imprecise value of the format string"		  	  
+	| Not_found ->
+	   Log.error "address of the null terminator in the format string in (s)printf not found"
+
+      
+
       let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
 	match args with
-	| [Asm.Lval ret ; Asm.Lval dst ; format_addr ; va_args] ->
-	   (* ret has to contain the number of bytes stored in dst ;
-	      format_addr is the address of the format string ;
-	      va_args is the address of the first parameter 
-	      (hence the second one will be at va_args + !Config.stack_width/8, 
-	      the third one at va_args + 2*!Config.stack_width/8, etc. *) 
-	   begin
-	     try
-	       let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
-	       let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
-	       let off_arg = !Config.stack_width / 8 in
-	       let copy_num d dst c off arg: int * int * D.t =
-		 let rec compute digit_nb off =
-		   match Bytes.get format_string off with
-		   | c when '0' <= c && c <= '9' ->
-		      let n = ((Char.code c) - (Char.code '0')) in
-		      compute (digit_nb*10+n) (off+1)
-		   | 'x' | 'X' ->
-		      off+1, digit_nb, D.copy_hex d dst arg digit_nb (Char.compare c 'X' = 0) '0'
-		   (* value is in memory *)
-		   | _ -> Log.error "Unknown numerical format in format string"
-		 in
-		 let n = ((Char.code c) - (Char.code '0')) in
-		 if n = 0 then
-		   compute n off
-		 else
-		   Log.error "numerical format in sprintf starting by non zero digit not managed"
-	       in
-	       let copy_arg d off len arg: int * int * D.t =
-		 let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
-		 match Bytes.get format_string off with		
-		 | 's' ->
-		    let sz, d' = D.copy_until d dst' arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 in off+1, sz, d'
-		 | c when '0' <= c && c <= '9' -> copy_num d dst' c (off+1) arg
-		 | _ -> Log.error "Unknown format in format string"
-	       in
-	       let rec copy_char d c (off: int) len arg_nb: int * D.t =
-		 let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)) in
-		 let d' = D.copy d dst' (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) 8 in
-		 fill_buffer d' (off+1) 0 (len+1) arg_nb	    
-	       and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int) arg_nb: int * D.t =
-		 if off < str_len then
-		   match state_id with
-		   | 0 ->
-		      begin
-			match Bytes.get format_string off with
-			| '%' -> fill_buffer d (off+1) 2 len arg_nb
-			| '\\' -> fill_buffer d (off+1) 1 len arg_nb
-			| c -> copy_char d c off len arg_nb
-		      end
-		   | 1 ->
-		      let c = Bytes.get format_string off in
-		      copy_char d c off len arg_nb 
-		      
-		   | _ (* = 2 ie previous char is % *) ->
-		      let arg = Asm.BinOp (Asm.Add, va_args, Asm.Const (Data.Word.of_int (Z.of_int (arg_nb*off_arg)) !Config.stack_width)) in
-		      let off', buf_len, d' = copy_arg d off len arg in
-		      fill_buffer d' off' 0 (len+buf_len) (arg_nb+1)
-		 else
-		    (* add a zero to the end of the buffer *)
-		   begin
-		     let dst' = Asm.BinOp (Asm.Add, Asm.Lval dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in		    
-		    len, D.copy d dst' (Asm.Const (Data.Word.of_int Z.zero 8)) 8
-		   end
-
-		   
-	       in
-	       let len', d' = fill_buffer d 0 0 0 0 in
-	       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
-		 
-	     with
-	     | Exceptions.Enum_failure | Exceptions.Concretization ->
-		Log.error "sprintf: Unknown address of the format string or imprecise value of the format string"		  	  
-	     | Not_found ->
-		Log.error "address of the null terminator of the format string in sprintf not found"
-	   end
-	| _ -> Log.error "invalid call to sprintf stub" 
-	  
-      let process d fun_name (args: Asm.exp list): D.t * bool =
-	match fun_name with
-	| "memcpy" -> memcpy d args
-	| "sprintf" -> sprintf d args
-	| "strlen" -> strlen d args
+	| [Asm.Lval ret ; dst ; format_addr ; va_args] ->
+	   print d ret format_addr va_args (Some dst)	     
+	| _ -> Log.error "invalid call to (s)printf stub"
 	   
-	| _ -> Log.from_analysis (Printf.sprintf "no stub for %s. Skipped" fun_name); d, false
+      let printf d args =
+	(* TODO: not optimal as buffer destination is built as for sprintf *)
+	match args with
+	| [Asm.Lval ret ; format_addr ; va_args] ->
+	   (* creating a very large temporary buffer to store the output of printf *)
+	   Log.open_stdout();
+	   let d', is_tainted = print d ret format_addr va_args None in
+	   Log.from_analysis "printf output:";
+	   Log.dump_stdout();
+	   Log.from_analysis "--- end of printf--";
+	   d', is_tainted
+	| _ -> Log.error "invalid call to printf stub" 
+	   
+	
+      let process d fun_name (args: Asm.exp list): D.t * bool =
+	try
+	  let apply_f =
+	  match fun_name with
+	  | "memcpy" -> memcpy
+	  | "sprintf" -> sprintf 
+	  | "printf" -> printf 
+	  | "strlen" -> strlen 
+	  | _ -> raise Exit
+	in
+	  apply_f d args
+	with _ -> Log.from_analysis (Printf.sprintf "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
     end
     open Asm
       
@@ -670,7 +742,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             (* computed next step                                                                                  *)
             (* the new instruction pointer (offset variable) is also returned                                      *)
             let r = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)                   in
-	    Log.debug (Printf.sprintf "%s" (Data.Address.to_string v.Cfa.State.ip));	    
             match r with
             | Some (v, ip', d') ->
                (* these vertices are updated by their right abstract values and the new ip                         *)

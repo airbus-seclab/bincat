@@ -36,11 +36,19 @@ struct
   let sprintf_stdcall () =
     let buf = arg 4 in
     let format = arg 8 in
-    let va_arg = arg 12 in
+    let va_arg = BinOp (Add, Lval (V (T (esp ()))), Const (Data.Word.of_int (Z.of_int 12) !Config.stack_width)) in
     let res = Register.of_name "eax" in
     [ Directive (Stub ("sprintf",  [Lval (V (T res)) ; buf ; format ; va_arg])) ]
 
   let sprintf_cdecl = sprintf_stdcall
+
+    let printf_stdcall () =
+    let format = arg 4 in
+    let va_arg = BinOp (Add, Lval (V (T (esp()))), Const (Data.Word.of_int (Z.of_int 8) !Config.stack_width)) in
+    let res = Register.of_name "eax" in
+    [ Directive (Stub ("printf",  [Lval (V (T res)) ; format ; va_arg])) ]
+
+  let printf_cdecl = printf_stdcall
 
   let strlen_stdcall () =
     let buf = arg 4 in
@@ -54,19 +62,39 @@ struct
     let src = arg 8 in
     let sz = arg 12 in
     let res = Register.of_name "eax" in
-    [ Directive (Stub ("sprintf",  [Lval (V (T res)) ; dst ; src ; sz])) ]
+    [ Directive (Stub ("memcpy",  [Lval (V (T res)) ; dst ; src ; sz])) ]
 
   let memcpy_cdecl = memcpy_stdcall
+
+  (* QEMU stb of printf *)
+  let printf_chk_stdcall () =
+    let format = arg 8 in
+ let va_arg = BinOp (Add, Lval (V (T (esp()))), Const (Data.Word.of_int (Z.of_int 12) !Config.stack_width)) in
+   
+    let res = Register.of_name "eax" in
+    [ Directive (Stub ("printf",  [Lval (V (T res)) ; format ; va_arg])) ]
+      
+  let printf_chk_cdecl = printf_chk_stdcall 
     
   let stdcall_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
   let cdecl_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
 
-  let init () =
-    Hashtbl.add stdcall_stubs "memcpy" (sprintf_stdcall ());
-    Hashtbl.add cdecl_stubs "memcpy" (sprintf_cdecl ());
+  let init_stdcall () =
+    Hashtbl.add stdcall_stubs "memcpy" (memcpy_stdcall ());
     Hashtbl.add stdcall_stubs "sprintf" (sprintf_stdcall ());
-    Hashtbl.add cdecl_stubs "sprintf" (sprintf_cdecl ());
-    Hashtbl.add stdcall_stubs "strlen" (strlen_stdcall ());
-    Hashtbl.add cdecl_stubs "strlen" (strlen_cdecl ());;
+    Hashtbl.add stdcall_stubs "printf" (printf_stdcall ());
+    Hashtbl.add stdcall_stubs "__printf_chk" (printf_chk_stdcall ());
+    Hashtbl.add stdcall_stubs "strlen" (strlen_stdcall ());;
   
+  let init_cdecl () =
+    Hashtbl.add cdecl_stubs "memcpy" (memcpy_cdecl ());
+    Hashtbl.add cdecl_stubs "sprintf" (sprintf_cdecl ());
+    Hashtbl.add cdecl_stubs "printf" (printf_cdecl ());
+    Hashtbl.add cdecl_stubs "__printf_chk" (printf_chk_cdecl ());
+    Hashtbl.add cdecl_stubs "strlen" (strlen_cdecl ());;
+
+  let init () =
+    init_stdcall ();
+    init_cdecl ()
+    
 end

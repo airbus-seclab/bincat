@@ -36,6 +36,8 @@ module Make(D: Unrel.T) =
     
   let value_of_register (uenv, _tenv) r = U.value_of_register uenv r
 
+  let string_of_register (uenv, tenv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
+    
   let value_of_exp (uenv, _tenv) e = U.value_of_exp uenv e
     
   let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv): t): t =
@@ -95,11 +97,27 @@ module Make(D: Unrel.T) =
   let copy (uenv, _tenv) dst src sz: t =
     U.copy uenv dst src sz, T.top
 
-  let copy_hex (uenv, _tenv) dst src sz capitalise pad: t =
-    U.copy_hex uenv dst src sz capitalise pad, T.top
+  let print (uenv, _tenv) src sz: t =
+    U.print uenv src sz, T.top
 
-  let copy_until (uenv, _tenv) dst arg terminator term_sz upper_bound =
-    let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound in
+  let copy_hex (uenv, _tenv) dst src sz capitalise pad_char pad_left word_sz: t =
+    U.copy_hex uenv dst src sz capitalise pad_char pad_left word_sz, T.top
+
+  let print_hex (uenv, tenv) src sz capitalise pad_char pad_left word_sz: t =
+    U.print_hex uenv src sz capitalise pad_char pad_left word_sz, tenv
+   
+  let copy_chars (uenv, _tenv) dst src sz pad_options =
+    U.copy_chars uenv dst src sz pad_options, T.top
+
+  let print_chars (uenv, _tenv) src sz pad_options =
+    U.print_chars uenv src sz pad_options, T.top
+      
+  let copy_until (uenv, _tenv) dst arg terminator term_sz upper_bound with_exception pad_options =
+    let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options in
+    len, (uenv', T.top)
+
+  let print_until (uenv, _tenv) arg terminator term_sz upper_bound with_exception pad_options =
+    let len, uenv' = U.print_until uenv arg terminator term_sz upper_bound with_exception pad_options in
     len, (uenv', T.top)
 
   let copy_register r (uenv, _tenv) (usrc, _tsrc) =

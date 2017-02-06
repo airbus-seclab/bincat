@@ -67,6 +67,11 @@ let to_string env =
 	 ("T-"^(Env.Key.to_string key)^"="^styp)::acc
      ) env' []
 
+let string_of_register env r =
+  match env with
+    | BOT -> raise Exceptions.Empty
+    | Val env' -> try Types.to_string (Env.find (Env.Key.Reg r) env') with Not_found -> ""
+
 let set_register reg typ env =
   match env with
   | BOT -> BOT

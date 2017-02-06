@@ -100,6 +100,8 @@ sig
     val widen: t -> t -> t
     (** string conversion *)
     val to_string: t -> string
+    (** string conversion (value string, taint string) *)
+    val to_strings: t -> string * string
     (** binary operation *)
     val binary: Asm.binop -> t -> t -> t
     (** unary operation *)
@@ -206,9 +208,8 @@ module Make(V: Val) =
     let to_z v = v_to_z V.to_z v 
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
     let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
-
-    let to_string v =
-        let v' =
+    let extract_strings v = 
+       let v' =
             if exists V.is_top v then
                 let v_bytes = Bytes.create (Array.length v) in
                 let set_char = (fun i c -> Bytes.set v_bytes i (V.to_char c)) in
@@ -216,10 +217,10 @@ module Make(V: Val) =
                 "0b"^Bytes.to_string v_bytes
             else
                 Data.Word.to_string (to_word V.to_z v)
-        in
-        let taint_bytes = Bytes.create (Array.length v) in
+      in
+      let taint_bytes = Bytes.create (Array.length v) in
         let t =
-            try
+          try
                 let all = ref true in
                 let r = to_word (fun v -> let t = V.taint_to_z v in if Z.compare t Z.one <> 0 then all := false; t) v in
                 if !all then
@@ -231,9 +232,15 @@ module Make(V: Val) =
                 Array.iteri set_taint_char v;
                 "0b"^Bytes.to_string taint_bytes
         in
-        if String.compare t "0x0" == 0 then v'
-        else Printf.sprintf "%s!%s" v' t
-
+	v', t
+    let to_string v =
+     let v', t = extract_strings v in
+     if String.compare t "0x0" == 0 then v'
+     else Printf.sprintf "%s!%s" v' t
+	  
+    let to_strings v = extract_strings v
+      
+      
         let join v1 v2 = map2 V.join v1 v2
 
         let meet v1 v2 = map2 V.meet v1 v2
@@ -508,10 +515,13 @@ module Make(V: Val) =
                       v.(n'-i) <- V.forget_taint v.(n'-i)
               done;
               v
-
+        let concat v1 v2 = Array.append v1 v2
+	  
         (** copy bits from v2 to bits from low to up of v1,
          *  vectors can be of different sizes *)
         let combine v1 v2 low up =
+	  if low = Array.length v1 then concat v1 v2
+	  else
             if low > up || (up-low+1) > (Array.length v2) then
                 Log.error "Vector.combine : low > up or length of src < up-low+1 "
             else
@@ -570,6 +580,6 @@ module Make(V: Val) =
             let v_array = Array.init (nb*v_len) access_mod in
             v_array
 
-        let concat v1 v2 = Array.append v1 v2
+
 					
     end: T)

@@ -38,6 +38,9 @@ module type T =
       (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
       val value_of_register: t -> Register.t -> Z.t
 
+      (** string conversion of a register *)
+      val string_of_register: t -> Register.t -> string list
+	
       (** int conversion of the given expression *)
       (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
       val value_of_exp: t -> Asm.exp -> Z.t
@@ -100,15 +103,35 @@ module type T =
       (** [copy d dst arg sz] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d *)
       val copy: t -> Asm.exp -> Asm.exp -> int -> t
 
-	(** [copy_hex d dst arg sz is_hex pad] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d or arg cannot be concretised; If is_hex is true then letters are capitalized ; pad is the character to pad if sz <> !Config.operand_sz / 8 *)
-      val copy_hex: t -> Asm.exp -> Asm.exp -> int -> bool -> char -> t
+      (** [print d arg sz] prints the first sz bits of arg. May raise an exception if dst is undefined in d *)
+      val print: t -> Asm.exp -> int -> t
+	
+	(** [copy_hex d dst arg sz is_hex pad_char pad_left word_sz] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d or arg cannot be concretised; If is_hex is true then letters are capitalized ; pad_char is the character to pad if sz <> !Config.operand_sz / 8 ; padding is done on the left if pad_left is true otherwise it is padded on the right *)
+      val copy_hex: t -> Asm.exp -> Asm.exp -> int -> bool -> char -> bool -> int -> t 
 
-    (** [copy_until d dst arg term term_sz bound] copy the bits of dst into address arg until the first occurence of term is found into dst. This occurence may be at most at address [arg+bound] raise an exception if the upper bound is exceeded of dst is undefined in d 
-	it returns also the number of copied bits *)
-      val copy_until: t -> Asm.exp -> Asm.exp -> Asm.exp -> int -> int -> int * t
+		(** [print_hex d arg sz is_hex pad_char pad_left word_sz] copy the first sz bits of arg into stdout. May raise an exception if dst is undefined in d or arg cannot be concretised; If is_hex is true then letters are capitalized ; pad_char is the character to pad if sz <> !Config.operand_sz / 8 ; padding is done on the left if pad_left is true otherwise it is padded on the right *)
+      val print_hex: t -> Asm.exp -> int -> bool -> char -> bool -> int -> t 
+	
 
-      (** copy_register r dst src return dst where value of r has been replaced by ist value in src *)
-      (** may raise an exception if r is unbounded in src *)
+    (** [copy_until d dst arg term term_sz bound with_exception pad_options] copy the bits of arg into address dst until the first occurence of term is found into arg. This occurence may be at most at address [arg+bound] raise an exception if the with_exception=true and upper bound is exceeded of dst is undefined in d 
+	it returns also the number of copied bits. If the length to copy is shorter than the specified bound and pad_options is Some (pad_char, pad_left) then it is left padded with pad_char if pad_left=true itherwise it is right padded *)
+      val copy_until: t -> Asm.exp -> Asm.exp -> Asm.exp -> int -> int -> bool -> (char * bool) option -> int * t
+
+	(** [print_until d arg term term_sz bound with_exception pad_options] print the bits of arg until the first occurence of term is found into arg. This occurence may be at most at address [arg+bound] raise an exception if the with_exception=true and upper bound is exceeded of dst is undefined in d 
+	it returns also the number of copied bits. If the length to copy is shorter than the specified bound and pad_options is Some (pad_char, pad_left) then it is left padded with pad_char if pad_left=true itherwise it is right padded *)
+      val print_until: t -> Asm.exp -> Asm.exp -> int -> int -> bool -> (char * bool) option -> int * t
+
+      (** [copy_chars d dst src nb pad_options] *)
+      (** copy from src into dst until nb bytes are copied or null byte is found. If it found before nb bytes *)
+      (** are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *) 
+      val copy_chars: t -> Asm.exp -> Asm.exp -> int -> (char * bool) option -> t
+
+	(** [print_chars d src nb pad_options] *)
+      (** print src until nb bytes are copied or null byte is found. If it found before nb bytes *)
+      (** are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *) 
+      val print_chars: t -> Asm.exp -> int -> (char * bool) option -> t
+
+      (** [copy_register r dst src] returns dst with value of register r being replaced by its value in src *)
       val copy_register: Register.t -> t -> t -> t
     end
       

@@ -40,7 +40,7 @@ let widen (v1, t1) (v2, t2) = V.widen v1 v2, T.widen t1 t2
 
 let to_char (v, _t) = V.to_char v
 
-let to_string (v, _t) = V.to_string v
+let to_string (v, _t) = V.to_string v 
 
 let string_of_taint (_v, t) = T.to_string t
 
