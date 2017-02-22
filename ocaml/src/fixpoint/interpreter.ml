@@ -95,7 +95,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	try
 	  let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
 	  let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
-	  Log.debug (Printf.sprintf "format string = %s (len=%d)" format_string str_len);
+	  Log.debug (Printf.sprintf "format string = %s" format_string);
 	  let off_arg = !Config.stack_width / 8 in
 	  let copy_num d len c off arg pad_char pad_left: int * int * D.t =
 	    let rec compute digit_nb off =
@@ -234,17 +234,28 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	   
 	
       let process d fun_name (args: Asm.exp list): D.t * bool =
-	try
-	  let apply_f =
-	  match fun_name with
-	  | "memcpy" -> memcpy
-	  | "sprintf" -> sprintf 
-	  | "printf" -> printf 
-	  | "strlen" -> strlen 
-	  | _ -> raise Exit
+	let d, is_tainted =
+	  try
+	    let apply_f =
+	      match fun_name with
+	      | "memcpy" -> memcpy
+	      | "sprintf" -> sprintf 
+	      | "printf" -> printf 
+	      | "strlen" -> strlen 
+	      | _ -> raise Exit
+	    in
+	    apply_f d args
+	  with _ -> Log.from_analysis (Printf.sprintf "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
 	in
-	  apply_f d args
-	with _ -> Log.from_analysis (Printf.sprintf "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
+	let sp = Register.stack_pointer () in
+	let vsp = Asm.V (Asm.T sp) in
+	let sp_sz = Register.size sp in
+	let c = Data.Word.of_int (Z.of_int (!Config.stack_width / 8)) sp_sz in
+	let e = Asm.BinOp (Asm.Add, Asm.Lval vsp, Asm.Const c) in 
+	let d', is_tainted' =
+	  D.set vsp e d
+	in
+	d', is_tainted || is_tainted'
     end
     open Asm
       
@@ -367,11 +378,13 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       with _ -> ()
       
     exception Jmp_exn
-      
-    let rec process_value (d: D.t) (s: Asm.stmt) =
+
+    type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
+    
+    let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) =
         match s with
         | Nop 				 -> d, false
-        | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts       
+        | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack   
         | Set (dst, src) 		 -> D.set dst src d
         | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
@@ -426,19 +439,21 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     | _ -> Log.from_analysis (Printf.sprintf "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
 	   end
 	| Directive (Type (lv, t)) -> D.set_type lv t d, false
-	| Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
+	| Directive (Stub (fun_name, args)) ->
+	   let res = Stubs.process d fun_name args in
+	   fun_stack := List.tl !fun_stack;
+	   res
         | _ 				 -> raise Jmp_exn
 						     
-    and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) =
+    and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
       if has_jmp then_stmts || has_jmp else_stmts then
              raise Jmp_exn
            else
-             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e true) then_stmts in
-             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s in d', b||b') (restrict d e false) else_stmts in
+             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s fun_stack in d', b||b') (restrict d e true) then_stmts in
+             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s fun_stack in d', b||b') (restrict d e false) else_stmts in
              D.join dt de, bt||be
 
-    type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
-      
+   
     let process_ret (fun_stack: fun_stack_t) v =
       try
 	begin
@@ -477,7 +492,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let import_call vertices a (pred_fun: Cfa.State.t -> Cfa.State.t) =
+    let import_call vertices a (pred_fun: Cfa.State.t -> Cfa.State.t) fun_stack =
       let fundec = Hashtbl.find Decoder.Imports.tbl a in
       Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
       let b =
@@ -486,7 +501,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  if stmts <> [] then
 	    Config.interleave := true;
 	  let d', b' =
-	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt in d', b||b') (v.Cfa.State.v, false) stmts
+	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt fun_stack in d', b||b') (v.Cfa.State.v, false) stmts
 	  in
 	  v.Cfa.State.v <- d';
 	  let pred = pred_fun v in
@@ -507,7 +522,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                       match addresses with
                       | [a] ->
 			 begin
-			   try import_call [v] a ip_pred
+			   try import_call [v] a ip_pred fun_stack
 			   with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
 			 end
                       | [] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
@@ -572,15 +587,15 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * bool) =
         try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
+          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s fun_stack in v.Cfa.State.v <- d; v::l, b||b') ([], false) vertices
         with Jmp_exn ->
              match s with 
-             | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
+             | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts
 		
              | Jmp (A a) ->
 		begin
 		  try
-		    import_call vertices a (fun v -> Cfa.pred g (Cfa.pred g v))
+		    import_call vertices a (fun v -> Cfa.pred g (Cfa.pred g v)) fun_stack
 		  with Not_found ->
 		    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false		      
 		end
@@ -591,7 +606,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              | Call (A a) ->
 		begin
 		  try		   
-		    import_call vertices a (fun v -> Cfa.pred g v)
+		    import_call vertices a (fun v -> Cfa.pred g v) fun_stack
 		  with Not_found ->
 		    add_to_fun_stack a;
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
@@ -734,6 +749,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         waiting := Vertices.remove v !waiting;
         begin
           try
+	    Log.debug (Printf.sprintf "ip = %s" (Data.Address.to_string v.Cfa.State.ip));
             (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
             let text'        = Code.sub code v.Cfa.State.ip						         in
             (* the corresponding instruction is decoded and the successor vertex of v are computed and added to    *)
@@ -873,6 +889,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
       
     let forward_process (d: D.t) (stmt: Asm.stmt) (branch: bool option): (D.t * bool) =
+      (* function stack *)
+      let fun_stack = ref [] in
       let rec forward (d: D.t) (stmt: Asm.stmt): (D.t * bool) =
 	match stmt with
 	| Asm.Nop 
@@ -888,10 +906,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| Asm.Return
 	| Asm.Call (Asm.A _) -> d, false
 	| Asm.Set (dst, src) -> D.set dst src d
-    | Assert (_bexp, _msg) -> d, false (* TODO *)
+	| Assert (_bexp, _msg) -> d, false (* TODO *)
 	| Asm.If (e, istmts, estmts) ->
 	   begin
-	     try process_if d e istmts estmts
+	     try process_if d e istmts estmts fun_stack
 	     with Jmp_exn ->
 	       match branch with
 	       | Some true -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', b||b') (restrict d e true) istmts

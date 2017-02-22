@@ -785,7 +785,6 @@ module Make(D: T) =
 
 
     let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t) (with_exception: bool) pad_options: (int * D.t list) =
-      Log.debug "Unrel.i_get_bytes";
       match m with
       | BOT -> raise Not_found
       | Val m' ->
