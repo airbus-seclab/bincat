@@ -224,7 +224,11 @@ class AnalyzerConfig(object):
 
     @property
     def headers_file(self):
-        return self._config.get('imports', 'headers')
+        try:
+            return self._config.get('imports', 'headers')
+        except ConfigParser.NoOptionError:
+            # this is not mandatory
+            raise KeyError
 
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter

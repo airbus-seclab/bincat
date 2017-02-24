@@ -224,9 +224,13 @@ class WebAnalyzer(Analyzer):
             return
         temp_config.binary_filepath = sha256
         # patch [imports] headers - replace with sha256, upload file
-        headers_sha256 = self.sha256_digest(temp_config.headers_file)
-        if not self.upload_file(temp_config.headers_file, headers_sha256):
-            return
+        try:
+            headers_sha256 = self.sha256_digest(temp_config.headers_file)
+            if not self.upload_file(temp_config.headers_file, headers_sha256):
+                return
+        except KeyError as e:
+            # this is not mandatory
+            pass
         temp_config.headers_file = headers_sha256
         # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
