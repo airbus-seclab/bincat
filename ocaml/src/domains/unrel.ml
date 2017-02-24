@@ -37,7 +37,10 @@ module type T =
 			    
     (** string conversion *)
     val to_string: t -> string
-			  
+
+    (** return the taint and the value as a string separately *)
+    val to_strings: t -> string * string
+      
     (** value generation from configuration *)
     (** the size of the value is given by the int parameter *)
     val of_config: Data.Address.region -> Config.cvalue -> int -> t
@@ -128,7 +131,13 @@ module Make(D: T) =
          try
            let v = Env.find (Env.Key.Reg r) m' in D.to_z v
          with _ -> raise Exceptions.Concretization
-			 
+
+    let string_of_register m r =
+      match m with
+      | BOT    -> raise Exceptions.Concretization
+      | Val m' ->
+	     let v = Env.find (Env.Key.Reg r) m' in D.to_string v
+	     
     let add_register r m =
       let add m' =
         Val (Env.add (Env.Key.Reg r) D.top m')
@@ -775,7 +784,7 @@ module Make(D: T) =
         | Val m' -> snd (eval_exp m' e)
 
 
-    let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t): (int * D.t list) =
+    let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t) (with_exception: bool) pad_options: (int * D.t list) =
       match m with
       | BOT -> raise Not_found
       | Val m' ->
@@ -785,12 +794,26 @@ module Make(D: T) =
 	 let off = sz / 8 in
 	 let rec find (a: Data.Address.t) (o: int): (int * D.t list) =
 	   if o >= upper_bound then
-	     raise Not_found
+	     if with_exception then raise Not_found
+	       else o, [] 
 	   else
 	     let a' = Data.Address.add_offset a (Z.of_int o) in
 	     let v = get_mem_value m' a' sz in
 	     if D.compare v cmp term then
-	       o, [] 
+	       match pad_options with
+	       | None -> o, []
+	       | Some (pad_char, pad_left) ->
+		  if o = upper_bound then upper_bound, []
+		  else
+		    let n = upper_bound-o in
+		    let z = D.of_word (Data.Word.of_int (Z.of_int (Char.code pad_char)) 8) in
+		    if pad_left then Log.error "left padding in Unrel.i_get_bytes not managed"
+		    else
+		      let chars = ref [] in
+		      for _i = 0 to n-1 do
+			chars := z::!chars
+		      done;
+		      upper_bound, !chars
 	     else
 	       let o', l = find a (o+off) in
 	       o', v::l
@@ -815,7 +838,7 @@ module Make(D: T) =
 
     let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t): int * Bytes.t =
       try
-	let len, vals = i_get_bytes e cmp terminator upper_bound sz m in
+	let len, vals = i_get_bytes e cmp terminator upper_bound sz m true None in
 	let bytes = Bytes.create len in
 	(* TODO: endianess ! *)
 	List.iteri (fun i v ->
@@ -823,63 +846,12 @@ module Make(D: T) =
 	len, bytes
       with _ -> raise Exceptions.Concretization
 	
-    let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m)
+    let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m true None)
 
 
-    let copy m dst arg sz: t =
-      match m with
-      | Val m' ->
-	 begin
-	   let v = fst (eval_exp m' arg) in
-	   let addrs = fst (eval_exp m' dst) in
-	   match Data.Address.Set.elements (D.to_addresses addrs) with
-	   | [a] ->
-	      Val (write_in_memory a m' v sz true false)
-	   | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
-	   | [ ] -> raise Exceptions.Concretization
-	 end
-      | BOT -> BOT
+   
 
-    let copy_hex m dst src nb capitalise pad: t =
-      (* TODO generalise to non concrete src value *)
-      match m with
-      | Val m' ->
-	 begin
-	   let vsrc = fst (eval_exp m' src) in
-	   (* HACK : not portable if format in D.to_string changes *)
-	   let src = D.to_string vsrc in
-	   let str_src = String.sub src 3 ((String.length src)-3) in
-	   (* pad with the pad parameter if needed *)
-	   let sz = !Config.operand_sz / 8 in
-	   let nb_pad = nb - sz in
-	   let str_src =
-	     if nb_pad <= 0 then str_src
-	     else
-	       (String.make nb_pad pad) ^ str_src
-	   in
-	   let vdst = fst (eval_exp m' dst) in
-	   let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
-	   match dst_addrs with
-	   | [dst_addr] ->	     
-	      let znb = Z.of_int nb in
-	      let rec write m' o =
-		if Z.compare o znb < 0 then
-		  let c = String.get str_src (Z.to_int o) in
-		  let c' = if capitalise then Char.uppercase c else c in
-		  let dst = Data.Address.add_offset dst_addr o in
-		  let i' = Z.of_int (Char.code c') in
-		  let r = D.of_word (Data.Word.of_int i' 8) in
-		  let v' = if D.is_tainted r then D.taint r else r in
-		  write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
-		else		  
-		    m'
-	      in
-	      Val (write m' Z.zero)
-	
-	   | [] -> raise Exceptions.Empty
-	   | _  -> Val (Env.empty) (* TODO could be more precise *)
-	 end
-      | BOT -> BOT	 
+   
 
     let copy_register r dst src =
       let k = Env.Key.Reg r in
@@ -889,13 +861,15 @@ module Make(D: T) =
       | _, _ -> BOT
 	    
 
-	      
-    let copy_until m dst e terminator term_sz upper_bound: int * t =
+    let strip str = String.sub str 3 (String.length str - 3)
+      
+    let copy_until m dst e terminator term_sz upper_bound with_exception pad_options: int * t =
       match m with
       | Val m' ->
 	 begin
 	   let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' dst))) in
-	   let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m in
+	   (* TODO optimize: m is pattern matched twice (here and in i_get_bytes) *)
+	   let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options in
 	   let copy_byte a m' strong =
 	     let m', _ =
 	       List.fold_left (fun (m', i) byte ->
@@ -913,6 +887,147 @@ module Make(D: T) =
 	   len, Val m'
 	 end
       | BOT -> 0, BOT
+
+    let print_until m e terminator term_sz upper_bound with_exception pad_options =
+      let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options in
+      Log.print (strip (D.to_string (D.concat bytes)));
+      len, m
+	
+    let copy_chars m dst src nb pad_options =
+      snd (copy_until m dst src (Asm.Const (Data.Word.of_int Z.zero 8)) 8 nb false pad_options)
+
+    let print_chars m src nb pad_options =
+      match m with
+      | Val _ ->
+	 (* TODO: factorize with copy_until *)
+	 let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m false pad_options) in
+	 let str = strip (D.to_string (D.concat bytes)) in
+	 Log.print str;
+	 m
+      | BOT -> Log.print "_"; BOT
+
+    let copy_chars_to_register m reg offset src nb pad_options =
+      match m with
+      |	Val m' ->
+	 let terminator = Asm.Const (Data.Word.of_int Z.zero 8) in
+	 let len, bytes = i_get_bytes src Asm.EQ terminator nb 8 m false pad_options in
+	 begin
+	   let new_v = D.concat bytes in
+	   let key = Env.Key.Reg reg in
+	   let new_v' =
+	     if offset = 0 then new_v
+	     else
+	       try let prev = Env.find key m' in
+		   let low = offset*8 in
+		   D.combine prev new_v low (low*len-1)
+	       with Not_found -> raise Exceptions.Empty
+	   in
+	   try Val (Env.replace key new_v' m')
+	   with Not_found -> Val (Env.add key new_v m')
+	 end
+      | BOT -> BOT
+
+
+    let to_hex m src nb capitalise pad pad_left full_print _word_sz: string =
+      let capitalise str =
+	if capitalise then String.uppercase str
+	else str
+      in
+      let vsrc = fst (eval_exp m src) in
+      let str_src, str_taint = D.to_strings vsrc in
+      let str_src' = capitalise (strip str_src) in
+      let sz = String.length str_src in (*word_sz / 8 in*)
+      let nb_pad = nb - sz in
+      (* pad with the pad parameter if needed *)
+      if nb_pad <= 0 then
+	if full_print then
+	  if String.compare str_taint "0x0" = 0 then
+	    str_src'	    
+	  else
+	    Printf.sprintf "%s!%s" str_src' str_taint
+	else
+	  str_src'
+      else
+	let pad_str = String.make nb_pad pad in
+	if pad_left then
+	  let pad_src = pad_str ^ str_src' in
+	  if full_print then
+	    if String.compare str_taint "0x0" = 0 then
+	      pad_src
+	    else
+	      Printf.sprintf "%s!%s" pad_src (pad_str^str_taint)
+	  else
+	    pad_src
+	else
+	  let pad_src = str_src' ^ pad_str in
+	  if full_print then
+	    if String.compare str_taint "0x0" = 0 then
+	      pad_src
+	    else
+	      Printf.sprintf "%s!%s" pad_src (str_taint^pad_str)
+	  else
+	    pad_src
+	    
+    let copy_hex m dst src nb capitalise pad pad_left word_sz: t =
+     (* TODO generalise to non concrete src value *)
+      match m with
+      | Val m' ->
+	 begin
+	  let str_src = to_hex m' src nb capitalise pad pad_left false word_sz in
+	  let vdst = fst (eval_exp m' dst) in
+	  let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
+	  match dst_addrs with
+	  | [dst_addr] ->	     
+	     let znb = Z.of_int nb in
+	     let rec write m' o =
+	       if Z.compare o znb < 0 then
+		 let c = String.get str_src (Z.to_int o) in
+		 let dst = Data.Address.add_offset dst_addr o in
+		 let i' = Z.of_int (Char.code c) in
+		 let r = D.of_word (Data.Word.of_int i' 8) in
+		 let v' = if D.is_tainted r then D.taint r else r in
+		 write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
+	       else		  
+		 m'
+	     in
+	     Val (write m' Z.zero)	
+	  | [] -> raise Exceptions.Empty
+	  | _  -> Val (Env.empty) (* TODO could be more precise *)
+	 end
+      | BOT -> BOT
+
+    let print_hex m src nb capitalise pad pad_left word_sz =
+      match m with
+      | Val m' -> 
+	 let str = to_hex m' src nb capitalise pad pad_left false word_sz in
+	 (* str is already stripped in hex *)
+	 Log.print str;
+	 m
+      | BOT -> Log.print "_"; m
+
+    let copy m dst arg sz: t =
+	(* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)
+	(* plus make pattern matching more generic for register detection *)
+	match m with
+	| Val m' ->
+	   begin
+	     let v = fst (eval_exp m' arg) in
+	     let addrs = fst (eval_exp m' dst) in
+	     match Data.Address.Set.elements (D.to_addresses addrs) with
+	     | [a] ->
+		Val (write_in_memory a m' v sz true false)
+	     | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
+	     | [ ] -> raise Exceptions.Concretization
+	   end
+	| BOT -> BOT
+
+    let print m arg _sz: t =
+      match m with
+      | Val m' ->
+	 let str = strip (D.to_string (fst (eval_exp m' arg))) in
+	 Log.print str;
+	 m
+      | BOT -> Log.debug "_"; m	
   end
     
     

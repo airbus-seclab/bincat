@@ -30,6 +30,14 @@ module Make (V: Vector.T) =
             | TOP -> "T0x?"
             | Val (r, o) -> Printf.sprintf "%c%s" (char_of_region r) (V.to_string o)
 
+
+	let to_strings p =
+	  match p with
+	    | BOT -> "B0x_", "_"
+            | TOP -> "T0x?", "?"
+            | Val (r, o) -> let s, t = V.to_strings o in
+			    Printf.sprintf "%c%s" (char_of_region r) s, t 
+	       
         let untaint p =
             match p with
             | TOP | BOT  -> p
@@ -144,6 +152,7 @@ module Make (V: Vector.T) =
         let of_config r c n = Val (r, V.of_config c n)
 
         let combine p1 p2 l u =
+	  Log.debug (Printf.sprintf "Pointer.combine between %s and %s" (to_string p1) (to_string p2));
             match p1, p2 with
             | BOT, _ | _, BOT 	   -> BOT
             | TOP, _ | _, TOP 	   -> TOP
