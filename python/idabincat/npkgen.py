@@ -1,16 +1,31 @@
 import re
-from idaapi import *
+import tempfile
 import idaapi
+import os.path
+import logging
+import subprocess
+
+npk_log = logging.getLogger('bincat.plugin')
+npk_log.setLevel(logging.DEBUG)
 
 
 class NpkGen(object):
 
     def generate_npk(self):
+        # required: c2newspeak requires a file, checks its extension
+        dirname = tempfile.mkdtemp('bincat-generate-header')
+        npk_log.debug("Generating npk file in %s", dirname)
+        cwd = os.getcwd()
+        os.chdir(dirname)  # c2newspeak outputs a.npk in cwd...
+
         self.imports = []
         #: Types we have already inspected
         self.seen = set()
         #: List of structures, to patch .h later
         self.structs = set()
+
+        # add missing #defines
+        self.imports.append("#define __cdecl")
 
         # 1. get data from IDA, generate .c file
         nimps = idaapi.get_import_module_qty()
@@ -36,13 +51,48 @@ class NpkGen(object):
 
         res += "\n\n"+"\n".join(self.imports)
 
-        fname = idaapi.askfile_c(1, "*.h", "Save to header")
-        c = open(fname, "wt+")
+        ig_name = os.path.join(dirname, "ida-generated.h")
+        c = open(ig_name, "wt+")
         c.write(res)
         c.close()
 
         # 2. use gcc to preprocess this file
+        try:
+            out = subprocess.check_output(
+                ["gcc", "-E", ig_name], stderr=subprocess.STDOUT)
+        except OSError as e:
+            npk_log.error(
+                "Error encountered while running gcc. "
+                "Is it installed in PATH?", exc_info=True)
+            return
+        except Exception as e:
+            npk_log.error(
+                "Error encountered while running gcc.", exc_info=True)
+            return
+        pp_name = os.path.join(dirname, "pre-processed.c")
+        with open(pp_name, "w") as f:
+            f.write(out)
         # 3. use c2newspeak to generate .npk
+        try:
+            out = subprocess.check_output(
+                ["c2newspeak", "pre-processed.c"], stderr=subprocess.STDOUT)
+            if out:
+                npk_log.debug(out)
+        except OSError as e:
+            npk_log.error(
+                "Error encountered while running c2newspeak. "
+                "Is it installed in PATH?", exc_info=True)
+            return
+        except Exception as e:
+            npk_log.error(
+                "Error encountered while running c2newspeak.", exc_info=True)
+            if e.output:
+                npk_log.error("--- start of c2newspeak output ---")
+                npk_log.error(e.output)
+                npk_log.error("--- end of c2newspeak output ---")
+            return
+        # output is in a.npk
+        return os.path.join(dirname, "a.npk")
 
     # --- internal helpers
 
