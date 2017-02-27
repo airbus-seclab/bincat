@@ -24,7 +24,7 @@ RUN mkdir -p /tmp/bincat_web
 # * the contents of the bincat repository
 # * a c2newspeak/ subdirectory containing the c2newspeak repository
 ADD . BinCAT
-RUN cd BinCAT/c2newspeak && make && make install
+RUN cd BinCAT/c2newspeak && make && make install && ln -s /install/BinCAT/c2newspeak/bin/c2newspeak /bin/c2newspeak
 RUN cd BinCAT && make && make install
 WORKDIR /
 ENV FLASK_APP webbincat.wsgi
