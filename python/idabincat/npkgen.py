@@ -1,33 +1,30 @@
+# This file can be also used as an IDA script.
 import re
 import tempfile
-import idaapi
 import os.path
 import logging
 import subprocess
+try:
+    import idaapi
+except ImportError:
+    # imported outside ida - for instance, from wsgi.py
+    pass
 
 npk_log = logging.getLogger('bincat.plugin')
 npk_log.setLevel(logging.DEBUG)
 
 
+class NpkGenException(Exception):
+    pass
+
+
 class NpkGen(object):
 
-    def generate_npk(self):
-        # required: c2newspeak requires a file, checks its extension
-        dirname = tempfile.mkdtemp('bincat-generate-header')
-        npk_log.debug("Generating npk file in %s", dirname)
-        cwd = os.getcwd()
-        os.chdir(dirname)  # c2newspeak outputs a.npk in cwd...
-
-        self.imports = []
-        #: Types we have already inspected
-        self.seen = set()
-        #: List of structures, to patch .h later
-        self.structs = set()
+    def get_header_data(self):
 
         # add missing #defines
         self.imports.append("#define __cdecl")
 
-        # 1. get data from IDA, generate .c file
         nimps = idaapi.get_import_module_qty()
         for ordinal in range(0, nimps):
             idaapi.enum_import_names(ordinal, self.imp_cb)
@@ -36,6 +33,20 @@ class NpkGen(object):
         while self.add_types() > 0:
             pass
 
+        class str_sink(idaapi.ida_typeinf.text_sink_t):
+            """
+            Sink to get .h in a string
+            """
+            def __init__(self):
+                idaapi.ida_typeinf.text_sink_t.__init__(self)
+                self.text = ""
+
+            def _print(self, defstr):
+                self.text += defstr
+                return 0
+
+            def res(self):
+                return self.text
         sink = str_sink()
         idaapi.ida_typeinf.print_decls(
             sink, idaapi.ida_typeinf.cvar.idati, [],
@@ -51,24 +62,42 @@ class NpkGen(object):
 
         res += "\n\n"+"\n".join(self.imports)
 
+        return res
+
+    def generate_npk(self, imports_data=""):
+        # required: c2newspeak requires a file, checks its extension
+        dirname = tempfile.mkdtemp('bincat-generate-header')
+        npk_log.debug("Generating NPK file in %s", dirname)
+        cwd = os.getcwd()
+        os.chdir(dirname)  # c2newspeak outputs a.npk in cwd...
+
+        self.imports = []
+        #: Types we have already inspected
+        self.seen = set()
+        #: List of structures, to patch .h later
+        self.structs = set()
+        # 1. get imports_data
+        if not imports_data:
+            # not provided, fetch from IDA
+            imports_data = self.get_header_data()
+
         ig_name = os.path.join(dirname, "ida-generated.h")
         c = open(ig_name, "wt+")
-        c.write(res)
+        c.write(imports_data)
         c.close()
-
         # 2. use gcc to preprocess this file
         try:
             out = subprocess.check_output(
                 ["gcc", "-E", ig_name], stderr=subprocess.STDOUT)
         except OSError as e:
-            npk_log.error(
-                "Error encountered while running gcc. "
-                "Is it installed in PATH?", exc_info=True)
-            return
+            error_msg = ("Error encountered while running gcc. "
+                         "Is it installed in PATH?")
+            npk_log.error(error_msg, exc_info=True)
+            raise NpkGenException(error_msg)
         except Exception as e:
-            npk_log.error(
-                "Error encountered while running gcc.", exc_info=True)
-            return
+            error_msg = "Error encountered while running gcc."
+            npk_log.error(error_msg, exc_info=True)
+            raise NpkGenException(error_msg)
         pp_name = os.path.join(dirname, "pre-processed.c")
         with open(pp_name, "w") as f:
             f.write(out)
@@ -79,19 +108,20 @@ class NpkGen(object):
             if out:
                 npk_log.debug(out)
         except OSError as e:
-            npk_log.error(
-                "Error encountered while running c2newspeak. "
-                "Is it installed in PATH?", exc_info=True)
-            return
+            error_msg = ("Error encountered while running c2newspeak. "
+                         "Is it installed in PATH?")
+            raise NpkGenException(error_msg)
         except Exception as e:
-            npk_log.error(
-                "Error encountered while running c2newspeak.", exc_info=True)
+            error_msg = "Error encountered while running c2newspeak."
             if e.output:
-                npk_log.error("--- start of c2newspeak output ---")
-                npk_log.error(e.output)
-                npk_log.error("--- end of c2newspeak output ---")
-            return
+                error_msg += "\n--- start of c2newspeak output ---\n"
+                error_msg += e.output
+                error_msg += "\n--- end of c2newspeak output ---"
+            npk_log.error(error_msg, exc_info=True)
+            raise NpkGenException(error_msg)
         # output is in a.npk
+        os.chdir(cwd)
+        npk_log.debug("NPK file has been successfully generated.")
         return os.path.join(dirname, "a.npk")
 
     # --- internal helpers
@@ -190,22 +220,6 @@ class NpkGen(object):
             if self.analyze_type(local_type):
                 count += 1
         return count
-
-
-class str_sink(idaapi.ida_typeinf.text_sink_t):
-    """
-    Sink to get .h in a string
-    """
-    def __init__(self):
-        idaapi.ida_typeinf.text_sink_t.__init__(self)
-        self.text = ""
-
-    def _print(self, defstr):
-        self.text += defstr
-        return 0
-
-    def res(self):
-        return self.text
 
 
 if __name__ == '__main__':

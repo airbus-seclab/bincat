@@ -9,6 +9,10 @@ import sys
 import tempfile
 import flask
 import zlib
+import logging
+import idabincat.npkgen
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Make sure bincat is properly installed, and that none of the required files
 # reside in your home dir
@@ -224,6 +228,24 @@ def analyze():
     os.chdir(cwd)
     # shutil.rmtree(dirname)
 
+    return flask.make_response(flask.jsonify(**result), 200)
+
+
+@app.route("/convert_to_npk", methods=['POST'])
+def convert_to_npk():
+    if 'file' not in flask.request.files:
+        return flask.make_response(
+            "This request was expected to include a file named 'file'.", 400)
+    headers_data = flask.request.files['file'].read()
+    try:
+        npk_fname = idabincat.npkgen.NpkGen().generate_npk(headers_data)
+    except idabincat.npkgen.NpkGenException as e:
+        result = {'error': str(e), 'status': 'failed'}
+        return flask.make_response(flask.jsonify(**result), 500)
+    with open(npk_fname, 'r') as f:
+        npk_data = f.read()
+    sha256 = store_string_to_file(npk_data)
+    result = {'sha256': sha256, 'status': 'ok'}
     return flask.make_response(flask.jsonify(**result), 200)
 
 
