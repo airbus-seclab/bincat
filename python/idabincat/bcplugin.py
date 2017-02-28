@@ -231,7 +231,9 @@ class WebAnalyzer(Analyzer):
         except KeyError as e:
             # this is not mandatory
             pass
-        temp_config.headers_file = headers_sha256
+        
+        else:
+            temp_config.headers_file = headers_sha256
         # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
             cfa_sha256 = self.sha256_digest(self.cfainfname)
