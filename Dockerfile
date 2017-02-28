@@ -12,7 +12,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         python python-pip python-setuptools python-dev python-pytest \
         vim nasm \
         ocaml menhir ocaml-findlib libzarith-ocaml-dev \
-        libocamlgraph-ocaml-dev firejail
+        libocamlgraph-ocaml-dev wget
+
+# Install a later version of firejail for it to be able to report exit codes correctly
+RUN wget http://fr.archive.ubuntu.com/ubuntu/pool/universe/f/firejail/firejail_0.9.44.8-1_amd64.deb ; dpkg -i firejail*deb; rm firejail*deb
 
 # ubuntu-packaged python-flask does not provide the flask executable, or a
 # working module
