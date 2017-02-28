@@ -40,11 +40,11 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     with
     | Parser.Error ->
        close_in cin;
-      Log.error (Printf.sprintf "Syntax error near location %s" (string_of_position lexbuf))
+      Log.error (Printf.sprintf "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
 	
     | Failure "lexing: empty token" ->
        close_in cin;
-      Log.error (Printf.sprintf "Parse error near location %s" (string_of_position lexbuf))
+      Log.error (Printf.sprintf "Parse error near location %s of %s" (string_of_position lexbuf) configfile)
   end;
   close_in cin;
   
