@@ -95,7 +95,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	try
 	  let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
 	  let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
-	  Log.debug (Printf.sprintf "format string = %s" format_string);
+	  Log.from_analysis (Printf.sprintf "format string: %s" format_string);
 	  let off_arg = !Config.stack_width / 8 in
 	  let copy_num d len c off arg pad_char pad_left: int * int * D.t =
 	    let rec compute digit_nb off =
@@ -382,11 +382,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) =
-      Log.debug (Printf.sprintf "%s" (Asm.string_of_stmt s true));
         match s with
         | Nop 				 -> d, false
         | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack   
-        | Set (dst, src) 		 -> let d', b = D.set dst src d in if b then Log.debug "NO NO NO"; d', b
+        | Set (dst, src) 		 -> D.set dst src d
         | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
         | Directive (Forget r) 		 -> D.forget_lval (V (T r)) d, false
 	| Directive (Unroll (e, bs)) ->
@@ -515,12 +514,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       vertices, b
 		
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
-      if String.compare "G0x804ddb5" (Data.Address.to_string ip) = 0 then
-	begin
-	  Log.debug "****************************************************";
-	  List.iter (fun s -> Log.debug (Asm.string_of_stmt s true)) v.Cfa.State.stmts;
-	  Log.debug "--";
-	end;
       let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) (ip_pred: Cfa.State.t -> Cfa.State.t) : (Cfa.State.t list * bool) =
 		List.fold_left (fun (l, b) v ->
                     try

@@ -161,7 +161,6 @@ module Make(D: T) =
       | Val m' -> Val (Env.map (fun _ -> D.top) m')
 		      
     let forget_lval lv m =
-      Log.debug (Printf.sprintf "Unrel.forget_lval %s" (Asm.string_of_lval lv true));
       match m with
       | Val m' ->
 	 begin
@@ -504,8 +503,6 @@ module Make(D: T) =
         | Asm.UnOp (op, e) ->
 	   let v, b = eval e in
 	   let v' = D.unary op v in
-	   if b || (D.is_tainted v') then
-	     Log.debug (Printf.sprintf "%s is tainted" (Asm.string_of_exp e true));
 	   v', b || (D.is_tainted v')
 
 	| Asm.TernOp (c, w1, w2) ->
@@ -625,12 +622,10 @@ module Make(D: T) =
 				
 				
     let set dst src m: (t * bool) =
-      Log.debug (Printf.sprintf "set of %s with %s" (Asm.string_of_lval dst true) (Asm.string_of_exp src true));
       match m with
       |	BOT    -> BOT, false
       | Val m' ->
          let v', _ = eval_exp m' src in
-	 Log.debug (Printf.sprintf "res = %s" (D.to_string v'));
          let v' = span_taint m' src v' in
 	 let b = D.is_tainted v' in
          if D.is_bot v' then
