@@ -11,6 +11,12 @@ module Make (V: Vector.T) =
         let top = TOP
         let is_bot p = p = BOT
 
+	let forget p =
+	  match p with
+            | BOT         -> BOT
+            | TOP         -> TOP
+            | Val (r, v) -> Val (r, V.forget v)
+	       
         let to_z p =
             match p with
             | BOT         -> raise Exceptions.Empty

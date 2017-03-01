@@ -14,7 +14,10 @@ module type T =
 	       
     (** comparison to bottom *)
     val is_bot: t -> bool
-		       
+
+    (** forgets the content but preserves the taint *)
+    val forget: t -> t
+      
     (** returns true whenever at least one bit of the parameter may be tainted. False otherwise *)
     val is_tainted: t -> bool
 			   
@@ -162,7 +165,18 @@ module Make(D: T) =
       | Val m' ->
 	 begin
 	   match lv with
-	   | Asm.V (Asm.T r) -> Val (Env.add (Env.Key.Reg r) D.top m')
+	   | Asm.V (Asm.T r) ->
+	      begin
+		let key = Env.Key.Reg r in
+		let top' =
+		  try
+		    let v = Env.find key m' in
+		    let v' = D.forget v in
+		    v'
+		  with Not_found -> D.top
+		in
+	      Val (Env.add key top' m')
+	      end
 	   | _ -> forget m (*TODO: could be more precise *)
 	 end
       | BOT -> BOT

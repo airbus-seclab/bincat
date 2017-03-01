@@ -95,7 +95,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	try
 	  let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
 	  let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
-	  Log.debug (Printf.sprintf "format string = %s" format_string);
+	  Log.from_analysis (Printf.sprintf "format string: %s" format_string);
 	  let off_arg = !Config.stack_width / 8 in
 	  let copy_num d len c off arg pad_char pad_left: int * int * D.t =
 	    let rec compute digit_nb off =
@@ -749,7 +749,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         waiting := Vertices.remove v !waiting;
         begin
           try
-	    Log.debug (Printf.sprintf "ip = %s" (Data.Address.to_string v.Cfa.State.ip));
             (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
             let text'        = Code.sub code v.Cfa.State.ip						         in
             (* the corresponding instruction is decoded and the successor vertex of v are computed and added to    *)
