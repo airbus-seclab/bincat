@@ -224,10 +224,16 @@ class WebAnalyzer(Analyzer):
             return
         temp_config.binary_filepath = sha256
         # patch [imports] headers - replace with sha256, upload file
-        headers_sha256 = self.sha256_digest(temp_config.headers_file)
-        if not self.upload_file(temp_config.headers_file, headers_sha256):
-            return
-        temp_config.headers_file = headers_sha256
+        try:
+            headers_sha256 = self.sha256_digest(temp_config.headers_file)
+            if not self.upload_file(temp_config.headers_file, headers_sha256):
+                return
+        except KeyError as e:
+            # this is not mandatory
+            pass
+        
+        else:
+            temp_config.headers_file = headers_sha256
         # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
             cfa_sha256 = self.sha256_digest(self.cfainfname)
@@ -240,9 +246,13 @@ class WebAnalyzer(Analyzer):
             files={'init.ini': ('init.ini', init_ini_str)})
         if run_res.status_code != 200:
             bc_log.error("Error while uploading analysis configuration file "
-                         "to BinCAT analysis server.")
+                         "to BinCAT analysis server (%r)" % run_res.text)
             return
         files = run_res.json()
+        if files["errorcode"]:
+            bc_log.error("Error while analyzing file. Bincat output is:\n----------------\n%s\n----------------"
+                         % self.download_file(files["stdout.txt"]))
+            return
         with open(self.outfname, 'w') as outfp:
 
             outfp.write(self.download_file(files["out.ini"]))
@@ -267,7 +277,10 @@ class WebAnalyzer(Analyzer):
 
     def download_file(self, fname):
         r = requests.get(self.server_url + '/download/' + fname + '/zlib')
-        return zlib.decompress(r.content)
+        try:
+            return zlib.decompress(r.content)
+        except Exception,e:
+            bc_log.error("Error uncompressing downloaded file [%s] (%s)" % (fname,e))
 
     def sha256_digest(self, path):
         with open(path, 'r') as f:

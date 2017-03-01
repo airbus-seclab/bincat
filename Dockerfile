@@ -12,7 +12,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         python python-pip python-setuptools python-dev python-pytest \
         vim nasm \
         ocaml menhir ocaml-findlib libzarith-ocaml-dev \
-        libocamlgraph-ocaml-dev firejail
+        libocamlgraph-ocaml-dev wget
+
+# Install a later version of firejail for it to be able to report exit codes correctly
+RUN wget http://fr.archive.ubuntu.com/ubuntu/pool/universe/f/firejail/firejail_0.9.44.8-1_amd64.deb ; dpkg -i firejail*deb; rm firejail*deb
 
 # ubuntu-packaged python-flask does not provide the flask executable, or a
 # working module
@@ -24,7 +27,7 @@ RUN mkdir -p /tmp/bincat_web
 # * the contents of the bincat repository
 # * a c2newspeak/ subdirectory containing the c2newspeak repository
 ADD . BinCAT
-RUN cd BinCAT/c2newspeak && make && make install
+RUN cd BinCAT/c2newspeak && make && make install && ln -s /install/BinCAT/c2newspeak/bin/c2newspeak /bin/c2newspeak
 RUN cd BinCAT && make && make install
 WORKDIR /
 ENV FLASK_APP webbincat.wsgi

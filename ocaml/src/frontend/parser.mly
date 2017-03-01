@@ -281,6 +281,7 @@
     | BACKWARD { Config.Backward }
 
       data_sections:
+    |                { () }
     | s=section_item { s }
     | s=section_item ss = data_sections{ s ; ss }
 
