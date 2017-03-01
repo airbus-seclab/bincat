@@ -14,7 +14,10 @@ module type T =
 	       
     (** comparison to bottom *)
     val is_bot: t -> bool
-		       
+
+    (** forgets the content but preserves the taint *)
+    val forget: t -> t
+      
     (** returns true whenever at least one bit of the parameter may be tainted. False otherwise *)
     val is_tainted: t -> bool
 			   
@@ -158,11 +161,23 @@ module Make(D: T) =
       | Val m' -> Val (Env.map (fun _ -> D.top) m')
 		      
     let forget_lval lv m =
+      Log.debug (Printf.sprintf "Unrel.forget_lval %s" (Asm.string_of_lval lv true));
       match m with
       | Val m' ->
 	 begin
 	   match lv with
-	   | Asm.V (Asm.T r) -> Val (Env.add (Env.Key.Reg r) D.top m')
+	   | Asm.V (Asm.T r) ->
+	      begin
+		let key = Env.Key.Reg r in
+		let top' =
+		  try
+		    let v = Env.find key m' in
+		    let v' = D.forget v in
+		    v'
+		  with Not_found -> D.top
+		in
+	      Val (Env.add key top' m')
+	      end
 	   | _ -> forget m (*TODO: could be more precise *)
 	 end
       | BOT -> BOT
@@ -489,6 +504,8 @@ module Make(D: T) =
         | Asm.UnOp (op, e) ->
 	   let v, b = eval e in
 	   let v' = D.unary op v in
+	   if b || (D.is_tainted v') then
+	     Log.debug (Printf.sprintf "%s is tainted" (Asm.string_of_exp e true));
 	   v', b || (D.is_tainted v')
 
 	| Asm.TernOp (c, w1, w2) ->
@@ -608,10 +625,12 @@ module Make(D: T) =
 				
 				
     let set dst src m: (t * bool) =
+      Log.debug (Printf.sprintf "set of %s with %s" (Asm.string_of_lval dst true) (Asm.string_of_exp src true));
       match m with
       |	BOT    -> BOT, false
       | Val m' ->
          let v', _ = eval_exp m' src in
+	 Log.debug (Printf.sprintf "res = %s" (D.to_string v'));
          let v' = span_taint m' src v' in
 	 let b = D.is_tainted v' in
          if D.is_bot v' then

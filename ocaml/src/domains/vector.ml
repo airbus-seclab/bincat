@@ -12,6 +12,8 @@ sig
     val is_tainted: t -> bool
     (** comparison to top *)
     val is_top: t -> bool
+    (** forget the content while preserving the taint *)
+    val forget: t -> t
     (** conversion to value of type Z.t. May raise an exception *)
     val to_z: t -> Z.t
     (** int conversion. May raise an exception *)
@@ -86,6 +88,8 @@ sig
     type t
     (** top on sz bit-width *)
     val top: int -> t
+    (** forgets the content while preserving the taint *)
+    val forget: t -> t
     (** returns true whenever at least one bit may be tainted *)
     val is_tainted: t -> bool
     (** value conversion. May raise an exception *)
@@ -312,7 +316,7 @@ module Make(V: Val) =
                 new_v
 
         let ishl v i =
-            let n  = Array.length v        in
+            let n  = Array.length v      in
             let v' = Array.make n V.zero in
             let o  = n-i                 in
                 Log.debug_lvl (Printf.sprintf "Vector.ishl(%s, %d), o==%d" (to_string v) i o) 6;
@@ -515,6 +519,11 @@ module Make(V: Val) =
                       v.(n'-i) <- V.forget_taint v.(n'-i)
               done;
               v
+
+	let forget v =
+	  let v' = Array.copy v in
+	  Array.map V.forget v'
+	  
         let concat v1 v2 = Array.append v1 v2
 	  
         (** copy bits from v2 to bits from low to up of v1,
