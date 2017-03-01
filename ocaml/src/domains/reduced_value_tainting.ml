@@ -8,6 +8,8 @@ type t = V.t * T.t
 
 let top = V.TOP, T.TOP
 
+let forget (_v, t) = V.TOP, t
+  
 let is_top (v, _t) = v = V.TOP
 
 let to_z (v, _t) = V.to_z v

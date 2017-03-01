@@ -74,7 +74,7 @@ and bexp =
 type directive_t =
   | Remove of Register.t   (** remove the register *)
   | Forget of Register.t (** forget the content of the given register *)
-  | Taint of exp option * lval (** conditional tainting: if the expression is true then the left value must be tainted. None is for unconditional taintin *)
+  | Taint of exp option * lval (** conditional tainting: if the expression is true then the left value must be tainted. None is for unconditional tainting *)
   | Type of lval * Types.t (** type the left value with the given type *)
   | Unroll of exp * int (** Unroll (e, bs) set the current unroll value to tmin (e, bs) *)
   | Default_unroll (** set the current unroll value to the default value (in Config) *)
