@@ -305,12 +305,13 @@ class WebAnalyzer(Analyzer):
         with open(self.outfname, 'w') as outfp:
 
             outfp.write(self.download_file(files["out.ini"]))
+        analyzer_log_contents = self.download_file(files["analyzer.log"])
         with open(self.logfname, 'w') as logfp:
-            logfp.write(self.download_file(files["analyzer.log"]))
+            logfp.write(analyzer_log_contents)
         bc_log.info("---- stdout+stderr ----------------")
-        bc_log.info(files['stdout.txt'])
+        bc_log.info(self.download_file(files["stdout.txt"]))
         bc_log.debug("---- logfile ---------------")
-        log_lines = files['analyzer.log'].split('\n')
+        log_lines = analyzer_log_contents.split('\n')
         if len(log_lines) > 100:
             bc_log.debug(
                 "---- Only the last 100 log lines are displayed here ---")
