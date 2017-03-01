@@ -19,6 +19,7 @@ except:
 import idc
 import idaapi
 import idabincat.netnode
+import idabincat.npkgen
 from idabincat.analyzer_conf import AnalyzerConfig
 from idabincat.gui import GUI
 
@@ -31,6 +32,8 @@ logging.basicConfig(level=logging.DEBUG)
 bc_log = logging.getLogger('bincat.plugin')
 bc_log.setLevel(logging.DEBUG)
 
+class AnalyzerUnavailable(Exception):
+    pass
 
 class BincatPlugin(idaapi.plugin_t):
     # variables required by IDA
@@ -92,6 +95,13 @@ class Analyzer(object):
         self.options = options
         self.finish_cb = finish_cb
 
+    def generate_npk(self):
+        """
+        Returns file path to generated npk (string), or None if generation was
+        not successful.
+        """
+        return None
+
     @property
     def initfname(self):
         return os.path.join(self.path, "init.ini")
@@ -126,6 +136,13 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         self.stateChanged.connect(self.procanalyzer_on_state_change)
         self.started.connect(self.procanalyzer_on_start)
         self.finished.connect(self.procanalyzer_on_finish)
+
+    def generate_npk(self):
+        try:
+            npk_fname = idabincat.npkgen.NpkGen().generate_npk()
+            return npk_fname
+        except idabincat.npkgen.NpkGenException as e:
+            return
 
     def run(self):
         cmdline = "bincat_native %s %s %s" % (self.initfname, self.outfname,
@@ -187,31 +204,62 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
 
 
 class WebAnalyzer(Analyzer):
-    API_VERSION = "1.0"
+    API_VERSION = "1.1"
 
     def __init__(self, *args, **kwargs):
         Analyzer.__init__(self, *args, **kwargs)
         self.server_url = self.options.get("server_url").rstrip("/")
+        self.reachable_server = False
+        self.check_version()  # raises exception if server is unreachable
+        self.reachable_server = True
+
+    def check_version(self):
+        try:
+            version_req = requests.get(self.server_url + "/version")
+            srv_api_version = str(version_req.text)
+        except:
+            raise AnalyzerUnavailable(
+                "BinCAT server at %s could not be reached", self.server_url)
+        if srv_api_version != WebAnalyzer.API_VERSION:
+            raise AnalyzerUnavailable(
+                "API mismatch: this plugin supports version %s, while server "
+                "supports version %s.", (WebAnalyzer.API_VERSION,
+                                         srv_api_version))
+        return True
+
+    def generate_npk(self):
+        if not self.reachable_server:
+            return
+        headers_data = idabincat.npkgen.NpkGen().get_header_data()
+        h_fname = os.path.join(self.path, "ida_generated_headers.h")
+        with open(h_fname, 'w') as f:
+            f.write(headers_data)
+        sha256 = self.sha256_digest(h_fname)
+        if not self.upload_file(h_fname, sha256):
+            return
+        npk_res = requests.post(self.server_url + "/convert_to_npk/" + sha256)
+        if npk_res.status_code != 200:
+            bc_log.error("Error while uploading binary file "
+                         "to BinCAT analysis server.")
+            return
+        res = npk_res.json()
+        if 'status' not in res or res['status'] != 'ok':
+            return
+        sha256 = res['sha256']
+        npk_contents = self.download_file(sha256)
+        npk_fname = os.path.join(self.path, "headers.npk")
+        with open(npk_fname, 'w') as f:
+            f.write(npk_contents)
+        return npk_fname
 
     def run(self):
+        if not self.reachable_server:
+            return
         if 'requests' not in sys.modules:
             bc_log.error("python module 'requests' could not be imported, "
                          "so remote BinCAT cannot be used.")
             return
         # Check server version
-        try:
-            version_req = requests.get(self.server_url + "/version")
-            srv_api_version = str(version_req.text)
-        except:
-            bc_log.error(
-                "BinCAT server at %s could not be reached." % self.server_url)
-            return
-        if srv_api_version != WebAnalyzer.API_VERSION:
-            bc_log.error(
-                "API mismatch: this plugin supports version %s, while server "
-                "supports version %s." % (WebAnalyzer.API_VERSION,
-                                          srv_api_version))
-            return
 
         # create temporary AnalyzerConfig to replace referenced file names with
         # sha256 of their contents
@@ -231,7 +279,7 @@ class WebAnalyzer(Analyzer):
         except KeyError as e:
             # this is not mandatory
             pass
-        
+
         else:
             temp_config.headers_file = headers_sha256
         # patch in_marshalled_cfa_file - replace with file contents sha256
@@ -250,7 +298,8 @@ class WebAnalyzer(Analyzer):
             return
         files = run_res.json()
         if files["errorcode"]:
-            bc_log.error("Error while analyzing file. Bincat output is:\n----------------\n%s\n----------------"
+            bc_log.error("Error while analyzing file. Bincat output is:\n"
+                         "----------------\n%s\n----------------"
                          % self.download_file(files["stdout.txt"]))
             return
         with open(self.outfname, 'w') as outfp:
@@ -279,8 +328,9 @@ class WebAnalyzer(Analyzer):
         r = requests.get(self.server_url + '/download/' + fname + '/zlib')
         try:
             return zlib.decompress(r.content)
-        except Exception,e:
-            bc_log.error("Error uncompressing downloaded file [%s] (%s)" % (fname,e))
+        except Exception as e:
+            bc_log.error("Error uncompressing downloaded file [%s] (%s)" %
+                         (fname, e))
 
     def sha256_digest(self, path):
         with open(path, 'r') as f:
@@ -314,8 +364,8 @@ class WebAnalyzer(Analyzer):
                 self.server_url + "/add",
                 files={'file': ('file', open(path, 'rb').read())})
             if upload_res.status_code != 200:
-                bc_log.error("Error while uploading binary file "
-                             "to BinCAT analysis server.")
+                bc_log.error("Error while uploading file %s "
+                             "to BinCAT analysis server.", path)
                 return
         return True
 
@@ -546,8 +596,11 @@ class State(object):
 
         # instance variable: we don't want the garbage collector to delete the
         # *Analyzer instance, killing an unlucky QProcess in the process
-        self.analyzer = self.new_analyzer(path, self.options,
-                                          self.analysis_finish_cb)
+        try:
+            self.analyzer = self.new_analyzer(path, self.options,
+                                              self.analysis_finish_cb)
+        except AnalyzerUnavailable as e:
+            bc_log.error("Analyzer is unavailable", exc_info=True)
 
         bc_log.debug("Current analyzer path: %s", path)
 
@@ -564,6 +617,16 @@ class State(object):
                 return
             with open(self.analyzer.cfainfname, 'w') as f:
                 f.write(self.last_cfaout_marshal)
+        bc_log.debug("Generating .npk file...")
+
+        # try to generate npk file
+        npk_filename = self.analyzer.generate_npk()
+        if not npk_filename:
+            bc_log.debug(".npk file could not be generated, continuing.")
+        else:
+            bc_log.debug(".npk file has been successfully generated.")
+            self.current_config.headers_file = npk_filename
+
         self.current_config.write(self.analyzer.initfname)
         self.analyzer.run()
 

@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 SHA256_RE = re.compile('[a-fA-F0-9]{64}')
 app = flask.Flask(__name__)
-API_VERSION = "1.0"
+API_VERSION = "1.1"
 
 # check existence of binary storage folder
 if 'BINARY_STORAGE_FOLDER' not in app.config:
@@ -231,12 +231,17 @@ def analyze():
     return flask.make_response(flask.jsonify(**result), 200)
 
 
-@app.route("/convert_to_npk", methods=['POST'])
-def convert_to_npk():
-    if 'file' not in flask.request.files:
+@app.route("/convert_to_npk/<sha256>", methods=['POST'])
+def convert_to_npk(sha256):
+    if not SHA256_RE.match(sha256):
         return flask.make_response(
-            "This request was expected to include a file named 'file'.", 400)
-    headers_data = flask.request.files['file'].read()
+            "SHA256 expected as endpoint parameter.", 400)
+    fpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'], sha256)
+    if not os.path.exists(fpath):
+        return flask.make_response(
+            "Input file %s has not yet been uploaded." % sha256, 400)
+    with open(fpath, 'r') as f:
+        headers_data = f.read()
     try:
         npk_fname = idabincat.npkgen.NpkGen().generate_npk(headers_data)
     except idabincat.npkgen.NpkGenException as e:

@@ -22,7 +22,13 @@ class NpkGen(object):
 
     def get_header_data(self):
 
+        self.imports = []
+        #: Types we have already inspected
+        self.seen = set()
+        #: List of structures, to patch .h later
+        self.structs = set()
         # add missing #defines
+
         self.imports.append("#define __cdecl")
 
         nimps = idaapi.get_import_module_qty()
@@ -71,11 +77,6 @@ class NpkGen(object):
         cwd = os.getcwd()
         os.chdir(dirname)  # c2newspeak outputs a.npk in cwd...
 
-        self.imports = []
-        #: Types we have already inspected
-        self.seen = set()
-        #: List of structures, to patch .h later
-        self.structs = set()
         # 1. get imports_data
         if not imports_data:
             # not provided, fetch from IDA
