@@ -10,7 +10,7 @@ except ImportError:
     # imported outside ida - for instance, from wsgi.py
     pass
 
-npk_log = logging.getLogger('bincat.plugin')
+npk_log = logging.getLogger('bincat.plugin.npkgen')
 npk_log.setLevel(logging.DEBUG)
 
 
