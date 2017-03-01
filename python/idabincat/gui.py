@@ -978,6 +978,15 @@ class HandleAddOverride(idaapi.action_handler_t):
         except AttributeError:
             # assume it's a memory address
             htype = "mem"
+        except TypeError:
+            # IDA bug, assume it's a memory address
+            bc_log.warning(
+                "IDA bug encountered while trying to determine whether "
+                "highlighted identifier %s is a memory address or register - "
+                "assuming it's a memory address, edit value in Overrides "
+                "window if that's incorrect", highlighted)
+            htype = "mem"
+
         else:
             htype = "reg"
         htext = "%s[%s]" % (htype, highlighted)
