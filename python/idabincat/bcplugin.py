@@ -387,11 +387,12 @@ class PluginOptions(object):
         self.config_path = os.path.join(idausr, "idabincat")
 
         # Plugin options
-        def_options = {'save_to_idb': "False",
-                       "load_from_idb": "True",
-                       "server_url": "http://localhost:5000",
-                       "web_analyzer": "False",
-                       "autostart": "False"}
+        def_options = {
+            "save_to_idb": "False",  # config only - results are always saved
+            "load_from_idb": "True",
+            "server_url": "http://localhost:5000",
+            "web_analyzer": "False",
+            "autostart": "False"}
         self.options = ConfigParser.ConfigParser(defaults=def_options)
         self.options.optionxform = str
         self.configfile = os.path.join(self.config_path, "conf", "options.ini")
@@ -403,7 +404,6 @@ class PluginOptions(object):
 
     def set(self, name, value):
         self.options.set("options", name, value)
-        pass
 
     def save(self):
         with open(self.configfile, "w") as optfile:
@@ -429,9 +429,11 @@ class State(object):
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
         self.overrides = OverridesState()
-        # for debugging purposes, to interact with this object from the console
         # XXX store in idb after encoding?
         self.last_cfaout_marshal = None
+        #: filepath to last dumped remapped binary
+        self.remapped_bin_path = None
+        # for debugging purposes, to interact with this object from the console
         global bc_state
         bc_state = self
 
@@ -465,6 +467,10 @@ class State(object):
                 ea = None
             self.analysis_finish_cb(outfname, logfname, cfaoutfname=None,
                                     ea=ea)
+        if "remapped_bin_path" in self.netnode:
+            fname = self.netnode["remapped_bin_path"]
+            if os.path.isfile(fname):
+                self.remapped_bin_path = fname
 
     def clear_background(self):
         """

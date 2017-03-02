@@ -6,8 +6,10 @@ import os
 import idc
 import logging
 import string
+import idc
 import idaapi
 import idautils
+from dump_binary import dump_binary
 from PyQt5 import QtCore, QtWidgets, QtGui
 import idabincat.hexview as hexview
 import pybincat.cfa as cfa
@@ -163,6 +165,9 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.chk_save.setChecked(
             self.s.options.get("save_to_idb") == "True")
 
+        self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
+        self.chk_remap.setChecked(self.s.remapped_bin_path is not None)
+
         self.btn_start = QtWidgets.QPushButton('&Start')
         self.btn_start.clicked.connect(self.launch_analysis)
 
@@ -181,6 +186,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btn_edit_conf, 3, 1)
 
         layout.addWidget(self.chk_save, 4, 0)
+        layout.addWidget(self.chk_remap, 4, 1)
 
         layout.addWidget(self.btn_start, 5, 0)
         layout.addWidget(self.btn_cancel, 5, 1)
@@ -215,6 +221,28 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         if self.chk_save.isChecked():
             self.s.edit_config.save_for_address(
                 int(self.ip_start_addr.text(), 16))
+
+        if self.chk_remap.isChecked():
+            if not self.s.remapped_bin_path:
+                fname = idaapi.askfile_c(1, "*.*", "Save remapped binary")
+                if not fname:
+                    idc.Warning(
+                        'No filename provided. You can provide a filename or '
+                        'uncheck the "Remap binary" option.')
+                    return
+                dump_binary(fname)
+                self.s.remapped_bin_path = fname
+            else:
+                if not os.path.isfile(self.s.remapped_bin_path):
+                    idc.Warning('The specified binary file does not exist.')
+                    return
+            self.s.edit_config.binary_filepath = self.s.remapped_bin_path
+            self.s.edit_config.code_va = "0x0"
+            self.s.edit_config.code_phys = "0x0"
+            size = os.stat(fname).st_size
+            self.s.edit_config.code_length = "0x%0X" % size
+            self.s.edit_config.replace_section_mappings(
+                [("ph2", 0, size, 0, size)])
 
         # XXX copy?
         self.s.current_config = self.s.edit_config
@@ -1024,6 +1052,25 @@ class HandleOptions(idaapi.action_handler_t):
         return idaapi.AST_ENABLE_ALWAYS
 
 
+class HandleRemap(idaapi.action_handler_t):
+    """
+    Action handler for BinCAT/Options
+    """
+    def __init__(self, state):
+        self.state = state
+
+    def activate(self, ctx):
+        # display config window
+        fname = idaapi.askfile_c(1, "*.*", "Save to binary")
+        if fname:
+            dump_binary(fname)
+            self.state.remapped_bin_path = fname
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+
 class HandleShowWindows(idaapi.action_handler_t):
     """
     Action handler for BinCAT/Show windows
@@ -1112,11 +1159,20 @@ class GUI(object):
             'bincat:options_act', 'Options...',
             HandleOptions(self.s), '', 'BinCAT action', -1)
         idaapi.register_action(options_act)
-        idaapi.attach_action_to_menu("Edit/BinCAT/show_win",
+        idaapi.attach_action_to_menu("Edit/BinCAT/options",
                                      "bincat:options_act",
                                      idaapi.SETMENU_APP)
-        self.hooks = Hooks(state, self)
-        self.hooks.hook()
+
+        # "Remap" menu
+        options_act = idaapi.action_desc_t(
+            'bincat:remap_act', 'Dump remapped binary...',
+            HandleRemap(self.s), '', 'BinCAT action', -1)
+        idaapi.register_action(options_act)
+        idaapi.attach_action_to_menu("Edit/BinCAT/dump_mapped",
+                                     "bincat:remap_act",
+                                     idaapi.SETMENU_APP)
+        self.hooks = Hooks(state)
+        self.hooks.hook(state, self)
 
     def show_windows(self):
         self.BinCATDebugForm.Show()
