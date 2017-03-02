@@ -3,6 +3,7 @@
 # runs the "bincat" command from ida
 
 import os
+import idc
 import logging
 import string
 import idaapi
@@ -423,6 +424,9 @@ class BinCATHexForm_t(idaapi.PluginForm):
         return idaapi.PluginForm.Show(
             self, "BinCAT Hex",
             options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_MENU |
+                     idaapi.PluginForm.FORM_SAVE |
+                     idaapi.PluginForm.FORM_RESTORE |
                      idaapi.PluginForm.FORM_TAB))
 
 
@@ -488,6 +492,8 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         return idaapi.PluginForm.Show(
             self, "BinCAT Debugging",
             options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_SAVE |
+                     idaapi.PluginForm.FORM_RESTORE |
                      idaapi.PluginForm.FORM_TAB))
 
 
@@ -592,6 +598,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         return idaapi.PluginForm.Show(
             self, "BinCAT Tainting",
             options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_SAVE |
+                     idaapi.PluginForm.FORM_RESTORE |
                      idaapi.PluginForm.FORM_TAB))
 
     @QtCore.pyqtSlot(str)
@@ -813,6 +821,8 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
         return idaapi.PluginForm.Show(
             self, "BinCAT Overrides",
             options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_SAVE |
+                     idaapi.PluginForm.FORM_RESTORE |
                      idaapi.PluginForm.FORM_TAB))
 
 
@@ -1034,9 +1044,13 @@ class Hooks(idaapi.UI_Hooks):
     Class Hooks for BinCAT menu
     """
 
-    def __init__(self, state):
+    def __init__(self, state, gui):
         super(Hooks, self).__init__()
         self.s = state
+        self.gui = gui
+
+    def ready_to_run(self):
+        self.gui.show_windows()
 
     def updating_actions(self, ctx):
         if ctx.form_type == idaapi.BWN_DISASM:
@@ -1066,8 +1080,6 @@ class GUI(object):
         self.overrides_model = OverridesModel(state)
         self.BinCATOverridesForm = BinCATOverridesForm_t(
             state, self.overrides_model)
-
-        self.show_windows()
 
         # XXX fix
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
@@ -1103,7 +1115,7 @@ class GUI(object):
         idaapi.attach_action_to_menu("Edit/BinCAT/show_win",
                                      "bincat:options_act",
                                      idaapi.SETMENU_APP)
-        self.hooks = Hooks(state)
+        self.hooks = Hooks(state, self)
         self.hooks.hook()
 
     def show_windows(self):
