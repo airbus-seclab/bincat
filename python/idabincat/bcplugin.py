@@ -429,9 +429,9 @@ class State(object):
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
         self.overrides = OverridesState()
-        # for debugging purposes, to interact with this object from the console
         # XXX store in idb after encoding?
         self.last_cfaout_marshal = None
+        # for debugging purposes, to interact with this object from the console
         global bc_state
         bc_state = self
 
