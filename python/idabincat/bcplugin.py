@@ -404,7 +404,6 @@ class PluginOptions(object):
 
     def set(self, name, value):
         self.options.set("options", name, value)
-        pass
 
     def save(self):
         with open(self.configfile, "w") as optfile:
@@ -432,6 +431,8 @@ class State(object):
         self.overrides = OverridesState()
         # XXX store in idb after encoding?
         self.last_cfaout_marshal = None
+        #: filepath to last dumped remapped binary
+        self.remapped_bin_path = None
         # for debugging purposes, to interact with this object from the console
         global bc_state
         bc_state = self
@@ -466,6 +467,10 @@ class State(object):
                 ea = None
             self.analysis_finish_cb(outfname, logfname, cfaoutfname=None,
                                     ea=ea)
+        if "remapped_bin_path" in self.netnode:
+            fname = self.netnode["remapped_bin_path"]
+            if os.path.isfile(fname):
+                self.remapped_bin_path = fname
 
     def clear_background(self):
         """
