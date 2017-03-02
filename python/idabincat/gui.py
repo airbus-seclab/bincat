@@ -1171,8 +1171,8 @@ class GUI(object):
         idaapi.attach_action_to_menu("Edit/BinCAT/dump_mapped",
                                      "bincat:remap_act",
                                      idaapi.SETMENU_APP)
-        self.hooks = Hooks(state)
-        self.hooks.hook(state, self)
+        self.hooks = Hooks(state, self)
+        self.hooks.hook()
 
     def show_windows(self):
         self.BinCATDebugForm.Show()
