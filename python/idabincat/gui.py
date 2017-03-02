@@ -229,11 +229,19 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                         'No filename provided. You can provide a filename or '
                         'uncheck the "Remap binary" option.')
                     return
-                if not os.path.isfile(fname):
-                    idc.Warning('This file does not exist.')
-                    return
+                dump_binary(fname)
                 self.s.remapped_bin_path = fname
+            else:
+                if not os.path.isfile(self.s.remapped_bin_path):
+                    idc.Warning('The specified binary file does not exist.')
+                    return
             self.s.edit_config.binary_filepath = self.s.remapped_bin_path
+            self.s.edit_config.code_va = "0x0"
+            self.s.edit_config.code_phys = "0x0"
+            size = os.stat(fname).st_size
+            self.s.edit_config.code_length = "0x%0X" % size
+            self.s.edit_config.replace_section_mappings(
+                [("ph2", 0, size, 0, size)])
 
         # XXX copy?
         self.s.current_config = self.s.edit_config
