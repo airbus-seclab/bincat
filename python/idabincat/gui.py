@@ -239,7 +239,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             self.s.edit_config.binary_filepath = self.s.remapped_bin_path
             self.s.edit_config.code_va = "0x0"
             self.s.edit_config.code_phys = "0x0"
-            size = os.stat(fname).st_size
+            size = os.stat(self.s.edit_config.binary_filepath).st_size
             self.s.edit_config.code_length = "0x%0X" % size
             self.s.edit_config.replace_section_mappings(
                 [("ph2", 0, size, 0, size)])
