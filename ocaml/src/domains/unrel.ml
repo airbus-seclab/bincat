@@ -1029,7 +1029,6 @@ module Make(D: T) =
       | Val m' -> 
 	 let str, len = to_hex m' src nb capitalise pad_option false word_sz in
 	 (* str is already stripped in hex *)
-	 Log.debug (Printf.sprintf "to_print %s" str);
 	 Log.print str;
 	 m, len
       | BOT -> Log.print "_"; m, raise Exceptions.Empty
@@ -1052,9 +1051,15 @@ module Make(D: T) =
 
     let print m arg _sz: t =
       match m with
-      | Val m' ->
+      | Val m' ->	
 	 let str = strip (D.to_string (fst (eval_exp m' arg))) in
-	 Log.print str;
+	 let str' =
+	   if String.length str = 1 then
+	     let str' = "0x"^str in
+	     String.make 1 (Char.chr (Z.to_int (Z.of_string str')))
+	   else raise Exceptions.Concretization
+	 in
+	 Log.print str';
 	 m
       | BOT -> Log.debug "_"; m	
   end
