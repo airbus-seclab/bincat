@@ -171,6 +171,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		   D.print_hex d
 	       in
 	       let digit_nb = !Config.operand_sz/8 in
+	       Log.debug (Printf.sprintf "dst = %s" (Asm.string_of_exp arg true));
 	       off+1, digit_nb, dump arg digit_nb (Char.compare c 'X' = 0) None !Config.operand_sz   
 	    | ' ' -> copy_num d len '0' (off+1) arg ' ' true  
 	    | '-' -> copy_num d len '0' (off+1) arg ' ' false
@@ -215,7 +216,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		
 	  in
 	  let len', d' = fill_buffer d 0 0 0 0 in
-	  D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
+	  D.set ret (Asm.Const (Data.Word.of_int (Z.of_int (len'-1)) !Config.operand_sz)) d'
 	    
 	with
 	| Exceptions.Enum_failure | Exceptions.Concretization ->
