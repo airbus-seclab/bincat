@@ -621,7 +621,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		begin
 		  try		   
 		    import_call vertices a (fun v -> Cfa.pred g v) fun_stack
-		    res
 		  with Not_found ->
 		    add_to_fun_stack a;
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
