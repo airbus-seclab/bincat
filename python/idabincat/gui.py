@@ -1141,7 +1141,7 @@ class GUI(object):
                                      idaapi.SETMENU_APP)
         # Add taint override menu
         add_taint_override_act = idaapi.action_desc_t(
-            'bincat:add_override', 'Add taint override',
+            'bincat:add_override', 'Add taint override...',
             HandleAddOverride(self.s), 'Ctrl-Shift-O')
         idaapi.register_action(add_taint_override_act)
 
