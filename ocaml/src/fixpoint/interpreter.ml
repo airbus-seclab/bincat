@@ -117,8 +117,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 			   D.copy_hex d dst'
 			| _ -> D.print_hex d
 		      in
-		      let d' = dump arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) sz in
-		      off+2, digit_nb, d'
+		      let d', len' = dump arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) sz in
+		      off+2, len', d'
 		   | c ->  Log.error (Printf.sprintf "%x: Unknown format in format string" (Char.code c))
 		 end
 	      | 'x' | 'X' ->
@@ -129,7 +129,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      D.copy_hex d dst'
 		   | _ -> D.print_hex d
 		 in
-		 off+1, digit_nb, copy arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) !Config.operand_sz
+		 let d', len' = copy arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) !Config.operand_sz in
+		 off+1, len', d' 
 	      | 's' ->
 		 let dump =
 		   match to_buffer with
@@ -155,7 +156,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		 match to_buffer with
 		 | Some dst ->
 		    let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
-		    D.copy_until d dst'
+		    D.copy_until d dst' 
 		 | None ->
 		   D.print_until d
 	       in
@@ -171,8 +172,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		   D.print_hex d
 	       in
 	       let digit_nb = !Config.operand_sz/8 in
-	       Log.debug (Printf.sprintf "dst = %s" (Asm.string_of_exp arg true));
-	       off+1, digit_nb, dump arg digit_nb (Char.compare c 'X' = 0) None !Config.operand_sz   
+	       let d', len' = dump arg digit_nb (Char.compare c 'X' = 0) None !Config.operand_sz in
+	       off+1, len', d'    
 	    | ' ' -> copy_num d len '0' (off+1) arg ' ' true  
 	    | '-' -> copy_num d len '0' (off+1) arg ' ' false
 	    | _ -> Log.error "Unknown format in format string"
@@ -216,7 +217,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		
 	  in
 	  let len', d' = fill_buffer d 0 0 0 0 in
-	  D.set ret (Asm.Const (Data.Word.of_int (Z.of_int (len'-1)) !Config.operand_sz)) d'
+	  (* set the number of bytes (excluding the string terminator) read into the given register *)
+	  D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
 	    
 	with
 	| Exceptions.Enum_failure | Exceptions.Concretization ->

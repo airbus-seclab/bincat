@@ -100,11 +100,13 @@ module Make(D: Unrel.T) =
   let print (uenv, _tenv) src sz: t =
     U.print uenv src sz, T.top
 
-  let copy_hex (uenv, _tenv) dst src sz capitalise pad_option word_sz: t =
-    U.copy_hex uenv dst src sz capitalise pad_option word_sz, T.top
+  let copy_hex (uenv, _tenv) dst src sz capitalise pad_option word_sz: t * int =
+    let uenv', len = U.copy_hex uenv dst src sz capitalise pad_option word_sz in
+    (uenv', T.top), len
 
-  let print_hex (uenv, tenv) src sz capitalise pad_option word_sz: t =
-    U.print_hex uenv src sz capitalise pad_option word_sz, tenv
+  let print_hex (uenv, tenv) src sz capitalise pad_option word_sz: t * int =
+    let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz in
+    (uenv', tenv), len
    
   let copy_chars (uenv, _tenv) dst src sz pad_options =
     U.copy_chars uenv dst src sz pad_options, T.top

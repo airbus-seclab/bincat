@@ -942,7 +942,7 @@ module Make(D: T) =
       | BOT -> BOT
 
 
-    let to_hex m src nb capitalise pad_option full_print _word_sz: string =
+    let to_hex m src nb capitalise pad_option full_print _word_sz: string * int =
       let capitalise str =
 	if capitalise then String.uppercase str
 	else str
@@ -951,6 +951,7 @@ module Make(D: T) =
       let str_src, str_taint = D.to_strings vsrc in
       let str_src' = capitalise (strip str_src) in
       let sz = String.length str_src in
+      let str' =
       match pad_option with
       | Some (pad, pad_left) ->
       (*word_sz / 8 in*)
@@ -992,13 +993,15 @@ module Make(D: T) =
 	     Printf.sprintf "%s!%s" str_src' str_taint
 	 else
 	   str_src'
+      in
+      str', String.length str'
 	    
-    let copy_hex m dst src nb capitalise pad_option word_sz: t =
+    let copy_hex m dst src nb capitalise pad_option word_sz: t * int =
      (* TODO generalise to non concrete src value *)
       match m with
       | Val m' ->
 	 begin
-	  let str_src = to_hex m' src nb capitalise pad_option false word_sz in
+	  let str_src, len = to_hex m' src nb capitalise pad_option false word_sz in
 	  let vdst = fst (eval_exp m' dst) in
 	  let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
 	  match dst_addrs with
@@ -1015,20 +1018,21 @@ module Make(D: T) =
 	       else		  
 		 m'
 	     in
-	     Val (write m' Z.zero)	
+	     Val (write m' Z.zero), len
 	  | [] -> raise Exceptions.Empty
-	  | _  -> Val (Env.empty) (* TODO could be more precise *)
+	  | _  -> Val (Env.empty), len (* TODO could be more precise *)
 	 end
-      | BOT -> BOT
+      | BOT -> BOT, raise Exceptions.Empty
 
-    let print_hex m src nb capitalise pad_option word_sz =
+    let print_hex m src nb capitalise pad_option word_sz: t * int =
       match m with
       | Val m' -> 
-	 let str = to_hex m' src nb capitalise pad_option false word_sz in
+	 let str, len = to_hex m' src nb capitalise pad_option false word_sz in
 	 (* str is already stripped in hex *)
+	 Log.debug (Printf.sprintf "to_print %s" str);
 	 Log.print str;
-	 m
-      | BOT -> Log.print "_"; m
+	 m, len
+      | BOT -> Log.print "_"; m, raise Exceptions.Empty
 
     let copy m dst arg sz: t =
 	(* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)
