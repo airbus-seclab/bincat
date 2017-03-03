@@ -1165,10 +1165,10 @@ class GUI(object):
                                      idaapi.SETMENU_APP)
 
         # "Remap" menu
-        options_act = idaapi.action_desc_t(
+        remap_act = idaapi.action_desc_t(
             'bincat:remap_act', 'Dump remapped binary...',
             HandleRemap(self.s), '', 'BinCAT action', -1)
-        idaapi.register_action(options_act)
+        idaapi.register_action(remap_act)
         idaapi.attach_action_to_menu("Edit/BinCAT/dump_mapped",
                                      "bincat:remap_act",
                                      idaapi.SETMENU_APP)
