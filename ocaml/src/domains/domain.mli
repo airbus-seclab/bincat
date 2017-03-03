@@ -107,10 +107,10 @@ module type T =
       val print: t -> Asm.exp -> int -> t
 	
 	(** [copy_hex d dst arg sz is_hex pad_char pad_left word_sz] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d or arg cannot be concretised; If is_hex is true then letters are capitalized ; pad_char is the character to pad if sz <> !Config.operand_sz / 8 ; padding is done on the left if pad_left is true otherwise it is padded on the right *)
-      val copy_hex: t -> Asm.exp -> Asm.exp -> int -> bool -> char -> bool -> int -> t 
+      val copy_hex: t -> Asm.exp -> Asm.exp -> int -> bool -> (char * bool) option -> int -> t 
 
 		(** [print_hex d arg sz is_hex pad_char pad_left word_sz] copy the first sz bits of arg into stdout. May raise an exception if dst is undefined in d or arg cannot be concretised; If is_hex is true then letters are capitalized ; pad_char is the character to pad if sz <> !Config.operand_sz / 8 ; padding is done on the left if pad_left is true otherwise it is padded on the right *)
-      val print_hex: t -> Asm.exp -> int -> bool -> char -> bool -> int -> t 
+      val print_hex: t -> Asm.exp -> int -> bool -> (char * bool) option -> int -> t 
 	
 
     (** [copy_until d dst arg term term_sz bound with_exception pad_options] copy the bits of arg into address dst until the first occurence of term is found into arg. This occurence may be at most at address [arg+bound] raise an exception if the with_exception=true and upper bound is exceeded of dst is undefined in d 

@@ -942,7 +942,7 @@ module Make(D: T) =
       | BOT -> BOT
 
 
-    let to_hex m src nb capitalise pad pad_left full_print _word_sz: string =
+    let to_hex m src nb capitalise pad_option full_print _word_sz: string =
       let capitalise str =
 	if capitalise then String.uppercase str
 	else str
@@ -950,44 +950,55 @@ module Make(D: T) =
       let vsrc = fst (eval_exp m src) in
       let str_src, str_taint = D.to_strings vsrc in
       let str_src' = capitalise (strip str_src) in
-      let sz = String.length str_src in (*word_sz / 8 in*)
-      let nb_pad = nb - sz in
-      (* pad with the pad parameter if needed *)
-      if nb_pad <= 0 then
-	if full_print then
-	  if String.compare str_taint "0x0" = 0 then
-	    str_src'	    
-	  else
-	    Printf.sprintf "%s!%s" str_src' str_taint
-	else
-	  str_src'
-      else
-	let pad_str = String.make nb_pad pad in
-	if pad_left then
-	  let pad_src = pad_str ^ str_src' in
-	  if full_print then
-	    if String.compare str_taint "0x0" = 0 then
-	      pad_src
-	    else
-	      Printf.sprintf "%s!%s" pad_src (pad_str^str_taint)
-	  else
-	    pad_src
-	else
-	  let pad_src = str_src' ^ pad_str in
-	  if full_print then
-	    if String.compare str_taint "0x0" = 0 then
-	      pad_src
-	    else
-	      Printf.sprintf "%s!%s" pad_src (str_taint^pad_str)
-	  else
-	    pad_src
+      let sz = String.length str_src in
+      match pad_option with
+      | Some (pad, pad_left) ->
+      (*word_sz / 8 in*)
+	 let nb_pad = nb - sz in
+	 (* pad with the pad parameter if needed *)
+	 if nb_pad <= 0 then
+	   if full_print then
+	     if String.compare str_taint "0x0" = 0 then
+	       str_src'	    
+	     else
+	       Printf.sprintf "%s!%s" str_src' str_taint
+	   else
+	     str_src'
+	 else
+	   let pad_str = String.make nb_pad pad in
+	   if pad_left then
+	     let pad_src = pad_str ^ str_src' in
+	     if full_print then
+	       if String.compare str_taint "0x0" = 0 then
+		 pad_src
+	       else
+		 Printf.sprintf "%s!%s" pad_src (pad_str^str_taint)
+	     else
+	       pad_src
+	   else
+	     let pad_src = str_src' ^ pad_str in
+	     if full_print then
+	       if String.compare str_taint "0x0" = 0 then
+		 pad_src
+	       else
+		 Printf.sprintf "%s!%s" pad_src (str_taint^pad_str)
+	     else
+	       pad_src
+      | None ->
+	 if full_print then
+	   if String.compare str_taint "0x0" = 0 then
+	     str_src'	    
+	   else
+	     Printf.sprintf "%s!%s" str_src' str_taint
+	 else
+	   str_src'
 	    
-    let copy_hex m dst src nb capitalise pad pad_left word_sz: t =
+    let copy_hex m dst src nb capitalise pad_option word_sz: t =
      (* TODO generalise to non concrete src value *)
       match m with
       | Val m' ->
 	 begin
-	  let str_src = to_hex m' src nb capitalise pad pad_left false word_sz in
+	  let str_src = to_hex m' src nb capitalise pad_option false word_sz in
 	  let vdst = fst (eval_exp m' dst) in
 	  let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
 	  match dst_addrs with
@@ -1010,10 +1021,10 @@ module Make(D: T) =
 	 end
       | BOT -> BOT
 
-    let print_hex m src nb capitalise pad pad_left word_sz =
+    let print_hex m src nb capitalise pad_option word_sz =
       match m with
       | Val m' -> 
-	 let str = to_hex m' src nb capitalise pad pad_left false word_sz in
+	 let str = to_hex m' src nb capitalise pad_option false word_sz in
 	 (* str is already stripped in hex *)
 	 Log.print str;
 	 m

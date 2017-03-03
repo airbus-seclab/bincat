@@ -117,9 +117,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 			   D.copy_hex d dst'
 			| _ -> D.print_hex d
 		      in
-		      let d' = dump arg digit_nb (Char.compare c 'X' = 0) pad_char pad_left sz in
+		      let d' = dump arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) sz in
 		      off+2, digit_nb, d'
-		   | _ ->  Log.error "Unknown format in format string"
+		   | c ->  Log.error (Printf.sprintf "%x: Unknown format in format string" (Char.code c))
 		 end
 	      | 'x' | 'X' ->
 		 let copy =
@@ -129,7 +129,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      D.copy_hex d dst'
 		   | _ -> D.print_hex d
 		 in
-		 off+1, digit_nb, copy arg digit_nb (Char.compare c 'X' = 0) pad_char pad_left !Config.operand_sz
+		 off+1, digit_nb, copy arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) !Config.operand_sz
 	      | 's' ->
 		 let dump =
 		   match to_buffer with
@@ -148,7 +148,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    compute n off
 	  in
 	  let copy_arg d off len arg: int * int * D.t =
-	    match Bytes.get format_string off with		
+	    let c = Bytes.get format_string off in 
+	    match c with		
 	    | 's' ->
 	       let dump =
 		 match to_buffer with
@@ -160,6 +161,17 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       in
 	       let sz, d' = dump arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in off+1, sz, d'
 	    | c when '0' <= c && c <= '9' -> copy_num d len c (off+1) arg '0' true
+	    | 'x' | 'X' ->
+	       let dump =
+		 match to_buffer with
+		 | Some dst ->
+		    let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.stack_width))  in
+		    D.copy_hex d dst'
+		 | None ->
+		   D.print_hex d
+	       in
+	       let digit_nb = !Config.operand_sz/8 in
+	       off+1, digit_nb, dump arg digit_nb (Char.compare c 'X' = 0) None !Config.operand_sz   
 	    | ' ' -> copy_num d len '0' (off+1) arg ' ' true  
 	    | '-' -> copy_num d len '0' (off+1) arg ' ' false
 	    | _ -> Log.error "Unknown format in format string"
