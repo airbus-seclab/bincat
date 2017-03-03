@@ -259,15 +259,18 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    apply_f d args
 	  with _ -> Log.from_analysis (Printf.sprintf "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
 	in
-	let sp = Register.stack_pointer () in
-	let vsp = Asm.V (Asm.T sp) in
-	let sp_sz = Register.size sp in
-	let c = Data.Word.of_int (Z.of_int (!Config.stack_width / 8)) sp_sz in
-	let e = Asm.BinOp (Asm.Add, Asm.Lval vsp, Asm.Const c) in 
-	let d', is_tainted' =
-	  D.set vsp e d
-	in
-	d', is_tainted || is_tainted'
+	if !Config.call_conv = Config.STDCALL then
+	  let sp = Register.stack_pointer () in
+	  let vsp = Asm.V (Asm.T sp) in
+	  let sp_sz = Register.size sp in
+	  let c = Data.Word.of_int (Z.of_int (!Config.stack_width / 8)) sp_sz in
+	  let e = Asm.BinOp (Asm.Add, Asm.Lval vsp, Asm.Const c) in 
+	  let d', is_tainted' =
+	    D.set vsp e d
+	  in
+	  d', is_tainted || is_tainted'
+	else
+	  d, is_tainted
     end
     open Asm
       
@@ -451,10 +454,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	     | _ -> Log.from_analysis (Printf.sprintf "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
 	   end
 	| Directive (Type (lv, t)) -> D.set_type lv t d, false
-	| Directive (Stub (fun_name, args)) ->
-	   let res = Stubs.process d fun_name args in
-	   fun_stack := List.tl !fun_stack;
-	   res
+	| Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
+	   (* fun_stack := List.tl !fun_stack; *)
         | _ 				 -> raise Jmp_exn
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
@@ -518,6 +519,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  v.Cfa.State.v <- d';
 	  let pred = pred_fun v in
 	  v.Cfa.State.ip <- Data.Address.add_offset pred.Cfa.State.ip (Z.of_int (List.length pred.Cfa.State.bytes));
+	  Log.debug (Printf.sprintf "ip = %s" (Data.Address.to_string v.Cfa.State.ip));
 	  (* set back the stack register to its pred value *)
 	  let stack_register = Register.stack_pointer () in
 	  v.Cfa.State.v <- D.copy_register stack_register v.Cfa.State.v pred.Cfa.State.v;
@@ -619,6 +621,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		begin
 		  try		   
 		    import_call vertices a (fun v -> Cfa.pred g v) fun_stack
+		    res
 		  with Not_found ->
 		    add_to_fun_stack a;
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
