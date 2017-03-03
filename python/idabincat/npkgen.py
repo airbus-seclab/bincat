@@ -10,7 +10,7 @@ except ImportError:
     # imported outside ida - for instance, from wsgi.py
     pass
 
-npk_log = logging.getLogger('bincat.plugin')
+npk_log = logging.getLogger('bincat.plugin.npkgen')
 npk_log.setLevel(logging.DEBUG)
 
 
@@ -111,6 +111,7 @@ class NpkGen(object):
         except OSError as e:
             error_msg = ("Error encountered while running c2newspeak. "
                          "Is it installed in PATH?")
+            npk_log.error(error_msg, exc_info=True)
             raise NpkGenException(error_msg)
         except Exception as e:
             error_msg = "Error encountered while running c2newspeak."

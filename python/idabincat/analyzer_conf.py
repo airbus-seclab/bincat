@@ -230,6 +230,18 @@ class AnalyzerConfig(object):
             # this is not mandatory
             raise KeyError
 
+    @property
+    def code_va(self):
+        return self._config.get('loader', 'code_va').lower()
+
+    @property
+    def code_phys(self):
+        return self._config.get('loader', 'code_phys').lower()
+
+    @property
+    def code_length(self):
+        return self._config.get('loader', 'code_length').lower()
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
@@ -241,7 +253,7 @@ class AnalyzerConfig(object):
     def stop_address(self, value):
         if type(value) in (int, long):
             value = "0x%X" % value
-        if value is None or value=="":
+        if value is None or value == "":
             self._config.remove_option('analyzer', 'cut')
         else:
             self._config.set('analyzer', 'cut', value)
@@ -257,6 +269,27 @@ class AnalyzerConfig(object):
     @headers_file.setter
     def headers_file(self, value):
         self._config.set('imports', 'headers', value)
+
+    @code_va.setter
+    def code_va(self, value):
+        self._config.set('loader', 'code_va', value)
+
+    @code_phys.setter
+    def code_phys(self, value):
+        self._config.set('loader', 'code_phys', value)
+
+    @code_length.setter
+    def code_length(self, value):
+        self._config.set('loader', 'code_length', value)
+
+    def replace_section_mappings(self, maplist):
+        """
+        maplist: list of ("name", vaddr: int, vlen: int, paddr: int, plen: hex)
+        """
+        for s in maplist:
+            self._config.set(
+                "sections", "section[%s]" % s[0],
+                "0x%x, 0x%x, 0x%x, 0x%x" % (s[1], s[2], s[3], s[4]))
 
     def set_cfa_options(self, store_cfa="true", in_cfa="", out_cfa=""):
         self._config.set('analyzer', 'store_marshalled_cfa', store_cfa)
@@ -282,6 +315,11 @@ class AnalyzerConfig(object):
         self._config = ConfigParser.RawConfigParser()
         self._config.optionxform = str
         self._config.readfp(sio)
+        # make sure all sections are created
+        for section in ("analyzer", "settings", "loader", "GDT", "binary",
+                        "sections", "state", "imports"):
+            if not self._config.has_section(section):
+                self._config.add_section(section)
 
     def load_for_address(self, analysis_start_va, analysis_stop_va):
         """
