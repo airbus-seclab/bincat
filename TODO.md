@@ -7,7 +7,6 @@ qu'un état par instruction x86) (ou pas, à discuter)
 
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
-* tests QEMU : gérer le `printf` => directive magique ?
 * vérifier popf/pushf (surtout les privilèges etc)
 * écrire un programme de test : binaire => statements (à la metasm-shell)
 * à clarifier : pointer n'est pas un pointer mais une valeur
@@ -19,6 +18,7 @@ Bugs:
 * Jmp et Return dans les boucles doivent en faire sortir. Attention au directives de default_unroll qui suit un jmp repne et à l'incr de esp après le ret qui doivent tout de même être exec
 * caractère échappement des format string est le %
 * mettre un message quand code dans rep/repe/repne n'est pas stos/scas/etc.
+
 Hard :
 * use a shared data structure to store memory only once for all states
 * mem deref with taint in displacement expression
