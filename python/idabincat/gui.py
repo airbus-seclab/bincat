@@ -145,7 +145,10 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         # Use current function end address as default stop address
         stop_addr = 0
         f = idaapi.get_func(idaapi.get_screen_ea())
-        stop_addr = f.endEA
+        try:
+            stop_addr = f.endEA
+        except AttributeError:
+            stop_addr = None
 
         # Start address
         lbl_start_addr = QtWidgets.QLabel(" Start address: ")
