@@ -301,7 +301,8 @@ class WebAnalyzer(Analyzer):
             bc_log.error("Error while analyzing file. Bincat output is:\n"
                          "----------------\n%s\n----------------"
                          % self.download_file(files["stdout.txt"]))
-            return
+            if not files["out.ini"]:  # try to parse out.ini if it exists
+                return
         with open(self.outfname, 'w') as outfp:
 
             outfp.write(self.download_file(files["out.ini"]))

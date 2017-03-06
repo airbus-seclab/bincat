@@ -339,9 +339,10 @@ class Meminfo():
         values = self[idx]
         if len(values) == 0 or values[0] is None:
             res = "__"
-        res = Meminfo.color_valtaint(
-            values[0].__valuerepr__(16, True),
-            values[0].__taintrepr__(16, True))
+        else:
+            res = Meminfo.color_valtaint(
+                values[0].__valuerepr__(16, True),
+                values[0].__taintrepr__(16, True))
         self.html_cache[idx] = res
         return res
 
@@ -361,8 +362,8 @@ class Meminfo():
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(
             lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
-        if not in_range:
-            res = None
+        if not in_range or self.state is None:
+            res = []
         else:
             res = self.state[addr_value]
         return res
@@ -1164,10 +1165,10 @@ class GUI(object):
                                      idaapi.SETMENU_APP)
 
         # "Remap" menu
-        options_act = idaapi.action_desc_t(
+        remap_act = idaapi.action_desc_t(
             'bincat:remap_act', 'Dump remapped binary...',
             HandleRemap(self.s), '', 'BinCAT action', -1)
-        idaapi.register_action(options_act)
+        idaapi.register_action(remap_act)
         idaapi.attach_action_to_menu("Edit/BinCAT/dump_mapped",
                                      "bincat:remap_act",
                                      idaapi.SETMENU_APP)
