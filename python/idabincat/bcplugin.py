@@ -435,6 +435,7 @@ class State(object):
         self.last_cfaout_marshal = None
         #: filepath to last dumped remapped binary
         self.remapped_bin_path = None
+        self.remap_binary = True
         # for debugging purposes, to interact with this object from the console
         global bc_state
         bc_state = self
@@ -473,6 +474,8 @@ class State(object):
             fname = self.netnode["remapped_bin_path"]
             if os.path.isfile(fname):
                 self.remapped_bin_path = fname
+        if "remap_binary" in self.netnode:
+            self.remap_binary = self.netnode["remap_binary"]
 
     def clear_background(self):
         """
@@ -499,6 +502,7 @@ class State(object):
                 self.netnode["analyzer.log"] = f.read()
             if self.remapped_bin_path:
                 self.netnode["remapped_bin_path"] = self.remapped_bin_path
+            self.netnode["remap_binary"] = self.remap_binary
             if cfaoutfname is not None and os.path.isfile(cfaoutfname):
                 with open(cfaoutfname, 'r') as f:
                     self.last_cfaout_marshal = f.read()

@@ -169,7 +169,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             self.s.options.get("save_to_idb") == "True")
 
         self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
-        self.chk_remap.setChecked(self.s.remapped_bin_path is not None)
+        self.chk_remap.setChecked(self.s.remap_binary)
 
         self.btn_start = QtWidgets.QPushButton('&Start')
         self.btn_start.clicked.connect(self.launch_analysis)
@@ -239,6 +239,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                 if not os.path.isfile(self.s.remapped_bin_path):
                     idc.Warning('The specified binary file does not exist.')
                     return
+            self.s.remap_binary = True
             self.s.edit_config.binary_filepath = self.s.remapped_bin_path
             self.s.edit_config.code_va = "0x0"
             self.s.edit_config.code_phys = "0x0"
@@ -246,6 +247,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             self.s.edit_config.code_length = "0x%0X" % size
             self.s.edit_config.replace_section_mappings(
                 [("ph2", 0, size, 0, size)])
+        else:
+            self.s.remap_binary = True
 
         # XXX copy?
         self.s.current_config = self.s.edit_config
