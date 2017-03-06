@@ -531,6 +531,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
       let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) (ip_pred: Cfa.State.t -> Cfa.State.t) : (Cfa.State.t list * bool) =
+	let import = ref false in
+	let res =
 		List.fold_left (fun (l, b) v ->
                     try
 		      let addrs, is_tainted = D.mem_to_addresses v.Cfa.State.v target in
@@ -538,7 +540,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                       match addresses with
                       | [a] ->
 			 begin
-			   try import_call [v] a ip_pred fun_stack
+			   try let res = import_call [v] a ip_pred fun_stack in import := true; res
 			   with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
 			 end
                       | [] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
@@ -546,7 +548,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 						       (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
                     | Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-		  ) ([], false) vertices
+		) ([], false) vertices
+	in
+	if !import then fun_stack := List.tl !fun_stack;
+	res
 
       in
       let add_to_fun_stack a =
@@ -611,18 +616,20 @@ module Make(D: Domain.T): (T with type domain = D.t) =
              | Jmp (A a) ->
 		begin
 		  try
-		    import_call vertices a (fun v -> Cfa.pred g (Cfa.pred g v)) fun_stack
+		    let res = import_call vertices a (fun v -> Cfa.pred g (Cfa.pred g v)) fun_stack in
+		    fun_stack := List.tl !fun_stack;
+		    res
 		  with Not_found ->
 		    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, false		      
 		end
 		  
              | Jmp (R target) ->
-		fold_to_target (fun _a -> ()) vertices target (fun v -> Cfa.pred g (Cfa.pred g v))
+		  fold_to_target (fun _a -> ()) vertices target (fun v -> Cfa.pred g (Cfa.pred g v))
 			 
              | Call (A a) ->
 		begin
 		  try		   
-		    import_call vertices a (fun v -> Cfa.pred g v) fun_stack
+		    import_call vertices a (fun v -> Cfa.pred g v) fun_stack 
 		  with Not_found ->
 		    add_to_fun_stack a;
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
