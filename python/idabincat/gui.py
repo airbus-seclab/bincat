@@ -659,6 +659,9 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
                 'Node Count: %s' % len(self.s.current_node_ids))
         else:
             self.nilabel.setText('No data')
+            self.node_select.blockSignals(True)
+            self.node_select.clear()
+            self.node_select.blockSignals(False)
 
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
