@@ -248,7 +248,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             self.s.edit_config.replace_section_mappings(
                 [("ph2", 0, size, 0, size)])
         else:
-            self.s.remap_binary = True
+            self.s.remap_binary = False
 
         # XXX copy?
         self.s.current_config = self.s.edit_config
