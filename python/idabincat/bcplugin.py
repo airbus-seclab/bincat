@@ -81,6 +81,7 @@ class BincatPlugin(idaapi.plugin_t):
         self.state = State(options)
         # XXX move
         self.initialized = True
+        self.state.gui.show_windows()
         bc_log.info("IDABinCAT ready.")
 
     def term(self):
