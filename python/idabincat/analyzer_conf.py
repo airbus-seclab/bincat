@@ -289,6 +289,8 @@ class AnalyzerConfig(object):
         """
         maplist: list of ("name", vaddr: int, vlen: int, paddr: int, plen: hex)
         """
+        self._config.remove_section('sections')
+        self._config.add_section('sections')
         for s in maplist:
             self._config.set(
                 "sections", "section[%s]" % s[0],
