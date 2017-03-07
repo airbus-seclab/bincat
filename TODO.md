@@ -26,7 +26,7 @@ Hard :
 
 ## Plugin IDA
 * importer les valeurs concrètes depuis le debugger (mémoire et registres)
-* installer windows
+* installer en python, direct dans IDA
 * fenêtre pour gérer les .ini
 * right-click -> taint argument (alloc buffer and all)
 
