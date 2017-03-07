@@ -39,12 +39,12 @@ class NpkGen(object):
         while self.add_types() > 0:
             pass
 
-        class str_sink(idaapi.ida_typeinf.text_sink_t):
+        class str_sink(idaapi.text_sink_t):
             """
             Sink to get .h in a string
             """
             def __init__(self):
-                idaapi.ida_typeinf.text_sink_t.__init__(self)
+                idaapi.text_sink_t.__init__(self)
                 self.text = ""
 
             def _print(self, defstr):
@@ -54,8 +54,8 @@ class NpkGen(object):
             def res(self):
                 return self.text
         sink = str_sink()
-        idaapi.ida_typeinf.print_decls(
-            sink, idaapi.ida_typeinf.cvar.idati, [],
+        idaapi.print_decls(
+            sink, idaapi.cvar.idati, [],
             idaapi.PDF_INCL_DEPS | idaapi.PDF_DEF_FWD | idaapi.PDF_DEF_BASE)
 
         # Generate fixed .h
