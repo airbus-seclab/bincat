@@ -213,6 +213,11 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def launch_analysis(self):
         bc_log.info("Launching the analyzer")
+        try:
+            start_addr = int(self.ip_start_addr.text(), 16)
+        except ValueError as e:
+            bc_log.error('Provided start address is invalid (%s)', e)
+            return
         start_addr = int(self.ip_start_addr.text(), 16)
         if self.ip_stop_addr.text() == "":
             stop_addr = None
@@ -229,7 +234,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             if not self.s.remapped_bin_path:
                 fname = idaapi.askfile_c(1, "*.*", "Save remapped binary")
                 if not fname:
-                    idc.Warning(
+                    bc_log.error(
                         'No filename provided. You can provide a filename or '
                         'uncheck the "Remap binary" option.')
                     return
@@ -237,7 +242,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                 self.s.remapped_bin_path = fname
             else:
                 if not os.path.isfile(self.s.remapped_bin_path):
-                    idc.Warning('The specified binary file does not exist.')
+                    bc_log.error('The specified binary file does not exist.')
                     return
             self.s.remap_binary = True
             self.s.edit_config.binary_filepath = self.s.remapped_bin_path

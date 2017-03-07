@@ -201,7 +201,10 @@ class AnalyzerConfig(object):
     # Convenience access functions
     @property
     def analysis_ep(self):
-        return self._config.get('loader', 'analysis_ep')
+        try:
+            return self._config.get('loader', 'analysis_ep')
+        except ConfigParser.NoOptionError:
+            return ""
 
     @property
     def stop_address(self):
