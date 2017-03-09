@@ -3,6 +3,7 @@ module Word =
   struct
     type t = Z.t * int (* the integer is the size in bits *)
 		     
+    (* TODO print leading zeros *)
     let to_string w = Z.format "%#x" (fst w)
 		     
     let size w = snd w
