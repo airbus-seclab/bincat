@@ -625,38 +625,39 @@ module Make(D: T) =
 				
 				
     let set dst src m: (t * bool) =
-      match m with
-      |	BOT    -> BOT, false
-      | Val m' ->
-         let v', _ = eval_exp m' src in
-         let v' = span_taint m' src v' in
-	 let b = D.is_tainted v' in
-         if D.is_bot v' then
-           BOT, b
-         else
-           match dst with
-           | Asm.V r -> 
-              begin
-                match r with
-                | Asm.T r' ->
-		   Val (Env.add (Env.Key.Reg r') v' m'), b
-                | Asm.P (r', low, up) ->
-                   try
-                     let prev = Env.find (Env.Key.Reg r') m' in		    
-                     Val (Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'), b
-                   with
-                     Not_found -> BOT, b
-              end
-           | Asm.M (e, n) ->
-	      let v, b' = eval_exp m' e in
-              let addrs = D.to_addresses v in
-              let l     = Data.Address.Set.elements addrs in
-              try
-                match l with
-                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), b||b'
-                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), b||b'
-              with Exceptions.Empty -> BOT, false
-					 
+        match m with
+        |	BOT    -> BOT, false
+        | Val m' ->
+          let v', _ = eval_exp m' src in
+          let v' = span_taint m' src v' in
+          Log.debug_lvl (Printf.sprintf "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v')) 6;
+          let b = D.is_tainted v' in
+          if D.is_bot v' then
+              BOT, b
+          else
+              match dst with
+              | Asm.V r -> 
+                begin
+                    match r with
+                    | Asm.T r' ->
+                      Val (Env.add (Env.Key.Reg r') v' m'), b
+                    | Asm.P (r', low, up) ->
+                      try
+                          let prev = Env.find (Env.Key.Reg r') m' in		    
+                          Val (Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'), b
+                      with
+                        Not_found -> BOT, b
+                end
+              | Asm.M (e, n) ->
+                let v, b' = eval_exp m' e in
+                let addrs = D.to_addresses v in
+                let l     = Data.Address.Set.elements addrs in
+                try
+                    match l with
+                    | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), b||b'
+                    | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), b||b'
+                with Exceptions.Empty -> BOT, false
+                         
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT  -> m
