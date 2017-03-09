@@ -65,8 +65,10 @@ class NpkGen(object):
                 search = r"(^\s*(?:typedef )?)\b%s\b" % s
                 res = re.sub(
                     search, r"\1struct %s" % s, res, flags=re.MULTILINE)
-
         res += "\n\n"+"\n".join(self.imports)
+        res = re.sub(r"__attribute__.*? ", " ", res)
+
+        res = res.replace("$", "D_")
 
         return res
 
