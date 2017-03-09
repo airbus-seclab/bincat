@@ -228,52 +228,53 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
       
 
-      let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
-	match args with
-	| [Asm.Lval ret ; dst ; format_addr ; va_args] ->
-	   print d ret format_addr va_args (Some dst)	     
-	| _ -> Log.error "invalid call to (s)printf stub"
-	   
-      let printf d args =
-	(* TODO: not optimal as buffer destination is built as for sprintf *)
-	match args with
-	| [Asm.Lval ret ; format_addr ; va_args] ->
-	   (* creating a very large temporary buffer to store the output of printf *)
-	   Log.open_stdout();
-	   let d', is_tainted = print d ret format_addr va_args None in
-	   Log.from_analysis "printf output:";
-	   Log.dump_stdout();
-	   Log.from_analysis "--- end of printf--";
-	   d', is_tainted
-	| _ -> Log.error "invalid call to printf stub" 
+    let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
+        match args with
+        | [Asm.Lval ret ; dst ; format_addr ; va_args] ->
+          print d ret format_addr va_args (Some dst)	     
+        | _ -> Log.error "invalid call to (s)printf stub"
+
+    let printf d args =
+        (* TODO: not optimal as buffer destination is built as for sprintf *)
+        match args with
+        | [Asm.Lval ret ; format_addr ; va_args] ->
+          (* creating a very large temporary buffer to store the output of printf *)
+          Log.open_stdout();
+          let d', is_tainted = print d ret format_addr va_args None in
+          Log.from_analysis "printf output:";
+          Log.dump_stdout();
+          Log.from_analysis "--- end of printf--";
+          d', is_tainted
+        | _ -> Log.error "invalid call to printf stub" 
 	   
 	
-      let process d fun_name (args: Asm.exp list): D.t * bool =
-	let d, is_tainted =
-	  try
-	    let apply_f =
-	      match fun_name with
-	      | "memcpy" -> memcpy
-	      | "sprintf" -> sprintf 
-	      | "printf" -> printf 
-	      | "strlen" -> strlen 
-	      | _ -> raise Exit
-	    in
-	    apply_f d args
-	  with _ -> Log.from_analysis (Printf.sprintf "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
-	in
-	if !Config.call_conv = Config.STDCALL then
-	  let sp = Register.stack_pointer () in
-	  let vsp = Asm.V (Asm.T sp) in
-	  let sp_sz = Register.size sp in
-	  let c = Data.Word.of_int (Z.of_int (!Config.stack_width / 8)) sp_sz in
-	  let e = Asm.BinOp (Asm.Add, Asm.Lval vsp, Asm.Const c) in 
-	  let d', is_tainted' =
-	    D.set vsp e d
-	  in
-	  d', is_tainted || is_tainted'
-	else
-	  d, is_tainted
+    let process d fun_name (args: Asm.exp list): D.t * bool =
+        Log.debug (Printf.sprintf "Stubs.process(%s)" fun_name);
+        let d, is_tainted =
+            try
+                let apply_f =
+                    match fun_name with
+                    | "memcpy" -> memcpy
+                    | "sprintf" -> sprintf 
+                    | "printf" -> printf 
+                    | "strlen" -> strlen 
+                    | _ -> raise Exit
+                in
+                apply_f d args
+            with _ -> Log.from_analysis (Printf.sprintf "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
+        in
+        if !Config.call_conv = Config.STDCALL then
+            let sp = Register.stack_pointer () in
+            let vsp = Asm.V (Asm.T sp) in
+            let sp_sz = Register.size sp in
+            let c = Data.Word.of_int (Z.of_int (!Config.stack_width / 8)) sp_sz in
+            let e = Asm.BinOp (Asm.Add, Asm.Lval vsp, Asm.Const c) in 
+            let d', is_tainted' =
+                D.set vsp e d
+            in
+            d', is_tainted || is_tainted'
+        else
+            d, is_tainted
     end
     open Asm
       
@@ -509,49 +510,49 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let import_call vertices a (pred_fun: Cfa.State.t -> Cfa.State.t) fun_stack =
-      let fundec = Hashtbl.find Decoder.Imports.tbl a in
-      Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
-      let b =
-	List.fold_left (fun b v ->
-	  let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
-	  if stmts <> [] then
-	    Config.interleave := true;
-	  let d', b' =
-	    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt fun_stack in d', b||b') (v.Cfa.State.v, false) stmts
-	  in
-	  v.Cfa.State.v <- d';
-	  let pred = pred_fun v in
-	  v.Cfa.State.ip <- Data.Address.add_offset pred.Cfa.State.ip (Z.of_int (List.length pred.Cfa.State.bytes));
-	  (* set back the stack register to its pred value *)
-	  let stack_register = Register.stack_pointer () in
-	  v.Cfa.State.v <- D.copy_register stack_register v.Cfa.State.v pred.Cfa.State.v;
-	  b||b') false vertices
-      in
-      vertices, b
+        let fundec = Hashtbl.find Decoder.Imports.tbl a in
+        Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
+        let b =
+            List.fold_left (fun b v ->
+                let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
+                if stmts <> [] then
+                    Config.interleave := true;
+                let d', b' =
+                    List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt fun_stack in d', b||b') (v.Cfa.State.v, false) stmts
+                in
+                v.Cfa.State.v <- d';
+                let pred = pred_fun v in
+                v.Cfa.State.ip <- Data.Address.add_offset pred.Cfa.State.ip (Z.of_int (List.length pred.Cfa.State.bytes));
+                (* set back the stack register to its pred value *)
+                let stack_register = Register.stack_pointer () in
+                v.Cfa.State.v <- D.copy_register stack_register v.Cfa.State.v pred.Cfa.State.v;
+                b||b') false vertices
+        in
+        vertices, b
 		
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
-      let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) (ip_pred: Cfa.State.t -> Cfa.State.t) : (Cfa.State.t list * bool) =
-	let import = ref false in
-	let res =
-		List.fold_left (fun (l, b) v ->
+        let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) (ip_pred: Cfa.State.t -> Cfa.State.t) : (Cfa.State.t list * bool) =
+            let import = ref false in
+            let res =
+                List.fold_left (fun (l, b) v ->
                     try
-		      let addrs, is_tainted = D.mem_to_addresses v.Cfa.State.v target in
-                      let addresses = Data.Address.Set.elements addrs in
-                      match addresses with
-                      | [a] ->
-			 begin
-			   try let res = import_call [v] a ip_pred fun_stack in import := true; res
-			   with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
-			 end
-                      | [] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-                      | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
-						       (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
+                        let addrs, is_tainted = D.mem_to_addresses v.Cfa.State.v target in
+                        let addresses = Data.Address.Set.elements addrs in
+                        match addresses with
+                        | [a] ->
+                          begin
+                              try let res = import_call [v] a ip_pred fun_stack in import := true; res
+                              with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
+                          end
+                        | [] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                        | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
+                                              (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
                     | Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-		) ([], false) vertices
-	in
-	if !import then fun_stack := List.tl !fun_stack;
-	res
+                ) ([], false) vertices
+            in
+            if !import then fun_stack := List.tl !fun_stack;
+            res
 
       in
       let add_to_fun_stack a =
