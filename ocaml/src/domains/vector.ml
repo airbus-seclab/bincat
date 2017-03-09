@@ -568,6 +568,7 @@ module Make(V: Val) =
             | _       -> true
 
         let extract v low up =
+            Log.debug_lvl (Printf.sprintf "V.extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v)) 6;
             let v' = Array.make (up-low+1) V.top in
             let n  = Array.length v           in
             let o  = n-up - 1                  in

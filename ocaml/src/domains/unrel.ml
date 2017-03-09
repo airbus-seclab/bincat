@@ -318,6 +318,7 @@ module Make(D: T) =
 
         (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
         let res = D.concat vals in
+          Log.debug (Printf.sprintf "get_mem_value result : %s" (D.to_string res));
         res
       with _ -> D.bot
 		  
@@ -386,11 +387,13 @@ module Make(D: T) =
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
            _big_endian_ if needed. _strong_ means strong update *)
     let write_in_memory addr domain value sz strong big_endian =
+      Log.debug_lvl (Printf.sprintf "write_in_mem (%s, %s, %d)" (Data.Address.to_string addr) (D.to_string value) sz) 6;
       let nb = sz / 8 in
       let addrs = get_addr_list addr nb in
       let addrs = if big_endian then List.rev addrs else addrs in
       (* helper to update one byte in memory *)
       let update_one_key (addr, byte) domain =
+          Log.debug_lvl (Printf.sprintf "update_one_key (%s, %s)" (Data.Address.to_string addr) (D.to_string byte)) 6;
         let key = safe_find addr domain in
         match key with
         | Some (Env.Key.Reg _, _) -> Log.error "Implementation error in Unrel: the found key is a Reg"
