@@ -600,7 +600,7 @@ struct
 
     (** builds a value equivalent to the EFLAGS register from the state *)
     let get_eflags () =
-      let eflags0 = Lval (V (T fcf)) in
+      let eflags0 = UnOp (ZeroExt 32, Lval (V (T fcf))) in
       (*  bit 1 : reserved *)
       let eflags2 = UnOp (ZeroExt 32, BinOp(Shl,  Lval (V (T fpf)), const 2 32)) in
       (*  bit 3 : reserved *)
