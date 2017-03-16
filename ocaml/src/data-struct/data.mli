@@ -7,9 +7,9 @@ module Word: sig
     (** returns the size in bits of the word *)
     val size: t -> int
 
-    (** returns zero if the two parameters are equal *)
-    (** a negative integer if the first one is less than the second one *)
-    (** a positive integer otherwise *)
+    (** returns zero if the two parameters are equal
+	a negative integer if the first one is less than the second one
+	a positive integer otherwise *)
     val compare: t -> t -> int
 
     (** comparison *)
@@ -63,9 +63,9 @@ module Address: sig
   (** data type of an address *)
   type t = region * Word.t
 		      
-  (** returns zero if the two parameters are equal *)
-  (** a negative integer if the first one is less than the second one *)
-  (** a positive integer otherwise *)
+  (** returns zero if the two parameters are equal
+      a negative integer if the first one is less than the second one
+      a positive integer otherwise *)
   val compare: t -> t -> int
 			   
   (** comparison *)
