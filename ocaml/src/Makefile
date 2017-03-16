@@ -23,6 +23,7 @@ domains/reduced_value_tainting.ml\
 domains/reduced_unrel_typenv.ml\
 disassembly/cfa.ml\
 disassembly/decoder.ml\
+fixpoint/stubs.ml\
 fixpoint/interpreter.ml\
 main.ml
 
