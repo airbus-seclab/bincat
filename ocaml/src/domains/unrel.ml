@@ -27,15 +27,15 @@ module type T =
     (** conversion to values of type Z.t *)
     val to_z: t -> Z.t
 
-    (** char conversion *)
-    (** may raise an exception if conversion fail (not a concrete value or too large) *)
+    (** char conversion.
+    May raise an exception if conversion fail (not a concrete value or too large) *)
     val to_char: t -> char
       
     (** converts a word into an abstract value *)
     val of_word: Data.Word.t -> t
 				  
-    (** comparison *)
-    (** returns true whenever the concretization of the first parameter is included in the concretization of the second parameter *)
+    (** comparison.
+    Returns true whenever the concretization of the first parameter is included in the concretization of the second parameter *)
     val subset: t -> t -> bool
 			    
     (** string conversion *)
@@ -44,14 +44,14 @@ module type T =
     (** return the taint and the value as a string separately *)
     val to_strings: t -> string * string
       
-    (** value generation from configuration *)
-    (** the size of the value is given by the int parameter *)
-    val of_config: Data.Address.region -> Config.cvalue -> int -> t
-								    
-    (** returns the tainted value corresponding to the given abstract value *)
-    (** the size of the value is given by the int parameter *)
+    (** value generation from configuration.
+	The size of the value is given by the int parameter *)			    val of_config: Data.Address.region -> Config.cvalue -> int -> t
+      
+    (** returns the tainted value corresponding to the given abstract value.
+    The size of the value is given by the int parameter *)
     val taint_of_config: Config.tvalue -> int -> t  -> t
-							 
+
+      
     (** join two abstract values *)
     val join: t -> t -> t
 			  
@@ -259,8 +259,8 @@ module Make(D: T) =
     let get_addr_list base nb =
       Array.to_list (get_addr_array base nb)
 		    
-    (** compare the given _addr_ to key, for use in MapOpt.find_key **)
-    (** remember that registers (key Env.Key.Reg) are before any address in the order defined in K *)
+    (** compare the given _addr_ to key, for use in MapOpt.find_key.
+    Remember that registers (key Env.Key.Reg) are before any address in the order defined in K *)
     let where addr key =
       match key with
       | Env.Key.Reg _ -> -1
@@ -283,7 +283,7 @@ module Make(D: T) =
                (Data.Address.compare addr (Data.Address.add_offset section.virt_addr section.virt_size) < 0) then
                 true else false in
         let sec = List.find (fun section_info -> is_in_section addr section_info) !sections_addr in
-        (** check if we're out of the section's raw data *)
+        (* check if we're out of the section's raw data *)
         let offset = (Data.Address.sub addr sec.virt_addr) in
             if Z.compare offset sec.raw_size > 0 then
                 D.top
@@ -312,7 +312,7 @@ module Make(D: T) =
             List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs
         with Not_found ->
             Log.debug "\tNot found in mapping, checking sections";
-            (** not in mem map, check file sections, again, will raise [Not_found] if not matched *)
+            (* not in mem map, check file sections, again, will raise [Not_found] if not matched *)
             List.rev_map (fun cur_addr -> read_from_sections cur_addr) exp_addrs
         in
 
@@ -428,7 +428,7 @@ module Make(D: T) =
 		
 		
     (***************************)
-    (** Non mem functions  :)  *)
+    (* Non mem functions  :)   *)
     (***************************)
     (** opposite the given comparison operator *)
     let inv_cmp (cmp: Asm.cmp): Asm.cmp =
@@ -589,8 +589,8 @@ module Make(D: T) =
          try let v, b = eval_exp m' e in D.to_addresses v, b
          with _ -> raise Exceptions.Enum_failure
 
-    (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v *)
-    (** if e is untainted then nothing is done *)
+    (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
+    If e is untainted then nothing is done *)
     let span_taint m e (v: D.t) =
         Log.debug_lvl (Printf.sprintf "span_taint(%s)"  (Asm.string_of_exp e true)) 6;
         let rec process e =
