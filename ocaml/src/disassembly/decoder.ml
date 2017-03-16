@@ -121,6 +121,7 @@ struct
 
     (** high level data structure of the content of a segment register *)
     type segment_register_mask = { rpl: privilege_level; ti: table_indicator; index: Word.t }
+
     (** builds the high level representation of the given segment register *)
     let get_segment_register_mask v =
         let rpl = privilege_level_of_int (Z.to_int (Z.logand v (Z.of_int 3))) in
@@ -243,8 +244,8 @@ struct
         reg: (Register.t, segment_register_mask) Hashtbl.t (** current value of the segment registers *)
     }
 
-    (** complete internal state of the decoder *)
-    (** only the segment field is exported out of the functor (see parse signature) for further reloading *)
+    (** complete internal state of the decoder.
+    Only the segment field is exported out of the functor (see parse signature) for further reloading *)
     type state = {
         mutable g 	    : Cfa.t; 	   (** current cfa *)
         mutable b 	    : Cfa.State.t; (** state predecessor *)
@@ -271,8 +272,8 @@ struct
     (* State helpers *)
     (***********************************************************************)
 
-    (** extract from the string code the current byte to decode *)
-    (** the offset field of the decoder state is increased *)
+    (** extract from the string code the current byte to decode 
+    The offset field of the decoder state is increased *)
     let getchar s =
         let c = String.get s.buf s.o in
         s.o <- s.o + 1;
@@ -311,8 +312,9 @@ struct
     let get_imm s imm_sz sz sign_ext =
         const_of_Z (get_imm_int s imm_sz sz sign_ext) sz
 
-    (** update and return the current state with the given statements and the new instruction value *)
-    (** the context of decoding is also updated *)
+
+    (** update and return the current state with the given statements and the new instruction value.
+     The context of decoding is also updated *)
     let return s stmts =
       s.b.Cfa.State.ctx <- { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz };
         s.b.Cfa.State.stmts <- stmts;
@@ -510,18 +512,25 @@ struct
 
     (** size of the overflow flag register *)
     let fof_sz = Register.size fof
+
     (** size of the carry flag register *)
     let fcf_sz = Register.size fcf
+
     (** size of the sign flag register *)
     let fsf_sz = Register.size fsf
+
     (** size of the adjust flag *)
     let faf_sz = Register.size faf
+
     (** size of the zero flag *)
     let fzf_sz = Register.size fzf
+
     (** size of the parity flag *)
     let fpf_sz = Register.size fpf
+
     (** size of the interrupt flag *)
     let fif_sz = Register.size fif
+
     (** size of the direction flag *)
     let fdf_sz = Register.size fdf
 
@@ -576,8 +585,8 @@ struct
       let n = Register.size fzf in
         Set (V (T fzf), TernOp (c, Word.one n, Word.zero n))
 
-    (** produce the statement to set the adjust flag wrt to the given parameters *)
-    (** faf is set if there is an overflow on the bit 4 *)
+    (** produce the statement to set the adjust flag wrt to the given parameters.
+     faf is set if there is an overflow on the bit 4 *)
     let adjust_flag_stmts res sz op1 op2 = overflow faf faf_sz (const 4 sz) res (sz-4) op1 op2
 
     (** produce the statement to set the parity flag wrt to the given parameters *)
@@ -1203,11 +1212,11 @@ struct
         let edx_r = (to_reg edx sz) in
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let mul_s =
-            if sz = 8 (* dest == AX *) then begin
+            if sz = 8 (* dest = AX *) then begin
                 [ Set(V(to_reg eax 16), BinOp(op, eax_lv, src));
                   Set(V(T tmp), Lval(V(to_reg eax 16)))] (* for flags *)
             end else begin
-                (** dest is split over (E)DX:(E)AX *)
+                (* dest is split over (E)DX:(E)AX *)
                 [ Set(V(T tmp), BinOp(op, eax_lv, src));
                   Set (V(eax_r), Lval (V (P (tmp, 0, sz-1))));
                   Set (V(edx_r), Lval (V (P (tmp, sz, sz*2-1))));
