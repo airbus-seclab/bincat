@@ -144,7 +144,6 @@
     | o=override l=overrides { o ; l }
 
     override:
-    |                     { () }
     | a=override_addr EQUAL i = override_item { a ; i }
 
     override_addr:
@@ -281,7 +280,6 @@
     | BACKWARD { Config.Backward }
 
       data_sections:
-    |                { () }
     | s=section_item { s }
     | s=section_item ss = data_sections{ s ; ss }
 
