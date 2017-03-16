@@ -97,10 +97,10 @@
 	(* complete the table of function rules with type information *)
 	if String.compare !npk_header "" <> 0 then
 	    try
-	      let p = Newspeak.read !npk_header in	  
-	      Hashtbl.iter (fun s f ->
-		Hashtbl.add Config.typing_rules s f) p.Newspeak.fundecs
-	    with _ -> Log.error "failed to load headers from npk file"
+	      let p = TypedC.read !npk_header in	  
+	      List.iter (fun (s, f) ->
+		Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
+	    with _ -> Log.error "failed to load headers from tnpk file"
 	;;
 
 	%}

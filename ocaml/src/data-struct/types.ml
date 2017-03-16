@@ -86,10 +86,10 @@ let subset t1 t2 =
   | _, _ -> identical t1 t2
 
 
-let rec typ_of_npk npk_t =
+let typ_of_npk npk_t =
   match npk_t with
-  | Newspeak.Scalar (Newspeak.Int (_, sz)) -> TInt sz
-  | Newspeak.Scalar Newspeak.Ptr -> TPTR
-  | Newspeak.Region (s, z) -> TStruct (List.map (fun (o, t) -> o, typ_of_npk t) s, z)
+  | TypedC.Int (_sign, sz) -> TInt sz
+ (* | Newspeak.Scalar Newspeak.Ptr -> TPTR
+    | Newspeak.Region (s, z) -> TStruct (List.map (fun (o, t) -> o, typ_of_npk t) s, z)*)
   | _ -> TUNKNOWN
      

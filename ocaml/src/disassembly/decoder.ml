@@ -1978,17 +1978,20 @@ struct
 
     let forget_reserved_registers_cdecl = forget_reserved_registers_stdcall
       
-    let type_directives_cdecl (typing_rule: Newspeak.fundec): (Asm.stmt list * Asm.stmt list * int) =
+    let type_directives_cdecl (typing_rule: TypedC.ftyp): (Asm.stmt list * Asm.stmt list * int) =
         let epilogue =
             try
-                [ Directive (Type (V (T eax), Types.typ_of_npk (snd (List.hd (typing_rule.Newspeak.rets))))) ]
+                [ Directive (Type (V (T eax), Types.typ_of_npk (snd typing_rule))) ]
             with _ -> []
         in
         let off = !Config.stack_width / 8 in
-        let sz, prologue =  List.fold_left (fun (sz, stmts) (_name, typ) ->
+        let sz, prologue =
+	  match fst typing_rule with
+	  | None -> 0, []
+	  | Some args -> List.fold_left (fun (sz, stmts) (typ, _name) ->
             let lv = M (BinOp (Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz) !Config.stack_width)), off) in 
             sz+(!Config.stack_width), (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
-        ) (0, []) (typing_rule.Newspeak.args)
+        ) (0, []) args
         in
         prologue, epilogue@(forget_reserved_registers_cdecl ()), sz
 
