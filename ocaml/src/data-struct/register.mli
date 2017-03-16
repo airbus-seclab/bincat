@@ -6,10 +6,10 @@ type t
 (** returns the set of current used registers *)
 val used: unit -> t list
 	   
-(** creates a register from the given string and size *)
-val make: name:string -> size:int -> t
-(** may raise Invalid_argument if a register with that name already exists 
+(** creates a register from the given string and size
+May raise Invalid_argument if a register with that name already exists 
 or is a reserved name f *)
+val make: name:string -> size:int -> t
 
 (** creates a stack pointer register from the given string and size *)
 val make_sp: name:string -> size:int -> t
@@ -35,13 +35,13 @@ val size: t -> int
 (** returns the register corresponding to the given name *)
 val of_name: string -> t
 
-(** returns true whenever the given register is the stack pointer *)
-(** false otherwise *)
+(** returns true whenever the given register is the stack pointer
+  false otherwise *)
 val is_stack_pointer: t -> bool
 
-(** returns the stack pointer *)
-(** may raise Not found *)
-(** randomly chosen if several registers have been taged as stack pointer *)
+(** returns the stack pointer
+  may raise Not found
+    randomly chosen if several registers have been taged as stack pointer *)
 val stack_pointer: unit -> t
 
 (** empty global references *)
