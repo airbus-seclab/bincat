@@ -1,4 +1,4 @@
-(** Main Module contains the entry points of the library *)
+(** Main module containing the entry points of the bincat library *)
 
 (** [process cfile rfile lfile] launches on analysis run with
     - [cfile] as configuration file

@@ -70,6 +70,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (* current unroll value *)
     (* None is for the default value set in Config *)
     let unroll_nb = ref None
+
     (** opposite the given comparison operator *)
     let inv_cmp (cmp: Asm.cmp): Asm.cmp =
       match cmp with
@@ -114,8 +115,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       v.Cfa.State.v <- D.widen prev join_v
 			       
 			       
-    (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor *)
-    (** the widening may be also launched if the threshold is reached *)
+    (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor 
+    the widening may be also launched if the threshold is reached *)
     let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
       try
         let l = process_stmts g v ip in
@@ -472,7 +473,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
               raise Exit
               end
             else
-              (** explore if a greater abstract state of v has already been explored *)
+              (* explore if a greater abstract state of v has already been explored *)
               Cfa.iter_vertex (fun prev ->
                   if v.Cfa.State.id = prev.Cfa.State.id then
                     ()
@@ -490,8 +491,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       method value_of_register r = D.value_of_register s r
     end
       
-    (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial vertex s *)
-    (** g is the initial CFA reduced to the singleton s *) 
+    (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial vertex s. 
+     g is the initial CFA reduced to the singleton s *) 
     let forward_bin (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
       let module Vertices = Set.Make(Cfa.State) in
       (* check whether the instruction pointer is in the black list of addresses to decode *)
@@ -620,8 +621,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       | _ -> D.forget_lval dst d, false 
 	
     (** backward transfert function on the given abstract value *)
-    (** BE CAREFUL: this function does not apply to nested if statements *)
     let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * bool) =
+      (* BE CAREFUL: this function does not apply to nested if statements *)
       let rec back d stmt =
 	match stmt with
 	| Call _
@@ -778,7 +779,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		      Cfa.succs unroll g s dump
       
     (************* INTERLEAVING OF FORWARD/BACKWARD ANALYSES *******)
-    (******************************************************)
+    (***************************************************************)
   	  
       let interleave_from_cfa (g: Cfa.t) (dump: Cfa.t -> unit): Cfa.t =
 	Log.from_analysis "entering interleaving mode";

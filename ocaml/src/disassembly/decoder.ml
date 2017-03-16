@@ -1624,6 +1624,7 @@ struct
         ]
         in
         return s stmts
+	  
     (** check whether an opcode is defined in a given state of the decoder *)
     let check_context s c =
         if s.rep then
@@ -1886,8 +1887,9 @@ struct
             | '\xff' -> (* indirect grp5 *) grp5 s
             | c ->  error s.a (Printf.sprintf "Unknown opcode 0x%x" (Char.code c))
 
-        (** rep prefix *)
         and rep s c =
+	    (* rep prefix *)
+	  
             let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
             let v, ip = decode s in
 	    (* TODO: remove this hack *)
@@ -1970,8 +1972,7 @@ struct
         in
         decode s;;
 
-    (** converts a signature function to typing directives for stdcall *)
-    (** with respect to the stdcall calling convention *)
+    (** converts a signature function to typing directives for stdcall with respect to the stdcall calling convention *)
     let forget_reserved_registers_stdcall () =
       	[ Directive (Forget ecx) ; Directive (Forget edx) ]
   
