@@ -128,7 +128,7 @@ def calc_af(my_state, orig_state, regname, operation):
     aftaint = 1 if ra.taint & 0x4 != 0 else 0
     afttop = 1 if ra.taint & 0x4 != 0 else 0
     
-    setReg(my_state, 'af', afval, afvtop, aftaint, afttop)
+    setRegVal(my_state, 'af', afval, afvtop, aftaint, afttop)
 
 
 def calc_zf(my_state, regname):
@@ -137,7 +137,7 @@ def calc_zf(my_state, regname):
     zftop = 1 if reg.vtop != 0 and ((reg.value & (~reg.vtop)) == 0) else 0
     zftaint = 1 if reg.taint != 0 else 0
     zfttop = 1 if reg.ttop != 0 and ((reg.taint & (~reg.ttop)) == 0) else 0
-    setReg(my_state, 'zf', value=zfval, vtop=zftop, taint=zftaint, ttop=zftop)
+    setRegVal(my_state, 'zf', value=zfval, vtop=zftop, taint=zftaint, ttop=zftop)
 
 
 def calc_sf(my_state, regname):
@@ -146,7 +146,7 @@ def calc_sf(my_state, regname):
     sftop = 1 if reg.vtop & 0x80000000 != 0 else 0
     sftaint = 1 if reg.vtop & 0x80000000 != 0 else 0
     sfttop = 1 if reg.ttop & 0x80000000 != 0 else 0
-    setReg(my_state, 'sf', value=sfval, vtop=sftop, taint=sftaint, ttop=sfttop)
+    setRegVal(my_state, 'sf', value=sfval, vtop=sftop, taint=sftaint, ttop=sfttop)
 
 
 def calc_pf(my_state, regname):
@@ -163,7 +163,7 @@ def calc_pf(my_state, regname):
     pftaint = 1 if reg.taint & 0xff != 0 else 0
     pfttop = 1 if reg.ttop & 0xff != 0 else 0
     
-    setReg(my_state, 'pf', value=pfval, vtop=pftop, taint=pftaint, ttop=pfttop)
+    setRegVal(my_state, 'pf', value=pfval, vtop=pftop, taint=pftaint, ttop=pfttop)
 
 
 def taintFlag(my_state, name):
@@ -182,7 +182,7 @@ def getReg(my_state, name):
     return my_state[v][0]
 
 
-def setReg(my_state, name, value, vtop=0, taint=0, ttop=0):
+def setRegVal(my_state, name, value, vtop=0, taint=0, ttop=0):
     v = cfa.Value('reg', name, cfa.reg_len(name))
     if name == 'esp':
         region = 's'
@@ -266,7 +266,7 @@ def test_xor_reg_self(analyzer, initialState, register):
 
     prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
 
-    setReg(expected, regname, 0)
+    setRegVal(expected, regname, 0)
     clearFlag(expected, "sf")
     clearFlag(expected, "of")
     clearFlag(expected, "cf")
@@ -399,7 +399,7 @@ def test_or_reg_ff(analyzer, initialState, register):
     prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
 
     # build expected state
-    setReg(expected, regname, 0xffffffff)
+    setRegVal(expected, regname, 0xffffffff)
     undefBitFlag(expected, "af")
     calc_pf(expected, regname)
     calc_sf(expected, regname)
