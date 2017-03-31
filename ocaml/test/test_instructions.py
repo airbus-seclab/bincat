@@ -316,9 +316,9 @@ def test_dec(analyzer, initialState, register):
 
     prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
 
-    expected[cfa.Value('reg', regname)][0] -= 1
-    regvalue = before[cfa.Value('reg', regname)][0].value
-    newregvalue = expected[cfa.Value('reg', regname)][0].value
+    reg = getReg(expected, regname)
+    reg -= 1
+    setReg(expected, regname, reg)
 
     # flags
     calc_af(expected, before, regname, -1)
