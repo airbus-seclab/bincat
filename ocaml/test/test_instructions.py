@@ -181,14 +181,17 @@ def getReg(my_state, name):
     v = cfa.Value('reg', name, cfa.reg_len(name))
     return my_state[v][0]
 
+def setReg(my_state, name, regval):
+    v = cfa.Value('reg', name, cfa.reg_len(name))
+    my_state[v] = [ regval ]
 
 def setRegVal(my_state, name, value, vtop=0, taint=0, ttop=0):
-    v = cfa.Value('reg', name, cfa.reg_len(name))
     if name == 'esp':
         region = 's'
     else:
         region = 'g'
-    my_state[v] = [cfa.Value(region, value, cfa.reg_len(name), vtop=vtop, taint=taint, ttop=ttop)]
+    regval = cfa.Value(region, value, cfa.reg_len(name), vtop=vtop, taint=taint, ttop=ttop)
+    setReg(my_state, name, regval)
 
 
 def dereference_data(my_state, ptr):
