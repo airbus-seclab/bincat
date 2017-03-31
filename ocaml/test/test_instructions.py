@@ -123,6 +123,7 @@ def calc_sf(my_state, val):
 
 
 def calc_pf(my_state, val):
+    val &= 0xff
     par = val ^ (val >> 1)
     par = par ^ (par >> 2)
     par = par ^ (par >> 4)
@@ -462,5 +463,90 @@ def test_and_esp(analyzer, initialState):
     calc_zf(expectedStateAfter, esp)
     calc_sf(expectedStateAfter, esp)
     calc_pf(expectedStateAfter, esp)
+
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
+
+def test_movzx(analyzer, initialState):
+    """
+    Test   movzx edx, dl
+    """
+    opcode = "\x0f\xb6\xd2"
+
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm['0']
+    stateAfter = getNextState(prgm, stateBefore)
+    expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter.address = stateAfter.address
+
+    expectedStateAfter[cfa.Value("reg", "edx")][0].value &= 0xff
+    expectedStateAfter[cfa.Value("reg", "edx")][0].vtop &= 0xff
+    expectedStateAfter[cfa.Value("reg", "edx")][0].taint &= 0xff
+    expectedStateAfter[cfa.Value("reg", "edx")][0].ttop &= 0xff
+
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
+
+
+def test_movzx_byte(analyzer, initialState):
+    """
+    Test   mov eax, 0x100 ; movzx eax, byte ptr [eax]"
+    """
+    opcode = ("B800010000"+"0FB600").decode("hex")
+
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm['0']
+    state2 = getNextState(prgm, stateBefore)
+    stateAfter = getNextState(prgm, state2)
+    expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter.address = stateAfter.address
+    
+
+    v = stateBefore[cfa.Value("g", 0x100)][0]
+    
+    expectedStateAfter[cfa.Value("reg", "eax")][0].value = v.value & 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].vtop = v.vtop & 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].taint = v.taint & 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].ttop = v.ttop & 0xff
+
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
+
+def test_movzx_byte_taintptr(analyzer, initialState):
+    """
+    Test   movzx eax, byte ptr [eax]"
+    """
+    opcode = "0FB600".decode("hex")
+
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm['0']
+    stateAfter= getNextState(prgm, stateBefore)
+    expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter.address = stateAfter.address
+    
+    v = stateBefore[cfa.Value("g", 1)][0]
+    
+    expectedStateAfter[cfa.Value("reg", "eax")][0].value = v.value & 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].vtop = v.vtop & 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].taint = 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].ttop = 0
+
+    assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
+
+def test_mov_byte_taintptr(analyzer, initialState):
+    """
+    Test   mov al, byte ptr [eax]"
+    """
+    opcode = "8A00".decode("hex")
+
+    prgm = analyzer(initialState, binarystr=opcode)
+    stateBefore = prgm['0']
+    stateAfter= getNextState(prgm, stateBefore)
+    expectedStateAfter = prepareExpectedState(stateBefore)
+    expectedStateAfter.address = stateAfter.address
+    
+    v = stateBefore[cfa.Value("g", 1)][0]
+    
+    expectedStateAfter[cfa.Value("reg", "eax")][0].value = v.value & 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].vtop = v.vtop & 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].taint = 0xff
+    expectedStateAfter[cfa.Value("reg", "eax")][0].ttop = 0
 
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
