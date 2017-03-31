@@ -38,6 +38,7 @@ let equal b1 b2 =
 			 
 let add b1 b2 =
   match b1, b2 with
+  | TOP, ZERO | ZERO, TOP -> TOP, false
   | TOP, _ | _, TOP 	  -> TOP, true
   | ZERO, ZERO 	    	  -> ZERO, false
   | ZERO, ONE | ONE, ZERO -> ONE, false
@@ -45,7 +46,8 @@ let add b1 b2 =
 
 let sub b1 b2 =
   match b1, b2 with
-  | TOP, _ | _, TOP -> TOP, true
+  | ONE, TOP | TOP, ZERO -> TOP, false
+  | _, TOP | TOP, _ -> TOP, true
   | ZERO, ZERO 	    -> ZERO, false
   | ZERO, ONE       -> ONE, true
   | ONE, ZERO       -> ONE, false
