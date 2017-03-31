@@ -332,6 +332,7 @@ def test_pop(analyzer, initialState, register):
     assertEqualStates(stateAfter, expectedStateAfter, opcode, prgm=prgm)
 
 
+@pytest.mark.xfail
 def test_sub(analyzer, initialState):
     # sub esp, 0x1234
     opcode = binascii.unhexlify("81ec34120000")
