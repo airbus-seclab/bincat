@@ -74,7 +74,7 @@ def val2str(val, vtop, vbot, length, base=None, merged=False):
         if merged:
             s = "".join(v if t == '0' else '?' for v, t in zip(s, s_top))
         else:
-            s = ",?=" + s_top
+            s += ",?=" + s_top
     if vbot:
         s_bot = fstring.format(vbot)
         if merged:
