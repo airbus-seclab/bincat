@@ -564,12 +564,21 @@ class Value(object):
         return (self.region, self.value) < (other.region, other.value)
 
     def __add__(self, other):
+        
+        newlen = max(self.length, getattr(other, "length", 0))
         other = getattr(other, "value", other)
         if other == 0:
             # special case, useful when the value is a register name
             return self
-        return self.__class__(self.region, self.value+other, self.length,
-                              self.vtop, self.vbot, self.taint,
+
+        mask = (1 << newlen)-1
+        # XXX clear value where top or bottom mask is not null
+        # XXX complete implementation
+        
+        return self.__class__(self.region,
+                              (self.value+other) & mask,
+                              newlen,
+                              self.vtop , self.vbot, self.taint,
                               self.ttop, self.tbot)
 
     def __and__(self, other):
@@ -590,8 +599,12 @@ class Value(object):
             )
 
     def __sub__(self, other):
+        newlen = max(self.length, getattr(other, "length", 0))
         other = getattr(other, "value", other)
-        newvalue = self.value-other
+
+        mask = (1 << newlen)-1
+        
+        newvalue = (self.value-other) & mask
         # XXX clear value where top or bottom mask is not null
         # XXX complete implementation
         return self.__class__(self.region, newvalue, self.length,
