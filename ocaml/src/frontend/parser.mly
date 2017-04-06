@@ -10,8 +10,8 @@
     (* temporary table to store tainting rules on functions of a given library *)
     let libraries: (string, Config.call_conv_t option * ((string * Config.call_conv_t option * Config.taint_t option * Config.taint_t list) list)) Hashtbl.t = Hashtbl.create 7;;
 
-    (* name of the npk file containing function headers *)
-    let npk_header = ref ""
+    (* list of the npk filenames containing function headers *)
+    let npk_headers = ref []
 
     (* current override address *)
     let override_addr = ref Z.zero
@@ -95,12 +95,12 @@
 	in
 	Hashtbl.iter add_tainting_rules libraries;
 	(* complete the table of function rules with type information *)
-	if String.compare !npk_header "" <> 0 then
+	List.iter (fun header -> 
 	    try
-	      let p = TypedC.read !npk_header in	  
+	      let p = TypedC.read header  in	  
 	      List.iter (fun (s, f) ->
 		Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
-	    with _ -> Log.error "failed to load headers from tnpk file"
+	    with _ -> Log.from_config (Printf.sprintf "failed to load header %s" header)) !npk_headers
 	;;
 
 	%}
@@ -188,8 +188,12 @@
 
       import:
     | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
-    | HEADER EQUAL npkname=STRING { npk_header := npkname }    
+    | HEADER EQUAL npk_list=npk { npk_headers := npk_list }    
 
+      npk:
+    | s=STRING { [ s ] }
+    | s=STRING COMMA l=npk { s::l }
+    
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
 
