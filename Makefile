@@ -10,7 +10,6 @@ DPREFIX	   =$(PREFIX)
 DOCMLPATH  =../../doc/generated/ocaml
 DOCPYPATH  =../doc/generated/python
 DOCGENPATH =doc/generated
-DOCREFPATH =doc/manual
 MLLIBDIR=../../python/idabincat
 IDAPATH   ?= $(HOME)/ida-6.95
 IDAUSR	?= $(HOME)/.idapro
@@ -50,8 +49,6 @@ doc: all
 	@make -C $(MLPATH) DOCPATH=$(DOCMLPATH) doc 
 	@echo "Generating Python documentation......................................"
 	@make -C $(PYPATH) DOCPATH=$(DOCPYPATH) copydoc
-	@echo "Compiling reference manual..........................................."
-	@make -C $(DOCREFPATH) all
 
 clean:
 	@echo "Cleaning OCaml part.................................................."

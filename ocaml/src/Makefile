@@ -32,6 +32,7 @@ data-struct/register.mli\
 utils/mapOpt.mli\
 data-struct/data.mli\
 domains/domain.mli\
+fixpoint/stubs.mli\
 
 LIBNAME=libbincat.so
 LIBDIR=$(DESTDIR)/$(PREFIX)/lib/

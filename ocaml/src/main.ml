@@ -1,9 +1,9 @@
-(** Main module containing the entry points of the bincat library *)
+(** Entry points of the library *)
 
-(** [process cfile rfile lfile] launches on analysis run with
-    - [cfile] as configuration file
-    - [rfile] as result file
-    - [lfile] as log file *)
+(** [process cfile rfile lfile] launches an analysis run such that
+    - [cfile] is the name of the configuration file
+    - [rfile] is the name of the result file
+    - [lfile] is the name of the log file *)
 let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* cleaning global data structures *)
   Config.clear_tables();

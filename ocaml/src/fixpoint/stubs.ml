@@ -1,4 +1,3 @@
-(** function stubs *)
 module Make (D: Domain.T) =
 struct
   let strlen (d: D.t) (args: Asm.exp list): D.t * bool =
