@@ -100,5 +100,17 @@ struct
   let init () =
     init_stdcall ();
     init_cdecl ()
-    
+
+  let string_from_fundec fundec =
+    Printf.sprintf "%s (lib=%s) prologue=%s stub=%s epilogue=%s"
+      fundec.name
+      fundec.libname
+      (string_of_stmts fundec.prologue true)
+      (string_of_stmts fundec.stub true)
+      (string_of_stmts fundec.epilogue true)
+
+  let string_from_fundecs fundecs =
+    let fundecs_str = List.map string_from_fundec fundecs
+    in Printf.sprintf "[ %s ]" (String.concat ",\n" fundecs_str)
+
 end

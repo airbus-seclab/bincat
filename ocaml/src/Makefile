@@ -7,10 +7,10 @@ utils/exceptions.ml\
 utils/log.ml\
 data-struct/data.ml\
 data-struct/types.ml\
+data-struct/asm.ml\
 data-struct/imports.ml\
 frontend/lexer.ml\
 frontend/parser.ml\
-data-struct/asm.ml\
 data-struct/code.ml\
 domains/env.ml\
 domains/typenv.ml\
