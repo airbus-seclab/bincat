@@ -122,7 +122,7 @@ struct
 	    let src = (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) in
 	    let dump =
 	      match to_buffer with
-	      | Some dst -> D.copy d (Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)))
+	      | Some dst ->  D.copy d (Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int len) !Config.address_sz)))
 	      | _ -> D.print d
 	    in
 	    let d' = dump src 8 in
@@ -189,7 +189,6 @@ struct
 	   
 	
     let process d fun_name (args: Asm.exp list): D.t * bool =
-        Log.debug (Printf.sprintf "Stubs.process(%s)" fun_name);
         let d, is_tainted =
             try
                 let apply_f =

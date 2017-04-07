@@ -115,7 +115,7 @@ module Make (V: Vector.T) =
               | Global, r | r, Global ->
                 begin
                     try Val (r, V.binary op o1 o2)
-                    with _ -> Printf.printf "%s %s %s => BOT\n" (to_string p1) (Asm.string_of_binop op) (to_string p2); flush stdout; BOT
+                    with _ -> BOT
                 end
               | r1, r2                ->
                 try

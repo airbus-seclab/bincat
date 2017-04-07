@@ -1058,11 +1058,10 @@ module Make(D: T) =
       | Val m' ->	
 	 let str = strip (D.to_string (fst (eval_exp m' arg))) in
 	 let str' =
-	   if String.length str = 1 then
-	     let str' = "0x"^str in
-	     String.make 1 (Char.chr (Z.to_int (Z.of_string str')))
+	   if String.length str <= 2 then
+	     String.make 1 (Char.chr (Z.to_int (Z.of_string ("0x"^str))))
 	   else raise Exceptions.Concretization
-	 in
+	   in
 	 Log.print str';
 	 m
       | BOT -> Log.debug "_"; m	
