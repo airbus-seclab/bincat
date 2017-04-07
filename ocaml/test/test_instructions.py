@@ -537,6 +537,23 @@ def test_movzx_byte_taintptr(analyzer, initialState):
 
     assertEqualStates(after, expected, opcode, prgm=prgm)
 
+def test_movzx_byte_untaintptr(analyzer, initialState):
+    """
+    Test   movzx ebx, byte ptr [ebx]"
+    """
+    opcode = "0FB609".decode("hex")
+
+    prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
+    
+    v = before[cfa.Value("g", getReg(before, "ecx").value)][0]
+    
+    expected[cfa.Value("reg", "ecx")][0].value = v.value & 0xff
+    expected[cfa.Value("reg", "ecx")][0].vtop = v.vtop & 0xff
+    expected[cfa.Value("reg", "ecx")][0].taint = v.taint & 0xff
+    expected[cfa.Value("reg", "ecx")][0].ttop = v.ttop & 0xff
+
+    assertEqualStates(after, expected, opcode, prgm=prgm)
+
 def test_mov_byte_taintptr(analyzer, initialState):
     """
     Test   mov al, byte ptr [eax]"
@@ -551,5 +568,30 @@ def test_mov_byte_taintptr(analyzer, initialState):
     expected[cfa.Value("reg", "eax")][0].vtop = v.vtop & 0xff
     expected[cfa.Value("reg", "eax")][0].taint = 0xff
     expected[cfa.Value("reg", "eax")][0].ttop = 0
+
+    assertEqualStates(after, expected, opcode, prgm=prgm)
+
+def test_imul(analyzer, initialState):
+    """
+    Test   imul edi, ecx"
+    """
+    opcode = "0FAFF9".decode("hex")
+
+    reg = "edi"
+    
+    prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
+
+    edi = getReg(before, reg)
+    ecx = getReg(before, "ecx")
+
+    setRegVal(expected, reg, edi.value*ecx.value,
+              vtop = 0xffffffff if edi.vtop or ecx.vtop else 0,  # XXX should be 0xde0 ?
+              taint = 0xffffffff if edi.taint or ecx.taint else 0,
+              ttop = 0xffffffff if edi.ttop or ecx.ttop else 0)
+
+    calc_af(expected, before, reg, 1)
+    calc_pf(expected, reg)
+    calc_sf(expected, reg)
+    calc_zf(expected, reg)
 
     assertEqualStates(after, expected, opcode, prgm=prgm)
