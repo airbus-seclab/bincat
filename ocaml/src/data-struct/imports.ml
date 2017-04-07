@@ -69,7 +69,6 @@ struct
 
   (* QEMU stb of printf *)
   let printf_chk_stdcall () =
-    Log.debug "printf_chk_stdcall";
     let format = arg 8 in
     let va_arg = BinOp (Add, Lval (V (T (esp()))), Const (Data.Word.of_int (Z.of_int 12) !Config.stack_width)) in
    

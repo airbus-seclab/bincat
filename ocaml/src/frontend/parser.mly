@@ -97,7 +97,7 @@
 	(* complete the table of function rules with type information *)
 	List.iter (fun header -> 
 	    try
-	      let p = TypedC.read header  in	  
+	      let p = TypedC.read header in	  
 	      List.iter (fun (s, f) ->
 		Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
 	    with _ -> Log.from_config (Printf.sprintf "failed to load header %s" header)) !npk_headers
