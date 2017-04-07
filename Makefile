@@ -3,6 +3,7 @@ export PREFIX=usr/local
 
 PYTHON	   =python
 PYPATH	   =python
+NPKPATH    =lib
 MLPATH	   =ocaml/src
 MLTESTPATH =ocaml/test
 PYTESTPATH =python
@@ -19,6 +20,8 @@ all:
 	@make -C $(MLPATH) all DEBUG=$(DEBUG)
 	@echo "Building python part................................................."
 	@make -C $(PYPATH) all
+	@echo "Building headers......................................................"
+	@make -C $(NPKPATH) all
 
 
 install: all
@@ -53,6 +56,8 @@ doc: all
 clean:
 	@echo "Cleaning OCaml part.................................................."
 	@make -C $(MLPATH) clean
+	@echo "Cleaning lib........................................................."
+	@make -C $(NPKPATH) clean
 	@echo "Cleaning python part................................................."
 	@make -C $(PYPATH) clean
 	echo "Cleaning documentation................................................"
