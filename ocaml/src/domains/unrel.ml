@@ -592,7 +592,7 @@ module Make(D: T) =
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v *)
     (** if e is untainted then nothing is done *)
     let span_taint m e (v: D.t) =
-        Log.debug_lvl (Printf.sprintf "span_taint(%s)"  (Asm.string_of_exp e true)) 6;
+        Log.debug_lvl (Printf.sprintf "span_taint(%s) v=%s"  (Asm.string_of_exp e true) (D.to_string v)) 6;
         let rec process e =
             match e with
             | Asm.Lval (Asm.V (Asm.T r)) ->
