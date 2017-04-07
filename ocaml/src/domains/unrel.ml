@@ -601,7 +601,7 @@ module Make(D: T) =
             | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
               let r' =  Env.find (Env.Key.Reg r) m in
               D.get_minimal_taint (D.extract r' low up)
-            | Asm.Lval (Asm.M (_e', _n)) -> Tainting.T
+            | Asm.Lval (Asm.M (e', _n)) -> process e'
             | Asm.BinOp (_, e1, e2) -> Tainting.min (process e1) (process e2)
             | Asm.UnOp (_, e') -> process e'
             | _ -> Tainting.U
@@ -615,6 +615,13 @@ module Make(D: T) =
               | _ -> D.span_taint v taint
           end
         | Asm.Lval (Asm.M (e', _)) ->
+          begin
+              let taint = process e' in
+              match taint with
+              | Tainting.U -> v
+              | _ -> D.span_taint v taint
+          end
+        | Asm.UnOp(_, e') ->
           begin
               let taint = process e' in
               match taint with
