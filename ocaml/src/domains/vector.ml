@@ -1,83 +1,117 @@
-(** vector lifting of a value_domain *)
-(** binary operations are supposed to apply on operands of the same length *)
+(** vector lifting of a value_domain.
+Binary operations are supposed to apply on operands of the same length *)
 
 (** signature of value domain *)
 module type Val =
 sig
     (** abstract data type *)
     type t
+
     (** top *)
     val top: t
+
     (** returns true whenever the bit may be tainted *)
     val is_tainted: t -> bool
+
     (** comparison to top *)
     val is_top: t -> bool
+
     (** forget the content while preserving the taint *)
     val forget: t -> t
+
     (** conversion to value of type Z.t. May raise an exception *)
     val to_z: t -> Z.t
+
     (** int conversion. May raise an exception *)
     val to_int: t -> int
+
     (** conversion of the taint value of the parameter into a Z value. May raise an exception *)
     val taint_to_z: t -> Z.t
+
     (** conversion from Z.t value *)
     val of_z: Z.t -> t
+
     (** taint the given value from Z.t value *)
     val taint_of_z: Z.t -> t -> t
+
     (** abstract join *)
     val join: t -> t -> t
+
     (** abstract meet *)
     val meet: t -> t -> t
+
     (** widening *)
     val widen: t -> t -> t
+
     (** char conversion *)
     val to_char: t -> char
+
     (** string conversion *)
     val to_string: t -> string
+
     (** char conversion of the taint *)
     val char_of_taint: t -> char
+
     (** string conversion of the taint *)
     val string_of_taint: t -> string
-    (** add operation. The optional return value is None when no carry *)
-    (** occurs in the result and Some c with c the carry value otherwise *)
+
+    (** add operation. The optional return value is None when no carry
+    occurs in the result and Some c with c the carry value otherwise *)
     val add: t -> t -> t * (t option)
-    (** sub operation. The optional return value is None when no borrow *)
-    (** occurs and Some b with b the borrow value otherwise *)
+
+    (** sub operation. The optional return value is None when no borrow
+    occurs and Some b with b the borrow value otherwise *)
     val sub: t -> t -> t * (t option)
+
     (** xor operation *)
     val xor: t -> t -> t
+
     (** logical and *)
     val logand: t -> t -> t
+
     (** logical or *)
     val logor: t -> t -> t
+
     (** bit not *)
     val lognot: t -> t
+
     (** untaint *)
     val untaint: t -> t
+
     (** taint *)
     val taint: t -> t
+
     (** update taint *)
     val update_taint: Tainting.t -> t -> t
+
     (** abstract value of 1 *)
     val one: t
+
     (** comparison to one *)
     val is_one: t -> bool
+
     (** abstract value of 0 *)
     val zero: t
+
     (** comparison to zero *)
     val is_zero: t -> bool
+
     (** strictly less than comparison *)
     val lt: t -> t -> bool
+
     (** greater than or equal to comparison *)
     val geq: t -> t -> bool
+
     (** check whether the first abstract value is included in the second one *)
-      (** comparison *)
     val is_subset: t -> t -> bool
+
     (** comparison *)
     val compare: t -> Asm.cmp -> t -> bool
+
     (** undefine the taint of the given value *)
     val forget_taint: t -> t
-      (** returns the taint value of the given parameter *)
+
+    (** returns the taint value of the given parameter *)
     val get_taint: t -> Tainting.t
 end
 
@@ -86,61 +120,88 @@ module type T =
 sig
     (** abstract data type *)
     type t
+
     (** top on sz bit-width *)
     val top: int -> t
+
     (** forgets the content while preserving the taint *)
     val forget: t -> t
+
     (** returns true whenever at least one bit may be tainted *)
     val is_tainted: t -> bool
+
     (** value conversion. May raise an exception *)
     val to_z: t -> Z.t
+
     (** char conversion. May raise an exception *)
     val to_char: t -> char
+
     (** abstract join *)
     val join: t -> t -> t
+
     (** abstract meet *)
     val meet: t -> t -> t
+
     (** widening *)
     val widen: t -> t -> t
+
     (** string conversion *)
     val to_string: t -> string
+
     (** string conversion (value string, taint string) *)
     val to_strings: t -> string * string
+
     (** binary operation *)
     val binary: Asm.binop -> t -> t -> t
+
     (** unary operation *)
     val unary: Asm.unop -> t -> t
+
     (** untaint *)
     val untaint: t -> t
+
     (** taint *)
     val taint: t -> t
+
     (** span taint *)
     val span_taint: t -> Tainting.t -> t
+
     (** conversion from word *)
     val of_word: Data.Word.t -> t
+
     (** comparison *)
     val compare: t -> Asm.cmp -> t -> bool
+
     (** conversion to a set of addresses *)
     val to_addresses: Data.Address.region -> t -> Data.Address.Set.t
+
     (** check whether the first argument is included in the second one *)
     val is_subset: t -> t -> bool
-    (** conversion from a config value *)
-    (** the integer parameter is the size in bits of the config value *)
+      
+    (** conversion from a config value.
+    The integer parameter is the size in bits of the config value *)
     val of_config: Config.cvalue -> int -> t
-    (** conversion from a tainting value *)
-    (** the value option is a possible previous init *)
+      
+    (** conversion from a tainting value.
+    The value option is a possible previous init *)
     val taint_of_config: Config.tvalue -> int -> t option -> t
+
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t
+
     (** return the value corresponding to bits l to u may raise an exception if range bits exceeds the capacity of the vector *)
     val extract: t -> int -> int -> t
+
     (** [from_position v i len] returns the sub-vector v[i]...v[i-len-1] may raise an exception if i > |v| or i-len-1 < 0 *)
     val from_position: t -> int -> int -> t
+
     (** [of_repeat_val v v_len nb] returns the concatenation of pattern v having length v_len, nb times *)
     val of_repeat_val: t -> int -> int -> t
+
     (** returns the concatenation of the two given vectors *)
     val concat: t -> t -> t
-(** returns the minimal taint value of the given parameter *)
+
+    (** returns the minimal taint value of the given parameter *)
     val get_minimal_taint: t -> Tainting.t
 end
 

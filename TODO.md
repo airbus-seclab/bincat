@@ -1,15 +1,8 @@
 ## Ocaml
-* Utiliser au moins TROIS caractères pour toutes les variables (oui, si, vraiment.)
-
-* regrouper les suites d'instruction décodées en basic blocks (pluôt
-qu'un état par instruction x86) (ou pas, à discuter)
-* supprimer les maj de flags entre deux instructions pour ceux qui sont set/undef sans avoir été testés
-
+* optim: supprimer les maj de flags entre deux instructions pour ceux qui sont set/undef sans avoir été testés
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
-* vérifier popf/pushf (surtout les privilèges etc)
-* écrire un programme de test : binaire => statements (à la metasm-shell)
-* à clarifier : pointer n'est pas un pointer mais une valeur
+* renommage Pointer, Value
 * gérer l'ordre des initialisation mémoires dans le .ini pour pouvoir écraser certaines parties déjà initialisées
 * log categories (mem, vectors, etc.)
 

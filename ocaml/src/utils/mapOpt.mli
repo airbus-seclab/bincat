@@ -10,17 +10,20 @@
 *)
 
 module type OrderedType = 
-sig 
+sig
+  
+  (** The type of the map keys. *)
   type t 
-    (** The type of the map keys. *)
+  
+  (** A total ordering function over the keys.
+      This is a two-argument function [f] such that
+      [f e1 e2] is zero if the keys [e1] and [e2] are equal,
+      [f e1 e2] is strictly negative if [e1] is smaller than [e2],
+      and [f e1 e2] is strictly positive if [e1] is greater than [e2]. *)
   val compare: t -> t -> int 
-    (** A total ordering function over the keys.
-        This is a two-argument function [f] such that
-        [f e1 e2] is zero if the keys [e1] and [e2] are equal,
-        [f e1 e2] is strictly negative if [e1] is smaller than [e2],
-        and [f e1 e2] is strictly positive if [e1] is greater than [e2]. *)
+  
 end
-(** Input signature of the functor {!MapOpt.Make}. *)     
+
 
 (** Functor building an implementation of the map structure
     given a totally ordered type. *)
@@ -48,12 +51,12 @@ sig
 	or raises [Not_found] if no such binding exists. *)
 
   val find_key: (key -> int) -> 'a t -> key * 'a
-  (** [find_key p x] returns the key k and its associated value in [x] that satisfies predicate [p k = 0] or raises [Not_found] if no such binding exists *)
-  (** if several keys satisfy the predicate then the first uncountered one is returned *)
+  (** [find_key p x] returns the key k and its associated value in [x] that satisfies predicate [p k = 0] or raises [Not_found] if no such binding exists
+   if several keys satisfy the predicate then the first uncountered one is returned *)
 
   val find_all_keys: (key -> bool) -> 'a t -> (key * 'a) list
-  (** [find_all_keys p x] returns the list of k and associated values in [x] that satisfy predicate p *)
-  (** order in returned keys is left branch keys <= current key <= right branch keys *)
+  (** [find_all_keys p x] returns the list of k and associated values in [x] that satisfy predicate p
+  order in returned keys is left branch keys <= current key <= right branch keys *)
 						       
   val remove: key -> 'a t -> 'a t
     (** [remove x m] returns a map containing the same bindings as

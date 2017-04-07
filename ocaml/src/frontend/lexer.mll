@@ -89,8 +89,6 @@ rule token = parse
   | "store_marshalled_cfa"  { STORE_MCFA }
   | "in_marshalled_cfa_file"   { IN_MCFA_FILE }
   | "out_marshalled_cfa_file"   { OUT_MCFA_FILE }
-  (* sections tokens *)
-  | "entry"         { ENTRY }
   (* address separator *)
   | "," 		    { COMMA }
   (* GDT tokens *)
@@ -121,7 +119,6 @@ rule token = parse
   | "T"                     { T }
   | "imports"               { IMPORTS }
   | "stack"                 { STACK }
-  | ":"                     { RANGE }
   | "heap"                  { HEAP }
   | "analysis"              { ANALYSIS }
   | "forward_binary"        { FORWARD_BIN }

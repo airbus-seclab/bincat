@@ -18,8 +18,8 @@ module type T =
       (** comparison to bottom *)
       val is_bot: t -> bool
 		 
-      (** returns true whenever the concretization of the first argument is included in the concretization of the second argument *)
-      (** false otherwise *)
+      (** returns true whenever the concretization of the first argument is included in the concretization of the second argument ;
+	false otherwise *)
       val is_subset: t -> t -> bool
  	       
       (** remove the given register from the given abstract value *)	
@@ -34,19 +34,19 @@ module type T =
       (** string conversion *)
       val to_string: t -> string list
 				     
-      (** int conversion of the given register *)
-      (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
+      (** int conversion of the given register.
+      May raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
       val value_of_register: t -> Register.t -> Z.t
 
       (** string conversion of a register *)
       val string_of_register: t -> Register.t -> string list
 	
-      (** int conversion of the given expression *)
-      (** may raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
+      (** int conversion of the given expression.
+      May raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
       val value_of_exp: t -> Asm.exp -> Z.t
 						 
-      (** assignment into the given left value of the given expression *)
-      (** returns true whenever one left value of the source expression is tainted *)
+      (** assignment into the given left value of the given expression.
+      Returns true whenever one left value of the source expression is tainted *)
       val set: Asm.lval -> Asm.exp -> t -> t * bool
 									  
       (** joins the two abstract values *)
@@ -58,12 +58,12 @@ module type T =
       (** widens the two abstract values *)
       val widen: t -> t -> t
 
-      (** [set_memory_from_config a c nb m] update the abstract value in _m_ with the value configuration _c_ (pair content * tainting value ) for the memory location _a_ *)
-      (** the integer _nb_ is the number of consecutive configurations _c_ to set *)
+      (** [set_memory_from_config a c nb m] update the abstract value in _m_ with the value configuration _c_ (pair content * tainting value ) for the memory location _a_ 
+      The integer _nb_ is the number of consecutive configurations _c_ to set *)
       val set_memory_from_config: Data.Address.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> int -> t -> t
 
-      (** [set_register_from_config r c nb m] update the abstract value _m_ with the value configuration (pair content * tainting value) for register _r_ *)
-      (** the integer _nb_ is the number of consecutive configuration _t_ to set *)
+      (** [set_register_from_config r c nb m] update the abstract value _m_ with the value configuration (pair content * tainting value) for register _r_.
+      The integer _nb_ is the number of consecutive configuration _t_ to set *)
       val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> t -> t
      
       (** apply the given taint mask to the given register *)
@@ -75,9 +75,9 @@ module type T =
       (** comparison *)
       val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t * bool
 
-      (** returns the set of addresses pointed by the given expression *)
-      (** may raise an exception *)
-      (** the returned boolean is true whenever the pointer is tainted *)
+      (** returns the set of addresses pointed by the given expression.
+	  May raise an exception.
+	  The returned boolean is true whenever the pointer is tainted *)
       val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t * bool
 	
       val is_tainted: Asm.exp -> t -> bool
@@ -86,18 +86,18 @@ module type T =
       val set_type: Asm.lval -> Types.t -> t -> t
 
 
-      (** [get_address_of addr terminator upper_bound sz m] scans memory to get *)
-      (** the lowest offset o <= upper_bound from address addr such that (sz)[addr+o] cmp terminator is true *)
-      (** may raise an exception if not found or memory too much imprecise *)
+      (** [get_address_of addr terminator upper_bound sz m] scans memory to get.
+      The lowest offset o <= upper_bound from address addr such that (sz)[addr+o] cmp terminator is true.
+      May raise an exception if not found or memory too much imprecise *)
       val get_offset_from: Asm.exp -> Asm.cmp -> Asm.exp -> int -> int -> t -> int
 	
-      (** [get_bytes e cmp terminator term_sz length_bound d] *)
-      (** return the byte sequence b1...bn from address e such that *)
-      (** n is the minimal index <= length_bound with M[e+i] cmp *)
-      (** terminator is true in d *)
-      (** size of terminator is 8-bit width *)
-      (** raise Not_found if no such sequence exists *)
-      (** the return integer is the length of the return string wrt to the given terminator *)
+      (** [get_bytes e cmp terminator term_sz length_bound d]
+	  return the byte sequence b1...bn from address e such that
+	  n is the minimal index <= length_bound with M[e+i] cmp 
+	  terminator is true in d
+	  size of terminator is 8-bit width
+	  raise Not_found if no such sequence exists
+	  the return integer is the length of the return string wrt to the given terminator *)
       val get_bytes: Asm.exp -> Asm.cmp -> Asm.exp -> int -> int -> t -> int * Bytes.t
 
       (** [copy d dst arg sz] copy the first sz bits of arg into dst. May raise an exception if dst is undefined in d *)
@@ -122,14 +122,13 @@ number of copied bytes is returned *)
 	it returns also the number of copied bits. If the length to copy is shorter than the specified bound and pad_options is Some (pad_char, pad_left) then it is left padded with pad_char if pad_left=true itherwise it is right padded *)
       val print_until: t -> Asm.exp -> Asm.exp -> int -> int -> bool -> (char * bool) option -> int * t
 
-      (** [copy_chars d dst src nb pad_options] *)
-      (** copy from src into dst until nb bytes are copied or null byte is found. If it found before nb bytes *)
-      (** are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *) 
+      (** [copy_chars d dst src nb pad_options] copy from src into dst until nb bytes are copied or null byte is found. If it found before nb bytes
+	  are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *) 
       val copy_chars: t -> Asm.exp -> Asm.exp -> int -> (char * bool) option -> t
 
-	(** [print_chars d src nb pad_options] *)
-      (** print src until nb bytes are copied or null byte is found. If it found before nb bytes *)
-      (** are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *) 
+	(** [print_chars d src nb pad_options]
+      print src until nb bytes are copied or null byte is found. If it found before nb bytes
+      are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *) 
       val print_chars: t -> Asm.exp -> int -> (char * bool) option -> t
 
       (** [copy_register r dst src] returns dst with value of register r being replaced by its value in src *)

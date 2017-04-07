@@ -58,8 +58,8 @@ module Word =
         else
             truncate_int w n, n
 
-    (** binary operation on words supposed to have the same size *)
-    (** result is truncated to have size of the operands *)
+    (** binary operation on words supposed to have the same size
+	result is truncated to have size of the operands *)
     let binary op (w1, sz) (w2, _) =
         truncate_int (op w1 w2) sz, sz
 

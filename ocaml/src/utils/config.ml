@@ -122,8 +122,9 @@ let assert_tainted_functions: (Z.t, taint_t list) Hashtbl.t = Hashtbl.create 5
 (** data structure for the tainting rules of import functions *)
 let tainting_rules : ((string * string), (call_conv_t * taint_t option * taint_t list)) Hashtbl.t = Hashtbl.create 5
 
+
 (** data structure for the typing rules of import functions *)
-let typing_rules : (string, Newspeak.fundec) Hashtbl.t = Hashtbl.create 5
+let typing_rules : (string, TypedC.ftyp) Hashtbl.t = Hashtbl.create 5
 
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;

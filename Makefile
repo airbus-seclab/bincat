@@ -3,6 +3,7 @@ export PREFIX=usr/local
 
 PYTHON	   =python
 PYPATH	   =python
+NPKPATH    =lib
 MLPATH	   =ocaml/src
 MLTESTPATH =ocaml/test
 PYTESTPATH =python
@@ -10,7 +11,6 @@ DPREFIX	   =$(PREFIX)
 DOCMLPATH  =../../doc/generated/ocaml
 DOCPYPATH  =../doc/generated/python
 DOCGENPATH =doc/generated
-DOCREFPATH =doc/manual
 MLLIBDIR=../../python/idabincat
 IDAPATH   ?= $(HOME)/ida-6.95
 IDAUSR	?= $(HOME)/.idapro
@@ -20,6 +20,8 @@ all:
 	@make -C $(MLPATH) all DEBUG=$(DEBUG)
 	@echo "Building python part................................................."
 	@make -C $(PYPATH) all
+	@echo "Building headers......................................................"
+	@make -C $(NPKPATH) all
 
 
 install: all
@@ -50,12 +52,12 @@ doc: all
 	@make -C $(MLPATH) DOCPATH=$(DOCMLPATH) doc 
 	@echo "Generating Python documentation......................................"
 	@make -C $(PYPATH) DOCPATH=$(DOCPYPATH) copydoc
-	@echo "Compiling reference manual..........................................."
-	@make -C $(DOCREFPATH) all
 
 clean:
 	@echo "Cleaning OCaml part.................................................."
 	@make -C $(MLPATH) clean
+	@echo "Cleaning lib........................................................."
+	@make -C $(NPKPATH) clean
 	@echo "Cleaning python part................................................."
 	@make -C $(PYPATH) clean
 	echo "Cleaning documentation................................................"

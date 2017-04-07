@@ -38,8 +38,7 @@ module Make(Domain: Domain.T) =
 
 	  (** state comparison: returns 0 whenever they are the physically the same (do not compare the content) *)
 	  let compare s1 s2 = s1.id - s2.id
-	  (** otherwise return a negative integer if the first state has been created before the second one; *)
-	  (** a positive integer if it has been created later *)
+	  (** otherwise return a negative integer if the first state has been created before the second one; a positive integer if it has been created later *)
 
 	  (** hashes a state *)
 	  let hash b 	= b.id
@@ -119,8 +118,8 @@ module Make(Domain: Domain.T) =
       (* end of init utilities *)
       (*************************)
 
-    (** CFA creation *)
-    (** return the abstract value generated from the Config module *)
+    (** CFA creation.
+    Return the abstract value generated from the Config module *)
     let init_abstract_value () =
       let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
@@ -213,8 +212,8 @@ module Make(Domain: Domain.T) =
       (** iter on all vertices of a graph *)
       let iter_vertex f g = G.iter_vertex f g
 
-      (** returns the unique predecessor of the given vertex in the given CFA *)
-      (** may raise an exception if the vertex has no predessor *)
+      (** returns the unique predecessor of the given vertex in the given CFA.
+      May raise an exception if the vertex has no predessor *)
       let pred g v   =
 	try List.hd (G.pred g v)
 	with _ -> raise (Invalid_argument "vertex without predecessor")
@@ -237,8 +236,8 @@ module Make(Domain: Domain.T) =
 	| None -> raise Not_found
 	| Some s'   -> s'
 			   
-      (** dump the given CFA into the given file *)
-      (** dot generation is also processed *)
+      (** dump the given CFA into the given file. The
+      dot generation is also processed *)
       module GDot = struct
 	include G
 	let edge_attributes _e = []

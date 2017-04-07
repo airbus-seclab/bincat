@@ -23,6 +23,7 @@ domains/reduced_bit_tainting.ml\
 domains/reduced_unrel_typenv.ml\
 disassembly/cfa.ml\
 disassembly/decoder.ml\
+fixpoint/stubs.ml\
 fixpoint/interpreter.ml\
 main.ml
 
@@ -31,6 +32,7 @@ data-struct/register.mli\
 utils/mapOpt.mli\
 data-struct/data.mli\
 domains/domain.mli\
+fixpoint/stubs.mli\
 
 LIBNAME=libbincat.so
 LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
@@ -51,7 +53,7 @@ MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
-LIBX=unix.cmxa graph.cmxa nums.cmxa str.cmxa zarith.cmxa newspeak.cmxa bigarray.cmxa
+LIBX=unix.cmxa graph.cmxa nums.cmxa str.cmxa zarith.cmxa newspeak.cmxa bigarray.cmxa typedC.cmx
 
 OS:=$(shell uname)
 ifeq ($(OS), Darwin)

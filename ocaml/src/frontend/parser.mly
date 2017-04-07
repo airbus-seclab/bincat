@@ -10,8 +10,8 @@
     (* temporary table to store tainting rules on functions of a given library *)
     let libraries: (string, Config.call_conv_t option * ((string * Config.call_conv_t option * Config.taint_t option * Config.taint_t list) list)) Hashtbl.t = Hashtbl.create 7;;
 
-    (* name of the npk file containing function headers *)
-    let npk_header = ref ""
+    (* list of the npk filenames containing function headers *)
+    let npk_headers = ref []
 
     (* current override address *)
     let override_addr = ref Z.zero
@@ -95,23 +95,23 @@
 	in
 	Hashtbl.iter add_tainting_rules libraries;
 	(* complete the table of function rules with type information *)
-	if String.compare !npk_header "" <> 0 then
+	List.iter (fun header -> 
 	    try
-	      let p = Newspeak.read !npk_header in	  
-	      Hashtbl.iter (fun s f ->
-		Hashtbl.add Config.typing_rules s f) p.Newspeak.fundecs
-	    with _ -> Log.error "failed to load headers from npk file"
+	      let p = TypedC.read header in	  
+	      List.iter (fun (s, f) ->
+		Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
+	    with _ -> Log.from_config (Printf.sprintf "failed to load header %s" header)) !npk_headers
 	;;
 
 	%}
-%token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR PIPE AT TAINT
+%token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
-%token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK RANGE HEAP VERBOSE SEMI_COLON
+%token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP VERBOSE SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS ENTRY
+%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS
 %token <string> STRING 
 %token <string> HEX_BYTES
 %token <Z.t> INT
@@ -144,7 +144,6 @@
     | o=override l=overrides { o ; l }
 
     override:
-    |                     { () }
     | a=override_addr EQUAL i = override_item { a ; i }
 
     override_addr:
@@ -189,8 +188,12 @@
 
       import:
     | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
-    | HEADER EQUAL npkname=STRING { npk_header := npkname }    
+    | HEADER EQUAL npk_list=npk { npk_headers := npk_list }    
 
+      npk:
+    | s=STRING { [ s ] }
+    | s=STRING COMMA l=npk { s::l }
+    
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
 
@@ -281,8 +284,7 @@
     | BACKWARD { Config.Backward }
 
       data_sections:
-    |                { () }
-    | s=section_item { s }
+    |  { () }
     | s=section_item ss = data_sections{ s ; ss }
 
       section_item:
