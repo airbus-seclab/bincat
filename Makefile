@@ -41,6 +41,8 @@ IDAinstall:# install
 	cp $$(python -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAPATH}/plugins/bcplugin.py"
 	mkdir -p $(IDAUSR)/idabincat
 	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
+	# .no file
+	cp -r lib "${IDAUSR}/idabincat"
 
 test: all
 	make -C $(MLTESTPATH) test
