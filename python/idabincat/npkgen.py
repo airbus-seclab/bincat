@@ -117,7 +117,7 @@ class NpkGen(object):
                          "Is it installed in PATH?")
             npk_log.error(error_msg, exc_info=True)
             raise NpkGenException(error_msg)
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
             error_msg = "Error encountered while running c2newspeak."
             if e.output:
                 error_msg += "\n--- start of c2newspeak output ---\n"
