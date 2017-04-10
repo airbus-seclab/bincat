@@ -32,8 +32,10 @@ logging.basicConfig(level=logging.DEBUG)
 bc_log = logging.getLogger('bincat.plugin')
 bc_log.setLevel(logging.DEBUG)
 
+
 class AnalyzerUnavailable(Exception):
     pass
+
 
 class BincatPlugin(idaapi.plugin_t):
     # variables required by IDA
