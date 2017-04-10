@@ -7,6 +7,7 @@ import ConfigParser
 import hashlib
 import logging
 import os
+import shutil
 import sys
 import tempfile
 import traceback
@@ -32,8 +33,10 @@ logging.basicConfig(level=logging.DEBUG)
 bc_log = logging.getLogger('bincat.plugin')
 bc_log.setLevel(logging.DEBUG)
 
+
 class AnalyzerUnavailable(Exception):
     pass
+
 
 class BincatPlugin(idaapi.plugin_t):
     # variables required by IDA
@@ -96,9 +99,13 @@ class Analyzer(object):
         self.options = options
         self.finish_cb = finish_cb
 
-    def generate_npk(self):
+    def generate_tnpk(self, fname=None):
         """
-        Returns file path to generated npk (string), or None if generation was
+        Generates TNPK file for provided fname. If None, generate one for the
+        binary that is currently being analyzed in IDA, using IDA-provided
+        headers.
+
+        Returns file path to generated tnpk (string), or None if generation was
         not successful.
         """
         return None
@@ -138,9 +145,13 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         self.started.connect(self.procanalyzer_on_start)
         self.finished.connect(self.procanalyzer_on_finish)
 
-    def generate_npk(self):
+    def generate_tnpk(self, fname=None):
+        if fname:
+            imports_data = open(fname, 'r').read()
+        else:
+            imports_data = ""
         try:
-            npk_fname = idabincat.npkgen.NpkGen().generate_npk()
+            npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(imports_data)
             return npk_fname
         except idabincat.npkgen.NpkGenException as e:
             return
@@ -205,7 +216,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
 
 
 class WebAnalyzer(Analyzer):
-    API_VERSION = "1.1"
+    API_VERSION = "1.2"
 
     def __init__(self, *args, **kwargs):
         Analyzer.__init__(self, *args, **kwargs)
@@ -228,19 +239,20 @@ class WebAnalyzer(Analyzer):
                                          srv_api_version))
         return True
 
-    def generate_npk(self):
+    def generate_tnpk(self, fname=None):
         if not self.reachable_server:
             return
-        headers_data = idabincat.npkgen.NpkGen().get_header_data()
-        h_fname = os.path.join(self.path, "ida_generated_headers.h")
-        with open(h_fname, 'w') as f:
-            f.write(headers_data)
-        sha256 = self.sha256_digest(h_fname)
-        if not self.upload_file(h_fname, sha256):
+        if not fname:
+            headers_data = idabincat.npkgen.NpkGen().get_header_data()
+            fname = os.path.join(self.path, "ida_generated_headers.h")
+            with open(fname, 'w') as f:
+                f.write(headers_data)
+        sha256 = self.sha256_digest(fname)
+        if not self.upload_file(fname, sha256):
             return
-        npk_res = requests.post(self.server_url + "/convert_to_npk/" + sha256)
+        npk_res = requests.post(self.server_url + "/convert_to_tnpk/" + sha256)
         if npk_res.status_code != 200:
-            bc_log.error("Error while uploading binary file "
+            bc_log.error("Error while compiling file to tnpk "
                          "to BinCAT analysis server.")
             return
         res = npk_res.json()
@@ -272,17 +284,21 @@ class WebAnalyzer(Analyzer):
         if not self.upload_file(temp_config.binary_filepath, sha256):
             return
         temp_config.binary_filepath = sha256
-        # patch [imports] headers - replace with sha256, upload file
-        try:
-            headers_sha256 = self.sha256_digest(temp_config.headers_file)
-            if not self.upload_file(temp_config.headers_file, headers_sha256):
+        # patch [imports] headers - replace with sha256, upload files
+        files = temp_config.headers_files.split(',')
+        h_shalist = []
+        for f in files:
+            try:
+                f_sha256 = self.sha256_digest(f)
+                h_shalist.append(f_sha256)
+            except IOError as e:
+                bc_log.error("Could not open file %s" % f, exc_info=1)
                 return
-        except KeyError as e:
-            # this is not mandatory
-            pass
+            if not self.upload_file(f, f_sha256):
+                bc_log.error("Could not upload file %s" % f, exc_info=1)
+                return
+        temp_config.headers_files = ','.join(h_shalist)
 
-        else:
-            temp_config.headers_file = headers_sha256
         # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
             cfa_sha256 = self.sha256_digest(self.cfainfname)
@@ -634,13 +650,26 @@ class State(object):
                 f.write(self.last_cfaout_marshal)
         bc_log.debug("Generating .npk file...")
 
-        # try to generate npk file
-        npk_filename = self.analyzer.generate_npk()
+        headers_filenames = self.current_config.headers_files.split(',')
+        # compile .c files for libs, if there are any
+        for f in headers_filenames[:]:
+            if f.endswith('.c'):
+                new_npk_fname = f[:-2] + '.no'
+                headers_filenames.remove(f)
+                if not os.path.isfile(new_npk_fname):
+                    # compile
+                    temp_npk_fname = self.analyzer.generate_tnpk(f)
+                    shutil.copyfile(temp_npk_fname, new_npk_fname)
+                headers_filenames.append(new_npk_fname)
+
+        # try to generate npk file for the binary being analyzed
+        npk_filename = self.analyzer.generate_tnpk()
         if not npk_filename:
             bc_log.debug(".npk file could not be generated, continuing.")
         else:
             bc_log.debug(".npk file has been successfully generated.")
-            self.current_config.headers_file = npk_filename
+            headers_filenames.append(npk_filename)
+        self.current_config.headers_files = ','.join(headers_filenames)
 
         self.current_config.write(self.analyzer.initfname)
         self.analyzer.run()

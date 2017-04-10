@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 SHA256_RE = re.compile('[a-fA-F0-9]{64}')
 app = flask.Flask(__name__)
-API_VERSION = "1.1"
+API_VERSION = "1.2"
 
 # check existence of binary storage folder
 if 'BINARY_STORAGE_FOLDER' not in app.config:
@@ -149,7 +149,8 @@ def analyze():
     if config.has_section("imports"):
         try:
             headers_fname = config.get("imports", "headers")
-            input_files.append(headers_fname)
+            for hfname in headers_fname.split(','):
+                input_files.append(hfname)
         except ConfigParser.NoOptionError:
             # this is not mandatory
             pass
@@ -231,8 +232,8 @@ def analyze():
     return flask.make_response(flask.jsonify(**result), 200)
 
 
-@app.route("/convert_to_npk/<sha256>", methods=['POST'])
-def convert_to_npk(sha256):
+@app.route("/convert_to_tnpk/<sha256>", methods=['POST'])
+def convert_to_tnpk(sha256):
     if not SHA256_RE.match(sha256):
         return flask.make_response(
             "SHA256 expected as endpoint parameter.", 400)
@@ -243,7 +244,7 @@ def convert_to_npk(sha256):
     with open(fpath, 'r') as f:
         headers_data = f.read()
     try:
-        npk_fname = idabincat.npkgen.NpkGen().generate_npk(headers_data)
+        npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(headers_data)
     except idabincat.npkgen.NpkGenException as e:
         result = {'error': str(e), 'status': 'failed'}
         return flask.make_response(flask.jsonify(**result), 500)

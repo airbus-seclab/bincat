@@ -72,12 +72,12 @@ class NpkGen(object):
 
         return res
 
-    def generate_npk(self, imports_data=""):
+    def generate_tnpk(self, imports_data=""):
         # required: c2newspeak requires a file, checks its extension
         dirname = tempfile.mkdtemp('bincat-generate-header')
         npk_log.debug("Generating TNPK file in %s", dirname)
         cwd = os.getcwd()
-        os.chdir(dirname)  
+        os.chdir(dirname)
 
         # 1. get imports_data
         if not imports_data:
@@ -108,7 +108,8 @@ class NpkGen(object):
         no_file = "pre-processed.no"
         try:
             out = subprocess.check_output(
-                ["c2newspeak", "--typed-npk", "-o" , no_file, "pre-processed.c"], stderr=subprocess.STDOUT)
+                ["c2newspeak", "--typed-npk", "-o", no_file,
+                 "pre-processed.c"], stderr=subprocess.STDOUT)
             if out:
                 npk_log.debug(out)
         except OSError as e:
@@ -116,7 +117,7 @@ class NpkGen(object):
                          "Is it installed in PATH?")
             npk_log.error(error_msg, exc_info=True)
             raise NpkGenException(error_msg)
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
             error_msg = "Error encountered while running c2newspeak."
             if e.output:
                 error_msg += "\n--- start of c2newspeak output ---\n"
@@ -228,4 +229,4 @@ class NpkGen(object):
 
 
 if __name__ == '__main__':
-    NpkGen().generate_npk()
+    NpkGen().generate_tnpk()

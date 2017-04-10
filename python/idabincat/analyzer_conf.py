@@ -2,6 +2,7 @@ from __future__ import absolute_import
 import ctypes
 import collections
 import functools
+import glob
 import os
 import os.path
 import StringIO
@@ -226,12 +227,11 @@ class AnalyzerConfig(object):
         return self._config.get('analyzer', 'in_marshalled_cfa_file')
 
     @property
-    def headers_file(self):
+    def headers_files(self):
         try:
             return self._config.get('imports', 'headers')
         except ConfigParser.NoOptionError:
-            # this is not mandatory
-            raise KeyError
+            return ''
 
     @property
     def code_va(self):
@@ -269,8 +269,8 @@ class AnalyzerConfig(object):
     def in_marshalled_cfa_file(self, value):
         return self._config.set('analyzer', 'in_marshalled_cfa_file', value)
 
-    @headers_file.setter
-    def headers_file(self, value):
+    @headers_files.setter
+    def headers_files(self, value):
         self._config.set('imports', 'headers', value)
 
     @code_va.setter
@@ -371,9 +371,9 @@ class AnalyzerConfig(object):
         config = ConfigParser.RawConfigParser()
         config.optionxform = str
 
+        config_path = self.state.options.config_path
         # Load default part - XXX move this logic to PluginOptions
-        configfile = os.path.join(self.state.options.config_path, "conf",
-                                  "default.ini")
+        configfile = os.path.join(config_path, "conf", "default.ini")
         bc_log.debug("Reading config from %s", configfile)
         r = config.read(configfile)
         if len(r) != 1:
@@ -411,11 +411,9 @@ class AnalyzerConfig(object):
         ftype = ConfigHelpers.get_file_type()
         # XXX move this logic to PluginOptions
         if ftype == "pe":
-            os_specific = os.path.join(
-                self.state.options.config_path, "conf", "windows.ini")
+            os_specific = os.path.join(config_path, "conf", "windows.ini")
         else:  # default to Linux config if not windows
-            os_specific = os.path.join(
-                self.state.options.config_path, "conf", "linux.ini")
+            os_specific = os.path.join(config_path, "conf", "linux.ini")
         bc_log.debug("Reading OS config from %s", os_specific)
         config.read(os_specific)
 
@@ -458,6 +456,15 @@ class AnalyzerConfig(object):
             else:
                 name = "all,%s" % imp[1]
             config.set('imports', ("0x%x" % ea), name)
+        # list all files in config_path/lib/*.{c,no}.
+        # for each lib (same base filename) keep .no if it exists, else .c
+        headers_filenames = glob.glob(os.path.join(config_path, 'lib', '*.no'))
+        # Add .c if there is no associated .no
+        for c in glob.glob(os.path.join(config_path, 'lib', '*.c')):
+            if c[:-2] + '.no' not in headers_filenames:
+                headers_filenames.append(c)
+        # remove duplicates
+        config.set('imports', 'headers', ','.join(headers_filenames))
         # [libc section]
         # config.add_section('libc')
         # config.set('libc', 'call_conv', 'fastcall')
