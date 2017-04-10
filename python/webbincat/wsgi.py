@@ -243,7 +243,7 @@ def convert_to_npk(sha256):
     with open(fpath, 'r') as f:
         headers_data = f.read()
     try:
-        npk_fname = idabincat.npkgen.NpkGen().generate_npk(headers_data)
+        npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(headers_data)
     except idabincat.npkgen.NpkGenException as e:
         result = {'error': str(e), 'status': 'failed'}
         return flask.make_response(flask.jsonify(**result), 500)

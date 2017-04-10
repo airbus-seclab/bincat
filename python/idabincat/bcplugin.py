@@ -96,7 +96,7 @@ class Analyzer(object):
         self.options = options
         self.finish_cb = finish_cb
 
-    def generate_npk(self):
+    def generate_tnpk(self):
         """
         Returns file path to generated npk (string), or None if generation was
         not successful.
@@ -138,9 +138,9 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         self.started.connect(self.procanalyzer_on_start)
         self.finished.connect(self.procanalyzer_on_finish)
 
-    def generate_npk(self):
+    def generate_tnpk(self):
         try:
-            npk_fname = idabincat.npkgen.NpkGen().generate_npk()
+            npk_fname = idabincat.npkgen.NpkGen().generate_tnpk()
             return npk_fname
         except idabincat.npkgen.NpkGenException as e:
             return
@@ -228,7 +228,7 @@ class WebAnalyzer(Analyzer):
                                          srv_api_version))
         return True
 
-    def generate_npk(self):
+    def generate_tnpk(self):
         if not self.reachable_server:
             return
         headers_data = idabincat.npkgen.NpkGen().get_header_data()
@@ -635,7 +635,7 @@ class State(object):
         bc_log.debug("Generating .npk file...")
 
         # try to generate npk file
-        npk_filename = self.analyzer.generate_npk()
+        npk_filename = self.analyzer.generate_tnpk()
         if not npk_filename:
             bc_log.debug(".npk file could not be generated, continuing.")
         else:

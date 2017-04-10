@@ -72,7 +72,7 @@ class NpkGen(object):
 
         return res
 
-    def generate_npk(self, imports_data=""):
+    def generate_tnpk(self, imports_data=""):
         # required: c2newspeak requires a file, checks its extension
         dirname = tempfile.mkdtemp('bincat-generate-header')
         npk_log.debug("Generating TNPK file in %s", dirname)
@@ -228,4 +228,4 @@ class NpkGen(object):
 
 
 if __name__ == '__main__':
-    NpkGen().generate_npk()
+    NpkGen().generate_tnpk()
