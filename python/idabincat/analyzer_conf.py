@@ -226,7 +226,7 @@ class AnalyzerConfig(object):
         return self._config.get('analyzer', 'in_marshalled_cfa_file')
 
     @property
-    def headers_file(self):
+    def headers_files(self):
         try:
             return self._config.get('imports', 'headers')
         except ConfigParser.NoOptionError:
@@ -269,8 +269,8 @@ class AnalyzerConfig(object):
     def in_marshalled_cfa_file(self, value):
         return self._config.set('analyzer', 'in_marshalled_cfa_file', value)
 
-    @headers_file.setter
-    def headers_file(self, value):
+    @headers_files.setter
+    def headers_files(self, value):
         self._config.set('imports', 'headers', value)
 
     @code_va.setter

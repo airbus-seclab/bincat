@@ -274,17 +274,27 @@ class WebAnalyzer(Analyzer):
         if not self.upload_file(temp_config.binary_filepath, sha256):
             return
         temp_config.binary_filepath = sha256
-        # patch [imports] headers - replace with sha256, upload file
+        # patch [imports] headers - replace with sha256, upload files
         try:
-            headers_sha256 = self.sha256_digest(temp_config.headers_file)
-            if not self.upload_file(temp_config.headers_file, headers_sha256):
-                return
+            files = temp_config.headers_files.split(',')
+            shalist = []
+            for f in files:
+                f = f.strip(' ')
+                try:
+                    sha256 = self.sha256_digest(f)
+                    shalist.append(sha256)
+                except IOError as e:
+                    bc_log.error("Could not open file %s" % f, exc_info=1)
+                    return
+                if not self.upload_file(f, sha256):
+                    bc_log.error("Could not upload file %s" % f, exc_info=1)
+                    return
+            headers_sha256 = ','.join(files)
         except KeyError as e:
             # this is not mandatory
             pass
-
         else:
-            temp_config.headers_file = headers_sha256
+            temp_config.headers_files = headers_sha256
         # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
             cfa_sha256 = self.sha256_digest(self.cfainfname)
@@ -642,7 +652,7 @@ class State(object):
             bc_log.debug(".npk file could not be generated, continuing.")
         else:
             bc_log.debug(".npk file has been successfully generated.")
-            self.current_config.headers_file = npk_filename
+            self.current_config.headers_files = npk_filename
 
         self.current_config.write(self.analyzer.initfname)
         self.analyzer.run()
