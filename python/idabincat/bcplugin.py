@@ -305,6 +305,8 @@ class WebAnalyzer(Analyzer):
         files = temp_config.headers_files.split(',')
         h_shalist = []
         for f in files:
+            if not f:
+                continue
             try:
                 f_sha256 = self.sha256_digest(f)
                 h_shalist.append(f_sha256)

@@ -209,6 +209,7 @@
     | HEADER EQUAL npk_list=npk { npk_headers := npk_list }    
 
       npk:
+    | { [] }
     | s=STRING { [ s ] }
     | s=STRING COMMA l=npk { s::l }
     

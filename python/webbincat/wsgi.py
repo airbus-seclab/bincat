@@ -167,7 +167,8 @@ def analyze():
         try:
             headers_fname = config.get("imports", "headers")
             for hfname in headers_fname.split(','):
-                input_files.append(hfname)
+                if hfname:
+                    input_files.append(hfname)
         except ConfigParser.NoOptionError:
             # this is not mandatory
             pass
