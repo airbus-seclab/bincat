@@ -248,11 +248,11 @@ class WebAnalyzer(Analyzer):
             srv_api_version = str(version_req.text)
         except:
             raise AnalyzerUnavailable(
-                "BinCAT server at %s could not be reached", self.server_url)
+                "BinCAT server at %s could not be reached" % self.server_url)
         if srv_api_version != WebAnalyzer.API_VERSION:
             raise AnalyzerUnavailable(
                 "API mismatch: this plugin supports version %s, while server "
-                "supports version %s.", (WebAnalyzer.API_VERSION,
+                "supports version %s." % (WebAnalyzer.API_VERSION,
                                          srv_api_version))
         return True
 
