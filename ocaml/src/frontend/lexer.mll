@@ -101,6 +101,7 @@ rule token = parse
   | "fastcall"  	    { FASTCALL }
   (* analyzer tokens *)
   | "unroll"    	    { UNROLL }
+  | "function_unroll"       { FUN_UNROLL }
   | "cut"                   { CUT }
   | "verbose"               { VERBOSE }
   | "dotfile"               { DOTFILE }
