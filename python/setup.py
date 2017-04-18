@@ -36,5 +36,5 @@ setup(
     package_data = {
         'idabincat': package_data_files
     },
-    license          = 'GPLv2'
+    license          = 'AGPLv3'
 )
