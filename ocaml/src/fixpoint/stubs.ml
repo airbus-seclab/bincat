@@ -101,7 +101,7 @@ struct
 		 off+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
 		   
 	      (* value is in memory *)
-	      | _ -> Log.error "Unknown format in format string"
+              | c ->  Log.error (Printf.sprintf "%x: Unknown format in format string" (Char.code c))
 	    in
 	    let n = ((Char.code c) - (Char.code '0')) in
 	    compute n off

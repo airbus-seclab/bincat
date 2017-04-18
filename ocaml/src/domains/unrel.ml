@@ -54,7 +54,7 @@ module type T =
 				  
     (** comparison.
     Returns true whenever the concretization of the first parameter is included in the concretization of the second parameter *)
-    val subset: t -> t -> bool
+    val is_subset: t -> t -> bool
 			    
     (** string conversion *)
     val to_string: t -> string
@@ -100,7 +100,7 @@ module type T =
     (** [taint v] taint v *)
     val taint: t -> t
 		      
-    (** [span_taint v t] span taint t on each bit o v *)
+    (** [span_taint v t] span taint t on each bit of v *)
     val span_taint: t -> Tainting.t -> t
 
     (** returns the sub value between bits low and up *)
@@ -160,8 +160,8 @@ module Make(D: T) =
 	     let v = Env.find (Env.Key.Reg r) m' in D.to_string v
 	     
     let add_register r m =
-      let add m' =
-        Val (Env.add (Env.Key.Reg r) D.top m')
+      let add x =
+        Val (Env.add (Env.Key.Reg r) D.top x)
       in
       match m with
       | BOT    -> add Env.empty
@@ -199,15 +199,15 @@ module Make(D: T) =
 	 end
       | BOT -> BOT
 		 
-    let subset m1 m2 =
+    let is_subset m1 m2 =
       match m1, m2 with
       | BOT, _ 		 -> true
       | _, BOT 		 -> false
       |	Val m1', Val m2' ->
-         try Env.for_all2 D.subset m1' m2'
+         try Env.for_all2 D.is_subset m1' m2'
          with _ ->
            try
-             Env.iteri (fun k v1 -> try let v2 = Env.find k m2' in if not (D.subset v1 v2) then raise Exit with Not_found -> ()) m1';
+             Env.iteri (fun k v1 -> try let v2 = Env.find k m2' in if not (D.is_subset v1 v2) then raise Exit with Not_found -> ()) m1';
              true
            with Exit -> false
 			  
@@ -610,7 +610,7 @@ module Make(D: T) =
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
     If e is untainted then nothing is done *)
     let span_taint m e (v: D.t) =
-        Log.debug_lvl (Printf.sprintf "span_taint(%s)"  (Asm.string_of_exp e true)) 6;
+        Log.debug_lvl (Printf.sprintf "span_taint(%s) v=%s"  (Asm.string_of_exp e true) (D.to_string v)) 6;
         let rec process e =
             match e with
             | Asm.Lval (Asm.V (Asm.T r)) ->
@@ -619,7 +619,7 @@ module Make(D: T) =
             | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
               let r' =  Env.find (Env.Key.Reg r) m in
               D.get_minimal_taint (D.extract r' low up)
-            | Asm.Lval (Asm.M (_e', _n)) -> Tainting.T
+            | Asm.Lval (Asm.M (e', _n)) -> process e'
             | Asm.BinOp (_, e1, e2) -> Tainting.min (process e1) (process e2)
             | Asm.UnOp (_, e') -> process e'
             | _ -> Tainting.U
@@ -633,6 +633,13 @@ module Make(D: T) =
               | _ -> D.span_taint v taint
           end
         | Asm.Lval (Asm.M (e', _)) ->
+          begin
+              let taint = process e' in
+              match taint with
+              | Tainting.U -> v
+              | _ -> D.span_taint v taint
+          end
+        | Asm.UnOp(_, e') ->
           begin
               let taint = process e' in
               match taint with

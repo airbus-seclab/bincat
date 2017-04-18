@@ -121,7 +121,7 @@ sig
     val geq: t -> t -> bool
 
     (** check whether the first abstract value is included in the second one *)
-    val subset: t -> t -> bool
+    val is_subset: t -> t -> bool
 
     (** comparison *)
     val compare: t -> Asm.cmp -> t -> bool
@@ -194,7 +194,7 @@ sig
     val to_addresses: Data.Address.region -> t -> Data.Address.Set.t
 
     (** check whether the first argument is included in the second one *)
-    val subset: t -> t -> bool
+    val is_subset: t -> t -> bool
       
     (** conversion from a config value.
     The integer parameter is the size in bits of the config value *)
@@ -540,7 +540,7 @@ module Make(V: Val) =
 
         let to_addresses r v = Data.Address.Set.singleton (r, to_word V.to_z v)
 
-        let subset v1 v2 = for_all2 V.subset v1 v2
+        let is_subset v1 v2 = for_all2 V.is_subset v1 v2
 
         let of_config c n =
             let v  = Array.make n V.top in

@@ -2077,7 +2077,7 @@ struct
                     { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
                                   Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = get_stub name}
             with Not_found ->
-                Log.from_analysis (Printf.sprintf "from config file: Typing information for function %s without import address ignored" name); ()  
+                Log.from_analysis (Printf.sprintf "from config file: Typing information for function %s without import address => ignored." name); ()
         ) Config.typing_rules
 
     let replace_taint taint_directives funame taint_ret taint_args =

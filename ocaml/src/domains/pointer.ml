@@ -160,12 +160,12 @@ module Make (V: Vector.T) =
             | TOP 	   -> raise Exceptions.Enum_failure
             | Val (r, o) -> V.to_addresses r o
 
-        let subset p1 p2 =
+        let is_subset p1 p2 =
             match p1, p2 with
             | BOT, _ | _, TOP 	   -> true
             | _, BOT | TOP, _            -> false
             | Val (r1, o1), Val (r2, o2) -> 
-              if r1 = r2 then V.subset o1 o2
+              if r1 = r2 then V.is_subset o1 o2
               else false
 		  
         let taint_of_config t n prev =

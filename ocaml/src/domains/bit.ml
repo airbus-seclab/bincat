@@ -56,6 +56,7 @@ let equal b1 b2 =
 			 
 let add b1 b2 =
   match b1, b2 with
+  | TOP, ZERO | ZERO, TOP -> TOP, false
   | TOP, _ | _, TOP 	  -> TOP, true
   | ZERO, ZERO 	    	  -> ZERO, false
   | ZERO, ONE | ONE, ZERO -> ONE, false
@@ -63,7 +64,8 @@ let add b1 b2 =
 
 let sub b1 b2 =
   match b1, b2 with
-  | TOP, _ | _, TOP -> TOP, true
+  | ONE, TOP | TOP, ZERO -> TOP, false
+  | _, TOP | TOP, _ -> TOP, true
   | ZERO, ZERO 	    -> ZERO, false
   | ZERO, ONE       -> ONE, true
   | ONE, ZERO       -> ONE, false
@@ -156,4 +158,4 @@ let compare v1 op v2 =
   | Asm.LT  -> lt v1 v2
   | Asm.GT  -> gt v1 v2
 		  
-let subset v1 v2 = eq v1 v2
+let is_subset v1 v2 = eq v1 v2

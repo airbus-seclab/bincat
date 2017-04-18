@@ -27,7 +27,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   Config.clear_tables();
   Register.clear();
   (* generating modules needed for the analysis *)
-  let module Vector 	 = Vector.Make(Reduced_value_tainting) in
+  let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
   let module Pointer 	 = Pointer.Make(Vector)		       in
   let module Domain 	 = Reduced_unrel_typenv.Make(Pointer)  in
   let module Interpreter = Interpreter.Make(Domain)	       in

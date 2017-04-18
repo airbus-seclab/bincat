@@ -98,7 +98,7 @@ let meet t1 t2 =
   | TStruct (fields1, sz1), TStruct (fields2, _) -> TStruct (meet_of_struct fields1 fields2, sz1)
   | _, _ -> raise Exceptions.Empty
 
-let subset t1 t2 =
+let is_subset t1 t2 =
   match t1, t2 with
   | TUNKNOWN, TUNKNOWN -> true
   | _, _ -> identical t1 t2

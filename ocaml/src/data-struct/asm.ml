@@ -262,4 +262,8 @@ let string_of_stmt s extended =
     | Assert (bexp, msg) -> Printf.sprintf "Assert (%s, %s)" (string_of_bexp bexp extended) msg
   in
   to_string "" s
-		     
+
+let string_of_stmts stmt_list extended =
+  let list_str = List.map (fun s -> string_of_stmt s extended) stmt_list
+  in Printf.sprintf "[ %s ]" (String.concat ",\n" list_str)
+ 
