@@ -1,4 +1,17 @@
-(* major part of this code is borrowed from the ocaml module Map, which is copyright 1996 INRIA *)
+(***********************************************************************)
+(*                                                                     *)
+(*                                OCaml                                *)
+(*                                                                     *)
+(*            Xavier Leroy, projet Cristal, INRIA Rocquencourt         *)
+(*                                                                     *)
+(*  Copyright 1996 Institut National de Recherche en Informatique et   *)
+(*  en Automatique.  All rights reserved.  This file is distributed    *)
+(*  under the terms of the GNU Library General Public License, with    *)
+(*  the special exception on linking described in file COPYING-LGPL    *)
+(*                                                                     *)
+(*  Modifications by Airbus Group - Copyright 2014-2017                *)
+(*                                                                     *)
+(***********************************************************************)
 
 
 module type OrderedType =
