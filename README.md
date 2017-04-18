@@ -221,6 +221,12 @@ Default config for analyzer.
 
 ## Licenses
 
+BinCAT is released under the [GNU Affero General Public
+Licence](https://www.gnu.org/licenses/agpl.html).
+
+The BinCAT OCaml code includes code from the original Ocaml runtime, released
+under the [LGPLv2](https://www.gnu.org/licenses/lgpl-2.0.txt).
+
 The BinCAT IDA plugin includes code from
 [python-pyqt5-hexview](https://github.com/williballenthin/python-pyqt5-hexview)
 by Willi Ballenthin, released under the Apache License 2.0.
