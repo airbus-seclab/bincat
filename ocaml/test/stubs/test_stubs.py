@@ -4,21 +4,23 @@ This file describes tests for printf
 """
 
 import pytest
+import os
 import subprocess
 from pybincat import cfa
 
 
 def analyze(tmpdir, initfname):
+
+    olddir = os.getcwd()
+    os.chdir(os.path.dirname(__file__))
     
     outfname = str(tmpdir.join('end.ini'))
     logfname = str(tmpdir.join('log.txt'))
     
     p = cfa.CFA.from_filenames(initfname, outfname, logfname)
 
+    os.chdir(olddir)
     return outfname, logfname
-
-    oldpath.chdir()
-
 
 def test_printf(tmpdir):
     outfname,logfname = analyze(tmpdir, "printf.ini")
