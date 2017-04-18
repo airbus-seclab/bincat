@@ -281,6 +281,7 @@ def test_xor_reg_self(analyzer, initialState, register):
     assertEqualStates(after, expected, opcode, prgm=prgm)
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_inc(analyzer, initialState, register):
     """
@@ -306,6 +307,7 @@ def test_inc(analyzer, initialState, register):
     assertEqualStates(after, expected, opcode, prgm=prgm)
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize('register', testregisters, ids=lambda x: x[1])
 def test_dec(analyzer, initialState, register):
     """
@@ -487,6 +489,7 @@ def test_and_esp(analyzer, initialState):
 
     assertEqualStates(after, expected, opcode, prgm=prgm)
 
+@pytest.mark.xfail
 def test_movzx(analyzer, initialState):
     """
     Test   movzx edx, dl
@@ -520,6 +523,7 @@ def test_movzx_byte(analyzer, initialState):
 
     assertEqualStates(after, expected, opcode, prgm=prgm)
 
+@pytest.mark.xfail
 def test_movzx_byte_taintptr(analyzer, initialState):
     """
     Test   movzx eax, byte ptr [eax]"
@@ -537,6 +541,7 @@ def test_movzx_byte_taintptr(analyzer, initialState):
 
     assertEqualStates(after, expected, opcode, prgm=prgm)
 
+@pytest.mark.xfail
 def test_movzx_byte_untaintptr(analyzer, initialState):
     """
     Test   movzx ebx, byte ptr [ebx]"
@@ -571,6 +576,7 @@ def test_mov_byte_taintptr(analyzer, initialState):
 
     assertEqualStates(after, expected, opcode, prgm=prgm)
 
+@pytest.mark.xfail
 def test_imul(analyzer, initialState):
     """
     Test   imul edi, ecx"
