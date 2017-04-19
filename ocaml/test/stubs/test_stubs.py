@@ -30,6 +30,10 @@ def test_printf(tmpdir):
     assert msg1 in res
     assert msg2 in res
     p = res.find(msg2)+len(msg2)+1
+    p2 = res.find("\n", p)
+    assert res[p:p2] == "%x" % 0x12345678
+
+    p = res.find(msg2)+len(msg2)+1
     assert "12345678" in res[p:p+50]
     
 def test_printf_px(tmpdir):
@@ -43,6 +47,10 @@ def test_printf_px(tmpdir):
 
     assert "stub of printf analysed" in res
     assert "[analysis] printf output:" in res
+    p = res.find(msg2)+len(msg2)+1
+    p2 = res.find("\n", p)
+    assert res[p:p2] == "value=%x" % 0x12345678
+
     p = res.find(msg2)+len(msg2)+1
     assert "value=12345678" in res[p:p+50]
     
