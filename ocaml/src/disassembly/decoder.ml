@@ -1385,11 +1385,11 @@ struct
       core_rotate dst src Shr sz count
 		  
     let shift_r_stmt dst sz n arith =
-        let sz' = const sz sz in
-        let one = Const (Word.one sz) in
+        let sz' = const sz 8 in
+        let one = Const (Word.one 8) in
         let ldst = Lval dst in
         let dst_sz_min_one = const (sz-1) sz in
-        let dst_msb = BinOp(And, Const (Word.one sz), BinOp(Shr, ldst, dst_sz_min_one)) in
+        let dst_msb = BinOp(And, Const (Word.one 8), BinOp(Shr, ldst, dst_sz_min_one)) in
         let cf_stmt =
             let c = Cmp (LT, sz', n) in
             If (c,
@@ -1428,7 +1428,7 @@ struct
         in
         (* If shifted by zero, do nothing, else do the rest *)
 	let res = Lval dst in
-        [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
+        [If(Cmp(EQ, n, Const (Word.zero 8)), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
 
     let grp2 s sz e =
         let nnn, dst = core_grp s sz in
