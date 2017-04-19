@@ -194,6 +194,7 @@ module Make(Domain: Domain.T) =
 	    is_tainted = is_tainted;
 	  }
 	  in
+	  Log.debug_lvl (Printf.sprintf "Create CFA node %i for IP=%s" v.id (Data.Address.to_string v.ip)) 6;
 	  G.add_vertex g v;
 	  v
 
