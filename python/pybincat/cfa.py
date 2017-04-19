@@ -118,7 +118,7 @@ class CFA(object):
         CFA._valcache = dict()
         cfa = cls(states, edges, nodes)
         if logs:
-            cfa.logs = open(logs).read()
+            cfa.logs = open(logs, 'rb').read()
         return cfa
 
     @classmethod

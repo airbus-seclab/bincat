@@ -102,7 +102,7 @@ class NpkGen(object):
             imports_data = self.get_header_data()
 
         ig_name = os.path.join(dirname, "ida-generated.h")
-        c = open(ig_name, "wt+")
+        c = open(ig_name, "wb+")
         c.write(imports_data)
         c.close()
         # 2. use gcc to preprocess this file
@@ -119,7 +119,7 @@ class NpkGen(object):
             npk_log.error(error_msg, exc_info=True)
             raise NpkGenException(error_msg)
         pp_name = os.path.join(dirname, "pre-processed.c")
-        with open(pp_name, "w") as f:
+        with open(pp_name, "wb") as f:
             f.write(out)
         # 3. use c2newspeak to generate .no
         no_file = "pre-processed.no"

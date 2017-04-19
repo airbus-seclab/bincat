@@ -77,7 +77,7 @@ def download(sha256, compression):
     sha256 = sha256.lower()
     filename = os.path.join(app.config['BINARY_STORAGE_FOLDER'], sha256)
     if os.path.isfile(filename):
-        with open(filename, 'r') as f:
+        with open(filename, 'rb') as f:
             if compression == 'zlib':
                 return zlib.compress(f.read())
             else:
@@ -104,7 +104,7 @@ def store_string_to_file(s, alt_path=None):
     """
     h = calc_sha256(s)
     fname = os.path.join(app.config['BINARY_STORAGE_FOLDER'], h)
-    with open(fname, 'w') as f:
+    with open(fname, 'wb') as f:
         f.write(s)
     if alt_path is not None:
         try:
@@ -190,7 +190,7 @@ def analyze():
     os.chdir(dirname)  # bincat outputs .dot in cwd
     config.set('analyzer', 'out_marshalled_cfa_file', 'cfaout.marshal')
     # prepare input files
-    config.write(open(os.path.join(dirname, 'init.ini'), 'w'))
+    config.write(open(os.path.join(dirname, 'init.ini'), 'wb'))
     for fname in input_files:
         os.link(os.path.join(app.config['BINARY_STORAGE_FOLDER'], fname),
                 os.path.join(dirname, fname))
@@ -205,7 +205,7 @@ def analyze():
     result['errorcode'] = err
     if config.get('analyzer', 'store_marshalled_cfa') == 'true':
         if os.path.isfile('cfaout.marshal'):
-            with open('cfaout.marshal') as f:
+            with open('cfaout.marshal', 'rb') as f:
                 fname = calc_sha256(f.read())
                 fpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'],
                                      fname)
@@ -217,7 +217,7 @@ def analyze():
                 result['cfaout.marshal'] = fname
     logfname = os.path.join(dirname, 'analyzer.log')
     if os.path.isfile(logfname):
-        with open(logfname) as f:
+        with open(logfname, 'rb') as f:
             fname = calc_sha256(f.read())
             fpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'],
                                  fname)
@@ -231,7 +231,7 @@ def analyze():
         result['analyzer.log'] = ""
     outfname = os.path.join(dirname, 'out.ini')
     if os.path.isfile(outfname):
-        with open(outfname) as f:
+        with open(outfname, 'rb') as f:
             fname = calc_sha256(f.read())
             fpath = os.path.join(app.config['BINARY_STORAGE_FOLDER'],
                                  fname)
@@ -259,14 +259,14 @@ def convert_to_tnpk(sha256):
     if not os.path.exists(fpath):
         return flask.make_response(
             "Input file %s has not yet been uploaded." % sha256, 400)
-    with open(fpath, 'r') as f:
+    with open(fpath, 'rb') as f:
         headers_data = f.read()
     try:
         npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(headers_data)
     except idabincat.npkgen.NpkGenException as e:
         result = {'error': str(e), 'status': 'failed'}
         return flask.make_response(flask.jsonify(**result), 500)
-    with open(npk_fname, 'r') as f:
+    with open(npk_fname, 'rb') as f:
         npk_data = f.read()
     sha256 = store_string_to_file(npk_data)
     result = {'sha256': sha256, 'status': 'ok'}

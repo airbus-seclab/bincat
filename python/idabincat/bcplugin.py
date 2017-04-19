@@ -164,7 +164,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
 
     def generate_tnpk(self, fname=None):
         if fname:
-            imports_data = open(fname, 'r').read()
+            imports_data = open(fname, 'rb').read()
         else:
             imports_data = ""
         try:
@@ -219,7 +219,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         bc_log.info(str(self.readAllStandardError()))
         bc_log.debug("---- logfile ---------------")
         if os.path.exists(self.logfname):
-            with open(self.logfname) as f:
+            with open(self.logfname, 'rb') as f:
                 log_lines = f.read().splitlines()
             if len(log_lines) > 100:
                 bc_log.debug(
@@ -262,7 +262,7 @@ class WebAnalyzer(Analyzer):
         if not fname:
             headers_data = idabincat.npkgen.NpkGen().get_header_data()
             fname = os.path.join(self.path, "ida_generated_headers.h")
-            with open(fname, 'w') as f:
+            with open(fname, 'wb') as f:
                 f.write(headers_data)
         sha256 = self.sha256_digest(fname)
         if not self.upload_file(fname, sha256):
@@ -270,7 +270,7 @@ class WebAnalyzer(Analyzer):
         npk_res = requests.post(self.server_url + "/convert_to_tnpk/" + sha256)
         if npk_res.status_code != 200:
             bc_log.error("Error while compiling file to tnpk "
-                         "to BinCAT analysis server.")
+                         "on BinCAT analysis server.")
             return
         res = npk_res.json()
         if 'status' not in res or res['status'] != 'ok':
@@ -278,7 +278,7 @@ class WebAnalyzer(Analyzer):
         sha256 = res['sha256']
         npk_contents = self.download_file(sha256)
         npk_fname = os.path.join(self.path, "headers.npk")
-        with open(npk_fname, 'w') as f:
+        with open(npk_fname, 'wb') as f:
             f.write(npk_contents)
         return npk_fname
 
@@ -294,7 +294,7 @@ class WebAnalyzer(Analyzer):
         # create temporary AnalyzerConfig to replace referenced file names with
         # sha256 of their contents
         temp_config = AnalyzerConfig(None)  # No reference to State - not used
-        with open(self.initfname, 'r') as f:
+        with open(self.initfname, 'rb') as f:
             temp_config.load_from_str(f.read())
         # patch filepath - set filepath to sha256, upload file
         sha256 = self.sha256_digest(temp_config.binary_filepath)
@@ -339,11 +339,11 @@ class WebAnalyzer(Analyzer):
                          % self.download_file(files["stdout.txt"]))
             if not files["out.ini"]:  # try to parse out.ini if it exists
                 return
-        with open(self.outfname, 'w') as outfp:
+        with open(self.outfname, 'wb') as outfp:
 
             outfp.write(self.download_file(files["out.ini"]))
         analyzer_log_contents = self.download_file(files["analyzer.log"])
-        with open(self.logfname, 'w') as logfp:
+        with open(self.logfname, 'wb') as logfp:
             logfp.write(analyzer_log_contents)
         bc_log.info("---- stdout+stderr ----------------")
         bc_log.info(self.download_file(files["stdout.txt"]))
@@ -358,7 +358,7 @@ class WebAnalyzer(Analyzer):
         bc_log.debug("----------------------------")
         if "cfaout.marshal" in files:
             # might be absent (ex. when analysis failed, or not requested)
-            with open(self.cfaoutfname, 'w') as cfaoutfp:
+            with open(self.cfaoutfname, 'wb') as cfaoutfp:
                 cfaoutfp.write(self.download_file(files["cfaout.marshal"]))
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
@@ -371,7 +371,7 @@ class WebAnalyzer(Analyzer):
                          (fname, e))
 
     def sha256_digest(self, path):
-        with open(path, 'r') as f:
+        with open(path, 'rb') as f:
             h = hashlib.new('sha256')
             h.update(f.read())
             sha256 = h.hexdigest().lower()
@@ -443,7 +443,7 @@ class PluginOptions(object):
         self.options.set("options", name, value)
 
     def save(self):
-        with open(self.configfile, "w") as optfile:
+        with open(self.configfile, 'wb') as optfile:
             self.options.write(optfile)
 
 
@@ -495,9 +495,9 @@ class State(object):
             path = tempfile.mkdtemp(suffix='bincat')
             outfname = os.path.join(path, "out.ini")
             logfname = os.path.join(path, "analyzer.log")
-            with open(outfname, 'w') as outfp:
+            with open(outfname, 'wb') as outfp:
                 outfp.write(self.netnode["out.ini"])
-            with open(logfname, 'w') as logfp:
+            with open(logfname, 'wb') as logfp:
                 logfp.write(self.netnode["analyzer.log"])
             if "current_ea" in self.netnode:
                 ea = self.netnode["current_ea"]
@@ -531,15 +531,15 @@ class State(object):
             # XXX add user preference for saving to idb? in that case, store
             # reference to marshalled cfa elsewhere
             bc_log.info("Storing analysis results to idb")
-            with open(outfname, 'r') as f:
+            with open(outfname, 'rb') as f:
                 self.netnode["out.ini"] = f.read()
-            with open(logfname, 'r') as f:
+            with open(logfname, 'rb') as f:
                 self.netnode["analyzer.log"] = f.read()
             if self.remapped_bin_path:
                 self.netnode["remapped_bin_path"] = self.remapped_bin_path
             self.netnode["remap_binary"] = self.remap_binary
             if cfaoutfname is not None and os.path.isfile(cfaoutfname):
-                with open(cfaoutfname, 'r') as f:
+                with open(cfaoutfname, 'rb') as f:
                     self.last_cfaout_marshal = f.read()
         else:
             bc_log.info("Empty or unparseable result file.")
@@ -665,7 +665,7 @@ class State(object):
                 bc_log.error("No marshalled CFA has been recorded - run a "
                              "forward analysis first.")
                 return
-            with open(self.analyzer.cfainfname, 'w') as f:
+            with open(self.analyzer.cfainfname, 'wb') as f:
                 f.write(self.last_cfaout_marshal)
         bc_log.debug("Generating .npk file...")
 
