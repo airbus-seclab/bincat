@@ -54,3 +54,33 @@ def test_printf_px(tmpdir):
     p = res.find(msg2)+len(msg2)+1
     assert "value=12345678" in res[p:p+50]
     
+def test_printf_ps(tmpdir):
+    outfname,logfname = analyze(tmpdir, "printf3.ini")
+    res = open(logfname).read()
+
+    msg1 = "stub of printf analysed"
+    msg2 = "[analysis] printf output:"
+    assert msg1 in res
+    assert msg2 in res
+
+    assert "stub of printf analysed" in res
+    assert "[analysis] printf output:" in res
+    p = res.find(msg2)+len(msg2)+1
+    p2 = res.find("\n", p)
+    assert res[p:p2] == "abcd[%s]" % "ABC foobar"
+    
+def test_printf_p012x(tmpdir):
+    outfname,logfname = analyze(tmpdir, "printf4.ini")
+    res = open(logfname).read()
+
+    msg1 = "stub of printf analysed"
+    msg2 = "[analysis] printf output:"
+    assert msg1 in res
+    assert msg2 in res
+
+    assert "stub of printf analysed" in res
+    assert "[analysis] printf output:" in res
+    p = res.find(msg2)+len(msg2)+1
+    p2 = res.find("\n", p)
+    assert res[p:p2] == "abcd[%012x]" % 0x12345678
+    
