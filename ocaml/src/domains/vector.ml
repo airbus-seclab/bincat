@@ -640,7 +640,9 @@ module Make(V: Val) =
 
         let compare v1 op v2 =
             if (Array.length v1) != (Array.length v2) then
-                Log.error (Printf.sprintf "BAD Vector.compare(%s,%s,%s)" (to_string v1) (Asm.string_of_cmp op) (to_string v2));
+              Log.error (Printf.sprintf "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
+			   (to_string v1) (Asm.string_of_cmp op) (to_string v2)
+			   (Array.length v1) (Array.length v2));
             match op with
             | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
             | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
