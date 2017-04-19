@@ -1328,8 +1328,8 @@ struct
         | _ -> error s.a "Illegal nnn value in grp1"
 
     let shift_l_stmt dst sz n =
-        let sz' = const sz sz in
-        let one = Const (Word.one sz) in
+        let sz' = const sz 8 in
+        let one = Const (Word.one 8) in
         let ldst = Lval dst in
         let cf_stmt =
             let c = Cmp (LT, sz', n) in
@@ -1362,7 +1362,7 @@ struct
 		]
         in
         (* If shifted by zero, do nothing, else do the rest *)
-        [If(Cmp(EQ, n, Const (Word.zero sz)), [], ops)]
+        [If(Cmp(EQ, n, Const (Word.zero 8)), [], ops)]
 
     let core_rotate dst src op sz count =
       let cf_stmt = Set (V (T fcf), BinOp(op, Lval dst, Const (Word.of_int (Z.of_int (sz-1)) sz))) in
@@ -1435,7 +1435,7 @@ struct
         let n =
             match e with
             | Some e' -> e'
-            | None -> get_imm s 8 sz false
+            | None -> get_imm s 8 8 false
         in
         match nnn with
 	| 0 -> return s (rotate_l_stmt dst sz n) (* ROL *)
