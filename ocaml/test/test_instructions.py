@@ -627,3 +627,30 @@ def test_shl(analyzer, initialState):
     calc_af(expected, before, reg, 1)
     calc_sf(expected, reg)
     assertEqualStates(after, expected, opcode, prgm=prgm)
+
+def test_shr(analyzer, initialState):
+    """
+    Test shr edx, cl
+    """
+    opcode = "D3EA".decode("hex")
+
+    reg = "edx"
+
+    prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
+
+    regv = getReg(before, reg)
+    cl = getReg(before, "ecx")
+    clv = cl.value & 0xff
+
+    setRegVal(expected, reg, (regv.value >> clv) & 0xffffffff,
+              vtop = (regv.vtop >> clv) & 0xffffffff,
+              taint = (regv.taint >> clv) & 0xffffffff if not cl.taint and not cl.ttop else 0xffffffff,
+              ttop = (regv.ttop >> clv) & 0xffffffff if not cl.ttop else 0xffffffff)
+    
+    calc_zf(expected, reg)
+    calc_pf(expected, reg)
+
+    calc_af(expected, before, reg, 1)
+    calc_sf(expected, reg)
+    assertEqualStates(after, expected, opcode, prgm=prgm)
+
