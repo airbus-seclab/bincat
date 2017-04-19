@@ -931,23 +931,28 @@ module Make(D: T) =
 	 end
       | BOT -> 0, BOT
 
+    (* print nb bytes on stdout as raw string *)
+    let print_bytes bytes nb =
+          let str = Bytes.make nb ' ' in
+              List.iteri (fun i c -> Bytes.set str i (D.to_char c)) bytes;
+              Log.print (Bytes.to_string str);;
+
     let print_until m e terminator term_sz upper_bound with_exception pad_options =
       let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options in
-      Log.print (strip (D.to_string (D.concat bytes)));
+      print_bytes bytes len;
       len, m
 	
     let copy_chars m dst src nb pad_options =
       snd (copy_until m dst src (Asm.Const (Data.Word.of_int Z.zero 8)) 8 nb false pad_options)
 
     let print_chars m src nb pad_options =
-      match m with
-      | Val _ ->
-	 (* TODO: factorize with copy_until *)
-	 let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m false pad_options) in
-	 let str = strip (D.to_string (D.concat bytes)) in
-	 Log.print str;
-	 m
-      | BOT -> Log.print "_"; BOT
+        match m with
+        | Val _ ->
+          (* TODO: factorize with copy_until *)
+          let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m false pad_options) in
+          print_bytes bytes nb;
+          m
+        | BOT -> Log.print "_"; BOT
 
     let copy_chars_to_register m reg offset src nb pad_options =
       match m with
@@ -1078,18 +1083,19 @@ module Make(D: T) =
 	   end
 	| BOT -> BOT
 
+    (* display (char) arg on stdout as a raw string *)
     let print m arg _sz: t =
-      match m with
-      | Val m' ->	
-	 let str = strip (D.to_string (fst (eval_exp m' arg))) in
-	 let str' =
-	   if String.length str <= 2 then
-	     String.make 1 (Char.chr (Z.to_int (Z.of_string ("0x"^str))))
-	   else raise Exceptions.Concretization
-	   in
-	 Log.print str';
-	 m
-      | BOT -> Log.debug "_"; m	
+        match m with
+        | Val m' ->	
+          let str = strip (D.to_string (fst (eval_exp m' arg))) in
+          let str' =
+              if String.length str <= 2 then
+                  String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
+              else raise Exceptions.Concretization
+          in
+          Log.print str';
+          m
+        | BOT -> Log.debug "_"; m	
   end
     
     

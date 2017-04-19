@@ -106,10 +106,11 @@ struct
                 let n = ((Char.code c) - (Char.code '0')) in
                 compute n off
             in
+            (* check the format string arg *)
             let copy_arg d off len arg: int * int * D.t =
                 let c = Bytes.get format_string off in
                 match c with
-                | 's' ->
+                | 's' -> (* %s *)
                   let dump =
                       match to_buffer with
                       | Some dst ->
@@ -119,6 +120,7 @@ struct
                         D.print_until d
                   in
                   let sz, d' = dump arg (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in off+1, sz, d'
+                (* TODO : understand / fix *)
                 | c when '0' <= c && c <= '9' -> copy_num d len c (off+1) arg '0' true
                 | 'x' | 'X' ->
                   let dump =
@@ -145,16 +147,17 @@ struct
                 in
                 let d' = dump src 8 in
                 fill_buffer d' (off+1) 0 (len+1) arg_nb
+            (* state machine for format string parsing *)
             and fill_buffer (d: D.t) (off: int) (state_id: int) (len: int) arg_nb: int * D.t =
                 if off < str_len then
                     match state_id with
-                    | 0 ->
+                    | 0 -> (* look for % *)
                       begin
                           match Bytes.get format_string off with
                           | '%' -> fill_buffer d (off+1) 1 len arg_nb
                           | c -> copy_char d c off len arg_nb
                       end
-                    | 1 ->
+                    | 1 -> (* % found, do we have %% ? *)
                       let c = Bytes.get format_string off in
                       begin
                           match c with
