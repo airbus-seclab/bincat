@@ -1375,7 +1375,7 @@ struct
     let rotate_l_stmt dst sz count =
       let sz8 = Const (Word.of_int (Z.of_int sz) 8) in
       let count_mod = BinOp(Mod, count, sz8) in 
-      let high = BinOp (Shr, Lval dst, BinOp (Sub, sz8 ,count_mod)) in
+      let high = BinOp (Shr, Lval dst, BinOp (Sub, sz8, count_mod)) in
       let low = BinOp (Shl, Lval dst, count_mod) in
       let src = BinOp (Add, high, low) in
       core_rotate dst src Shl sz count_mod
