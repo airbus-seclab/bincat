@@ -1383,11 +1383,11 @@ struct
     let rotate_r_stmt dst sz count =
       let sz8 = Const (Word.of_int (Z.of_int sz) 8) in
       let count_mod = BinOp(Mod, count, sz8) in 
-      let high = BinOp (Shl, Lval dst, count_mod) in
-      let low = BinOp (Shr, Lval dst, BinOp(Sub, sz8, count_mod)) in
+      let high = BinOp (Shl, Lval dst, BinOp(Sub, sz8, count_mod)) in
+      let low = BinOp (Shr, Lval dst, count_mod) in
       let src = BinOp(Add, high, low) in
       core_rotate dst src Shr sz count_mod
-		  
+
     let shift_r_stmt dst sz n arith =
         let sz' = const sz 8 in
         let one = Const (Word.one 8) in
