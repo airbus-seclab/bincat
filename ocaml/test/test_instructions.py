@@ -665,26 +665,37 @@ def ror(a,b, sz=32):
     msk = 2**32-1
     return ((a >> b) | a << (sz-b)) & msk
 
+def rcl(a,b,cf, sz=32):
+    return rol(a|(cf<<sz), b, sz+1)
+
+def rcr(a,b,cf, sz=32):
+    return ror(a|(cf<<sz), b, sz+1)
+
+
 def test_rol(analyzer, initialState):
     """
-    Test rol edx, cl
+    Test rol edx, cl with cl=11
     """
-    opcode = "D3C2".decode("hex")
+    opcode = ("B10B"+"D3C2").decode("hex")
 
     reg = "edx"
 
     prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
 
     regv = getReg(before, reg)
-    cl = getReg(before, "ecx")
-    clv = cl.value & 0xff
-    
-    print clv
+    ecx = getReg(before, "ecx")
+    clv = 11
+    ecx.value = (ecx.value & 0xffffff00) | clv
+    ecx.vtop &= 0xffffff00
+    ecx.taint &= 0xffffff00
+    ecx.ttop &= 0xffffff00
 
+    setReg(expected, "ecx", ecx)
     setRegVal(expected, reg, rol(regv.value, clv),
               vtop = rol(regv.vtop, clv),
-              taint = rol(regv.taint, clv) if not cl.taint and not cl.ttop else 0xffffffff,
-              ttop = rol(regv.ttop, clv) if not cl.ttop else 0xffffffff)
+              taint = rol(regv.taint, clv) if not ecx.taint&0xff and not ecx.ttop&0xff else 0xffffffff,
+              ttop = rol(regv.ttop, clv) if not ecx.ttop&0xff else 0xffffffff)
+
     
     calc_zf(expected, reg)
     calc_pf(expected, reg)
@@ -695,23 +706,95 @@ def test_rol(analyzer, initialState):
 
 def test_ror(analyzer, initialState):
     """
-    Test ror edx, cl
+    Test ror edx, cl with cl=11
     """
-    opcode = "D3CA".decode("hex")
+    opcode = ("B10B"+"D3CA").decode("hex")
 
     reg = "edx"
 
     prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
 
     regv = getReg(before, reg)
-    cl = getReg(before, "ecx")
-    clv = cl.value & 0xff
+    ecx = getReg(before, "ecx")
+    clv = 11
+    ecx.value = (ecx.value & 0xffffff00) | clv
+    ecx.vtop &= 0xffffff00
+    ecx.taint &= 0xffffff00
+    ecx.ttop &= 0xffffff00
 
-    setRegVal(expected, reg, rol(regv.value, clv),
-              vtop = rol(regv.vtop, clv),
-              taint = rol(regv.taint, clv) if not cl.taint and not cl.ttop else 0xffffffff,
-              ttop = rol(regv.ttop, clv) if not cl.ttop else 0xffffffff)
+    setReg(expected, "ecx", ecx)
+    setRegVal(expected, reg, ror(regv.value, clv),
+              vtop = ror(regv.vtop, clv),
+              taint = ror(regv.taint, clv) if not ecx.taint&0xff and not ecx.ttop&0xff else 0xffffffff,
+              ttop = ror(regv.ttop, clv) if not ecx.ttop&0xff else 0xffffffff)
+
+    calc_zf(expected, reg)
+    calc_pf(expected, reg)
+
+    calc_af(expected, before, reg, 1)
+    calc_sf(expected, reg)
+    assertEqualStates(after, expected, opcode, prgm=prgm)
+
+def test_rcl(analyzer, initialState):
+    """
+    Test rcl edx, cl with cl=11
+    """
+    opcode = ("B10B"+"D3D2").decode("hex")
+
+    reg = "edx"
+
+    prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
+
+    regv = getReg(before, reg)
+    ecx = getReg(before, "ecx")
+    clv = 11
+    ecx.value = (ecx.value & 0xffffff00) | clv
+    ecx.vtop &= 0xffffff00
+    ecx.taint &= 0xffffff00
+    ecx.ttop &= 0xffffff00
+    cf = getReg(before, "cf")
+    cfv = cf.value
+
+    setReg(expected, "ecx", ecx)
+    setRegVal(expected, reg, rcl(regv.value, clv, cfv),
+              vtop = rcl(regv.vtop, clv, cfv),
+              taint = rcl(regv.taint, clv, cfv) if not ecx.taint&0xff and not ecx.ttop&0xff else 0xffffffff,
+              ttop = rcl(regv.ttop, clv, cfv) if not ecx.ttop&0xff else 0xffffffff)
+
     
+    calc_zf(expected, reg)
+    calc_pf(expected, reg)
+
+    calc_af(expected, before, reg, 1)
+    calc_sf(expected, reg)
+    assertEqualStates(after, expected, opcode, prgm=prgm)
+
+def test_rcr(analyzer, initialState):
+    """
+    Test rcr edx, cl with cl=11
+    """
+    opcode = ("B10B"+"D3DA").decode("hex")
+
+    reg = "edx"
+
+    prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
+
+    regv = getReg(before, reg)
+    ecx = getReg(before, "ecx")
+    clv = 11
+    ecx.value = (ecx.value & 0xffffff00) | clv
+    ecx.vtop &= 0xffffff00
+    ecx.taint &= 0xffffff00
+    ecx.ttop &= 0xffffff00
+    cf = getReg(before, "cf")
+    cfv = cf.value
+
+    setReg(expected, "ecx", ecx)
+    setRegVal(expected, reg, rcr(regv.value, clv, cfv),
+              vtop = rcr(regv.vtop, clv, cfv),
+              taint = rcr(regv.taint, clv, cfv) if not ecx.taint&0xff and not ecx.ttop&0xff else 0xffffffff,
+              ttop = rcr(regv.ttop, clv, cfv) if not ecx.ttop&0xff else 0xffffffff)
+
     calc_zf(expected, reg)
     calc_pf(expected, reg)
 
