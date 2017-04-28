@@ -355,14 +355,28 @@ module Make(V: Val) =
             done;
             v
 
-        let add v1 v2 = core_add_sub V.add v1 v2
+        let add v1 v2 =
+	  let res = core_add_sub V.add v1 v2 in
+	  Log.debug_lvl (Printf.sprintf "Vector.add(%s, %s) = %s"
+			   (to_string v1) (to_string v2) (to_string res)) 6;
+	  res
+
         let sub v1 v2 = core_add_sub V.sub v1 v2
 
         let xor v1 v2 = map2 V.xor v1 v2
 
 
-        let logand v1 v2 = map2 V.logand v1 v2
-        let logor v1 v2 = map2 V.logor v1 v2
+        let logand v1 v2 =
+	  let res = map2 V.logand v1 v2 in
+	  Log.debug_lvl (Printf.sprintf "Vector.logand(%s, %s)=%s"
+			   (to_string v1) (to_string v2) (to_string res)) 6;
+	  res
+	  
+        let logor v1 v2 =
+	  let res = map2 V.logor v1 v2 in
+	  Log.debug_lvl (Printf.sprintf "Vector.logor(%s, %s)=%s"
+			   (to_string v1) (to_string v2) (to_string res)) 6;
+	  res
 
         let sign_extend v i =
             let n = Array.length v in
@@ -398,10 +412,11 @@ module Make(V: Val) =
             let n  = Array.length v      in
             let v' = Array.make n V.zero in
             let o  = n-i                 in
-                Log.debug_lvl (Printf.sprintf "Vector.ishl(%s, %d), o==%d" (to_string v) i o) 6;
                 for j = 0 to o-1 do
                     v'.(j) <- v.(i+j)
                 done;
+            Log.debug_lvl (Printf.sprintf "Vector.ishl(%s, %d) = %s, (o==%d)"
+			     (to_string v) i (to_string v') o) 6;
             v'
 
         let shl v1 v2 =
@@ -411,7 +426,6 @@ module Make(V: Val) =
             with _ -> raise Exceptions.Enum_failure
 
         let shr v n =
-            Log.debug_lvl (Printf.sprintf "Vector.shr(%s,%s)" (to_string v) (to_string n)) 6;
             let v_len = Array.length v in
             try
                 let n_i = Z.to_int (to_z n) in
@@ -419,8 +433,9 @@ module Make(V: Val) =
                 for j = 0 to v_len-n_i-1 do
                     v'.(j+n_i) <- v.(j)
                 done;
+		Log.debug_lvl (Printf.sprintf "Vector.shr(%s,%s)=%s"
+				 (to_string v) (to_string n) (to_string v')) 6;
                 v'
-
             with
               _ -> raise Exceptions.Enum_failure
 
