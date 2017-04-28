@@ -91,6 +91,13 @@ def getLastState(prgm):
             "expected exactly 1 destination state after running this instruction"
         curState = nextStates[0]
 
+def prettify(asm):
+    s = []
+    for l in asm.splitlines():
+        l = l.strip()
+        if l:
+            s.append("\t"+l)
+    return "\n".join(s)
 
 def bincat_run(tmpdir, asm):
     opcodesfname = assemble(tmpdir, asm)
@@ -114,9 +121,11 @@ def compare(tmpdir, asm, regs=ALL_REGS):
     real = real_run(tmpdir, asm)
     bincat = bincat_run(tmpdir, asm)
     for r in regs:
-        assert real[r] == bincat[r], """
-  real  :  %s = %08x
-  bincat:  %s = %08x""" % (r,real[r],r,bincat[r])
+        assert real[r] == bincat[r], "\n"+prettify(asm)+("""
+=========================
+- real  :  %s = %08x
++ bincat:  %s = %08x
+  """ % (r,real[r],r,bincat[r]))
 
     
 
