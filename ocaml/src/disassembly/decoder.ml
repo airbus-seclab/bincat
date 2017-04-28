@@ -1364,21 +1364,45 @@ struct
         (* If shifted by zero, do nothing, else do the rest *)
         [If(Cmp(EQ, n, Const (Word.zero 8)), [], ops)]
 
-    let core_rotate dst src op sz count =
-      let cf_stmt = Set (V (T fcf), BinOp(op, Lval dst, Const (Word.of_int (Z.of_int (sz-1)) sz))) in
-      (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
-      let of_stmt = If (Cmp (EQ, count, Const (Word.one 8)), [Set (V (T fof), Lval (V (T fcf)))], [undef_flag fof]) in
-      (* beware of that : of_stmt has to be analysed *after* having set cf *)
-      let stmts =  [Set (dst, src) ; cf_stmt ; of_stmt ] in
-      [ If (Cmp(EQ, count, Const (Word.zero 8)), [], stmts)]
-	
+
     let rotate_l_stmt dst sz count =
+      let one = Const (Word.one 8) in
       let sz8 = Const (Word.of_int (Z.of_int sz) 8) in
+      let sz8m1 = Const (Word.of_int (Z.of_int (sz-1)) 8) in
+      let count_mod = BinOp(Mod, count, sz8) in
+      let inv_count_mod = BinOp (Sub, sz8, count_mod) in
+      let low = BinOp (Shr, Lval dst, inv_count_mod) in
+      let high = BinOp (Shl, Lval dst, count_mod) in
+      let src = BinOp (Or, high, low) in
+      let msb = BinOp(Shr, high, sz8m1) in
+      let lsb = low in
+      let cf_stmt = Set (V (T fcf), lsb) in
+      let of_stmt = If (Cmp (EQ, count_mod, one),
+			[Set (V (T fof), BinOp(Xor, lsb, msb))],
+			[undef_flag fof]) in
+      (* beware of that : of_stmt has to be analysed *after* having set cf *)
+      let stmts =  [ cf_stmt ; of_stmt ; Set (dst, src) ] in
+      [ If (Cmp(EQ, count_mod, Const (Word.zero 8)), [], stmts)]
+	
+    let rotate_r_stmt dst sz count =
+      let one = Const (Word.one 8) in
+      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in
+      let sz8m1 = Const (Word.of_int (Z.of_int (sz-1)) 8) in
+      let sz8m2 = Const (Word.of_int (Z.of_int (sz-2)) 8) in
       let count_mod = BinOp(Mod, count, sz8) in 
-      let high = BinOp (Shr, Lval dst, BinOp (Sub, sz8, count_mod)) in
-      let low = BinOp (Shl, Lval dst, count_mod) in
-      let src = BinOp (Add, high, low) in
-      core_rotate dst src Shl sz count_mod
+      let inv_count_mod = BinOp (Sub, sz8, count_mod) in
+      let low = BinOp (Shr, Lval dst, count_mod)  in
+      let high = BinOp (Shl, Lval dst, inv_count_mod) in
+      let src = BinOp (Or, high, low) in
+      let msb = BinOp(Shr, high, sz8m1) in
+      let smsb = BinOp(Shr, high, sz8m2) in
+      let cf_stmt = Set (V (T fcf), msb) in 
+      let of_stmt = If (Cmp (EQ, count_mod, one),
+			[Set (V (T fof), BinOp(Xor, msb, smsb))],
+			[undef_flag fof]) in
+      (* beware of that : of_stmt has to be analysed *after* having set cf *)
+      let stmts =  [cf_stmt ; of_stmt ; Set (dst, src) ] in
+      [ If (Cmp(EQ, count_mod, Const (Word.zero 8)), [], stmts)]
 
     let rotate_r_stmt dst sz count =
       let sz8 = Const (Word.of_int (Z.of_int sz) 8) in
