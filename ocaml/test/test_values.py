@@ -135,5 +135,23 @@ def test_assign(tmpdir):
 	mov ebx,0xcccccc55
     """
     compare(tmpdir, asm, ["eax","ebx"])
-            
-            
+
+
+def test_compare(tmpdir):
+    asm = """
+    	mov eax,0xaaaaffaa
+	mov ebx,0xbbbbbbff
+        cmp ah,bl
+    """
+    compare(tmpdir, asm, ["eax","ebx"] + ALL_FLAGS)
+
+
+def test_rcl(tmpdir):
+    for i in range(65):
+        asm = """
+                mov cl,%i
+                mov eax,0x12345678
+            rcl eax,cl
+        """ % i
+        compare(tmpdir, asm, ["eax","zf"])
+
