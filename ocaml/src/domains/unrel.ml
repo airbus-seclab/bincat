@@ -526,20 +526,20 @@ module Make(D: T) =
 	   let v' = D.unary op v in
 	   v', b || (D.is_tainted v')
 
-	| Asm.TernOp (c, w1, w2) ->
+	| Asm.TernOp (c, e1, e2) ->
 	   let r, b = eval_bexp c true in
 	   if r then
 	     let r2, b2 = eval_bexp c false in
 	     if r2 then
-	       let v1, _ = eval (Asm.Const w1) in
-	       let v2, _ = eval (Asm.Const w2) in
+	       let v1, _ = eval e1 in
+	       let v2, _ = eval e2 in
 	       D.join v1 v2, b||b2
 	     else
-	       fst (eval (Asm.Const w1)), b
+	       fst (eval e1), b
 	   else
 	     let r2, b2 = eval_bexp c false in
 	     if r2 then
-	       fst (eval (Asm.Const w2)), b2
+	       fst (eval e2), b2
 	     else
 	       D.bot, false
       (* TODO: factorize with Interpreter.restrict *)

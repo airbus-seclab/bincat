@@ -73,7 +73,7 @@ type exp =
   | Lval  of lval 	       (** a left value *)
   | BinOp of binop * exp * exp (** a binary operation *)
   | UnOp  of unop * exp        (** a unary operation *)
-  | TernOp of bexp * Word.t * Word.t (** special ternary operator to handle flag update *)   
+  | TernOp of bexp * exp * exp (** special ternary operator to handle flag update *)   
 		      
  (** type of left values *)
  and lval =
@@ -209,7 +209,7 @@ and string_of_exp e extended =
   | Lval lv 	       -> string_of_lval lv extended
   | BinOp (op, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_exp e1 extended) (string_of_binop op) (string_of_exp e2 extended)
   | UnOp (op, e')      -> Printf.sprintf "%s %s" (string_of_unop op extended) (string_of_exp e' extended)
-  | TernOp (c, w1, w2) -> Printf.sprintf "%s?%s:%s" (string_of_bexp c true) (Word.to_string w1) (Word.to_string w2)  
+  | TernOp (c, e1, e2) -> Printf.sprintf "%s?%s:%s" (string_of_bexp c true) (string_of_exp e1 extended) (string_of_exp e2 extended)  
 
 and string_of_bexp e extended =
   match e with
