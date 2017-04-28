@@ -5,8 +5,8 @@ import binascii
 import os.path
 from pybincat import cfa
 
-ALL_REGS = ["eax","ebx","ecx","esi","edi","ebp",
-            "cf","zf","pf","of","af"]
+ALL_FLAGS = ["cf","pf", "af", "zf","sf","df","of"]
+ALL_REGS = ["eax","ebx","ecx","esi","edi","ebp"] + ALL_FLAGS
 
 def assemble(tmpdir, asm):
     d = tmpdir.mkdir("nasm")
@@ -65,8 +65,17 @@ def real_run(tmpdir, asm):
     p = subprocess.Popen(["gcc", "-m32", "-masm=intel", "-o", str(outf), str(inf)])
     p.wait()
     p = subprocess.Popen([str(outf)], stdout=subprocess.PIPE)
-    return { reg: int(val,16) for reg, val in
-             (l.strip().split("=") for l in p.stdout) }
+    regs = { reg: int(val,16) for reg, val in
+            (l.strip().split("=") for l in p.stdout) }
+    flags = regs.pop("eflags")
+    regs["cf"] = flags & 1
+    regs["pf"] = (flags >> 2) & 1
+    regs["af"] = (flags >> 4) & 1
+    regs["zf"] = (flags >> 6) & 1
+    regs["sf"] = (flags >> 7) & 1
+    regs["df"] = (flags >> 10) & 1
+    regs["of"] = (flags >> 11) & 1
+    return regs
 
 
 def getReg(my_state, name):
