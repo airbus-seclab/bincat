@@ -5,11 +5,19 @@ import binascii
 import os.path
 from pybincat import cfa
 
+def counter(fmt="%i", i=0):
+    while True:
+        yield fmt % i
+        i += 1
+
+GCC_DIR = counter("gcc-%i")
+NASM_DIR = counter("nasm-%i")
+
 ALL_FLAGS = ["cf","pf", "af", "zf","sf","df","of"]
 ALL_REGS = ["eax","ebx","ecx","esi","edi","ebp"] + ALL_FLAGS
 
 def assemble(tmpdir, asm):
-    d = tmpdir.mkdir("nasm")
+    d = tmpdir.mkdir(NASM_DIR.next())
     inf = d.join("asm.S")
     outf = d.join("opcodes")
     inf.write("BITS 32\n"+asm)
@@ -56,17 +64,16 @@ C_TEMPLATE_EPILOGUE = r"""
 """
 
 def real_run(tmpdir, asm):
-    d = tmpdir.mkdir("gcc")
+    d = tmpdir.mkdir(GCC_DIR.next())
     inf = d.join("test.c")
     outf = d.join("test")
     inf.write(C_TEMPLATE_PROLOGUE +
               '"'+asm.replace("\n",'\\n"\n"') + '"' +
               C_TEMPLATE_EPILOGUE)
-    p = subprocess.Popen(["gcc", "-m32", "-masm=intel", "-o", str(outf), str(inf)])
-    p.wait()
-    p = subprocess.Popen([str(outf)], stdout=subprocess.PIPE)
+    subprocess.check_call(["gcc", "-m32", "-masm=intel", "-o", str(outf), str(inf)])
+    out = subprocess.check_output([str(outf)])
     regs = { reg: int(val,16) for reg, val in
-            (l.strip().split("=") for l in p.stdout) }
+            (l.strip().split("=") for l in out.splitlines()) }
     flags = regs.pop("eflags")
     regs["cf"] = flags & 1
     regs["pf"] = (flags >> 2) & 1
