@@ -802,3 +802,17 @@ def test_rcr(analyzer, initialState):
     calc_sf(expected, reg)
     assertEqualStates(after, expected, opcode, prgm=prgm)
 
+def test_reg_part_cmp(analyzer, initialState):
+    """
+    Test 
+	mov eax,0xaaaa55aa
+	mov ebx,0xcccccc55
+	cmp ah,bl
+    """
+    opcode = ("b8aa55aaaa"+"bb55cccccc"+"38dc").decode("hex")
+
+    prgm, before, after, expected = go_analyze(analyzer, initialState, opcode)
+
+    zf = getReg(after,"zf")
+    assert(zf.value == 1)
+
