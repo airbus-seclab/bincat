@@ -121,18 +121,20 @@ def bincat_run(tmpdir, asm):
 
     last_state = getLastState(prgm)
     
-    return { reg : getReg(last_state, reg).value for reg in ALL_REGS}
+    return { reg : getReg(last_state, reg) for reg in ALL_REGS}
 
 
 def compare(tmpdir, asm, regs=ALL_REGS):
     real = real_run(tmpdir, asm)
     bincat = bincat_run(tmpdir, asm)
     for r in regs:
-        assert real[r] == bincat[r], "\n"+prettify(asm)+("""
+        vtop = bincat[r].vtop
+        value = bincat[r].value
+        assert real[r] & ~vtop == value & ~vtop, "\n"+prettify(asm)+("""
 =========================
 - real  :  %s = %08x
-+ bincat:  %s = %08x
-  """ % (r,real[r],r,bincat[r]))
++ bincat:  %s = %08x  %r
+  """ % (r,real[r],r,value,bincat[r]))
 
     
 
