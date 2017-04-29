@@ -181,5 +181,16 @@ def test_rcl(tmpdir):
                 mov eax,0x12b4e78f
                 rcl eax,cl
         """ % i
-        compare(tmpdir, asm, ["eax", "cf", "of"])
+        compare(tmpdir, "stc\n"+asm, ["eax", "cf", "of"])
+        compare(tmpdir, "clc\n"+asm, ["eax", "cf", "of"])
+
+def test_rcr(tmpdir):
+    for i in range(65):
+        asm = """
+                mov cl,%i
+                mov eax,0x12b4e78f
+                rcr eax,cl
+        """ % i
+        compare(tmpdir, "stc\n"+asm, ["eax", "cf", "of"])
+        compare(tmpdir, "clc\n"+asm, ["eax", "cf", "of"])
 
