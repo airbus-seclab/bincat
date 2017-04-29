@@ -159,7 +159,7 @@ def test_rol(tmpdir):
     for i in range(65):
         asm = """
                 mov cl,%i
-                mov eax,0x1234567f
+                mov eax,0x12b4e78f
                 rol eax,cl
         """ % i
         compare(tmpdir, asm, ["eax", "cf", "of"])
@@ -168,7 +168,7 @@ def test_ror(tmpdir):
     for i in range(65):
         asm = """
                 mov cl,%i
-                mov eax,0x12345678
+                mov eax,0x12b4e78f
                 ror eax,cl
         """ % i
         compare(tmpdir, asm, ["eax", "cf", "of"])
@@ -178,7 +178,7 @@ def test_rcl(tmpdir):
     for i in range(65):
         asm = """
                 mov cl,%i
-                mov eax,0x12345678
+                mov eax,0x12b4e78f
                 rcl eax,cl
         """ % i
         compare(tmpdir, asm, ["eax", "cf", "of"])
