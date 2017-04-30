@@ -15,7 +15,7 @@ GCC_DIR = counter("gcc-%i")
 NASM_DIR = counter("nasm-%i")
 
 ALL_FLAGS = ["cf","pf", "af", "zf","sf","df","of"]
-ALL_REGS = ["eax","ebx","ecx","esi","edi","ebp"] + ALL_FLAGS
+ALL_REGS = ["eax","ebx","ecx","edx", "esi","edi","esp", "ebp"] + ALL_FLAGS
 
 def assemble(tmpdir, asm):
     d = tmpdir.mkdir(NASM_DIR.next())
