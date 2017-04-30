@@ -3,6 +3,7 @@ import subprocess
 import copy
 import binascii
 import os.path
+import itertools
 from pybincat import cfa
 
 def counter(fmt="%i", i=0):
@@ -193,4 +194,49 @@ def test_rcr(tmpdir):
         """ % i
         compare(tmpdir, "stc\n"+asm, ["eax", "cf", "of"])
         compare(tmpdir, "clc\n"+asm, ["eax", "cf", "of"])
+
+SOME_OPERANDS = [ 0, 1, 2, 0x1234, 0x7fff, 0x8000, 0xffff, 0xffffffff, 0x80000000, 0x7fffffff ]
+SOME_OPERANDS_COUPLES = list(itertools.product(SOME_OPERANDS, SOME_OPERANDS))
+
+def test_add_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            add eax, %#x
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_sub_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            sub eax, %#x
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_and_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            and eax, %#x
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_mul_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            mul ebx
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
+
+def test_imul_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            imul ebx
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
 
