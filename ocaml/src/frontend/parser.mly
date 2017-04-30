@@ -94,6 +94,7 @@
 	in
 	Config.text := String.make !Config.code_length '\x00';
 	really_input fid !Config.text 0 !Config.code_length;
+	close_in fid;
 	(* fill the table of tainting rules for each provided library *)
 	let add_tainting_rules l (c, funs) =
 	  let c' =

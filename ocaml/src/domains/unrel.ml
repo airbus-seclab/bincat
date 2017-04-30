@@ -730,7 +730,8 @@ module Make(D: T) =
               name = lname }
     let init () = sections_addr := List.map convert_section !Config.sections ;
                   let bin_fd = Unix.openfile !Config.binary [Unix.O_RDONLY] 0 in
-                      mapped_file := Some (Bigarray.Genarray.map_file bin_fd ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false [|-1|]);
+                  mapped_file := Some (Bigarray.Genarray.map_file bin_fd ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false [|-1|]);
+		  Unix.close bin_fd;
                   Val (Env.empty)
 		      
     (** returns size of content, rounded to the next multiple of Config.operand_sz *)
