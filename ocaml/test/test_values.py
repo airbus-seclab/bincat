@@ -64,7 +64,7 @@ C_TEMPLATE_EPILOGUE = r"""
 }
 """
 
-def real_run(tmpdir, asm):
+def cpu_run(tmpdir, asm):
     d = tmpdir.mkdir(GCC_DIR.next())
     inf = d.join("test.c")
     outf = d.join("test")
@@ -126,16 +126,16 @@ def bincat_run(tmpdir, asm):
 
 
 def compare(tmpdir, asm, regs=ALL_REGS):
-    real = real_run(tmpdir, asm)
+    cpu = cpu_run(tmpdir, asm)
     bincat = bincat_run(tmpdir, asm)
+    diff = []
     for r in regs:
         vtop = bincat[r].vtop
         value = bincat[r].value
-        assert real[r] & ~vtop == value & ~vtop, "\n"+prettify(asm)+("""
-=========================
-- real  :  %s = %08x
-+ bincat:  %s = %08x  %r
-  """ % (r,real[r],r,value,bincat[r]))
+        if cpu[r] & ~vtop != value & ~vtop:
+            diff.append("- cpu   :  %s = %08x" % (r, cpu[r]))
+            diff.append("+ bincat:  %s = %08x  %r" % (r,value,bincat[r]))
+    assert not diff, "\n"+prettify(asm)+"\n=========================\n"+"\n".join(diff)
 
     
 
