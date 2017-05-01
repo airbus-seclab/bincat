@@ -240,3 +240,38 @@ def test_imul_reg32(tmpdir):
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
 
+def test_shl_reg32(tmpdir):
+    asm = """
+            mov cl, %i
+            mov eax, 0x12b4e78f
+            shl eax, cl
+          """
+    for i in range(65):
+        compare(tmpdir, asm % i, ["eax", "of", "cf"])
+
+def test_shr_reg32(tmpdir):
+    asm = """
+            mov cl, %i
+            mov eax, 0x12b4e78f
+            shr eax, cl
+          """
+    for i in range(65):
+        compare(tmpdir, asm % i, ["eax", "of", "cf"])
+
+def test_sal_reg32(tmpdir):
+    asm = """
+            mov cl, %i
+            mov eax, 0x12b4e78f
+            sal eax, cl
+          """
+    for i in range(65):
+        compare(tmpdir, asm % i, ["eax", "of", "cf"])
+
+def test_sar_reg32(tmpdir):
+    asm = """
+            mov cl, %i
+            mov eax, 0x12b4e78f
+            sar eax, cl
+          """
+    for i in range(65):
+        compare(tmpdir, asm % i, ["eax", "of", "cf"])
