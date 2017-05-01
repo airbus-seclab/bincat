@@ -282,3 +282,14 @@ def test_sar_reg32(tmpdir):
           """
     for i in range(65):
         compare(tmpdir, asm % i, ["eax", "of", "cf"])
+
+def test_movzx(tmpdir):
+    asm = """
+            mov eax, %i
+            movzx bx, al
+            movzx ecx, al
+            movzx edx, ax
+          """
+    for val in [0, 1, 2, 0x7f, 0x7f, 0x80, 0x81, 0xff, 0x100, 0x101, 0x7fff, 0x8000, 0xffff ]:
+        compare(tmpdir, asm % val, ["eax", "ebx", "ecx", "edx"])
+
