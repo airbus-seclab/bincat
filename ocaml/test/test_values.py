@@ -22,8 +22,7 @@ def assemble(tmpdir, asm):
     inf = d.join("asm.S")
     outf = d.join("opcodes")
     inf.write("BITS 32\n"+asm)
-    p = subprocess.Popen(["nasm", "-o", str(outf), str(inf)])
-    p.wait()
+    subprocess.check_call(["nasm", "-o", str(outf), str(inf)])
     return str(outf)
 
 
