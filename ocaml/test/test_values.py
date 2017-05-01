@@ -219,7 +219,7 @@ def test_and_reg32(tmpdir):
             and eax, %#x
           """
     for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf"])
 
 def test_test_reg32(tmpdir):
     asm = """
