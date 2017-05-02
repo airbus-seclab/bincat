@@ -194,7 +194,7 @@ def test_rcr(tmpdir):
         compare(tmpdir, "stc\n"+asm, ["eax", "cf", "of"])
         compare(tmpdir, "clc\n"+asm, ["eax", "cf", "of"])
 
-SOME_OPERANDS = [ 0, 1, 2, 0x1234, 0x7fff, 0x8000, 0xffff, 0xffffffff, 0x80000000, 0x7fffffff ]
+SOME_OPERANDS = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0xff, 0x1234, 0x7fff, 0x8000, 0xffff, 0xffffffff, 0x80000000, 0x7fffffff ]
 SOME_OPERANDS_COUPLES = list(itertools.product(SOME_OPERANDS, SOME_OPERANDS))
 
 def test_add_reg32(tmpdir):
