@@ -293,3 +293,13 @@ def test_movzx(tmpdir):
     for val in [0, 1, 2, 0x7f, 0x7f, 0x80, 0x81, 0xff, 0x100, 0x101, 0x7fff, 0x8000, 0xffff ]:
         compare(tmpdir, asm % val, ["eax", "ebx", "ecx", "edx"])
 
+def test_movsx(tmpdir):
+    asm = """
+            mov eax, %i
+            movsx bx, al
+            movsx ecx, al
+            movsx edx, ax
+          """
+    for val in [0, 1, 2, 0x7f, 0x7f, 0x80, 0x81, 0xff, 0x100, 0x101, 0x7fff, 0x8000, 0xffff ]:
+        compare(tmpdir, asm % val, ["eax", "ebx", "ecx", "edx"])
+
