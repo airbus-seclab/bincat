@@ -2085,8 +2085,8 @@ struct
             | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 1 in
               return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
             | '\xb7' ->
-              let reg, rm = operands_from_mod_reg_rm s 16 1 in
-              return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
+               let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in
+              return s [ Set (reg, UnOp(ZeroExt 32, rm)) ]
 
             | '\xba' -> grp8 s
             | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btc s reg rm
