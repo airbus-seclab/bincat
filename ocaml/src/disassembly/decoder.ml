@@ -552,34 +552,23 @@ struct
     (** size of the direction flag *)
     let fdf_sz = Register.size fdf
 
-
-    (** statements to set the overflow flag *)
-    let overflow flag n nth res sz op1 op2 =
+    (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
+    let overflow_flag_stmts sz res op1 op op2 =
         (* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
+      let nth = (const (sz-1) sz) in
       let b1        = Const (Word.one sz)          in
       let sign_res  = BinOp(And, BinOp (Shr, res, nth), b1) in
       let sign_op1  = BinOp(And, BinOp (Shr, op1, nth), b1) in
       let sign_op2  = BinOp(And, BinOp (Shr, op2, nth), b1) in
-      let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	      in
+      let cmp_op = 
+	match op with
+	| Add -> EQ
+	| Sub -> NEQ
+	| _ -> raise (Invalid_argument "unexpected operation in overflow flag computation") in
+      let c1 	      = Cmp (cmp_op, sign_op1, sign_op2)   	      in
       let c2 	      = Cmp (NEQ, sign_res, sign_op1)         in
-      let one_stmt  = Set (V (T flag), Const (Word.one n))  in
-      let zero_stmt = Set (V (T flag), Const (Word.zero n)) in
-      If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
-	
-      let adjust flag n nth res sz op1 op2 =
-	let b1 = Const (Word.one sz) in
-	let n1 = BinOp (Shr, op1, nth) in
-	let n2 = BinOp (Shr, op2, nth) in
-	let addn = BinOp (Add, n1, n2) in
-	let n' = BinOp (And, addn, b1) in
-	let res' = BinOp (And, BinOp (Shr, res, nth), b1) in
-	let cond = Cmp (NEQ, n', res') in
-	Set(V (T flag), TernOp (cond, Asm.Const (Word.one n), Asm.Const (Word.zero n))) 
+      Set(V (T fof), (TernOp (BBinOp (LogAnd, c1, c2), Asm.Const (Word.one fof_sz), Asm.Const (Word.zero fof_sz))))
       
-      
-    (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
-    let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (const (sz-1) sz) res sz op1 op2
-
     (** produce the statement to set the given flag *)
     let set_flag f = Set (V (T f), Const (Word.one (Register.size f)))
 
@@ -616,7 +605,15 @@ struct
 
     (** produce the statement to set the adjust flag wrt to the given parameters.
      faf is set if there is an overflow on the 4th bit *)
-    let adjust_flag_stmts res sz op1 op2 = adjust faf faf_sz (const 4 sz) res sz op1 op2
+    let adjust_flag_stmts sz op1 op op2 =
+
+      let word_0f = Const (Word.of_int (Z.of_int 0x0f) sz) in
+      let word_4 = Const (Word.of_int (Z.of_int 4) 8) in
+      let op1' = BinOp (And, op1, word_0f)	  in
+      let op2' = BinOp (And, op2, word_0f)	  in
+      let res' = BinOp (op, op1', op2') in
+      let shifted_res = BinOp (Shr, res', word_4) in
+      Set (V (T faf), shifted_res)
 
     (** produce the statement to set the parity flag wrt to the given parameters *)
     let parity_flag_stmts sz res =
@@ -715,8 +712,8 @@ struct
         let res  	= Lval dst		  	    in
         let flags_stmts =
             [
-                carry_flag_stmts sz op1 op op2; overflow_flag_stmts sz res op1 op2; zero_flag_stmts sz res;
-                sign_flag_stmts sz res            ; parity_flag_stmts sz res       ; adjust_flag_stmts res sz op1 op2
+                carry_flag_stmts sz op1 op op2; overflow_flag_stmts sz res op1 op op2; zero_flag_stmts sz res;
+              sign_flag_stmts sz res            ; parity_flag_stmts sz res       ; adjust_flag_stmts sz op1 op op2;
             ]
         in
         (Set (tmp, Lval dst)):: istmts @ flags_stmts @ [ Directive (Remove v) ]
@@ -749,8 +746,8 @@ struct
         let res         = Lval (V (T tmp))                          in
         let flag_stmts =
             [
-                carry_flag_stmts sz e1 Sub e2; overflow_flag_stmts sz res e1 e2; zero_flag_stmts sz res;
-                sign_flag_stmts sz res           ; parity_flag_stmts sz res     ; adjust_flag_stmts res sz e1 e2
+                carry_flag_stmts sz e1 Sub e2; overflow_flag_stmts sz res e1 Sub e2; zero_flag_stmts sz res;
+                sign_flag_stmts sz res           ; parity_flag_stmts sz res     ; adjust_flag_stmts sz e1 Sub e2
             ]
         in
         let set = Set (V (T tmp), BinOp (Sub, e1, e2)) in
@@ -804,8 +801,8 @@ struct
         let res         = Lval dst			    in
         let flags_stmts =
             [
-                overflow_flag_stmts sz res op1 op2   ; zero_flag_stmts sz res;
-                parity_flag_stmts sz res; adjust_flag_stmts res sz op1 op2;
+                overflow_flag_stmts sz res op1 op op2   ; zero_flag_stmts sz res;
+                parity_flag_stmts sz res; adjust_flag_stmts sz op1 op op2;
                 sign_flag_stmts sz res
             ]
         in
