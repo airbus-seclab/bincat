@@ -146,15 +146,6 @@ def test_assign(tmpdir):
     compare(tmpdir, asm, ["eax","ebx"])
 
 
-def test_compare(tmpdir):
-    asm = """
-    	mov eax,0xaaaaffaa
-	mov ebx,0xbbbbbbff
-        cmp ah,bl
-    """
-    compare(tmpdir, asm, ["eax","ebx"] + ALL_FLAGS)
-
-
 def test_rol(tmpdir):
     for i in range(65):
         asm = """
@@ -212,6 +203,35 @@ def test_sub_reg32(tmpdir):
           """
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_cmp_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            cmp eax, %#x
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_cmovxx_reg32(tmpdir):
+    asm = """
+            pushf
+            pop eax
+            and eax, 0xfffff72a
+            or eax, %#x
+            push eax
+            popf
+            mov edx, 0xdeadbeef
+            xor ebx,ebx
+            cmov%s ebx, edx
+            xor ecx,ecx
+            cmov%s ecx, edx
+          """
+    for f in range(0x40): # all flags combinations
+        flags = (f&0x20<<6) | (f&0x10<<3) | (f&8<<3) | (f&4<<2) | (f&2<<1) | (f&1)
+        for cond1, cond2 in [("a","be"),("ae","b"),("c","nc"), ("e", "ne"),
+                             ("g","le"), ("ge","l"), ("o", "no"), ("s", "ns"),
+                             ("p", "np") ]:
+            compare(tmpdir, asm % (flags, cond1, cond2), ["ebx", "ecx", "edx", "of", "sf", "zf", "cf", "pf", "af"])
 
 def test_inc_reg32(tmpdir):
     asm = """
