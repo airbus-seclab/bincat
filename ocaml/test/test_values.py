@@ -237,6 +237,30 @@ def test_and_reg32(tmpdir):
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf"])
 
+def test_or_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            or eax, %#x
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf"])
+
+def test_xor_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            xor eax, %#x
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf"])
+
+def test_not_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            not eax
+          """
+    for vals in SOME_OPERANDS:
+        compare(tmpdir, asm % vals, ["eax"])
+
 def test_test_reg32(tmpdir):
     asm = """
             mov eax, %#x
