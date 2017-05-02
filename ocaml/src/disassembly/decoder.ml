@@ -2105,7 +2105,7 @@ struct
 
             | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
               return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
-            | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s !Config.operand_sz 1 in return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ]
+            | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in return s [ Set (reg, UnOp(SignExt 32, rm)) ]
             | c 	   -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
         in
         decode s;;
