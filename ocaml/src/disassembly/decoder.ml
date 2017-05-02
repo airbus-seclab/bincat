@@ -772,12 +772,13 @@ struct
         let v  	 	= Register.make ~name:name ~size:sz in
         let tmp  	= V (T v)		  	    in
         let tmp_calc   = Set (tmp, BinOp(And, Lval dst, src)) in
-        let res'  = Lval dst			        in
+	Log.debug (Asm.string_of_stmt tmp_calc true);
+	let tmp' = Lval tmp in
         let flag_stmts =
             [
-                clear_flag fcf; clear_flag fof; zero_flag_stmts sz res';
-                sign_flag_stmts sz res';
-                parity_flag_stmts sz res'; undef_flag faf
+                clear_flag fcf; clear_flag fof; zero_flag_stmts sz tmp';
+                sign_flag_stmts sz tmp';
+                parity_flag_stmts sz tmp'; undef_flag faf
             ]
         in
         ([tmp_calc] @ flag_stmts @ [ Directive (Remove v) ])
