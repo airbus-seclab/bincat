@@ -553,21 +553,32 @@ struct
     let fdf_sz = Register.size fdf
 
 
-    (** produce common statements to set the overflow flag and the adjust flag *)
+    (** statements to set the overflow flag *)
     let overflow flag n nth res sz op1 op2 =
         (* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
-        let b1        = Const (Word.one sz)          in
-        let sign_res  = BinOp(And, BinOp (Shr, res, nth), b1) in
-        let sign_op1  = BinOp(And, BinOp (Shr, op1, nth), b1) in
-        let sign_op2  = BinOp(And, BinOp (Shr, op2, nth), b1) in
-        let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	      in
-        let c2 	      = Cmp (NEQ, sign_res, sign_op1)         in
-       (* let one_stmt  = Set (V (T flag), Const (Word.one n))  in
-          let zero_stmt = Set (V (T flag), Const (Word.zero n)) in*)
-        Set(V (T flag), (TernOp (BBinOp (LogAnd, c1, c2), Asm.Const (Word.one n), Asm.Const (Word.zero n))))
-
+      let b1        = Const (Word.one sz)          in
+      let sign_res  = BinOp(And, BinOp (Shr, res, nth), b1) in
+      let sign_op1  = BinOp(And, BinOp (Shr, op1, nth), b1) in
+      let sign_op2  = BinOp(And, BinOp (Shr, op2, nth), b1) in
+      let c1 	      = Cmp (EQ, sign_op1, sign_op2)   	      in
+      let c2 	      = Cmp (NEQ, sign_res, sign_op1)         in
+      let one_stmt  = Set (V (T flag), Const (Word.one n))  in
+      let zero_stmt = Set (V (T flag), Const (Word.zero n)) in
+      If (BBinOp (LogAnd, c1, c2), [ one_stmt ], [ zero_stmt ])
+	
+      let adjust flag n nth res sz op1 op2 =
+	let b1 = Const (Word.one sz) in
+	let n1 = BinOp (Shr, op1, nth) in
+	let n2 = BinOp (Shr, op2, nth) in
+	let addn = BinOp (Add, n1, n2) in
+	let n' = BinOp (And, addn, b1) in
+	let res' = BinOp (And, BinOp (Shr, res, nth), b1) in
+	let cond = Cmp (NEQ, n', res') in
+	Set(V (T flag), TernOp (cond, Asm.Const (Word.one n), Asm.Const (Word.zero n))) 
+      
+      
     (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
-    let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (const (sz-1) sz) res 1 op1 op2
+    let overflow_flag_stmts sz res op1 op2 = overflow fof fof_sz (const (sz-1) sz) res sz op1 op2
 
     (** produce the statement to set the given flag *)
     let set_flag f = Set (V (T f), Const (Word.one (Register.size f)))
@@ -604,8 +615,8 @@ struct
         Set (V (T fzf), TernOp (c, Asm.Const (Word.one n), Asm.Const (Word.zero n)))
 
     (** produce the statement to set the adjust flag wrt to the given parameters.
-     faf is set if there is an overflow on the bit 4 *)
-    let adjust_flag_stmts res sz op1 op2 = overflow faf faf_sz (const 4 sz) res (sz-4) op1 op2
+     faf is set if there is an overflow on the 4th bit *)
+    let adjust_flag_stmts res sz op1 op2 = adjust faf faf_sz (const 4 sz) res sz op1 op2
 
     (** produce the statement to set the parity flag wrt to the given parameters *)
     let parity_flag_stmts sz res =
