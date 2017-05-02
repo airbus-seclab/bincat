@@ -213,6 +213,22 @@ def test_sub_reg32(tmpdir):
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
+def test_inc_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            inc eax
+          """
+    for vals in SOME_OPERANDS:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_dec_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            dec eax
+          """
+    for vals in SOME_OPERANDS:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
 def test_and_reg32(tmpdir):
     asm = """
             mov eax, %#x
