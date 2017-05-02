@@ -445,7 +445,7 @@ module Make(V: Val) =
             let res = Array.make n V.zero in
             let v2' = zero_extend v2 n    in
             let rec loop i res =
-                if i = 0 then
+                if i < 0 then
                     res
                 else
                     let v' =
