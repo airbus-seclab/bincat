@@ -468,8 +468,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	end;
       vertices
 
-    (** [filter_vertices g vertices] returns vertices in _vertices_ that are already in _g_ (same address and same decoding context and subsuming abstract value) *)
-    let filter_vertices g vertices =
+    (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
+    let filter_vertices (subsuming: bool) g vertices =
       (* predicate to check whether a new vertex has to be explored or not *)
       let same prev v' =
         Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip &&
@@ -489,7 +489,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
               end
             else
               (* explore if a greater abstract state of v has already been explored *)
-              Cfa.iter_vertex (fun prev ->
+              if subsuming then
+		Cfa.iter_vertex (fun prev ->
                   if v.Cfa.State.id = prev.Cfa.State.id then
                     ()
                   else
@@ -595,7 +596,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		   Not_found -> new_vertices
 	       in
 	       (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
-               let vertices'  = filter_vertices g new_vertices in
+               let vertices'  = filter_vertices true g new_vertices in
                List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
                (* udpate the internal state of the decoder *)
                d := d'
@@ -754,6 +755,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	[succ]
       in
       update_abstract_value g v ip forward
+	
     (****************************)
     (* FIXPOINT ON CFA *)
     (****************************)
@@ -776,7 +778,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    let v' = next g v in
 	    let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v v'.Cfa.State.ip [v'])@l) [] v' in
 	    let new_vertices' = List.map (unroll g v) new_vertices in
-	    let vertices' = filter_vertices g new_vertices' in
+	    let vertices' = filter_vertices false g new_vertices' in
 	    List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
 	    continue := not (Vertices.is_empty !waiting)
 	  done;
