@@ -102,6 +102,15 @@ sig
     (** update taint *)
     val update_taint: Tainting.t -> t -> t
 
+    (** set bit *)
+    val set_bit: t -> t
+
+    (** clear bit *)
+    val clear_bit: t -> t
+
+    (** update bit *)
+    val update_bit: Bit.t -> t -> t
+
     (** abstract value of 1 *)
     val one: t
 
