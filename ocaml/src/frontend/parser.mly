@@ -170,11 +170,19 @@
 
     override_item:
     |                     { () }
-    | t=tainting_reg SEMI_COLON override_item {
+    | tainting_reg_item { () }
+    | tainting_reg_item SEMI_COLON override_item { () }
+    | tainting_addr_item { () }
+    | tainting_addr_item SEMI_COLON override_item { () }
+
+    tainting_reg_item:
+    | t=tainting_reg {
       try
 	let l = Hashtbl.find Config.reg_override !override_addr in
 	Hashtbl.replace Config.reg_override !override_addr (t::l)
       with Not_found -> Hashtbl.add Config.reg_override !override_addr [t] }
+
+    tainting_addr_item:
     | c=tainting_addr SEMI_COLON override_item {
       let (tbl, a, o) = c in
       try
