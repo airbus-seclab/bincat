@@ -4,6 +4,7 @@ import copy
 import binascii
 import os.path
 import itertools
+from collections import defaultdict
 from pybincat import cfa
 
 def counter(fmt="%i", i=0):
@@ -64,7 +65,17 @@ C_TEMPLATE_EPILOGUE = r"""
 }
 """
 
+def strip_asm_comments(asm):
+    s = []
+    for l in asm.splitlines():
+        p = l.find(";")
+        if  p >= 0:
+            l = l[:p]
+        s.append(l)
+    return "\n".join(s)
+
 def cpu_run(tmpdir, asm):
+    asm = strip_asm_comments(asm)
     d = tmpdir.mkdir(GCC_DIR.next())
     inf = d.join("test.c")
     outf = d.join("test")
@@ -109,8 +120,23 @@ def prettify_listing(asm):
             s.append("\t"+l)
     return "\n".join(s)
 
+
+def extract_directives_from_asm(asm):
+    d = defaultdict(lambda: defaultdict(list))
+    for l in asm.splitlines():
+        if "@taint" in l:
+            sl = l.split()
+            addr = int(sl[1],16)
+            rv = sl[sl.index("@taint")+1]
+            reg,val = rv.split("=")
+            d["taint"][addr].append( (reg,val) )
+    return d
+
+
 def bincat_run(tmpdir, asm):
     opcodesfname,listing,opcodes = assemble(tmpdir, asm)
+
+    directives = extract_directives_from_asm(listing)
     
     outf = tmpdir.join('end.ini')
     logf = tmpdir.join('log.txt')
@@ -119,7 +145,10 @@ def bincat_run(tmpdir, asm):
         open("test_values.ini").read().format(
             code_length = len(opcodes),
             filepath = opcodesfname,
-        ))
+            overrides = "\n".join("%#010x=%s" %  (addr, ";".join("reg[%s],%s" % rv for rv in rvs) )
+                                  for addr,rvs in directives["taint"].iteritems() ) 
+            ))
+        
     prgm = cfa.CFA.from_filenames(str(initf), str(outf), str(logf))
 
     last_state = getLastState(prgm)
