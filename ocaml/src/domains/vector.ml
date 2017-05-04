@@ -448,22 +448,19 @@ module Make(V: Val) =
             with
               _ -> raise Exceptions.Enum_failure
 
-        (* TODO: fix cleanly taint propagation, ugly trick for SSTIC *)
+        (* TODO: can be optimized *)
         let mul v2 v1 =
-            let n   = 2*(Array.length v1) in
-            let res = Array.make n V.zero in
-            let v2' = zero_extend v2 n    in
-            let rec loop i res =
-                if i < 0 then
-                    res
-                else
-                    let v' =
-                        if V.is_one v1.(i) then add res (ishl v2' ((Array.length v1)-1-i))
-                        else res
-                    in
-                    loop (i-1) v'
-            in
-            loop ((Array.length v1)-1) res
+            let n   = Array.length v1 in
+            let nn   = 2*n in
+            let v2_ext = zero_extend v2 nn    in
+            let res = ref (Array.make nn V.zero) in
+	    
+	    for i = 0 to n-1 do
+	      let v2_ext_shift = ishl v2_ext (n-i-1) in
+	      let v2_ext_shift_mul = Array.map (V.logand v1.(i)) v2_ext_shift in
+	      res := add !res v2_ext_shift_mul
+	    done;
+	    !res
 
         let imul v1 v2 =
             Log.debug_lvl (Printf.sprintf "Vector.imul((%d)%s, (%d)%s)" (Array.length v1) (to_string v1) (Array.length v2) (to_string v2)) 4;
