@@ -335,6 +335,17 @@ def test_mul_reg32(tmpdir):
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
 
+def test_mul_taint(tmpdir):
+    asm = """
+            mov eax, %#x  ; @taint eax=%#x 
+            mov ebx, %#x  ; @taint ebx=%#x
+            mul ebx
+          """
+
+    compare(tmpdir, asm % (1,0xff, 0x10001, 0),["eax", "ebx","edx"],
+            reg_taints = dict(eax=0xff00ff, edx=0))
+    
+
 def test_imul_reg32(tmpdir):
     asm = """
             mov eax, %#x
