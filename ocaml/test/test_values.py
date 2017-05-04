@@ -22,8 +22,9 @@ def assemble(tmpdir, asm):
     inf = d.join("asm.S")
     outf = d.join("opcodes")
     inf.write("BITS 32\n"+asm)
-    subprocess.check_call(["nasm", "-o", str(outf), str(inf)])
-    return str(outf)
+    listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
+    opcodes = open(str(outf)).read()
+    return str(outf),listing,opcodes
 
 
 C_TEMPLATE_PROLOGUE = r"""
@@ -98,35 +99,37 @@ def getLastState(prgm):
             "expected exactly 1 destination state after running this instruction"
         curState = nextStates[0]
 
-def prettify(asm):
+def prettify_listing(asm):
     s = []
     for l in asm.splitlines():
         l = l.strip()
+        if "BITS 32" in l or len(l.split()) <= 1:
+            continue
         if l:
             s.append("\t"+l)
     return "\n".join(s)
 
 def bincat_run(tmpdir, asm):
-    opcodesfname = assemble(tmpdir, asm)
+    opcodesfname,listing,opcodes = assemble(tmpdir, asm)
     
     outf = tmpdir.join('end.ini')
     logf = tmpdir.join('log.txt')
     initf = tmpdir.join('init.ini')
     initf.write(
         open("test_values.ini").read().format(
-            code_length = len(open(opcodesfname).read()),
+            code_length = len(opcodes),
             filepath = opcodesfname,
         ))
     prgm = cfa.CFA.from_filenames(str(initf), str(outf), str(logf))
 
     last_state = getLastState(prgm)
     
-    return { reg : getReg(last_state, reg) for reg in ALL_REGS}
+    return { reg : getReg(last_state, reg) for reg in ALL_REGS}, listing
 
 
 def compare(tmpdir, asm, regs=ALL_REGS):
     cpu = cpu_run(tmpdir, asm)
-    bincat = bincat_run(tmpdir, asm)
+    bincat,listing = bincat_run(tmpdir, asm)
     diff = []
     for r in regs:
         vtop = bincat[r].vtop
@@ -134,7 +137,7 @@ def compare(tmpdir, asm, regs=ALL_REGS):
         if cpu[r] & ~vtop != value & ~vtop:
             diff.append("- cpu   :  %s = %08x" % (r, cpu[r]))
             diff.append("+ bincat:  %s = %08x  %r" % (r,value,bincat[r]))
-    assert not diff, "\n"+prettify(asm)+"\n=========================\n"+"\n".join(diff)
+    assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)
 
     
 
