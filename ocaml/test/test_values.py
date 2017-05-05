@@ -415,3 +415,17 @@ def test_movsx(tmpdir):
     for val in [0, 1, 2, 0x7f, 0x7f, 0x80, 0x81, 0xff, 0x100, 0x101, 0x7fff, 0x8000, 0xffff ]:
         compare(tmpdir, asm % val, ["eax", "ebx", "ecx", "edx"])
 
+def test_repne_scasb(tmpdir):
+    asm = """
+            push 0x00006665
+            push 0x64636261
+            mov edi, esp
+            xor al,al
+            mov ecx, 0xffffffff
+            cld
+            repne scasb
+            pushf
+            sub edi, esp
+            popf
+         """
+    compare(tmpdir, asm, ["edi", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
