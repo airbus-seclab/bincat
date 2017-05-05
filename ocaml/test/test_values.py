@@ -435,3 +435,24 @@ def test_repne_scasb(tmpdir):
             popf
          """
     compare(tmpdir, asm, ["edi", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
+
+def test_shld_reg32(tmpdir):
+    asm = """
+            mov eax, 0x12b4e78f
+            mov ebx, 0xa5486204
+            mov cl, %i
+            shld eax, ebx, cl
+          """
+    for i in range(65):
+        compare(tmpdir, asm % i, ["eax", "ebx", "of", "cf"])
+    
+def test_shrd_reg32(tmpdir):
+    asm = """
+            mov eax, 0x12b4e78f
+            mov ebx, 0xa5486204
+            mov cl, %i
+            shrd eax, ebx, cl
+          """
+    for i in range(65):
+        compare(tmpdir, asm % i, ["eax", "ebx", "of", "cf"])
+    
