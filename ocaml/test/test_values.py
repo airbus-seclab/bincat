@@ -122,14 +122,13 @@ def prettify_listing(asm):
 
 
 def extract_directives_from_asm(asm):
-    d = defaultdict(lambda: defaultdict(list))
+    d = defaultdict(dict)
     for l in asm.splitlines():
-        if "@taint" in l:
+        if "@override" in l:
             sl = l.split()
             addr = int(sl[1],16)
-            rv = sl[sl.index("@taint")+1]
-            reg,val = rv.split("=")
-            d["taint"][addr].append( (reg,val) )
+            val = sl[sl.index("@override")+1]
+            d["override"][addr] = val 
     return d
 
 
@@ -145,9 +144,9 @@ def bincat_run(tmpdir, asm):
         open("test_values.ini").read().format(
             code_length = len(opcodes),
             filepath = opcodesfname,
-            overrides = "\n".join("%#010x=%s" %  (addr, ";".join("reg[%s],%s" % rv for rv in rvs) )
-                                  for addr,rvs in directives["taint"].iteritems() ) 
-            ))
+            overrides = "\n".join("%#010x=%s" % (addr, val) for addr,val in directives["override"].iteritems())
+        )
+    )
         
     prgm = cfa.CFA.from_filenames(str(initf), str(outf), str(logf))
 
@@ -337,8 +336,8 @@ def test_mul_reg32(tmpdir):
 
 def test_mul_taint(tmpdir):
     asm = """
-            mov eax, %#x  ; @taint eax=%#x 
-            mov ebx, %#x  ; @taint ebx=%#x
+            mov eax, %#x  ; @override reg[eax],%#x 
+            mov ebx, %#x  ; @override reg[ebx],%#x
             mul ebx
           """
 
