@@ -159,19 +159,24 @@ def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}):
     cpu = cpu_run(tmpdir, asm)
     bincat,listing = bincat_run(tmpdir, asm)
     diff = []
+    same = []
     for r in regs:
         vtop = bincat[r].vtop
         value = bincat[r].value
         if cpu[r] & ~vtop != value & ~vtop:
             diff.append("- cpu   :  %s = %08x" % (r, cpu[r]))
             diff.append("+ bincat:  %s = %08x  %r" % (r,value,bincat[r]))
-    assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)
+        else:
+            same.append("  both  :  %s = %08x  %r" % (r, value,bincat[r]))
+    assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)+"\n=========================\n"+"\n".join(same)
     diff = []
     for r,t in reg_taints.iteritems():
         if bincat[r].taint != t:
             diff.append("- expected :  %s = %08x ! %08x" % (r, cpu[r], t))
             diff.append("+ bincat   :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
-    assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)
+        else:
+            same.append("  both     :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
+    assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)+"\n=========================\n"+"\n".join(same)
     
 
 def test_assign(tmpdir):
