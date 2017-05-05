@@ -147,8 +147,11 @@ def bincat_run(tmpdir, asm):
             overrides = "\n".join("%#010x=%s" % (addr, val) for addr,val in directives["override"].iteritems())
         )
     )
-        
-    prgm = cfa.CFA.from_filenames(str(initf), str(outf), str(logf))
+
+    try:
+        prgm = cfa.CFA.from_filenames(str(initf), str(outf), str(logf))
+    except Exception,e:
+        return e, listing
 
     last_state = getLastState(prgm)
     
@@ -158,6 +161,9 @@ def bincat_run(tmpdir, asm):
 def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}):
     cpu = cpu_run(tmpdir, asm)
     bincat,listing = bincat_run(tmpdir, asm)
+    print type(bincat)
+    assert  not isinstance(bincat, Exception), repr(bincat)+"\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join("cpu : %s = %08x" % (r,cpu[r]) for r in regs)
+    
     diff = []
     same = []
     for r in regs:
