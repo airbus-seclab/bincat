@@ -456,3 +456,13 @@ def test_repne_scasb(tmpdir):
          """
     compare(tmpdir, asm, ["edi", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
 
+
+def test_loop(tmpdir):
+    asm = """
+            mov ecx, 0x40
+            mov eax, 0
+         loop:
+            inc eax
+            loop loop
+          """
+    compare(tmpdir, asm, ["eax", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
