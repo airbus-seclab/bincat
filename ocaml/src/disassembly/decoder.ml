@@ -881,7 +881,7 @@ struct
         let mem  = M (add_segment s (Lval edi') es, i) in
 	let taint_stmt =
 	  Directive (Taint (Some (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i)))), V (T ecx))) in
-	let typ = Types.TInt i in
+	let typ = Types.T (TypedC.Int (Newspeak.Unsigned, i)) in
 	let type_stmt = Directive (Type (mem, typ)) in 
         return s ((cmp_stmts (Lval eax') (Lval mem) i) @ [type_stmt ; taint_stmt] @ (inc_dec_wrt_df [edi] i) )
 
@@ -2050,7 +2050,7 @@ struct
                    ]
                  in
                  if not (s.repe || s.repne) then
-                   v.Cfa.State.stmts <- [ Directive (Type (V (T ecx), Types.TInt (Register.size ecx)));
+                   v.Cfa.State.stmts <- [ Directive (Type (V (T ecx), Types.T (TypedC.Int (Newspeak.Unsigned, Register.size ecx))));
                               Directive (Unroll (Lval (V (T ecx)), 10000)) ] @ blk
                  else
                    begin

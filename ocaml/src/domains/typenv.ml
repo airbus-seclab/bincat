@@ -38,7 +38,7 @@
  let meet env1 env2 =
    match env1, env2 with
    | BOT, env | env, BOT -> env
-   | Val env1', Val env2' -> try Val (Env.join Types.meet env1' env2') with _ -> Log.debug_lvl "no no no !" 4; BOT
+   | Val env1', Val env2' -> try Val (Env.join Types.meet env1' env2') with _ -> BOT
  
 
  let forget env =
@@ -57,7 +57,7 @@
  	    let v1 = Env.find k env1' in
 	   if not (Types.is_subset v1 v2) then
  	     raise Exit
-	  with Not_found -> if v2 = Types.TUNKNOWN then () else raise Exit
+	  with Not_found -> if v2 = Types.UNKNOWN then () else raise Exit
         ) env2';
 	true
       with Exit -> false
@@ -111,18 +111,13 @@ let forget_address (a: Data.Address.t) env =
   | Val env' -> Val (Env.remove (Env.Key.Mem a) env')
   
 
-let of_exp (e: Asm.exp) (env: t): Types.t =
+let of_key (k: Env.Key.t) (env: t): Types.t =
   match env with
   | BOT -> raise Exceptions.Empty
   | Val env' ->
-     match e with
-     | Asm.Lval (Asm.V (Asm.T r)) ->
-	begin
-	  try Env.find (Env.Key.Reg r) env'
-	  with Not_found -> Types.TUNKNOWN
-	end
-     | _ -> Types.TUNKNOWN
-     
+     try Env.find k env'
+     with Not_found -> Types.UNKNOWN
+      
 
 
     

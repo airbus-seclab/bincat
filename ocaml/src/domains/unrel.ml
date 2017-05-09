@@ -63,7 +63,8 @@ module type T =
     val to_strings: t -> string * string
       
     (** value generation from configuration.
-	The size of the value is given by the int parameter *)			    val of_config: Data.Address.region -> Config.cvalue -> int -> t
+	The size of the value is given by the int parameter *)
+    val of_config: Data.Address.region -> Config.cvalue -> int -> t
       
     (** returns the tainted value corresponding to the given abstract value.
     The size of the value is given by the int parameter *)
@@ -651,7 +652,7 @@ module Make(D: T) =
 				
     let set dst src m: (t * bool) =
         match m with
-        |	BOT    -> BOT, false
+        | BOT    -> BOT, false
         | Val m' ->
           let v', _ = eval_exp m' src in
           let v' = span_taint m' src v' in

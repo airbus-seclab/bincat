@@ -110,12 +110,14 @@ let lt (v1, _) (v2, _) = B.lt v1 v2
 
 let lognot (v, t) = B.lognot v, t
 
-let logor (v1, t1) (v2, t2) = match (v1, t1), (v2, t2) with
+let logor (v1, t1) (v2, t2) =
+  match (v1, t1), (v2, t2) with
   | _, (B.ONE, T.U) -> B.ONE, T.U
   | (B.ONE, T.U), _ -> B.ONE, T.U
   | (v1, t1), (v2, t2) -> B.logor v1 v2, T.logor t1 t2
 
-let logand (v1, t1) (v2, t2) = match (v1, t1), (v2, t2) with
+let logand (v1, t1) (v2, t2) =
+  match (v1, t1), (v2, t2) with
   | _, (B.ZERO, T.U) -> B.ZERO, T.U
   | (B.ZERO, T.U), _ -> B.ZERO, T.U
   | (v1, t1), (v2, t2) -> B.logand v1 v2, T.logor t1 t2
