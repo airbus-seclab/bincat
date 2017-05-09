@@ -4,6 +4,7 @@ import copy
 import binascii
 import os.path
 import itertools
+from collections import defaultdict
 from pybincat import cfa
 
 def counter(fmt="%i", i=0):
@@ -22,8 +23,9 @@ def assemble(tmpdir, asm):
     inf = d.join("asm.S")
     outf = d.join("opcodes")
     inf.write("BITS 32\n"+asm)
-    subprocess.check_call(["nasm", "-o", str(outf), str(inf)])
-    return str(outf)
+    listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
+    opcodes = open(str(outf)).read()
+    return str(outf),listing,opcodes
 
 
 C_TEMPLATE_PROLOGUE = r"""
@@ -63,7 +65,17 @@ C_TEMPLATE_EPILOGUE = r"""
 }
 """
 
+def strip_asm_comments(asm):
+    s = []
+    for l in asm.splitlines():
+        p = l.find(";")
+        if  p >= 0:
+            l = l[:p]
+        s.append(l)
+    return "\n".join(s)
+
 def cpu_run(tmpdir, asm):
+    asm = strip_asm_comments(asm)
     d = tmpdir.mkdir(GCC_DIR.next())
     inf = d.join("test.c")
     outf = d.join("test")
@@ -98,44 +110,73 @@ def getLastState(prgm):
             "expected exactly 1 destination state after running this instruction"
         curState = nextStates[0]
 
-def prettify(asm):
+def prettify_listing(asm):
     s = []
     for l in asm.splitlines():
         l = l.strip()
+        if "BITS 32" in l or len(l.split()) <= 1:
+            continue
         if l:
             s.append("\t"+l)
     return "\n".join(s)
 
+
+def extract_directives_from_asm(asm):
+    d = defaultdict(dict)
+    for l in asm.splitlines():
+        if "@override" in l:
+            sl = l.split()
+            addr = int(sl[1],16)
+            val = sl[sl.index("@override")+1]
+            d["override"][addr] = val 
+    return d
+
+
 def bincat_run(tmpdir, asm):
-    opcodesfname = assemble(tmpdir, asm)
+    opcodesfname,listing,opcodes = assemble(tmpdir, asm)
+
+    directives = extract_directives_from_asm(listing)
     
     outf = tmpdir.join('end.ini')
     logf = tmpdir.join('log.txt')
     initf = tmpdir.join('init.ini')
     initf.write(
         open("test_values.ini").read().format(
-            code_length = len(open(opcodesfname).read()),
+            code_length = len(opcodes),
             filepath = opcodesfname,
-        ))
+            overrides = "\n".join("%#010x=%s" % (addr, val) for addr,val in directives["override"].iteritems())
+        )
+    )
+        
     prgm = cfa.CFA.from_filenames(str(initf), str(outf), str(logf))
 
     last_state = getLastState(prgm)
     
-    return { reg : getReg(last_state, reg) for reg in ALL_REGS}
+    return { reg : getReg(last_state, reg) for reg in ALL_REGS}, listing
 
 
-def compare(tmpdir, asm, regs=ALL_REGS):
+def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}):
     cpu = cpu_run(tmpdir, asm)
-    bincat = bincat_run(tmpdir, asm)
+    bincat,listing = bincat_run(tmpdir, asm)
     diff = []
+    same = []
     for r in regs:
         vtop = bincat[r].vtop
         value = bincat[r].value
         if cpu[r] & ~vtop != value & ~vtop:
             diff.append("- cpu   :  %s = %08x" % (r, cpu[r]))
             diff.append("+ bincat:  %s = %08x  %r" % (r,value,bincat[r]))
-    assert not diff, "\n"+prettify(asm)+"\n=========================\n"+"\n".join(diff)
-
+        else:
+            same.append("  both  :  %s = %08x  %r" % (r, value,bincat[r]))
+    assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)+"\n=========================\n"+"\n".join(same)
+    diff = []
+    for r,t in reg_taints.iteritems():
+        if bincat[r].taint != t:
+            diff.append("- expected :  %s = %08x ! %08x" % (r, cpu[r], t))
+            diff.append("+ bincat   :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
+        else:
+            same.append("  both     :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
+    assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)+"\n=========================\n"+"\n".join(same)
     
 
 def test_assign(tmpdir):
@@ -298,6 +339,17 @@ def test_mul_reg32(tmpdir):
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
 
+def test_mul_taint(tmpdir):
+    asm = """
+            mov eax, %#x  ; @override reg[eax],%#x 
+            mov ebx, %#x  ; @override reg[ebx],%#x
+            mul ebx
+          """
+
+    compare(tmpdir, asm % (1,0xff, 0x10001, 0),["eax", "ebx","edx"],
+            reg_taints = dict(eax=0xff00ff, edx=0))
+    
+
 def test_imul_reg32(tmpdir):
     asm = """
             mov eax, %#x
@@ -363,3 +415,17 @@ def test_movsx(tmpdir):
     for val in [0, 1, 2, 0x7f, 0x7f, 0x80, 0x81, 0xff, 0x100, 0x101, 0x7fff, 0x8000, 0xffff ]:
         compare(tmpdir, asm % val, ["eax", "ebx", "ecx", "edx"])
 
+def test_repne_scasb(tmpdir):
+    asm = """
+            push 0x00006665
+            push 0x64636261
+            mov edi, esp
+            xor al,al
+            mov ecx, 0xffffffff
+            cld
+            repne scasb
+            pushf
+            sub edi, esp
+            popf
+         """
+    compare(tmpdir, asm, ["edi", "ecx", "zf", "cf", "of", "pf", "af", "sf"])

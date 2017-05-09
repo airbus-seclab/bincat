@@ -69,6 +69,9 @@ let char_of_taint (_v, t) = T.to_char t
 let untaint (v, t) = v, T.untaint t
 let taint (v, t) = v, T.taint t
 let update_taint t' (v, _) = v, t'
+let set_bit (_, t) = B.ONE, t
+let clear_bit (_, t) = B.ZERO, t
+let update_bit v' (_, t) = v', t
 
 let compare (v1, _t1) op (v2, _t2) = B.compare v1 op v2
 
