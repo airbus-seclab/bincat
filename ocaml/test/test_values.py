@@ -442,7 +442,8 @@ def test_movsx(tmpdir):
 
 def test_repne_scasb(tmpdir):
     asm = """
-            push 0x00006665
+            push 0x00006A69
+            push 0x68676665
             push 0x64636261
             mov edi, esp
             xor al,al
