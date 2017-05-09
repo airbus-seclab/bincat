@@ -452,9 +452,11 @@ def test_repne_scasb(tmpdir):
             repne scasb
             pushf
             sub edi, esp
+            mov edx, ecx
+            not edx
             popf
          """
-    compare(tmpdir, asm, ["edi", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
+    compare(tmpdir, asm, ["edi", "ecx", "edx", "zf", "cf", "of", "pf", "af", "sf"])
 
 
 def test_loop(tmpdir):
