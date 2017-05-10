@@ -496,6 +496,22 @@ def test_repne_scasb(tmpdir):
     compare(tmpdir, asm, ["edi", "ecx", "edx", "zf", "cf", "of", "pf", "af", "sf"])
 
 
+def test_repne_scasb_unknown_memory(tmpdir):
+    asm = """
+            mov edi, esp
+            xor al,al
+            mov ecx, 0xffffffff
+            cld
+            repne scasb
+            pushf
+            sub edi, esp
+            mov edx, ecx
+            not edx
+            popf
+         """
+    compare(tmpdir, asm, ["edi", "ecx", "edx", "zf", "cf", "of", "pf", "af", "sf"])
+
+
 def test_loop(tmpdir):
     asm = """
             mov ecx, 0x40
