@@ -133,3 +133,16 @@ def test_sprintf_check_1(tmpdir):
     assert eax.value == len(expected)
     assert getMemAsStr(s, 0x400) == expected+"\x00"
     
+def test_memcpy(tmpdir):
+    cplen = 15
+    psrc = 0x200
+    pdst = 0x400
+    outfname,logfname,res = analyze(tmpdir, "memcpy1.ini")
+    first_state = res[0]
+    last_state = getLastState(res)
+    src = getMemAsStr(first_state, psrc)
+    dst = getMemAsStr(last_state, pdst)
+    eax = getReg(last_state, "eax")
+    assert eax.value == pdst
+    assert dst == src
+    
