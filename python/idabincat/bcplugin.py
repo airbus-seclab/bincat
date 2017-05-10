@@ -671,7 +671,11 @@ class State(object):
 
         headers_filenames = self.current_config.headers_files.split(',')
         # compile .c files for libs, if there are any
-        for f in headers_filenames[:]:
+        bc_log.debug("Initial npk files: %r" % headers_filenames)
+        new_headers_filenames = []
+        for f in headers_filenames:
+            if not f:
+                continue
             if f.endswith('.c'):
                 new_npk_fname = f[:-2] + '.no'
                 headers_filenames.remove(f)
@@ -679,8 +683,9 @@ class State(object):
                     # compile
                     temp_npk_fname = self.analyzer.generate_tnpk(f)
                     shutil.copyfile(temp_npk_fname, new_npk_fname)
-                headers_filenames.append(new_npk_fname)
-
+                    f = new_npk_fname
+            new_headers_filenames.append(f)
+        headers_filenames = new_headers_filenames
         # try to generate npk file for the binary being analyzed
         npk_filename = self.analyzer.generate_tnpk()
         if not npk_filename:
@@ -688,6 +693,7 @@ class State(object):
         else:
             bc_log.debug(".npk file has been successfully generated.")
             headers_filenames.append(npk_filename)
+        bc_log.debug("Final npk files: %r" % headers_filenames)
         self.current_config.headers_files = ','.join(headers_filenames)
 
         self.current_config.write(self.analyzer.initfname)
