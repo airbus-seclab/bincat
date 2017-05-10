@@ -38,7 +38,7 @@ struct
           begin
               try
                   let n = Z.to_int (D.value_of_exp d sz) in
-                  let d' = D.copy d dst src n in
+                  let d' = D.copy d dst (Asm.Lval (Asm.M (src, (8*n)))) (8*n) in
                   D.set ret dst d'
               with _ -> Log.error "too large copy size in memcpy stub"
           end
