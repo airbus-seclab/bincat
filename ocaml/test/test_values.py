@@ -521,3 +521,18 @@ def test_loop(tmpdir):
             loop loop
           """
     compare(tmpdir, asm, ["eax", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
+
+
+def test_cond_jump_jne(tmpdir):
+    asm = """
+            mov ecx, %i
+            mov eax, 0
+         loop:
+            inc eax
+            dec ecx
+            cmp ecx,0
+            jne loop
+          """
+    for i in range(1, 20):
+        compare(tmpdir, asm % i, ["eax", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
+
