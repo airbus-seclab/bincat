@@ -25,6 +25,16 @@ def analyze(tmpdir, initfname):
 def getReg(my_state, name):
     v = cfa.Value('reg', name, cfa.reg_len(name))
     return my_state[v][0]
+
+def getMem(my_state, addr):
+    v = cfa.Value('g', addr)
+    return my_state[v]
+
+def getMemAsStr(my_state, addr):
+    r = getMem(my_state, addr)
+    return "".join(chr(v.value) for v in r)
+
+
 def getLastState(prgm):
     curState = prgm['0']
     while True:
@@ -98,4 +108,28 @@ def test_printf_p012x(tmpdir):
     p = res.find(msg2)+len(msg2)+1
     p2 = res.find("\n", p)
     assert res[p:p2] == "abcd[%012x]" % 0x12345678
+
+def test_sprintf1(tmpdir):
+    outfname,logfname,res = analyze(tmpdir, "sprintf1.ini")
+    s = getLastState(res)
+    eax = getReg(s, "eax")
+    expected = "abcd[%012x]\n" % 0x12345678
+    assert eax.value == len(expected)
+    assert getMemAsStr(s, 0x400) == expected+"\x00"
+
+def test_sprintf2(tmpdir):
+    outfname,logfname,res = analyze(tmpdir, "sprintf2.ini")
+    s = getLastState(res)
+    eax = getReg(s, "eax")
+    expected = "abcd[%s]\n" % "ABCDEF"
+    assert eax.value == len(expected)
+    assert getMemAsStr(s, 0x400) == expected+"\x00"
+
+def test_sprintf_check_1(tmpdir):
+    outfname,logfname,res = analyze(tmpdir, "sprintf_check1.ini")
+    s = getLastState(res)
+    eax = getReg(s, "eax")
+    expected = "abcd[%s]\n" % "ABCDEF"
+    assert eax.value == len(expected)
+    assert getMemAsStr(s, 0x400) == expected+"\x00"
     
