@@ -231,6 +231,43 @@ def test_rcr(tmpdir):
         compare(tmpdir, "stc\n"+asm, ["eax", "cf", "of"])
         compare(tmpdir, "clc\n"+asm, ["eax", "cf", "of"])
 
+def test_rol_immediate(tmpdir):
+    for i in range(65):
+        asm = """
+                mov eax,0x12b4e78f
+                rol eax,%i
+        """ % i
+        compare(tmpdir, asm, ["eax", "cf", "of"])
+
+def test_ror_immediate(tmpdir):
+    for i in range(65):
+        asm = """
+                mov eax,0x12b4e78f
+                ror eax,%i
+        """ % i
+        compare(tmpdir, asm, ["eax", "cf", "of"])
+
+
+def test_rcl_immediate(tmpdir):
+    for i in range(65):
+        asm = """
+                mov eax,0x12b4e78f
+                rcl eax,%i
+        """ % i
+        compare(tmpdir, "stc\n"+asm, ["eax", "cf", "of"])
+        compare(tmpdir, "clc\n"+asm, ["eax", "cf", "of"])
+
+def test_rcr_immediate(tmpdir):
+    for i in range(65):
+        asm = """
+                mov eax,0x12b4e78f
+                rcr eax,%i
+        """ % i
+        compare(tmpdir, "stc\n"+asm, ["eax", "cf", "of"])
+        compare(tmpdir, "clc\n"+asm, ["eax", "cf", "of"])
+
+
+
 SOME_OPERANDS = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0xff, 0x1234, 0x7fff, 0x8000, 0xffff, 0xffffffff, 0x80000000, 0x7fffffff ]
 SOME_OPERANDS_COUPLES = list(itertools.product(SOME_OPERANDS, SOME_OPERANDS))
 
