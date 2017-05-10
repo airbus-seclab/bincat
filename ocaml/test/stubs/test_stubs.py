@@ -17,13 +17,28 @@ def analyze(tmpdir, initfname):
     outfname = str(tmpdir.join('end.ini'))
     logfname = str(tmpdir.join('log.txt'))
     
-    p = cfa.CFA.from_filenames(initfname, outfname, logfname)
+    res = cfa.CFA.from_filenames(initfname, outfname, logfname)
 
     os.chdir(olddir)
-    return outfname, logfname
+    return outfname, logfname, res
+
+def getReg(my_state, name):
+    v = cfa.Value('reg', name, cfa.reg_len(name))
+    return my_state[v][0]
+def getLastState(prgm):
+    curState = prgm['0']
+    while True:
+        nextStates = prgm.next_states(curState.node_id)
+        if len(nextStates) == 0:
+            return curState
+        assert len(nextStates) == 1, \
+            "expected exactly 1 destination state after running this instruction"
+        curState = nextStates[0]
+
+
 
 def test_printf(tmpdir):
-    outfname,logfname = analyze(tmpdir, "printf.ini")
+    outfname,logfname,res = analyze(tmpdir, "printf.ini")
     res = open(logfname).read()
     msg1 = "stub of printf analysed"
     msg2 = "[analysis] printf output:"
@@ -37,7 +52,7 @@ def test_printf(tmpdir):
     assert "12345678" in res[p:p+50]
     
 def test_printf_px(tmpdir):
-    outfname,logfname = analyze(tmpdir, "printf2.ini")
+    outfname,logfname,res = analyze(tmpdir, "printf2.ini")
     res = open(logfname).read()
 
     msg1 = "stub of printf analysed"
@@ -55,7 +70,7 @@ def test_printf_px(tmpdir):
     assert "value=12345678" in res[p:p+50]
     
 def test_printf_ps(tmpdir):
-    outfname,logfname = analyze(tmpdir, "printf3.ini")
+    outfname,logfname,res = analyze(tmpdir, "printf3.ini")
     res = open(logfname).read()
 
     msg1 = "stub of printf analysed"
@@ -70,7 +85,7 @@ def test_printf_ps(tmpdir):
     assert res[p:p2] == "abcd[%s]" % "ABC foobar"
     
 def test_printf_p012x(tmpdir):
-    outfname,logfname = analyze(tmpdir, "printf4.ini")
+    outfname,logfname,res = analyze(tmpdir, "printf4.ini")
     res = open(logfname).read()
 
     msg1 = "stub of printf analysed"
