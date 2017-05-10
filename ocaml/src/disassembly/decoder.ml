@@ -1398,24 +1398,26 @@ struct
       [ If (Cmp(EQ, count_mod, zero), [], stmts)]
 	
     let rotate_r_stmt dst sz count =
-      let one = Const (Word.one 8) in
-      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in
-      let sz8m1 = Const (Word.of_int (Z.of_int (sz-1)) 8) in
-      let sz8m2 = Const (Word.of_int (Z.of_int (sz-2)) 8) in
-      let count_mod = BinOp(Mod, count, sz8) in 
-      let inv_count_mod = BinOp (Sub, sz8, count_mod) in
+      let one = Const (Word.one sz) in
+      let zero = Const (Word.zero sz) in
+      let sz_exp = const sz sz in
+      let szm1_exp = const (sz-1) sz in
+      let szm2_exp = const (sz-2) sz in
+      let count_ext = UnOp(ZeroExt sz, count) in 
+      let count_mod = BinOp(Mod, count_ext, sz_exp) in 
+      let inv_count_mod = BinOp (Sub, sz_exp, count_mod) in
       let low = BinOp (Shr, Lval dst, count_mod)  in
       let high = BinOp (Shl, Lval dst, inv_count_mod) in
       let src = BinOp (Or, high, low) in
-      let msb = BinOp(Shr, high, sz8m1) in
-      let smsb = BinOp(Shr, high, sz8m2) in
+      let msb = BinOp(Shr, high, szm1_exp) in
+      let smsb = BinOp(Shr, high, szm2_exp) in
       let cf_stmt = Set (V (T fcf), msb) in 
       let of_stmt = If (Cmp (EQ, count_mod, one),
 			[Set (V (T fof), BinOp(Xor, msb, smsb))],
 			[undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
       let stmts =  [cf_stmt ; of_stmt ; Set (dst, src) ] in
-      [ If (Cmp(EQ, count_mod, Const (Word.zero 8)), [], stmts)]
+      [ If (Cmp(EQ, count_mod, zero), [], stmts)]
 
     let rotate_l_carry_stmt dst sz count = (* rcr *)
       let zero = Const (Word.zero 8) in
