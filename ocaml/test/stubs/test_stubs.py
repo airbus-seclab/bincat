@@ -113,7 +113,7 @@ def test_sprintf1(tmpdir):
     outfname,logfname,res = analyze(tmpdir, "sprintf1.ini")
     s = getLastState(res)
     eax = getReg(s, "eax")
-    expected = "abcd[%012x]\n" % 0x12345678
+    expected = "abcd[%012x][%015X]\n" % (0x12ab5c78,0x87ab43f1)
     assert eax.value == len(expected)
     assert getMemAsStr(s, 0x400) == expected+"\x00"
 
