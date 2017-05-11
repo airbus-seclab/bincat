@@ -1340,8 +1340,8 @@ struct
     let shift_l_stmt dst sz n =
         let sz' = const sz 8 in
         let one = Const (Word.one 8) in
-	let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
-	let n_masked = BinOp(And, n, word_1f) in
+        let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
+        let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
         let cf_stmt =
             let c = Cmp (LT, sz', n_masked) in
@@ -1351,31 +1351,66 @@ struct
                 [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
         in
         let of_stmt =
-          let is_one = Cmp (EQ, n_masked, one) in
-          let op =
-            (* last bit having been "evicted out"  xor CF*)
-            Set (V (T fof),
-                 BinOp(Xor, Lval (V (T fcf)),
-                       BinOp (And, one,
-                              (BinOp(Shr, ldst,
-				     BinOp(Sub, sz', n_masked))))))
-          in
-          If (is_one,    (* OF is set if n == 1 only *)
-              [op] ,
-              [undef_flag fof])
+            let is_one = Cmp (EQ, n_masked, one) in
+            let op =
+                (* last bit having been "evicted out"  xor CF*)
+                Set (V (T fof),
+                     BinOp(Xor, Lval (V (T fcf)),
+                           BinOp (And, one,
+                                  (BinOp(Shr, ldst,
+                                         BinOp(Sub, sz', n_masked))))))
+            in
+            If (is_one,    (* OF is set if n == 1 only *)
+                [op] ,
+                [undef_flag fof])
         in
-	let lv = Lval dst in
+        let lv = Lval dst in
         let ops =
-                [
-                 Set (dst, BinOp (Shl, ldst, n_masked));
-                 (* previous cf is used in of_stmt *)
-                 of_stmt; cf_stmt; undef_flag faf;
-                 (sign_flag_stmts sz lv) ; (zero_flag_stmts sz lv) ; (parity_flag_stmts sz lv)
-		]
+            [
+                Set (dst, BinOp (Shl, ldst, n_masked));
+                (* previous cf is used in of_stmt *)
+                of_stmt; cf_stmt; undef_flag faf;
+                (sign_flag_stmts sz lv) ; (zero_flag_stmts sz lv) ; (parity_flag_stmts sz lv)
+            ]
         in
         (* If shifted by zero, do nothing, else do the rest *)
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops)]
 
+
+    (* SHLD *)
+    let shift_ld_stmt dst src sz n =
+        let sz' = const sz 8 in
+        let one = Const (Word.one 8) in
+        let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
+        let n_masked = BinOp(And, n, word_1f) in
+        let ldst = Lval dst in
+        let cf_stmt =
+            let c = Cmp (LT, sz', n_masked) in
+            If (c,
+                [undef_flag fcf],
+                (* CF is the last bit having been "evicted out" *)
+                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
+        in
+        let of_stmt =
+            let is_one = Cmp (EQ, n_masked, one) in
+            If (is_one,    (* OF is clear, only if n == 1 *)
+                [clear_flag fof] ,
+                [undef_flag fof])
+        in
+        let lv = Lval dst in
+        let ops =
+            [
+                (* dst = (dsl << n) | (src >> (sz-n)) *)
+                Set (dst, (BinOp(Or,
+                            (BinOp(Shl, ldst, n_masked)),
+                            (BinOp(Shr, src, BinOp(Sub, sz', n_masked))))));
+                (* previous cf is used in of_stmt *)
+                of_stmt; cf_stmt; undef_flag faf;
+                (sign_flag_stmts sz lv) ; (zero_flag_stmts sz lv) ; (parity_flag_stmts sz lv)
+            ]
+        in
+        (* If shifted by zero, do nothing, else do the rest *)
+        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops)]
 
     let rotate_l_stmt dst sz count =
       let one = Const (Word.one sz) in
@@ -2084,6 +2119,8 @@ struct
             | '\xa1' -> pop s [V (T fs)]
             (*| '\xa2' -> cpuid *)
             | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bt s reg rm
+            | '\xa5' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 
+                            in return s (shift_ld_stmt reg rm 32 (Lval (V cl)))
             | '\xa8' -> push s [V (T gs)]
             | '\xa9' -> pop s [V (T gs)]
 
