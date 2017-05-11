@@ -30,7 +30,7 @@ def assemble(tmpdir, asm):
 
 C_TEMPLATE_PROLOGUE = r"""
 #include <stdio.h>
-void main(void)
+int main(void)
 {
         unsigned int Reax,Rebx,Recx,Redx,Resi,Redi,Resp,Rebp,Reflags;
         asm volatile(
@@ -62,6 +62,8 @@ C_TEMPLATE_EPILOGUE = r"""
         printf("esp=%08x\n", Resp);
         printf("ebp=%08x\n", Rebp);
         printf("eflags=%08x\n", Reflags);
+
+        return 0;
 }
 """
 
