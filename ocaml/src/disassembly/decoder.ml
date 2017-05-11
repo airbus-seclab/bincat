@@ -1337,6 +1337,7 @@ struct
         | 7 -> return s (cmp_stmts (Lval dst) imm reg_sz)
         | _ -> error s.a "Illegal nnn value in grp1"
 
+    (* SHL *)
     let shift_l_stmt dst sz n =
         let sz' = const sz 8 in
         let one = Const (Word.one 8) in
@@ -1376,8 +1377,56 @@ struct
         (* If shifted by zero, do nothing, else do the rest *)
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops)]
 
+    (* SHR *)
+    let shift_r_stmt dst sz n arith =
+        let sz' = const sz 8 in
+        let one = Const (Word.one 8) in
+        let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
+        let n_masked = BinOp(And, n, word_1f) in
+        let ldst = Lval dst in
+        let dst_sz_min_one = const (sz-1) sz in
+        let dst_msb = BinOp(And, Const (Word.one 8), BinOp(Shr, ldst, dst_sz_min_one)) in
+        let cf_stmt =
+            let c = Cmp (LT, sz', n_masked) in
+            If (c,
+                [undef_flag fcf],
+                (* CF is the last bit having been "evicted out" *)
+                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one)))))])
+        in
+        let of_stmt =
+            let is_one = Cmp (EQ, n_masked, one) in
+            let op =
+                if arith then
+                    (clear_flag fof)
+                else
+                    (* MSB of original dest *)
+                    (Set (V (T fof), dst_msb))
+            in
+            If (is_one,    (* OF is set if n == 1 only *)
+                [op] ,
+                [undef_flag fof])
+        in
+        let ops =
+            if arith then
+                [
+                    (* Compute sign extend mask if needed *)
+                    If (Cmp (EQ, dst_msb, one),
+                        [Set (dst, BinOp(Or, BinOp (Shr, ldst, n_masked), one))], (* TODO :extend *)
+                        [Set (dst, BinOp (Shr, ldst, n_masked))] (* no extend *)
+                       );
+                    cf_stmt ; of_stmt ; undef_flag faf;
+                ]
+            else
+                [
+                    Set (dst, BinOp (Shr, ldst, n_masked));
+                    cf_stmt ; of_stmt ; undef_flag faf;
+                ]
+        in
+        (* If shifted by zero, do nothing, else do the rest *)
+        let res = Lval dst in
+        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
 
-    (* SHLD *)
+    (* SHLD / TODO : merge with SHL ? *)
     let shift_ld_stmt dst src sz n =
         let sz' = const sz 8 in
         let one = Const (Word.one 8) in
@@ -1400,7 +1449,7 @@ struct
         let lv = Lval dst in
         let ops =
             [
-                (* dst = (dsl << n) | (src >> (sz-n)) *)
+                (* dst = (dst << n) | (src >> (sz-n)) *)
                 Set (dst, (BinOp(Or,
                             (BinOp(Shl, ldst, n_masked)),
                             (BinOp(Shr, src, BinOp(Sub, sz', n_masked))))));
@@ -1411,6 +1460,46 @@ struct
         in
         (* If shifted by zero, do nothing, else do the rest *)
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops)]
+
+    (* SHRD *)
+    let shift_rd_stmt dst src sz n =
+        let sz' = const sz 8 in
+        let one = Const (Word.one 8) in
+        let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
+        let n_masked = BinOp(And, n, word_1f) in
+        let ldst = Lval dst in
+        let dst_sz_min_one = const (sz-1) sz in
+        let dst_msb = BinOp(And, Const (Word.one 8), BinOp(Shr, ldst, dst_sz_min_one)) in
+        let cf_stmt =
+            let c = Cmp (LT, sz', n_masked) in
+            If (c,
+                [undef_flag fcf],
+                (* CF is the last bit having been "evicted out" *)
+                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one)))))])
+        in
+        let of_stmt =
+            let is_one = Cmp (EQ, n_masked, one) in
+            let op =
+                (* MSB of original dest *)
+                (Set (V (T fof), dst_msb))
+            in
+            If (is_one,    (* OF is set if n == 1 only *)
+                [op] ,
+                [undef_flag fof])
+        in
+        let ops =
+                [
+                    (* dst = (dst >> n) | (src << (sz-n)) *)
+                    Set (dst, (BinOp(Or,
+                                (BinOp(Shr, ldst, n_masked)),
+                                (BinOp(Shl, src, BinOp(Sub, sz', n_masked))))));
+                    cf_stmt ; of_stmt ; undef_flag faf;
+                ]
+        in
+        (* If shifted by zero, do nothing, else do the rest *)
+        let res = Lval dst in
+        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
+
 
     let rotate_l_stmt dst sz count =
       let one = Const (Word.one sz) in
@@ -1528,54 +1617,6 @@ struct
       [ If (Cmp(EQ, count_mod, zero), [], stmts)]
 
 	
-    let shift_r_stmt dst sz n arith =
-        let sz' = const sz 8 in
-        let one = Const (Word.one 8) in
-	let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
-	let n_masked = BinOp(And, n, word_1f) in
-        let ldst = Lval dst in
-        let dst_sz_min_one = const (sz-1) sz in
-        let dst_msb = BinOp(And, Const (Word.one 8), BinOp(Shr, ldst, dst_sz_min_one)) in
-        let cf_stmt =
-            let c = Cmp (LT, sz', n_masked) in
-            If (c,
-                [undef_flag fcf],
-                (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one)))))])
-        in
-        let of_stmt =
-                let is_one = Cmp (EQ, n_masked, one) in
-                let op =
-                    if arith then
-                        (clear_flag fof)
-                    else
-                        (* MSB of original dest *)
-                        (Set (V (T fof), dst_msb))
-                in
-                    If (is_one,    (* OF is set if n == 1 only *)
-                        [op] ,
-                        [undef_flag fof])
-        in
-        let ops =
-            if arith then
-                [
-                (* Compute sign extend mask if needed *)
-                 If (Cmp (EQ, dst_msb, one),
-                    [Set (dst, BinOp(Or, BinOp (Shr, ldst, n_masked), one))], (* TODO :extend *)
-                    [Set (dst, BinOp (Shr, ldst, n_masked))] (* no extend *)
-                    );
-                 cf_stmt ; of_stmt ; undef_flag faf;
-                ]
-            else
-                [
-                 Set (dst, BinOp (Shr, ldst, n_masked));
-                 cf_stmt ; of_stmt ; undef_flag faf;
-                ]
-        in
-        (* If shifted by zero, do nothing, else do the rest *)
-	let res = Lval dst in
-        [If(Cmp(EQ, n, Const (Word.zero 8)), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
-
     let grp2 s sz e =
         let nnn, dst = core_grp s sz in
         let n =
@@ -2125,6 +2166,8 @@ struct
             | '\xa9' -> pop s [V (T gs)]
 
             | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
+            | '\xac' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_rd_stmt reg rm 32 (get_imm s 8 8 false))
+            | '\xad' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_rd_stmt reg rm 32 (Lval (V cl)))
             | '\xaf' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in imul_stmts s reg (Lval reg) rm
 
 
