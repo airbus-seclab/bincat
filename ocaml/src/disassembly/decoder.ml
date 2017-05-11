@@ -68,6 +68,7 @@ struct
     let ebp = Register.make ~name:"ebp" ~size:32;;
     let esi = Register.make ~name:"esi" ~size:32;;
     let edi = Register.make ~name:"edi" ~size:32;;
+    let cl = P(ecx, 0, 7);;
 
     Hashtbl.add register_tbl 0 eax;;
     Hashtbl.add register_tbl 1 ecx;;
