@@ -220,15 +220,16 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         bc_log.debug("---- logfile ---------------")
         if os.path.exists(self.logfname):
             with open(self.logfname, 'rb') as f:
-                log_lines = f.read().splitlines()
+                log_lines = f.readlines()
             if len(log_lines) > 100:
                 bc_log.debug(
                     "---- Only the last 100 log lines are displayed here ---")
+                log_lines = log_lines[-100:]
                 bc_log.debug("---- See full log in %s ---" % self.logfname)
-            for line in log_lines[:100]:
-                bc_log.debug(line)
+            for line in log_lines:
+                bc_log.debug(line.rstrip())
 
-        bc_log.debug("----------------------------")
+        bc_log.debug("====== end of logfile ======")
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
