@@ -2119,8 +2119,8 @@ struct
             | '\xa1' -> pop s [V (T fs)]
             (*| '\xa2' -> cpuid *)
             | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bt s reg rm
-            | '\xa5' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 
-                            in return s (shift_ld_stmt reg rm 32 (Lval (V cl)))
+            | '\xa4' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_ld_stmt reg rm 32 (get_imm s 8 8 false))
+            | '\xa5' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_ld_stmt reg rm 32 (Lval (V cl)))
             | '\xa8' -> push s [V (T gs)]
             | '\xa9' -> pop s [V (T gs)]
 
