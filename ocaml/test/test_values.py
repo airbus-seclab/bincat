@@ -439,6 +439,15 @@ def test_sar_reg32(tmpdir):
     for i in range(65):
         compare(tmpdir, asm % i, ["eax", "of", "cf"])
 
+def test_shld_imm8(tmpdir):
+    asm = """
+            mov eax, 0x12b4e78f
+            mov ebx, 0xa5486204
+            shld eax, ebx, %i
+          """
+    for i in range(4,65):
+        compare(tmpdir, asm % i, ["eax", "ebx", "of", "cf"])
+
 def test_shld_reg32(tmpdir):
     asm = """
             mov eax, 0x12b4e78f
