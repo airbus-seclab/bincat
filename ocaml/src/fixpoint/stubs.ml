@@ -207,7 +207,19 @@ struct
           d', is_tainted
         | _ -> Log.error "invalid call to printf stub"
 
-
+    let puts d args =
+      match args with
+      | [Asm.Lval ret ; str] ->
+	 Log.open_stdout();
+	Log.from_analysis "puts output:";
+	let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
+	let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
+        Log.dump_stdout();
+        Log.from_analysis "--- end of puts--";
+	d', is_tainted
+	  
+      | _ -> Log.error "invalid call to puts stub"
+	 
     let process d fun_name (args: Asm.exp list): D.t * bool =
         let d, is_tainted =
             try
@@ -216,6 +228,7 @@ struct
                     | "memcpy" -> memcpy
                     | "sprintf" -> sprintf
                     | "printf" -> printf
+		    | "puts" -> puts
                     | "strlen" -> strlen
                     | _ -> raise Exit
                 in

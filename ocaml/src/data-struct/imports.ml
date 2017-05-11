@@ -69,6 +69,13 @@ struct
 
   let printf_cdecl = printf_stdcall
 
+  let puts_stdcall () =
+    let str = arg 4 in
+    let res = Register.of_name "eax" in
+    [ Directive (Stub ("puts",  [Lval (V (T res)) ; str])) ]
+
+  let puts_cdecl = puts_stdcall
+    
   let strlen_stdcall () =
     let buf = arg 4 in
     let res = Register.of_name "eax" in
@@ -101,6 +108,7 @@ struct
   let init_stdcall () =
     let funs =
       [("memcpy", memcpy_stdcall) ; ("sprintf", sprintf_stdcall) ; ("printf", printf_stdcall);
+       ("puts", puts_stdcall);
        ("__printf_chk", printf_chk_stdcall) ; ("strlen", strlen_stdcall)
       ]
     in
@@ -109,7 +117,8 @@ struct
   
   let init_cdecl () =
 	let funs =
-      [("memcpy", memcpy_cdecl) ; ("sprintf", sprintf_cdecl) ; ("printf", printf_cdecl);
+	  [("memcpy", memcpy_cdecl) ; ("sprintf", sprintf_cdecl) ; ("printf", printf_cdecl);
+	   ("puts", puts_cdecl);
        ("__printf_chk", printf_chk_cdecl) ; ("strlen", strlen_cdecl)
       ]
     in
