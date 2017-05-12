@@ -160,7 +160,7 @@ def bincat_run(tmpdir, asm):
     return { reg : getReg(last_state, reg) for reg in ALL_REGS}, listing
 
 
-def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}):
+def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}, top_allowed={}):
     cpu = cpu_run(tmpdir, asm)
     bincat,listing = bincat_run(tmpdir, asm)
     assert  not isinstance(bincat, Exception), repr(bincat)+"\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join("cpu : %s = %08x" % (r,cpu[r]) for r in regs)
@@ -175,6 +175,10 @@ def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}):
             diff.append("+ bincat:  %s = %08x  %r" % (r,value,bincat[r]))
         else:
             same.append("  both  :  %s = %08x  %r" % (r, value,bincat[r]))
+        allow_top = top_allowed.get(r,0)
+        if vtop & ~allow_top:
+            diff.append("+ top allowed:  %s = %08x ? %08x" % (r,cpu[r], allow_top))
+            diff.append("+ bincat     :  %s = %08x ? %08x  %r" % (r,value,vtop,bincat[r]))
     assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)+"\n=========================\n"+"\n".join(same)
     diff = []
     for r,t in reg_taints.iteritems():
