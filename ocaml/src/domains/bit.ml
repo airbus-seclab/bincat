@@ -114,13 +114,11 @@ let to_int v =
     
 let eq v1 v2 =
   match v1, v2 with
-  | TOP, _ | _, TOP 	      -> true
-  | ZERO, ZERO | ONE, ONE     -> true
-  | _, _ 	    	      -> false
+  | ZERO, ONE | ONE, ZERO -> false
+  | _, _                  -> true
 			 
 let neq v1 v2 =
   match v1, v2 with
-  | TOP, _ | _, TOP 	      -> true
   | ZERO, ZERO | ONE, ONE     -> false
   | _, _ 	    	      -> true
 			 
