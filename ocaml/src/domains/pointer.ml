@@ -133,7 +133,9 @@ module Make (V: Vector.T) =
               | Global, r | r, Global ->
                 begin
                     try Val (r, V.binary op o1 o2)
-                    with _ -> BOT
+                    with
+		    | Exceptions.Error _ as e -> raise e 
+		    | _ -> BOT
                 end
               | r1, r2                ->
                 try
