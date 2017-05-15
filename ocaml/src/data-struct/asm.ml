@@ -148,7 +148,7 @@ let string_of_cmp c =
   | NEQ -> "!="
   | LEQ -> "<="
   | LT  -> "<"
-  | GEQ -> "<="
+  | GEQ -> ">="
   | GT  -> ">" 
 
 
