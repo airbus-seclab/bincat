@@ -1430,7 +1430,8 @@ struct
     (* SHLD / TODO : merge with SHL ? *)
     let shift_ld_stmt dst src sz n =
         let sz' = const sz 8 in
-        let one = Const (Word.one 8) in
+        let one8 = Const (Word.one 8) in
+        let one = Const (Word.one sz) in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
@@ -1442,7 +1443,7 @@ struct
                 [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
         in
         let of_stmt =
-            let is_one = Cmp (EQ, n_masked, one) in
+            let is_one = Cmp (EQ, n_masked, one8) in
             If (is_one,    (* OF is clear, only if n == 1 *)
                 [clear_flag fof] ,
                 [undef_flag fof])
