@@ -111,6 +111,8 @@ let geq (v1, _) (v2, _) = B.geq v1 v2
 
 let lt (v1, _) (v2, _) = B.lt v1 v2
 
+let lt_multibit_helper (v1, _) (v2, _) = B.lt_multibit_helper v1 v2
+
 let lognot (v, t) = B.lognot v, t
 
 let logor (v1, t1) (v2, t2) =

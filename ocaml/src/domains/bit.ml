@@ -142,6 +142,13 @@ let gt v1 v2 =
   | _, ONE | ZERO, _ -> false
   | _, _ 	     -> true
 
+(** helper to compute lt vector operation. ZERO => false, ONE => true and TOP => carry on *)
+let lt_multibit_helper v1 v2 =
+  match v1, v2 with
+  | ONE, ZERO -> Some false
+  | _, ZERO   -> None
+  | ONE, _    -> None
+  | _, _      -> Some true
 		       
 let compare v1 op v2 =
   match op with

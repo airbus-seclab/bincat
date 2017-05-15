@@ -126,6 +126,9 @@ sig
     (** strictly less than comparison *)
     val lt: t -> t -> bool
 
+    (** strictly less than comparison *)
+    val lt_multibit_helper: t -> t -> (bool option)
+
     (** greater than or equal to comparison *)
     val geq: t -> t -> bool
 
