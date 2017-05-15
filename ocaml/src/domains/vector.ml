@@ -344,7 +344,11 @@ module Make(V: Val) =
 
         (* common utility to add and sub *)
         let core_add_sub op v1 v2 =
-            let n = Array.length v1     in
+          let n = Array.length v1 and lv2 = (Array.length v2) in
+          if n <> lv2 then
+	    Log.error (Printf.sprintf "Vector.code_add_sub vectors of different sizes (v1=%s(%i) v2=%s(%i))" 
+			 (to_string v1) n (to_string v2) lv2)
+	  else
             let v = Array.make n V.zero in
             let carry_borrow = ref None in
             for i = n-1 downto 0 do
