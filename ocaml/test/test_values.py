@@ -819,3 +819,117 @@ def test_cond_jump_jne(tmpdir):
     for i in range(1, 20):
         compare(tmpdir, asm % i, ["eax", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
 
+
+##  ___ ___ _____   _____ ___ ___ _____ ___ _  _  ___ 
+## | _ )_ _|_   _| |_   _| __/ __|_   _|_ _| \| |/ __|
+## | _ \| |  | |     | | | _|\__ \ | |  | || .` | (_ |
+## |___/___| |_|     |_| |___|___/ |_| |___|_|\_|\___|
+##                                                    
+
+def test_bittest_bt_reg32(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            mov ebx, %i
+            bt eax, ebx
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+def test_bittest_bt_reg16(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            mov ebx, %i
+            bt ax, bx
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+def test_bittest_bt_imm8(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            bt eax, %i
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "cf"])
+
+
+def test_bittest_bts_reg32(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            mov ebx, %i
+            bts eax, ebx
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+def test_bittest_bts_reg16(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            mov ebx, %i
+            bts ax, bx
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+def test_bittest_bts_imm8(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            bts eax, %i
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+
+def test_bittest_btr_reg32(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            mov ebx, %i
+            btr eax, ebx
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+def test_bittest_btr_reg16(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            mov ebx, %i
+            btr ax, bx
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+def test_bittest_btr_imm8(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            btr eax, %i
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+
+def test_bittest_btc_reg32(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            mov ebx, %i
+            btc eax,ebx
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+def test_bittest_btc_reg16(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            mov ebx, %i
+            btc ax, bx
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
+def test_bittest_btc_imm8(tmpdir):
+    asm = """
+            mov eax, 0xA35272F4
+            btc eax, %i
+    """
+    for i in SOME_SHIFT_COUNTS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+
