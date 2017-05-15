@@ -1451,12 +1451,13 @@ struct
         let lv = Lval dst in
         let ops =
             [
+                cf_stmt;
                 (* dst = (dst << n) | (src >> (sz-n)) *)
                 Set (dst, (BinOp(Or,
                             (BinOp(Shl, ldst, n_masked)),
                             (BinOp(Shr, src, BinOp(Sub, sz', n_masked))))));
                 (* previous cf is used in of_stmt *)
-                of_stmt; cf_stmt; undef_flag faf;
+                of_stmt; undef_flag faf;
                 (sign_flag_stmts sz lv) ; (zero_flag_stmts sz lv) ; (parity_flag_stmts sz lv)
             ]
         in
