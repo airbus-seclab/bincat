@@ -310,7 +310,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let import_call vertices a (pred_fun: Cfa.State.t -> Cfa.State.t) fun_stack =
         let fundec = Hashtbl.find Decoder.Imports.tbl a in
-        Log.from_analysis (Printf.sprintf "at %s: stub of %s analysed" (Data.Address.to_string a) (fundec.Decoder.Imports.name));
+        Log.from_analysis (Printf.sprintf "at %s: library call for %s found. Looking for a stub." (Data.Address.to_string a) (fundec.Decoder.Imports.name));
         let b =
             List.fold_left (fun b v ->
                 let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in

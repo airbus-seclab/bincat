@@ -183,7 +183,7 @@
       with Not_found -> Hashtbl.add Config.reg_override !override_addr [t] }
 
     tainting_addr_item:
-    | c=tainting_addr SEMI_COLON override_item {
+    | c=tainting_addr {
       let (tbl, a, o) = c in
       try
 	let l' = Hashtbl.find tbl a in

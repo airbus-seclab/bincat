@@ -56,8 +56,9 @@ struct
             Log.from_analysis (Printf.sprintf "format string: %s" format_string);
             let off_arg = !Config.stack_width / 8 in
             let format_num d dst_off c fmt_pos arg pad_char pad_left: int * int * D.t =
-                let rec compute digit_nb fmt_pos =
-                    match Bytes.get format_string fmt_pos with
+              let rec compute digit_nb fmt_pos =
+		let c = Bytes.get format_string fmt_pos in
+                    match c with
                     | c when '0' <= c && c <= '9' ->
                       let n = ((Char.code c) - (Char.code '0')) in
                           compute (digit_nb*10+n) (fmt_pos+1)

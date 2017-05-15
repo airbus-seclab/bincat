@@ -51,6 +51,40 @@ bc_log = logging.getLogger('bincat.plugin')
 bc_log.setLevel(logging.DEBUG)
 
 
+def dedup_loglines(loglines, max=None):
+    res = []
+    staging = None
+    n = 0
+    def flush_staging():
+        if n > 0:
+            res.append(staging)
+            if max and len(res) >= max:
+                return True
+        if n == 2:
+            res.append(staging)
+            if max and len(res) >= max:
+                return True
+        if n > 2:
+            res.append("== (same line repeated %i times) ==" % n)
+            if max and len(res) >= max:
+                return True
+
+    while True:
+        if not loglines:
+            flush_staging()
+            break
+        l = loglines.pop()
+        if l == staging:
+            n += 1
+        else:
+            if flush_staging():
+                break
+            staging = l
+            n = 1
+    res.reverse()
+    return res
+
+
 class AnalyzerUnavailable(Exception):
     pass
 
@@ -220,15 +254,15 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         bc_log.debug("---- logfile ---------------")
         if os.path.exists(self.logfname):
             with open(self.logfname, 'rb') as f:
-                log_lines = f.read().splitlines()
+                log_lines = f.readlines()
+            log_lines = dedup_loglines(log_lines, max=100)
             if len(log_lines) > 100:
-                bc_log.debug(
-                    "---- Only the last 100 log lines are displayed here ---")
+                bc_log.debug("---- Only the last 100 log lines (deduped) are displayed here ---")
                 bc_log.debug("---- See full log in %s ---" % self.logfname)
-            for line in log_lines[:100]:
-                bc_log.debug(line)
+            for line in log_lines:
+                bc_log.debug(line.rstrip())
 
-        bc_log.debug("----------------------------")
+        bc_log.debug("====== end of logfile ======")
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
@@ -349,12 +383,14 @@ class WebAnalyzer(Analyzer):
         bc_log.info(self.download_file(files["stdout.txt"]))
         bc_log.debug("---- logfile ---------------")
         log_lines = analyzer_log_contents.split('\n')
+
+        log_lines = dedup_loglines(log_lines, max=100)
         if len(log_lines) > 100:
-            bc_log.debug(
-                "---- Only the last 100 log lines are displayed here ---")
+            bc_log.debug("---- Only the last 100 log lines (deduped) are displayed here ---")
             bc_log.debug("---- See full log in %s ---" % self.logfname)
-        for line in log_lines[:100]:
-            bc_log.debug(line)
+        for line in log_lines:
+            bc_log.debug(line.rstrip())
+
         bc_log.debug("----------------------------")
         if "cfaout.marshal" in files:
             # might be absent (ex. when analysis failed, or not requested)
