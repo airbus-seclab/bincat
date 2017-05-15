@@ -374,12 +374,58 @@ def test_shift_shl_reg32(tmpdir):
             compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
                     top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
 
+def test_shift_shl_reg16(tmpdir):
+    asm = """
+            %s
+            mov cl, %i
+            mov eax, 0x12b4e78f
+            shl ax, cl
+          """
+    for i in range(65):
+        for carryop in ["stc", "clc"]:
+            compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+
+def test_shift_shl_imm8(tmpdir):
+    asm = """
+            %s
+            mov eax, 0x12b4e78f
+            shl eax, %i
+          """
+    for i in range(65):
+        for carryop in ["stc", "clc"]:
+            compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+
 def test_shift_shr_reg32(tmpdir):
     asm = """
             %s
             mov cl, %i
             mov eax, 0x12b4e78f
             shr eax, cl
+          """
+    for i in range(65):
+        for carryop in ["stc", "clc"]:
+            compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+
+def test_shift_shr_reg16(tmpdir):
+    asm = """
+            %s
+            mov cl, %i
+            mov eax, 0x12b4e78f
+            shr ax, cl
+          """
+    for i in range(65):
+        for carryop in ["stc", "clc"]:
+            compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+
+def test_shift_shr_imm8(tmpdir):
+    asm = """
+            %s
+            mov eax, 0x12b4e78f
+            shr eax, %i
           """
     for i in range(65):
         for carryop in ["stc", "clc"]:
