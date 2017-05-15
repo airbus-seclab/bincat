@@ -376,16 +376,26 @@ module Make(V: Val) =
 
 
         let logand v1 v2 =
-	  let res = map2 V.logand v1 v2 in
-	  Log.debug_lvl (Printf.sprintf "Vector.logand(%s, %s)=%s"
-			   (to_string v1) (to_string v2) (to_string res)) 6;
-	  res
+	  let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
+          if lv1 <> lv2 then
+	      Log.error (Printf.sprintf "Vector.logand vectors of different sizes (v1=%s(%i) v2=%s(%i))"
+			 (to_string v1) lv1 (to_string v2) lv2)
+	  else
+	    let res = map2 V.logand v1 v2 in
+	    Log.debug_lvl (Printf.sprintf "Vector.logand(%s, %s)=%s"
+			     (to_string v1) (to_string v2) (to_string res)) 6;
+	    res
 	  
         let logor v1 v2 =
-	  let res = map2 V.logor v1 v2 in
-	  Log.debug_lvl (Printf.sprintf "Vector.logor(%s, %s)=%s"
-			   (to_string v1) (to_string v2) (to_string res)) 6;
-	  res
+	  let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
+          if lv1 <> lv2 then
+	    Log.error (Printf.sprintf "Vector.logor vectors of different sizes (v1=%s(%i) v2=%s(%i))"
+			 (to_string v1) lv1 (to_string v2) lv2)
+	  else
+	    let res = map2 V.logor v1 v2 in
+	    Log.debug_lvl (Printf.sprintf "Vector.logor(%s, %s)=%s"
+			     (to_string v1) (to_string v2) (to_string res)) 6;
+	    res
 
         let sign_extend v i =
             let n = Array.length v in
