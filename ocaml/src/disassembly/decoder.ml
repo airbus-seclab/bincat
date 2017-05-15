@@ -1409,15 +1409,22 @@ struct
                 [undef_flag fof])
         in
         let ops =
-            if arith then
+          if arith then
+	    begin
+	      let ffff = const (-1) sz in
+	      let sign_mask = TernOp(Cmp(LEQ, n_masked, sz'),
+				    BinOp(Shl, ffff, BinOp(Sub, sz', n_masked)),
+				    ffff)  in
                 [
                     (* Compute sign extend mask if needed *)
-                    If (Cmp (EQ, dst_msb, one_sz),
-                        [Set (dst, BinOp(Or, BinOp (Shr, ldst, n_masked), one8))], (* TODO :extend *)
+                  cf_stmt ; of_stmt ;
+		  If (Cmp (EQ, dst_msb, one_sz),
+                        [Set (dst, BinOp (Or, BinOp (Shr, ldst, n_masked), sign_mask))], (* TODO :extend *)
                         [Set (dst, BinOp (Shr, ldst, n_masked))] (* no extend *)
                        );
-                    cf_stmt ; of_stmt ; undef_flag faf;
+                    undef_flag faf;
                 ]
+	    end
             else
                 [
                   cf_stmt ; of_stmt ; 
