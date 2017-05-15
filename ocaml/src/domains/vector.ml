@@ -686,8 +686,6 @@ module Make(V: Val) =
 	      if i >= lv1 then final
 	      else
 		let nxt = V.lt_multibit_helper v1.(i) v2.(i) in
-		Log.debug_lvl (Printf.sprintf " @@ i=%2i b1=%s b2=%s"
-						 i (V.to_string v1.(i)) (V.to_string v2.(i))) 6;
 		match nxt with
 		| Some b -> b
 		| None -> rec_lt v1 v2 (i+1)
