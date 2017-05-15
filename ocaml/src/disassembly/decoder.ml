@@ -1340,7 +1340,8 @@ struct
     (* SHL *)
     let shift_l_stmt dst sz n =
         let sz' = const sz 8 in
-        let one = Const (Word.one 8) in
+        let one8 = Const (Word.one 8) in
+        let one_sz = Const (Word.one sz) in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
@@ -1349,15 +1350,15 @@ struct
             If (c,
                 [undef_flag fcf],
                 (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
+                [Set (V (T fcf), BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
         in
         let of_stmt =
-            let is_one = Cmp (EQ, n_masked, one) in
+            let is_one = Cmp (EQ, n_masked, one8) in
             let op =
                 (* last bit having been "evicted out"  xor CF*)
                 Set (V (T fof),
                      BinOp(Xor, Lval (V (T fcf)),
-                           BinOp (And, one,
+                           BinOp (And, one_sz,
                                   (BinOp(Shr, ldst,
                                          BinOp(Sub, sz', n_masked))))))
             in
@@ -1367,11 +1368,11 @@ struct
         in
         let lv = Lval dst in
         let ops =
-            [
-                Set (dst, BinOp (Shl, ldst, n_masked));
-                (* previous cf is used in of_stmt *)
-                of_stmt; cf_stmt; undef_flag faf;
-                (sign_flag_stmts sz lv) ; (zero_flag_stmts sz lv) ; (parity_flag_stmts sz lv)
+          [
+	    cf_stmt; 
+            Set (dst, BinOp (Shl, ldst, n_masked));
+            of_stmt; undef_flag faf;
+            (sign_flag_stmts sz lv) ; (zero_flag_stmts sz lv) ; (parity_flag_stmts sz lv)
             ]
         in
         (* If shifted by zero, do nothing, else do the rest *)
