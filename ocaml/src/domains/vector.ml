@@ -676,6 +676,32 @@ module Make(V: Val) =
             | Exit -> true
             | _    -> false
 
+	let lt_core v1 v2 final =
+	  let lv1 = Array.length v1 in
+	  let lv2 = Array.length v2 in
+          if lv1 <> lv2 then
+            Log.error (Printf.sprintf "Vector.lt_core : comparing vectors of different sizes (v1:%i, v2:%i)" lv1 lv2)
+	  else
+	    let rec rec_lt v1 v2 i =
+	      if i >= lv1 then final
+	      else
+		let nxt = V.lt_multibit_helper v1.(i) v2.(i) in
+		Log.debug_lvl (Printf.sprintf " @@ i=%2i b1=%s b2=%s"
+						 i (V.to_string v1.(i)) (V.to_string v2.(i))) 6;
+		match nxt with
+		| Some b -> b
+		| None -> rec_lt v1 v2 (i+1)
+	    in let res = rec_lt v1 v2 0 in
+	       Log.debug_lvl (Printf.sprintf "Vector.lt_core %s %s %s = %b"
+				(to_string v1) (if final then "<=" else "<")
+				(to_string v2) res) 6;
+	       res
+
+	let lt v1 v2 = lt_core v1 v2 false
+	let leq v1 v2 = lt_core v1 v2 true
+	let gt v1 v2 = lt v2 v1
+	let geq v1 v2 = leq v2 v1
+
         let compare v1 op v2 =
             if (Array.length v1) != (Array.length v2) then
               Log.error (Printf.sprintf "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
@@ -684,7 +710,10 @@ module Make(V: Val) =
             match op with
             | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
             | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-            | _       -> true
+	    | Asm.LT -> lt v1 v2
+	    | Asm.LEQ -> leq v1 v2
+	    | Asm.GT -> gt v1 v2
+	    | Asm.GEQ -> geq v1 v2
 
         let extract v low up =
             Log.debug_lvl (Printf.sprintf "V.extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v)) 6;
