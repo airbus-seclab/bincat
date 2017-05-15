@@ -452,12 +452,58 @@ def test_shift_sal_reg32(tmpdir):
             compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
                     top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
 
+def test_shift_sal_reg16(tmpdir):
+    asm = """
+            %s
+            mov cl, %i
+            mov eax, 0x12b4e78f
+            sal ax, cl
+          """
+    for i in SOME_SHIFT_COUNTS:
+        for carryop in ["stc", "clc"]:
+            compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+
+def test_shift_sal_imm8(tmpdir):
+    asm = """
+            %s
+            mov eax, 0x12b4e78f
+            sal eax, %i
+          """
+    for i in SOME_SHIFT_COUNTS:
+        for carryop in ["stc", "clc"]:
+            compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+
 def test_shift_sar_reg32(tmpdir):
     asm = """
             %s
             mov cl, %i
             mov eax, 0x12b4e78f
             sar eax, cl
+          """
+    for i in SOME_SHIFT_COUNTS:
+        for carryop in ["stc", "clc"]:
+            compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+
+def test_shift_sar_reg16(tmpdir):
+    asm = """
+            %s
+            mov cl, %i
+            mov eax, 0x12b4e78f
+            sar ax, cl
+          """
+    for i in SOME_SHIFT_COUNTS:
+        for carryop in ["stc", "clc"]:
+            compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+
+def test_shift_sar_imm8(tmpdir):
+    asm = """
+            %s
+            mov eax, 0x12b4e78f
+            sar eax, %i
           """
     for i in SOME_SHIFT_COUNTS:
         for carryop in ["stc", "clc"]:
