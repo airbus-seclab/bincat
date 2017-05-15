@@ -803,19 +803,6 @@ module Make(D: T) =
          let sz = Register.size r in
          let vt = of_config region c sz in
          Val (Env.add (Env.Key.Reg r) vt m')
-	     
-    let val_restrict m e1 _v1 cmp _e2 v2 =
-      match e1, cmp with
-      | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ || cmp = Asm.LEQ ->
-         let v  = Env.find (Env.Key.Reg r) m in
-         let v' = D.meet v v2        in
-         if D.is_bot v' then
-           raise Exceptions.Empty
-         else
-           Env.replace (Env.Key.Reg r) v' m
-      | _, _ -> m
-		  
-   
 	       
     let value_of_exp m e =
       match m with
