@@ -1435,6 +1435,8 @@ struct
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
+        let dst_sz_min_one = const (sz-1) sz in
+        let dst_msb = BinOp(And, one, BinOp(Shr, ldst, dst_sz_min_one)) in
         let cf_stmt =
             let c = Cmp (LT, sz', n_masked) in
             If (c,
@@ -1444,13 +1446,16 @@ struct
         in
         let of_stmt =
             let is_one = Cmp (EQ, n_masked, one8) in
-            If (is_one,    (* OF is clear, only if n == 1 *)
-                [clear_flag fof] ,
-                [undef_flag fof])
+            If (is_one,    (* OF is computed only if n == 1 *)
+                [Set ((V (T fof)), (* OF is set if signed changed. We saved sign in fof *)
+                    BinOp(Xor,  Lval (V (T fof)), dst_msb));],
+                [clear_flag fof])
         in
         let lv = Lval dst in
         let ops =
             [
+                (* save sign *)
+                Set ((V (T fof)), dst_msb);
                 cf_stmt;
                 (* dst = (dst << n) | (src >> (sz-n)) *)
                 Set (dst, (BinOp(Or,
@@ -1483,16 +1488,15 @@ struct
         in
         let of_stmt =
             let is_one = Cmp (EQ, n_masked, one8) in
-            let op =
-                (* MSB of original dest *)
-                (Set (V (T fof), dst_msb))
-            in
-            If (is_one,    (* OF is set if n == 1 only *)
-                [op] ,
-                [undef_flag fof])
+            If (is_one,    (* OF is computed only if n == 1 *)
+                [Set ((V (T fof)), (* OF is set if signed changed. We saved sign in fof *)
+                    BinOp(Xor,  Lval (V (T fof)), dst_msb));],
+                [clear_flag fof])
         in
         let ops =
                 [
+                    (* save sign *)
+                    Set ((V (T fof)), dst_msb);
                     cf_stmt;
                     (* dst = (dst >> n) | (src << (sz-n)) *)
                     Set (dst, (BinOp(Or,
