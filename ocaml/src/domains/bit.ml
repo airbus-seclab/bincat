@@ -126,27 +126,23 @@ let neq v1 v2 =
 			 
 let leq v1 v2 =
   match v1, v2 with
-  | _, TOP    		      	      -> true
-  | ZERO, ZERO | ONE, ONE | ZERO, ONE -> true
-  | _, _ 	       		      -> false
+  | ONE, ZERO -> false
+  | _, _      -> true
 			    
 let lt v1 v2 =
   match v1, v2 with
-  | TOP, _ | _, TOP -> true
-  | ZERO, ONE       -> true
-  | _, _ 	    -> false
+  | ONE, _ | _, ZERO -> false
+  | _, _             -> true
 			 
 let geq v1 v2 =
   match v1, v2 with
-  | TOP, _ | _, TOP    		      -> true
-  | ZERO, ZERO | ONE, ONE | ONE, ZERO -> true
-  | _, _ 	       		      -> false
+  | ZERO, ONE -> false
+  | _, _      -> true
 			    
 let gt v1 v2 =
   match v1, v2 with
-  | TOP, _ | _, TOP -> true
-  | ONE, ZERO       -> true
-  | _, _ 	    -> false
+  | _, ONE | ZERO, _ -> false
+  | _, _ 	     -> true
 
 		       
 let compare v1 op v2 =
