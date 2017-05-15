@@ -450,7 +450,9 @@ def test_shift_sal_reg32(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
-                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
+                                   "cf": 1 if i >= 32 else 0})
+
 
 def test_shift_sal_reg16(tmpdir):
     asm = """
@@ -462,7 +464,9 @@ def test_shift_sal_reg16(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
-                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
+                                   "cf": 1 if i >= 16 else 0})
+
 
 def test_shift_sal_imm8(tmpdir):
     asm = """
@@ -473,7 +477,8 @@ def test_shift_sal_imm8(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
-                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
+                                   "cf": 1 if i >= 32 else 0})
 
 def test_shift_sar_reg32(tmpdir):
     asm = """
@@ -485,7 +490,8 @@ def test_shift_sar_reg32(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
-                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
+                                   "cf": 1 if i >= 32 else 0})
 
 def test_shift_sar_reg16(tmpdir):
     asm = """
@@ -497,7 +503,8 @@ def test_shift_sar_reg16(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
-                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
+                                   "cf": 1 if i >= 16 else 0})
 
 def test_shift_sar_imm8(tmpdir):
     asm = """
@@ -508,7 +515,8 @@ def test_shift_sar_imm8(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "of", "cf"],
-                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+                    top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
+                                   "cf": 1 if i >= 32 else 0})
 
 def test_shift_shld_imm8(tmpdir):
     asm = """
