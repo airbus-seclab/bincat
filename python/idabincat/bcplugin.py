@@ -720,6 +720,12 @@ class State(object):
                     temp_npk_fname = self.analyzer.generate_tnpk(f)
                     shutil.copyfile(temp_npk_fname, new_npk_fname)
                     f = new_npk_fname
+            # Relative paths are copied
+            elif f.endswith('.no') and f[0] != os.path.sep:
+                temp_npk_fname = os.path.join(path, os.path.basename(f))
+                shutil.copyfile(f, temp_npk_fname)
+                f = temp_npk_fname
+
             new_headers_filenames.append(f)
         headers_filenames = new_headers_filenames
         # try to generate npk file for the binary being analyzed
