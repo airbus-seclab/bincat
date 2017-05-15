@@ -1709,12 +1709,12 @@ struct
         let stmts = fct nth nbit in
         return s ((stmt::stmts) @ [ undef_flag fof; undef_flag fsf; undef_flag fzf; undef_flag faf; undef_flag fpf])
 
-    let bts_stmt dst nbit = Set (dst, BinOp (Or, Lval dst, BinOp (Shl, Const (Data.Word.one 1), nbit)))
-    let btr_stmt dst nbit = Set (dst, BinOp (And, Lval dst, UnOp (Not, BinOp (Shl, Const (Data.Word.one 1), nbit))))
+    let bts_stmt dst nbit op_sz = Set (dst, BinOp (Or, Lval dst, BinOp (Shl, Const (Data.Word.one op_sz), nbit)))
+    let btr_stmt dst nbit op_sz = Set (dst, BinOp (And, Lval dst, UnOp (Not, BinOp (Shl, Const (Data.Word.one op_sz), nbit))))
     let bt s dst src = core_bt s (fun _nth _nbit -> []) dst src
-    let bts s dst src = core_bt s (fun nth _nbit -> [bts_stmt dst nth]) dst src
-    let btr s dst src = core_bt s (fun nth _nbit -> [btr_stmt dst nth]) dst src
-    let btc s dst src = core_bt s (fun _nth nbit -> [If (Cmp (EQ, nbit, Const (Word.one 1)), [btr_stmt dst nbit], [bts_stmt dst nbit])]) dst src
+    let bts s dst src = core_bt s (fun nth _nbit -> [bts_stmt dst nth s.operand_sz]) dst src
+    let btr s dst src = core_bt s (fun nth _nbit -> [btr_stmt dst nth s.operand_sz]) dst src
+    let btc s dst src = core_bt s (fun _nth nbit -> [If (Cmp (EQ, nbit, Const (Word.one s.operand_sz)), [btr_stmt dst _nth s.operand_sz], [bts_stmt dst _nth s.operand_sz])]) dst src
 
     let grp8 s =
         let nnn, dst = core_grp s s.operand_sz                                                           in
