@@ -1381,21 +1381,22 @@ struct
     (* SHR *)
     let shift_r_stmt dst sz n arith =
         let sz' = const sz 8 in
-        let one = Const (Word.one 8) in
+        let one8 = Const (Word.one 8) in
+        let one_sz = Const (Word.one sz) in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
         let dst_sz_min_one = const (sz-1) sz in
-        let dst_msb = BinOp(And, Const (Word.one 8), BinOp(Shr, ldst, dst_sz_min_one)) in
+        let dst_msb = BinOp(And, one_sz, BinOp(Shr, ldst, dst_sz_min_one)) in
         let cf_stmt =
             let c = Cmp (LT, sz', n_masked) in
             If (c,
                 [undef_flag fcf],
                 (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one)))))])
+                [Set (V (T fcf), BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one8)))))])
         in
         let of_stmt =
-            let is_one = Cmp (EQ, n_masked, one) in
+            let is_one = Cmp (EQ, n_masked, one8) in
             let op =
                 if arith then
                     (clear_flag fof)
@@ -1411,16 +1412,17 @@ struct
             if arith then
                 [
                     (* Compute sign extend mask if needed *)
-                    If (Cmp (EQ, dst_msb, one),
-                        [Set (dst, BinOp(Or, BinOp (Shr, ldst, n_masked), one))], (* TODO :extend *)
+                    If (Cmp (EQ, dst_msb, one_sz),
+                        [Set (dst, BinOp(Or, BinOp (Shr, ldst, n_masked), one8))], (* TODO :extend *)
                         [Set (dst, BinOp (Shr, ldst, n_masked))] (* no extend *)
                        );
                     cf_stmt ; of_stmt ; undef_flag faf;
                 ]
             else
                 [
-                    Set (dst, BinOp (Shr, ldst, n_masked));
-                    cf_stmt ; of_stmt ; undef_flag faf;
+                  cf_stmt ; of_stmt ; 
+		  Set (dst, BinOp (Shr, ldst, n_masked));
+                  undef_flag faf;
                 ]
         in
         (* If shifted by zero, do nothing, else do the rest *)
