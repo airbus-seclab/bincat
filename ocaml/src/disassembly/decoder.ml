@@ -2079,7 +2079,7 @@ struct
             | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
 
             | '\xd0' -> (* grp2 shift with one on byte size *) grp2 s 8 (Some (Const (Word.one 8)))
-            | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (Const (Word.one s.operand_sz)))
+            | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (Const (Word.one 8)))
             | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s 8 (Some (Lval (V (to_reg ecx 8))))
             | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx 8))))
 
