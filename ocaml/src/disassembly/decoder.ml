@@ -1574,7 +1574,8 @@ struct
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
       (* add 1 to operand size to take in account the carry *)
       let sz8p1 = Const (Word.of_int (Z.of_int (sz+1)) 8) in
-      let count_mod = BinOp(Mod, BinOp(And, count, word_1f), sz8p1) in
+      let count_masked = BinOp(And, count, word_1f) in
+      let count_mod = BinOp(Mod, count_masked , sz8p1) in
       let inv_count_mod = BinOp(Sub, sz8p1, count_mod) in
       let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one) in
       (* count_mod == 0 will be cut later on, so we can compute count_mod-1 *)
@@ -1587,19 +1588,20 @@ struct
       let high = BinOp (Shl, Lval dst, count_mod) in
       let low = BinOp (Shr, Lval dst,  inv_count_mod) in
       let shifted_cf = BinOp(Shl, Lval old_cf, count_mod_m1) in
-      let src = BinOp(Or, BinOp(Or, high, low), shifted_cf) in
+      let res = BinOp(Or, BinOp(Or, high, low), shifted_cf) in
+      let msb = BinOp(Shr, (Lval dst), (const (sz-1) sz)) in
       let new_cf_val = BinOp(Shr, Lval dst, inv_count_mod_m1) in
       let cf_stmt = Set (V (T fcf), new_cf_val) in
       (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
-      let of_stmt = If (Cmp (EQ, count, one),
-			[Set (V (T fof), Lval (V (T fcf)))],
+      let of_stmt = If (Cmp (EQ, count_masked, one),
+			[Set (V (T fof), BinOp(Xor, (Lval (V (T fcf))), msb))],
 			[undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
       let stmts =  [
-	Set(old_cf, Const (Word.zero sz)) ;
-	Set(old_cf_lsb, Lval (V (T fcf))) ;
-	cf_stmt ; of_stmt ; Set (dst, src) ; 
-	Directive (Remove old_cf_reg )] in
+        Set(old_cf, Const (Word.zero sz)) ;
+        Set(old_cf_lsb, Lval (V (T fcf))) ;
+        cf_stmt ; of_stmt ; Set (dst, res) ;
+        Directive (Remove old_cf_reg )] in
       [ If (Cmp(EQ, count_mod, zero), [], stmts)]
 
 
