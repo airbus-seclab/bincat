@@ -661,7 +661,7 @@ def test_inc_reg32(tmpdir):
             inc eax
           """
     for vals in SOME_OPERANDS:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "pf", "af"])
 
 def test_dec_reg32(tmpdir):
     asm = """
@@ -669,7 +669,7 @@ def test_dec_reg32(tmpdir):
             dec eax
           """
     for vals in SOME_OPERANDS:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "pf", "af"])
 
 def test_and_reg32(tmpdir):
     asm = """
