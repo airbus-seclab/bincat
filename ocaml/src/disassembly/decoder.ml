@@ -656,27 +656,27 @@ struct
     let get_eflags () =
       let eflags0 = UnOp (ZeroExt 32, Lval (V (T fcf))) in
       (*  bit 1 : reserved *)
-      let eflags2 = UnOp (ZeroExt 32, BinOp(Shl,  Lval (V (T fpf)), const 2 32)) in
+      let eflags2 = BinOp(Shl, UnOp (ZeroExt 32,  Lval (V (T fpf))), const 2 32) in
       (*  bit 3 : reserved *)
-      let eflags4 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T faf)), const 4 32)) in
+      let eflags4 = BinOp(Shl, UnOp (ZeroExt 32, Lval (V (T faf))), const 4 32) in
       (*  bit 5 : reserved *)
-      let eflags6 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fzf)), const 6 32)) in
-      let eflags7 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fsf)), const 7 32)) in
-      let eflags8 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _ftf)), const 8 32)) in
-      let eflags9 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fif)), const 9 32)) in
-      let eflags10 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fdf)), const 10 32)) in
-      let eflags11 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T fof)), const 11 32)) in
-      let eflags12_13 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _fiopl)), const 12 32)) in
-      let eflags14 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _fnt)), const 14 32)) in
+      let eflags6 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T fzf))), const 6 32) in
+      let eflags7 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T fsf))), const 7 32) in
+      let eflags8 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T _ftf))), const 8 32) in
+      let eflags9 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T fif))), const 9 32) in
+      let eflags10 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T fdf))), const 10 32) in
+      let eflags11 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T fof))), const 11 32) in
+      let eflags12_13 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T _fiopl))), const 12 32) in
+      let eflags14 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T _fnt))), const 14 32) in
       (*  bit 15 : reserved *)
-      let eflags16 = UnOp(ZeroExt 32, BinOp(Shl, Lval (V (T _frf)), const 16 32)) in
-      let eflags17 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvm)), const 17 32)) in
-      let eflags18 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fac)), const 18 32)) in
-      let eflags19 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvif)), const 19 32)) in
-      let eflags20 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fvip)), const 20 32)) in
-      let eflags21 = UnOp (ZeroExt 32, BinOp(Shl, Lval (V (T _fid)), const 21 32)) in
+      let eflags16 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T _frf))), const 16 32) in
+      let eflags17 = BinOp(Shl, UnOp (ZeroExt 32, Lval (V (T _fvm))), const 17 32) in
+      let eflags18 = BinOp(Shl, UnOp (ZeroExt 32, Lval (V (T _fac))), const 18 32) in
+      let eflags19 = BinOp(Shl, UnOp (ZeroExt 32, Lval (V (T _fvif))), const 19 32) in
+      let eflags20 = BinOp(Shl, UnOp (ZeroExt 32, Lval (V (T _fvip))), const 20 32) in
+      let eflags21 = BinOp(Shl, UnOp (ZeroExt 32, Lval (V (T _fid))), const 21 32) in 
       let eflags_c0 = eflags0 in
-      let eflags_c2 = BinOp(Or, eflags_c0, eflags2) in
+      let eflags_c2 = BinOp(Or, eflags_c0, eflags2) in 
       let eflags_c4 = BinOp(Or, eflags_c2, eflags4) in
       let eflags_c6 = BinOp(Or, eflags_c4, eflags6) in
       let eflags_c7 = BinOp(Or, eflags_c6, eflags7) in
