@@ -1049,6 +1049,63 @@ def test_bittest_btc_imm8(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
 
+def test_bittest_bsr_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            xor ebx, ebx
+            bsr ebx, eax
+    """
+    for i in SOME_OPERANDS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
+
+def test_bittest_bsr_imm32(tmpdir):
+    asm = """
+            xor ebx, ebx
+            bsr ebx, %#x
+    """
+    for i in SOME_OPERANDS:
+        compare(tmpdir, asm % i, ["ebx", "zf"])
+
+
+def test_bittest_bsr_reg16(tmpdir):
+    asm = """
+            mov eax, %#x
+            xor ebx, ebx
+            bsr bx, ax
+    """
+    for i in SOME_OPERANDS_16:
+        compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
+
+def test_bittest_bsf_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            xor ebx, ebx
+            bsf ebx, eax
+    """
+    for i in SOME_OPERANDS:
+        compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
+
+def test_bittest_bsf_imm32(tmpdir):
+    asm = """
+            xor ebx, ebx
+            bsf ebx, %#x
+    """
+    for i in SOME_OPERANDS:
+        compare(tmpdir, asm % i, ["ebx", "zf"])
+
+
+def test_bittest_bsf_reg16(tmpdir):
+    asm = """
+            mov eax, %#x
+            xor ebx, ebx
+            bsf bx, ax
+    """
+    for i in SOME_OPERANDS_16:
+        compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
+
+
+
+
 def test_pushf_popf(tmpdir):
     asm = """
             stc
