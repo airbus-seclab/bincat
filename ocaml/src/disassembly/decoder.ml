@@ -1479,7 +1479,7 @@ struct
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
             (* if shifted by more than opsize, everything is undef *)
             (* TODO : forget dst *)
-            [If(Cmp(GT, n, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
+            [If(Cmp(GT, n_masked, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
             ops)])]
 
 
@@ -1524,7 +1524,7 @@ struct
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
             (* if shifted by more than opsize, everything is undef *)
             (* TODO : forget dst *)
-            [If(Cmp(GT, n, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
+            [If(Cmp(GT, n_masked, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
                ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)])])]
 
 
