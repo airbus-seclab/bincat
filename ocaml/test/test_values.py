@@ -610,7 +610,7 @@ SOME_OPERANDS = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff, 0x1234, 0x7fff, 0x
                   0xffff, 0x12ab34cd, 0x7fffffff, 0x80000000, 0x80000001, 0xffffffff ]
 SOME_OPERANDS_COUPLES = list(itertools.product(SOME_OPERANDS, SOME_OPERANDS))
 
-def test_add_reg32(tmpdir):
+def test_add_imm32(tmpdir):
     asm = """
             mov eax, %#x
             add eax, %#x
@@ -618,13 +618,124 @@ def test_add_reg32(tmpdir):
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_sub_reg32(tmpdir):
+def test_add_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            add eax, ebx
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_add_reg16(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            add ax, bx
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_sub_imm32(tmpdir):
     asm = """
             mov eax, %#x
             sub eax, %#x
           """
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_sub_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            sub eax, ebx
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_sub_reg16(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            sub ax, bx
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+
+def test_carrytop_adc(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            adc eax, ebx
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_adc_reg32(tmpdir):
+    asm = """
+            %s
+            mov eax, %#x
+            mov ebx, %#x
+            adc eax, ebx
+          """
+    for carryop in ["stc","clc"]:
+        for val1,val2 in SOME_OPERANDS_COUPLES:
+            compare(tmpdir, asm % (carryop,val1,val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_adc_reg16(tmpdir):
+    asm = """
+            %s
+            mov eax, %#x
+            mov ebx, %#x
+            adc ax, bx
+          """
+    for carryop in ["stc","clc"]:
+        for val1,val2 in SOME_OPERANDS_COUPLES:
+            compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_adc_imm32(tmpdir):
+    asm = """
+            %s
+            mov eax, %#x
+            adc eax, %#x
+          """
+    for carryop in ["stc","clc"]:
+        for val1,val2 in SOME_OPERANDS_COUPLES:
+            compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_sbb_reg32(tmpdir):
+    asm = """
+            %s
+            mov eax, %#x
+            mov ebx, %#x
+            sbb eax, ebx
+          """
+    for carryop in ["stc","clc"]:
+        for val1,val2 in SOME_OPERANDS_COUPLES:
+            compare(tmpdir, asm % (carryop,val1,val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_sbb_reg16(tmpdir):
+    asm = """
+            %s
+            mov eax, %#x
+            mov ebx, %#x
+            sbb ax, bx
+          """
+    for carryop in ["stc","clc"]:
+        for val1,val2 in SOME_OPERANDS_COUPLES:
+            compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_sbb_imm32(tmpdir):
+    asm = """
+            %s
+            mov eax, %#x
+            sbb eax, %#x
+          """
+    for carryop in ["stc","clc"]:
+        for val1,val2 in SOME_OPERANDS_COUPLES:
+            compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
 
 def test_cmp_reg32(tmpdir):
     asm = """
