@@ -169,6 +169,7 @@ module Make(D: T) =
       | Val m' -> add m'
 		      
     let remove_register v m =
+      Log.debug_lvl (Printf.sprintf "Unrel.remove_register(%s)" (Register.name v)) 6;
       match m with
       | Val m' -> Val (Env.remove (Env.Key.Reg v) m')
       | BOT    -> BOT

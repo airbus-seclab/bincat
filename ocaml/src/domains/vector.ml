@@ -423,6 +423,7 @@ module Make(V: Val) =
                 end
 
         let zero_extend v new_sz =
+            Log.debug_lvl (Printf.sprintf "Vector.zero_extend(%s:%d, %d)" (to_string v) (Array.length v) new_sz) 6;
             let sz = Array.length v in
             if new_sz <= sz then
                 v
@@ -551,7 +552,8 @@ module Make(V: Val) =
             match op with
             | Asm.Not       -> Array.map V.lognot v
             | Asm.SignExt i -> sign_extend v i
-            | Asm.ZeroExt i -> zero_extend v i
+            | Asm.ZeroExt i -> let res = zero_extend v i in Log.debug_lvl (Printf.sprintf
+            "Vector.zero_extend new length : %d" (Array.length res)) 6; res
 
         let untaint v = Array.map V.untaint v
 

@@ -606,7 +606,7 @@ def test_shift_shrd_reg16(tmpdir):
 ## /_/ \_\_|_\___| |_| |_||_|_|  |_|___| |_| |___\___|  \___/|_|  |___/
 ##                                                                     
 
-SOME_OPERANDS = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff, 0x1234, 0x7fff, 0x8000, 0x8001,
+SOME_OPERANDS = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff, 0x1234, 0x7fff, 0x8000, 0x8001, 0x812fada, 0x12345678,
                   0xffff, 0x12ab34cd, 0x7fffffff, 0x80000000, 0x80000001, 0xffffffff ]
 SOME_OPERANDS_COUPLES = list(itertools.product(SOME_OPERANDS, SOME_OPERANDS))
 
@@ -686,13 +686,13 @@ def test_adc_reg32(tmpdir):
 def test_adc_reg16(tmpdir):
     asm = """
             %s
-            mov eax, %#x
-            mov ebx, %#x
-            adc ax, bx
+            mov edx, %#x
+            mov ecx, %#x
+            adc dx, cx
           """
     for carryop in ["stc","clc"]:
         for val1,val2 in SOME_OPERANDS_COUPLES:
-            compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+            compare(tmpdir, asm % (carryop, val1, val2), ["edx", "of", "sf", "zf", "cf", "pf", "af"])
 
 def test_adc_imm32(tmpdir):
     asm = """
