@@ -695,27 +695,27 @@ struct
       eflags_c21
 
     (** Set the flags from EFLAGS value*)
-    let set_eflags eflags sz =
-        let one = Const (Word.one sz) in
-        let set_f flg value = Set (V (T flg), value) in
+    let set_eflags eflags =
+        let set_f flg value = Set (V (T flg), Lval (V value)) in
             (* XXX check perms and validity *)
-            [set_f fcf  (BinOp(And, eflags, one));
-             set_f fpf  (BinOp(And, (BinOp (Shr, eflags, const 2 32)), one));
-             set_f faf  (BinOp(And, (BinOp (Shr, eflags, const 4 32)), one));
-             set_f fzf  (BinOp(And, (BinOp (Shr, eflags, const 6 32)), one));
-             set_f fsf  (BinOp(And, (BinOp (Shr, eflags, const 7 32)), one));
-             set_f _ftf (BinOp(And, (BinOp (Shr, eflags, const 8 32)), one));
-             set_f fif  (BinOp(And, (BinOp (Shr, eflags, const 9 32)), one));
-             set_f fdf  (BinOp(And, (BinOp (Shr, eflags, const 10 32)), one));
-             set_f fof  (BinOp(And, (BinOp (Shr, eflags, const 11 32)), one));
-             set_f _fiopl (BinOp(And, (BinOp (Shr, eflags, const 12 32)),  const 3 32));
-             set_f _fnt   (BinOp(And, (BinOp (Shr, eflags, const 14 32)), one));
-             set_f _frf   (BinOp(And, (BinOp (Shr, eflags, const 16 32)), one));
-             set_f _fvm   (BinOp(And, (BinOp (Shr, eflags, const 17 32)), one));
-             set_f _fac   (BinOp(And, (BinOp (Shr, eflags, const 18 32)), one));
-             set_f _fvif  (BinOp(And, (BinOp (Shr, eflags, const 19 32)), one));
-             set_f _fvip  (BinOp(And, (BinOp (Shr, eflags, const 20 32)), one));
-             set_f _fid   (BinOp(And, (BinOp (Shr, eflags, const 21 32)), one));
+            [
+            set_f fcf (P(eflags, 0, 0));
+            set_f fpf (P(eflags, 2, 2));
+            set_f faf (P(eflags, 4, 4));
+            set_f fzf (P(eflags, 6, 6));
+            set_f fsf (P(eflags, 7, 7));
+            set_f _ftf (P(eflags, 8, 8));
+            set_f fif (P(eflags, 9, 9));
+            set_f fdf (P(eflags, 10, 10));
+            set_f fof (P(eflags, 11, 11));
+            set_f _fiopl (P(eflags, 12, 13));
+            set_f _fnt (P(eflags, 14, 14));
+            set_f _frf (P(eflags, 16, 16));
+            set_f _fvm (P(eflags, 17, 17));
+            set_f _fac (P(eflags, 18, 18));
+            set_f _fvif (P(eflags, 19, 19));
+            set_f _fvip (P(eflags, 20, 20));
+            set_f _fid (P(eflags, 21, 21));
              ]
 
     (**************************************************************************************)
@@ -1159,7 +1159,7 @@ struct
         let name        = Register.fresh_name ()            in
         let v           = Register.make ~name:name ~size:sz in
         let tmp         = V (T v)			    in
-            let stmt = set_eflags (Lval tmp) sz in
+            let stmt = set_eflags v in
             let popst = pop_stmts s [tmp] in
             return s (popst @ stmt @ [Directive (Remove v)])
 
