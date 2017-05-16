@@ -592,6 +592,19 @@ struct
       let n = Register.size fcf in
       Set (V (T fcf), TernOp( Cmp (EQ, shifted_res, one), Asm.Const (Word.one n), Asm.Const (Word.zero n )))
 
+    let carry_flag_stmts_3 sz op1 op op2 op3 =
+      (* fcf is set if the sz+1 bit of the result is 1 *)
+      let sz' = sz+1 in
+      let s 	 = ZeroExt (sz')	  in
+      let op1' = UnOp (s, op1)	  in
+      let op2' = UnOp (s, op2)	  in
+      let op3' = UnOp (s, op3)	  in
+      let res' = BinOp(op, BinOp (op, op1', op2'), op3') in
+      let shifted_res = BinOp (Shr, res', Const (Word.of_int (Z.of_int sz) (sz'))) in
+      let one = Const (Word.one sz') in
+      let n = Register.size fcf in
+      Set (V (T fcf), TernOp( Cmp (EQ, shifted_res, one), Asm.Const (Word.one n), Asm.Const (Word.zero n )))
+
     (** produce the statement to set the sign flag wrt to the given parameter *)
     let sign_flag_stmts sz res =
       let c = Cmp (EQ, const 1 sz, BinOp(Shr, res, const (sz-1) sz)) in
@@ -607,13 +620,18 @@ struct
     (** produce the statement to set the adjust flag wrt to the given parameters.
      faf is set if there is an overflow on the 4th bit *)
     let adjust_flag_stmts sz op1 op op2 =
-
       let word_0f = Const (Word.of_int (Z.of_int 0x0f) sz) in
       let word_4 = Const (Word.of_int (Z.of_int 4) 8) in
       let op1' = BinOp (And, op1, word_0f)	  in
       let op2' = BinOp (And, op2, word_0f)	  in
       let res' = BinOp (op, op1', op2') in
       let shifted_res = BinOp (Shr, res', word_4) in
+      Set (V (T faf), shifted_res)
+
+    let adjust_flag_stmts_from_res op1 op2 res =
+      let word_4 = Const (Word.of_int (Z.of_int 4) 8) in
+      let comb = BinOp(Xor, res, BinOp (Xor, op1, op2)) in
+      let shifted_res = BinOp (Shr, comb, word_4) in
       Set (V (T faf), shifted_res)
 
     (** produce the statement to set the parity flag wrt to the given parameters *)
@@ -704,34 +722,29 @@ struct
     (* State generation of binary logical/arithmetic operations *)
     (**************************************************************************************)
 
-    (** produces the list of statements for the flag settings involved in the ADD, ADC, SUB, SBB, ADD_i, SUB_i instructions *)
-    let add_sub_flag_stmts istmts sz dst op op2 =
-        let name 	= Register.fresh_name ()	    in
-        let v  	 	= Register.make ~name:name ~size:sz in
-        let tmp  	= V (T v)		  	    in
-        let op1  	= Lval tmp		  	    in
-        let res  	= Lval dst		  	    in
-        let flags_stmts =
-            [
-                carry_flag_stmts sz op1 op op2; overflow_flag_stmts sz res op1 op op2; zero_flag_stmts sz res;
-              sign_flag_stmts sz res            ; parity_flag_stmts sz res       ; adjust_flag_stmts sz op1 op op2;
-            ]
-        in
-        (Set (tmp, Lval dst)):: istmts @ flags_stmts @ [ Directive (Remove v) ]
-
-
-
-    (** produces the list of statements for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)
-    let add_sub_stmts op b dst src sz =
-        let e =
-            if b then BinOp (op, Lval dst, UnOp (SignExt sz, Lval (V (T fcf))))
-            else Lval dst
-        in
-        let res = [Set (dst, BinOp(op, e, src))] in
-        add_sub_flag_stmts res sz dst op src
-
-    (** produces the list of states for for ADD, SUB, ADC, SBB depending of the value of the operator and the boolean value (=true for carry or borrow) *)
-    let add_sub s op b dst src sz = return s (add_sub_stmts op b dst src sz)
+    (** produces the list of states for for ADD, SUB, ADC, SBB depending on
+	the value of the operator and the boolean value (=true for carry or borrow) *)
+    let add_sub s op use_carry dst src sz =
+      let name 	= Register.fresh_name ()	    in
+      let res_reg	= Register.make ~name:name ~size:sz in
+      let res = V (T res_reg) in
+      let res_cf_stmts = if use_carry then
+	  let carry_ext = UnOp (ZeroExt sz, Lval (V (T fcf))) in
+	  [ Set(res, BinOp(op, BinOp(op, Lval dst, src), carry_ext)) ; (* dst-src-cf *)
+            carry_flag_stmts_3 sz (Lval dst) op src carry_ext ; ]
+	else
+	  [ Set(res, BinOp(op, Lval dst, src)) ;
+            carry_flag_stmts sz (Lval dst) op src ; ] in
+      return s
+	(res_cf_stmts @ [
+	adjust_flag_stmts_from_res (Lval dst) src (Lval res) ;
+	overflow_flag_stmts sz (Lval res) (Lval dst) op src ;
+	zero_flag_stmts sz (Lval res) ;
+	sign_flag_stmts sz (Lval res) ;
+	parity_flag_stmts sz (Lval res) ; 
+	Set(dst, Lval res) ;
+	Directive (Remove res_reg)
+      ])
 
 
     (** produces the state corresponding to an add or a sub with an immediate operand *)
@@ -1903,9 +1916,9 @@ struct
       
     (** decoding of one instruction *)
     let decode s =
-        let add_sub_mrm s op b sz direction =
+        let add_sub_mrm s op use_carry sz direction =
             let dst, src = operands_from_mod_reg_rm s sz direction in
-            add_sub s op b dst src sz
+            add_sub s op use_carry dst src sz
         in
         let cmp_mrm s sz direction =
             let dst, src = operands_from_mod_reg_rm s sz direction in
