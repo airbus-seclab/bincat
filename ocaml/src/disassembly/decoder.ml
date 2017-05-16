@@ -1745,6 +1745,42 @@ struct
     let bts s dst src = core_bt s (fun nth _nbit -> [bts_stmt dst nth s.operand_sz]) dst src
     let btr s dst src = core_bt s (fun nth _nbit -> [btr_stmt dst nth s.operand_sz]) dst src
     let btc s dst src = core_bt s (fun _nth nbit -> [If (Cmp (EQ, nbit, Const (Word.one s.operand_sz)), [btr_stmt dst _nth s.operand_sz], [bts_stmt dst _nth s.operand_sz])]) dst src
+    let bsr s dst src =
+      let sz = s.operand_sz in
+      let zero = Const (Word.zero sz) in
+      let one =  Const (Word.one sz) in
+      let rec compose_bsr src i =
+	let idx = const i sz in
+	if i = 0 then Set(dst, idx)
+	else If (Cmp (EQ, (BinOp (And, one, BinOp(Shr, src, idx))), one),
+		 [ Set(dst, idx) ],
+		 [ compose_bsr src (i-1) ]) in
+      return s [
+	undef_flag fcf ; undef_flag fpf ; undef_flag fsf ; undef_flag fof ; undef_flag faf ; 
+	If(Cmp(EQ, src, zero),
+	   [ Set(V (T fzf), Const (Word.one fzf_sz)) ;
+	     (*Directive(Forget dst) ; *) ],
+	   [ Set(V (T fzf), Const (Word.zero fzf_sz)) ;
+	     compose_bsr src (s.operand_sz-1) ; ] )
+      ]
+    let bsf s dst src =
+      let sz = s.operand_sz in
+      let zero = Const (Word.zero sz) in
+      let one =  Const (Word.one sz) in
+      let rec compose_bsf src i =
+	let idx = const i sz in
+	if i = s.operand_sz-1 then Set(dst, idx)
+	else If (Cmp (EQ, (BinOp (And, one, BinOp(Shr, src, idx))), one),
+		 [ Set(dst, idx) ],
+		 [ compose_bsf src (i+1) ]) in
+      return s [
+	undef_flag fcf ; undef_flag fpf ; undef_flag fsf ; undef_flag fof ; undef_flag faf ; 
+	If(Cmp(EQ, src, zero),
+	   [ Set(V (T fzf), Const (Word.one fzf_sz)) ;
+	     (*Directive(Forget dst) ; *) ],
+	   [ Set(V (T fzf), Const (Word.zero fzf_sz)) ;
+	     compose_bsf src 0 ; ] )
+      ]
 
     let grp8 s =
         let nnn, dst = core_grp s s.operand_sz                                                           in
@@ -2232,7 +2268,8 @@ struct
 
             | '\xba' -> grp8 s
             | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btc s reg rm
-
+	    | '\xbc' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bsf s reg rm
+	    | '\xbd' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bsr s reg rm
             | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
               return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
             | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in return s [ Set (reg, UnOp(SignExt 32, rm)) ]
