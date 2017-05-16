@@ -603,7 +603,7 @@ struct
       let shifted_res = BinOp (Shr, res', Const (Word.of_int (Z.of_int sz) (sz'))) in
       let one = Const (Word.one sz') in
       let n = Register.size fcf in
-      Set (V (T fcf), TernOp( Cmp (EQ, shifted_res, one), Asm.Const (Word.one n), Asm.Const (Word.zero n )))
+      Set (V (T fcf), TernOp( Cmp (EQ, shifted_res, one), Asm.Const (Word.one n), Asm.Const (Word.zero n)))
 
     (** produce the statement to set the sign flag wrt to the given parameter *)
     let sign_flag_stmts sz res =
