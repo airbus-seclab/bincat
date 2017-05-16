@@ -20,6 +20,15 @@ ALL_REGS = ["eax","ebx","ecx","edx", "esi","edi","esp", "ebp"] + ALL_FLAGS
 
 SOME_SHIFT_COUNTS = [0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 24, 31, 32, 33, 48, 63, 64, 65, 127, 128, 129 ]
 
+SOME_OPERANDS_8 = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff]
+SOME_OPERANDS_16 = SOME_OPERANDS_8 + [0x1234, 0x7fff, 0x8000, 0x8001, 0xfa72, 0xffff]
+SOME_OPERANDS = SOME_OPERANDS_16 + [0x12345678, 0x1812fada, 0x12a4b4cd, 0x7fffffff, 0x80000000, 0x80000001, 0xffffffff ]
+
+SOME_OPERANDS_COUPLES_8 = list(itertools.product(SOME_OPERANDS_8, SOME_OPERANDS_8))
+SOME_OPERANDS_COUPLES_16 = list(itertools.product(SOME_OPERANDS_16, SOME_OPERANDS_16))
+SOME_OPERANDS_COUPLES = list(itertools.product(SOME_OPERANDS, SOME_OPERANDS))
+
+
 def assemble(tmpdir, asm):
     d = tmpdir.mkdir(NASM_DIR.next())
     inf = d.join("asm.S")
@@ -606,10 +615,6 @@ def test_shift_shrd_reg16(tmpdir):
 ## /_/ \_\_|_\___| |_| |_||_|_|  |_|___| |_| |___\___|  \___/|_|  |___/
 ##                                                                     
 
-SOME_OPERANDS = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff, 0x1234, 0x7fff, 0x8000, 0x8001, 0x812fada, 0x12345678,
-                  0xffff, 0x12ab34cd, 0x7fffffff, 0x80000000, 0x80000001, 0xffffffff ]
-SOME_OPERANDS_COUPLES = list(itertools.product(SOME_OPERANDS, SOME_OPERANDS))
-
 def test_add_imm32(tmpdir):
     asm = """
             mov eax, %#x
@@ -633,7 +638,7 @@ def test_add_reg16(tmpdir):
             mov ebx, %#x
             add ax, bx
           """
-    for vals in SOME_OPERANDS_COUPLES:
+    for vals in SOME_OPERANDS_COUPLES_16:
         compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
 def test_sub_imm32(tmpdir):
@@ -659,7 +664,7 @@ def test_sub_reg16(tmpdir):
             mov ebx, %#x
             sub ax, bx
           """
-    for vals in SOME_OPERANDS_COUPLES:
+    for vals in SOME_OPERANDS_COUPLES_16:
         compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
 
@@ -691,7 +696,7 @@ def test_adc_reg16(tmpdir):
             adc dx, cx
           """
     for carryop in ["stc","clc"]:
-        for val1,val2 in SOME_OPERANDS_COUPLES:
+        for val1,val2 in SOME_OPERANDS_COUPLES_16:
             compare(tmpdir, asm % (carryop, val1, val2), ["edx", "of", "sf", "zf", "cf", "pf", "af"])
 
 def test_adc_imm32(tmpdir):
@@ -723,7 +728,7 @@ def test_sbb_reg16(tmpdir):
             sbb ax, bx
           """
     for carryop in ["stc","clc"]:
-        for val1,val2 in SOME_OPERANDS_COUPLES:
+        for val1,val2 in SOME_OPERANDS_COUPLES_16:
             compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
 def test_sbb_imm32(tmpdir):
