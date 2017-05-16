@@ -1476,7 +1476,12 @@ struct
             ]
         in
         (* If shifted by zero, do nothing, else do the rest *)
-        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops)]
+        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
+            (* if shifted by more than opsize, everything is undef *)
+            (* TODO : forget dst *)
+            [If(Cmp(GT, n, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
+            ops)])]
+
 
     (* SHRD *)
     let shift_rd_stmt dst src sz n =
@@ -1516,7 +1521,11 @@ struct
         in
         (* If shifted by zero, do nothing, else do the rest *)
         let res = Lval dst in
-        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
+        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
+            (* if shifted by more than opsize, everything is undef *)
+            (* TODO : forget dst *)
+            [If(Cmp(GT, n, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
+               ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)])])]
 
 
     let rotate_l_stmt dst sz count =

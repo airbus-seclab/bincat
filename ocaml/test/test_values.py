@@ -557,7 +557,7 @@ def test_shift_shld_reg16(tmpdir):
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "ebx", "of", "cf"],
                     top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                   "eax":0xffff if (i>32) else 0})
+                                   "eax":0xffff if (i>16) else 0})
 
 def test_shift_shrd_imm8(tmpdir):
     asm = """
@@ -598,7 +598,7 @@ def test_shift_shrd_reg16(tmpdir):
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "ebx", "of", "cf"],
                     top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                   "eax":0xffff if (i>32) else 0})
+                                   "eax":0xffff if (i>16) else 0})
 
 ##    _   ___ ___ _____ _  _ __  __ ___ _____ ___ ___    ___  ___  ___ 
 ##   /_\ | _ \_ _|_   _| || |  \/  | __|_   _|_ _/ __|  / _ \| _ \/ __|
