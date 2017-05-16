@@ -1044,3 +1044,13 @@ def test_bittest_btc_imm8(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
 
+def test_pushf_popf(tmpdir):
+    asm = """
+            stc
+            mov eax, 0x7fffffff
+            mov ebx, 0x7fffffff
+            pushf
+            popf
+            adc ax, bx
+          """
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
