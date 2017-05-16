@@ -1533,7 +1533,7 @@ struct
       let low = BinOp (Shr, Lval dst, inv_count_mod) in
       let high = BinOp (Shl, Lval dst, count_mod) in
       let res = BinOp (Or, high, low) in
-      let msb = BinOp(Shr, high, szm1_exp) in
+      let msb = BinOp(Shr, (Lval dst), szm1_exp) in
       let lsb = BinOp(And, (Lval dst), one) in
       let cf_stmt = Set (V (T fcf), lsb) in
       let of_stmt = If (Cmp (EQ, count_masked, one),
