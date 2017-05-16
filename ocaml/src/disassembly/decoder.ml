@@ -725,26 +725,26 @@ struct
     (** produces the list of states for for ADD, SUB, ADC, SBB depending on
 	the value of the operator and the boolean value (=true for carry or borrow) *)
     let add_sub s op use_carry dst src sz =
-      let name 	= Register.fresh_name ()	    in
-      let res_reg	= Register.make ~name:name ~size:sz in
-      let res = V (T res_reg) in
-      let res_cf_stmts = if use_carry then
-	  let carry_ext = UnOp (ZeroExt sz, Lval (V (T fcf))) in
-	  [ Set(res, BinOp(op, BinOp(op, Lval dst, src), carry_ext)) ; (* dst-src-cf *)
-            carry_flag_stmts_3 sz (Lval dst) op src carry_ext ; ]
-	else
-	  [ Set(res, BinOp(op, Lval dst, src)) ;
-            carry_flag_stmts sz (Lval dst) op src ; ] in
-      return s
-	(res_cf_stmts @ [
-	adjust_flag_stmts_from_res (Lval dst) src (Lval res) ;
-	overflow_flag_stmts sz (Lval res) (Lval dst) op src ;
-	zero_flag_stmts sz (Lval res) ;
-	sign_flag_stmts sz (Lval res) ;
-	parity_flag_stmts sz (Lval res) ; 
-	Set(dst, Lval res) ;
-	Directive (Remove res_reg)
-      ])
+        let name 	= Register.fresh_name ()	    in
+        let res_reg	= Register.make ~name:name ~size:sz in
+        let res = V (T res_reg) in
+        let res_cf_stmts = if use_carry then
+                let carry_ext = UnOp (ZeroExt sz, Lval (V (T fcf))) in
+                [ Set(res, BinOp(op, BinOp(op, Lval dst, src), carry_ext)) ; (* dst-src-cf *)
+                  carry_flag_stmts_3 sz (Lval dst) op src (Lval (V (T fcf)))]
+            else
+                [ Set(res, BinOp(op, Lval dst, src)) ;
+                  carry_flag_stmts sz (Lval dst) op src ; ] in
+        return s
+            (res_cf_stmts @ [
+                 adjust_flag_stmts_from_res (Lval dst) src (Lval res) ;
+                 overflow_flag_stmts sz (Lval res) (Lval dst) op src ;
+                 zero_flag_stmts sz (Lval res) ;
+                 sign_flag_stmts sz (Lval res) ;
+                 parity_flag_stmts sz (Lval res) ;
+                 Set(dst, Lval res) ;
+                 Directive (Remove res_reg)
+             ])
 
 
     (** produces the state corresponding to an add or a sub with an immediate operand *)
