@@ -200,6 +200,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) =
+        Log.debug_lvl (Printf.sprintf "Interpreter.process_value stmt=\n%s" (Asm.string_of_stmt s true)) 6;
         match s with
         | Nop 				 -> d, false
         | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack   
