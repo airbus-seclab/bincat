@@ -2077,7 +2077,9 @@ struct
             | '\x66' -> (* operand size switch *) s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
             | '\x68' -> (* PUSH immediate *) push_immediate s s.operand_sz
-            | '\x6A' -> (* PUSH byte *) push_immediate s 8
+            | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.operand_sz s.operand_sz true in imul_stmts s dst src imm
+            | '\x6a' -> (* PUSH byte *) push_immediate s 8
+            | '\x6b' -> (* IMUL imm8 *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s 8 s.operand_sz true in imul_stmts s dst src imm
 
             | '\x6c' -> (* INSB *) ins s 8
             | '\x6d' -> (* INSW/D *) ins s s.addr_sz
