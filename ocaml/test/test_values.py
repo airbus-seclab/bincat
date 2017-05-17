@@ -851,6 +851,14 @@ def test_div_reg32(tmpdir):
             mov ebx, %#x
             div ebx
           """
+    ## Caveat :
+    #    temp <- EDX:EAX / SRC;
+    #    IF temp > FFFFFFFFH
+    #        THEN #DE; (* Divide error *)
+    #    ELSE
+    #       EAX <- temp;
+    #       EDX <- EDX:EAX MOD SRC;
+    #    FI;
     for vals in SOME_OPERANDS_COUPLES:
         if vals[1] != 0:
             compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
