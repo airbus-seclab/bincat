@@ -2128,10 +2128,10 @@ struct
             | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
             | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
             | '\x9d' -> (* POPF *) popf s s.operand_sz
-            | '\xa0' -> (* MOV EAX *) mov_with_eax s 8 true
-            | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz true
-            | '\xa2' -> (* MOV EAX *) mov_with_eax s 8 false
-            | '\xa3' -> (* MOV EAX *) mov_with_eax s s.operand_sz false
+            | '\xa0' -> (* MOV EAX *) mov_with_eax s 8 false
+            | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz false
+            | '\xa2' -> (* MOV EAX *) mov_with_eax s 8 true
+            | '\xa3' -> (* MOV EAX *) mov_with_eax s s.operand_sz true
             | '\xa4' -> (* MOVSB *) movs s 8
             | '\xa5' -> (* MOVSW *) movs s s.addr_sz
             | '\xa6' -> (* CMPSB *) cmps s 8
