@@ -862,6 +862,15 @@ def test_mul_taint(tmpdir):
     compare(tmpdir, asm % (1,0xff, 0x10001, 0),["eax", "ebx","edx"],
             reg_taints = dict(eax=0xff00ff, edx=0))
     
+def test_imul3_reg32_imm(tmpdir):
+    asm = """
+            mov ecx, %#x
+            mov ebx, %#x
+            imul ecx, ebx, %#x
+          """
+    for val1, val2 in SOME_OPERANDS_COUPLES:
+        for imm in SOME_OPERANDS:
+            compare(tmpdir, asm % (val1, val2, imm), ["ecx", "ebx", "of", "cf"])
 
 def test_imul_reg32(tmpdir):
     asm = """
