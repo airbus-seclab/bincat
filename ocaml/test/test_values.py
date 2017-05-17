@@ -843,6 +843,19 @@ def test_test_reg32(tmpdir):
     for vals in SOME_OPERANDS_COUPLES:
         compare(tmpdir, asm % vals, ["eax", "sf", "zf", "pf"])
 
+
+def test_div_reg32(tmpdir):
+    asm = """
+            mov edx, 0
+            mov eax, %#x
+            mov ebx, %#x
+            div ebx
+          """
+    for vals in SOME_OPERANDS_COUPLES:
+        if vals[1] != 0:
+            compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
+
+
 def test_mul_reg32(tmpdir):
     asm = """
             mov eax, %#x
