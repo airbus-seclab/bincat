@@ -620,13 +620,14 @@ struct
     (** produce the statement to set the adjust flag wrt to the given parameters.
      faf is set if there is an overflow on the 4th bit *)
     let adjust_flag_stmts sz op1 op op2 =
-      let word_0f = Const (Word.of_int (Z.of_int 0x0f) sz) in
-      let word_4 = Const (Word.of_int (Z.of_int 4) 8) in
+      let word_0f = const 0xf sz in
+      let word_4 = const 4 8 in
+      let one = const 1 sz in
       let op1' = BinOp (And, op1, word_0f)	  in
       let op2' = BinOp (And, op2, word_0f)	  in
       let res' = BinOp (op, op1', op2') in
-      let shifted_res = BinOp (Shr, res', word_4) in
-      Set (V (T faf), shifted_res)
+      let shifted_res = BinOp(And, BinOp (Shr, res', word_4), one) in
+      Set (V (T faf), TernOp(Cmp(EQ, shifted_res, one), const 1 1, const 0 1))
 
     let adjust_flag_stmts_from_res sz op1 op2 res =
       let word_4 = const 4 8 in
