@@ -1665,6 +1665,22 @@ struct
 	Directive (Remove old_cf_reg )] in
       [ If (Cmp(EQ, count_mod, zero), [], stmts)]
 
+    let neg sz reg =
+      let name = Register.fresh_name ()	    in
+      let tmp_reg = Register.make ~name:name ~size:sz in
+      let tmp_regv = V (T tmp_reg) in
+      let zero = Const (Word.zero sz) in
+      [ Set ( V (T fcf), TernOp( Cmp(EQ, Lval reg, const 0 sz),
+				 const 0 1, const 1 1) ) ;
+	Set (tmp_regv, Lval reg) ;
+	Set (reg, BinOp (Sub, zero, Lval reg)) ;
+	sign_flag_stmts sz (Lval reg) ;
+	zero_flag_stmts sz (Lval reg) ;
+	parity_flag_stmts sz (Lval reg) ;
+	overflow_flag_stmts sz (Lval reg) zero Sub (Lval tmp_regv);
+	adjust_flag_stmts_from_res sz zero (Lval tmp_regv) (Lval reg);
+	Directive(Remove tmp_reg) ;
+      ]
 	
     let grp2 s sz e =
         let nnn, dst = core_grp s sz in
@@ -1689,7 +1705,7 @@ struct
             match nnn with
             | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts reg imm sz
             | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
-            | 3 -> (* NEG *) [ Set (reg, BinOp (Sub, Const (Word.zero sz), Lval reg)) ]
+            | 3 -> (* NEG *) neg sz reg
             | 4 -> (* MUL *) mul_stmts Mul (Lval reg) sz
             | 5 -> (* IMUL *) mul_stmts IMul (Lval reg) sz
             | 7 -> (* IDIV *) idiv_stmts (Lval reg) sz
