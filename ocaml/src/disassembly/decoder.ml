@@ -628,11 +628,12 @@ struct
       let shifted_res = BinOp (Shr, res', word_4) in
       Set (V (T faf), shifted_res)
 
-    let adjust_flag_stmts_from_res op1 op2 res =
-      let word_4 = Const (Word.of_int (Z.of_int 4) 8) in
+    let adjust_flag_stmts_from_res sz op1 op2 res =
+      let word_4 = const 4 8 in
+      let one = const 1 sz in
       let comb = BinOp(Xor, res, BinOp (Xor, op1, op2)) in
-      let shifted_res = BinOp (Shr, comb, word_4) in
-      Set (V (T faf), shifted_res)
+      let shifted_res = BinOp(And, BinOp (Shr, comb, word_4), one) in
+      Set (V (T faf), TernOp( Cmp(EQ, shifted_res, one), const 1 1, const 0 1))
 
     (** produce the statement to set the parity flag wrt to the given parameters *)
     let parity_flag_stmts sz res =
@@ -737,7 +738,7 @@ struct
                   carry_flag_stmts sz (Lval dst) op src ; ] in
         return s
             (res_cf_stmts @ [
-                 adjust_flag_stmts_from_res (Lval dst) src (Lval res) ;
+                 adjust_flag_stmts_from_res sz (Lval dst) src (Lval res) ;
                  overflow_flag_stmts sz (Lval res) (Lval dst) op src ;
                  zero_flag_stmts sz (Lval res) ;
                  sign_flag_stmts sz (Lval res) ;
