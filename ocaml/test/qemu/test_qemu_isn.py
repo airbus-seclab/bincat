@@ -24,11 +24,11 @@ def analyze(tmpdir, initfname):
     return outfname, logfname
 
 def test_qemu_i386(tmpdir):
-    os.system("gunzip < test-i386.raw.gz > test-i386.raw") # XXX
-    outfname,logfname = analyze(tmpdir, "test-i386.ini")
-    os.system("rm test-i386.raw")                          # XXX
+    os.system("gunzip < test-i386-nofpu-nosys.raw.gz > test-i386-nofpu-nosys.raw") # XXX
+    outfname,logfname = analyze(tmpdir, "test-i386-nofpu-nosys.ini")
+    os.system("rm test-i386-nofpu-nosys.raw")                          # XXX
     res = open(logfname)
-    expected = gzip.open("test-i386.out.gz")
+    expected = gzip.open("test-i386-nofpu-nosys.out.gz")
     for la in res:
         if "[analysis]" in la:
             continue
