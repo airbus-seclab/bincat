@@ -872,6 +872,16 @@ def test_imul3_reg32_imm(tmpdir):
         for imm in SOME_OPERANDS:
             compare(tmpdir, asm % (val1, val2, imm), ["ecx", "ebx", "of", "cf"])
 
+def test_imul3_reg16_imm(tmpdir):
+    asm = """
+            mov ecx, %#x
+            mov ebx, %#x
+            imul cx, bx, %#x
+          """
+    for val1, val2 in SOME_OPERANDS_COUPLES_16:
+        for imm in SOME_OPERANDS_16:
+            compare(tmpdir, asm % (val1, val2, imm), ["ecx", "ebx", "of", "cf"])
+
 def test_imul_reg32(tmpdir):
     asm = """
             mov eax, %#x
