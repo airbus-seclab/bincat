@@ -819,6 +819,22 @@ def test_not_reg32(tmpdir):
     for vals in SOME_OPERANDS:
         compare(tmpdir, asm % vals, ["eax"])
 
+def test_neg_reg32(tmpdir):
+    asm = """
+            mov eax, %#x
+            neg eax
+          """
+    for vals in SOME_OPERANDS:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_neg_reg16(tmpdir):
+    asm = """
+            mov eax, %#x
+            neg ax
+          """
+    for vals in SOME_OPERANDS:
+        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
 def test_test_reg32(tmpdir):
     asm = """
             mov eax, %#x
