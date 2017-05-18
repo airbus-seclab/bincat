@@ -1027,32 +1027,33 @@ module Make(D: T) =
         str', String.length str'
 	    
     let copy_hex m dst src nb capitalise pad_option word_sz: t * int =
-     (* TODO generalise to non concrete src value *)
-      match m with
-      | Val m' ->
-	 begin
-	  let str_src, len = to_hex m' src nb capitalise pad_option false word_sz in
-	  let vdst = fst (eval_exp m' dst) in
-	  let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
-	  match dst_addrs with
-	  | [dst_addr] ->	     
-	     let znb = Z.of_int nb in
-	     let rec write m' o =
-	       if Z.compare o znb < 0 then
-		 let c = String.get str_src (Z.to_int o) in
-		 let dst = Data.Address.add_offset dst_addr o in
-		 let i' = Z.of_int (Char.code c) in
-		 let r = D.of_word (Data.Word.of_int i' 8) in
-		 let v' = if D.is_tainted r then D.taint r else r in
-		 write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
-	       else		  
-		 m'
-	     in
-	     Val (write m' Z.zero), len
-	  | [] -> raise Exceptions.Empty
-	  | _  -> Val (Env.empty), len (* TODO could be more precise *)
-	 end
-      | BOT -> BOT, raise Exceptions.Empty
+        (* TODO generalise to non concrete src value *)
+        match m with
+        | Val m' ->
+          begin
+              let _, src_tainted = (eval_exp m' src) in
+              let str_src, len = to_hex m' src nb capitalise pad_option false word_sz in
+              let vdst = fst (eval_exp m' dst) in
+              let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
+              match dst_addrs with
+              | [dst_addr] ->
+                let znb = Z.of_int nb in
+                let rec write m' o =
+                    if Z.compare o znb < 0 then
+                        let c = String.get str_src (Z.to_int o) in
+                        let dst = Data.Address.add_offset dst_addr o in
+                        let i' = Z.of_int (Char.code c) in
+                        let r = D.of_word (Data.Word.of_int i' 8) in
+                        let v' = if src_tainted || D.is_tainted r then D.taint r else r in
+                        write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
+                    else
+                        m'
+                in
+                Val (write m' Z.zero), len
+              | [] -> raise Exceptions.Empty
+              | _  -> Val (Env.empty), len (* TODO could be more precise *)
+          end
+        | BOT -> BOT, raise Exceptions.Empty
 
     let print_hex m src nb capitalise pad_option word_sz: t * int =
         match m with
