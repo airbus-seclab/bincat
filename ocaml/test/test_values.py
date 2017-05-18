@@ -43,8 +43,9 @@ C_TEMPLATE_PROLOGUE = r"""
 #include <stdio.h>
 int main(void)
 {
-        unsigned int Reax,Rebx,Recx,Redx,Resi,Redi,Resp,Rebp,Reflags;
+        unsigned int Reax,Rebx,Recx,Redx,Resi,Redi,Resp,Rebp,Reflags,Rsav_esp;
         asm volatile(
+        "mov %3, esp\n"
 """
 
 C_TEMPLATE_EPILOGUE = r""" 
@@ -53,10 +54,12 @@ C_TEMPLATE_EPILOGUE = r"""
         "mov %2, ebp\n"
         "pushf\n"
         "pop eax\n"
+        "mov esp, %3\n"
         : 
         "=m" (Reax),
         "=m" (Resp),
         "=m" (Rebp),
+        "=m" (Rsav_esp),
         "=a" (Reflags),
         "=b" (Rebx),
         "=c" (Recx),
