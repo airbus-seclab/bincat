@@ -534,43 +534,45 @@ module Make(D: T) =
 
 	| Asm.TernOp (c, e1, e2) ->
 	   let r, b = eval_bexp c true in
-	   if r then
-	     let r2, b2 = eval_bexp c false in
-	     if r2 then
-	       let v1, _ = eval e1 in
-	       let v2, _ = eval e2 in
-	       D.join v1 v2, b||b2
-	     else
-	       fst (eval e1), b
-	   else
-	     let r2, b2 = eval_bexp c false in
-	     if r2 then
-	       fst (eval e2), b2
-	     else
-	       D.bot, false
+       let res, taint_res = 
+           if r then (* condition is true *)
+             let r2, b2 = eval_bexp c false in
+             if r2 then
+               let v1, _ = eval e1 in
+               let v2, _ = eval e2 in
+               D.join v1 v2, b||b2
+             else
+               fst (eval e1), b
+           else
+             let r2, b2 = eval_bexp c false in
+             if r2 then
+               fst (eval e2), b2
+             else
+               D.bot, false
+       in if taint_res then D.taint res, true else res, false
       (* TODO: factorize with Interpreter.restrict *)
       and eval_bexp c b: bool * bool =
-	match c with
-	| Asm.BConst b' 		  -> if b = b' then true, false else false, false
-        | Asm.BUnOp (Asm.LogNot, e) 	  -> eval_bexp e (not b)
-					     
-        | Asm.BBinOp (Asm.LogOr, e1, e2)  ->
-           let v1, b1 = eval_bexp e1 b in
-           let v2, b2 = eval_bexp e2 b in
-           if b then v1||v2, b1||b2
-           else v1&&v2, b1&&b2
-		       
-        | Asm.BBinOp (Asm.LogAnd, e1, e2) ->
-           let v1, b1 = eval_bexp e1 b in
-           let v2, b2 = eval_bexp e2 b in
-           if b then v1&&v2, b1&&b2
-           else v1||v2, b1||b2
-		       
-        | Asm.Cmp (cmp, e1, e2)   ->
-           let cmp' = if b then cmp else inv_cmp cmp in
-           compare_env m e1 cmp' e2
-      in
-      eval e
+        match c with
+        | Asm.BConst b' 		  -> if b = b' then true, false else false, false
+            | Asm.BUnOp (Asm.LogNot, e) 	  -> eval_bexp e (not b)
+
+            | Asm.BBinOp (Asm.LogOr, e1, e2)  ->
+               let v1, b1 = eval_bexp e1 b in
+               let v2, b2 = eval_bexp e2 b in
+               if b then v1||v2, b1||b2
+               else v1&&v2, b1&&b2
+
+            | Asm.BBinOp (Asm.LogAnd, e1, e2) ->
+               let v1, b1 = eval_bexp e1 b in
+               let v2, b2 = eval_bexp e2 b in
+               if b then v1&&v2, b1&&b2
+               else v1||v2, b1||b2
+
+            | Asm.Cmp (cmp, e1, e2)   ->
+               let cmp' = if b then cmp else inv_cmp cmp in
+               compare_env m e1 cmp' e2
+          in
+          eval e
 	
     and compare_env env (e1: Asm.exp) op e2 =
       let v1, b1 = eval_exp env e1 in
