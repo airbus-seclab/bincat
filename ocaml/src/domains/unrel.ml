@@ -463,8 +463,12 @@ module Make(D: T) =
 
 
   
-    (** evaluates the given expression *)
+    (** evaluates the given expression
+        returns the evaluated expression and a boolean to say if
+        the resulting expression is tainted
+    *)
     let rec eval_exp m e: (D.t * bool) =
+      Log.debug_lvl (Printf.sprintf "Unrel.eval_exp(%s)" (Asm.string_of_exp e true)) 6;
       let rec eval e =
         match e with
         | Asm.Const c 			     -> D.of_word c, false
