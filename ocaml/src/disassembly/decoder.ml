@@ -1301,7 +1301,7 @@ struct
             ] in
         return s (imul_s @ flags_stmts @ [ Directive (Remove tmp) ])
 
-    let idiv_stmts (reg : Asm.exp)  sz =
+    let div_stmts (reg : Asm.exp) sz signed =
         (* Useful boundaries for flags *)
         let min_int_z = (Z.of_int (1 lsl (sz-1))) in
         let min_int_const = (Const (Word.of_int min_int_z (sz*2))) in
@@ -1312,11 +1312,12 @@ struct
         let edx_r = (to_reg edx sz) in let edx_lv = Lval( V (edx_r)) in
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let tmp_div   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
+        let op = if signed then Div else IDiv in
 
         (* tmp <- (E)AX:(E)DX *)
         (* TODO : fix for 8 bits *)
         let set_tmp = Set (V (T tmp), BinOp(Or, BinOp(Shl, edx_lv, Const (Word.of_int (Z.of_int sz) sz)), eax_lv)) in
-            [ set_tmp; Set (V(T tmp_div), BinOp(Div, Lval (V (T tmp)), reg));
+            [ set_tmp; Set (V(T tmp_div), BinOp(op, Lval (V (T tmp)), reg));
               Assert (
                 BBinOp(LogOr,
                       Cmp(GT, Lval( V (T tmp_div)), max_int_const),
@@ -1709,7 +1710,8 @@ struct
             | 3 -> (* NEG *) neg sz reg
             | 4 -> (* MUL *) mul_stmts Mul (Lval reg) sz
             | 5 -> (* IMUL *) mul_stmts IMul (Lval reg) sz
-            | 7 -> (* IDIV *) idiv_stmts (Lval reg) sz
+            | 6 -> (* DIV *) div_stmts (Lval reg) sz true
+            | 7 -> (* IDIV *) div_stmts (Lval reg) sz false
             | _ -> error s.a "Unknown operation in grp 3"
         in
         return s stmts
