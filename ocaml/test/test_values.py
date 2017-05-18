@@ -1127,10 +1127,11 @@ def test_bittest_bsr_reg32(tmpdir):
     for i in SOME_OPERANDS:
         compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
 
-def test_bittest_bsr_imm32(tmpdir):
+def test_bittest_bsr_m32(tmpdir):
     asm = """
+            push %#x
             xor ebx, ebx
-            bsr ebx, %#x
+            bsr ebx, [esp]
     """
     for i in SOME_OPERANDS:
         compare(tmpdir, asm % i, ["ebx", "zf"])
@@ -1154,10 +1155,11 @@ def test_bittest_bsf_reg32(tmpdir):
     for i in SOME_OPERANDS:
         compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
 
-def test_bittest_bsf_imm32(tmpdir):
+def test_bittest_bsf_m32(tmpdir):
     asm = """
+            push %#x
             xor ebx, ebx
-            bsf ebx, %#x
+            bsf ebx, [esp]
     """
     for i in SOME_OPERANDS:
         compare(tmpdir, asm % i, ["ebx", "zf"])
