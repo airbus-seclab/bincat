@@ -1241,7 +1241,7 @@ struct
     let cmovcc s cond =
         let dst, src  = operands_from_mod_reg_rm s s.operand_sz 1 in
         let cond_stmt = exp_of_cond cond s in
-        return s [ If (cond_stmt, [ Set (dst, src) ], []) ]
+        return s [ Set(dst, TernOp (cond_stmt, src , (Lval dst) )) ]
 
     (*******************************)
     (* multiplication and division *)
