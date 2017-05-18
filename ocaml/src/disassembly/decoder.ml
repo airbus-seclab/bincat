@@ -2290,8 +2290,8 @@ struct
 
             | '\xba' -> grp8 s
             | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btc s reg rm
-	    | '\xbc' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bsf s reg rm
-	    | '\xbd' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bsr s reg rm
+	    | '\xbc' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsf s reg rm
+	    | '\xbd' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsr s reg rm
             | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
               return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
             | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in return s [ Set (reg, UnOp(SignExt 32, rm)) ]
