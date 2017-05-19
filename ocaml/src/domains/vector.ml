@@ -247,6 +247,16 @@ module Make(V: Val) =
 	    false
 	  with Exit -> true
 	    
+        let exist2 p v1 v2 =
+            let n = min (Array.length v1) (Array.length v2) in
+            try
+                for i = 0 to n-1 do
+                    if p v1.(i) v2.(i) then raise Exit
+                done;
+                false
+            with
+            | Exit -> true
+            | _    -> false
         let map2 f v1 v2 =
             let n = min (Array.length v1) (Array.length v2) in
             let v = Array.make n V.top                      in
@@ -371,6 +381,44 @@ module Make(V: Val) =
             done;
             v
 
+	  
+	let lt_core v1 v2 final =
+	  let lv1 = Array.length v1 in
+	  let lv2 = Array.length v2 in
+          if lv1 <> lv2 then
+            Log.error (Printf.sprintf "Vector.lt_core : comparing vectors of different sizes (v1:%i, v2:%i)" lv1 lv2)
+	  else
+	    let rec rec_lt v1 v2 i =
+	      if i >= lv1 then final
+	      else
+		let nxt = V.lt_multibit_helper v1.(i) v2.(i) in
+		match nxt with
+		| Some b -> b
+		| None -> rec_lt v1 v2 (i+1)
+	    in let res = rec_lt v1 v2 0 in
+	       Log.debug_lvl (Printf.sprintf "Vector.lt_core %s %s %s = %b"
+				(to_string v1) (if final then "<=" else "<")
+				(to_string v2) res) 6;
+	       res
+
+	let lt v1 v2 = lt_core v1 v2 false
+	let leq v1 v2 = lt_core v1 v2 true
+	let gt v1 v2 = lt v2 v1
+	let geq v1 v2 = leq v2 v1
+
+        let compare v1 op v2 =
+            if (Array.length v1) != (Array.length v2) then
+              Log.error (Printf.sprintf "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
+			   (to_string v1) (Asm.string_of_cmp op) (to_string v2)
+			   (Array.length v1) (Array.length v2));
+            match op with
+            | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+            | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+	    | Asm.LT -> lt v1 v2
+	    | Asm.LEQ -> leq v1 v2
+	    | Asm.GT -> gt v1 v2
+	    | Asm.GEQ -> geq v1 v2
+
         let add v1 v2 =
 	  let res = core_add_sub V.add v1 v2 in
 	  Log.debug_lvl (Printf.sprintf "Vector.add(%s, %s) = %s"
@@ -491,18 +539,6 @@ module Make(V: Val) =
             let res = Array.sub fullres (v1_len*2) (v1_len*2) in
                 Log.debug_lvl (Printf.sprintf "Vector.imul return %s" (to_string res)) 4;
                 res
-
-        (** returns true whenever v1 >= v2 *)
-        exception Res of bool
-        let geq v1 v2 =
-            try
-                for i = 0 to (Array.length v1) - 1 do
-                    if V.lt v1.(i) v2.(i) then raise (Res false)
-                    else
-                    if V.lt v2.(i) v1.(i) then raise (Res true)
-                done;
-                true
-            with Res b -> b
 
         (** return v1 / v2, modulo of v1 / v2 *)
         let core_div v1 v2 =
@@ -667,53 +703,6 @@ module Make(V: Val) =
 		    done;
                     v
 		  end
-        let exist2 p v1 v2 =
-            let n = min (Array.length v1) (Array.length v2) in
-            try
-                for i = 0 to n-1 do
-                    if p v1.(i) v2.(i) then raise Exit
-                done;
-                false
-            with
-            | Exit -> true
-            | _    -> false
-
-	let lt_core v1 v2 final =
-	  let lv1 = Array.length v1 in
-	  let lv2 = Array.length v2 in
-          if lv1 <> lv2 then
-            Log.error (Printf.sprintf "Vector.lt_core : comparing vectors of different sizes (v1:%i, v2:%i)" lv1 lv2)
-	  else
-	    let rec rec_lt v1 v2 i =
-	      if i >= lv1 then final
-	      else
-		let nxt = V.lt_multibit_helper v1.(i) v2.(i) in
-		match nxt with
-		| Some b -> b
-		| None -> rec_lt v1 v2 (i+1)
-	    in let res = rec_lt v1 v2 0 in
-	       Log.debug_lvl (Printf.sprintf "Vector.lt_core %s %s %s = %b"
-				(to_string v1) (if final then "<=" else "<")
-				(to_string v2) res) 6;
-	       res
-
-	let lt v1 v2 = lt_core v1 v2 false
-	let leq v1 v2 = lt_core v1 v2 true
-	let gt v1 v2 = lt v2 v1
-	let geq v1 v2 = leq v2 v1
-
-        let compare v1 op v2 =
-            if (Array.length v1) != (Array.length v2) then
-              Log.error (Printf.sprintf "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
-			   (to_string v1) (Asm.string_of_cmp op) (to_string v2)
-			   (Array.length v1) (Array.length v2));
-            match op with
-            | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-            | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-	    | Asm.LT -> lt v1 v2
-	    | Asm.LEQ -> leq v1 v2
-	    | Asm.GT -> gt v1 v2
-	    | Asm.GEQ -> geq v1 v2
 
         let extract v low up =
             Log.debug_lvl (Printf.sprintf "V.extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v)) 6;
