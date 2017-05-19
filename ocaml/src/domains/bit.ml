@@ -142,7 +142,9 @@ let gt v1 v2 =
   | _, ONE | ZERO, _ -> false
   | _, _ 	     -> true
 
-(** helper to compute lt vector operation. ZERO => false, ONE => true and TOP => carry on *)
+(** helper to compute lt vector operation. 
+    Some => we can stop here and it is true or false
+    None => we need to look at the next bit *)
 let lt_multibit_helper v1 v2 =
   match v1, v2 with
   | ONE, ZERO -> Some false
