@@ -554,25 +554,61 @@ module Make(V: Val) =
             if for_all V.is_zero v2 then
                 Log.error "Division by zero"
             else
-                let n   = Array.length v1     in
-                let res   = Array.make n V.zero in
-                let one = Array.make n V.zero in
+              let n   = Array.length v1     in
+	      let p = zero_extend v1 (2*n) in
+              let res = Array.make n V.zero in
+	      let q   = concat v2 res in
+              let one = Array.make n V.zero in
                 one.(n-1) <- V.one;
-                let rec loop res rem =
-                    if geq rem v2 then
-                        loop (add res one) (sub rem v2)
-                    else
-                        res, rem
-                in
-                loop res v1
+	      let rec do_div p q d i =
+		if i = 0 then
+		  d, p
+		else
+		  let d' = shl d one in
+		  let p',d'' = if geq p q then
+		      (sub p q), (logor d' one)
+		    else
+		      p, d' in
+		  do_div p' (shr q one) d'' (i-1) in
+	      let quo,rem = do_div p (shr q one) res n in
+	      Log.debug_lvl (Printf.sprintf "Vector.core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
+			    (Array.length v1) (to_string v1)
+			    (Array.length v2) (to_string v2)
+			    (Array.length quo) (to_string quo)
+			    (Array.length rem) (to_string rem)) 6;
+	      quo,rem
 
+
+        let div v1 v2 =
+	  let res = fst (core_div v1 v2) in
+	  Log.debug_lvl ( Printf.sprintf "Vector.div (%d)%s, (%d)%s = (%d)%s"
+			    (Array.length v1) (to_string v1)
+			    (Array.length v2) (to_string v2)
+			    (Array.length res) (to_string res)) 6;
+	  res
+	let is_neg v1 =
+	  V.is_one v1.(0) || V.is_top v1.(0)
 
         (** TODO vérifier que c'est correct *)
-        let idiv v1 v2 = fst (core_div v1 v2)
+        let idiv v1 v2 =
+	  let sign = is_neg v1 <> is_neg v2 in
+	  let v1' = if is_neg v1 then neg v1 else v1 in
+	  let v2' = if is_neg v2 then neg v2 else v2 in
+	  let res,_ = core_div v1' v2' in
+	  let res' = if sign then (neg res) else res in
+	  Log.debug_lvl ( Printf.sprintf "Vector.idiv (%d)%s, (%d)%s = (%d)%s"
+			    (Array.length v1) (to_string v1)
+			    (Array.length v2) (to_string v2)
+			    (Array.length res') (to_string res')) 6;
+	  res'
 
-        let div v1 v2 = fst (core_div v1 v2)
-
-        let modulo v1 v2 = snd (core_div v1 v2)
+        let modulo v1 v2 =
+	  let res = snd (core_div v1 v2) in
+	  Log.debug_lvl ( Printf.sprintf "Vector.modulo (%d)%s, (%d)%s = (%d)%s"
+			    (Array.length v1) (to_string v1)
+			    (Array.length v2) (to_string v2)
+			    (Array.length res) (to_string res)) 6;
+	  res
 
         let binary op v1 v2 =
             match op with
