@@ -345,7 +345,8 @@ module Make(V: Val) =
 	  
     let to_strings v = extract_strings v
       
-      
+        let concat v1 v2 = Array.append v1 v2
+
         let join v1 v2 = map2 V.join v1 v2
 
         let meet v1 v2 = map2 V.meet v1 v2
@@ -429,6 +430,13 @@ module Make(V: Val) =
 
         let xor v1 v2 = map2 V.xor v1 v2
 
+	let lognot v = Array.map V.lognot v
+
+	let neg v =
+	  let n = Array.length v in
+	  let one = Array.make n V.zero in
+	  one.(n-1) <- V.one;
+	  add (lognot v) one
 
         let logand v1 v2 =
 	  let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
@@ -582,11 +590,9 @@ module Make(V: Val) =
             | Asm.Shr -> shr v1 v2
 
 
-
-
         let unary op v =
             match op with
-            | Asm.Not       -> Array.map V.lognot v
+            | Asm.Not       -> lognot v
             | Asm.SignExt i -> sign_extend v i
             | Asm.ZeroExt i -> let res = zero_extend v i in Log.debug_lvl (Printf.sprintf
             "Vector.zero_extend new length : %d" (Array.length res)) 6; res
@@ -678,8 +684,6 @@ module Make(V: Val) =
 	let forget v =
 	  let v' = Array.copy v in
 	  Array.map V.forget v'
-	  
-        let concat v1 v2 = Array.append v1 v2
 	  
         (** copy bits from v2 to bits from low to up of v1,
          *  vectors can be of different sizes *)
