@@ -417,11 +417,22 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.range_select = None
         self.layout = None
         self.mem_ranges = None
+        self.current_region = None
         self.current_range_idx = None
         #: region name (1 letter) -> address
         self.last_visited = dict((k, None) for k in cfa.PRETTY_REGIONS.keys())
         self.pretty_to_int_map = \
             dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
+
+    @QtCore.pyqtSlot(int)
+    def handle_selection_range_changed(self, bindex):
+        if bindex < 0:
+            return
+        cur_reg = self.current_region
+        start, stop = self.mem_ranges[cur_reg][self.current_range_idx]
+        if bindex > stop-start:
+            return
+        self.last_visited[cur_reg] = bindex + start
 
     @QtCore.pyqtSlot(str)
     def update_range(self, crangeidx):
@@ -439,6 +450,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
     @QtCore.pyqtSlot(str)
     def update_region(self, pretty_region):
         region = self.pretty_to_int_map[pretty_region]
+        self.current_region = region
         if region == "":
             return
         self.range_select.blockSignals(True)
@@ -470,6 +482,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.range_select.currentIndexChanged.connect(self.update_range)
         self.hexwidget = hexview.HexViewWidget(
             Meminfo(None, None, [[0, -1]]), self.parent)
+        self.hexwidget._hsm.selectionRangeChanged.connect(
+            self.handle_selection_range_changed)
         self.layout.addWidget(self.hexwidget, 1, 0, 1, 2)
 
         self.layout.addWidget(self.region_select, 0, 0)
