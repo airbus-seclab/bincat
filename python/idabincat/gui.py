@@ -417,28 +417,47 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.range_select = None
         self.layout = None
         self.mem_ranges = None
+        self.current_range_idx = None
+        #: region name (1 letter) -> address
+        self.last_visited = dict((k, None) for k in cfa.PRETTY_REGIONS.keys())
         self.pretty_to_int_map = \
             dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
 
     @QtCore.pyqtSlot(str)
-    def update_range(self, crange):
+    def update_range(self, crangeidx):
+        if self.current_range_idx == crangeidx:
+            return
+        self.current_range_idx = crangeidx
         cur_reg = self.pretty_to_int_map[self.region_select.currentText()]
-        cur_range = self.mem_ranges[cur_reg][crange]
+        new_range = self.mem_ranges[cur_reg][crangeidx]
         # XXX only create a new Meminfo object on EA change, load ranges from
         # state in Meminfo __init__ ?
-        meminfo = Meminfo(self.s.current_state, cur_reg, [cur_range])
+        meminfo = Meminfo(self.s.current_state, cur_reg, [new_range])
         self.hexwidget.setNewMem(meminfo)
+        self.last_visited[cur_reg] = new_range[0]
 
     @QtCore.pyqtSlot(str)
     def update_region(self, pretty_region):
         region = self.pretty_to_int_map[pretty_region]
-        if region != "":
-            self.range_select.blockSignals(True)
-            self.range_select.clear()
-            for r in self.mem_ranges[region]:
-                self.range_select.addItem("%08x-%08x" % r)
-            self.range_select.blockSignals(False)
-            self.update_range(0)
+        if region == "":
+            return
+        self.range_select.blockSignals(True)
+        self.range_select.clear()
+        for r in self.mem_ranges[region]:
+            self.range_select.addItem("%08x-%08x" % r)
+        self.range_select.blockSignals(False)
+        # find address range idx correponding to last visited addr for
+        # region
+        newrangeidx = 0
+        lva = self.last_visited[region]
+        if lva is not None:
+            for ridx, (start, stop) in enumerate(self.mem_ranges[region]):
+                if lva >= start and lva <= stop:
+                    newrangeidx = ridx
+                    break
+        self.current_range_idx = None
+        self.update_range(newrangeidx)
+        self.range_select.setCurrentIndex(newrangeidx)
 
     def OnCreate(self, form):
         self.created = True
@@ -478,10 +497,21 @@ class BinCATHexForm_t(idaapi.PluginForm):
                     last_addr = stop
                 self.mem_ranges[region] = merged
 
+            former_region = self.region_select.currentText()
+            newregion = ""
+            newregidx = -1
             self.region_select.blockSignals(True)
             self.region_select.clear()
-            for k in self.mem_ranges.keys():
-                self.region_select.addItem(cfa.PRETTY_REGIONS.get(k, k))
+            for ridx, k in enumerate(self.mem_ranges.keys()):
+                pretty_reg = cfa.PRETTY_REGIONS.get(k, k)
+                self.region_select.addItem(pretty_reg)
+                if pretty_reg == former_region:
+                    newregion = pretty_reg
+                    newregidx = ridx
+                if newregion == "":
+                    newregion = pretty_reg
+                    newregidx = 0
+            self.region_select.setCurrentIndex(newregidx)
             self.region_select.blockSignals(False)
 
             self.range_select.blockSignals(True)
@@ -489,7 +519,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
             for r in self.mem_ranges.values()[0]:
                 self.range_select.addItem("%08x-%08x" % r)
             self.range_select.blockSignals(False)
-            self.update_range(0)
+            self.update_region(newregion)
 
     def OnClose(self, form):
         self.shown = False
