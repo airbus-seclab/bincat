@@ -501,7 +501,9 @@ class State(object):
         self.analyzer = None
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
-        self.overrides = OverridesState()
+        #: acts as a List of ("eip", "register name", "taint mask")
+        #: XXX store in IDB?
+        self.overrides = CallbackWrappedList()
         # XXX store in idb after encoding?
         self.last_cfaout_marshal = None
         #: filepath to last dumped remapped binary
@@ -756,17 +758,17 @@ class State(object):
             self.start_analysis()
 
 
-class OverridesState(collections.MutableSequence):
+class CallbackWrappedList(collections.MutableSequence):
     """
     Acts as a List object, wraps write access with calls to properly invalidate
     models associated with View GUI objects.
+    Should store only immutable objects.
     """
     def __init__(self):
-        #: list of ("eip", "register name", "taint mask")
-        self._overrides = []  # XXX store in idb
-        #: list of functions to be called prior to updating overrides
+        self._data = []
+        #: list of functions to be called prior to updating list
         self.pre_callbacks = []
-        #: list of functions to be called after updating overrides
+        #: list of functions to be called after updating list
         self.post_callbacks = []
         #: cache
 
@@ -777,8 +779,8 @@ class OverridesState(collections.MutableSequence):
             self.post_callbacks.append(post_cb)
 
     def __getitem__(self, index):
-        # no need for wrappers - values should be tuples
-        return self._overrides[index]
+        # no need for wrappers - values should be immutable
+        return self._data[index]
 
     def _callback_wrap(f):
         def wrap(self, *args, **kwargs):
@@ -791,18 +793,18 @@ class OverridesState(collections.MutableSequence):
 
     @_callback_wrap
     def __setitem__(self, index, value):
-        self._overrides[index] = tuple(value)
+        self._data[index] = tuple(value)
 
     @_callback_wrap
     def __delitem__(self, item):
-        del self._overrides[item]
+        del self._data[item]
 
     def __len__(self):
-        return len(self._overrides)
+        return len(self._data)
 
     @_callback_wrap
     def insert(self, index, value):
-        self._overrides.insert(index, tuple(value))
+        self._data.insert(index, tuple(value))
 
 
 def PLUGIN_ENTRY():
