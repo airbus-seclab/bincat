@@ -359,7 +359,7 @@ class State(object):
                 v0 = vlist[0]
                 if item.value < addr.value:
                     continue
-                if addr.value + len(vlist) >= item.value:
+                if addr.value + len(vlist) > item.value:
                     return vlist[item.value-addr.value:]
             raise IndexError
 
@@ -376,7 +376,7 @@ class State(object):
         # Sort ranges
         for region in ranges:
             ranges[region].sort(key=lambda x: x[0])
-            # merge (XXX handle overlap)
+            # merge
             merged = []
             last_addr = None
             for crange in ranges[region]:

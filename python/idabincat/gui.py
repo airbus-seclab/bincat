@@ -343,7 +343,11 @@ class Meminfo():
         """ relative get of ASCII char """
         if idx in self.char_cache:
             return self.char_cache[idx]
-        values = self[idx]
+        try:
+            values = self[idx]
+        except IndexError:
+            # between two ranges
+            return ""
         if len(values) == 0 or values[0] is None:
             res = "_"
         else:
@@ -363,7 +367,10 @@ class Meminfo():
         # often used => cache
         if idx in self.html_cache:
             return self.html_cache[idx]
-        values = self[idx]
+        try:
+            values = self[idx]
+        except IndexError:
+            return ""
         if len(values) == 0 or values[0] is None:
             res = "__"
         else:
@@ -383,12 +390,12 @@ class Meminfo():
 
     def __getitem__(self, idx):
         """ relative get - returns [Value, Value, ...]"""
-        if idx < 0 or idx >= self.length:
+        if idx < 0 or idx > self.length:
             raise IndexError
         abs_addr = idx+self.start
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(
-            lambda r: abs_addr >= r[0] or abs_addr <= r[1], self.ranges)
+            lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
         if not in_range or self.state is None:
             res = []
         else:
@@ -459,6 +466,18 @@ class BinCATHexForm_t(idaapi.PluginForm):
 
         if self.s.current_state:
             self.mem_ranges = self.s.current_state.mem_ranges()
+            # merge region separated by less than 0x100 bytes
+            for region in self.mem_ranges:
+                last_addr = None
+                merged = []
+                for start, stop in self.mem_ranges[region]:
+                    if last_addr and start - last_addr < 0x100:
+                        merged[-1] = (merged[-1][0], stop)
+                    else:
+                        merged.append((start, stop))
+                    last_addr = stop
+                self.mem_ranges[region] = merged
+
             self.region_select.blockSignals(True)
             self.region_select.clear()
             for k in self.mem_ranges.keys():
