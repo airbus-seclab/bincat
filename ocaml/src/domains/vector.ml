@@ -582,6 +582,7 @@ module Make(V: Val) =
 		      quo.(lv1-i-1) <- V.one;
 		    end
 		done;
+		rem := truncate !rem lv2;
 		Log.debug_lvl (Printf.sprintf "Vector.core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
 				 (Array.length v1) (to_string v1)
 				 (Array.length v2) (to_string v2)
@@ -590,36 +591,29 @@ module Make(V: Val) =
 		quo,!rem
 	    end
 
-        let div v1 v2 =
-	  let res = fst (core_div v1 v2) in
-	  Log.debug_lvl ( Printf.sprintf "Vector.div (%d)%s, (%d)%s = (%d)%s"
-			    (Array.length v1) (to_string v1)
-			    (Array.length v2) (to_string v2)
-			    (Array.length res) (to_string res)) 6;
-	  res
 	let is_neg v1 =
 	  V.is_one v1.(0) || V.is_top v1.(0)
 
-        (** TODO vérifier que c'est correct *)
-        let idiv v1 v2 =
-	  let sign = is_neg v1 <> is_neg v2 in
-	  let v1' = if is_neg v1 then neg v1 else v1 in
-	  let v2' = if is_neg v2 then neg v2 else v2 in
-	  let res,_ = core_div v1' v2' in
-	  let res' = if sign then (neg res) else res in
-	  Log.debug_lvl ( Printf.sprintf "Vector.idiv (%d)%s, (%d)%s = (%d)%s"
+        let core_idiv v1 v2 =
+	  let is_neg_v1 = is_neg v1 in
+	  let is_neg_v2 = is_neg v2 in
+	  let v1' = if is_neg_v1 then neg v1 else v1 in
+	  let v2' = if is_neg_v2 then neg v2 else v2 in
+	  let quo,rem = core_div v1' v2' in
+	  let quo' = if is_neg_v1 <> is_neg_v2 then (neg quo) else quo in
+	  let rem' = if is_neg_v1 then (neg rem) else rem in
+	  Log.debug_lvl ( Printf.sprintf "Vector.core_idiv (%d)%s, (%d)%s = (%d)%s mod=(%d)%s"
 			    (Array.length v1) (to_string v1)
 			    (Array.length v2) (to_string v2)
-			    (Array.length res') (to_string res')) 6;
-	  res'
+			    (Array.length quo') (to_string quo')
+			    (Array.length rem') (to_string rem')) 6;
+	  quo',rem'
 
-        let modulo v1 v2 =
-	  let res = snd (core_div v1 v2) in
-	  Log.debug_lvl ( Printf.sprintf "Vector.modulo (%d)%s, (%d)%s = (%d)%s"
-			    (Array.length v1) (to_string v1)
-			    (Array.length v2) (to_string v2)
-			    (Array.length res) (to_string res)) 6;
-	  res
+        let div v1 v2 = fst (core_div v1 v2)
+        let modulo v1 v2 = snd (core_div v1 v2)
+        let idiv v1 v2 = fst (core_idiv v1 v2)
+        let imodulo v1 v2 = snd (core_idiv v1 v2)
+
 
         let binary op v1 v2 =
             match op with
