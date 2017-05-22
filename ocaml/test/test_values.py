@@ -23,6 +23,9 @@ SOME_SHIFT_COUNTS = [0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 24, 31, 32, 33, 48, 
 SOME_OPERANDS_8 = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff]
 SOME_OPERANDS_16 = SOME_OPERANDS_8 + [0x1234, 0x7fff, 0x8000, 0x8001, 0xfa72, 0xffff]
 SOME_OPERANDS = SOME_OPERANDS_16 + [0x12345678, 0x1812fada, 0x12a4b4cd, 0x7fffffff, 0x80000000, 0x80000001, 0xffffffff ]
+SOME_OPERANDS_64 = SOME_OPERANDS + [ 0x123456789, 0x100000000000,  0x65a227c6f24c562a,
+                                     0x7fffffffffffffff, 0x8000000000000000, 0x80000000000000001,
+                                     0xa812f8c42dec45ab, 0xffff123456789abc,  0xffffffffffffffff ]
 
 SOME_OPERANDS_COUPLES_8 = list(itertools.product(SOME_OPERANDS_8, SOME_OPERANDS_8))
 SOME_OPERANDS_COUPLES_16 = list(itertools.product(SOME_OPERANDS_16, SOME_OPERANDS_16))
@@ -848,26 +851,32 @@ def test_test_reg32(tmpdir):
 
 def test_idiv_reg32(tmpdir):
     asm = """
-            mov edx, 0
+            mov edx, %#x
             mov eax, %#x
             mov ebx, %#x
             idiv ebx
           """
-    for vals in SOME_OPERANDS_COUPLES:
-        if vals[1] != 0:
-            compare(tmpdir, asm % vals, ["eax", "ebx", "edx"])
+    for p in SOME_OPERANDS_64:
+        for q in SOME_OPERANDS:
+            if q != 0:
+                ps = p if (p >> 63) == 0 else p|((-1)<<64)
+                qs = q if (q >> 31) == 0 else q|((-1)<<32)
+                if -2**31 <= ps/qs < 2**31:
+                    compare(tmpdir, asm % (p>>32,p&0xffffffff,q), ["eax", "ebx", "edx"])
 
 
 def test_div_reg32(tmpdir):
     asm = """
-            mov edx, 0
+            mov edx, %#x
             mov eax, %#x
             mov ebx, %#x
             div ebx
           """
-    for vals in SOME_OPERANDS_COUPLES:
-        if vals[1] != 0:
-            compare(tmpdir, asm % vals, ["eax", "ebx", "edx"])
+    for p in SOME_OPERANDS_64:
+        for q in SOME_OPERANDS:
+            if q != 0:
+                if p/q < 2**32:
+                    compare(tmpdir, asm % (p>>32,p&0xffffffff,q), ["eax", "ebx", "edx"])
 
 
 def test_mul_reg32(tmpdir):
