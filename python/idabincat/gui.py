@@ -1037,7 +1037,7 @@ class HandleAddOverride(idaapi.action_handler_t):
             None,
             "Add Taint override for %s" % highlighted,
             "Taint value for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
-            highlighted)
+            highlighted, text="TAINT_ALL")
         if not res:
             return 1  # refresh IDA windows
         # guess whether highlighted text is register or address
