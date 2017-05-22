@@ -402,6 +402,21 @@ class Meminfo():
             res = self.state[addr_value]
         return res
 
+    def get_type(self, idx):
+        if idx < 0 or idx > self.length:
+            return ""
+        abs_addr = idx+self.start
+        addr_value = cfa.Value(self.region, abs_addr, 32)
+        in_range = filter(
+            lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
+        if not in_range:
+            return ""
+        t = self.state.regtypes.get(addr_value, None)
+        if t:
+            return t[0]
+        else:
+            return ""
+
 
 class BinCATHexForm_t(idaapi.PluginForm):
     """
@@ -839,6 +854,13 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                     return self.mono_font
                 else:
                     return self.default_font
+        elif role == QtCore.Qt.ToolTipRole:
+            regaddr = self.rows[index.row()]
+            v = self.s.current_state[regaddr]
+            t = self.s.current_state.regtypes.get(v[0], None)
+            if t:
+                return t[0]
+            return
         elif role != QtCore.Qt.DisplayRole:
             return
         regaddr = self.rows[index.row()]
