@@ -470,6 +470,19 @@ module Make(V: Val) =
                     v'
                 end
 
+	let truncate v new_sz =
+	  let sz = Array.length v in
+          Log.debug_lvl (Printf.sprintf "Vector.truncate((%d)%s, %d)" sz (to_string v) new_sz) 6;
+	  if sz < new_sz then
+            Log.error (Printf.sprintf "Vector.truncate cannont truncate v=(%d)%s to %d bits"
+			 sz (to_string v) new_sz)
+	  else
+	    let res = Array.make new_sz V.zero in
+	    for i = 0 to new_sz-1 do
+	      res.(i) <- v.(i+sz-new_sz)
+	    done;
+	    res
+
         let zero_extend v new_sz =
           let sz = Array.length v in
           Log.debug_lvl (Printf.sprintf "Vector.zero_extend((%d)%s, %d)" sz (to_string v) new_sz) 6;
