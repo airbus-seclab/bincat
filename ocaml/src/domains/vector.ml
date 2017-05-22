@@ -471,17 +471,18 @@ module Make(V: Val) =
                 end
 
         let zero_extend v new_sz =
-            Log.debug_lvl (Printf.sprintf "Vector.zero_extend(%s:%d, %d)" (to_string v) (Array.length v) new_sz) 6;
-            let sz = Array.length v in
-            if new_sz <= sz then
-                v
+          let sz = Array.length v in
+          Log.debug_lvl (Printf.sprintf "Vector.zero_extend((%d)%s, %d)" sz (to_string v) new_sz) 6;
+            if new_sz < sz then
+              Log.error (Printf.sprintf "Vector.zero_extend cannont extend v=(%d)%s to %d bits"
+			   sz (to_string v) new_sz)
             else
-                let o  = new_sz - sz              in
-                let new_v = Array.make new_sz V.zero in
-                for i = 0 to sz-1 do
-                    new_v.(i+o) <- v.(i)
-                done;
-                new_v
+              let o  = new_sz - sz              in
+              let new_v = Array.make new_sz V.zero in
+              for i = 0 to sz-1 do
+                new_v.(i+o) <- v.(i)
+              done;
+              new_v
 
         let ishl v i =
             let n  = Array.length v      in
