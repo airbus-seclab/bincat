@@ -1927,6 +1927,14 @@ struct
         let v'  = find_reg v s.operand_sz in
         xchg s eax v' s.operand_sz
 
+    let xlat s =
+      let al = V (to_reg eax 8) in
+      let al_ext = UnOp(ZeroExt s.operand_sz, Lval al) in
+      let reg_ebx = Lval (V (to_reg ebx s.operand_sz)) in
+      let ofs = BinOp(Add, reg_ebx, al_ext) in
+      let mem = M ((add_segment s ofs  s.segments.data), 8) in
+      return s [ Set(al, Lval mem) ]
+
     let to_segment_reg a n =
         match n with
         | 0 -> es
@@ -2185,6 +2193,7 @@ struct
             | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s 8 (Some (Lval (V (to_reg ecx 8))))
             | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx 8))))
 
+            | '\xd7' -> (* XLAT *) xlat s
             | c when '\xd8' <= c && c <= '\xdf' -> (* ESC (escape to coprocessor instruction set *) error s.a "ESC to coprocessor instruction set. Interpreter halts"
 
             | c when '\xe0' <= c && c <= '\xe2' -> (* LOOPNE/LOOPE/LOOP *) loop s c
