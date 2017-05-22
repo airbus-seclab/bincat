@@ -1196,3 +1196,22 @@ def test_pushf_popf(tmpdir):
             adc ax, bx
           """
     compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+
+def test_xlat(tmpdir):
+    asm = """
+            mov ecx, 64
+         loop:
+            mov eax, 0x01020304
+            mul ecx
+            push eax
+            dec ecx
+            jnz loop
+            mov ebx, esp
+            mov eax, 0xf214cb00
+            mov al, %#x
+            xlat
+          """
+    for i in SOME_OPERANDS_8:
+        compare(tmpdir, asm % i, ["eax"])
+
