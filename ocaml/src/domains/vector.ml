@@ -627,6 +627,7 @@ module Make(V: Val) =
             | Asm.Mul -> mul v1 v2
             | Asm.Div -> div v1 v2
             | Asm.Mod -> modulo v1 v2
+            | Asm.IMod -> imodulo v1 v2
             | Asm.Shl -> shl v1 v2
             | Asm.Shr -> shr v1 v2
 

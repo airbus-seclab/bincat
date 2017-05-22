@@ -33,9 +33,10 @@ type binop =
   | Sub    (** substraction *)
   | Mul    (** unsigned multiplication *)
   | Div    (** unsigned division *)
+  | Mod    (** unsigned modulo *)
   | IMul   (** signed multiplication *)
   | IDiv   (** signed division *)
-  | Mod    (** unsigned modulo *)
+  | IMod   (** signed modulo *)
   | And    (** bitwise AND *)
   | Or     (** bitwise OR *)
   | Xor    (** bitwise XOR *)
@@ -136,6 +137,7 @@ let string_of_binop op =
   | Mul    -> "*"
   | Div    -> "/"
   | Mod    -> "%"
+  | IMod    -> "%"
   | And    -> "&"
   | Or 	   -> "|"
   | Xor    -> "xor"
