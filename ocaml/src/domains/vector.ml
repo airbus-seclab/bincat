@@ -528,7 +528,6 @@ module Make(V: Val) =
             with
               _ -> raise Exceptions.Enum_failure
 
-        (* TODO: can be optimized *)
         let mul v2 v1 =
             let n   = Array.length v1 in
             let nn   = 2*n in
