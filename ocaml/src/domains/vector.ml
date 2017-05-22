@@ -279,14 +279,6 @@ module Make(V: Val) =
             with
             | _-> false
 
-        let for_all p v =
-            try
-                for i = 0 to (Array.length v) -1 do
-                    if not (p v.(i)) then raise Exit
-                done;
-                true
-            with _ -> false
-
         let v_to_z conv v =
             try
                 let z = ref Z.zero in
@@ -550,34 +542,39 @@ module Make(V: Val) =
 
         (** return v1 / v2, modulo of v1 / v2 *)
         let core_div v1 v2 =
-            (* check first that v2 is not zero *)
-            if for_all V.is_zero v2 then
-                Log.error "Division by zero"
-            else
-              let n   = Array.length v1     in
-	      let p = zero_extend v1 (2*n) in
-              let res = Array.make n V.zero in
-	      let q   = concat v2 res in
-              let one = Array.make n V.zero in
-                one.(n-1) <- V.one;
-	      let rec do_div p q d i =
-		if i = 0 then
-		  d, p
-		else
-		  let d' = shl d one in
-		  let p',d'' = if geq p q then
-		      (sub p q), (logor d' one)
-		    else
-		      p, d' in
-		  do_div p' (shr q one) d'' (i-1) in
-	      let quo,rem = do_div p (shr q one) res n in
-	      Log.debug_lvl (Printf.sprintf "Vector.core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
-			    (Array.length v1) (to_string v1)
-			    (Array.length v2) (to_string v2)
-			    (Array.length quo) (to_string quo)
-			    (Array.length rem) (to_string rem)) 6;
-	      quo,rem
-
+          let lv1   = Array.length v1    in
+          let lv2   = Array.length v2    in
+          if lv1 < lv2 then
+            Log.error (Printf.sprintf "Vector.core_div : dividing a vector by a bigger vector is not supported (v1=%s(%i) v2=%s(%i))" 
+			 (to_string v1) lv1 (to_string v2) lv2)
+	  else
+	    begin
+              (* find most significant bit to 1 and check that v2 is not zero *)
+	      let v2_ext = if lv1 > lv2 then zero_extend v2 lv1 else v2 in
+	      let msb1 = ref 0 in
+	      while (!msb1 < lv1) && (V.is_zero v2_ext.(!msb1)) do
+		msb1 := !msb1+1;
+	      done;
+	      if !msb1 = lv1 then
+		Log.error "Division by zero"
+	      else
+		let quo = Array.make lv1 V.zero in
+		let rem = ref v1 in 
+		for i = !msb1 downto 0 do
+		  let sv2 = ishl v2_ext i in
+		  if geq !rem sv2 then
+		    begin
+		      rem := sub !rem sv2;
+		      quo.(lv1-i-1) <- V.one;
+		    end
+		done;
+		Log.debug_lvl (Printf.sprintf "Vector.core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
+				 (Array.length v1) (to_string v1)
+				 (Array.length v2) (to_string v2)
+				 (Array.length quo) (to_string quo)
+				 (Array.length !rem) (to_string !rem)) 6;
+		quo,!rem
+	    end
 
         let div v1 v2 =
 	  let res = fst (core_div v1 v2) in
