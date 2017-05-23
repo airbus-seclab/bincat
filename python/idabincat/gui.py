@@ -390,9 +390,9 @@ class Meminfo():
 
     def __getitem__(self, idx):
         """ relative get - returns [Value, Value, ...]"""
-        if idx < 0 or idx > self.length:
+        abs_addr = self.abs_addr_from_idx(idx)
+        if not abs_addr:
             raise IndexError
-        abs_addr = idx+self.start
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(
             lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
@@ -403,9 +403,9 @@ class Meminfo():
         return res
 
     def get_type(self, idx):
-        if idx < 0 or idx > self.length:
+        abs_addr = self.abs_addr_from_idx(idx)
+        if not abs_addr:
             return ""
-        abs_addr = idx+self.start
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(
             lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
@@ -416,6 +416,14 @@ class Meminfo():
             return t[0]
         else:
             return ""
+
+    def abs_addr_from_idx(self, idx):
+        """
+        convert idx relative to meminfo start to physical addr
+        """
+        if idx < 0 or idx > self.length:
+            return
+        return idx+self.start
 
 
 class BinCATHexForm_t(idaapi.PluginForm):
@@ -448,6 +456,26 @@ class BinCATHexForm_t(idaapi.PluginForm):
         if bindex > stop-start:
             return
         self.last_visited[cur_reg] = bindex + start
+
+    @QtCore.pyqtSlot(int, int)
+    def handle_new_override(self, abs_start, abs_end):
+        # add override for each byte
+        mask, res = QtWidgets.QInputDialog.getText(
+            None,
+            "Add Taint override for each byte in the range %0X-%0X" %
+            (abs_start, abs_end),
+            "Taint value each byte in the range %0X-%0X (e.g. 0x00, 0xFF)"
+            % (abs_start, abs_end),
+            text="0xFF")
+        if not res:
+            return
+        region = cfa.PRETTY_REGIONS[self.current_region]
+        if region == 'global':
+            region = 'mem'
+        for addr in range(abs_start, abs_end+1):
+            ea = self.s.current_ea
+            addrstr = "%s[0x%02X]" % (region, addr)
+            self.s.overrides.append((ea, addrstr, mask))
 
     @QtCore.pyqtSlot(str)
     def update_range(self, crangeidx):
@@ -499,6 +527,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
             Meminfo(None, None, [[0, -1]]), self.parent)
         self.hexwidget._hsm.selectionRangeChanged.connect(
             self.handle_selection_range_changed)
+        self.hexwidget.newOverride.connect(self.handle_new_override)
         self.layout.addWidget(self.hexwidget, 1, 0, 1, 2)
 
         self.layout.addWidget(self.region_select, 0, 0)
@@ -675,9 +704,9 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
         # Get parent widget
         self.parent = self.FormToPyQtWidget(form)
-        layout = QtWidgets.QGridLayout()
+        layout = QtWidgets.QGridLayout(self.parent)
 
-        splitter = QtWidgets.QSplitter()
+        splitter = QtWidgets.QSplitter(self.parent)
         layout.addWidget(splitter, 0, 0)
         # Node id label
         self.nilabel = QtWidgets.QLabel('Node Id:')
@@ -701,7 +730,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         splitter.addWidget(self.alabel)
 
         # Value Taint Table
-        self.vttable = QtWidgets.QTableView()
+        self.vttable = QtWidgets.QTableView(self.parent)
         self.vttable.setItemDelegate(RegisterItemDelegate())
         self.vttable.setSortingEnabled(True)
         self.vttable.setModel(self.vtmodel)
@@ -709,12 +738,15 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.vttable.verticalHeader().setVisible(False)
         self.vttable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
+        self.vttable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.vttable.customContextMenuRequested.connect(
+            self._handle_context_menu_requested)
         # width from the model are not respected, not sure why...
         for idx, w in enumerate(self.vtmodel.colswidths):
             self.vttable.setColumnWidth(idx, w)
 
         self.vttable.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Interactive)
+            QtWidgets.QHeaderView.ResizeToContents)
         self.vttable.horizontalHeader().setStretchLastSection(True)
         self.vttable.horizontalHeader().setMinimumHeight(36)
 
@@ -767,6 +799,30 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             self.node_select.blockSignals(True)
             self.node_select.clear()
             self.node_select.blockSignals(False)
+
+    def _handle_context_menu_requested(self, qpoint):
+        menu = QtWidgets.QMenu(self.vttable)
+        add_taint_override = QtWidgets.QAction(
+            "Add taint override", self.vttable)
+        add_taint_override.triggered.connect(
+            lambda: self._add_taint_override(self.vttable.indexAt(qpoint)))
+        menu.addAction(add_taint_override)
+        # add header height to qpoint, else menu is misplaced. not sure why...
+        qpoint2 = qpoint + \
+            QtCore.QPoint(0, self.vttable.horizontalHeader().height())
+        menu.exec_(self.vttable.mapToGlobal(qpoint2))
+
+    def _add_taint_override(self, index):
+        regname = self.vtmodel.rows[index.row()].value
+        mask, res = QtWidgets.QInputDialog.getText(
+            None,
+            "Add Taint override for %s" % regname,
+            "Taint value for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
+            regname, text="TAINT_ALL")
+        if not res:
+            return
+        htext = "reg[%s]" % regname
+        self.s.overrides.append((self.s.current_ea, htext, mask))
 
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
@@ -985,7 +1041,8 @@ class OverridesModel(QtCore.QAbstractTableModel):
             if col == 1:
                 return "Example valid addresses: reg[eax], mem[0x1234]"
             if col == 2:
-                return "Example taint values: TAINT_ALL, TAINT_NONE, 0x1234"
+                return ("Example taint values: 0x1234 (reg or mem), "
+                        "TAINT_ALL (reg only), TAINT_NONE (reg only)")
             return
         if role == QtCore.Qt.ForegroundRole:
             # basic syntax checking
@@ -993,15 +1050,16 @@ class OverridesModel(QtCore.QAbstractTableModel):
                 return
             txt = self.s.overrides[row][col]
             if col == 1:
-                if txt.startswith('reg[') and txt.endswith(']'):
-                    return
-                if txt.startswith('mem[') and txt.endswith(']'):
-                    return
-                if txt.startswith('mem[0x') and txt.endswith(']'):
-                    return
+                if txt.endswith(']'):
+                    if (txt.startswith('reg[') or
+                            txt.startswith('heap[0x') or
+                            txt.startswith('mem[0x') or
+                            txt.startswith('stack[0x')):
+                        return
             else:  # Taint column
                 if txt in ("TAINT_ALL", "TAINT_NONE"):
-                    return
+                    if self.s.overrides[row][1].startswith("reg"):
+                        return
                 if txt.startswith("0x") or txt.startswith("0b"):
                     return
             return QtGui.QBrush(QtCore.Qt.red)

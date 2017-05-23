@@ -24,6 +24,7 @@
 
 import base64
 import binascii
+import logging
 from collections import namedtuple
 
 from PyQt5.QtGui import QColor
@@ -61,6 +62,11 @@ from PyQt5.QtWidgets import QAbstractItemView
 from .hexview_auto import Ui_Form as HexViewBase
 from .common import h
 from .common import LoggingObject
+
+# Logging
+logging.basicConfig(level=logging.DEBUG)
+bc_log = logging.getLogger('bincat.hexview')
+bc_log.setLevel(logging.DEBUG)
 
 
 class HexItemDelegate(QStyledItemDelegate):
@@ -588,6 +594,7 @@ Origin = namedtuple("Origin", ["offset", "name"])
 
 class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     originsChanged = pyqtSignal()
+    newOverride = pyqtSignal(int, int)
 
     def __init__(self, meminfo, parent=None):
         super(HexViewWidget, self).__init__()
@@ -713,8 +720,12 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
                    self._handle_copy_base64)
 
         menu.addSeparator()  # --------------------------------------
-
         add_action(menu, "Add origin", lambda: self._handle_add_origin(index))
+
+        if self._hsm.start is not None and self._hsm.end is not None:
+            menu.addSeparator()  # --------------------------------------
+            add_action(menu, "Override taint for selection",
+                       self._handle_add_taint_override)
         return menu
 
     def _handle_context_menu_requested(self, qpoint):
@@ -765,6 +776,12 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     def remove_origin(self, origin):
         self._origins.remove(origin)
         self.originsChanged.emit()
+
+    def _handle_add_taint_override(self):
+        start_idx, end_idx = self._hsm.start, self._hsm.end
+        abs_start = self._meminfo.abs_addr_from_idx(start_idx)
+        abs_end = self._meminfo.abs_addr_from_idx(end_idx)
+        self.newOverride.emit(abs_start, abs_end)
 
     def _handle_add_origin(self, qindex):
         index = self.getModel().qindex2index(qindex)
