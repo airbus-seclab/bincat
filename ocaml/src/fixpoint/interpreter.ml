@@ -545,29 +545,30 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	Hashtbl.add overrides ip rules'
       ) Config.reg_override;
 
-      List.iter (fun (tbl, region) ->
-	Hashtbl.iter (fun z rules ->
-	let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
-	let check vals =
-	  List.iter (fun v ->
-	    let sz = String.length (Bits.z_to_bit_string v) in
-	    if  sz <> 8 && sz <> 0 then
-	      Log.error (Printf.sprintf "Illegal taint mask for address %s" (Data.Address.to_string ip))) vals
-	in
-	let rules' =
-	  List.map (fun (a, rule) ->
-	    begin
-	      match rule with
-	      | Config.Taint v -> check [v]
-	      | Config.TMask (v, m) -> check [v ; m]
-	    end;
-	    D.taint_address_mask (Data.Address.of_int region a !Config.address_sz) rule) rules
-	in
-	Hashtbl.add overrides ip rules'
-	  
-	) tbl)
-	[(Config.mem_override, Data.Address.Global) ;
-	 (Config.stack_override, Data.Address.Stack) ; (Config.heap_override, Data.Address.Heap)];
+    List.iter (fun (tbl, region) ->
+        Hashtbl.iter (fun z rules ->
+            let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
+            let check vals =
+                List.iter (fun v ->
+                    let sz = String.length (Bits.z_to_bit_string v) in
+                    if  sz <> 8 && sz <> 0 then
+                        Log.error (Printf.sprintf "Illegal taint mask for address %s" (Data.Address.to_string ip))) vals
+            in
+            let rules' =
+                List.map (fun (a, rule) ->
+                    Log.debug_lvl (Printf.sprintf "Adding override rule for address 0x%x" (Z.to_int a)) 6;
+                    begin
+                        match rule with
+                        | Config.Taint v -> check [v]
+                        | Config.TMask (v, m) -> check [v ; m]
+                    end;
+                    D.taint_address_mask (Data.Address.of_int region a !Config.address_sz) rule) rules
+            in
+            Hashtbl.add overrides ip rules'
+
+        ) tbl)
+        [(Config.mem_override, Data.Address.Global) ;
+         (Config.stack_override, Data.Address.Stack) ; (Config.heap_override, Data.Address.Heap)];
       while !continue do
         (* a waiting node is randomly chosen to be explored *)
         let v = Vertices.choose !waiting in
