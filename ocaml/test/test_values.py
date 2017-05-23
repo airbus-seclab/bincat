@@ -997,7 +997,7 @@ def test_loop(tmpdir):
             inc eax
             loop loop
           """
-    compare(tmpdir, asm, ["eax", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
+    compare(tmpdir, asm, ["eax", "ecx", "zf", "of", "pf", "af", "sf"])
 
 
 def test_cond_jump_jne(tmpdir):
