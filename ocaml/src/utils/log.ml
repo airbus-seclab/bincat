@@ -57,3 +57,35 @@ let error msg =
   flush stdout;
   raise (Exceptions.Error msg)
 
+
+module Make(Modname: sig val name : string end) = struct
+  let modname = Modname.name
+  let prologue = modname ^ ":"
+  let debug fmsg = 
+    if !Config.verbose >= 4 then
+	let msg = fmsg Printf.sprintf in
+	Printf.fprintf !logfid  "[DEBUG] %s: %s\n" modname msg;
+	flush !logfid
+  let info fmsg = 
+    if !Config.verbose >= 3 then
+	let msg = fmsg Printf.sprintf in
+	Printf.fprintf !logfid  "[INFO]  %s: %s\n" modname msg;
+	flush !logfid
+  let warn fmsg = 
+    if !Config.verbose >= 2 then
+	let msg = fmsg Printf.sprintf in
+	Printf.fprintf !logfid  "[WARN]  %s: %s\n" modname msg;
+	flush !logfid
+  let error fmsg = 
+    if !Config.verbose >= 1 then
+	let msg = fmsg Printf.sprintf in
+	Printf.fprintf !logfid  "[ERROR] %s: %s\n" modname msg;
+	flush !logfid
+  let abort fmsg = 
+    let msg = fmsg Printf.sprintf in
+    Printf.fprintf !logfid  "[ABORT] %s: %s\n" modname msg;
+    Printexc.print_raw_backtrace !logfid (Printexc.get_callstack 100);
+    flush !logfid;
+    flush stdout;
+    raise (Exceptions.Error msg)
+end
