@@ -591,7 +591,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       let new_vertices =
 		 try
 		   let rules = Hashtbl.find overrides v.Cfa.State.ip in
-		   Log.from_analysis "applied tainting override";
+		   Log.from_analysis (Printf.sprintf "applied tainting (%d) override(s)" (List.length rules));
 		   List.map (fun v ->
 		     v.Cfa.State.v <- List.fold_left (fun d f -> f d) v.Cfa.State.v rules; v) new_vertices
 		 with
