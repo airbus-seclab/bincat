@@ -1071,9 +1071,7 @@ struct
     let loop s c =
         let ecx' = V (if Register.size ecx = s.addr_sz then T ecx else P (ecx, 0, s.addr_sz-1)) in
         let dec_stmt  = Set (ecx', BinOp(Sub, Lval ecx', Const (Word.one s.addr_sz))) in
-        let o  = int_of_bytes s 1                                                           in
-        let a' = Address.add_offset s.a o                                                   in
-        check_jmp s a';
+        let a' = relative s 8 s.operand_sz in
         let fzf_cond cst = Cmp (EQ, Lval (V (T fzf)), Const (cst fzf_sz)) in
         let ecx_cond = Cmp (NEQ, Lval ecx', Const (Word.zero s.addr_sz)) in
         let cond =
