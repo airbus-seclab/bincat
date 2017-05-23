@@ -523,6 +523,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let d = ref (Decoder.init ())             in
       (* function stack *)
       let fun_stack = ref []                    in
+      let hash_add_or_append htbl key rules = try
+        let existing = Hashtbl.find htbl key in
+            Hashtbl.replace htbl key (rules @ existing)
+        with Not_found -> Hashtbl.add htbl key rules
+      in
       (* compute override rules to apply *)
       let overrides = Hashtbl.create 5 in
       Hashtbl.iter (fun z rules ->
@@ -542,7 +547,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	    end;
 	    D.taint_register_mask reg rule) rules
 	in
-	Hashtbl.add overrides ip rules'
+        hash_add_or_append overrides ip rules'
       ) Config.reg_override;
 
     List.iter (fun (tbl, region) ->
@@ -564,7 +569,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                     end;
                     D.taint_address_mask (Data.Address.of_int region a !Config.address_sz) rule) rules
             in
-            Hashtbl.add overrides ip rules'
+            hash_add_or_append overrides ip rules'
 
         ) tbl)
         [(Config.mem_override, Data.Address.Global) ;
