@@ -643,18 +643,15 @@ struct
         (* fpf is set if res contains an even number of 1 in the least significant byte *)
         (* we sum every bits and check whether this sum is even or odd *)
         (* using the modulo of the divison by 2 *)
-        let nth i =
-            let one = const 1 sz in
-            let i' = const i sz in
-            BinOp (And, UnOp(SignExt sz, BinOp(Shr, res, i')), one)
-        in
-        let e = ref (nth 0) in
-        for i = 1 to 7 do
-            e := BinOp(Add, !e, nth i)
-        done;
-        let c 	      = Cmp (EQ, BinOp(Mod, !e, const 2 sz), Const (Word.zero sz)) in
-	let n = Register.size fpf in
-        Set (V (T fpf), TernOp (c, Asm.Const (Word.one n), Asm.Const (Word.zero n)))
+      let one = const 1 sz in
+      let nth i = BinOp (And, BinOp(Shr, res, const i sz), one) in
+      let e = ref (BinOp(And, res, one)) in
+      for i = 1 to 7 do
+        e := BinOp(Xor, !e, nth i)
+      done;
+      Set (V (T fpf), TernOp (Cmp(EQ, !e, one),
+			      Asm.Const (Word.zero fpf_sz),
+			      Asm.Const (Word.one fpf_sz)))
 
     (** builds a value equivalent to the EFLAGS register from the state *)
     let get_eflags () =
