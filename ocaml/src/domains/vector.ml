@@ -19,6 +19,10 @@
 (** vector lifting of a value_domain.
 Binary operations are supposed to apply on operands of the same length *)
 
+
+module L = Log.Make(struct let name = "vector" end)
+
+
 (** signature of value domain *)
 module type Val =
 sig
@@ -352,8 +356,8 @@ module Make(V: Val) =
         let core_add_sub op v1 v2 =
           let n = Array.length v1 and lv2 = (Array.length v2) in
           if n <> lv2 then
-	    Log.error (Printf.sprintf "Vector.code_add_sub vectors of different sizes (v1=%s(%i) v2=%s(%i))" 
-			 (to_string v1) n (to_string v2) lv2)
+	    L.abort (fun p -> p "code_add_sub vectors of different sizes (v1=%s(%i) v2=%s(%i))"
+	      (to_string v1) n (to_string v2) lv2)
 	  else
             let v = Array.make n V.zero in
             let carry_borrow = ref None in
@@ -379,7 +383,7 @@ module Make(V: Val) =
 	  let lv1 = Array.length v1 in
 	  let lv2 = Array.length v2 in
           if lv1 <> lv2 then
-            Log.error (Printf.sprintf "Vector.lt_core : comparing vectors of different sizes (v1:%i, v2:%i)" lv1 lv2)
+            L.abort (fun p -> p "lt_core : comparing vectors of different sizes (v1:%i, v2:%i)" lv1 lv2)
 	  else
 	    let rec rec_lt v1 v2 i =
 	      if i >= lv1 then final
@@ -389,9 +393,9 @@ module Make(V: Val) =
 		| Some b -> b
 		| None -> rec_lt v1 v2 (i+1)
 	    in let res = rec_lt v1 v2 0 in
-	       Log.debug_lvl (Printf.sprintf "Vector.lt_core %s %s %s = %b"
-				(to_string v1) (if final then "<=" else "<")
-				(to_string v2) res) 6;
+	       L.debug (fun p -> p "lt_core %s %s %s = %b"
+		 (to_string v1) (if final then "<=" else "<")
+		 (to_string v2) res);
 	       res
 
 	let lt v1 v2 = lt_core v1 v2 false
@@ -401,9 +405,9 @@ module Make(V: Val) =
 
         let compare v1 op v2 =
             if (Array.length v1) != (Array.length v2) then
-              Log.error (Printf.sprintf "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
-			   (to_string v1) (Asm.string_of_cmp op) (to_string v2)
-			   (Array.length v1) (Array.length v2));
+              L.abort (fun p -> p "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
+			 (to_string v1) (Asm.string_of_cmp op) (to_string v2)
+			 (Array.length v1) (Array.length v2));
             match op with
             | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
             | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
@@ -414,8 +418,8 @@ module Make(V: Val) =
 
         let add v1 v2 =
 	  let res = core_add_sub V.add v1 v2 in
-	  Log.debug_lvl (Printf.sprintf "Vector.add(%s, %s) = %s"
-			   (to_string v1) (to_string v2) (to_string res)) 6;
+	  L.debug (fun p -> p "add(%s, %s) = %s"
+	    (to_string v1) (to_string v2) (to_string res));
 	  res
 
         let sub v1 v2 = core_add_sub V.sub v1 v2
@@ -433,23 +437,23 @@ module Make(V: Val) =
         let logand v1 v2 =
 	  let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
           if lv1 <> lv2 then
-	      Log.error (Printf.sprintf "Vector.logand vectors of different sizes (v1=%s(%i) v2=%s(%i))"
-			 (to_string v1) lv1 (to_string v2) lv2)
+	    L.abort (fun p -> p "logand vectors of different sizes (v1=%s(%i) v2=%s(%i))"
+	      (to_string v1) lv1 (to_string v2) lv2)
 	  else
 	    let res = map2 V.logand v1 v2 in
-	    Log.debug_lvl (Printf.sprintf "Vector.logand(%s, %s)=%s"
-			     (to_string v1) (to_string v2) (to_string res)) 6;
+	    L.debug (fun p -> p "logand(%s, %s)=%s"
+	      (to_string v1) (to_string v2) (to_string res));
 	    res
 	  
         let logor v1 v2 =
 	  let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
           if lv1 <> lv2 then
-	    Log.error (Printf.sprintf "Vector.logor vectors of different sizes (v1=%s(%i) v2=%s(%i))"
+	    L.abort (fun p -> p "logor vectors of different sizes (v1=%s(%i) v2=%s(%i))"
 			 (to_string v1) lv1 (to_string v2) lv2)
 	  else
 	    let res = map2 V.logor v1 v2 in
-	    Log.debug_lvl (Printf.sprintf "Vector.logor(%s, %s)=%s"
-			     (to_string v1) (to_string v2) (to_string res)) 6;
+	    L.debug (fun p -> p "logor(%s, %s)=%s"
+			     (to_string v1) (to_string v2) (to_string res));
 	    res
 
         let sign_extend v i =
@@ -472,10 +476,10 @@ module Make(V: Val) =
 
 	let truncate v new_sz =
 	  let sz = Array.length v in
-          Log.debug_lvl (Printf.sprintf "Vector.truncate((%d)%s, %d)" sz (to_string v) new_sz) 6;
+          L.debug (fun p -> p "truncate((%d)%s, %d)" sz (to_string v) new_sz);
 	  if sz < new_sz then
-            Log.error (Printf.sprintf "Vector.truncate cannont truncate v=(%d)%s to %d bits"
-			 sz (to_string v) new_sz)
+            L.abort (fun p -> p "truncate cannont truncate v=(%d)%s to %d bits"
+	      sz (to_string v) new_sz)
 	  else
 	    let res = Array.make new_sz V.zero in
 	    for i = 0 to new_sz-1 do
@@ -485,10 +489,10 @@ module Make(V: Val) =
 
         let zero_extend v new_sz =
           let sz = Array.length v in
-          Log.debug_lvl (Printf.sprintf "Vector.zero_extend((%d)%s, %d)" sz (to_string v) new_sz) 6;
+          L.debug (fun p -> p "zero_extend((%d)%s, %d)" sz (to_string v) new_sz);
             if new_sz < sz then
-              Log.error (Printf.sprintf "Vector.zero_extend cannont extend v=(%d)%s to %d bits"
-			   sz (to_string v) new_sz)
+              L.abort (fun p -> p "zero_extend cannont extend v=(%d)%s to %d bits"
+		sz (to_string v) new_sz)
             else
               let o  = new_sz - sz              in
               let new_v = Array.make new_sz V.zero in
@@ -504,8 +508,8 @@ module Make(V: Val) =
                 for j = 0 to o-1 do
                     v'.(j) <- v.(i+j)
                 done;
-            Log.debug_lvl (Printf.sprintf "Vector.ishl(%s, %d) = %s, (o==%d)"
-			     (to_string v) i (to_string v') o) 6;
+            L.debug (fun p -> p "ishl(%s, %d) = %s, (o==%d)"
+	      (to_string v) i (to_string v') o);
             v'
 
         let shl v1 v2 =
@@ -522,8 +526,8 @@ module Make(V: Val) =
                 for j = 0 to v_len-n_i-1 do
                     v'.(j+n_i) <- v.(j)
                 done;
-		Log.debug_lvl (Printf.sprintf "Vector.shr(%s,%s)=%s"
-				 (to_string v) (to_string n) (to_string v')) 6;
+		L.debug (fun p -> p "shr(%s,%s)=%s"
+		  (to_string v) (to_string n) (to_string v'));
                 v'
             with
               _ -> raise Exceptions.Enum_failure
@@ -542,24 +546,25 @@ module Make(V: Val) =
 	    !res
 
         let imul v1 v2 =
-            Log.debug_lvl (Printf.sprintf "Vector.imul((%d)%s, (%d)%s)" (Array.length v1) (to_string v1) (Array.length v2) (to_string v2)) 4;
-            let v1_len = Array.length v1 in
-            let v2_len = Array.length v2 in
-            let long_v1 = sign_extend v1 (v1_len*2) in
-            let long_v2 = sign_extend v2 (v2_len*2) in
-            let fullres = mul long_v1 long_v2 in
-                Log.debug_lvl (Printf.sprintf "Vector.imul fullres = %s" (to_string fullres)) 6;
-            let res = Array.sub fullres (v1_len*2) (v1_len*2) in
-                Log.debug_lvl (Printf.sprintf "Vector.imul return %s" (to_string res)) 4;
-                res
+          L.debug (fun p -> p "imul((%d)%s, (%d)%s)"
+	    (Array.length v1) (to_string v1) (Array.length v2) (to_string v2));
+          let v1_len = Array.length v1 in
+          let v2_len = Array.length v2 in
+          let long_v1 = sign_extend v1 (v1_len*2) in
+          let long_v2 = sign_extend v2 (v2_len*2) in
+          let fullres = mul long_v1 long_v2 in
+          L.debug (fun p -> p "imul fullres = %s" (to_string fullres));
+          let res = Array.sub fullres (v1_len*2) (v1_len*2) in
+          L.debug (fun p -> p "imul return %s" (to_string res));
+          res
 
         (** return v1 / v2, modulo of v1 / v2 *)
         let core_div v1 v2 =
           let lv1   = Array.length v1    in
           let lv2   = Array.length v2    in
           if lv1 < lv2 then
-            Log.error (Printf.sprintf "Vector.core_div : dividing a vector by a bigger vector is not supported (v1=%s(%i) v2=%s(%i))" 
-			 (to_string v1) lv1 (to_string v2) lv2)
+            L.abort (fun p -> p "core_div : dividing a vector by a bigger vector is not supported (v1=%s(%i) v2=%s(%i))" 
+	      (to_string v1) lv1 (to_string v2) lv2)
 	  else
 	    begin
               (* find most significant bit to 1 and check that v2 is not zero *)
@@ -582,11 +587,11 @@ module Make(V: Val) =
 		    end
 		done;
 		rem := truncate !rem lv2;
-		Log.debug_lvl (Printf.sprintf "Vector.core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
+		L.debug (fun p -> p "core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
 				 (Array.length v1) (to_string v1)
 				 (Array.length v2) (to_string v2)
 				 (Array.length quo) (to_string quo)
-				 (Array.length !rem) (to_string !rem)) 6;
+				 (Array.length !rem) (to_string !rem));
 		quo,!rem
 	    end
 
@@ -601,11 +606,11 @@ module Make(V: Val) =
 	  let quo,rem = core_div v1' v2' in
 	  let quo' = if is_neg_v1 <> is_neg_v2 then (neg quo) else quo in
 	  let rem' = if is_neg_v1 then (neg rem) else rem in
-	  Log.debug_lvl ( Printf.sprintf "Vector.core_idiv (%d)%s, (%d)%s = (%d)%s mod=(%d)%s"
-			    (Array.length v1) (to_string v1)
-			    (Array.length v2) (to_string v2)
-			    (Array.length quo') (to_string quo')
-			    (Array.length rem') (to_string rem')) 6;
+	  L.debug (fun p -> p "core_idiv (%d)%s, (%d)%s = (%d)%s mod=(%d)%s"
+	    (Array.length v1) (to_string v1)
+	    (Array.length v2) (to_string v2)
+	    (Array.length quo') (to_string quo')
+	    (Array.length rem') (to_string rem'));
 	  quo',rem'
 
         let div v1 v2 = fst (core_div v1 v2)
@@ -635,8 +640,8 @@ module Make(V: Val) =
             match op with
             | Asm.Not       -> lognot v
             | Asm.SignExt i -> sign_extend v i
-            | Asm.ZeroExt i -> let res = zero_extend v i in Log.debug_lvl (Printf.sprintf
-            "Vector.zero_extend new length : %d" (Array.length res)) 6; res
+            | Asm.ZeroExt i -> let res = zero_extend v i in L.debug (fun p -> p
+            "zero_extend new length : %d" (Array.length res)); res
 
         let untaint v = Array.map V.untaint v
 
@@ -732,12 +737,12 @@ module Make(V: Val) =
 	  if low = Array.length v1 then concat v1 v2
 	  else
             if low > up || (up-low+1) > (Array.length v2) then
-                Log.error "Vector.combine : low > up or length of src < up-low+1 "
+                Log.error "combine : low > up or length of src < up-low+1 "
             else
                 let sz1 = Array.length v1 in
                 let sz2 = Array.length v2 in
                 if low >= sz1 || up >= sz1 || up-low+1 > sz2 then
-                    Log.error "Vector.combine : low or up > vector len"
+                    Log.error "combine : low or up > vector len"
                 else
 		  begin
 		    let v = Array.copy v1 in
@@ -750,7 +755,7 @@ module Make(V: Val) =
 		  end
 
         let extract v low up =
-            Log.debug_lvl (Printf.sprintf "V.extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v)) 6;
+            L.debug (fun p -> p "extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v));
             let v' = Array.make (up-low+1) V.top in
             let n  = Array.length v           in
             let o  = n-up - 1                  in
