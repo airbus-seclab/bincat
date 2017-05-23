@@ -60,7 +60,6 @@ let error msg =
 
 module Make(Modname: sig val name : string end) = struct
   let modname = Modname.name
-  let prologue = modname ^ ":"
   let _loglvl = ref None
   let loglevel = fun () ->
     match !_loglvl with
