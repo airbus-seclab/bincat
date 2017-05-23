@@ -18,6 +18,8 @@
 
 (** the control flow automaton module *)
 
+module L = Log.Make(struct let name = "cfa" end)
+
 module Make(Domain: Domain.T) =
     struct
 	  (** Abstract data type of nodes of the CFA *)
@@ -92,11 +94,11 @@ module Make(Domain: Domain.T) =
       let init_registers d =
 	let check b sz name =
 	  if (String.length (Bits.z_to_bit_string b)) > sz then
-	       Log.error (Printf.sprintf "Illegal initialisation for register %s" name)
+	       L.abort (fun p -> p "Illegal initialisation for register %s" name)
 	in
 	let check_mask b m sz name =
 	 if (String.length (Bits.z_to_bit_string b)) > sz || (String.length (Bits.z_to_bit_string m)) > sz then
-	   Log.error (Printf.sprintf "Illegal initialization for register %s" name)
+	   L.abort (fun p -> p "Illegal initialization for register %s" name)
 	in
 	(* checks whether the provided value is compatible with the capacity of the parameter of type Register _r_ *)
 	let check_init_size r (c, t) =
@@ -106,7 +108,7 @@ module Make(Domain: Domain.T) =
 	  match c with
 	  | Config.Content c    -> check c sz name
 	  | Config.CMask (b, m) -> check_mask b m sz name
-	  | _ -> Log.error "Illegal memory init \"|xx|\" spec used for register"
+	  | _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
 	  end;
 	  begin
 	    match t with
@@ -194,7 +196,7 @@ module Make(Domain: Domain.T) =
 	    is_tainted = is_tainted;
 	  }
 	  in
-	  Log.debug_lvl (Printf.sprintf "Create CFA node %i for IP=%s #############################" v.id (Data.Address.to_string v.ip)) 6;
+	  L.debug (fun p -> p "Create CFA node %i for IP=%s #############################" v.id (Data.Address.to_string v.ip));
 	  G.add_vertex g v;
 	  v
 
@@ -276,7 +278,7 @@ module Make(Domain: Domain.T) =
 	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
 	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (string_of_bool s.is_tainted);
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
-	  if !Config.verbose > 1 then
+	  if !Config.loglevel > 2 then
 	    begin
 	      Printf.fprintf f "statements =";
 	      List.iter (fun stmt -> Printf.fprintf f " %s\n" (Asm.string_of_stmt stmt true)) s.stmts;

@@ -39,25 +39,10 @@ let stdout_buf = ref ""
 let open_stdout () = stdout_buf := ""
 let print msg = stdout_buf := !stdout_buf ^ msg
 let dump_stdout () = Printf.fprintf !logfid "%s\n" !stdout_buf; flush !logfid
-    
-(** dump debug message *)
-let debug_lvl msg lvl =
-    if !Config.verbose >= lvl then
-        Printf.fprintf !logfid "[debug%d] %s\n" lvl msg; flush !logfid
 
-let debug msg = debug_lvl msg 3
-								   
 (** close the log file *)
 let close () = close_out !logfid
-
-let error msg =
-  Printexc.print_raw_backtrace !logfid (Printexc.get_callstack 100);
-  Printf.fprintf !logfid "fatal error: %s\n" msg;
-  flush !logfid;
-  flush stdout;
-  raise (Exceptions.Error msg)
-
-
+  
 module Make(Modname: sig val name : string end) = struct
   let modname = Modname.name
   let _loglvl = ref None
@@ -86,10 +71,12 @@ module Make(Modname: sig val name : string end) = struct
 	Printf.fprintf !logfid  "[WARN]  %s: %s\n" modname msg;
 	flush !logfid
   let error fmsg = 
+    let msg = fmsg Printf.sprintf in
     if loglevel () >= 1 then
-	let msg = fmsg Printf.sprintf in
-	Printf.fprintf !logfid  "[ERROR] %s: %s\n" modname msg;
-	flush !logfid
+      Printf.fprintf !logfid  "[ERROR] %s: %s\n" modname msg;
+    flush !logfid;
+    flush stdout;
+    raise (Exceptions.Error msg)
   let abort fmsg = 
     let msg = fmsg Printf.sprintf in
     Printf.fprintf !logfid  "[ABORT] %s: %s\n" modname msg;

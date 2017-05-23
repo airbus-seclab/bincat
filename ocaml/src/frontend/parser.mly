@@ -17,10 +17,11 @@
 *)
 
 %{
-
+    module L = Log.Make(struct let name = "parser" end)
+  
     let missing_item item section =
       (* error message printing *)
-      Log.error (Printf.sprintf "missing %s in section %s\n" item section);;
+      L.abort (fun p -> p "missing %s in section %s\n" item section);;
 
     (* current library name *)
     let libname = ref "";;
@@ -65,12 +66,12 @@
       ];;
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
-      (** set the corresponding option reference (ex. Config.verbose) *)
+      (** set the corresponding option reference *)
       let update_boolean optname opt v =
 	match String.uppercase v with
 	| "TRUE"  -> opt := true
 	| "FALSE" -> opt := false
-	| _ 	  -> Log.error (Printf.sprintf "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
+	| _ 	  -> L.abort (fun p -> p "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
 
       (** update the register table in configuration module *)
       let init_register rname v = Hashtbl.add Config.register_content (Register.of_name rname) v
@@ -89,7 +90,7 @@
 	    let fid = open_in_bin !Config.binary in
 	    seek_in fid !Config.phys_code_addr;
 	    fid
-	  with _ -> Log.error "failed to open the binary to analyze"
+	  with _ -> L.abort (fun p -> p "failed to open the binary to analyze")
 
 	in
 	Config.text := String.make !Config.code_length '\x00';
@@ -119,7 +120,7 @@
 	      let p = TypedC.read header in	  
 	      List.iter (fun (s, f) ->
 		Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
-	    with _ -> Log.from_config (Printf.sprintf "failed to load header %s" header)) !npk_headers
+	    with _ -> L.warn (fun p -> p "failed to load header %s" header)) !npk_headers
 	;;
 
 	%}
@@ -128,7 +129,7 @@
 %token ANALYZER UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
-%token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP VERBOSE SEMI_COLON
+%token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL
 %token <string> STRING 
@@ -232,9 +233,9 @@
       setting_item:
     | MEM_MODEL EQUAL m=memmodel { update_mandatory MEM_MODEL; Config.memory_model := m }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
-    | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := Z.to_int i with _ -> Log.error "illegal operand size" }
-    | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := Z.to_int i with _ -> Log.error "illegal address size" }
-    | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := Z.to_int i with _ -> Log.error "illegal stack width" }
+    | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := Z.to_int i with _ -> L.abort (fun p -> p "illegal operand size: [%s]" (Z.to_string i)) }
+    | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := Z.to_int i with _ -> L.abort (fun p -> p "illegal address size: [%s]" (Z.to_string i)) }
+    | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := Z.to_int i with _ -> L.abort (fun p -> p "illegal stack width: [%s]" (Z.to_string i)) }
     | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m }
 
       memmodel:
@@ -301,7 +302,6 @@
     | FUN_UNROLL EQUAL i=INT 	     { Config.fun_unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }
     | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
-    | VERBOSE EQUAL i=INT 	     { Config.verbose := Z.to_int i }
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
     | LOGLEVEL modname=STRING EQUAL i=INT
                                      { Hashtbl.add Config.module_loglevel modname (Z.to_int i) }
@@ -371,7 +371,7 @@
 
     (* memory and register init *)
      init:
-    | TAINT tcontent 	            { Log.error "Parser: illegal initial content: undefined content with defined tainting value" }
+    | TAINT tcontent 	            { L.abort (fun p -> p "Parser: illegal initial content: undefined content with defined tainting value") }
     | c=mcontent 	            { c, None }
     | c1=mcontent TAINT c2=tcontent { c1, Some c2 }
 

@@ -16,6 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module L = Log.Make(struct let name = "stubs" end)
+
 module Make (D: Domain.T) =
 struct
     let strlen (d: D.t) (args: Asm.exp list): D.t * bool =
@@ -25,14 +27,14 @@ struct
           let len = D.get_offset_from buf Asm.EQ zero !Config.operand_sz 10000 d in
           if len > !Config.unroll then
               begin
-                  Log.from_analysis (Printf.sprintf "updates automatic loop unrolling with the computed string length = %d" len);
+                  L.analysis (fun p -> p "updates automatic loop unrolling with the computed string length = %d" len);
                   Config.unroll := len
               end;
           D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
-        | _ -> Log.error "invalid call to strlen stub"
+        | _ -> L.abort (fun p -> p "invalid call to strlen stub")
 
     let memcpy (d: D.t) (args: Asm.exp list): D.t * bool =
-        Log.from_analysis "memcpy stub";
+        L.analysis (fun p -> p "memcpy stub");
         match args with
         | [Asm.Lval ret ; dst ; src ; sz] ->
           begin
@@ -40,9 +42,9 @@ struct
                   let n = Z.to_int (D.value_of_exp d sz) in
                   let d' = D.copy d dst (Asm.Lval (Asm.M (src, (8*n)))) (8*n) in
                   D.set ret dst d'
-              with _ -> Log.error "too large copy size in memcpy stub"
+              with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
           end
-        | _ -> Log.error "invalid call to memcpy stub"
+        | _ -> L.abort (fun p -> p "invalid call to memcpy stub")
 
     let print (d: D.t) ret format_addr va_args (to_buffer: Asm.exp option): D.t * bool =
         (* ret has to contain the number of bytes stored in dst ;
@@ -53,7 +55,7 @@ struct
         try
             let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
             let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
-            Log.from_analysis (Printf.sprintf "format string: %s" format_string);
+            L.analysis (fun p -> p "format string: %s" format_string);
             let off_arg = !Config.stack_width / 8 in
             let format_num d dst_off c fmt_pos arg pad_char pad_left: int * int * D.t =
               let rec compute digit_nb fmt_pos =
@@ -68,7 +70,7 @@ struct
                           match c with
                           | 'x' | 'X' ->
                             let sz = Config.size_of_long () in
-                            Log.from_analysis (Printf.sprintf "hypothesis used in format string: size of long = %d bits" sz);
+                            L.analysis (fun p -> p "hypothesis used in format string: size of long = %d bits" sz);
                             let dump =
                                 match to_buffer with
                                 | Some dst ->
@@ -78,7 +80,7 @@ struct
                             in
                             let d', dst_off' = dump arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) sz in
                             fmt_pos+2, dst_off', d'
-                          | c ->  Log.error (Printf.sprintf "%x: Unknown format in format string" (Char.code c))
+                          | c ->  L.error (fun p -> p "%x: Unknown format in format string" (Char.code c))
                       end
                     | 'x' | 'X' ->
                       let copy =
@@ -102,7 +104,7 @@ struct
                       fmt_pos+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
 
                     (* value is in memory *)
-                    | c ->  Log.error (Printf.sprintf "%x: Unknown format in format string" (Char.code c))
+                    | c ->  L.error (fun p -> p "%x: Unknown format in format string" (Char.code c))
                 in
                 let n = ((Char.code c) - (Char.code '0')) in
                     compute n fmt_pos
@@ -136,7 +138,7 @@ struct
                 | '0' -> format_num d dst_off '0' (fmt_pos+1) arg '0' true
                 | ' ' -> format_num d dst_off '0' (fmt_pos+1) arg ' ' true
                 | '-' -> format_num d dst_off '0' (fmt_pos+1) arg ' ' false
-                | _ -> Log.error "Unknown format in format string"
+                | _ -> L.error (fun p -> p "Unknown format in format string")
             in
             let rec copy_char d c (fmt_pos: int) dst_off arg_nb: int * D.t =
                 let src = (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) in
@@ -183,9 +185,9 @@ struct
 
         with
         | Exceptions.Enum_failure | Exceptions.Concretization ->
-          Log.error "(s)printf: Unknown address of the format string or imprecise value of the format string"
+          L.error (fun p -> p "(s)printf: Unknown address of the format string or imprecise value of the format string")
         | Not_found ->
-          Log.error "address of the null terminator in the format string in (s)printf not found"
+          L.error (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 
 
@@ -193,7 +195,7 @@ struct
         match args with
         | [Asm.Lval ret ; dst ; format_addr ; va_args] ->
           print d ret format_addr va_args (Some dst)
-        | _ -> Log.error "invalid call to (s)printf stub"
+        | _ -> L.abort (fun p -> p "invalid call to (s)printf stub")
 
     let printf d args =
         (* TODO: not optimal as buffer destination is built as for sprintf *)
@@ -202,24 +204,24 @@ struct
           (* creating a very large temporary buffer to store the output of printf *)
           Log.open_stdout();
           let d', is_tainted = print d ret format_addr va_args None in
-          Log.from_analysis "printf output:";
+          L.analysis (fun p -> p "printf output:");
           Log.dump_stdout();
-          Log.from_analysis "--- end of printf--";
+          L.analysis (fun p -> p "--- end of printf--");
           d', is_tainted
-        | _ -> Log.error "invalid call to printf stub"
+        | _ -> L.abort (fun p -> p "invalid call to printf stub")
 
     let puts d args =
       match args with
       | [Asm.Lval ret ; str] ->
 	 Log.open_stdout();
-	Log.from_analysis "puts output:";
+	L.analysis (fun p -> p "puts output:");
 	let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
 	let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
         Log.dump_stdout();
-        Log.from_analysis "--- end of puts--";
+        L.analysis (fun p -> p "--- end of puts--");
 	d', is_tainted
 	  
-      | _ -> Log.error "invalid call to puts stub"
+      | _ -> L.abort (fun p -> p "invalid call to puts stub")
 	 
     let process d fun_name (args: Asm.exp list): D.t * bool =
         let d, is_tainted =
@@ -234,7 +236,7 @@ struct
                     | _ -> raise Exit
                 in
                 apply_f d args
-            with _ -> Log.from_analysis (Printf.sprintf "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
+            with _ -> L.analysis (fun p -> p "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
         in
         if !Config.call_conv = Config.STDCALL then
             let sp = Register.stack_pointer () in

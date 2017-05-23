@@ -16,6 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module L = Log.Make(struct let name = "main" end)
+
 (** Entry points of the library *)
 
 (** [process cfile rfile lfile] launches an analysis run such that
@@ -44,7 +46,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* opening the configuration file *)
   let cin =
     try open_in configfile
-    with Sys_error _ -> Log.error "Failed to open the configuration file"
+    with Sys_error _ -> L.abort (fun p -> p "Failed to open the configuration file")
   in
     (* parsing the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
@@ -58,11 +60,11 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     with
     | Parser.Error ->
        close_in cin;
-      Log.error (Printf.sprintf "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
+      L.abort (fun p -> p "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
 	
     | Failure "lexing: empty token" ->
        close_in cin;
-      Log.error (Printf.sprintf "Parse error near location %s of %s" (string_of_position lexbuf) configfile)
+      L.abort (fun p -> p "Parse error near location %s of %s" (string_of_position lexbuf) configfile)
   end;
   close_in cin;
   
@@ -79,7 +81,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
             prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
             fixpoint orig_cfa prev_s dump
         with
-        | Not_found -> Log.error "entry point of the analysis not in the given CFA"
+        | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
     in
 
     (* launching the right analysis depending on the value of !Config.analysis *)

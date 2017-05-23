@@ -20,6 +20,8 @@
 (* Decoder functor *)
 (***************************************************************************************)
 
+module L = Log.Make(struct let name = "decoder" end)
+
 module Make(Domain: Domain.T) =
 struct
 
@@ -148,7 +150,7 @@ struct
             match Z.to_int (Z.logand (Z.shift_right v 2) Z.one) with
             | 0 -> GDT
             | 1 -> LDT
-            | _ -> Log.error "Invalid decription table selection"
+            | _ -> L.abort (fun p -> p "Invalid decription table selection")
         in
         { rpl = rpl; ti = ti; index = Word.of_int (Z.shift_right v 3) index_sz }
 
@@ -284,7 +286,7 @@ struct
 
     (** fatal error reporting *)
     let error a msg =
-        Log.error (Printf.sprintf "at %s: %s" (Address.to_string a) msg)
+        L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
 
     (***********************************************************************)
@@ -796,7 +798,7 @@ struct
         let v  	 	= Register.make ~name:name ~size:sz in
         let tmp  	= V (T v)		  	    in
         let tmp_calc   = Set (tmp, BinOp(And, Lval dst, src)) in
-	Log.debug (Asm.string_of_stmt tmp_calc true);
+	L.debug (fun p -> p "%s" (Asm.string_of_stmt tmp_calc true));
 	let tmp' = Lval tmp in
         let flag_stmts =
             [
@@ -2213,8 +2215,8 @@ struct
             | '\xf7' -> (* shift to grp3 with word or double word size *) grp3 s s.operand_sz
             | '\xf8' -> (* CLC *) return s (clear_flag fcf fcf_sz)
             | '\xf9' -> (* STC *) return s (set_flag fcf fcf_sz)
-            | '\xfa' -> (* CLI *) Log.from_decoder "entering privilege mode (CLI instruction)"; return s (clear_flag fif fif_sz)
-            | '\xfb' -> (* STI *) Log.from_decoder "entering privilege mode (STI instruction)"; return s (set_flag fif fif_sz)
+            | '\xfa' -> (* CLI *) L.decoder (fun p -> p "entering privilege mode (CLI instruction)"); return s (clear_flag fif fif_sz)
+            | '\xfb' -> (* STI *) L.decoder (fun p -> p "entering privilege mode (STI instruction)"); return s (set_flag fif fif_sz)
             | '\xfc' -> (* CLD *) return s (clear_flag fdf fdf_sz)
             | '\xfd' -> (* STD *) return s (set_flag fdf fdf_sz)
             | '\xfe' -> (* INC/DEC grp4 *) grp4 s
@@ -2229,7 +2231,7 @@ struct
             (* TODO: remove this hack *)
             begin
               match List.hd v.Cfa.State.stmts with
-              | Return -> Log.from_decoder "simplified rep ret into ret"
+              | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
               | _ ->
                  let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
                  let zf_stmts =
@@ -2378,7 +2380,7 @@ struct
                   Hashtbl.find Imports.cdecl_stubs name
               with Not_found -> default_stub_cdecl ()
           end 
-        | _ -> Log.error "calling convention not managed for the while"   
+        | _ -> L.abort (fun p -> p "calling convention not managed for the while")   
 
     let replace_types type_directive =
         Hashtbl.iter (fun name typing_rule ->
@@ -2389,7 +2391,7 @@ struct
                     { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
                                   Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = get_stub name}
             with Not_found ->
-                Log.from_analysis (Printf.sprintf "from config file: Typing information for function %s without import address => ignored." name); ()
+                L.analysis (fun p -> p "from config file: Typing information for function %s without import address => ignored." name); ()
         ) Config.typing_rules
 
     let replace_taint taint_directives funame taint_ret taint_args =
@@ -2421,7 +2423,7 @@ struct
         match !Config.call_conv with
         | Config.STDCALL -> replace_types type_directives_stdcall
         | Config.CDECL -> replace_types (fun r -> let e, p, _ = type_directives_cdecl r in e, p)
-        | _ -> Log.debug "Calling convention not managed. Typing and tainting directives ignored"
+        | _ -> L.debug (fun p -> p "Calling convention not managed. Typing and tainting directives ignored")
     end;
     (* adds tainting information to prologue and epilogue *)
     Hashtbl.iter (fun (_libname, funame) (callconv, taint_ret, taint_args) ->
@@ -2436,8 +2438,8 @@ struct
             | _ -> raise (Failure "calling convention not supported")
         with 
           Not_found ->
-          Log.from_analysis "Typing information for function without import address ignored"; ()
-        | Failure msg -> Log.error msg
+          L.analysis (fun p -> p"Typing information for function without import address ignored"); ()
+        | Failure msg -> L.abort (fun p -> p "%s" msg)
 
     ) Config.tainting_rules
 

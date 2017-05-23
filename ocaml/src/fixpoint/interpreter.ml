@@ -18,6 +18,8 @@
 
 (** Fixpoint iterator *)
 
+module L = Log.Make(struct let name = "interpreter" end)
+
 (** external signature of the module *)
 module type T =
   sig
@@ -100,6 +102,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       | GT  -> LEQ
 		 
     let restrict (d: D.t) (e: Asm.bexp) (b: bool): (D.t * bool) =
+      L.debug (fun p -> p "restrict: e=%s b=%B" (Asm.string_of_bexp e true) b);
       let rec process e b =
         match e with
         | BConst b' 		  -> if b = b' then d, false else D.bot, false
@@ -157,18 +160,18 @@ module Make(D: Domain.T): (T with type domain = D.t) =
               ()
             else
 	      begin
-		Log.from_analysis (Printf.sprintf "widening occurs at %s" (Data.Address.to_string ip));
+		L.analysis (fun p -> p "widening occurs at %s" (Data.Address.to_string ip));
 		widen jd v
 	      end
         ) l;
 
        List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
                                       begin
-					Log.from_analysis (Printf.sprintf "unreachable state at address %s" (Data.Address.to_string ip));
+					L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
 					Cfa.remove_state g v; l'
                                       end
 	 else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
-      with Exceptions.Empty -> Log.from_analysis (Printf.sprintf "No new reachable states from %s\n" (Data.Address.to_string ip)); []
+      with Exceptions.Empty -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 								
  
     (*************************** Forward from binary file ************************)
@@ -192,7 +195,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| None ->
 	   let n = f () in
 	   unroll_nb := Some n;
-	   Log.from_analysis (Printf.sprintf "automatic loop unrolling detection. Computed value is 0x%x" n)
+	   L.analysis (fun p -> p "automatic loop unrolling detection. Computed value is 0x%x" n)
       with _ -> ()
       
     exception Jmp_exn
@@ -200,7 +203,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) =
-        Log.debug_lvl (Printf.sprintf "Interpreter.process_value stmt=\n%s" (Asm.string_of_stmt s true)) 6;
+        L.debug (fun p -> p "process_value stmt=\n%s" (Asm.string_of_stmt s true));
         match s with
         | Nop 				 -> d, false
         | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack   
@@ -217,7 +220,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  d, false
 	     
 	| Directive (Default_unroll) ->
-	   Log.from_analysis "set unroll parameter to its default value";
+	   L.analysis (fun p -> p "set unroll parameter to its default value");
 	  unroll_nb := None;
 	  d, false
 
@@ -252,12 +255,12 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		    match Data.Address.Set.elements (fst (D.mem_to_addresses d (Lval lv))) with
 		    | [a] -> D.taint_address_mask a (Config.Taint (Z.of_int 0xff)) d, true
 		    | _ -> raise Exit 
-		  with _ -> Log.from_analysis "Tainting directive ignored"; d, false
+		  with _ -> L.analysis (fun p -> p "Tainting directive ignored"); d, false
 		else
 		  d, false
-	     | _ -> Log.from_analysis (Printf.sprintf "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
+	     | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
 	   end
-	| Directive (Type (lv, t)) -> Log.from_analysis (Printf.sprintf "typing directive: %s <- %s" (Asm.string_of_lval lv true) (Types.to_string t)); D.set_type lv t d, false
+	| Directive (Type (lv, t)) -> L.analysis (fun p -> p "typing directive: %s <- %s" (Asm.string_of_lval lv true) (Types.to_string t)); D.set_type lv t d, false
 	| Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
 	   (* fun_stack := List.tl !fun_stack; *)
         | _ 				 -> raise Jmp_exn
@@ -295,23 +298,23 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		   match ipstack with
 		   | Some ip' -> 
                       if not (Data.Address.equal ip' a) then
-			Log.from_analysis (Printf.sprintf "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET instruction"
-							  (Data.Address.to_string ip') (Data.Address.to_string a))
+			L.analysis (fun p -> p "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET instruction"
+			  (Data.Address.to_string ip') (Data.Address.to_string a))
 		   | None -> ()
 		 end;
 		 unroll_tbl := prev_unroll_tbl;
 		 Some v, is_tainted
               | _ -> raise Exit
 	    with
-              _ -> Log.error "computed instruction pointer at return instruction is either undefined or imprecise"
+              _ -> L.abort (fun p -> p "computed instruction pointer at return instruction is either undefined or imprecise")
 	  end
-	with Failure "hd" -> Log.from_analysis (Printf.sprintf "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, false
+	with Failure "hd" -> L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, false
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let import_call vertices a (pred_fun: Cfa.State.t -> Cfa.State.t) fun_stack =
         let fundec = Hashtbl.find Decoder.Imports.tbl a in
-        Log.from_analysis (Printf.sprintf "at %s: library call for %s found. Looking for a stub." (Data.Address.to_string a) (fundec.Decoder.Imports.name));
+        L.analysis (fun p -> p "at %s: library call for %s found. Looking for a stub." (Data.Address.to_string a) (fundec.Decoder.Imports.name));
         let b =
             List.fold_left (fun b v ->
                 let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
@@ -344,11 +347,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                               try let res = import_call [v] a ip_pred fun_stack in import := true; res
                               with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
                           end
-                        | [] -> Log.error (Printf.sprintf "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-                        | l -> Log.error (Printf.sprintf "Interpreter: please select between the addresses %s for jump target from %s\n"
+                        | [] -> L.abort (fun p -> p "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                        | l -> L.abort (fun p -> p "Please select between the addresses %s for jump target from %s\n"
                                               (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
-                    | Exceptions.Enum_failure -> Log.error (Printf.sprintf "Interpreter: uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                    | Exceptions.Enum_failure -> L.abort (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                 ) ([], false) vertices
             in
             if !import then fun_stack := List.tl !fun_stack;
@@ -362,7 +365,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	      if n' <= !Config.fun_unroll then
 		  Hashtbl.replace fun_unroll_tbl a n'
 	      else
-		Log.error (Printf.sprintf "function at %s has been analysed more than %d times. Analysis stops" (Data.Address.to_string a) !Config.fun_unroll)
+		L.abort (fun p -> p "function at %s has been analysed more than %d times. Analysis stops" (Data.Address.to_string a) !Config.fun_unroll)
 	  with Not_found -> Hashtbl.add fun_unroll_tbl a 1
 	end;
 	let f =
@@ -484,7 +487,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             (* filters on cutting instruction pointers *)
             if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
               begin
-              Log.from_analysis (Printf.sprintf "Address %s reached but not explored because it belongs to the cut off branches\n"
+              L.analysis (fun p -> p "Address %s reached but not explored because it belongs to the cut off branches\n"
 						(Data.Address.to_string v.Cfa.State.ip));
               raise Exit
               end
@@ -514,7 +517,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let module Vertices = Set.Make(Cfa.State) in
       (* check whether the instruction pointer is in the black list of addresses to decode *)
       if Config.SAddresses.mem (Data.Address.to_int s.Cfa.State.ip) !Config.blackAddresses then
-        Log.error "Interpreter not started as the entry point belongs to the cut off branches\n";
+        L.abort (fun p -> p "Interpreter not started as the entry point belongs to the cut off branches\n");
       (* boolean variable used as condition for exploration of the CFA *)
       let continue = ref true		      in
       (* set of waiting nodes in the CFA waiting to be processed *)
@@ -536,7 +539,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	      (* check the size of taint mask is compatible with the size of the register *)
 	  let len = Register.size reg in
 	  List.iter (fun v -> if String.length (Bits.z_to_bit_string v) > len then
-	      Log.error (Printf.sprintf "Illegal taint mask for register %s" (Register.name reg))) vals
+	      L.abort (fun p -> p "Illegal taint mask for register %s" (Register.name reg))) vals
 	in
 	let rules' =
 	  List.map (fun (reg, rule) ->
@@ -557,11 +560,11 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                 List.iter (fun v ->
                     let sz = String.length (Bits.z_to_bit_string v) in
                     if  sz <> 8 && sz <> 0 then
-                        Log.error (Printf.sprintf "Illegal taint mask for address %s" (Data.Address.to_string ip))) vals
+                        L.abort (fun p -> p "Illegal taint mask for address %s" (Data.Address.to_string ip))) vals
             in
             let rules' =
                 List.map (fun (a, rule) ->
-                    Log.debug_lvl (Printf.sprintf "Adding override rule for address 0x%x" (Z.to_int a)) 6;
+                    L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int a));
                     begin
                         match rule with
                         | Config.Taint v -> check [v]
@@ -596,7 +599,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       let new_vertices =
 		 try
 		   let rules = Hashtbl.find overrides v.Cfa.State.ip in
-		   Log.from_analysis (Printf.sprintf "applied tainting (%d) override(s)" (List.length rules));
+		   L.analysis (fun p -> p "applied tainting (%d) override(s)" (List.length rules));
 		   List.map (fun v ->
 		     v.Cfa.State.v <- List.fold_left (fun d f -> f d) v.Cfa.State.v rules; v) new_vertices
 		 with
@@ -609,8 +612,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                d := d'
             | None -> ()
           with
-          | Exceptions.Error msg 	  -> dump g; Log.error msg
-          | Exceptions.Enum_failure -> dump g; Log.error "analysis stopped (computed value too much imprecise)"
+          | Exceptions.Error msg 	  -> dump g; L.abort (fun p -> p "%s" msg)
+          | Exceptions.Enum_failure -> dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
           | e			  -> dump g; raise e
         end;
         (* boolean condition of loop iteration is updated *)
@@ -744,7 +747,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	       match branch with
 	       | Some true -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', b||b') (restrict d e true) istmts
 	       | Some false -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', b||b') (restrict d e false) estmts
-	       | None -> Log.error "Illegal call to Interpreter.forward_process"
+	       | None -> L.abort (fun p -> p "Illegal call to Interpreter.forward_process")
 	   end
 	| Asm.Call (Asm.R _) -> D.forget d, true
 	| Asm.Jmp (Asm.R _) -> D.forget d, true (* TODO may be more precise but check whether the target is really in the CFA. If not then go back to forward_bin for that branch *)
@@ -772,7 +775,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	if D.is_bot s.Cfa.State.v then
 	begin
 	  dump g;
-	  Log.error "analysis not started: empty meet with previous computed value"
+	  L.abort (fun p -> p "analysis not started: empty meet with previous computed value")
 	end
       else
 	let module Vertices = Set.Make(Cfa.State) in
@@ -791,7 +794,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  done;
 	  g
 	with
-	| Invalid_argument _ -> Log.from_analysis "entry node of the CFA reached"; g
+	| Invalid_argument _ -> L.analysis (fun p -> p "entry node of the CFA reached"); g
 	| e -> dump g; raise e
 			     
       let backward (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
@@ -806,7 +809,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     (***************************************************************)
   	  
       let interleave_from_cfa (g: Cfa.t) (dump: Cfa.t -> unit): Cfa.t =
-	Log.from_analysis "entering interleaving mode";
+	L.analysis (fun p -> p "entering interleaving mode");
 	let process mode cfa =
 	  Hashtbl.clear !unroll_tbl;
 	  List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.last cfa)

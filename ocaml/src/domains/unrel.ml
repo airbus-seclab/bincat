@@ -21,6 +21,8 @@
 (* basically it is a map from Registers/Memory cells to abstract values       *)
 (******************************************************************************)
 
+module L = Log.Make(struct let name = "unrel" end)
+
 (** Unrelational domain signature *)
 module type T =
   sig
@@ -169,7 +171,7 @@ module Make(D: T) =
       | Val m' -> add m'
 		      
     let remove_register v m =
-      Log.debug_lvl (Printf.sprintf "Unrel.remove_register(%s)" (Register.name v)) 6;
+      L.debug (fun p -> p "remove_register(%s)" (Register.name v));
       match m with
       | Val m' -> Val (Env.remove (Env.Key.Reg v) m')
       | BOT    -> BOT
@@ -309,7 +311,7 @@ module Make(D: T) =
                 D.top
             else
                 match !mapped_file with
-                | None -> Log.error "File not mapped!"
+                | None -> L.abort (fun p -> p "File not mapped!")
                 | Some map -> D.of_word (Data.Word.of_int (Z.of_int (Bigarray.Genarray.get map [|(Z.to_int (Z.add sec.raw_addr offset))|])) 8)
 
 
@@ -321,7 +323,7 @@ module Make(D: T) =
             4) else check in the "sections" maps and read from the file (or raise Not_found)
     **)
     let get_mem_value map addr sz =
-      Log.debug (Printf.sprintf "get_mem_value : %s %d" (Data.Address.to_string addr) sz);
+      L.debug (fun p -> p "get_mem_value : %s %d" (Data.Address.to_string addr) sz);
       try
         (* expand the address + size to a list of addresses *)
         let exp_addrs = get_addr_list addr (sz/8) in
@@ -331,14 +333,14 @@ module Make(D: T) =
         try
             List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs
         with Not_found ->
-            Log.debug "\tNot found in mapping, checking sections";
+            L.debug (fun p -> p "\tNot found in mapping, checking sections");
             (* not in mem map, check file sections, again, will raise [Not_found] if not matched *)
             List.rev_map (fun cur_addr -> read_from_sections cur_addr) exp_addrs
         in
 
         (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
         let res = D.concat vals in
-          Log.debug (Printf.sprintf "get_mem_value result : %s" (D.to_string res));
+          L.debug (fun p -> p "get_mem_value result : %s" (D.to_string res));
         res
       with _ -> D.bot
 		  
@@ -357,7 +359,7 @@ module Make(D: T) =
       let map_val = Env.find itv domain in
       match itv with
       | Env.Key.Mem_Itv (low_addr, high_addr) ->
-        Log.debug_lvl (Printf.sprintf "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr)) 4;
+        L.debug (fun p -> p "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr));
          let dom' = Env.remove itv domain in
          (* addr just below the new byte *)
          let addr_before = Data.Address.dec addr  in
@@ -379,7 +381,7 @@ module Make(D: T) =
          end
          in
          res
-      | _ -> Log.error "Trying to split a non itv"
+      | _ -> L.abort (fun p -> p "Trying to split a non itv")
 		       
     (* strong update of memory with _byte_ repeated _nb_ times *)
     let write_repeat_byte_in_mem addr domain byte nb =
@@ -390,7 +392,7 @@ module Make(D: T) =
         let key = safe_find addr domain in
         match key with
         | None -> domain;
-        | Some (Env.Key.Reg _,_) ->  Log.error "Implementation error in Unrel: the found key is a Reg"
+        | Some (Env.Key.Reg _,_) ->  L.abort (fun p -> p "Implementation error: the found key is a Reg")
         (* We have a byte, delete it *)
         | Some (Env.Key.Mem (_) as addr_k, _) -> Env.remove addr_k domain
         | Some (Env.Key.Mem_Itv (_, _) as key, _) ->
@@ -407,16 +409,16 @@ module Make(D: T) =
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
            _big_endian_ if needed. _strong_ means strong update *)
     let write_in_memory addr domain value sz strong big_endian =
-      Log.debug_lvl (Printf.sprintf "write_in_mem (%s, %s, %d)" (Data.Address.to_string addr) (D.to_string value) sz) 6;
+      L.debug (fun p -> p "write_in_mem (%s, %s, %d)" (Data.Address.to_string addr) (D.to_string value) sz);
       let nb = sz / 8 in
       let addrs = get_addr_list addr nb in
       let addrs = if big_endian then List.rev addrs else addrs in
       (* helper to update one byte in memory *)
       let update_one_key (addr, byte) domain =
-          Log.debug_lvl (Printf.sprintf "update_one_key (%s, %s)" (Data.Address.to_string addr) (D.to_string byte)) 6;
+          L.debug (fun p -> p "update_one_key (%s, %s)" (Data.Address.to_string addr) (D.to_string byte));
         let key = safe_find addr domain in
         match key with
-        | Some (Env.Key.Reg _, _) -> Log.error "Implementation error in Unrel: the found key is a Reg"
+        | Some (Env.Key.Reg _, _) -> L.abort (fun p -> p "Implementation error: the found key is a Reg")
         (* single byte to update *)
         | Some (Env.Key.Mem (_) as addr_k, match_val) ->
            if strong then
@@ -468,7 +470,7 @@ module Make(D: T) =
         the resulting expression is tainted
     *)
     let rec eval_exp m e: (D.t * bool) =
-      Log.debug_lvl (Printf.sprintf "Unrel.eval_exp(%s)" (Asm.string_of_exp e true)) 6;
+      L.debug (fun p -> p "eval_exp(%s)" (Asm.string_of_exp e true));
       let rec eval e =
         match e with
         | Asm.Const c 			     -> D.of_word c, false
@@ -509,7 +511,7 @@ module Make(D: T) =
              with
              | Exceptions.Enum_failure               -> D.top, true
              | Not_found | Exceptions.Concretization ->
-                            Log.from_analysis (Printf.sprintf "undefined memory dereference [%s]=[%s]: analysis stops in that context" (Asm.string_of_exp e true) (D.to_string r));
+                            L.analysis (fun p -> p ("undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
                             raise Exceptions.Bot_deref
            end
 	     
@@ -618,7 +620,7 @@ module Make(D: T) =
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
     If e is untainted then nothing is done *)
     let span_taint m e (v: D.t) =
-        Log.debug_lvl (Printf.sprintf "span_taint(%s) v=%s"  (Asm.string_of_exp e true) (D.to_string v)) 6;
+        L.debug (fun p -> p "span_taint(%s) v=%s"  (Asm.string_of_exp e true) (D.to_string v));
         let rec process e =
             match e with
             | Asm.Lval (Asm.V (Asm.T r)) ->
@@ -663,7 +665,7 @@ module Make(D: T) =
         | Val m' ->
           let v', _ = eval_exp m' src in
           let v' = span_taint m' src v' in
-          Log.debug_lvl (Printf.sprintf "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v')) 6;
+          L.debug (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
           let b = D.is_tainted v' in
           if D.is_bot v' then
               BOT, b
@@ -790,7 +792,7 @@ module Make(D: T) =
            let val_taint = of_config region (content, taint) sz in
            if nb > 1 then
              if sz != 8 then
-               Log.error "Repeated memory init only works with bytes"
+               L.abort (fun p -> p "Repeated memory init only works with bytes")
              else
                Val (write_repeat_byte_in_mem addr domain' val_taint nb)
            else
@@ -846,7 +848,7 @@ module Make(D: T) =
 		  else
 		    let n = upper_bound-o in
 		    let z = D.of_word (Data.Word.of_int (Z.of_int (Char.code pad_char)) 8) in
-		    if pad_left then Log.error "left padding in Unrel.i_get_bytes not managed"
+		    if pad_left then L.abort (fun p -> p "left padding in i_get_bytes not managed")
 		    else
 		      let chars = ref [] in
 		      for _i = 0 to n-1 do
@@ -1092,7 +1094,7 @@ module Make(D: T) =
           in
           Log.print str';
           m
-        | BOT -> Log.debug "_"; m	
+        | BOT -> Log.print "_"; m
   end
     
     

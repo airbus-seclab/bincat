@@ -16,6 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module L = Log.Make(struct let name = "pointer" end)
+
 open Data.Address
 
 module Make (V: Vector.T) =
@@ -178,7 +180,7 @@ module Make (V: Vector.T) =
         let of_config r c n = Val (r, V.of_config c n)
 
         let combine p1 p2 l u =
-	  Log.debug (Printf.sprintf "Pointer.combine between %s and %s" (to_string p1) (to_string p2));
+	  L.debug (fun p -> p "Pointer.combine between %s and %s" (to_string p1) (to_string p2));
             match p1, p2 with
             | BOT, _ | _, BOT 	   -> BOT
             | TOP, _ | _, TOP 	   -> TOP
@@ -195,7 +197,7 @@ module Make (V: Vector.T) =
               with _ -> BOT
 
         let from_position p i len =
-            Log.debug_lvl (Printf.sprintf "Pointer.from_position %s %d %d" (to_string p) i len) 3;
+            L.debug (fun x -> x "Pointer.from_position %s %d %d" (to_string p) i len);
             match p with
             | BOT | TOP -> p
             | Val (r, o) ->
@@ -218,13 +220,13 @@ module Make (V: Vector.T) =
               Val(region, newoffset)
 
         let rec concat l =
-            Log.debug_lvl (Printf.sprintf "concat len %d" (List.length l)) 6;
+            L.debug (fun p -> p "concat len %d" (List.length l));
             match l with
             | [ ] -> BOT
-            | [v] -> Log.debug_lvl (Printf.sprintf "concat single : %s" (to_string v)) 6; v
+            | [v] -> L.debug (fun p -> p "concat single : %s" (to_string v)); v
             | v::l' ->
               let v' = concat l' in
-              Log.debug_lvl (Printf.sprintf "concat : %s %s" (to_string v) (to_string v')) 6;
+              L.debug (fun p -> p "concat : %s %s" (to_string v) (to_string v'));
               match v, v' with
               | BOT, _ | _, BOT -> BOT
               | TOP, _ | _, TOP -> TOP

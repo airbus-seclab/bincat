@@ -574,7 +574,10 @@ module Make(V: Val) =
 		msb1 := !msb1+1;
 	      done;
 	      if !msb1 = lv1 then
-		Log.error "Division by zero"
+		L.abort (fun p -> p "core_div((%d)%s, (%d)%s): Division by zero"
+		  (Array.length v1) (to_string v1)
+		  (Array.length v2) (to_string v2)
+		)
 	      else
 		let quo = Array.make lv1 V.zero in
 		let rem = ref v1 in 
@@ -737,12 +740,15 @@ module Make(V: Val) =
 	  if low = Array.length v1 then concat v1 v2
 	  else
             if low > up || (up-low+1) > (Array.length v2) then
-                Log.error "combine : low > up or length of src < up-low+1 "
+              L.abort (fun p -> p "combine : low=%i > up=%i or length(src)=%i < up-low+1=%i"
+		low up (Array.length v2) (up-low+1)
+	      )
             else
                 let sz1 = Array.length v1 in
                 let sz2 = Array.length v2 in
                 if low >= sz1 || up >= sz1 || up-low+1 > sz2 then
-                    Log.error "combine : low or up > vector len"
+                  L.abort (fun p -> p "combine : low=%i or up=%i > length(v1)=%i or up-low+1=%i > length(v2)=%i"
+		    low up sz1 (up-low+1) sz2)
                 else
 		  begin
 		    let v = Array.copy v1 in

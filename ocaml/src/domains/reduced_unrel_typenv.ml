@@ -19,6 +19,8 @@
 (** reduced product Unrel x TypEnv *)
 (** signature is of type Domain.T *)
 
+module L = Log.Make(struct let name = "reduced_unrel_typenv" end)
+
 module Make(D: Unrel.T) =
 (struct
   module U = Unrel.Make(D)
@@ -74,7 +76,7 @@ module Make(D: Unrel.T) =
     | _ -> Types.UNKNOWN
 	 
   let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv): t): t =
-    Log.debug (Printf.sprintf "set_type %s %s" (Asm.string_of_lval lv true) (Types.to_string typ));
+    L.debug (fun p -> p "set_type %s %s" (Asm.string_of_lval lv true) (Types.to_string typ));
    let tenv' =
      match lv with
      | Asm.V (Asm.T r) -> if typ = Types.UNKNOWN then T.forget_register r tenv else T.set_register r typ tenv
@@ -83,7 +85,7 @@ module Make(D: Unrel.T) =
 	try
 	  let addrs, _ = U.mem_to_addresses uenv e in
 	  match Data.Address.Set.elements addrs with
-	  | [a] -> Log.debug (Printf.sprintf "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ)); if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
+	  | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ)); if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
 	  | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
 	with Exceptions.Enum_failure -> T.forget tenv
    in

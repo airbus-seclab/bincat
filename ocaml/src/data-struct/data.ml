@@ -16,6 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module L = Log.Make(struct let name = "data" end)
+
 (** Word data type *)
 module Word =
   struct
@@ -180,10 +182,10 @@ struct
             | (r1, w1), (r2, w2)  when r1 = r2 ->
               let w = Word.sub w1 w2 in
               if Word.compare w (Word.zero (Word.size w1)) < 0 then
-                  Log.error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)) 
+                  L.abort (fun p -> p "invalid address substraction: %s - %s" (to_string v1) (to_string v2)) 
               else
                   Word.to_int w
-            | _, _ 	-> Log.error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)) 
+            | _, _ 	-> L.abort (fun p -> p "invalid address substraction: %s - %s" (to_string v1) (to_string v2))
 
         let binary op ((r1, w1): t) ((r2, w2): t): t =
             let r' =
