@@ -97,4 +97,17 @@ module Make(Modname: sig val name : string end) = struct
     flush !logfid;
     flush stdout;
     raise (Exceptions.Error msg)
+
+  (* These functions are not submitted to the module specific log level *)
+  let analysis fmsg = 
+    if !Config.loglevel >= 1 then
+	let msg = fmsg Printf.sprintf in
+	Printf.fprintf !logfid  "[ANALYSIS] %s: %s\n" modname msg;
+	flush !logfid
+  let decoder fmsg = 
+    if !Config.loglevel >= 1 then
+	let msg = fmsg Printf.sprintf in
+	Printf.fprintf !logfid  "[DECODER] %s: %s\n" modname msg;
+	flush !logfid
+      
 end
