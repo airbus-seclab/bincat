@@ -186,7 +186,7 @@
     | c=tainting_addr {
       let (tbl, a, o) = c in
       try
-	let l' = Hashtbl.find tbl a in
+	let l' = Hashtbl.find tbl !override_addr in
 	Hashtbl.replace tbl !override_addr ((a, o)::l')
       with Not_found -> Hashtbl.add tbl !override_addr [(a, o)]
     }
