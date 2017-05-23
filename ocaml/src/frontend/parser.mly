@@ -130,7 +130,7 @@
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP VERBOSE SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS
+%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL
 %token <string> STRING 
 %token <string> HEX_BYTES
 %token <Z.t> INT
@@ -302,6 +302,9 @@
     | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }
     | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | VERBOSE EQUAL i=INT 	     { Config.verbose := Z.to_int i }
+    | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
+    | LOGLEVEL modname=STRING EQUAL i=INT
+                                     { Hashtbl.add Config.module_loglevel modname (Z.to_int i) }
     | ANALYSIS EQUAL v=analysis_kind { update_mandatory ANALYSIS; Config.analysis := v }
     | IN_MCFA_FILE EQUAL f=STRING       { update_mandatory IN_MCFA_FILE; Config.in_mcfa_file := f }
     | OUT_MCFA_FILE EQUAL f=STRING       { update_mandatory OUT_MCFA_FILE; Config.out_mcfa_file := f }

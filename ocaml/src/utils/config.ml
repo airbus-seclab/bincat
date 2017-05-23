@@ -19,6 +19,8 @@
 let unroll = ref 20;;
 let fun_unroll = ref 50;;
 let verbose = ref 1;;
+let loglevel = ref 3;;
+let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
   
 (* set of values that will not be explored as values of the instruction pointer *)

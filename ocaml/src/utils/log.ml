@@ -61,23 +61,33 @@ let error msg =
 module Make(Modname: sig val name : string end) = struct
   let modname = Modname.name
   let prologue = modname ^ ":"
+  let _loglvl = ref None
+  let loglevel = fun () ->
+    match !_loglvl with
+    | Some lvl -> lvl
+    | None -> let lvl = 
+		try Hashtbl.find Config.module_loglevel modname
+		with Not_found -> !Config.loglevel in
+	      _loglvl := Some lvl;
+	      lvl
+	
   let debug fmsg = 
-    if !Config.verbose >= 4 then
+    if loglevel () >= 4 then
 	let msg = fmsg Printf.sprintf in
 	Printf.fprintf !logfid  "[DEBUG] %s: %s\n" modname msg;
 	flush !logfid
   let info fmsg = 
-    if !Config.verbose >= 3 then
+    if loglevel () >= 3 then
 	let msg = fmsg Printf.sprintf in
 	Printf.fprintf !logfid  "[INFO]  %s: %s\n" modname msg;
 	flush !logfid
   let warn fmsg = 
-    if !Config.verbose >= 2 then
+    if loglevel () >= 2 then
 	let msg = fmsg Printf.sprintf in
 	Printf.fprintf !logfid  "[WARN]  %s: %s\n" modname msg;
 	flush !logfid
   let error fmsg = 
-    if !Config.verbose >= 1 then
+    if loglevel () >= 1 then
 	let msg = fmsg Printf.sprintf in
 	Printf.fprintf !logfid  "[ERROR] %s: %s\n" modname msg;
 	flush !logfid
