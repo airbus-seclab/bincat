@@ -856,8 +856,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                     return self.default_font
         elif role == QtCore.Qt.ToolTipRole:
             regaddr = self.rows[index.row()]
-            v = self.s.current_state[regaddr]
-            t = self.s.current_state.regtypes.get(v[0], None)
+            t = self.s.current_state.regtypes.get(regaddr, None)
             if t:
                 return t[0]
             return
