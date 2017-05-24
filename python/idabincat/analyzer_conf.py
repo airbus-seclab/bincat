@@ -29,6 +29,7 @@ import idc
 import logging
 import idabincat.netnode
 import idautils
+from idabincat.plugin_options import PluginOptions
 
 # Logging
 bc_log = logging.getLogger('bincat-cfg')
@@ -207,14 +208,21 @@ class AnalyzerConfig(object):
     """
     Handles configuration files for the analyzer.
     """
-    def __init__(self, state):
+    def __init__(self, config=None):
         self.version = "0.0"
-        self.netnode = idabincat.netnode.Netnode()
-        self._config = ConfigParser.RawConfigParser()
+        if config:
+            self._config = config
+        else:
+            self._config = ConfigParser.RawConfigParser()
         self._config.optionxform = str
-        #: bcplugin.State instance, to fetch current configuration data.
-        #: state is never modified from AnalyzerConfig
-        self.state = state
+        # make sure all sections are created
+        for section in ("analyzer", "settings", "loader", "GDT", "binary",
+                        "sections", "state", "imports"):
+            if not self._config.has_section(section):
+                self._config.add_section(section)
+
+    def __copy__(self):
+        return self.load_from_str(str(self))
 
     # Convenience access functions
     @property
@@ -331,47 +339,19 @@ class AnalyzerConfig(object):
             hex_addr = "0x%x" % eip
             self._config.set("override", hex_addr, ''.join(ov_set))
 
-    # Input functions: load a config from default values, a string, or the IDB
-    def load_from_str(self, string):
+    @staticmethod
+    def load_from_str(string):
         sio = StringIO.StringIO(string)
-        self._config = ConfigParser.RawConfigParser()
-        self._config.optionxform = str
-        self._config.readfp(sio)
-        # make sure all sections are created
-        for section in ("analyzer", "settings", "loader", "GDT", "binary",
-                        "sections", "state", "imports"):
-            if not self._config.has_section(section):
-                self._config.add_section(section)
+        parser = ConfigParser.RawConfigParser()
+        parser.optionxform = str
+        parser.readfp(sio)
+        return AnalyzerConfig(parser)
 
-    def load_for_address(self, analysis_start_va, analysis_stop_va):
-        """
-        Get config for analysis_start_va, from IDB if activated and present
-        Return True if loaded from IDB, False if default
-        """
-        c_str = None
-        if self.state.options.get("load_from_idb") == "True":
-            if analysis_start_va in self.netnode:
-                c_str = self.netnode[analysis_start_va]
-        if c_str:
-            bc_log.info("loaded config from IDB for address %x",
-                        analysis_start_va)
-            self.load_from_str(c_str)
-            return True
-        else:
-            self._load_default_config(analysis_start_va, analysis_stop_va)
-            return False
-
-    # Output functions: save config to idb, a file, the IDB (for a given
+    # Output functions: save config to a file, or the IDB (for a given
     # address, or as default)
     def write(self, filepath):
         with open(filepath, 'w') as configfile:
             self._config.write(configfile)
-
-    def save_for_address(self, address):
-        self.netnode[address] = str(self)
-
-    def save_as_default(self):
-        self.netnode["default"] = str(self)
 
     def __str__(self):
         sio = StringIO.StringIO()
@@ -379,16 +359,16 @@ class AnalyzerConfig(object):
         sio.seek(0)
         return sio.read()
 
-    # Internal helper functions
-    def _load_default_config(self, analysis_start_va, analysis_stop_va):
+    @staticmethod
+    def get_default_config(analysis_start_va, analysis_stop_va):
         """
-        Sets current config to default config for the given entry point
+        Returns a new AnalyzerConfig for the given entry point & cut
         """
         # this function will use the default parameters
         config = ConfigParser.RawConfigParser()
         config.optionxform = str
 
-        config_path = self.state.options.config_path
+        config_path = PluginOptions.config_path
         # Load default part - XXX move this logic to PluginOptions
         configfile = os.path.join(config_path, "conf", "default.ini")
         bc_log.debug("Reading config from %s", configfile)
@@ -487,6 +467,102 @@ class AnalyzerConfig(object):
         # config.set('libc', 'call_conv', 'fastcall')
         # config.set('libc', '*', 'open(@, _)')
         # config.set('libc', '*', 'read<stdcall>(@, *, @)')
-        self._config = config
-        self.analysis_ep = analysis_start_va
-        self.stop_address = analysis_stop_va
+        ac = AnalyzerConfig(config)
+        ac.analysis_ep = analysis_start_va
+        ac.stop_address = analysis_stop_va
+        return ac
+
+
+class AnalyzerConfigurations(object):
+    def __init__(self, state):
+        self._state = state
+        self._netnode = idabincat.netnode.Netnode()
+        #: name -> serialized AnalyzerConfig
+        self._configs = {}
+        #: address (int) -> name
+        self._prefs = {}
+        #: list of functions to be called prior to updating overrides
+        self.pre_callbacks = []
+        #: list of functions to be called after updating overrides
+        self.post_callbacks = []
+        #: list of sorted names - cache used by UI
+        self.names_cache = []
+        #: list configs from IDB
+        self._load_from_idb()
+
+    def refresh_cache(self):
+        self.names_cache = sorted(self._configs.keys())
+
+    def register_callbacks(self, pre_cb, post_cb):
+        # used for GUI configurations panel
+        if pre_cb:
+            self.pre_callbacks.append(pre_cb)
+        if post_cb:
+            self.post_callbacks.append(post_cb)
+
+    def _callback_wrap(f):
+        def wrap(self, *args, **kwargs):
+            for cb in self.pre_callbacks:
+                cb()
+            f(self, *args, **kwargs)
+            self.refresh_cache()
+            for cb in self.post_callbacks:
+                cb()
+        return wrap
+
+    def _load_from_idb(self):
+        self._configs = self._netnode.get('analyzer_configs', dict())
+        self._prefs = {}
+        for k, v in self._netnode.get('analyzer_prefs', dict()).items():
+            self._prefs[int(k)] = v
+        for k, v in list(self._prefs.items()):
+            if v not in self._configs:
+                del self._prefs[k]
+        self.refresh_cache()
+
+    def new_config(self, start_va, stop_va):
+        """
+        return new configuration
+        """
+        return AnalyzerConfig.get_default_config(start_va, stop_va)
+
+    def __getitem__(self, name_or_address):
+        """
+        Get named config, or preferred config if defined for this address.
+        Returns an AnalyzerConfig instance, or None
+        """
+        if isinstance(name_or_address, int):
+            # address
+            name = self._prefs.get(name_or_address, None)
+            if not name:
+                return
+            config_str = self._configs[name]
+        else:
+            config_str = self._configs.get(name_or_address, None)
+        return AnalyzerConfig.load_from_str(config_str)
+
+    def set_pref(self, address, name):
+        self._prefs[address] = name
+        self._netnode['analyzer_prefs'] = self._prefs
+
+    def get_pref(self, address):
+        return self._prefs.get(address, None)
+
+    @_callback_wrap
+    def __setitem__(self, name, config):
+        self._configs[name] = str(config)
+        self._netnode['analyzer_configs'] = self._configs
+
+    @_callback_wrap
+    def __delitem__(self, name):
+        if name not in self._configs:
+            return
+        del self._configs[name]
+        for k, v in list(self._prefs.items()):
+            if v == name:
+                del self._prefs[k]
+        self._netnode['analyzer_configs'] = self._configs
+        self._netnode['analyzer_prefs'] = self._prefs
+
+    def __len__(self):
+        return len(self._configs)
