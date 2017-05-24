@@ -2329,7 +2329,7 @@ struct
 	  | None -> 0, []
 	  | Some args ->
 	     List.fold_left (fun (sz, stmts) (typ, _name) ->
-            let lv = M (BinOp (Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz) !Config.stack_width)), off) in 
+            let lv = M (BinOp (Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz) !Config.stack_width)), !Config.stack_width) in 
             sz+off, (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
         ) (off, []) args
         in
