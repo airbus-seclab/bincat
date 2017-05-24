@@ -1862,16 +1862,31 @@ struct
         let old_al = Register.make (Register.fresh_name()) 8				       in
         let old_cf = Register.make (Register.fresh_name()) 1				       in
         let al_op_6 = BinOp (op, Lval al, const 6 8) in
-        let carry  = If(BBinOp (LogOr, Cmp (EQ, Lval (V (T old_cf)), Const (Word.one 1)), BBinOp (LogOr, fal_gt_9, faf_eq_1)), [set_flag fcf],[clear_flag fcf]) in
-
+	let carry_or_borrow =  if op = Asm.Add then
+	    BBinOp(LogAnd,
+		   Cmp(EQ, BinOp(Shr,Lval (V (T old_al)), const 7 8), const 1 8),
+		   Cmp(EQ, BinOp(Shr,Lval al, const 7 8), const 0 8))
+	  else
+	    BBinOp(LogAnd,
+		   Cmp(EQ, BinOp(Shr,Lval (V (T old_al)), const 7 8), const 0 8),
+		   Cmp(EQ, BinOp(Shr,Lval al, const 7 8), const 1 8)) in
         let if1 = If (BBinOp (LogOr, fal_gt_9, faf_eq_1),
-                      [ Set(al, al_op_6); carry; set_flag faf],
+                      [ Set(al, al_op_6);
+			Set(V (T fcf), BinOp(Or, Lval (V (T old_cf)),
+					     TernOp(carry_or_borrow,
+						    const 1 1,
+						    const 0 1))) ;
+			set_flag faf],
                       [clear_flag faf])
         in
-        let if2 = If (BBinOp (LogOr, Cmp (GT, Lval (V (T old_al)), const 0x99 8), Cmp(EQ, Lval (V (T old_cf)), Const (Word.one 1))),
-                      [Set (al, BinOp(op, Lval al, const 0x60 8))],
-                      [clear_flag fcf])
+	let maybe_clear_cf = if op = Asm.Add then [clear_flag fcf] else [] in
+        let if2 = If (BBinOp (LogOr, Cmp (GT, Lval (V (T old_al)), const 0x99 8),
+			      Cmp(EQ, Lval (V (T old_cf)), Const (Word.one 1))),
+                      [ Set (al, BinOp(op, Lval al, const 0x60 8)) ;
+			set_flag fcf ],
+                      maybe_clear_cf)
         in
+
         let stmts =
             [
                 Set (V (T old_al), Lval al);
