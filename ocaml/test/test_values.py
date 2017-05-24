@@ -1215,3 +1215,70 @@ def test_xlat(tmpdir):
     for i in SOME_OPERANDS_8:
         compare(tmpdir, asm % i, ["eax"])
 
+
+##  ___  ___ ___  
+## | _ )/ __|   \ 
+## | _ \ (__| |) |
+## |___/\___|___/ 
+##                
+
+def test_bcd_daa(tmpdir):
+    asm = """
+           mov eax, %#x
+           add eax, %#x
+           daa
+          """
+    for a,b in SOME_OPERANDS_COUPLES_8:
+        compare(tmpdir, asm % (a,b), ["eax", "cf", "af", "of"],
+                top_allowed = { "of":1 })
+
+def test_bcd_das(tmpdir):
+    asm = """
+           mov eax, %#x
+           sub eax, %#x
+           das
+          """
+    for a,b in SOME_OPERANDS_COUPLES_8:
+        compare(tmpdir, asm % (a,b), ["eax", "cf", "af", "of"],
+                top_allowed = { "of":1 })
+
+def test_bcd_aaa(tmpdir):
+    asm = """
+           mov eax, %#x
+           add ax, %#x
+           aaa
+          """
+    for a,b in SOME_OPERANDS_COUPLES_8:
+        compare(tmpdir, asm % (a,b), ["eax", "cf", "af", "of", "zf", "sf", "pf"],
+                top_allowed = {"of":1, "sf":1, "zf":1, "pf":1 })
+
+def test_bcd_aas(tmpdir):
+    asm = """
+           mov eax, %#x
+           sub ax, %#x
+           aas
+          """
+    for a,b in SOME_OPERANDS_COUPLES_8:
+        compare(tmpdir, asm % (a,b), ["eax", "cf", "af", "of", "zf", "sf", "pf"],
+                top_allowed = {"of":1, "sf":1, "zf":1, "pf":1 })
+
+def test_bcd_aam(tmpdir):
+    asm = """
+           mov eax, %#x
+           mov ebx, %#x
+           mul bx
+           aam %#x
+          """
+    for a,b in SOME_OPERANDS_COUPLES_8:
+        for base in [10, 12, 8, 16, 0xff]:
+            compare(tmpdir, asm % (a,b,base), ["eax", "cf", "af", "of", "zf", "sf", "pf"],
+                    top_allowed = {"of":1, "af":1, "cf":1 })
+
+def test_bcd_aad(tmpdir):
+    asm = """
+           mov eax, %#x
+           aad
+          """
+    for a in SOME_OPERANDS_16:
+        compare(tmpdir, asm % a, ["eax", "sf", "zf", "pf", "of", "af", "cf"],
+                top_allowed = {"of":1, "af":1, "cf":1 })
