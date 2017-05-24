@@ -34,7 +34,7 @@ let meet b1 b2 =
   | ZERO, ZERO 	    	  -> ZERO
   | ONE, ONE 	    	  -> ONE
   | ONE, ZERO | ZERO, ONE -> raise Exceptions.Empty
-  | _, TOP | TOP, _ 	  -> TOP
+  | b, TOP | TOP, b 	  -> b
 			       
 let to_char b =
   match b with
