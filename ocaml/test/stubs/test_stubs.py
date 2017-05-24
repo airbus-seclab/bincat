@@ -47,11 +47,11 @@ def getLastState(prgm):
 
 
 
-def test_printf(tmpdir):
+def test_printf_0(tmpdir):
     outfname,logfname,res = analyze(tmpdir, "printf.ini")
     res = open(logfname).read()
-    msg1 = "stub of printf analysed"
-    msg2 = "[analysis] printf output:"
+    msg1 = "stub of printf"
+    msg2 = "[ANALYSIS] stubs: printf output:"
     assert msg1 in res
     assert msg2 in res
     p = res.find(msg2)+len(msg2)+1
@@ -65,13 +65,11 @@ def test_printf_px(tmpdir):
     outfname,logfname,res = analyze(tmpdir, "printf2.ini")
     res = open(logfname).read()
 
-    msg1 = "stub of printf analysed"
-    msg2 = "[analysis] printf output:"
+    msg1 = "stub of printf"
+    msg2 = "[ANALYSIS] stubs: printf output:"
     assert msg1 in res
     assert msg2 in res
 
-    assert "stub of printf analysed" in res
-    assert "[analysis] printf output:" in res
     p = res.find(msg2)+len(msg2)+1
     p2 = res.find("\n", p)
     assert res[p:p2] == "value=%x" % 0x12345678
@@ -83,13 +81,11 @@ def test_printf_ps(tmpdir):
     outfname,logfname,res = analyze(tmpdir, "printf3.ini")
     res = open(logfname).read()
 
-    msg1 = "stub of printf analysed"
-    msg2 = "[analysis] printf output:"
+    msg1 = "stub of printf"
+    msg2 = "[ANALYSIS] stubs: printf output:"
     assert msg1 in res
     assert msg2 in res
 
-    assert "stub of printf analysed" in res
-    assert "[analysis] printf output:" in res
     p = res.find(msg2)+len(msg2)+1
     p2 = res.find("\n", p)
     assert res[p:p2] == "abcd[%s]" % "ABC foobar"
@@ -98,13 +94,11 @@ def test_printf_p012x(tmpdir):
     outfname,logfname,res = analyze(tmpdir, "printf4.ini")
     res = open(logfname).read()
 
-    msg1 = "stub of printf analysed"
-    msg2 = "[analysis] printf output:"
+    msg1 = "stub of printf"
+    msg2 = "[ANALYSIS] stubs: printf output:"
     assert msg1 in res
     assert msg2 in res
 
-    assert "stub of printf analysed" in res
-    assert "[analysis] printf output:" in res
     p = res.find(msg2)+len(msg2)+1
     p2 = res.find("\n", p)
     assert res[p:p2] == "abcd[%012x]" % 0x12345678
