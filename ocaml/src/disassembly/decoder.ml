@@ -1819,6 +1819,7 @@ struct
     (* BCD *)
     (*******************)
     let al  = V (P (eax, 0, 7))
+    let ah  = V (P (eax, 8, 15))
     let ax  = V (P (eax, 0, 15))
     let fal = BinOp (And, Lval al, const 0xF 8)
     let fal_gt_9 = Cmp (GT, fal, const 9 8)
@@ -1894,6 +1895,36 @@ struct
 
     let daa s = core_daa_das s Add
     let das s = core_daa_das s Sub
+
+    let aam s =
+      let base = const_of_Z (int_of_byte s) 8 in
+      let stmts = [
+        Set(ah, BinOp(Div, Lval al, base));
+        Set(al, BinOp(Mod, Lval al, base));
+        zero_flag_stmts 8 (Lval al);
+        sign_flag_stmts 8 (Lval al);
+        parity_flag_stmts 8 (Lval al);
+        undef_flag fof;
+        undef_flag faf;
+        undef_flag fcf; ] in
+
+        return s stmts
+
+    let aad s =
+      let base = const_of_Z (int_of_byte s) 8 in
+      let tmp  = Register.make (Register.fresh_name ()) 16 in
+      let stmts = [
+        Set(V (T tmp), BinOp(Add, UnOp(ZeroExt 16, Lval al), BinOp(Mul, Lval ah, base)));
+	Set(al, Lval (V (P (tmp, 0, 7))));
+        Set(ah, const 0 8);
+        zero_flag_stmts 8 (Lval al);
+        sign_flag_stmts 8 (Lval al);
+        parity_flag_stmts 8 (Lval al);
+        undef_flag fof;
+        undef_flag faf;
+        undef_flag fcf;
+	Directive(Remove tmp) ] in
+        return s stmts
 
     (********)
     (* misc *)
@@ -2192,7 +2223,8 @@ struct
             | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (Const (Word.one 8)))
             | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s 8 (Some (Lval (V (to_reg ecx 8))))
             | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx 8))))
-
+            | '\xd4' -> (* AAM *) aam s
+            | '\xd5' -> (* AAD *) aad s
             | '\xd7' -> (* XLAT *) xlat s
             | c when '\xd8' <= c && c <= '\xdf' -> (* ESC (escape to coprocessor instruction set *) error s.a "ESC to coprocessor instruction set. Interpreter halts"
 
