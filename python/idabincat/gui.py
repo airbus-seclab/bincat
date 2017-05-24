@@ -823,7 +823,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
     """
     Used as model in BinCATTaintedForm TableView widgets.
 
-    Contains tainting and values for either registers or memory addresses
+    Contains tainting and values for registers
     """
     def __init__(self, state, *args, **kwargs):
         super(ValueTaintModel, self).__init__(*args, **kwargs)
@@ -915,8 +915,6 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         regaddr = self.rows[index.row()]
         region = regaddr.prettyregion
 
-        if region != "reg":
-            return
         if col == 0:  # register name
             return str(regaddr.value)
         v = self.s.current_state[regaddr]
