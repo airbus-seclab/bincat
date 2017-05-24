@@ -158,14 +158,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         lbl_cst_editor = QtWidgets.QLabel("BinCAT analysis parameters")
         self.s.current_ea = idaapi.get_screen_ea()
 
-        # Use current function end address as default stop address
-        stop_addr = 0
-        f = idaapi.get_func(idaapi.get_screen_ea())
-        try:
-            stop_addr = f.endEA
-        except AttributeError:
-            stop_addr = None
-
         # Start address
         lbl_start_addr = QtWidgets.QLabel(" Start address: ")
         self.ip_start_addr = QtWidgets.QLineEdit(self)
@@ -215,7 +207,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.btn_start.setFocus()
 
         # Load config for address if it exists
-        self.s.edit_config.load_for_address(self.s.current_ea, stop_addr)
+        self.s.edit_config.load_for_address(self.s.current_ea, None)
         self.update_from_edit_config()
 
     def rbRegistersHandler(self):
