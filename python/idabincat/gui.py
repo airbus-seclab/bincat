@@ -449,8 +449,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
             return
         self.last_visited[cur_reg] = bindex + start
 
-    @QtCore.pyqtSlot(int, int)
-    def handle_new_override(self, abs_start, abs_end):
+    @QtCore.pyqtSlot(int, int, bool)
+    def handle_new_override(self, abs_start, abs_end, re_run):
         # add override for each byte
         mask, res = QtWidgets.QInputDialog.getText(
             None,
@@ -468,6 +468,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
             ea = self.s.current_ea
             addrstr = "%s[0x%02X]" % (region, addr)
             self.s.overrides.append((ea, addrstr, mask))
+        if re_run:
+            self.s.re_run()
 
     @QtCore.pyqtSlot(str)
     def update_range(self, crangeidx):

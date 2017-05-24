@@ -594,7 +594,7 @@ Origin = namedtuple("Origin", ["offset", "name"])
 
 class HexViewWidget(QWidget, HexViewBase, LoggingObject):
     originsChanged = pyqtSignal()
-    newOverride = pyqtSignal(int, int)
+    newOverride = pyqtSignal(int, int, bool)
 
     def __init__(self, meminfo, parent=None):
         super(HexViewWidget, self).__init__()
@@ -725,7 +725,9 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         if self._hsm.start is not None and self._hsm.end is not None:
             menu.addSeparator()  # --------------------------------------
             add_action(menu, "Override taint for selection",
-                       self._handle_add_taint_override)
+                       lambda: self._handle_add_taint_override(False))
+            add_action(menu, "Override taint for selection and re-run",
+                       lambda: self._handle_add_taint_override(True))
         return menu
 
     def _handle_context_menu_requested(self, qpoint):
@@ -777,11 +779,11 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self._origins.remove(origin)
         self.originsChanged.emit()
 
-    def _handle_add_taint_override(self):
+    def _handle_add_taint_override(self, re_run):
         start_idx, end_idx = self._hsm.start, self._hsm.end
         abs_start = self._meminfo.abs_addr_from_idx(start_idx)
         abs_end = self._meminfo.abs_addr_from_idx(end_idx)
-        self.newOverride.emit(abs_start, abs_end)
+        self.newOverride.emit(abs_start, abs_end, re_run)
 
     def _handle_add_origin(self, qindex):
         index = self.getModel().qindex2index(qindex)
