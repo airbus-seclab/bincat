@@ -913,7 +913,6 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         elif role != QtCore.Qt.DisplayRole:
             return
         regaddr = self.rows[index.row()]
-        region = regaddr.prettyregion
 
         if col == 0:  # register name
             return str(regaddr.value)
