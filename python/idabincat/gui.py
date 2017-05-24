@@ -328,7 +328,7 @@ class Meminfo():
             elif strtaint[i] == '?':  # unknown taint
                 color_str += "<font color='blue'>"+c+"</font>"
             else:  # not fully tainted
-                color_str += "<font color='yellow'>"+c+"</font>"
+                color_str += "<font color='#c1ad01'>"+c+"</font>"
         return color_str
 
     def char(self, idx):
