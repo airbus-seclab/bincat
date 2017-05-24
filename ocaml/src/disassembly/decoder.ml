@@ -1819,38 +1819,26 @@ struct
     (* BCD *)
     (*******************)
     let al  = V (P (eax, 0, 7))
+    let ax  = V (P (eax, 0, 15))
     let fal = BinOp (And, Lval al, const 0xF 8)
     let fal_gt_9 = Cmp (GT, fal, const 9 8)
     let faf_eq_1 = Cmp (EQ, Lval (V (T faf)), Const (Word.one 1))
 
     let core_aaa_aas s op =
-        let al_op_6 = BinOp (op, Lval al, const 6 8) in
-        let ah      = V (P (eax, 24, 31))                                     in
-        let set     = Set (al, fal)	                                      in
-        let istmts =
-            [
-                Set (al, al_op_6);
-                Set (ah, BinOp(op, Lval ah, Const (Word.one 8)));
-                set_flag faf;
-                set_flag fcf;
-                set
-            ]
-        in
-        let estmts =
-            [
-                clear_flag faf;
-                clear_flag fcf;
-                set
-            ]
-        in
-        let c  = BBinOp (LogOr, fal_gt_9, faf_eq_1) in
         let stmts =
             [
-                If (c, istmts, estmts);
-                undef_flag fof;
-                undef_flag fsf;
-                undef_flag fpf;
-                undef_flag fzf
+              If (BBinOp (LogOr, fal_gt_9, faf_eq_1),
+		  [ Set (ax, BinOp (op, Lval ax, const 0x106 16));
+                    set_flag faf;
+                    set_flag fcf;
+                  ],
+		  [ clear_flag faf;
+                    clear_flag fcf; ]) ;
+	      Set (al, fal);
+              undef_flag fof;
+              undef_flag fsf;
+              undef_flag fpf;
+              undef_flag fzf
             ]
         in
         return s stmts
