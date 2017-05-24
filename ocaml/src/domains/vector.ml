@@ -261,13 +261,6 @@ module Make(V: Val) =
             with
             | Exit -> true
             | _    -> false
-        let map2 f v1 v2 =
-            let n = min (Array.length v1) (Array.length v2) in
-            let v = Array.make n V.top                      in
-            for i = 0 to n-1 do
-                v.(i) <- f v1.(i) v2.(i)
-            done;
-            v
 
 	(* let iter2 f v1 v2 =
 	  for i = 0 to (Array.length v1) -1 do
@@ -338,6 +331,19 @@ module Make(V: Val) =
      let v', t = extract_strings v in
      if String.compare t "0x0" == 0 then v'
      else Printf.sprintf "%s!%s" v' t
+
+    let map2 f v1 v2 =
+	  let n = Array.length v1 in
+	  let n2 = Array.length v2 in
+	  if n <> n2 then
+	    L.abort (fun p -> p "map2 on vectors of different sizes (v1=%s(%i) v2=%s(%i)"
+	      (to_string v1) n (to_string v2) n2)
+	  else
+            let v = Array.make n V.top in
+            for i = 0 to n-1 do
+                v.(i) <- f v1.(i) v2.(i)
+            done;
+            v
 	  
     let to_strings v = extract_strings v
       
