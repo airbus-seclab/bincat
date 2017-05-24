@@ -2327,10 +2327,11 @@ struct
         let sz, prologue =
 	  match fst typing_rule with
 	  | None -> 0, []
-	  | Some args -> List.fold_left (fun (sz, stmts) (typ, _name) ->
+	  | Some args ->
+	     List.fold_left (fun (sz, stmts) (typ, _name) ->
             let lv = M (BinOp (Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz) !Config.stack_width)), off) in 
-            sz+(!Config.stack_width), (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
-        ) (0, []) args
+            sz+off, (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
+        ) (off, []) args
         in
         prologue, epilogue@(forget_reserved_registers_cdecl ()), sz
 

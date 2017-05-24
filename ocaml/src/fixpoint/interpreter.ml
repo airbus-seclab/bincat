@@ -260,7 +260,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 		  d, false
 	     | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
 	   end
-	| Directive (Type (lv, t)) -> L.analysis (fun p -> p "typing directive: %s <- %s" (Asm.string_of_lval lv true) (Types.to_string t)); D.set_type lv t d, false
+	| Directive (Type (lv, t)) -> D.set_type lv t d, false
 	| Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
 	   (* fun_stack := List.tl !fun_stack; *)
         | _ 				 -> raise Jmp_exn
