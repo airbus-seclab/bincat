@@ -1277,8 +1277,9 @@ def test_bcd_aam(tmpdir):
 def test_bcd_aad(tmpdir):
     asm = """
            mov eax, %#x
-           aad
+           aad %#x
           """
     for a in SOME_OPERANDS_16:
-        compare(tmpdir, asm % a, ["eax", "sf", "zf", "pf", "of", "af", "cf"],
-                top_allowed = {"of":1, "af":1, "cf":1 })
+        for base in [10, 12, 8, 16, 0xff]:
+            compare(tmpdir, asm % (a,base), ["eax", "sf", "zf", "pf", "of", "af", "cf"],
+                    top_allowed = {"of":1, "af":1, "cf":1 })
