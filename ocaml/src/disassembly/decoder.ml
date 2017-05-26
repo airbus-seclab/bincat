@@ -1980,6 +1980,16 @@ struct
       ] in
       return s stmts
 
+    let xadd_mrm s sz =
+      let arg1,arg2 = operands_from_mod_reg_rm_core s sz sz in
+      let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
+      let stmts = [ Set(V (T tmp), BinOp(Add, Lval arg1, Lval arg2));
+		    Set(arg1, Lval arg2) ;
+                    Set(arg2, Lval (V (T tmp)));
+		    Directive (Remove tmp) ] in
+        return s stmts
+
+
     let xlat s =
       let al = V (to_reg eax 8) in
       let al_ext = UnOp(ZeroExt s.operand_sz, Lval al) in
@@ -2365,6 +2375,10 @@ struct
             | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
               return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
             | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in return s [ Set (reg, UnOp(SignExt 32, rm)) ]
+
+            | '\xc0' -> (* XADD *)  xadd_mrm s 8
+            | '\xc1' -> (* XADD *)  xadd_mrm s s.operand_sz
+
             | c 	   -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
         in
         decode s;;
