@@ -20,7 +20,6 @@
 """
 
 import collections
-import ConfigParser
 import hashlib
 import logging
 import os
@@ -38,7 +37,9 @@ import idc
 import idaapi
 import idabincat.netnode
 import idabincat.npkgen
-from idabincat.analyzer_conf import AnalyzerConfig
+from idabincat import analyzer_conf
+from idabincat.plugin_options import PluginOptions
+from idabincat.analyzer_conf import AnalyzerConfig, AnalyzerConfigurations
 from idabincat.gui import GUI
 
 from PyQt5 import QtCore
@@ -55,6 +56,7 @@ def dedup_loglines(loglines, max=None):
     res = []
     staging = None
     n = 0
+
     def flush_staging():
         if n > 0:
             res.append(staging)
@@ -116,14 +118,14 @@ class BincatPlugin(idaapi.plugin_t):
                 "Failed to load 'pybincat.cfa' python module\n%s",
                 repr(sys.exc_info()))
             return idaapi.PLUGIN_SKIP
-        options = PluginOptions()
-        if options.get("autostart") != "True":
+        PluginOptions.init()
+        if PluginOptions.get("autostart") != "True":
             # will initialize later
             return idaapi.PLUGIN_OK
 
         bc_log.info("Autostarting")
 
-        self.state = State(options)
+        self.state = State()
         self.initialized = True
         bc_log.info("IDABinCAT ready.")
         return idaapi.PLUGIN_KEEP
@@ -131,8 +133,7 @@ class BincatPlugin(idaapi.plugin_t):
     def run(self, args):
         if self.initialized:
             return
-        options = PluginOptions()
-        self.state = State(options)
+        self.state = State()
         # XXX move
         self.initialized = True
         self.state.gui.show_windows()
@@ -145,9 +146,8 @@ class BincatPlugin(idaapi.plugin_t):
 
 
 class Analyzer(object):
-    def __init__(self, path, options, finish_cb):
+    def __init__(self, path, finish_cb):
         self.path = path
-        self.options = options
         self.finish_cb = finish_cb
 
     def generate_tnpk(self, fname=None):
@@ -271,7 +271,7 @@ class WebAnalyzer(Analyzer):
 
     def __init__(self, *args, **kwargs):
         Analyzer.__init__(self, *args, **kwargs)
-        self.server_url = self.options.get("server_url").rstrip("/")
+        self.server_url = PluginOptions.get("server_url").rstrip("/")
         self.reachable_server = False
         self.check_version()  # raises exception if server is unreachable
         self.reachable_server = True
@@ -327,9 +327,8 @@ class WebAnalyzer(Analyzer):
 
         # create temporary AnalyzerConfig to replace referenced file names with
         # sha256 of their contents
-        temp_config = AnalyzerConfig(None)  # No reference to State - not used
         with open(self.initfname, 'rb') as f:
-            temp_config.load_from_str(f.read())
+            temp_config = AnalyzerConfig.load_from_str(f.read())
         # patch filepath - set filepath to sha256, upload file
         sha256 = self.sha256_digest(temp_config.binary_filepath)
         if not self.upload_file(temp_config.binary_filepath, sha256):
@@ -444,64 +443,28 @@ class WebAnalyzer(Analyzer):
         return True
 
 
-class PluginOptions(object):
-    def __init__(self):
-        # Configuration files path
-        idausr = os.getenv('IDAUSR')
-        if not idausr:
-            if os.name == "nt":
-                idausr = os.path.join(
-                    os.getenv("APPDATA"), "Hex-Rays", "IDA Pro")
-            elif os.name == "posix":
-                idausr = os.path.join(os.getenv("HOME"), ".idapro")
-            else:
-                raise RuntimeError
-            bc_log.warning("IDAUSR not defined, using %s", idausr)
-        self.config_path = os.path.join(idausr, "idabincat")
-
-        # Plugin options
-        def_options = {
-            "save_to_idb": "False",  # config only - results are always saved
-            "load_from_idb": "True",
-            "server_url": "http://localhost:5000",
-            "web_analyzer": "False",
-            "autostart": "False"}
-        self.options = ConfigParser.ConfigParser(defaults=def_options)
-        self.options.optionxform = str
-        self.configfile = os.path.join(self.config_path, "conf", "options.ini")
-        if len(self.options.read(self.configfile)) != 1:
-            self.options.add_section("options")
-
-    def get(self, name):
-        return self.options.get("options", name)
-
-    def set(self, name, value):
-        self.options.set("options", name, value)
-
-    def save(self):
-        with open(self.configfile, 'wb') as optfile:
-            self.options.write(optfile)
-
-
 class State(object):
     """
     Container for (static) plugin state related data & methods.
     """
-    def __init__(self, options):
+    def __init__(self):
         self.current_ea = None
-        self.options = options
         self.cfa = None
         self.current_state = None
         self.current_node_ids = []
         #: last run config
         self.current_config = None
         #: config to be edited
-        self.edit_config = AnalyzerConfig(self)
+        self.edit_config = None
         #: Analyzer instance - protects against merciless garbage collector
         self.analyzer = None
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
-        self.overrides = OverridesState()
+        #: acts as a List of ("eip", "register name", "taint mask")
+        #: XXX store in IDB?
+        self.overrides = CallbackWrappedList()
+        #: list of (name, config)
+        self.configurations = AnalyzerConfigurations(self)
         # XXX store in idb after encoding?
         self.last_cfaout_marshal = None
         #: filepath to last dumped remapped binary
@@ -512,15 +475,15 @@ class State(object):
         bc_state = self
 
         self.gui = GUI(self)
-        if self.options.get("load_from_idb") == "True":
+        if PluginOptions.get("load_from_idb") == "True":
             self.load_from_idb()
 
     def new_analyzer(self, *args, **kwargs):
         """
         returns current Analyzer class (web or local)
         """
-        if (self.options.get("web_analyzer") == "True" and
-                self.options.get("server_url") != ""):
+        if (PluginOptions.get("web_analyzer") == "True" and
+                PluginOptions.get("server_url") != ""):
             return WebAnalyzer(*args, **kwargs)
         else:
             return LocalAnalyzer(*args, **kwargs)
@@ -668,7 +631,7 @@ class State(object):
         output files: out.ini, cfaout.marshal
         """
         if config_str:
-            self.current_config.load_from_str(config_str)
+            self.current_config = AnalyzerConfig.load_from_str(config_str)
         binary_filepath = self.guess_filepath()
         if not binary_filepath:
             bc_log.error(
@@ -683,8 +646,7 @@ class State(object):
         # instance variable: we don't want the garbage collector to delete the
         # *Analyzer instance, killing an unlucky QProcess in the process
         try:
-            self.analyzer = self.new_analyzer(path, self.options,
-                                              self.analysis_finish_cb)
+            self.analyzer = self.new_analyzer(path, self.analysis_finish_cb)
         except AnalyzerUnavailable as e:
             bc_log.error("Analyzer is unavailable", exc_info=True)
 
@@ -756,17 +718,17 @@ class State(object):
             self.start_analysis()
 
 
-class OverridesState(collections.MutableSequence):
+class CallbackWrappedList(collections.MutableSequence):
     """
     Acts as a List object, wraps write access with calls to properly invalidate
     models associated with View GUI objects.
+    Should store only immutable objects.
     """
     def __init__(self):
-        #: list of ("eip", "register name", "taint mask")
-        self._overrides = []  # XXX store in idb
-        #: list of functions to be called prior to updating overrides
+        self._data = []
+        #: list of functions to be called prior to updating list
         self.pre_callbacks = []
-        #: list of functions to be called after updating overrides
+        #: list of functions to be called after updating list
         self.post_callbacks = []
         #: cache
 
@@ -777,8 +739,8 @@ class OverridesState(collections.MutableSequence):
             self.post_callbacks.append(post_cb)
 
     def __getitem__(self, index):
-        # no need for wrappers - values should be tuples
-        return self._overrides[index]
+        # no need for wrappers - values should be immutable
+        return self._data[index]
 
     def _callback_wrap(f):
         def wrap(self, *args, **kwargs):
@@ -791,18 +753,18 @@ class OverridesState(collections.MutableSequence):
 
     @_callback_wrap
     def __setitem__(self, index, value):
-        self._overrides[index] = tuple(value)
+        self._data[index] = tuple(value)
 
     @_callback_wrap
     def __delitem__(self, item):
-        del self._overrides[item]
+        del self._data[item]
 
     def __len__(self):
-        return len(self._overrides)
+        return len(self._data)
 
     @_callback_wrap
     def insert(self, index, value):
-        self._overrides.insert(index, tuple(value))
+        self._data.insert(index, tuple(value))
 
 
 def PLUGIN_ENTRY():

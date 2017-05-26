@@ -29,6 +29,8 @@ from dump_binary import dump_binary
 from PyQt5 import QtCore, QtWidgets, QtGui
 import idabincat.hexview as hexview
 import pybincat.cfa as cfa
+from idabincat.plugin_options import PluginOptions
+from analyzer_conf import AnalyzerConfig
 
 # Logging
 bc_log = logging.getLogger('bincat.gui')
@@ -67,7 +69,8 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
     def use_config(self):
-        self.s.edit_config.load_from_str(self.configtxt.toPlainText())
+        self.s.edit_config = AnalyzerConfig.load_from_str(
+            self.configtxt.toPlainText())
         self.accept()
 
     def show(self):
@@ -117,23 +120,23 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         btn_start.setFocus()
 
         self.chk_start.setChecked(
-            self.s.options.get("autostart") == "True")
+            PluginOptions.get("autostart") == "True")
         self.chk_save.setChecked(
-            self.s.options.get("save_to_idb") == "True")
+            PluginOptions.get("save_to_idb") == "True")
         self.chk_load.setChecked(
-            self.s.options.get("load_from_idb") == "True")
+            PluginOptions.get("load_from_idb") == "True")
         self.chk_remote.setChecked(
-            self.s.options.get("web_analyzer") == "True")
-        url = self.s.options.get("server_url")
+            PluginOptions.get("web_analyzer") == "True")
+        url = PluginOptions.get("server_url")
         self.url.setText(url)
 
     def save_config(self):
-        self.s.options.set("autostart", str(self.chk_start.isChecked()))
-        self.s.options.set("save_to_idb", str(self.chk_save.isChecked()))
-        self.s.options.set("load_from_idb", str(self.chk_load.isChecked()))
-        self.s.options.set("web_analyzer", str(self.chk_remote.isChecked()))
-        self.s.options.set("server_url", self.url.text())
-        self.s.options.save()
+        PluginOptions.set("autostart", str(self.chk_start.isChecked()))
+        PluginOptions.set("save_to_idb", str(self.chk_save.isChecked()))
+        PluginOptions.set("load_from_idb", str(self.chk_load.isChecked()))
+        PluginOptions.set("web_analyzer", str(self.chk_remote.isChecked()))
+        PluginOptions.set("server_url", self.url.text())
+        PluginOptions.save()
         self.close()
         return
 
@@ -159,11 +162,29 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.s.current_ea = idaapi.get_screen_ea()
 
         # Start address
-        lbl_start_addr = QtWidgets.QLabel(" Start address: ")
+        lbl_start_addr = QtWidgets.QLabel("Start address:")
         self.ip_start_addr = QtWidgets.QLineEdit(self)
 
-        lbl_stop_addr = QtWidgets.QLabel(" Stop address: ")
+        lbl_stop_addr = QtWidgets.QLabel("Stop address:")
         self.ip_stop_addr = QtWidgets.QLineEdit(self)
+
+        # analysis configuration
+        lbl_configuration = QtWidgets.QLabel("Analyzer configuration:")
+        self.conf_select = QtWidgets.QComboBox(self)
+        self.conf_select.addItems(
+            self.s.configurations.names_cache + ['(new)'])
+        # pre-select preferred conf, if any
+        conf_name = self.s.configurations.get_pref(self.s.current_ea)
+        if conf_name:
+            idx = self.s.configurations.names_cache.index(conf_name)
+            self.s.edit_config = self.s.configurations[conf_name].__copy__()
+        else:
+            idx = len(self.s.configurations.names_cache)
+            self.s.edit_config = self.s.configurations.new_config(
+                self.s.current_ea, None)
+        self.conf_select.currentIndexChanged.connect(self._load_config)
+
+        self.conf_select.setCurrentIndex(idx)
 
         # Start, cancel and analyzer config buttons
         self.btn_load = QtWidgets.QPushButton('&Load analyzer config...')
@@ -174,7 +195,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
         self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
         self.chk_save.setChecked(
-            self.s.options.get("save_to_idb") == "True")
+            PluginOptions.get("save_to_idb") == "True")
 
         self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
         self.chk_remap.setChecked(self.s.remap_binary)
@@ -193,21 +214,23 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout.addWidget(lbl_stop_addr, 2, 0)
         layout.addWidget(self.ip_stop_addr, 2, 1)
 
-        layout.addWidget(self.btn_load, 3, 0)
-        layout.addWidget(self.btn_edit_conf, 3, 1)
+        layout.addWidget(lbl_configuration, 3, 0)
+        layout.addWidget(self.conf_select, 3, 1)
 
-        layout.addWidget(self.chk_save, 4, 0)
-        layout.addWidget(self.chk_remap, 4, 1)
+        layout.addWidget(self.btn_load, 4, 0)
+        layout.addWidget(self.btn_edit_conf, 4, 1)
 
-        layout.addWidget(self.btn_start, 5, 0)
-        layout.addWidget(self.btn_cancel, 5, 1)
+        layout.addWidget(self.chk_save, 5, 0)
+        layout.addWidget(self.chk_remap, 5, 1)
+
+        layout.addWidget(self.btn_start, 6, 0)
+        layout.addWidget(self.btn_cancel, 6, 1)
 
         self.setLayout(layout)
 
         self.btn_start.setFocus()
 
         # Load config for address if it exists
-        self.s.edit_config.load_for_address(self.s.current_ea, None)
         self.update_from_edit_config()
 
     def rbRegistersHandler(self):
@@ -235,8 +258,21 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.s.edit_config.stop_address = stop_addr
 
         if self.chk_save.isChecked():
-            self.s.edit_config.save_for_address(
-                int(self.ip_start_addr.text(), 16))
+            idx = self.conf_select.currentIndex()
+            if idx == len(self.s.configurations.names_cache):
+                # new config, prompt name
+                config_name, res = QtWidgets.QInputDialog.getText(
+                    self,
+                    "Configuration name",
+                    "Under what name should this new configuration be saved?",
+                    text="0x%0X" % self.s.current_ea)
+                if not res:
+                    return
+            else:
+                config_name = self.s.configurations.names_cache[idx]
+            self.s.configurations[config_name] = self.s.edit_config
+            self.s.configurations.set_pref(
+                int(self.ip_start_addr.text(), 16), config_name)
 
         if self.chk_remap.isChecked():
             if not self.s.remapped_bin_path:
@@ -298,6 +334,17 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.setFixedSize(460, 200)
         self.setWindowTitle(" Analysis launcher: ")
         super(TaintLaunchForm_t, self).show()
+
+    @QtCore.pyqtSlot(int)
+    def _load_config(self, index):
+        if index == len(self.s.configurations.names_cache):
+            # new config
+            self.s.edit_config = self.s.configurations.new_config(
+                self.s.current_ea, None)
+        else:
+            name = self.s.configurations.names_cache[index]
+            self.s.edit_config = self.s.configurations[name]
+        self.update_from_edit_config()
 
 
 class Meminfo():
@@ -454,8 +501,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
         # add override for each byte
         mask, res = QtWidgets.QInputDialog.getText(
             None,
-            "Add Taint override for each byte in the range %0X-%0X" %
-            (abs_start, abs_end),
+            "Add Taint override",
             "Taint value each byte in the range %0X-%0X (e.g. 0x00, 0xFF)"
             % (abs_start, abs_end),
             text="0xFF")
@@ -694,7 +740,6 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
     def OnCreate(self, form):
         self.created = True
-        self.currentrva = 0
 
         # Get parent widget
         self.parent = self.FormToPyQtWidget(form)
@@ -968,13 +1013,12 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
 
     def OnCreate(self, form):
         self.created = True
-        self.currentrva = 0
 
         # Get parent widget
         self.parent = self.FormToPyQtWidget(form)
         layout = QtWidgets.QGridLayout()
 
-        # Node id label
+        # title label
         self.label = QtWidgets.QLabel('List of taint overrides (user-defined)')
         layout.addWidget(self.label, 0, 0)
 
@@ -1120,6 +1164,172 @@ class BinCATOverridesView(QtWidgets.QTableView):
         action.triggered.connect(self.m.remove_row)
         menu.addAction(action)
         BinCATOverridesView.clickedIndex = self.indexAt(event.pos()).row()
+        menu.popup(QtGui.QCursor.pos())
+
+    def remove_row(self):
+        try:
+            index = self.table.selectedIndexes()[0].row()
+        except IndexError:
+            bc_log.warning("Could not identify selected row")
+            return
+        self.m.remove_row(index)
+
+
+# Configurations list - panel, view, model
+
+
+class BinCATConfigurationsForm_t(idaapi.PluginForm):
+    def __init__(self, state, configurations_model):
+        super(BinCATConfigurationsForm_t, self).__init__()
+        self.s = state
+        self.model = configurations_model
+        self.shown = False
+        self.created = False
+
+    def OnCreate(self, form):
+        self.created = True
+
+        # Get parent widget
+        self.parent = self.FormToPyQtWidget(form)
+        layout = QtWidgets.QGridLayout()
+
+        # title label
+        self.label = QtWidgets.QLabel('List of analysis configurations')
+        layout.addWidget(self.label, 0, 0)
+
+        # Configurations Table
+        self.table = BinCATConfigurationsView(self.model)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSortingEnabled(True)
+        self.table.setModel(self.model)
+        self.s.configurations.register_callbacks(
+            self.model.beginResetModel, self.model.endResetModel)
+        self.table.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setStretchLastSection(True)
+
+        layout.addWidget(self.table, 1, 0, 1, 2)
+
+        self.edit_conf = QtWidgets.QPushButton('&Edit', self.parent)
+        self.edit_conf.clicked.connect(self._edit)
+        layout.addWidget(self.edit_conf, 2, 0)
+
+        self.export_conf = QtWidgets.QPushButton('&Export', self.parent)
+        self.export_conf.clicked.connect(self._export)
+        layout.addWidget(self.export_conf, 2, 1)
+
+        layout.setRowStretch(1, 0)
+
+        self.parent.setLayout(layout)
+
+    def OnClose(self, form):
+        self.shown = False
+
+    def Show(self):
+        self.shown = True
+        return idaapi.PluginForm.Show(
+            self, "BinCAT Configurations",
+            options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_SAVE |
+                     idaapi.PluginForm.FORM_RESTORE |
+                     idaapi.PluginForm.FORM_TAB))
+
+    def _edit(self):
+        selectionModel = self.table.selectionModel()
+        if not selectionModel.hasSelection():
+            return
+        index = selectionModel.selectedRows()[0].row()
+        name = self.s.configurations.names_cache[index]
+        editdlg = EditConfigurationFileForm_t(self.parent, self.s)
+        editdlg.set_config(str(self.s.configurations[name]))
+        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
+            self.s.configurations[name] = self.s.edit_config.__copy__()
+
+    def _export(self):
+        selectionModel = self.table.selectionModel()
+        if not selectionModel.hasSelection():
+            return
+        index = selectionModel.selectedRows()[0].row()
+        name = self.s.configurations.names_cache[index]
+        fname = idaapi.askfile_c(1, "*.ini", "Save exported configuration")
+        if fname:
+            with open(fname, 'w') as f:
+                f.write(str(self.s.configurations[name]))
+
+
+class ConfigurationsModel(QtCore.QAbstractTableModel):
+    def __init__(self, state, *args, **kwargs):
+        super(ConfigurationsModel, self).__init__(*args, **kwargs)
+        self.s = state
+        self.headers = ["configuration name"]
+
+    def data(self, index, role):
+        if role not in (QtCore.Qt.EditRole, QtCore.Qt.DisplayRole):
+            return
+        row = index.row()
+        name = self.s.configurations.names_cache[row]
+        return name
+
+    def setData(self, index, value, role):
+        if role != QtCore.Qt.EditRole:
+            return False
+        row = index.row()
+        oldname = self.s.configurations.names_cache[row]
+        # ensure names are unique
+        for idx, name in enumerate(self.s.configurations.names_cache):
+            if name == value and idx != row:
+                return False
+        if row > len(self.s.configurations):
+            return False
+        conf = self.s.configurations[oldname]
+        del self.s.configurations[oldname]
+        self.s.configurations[value] = conf
+        return True
+
+    def headerData(self, section, orientation, role):
+        if orientation != QtCore.Qt.Horizontal:
+            return
+        if role == QtCore.Qt.DisplayRole:
+            return self.headers[section]
+
+    def flags(self, index):
+        return (QtCore.Qt.ItemIsEditable
+                | QtCore.Qt.ItemIsSelectable
+                | QtCore.Qt.ItemIsEnabled)
+
+    def rowCount(self, parent):
+        return len(self.s.configurations)
+
+    def columnCount(self, parent):
+        return len(self.headers)
+
+    def remove_row(self, checked):
+        idx = BinCATConfigurationsView.clickedIndex
+        name = self.s.configurations.names_cache[idx]
+        del self.s.configurations[name]
+
+
+class BinCATConfigurationsView(QtWidgets.QTableView):
+    clickedIndex = None
+
+    def __init__(self, model, parent=None):
+        super(BinCATConfigurationsView, self).__init__(parent)
+        self.m = model
+        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+
+    def contextMenuEvent(self, event):
+        if (self.m.rowCount(None) == 0 or
+                len(self.selectedIndexes()) == 0):
+            return
+        menu = QtWidgets.QMenu(self)
+        action = QtWidgets.QAction('Remove', self)
+        action.triggered.connect(self.m.remove_row)
+        menu.addAction(action)
+        BinCATConfigurationsView.clickedIndex = self.indexAt(event.pos()).row()
         menu.popup(QtGui.QCursor.pos())
 
     def remove_row(self):
@@ -1291,6 +1501,9 @@ class GUI(object):
         self.overrides_model = OverridesModel(state)
         self.BinCATOverridesForm = BinCATOverridesForm_t(
             state, self.overrides_model)
+        self.configurations_model = ConfigurationsModel(state)
+        self.BinCATConfigurationsForm = BinCATConfigurationsForm_t(
+            state, self.configurations_model)
 
         # XXX fix
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
@@ -1342,6 +1555,7 @@ class GUI(object):
         self.BinCATDebugForm.Show()
         self.BinCATTaintedForm.Show()
         self.BinCATOverridesForm.Show()
+        self.BinCATConfigurationsForm.Show()
         self.BinCATHexForm.Show()
 
     def before_change_ea(self):
