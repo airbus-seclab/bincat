@@ -680,8 +680,17 @@ def test_carrytop_adc(tmpdir):
             mov ebx, %#x
             adc eax, ebx
           """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+    for (a,b) in SOME_OPERANDS_COUPLES:
+        topmask = (a+b)^(a+b+1)
+        compare(tmpdir, asm % (a, b),
+                ["eax", "of", "sf", "zf", "cf", "pf", "af"],
+                top_allowed = {"eax":topmask,
+                               "zf":1,
+                               "pf": 1 if topmask & 0xff != 0 else 0,
+                               "af": 1 if topmask & 0xf != 0 else 0,
+                               "cf": 1 if topmask & 0x80000000 != 0 else 0,
+                               "of": 1 if topmask & 0x80000000 != 0 else 0,
+                               "sf": 1 if topmask & 0x80000000 != 0 else 0 })
 
 def test_adc_reg32(tmpdir):
     asm = """
