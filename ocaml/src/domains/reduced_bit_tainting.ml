@@ -43,13 +43,13 @@ let meet (v1, t1) (v2, t2) = B.meet v1 v2, T.meet t1 t2
 let xor (v1, t1) (v2, t2) = B.xor v1 v2, T.logor t1 t2
 
 let core_sub_add op (v1, t1) (v2, t2) =
-  let v', b = op v1 v2      in
-  let t'    = T.logor t1 t2 in
-  if b then
+  let res, carry = op v1 v2  in
+  let tres    = T.logor t1 t2  in
+  if carry <> B.ZERO then
     (* overflow is propagated to tainting *)
-    (v', t'), Some (B.ONE, t')
+    (res, tres), Some (carry, tres)
   else
-    (v', t'), None
+    (res, tres), None
 
 let add (v1, t1) (v2, t2) = core_sub_add B.add (v1, t1) (v2, t2)
 

@@ -53,22 +53,22 @@ let equal b1 b2 =
   | ZERO, ZERO | ONE, ONE -> true
   | _, _ -> false 
 			 
-let add b1 b2 =
+let add b1 b2 = (* returns (result, carry) *)
   match b1, b2 with
-  | TOP, ZERO | ZERO, TOP -> TOP, false
-  | TOP, _ | _, TOP 	  -> TOP, true
-  | ZERO, ZERO 	    	  -> ZERO, false
-  | ZERO, ONE | ONE, ZERO -> ONE, false
-  | ONE, ONE 	    	  -> ZERO, true
+  | TOP, ZERO | ZERO, TOP -> TOP, ZERO
+  | TOP, _ | _, TOP 	  -> TOP, TOP
+  | ZERO, ZERO 	    	  -> ZERO, ZERO
+  | ZERO, ONE | ONE, ZERO -> ONE, ZERO
+  | ONE, ONE 	    	  -> ZERO, ONE
 
-let sub b1 b2 =
+let sub b1 b2 = (* returns (result, borrow) *)
   match b1, b2 with
-  | ONE, TOP | TOP, ZERO -> TOP, false
-  | _, TOP | TOP, _ -> TOP, true
-  | ZERO, ZERO 	    -> ZERO, false
-  | ZERO, ONE       -> ONE, true
-  | ONE, ZERO       -> ONE, false
-  | ONE, ONE 	    -> ZERO, false
+  | ONE, TOP | TOP, ZERO -> TOP, ZERO
+  | _, TOP | TOP, _ -> TOP, TOP
+  | ZERO, ONE       -> ONE, ONE
+  | ONE, ZERO       -> ONE, ZERO
+  | ZERO, ZERO 	    -> ZERO, ZERO
+  | ONE, ONE 	    -> ZERO, ZERO
 								
 let xor b1 b2 =
   match b1, b2 with
