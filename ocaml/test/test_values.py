@@ -775,7 +775,9 @@ def test_cmovxx_reg32(tmpdir):
         for cond1, cond2 in [("a","be"),("ae","b"),("c","nc"), ("e", "ne"),
                              ("g","le"), ("ge","l"), ("o", "no"), ("s", "ns"),
                              ("p", "np") ]:
-            compare(tmpdir, asm % (flags, cond1, cond2), ["ebx", "ecx", "edx", "of", "sf", "zf", "cf", "pf", "af"])
+            compare(tmpdir, asm % (flags, cond1, cond2),
+                    ["ebx", "ecx", "edx", "of", "sf", "zf", "cf", "pf", "af"],
+                    top_allowed={ "af":1 })
 
 def test_inc_reg32(tmpdir):
     asm = """
