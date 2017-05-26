@@ -582,9 +582,9 @@ module Make(D: T) =
       D.compare v1 op v2, b1||b2
 
 
-	 let val_restrict m e1 _v1 cmp _e2 v2 =
+    let val_restrict m e1 _v1 cmp _e2 v2 =
       match e1, cmp with
-      | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ || cmp = Asm.LEQ ->
+      | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ ->
          let v  = Env.find (Env.Key.Reg r) m in
          let v' = D.meet v v2        in
          if D.is_bot v' then
