@@ -1968,6 +1968,18 @@ struct
         let v'  = find_reg v s.operand_sz in
         xchg s (V eax) (V v') s.operand_sz
 
+    let cmpxchg s rm reg sz =
+      let eax = to_reg eax sz in
+      let stmts = [
+        If (Cmp(EQ, Lval (V eax), Lval rm),
+            [ set_flag fzf;
+              Set(rm, reg);  ],
+            [ clear_flag fzf;
+              Set(V eax, Lval rm); ]
+        )
+      ] in
+      return s stmts
+
     let xlat s =
       let al = V (to_reg eax 8) in
       let al_ext = UnOp(ZeroExt s.operand_sz, Lval al) in
@@ -2332,6 +2344,8 @@ struct
             | '\xad' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_rd_stmt reg rm s.operand_sz (Lval (V cl)))
             | '\xaf' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in imul_stmts s reg (Lval reg) rm
 
+            | '\xb0' -> (* CMPXCHG *) let reg, rm = operands_from_mod_reg_rm s 8 0 in cmpxchg s reg rm 8
+            | '\xb1' -> (* CMPXCHG *) let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in cmpxchg s reg rm s.operand_sz
 
             | '\xb2' -> load_far_ptr s ss
             | '\xb3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btr s reg rm
