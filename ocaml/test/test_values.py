@@ -1250,6 +1250,29 @@ def test_xchg_rm32_imm32(tmpdir):
     compare(tmpdir, asm, ["eax", "ebx"])
 
 
+def test_mov_rm32_r32(tmpdir):
+    asm = """
+           push 0x12345678
+           push 0xabcdef12
+           mov eax, 0x87654321
+           mov [esp+4], eax
+           pop ebx
+           pop ecx
+         """
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "of"])
+
+def test_mov_rm8_r8(tmpdir):
+    asm = """
+           push 0x12345678
+           push 0xabcdef12
+           mov eax, 0x87654321
+           mov [esp+4], al
+           pop ebx
+           pop ecx
+         """
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "of"])
+
+
 ##  ___  ___ ___  
 ## | _ )/ __|   \ 
 ## | _ \ (__| |) |

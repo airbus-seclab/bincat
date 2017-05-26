@@ -498,7 +498,7 @@ struct
                 V (find_reg rm sz)
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
-    let operands_from_mod_reg_rm s sz ?(dst_sz = sz) direction =
+    let operands_from_mod_reg_rm_core s sz dst_sz =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
         let reg_v =
@@ -506,11 +506,15 @@ struct
                 V (get_h_slice (reg-4))
             else
                 find_reg_v reg dst_sz in
-            let rm' = exp_of_md s md rm sz in
-            if direction = 0 then
-                rm', Lval reg_v
-            else
-                reg_v, Lval rm'
+        let rm' = exp_of_md s md rm sz in
+	reg_v, rm'
+	  
+    let operands_from_mod_reg_rm s sz ?(dst_sz = sz) direction =
+      let reg_v,rm' =  operands_from_mod_reg_rm_core s sz dst_sz in
+      if direction = 0 then
+        rm', Lval reg_v
+      else
+        reg_v, Lval rm'
 
     let lea s =
         let c = getchar s in
@@ -1946,17 +1950,23 @@ struct
         let dst = exp_of_md s md rm 8 in
         return s [If (e, [Set (dst, Const (Word.one 8))], [Set (dst, Const (Word.zero 8))])]
 
-    let xchg s v1 v2 sz =
+    let xchg s arg1 arg2 sz =
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
-        let stmts = [ Set(V (T tmp), Lval (V v1)); Set(V v1, Lval (V v2)) ;
-                      Set(V v2, Lval (V (T tmp)))  ; Directive (Remove tmp) ]
+        let stmts = [ Set(V (T tmp), Lval arg1);
+		      Set(arg1, Lval arg2) ;
+                      Set(arg2, Lval (V (T tmp)))  ;
+		      Directive (Remove tmp) ]
         in
         return s stmts
+
+    let xchg_mrm s sz =
+      let dst,src = operands_from_mod_reg_rm_core s sz sz in
+      xchg s src dst sz
 
     let xchg_with_eax s v =
         let eax = to_reg eax s.operand_sz in
         let v'  = find_reg v s.operand_sz in
-        xchg s eax v' s.operand_sz
+        xchg s (V eax) (V v') s.operand_sz
 
     let xlat s =
       let al = V (to_reg eax 8) in
@@ -2140,8 +2150,8 @@ struct
             | '\x83' -> (* grp1 opcode table *) grp1 s s.operand_sz 8
             | '\x84' -> (* TEST /r8 *) let dst, src = (operands_from_mod_reg_rm s 8 0) in return s (test_stmts dst src 8)
             | '\x85' -> (* TEST /r *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 0 in return s (test_stmts dst src s.operand_sz)
-            | '\x86' -> (* XCHG byte registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm 8) (find_reg reg 8) 8
-            | '\x87' -> (* XCHG word or double-word registers *) let _, reg, rm = mod_nnn_rm (Char.code (getchar s)) in xchg s (find_reg rm s.operand_sz) (find_reg reg s.operand_sz) s.operand_sz
+            | '\x86' -> (* XCHG byte registers *)  xchg_mrm s 8
+            | '\x87' -> (* XCHG word or double-word registers *) xchg_mrm s s.operand_sz
             | '\x88' -> (* MOV *) mov_mrm s 8 0
             | '\x89' -> (* MOV *) mov_mrm s s.operand_sz 0
             | '\x8A' -> (* MOV *) mov_mrm s 8 1
