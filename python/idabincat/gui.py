@@ -391,6 +391,7 @@ class Meminfo():
             res = "_"
         else:
             value = values[0]
+            # value
             if value.is_concrete():
                 char = chr(value.value)
                 if char in string.printable:
@@ -399,6 +400,17 @@ class Meminfo():
                     res = '.'
             else:
                 res = "?"
+            # taint
+            if value.ttop != 0 or value.tbot != 0:
+                # top or bot
+                res = "<font color='blue'>%s</font>" % res
+            elif value.taint == 0:
+                pass
+            elif value.taint == 0xFF:
+                res = "<font color='green'>%s</font>" % res
+            else:
+                res = "<font color='#c1ad01'>%s</font>" % res
+
         self.char_cache[idx] = res
         return res
 
