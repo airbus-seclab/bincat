@@ -635,6 +635,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
         self.shown = False
 
     def Show(self):
+        if self.shown:
+            return
         self.shown = True
         return idaapi.PluginForm.Show(
             self, "BinCAT Hex",
@@ -703,6 +705,8 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         self.shown = False
 
     def Show(self):
+        if self.shown:
+            return
         self.shown = True
         return idaapi.PluginForm.Show(
             self, "BinCAT Debugging",
@@ -811,6 +815,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.shown = False
 
     def Show(self):
+        if self.shown:
+            return
         self.shown = True
         return idaapi.PluginForm.Show(
             self, "BinCAT Tainting",
@@ -1063,6 +1069,8 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
         self.shown = False
 
     def Show(self):
+        if self.shown:
+            return
         self.shown = True
         return idaapi.PluginForm.Show(
             self, "BinCAT Overrides",
@@ -1241,6 +1249,8 @@ class BinCATConfigurationsForm_t(idaapi.PluginForm):
         self.shown = False
 
     def Show(self):
+        if self.shown:
+            return
         self.shown = True
         return idaapi.PluginForm.Show(
             self, "BinCAT Configurations",
