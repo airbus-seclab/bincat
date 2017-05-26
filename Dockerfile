@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         binutils-dev libiberty-dev libncurses5-dev \
         libx11-dev zlib1g-dev dh-ocaml make ed \
         python python-pip python-setuptools python-dev python-pytest \
-        vim nasm libc6-dev-i386 \
+        vim nasm libc6-dev-i386 gcc-multilib \
         ocaml menhir ocaml-findlib libzarith-ocaml-dev \
         libocamlgraph-ocaml-dev wget
 
