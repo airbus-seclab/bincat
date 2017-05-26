@@ -1230,7 +1230,7 @@ def test_xlat(tmpdir):
     for i in SOME_OPERANDS_8:
         compare(tmpdir, asm % i, ["eax"])
 
-def test_xchg_rm32_r32(tmpdir):
+def test_xchg_m32_r32(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
@@ -1241,7 +1241,7 @@ def test_xchg_rm32_r32(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-def test_xchg_rm8_r8(tmpdir):
+def test_xchg_m8_r8(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
@@ -1252,7 +1252,7 @@ def test_xchg_rm8_r8(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-def test_xchg_rm32_imm32(tmpdir):
+def test_xchg_r32_r32(tmpdir):
     asm = """
            mov eax, 0x12345678
            mov ebx, 0x87654321
