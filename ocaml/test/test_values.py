@@ -1184,7 +1184,11 @@ def test_bittest_bsf_reg16(tmpdir):
         compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
 
 
-
+##  __  __ ___ ___  ___ 
+## |  \/  |_ _/ __|/ __|
+## | |\/| || |\__ \ (__ 
+## |_|  |_|___|___/\___|
+##                      
 
 def test_pushf_popf(tmpdir):
     asm = """
