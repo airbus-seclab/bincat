@@ -1260,6 +1260,52 @@ def test_xchg_r32_r32(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx"])
 
+def test_cmpxchg_r32_r32(tmpdir):
+    asm = """
+           mov eax, %#x
+           mov ebx, %#x
+           mov ecx, %#x
+           cmpxchg ebx, ecx
+         """
+    vals = [0x12345678, 0x9abcdef0, 0x87654321]
+    for v in itertools.product(vals, vals, vals):
+        compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
+
+def test_cmpxchg_r16_r16(tmpdir):
+    asm = """
+           mov eax, %#x
+           mov ebx, %#x
+           mov ecx, %#x
+           cmpxchg bx, cx
+         """
+    vals = [0x12345678, 0x9abcdef0, 0x87654321]
+    for v in itertools.product(vals, vals, vals):
+        compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
+
+def test_cmpxchg_r8_r8(tmpdir):
+    asm = """
+           mov eax, %#x
+           mov ebx, %#x
+           mov ecx, %#x
+           cmpxchg bl, cl
+         """
+    vals = [0x12345678, 0x9abcdef0, 0x87654321]
+    for v in itertools.product(vals, vals, vals):
+        compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
+
+def test_cmpxchg_m32_r32(tmpdir):
+    asm = """
+           mov eax, %#x
+           push 0
+           push %#x
+           mov ecx, %#x
+           cmpxchg [esp+4], ecx
+           pop ebx
+           pop ebx
+         """
+    vals = [0x12345678, 0x9abcdef0, 0x87654321]
+    for v in itertools.product(vals, vals, vals):
+        compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
 
 def test_mov_rm32_r32(tmpdir):
     asm = """
