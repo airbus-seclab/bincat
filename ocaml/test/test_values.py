@@ -1307,6 +1307,47 @@ def test_cmpxchg_m32_r32(tmpdir):
     for v in itertools.product(vals, vals, vals):
         compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
 
+def test_xadd_r32_r32(tmpdir):
+    asm = """
+           mov eax, %#x
+           mov ebx, %#x
+           xadd eax, ebx
+         """
+    for v in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % v, ["eax", "ebx"])
+
+def test_xadd_r16_r16(tmpdir):
+    asm = """
+           mov eax, %#x
+           mov ebx, %#x
+           xadd ax, bx
+         """
+    for v in SOME_OPERANDS_COUPLES_16:
+        compare(tmpdir, asm % v, ["eax", "ebx"])
+
+def test_xadd_r8_r8(tmpdir):
+    asm = """
+           mov eax, %#x
+           mov ebx, %#x
+           xadd al, bl
+         """
+    for v in SOME_OPERANDS_COUPLES_8:
+        compare(tmpdir, asm % v, ["eax", "ebx"])
+
+def test_xadd_m32_r32(tmpdir):
+    asm = """
+           push 0
+           push %#x
+           mov ebx, %#x
+           xadd [esp+4], ebx
+           pop eax
+           pop eax
+         """
+    for v in SOME_OPERANDS_COUPLES:
+        compare(tmpdir, asm % v, ["eax", "ebx"])
+
+
+
 def test_mov_rm32_r32(tmpdir):
     asm = """
            push 0x12345678
