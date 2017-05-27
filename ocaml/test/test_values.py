@@ -1305,7 +1305,27 @@ def test_cmpxchg_m32_r32(tmpdir):
          """
     vals = [0x12345678, 0x9abcdef0, 0x87654321]
     for v in itertools.product(vals, vals, vals):
-        compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
+        compare(tmpdir, asm % v, ["eax", "ebx", "ecx", "zf"])
+
+def test_cmpxchg8b(tmpdir):
+    # keep order of registers so that edx:eax <- v1, ecx:ebx <- v2 and [esp+4] <- v3
+    asm = """
+           mov edx, %#x
+           mov eax, %#x
+           mov ecx, %#x
+           mov ebx, %#x
+           push %#x
+           push %#x
+           push 0
+           cmpxchg8b [esp+4]
+           pop esi
+           pop esi
+           pop edi
+         """
+    vals = [0x123456789abcdef0, 0xfecdba876543210,0xa5a5a5a56c6c6c6c]
+    for v1,v2,v3 in itertools.product(vals, vals, vals, ):
+        compare(tmpdir, asm % (v1>>32,v1&0xffffffff, v2>>32,v2&0xffffffff,v3>>32,v3&0xffffffff),
+                ["eax", "ebx", "ecx", "edx", "esi", "edi", "zf"])
 
 def test_xadd_r32_r32(tmpdir):
     asm = """
