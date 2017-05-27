@@ -1269,7 +1269,7 @@ def test_cmpxchg_r32_r32(tmpdir):
          """
     vals = [0x12345678, 0x9abcdef0, 0x87654321]
     for v in itertools.product(vals, vals, vals):
-        compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
+        compare(tmpdir, asm % v, ["eax", "ebx", "ecx", "zf"])
 
 def test_cmpxchg_r16_r16(tmpdir):
     asm = """
@@ -1280,7 +1280,7 @@ def test_cmpxchg_r16_r16(tmpdir):
          """
     vals = [0x12345678, 0x9abcdef0, 0x87654321]
     for v in itertools.product(vals, vals, vals):
-        compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
+        compare(tmpdir, asm % v, ["eax", "ebx", "ecx", "zf"])
 
 def test_cmpxchg_r8_r8(tmpdir):
     asm = """
@@ -1291,7 +1291,7 @@ def test_cmpxchg_r8_r8(tmpdir):
          """
     vals = [0x12345678, 0x9abcdef0, 0x87654321]
     for v in itertools.product(vals, vals, vals):
-        compare(tmpdir, asm % v, ["eax", "ebx", "ecx"])
+        compare(tmpdir, asm % v, ["eax", "ebx", "ecx", "zf"])
 
 def test_cmpxchg_m32_r32(tmpdir):
     asm = """
