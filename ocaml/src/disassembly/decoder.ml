@@ -1980,6 +1980,29 @@ struct
       ] in
       return s stmts
 
+    let cmpxchg8b_mrm s  =
+      let sz = s.operand_sz in
+      let reg,rm = operands_from_mod_reg_rm_core s (sz*2) sz in
+      let tmp64   = Register.make ~name:(Register.fresh_name()) ~size:(2*sz) in
+      let stmts = [
+	Set( V (T tmp64), BinOp(Or,
+				BinOp(Shl, UnOp(ZeroExt (2*sz), Lval (V (T edx))), const sz (2*sz)),
+				UnOp(ZeroExt (2*sz), Lval (V (T eax))))) ;
+        If (Cmp(EQ, Lval (V (T tmp64)), Lval rm),
+            [ set_flag fzf;
+	      Set( V (T tmp64), BinOp(Or,
+				      BinOp(Shl, UnOp(ZeroExt (2*sz), Lval (V (T ecx))), const sz (2*sz)),
+				      UnOp(ZeroExt (2*sz), Lval (V (T ebx))))) ;
+              Set(rm, Lval (V (T tmp64)));  ],
+            [ clear_flag fzf;
+	      Set( V (T tmp64), Lval rm) ;
+              Set(V (T eax), Lval (V (P (tmp64,0,31))));
+              Set(V (T edx), Lval (V (P (tmp64,32,63))));
+	    ]) ;
+        Directive (Remove tmp64)
+      ] in
+      return s stmts
+
     let xadd_mrm s sz =
       let arg1,arg2 = operands_from_mod_reg_rm_core s sz sz in
       let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
@@ -2378,6 +2401,8 @@ struct
 
             | '\xc0' -> (* XADD *)  xadd_mrm s 8
             | '\xc1' -> (* XADD *)  xadd_mrm s s.operand_sz
+
+            | '\xc7' -> (* CMPXCHG8B *)  cmpxchg8b_mrm s 
 
             | c 	   -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
         in
