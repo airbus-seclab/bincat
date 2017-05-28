@@ -487,9 +487,9 @@ struct
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
-    let exp_of_md s md rm sz =
+    let exp_of_md s md rm sz mem_sz =
         match md with
-        | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)
+        | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), mem_sz)
         | 3 ->
             (* special case for ah ch dh bh *)
             if sz = 8 && rm >= 4 then
@@ -498,7 +498,7 @@ struct
                 V (find_reg rm sz)
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
-    let operands_from_mod_reg_rm_core s sz dst_sz =
+    let operands_from_mod_reg_rm_core s sz ?(mem_sz=sz) dst_sz  =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
         let reg_v =
@@ -506,7 +506,7 @@ struct
                 V (get_h_slice (reg-4))
             else
                 find_reg_v reg dst_sz in
-        let rm' = exp_of_md s md rm sz in
+        let rm' = exp_of_md s md rm sz mem_sz in
 	reg_v, rm'
 	  
     let operands_from_mod_reg_rm s sz ?(dst_sz = sz) direction =
@@ -1341,7 +1341,7 @@ struct
 
     let core_grp s sz =
         let md, nnn, rm = mod_nnn_rm (Char.code (getchar s)) in
-        let dst 	= exp_of_md s md rm sz		     in
+        let dst 	= exp_of_md s md rm sz sz	     in
         nnn, dst
 
     let grp1 s reg_sz imm_sz =
@@ -1947,7 +1947,7 @@ struct
     let setcc s cond =
         let e = exp_of_cond cond s in
         let md, _, rm = mod_nnn_rm (Char.code (getchar s)) in
-        let dst = exp_of_md s md rm 8 in
+        let dst = exp_of_md s md rm 8 8 in
         return s [If (e, [Set (dst, Const (Word.one 8))], [Set (dst, Const (Word.zero 8))])]
 
     let xchg s arg1 arg2 sz =
