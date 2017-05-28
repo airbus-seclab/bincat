@@ -1982,7 +1982,7 @@ struct
 
     let cmpxchg8b_mrm s  =
       let sz = s.operand_sz in
-      let _reg,rm = operands_from_mod_reg_rm_core s (sz*2) sz in
+      let _reg,rm = operands_from_mod_reg_rm_core s sz ~mem_sz:(sz*2) sz in
       let tmp64   = Register.make ~name:(Register.fresh_name()) ~size:(2*sz) in
       let stmts = [
 	Set( V (T tmp64), BinOp(Or,
