@@ -243,7 +243,12 @@ let string_of_directive d =
   | Unroll_until (e, cmp, terminator, ub, sz) -> Printf.sprintf "unroll current loop min (n, %d) times with n = minimal offset from e such that (%d)[%s+n] %s %s" ub sz (string_of_exp e false) (string_of_cmp cmp) (string_of_exp terminator false)
   | Stub (f, _) -> Printf.sprintf "stub of %s" f
      
-			       
+
+let string_of_target tgt =
+  match t with
+  | A addr -> Data.Address.to_string addr
+  | R exp -> string_of_exp exp true
+      
 let string_of_stmt s extended =
     (* internal function used to factorize code in the printing of If-stmt *)
   let concat to_string ind l =
@@ -257,7 +262,7 @@ let string_of_stmt s extended =
     | If (cond, then_stmts, else_stmts) ->
        let ind' = ind ^ "____" in
        Printf.sprintf "%sif (%s)%s\n %selse%s" ind (string_of_bexp cond extended) (concat to_string ind' then_stmts) ind (concat to_string ind' else_stmts)
-    | Call _ 	       		     -> Printf.sprintf "%scall" ind
+    | Call j 	       		     -> Printf.sprintf "%scall %s" ind (string_of_target j)
     | Return  	       		     -> Printf.sprintf "%sret" ind
     | Nop 	       		     -> Printf.sprintf "%snop" ind
     | Directive d        	     -> Printf.sprintf "%s%s" ind (string_of_directive d)
