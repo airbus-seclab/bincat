@@ -185,7 +185,7 @@ class CFA(object):
         """
         Returns a list of State
         """
-        return [self[n] for n in self.edges[node_id]]
+        return [self[n] for n in self.edges[str(node_id)]]
 
 
 class State(object):
