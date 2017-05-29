@@ -245,7 +245,7 @@ let string_of_directive d =
      
 
 let string_of_target tgt =
-  match t with
+  match tgt with
   | A addr -> Data.Address.to_string addr
   | R exp -> string_of_exp exp true
       
