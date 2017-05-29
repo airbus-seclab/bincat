@@ -743,7 +743,7 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
 class BinCATTaintedForm_t(idaapi.PluginForm):
     """
     BinCAT Tainted values form
-    This form displays the values of tainted registers and memory
+    This form displays the values of tainted registers
     """
 
     def __init__(self, state, vtmodel):
@@ -764,25 +764,27 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         splitter = QtWidgets.QSplitter(self.parent)
         layout.addWidget(splitter, 0, 0)
         # Node id label
-        self.nilabel = QtWidgets.QLabel('Node Id:')
+        self.nilabel = QtWidgets.QLabel('Nodes at this address:')
         splitter.addWidget(self.nilabel)
 
         # Node combobox
         self.node_select = QtWidgets.QComboBox()
-        for i in sorted(self.s.current_node_ids):
-            self.node_select.addItem(i)
-        if self.s.current_state:
-            self.node_select.setCurrentText(self.s.current_state.node_id)
         self.node_select.currentTextChanged.connect(self.update_node)
         splitter.addWidget(self.node_select)
-
-        # Node count
-        self.ncnt_label = QtWidgets.QLabel('Node count:')
-        splitter.addWidget(self.ncnt_label)
 
         # RVA address label
         self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
         splitter.addWidget(self.alabel)
+
+        # Goto combo box
+        self.nextnodes_combo = QtWidgets.QComboBox()
+        self.nextnodes_combo.currentTextChanged.connect(self.goto_next)
+        splitter.addWidget(self.nextnodes_combo)
+        # leave space for comboboxes in splitter, rather than between widgets
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
+        splitter.setStretchFactor(3, 1)
 
         # Value Taint Table
         self.vttable = QtWidgets.QTableView(self.parent)
@@ -811,6 +813,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
         self.parent.setLayout(layout)
 
+        self.update_current_ea(self.s.current_ea)
+
     def OnClose(self, form):
         self.shown = False
 
@@ -830,8 +834,14 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         if node != "" and (not self.s.current_state or
                            node != self.s.current_state.node_id):
             self.node_select.blockSignals(True)
-            self.s.set_current_node(node)
+            self.s.set_current_node(node.split(' ')[0])
             self.node_select.blockSignals(False)
+
+    @QtCore.pyqtSlot(str)
+    def goto_next(self, node):
+        if self.nextnodes_combo.currentIndex() == 0:
+            return
+        self.s.set_current_node(node.split(' ')[1])
 
     def update_current_ea(self, ea):
         """
@@ -843,19 +853,46 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
         self.alabel.setText('RVA: %s' % self.rvatxt)
         state = self.s.current_state
         if state:
+            # nodes at current EA
             self.node_select.blockSignals(True)
             self.node_select.clear()
-            for i in sorted(self.s.current_node_ids, key=int):
-                self.node_select.addItem(i)
-            self.node_select.setCurrentText(self.s.current_state.node_id)
+            nodes = sorted(self.s.current_node_ids, key=int)
+            for idx, node in enumerate(nodes):
+                self.node_select.addItem(
+                    node + ' (%d other nodes)' % (len(nodes)-1))
+                if str(node) == self.s.current_state.node_id:
+                    self.node_select.setCurrentIndex(idx)
+            self.node_select.setEnabled(len(nodes) != 1)
             self.node_select.blockSignals(False)
-            self.ncnt_label.setText(
-                'Node Count: %s' % len(self.s.current_node_ids))
+            # next nodes
+            self.nextnodes_combo.blockSignals(True)
+            self.nextnodes_combo.clear()
+            next_states = self.s.cfa.next_states(self.s.current_state.node_id)
+            next_nodes = ["node %s at 0x%0X" % (s.node_id, s.address.value)
+                          for s in next_states]
+            if len(next_nodes) == 0:
+                self.nextnodes_combo.addItem("No data")
+                self.nextnodes_combo.setEnabled(False)
+            else:
+                for nid in next_nodes:
+                    self.nextnodes_combo.addItem(
+                        "goto next node (%d)" % len(next_nodes))
+                    self.nextnodes_combo.addItem(str(nid))
+                self.nextnodes_combo.setEnabled(True)
+            self.nextnodes_combo.blockSignals(False)
         else:
-            self.nilabel.setText('No data')
+            # nodes at current EA
             self.node_select.blockSignals(True)
             self.node_select.clear()
+            self.node_select.addItem("No data")
+            self.node_select.setEnabled(False)
             self.node_select.blockSignals(False)
+            # next nodes
+            self.nextnodes_combo.blockSignals(True)
+            self.nextnodes_combo.clear()
+            self.nextnodes_combo.addItem("No next node")
+            self.nextnodes_combo.setEnabled(False)
+            self.nextnodes_combo.blockSignals(False)
 
     def _handle_context_menu_requested(self, qpoint):
         menu = QtWidgets.QMenu(self.vttable)

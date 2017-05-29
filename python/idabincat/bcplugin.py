@@ -579,8 +579,9 @@ class State(object):
 
     def set_current_node(self, node_id):
         if self.cfa:
-            if self.cfa[node_id]:
-                self.set_current_ea(self.current_state.address.value,
+            state = self.cfa[node_id]
+            if state:
+                self.set_current_ea(state.address.value,
                                     force=True, node_id=node_id)
 
     def set_current_ea(self, ea, force=False, node_id=None):
