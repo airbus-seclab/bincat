@@ -1,1 +1,2 @@
-(setq-default indent-tabs-mode nil)
+((nil . ((indent-tabs-mode . nil)
+        (tab-width . 4))))
