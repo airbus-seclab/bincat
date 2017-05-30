@@ -813,7 +813,8 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
         self.parent.setLayout(layout)
 
-        self.update_current_ea(self.s.current_ea)
+        if isinstance(self.s.current_ea, int):
+            self.update_current_ea(self.s.current_ea)
 
     def OnClose(self, form):
         self.shown = False
