@@ -324,8 +324,6 @@ class WebAnalyzer(Analyzer):
             bc_log.error("python module 'requests' could not be imported, "
                          "so remote BinCAT cannot be used.")
             return
-        # Check server version
-
         # create temporary AnalyzerConfig to replace referenced file names with
         # sha256 of their contents
         with open(self.initfname, 'rb') as f:
@@ -356,6 +354,9 @@ class WebAnalyzer(Analyzer):
         if os.path.exists(self.cfainfname):
             cfa_sha256 = self.sha256_digest(self.cfainfname)
             temp_config.in_marshalled_cfa_file = cfa_sha256
+        else:
+            temp_config.in_marshalled_cfa_file = "no-input-file"
+        temp_config.out_marshalled_cfa_file = "cfaout.marshal"
         # write patched config file
         init_ini_str = str(temp_config)
         # --- Run analysis
@@ -656,9 +657,6 @@ class State(object):
 
         # Update overrides
         self.current_config.update_overrides(self.overrides)
-        # Set correct file names
-        self.current_config.set_cfa_options('true', self.analyzer.cfainfname,
-                                            self.analyzer.cfaoutfname)
         analysis_method = self.current_config.analysis_method
         if analysis_method in ("forward_cfa", "backward"):
             if self.last_cfaout_marshal is None:
@@ -667,11 +665,16 @@ class State(object):
                 return
             with open(self.analyzer.cfainfname, 'wb') as f:
                 f.write(self.last_cfaout_marshal)
-        bc_log.debug("Generating .npk file...")
+        # Set correct file names
+        # Note: bincat_native expects a filename for in_marshalled_cfa_file -
+        # may not exist if analysis mode is forward_binary
+        self.current_config.set_cfa_options('true', self.analyzer.cfainfname,
+                                            self.analyzer.cfaoutfname)
+        bc_log.debug("Generating .no files...")
 
         headers_filenames = self.current_config.headers_files.split(',')
         # compile .c files for libs, if there are any
-        bc_log.debug("Initial npk files: %r", headers_filenames)
+        bc_log.debug("Initial header files: %r", headers_filenames)
         new_headers_filenames = []
         for f in headers_filenames:
             f = f.strip()
