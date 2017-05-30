@@ -275,7 +275,8 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                 int(self.ip_start_addr.text(), 16), config_name)
 
         if self.chk_remap.isChecked():
-            if not self.s.remapped_bin_path:
+            if (self.s.remapped_bin_path is None or
+                    not os.path.isfile(self.s.remapped_bin_path)):
                 fname = idaapi.askfile_c(1, "*.*", "Save remapped binary")
                 if not fname:
                     bc_log.error(
@@ -284,10 +285,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
                     return
                 dump_binary(fname)
                 self.s.remapped_bin_path = fname
-            else:
-                if not os.path.isfile(self.s.remapped_bin_path):
-                    bc_log.error('The specified binary file does not exist.')
-                    return
             self.s.remap_binary = True
             self.s.edit_config.binary_filepath = self.s.remapped_bin_path
             self.s.edit_config.code_va = "0x0"
