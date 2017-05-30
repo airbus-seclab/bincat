@@ -150,7 +150,7 @@ class Analyzer(object):
         self.path = path
         self.finish_cb = finish_cb
 
-    def generate_tnpk(self, fname=None):
+    def generate_tnpk(self, fname=None, destfname=None):
         """
         Generates TNPK file for provided fname. If None, generate one for the
         binary that is currently being analyzed in IDA, using IDA-provided
@@ -196,13 +196,14 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         self.started.connect(self.procanalyzer_on_start)
         self.finished.connect(self.procanalyzer_on_finish)
 
-    def generate_tnpk(self, fname=None):
+    def generate_tnpk(self, fname=None, destfname=None):
         if fname:
             imports_data = open(fname, 'rb').read()
         else:
             imports_data = ""
         try:
-            npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(imports_data)
+            npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(
+                imports_data=imports_data, destfname=destfname)
             return npk_fname
         except idabincat.npkgen.NpkGenException as e:
             return
@@ -287,10 +288,10 @@ class WebAnalyzer(Analyzer):
             raise AnalyzerUnavailable(
                 "API mismatch: this plugin supports version %s, while server "
                 "supports version %s." % (WebAnalyzer.API_VERSION,
-                                         srv_api_version))
+                                          srv_api_version))
         return True
 
-    def generate_tnpk(self, fname=None):
+    def generate_tnpk(self, fname=None, destfname=None):
         if not self.reachable_server:
             return
         if not fname:
@@ -670,24 +671,41 @@ class State(object):
 
         headers_filenames = self.current_config.headers_files.split(',')
         # compile .c files for libs, if there are any
-        bc_log.debug("Initial npk files: %r" % headers_filenames)
+        bc_log.debug("Initial npk files: %r", headers_filenames)
         new_headers_filenames = []
         for f in headers_filenames:
+            f = f.strip()
             if not f:
                 continue
             if f.endswith('.c'):
+                # generate .npk from .c file
+                if not os.path.isfile(f):
+                    bc_log.warning(
+                        "header file %s could not be found, continuing", f)
+                    continue
                 new_npk_fname = f[:-2] + '.no'
                 headers_filenames.remove(f)
                 if not os.path.isfile(new_npk_fname):
                     # compile
-                    temp_npk_fname = self.analyzer.generate_tnpk(f)
-                    shutil.copyfile(temp_npk_fname, new_npk_fname)
+                    self.analyzer.generate_tnpk(fname=f,
+                                                destfname=new_npk_fname)
+                    if not os.path.isfile(new_npk_fname):
+                        bc_log.warning(
+                            ".no file containing type data for the headers "
+                            "file %s could not be generated, continuing", f)
+                        continue
                     f = new_npk_fname
             # Relative paths are copied
-            elif f.endswith('.no') and f[0] != os.path.sep:
-                temp_npk_fname = os.path.join(path, os.path.basename(f))
-                shutil.copyfile(f, temp_npk_fname)
-                f = temp_npk_fname
+            elif f.endswith('.no'):
+                if f[0] != os.path.sep:
+                    temp_npk_fname = os.path.join(path, os.path.basename(f))
+                    shutil.copyfile(f, temp_npk_fname)
+                    f = temp_npk_fname
+            else:
+                bc_log.warning(
+                    "Header file %s does not match expected extensions "
+                    "(.c, .no), ignoring.", f)
+                continue
 
             new_headers_filenames.append(f)
         headers_filenames = new_headers_filenames
@@ -697,9 +715,11 @@ class State(object):
                 [s.endswith('pre-processed.no') for s in headers_filenames]):
             npk_filename = self.analyzer.generate_tnpk()
             if not npk_filename:
-                bc_log.debug(".npk file could not be generated, continuing.")
+                bc_log.warning(
+                    ".no file containing type data for the file being "
+                    "analyzed could not be generated, continuing. The "
+                    "ida-generated header could be invalid.")
             else:
-                bc_log.debug(".npk file has been successfully generated.")
                 headers_filenames.append(npk_filename)
             bc_log.debug("Final npk files: %r" % headers_filenames)
         self.current_config.headers_files = ','.join(headers_filenames)
