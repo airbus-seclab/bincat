@@ -171,7 +171,16 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 
 **Only IDA plugin is supported on Windows.**
 
-### Dependencies
+### Easy install
+
+* Launch IDA
+* Click on "File -> Script File..." menu (or type ALT-F7)
+* Select `python\windows_install_plugin.py`
+* the BinCAT plugin is now installed in your IDA user dir
+
+### Manual Install
+
+#### Dependencies
 The plugin requires the `requests` module to work:
 
 * Get it from <https://pypi.python.org/pypi/requests/>
@@ -180,7 +189,7 @@ The plugin requires the `requests` module to work:
 * Copy the `build\lib\requests` folder to IDA's `python` directory
 
 
-### Plugin install
+#### Plugin install
 * Copy the `python\idabincat` and `python\pybincat` folders to your IDA's `plugins` directory
 * Copy `python\idabincat\bcplugin.py` to your IDA's `plugins` directory
 * Copy the `python\idabincat\conf` folder to `%APPDATA%\Hex-Rays\IDA Pro\idabincat` (or `%IDAUSR%\idabincat` dir)

@@ -842,7 +842,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
     def goto_next(self, node):
         if self.nextnodes_combo.currentIndex() == 0:
             return
-        self.s.set_current_node(node.split(' ')[1])
+        idaapi.jumpto(int(node.split(' ')[3], 16))
 
     def update_current_ea(self, ea):
         """
