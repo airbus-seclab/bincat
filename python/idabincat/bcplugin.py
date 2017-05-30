@@ -691,14 +691,17 @@ class State(object):
 
             new_headers_filenames.append(f)
         headers_filenames = new_headers_filenames
-        # try to generate npk file for the binary being analyzed
-        npk_filename = self.analyzer.generate_tnpk()
-        if not npk_filename:
-            bc_log.debug(".npk file could not be generated, continuing.")
-        else:
-            bc_log.debug(".npk file has been successfully generated.")
-            headers_filenames.append(npk_filename)
-        bc_log.debug("Final npk files: %r" % headers_filenames)
+        # generate npk file for the binary being analyzed (unless it has
+        # already been generated)
+        if not any(
+                [s.endswith('pre-processed.no') for s in headers_filenames]):
+            npk_filename = self.analyzer.generate_tnpk()
+            if not npk_filename:
+                bc_log.debug(".npk file could not be generated, continuing.")
+            else:
+                bc_log.debug(".npk file has been successfully generated.")
+                headers_filenames.append(npk_filename)
+            bc_log.debug("Final npk files: %r" % headers_filenames)
         self.current_config.headers_files = ','.join(headers_filenames)
 
         self.current_config.write(self.analyzer.initfname)
