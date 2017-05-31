@@ -257,6 +257,14 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         self.s.edit_config.analysis_ep = start_addr
         self.s.edit_config.stop_address = stop_addr
 
+        ea_int = int(self.ip_start_addr.text(), 16)
+
+        # always save config under "(last used)" slot
+        config_name = "(last used)"
+        self.s.configurations[config_name] = self.s.edit_config
+        self.s.configurations.set_pref(ea_int, config_name)
+
+        # if requested, also save under user-specified slot
         if self.chk_save.isChecked():
             idx = self.conf_select.currentIndex()
             if idx == len(self.s.configurations.names_cache):
@@ -271,8 +279,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             else:
                 config_name = self.s.configurations.names_cache[idx]
             self.s.configurations[config_name] = self.s.edit_config
-            self.s.configurations.set_pref(
-                int(self.ip_start_addr.text(), 16), config_name)
+            self.s.configurations.set_pref(ea_int, config_name)
 
         if self.chk_remap.isChecked():
             if (self.s.remapped_bin_path is None or
