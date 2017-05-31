@@ -1,3 +1,5 @@
+# pre-requisite: clone the c2newspeak repository, under ./c2newspeak
+# git clone https://github.com/airbus-seclab/c2newspeak/
 FROM ubuntu:16.04
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -6,10 +8,7 @@ RUN mkdir /install
 WORKDIR /install
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
-        dpkg-dev debhelper pkg-config quilt autotools-dev \
-        binutils-dev libiberty-dev libncurses5-dev \
-        libx11-dev zlib1g-dev dh-ocaml make ed \
-        python python-pip python-setuptools python-dev python-pytest \
+        make python python-pip python-setuptools python-dev python-pytest \
         vim nasm libc6-dev-i386 gcc-multilib \
         ocaml menhir ocaml-findlib libzarith-ocaml-dev \
         libocamlgraph-ocaml-dev wget

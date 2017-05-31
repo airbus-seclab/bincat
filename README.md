@@ -75,7 +75,6 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 * zarith library >=1.4
 * newspeak (https://github.com/airbus-seclab/c2newspeak)
 * python 2.7
-* pdflatex for documentation
 * pytest for tests
 * ocamldoc for the ocaml documentation generation
 * python2-sphinx for the python documentation generation
@@ -87,6 +86,13 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 on Debian Sid:
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-dev python-setuptools python-dev
+```
+
+on ubuntu 16.04:
+```
+apt install make python python-pip python-setuptools python-dev python-pytest \
+        vim nasm libc6-dev-i386 gcc-multilib ocaml menhir ocaml-findlib \
+        libzarith-ocaml-dev libocamlgraph-ocaml-dev wget
 ```
 
 
