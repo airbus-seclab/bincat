@@ -299,7 +299,11 @@
     | a=analyzer_item aa=analyzer { a; aa }
 
       analyzer_item:
-    | INI_VERSION EQUAL i=INT 	     { Config.ini_version := Z.to_int i }
+    | INI_VERSION EQUAL i=INT 	     {
+          (* Check that the version matches the one we support *)
+          if (Z.to_int i) != 1 then
+                L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" (Z.to_int i) 1);
+                                     }
     | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT 	     { Config.fun_unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }

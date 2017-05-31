@@ -67,10 +67,6 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       L.abort (fun p -> p "Parse error near location %s of %s" (string_of_position lexbuf) configfile)
   end;
   close_in cin;
-
-  (* Check that the version matches the one we know *)
-  if !Config.ini_version != 1 then 
-        L.abort (fun p->p "Invalid configuration version: '%s', expected: '%d'" (string_of_int (!Config.ini_version)) 1);
   
   (* defining the dump function to provide to the fixpoint engine *)
   let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
