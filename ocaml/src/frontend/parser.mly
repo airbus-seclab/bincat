@@ -134,6 +134,7 @@
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL
 %token <string> STRING 
 %token <string> HEX_BYTES
+%token <string> QUOTED_STRING
 %token <Z.t> INT
 %start <unit> process
 %%
@@ -215,7 +216,7 @@
     | i=import l=imports  { i ; l }
 
       import:
-    | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
+    | a=INT EQUAL libname=STRING COMMA fname=QUOTED_STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
     | HEADER EQUAL npk_list=npk { npk_headers := npk_list }    
 
       npk:
