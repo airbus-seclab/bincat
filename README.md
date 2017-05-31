@@ -1,14 +1,41 @@
+## Introduction
+
+### What is BinCAT ?
+
+BinCAT is a *static* Binary Code Analysis Toolkit, designed to help reverse
+engineers, directly from IDA.
+
+It features:
+
+* value analysis (registers and memory)
+* taint analysis
+* type reconstruction and propagation
+* backward and forward analysis
+
+### In action
+
+TODO : add gif of taint analysis
+
+### Quick FAQ
+
+Supported Platforms:
+
+* IDA plugin: all, version 6.9 or later
+* analyzer (local or server): Linux, macOS (maybe)
+
+Supported CPUs (for now):
+* x86-32
+
 ## Quick Install/Configuration on Linux (using docker)
 
 These commands will build BinCAT from scratch and have it run as a
-webapp microservice in a docker container (no need to worry about
-dependencies, except for docker itself).
+webapp microservice in a Docker container (no need to worry about
+dependencies, except for Docker itself).
 
 If you have access to a BinCAT remote server, where the docker container is
 running, you may skip any docker-related steps.
 
 The IDA plugin will then be installed and configured to use bincat as a webapp.
-
 
 ### Install
 
@@ -35,7 +62,7 @@ mkdir -p ~/.idapro/idabincat
 cp -a python/idabincat/conf ~/.idapro/idabincat/
 ```
 
-#### Build the docker container
+#### Build the Docker container
 You may skip this step if you already have access to a remote BinCAT server.
 
 * run ```docker build -t bincat .```
@@ -43,7 +70,7 @@ You may skip this step if you already have access to a remote BinCAT server.
 
 ### Using BinCAT
 
-#### Run the docker container
+#### Run the Docker container
 You may skip this step if you already have access to a remote BinCAT server.
 
 * run the `bincat` Docker microservice: `docker run -p 5000:5000 bincat`
@@ -133,7 +160,7 @@ make install
 make doc
 ```
 
-### ocaml compilation
+### OCaml compilation
 If messages indicating that the `-fPIC` must be used, update your OCaml installation to 4.02.3.
 
 ## Install (macOS)
