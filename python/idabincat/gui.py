@@ -177,7 +177,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         conf_name = self.s.configurations.get_pref(self.s.current_ea)
         if conf_name:
             idx = self.s.configurations.names_cache.index(conf_name)
-            self.s.edit_config = self.s.configurations[conf_name].__copy__()
+            self.s.edit_config = self.s.configurations[conf_name]
         else:
             idx = len(self.s.configurations.names_cache)
             self.s.edit_config = self.s.configurations.new_config(
@@ -1303,7 +1303,7 @@ class BinCATConfigurationsForm_t(idaapi.PluginForm):
         editdlg = EditConfigurationFileForm_t(self.parent, self.s)
         editdlg.set_config(str(self.s.configurations[name]))
         if editdlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.s.configurations[name] = self.s.edit_config.__copy__()
+            self.s.configurations[name] = self.s.edit_config
 
     def _export(self):
         selectionModel = self.table.selectionModel()
