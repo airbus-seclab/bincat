@@ -67,7 +67,7 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 * Now you can run analyses (Ctrl-Shift-A)
 
 
-## Install (Linux / MacOS)
+## Install (Linux / macOS)
 ### Dependencies
 
 * ocaml 4.02.3 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
@@ -81,22 +81,40 @@ if [ $? -eq 0 ]; then dpkg -i libssl0.9.8_0.9.8o-4squeeze14_i386.deb ; fi
 * menhir for the configuration parsing in ocaml
 * the ocamlgraph library
 * IDA >= 6.9 (for the plugin)
-* Graphviz
+
+#### Installing linux packages
+All these dependencies except ida and newspeak are usually packaged by linux
+distributions.
 
 on Debian Sid:
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-dev python-setuptools python-dev
 ```
 
-on ubuntu 16.04:
+on Ubuntu 16.04:
 ```
 apt install make python python-pip python-setuptools python-dev python-pytest \
-        vim nasm libc6-dev-i386 gcc-multilib ocaml menhir ocaml-findlib \
-        libzarith-ocaml-dev libocamlgraph-ocaml-dev wget
+        nasm libc6-dev-i386 gcc-multilib ocaml menhir ocaml-findlib \
+        libzarith-ocaml-dev libocamlgraph-ocaml-dev
 ```
 
+#### Installing c2newspeak
+```
+git clone https://github.com/airbus-seclab/c2newspeak
+cd c2newspeak
+make
+make install
+sudo ln -s bin/c2newspeak /usr/bin/c2newspeak
+```
 
-1. unzip this archive and enter it
+### Installing BinCAT
+
+1. Clone this depository and enter it
+```
+git clone https://github.com/airbus-seclab/bincat
+cd bincat
+```
+
 2. compilation
 
 ```
@@ -118,22 +136,12 @@ make doc
 ### ocaml compilation
 If messages indicating that the `-fPIC` must be used, update your OCaml installation to 4.02.3.
 
-### important remark
-Be sure to have the directory `src/bincat` into your `LD_LIBRARY_PATH` variable
+## Install (macOS)
+**Warning**: the authors do not use macOS anymore, and thus do not test this
+procedure anymore. If you run into problems on macOS, we recommend running
+bincat in a linux virtual machine, or in a docker container (build procedure
+provided in Dockerfile).
 
-### ocaml headers
-OCAML headers are not installed in `/usr/include` or `/usr/local/include,` where
-gcc looks for them, when installing from source.
-
-Two solutions may be applied when compiling the Python module using `python2
-setup.py build`:
-
-* Create a symlink (`/usr/include/caml -> /usr/lib/ocaml/caml/,` or
-  `/usr/local/include/caml -> /usr/local/lib/ocaml/caml/`). This seems to be
-  done in the debian packages.
-* `export C_INCLUDE_PATH=/usr/lib/ocaml`
-
-### MacOS installation
 By default non initialized external symobols are not exported by `ranlib`.
 Hence some symbols in `_caml_table` are not exported which results in a link
 failure.
@@ -143,7 +151,7 @@ To avoid this, run the following command:
 ranlib -c /path/to/the/lib/libsasmrun.a
 ```
 
-### IDA plugin installation
+## IDA plugin installation (Linux/macOS)
 
 * Copy or create a symlink to `python/idabincat/bcplugin.py` in your IDA
   installation folder's `plugins/` directory, or in your `~/.idapro/plugins`
@@ -158,7 +166,7 @@ ranlib -c /path/to/the/lib/libsasmrun.a
 * Make sure the `bincat` and `bincat_native` commands are in your path (`make
   install` should have taken care of that).
 
-* On MacOS, add the following line to `/etc/launchd.conf`:
+* On macOS, add the following line to `/etc/launchd.conf`:
   ```
   setenv PATH /usr/bin:/bin:/usr/sbin/sbin:/usr/local/bin:/path/to/bincat
   ```
