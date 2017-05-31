@@ -1,6 +1,6 @@
 ## Introduction
 
-### What is BinCAT ?
+### What is BinCAT?
 
 BinCAT is a *static* Binary Code Analysis Toolkit, designed to help reverse
 engineers, directly from IDA.
@@ -14,7 +14,7 @@ It features:
 
 ### In action
 
-TODO : add gif of taint analysis
+TODO: add gif of taint analysis
 
 ### Quick FAQ
 
@@ -32,8 +32,8 @@ Supported CPUs (for now):
 The analyzer is only supported on Linux, but can expose a Web service for use
 from a Windows IDA.
 
-* Using Docker : [doc/install_docker.md](Docker installation instructions)
-* Manual : [doc/install_manual.md](Manual installation instructions)
+* Using Docker: [doc/install_docker.md](Docker installation instructions)
+* Manual: [doc/install_manual.md](Manual installation instructions)
 
 ### IDA Plugin
 
