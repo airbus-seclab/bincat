@@ -102,6 +102,7 @@ rule token = parse
   | "stdcall"   	    { STDCALL }
   | "fastcall"  	    { FASTCALL }
   (* analyzer tokens *)
+  | "ini_version"    	    { INI_VERSION }
   | "unroll"    	    { UNROLL }
   | "function_unroll"       { FUN_UNROLL }
   | "cut"                   { CUT }

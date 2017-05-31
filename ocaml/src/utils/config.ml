@@ -16,6 +16,7 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+let ini_version = ref 0;; (* version for .ini parsing *)
 let unroll = ref 20;;
 let fun_unroll = ref 50;;
 let loglevel = ref 3;;
