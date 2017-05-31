@@ -41,8 +41,7 @@ from a Windows IDA.
 
 #### Install for Windows
 
-* Launch IDA
-* Click on "File -> Script File..." menu (or type ALT-F7)
+* In IDA, click on "File -> Script File..." menu (or type ALT-F7)
 * Select `python\windows_install_plugin.py`
 * the BinCAT plugin is now installed in your IDA user dir
 
