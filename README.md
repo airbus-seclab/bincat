@@ -32,8 +32,8 @@ Supported CPUs (for now):
 The analyzer is only supported on Linux, but can expose a Web service for use
 from a Windows IDA.
 
-* Using Docker: [doc/install_docker.md](Docker installation instructions)
-* Manual: [doc/install_manual.md](Manual installation instructions)
+* Using Docker: [Docker installation instructions](toc/install_docker.md)
+* Manual: [Manual installation instructions](doc/install_manual.md)
 
 ### IDA Plugin
 
@@ -45,12 +45,12 @@ from a Windows IDA.
 * Select `python\windows_install_plugin.py`
 * the BinCAT plugin is now installed in your IDA user dir
 
-Or [doc/plugin_manual_win.md](install manually).
+Or [install manually](doc/plugin_manual_win.md).
 
 
 #### Linux install
 
-[doc/install_plugin.md](Installation instructions)
+[Installation instructions](doc/install_plugin.md)
 
 ## Using BinCAT
 
