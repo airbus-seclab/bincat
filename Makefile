@@ -73,7 +73,7 @@ dist: clean
 	@echo "Making distribution.................................................."
 	mkdir bincat-dist
 	cp Makefile bincat-dist
-	cp README bincat-dist
+	cp README.md bincat-dist
 	cp -r python bincat-dist
 	cp -r ocaml bincat-dist
 	cp -r doc bincat-dist
