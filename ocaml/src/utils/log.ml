@@ -40,8 +40,24 @@ let open_stdout () = stdout_buf := ""
 let print msg = stdout_buf := !stdout_buf ^ msg
 let dump_stdout () = Printf.fprintf !logfid "%s\n" !stdout_buf; flush !logfid
 
+(** store the latest analysed address *)
+let current_address = ref None
+
+(** store the latest analysed address *)
+let latest_finished_address = ref None
+
 (** close the log file *)
-let close () = close_out !logfid
+let close () =
+  begin
+    match !current_address with
+    | None ->  Printf.fprintf !logfid "[STOP] nothing analyzed\n"
+    | Some adrs ->
+       if !current_address = !latest_finished_address then
+         Printf.fprintf !logfid "[STOP] stopped after %s\n" (Data.Address.to_string adrs)
+       else
+         Printf.fprintf !logfid "[STOP] stopped on %s\n" (Data.Address.to_string adrs)
+  end;
+  close_out !logfid
   
 module Make(Modname: sig val name : string end) = struct
   let modname = Modname.name
