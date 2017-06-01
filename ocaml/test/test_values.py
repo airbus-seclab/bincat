@@ -914,6 +914,19 @@ def test_idiv_reg32(tmpdir):
                 if -2**31 <= ps/qs < 2**31:
                     compare(tmpdir, asm % (p>>32,p&0xffffffff,q), ["eax", "ebx", "edx"])
 
+def test_idiv_reg8(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            idiv bl
+          """
+    for p in SOME_OPERANDS_16:
+        for q in SOME_OPERANDS_8:
+            if q != 0:
+                ps = p if (p >> 15) == 0 else p|((-1)<<15)
+                qs = q if (q >> 7) == 0 else q|((-1)<<7)
+                if -2**7 <= ps/qs < 2**7:
+                    compare(tmpdir, asm % (p,q), ["eax", "ebx"])
 
 def test_div_reg32(tmpdir):
     asm = """
@@ -927,6 +940,19 @@ def test_div_reg32(tmpdir):
             if q != 0:
                 if p/q < 2**32:
                     compare(tmpdir, asm % (p>>32,p&0xffffffff,q), ["eax", "ebx", "edx"])
+
+def test_div_reg8(tmpdir):
+    asm = """
+            mov eax, %#x
+            mov ebx, %#x
+            div bl
+          """
+    for p in SOME_OPERANDS_16:
+        for q in SOME_OPERANDS_8:
+            if q != 0:
+                if p/q < 2**8:
+                    compare(tmpdir, asm % (p,q), ["eax", "ebx"])
+
 
 
 def test_mul_reg32(tmpdir):
