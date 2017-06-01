@@ -1599,7 +1599,8 @@ struct
 
     let rotate_l_carry_stmt dst sz count = (* rcr *)
       let zero = Const (Word.zero 8) in
-      let one = Const (Word.one 8) in
+      let one8 = Const (Word.one 8) in
+      let onesz = Const (Word.one sz) in
       let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
       (* add 1 to operand size to take in account the carry *)
@@ -1607,9 +1608,9 @@ struct
       let count_masked = BinOp(And, count, word_1f) in
       let count_mod = BinOp(Mod, count_masked , sz8p1) in
       let inv_count_mod = BinOp(Sub, sz8p1, count_mod) in
-      let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one) in
+      let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one8) in
       (* count_mod == 0 will be cut later on, so we can compute count_mod-1 *)
-      let count_mod_m1 = BinOp(Sub, count_mod, one) in
+      let count_mod_m1 = BinOp(Sub, count_mod, one8) in
       (* sz bit temporary register to hold original carry *)
       let old_cf_reg = Register.make ~name:(Register.fresh_name ()) ~size:sz in
       let old_cf = V (T old_cf_reg) in
@@ -1620,11 +1621,15 @@ struct
       let shifted_cf = BinOp(Shl, Lval old_cf, count_mod_m1) in
       let res = BinOp(Or, BinOp(Or, high, low), shifted_cf) in
       let msb = BinOp(Shr, (Lval dst), (const (sz-1) sz)) in
-      let new_cf_val = BinOp(Shr, Lval dst, inv_count_mod_m1) in
+      let new_cf_val = TernOp(Cmp(EQ, BinOp(And, BinOp(Shr, Lval dst, inv_count_mod_m1), onesz), onesz),
+                              const 1 1, const 0 1) in
       let cf_stmt = Set (V (T fcf), new_cf_val) in
       (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
-      let of_stmt = If (Cmp (EQ, count_masked, one),
-			[Set (V (T fof), BinOp(Xor, (Lval (V (T fcf))), msb))],
+      let of_stmt = If (Cmp (EQ, count_masked, one8),
+			[Set (V (T fof), TernOp(
+                          Cmp(EQ, BinOp(Xor, UnOp(ZeroExt sz, (Lval (V (T fcf)))), msb), const 1 sz),
+                          const 1 1,
+                          const 0 1))],
 			[undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
       let stmts =  [
@@ -1637,7 +1642,8 @@ struct
 
     let rotate_r_carry_stmt dst sz count = (* rcr *)
       let zero = Const (Word.zero 8) in
-      let one = Const (Word.one 8) in
+      let one8 = Const (Word.one 8) in
+      let onesz = Const (Word.one sz) in
       let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
       (* add 1 to operand size to take in account the carry *)
@@ -1646,9 +1652,9 @@ struct
       let count_masked = BinOp(And, count, word_1f) in
       let count_mod = BinOp(Mod, count_masked , sz8p1) in
       let inv_count_mod = BinOp(Sub, sz8p1, count_mod) in
-      let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one) in
+      let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one8) in
       (* count_mod == 0 will be cut later on, so we can compute count_mod-1 *)
-      let count_mod_m1 = BinOp(Sub, count_mod, one) in
+      let count_mod_m1 = BinOp(Sub, count_mod, one8) in
       (* sz bit temporary register to hold original carry *)
       let old_cf_reg = Register.make ~name:(Register.fresh_name ()) ~size:sz in
       let old_cf = V (T old_cf_reg) in
@@ -1658,10 +1664,11 @@ struct
       let low = BinOp (Shr, Lval dst,  count_mod) in
       let shifted_cf = BinOp(Shl, Lval old_cf, inv_count_mod_m1) in
       let src = BinOp(Or, BinOp(Or, high, low), shifted_cf) in
-      let new_cf_val = BinOp(Shr, Lval dst, count_mod_m1) in
+      let new_cf_val = TernOp(Cmp(EQ, BinOp(And, BinOp(Shr, Lval dst, count_mod_m1), onesz), onesz),
+                              const 1 1, const 0 1) in
       let cf_stmt = Set (V (T fcf), new_cf_val) in
       (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
-      let of_stmt = If (Cmp (EQ, count_masked, one),
+      let of_stmt = If (Cmp (EQ, count_masked, one8),
 			[Set (V (T fof), BinOp(Xor, Lval old_cf, BinOp(Shr, Lval dst, sz8m1)))],
 			[undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
