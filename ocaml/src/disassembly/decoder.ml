@@ -1635,7 +1635,7 @@ struct
       let stmts =  [
         Set(old_cf, Const (Word.zero sz)) ;
         Set(old_cf_lsb, Lval (V (T fcf))) ;
-        cf_stmt ; of_stmt ; Set (dst, res) ;
+        cf_stmt ; Set (dst, res) ; of_stmt ;
         Directive (Remove old_cf_reg )] in
       [ If (Cmp(EQ, count_mod, zero), [], stmts)]
 
