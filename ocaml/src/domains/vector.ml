@@ -430,7 +430,11 @@ module Make(V: Val) =
 
         let sub v1 v2 = core_add_sub V.sub v1 v2
 
-        let xor v1 v2 = map2 V.xor v1 v2
+        let xor v1 v2 =
+	  let res = map2 V.xor v1 v2 in
+	  L.debug (fun p -> p "xor(%s, %s) = %s"
+	    (to_string v1) (to_string v2) (to_string res));
+	  res
 
 	let lognot v = Array.map V.lognot v
 
