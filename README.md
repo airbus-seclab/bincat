@@ -32,7 +32,7 @@ Supported CPUs (for now):
 The analyzer is only supported on Linux, but can expose a Web service for use
 from a Windows IDA.
 
-* Using Docker: [Docker installation instructions](toc/install_docker.md)
+* Using Docker: [Docker installation instructions](doc/install_docker.md)
 * Manual: [Manual installation instructions](doc/install_manual.md)
 
 ### IDA Plugin
