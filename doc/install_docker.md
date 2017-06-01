@@ -4,7 +4,7 @@ These commands will build BinCAT from scratch and have it run as a
 webapp microservice in a Docker container (no need to worry about
 dependencies, except for Docker itself).
 
-* run the `bincat` Docker microservice: `docker run -p 5000:5000 airbusseclab:bincat`
+* run the `bincat` Docker microservice: `docker run -p 5000:5000 airbusseclab/bincat`
 
 This will automatically fetch a public Docker image and run it on your machine.
 
