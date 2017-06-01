@@ -57,17 +57,16 @@ doc: all
 
 clean:
 	@echo "Cleaning OCaml part.................................................."
-	@make -C $(MLPATH) clean
+	@make -C $(MLPATH) clean || /bin/true
 	@echo "Cleaning lib........................................................."
-	@make -C $(NPKPATH) clean
+	@make -C $(NPKPATH) clean || /bin/true
 	@echo "Cleaning python part................................................."
-	@make -C $(PYPATH) clean
+	@make -C $(PYPATH) clean || /bin/true
 	echo "Cleaning documentation................................................"
 	-rm -rf $(DOCGENPATH)
 	-rm -rf $(PYPATH)/tests/__pycache__
 	-rm -rf bincat-dist
 	-rm -f bincat.tar.gz
-	@make -C $(DOCREFPATH) clean || /bin/true
 
 
 dist: clean
