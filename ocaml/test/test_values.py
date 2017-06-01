@@ -572,6 +572,7 @@ def test_shift_shld_reg16(tmpdir):
         for carryop in ["stc", "clc"]:
             compare(tmpdir, asm % (carryop,i), ["eax", "ebx", "of", "cf"],
                     top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
+                                   "cf": 1 if (i>16) else 0,
                                    "eax":0xffff if (i>16) else 0})
 
 def test_shift_shrd_imm8(tmpdir):
