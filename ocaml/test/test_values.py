@@ -178,7 +178,10 @@ def bincat_run(tmpdir, asm):
 
 
 def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}, top_allowed={}):
-    cpu = cpu_run(tmpdir, asm)
+    try:
+        cpu = cpu_run(tmpdir, asm)
+    except subprocess.CalledProcessError,e:
+        pytest.fail("%s\n%s"%(e,asm))
     bincat,listing = bincat_run(tmpdir, asm)
     assert  not isinstance(bincat, Exception), repr(bincat)+"\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join("cpu : %s = %08x" % (r,cpu[r]) for r in regs)
     
