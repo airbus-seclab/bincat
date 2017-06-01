@@ -158,6 +158,9 @@ sig
     (** top on sz bit-width *)
     val top: int -> t
 
+    (** returns length *)
+    val size: t -> int
+
     (** forgets the content while preserving the taint *)
     val forget: t -> t
 
@@ -298,6 +301,7 @@ module Make(V: Val) =
 	      Char.chr !c
 	    end
 
+    let size v = Array.length v
 
     let to_z v = v_to_z V.to_z v 
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
