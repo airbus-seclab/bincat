@@ -1309,30 +1309,29 @@ struct
         let max_int_z = (Z.sub min_int_z Z.one) in
         let max_int_const = (Const (Word.of_int max_int_z (sz*2))) in
 
-        let eax_r = (to_reg eax sz) in
-	let eax_lv = Lval( V (eax_r)) in
-	let eax_ext = UnOp(ZeroExt (2*sz), eax_lv) in
-	let edx_r = (to_reg edx sz) in
-	let edx_lv = Lval( V (edx_r)) in
-	let edx_ext = UnOp(ZeroExt (2*sz), edx_lv) in
+	let remainder_r = if sz = 8 then (P (eax, 8, 15)) else (to_reg edx sz) in
+        let divisor = if sz = 8
+          then Lval (V (to_reg eax 16))
+          else let eax_ext = UnOp(ZeroExt (sz*2), Lval (V (to_reg eax sz))) in
+               let edx_ext = UnOp(ZeroExt (sz*2), Lval (V (to_reg edx sz))) in
+               BinOp(Or, BinOp(Shl, edx_ext, const sz (2*sz)), eax_ext) in
+        let quotient = to_reg eax sz in
 
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let tmp_div   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let op_div,op_mod = if signed then Div,Mod else IDiv,IMod in
 
-        (* tmp <- (E)AX:(E)DX *)
-        (* TODO : fix for 8 bits *)
-        let set_tmp = Set (V (T tmp), BinOp(Or, BinOp(Shl, edx_ext, const sz sz), eax_ext)) in
-            [ set_tmp; Set (V(T tmp_div), BinOp(op_div, Lval (V (T tmp)), reg));
-              Assert (
-                BBinOp(LogOr,
-                      Cmp(GT, Lval( V (T tmp_div)), max_int_const),
-                      Cmp(LT, Lval( V (T tmp_div)), min_int_const)),
-                "Divide error");
-              (* compute remainder *)
-              Set (V(edx_r), BinOp(op_mod, Lval(V(T tmp)), reg));
-              Set (V(eax_r), Lval (V (P (tmp_div, 0, sz-1))));
-              Directive (Remove tmp); Directive (Remove tmp_div) ]
+        [ Assert (BBinOp(LogOr,
+                         Cmp(GT, Lval( V (T tmp_div)), max_int_const),
+                         Cmp(LT, Lval( V (T tmp_div)), min_int_const)),
+                  "Divide error");
+          Set (V (T tmp), divisor);
+          Set (V (T tmp_div), BinOp(op_div, Lval (V (T tmp)), reg));
+          (* compute remainder *)
+          Set (V remainder_r, BinOp(op_mod, Lval(V(T tmp)), reg));
+          Set (V quotient, Lval (V (P (tmp_div, 0, sz-1))));
+          Directive (Remove tmp);
+          Directive (Remove tmp_div) ]
 
 
     (*****************************************************************************************)
