@@ -1,17 +1,15 @@
-## Quick Install/Configuration on Linux (using docker)
+# Running BinCAT analyzer on Linux using Docker
 
 These commands will build BinCAT from scratch and have it run as a
 webapp microservice in a Docker container (no need to worry about
 dependencies, except for Docker itself).
 
-If you have access to a BinCAT remote server, where the docker container is
-running, you may skip any docker-related steps.
+* run the `bincat` Docker microservice: `docker run -p 5000:5000 airbusseclab:bincat`
 
-The IDA plugin will then be installed and configured to use bincat as a webapp.
+This will automatically fetch a public Docker image and run it on your machine.
 
-
-#### Build the Docker container
-You may skip this step if you already have access to a remote BinCAT server.
+## Building the Docker container
+If you choose not to run the provided docker container, you may use this
+command to build it, from the root of the repository :
 
 * run ```docker build -t bincat .```
-* run the `bincat` Docker microservice: `docker run -p 5000:5000 bincat`

@@ -70,6 +70,7 @@ Default config and options are stored in `$IDAUSR/idabincat/conf`.
 
 #### Options
 
+* Use remote bincat: select if you are running docker in a Docker container
 * Remote URL: http://localhost:5000 (or the URL of a remote BinCAT server)
 * Autostart: autoload BinCAT at IDA startup
 * Save to IDB: default state for the `save to idb` checkbox
