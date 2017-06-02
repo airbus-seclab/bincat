@@ -1,5 +1,17 @@
 ### IDA plugin Linux
 
+#### Automatic install
+
+User install:
+* run `make IDAuser`
+
+Global install:
+* define `IDAPATH` env variable
+* Run `make IDAinstall`.
+
+#### Manual install
+
+
 * install IDA (v6.9 or later version) with bundled Python
 * copy or symlink BinCAT plugin and libs into IDA plugins folder
 ```
