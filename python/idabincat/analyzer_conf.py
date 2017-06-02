@@ -391,6 +391,7 @@ class AnalyzerConfig(object):
         config.set('settings', 'op_sz',
                    ConfigHelpers.get_bitness(code_start_va))
         config.set('settings', 'stack_width', ConfigHelpers.get_stack_width())
+        config.set('settings', 'ini_version', 1)
 
         # [loader section]
         config.add_section('loader')
