@@ -274,7 +274,7 @@ module Make(Domain: Domain.T) =
       let print dumpfile dotfile g =
 	let f = open_out dumpfile in
 	(* state printing (detailed) *)
-(*	let print_ip s =
+	let print_ip s =
 	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
 	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (string_of_bool s.is_tainted);
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
@@ -288,7 +288,7 @@ module Make(Domain: Domain.T) =
 	G.iter_vertex print_ip g;
 	(* edge printing (summary) *)
 	Printf.fprintf f "[edges]\n";
-	G.iter_edges_e (fun e -> Printf.fprintf f "e%d_%d = %d -> %d\n" (G.E.src e).id (G.E.dst e).id (G.E.src e).id (G.E.dst e).id) g;*)
+	G.iter_edges_e (fun e -> Printf.fprintf f "e%d_%d = %d -> %d\n" (G.E.src e).id (G.E.dst e).id (G.E.src e).id (G.E.dst e).id) g;
 	close_out f;
 	(* dot generation *)
 	if dotfile <> "" then
