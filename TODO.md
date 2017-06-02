@@ -2,12 +2,9 @@
 * optim: supprimer les maj de flags entre deux instructions pour ceux qui sont set/undef sans avoir été testés
 * gérer les questions "synchrones" avec l'interface IDA pour quand il y a une décision à prendre (trop de branches par exemple) ... utiliser un pipe (attention à Windows) ?
 * gérer des chemins UTF-8 dans le .ini ?
-* renommage Pointer, Value
 * gérer l'ordre des initialisation mémoires dans le .ini pour pouvoir écraser certaines parties déjà initialisées
-* log categories (mem, vectors, etc.)
 
 Bugs:
-* autoriser les '?' dans les noms de fonctions
 * Jmp et Return dans les boucles doivent en faire sortir. Attention au directives de default_unroll qui suit un jmp repne et à l'incr de esp après le ret qui doivent tout de même être exec
 * caractère échappement des format string est le %
 * mettre un message quand code dans rep/repe/repne n'est pas stos/scas/etc.
