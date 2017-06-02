@@ -80,6 +80,12 @@
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
 	Hashtbl.replace mandatory_keys key (kname, sname, true);;
 
+      (** check that the version matches the one we support *)
+      let check_ini_version input_version =
+	let supported_version = 1 in
+	if input_version != supported_version then
+	  L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
+
       (** footer function *)
       let check_context () =
 	(* check whether all mandatory items are provided *)
@@ -299,11 +305,7 @@
     | a=analyzer_item aa=analyzer { a; aa }
 
       analyzer_item:
-    | INI_VERSION EQUAL i=INT 	     {
-          (* Check that the version matches the one we support *)
-          if (Z.to_int i) != 1 then
-                L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" (Z.to_int i) 1);
-                                     }
+    | INI_VERSION EQUAL i=INT 	     { check_ini_version (Z.to_int i) }
     | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT 	     { Config.fun_unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }
