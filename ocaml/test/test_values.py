@@ -594,7 +594,7 @@ def test_shift_shld_on_mem32(tmpdir):
             %s
             push 0x12b4e78f
             push 0
-            mov ebx, 0xa5486204
+            mov ebx, %i
             mov cl, %i
             shld [esp+4], ebx, cl
             pop eax
@@ -603,7 +603,7 @@ def test_shift_shld_on_mem32(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for j in SOME_OPERANDS:
             for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "ebx", "of", "cf"],
+                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
                         top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
                                        "eax":0xffffffff if (i>32) else 0})
 
@@ -612,7 +612,7 @@ def test_shift_shld_on_mem16(tmpdir):
             %s
             push 0x12b4e78f
             push 0
-            mov ebx, 0xa5486204
+            mov ebx, %i
             mov cl, %i
             shld [esp+4], bx, cl
             pop eax
@@ -621,7 +621,7 @@ def test_shift_shld_on_mem16(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for j in SOME_OPERANDS:
             for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "ebx", "of", "cf"],
+                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
                         top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
                                        "cf": 1 if (i>16) else 0,
                                        "eax":0xffff if (i>32) else 0})
