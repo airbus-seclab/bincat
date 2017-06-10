@@ -42,67 +42,8 @@ def assemble(tmpdir, asm):
     return str(outf),listing,opcodes
 
 
-C_TEMPLATE_PROLOGUE = r"""
-#include <stdio.h>
-int main(void)
-{
-        unsigned int Reax,Rebx,Recx,Redx,Resi,Redi,Resp,Rebp,Reflags,Rsav_esp;
-        asm volatile(
-        "mov %3, esp\n"
-"""
-
-C_TEMPLATE_EPILOGUE = r""" 
-        "mov %0, eax\n"
-        "mov %1, esp\n"
-        "mov %2, ebp\n"
-        "pushf\n"
-        "pop eax\n"
-        "mov esp, %3\n"
-        : 
-        "=m" (Reax),
-        "=m" (Resp),
-        "=m" (Rebp),
-        "=m" (Rsav_esp),
-        "=a" (Reflags),
-        "=b" (Rebx),
-        "=c" (Recx),
-        "=d" (Redx),
-        "=S" (Resi),
-        "=D" (Redi)
-        ::);
-        printf("eax=%08x\n", Reax);
-        printf("ebx=%08x\n", Rebx);
-        printf("ecx=%08x\n", Recx);
-        printf("edx=%08x\n", Redx);
-        printf("esi=%08x\n", Resi);
-        printf("edi=%08x\n", Redi);
-        printf("esp=%08x\n", Resp);
-        printf("ebp=%08x\n", Rebp);
-        printf("eflags=%08x\n", Reflags);
-
-        return 0;
-}
-"""
-
-def strip_asm_comments(asm):
-    s = []
-    for l in asm.splitlines():
-        p = l.find(";")
-        if  p >= 0:
-            l = l[:p]
-        s.append(l)
-    return "\n".join(s)
-
-def cpu_run(tmpdir, asm):
-    asm = strip_asm_comments(asm)
-    d = tmpdir.mkdir(GCC_DIR.next())
-    inf = d.join("test.c")
-    outf = d.join("test")
-    inf.write(C_TEMPLATE_PROLOGUE +
-              '"'+asm.replace("\n",'\\n"\n"') + '"' +
-              C_TEMPLATE_EPILOGUE)
-    subprocess.check_call(["gcc", "-m32", "-masm=intel", "-o", str(outf), str(inf)])
-    out = subprocess.check_output([str(outf)])
+def cpu_run(tmpdir, opcodesfname):
+    out = subprocess.check_output(["./eggloader_x86",opcodesfname])
     regs = { reg: int(val,16) for reg, val in
             (l.strip().split("=") for l in out.splitlines()) }
     flags = regs.pop("eflags")
@@ -170,19 +111,19 @@ def bincat_run(tmpdir, asm):
     try:
         prgm = cfa.CFA.from_filenames(str(initf), str(outf), str(logf))
     except Exception,e:
-        return e, listing
+        return e, listing, opcodesfname
 
     last_state = getLastState(prgm)
     
-    return { reg : getReg(last_state, reg) for reg in ALL_REGS}, listing
+    return { reg : getReg(last_state, reg) for reg in ALL_REGS}, listing, opcodesfname
 
 
 def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}, top_allowed={}):
+    bincat,listing, opcodesfname = bincat_run(tmpdir, asm)
     try:
-        cpu = cpu_run(tmpdir, asm)
+        cpu = cpu_run(tmpdir, opcodesfname)
     except subprocess.CalledProcessError,e:
         pytest.fail("%s\n%s"%(e,asm))
-    bincat,listing = bincat_run(tmpdir, asm)
     assert  not isinstance(bincat, Exception), repr(bincat)+"\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join("cpu : %s = %08x" % (r,cpu[r]) for r in regs)
     
     diff = []
