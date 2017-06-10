@@ -1515,3 +1515,13 @@ def test_bcd_aad(tmpdir):
         for base in [10, 12, 8, 16, 0xff]:
             compare(tmpdir, asm % (a,base), ["eax", "sf", "zf", "pf", "of", "af", "cf"],
                     top_allowed = {"of":1, "af":1, "cf":1 })
+
+def test_push_cs(tmpdir):
+    asm = """
+            push 0
+            pop eax
+            push cs
+            pop eax
+          """
+    compare(tmpdir, asm, ["eax"])
+
