@@ -1525,3 +1525,14 @@ def test_push_cs(tmpdir):
           """
     compare(tmpdir, asm, ["eax"])
 
+
+def test_lea_imm(tmpdir):
+    asm = """
+            mov eax, 0
+            mov ebx, 0
+            mov ecx, 0
+            lea eax, [0x124000]
+            lea bx, [0x124000]
+          """
+    compare(tmpdir, asm, ["eax", "ebx", "ecx"])
+
