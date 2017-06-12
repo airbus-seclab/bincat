@@ -89,7 +89,7 @@ class NpkGen(object):
 
         return res
 
-    def generate_tnpk(self, imports_data=""):
+    def generate_tnpk(self, imports_data="", destfname=None):
         # required: c2newspeak requires a file, checks its extension
         dirname = tempfile.mkdtemp('bincat-generate-header')
         npk_log.debug("Generating TNPK file in %s", dirname)
@@ -122,10 +122,11 @@ class NpkGen(object):
         with open(pp_name, "wb") as f:
             f.write(out)
         # 3. use c2newspeak to generate .no
-        no_file = "pre-processed.no"
+        if destfname is None:
+            destfname = os.path.join(dirname, "pre-processed.no")
         try:
             out = subprocess.check_output(
-                ["c2newspeak", "--typed-npk", "-o", no_file,
+                ["c2newspeak", "--typed-npk", "-o", destfname,
                  "pre-processed.c"], stderr=subprocess.STDOUT)
             if out:
                 npk_log.debug(out)
@@ -142,10 +143,10 @@ class NpkGen(object):
                 error_msg += "\n--- end of c2newspeak output ---"
             npk_log.error(error_msg, exc_info=True)
             raise NpkGenException(error_msg)
-        # output is in no_file
+        # output is in destfname
         os.chdir(cwd)
         npk_log.debug("TNPK file has been successfully generated.")
-        return os.path.join(dirname, no_file)
+        return destfname
 
     # --- internal helpers
 

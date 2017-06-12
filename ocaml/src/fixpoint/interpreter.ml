@@ -204,66 +204,68 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) =
         L.debug (fun p -> p "process_value stmt=\n%s" (Asm.string_of_stmt s true));
-        match s with
-        | Nop 				 -> d, false
-        | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack   
-        | Set (dst, src) 		 -> D.set dst src d
-        | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
-        | Directive (Forget r) 		 -> D.forget_lval (V r) d, false
-	| Directive (Unroll (e, bs)) ->
-	   begin
-	     try
-	       let f () = min ((Z.to_int (D.value_of_exp d e)) + 1) bs in
-	       unroll_wrapper f
-	     with _ -> ()
-	   end;
-	  d, false
-	     
-	| Directive (Default_unroll) ->
-	   L.analysis (fun p -> p "set unroll parameter to its default value");
-	  unroll_nb := None;
-	  d, false
+        let res, tainted = 
+            match s with
+            | Nop 				 -> d, false
+            | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack   
+            | Set (dst, src) 		 -> D.set dst src d
+            | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
+            | Directive (Forget r) 		 -> D.forget_lval (V r) d, false
+            | Directive (Unroll (e, bs)) ->
+               begin
+                 try
+                   let f () = min ((Z.to_int (D.value_of_exp d e)) + 1) bs in
+                   unroll_wrapper f
+                 with _ -> ()
+               end;
+              d, false
+                 
+            | Directive (Default_unroll) ->
+               L.analysis (fun p -> p "set unroll parameter to its default value");
+              unroll_nb := None;
+              d, false
 
-	| Asm.Directive (Asm.Unroll_until (addr, cmp, terminator, upper_bound, sz)) ->
-	   begin
-	     try
-	       let f () =
-		 D.get_offset_from addr cmp terminator upper_bound sz d
-	       in
-	       unroll_wrapper f;
-	     with _ -> ()
-	   end;
-	   d, false
-	    
-	| Directive (Taint (e, lv)) 	 ->
-	   begin
-	     let cond =
-	       match e with
-	       | None -> true
-	       | Some c -> D.is_tainted c d  
-	     in
-	     match lv with
-	     | V (T r) ->
-	       let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
-	       if cond then
-		 D.taint_register_mask r mask d, true
-	       else
-		 d, false
-	     | M (_, 8) ->
-		if cond then
-		  try
-		    match Data.Address.Set.elements (fst (D.mem_to_addresses d (Lval lv))) with
-		    | [a] -> D.taint_address_mask a (Config.Taint (Z.of_int 0xff)) d, true
-		    | _ -> raise Exit 
-		  with _ -> L.analysis (fun p -> p "Tainting directive ignored"); d, false
-		else
-		  d, false
-	     | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
-	   end
-	| Directive (Type (lv, t)) -> D.set_type lv t d, false
-	| Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
-	   (* fun_stack := List.tl !fun_stack; *)
-        | _ 				 -> raise Jmp_exn
+            | Asm.Directive (Asm.Unroll_until (addr, cmp, terminator, upper_bound, sz)) ->
+               begin
+                 try
+                   let f () =
+                     D.get_offset_from addr cmp terminator upper_bound sz d
+                   in
+                   unroll_wrapper f;
+                 with _ -> ()
+               end;
+               d, false
+                
+            | Directive (Taint (e, lv)) 	 ->
+               begin
+                 let cond =
+                   match e with
+                   | None -> true
+                   | Some c -> D.is_tainted c d  
+                 in
+                 match lv with
+                 | V (T r) ->
+                   let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
+                   if cond then
+                     D.taint_register_mask r mask d, true
+                   else
+                     d, false
+                 | M (_, 8) ->
+                    if cond then
+                      try
+                        match Data.Address.Set.elements (fst (D.mem_to_addresses d (Lval lv))) with
+                        | [a] -> D.taint_address_mask a (Config.Taint (Z.of_int 0xff)) d, true
+                        | _ -> raise Exit 
+                      with _ -> L.analysis (fun p -> p "Tainting directive ignored"); d, false
+                    else
+                      d, false
+                 | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
+               end
+            | Directive (Type (lv, t)) -> D.set_type lv t d, false
+            | Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
+               (* fun_stack := List.tl !fun_stack; *)
+            | _ 				 -> raise Jmp_exn
+          in L.debug (fun p -> p "process_value returns taint : %B"  tainted); res, tainted
 						     
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
       if has_jmp then_stmts || has_jmp else_stmts then
@@ -452,12 +454,16 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * bool) =
         match stmts with
         | s::stmts ->
-	   begin
+           L.debug (fun p->p "process_list statements:\n, %s" (Asm.string_of_stmt s true));
+	   let new_vert, tainted = begin
 	     try
                let (new_vertices: Cfa.State.t list), (b: bool) = process_vertices vertices s in
                let vert, b' = process_list new_vertices stmts in vert, (b||b')
 	     with Exceptions.Bot_deref -> [], false (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
 	   end
+           in 
+           L.debug (fun p->p "process_list returns tainted: %B" tainted);
+           new_vert, tainted
         | []       -> vertices, false
       in
       let vstart = copy v v.Cfa.State.v None true
@@ -467,6 +473,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let vertices, b = process_list [vstart] v.Cfa.State.stmts in
       if b then
 	begin
+          L.debug (fun p->p "FUFU taint : true");
 	  v.Cfa.State.is_tainted <- true;
 	  List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.is_tainted <- true) !fun_stack
 	end;
@@ -681,6 +688,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	in
 	let d' = D.meet pred.Cfa.State.v d' in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
+        L.debug (fun p->p "taint : back lol %B" is_tainted);
 	pred.Cfa.State.is_tainted <- is_tainted;
 	[pred]
       in
@@ -760,6 +768,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 				 let d', b' = forward_process d s (succ.Cfa.State.branch) in
 				 d', b||b') (v.Cfa.State.v, false) (succ.Cfa.State.stmts)
        in
+        L.debug (fun p->p "forward_abstract_value taint : %B" is_tainted);
       	succ.Cfa.State.v <- D.meet succ.Cfa.State.v d';
 	succ.Cfa.State.is_tainted <- is_tainted;
 	[succ]

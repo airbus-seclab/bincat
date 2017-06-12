@@ -44,12 +44,14 @@ let xor (v1, t1) (v2, t2) = B.xor v1 v2, T.logor t1 t2
 
 let core_sub_add op (v1, t1) (v2, t2) =
   let res, carry = op v1 v2  in
-  let tres    = T.logor t1 t2  in
-  if carry <> B.ZERO then
-    (* overflow is propagated to tainting *)
-    (res, tres), Some (carry, tres)
-  else
-    (res, tres), None
+  let res_taint      = T.logor t1 t2  in
+  let res_carry =
+    match carry,res_taint with
+    | B.ZERO, _   -> None
+    | B.ONE, t    -> Some (B.ONE, t)
+    | B.TOP, T.U  -> Some (B.TOP, T.U)
+    | B.TOP, _    -> Some (B.TOP, T.TOP) in
+    (res, res_taint), res_carry
 
 let add (v1, t1) (v2, t2) = core_sub_add B.add (v1, t1) (v2, t2)
 

@@ -158,6 +158,9 @@ sig
     (** top on sz bit-width *)
     val top: int -> t
 
+    (** returns length *)
+    val size: t -> int
+
     (** forgets the content while preserving the taint *)
     val forget: t -> (int * int) option -> t
     (** the forget operation is bounded to bits from l to u if the second parameter is Some (l, u) *)
@@ -299,6 +302,7 @@ module Make(V: Val) =
 	      Char.chr !c
 	    end
 
+    let size v = Array.length v
 
     let to_z v = v_to_z V.to_z v 
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
@@ -431,7 +435,11 @@ module Make(V: Val) =
 
         let sub v1 v2 = core_add_sub V.sub v1 v2
 
-        let xor v1 v2 = map2 V.xor v1 v2
+        let xor v1 v2 =
+	  let res = map2 V.xor v1 v2 in
+	  L.debug (fun p -> p "xor(%s, %s) = %s"
+	    (to_string v1) (to_string v2) (to_string res));
+	  res
 
 	let lognot v = Array.map V.lognot v
 
@@ -751,28 +759,28 @@ module Make(V: Val) =
         (** copy bits from v2 to bits from low to up of v1,
          *  vectors can be of different sizes *)
         let combine v1 v2 low up =
-	  if low = Array.length v1 then concat v1 v2
+	  L.debug (fun p -> p "combine(%s(%d)[%d:%d] <- %s(%d))"
+	    (to_string v1) (Array.length v1)  low up (to_string v2) (Array.length v2));
+        let sz2 = Array.length v2 in
+	if sz2 <> up-low+1 then
+	  L.abort (fun p -> p "combine: source is %d bits while it is supposed to fit into %d bits (from bit %i to %i)"
+	    sz2 (up-low+1) low up)
+	else
+	  if low > up then L.abort (fun p -> p "combine : low=%i > up=%i" low up)
 	  else
-            if low > up || (up-low+1) > (Array.length v2) then
-              L.abort (fun p -> p "combine : low=%i > up=%i or length(src)=%i < up-low+1=%i"
-		low up (Array.length v2) (up-low+1)
-	      )
+            let sz1 = Array.length v1 in
+            if up >= sz1 then
+              L.abort (fun p -> p "combine : writing out of v1: up=%i >= length(v1)=%i" up sz1)
             else
-                let sz1 = Array.length v1 in
-                let sz2 = Array.length v2 in
-                if low >= sz1 || up >= sz1 || up-low+1 > sz2 then
-                  L.abort (fun p -> p "combine : low=%i or up=%i > length(v1)=%i or up-low+1=%i > length(v2)=%i"
-		    low up sz1 (up-low+1) sz2)
-                else
-		  begin
-		    let v = Array.copy v1 in
-		    let j = ref 0 in
-		    for i = (sz1-1-up) to (sz1-1-low) do
-		      v.(i) <- v2.(!j);
-		      j := !j+1;
-		    done;
-                    v
-		  end
+	      begin
+		let v = Array.copy v1 in
+		let j = ref 0 in
+		for i = (sz1-1-up) to (sz1-1-low) do
+		  v.(i) <- v2.(!j);
+		  j := !j+1;
+		done;
+                v
+	      end
 
         let extract v low up =
             L.debug (fun p -> p "extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v));

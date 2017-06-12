@@ -80,6 +80,12 @@
 	let kname, sname, _ = Hashtbl.find mandatory_keys key in
 	Hashtbl.replace mandatory_keys key (kname, sname, true);;
 
+      (** check that the version matches the one we support *)
+      let check_ini_version input_version =
+	let supported_version = 1 in
+	if input_version != supported_version then
+	  L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
+
       (** footer function *)
       let check_context () =
 	(* check whether all mandatory items are provided *)
@@ -126,7 +132,7 @@
 	%}
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
-%token ANALYZER UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
+%token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON
@@ -134,6 +140,7 @@
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL
 %token <string> STRING 
 %token <string> HEX_BYTES
+%token <string> QUOTED_STRING
 %token <Z.t> INT
 %start <unit> process
 %%
@@ -215,7 +222,7 @@
     | i=import l=imports  { i ; l }
 
       import:
-    | a=INT EQUAL libname=STRING COMMA fname=STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
+    | a=INT EQUAL libname=STRING COMMA fname=QUOTED_STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
     | HEADER EQUAL npk_list=npk { npk_headers := npk_list }    
 
       npk:
@@ -298,6 +305,7 @@
     | a=analyzer_item aa=analyzer { a; aa }
 
       analyzer_item:
+    | INI_VERSION EQUAL i=INT 	     { check_ini_version (Z.to_int i) }
     | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT 	     { Config.fun_unroll := Z.to_int i }
     | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }

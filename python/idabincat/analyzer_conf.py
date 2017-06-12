@@ -391,6 +391,7 @@ class AnalyzerConfig(object):
         config.set('settings', 'op_sz',
                    ConfigHelpers.get_bitness(code_start_va))
         config.set('settings', 'stack_width', ConfigHelpers.get_stack_width())
+        config.set('settings', 'ini_version', 1)
 
         # [loader section]
         config.add_section('loader')
@@ -449,9 +450,9 @@ class AnalyzerConfig(object):
         config.add_section('imports')
         for ea, imp in imports.iteritems():
             if imp[0]:
-                name = "%s, %s" % imp
+                name = "%s, \"%s\"" % imp
             else:
-                name = "all,%s" % imp[1]
+                name = "all,\"%s\"" % imp[1]
             config.set('imports', ("0x%x" % ea), name)
         # list all files in config_path/lib/*.{c,no}.
         # for each lib (same base filename) keep .no if it exists, else .c

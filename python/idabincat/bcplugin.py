@@ -150,7 +150,7 @@ class Analyzer(object):
         self.path = path
         self.finish_cb = finish_cb
 
-    def generate_tnpk(self, fname=None):
+    def generate_tnpk(self, fname=None, destfname=None):
         """
         Generates TNPK file for provided fname. If None, generate one for the
         binary that is currently being analyzed in IDA, using IDA-provided
@@ -196,13 +196,14 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         self.started.connect(self.procanalyzer_on_start)
         self.finished.connect(self.procanalyzer_on_finish)
 
-    def generate_tnpk(self, fname=None):
+    def generate_tnpk(self, fname=None, destfname=None):
         if fname:
             imports_data = open(fname, 'rb').read()
         else:
             imports_data = ""
         try:
-            npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(imports_data)
+            npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(
+                imports_data=imports_data, destfname=destfname)
             return npk_fname
         except idabincat.npkgen.NpkGenException as e:
             return
@@ -287,10 +288,10 @@ class WebAnalyzer(Analyzer):
             raise AnalyzerUnavailable(
                 "API mismatch: this plugin supports version %s, while server "
                 "supports version %s." % (WebAnalyzer.API_VERSION,
-                                         srv_api_version))
+                                          srv_api_version))
         return True
 
-    def generate_tnpk(self, fname=None):
+    def generate_tnpk(self, fname=None, destfname=None):
         if not self.reachable_server:
             return
         if not fname:
@@ -323,8 +324,6 @@ class WebAnalyzer(Analyzer):
             bc_log.error("python module 'requests' could not be imported, "
                          "so remote BinCAT cannot be used.")
             return
-        # Check server version
-
         # create temporary AnalyzerConfig to replace referenced file names with
         # sha256 of their contents
         with open(self.initfname, 'rb') as f:
@@ -355,6 +354,9 @@ class WebAnalyzer(Analyzer):
         if os.path.exists(self.cfainfname):
             cfa_sha256 = self.sha256_digest(self.cfainfname)
             temp_config.in_marshalled_cfa_file = cfa_sha256
+        else:
+            temp_config.in_marshalled_cfa_file = "no-input-file"
+        temp_config.out_marshalled_cfa_file = "cfaout.marshal"
         # write patched config file
         init_ini_str = str(temp_config)
         # --- Run analysis
@@ -579,8 +581,9 @@ class State(object):
 
     def set_current_node(self, node_id):
         if self.cfa:
-            if self.cfa[node_id]:
-                self.set_current_ea(self.current_state.address.value,
+            state = self.cfa[node_id]
+            if state:
+                self.set_current_ea(state.address.value,
                                     force=True, node_id=node_id)
 
     def set_current_ea(self, ea, force=False, node_id=None):
@@ -654,9 +657,6 @@ class State(object):
 
         # Update overrides
         self.current_config.update_overrides(self.overrides)
-        # Set correct file names
-        self.current_config.set_cfa_options('true', self.analyzer.cfainfname,
-                                            self.analyzer.cfaoutfname)
         analysis_method = self.current_config.analysis_method
         if analysis_method in ("forward_cfa", "backward"):
             if self.last_cfaout_marshal is None:
@@ -665,39 +665,66 @@ class State(object):
                 return
             with open(self.analyzer.cfainfname, 'wb') as f:
                 f.write(self.last_cfaout_marshal)
-        bc_log.debug("Generating .npk file...")
+        # Set correct file names
+        # Note: bincat_native expects a filename for in_marshalled_cfa_file -
+        # may not exist if analysis mode is forward_binary
+        self.current_config.set_cfa_options('true', self.analyzer.cfainfname,
+                                            self.analyzer.cfaoutfname)
+        bc_log.debug("Generating .no files...")
 
         headers_filenames = self.current_config.headers_files.split(',')
         # compile .c files for libs, if there are any
-        bc_log.debug("Initial npk files: %r" % headers_filenames)
+        bc_log.debug("Initial header files: %r", headers_filenames)
         new_headers_filenames = []
         for f in headers_filenames:
+            f = f.strip()
             if not f:
                 continue
             if f.endswith('.c'):
+                # generate .npk from .c file
+                if not os.path.isfile(f):
+                    bc_log.warning(
+                        "header file %s could not be found, continuing", f)
+                    continue
                 new_npk_fname = f[:-2] + '.no'
                 headers_filenames.remove(f)
                 if not os.path.isfile(new_npk_fname):
                     # compile
-                    temp_npk_fname = self.analyzer.generate_tnpk(f)
-                    shutil.copyfile(temp_npk_fname, new_npk_fname)
+                    self.analyzer.generate_tnpk(fname=f,
+                                                destfname=new_npk_fname)
+                    if not os.path.isfile(new_npk_fname):
+                        bc_log.warning(
+                            ".no file containing type data for the headers "
+                            "file %s could not be generated, continuing", f)
+                        continue
                     f = new_npk_fname
             # Relative paths are copied
-            elif f.endswith('.no') and f[0] != os.path.sep:
-                temp_npk_fname = os.path.join(path, os.path.basename(f))
-                shutil.copyfile(f, temp_npk_fname)
-                f = temp_npk_fname
+            elif f.endswith('.no'):
+                if f[0] != os.path.sep:
+                    temp_npk_fname = os.path.join(path, os.path.basename(f))
+                    shutil.copyfile(f, temp_npk_fname)
+                    f = temp_npk_fname
+            else:
+                bc_log.warning(
+                    "Header file %s does not match expected extensions "
+                    "(.c, .no), ignoring.", f)
+                continue
 
             new_headers_filenames.append(f)
         headers_filenames = new_headers_filenames
-        # try to generate npk file for the binary being analyzed
-        npk_filename = self.analyzer.generate_tnpk()
-        if not npk_filename:
-            bc_log.debug(".npk file could not be generated, continuing.")
-        else:
-            bc_log.debug(".npk file has been successfully generated.")
-            headers_filenames.append(npk_filename)
-        bc_log.debug("Final npk files: %r" % headers_filenames)
+        # generate npk file for the binary being analyzed (unless it has
+        # already been generated)
+        if not any(
+                [s.endswith('pre-processed.no') for s in headers_filenames]):
+            npk_filename = self.analyzer.generate_tnpk()
+            if not npk_filename:
+                bc_log.warning(
+                    ".no file containing type data for the file being "
+                    "analyzed could not be generated, continuing. The "
+                    "ida-generated header could be invalid.")
+            else:
+                headers_filenames.append(npk_filename)
+            bc_log.debug("Final npk files: %r" % headers_filenames)
         self.current_config.headers_files = ','.join(headers_filenames)
 
         self.current_config.write(self.analyzer.initfname)

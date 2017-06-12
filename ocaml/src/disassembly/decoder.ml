@@ -487,9 +487,9 @@ struct
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
-    let exp_of_md s md rm sz =
+    let exp_of_md s md rm sz mem_sz =
         match md with
-        | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), sz)
+        | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), mem_sz)
         | 3 ->
             (* special case for ah ch dh bh *)
             if sz = 8 && rm >= 4 then
@@ -498,7 +498,7 @@ struct
                 V (find_reg rm sz)
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
-    let operands_from_mod_reg_rm_core s sz dst_sz =
+    let operands_from_mod_reg_rm_core s sz ?(mem_sz=sz) dst_sz  =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
         let reg_v =
@@ -506,7 +506,7 @@ struct
                 V (get_h_slice (reg-4))
             else
                 find_reg_v reg dst_sz in
-        let rm' = exp_of_md s md rm sz in
+        let rm' = exp_of_md s md rm sz mem_sz in
 	reg_v, rm'
 	  
     let operands_from_mod_reg_rm s sz ?(dst_sz = sz) direction =
@@ -1309,30 +1309,29 @@ struct
         let max_int_z = (Z.sub min_int_z Z.one) in
         let max_int_const = (Const (Word.of_int max_int_z (sz*2))) in
 
-        let eax_r = (to_reg eax sz) in
-	let eax_lv = Lval( V (eax_r)) in
-	let eax_ext = UnOp(ZeroExt (2*sz), eax_lv) in
-	let edx_r = (to_reg edx sz) in
-	let edx_lv = Lval( V (edx_r)) in
-	let edx_ext = UnOp(ZeroExt (2*sz), edx_lv) in
+	let remainder_r = if sz = 8 then (P (eax, 8, 15)) else (to_reg edx sz) in
+        let divisor = if sz = 8
+          then Lval (V (to_reg eax 16))
+          else let eax_ext = UnOp(ZeroExt (sz*2), Lval (V (to_reg eax sz))) in
+               let edx_ext = UnOp(ZeroExt (sz*2), Lval (V (to_reg edx sz))) in
+               BinOp(Or, BinOp(Shl, edx_ext, const sz (2*sz)), eax_ext) in
+        let quotient = to_reg eax sz in
 
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let tmp_div   = Register.make ~name:(Register.fresh_name()) ~size:(sz*2) in
         let op_div,op_mod = if signed then Div,Mod else IDiv,IMod in
 
-        (* tmp <- (E)AX:(E)DX *)
-        (* TODO : fix for 8 bits *)
-        let set_tmp = Set (V (T tmp), BinOp(Or, BinOp(Shl, edx_ext, const sz sz), eax_ext)) in
-            [ set_tmp; Set (V(T tmp_div), BinOp(op_div, Lval (V (T tmp)), reg));
-              Assert (
-                BBinOp(LogOr,
-                      Cmp(GT, Lval( V (T tmp_div)), max_int_const),
-                      Cmp(LT, Lval( V (T tmp_div)), min_int_const)),
-                "Divide error");
-              (* compute remainder *)
-              Set (V(edx_r), BinOp(op_mod, Lval(V(T tmp)), reg));
-              Set (V(eax_r), Lval (V (P (tmp_div, 0, sz-1))));
-              Directive (Remove tmp); Directive (Remove tmp_div) ]
+        [ Assert (BBinOp(LogOr,
+                         Cmp(GT, Lval( V (T tmp_div)), max_int_const),
+                         Cmp(LT, Lval( V (T tmp_div)), min_int_const)),
+                  "Divide error");
+          Set (V (T tmp), divisor);
+          Set (V (T tmp_div), BinOp(op_div, Lval (V (T tmp)), reg));
+          (* compute remainder *)
+          Set (V remainder_r, BinOp(op_mod, Lval(V(T tmp)), reg));
+          Set (V quotient, Lval (V (P (tmp_div, 0, sz-1))));
+          Directive (Remove tmp);
+          Directive (Remove tmp_div) ]
 
 
     (*****************************************************************************************)
@@ -1341,7 +1340,7 @@ struct
 
     let core_grp s sz =
         let md, nnn, rm = mod_nnn_rm (Char.code (getchar s)) in
-        let dst 	= exp_of_md s md rm sz		     in
+        let dst 	= exp_of_md s md rm sz sz	     in
         nnn, dst
 
     let grp1 s reg_sz imm_sz =
@@ -1600,7 +1599,8 @@ struct
 
     let rotate_l_carry_stmt dst sz count = (* rcr *)
       let zero = Const (Word.zero 8) in
-      let one = Const (Word.one 8) in
+      let one8 = Const (Word.one 8) in
+      let onesz = Const (Word.one sz) in
       let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
       (* add 1 to operand size to take in account the carry *)
@@ -1608,9 +1608,9 @@ struct
       let count_masked = BinOp(And, count, word_1f) in
       let count_mod = BinOp(Mod, count_masked , sz8p1) in
       let inv_count_mod = BinOp(Sub, sz8p1, count_mod) in
-      let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one) in
+      let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one8) in
       (* count_mod == 0 will be cut later on, so we can compute count_mod-1 *)
-      let count_mod_m1 = BinOp(Sub, count_mod, one) in
+      let count_mod_m1 = BinOp(Sub, count_mod, one8) in
       (* sz bit temporary register to hold original carry *)
       let old_cf_reg = Register.make ~name:(Register.fresh_name ()) ~size:sz in
       let old_cf = V (T old_cf_reg) in
@@ -1621,24 +1621,29 @@ struct
       let shifted_cf = BinOp(Shl, Lval old_cf, count_mod_m1) in
       let res = BinOp(Or, BinOp(Or, high, low), shifted_cf) in
       let msb = BinOp(Shr, (Lval dst), (const (sz-1) sz)) in
-      let new_cf_val = BinOp(Shr, Lval dst, inv_count_mod_m1) in
+      let new_cf_val = TernOp(Cmp(EQ, BinOp(And, BinOp(Shr, Lval dst, inv_count_mod_m1), onesz), onesz),
+                              const 1 1, const 0 1) in
       let cf_stmt = Set (V (T fcf), new_cf_val) in
       (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
-      let of_stmt = If (Cmp (EQ, count_masked, one),
-			[Set (V (T fof), BinOp(Xor, (Lval (V (T fcf))), msb))],
+      let of_stmt = If (Cmp (EQ, count_masked, one8),
+			[Set (V (T fof), TernOp(
+                          Cmp(EQ, BinOp(Xor, UnOp(ZeroExt sz, (Lval (V (T fcf)))), msb), const 1 sz),
+                          const 1 1,
+                          const 0 1))],
 			[undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
       let stmts =  [
         Set(old_cf, Const (Word.zero sz)) ;
         Set(old_cf_lsb, Lval (V (T fcf))) ;
-        cf_stmt ; of_stmt ; Set (dst, res) ;
+        cf_stmt ; Set (dst, res) ; of_stmt ;
         Directive (Remove old_cf_reg )] in
       [ If (Cmp(EQ, count_mod, zero), [], stmts)]
 
 
     let rotate_r_carry_stmt dst sz count = (* rcr *)
       let zero = Const (Word.zero 8) in
-      let one = Const (Word.one 8) in
+      let one8 = Const (Word.one 8) in
+      let onesz = Const (Word.one sz) in
       let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
       (* add 1 to operand size to take in account the carry *)
@@ -1647,9 +1652,9 @@ struct
       let count_masked = BinOp(And, count, word_1f) in
       let count_mod = BinOp(Mod, count_masked , sz8p1) in
       let inv_count_mod = BinOp(Sub, sz8p1, count_mod) in
-      let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one) in
+      let inv_count_mod_m1 = BinOp(Sub, inv_count_mod, one8) in
       (* count_mod == 0 will be cut later on, so we can compute count_mod-1 *)
-      let count_mod_m1 = BinOp(Sub, count_mod, one) in
+      let count_mod_m1 = BinOp(Sub, count_mod, one8) in
       (* sz bit temporary register to hold original carry *)
       let old_cf_reg = Register.make ~name:(Register.fresh_name ()) ~size:sz in
       let old_cf = V (T old_cf_reg) in
@@ -1659,10 +1664,11 @@ struct
       let low = BinOp (Shr, Lval dst,  count_mod) in
       let shifted_cf = BinOp(Shl, Lval old_cf, inv_count_mod_m1) in
       let src = BinOp(Or, BinOp(Or, high, low), shifted_cf) in
-      let new_cf_val = BinOp(Shr, Lval dst, count_mod_m1) in
+      let new_cf_val = TernOp(Cmp(EQ, BinOp(And, BinOp(Shr, Lval dst, count_mod_m1), onesz), onesz),
+                              const 1 1, const 0 1) in
       let cf_stmt = Set (V (T fcf), new_cf_val) in
       (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
-      let of_stmt = If (Cmp (EQ, count_masked, one),
+      let of_stmt = If (Cmp (EQ, count_masked, one8),
 			[Set (V (T fof), BinOp(Xor, Lval old_cf, BinOp(Shr, Lval dst, sz8m1)))],
 			[undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
@@ -1947,7 +1953,7 @@ struct
     let setcc s cond =
         let e = exp_of_cond cond s in
         let md, _, rm = mod_nnn_rm (Char.code (getchar s)) in
-        let dst = exp_of_md s md rm 8 in
+        let dst = exp_of_md s md rm 8 8 in
         return s [If (e, [Set (dst, Const (Word.one 8))], [Set (dst, Const (Word.zero 8))])]
 
     let xchg s arg1 arg2 sz =
@@ -1982,7 +1988,7 @@ struct
 
     let cmpxchg8b_mrm s  =
       let sz = s.operand_sz in
-      let _reg,rm = operands_from_mod_reg_rm_core s (sz*2) sz in
+      let _reg,rm = operands_from_mod_reg_rm_core s sz ~mem_sz:(sz*2) sz in
       let tmp64   = Register.make ~name:(Register.fresh_name()) ~size:(2*sz) in
       let stmts = [
 	Set( V (T tmp64), BinOp(Or,

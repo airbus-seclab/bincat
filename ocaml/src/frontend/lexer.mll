@@ -64,6 +64,8 @@ rule token = parse
   | '_'                     { UNDERSCORE }
   (* byte string *)
   | '|'         	    { read_bytes (Buffer.create 80) lexbuf }
+  (* quoted string *)
+  | '"'         	    { read_string (Buffer.create 80) lexbuf }
   | '@'         	    { AT }
   (* end of file *)
   | eof         	    { EOF }
@@ -100,6 +102,7 @@ rule token = parse
   | "stdcall"   	    { STDCALL }
   | "fastcall"  	    { FASTCALL }
   (* analyzer tokens *)
+  | "ini_version"    	    { INI_VERSION }
   | "unroll"    	    { UNROLL }
   | "function_unroll"       { FUN_UNROLL }
   | "cut"                   { CUT }
@@ -158,6 +161,16 @@ rule token = parse
 and comment = parse
   | ['\n' '\r']   { new_line lexbuf; token lexbuf }
   | [^ '\n' '\r'] { comment lexbuf }
+
+(* read quoted string *)
+and read_string buf =
+  parse
+  | '"'       { QUOTED_STRING (Buffer.contents buf) }
+  | _
+        { Buffer.add_string buf (Lexing.lexeme lexbuf);
+          read_string buf lexbuf
+        }
+  | eof { raise (SyntaxError ("Byte string is not terminated")) }
 
 (* read bytes spec : |[0-9A-F]+| *)
 and read_bytes buf =

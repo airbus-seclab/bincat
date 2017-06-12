@@ -6,13 +6,10 @@ RUN mkdir /install
 WORKDIR /install
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
-        dpkg-dev debhelper pkg-config quilt autotools-dev \
-        binutils-dev libiberty-dev libncurses5-dev \
-        libx11-dev zlib1g-dev dh-ocaml make ed \
-        python python-pip python-setuptools python-dev python-pytest \
+        make python python-pip python-setuptools python-dev python-pytest \
         vim nasm libc6-dev-i386 gcc-multilib \
         ocaml menhir ocaml-findlib libzarith-ocaml-dev \
-        libocamlgraph-ocaml-dev wget
+        libocamlgraph-ocaml-dev wget git
 
 # Install a later version of firejail for it to be able to report exit codes correctly
 RUN wget http://fr.archive.ubuntu.com/ubuntu/pool/universe/f/firejail/firejail_0.9.44.8-1_amd64.deb ; dpkg -i firejail*deb; rm firejail*deb
@@ -27,7 +24,8 @@ RUN mkdir -p /tmp/bincat_web
 # * the contents of the bincat repository
 # * a c2newspeak/ subdirectory containing the c2newspeak repository
 ADD . BinCAT
-RUN cd BinCAT/c2newspeak && make && make install && ln -s /install/BinCAT/c2newspeak/bin/c2newspeak /bin/c2newspeak
+RUN git clone --depth 1 https://github.com/airbus-seclab/c2newspeak/
+RUN cd c2newspeak && make && make install && ln -s /install/c2newspeak/bin/c2newspeak /bin/c2newspeak
 RUN cd BinCAT && make && make install
 WORKDIR /
 ENV FLASK_APP webbincat.wsgi
