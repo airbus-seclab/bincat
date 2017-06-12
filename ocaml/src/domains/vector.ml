@@ -159,7 +159,8 @@ sig
     val top: int -> t
 
     (** forgets the content while preserving the taint *)
-    val forget: t -> t
+    val forget: t -> (int * int) option -> t
+    (** the forget operation is bounded to bits from l to u if the second parameter is Some (l, u) *)
 
     (** returns true whenever at least one bit may be tainted *)
     val is_tainted: t -> bool
@@ -736,9 +737,16 @@ module Make(V: Val) =
               done;
               v
 
-	let forget v =
+	let forget v opt =
 	  let v' = Array.copy v in
-	  Array.map V.forget v'
+	  match opt with
+	  | Some (l, u) ->
+	     let n = Array.length v' in
+	     for i = l to u do
+	       v'.(n-i) <- V.forget v'.(n-i)
+	     done;
+	     v'
+	  | None -> Array.map V.forget v'
 	  
         (** copy bits from v2 to bits from low to up of v1,
          *  vectors can be of different sizes *)
