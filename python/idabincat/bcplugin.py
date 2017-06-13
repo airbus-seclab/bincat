@@ -652,6 +652,7 @@ class State(object):
             self.analyzer = self.new_analyzer(path, self.analysis_finish_cb)
         except AnalyzerUnavailable as e:
             bc_log.error("Analyzer is unavailable", exc_info=True)
+            return
 
         bc_log.debug("Current analyzer path: %s", path)
 
