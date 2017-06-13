@@ -58,7 +58,7 @@ let close () =
          Printf.fprintf !logfid "[STOP] stopped on %s\n" (Data.Address.to_string adrs)
   end;
   close_out !logfid
-  
+
 module Make(Modname: sig val name : string end) = struct
   let modname = Modname.name
   let _loglvl = ref None
