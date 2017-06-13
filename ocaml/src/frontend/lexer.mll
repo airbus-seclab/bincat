@@ -107,7 +107,6 @@ rule token = parse
   | "function_unroll"       { FUN_UNROLL }
   | "cut"                   { CUT }
   | "loglevel"              { LOGLEVEL }
-  | "dotfile"               { DOTFILE }
   | "store_marshalled_cfa"  { STORE_MCFA }
   | "in_marshalled_cfa_file"   { IN_MCFA_FILE }
   | "out_marshalled_cfa_file"   { OUT_MCFA_FILE }

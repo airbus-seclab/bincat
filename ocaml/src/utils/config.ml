@@ -26,8 +26,6 @@ let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
 
-let dotfile = ref "";;
-
 type memory_model_t =
   | Flat
   | Segmented

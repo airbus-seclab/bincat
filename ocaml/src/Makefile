@@ -22,7 +22,7 @@ domains/pointer.ml\
 domains/reduced_bit_tainting.ml\
 domains/reduced_unrel_typenv.ml\
 disassembly/cfa.ml\
-disassembly/decoder.ml\
+disassembly/x86.ml\
 fixpoint/stubs.ml\
 fixpoint/interpreter.ml\
 main.ml
@@ -32,6 +32,8 @@ data-struct/register.mli\
 utils/mapOpt.mli\
 data-struct/data.mli\
 domains/domain.mli\
+disassembly/cfa.mli\
+disassembly/decoder.mli\
 fixpoint/stubs.mli\
 
 LIBNAME=libbincat.so
