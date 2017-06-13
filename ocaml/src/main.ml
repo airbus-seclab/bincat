@@ -69,7 +69,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   close_in cin;
   
   (* defining the dump function to provide to the fixpoint engine *)
-  let dump cfa = Interpreter.Cfa.print resultfile !Config.dotfile cfa in
+  let dump cfa = Interpreter.Cfa.print resultfile cfa in
   
     (* internal function to launch backward/forward analysis from a previous CFA and config *)
     let from_cfa fixpoint =
@@ -94,9 +94,9 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
           let code = Code.make !Config.text !Config.rva_code !Config.ep		        in
           (* 7: generate the nitial cfa with only an initial state *)
           let ep' 	= Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-          let s  	= Interpreter.Cfa.init ep'					        in
+          let s  	= Interpreter.Cfa.init_state ep'					        in
           let g 	= Interpreter.Cfa.create ()					        in
-          Interpreter.Cfa.add_vertex g s;
+          Interpreter.Cfa.add_state g s;
           let cfa =
               Interpreter.forward_bin code g s dump
           in

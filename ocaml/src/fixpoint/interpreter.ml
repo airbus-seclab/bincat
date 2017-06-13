@@ -19,59 +19,14 @@
 (** Fixpoint iterator *)
 
 module L = Log.Make(struct let name = "interpreter" end)
-
-(** external signature of the module *)
-module type T =
-  sig
-    type domain
-    module Cfa:
-    sig
-      type t
-      module State:
-      sig
-	(** data type for the decoding context *)
-	  type ctx_t = {
-	      addr_sz: int; (** size in bits of the addresses *)
-	      op_sz  : int; (** size in bits of operands *)
-	    }
-
-	  (** abstract data type of a state *)
-	  type t = {
-	      id: int; 	     		    (** unique identificator of the state *)
-	      mutable ip: Data.Address.t;   (** instruction pointer *)
-	      mutable v: domain; 	    (** abstract value *)
-	      mutable ctx: ctx_t ; 	    (** context of decoding *)
-	      mutable stmts: Asm.stmt list; (** list of statements of the successor state *)
-	      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
-	      mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
-	      mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
-	      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
-	      mutable bytes: char list;      (** corresponding list of bytes *)
-	    mutable is_tainted: bool; (** true whenever a source left value is the stmt list (field stmts) may be tainted *)
-	    }
-      end
-      val init: Data.Address.t -> State.t
-      val create: unit -> t
-      val add_vertex: t -> State.t -> unit
-      val print: string -> string -> t -> unit
-      val unmarshal: string -> t
-      val marshal: string -> t -> unit
-      val init_abstract_value: unit -> domain
-      val last_addr: t -> Data.Address.t -> State.t
-    end
-    val forward_bin: Code.t -> Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
-    val forward_cfa: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t 
-    val backward: Cfa.t -> Cfa.State.t -> (Cfa.t -> unit) -> Cfa.t
-    val interleave_from_cfa: Cfa.t -> (Cfa.t -> unit) -> Cfa.t
-  end
-    
-module Make(D: Domain.T): (T with type domain = D.t) =
+ 
+module Make(D: Domain.T) =
   struct
 
     type domain = D.t
 
     (** Decoder *)
-    module Decoder = Decoder.Make(D)
+    module Decoder = X86.Make(D)
 				 
     (** Control Flow Automaton *)
     module Cfa = Decoder.Cfa 
@@ -129,7 +84,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       process e b
 
 	      		   
-    (** widen the given vertex with all previous vertices that have the same ip as v *)
+    (** widen the given state with all previous vertices that have the same ip as v *)
     let widen prev v =
       let join_v = D.join prev v.Cfa.State.v in
       v.Cfa.State.final <- true;
@@ -385,9 +340,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         v'.Cfa.State.v <- d;
 	v'.Cfa.State.branch <- branch;
         if is_pred then
-          Cfa.add_edge g v v'
+          Cfa.add_successor g v v'
         else
-          Cfa.add_edge g (Cfa.pred g v) v';
+          Cfa.add_successor g (Cfa.pred g v) v';
         v'
       in
       
@@ -481,7 +436,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
     let filter_vertices (subsuming: bool) g vertices =
-      (* predicate to check whether a new vertex has to be explored or not *)
+      (* predicate to check whether a new state has to be explored or not *)
       let same prev v' =
         Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip &&
           prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
@@ -501,7 +456,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             else
               (* explore if a greater abstract state of v has already been explored *)
               if subsuming then
-		Cfa.iter_vertex (fun prev ->
+		Cfa.iter_state (fun prev ->
                   if v.Cfa.State.id = prev.Cfa.State.id then
                     ()
                   else
@@ -518,7 +473,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       method value_of_register r = D.value_of_register s r
     end
       
-    (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial vertex s. 
+    (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial state s. 
      g is the initial CFA reduced to the singleton s *) 
     let forward_bin (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
       let module Vertices = Set.Make(Cfa.State) in
@@ -592,7 +547,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
           try
             (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
             let text'        = Code.sub code v.Cfa.State.ip						         in
-            (* the corresponding instruction is decoded and the successor vertex of v are computed and added to    *)
+            (* the corresponding instruction is decoded and the successor state of v are computed and added to    *)
             (* the CFA                                                                                             *)
             (* except the abstract value field which is set to v.Cfa.State.value. The right value will be          *)
             (* computed next step                                                                                  *)
@@ -701,10 +656,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  v.Cfa.State.final <- false;
 	  let new_pred = Cfa.copy_state g v in
 	  new_pred.Cfa.State.back_loop <- true;
-	  Cfa.remove_edge g pred v;
-	  Cfa.add_vertex g new_pred;
-	  Cfa.add_edge g pred new_pred;
-	  Cfa.add_edge g new_pred v;
+	  Cfa.remove_successor g pred v;
+	  Cfa.add_state g new_pred;
+	  Cfa.add_successor g pred new_pred;
+	  Cfa.add_successor g new_pred v;
 	  new_pred
 	end
       else
@@ -719,10 +674,10 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	  v.Cfa.State.final <- false;
 	  let new_succ = Cfa.copy_state g v in
 	  new_succ.Cfa.State.forward_loop <- true;
-	  Cfa.remove_edge g v succ;
-	  Cfa.add_vertex g new_succ;
-	  Cfa.add_edge g v new_succ;
-	  Cfa.add_edge g new_succ succ;
+	  Cfa.remove_successor g v succ;
+	  Cfa.add_state g new_succ;
+	  Cfa.add_successor g v new_succ;
+	  Cfa.add_successor g new_succ succ;
 	  new_succ
 	end
       else
@@ -807,23 +762,23 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	| e -> dump g; raise e
 			     
       let backward (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
-	cfa_iteration (fun g v ip vert -> back_update_abstract_value g v ip (List.hd vert))
-		      (fun g v -> [Cfa.pred g v]) back_unroll g s dump		    
-  
+	    cfa_iteration (fun g v ip vert -> back_update_abstract_value g v ip (List.hd vert))
+		  (fun g v -> [Cfa.pred g v]) back_unroll g s dump		    
+          
       let forward_cfa (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
-	cfa_iteration (fun g v ip vert -> List.fold_left (fun l v' -> (forward_abstract_value g v ip v')@l) [] vert)
-		      Cfa.succs unroll g s dump
+	    cfa_iteration (fun g v ip vert -> List.fold_left (fun l v' -> (forward_abstract_value g v ip v')@l) [] vert)
+		  Cfa.succs unroll g s dump
       
     (************* INTERLEAVING OF FORWARD/BACKWARD ANALYSES *******)
     (***************************************************************)
   	  
       let interleave_from_cfa (g: Cfa.t) (dump: Cfa.t -> unit): Cfa.t =
-	L.analysis (fun p -> p "entering interleaving mode");
-	let process mode cfa =
-	  Hashtbl.clear !unroll_tbl;
-	  List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.last cfa)
-	in
-	let g_bwd = process backward g in
-	process forward_cfa g_bwd
+	    L.analysis (fun p -> p "entering interleaving mode");
+	    let process mode cfa =
+	      Hashtbl.clear !unroll_tbl;
+	      List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.sinks cfa)
+	    in
+	    let g_bwd = process backward g in
+	    process forward_cfa g_bwd
   end
      

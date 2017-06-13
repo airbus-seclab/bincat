@@ -56,7 +56,6 @@
 	(FORMAT, "format", "binary");
 	(FILEPATH, "filepath", "binary");
 	(CODE_PHYS_ADDR, "code_phys", "loader");
-	(DOTFILE, "dotfile", "analyzer");
 	(ANALYSIS, "analysis", "analyzer");
 	(STORE_MCFA, "store_marshalled_cfa", "analyzer");
 	(IN_MCFA_FILE, "in_marshalled_cfa_file", "analyzer");
@@ -134,7 +133,7 @@
 %token CALL_CONV CDECL FASTCALL STDCALL MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
 %token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
-%token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER DOTFILE
+%token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER 
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL
@@ -308,7 +307,6 @@
     | INI_VERSION EQUAL i=INT 	     { check_ini_version (Z.to_int i) }
     | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT 	     { Config.fun_unroll := Z.to_int i }
-    | DOTFILE EQUAL f=STRING 	     { update_mandatory DOTFILE; Config.dotfile := f }
     | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
     | LOGLEVEL modname=STRING EQUAL i=INT

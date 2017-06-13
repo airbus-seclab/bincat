@@ -187,7 +187,7 @@ def analyze():
     app.logger.debug("created %s", dirname)
 
     cwd = os.getcwd()
-    os.chdir(dirname)  # bincat outputs .dot in cwd
+    os.chdir(dirname)  
     config.set('analyzer', 'out_marshalled_cfa_file', 'cfaout.marshal')
     # prepare input files
     config.write(open(os.path.join(dirname, 'init.ini'), 'wb'))
