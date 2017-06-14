@@ -2,7 +2,7 @@
 # Discovering the BinCAT IDA plugin
 
 ## Pre-requisites
-1. BinCAT has to be installed first (see [README](README.md)).
+1. BinCAT has to be installed first (see [README](README.md))
 2. Download the [**get_key**](../../../raw/master/doc/get_key/get_key)
    executable from this repository
 
@@ -14,15 +14,15 @@
 1. Start IDA, and open the
    [**get_key**](../../../raw/master/doc/get_key/get_key) executable
    file
-2. Use the **Edit >> Plugins >> Bincat** menu, or use the **Ctrl + Shift + b**
+2. Use the **Edit >> Plugins >> Bincat** menu, or the **Ctrl + Shift + b**
    shortcut
 
 #### Start an analysis
 In the **IDA View-A** view, go to the instruction you want the analysis to
 start from. Then, you can either:
-* Use the **Edit >> BinCAT >> Analyze from here...** menu
+* Use the **Edit >> BinCAT >> Analyze from here** menu
 * Use the context menu (right click in **IDA View-A**), then select the
-  **BinCAT >> Analyze from here...** menu
+  **BinCAT >> Analyze from here** menu
 * Use the **Ctrl + Shift + a** shortcut
 
 ![BinCAT Start analysis dialog](img/bincat-start-analysis.png)
@@ -31,19 +31,28 @@ start from. Then, you can either:
   generated)
 
 #### Override taint
-*Taint* can be overriden for any register value or memory byte, at any
+*Taint* can be overridden for any register value or memory byte, at any
 instruction of the program. Overrides will apply at the *next* instruction.
 
 *Taint* overrides can be defined from the following views:
 * from the **IDA View-A** view: right click on a register name or memory
-  address, then use the **Edit >> BinCAT >> Add taint override...** menu
+  address, then use the **Edit >> BinCAT >> Add taint override...** menu, or
+  the contextual menu (right click)
+
+![Add override from IDA View-A using context menu](img/add-taint-override-view-a.png)
+
 * from the **IDA View-A** view: click on a register name or memory address,
   then use the **Ctrl + Shift + o** shortcut
 * from the **BinCAT Tainting** view which shows the registers: right click on
   a register, then choose the **Add taint override** menu
+
+![Add override from BinCAT Tainting view using context menu](img/add-taint-override-tainting-view.png)
+
 * from the **BinCAT Hex** view which shows the contents of the memory: select
   a memory range, then right click, then choose the **Override taint for
   selection** menu, and input a mask that must be applied to each selected byte
+
+![Add override from BinCAT Hex view using context menu](img/add-taint-override-hex-view.png)
 
 The following values can be used for register overrides:
 * **TAINT_ALL** indicates that all register bytes are tainted
@@ -146,7 +155,7 @@ a global variable (`bc_state`) allows accessing its internal objects.
 
 ## Tutorial
 
-This tutorial gradually demonstrates BinCAT features, by analysing a provided
+This tutorial gradually demonstrates BinCAT features, by analyzing a provided
 keygen-me-style program, which takes a few arguments as command-line
 parameters, then generates a hash depending on these parameters, and compares
 it to an expected *license* value.
