@@ -90,9 +90,7 @@ module Make(Modname: sig val name : string end) = struct
     let msg = fmsg Printf.sprintf in
     if loglevel () >= 1 then
       Printf.fprintf !logfid  "[ERROR] %s: %s\n" modname msg;
-    flush !logfid;
-    flush stdout;
-    raise (Exceptions.Error msg)
+    flush !logfid
   let abort fmsg = 
     let msg = fmsg Printf.sprintf in
     Printf.fprintf !logfid  "[ABORT] %s: %s\n" modname msg;
