@@ -526,7 +526,7 @@ def test_shift_shld_reg32(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for j in SOME_OPERANDS:
             for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "ebx", "of", "cf"],
+                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
                         top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
                                        "eax":0xffffffff if (i>32) else 0})
 
@@ -578,7 +578,7 @@ def test_shift_shld_reg16(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for j in SOME_OPERANDS:
             for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "ebx", "of", "cf"],
+                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
                         top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
                                        "cf": 1 if (i>16) else 0,
                                        "eax":0xffff if (i>16) else 0})
@@ -608,7 +608,7 @@ def test_shift_shrd_reg32(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for j in SOME_OPERANDS:
             for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "ebx", "of", "cf"],
+                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
                         top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
                                        "eax":0xffffffff if (i>32) else 0})
 
@@ -623,7 +623,7 @@ def test_shift_shrd_reg16(tmpdir):
     for i in SOME_SHIFT_COUNTS:
         for j in SOME_OPERANDS:
             for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "ebx", "of", "cf"],
+                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
                         top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
                                        "eax":0xffff if (i>16) else 0})
 
