@@ -80,6 +80,8 @@ Default config and options are stored in `$IDAUSR/idabincat/conf`.
 Default config for analyzer.
 
 ## Usage
+A [tutorial](doc/tutorial.md) is provided, along with a
+[sample binary](doc/get_key/get_key) to help you try BinCAT's features.  
 
 ### Log levels
 
