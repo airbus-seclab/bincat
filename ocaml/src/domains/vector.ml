@@ -754,7 +754,7 @@ module Make(V: Val) =
 	  let v' = Array.copy v in
 	  match opt with
 	  | Some (l, u) ->
-	     let n = Array.length v' in
+	     let n = (Array.length v')-1 in
 	     for i = l to u do
 	       v'.(n-i) <- V.forget v'.(n-i)
 	     done;
