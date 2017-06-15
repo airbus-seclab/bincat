@@ -17,10 +17,10 @@
 *)
 
 (***************************************************************************************)
-(* x86 functor *)
+(* x86 decoder *)
 (***************************************************************************************)
 
-module L = Log.Make(struct let name = "decoder" end)
+module L = Log.Make(struct let name = "x86" end)
 
 module Make(Domain: Domain.T) =
 struct
@@ -235,9 +235,9 @@ struct
         let avl	  = Z.logand v' Z.one				 	   in
         let v' 	  = Z.shift_right v' 1  			 	   in
         let l 	  = Z.logand v' Z.one				 	   in
-        let v' 	  = Z.shift_right v' 1   		                   in
+        let v' 	  = Z.shift_right v' 1   		           in
         let db 	  = Z.logand v' Z.one				 	   in
-        let v' 	  = Z.shift_right v' 1  		    		   in
+        let v' 	  = Z.shift_right v' 1  		    	   in
         let g 	  = Z.logand v' Z.one				 	   in
         let v' 	  = Z.shift_right v' 1  		    		   in
         let base  = Z.add base (Z.shift_left v' 24)      in
