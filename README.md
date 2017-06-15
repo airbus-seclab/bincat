@@ -14,7 +14,12 @@ It features:
 
 ### In action
 
-TODO: add gif of taint analysis
+You can check BinCAT in action here:
+
+* [Basic analysis](https://syscall.eu/bincat/main.mp4)
+* [Using data tainting](https://syscall.eu/bincat/taint.mp4)
+
+Check the [tutorial](doc/tutorial.md) out to see the corresponding tasks.
 
 ### Quick FAQ
 
