@@ -189,13 +189,11 @@ Thank you for registering !
 6. Check the **Save configuration to IDB** option
 7. Check the **Remap binary** option
 8. Click the **Edit analyzer config** button
-9. In the `[state]` section, remove any line starting with `stack`
-10. Paste the following lines at the end of the `[state]` section. This defines
+9. Paste the following lines at the end of the `[state]` section. This defines
    a value for `argc`, creates 5 pointers to strings, and initializes 5
    null-terminated strings, and also initialized a stack to **TOP** (unknown
    value)
 ```
-stack[0x1000*4099] = |00|?0xFF
 stack[0x2004] = 5
 stack[0x2008] = 0x200000
 mem[0x200000] = 0x300100
@@ -209,26 +207,26 @@ mem[0x300180] = |64657000|
 mem[0x3001C0] = |6c6f6c3100|
 mem[0x300200] = |6c6f6c2100|
 ```
-11. Click **Save**
-12. Click **Start**
-13. Choose a location where the remapped binary should be saved. This will only
+10. Click **Save**
+11. Click **Start**
+12. Choose a location where the remapped binary should be saved. This will only
    be requested the first time an analysis is run on this binary
-14. Enter a name under which this configuration should be saved
-15. Notice that after a few seconds, the analysis has finished running, and the
+13. Enter a name under which this configuration should be saved
+14. Notice that after a few seconds, the analysis has finished running, and the
     background for some of the instructions in the **IDA View-A** view has
     become gray
-16. Go to address `0x807` using the **g** shortcut. This instruction is
+15. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
     Observe the value of the `esp` register in the **BinCAT Tainting** view (it
     should be `0x1D50`). At this address, you can observe the contents of the
     `buffer` pointer (`char *`) where `sprintf` results will be output (the
     value should be `0x1DEC`)
-17. Advance to the next instruction at address `0x80C`, and observe the
+16. Advance to the next instruction at address `0x80C`, and observe the
     value of the `buffer` that has been formatted by `sprintf` at address
     `0x1DEC`
-18. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
+17. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
     and observe the inferred types for the call to `sprintf`
-19. Go to address `0xA93`, which contains a call to a location that is stored
+18. Go to address `0xA93`, which contains a call to a location that is stored
     on the stack. Notice that IDA cannot resolve the destination address. In
     the **BinCAT Tainting** view, use the *goto next node (1)* drop down menu
     to jump to the destination
