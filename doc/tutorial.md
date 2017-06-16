@@ -2,7 +2,7 @@
 # Discovering the BinCAT IDA plugin
 
 ## Pre-requisites
-1. BinCAT has to be installed first (see [README](README.md))
+1. BinCAT has to be installed first (see [README](../README.md))
 2. Download the [**get_key**](../../../raw/master/doc/get_key/get_key)
    executable from this repository
 
