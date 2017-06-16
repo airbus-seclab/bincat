@@ -1460,6 +1460,10 @@ struct
     (* SHLD / TODO : merge with SHL ? *)
     let shift_ld_stmt dst src sz n =
         let sz' = const sz 8 in
+        let forget_dst =
+         match dst with
+         | V reg -> [ Directive(Forget reg) ]
+         | M _ -> L.abort (fun p -> p "shift_ld_stmt: dst is not a register") in
         let one8 = Const (Word.one 8) in
         let one = Const (Word.one sz) in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
@@ -1467,19 +1471,13 @@ struct
         let ldst = Lval dst in
         let dst_sz_min_one = const (sz-1) sz in
         let dst_msb = BinOp(And, one, BinOp(Shr, ldst, dst_sz_min_one)) in
-        let cf_stmt =
-            let c = Cmp (LT, sz', n_masked) in
-            If (c,
-                [undef_flag fcf],
-                (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
-        in
+        let cf_stmt = Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked))))) in
         let of_stmt =
             let is_one = Cmp (EQ, n_masked, one8) in
             If (is_one,    (* OF is computed only if n == 1 *)
                 [Set ((V (T fof)), (* OF is set if signed changed. We saved sign in fof *)
                     BinOp(Xor,  Lval (V (T fof)), dst_msb));],
-                [clear_flag fof])
+                [undef_flag fof])
         in
         let lv = Lval dst in
         let ops =
@@ -1500,8 +1498,12 @@ struct
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
             (* if shifted by more than opsize, everything is undef *)
             (* TODO : forget dst *)
-            [If(Cmp(GT, n_masked, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
-            ops)])]
+            [ If(Cmp(GT, n_masked, sz'),
+                [ undef_flag fcf; undef_flag fof; undef_flag fsf;
+                  undef_flag faf; undef_flag fzf; undef_flag fpf; ] @ forget_dst,
+                ops)
+           ])
+       ]
 
 
     (* SHRD *)
