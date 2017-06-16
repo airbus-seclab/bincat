@@ -17,8 +17,11 @@
 *)
 (** signature of the unrolled control flow graph *)
 
-module Make: functor (Dom: Domain.T) ->
+module type T =
 sig
+  (** abstract data type for the abstract values in state of the CFG *)
+  module Dom: Domain.T
+
   (** abstract data type for the nodes of the control flow graph *)
   module State:
   sig
@@ -98,4 +101,9 @@ sig
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
   val init_abstract_value: unit -> Dom.t
+end
+
+module Make: functor (D: Domain.T) ->
+sig
+  include T
 end

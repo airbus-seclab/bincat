@@ -20,13 +20,13 @@
 
 module L = Log.Make(struct let name = "interpreter" end)
  
-module Make(D: Domain.T) =
+module Make(D: Domain.T)(Decoder: Decoder.Make) =
   struct
 
     type domain = D.t
 
     (** Decoder *)
-    module Decoder = X86.Make(D)
+    module Decoder = Decoder(D)
 				 
     (** Control Flow Automaton *)
     module Cfa = Decoder.Cfa 

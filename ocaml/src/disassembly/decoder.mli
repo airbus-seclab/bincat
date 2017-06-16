@@ -20,8 +20,9 @@
 (* common signatures of decoders *)
 (***************************************************************************************)
   
-module Make: functor (D: Domain.T) ->
-  sig
+module type Make = functor (D: Domain.T) ->
+sig
+  module Cfa: (Cfa.T with type Dom.t = D.t)
     (**  [parse text cfg is state addr ctx] *)
     val parse: string -> Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list
   (** extract the opcode at address _addr_ in _text_ and translate it as a list of statements. 
