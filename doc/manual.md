@@ -1,8 +1,12 @@
 # BinCAT manual
 
 ## Table of contents
+* [Installation](#installation)
 * [Main commands and features](#main-commands-and-features)
 * [IDA Views](#ida-views)
+
+## Installation
+See [README](../README.md#installation).
 
 ## Main commands and features
 

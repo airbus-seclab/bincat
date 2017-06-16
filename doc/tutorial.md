@@ -28,7 +28,7 @@ Thank you for registering !
 ![get_key data flow](img/get_key-dataflow.png)
 
 ## Pre-requisites
-1. BinCAT has to be installed first (see [README](../README.md))
+1. BinCAT has to be installed first (see [README](../README.md#installation))
 2. Download the [**get_key**](../../../raw/master/doc/get_key/get_key)
    executable from this repository
 
