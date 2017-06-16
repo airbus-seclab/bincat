@@ -97,6 +97,11 @@ It makes use of a [sample binary](doc/get_key/get_key) and screenshots.
 3. debug
 4. advanced debug
 
+## Article and presentations about BinCAT
+
+* [SSTIC 2017](https://www.sstic.org/2017/presentation/bincat_purrfecting_binary_static_analysis/), Rennes, France: [article](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Article-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (english), [slides](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Slides-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (french), [video of the presentation](https://static.sstic.org/videos2017/SSTIC_2017-06-07_P07.mp4) (french)
+* [REcon 2017](https://recon.cx/2017/montreal/talks/bincat.html), Montreal, Canada
+
 ## Licenses
 
 BinCAT is released under the [GNU Affero General Public
