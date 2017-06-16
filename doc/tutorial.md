@@ -40,7 +40,7 @@ Thank you for registering !
 3. From the **IDA View-A** view, go to address `0x93B` using the **g**
    shortcut
 4. Use the **Ctrl-Shift-A** shortcut to open the analysis start window (see
-   section [Start an analysis](manual#start-an-analysis) of the manual)
+   section [Start an analysis](manual.md#start-an-analysis) of the manual)
 5. Ensure that the **Analyzer configuration** dropdown is set to **(new)**
 6. Check the **Save configuration to IDB** option
 7. Check the **Remap binary** option
@@ -93,7 +93,7 @@ This tutorial shows how to taint a register, and observe taint propagation.
 1. Go back to address `0x93B`
 2. Override the value of every byte at addresses `0x300140`-`0x300147` which
    contains the null-terminated `company` string (see section 
-   [Override taint](manual#override-taint) of the manual), and set it to `0xFF`
+   [Override taint](manual.md#override-taint) of the manual), and set it to `0xFF`
 3. Advance to the next instruction at address `0x93F`, and observe that this
    memory range is indeed tainted: both the ascii and hexadecimal
    representations of this string are displayed as green text
