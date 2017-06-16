@@ -113,7 +113,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       Interpreter.Cfa.marshal !Config.out_mcfa_file cfa;
     dump cfa;
     Log.close();
-  with e -> Log.close() ; raise e;;
+  with e -> L.exc e (fun p -> p "Exception caught in main loop") ; Log.close (); raise e;;
 
 (* enables the process function to be callable from the .so *)
 Callback.register "process" process;;
