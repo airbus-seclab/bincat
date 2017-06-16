@@ -14,7 +14,12 @@ It features:
 
 ### In action
 
-TODO: add gif of taint analysis
+You can check BinCAT in action here:
+
+* [Basic analysis](https://syscall.eu/bincat/main.mp4)
+* [Using data tainting](https://syscall.eu/bincat/taint.mp4)
+
+Check the [tutorial](doc/tutorial.md) out to see the corresponding tasks.
 
 ### Quick FAQ
 
@@ -80,6 +85,8 @@ Default config and options are stored in `$IDAUSR/idabincat/conf`.
 Default config for analyzer.
 
 ## Usage
+A [tutorial](doc/tutorial.md) is provided to help you try BinCAT's features. 
+It features a [sample binary](doc/get_key/get_key) and screenshots.
 
 ### Log levels
 
