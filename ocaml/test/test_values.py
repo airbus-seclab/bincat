@@ -88,7 +88,7 @@ def extract_directives_from_asm(asm):
             sl = l.split()
             addr = int(sl[1],16)
             val = sl[sl.index("@override")+1]
-            d["override"][addr] = val 
+            d["override"][addr] = val
     return d
 
 
@@ -100,8 +100,10 @@ def bincat_run(tmpdir, asm):
     outf = tmpdir.join('end.ini')
     logf = tmpdir.join('log.txt')
     initf = tmpdir.join('init.ini')
+    ini_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            'test_values.ini')
     initf.write(
-        open("test_values.ini").read().format(
+        open(ini_path, 'r').read().format(
             code_length = len(opcodes),
             filepath = opcodesfname,
             overrides = "\n".join("%#010x=%s" % (addr, val) for addr,val in directives["override"].iteritems())
@@ -110,7 +112,7 @@ def bincat_run(tmpdir, asm):
 
     try:
         prgm = cfa.CFA.from_filenames(str(initf), str(outf), str(logf))
-    except Exception,e:
+    except Exception, e:
         return e, listing, opcodesfname
 
     last_state = getLastState(prgm)
