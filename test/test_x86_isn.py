@@ -88,7 +88,7 @@ def bincat_run(tmpdir, asm):
     logf = tmpdir.join('log.txt')
     initf = tmpdir.join('init.ini')
     initf.write(
-        open("test_values.ini").read().format(
+        open("x86_isn.ini.in").read().format(
             code_length = len(opcodes),
             filepath = opcodesfname,
             overrides = "\n".join("%#010x=%s" % (addr, val) for addr,val in directives["override"].iteritems())
