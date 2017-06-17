@@ -3,11 +3,9 @@ import pytest
 
 
 
-def pytest_addoption(parser):
-    parser.addoption("--speed", choices=["slow", "fast", "faster"],
-                     default="fast", help="test more or less values")
 
 class TestValues:
+    _name = "NA"
     op8 =  [ 1, 0xff ]
     op16 = [ 1, 0xffff ]
     op32 = [ 1, 0xffffffff]
@@ -19,7 +17,8 @@ class TestValues:
     shift = [ 1, 32]
     x86carryop = [ "stc", "clc"]
 
-class Slow(TestValues):
+class Large(TestValues):
+    _name = "large"
     op8 = [ 0, 1, 2, 7, 8, 0xf, 0x10, 0x7f, 0x80, 0x81, 0xff]
     op16 = op8 +  [0x1234, 0x7fff, 0x8000, 0x8001, 0xfa72, 0xffff]
     op32 = op16 +  [0x12345678, 0x1812fada, 0x12a4b4cd,
@@ -32,7 +31,8 @@ class Slow(TestValues):
     x86carryop = [ "stc", "clc" ]
 
 
-class Fast(TestValues):
+class Medium(TestValues):
+    _name = "medium"
     op8 =  [ 0, 1, 0x7f, 0x80, 0xff ]
     op16 = [ 0, 1, 0xff, 0x7fff, 0x8000, 0xffff ]
     op32 = [ 0, 1, 0x7fffffff, 0x80000000, 0xffffffff]
@@ -40,13 +40,22 @@ class Fast(TestValues):
     shift = [ 0, 1, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff]
     x86carryop = [ "stc", "clc" ]
 
-class Faster(TestValues):
+class Small(TestValues):
+    _name = "small"
     x86carryop = [ "stc" ]
+
+COVERAGES = [Large, Medium, Small]
+
+def pytest_addoption(parser):
+    parser.addoption("--coverage", choices=[x._name for x in COVERAGES],
+                     default="medium", help="test more or less values")
+
 
 
 def pytest_generate_tests(metafunc):
-    fmap = {"slow":Slow, "fast":Fast, "faster":Faster}[metafunc.config.option.speed]
+    fmap = {x._name:x for x in COVERAGES}[metafunc.config.option.coverage]
     for fn in metafunc.fixturenames:
         fnstr = fn.rstrip("_") # alias foo_, foo__, etc. to foo
         if hasattr(fmap, fnstr):
             metafunc.parametrize(fn, getattr(fmap, fnstr))
+
