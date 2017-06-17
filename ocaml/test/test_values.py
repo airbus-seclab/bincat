@@ -18,19 +18,6 @@ NASM_DIR = counter("nasm-%i")
 ALL_FLAGS = ["cf","pf", "af", "zf","sf","df","of"]
 ALL_REGS = ["eax","ebx","ecx","edx", "esi","edi","esp", "ebp"] + ALL_FLAGS
 
-SOME_SHIFT_COUNTS = [0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 24, 31, 32, 33, 48, 63, 64, 65, 127, 128, 129 ]
-
-SOME_OPERANDS_8 = [ 0, 1, 2, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff]
-SOME_OPERANDS_16 = SOME_OPERANDS_8 + [0x1234, 0x7fff, 0x8000, 0x8001, 0xfa72, 0xffff]
-SOME_OPERANDS = SOME_OPERANDS_16 + [0x12345678, 0x1812fada, 0x12a4b4cd, 0x7fffffff, 0x80000000, 0x80000001, 0xffffffff ]
-SOME_OPERANDS_64 = SOME_OPERANDS + [ 0x123456789, 0x100000000000,  0x65a227c6f24c562a,
-                                     0x7fffffffffffffff, 0x8000000000000000, 0x80000000000000001,
-                                     0xa812f8c42dec45ab, 0xffff123456789abc,  0xffffffffffffffff ]
-
-SOME_OPERANDS_COUPLES_8 = list(itertools.product(SOME_OPERANDS_8, SOME_OPERANDS_8))
-SOME_OPERANDS_COUPLES_16 = list(itertools.product(SOME_OPERANDS_16, SOME_OPERANDS_16))
-SOME_OPERANDS_COUPLES = list(itertools.product(SOME_OPERANDS, SOME_OPERANDS))
-
 
 def assemble(tmpdir, asm):
     d = tmpdir.mkdir(NASM_DIR.next())
@@ -149,13 +136,13 @@ def compare(tmpdir, asm, regs=ALL_REGS, reg_taints={}, top_allowed={}):
         else:
             same.append("  both     :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
     assert not diff, "\n"+prettify_listing(listing)+"\n=========================\n"+"\n".join(diff)+"\n=========================\n"+"\n".join(same)
-    
+
 
 def test_assign(tmpdir):
     asm = """
     	mov eax,0xaaaa55aa
 	mov ebx,0xcccccc55
-    """
+    """.format(**locals())
     compare(tmpdir, asm, ["eax","ebx"])
 
 ##  ___  ___  _        __  ___  ___  ___ 
@@ -164,81 +151,64 @@ def test_assign(tmpdir):
 ## |_|_\\___/|____| /_/   |_|_\\___/|_|_\
 ##                                       
 
-def test_rotate_rol_reg32(tmpdir):
+def test_rotate_rol_reg32(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov cl,%i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op32:#x}
             rol eax,cl
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+    """.format(**locals())
+    
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
-def test_rotate_ror_reg32(tmpdir):
+def test_rotate_ror_reg32(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov cl,%i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op32:#x}
             ror eax,cl
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
-def test_rotate_rol_reg16(tmpdir):
+def test_rotate_rol_reg16(tmpdir, x86carryop, op16, shift):
     asm = """
-            %s
-            mov cl,%i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op16:#x}
             rol ax,cl
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+    """.format(**locals())
+    compare(tmpdir, asm.format(**locals()), ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
-def test_rotate_ror_reg16(tmpdir):
+def test_rotate_ror_reg16(tmpdir, x86carryop, op16, shift):
     asm = """
-            %s
-            mov cl,%i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op16:#x}
             ror ax,cl
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
-def test_rotate_rol_imm8(tmpdir):
+def test_rotate_rol_imm8(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov eax, %#x
-            rol eax,%i
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            rol eax,{shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
-def test_rotate_ror_imm8(tmpdir):
+def test_rotate_ror_imm8(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov eax, %#x
-            ror eax,%i
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            ror eax,{shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
 
 ##  ___  ___ _        __  ___  ___ ___ 
@@ -247,81 +217,63 @@ def test_rotate_ror_imm8(tmpdir):
 ## |_|_\\___|____| /_/   |_|_\\___|_|_\
 ##                                     
 
-def test_rotate_rcl_reg32(tmpdir):
+def test_rotate_rcl_reg32(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov cl,%i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op32:#x}
             rcl eax,cl
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop,i,j), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
-def test_rotate_rcr_reg32(tmpdir):
+def test_rotate_rcr_reg32(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov cl,%i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op32:#x}
             rcr eax,cl
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop,i,j), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
-
-def test_rotate_rcl_reg16(tmpdir):
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
+    
+def test_rotate_rcl_reg16(tmpdir, x86carryop, op16, shift):
     asm = """
-            %s
-            mov cl,%i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op16:#x}
             rcl ax,cl
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop,i,j), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
-
-def test_rotate_rcr_reg16(tmpdir):
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
+    
+def test_rotate_rcr_reg16(tmpdir, x86carryop, op16, shift):
     asm = """
-            %s
-            mov cl,%i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op16:#x}
             rcr ax,cl
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop,i,j), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
-def test_rotate_rcl_imm8(tmpdir):
+def test_rotate_rcl_imm8(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov eax, %#x
-            rcl eax,%i
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            rcl eax, {shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
-def test_rotate_rcr_imm8(tmpdir):
+def test_rotate_rcr_imm8(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov eax, %#x
-            rcr eax,%i
-    """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "cf", "of"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            rcr eax, {shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "of"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0})
 
 
 ##  ___ _  _ _        __  ___ _  _ ___     __  ___   _   _        __
@@ -335,297 +287,237 @@ def test_rotate_rcr_imm8(tmpdir):
 ## |___/_/ \_\_|_\ /_/   |___/_||_|____|___/  /_/   |___/_||_|_|_\___/ 
 ##                                                                     
 
-def test_shift_shl_reg32(tmpdir):
+def test_shift_shl_reg32(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov cl, %i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op32:#x}
             shl eax, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 32 else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 32 else 0})
 
-def test_shift_shl_reg16(tmpdir):
+def test_shift_shl_reg16(tmpdir, x86carryop, op16, shift):
     asm = """
-            %s
-            mov cl, %i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op16:#x}
             shl ax, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 16 else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 16 else 0})
 
-def test_shift_shl_imm8(tmpdir):
+def test_shift_shl_imm8(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov eax, %#x
-            shl eax, %i
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 32 else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            shl eax, {shift}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 32 else 0})
 
-def test_shift_shr_reg32(tmpdir):
+def test_shift_shr_reg32(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov cl, %i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op32:#x}
             shr eax, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 32 else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 32 else 0})
 
-def test_shift_shr_reg16(tmpdir):
+def test_shift_shr_reg16(tmpdir, x86carryop, op16, shift):
     asm = """
-            %s
-            mov cl, %i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op16:#x}
             shr ax, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 16 else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 16 else 0})
 
-def test_shift_shr_imm8(tmpdir):
+def test_shift_shr_imm8(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov eax, %#x
-            shr eax, %i
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 32 else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            shr eax, {shift}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 32 else 0})
 
-def test_shift_sal_reg32(tmpdir):
+def test_shift_sal_reg32(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov cl, %i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op32:#x}
             sal eax, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 32 else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 32 else 0})
 
 
-def test_shift_sal_reg16(tmpdir):
+def test_shift_sal_reg16(tmpdir, x86carryop, op16, shift):
     asm = """
-            %s
-            mov cl, %i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op16:#x}
             sal ax, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 16 else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 16 else 0})
 
 
-def test_shift_sal_imm8(tmpdir):
+def test_shift_sal_imm8(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov eax, %#x
-            sal eax, %i
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 32 else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            sal eax, {shift}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 32 else 0})
 
-def test_shift_sar_reg32(tmpdir):
+def test_shift_sar_reg32(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov cl, %i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op32:#x}
             sar eax, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 32 else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 32 else 0})
 
-def test_shift_sar_reg16(tmpdir):
+def test_shift_sar_reg16(tmpdir, x86carryop, op16, shift):
     asm = """
-            %s
-            mov cl, %i
-            mov eax, %#x
+            {x86carryop}
+            mov cl, {shift}
+            mov eax, {op16:#x}
             sar ax, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, i, j), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 16 else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 16 else 0})
 
-def test_shift_sar_imm8(tmpdir):
+def test_shift_sar_imm8(tmpdir, x86carryop, op32, shift):
     asm = """
-            %s
-            mov eax, %#x
-            sar eax, %i
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if i >= 32 else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            sar eax, {shift}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if shift >= 32 else 0})
 
-def test_shift_shld_imm8(tmpdir):
+def test_shift_shld_imm8(tmpdir, x86carryop, op32, op32_, shift):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, 0xa5486204
-            shld eax, ebx, %i
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "eax":0xffffffff if (i>32) else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
+            shld eax, ebx, {shift}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "eax":0xffffffff if (shift > 32) else 0})
 
-def test_shift_shld_reg32(tmpdir):
+def test_shift_shld_reg32(tmpdir, x86carryop, op32, op32_, shift):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, 0xa5486204
-            mov cl, %i
+            {x86carryop}
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
+            mov cl, {shift}
             shld eax, ebx, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "eax":0xffffffff if (i>32) else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "eax":0xffffffff if (shift > 32) else 0})
 
-def test_shift_shld_on_mem32(tmpdir):
+def test_shift_shld_on_mem32(tmpdir, x86carryop, op32, op32_, shift):
     asm = """
-            %s
-            push 0x12b4e78f
+            {x86carryop}
+            push {op32_:#x}
             push 0
-            mov ebx, %i
-            mov cl, %i
+            mov ebx, {op32:#x}
+            mov cl, {shift}
             shld [esp+4], ebx, cl
             pop eax
             pop eax
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "eax":0xffffffff if (i>32) else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "eax":0xffffffff if (shift > 32) else 0})
 
-def test_shift_shld_on_mem16(tmpdir):
+def test_shift_shld_on_mem16(tmpdir, x86carryop, op16, op16_, shift):
     asm = """
-            %s
-            push 0x12b4e78f
+            {x86carryop}
+            push {op16:#x}
             push 0
-            mov ebx, %i
-            mov cl, %i
+            mov ebx, {op16:#x}
+            mov cl, {shift}
             shld [esp+4], bx, cl
             pop eax
             pop eax
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if (i>16) else 0,
-                                       "eax":0xffff if (i>32) else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if (shift >16) else 0,
+                           "eax":0xffff if (shift > 32) else 0})
 
-def test_shift_shld_reg16(tmpdir):
+def test_shift_shld_reg16(tmpdir, x86carryop, op16, op16_, shift):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, 0xa5486204
-            mov cl, %i
+            {x86carryop}
+            mov eax, {op16:#x}
+            mov ebx, {op16_:#x}
+            mov cl, {shift}
             shld ax, bx, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "cf": 1 if (i>16) else 0,
-                                       "eax":0xffff if (i>16) else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "cf": 1 if (shift >16) else 0,
+                           "eax":0xffff if (shift > 16) else 0})
 
-def test_shift_shrd_imm8(tmpdir):
+def test_shift_shrd_imm8(tmpdir, x86carryop, op32, op32_, shift):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, 0xa5486204
-            shrd eax, ebx, %i
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "eax":0xffffffff if (i>32) else 0})
+            {x86carryop}
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
+            shrd eax, ebx, {shift}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "eax":0xffffffff if (shift > 32) else 0})
 
-def test_shift_shrd_reg32(tmpdir):
+def test_shift_shrd_reg32(tmpdir, x86carryop, op32, op32_, shift):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, 0xa5486204
-            mov cl, %i
+            {x86carryop}
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
+            mov cl, {shift}
             shrd eax, ebx, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "eax":0xffffffff if (i>32) else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "eax":0xffffffff if (shift > 32) else 0})
 
-def test_shift_shrd_reg16(tmpdir):
+def test_shift_shrd_reg16(tmpdir, x86carryop, op32, op32_, shift):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, 0xa5486204
-            mov cl, %i
+            {x86carryop}
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
+            mov cl, {shift}
             shrd ax, bx, cl
-          """
-    for i in SOME_SHIFT_COUNTS:
-        for j in SOME_OPERANDS:
-            for carryop in ["stc", "clc"]:
-                compare(tmpdir, asm % (carryop, j, i), ["eax", "ebx", "of", "cf"],
-                        top_allowed = {"of": 1 if (i&0x1f) != 1 else 0,
-                                       "eax":0xffff if (i>16) else 0})
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
+            top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
+                           "eax":0xffff if (shift > 16) else 0})
 
 ##    _   ___ ___ _____ _  _ __  __ ___ _____ ___ ___    ___  ___  ___ 
 ##   /_\ | _ \_ _|_   _| || |  \/  | __|_   _|_ _/ __|  / _ \| _ \/ __|
@@ -633,368 +525,258 @@ def test_shift_shrd_reg16(tmpdir):
 ## /_/ \_\_|_\___| |_| |_||_|_|  |_|___| |_| |___\___|  \___/|_|  |___/
 ##                                                                     
 
-def test_add_imm32(tmpdir):
+def test_arith_add_imm32(tmpdir, op32, op32_):
     asm = """
-            mov eax, %#x
-            add eax, %#x
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+            mov eax, {op32:#x}
+            add eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_add_reg32(tmpdir):
+def test_arith_add_reg32(tmpdir, op32, op32_):
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
             add eax, ebx
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_add_reg16(tmpdir):
+def test_arith_add_reg16(tmpdir, op16, op16_):
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {op16:#x}
+            mov ebx, {op16_:#x}
             add ax, bx
-          """
-    for vals in SOME_OPERANDS_COUPLES_16:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_sub_imm32(tmpdir):
+def test_arith_sub_imm32(tmpdir, op32, op32_):
     asm = """
-            mov eax, %#x
-            sub eax, %#x
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+            mov eax, {op32:#x}
+            sub eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_sub_reg32(tmpdir):
+def test_arith_sub_reg32(tmpdir, op32, op32_):
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
             sub eax, ebx
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_sub_reg16(tmpdir):
+def test_arith_sub_reg16(tmpdir, op16, op16_):
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {op16:#x}
+            mov ebx, {op16_:#x}
             sub ax, bx
-          """
-    for vals in SOME_OPERANDS_COUPLES_16:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
 
-def test_carrytop_adc(tmpdir):
+def test_arith_carrytop_adc(tmpdir, op32, op32_):
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
             adc eax, ebx
-          """
-    for (a,b) in SOME_OPERANDS_COUPLES:
-        topmask = (a+b)^(a+b+1)
-        compare(tmpdir, asm % (a, b),
-                ["eax", "of", "sf", "zf", "cf", "pf", "af"],
-                top_allowed = {"eax":topmask,
-                               "zf":1,
-                               "pf": 1 if topmask & 0xff != 0 else 0,
-                               "af": 1 if topmask & 0xf != 0 else 0,
-                               "cf": 1 if topmask & 0x80000000 != 0 else 0,
-                               "of": 1 if topmask & 0x80000000 != 0 else 0,
-                               "sf": 1 if topmask & 0x80000000 != 0 else 0 })
+          """.format(**locals())
+    topmask = (op32+op32_)^(op32+op32_+1)
+    compare(tmpdir, asm,
+            ["eax", "of", "sf", "zf", "cf", "pf", "af"],
+            top_allowed = {"eax":topmask,
+                           "zf":1,
+                           "pf": 1 if topmask & 0xff != 0 else 0,
+                           "af": 1 if topmask & 0xf != 0 else 0,
+                           "cf": 1 if topmask & 0x80000000 != 0 else 0,
+                           "of": 1 if topmask & 0x80000000 != 0 else 0,
+                           "sf": 1 if topmask & 0x80000000 != 0 else 0 })
 
-def test_adc_reg32(tmpdir):
+def test_arith_adc_reg32(tmpdir, op32, op32_, x86carryop):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, %#x
+            {x86carryop}
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
             adc eax, ebx
-          """
-    for carryop in ["stc","clc"]:
-        for val1,val2 in SOME_OPERANDS_COUPLES:
-            compare(tmpdir, asm % (carryop,val1,val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_adc_reg16(tmpdir):
+def test_arith_adc_reg16(tmpdir, op16, op16_, x86carryop):
     asm = """
-            %s
-            mov edx, %#x
-            mov ecx, %#x
+            {x86carryop}
+            mov edx, {op16_:#x}
+            mov ecx, {op16_:#x}
             adc dx, cx
-          """
-    for carryop in ["stc","clc"]:
-        for val1,val2 in SOME_OPERANDS_COUPLES_16:
-            compare(tmpdir, asm % (carryop, val1, val2), ["edx", "of", "sf", "zf", "cf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["edx", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_adc_imm32(tmpdir):
+def test_arith_adc_imm32(tmpdir, op32, op32_, x86carryop):
     asm = """
-            %s
-            mov eax, %#x
-            adc eax, %#x
-          """
-    for carryop in ["stc","clc"]:
-        for val1,val2 in SOME_OPERANDS_COUPLES:
-            compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+            {x86carryop}
+            mov eax, {op32:#x}
+            adc eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_sbb_reg32(tmpdir):
+def test_arith_sbb_reg32(tmpdir, op32, op32_, x86carryop):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, %#x
+            {x86carryop}
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
             sbb eax, ebx
-          """
-    for carryop in ["stc","clc"]:
-        for val1,val2 in SOME_OPERANDS_COUPLES:
-            compare(tmpdir, asm % (carryop,val1,val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_sbb_reg16(tmpdir):
+def test_arith_sbb_reg16(tmpdir, op16, op16_, x86carryop):
     asm = """
-            %s
-            mov eax, %#x
-            mov ebx, %#x
+            {x86carryop}
+            mov eax, {op16:#x}
+            mov ebx, {op16_:#x}
             sbb ax, bx
-          """
-    for carryop in ["stc","clc"]:
-        for val1,val2 in SOME_OPERANDS_COUPLES_16:
-            compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_sbb_imm32(tmpdir):
+def test_arith_inc_reg32(tmpdir, op32):
     asm = """
-            %s
-            mov eax, %#x
-            sbb eax, %#x
-          """
-    for carryop in ["stc","clc"]:
-        for val1,val2 in SOME_OPERANDS_COUPLES:
-            compare(tmpdir, asm % (carryop, val1, val2), ["eax", "of", "sf", "zf", "cf", "pf", "af"])
-
-
-def test_cmp_reg32(tmpdir):
-    asm = """
-            mov eax, %#x
-            cmp eax, %#x
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
-
-def test_cmovxx_reg32(tmpdir):
-    asm = """
-            pushf
-            pop eax
-            and eax, 0xfffff72a
-            or eax, %#x
-            push eax
-            popf
-            mov edx, 0xdeadbeef
-            xor ebx,ebx
-            cmov%s ebx, edx
-            xor ecx,ecx
-            cmov%s ecx, edx
-          """
-    for f in range(0x40): # all flags combinations
-        flags = (f&0x20<<6) | (f&0x10<<3) | (f&8<<3) | (f&4<<2) | (f&2<<1) | (f&1)
-        for cond1, cond2 in [("a","be"),("ae","b"),("c","nc"), ("e", "ne"),
-                             ("g","le"), ("ge","l"), ("o", "no"), ("s", "ns"),
-                             ("p", "np") ]:
-            compare(tmpdir, asm % (flags, cond1, cond2),
-                    ["ebx", "ecx", "edx", "of", "sf", "zf", "cf", "pf", "af"],
-                    top_allowed={ "af":1 })
-
-def test_inc_reg32(tmpdir):
-    asm = """
-            mov eax, %#x
+            mov eax, {op32:#x}
             inc eax
-          """
-    for vals in SOME_OPERANDS:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "pf", "af"])
 
-def test_dec_reg32(tmpdir):
+def test_arith_dec_reg32(tmpdir, op32):
     asm = """
-            mov eax, %#x
+            mov eax, {op32:#x}
             dec eax
-          """
-    for vals in SOME_OPERANDS:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "pf", "af"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "pf", "af"])
 
-def test_and_reg32(tmpdir):
-    asm = """
-            mov eax, %#x
-            and eax, %#x
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf"])
 
-def test_or_reg32(tmpdir):
+def test_arith_idiv_reg32(tmpdir, op64, op32):
+    p = op64
+    ph,pl = p>>32, p&0xffffffff
+    q = op32
     asm = """
-            mov eax, %#x
-            or eax, %#x
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf"])
-
-def test_xor_reg32(tmpdir):
-    asm = """
-            mov eax, %#x
-            xor eax, %#x
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf"])
-
-def test_not_reg32(tmpdir):
-    asm = """
-            mov eax, %#x
-            not eax
-          """
-    for vals in SOME_OPERANDS:
-        compare(tmpdir, asm % vals, ["eax"])
-
-def test_neg_reg32(tmpdir):
-    asm = """
-            mov eax, %#x
-            neg eax
-          """
-    for vals in SOME_OPERANDS:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
-
-def test_neg_reg16(tmpdir):
-    asm = """
-            mov eax, %#x
-            neg ax
-          """
-    for vals in SOME_OPERANDS:
-        compare(tmpdir, asm % vals, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
-
-def test_test_reg32(tmpdir):
-    asm = """
-            mov eax, %#x
-            test eax, %#x
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "sf", "zf", "pf"])
-
-def test_idiv_reg32(tmpdir):
-    asm = """
-            mov edx, %#x
-            mov eax, %#x
-            mov ebx, %#x
+            mov edx, {ph:#x}
+            mov eax, {pl:#x}
+            mov ebx, {q:#x}
             idiv ebx
-          """
-    for p in SOME_OPERANDS_64:
-        for q in SOME_OPERANDS:
-            if q != 0:
-                ps = p if (p >> 63) == 0 else p|((-1)<<64)
-                qs = q if (q >> 31) == 0 else q|((-1)<<32)
-                if -2**31 <= ps/qs < 2**31:
-                    compare(tmpdir, asm % (p>>32,p&0xffffffff,q), ["eax", "ebx", "edx"])
+          """.format(**locals())
+    if q != 0:
+        ps = p if (p >> 63) == 0 else p|((-1)<<64)
+        qs = q if (q >> 31) == 0 else q|((-1)<<32)
+        if -2**31 <= ps/qs < 2**31:
+            compare(tmpdir, asm, ["eax", "ebx", "edx"])
 
-def test_idiv_reg8(tmpdir):
+def test_arith_idiv_reg8(tmpdir, op16, op8):
+    p = op16
+    q = op8
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {p:#x}
+            mov ebx, {q:#x}
             idiv bl
-          """
-    for p in SOME_OPERANDS_16:
-        for q in SOME_OPERANDS_8:
-            if q != 0:
-                ps = p if (p >> 15) == 0 else p|((-1)<<15)
-                qs = q if (q >> 7) == 0 else q|((-1)<<7)
-                if -2**7 <= ps/qs < 2**7:
-                    compare(tmpdir, asm % (p,q), ["eax", "ebx"])
+          """.format(**locals())
+    if q != 0:
+        ps = p if (p >> 15) == 0 else p|((-1)<<15)
+        qs = q if (q >> 7) == 0 else q|((-1)<<7)
+        if -2**7 <= ps/qs < 2**7:
+            compare(tmpdir, asm, ["eax", "ebx"])
 
-def test_div_reg32(tmpdir):
+def test_arith_div_reg32(tmpdir, op64, op32):
+    p = op64
+    ph,pl = p>>32, p&0xffffffff
+    q = op32
     asm = """
-            mov edx, %#x
-            mov eax, %#x
-            mov ebx, %#x
+            mov edx, {ph:#x}
+            mov eax, {pl:#x}
+            mov ebx, {q:#x}
             div ebx
-          """
-    for p in SOME_OPERANDS_64:
-        for q in SOME_OPERANDS:
-            if q != 0:
-                if p/q < 2**32:
-                    compare(tmpdir, asm % (p>>32,p&0xffffffff,q), ["eax", "ebx", "edx"])
+          """.format(**locals())
+    if q != 0:
+        if p/q < 2**32:
+            compare(tmpdir, asm, ["eax", "ebx", "edx"])
 
-def test_div_reg8(tmpdir):
+def test_arith_div_reg8(tmpdir, op16, op8):
+    p = op16
+    q = op8
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {p:#x}
+            mov ebx, {q:#x}
             div bl
-          """
-    for p in SOME_OPERANDS_16:
-        for q in SOME_OPERANDS_8:
-            if q != 0:
-                if p/q < 2**8:
-                    compare(tmpdir, asm % (p,q), ["eax", "ebx"])
+          """.format(**locals())
+    if q != 0:
+        if p/q < 2**8:
+            compare(tmpdir, asm, ["eax", "ebx"])
 
-
-
-def test_mul_reg32(tmpdir):
+def test_arith_mul_reg32(tmpdir, op32, op32_):
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
             mul ebx
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
-
-def test_mul_taint(tmpdir):
-    asm = """
-            mov eax, %#x  ; @override reg[eax],%#x 
-            mov ebx, %#x  ; @override reg[ebx],%#x
-            mul ebx
-          """
-
-    compare(tmpdir, asm % (1,0xff, 0x10001, 0),["eax", "ebx","edx"],
-            reg_taints = dict(eax=0xff00ff, edx=0))
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "edx", "of", "cf"])
     
-def test_imul3_reg32_imm(tmpdir):
+def test_arith_imul3_reg32_imm(tmpdir, op32, op32_, op32__):
     asm = """
-            mov ecx, %#x
-            mov ebx, %#x
-            imul ecx, ebx, %#x
-          """
-    for val1, val2 in SOME_OPERANDS_COUPLES:
-        for imm in SOME_OPERANDS:
-            compare(tmpdir, asm % (val1, val2, imm), ["ecx", "ebx", "of", "cf"])
+            mov ecx, {op32_:#x}
+            mov ebx, {op32__:#x}
+            imul ecx, ebx, {op32:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["ecx", "ebx", "of", "cf"])
 
-def test_imul3_reg16_imm(tmpdir):
+def test_arith_imul3_reg16_imm(tmpdir, op16, op16_, op16__):
     asm = """
-            mov ecx, %#x
-            mov ebx, %#x
-            imul cx, bx, %#x
-          """
-    for val1, val2 in SOME_OPERANDS_COUPLES_16:
-        for imm in SOME_OPERANDS_16:
-            compare(tmpdir, asm % (val1, val2, imm), ["ecx", "ebx", "of", "cf"])
+            mov ecx, {op16_:#x}
+            mov ebx, {op16__:#x}
+            imul cx, bx, {op16:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["ecx", "ebx", "of", "cf"])
 
-def test_imul_reg32(tmpdir):
+def test_arith_imul_reg32(tmpdir, op32, op32_):
     asm = """
-            mov eax, %#x
-            mov ebx, %#x
+            mov eax, {op32:#x}
+            mov ebx, {op32_:#x}
             imul ebx
-          """
-    for vals in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % vals, ["eax", "edx", "of", "cf"])
-
-def test_movzx(tmpdir):
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "edx", "of", "cf"])
+    
+def test_arith_neg_reg32(tmpdir, op32):
     asm = """
-            mov eax, %i
-            movzx bx, al
-            movzx ecx, al
-            movzx edx, ax
-          """
-    for val in [0, 1, 2, 0x7f, 0x7f, 0x80, 0x81, 0xff, 0x100, 0x101, 0x7fff, 0x8000, 0xffff ]:
-        compare(tmpdir, asm % val, ["eax", "ebx", "ecx", "edx"])
+            mov eax, {op32:#x}
+            neg eax
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_movsx(tmpdir):
+def test_arith_neg_reg16(tmpdir, op16):
     asm = """
-            mov eax, %i
-            movsx bx, al
-            movsx ecx, al
-            movsx edx, ax
-          """
-    for val in [0, 1, 2, 0x7f, 0x7f, 0x80, 0x81, 0xff, 0x100, 0x101, 0x7fff, 0x8000, 0xffff ]:
-        compare(tmpdir, asm % val, ["eax", "ebx", "ecx", "edx"])
+            mov eax, {op16:#x}
+            neg ax
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_logic_and_reg32(tmpdir, op32, op32_):
+    asm = """
+            mov eax, {op32:#x}
+            and eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf"])
+
+def test_logic_or_reg32(tmpdir, op32, op32_):
+    asm = """
+            mov eax, {op32:#x}
+            or eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf"])
+
+def test_logic_xor_reg32(tmpdir, op32, op32_):
+    asm = """
+            mov eax, {op32:#x}
+            xor eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf"])
+
+def test_logic_not_reg32(tmpdir, op32, op32_):
+    asm = """
+            mov eax, {op32:#x}
+            not eax
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax"])
 
 
 ##  _    ___   ___  ___     __  ___ ___ ___     __   ___ ___  _  _ ___  
@@ -1002,8 +784,58 @@ def test_movsx(tmpdir):
 ## | |_| (_) | (_) |  _/  / /  |   / _||  _/  / /  | (_| (_) | .` | |) |
 ## |____\___/ \___/|_|   /_/   |_|_\___|_|   /_/    \___\___/|_|\_|___/ 
 ##                                                                      
-        
-def test_repne_scasb(tmpdir):
+
+def test_cond_test_reg32(tmpdir, op32, op32_):
+    asm = """
+            mov eax, {op32:#x}
+            test eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "sf", "zf", "pf"])
+
+def test_cond_cmp_reg32(tmpdir, op32, op32_):
+    asm = """
+            mov eax, {op32:#x}
+            cmp eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_cond_cmovxx_reg32(tmpdir):
+    asm = """
+            pushf
+            pop eax
+            and eax, 0xfffff72a
+            or eax, {flags:#x}
+            push eax
+            popf
+            mov edx, 0xdeadbeef
+            xor ebx,ebx
+            cmov{cond1} ebx, edx
+            xor ecx,ecx
+            cmov{cond2} ecx, edx
+          """
+    for f in range(0x40): # all flags combinations
+        flags = (f&0x20<<6) | (f&0x10<<3) | (f&8<<3) | (f&4<<2) | (f&2<<1) | (f&1)
+        for cond1, cond2 in [("a","be"),("ae","b"),("c","nc"), ("e", "ne"),
+                             ("g","le"), ("ge","l"), ("o", "no"), ("s", "ns"),
+                             ("p", "np") ]:
+            compare(tmpdir, asm.format(**locals()),
+                    ["ebx", "ecx", "edx", "of", "sf", "zf", "cf", "pf", "af"],
+                    top_allowed={ "af":1 })
+
+def test_cond_jump_jne(tmpdir, op8):
+    asm = """
+            mov ecx, {op8}
+            mov eax, 0
+         loop:
+            inc eax
+            dec ecx
+            cmp ecx,0
+            jne loop
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
+
+
+def test_loop_repne_scasb(tmpdir):
     asm = """
             push 0x00006A69
             push 0x68676665
@@ -1021,8 +853,7 @@ def test_repne_scasb(tmpdir):
          """
     compare(tmpdir, asm, ["edi", "ecx", "edx", "zf", "cf", "of", "pf", "af", "sf"])
 
-
-def test_repne_scasb_unknown_memory(tmpdir):
+def test_loop_repne_scasb_unknown_memory(tmpdir):
     asm = """
             mov edi, esp
             xor al,al
@@ -1037,30 +868,16 @@ def test_repne_scasb_unknown_memory(tmpdir):
          """
     compare(tmpdir, asm, ["edi", "ecx", "edx", "zf", "cf", "of", "pf", "af", "sf"])
 
-
-def test_loop(tmpdir):
+def test_loop_loop(tmpdir):
     asm = """
             mov ecx, 0x40
             mov eax, 0
          loop:
             inc eax
             loop loop
-          """
+          """.format(**locals())
     compare(tmpdir, asm, ["eax", "ecx", "zf", "of", "pf", "af", "sf"])
 
-
-def test_cond_jump_jne(tmpdir):
-    asm = """
-            mov ecx, %i
-            mov eax, 0
-         loop:
-            inc eax
-            dec ecx
-            cmp ecx,0
-            jne loop
-          """
-    for i in range(1, 20):
-        compare(tmpdir, asm % i, ["eax", "ecx", "zf", "cf", "of", "pf", "af", "sf"])
 
 
 ##  ___ ___ _____   _____ ___ ___ _____ ___ _  _  ___ 
@@ -1069,168 +886,150 @@ def test_cond_jump_jne(tmpdir):
 ## |___/___| |_|     |_| |___|___/ |_| |___|_|\_|\___|
 ##                                                    
 
-def test_bittest_bt_reg32(tmpdir):
+def test_bittest_bt_reg32(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            mov ebx, %i
+            mov ebx, {shift}
             bt eax, ebx
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "cf"])
 
-def test_bittest_bt_reg16(tmpdir):
+def test_bittest_bt_reg16(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            mov ebx, %i
+            mov ebx, {shift}
             bt ax, bx
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "cf"])
 
-def test_bittest_bt_imm8(tmpdir):
+def test_bittest_bt_imm8(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            bt eax, %i
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "cf"])
+            bt eax, {shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf"])
 
 
-def test_bittest_bts_reg32(tmpdir):
+def test_bittest_bts_reg32(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            mov ebx, %i
+            mov ebx, {shift}
             bts eax, ebx
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "cf"])
 
-def test_bittest_bts_reg16(tmpdir):
+def test_bittest_bts_reg16(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            mov ebx, %i
+            mov ebx, {shift}
             bts ax, bx
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "cf"])
 
-def test_bittest_bts_imm8(tmpdir):
+def test_bittest_bts_imm8(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            bts eax, %i
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+            bts eax, {shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf"])
 
 
-def test_bittest_btr_reg32(tmpdir):
+def test_bittest_btr_reg32(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            mov ebx, %i
+            mov ebx, {shift}
             btr eax, ebx
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "cf"])
 
-def test_bittest_btr_reg16(tmpdir):
+def test_bittest_btr_reg16(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            mov ebx, %i
+            mov ebx, {shift}
             btr ax, bx
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "cf"])
 
-def test_bittest_btr_imm8(tmpdir):
+def test_bittest_btr_imm8(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            btr eax, %i
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+            btr eax, {shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf"])
 
 
-def test_bittest_btc_reg32(tmpdir):
+def test_bittest_btc_reg32(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            mov ebx, %i
+            mov ebx, {shift}
             btc eax,ebx
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "cf"])
 
-def test_bittest_btc_reg16(tmpdir):
+def test_bittest_btc_reg16(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            mov ebx, %i
+            mov ebx, {shift}
             btc ax, bx
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "cf"])
 
-def test_bittest_btc_imm8(tmpdir):
+def test_bittest_btc_imm8(tmpdir, shift):
     asm = """
             mov eax, 0xA35272F4
-            btc eax, %i
-    """
-    for i in SOME_SHIFT_COUNTS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "cf"])
+            btc eax, {shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf"])
 
-def test_bittest_bsr_reg32(tmpdir):
+def test_bittest_bsr_reg32(tmpdir, op32):
     asm = """
-            mov eax, %#x
+            mov eax, {op32:#x}
             xor ebx, ebx
             bsr ebx, eax
-    """
-    for i in SOME_OPERANDS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "zf"])
 
-def test_bittest_bsr_m32(tmpdir):
+def test_bittest_bsr_m32(tmpdir, op32):
     asm = """
-            push %#x
+            push {op32:#x}
             xor ebx, ebx
             bsr ebx, [esp]
-    """
-    for i in SOME_OPERANDS:
-        compare(tmpdir, asm % i, ["ebx", "zf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["ebx", "zf"])
 
 
-def test_bittest_bsr_reg16(tmpdir):
+def test_bittest_bsr_reg16(tmpdir, op16):
     asm = """
-            mov eax, %#x
+            mov eax, {op16:#x}
             xor ebx, ebx
             bsr bx, ax
-    """
-    for i in SOME_OPERANDS_16:
-        compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "zf"])
 
-def test_bittest_bsf_reg32(tmpdir):
+def test_bittest_bsf_reg32(tmpdir, op32):
     asm = """
-            mov eax, %#x
+            mov eax, {op32:#x}
             xor ebx, ebx
             bsf ebx, eax
-    """
-    for i in SOME_OPERANDS:
-        compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "zf"])
 
-def test_bittest_bsf_m32(tmpdir):
+def test_bittest_bsf_m32(tmpdir, op32):
     asm = """
-            push %#x
+            push {op32:#x}
             xor ebx, ebx
             bsf ebx, [esp]
-    """
-    for i in SOME_OPERANDS:
-        compare(tmpdir, asm % i, ["ebx", "zf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["ebx", "zf"])
 
 
-def test_bittest_bsf_reg16(tmpdir):
+def test_bittest_bsf_reg16(tmpdir, op16):
     asm = """
-            mov eax, %#x
+            mov eax, {op16:#x}
             xor ebx, ebx
             bsf bx, ax
-    """
-    for i in SOME_OPERANDS_16:
-        compare(tmpdir, asm % i, ["eax", "ebx", "zf"])
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "zf"])
 
 
 ##  __  __ ___ ___  ___ 
@@ -1239,7 +1038,27 @@ def test_bittest_bsf_reg16(tmpdir):
 ## |_|  |_|___|___/\___|
 ##                      
 
-def test_pushf_popf(tmpdir):
+def test_misc_movzx(tmpdir, op32):
+    asm = """
+            mov eax, {op32:#x}
+            mov ebx, 0
+            movzx bx, al
+            movzx ecx, al
+            movzx edx, ax
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx"])
+
+def test_misc_movsx(tmpdir, op32):
+    asm = """
+            mov eax, {op32:#x}
+            mov ebx, 0
+            movsx bx, al
+            movsx ecx, al
+            movsx edx, ax
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx"])
+
+def test_misc_pushf_popf(tmpdir):
     asm = """
             stc
             mov eax, 0x7fffffff
@@ -1251,7 +1070,7 @@ def test_pushf_popf(tmpdir):
     compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
 
-def test_xlat(tmpdir):
+def test_misc_xlat(tmpdir, op8):
     asm = """
             mov ecx, 64
          loop:
@@ -1262,13 +1081,12 @@ def test_xlat(tmpdir):
             jnz loop
             mov ebx, esp
             mov eax, 0xf214cb00
-            mov al, %#x
+            mov al, {op8:#x}
             xlat
-          """
-    for i in SOME_OPERANDS_8:
-        compare(tmpdir, asm % i, ["eax"])
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax"])
 
-def test_xchg_m32_r32(tmpdir):
+def test_misc_xchg_m32_r32(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
@@ -1279,7 +1097,7 @@ def test_xchg_m32_r32(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-def test_xchg_m8_r8(tmpdir):
+def test_misc_xchg_m8_r8(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
@@ -1290,7 +1108,7 @@ def test_xchg_m8_r8(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-def test_xchg_r32_r32(tmpdir):
+def test_misc_xchg_r32_r32(tmpdir):
     asm = """
            mov eax, 0x12345678
            mov ebx, 0x87654321
@@ -1298,134 +1116,120 @@ def test_xchg_r32_r32(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx"])
 
-def test_cmpxchg_r32_r32(tmpdir):
+def test_misc_cmpxchg_r32_r32(tmpdir, op32, op32_, op32__):
     asm = """
-           mov eax, %#x
-           mov ebx, %#x
-           mov ecx, %#x
+           mov eax, {op32:#x}
+           mov ebx, {op32_:#x}
+           mov ecx, {op32__:#x}
            cmpxchg ebx, ecx
-         """
-    vals = [0x12345678, 0x9abcdef0, 0x87654321]
-    for v in itertools.product(vals, vals, vals):
-        compare(tmpdir, asm % v, ["eax", "ebx", "ecx", "zf"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
 
-def test_cmpxchg_r16_r16(tmpdir):
+def test_misc_cmpxchg_r16_r16(tmpdir, op16, op16_, op16__):
     asm = """
-           mov eax, %#x
-           mov ebx, %#x
-           mov ecx, %#x
+           mov eax, {op16:#x}
+           mov ebx, {op16_:#x}
+           mov ecx, {op16__:#x}
            cmpxchg bx, cx
-         """
-    vals = [0x12345678, 0x9abcdef0, 0x87654321]
-    for v in itertools.product(vals, vals, vals):
-        compare(tmpdir, asm % v, ["eax", "ebx", "ecx", "zf"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
 
-def test_cmpxchg_r8_r8(tmpdir):
+def test_misc_cmpxchg_r8_r8(tmpdir, op8, op8_, op8__):
     asm = """
-           mov eax, %#x
-           mov ebx, %#x
-           mov ecx, %#x
+           mov eax, {op8:#x}
+           mov ebx, {op8_:#x}
+           mov ecx, {op8__:#x}
            cmpxchg bl, cl
-         """
-    vals = [0x12345678, 0x9abcdef0, 0x87654321]
-    for v in itertools.product(vals, vals, vals):
-        compare(tmpdir, asm % v, ["eax", "ebx", "ecx", "zf"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
 
-def test_cmpxchg_m32_r32(tmpdir):
+def test_misc_cmpxchg_m32_r32(tmpdir, op32, op32_, op32__):
     asm = """
-           mov eax, %#x
+           mov eax, {op32:#x}
            push 0
-           push %#x
-           mov ecx, %#x
+           push {op32_:#x}
+           mov ecx, {op32__:#x}
            cmpxchg [esp+4], ecx
            pop ebx
            pop ebx
-         """
-    vals = [0x12345678, 0x9abcdef0, 0x87654321]
-    for v in itertools.product(vals, vals, vals):
-        compare(tmpdir, asm % v, ["eax", "ebx", "ecx", "zf"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
 
-def test_cmpxchg8b_posofs(tmpdir):
+def test_misc_cmpxchg8b_posofs(tmpdir, op64, op64_, op64__):
     # keep order of registers so that edx:eax <- v1, ecx:ebx <- v2 and [esp+4] <- v3
+    v1h, v1l = op64>>32,   op64&0xffffffff
+    v2h, v2l = op64_>>32,  op64_&0xffffffff
+    v3h, v3l = op64__>>32, op64__&0xffffffff
     asm = """
-           mov edx, %#x
-           mov eax, %#x
-           mov ecx, %#x
-           mov ebx, %#x
-           push %#x
-           push %#x
+           mov edx, {v1h:#x}
+           mov eax, {v1l:#x}
+           mov ecx, {v2h:#x}
+           mov ebx, {v2l:#x}
+           push {v3h:#x}
+           push {v3l:#x}
            push 0
            cmpxchg8b [esp+4]
            pop esi
            pop esi
            pop edi
-         """
-    vals = [0x123456789abcdef0, 0xfecdba876543210,0xa5a5a5a56c6c6c6c]
-    for v1,v2,v3 in itertools.product(vals, vals, vals, ):
-        compare(tmpdir, asm % (v1>>32,v1&0xffffffff, v2>>32,v2&0xffffffff,v3>>32,v3&0xffffffff),
-                ["eax", "ebx", "ecx", "edx", "esi", "edi", "zf"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "esi", "edi", "zf"])
 
-def test_cmpxchg8b_negofs(tmpdir):
+def test_misc_cmpxchg8b_negofs(tmpdir, op64, op64_, op64__):
     # keep order of registers so that edx:eax <- v1, ecx:ebx <- v2 and [esp+4] <- v3
+    v1h, v1l = op64>>32,   op64&0xffffffff
+    v2h, v2l = op64_>>32,  op64_&0xffffffff
+    v3h, v3l = op64__>>32, op64__&0xffffffff
     asm = """
            mov esi, esp
-           mov edx, %#x
-           mov eax, %#x
-           mov ecx, %#x
-           mov ebx, %#x
-           push %#x
-           push %#x
+           mov edx, {v1h:#x}
+           mov eax, {v1l:#x}
+           mov ecx, {v2h:#x}
+           mov ebx, {v2l:#x}
+           push {v3h:#x}
+           push {v3l:#x}
            cmpxchg8b [esi-8]
            pop esi
            pop edi
-         """
-    vals = [0x123456789abcdef0, 0xfecdba876543210,0xa5a5a5a56c6c6c6c]
-    for v1,v2,v3 in itertools.product(vals, vals, vals, ):
-        compare(tmpdir, asm % (v1>>32,v1&0xffffffff, v2>>32,v2&0xffffffff,v3>>32,v3&0xffffffff),
-                ["eax", "ebx", "ecx", "edx", "esi", "edi", "zf"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "esi", "edi", "zf"])
 
-def test_xadd_r32_r32(tmpdir):
+def test_misc_xadd_r32_r32(tmpdir, op32, op32_):
     asm = """
-           mov eax, %#x
-           mov ebx, %#x
+           mov eax, {op32:#x}
+           mov ebx, {op32_:#x}
            xadd eax, ebx
-         """
-    for v in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % v, ["eax", "ebx"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx"])
 
-def test_xadd_r16_r16(tmpdir):
+def test_misc_xadd_r16_r16(tmpdir, op16, op16_):
     asm = """
-           mov eax, %#x
-           mov ebx, %#x
+           mov eax, {op16:#x}
+           mov ebx, {op16_:#x}
            xadd ax, bx
-         """
-    for v in SOME_OPERANDS_COUPLES_16:
-        compare(tmpdir, asm % v, ["eax", "ebx"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx"])
 
-def test_xadd_r8_r8(tmpdir):
+def test_misc_xadd_r8_r8(tmpdir, op8, op8_):
     asm = """
-           mov eax, %#x
-           mov ebx, %#x
+           mov eax, {op8:#x}
+           mov ebx, {op8_:#x}
            xadd al, bl
-         """
-    for v in SOME_OPERANDS_COUPLES_8:
-        compare(tmpdir, asm % v, ["eax", "ebx"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx"])
 
-def test_xadd_m32_r32(tmpdir):
+def test_misc_xadd_m32_r32(tmpdir, op32, op32_):
     asm = """
            push 0
-           push %#x
-           mov ebx, %#x
+           push {op32_:#x}
+           mov ebx, {op32_:#x}
            xadd [esp+4], ebx
            pop eax
            pop eax
-         """
-    for v in SOME_OPERANDS_COUPLES:
-        compare(tmpdir, asm % v, ["eax", "ebx"])
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx"])
 
-
-
-def test_mov_rm32_r32(tmpdir):
+def test_misc_mov_rm32_r32(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
@@ -1434,9 +1238,9 @@ def test_mov_rm32_r32(tmpdir):
            pop ebx
            pop ecx
          """
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "of"])
+    compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-def test_mov_rm8_r8(tmpdir):
+def test_misc_mov_rm8_r8(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
@@ -1445,78 +1249,9 @@ def test_mov_rm8_r8(tmpdir):
            pop ebx
            pop ecx
          """
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "of"])
+    compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-
-##  ___  ___ ___  
-## | _ )/ __|   \ 
-## | _ \ (__| |) |
-## |___/\___|___/ 
-##                
-
-def test_bcd_daa(tmpdir):
-    asm = """
-           mov eax, %#x
-           add eax, %#x
-           daa
-          """
-    for a,b in SOME_OPERANDS_COUPLES_8:
-        compare(tmpdir, asm % (a,b), ["eax", "cf", "af", "of"],
-                top_allowed = { "of":1 })
-
-def test_bcd_das(tmpdir):
-    asm = """
-           mov eax, %#x
-           sub eax, %#x
-           das
-          """
-    for a,b in SOME_OPERANDS_COUPLES_8:
-        compare(tmpdir, asm % (a,b), ["eax", "cf", "af", "of"],
-                top_allowed = { "of":1 })
-
-def test_bcd_aaa(tmpdir):
-    asm = """
-           mov eax, %#x
-           add ax, %#x
-           aaa
-          """
-    for a,b in SOME_OPERANDS_COUPLES_8:
-        compare(tmpdir, asm % (a,b), ["eax", "cf", "af", "of", "zf", "sf", "pf"],
-                top_allowed = {"of":1, "sf":1, "zf":1, "pf":1 })
-
-def test_bcd_aas(tmpdir):
-    asm = """
-           mov eax, %#x
-           sub ax, %#x
-           aas
-          """
-    for a,b in SOME_OPERANDS_COUPLES_8:
-        compare(tmpdir, asm % (a,b), ["eax", "cf", "af", "of", "zf", "sf", "pf"],
-                top_allowed = {"of":1, "sf":1, "zf":1, "pf":1 })
-
-def test_bcd_aam(tmpdir):
-    asm = """
-           mov eax, %#x
-           mov ebx, %#x
-           mul bx
-           aam %#x
-          """
-    for a,b in SOME_OPERANDS_COUPLES_8:
-        for base in [10, 12, 8, 16, 0xff]:
-            compare(tmpdir, asm % (a,b,base), ["eax", "cf", "af", "of", "zf", "sf", "pf"],
-                    top_allowed = {"of":1, "af":1, "cf":1 })
-
-def test_bcd_aad(tmpdir):
-    asm = """
-           mov eax, %#x
-           aad %#x
-          """
-    for a in SOME_OPERANDS_16:
-        for base in [10, 12, 8, 16, 0xff]:
-            compare(tmpdir, asm % (a,base), ["eax", "sf", "zf", "pf", "of", "af", "cf"],
-                    top_allowed = {"of":1, "af":1, "cf":1 })
-
-def test_push_cs(tmpdir):
+def test_misc_push_cs(tmpdir):
     asm = """
             push 0
             pop eax
@@ -1526,7 +1261,7 @@ def test_push_cs(tmpdir):
     compare(tmpdir, asm, ["eax"])
 
 
-def test_lea_imm(tmpdir):
+def test_misc_lea_imm(tmpdir):
     asm = """
             mov eax, 0
             mov ebx, 0
@@ -1535,4 +1270,68 @@ def test_lea_imm(tmpdir):
             lea bx, [0x124000]
           """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
+
+
+
+##  ___  ___ ___  
+## | _ )/ __|   \ 
+## | _ \ (__| |) |
+## |___/\___|___/ 
+##                
+
+def test_bcd_daa(tmpdir, op8, op8_):
+    asm = """
+           mov eax, {op8:#x}
+           add eax, {op8_:#x}
+           daa
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "af", "of"],
+            top_allowed = { "of":1 })
+
+def test_bcd_das(tmpdir, op8, op8_):
+    asm = """
+           mov eax, {op8:#x}
+           sub eax, {op8_:#x}
+           das
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "af", "of"],
+            top_allowed = { "of":1 })
+
+def test_bcd_aaa(tmpdir, op8, op8_):
+    asm = """
+           mov eax, {op8:#x}
+           add ax, {op8_:#x}
+           aaa
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "af", "of", "zf", "sf", "pf"],
+            top_allowed = {"of":1, "sf":1, "zf":1, "pf":1 })
+
+def test_bcd_aas(tmpdir, op8, op8_):
+    asm = """
+           mov eax, {op8:#x}
+           sub ax, {op8_:#x}
+           aas
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "af", "of", "zf", "sf", "pf"],
+            top_allowed = {"of":1, "sf":1, "zf":1, "pf":1 })
+
+@pytest.mark.parametrize("base", [10, 12, 8, 16, 0xff])
+def test_bcd_aam(tmpdir, op8, op8_, base):
+    asm = """
+           mov eax, {op8:#x}
+           mov ebx, {op8_:#x}
+           mul bx
+           aam {base}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "cf", "af", "of", "zf", "sf", "pf"],
+            top_allowed = {"of":1, "af":1, "cf":1 })
+
+@pytest.mark.parametrize("base", [10, 12, 8, 16, 0xff])
+def test_bcd_aad(tmpdir, op16, base):
+    asm = """
+           mov eax, {op16:#x}
+           aad {base}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "sf", "zf", "pf", "of", "af", "cf"],
+            top_allowed = {"of":1, "af":1, "cf":1 })
 
