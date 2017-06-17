@@ -1267,7 +1267,8 @@ def test_misc_lea_imm(tmpdir):
             mov ebx, 0
             mov ecx, 0
             lea eax, [0x124000]
-            lea bx, [0x124000]
+            lea bx, [0x1240]
+            lea cx, [0x124000]
           """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
