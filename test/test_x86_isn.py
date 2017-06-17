@@ -1116,50 +1116,50 @@ def test_misc_xchg_r32_r32(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx"])
 
-def test_misc_cmpxchg_r32_r32(tmpdir, op32, op32_, op32__):
+def test_misc_cmpxchg_r32_r32(tmpdir, someval32, someval32_, someval32__):
     asm = """
-           mov eax, {op32:#x}
-           mov ebx, {op32_:#x}
-           mov ecx, {op32__:#x}
+           mov eax, {someval32:#x}
+           mov ebx, {someval32_:#x}
+           mov ecx, {someval32__:#x}
            cmpxchg ebx, ecx
          """.format(**locals())
     compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
 
-def test_misc_cmpxchg_r16_r16(tmpdir, op16, op16_, op16__):
+def test_misc_cmpxchg_r16_r16(tmpdir, someval16, someval16_, someval16__):
     asm = """
-           mov eax, {op16:#x}
-           mov ebx, {op16_:#x}
-           mov ecx, {op16__:#x}
+           mov eax, {someval16:#x}
+           mov ebx, {someval16_:#x}
+           mov ecx, {someval16__:#x}
            cmpxchg bx, cx
          """.format(**locals())
     compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
 
-def test_misc_cmpxchg_r8_r8(tmpdir, op8, op8_, op8__):
+def test_misc_cmpxchg_r8_r8(tmpdir, someval8, someval8_, someval8__):
     asm = """
-           mov eax, {op8:#x}
-           mov ebx, {op8_:#x}
-           mov ecx, {op8__:#x}
+           mov eax, {someval8:#x}
+           mov ebx, {someval8_:#x}
+           mov ecx, {someval8__:#x}
            cmpxchg bl, cl
          """.format(**locals())
     compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
 
-def test_misc_cmpxchg_m32_r32(tmpdir, op32, op32_, op32__):
+def test_misc_cmpxchg_m32_r32(tmpdir, someval32, someval32_, someval32__):
     asm = """
-           mov eax, {op32:#x}
+           mov eax, {someval32:#x}
            push 0
-           push {op32_:#x}
-           mov ecx, {op32__:#x}
+           push {someval32_:#x}
+           mov ecx, {someval32__:#x}
            cmpxchg [esp+4], ecx
            pop ebx
            pop ebx
          """.format(**locals())
     compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
 
-def test_misc_cmpxchg8b_posofs(tmpdir, op64, op64_, op64__):
+def test_misc_cmpxchg8b_posofs(tmpdir, someval64, someval64_, someval64__):
     # keep order of registers so that edx:eax <- v1, ecx:ebx <- v2 and [esp+4] <- v3
-    v1h, v1l = op64>>32,   op64&0xffffffff
-    v2h, v2l = op64_>>32,  op64_&0xffffffff
-    v3h, v3l = op64__>>32, op64__&0xffffffff
+    v1h, v1l = someval64>>32,   someval64&0xffffffff
+    v2h, v2l = someval64_>>32,  someval64_&0xffffffff
+    v3h, v3l = someval64__>>32, someval64__&0xffffffff
     asm = """
            mov edx, {v1h:#x}
            mov eax, {v1l:#x}
@@ -1175,11 +1175,11 @@ def test_misc_cmpxchg8b_posofs(tmpdir, op64, op64_, op64__):
          """.format(**locals())
     compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "esi", "edi", "zf"])
 
-def test_misc_cmpxchg8b_negofs(tmpdir, op64, op64_, op64__):
+def test_misc_cmpxchg8b_negofs(tmpdir, someval64, someval64_, someval64__):
     # keep order of registers so that edx:eax <- v1, ecx:ebx <- v2 and [esp+4] <- v3
-    v1h, v1l = op64>>32,   op64&0xffffffff
-    v2h, v2l = op64_>>32,  op64_&0xffffffff
-    v3h, v3l = op64__>>32, op64__&0xffffffff
+    v1h, v1l = someval64>>32,   someval64&0xffffffff
+    v2h, v2l = someval64_>>32,  someval64_&0xffffffff
+    v3h, v3l = someval64__>>32, someval64__&0xffffffff
     asm = """
            mov esi, esp
            mov edx, {v1h:#x}

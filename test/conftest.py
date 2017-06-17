@@ -12,6 +12,10 @@ class TestValues:
     op16 = [ 1, 0xffff ]
     op32 = [ 1, 0xffffffff]
     op64 = [ 1, 0xffffffffffffffff]
+    someval8 = [ 0x2e, 0xa5 ]
+    someval16 = [ 0x4b2e, 0xc68b ]
+    someval32 = [ 0x5ed39a5f, 0xd2a173f6 ]
+    someval64 = [ 0x27f4a35c5ed39a5f, 0xd2ac53201ca173f6 ]
     shift = [ 1, 32]
     x86carryop = [ "stc", "clc"]
 
