@@ -1,5 +1,7 @@
 import pytest
-from util import compare
+from util import X86
+
+compare = X86("x86_isn.ini.in").compare
 
 
 def test_assign(tmpdir):
