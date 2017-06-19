@@ -39,8 +39,8 @@ class Bincat:
         self.logf = str(logf)
         self.outf = str(outf)
         
-        self.prgm = cfa.CFA.from_filenames(str(inif), str(outf), str(logf))
-        self.last_state = getLastState(self.prgm)
+        self.cfa = cfa.CFA.from_filenames(str(inif), str(outf), str(logf))
+        self.last_state = getLastState(self.cfa)
         
     def last_reg(self, regname):
         return getReg(self.last_state, regname)
