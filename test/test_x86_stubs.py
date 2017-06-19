@@ -29,6 +29,5 @@ def test_printf_num(tmpdir, val, fmt, mod, zeropad, sz):
 
     expected = fmtstr % val
     
-    assert bc.get_stdout() == expected, (repr(fmtstr)+"\n"+bc.listing)
-    assert bc.result.last_reg("eax").value == len(expected), (repr(fmtstr)+"\n"+bc.listing)
-    
+    assert expected == bc.get_stdout(), (repr(fmtstr)+"\n"+bc.listing)
+    assert len(expected) == bc.result.last_reg("eax").value, (repr(fmtstr)+"\n"+bc.listing)
