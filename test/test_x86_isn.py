@@ -1138,7 +1138,17 @@ def test_misc_lea_imm(tmpdir):
           """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-
+@pytest.mark.xfail
+def test_read_code_as_data(tmpdir):
+    asm = """
+           call lbl
+       lbl:
+           nop
+           nop
+           pop esi
+           mov eax, [esi]
+          """
+    compare(tmpdir, asm, ["eax"])
 
 ##  ___  ___ ___  
 ## | _ )/ __|   \ 
