@@ -218,7 +218,8 @@ class X86(Arch):
     
     
     def cpu_run(self, tmpdir, opcodesfname):
-        out = subprocess.check_output(["./eggloader_x86",opcodesfname])
+        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)),'eggloader_x86')
+        out = subprocess.check_output([eggloader, opcodesfname])
         regs = { reg: int(val,16) for reg, val in
                 (l.strip().split("=") for l in out.splitlines()) }
         flags = regs.pop("eflags")
