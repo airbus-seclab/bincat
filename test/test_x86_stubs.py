@@ -1,7 +1,11 @@
 import pytest
+import os
 from util import X86
 
-x86 = X86("x86_stub.ini.in")
+
+x86 = X86(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),'x86_stub.ini.in')
+)
 
 xfail = pytest.mark.xfail
 

@@ -1,7 +1,11 @@
 import pytest
+import os
 from util import X86
 
-compare = X86("x86_isn.ini.in").compare
+x86 = X86(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),'x86_isn.ini.in')
+)
+compare = x86.compare
 
 
 def test_assign(tmpdir):
