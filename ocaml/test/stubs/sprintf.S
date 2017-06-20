@@ -1,8 +1,0 @@
-BITS 32
-	push 0x87ab43f1
-	push 0x12ab5c78
-	push 0x200
-	push 0x400
-	call 0x80000000
-	push 0
-
