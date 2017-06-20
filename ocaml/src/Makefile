@@ -4,8 +4,8 @@ utils/mapOpt.ml\
 utils/bits.ml\
 utils/config.ml\
 utils/exceptions.ml\
-utils/log.ml\
 data-struct/data.ml\
+utils/log.ml\
 data-struct/types.ml\
 data-struct/asm.ml\
 data-struct/imports.ml\

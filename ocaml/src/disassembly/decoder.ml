@@ -583,7 +583,7 @@ struct
     let clear_flag f = Set (V (T f), Const (Word.zero (Register.size f)))
 
     (** produce the statement to undefine the given flag *)
-    let undef_flag f = Directive (Forget f)
+    let undef_flag f = Directive (Forget (T f))
 
     (** produce the statement to set the carry flag according to the current operation whose operands are op1 and op2 and result is res *)
     let carry_flag_stmts sz op1 op op2 =
@@ -2416,7 +2416,7 @@ struct
 
     (** converts a signature function to typing directives for stdcall with respect to the stdcall calling convention *)
     let forget_reserved_registers_stdcall () =
-      	[ Directive (Forget ecx) ; Directive (Forget edx) ]
+      	[ Directive (Forget (T ecx)) ; Directive (Forget (T edx)) ]
   
 
     let forget_reserved_registers_cdecl = forget_reserved_registers_stdcall
@@ -2461,7 +2461,7 @@ struct
         let clean_stack = Asm.Set (V (T esp), BinOp(Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz') (Register.size esp)))) in
         prologue, (clean_stack::(forget_reserved_registers_stdcall ()))@epilogue
 
-    let default_stub_stdcall () = [ Directive (Forget eax) ]
+    let default_stub_stdcall () = [ Directive (Forget (T eax)) ]
 
     let default_stub_cdecl = default_stub_stdcall
 

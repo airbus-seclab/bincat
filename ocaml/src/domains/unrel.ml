@@ -36,7 +36,8 @@ module type T =
     val is_bot: t -> bool
 
     (** forgets the content but preserves the taint *)
-    val forget: t -> t
+    val forget: t -> (int * int) option -> t
+    (** the forget operation is bounded to bits from l to u if the second parameter is Some (l, u) *)
       
     (** returns true whenever at least one bit of the parameter may be tainted. False otherwise *)
     val is_tainted: t -> bool
@@ -181,24 +182,27 @@ module Make(D: T) =
       match m with
       | BOT -> BOT
       | Val m' -> Val (Env.map (fun _ -> D.top) m')
-		      
+
+    let forget_reg m' r opt =
+      let key = Env.Key.Reg r in
+      let top' =
+	try
+	  let v = Env.find key m' in
+	  let v' = D.forget v opt in
+	  v'
+	with Not_found -> D.top
+      in
+	Env.add key top' m'
+		  
     let forget_lval lv m =
       match m with
       | Val m' ->
 	 begin
 	   match lv with
-	   | Asm.V (Asm.T r) ->
-	      begin
-		let key = Env.Key.Reg r in
-		let top' =
-		  try
-		    let v = Env.find key m' in
-		    let v' = D.forget v in
-		    v'
-		  with Not_found -> D.top
-		in
-	      Val (Env.add key top' m')
-	      end
+	   | Asm.V (Asm.T r) -> Val (forget_reg m' r None)
+	      
+	   | Asm.V (Asm.P (r, l, u)) ->	Val (forget_reg m' r (Some (l, u)))
+	      
 	   | _ -> forget m (*TODO: could be more precise *)
 	 end
       | BOT -> BOT

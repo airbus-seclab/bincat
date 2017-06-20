@@ -92,7 +92,7 @@ and bexp =
 (** type of directives for the analyzer *)
 type directive_t =
   | Remove of Register.t   (** remove the register *)
-  | Forget of Register.t (** forget the content of the given register *)
+  | Forget of reg (** forget the (partial) content of the given register *)
   | Taint of exp option * lval (** conditional tainting: if the expression is true then the left value must be tainted. None is for unconditional tainting *)
   | Type of lval * Types.t (** type the left value with the given type *)
   | Unroll of exp * int (** Unroll (e, bs) set the current unroll value to tmin (e, bs) *)
@@ -228,7 +228,7 @@ let string_of_jmp_target t extended =
 let string_of_directive d =
   match d with
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
-  | Forget r -> Printf.sprintf "forget %s" (Register.name r)
+  | Forget reg -> Printf.sprintf "forget %s" (string_of_reg reg)
   | Taint (e, lv) ->
      begin
        match e with
