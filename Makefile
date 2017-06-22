@@ -43,7 +43,7 @@ IDAuser:
 	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
 	# .no file
 	cp -r lib "${IDAUSR}/idabincat"
-	
+
 IDAinstall: # install globally
 	@echo "Linking pybincat and idabincat inside IDA Python ...................."
 	rm -rf "${IDAPATH}/plugins/pybincat"
