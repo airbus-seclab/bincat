@@ -5,8 +5,7 @@ PYTHON	   =python
 PYPATH	   =python
 NPKPATH    =lib
 MLPATH	   =ocaml/src
-MLTESTPATH =ocaml/test
-PYTESTPATH =python
+TESTPATH = test
 DPREFIX	   =$(PREFIX)
 DOCMLPATH  =../../doc/generated/ocaml
 DOCPYPATH  =../doc/generated/python
@@ -59,8 +58,7 @@ IDAinstall: # install globally
 	cp -r lib "${IDAUSR}/idabincat"
 
 test: all
-	make -C $(MLTESTPATH) test
-	make -C $(PYTESTPATH) test
+	make -C $(TESTPATH) test
 
 doc: all
 	@mkdir -p doc/generated
