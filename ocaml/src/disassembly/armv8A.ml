@@ -48,9 +48,9 @@ struct
   let r10 = Register.make ~name:"r10" ~size:64;;
   let r11 = Register.make ~name:"r11" ~size:64;;
   let r12 = Register.make ~name:"r12" ~size:64;;
-  let r13 = Register.make_sp ~name:"r13" ~size:64;;
+  let r13 = Register.make_sp ~name:"r13" ~size:64;; (* default stack pointer *)
   let r14 = Register.make ~name:"r14" ~size:64;;
-  (* PC is conventionnally r15 and cannot be directly written by an instruction, see note in B1.2.1 
+  (* PC is by r15 by convention and cannot be directly written by an instruction, see note in B1.2.1 
      Hence it is useless to create it *)
   let r16 = Register.make ~name:"r16" ~size:64;;
   let r17 = Register.make ~name:"r17" ~size:64;;
