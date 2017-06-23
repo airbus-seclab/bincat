@@ -455,7 +455,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * bool) =
         match stmts with
         | s::stmts ->
-           L.debug (fun p->p "process_list statements:\n, %s" (Asm.string_of_stmt s true));
+           L.debug (fun p->p "process_list statements:\n%s" (Asm.string_of_stmt s true));
 	   let new_vert, tainted = begin
 	     try
                let (new_vertices: Cfa.State.t list), (b: bool) = process_vertices vertices s in
