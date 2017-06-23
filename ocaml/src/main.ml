@@ -20,7 +20,7 @@ module L = Log.Make(struct let name = "main" end)
 
 (** Entry points of the library *)
 
-(** [process cfile rfile lfile] launches an analysis run such that
+(** [process cfile rfile lfile] launches an analysis run such that:
     - [cfile] is the name of the configuration file
     - [rfile] is the name of the result file
     - [lfile] is the name of the log file *)
@@ -30,9 +30,9 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   Register.clear();
   (* generating modules needed for the analysis *)
   let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
-  let module Pointer 	 = Pointer.Make(Vector)		       in
-  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer)  in
-  let module Interpreter = Interpreter.Make(Domain)	       in
+  let module Pointer 	 = Pointer.Make(Vector)	in
+  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
+  let module Interpreter = Interpreter.Make(Domain)(X86.Make) in
   (* setting the log file *)
   Log.init logfile;
   (* setting the backtrace parameters for debugging purpose *)

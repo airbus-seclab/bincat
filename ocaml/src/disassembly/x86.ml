@@ -17,10 +17,10 @@
 *)
 
 (***************************************************************************************)
-(* x86 functor *)
+(* x86 decoder *)
 (***************************************************************************************)
 
-module L = Log.Make(struct let name = "decoder" end)
+module L = Log.Make(struct let name = "x86" end)
 
 module Make(Domain: Domain.T) =
 struct
@@ -235,9 +235,9 @@ struct
         let avl	  = Z.logand v' Z.one				 	   in
         let v' 	  = Z.shift_right v' 1  			 	   in
         let l 	  = Z.logand v' Z.one				 	   in
-        let v' 	  = Z.shift_right v' 1   		                   in
+        let v' 	  = Z.shift_right v' 1   		           in
         let db 	  = Z.logand v' Z.one				 	   in
-        let v' 	  = Z.shift_right v' 1  		    		   in
+        let v' 	  = Z.shift_right v' 1  		    	   in
         let g 	  = Z.logand v' Z.one				 	   in
         let v' 	  = Z.shift_right v' 1  		    		   in
         let base  = Z.add base (Z.shift_left v' 24)      in
@@ -256,8 +256,9 @@ struct
     (** data type of a decription table *)
     type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
 
-    (** abstract data type for the segmentation field in the decoder state *)
-    type segment_t = {
+    (** decoding context contains all information about
+        the segmentation *)
+    type ctx_t = {
         mutable data: Register.t;                          (** current segment register for data *)
         gdt: desc_tbl;                                     (** current content of the GDT *)
         ldt: desc_tbl;                                     (** current content of the LDT *)
@@ -277,7 +278,7 @@ struct
         buf 	     	    : string;      (** buffer to decode *)
         mutable o 	    : int; 	   (** current offset to decode into the buffer *)
         mutable rep_prefix: bool option; (** None = no rep prefix ; Some true = rep prefix ; Some false = repne/repnz prefix *)
-      mutable segments  : segment_t;   (** all about segmentation *)
+      mutable segments  : ctx_t;   (** all about segmentation *)
       mutable rep: bool;               (** true whenever a REP opcode has been decoded *)
       mutable repe: bool;              (** true whenever a REPE opcode has been decoded *)
       mutable repne: bool;             (** true whenever a REPNE opcode has been decoded *)

@@ -8,7 +8,7 @@ utils/log.ml\
 data-struct/data.ml\
 data-struct/types.ml\
 data-struct/asm.ml\
-data-struct/imports.ml\
+disassembly/imports.ml\
 frontend/lexer.ml\
 frontend/parser.ml\
 data-struct/code.ml\
@@ -23,6 +23,7 @@ domains/reduced_bit_tainting.ml\
 domains/reduced_unrel_typenv.ml\
 disassembly/cfa.ml\
 disassembly/x86.ml\
+disassembly/armv8A.ml\
 fixpoint/stubs.ml\
 fixpoint/interpreter.ml\
 main.ml
