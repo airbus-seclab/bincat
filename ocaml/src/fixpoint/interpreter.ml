@@ -29,7 +29,7 @@ module Make(D: Domain.T)(Decoder: Decoder.Make) =
     module Decoder = Decoder(D)
 				 
     (** Control Flow Automaton *)
-    module Cfa = Decoder.Cfa 
+    module Cfa = Decoder.Cfa
 
     (** stubs *)
     module Stubs = Stubs.Make(D)
@@ -467,12 +467,7 @@ module Make(D: Domain.T)(Decoder: Decoder.Make) =
             Exit -> l
         ) [] vertices
 		     
-  (** oracle used by the decoder to know the current value of a register *)
-    class decoder_oracle s =
-    object
-      method value_of_register r = D.value_of_register s r
-    end
-      
+ 
     (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial state s. 
      g is the initial CFA reduced to the singleton s *) 
     let forward_bin (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
@@ -552,7 +547,7 @@ module Make(D: Domain.T)(Decoder: Decoder.Make) =
             (* except the abstract value field which is set to v.Cfa.State.value. The right value will be          *)
             (* computed next step                                                                                  *)
             (* the new instruction pointer (offset variable) is also returned                                      *)
-            let r = Decoder.parse text' g !d v v.Cfa.State.ip (new decoder_oracle v.Cfa.State.v)                   in
+            let r = Decoder.parse text' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v)                   in
             match r with
             | Some (v, ip', d') ->
                (* these vertices are updated by their right abstract values and the new ip                         *)

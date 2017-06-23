@@ -20,7 +20,7 @@
 module type T =
 sig
   (** abstract data type for the abstract values in state of the CFG *)
-  module Dom: Domain.T
+  type domain
 
   (** abstract data type for the nodes of the control flow graph *)
   module State:
@@ -35,7 +35,7 @@ sig
     type t  = {
 	  id: int; 	     		    (** unique identificator of the state *)
 	  mutable ip: Data.Address.t;   (** instruction pointer *)
-	  mutable v: Dom.t; 	    (** abstract value *)
+	  mutable v: domain; 	    (** abstract value *)
 	  mutable ctx: ctx_t ; 	    (** context of decoding *)
 	  mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
 	  mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
@@ -48,7 +48,18 @@ sig
 
     val compare: t -> t -> int
   end
-    
+
+  (** oracle for retrieving any semantic information computed by the interpreter *)
+  class oracle:
+    domain ->
+  object
+    (** returns the computed concrete value of the given register 
+        may raise an exception if the conretization fails 
+        (not a singleton, bottom) *)
+    method value_of_register: Register.t -> Z.t
+      
+  end
+        
   (** abstract data type of the control flow graph *)
   type t
 
@@ -100,10 +111,10 @@ sig
   val unmarshal: string -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
-  val init_abstract_value: unit -> Dom.t
+  val init_abstract_value: unit -> domain
 end
 
 module Make: functor (D: Domain.T) ->
 sig
-  include T
+  include T with type domain = D.t
 end
