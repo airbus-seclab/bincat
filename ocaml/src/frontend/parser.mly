@@ -137,7 +137,7 @@
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER 
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE
+%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARM
 %token <string> STRING 
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
@@ -275,7 +275,11 @@
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
     | CODE_PHYS_ADDR EQUAL i=INT { update_mandatory CODE_PHYS_ADDR; Config.phys_code_addr := Z.to_int i }
     | CODE_VA EQUAL i=INT 	 { update_mandatory CODE_VA; Config.rva_code := i }
-
+    | ARCHITECTURE EQUAL a=architecture 	 { update_mandatory ARCHITECTURE; Config.architecture := a }
+    
+    architecture:
+    | X86 { Config.X86 }
+    | ARM { Config.ARM }
 
       binary:
     | b=binary_item 	      { b }
