@@ -58,7 +58,7 @@ let close () =
          Printf.fprintf !logfid "[STOP] stopped on %s\n" (Data.Address.to_string adrs)
   end;
   close_out !logfid
-  
+
 module Make(Modname: sig val name : string end) = struct
   let modname = Modname.name
   let _loglvl = ref None
@@ -90,9 +90,13 @@ module Make(Modname: sig val name : string end) = struct
     let msg = fmsg Printf.sprintf in
     if loglevel () >= 1 then
       Printf.fprintf !logfid  "[ERROR] %s: %s\n" modname msg;
-    flush !logfid;
-    flush stdout;
-    raise (Exceptions.Error msg)
+    flush !logfid
+  let exc e fmsg = 
+    let msg = fmsg Printf.sprintf in
+    Printf.fprintf !logfid  "[EXCEPTION] %s: %s\n" modname msg;
+    Printf.fprintf !logfid  "%s\n" (Printexc.to_string e);
+    Printexc.print_backtrace !logfid;
+    flush !logfid
   let abort fmsg = 
     let msg = fmsg Printf.sprintf in
     Printf.fprintf !logfid  "[ABORT] %s: %s\n" modname msg;

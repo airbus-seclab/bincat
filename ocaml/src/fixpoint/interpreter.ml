@@ -203,14 +203,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) =
-        L.debug (fun p -> p "process_value stmt=\n%s" (Asm.string_of_stmt s true));
+        L.debug (fun p -> p "process_value ---------\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
         let res, tainted = 
             match s with
             | Nop 				 -> d, false
             | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack   
             | Set (dst, src) 		 -> D.set dst src d
             | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
-            | Directive (Forget r) 		 -> D.forget_lval (V r) d, false
+            | Directive (Forget lval) 		 -> D.forget_lval lval d, false
             | Directive (Unroll (e, bs)) ->
                begin
                  try
@@ -383,7 +383,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         let v' = Cfa.copy_state g v in
         v'.Cfa.State.stmts <- [];
         v'.Cfa.State.v <- d;
-	v'.Cfa.State.branch <- branch;
+        v'.Cfa.State.branch <- branch;
+        v'.Cfa.State.bytes <- [];
         if is_pred then
           Cfa.add_edge g v v'
         else
@@ -454,7 +455,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * bool) =
         match stmts with
         | s::stmts ->
-           L.debug (fun p->p "process_list statements:\n, %s" (Asm.string_of_stmt s true));
+           L.debug (fun p->p "process_list statements:\n%s" (Asm.string_of_stmt s true));
 	   let new_vert, tainted = begin
 	     try
                let (new_vertices: Cfa.State.t list), (b: bool) = process_vertices vertices s in
@@ -624,9 +625,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             Log.latest_finished_address := Some v.Cfa.State.ip;  (* v.Cfa.State.ip can change because of calls and jumps *)
 
           with
-          | Exceptions.Error msg 	  -> dump g; L.abort (fun p -> p "%s" msg)
-          | Exceptions.Enum_failure -> dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
-          | e			  -> dump g; raise e
+          | Exceptions.Enum_failure as e -> L.exc e (fun p -> p "imprecision here"); dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
+          | e			  -> L.exc e (fun p -> p "Unexpected exception"); dump g; raise e
         end;
         (* boolean condition of loop iteration is updated *)
         continue := not (Vertices.is_empty !waiting);

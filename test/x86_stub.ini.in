@@ -1,3 +1,4 @@
+# used as a template for tests
 [settings]
 mem_model = flat
 mode = protected
@@ -31,16 +32,16 @@ code_va = 0x00
 #physical address (offset) of the code section
 code_phys = 0x00
 #side of the code section
-code_length = 0x11
+code_length = {code_length}
 
 [binary]
-filepath = printf.bin
+filepath = {filepath}
 format = pe
 
 
 [analyzer]
 ini_version = 1
-unroll = 5
+unroll = 150
 dotfile = out.dot
 loglevel = 4
 store_marshalled_cfa = true
@@ -49,31 +50,36 @@ out_marshalled_cfa_file = outcfa.marshal
 analysis = forward_binary
 
 [state]
-reg[eax] = 0x01 ! 0xff ? 0xf0
-reg[ebx] = 0x12 ? 0x60
-reg[ecx] = 0x23 ! 0x60
-reg[edi] = 0x34 
-reg[esi] = 0x45
-reg[edx] = 0xaa55aa55 ? 0xf0f0f0f0 ! 0xffffffff
-reg[esp] = 0x2008
-reg[ebp] = 0x77
+reg[cf] = 0?1
+reg[of] = 0?1
+reg[zf] = 0?1
+reg[sf] = 0?1
+reg[pf] = 0?1
+reg[af] = 0?1
+reg[tf] = 0?1
+reg[if] = 0?1
+reg[df] = 0?1
+reg[iopl] = 0?1
+reg[nt] = 0?1
+reg[rf] = 0?1
+reg[vm] = 0?1
+reg[ac] = 0?1
+reg[vif] = 0?1
+reg[vip] = 0?1
+reg[id] = 0?1
+reg[eax] = 0
+reg[ebx] = 0
+reg[ecx] = 0
+reg[edi] = 0
+reg[esi] = 0
+reg[edx] = 0
+reg[esp] = 0x2000
+reg[ebp] = 0x2000
+stack[0x1000*8192] = |00|?0xFF
+{regmem}
 
-#here addresses are supposed to be absolute and not of the form ds:o
-stack[0x2000] = 0x1234567812345678 ! 0xff
-stack[0x2008] = 0xFFFFFFFF
-mem[0x01] = 0xf1
-mem[0x12] = 0xf2
-mem[0x23] = 0xf3
-mem[0x34] = 0xf4
-mem[0x45] = 0xf5
-mem[0x56] = 0xf5
-# mem[0x100030a] = 0xd6
-mem[0x77] = 0xf7
-mem[0x71] = 0x12
-mem[0x100] = 0xa5 ! 0xf0
-# value=%x
-mem[0x200] = |616263645b25695d0a00|
-mem[0x12345678] = |41424320666f6f62617200|
+[override]
+{overrides}
 
 [libc]
 #tainting rules for libc
@@ -85,4 +91,7 @@ mem[0x12345678] = |41424320666f6f62617200|
 
 [imports]
 0x80000000 = all,"printf"
+0x80000001 = all,"sprintf"
+0x80000002 = all,"memcpy"
 headers = libc.no
+

@@ -745,11 +745,16 @@ module Make(V: Val) =
               done;
               v
 
-	let forget v opt =
+    let forget v opt =
+      L.debug (fun (p: ('a, unit, string) format -> 'a) -> 
+        match opt with
+        | None -> p "Forget vector [%s(%d)] (all bits)%0.0i%0.0i" (to_string v) (Array.length v) 0 0
+        | Some (l,u) -> p "Forget vector [%s(%d)] bits %i -> %i " (to_string v) (Array.length v) l u
+      );
 	  let v' = Array.copy v in
 	  match opt with
 	  | Some (l, u) ->
-	     let n = Array.length v' in
+	     let n = (Array.length v')-1 in
 	     for i = l to u do
 	       v'.(n-i) <- V.forget v'.(n-i)
 	     done;
