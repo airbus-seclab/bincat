@@ -30,6 +30,17 @@ struct
   module Imports = Armv8aImports.Make(Domain)
 
   type ctx_t = unit
+
+  open Data
+  
+  type state = {
+    mutable g 	    : Cfa.t; 	   (** current cfa *)
+    mutable b 	    : Cfa.State.t; (** state predecessor *)
+    a 	     	    : Address.t;   (** current address to decode *)
+    buf 	     	: string;      (** buffer to decode *)
+    mutable c	    : string;      (** current instruction *)
+    
+  }
     
   (************************************************************************)
   (* Creation of the general purpose registers *)
@@ -48,10 +59,9 @@ struct
   let r10 = Register.make ~name:"r10" ~size:64;;
   let r11 = Register.make ~name:"r11" ~size:64;;
   let r12 = Register.make ~name:"r12" ~size:64;;
-  let r13 = Register.make_sp ~name:"r13" ~size:64;; (* default stack pointer *)
-  let r14 = Register.make ~name:"r14" ~size:64;;
-  (* PC is by r15 by convention and cannot be directly written by an instruction, see note in B1.2.1 
-     Hence it is useless to create it *)
+  let r13 = Register.make ~name:"r13" ~size:64;; 
+  let r14 = Register.make ~name:"r15" ~size:64;;
+  let r15 = Register.make ~name:"r14" ~size:64;;
   let r16 = Register.make ~name:"r16" ~size:64;;
   let r17 = Register.make ~name:"r17" ~size:64;;
   let r18 = Register.make ~name:"r18" ~size:64;;
@@ -67,14 +77,35 @@ struct
   let r28 = Register.make ~name:"r28" ~size:64;;
   let r29 = Register.make ~name:"r29" ~size:64;;
   let r30 = Register.make ~name:"r30" ~size:64;;
-
+  let sp = Register.make ~name:"sp" ~size:64;; (* stack pointer *)
+  
   (* condition flags are modeled as registers of size 1 *)
   let nflag = Register.make ~name:"N" ~size:1;;
   let zflag = Register.make ~name:"Z" ~size:1;;
   let cflag = Register.make ~name:"C" ~size:1;;
   let vflag = Register.make ~name:"V" ~size:1;;
 
-  let parse _text _cfg _state _addr = failwith "Armv8-A.parse: not implemented"
+  let decode (s: state): Cfa.State.t =
+    let str = String.sub s.buf 0 4 in
+    s.c <- str;
+    failwith "Armv8A.decode: not implemented"
+      
+  let parse text cfg _ctx state addr _oracle =
+    let s =  {
+      g = cfg;
+      b = state;
+      a = addr;
+      buf = text;
+      c = "";
+    }
+    in
+    try
+      let v' = decode s in
+      Some (v', Data.Address.add_offset addr (Z.of_int 4), ())
+    with     
+      | Exceptions.Error _ as e -> raise e
+      | _ 			  -> (*end of buffer *) None
+           
 
   let init () = ()
 end
