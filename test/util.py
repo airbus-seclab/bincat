@@ -2,6 +2,7 @@ import subprocess
 import os
 import sys
 import inspect
+import pytest
 from collections import defaultdict
 from pybincat import cfa
 
@@ -130,11 +131,6 @@ class Arch:
     def make_bc_test(self, tmpdir, asm):
         return BCTest(self, tmpdir, asm)
 
-    def bincat_run(self, tmpdir, filename, values={}, directives={}):
-        initfile = InitFile(self.ini_in_file, values, directives)
-        initfile["filepath"] = filename
-        bc = Bincat(tmpdir, initfile)
-
     def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
         if regs is None:
             regs = self.ALL_REGS
@@ -145,12 +141,12 @@ class Arch:
         try:
             bctest.run()
         except Exception,e:  # hack to add test name in the exception
-            raise type(e),type(e)("%s: %s" % (testname,str(e))), sys.exc_info()[2]
+            pytest.fail("%s: %s\n%s"%(testname,e,bctest.listing))
         bincat = { reg : getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
         except subprocess.CalledProcessError,e:
-            pytest.fail("%s: %s\n%s"%(testname,e,asm))
+            pytest.fail("%s: %s\n%s"%(testname,e,bctest.listing))
 
         diff = []
         same = []
