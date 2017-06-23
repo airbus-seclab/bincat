@@ -383,7 +383,8 @@ module Make(D: Domain.T): (T with type domain = D.t) =
         let v' = Cfa.copy_state g v in
         v'.Cfa.State.stmts <- [];
         v'.Cfa.State.v <- d;
-	v'.Cfa.State.branch <- branch;
+        v'.Cfa.State.branch <- branch;
+        v'.Cfa.State.bytes <- [];
         if is_pred then
           Cfa.add_edge g v v'
         else
