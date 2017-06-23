@@ -625,7 +625,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             Log.latest_finished_address := Some v.Cfa.State.ip;  (* v.Cfa.State.ip can change because of calls and jumps *)
 
           with
-          | Exceptions.Enum_failure -> dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
+          | Exceptions.Enum_failure as e -> L.exc e (fun p -> p "imprecision here"); dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
           | e			  -> L.exc e (fun p -> p "Unexpected exception"); dump g; raise e
         end;
         (* boolean condition of loop iteration is updated *)
