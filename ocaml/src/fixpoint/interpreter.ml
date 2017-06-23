@@ -203,7 +203,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) =
-        L.debug (fun p -> p "process_value stmt=\n%s" (Asm.string_of_stmt s true));
+        L.debug (fun p -> p "process_value ---------\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
         let res, tainted = 
             match s with
             | Nop 				 -> d, false
