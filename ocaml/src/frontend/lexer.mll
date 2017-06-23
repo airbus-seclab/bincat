@@ -90,6 +90,7 @@ rule token = parse
   (* sections section *)
   | "section"  	    { SECTION }
   | "sections"  	    { SECTIONS }
+  | "archi"  	    { ARCHITECTURE }
   (* settings tokens *)
   | "mem_model" 	    { MEM_MODEL }
   | "op_sz"     	    { OP_SZ }

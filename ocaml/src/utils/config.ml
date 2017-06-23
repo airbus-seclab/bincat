@@ -37,6 +37,12 @@ type format_t =
   | Elf
   | Binary
 
+type archi_t =
+  | X86
+  | ARM (* ARMv8-A *)
+
+let architecture = ref X86;;
+
 type mode_t =
   | Protected
   | Real
