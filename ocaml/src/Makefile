@@ -8,7 +8,8 @@ utils/log.ml\
 data-struct/data.ml\
 data-struct/types.ml\
 data-struct/asm.ml\
-disassembly/imports.ml\
+disassembly/x86Imports.ml\
+disassembly/armv8aImports.ml\
 frontend/lexer.ml\
 frontend/parser.ml\
 data-struct/code.ml\

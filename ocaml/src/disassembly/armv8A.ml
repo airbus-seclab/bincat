@@ -25,6 +25,12 @@ module L = Log.Make(struct let name = "armv8A" end)
 module Make(Domain: Domain.T) =
 struct  
 
+  module Cfa = Cfa.Make(Domain)
+
+  module Imports = Armv8aImports.Make(Domain)
+
+  type ctx_t = unit
+    
   (************************************************************************)
   (* Creation of the general purpose registers *)
   (************************************************************************)
@@ -68,5 +74,7 @@ struct
   let cflag = Register.make ~name:"C" ~size:1;;
   let vflag = Register.make ~name:"V" ~size:1;;
 
-  let parse _text _cfg _state _addr = failwith "Armv8-A.parse: not implemented" 
+  let parse _text _cfg _state _addr = failwith "Armv8-A.parse: not implemented"
+
+  let init () = ()
 end

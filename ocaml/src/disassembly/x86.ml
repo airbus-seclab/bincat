@@ -29,7 +29,7 @@ struct
     module Cfa = Cfa.Make(Domain)
 
     (** import table *)
-    module Imports = Imports.Make(Domain)
+    module Imports = X86Imports.Make(Domain)
       
     open Data
     open Asm
