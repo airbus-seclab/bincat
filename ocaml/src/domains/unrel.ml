@@ -616,7 +616,7 @@ module Make(D: T) =
       	
     let mem_to_addresses m e =
       match m with
-      | BOT -> raise Exceptions.Enum_failure
+      | BOT -> raise Exceptions.Empty
       | Val m' ->
          try let v, b = eval_exp m' e in D.to_addresses v, b
          with _ -> raise Exceptions.Enum_failure
