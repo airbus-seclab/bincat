@@ -14,7 +14,12 @@ It features:
 
 ### In action
 
-TODO: add gif of taint analysis
+You can check BinCAT in action here:
+
+* [Basic analysis](https://syscall.eu/bincat/main.mp4)
+* [Using data tainting](https://syscall.eu/bincat/taint.mp4)
+
+Check the [tutorial](doc/tutorial.md) out to see the corresponding tasks.
 
 ### Quick FAQ
 
@@ -79,7 +84,11 @@ Default config and options are stored in `$IDAUSR/idabincat/conf`.
 #### Analyzer configuration files
 Default config for analyzer.
 
-## Usage
+## Documentation
+A [manual](doc/manual.md) is provided. 
+
+A [tutorial](doc/tutorial.md) is provided to help you try BinCAT's features. 
+It makes use of a [sample binary](doc/get_key/get_key) and screenshots.
 
 ### Log levels
 
@@ -87,6 +96,11 @@ Default config for analyzer.
 2. more info
 3. debug
 4. advanced debug
+
+## Article and presentations about BinCAT
+
+* [SSTIC 2017](https://www.sstic.org/2017/presentation/bincat_purrfecting_binary_static_analysis/), Rennes, France: [article](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Article-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (english), [slides](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Slides-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (french), [video of the presentation](https://static.sstic.org/videos2017/SSTIC_2017-06-07_P07.mp4) (french)
+* [REcon 2017](https://recon.cx/2017/montreal/talks/bincat.html), Montreal, Canada
 
 ## Licenses
 

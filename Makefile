@@ -5,8 +5,7 @@ PYTHON	   =python
 PYPATH	   =python
 NPKPATH    =lib
 MLPATH	   =ocaml/src
-MLTESTPATH =ocaml/test
-PYTESTPATH =python
+TESTPATH = test
 DPREFIX	   =$(PREFIX)
 DOCMLPATH  =../../doc/generated/ocaml
 DOCPYPATH  =../doc/generated/python
@@ -43,7 +42,7 @@ IDAuser:
 	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
 	# .no file
 	cp -r lib "${IDAUSR}/idabincat"
-	
+
 IDAinstall: # install globally
 	@echo "Linking pybincat and idabincat inside IDA Python ...................."
 	rm -rf "${IDAPATH}/plugins/pybincat"
@@ -59,8 +58,7 @@ IDAinstall: # install globally
 	cp -r lib "${IDAUSR}/idabincat"
 
 test: all
-	make -C $(MLTESTPATH) test
-	make -C $(PYTESTPATH) test
+	make -C $(TESTPATH) test
 
 doc: all
 	@mkdir -p doc/generated

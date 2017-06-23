@@ -388,6 +388,41 @@ class State(object):
             ranges[region] = merged
         return ranges
 
+    def get_mem_range(self, region, start, length):
+        m = []
+        i = start
+        while len(m) < length:
+            try:
+                r = self[Value(region, i)]
+            except IndexError:
+                i += 1
+                m.append(Value(region, 0,vtop=0,vbot=0xff))
+            else:
+                m += r
+                i += len(r)
+        m = m[:length]
+        value = "".join(chr(v.value) for v in m)
+        vtop = "".join(chr(v.vtop) for v in m)
+        vbot = "".join(chr(v.vbot) for v in m)
+        return value, vtop, vbot
+
+    def get_string(self, region, start):
+        m = []
+        i = start
+        while True:
+            r = self[Value(region, i)]
+            for v in r:
+                if v.vbot or v.vtop:
+                    raise LookupError("top or bottom values encountered")
+                if v.value == 0:
+                    break
+                m.append(chr(v.value))
+                i += 1
+            else:
+                continue
+            break
+        return "".join(m)
+    
     def __setitem__(self, item, val):
         if type(val[0]) is list:
             val = val[0]

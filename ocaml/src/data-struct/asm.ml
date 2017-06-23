@@ -92,7 +92,7 @@ and bexp =
 (** type of directives for the analyzer *)
 type directive_t =
   | Remove of Register.t   (** remove the register *)
-  | Forget of reg (** forget the (partial) content of the given register *)
+  | Forget of lval (** forget the (partial) content of the given register or memory zone *)
   | Taint of exp option * lval (** conditional tainting: if the expression is true then the left value must be tainted. None is for unconditional tainting *)
   | Type of lval * Types.t (** type the left value with the given type *)
   | Unroll of exp * int (** Unroll (e, bs) set the current unroll value to tmin (e, bs) *)
@@ -225,10 +225,10 @@ let string_of_jmp_target t extended =
   | A a -> Address.to_string a
   | R e -> Printf.sprintf "%s" (string_of_exp e extended)
 
-let string_of_directive d =
+let string_of_directive d extended =
   match d with
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
-  | Forget reg -> Printf.sprintf "forget %s" (string_of_reg reg)
+  | Forget lval -> Printf.sprintf "forget %s" (string_of_lval lval extended)
   | Taint (e, lv) ->
      begin
        match e with
@@ -265,7 +265,7 @@ let string_of_stmt s extended =
     | Call j 	       		     -> Printf.sprintf "%scall %s" ind (string_of_target j)
     | Return  	       		     -> Printf.sprintf "%sret" ind
     | Nop 	       		     -> Printf.sprintf "%snop" ind
-    | Directive d        	     -> Printf.sprintf "%s%s" ind (string_of_directive d)
+    | Directive d        	     -> Printf.sprintf "%s%s" ind (string_of_directive d extended)
     | Assert (bexp, msg) -> Printf.sprintf "Assert (%s, %s)" (string_of_bexp bexp extended) msg
   in
   to_string "" s

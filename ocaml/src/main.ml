@@ -30,19 +30,20 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   Register.clear();
   (* setting the log file *)
   Log.init logfile;
-  (* setting the backtrace parameters for debugging purpose *)
-  Printexc.record_backtrace true;
-  let print_exc exc raw_bt =
-    Printf.fprintf stdout "%s" (Printexc.to_string exc);
-    Printexc.print_raw_backtrace stdout raw_bt
-  in
-  Printexc.set_uncaught_exception_handler print_exc;
+  try
+    (* setting the backtrace parameters for debugging purpose *)
+    Printexc.record_backtrace true;
+    let print_exc exc raw_bt =
+      Printf.fprintf stdout "%s" (Printexc.to_string exc);
+      Printexc.print_raw_backtrace stdout raw_bt
+    in
+    Printexc.set_uncaught_exception_handler print_exc;
   
-  (* opening the configuration file *)
-  let cin =
-    try open_in configfile
-    with Sys_error _ -> L.abort (fun p -> p "Failed to open the configuration file")
-  in
+    (* opening the configuration file *)
+    let cin =
+      try open_in configfile
+      with Sys_error _ -> L.abort (fun p -> p "Failed to open the configuration file")
+    in
     (* parsing the configuration file to fill configuration information *)
   let lexbuf = Lexing.from_channel cin in
   let string_of_position pos =
@@ -79,17 +80,16 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   
     (* internal function to launch backward/forward analysis from a previous CFA and config *)
     let from_cfa fixpoint =
-        let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
-        let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-        let d        = Interpreter.Cfa.init_abstract_value () in
-        try
-            let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
-            prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
-            fixpoint orig_cfa prev_s dump
-        with
-        | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
+      let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
+      let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+      let d        = Interpreter.Cfa.init_abstract_value () in
+      try
+        let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
+        prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
+        fixpoint orig_cfa prev_s dump
+      with
+      | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
     in
-
     (* launching the right analysis depending on the value of !Config.analysis *)
     let cfa =
         match !Config.analysis with
@@ -112,20 +112,19 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
           else
             cfa
 
-        (* forward analysis from a CFA *)
-        | Config.Forward Config.Cfa -> from_cfa Interpreter.forward_cfa
+      (* forward analysis from a CFA *)
+      | Config.Forward Config.Cfa -> from_cfa Interpreter.forward_cfa
 
-        (* backward analysis from a CFA *)
-        | Config.Backward -> from_cfa Interpreter.backward
-
+      (* backward analysis from a CFA *)
+      | Config.Backward -> from_cfa Interpreter.backward
     in
 
     (* dumping results *)
     if !Config.store_mcfa = true then
-        Interpreter.Cfa.marshal !Config.out_mcfa_file cfa;
+      Interpreter.Cfa.marshal !Config.out_mcfa_file cfa;
     dump cfa;
-    Log.close()
-;;
+    Log.close();
+  with e -> L.exc e (fun p -> p "Exception caught in main loop") ; Log.close (); raise e;;
 
 (* enables the process function to be callable from the .so *)
 Callback.register "process" process;;
