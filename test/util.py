@@ -240,3 +240,42 @@ class X86(Arch):
         return "\n".join(s)
     
 
+##    _   ___ __  __ 
+##   /_\ | _ \  \/  |
+##  / _ \|   / |\/| |
+## /_/ \_\_|_\_|  |_|
+##
+## ARM
+
+class ARM(Arch):
+    AS_TMP_DIR = counter("arm-as-%i")
+    AS = ["arm-linux-gnueabi-as"]
+    OBJCOPY = ["arm-linux-gnueabi-objcopy"]
+    OBJDUMP = ["objdump", "-m", "arm"]
+    EGGLOADER = "eggloader_arm"
+    def assemble(self, tmpdir, asm):
+        d = tmpdir.mkdir(self.AS_TMP_DIR.next())
+        inf = d.join("asm.S")
+        obj = d.join("asm.o")
+        outf = d.join("opcodes")
+        inf.write(".text\n.globl _start\n_start:\n" + asm)
+        subprocess.check_call(self.AS + ["-o", str(obj), str(inf)])
+        subprocess.check_call(self.OBJCOPY + ["-O", "binary", str(obj), str(outf)])
+        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)])
+        s = [l for l in lst.splitlines() if l.startswith(" ")]
+        listing = "\n".join(s)
+        opcodes = open(str(outf)).read()
+        return listing, str(outf),opcodes
+
+    def cpu_run(self, tmpdir, opcodesfname):
+        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
+        out = subprocess.check_output([eggloader, opcodesfname])
+        regs = { reg: int(val,16) for reg, val in
+                (l.strip().split("=") for l in out.splitlines()) }
+        return regs
+
+class AARCH64(ARM):
+    AS = ["aarch64-linux-gnu-as"]
+    OBJCOPY = ["aarch64-linux-gnu-objcopy"]
+    OBJDUMP = ["objdump", "-m", "aarch64"]
+    EGGLOADER = "eggloader_aarch"
