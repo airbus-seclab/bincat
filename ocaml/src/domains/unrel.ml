@@ -151,15 +151,15 @@ module Make(D: T) =
 			 
     let value_of_register m r =
       match m with
-      | BOT    -> raise Exceptions.Concretization
+      | BOT    -> raise Exceptions.Empty
       | Val m' ->
          try
            let v = Env.find (Env.Key.Reg r) m' in D.to_z v
-         with _ -> raise Exceptions.Concretization
+         with _ -> raise Exceptions.Empty
 
     let string_of_register m r =
       match m with
-      | BOT    -> raise Exceptions.Concretization
+      | BOT    -> raise Exceptions.Empty
       | Val m' ->
 	     let v = Env.find (Env.Key.Reg r) m' in D.to_string v
 	     
@@ -513,9 +513,9 @@ module Make(D: T) =
                in
                value
              with
-             | Exceptions.Enum_failure               -> D.top, true
-             | Not_found | Exceptions.Concretization ->
-                            L.analysis (fun p -> p ("undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
+             | Exceptions.Enum_failure | Exceptions.Concretization               -> D.top, true
+             | Not_found | Exceptions.Empty -> 
+                L.analysis (fun p -> p ("undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
                             raise Exceptions.Bot_deref
            end
 	     
@@ -819,7 +819,7 @@ module Make(D: T) =
 	       
     let value_of_exp m e =
       match m with
-      | BOT -> raise Exceptions.Concretization
+      | BOT -> raise Exceptions.Empty
       | Val m' -> D.to_z (fst (eval_exp m' e))
 
 
@@ -831,7 +831,7 @@ module Make(D: T) =
 
     let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t) (with_exception: bool) pad_options: (int * D.t list) =
       match m with
-      | BOT -> raise Not_found
+      | BOT -> raise Exceptions.Empty
       | Val m' ->
 	 let v, _ = eval_exp m' addr in
 	 let addrs = Data.Address.Set.elements (D.to_addresses v) in
@@ -879,18 +879,18 @@ module Make(D: T) =
 	      | Some n -> n
 	      | None -> raise Not_found
 	    end
-	 | [] -> raise Not_found
+	 | [] -> raise Exceptions.Empty
 
     let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t): int * Bytes.t =
       try
-	let len, vals = i_get_bytes e cmp terminator upper_bound sz m true None in
-	let bytes = Bytes.create len in
+	    let len, vals = i_get_bytes e cmp terminator upper_bound sz m true None in
+	    let bytes = Bytes.create len in
 	(* TODO: endianess ! *)
-	List.iteri (fun i v ->
-	  Bytes.set bytes i (D.to_char v)) vals;
-	len, bytes
-      with _ -> raise Exceptions.Concretization
-	
+	    List.iteri (fun i v ->
+	      Bytes.set bytes i (D.to_char v)) vals;
+	    len, bytes
+      with Not_found -> raise Exceptions.Concretization
+
     let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m true None)
 
 
@@ -927,7 +927,7 @@ module Make(D: T) =
 	     match addrs with
 	     | [a] -> copy_byte a m' true
 	     | _::_  -> List.fold_left (fun m' a -> copy_byte a m' false) m' addrs
-	     | [] -> raise Exceptions.Concretization
+	     | [] -> raise Exceptions.Empty
 	   in
 	   len, Val m'
 	 end
@@ -1082,7 +1082,7 @@ module Make(D: T) =
 	     | [a] ->
 		Val (write_in_memory a m' v sz true false)
 	     | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
-	     | [ ] -> raise Exceptions.Concretization
+	     | [ ] -> raise Exceptions.Empty
 	   end
 	| BOT -> BOT
 
@@ -1094,7 +1094,7 @@ module Make(D: T) =
           let str' =
               if String.length str <= 2 then
                   String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
-              else raise Exceptions.Concretization
+              else raise Exceptions.Empty
           in
           Log.print str';
           m

@@ -281,26 +281,25 @@ module Make(V: Val) =
             | _-> false
 
         let v_to_z conv v =
-            try
-                let z = ref Z.zero in
-                for i = 0 to (Array.length v) - 1 do
-                    let n = conv v.(i) in
-                    z := Z.add n (Z.shift_left !z 1)
-                done;
-                !z
-            with _ -> raise Exceptions.Concretization
+          let z = ref Z.zero in
+          for i = 0 to (Array.length v) - 1 do
+            let n = conv v.(i) in
+            z := Z.add n (Z.shift_left !z 1)
+          done;
+          !z
 
-	let to_char (v: t): char =
-	  if Array.length v <> 8 then
-	    raise Exceptions.Concretization
-	  else
-	    begin
-	      let c = ref 0 in
-	      for i = 0 to 7 do
-		c := (V.to_int v.(i)) + ((!c) lsl 1)
-	      done;
-	      Char.chr !c
-	    end
+        let to_char (v: t): char =
+          let l = Array.length v in
+          if l <> 8 then
+            L.abort (fun p -> p "attempting to convert a vector of size %i into a char" l)
+          else
+            begin
+              let c = ref 0 in
+              for i = 0 to 7 do
+                c := (V.to_int v.(i)) + ((!c) lsl 1)
+              done;
+              Char.chr !c
+            end
 
     let size v = Array.length v
 
