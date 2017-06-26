@@ -64,11 +64,13 @@ ifeq ($(detected_OS), Windows)
     shared=-ccopt -dynamiclib
     ldconfig=true
     LIBNAME=libbincat.dll
-else ($(detected_OS), Darwin)
+endif
+ifeq ($(detected_OS), Darwin)
     LIBNAME=libbincat.so
     SHARED=-ccopt -dynamiclib
     LDCONFIG=true
-else
+endif
+ifeq ($(detected_OS), Linux)
     LIBNAME=libbincat.so
     SHARED=-output-obj -runtime-variant _pic
     LDCONFIG=ldconfig
