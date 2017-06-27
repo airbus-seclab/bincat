@@ -25,22 +25,12 @@ module L = Log.Make(struct let name = "armv8A" end)
 module Make(Domain: Domain.T) =
 struct  
 
-  module Cfa = Cfa.Make(Domain)
-
-  module Imports = Armv8aImports.Make(Domain)
-
   type ctx_t = unit
 
   open Data
-  
-  type state = {
-    mutable g 	    : Cfa.t; 	   (** current cfa *)
-    mutable b 	    : Cfa.State.t; (** state predecessor *)
-    a 	     	    : Address.t;   (** current address to decode *)
-    buf 	     	: string;      (** buffer to decode *)
-    mutable c	    : string;      (** current instruction *)
-    
-  }
+  open Asm
+
+ 
     
   (************************************************************************)
   (* Creation of the general purpose registers *)
@@ -85,10 +75,54 @@ struct
   let cflag = Register.make ~name:"C" ~size:1;;
   let vflag = Register.make ~name:"V" ~size:1;;
 
-  let decode (s: state): Cfa.State.t =
+   
+  module Cfa = Cfa.Make(Domain)
+
+  module Imports = Armv8aImports.Make(Domain)
+
+  type state = {
+    mutable g 	    : Cfa.t; 	   (** current cfa *)
+    mutable b 	    : Cfa.State.t; (** state predecessor *)
+    a 	     	    : Address.t;   (** current address to decode *)
+    buf 	     	: string;      (** buffer to decode *)
+    
+  }
+    
+  (* fatal error reporting *)
+  let error a msg =
+    L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
+
+  let string_to_char_list str =
+    let len = String.length str in
+    let rec process i =
+      if i < len then
+        (String.get str i)::(process (i+1))
+      else
+        []
+    in
+    List.rev (process 0)
+      
+  let build_instruction (str: string): int =
+    let rec build (res: int) (nth: int): int =
+      if nth = 3 then res
+      else
+        let c = String.get str nth in
+        build ((res lsl 2) + (Char.code c)) (nth+1)
+    in
+    build 0 0
+
+  let return (s: state) (str: string) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
+    s.b.Cfa.State.stmts <- stmts;
+    s.b.Cfa.State.bytes <- string_to_char_list str;
+    s.b, Data.Address.add_offset s.a (Z.of_int 4)
+      
+  let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
-    s.c <- str;
-    failwith "Armv8A.decode: not implemented"
+    let instruction = build_instruction str in
+    match instruction with
+    | 0b11010101000000110010000000011111 -> (* NOP *) return s str [Nop]
+    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
+
       
   let parse text cfg _ctx state addr _oracle =
     let s =  {
@@ -96,12 +130,11 @@ struct
       b = state;
       a = addr;
       buf = text;
-      c = "";
     }
     in
     try
-      let v' = decode s in
-      Some (v', Data.Address.add_offset addr (Z.of_int 4), ())
+      let v', ip' = decode s in
+      Some (v', ip', ())
     with     
       | Exceptions.Error _ as e -> raise e
       | _ 			  -> (*end of buffer *) None
