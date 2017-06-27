@@ -25,7 +25,7 @@ Check the [tutorial](doc/tutorial.md) out to see the corresponding tasks.
 
 Supported Platforms:
 
-* IDA plugin: all, version 6.9 or later
+* IDA plugin: all, version 6.9 or later (BinCAT uses PyQt, not PySide)
 * analyzer (local or server): Linux, macOS (maybe)
 
 Supported CPUs (for now):
