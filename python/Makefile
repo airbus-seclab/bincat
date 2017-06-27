@@ -18,9 +18,6 @@ clean:
 	rm -rf build
 	make -C doc clean
 
-test:
-	PYTHONPATH=. py.test
-
 checkenv:
 ifndef DOCPATH
 	$(error DOCPATH is not set)
