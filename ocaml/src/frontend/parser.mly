@@ -180,7 +180,6 @@
     | LEFT_SQ_BRACKET STATE RIGHT_SQ_BRACKET  st=state       { st }
     | LEFT_SQ_BRACKET ANALYZER RIGHT_SQ_BRACKET a=analyzer   { a }
     | LEFT_SQ_BRACKET SECTIONS RIGHT_SQ_BRACKET s=data_sections   { s }
-    | LEFT_SQ_BRACKET GDT RIGHT_SQ_BRACKET gdt=gdt 	     { gdt }
     | LEFT_SQ_BRACKET l=libname RIGHT_SQ_BRACKET lib=library { l; lib }
     | LEFT_SQ_BRACKET ASSERT RIGHT_SQ_BRACKET r=assert_rules { r }
     | LEFT_SQ_BRACKET IMPORTS RIGHT_SQ_BRACKET i=imports     { i }
@@ -298,14 +297,20 @@
     | X86 { Config.X86 }
     | ARM { Config.ARM }
 
-      x86_section:
+        x86_section:
+    | s=x86_item 	    { s }
+    | s=x86_item ss=x86_section { s; ss }
+
+    x86_item:
     | CS EQUAL i=init         	 { update_x86_mandatory CS; init_register "cs" i }
     | DS EQUAL i=init          	 { update_x86_mandatory DS; init_register "ds" i }
     | SS EQUAL i=init          	 { update_x86_mandatory SS; init_register "ss" i }
     | ES EQUAL i=init 	      	 { update_x86_mandatory ES; init_register "es" i }
     | FS EQUAL i=init 	      	 { update_x86_mandatory FS; init_register "fs" i }
     | GS EQUAL i=init 	      	 { update_x86_mandatory GS; init_register "gs" i }
-
+    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
+   
+    
     arm_section:
     |  { () }
         
@@ -324,12 +329,7 @@
     | ELF { Config.Elf }
     | BINARY { Config.Binary }
 
-      gdt:
-    | g=gdt_item 	{ g }
-    | g=gdt_item gg=gdt { g; gg }
-
-      gdt_item:
-    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
+  
 
 
       analyzer:
