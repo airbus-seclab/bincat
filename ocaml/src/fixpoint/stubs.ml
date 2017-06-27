@@ -184,9 +184,11 @@ struct
             D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
 
         with
-        | Exceptions.Too_many_concrete_elements ->
+        | Exceptions.Too_many_concrete_elements _ as e ->
+           L.exc e (fun p -> p "(s)printf: Unknown address of the format string or imprecise value of the format string");
           L.abort (fun p -> p "(s)printf: Unknown address of the format string or imprecise value of the format string")
-        | Not_found ->
+        | Not_found as e ->
+           L.exc e (fun p -> p "address of the null terminator in the format string in (s)printf not found");
           L.abort (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 

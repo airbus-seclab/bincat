@@ -39,14 +39,14 @@ module Make (V: Vector.T) =
 	       
         let to_z p =
             match p with
-            | BOT         -> raise Exceptions.Empty
-            | TOP         -> raise Exceptions.Too_many_concrete_elements
+            | BOT         -> raise (Exceptions.Empty "pointer.to_z: undefined")
+            | TOP         -> raise (Exceptions.Too_many_concrete_elements "pointer.to_z: imprecise")
             | Val (_r, v) -> V.to_z v
 
 	let to_char p =
 	  match p with
-            | BOT         -> raise Exceptions.Empty
-            | TOP         -> raise Exceptions.Too_many_concrete_elements
+            | BOT         -> raise (Exceptions.Empty "pointer.to_z: undefined")
+            | TOP         -> raise (Exceptions.Too_many_concrete_elements "pointer.to_char: imprecise")
             | Val (_r, v) -> V.to_char v
 
 	       
@@ -143,7 +143,7 @@ module Make (V: Vector.T) =
                 try
                     if r1 = r2 then Val (r1, V.binary op o1 o2)
                     else BOT
-                with Exceptions.Too_many_concrete_elements -> TOP
+                with Exceptions.Too_many_concrete_elements _ -> TOP
 
 
         let of_word w = Val (Global, V.of_word w)
@@ -160,8 +160,8 @@ module Make (V: Vector.T) =
 
         let to_addresses p =
             match p with
-            | BOT 	   -> raise Exceptions.Empty
-            | TOP 	   -> raise Exceptions.Too_many_concrete_elements
+            | BOT 	   -> raise (Exceptions.Empty "pointer.to_addresses: undefined pointer")
+            | TOP 	   -> raise (Exceptions.Too_many_concrete_elements "pointer.to_addresses: imprecise pointer")
             | Val (r, o) -> V.to_addresses r o
 
         let is_subset p1 p2 =

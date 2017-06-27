@@ -20,10 +20,10 @@
 exception Illegal_address                
 
 (** raised when an abstract operation produces an empty value *)
-exception Empty
+exception Empty of string
 
 (** raised when a concretization computes a too large result *)
-exception Too_many_concrete_elements
+exception Too_many_concrete_elements of string
 
 (** raised when an unexpected behavior happens (undefined decoding, etc.) *)
 exception Error of string

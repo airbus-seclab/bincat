@@ -359,7 +359,7 @@ module Make(V: Val) =
 
         let widen v1 v2 =
             if Z.compare (to_z v1) (to_z v2) <> 0 then
-                raise Exceptions.Too_many_concrete_elements
+                raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.widen with different vectors (v1=%s v2=%s)" (to_string v1) (to_string v2)))
             else v1
 
         (* common utility to add and sub *)
@@ -531,7 +531,7 @@ module Make(V: Val) =
           let shift_count =
             try
               Z.to_int z_shift_count
-            with Z.Overflow -> raise Exceptions.Too_many_concrete_elements
+            with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.shl: shift count overflow: %s" (Z.to_string z_shift_count)))
           in ishl v1 shift_count
 
         let shr v n =
@@ -540,7 +540,7 @@ module Make(V: Val) =
           let shift_count =
             try
               Z.to_int z_shift_count
-            with Z.Overflow -> raise Exceptions.Too_many_concrete_elements
+            with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.shr: shift count overflow: %s" (Z.to_string z_shift_count)))
           in
           let v' = Array.make v_len V.zero in
           for j = 0 to v_len-shift_count-1 do
