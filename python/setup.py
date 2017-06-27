@@ -51,7 +51,7 @@ setup(
     version          = '0.1',
     author           = 'Sarah Zennou',
     author_email     = 'sarah.zennou@airbus.com',
-    description      = 'BINnary Code Analysis Toolkit',
+    description      = 'Binary Code Analysis Toolkit',
     scripts          = ['bin/bincat'],
     packages         = ['pybincat', 'pybincat/tools', 'idabincat', 'idabincat/hexview', 'webbincat'],
     ext_modules      = [mlbincat] if mlbincat is not None else [],
