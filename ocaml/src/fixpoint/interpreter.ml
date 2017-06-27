@@ -353,7 +353,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                         | l -> L.abort (fun p -> p "Please select between the addresses %s for jump target from %s\n"
                                               (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
-                    | Exceptions.Enum_failure -> L.abort (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                    | Exceptions.Too_many_concrete_elements -> L.abort (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                 ) ([], false) vertices
             in
             if !import then fun_stack := List.tl !fun_stack;
@@ -625,7 +625,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             Log.latest_finished_address := Some v.Cfa.State.ip;  (* v.Cfa.State.ip can change because of calls and jumps *)
 
           with
-          | Exceptions.Enum_failure as e -> L.exc e (fun p -> p "imprecision here"); dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
+          | Exceptions.Too_many_concrete_elements as e -> L.exc e (fun p -> p "imprecision here"); dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
           | e			  -> L.exc e (fun p -> p "Unexpected exception"); dump g; raise e
         end;
         (* boolean condition of loop iteration is updated *)

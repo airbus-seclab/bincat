@@ -40,13 +40,13 @@ module Make (V: Vector.T) =
         let to_z p =
             match p with
             | BOT         -> raise Exceptions.Empty
-            | TOP         -> raise Exceptions.Enum_failure
+            | TOP         -> raise Exceptions.Too_many_concrete_elements
             | Val (_r, v) -> V.to_z v
 
 	let to_char p =
 	  match p with
             | BOT         -> raise Exceptions.Empty
-            | TOP         -> raise Exceptions.Enum_failure
+            | TOP         -> raise Exceptions.Too_many_concrete_elements
             | Val (_r, v) -> V.to_char v
 
 	       
@@ -143,7 +143,7 @@ module Make (V: Vector.T) =
                 try
                     if r1 = r2 then Val (r1, V.binary op o1 o2)
                     else BOT
-                with Exceptions.Enum_failure -> TOP
+                with Exceptions.Too_many_concrete_elements -> TOP
 
 
         let of_word w = Val (Global, V.of_word w)
@@ -161,7 +161,7 @@ module Make (V: Vector.T) =
         let to_addresses p =
             match p with
             | BOT 	   -> raise Exceptions.Empty
-            | TOP 	   -> raise Exceptions.Enum_failure
+            | TOP 	   -> raise Exceptions.Too_many_concrete_elements
             | Val (r, o) -> V.to_addresses r o
 
         let is_subset p1 p2 =

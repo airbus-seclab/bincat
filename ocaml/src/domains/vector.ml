@@ -359,7 +359,7 @@ module Make(V: Val) =
 
         let widen v1 v2 =
             if Z.compare (to_z v1) (to_z v2) <> 0 then
-                raise Exceptions.Enum_failure
+                raise Exceptions.Too_many_concrete_elements
             else v1
 
         (* common utility to add and sub *)
@@ -531,7 +531,7 @@ module Make(V: Val) =
           let shift_count =
             try
               Z.to_int z_shift_count
-            with Overflow -> raise Exception.Enum_failure
+            with Z.Overflow -> raise Exceptions.Too_many_concrete_elements
           in ishl v1 shift_count
 
         let shr v n =
@@ -540,7 +540,7 @@ module Make(V: Val) =
           let shift_count =
             try
               Z.to_int z_shift_count
-            with Overflow -> raise Exception.Enum_failure
+            with Z.Overflow -> raise Exceptions.Too_many_concrete_elements
           in
           let v' = Array.make v_len V.zero in
           for j = 0 to v_len-shift_count-1 do

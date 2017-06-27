@@ -513,7 +513,7 @@ module Make(D: T) =
                in
                value
              with
-             | Exceptions.Enum_failure | Exceptions.Concretization               -> D.top, true
+             | Exceptions.Too_many_concrete_elements  -> D.top, true
              | Not_found | Exceptions.Empty -> 
                 L.analysis (fun p -> p ("undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
                             raise Exceptions.Bot_deref
@@ -619,7 +619,7 @@ module Make(D: T) =
       | BOT -> raise Exceptions.Empty
       | Val m' ->
          try let v, b = eval_exp m' e in D.to_addresses v, b
-         with _ -> raise Exceptions.Enum_failure
+         with _ -> raise Exceptions.Too_many_concrete_elements
 
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
     If e is untainted then nothing is done *)
@@ -889,7 +889,7 @@ module Make(D: T) =
 	    List.iteri (fun i v ->
 	      Bytes.set bytes i (D.to_char v)) vals;
 	    len, bytes
-      with Not_found -> raise Exceptions.Concretization
+      with Not_found -> raise Exceptions.Too_many_concrete_elements
 
     let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m true None)
 

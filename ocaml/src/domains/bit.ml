@@ -101,13 +101,13 @@ let logor v1 v2 =
 (* conversion to Z.t. May raise an exception if the conversion fails *)
 let to_z v =
   match v with
-  | TOP  -> raise Exceptions.Concretization
+  | TOP  -> raise Exceptions.Too_many_concrete_elements
   | ZERO -> Z.zero
   | ONE  -> Z.one
 
 let to_int v =
   match v with
-  | TOP  -> raise Exceptions.Concretization
+  | TOP  -> raise Exceptions.Too_many_concrete_elements
   | ZERO -> 0
   | ONE  -> 1
     
