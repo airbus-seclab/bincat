@@ -496,7 +496,9 @@ struct
 	      L.abort (fun p -> p "Illegal taint mask for register %s" (Register.name reg))) vals
 	in
 	let rules' =
-	  List.map (fun (reg, rule) ->
+	  List.map (fun (rname, rfun) ->
+        let reg = Register.of_name rname in
+        let rule = rfun reg in
 	    begin
 	      match rule with
 	      | Config.Taint v -> check reg [v]

@@ -20,7 +20,6 @@
 (* common signatures of decoders *)
 (***************************************************************************************)
   
-
 module type Make = functor (D: Domain.T) ->
 sig
   (** control flow graph *)
@@ -39,7 +38,7 @@ sig
       epilogue: Asm.stmt list (** transfer operations for its epilogue *) 
   }
 
-  (** mapping from addresses in the code to library functions *)
+  (** mapping from code addresses to library functions *)
   val tbl: (Data.Address.t, fun_type) Hashtbl.t
   end
 

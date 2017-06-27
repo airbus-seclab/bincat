@@ -25,94 +25,95 @@ module L = Log.Make(struct let name = "x86" end)
 module Make(Domain: Domain.T) =
 struct
 
-    (** control flow automaton *)
-    module Cfa = Cfa.Make(Domain)
+  open Data
+  open Asm
+  
+  (************************************************************************)
+  (* Creation of the general purpose registers *)
+  (************************************************************************)
 
-    (** import table *)
-    module Imports = X86Imports.Make(Domain)
+  let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
+
+  let eax = Register.make ~name:"eax" ~size:32;;
+  let ecx = Register.make ~name:"ecx" ~size:32;;
+  let edx = Register.make ~name:"edx" ~size:32;;
+  let ebx = Register.make ~name:"ebx" ~size:32;;
+  let esp = Register.make_sp ~name:"esp" ~size:32;;
+  let ebp = Register.make ~name:"ebp" ~size:32;;
+  let esi = Register.make ~name:"esi" ~size:32;;
+  let edi = Register.make ~name:"edi" ~size:32;;
+  let cl = P(ecx, 0, 7);;
+
+  Hashtbl.add register_tbl 0 eax;;
+  Hashtbl.add register_tbl 1 ecx;;
+  Hashtbl.add register_tbl 2 edx;;
+  Hashtbl.add register_tbl 3 ebx;;
+  Hashtbl.add register_tbl 4 esp;;
+  Hashtbl.add register_tbl 5 ebp;;
+  Hashtbl.add register_tbl 6 esi;;
+  Hashtbl.add register_tbl 7 edi;;
+  
+  
+  (*************************************************************************)
+  (* Creation of the flag registers *)
+  (*************************************************************************)
+  let fcf    = Register.make ~name:"cf" ~size:1;;
+  let fpf    = Register.make ~name:"pf" ~size:1;;
+  let faf    = Register.make ~name:"af" ~size:1;;
+  let fzf    = Register.make ~name:"zf" ~size:1;;
+  let fsf    = Register.make ~name:"sf" ~size:1;;
+  let _ftf   = Register.make ~name:"tf" ~size:1;;
+  let fif    = Register.make ~name:"if" ~size:1;;
+  let fdf    = Register.make ~name:"df" ~size:1;;
+  let fof    = Register.make ~name:"of" ~size:1;;
+  let _fiopl = Register.make ~name:"iopl" ~size:2;;
+  let _fnt   = Register.make ~name:"nt" ~size:1;;
+  let _frf   = Register.make ~name:"rf" ~size:1;;
+  let _fvm   = Register.make ~name:"vm" ~size:1;;
+  let _fac   = Register.make ~name:"ac" ~size:1;;
+  let _fvif  = Register.make ~name:"vif" ~size:1;;
+  let _fvip  = Register.make ~name:"vip" ~size:1;;
+  let _fid   = Register.make ~name:"id" ~size:1;;
+  
+
+  (***********************************************************************)
+  (* Creation of the segment registers *)
+  (***********************************************************************)
+  let cs = Register.make ~name:"cs" ~size:16;;
+  let ds = Register.make ~name:"ds" ~size:16;;
+  let ss = Register.make ~name:"ss" ~size:16;;
+  let es = Register.make ~name:"es" ~size:16;;
+  let fs = Register.make ~name:"fs" ~size:16;;
+  let gs = Register.make ~name:"gs" ~size:16;;
+  
+  (** control flow automaton *)
+  module Cfa = Cfa.Make(Domain)
+
+  (** import table *)
+  module Imports = X86Imports.Make(Domain)
       
-    open Data
-    open Asm
 
 
-    (************************************************************************)
-    (* Generic Helpers *)
-    (************************************************************************)
+  (************************************************************************)
+  (* Generic Helpers *)
+  (************************************************************************)
 
-    (** [const c sz] builds the asm constant of size _sz_ from int _c_ *)
-    let const c sz = Const (Word.of_int (Z.of_int c) sz)
+  (** [const c sz] builds the asm constant of size _sz_ from int _c_ *)
+  let const c sz = Const (Word.of_int (Z.of_int c) sz)
 
-    (** [const_of_Z z sz] builds the asm constant of size _sz_ from Z _z_ *)
-    let const_of_Z z sz = Const (Word.of_int z sz)
+  (** [const_of_Z z sz] builds the asm constant of size _sz_ from Z _z_ *)
+  let const_of_Z z sz = Const (Word.of_int z sz)
 
-    (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
-    let sign_extension i sz nb =
-        if Z.testbit i (sz-1) then
-            let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
-            (* ffff00.. mask *)
-            let ff00 = (Z.logxor ff ((Z.sub (Z.shift_left (Z.one) sz) Z.one))) in
-            Z.logor ff00 i
-        else
-            i
+  (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
+  let sign_extension i sz nb =
+    if Z.testbit i (sz-1) then
+      let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
+      (* ffff00.. mask *)
+      let ff00 = (Z.logxor ff ((Z.sub (Z.shift_left (Z.one) sz) Z.one))) in
+      Z.logor ff00 i
+    else
+      i
 
-
-    (************************************************************************)
-    (* Creation of the general purpose registers *)
-    (************************************************************************)
-
-    let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
-
-    let eax = Register.make ~name:"eax" ~size:32;;
-    let ecx = Register.make ~name:"ecx" ~size:32;;
-    let edx = Register.make ~name:"edx" ~size:32;;
-    let ebx = Register.make ~name:"ebx" ~size:32;;
-    let esp = Register.make_sp ~name:"esp" ~size:32;;
-    let ebp = Register.make ~name:"ebp" ~size:32;;
-    let esi = Register.make ~name:"esi" ~size:32;;
-    let edi = Register.make ~name:"edi" ~size:32;;
-    let cl = P(ecx, 0, 7);;
-
-    Hashtbl.add register_tbl 0 eax;;
-    Hashtbl.add register_tbl 1 ecx;;
-    Hashtbl.add register_tbl 2 edx;;
-    Hashtbl.add register_tbl 3 ebx;;
-    Hashtbl.add register_tbl 4 esp;;
-    Hashtbl.add register_tbl 5 ebp;;
-    Hashtbl.add register_tbl 6 esi;;
-    Hashtbl.add register_tbl 7 edi;;
-
-
-    (*************************************************************************)
-    (* Creation of the flag registers *)
-    (*************************************************************************)
-    let fcf    = Register.make ~name:"cf" ~size:1;;
-    let fpf    = Register.make ~name:"pf" ~size:1;;
-    let faf    = Register.make ~name:"af" ~size:1;;
-    let fzf    = Register.make ~name:"zf" ~size:1;;
-    let fsf    = Register.make ~name:"sf" ~size:1;;
-    let _ftf   = Register.make ~name:"tf" ~size:1;;
-    let fif    = Register.make ~name:"if" ~size:1;;
-    let fdf    = Register.make ~name:"df" ~size:1;;
-    let fof    = Register.make ~name:"of" ~size:1;;
-    let _fiopl = Register.make ~name:"iopl" ~size:2;;
-    let _fnt   = Register.make ~name:"nt" ~size:1;;
-    let _frf   = Register.make ~name:"rf" ~size:1;;
-    let _fvm   = Register.make ~name:"vm" ~size:1;;
-    let _fac   = Register.make ~name:"ac" ~size:1;;
-    let _fvif  = Register.make ~name:"vif" ~size:1;;
-    let _fvip  = Register.make ~name:"vip" ~size:1;;
-    let _fid   = Register.make ~name:"id" ~size:1;;
-
-
-    (***********************************************************************)
-    (* Creation of the segment registers *)
-    (***********************************************************************)
-    let cs = Register.make ~name:"cs" ~size:16;;
-    let ds = Register.make ~name:"ds" ~size:16;;
-    let ss = Register.make ~name:"ss" ~size:16;;
-    let es = Register.make ~name:"es" ~size:16;;
-    let fs = Register.make ~name:"fs" ~size:16;;
-    let gs = Register.make ~name:"gs" ~size:16;;
 
     (***********************************************************************)
     (* Internal state of the decoder *)

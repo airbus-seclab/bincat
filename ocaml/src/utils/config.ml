@@ -111,7 +111,7 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
-let reg_override: (Z.t, ((Register.t * tvalue) list)) Hashtbl.t = Hashtbl.create 5
+let reg_override: (Z.t, ((string * (Register.t -> tvalue)) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
 let heap_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
@@ -121,7 +121,7 @@ let heap_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
 (* first element in the key is the address ; second one is the number of repetition *)
 type ctbl = (Z.t * int, cvalue * (tvalue option)) Hashtbl.t
 
-let register_content: (Register.t, cvalue * tvalue option) Hashtbl.t = Hashtbl.create 10
+let register_content: (string, (Register.t -> cvalue * tvalue option)) Hashtbl.t = Hashtbl.create 10
 let memory_content: ctbl = Hashtbl.create 10
 let stack_content: ctbl = Hashtbl.create 10
 let heap_content: ctbl = Hashtbl.create 10

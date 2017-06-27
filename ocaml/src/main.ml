@@ -45,7 +45,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       with Sys_error _ -> L.abort (fun p -> p "Failed to open the configuration file")
     in
     (* parsing the configuration file to fill configuration information *)
-  let lexbuf = Lexing.from_channel cin in
+    let lexbuf = Lexing.from_channel cin in
   let string_of_position pos =
     Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
   in
@@ -74,7 +74,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   let module Pointer 	 = Pointer.Make(Vector)	in
   let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
   let module Interpreter = Interpreter.Make(Domain)(Decoder) in
-  
+
   (* defining the dump function to provide to the fixpoint engine *)
   let dump cfa = Interpreter.Cfa.print resultfile cfa in
   

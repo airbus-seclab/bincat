@@ -46,12 +46,6 @@
 	(OP_SZ, "op_sz", "settings");
 	(STACK_WIDTH, "stack_width", "settings");
     (ARCHITECTURE, "architecture", "loader");
-	(SS, "ss", "loader");
-	(DS, "ds", "loader");
-	(CS, "cs", "loader");
-	(ES, "es", "loader");
-	(FS, "fs", "loader");
-	(GS, "gs", "loader");
 	(ENTRYPOINT, "analyser_ep", "loader");
 	(CODE_LENGTH, "code_length", "loader");
 	(FORMAT, "format", "binary");
@@ -61,24 +55,45 @@
 	(STORE_MCFA, "store_marshalled_cfa", "analyzer");
 	(IN_MCFA_FILE, "in_marshalled_cfa_file", "analyzer");
 	(OUT_MCFA_FILE, "out_marshalled_cfa_file", "analyzer");
-	(GDT, "gdt", "gdt");
 	(CODE_VA, "code_va", "loader");
       ];;
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
+    let x86_mandatory_keys = Hashtbl.create 20;;
+
+    let x86_mandatory_items =  [
+      (SS, "ss");
+	  (DS, "ds");
+	  (CS, "cs");
+	  (ES, "es");
+	  (FS, "fs");
+	  (GS, "gs");
+      (GDT, "gdt");
+       ];;
+      List.iter (fun (k, kname) -> Hashtbl.add x86_mandatory_keys k (kname, false)) x86_mandatory_items;;
+
+    let arm_mandatory_keys = Hashtbl.create 20;;
+    
       (** set the corresponding option reference *)
       let update_boolean optname opt v =
-	match String.uppercase v with
-	| "TRUE"  -> opt := true
-	| "FALSE" -> opt := false
-	| _ 	  -> L.abort (fun p -> p "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
+	    match String.uppercase v with
+	    | "TRUE"  -> opt := true
+	    | "FALSE" -> opt := false
+	    | _ 	  -> L.abort (fun p -> p "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
 
       (** update the register table in configuration module *)
-      let init_register rname v = Hashtbl.add Config.register_content (Register.of_name rname) v
+      let init_register rname v = Hashtbl.add Config.register_content rname (fun _ -> v)
 
       let update_mandatory key =
-	let kname, sname, _ = Hashtbl.find mandatory_keys key in
-	Hashtbl.replace mandatory_keys key (kname, sname, true);;
+	    let kname, sname, _ = Hashtbl.find mandatory_keys key in
+	    Hashtbl.replace mandatory_keys key (kname, sname, true);;
+
+      let update_arch_mandatory_key tbl key =
+         let kname,  _ = Hashtbl.find tbl key in
+	     Hashtbl.replace tbl key (kname, true);;
+      
+      let update_x86_mandatory key = update_arch_mandatory_key x86_mandatory_keys key;;
+      let _update_arm_mandatory key = update_arch_mandatory_key arm_mandatory_keys key;;
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
@@ -89,7 +104,12 @@
       (** footer function *)
       let check_context () =
 	(* check whether all mandatory items are provided *)
-	Hashtbl.iter (fun _ (pname, sname, b) -> if not b then missing_item pname sname) mandatory_keys;
+	    Hashtbl.iter (fun _ (pname, sname, b) -> if not b then missing_item pname sname) mandatory_keys;
+        begin
+          match !Config.architecture with
+          | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
+          | Config.ARM -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARM") arm_mandatory_keys
+        end;
 	(* open the binary to pick up the text section *)
 	let fid  =
 	  try
@@ -165,6 +185,8 @@
     | LEFT_SQ_BRACKET ASSERT RIGHT_SQ_BRACKET r=assert_rules { r }
     | LEFT_SQ_BRACKET IMPORTS RIGHT_SQ_BRACKET i=imports     { i }
     | LEFT_SQ_BRACKET OVERRIDE RIGHT_SQ_BRACKET o=overrides     { o }
+    | LEFT_SQ_BRACKET ARM RIGHT_SQ_BRACKET a=arm_section     { a }
+    | LEFT_SQ_BRACKET X86 RIGHT_SQ_BRACKET x=x86_section     { x }
 
     overrides:
     |                     { () }
@@ -186,8 +208,8 @@
     tainting_reg_item:
     | t=tainting_reg {
       try
-	let l = Hashtbl.find Config.reg_override !override_addr in
-	Hashtbl.replace Config.reg_override !override_addr (t::l)
+	    let l = Hashtbl.find Config.reg_override !override_addr in
+	    Hashtbl.replace Config.reg_override !override_addr (t::l)
       with Not_found -> Hashtbl.add Config.reg_override !override_addr [t] }
 
     tainting_addr_item:
@@ -201,10 +223,11 @@
     
     tainting_reg:
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_ALL {
-      let reg = Register.of_name r in
-      (reg, Config.Taint (Bits.ff ((Register.size reg )/8))) }
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_NONE { (Register.of_name r, Config.Taint Z.zero) }
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA s=tcontent { (Register.of_name r, s) } 
+      (r, fun reg -> (Config.Taint (Bits.ff ((Register.size reg )/8)))) }
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_NONE {
+      (r, (fun _ -> Config.Taint Z.zero)) }
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA s=tcontent {
+      (r, (fun _ -> s)) } 
 
     tainting_addr:
     | MEM LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.mem_override, a, c }
@@ -265,12 +288,6 @@
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | CS EQUAL i=init         	 { update_mandatory CS; init_register "cs" i }
-    | DS EQUAL i=init          	 { update_mandatory DS; init_register "ds" i }
-    | SS EQUAL i=init          	 { update_mandatory SS; init_register "ss" i }
-    | ES EQUAL i=init 	      	 { update_mandatory ES; init_register "es" i }
-    | FS EQUAL i=init 	      	 { update_mandatory FS; init_register "fs" i }
-    | GS EQUAL i=init 	      	 { update_mandatory GS; init_register "gs" i }
     | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
     | CODE_PHYS_ADDR EQUAL i=INT { update_mandatory CODE_PHYS_ADDR; Config.phys_code_addr := Z.to_int i }
@@ -281,6 +298,17 @@
     | X86 { Config.X86 }
     | ARM { Config.ARM }
 
+      x86_section:
+    | CS EQUAL i=init         	 { update_x86_mandatory CS; init_register "cs" i }
+    | DS EQUAL i=init          	 { update_x86_mandatory DS; init_register "ds" i }
+    | SS EQUAL i=init          	 { update_x86_mandatory SS; init_register "ss" i }
+    | ES EQUAL i=init 	      	 { update_x86_mandatory ES; init_register "es" i }
+    | FS EQUAL i=init 	      	 { update_x86_mandatory FS; init_register "fs" i }
+    | GS EQUAL i=init 	      	 { update_x86_mandatory GS; init_register "gs" i }
+
+    arm_section:
+    |  { () }
+        
       binary:
     | b=binary_item 	      { b }
     | b=binary_item bb=binary { b; bb }
@@ -301,7 +329,7 @@
     | g=gdt_item gg=gdt { g; gg }
 
       gdt_item:
-    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_mandatory GDT; Hashtbl.replace Config.gdt i v }
+    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
 
 
       analyzer:
@@ -393,6 +421,6 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
-    | t=INT 		{ Config.Taint t }
-    | t=INT MASK t2=INT { Config.TMask (t, t2) }
+    | t=INT 		{ (Config.Taint t) }
+    | t=INT MASK t2=INT { (Config.TMask (t, t2)) }
 
