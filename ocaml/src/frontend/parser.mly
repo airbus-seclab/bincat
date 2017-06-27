@@ -39,7 +39,6 @@
     let mandatory_keys = Hashtbl.create 20;;
 
     let mandatory_items = [
-	(MEM_MODEL, "mem_model", "settings");
 	(MODE, "mode", "settings");
 	(CALL_CONV, "call_conv", "settings");
 	(MEM_SZ, "mem_sz", "settings");
@@ -69,6 +68,7 @@
 	  (FS, "fs");
 	  (GS, "gs");
       (GDT, "gdt");
+      (MEM_MODEL, "mem_model");
        ];;
       List.iter (fun (k, kname) -> Hashtbl.add x86_mandatory_keys k (kname, false)) x86_mandatory_items;;
 
@@ -260,16 +260,11 @@
     | s=setting_item ss=settings { s; ss }
 
       setting_item:
-    | MEM_MODEL EQUAL m=memmodel { update_mandatory MEM_MODEL; Config.memory_model := m }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
     | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := Z.to_int i with _ -> L.abort (fun p -> p "illegal operand size: [%s]" (Z.to_string i)) }
     | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := Z.to_int i with _ -> L.abort (fun p -> p "illegal address size: [%s]" (Z.to_string i)) }
     | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := Z.to_int i with _ -> L.abort (fun p -> p "illegal stack width: [%s]" (Z.to_string i)) }
     | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m }
-
-      memmodel:
-    | FLAT 	{ Config.Flat }
-    | SEGMENTED { Config.Segmented }
 
       callconv:
     | CDECL    { Config.CDECL }
@@ -302,6 +297,7 @@
     | s=x86_item ss=x86_section { s; ss }
 
     x86_item:
+    | MEM_MODEL EQUAL m=memmodel { update_x86_mandatory MEM_MODEL; Config.memory_model := m }
     | CS EQUAL i=init         	 { update_x86_mandatory CS; init_register "cs" i }
     | DS EQUAL i=init          	 { update_x86_mandatory DS; init_register "ds" i }
     | SS EQUAL i=init          	 { update_x86_mandatory SS; init_register "ss" i }
@@ -310,6 +306,10 @@
     | GS EQUAL i=init 	      	 { update_x86_mandatory GS; init_register "gs" i }
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
    
+
+      memmodel:
+    | FLAT 	{ Config.Flat }
+    | SEGMENTED { Config.Segmented }
     
     arm_section:
     |  { () }
