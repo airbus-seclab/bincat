@@ -16,6 +16,7 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import subprocess
 import ConfigParser
 from collections import defaultdict
 import re
@@ -151,8 +152,12 @@ class CFA(object):
         :param outfname: string, path to output file
         :param logfname: string, path to log file
         """
-        from pybincat import mlbincat
-        mlbincat.process(initfname, outfname, logfname)
+        try:
+            from pybincat import mlbincat
+            mlbincat.process(initfname, outfname, logfname)
+        except ImportError:
+            # XXX log warning
+            subprocess.call(["bincat_native", initfname, outfname, logfname])
         return cls.parse(outfname, logs=logfname)
 
     def _toValue(self, eip, region="g"):

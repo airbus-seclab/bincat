@@ -16,6 +16,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
+import os
+import sys
 from setuptools import setup, Extension, Command
 
 
@@ -31,12 +33,15 @@ class PyTest(Command):
         errno = subprocess.call([sys.executable, 'runtests.py'])
         raise SystemExit(errno)
 
-mlbincat = Extension(
-    "pybincat/mlbincat",
-    sources=["pybincat/mlbincat.c"],
-    libraries=["bincat"],
-    library_dirs=["../ocaml/src"],
-)
+if os.name == "nt" or sys.platform == 'cygwin':
+    mlbincat = None
+else:
+    mlbincat = Extension(
+        "pybincat/mlbincat",
+        sources=["pybincat/mlbincat.c"],
+        libraries=["bincat"],
+        library_dirs=["../ocaml/src"],
+    )
 
 package_data_files = ['idabincat/conf/*ini']
 
@@ -49,7 +54,7 @@ setup(
     description      = 'BINnary Code Analysis Toolkit',
     scripts          = ['bin/bincat'],
     packages         = ['pybincat', 'pybincat/tools', 'idabincat', 'idabincat/hexview', 'webbincat'],
-    ext_modules      = [mlbincat],
+    ext_modules      = [mlbincat] if mlbincat is not None else [],
     package_data = {
         'idabincat': package_data_files
     },

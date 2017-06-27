@@ -38,7 +38,6 @@ disassembly/cfa.mli\
 disassembly/decoder.mli\
 fixpoint/stubs.mli\
 
-LIBNAME=libbincat.so
 LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
 BINDIR=$(DESTDIR)/$(PREFIX)/bin/
 
@@ -51,7 +50,7 @@ DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgrap
 
 
 CAMLC   =ocamlc $(DIROPT)
-CAMLOPT =ocamlopt -g -w Ael -warn-error +a-7-50-42 $(DIROPT)
+CAMLOPT =ocamlopt -g -w Ael -warn-error +a-7-3-52-50-42 $(DIROPT)
 CAMLLEX =ocamllex
 MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
@@ -59,13 +58,26 @@ CAMLDOC =ocamldoc $(DIROPT)
 
 LIBX=unix.cmxa graph.cmxa nums.cmxa str.cmxa zarith.cmxa newspeak.cmxa bigarray.cmxa typedC.cmx
 
-OS:=$(shell uname)
-ifeq ($(OS), Darwin)
-SHARED=-ccopt -dynamiclib
-LDCONFIG=true
+ifeq ($(OS),Windows_NT)
+    detected_OS := Windows
 else
-SHARED=-output-obj -runtime-variant _pic
-LDCONFIG=ldconfig
+    detected_OS := $(shell uname)
+endif
+
+ifeq ($(detected_OS), Windows)
+    shared=-ccopt -dynamiclib
+    ldconfig=true
+    LIBNAME=libbincat.dll
+endif
+ifeq ($(detected_OS), Darwin)
+    LIBNAME=libbincat.so
+    SHARED=-ccopt -dynamiclib
+    LDCONFIG=true
+endif
+ifeq ($(detected_OS), Linux)
+    LIBNAME=libbincat.so
+    SHARED=-output-obj -runtime-variant _pic
+    LDCONFIG=ldconfig
 endif
 
 CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmrun
@@ -113,7 +125,7 @@ install: $(LIBNAME) bincat_native
 
 .depend: $(ML) $(MLI)
 	rm -f .depend
-	-$(CAMLDEP) -native $+ > .depend
+	-$(CAMLDEP) -slash -native $+ > .depend
 
 doc: $(ML) $(MLI)
 	@mkdir -p $(DOCPATH)/html
