@@ -192,16 +192,29 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_registers_with_state():
+        arch = ConfigHelpers.get_arch()
         regs = {}
-        for name in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
-            regs[name] = "0?0xFFFFFFFF"
-        for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
-                     "rf", "vm", "ac", "vif", "vip", "id"]:
-            regs[name] = "0?1"
+        if arch == "x86":
+            for name in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
+                regs[name] = "0?0xFFFFFFFF"
+            for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
+                         "rf", "vm", "ac", "vif", "vip", "id"]:
+                regs[name] = "0?1"
 
-        regs["df"] = "0"
-        regs["iopl"] = "3"
+            regs["df"] = "0?1"
+            regs["iopl"] = "0?3"
+        elif arch == "ARM":
+            for i in range(31):
+                regs["r%d" % i] = "0?0xFFFFFFFF"
         return regs
+
+    @staticmethod
+    def get_arch():
+        procname = idaapi.get_inf_structure().procName.lower()
+        if procname == "metapc":
+            return "x86"
+        elif procname.startswith("arm"):
+            return "ARM"
 
 
 class AnalyzerConfig(object):
@@ -216,7 +229,7 @@ class AnalyzerConfig(object):
             self._config = ConfigParser.RawConfigParser()
         self._config.optionxform = str
         # make sure all sections are created
-        for section in ("analyzer", "settings", "loader", "GDT", "binary",
+        for section in ("analyzer", "settings", "loader", "binary",
                         "sections", "state", "imports"):
             if not self._config.has_section(section):
                 self._config.add_section(section)
@@ -383,13 +396,13 @@ class AnalyzerConfig(object):
 
         # [settings] section
         config.add_section('settings')
-        config.set('settings', 'mem_model', ConfigHelpers.get_memory_model())
         # IDA doesn't really support real mode
         config.set('settings', 'mode', 'protected')
-        config.set('settings', 'call_conv', ConfigHelpers.get_call_convention())
-        config.set('settings', 'mem_sz', 32)
-        config.set('settings', 'op_sz',
+        config.set('settings', 'call_conv',
+                   ConfigHelpers.get_call_convention())
+        config.set('settings', 'mem_sz',
                    ConfigHelpers.get_bitness(code_start_va))
+        config.set('settings', 'op_sz', ConfigHelpers.get_stack_width())
         config.set('settings', 'stack_width', ConfigHelpers.get_stack_width())
 
         # [loader section]
@@ -403,6 +416,13 @@ class AnalyzerConfig(object):
         config.set('loader', 'code_length', "0x%0X" % code_len)
 
         config.set('loader', 'analysis_ep', "0x%0X" % analysis_start_va)
+        arch = ConfigHelpers.get_arch()
+        config.set('loader', 'architecture', arch)
+
+        # arch-specifig sections
+        if arch == 'x86':
+            config.add_section(arch)
+            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
 
         # Load default GDT/Segment registers according to file type
         ftype = ConfigHelpers.get_file_type()

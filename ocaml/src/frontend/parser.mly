@@ -97,7 +97,7 @@
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
-	let supported_version = 1 in
+	let supported_version = 2 in
 	if input_version != supported_version then
 	  L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
 
