@@ -527,24 +527,28 @@ module Make(V: Val) =
             v'
 
         let shl v1 v2 =
+          let z_shift_count = to_z v2 in
+          let shift_count =
             try
-                let i = Z.to_int (to_z v2) in
-                ishl v1 i
-            with _ -> raise Exceptions.Enum_failure
+              Z.to_int z_shift_count
+            with Overflow -> raise Exception.Enum_failure
+          in ishl v1 shift_count
 
         let shr v n =
-            let v_len = Array.length v in
+          let v_len = Array.length v in
+          let z_shift_count = to_z n in
+          let shift_count =
             try
-                let n_i = Z.to_int (to_z n) in
-                let v' = Array.make v_len V.zero in
-                for j = 0 to v_len-n_i-1 do
-                    v'.(j+n_i) <- v.(j)
-                done;
-		L.debug (fun p -> p "shr(%s,%s)=%s"
-		  (to_string v) (to_string n) (to_string v'));
-                v'
-            with
-              _ -> raise Exceptions.Enum_failure
+              Z.to_int z_shift_count
+            with Overflow -> raise Exception.Enum_failure
+          in
+          let v' = Array.make v_len V.zero in
+          for j = 0 to v_len-shift_count-1 do
+            v'.(j+shift_count) <- v.(j)
+          done;
+          L.debug (fun p -> p "shr(%s,%s)=%s"
+            (to_string v) (to_string n) (to_string v'));
+          v'
 
         let mul v2 v1 =
             let n   = Array.length v1 in
