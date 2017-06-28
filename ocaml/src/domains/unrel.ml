@@ -197,20 +197,7 @@ module Make(D: T) =
 	with Not_found -> D.top
       in
 	Env.add key top' m'
-		  
-    let forget_lval lv m =
-      match m with
-      | Val m' ->
-	 begin
-	   match lv with
-	   | Asm.V (Asm.T r) -> Val (forget_reg m' r None)
-	      
-	   | Asm.V (Asm.P (r, l, u)) ->	Val (forget_reg m' r (Some (l, u)))
-	      
-	   | _ -> forget m (*TODO: could be more precise *)
-	 end
-      | BOT -> BOT
-		 
+
     let is_subset m1 m2 =
       match m1, m2 with
       | BOT, _ 		 -> true
@@ -593,6 +580,22 @@ module Make(D: T) =
       let v1, b1 = eval_exp env e1 in
       let v2, b2 = eval_exp env e2 in
       D.compare v1 op v2, b1||b2
+
+    let forget_lval lv m =
+      match m with
+      | BOT -> BOT
+      | Val m' ->
+         begin
+           match lv with
+           | Asm.V (Asm.T r) -> Val (forget_reg m' r None)
+           | Asm.V (Asm.P (r, l, u)) ->	Val (forget_reg m' r (Some (l, u)))
+           | Asm.M (e, n) ->
+              let v, _b = eval_exp m' e in
+              let addrs = D.to_addresses v in
+              let l     = Data.Address.Set.elements addrs in
+              Val (List.fold_left (fun m a ->  write_in_memory a m D.top n true false) m' l)
+
+         end
 
 
     let val_restrict m e1 _v1 cmp _e2 v2 =
