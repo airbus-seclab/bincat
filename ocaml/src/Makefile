@@ -1,3 +1,5 @@
+GITVERSION:=$(shell git describe)
+
 ML=\
 data-struct/register.ml\
 utils/mapOpt.ml\
@@ -25,6 +27,7 @@ disassembly/cfa.ml\
 disassembly/decoder.ml\
 fixpoint/stubs.ml\
 fixpoint/interpreter.ml\
+bincat_ver.ml \
 main.ml
 
 MLI=\
@@ -83,8 +86,12 @@ $(LIBNAME): $(CMX)
 	rm -f bincat_native.cmx
 	$(CAMLOPT) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
 
-bincat_native: $(CMX)  bincat_native.cmx
+bincat_native: $(CMX) bincat_native.cmx
 	$(CAMLOPT)  $(CFLAGS) -o bincat_native $(LIBX) $(OCAMLOPT) $+
+
+bincat_ver.ml: update_gitver
+	[ -f $@ ] || touch $@
+	sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl | cmp -s $@ - || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
 
 %.cmx: %.ml %.mli
 	$(CAMLOPT) -c $(LIBX) $*.ml
@@ -129,7 +136,6 @@ doc: $(ML) $(MLI)
 	@$(CAMLDOC) -html $^ -d $(DOCPATH)/html $(DIROPT) 
 	@$(CAMLDOC) -latex $^ -d $(DOCPATH)/latex $(DIROPT)
 
-.PHONY: depend all clean install
+.PHONY: depend all clean install update_gitver
 
 include .depend
-
