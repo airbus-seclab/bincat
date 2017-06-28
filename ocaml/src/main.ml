@@ -30,8 +30,8 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   Register.clear();
   (* generating modules needed for the analysis *)
   let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
-  let module Ptr     = Symbexp.Make(Vector)            in 
-  let module Ptr 	 = Pointer.Make(Ptr)		       in
+  let module SymVect     = Symbexp.Make(Vector)            in 
+  let module Ptr 	 = Pointer.Make(SymVect)		       in
   let module Domain 	 = Reduced_unrel_typenv.Make(Ptr)  in
   let module Interpreter = Interpreter.Make(Domain)	       in
   (* setting the log file *)
