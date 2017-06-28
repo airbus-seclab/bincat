@@ -477,7 +477,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let vertices, b = process_list [vstart] v.Cfa.State.stmts in
       if b then
 	begin
-          L.debug (fun p->p "FUFU taint : true");
 	  v.Cfa.State.is_tainted <- true;
 	  List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.is_tainted <- true) !fun_stack
 	end;
