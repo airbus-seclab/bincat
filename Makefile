@@ -91,6 +91,21 @@ dist: clean
 	cp -r doc bincat-dist
 	tar -czf bincat.tar.gz bincat-dist
 
+windist: all
+ifneq ($(OS),Windows_NT)
+	    $(error "windist only works on Windows.")
+else
+	@echo "Making Windows binary release."
+	-rm -rf bincat-windows
+	mkdir -p bincat-windows/bin
+	cp $(shell ldd ocaml/src/bincat_native.exe|grep libgmp|awk '{print $$3};') bincat-windows/bin
+	cp ocaml/src/bincat_native.exe bincat-windows/bin
+	cp README.md bincat-windows
+	cp -r python bincat-windows
+	cp -r doc bincat-windows
+
+endif
+
 tags:
 	otags -vi -r ocaml
 
