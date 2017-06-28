@@ -151,18 +151,22 @@ module Make(D: T) =
 			 
     let value_of_register m r =
       match m with
-      | BOT    -> raise Exceptions.Concretization
-      | Val m' ->
-         try
-           let v = Env.find (Env.Key.Reg r) m' in D.to_z v
-         with _ -> raise Exceptions.Concretization
+      | BOT    -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: environment is empty ; can't look up register %s" (Register.name r)))
+      | Val m' -> let v =
+                    try
+                      Env.find (Env.Key.Reg r) m'
+                    with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: register %s not found in environment" (Register.name r)))
+                  in D.to_z v
 
     let string_of_register m r =
       match m with
-      | BOT    -> raise Exceptions.Concretization
-      | Val m' ->
-	     let v = Env.find (Env.Key.Reg r) m' in D.to_string v
-	     
+      | BOT    -> raise (Exceptions.Empty (Printf.sprintf "unrel.string_of_register: environment is empty ; can't look up register %s" (Register.name r)))
+      | Val m' -> let v =
+                    try
+                      Env.find (Env.Key.Reg r) m'
+                    with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
+                  in D.to_string v
+
     let add_register r m =
       let add x =
         Val (Env.add (Env.Key.Reg r) D.top x)
@@ -193,20 +197,7 @@ module Make(D: T) =
 	with Not_found -> D.top
       in
 	Env.add key top' m'
-		  
-    let forget_lval lv m =
-      match m with
-      | Val m' ->
-	 begin
-	   match lv with
-	   | Asm.V (Asm.T r) -> Val (forget_reg m' r None)
-	      
-	   | Asm.V (Asm.P (r, l, u)) ->	Val (forget_reg m' r (Some (l, u)))
-	      
-	   | _ -> forget m (*TODO: could be more precise *)
-	 end
-      | BOT -> BOT
-		 
+
     let is_subset m1 m2 =
       match m1, m2 with
       | BOT, _ 		 -> true
@@ -440,7 +431,8 @@ module Make(D: T) =
         | None -> if strong then
                     Env.add (Env.Key.Mem(addr)) byte domain
                   else
-                    raise Exceptions.Empty
+            raise (Exceptions.Empty (Printf.sprintf
+                                      "unrel.write_in_memory: no key found for weak update at address %s for byte %s" (Data.Address.to_string addr) (D.to_string byte)))
       in
       let rec do_update new_mem map =
         match new_mem with
@@ -513,12 +505,16 @@ module Make(D: T) =
                in
                value
              with
-             | Exceptions.Enum_failure               -> D.top, true
-             | Not_found | Exceptions.Concretization ->
-                            L.analysis (fun p -> p ("undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
-                            raise Exceptions.Bot_deref
+             | Exceptions.Too_many_concrete_elements _ -> D.top, true
+             | Not_found ->
+                L.analysis (fun p -> p ("undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
+               raise Exceptions.Bot_deref
+             | Exceptions.Empty _ as ex ->
+                L.exc ex (fun p -> p ("Undefined memory dereference"));
+                L.analysis (fun p -> p ("Undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
+               raise Exceptions.Bot_deref
            end
-	     
+
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 && Register.is_stack_pointer r1 ->
            let v = D.of_config Data.Address.Stack (Config.Content Z.zero) (Register.size r1) in
 	   v, D.is_tainted v
@@ -585,6 +581,22 @@ module Make(D: T) =
       let v2, b2 = eval_exp env e2 in
       D.compare v1 op v2, b1||b2
 
+    let forget_lval lv m =
+      match m with
+      | BOT -> BOT
+      | Val m' ->
+         begin
+           match lv with
+           | Asm.V (Asm.T r) -> Val (forget_reg m' r None)
+           | Asm.V (Asm.P (r, l, u)) ->	Val (forget_reg m' r (Some (l, u)))
+           | Asm.M (e, n) ->
+              let v, _b = eval_exp m' e in
+              let addrs = D.to_addresses v in
+              let l     = Data.Address.Set.elements addrs in
+              Val (List.fold_left (fun m a ->  write_in_memory a m D.top n true false) m' l)
+
+         end
+
 
     let val_restrict m e1 _v1 cmp _e2 v2 =
       match e1, cmp with
@@ -592,7 +604,7 @@ module Make(D: T) =
          let v  = Env.find (Env.Key.Reg r) m in
          let v' = D.meet v v2        in
          if D.is_bot v' then
-           raise Exceptions.Empty
+           raise (Exceptions.Empty "unrel.val_restrict")
          else
            Env.replace (Env.Key.Reg r) v' m
       | _, _ -> m
@@ -610,16 +622,16 @@ module Make(D: T) =
            if D.compare v1 op v2 then
              try
                Val (val_restrict m' e1 v1 op e2 v2), b1||b2
-             with Exceptions.Empty -> BOT, false
+             with Exceptions.Empty _ -> BOT, false
            else
              BOT, false
       	
     let mem_to_addresses m e =
       match m with
-      | BOT -> raise Exceptions.Empty
+      | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Cant evaluate %s" (Asm.string_of_exp e true)))
       | Val m' ->
-         try let v, b = eval_exp m' e in D.to_addresses v, b
-         with _ -> raise Exceptions.Enum_failure
+         let v, b = eval_exp m' e in
+         D.to_addresses v, b
 
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
     If e is untainted then nothing is done *)
@@ -695,7 +707,7 @@ module Make(D: T) =
                     match l with
                     | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), b||b'
                     | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), b||b'
-                with Exceptions.Empty -> BOT, false
+                with Exceptions.Empty _ -> BOT, false
                          
     let join m1 m2 =
       match m1, m2 with
@@ -819,7 +831,7 @@ module Make(D: T) =
 	       
     let value_of_exp m e =
       match m with
-      | BOT -> raise Exceptions.Concretization
+      | BOT -> raise (Exceptions.Empty "unrel.value_of_exp: environment is empty")
       | Val m' -> D.to_z (fst (eval_exp m' e))
 
 
@@ -831,7 +843,7 @@ module Make(D: T) =
 
     let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t) (with_exception: bool) pad_options: (int * D.t list) =
       match m with
-      | BOT -> raise Not_found
+      | BOT -> raise (Exceptions.Empty "unrel.i_get_bytes: environment is empty")
       | Val m' ->
 	 let v, _ = eval_exp m' addr in
 	 let addrs = Data.Address.Set.elements (D.to_addresses v) in
@@ -879,18 +891,18 @@ module Make(D: T) =
 	      | Some n -> n
 	      | None -> raise Not_found
 	    end
-	 | [] -> raise Not_found
+	 | [] -> raise (Exceptions.Empty "unrel.i_get_bytes")
 
     let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t): int * Bytes.t =
       try
-	let len, vals = i_get_bytes e cmp terminator upper_bound sz m true None in
-	let bytes = Bytes.create len in
+	    let len, vals = i_get_bytes e cmp terminator upper_bound sz m true None in
+	    let bytes = Bytes.create len in
 	(* TODO: endianess ! *)
-	List.iteri (fun i v ->
-	  Bytes.set bytes i (D.to_char v)) vals;
-	len, bytes
-      with _ -> raise Exceptions.Concretization
-	
+	    List.iteri (fun i v ->
+	      Bytes.set bytes i (D.to_char v)) vals;
+	    len, bytes
+      with Not_found -> raise (Exceptions.Too_many_concrete_elements "unrel.get_bytes")
+
     let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m true None)
 
 
@@ -927,7 +939,7 @@ module Make(D: T) =
 	     match addrs with
 	     | [a] -> copy_byte a m' true
 	     | _::_  -> List.fold_left (fun m' a -> copy_byte a m' false) m' addrs
-	     | [] -> raise Exceptions.Concretization
+	     | [] -> raise (Exceptions.Empty "unrel.copy_until")
 	   in
 	   len, Val m'
 	 end
@@ -970,7 +982,7 @@ module Make(D: T) =
 	       try let prev = Env.find key m' in
 		   let low = offset*8 in
 		   D.combine prev new_v low (low*len-1)
-	       with Not_found -> raise Exceptions.Empty
+	       with Not_found -> raise (Exceptions.Empty "unrel.copy_chars_to_register")
 	   in
 	   try Val (Env.replace key new_v' m')
 	   with Not_found -> Val (Env.add key new_v m')
@@ -1056,10 +1068,10 @@ module Make(D: T) =
                         m'
                 in
                 Val (write m' Z.zero), len
-              | [] -> raise Exceptions.Empty
+              | [] -> raise (Exceptions.Empty "unrel.copy_hex")
               | _  -> Val (Env.empty), len (* TODO could be more precise *)
           end
-        | BOT -> BOT, raise Exceptions.Empty
+        | BOT -> BOT, raise (Exceptions.Empty "unrel.copy_hex: environment is empty")
 
     let print_hex m src nb capitalise pad_option word_sz: t * int =
         match m with
@@ -1068,7 +1080,7 @@ module Make(D: T) =
           (* str is already stripped in hex *)
           Log.print str;
           m, len
-        | BOT -> Log.print "_"; m, raise Exceptions.Empty
+        | BOT -> Log.print "_"; m, raise (Exceptions.Empty "unrel.print_hex: environment is empty")
 
     let copy m dst arg sz: t =
 	(* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)
@@ -1082,7 +1094,7 @@ module Make(D: T) =
 	     | [a] ->
 		Val (write_in_memory a m' v sz true false)
 	     | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
-	     | [ ] -> raise Exceptions.Concretization
+	     | [ ] -> raise (Exceptions.Empty "unrel.copy")
 	   end
 	| BOT -> BOT
 
@@ -1094,7 +1106,7 @@ module Make(D: T) =
           let str' =
               if String.length str <= 2 then
                   String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
-              else raise Exceptions.Concretization
+              else raise (Exceptions.Empty "unrel.print")
           in
           Log.print str';
           m

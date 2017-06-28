@@ -281,26 +281,25 @@ module Make(V: Val) =
             | _-> false
 
         let v_to_z conv v =
-            try
-                let z = ref Z.zero in
-                for i = 0 to (Array.length v) - 1 do
-                    let n = conv v.(i) in
-                    z := Z.add n (Z.shift_left !z 1)
-                done;
-                !z
-            with _ -> raise Exceptions.Concretization
+          let z = ref Z.zero in
+          for i = 0 to (Array.length v) - 1 do
+            let n = conv v.(i) in
+            z := Z.add n (Z.shift_left !z 1)
+          done;
+          !z
 
-	let to_char (v: t): char =
-	  if Array.length v <> 8 then
-	    raise Exceptions.Concretization
-	  else
-	    begin
-	      let c = ref 0 in
-	      for i = 0 to 7 do
-		c := (V.to_int v.(i)) + ((!c) lsl 1)
-	      done;
-	      Char.chr !c
-	    end
+        let to_char (v: t): char =
+          let l = Array.length v in
+          if l <> 8 then
+            L.abort (fun p -> p "attempting to convert a vector of size %i into a char" l)
+          else
+            begin
+              let c = ref 0 in
+              for i = 0 to 7 do
+                c := (V.to_int v.(i)) + ((!c) lsl 1)
+              done;
+              Char.chr !c
+            end
 
     let size v = Array.length v
 
@@ -360,7 +359,7 @@ module Make(V: Val) =
 
         let widen v1 v2 =
             if Z.compare (to_z v1) (to_z v2) <> 0 then
-                raise Exceptions.Enum_failure
+                raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.widen with different vectors (v1=%s v2=%s)" (to_string v1) (to_string v2)))
             else v1
 
         (* common utility to add and sub *)
@@ -528,24 +527,28 @@ module Make(V: Val) =
             v'
 
         let shl v1 v2 =
+          let z_shift_count = to_z v2 in
+          let shift_count =
             try
-                let i = Z.to_int (to_z v2) in
-                ishl v1 i
-            with _ -> raise Exceptions.Enum_failure
+              Z.to_int z_shift_count
+            with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.shl: shift count overflow: %s" (Z.to_string z_shift_count)))
+          in ishl v1 shift_count
 
         let shr v n =
-            let v_len = Array.length v in
+          let v_len = Array.length v in
+          let z_shift_count = to_z n in
+          let shift_count =
             try
-                let n_i = Z.to_int (to_z n) in
-                let v' = Array.make v_len V.zero in
-                for j = 0 to v_len-n_i-1 do
-                    v'.(j+n_i) <- v.(j)
-                done;
-		L.debug (fun p -> p "shr(%s,%s)=%s"
-		  (to_string v) (to_string n) (to_string v'));
-                v'
-            with
-              _ -> raise Exceptions.Enum_failure
+              Z.to_int z_shift_count
+            with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.shr: shift count overflow: %s" (Z.to_string z_shift_count)))
+          in
+          let v' = Array.make v_len V.zero in
+          for j = 0 to v_len-shift_count-1 do
+            v'.(j+shift_count) <- v.(j)
+          done;
+          L.debug (fun p -> p "shr(%s,%s)=%s"
+            (to_string v) (to_string n) (to_string v'));
+          v'
 
         let mul v2 v1 =
             let n   = Array.length v1 in

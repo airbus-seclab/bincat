@@ -40,7 +40,7 @@ let meet t1 t2 =
   match t1, t2 with
   | T t1', T t2' when TypedC.equals_typ t1' t2' -> t1
   | UNKNOWN, t | t, UNKNOWN -> t
-  | _, _ -> raise Exceptions.Empty
+  | _, _ -> raise (Exceptions.Empty "types.meet")
 
 let is_subset t1 t2 =
   match t1, t2 with

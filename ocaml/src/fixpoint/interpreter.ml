@@ -171,7 +171,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 					Cfa.remove_state g v; l'
                                       end
 	 else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
-      with Exceptions.Empty -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
+      with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 								
  
     (*************************** Forward from binary file ************************)
@@ -204,6 +204,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) =
         L.debug (fun p -> p "process_value ---------\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
+      try
         let res, tainted = 
             match s with
             | Nop 				 -> d, false
@@ -266,7 +267,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                (* fun_stack := List.tl !fun_stack; *)
             | _ 				 -> raise Jmp_exn
           in L.debug (fun p -> p "process_value returns taint : %B"  tainted); res, tainted
-						     
+      with Exceptions.Empty _ -> D.bot,false
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
       if has_jmp then_stmts || has_jmp else_stmts then
              raise Jmp_exn
@@ -353,7 +354,9 @@ module Make(D: Domain.T): (T with type domain = D.t) =
                         | l -> L.abort (fun p -> p "Please select between the addresses %s for jump target from %s\n"
                                               (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
-                    | Exceptions.Enum_failure -> L.abort (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                    | Exceptions.Too_many_concrete_elements _ as e ->
+                       L.exc e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip));
+                      L.abort (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                 ) ([], false) vertices
             in
             if !import then fun_stack := List.tl !fun_stack;
@@ -402,7 +405,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 						  l, b
 						else
 						  (copy v d (Some true) false)::l, b||is_tainted
-					      with Exceptions.Empty -> l, b) ([], false) vertices)
+					      with Exceptions.Empty _ -> l, b) ([], false) vertices)
 	  in
 	  let vert, b' = process_list vertices' stmts in
 	  vert, b||b'
@@ -474,7 +477,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       let vertices, b = process_list [vstart] v.Cfa.State.stmts in
       if b then
 	begin
-          L.debug (fun p->p "FUFU taint : true");
 	  v.Cfa.State.is_tainted <- true;
 	  List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.is_tainted <- true) !fun_stack
 	end;
@@ -625,7 +627,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             Log.latest_finished_address := Some v.Cfa.State.ip;  (* v.Cfa.State.ip can change because of calls and jumps *)
 
           with
-          | Exceptions.Enum_failure as e -> L.exc e (fun p -> p "imprecision here"); dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
+          | Exceptions.Too_many_concrete_elements _ as e -> L.exc e (fun p -> p "imprecision here"); dump g; L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
           | e			  -> L.exc e (fun p -> p "Unexpected exception"); dump g; raise e
         end;
         (* boolean condition of loop iteration is updated *)
