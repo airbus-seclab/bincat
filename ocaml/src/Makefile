@@ -14,6 +14,7 @@ data-struct/imports.ml\
 frontend/lexer.ml\
 frontend/parser.ml\
 data-struct/code.ml\
+domains/symbexp.ml\
 domains/env.ml\
 domains/typenv.ml\
 domains/bit.ml\
@@ -49,7 +50,7 @@ DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgrap
 
 
 CAMLC   =ocamlc $(DIROPT)
-CAMLOPT =ocamlopt -g -w Ael -warn-error +a-7-3-52-50-42 $(DIROPT)
+CAMLOPT =ocamlopt -g -w Ael  -bin-annot $(DIROPT)
 CAMLLEX =ocamllex
 MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
