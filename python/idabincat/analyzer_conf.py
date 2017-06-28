@@ -195,15 +195,16 @@ class ConfigHelpers(object):
         arch = ConfigHelpers.get_arch()
         regs = {}
         if arch == "x86":
-            for name in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"]:
+            for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
                 regs[name] = "0?0xFFFFFFFF"
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
                          "rf", "vm", "ac", "vif", "vip", "id"]:
                 regs[name] = "0?1"
-
+            regs["esp"] = "0x2000"
             regs["df"] = "0?1"
             regs["iopl"] = "0?3"
         elif arch == "ARM":
+            regs["sp"] = "0x2000"
             for i in range(31):
                 regs["r%d" % i] = "0?0xFFFFFFFF"
         return regs
@@ -460,10 +461,8 @@ class AnalyzerConfig(object):
         config.add_section("state")
         regs = ConfigHelpers.get_registers_with_state()
         for rname, val in regs.iteritems():
-            if rname != "esp":
-                config.set("state", ("reg[%s]" % rname), val)
+            config.set("state", ("reg[%s]" % rname), val)
         # Default stack
-        config.set("state", "reg[esp]", "0x2000")
         config.set("state", "stack[0x1000*8192]", "|00|?0xFF")
 
         imports = ConfigHelpers.get_imports()
