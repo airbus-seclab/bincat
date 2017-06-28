@@ -1,5 +1,6 @@
 2017-xx-xx: vx.x:
 * Core engine builds on Windows !
+* bincat_native is more sane, checks arguments and displays version
 
 ---
 2017-06-16: v0.5:
