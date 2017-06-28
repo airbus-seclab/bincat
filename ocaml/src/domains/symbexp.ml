@@ -161,12 +161,12 @@ module Make(Vector : T) : T =
       { exp = v}
 
       
-    let rec output_exp o v =
+    let rec _output_exp o v =
       match v.exp with 
       | Const w -> Printf.fprintf o "Const %s" (Word.to_string w)
       | Aval  v -> Printf.fprintf o "Aval %s" (Vector.to_string v)
-      | Binop(b,v1,v2) -> Printf.fprintf o "(%a %s %a)" output_exp v1 (Asm.string_of_binop b) output_exp v2
-      | Unop(b,v) -> Printf.fprintf o "%s %a" (Asm.string_of_unop b true) output_exp v
+      | Binop(b,v1,v2) -> Printf.fprintf o "(%a %s %a)" _output_exp v1 (Asm.string_of_binop b) _output_exp v2
+      | Unop(b,v) -> Printf.fprintf o "%s %a" (Asm.string_of_unop b true) _output_exp v
 
               
     let top i =
