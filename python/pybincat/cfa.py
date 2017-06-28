@@ -28,19 +28,30 @@ import functools
 
 def reg_len(regname):
     """
-    Return register length in bits
+    Returns register length in bits. CFA.arch must have been set, either
+    manually or by parsing a bincat output file.
     """
-    return {
-        "eax": 32, "ebx": 32, "ecx": 32, "edx": 32,
-        "esi": 32, "edi": 32, "esp": 32, "ebp": 32,
-        "ax": 16, "bx": 16, "cx": 16, "dx": 16,
-        "si": 16, "di": 16, "sp": 16, "bp": 16,
-        "cs": 16, "ds": 16, "es": 16, "ss": 16, "fs": 16, "gs": 16,
-        "iopl": 2,
-        "cf": 1, "pf": 1, "af": 1, "zf": 1, "sf": 1, "tf": 1, "if": 1,
-        "df": 1, "of": 1, "nt": 1, "rf": 1, "vm": 1, "ac": 1, "vif": 1,
-        "vip": 1, "id": 1,
-    }[regname]
+    if CFA.arch == "arm":
+        return {
+            "r0": 64, "r1": 64, "r2": 64, "r3": 64, "r4": 64, "r5": 64,
+            "r6": 64, "r7": 64, "r8": 64, "r9": 64, "r10": 64, "r11": 64,
+            "r12": 64, "r13": 64, "r14": 64, "r15": 64, "r16": 64, "r17": 64,
+            "r18": 64, "r19": 64, "r20": 64, "r21": 64, "r22": 64, "r23": 64,
+            "r24": 64, "r25": 64, "r26": 64, "r27": 64, "r28": 64, "r29": 64,
+            "r30": 64, "sp": 64,
+            "c": 1, "n": 1, "v": 1, "z": 1}[regname]
+    elif CFA.arch == "x86":
+        return {
+            "eax": 32, "ebx": 32, "ecx": 32, "edx": 32,
+            "esi": 32, "edi": 32, "esp": 32, "ebp": 32,
+            "ax": 16, "bx": 16, "cx": 16, "dx": 16, "si": 16, "di": 16,
+            "sp": 16, "bp": 16, "cs": 16, "ds": 16, "es": 16, "ss": 16,
+            "fs": 16, "gs": 16,
+            "iopl": 2,
+            "cf": 1, "pf": 1, "af": 1, "zf": 1, "sf": 1, "tf": 1, "if": 1,
+            "df": 1, "of": 1, "nt": 1, "rf": 1, "vm": 1, "ac": 1, "vif": 1,
+            "vip": 1, "id": 1}[regname]
+
 
 #: maps short region names to pretty names
 PRETTY_REGIONS = {'g': 'global', 's': 'stack', 'h': 'heap',
@@ -65,6 +76,7 @@ class CFA(object):
     """
     #: Cache to speed up value parsing. (str, length) -> [Value, ...]
     _valcache = {}
+    arch = None
 
     def __init__(self, states, edges, nodes):
         #: Value (address) -> [node_id]. Nodes marked "final" come first.
@@ -98,6 +110,7 @@ class CFA(object):
                 filename)
             return None
 
+        cls.arch = config.get('loader', 'architecture')
         for section in config.sections():
             if section == 'edges':
                 for edgename, edge in config.items(section):
@@ -113,6 +126,8 @@ class CFA(object):
                 else:
                     states[address].append(state.node_id)
                 nodes[state.node_id] = state
+                continue
+            elif section == 'loader':
                 continue
             raise PyBinCATException("Cannot parse section name (%r)" % section)
 
@@ -427,7 +442,7 @@ class State(object):
                 continue
             break
         return "".join(m)
-    
+
     def __setitem__(self, item, val):
         if type(val[0]) is list:
             val = val[0]

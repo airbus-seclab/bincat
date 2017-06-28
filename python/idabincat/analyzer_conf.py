@@ -203,7 +203,7 @@ class ConfigHelpers(object):
             regs["esp"] = "0x2000"
             regs["df"] = "0?1"
             regs["iopl"] = "0?3"
-        elif arch == "ARM":
+        elif arch == "arm":
             regs["sp"] = "0x2000"
             for i in range(31):
                 regs["r%d" % i] = "0?0xFFFFFFFF"
@@ -215,7 +215,7 @@ class ConfigHelpers(object):
         if procname == "metapc":
             return "x86"
         elif procname.startswith("arm"):
-            return "ARM"
+            return "arm"
 
 
 class AnalyzerConfig(object):
