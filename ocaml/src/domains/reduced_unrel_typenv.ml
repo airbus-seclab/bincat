@@ -71,7 +71,7 @@ module Make(D: Unrel.T) =
 	   match Data.Address.Set.elements addrs with
 	   | [a] -> T.of_key (Env.Key.Mem a) tenv
 	   | _ -> Types.UNKNOWN
-	 with Exceptions.Enum_failure -> Types.UNKNOWN
+	 with Exceptions.Too_many_concrete_elements _ -> Types.UNKNOWN
        end
     | _ -> Types.UNKNOWN
 	 
@@ -87,7 +87,7 @@ module Make(D: Unrel.T) =
 	  match Data.Address.Set.elements addrs with
 	  | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ)); if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
 	  | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
-	with Exceptions.Enum_failure -> T.forget tenv
+	with Exceptions.Too_many_concrete_elements _ -> T.forget tenv
    in
    uenv, tenv'
      
@@ -106,7 +106,7 @@ module Make(D: Unrel.T) =
        match Data.Address.Set.elements addrs with
        | [a] -> if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
        | l ->  List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l (* TODO: replace by a weak update *)
-     with Exceptions.Enum_failure -> T.top
+     with Exceptions.Too_many_concrete_elements _ -> T.top
 	
   let copy (uenv, tenv) dst src sz: t =
     U.copy uenv dst src sz, char_type uenv tenv dst

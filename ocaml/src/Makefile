@@ -92,7 +92,7 @@ bincat_native: $(CMX) bincat_native.cmx
 
 bincat_ver.ml: update_gitver
 	[ -f $@ ] || touch $@
-	sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl | cmp -s $@ - || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
+	grep -q $(GITVERSION) bincat_ver.ml || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
 
 %.cmx: %.ml %.mli
 	$(CAMLOPT) -c $(LIBX) $*.ml

@@ -1467,19 +1467,13 @@ struct
         let ldst = Lval dst in
         let dst_sz_min_one = const (sz-1) sz in
         let dst_msb = BinOp(And, one, BinOp(Shr, ldst, dst_sz_min_one)) in
-        let cf_stmt =
-            let c = Cmp (LT, sz', n_masked) in
-            If (c,
-                [undef_flag fcf],
-                (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
-        in
+        let cf_stmt = Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked))))) in
         let of_stmt =
             let is_one = Cmp (EQ, n_masked, one8) in
             If (is_one,    (* OF is computed only if n == 1 *)
                 [Set ((V (T fof)), (* OF is set if signed changed. We saved sign in fof *)
                     BinOp(Xor,  Lval (V (T fof)), dst_msb));],
-                [clear_flag fof])
+                [undef_flag fof])
         in
         let lv = Lval dst in
         let ops =
@@ -1500,8 +1494,12 @@ struct
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
             (* if shifted by more than opsize, everything is undef *)
             (* TODO : forget dst *)
-            [If(Cmp(GT, n_masked, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
-            ops)])]
+            [ If(Cmp(GT, n_masked, sz'),
+                [ undef_flag fcf; undef_flag fof; undef_flag fsf;
+                  undef_flag faf; undef_flag fzf; undef_flag fpf; Directive(Forget dst)],
+                ops)
+           ])
+       ]
 
 
     (* SHRD *)
