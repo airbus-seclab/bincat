@@ -428,9 +428,11 @@ class AnalyzerConfig(object):
         ftype = ConfigHelpers.get_file_type()
         # XXX move this logic to PluginOptions
         if ftype == "pe":
-            os_specific = os.path.join(config_path, "conf", "windows.ini")
+            os_name = "windows"
         else:  # default to Linux config if not windows
-            os_specific = os.path.join(config_path, "conf", "linux.ini")
+            os_name = "linux"
+        os_specific = os.path.join(
+            config_path, "conf", "%s-%s.ini" % (os_name, arch))
         bc_log.debug("Reading OS config from %s", os_specific)
         config.read(os_specific)
 
