@@ -1,14 +1,15 @@
 # used as a template for tests
 [settings]
-mem_model = flat
 mode = protected
 call_conv = cdecl
 mem_sz = 32
 op_sz = 32
 stack_width = 32
+ini_version = 2
 
-[GDT]
+[x86]
 #Linux 32-bits
+mem_model = flat
 GDT[1] = 0x00cf9b000000ffff
 GDT[2] = 0x00cf93000000ffff
 GDT[3] = 0x00cffb000000ffff
@@ -17,14 +18,14 @@ GDT[5] = 0x80008b04200020ab
 GDT[6] = 0xffc093dff0000001
 GDT[7] = 0x0040f30000000fff
 GDT[8] = 0x0000f2000400ffff
-
-[loader]
 cs = 0x1b
 ds = 0x23
 ss = 0x23
 es = 0x23
 fs = 0x3b
 gs = 0x00
+
+[loader]
 # Starting point of the analysis
 analysis_ep = 0x00
 # Virtual address of the code section
