@@ -1460,10 +1460,6 @@ struct
     (* SHLD / TODO : merge with SHL ? *)
     let shift_ld_stmt dst src sz n =
         let sz' = const sz 8 in
-        let forget_dst =
-         match dst with
-         | V reg -> [ Directive(Forget reg) ]
-         | M _ -> L.abort (fun p -> p "shift_ld_stmt: dst is not a register") in
         let one8 = Const (Word.one 8) in
         let one = Const (Word.one sz) in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
@@ -1500,7 +1496,7 @@ struct
             (* TODO : forget dst *)
             [ If(Cmp(GT, n_masked, sz'),
                 [ undef_flag fcf; undef_flag fof; undef_flag fsf;
-                  undef_flag faf; undef_flag fzf; undef_flag fpf; ] @ forget_dst,
+                  undef_flag faf; undef_flag fzf; undef_flag fpf; Directive(Forget dst)],
                 ops)
            ])
        ]
