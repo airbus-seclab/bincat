@@ -101,15 +101,12 @@ struct
         []
     in
     List.rev (process 0)
-      
+
   let build_instruction (str: string): int =
-    let rec build (res: int) (nth: int): int =
-      if nth = 3 then res
-      else
-        let c = String.get str nth in
-        build ((res lsl 2) + (Char.code c)) (nth+1)
-    in
-    build 0 0
+    (Char.code (String.get str 0))
+    lor ((Char.code (String.get str 1)) lsl 8)
+    lor ((Char.code (String.get str 2)) lsl 16)
+    lor ((Char.code (String.get str 3)) lsl 24)
 
   let return (s: state) (str: string) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
