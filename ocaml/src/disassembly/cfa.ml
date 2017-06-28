@@ -328,6 +328,11 @@ struct
 	  Printf.fprintf f "\n";
 	in
 	G.iter_vertex print_ip g;
+	let architecture_str =
+	  match !Config.architecture with
+	  | Config.X86 -> "x86"
+	  | Config.ARM -> "arm" in
+	Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
 	(* edge printing (summary) *)
 	Printf.fprintf f "[edges]\n";
 	G.iter_edges_e (fun e -> Printf.fprintf f "e%d_%d = %d -> %d\n" (G.E.src e).id (G.E.dst e).id (G.E.src e).id (G.E.dst e).id) g;
