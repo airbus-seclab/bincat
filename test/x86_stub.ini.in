@@ -33,6 +33,7 @@ code_va = 0x00
 code_phys = 0x00
 #side of the code section
 code_length = {code_length}
+architecture = x86
 
 [binary]
 filepath = {filepath}
@@ -42,7 +43,6 @@ format = pe
 [analyzer]
 ini_version = 2
 unroll = 150
-dotfile = out.dot
 loglevel = 4
 store_marshalled_cfa = true
 in_marshalled_cfa_file = incfa.marshal
