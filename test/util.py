@@ -253,6 +253,7 @@ class ARM(Arch):
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
     OBJDUMP = ["objdump", "-m", "arm"]
     EGGLOADER = "eggloader_arm"
+    QEMU = "qemu-arm"
     def assemble(self, tmpdir, asm):
         d = tmpdir.mkdir(self.AS_TMP_DIR.next())
         inf = d.join("asm.S")
@@ -269,13 +270,26 @@ class ARM(Arch):
 
     def cpu_run(self, tmpdir, opcodesfname):
         eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
-        out = subprocess.check_output([eggloader, opcodesfname])
+        out = subprocess.check_output([self.QEMU, eggloader, opcodesfname])
         regs = { reg: int(val,16) for reg, val in
                 (l.strip().split("=") for l in out.splitlines()) }
         return regs
 
 class AARCH64(ARM):
+    ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
+                 "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20",
+                 "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", ]
     AS = ["aarch64-linux-gnu-as"]
     OBJCOPY = ["aarch64-linux-gnu-objcopy"]
     OBJDUMP = ["objdump", "-m", "aarch64"]
-    EGGLOADER = "eggloader_aarch"
+    EGGLOADER = "eggloader_armv8"
+    QEMU = "qemu-aarch64"
+
+    def cpu_run(self, tmpdir, opcodesfname):
+        regs = ARM.cpu_run(self, tmpdir, opcodesfname)
+        nzcv = regs.pop("nzcv")
+        regs["n"] = nzcv >> 31
+        regs["z"] = (nzcv >> 30) & 1
+        regs["c"] = (nzcv >> 29) & 1
+        regs["v"] = (nzcv >> 28) & 1
+        return regs
