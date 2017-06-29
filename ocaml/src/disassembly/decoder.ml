@@ -1493,7 +1493,6 @@ struct
         (* If shifted by zero, do nothing, else do the rest *)
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
             (* if shifted by more than opsize, everything is undef *)
-            (* TODO : forget dst *)
             [ If(Cmp(GT, n_masked, sz'),
                 [ undef_flag fcf; undef_flag fof; undef_flag fsf;
                   undef_flag faf; undef_flag fzf; undef_flag fpf; Directive(Forget dst)],
