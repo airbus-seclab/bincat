@@ -20,10 +20,9 @@ int main(int argc, char *argv[])
 {
         int f;
         int len;
-        unsigned int r1;
-        unsigned long retaddr;
-        unsigned long x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15,
-                x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30;
+        unsigned int nzcv;
+        unsigned long r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
+                r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30;
 
         char ret_to_main[] =
                 "\xfe\x07\x41\xf8"     //   ldr     x30, [sp],#16
@@ -50,99 +49,108 @@ int main(int argc, char *argv[])
          asm volatile(
         ".after:\n"
         "bl .before\n"
-        "str x0, %[regx0]\n"
-        "str x1, %[regx1]\n"
-        "str x2, %[regx2]\n"
-        "str x3, %[regx3]\n"
-        "str x4, %[regx4]\n"
-        "str x5, %[regx5]\n"
-        "str x6, %[regx6]\n"
-        "str x7, %[regx7]\n"
-        "str x8, %[regx8]\n"
-        "str x9, %[regx9]\n"
-        "str x10, %[regx10]\n"
-        "str x11, %[regx11]\n"
-        "str x12, %[regx12]\n"
-        "str x13, %[regx13]\n"
-        "str x14, %[regx14]\n"
-        "str x15, %[regx15]\n"
-        "str x16, %[regx16]\n"
-        "str x17, %[regx17]\n"
-        "str x18, %[regx18]\n"
-        "str x19, %[regx19]\n"
-        "str x20, %[regx20]\n"
-        "str x21, %[regx21]\n"
-        "str x22, %[regx22]\n"
-        "str x23, %[regx23]\n"
-        "str x24, %[regx24]\n"
-        "str x25, %[regx25]\n"
-        "str x26, %[regx26]\n"
-        "str x27, %[regx27]\n"
-        "str x28, %[regx28]\n"
-        "str x29, %[regx29]\n"
+        "str x0, %[reg0]\n"
+        "str x1, %[reg1]\n"
+        "str x2, %[reg2]\n"
+        "str x3, %[reg3]\n"
+        "str x4, %[reg4]\n"
+        "str x5, %[reg5]\n"
+        "str x6, %[reg6]\n"
+        "str x7, %[reg7]\n"
+        "str x8, %[reg8]\n"
+        "str x9, %[reg9]\n"
+        "str x10, %[reg10]\n"
+        "str x11, %[reg11]\n"
+        "str x12, %[reg12]\n"
+        "str x13, %[reg13]\n"
+        "str x14, %[reg14]\n"
+        "str x15, %[reg15]\n"
         :
-        [regx0] "=m" (x0),
-        [regx1] "=m" (x1),
-        [regx2] "=m" (x2),
-        [regx3] "=m" (x3),
-        [regx4] "=m" (x4),
-        [regx5] "=m" (x5),
-        [regx6] "=m" (x6),
-        [regx7] "=m" (x7),
-        [regx8] "=m" (x8),
-        [regx9] "=m" (x9),
-        [regx10] "=m" (x10),
-        [regx11] "=m" (x11),
-        [regx12] "=m" (x12),
-        [regx13] "=m" (x13),
-        [regx14] "=m" (x14),
-        [regx15] "=m" (x15),
-        [regx16] "=m" (x16),
-        [regx17] "=m" (x17),
-        [regx18] "=m" (x18),
-        [regx19] "=m" (x19),
-        [regx20] "=m" (x20),
-        [regx21] "=m" (x21),
-        [regx22] "=m" (x22),
-        [regx23] "=m" (x23),
-        [regx24] "=m" (x24),
-        [regx25] "=m" (x25),
-        [regx26] "=m" (x26),
-        [regx27] "=m" (x27),
-        [regx28] "=m" (x28),
-        [regx29] "=m" (x29) );
+        [reg0] "=m" (r0),
+        [reg1] "=m" (r1),
+        [reg2] "=m" (r2),
+        [reg3] "=m" (r3),
+        [reg4] "=m" (r4),
+        [reg5] "=m" (r5),
+        [reg6] "=m" (r6),
+        [reg7] "=m" (r7),
+        [reg8] "=m" (r8),
+        [reg9] "=m" (r9),
+        [reg10] "=m" (r10),
+        [reg11] "=m" (r11),
+        [reg12] "=m" (r12),
+        [reg13] "=m" (r13),
+        [reg14] "=m" (r14),
+        [reg15] "=m" (r15));
 
-        printf("x0=%016lx\n", x0);
-        printf("x1=%016lx\n", x1);
-        printf("x2=%016lx\n", x2);
-        printf("x3=%016lx\n", x3);
-        printf("x4=%016lx\n", x4);
-        printf("x5=%016lx\n", x5);
-        printf("x6=%016lx\n", x6);
-        printf("x7=%016lx\n", x7);
-        printf("x8=%016lx\n", x8);
-        printf("x9=%016lx\n", x9);
-        printf("x10=%016lx\n", x10);
-        printf("x11=%016lx\n", x11);
-        printf("x12=%016lx\n", x12);
-        printf("x13=%016lx\n", x13);
-        printf("x14=%016lx\n", x14);
-        printf("x15=%016lx\n", x15);
-        printf("x16=%016lx\n", x16);
-        printf("x17=%016lx\n", x17);
-        printf("x18=%016lx\n", x18);
-        printf("x19=%016lx\n", x19);
-        printf("x20=%016lx\n", x20);
-        printf("x21=%016lx\n", x21);
-        printf("x22=%016lx\n", x22);
-        printf("x23=%016lx\n", x23);
-        printf("x24=%016lx\n", x24);
-        printf("x25=%016lx\n", x25);
-        printf("x26=%016lx\n", x26);
-        printf("x27=%016lx\n", x27);
-        printf("x28=%016lx\n", x28);
-        printf("x29=%016lx\n", x29);
+         asm volatile(
+        "str x16, %[reg16]\n"
+        "str x17, %[reg17]\n"
+        "str x18, %[reg18]\n"
+        "str x19, %[reg19]\n"
+        "str x20, %[reg20]\n"
+        "str x21, %[reg21]\n"
+        "str x22, %[reg22]\n"
+        "str x23, %[reg23]\n"
+        "str x24, %[reg24]\n"
+        "str x25, %[reg25]\n"
+        "str x26, %[reg26]\n"
+        "str x27, %[reg27]\n"
+        "str x28, %[reg28]\n"
+        "str x29, %[reg29]\n"
+        "str x30, %[reg30]\n"
+        "mrs x0, NZCV\n"
+        "str x0, %[nzcv]\n"
+        :
+        [reg16] "=m" (r16),
+        [reg17] "=m" (r17),
+        [reg18] "=m" (r18),
+        [reg19] "=m" (r19),
+        [reg20] "=m" (r20),
+        [reg21] "=m" (r21),
+        [reg22] "=m" (r22),
+        [reg23] "=m" (r23),
+        [reg24] "=m" (r24),
+        [reg25] "=m" (r25),
+        [reg26] "=m" (r26),
+        [reg27] "=m" (r27),
+        [reg28] "=m" (r28),
+        [reg29] "=m" (r29),
+        [reg30] "=m" (r30),
+        [nzcv] "=m" (nzcv));
 
+        printf("r0=%016lx\n", r0);
+        printf("r1=%016lx\n", r1);
+        printf("r2=%016lx\n", r2);
+        printf("r3=%016lx\n", r3);
+        printf("r4=%016lx\n", r4);
+        printf("r5=%016lx\n", r5);
+        printf("r6=%016lx\n", r6);
+        printf("r7=%016lx\n", r7);
+        printf("r8=%016lx\n", r8);
+        printf("r9=%016lx\n", r9);
+        printf("r10=%016lx\n", r10);
+        printf("r11=%016lx\n", r11);
+        printf("r12=%016lx\n", r12);
+        printf("r13=%016lx\n", r13);
+        printf("r14=%016lx\n", r14);
+        printf("r15=%016lx\n", r15);
+        printf("r16=%016lx\n", r16);
+        printf("r17=%016lx\n", r17);
+        printf("r18=%016lx\n", r18);
+        printf("r19=%016lx\n", r19);
+        printf("r20=%016lx\n", r20);
+        printf("r21=%016lx\n", r21);
+        printf("r22=%016lx\n", r22);
+        printf("r23=%016lx\n", r23);
+        printf("r24=%016lx\n", r24);
+        printf("r25=%016lx\n", r25);
+        printf("r26=%016lx\n", r26);
+        printf("r27=%016lx\n", r27);
+        printf("r28=%016lx\n", r28);
+        printf("r29=%016lx\n", r29);
+        printf("r29=%016lx\n", r29);
+        printf("nzcv=%08x\n", nzcv);
         return 0;
 }
 
