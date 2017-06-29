@@ -25,8 +25,8 @@ Check the [tutorial](doc/tutorial.md) out to see the corresponding tasks.
 
 Supported Platforms:
 
-* IDA plugin: all, version 6.9 or later (BinCAT uses PyQt, not PySide)
-* analyzer (local or server): Linux, macOS (maybe)
+* IDA plugin: all, version **6.9 or later** (BinCAT uses PyQt, not PySide)
+* analyzer (local or remote): Linux, Windows, macOS (maybe)
 
 Supported CPUs (for now):
 * x86-32
@@ -34,9 +34,11 @@ Supported CPUs (for now):
 ## Installation
 
 ### Analyzer
-The analyzer is only supported on Linux, but can expose a Web service for use
-from a Windows IDA.
+The analyzer can be used locally or through a Web service.
 
+On Windows, the binary distribution includes the analyzer.
+
+On Linux:
 * Using Docker: [Docker installation instructions](doc/install_docker.md)
 * Manual: [Manual installation instructions](doc/install_manual.md)
 
@@ -58,8 +60,6 @@ Or [install manually](doc/plugin_manual_win.md).
 [Installation instructions](doc/install_plugin.md)
 
 ## Using BinCAT
-
-* Now you can run analyses (Ctrl-Shift-A)
 
 ### Quick start
 * Load the plugin by using the `Ctrl-Shift-B` shortcut, or using the
