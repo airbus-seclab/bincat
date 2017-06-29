@@ -15,9 +15,9 @@ def test_nop(tmpdir):
 
 def test_assign(tmpdir):
     asm = """
-        mov w0, 123
-        mov w1, w2
+        mov x0, 124
+        mov w1, w0
+        mov w2, w1
     """
-    a,b,c = arm.assemble(tmpdir, asm)
-    assert False, "%r\n%s" %  (c,a)
+    compare(tmpdir, asm, ["r0","r1","r2"])
 
