@@ -249,8 +249,8 @@
 
       npk:
     | { [] }
-    | s=STRING { [ s ] }
-    | s=STRING COMMA l=npk { s::l }
+    | s=QUOTED_STRING { [ s ] }
+    | s=QUOTED_STRING COMMA l=npk { s::l }
     
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
