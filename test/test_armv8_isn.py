@@ -7,6 +7,12 @@ arm = AARCH64(
 )
 compare = arm.compare
 
+def test_nop(tmpdir):
+    asm = """
+        nop
+    """
+    compare(tmpdir, asm, [])
+
 def test_assign(tmpdir):
     asm = """
         mov w0, 123
