@@ -48,9 +48,10 @@ On Linux:
 
 #### Install for Windows
 
+* Unzip BinCAT
 * In IDA, click on "File -> Script File..." menu (or type ALT-F7)
-* Select `python\windows_install_plugin.py`
-* the BinCAT plugin is now installed in your IDA user dir
+* Select `windows_install.py`
+* BinCAT is now installed in your IDA user dir
 
 Or [install manually](doc/plugin_manual_win.md).
 
