@@ -23,12 +23,12 @@ Check the [tutorial](doc/tutorial.md) out to see the corresponding tasks.
 
 ### Quick FAQ
 
-Supported Platforms:
+Supported host platforms:
 
 * IDA plugin: all, version **6.9 or later** (BinCAT uses PyQt, not PySide)
 * analyzer (local or remote): Linux, Windows, macOS (maybe)
 
-Supported CPUs (for now):
+Supported CPU for analysis (for now):
 * x86-32
 
 ## Installation
