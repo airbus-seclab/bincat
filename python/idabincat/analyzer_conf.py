@@ -259,16 +259,24 @@ class AnalyzerConfig(object):
 
     @property
     def binary_filepath(self):
-        return self._config.get('binary', 'filepath')
+        # remove quotes
+        value = self._config.get('binary', 'filepath')
+        value = value.replace('"', '')
+        return value
 
     @property
     def in_marshalled_cfa_file(self):
-        return self._config.get('analyzer', 'in_marshalled_cfa_file')
+        # remove quotes
+        value = self._config.get('analyzer', 'in_marshalled_cfa_file')
+        value = value.replace('"', '')
+        return value
 
     @property
     def headers_files(self):
         try:
-            return self._config.get('imports', 'headers')
+            value = self._config.get('imports', 'headers')
+            value = value.replace('"', '')
+            return value
         except ConfigParser.NoOptionError:
             return ''
 
@@ -302,14 +310,22 @@ class AnalyzerConfig(object):
 
     @binary_filepath.setter
     def binary_filepath(self, value):
+        # make sure value is surrounded by quotes
+        if '"' not in value:
+            value = '"%s"' % value
         self._config.set('binary', 'filepath', value)
 
     @in_marshalled_cfa_file.setter
     def in_marshalled_cfa_file(self, value):
+        # make sure value is surrounded by quotes
+        if '"' not in value:
+            value = '"%s"' % value
         return self._config.set('analyzer', 'in_marshalled_cfa_file', value)
 
     @headers_files.setter
     def headers_files(self, value):
+        if '"' not in value:
+            value = ','.join(['"%s"' % f for f in value.split(',')])
         self._config.set('imports', 'headers', value)
 
     @code_va.setter
@@ -336,6 +352,11 @@ class AnalyzerConfig(object):
                 "0x%x, 0x%x, 0x%x, 0x%x" % (s[1], s[2], s[3], s[4]))
 
     def set_cfa_options(self, store_cfa="true", in_cfa="", out_cfa=""):
+        # make sure file paths are surrounded by quotes
+        if '"' not in in_cfa:
+            in_cfa = '"%s"' % in_cfa
+        if '"' not in out_cfa:
+            out_cfa = '"%s"' % out_cfa
         self._config.set('analyzer', 'store_marshalled_cfa', store_cfa)
         self._config.set('analyzer', 'out_marshalled_cfa_file', out_cfa)
         self._config.set('analyzer', 'in_marshalled_cfa_file', in_cfa)
@@ -448,7 +469,7 @@ class AnalyzerConfig(object):
             if os.path.isfile(guessed_path):
                 input_file = guessed_path
 
-        config.set('binary', 'filepath', input_file)
+        config.set('binary', 'filepath', '"%s"' % input_file)
         config.set('binary', 'format', ftype)
 
         # [sections section]
@@ -482,7 +503,8 @@ class AnalyzerConfig(object):
             if c[:-2] + '.no' not in headers_filenames:
                 headers_filenames.append(c)
         # remove duplicates
-        config.set('imports', 'headers', ','.join(headers_filenames))
+        quoted_filenames = ['"%s"' % h for h in headers_filenames]
+        config.set('imports', 'headers', ','.join(quoted_filenames))
         # [libc section]
         # config.add_section('libc')
         # config.set('libc', 'call_conv', 'fastcall')
