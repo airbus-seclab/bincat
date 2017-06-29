@@ -1788,7 +1788,7 @@ struct
 	undef_flag fcf ; undef_flag fpf ; undef_flag fsf ; undef_flag fof ; undef_flag faf ; 
 	If(Cmp(EQ, src, zero),
 	   [ Set(V (T fzf), Const (Word.one fzf_sz)) ;
-	     (*Directive(Forget dst) ; *) ],
+         Directive(Forget dst) ; ],
 	   [ Set(V (T fzf), Const (Word.zero fzf_sz)) ;
 	     Set(dst, compose_bsr src (s.operand_sz-1)) ; ] )
       ]
