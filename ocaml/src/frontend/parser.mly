@@ -319,7 +319,7 @@
     | b=binary_item bb=binary { b; bb }
 
       binary_item:
-    | FILEPATH EQUAL f=STRING 	{ update_mandatory FILEPATH; Config.binary := f }
+    | FILEPATH EQUAL f=QUOTED_STRING 	{ update_mandatory FILEPATH; Config.binary := f }
     | FORMAT EQUAL f=format 	{ update_mandatory FORMAT; Config.format := f }
 
 
@@ -345,8 +345,8 @@
     | LOGLEVEL modname=STRING EQUAL i=INT
                                      { Hashtbl.add Config.module_loglevel modname (Z.to_int i) }
     | ANALYSIS EQUAL v=analysis_kind { update_mandatory ANALYSIS; Config.analysis := v }
-    | IN_MCFA_FILE EQUAL f=STRING       { update_mandatory IN_MCFA_FILE; Config.in_mcfa_file := f }
-    | OUT_MCFA_FILE EQUAL f=STRING       { update_mandatory OUT_MCFA_FILE; Config.out_mcfa_file := f }
+    | IN_MCFA_FILE EQUAL f=QUOTED_STRING       { update_mandatory IN_MCFA_FILE; Config.in_mcfa_file := f }
+    | OUT_MCFA_FILE EQUAL f=QUOTED_STRING       { update_mandatory OUT_MCFA_FILE; Config.out_mcfa_file := f }
     | STORE_MCFA EQUAL v=STRING      { update_mandatory STORE_MCFA; update_boolean "store_mcfa" Config.store_mcfa v }
 
       analysis_kind:
