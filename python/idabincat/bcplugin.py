@@ -341,7 +341,7 @@ class WebAnalyzer(Analyzer):
                 continue
             try:
                 f_sha256 = self.sha256_digest(f)
-                h_shalist.append(f_sha256)
+                h_shalist.append('"%s"' % f_sha256)
             except IOError as e:
                 bc_log.error("Could not open file %s" % f, exc_info=1)
                 return
@@ -353,10 +353,10 @@ class WebAnalyzer(Analyzer):
         # patch in_marshalled_cfa_file - replace with file contents sha256
         if os.path.exists(self.cfainfname):
             cfa_sha256 = self.sha256_digest(self.cfainfname)
-            temp_config.in_marshalled_cfa_file = cfa_sha256
+            temp_config.in_marshalled_cfa_file = '"%s"' % cfa_sha256
         else:
-            temp_config.in_marshalled_cfa_file = "no-input-file"
-        temp_config.out_marshalled_cfa_file = "cfaout.marshal"
+            temp_config.in_marshalled_cfa_file = '"no-input-file"'
+        temp_config.out_marshalled_cfa_file = '"cfaout.marshal"'
         # write patched config file
         init_ini_str = str(temp_config)
         # --- Run analysis

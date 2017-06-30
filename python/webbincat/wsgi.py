@@ -172,6 +172,8 @@ def analyze():
         except ConfigParser.NoOptionError:
             # this is not mandatory
             pass
+    # remove double quotes that surround filenames
+    input_files = [s.replace('"', '') for s in input_files]
     for fname in input_files:
         if not SHA256_RE.match(fname):
             return flask.make_response(
@@ -187,8 +189,8 @@ def analyze():
     app.logger.debug("created %s", dirname)
 
     cwd = os.getcwd()
-    os.chdir(dirname)  
-    config.set('analyzer', 'out_marshalled_cfa_file', 'cfaout.marshal')
+    os.chdir(dirname)
+    config.set('analyzer', 'out_marshalled_cfa_file', '"cfaout.marshal"')
     # prepare input files
     config.write(open(os.path.join(dirname, 'init.ini'), 'wb'))
     for fname in input_files:
