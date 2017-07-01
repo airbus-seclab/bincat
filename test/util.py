@@ -252,7 +252,7 @@ class ARM(Arch):
     AS = ["arm-linux-gnueabi-as"]
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
     OBJDUMP = ["objdump", "-m", "arm"]
-    EGGLOADER = "eggloader_arm"
+    EGGLOADER = "eggloader_armv7"
     QEMU = "qemu-arm"
     def assemble(self, tmpdir, asm):
         d = tmpdir.mkdir(self.AS_TMP_DIR.next())
