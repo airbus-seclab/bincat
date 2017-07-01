@@ -248,6 +248,8 @@ class X86(Arch):
 ## ARM
 
 class ARM(Arch):
+    ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
+                 "r11", "r12", "sp", "lr", "pc"]
     AS_TMP_DIR = counter("arm-as-%i")
     AS = ["arm-linux-gnueabi-as"]
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
