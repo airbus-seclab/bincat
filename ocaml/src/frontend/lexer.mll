@@ -91,8 +91,13 @@ rule token = parse
   | "section"  	    { SECTION }
   | "sections"  	    { SECTIONS }
   | "architecture"  	    { ARCHITECTURE }
-  | "arm"  	    { ARM }
-  | "ARM"  	    { ARM }
+  | "armv7"                 { ARMV7 }
+  | "ARMv7"                 { ARMV7 }
+  | "armv8"                 { ARMV8 }
+  | "ARMv8"                 { ARMV8 }
+  | "endianness"            { ENDIANNESS }
+  | "little"                { LITTLE }
+  | "big"                   { BIG }
   | "x86"  	    { X86 }
   (* settings tokens *)
   | "mem_model" 	    { MEM_MODEL }

@@ -16,7 +16,7 @@ code_va = 0x00
 code_phys = 0x00
 #side of the code section
 code_length = {code_length}
-architecture = arm
+architecture = armv8
 
 [binary]
 filepath = "{filepath}"

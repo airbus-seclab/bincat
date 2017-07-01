@@ -72,8 +72,9 @@
        ];;
       List.iter (fun (k, kname) -> Hashtbl.add x86_mandatory_keys k (kname, false)) x86_mandatory_items;;
 
-    let arm_mandatory_keys = Hashtbl.create 20;;
-    
+    let armv7_mandatory_keys = Hashtbl.create 20;;
+    let armv8_mandatory_keys = Hashtbl.create 20;;
+
       (** set the corresponding option reference *)
       let update_boolean optname opt v =
 	    match String.uppercase v with
@@ -93,7 +94,8 @@
 	     Hashtbl.replace tbl key (kname, true);;
       
       let update_x86_mandatory key = update_arch_mandatory_key x86_mandatory_keys key;;
-      let _update_arm_mandatory key = update_arch_mandatory_key arm_mandatory_keys key;;
+      let _update_armv7_mandatory key = update_arch_mandatory_key armv7_mandatory_keys key;;
+      let _update_armv8_mandatory key = update_arch_mandatory_key armv8_mandatory_keys key;;
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
@@ -108,7 +110,8 @@
         begin
           match !Config.architecture with
           | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
-          | Config.ARM -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARM") arm_mandatory_keys
+          | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
+          | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
         end;
 	(* open the binary to pick up the text section *)
 	let fid  =
@@ -157,7 +160,8 @@
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER 
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
-%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARM
+%token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
+%token ENDIANNESS LITTLE BIG
 %token <string> STRING 
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
@@ -184,7 +188,8 @@
     | LEFT_SQ_BRACKET ASSERT RIGHT_SQ_BRACKET r=assert_rules { r }
     | LEFT_SQ_BRACKET IMPORTS RIGHT_SQ_BRACKET i=imports     { i }
     | LEFT_SQ_BRACKET OVERRIDE RIGHT_SQ_BRACKET o=overrides     { o }
-    | LEFT_SQ_BRACKET ARM RIGHT_SQ_BRACKET a=arm_section     { a }
+    | LEFT_SQ_BRACKET ARMV7 RIGHT_SQ_BRACKET a=armv7_section     { a }
+    | LEFT_SQ_BRACKET ARMV8 RIGHT_SQ_BRACKET a=armv8_section     { a }
     | LEFT_SQ_BRACKET X86 RIGHT_SQ_BRACKET x=x86_section     { x }
 
     overrides:
@@ -290,7 +295,8 @@
     
     architecture:
     | X86 { Config.X86 }
-    | ARM { Config.ARM }
+    | ARMV7 { Config.ARMv7 }
+    | ARMV8 { Config.ARMv8 }
 
         x86_section:
     | s=x86_item 	    { s }
@@ -310,10 +316,18 @@
       memmodel:
     | FLAT 	{ Config.Flat }
     | SEGMENTED { Config.Segmented }
-    
-    arm_section:
+
+    armv7_section:
     |  { () }
-        
+    | ENDIANNESS EQUAL e=endianness { Config.endianness := e }
+
+    endianness:
+    | LITTLE { Config.LITTLE }
+    | BIG { Config.BIG }
+
+    armv8_section:
+    |  { () }
+
       binary:
     | b=binary_item 	      { b }
     | b=binary_item bb=binary { b; bb }

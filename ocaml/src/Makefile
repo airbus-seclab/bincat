@@ -24,6 +24,7 @@ domains/reduced_bit_tainting.ml\
 domains/reduced_unrel_typenv.ml\
 disassembly/cfa.ml\
 disassembly/x86.ml\
+disassembly/armv7.ml\
 disassembly/armv8A.ml\
 fixpoint/stubs.ml\
 fixpoint/interpreter.ml\

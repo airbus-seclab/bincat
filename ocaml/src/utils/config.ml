@@ -39,9 +39,16 @@ type format_t =
 
 type archi_t =
   | X86
-  | ARM (* ARMv8-A *)
+  | ARMv7
+  | ARMv8 (* ARMv8-A *)
 
 let architecture = ref X86;;
+
+type endianness_t =
+  | LITTLE
+  | BIG
+
+let endianness = ref LITTLE;;
 
 type mode_t =
   | Protected
