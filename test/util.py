@@ -141,7 +141,7 @@ class Arch:
         try:
             bctest.run()
         except Exception,e:  # hack to add test name in the exception
-            pytest.fail("%s: %s\n%s"%(testname,e,bctest.listing))
+            pytest.fail("%s: %r\n%s"%(testname,e,bctest.listing))
         bincat = { reg : getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
