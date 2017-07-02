@@ -143,7 +143,7 @@ struct
 
   let data_proc s instruction =
     let rd = (instruction lsr 12) land 0xf in
-    let _rn = (instruction lsr 16) land 0xf in
+    let rn = (instruction lsr 16) land 0xf in
     let is_imm = (instruction lsr 25) land 1 in
     let set_cond_codes = (instruction lsr 20) land 1 in
     let op2_stmt =
@@ -166,7 +166,7 @@ struct
         let imm = instruction land 0xff in
         const (ror32 imm (2*shift)) 32
     in let stmt = match (instruction lsr 21) land 0xf with
-    | 0b0000 -> (* AND - Rd:= Op1 AND Op2 *) error s.a "AND"
+    | 0b0000 -> (* AND - Rd:= Op1 AND Op2 *) [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ]
     | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *) error s.a "EOR"
     | 0b0010 -> (* SUB - Rd:= Op1 - Op2 *) error s.a "SUB"
     | 0b0011 -> (* RSB - Rd:= Op2 - Op1 *) error s.a "RSB"
