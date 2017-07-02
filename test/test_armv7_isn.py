@@ -32,16 +32,45 @@ def test_assign(tmpdir):
 ## 
 ## DATA PROC
 
+
 def test_mov_reg(tmpdir):
     asm = """
             mov r0, #0x12
             movs r1, r0
             mov r2, r0, lsl #7
             mov r3, r0, lsr #1
-            mov r4, r0, asr #1
-            mov r5, r0, ror #1
     """
-    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "r4", "r5", "z", "n"])
+    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "z", "n"])
+
+def test_shifted_register_lsl(tmpdir, armv7shift):
+    asm = """
+            mov r0, #0x12
+            mov r1, r0, lsl #{armv7shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1"])
+
+def test_shifted_register_lsr(tmpdir, armv7shift):
+    asm = """
+            mov r0, #0x12
+            mov r1, r0, lsr #{armv7shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1"])
+
+@pytest.mark.xfail
+def test_shifted_register_asr(tmpdir, armv7shift):
+    asm = """
+            mov r0, #0x12
+            mov r1, r0, asr #{armv7shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1"])
+
+@pytest.mark.xfail
+def test_shifted_register_ror(tmpdir, armv7shift):
+    asm = """
+            mov r0, #0x12
+            mov r1, r0, ror #{armv7shift}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1"])
 
 def test_mov_set_zflag(tmpdir):
     asm = """
