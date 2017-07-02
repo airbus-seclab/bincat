@@ -53,10 +53,10 @@ struct
 
 
   (* condition flags are modeled as registers of size 1 *)
-  let nflag = Register.make ~name:"N" ~size:1;;
-  let zflag = Register.make ~name:"Z" ~size:1;;
-  let cflag = Register.make ~name:"C" ~size:1;;
-  let vflag = Register.make ~name:"V" ~size:1;;
+  let nflag = Register.make ~name:"n" ~size:1;;
+  let zflag = Register.make ~name:"z" ~size:1;;
+  let cflag = Register.make ~name:"c" ~size:1;;
+  let vflag = Register.make ~name:"v" ~size:1;;
 
 
   let reg_from_num n =
