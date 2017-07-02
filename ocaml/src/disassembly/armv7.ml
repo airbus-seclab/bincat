@@ -148,9 +148,19 @@ struct
     let set_cond_codes = (instruction lsr 20) land 1 in
     let op2_stmt =
       if is_imm = 0 then
-        let shift = (instruction lsr 4) land 0xff in
+        let shift_op = (instruction lsr 4) land 0xff in
         let rm = instruction land 0xf in
-        BinOp(Shl, Lval (V (reg rm)), const shift 32)
+        let op3 =
+          if shift_op land 1 = 0 then
+            const (shift_op lsr 3) 32
+          else
+            Lval (V (reg (shift_op lsr 4))) in
+        match (shift_op lsr 1) land 0x3 with
+          | 0b00 -> (* lsl *) BinOp(Shl, Lval (V (reg rm)), op3)
+          | 0b01 -> (* lsr *) BinOp(Shr, Lval (V (reg rm)), op3)
+          | 0b10 -> (* asr *) error s.a "Asr"
+          | 0b11 -> (* ror *) error s.a "Ror"
+          | _ as st -> L.abort (fun p -> p "unexpected shift type %x" st)
       else
         let shift = (instruction lsr 8) land 0xf in
         let imm = instruction land 0xff in
