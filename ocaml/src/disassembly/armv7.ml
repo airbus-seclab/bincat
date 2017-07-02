@@ -219,7 +219,7 @@ struct
     | 0b1101 -> BBinOp(LogOr, z_is_set,
                        BBinOp(LogOr, BBinOp(LogAnd, z_is_set, v_is_clear),
                               BBinOp(LogAnd, n_is_clear, v_is_set)))
-    (* LE - Z set, or N set and V clear, or N clear and V set (less than or equal) *)
+                (* LE - Z set, or N set and V clear, or N clear and V set (less than or equal) *)
     | _ -> L.abort (fun p -> p "Unexpected condiction code %x" cc) in
     [ If (asm_cond, stmts, []) ]
 
