@@ -85,6 +85,14 @@ struct
   (** [const c sz] builds the asm constant of size _sz_ from int _c_ *)
   let const c sz = Const (Word.of_int (Z.of_int c) sz)
 
+  let n_is_set = Cmp(EQ, Lval (V (T nflag)), const 1 1)
+  let z_is_set = Cmp(EQ, Lval (V (T zflag)), const 1 1)
+  let c_is_set = Cmp(EQ, Lval (V (T cflag)), const 1 1)
+  let v_is_set = Cmp(EQ, Lval (V (T vflag)), const 1 1)
+  let n_is_clear = Cmp(EQ, Lval (V (T nflag)), const 0 1)
+  let z_is_clear = Cmp(EQ, Lval (V (T zflag)), const 0 1)
+  let c_is_clear = Cmp(EQ, Lval (V (T cflag)), const 0 1)
+  let v_is_clear = Cmp(EQ, Lval (V (T vflag)), const 0 1)
 
   module Cfa = Cfa.Make(Domain)
 
@@ -137,7 +145,7 @@ struct
     let rd = (instruction lsr 12) land 0xf in
     let _rn = (instruction lsr 16) land 0xf in
     let is_imm = (instruction lsr 25) land 1 in
-    let _set_cond_codes = (instruction lsr 20) land 1 in
+    let set_cond_codes = (instruction lsr 20) land 1 in
     let op2_stmt =
       if is_imm = 0 then
         let shift = (instruction lsr 4) land 0xff in
@@ -164,14 +172,51 @@ struct
     | 0b1101 -> (* MOV - Rd:= Op2 *) [ Set (V (reg rd), op2_stmt) ]
     | 0b1110 -> (* BIC - Rd:= Op1 AND NOT Op2 *) error s.a "BIC"
     | 0b1111 -> (* MVN - Rd:= NOT Op2 *) error s.a "MVN"
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
-       in
-       return s instruction stmt
+    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
+       let stmt_cc = 
+         if set_cond_codes = 0
+         then
+           stmt
+         else
+           let z_stmt = [ Set(V (T zflag), TernOp (Cmp(EQ, Lval (V (reg rd)), const 0 32),
+                                                   const 1 1, const 0 1)) ] in
+           let n_stmt = [ Set(V (T nflag), TernOp (Cmp(EQ, BinOp(And, Lval (V (reg rd)), const 0x80000000 32),
+                                                       const 0 32),
+                                                   const 0 1, const 1 1)) ] in
+           stmt @ z_stmt @ n_stmt in
+       stmt_cc
+
+  let wrap_cc cc stmts =
+    let asm_cond = match cc with
+    | 0b0000 -> z_is_set (* EQ - Z set (equal) *)
+    | 0b0001 -> z_is_clear (* NE - Z clear (not equal) *)
+    | 0b0010 -> c_is_set (* CS - C set (unsigned higher or same) *)
+    | 0b0011 -> c_is_clear (* CC - C clear (unsigned lower) *)
+    | 0b0100 -> n_is_set (* MI - N set (negative) *)
+    | 0b0101 -> n_is_clear (* PL - N clear (positive or zero) *)
+    | 0b0110 -> v_is_set (* VS - V set (overflow) *)
+    | 0b0111 -> v_is_clear (* VC - V clear (no overflow) *)
+    | 0b1000 -> BBinOp(LogAnd, c_is_set, z_is_clear) (* HI - C set and Z clear (unsigned higher) *) 
+    | 0b1001 -> BBinOp(LogOr, c_is_clear, z_is_set) (* LS - C clear or Z set (unsigned lower or same) *)
+    | 0b1010 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_set), BBinOp(LogAnd, n_is_clear, v_is_clear))
+                (* GE - N set and V set, or N clear and V clear (greater or equal) *)
+    | 0b1011 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_clear), BBinOp(LogAnd, n_is_clear, v_is_set))
+                (* LT - N set and V clear, or N clear and V set (less than) *)
+    | 0b1100 -> BBinOp(LogOr, BBinOp(LogAnd, z_is_clear, BBinOp(LogOr, n_is_set, v_is_set)),
+                       BBinOp(LogAnd, n_is_clear, v_is_clear))
+                (* GT - Z clear, and either N set and V set, or N clear and V clear (greater than) *)
+    | 0b1101 -> BBinOp(LogOr, z_is_set,
+                       BBinOp(LogOr, BBinOp(LogAnd, z_is_set, v_is_clear),
+                              BBinOp(LogAnd, n_is_clear, v_is_set)))
+    (* LE - Z set, or N set and V clear, or N clear and V set (less than or equal) *)
+    | _ -> L.abort (fun p -> p "Unexpected condiction code %x" cc) in
+    [ If (asm_cond, stmts, []) ]
+
 
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction s str in
-    match (instruction lsr 26) land 0x3 with
+    let stmts = match (instruction lsr 26) land 0x3 with
     | 0b00 ->
        begin
          match (instruction lsr 22) land 0xf with
@@ -193,7 +238,12 @@ struct
          | 0b11 -> (* software interrupt *) error s.a (Printf.sprintf "software interrup not implemented (swi=%08x)" instruction)
          | _ -> (* coproc *) error s.a "coprocessor operation not implemented"
        end
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
+    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
+    let stmts_cc = match (instruction lsr 28) land 0xf with
+    | 0xf -> []    (* never *) 
+    | 0xe -> stmts (* always *) 
+    | _ as cc -> wrap_cc cc stmts in
+    return s instruction stmts_cc
 
 
   let parse text cfg _ctx state addr _oracle =
