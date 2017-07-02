@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 {
         int f;
         int len;
-        unsigned int nzcv;
+        unsigned int cpsr;
         unsigned int r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15;
 
         char ret_to_main[] =
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
         "str r14, %[reg14]\n"
         "str r15, %[reg15]\n"
         "mrs r0, CPSR\n"
-        "str r0, %[nzcv]\n"
+        "str r0, %[cpsr]\n"
         :
         [reg0] "=m" (r0),
         [reg1] "=m" (r1),
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
         [reg13] "=m" (r13),
         [reg14] "=m" (r14),
         [reg15] "=m" (r15),
-        [nzcv] "=m" (nzcv));
+        [cpsr] "=m" (cpsr));
 
         printf("r0=%08x\n", r0);
         printf("r1=%08x\n", r1);
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
         printf("sp=%08x\n", r13);
         printf("lr=%08x\n", r14);
         printf("pc=%08x\n", r15);
-        printf("nzcv=%08x\n", nzcv);
+        printf("cpsr=%08x\n", cpsr);
         return 0;
 }
 
