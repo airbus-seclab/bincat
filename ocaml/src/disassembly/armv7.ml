@@ -222,7 +222,41 @@ struct
     | 0b1111 -> [ Set (V (reg rd), UnOp(Not, op2_stmt)) ] @ op2_carry_stmt (* MVN - Rd:= NOT Op2 *)
     | _ -> (* TST/TEQ/CMP/CMN or MRS/MSR *)
        if (instruction land (1 lsl 20)) = 0 then (* S=0 => MRS/MSR *)
-         error s.a "MSR/MRS"
+         begin
+           match (instruction lsr 18) land 0xf with
+           | 0b0011 -> (* MRS *)
+              if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
+                [ Set (V (reg rd), 
+                       BinOp(Or,
+                             BinOp(Or,
+                                   BinOp(Or, BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T nflag))),
+                                                   const 31 32),
+                                         BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T zflag))),
+                                               const 30 32)),
+                                   BinOp(Or, BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T cflag))),
+                                                   const 29 32),
+                                         BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T vflag))),
+                                               const 28 32))),
+                             const 0b10000 32)) ] (* 0b10000 means user mode *)
+              else error s.a "MRS from SPSR not supported"
+           | 0b1010 -> (* MSR *) 
+              if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
+                if instruction land (1 lsl 25) = 0 then (* I=0: source operand is a register *)
+                  let zero32 = const 0 32 in
+                  let rm = instruction land 0xf in
+                  [ Set (V (T nflag), TernOp(Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl 31) 32), zero32),
+                                             const 0 1, const 1 1)) ;
+                    Set (V (T zflag), TernOp(Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl 30) 32), zero32),
+                                             const 0 1, const 1 1)) ;
+                    Set (V (T cflag), TernOp(Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl 29) 32), zero32),
+                                             const 0 1, const 1 1)) ;
+                    Set (V (T vflag), TernOp(Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl 28) 32), zero32),
+                                             const 0 1, const 1 1)) ]
+                else
+                  error s.a "MSR from immediate not implemented"
+              else error s.a "MSR to SPSR not supported"
+           | _ -> error s.a "unkonwn MSR/MRS opcode"
+         end
        else
          begin
            match opcode with
@@ -278,10 +312,13 @@ struct
     let stmts = match (instruction lsr 26) land 0x3 with
     | 0b00 ->
        begin
-         match (instruction lsr 22) land 0xf with
-         | 0b0000 when ((instruction lsr 4) land 0xf) = 0x9 -> (* multiply *) error s.a "Multiply not implemented"
-         | 0b0100 | 0b0101 -> (* single data swap *) error s.a "single data swap not implemented"
-         | _ -> (* data processing / PSR transfer *) data_proc s instruction
+         if ((instruction lsr 4) land 0xf) = 0x9 then
+           match (instruction lsr 23) land 0x7 with
+           | 0b000 -> (* multiply *) error s.a "Multiply not implemented"
+           | 0b010 -> (* single data swap *) error s.a "single data swap not implemented"
+           | _ -> L.abort (fun p -> p "Unexpected opcode %x" instruction)
+         else (* data processing / PSR transfer *) 
+           data_proc s instruction
        end
     | 0b01 -> (* single data transfer *) error s.a "single data transfer implemented" (* XXX: check undefined p.19 *)
     | 0b10 ->
