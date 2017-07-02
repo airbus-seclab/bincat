@@ -36,8 +36,12 @@ def test_mov_reg(tmpdir):
     asm = """
             mov r0, #0x12
             movs r1, r0
+            mov r2, r0, lsl #7
+            mov r3, r0, lsr #1
+            mov r4, r0, asr #1
+            mov r5, r0, ror #1
     """
-    compare(tmpdir, asm, ["r0","r1", "z"])
+    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "r4", "r5", "z", "n"])
 
 def test_mov_set_zflag(tmpdir):
     asm = """
