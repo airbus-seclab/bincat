@@ -206,7 +206,7 @@ struct
         let shift = (instruction lsr 8) land 0xf in
         let imm = instruction land 0xff in
         const (ror32 imm (2*shift)) 32,[]
-    in let stmt = match (instruction lsr 21) land 0xf with
+    in let stmt = let opcode = (instruction lsr 21) land 0xf in match opcode with
     | 0b0000 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* AND - Rd:= Op1 AND Op2 *)
     | 0b0001 -> [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* EOR - Rd:= Op1 EOR Op2 *)
     | 0b0010 -> [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ] (* SUB - Rd:= Op1 - Op2 *)
@@ -215,16 +215,23 @@ struct
     | 0b0101 -> (* ADC - Rd:= Op1 + Op2 + C *) error s.a "ADC"
     | 0b0110 -> (* SBC - Rd:= Op1 - Op2 + C - 1 *) error s.a "SBC"
     | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *) error s.a "RSC"
-    | 0b1000 -> (* TST - set condition codes on Op1 AND Op2 *) error s.a "TST"
-    | 0b1001 -> (* TEQ - set condition codes on Op1 EOR Op2 *) error s.a "TEQ"
-    | 0b1010 -> (* CMP - set condition codes on Op1 - Op2 *) error s.a "CMP"
-    | 0b1011 -> (* CMN - set condition codes on Op1 + Op2 *) error s.a "CMN"
     | 0b1100 -> [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* ORR - Rd:= Op1 OR Op2 *)
     | 0b1101 -> [ Set (V (reg rd), op2_stmt) ] @ op2_carry_stmt (* MOV - Rd:= Op2 *)
     | 0b1110 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), UnOp(Not, op2_stmt)) ) ] @ op2_carry_stmt
                 (* BIC - Rd:= Op1 AND NOT Op2 *)
     | 0b1111 -> [ Set (V (reg rd), UnOp(Not, op2_stmt)) ] @ op2_carry_stmt (* MVN - Rd:= NOT Op2 *)
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
+    | _ -> (* TST/TEQ/CMP/CMN or MRS/MSR *)
+       if (instruction land (1 lsl 20)) = 0 then (* S=0 => MRS/MSR *)
+         error s.a "MSR/MRS"
+       else
+         begin
+           match opcode with
+           | 0b1000 -> (* TST - set condition codes on Op1 AND Op2 *) error s.a "TST"
+           | 0b1001 -> (* TEQ - set condition codes on Op1 EOR Op2 *) error s.a "TEQ"
+           | 0b1010 -> (* CMP - set condition codes on Op1 - Op2 *) error s.a "CMP"
+           | 0b1011 -> (* CMN - set condition codes on Op1 + Op2 *) error s.a "CMN"
+           | _ -> L.abort (fun p -> p "unexpected opcode %x" opcode)
+         end in
        let stmt_cc = 
          if set_cond_codes = 0
          then
