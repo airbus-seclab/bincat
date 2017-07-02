@@ -230,7 +230,7 @@ struct
     | 0b00 ->
        begin
          match (instruction lsr 22) land 0xf with
-         | 0b0000 -> (* multiply *) error s.a "Multiply not implemented"
+         | 0b0000 when ((instruction lsr 4) land 0xf) = 0x9 -> (* multiply *) error s.a "Multiply not implemented"
          | 0b0100 | 0b0101 -> (* single data swap *) error s.a "single data swap not implemented"
          | _ -> (* data processing / PSR transfer *) data_proc s instruction
        end
