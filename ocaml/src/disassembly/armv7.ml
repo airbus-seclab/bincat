@@ -146,28 +146,69 @@ struct
     let rn = (instruction lsr 16) land 0xf in
     let is_imm = (instruction lsr 25) land 1 in
     let set_cond_codes = (instruction lsr 20) land 1 in
-    let op2_stmt =
+    let op2_stmt, op2_carry_stmt =
       if is_imm = 0 then
         let shift_op = (instruction lsr 4) land 0xff in
         let rm = instruction land 0xf in
-        let op3 =
+        let op3, int_shift_count =
           if shift_op land 1 = 0 then
-            const (shift_op lsr 3) 32
+            const (shift_op lsr 3) 32, Some (shift_op lsr 3)
           else
-            Lval (V (reg (shift_op lsr 4))) in
+            Lval (V (reg (shift_op lsr 4))), None in
         match (shift_op lsr 1) land 0x3 with
-          | 0b00 -> (* lsl *) BinOp(Shl, Lval (V (reg rm)), op3)
-          | 0b01 -> (* lsr *) BinOp(Shr, Lval (V (reg rm)), op3)
-          | 0b10 -> (* asr *) error s.a "Asr"
-          | 0b11 -> (* ror *) error s.a "Ror"
+          | 0b00 -> (* lsl *) begin
+            match  int_shift_count with
+            | Some 0 -> Lval (V (reg rm))
+            | _ -> BinOp(Shl, Lval (V (reg rm)), op3)
+          end,
+            begin
+              match int_shift_count with
+              | Some 0 -> [] (* lsl 0 => preserve carry *)
+              | Some n -> [ Set( V (T cflag),  (* shift count is an immediate, we can directly test the bit *)
+                                 TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl (32-n)) 32),const 0 32),
+                                         const 0 1, const 1 1)) ]
+              | None -> [ Set ( V (T cflag),   (* shift count comes from a register. We shift again on 33 bits *)
+                                TernOp (Cmp (EQ, BinOp(And, 
+                                                       BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))),
+                                                             UnOp(ZeroExt 33, op3)),
+                                                       const (1 lsl 32) 33), const 0 33),
+                                        const 0 1, const 1 1)) ]
+            end
+          | 0b01 -> (* lsr *)
+             begin
+               match int_shift_count with
+               | Some 0 -> const 0 32 (* 0 actually encodes lsr #32 *)
+               | _ -> BinOp(Shr, Lval (V (reg rm)), op3)
+             end,
+               begin
+                 let one33 = const 1 33 in
+                 let zero32 = const 0 32 in
+                 match int_shift_count with
+                 | Some 0 -> [ Set( V (T cflag), (* 0 for lsr means 32 ! *)
+                                    TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const 0x80000000 32), zero32),
+                                            const 0 1, const 1 1)) ]
+                 | Some n -> [ Set( V (T cflag),  (* shift count is an immediate, we can directly test the bit *)
+                                    TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl (n-1)) 32), zero32),
+                                            const 0 1, const 1 1)) ]
+                 | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
+                                   TernOp (Cmp (EQ,
+                                                BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
+                                                      BinOp(Shr,
+                                                            BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))), one33),
+                                                            UnOp(ZeroExt 33, op3))),
+                                                one33),
+                                           const 1 1, const 0 1)) ]
+               end
+          | 0b10 -> (* asr *) error s.a "Asr shift operation for shifted register not implemented"
+          | 0b11 -> (* ror *) error s.a "Ror shift operation for shifted register not implemented"
           | _ as st -> L.abort (fun p -> p "unexpected shift type %x" st)
       else
         let shift = (instruction lsr 8) land 0xf in
         let imm = instruction land 0xff in
-        const (ror32 imm (2*shift)) 32
+        const (ror32 imm (2*shift)) 32,[]
     in let stmt = match (instruction lsr 21) land 0xf with
-    | 0b0000 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ] (* AND - Rd:= Op1 AND Op2 *)
-    | 0b0001 -> [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ] (* EOR - Rd:= Op1 EOR Op2 *)
+    | 0b0000 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* AND - Rd:= Op1 AND Op2 *)
+    | 0b0001 -> [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* EOR - Rd:= Op1 EOR Op2 *)
     | 0b0010 -> [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ] (* SUB - Rd:= Op1 - Op2 *)
     | 0b0011 -> [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn))) ) ] (* RSB - Rd:= Op2 - Op1 *)
     | 0b0100 -> [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ] (* ADD - Rd:= Op1 + Op2 *)
@@ -178,11 +219,11 @@ struct
     | 0b1001 -> (* TEQ - set condition codes on Op1 EOR Op2 *) error s.a "TEQ"
     | 0b1010 -> (* CMP - set condition codes on Op1 - Op2 *) error s.a "CMP"
     | 0b1011 -> (* CMN - set condition codes on Op1 + Op2 *) error s.a "CMN"
-    | 0b1100 -> [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ] (* ORR - Rd:= Op1 OR Op2 *)
-    | 0b1101 -> [ Set (V (reg rd), op2_stmt) ] (* MOV - Rd:= Op2 *)
-    | 0b1110 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), UnOp(Not, op2_stmt)) ) ] 
+    | 0b1100 -> [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* ORR - Rd:= Op1 OR Op2 *)
+    | 0b1101 -> [ Set (V (reg rd), op2_stmt) ] @ op2_carry_stmt (* MOV - Rd:= Op2 *)
+    | 0b1110 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), UnOp(Not, op2_stmt)) ) ] @ op2_carry_stmt
                 (* BIC - Rd:= Op1 AND NOT Op2 *)
-    | 0b1111 -> [ Set (V (reg rd), UnOp(Not, op2_stmt)) ] (* MVN - Rd:= NOT Op2 *)
+    | 0b1111 -> [ Set (V (reg rd), UnOp(Not, op2_stmt)) ] @ op2_carry_stmt (* MVN - Rd:= NOT Op2 *)
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
        let stmt_cc = 
          if set_cond_codes = 0
