@@ -252,7 +252,7 @@ class X86(Arch):
 
 class ARM(Arch):
     ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
-                 "r11", "r12", "sp", "lr", "pc"]
+                 "r11", "r12", "sp", "lr", "pc", "n", "z", "c", "v"]
     AS_TMP_DIR = counter("arm-as-%i")
     AS = ["arm-linux-gnueabi-as"]
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
@@ -291,7 +291,8 @@ class ARM(Arch):
 class AARCH64(ARM):
     ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
                  "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20",
-                 "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", ]
+                 "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
+                 "N", "Z", "C", "V"]
     AS = ["aarch64-linux-gnu-as"]
     OBJCOPY = ["aarch64-linux-gnu-objcopy"]
     OBJDUMP = ["objdump", "-m", "aarch64"]
