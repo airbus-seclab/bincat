@@ -170,7 +170,7 @@ struct
     | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *) [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ]
     | 0b0010 -> (* SUB - Rd:= Op1 - Op2 *) [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ]
     | 0b0011 -> (* RSB - Rd:= Op2 - Op1 *) [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn))) ) ]
-    | 0b0100 -> (* ADD - Rd:= Op1 + Op2 *) error s.a "ADD"
+    | 0b0100 -> (* ADD - Rd:= Op1 + Op2 *) [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ]
     | 0b0101 -> (* ADC - Rd:= Op1 + Op2 + C *) error s.a "ADC"
     | 0b0110 -> (* SBC - Rd:= Op1 - Op2 + C - 1 *) error s.a "SBC"
     | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *) error s.a "RSC"
