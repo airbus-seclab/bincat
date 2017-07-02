@@ -118,3 +118,13 @@ def test_and(tmpdir, armv7op, armv7op_):
             ands r3, r0, r1
     """.format(**locals())
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z"])
+
+def test_eor(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op}
+            eor r2, r0, r1
+            eors r3, r0, r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z"])
+
