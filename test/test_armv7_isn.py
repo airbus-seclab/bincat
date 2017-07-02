@@ -165,8 +165,25 @@ def test_data_proc(tmpdir, op, armv7op, armv7op_):
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z"])
 
 @pytest.mark.parametrize("flags", range(15))
-def test_data_proc_cpsr(tmpdir,flags):
+def test_data_proc_msr_cpsr_reg(tmpdir,flags):
+    asm = """
+            mov r0, #{flags:#x}0000000
+            msr cpsr, r0
+    """.format(**locals())
+    compare(tmpdir, asm, ["n", "z", "v", "c"])
+
+@pytest.mark.parametrize("flags", range(15))
+def test_data_proc_msr_cpsr_imm(tmpdir,flags):
     asm = """
             msr cpsr, #{flags:#x}0000000
     """.format(**locals())
     compare(tmpdir, asm, ["n", "z", "v", "c"])
+
+@pytest.mark.parametrize("flags", range(15))
+def test_data_proc_mrs_cpsr(tmpdir,flags):
+    asm = """
+            mov r0, #{flags:#x}0000000
+            msr cpsr, r0
+            mrs r1, cpsr
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1","n","z","c","v"])
