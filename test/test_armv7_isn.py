@@ -164,3 +164,9 @@ def test_data_proc(tmpdir, op, armv7op, armv7op_):
     """.format(**locals())
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z"])
 
+@pytest.mark.parametrize("flags", range(15))
+def test_data_proc_cpsr(tmpdir,flags):
+    asm = """
+            msr cpsr, #{flags:#x}0000000
+    """.format(**locals())
+    compare(tmpdir, asm, ["n", "z", "v", "c"])
