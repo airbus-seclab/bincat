@@ -130,6 +130,9 @@ struct
     (*    s.b.Cfa.State.bytes <- string_to_char_list str; *)
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
 
+  let ror32 value n =
+    (value lsr n) lor ((value lsl (32-n)) land 0xffffffff)
+
   let data_proc s instruction =
     let rd = (instruction lsr 12) land 0xf in
     let _rn = (instruction lsr 16) land 0xf in
@@ -143,7 +146,7 @@ struct
       else
         let shift = (instruction lsr 8) land 0xf in
         let imm = instruction land 0xff in
-        const (imm lsr shift) 32
+        const (ror32 imm (2*shift)) 32
     in let stmt = match (instruction lsr 21) land 0xf with
     | 0b0000 -> (* AND - Rd:= Op1 AND Op2 *) error s.a "AND"
     | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *) error s.a "EOR"
