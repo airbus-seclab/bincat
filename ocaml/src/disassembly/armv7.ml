@@ -241,19 +241,15 @@ struct
               else error s.a "MRS from SPSR not supported"
            | 0b1010 -> (* MSR *) 
               if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
-                if instruction land (1 lsl 25) = 0 then (* I=0: source operand is a register *)
-                  let zero32 = const 0 32 in
-                  let rm = instruction land 0xf in
-                  [ Set (V (T nflag), TernOp(Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl 31) 32), zero32),
-                                             const 0 1, const 1 1)) ;
-                    Set (V (T zflag), TernOp(Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl 30) 32), zero32),
-                                             const 0 1, const 1 1)) ;
-                    Set (V (T cflag), TernOp(Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl 29) 32), zero32),
-                                             const 0 1, const 1 1)) ;
-                    Set (V (T vflag), TernOp(Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl 28) 32), zero32),
-                                             const 0 1, const 1 1)) ]
-                else
-                  error s.a "MSR from immediate not implemented"
+                let zero32 = const 0 32 in
+                [ Set (V (T nflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 31) 32), zero32),
+                                           const 0 1, const 1 1)) ;
+                  Set (V (T zflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 30) 32), zero32),
+                                           const 0 1, const 1 1)) ;
+                  Set (V (T cflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 29) 32), zero32),
+                                           const 0 1, const 1 1)) ;
+                  Set (V (T vflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 28) 32), zero32),
+                                           const 0 1, const 1 1)) ]
               else error s.a "MSR to SPSR not supported"
            | _ -> error s.a "unkonwn MSR/MRS opcode"
          end
