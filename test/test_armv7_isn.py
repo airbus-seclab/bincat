@@ -101,3 +101,11 @@ def test_mov_set_vflag(tmpdir):
             movpl r4, #1
     """
     compare(tmpdir, asm, ["r0","r1","r2","r3", "r4", "n", "z"])
+
+def test_mvn(tmpdir):
+    asm = """
+            mov r1, #123
+            mvn r2, r1
+            mvn r3, r1, lsl #5
+    """
+    compare(tmpdir, asm, ["r1","r2","r3"])
