@@ -110,7 +110,7 @@ def test_mvn(tmpdir):
     """
     compare(tmpdir, asm, ["r1","r2","r3"])
 
-@pytest.mark.parametrize("op", ["and", "eor", "sub", "rsb"])
+@pytest.mark.parametrize("op", ["and", "eor", "sub", "rsb", "add"])
 def test_data_proc(tmpdir, op, armv7op, armv7op_):
     asm = """
             mov r0, #{armv7op}
