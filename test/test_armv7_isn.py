@@ -32,6 +32,9 @@ def test_assign(tmpdir):
 ## 
 ## DATA PROC
 
+dataop  = pytest.mark.parametrize("op", ["mov", "mvn"])
+dataop2 = pytest.mark.parametrize("op", ["and", "eor", "sub", "rsb", "add", "orr", "bic"])
+
 
 def test_mov_reg(tmpdir):
     asm = """
@@ -42,52 +45,58 @@ def test_mov_reg(tmpdir):
     """
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "z", "n"])
 
-def test_shifted_register_lsl_imm_shift(tmpdir, armv7op, armv7shift):
+@dataop
+def test_shifted_register_lsl_imm_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
             mov r0, #{armv7op}
-            movs r1, r0, lsl #{armv7shift}
+            {op}s r1, r0, lsl #{armv7shift}
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "c", "n", "z"],
             top_allowed={"c": 1 if armv7shift == 0 else 0})
 
-def test_shifted_register_lsl_reg_shift(tmpdir, armv7op, armv7shift):
+@dataop
+def test_shifted_register_lsl_reg_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
             mov r0, #{armv7op}
             mov r1, #{armv7shift}
-            movs r2, r0, lsl r1
+            {op}s r2, r0, lsl r1
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "c", "n", "z"],
             top_allowed={"c": 1 if armv7shift == 0 else 0})
 
-def test_shifted_register_lsr_imm_shift(tmpdir, armv7op, armv7shift):
+@dataop
+def test_shifted_register_lsr_imm_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
             mov r0, #{armv7op}
-            movs r1, r0, lsr #{armv7shift}
+            {op}s r1, r0, lsr #{armv7shift}
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "c", "n", "z"],
             top_allowed={"c": 1 if armv7shift == 0 else 0})
 
-def test_shifted_register_lsr_reg_shift(tmpdir, armv7op, armv7shift):
+@dataop
+def test_shifted_register_lsr_reg_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
             mov r0, #{armv7op}
             mov r1, #{armv7shift}
-            movs r2, r0, lsr r1
+            {op}s r2, r0, lsr r1
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "c", "n", "z"],
             top_allowed={"c": 1 if armv7shift == 0 else 0})
 
-def test_shifted_register_lsr_imm_32(tmpdir, armv7op):
+@dataop
+def test_shifted_register_lsr_imm_32(tmpdir, op, armv7op):
     asm = """
             mov r0, #{armv7op}
-            movs r1, r0, lsr #32
+            {op}s r1, r0, lsr #32
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "c", "n", "z"])
 
-def test_shifted_register_lsr_reg_32(tmpdir, armv7op):
+@dataop
+def test_shifted_register_lsr_reg_32(tmpdir, op, armv7op):
     asm = """
             mov r0, #{armv7op}
             mov r1, #32
-            movs r2, r0, lsr r1
+            {op}s r2, r0, lsr r1
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "c", "n", "z"])
 
@@ -145,7 +154,7 @@ def test_mvn(tmpdir):
     """
     compare(tmpdir, asm, ["r1","r2","r3"])
 
-@pytest.mark.parametrize("op", ["and", "eor", "sub", "rsb", "add", "orr", "bic"])
+@dataop2
 def test_data_proc(tmpdir, op, armv7op, armv7op_):
     asm = """
             mov r0, #{armv7op}
