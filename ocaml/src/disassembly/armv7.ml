@@ -181,7 +181,7 @@ struct
     | 0b1100 -> (* ORR - Rd:= Op1 OR Op2 *) error s.a "ORR"
     | 0b1101 -> (* MOV - Rd:= Op2 *) [ Set (V (reg rd), op2_stmt) ]
     | 0b1110 -> (* BIC - Rd:= Op1 AND NOT Op2 *) error s.a "BIC"
-    | 0b1111 -> (* MVN - Rd:= NOT Op2 *) error s.a "MVN"
+    | 0b1111 -> (* MVN - Rd:= NOT Op2 *) [ Set (V (reg rd), UnOp(Not, op2_stmt)) ]
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
        let stmt_cc = 
          if set_cond_codes = 0
