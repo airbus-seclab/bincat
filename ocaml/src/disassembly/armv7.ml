@@ -141,6 +141,28 @@ struct
   let ror32 value n =
     (value lsr n) lor ((value lsl (32-n)) land 0xffffffff)
 
+  let single_data_transfer s instruction = 
+    let rd = (instruction lsr 12) land 0xf in
+    let rn = (instruction lsr 16) land 0xf in
+    let ofs = if instruction land (1 lsl 25) = 0 then (* immediate value *)
+        const (instruction land 0xfff) 32
+      else
+        error s.a "single data xfer offset from reg not implemented" in
+    let length = if (instruction land (1 lsl 22)) = 0 then 32 else 8 in
+    let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
+    let write_back = [ Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) ] in
+    let stmts = if (instruction land (1 lsl 20)) = 0 then (* store *)
+        [ Set (M (Lval (V (reg rn)), length), Lval (V (reg rd))) ]
+      else (* load *)
+        [ Set (V (reg rd), Lval (M (Lval (V (reg rn)), length))) ] in
+    if (instruction land (1 lsl 24)) = 0 then (* post indexing *)
+      stmts @ write_back (* post indexing implies write back *)
+    else
+      if (instruction land (1 lsl 21)) <> 0 then (* write back *)
+        write_back @ stmts
+      else (* no write back *)
+        stmts
+
   let data_proc s instruction =
     let rd = (instruction lsr 12) land 0xf in
     let rn = (instruction lsr 16) land 0xf in
@@ -316,7 +338,7 @@ struct
          else (* data processing / PSR transfer *) 
            data_proc s instruction
        end
-    | 0b01 -> (* single data transfer *) error s.a "single data transfer implemented" (* XXX: check undefined p.19 *)
+    | 0b01 -> single_data_transfer s instruction
     | 0b10 ->
        begin
          match (instruction lsr 25) land 1 with
