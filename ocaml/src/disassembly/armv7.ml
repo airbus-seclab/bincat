@@ -166,11 +166,11 @@ struct
         let imm = instruction land 0xff in
         const (ror32 imm (2*shift)) 32
     in let stmt = match (instruction lsr 21) land 0xf with
-    | 0b0000 -> (* AND - Rd:= Op1 AND Op2 *) [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ]
-    | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *) [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ]
-    | 0b0010 -> (* SUB - Rd:= Op1 - Op2 *) [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ]
-    | 0b0011 -> (* RSB - Rd:= Op2 - Op1 *) [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn))) ) ]
-    | 0b0100 -> (* ADD - Rd:= Op1 + Op2 *) [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ]
+    | 0b0000 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ] (* AND - Rd:= Op1 AND Op2 *)
+    | 0b0001 -> [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ] (* EOR - Rd:= Op1 EOR Op2 *)
+    | 0b0010 -> [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ] (* SUB - Rd:= Op1 - Op2 *)
+    | 0b0011 -> [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn))) ) ] (* RSB - Rd:= Op2 - Op1 *)
+    | 0b0100 -> [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ] (* ADD - Rd:= Op1 + Op2 *)
     | 0b0101 -> (* ADC - Rd:= Op1 + Op2 + C *) error s.a "ADC"
     | 0b0110 -> (* SBC - Rd:= Op1 - Op2 + C - 1 *) error s.a "SBC"
     | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *) error s.a "RSC"
@@ -178,11 +178,11 @@ struct
     | 0b1001 -> (* TEQ - set condition codes on Op1 EOR Op2 *) error s.a "TEQ"
     | 0b1010 -> (* CMP - set condition codes on Op1 - Op2 *) error s.a "CMP"
     | 0b1011 -> (* CMN - set condition codes on Op1 + Op2 *) error s.a "CMN"
-    | 0b1100 -> (* ORR - Rd:= Op1 OR Op2 *) [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ]
-    | 0b1101 -> (* MOV - Rd:= Op2 *) [ Set (V (reg rd), op2_stmt) ]
-    | 0b1110 -> (* BIC - Rd:= Op1 AND NOT Op2 *) [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)),
-                                                                          UnOp(Not, op2_stmt)) ) ]
-    | 0b1111 -> (* MVN - Rd:= NOT Op2 *) [ Set (V (reg rd), UnOp(Not, op2_stmt)) ]
+    | 0b1100 -> [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ] (* ORR - Rd:= Op1 OR Op2 *)
+    | 0b1101 -> [ Set (V (reg rd), op2_stmt) ] (* MOV - Rd:= Op2 *)
+    | 0b1110 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), UnOp(Not, op2_stmt)) ) ] 
+                (* BIC - Rd:= Op1 AND NOT Op2 *)
+    | 0b1111 -> [ Set (V (reg rd), UnOp(Not, op2_stmt)) ] (* MVN - Rd:= NOT Op2 *)
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
        let stmt_cc = 
          if set_cond_codes = 0
