@@ -167,7 +167,7 @@ struct
         const (ror32 imm (2*shift)) 32
     in let stmt = match (instruction lsr 21) land 0xf with
     | 0b0000 -> (* AND - Rd:= Op1 AND Op2 *) [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ]
-    | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *) error s.a "EOR"
+    | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *) [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ]
     | 0b0010 -> (* SUB - Rd:= Op1 - Op2 *) error s.a "SUB"
     | 0b0011 -> (* RSB - Rd:= Op2 - Op1 *) error s.a "RSB"
     | 0b0100 -> (* ADD - Rd:= Op1 + Op2 *) error s.a "ADD"
