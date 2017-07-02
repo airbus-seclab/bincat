@@ -187,3 +187,19 @@ def test_data_proc_mrs_cpsr(tmpdir,flags):
             mrs r1, cpsr
     """.format(**locals())
     compare(tmpdir, asm, ["r0","r1","n","z","c","v"])
+
+
+##  ___   _ _____ _    __  _____ ___ ___ 
+## |   \ /_\_   _/_\   \ \/ / __| __| _ \
+## | |) / _ \| |/ _ \   >  <| _|| _||   /
+## |___/_/ \_\_/_/ \_\ /_/\_\_| |___|_|_\
+##
+## DATA XFER
+
+def test_data_xfer_push_pop(tmpdir):
+    asm = """
+            mov r0, #123
+            push { r0 }
+            pop { r1 }
+    """
+    compare(tmpdir, asm, ["r0","r1"])
