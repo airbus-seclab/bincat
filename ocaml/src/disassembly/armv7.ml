@@ -47,7 +47,7 @@ struct
   let r10 = Register.make ~name:"r10" ~size:32;;
   let r11 = Register.make ~name:"r11" ~size:32;;
   let r12 = Register.make ~name:"r12" ~size:32;;
-  let sp = Register.make ~name:"sp" ~size:32;; 
+  let sp = Register.make_sp ~name:"sp" ~size:32;;
   let lr = Register.make ~name:"lr" ~size:32;;
   let pc = Register.make ~name:"pc" ~size:32;;
 
