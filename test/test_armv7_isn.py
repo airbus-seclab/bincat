@@ -227,7 +227,8 @@ def test_data_xfer_offsets(tmpdir):
             push { r0 }
             mov r3, #2
             ldr r4, [sp, r3, lsl #2]
-            ldr r5, [sp, #20]
+            ldr r5, [sp, #0x10]
+            add sp, #0x14
     """
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
 
