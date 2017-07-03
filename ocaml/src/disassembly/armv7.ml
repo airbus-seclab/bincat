@@ -133,8 +133,12 @@ struct
         lor ((Char.code (String.get str 1)) lsl 16)
         lor ((Char.code (String.get str 0)) lsl 24)
 
-  let return (s: state) (_str: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
+  let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
+    s.b.Cfa.State.bytes <- [ Char.chr (instruction land 0xff) ;
+                             Char.chr ((instruction lsr 8) land 0xff) ;
+                             Char.chr ((instruction lsr 16) land 0xff) ;
+                             Char.chr ((instruction lsr 24) land 0xff) ];
     (*    s.b.Cfa.State.bytes <- string_to_char_list str; *)
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
 
