@@ -141,6 +141,16 @@ struct
   let ror32 value n =
     (value lsr n) lor ((value lsl (32-n)) land 0xffffffff)
 
+  let branch s instruction =
+    let link_stmt = if (instruction land (1 lsl 24)) <> 0 then
+        [ Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ]
+      else
+        [ ] in
+    let ofs = (instruction land 0xffffff) lsl 2 in
+    let ofs32 = if ofs land 0x2000000 <> 0 then ofs lor 0xfc000000 else ofs in (* sign extend 26 bits to 32 bits *)
+    link_stmt @ [ Set (V (T pc), BinOp(Add, Lval (V (T pc)), const ofs32 32)) ; 
+                  Jmp (R (Lval (V (T pc)))) ]
+
   let single_data_transfer s instruction = 
     let rd = (instruction lsr 12) land 0xf in
     let rn = (instruction lsr 16) land 0xf in
@@ -151,17 +161,22 @@ struct
     let length = if (instruction land (1 lsl 22)) = 0 then 32 else 8 in
     let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
     let write_back = [ Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) ] in
-    let stmts = if (instruction land (1 lsl 20)) = 0 then (* store *)
-        [ Set (M (Lval (V (reg rn)), length), Lval (V (reg rd))) ]
+    let stmts,update_pc = if (instruction land (1 lsl 20)) = 0 then (* store *)
+        [ Set (M (Lval (V (reg rn)), length), Lval (V (reg rd))) ], false
       else (* load *)
-        [ Set (V (reg rd), Lval (M (Lval (V (reg rn)), length))) ] in
-    if (instruction land (1 lsl 24)) = 0 then (* post indexing *)
-      stmts @ write_back (* post indexing implies write back *)
+        [ Set (V (reg rd), Lval (M (Lval (V (reg rn)), length))) ], rd = 15 in
+    let stmts' =
+      if (instruction land (1 lsl 24)) = 0 then (* post indexing *)
+        stmts @ write_back (* post indexing implies write back *)
+      else
+        if (instruction land (1 lsl 21)) <> 0 then (* write back *)
+          write_back @ stmts
+        else (* no write back *)
+          stmts in
+    if update_pc then
+      stmts' @ [ Jmp (R (Lval (V (T pc)))) ]
     else
-      if (instruction land (1 lsl 21)) <> 0 then (* write back *)
-        write_back @ stmts
-      else (* no write back *)
-        stmts
+      stmts'
 
   let data_proc s instruction =
     let rd = (instruction lsr 12) land 0xf in
@@ -228,20 +243,20 @@ struct
         let shift = (instruction lsr 8) land 0xf in
         let imm = instruction land 0xff in
         const (ror32 imm (2*shift)) 32,[]
-    in let stmt = let opcode = (instruction lsr 21) land 0xf in match opcode with
-    | 0b0000 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* AND - Rd:= Op1 AND Op2 *)
-    | 0b0001 -> [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* EOR - Rd:= Op1 EOR Op2 *)
-    | 0b0010 -> [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ] (* SUB - Rd:= Op1 - Op2 *)
-    | 0b0011 -> [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn))) ) ] (* RSB - Rd:= Op2 - Op1 *)
-    | 0b0100 -> [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ] (* ADD - Rd:= Op1 + Op2 *)
+    in let stmt,update_pc = let opcode = (instruction lsr 21) land 0xf in match opcode with
+    | 0b0000 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt, rd = 15 (* AND - Rd:= Op1 AND Op2 *)
+    | 0b0001 -> [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt, rd = 15 (* EOR - Rd:= Op1 EOR Op2 *)
+    | 0b0010 -> [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ], rd = 15 (* SUB - Rd:= Op1 - Op2 *)
+    | 0b0011 -> [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn))) ) ], rd = 15  (* RSB - Rd:= Op2 - Op1 *)
+    | 0b0100 -> [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ], rd = 15 (* ADD - Rd:= Op1 + Op2 *)
     | 0b0101 -> (* ADC - Rd:= Op1 + Op2 + C *) error s.a "ADC"
     | 0b0110 -> (* SBC - Rd:= Op1 - Op2 + C - 1 *) error s.a "SBC"
     | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *) error s.a "RSC"
-    | 0b1100 -> [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt (* ORR - Rd:= Op1 OR Op2 *)
-    | 0b1101 -> [ Set (V (reg rd), op2_stmt) ] @ op2_carry_stmt (* MOV - Rd:= Op2 *)
-    | 0b1110 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), UnOp(Not, op2_stmt)) ) ] @ op2_carry_stmt
+    | 0b1100 -> [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ] @ op2_carry_stmt, rd = 15 (* ORR - Rd:= Op1 OR Op2 *)
+    | 0b1101 -> [ Set (V (reg rd), op2_stmt) ] @ op2_carry_stmt, rd = 15 (* MOV - Rd:= Op2 *)
+    | 0b1110 -> [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), UnOp(Not, op2_stmt)) ) ] @ op2_carry_stmt, rd = 15
                 (* BIC - Rd:= Op1 AND NOT Op2 *)
-    | 0b1111 -> [ Set (V (reg rd), UnOp(Not, op2_stmt)) ] @ op2_carry_stmt (* MVN - Rd:= NOT Op2 *)
+    | 0b1111 -> [ Set (V (reg rd), UnOp(Not, op2_stmt)) ] @ op2_carry_stmt, rd = 15 (* MVN - Rd:= NOT Op2 *)
     | _ -> (* TST/TEQ/CMP/CMN or MRS/MSR *)
        if (instruction land (1 lsl 20)) = 0 then (* S=0 => MRS/MSR *)
          begin
@@ -259,7 +274,7 @@ struct
                                                    const 29 32),
                                          BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T vflag))),
                                                const 28 32))),
-                             const 0b10000 32)) ] (* 0b10000 means user mode *)
+                             const 0b10000 32)) ], false (* 0b10000 means user mode *)
               else error s.a "MRS from SPSR not supported"
            | 0b1010 -> (* MSR *) 
               if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
@@ -271,7 +286,7 @@ struct
                   Set (V (T cflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 29) 32), zero32),
                                            const 0 1, const 1 1)) ;
                   Set (V (T vflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 28) 32), zero32),
-                                           const 0 1, const 1 1)) ]
+                                           const 0 1, const 1 1)) ], false
               else error s.a "MSR to SPSR not supported"
            | _ -> error s.a "unkonwn MSR/MRS opcode"
          end
@@ -295,7 +310,10 @@ struct
                                                        const 0 32),
                                                    const 0 1, const 1 1)) ] in
            stmt @ z_stmt @ n_stmt in
-       stmt_cc
+    if update_pc then
+      stmt_cc @ [ Jmp (R (Lval (V (T pc)))) ]
+    else
+      stmt_cc
 
   let wrap_cc cc stmts =
     let asm_cond = match cc with
@@ -343,7 +361,7 @@ struct
        begin
          match (instruction lsr 25) land 1 with
          | 0 -> (* block data transfer *) error s.a "block data transfer not implemented"
-         | 1 -> (* branch *) error s.a "branch not implemented"
+         | 1 -> branch s instruction
          | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
        end
     | 0b11 ->
@@ -357,7 +375,9 @@ struct
     | 0xf -> []    (* never *) 
     | 0xe -> stmts (* always *) 
     | _ as cc -> wrap_cc cc stmts in
-    return s instruction stmts_cc
+    let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
+    (* XXX: 12 bytes if a register is used to specify a shift amount *)
+    return s instruction (Set( V (T pc), current_pc) :: stmts_cc)
 
 
   let parse text cfg _ctx state addr _oracle =
