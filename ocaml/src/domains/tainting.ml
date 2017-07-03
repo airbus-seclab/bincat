@@ -58,15 +58,13 @@ let join (t1: t) (t2: t): t =
   | TOP, _  | _, TOP -> TOP
 
 
-
-
-
-
-let logor b1 b2 =
-  match b1, b2 with
-  | T, _ | _, T -> T
-  | U, U 	-> U
-  | _, _ 	-> TOP
+let logor (t1: t) (t2: t): t =
+  match t1, t2 with
+  | U, U -> U
+  | t, U  | U, t -> t 
+  | S src1, S src2 -> S (Src.union src1 src2)
+  | _, _ -> TOP
+     
 
 let logand b1 b2 =
   match b1, b2 with
