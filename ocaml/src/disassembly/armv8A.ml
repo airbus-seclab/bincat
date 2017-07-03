@@ -16,22 +16,21 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(* 
-   Decoder for ARMv8-A 64-bits 
+(*
+   Decoder for ARMv8-A 64-bits
    Implements the specification https://static.docs.arm.com/ddi0487/b/DDI0487B_a_armv8_arm.pdf
 *)
 module L = Log.Make(struct let name = "armv8A" end)
 
 module Make(Domain: Domain.T) =
-struct  
+struct
 
   type ctx_t = unit
 
   open Data
   open Asm
+  open Decodeutils
 
- 
-    
   (************************************************************************)
   (* Creation of the general purpose registers *)
   (************************************************************************)
@@ -49,7 +48,7 @@ struct
   let r10 = Register.make ~name:"r10" ~size:64;;
   let r11 = Register.make ~name:"r11" ~size:64;;
   let r12 = Register.make ~name:"r12" ~size:64;;
-  let r13 = Register.make ~name:"r13" ~size:64;; 
+  let r13 = Register.make ~name:"r13" ~size:64;;
   let r14 = Register.make ~name:"r15" ~size:64;;
   let r15 = Register.make ~name:"r14" ~size:64;;
   let r16 = Register.make ~name:"r16" ~size:64;;
@@ -67,15 +66,53 @@ struct
   let r28 = Register.make ~name:"r28" ~size:64;;
   let r29 = Register.make ~name:"r29" ~size:64;;
   let r30 = Register.make ~name:"r30" ~size:64;;
+  let pc = Register.make ~name:"pc" ~size:64;;
   let sp = Register.make ~name:"sp" ~size:64;; (* stack pointer *)
-  
+
   (* condition flags are modeled as registers of size 1 *)
   let nflag = Register.make ~name:"N" ~size:1;;
   let zflag = Register.make ~name:"Z" ~size:1;;
   let cflag = Register.make ~name:"C" ~size:1;;
   let vflag = Register.make ~name:"V" ~size:1;;
 
-   
+  let reg_from_num n =
+    match n with
+    | 0 -> r0
+    | 1 -> r1
+    | 2 -> r2
+    | 3 -> r3
+    | 4 -> r4
+    | 5 -> r5
+    | 6 -> r6
+    | 7 -> r7
+    | 8 -> r8
+    | 9 -> r9
+    | 10 -> r10
+    | 11 -> r11
+    | 12 -> r12
+    | 13 -> r13
+    | 14 -> r14
+    | 15 -> r15
+    | 16 -> r16
+    | 17 -> r17
+    | 18 -> r18
+    | 19 -> r19
+    | 20 -> r20
+    | 21 -> r21
+    | 22 -> r22
+    | 23 -> r23
+    | 24 -> r24
+    | 25 -> r25
+    | 26 -> r26
+    | 27 -> r27
+    | 28 -> r28
+    | 29 -> r29
+    | 30 -> r30
+    | _ -> L.abort (fun p -> p "Unknown register number %i" n)
+
+  let reg n =
+    T (reg_from_num n)
+
   module Cfa = Cfa.Make(Domain)
 
   module Imports = Armv8aImports.Make(Domain)
@@ -85,9 +122,8 @@ struct
     mutable b 	    : Cfa.State.t; (** state predecessor *)
     a 	     	    : Address.t;   (** current address to decode *)
     buf 	     	: string;      (** buffer to decode *)
-    
   }
-    
+
   (* fatal error reporting *)
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
@@ -112,15 +148,83 @@ struct
     s.b.Cfa.State.stmts <- stmts;
     s.b.Cfa.State.bytes <- string_to_char_list str;
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
-      
+
+  (******************************)
+  (* Instruction fields helpers *)
+  (******************************)
+  let sf2sz sf = if sf == 1 then 64 else 32
+
+  (* sf : 32 bit or 64 bits ops *)
+  let get_sf insn = (insn lsr 30) land 1
+  let get_sf_bool insn = ((insn lsr 30) land 1) == 1
+
+  (* S : set flags ? *)
+  let get_s insn = (insn lsr 30) land 1
+  let get_s_bool insn = ((insn lsr 30) land 1) == 1
+
+  (* Rn / Rd : registers *)
+  let get_Rn insn = reg ((insn lsr 4) land 0x1F)
+  let get_Rd insn = reg (insn land 0x1F)
+
+  let get_Rd_lv insn = V (get_Rd insn)
+  let get_Rn_exp insn = Lval (V (get_Rn insn))
+
+  (* imm12 : immediate 21:10 *)
+  let get_imm12 insn = (insn lsr 9) land 0xFFF
+
+  (* shift *)
+  let get_shift_op s insn imm sz =
+    let shift = (insn lsr 21) land 3 in
+    match shift with
+        | 0b10 | 0b11 -> error s.a (Printf.sprintf "Reserved shift value 0x%x in opcode 0x%x" shift insn)
+        | 0b00 -> const imm sz
+        | 0b01 -> const (imm lsl 12) sz
+        | _ -> error s.a "Impossible error !"
+
+  let add_sub_imm s insn =
+    let sf = get_sf insn in
+    let op = (insn lsr 29) land 1 in (* add or sub ? *)
+    let s_b = get_s_bool insn in
+    let rd = get_Rd_lv insn in
+    let rn = get_Rn_exp insn in
+    let imm12 = get_imm12 insn in
+    let shift = get_shift_op s insn imm12 (sf2sz sf) in
+    let core_stmts =
+        (* ADD *)
+        if op == 0 then begin
+            Set (rd, BinOp(Add, rn, shift))
+        end else begin
+        (* SUB *)
+            Set (rd, BinOp(Sub, rn, shift))
+        end in
+    (* flags ? *)
+    if s_b then
+        [ core_stmts ]
+    else
+        [ core_stmts ]
+
+
+  let data_processing (s: state) (insn: int): (Asm.stmt list) =
+    let op0 = (insn lsr 23) land 7 in
+    let stmts = match op0 with
+        | 0b010 | 0b011 -> add_sub_imm s insn
+        | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
+    in stmts
+
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction str in
-    match instruction with
-    | 0b11010101000000110010000000011111 -> (* NOP *) return s str [Nop]
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
+    let stmts = match (instruction lsr 24) land 0xF with
+        (* C4.1 in ARMv8 manual *)
+        (* 00xx : unallocated *)
+        | 0b0000 | 0b0001 | 0b0010 | 0b0011 -> error s.a (Printf.sprintf "Unallocated opcode 0x%x" instruction)
+        (* 100x : data processing *)
+        | 0b1000 | 0b1001 -> data_processing s instruction
+        | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
+    in
+    let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
+    return s str (Set( V (T pc), current_pc) :: stmts)
 
-      
   let parse text cfg _ctx state addr _oracle =
     let s =  {
       g = cfg;
@@ -132,10 +236,9 @@ struct
     try
       let v', ip' = decode s in
       Some (v', ip', ())
-    with     
+    with
       | Exceptions.Error _ as e -> raise e
       | _ 			  -> (*end of buffer *) None
-           
 
   let init () = ()
 end
