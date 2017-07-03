@@ -34,9 +34,6 @@ let z_to_bit_string i =
        
 (** convert the string representation of an integer to its bit representation *)
 let string_to_bit_string i = z_to_bit_string (Z.of_string i) 
-					     
-
-
 
 (** builds 0xffff...ff with nb repetitions of the pattern ff *)
 let ff nb =
