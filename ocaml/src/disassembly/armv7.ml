@@ -145,6 +145,41 @@ struct
   let ror32 value n =
     (value lsr n) lor ((value lsl (32-n)) land 0xffffffff)
 
+  let block_data_transfer s instruction =
+    if instruction land (1 lsl 22) <> 0 then error s.a "LDM/STM with S=1 not implemented"
+    else
+      let rn = (instruction lsr 16) land 0xf in
+      let ascend = instruction land (1 lsl 23) <> 0 in
+      let dir_op = if ascend then Add else Sub in
+      let ofs = ref (if instruction land (1 lsl 24) = 0 then 0 else 4) in
+      let store = instruction land (1 lsl 20) = 0 in
+      let stmts = ref [] in
+      let reg_count = ref 0 in
+      for i = 0 to 15 do
+        let regtest = if ascend then i else 15-i in
+        if (instruction land (1 lsl regtest)) <> 0 then
+          begin
+            if store then
+              stmts := !stmts @
+                [ Set( M (BinOp(dir_op, Lval (V (reg rn)), const !ofs 32), 32),
+                            Lval (V (reg regtest))) ]
+            else
+              begin
+                stmts := !stmts @
+                  [ Set( V (reg regtest),
+                         Lval (M (BinOp(dir_op, Lval (V (reg rn)), const !ofs 32), 32))) ]
+              end;
+            ofs := !ofs+4;
+            reg_count := !reg_count + 1
+          end
+        else ()
+      done;
+      if instruction land (1 lsl 21) = 0 then
+        !stmts
+      else
+        !stmts @ [ Set (V (reg rn), BinOp(dir_op, Lval (V (reg rn)), const (4*(!reg_count)) 32)) ]
+
+
   let branch s instruction =
     let link_stmt = if (instruction land (1 lsl 24)) <> 0 then
         [ Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ]
@@ -371,7 +406,7 @@ struct
     | 0b10 ->
        begin
          match (instruction lsr 25) land 1 with
-         | 0 -> (* block data transfer *) error s.a "block data transfer not implemented"
+         | 0 -> block_data_transfer s instruction (* block data transfer *)
          | 1 -> branch s instruction
          | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
        end
