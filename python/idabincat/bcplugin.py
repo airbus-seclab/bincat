@@ -20,7 +20,6 @@
 """
 
 import collections
-import distutils.spawn
 import hashlib
 import logging
 import os
@@ -29,6 +28,12 @@ import sys
 import tempfile
 import traceback
 import zlib
+# Ugly but IDA Python Linux doesn't have it !
+try:
+    import distutils.spawn
+    no_spawn = False
+except ImportError:
+    no_spawn = True
 try:
     import requests
 except ImportError:
@@ -121,16 +126,22 @@ class BincatPlugin(idaapi.plugin_t):
             return idaapi.PLUGIN_SKIP
         PluginOptions.init()
 
-        # Check if bincat_native is available
-        bc_exe = distutils.spawn.find_executable('bincat_native')
+        if no_spawn:
+            bc_exe = None
+        else:
+            # Check if bincat_native is available
+            bc_exe = distutils.spawn.find_executable('bincat_native')
         if bc_exe is None and os.name == 'nt':
             # add to PATH
             userdir = idaapi.get_user_idadir()
             bin_path = os.path.join(userdir, "plugins", "idabincat", "bin")
             if os.path.isdir(bin_path):
                 os.environ['PATH'] += ";"+bin_path
-            bc_exe = distutils.spawn.find_executable('bincat_native')
-        if bc_exe is None:
+            if no_spawn:
+                bc_exe = os.path.join(bin_path, "bincat_native.exe")
+            else:
+                bc_exe = distutils.spawn.find_executable('bincat_native')
+        if bc_exe is None and no_spawn is False:
             bc_log.warning('Could not find bincat_native binary, will not be able to run analysis')
 
         if PluginOptions.get("autostart") != "True":
