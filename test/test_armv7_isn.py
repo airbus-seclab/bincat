@@ -232,3 +232,32 @@ def test_data_xfer_str_8(tmpdir):
     """
     compare(tmpdir, asm, ["r0", "r1", "r2"])
 
+
+
+##  ___ ___    _   _  _  ___ _  _
+## | _ ) _ \  /_\ | \| |/ __| || |
+## | _ \   / / _ \| .` | (__| __ |
+## |___/_|_\/_/ \_\_|\_|\___|_||_|
+##
+## BRANCH
+
+def test_branch_nolink(tmpdir):
+    asm = """
+            mov r1, #123
+            b .next
+            mov r1, #101
+       .next:
+            mov r2, #123
+    """
+    compare(tmpdir, asm, ["r1", "r2"])
+
+def test_branch_and_link(tmpdir):
+    asm = """
+            mov r1, #123
+            bl .next
+            mov r1, #101
+       .next:
+            mov r2, #123
+            sub r3, pc, lr
+    """
+    compare(tmpdir, asm, ["r1", "r2", "r3"])
