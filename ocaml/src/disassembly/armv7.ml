@@ -371,7 +371,7 @@ struct
     | 0b11 ->
        begin
          match (instruction lsr 24) land 3 with
-         | 0b11 -> (* software interrupt *) error s.a (Printf.sprintf "software interrup not implemented (swi=%08x)" instruction)
+         | 0b11 -> (* software interrupt *) error s.a (Printf.sprintf "software interrupt not implemented (swi=%08x)" instruction)
          | _ -> (* coproc *) error s.a "coprocessor operation not implemented"
        end
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
