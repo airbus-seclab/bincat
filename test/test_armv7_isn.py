@@ -203,3 +203,32 @@ def test_data_xfer_push_pop(tmpdir):
             pop { r1 }
     """
     compare(tmpdir, asm, ["r0","r1"])
+
+
+def test_data_xfer_offsets(tmpdir):
+    asm = """
+            mov r0, #0
+            mov r1, #123
+            mov r2, #101
+            push { r1 }
+            push { r2 }
+            push { r0 }
+            push { r0 }
+            push { r0 }
+            mov r3, #2
+            ldr r4, [sp, r3, lsl #2]
+            ldr r5, [sp, #20]
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
+
+def test_data_xfer_str_8(tmpdir):
+    asm = """
+            mov r0, #123
+            str r0, [sp, #-4]!
+            ldrb r1, [sp], #4
+            mov r0, #105
+            strb r0, [sp, #-4]!
+            ldr r2, [sp], #4
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2"])
+
