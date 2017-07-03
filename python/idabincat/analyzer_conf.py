@@ -29,6 +29,7 @@ import idc
 import logging
 import idabincat.netnode
 import idautils
+import ida_segment
 from idabincat.plugin_options import PluginOptions
 
 # Logging
@@ -141,6 +142,13 @@ class ConfigHelpers(object):
         return -1, -1
 
     @staticmethod
+    def get_segment_size(entrypoint):
+        if ida_segment.getseg(entrypoint).use64():
+            return 64
+        else:
+            return 32
+
+    @staticmethod
     def get_sections():
         res = []
         if ConfigHelpers.get_file_type() == "pe":
@@ -191,8 +199,7 @@ class ConfigHelpers(object):
         return imports
 
     @staticmethod
-    def get_registers_with_state():
-        arch = ConfigHelpers.get_arch()
+    def get_registers_with_state(arch):
         regs = {}
         if arch == "x86":
             for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
@@ -203,19 +210,37 @@ class ConfigHelpers(object):
             regs["esp"] = "0x2000"
             regs["df"] = "0?1"
             regs["iopl"] = "0?3"
-        elif arch == "arm":
+        elif arch == "armv7":
             regs["sp"] = "0x2000"
-            for i in range(31):
+            regs["lr"] = "0x0"
+            regs["pc"] = "0x0"
+            regs["n"] = "0?1"
+            regs["z"] = "0?1"
+            regs["c"] = "0?1"
+            regs["v"] = "0?1"
+            for i in range(13):
                 regs["r%d" % i] = "0?0xFFFFFFFF"
+        elif arch == "armv8":
+            regs["sp"] = "0x2000"
+            regs["N"] = "0?1"
+            regs["Z"] = "0?1"
+            regs["C"] = "0?1"
+            regs["V"] = "0?1"
+            for i in range(31):
+                regs["r%d" % i] = "0?0xFFFFFFFFFFFFFFFF"
         return regs
 
     @staticmethod
-    def get_arch():
+    def get_arch(entrypoint):
         procname = idaapi.get_inf_structure().procName.lower()
         if procname == "metapc":
             return "x86"
         elif procname.startswith("arm"):
-            return "arm"
+            segment_size = ConfigHelpers.get_segment_size(entrypoint)
+            if segment_size == 32:
+                return "armv7"
+            else:
+                return "armv8"
 
 
 class AnalyzerConfig(object):
@@ -438,7 +463,7 @@ class AnalyzerConfig(object):
         config.set('loader', 'code_length', "0x%0X" % code_len)
 
         config.set('loader', 'analysis_ep', "0x%0X" % analysis_start_va)
-        arch = ConfigHelpers.get_arch()
+        arch = ConfigHelpers.get_arch(analysis_start_va)
         config.set('loader', 'architecture', arch)
 
         # arch-specifig sections
@@ -480,7 +505,7 @@ class AnalyzerConfig(object):
 
         # [state section]
         config.add_section("state")
-        regs = ConfigHelpers.get_registers_with_state()
+        regs = ConfigHelpers.get_registers_with_state(arch)
         for rname, val in regs.iteritems():
             config.set("state", ("reg[%s]" % rname), val)
         # Default stack
