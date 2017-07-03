@@ -50,20 +50,17 @@ module Src = Set.Make (
   end
   )
 
-(* a taint value can be 
-   - untainted (U) 
-   - or a set (S) of (possible) tainting sources 
-   - or an unknown taint (TOP) *)  
-type t =
-  | U
-  | S of Src.t
-  | TOP    
+let join (t1: t) (t2: t): t =
+  match t1, t2 with
+  | U, U -> U
+  | _, U  | U, _ -> TOP
+  | S src1, S src2 -> S (Src.union src1 src2) 
+  | TOP, _  | _, TOP -> TOP
 
-let join b1 b2 =
-  match b1, b2 with
-  | T, T 	    -> T
-  | U, U 	    -> U
-  | _, _            -> TOP
+
+
+
+
 
 let logor b1 b2 =
   match b1, b2 with
