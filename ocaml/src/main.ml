@@ -67,7 +67,8 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   let decoder =
     match !Config.architecture with
     | Config.X86 -> (module X86.Make: Decoder.Make)
-    | Config.ARM -> (module Armv8A.Make: Decoder.Make)  
+    | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
+    | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
   in
   let module Decoder = (val decoder: Decoder.Make) in        
   let module Vector 	 = Vector.Make(Reduced_bit_tainting) in

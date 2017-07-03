@@ -116,6 +116,8 @@ class Arch:
         raise NotImplemented
     def cpu_run(self, tmpdir, opcodesfname):
         raise NotImplemented
+    def extract_flags(self, regs):
+        pass
     def prettify_listing(self, asm):
         return asm
     def extract_directives_from_asm(self, asm):
@@ -141,7 +143,7 @@ class Arch:
         try:
             bctest.run()
         except Exception,e:  # hack to add test name in the exception
-            pytest.fail("%s: %s\n%s"%(testname,e,bctest.listing))
+            pytest.fail("%s: %r\n%s"%(testname,e,bctest.listing))
         bincat = { reg : getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
@@ -211,13 +213,8 @@ class X86(Arch):
         listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
         opcodes = open(str(outf)).read()
         return listing,str(outf),opcodes
-    
-    
-    def cpu_run(self, tmpdir, opcodesfname):
-        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)),'eggloader_x86')
-        out = subprocess.check_output([eggloader, opcodesfname])
-        regs = { reg: int(val,16) for reg, val in
-                (l.strip().split("=") for l in out.splitlines()) }
+
+    def extract_flags(self, regs):
         flags = regs.pop("eflags")
         regs["cf"] = flags & 1
         regs["pf"] = (flags >> 2) & 1
@@ -226,9 +223,15 @@ class X86(Arch):
         regs["sf"] = (flags >> 7) & 1
         regs["df"] = (flags >> 10) & 1
         regs["of"] = (flags >> 11) & 1
+
+    def cpu_run(self, tmpdir, opcodesfname):
+        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)),'eggloader_x86')
+        out = subprocess.check_output([eggloader, opcodesfname])
+        regs = { reg: int(val,16) for reg, val in
+                (l.strip().split("=") for l in out.splitlines()) }
+        self.extract_flags(regs)
         return regs
-    
-    
+
     def prettify_listing(self, asm):
         s = []
         for l in asm.splitlines():
@@ -248,11 +251,13 @@ class X86(Arch):
 ## ARM
 
 class ARM(Arch):
+    ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
+                 "r11", "r12", "sp", "lr", "pc", "n", "z", "c", "v"]
     AS_TMP_DIR = counter("arm-as-%i")
     AS = ["arm-linux-gnueabi-as"]
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
     OBJDUMP = ["objdump", "-m", "arm"]
-    EGGLOADER = "eggloader_arm"
+    EGGLOADER = "eggloader_armv7"
     QEMU = "qemu-arm"
     def assemble(self, tmpdir, asm):
         d = tmpdir.mkdir(self.AS_TMP_DIR.next())
@@ -268,28 +273,37 @@ class ARM(Arch):
         opcodes = open(str(outf)).read()
         return listing, str(outf),opcodes
 
+    def extract_flags(self, regs):
+        cpsr = regs.pop("cpsr")
+        regs["n"] = cpsr >> 31
+        regs["z"] = (cpsr >> 30) & 1
+        regs["c"] = (cpsr >> 29) & 1
+        regs["v"] = (cpsr >> 28) & 1
+
     def cpu_run(self, tmpdir, opcodesfname):
         eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
         out = subprocess.check_output([self.QEMU, eggloader, opcodesfname])
         regs = { reg: int(val,16) for reg, val in
                 (l.strip().split("=") for l in out.splitlines()) }
+        self.extract_flags(regs)
         return regs
 
 class AARCH64(ARM):
     ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
                  "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20",
-                 "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", ]
+                 "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
+                 "N", "Z", "C", "V"]
     AS = ["aarch64-linux-gnu-as"]
     OBJCOPY = ["aarch64-linux-gnu-objcopy"]
     OBJDUMP = ["objdump", "-m", "aarch64"]
     EGGLOADER = "eggloader_armv8"
     QEMU = "qemu-aarch64"
 
-    def cpu_run(self, tmpdir, opcodesfname):
-        regs = ARM.cpu_run(self, tmpdir, opcodesfname)
+
+    def extract_flags(self, regs):
         nzcv = regs.pop("nzcv")
         regs["n"] = nzcv >> 31
         regs["z"] = (nzcv >> 30) & 1
         regs["c"] = (nzcv >> 29) & 1
         regs["v"] = (nzcv >> 28) & 1
-        return regs
+

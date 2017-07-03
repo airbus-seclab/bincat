@@ -36,7 +36,7 @@ code_length = {code_length}
 architecture = x86
 
 [binary]
-filepath = {filepath}
+filepath = "{filepath}"
 format = pe
 
 
@@ -45,8 +45,8 @@ ini_version = 2
 unroll = 150
 loglevel = 4
 store_marshalled_cfa = true
-in_marshalled_cfa_file = incfa.marshal
-out_marshalled_cfa_file = outcfa.marshal
+in_marshalled_cfa_file = "incfa.marshal"
+out_marshalled_cfa_file = "outcfa.marshal"
 analysis = forward_binary
 
 [state]

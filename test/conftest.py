@@ -15,6 +15,8 @@ class TestValues:
     someval32 = [ 0x5ed39a5f, 0xd2a173f6 ]
     someval64 = [ 0x27f4a35c5ed39a5f, 0xd2ac53201ca173f6 ]
     shift = [ 1, 32]
+    armv7shift = [0, 31]
+    armv7op = [1, 0xff]
     x86carryop = [ "stc", "clc"]
 
 class Large(TestValues):
@@ -29,7 +31,8 @@ class Large(TestValues):
     shift = [0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 24, 31,
                32, 33, 48, 63, 64, 65, 127, 128, 129, 255 ]
     x86carryop = [ "stc", "clc" ]
-
+    armv7shift = [0, 1, 7, 8, 0xf, 31]
+    armv7op = [(x<<y) for x in [1, 0x7f , 0x80, 0xff] for y in range(0,28,4)]
 
 class Medium(TestValues):
     _name = "medium"
@@ -39,6 +42,8 @@ class Medium(TestValues):
     op64 = [ 0, 1, 0x7fffffffffffffff, 0x8000000000000000, 0xffffffffffffffff]
     shift = [ 0, 1, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff]
     x86carryop = [ "stc", "clc" ]
+    armv7shift = [0, 1, 0xf, 31]
+    armv7op = [1, 0x7f , 0x80, 0xff, 0x7f00, 0x8000, 0x7f000000, 0xff000000, 0x8000000]
 
 class Small(TestValues):
     _name = "small"

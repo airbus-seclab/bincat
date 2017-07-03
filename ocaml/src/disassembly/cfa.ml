@@ -331,7 +331,8 @@ struct
 	let architecture_str =
 	  match !Config.architecture with
 	  | Config.X86 -> "x86"
-	  | Config.ARM -> "arm" in
+	  | Config.ARMv7 -> "armv7"
+	  | Config.ARMv8 -> "armv8" in
 	Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
 	(* edge printing (summary) *)
 	Printf.fprintf f "[edges]\n";
