@@ -16,12 +16,49 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-  (** data type *)
+
+(* set of (possible) tainting sources *)
+module Src = Set.Make (
+  struct
+
+    (* type of tainting sources *) 
+    type src_id = int
+
+    (*current id for the generation of fresh taint sources *)
+    let (current_id: src_id ref) = ref 0
+      
+    (* returns a fresh source id and increments src_id *)
+    let new_src () =
+      current_id := !current_id + 1;
+      !current_id
+
+    (* a value may be surely Tainted or Maybe tainted *)
+    type t =
+      | Tainted of src_id (** surely tainted by the given source *)
+      | Maybe of src_id (** maybe tainted by then given source *)
+
+    (* comparison between tainting sources. Returns
+    - 0 is equal
+    - a negative number if the first source is less than the second one
+    - a positive number otherwise *)
+    let compare (src1: t) (src2: t): int =
+      match src1, src2 with
+      | Tainted id1, Tainted id2 -> id1 - id2
+      | Tainted _, _ -> -1
+      | Maybe _, Tainted _ -> 1
+      | Maybe id1, Maybe id2 -> id1 - id2
+  end
+  )
+
+(* a taint value can be 
+   - untainted (U) 
+   - or a set (S) of (possible) tainting sources 
+   - or an unknown taint (TOP) *)  
 type t =
-  | T   (** bit is tainted *)
-  | U   (** bit is untainted *)
-  | TOP (** top *)
-	    
+  | U
+  | S of Src.t
+  | TOP    
+
 let join b1 b2 =
   match b1, b2 with
   | T, T 	    -> T
