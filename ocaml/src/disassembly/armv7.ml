@@ -143,6 +143,41 @@ struct
   let ror32 value n =
     (value lsr n) lor ((value lsl (32-n)) land 0xffffffff)
 
+  let block_data_transfer s instruction =
+    if instruction land (1 lsl 22) <> 0 then error s.a "LDM/STM with S=1 not implemented"
+    else
+      let rn = (instruction lsr 16) land 0xf in
+      let ascend = instruction land (1 lsl 23) <> 0 in
+      let dir_op = if ascend then Add else Sub in
+      let ofs = ref (if instruction land (1 lsl 24) = 0 then 0 else 4) in
+      let store = instruction land (1 lsl 20) = 0 in
+      let stmts = ref [] in
+      let reg_count = ref 0 in
+      for i = 0 to 15 do
+        let regtest = if ascend then i else 15-i in
+        if (instruction land (1 lsl regtest)) <> 0 then
+          begin
+            if store then
+              stmts := !stmts @
+                [ Set( M (BinOp(dir_op, Lval (V (reg rn)), const !ofs 32), 32),
+                            Lval (V (reg regtest))) ]
+            else
+              begin
+                stmts := !stmts @
+                  [ Set( V (reg regtest),
+                         Lval (M (BinOp(dir_op, Lval (V (reg rn)), const !ofs 32), 32))) ]
+              end;
+            ofs := !ofs+4;
+            reg_count := !reg_count + 1
+          end
+        else ()
+      done;
+      if instruction land (1 lsl 21) = 0 then
+        !stmts
+      else
+        !stmts @ [ Set (V (reg rn), BinOp(dir_op, Lval (V (reg rn)), const (4*(!reg_count)) 32)) ]
+
+
   let branch s instruction =
     let link_stmt = if (instruction land (1 lsl 24)) <> 0 then
         [ Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ]
@@ -162,19 +197,26 @@ struct
         error s.a "single data xfer offset from reg not implemented" in
     let length = if (instruction land (1 lsl 22)) = 0 then 32 else 8 in
     let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
-    let write_back = [ Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) ] in
-    let stmts,update_pc = if (instruction land (1 lsl 20)) = 0 then (* store *)
-        [ Set (M (Lval (V (reg rn)), length), Lval (V (reg rd))) ], false
+    let preindex = (instruction land (1 lsl 24)) <> 0 in
+    let writeback = (instruction land (1 lsl 21)) <> 0 in
+    let src_or_dst = match preindex,writeback with
+      | true, false -> M (BinOp(updown, Lval (V (reg rn)), ofs), length)
+      | true, true
+      | false, false -> M (Lval (V (reg rn)), length) (* if post-indexing, write back is implied and W=0 *)
+      | false, true -> error s.a "Undefined combination (post indexing and W=1)" in
+    let stmt,update_pc = if (instruction land (1 lsl 20)) = 0 then (* store *)
+        Set (src_or_dst, Lval (V (reg rd))), false
       else (* load *)
-        [ Set (V (reg rd), Lval (M (Lval (V (reg rn)), length))) ], rd = 15 in
+        Set (V (reg rd), Lval src_or_dst), rd = 15 in
+    let write_back_stmt = Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) in
     let stmts' =
-      if (instruction land (1 lsl 24)) = 0 then (* post indexing *)
-        stmts @ write_back (* post indexing implies write back *)
+      if preindex then
+        if writeback then
+          [ write_back_stmt ; stmt ]
+        else
+          [ stmt ]
       else
-        if (instruction land (1 lsl 21)) <> 0 then (* write back *)
-          write_back @ stmts
-        else (* no write back *)
-          stmts in
+        [ stmt ; write_back_stmt ] in
     if update_pc then
       stmts' @ [ Jmp (R (Lval (V (T pc)))) ]
     else
@@ -362,7 +404,7 @@ struct
     | 0b10 ->
        begin
          match (instruction lsr 25) land 1 with
-         | 0 -> (* block data transfer *) error s.a "block data transfer not implemented"
+         | 0 -> block_data_transfer s instruction (* block data transfer *)
          | 1 -> branch s instruction
          | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
        end

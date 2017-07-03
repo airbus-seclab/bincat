@@ -286,3 +286,41 @@ def test_branch_and_link2(tmpdir):
     """
     compare(tmpdir, asm, ["r1", "r2", "r3"])
 
+
+##  ___ _    ___   ___ _  __ __  _____ ___ ___
+## | _ ) |  / _ \ / __| |/ / \ \/ / __| __| _ \
+## | _ \ |_| (_) | (__| ' <   >  <| _|| _||   /
+## |___/____\___/ \___|_|\_\ /_/\_\_| |___|_|_\
+##
+## BLOCK XFER
+
+
+def test_block_xfer_store(tmpdir):
+    asm = """
+            mov r6, sp
+            mov r0, #123
+            mov r2, #101
+            mov r7, #42
+            stmfd sp!, {r0, r2, r7}
+            sub r6, r6, sp
+            ldr r3, [sp]
+            ldr r4, [sp,#4]
+            ldr r5, [sp,#8]
+            add sp, sp, #12
+    """
+    compare(tmpdir, asm, ["r0", "r2", "r3", "r4", "r5", "r6", "r7"])
+
+def test_block_xfer_load(tmpdir):
+    asm = """
+            mov r0, #123
+            mov r1, #101
+            mov r2, #42
+            mov r3, sp
+            str r1, [sp,#-4]
+            str r2, [sp,#-8]
+            str r2, [sp,#-12]
+            sub sp, sp, #12
+            ldmfd sp!, {r4, r7, r10}
+            sub r3, r3, sp
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r7", "r10"])
