@@ -188,6 +188,16 @@ def test_data_proc_mrs_cpsr(tmpdir,flags):
     """.format(**locals())
     compare(tmpdir, asm, ["r0","r1","n","z","c","v"])
 
+def test_data_proc_read_pc(tmpdir):
+    asm = """
+            bl .next
+         .next:
+            sub r0, pc, lr
+            mov r1, #0
+            sub r2, pc, lr, lsl r1
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2"])
+
 
 ##  ___   _ _____ _    __  _____ ___ ___ 
 ## |   \ /_\_   _/_\   \ \/ / __| __| _ \
