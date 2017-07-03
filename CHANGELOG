@@ -1,0 +1,8 @@
+2017-06-29: v0.6:
+* Core engine works on Windows !
+* bincat_native is more sane, checks arguments and displays version
+* More tests
+
+---
+2017-06-16: v0.5:
+* Initial public release

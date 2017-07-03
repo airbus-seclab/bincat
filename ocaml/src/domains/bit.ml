@@ -32,7 +32,7 @@ let meet b1 b2 =
   match b1, b2 with
   | ZERO, ZERO 	    	  -> ZERO
   | ONE, ONE 	    	  -> ONE
-  | ONE, ZERO | ZERO, ONE -> raise Exceptions.Empty
+  | ONE, ZERO | ZERO, ONE -> raise (Exceptions.Empty "bit.meet")
   | b, TOP | TOP, b 	  -> b
 			       
 let to_char b =
@@ -101,13 +101,13 @@ let logor v1 v2 =
 (* conversion to Z.t. May raise an exception if the conversion fails *)
 let to_z v =
   match v with
-  | TOP  -> raise Exceptions.Concretization
+  | TOP  -> raise (Exceptions.Too_many_concrete_elements "bit.to_z: imprecise bit value")
   | ZERO -> Z.zero
   | ONE  -> Z.one
 
 let to_int v =
   match v with
-  | TOP  -> raise Exceptions.Concretization
+  | TOP  -> raise (Exceptions.Too_many_concrete_elements "bit.to_z: imprecise bit value")
   | ZERO -> 0
   | ONE  -> 1
     

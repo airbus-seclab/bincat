@@ -28,16 +28,22 @@ import sys
 import tempfile
 import traceback
 import zlib
+# Ugly but IDA Python Linux doesn't have it !
+try:
+    import distutils.spawn
+    no_spawn = False
+except ImportError:
+    no_spawn = True
 try:
     import requests
-except:
+except ImportError:
     # log message will be displayed later
     pass
+
 import idc
 import idaapi
 import idabincat.netnode
 import idabincat.npkgen
-from idabincat import analyzer_conf
 from idabincat.plugin_options import PluginOptions
 from idabincat.analyzer_conf import AnalyzerConfig, AnalyzerConfigurations
 from idabincat.gui import GUI
@@ -119,6 +125,25 @@ class BincatPlugin(idaapi.plugin_t):
                 repr(sys.exc_info()))
             return idaapi.PLUGIN_SKIP
         PluginOptions.init()
+
+        if no_spawn:
+            bc_exe = None
+        else:
+            # Check if bincat_native is available
+            bc_exe = distutils.spawn.find_executable('bincat_native')
+        if bc_exe is None and os.name == 'nt':
+            # add to PATH
+            userdir = idaapi.get_user_idadir()
+            bin_path = os.path.join(userdir, "plugins", "idabincat", "bin")
+            if os.path.isdir(bin_path):
+                os.environ['PATH'] += ";"+bin_path
+            if no_spawn:
+                bc_exe = os.path.join(bin_path, "bincat_native.exe")
+            else:
+                bc_exe = distutils.spawn.find_executable('bincat_native')
+        if bc_exe is None and no_spawn is False:
+            bc_log.warning('Could not find bincat_native binary, will not be able to run analysis')
+
         if PluginOptions.get("autostart") != "True":
             # will initialize later
             return idaapi.PLUGIN_OK

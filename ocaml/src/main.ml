@@ -30,6 +30,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   Register.clear();
   (* setting the log file *)
   Log.init logfile;
+  L.info (fun m -> m "BinCAT version %s" Bincat_ver.version_string);
   try
     (* setting the backtrace parameters for debugging purpose *)
     Printexc.record_backtrace true;

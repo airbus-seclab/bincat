@@ -592,7 +592,10 @@ class Value(object):
 
     @classmethod
     def parse(cls, region, s, t, length):
-        value, vtop, vbot = parsers.parse_val(s)
+        if region == "T":
+            value, vtop, vbot = 0, 2**length-1, 0
+        else:
+            value, vtop, vbot = parsers.parse_val(s)
         if type(value) is int and length != 0:
             value &= 2**length-1
             vtop &= 2**length-1

@@ -16,5 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-Printf.printf "%s" "Running native BinCAT\n";;
-Main.process Sys.argv.(1) Sys.argv.(2) Sys.argv.(3)
+Printf.printf "BinCAT %s\n" Bincat_ver.version_string;
+if (Array.length Sys.argv < 4) then
+        print_endline "Usage: bincat_native init.ini output.ini outlog"
+else
+    Main.process Sys.argv.(1) Sys.argv.(2) Sys.argv.(3);;

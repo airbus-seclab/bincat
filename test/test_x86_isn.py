@@ -857,7 +857,8 @@ def test_bittest_bsr_reg32(tmpdir, op32):
             xor ebx, ebx
             bsr ebx, eax
     """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "zf"])
+    compare(tmpdir, asm, ["eax", "ebx", "zf"],
+            top_allowed = {"ebx": 0xffffffff if op32 == 0 else 0})
 
 def test_bittest_bsr_m32(tmpdir, op32):
     asm = """
@@ -865,7 +866,8 @@ def test_bittest_bsr_m32(tmpdir, op32):
             xor ebx, ebx
             bsr ebx, [esp]
     """.format(**locals())
-    compare(tmpdir, asm, ["ebx", "zf"])
+    compare(tmpdir, asm, ["ebx", "zf"],
+            top_allowed = {"ebx": 0xffffffff if op32 == 0 else 0})
 
 
 def test_bittest_bsr_reg16(tmpdir, op16):
@@ -874,7 +876,9 @@ def test_bittest_bsr_reg16(tmpdir, op16):
             xor ebx, ebx
             bsr bx, ax
     """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "zf"])
+    compare(tmpdir, asm, ["eax", "ebx", "zf"],
+            top_allowed = {"ebx": 0xffff if op16 == 0 else 0})
+
 
 def test_bittest_bsf_reg32(tmpdir, op32):
     asm = """
@@ -882,7 +886,8 @@ def test_bittest_bsf_reg32(tmpdir, op32):
             xor ebx, ebx
             bsf ebx, eax
     """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "zf"])
+    compare(tmpdir, asm, ["eax", "ebx", "zf"],
+            top_allowed = {"ebx": 0xffffffff if op32 == 0 else 0})
 
 def test_bittest_bsf_m32(tmpdir, op32):
     asm = """
@@ -890,7 +895,9 @@ def test_bittest_bsf_m32(tmpdir, op32):
             xor ebx, ebx
             bsf ebx, [esp]
     """.format(**locals())
-    compare(tmpdir, asm, ["ebx", "zf"])
+    compare(tmpdir, asm, ["ebx", "zf"],
+            top_allowed = {"ebx": 0xffffffff if op32 == 0 else 0})
+
 
 
 def test_bittest_bsf_reg16(tmpdir, op16):
@@ -899,7 +906,8 @@ def test_bittest_bsf_reg16(tmpdir, op16):
             xor ebx, ebx
             bsf bx, ax
     """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "zf"])
+    compare(tmpdir, asm, ["eax", "ebx", "zf"],
+            top_allowed = {"ebx": 0xffff if op16 == 0 else 0})
 
 
 ##  __  __ ___ ___  ___ 

@@ -32,12 +32,16 @@ bincat_path = os.path.dirname(os.path.realpath(__file__))
 if not os.path.isdir(plugin_dir) or not os.path.isdir(bincat_path):
     print "Something's wrong: %s or %s is not a dir" % (plugin_dir, bincat_path)
 
-idabincat = os.path.join(bincat_path, "idabincat")
-pybincat = os.path.join(bincat_path, "pybincat")
+idabincat = os.path.join(bincat_path, "python", "idabincat")
+pybincat = os.path.join(bincat_path, "python", "pybincat")
+# XXX handle updates
 if os.path.isdir(idabincat) and os.path.isdir(pybincat):
 	try:
 		print "Copying 'idabincat' to "+plugin_dir
 		shutil.copytree(idabincat, os.path.join(plugin_dir, "idabincat"))
+                bin_path = os.path.join(plugin_dir, "idabincat", "bin")
+		print "Copying 'bin' to "+bin_path
+		shutil.copytree(os.path.join(bincat_path,'bin'), bin_path)
 		print "Copying 'pybincat' to "+plugin_dir
 		shutil.copytree(pybincat, os.path.join(plugin_dir, "pybincat"))
 		print "Copying 'bcplugin.py' to "+plugin_dir

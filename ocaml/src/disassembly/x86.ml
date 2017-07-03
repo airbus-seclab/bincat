@@ -1469,19 +1469,13 @@ struct
         let ldst = Lval dst in
         let dst_sz_min_one = const (sz-1) sz in
         let dst_msb = BinOp(And, one, BinOp(Shr, ldst, dst_sz_min_one)) in
-        let cf_stmt =
-            let c = Cmp (LT, sz', n_masked) in
-            If (c,
-                [undef_flag fcf],
-                (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
-        in
+        let cf_stmt = Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked))))) in
         let of_stmt =
             let is_one = Cmp (EQ, n_masked, one8) in
             If (is_one,    (* OF is computed only if n == 1 *)
                 [Set ((V (T fof)), (* OF is set if signed changed. We saved sign in fof *)
                     BinOp(Xor,  Lval (V (T fof)), dst_msb));],
-                [clear_flag fof])
+                [undef_flag fof])
         in
         let lv = Lval dst in
         let ops =
@@ -1501,9 +1495,12 @@ struct
         (* If shifted by zero, do nothing, else do the rest *)
         [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
             (* if shifted by more than opsize, everything is undef *)
-            (* TODO : forget dst *)
-            [If(Cmp(GT, n_masked, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
-            ops)])]
+            [ If(Cmp(GT, n_masked, sz'),
+                [ undef_flag fcf; undef_flag fof; undef_flag fsf;
+                  undef_flag faf; undef_flag fzf; undef_flag fpf; Directive(Forget dst)],
+                ops)
+           ])
+       ]
 
 
     (* SHRD *)
@@ -1784,36 +1781,37 @@ struct
       let zero = Const (Word.zero sz) in
       let one =  Const (Word.one sz) in
       let rec compose_bsr src i =
-	let idx = const i sz in
-	if i = 0 then idx
-	else TernOp (Cmp (EQ, (BinOp (And, one, BinOp(Shr, src, idx))), one),
-		     idx,
-		     compose_bsr src (i-1)) in
+        let idx = const i sz in
+        if i = 0 then idx
+        else TernOp (Cmp (EQ, (BinOp (And, one, BinOp(Shr, src, idx))), one),
+                     idx,
+                     compose_bsr src (i-1)) in
       return s [
-	undef_flag fcf ; undef_flag fpf ; undef_flag fsf ; undef_flag fof ; undef_flag faf ; 
-	If(Cmp(EQ, src, zero),
-	   [ Set(V (T fzf), Const (Word.one fzf_sz)) ;
-	     (*Directive(Forget dst) ; *) ],
-	   [ Set(V (T fzf), Const (Word.zero fzf_sz)) ;
-	     Set(dst, compose_bsr src (s.operand_sz-1)) ; ] )
+        undef_flag fcf ; undef_flag fpf ; undef_flag fsf ; undef_flag fof ; undef_flag faf ;
+        If(Cmp(EQ, src, zero),
+           [ Set(V (T fzf), Const (Word.one fzf_sz)) ;
+             Directive(Forget dst) ; ],
+           [ Set(V (T fzf), Const (Word.zero fzf_sz)) ;
+             Set(dst, compose_bsr src (s.operand_sz-1)) ; ] )
       ]
+
     let bsf s dst src =
       let sz = s.operand_sz in
       let zero = Const (Word.zero sz) in
       let one =  Const (Word.one sz) in
       let rec compose_bsf src i =
-	let idx = const i sz in
-	if i = s.operand_sz-1 then idx
-	else TernOp (Cmp (EQ, (BinOp (And, one, BinOp(Shr, src, idx))), one),
-		     idx,
-		     compose_bsf src (i+1)) in
+        let idx = const i sz in
+        if i = s.operand_sz-1 then idx
+        else TernOp (Cmp (EQ, (BinOp (And, one, BinOp(Shr, src, idx))), one),
+                     idx,
+                     compose_bsf src (i+1)) in
       return s [
-	undef_flag fcf ; undef_flag fpf ; undef_flag fsf ; undef_flag fof ; undef_flag faf ; 
-	If(Cmp(EQ, src, zero),
-	   [ Set(V (T fzf), Const (Word.one fzf_sz)) ;
-	     (*Directive(Forget dst) ; *) ],
-	   [ Set(V (T fzf), Const (Word.zero fzf_sz)) ;
-	     Set(dst, compose_bsf src 0) ; ] )
+        undef_flag fcf ; undef_flag fpf ; undef_flag fsf ; undef_flag fof ; undef_flag faf ; 
+        If(Cmp(EQ, src, zero),
+           [ Set(V (T fzf), Const (Word.one fzf_sz)) ;
+             Directive(Forget dst) ; ],
+           [ Set(V (T fzf), Const (Word.zero fzf_sz)) ;
+             Set(dst, compose_bsf src 0) ; ] )
       ]
 
     let grp8 s =

@@ -22,3 +22,4 @@ python/test/**
 tags
 ocaml/src/bincat_native
 ocaml/test/.cache
+ocaml/src/bincat_ver.ml
