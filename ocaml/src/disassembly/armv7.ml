@@ -164,19 +164,26 @@ struct
         error s.a "single data xfer offset from reg not implemented" in
     let length = if (instruction land (1 lsl 22)) = 0 then 32 else 8 in
     let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
-    let write_back = [ Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) ] in
-    let stmts,update_pc = if (instruction land (1 lsl 20)) = 0 then (* store *)
-        [ Set (M (Lval (V (reg rn)), length), Lval (V (reg rd))) ], false
+    let preindex = (instruction land (1 lsl 24)) <> 0 in
+    let writeback = (instruction land (1 lsl 21)) <> 0 in
+    let src_or_dst = match preindex,writeback with
+      | true, false -> M (BinOp(updown, Lval (V (reg rn)), ofs), length)
+      | true, true
+      | false, false -> M (Lval (V (reg rn)), length) (* if post-indexing, write back is implied and W=0 *)
+      | false, true -> error s.a "Undefined combination (post indexing and W=1)" in
+    let stmt,update_pc = if (instruction land (1 lsl 20)) = 0 then (* store *)
+        Set (src_or_dst, Lval (V (reg rd))), false
       else (* load *)
-        [ Set (V (reg rd), Lval (M (Lval (V (reg rn)), length))) ], rd = 15 in
+        Set (V (reg rd), Lval src_or_dst), rd = 15 in
+    let write_back_stmt = Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) in
     let stmts' =
-      if (instruction land (1 lsl 24)) = 0 then (* post indexing *)
-        stmts @ write_back (* post indexing implies write back *)
+      if preindex then
+        if writeback then
+          [ write_back_stmt ; stmt ]
+        else
+          [ stmt ]
       else
-        if (instruction land (1 lsl 21)) <> 0 then (* write back *)
-          write_back @ stmts
-        else (* no write back *)
-          stmts in
+        [ stmt ; write_back_stmt ] in
     if update_pc then
       stmts' @ [ Jmp (R (Lval (V (T pc)))) ]
     else
