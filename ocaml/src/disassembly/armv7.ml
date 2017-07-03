@@ -28,6 +28,7 @@ struct
 
   open Data
   open Asm
+  open Decodeutils
 
 
   (************************************************************************)
@@ -81,9 +82,6 @@ struct
 
   let reg n =
     T (reg_from_num n)
-
-  (** [const c sz] builds the asm constant of size _sz_ from int _c_ *)
-  let const c sz = Const (Word.of_int (Z.of_int c) sz)
 
   let n_is_set = Cmp(EQ, Lval (V (T nflag)), const 1 1)
   let z_is_set = Cmp(EQ, Lval (V (T zflag)), const 1 1)

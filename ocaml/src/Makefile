@@ -10,6 +10,7 @@ data-struct/data.ml\
 utils/log.ml\
 data-struct/types.ml\
 data-struct/asm.ml\
+disassembly/decodeutils.ml\
 disassembly/x86Imports.ml\
 disassembly/armv8aImports.ml\
 frontend/lexer.ml\
