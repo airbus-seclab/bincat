@@ -194,7 +194,24 @@ struct
     let ofs = if instruction land (1 lsl 25) = 0 then (* immediate value *)
         const (instruction land 0xfff) 32
       else
-        error s.a "single data xfer offset from reg not implemented" in
+        let rm = instruction land 0xf in
+        let shift_op = (instruction lsr 4) land 0xff in
+        if shift_op land 1 = 1 then error s.a "Shift register cannot be specified for single data transfer instructions"
+        else
+          let shift_type = (shift_op lsr 1) land 3 in
+          let shift_amount = (shift_op lsr 3) land 0x1f in
+          match  shift_type with
+          | 0b00 -> (* logical shift left *)
+             if shift_amount = 0 then
+              Lval (V (reg rm))
+            else
+              BinOp(Shl, Lval (V (reg rm)), const shift_amount 32)
+          | 0b01 -> (* logical shift right *)
+             let actual_shift = if shift_amount = 0 then 32 else shift_amount in
+             BinOp(Shl, Lval (V (reg rm)), const actual_shift 32)
+          | 0b10 -> (* asr *) error s.a "single data xfer offset from reg with asr not implemented"
+          | 0b11 -> (* ror *) error s.a "single data xfer offset from reg with ror not implemented"
+          | _ -> error s.a "unexpected shift type insingle data xfer" in
     let length = if (instruction land (1 lsl 22)) = 0 then 32 else 8 in
     let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
     let preindex = (instruction land (1 lsl 24)) <> 0 in
