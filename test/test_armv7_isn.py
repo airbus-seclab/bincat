@@ -261,3 +261,18 @@ def test_branch_and_link(tmpdir):
             sub r3, pc, lr
     """
     compare(tmpdir, asm, ["r1", "r2", "r3"])
+
+def test_branch_and_link2(tmpdir):
+    asm = """
+            mov r1, #123
+            bl .next
+            mov r1, #101
+            b .end
+       .next:
+            mov r2, #123
+            mov pc, lr
+       .end:
+            mov r3, #45
+    """
+    compare(tmpdir, asm, ["r1", "r2", "r3"])
+
