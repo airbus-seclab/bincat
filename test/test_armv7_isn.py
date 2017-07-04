@@ -336,3 +336,39 @@ def test_block_xfer_load(tmpdir):
             sub r3, r3, sp
     """
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r7", "r10"])
+
+
+
+
+
+
+
+
+##  __  __ _   _ _        __  __  __ _      _
+## |  \/  | | | | |      / / |  \/  | |    /_\
+## | |\/| | |_| | |__   / /  | |\/| | |__ / _ \
+## |_|  |_|\___/|____| /_/   |_|  |_|____/_/ \_\
+##
+## MUL / MLA
+
+def test_mul_mul(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
+            mul r2, r0, r1
+            muls r3, r0, r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z", "c"],
+            top_allowed = {"c": 1})
+
+def test_mul_mla(tmpdir, armv7op, armv7op_, armv7op__):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
+            mov r2, #{armv7op__}
+            mla r3, r0, r1, r2
+            mlas r4, r0, r1, r2
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "r4", "n", "z", "c"],
+            top_allowed = {"c": 1})
+
