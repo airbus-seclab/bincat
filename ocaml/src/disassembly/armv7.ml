@@ -276,7 +276,7 @@ struct
       if is_imm then
         let shift = (instruction lsr 8) land 0xf in
         let imm = instruction land 0xff in
-        const (ror32 imm (2*shift)) 32,[]
+        const (ror32 imm (2*shift)) 32, [ Set( V (T cflag), const ((imm lsr (2*shift-1)) land 1) 0)]
       else
         let shift_op = (instruction lsr 4) land 0xff in
         let rm = instruction land 0xf in
@@ -373,7 +373,7 @@ struct
          [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ],
          [ zflag_update_exp (Lval (V (reg rd))) ;
            nflag_update_from_reg_exp (reg_from_num rd) ;
-           vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ;
+           vflag_update_exp (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (reg rd))) ;
            (* sub is computed witn sub a,b = a+(not b)+1, hence the carry *)
            Set (V (T tmpreg), BinOp(Add, BinOp(Add, 
                                                to33bits (Lval (V (reg rn))),
@@ -387,7 +387,7 @@ struct
          [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn)))) ],
          [ zflag_update_exp (Lval (V (reg rd))) ;
            nflag_update_from_reg_exp (reg_from_num rd) ;
-           vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ;
+           vflag_update_exp op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (reg rd))) ;
            Set (V (T tmpreg), BinOp(Add, BinOp(Add, 
                                                to33bits op2_stmt,
                                                to33bits (UnOp(Not, Lval (V (reg rn))))),
