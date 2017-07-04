@@ -271,7 +271,7 @@ struct
         core_stmts
 
   (* AND / ORR / EOR / ANDS (32/64) core *)
-  let logic_core sz sf dst op1 opc op2 set_flags =
+  let logic_core sz dst op1 opc op2 set_flags =
     let op = match opc with
             | 0b00 | 0b11 -> And
             | 0b01 -> Or
@@ -296,7 +296,7 @@ struct
     let immr = get_immr insn in
     let imms = get_imms insn in
     let imm_res = decode_bitmasks sz n immr imms true in
-    logic_core sz sf rd rn opc imm_res (opc == 0b11) @ sf_zero_rd insn sf
+    logic_core sz rd rn opc imm_res (opc == 0b11) @ sf_zero_rd insn sf
 
   (* AND / ORR / EOR / ANDS (32/64) with register *)
   let logic_reg s insn =
@@ -311,7 +311,7 @@ struct
     let n = (insn lsr 21) land 1 in
     let shifted_rm = get_shifted_reg sz insn rm imm6 in
     let shifted_rm' = if n == 1 then UnOp(Not, shifted_rm) else shifted_rm in
-    logic_core sz sf rd rn opc shifted_rm' (opc == 0b11) @ sf_zero_rd insn sf
+    logic_core sz rd rn opc shifted_rm' (opc == 0b11) @ sf_zero_rd insn sf
 
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
