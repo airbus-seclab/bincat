@@ -188,7 +188,16 @@ struct
   let get_Rn_exp insn sf = Lval (V (get_Rn insn sf))
 
   (* imm12 : immediate 21:10 *)
-  let get_imm12 insn = (insn lsr 10) land 0xFFF
+  let get_imm12 insn = (insn lsr 10) land 0xfff
+
+  (* immr : immediate 21:16 *)
+  let get_immr insn = (insn lsr 16) land 0b111111
+
+  (* imms : immediate 15:10 *)
+  let get_imms insn = (insn lsr 10) land 0b111111
+
+  (* 30:29:opc, used in logic insn *)
+  let get_opc insn = (insn lsr 29) land 3
 
   (* shift *)
   let get_shift_op s insn imm sz =
@@ -222,16 +231,19 @@ struct
           Set ( cf_v, cf);
           Set ( vf_v, vf)]
 
+
+  let decode_bitmasks sz _n immr _imms _is_imm =
+        (** TODO / XXX :https://www.meriac.com/archex/A64_v82A_ISA/shared_pseudocode.xml#impl-aarch64.DecodeBitMasks.4 *)
+        const immr sz
+
   (******************************)
   (* Actual instruction decoder *)
   (******************************)
 
-  let add_sub_imm s insn =
-    let sf = get_sf insn in
+  (* ADD/ ADDS / SUB / SUBS (32/64) *)
+  let add_sub_imm s insn sf rn rd =
     let op = (insn lsr 30) land 1 in (* add or sub ? *)
     let s_b = get_s_bool insn in
-    let rd = get_Rd_lv insn sf in
-    let rn = get_Rn_exp insn sf in
     let sz = sf2sz sf in
     let imm12 = get_imm12 insn in
     let shift = get_shift_op s insn imm12 sz in
@@ -247,11 +259,40 @@ struct
     end else
         core_stmts
 
+  (* AND / ORR / EOR / ANDS (32/64) *)
+  let logic_imm s insn sf rn rd =
+    let opc = get_opc insn in
+    let n = (insn lsr 22) land 1 in
+    if sf == 0 && n == 1 then (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
+    let sz = sf2sz sf in
+    let immr = get_immr insn in
+    let imms = get_imms insn in
+    let imm_res = decode_bitmasks sz n immr imms true in
+    let op = match opc with
+               | 0b00 | 0b11 -> And
+               | 0b01 -> Or
+               | 0b10 -> Xor
+               | _ -> error s.a "Impossible error !" in
+    let core_stmts =
+        [ Set (rd, BinOp(op, rn, imm_res)) ] @ sf_zero_rd insn sf
+        in
+    (* flags ? *)
+    if opc == 0b11 then begin
+        let cf = carry_stmts sz rn op imm_res in
+        let vf = overflow_stmts sz (Lval rd) rn op imm_res in
+        core_stmts @ (flags_stmts sz (Lval rd) cf vf)
+    end else
+        core_stmts
+
 
   let data_processing (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
+    let sf = get_sf insn in
+    let rd = get_Rd_lv insn sf in
+    let rn = get_Rn_exp insn sf in
     let stmts = match op0 with
-        | 0b010 | 0b011 -> add_sub_imm s insn
+        | 0b010 | 0b011 -> add_sub_imm s insn sf rn rd
+        | 0b100         -> logic_imm s insn sf rn rd
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
     in stmts
 
