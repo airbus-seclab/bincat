@@ -32,9 +32,11 @@ def test_assign(tmpdir):
 ## 
 ## DATA PROC
 
-dataop  = pytest.mark.parametrize("op", ["mov", "mvn"])
-dataop2 = pytest.mark.parametrize("op", ["and", "eor", "sub", "rsb", "add", "orr", "bic"])
-dataop3 = pytest.mark.parametrize("op", ["cmp", "cmn", "tst", "teq"])
+dataop_mov  = pytest.mark.parametrize("op", ["mov", "mvn"])
+dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
+dataop_comp_arith = pytest.mark.parametrize("op", [ "sub", "rsb", "add"])
+dataop_test_logic = pytest.mark.parametrize("op", ["tst", "teq"])
+dataop_test_arith = pytest.mark.parametrize("op", ["cmp", "cmn"])
 
 
 def test_mov_reg(tmpdir):
@@ -46,7 +48,7 @@ def test_mov_reg(tmpdir):
     """
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "z", "n"])
 
-@dataop
+@dataop_mov
 def test_shifted_register_lsl_imm_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
             mov r0, #{armv7op}
@@ -55,7 +57,7 @@ def test_shifted_register_lsl_imm_shift(tmpdir, op, armv7op, armv7shift):
     compare(tmpdir, asm, ["r0", "r1", "c", "n", "z"],
             top_allowed={"c": 1 if armv7shift == 0 else 0})
 
-@dataop
+@dataop_mov
 def test_shifted_register_lsl_reg_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
             mov r0, #{armv7op}
@@ -65,7 +67,7 @@ def test_shifted_register_lsl_reg_shift(tmpdir, op, armv7op, armv7shift):
     compare(tmpdir, asm, ["r0", "r1", "r2", "c", "n", "z"],
             top_allowed={"c": 1 if armv7shift == 0 else 0})
 
-@dataop
+@dataop_mov
 def test_shifted_register_lsr_imm_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
             mov r0, #{armv7op}
@@ -74,7 +76,7 @@ def test_shifted_register_lsr_imm_shift(tmpdir, op, armv7op, armv7shift):
     compare(tmpdir, asm, ["r0", "r1", "c", "n", "z"],
             top_allowed={"c": 1 if armv7shift == 0 else 0})
 
-@dataop
+@dataop_mov
 def test_shifted_register_lsr_reg_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
             mov r0, #{armv7op}
@@ -84,7 +86,7 @@ def test_shifted_register_lsr_reg_shift(tmpdir, op, armv7op, armv7shift):
     compare(tmpdir, asm, ["r0", "r1", "r2", "c", "n", "z"],
             top_allowed={"c": 1 if armv7shift == 0 else 0})
 
-@dataop
+@dataop_mov
 def test_shifted_register_lsr_imm_32(tmpdir, op, armv7op):
     asm = """
             mov r0, #{armv7op}
@@ -92,7 +94,7 @@ def test_shifted_register_lsr_imm_32(tmpdir, op, armv7op):
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "c", "n", "z"])
 
-@dataop
+@dataop_mov
 def test_shifted_register_lsr_reg_32(tmpdir, op, armv7op):
     asm = """
             mov r0, #{armv7op}
@@ -155,21 +157,40 @@ def test_mvn(tmpdir):
     """
     compare(tmpdir, asm, ["r1","r2","r3"])
 
-@dataop2
-def test_data_proc_binop(tmpdir, op, armv7op, armv7op_):
+@dataop_comp_logic
+def test_data_proc_logic(tmpdir, op, armv7op, armv7op_):
     asm = """
             mov r0, #{armv7op}
-            mov r1, #{armv7op}
+            mov r1, #{armv7op_}
+            {op} r2, r0, r1
+            {op}s r3, r0, r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z"])
+
+@dataop_comp_arith
+def test_data_proc_arith(tmpdir, op, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
             {op} r2, r0, r1
             {op}s r3, r0, r1
     """.format(**locals())
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z", "c", "v"])
 
-@dataop3
-def test_data_proc_test(tmpdir, op, armv7op, armv7op_):
+@dataop_test_logic
+def test_data_proc_test_logic(tmpdir, op, armv7op, armv7op_):
     asm = """
             mov r0, #{armv7op}
-            mov r1, #{armv7op}
+            mov r1, #{armv7op_}
+            {op} r0, r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1", "n", "z"])
+
+@dataop_test_arith
+def test_data_proc_test_arith(tmpdir, op, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
             {op} r0, r1
     """.format(**locals())
     compare(tmpdir, asm, ["r0","r1", "n", "z", "c", "v"])
