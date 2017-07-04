@@ -445,7 +445,7 @@ struct
            | 0b1001 -> (* TEQ - set condition codes on Op1 EOR Op2 *)
               let tmpreg = Register.make (Register.fresh_name ()) 32 in
               [],
-              [ Set(V (T tmpreg), BinOp(Or, Lval (V (reg rn)), op2_stmt)) ;
+              [ Set(V (T tmpreg), BinOp(Xor, Lval (V (reg rn)), op2_stmt)) ;
                 zflag_update_exp (Lval (V (T tmpreg))) ;
                 nflag_update_from_reg_exp tmpreg ;
                 Directive (Remove tmpreg) ]
