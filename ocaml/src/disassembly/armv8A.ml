@@ -284,8 +284,7 @@ struct
     end else
         core_stmts
 
-
-  let data_processing (s: state) (insn: int): (Asm.stmt list) =
+  let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
     let sf = get_sf insn in
     let rd = get_Rd_lv insn sf in
@@ -293,8 +292,43 @@ struct
     let stmts = match op0 with
         | 0b010 | 0b011 -> add_sub_imm s insn sf rn rd
         | 0b100         -> logic_imm s insn sf rn rd
+        | 0b101 -> error s.a (Printf.sprintf "Move wide imm not decoded (0x%x)" insn)
+        | 0b110 -> error s.a (Printf.sprintf "Bitfield (imm) not decoded (0x%x)" insn)
+        | 0b111 -> error s.a (Printf.sprintf "Extract (imm) not decoded (0x%x)" insn)
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
     in stmts
+
+  let data_proc_2src s insn =
+      error s.a (Printf.sprintf "Data processing (2 sources) not decoded yet (0x%x)" insn)
+
+  let data_proc_1src s insn =
+      error s.a (Printf.sprintf "Data processing (1 source) not decoded yet (0x%x)" insn)
+
+  let add_sub_reg s insn _is_extend =
+      error s.a (Printf.sprintf "Add_sub (reg) not decoded yet (0x%x)" insn)
+
+  let logic_reg s insn =
+      []
+
+  let data_processing_reg (s: state) (insn: int): (Asm.stmt list) =
+    let op0 = (insn lsr 30) land 1 in
+    let op1 = (insn lsr 28) land 1 in
+    let op2 = (insn lsr 21) land 3 in
+    if op1 == 1 && op2 == 0b0110 then begin
+        if op0 == 0 then
+            data_proc_2src s insn
+        else
+            data_proc_1src s insn
+    end
+    else begin
+        if op1 == 0 then
+            if (op2 lsr 3) == 1 then
+                logic_reg s insn
+            else
+                add_sub_reg s insn (op2 land 1)
+        else
+            []
+    end
 
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
@@ -303,8 +337,10 @@ struct
         (* C4.1 in ARMv8 manual *)
         (* 00xx : unallocated *)
         | 0b0000 | 0b0001 | 0b0010 | 0b0011 -> error s.a (Printf.sprintf "Unallocated opcode 0x%x" instruction)
-        (* 100x : data processing *)
-        | 0b1000 | 0b1001 -> data_processing s instruction
+        (* 100x : data processing (immediate) *)
+        | 0b1000 | 0b1001 -> data_processing_imm s instruction
+        (* x101 : data processing (immediate) *)
+        | 0b0101 | 0b1101 -> data_processing_reg s instruction
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
     in
     let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
