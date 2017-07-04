@@ -541,23 +541,6 @@ struct
     (** size of the direction flag *)
     let fdf_sz = Register.size fdf
 
-    (** produce the statement to set the overflow flag according to the current operation whose operands are op1 and op2 and result is res *)
-    let overflow_flag_stmts sz res op1 op op2 =
-        (* flag is set if both op1 and op2 have the same nth bit whereas different from the hightest bit of res *)
-      let nth = (const (sz-1) sz) in
-      let b1        = Const (Word.one sz)          in
-      let sign_res  = BinOp(And, BinOp (Shr, res, nth), b1) in
-      let sign_op1  = BinOp(And, BinOp (Shr, op1, nth), b1) in
-      let sign_op2  = BinOp(And, BinOp (Shr, op2, nth), b1) in
-      let cmp_op = 
-	match op with
-	| Add -> EQ
-	| Sub -> NEQ
-	| _ -> raise (Invalid_argument "unexpected operation in overflow flag computation") in
-      let c1 	      = Cmp (cmp_op, sign_op1, sign_op2)   	      in
-      let c2 	      = Cmp (NEQ, sign_res, sign_op1)         in
-      Set(V (T fof), (TernOp (BBinOp (LogAnd, c1, c2), Asm.Const (Word.one fof_sz), Asm.Const (Word.zero fof_sz))))
-      
     (** produce the statement to set the given flag *)
     let set_flag f = Set (V (T f), Const (Word.one (Register.size f)))
 
@@ -567,31 +550,19 @@ struct
     (** produce the statement to undefine the given flag *)
     let undef_flag f = Directive (Forget (V (T f)))
 
+    (** produce the statement to set the overflow flag according to the current
+        operation whose operands are op1 and op2 and result is res *)
+    let overflow_flag_stmts sz res op1 op op2 =
+      (* flag is set if both op1 and op2 have the same nth bit and the hightest bit of res differs *)
+      Set(V (T fof), overflow_stmts sz res op1 op op2)
+      
+
     (** produce the statement to set the carry flag according to the current operation whose operands are op1 and op2 and result is res *)
     let carry_flag_stmts sz op1 op op2 =
-      (* fcf is set if the sz+1 bit of the result is 1 *)
-      let sz' = sz+1 in
-      let s 	 = ZeroExt (sz')	  in
-      let op1' = UnOp (s, op1)	  in
-      let op2' = UnOp (s, op2)	  in
-      let res' = BinOp (op, op1', op2') in
-      let shifted_res = BinOp (Shr, res', Const (Word.of_int (Z.of_int sz) (sz'))) in
-      let one = Const (Word.one sz') in
-      let n = Register.size fcf in
-      Set (V (T fcf), TernOp( Cmp (EQ, shifted_res, one), Asm.Const (Word.one n), Asm.Const (Word.zero n )))
+      Set (V (T fcf), carry_stmts sz op1 op op2)
 
     let carry_flag_stmts_3 sz op1 op op2 op3 =
-      (* fcf is set if the sz+1 bit of the result is 1 *)
-      let sz' = sz+1 in
-      let s 	 = ZeroExt (sz')	  in
-      let op1' = UnOp (s, op1)	  in
-      let op2' = UnOp (s, op2)	  in
-      let op3' = UnOp (s, op3)	  in
-      let res' = BinOp(op, BinOp (op, op1', op2'), op3') in
-      let shifted_res = BinOp (Shr, res', Const (Word.of_int (Z.of_int sz) (sz'))) in
-      let one = Const (Word.one sz') in
-      let n = Register.size fcf in
-      Set (V (T fcf), TernOp( Cmp (EQ, shifted_res, one), Asm.Const (Word.one n), Asm.Const (Word.zero n)))
+      Set (V (T fcf), carry_stmts_3 sz op1 op op2 op3)
 
     (** produce the statement to set the sign flag wrt to the given parameter *)
     let sign_flag_stmts sz res =
@@ -1384,13 +1355,11 @@ struct
     (* SHR *)
     let shift_r_stmt dst sz n arith =
         let sz' = const sz 8 in
-        let one8 = Const (Word.one 8) in
         let one_sz = Const (Word.one sz) in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
-        let dst_sz_min_one = const (sz-1) sz in
-        let dst_msb = BinOp(And, one_sz, BinOp(Shr, ldst, dst_sz_min_one)) in
+        let dst_msb = msb_stmts ldst sz in
         let cf_stmt =
             let c = Cmp (LT, sz', n_masked) in
             If (c,
