@@ -146,6 +146,31 @@ struct
   let ror32 value n =
     (value lsr n) lor ((value lsl (32-n)) land 0xffffffff)
 
+
+  let mul_mla _s instruction =
+    let rd = (instruction lsr 16) land 0xf in
+    let rn = (instruction lsr 12) land 0xf in
+    let rs = (instruction lsr 8) land 0xf in
+    let rm = instruction land 0xf in
+    let accumulate = instruction land (1 lsl 21) <> 0 in
+    let set_cc = instruction land (1 lsl 20) <> 0 in
+    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let accu_stmt = if accumulate then
+        Set (V (reg rd), BinOp(Add, Lval (V (P (tmpreg, 0, 31))),
+                               Lval (V (reg rn))))
+      else
+        Set (V (reg rd), Lval (V (P (tmpreg, 0, 31)))) in
+    let cc_stmts = if set_cc then
+        [ Set(V (T zflag), TernOp (Cmp(EQ, Lval (V (reg rd)), const 0 32),
+                                   const 1 1, const 0 1)) ;
+          Set(V (T nflag), Lval (V (preg rd 31 31))) ;
+          Directive (Forget (V (T cflag))) ]
+      else
+        [] in
+    let stmt = Set (V (T tmpreg), BinOp(Mul, Lval (V (reg rm)), Lval (V (reg rs)))) in
+    stmt :: accu_stmt :: Directive (Remove tmpreg) :: cc_stmts
+
+
   let block_data_transfer s instruction =
     if instruction land (1 lsl 22) <> 0 then error s.a "LDM/STM with S=1 not implemented"
     else
@@ -515,7 +540,7 @@ struct
        begin
          if ((instruction lsr 4) land 0xf) = 0x9 then
            match (instruction lsr 23) land 0x7 with
-           | 0b000 -> (* multiply *) error s.a "Multiply not implemented"
+           | 0b000 -> mul_mla s instruction (* multiply *) 
            | 0b010 -> (* single data swap *) error s.a "single data swap not implemented"
            | _ -> L.abort (fun p -> p "Unexpected opcode %x" instruction)
          else (* data processing / PSR transfer *) 
