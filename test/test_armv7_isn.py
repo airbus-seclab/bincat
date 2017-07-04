@@ -34,6 +34,7 @@ def test_assign(tmpdir):
 
 dataop  = pytest.mark.parametrize("op", ["mov", "mvn"])
 dataop2 = pytest.mark.parametrize("op", ["and", "eor", "sub", "rsb", "add", "orr", "bic"])
+dataop3 = pytest.mark.parametrize("op", ["cmp", "cmn", "tst", "teq"])
 
 
 def test_mov_reg(tmpdir):
@@ -155,14 +156,24 @@ def test_mvn(tmpdir):
     compare(tmpdir, asm, ["r1","r2","r3"])
 
 @dataop2
-def test_data_proc(tmpdir, op, armv7op, armv7op_):
+def test_data_proc_binop(tmpdir, op, armv7op, armv7op_):
     asm = """
             mov r0, #{armv7op}
             mov r1, #{armv7op}
             {op} r2, r0, r1
             {op}s r3, r0, r1
     """.format(**locals())
-    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z"])
+    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z", "c", "v"])
+
+@dataop3
+def test_data_proc_test(tmpdir, op, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op}
+            {op} r0, r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1", "n", "z", "c", "v"])
+
 
 @pytest.mark.parametrize("flags", range(15))
 def test_data_proc_msr_cpsr_reg(tmpdir,flags):
