@@ -307,7 +307,7 @@ struct
   let add_sub_reg s insn _is_extend =
       error s.a (Printf.sprintf "Add_sub (reg) not decoded yet (0x%x)" insn)
 
-  let logic_reg s insn =
+  let logic_reg _s _insn =
       []
 
   let data_processing_reg (s: state) (insn: int): (Asm.stmt list) =
