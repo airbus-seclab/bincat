@@ -173,19 +173,23 @@ struct
   let sf2sz sf = if sf == 1 then 64 else 32
 
   (* sf : 32 bit or 64 bits ops *)
-  let get_sf insn = (insn lsr 31) land 1
+  let get_sf insn =
+    let sf = (insn lsr 31) land 1 in
+    (sf, sf2sz sf)
   let get_sf_bool insn = ((insn lsr 31) land 1) == 1
 
   (* S : set flags ? *)
   let get_s insn = (insn lsr 30) land 1
   let get_s_bool insn = ((insn lsr 30) land 1) == 1
 
-  (* Rn / Rd : registers *)
+  (* Rm (20:16) / Rn (9:5) / Rd (4:0) : registers *)
+  let get_Rm insn sf = reg_sf ((insn lsr 16) land 0x1F) sf
   let get_Rn insn sf = reg_sf ((insn lsr 5) land 0x1F) sf
   let get_Rd insn sf = reg_sf (insn land 0x1F) sf
 
-  let get_Rd_lv insn sf = V (get_Rd insn sf)
+  let get_Rm_exp insn sf = Lval (V (get_Rm insn sf))
   let get_Rn_exp insn sf = Lval (V (get_Rn insn sf))
+  let get_Rd_lv insn sf = V (get_Rd insn sf)
 
   (* imm12 : immediate 21:10 *)
   let get_imm12 insn = (insn lsr 10) land 0xfff
@@ -200,7 +204,7 @@ struct
   let get_opc insn = (insn lsr 29) land 3
 
   (* shift *)
-  let get_shift_op s insn imm sz =
+  let get_shifted_imm s insn imm sz =
     let shift = (insn lsr 22) land 3 in
     match shift with
         | 0b10 | 0b11 -> error s.a (Printf.sprintf "Reserved shift value 0x%x in opcode 0x%x" shift insn)
@@ -212,10 +216,17 @@ struct
   (* Common IL generation       *)
   (******************************)
 
+  let get_shifted_reg sz _insn reg amount =
+    if amount == 0 then
+        reg
+    else
+        (* XXX *)
+        BinOp(Shl, reg, const amount sz)
+
   (* 32 bits ops zero the top 32 bits, this helper does it if needed *)
   let sf_zero_rd insn sf =
     if sf == 0 then begin
-        let rd_top = P((reg_from_num ((insn lsr 5) land 0x1F)), 32, 63) in
+        let rd_top = P((reg_from_num (insn land 0x1F)), 32, 63) in
         [Set ( V(rd_top), const 0 32)]
     end else []
 
@@ -233,20 +244,20 @@ struct
 
 
   let decode_bitmasks sz _n immr _imms _is_imm =
-        (** TODO / XXX :https://www.meriac.com/archex/A64_v82A_ISA/shared_pseudocode.xml#impl-aarch64.DecodeBitMasks.4 *)
+        (* TODO / XXX :https://www.meriac.com/archex/A64_v82A_ISA/shared_pseudocode.xml#impl-aarch64.DecodeBitMasks.4 *)
         const immr sz
 
   (******************************)
   (* Actual instruction decoder *)
   (******************************)
 
-  (* ADD/ ADDS / SUB / SUBS (32/64) *)
+  (* ADD/ ADDS / SUB / SUBS (32/64) with immediate *)
   let add_sub_imm s insn sf rn rd =
     let op = (insn lsr 30) land 1 in (* add or sub ? *)
     let s_b = get_s_bool insn in
     let sz = sf2sz sf in
     let imm12 = get_imm12 insn in
-    let shift = get_shift_op s insn imm12 sz in
+    let shift = get_shifted_imm s insn imm12 sz in
     let op_s = if op == 0 then Add else Sub in
     let core_stmts =
         [ Set (rd, BinOp(op_s, rn, shift)) ] @ sf_zero_rd insn sf
@@ -259,7 +270,24 @@ struct
     end else
         core_stmts
 
-  (* AND / ORR / EOR / ANDS (32/64) *)
+  (* AND / ORR / EOR / ANDS (32/64) core *)
+  let logic_core sz sf dst op1 opc op2 set_flags =
+    let op = match opc with
+            | 0b00 | 0b11 -> And
+            | 0b01 -> Or
+            | 0b10 -> Xor
+            | _ -> L.abort (fun p->p "Impossible error in logic_core!") in
+    let core_stmts =
+        [ Set (dst, BinOp(op, op1, op2)) ]
+    in
+    if set_flags then begin
+        let cf = carry_stmts sz op1 op op2 in
+        let vf = overflow_stmts sz (Lval dst) op1 op op2 in
+        core_stmts @ (flags_stmts sz (Lval dst) cf vf)
+    end else
+        core_stmts
+
+  (* AND / ORR / EOR / ANDS (32/64) with immediate *)
   let logic_imm s insn sf rn rd =
     let opc = get_opc insn in
     let n = (insn lsr 22) land 1 in
@@ -268,25 +296,26 @@ struct
     let immr = get_immr insn in
     let imms = get_imms insn in
     let imm_res = decode_bitmasks sz n immr imms true in
-    let op = match opc with
-               | 0b00 | 0b11 -> And
-               | 0b01 -> Or
-               | 0b10 -> Xor
-               | _ -> error s.a "Impossible error !" in
-    let core_stmts =
-        [ Set (rd, BinOp(op, rn, imm_res)) ] @ sf_zero_rd insn sf
-        in
-    (* flags ? *)
-    if opc == 0b11 then begin
-        let cf = carry_stmts sz rn op imm_res in
-        let vf = overflow_stmts sz (Lval rd) rn op imm_res in
-        core_stmts @ (flags_stmts sz (Lval rd) cf vf)
-    end else
-        core_stmts
+    logic_core sz sf rd rn opc imm_res (opc == 0b11) @ sf_zero_rd insn sf
+
+  (* AND / ORR / EOR / ANDS (32/64) with register *)
+  let logic_reg s insn =
+    let sf, sz = get_sf insn in
+    let imm6 = get_imms insn in
+    if sf == 0 && (imm6 lsr 5) == 1 then
+        (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
+    let opc = get_opc insn in
+    let rd = get_Rd_lv insn sf in
+    let rn = get_Rn_exp insn sf in
+    let rm = get_Rm_exp insn sf in
+    let n = (insn lsr 21) land 1 in
+    let shifted_rm = get_shifted_reg sz insn rm imm6 in
+    let shifted_rm' = if n == 1 then UnOp(Not, shifted_rm) else shifted_rm in
+    logic_core sz sf rd rn opc shifted_rm' (opc == 0b11) @ sf_zero_rd insn sf
 
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
-    let sf = get_sf insn in
+    let sf, _ = get_sf insn in
     let rd = get_Rd_lv insn sf in
     let rn = get_Rn_exp insn sf in
     let stmts = match op0 with
@@ -299,21 +328,19 @@ struct
     in stmts
 
   let data_proc_2src s insn =
-      error s.a (Printf.sprintf "Data processing (2 sources) not decoded yet (0x%x)" insn)
+    error s.a (Printf.sprintf "Data processing (2 sources) not decoded yet (0x%x)" insn)
 
   let data_proc_1src s insn =
-      error s.a (Printf.sprintf "Data processing (1 source) not decoded yet (0x%x)" insn)
+    error s.a (Printf.sprintf "Data processing (1 source) not decoded yet (0x%x)" insn)
 
   let add_sub_reg s insn _is_extend =
-      error s.a (Printf.sprintf "Add_sub (reg) not decoded yet (0x%x)" insn)
-
-  let logic_reg _s _insn =
-      []
+    error s.a (Printf.sprintf "Add_sub (reg) not decoded yet (0x%x)" insn)
 
   let data_processing_reg (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 30) land 1 in
     let op1 = (insn lsr 28) land 1 in
-    let op2 = (insn lsr 21) land 3 in
+    let op2 = (insn lsr 21) land 0b1111 in
+    L.debug (fun p -> p "data_processing_reg: op0=%d op1=%d op2=0x%x" op0 op1 op2);
     if op1 == 1 && op2 == 0b0110 then begin
         if op0 == 0 then
             data_proc_2src s insn
@@ -322,7 +349,7 @@ struct
     end
     else begin
         if op1 == 0 then
-            if (op2 lsr 3) == 1 then
+            if (op2 lsr 3) == 0 then
                 logic_reg s insn
             else
                 add_sub_reg s insn (op2 land 1)
