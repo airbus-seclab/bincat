@@ -454,12 +454,14 @@ struct
            | 0b1010 -> (* CMP - set condition codes on Op1 - Op2 *)
               let tmpreg = Register.make (Register.fresh_name ()) 33 in
               [],
-              [ Set( V (T tmpreg), BinOp(Sub, to33bits (Lval (V (reg rn))),
-                                         to33bits op2_stmt) ) ;
-                Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
+              [
+                Set( V (T tmpreg), BinOp(Add, to33bits (Lval (V (reg rn))),
+                                         to33bits(BinOp(Add, UnOp(Not, op2_stmt),
+                                                        const 1 32)))) ;
                 zflag_update_exp (Lval (V (P (tmpreg, 0, 31)))) ;
                 nflag_update_from_reg_exp tmpreg ;
-                vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (P (tmpreg, 0, 31)))) ;
+                vflag_update_exp  (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (P (tmpreg, 0, 31)))) ;
+                Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
                 Directive (Remove tmpreg) ],
               false
            | 0b1011 -> (* CMN - set condition codes on Op1 + Op2 *)
