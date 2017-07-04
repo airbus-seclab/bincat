@@ -75,6 +75,16 @@ struct
   let cflag = Register.make ~name:"C" ~size:1;;
   let vflag = Register.make ~name:"V" ~size:1;;
 
+  let nf_v = V( T(nflag) )
+  let zf_v = V( T(zflag) )
+  let cf_v = V( T(cflag) )
+  let vf_v = V( T(vflag) )
+
+  let nf_lv = Lval ( V( T(nflag) ) )
+  let zf_lv = Lval ( V( T(zflag) ) )
+  let cf_lv = Lval ( V( T(cflag) ) )
+  let vf_lv = Lval ( V( T(vflag) ) )
+
   let reg_from_num n =
     match n with
     | 0 -> r0
@@ -112,6 +122,14 @@ struct
 
   let reg n =
     T (reg_from_num n)
+
+  (* helper to get register with the right size according to sf value *)
+  (* 1 is 64 bits *)
+  let reg_sf n sf =
+    if sf == 1 then
+        T (reg_from_num n)
+    else
+        P (reg_from_num n, 0, 31)
 
   module Cfa = Cfa.Make(Domain)
 
@@ -155,53 +173,79 @@ struct
   let sf2sz sf = if sf == 1 then 64 else 32
 
   (* sf : 32 bit or 64 bits ops *)
-  let get_sf insn = (insn lsr 30) land 1
-  let get_sf_bool insn = ((insn lsr 30) land 1) == 1
+  let get_sf insn = (insn lsr 31) land 1
+  let get_sf_bool insn = ((insn lsr 31) land 1) == 1
 
   (* S : set flags ? *)
   let get_s insn = (insn lsr 30) land 1
   let get_s_bool insn = ((insn lsr 30) land 1) == 1
 
   (* Rn / Rd : registers *)
-  let get_Rn insn = reg ((insn lsr 4) land 0x1F)
-  let get_Rd insn = reg (insn land 0x1F)
+  let get_Rn insn sf = reg_sf ((insn lsr 5) land 0x1F) sf
+  let get_Rd insn sf = reg_sf (insn land 0x1F) sf
 
-  let get_Rd_lv insn = V (get_Rd insn)
-  let get_Rn_exp insn = Lval (V (get_Rn insn))
+  let get_Rd_lv insn sf = V (get_Rd insn sf)
+  let get_Rn_exp insn sf = Lval (V (get_Rn insn sf))
 
   (* imm12 : immediate 21:10 *)
-  let get_imm12 insn = (insn lsr 9) land 0xFFF
+  let get_imm12 insn = (insn lsr 10) land 0xFFF
 
   (* shift *)
   let get_shift_op s insn imm sz =
-    let shift = (insn lsr 21) land 3 in
+    let shift = (insn lsr 22) land 3 in
     match shift with
         | 0b10 | 0b11 -> error s.a (Printf.sprintf "Reserved shift value 0x%x in opcode 0x%x" shift insn)
         | 0b00 -> const imm sz
         | 0b01 -> const (imm lsl 12) sz
         | _ -> error s.a "Impossible error !"
 
+  (******************************)
+  (* Common IL generation       *)
+  (******************************)
+
+  (* 32 bits ops zero the top 32 bits, this helper does it if needed *)
+  let sf_zero_rd insn sf =
+    if sf == 0 then begin
+        let rd_top = P((reg_from_num ((insn lsr 5) land 0x1F)), 32, 63) in
+        [Set ( V(rd_top), const 0 32)]
+    end else []
+
+  (* compute n z and set c v flags for value in reg *)
+  let flags_stmts sz reg cf vf =
+        (* NF: negative flag, check MSB of reg,
+           ZF: zero flag, is reg zero ?,
+           CF: carry flag,
+           VF: Overflow flag
+        *)
+        [ Set ( nf_v, TernOp(Cmp(EQ, (msb_stmts reg sz), const1 sz), const 1 sz, const 0 sz));
+          Set ( zf_v, TernOp(Cmp(EQ, reg, const0 sz), const 1 sz, const 0 sz));
+          Set ( cf_v, cf);
+          Set ( vf_v, vf)]
+
+  (******************************)
+  (* Actual instruction decoder *)
+  (******************************)
+
   let add_sub_imm s insn =
     let sf = get_sf insn in
-    let op = (insn lsr 29) land 1 in (* add or sub ? *)
+    let op = (insn lsr 30) land 1 in (* add or sub ? *)
     let s_b = get_s_bool insn in
-    let rd = get_Rd_lv insn in
-    let rn = get_Rn_exp insn in
+    let rd = get_Rd_lv insn sf in
+    let rn = get_Rn_exp insn sf in
+    let sz = sf2sz sf in
     let imm12 = get_imm12 insn in
-    let shift = get_shift_op s insn imm12 (sf2sz sf) in
+    let shift = get_shift_op s insn imm12 sz in
+    let op_s = if op == 0 then Add else Sub in
     let core_stmts =
-        (* ADD *)
-        if op == 0 then begin
-            Set (rd, BinOp(Add, rn, shift))
-        end else begin
-        (* SUB *)
-            Set (rd, BinOp(Sub, rn, shift))
-        end in
+        [ Set (rd, BinOp(op_s, rn, shift)) ] @ sf_zero_rd insn sf
+        in
     (* flags ? *)
-    if s_b then
-        [ core_stmts ]
-    else
-        [ core_stmts ]
+    if s_b then begin
+        let cf = carry_stmts sz rn op_s shift in
+        let vf = overflow_stmts sz (Lval rd) rn op_s shift in
+        core_stmts @ (flags_stmts sz (Lval rd) cf vf)
+    end else
+        core_stmts
 
 
   let data_processing (s: state) (insn: int): (Asm.stmt list) =
@@ -214,7 +258,7 @@ struct
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction str in
-    let stmts = match (instruction lsr 24) land 0xF with
+    let stmts = match (instruction lsr 25) land 0xF with
         (* C4.1 in ARMv8 manual *)
         (* 00xx : unallocated *)
         | 0b0000 | 0b0001 | 0b0010 | 0b0011 -> error s.a (Printf.sprintf "Unallocated opcode 0x%x" instruction)
