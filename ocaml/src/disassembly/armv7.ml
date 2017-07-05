@@ -146,6 +146,30 @@ struct
   let ror32 value n =
     (value lsr n) lor ((value lsl (32-n)) land 0xffffffff)
 
+  let single_data_swap _s instruction =
+    let rd = (instruction lsr 12) land 0xf in
+    let rn = (instruction lsr 16) land 0xf in
+    let rm = instruction land 0xf in
+    let work_on_byte = instruction land (1 lsl 22) <> 0 in
+    let length,src,mem,dst  = if work_on_byte then
+        8, (V (preg rm 0 7)), (M (Lval (V (reg rn)), 8)), (V (preg rd 0 7))
+      else
+        32, (V (reg rm)), M (Lval (V (reg rn)), 32), (V (reg rd)) in
+    let stmts =
+      if rm = rd then
+        let tmpreg = Register.make (Register.fresh_name ()) length in
+        [ Set (V (T tmpreg), Lval mem)  ;
+          Set (mem, Lval dst) ;
+          Set (dst, Lval (V (T tmpreg))) ;
+          Directive (Remove tmpreg) ]
+      else
+        [ Set (dst, Lval mem)  ;
+          Set (mem, Lval src)  ] in
+    if work_on_byte then
+      stmts @ [ Set( V (preg rd 8 31), const 0 24 ) ]
+    else
+      stmts
+
 
   let mul_mla _s instruction =
     let rd = (instruction lsr 16) land 0xf in
@@ -556,7 +580,7 @@ struct
          if ((instruction lsr 4) land 0xf) = 0x9 then
            match (instruction lsr 23) land 0x7 with
            | 0b000 -> mul_mla s instruction (* multiply *) 
-           | 0b010 -> (* single data swap *) error s.a "single data swap not implemented"
+           | 0b010 -> single_data_swap s instruction (* single data swap *)
            | _ -> L.abort (fun p -> p "Unexpected opcode %x" instruction)
          else (* data processing / PSR transfer *) 
            data_proc s instruction
