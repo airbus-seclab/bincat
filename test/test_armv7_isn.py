@@ -276,6 +276,63 @@ def test_data_xfer_str_8(tmpdir):
     compare(tmpdir, asm, ["r0", "r1", "r2"])
 
 
+def test_data_xfer_unaligned_word(tmpdir):
+    asm = """
+            push { r10, r11 }
+            mov r10, #0x12
+            orr r10, r10, #0x3400
+            orr r10, r10, #0x560000
+            orr r10, r10, #0x78000000
+            mvn r11, r10
+            push { r10 }
+            push { r11 }
+            mov r11, r11, lsl #9
+            push { r11 }
+            ldr r0, [sp,#0]
+            ldr r1, [sp,#1]
+            ldr r2, [sp,#2]
+            ldr r3, [sp,#3]
+            ldr r4, [sp,#4]
+            ldr r5, [sp,#5]
+            ldr r6, [sp,#6]
+            ldr r7, [sp,#7]
+            pop { r8 }
+            pop { r8, r9, r10, r11 }
+    """
+    compare(tmpdir, asm, [ "r0","r1","r2","r3","r4","r5",
+                           "r6","r7","r8","r9"])
+def test_data_xfer_unaligned_byte(tmpdir):
+    asm = """
+            push { r10, r11 }
+            mov r10, #0xaa
+            orr r10, r10, #0x5500
+            orr r10, r10, #0xbb0000
+            orr r10, r10, #0x22000000
+            mvn r11, r10
+            mov r0, r10, lsl #1
+            mov r1, r10, lsl #2
+            mov r2, r10, lsl #3
+            mov r3, r10, lsl #4
+            mov r4, r10, lsl #5
+            mov r5, r10, lsl #6
+            mov r6, r10, lsl #7
+            mov r7, r10, lsl #8
+            push { r10 }
+            push { r11 }
+            ldrb r0, [sp,#0]
+            ldrb r1, [sp,#1]
+            ldrb r2, [sp,#2]
+            ldrb r3, [sp,#3]
+            ldrb r4, [sp,#4]
+            ldrb r5, [sp,#5]
+            ldrb r6, [sp,#6]
+            ldrb r7, [sp,#7]
+            pop { r8, r9, r10, r11 }
+    """
+    compare(tmpdir, asm, [ "r0","r1","r2","r3","r4","r5",
+                           "r6","r7","r8","r9"])
+
+
 
 ##  ___ ___    _   _  _  ___ _  _
 ## | _ ) _ \  /_\ | \| |/ __| || |
