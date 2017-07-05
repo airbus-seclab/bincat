@@ -2252,8 +2252,8 @@ struct
 
             | c when '\xb0' <= c && c <= '\xb3' -> (* MOV immediate byte into byte register *) let r = (find_reg_v ((Char.code c) - 0xb0) 8) in return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
             | c when '\xb4' <= c && c <= '\xb7' -> (* MOV immediate byte into byte register (higher part) *)
-              let n = (Char.code c) - 0xb0          in
-              let r = V (P (Hashtbl.find register_tbl n, 24, 32)) in
+              let n = (Char.code c) - 0xb4  in
+              let r = V (P (Hashtbl.find register_tbl n, 8, 15)) in
               return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
             | c when '\xb8' <= c && c <= '\xbf' -> (* mov immediate word or double into word or double register *)
               let r = (find_reg_v ((Char.code c) - 0xb8) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/8)) s.operand_sz))]
