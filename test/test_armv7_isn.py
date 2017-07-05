@@ -393,3 +393,62 @@ def test_mul_mla(tmpdir, armv7op, armv7op_, armv7op__):
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "r4", "n", "z", "c"],
             top_allowed = {"c": 1})
 
+
+##  _____      ___   ___
+## / __\ \    / /_\ | _ \
+## \__ \\ \/\/ / _ \|  _/
+## |___/ \_/\_/_/ \_\_|
+##
+## SWAP
+
+def test_swap_swap_word_different_reg(tmpdir):
+    asm = """
+            mov r0, #0xaa
+            orr r0, r0, #0x5500
+            orr r0, r0, #0xbb0000
+            orr r0, r0, #0x22000000
+            mvn r1, r0
+            push { r1 }
+            swp r2, r0, [sp]
+            pop { r3 }
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3"])
+
+def test_swap_swap_word_same_reg(tmpdir):
+    asm = """
+            mov r0, #0xaa
+            orr r0, r0, #0x5500
+            orr r0, r0, #0xbb0000
+            orr r0, r0, #0x22000000
+            mvn r1, r0
+            push { r1 }
+            swp r0, r0, [sp]
+            pop { r2 }
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2"])
+
+def test_swap_swap_byte_different_reg(tmpdir):
+    asm = """
+            mov r0, #0xaa
+            orr r0, r0, #0x5500
+            orr r0, r0, #0xbb0000
+            orr r0, r0, #0x22000000
+            mvn r1, r0
+            push { r1 }
+            swpb r2, r0, [sp]
+            pop { r3 }
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3"])
+
+def test_swap_swap_byte_same_reg(tmpdir):
+    asm = """
+            mov r0, #0xaa
+            orr r0, r0, #0x5500
+            orr r0, r0, #0xbb0000
+            orr r0, r0, #0x22000000
+            mvn r1, r0
+            push { r1 }
+            swpb r0, r0, [sp]
+            pop { r2 }
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2"])
