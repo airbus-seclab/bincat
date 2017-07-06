@@ -1314,7 +1314,7 @@ struct
     (* SHL *)
     let shift_l_stmt dst sz n =
         let sz' = const sz 8 in
-        let one8 = Const (Word.one 8) in
+        let one8 = const1 8 in
         let one_sz = const1 sz in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
@@ -1350,7 +1350,7 @@ struct
             ]
         in
         (* If shifted by zero, do nothing, else do the rest *)
-        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops)]
+        [If(Cmp(EQ, n_masked, const0 8), [], ops)]
 
     (* SHR *)
     let shift_r_stmt dst sz n arith =
@@ -1406,12 +1406,12 @@ struct
         in
         (* If shifted by zero, do nothing, else do the rest *)
         let res = Lval dst in
-        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
+        [If(Cmp(EQ, n_masked, const0 8), [], ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)] )]
 
     (* SHLD / TODO : merge with SHL ? *)
     let shift_ld_stmt dst src sz n =
         let sz' = const sz 8 in
-        let one8 = Const (Word.one 8) in
+        let one8 = const1 8 in
         let one = const1 sz in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
@@ -1442,7 +1442,7 @@ struct
             ]
         in
         (* If shifted by zero, do nothing, else do the rest *)
-        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
+        [If(Cmp(EQ, n_masked, const0 8), [], 
             (* if shifted by more than opsize, everything is undef *)
             [ If(Cmp(GT, n_masked, sz'),
                 [ undef_flag fcf; undef_flag fof; undef_flag fsf;
@@ -1455,7 +1455,7 @@ struct
     (* SHRD *)
     let shift_rd_stmt dst src sz n =
         let sz' = const sz 8 in
-        let one8 = Const (Word.one 8) in
+        let one8 = const1 8 in
         let one = const1 sz in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
@@ -1490,7 +1490,7 @@ struct
         in
         (* If shifted by zero, do nothing, else do the rest *)
         let res = Lval dst in
-        [If(Cmp(EQ, n_masked, Const (Word.zero 8)), [], 
+        [If(Cmp(EQ, n_masked, const0 8), [], 
             (* if shifted by more than opsize, everything is undef *)
             (* TODO : forget dst *)
             [If(Cmp(GT, n_masked, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
@@ -1546,8 +1546,8 @@ struct
       [ If (Cmp(EQ, count_masked, zero), [], stmts)]
 
     let rotate_l_carry_stmt dst sz count = (* rcr *)
-      let zero = Const (Word.zero 8) in
-      let one8 = Const (Word.one 8) in
+      let zero = const0 8 in
+      let one8 = const1 8 in
       let onesz = const1 sz in
       let word_1f = const 0x1F 8 in
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
@@ -1589,8 +1589,8 @@ struct
 
 
     let rotate_r_carry_stmt dst sz count = (* rcr *)
-      let zero = Const (Word.zero 8) in
-      let one8 = Const (Word.one 8) in
+      let zero = const0 8 in
+      let one8 = const1 8 in
       let onesz = const1 sz in
       let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
@@ -1903,7 +1903,7 @@ struct
         let e = exp_of_cond cond s in
         let md, _, rm = mod_nnn_rm (Char.code (getchar s)) in
         let dst = exp_of_md s md rm 8 8 in
-        return s [If (e, [Set (dst, Const (Word.one 8))], [Set (dst, Const (Word.zero 8))])]
+        return s [If (e, [Set (dst, const1 8)], [Set (dst, const0 8)])]
 
     let xchg s arg1 arg2 sz =
         let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
@@ -2229,8 +2229,8 @@ struct
             | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
             | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
 
-            | '\xd0' -> (* grp2 shift with one on byte size *) grp2 s 8 (Some (Const (Word.one 8)))
-            | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (Const (Word.one 8)))
+            | '\xd0' -> (* grp2 shift with one on byte size *) grp2 s 8 (Some (const1 8))
+            | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (const1 8))
             | '\xd2' -> (* grp2 shift with CL and byte size *) grp2 s 8 (Some (Lval (V (to_reg ecx 8))))
             | '\xd3' -> (* grp2 shift with CL *) grp2 s s.operand_sz (Some (Lval (V (to_reg ecx 8))))
             | '\xd4' -> (* AAM *) aam s
