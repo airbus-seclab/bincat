@@ -426,8 +426,9 @@ struct
         | 0b0101 | 0b1101 -> data_processing_reg s instruction
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
     in
-    let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
-    return s str (Set( V (T pc), current_pc) :: stmts)
+    (* ADR only : let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
+    return s str (Set( V (T pc), current_pc) :: stmts)*)
+    return s str stmts
 
   let parse text cfg _ctx state addr _oracle =
     let s =  {
