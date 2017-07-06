@@ -10,11 +10,11 @@ compare = arm.compare
 dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
 dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "rsb", "add"])
 
-def test_nop(tmpdir):
-    asm = """
-        nop
-    """
-    compare(tmpdir, asm, [])
+#def test_nop(tmpdir):
+#    asm = """
+#        nop
+#    """
+#    compare(tmpdir, asm, [])
 
 def test_assign(tmpdir):
     asm = """
@@ -22,7 +22,7 @@ def test_assign(tmpdir):
         mov w1, w0
         mov w2, w1
     """
-    compare(tmpdir, asm, ["r0","r1","r2"])
+    compare(tmpdir, asm, ["x0","x1","x2"])
 
 @dataop_comp_logic
 def test_data_proc_logic(tmpdir, op, armv7op, armv7op_):

@@ -35,45 +35,45 @@ struct
   (* Creation of the general purpose registers *)
   (************************************************************************)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
-  let r0 = Register.make ~name:"r0" ~size:64;;
-  let r1 = Register.make ~name:"r1" ~size:64;;
-  let r2 = Register.make ~name:"r2" ~size:64;;
-  let r3 = Register.make ~name:"r3" ~size:64;;
-  let r4 = Register.make ~name:"r4" ~size:64;;
-  let r5 = Register.make ~name:"r5" ~size:64;;
-  let r6 = Register.make ~name:"r6" ~size:64;;
-  let r7 = Register.make ~name:"r7" ~size:64;;
-  let r8 = Register.make ~name:"r8" ~size:64;;
-  let r9 = Register.make ~name:"r9" ~size:64;;
-  let r10 = Register.make ~name:"r10" ~size:64;;
-  let r11 = Register.make ~name:"r11" ~size:64;;
-  let r12 = Register.make ~name:"r12" ~size:64;;
-  let r13 = Register.make ~name:"r13" ~size:64;;
-  let r14 = Register.make ~name:"r15" ~size:64;;
-  let r15 = Register.make ~name:"r14" ~size:64;;
-  let r16 = Register.make ~name:"r16" ~size:64;;
-  let r17 = Register.make ~name:"r17" ~size:64;;
-  let r18 = Register.make ~name:"r18" ~size:64;;
-  let r19 = Register.make ~name:"r19" ~size:64;;
-  let r20 = Register.make ~name:"r20" ~size:64;;
-  let r21 = Register.make ~name:"r21" ~size:64;;
-  let r22 = Register.make ~name:"r22" ~size:64;;
-  let r23 = Register.make ~name:"r23" ~size:64;;
-  let r24 = Register.make ~name:"r24" ~size:64;;
-  let r25 = Register.make ~name:"r25" ~size:64;;
-  let r26 = Register.make ~name:"r26" ~size:64;;
-  let r27 = Register.make ~name:"r27" ~size:64;;
-  let r28 = Register.make ~name:"r28" ~size:64;;
-  let r29 = Register.make ~name:"r29" ~size:64;;
-  let r30 = Register.make ~name:"r30" ~size:64;;
+  let x0 = Register.make ~name:"x0" ~size:64;;
+  let x1 = Register.make ~name:"x1" ~size:64;;
+  let x2 = Register.make ~name:"x2" ~size:64;;
+  let x3 = Register.make ~name:"x3" ~size:64;;
+  let x4 = Register.make ~name:"x4" ~size:64;;
+  let x5 = Register.make ~name:"x5" ~size:64;;
+  let x6 = Register.make ~name:"x6" ~size:64;;
+  let x7 = Register.make ~name:"x7" ~size:64;;
+  let x8 = Register.make ~name:"x8" ~size:64;;
+  let x9 = Register.make ~name:"x9" ~size:64;;
+  let x10 = Register.make ~name:"x10" ~size:64;;
+  let x11 = Register.make ~name:"x11" ~size:64;;
+  let x12 = Register.make ~name:"x12" ~size:64;;
+  let x13 = Register.make ~name:"x13" ~size:64;;
+  let x14 = Register.make ~name:"x15" ~size:64;;
+  let x15 = Register.make ~name:"x14" ~size:64;;
+  let x16 = Register.make ~name:"x16" ~size:64;;
+  let x17 = Register.make ~name:"x17" ~size:64;;
+  let x18 = Register.make ~name:"x18" ~size:64;;
+  let x19 = Register.make ~name:"x19" ~size:64;;
+  let x20 = Register.make ~name:"x20" ~size:64;;
+  let x21 = Register.make ~name:"x21" ~size:64;;
+  let x22 = Register.make ~name:"x22" ~size:64;;
+  let x23 = Register.make ~name:"x23" ~size:64;;
+  let x24 = Register.make ~name:"x24" ~size:64;;
+  let x25 = Register.make ~name:"x25" ~size:64;;
+  let x26 = Register.make ~name:"x26" ~size:64;;
+  let x27 = Register.make ~name:"x27" ~size:64;;
+  let x28 = Register.make ~name:"x28" ~size:64;;
+  let x29 = Register.make ~name:"x29" ~size:64;;
+  let x30 = Register.make ~name:"x30" ~size:64;;
   let pc = Register.make ~name:"pc" ~size:64;; (* instruction pointer *)
   let sp = Register.make ~name:"sp" ~size:64;; (* stack pointer *)
 
   (* condition flags are modeled as registers of size 1 *)
-  let nflag = Register.make ~name:"N" ~size:1;;
-  let zflag = Register.make ~name:"Z" ~size:1;;
-  let cflag = Register.make ~name:"C" ~size:1;;
-  let vflag = Register.make ~name:"V" ~size:1;;
+  let nflag = Register.make ~name:"n" ~size:1;;
+  let zflag = Register.make ~name:"z" ~size:1;;
+  let cflag = Register.make ~name:"c" ~size:1;;
+  let vflag = Register.make ~name:"v" ~size:1;;
 
   let nf_v = V( T(nflag) )
   let zf_v = V( T(zflag) )
@@ -87,37 +87,37 @@ struct
 
   let reg_from_num n =
     match n with
-    | 0 -> r0
-    | 1 -> r1
-    | 2 -> r2
-    | 3 -> r3
-    | 4 -> r4
-    | 5 -> r5
-    | 6 -> r6
-    | 7 -> r7
-    | 8 -> r8
-    | 9 -> r9
-    | 10 -> r10
-    | 11 -> r11
-    | 12 -> r12
-    | 13 -> r13
-    | 14 -> r14
-    | 15 -> r15
-    | 16 -> r16
-    | 17 -> r17
-    | 18 -> r18
-    | 19 -> r19
-    | 20 -> r20
-    | 21 -> r21
-    | 22 -> r22
-    | 23 -> r23
-    | 24 -> r24
-    | 25 -> r25
-    | 26 -> r26
-    | 27 -> r27
-    | 28 -> r28
-    | 29 -> r29
-    | 30 -> r30
+    | 0 -> x0
+    | 1 -> x1
+    | 2 -> x2
+    | 3 -> x3
+    | 4 -> x4
+    | 5 -> x5
+    | 6 -> x6
+    | 7 -> x7
+    | 8 -> x8
+    | 9 -> x9
+    | 10 -> x10
+    | 11 -> x11
+    | 12 -> x12
+    | 13 -> x13
+    | 14 -> x14
+    | 15 -> x15
+    | 16 -> x16
+    | 17 -> x17
+    | 18 -> x18
+    | 19 -> x19
+    | 20 -> x20
+    | 21 -> x21
+    | 22 -> x22
+    | 23 -> x23
+    | 24 -> x24
+    | 25 -> x25
+    | 26 -> x26
+    | 27 -> x27
+    | 28 -> x28
+    | 29 -> x29
+    | 30 -> x30
     | 31 -> sp
     | _ -> L.abort (fun p -> p "Unknown register number %i" n)
 
