@@ -139,14 +139,15 @@ let widen = join
 (* default tainting value is Untainted *)
 let default = U
 
-let untaint _t = U
-let taint t = t
+let untaint (_t: t): t = U
+let taint (t: t): t = t
 
-let min t1 t2 =
+let min (t1: t) (t2: t): t =
   match t1, t2 with
   | U, t  | t, U -> t
-  | T, _  | _, T -> T
-  | _, _ -> TOP
+  | S src, TOP  | TOP, S src -> S src
+  | S src1, S src2 -> If Src.compare src1 src2 <= 0 then t1 else t2
+  | TOP, TOP -> TOP
      
 		      
 let is_tainted t =
