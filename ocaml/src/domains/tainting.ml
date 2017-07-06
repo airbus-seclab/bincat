@@ -16,9 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-
-(* set of (possible) tainting sources *)
-module Src = Set.Make (
+(* data type tainting source *)
+module Src =
   struct
 
     (* type of tainting sources *) 
@@ -48,7 +47,10 @@ module Src = Set.Make (
       | Maybe _, Tainted _ -> 1
       | Maybe id1, Maybe id2 -> id1 - id2
   end
-  )
+
+(* set of (possible) tainting sources *)
+module SrcSet = Set.Make (Src)
+ 
 
 (* a taint value can be 
    - untainted (U) 
