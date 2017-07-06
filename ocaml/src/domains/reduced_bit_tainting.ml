@@ -100,8 +100,8 @@ let taint_of_z z (v, _t) =
   let t' =
   if Z.compare Z.zero z = 0 then T.U
   else
-    if Z.compare Z.one z = 0 then T.T
-    else T.TOP
+    if Z.compare Z.one z = 0 then T.make_sure ()
+    else T.make_uncertain ()
   in
   v, t'
 
