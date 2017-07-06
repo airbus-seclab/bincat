@@ -85,13 +85,12 @@ let meet (t1: t) (t2: t): t =
   | S src, TOP | TOP, S src -> S src
   | TOP, TOP -> TOP
      
-
-let to_char b =
-  match b with
+let to_char (t: t): char =
+  match t with
   | TOP -> '?'
-  | T   -> '1'
-  | U   -> '0'
-
+  | S _ -> '1'
+  | U -> '0'
+     
 let to_string b =
   match b with
   | TOP -> "?"
