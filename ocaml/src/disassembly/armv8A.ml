@@ -66,7 +66,7 @@ struct
   let r28 = Register.make ~name:"r28" ~size:64;;
   let r29 = Register.make ~name:"r29" ~size:64;;
   let r30 = Register.make ~name:"r30" ~size:64;;
-  let pc = Register.make ~name:"pc" ~size:64;;
+  let pc = Register.make ~name:"pc" ~size:64;; (* instruction pointer *)
   let sp = Register.make ~name:"sp" ~size:64;; (* stack pointer *)
 
   (* condition flags are modeled as registers of size 1 *)
@@ -118,6 +118,7 @@ struct
     | 28 -> r28
     | 29 -> r29
     | 30 -> r30
+    | 31 -> sp
     | _ -> L.abort (fun p -> p "Unknown register number %i" n)
 
   let reg n =
@@ -191,6 +192,11 @@ struct
   let get_Rn_exp insn sf = Lval (V (get_Rn insn sf))
   let get_Rd_lv insn sf = V (get_Rd insn sf)
 
+  let get_regs insn sf =
+    (get_Rd_lv insn sf,
+     get_Rn_exp insn sf,
+     get_Rm_exp insn sf)
+
   (* imm12 : immediate 21:10 *)
   let get_imm12 insn = (insn lsr 10) land 0xfff
 
@@ -216,12 +222,27 @@ struct
   (* Common IL generation       *)
   (******************************)
 
-  let get_shifted_reg sz _insn reg amount =
+  let ror sz reg count =
+      let sz_exp = const sz sz in
+      let count_ext = UnOp(ZeroExt sz, count) in
+      let count_mod = BinOp(Mod, count_ext, sz_exp) in
+      let inv_count_mod = BinOp (Sub, sz_exp, count_mod) in
+      let low = BinOp (Shr, reg, count_mod)  in
+      let high = BinOp (Shl, reg, inv_count_mod) in
+      let res = BinOp (Or, high, low) in
+      res
+
+  let get_shifted_reg sz insn reg amount =
     if amount == 0 then
         reg
     else
-        (* XXX *)
-        BinOp(Shl, reg, const amount sz)
+        let shift = (insn lsr 22) land 3 in
+        match shift with
+            | 0b00 (* LSL *) -> BinOp(Shl, reg, const amount sz)
+            | 0b01 (* LSR *) -> BinOp(Shr, reg, const amount sz)
+            | 0b10 (* ASR *) -> L.abort (fun p->p "shifted reg with ASR not implemented yet");
+            | 0b11 (* ROR *) -> ror sz reg (const amount sz)
+            | _ -> L.abort (fun p->p "Invalid value for shift")
 
   (* 32 bits ops zero the top 32 bits, this helper does it if needed *)
   let sf_zero_rd insn sf =
@@ -251,6 +272,19 @@ struct
   (* Actual instruction decoder *)
   (******************************)
 
+  let add_sub_core sz dst op1 op op2 set_flags =
+    let op_s = if op == 0 then Add else Sub in
+    let core_stmts =
+        [ Set (dst, BinOp(op_s, op1, op2)) ]
+        in
+    (* flags ? *)
+    if set_flags then begin
+        let cf = carry_stmts sz op1 op_s op2 in
+        let vf = overflow_stmts sz (Lval dst) op1 op_s op2 in
+        core_stmts @ (flags_stmts sz (Lval dst) cf vf)
+    end else
+        core_stmts
+
   (* ADD/ ADDS / SUB / SUBS (32/64) with immediate *)
   let add_sub_imm s insn sf rn rd =
     let op = (insn lsr 30) land 1 in (* add or sub ? *)
@@ -258,17 +292,20 @@ struct
     let sz = sf2sz sf in
     let imm12 = get_imm12 insn in
     let shift = get_shifted_imm s insn imm12 sz in
-    let op_s = if op == 0 then Add else Sub in
-    let core_stmts =
-        [ Set (rd, BinOp(op_s, rn, shift)) ] @ sf_zero_rd insn sf
-        in
-    (* flags ? *)
-    if s_b then begin
-        let cf = carry_stmts sz rn op_s shift in
-        let vf = overflow_stmts sz (Lval rd) rn op_s shift in
-        core_stmts @ (flags_stmts sz (Lval rd) cf vf)
-    end else
-        core_stmts
+    add_sub_core sz rd rn op shift s_b @ sf_zero_rd insn sf
+
+  (* ADD/ ADDS / SUB / SUBS (32/64) with register *)
+  let add_sub_reg s insn _is_extend =
+    let sf, sz = get_sf insn in
+    let shift = (insn lsr 22) land 3 in
+    let imm6 = get_imms insn in
+    if (sf == 0 && (imm6 lsr 5) == 1) || (shift == 3) then
+        (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
+    let op = (insn lsr 30) land 1 in
+    let s_b = get_s_bool insn in
+    let rd, rn, rm = get_regs insn sf in
+    let shifted_rm =  get_shifted_reg sz insn rm imm6 in
+    add_sub_core sz rd rn op shifted_rm s_b
 
   (* AND / ORR / EOR / ANDS (32/64) core *)
   let logic_core sz dst op1 opc op2 set_flags =
@@ -305,19 +342,17 @@ struct
     if sf == 0 && (imm6 lsr 5) == 1 then
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let opc = get_opc insn in
-    let rd = get_Rd_lv insn sf in
-    let rn = get_Rn_exp insn sf in
-    let rm = get_Rm_exp insn sf in
+    let rd, rn, rm = get_regs insn sf in
     let n = (insn lsr 21) land 1 in
     let shifted_rm = get_shifted_reg sz insn rm imm6 in
     let shifted_rm' = if n == 1 then UnOp(Not, shifted_rm) else shifted_rm in
     logic_core sz rd rn opc shifted_rm' (opc == 0b11) @ sf_zero_rd insn sf
 
+  (* data processing with immediates *)
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
     let sf, _ = get_sf insn in
-    let rd = get_Rd_lv insn sf in
-    let rn = get_Rn_exp insn sf in
+    let rd, rn, _ = get_regs insn sf in
     let stmts = match op0 with
         | 0b010 | 0b011 -> add_sub_imm s insn sf rn rd
         | 0b100         -> logic_imm s insn sf rn rd
@@ -333,9 +368,7 @@ struct
   let data_proc_1src s insn =
     error s.a (Printf.sprintf "Data processing (1 source) not decoded yet (0x%x)" insn)
 
-  let add_sub_reg s insn _is_extend =
-    error s.a (Printf.sprintf "Add_sub (reg) not decoded yet (0x%x)" insn)
-
+  (* data processing with registers *)
   let data_processing_reg (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 30) land 1 in
     let op1 = (insn lsr 28) land 1 in
@@ -349,9 +382,10 @@ struct
     end
     else begin
         if op1 == 0 then
+            (* op2 == 0xxx *)
             if (op2 lsr 3) == 0 then
                 logic_reg s insn
-            else
+            else (* op2 == 1xxx *)
                 add_sub_reg s insn (op2 land 1)
         else
             []
