@@ -59,6 +59,8 @@ type t =
   | S of Src.t
   | TOP    
 
+let make () = S (Src.singleton (Src.new_src ()))
+  
 let join (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
@@ -165,3 +167,4 @@ let to_z (t: t): Z.t =
   | U -> Z.zero
   | S _ -> Z.one
   | _ -> raise Exceptions.Concretization
+
