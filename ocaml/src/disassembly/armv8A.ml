@@ -200,6 +200,9 @@ struct
   (* imm12 : immediate 21:10 *)
   let get_imm12 insn = (insn lsr 10) land 0xfff
 
+  (* imm16 : immediate 20:5 *)
+  let get_imm16 insn = (insn lsr 5) land 0xffff
+
   (* immr : immediate 21:16 *)
   let get_immr insn = (insn lsr 16) land 0b111111
 
@@ -348,6 +351,23 @@ struct
     let shifted_rm' = if n == 1 then UnOp(Not, shifted_rm) else shifted_rm in
     logic_core sz rd rn opc shifted_rm' (opc == 0b11) @ sf_zero_rd insn sf
 
+  (* MOVZ move immediate with optional shift *)
+  let mov_wide s insn sf rd =
+    let sz = sf2sz sf in
+    let opc = get_opc insn in
+    let hw = ((insn lsr 21) land 3) in
+    if (sf == 0 && hw > 1) || (opc == 0b01) then error s.a (Printf.sprintf "Invalid opcode 0x%x" insn);
+    let imm16 = const (get_imm16 insn) sz in
+    let shift = hw lsl 4 in
+    let imm = if shift > 0 then BinOp(Shl, imm16, const shift sz) else imm16 in
+    let imm = match opc with
+        | 0b00 -> (* MOVN *) UnOp(Not, imm)
+        | 0b10 -> (* MOVZ *) imm
+        | 0b11 -> (* MOVK *) error s.a (Printf.sprintf "MOVK is not supported")
+        | _ -> error s.a "Impossible error"; in
+
+    [ Set (rd, imm) ] @ sf_zero_rd insn sf
+
   (* data processing with immediates *)
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
@@ -356,7 +376,7 @@ struct
     let stmts = match op0 with
         | 0b010 | 0b011 -> add_sub_imm s insn sf rn rd
         | 0b100         -> logic_imm s insn sf rn rd
-        | 0b101 -> error s.a (Printf.sprintf "Move wide imm not decoded (0x%x)" insn)
+        | 0b101 -> mov_wide s insn sf rd
         | 0b110 -> error s.a (Printf.sprintf "Bitfield (imm) not decoded (0x%x)" insn)
         | 0b111 -> error s.a (Printf.sprintf "Extract (imm) not decoded (0x%x)" insn)
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
