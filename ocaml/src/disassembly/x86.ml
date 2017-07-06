@@ -572,7 +572,7 @@ struct
 
     (** produce the statement to set the zero flag *)
     let zero_flag_stmts sz res =
-      let c = Cmp (EQ, res, Const (Word.zero sz)) in
+      let c = Cmp (EQ, res, const0 sz) in
       let n = Register.size fzf in
         Set (V (T fzf), TernOp (c, Asm.Const (Word.one n), Asm.Const (Word.zero n)))
 
@@ -1225,7 +1225,7 @@ struct
             if op = Mul then begin
                 (* The OF and CF flags are set to 0 if the upper half of the result
                    is 0; otherwise, they are set to 1.  *)
-                [ If(Cmp(EQ, Const (Word.zero sz), Lval (V( P(tmp, sz, sz*2-1)))),
+                [ If(Cmp(EQ, const0 sz, Lval (V( P(tmp, sz, sz*2-1)))),
                     clr_f, set_f) ]
             end else begin (* IMul *) 
                 (* The OF and CF flags are set to 0 if the full size result (tmp) equals
@@ -1315,7 +1315,7 @@ struct
     let shift_l_stmt dst sz n =
         let sz' = const sz 8 in
         let one8 = Const (Word.one 8) in
-        let one_sz = Const (Word.one sz) in
+        let one_sz = const1 sz in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
@@ -1355,7 +1355,7 @@ struct
     (* SHR *)
     let shift_r_stmt dst sz n arith =
         let sz' = const sz 8 in
-        let one_sz = Const (Word.one sz) in
+        let one_sz = const1 sz in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
@@ -1412,7 +1412,7 @@ struct
     let shift_ld_stmt dst src sz n =
         let sz' = const sz 8 in
         let one8 = Const (Word.one 8) in
-        let one = Const (Word.one sz) in
+        let one = const1 sz in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
@@ -1456,7 +1456,7 @@ struct
     let shift_rd_stmt dst src sz n =
         let sz' = const sz 8 in
         let one8 = Const (Word.one 8) in
-        let one = Const (Word.one sz) in
+        let one = const1 sz in
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
@@ -1498,8 +1498,8 @@ struct
 
 
     let rotate_l_stmt dst sz count =
-      let one = Const (Word.one sz) in
-      let zero = Const (Word.zero sz) in
+      let one = const1 sz in
+      let zero = const0 sz in
       let sz_exp = const sz sz in
       let szm1_exp = const (sz-1) sz in
       let word_1f = Const (Word.of_int (Z.of_int 0x1f) sz) in
@@ -1522,12 +1522,12 @@ struct
       [ If (Cmp(EQ, count_masked, zero), [], stmts)]
 	
     let rotate_r_stmt dst sz count =
-      let one = Const (Word.one sz) in
-      let zero = Const (Word.zero sz) in
+      let one = const1 sz in
+      let zero = const0 sz in
       let sz_exp = const sz sz in
       let szm1_exp = const (sz-1) sz in
       let szm2_exp = const (sz-2) sz in
-      let word_1f = Const (Word.of_int (Z.of_int 0x1f) sz) in
+      let word_1f = const 0x1f sz in
       let count_ext = UnOp(ZeroExt sz, count) in
       let count_masked = BinOp(And, count_ext, word_1f) in
       let count_mod = BinOp(Mod, count_masked, sz_exp) in
@@ -1548,8 +1548,8 @@ struct
     let rotate_l_carry_stmt dst sz count = (* rcr *)
       let zero = Const (Word.zero 8) in
       let one8 = Const (Word.one 8) in
-      let onesz = Const (Word.one sz) in
-      let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
+      let onesz = const1 sz in
+      let word_1f = const 0x1F 8 in
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
       (* add 1 to operand size to take in account the carry *)
       let sz8p1 = Const (Word.of_int (Z.of_int (sz+1)) 8) in
@@ -1581,7 +1581,7 @@ struct
 			[undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
       let stmts =  [
-        Set(old_cf, Const (Word.zero sz)) ;
+        Set(old_cf, const0 sz) ;
         Set(old_cf_lsb, Lval (V (T fcf))) ;
         cf_stmt ; Set (dst, res) ; of_stmt ;
         Directive (Remove old_cf_reg )] in
@@ -1591,7 +1591,7 @@ struct
     let rotate_r_carry_stmt dst sz count = (* rcr *)
       let zero = Const (Word.zero 8) in
       let one8 = Const (Word.one 8) in
-      let onesz = Const (Word.one sz) in
+      let onesz = const1 sz in
       let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
       (*      let sz8 = Const (Word.of_int (Z.of_int sz) 8) in*)
       (* add 1 to operand size to take in account the carry *)
@@ -1621,7 +1621,7 @@ struct
 			[undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
       let stmts =  [
-	Set(old_cf, Const (Word.zero sz)) ;
+	Set(old_cf, const0 sz) ;
 	Set(old_cf_lsb, Lval (V (T fcf))) ;
 	cf_stmt ; of_stmt ; Set (dst, src) ; 
 	Directive (Remove old_cf_reg )] in
@@ -1631,7 +1631,7 @@ struct
       let name = Register.fresh_name ()	    in
       let tmp_reg = Register.make ~name:name ~size:sz in
       let tmp_regv = V (T tmp_reg) in
-      let zero = Const (Word.zero sz) in
+      let zero = const0 sz in
       [ Set ( V (T fcf), TernOp( Cmp(EQ, Lval reg, const 0 sz),
 				 const 0 1, const 1 1) ) ;
 	Set (tmp_regv, Lval reg) ;
@@ -1727,8 +1727,8 @@ struct
     let btc s dst src = core_bt s (fun _nth nbit -> [If (Cmp (EQ, nbit, Const (Word.one s.operand_sz)), [btr_stmt dst _nth s.operand_sz], [bts_stmt dst _nth s.operand_sz])]) dst src
     let bsr s dst src =
       let sz = s.operand_sz in
-      let zero = Const (Word.zero sz) in
-      let one =  Const (Word.one sz) in
+      let zero = const0 sz in
+      let one =  const1 sz in
       let rec compose_bsr src i =
         let idx = const i sz in
         if i = 0 then idx
@@ -1746,8 +1746,8 @@ struct
 
     let bsf s dst src =
       let sz = s.operand_sz in
-      let zero = Const (Word.zero sz) in
-      let one =  Const (Word.one sz) in
+      let zero = const0 sz in
+      let one =  const1 sz in
       let rec compose_bsf src i =
         let idx = const i sz in
         if i = s.operand_sz-1 then idx
@@ -2015,8 +2015,8 @@ struct
         else
             c
 
-    let set_flag f sz = [ Set (V (T f), Const (Word.one sz)) ]
-    let clear_flag f sz = [ Set (V (T f), Const (Word.zero sz)) ]
+    let set_flag f sz = [ Set (V (T f), const1 sz) ]
+    let clear_flag f sz = [ Set (V (T f), const0 sz) ]
 
     (** directive for automatic unrolling in rep instructions *)
     let unroll_scas (cmp: cmp) s i: stmt =
