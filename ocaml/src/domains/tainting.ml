@@ -140,7 +140,7 @@ let widen = join
 let default = U
 
 let untaint _t = U
-let taint _t = T
+let taint t = t
 
 let min t1 t2 =
   match t1, t2 with
