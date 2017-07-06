@@ -76,13 +76,15 @@ let logand (t1: t) (t2: t): t =
   | S src, TOP | TOP, S src -> S src
   | TOP, TOP -> TOP
      
-   
-let meet b1 b2 =
-  match b1, b2 with
-  | T, T 	     -> T
-  | U, U 	    -> U
-  | b, TOP | TOP, b -> b
-  | U, T | T, U     -> U
+let meet (t1: t) (t2: t): t =
+  match t1, t2 with
+  | U, U -> U
+  | U, TOP | TOP, U -> U  
+  | _, U | U, _ -> raise Exceptions.Empty  
+  | S src1, S src2 -> S (Src.inter src1 src2)
+  | S src, TOP | TOP, S src -> S src
+  | TOP, TOP -> TOP
+     
 
 let to_char b =
   match b with
