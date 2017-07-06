@@ -65,15 +65,17 @@ let logor (t1: t) (t2: t): t =
   | S src1, S src2 -> S (Src.union src1 src2)
   | _, _ -> TOP
      
-
-let logand b1 b2 =
-  match b1, b2 with
-  | T, T -> T
-  | T, U | U, T -> U
+let logand (t1: t) (t2: t): t =
+  match t1, t2 with
   | U, U -> U
-  | TOP, U | U, TOP -> TOP
-  | TOP, _ | _, TOP -> TOP
-
+  | _, U | U, _ -> U
+  | S src1, S src2 ->
+     let src' = Src.inter src1 src2 in
+     if Src.is_empty src' then U
+     else S src'
+  | S src, TOP | TOP, S src -> S src
+  | TOP, TOP -> TOP
+     
    
 let meet b1 b2 =
   match b1, b2 with
