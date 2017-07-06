@@ -1497,6 +1497,7 @@ struct
                ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)])])]
 
 
+    (* ROL *)
     let rotate_l_stmt dst sz count =
       let one = const1 sz in
       let zero = const0 sz in
@@ -1521,6 +1522,7 @@ struct
       let stmts =  [  Set (dst, res) ; cf_stmt ; of_stmt ;] in
       [ If (Cmp(EQ, count_masked, zero), [], stmts)]
 	
+    (* ROR *)
     let rotate_r_stmt dst sz count =
       let one = const1 sz in
       let zero = const0 sz in
