@@ -155,8 +155,8 @@ let is_tainted (t: t): bool =
   | S _ | TOP -> true
   | U	    -> false
 
-let to_z t =
+let to_z (t: t): Z.t =
   match t with
   | U -> Z.zero
-  | T -> Z.one
+  | S _ -> Z.one
   | _ -> raise Exceptions.Concretization
