@@ -104,12 +104,29 @@ let equal (t1: t) (t2: t): bool =
   | S src1, S src2 -> Src.compare src1 src2 = 0
   | _, _ -> false
      
-
-let binary carry t1 t2 =
+let binary (carry: t option) (t1: t) (t2: t): t =
   match t1, t2 with
   | TOP, _ | _, TOP -> TOP
-  | T, _ | _, T     -> T
-  | U, U 	    -> if carry then T else U
+  | S src, U | U, S src ->
+     begin
+       match carry with
+       | None -> S src
+       | Some csrc -> S (Src.union csrs src)
+     end
+        
+  | S src1, S src2 ->
+     let src' = Src.union src1 src2 in
+     begin
+       match carry with
+       | None -> S src'
+       | Some csrc -> S (Src.union csrs src')
+     end
+       
+  | U, U ->
+     match carry with
+     | None -> U
+     | Some s -> S s
+        
 						    
 let add = binary
 let sub = binary
