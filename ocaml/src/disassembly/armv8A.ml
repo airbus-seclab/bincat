@@ -184,13 +184,15 @@ struct
   let get_s_bool insn = ((insn lsr 30) land 1) == 1
 
   (* Rm (20:16) / Rn (9:5) / Rd (4:0) : registers *)
-  let get_Rm insn sf = reg_sf ((insn lsr 16) land 0x1F) sf
-  let get_Rn insn sf = reg_sf ((insn lsr 5) land 0x1F) sf
-  let get_Rd insn sf = reg_sf (insn land 0x1F) sf
+  let get_reg_exp num sf =
+        if num == 31 then (* zero register *)
+            const0 (sf2sz sf)
+        else
+            Lval (V (reg_sf num sf))
 
-  let get_Rm_exp insn sf = Lval (V (get_Rm insn sf))
-  let get_Rn_exp insn sf = Lval (V (get_Rn insn sf))
-  let get_Rd_lv insn sf = V (get_Rd insn sf)
+  let get_Rm_exp insn sf = let num = ((insn lsr 16) land 0x1F) in get_reg_exp num sf
+  let get_Rn_exp insn sf = let num = ((insn lsr 5) land 0x1F) in get_reg_exp num sf
+  let get_Rd_lv insn sf = let num = (insn land 0x1F) in if num == 31 then L.abort (fun p->p "write to XZR") else V(reg_sf num sf)
 
   let get_regs insn sf =
     (get_Rd_lv insn sf,
