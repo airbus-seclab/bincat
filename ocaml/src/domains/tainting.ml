@@ -50,6 +50,15 @@ module Src = Set.Make (
   end
   )
 
+(* a taint value can be 
+   - untainted (U) 
+   - or a set (S) of (possible) tainting sources 
+   - or an unknown taint (TOP) *)  
+type t =
+  | U
+  | S of Src.t
+  | TOP    
+
 let join (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
@@ -146,7 +155,7 @@ let min (t1: t) (t2: t): t =
   match t1, t2 with
   | U, t  | t, U -> t
   | S src, TOP  | TOP, S src -> S src
-  | S src1, S src2 -> If Src.compare src1 src2 <= 0 then t1 else t2
+  | S src1, S src2 -> if Src.compare src1 src2 <= 0 then t1 else t2
   | TOP, TOP -> TOP
      
 		      
