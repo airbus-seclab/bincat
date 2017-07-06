@@ -130,11 +130,7 @@ let binary (carry: t option) (t1: t) (t2: t): t =
        | None -> S src'
        | Some csrc -> join csrc (S src')
      end
-       
-  | U, U ->
-     match carry with
-     | None -> U
-     | Some s -> s
+ 
         
 						    
 let add = binary
