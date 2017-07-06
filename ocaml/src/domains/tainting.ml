@@ -26,15 +26,16 @@ module Src =
     (*current id for the generation of fresh taint sources *)
     let (current_id: src_id ref) = ref 0
       
-    (* returns a fresh source id and increments src_id *)
-    let new_src () =
-      current_id := !current_id + 1;
-      !current_id
-
+  
     (* a value may be surely Tainted or Maybe tainted *)
     type t =
       | Tainted of src_id (** surely tainted by the given source *)
       | Maybe of src_id (** maybe tainted by then given source *)
+
+    (* returns a fresh source id and increments src_id *)
+    let make () =
+      current_id := !current_id + 1;
+      Tainted (!current_id)
 
     (* comparison between tainting sources. Returns
     - 0 is equal
@@ -58,16 +59,16 @@ module SrcSet = Set.Make (Src)
    - or an unknown taint (TOP) *)  
 type t =
   | U
-  | S of Src.t
+  | S of SrcSet.t
   | TOP    
 
-let make () = S (Src.singleton (Src.new_src ()))
+let make () = S (SrcSet.singleton (Src.make ()))
   
 let join (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
   | _, U  | U, _ -> TOP
-  | S src1, S src2 -> S (Src.union src1 src2) 
+  | S src1, S src2 -> S (SrcSet.union src1 src2) 
   | TOP, _  | _, TOP -> TOP
 
 
@@ -75,7 +76,7 @@ let logor (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
   | t, U  | U, t -> t 
-  | S src1, S src2 -> S (Src.union src1 src2)
+  | S src1, S src2 -> S (SrcSet.union src1 src2)
   | _, _ -> TOP
      
 let logand (t1: t) (t2: t): t =
@@ -83,8 +84,8 @@ let logand (t1: t) (t2: t): t =
   | U, U -> U
   | _, U | U, _ -> U
   | S src1, S src2 ->
-     let src' = Src.inter src1 src2 in
-     if Src.is_empty src' then U
+     let src' = SrcSet.inter src1 src2 in
+     if SrcSet.is_empty src' then U
      else S src'
   | S src, TOP | TOP, S src -> S src
   | TOP, TOP -> TOP
@@ -94,7 +95,7 @@ let meet (t1: t) (t2: t): t =
   | U, U -> U
   | U, TOP | TOP, U -> U  
   | _, U | U, _ -> raise Exceptions.Empty  
-  | S src1, S src2 -> S (Src.inter src1 src2)
+  | S src1, S src2 -> S (SrcSet.inter src1 src2)
   | S src, TOP | TOP, S src -> S src
   | TOP, TOP -> TOP
      
@@ -114,7 +115,7 @@ let equal (t1: t) (t2: t): bool =
   match t1, t2 with
   | U, U -> true
   | TOP, _ | _, TOP -> true
-  | S src1, S src2 -> Src.compare src1 src2 = 0
+  | S src1, S src2 -> SrcSet.compare src1 src2 = 0
   | _, _ -> false
      
 let binary (carry: t option) (t1: t) (t2: t): t =
@@ -128,7 +129,7 @@ let binary (carry: t option) (t1: t) (t2: t): t =
      end
         
   | S src1, S src2 ->
-     let src' = Src.union src1 src2 in
+     let src' = SrcSet.union src1 src2 in
      begin
        match carry with
        | None -> S src'
@@ -155,7 +156,7 @@ let min (t1: t) (t2: t): t =
   match t1, t2 with
   | U, t  | t, U -> t
   | S src, TOP  | TOP, S src -> S src
-  | S src1, S src2 -> if Src.compare src1 src2 <= 0 then t1 else t2
+  | S src1, S src2 -> if SrcSet.compare src1 src2 <= 0 then t1 else t2
   | TOP, TOP -> TOP
      
 		      
