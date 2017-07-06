@@ -150,10 +150,10 @@ let min (t1: t) (t2: t): t =
   | TOP, TOP -> TOP
      
 		      
-let is_tainted t =
+let is_tainted (t: t): bool =
   match t with
-  | T | TOP -> true
-  | _ 	    -> false
+  | S _ | TOP -> true
+  | U	    -> false
 
 let to_z t =
   match t with
