@@ -139,7 +139,7 @@ let binary (carry: t option) (t1: t) (t2: t): t =
 						    
 let add = binary
 let sub = binary
-let xor = binary false
+let xor = binary None
 let neg v = v
 
 (* finite lattice => widen = join *)
