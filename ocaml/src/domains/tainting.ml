@@ -116,11 +116,11 @@ let equal (t1: t) (t2: t): bool =
 let binary (carry: t option) (t1: t) (t2: t): t =
   match t1, t2 with
   | TOP, _ | _, TOP -> TOP
-  | S src, U | U, S src ->
+  | t, U | U, t -> 
      begin
        match carry with
-       | None -> S src
-       | Some csrc -> S (Src.union csrc src)
+       | None -> t
+       | Some csrc -> join csrc t 
      end
         
   | S src1, S src2 ->
@@ -128,13 +128,13 @@ let binary (carry: t option) (t1: t) (t2: t): t =
      begin
        match carry with
        | None -> S src'
-       | Some csrc -> S (Src.union csrs src')
+       | Some csrc -> join csrc (S src')
      end
        
   | U, U ->
      match carry with
      | None -> U
-     | Some s -> S s
+     | Some s -> s
         
 						    
 let add = binary
