@@ -7,6 +7,7 @@ arm = AARCH64(
 )
 compare = arm.compare
 
+mov_imm = pytest.mark.parametrize("op", ["mov", "movk", "movn"])
 dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
 dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add"])
 
@@ -16,12 +17,13 @@ dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add"])
 #    """
 #    compare(tmpdir, asm, [])
 
-def test_assign(tmpdir):
+@mov_imm
+def test_mov(tmpdir, op):
     asm = """
-        mov x0, 124
+        {op} x0, 124
         mov w1, w0
         mov w2, w1
-    """
+    """.format(**locals())
     compare(tmpdir, asm, ["x0","x1","x2"])
 
 @dataop_comp_logic
