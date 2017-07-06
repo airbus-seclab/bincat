@@ -90,14 +90,20 @@ let to_char (t: t): char =
   | TOP -> '?'
   | S _ -> '1'
   | U -> '0'
-     
-let to_string b =
-  match b with
+
+let to_string (t: t): string =
+  match t with
   | TOP -> "?"
-  | T   -> "1"
+  | S _ -> "1"
   | U   -> "0"
 
-let equal b1 b2 = b1 = b2
+let equal (t1: t) (t2: t): bool =
+  match t1, t2 with
+  | U, U -> true
+  | TOP, _ | _, TOP -> true
+  | S src1, S src2 -> Src.compare src1 src2 = 0
+  | _, _ -> false
+     
 
 let binary carry t1 t2 =
   match t1, t2 with
