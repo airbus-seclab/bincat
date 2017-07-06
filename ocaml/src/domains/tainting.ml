@@ -120,7 +120,7 @@ let binary (carry: t option) (t1: t) (t2: t): t =
      begin
        match carry with
        | None -> S src
-       | Some csrc -> S (Src.union csrs src)
+       | Some csrc -> S (Src.union csrc src)
      end
         
   | S src1, S src2 ->
