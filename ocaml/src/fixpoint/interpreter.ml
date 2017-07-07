@@ -63,16 +63,16 @@ struct
         | BBinOp (LogOr, e1, e2)  ->
            let v1, b1 = process e1 b in
            let v2, b2 = process e2 b in
-	   let is_tainted = if b then b1||b2 else b1&&b2 in
-           if b then D.join v1 v2, is_tainted
-           else D.meet v1 v2, is_tainted
+	   let taint_sources = if b then b1||b2 else b1&&b2 in
+           if b then D.join v1 v2, taint_sources
+           else D.meet v1 v2, taint_sources
 		       
         | BBinOp (LogAnd, e1, e2) ->
            let v1, b1 = process e1 b in
            let v2, b2 = process e2 b in
-	   let is_tainted = if b then b1&&b2 else b1||b2 in
-           if b then D.meet v1 v2, is_tainted
-           else D.join v1 v2, is_tainted
+	   let taint_sources = if b then b1&&b2 else b1||b2 in
+           if b then D.meet v1 v2, taint_sources
+           else D.join v1 v2, taint_sources
 		       
         | Asm.Cmp (cmp, e1, e2)   ->
            let cmp' = if b then cmp else inv_cmp cmp in
@@ -193,7 +193,7 @@ struct
                  let cond =
                    match e with
                    | None -> true
-                   | Some c -> D.is_tainted c d  
+                   | Some c -> D.taint_sources c d  
                  in
                  match lv with
                  | V (T r) ->
@@ -244,7 +244,7 @@ struct
 	    (* check whether instruction pointers supposed and effective do agree *)
 	    try
               let sp = Register.stack_pointer () in
-              let ip_on_stack, is_tainted = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
+              let ip_on_stack, taint_sources = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
               match Data.Address.Set.elements (ip_on_stack) with
               | [a] -> 
 		 v.Cfa.State.ip <- a;
@@ -257,7 +257,7 @@ struct
 		   | None -> ()
 		 end;
 		 unroll_tbl := prev_unroll_tbl;
-		 Some v, is_tainted
+		 Some v, taint_sources
               | _ -> raise Exit
 	    with
               _ -> L.abort (fun p -> p "computed instruction pointer at return instruction is either undefined or imprecise")
@@ -293,13 +293,13 @@ struct
             let res =
                 List.fold_left (fun (l, b) v ->
                     try
-                        let addrs, is_tainted = D.mem_to_addresses v.Cfa.State.v target in
+                        let addrs, taint_sources = D.mem_to_addresses v.Cfa.State.v target in
                         let addresses = Data.Address.Set.elements addrs in
                         match addresses with
                         | [a] ->
                           begin
                               try let res = import_call [v] a ip_pred fun_stack in import := true; res
-                              with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
+                              with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||taint_sources
                           end
                         | [] -> L.abort (fun p -> p "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                         | l -> L.abort (fun p -> p "Please select between the addresses %s for jump target from %s\n"
@@ -349,11 +349,11 @@ struct
 	let process_branch stmts branch =
 	  let vertices', b = (List.fold_left (fun (l, b) v ->
 					      try
-						let d, is_tainted = restrict v.Cfa.State.v e branch in
+						let d, taint_sources = restrict v.Cfa.State.v e branch in
 						if D.is_bot d then
 						  l, b
 						else
-						  (copy v d (Some true) false)::l, b||is_tainted
+						  (copy v d (Some true) false)::l, b||taint_sources
 					      with Exceptions.Empty -> l, b) ([], false) vertices)
 	  in
 	  let vert, b' = process_list vertices' stmts in
@@ -422,13 +422,13 @@ struct
       let vstart = copy v v.Cfa.State.v None true
       in
       vstart.Cfa.State.ip <- ip;
-      vstart.Cfa.State.is_tainted <- false;
+      vstart.Cfa.State.taint_sources <- false;
       let vertices, b = process_list [vstart] v.Cfa.State.stmts in
       if b then
 	begin
           L.debug (fun p->p "FUFU taint : true");
-	  v.Cfa.State.is_tainted <- true;
-	  List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.is_tainted <- true) !fun_stack
+	  v.Cfa.State.taint_sources <- true;
+	  List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- true) !fun_stack
 	end;
       vertices
 
@@ -635,14 +635,14 @@ struct
 
     let back_update_abstract_value (g:Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (pred: Cfa.State.t): Cfa.State.t list =
       let backward _g v _ip =
-	let d', is_tainted = List.fold_left (fun (d, b) s ->
+	let d', taint_sources = List.fold_left (fun (d, b) s ->
 	  let d', b' = backward_process v.Cfa.State.branch d s in
 	  d', b||b') (v.Cfa.State.v, false) (List.rev pred.Cfa.State.stmts)
 	in
 	let d' = D.meet pred.Cfa.State.v d' in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
-        L.debug (fun p->p "taint : back lol %B" is_tainted);
-	pred.Cfa.State.is_tainted <- is_tainted;
+        L.debug (fun p->p "taint : back lol %B" taint_sources);
+	pred.Cfa.State.taint_sources <- taint_sources;
 	[pred]
       in
       update_abstract_value g v ip backward
@@ -717,13 +717,13 @@ struct
 	      
     let forward_abstract_value (g:Cfa.t) (succ: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
       let forward _g v _ip =
-	let d', is_tainted = List.fold_left (fun (d, b) s ->
+	let d', taint_sources = List.fold_left (fun (d, b) s ->
 				 let d', b' = forward_process d s (succ.Cfa.State.branch) in
 				 d', b||b') (v.Cfa.State.v, false) (succ.Cfa.State.stmts)
        in
-        L.debug (fun p->p "forward_abstract_value taint : %B" is_tainted);
+        L.debug (fun p->p "forward_abstract_value taint : %B" taint_sources);
       	succ.Cfa.State.v <- D.meet succ.Cfa.State.v d';
-	succ.Cfa.State.is_tainted <- is_tainted;
+	succ.Cfa.State.taint_sources <- taint_sources;
 	[succ]
       in
       update_abstract_value g v ip forward
