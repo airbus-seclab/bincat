@@ -400,7 +400,7 @@ def test_block_xfer_store(tmpdir):
     """
     compare(tmpdir, asm, ["r0", "r2", "r3", "r4", "r5", "r6", "r7"])
 
-def test_block_xfer_load(tmpdir):
+def test_block_xfer_load_general(tmpdir):
     asm = """
             mov r0, #123
             mov r1, #101
@@ -414,6 +414,24 @@ def test_block_xfer_load(tmpdir):
             sub r3, r3, sp
     """
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r7", "r10"])
+
+def test_block_xfer_load_pc(tmpdir):
+    asm = """
+            mov r4, #0
+            mov r0, #123
+            b .after
+        .before:
+            push { lr }
+            push { r0 }
+            push { r0 }
+            push { r0 }
+            ldmfd sp!,{ r1, r2, r3, pc }
+            mov r1, #0 // should not be executed
+        .after:
+            bl .before
+            mov r4, #101
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4"])
 
 
 
