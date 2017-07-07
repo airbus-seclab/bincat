@@ -204,6 +204,7 @@ struct
       let ofs = ref (if instruction land (1 lsl 24) = 0 then 0 else 4) in
       let store = instruction land (1 lsl 20) = 0 in
       let stmts = ref [] in
+      let update_pc = ref false in
       let reg_count = ref 0 in
       for i = 0 to 15 do
         let regtest = if ascend then i else 15-i in
@@ -217,7 +218,8 @@ struct
               begin
                 stmts := !stmts @
                   [ Set( V (reg regtest),
-                         Lval (M (BinOp(dir_op, Lval (V (reg rn)), const !ofs 32), 32))) ]
+                         Lval (M (BinOp(dir_op, Lval (V (reg rn)), const !ofs 32), 32))) ];
+                if i = 15 then update_pc := true
               end;
             ofs := !ofs+4;
             reg_count := !reg_count + 1
@@ -225,10 +227,11 @@ struct
         else ()
       done;
       if instruction land (1 lsl 21) = 0 then
-        !stmts
-      else
-        !stmts @ [ Set (V (reg rn), BinOp(dir_op, Lval (V (reg rn)), const (4*(!reg_count)) 32)) ]
-
+        stmts := !stmts @
+          [ Set (V (reg rn), BinOp(dir_op, Lval (V (reg rn)), const (4*(!reg_count)) 32)) ];
+      if !update_pc then
+        stmts := !stmts @ [ Jmp (R (Lval (V (T pc)))) ];
+      !stmts
 
   let branch s instruction =
     let link_stmt = if (instruction land (1 lsl 24)) <> 0 then
