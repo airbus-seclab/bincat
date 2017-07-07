@@ -133,7 +133,7 @@ module Make(D: Unrel.T) =
 
   let mem_to_addresses (uenv, _tenv) e = U.mem_to_addresses uenv e
 
-  let is_tainted e (uenv, _tenv) = U.is_tainted e uenv
+  let taint_sources e (uenv, _tenv) = U.taint_sources e uenv
        
 
   let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv) =
