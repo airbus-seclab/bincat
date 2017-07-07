@@ -262,7 +262,7 @@ struct
 		op_sz = !Config.operand_sz;
 		addr_sz = !Config.address_sz;
 	  };
-	  is_tainted = false;
+	  is_tainted = "";
 	}
 	
 
