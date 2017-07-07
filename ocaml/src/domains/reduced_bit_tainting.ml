@@ -44,9 +44,9 @@ let xor (v1, t1) (v2, t2) = B.xor v1 v2, T.logor t1 t2
 
 let core_sub_add op (v1, t1) (v2, t2) =
   let res, carry = op v1 v2  in
-  let res_taint      = T.logor t1 t2  in
+  let res_taint  = T.logor t1 t2 in
   let res_carry =
-    match carry,res_taint with
+    match carry, res_taint with
     | B.ZERO, _   -> None
     | B.ONE, t    -> Some (B.ONE, t)
     | B.TOP, T.U  -> Some (B.TOP, T.U)
