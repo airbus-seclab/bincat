@@ -190,6 +190,11 @@ struct
         else
             Lval (V (reg_sf num sf))
 
+  (* Note about use_sp: register number 31 can mean 2 differents things:
+        - the "zero" register, which always reads "0" and discards writes
+        - SP (stack pointer)
+    pass ~use_sp:true to use the stack pointer
+  *)
   let get_Rm_exp ?(use_sp = false) insn sf =
         let num = ((insn lsr 16) land 0x1F) in get_reg_exp ~use_sp:use_sp num sf
   let get_Rn_exp ?(use_sp = false) insn sf =
@@ -296,12 +301,13 @@ struct
         core_stmts
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with immediate *)
-  let add_sub_imm s insn sf rn rd =
+  let add_sub_imm s insn sf =
     let op = (insn lsr 30) land 1 in (* add or sub ? *)
     let s_b = get_s_bool insn in
     let sz = sf2sz sf in
     let imm12 = get_imm12 insn in
     let shift = get_shifted_imm s insn imm12 sz in
+    let rd, rn, _ = get_regs ~use_sp:true insn sf in
     add_sub_core sz rd rn op shift s_b @ sf_zero_rd insn sf
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with register *)
@@ -313,7 +319,7 @@ struct
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let op = (insn lsr 30) land 1 in
     let s_b = get_s_bool insn in
-    let rd, rn, rm = get_regs ~use_sp:true insn sf in
+    let rd, rn, rm = get_regs insn sf in
     let shifted_rm =  get_shifted_reg sz insn rm imm6 in
     add_sub_core sz rd rn op shifted_rm s_b
 
@@ -335,11 +341,13 @@ struct
         core_stmts
 
   (* AND / ORR / EOR / ANDS (32/64) with immediate *)
-  let logic_imm s insn sf rn rd =
+  let logic_imm s insn sf =
     let opc = get_opc insn in
     let n = (insn lsr 22) land 1 in
     if sf == 0 && n == 1 then (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let sz = sf2sz sf in
+    let rd = get_Rd_lv ~use_sp:true insn sf in 
+    let rn = get_Rn_exp insn sf in
     let immr = get_immr insn in
     let imms = get_imms insn in
     let imm_res = decode_bitmasks sz n immr imms true in
@@ -359,11 +367,12 @@ struct
     logic_core sz rd rn opc shifted_rm' (opc == 0b11) @ sf_zero_rd insn sf
 
   (* MOVZ move immediate with optional shift *)
-  let mov_wide s insn sf rd =
+  let mov_wide s insn sf =
     let sz = sf2sz sf in
     let opc = get_opc insn in
     let hw = ((insn lsr 21) land 3) in
     if (sf == 0 && hw > 1) || (opc == 0b01) then error s.a (Printf.sprintf "Invalid opcode 0x%x" insn);
+    let rd = get_Rd_lv insn sf in
     let imm16 = const (get_imm16 insn) sz in
     let shift = hw lsl 4 in
     let imm = if shift > 0 then BinOp(Shl, imm16, const shift sz) else imm16 in
@@ -379,11 +388,10 @@ struct
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
     let sf, _ = get_sf insn in
-    let rd, rn, _ = get_regs ~use_sp:true insn sf in
     let stmts = match op0 with
-        | 0b010 | 0b011 -> add_sub_imm s insn sf rn rd
-        | 0b100         -> logic_imm s insn sf rn rd
-        | 0b101 -> mov_wide s insn sf rd
+        | 0b010 | 0b011 -> add_sub_imm s insn sf
+        | 0b100         -> logic_imm s insn sf
+        | 0b101 -> mov_wide s insn sf
         | 0b110 -> error s.a (Printf.sprintf "Bitfield (imm) not decoded (0x%x)" insn)
         | 0b111 -> error s.a (Printf.sprintf "Extract (imm) not decoded (0x%x)" insn)
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
