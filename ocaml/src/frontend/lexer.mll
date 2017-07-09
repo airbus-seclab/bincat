@@ -110,6 +110,7 @@ rule token = parse
   | "cdecl"     	    { CDECL }
   | "stdcall"   	    { STDCALL }
   | "fastcall"  	    { FASTCALL }
+  | "aapcs"             { AAPCS }
   (* analyzer tokens *)
   | "ini_version"    	    { INI_VERSION }
   | "unroll"    	    { UNROLL }
