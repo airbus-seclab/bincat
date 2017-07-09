@@ -16,6 +16,22 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+(* need to have OCaml 4.04 to have it in standard library :( *)
+let split_on_char sep str = 
+  let l = String.length str in
+  let lst = ref [] in
+  let p2 = ref l in
+  for p1 = l-1 downto 0 do
+    if str.[p1] = sep then
+      begin
+        let substr = String.sub str (p1+1) (!p2-p1-1) in
+        lst := substr::!lst;
+        p2 := p1
+      end
+  done;
+  String.sub str 0 !p2 :: !lst
+
+
 (** log facilities *)
 
 (** fid of the log file *)
