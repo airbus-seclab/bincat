@@ -19,10 +19,21 @@
 (** Fixpoint iterator *)
 
 module L = Log.Make(struct let name = "interpreter" end)
- 
+module Log_trace = Log.Make(struct let name = "trace" end)
+
 module Make(D: Domain.T)(Decoder: Decoder.Make) =
 struct
+
+    (** Decoder *)
     module Decoder = Decoder(D)
+
+    type import_attrib_type = {
+      mutable name: string;
+      mutable addr: Z.t option;
+      mutable typing_rule: bool;
+      mutable tainting_rule: bool;
+      mutable stub: bool;
+    }
 
 				 
     (** Control Flow Automaton *)
@@ -410,7 +421,6 @@ struct
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * bool) =
         match stmts with
         | s::stmts ->
-           L.debug (fun p->p "process_list statements:\n%s" (Asm.string_of_stmt s true));
 	   let new_vert, tainted = begin
 	     try
                let (new_vertices: Cfa.State.t list), (b: bool) = process_vertices vertices s in
@@ -510,6 +520,61 @@ struct
 	in
         hash_add_or_append overrides ip rules'
       ) Config.reg_override;
+      if L.log_info () then
+        begin
+          let empty_desc = {
+              name = "n/a";
+              addr = None;
+              typing_rule = false;
+              tainting_rule = false;
+              stub = false;
+            } in
+          let yesno b = if b then "YES" else "no" in
+          let itbl = Hashtbl.create 5 in
+          Hashtbl.iter (fun a (libname, fname) ->
+            let func_desc = { empty_desc with
+              name = libname ^ "." ^ fname;
+              addr = Some a;
+            } in
+            Hashtbl.add itbl fname func_desc) Config.import_tbl;
+          Hashtbl.iter (fun name _typing_rule ->
+            let func_desc =
+              try
+                Hashtbl.find itbl name
+              with Not_found -> { empty_desc with name = "?." ^ name } in
+            Hashtbl.replace itbl name { func_desc with typing_rule=true })  Config.typing_rules;
+          Hashtbl.iter (fun  (libname, name) (_callconv, _taint_ret, _taint_args) ->
+            let func_desc =
+              try
+                Hashtbl.find itbl name
+              with Not_found -> { empty_desc with name = libname ^ "." ^ name } in
+            Hashtbl.replace itbl name { func_desc with tainting_rule=true })  Config.tainting_rules;
+          Hashtbl.iter (fun name _  ->
+            let func_desc =
+              try
+                Hashtbl.find itbl name
+              with Not_found -> { empty_desc with name = "?." ^ name } in
+            Hashtbl.replace itbl name { func_desc with stub=true })  Decoder.Imports.available_stubs;
+
+          let addr_to_str x = match x with
+            | Some a -> 
+               begin (* too bad we can't format "%%0%ix" to make a new format *)
+                 match !Config.address_sz with
+                 | 16 -> Printf.sprintf "%04x" (Z.to_int a)
+                 | 32 -> Printf.sprintf "%08x" (Z.to_int a)
+                 | 64 -> Printf.sprintf "%016x" (Z.to_int a)
+                 | _ ->  Printf.sprintf "%x" (Z.to_int a)
+               end
+            | None -> "?"
+          in
+          L.info (fun p -> p "Dumping state of imports");
+          Hashtbl.iter (fun _name func_desc ->
+            L.info (fun p -> p "| IMPORT %-30s addr=%-16s typing=%-3s tainting=%-3s stub=%-3s"
+              func_desc.name (addr_to_str func_desc.addr) 
+              (yesno func_desc.typing_rule) (yesno func_desc.tainting_rule) (yesno func_desc.stub)))
+            itbl;
+          L.info (fun p -> p "End of dump");
+        end;
 
     List.iter (fun (tbl, region) ->
         Hashtbl.iter (fun z rules ->
@@ -553,6 +618,8 @@ struct
             begin
             match r with
             | Some (v, ip', d') ->
+               L.debug(fun p -> p "Decoded instruction at %s #############################" (Data.Address.to_string v.Cfa.State.ip));
+               Log_trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
 	       	(* add overrides if needed *)

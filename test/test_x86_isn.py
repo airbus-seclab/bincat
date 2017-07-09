@@ -10,10 +10,20 @@ compare = x86.compare
 
 def test_assign(tmpdir):
     asm = """
-    	mov eax,0xaaaa55aa
-	mov ebx,0xcccccc55
+        mov esi,0xabacadae
+        mov edi,0xacadaeaf
+        mov eax,0xaabbccdd
+        mov ebx,0xbbccddee
+        mov ecx,0xddeeffaa
+        mov edx,0xeeffaabb
+        mov al,0x11
+        mov bh,0x22
+        mov cl,0x33
+        mov ch,0x44
+        mov dh,0x55
+        mov dl,0x66
     """.format(**locals())
-    compare(tmpdir, asm, ["eax","ebx"])
+    compare(tmpdir, asm, ["eax","ebx","ecx","edx","esi","edi"])
 
 ##  ___  ___  _        __  ___  ___  ___ 
 ## | _ \/ _ \| |      / / | _ \/ _ \| _ \

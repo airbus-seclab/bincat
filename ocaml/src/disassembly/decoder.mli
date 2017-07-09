@@ -40,6 +40,7 @@ sig
 
   (** mapping from code addresses to library functions *)
   val tbl: (Data.Address.t, fun_type) Hashtbl.t
+  val available_stubs: (string, unit) Hashtbl.t
   end
 
     (** decoding context *)
