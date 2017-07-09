@@ -319,7 +319,7 @@ struct
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let op = (insn lsr 30) land 1 in
     let s_b = get_s_bool insn in
-    let rd, rn, rm = get_regs insn sf in
+    let rd, rn, rm = get_regs  insn sf in
     let shifted_rm =  get_shifted_reg sz insn rm imm6 in
     add_sub_core sz rd rn op shifted_rm s_b
 
@@ -346,7 +346,7 @@ struct
     let n = (insn lsr 22) land 1 in
     if sf == 0 && n == 1 then (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let sz = sf2sz sf in
-    let rd = get_Rd_lv ~use_sp:true insn sf in 
+    let rd = get_Rd_lv ~use_sp:true insn sf in
     let rn = get_Rn_exp insn sf in
     let immr = get_immr insn in
     let imms = get_imms insn in
@@ -426,6 +426,32 @@ struct
             []
     end
 
+  let load_store_pair s insn op1 =
+        [Nop]
+
+  let load_store (s: state) (insn: int): (Asm.stmt list) =
+    let op0 = (insn lsr 31) land 1 in
+    let op1 = (insn lsr 28) land 3 in
+    let op2 = (insn lsr 26) land 1 in
+    let op3 = (insn lsr 23) land 3 in
+    let op4 = (insn lsr 16) land 0x3F in
+    let _op5 = (insn lsr 10) land 3 in
+    (* unallocated opcodes *)
+    if (op0 == 0 && op1 == 0 && op2 == 1 &&
+        op3 land 1 == 0 && (op4 land 0x1F) != 0) ||
+       (op0 == 1 && op1 == 0 && op2 == 1) ||
+       (op1 == 0 && op2 == 0 && op3 > 1) ||
+       (op1 == 1 && op3 > 1) then
+            error s.a (Printf.sprintf "Unallocated opcode 0x%x" insn);
+    (* SIMD *)
+    if (op0 == 0) then
+        error s.a (Printf.sprintf "SIMD load/store not decoded yet. opcode 0x%x" insn);
+    if (op1 == 0b10) then
+        load_store_pair s insn op1;
+    [Nop]
+
+
+
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction str in
@@ -435,7 +461,9 @@ struct
         | 0b0000 | 0b0001 | 0b0010 | 0b0011 -> error s.a (Printf.sprintf "Unallocated opcode 0x%x" instruction)
         (* 100x : data processing (immediate) *)
         | 0b1000 | 0b1001 -> data_processing_imm s instruction
-        (* x101 : data processing (immediate) *)
+        (* x1x0 : loads and stores *)
+        | 0b0100 | 0b0110 | 0b1100 | 0b1110 -> load_store s instruction
+        (* x101 : data processing (register) *)
         | 0b0101 | 0b1101 -> data_processing_reg s instruction
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
     in
