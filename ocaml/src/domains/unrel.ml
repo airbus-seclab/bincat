@@ -545,7 +545,7 @@ module Make(D: T) =
                if r2 then
                  let v1, _ = eval e1 in
                  let v2, _ = eval e2 in
-                 D.join v1 v2, tsrc^tsrc2
+                 D.join v1 v2, T.join tsrc tsrc2
                else
                  fst (eval e1), tsrc
              else
