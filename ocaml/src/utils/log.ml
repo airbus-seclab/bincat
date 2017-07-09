@@ -92,6 +92,18 @@ module Make(Modname: sig val name : string end) = struct
 	let msg = fmsg Printf.sprintf in
 	Printf.fprintf !logfid  "[DEBUG] %s: %s\n" modname msg;
 	flush !logfid
+  let trace adrs fmsg =
+    if loglevel () >= 4 then
+        let pc = Data.Address.to_string adrs in
+	let msg = fmsg Printf.sprintf in
+        let rec log_trace strlist =
+          match strlist with
+          | [] -> ()
+          | h::l ->
+            Printf.fprintf !logfid  "[TRACE] %s: %s\n" pc h;
+            log_trace l in
+        log_trace (split_on_char '\n' msg) ;
+	flush !logfid
   let info fmsg = 
     if loglevel () >= 3 then
 	let msg = fmsg Printf.sprintf in
