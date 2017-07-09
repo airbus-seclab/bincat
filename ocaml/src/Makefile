@@ -16,7 +16,7 @@ data-struct/code.ml\
 domains/env.ml\
 domains/typenv.ml\
 domains/bit.ml\
-domains/tainting.ml\
+data-struct/taint.ml\
 domains/unrel.ml\
 domains/vector.ml\
 domains/pointer.ml\
