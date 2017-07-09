@@ -86,14 +86,18 @@ module Make(Modname: sig val name : string end) = struct
 		with Not_found -> !Config.loglevel in
 	      _loglvl := Some lvl;
 	      lvl
-	
-  let debug fmsg = 
-    if loglevel () >= 4 then
+  let log_debug () = loglevel () >= 4
+  let log_info () = loglevel () >= 3
+  let log_warn () = loglevel () >= 2
+  let log_error () = loglevel () >= 1
+
+  let debug fmsg =
+    if log_debug () then
 	let msg = fmsg Printf.sprintf in
 	Printf.fprintf !logfid  "[DEBUG] %s: %s\n" modname msg;
 	flush !logfid
   let trace adrs fmsg =
-    if loglevel () >= 4 then
+    if log_debug () then
         let pc = Data.Address.to_string adrs in
 	let msg = fmsg Printf.sprintf in
         let rec log_trace strlist =
@@ -105,17 +109,17 @@ module Make(Modname: sig val name : string end) = struct
         log_trace (split_on_char '\n' msg) ;
 	flush !logfid
   let info fmsg = 
-    if loglevel () >= 3 then
+    if log_info () then
 	let msg = fmsg Printf.sprintf in
 	Printf.fprintf !logfid  "[INFO]  %s: %s\n" modname msg;
 	flush !logfid
   let warn fmsg = 
-    if loglevel () >= 2 then
+    if log_warn () then
 	let msg = fmsg Printf.sprintf in
 	Printf.fprintf !logfid  "[WARN]  %s: %s\n" modname msg;
 	flush !logfid
   let error fmsg = 
-    if loglevel () >= 1 then
+    if log_error () then
       let msg = fmsg Printf.sprintf in
       Printf.fprintf !logfid  "[ERROR] %s: %s\n" modname msg;
       flush !logfid

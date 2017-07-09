@@ -71,6 +71,14 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 
     type domain = D.t
 
+    type import_attrib_type = {
+      mutable name: string;
+      mutable addr: Z.t option;
+      mutable typing_rule: bool;
+      mutable tainting_rule: bool;
+      mutable stub: bool;
+    }
+
     (** Decoder *)
     module Decoder = Decoder.Make(D)
 				 
@@ -562,6 +570,61 @@ module Make(D: Domain.T): (T with type domain = D.t) =
 	in
         hash_add_or_append overrides ip rules'
       ) Config.reg_override;
+      if L.log_info () then
+        begin
+          let empty_desc = {
+              name = "n/a";
+              addr = None;
+              typing_rule = false;
+              tainting_rule = false;
+              stub = false;
+            } in
+          let yesno b = if b then "YES" else "no" in
+          let itbl = Hashtbl.create 5 in
+          Hashtbl.iter (fun a (libname, fname) ->
+            let func_desc = { empty_desc with
+              name = libname ^ "." ^ fname;
+              addr = Some a;
+            } in
+            Hashtbl.add itbl fname func_desc) Config.import_tbl;
+          Hashtbl.iter (fun name _typing_rule ->
+            let func_desc =
+              try
+                Hashtbl.find itbl name
+              with Not_found -> { empty_desc with name = "?." ^ name } in
+            Hashtbl.replace itbl name { func_desc with typing_rule=true })  Config.typing_rules;
+          Hashtbl.iter (fun  (libname, name) (_callconv, _taint_ret, _taint_args) ->
+            let func_desc =
+              try
+                Hashtbl.find itbl name
+              with Not_found -> { empty_desc with name = libname ^ "." ^ name } in
+            Hashtbl.replace itbl name { func_desc with tainting_rule=true })  Config.tainting_rules;
+          Hashtbl.iter (fun name _stub  ->
+            let func_desc =
+              try
+                Hashtbl.find itbl name
+              with Not_found -> { empty_desc with name = "?." ^ name } in
+            Hashtbl.replace itbl name { func_desc with stub=true })  Decoder.Imports.stdcall_stubs;
+
+          let addr_to_str x = match x with
+            | Some a -> 
+               begin (* too bad we can't format "%%0%ix" to make a new format *)
+                 match !Config.address_sz with
+                 | 16 -> Printf.sprintf "%04x" (Z.to_int a)
+                 | 32 -> Printf.sprintf "%08x" (Z.to_int a)
+                 | 64 -> Printf.sprintf "%016x" (Z.to_int a)
+                 | _ ->  Printf.sprintf "%x" (Z.to_int a)
+               end
+            | None -> "?"
+          in
+          L.info (fun p -> p "Dumping state of imports");
+          Hashtbl.iter (fun _name func_desc ->
+            L.info (fun p -> p "| IMPORT %-30s addr=%-16s typing=%-3s tainting=%-3s stub=%-3s"
+              func_desc.name (addr_to_str func_desc.addr) 
+              (yesno func_desc.typing_rule) (yesno func_desc.tainting_rule) (yesno func_desc.stub)))
+            itbl;
+          L.info (fun p -> p "End of dump");
+        end;
 
     List.iter (fun (tbl, region) ->
         Hashtbl.iter (fun z rules ->
