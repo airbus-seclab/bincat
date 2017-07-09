@@ -184,20 +184,25 @@ struct
   let get_s_bool insn = ((insn lsr 30) land 1) == 1
 
   (* Rm (20:16) / Rn (9:5) / Rd (4:0) : registers *)
-  let get_reg_exp num sf =
-        if num == 31 then (* zero register *)
+  let get_reg_exp ?(use_sp = false) num sf =
+        if num == 31 && not use_sp then (* zero register *)
             const0 (sf2sz sf)
         else
             Lval (V (reg_sf num sf))
 
-  let get_Rm_exp insn sf = let num = ((insn lsr 16) land 0x1F) in get_reg_exp num sf
-  let get_Rn_exp insn sf = let num = ((insn lsr 5) land 0x1F) in get_reg_exp num sf
-  let get_Rd_lv insn sf = let num = (insn land 0x1F) in if num == 31 then L.abort (fun p->p "write to XZR") else V(reg_sf num sf)
+  let get_Rm_exp ?(use_sp = false) insn sf =
+        let num = ((insn lsr 16) land 0x1F) in get_reg_exp ~use_sp:use_sp num sf
+  let get_Rn_exp ?(use_sp = false) insn sf =
+        let num = ((insn lsr 5) land 0x1F) in get_reg_exp ~use_sp:use_sp num sf
+  let get_Rd_lv ?(use_sp = false) insn sf =
+        let num = (insn land 0x1F) in
+        if num == 31 && not use_sp then L.abort (fun p->p "write to XZR")
+        else V(reg_sf num sf)
 
-  let get_regs insn sf =
-    (get_Rd_lv insn sf,
-     get_Rn_exp insn sf,
-     get_Rm_exp insn sf)
+  let get_regs ?(use_sp = false) insn sf =
+    (get_Rd_lv ~use_sp:use_sp insn sf,
+     get_Rn_exp ~use_sp:use_sp insn sf,
+     get_Rm_exp ~use_sp:use_sp insn sf)
 
   (* imm12 : immediate 21:10 *)
   let get_imm12 insn = (insn lsr 10) land 0xfff
@@ -308,7 +313,7 @@ struct
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let op = (insn lsr 30) land 1 in
     let s_b = get_s_bool insn in
-    let rd, rn, rm = get_regs insn sf in
+    let rd, rn, rm = get_regs ~use_sp:true insn sf in
     let shifted_rm =  get_shifted_reg sz insn rm imm6 in
     add_sub_core sz rd rn op shifted_rm s_b
 
@@ -374,7 +379,7 @@ struct
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
     let sf, _ = get_sf insn in
-    let rd, rn, _ = get_regs insn sf in
+    let rd, rn, _ = get_regs ~use_sp:true insn sf in
     let stmts = match op0 with
         | 0b010 | 0b011 -> add_sub_imm s insn sf rn rd
         | 0b100         -> logic_imm s insn sf rn rd
