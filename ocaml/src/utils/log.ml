@@ -115,10 +115,10 @@ module Make(Modname: sig val name : string end) = struct
 	Printf.fprintf !logfid  "[WARN]  %s: %s\n" modname msg;
 	flush !logfid
   let error fmsg = 
-    let msg = fmsg Printf.sprintf in
     if loglevel () >= 1 then
+      let msg = fmsg Printf.sprintf in
       Printf.fprintf !logfid  "[ERROR] %s: %s\n" modname msg;
-    flush !logfid
+      flush !logfid
   let exc e fmsg = 
     let msg = fmsg Printf.sprintf in
     Printf.fprintf !logfid  "[EXCEPTION] %s: %s\n" modname msg;
