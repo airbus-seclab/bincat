@@ -459,7 +459,6 @@ module Make(D: Domain.T): (T with type domain = D.t) =
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * bool) =
         match stmts with
         | s::stmts ->
-           L.debug (fun p->p "process_list statements:\n%s" (Asm.string_of_stmt s true));
 	   let new_vert, tainted = begin
 	     try
                let (new_vertices: Cfa.State.t list), (b: bool) = process_vertices vertices s in
@@ -606,6 +605,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             begin
             match r with
             | Some (v, ip', d') ->
+               L.debug(fun p -> p "Decoded instruction at %s #############################" (Data.Address.to_string v.Cfa.State.ip));
                Log_trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in

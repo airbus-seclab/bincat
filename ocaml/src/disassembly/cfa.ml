@@ -196,7 +196,7 @@ module Make(Domain: Domain.T) =
 	    is_tainted = is_tainted;
 	  }
 	  in
-	  L.debug (fun p -> p "Create CFA node %i for IP=%s #############################" v.id (Data.Address.to_string v.ip));
+	  L.debug (fun p -> p "Create CFA node %i for IP=%s" v.id (Data.Address.to_string v.ip));
 	  G.add_vertex g v;
 	  v
 
