@@ -28,7 +28,9 @@ struct
   }
 
   let tbl: (Data.Address.t, fun_type) Hashtbl.t = Hashtbl.create 5
-      
+
+  let available_stubs: (string, unit) Hashtbl.t = Hashtbl.create 5
+
   exception Found of (Data.Address.t * fun_type)
   let search_by_name (fun_name: string): (Data.Address.t * fun_type) =
     try
@@ -112,9 +114,11 @@ struct
        ("__printf_chk", printf_chk_stdcall) ; ("strlen", strlen_stdcall)
       ]
     in
-    List.iter (fun (name, body) -> Hashtbl.add stdcall_stubs name (body())) funs
-  
-  
+    List.iter (fun (name, body) -> 
+      Hashtbl.add stdcall_stubs name (body());
+      Hashtbl.replace available_stubs name ()
+    ) funs
+
   let init_cdecl () =
 	let funs =
 	  [("memcpy", memcpy_cdecl) ; ("sprintf", sprintf_cdecl) ; ("printf", printf_cdecl);

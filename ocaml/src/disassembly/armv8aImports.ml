@@ -29,6 +29,8 @@ struct
 
   let tbl: (Data.Address.t, fun_type) Hashtbl.t = Hashtbl.create 5
 
+  let available_stubs: (string, unit) Hashtbl.t = Hashtbl.create 5
+
   exception Found of (Data.Address.t * fun_type)
   let search_by_name (_fun_name: string): (Data.Address.t * fun_type) = raise Not_found
 end

@@ -370,7 +370,7 @@ struct
                end
           | 0b10 -> (* asr *) error s.a "Asr shift operation for shifted register not implemented"
           | 0b11 -> (* ror *) error s.a "Ror shift operation for shifted register not implemented"
-          | _ as st -> L.abort (fun p -> p "unexpected shift type %x" st)
+          | st -> L.abort (fun p -> p "unexpected shift type %x" st)
     in
     let to33bits x = UnOp(ZeroExt 33, x) in
     let bit31 = const 0x80000000 32 in
@@ -618,7 +618,7 @@ struct
     let stmts_cc = match (instruction lsr 28) land 0xf with
     | 0xf -> []    (* never *) 
     | 0xe -> stmts (* always *) 
-    | _ as cc -> wrap_cc cc stmts in
+    | cc -> wrap_cc cc stmts in
     let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
     (* XXX: 12 bytes if a register is used to specify a shift amount *)
     return s instruction (Set( V (T pc), current_pc) :: stmts_cc)

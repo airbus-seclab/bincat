@@ -1,7 +1,7 @@
 # used as a template for tests
 [settings]
 mode = protected
-call_conv = cdecl
+call_conv = aapcs
 mem_sz = 32
 op_sz = 32
 stack_width = 32

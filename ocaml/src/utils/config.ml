@@ -81,6 +81,7 @@ type call_conv_t =
   | CDECL
   | STDCALL
   | FASTCALL
+  | AAPCS (* ARM *)
 
 let call_conv = ref CDECL
 
