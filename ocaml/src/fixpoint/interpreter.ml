@@ -641,7 +641,7 @@ struct
 	in
 	let d' = D.meet pred.Cfa.State.v d' in
 	pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
-        L.debug (fun p->p "taint : back lol %B" taint_sources);
+        L.debug (fun p->p "taint : back lol %s" taint_sources);
 	pred.Cfa.State.taint_sources <- taint_sources;
 	[pred]
       in

@@ -98,7 +98,7 @@ module type T =
 	  The returned boolean is true whenever the pointer is tainted *)
       val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t * bool
 	
-      val taint_source: Asm.exp -> t -> string
+      val taint_sources: Asm.exp -> t -> string
 
       (** [set_type lv t m] type the left value lv with type t *)
       val set_type: Asm.lval -> Types.t -> t -> t
