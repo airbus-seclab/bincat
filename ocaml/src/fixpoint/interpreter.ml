@@ -19,6 +19,7 @@
 (** Fixpoint iterator *)
 
 module L = Log.Make(struct let name = "interpreter" end)
+module Log_trace = Log.Make(struct let name = "trace" end)
 
 (** external signature of the module *)
 module type T =
@@ -605,6 +606,7 @@ module Make(D: Domain.T): (T with type domain = D.t) =
             begin
             match r with
             | Some (v, ip', d') ->
+               Log_trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
 	       	(* add overrides if needed *)
