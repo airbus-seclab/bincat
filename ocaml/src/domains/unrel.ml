@@ -672,14 +672,14 @@ module Make(D: T) =
       | _ -> v
 				
 				
-    let set dst src m: (t * bool) =
+    let set dst src m: (t * Taint.t) =
       match m with
-      | BOT    -> BOT, false
+      | BOT    -> BOT, Taint.U
       | Val m' ->
          let v', _ = eval_exp m' src in
          let v' = span_taint m' src v' in
          L.debug (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
-         let b = D.is_tainted v' in
+         let b = D.taint_sources v' in
          if D.is_bot v' then
            BOT, b
          else
@@ -700,12 +700,15 @@ module Make(D: T) =
            | Asm.M (e, n) ->
               let v, b' = eval_exp m' e in
               let addrs = D.to_addresses v in
-              let l     = Data.Address.Set.elements addrs in
               try
+                let l     = Data.Address.Set.elements addrs in
+                let t' = Taint.join b b' in
                 match l with
-                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), b||b'
-                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), b||b'
-              with Exceptions.Empty -> BOT, false
+                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), t'
+                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), t'
+              with
+              | Exceptions.Enum_failure -> Val (Env.empty), Taint.TOP 
+              | Exceptions.Empty -> BOT, Taint.U
                          
     let join m1 m2 =
       match m1, m2 with
