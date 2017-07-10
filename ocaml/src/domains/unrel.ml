@@ -40,7 +40,7 @@ module type T =
     (** the forget operation is bounded to bits from l to u if the second parameter is Some (l, u) *)
       
     (** returns a string representation of the set of taint sources of the given abstract value. The string is empty if untainted *)
-    val taint_sources: t -> string
+    val taint_sources: t -> Taint.t
 			   
     (** top value *)
     val top: t
@@ -105,7 +105,7 @@ module type T =
     val taint: t -> t
 		      
     (** [span_taint v t] span taint t on each bit of v *)
-    val span_taint: t -> Tainting.t -> t
+    val span_taint: t -> Taint.t -> t
 
     (** returns the sub value between bits low and up *)
     val extract: t -> int -> int -> t
@@ -119,8 +119,8 @@ module type T =
     (** [concat [v1; v2 ; ... ; vn] ] returns value v such that v = v1 << |v2+...+vn| + v2 << |v3+...+vn| + ... + vn *)
     val concat: t list -> t
 
-      (** returns the minimal taint value of the given parameter *)
-      val get_minimal_taint: t -> Tainting.t
+    (** returns the minimal taint value of the given parameter *)
+    val get_minimal_taint: t -> Taint.t
   end
     
     
@@ -473,17 +473,17 @@ module Make(D: T) =
         returns the evaluated expression and a boolean to say if
         the resulting expression is tainted
     *)
-    let rec eval_exp m e: (D.t * string) =
+    let rec eval_exp m e: (D.t * Taint.t) =
       L.debug (fun p -> p "eval_exp(%s)" (Asm.string_of_exp e true));
-      let rec eval e =
+      let rec eval (e: Asm.exp): D.t * Taint.t =
         match e with
-        | Asm.Const c 			     -> D.of_word c, ""
+        | Asm.Const c 			     -> D.of_word c, Taint.U
         | Asm.Lval (Asm.V (Asm.T r)) 	     ->
            begin
              try
 	           let v = Env.find (Env.Key.Reg r) m in
 	           v, D.taint_sources v
-             with Not_found -> D.bot, ""
+             with Not_found -> D.bot, Taint.U
            end
         | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
            begin
@@ -492,7 +492,7 @@ module Make(D: T) =
                let v' = D.extract v low up in
 	           v', D.taint_sources v'
              with
-             | Not_found -> D.bot, ""
+             | Not_found -> D.bot, Taint.U
            end
         | Asm.Lval (Asm.M (e, n))            ->
            begin
@@ -501,18 +501,18 @@ module Make(D: T) =
                let addresses = Data.Address.Set.elements (D.to_addresses r) in
                let rec to_value a =
                  match a with
-                 | [a]  -> let v = get_mem_value m a n in v, tsrc ^ (D.taint_sources v)
+                 | [a]  -> let v = get_mem_value m a n in v, Taint.join tsrc  (D.taint_sources v)
                  | a::l ->
 		            let v = get_mem_value m a n in
 		            let v', tsrc' = to_value l in
-		            D.join v v', (D.taint_sources v)^tsrc^tsrc'
+		            D.join v v', Taint.join (D.taint_sources v) (Taint.join tsrc tsrc')
 					  
                  | []   -> raise Exceptions.Bot_deref
                in
                let value = to_value addresses in
                value
              with
-             | Exceptions.Enum_failure               -> D.top, "?"
+             | Exceptions.Enum_failure               -> D.top, Taint.TOP
              | Not_found | Exceptions.Concretization ->
                 L.analysis (fun p -> p ("undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
                raise Exceptions.Bot_deref
@@ -523,29 +523,29 @@ module Make(D: T) =
 	       v, D.taint_sources v
 		     
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
-           D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))), ""
+           D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))), Taint.U
              
 	     
         | Asm.BinOp (op, e1, e2) ->
 	       let v1, tsrc1 = eval e1 in
 	       let v2, tsrc2 = eval e2 in
 	       let v = D.binary op v1 v2 in
-	       v, tsrc1 ^ tsrc2 ^ (D.taint_sources v)
+	       v, Taint.join tsrc1 (Taint.join tsrc2  (D.taint_sources v))
 			 
         | Asm.UnOp (op, e) ->
 	       let v, tsrc = eval e in
 	       let v' = D.unary op v in
-	       v', tsrc ^ (D.taint_sources v')
+	       v', Taint.join tsrc (D.taint_sources v')
 
 	    | Asm.TernOp (c, e1, e2) ->
 	       let r, tsrc = eval_bexp c true in
            let res, taint_res = 
              if r then (* condition is true *)
-               let r2, tscr2 = eval_bexp c false in
+               let r2, tsrc2 = eval_bexp c false in
                if r2 then
                  let v1, _ = eval e1 in
                  let v2, _ = eval e2 in
-                 D.join v1 v2, T.join tsrc tsrc2
+                 D.join v1 v2, Taint.join tsrc tsrc2
                else
                  fst (eval e1), tsrc
              else
@@ -553,28 +553,31 @@ module Make(D: T) =
                if r2 then
                  fst (eval e2), tsrc2
                else
-                 D.bot, ""
+                 D.bot, Taint.U
            in
-           if taint_res then
+           match taint_res with
+           | Taint.U -> res, Taint.U
+           | _ -> 
              let res' = D.taint res in
-             res', D.taint_sources res' else res, ""
+             res', D.taint_sources res'
+               
       (* TODO: factorize with Interpreter.restrict *)
-      and eval_bexp c b: bool * string =
+      and eval_bexp (c: Asm.bexp) (b: bool): bool * Taint.t =
         match c with
-        | Asm.BConst b' 		  -> if b = b' then true, false else false, false
+        | Asm.BConst b' 		  -> if b = b' then true, Taint.U else false, Taint.U
         | Asm.BUnOp (Asm.LogNot, e) -> eval_bexp e (not b)
            
         | Asm.BBinOp (Asm.LogOr, e1, e2)  ->
            let v1, b1 = eval_bexp e1 b in
            let v2, b2 = eval_bexp e2 b in
-           if b then v1||v2, b1||b2
-           else v1&&v2, b1&&b2
+           if b then v1||v2, Taint.join b1 b2
+           else v1&&v2, Taint.meet b1 b2
              
         | Asm.BBinOp (Asm.LogAnd, e1, e2) ->
            let v1, b1 = eval_bexp e1 b in
            let v2, b2 = eval_bexp e2 b in
-           if b then v1&&v2, b1&&b2
-           else v1||v2, b1||b2
+           if b then v1&&v2, Taint.meet b1 b2
+           else v1||v2, Taint.join b1 b2
              
         | Asm.Cmp (cmp, e1, e2)   ->
            let cmp' = if b then cmp else inv_cmp cmp in
@@ -582,10 +585,10 @@ module Make(D: T) =
       in
       eval e
 	    
-    and compare_env env (e1: Asm.exp) op e2 =
+    and compare_env env (e1: Asm.exp) op e2: bool * Taint.t =
       let v1, tsrc1 = eval_exp env e1 in
       let v2, tsrc2 = eval_exp env e2 in
-      D.compare v1 op v2, tsrc1^tsrc2
+      D.compare v1 op v2, Taint.join tsrc1 tsrc2
         
         
     let val_restrict m e1 _v1 cmp _e2 v2 =
@@ -638,9 +641,9 @@ module Make(D: T) =
            D.get_minimal_taint (D.extract r' low up)
 
         | Asm.Lval (Asm.M (e', _n)) -> process e'
-        | Asm.BinOp (_, e1, e2) -> Tainting.min (process e1) (process e2)
+        | Asm.BinOp (_, e1, e2) -> Taint.min (process e1) (process e2)
         | Asm.UnOp (_, e') -> process e'
-        | _ -> Tainting.U
+        | _ -> Taint.U
       in
       match e with
       | Asm.BinOp (_, _e1, Asm.Lval (Asm.M (e2_m, _))) ->
