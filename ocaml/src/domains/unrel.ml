@@ -605,19 +605,19 @@ module Make(D: T) =
     (* TODO factorize with compare_env *)
     let compare m (e1: Asm.exp) op e2 =
       match m with
-      | BOT -> BOT, false
+      | BOT -> BOT, Taint.U
       | Val m' ->
 	     let v1, b1 = eval_exp m' e1 in
          let v2, b2 = eval_exp m' e2 in
          if D.is_bot v1 || D.is_bot v2 then
-           BOT, false
+           BOT, Taint.U
          else
            if D.compare v1 op v2 then
              try
-               Val (val_restrict m' e1 v1 op e2 v2), b1||b2
-             with Exceptions.Empty -> BOT, false
+               Val (val_restrict m' e1 v1 op e2 v2), Taint.join b1 b2
+             with Exceptions.Empty -> BOT, Taint.U
            else
-             BOT, false
+             BOT, Taint.U
       	
     let mem_to_addresses m e =
       match m with
