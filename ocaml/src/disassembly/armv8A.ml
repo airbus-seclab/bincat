@@ -183,7 +183,12 @@ struct
   let get_s insn = (insn lsr 30) land 1
   let get_s_bool insn = ((insn lsr 30) land 1) == 1
 
-  (* Rm (20:16) / Rn (9:5) / Rd (4:0) : registers *)
+  let get_reg_lv ?(use_sp = false) num sf =
+        if num == 31 && not use_sp then (* zero register *)
+            L.abort (fun p->p "Reg XZR as target")
+        else
+            V (reg_sf num sf)
+
   let get_reg_exp ?(use_sp = false) num sf =
         if num == 31 && not use_sp then (* zero register *)
             const0 (sf2sz sf)
@@ -195,6 +200,7 @@ struct
         - SP (stack pointer)
     pass ~use_sp:true to use the stack pointer
   *)
+  (* Rm (20:16) / Rn (9:5) / Rd (4:0) : registers *)
   let get_Rm_exp ?(use_sp = false) insn sf =
         let num = ((insn lsr 16) land 0x1F) in get_reg_exp ~use_sp:use_sp num sf
   let get_Rn_exp ?(use_sp = false) insn sf =
@@ -209,6 +215,12 @@ struct
      get_Rn_exp ~use_sp:use_sp insn sf,
      get_Rm_exp ~use_sp:use_sp insn sf)
 
+  (* gets Rt2 / Rn / Rt (STORE operations) *)
+  let get_regs_st ?(use_sp = false) insn sf =
+    (get_reg_lv ~use_sp:use_sp ((insn lsr 10) land 0x1F) sf,
+     get_reg_lv ~use_sp:true ((insn lsr 5) land 0x1F) sf,
+     get_reg_lv ~use_sp:use_sp (insn land 0x1F) sf)
+
   (* imm12 : immediate 21:10 *)
   let get_imm12 insn = (insn lsr 10) land 0xfff
 
@@ -220,6 +232,9 @@ struct
 
   (* imms : immediate 15:10 *)
   let get_imms insn = (insn lsr 10) land 0b111111
+
+  (* imm7 : immediate 21:15 *)
+  let get_imm7 insn = (insn lsr 15) land 0b1111111
 
   (* 30:29:opc, used in logic insn *)
   let get_opc insn = (insn lsr 29) land 3
@@ -287,6 +302,7 @@ struct
   (* Actual instruction decoder *)
   (******************************)
 
+  (* Helper for ADD/SUB *)
   let add_sub_core sz dst op1 op op2 set_flags =
     let op_s = if op == 0 then Add else Sub in
     let core_stmts =
@@ -426,8 +442,13 @@ struct
             []
     end
 
-  let load_store_pair s insn op1 =
-        [Nop]
+  let load_store_pair _s insn _op1 =
+    (* let imm7 = get_imm7 insn in*)
+    let sf, sz = get_sf insn in
+    let offset = sz/8 in
+    let rt2, rn, rt = get_regs_st insn sf in
+        [Set(M(Lval(rn), sz), Lval(rt));
+         Set(M(BinOp(Add, Lval(rn), const offset sz), sz), Lval(rt2))]
 
   let load_store (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 31) land 1 in
@@ -447,8 +468,9 @@ struct
     if (op0 == 0) then
         error s.a (Printf.sprintf "SIMD load/store not decoded yet. opcode 0x%x" insn);
     if (op1 == 0b10) then
-        load_store_pair s insn op1;
-    [Nop]
+        load_store_pair s insn op1
+    else
+        [Nop]
 
 
 
