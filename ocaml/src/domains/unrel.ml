@@ -837,9 +837,9 @@ module Make(D: T) =
       | Val m' -> D.to_z (fst (eval_exp m' e))
 
 
-    let is_tainted e m =
+    let taint_sources e m =
       match m with
-      | BOT -> false
+      | BOT -> Taint.U
       | Val m' -> snd (eval_exp m' e)
 
 
