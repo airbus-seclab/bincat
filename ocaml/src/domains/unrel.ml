@@ -658,7 +658,7 @@ module Make(D: T) =
          begin
            let taint = process e' in
            match taint with
-           | Tainting.U -> v
+           | Taint.U -> v
            | _ -> D.span_taint v taint
          end
 
@@ -666,7 +666,7 @@ module Make(D: T) =
          begin
            let taint = process e' in
            match taint with
-           | Tainting.U -> v
+           | Taint.U -> v
            | _ -> D.span_taint v taint
          end
       | _ -> v
