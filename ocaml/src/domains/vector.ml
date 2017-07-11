@@ -104,7 +104,7 @@ sig
     val taint: t -> t
 
     (** update taint *)
-    val update_taint: Tainting.t -> t -> t
+    val update_taint: Taint.t -> t -> t
 
     (** set bit *)
     val set_bit: t -> t
@@ -146,7 +146,7 @@ sig
     val forget_taint: t -> t
 
     (** returns the taint value of the given parameter *)
-    val get_taint: t -> Tainting.t
+    val get_taint: t -> Taint.t
 end
 
 (** signature of vector *)
@@ -202,7 +202,7 @@ sig
     val taint: t -> t
 
     (** span taint *)
-    val span_taint: t -> Tainting.t -> t
+    val span_taint: t -> Taint.t -> t
 
     (** conversion from word *)
     val of_word: Data.Word.t -> t
@@ -240,7 +240,7 @@ sig
     val concat: t -> t -> t
 
     (** returns the minimal taint value of the given parameter *)
-    val get_minimal_taint: t -> Tainting.t
+    val get_minimal_taint: t -> Taint.t
 end
 
 module Make(V: Val) =
@@ -668,7 +668,7 @@ module Make(V: Val) =
         let span_taint v t = Array.map (V.update_taint t) v
 	  
 	let get_minimal_taint v =
-	  Array.fold_left (fun acc v -> Tainting.min acc (V.get_taint v)) Tainting.U v
+	  Array.fold_left (fun acc v -> Taint.min acc (V.get_taint v)) Taint.U v
 	  
 
         let nth_of_z_as_val v i = if Z.testbit v i then V.one else V.zero
