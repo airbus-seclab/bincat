@@ -95,8 +95,8 @@ module type T =
 
       (** returns the set of addresses pointed by the given expression.
 	  May raise an exception.
-	  The returned boolean is true whenever the pointer is tainted *)
-      val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t * bool
+	  The taint of the pointer expression is also returned *)
+      val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t * Taint.t
 	
       val taint_sources: Asm.exp -> t -> Taint.t
 
