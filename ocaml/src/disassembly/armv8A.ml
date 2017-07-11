@@ -400,11 +400,29 @@ struct
 
     [ Set (rd, imm) ] @ sf_zero_rd insn sf
 
+  (* ADR/ADRP *)
+  let pc_rel_addr s insn sf =
+    let op = (insn lsr 31) land 1 in
+    let immlo = (insn lsr 29) land 3 in
+    let immhi = (insn lsr 5) land 0x7ffff in
+    let imm = (immhi lsl 2) lor immlo in
+    let rd = get_Rd_lv  insn sf in
+    let current_pc = Z.add (Address.to_int s.a) (Z.of_int 8) in (* pc is 8 bytes ahead because of pre-fetching. *)
+    let base, imm_ext =
+        if op == 0 then (* ADR *)
+            Word.of_int current_pc 64, UnOp(SignExt 64, const imm 21) 
+        else (* ADRP *)
+            Word.of_int (Z.logand current_pc (Z.shift_left (Z.of_int 0xFFFFFFFFFFFFF) 12)) 64,
+            UnOp(SignExt 64, const (imm lsl 12) (21+12)) 
+    in
+        [ Set(rd, BinOp(Add, Const base, imm_ext))]
+
   (* data processing with immediates *)
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
     let sf, _ = get_sf insn in
     let stmts = match op0 with
+        | 0b000 | 0b001 -> pc_rel_addr s insn sf
         | 0b010 | 0b011 -> add_sub_imm s insn sf
         | 0b100         -> logic_imm s insn sf
         | 0b101 -> mov_wide s insn sf
