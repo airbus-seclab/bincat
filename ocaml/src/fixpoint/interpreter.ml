@@ -53,24 +53,29 @@ struct
       | LEQ -> GT
       | GT  -> LEQ
 		 
-    let restrict (d: D.t) (e: Asm.bexp) (b: bool): (D.t * bool) =
+    let restrict (d: D.t) (e: Asm.bexp) (b: bool): (D.t * Taint.t) =
       L.debug (fun p -> p "restrict: e=%s b=%B" (Asm.string_of_bexp e true) b);
       let rec process e b =
         match e with
-        | BConst b' 		  -> if b = b' then d, false else D.bot, false
+        | BConst b' 		  -> if b = b' then d, Taint.U else D.bot, Taint.U
         | BUnOp (LogNot, e) 	  -> process e (not b)
 					     
         | BBinOp (LogOr, e1, e2)  ->
-           let v1, b1 = process e1 b in
-           let v2, b2 = process e2 b in
-	   let taint_sources = if b then b1||b2 else b1&&b2 in
+           let v1, taint1 = process e1 b in
+           let v2, taint2 = process e2 b in
+	       let taint_sources =
+             if b then Taint.join taint1 taint2
+             else Taint.meet taint1 taint2
+           in
            if b then D.join v1 v2, taint_sources
            else D.meet v1 v2, taint_sources
 		       
         | BBinOp (LogAnd, e1, e2) ->
-           let v1, b1 = process e1 b in
-           let v2, b2 = process e2 b in
-	   let taint_sources = if b then b1&&b2 else b1||b2 in
+           let v1, taint1 = process e1 b in
+           let v2, taint2 = process e2 b in
+	       let taint_sources =
+             if b then Taint.meet taint1 taint2
+             else Taint.join taint1 taint2 in
            if b then D.meet v1 v2, taint_sources
            else D.join v1 v2, taint_sources
 		       
@@ -158,7 +163,7 @@ struct
         L.debug (fun p -> p "process_value ---------\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
         let res, tainted = 
             match s with
-            | Nop 				 -> d, false
+            | Nop 				 -> d, Taint.U
             | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack   
             | Set (dst, src) 		 -> D.set dst src d
             | Directive (Remove r) 		 -> let d' = D.remove_register r d in Register.remove r; d', false
@@ -170,12 +175,12 @@ struct
                    unroll_wrapper f
                  with _ -> ()
                end;
-              d, false
+              d, Taint.U
                  
             | Directive (Default_unroll) ->
                L.analysis (fun p -> p "set unroll parameter to its default value");
               unroll_nb := None;
-              d, false
+              d, Taint.U
 
             | Asm.Directive (Asm.Unroll_until (addr, cmp, terminator, upper_bound, sz)) ->
                begin
@@ -186,22 +191,25 @@ struct
                    unroll_wrapper f;
                  with _ -> ()
                end;
-               d, false
+               d, Taint.U
                 
             | Directive (Taint (e, lv)) 	 ->
                begin
                  let cond =
                    match e with
                    | None -> true
-                   | Some c -> D.taint_sources c d  
+                   | Some c ->
+                      match D.taint_sources c d with
+                      | Taint.U -> false
+                      | _ -> true                         
                  in
                  match lv with
-                 | V (T r) ->
-                   let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
-                   if cond then
-                     D.taint_register_mask r mask d, true
+                 | V (T r) ->                      
+                    if cond then
+                      let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
+                      D.taint_register_mask r mask d
                    else
-                     d, false
+                     d, Taint.U
                  | M (_, 8) ->
                     if cond then
                       try
