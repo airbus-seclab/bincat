@@ -442,13 +442,20 @@ struct
             []
     end
 
-  let load_store_pair _s insn _op1 =
-    (* let imm7 = get_imm7 insn in*)
+  (* STP / STNP *)
+  let load_store_pair insn op3 =
+    let imm7 = get_imm7 insn in
     let sf, sz = get_sf insn in
-    let offset = sz/8 in
+    let offset = BinOp(Shl, UnOp(SignExt 64, const imm7 7), const (sf+2) 64) in
     let rt2, rn, rt = get_regs_st insn sf in
-        [Set(M(Lval(rn), sz), Lval(rt));
-         Set(M(BinOp(Add, Lval(rn), const offset sz), sz), Lval(rt2))]
+    let addr, post = match op3 with
+        | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
+        | 0b01 -> offset, [Set(rn, BinOp(Add, Lval(rn), offset))]
+        | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
+        | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
+    in
+        [Set(M(addr, sz), Lval(rt));
+         Set(M(BinOp(Add, addr, const (sz/8) sz), sz), Lval(rt2))] @ post
 
   let load_store (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 31) land 1 in
@@ -468,7 +475,7 @@ struct
     if (op0 == 0) then
         error s.a (Printf.sprintf "SIMD load/store not decoded yet. opcode 0x%x" insn);
     if (op1 == 0b10) then
-        load_store_pair s insn op1
+        load_store_pair insn op3
     else
         [Nop]
 
