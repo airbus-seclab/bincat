@@ -241,6 +241,9 @@ sig
 
     (** returns the minimal taint value of the given parameter *)
     val get_minimal_taint: t -> Taint.t
+
+    (** returns the taint value of the given parameter *)
+    val taint_sources: t -> Taint.t
 end
 
 module Make(V: Val) =
@@ -810,6 +813,7 @@ module Make(V: Val) =
             let v_array = Array.init (nb*v_len) access_mod in
             v_array
 
-
+        let taint_sources v =
+          Array.fold_left (fun acc elt -> Taint.join acc (V.get_taint elt)) (Taint.U) v
 					
     end: T)
