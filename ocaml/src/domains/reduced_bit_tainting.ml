@@ -20,7 +20,7 @@
 (** its signature is Vector.Value_domain *)
 
 module B = Bit
-module T = Tainting
+module T = Taint
 
 type t = B.t * T.t
 
