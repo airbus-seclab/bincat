@@ -32,9 +32,6 @@ sig
     (** top *)
     val top: t
 
-    (** returns true whenever the bit may be tainted *)
-    val is_tainted: t -> bool
-
     (** comparison to top *)
     val is_top: t -> bool
 
@@ -164,9 +161,6 @@ sig
     (** forgets the content while preserving the taint *)
     val forget: t -> (int * int) option -> t
     (** the forget operation is bounded to bits from l to u if the second parameter is Some (l, u) *)
-
-    (** returns true whenever at least one bit may be tainted *)
-    val is_tainted: t -> bool
 
     (** value conversion. May raise an exception *)
     val to_z: t -> Z.t
@@ -804,8 +798,6 @@ module Make(V: Val) =
             let n = Array.length v in
             Array.sub v (n-l-1) len
 
-
-        let is_tainted v = exists V.is_tainted v
 
         let of_repeat_val v v_len nb =
             let access_mod idx =
