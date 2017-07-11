@@ -90,8 +90,8 @@ module type T =
       (** apply the given taint mask to the given memory address *)
       val taint_address_mask: Data.Address.t -> Config.tvalue -> t -> t
 
-      (** comparison *)
-      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t * bool
+      (** comparison. Returns also the taint value of the comparison *)
+      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t * Taint.t
 
       (** returns the set of addresses pointed by the given expression.
 	  May raise an exception.
