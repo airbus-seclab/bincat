@@ -237,7 +237,7 @@ module Make (V: Vector.T) =
 
 	let get_minimal_taint p =
 	  match p with
-	  | TOP | BOT -> Tainting.TOP
+	  | TOP | BOT -> Taint.TOP
 	  | Val (_, o) -> V.get_minimal_taint o
 	     
     end: Unrel.T)
