@@ -950,15 +950,25 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         order: gp registers, zf, memory, other flags, segment registers
         """
         if row.region == 'reg':
-            if row.value in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi",
-                             "edi"]:
+            value = row.value
+            if value in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi",
+                         "edi"]:
                 return (0, row)
-            elif row.value == 'zf':
+            elif value == 'zf':
                 return (1, row)
-            elif row.value in ["cs", "ds", "ss", "es", "fs", "gs"]:
-                return (4, row)
+            elif value in ["cs", "ds", "ss", "es", "fs", "gs"]:
+                return (6, row)
             else:
-                return (3, row)
+                # used for arm*
+                if (value.startswith(("r", "x")) and 47 < ord(value[1]) < 58):
+                    if len(value) == 2:
+                        # r0, r1, ..., r9
+                        return (3, row)
+                    else:
+                        # r10, r11, ...
+                        return (4, row)
+                else:
+                    return (5, row)
         else:
             return (2, row)
 
