@@ -149,7 +149,7 @@ struct
 	  mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
 	  mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	  mutable bytes: char list;      (** corresponding list of bytes *)
-	 mutable taint_sources: string (** set of taint sources. Empty if not tainted  *)
+	 mutable taint_sources: Taint.t (** set of taint sources. Empty if not tainted  *)
 	}
       
 	(** the state identificator counter *)
