@@ -205,12 +205,6 @@ module Make (V: Vector.T) =
                   Val (r, V.from_position o i len)
               with _ -> BOT
 
-        let is_tainted p =
-            match p with
-            | BOT 	   -> false
-            | TOP 	   -> true
-            | Val (_, o) -> V.is_tainted o
-
         let of_repeat_val v v_len nb =
             match v with
             | BOT -> BOT
