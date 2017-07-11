@@ -64,8 +64,8 @@ module type T =
       val value_of_exp: t -> Asm.exp -> Z.t
 						 
       (** assignment into the given left value of the given expression.
-      Returns true whenever one left value of the source expression is tainted *)
-      val set: Asm.lval -> Asm.exp -> t -> t * bool
+      Returns also the taint of the given expression *)
+      val set: Asm.lval -> Asm.exp -> t -> t * Taint.t
 									  
       (** joins the two abstract values *)
       val join: t -> t -> t

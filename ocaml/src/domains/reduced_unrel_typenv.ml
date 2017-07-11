@@ -91,7 +91,7 @@ module Make(D: Unrel.T) =
    in
    uenv, tenv'
      
-  let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*bool =
+  let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*Taint.t =
     let uenv', b = U.set lv e uenv in
     try
       let typ = type_of_exp tenv uenv e in
