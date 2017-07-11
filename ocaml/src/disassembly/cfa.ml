@@ -149,7 +149,7 @@ struct
 	  mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
 	  mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	  mutable bytes: char list;      (** corresponding list of bytes *)
-	 mutable taint_sources: string (** set of taint sources. Empty if not tainted  *)
+	 mutable taint_sources: Taint.t (** set of taint sources. Empty if not tainted  *)
 	}
       
 	(** the state identificator counter *)
@@ -262,7 +262,7 @@ struct
 		op_sz = !Config.operand_sz;
 		addr_sz = !Config.address_sz;
 	  };
-	  taint_sources = "";
+	  taint_sources = Taint.U;
 	}
 	
 
@@ -318,7 +318,7 @@ struct
 	let print_ip s =
 	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
 	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
-        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) s.taint_sources;
+        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.ot_string s.taint_sources);
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
 	  if !Config.loglevel > 2 then
 	    begin

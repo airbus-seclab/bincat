@@ -52,6 +52,11 @@ module Src =
       | Tainted _, _ -> -1
       | Maybe _, Tainted _ -> 1
       | Maybe id1, Maybe id2 -> id1 - id2
+
+    let to_string src =
+      match src with
+      | Tainted id -> "t-"^(string_of_int id)
+      | Maybe id -> "m-"^(string_of_int id) 
   end
 
 (* set of (possible) tainting sources *)
@@ -110,12 +115,6 @@ let to_char (t: t): char =
   | TOP -> '?'
   | S _ -> '1'
   | U -> '0'
-
-let to_string (t: t): string =
-  match t with
-  | TOP -> "?"
-  | S _ -> "1"
-  | U   -> "0"
 
 let equal (t1: t) (t2: t): bool =
   match t1, t2 with
@@ -177,3 +176,9 @@ let to_z (t: t): Z.t =
   | S _ -> Z.one
   | _ -> raise Exceptions.Concretization
 
+let to_string t =
+  match t with
+  | U -> ""
+  | TOP -> "?"
+  | S srcs ->
+     SrcSet.fold (fun src acc -> (Src.to_string src)^", "^acc) srcs ""
