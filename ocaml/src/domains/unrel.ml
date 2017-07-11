@@ -1060,7 +1060,11 @@ module Make(D: T) =
                   let dst = Data.Address.add_offset dst_addr o in
                   let i' = Z.of_int (Char.code c) in
                   let r = D.of_word (Data.Word.of_int i' 8) in
-                  let v' = if src_tainted || D.is_tainted r then D.taint r else r in
+                  let v' =
+                    match src_tainted, D.taint_sources r with
+                    | Taint.U, Taint.U -> r
+                    | _, _ -> D.taint r
+                  in
                   write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
                 else
                   m'
