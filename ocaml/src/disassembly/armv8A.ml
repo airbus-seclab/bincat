@@ -185,6 +185,7 @@ struct
 
   let get_reg_lv ?(use_sp = false) num sf =
         if num == 31 && not use_sp then (* zero register *)
+            (* XXX see how we can discard the result *)
             L.abort (fun p->p "Reg XZR as target")
         else
             V (reg_sf num sf)
@@ -270,7 +271,7 @@ struct
         match shift with
             | 0b00 (* LSL *) -> BinOp(Shl, reg, const amount sz)
             | 0b01 (* LSR *) -> BinOp(Shr, reg, const amount sz)
-            | 0b10 (* ASR *) -> L.abort (fun p->p "shifted reg with ASR not implemented yet");
+            | 0b10 (* ASR XXX *) -> L.abort (fun p->p "shifted reg with ASR not implemented yet");
             | 0b11 (* ROR *) -> ror sz reg (const amount sz)
             | _ -> L.abort (fun p->p "Invalid value for shift")
 
@@ -395,7 +396,7 @@ struct
     let imm = match opc with
         | 0b00 -> (* MOVN *) UnOp(Not, imm)
         | 0b10 -> (* MOVZ *) imm
-        | 0b11 -> (* MOVK *) error s.a (Printf.sprintf "MOVK is not supported")
+        | 0b11 -> (* MOVK XXX *) error s.a (Printf.sprintf "MOVK is not supported")
         | _ -> error s.a "Impossible error"; in
 
     [ Set (rd, imm) ] @ sf_zero_rd insn sf
@@ -407,13 +408,14 @@ struct
     let immhi = (insn lsr 5) land 0x7ffff in
     let imm = (immhi lsl 2) lor immlo in
     let rd = get_Rd_lv  insn sf in
-    let current_pc = Z.add (Address.to_int s.a) (Z.of_int 8) in (* pc is 8 bytes ahead because of pre-fetching. *)
+    (* pc is 8 bytes ahead because of pre-fetching. *)
+    let current_pc = Z.add (Address.to_int s.a) (Z.of_int 8) in
     let base, imm_ext =
         if op == 0 then (* ADR *)
-            Word.of_int current_pc 64, UnOp(SignExt 64, const imm 21) 
-        else (* ADRP *)
+            Word.of_int current_pc 64, UnOp(SignExt 64, const imm 21)
+        else (* ADRP: base is PC aligned to 4k boundaries *)
             Word.of_int (Z.logand current_pc (Z.shift_left (Z.of_int 0xFFFFFFFFFFFFF) 12)) 64,
-            UnOp(SignExt 64, const (imm lsl 12) (21+12)) 
+            UnOp(SignExt 64, const (imm lsl 12) (21+12))
     in
         [ Set(rd, BinOp(Add, Const base, imm_ext))]
 
@@ -426,15 +428,17 @@ struct
         | 0b010 | 0b011 -> add_sub_imm s insn sf
         | 0b100         -> logic_imm s insn sf
         | 0b101 -> mov_wide s insn sf
-        | 0b110 -> error s.a (Printf.sprintf "Bitfield (imm) not decoded (0x%x)" insn)
-        | 0b111 -> error s.a (Printf.sprintf "Extract (imm) not decoded (0x%x)" insn)
+        | 0b110 -> (* XXX *) error s.a (Printf.sprintf "Bitfield (imm) not decoded (0x%x)" insn)
+        | 0b111 -> (* XXX *) error s.a (Printf.sprintf "Extract (imm) not decoded (0x%x)" insn)
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
     in stmts
 
   let data_proc_2src s insn =
+    (* XXX *)
     error s.a (Printf.sprintf "Data processing (2 sources) not decoded yet (0x%x)" insn)
 
   let data_proc_1src s insn =
+    (* XXX *)
     error s.a (Printf.sprintf "Data processing (1 source) not decoded yet (0x%x)" insn)
 
   (* data processing with registers *)
@@ -514,8 +518,6 @@ struct
         | 0b0101 | 0b1101 -> data_processing_reg s instruction
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
     in
-    (* ADR only : let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
-    return s str (Set( V (T pc), current_pc) :: stmts)*)
     return s str stmts
 
   let parse text cfg _ctx state addr _oracle =
