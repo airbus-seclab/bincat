@@ -87,8 +87,9 @@ module type T =
       (** apply the given taint mask to the given register *)
       val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.t
 
-      (** apply the given taint mask to the given memory address *)
-      val taint_address_mask: Data.Address.t -> Config.tvalue -> t -> t
+      (** apply the given taint mask to the given memory address.
+          The computed taint is also returned *)
+      val taint_address_mask: Data.Address.t -> Config.tvalue -> t -> t * Taint.t
 
       (** comparison. Returns also the taint value of the comparison *)
       val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t * Taint.t
