@@ -718,7 +718,7 @@ module Make(V: Val) =
             end;
             v
 
-        let taint_of_config t n (prev: t option) =
+        let taint_of_config t n (prev: t option): t * taint.t =
             let v =
                 match prev with
                 | Some v' -> Array.copy v'

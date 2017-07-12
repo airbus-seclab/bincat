@@ -433,11 +433,11 @@ struct
       vstart.Cfa.State.taint_sources <- false;
       let vertices, b = process_list [vstart] v.Cfa.State.stmts in
       if b then
-	begin
+	    begin
           L.debug (fun p->p "FUFU taint : true");
-	  v.Cfa.State.taint_sources <- true;
-	  List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- true) !fun_stack
-	end;
+	      v.Cfa.State.taint_sources <- true;
+	      List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- true) !fun_stack
+	    end;
       vertices
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)

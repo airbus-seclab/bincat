@@ -22,11 +22,14 @@ module Src =
 
     (* type of tainting sources *) 
     type src_id = int
-
+      
     (*current id for the generation of fresh taint sources *)
     let (current_id: src_id ref) = ref 0
       
-  
+    let new_src () =
+      current_id := !current_id + 1;
+      !current_id
+        
     (* a value may be surely Tainted or Maybe tainted *)
     type t =
       | Tainted of src_id (** surely tainted by the given source *)
@@ -72,6 +75,8 @@ type t =
   | S of SrcSet.t
   | TOP    
 
+let new_src = Src.new_src
+  
 let make_sure () = S (SrcSet.singleton (Src.make_sure ()))
 
 let make_uncertain () = S (SrcSet.singleton (Src.make_uncertain ()))
