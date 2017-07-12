@@ -84,7 +84,7 @@ module type T =
       The integer _nb_ is the number of consecutive configuration _t_ to set. The computed taint is also returned *)
       val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> t -> t * Taint.t
      
-      (** apply the given taint mask to the given register *)
+      (** apply the given taint mask to the given register. The computed taint is also returned *)
       val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.t
 
       (** apply the given taint mask to the given memory address.
