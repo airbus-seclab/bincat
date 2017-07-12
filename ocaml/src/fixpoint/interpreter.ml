@@ -206,15 +206,17 @@ struct
                  match lv with
                  | V (T r) ->                      
                     if cond then
+                      let taint_src = Taint.new_src () in
                       let mask = Config.Taint (Bits.ff ((Register.size r) / 8)) in
-                      D.taint_register_mask r mask d
+                      D.taint_register_mask r mask taint_src d
                    else
                      d, Taint.U
                  | M (_, 8) ->
                     if cond then
                       try
+                        let taint_src = Taint.new_src () in
                         match Data.Address.Set.elements (fst (D.mem_to_addresses d (Lval lv))) with
-                        | [a] -> D.taint_address_mask a (Config.Taint (Z.of_int 0xff)) d, true
+                        | [a] -> D.taint_address_mask a (Config.Taint (Z.of_int 0xff)) taint_src d, true
                         | _ -> raise Exit 
                       with _ -> L.analysis (fun p -> p "Tainting directive ignored"); d, false
                     else
