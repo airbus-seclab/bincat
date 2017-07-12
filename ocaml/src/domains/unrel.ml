@@ -69,9 +69,9 @@ module type T =
 	The size of the value is given by the int parameter *)
     val of_config: Data.Address.region -> Config.cvalue -> int -> t
       
-    (** returns the tainted value corresponding to the given abstract value.
-    The size of the value is given by the int parameter *)
-    val taint_of_config: Config.tvalue -> int -> t  -> t
+    (** taint the given abstract value.
+    The size of the value is given by the int parameter. The taint itself is also returned *)
+    val taint_of_config: Config.tvalue -> int -> t  -> t * Taint.t
 
       
     (** join two abstract values *)
@@ -792,7 +792,7 @@ module Make(D: T) =
 	     let k = Env.Key.Reg reg in
 	     let v = Env.find k m' in
          let v', taint = D.taint_of_config taint (Register.size reg) v in
-	     Val (Env.replace k v') m'), taint
+	     Val (Env.replace k v' m'), taint
 
     let taint_address_mask a taint m =
       match m with
