@@ -112,8 +112,9 @@ class BincatPlugin(idaapi.plugin_t):
 
     # IDA API methods: init, run, term
     def init(self):
-        procname = idaapi.get_inf_structure().get_proc_name()
-        if procname[0] != 'metapc':
+        procname = idaapi.get_inf_structure().procname
+        bc_log.debug(procname)
+        if procname != 'metapc':
             bc_log.info("Not on x86, not loading BinCAT")
             return idaapi.PLUGIN_SKIP
         try:
