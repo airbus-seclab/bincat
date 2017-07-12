@@ -123,9 +123,11 @@ module Make(D: Unrel.T) =
   let set_register_from_config register region c  (uenv, tenv) =
     U.set_register_from_config register region c uenv, tenv
 
-  let taint_register_mask r c (uenv, tenv) = U.taint_register_mask r c uenv, tenv
+  let taint_register_mask r c (uenv, tenv) =
+    let uenv', taint = U.taint_register_mask r c uenv in
+    uenv', tenv
 
-  let taint_address_mask a c (uenv, tenv) = U.taint_address_mask a c uenv, tenv
+  let taint_address_mask a c (uenv, tenv): t * Taint.t = U.taint_address_mask a c uenv, tenv
     
   let compare (uenv, tenv) e1 cmp e2 =
     let uenv', b = U.compare uenv e1 cmp e2 in
