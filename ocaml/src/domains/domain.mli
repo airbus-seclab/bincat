@@ -77,12 +77,12 @@ module type T =
       val widen: t -> t -> t
 
       (** [set_memory_from_config a c nb m] update the abstract value in _m_ with the value configuration _c_ (pair content * tainting value ) for the memory location _a_ 
-      The integer _nb_ is the number of consecutive configurations _c_ to set *)
-      val set_memory_from_config: Data.Address.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> int -> t -> t
+      The integer _nb_ is the number of consecutive configurations _c_ to set . The computed taint is also returned *)
+      val set_memory_from_config: Data.Address.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> int -> t -> t * Taint.t
 
       (** [set_register_from_config r c nb m] update the abstract value _m_ with the value configuration (pair content * tainting value) for register _r_.
-      The integer _nb_ is the number of consecutive configuration _t_ to set *)
-      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> t -> t
+      The integer _nb_ is the number of consecutive configuration _t_ to set. The computed taint is also returned *)
+      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> t -> t * Taint.t
      
       (** apply the given taint mask to the given register *)
       val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.t

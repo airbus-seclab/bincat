@@ -796,7 +796,7 @@ module Make(D: T) =
 
     let taint_address_mask a taint m: t * Taint.t =
       match m with
-      | BOT -> BOT
+      | BOT -> BOT, Taint.U
       | Val m' ->
 	     let k = Env.Key.Mem a in
 	     let v = Env.find k m' in
