@@ -823,7 +823,7 @@ module Make(D: T) =
              in
              Val (write_in_memory addr domain' v' sz true big_endian), taint
       else
-        domain
+        domain, Taint.U
 	      
     let set_register_from_config r region c m: t * Taint.t =
       match m with
