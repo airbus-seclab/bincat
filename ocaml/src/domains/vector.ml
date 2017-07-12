@@ -51,7 +51,7 @@ sig
     val of_z: Z.t -> t
 
     (** taint the given value from Z.t value *)
-    val taint_of_z: Z.t -> t -> t
+    val taint_of_z: Z.t -> t -> Taint.Src.id_t -> t
 
     (** abstract join *)
     val join: t -> t -> t
@@ -140,7 +140,7 @@ sig
     val compare: t -> Asm.cmp -> t -> bool
 
     (** undefine the taint of the given value *)
-    val forget_taint: t -> t
+    val forget_taint: t -> Taint.Src.id_t -> t
 
     (** returns the taint value of the given parameter *)
     val get_taint: t -> Taint.t
@@ -718,7 +718,7 @@ module Make(V: Val) =
             end;
             v
 
-        let taint_of_config t n (prev: t option): t * Taint.t =
+        let taint_of_config t tid n (prev: t option): t * Taint.t =
             let v =
                 match prev with
                 | Some v' -> Array.copy v'
@@ -728,7 +728,7 @@ module Make(V: Val) =
             | Config.Taint b ->
               let n' =n-1 in
               for i = 0 to n' do
-                  v.(n'-i) <- V.taint_of_z (nth_of_z b i) v.(n'-i)
+                  v.(n'-i) <- V.taint_of_z (nth_of_z b i) v.(n'-i) tid
               done;
               v
             | Config.TMask (b, m) ->
@@ -737,9 +737,9 @@ module Make(V: Val) =
                   let bnth = nth_of_z b i in
                   let mnth = nth_of_z m i in
                   if Z.compare mnth Z.zero = 0 then
-                      v.(n'-i) <- V.taint_of_z bnth v.(n'-i)
+                      v.(n'-i) <- V.taint_of_z bnth v.(n'-i) tid
                   else
-                      v.(n'-i) <- V.forget_taint v.(n'-i)
+                      v.(n'-i) <- V.forget_taint v.(n'-i) tid
               done;
               v
 

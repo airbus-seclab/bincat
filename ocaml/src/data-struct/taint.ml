@@ -76,10 +76,8 @@ type t =
   | TOP    
 
 let new_src = Src.new_src
-  
-let make_sure () = S (SrcSet.singleton (Src.make_sure ()))
 
-let make_uncertain () = S (SrcSet.singleton (Src.make_uncertain ()))
+let singleton src = Src.singleton src
 
 let join (t1: t) (t2: t): t =
   match t1, t2 with
