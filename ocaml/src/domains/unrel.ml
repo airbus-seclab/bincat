@@ -794,13 +794,14 @@ module Make(D: T) =
          let v', taint = D.taint_of_config taint (Register.size reg) v in
 	     Val (Env.replace k v' m'), taint
 
-    let taint_address_mask a taint m =
+    let taint_address_mask a taint m: t * Taint.t =
       match m with
       | BOT -> BOT
       | Val m' ->
 	     let k = Env.Key.Mem a in
 	     let v = Env.find k m' in
-	     Val (Env.replace k (D.taint_of_config taint 8 v) m')
+         let v', taint = D.taint_of_config taint 8 v in
+	     Val (Env.replace k v' m'), taint
 
     let set_memory_from_config addr region (content, taint) nb domain =
       if nb > 0 then
