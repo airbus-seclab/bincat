@@ -21,10 +21,10 @@ module Src =
   struct
 
     (* type of tainting sources *) 
-    type id = int
+    type id_t = int
       
     (*current id for the generation of fresh taint sources *)
-    let (current_id: src_id ref) = ref 0
+    let (current_id: id_t ref) = ref 0
       
     let new_src () =
       current_id := !current_id + 1;
@@ -32,8 +32,8 @@ module Src =
         
     (* a value may be surely Tainted or Maybe tainted *)
     type t =
-      | Tainted of src_id (** surely tainted by the given source *)
-      | Maybe of src_id (** maybe tainted by then given source *)
+      | Tainted of id_t (** surely tainted by the given source *)
+      | Maybe of id_t (** maybe tainted by then given source *)
 
     (* returns a fresh source id and increments src_id *)
     let make_sure () =

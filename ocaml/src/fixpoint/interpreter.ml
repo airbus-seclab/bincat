@@ -512,7 +512,8 @@ struct
 	      | Config.Taint v -> check reg [v]
 	      | Config.TMask (v, m) -> check reg [v ; m]
 	    end;
-	    D.taint_register_mask reg rule) rules
+        let src_id = Taint.new_src () in
+	    D.taint_register_mask reg rule src_id) rules
 	in
         hash_add_or_append overrides ip rules'
       ) Config.reg_override;
@@ -534,7 +535,8 @@ struct
                         | Config.Taint v -> check [v]
                         | Config.TMask (v, m) -> check [v ; m]
                     end;
-                    D.taint_address_mask (Data.Address.of_int region a !Config.address_sz) rule) rules
+                    let src_id = Taint.new_src() in
+                    D.taint_address_mask (Data.Address.of_int region a !Config.address_sz) rule src_id) rules
             in
             hash_add_or_append overrides ip rules'
 
