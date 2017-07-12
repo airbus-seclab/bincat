@@ -136,8 +136,8 @@ module Make (V: Vector.T) =
                 begin
                     try Val (r, V.binary op o1 o2)
                     with
-		    | Exceptions.Error _ as e -> raise e 
-		    | _ -> BOT
+		            | Exceptions.Error _ as e -> raise e 
+		            | _ -> BOT
                 end
               | r1, r2                ->
                 try
