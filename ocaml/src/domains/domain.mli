@@ -85,11 +85,11 @@ module type T =
       val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue * (Config.tvalue option) -> t -> t * Taint.t
      
       (** apply the given taint mask to the given register. The computed taint is also returned *)
-      val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.t
+      val taint_register_mask: Register.t -> Config.tvalue -> Taint.Src.id_t -> t -> t * Taint.t
 
       (** apply the given taint mask to the given memory address.
           The computed taint is also returned *)
-      val taint_address_mask: Data.Address.t -> Config.tvalue -> t -> t * Taint.t
+      val taint_address_mask: Data.Address.t -> Config.tvalue -> Taint.Src.id_t -> t -> t * Taint.t
 
       (** comparison. Returns also the taint value of the comparison *)
       val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t * Taint.t

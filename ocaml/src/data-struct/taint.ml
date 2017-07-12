@@ -21,7 +21,7 @@ module Src =
   struct
 
     (* type of tainting sources *) 
-    type src_id = int
+    type id = int
       
     (*current id for the generation of fresh taint sources *)
     let (current_id: src_id ref) = ref 0
