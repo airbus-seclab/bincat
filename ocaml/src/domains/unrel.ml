@@ -785,13 +785,14 @@ module Make(D: T) =
       | Some taint' -> D.taint_of_config taint' sz v'
       | None 	-> D.taint_of_config (Config.Taint Z.zero) sz v'
          
-    let taint_register_mask reg taint m =
+    let taint_register_mask reg taint m: t * Taint.t =
       match m with
-      | BOT -> BOT
+      | BOT -> BOT, Taint.U
       | Val m' ->
 	     let k = Env.Key.Reg reg in
 	     let v = Env.find k m' in
-	     Val (Env.replace k (D.taint_of_config taint (Register.size reg) v) m')
+         let v', taint = D.taint_of_config taint (Register.size reg) v in
+	     Val (Env.replace k v') m'), taint
 
     let taint_address_mask a taint m =
       match m with
