@@ -240,8 +240,8 @@
     
 
     tainting_addr_content:
-    | TAINT_ALL { Config.Taint (Z.of_string "ff") }
-    | TAINT_NONE { Config.Taint Z.zero }
+    | TAINT_ALL { Config.Taint (Z.of_string "ff", Some (Taint.new_src())) }
+    | TAINT_NONE { Config.Taint (Z.zero, None) }
     | s=tcontent { s }
     
       imports:

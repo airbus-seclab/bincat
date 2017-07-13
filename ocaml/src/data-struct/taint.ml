@@ -26,7 +26,7 @@ module Src =
     (*current id for the generation of fresh taint sources *)
     let (current_id: id_t ref) = ref 0
       
-    let new_src () =
+    let new_src (): id_t =
       current_id := !current_id + 1;
       !current_id
         
