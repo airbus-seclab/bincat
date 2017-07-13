@@ -19,14 +19,14 @@ def test_adrp(tmpdir, op32):
     """.format(**locals())
     compare(tmpdir, asm, ["x0"])
 
-def test_data_xfer_offsets(tmpdir):
+def test_data_xfer_offsets(tmpdir, armv8off):
     asm = """
             mov x0, #0
             mov x1, #123
             mov x2, #101
-            stp x1, x2, [sp, #8]
-            ldp x3, x4, [sp, #8]
-    """
+            stp x1, x2, [sp, #{armv8off}]
+            ldp x3, x4, [sp, #{armv8off}]
+    """.format(**locals())
     compare(tmpdir, asm, ["x0", "x1", "x2", "x3", "x4"])
 
 @mov_imm
