@@ -109,8 +109,8 @@ let gs = ref Z.zero
 let interleave = ref false
   
 type tvalue =
-  | Taint of Z.t * Taint.id_t
-  | TMask of Z.t * Z.t * Taint.id_t (* second element is a mask on the first one *)
+  | Taint of Z.t * Taint.Src.id_t
+  | TMask of Z.t * Z.t * Taint.Src.id_t (* second element is a mask on the first one *)
 
 type cvalue =
   | Content of Z.t
