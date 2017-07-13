@@ -97,7 +97,7 @@ struct
 
   module Cfa = Cfa.Make(Domain)
 
-  module Imports = Armv8aImports.Make(Domain)
+  module Imports = Armv7Imports.Make(Domain)
 
   type state = {
     mutable g             : Cfa.t;        (** current cfa *)
@@ -640,5 +640,125 @@ struct
       | Exceptions.Error _ as e -> raise e
       | _  -> (*end of buffer *) None
 
-  let init () = ()
+
+
+
+
+
+
+
+
+
+  let forget_reserved_registers_aapcs () =
+    [ Directive (Forget (V (T r1))) ; (* scratch registers r1 -> r3 *)
+      Directive (Forget (V (T r2))) ;
+      Directive (Forget (V (T r3))) ;
+      Directive (Forget (V (T r12))); (* r12: inter procedure call scratch reg *)
+(* 
+        Return *)
+(*     Set( V (T pc), Lval (V (T lr))) ;
+      Jmp (R (Lval (V (T pc)))) *)
+]
+
+
+  let type_directives_aapcs _typing_rule =
+    L.debug (fun p -> p "@@@@@@@@@@@@@@@@@@@ type directives aapcs");
+    let epilogue = [] in
+    let _off = !Config.stack_width / 8 in
+    let _sz, prologue = 0, []
+    in
+    prologue, epilogue @ (forget_reserved_registers_aapcs ())
+
+
+  let taint_directives_aapcs taint_ret taint_args =
+    let taint_arg taint =
+      match taint with
+      | Config.No_taint -> []
+      | Config.Buf_taint -> [ Directive (Taint (None, M (Lval (V (T r0)), !Config.operand_sz))) ]
+      | Config.Addr_taint -> [ Directive (Taint (None, V (T r0))) ]
+    in
+    let taint_ret' =
+      match taint_ret with
+      | None -> []
+      | Some t -> taint_arg t
+    in
+    List.fold_left (fun l arg -> (taint_arg arg)@l) [] taint_args, taint_ret'
+
+
+  let default_stub_aapcs () = []
+
+
+  let get_stub name =
+    match !Config.call_conv with
+    | Config.AAPCS ->
+       begin
+         try
+           Hashtbl.find Imports.aapcs_stubs name
+         with Not_found -> default_stub_aapcs ()
+       end
+    | _ -> L.abort (fun p -> p "calling convention not managed for ARM")
+
+  let replace_types type_directive =
+    L.debug (fun p -> p "WWWWW replace_types");
+    Hashtbl.iter (fun name typing_rule ->
+      try
+        L.debug (fun p -> p "types for %s ?" name);
+        let a, fundec = Imports.search_by_name name in
+        let prologue, epilogue = type_directive typing_rule in
+        L.debug (fun p -> p "replace type for %s: %s %s" name (Asm.string_of_stmts prologue true) (Asm.string_of_stmts epilogue true));
+        Hashtbl.replace Imports.tbl a
+          { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
+            Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = get_stub name}
+      with Not_found ->
+        L.analysis (fun p -> p "from config file: Typing information for function %s without import address => ignored." name); ()
+    ) Config.typing_rules
+
+  let replace_taint taint_directives funame taint_ret taint_args =
+    let a, fundec = Imports.search_by_name funame in
+    let prologue, epilogue = taint_directives taint_ret taint_args in
+    Hashtbl.replace Imports.tbl a
+      { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
+        Imports.epilogue = fundec.Imports.epilogue@epilogue ;  }
+
+
+    (** initialization of the import table *)
+  let init_imports () =
+    Imports.init();
+    (* creates the import table from import section *)
+    let add_import_to_table a (libname, fname) =
+      L.debug(fun p -> p "loading import %s.%s at %x" libname fname (Z.to_int a));
+      let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
+      let fun_desc =  {
+        Imports.libname = libname;
+        Imports.name = fname;
+        Imports.prologue = [];
+        Imports.stub = [];
+        Imports.epilogue = [];
+      } in
+      Hashtbl.add Imports.tbl a' fun_desc in
+    Hashtbl.iter add_import_to_table  Config.import_tbl;
+    begin
+      match !Config.call_conv with
+      | Config.AAPCS -> replace_types type_directives_aapcs
+      | _ -> L.warn (fun p -> p "Calling convention not managed for ARM. Typing and tainting directives ignored")
+    end;
+    (* adds tainting information to prologue and epilogue *)
+    Hashtbl.iter (fun (_libname, funame) (callconv, taint_ret, taint_args) ->
+      try
+        match callconv with
+        | Config.AAPCS ->
+           replace_taint taint_directives_aapcs funame taint_ret taint_args
+        | _ -> L.abort (fun p -> p "Calling convention not supported for ARM")
+      with
+        Not_found ->
+          L.analysis (fun p -> p"Typing information for function without import address ignored"); ()
+      | Failure msg -> L.abort (fun p -> p "%s" msg)
+
+    ) Config.tainting_rules
+
+
+
+  let init () =
+    init_imports()
+
 end
