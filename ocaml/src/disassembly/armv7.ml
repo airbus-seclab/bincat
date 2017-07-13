@@ -234,14 +234,18 @@ struct
       !stmts
 
   let branch s instruction =
-    let link_stmt = if (instruction land (1 lsl 24)) <> 0 then
-        [ Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ]
+    let link = (instruction land (1 lsl 24)) <> 0 in
+    let link_stmt,jmp_or_call_stmt = 
+      if link then
+        ([ Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ], [ Call (R (Lval (V (T pc)))) ]) 
       else
-        [ ] in
+        ([ ], [ Jmp (R (Lval (V (T pc)))) ]) in
     let ofs = (instruction land 0xffffff) lsl 2 in
     let ofs32 = if ofs land 0x2000000 <> 0 then ofs lor 0xfc000000 else ofs in (* sign extend 26 bits to 32 bits *)
-    link_stmt @ [ Set (V (T pc), BinOp(Add, Lval (V (T pc)), const ofs32 32)) ; 
-                  Jmp (R (Lval (V (T pc)))) ]
+    link_stmt
+    @ [ Set (V (T pc), BinOp(Add, Lval (V (T pc)), const ofs32 32)) ]
+    @ jmp_or_call_stmt
+
 
   let single_data_transfer s instruction = 
     let rd = (instruction lsr 12) land 0xf in
