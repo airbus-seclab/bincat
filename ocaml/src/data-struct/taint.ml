@@ -21,27 +21,21 @@ module Src =
   struct
 
     (* type of tainting sources *) 
-    type src_id = int
-
-    (*current id for the generation of fresh taint sources *)
-    let (current_id: src_id ref) = ref 0
+    type id_t = int
       
-  
+    (*current id for the generation of fresh taint sources *)
+    let (current_id: id_t ref) = ref 0
+      
+    let new_src (): id_t =
+      current_id := !current_id + 1;
+      !current_id
+        
     (* a value may be surely Tainted or Maybe tainted *)
     type t =
-      | Tainted of src_id (** surely tainted by the given source *)
-      | Maybe of src_id (** maybe tainted by then given source *)
+      | Tainted of id_t (** surely tainted by the given source *)
+      | Maybe of id_t (** maybe tainted by then given source *)
 
-    (* returns a fresh source id and increments src_id *)
-    let make_sure () =
-      current_id := !current_id + 1;
-      Tainted (!current_id)
 
-    (* returns a fresh possible source id and increments src_id *)
-    let make_uncertain () =
-      current_id := !current_id + 1;
-      Maybe (!current_id)
-        
     (* comparison between tainting sources. Returns
     - 0 is equal
     - a negative number if the first source is less than the second one
@@ -52,6 +46,11 @@ module Src =
       | Tainted _, _ -> -1
       | Maybe _, Tainted _ -> 1
       | Maybe id1, Maybe id2 -> id1 - id2
+
+    let to_string src =
+      match src with
+      | Tainted id -> "t-"^(string_of_int id)
+      | Maybe id -> "m-"^(string_of_int id) 
   end
 
 (* set of (possible) tainting sources *)
@@ -67,9 +66,9 @@ type t =
   | S of SrcSet.t
   | TOP    
 
-let make_sure () = S (SrcSet.singleton (Src.make_sure ()))
+let new_src = Src.new_src
 
-let make_uncertain () = S (SrcSet.singleton (Src.make_uncertain ()))
+let singleton src = S (SrcSet.singleton src)
 
 let join (t1: t) (t2: t): t =
   match t1, t2 with
@@ -110,12 +109,6 @@ let to_char (t: t): char =
   | TOP -> '?'
   | S _ -> '1'
   | U -> '0'
-
-let to_string (t: t): string =
-  match t with
-  | TOP -> "?"
-  | S _ -> "1"
-  | U   -> "0"
 
 let equal (t1: t) (t2: t): bool =
   match t1, t2 with
@@ -177,3 +170,9 @@ let to_z (t: t): Z.t =
   | S _ -> Z.one
   | _ -> raise Exceptions.Concretization
 
+let to_string t =
+  match t with
+  | U -> ""
+  | TOP -> "?"
+  | S srcs ->
+     SrcSet.fold (fun src acc -> (Src.to_string src)^", "^acc) srcs ""

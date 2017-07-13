@@ -22,6 +22,6 @@ module Make: functor (D: Domain.T) ->
 sig
 
   (** [process d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args]. 
-It returns also a boolean true whenever the result is tainted. *) 
-  val process : D.t -> string -> Asm.exp list -> D.t * bool
+It returns also the taint of the result *) 
+  val process : D.t -> string -> Asm.exp list -> D.t * Taint.t
 end

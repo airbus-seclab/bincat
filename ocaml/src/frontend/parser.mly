@@ -226,10 +226,18 @@
     }
     
     tainting_reg:
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_ALL {
-      (r, fun reg -> (Config.Taint (Bits.ff ((Register.size reg )/8)))) }
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_ALL
+    {
+      let funreg =
+        fun reg ->
+          let tid = Some (Taint.Src.new_src ()) in
+          Config.Taint (Bits.ff ((Register.size reg )/8), tid)
+      in
+      r, funreg
+    }
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_NONE {
-      (r, (fun _ -> Config.Taint Z.zero)) }
+      
+      (r, (fun _ -> Config.Taint (Z.zero, None))) }
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA s=tcontent {
       (r, (fun _ -> s)) } 
 
@@ -240,8 +248,8 @@
     
 
     tainting_addr_content:
-    | TAINT_ALL { Config.Taint (Z.of_string "ff") }
-    | TAINT_NONE { Config.Taint Z.zero }
+    | TAINT_ALL { Config.Taint (Z.of_string "ff", Some (Taint.new_src())) }
+    | TAINT_NONE { Config.Taint (Z.zero, None) }
     | s=tcontent { s }
     
       imports:
@@ -435,6 +443,10 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
-    | t=INT 		{ (Config.Taint t) }
-    | t=INT MASK t2=INT { (Config.TMask (t, t2)) }
+    | t=INT 		{ let tid =
+                        if Z.compare t Z.zero = 0 then None
+                        else Some (Taint.Src.new_src())
+                      in
+                      Config.Taint (t, tid) }
+    | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src())) }
 

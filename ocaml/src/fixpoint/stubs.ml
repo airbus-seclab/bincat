@@ -20,7 +20,7 @@ module L = Log.Make(struct let name = "stubs" end)
 
 module Make (D: Domain.T) =
 struct
-    let strlen (d: D.t) (args: Asm.exp list): D.t * bool =
+    let strlen (d: D.t) (args: Asm.exp list): D.t * Taint.t =
         match args with
         | [Asm.Lval ret ; buf] ->
           let zero = Asm.Const (Data.Word.zero !Config.operand_sz) in
@@ -33,7 +33,7 @@ struct
           D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
         | _ -> L.abort (fun p -> p "invalid call to strlen stub")
 
-    let memcpy (d: D.t) (args: Asm.exp list): D.t * bool =
+    let memcpy (d: D.t) (args: Asm.exp list): D.t * Taint.t =
         L.analysis (fun p -> p "memcpy stub");
         match args with
         | [Asm.Lval ret ; dst ; src ; sz] ->
@@ -46,7 +46,7 @@ struct
           end
         | _ -> L.abort (fun p -> p "invalid call to memcpy stub")
 
-    let print (d: D.t) ret format_addr va_args (to_buffer: Asm.exp option): D.t * bool =
+    let print (d: D.t) ret format_addr va_args (to_buffer: Asm.exp option): D.t * Taint.t =
         (* ret has to contain the number of bytes stored in dst ;
            format_addr is the address of the format string ;
            va_args is the address of the first parameter
@@ -191,7 +191,7 @@ struct
 
 
 
-    let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
+    let sprintf (d: D.t) (args: Asm.exp list): D.t * Taint.t =
         match args with
         | [Asm.Lval ret ; dst ; format_addr ; va_args] ->
           print d ret format_addr va_args (Some dst)
@@ -223,8 +223,8 @@ struct
 	  
       | _ -> L.abort (fun p -> p "invalid call to puts stub")
 	 
-    let process d fun_name (args: Asm.exp list): D.t * bool =
-        let d, is_tainted =
+    let process d fun_name (args: Asm.exp list): D.t * Taint.t =
+        let d, taint =
             try
                 let apply_f =
                     match fun_name with
@@ -236,7 +236,7 @@ struct
                     | _ -> raise Exit
                 in
                 apply_f d args
-            with _ -> L.analysis (fun p -> p "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
+            with _ -> L.analysis (fun p -> p "no stub or uncomputable stub for %s. Skipped" fun_name); d, Taint.U
         in
         if !Config.call_conv = Config.STDCALL then
             let sp = Register.stack_pointer () in
@@ -244,10 +244,10 @@ struct
             let sp_sz = Register.size sp in
             let c = Data.Word.of_int (Z.of_int (!Config.stack_width / 8)) sp_sz in
             let e = Asm.BinOp (Asm.Add, Asm.Lval vsp, Asm.Const c) in
-            let d', is_tainted' =
+            let d', taint' =
                 D.set vsp e d
             in
-            d', is_tainted || is_tainted'
+            d', Taint.join taint taint'
         else
-            d, is_tainted
+            d, taint
 end

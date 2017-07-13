@@ -2,6 +2,7 @@ ML=\
 data-struct/register.ml\
 utils/mapOpt.ml\
 utils/bits.ml\
+data-struct/taint.ml\
 utils/config.ml\
 utils/exceptions.ml\
 data-struct/data.ml\
@@ -16,7 +17,6 @@ data-struct/code.ml\
 domains/env.ml\
 domains/typenv.ml\
 domains/bit.ml\
-data-struct/taint.ml\
 domains/unrel.ml\
 domains/vector.ml\
 domains/pointer.ml\

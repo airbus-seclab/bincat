@@ -69,9 +69,9 @@ module type T =
 	The size of the value is given by the int parameter *)
     val of_config: Data.Address.region -> Config.cvalue -> int -> t
       
-    (** returns the tainted value corresponding to the given abstract value.
-    The size of the value is given by the int parameter *)
-    val taint_of_config: Config.tvalue -> int -> t  -> t
+    (** taint the given abstract value.
+    The size of the value is given by the int parameter. The taint itself is also returned *)
+    val taint_of_config: Config.tvalue -> Taint.id_t -> t  -> t * Taint.t
 
       
     (** join two abstract values *)
@@ -394,7 +394,7 @@ module Make(D: T) =
       let delete_mem  addr domain =
         let key = safe_find addr domain in
         match key with
-        | None -> domain;
+        | None -> domain
         | Some (Env.Key.Reg _,_) ->  L.abort (fun p -> p "Implementation error: the found key is a Reg")
         (* We have a byte, delete it *)
         | Some (Env.Key.Mem (_) as addr_k, _) -> Env.remove addr_k domain
@@ -779,57 +779,59 @@ module Make(D: T) =
 		 
          
     (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, taint) sz =
+    let of_config region (content, taint) sz: D.t * Taint.t =
       let v' = D.of_config region content sz in
       match taint with
-      | Some taint' -> D.taint_of_config taint' sz v'
+      | Some (taint', tid) -> D.taint_of_config taint' tid sz v'
       | None 	-> D.taint_of_config (Config.Taint Z.zero) sz v'
          
-    let taint_register_mask reg taint m =
+    let taint_register_mask reg taint m: t * Taint.t =
       match m with
-      | BOT -> BOT
+      | BOT -> BOT, Taint.U
       | Val m' ->
 	     let k = Env.Key.Reg reg in
 	     let v = Env.find k m' in
-	     Val (Env.replace k (D.taint_of_config taint (Register.size reg) v) m')
+         let v', taint = D.taint_of_config taint (Register.size reg) v in
+	     Val (Env.replace k v' m'), taint
 
-    let taint_address_mask a taint m =
+    let taint_address_mask a taint m: t * Taint.t =
       match m with
-      | BOT -> BOT
+      | BOT -> BOT, Taint.U
       | Val m' ->
 	     let k = Env.Key.Mem a in
 	     let v = Env.find k m' in
-	     Val (Env.replace k (D.taint_of_config taint 8 v) m')
+         let v', taint = D.taint_of_config taint 8 v in
+	     Val (Env.replace k v' m'), taint
 
-    let set_memory_from_config addr region (content, taint) nb domain =
+    let set_memory_from_config addr region (content, taint) nb domain: t * Taint.t =
       if nb > 0 then
         match domain with
-        | BOT    -> BOT
+        | BOT    -> BOT, Taint.U
         | Val domain' ->
            let sz = size_of_content content in
-           let val_taint = of_config region (content, taint) sz in
+           let v', taint = of_config region (content, taint) sz in
            if nb > 1 then
              if sz != 8 then
                L.abort (fun p -> p "Repeated memory init only works with bytes")
              else
-               Val (write_repeat_byte_in_mem addr domain' val_taint nb)
+               Val (write_repeat_byte_in_mem addr domain' v' nb), taint
            else
              let big_endian =
                match content with
                | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
                | _ -> false
              in
-             Val (write_in_memory addr domain' val_taint sz true big_endian)
+             Val (write_in_memory addr domain' v' sz true big_endian), taint
       else
-        domain
+        domain, Taint.U
 	      
-    let set_register_from_config r region c m =
+    let set_register_from_config r region c m: t * Taint.t =
       match m with
-      | BOT    -> BOT
+      | BOT    -> BOT, Taint.U
       | Val m' ->
          let sz = Register.size r in
-         let vt = of_config region c sz in
-         Val (Env.add (Env.Key.Reg r) vt m')
+         let vt, taint = of_config region c sz in
+         Val (Env.add (Env.Key.Reg r) vt m'), taint
 	       
     let value_of_exp m e =
       match m with

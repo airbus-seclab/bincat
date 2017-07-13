@@ -136,8 +136,8 @@ module Make (V: Vector.T) =
                 begin
                     try Val (r, V.binary op o1 o2)
                     with
-		    | Exceptions.Error _ as e -> raise e 
-		    | _ -> BOT
+		            | Exceptions.Error _ as e -> raise e 
+		            | _ -> BOT
                 end
               | r1, r2                ->
                 try
@@ -172,10 +172,13 @@ module Make (V: Vector.T) =
               if r1 = r2 then V.is_subset o1 o2
               else false
 		  
-        let taint_of_config t n prev =
+        let taint_of_config t tid n prev: t * Taint.t =
             match prev with
-            | Val (r, o) -> Val (r, V.taint_of_config t n (Some o))
-            | _ 	   -> prev
+            | Val (r, o) ->
+               let o', taint = V.taint_of_config t tid n (Some o) in
+               Val (r, o'), taint
+               
+            | _ 	   -> prev, Taint.U
 
         let of_config r c n = Val (r, V.of_config c n)
 

@@ -34,7 +34,7 @@ let to_z (v, _t) = B.to_z v
 
 let to_int (v, _t) = B.to_int v
 
-let forget_taint (v, _t) = v, T.TOP
+let forget_taint (v, _t) tid = v, T.singleton (T.Maybe tid)
 
 let join (v1, t1) (v2, t2) = B.join v1 v2, T.join t1 t2
 
@@ -96,12 +96,12 @@ let of_z z =
     else
       B.TOP, T.U
 
-let taint_of_z z (v, _t) =
+let taint_of_z z (v, _t) tid =
   let t' =
   if Z.compare Z.zero z = 0 then T.U
   else
-    if Z.compare Z.one z = 0 then T.make_sure ()
-    else T.make_uncertain ()
+    if Z.compare Z.one z = 0 then T.singleton (T.Tainted tid)
+    else T.singleton (T.Maybe tid)
   in
   v, t'
 
