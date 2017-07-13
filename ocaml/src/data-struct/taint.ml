@@ -77,7 +77,7 @@ type t =
 
 let new_src = Src.new_src
 
-let singleton src = Src.singleton src
+let singleton src = S (SrcSet.singleton src)
 
 let join (t1: t) (t2: t): t =
   match t1, t2 with
