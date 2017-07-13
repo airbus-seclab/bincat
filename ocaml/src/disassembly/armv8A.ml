@@ -216,8 +216,13 @@ struct
      get_Rn_exp ~use_sp:use_sp insn sf,
      get_Rm_exp ~use_sp:use_sp insn sf)
 
-  (* gets Rt2 / Rn / Rt (STORE operations) *)
-  let get_regs_st ?(use_sp = false) insn sf =
+  let get_regs_ld_st ?(use_sp = false) insn sf =
+    (get_reg_lv ~use_sp:use_sp ((insn lsr 16) land 0x1F) sf,
+     get_reg_lv ~use_sp:true ((insn lsr 5) land 0x1F) sf,
+     get_reg_lv ~use_sp:use_sp (insn land 0x1F) sf)
+
+  (* gets Rt2 / Rn / Rt (LDP/STP operations) *)
+  let get_regs_pair ?(use_sp = false) insn sf =
     (get_reg_lv ~use_sp:use_sp ((insn lsr 10) land 0x1F) sf,
      get_reg_lv ~use_sp:true ((insn lsr 5) land 0x1F) sf,
      get_reg_lv ~use_sp:use_sp (insn land 0x1F) sf)
@@ -482,29 +487,22 @@ struct
     end
 
   (* LDR / STR *)
-  let load_store_reg insn op3 =
+  let load_store_reg insn =
     let l = (insn lsr 22) land 1 in
-    let imm7 = get_imm7 insn in
-    let sf, sz = get_sf insn in
-    let rt2, rn, rt = get_regs_st insn sf in
-    let offset = extend_reg (Lval rn) 0 (const imm7 sz) in
-    let addr, post = match op3 with
-        (* no index *)
-        | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
-        (* post index *)
-        | 0b01 -> offset, [Set(rn, BinOp(Add, Lval(rn), offset))]
-        (* pre index *)
-        | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
-        | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
-    in
+    let sf = (insn lsr 30) land 1 in
+    let sz = sf2sz sf in
+    let rm, rn, rt = get_regs_ld_st insn sf in
+    let s = (insn lsr 12) land 1 in
+    let shl_amount = if s == 1 then (insn lsr 30) land 3 else 0 in
+    let ext_type = (insn lsr 13) land 7 in
+    let offset = extend_reg (Lval rm) ext_type (const shl_amount sz) in
+    let addr = BinOp(Add, Lval rn, offset) in
     if l == 1 then
         (* load *)
-        [Set(rt, Lval(M(addr, sz)));
-         Set(rt2, Lval(M(BinOp(Add, addr, const (sz/8) sz), sz)))] @ post
+        [Set(rt, Lval(M(addr, sz)))]
     else
         (* store *)
-        [Set(M(addr, sz), Lval(rt));
-         Set(M(BinOp(Add, addr, const (sz/8) sz), sz), Lval(rt2))] @ post
+        [Set(M(addr, sz), Lval(rt))]
 
   (* STP / STNP / LDP *)
   let load_store_pair insn op3 =
@@ -512,7 +510,7 @@ struct
     let imm7 = get_imm7 insn in
     let sf, sz = get_sf insn in
     let offset = BinOp(Shl, UnOp(SignExt 64, const imm7 7), const (sf+2) 64) in
-    let rt2, rn, rt = get_regs_st insn sf in
+    let rt2, rn, rt = get_regs_pair insn sf in
     let addr, post = match op3 with
         (* no index *)
         | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
@@ -551,7 +549,7 @@ struct
     if (op1 == 0b10) then
         load_store_pair insn op3
     else
-        load_store_reg insn op3
+        load_store_reg insn
 
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
