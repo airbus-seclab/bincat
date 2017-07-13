@@ -71,7 +71,7 @@ module type T =
       
     (** taint the given abstract value.
     The size of the value is given by the int parameter. The taint itself is also returned *)
-    val taint_of_config: Config.tvalue -> int -> t  -> t * Taint.t
+    val taint_of_config: Config.tvalue -> Taint.id_t -> t  -> t * Taint.t
 
       
     (** join two abstract values *)
@@ -782,7 +782,7 @@ module Make(D: T) =
     let of_config region (content, taint) sz: D.t * Taint.t =
       let v' = D.of_config region content sz in
       match taint with
-      | Some taint' -> D.taint_of_config taint' sz v'
+      | Some (taint', tid) -> D.taint_of_config taint' tid sz v'
       | None 	-> D.taint_of_config (Config.Taint Z.zero) sz v'
          
     let taint_register_mask reg taint m: t * Taint.t =
