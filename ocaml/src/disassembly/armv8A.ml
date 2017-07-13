@@ -299,6 +299,23 @@ struct
         (* TODO / XXX :https://www.meriac.com/archex/A64_v82A_ISA/shared_pseudocode.xml#impl-aarch64.DecodeBitMasks.4 *)
         const immr sz
 
+  let extend_reg reg ext_type shift =
+    let ext_op = match ext_type with
+            | 0 -> ZeroExt 8
+            | 1 -> ZeroExt 16
+            | 2 -> ZeroExt 32
+            | 3 -> ZeroExt 64
+            | 4 -> SignExt 8
+            | 5 -> SignExt 16
+            | 6 -> SignExt 32
+            | 7 -> SignExt 64
+            | _ -> L.abort(fun p->p "invalid shift")
+    in
+    UnOp(ext_op, BinOp(Shl, reg, shift))
+    (*if shift < 0 || shift > 4 then
+        L.abort (fun p->p "Invalid shift value for extend_reg")
+    else*)
+
   (******************************)
   (* Actual instruction decoder *)
   (******************************)
@@ -464,18 +481,53 @@ struct
             []
     end
 
-  (* STP / STNP *)
+  (* LDR / STR *)
+  let load_store_reg insn op3 =
+    let l = (insn lsr 22) land 1 in
+    let imm7 = get_imm7 insn in
+    let sf, sz = get_sf insn in
+    let rt2, rn, rt = get_regs_st insn sf in
+    let offset = extend_reg (Lval rn) 0 (const imm7 sz) in
+    let addr, post = match op3 with
+        (* no index *)
+        | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
+        (* post index *)
+        | 0b01 -> offset, [Set(rn, BinOp(Add, Lval(rn), offset))]
+        (* pre index *)
+        | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
+        | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
+    in
+    if l == 1 then
+        (* load *)
+        [Set(rt, Lval(M(addr, sz)));
+         Set(rt2, Lval(M(BinOp(Add, addr, const (sz/8) sz), sz)))] @ post
+    else
+        (* store *)
+        [Set(M(addr, sz), Lval(rt));
+         Set(M(BinOp(Add, addr, const (sz/8) sz), sz), Lval(rt2))] @ post
+
+  (* STP / STNP / LDP *)
   let load_store_pair insn op3 =
+    let l = (insn lsr 22) land 1 in
     let imm7 = get_imm7 insn in
     let sf, sz = get_sf insn in
     let offset = BinOp(Shl, UnOp(SignExt 64, const imm7 7), const (sf+2) 64) in
     let rt2, rn, rt = get_regs_st insn sf in
     let addr, post = match op3 with
+        (* no index *)
         | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
+        (* post index *)
         | 0b01 -> offset, [Set(rn, BinOp(Add, Lval(rn), offset))]
+        (* pre index *)
         | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
         | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
     in
+    if l == 1 then
+        (* load *)
+        [Set(rt, Lval(M(addr, sz)));
+         Set(rt2, Lval(M(BinOp(Add, addr, const (sz/8) sz), sz)))] @ post
+    else
+        (* store *)
         [Set(M(addr, sz), Lval(rt));
          Set(M(BinOp(Add, addr, const (sz/8) sz), sz), Lval(rt2))] @ post
 
@@ -499,9 +551,7 @@ struct
     if (op1 == 0b10) then
         load_store_pair insn op3
     else
-        [Nop]
-
-
+        load_store_reg insn op3
 
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
