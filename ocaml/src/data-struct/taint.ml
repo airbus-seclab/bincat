@@ -35,16 +35,7 @@ module Src =
       | Tainted of id_t (** surely tainted by the given source *)
       | Maybe of id_t (** maybe tainted by then given source *)
 
-    (* returns a fresh source id and increments src_id *)
-    let make_sure () =
-      current_id := !current_id + 1;
-      Tainted (!current_id)
 
-    (* returns a fresh possible source id and increments src_id *)
-    let make_uncertain () =
-      current_id := !current_id + 1;
-      Maybe (!current_id)
-        
     (* comparison between tainting sources. Returns
     - 0 is equal
     - a negative number if the first source is less than the second one
