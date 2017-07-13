@@ -235,7 +235,7 @@ struct
                     | "printf" -> printf
 		    | "puts" -> puts
                     | "strlen" -> strlen
-                    | _ -> raise Exit
+                    | _ -> L.info(fun p -> p "Stub for function [%s] not found" fun_name); raise Exit
                 in
                 apply_f d args
             with _ -> L.analysis (fun p -> p "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
