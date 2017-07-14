@@ -36,7 +36,7 @@ Supported CPU for analysis (for now):
 ### Analyzer
 The analyzer can be used locally or through a Web service.
 
-On Windows, the binary distribution includes the analyzer.
+On Windows, the [binary distribution](https://github.com/airbus-seclab/releases) includes the analyzer.
 
 On Linux:
 * Using Docker: [Docker installation instructions](doc/install_docker.md)
