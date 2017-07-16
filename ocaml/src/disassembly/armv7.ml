@@ -396,6 +396,12 @@ struct
       [ Set (V (T tmpreg), BinOp(op, to33bits a, to33bits b)) ;
         Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
         Directive (Remove tmpreg) ] in
+    let cflag_update_stmts_with_carry op a b =
+      let tmpreg = Register.make (Register.fresh_name ()) 33 in
+      [ Set (V (T tmpreg), BinOp(op, UnOp(ZeroExt 33, Lval (V (T cflag))),
+                                 BinOp(op, to33bits a, to33bits b))) ;
+        Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
+        Directive (Remove tmpreg) ] in
     let stmts, flags_stmts, update_pc =
       let opcode = (instruction lsr 21) land 0xf in
       match opcode with
@@ -445,7 +451,14 @@ struct
         vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
       @ cflag_update_stmts Add (Lval (V (reg rn))) op2_stmt,
       rd = 15
-    | 0b0101 -> (* ADC - Rd:= Op1 + Op2 + C *) error s.a "ADC"
+    | 0b0101 -> (* ADC - Rd:= Op1 + Op2 + C *)
+      [ Set (V (reg rd), BinOp(Add, UnOp(ZeroExt 32, Lval (V (T cflag))),
+                                BinOp(Add, Lval (V (reg rn)), op2_stmt) )) ],
+      [ zflag_update_exp (Lval (V (reg rd))) ;
+        nflag_update_from_reg_exp (reg_from_num rd) ;
+        vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
+      @ cflag_update_stmts_with_carry Add (Lval (V (reg rn))) op2_stmt,
+      rd = 15
     | 0b0110 -> (* SBC - Rd:= Op1 - Op2 + C - 1 *) error s.a "SBC"
     | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *) error s.a "RSC"
     | 0b1100 -> (* ORR - Rd:= Op1 OR Op2 *)
