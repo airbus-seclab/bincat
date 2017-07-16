@@ -35,6 +35,7 @@ def test_assign(tmpdir):
 dataop_mov  = pytest.mark.parametrize("op", ["mov", "mvn"])
 dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
 dataop_comp_arith = pytest.mark.parametrize("op", [ "sub", "rsb", "add"])
+dataop_comp_arith_with_carry = pytest.mark.parametrize("op", [ "adc"])
 dataop_test_logic = pytest.mark.parametrize("op", ["tst", "teq"])
 dataop_test_arith = pytest.mark.parametrize("op", ["cmp", "cmn"])
 
@@ -168,8 +169,24 @@ def test_data_proc_logic(tmpdir, op, armv7op, armv7op_):
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z"])
 
 @dataop_comp_arith
-def test_data_proc_arith(tmpdir, op, armv7op, armv7op_):
+def test_data_proc_arith_no_carry(tmpdir, op, armv7op, armv7op_):
     asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
+            {op} r2, r0, r1
+            {op}s r3, r0, r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z", "c", "v"])
+
+
+@dataop_comp_arith_with_carry
+@pytest.mark.parametrize("carry", [0, 0x20000000])
+def test_data_proc_arith_carry(tmpdir, op, armv7op, armv7op_, carry):
+    asm = """
+            mrs r0, cpsr
+            bic r0, #0x20000000
+            eor r0, #{carry:#x}
+            msr cpsr, r0
             mov r0, #{armv7op}
             mov r1, #{armv7op_}
             {op} r2, r0, r1
