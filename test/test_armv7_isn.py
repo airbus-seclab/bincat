@@ -35,7 +35,7 @@ def test_assign(tmpdir):
 dataop_mov  = pytest.mark.parametrize("op", ["mov", "mvn"])
 dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
 dataop_comp_arith = pytest.mark.parametrize("op", [ "sub", "rsb", "add"])
-dataop_comp_arith_with_carry = pytest.mark.parametrize("op", [ "adc", "sbc"])
+dataop_comp_arith_with_carry = pytest.mark.parametrize("op", [ "adc", "sbc", "rsc"])
 dataop_test_logic = pytest.mark.parametrize("op", ["tst", "teq"])
 dataop_test_arith = pytest.mark.parametrize("op", ["cmp", "cmn"])
 
