@@ -482,7 +482,15 @@ struct
          nflag_update_from_reg_exp (reg_from_num rd) ; ]
        @ set_cflag_vflag_after_add_with_carry (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (T cflag))),
       rd = 15
-    | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *) error s.a "RSC"
+    | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *)
+       [ Set (V (reg rd), BinOp(Sub,
+                                BinOp(Add, BinOp(Sub, op2_stmt, Lval (V (reg rn))),
+                                      UnOp(ZeroExt 32, Lval (V (T cflag))) ),
+                                const 1 32)) ],
+       [ zflag_update_exp (Lval (V (reg rd))) ;
+         nflag_update_from_reg_exp (reg_from_num rd) ; ]
+       @ set_cflag_vflag_after_add_with_carry op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (T cflag))),
+      rd = 15
     | 0b1100 -> (* ORR - Rd:= Op1 OR Op2 *)
       [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ],
       [ zflag_update_exp (Lval (V (reg rd))) ;
