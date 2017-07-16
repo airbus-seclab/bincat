@@ -195,7 +195,7 @@ def test_data_proc_arith_carry(tmpdir, op, armv7op, armv7op_, carry):
     asm = """
             mrs r0, cpsr
             bic r0, #0x20000000
-            eor r0, #{carry:#x}
+            orr r0, #{carry:#x}
             msr cpsr, r0
             mov r0, #{armv7op}
             mov r1, #{armv7op_}
@@ -210,7 +210,7 @@ def test_data_proc_arith_carry2(tmpdir, op, armv7op, armv7op_, carry):
     asm = """
             mrs r0, cpsr
             bic r0, #0x20000000
-            eor r0, #{carry:#x}
+            orr r0, #{carry:#x}
             msr cpsr, r0
             mov r0, #{armv7op}
             mvn r0, r0
