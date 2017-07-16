@@ -377,6 +377,7 @@ struct
           | st -> L.abort (fun p -> p "unexpected shift type %x" st)
     in
     let to33bits x = UnOp(ZeroExt 33, x) in
+    let to33bits_s x = UnOp(SignExt 33, x) in
     let bit31 = const 0x80000000 32 in
     let zflag_update_exp res_exp = Set(V (T zflag), TernOp (Cmp(EQ, res_exp, const 0 32),
                                                             const 1 1, const 0 1)) in
@@ -391,6 +392,19 @@ struct
                                          Cmp (NEQ, BinOp(And, a, bit31),
                                               BinOp(And, res, bit31))),
                                  const 1 1, const 0 1)) in
+    let set_cflag_vflag_after_add_with_carry a b carry =
+      let tmpregu = Register.make (Register.fresh_name ()) 33 in
+      let tmpregs = Register.make (Register.fresh_name ()) 33 in
+      [ Set (V (T tmpregu), BinOp(Add, BinOp(Add, to33bits a, to33bits b),
+                                 to33bits carry)) ;
+        Set (V (T tmpregs), BinOp(Add, BinOp(Add, to33bits_s a, to33bits_s b),
+                                 to33bits carry)) ;
+        Set (V (T cflag), Lval (V (P (tmpregu, 32, 32)))) ;
+        Set (V (T vflag), TernOp(Cmp(EQ, Lval (V (P (tmpregs, 31, 31))),
+                                     Lval (V (P (tmpregs, 32, 32)))),
+                                 const 0 1, const 1 1)) ;
+        Directive(Remove tmpregu) ;
+        Directive(Remove tmpregs) ] in
     let cflag_update_stmts op a b =
       let tmpreg = Register.make (Register.fresh_name ()) 33 in
       [ Set (V (T tmpreg), BinOp(op, to33bits a, to33bits b)) ;
@@ -459,7 +473,15 @@ struct
         vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
       @ cflag_update_stmts_with_carry Add (Lval (V (reg rn))) op2_stmt,
       rd = 15
-    | 0b0110 -> (* SBC - Rd:= Op1 - Op2 + C - 1 *) error s.a "SBC"
+    | 0b0110 -> (* SBC - Rd:= Op1 - Op2 + C - 1 *)
+       [ Set (V (reg rd), BinOp(Sub,
+                                BinOp(Add, BinOp(Sub, Lval (V (reg rn)), op2_stmt),
+                                      UnOp(ZeroExt 32, Lval (V (T cflag))) ),
+                                const 1 32)) ],
+       [ zflag_update_exp (Lval (V (reg rd))) ;
+         nflag_update_from_reg_exp (reg_from_num rd) ; ]
+       @ set_cflag_vflag_after_add_with_carry (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (T cflag))),
+      rd = 15
     | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *) error s.a "RSC"
     | 0b1100 -> (* ORR - Rd:= Op1 OR Op2 *)
       [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ],
