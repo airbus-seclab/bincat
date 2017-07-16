@@ -744,16 +744,16 @@ struct
     begin
       match !Config.call_conv with
       | Config.AAPCS -> replace_types type_directives_aapcs
-      | cc -> L.warn (fun p -> p "Calling convention %s not managed for ARM. Typing and tainting directives ignored"
+      | cc -> L.analysis (fun p -> p "Calling convention %s not managed for ARM. Typing directives ignored"
       (Config.call_conv_to_string cc))
     end;
     (* adds tainting information to prologue and epilogue *)
-    Hashtbl.iter (fun (_libname, funame) (callconv, taint_ret, taint_args) ->
+    Hashtbl.iter (fun (libname, funame) (callconv, taint_ret, taint_args) ->
       try
         match callconv with
         | Config.AAPCS ->
            replace_taint taint_directives_aapcs funame taint_ret taint_args
-        | cc -> L.abort (fun p -> p "Calling convention %s not supported for ARM" (Config.call_conv_to_string cc))
+        | cc -> L.analysis (fun p -> p "Calling convention %s not supported for ARM. Tainting rule ignored for %s.%s " (Config.call_conv_to_string cc) libname funame)
       with
         Not_found ->
           L.analysis (fun p -> p"Typing information for function without import address ignored"); ()
