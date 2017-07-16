@@ -83,6 +83,13 @@ type call_conv_t =
   | FASTCALL
   | AAPCS (* ARM *)
 
+let call_conv_to_string cc =
+  match cc with
+  | CDECL -> "CDECL"
+  | STDCALL -> "STDCALL"
+  | FASTCALL -> "FASTCALL"
+  | AAPCS -> "AAPCS"
+
 let call_conv = ref CDECL
 
 let text = ref ""
