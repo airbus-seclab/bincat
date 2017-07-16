@@ -666,7 +666,6 @@ struct
 
 
   let type_directives_aapcs _typing_rule =
-    L.debug (fun p -> p "@@@@@@@@@@@@@@@@@@@ type directives aapcs");
     let epilogue = [] in
     let _off = !Config.stack_width / 8 in
     let _sz, prologue = 0, []
@@ -703,7 +702,6 @@ struct
     | _ -> L.abort (fun p -> p "calling convention not managed for ARM")
 
   let replace_types type_directive =
-    L.debug (fun p -> p "WWWWW replace_types");
     Hashtbl.iter (fun name typing_rule ->
       try
         L.debug (fun p -> p "types for %s ?" name);
