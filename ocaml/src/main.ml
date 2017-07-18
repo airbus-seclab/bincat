@@ -46,73 +46,74 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     in
     (* parsing the configuration file to fill configuration information *)
     let lexbuf = Lexing.from_channel cin in
-  let string_of_position pos =
-    Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
-  in
-  begin
-    try
-      lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
-      Parser.process Lexer.token lexbuf
-    with
-    | Parser.Error ->
-       close_in cin;
-      L.abort (fun p -> p "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
-	
-    | Failure "lexing: empty token" ->
-       close_in cin;
-      L.abort (fun p -> p "Parse error near location %s of %s" (string_of_position lexbuf) configfile)
-  end;
-  close_in cin;
+    let string_of_position pos =
+      Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
+    in
+    begin
+      try
+        lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
+        Parser.process Lexer.token lexbuf
+      with
+      | Parser.Error ->
+         close_in cin;
+        L.abort (fun p -> p "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
+	      
+      | Failure "lexing: empty token" ->
+         close_in cin;
+        L.abort (fun p -> p "Parse error near location %s of %s" (string_of_position lexbuf) configfile)
+    end;
+    close_in cin;
   (* generating modules needed for the analysis wrt to the provided configuration *)
-  let decoder =
-    match !Config.architecture with
-    | Config.X86 -> (module X86.Make: Decoder.Make)
-    | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
-    | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
-  in
-  let module Decoder = (val decoder: Decoder.Make) in        
-  let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
-  let module Pointer 	 = Pointer.Make(Vector)	in
-  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
-  let module Interpreter = Interpreter.Make(Domain)(Decoder) in
-
-  (* defining the dump function to provide to the fixpoint engine *)
-  let dump cfa = Interpreter.Cfa.print resultfile cfa in
+    let decoder =
+      match !Config.architecture with
+      | Config.X86 -> (module X86.Make: Decoder.Make)
+      | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
+      | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
+    in
+    let module Decoder = (val decoder: Decoder.Make) in        
+    let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
+    let module Pointer 	 = Pointer.Make(Vector)	in
+    let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
+    let module Interpreter = Interpreter.Make(Domain)(Decoder) in
   
-    (* internal function to launch backward/forward analysis from a previous CFA and config *)
+  (* defining the dump function to provide to the fixpoint engine *)
+    let dump cfa = Interpreter.Cfa.print resultfile cfa in
+  
+  (* internal function to launch backward/forward analysis from a previous CFA and config *)
     let from_cfa fixpoint =
       let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
       let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-      let d        = Interpreter.Cfa.init_abstract_value () in
+      let d, taint        = Interpreter.Cfa.init_abstract_value () in
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
         prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
+        prev_s.Interpreter.Cfa.State.taint_sources <- taint;
         fixpoint orig_cfa prev_s dump
-      with
-      | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
+    with
+    | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
     in
-    (* launching the right analysis depending on the value of !Config.analysis *)
+  (* launching the right analysis depending on the value of !Config.analysis *)
     let cfa =
-        match !Config.analysis with
-
-        (* forward analysis from a binary *)
-        | Config.Forward Config.Bin ->
-          (* 6: generate code *)
-          let code = Code.make !Config.text !Config.rva_code !Config.ep		        in
-          (* 7: generate the nitial cfa with only an initial state *)
-          let ep' 	= Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-          let s  	= Interpreter.Cfa.init_state ep'					        in
-          let g 	= Interpreter.Cfa.create ()					        in
-          Interpreter.Cfa.add_state g s;
-          let cfa =
-              Interpreter.forward_bin code g s dump
-          in
-          (* launch an interleaving of backward/forward if an inferred property can be backward propagated *)
-          if !Config.interleave then
-            Interpreter.interleave_from_cfa cfa dump
-          else
-            cfa
-
+      match !Config.analysis with
+      
+    (* forward analysis from a binary *)
+      | Config.Forward Config.Bin ->
+       (* 6: generate code *)
+         let code = Code.make !Config.text !Config.rva_code !Config.ep		        in
+       (* 7: generate the nitial cfa with only an initial state *)
+       let ep' 	= Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+       let s  	= Interpreter.Cfa.init_state ep'					        in
+       let g 	= Interpreter.Cfa.create ()					        in
+       Interpreter.Cfa.add_state g s;
+       let cfa =
+         Interpreter.forward_bin code g s dump
+       in
+       (* launch an interleaving of backward/forward if an inferred property can be backward propagated *)
+       if !Config.interleave then
+         Interpreter.interleave_from_cfa cfa dump
+       else
+         cfa
+           
       (* forward analysis from a CFA *)
       | Config.Forward Config.Cfa -> from_cfa Interpreter.forward_cfa
 

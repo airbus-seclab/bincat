@@ -114,8 +114,7 @@ sig
   val unmarshal: string -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
-
-  val init_abstract_value: unit -> domain
+  val init_abstract_value: unit -> domain * Taint.t
 end
 
 module Make: functor (D: Domain.T) ->

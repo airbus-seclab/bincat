@@ -115,7 +115,7 @@ sig
   val unmarshal: string -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
-  val init_abstract_value: unit -> domain
+  val init_abstract_value: unit -> domain * Taint.t
 end
 
 (** the control flow automaton functor *)
@@ -208,30 +208,32 @@ struct
 	  end;
 	  begin
 	    match t with
-	    | Some (Config.Taint c)      -> check c sz name
-	    | Some (Config.TMask (b, m)) -> check_mask b m sz name
+	    | Some (Config.Taint (c, _taint_src))      -> check c sz name
+	    | Some (Config.TMask (b, m, _taint_src)) -> check_mask b m sz name
 	    | _ -> ()
 	  end;
 	  (c, t)
 	in
 	(* the domain d' is updated with the content for each register with initial content and tainting value given in the configuration file *)
 	Hashtbl.fold
-	  (fun rname vfun d ->
+	  (fun rname vfun (d, taint) ->
         let r = Register.of_name rname in
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global in
 	    let v = vfun r in
-	    Domain.set_register_from_config r region (check_init_size r v) d
+	    let d', taint' = Domain.set_register_from_config r region (check_init_size r v) d in
+        d', Taint.join taint taint'
 	  )
-	  Config.register_content d
+	  Config.register_content (d, Taint.U)
       
 
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding tables in Config *)
   let init_mem domain region content_tbl =
-    Hashtbl.fold (fun (addr, nb) content domain ->
+    Hashtbl.fold (fun (addr, nb) content (domain, taint) ->
       let addr' = Data.Address.of_int region addr !Config.address_sz in
-      Domain.set_memory_from_config addr' Data.Address.Global content nb domain
-    ) content_tbl domain
+      let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
+      d', Taint.join taint taint'
+    ) content_tbl (domain, Taint.U)
     (* end of init utilities *)
     (*************************)
       
@@ -240,14 +242,16 @@ struct
   let init_abstract_value () =
     let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
-	let d' = init_mem (init_registers d) Data.Address.Global Config.memory_content in
+    let d', taint1 = init_registers d in
+	let d', taint2 = init_mem d' Data.Address.Global Config.memory_content in
 	(* init of the Stack memory *)
-	let d' = init_mem d' Data.Address.Stack Config.stack_content in
+	let d', taint3 = init_mem d' Data.Address.Stack Config.stack_content in
 	(* init of the Heap memory *)
-	init_mem d' Data.Address.Heap Config.heap_content
+	let d', taint4 = init_mem d' Data.Address.Heap Config.heap_content in
+    d', Taint.join taint1 (Taint.join taint2 (Taint.join taint3 taint4))
 	  
   let init_state (ip: Data.Address.t): State.t =
-	let d' = init_abstract_value () in
+	let d', taint = init_abstract_value () in
 	{
 	  id = 0;
 	  ip = ip;
@@ -262,7 +266,7 @@ struct
 		op_sz = !Config.operand_sz;
 		addr_sz = !Config.address_sz;
 	  };
-	  taint_sources = Taint.U;
+	  taint_sources = taint;
 	}
 	
 
