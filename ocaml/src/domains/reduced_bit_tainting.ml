@@ -19,6 +19,8 @@
 (** reduced product between Value and Tainting *)
 (** its signature is Vector.Value_domain *)
 
+module L = Log.Make(struct let name = "reduced_bit_tainting" end)
+  
 module B = Bit
 module T = Taint
 
@@ -34,7 +36,10 @@ let to_z (v, _t) = B.to_z v
 
 let to_int (v, _t) = B.to_int v
 
-let forget_taint (v, _t) tid = v, T.singleton (T.Src.Maybe tid)
+let forget_taint (v, _t) tid =
+  match tid with
+  | Some tid' -> v, T.singleton (T.Src.Maybe tid')
+  | None -> v, T.TOP
 
 let join (v1, t1) (v2, t2) = B.join v1 v2, T.join t1 t2
 
@@ -50,8 +55,9 @@ let core_sub_add op (v1, t1) (v2, t2) =
     | B.ZERO, _   -> None
     | B.ONE, t    -> Some (B.ONE, t)
     | B.TOP, T.U  -> Some (B.TOP, T.U)
-    | B.TOP, _    -> Some (B.TOP, T.TOP) in
-    (res, res_taint), res_carry
+    | B.TOP, _    -> Some (B.TOP, T.TOP)
+  in
+  (res, res_taint), res_carry
 
 let add (v1, t1) (v2, t2) = core_sub_add B.add (v1, t1) (v2, t2)
 
@@ -100,8 +106,11 @@ let taint_of_z z (v, _t) tid =
   let t' =
   if Z.compare Z.zero z = 0 then T.U
   else
-    if Z.compare Z.one z = 0 then T.singleton (T.Src.Tainted tid)
-    else T.singleton (T.Src.Maybe tid)
+    match tid with
+    | Some tid' ->
+       if Z.compare Z.one z = 0 then T.singleton (T.Src.Tainted tid')
+       else T.singleton (T.Src.Maybe tid')
+    | None -> L.abort (fun _p -> "no taint source provided in Reduced_bit_tainting.taint_of_z")
   in
   v, t'
 

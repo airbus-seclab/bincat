@@ -2,9 +2,9 @@ ML=\
 data-struct/register.ml\
 utils/mapOpt.ml\
 utils/bits.ml\
+utils/exceptions.ml\
 data-struct/taint.ml\
 utils/config.ml\
-utils/exceptions.ml\
 data-struct/data.ml\
 utils/log.ml\
 data-struct/types.ml\
@@ -47,7 +47,7 @@ CAMLLIBDIR:=$(shell ocamlc -where)
 CMX = $(ML:.ml=.cmx)
 CMI = $(MLI:.mli=.cmi)
 
-DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
+DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I data-struct -I domains -I utils -I disassembly -I frontend
 
 
 CAMLC   =ocamlc $(DIROPT)

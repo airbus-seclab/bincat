@@ -36,8 +36,11 @@ let from_config msg = Printf.fprintf !logfid "[config] %s\n" msg; flush !logfid
 
 (** dump the string on the log file *)
 let stdout_buf = ref ""
+
 let open_stdout () = stdout_buf := ""
+  
 let print msg = stdout_buf := !stdout_buf ^ msg
+
 let dump_stdout () = Printf.fprintf !logfid "%s\n" !stdout_buf; flush !logfid
 
 (** store the latest analysed address *)
