@@ -1548,14 +1548,13 @@ class Hooks(idaapi.UI_Hooks):
         self.gui.show_windows()
 
     def updating_actions(self, ctx):
-        if ctx.form_type == idaapi.BWN_DISASM:
-            idaview = idaapi.get_tform_idaview(ctx.form)
-            place, x, y = idaapi.get_custom_viewer_place(idaview, False)
-            if idaapi.isCode(idaapi.getFlags(place.toea())):
-                self.s.set_current_ea(place.toea())
+        if ctx.widget_type == idaapi.BWN_DISASM:
+            ea = idaapi.get_screen_ea()
+            if idaapi.isCode(idaapi.getFlags(ea)):
+                self.s.set_current_ea(ea)
 
     def populating_tform_popup(self, form, popup):
-        if idaapi.get_tform_type(form) == idaapi.BWN_DISASM:
+        if idaapi.get_widget_type(form) == idaapi.BWN_DISASM:
             idaapi.attach_action_to_popup(form, popup, "bincat:ana_from_here",
                                           "BinCAT/", idaapi.SETMENU_APP)
             idaapi.attach_action_to_popup(form, popup, "bincat:add_override",
