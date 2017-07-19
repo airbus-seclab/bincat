@@ -17,19 +17,18 @@
 *)
 
 (* need to have OCaml 4.04 to have it in standard library :( *)
-let split_on_char sep str = 
+let split_on_char sep str =
   let l = String.length str in
-  let lst = ref [] in
-  let p2 = ref l in
-  for p1 = l-1 downto 0 do
-    if str.[p1] = sep then
-      begin
-        let substr = String.sub str (p1+1) (!p2-p1-1) in
-        lst := substr::!lst;
-        p2 := p1
-      end
-  done;
-  String.sub str 0 !p2 :: !lst
+  let rec split p1 p2 =
+    if p2 = l then
+      [ String.sub str p1 (p2-p1) ]
+    else
+      if str.[p2] = sep then
+        let newsub = String.sub str p1 (p2-p1) in
+        newsub :: (split (p2+1) (p2+1))
+      else
+        split p1 (p2+1) in
+  split 0 0;;
 
 
 (** log facilities *)
