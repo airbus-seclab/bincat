@@ -12,8 +12,8 @@ import idaapi
 
 CHUNK_SIZE = 1024
 OUR_NETNODE = "$ com.bincat"
-CHUNK_INDEX_TAG = ord("M")
-CHUNK_TAG =ord("N")
+CHUNK_INDEX_TAG = "M"
+CHUNK_TAG = "N"
 g_logger = logging.getLogger("netnode")
 
 
