@@ -552,7 +552,11 @@ class State(object):
 
     def analysis_finish_cb(self, outfname, logfname, cfaoutfname, ea=None):
         bc_log.debug("Parsing analyzer result file")
-        cfa = cfa_module.CFA.parse(outfname, logs=logfname)
+        try:
+            cfa = cfa_module.CFA.parse(outfname, logs=logfname)
+        except (pybincat.PyBinCATException):
+            bc_log.error("Could not parse result file")
+            return None
         self.clear_background()
         self.cfa = cfa
         if cfa:
