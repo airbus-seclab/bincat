@@ -727,7 +727,7 @@ class State(object):
                         continue
                     f = new_npk_fname
             # Relative paths are copied
-            elif f.endswith('.no'):
+            elif f.endswith('.no') and os.path.isfile(f):
                 if f[0] != os.path.sep:
                     temp_npk_fname = os.path.join(path, os.path.basename(f))
                     shutil.copyfile(f, temp_npk_fname)
