@@ -10,13 +10,15 @@ data-struct/data.ml\
 utils/log.ml\
 data-struct/types.ml\
 data-struct/asm.ml\
+data-struct/mapped_mem.ml\
+loaders/ida_remapped.ml\
+loaders/raw.ml\
 disassembly/decodeutils.ml\
 disassembly/x86Imports.ml\
 disassembly/armv7Imports.ml\
 disassembly/armv8aImports.ml\
 frontend/lexer.ml\
 frontend/parser.ml\
-data-struct/code.ml\
 domains/env.ml\
 domains/typenv.ml\
 domains/bit.ml\
@@ -39,6 +41,7 @@ MLI=\
 data-struct/register.mli\
 utils/mapOpt.mli\
 data-struct/data.mli\
+loaders/loader.mli\
 domains/domain.mli\
 disassembly/cfa.mli\
 disassembly/decoder.mli\
@@ -51,7 +54,7 @@ CAMLLIBDIR:=$(shell ocamlc -where)
 
 CMX = $(ML:.ml=.cmx)
 
-DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
+DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend -I loaders
 
 CAMLOPTIONS = -g -w Ael -warn-error +a-7-50-42 $(DIROPT)
 

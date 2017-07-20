@@ -37,7 +37,7 @@ architecture = x86
 
 [binary]
 filepath = "{filepath}"
-format = pe
+format = raw
 
 
 [analyzer]

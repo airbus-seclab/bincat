@@ -65,6 +65,12 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   end;
   close_in cin;
   (* generating modules needed for the analysis wrt to the provided configuration *)
+  let do_map_file = match !Config.format with
+    | Config.PE -> L.abort (fun p -> p "PE file format not implemented yet")
+    | Config.ELF -> L.abort (fun p -> p "ELF file format not implemented yet")
+    | Config.RAW -> Raw.make_mapped_mem
+    | Config.IDA_REMAPPED -> Ida_remapped.make_mapped_mem in
+  Mapped_mem.current_mapping := Some (do_map_file ());
   let decoder =
     match !Config.architecture with
     | Config.X86 -> (module X86.Make: Decoder.Make)
@@ -99,14 +105,15 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
         (* forward analysis from a binary *)
         | Config.Forward Config.Bin ->
           (* 6: generate code *)
-          let code = Code.make !Config.text !Config.rva_code !Config.ep		        in
           (* 7: generate the nitial cfa with only an initial state *)
           let ep' 	= Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
           let s  	= Interpreter.Cfa.init_state ep'					        in
           let g 	= Interpreter.Cfa.create ()					        in
           Interpreter.Cfa.add_state g s;
           let cfa =
-              Interpreter.forward_bin code g s dump
+            match !Mapped_mem.current_mapping with
+            | Some mm -> Interpreter.forward_bin mm g s dump
+            | None -> L.abort(fun p -> p "File to be analysed not mapped")
           in
           (* launch an interleaving of backward/forward if an inferred property can be backward propagated *)
           if !Config.interleave then

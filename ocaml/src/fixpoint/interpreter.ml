@@ -488,7 +488,7 @@ struct
 
     (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial state s. 
      g is the initial CFA reduced to the singleton s *) 
-    let forward_bin (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+    let forward_bin (mapped_mem: Mapped_mem.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
       let module Vertices = Set.Make(Cfa.State) in
       (* check whether the instruction pointer is in the black list of addresses to decode *)
       if Config.SAddresses.mem (Data.Address.to_int s.Cfa.State.ip) !Config.blackAddresses then
@@ -618,13 +618,16 @@ struct
             L.debug (fun p -> p "################### %s" (Data.Address.to_string v.Cfa.State.ip));
             Log.current_address := Some v.Cfa.State.ip;
             (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
-            let text'        = Code.sub code v.Cfa.State.ip						         in
+            let text'        = Mapped_mem.string_from_addr mapped_mem v.Cfa.State.ip !Config.max_instruction_size in
             (* the corresponding instruction is decoded and the successor state of v are computed and added to    *)
             (* the CFA                                                                                             *)
             (* except the abstract value field which is set to v.Cfa.State.value. The right value will be          *)
             (* computed next step                                                                                  *)
             (* the new instruction pointer (offset variable) is also returned                                      *)
-            let r = Decoder.parse text' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v)                   in
+            let r = match text' with
+            | Some text'' ->  Decoder.parse text'' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v)
+            | None -> L.abort(fun p -> p "Could not retrieve %i bytes at %s to decode next instruction"
+              !Config.max_instruction_size (Data.Address.to_string v.Cfa.State.ip) ) in
             begin
             match r with
             | Some (v, ip', d') ->

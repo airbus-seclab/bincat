@@ -21,7 +21,8 @@ let fun_unroll = ref 50;;
 let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
-  
+let max_instruction_size = ref 16;;
+
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
@@ -33,9 +34,10 @@ type memory_model_t =
 let memory_model = ref Flat
 
 type format_t =
-  | Pe
-  | Elf
-  | Binary
+  | RAW          (** no structure ; codes begins at phys_code_addr and is loader at rva_code *)
+  | IDA_REMAPPED (** IDA remapped file ; codes begins at phys_code_addr and is loader at rva_code *)
+  | PE
+  | ELF
 
 type archi_t =
   | X86
@@ -75,7 +77,7 @@ let store_mcfa = ref false;;
 (* name of binary file to analyze *)
 let binary = ref "";;
 
-let format = ref Pe
+let format = ref RAW
 
 type call_conv_t =
   | CDECL
