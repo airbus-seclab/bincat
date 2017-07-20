@@ -1549,7 +1549,7 @@ class Hooks(idaapi.UI_Hooks):
 
     def updating_actions(self, ctx):
         # IDA 6/7 compat
-        win_type = ctx.widget_type if hasattr(ctx, "win_type") else ctx.form_type
+        win_type = ctx.widget_type if hasattr(ctx, "widget_type") else ctx.form_type
         if win_type == idaapi.BWN_DISASM:
             ea = idaapi.get_screen_ea()
             if idaapi.isCode(idaapi.getFlags(ea)):
