@@ -101,6 +101,9 @@ module Address: sig
   (** generation from a given region, offset of type Z.t and size in bits *)
   val of_int: region -> Z.t -> int -> t
 
+  (** generation from global region, offset of type Z.t and size from Config.address_sz *)
+  val global_of_int: Z.t -> t
+
   (** generation from a given word *)
   val of_word: Word.t -> t
 				     

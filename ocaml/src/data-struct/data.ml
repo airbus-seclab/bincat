@@ -152,6 +152,8 @@ struct
 
         let of_int r i o = r, (i, o)
 
+        let global_of_int i = of_int Global i !Config.address_sz
+
         let of_word w = Global, w
 
         let size a = Word.size (snd a)
