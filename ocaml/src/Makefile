@@ -50,19 +50,37 @@ BINDIR=$(DESTDIR)/$(PREFIX)/bin/
 CAMLLIBDIR:=$(shell ocamlc -where)
 
 CMX = $(ML:.ml=.cmx)
-CMI = $(MLI:.mli=.cmi)
 
 DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend
 
+CAMLOPTIONS = -g -w Ael -warn-error +a-7-50-42 $(DIROPT)
 
 CAMLC   =ocamlc $(DIROPT)
-CAMLOPT =ocamlopt -g -w Ael -warn-error +a-7-3-52-50-42 $(DIROPT)
+CAMLOPT =ocamlopt
 CAMLLEX =ocamllex
 MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
-LIBX=unix.cmxa graph.cmxa nums.cmxa str.cmxa zarith.cmxa newspeak.cmxa bigarray.cmxa typedC.cmx
+EXEOPT=bincat_native
+EXEBYTE=bincat.byte
+
+ifeq ($(BYTECODE), 1)
+CAMLCOMPIL = $(CAMLC) $(CAMLOPTIONS)
+OBJ = $(ML:.ml=.cmo)
+LIBX:=unix.cma graph.cma zarith.cma newspeak.cma bigarray.cma newspeak.cma
+EXENAME=$(EXEBYTE)
+BINCATOBJ = bincat.cmo
+CAMLDEPOPT = 
+else
+CAMLCOMPIL = $(CAMLOPT) $(CAMLOPTIONS)
+OBJ = $(ML:.ml=.cmx)
+LIBX:=unix.cmxa graph.cmxa nums.cmxa str.cmxa zarith.cmxa newspeak.cmxa bigarray.cmxa newspeak.cmxa
+EXENAME=$(EXEOPT)
+BINCATOBJ = bincat.cmx
+CAMLDEPOPT = -native
+endif
+
 
 ifeq ($(OS),Windows_NT)
     detected_OS := Windows
@@ -87,27 +105,31 @@ ifeq ($(detected_OS), Linux)
 endif
 
 CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmrun
-all: $(LIBNAME) bincat_native
+all: $(LIBNAME) $(EXENAME)
 
-$(LIBNAME): $(CMX) 
-	rm -f bincat_native.cmx
-	$(CAMLOPT) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
+$(LIBNAME): $(OBJ) 
+	rm -f $(BINCATOBJ)
+	$(CAMLCOMPIL) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
 
-bincat_native: $(CMX) bincat_native.cmx
-	$(CAMLOPT)  $(CFLAGS) -o bincat_native $(LIBX) $(OCAMLOPT) $+
+$(EXENAME): $(OBJ) $(BINCATOBJ)
+	$(CAMLCOMPIL)  $(CFLAGS) -o $@ $(LIBX) $(OCAMLOPT) $+
 
 bincat_ver.ml: update_gitver
 	[ -f $@ ] || touch $@
 	grep -q $(GITVERSION) bincat_ver.ml || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
 
 %.cmx: %.ml %.mli
-	$(CAMLOPT) -c $(LIBX) $*.ml
+	$(CAMLCOMPIL) -c $(LIBX) $*.ml
 
 %.cmi: %.mli
-	$(CAMLOPT) -c $*.mli
+	$(CAMLCOMPIL) -c $*.mli
 
 %.cmx: %.ml
-	$(CAMLOPT) -c $(LIBX) $*.ml
+	$(CAMLCOMPIL) -c $(LIBX) $*.ml
+
+%.cmo: %.ml
+	$(CAMLCOMPIL) -c $(LIBX) $*.ml
+
 
 %.ml: %.mll
 	$(CAMLLEX) $*.mll
@@ -118,24 +140,24 @@ bincat_ver.ml: update_gitver
 
 clean:
 	-rm -f .depend
-	-rm -f `find . -name "*.cm[ix]"`
+	-rm -f `find . -name "*.cm[ixo]"`
 	-rm -f `find . -name  "*.o"`
 	-rm -f `find . -name "*~"`
 	-rm -f ocamldoc.sty ocamldoc.out
 	-rm -f disassembly/*.so
-	-rm -f $(LIBNAME)
+	-rm -f $(LIBNAME) $(EXEBYTE) $(EXEOPT)
 	-rm -f frontend/lexer.ml frontend/lexer.mli frontend/parser.ml frontend/parser.mli frontend/*.conflicts frontend/*.automaton
 	# Files moved in revision 2097c09e19f8
 	-rm -f parser.ml parser.mli lexer.ml
 
-install: $(LIBNAME) bincat_native
+install: $(LIBNAME) $(EXENAME)
 	install $(LIBNAME) $(LIBDIR)
-	install bincat_native $(BINDIR)
+	install $(EXENAME) $(BINDIR)
 	$(LDCONFIG) $(LIBDIR)
 
 .depend: $(ML) $(MLI)
 	rm -f .depend
-	-$(CAMLDEP) -slash -native $+ > .depend
+	-$(CAMLDEP) -slash $(CAMLDEPOPT) $+ > .depend
 
 doc: $(ML) $(MLI)
 	@mkdir -p $(DOCPATH)/html
