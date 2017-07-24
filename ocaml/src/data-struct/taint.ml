@@ -54,7 +54,7 @@ module Src =
   end
 
 (* set of (possible) tainting sources *)
-module SrcSet = Set.Make (Src)
+module SrcSet = SetExt.Make (Src)
  
 
 (* a taint value can be 
@@ -70,11 +70,19 @@ let new_src = Src.new_src
 
 let singleton src = S (SrcSet.singleton src)
 
+let join_predicate v1 v2 =
+  match v1, v2 with
+  | Src.Tainted id1, Src.Maybe id2 when id1 = id2 -> Some (Src.Maybe id1)
+  | Src.Maybe id1, Src.Tainted id2 when id1 = id2 -> Some (Src.Maybe id1)
+  | Src.Tainted id1, Src.Tainted id2 when id1 = id2 -> Some v1
+  | Src.Maybe id1, Src.Maybe id2 when id1 = id2 -> Some v1
+  | _, _ -> None
+         
 let join (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
   | _, U  | U, _ -> TOP
-  | S src1, S src2 -> S (SrcSet.union src1 src2) 
+  | S src1, S src2 -> S (SrcSet.union_on_predicate join_predicate src1 src2) 
   | TOP, _  | _, TOP -> TOP
 
 let logor (t1: t) (t2: t): t =
