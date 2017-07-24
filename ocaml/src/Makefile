@@ -34,7 +34,7 @@ main.ml
 MLI=\
 data-struct/register.mli\
 utils/mapOpt.mli\
-tils/set.mli\
+utils/set.mli\
 data-struct/data.mli\
 domains/domain.mli\
 disassembly/cfa.mli\
