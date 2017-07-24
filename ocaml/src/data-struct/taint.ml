@@ -89,7 +89,7 @@ let logor (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
   | t, U  | U, t -> t 
-  | S src1, S src2 -> S (SrcSet.union src1 src2)
+  | S src1, S src2 -> S (SrcSet.union_on_predicate src1 src2)
   | _, _ -> TOP
      
 let logand (t1: t) (t2: t): t =
