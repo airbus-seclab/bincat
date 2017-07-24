@@ -1,7 +1,7 @@
 ML=\
 data-struct/register.ml\
 utils/mapOpt.ml\
-utils/set.ml\
+utils/setExt.ml\
 utils/bits.ml\
 utils/exceptions.ml\
 data-struct/taint.ml\
@@ -34,7 +34,7 @@ main.ml
 MLI=\
 data-struct/register.mli\
 utils/mapOpt.mli\
-utils/set.mli\
+utils/setExt.mli\
 data-struct/data.mli\
 domains/domain.mli\
 disassembly/cfa.mli\
