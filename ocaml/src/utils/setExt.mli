@@ -182,7 +182,7 @@ module type S =
     val union_on_predicate: (elt -> elt -> elt option) -> t -> t -> t
   (** [union_on_predicate p s1 s2] performs the set union of [s1] and [s2] 
       where all pair (v1, v2) of elements are:
-      - kept if p v1 v2 = None 
+      - kept if Ord.compare v1 v2 = 0 or p v1 v2 = None 
       - replaced by v whenever p v1 v2 = Some v *)
 
       

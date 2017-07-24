@@ -394,13 +394,15 @@ module Make(Ord: OrderedType) =
     let rec split_on_predicate p x = function
         Empty ->
           (Empty, None, Empty)
-      | Node(l, v, r, _) ->
-          let c = Ord.compare x v in
-          if c = 0 then (l, Some v, r)
-          else if c < 0 then
-            let (ll, pres, rl) = split_on_predicate p x l in (ll, pres, join rl v r)
-          else
-            let (lr, pres, rr) = split_on_predicate p x r in (join l v lr, pres, rr)
+       | Node(l, v, r, _) ->
+          match p x v with
+          | None ->    
+             let c = Ord.compare x v in
+             if c < 0 then
+               let (ll, pres, rl) = split_on_predicate p x l in (ll, pres, join rl v r)
+             else
+               let (lr, pres, rr) = split_on_predicate p x r in (join l v lr, pres, rr)
+          | Some v' -> (l, Some v', r)
 					   
          let union_on_predicate p s1 s2 =
            let rec union s1 s2 = 
