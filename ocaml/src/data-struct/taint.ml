@@ -91,17 +91,6 @@ let logor (t1: t) (t2: t): t =
   | t, U  | U, t -> t 
   | S src1, S src2 -> S (SrcSet.union_on_predicate join_predicate src1 src2)
   | _, _ -> TOP
-     
-let logand (t1: t) (t2: t): t =
-  match t1, t2 with
-  | U, U -> U
-  | _, U | U, _ -> U
-  | S src1, S src2 ->
-     let src' = SrcSet.inter src1 src2 in
-     if SrcSet.is_empty src' then U
-     else S src'
-  | S src, TOP | TOP, S src -> S src
-  | TOP, TOP -> TOP
 
 let inter_predicate v1 v2 =
   match v1, v2 with
@@ -110,6 +99,19 @@ let inter_predicate v1 v2 =
   | Src.Tainted id1, Src.Tainted id2 when id1 = id2 -> Some v1
   | Src.Maybe id1, Src.Maybe id2 when id1 = id2 -> Some v1
   | _, _ -> None
+     
+let logand (t1: t) (t2: t): t =
+  match t1, t2 with
+  | U, U -> U
+  | _, U | U, _ -> U
+  | S src1, S src2 ->
+     let src' = SrcSet.inter_on_predicate inter_predicate src1 src2 in
+     if SrcSet.is_empty src' then U
+     else S src'
+  | S src, TOP | TOP, S src -> S src
+  | TOP, TOP -> TOP
+
+
          
 let meet (t1: t) (t2: t): t =
   match t1, t2 with
