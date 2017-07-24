@@ -180,7 +180,7 @@ class CFA(object):
             mlbincat.process(initfname, outfname, logfname)
         except ImportError:
             # XXX log warning
-            subprocess.call(["bincat_native", initfname, outfname, logfname])
+            subprocess.call(["bincat", initfname, outfname, logfname])
         return cls.parse(outfname, logs=logfname)
 
     def _toValue(self, eip, region="g"):

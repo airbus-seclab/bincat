@@ -130,7 +130,7 @@ class BincatPlugin(idaapi.plugin_t):
             bc_exe = None
         else:
             # Check if bincat_native is available
-            bc_exe = distutils.spawn.find_executable('bincat_native')
+            bc_exe = distutils.spawn.find_executable('bincat')
         if bc_exe is None and os.name == 'nt':
             # add to PATH
             userdir = idaapi.get_user_idadir()
@@ -138,11 +138,11 @@ class BincatPlugin(idaapi.plugin_t):
             if os.path.isdir(bin_path):
                 os.environ['PATH'] += ";"+bin_path
             if no_spawn:
-                bc_exe = os.path.join(bin_path, "bincat_native.exe")
+                bc_exe = os.path.join(bin_path, "bincat.exe")
             else:
-                bc_exe = distutils.spawn.find_executable('bincat_native')
+                bc_exe = distutils.spawn.find_executable('bincat')
         if bc_exe is None and no_spawn is False:
-            bc_log.warning('Could not find bincat_native binary, will not be able to run analysis')
+            bc_log.warning('Could not find bincat binary, will not be able to run analysis')
 
         if PluginOptions.get("autostart") != "True":
             # will initialize later
@@ -234,7 +234,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
             return
 
     def run(self):
-        cmdline = [ "bincat_native", 
+        cmdline = [ "bincat", 
                     [self.initfname,  self.outfname, self.logfname ]]
         # start the process
         bc_log.debug("Analyzer cmdline: [%s %s]", (cmdline[0]," ".join(cmdline[1])))

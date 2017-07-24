@@ -62,7 +62,7 @@ MENHIR  =menhir --explain
 CAMLDEP =ocamldep $(DIROPT)
 CAMLDOC =ocamldoc $(DIROPT)
 
-EXEOPT=bincat_native
+EXEOPT=bincat
 EXEBYTE=bincat.byte
 
 ifeq ($(BYTECODE), 1)

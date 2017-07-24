@@ -52,7 +52,7 @@ setup(
     author           = 'Sarah Zennou',
     author_email     = 'sarah.zennou@airbus.com',
     description      = 'Binary Code Analysis Toolkit',
-    scripts          = ['bin/bincat'],
+    scripts          = ['bin/bincat.py'],
     packages         = ['pybincat', 'pybincat/tools', 'idabincat', 'idabincat/hexview', 'webbincat'],
     ext_modules      = [mlbincat] if mlbincat is not None else [],
     package_data = {
