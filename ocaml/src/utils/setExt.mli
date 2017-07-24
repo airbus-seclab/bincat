@@ -185,6 +185,12 @@ module type S =
       - kept if Ord.compare v1 v2 = 0 or p v1 v2 = None 
       - replaced by v whenever p v1 v2 = Some v *)
 
+      val inter_on_predicate: (elt -> elt -> elt option) -> t -> t -> t
+  (** [inter_on_predicate p s1 s2] performs the set intersection of [s1] and [s2] 
+      where all pair (v1, v2) of elements are:
+      - removed if Ord.compare v1 v2 = 0 or p v1 v2 = None 
+      - replaced by v whenever p v1 v2 = Some v *)
+
       
   end
 (** Output signature of the functor {!Set.Make}. *)

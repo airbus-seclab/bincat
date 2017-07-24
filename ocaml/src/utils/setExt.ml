@@ -52,6 +52,7 @@ module type S =
     val find: elt -> t -> elt
     val of_list: elt list -> t
     val union_on_predicate: (elt -> elt -> elt option) -> t -> t -> t
+    val inter_on_predicate: (elt -> elt -> elt option) -> t -> t -> t
   end
 
 module Make(Ord: OrderedType) =
@@ -432,4 +433,18 @@ module Make(Ord: OrderedType) =
                   end
            in
            union s1 s2
+
+         let inter_on_predicate p s1 s2 =
+           let rec inter s1 s2 =
+             match (s1, s2) with
+               (Empty, _) -> Empty
+             | (_, Empty) -> Empty
+             | (Node(l1, v1, r1, _), t2) ->
+                match split_on_predicate p v1 t2 with
+                  (l2, None, r2) ->
+                    concat (inter l1 l2) (inter r1 r2)
+                | (l2, Some v', r2) ->
+                   join (inter l1 l2) v' (inter r1 r2)
+           in
+           inter s1 s2
   end
