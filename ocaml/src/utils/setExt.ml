@@ -11,6 +11,8 @@
 (*                                                                     *)
 (***********************************************************************)
 
+(* modified and extended for bincat purpose *)
+
 (* Sets over ordered types *)
 
 module type OrderedType =
