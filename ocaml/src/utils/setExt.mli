@@ -178,6 +178,14 @@ module type S =
         This is usually more efficient than folding [add] over the list,
         except perhaps for lists with many duplicated elements.
         @since 4.02.0 *)
+
+    val union_on_predicate: (elt -> elt -> elt option) -> t -> t -> t
+  (** [union_on_predicate p s1 s2] performs the set union of [s1] and [s2] 
+      where all pair (v1, v2) of elements are:
+      - kept if p v1 v2 = None 
+      - replaced by v whenever p v1 v2 = Some v *)
+
+      
   end
 (** Output signature of the functor {!Set.Make}. *)
 
