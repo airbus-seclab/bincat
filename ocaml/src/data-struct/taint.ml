@@ -89,7 +89,7 @@ let logor (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
   | t, U  | U, t -> t 
-  | S src1, S src2 -> S (SrcSet.union_on_predicate src1 src2)
+  | S src1, S src2 -> S (SrcSet.union_on_predicate join_predicate src1 src2)
   | _, _ -> TOP
      
 let logand (t1: t) (t2: t): t =
@@ -102,13 +102,21 @@ let logand (t1: t) (t2: t): t =
      else S src'
   | S src, TOP | TOP, S src -> S src
   | TOP, TOP -> TOP
-     
+
+let inter_predicate v1 v2 =
+  match v1, v2 with
+  | Src.Tainted id1, Src.Maybe id2 when id1 = id2 -> Some (Src.Tainted id1)
+  | Src.Maybe id1, Src.Tainted id2 when id1 = id2 -> Some (Src.Tainted id1)
+  | Src.Tainted id1, Src.Tainted id2 when id1 = id2 -> Some v1
+  | Src.Maybe id1, Src.Maybe id2 when id1 = id2 -> Some v1
+  | _, _ -> None
+         
 let meet (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
   | U, TOP | TOP, U -> U  
   | _, U | U, _ -> raise Exceptions.Empty  
-  | S src1, S src2 -> S (SrcSet.inter src1 src2)
+  | S src1, S src2 -> S (SrcSet.inter_on_predicate inter_predicate src1 src2)
   | S src, TOP | TOP, S src -> S src
   | TOP, TOP -> TOP
      
