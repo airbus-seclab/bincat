@@ -234,12 +234,12 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
             return
 
     def run(self):
-        cmdline = "bincat_native %s %s %s" % (self.initfname, self.outfname,
-                                              self.logfname)
+        cmdline = [ "bincat_native", 
+                    [self.initfname,  self.outfname, self.logfname ]]
         # start the process
-        bc_log.debug("Analyzer cmdline: [%s]", cmdline)
+        bc_log.debug("Analyzer cmdline: [%s %s]", (cmdline[0]," ".join(cmdline[1])))
         try:
-            self.start(cmdline)
+            self.start(*cmdline)
         except Exception as e:
             bc_log.error("BinCAT failed to launch the analyzer.py")
             bc_log.warning("Exception: %s\n%s", str(e), traceback.format_exc())
