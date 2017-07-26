@@ -226,8 +226,8 @@ struct
 	  Config.register_content (d, Taint.U)
       
 
-    (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
-    (* this filling is done by iterating on corresponding tables in Config *)
+  (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
+  (* this filling is done by iterating on corresponding tables in Config *)
   let init_mem domain region content_tbl =
     Hashtbl.fold (fun (addr, nb) content (domain, taint) ->
       let addr' = Data.Address.of_int region addr !Config.address_sz in
@@ -242,13 +242,13 @@ struct
   let init_abstract_value () =
     let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
-    let d', taint1 = init_registers d in
-	let d', taint2 = init_mem d' Data.Address.Global Config.memory_content in
+    let d', _taint1 = init_registers d in
+	let d', _taint2 = init_mem d' Data.Address.Global Config.memory_content in
 	(* init of the Stack memory *)
-	let d', taint3 = init_mem d' Data.Address.Stack Config.stack_content in
+	let d', _taint3 = init_mem d' Data.Address.Stack Config.stack_content in
 	(* init of the Heap memory *)
 	let d', taint4 = init_mem d' Data.Address.Heap Config.heap_content in
-    d', Taint.join taint1 (Taint.join taint2 (Taint.join taint3 taint4))
+    d', taint4
 	  
   let init_state (ip: Data.Address.t): State.t =
 	let d', taint = init_abstract_value () in
@@ -285,7 +285,6 @@ struct
     
   let remove_successor (g: t) (src: State.t) (dst: State.t): unit = G.remove_edge g src dst
 	
- 
   let add_state (g: t) (v: State.t): unit = G.add_vertex g v
 
   let add_successor g src dst = G.add_edge g src dst

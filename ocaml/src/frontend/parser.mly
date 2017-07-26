@@ -248,7 +248,7 @@
     
 
     tainting_addr_content:
-    | TAINT_ALL { Config.Taint (Z.of_string "ff", Some (Taint.new_src())) }
+    | TAINT_ALL { Config.Taint (Bits.ff 1, Some (Taint.new_src())) }
     | TAINT_NONE { Config.Taint (Z.zero, None) }
     | s=tcontent { s }
     
@@ -448,5 +448,7 @@
                         else Some (Taint.Src.new_src())
                       in
                       Config.Taint (t, tid) }
+    | TAINT_ALL { Config.Taint (Config.Tall (Taint.new_src())) }
+    | TAINT_NONE { Config.Taint (Z.zero, None) }
     | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src())) }
 
