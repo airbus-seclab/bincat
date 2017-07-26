@@ -448,7 +448,7 @@
                         else Some (Taint.Src.new_src())
                       in
                       Config.Taint (t, tid) }
-    | TAINT_ALL { Config.Taint (Config.Tall (Taint.new_src())) }
+    | TAINT_ALL { Config.Taint_all (Taint.new_src()) }
     | TAINT_NONE { Config.Taint (Z.zero, None) }
     | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src())) }
 

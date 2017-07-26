@@ -109,7 +109,7 @@ let gs = ref Z.zero
 let interleave = ref false
   
 type tvalue =
-  | Tall of Taint.Src.id_t (* None means no taint source *)
+  | Taint_all of Taint.Src.id_t (* None means no taint source *)
   | Taint of Z.t * (Taint.Src.id_t option) (* None means no taint source *)
   | TMask of Z.t * Z.t * (Taint.Src.id_t option) (* second element is a mask on the first one. For the taint component, None means no source *)
 
