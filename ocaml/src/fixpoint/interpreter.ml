@@ -513,6 +513,7 @@ struct
 	      match rule with
 	      | Config.Taint (v, _tid) -> check reg [v]
 	      | Config.TMask (v, m, _tid) -> check reg [v ; m]
+          | Config.Taint_all _tid -> ()  
 	    end;
 	    D.taint_register_mask reg rule) rules
 	in
@@ -535,6 +536,7 @@ struct
                         match rule with
                         | Config.Taint (v, _tid) -> check [v]
                         | Config.TMask (v, m, _tid) -> check [v ; m]
+                        | Config.Taint_all _tid -> ()  
                     end;
                     D.taint_address_mask (Data.Address.of_int region a !Config.address_sz) rule) rules
             in
