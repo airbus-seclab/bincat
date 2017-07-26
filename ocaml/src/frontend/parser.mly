@@ -242,16 +242,11 @@
       (r, (fun _ -> s)) } 
 
     tainting_addr:
-    | MEM LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.mem_override, a, c }
-    | HEAP LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.heap_override, a, c }
-    | STACK LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.stack_override, a, c }
+    | MEM LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, a, i }
+    | HEAP LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, a, i }
+    | STACK LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, a, i }
     
 
-    tainting_addr_content:
-    | TAINT_ALL { Config.Taint (Bits.ff 1, Some (Taint.new_src())) }
-    | TAINT_NONE { Config.Taint (Z.zero, None) }
-    | s=tcontent { s }
-    
       imports:
     |                     { () }
     | i=import l=imports  { i ; l }
