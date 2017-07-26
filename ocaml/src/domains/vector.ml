@@ -737,7 +737,14 @@ module Make(V: Val) =
                 | _, _ -> L.abort (fun _p -> "Illegal taint configuration (no source provided)")
               in
               v, taint
-                
+
+            | Config.Taint_all tid ->
+               let n' =n-1 in
+               for i = 0 to n' do
+                 v.(n'-i) <- V.taint_of_z Z.one v.(n'-i) (Some tid)
+               done;
+               v, Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+                 
             | Config.TMask (b, m, tid) ->
               let n' = n-1 in
               for i = 0 to n' do
