@@ -188,40 +188,15 @@ struct
         
   (* return the given domain updated by the initial values and intitial tainting for registers with respected ti the provided configuration *)
   let init_registers d =
-	let check b sz name =
-	  if (String.length (Bits.z_to_bit_string b)) > sz then
-	    L.abort (fun p -> p "Illegal initialisation for register %s" name)
-	in
-	let check_mask b m sz name =
-	  if (String.length (Bits.z_to_bit_string b)) > sz || (String.length (Bits.z_to_bit_string m)) > sz then
-	    L.abort (fun p -> p "Illegal initialization for register %s" name)
-	in
-	(* checks whether the provided value is compatible with the capacity of the parameter of type Register _r_ *)
-	let check_init_size r (c, t) =
-	  let sz   = Register.size r in
-	  let name = Register.name r in
-	  begin
-	    match c with
-	    | Config.Content c    -> check c sz name
-	    | Config.CMask (b, m) -> check_mask b m sz name
-	    | _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
-	  end;
-	  begin
-	    match t with
-	    | Some (Config.Taint (c, _taint_src))      -> check c sz name
-	    | Some (Config.TMask (b, m, _taint_src)) -> check_mask b m sz name
-	    | _ -> ()
-	  end;
-	  (c, t)
-	in
 	(* the domain d' is updated with the content for each register with initial content and tainting value given in the configuration file *)
 	Hashtbl.fold
-	  (fun rname vfun (d, taint) ->
+	  (fun rname vfun (d, _taint) ->
         let r = Register.of_name rname in
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global in
 	    let v = vfun r in
-	    let d', taint' = Domain.set_register_from_config r region (check_init_size r v) d in
-        d', Taint.join taint taint'
+        Init_check.check_register_init r v;
+	    let d', taint' = Domain.set_register_from_config r region v d in
+        d', taint'
 	  )
 	  Config.register_content (d, Taint.U)
       

@@ -167,4 +167,6 @@ let clear_tables () =
   Hashtbl.clear reg_override;
   Hashtbl.clear mem_override;
   Hashtbl.clear stack_override;
-  Hashtbl.clear heap_override
+  Hashtbl.clear heap_override;;
+
+

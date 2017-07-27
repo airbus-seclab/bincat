@@ -531,7 +531,7 @@ struct
                         L.abort (fun p -> p "Illegal taint mask for address %s" (Data.Address.to_string ip))) vals
             in
             let rules' =
-                List.map (fun (a, rule) ->
+                List.map (fun ((a, repeat), rule) ->
                     L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int a));
                     begin
                         match rule with

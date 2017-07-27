@@ -99,11 +99,11 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     (* forward analysis from a binary *)
       | Config.Forward Config.Bin ->
        (* 6: generate code *)
-         let code = Code.make !Config.text !Config.rva_code !Config.ep		        in
+         let code = Code.make !Config.text !Config.rva_code !Config.ep in
        (* 7: generate the nitial cfa with only an initial state *)
        let ep' 	= Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-       let s  	= Interpreter.Cfa.init_state ep'					        in
-       let g 	= Interpreter.Cfa.create ()					        in
+       let s  	= Interpreter.Cfa.init_state ep' in
+       let g 	= Interpreter.Cfa.create ()	in
        Interpreter.Cfa.add_state g s;
        let cfa =
          Interpreter.forward_bin code g s dump
