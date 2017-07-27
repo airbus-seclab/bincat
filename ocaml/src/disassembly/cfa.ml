@@ -229,10 +229,10 @@ struct
   (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
   (* this filling is done by iterating on corresponding tables in Config *)
   let init_mem domain region content_tbl =
-    Hashtbl.fold (fun (addr, nb) content (domain, taint) ->
+    Hashtbl.fold (fun (addr, nb) content (domain, _taint) ->
       let addr' = Data.Address.of_int region addr !Config.address_sz in
       let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
-      d', Taint.join taint taint'
+      d', taint'
     ) content_tbl (domain, Taint.U)
     (* end of init utilities *)
     (*************************)

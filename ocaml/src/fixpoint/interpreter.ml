@@ -490,7 +490,8 @@ struct
       let d = ref (Decoder.init ())             in
       (* function stack *)
       let fun_stack = ref []                    in
-      let hash_add_or_append htbl key rules = try
+      let hash_add_or_append htbl key rules =
+        try
         let existing = Hashtbl.find htbl key in
             Hashtbl.replace htbl key (rules @ existing)
         with Not_found -> Hashtbl.add htbl key rules
@@ -498,25 +499,25 @@ struct
       (* compute override rules to apply *)
       let overrides = Hashtbl.create 5 in
       Hashtbl.iter (fun z rules ->
-	let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
-	let check reg vals =
-	      (* check the size of taint mask is compatible with the size of the register *)
-	  let len = Register.size reg in
-	  List.iter (fun v -> if String.length (Bits.z_to_bit_string v) > len then
-	      L.abort (fun p -> p "Illegal taint mask for register %s" (Register.name reg))) vals
-	in
-	let rules' =
-	  List.map (fun (rname, rfun) ->
-        let reg = Register.of_name rname in
-        let rule = rfun reg in
-	    begin
-	      match rule with
-	      | Config.Taint (v, _tid) -> check reg [v]
-	      | Config.TMask (v, m, _tid) -> check reg [v ; m]
-          | Config.Taint_all _tid -> ()  
-	    end;
-	    D.taint_register_mask reg rule) rules
-	in
+	    let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
+	    let check reg vals =
+	  (* check the size of taint mask is compatible with the size of the register *)
+	      let len = Register.size reg in
+	      List.iter (fun v -> if String.length (Bits.z_to_bit_string v) > len then
+	          L.abort (fun p -> p "Illegal taint mask for register %s" (Register.name reg))) vals
+	    in
+	    let rules' =
+	      List.map (fun (rname, rfun) ->
+            let reg = Register.of_name rname in
+            let rule = rfun reg in
+	        begin
+	          match rule with
+	          | Config.Taint (v, _tid) -> check reg [v]
+	          | Config.TMask (v, m, _tid) -> check reg [v ; m]
+              | Config.Taint_all _tid -> ()  
+	        end;
+	        D.taint_register_mask reg rule) rules
+	    in
         hash_add_or_append overrides ip rules'
       ) Config.reg_override;
 

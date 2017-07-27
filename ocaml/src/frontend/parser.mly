@@ -242,9 +242,9 @@
       (r, (fun _ -> s)) } 
 
     tainting_addr:
-    | MEM LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, a, i }
-    | HEAP LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, a, i }
-    | STACK LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, a, i }
+    | MEM LEFT_SQ_BRACKET a=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, a, i }
+    | HEAP LEFT_SQ_BRACKET a=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, a, i }
+    | STACK LEFT_SQ_BRACKET a=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, a, i }
     
 
       imports:
