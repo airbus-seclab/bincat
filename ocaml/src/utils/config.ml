@@ -119,7 +119,7 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
-let reg_override: (Z.t, ((string * (Register.t -> tvalue)) list)) Hashtbl.t = Hashtbl.create 5
+let reg_override: (Z.t, ((string * (Register.t -> (cvalue * tvalue option))) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
 let heap_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5

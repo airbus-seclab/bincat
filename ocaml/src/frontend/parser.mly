@@ -226,20 +226,7 @@
     }
     
     tainting_reg:
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_ALL
-    {
-      let funreg =
-        fun reg ->
-          let tid = Some (Taint.Src.new_src ()) in
-          Config.Taint (Bits.ff ((Register.size reg )/8), tid)
-      in
-      r, funreg
-    }
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_NONE {
-      
-      (r, (fun _ -> Config.Taint (Z.zero, None))) }
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA s=tcontent {
-      (r, (fun _ -> s)) } 
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA i=init { (r, (fun _ -> i)) } 
 
     tainting_addr:
     | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }

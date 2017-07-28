@@ -204,7 +204,7 @@ struct
   (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
   (* this filling is done by iterating on corresponding tables in Config *)
   let init_mem domain region content_tbl =
-    Hashtbl.fold (fun (addr, nb) content (domain, _taint) ->
+    Hashtbl.fold (fun (addr, nb) content (domain, _prev_taint) ->
       let addr' = Data.Address.of_int region addr !Config.address_sz in
       let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
       d', taint'
@@ -212,8 +212,7 @@ struct
     (* end of init utilities *)
     (*************************)
       
-  (* CFA creation.
-      Return the abstract value generated from the Config module *)
+  
   let init_abstract_value () =
     let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
@@ -224,7 +223,10 @@ struct
 	(* init of the Heap memory *)
 	let d', taint4 = init_mem d' Data.Address.Heap Config.heap_content in
     d', taint4
-	  
+
+  (* CFA creation.
+     Return the abstract value generated from the Config module *)
+      
   let init_state (ip: Data.Address.t): State.t =
 	let d', taint = init_abstract_value () in
 	{

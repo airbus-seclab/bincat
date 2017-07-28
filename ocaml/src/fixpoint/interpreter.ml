@@ -509,14 +509,10 @@ struct
 	    let rules' =
 	      List.map (fun (rname, rfun) ->
             let reg = Register.of_name rname in
+            let region = if Register.is_stack_pointer reg then Data.Address.Stack else Data.Address.Global in
             let rule = rfun reg in
-	        begin
-	          match rule with
-	          | Config.Taint (v, _tid) -> check reg [v]
-	          | Config.TMask (v, m, _tid) -> check reg [v ; m]
-              | Config.Taint_all _tid -> ()  
-	        end;
-	        D.taint_register_mask reg rule) rules
+            Init_check.check_register_init reg rule;
+	        D.set_register_from_config reg region rule) rules
 	    in
         hash_add_or_append overrides ip rules'
       ) Config.reg_override;
@@ -533,12 +529,7 @@ struct
             let rules' =
                 List.map (fun ((a, repeat), rule) ->
                     L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int a));
-                    begin
-                        match rule with
-                        | Config.Taint (v, _tid) -> check [v]
-                        | Config.TMask (v, m, _tid) -> check [v ; m]
-                        | Config.Taint_all _tid -> ()  
-                    end;
+                   
                     D.taint_address_mask (Data.Address.of_int region a !Config.address_sz) rule) rules
             in
             hash_add_or_append overrides ip rules'
