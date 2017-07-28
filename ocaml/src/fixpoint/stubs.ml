@@ -233,12 +233,17 @@ struct
                     | "memcpy" -> memcpy
                     | "sprintf" -> sprintf
                     | "printf" -> printf
-		    | "puts" -> puts
+                    | "puts" -> puts
                     | "strlen" -> strlen
-                    | _ -> L.info(fun p -> p "Stub for function [%s] not found" fun_name); raise Exit
+                    | _ -> L.analysis(fun p -> p "No stub available for function [%s]" fun_name); raise Exit
                 in
                 apply_f d args
-            with _ -> L.analysis (fun p -> p "no stub or uncomputable stub for %s. Skipped" fun_name); d, false
+            with
+            | Exit -> d, false
+            | e ->
+               L.exc e (fun p -> p "processing stub [%s]" fun_name);
+              L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name); 
+              d, false
         in
         if !Config.call_conv = Config.STDCALL then
             let sp = Register.stack_pointer () in
