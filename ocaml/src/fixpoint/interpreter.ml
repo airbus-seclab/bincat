@@ -207,7 +207,7 @@ struct
                  | V (T r) ->                      
                     if cond then
                       let taint_src = Taint.new_src () in
-                      let mask = Config.Taint (Bits.ff ((Register.size r) / 8), Some taint_src) in
+                      let mask = Config.Taint_all taint_src in
                       D.taint_register_mask r mask d
                    else
                      d, Taint.U
