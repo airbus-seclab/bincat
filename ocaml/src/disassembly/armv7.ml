@@ -700,13 +700,8 @@ struct
   let forget_reserved_registers_aapcs () =
     [ Directive (Forget (V (T r1))) ; (* scratch registers r1 -> r3 *)
       Directive (Forget (V (T r2))) ;
-      Directive (Forget (V (T r3))) ;
-      Directive (Forget (V (T r12))); (* r12: inter procedure call scratch reg *)
-(* 
-        Return *)
-(*     Set( V (T pc), Lval (V (T lr))) ;
-      Jmp (R (Lval (V (T pc)))) *)
-]
+      Directive (Forget (V (T r3))) ; 
+    ]
 
 
   let type_directives_aapcs _typing_rule =
