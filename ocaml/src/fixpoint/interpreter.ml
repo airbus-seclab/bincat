@@ -280,10 +280,12 @@ struct
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let import_call vertices a (pred_fun: Cfa.State.t -> Cfa.State.t) fun_stack =
         let fundec = Hashtbl.find Decoder.Imports.tbl a in
-        L.analysis (fun p -> p "at %s: library call for %s found. Looking for a stub." (Data.Address.to_string a) (fundec.Decoder.Imports.name));
+        let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
+        L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded." 
+          (Data.Address.to_string a) (fundec.Decoder.Imports.name) (List.length stmts));
+        Log_trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
         let b =
             List.fold_left (fun b v ->
-                let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
                 if stmts <> [] then
                     Config.interleave := true;
                 let d', b' =
