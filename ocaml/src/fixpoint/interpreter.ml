@@ -226,7 +226,9 @@ struct
                  | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, false
-            | Directive (Stub (fun_name, args)) -> Stubs.process d fun_name args
+            | Directive (Stub (fun_name, args)) -> 
+               L.debug(fun p -> p "Processing stub %s" fun_name);
+               Stubs.process d fun_name args
                (* fun_stack := List.tl !fun_stack; *)
             | _ 				 -> raise Jmp_exn
           in L.debug (fun p -> p "process_value returns taint : %B"  tainted); res, tainted
