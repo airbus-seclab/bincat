@@ -23,8 +23,8 @@ struct
     let strlen (d: D.t) (args: Asm.exp list): D.t * bool =
         match args with
         | [Asm.Lval ret ; buf] ->
-          let zero = Asm.Const (Data.Word.zero !Config.operand_sz) in
-          let len = D.get_offset_from buf Asm.EQ zero !Config.operand_sz 10000 d in
+          let zero = Asm.Const (Data.Word.zero 8) in
+          let len = D.get_offset_from buf Asm.EQ zero 10000 8 d in
           if len > !Config.unroll then
               begin
                   L.analysis (fun p -> p "updates automatic loop unrolling with the computed string length = %d" len);
