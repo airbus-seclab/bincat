@@ -208,8 +208,8 @@ class ConfigHelpers(object):
                          "rf", "vm", "ac", "vif", "vip", "id"]:
                 regs[name] = "0?1"
             regs["esp"] = "0x2000"
-            regs["df"] = "0?1"
-            regs["iopl"] = "0?3"
+            regs["df"] = "0"
+            regs["iopl"] = "3"
         elif arch == "armv7":
             regs["sp"] = "0x2000"
             regs["lr"] = "0x0"
