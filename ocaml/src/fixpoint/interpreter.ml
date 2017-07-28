@@ -610,6 +610,7 @@ struct
         waiting := Vertices.remove v !waiting;
         begin
           try
+            L.debug (fun p -> p "################### %s" (Data.Address.to_string v.Cfa.State.ip));
             Log.current_address := Some v.Cfa.State.ip;
             (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
             let text'        = Code.sub code v.Cfa.State.ip						         in
@@ -622,7 +623,6 @@ struct
             begin
             match r with
             | Some (v, ip', d') ->
-               L.debug(fun p -> p "Decoded instruction at %s #############################" (Data.Address.to_string v.Cfa.State.ip));
                Log_trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
