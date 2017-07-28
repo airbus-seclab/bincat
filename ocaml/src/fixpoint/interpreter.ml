@@ -500,12 +500,7 @@ struct
       let overrides = Hashtbl.create 5 in
       Hashtbl.iter (fun z rules ->
 	    let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
-	    let check reg vals =
-	  (* check the size of taint mask is compatible with the size of the register *)
-	      let len = Register.size reg in
-	      List.iter (fun v -> if String.length (Bits.z_to_bit_string v) > len then
-	          L.abort (fun p -> p "Illegal taint mask for register %s" (Register.name reg))) vals
-	    in
+	   
 	    let rules' =
 	      List.map (fun (rname, rfun) ->
             let reg = Register.of_name rname in
@@ -530,7 +525,7 @@ struct
                 List.map (fun ((addr, nb), rule) ->
                   L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
-                  D.set_memory_from_config addr' Data.Address.Global nb rule) rules
+                  D.set_memory_from_config addr' Data.Address.Global rule nb) rules
             in
             hash_add_or_append overrides ip rules'
 
