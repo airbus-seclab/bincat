@@ -52,7 +52,7 @@ struct
     [ Directive (Stub ("strlen",  [Lval (V (T res)) ; buf])) ]
 
   (* memcpy *)
-  let memcpy_stdcall () =
+  let memcpy_aapcs () =
     let dst = reg "r0" in
     let src = reg "r1" in
     let sz = reg "r2" in
@@ -65,7 +65,7 @@ struct
 
   let init_aapcs () =
     let funs =
-      [ ("memcpy", memcpy_stdcall) ;
+      [ ("memcpy", memcpy_aapcs) ;
         (*("sprintf", sprintf_stdcall) ;
         ("printf", printf_stdcall) ;
         ("puts", puts_stdcall) ;
