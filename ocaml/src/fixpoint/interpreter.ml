@@ -527,10 +527,10 @@ struct
                         L.abort (fun p -> p "Illegal taint mask for address %s" (Data.Address.to_string ip))) vals
             in
             let rules' =
-                List.map (fun ((a, repeat), rule) ->
-                    L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int a));
-                   
-                    D.taint_address_mask (Data.Address.of_int region a !Config.address_sz) rule) rules
+                List.map (fun ((addr, nb), rule) ->
+                  L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
+                  let addr' = Data.Address.of_int region addr !Config.address_sz in
+                  D.set_memory_from_config addr' Data.Address.Global nb rule) rules
             in
             hash_add_or_append overrides ip rules'
 
