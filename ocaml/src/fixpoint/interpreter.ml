@@ -404,11 +404,11 @@ struct
 		  fold_to_target (fun _a -> ()) vertices target (fun v -> Cfa.pred g (Cfa.pred g v))
 			 
              | Call (A a) ->
+		add_to_fun_stack a;
 		begin
 		  try		   
 		    import_call vertices a (fun v -> Cfa.pred g v) fun_stack 
 		  with Not_found ->
-		    add_to_fun_stack a;
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
 		    vertices, false
 		end
