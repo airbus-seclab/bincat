@@ -7,8 +7,8 @@ utils/exceptions.ml\
 data-struct/taint.ml\
 utils/config.ml\
 data-struct/data.ml\
-frontend/init_check.ml\
 utils/log.ml\
+frontend/init_check.ml\
 data-struct/types.ml\
 data-struct/asm.ml\
 disassembly/x86Imports.ml\
