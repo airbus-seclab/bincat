@@ -500,7 +500,6 @@ struct
       let overrides = Hashtbl.create 5 in
       Hashtbl.iter (fun z rules ->
 	    let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
-	   
 	    let rules' =
 	      List.map (fun (rname, rfun) ->
             let reg = Register.of_name rname in
@@ -515,12 +514,6 @@ struct
     List.iter (fun (tbl, region) ->
         Hashtbl.iter (fun z rules ->
             let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
-            let check vals =
-                List.iter (fun v ->
-                    let sz = String.length (Bits.z_to_bit_string v) in
-                    if  sz <> 8 && sz <> 0 then
-                        L.abort (fun p -> p "Illegal taint mask for address %s" (Data.Address.to_string ip))) vals
-            in
             let rules' =
                 List.map (fun ((addr, nb), rule) ->
                   L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
