@@ -45,11 +45,13 @@ Thank you for registering !
 6. Check the **Save configuration to IDB** option
 7. Check the **Remap binary** option
 8. Click the **Edit analyzer config** button
-9. Paste the following lines at the end of the `[state]` section. This defines
+9. Paste the following lines at the end of the `[state]` section, **overwriting
+   the existing stack initialization** (`stack[0x1000*8192]...`). This defines
    a value for `argc`, creates 5 pointers to strings, and initializes 5
    null-terminated strings, and also initialized a stack to **TOP** (unknown
    value)
 ```
+stack[0x1000*4099] = |00|?0xFF
 stack[0x2004] = 5
 stack[0x2008] = 0x200000
 mem[0x200000] = 0x300100

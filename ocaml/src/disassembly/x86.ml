@@ -1658,7 +1658,8 @@ struct
 	| 1 -> return s (rotate_r_stmt dst sz n) (* ROR *)
 	| 2 -> return s (rotate_l_carry_stmt dst sz n) (* RCL *)
 	| 3 -> return s (rotate_r_carry_stmt dst sz n) (* RCR *)
-        | 4 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
+        | 4
+        | 6 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
         | 5 -> return s (shift_r_stmt dst sz n false) (* SHR *)
        	| 7 -> return s (shift_r_stmt dst sz n true) (* SAR *)
         | _ -> error s.a "Illegal opcode in grp 2"
