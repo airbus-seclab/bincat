@@ -39,10 +39,7 @@ let section_from_config_entry config_section_entry =
 let make_mapped_mem () =
   let sections = List.map section_from_config_entry !Config.sections in
   let entrypoint = Data.Address.global_of_int !Config.ep in
-  let bin_fd = Unix.openfile !Config.binary [Unix.O_RDONLY] 0 in
-  let mapped_file = Bigarray.Genarray.map_file 
-    bin_fd ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false [|-1|] in
-  Unix.close bin_fd;
+  let mapped_file = map_file !Config.binary in
   {
     mapped_file = mapped_file ;
     sections  = sections ;

@@ -25,8 +25,8 @@ open Mapped_mem
 
 let make_mapped_mem () =
   let entrypoint = Data.Address.global_of_int !Config.ep in
-  let bin_fd = Unix.openfile !Config.binary [Unix.O_RDONLY] 0 in
-  let stat = Unix.fstat bin_fd in
+  let mapped_file = map_file !Config.binary in
+  let stat = Unix.stat !Config.binary in
   let file_length = Z.of_int stat.Unix.st_size in
   let zero = Z.of_int 0 in
   let section = {
@@ -38,9 +38,6 @@ let make_mapped_mem () =
     raw_size = file_length ;
     name = Filename.basename !Config.binary
   } in
-  let mapped_file = Bigarray.Genarray.map_file
-    bin_fd ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false [|-1|] in
-  Unix.close bin_fd;
   {
     mapped_file = mapped_file ;
     sections  = [ section ] ;

@@ -21,7 +21,7 @@
 module L = Log.Make(struct let name = "mapped_mem" end)
 
 type array_t =
-  ((int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t)
+  ((int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t)
 
 type section_t = {
   virt_addr : Data.Address.t ;
@@ -55,6 +55,14 @@ let string_of_chars chars =
 
 (* functions *)
 
+let map_file filename : array_t =
+  let bin_fd = Unix.openfile filename [Unix.O_RDONLY] 0 in
+  let mapped_file = Bigarray.Array1.map_file
+    bin_fd ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false (-1) in
+  Unix.close bin_fd;
+  mapped_file
+
+
 let is_in_section vaddr section =
   (Data.Address.compare vaddr section.virt_addr >= 0) &&
     (Data.Address.compare vaddr section.virt_addr_end < 0)
@@ -78,19 +86,20 @@ let read mapped_mem vaddr =
   else
     Some (Data.Word.of_int
             (Z.of_int
-               (Bigarray.Genarray.get mapped_mem.mapped_file [|(Z.to_int file_offset)|]))
+               (Bigarray.Array1.get mapped_mem.mapped_file (Z.to_int file_offset)))
             8)
 
-let string_from_addr mapped_mem vaddr len = 
+let string_from_addr mapped_mem vaddr len =
   let sec = find_section mapped_mem.sections vaddr in
   let raddr = Z.to_int (Z.add sec.raw_addr (Data.Address.sub vaddr sec.virt_addr)) in
+  L.debug (fun p -> p "Reading at vaddr=%s paddr=%08x len=%i" (Data.Address.to_string vaddr) raddr len);
   if raddr >= (Z.to_int sec.raw_addr_end) then
     None
   else
     let last_raddr = (min (raddr + len) (Z.to_int sec.raw_addr_end))-1 in
     let addrs = raddr -- (last_raddr) in
     let bytes = List.map
-      (fun addr -> Char.chr (Bigarray.Genarray.get mapped_mem.mapped_file [|addr|]))
+      (fun addr -> Char.chr (Bigarray.Array1.get mapped_mem.mapped_file addr))
       addrs in
     Some (string_of_chars bytes)
 
