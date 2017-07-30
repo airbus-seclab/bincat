@@ -49,7 +49,7 @@ let (--) i j =
   in aux j [] ;;
 
 let string_of_chars chars = 
-  let buf = Buffer.create 16 in
+  let buf = Buffer.create (List.length chars) in
   List.iter (Buffer.add_char buf) chars;
   Buffer.contents buf
 
