@@ -67,7 +67,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* generating modules needed for the analysis wrt to the provided configuration *)
   let do_map_file = match !Config.format with
     | Config.PE -> L.abort (fun p -> p "PE file format not implemented yet")
-    | Config.ELF -> L.abort (fun p -> p "ELF file format not implemented yet")
+    | Config.ELF -> Elf.make_mapped_mem
     | Config.RAW -> Raw.make_mapped_mem
     | Config.IDA_REMAPPED -> Ida_remapped.make_mapped_mem in
   Mapped_mem.current_mapping := Some (do_map_file ());

@@ -13,6 +13,8 @@ data-struct/asm.ml\
 data-struct/mapped_mem.ml\
 loaders/ida_remapped.ml\
 loaders/raw.ml\
+loaders/elf_core.ml\
+loaders/elf.ml\
 disassembly/decodeutils.ml\
 disassembly/x86Imports.ml\
 disassembly/armv7Imports.ml\

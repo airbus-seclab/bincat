@@ -1,0 +1,55 @@
+(*
+    This file is part of BinCAT.
+    Copyright 2014-2017 - Airbus Group
+
+    BinCAT is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or (at your
+    option) any later version.
+
+    BinCAT is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
+*)
+
+(* loader for ELF binaries *)
+
+
+open Mapped_mem
+open Elf_core
+
+module L = Log.Make(struct let name = "elf" end)
+
+let make_mapped_mem () =
+  let entrypoint = Data.Address.global_of_int !Config.ep (* elf.hdr.e_entry *) in
+  let mapped_file = map_file !Config.binary in
+  let elf = Elf_core.to_elf mapped_file in
+  let rec sections_from_ph phlist =
+    match phlist with
+    | [] -> []
+    | ph :: tail ->
+       match ph.p_type with
+       | PT_LOAD ->
+          let section = {
+            virt_addr = Data.Address.global_of_int ph.p_vaddr ;
+            virt_addr_end = Data.Address.global_of_int (Z.add ph.p_vaddr ph.p_memsz) ;
+            virt_size = ph.p_memsz ;
+            raw_addr = ph.p_offset ;
+            raw_addr_end = Z.add ph.p_offset ph.p_filesz ;
+            raw_size = ph.p_filesz ;
+            name = Elf_core.p_type_to_string ph.p_type ;
+          } in
+          L.debug(fun p -> p "ELF loading: %s" (section_to_string section));
+          section :: (sections_from_ph tail)
+       | _ -> sections_from_ph tail
+  in
+  let sections = sections_from_ph elf.ph in
+  {
+    mapped_file = mapped_file ;
+    sections  = sections ;
+    entrypoint = entrypoint ;
+  }
