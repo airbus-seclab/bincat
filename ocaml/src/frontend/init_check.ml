@@ -24,13 +24,15 @@ open Config
 
 (* checkers for both init state creation and further overrides *)
 
-let check_content b sz name =
-  if (String.length (Bits.z_to_bit_string b)) > sz then
-	L.abort (fun p -> p "Illegal initialisation/override for register %s" name)
+let check_content str sz msg =
+  let msg' = if String.compare msg "" = 0 then msg else "for register "^msg in
+  if (String.length str) < sz then
+	L.abort (fun p -> p "Illegal initialisation/override %s" msg')
 	  
-let check_mask b m sz name =
-  if (String.length (Bits.z_to_bit_string b)) > sz || (String.length (Bits.z_to_bit_string m)) > sz then
-	    L.abort (fun p -> p "Illegal initialization/override for register %s" name)
+let check_mask str m sz msg =
+  let msg' = if String.compare msg "" = 0 then msg else "for register "^msg in
+  if (String.length str) < sz || (String.length (Bits.z_to_bit_string m)) < sz then
+	    L.abort (fun p -> p "Illegal initialization/override %s" msg')
     
 (* checks whether the provided value is compatible with the capacity of the parameter of type Register *)
 let check_register_init r (c, t) =
@@ -38,13 +40,25 @@ let check_register_init r (c, t) =
   let name = Register.name r in
   begin
 	match c with
-	| Content c    -> check_content c sz name
-	| CMask (b, m) -> check_mask b m sz name
+	| Content c    -> check_content (Bits.z_to_bit_string c) sz name
+	| CMask (b, m) -> check_mask (Bits.z_to_bit_string b) m sz name
 	| _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
   end;
   begin
 	match t with
-	| Some (Taint (c, _taint_src))    -> check_content c sz name
-	| Some (TMask (b, m, _taint_src)) -> check_mask b m sz name
+	| Some (Taint (c, _taint_src))    -> check_content (Bits.z_to_bit_string c) sz name
+	| Some (TMask (b, m, _taint_src)) -> check_mask (Bits.z_to_bit_string b) m sz name
 	| _ -> ()
   end
+
+  
+let check_mem (c, t) =
+  match t with
+  | None -> ()
+  | Some t' ->
+     let taint_sz = Z.numbits t' in
+     match c with
+     | Content c -> check_content (Bits.z_to_bit_string c) taint_sz ""
+     | CMask (c, m) -> check_mask (Bits.z_to_bit_string c) m taint_sz ""
+     | Bytes s -> check_content s taint_sz ""
+     | Bytes_Mask (s, n) ->  check_mask s n taint_sz ""
