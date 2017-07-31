@@ -54,8 +54,8 @@ let check_register_init r (c, t) =
   
 let check_mem (c, t) =
   match t with
-  | None -> ()
-  | Some t' ->
+  | None | Some (Taint_all _) -> ()
+  | Some (Taint (t', _)) | Some (TMask (t', _, _)) ->
      let taint_sz = Z.numbits t' in
      match c with
      | Content c -> check_content (Bits.z_to_bit_string c) taint_sz ""

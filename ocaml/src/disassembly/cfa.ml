@@ -206,6 +206,7 @@ struct
   let init_mem domain region content_tbl =
     Hashtbl.fold (fun (addr, nb) content (domain, _prev_taint) ->
       let addr' = Data.Address.of_int region addr !Config.address_sz in
+      Init_check.check_mem content;
       let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
       d', taint'
     ) content_tbl (domain, Taint.U)
