@@ -28,6 +28,11 @@ let make_mapped_mem () =
   let entrypoint = Data.Address.global_of_int !Config.ep (* elf.hdr.e_entry *) in
   let mapped_file = map_file !Config.binary in
   let elf = Elf_core.to_elf mapped_file in
+  if L.log_debug () then
+    begin
+      List.iter (fun ph -> L.debug(fun p -> p "PH: %s" (ph_to_string ph))) elf.ph;
+      List.iter (fun sh -> L.debug(fun p -> p "SH: %s" (sh_to_string sh))) elf.sh
+    end;
   let rec sections_from_ph phlist =
     match phlist with
     | [] -> []
