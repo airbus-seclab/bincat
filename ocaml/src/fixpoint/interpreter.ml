@@ -517,6 +517,7 @@ struct
             let rules' =
                 List.map (fun ((addr, nb), rule) ->
                   L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
+                  Init_check.check_mem rule;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
                   D.set_memory_from_config addr' Data.Address.Global rule nb) rules
             in
