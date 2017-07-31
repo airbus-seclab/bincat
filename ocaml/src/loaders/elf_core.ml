@@ -241,6 +241,8 @@ let zdec_addr s ofs ident =
 
 let zdec_off s ofs ident = zdec_addr s ofs ident
 
+let zdec_word_xword s ofs ident = zdec_addr s ofs ident
+
 
 (* ELF ident OS ABI *)
 
@@ -387,11 +389,133 @@ let ph_to_string ph =
     (Z.to_int ph.p_flags)
     (Z.to_int ph.p_align)
 
+
+(* ELF section header type *)
+
+type sh_type_t =
+  | SHT_NULL
+  | SHT_PROGBITS
+  | SHT_SYMTAB
+  | SHT_STRTAB
+  | SHT_RELA
+  | SHT_HASH
+  | SHT_DYNAMIC
+  | SHT_NOTE
+  | SHT_NOBITS
+  | SHT_REL
+  | SHT_SHLIB
+  | SHT_DYNSYM
+  | SHT_INIT_ARRAY
+  | SHT_FINI_ARRAY
+  | SHT_GNU_HASH
+  | SHT_VERSYM
+  | SHT_VERNEED
+  | SHT_ARM_EXIDX
+  | SHT_ARM_ATTRIBUTES
+  | SHT_OTHER of Z.t
+
+let to_sh_type x =
+  match (Z.to_int x) with
+  | 0 -> SHT_NULL
+  | 1 -> SHT_PROGBITS
+  | 2 -> SHT_SYMTAB
+  | 3 -> SHT_STRTAB
+  | 4 -> SHT_RELA
+  | 5 -> SHT_HASH
+  | 6 -> SHT_DYNAMIC
+  | 7 -> SHT_NOTE
+  | 8 -> SHT_NOBITS
+  | 9 -> SHT_REL
+  | 10 -> SHT_SHLIB
+  | 11 -> SHT_DYNSYM
+  | 14 -> SHT_INIT_ARRAY
+  | 15 -> SHT_FINI_ARRAY
+  | 0x6ffffff6 -> SHT_GNU_HASH
+  | 0x6fffffff -> SHT_VERSYM
+  | 0x6ffffffe -> SHT_VERNEED
+  | 0x70000001 -> SHT_ARM_EXIDX
+  | 0x70000003 -> SHT_ARM_ATTRIBUTES
+  | _ -> SHT_OTHER x
+
+let sh_type_to_string sht =
+  match sht with
+  | SHT_NULL -> "NULL"
+  | SHT_PROGBITS -> "PROGBITS"
+  | SHT_SYMTAB -> "SYMTAB"
+  | SHT_STRTAB -> "STRTAB"
+  | SHT_RELA -> "RELA"
+  | SHT_HASH -> "HASH"
+  | SHT_DYNAMIC -> "DYNAMIC"
+  | SHT_NOTE -> "NOTE"
+  | SHT_NOBITS -> "NOBITS"
+  | SHT_REL -> "REL"
+  | SHT_SHLIB -> "SHLIB"
+  | SHT_DYNSYM -> "DYNSYM"
+  | SHT_INIT_ARRAY -> "INIT_ARR"
+  | SHT_FINI_ARRAY -> "FINI_ARR"
+  | SHT_GNU_HASH -> "GNU_HASH"
+  | SHT_VERSYM -> "VERSYM"
+  | SHT_VERNEED -> "VERNEED"
+  | SHT_ARM_EXIDX -> "ARM_EXIDX"
+  | SHT_ARM_ATTRIBUTES -> "ARM_ATTR"
+  | SHT_OTHER x -> (Printf.sprintf "%08x" (Z.to_int x))
+
+
+(* ELF section header *)
+
+type e_shdr_t = {
+  sh_name      : Z.t ;
+  sh_type      : sh_type_t ;
+  sh_flags     : Z.t ;
+  sh_addr      : Z.t ;
+  sh_offset    : Z.t ;
+  sh_size      : Z.t ;
+  sh_link      : Z.t ;
+  sh_info      : Z.t ;
+  sh_addralign : Z.t ;
+  sh_entsize   :  Z.t ;
+}
+
+let to_shdr s hdr shidx =
+  if shidx >= hdr.e_shnum then
+    L.abort (fun p -> p "Section header %i does not exist : there are only %i SH" shidx hdr.e_shnum)
+  else
+    let addrsz = match hdr.e_ident.e_class with
+      | ELFCLASS_32 -> 4
+      | ELFCLASS_64 -> 8 in
+    let shofs = (Z.to_int hdr.e_shoff)+(shidx*hdr.e_shentsize) in
+    {
+      sh_name   = zdec_word s shofs hdr.e_ident ;
+      sh_type   = to_sh_type (zdec_word s (shofs+4) hdr.e_ident) ;
+      sh_flags  = zdec_word_xword s (shofs+8) hdr.e_ident ;
+      sh_addr   = zdec_addr s (shofs+8+addrsz) hdr.e_ident ;
+      sh_offset = zdec_off s (shofs+8+2*addrsz) hdr.e_ident ;
+      sh_size   = zdec_word_xword s (shofs+8+3*addrsz) hdr.e_ident ;
+      sh_link   = zdec_word s (shofs+8+4*addrsz) hdr.e_ident ;
+      sh_info   = zdec_word s (shofs+12+4*addrsz) hdr.e_ident ;
+      sh_addralign = zdec_word_xword s (shofs+16+4*addrsz) hdr.e_ident ;
+      sh_entsize = zdec_word_xword s (shofs+16+5*addrsz) hdr.e_ident ;
+    }
+
+let sh_to_string sh =
+  Printf.sprintf "%04x %-8s flags=%04x addr=%08x off=%08x sz=%08x link=%4x info=%4x align=%x entsize=%x"
+    (Z.to_int sh.sh_name)
+    (sh_type_to_string sh.sh_type)
+    (Z.to_int sh.sh_flags)
+    (Z.to_int sh.sh_addr)
+    (Z.to_int sh.sh_offset)
+    (Z.to_int sh.sh_size)
+    (Z.to_int sh.sh_link)
+    (Z.to_int sh.sh_info)
+    (Z.to_int sh.sh_addralign)
+    (Z.to_int sh.sh_entsize)
+
 (* ELF *)
 
 type elf_t = {
   hdr : e_hdr_t ;
   ph  : e_phdr_t list ;
+  sh  : e_shdr_t list ;
 }
 
 let to_elf s =
@@ -400,9 +524,14 @@ let to_elf s =
   for phi = 0 to hdr.e_phnum-1 do
     phdr := !phdr @ [ to_phdr s hdr phi ]
   done;
+  let shdr = ref [] in
+  for shi = 0 to hdr.e_shnum-1 do
+    shdr := !shdr @ [ to_shdr s hdr shi ]
+  done;
   {
     hdr = hdr ;
     ph  = !phdr ;
+    sh  = !shdr ;
   }
 
 
