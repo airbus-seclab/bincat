@@ -31,7 +31,8 @@ let make_mapped_mem () =
   if L.log_debug () then
     begin
       List.iter (fun ph -> L.debug(fun p -> p "PH: %s" (ph_to_string ph))) elf.ph;
-      List.iter (fun sh -> L.debug(fun p -> p "SH: %s" (sh_to_string sh))) elf.sh
+      List.iter (fun sh -> L.debug(fun p -> p "SH: %s" (sh_to_string sh))) elf.sh;
+      List.iter (fun rel -> L.debug(fun p -> p "REL: %s" (rel_to_string rel))) elf.rel;
     end;
   let rec sections_from_ph phlist =
     match phlist with
