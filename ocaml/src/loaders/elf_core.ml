@@ -464,6 +464,7 @@ let sh_type_to_string sht =
 (* ELF section header *)
 
 type e_shdr_t = {
+  index        : int ;
   sh_name      : Z.t ;
   sh_type      : sh_type_t ;
   sh_flags     : Z.t ;
@@ -485,6 +486,7 @@ let to_shdr s hdr shidx =
       | ELFCLASS_64 -> 8 in
     let shofs = (Z.to_int hdr.e_shoff)+(shidx*hdr.e_shentsize) in
     {
+      index     = shidx ;
       sh_name   = zdec_word s shofs hdr.e_ident ;
       sh_type   = to_sh_type (zdec_word s (shofs+4) hdr.e_ident) ;
       sh_flags  = zdec_word_xword s (shofs+8) hdr.e_ident ;
