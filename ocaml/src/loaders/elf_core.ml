@@ -512,28 +512,67 @@ let sh_to_string sh =
     (Z.to_int sh.sh_addralign)
     (Z.to_int sh.sh_entsize)
 
+
+(* ELF relocation entries *)
+
+type e_rel_t = {
+  shdr : e_shdr_t ;
+  r_offset : Z.t ;
+  r_sym : Z.t ;
+  r_type : Z.t ;
+}
+
+let to_rel s rofs hdr shdr =
+  let addrsz = match hdr.e_ident.e_class with
+    | ELFCLASS_32 -> 4
+    | ELFCLASS_64 -> 8 in
+  let info = zdec_word s (rofs+addrsz) hdr.e_ident in
+  {
+    shdr = shdr ;
+    r_offset= zdec_off s rofs hdr.e_ident ;
+    r_sym = Z.logand (Z.shift_right info 8) (Z.of_int 0xff) ;
+    r_type= Z.logand info (Z.of_int 0xff) ;
+  }
+
+let rel_to_string rel = 
+  Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%02x"
+    rel.shdr.index
+    (Z.to_int rel.r_offset)
+    (Z.to_int rel.r_sym)
+    (Z.to_int rel.r_type)
+
 (* ELF *)
 
 type elf_t = {
   hdr : e_hdr_t ;
   ph  : e_phdr_t list ;
   sh  : e_shdr_t list ;
+  rel : e_rel_t list;
 }
 
 let to_elf s =
   let hdr = to_hdr s in
+  let rel = ref [] in
   let phdr = ref [] in
   for phi = 0 to hdr.e_phnum-1 do
     phdr := !phdr @ [ to_phdr s hdr phi ]
   done;
   let shdr = ref [] in
   for shi = 0 to hdr.e_shnum-1 do
-    shdr := !shdr @ [ to_shdr s hdr shi ]
+    let cur_shdr = to_shdr s hdr shi in
+    shdr := !shdr @ [ cur_shdr ];
+    if cur_shdr.sh_type = SHT_REL then
+      let sz = Z.to_int cur_shdr.sh_size in
+      let entsz = Z.to_int cur_shdr.sh_entsize in
+      for ri = 0 to sz/entsz-1 do
+        rel := !rel @ [ to_rel s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr cur_shdr ]
+      done
   done;
   {
     hdr = hdr ;
     ph  = !phdr ;
     sh  = !shdr ;
+    rel = !rel ;
   }
 
 
