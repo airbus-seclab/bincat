@@ -42,6 +42,7 @@ except ImportError:
 
 import idc
 import idaapi
+from idaapi import NW_OPENIDB, NW_CLOSEIDB, NW_TERMIDA, NW_REMOVE
 import idabincat.netnode
 import idabincat.npkgen
 from idabincat.plugin_options import PluginOptions
@@ -112,6 +113,7 @@ class BincatPlugin(idaapi.plugin_t):
 
     # IDA API methods: init, run, term
     def init(self):
+        bc_log.debug("BinCAT init")
         info = idaapi.get_inf_structure()
         # IDA 6/7 compat
         procname = info.procname if hasattr(info, 'procname') else info.get_proc_name()[0]
@@ -168,8 +170,11 @@ class BincatPlugin(idaapi.plugin_t):
 
     def term(self):
         if self.state:
+            bc_log.debug("Terminating BinCAT")
             self.state.clear_background()
             self.state.gui.term()
+            self.state.gui = None
+            self.state = None
 
 
 class Analyzer(object):

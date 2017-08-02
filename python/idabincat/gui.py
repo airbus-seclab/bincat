@@ -1651,3 +1651,15 @@ class GUI(object):
         if self.hooks:
             self.hooks.unhook()
             self.hooks = None
+        self.BinCATTaintedForm.Close(0)
+        self.BinCATDebugForm.Close(0)
+        self.BinCATHexForm.Close(0)
+        self.BinCATOverridesForm.Close(0)
+        self.BinCATConfigurationsForm.Close(0)
+        self.vtmodel = None
+        self.overrides_model = None
+        self.configurations_model = None
+        idaapi.unregister_action("bincat:show_windows")
+        idaapi.unregister_action("bincat:remap_act")
+        idaapi.unregister_action("bincat:options_act")
+        idaapi.unregister_action("bincat:ana_from_here")
