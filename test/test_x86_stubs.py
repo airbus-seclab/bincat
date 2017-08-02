@@ -130,3 +130,20 @@ def test_memcpy(tmpdir, src):
     assert src == bc.result.last_state.get_string("g",0x10000), (repr(src)[:20]+"\n"+bc.listing)
     assert 0x10000 == bc.result.last_reg("eax").value, (repr(src)[:20]+"\n"+bc.listing)
     
+@pytest.mark.parametrize("src",["", "TEST", "X"*41])
+def test_memcpy_push_ret(tmpdir, src):
+    asm = """
+           push {length}
+           push 0x20000
+           push 0x10000
+           push 0x80000002
+           ret
+    """.format(length=len(src))
+
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.set_mem(0x20000, src+"\0")
+    bc.initfile.set_mem(0x10000, "\0"*100)
+    bc.run()
+
+    assert src == bc.result.last_state.get_string("g",0x10000), (repr(src)[:20]+"\n"+bc.listing)
+    assert 0x10000 == bc.result.last_reg("eax").value, (repr(src)[:20]+"\n"+bc.listing)
