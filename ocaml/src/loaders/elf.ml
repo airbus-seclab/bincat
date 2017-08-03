@@ -30,6 +30,7 @@ let make_mapped_mem () =
   let elf = Elf_core.to_elf mapped_file in
   if L.log_debug () then
     begin
+      L.debug(fun p -> p "HDR: %s" (hdr_to_string elf.hdr));
       List.iter (fun ph -> L.debug(fun p -> p "PH: %s" (ph_to_string ph))) elf.ph;
       List.iter (fun sh -> L.debug(fun p -> p "SH: %s" (sh_to_string sh))) elf.sh;
       List.iter (fun rel -> L.debug(fun p -> p "REL: %s" (rel_to_string rel))) elf.rel;
