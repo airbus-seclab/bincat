@@ -81,7 +81,7 @@ let join_predicate v1 v2 =
 let join (t1: t) (t2: t): t =
   match t1, t2 with
   | U, U -> U
-  | _, U  | U, _ -> TOP
+  | t, U  | U, t -> t
   | S src1, S src2 -> S (SrcSet.union_on_predicate join_predicate src1 src2) 
   | TOP, _  | _, TOP -> TOP
 

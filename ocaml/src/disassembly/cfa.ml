@@ -190,13 +190,14 @@ struct
   let init_registers d =
 	(* the domain d' is updated with the content for each register with initial content and tainting value given in the configuration file *)
 	Hashtbl.fold
-	  (fun rname vfun (d, _taint) ->
+	  (fun rname vfun (d, taint) ->
         let r = Register.of_name rname in
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global in
 	    let v = vfun r in
         Init_check.check_register_init r v;
 	    let d', taint' = Domain.set_register_from_config r region v d in
-        d', taint'
+        L.debug (fun p -> p "computed taint is %s" (Taint.to_string taint'));
+        d', Taint.join taint taint'
 	  )
 	  Config.register_content (d, Taint.U)
       
@@ -204,11 +205,11 @@ struct
   (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
   (* this filling is done by iterating on corresponding tables in Config *)
   let init_mem domain region content_tbl =
-    Hashtbl.fold (fun (addr, nb) content (domain, _prev_taint) ->
+    Hashtbl.fold (fun (addr, nb) content (domain, prev_taint) ->
       let addr' = Data.Address.of_int region addr !Config.address_sz in
       Init_check.check_mem content;
       let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
-      d', taint'
+      d', Taint.join prev_taint taint'
     ) content_tbl (domain, Taint.U)
     (* end of init utilities *)
     (*************************)
@@ -217,13 +218,13 @@ struct
   let init_abstract_value () =
     let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
-    let d', _taint1 = init_registers d in
-	let d', _taint2 = init_mem d' Data.Address.Global Config.memory_content in
+    let d', taint1 = init_registers d in
+	let d', taint2 = init_mem d' Data.Address.Global Config.memory_content in
 	(* init of the Stack memory *)
-	let d', _taint3 = init_mem d' Data.Address.Stack Config.stack_content in
+	let d', taint3 = init_mem d' Data.Address.Stack Config.stack_content in
 	(* init of the Heap memory *)
 	let d', taint4 = init_mem d' Data.Address.Heap Config.heap_content in
-    d', taint4
+    d', Taint.join taint4 (Taint.join taint3 (Taint.join taint2 taint1))
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
