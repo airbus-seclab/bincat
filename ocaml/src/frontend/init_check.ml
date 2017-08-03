@@ -26,12 +26,12 @@ open Config
 
 let check_content str sz msg =
   let msg' = if String.compare msg "" = 0 then msg else "for register "^msg in
-  if (String.length str) < sz then
+  if (String.length str) > sz then
 	L.abort (fun p -> p "Illegal initialisation/override %s" msg')
 	  
 let check_mask str m sz msg =
   let msg' = if String.compare msg "" = 0 then msg else "for register "^msg in
-  if (String.length str) < sz || (String.length (Bits.z_to_bit_string m)) < sz then
+  if (String.length str) > sz || (String.length (Bits.z_to_bit_string m)) > sz then
 	    L.abort (fun p -> p "Illegal initialization/override %s" msg')
     
 (* checks whether the provided value is compatible with the capacity of the parameter of type Register *)
