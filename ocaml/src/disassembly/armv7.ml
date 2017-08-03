@@ -226,7 +226,7 @@ struct
           end
         else ()
       done;
-      if instruction land (1 lsl 21) = 0 then
+      if instruction land (1 lsl 21) <> 0 then
         stmts := !stmts @
           [ Set (V (reg rn), BinOp(dir_op, Lval (V (reg rn)), const (4*(!reg_count)) 32)) ];
       if !update_pc then
