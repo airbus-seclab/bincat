@@ -19,6 +19,12 @@
 
 module L = Log.Make(struct let name = "elf" end)
 
+
+
+let dec_byte s ofs = Bigarray.Array1.get s ofs
+let zdec_byte s ofs = Z.of_int (dec_byte s ofs)
+
+
 (* ELF ident data *)
 
 type e_data_t =
@@ -100,6 +106,29 @@ let to_osabi x =
   | 0x53 -> ELFOSABI_SORTIX
   | abi -> ELFOSABI_OTHER abi
 
+let e_osabi_to_string osabi =
+  match osabi with
+  | ELFOSABI_SYSVV -> "SYSVV"
+  | ELFOSABI_HPUX -> "HPUX"
+  | ELFOSABI_NETBSD -> "NETBSD"
+  | ELFOSABI_LINUX -> "LINUX"
+  | ELFOSABI_HURD -> "HURD"
+  | ELFOSABI_SOLARIS -> "SOLARIS"
+  | ELFOSABI_AIX -> "AIX"
+  | ELFOSABI_IRIX -> "IRIX"
+  | ELFOSABI_FREEBSD -> "FREEBSD"
+  | ELFOSABI_TRU64 -> "TRU64"
+  | ELFOSABI_NOVELL -> "NOVELL"
+  | ELFOSABI_OPENBSD -> "OPENBSD"
+  | ELFOSABI_OPENVMS -> "OPENVMS"
+  | ELFOSABI_NONSTOPKERNEL -> "NONSTOPKERNEL"
+  | ELFOSABI_AROS -> "AROS"
+  | ELFOSABI_FENIXOS -> "FENIXOS"
+  | ELFOSABI_CLOUDABI -> "CLOUDABI"
+  | ELFOSABI_SORTIX -> "SORTIX"
+  | ELFOSABI_OTHER x -> (Printf.sprintf "%08x" x)
+
+
 (* ELF ident type *)
 
 type e_type_t =
@@ -156,6 +185,22 @@ let to_machine x =
   | 0xF3 -> RISCV
   | mach -> OTHER mach
 
+let e_machine_to_string mach =
+  match mach with
+  | NONE -> "NONE"
+  | SPARC -> "SPARC"
+  | X86 -> "X86"
+  | MIPS -> "MIPS"
+  | POWERPC -> "POWERPC"
+  | S390 -> "S390"
+  | ARM -> "ARM"
+  | SUPERH -> "SUPERH"
+  | IA64 -> "IA64"
+  | X86_64 -> "X86"
+  | AARCH64 -> "AARCH64"
+  | RISCV -> "RISCV"
+  | OTHER i -> (Printf.sprintf "%08x" i)
+
 (* ELF ident string *)
 
 type e_ident_t = {
@@ -168,10 +213,29 @@ type e_ident_t = {
 
 
 
-(* decoding functions *)
+let to_ident s =
+(*  let magic = Bigarray.Array1.sub_left s 0 4 in
+  if magic <> [|0x7f,0x45,0x4c,0x46|]then
+    L.abort(fun  p -> p "Invalid magic for ELF file")
+  else *)
+    {
+      e_class      = to_class (dec_byte s 4) ;
+      e_data       = to_data (dec_byte s 5) ;
+      e_version    = dec_byte s 6 ;
+      e_osabi      = to_osabi (dec_byte s 7) ;
+      e_abiversion = dec_byte s 8 ;
+    }
 
-let dec_byte s ofs = Bigarray.Array1.get s ofs
-let zdec_byte s ofs = Z.of_int (dec_byte s ofs)
+let e_ident_to_string ident =
+  Printf.sprintf "class=%s data=%s vers=%i osabi=%s abi_vers=%i"
+    (e_class_to_string ident.e_class)
+    (e_data_to_string ident.e_data)
+    ident.e_version
+    (e_osabi_to_string ident.e_osabi)
+    ident.e_abiversion
+
+
+(* decoding functions *)
 
 let dec_half s ofs ident =
   match ident.e_data with
@@ -198,6 +262,12 @@ let zdec_word s ofs ident =
        (Z.logor
           (Z.shift_left (zdec_byte s (ofs+1)) 16)
           (Z.shift_left (zdec_byte s ofs) 24))
+
+let zdec_sword s ofs ident = 
+  let word = zdec_word s ofs ident in
+  if Z.equal (Z.shift_right word 31) Z.zero
+    then word
+    else Z.pred (Z.lognot word) (* negative *)
 
 let zdec_xword s ofs ident =
   match ident.e_data with
@@ -234,35 +304,29 @@ let zdec_xword s ofs ident =
              (Z.shift_left (zdec_byte s (ofs+1)) 48)
              (Z.shift_left (zdec_byte s ofs) 56)))
 
-let zdec_addr s ofs ident =
+let zdec_sxword s ofs ident =
+  let xword = zdec_xword s ofs ident in
+  if Z.equal (Z.shift_right xword 63) Z.zero
+    then xword
+    else Z.pred (Z.lognot xword) (* negative *)
+
+
+let zdec_word_xword s ofs ident =
   match ident.e_class with
   | ELFCLASS_32 -> zdec_word s ofs ident
   | ELFCLASS_64 -> zdec_xword s ofs ident
 
-let zdec_off s ofs ident = zdec_addr s ofs ident
+let zdec_off = zdec_word_xword
 
-let zdec_word_xword s ofs ident = zdec_addr s ofs ident
+let zdec_addr = zdec_word_xword
+
+let zdec_sword_sxword s ofs ident =
+  match ident.e_class with
+  | ELFCLASS_32 -> zdec_sword s ofs ident
+  | ELFCLASS_64 -> zdec_sxword s ofs ident
 
 
-(* ELF ident OS ABI *)
 
-
-
-let to_ident s =
-(*  let magic = Bigarray.Array1.sub_left s 0 4 in
-  if magic <> [|0x7f,0x45,0x4c,0x46|]then
-    L.abort(fun  p -> p "Invalid magic for ELF file")
-  else *)
-    {
-      e_class      = to_class (dec_byte s 4) ;
-      e_data       = to_data (dec_byte s 5) ;
-      e_version    = dec_byte s 6 ;
-      e_osabi      = to_osabi (dec_byte s 7) ;
-      e_abiversion = dec_byte s 8 ;
-    }
-
-let ident_to_string ident =
-  Printf.sprintf "class=%s data=%s" (e_class_to_string ident.e_class) (e_data_to_string ident.e_data)
 
 (* ELF header *)
 
@@ -308,8 +372,12 @@ let to_hdr s =
   }
 
 let hdr_to_string hdr =
-  Printf.sprintf "%s type=%s phnum=%i shnum=%i"
-    (ident_to_string hdr.e_ident) (e_type_to_string hdr.e_type) hdr.e_phnum hdr.e_shnum
+  Printf.sprintf "%s type=%s machine=%s phnum=%i shnum=%i"
+    (e_ident_to_string hdr.e_ident)
+    (e_type_to_string hdr.e_type)
+    (e_machine_to_string hdr.e_machine)
+    hdr.e_phnum
+    hdr.e_shnum
 
 (* ELF program header type *)
 
@@ -343,7 +411,7 @@ let p_type_to_string pt =
   | PT_NOTE     -> "NOTE"
   | PT_SHLIB    -> "SHLIB"
   | PT_PHDR     -> "PHDR"
-  | PT_OTHER _x -> "??" (*Printf.Sprintf "%08x" (Z.to_int x)*)
+  | PT_OTHER x -> (Printf.sprintf "%08x" (Z.to_int x))
 
 
 (* ELF porgram header *)
@@ -500,7 +568,8 @@ let to_shdr s hdr shidx =
     }
 
 let sh_to_string sh =
-  Printf.sprintf "%04x %-8s flags=%04x addr=%08x off=%08x sz=%08x link=%4x info=%4x align=%x entsize=%x"
+  Printf.sprintf "idx=%3i %04x %-8s flags=%04x addr=%08x off=%08x sz=%08x link=%4x info=%4x align=%x entsize=%x"
+    sh.index
     (Z.to_int sh.sh_name)
     (sh_type_to_string sh.sh_type)
     (Z.to_int sh.sh_flags)
@@ -513,7 +582,7 @@ let sh_to_string sh =
     (Z.to_int sh.sh_entsize)
 
 
-(* ELF relocation entries *)
+(* ELF SHT_REL relocation entries *)
 
 type e_rel_t = {
   shdr : e_shdr_t ;
@@ -523,15 +592,15 @@ type e_rel_t = {
 }
 
 let to_rel s rofs hdr shdr =
-  let addrsz = match hdr.e_ident.e_class with
-    | ELFCLASS_32 -> 4
-    | ELFCLASS_64 -> 8 in
-  let info = zdec_word s (rofs+addrsz) hdr.e_ident in
+  let addrsz, shift,mask = match hdr.e_ident.e_class with
+    | ELFCLASS_32 -> 4, 8, Z.of_int 0xff
+    | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
+  let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
   {
     shdr = shdr ;
-    r_offset= zdec_off s rofs hdr.e_ident ;
-    r_sym = Z.logand (Z.shift_right info 8) (Z.of_int 0xff) ;
-    r_type= Z.logand info (Z.of_int 0xff) ;
+    r_offset= zdec_addr s rofs hdr.e_ident ;
+    r_sym = Z.logand (Z.shift_right info shift) mask ;
+    r_type= Z.logand info mask ;
   }
 
 let rel_to_string rel = 
