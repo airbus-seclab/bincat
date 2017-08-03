@@ -582,13 +582,62 @@ let sh_to_string sh =
     (Z.to_int sh.sh_entsize)
 
 
+(* ELF leocation types *)
+
+type reloc_type_t =
+  | RELOC_OTHER of e_machine_t * int
+  (* X86 relocation types *)
+  | R_386_NONE | R_386_32 | R_386_PC32 | R_386_GOT32 | R_386_PLT32 | R_386_COPY | R_386_GLOB_DAT
+  | R_386_JUMP_SLOT | R_386_RELATIVE | R_386_GOTOFF | R_386_GOTPC
+  (* ARM relocation types *)
+  | R_ARM_NONE | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
+
+let to_reloc_type r ident =
+    match ident.e_machine with
+    | X86 ->
+       begin
+         match r with
+         | 0 -> R_386_NONE  | 1 -> R_386_32        | 2 -> R_386_PC32       | 3 -> R_386_GOT32    | 4 -> R_386_PLT32
+         | 5 -> R_386_COPY  | 6 -> R_386_GLOB_DAT  | 7 -> R_386_JUMP_SLOT  | 8 -> R_386_RELATIVE | 9 -> R_386_GOTOFF
+         | 10 -> R_386_GOTPC
+         | _ -> RELOC_OTHER (ident.e_machine, r)
+       end
+    | ARM ->
+       begin
+         match r with
+         | 0 -> R_ARM_NONE
+         | 21 -> R_ARM_GLOB_DAT
+         | 22 -> R_ARM_JUMP_SLOT
+         | _ -> RELOC_OTHER (ident.e_machine, r)
+       end
+    | _ -> RELOC_OTHER (ident.e_machine, r)
+
+let reloc_type_to_string rel =
+  match rel with
+  | R_386_NONE -> "R_386_NONE"
+  | R_386_32 -> "R_386_32"
+  | R_386_PC32 -> "R_386_PC32"
+  | R_386_GOT32 -> "R_386_GOT32"
+  | R_386_PLT32 -> "R_386_PLT32"
+  | R_386_COPY -> "R_386_COPY"
+  | R_386_GLOB_DAT -> "R_386_GLOB_DAT"
+  | R_386_JUMP_SLOT -> "R_386_JUMP_SLOT"
+  | R_386_RELATIVE -> "R_386_RELATIVE"
+  | R_386_GOTOFF -> "R_386_GOTOFF"
+  | R_386_GOTPC -> "R_386_GOTPC"
+  | R_ARM_NONE -> "R_ARM_NONE"
+  | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"
+  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT"
+  | RELOC_OTHER (mach,num) -> (Printf.sprintf "reloc(%s,%#x)" (e_machine_to_string mach) num)
+
+
 (* ELF SHT_REL relocation entries *)
 
 type e_rel_t = {
   shdr : e_shdr_t ;
   r_offset : Z.t ;
   r_sym : Z.t ;
-  r_type : Z.t ;
+  r_type : reloc_type_t ;
 }
 
 let to_rel s rofs hdr shdr =
@@ -600,15 +649,15 @@ let to_rel s rofs hdr shdr =
     shdr = shdr ;
     r_offset= zdec_addr s rofs hdr.e_ident ;
     r_sym = Z.logand (Z.shift_right info shift) mask ;
-    r_type= Z.logand info mask ;
+    r_type= to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
   }
 
 let rel_to_string rel = 
-  Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%02x"
+  Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%-20s"
     rel.shdr.index
     (Z.to_int rel.r_offset)
     (Z.to_int rel.r_sym)
-    (Z.to_int rel.r_type)
+    (reloc_type_to_string rel.r_type)
 
 (* ELF SHT_RELA relocation entries *)
 
