@@ -341,6 +341,7 @@ struct
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with immediate *)
   let add_sub_imm s insn sf =
+    Log.debug (fun p->p [%decode "<31:31:sf:F:0,30:30:op:F:0,29:29:S:F:0,28:24:_:F:10001,23:22:shift:F:xx,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx>"]);
     let op = (insn lsr 30) land 1 in (* add or sub ? *)
     let s_b = get_s_bool insn in
     let sz = sf2sz sf in

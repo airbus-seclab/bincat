@@ -105,7 +105,10 @@ ifeq ($(detected_OS), Linux)
 endif
 
 CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmrun
-all: $(LIBNAME) $(EXENAME)
+all: armv8A_ppx $(LIBNAME) $(EXENAME)
+
+armv8a_ppx: disassembly/armv8a_ppx.ml
+	$(camlcompil) -warn-error -33-9-17 -i `ocamlfind query compiler-libs` -o armv8a_ppx ocamlcommon.cmxa $+
 
 $(LIBNAME): $(OBJ) 
 	rm -f $(BINCATOBJ)
@@ -118,6 +121,8 @@ bincat_ver.ml: update_gitver
 	[ -f $@ ] || touch $@
 	grep -q $(GITVERSION) bincat_ver.ml || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
 
+disassembly/armv8A.cmx: disassembly/armv8A.ml
+	$(CAMLCOMPIL) -ppx ./armv8A_ppx -c $(LIBX) $+
 %.cmx: %.ml %.mli
 	$(CAMLCOMPIL) -c $(LIBX) $*.ml
 
