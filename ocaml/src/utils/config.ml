@@ -21,7 +21,6 @@ let fun_unroll = ref 50;;
 let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
-  
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
@@ -57,7 +56,7 @@ let mode = ref Protected
 
 let in_mcfa_file = ref "";;
 let out_mcfa_file = ref "";;
-  
+
 let load_mcfa = ref false;;
 let store_mcfa = ref false;;
 
@@ -94,9 +93,9 @@ let fs = ref Z.zero
 let gs = ref Z.zero
 
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
-(** after the first forward analysis from binary has been performed *) 
+(** after the first forward analysis from binary has been performed *)
 let interleave = ref false
-  
+
 type tvalue =
   | Taint of Z.t
   | TMask of Z.t * Z.t (* second element is a mask on the first one *)
@@ -124,7 +123,7 @@ let heap_content: ctbl = Hashtbl.create 10
 
 type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
 let sections: sec_t = ref []
-  
+
 let import_tbl: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
 
 (* tainting and typing rules for functions *)
@@ -132,7 +131,6 @@ type taint_t =
   | No_taint
   | Buf_taint
   | Addr_taint
-      
 
 (** data stuctures for the assertions *)
 let assert_untainted_functions: (Z.t, taint_t list) Hashtbl.t = Hashtbl.create 5
