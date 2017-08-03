@@ -501,11 +501,11 @@ module Make(D: T) =
                let addresses = Data.Address.Set.elements (D.to_addresses r) in
                let rec to_value a =
                  match a with
-                 | [a]  -> let v = get_mem_value m a n in v, Taint.join tsrc  (D.taint_sources v)
+                 | [a]  -> let v = get_mem_value m a n in v, Taint.logor tsrc  (D.taint_sources v)
                  | a::l ->
 		            let v = get_mem_value m a n in
 		            let v', tsrc' = to_value l in
-		            D.join v v', Taint.join (D.taint_sources v) (Taint.join tsrc tsrc')
+		            D.join v v', Taint.join (D.taint_sources v) (Taint.logor tsrc tsrc')
 					  
                  | []   -> raise Exceptions.Bot_deref
                in
@@ -530,12 +530,12 @@ module Make(D: T) =
 	       let v1, tsrc1 = eval e1 in
 	       let v2, tsrc2 = eval e2 in
 	       let v = D.binary op v1 v2 in
-	       v, Taint.join tsrc1 (Taint.join tsrc2  (D.taint_sources v))
+	       v, Taint.logor tsrc1 (Taint.logor tsrc2  (D.taint_sources v))
 			 
         | Asm.UnOp (op, e) ->
 	       let v, tsrc = eval e in
 	       let v' = D.unary op v in
-	       v', Taint.join tsrc (D.taint_sources v')
+	       v', Taint.logor tsrc (D.taint_sources v')
 
 	    | Asm.TernOp (c, e1, e2) ->
 	       let r, tsrc = eval_bexp c true in
@@ -545,7 +545,7 @@ module Make(D: T) =
                if r2 then
                  let v1, _ = eval e1 in
                  let v2, _ = eval e2 in
-                 D.join v1 v2, Taint.join tsrc tsrc2
+                 D.join v1 v2, Taint.logor tsrc tsrc2
                else
                  fst (eval e1), tsrc
              else
@@ -570,14 +570,14 @@ module Make(D: T) =
         | Asm.BBinOp (Asm.LogOr, e1, e2)  ->
            let v1, b1 = eval_bexp e1 b in
            let v2, b2 = eval_bexp e2 b in
-           if b then v1||v2, Taint.join b1 b2
-           else v1&&v2, Taint.meet b1 b2
+           if b then v1||v2, Taint.logor b1 b2
+           else v1&&v2, Taint.logand b1 b2
              
         | Asm.BBinOp (Asm.LogAnd, e1, e2) ->
            let v1, b1 = eval_bexp e1 b in
            let v2, b2 = eval_bexp e2 b in
-           if b then v1&&v2, Taint.meet b1 b2
-           else v1||v2, Taint.join b1 b2
+           if b then v1&&v2, Taint.logand b1 b2
+           else v1||v2, Taint.logor b1 b2
              
         | Asm.Cmp (cmp, e1, e2)   ->
            let cmp' = if b then cmp else inv_cmp cmp in
@@ -588,7 +588,7 @@ module Make(D: T) =
     and compare_env env (e1: Asm.exp) op e2: bool * Taint.t =
       let v1, tsrc1 = eval_exp env e1 in
       let v2, tsrc2 = eval_exp env e2 in
-      D.compare v1 op v2, Taint.join tsrc1 tsrc2
+      D.compare v1 op v2, Taint.logor tsrc1 tsrc2
         
         
     let val_restrict m e1 _v1 cmp _e2 v2 =
@@ -614,7 +614,7 @@ module Make(D: T) =
          else
            if D.compare v1 op v2 then
              try
-               Val (val_restrict m' e1 v1 op e2 v2), Taint.join b1 b2
+               Val (val_restrict m' e1 v1 op e2 v2), Taint.logor b1 b2
              with Exceptions.Empty -> BOT, Taint.U
            else
              BOT, Taint.U
@@ -691,7 +691,7 @@ module Make(D: T) =
                    Val (Env.add (Env.Key.Reg r') v' m'), b
                 | Asm.P (r', low, up) ->
                    try
-                     let prev = Env.find (Env.Key.Reg r') m' in		    
+                     let prev = Env.find (Env.Key.Reg r') m' in
                      Val (Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'), b
                    with
                      Not_found -> BOT, b
@@ -702,7 +702,7 @@ module Make(D: T) =
               let addrs = D.to_addresses v in
               try
                 let l     = Data.Address.Set.elements addrs in
-                let t' = Taint.join b b' in
+                let t' = Taint.logor b b' in
                 match l with
                 | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), t'
                 | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), t'

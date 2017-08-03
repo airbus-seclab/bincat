@@ -64,8 +64,8 @@ struct
            let v1, taint1 = process e1 b in
            let v2, taint2 = process e2 b in
 	       let taint_sources =
-             if b then Taint.join taint1 taint2
-             else Taint.meet taint1 taint2
+             if b then Taint.logor taint1 taint2
+             else Taint.logand taint1 taint2
            in
            if b then D.join v1 v2, taint_sources
            else D.meet v1 v2, taint_sources
@@ -74,8 +74,8 @@ struct
            let v1, taint1 = process e1 b in
            let v2, taint2 = process e2 b in
 	       let taint_sources =
-             if b then Taint.meet taint1 taint2
-             else Taint.join taint1 taint2 in
+             if b then Taint.logand taint1 taint2
+             else Taint.logor taint1 taint2 in
            if b then D.meet v1 v2, taint_sources
            else D.join v1 v2, taint_sources
 		       
@@ -235,9 +235,9 @@ struct
       if has_jmp then_stmts || has_jmp else_stmts then
              raise Jmp_exn
            else
-             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s fun_stack in d', Taint.join b b') (restrict d e true) then_stmts in
-             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s fun_stack in d', Taint.join b b') (restrict d e false) else_stmts in
-             D.join dt de, Taint.join bt be
+             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s fun_stack in d', Taint.logor b b') (restrict d e true) then_stmts in
+             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s fun_stack in d', Taint.logor b b') (restrict d e false) else_stmts in
+             D.join dt de, Taint.logor bt be
 
    
     let process_ret (fun_stack: fun_stack_t) v =
@@ -287,7 +287,7 @@ struct
           if stmts <> [] then
             Config.interleave := true;
           let d', b' =
-            List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt fun_stack in d', Taint.join b b') (v.Cfa.State.v, Taint.U) stmts
+            List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt fun_stack in d', Taint.logor b b') (v.Cfa.State.v, Taint.U) stmts
           in
           v.Cfa.State.v <- d';
           let pred = pred_fun v in
@@ -295,7 +295,7 @@ struct
           (* set back the stack register to its pred value *)
           let stack_register = Register.stack_pointer () in
           v.Cfa.State.v <- D.copy_register stack_register v.Cfa.State.v pred.Cfa.State.v;
-          Taint.join b b') Taint.U vertices
+          Taint.logor b b') Taint.U vertices
       in
       vertices, b
 		
@@ -311,7 +311,7 @@ struct
                         | [a] ->
                           begin
                               try let res = import_call [v] a ip_pred fun_stack in import := true; res
-                              with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, Taint.join b taint_sources
+                              with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, Taint.logor b taint_sources
                           end
                         | [] -> L.abort (fun p -> p "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                         | l -> L.abort (fun p -> p "Please select between the addresses %s for jump target from %s\n"
@@ -349,6 +349,7 @@ struct
         v'.Cfa.State.v <- d;
         v'.Cfa.State.branch <- branch;
         v'.Cfa.State.bytes <- [];
+        v'.Cfa.State.taint_sources <- Taint.U;
         if is_pred then
           Cfa.add_successor g v v'
         else
@@ -365,21 +366,21 @@ struct
 			  if D.is_bot d then
 				l, b
 			  else
-				(copy v d (Some true) false)::l, Taint.join b taint_sources
+				(copy v d (Some true) false)::l, Taint.logor b taint_sources
 			with Exceptions.Empty -> l, b) ([], Taint.U) vertices)
 	      in
 	      let vert, b' = process_list vertices' stmts in
-	      vert, Taint.join b b'
+	      vert, Taint.logor b b'
 	    in
 	    let then', bt = process_branch istmts true in
 	    let else', be = process_branch estmts false in
 	    List.iter (fun v -> Cfa.remove_state g v) vertices;
-	    then' @ else', Taint.join be bt
+	    then' @ else', Taint.logor be bt
      
 	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * Taint.t) =
         try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s fun_stack in v.Cfa.State.v <- d; v::l, Taint.join b b') ([], Taint.U) vertices
+          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s fun_stack in v.Cfa.State.v <- d; v::l, Taint.logor b b') ([], Taint.U) vertices
         with Jmp_exn ->
              match s with 
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts
@@ -411,8 +412,8 @@ struct
              | Return -> List.fold_left (fun (l, b) v ->
 			     let v', b' = process_ret fun_stack v in
 			     match v' with
-			     | None -> l, Taint.join b b'
-			     | Some v -> v::l, Taint.join b b') ([], Taint.U) vertices
+			     | None -> l, Taint.logor b b'
+			     | Some v -> v::l, Taint.logor b b') ([], Taint.U) vertices
 				  
              | _       -> vertices, Taint.U
 			    
@@ -423,7 +424,7 @@ struct
 	      let new_vert, tainted = 
 	        try
               let (new_vertices: Cfa.State.t list), (b: Taint.t) = process_vertices vertices s in
-              let vert, b' = process_list new_vertices stmts in vert, Taint.join b b'
+              let vert, b' = process_list new_vertices stmts in vert, Taint.logor b b'
 	        with Exceptions.Bot_deref -> [], Taint.U (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
           in 
            L.debug (fun p->p "process_list returns tainted: %s" (Taint.to_string tainted));
@@ -433,14 +434,9 @@ struct
       let vstart = copy v v.Cfa.State.v None true
       in
       vstart.Cfa.State.ip <- ip;
-      vstart.Cfa.State.taint_sources <- Taint.U;
       let vertices, b = process_list [vstart] v.Cfa.State.stmts in
-      match b with
-        | Taint.U -> vertices
-        | _ -> 
-	      v.Cfa.State.taint_sources <- b;
-	      List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- Taint.U) !fun_stack;
-          vertices
+      vstart.Cfa.State.taint_sources <- b;
+      vertices
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
     let filter_vertices (subsuming: bool) g vertices =
@@ -553,7 +549,7 @@ struct
 		   L.analysis (fun p -> p "applied tainting (%d) override(s)" (List.length rules));
 		   List.map (fun v ->
              let d', taint =
-               List.fold_left (fun (d, taint) f -> let d', taint' = f d in d', Taint.join taint taint'
+               List.fold_left (fun (d, taint) f -> let d', taint' = f d in d', Taint.logor taint taint'
                ) (v.Cfa.State.v, v.Cfa.State.taint_sources) rules
              in
 		     v.Cfa.State.v <- d';
@@ -589,7 +585,7 @@ struct
 	     let e = Lval dst in
 	     let d', b = D.set lv1 (BinOp (op, e, e2)) d in
 	     let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
-	     d, Taint.join b b'
+	     d, Taint.logor b b'
 		   
       | Lval lv, e | e, Lval lv -> 
 	     let e' = Lval dst in
@@ -626,8 +622,8 @@ struct
 	    | Assert (_bexp, _msg) -> d, Taint.U (* TODO *)
 	    | If (e, istmts, estmts) ->
 	       match branch with
-	       | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.join b b') (d, Taint.U) istmts in let v, b' = restrict d' e true in v, Taint.join b b'
-	       | Some false -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.join b b') (d, Taint.U) estmts in let v, b' = restrict d' e false in v, Taint.join b b'
+	       | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) istmts in let v, b' = restrict d' e true in v, Taint.logor b b'
+	       | Some false -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) estmts in let v, b' = restrict d' e false in v, Taint.logor b b'
 	       | None -> D.forget d, Taint.U
       in
       back d stmt
@@ -637,7 +633,7 @@ struct
 	    let d', taint_sources =
           List.fold_left (fun (d, b) s ->
 	        let d', b' = backward_process v.Cfa.State.branch d s in
-	        d', Taint.join b b'
+	        d', Taint.logor b b'
           ) (v.Cfa.State.v, Taint.U) (List.rev pred.Cfa.State.stmts)
 	    in
 	    let d' = D.meet pred.Cfa.State.v d' in
@@ -707,8 +703,8 @@ struct
 	         try process_if d e istmts estmts fun_stack
 	         with Jmp_exn ->
 	           match branch with
-	           | Some true -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', Taint.join b b') (restrict d e true) istmts
-	           | Some false -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', Taint.join b b') (restrict d e false) estmts
+	           | Some true -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', Taint.logor b b') (restrict d e true) istmts
+	           | Some false -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', Taint.logor b b') (restrict d e false) estmts
 	           | None -> L.abort (fun p -> p "Illegal call to Interpreter.forward_process")
 	       end
 	    | Asm.Call (Asm.R _) -> D.forget d, Taint.TOP
@@ -720,7 +716,7 @@ struct
       let forward _g v _ip =
 	    let d', taint_sources = List.fold_left (fun (d, b) s ->
 		  let d', b' = forward_process d s (succ.Cfa.State.branch) in
-		  d', Taint.join b b') (v.Cfa.State.v, Taint.U) (succ.Cfa.State.stmts)
+		  d', Taint.logor b b') (v.Cfa.State.v, Taint.U) (succ.Cfa.State.stmts)
         in
         L.debug (fun p->p "forward_abstract_value taint : %s" (Taint.to_string taint_sources));
       	succ.Cfa.State.v <- D.meet succ.Cfa.State.v d';

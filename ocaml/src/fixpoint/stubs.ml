@@ -247,7 +247,7 @@ struct
             let d', taint' =
                 D.set vsp e d
             in
-            d', Taint.join taint taint'
+            d', Taint.logor taint taint'
         else
             d, taint
 end

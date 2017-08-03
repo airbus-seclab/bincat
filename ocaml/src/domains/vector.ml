@@ -780,37 +780,37 @@ module Make(V: Val) =
 	     v'
 	  | None -> Array.map V.forget v'
 	  
-        (** copy bits from v2 to bits from low to up of v1,
-         *  vectors can be of different sizes *)
-        let combine v1 v2 low up =
+    (** copy bits from v2 to bits from low to up of v1,
+        vectors can be of different sizes *)
+    let combine v1 v2 low up =
 	  L.debug (fun p -> p "combine(%s(%d)[%d:%d] <- %s(%d))"
 	    (to_string v1) (Array.length v1)  low up (to_string v2) (Array.length v2));
-        let sz2 = Array.length v2 in
-	if sz2 <> up-low+1 then
-	  L.abort (fun p -> p "combine: source is %d bits while it is supposed to fit into %d bits (from bit %i to %i)"
-	    sz2 (up-low+1) low up)
-	else
-	  if low > up then L.abort (fun p -> p "combine : low=%i > up=%i" low up)
+      let sz2 = Array.length v2 in
+	  if sz2 <> up-low+1 then
+	    L.abort (fun p -> p "combine: source is %d bits while it is supposed to fit into %d bits (from bit %i to %i)"
+	      sz2 (up-low+1) low up)
 	  else
-            let sz1 = Array.length v1 in
-            if up >= sz1 then
-              L.abort (fun p -> p "combine : writing out of v1: up=%i >= length(v1)=%i" up sz1)
+	    if low > up then L.abort (fun p -> p "combine : low=%i > up=%i" low up)
+	    else
+          let sz1 = Array.length v1 in
+          if up >= sz1 then
+            L.abort (fun p -> p "combine : writing out of v1: up=%i >= length(v1)=%i" up sz1)
             else
-	      begin
-		let v = Array.copy v1 in
-		let j = ref 0 in
-		for i = (sz1-1-up) to (sz1-1-low) do
-		  v.(i) <- v2.(!j);
-		  j := !j+1;
-		done;
-                v
-	      end
+	        begin
+		      let v = Array.copy v1 in
+		      let j = ref 0 in
+		      for i = (sz1-1-up) to (sz1-1-low) do
+		        v.(i) <- v2.(!j);
+		        j := !j+1;
+		      done;
+              v
+	        end
 
         let extract v low up =
             L.debug (fun p -> p "extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v));
             let v' = Array.make (up-low+1) V.top in
-            let n  = Array.length v           in
-            let o  = n-up - 1                  in
+            let n  = Array.length v in
+            let o  = n-up - 1 in
             for i = o to n-low-1 do
                 v'.(i-o) <- v.(i)
             done;
@@ -828,6 +828,6 @@ module Make(V: Val) =
             v_array
 
         let taint_sources v =
-          Array.fold_left (fun acc elt -> Taint.join acc (V.get_taint elt)) (Taint.U) v
+          Array.fold_left (fun acc elt -> Taint.logor acc (V.get_taint elt)) (Taint.U) v
 					
     end: T)

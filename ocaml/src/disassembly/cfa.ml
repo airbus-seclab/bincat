@@ -193,10 +193,9 @@ struct
 	  (fun rname vfun (d, taint) ->
         let r = Register.of_name rname in
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global in
-	    let v = vfun r in
-        Init_check.check_register_init r v;
+	    let v = vfun r in        Init_check.check_register_init r v;
 	    let d', taint' = Domain.set_register_from_config r region v d in
-        d', Taint.join taint taint'
+        d', Taint.logor taint taint'
 	  )
 	  Config.register_content (d, Taint.U)
       
@@ -208,7 +207,7 @@ struct
       let addr' = Data.Address.of_int region addr !Config.address_sz in
       Init_check.check_mem content;
       let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
-      d', Taint.join prev_taint taint'
+      d', Taint.logor prev_taint taint'
     ) content_tbl (domain, Taint.U)
     (* end of init utilities *)
     (*************************)
@@ -223,7 +222,7 @@ struct
 	let d', taint3 = init_mem d' Data.Address.Stack Config.stack_content in
 	(* init of the Heap memory *)
 	let d', taint4 = init_mem d' Data.Address.Heap Config.heap_content in
-    d', Taint.join taint4 (Taint.join taint3 (Taint.join taint2 taint1))
+    d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
