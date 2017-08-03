@@ -541,6 +541,38 @@ let rel_to_string rel =
     (Z.to_int rel.r_sym)
     (Z.to_int rel.r_type)
 
+(* ELF SHT_RELA relocation entries *)
+
+type e_rela_t = {
+  shdr : e_shdr_t ;
+  r_offset : Z.t ;
+  r_sym : Z.t ;
+  r_type : Z.t ;
+  r_addend : Z.t ;
+}
+
+let to_rela s rofs hdr shdr =
+  let addrsz,shift,mask = match hdr.e_ident.e_class with
+    | ELFCLASS_32 -> 4, 8, Z.of_int 0xff
+    | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
+  let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
+  {
+    shdr = shdr ;
+    r_offset= zdec_addr s rofs hdr.e_ident ;
+    r_sym = Z.logand (Z.shift_right info shift) mask ;
+    r_type= Z.logand info mask ;
+    r_addend = zdec_sword_sxword s (rofs+2*addrsz) hdr.e_ident ;
+  }
+
+let rela_to_string (rela:e_rela_t) = 
+  Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%02x addend=%-09x"
+    rela.shdr.index
+    (Z.to_int rela.r_offset)
+    (Z.to_int rela.r_sym)
+    (Z.to_int rela.r_type)
+    (Z.to_int rela.r_addend)
+
+
 (* ELF *)
 
 type elf_t = {
@@ -548,11 +580,13 @@ type elf_t = {
   ph  : e_phdr_t list ;
   sh  : e_shdr_t list ;
   rel : e_rel_t list;
+  rela : e_rela_t list;
 }
 
 let to_elf s =
   let hdr = to_hdr s in
   let rel = ref [] in
+  let rela = ref [] in
   let phdr = ref [] in
   for phi = 0 to hdr.e_phnum-1 do
     phdr := !phdr @ [ to_phdr s hdr phi ]
@@ -561,18 +595,31 @@ let to_elf s =
   for shi = 0 to hdr.e_shnum-1 do
     let cur_shdr = to_shdr s hdr shi in
     shdr := !shdr @ [ cur_shdr ];
-    if cur_shdr.sh_type = SHT_REL then
-      let sz = Z.to_int cur_shdr.sh_size in
-      let entsz = Z.to_int cur_shdr.sh_entsize in
-      for ri = 0 to sz/entsz-1 do
-        rel := !rel @ [ to_rel s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr cur_shdr ]
-      done
+    match cur_shdr.sh_type with
+    | SHT_REL ->
+       begin
+         let sz = Z.to_int cur_shdr.sh_size in
+         let entsz = Z.to_int cur_shdr.sh_entsize in
+         for ri = 0 to sz/entsz-1 do
+           rel := !rel @ [ to_rel s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr cur_shdr ]
+         done
+       end
+    | SHT_RELA ->
+       begin
+         let sz = Z.to_int cur_shdr.sh_size in
+         let entsz = Z.to_int cur_shdr.sh_entsize in
+         for ri = 0 to sz/entsz-1 do
+           rela := !rela @ [ to_rela s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr cur_shdr ]
+         done
+       end
+    | _ -> ()
   done;
   {
     hdr = hdr ;
     ph  = !phdr ;
     sh  = !shdr ;
     rel = !rel ;
+    rela = !rela ;
   }
 
 
