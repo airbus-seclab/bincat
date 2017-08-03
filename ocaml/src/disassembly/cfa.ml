@@ -196,7 +196,6 @@ struct
 	    let v = vfun r in
         Init_check.check_register_init r v;
 	    let d', taint' = Domain.set_register_from_config r region v d in
-        L.debug (fun p -> p "computed taint is %s" (Taint.to_string taint'));
         d', Taint.join taint taint'
 	  )
 	  Config.register_content (d, Taint.U)
