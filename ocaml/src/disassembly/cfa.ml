@@ -129,12 +129,14 @@ module Make(Domain: Domain.T) =
 
 
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
-    (* this filling is done by iterating on corresponding tables in Config *)
-    let init_mem domain region content_tbl =
-        Hashtbl.fold (fun (addr, nb) content domain ->
+    (* this filling is done by iterating on corresponding lists in Config *)
+    let init_mem domain region content_list =
+        List.fold_left (fun domain entry -> let addr, nb = fst entry in
+                            let content = snd entry in
+                            L.debug (fun p->p "init: %x" (Z.to_int addr));
                             let addr' = Data.Address.of_int region addr !Config.address_sz in
                             Domain.set_memory_from_config addr' Data.Address.Global content nb domain
-                     ) content_tbl domain
+                     ) domain (List.rev content_list)
       (* end of init utilities *)
       (*************************)
 
@@ -143,11 +145,11 @@ module Make(Domain: Domain.T) =
     let init_abstract_value () =
       let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
-	let d' = init_mem (init_registers d) Data.Address.Global Config.memory_content in
+	let d' = init_mem (init_registers d) Data.Address.Global !Config.memory_content in
 	(* init of the Stack memory *)
-	let d' = init_mem d' Data.Address.Stack Config.stack_content in
+	let d' = init_mem d' Data.Address.Stack !Config.stack_content in
 	(* init of the Heap memory *)
-	init_mem d' Data.Address.Heap Config.heap_content
+	init_mem d' Data.Address.Heap !Config.heap_content
 	
       (** returned CFA has only one node : the state whose ip is given by the parameter and whose domain field is generated from the Config module *)
       let init ip =
