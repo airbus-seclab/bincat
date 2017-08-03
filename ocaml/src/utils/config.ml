@@ -110,16 +110,15 @@ let reg_override: (Z.t, ((Register.t * tvalue) list)) Hashtbl.t = Hashtbl.create
 let mem_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
 let heap_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
-  
-    
-(* tables for the initialisation of the global memory, stack and heap *)
-(* first element in the key is the address ; second one is the number of repetition *)
-type ctbl = (Z.t * int, cvalue * (tvalue option)) Hashtbl.t
+
+(* lists for the initialisation of the global memory, stack and heap *)
+(* first element is the key is the address ; second one is the number of repetition *)
+type mem_init_t = ((Z.t * int) * (cvalue * (tvalue option))) list
 
 let register_content: (Register.t, cvalue * tvalue option) Hashtbl.t = Hashtbl.create 10
-let memory_content: ctbl = Hashtbl.create 10
-let stack_content: ctbl = Hashtbl.create 10
-let heap_content: ctbl = Hashtbl.create 10
+let memory_content: mem_init_t ref = ref []
+let stack_content: mem_init_t ref = ref []
+let heap_content: mem_init_t ref = ref []
 
 type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
 let sections: sec_t = ref []
@@ -146,11 +145,11 @@ let typing_rules : (string, TypedC.ftyp) Hashtbl.t = Hashtbl.create 5
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;
   Hashtbl.clear assert_tainted_functions;
-  Hashtbl.clear memory_content;
-  Hashtbl.clear stack_content;
-  Hashtbl.clear heap_content;
   Hashtbl.clear import_tbl;
   Hashtbl.clear reg_override;
   Hashtbl.clear mem_override;
   Hashtbl.clear stack_override;
-  Hashtbl.clear heap_override
+  Hashtbl.clear heap_override;
+  memory_content := [];
+  stack_content := [];
+  heap_content := [];
