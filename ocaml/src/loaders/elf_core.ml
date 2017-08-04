@@ -63,69 +63,30 @@ let e_class_to_string cls =
 (* ELF OS ABI *)
 
 type e_osabi_t =
-  | ELFOSABI_SYSVV
-  | ELFOSABI_HPUX
-  | ELFOSABI_NETBSD
-  | ELFOSABI_LINUX
-  | ELFOSABI_HURD
-  | ELFOSABI_SOLARIS
-  | ELFOSABI_AIX
-  | ELFOSABI_IRIX
-  | ELFOSABI_FREEBSD
-  | ELFOSABI_TRU64
-  | ELFOSABI_NOVELL
-  | ELFOSABI_OPENBSD
-  | ELFOSABI_OPENVMS
-  | ELFOSABI_NONSTOPKERNEL
-  | ELFOSABI_AROS
-  | ELFOSABI_FENIXOS
-  | ELFOSABI_CLOUDABI
-  | ELFOSABI_SORTIX
+  | ELFOSABI_SYSVV    | ELFOSABI_HPUX      | ELFOSABI_NETBSD   | ELFOSABI_LINUX          | ELFOSABI_HURD
+  | ELFOSABI_SOLARIS  | ELFOSABI_AIX       | ELFOSABI_IRIX     | ELFOSABI_FREEBSD        | ELFOSABI_TRU64
+  | ELFOSABI_NOVELL   | ELFOSABI_OPENBSD   | ELFOSABI_OPENVMS  | ELFOSABI_NONSTOPKERNEL  | ELFOSABI_AROS
+  | ELFOSABI_FENIXOS  | ELFOSABI_CLOUDABI  | ELFOSABI_SORTIX
   | ELFOSABI_OTHER of int
-
 
 let to_osabi x =
   match x with
-  | 0x00 -> ELFOSABI_SYSVV
-  | 0x01 -> ELFOSABI_HPUX
-  | 0x02 -> ELFOSABI_NETBSD
-  | 0x03 -> ELFOSABI_LINUX
-  | 0x04 -> ELFOSABI_HURD
-  | 0x06 -> ELFOSABI_SOLARIS
-  | 0x07 -> ELFOSABI_AIX
-  | 0x08 -> ELFOSABI_IRIX
-  | 0x09 -> ELFOSABI_FREEBSD
-  | 0x0A -> ELFOSABI_TRU64
-  | 0x0B -> ELFOSABI_NOVELL
-  | 0x0C -> ELFOSABI_OPENBSD
-  | 0x0D -> ELFOSABI_OPENVMS
-  | 0x0E -> ELFOSABI_NONSTOPKERNEL
-  | 0x0F -> ELFOSABI_AROS
-  | 0x10 -> ELFOSABI_FENIXOS
-  | 0x11 -> ELFOSABI_CLOUDABI
-  | 0x53 -> ELFOSABI_SORTIX
+  | 0x00 -> ELFOSABI_SYSVV    | 0x01 -> ELFOSABI_HPUX           | 0x02 -> ELFOSABI_NETBSD
+  | 0x03 -> ELFOSABI_LINUX    | 0x04 -> ELFOSABI_HURD           | 0x06 -> ELFOSABI_SOLARIS
+  | 0x07 -> ELFOSABI_AIX      | 0x08 -> ELFOSABI_IRIX           | 0x09 -> ELFOSABI_FREEBSD
+  | 0x0A -> ELFOSABI_TRU64    | 0x0B -> ELFOSABI_NOVELL         | 0x0C -> ELFOSABI_OPENBSD
+  | 0x0D -> ELFOSABI_OPENVMS  | 0x0E -> ELFOSABI_NONSTOPKERNEL  | 0x0F -> ELFOSABI_AROS
+  | 0x10 -> ELFOSABI_FENIXOS  | 0x11 -> ELFOSABI_CLOUDABI       | 0x53 -> ELFOSABI_SORTIX
   | abi -> ELFOSABI_OTHER abi
 
 let e_osabi_to_string osabi =
   match osabi with
-  | ELFOSABI_SYSVV -> "SYSVV"
-  | ELFOSABI_HPUX -> "HPUX"
-  | ELFOSABI_NETBSD -> "NETBSD"
-  | ELFOSABI_LINUX -> "LINUX"
-  | ELFOSABI_HURD -> "HURD"
-  | ELFOSABI_SOLARIS -> "SOLARIS"
-  | ELFOSABI_AIX -> "AIX"
-  | ELFOSABI_IRIX -> "IRIX"
-  | ELFOSABI_FREEBSD -> "FREEBSD"
-  | ELFOSABI_TRU64 -> "TRU64"
-  | ELFOSABI_NOVELL -> "NOVELL"
-  | ELFOSABI_OPENBSD -> "OPENBSD"
-  | ELFOSABI_OPENVMS -> "OPENVMS"
-  | ELFOSABI_NONSTOPKERNEL -> "NONSTOPKERNEL"
-  | ELFOSABI_AROS -> "AROS"
-  | ELFOSABI_FENIXOS -> "FENIXOS"
-  | ELFOSABI_CLOUDABI -> "CLOUDABI"
-  | ELFOSABI_SORTIX -> "SORTIX"
+  | ELFOSABI_SYSVV -> "SYSVV"      | ELFOSABI_HPUX -> "HPUX"                    | ELFOSABI_NETBSD -> "NETBSD"
+  | ELFOSABI_LINUX -> "LINUX"      | ELFOSABI_HURD -> "HURD"                    | ELFOSABI_SOLARIS -> "SOLARIS"
+  | ELFOSABI_AIX -> "AIX"          | ELFOSABI_IRIX -> "IRIX"                    | ELFOSABI_FREEBSD -> "FREEBSD"
+  | ELFOSABI_TRU64 -> "TRU64"      | ELFOSABI_NOVELL -> "NOVELL"                | ELFOSABI_OPENBSD -> "OPENBSD"
+  | ELFOSABI_OPENVMS -> "OPENVMS"  | ELFOSABI_NONSTOPKERNEL -> "NONSTOPKERNEL"  | ELFOSABI_AROS -> "AROS"
+  | ELFOSABI_FENIXOS -> "FENIXOS"  | ELFOSABI_CLOUDABI -> "CLOUDABI"            | ELFOSABI_SORTIX -> "SORTIX"
   | ELFOSABI_OTHER x -> (Printf.sprintf "%08x" x)
 
 
@@ -137,7 +98,7 @@ type e_type_t =
   | SHARED
   | CORE
 
-let to_type x = 
+let to_type x =
   match x with
   | 1 -> RELOC
   | 2 -> EXEC
@@ -145,7 +106,7 @@ let to_type x =
   | 4 -> CORE
   | typ -> L.abort (fun p -> p "Unkonwn type %02x" typ)
 
-let e_type_to_string typ = 
+let e_type_to_string typ =
   match typ with
   | RELOC  -> "RELOC"
   | EXEC   -> "EXEC"
@@ -155,50 +116,22 @@ let e_type_to_string typ =
 (* ELF ident machine *)
 
 type e_machine_t =
-  | NONE
-  | SPARC
-  | X86
-  | MIPS
-  | POWERPC
-  | S390
-  | ARM
-  | SUPERH
-  | IA64
-  | X86_64
-  | AARCH64
-  | RISCV
+  | NONE    | SPARC  | X86     | MIPS     | POWERPC  | S390  | ARM
+  | SUPERH  | IA64   | X86_64  | AARCH64  | RISCV
   | OTHER of int
 
 let to_machine x =
   match x with
-  | 0x00 -> NONE
-  | 0x02 -> SPARC
-  | 0x03 -> X86
-  | 0x08 -> MIPS
-  | 0x14 -> POWERPC
-  | 0x16 -> S390
-  | 0x28 -> ARM
-  | 0x2A -> SUPERH
-  | 0x32 -> IA64
-  | 0x3E -> X86_64
-  | 0xB7 -> AARCH64
-  | 0xF3 -> RISCV
+  | 0x00 -> NONE     | 0x02 -> SPARC  | 0x03 -> X86     | 0x08 -> MIPS  | 0x14 -> POWERPC
+  | 0x16 -> S390     | 0x28 -> ARM    | 0x2A -> SUPERH  | 0x32 -> IA64  | 0x3E -> X86_64
+  | 0xB7 -> AARCH64  | 0xF3 -> RISCV
   | mach -> OTHER mach
 
 let e_machine_to_string mach =
   match mach with
-  | NONE -> "NONE"
-  | SPARC -> "SPARC"
-  | X86 -> "X86"
-  | MIPS -> "MIPS"
-  | POWERPC -> "POWERPC"
-  | S390 -> "S390"
-  | ARM -> "ARM"
-  | SUPERH -> "SUPERH"
-  | IA64 -> "IA64"
-  | X86_64 -> "X86"
-  | AARCH64 -> "AARCH64"
-  | RISCV -> "RISCV"
+  | NONE -> "NONE"        | SPARC -> "SPARC"      | X86 -> "X86"          | MIPS -> "MIPS"
+  | POWERPC -> "POWERPC"  | S390 -> "S390"        | ARM -> "ARM"          | SUPERH -> "SUPERH"
+  | IA64 -> "IA64"        | X86_64 -> "X86"       | AARCH64 -> "AARCH64"  | RISCV -> "RISCV"
   | OTHER i -> (Printf.sprintf "%08x" i)
 
 (* ELF ident string *)
@@ -263,7 +196,7 @@ let zdec_word s ofs ident =
           (Z.shift_left (zdec_byte s (ofs+1)) 16)
           (Z.shift_left (zdec_byte s ofs) 24))
 
-let zdec_sword s ofs ident = 
+let zdec_sword s ofs ident =
   let word = zdec_word s ofs ident in
   if Z.equal (Z.shift_right word 31) Z.zero
     then word
@@ -382,34 +315,20 @@ let hdr_to_string hdr =
 (* ELF program header type *)
 
 type p_type_t =
-  | PT_NULL
-  | PT_LOAD
-  | PT_DYNAMIC
-  | PT_INTERP
-  | PT_NOTE
-  | PT_SHLIB
-  | PT_PHDR
+  | PT_NULL  | PT_LOAD   | PT_DYNAMIC  | PT_INTERP
+  | PT_NOTE  | PT_SHLIB  | PT_PHDR
   | PT_OTHER of Z.t
 
 let to_p_type x =
   match (Z.to_int x) with
-  | 0 -> PT_NULL
-  | 1 -> PT_LOAD
-  | 2 -> PT_DYNAMIC
-  | 3 -> PT_INTERP
-  | 4 -> PT_NOTE
-  | 5 -> PT_SHLIB
-  | 6 -> PT_PHDR
+  | 0 -> PT_NULL  | 1 -> PT_LOAD   | 2 -> PT_DYNAMIC  | 3 -> PT_INTERP
+  | 4 -> PT_NOTE  | 5 -> PT_SHLIB  | 6 -> PT_PHDR
   | _ -> PT_OTHER x
 
 let p_type_to_string pt =
   match pt with
-  | PT_NULL     -> "NULL"
-  | PT_LOAD     -> "LOAD"
-  | PT_DYNAMIC  -> "DYNAMIC"
-  | PT_INTERP   -> "INTERP"
-  | PT_NOTE     -> "NOTE"
-  | PT_SHLIB    -> "SHLIB"
+  | PT_NULL     -> "NULL"    | PT_LOAD     -> "LOAD"   | PT_DYNAMIC  -> "DYNAMIC"
+  | PT_INTERP   -> "INTERP"  | PT_NOTE     -> "NOTE"   | PT_SHLIB    -> "SHLIB"
   | PT_PHDR     -> "PHDR"
   | PT_OTHER x -> (Printf.sprintf "%08x" (Z.to_int x))
 
@@ -461,73 +380,28 @@ let ph_to_string ph =
 (* ELF section header type *)
 
 type sh_type_t =
-  | SHT_NULL
-  | SHT_PROGBITS
-  | SHT_SYMTAB
-  | SHT_STRTAB
-  | SHT_RELA
-  | SHT_HASH
-  | SHT_DYNAMIC
-  | SHT_NOTE
-  | SHT_NOBITS
-  | SHT_REL
-  | SHT_SHLIB
-  | SHT_DYNSYM
-  | SHT_INIT_ARRAY
-  | SHT_FINI_ARRAY
-  | SHT_GNU_HASH
-  | SHT_VERSYM
-  | SHT_VERNEED
-  | SHT_ARM_EXIDX
-  | SHT_ARM_ATTRIBUTES
-  | SHT_OTHER of Z.t
+  | SHT_NULL            | SHT_PROGBITS    | SHT_SYMTAB    | SHT_STRTAB  | SHT_RELA     | SHT_HASH
+  | SHT_DYNAMIC         | SHT_NOTE        | SHT_NOBITS    | SHT_REL     | SHT_SHLIB    | SHT_DYNSYM
+  | SHT_INIT_ARRAY      | SHT_FINI_ARRAY  | SHT_GNU_HASH  | SHT_VERSYM  | SHT_VERNEED  | SHT_ARM_EXIDX
+  | SHT_ARM_ATTRIBUTES  | SHT_OTHER of Z.t
 
 let to_sh_type x =
   match (Z.to_int x) with
-  | 0 -> SHT_NULL
-  | 1 -> SHT_PROGBITS
-  | 2 -> SHT_SYMTAB
-  | 3 -> SHT_STRTAB
-  | 4 -> SHT_RELA
-  | 5 -> SHT_HASH
-  | 6 -> SHT_DYNAMIC
-  | 7 -> SHT_NOTE
-  | 8 -> SHT_NOBITS
-  | 9 -> SHT_REL
-  | 10 -> SHT_SHLIB
-  | 11 -> SHT_DYNSYM
-  | 14 -> SHT_INIT_ARRAY
-  | 15 -> SHT_FINI_ARRAY
-  | 0x6ffffff6 -> SHT_GNU_HASH
-  | 0x6fffffff -> SHT_VERSYM
-  | 0x6ffffffe -> SHT_VERNEED
-  | 0x70000001 -> SHT_ARM_EXIDX
-  | 0x70000003 -> SHT_ARM_ATTRIBUTES
-  | _ -> SHT_OTHER x
+  | 0 -> SHT_NULL         | 1 -> SHT_PROGBITS  | 2 -> SHT_SYMTAB   | 3 -> SHT_STRTAB
+  | 4 -> SHT_RELA         | 5 -> SHT_HASH      | 6 -> SHT_DYNAMIC  | 7 -> SHT_NOTE
+  | 8 -> SHT_NOBITS       | 9 -> SHT_REL       | 10 -> SHT_SHLIB   | 11 -> SHT_DYNSYM
+  | 14 -> SHT_INIT_ARRAY  | 15 -> SHT_FINI_ARRAY
+  | 0x6ffffff6 -> SHT_GNU_HASH    | 0x6fffffff -> SHT_VERSYM          | 0x6ffffffe -> SHT_VERNEED
+  | 0x70000001 -> SHT_ARM_EXIDX   | 0x70000003 -> SHT_ARM_ATTRIBUTES  | _ -> SHT_OTHER x
 
 let sh_type_to_string sht =
   match sht with
-  | SHT_NULL -> "NULL"
-  | SHT_PROGBITS -> "PROGBITS"
-  | SHT_SYMTAB -> "SYMTAB"
-  | SHT_STRTAB -> "STRTAB"
-  | SHT_RELA -> "RELA"
-  | SHT_HASH -> "HASH"
-  | SHT_DYNAMIC -> "DYNAMIC"
-  | SHT_NOTE -> "NOTE"
-  | SHT_NOBITS -> "NOBITS"
-  | SHT_REL -> "REL"
-  | SHT_SHLIB -> "SHLIB"
-  | SHT_DYNSYM -> "DYNSYM"
-  | SHT_INIT_ARRAY -> "INIT_ARR"
-  | SHT_FINI_ARRAY -> "FINI_ARR"
-  | SHT_GNU_HASH -> "GNU_HASH"
-  | SHT_VERSYM -> "VERSYM"
-  | SHT_VERNEED -> "VERNEED"
-  | SHT_ARM_EXIDX -> "ARM_EXIDX"
-  | SHT_ARM_ATTRIBUTES -> "ARM_ATTR"
+  | SHT_NULL -> "NULL"            | SHT_PROGBITS -> "PROGBITS"    | SHT_SYMTAB -> "SYMTAB"      | SHT_STRTAB -> "STRTAB"
+  | SHT_RELA -> "RELA"            | SHT_HASH -> "HASH"            | SHT_DYNAMIC -> "DYNAMIC"    | SHT_NOTE -> "NOTE"
+  | SHT_NOBITS -> "NOBITS"        | SHT_REL -> "REL"              | SHT_SHLIB -> "SHLIB"        | SHT_DYNSYM -> "DYNSYM"
+  | SHT_INIT_ARRAY -> "INIT_ARR"  | SHT_FINI_ARRAY -> "FINI_ARR"  | SHT_GNU_HASH -> "GNU_HASH"  | SHT_VERSYM -> "VERSYM"
+  | SHT_VERNEED -> "VERNEED"      | SHT_ARM_EXIDX -> "ARM_EXIDX"  | SHT_ARM_ATTRIBUTES -> "ARM_ATTR"
   | SHT_OTHER x -> (Printf.sprintf "%08x" (Z.to_int x))
-
 
 (* ELF section header *)
 
@@ -614,20 +488,11 @@ let to_reloc_type r ident =
 
 let reloc_type_to_string rel =
   match rel with
-  | R_386_NONE -> "R_386_NONE"
-  | R_386_32 -> "R_386_32"
-  | R_386_PC32 -> "R_386_PC32"
-  | R_386_GOT32 -> "R_386_GOT32"
-  | R_386_PLT32 -> "R_386_PLT32"
-  | R_386_COPY -> "R_386_COPY"
-  | R_386_GLOB_DAT -> "R_386_GLOB_DAT"
-  | R_386_JUMP_SLOT -> "R_386_JUMP_SLOT"
-  | R_386_RELATIVE -> "R_386_RELATIVE"
-  | R_386_GOTOFF -> "R_386_GOTOFF"
-  | R_386_GOTPC -> "R_386_GOTPC"
-  | R_ARM_NONE -> "R_ARM_NONE"
-  | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"
-  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT"
+  | R_386_NONE -> "R_386_NONE"          | R_386_32 -> "R_386_32"                | R_386_PC32 -> "R_386_PC32"
+  | R_386_GOT32 -> "R_386_GOT32"        | R_386_PLT32 -> "R_386_PLT32"          | R_386_COPY -> "R_386_COPY"
+  | R_386_GLOB_DAT -> "R_386_GLOB_DAT"  | R_386_JUMP_SLOT -> "R_386_JUMP_SLOT"  | R_386_RELATIVE -> "R_386_RELATIVE"
+  | R_386_GOTOFF -> "R_386_GOTOFF"      | R_386_GOTPC -> "R_386_GOTPC"          | R_ARM_NONE -> "R_ARM_NONE"
+  | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT"
   | RELOC_OTHER (mach,num) -> (Printf.sprintf "reloc(%s,%#x)" (e_machine_to_string mach) num)
 
 
@@ -652,7 +517,7 @@ let to_rel s rofs hdr shdr =
     r_type= to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
   }
 
-let rel_to_string rel = 
+let rel_to_string rel =
   Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%-20s"
     rel.shdr.index
     (Z.to_int rel.r_offset)
