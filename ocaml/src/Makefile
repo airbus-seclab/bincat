@@ -105,10 +105,10 @@ ifeq ($(detected_OS), Linux)
 endif
 
 CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmrun
-all: armv8A_ppx $(LIBNAME) $(EXENAME)
+all: $(LIBNAME) $(EXENAME)
 
-armv8a_ppx: disassembly/armv8a_ppx.ml
-	$(camlcompil) -warn-error -33-9-17 -i `ocamlfind query compiler-libs` -o armv8a_ppx ocamlcommon.cmxa $+
+armv8A_ppx: disassembly/armv8A_ppx.ml
+	$(CAMLOPT) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I `ocamlfind query compiler-libs` -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
 
 $(LIBNAME): $(OBJ) 
 	rm -f $(BINCATOBJ)
@@ -121,8 +121,9 @@ bincat_ver.ml: update_gitver
 	[ -f $@ ] || touch $@
 	grep -q $(GITVERSION) bincat_ver.ml || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
 
-disassembly/armv8A.cmx: disassembly/armv8A.ml
-	$(CAMLCOMPIL) -ppx ./armv8A_ppx -c $(LIBX) $+
+disassembly/armv8A.cmx: armv8A_ppx disassembly/armv8A.ml
+	$(CAMLCOMPIL) -ppx ./armv8A_ppx -warn-error -26-27 -c $(LIBX) disassembly/armv8A.ml
+
 %.cmx: %.ml %.mli
 	$(CAMLCOMPIL) -c $(LIBX) $*.ml
 
