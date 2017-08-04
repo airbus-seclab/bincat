@@ -556,6 +556,53 @@ let rela_to_string (rela:e_rela_t) =
     (Z.to_int rela.r_addend)
 
 
+(* DT dynamic table entries *)
+
+type dt_tag_t =
+ | DT_NULL     | DT_NEEDED   | DT_PLTRELSZ | DT_PLTGOT   | DT_HASH     | DT_STRTAB
+ | DT_SYMTAB   | DT_RELA     | DT_RELASZ   | DT_RELAENT  | DT_STRSZ    | DT_SYMENT
+ | DT_INIT     | DT_FINI     | DT_SONAME   | DT_RPATH    | DT_SYMBOLIC | DT_REL
+ | DT_RELSZ    | DT_RELENT   | DT_PLTREL   | DT_DEBUG    | DT_TEXTREL  | DT_JMPREL
+ | DT_BIND_NOW | DT_OTHER of int
+
+let to_dt_tag t =
+  match (Z.to_int t) with
+  | 0  -> DT_NULL     | 1  -> DT_NEEDED   | 2  -> DT_PLTRELSZ  | 3  -> DT_PLTGOT    | 4  -> DT_HASH      | 5  -> DT_STRTAB
+  | 6  -> DT_SYMTAB   | 7  -> DT_RELA     | 8  -> DT_RELASZ    | 9  -> DT_RELAENT   | 10 -> DT_STRSZ     | 11 -> DT_SYMENT
+  | 12 -> DT_INIT     | 13 -> DT_FINI     | 14 -> DT_SONAME    | 15 -> DT_RPATH     | 16 -> DT_SYMBOLIC  | 17 -> DT_REL
+  | 18 -> DT_RELSZ    | 19 -> DT_RELENT   | 20 -> DT_PLTREL    | 21 -> DT_DEBUG     | 22 -> DT_TEXTREL   | 23 -> DT_JMPREL
+  | 24 -> DT_BIND_NOW | x  -> DT_OTHER x
+
+let dt_tag_to_string t =
+  match t with
+  | DT_NULL     -> "DT_NULL"      | DT_NEEDED   -> "DT_NEEDED"    | DT_PLTRELSZ -> "DT_PLTRELSZ"
+  | DT_PLTGOT   -> "DT_PLTGOT"    | DT_HASH     -> "DT_HASH"      | DT_STRTAB   -> "DT_STRTAB"
+  | DT_SYMTAB   -> "DT_SYMTAB"    | DT_RELA     -> "DT_RELA"      | DT_RELASZ   -> "DT_RELASZ"
+  | DT_RELAENT  -> "DT_RELAENT"   | DT_STRSZ    -> "DT_STRSZ"     | DT_SYMENT   -> "DT_SYMENT"
+  | DT_INIT     -> "DT_INIT"      | DT_FINI     -> "DT_FINI"      | DT_SONAME   -> "DT_SONAME"
+  | DT_RPATH    -> "DT_RPATH"     | DT_SYMBOLIC -> "DT_SYMBOLIC"  | DT_REL      -> "DT_REL"
+  | DT_RELSZ    -> "DT_RELSZ"     | DT_RELENT   -> "DT_RELENT"    | DT_PLTREL   -> "DT_PLTREL"
+  | DT_DEBUG    -> "DT_DEBUG"     | DT_TEXTREL  -> "DT_TEXTREL"   | DT_JMPREL   -> "DT_JMPREL"
+  | DT_BIND_NOW -> "DT_BIND_NOW"  | DT_OTHER x  -> (Printf.sprintf "%08x" x)
+
+type e_dynamic_t = {
+  d_tag : dt_tag_t;
+  d_val : Z.t;
+}
+
+
+let to_dynamic s ofs ident =
+  let addrsz = match ident.e_class with
+    | ELFCLASS_32 -> 4
+    | ELFCLASS_64 -> 8 in
+  {
+    d_tag = to_dt_tag (zdec_sword_sxword s ofs ident) ;
+    d_val = zdec_word_xword s (ofs+addrsz) ident
+  }
+
+let dynamic_to_string dyn =
+  Printf.sprintf "%-15s: %08x" (dt_tag_to_string dyn.d_tag) (Z.to_int dyn.d_val)
+
 (* ELF *)
 
 type elf_t = {
@@ -564,6 +611,7 @@ type elf_t = {
   sh  : e_shdr_t list ;
   rel : e_rel_t list;
   rela : e_rela_t list;
+  dynamic: e_dynamic_t list ;
 }
 
 let to_elf s =
@@ -571,6 +619,7 @@ let to_elf s =
   let rel = ref [] in
   let rela = ref [] in
   let phdr = ref [] in
+  let dynamic = ref [] in
   for phi = 0 to hdr.e_phnum-1 do
     phdr := !phdr @ [ to_phdr s hdr phi ]
   done;
@@ -595,6 +644,14 @@ let to_elf s =
            rela := !rela @ [ to_rela s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr cur_shdr ]
          done
        end
+    | SHT_DYNAMIC ->
+       begin
+         let sz = Z.to_int cur_shdr.sh_size in
+         let entsz = Z.to_int cur_shdr.sh_entsize in
+         for ri = 0 to sz/entsz-1 do
+           dynamic := !dynamic @ [ to_dynamic s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr.e_ident ]
+         done
+       end
     | _ -> ()
   done;
   {
@@ -603,6 +660,7 @@ let to_elf s =
     sh  = !shdr ;
     rel = !rel ;
     rela = !rela ;
+    dynamic = !dynamic ;
   }
 
 
