@@ -1,4 +1,4 @@
-PKG zarith ocamlgraph
+PKG zarith ocamlgraph compiler-libs ppx_tools
 S ocaml/src
 S ocaml/src/disassembly
 S ocaml/src/domains
