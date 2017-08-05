@@ -41,17 +41,6 @@ type t = {
 
 let current_mapping : t option ref = ref None
 
-(* utilities *)
-
-let (--) i j = 
-  let rec aux n acc =
-    if n < i then acc else aux (n-1) (n :: acc)
-  in aux j [] ;;
-
-let string_of_chars chars = 
-  let buf = Buffer.create (List.length chars) in
-  List.iter (Buffer.add_char buf) chars;
-  Buffer.contents buf
 
 (* functions *)
 
@@ -114,10 +103,10 @@ let string_from_addr mapped_mem vaddr len =
     end
   else
     let last_raddr = (min (raddr + len) (Z.to_int sec.raw_addr_end))-1 in
-    let addrs = raddr -- (last_raddr) in
+    let addrs = Misc.seq raddr last_raddr in
     let bytes = List.map
       (fun addr -> Char.chr (Bigarray.Array1.get mapped_mem.mapped_file addr))
       addrs in
     L.debug (fun p -> p "read bytes %s" (String.concat " " (List.map (fun b -> Printf.sprintf "%02x" (Char.code b)) bytes)));
-    Some (string_of_chars bytes)
+    Some (Misc.string_of_chars bytes)
 

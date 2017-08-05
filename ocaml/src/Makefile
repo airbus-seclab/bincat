@@ -1,6 +1,7 @@
 GITVERSION:=$(shell git describe)
 
 ML=\
+utils/misc.ml\
 data-struct/register.ml\
 utils/mapOpt.ml\
 utils/bits.ml\
