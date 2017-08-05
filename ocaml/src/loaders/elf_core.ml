@@ -505,16 +505,16 @@ type e_rel_t = {
   r_type : reloc_type_t ;
 }
 
-let to_rel s rofs hdr shdr =
+let to_rel s rofs shdr hdr =
   let addrsz, shift,mask = match hdr.e_ident.e_class with
     | ELFCLASS_32 -> 4, 8, Z.of_int 0xff
     | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
   {
     shdr = shdr ;
-    r_offset= zdec_addr s rofs hdr.e_ident ;
-    r_sym = Z.logand (Z.shift_right info shift) mask ;
-    r_type= to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
+    r_offset = zdec_addr s rofs hdr.e_ident ;
+    r_sym = Z.shift_right info shift ;
+    r_type = to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
   }
 
 let rel_to_string rel =
@@ -534,7 +534,7 @@ type e_rela_t = {
   r_addend : Z.t ;
 }
 
-let to_rela s rofs hdr shdr =
+let to_rela s rofs shdr hdr =
   let addrsz,shift,mask = match hdr.e_ident.e_class with
     | ELFCLASS_32 -> 4, 8, Z.of_int 0xff
     | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
@@ -611,53 +611,41 @@ type elf_t = {
   sh  : e_shdr_t list ;
   rel : e_rel_t list;
   rela : e_rela_t list;
-  dynamic: e_dynamic_t list ;
+  dynamic : e_dynamic_t list ;
 }
 
 let to_elf s =
+  let map_section_entities f shdr =
+    let sz = Z.to_int shdr.sh_size in
+    let entsz = Z.to_int shdr.sh_entsize in
+    let sbase = Z.to_int shdr.sh_offset in
+    List.map (fun ri -> f (sbase+ri*entsz)) (Misc.seq 0 (sz/entsz-1)) in
   let hdr = to_hdr s in
   let rel = ref [] in
   let rela = ref [] in
-  let phdr = ref [] in
   let dynamic = ref [] in
-  for phi = 0 to hdr.e_phnum-1 do
-    phdr := !phdr @ [ to_phdr s hdr phi ]
-  done;
-  let shdr = ref [] in
-  for shi = 0 to hdr.e_shnum-1 do
-    let cur_shdr = to_shdr s hdr shi in
-    shdr := !shdr @ [ cur_shdr ];
+  let phdr = List.map (fun phi -> to_phdr s hdr phi) (Misc.seq 0 (hdr.e_phnum-1)) in
+  let shdr = List.map (fun shi -> to_shdr s hdr shi) (Misc.seq 0 (hdr.e_shnum-1)) in
+  List.iter (fun cur_shdr ->
     match cur_shdr.sh_type with
     | SHT_REL ->
-       begin
-         let sz = Z.to_int cur_shdr.sh_size in
-         let entsz = Z.to_int cur_shdr.sh_entsize in
-         for ri = 0 to sz/entsz-1 do
-           rel := !rel @ [ to_rel s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr cur_shdr ]
-         done
-       end
+       rel := !rel @ (map_section_entities
+                        (fun ofs -> to_rel s ofs cur_shdr hdr)
+                        cur_shdr)
     | SHT_RELA ->
-       begin
-         let sz = Z.to_int cur_shdr.sh_size in
-         let entsz = Z.to_int cur_shdr.sh_entsize in
-         for ri = 0 to sz/entsz-1 do
-           rela := !rela @ [ to_rela s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr cur_shdr ]
-         done
-       end
+       rela := !rela @ (map_section_entities
+                          (fun ofs -> to_rela s ofs cur_shdr hdr)
+                          cur_shdr)
     | SHT_DYNAMIC ->
-       begin
-         let sz = Z.to_int cur_shdr.sh_size in
-         let entsz = Z.to_int cur_shdr.sh_entsize in
-         for ri = 0 to sz/entsz-1 do
-           dynamic := !dynamic @ [ to_dynamic s ((Z.to_int cur_shdr.sh_offset)+ri*entsz) hdr.e_ident ]
-         done
-       end
+       dynamic := !dynamic @ (map_section_entities
+                                (fun ofs -> to_dynamic s ofs hdr.e_ident)
+                                cur_shdr)
     | _ -> ()
-  done;
+  ) shdr;
   {
     hdr = hdr ;
-    ph  = !phdr ;
-    sh  = !shdr ;
+    ph  = phdr ;
+    sh  = shdr ;
     rel = !rel ;
     rela = !rela ;
     dynamic = !dynamic ;
