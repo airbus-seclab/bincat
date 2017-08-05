@@ -466,15 +466,15 @@ type reloc_type_t =
   (* ARM relocation types *)
   | R_ARM_NONE | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
 
-let to_reloc_type r ident =
-    match ident.e_machine with
+let to_reloc_type r hdr =
+    match hdr.e_machine with
     | X86 ->
        begin
          match r with
          | 0 -> R_386_NONE  | 1 -> R_386_32        | 2 -> R_386_PC32       | 3 -> R_386_GOT32    | 4 -> R_386_PLT32
          | 5 -> R_386_COPY  | 6 -> R_386_GLOB_DAT  | 7 -> R_386_JUMP_SLOT  | 8 -> R_386_RELATIVE | 9 -> R_386_GOTOFF
          | 10 -> R_386_GOTPC
-         | _ -> RELOC_OTHER (ident.e_machine, r)
+         | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
     | ARM ->
        begin
@@ -482,9 +482,9 @@ let to_reloc_type r ident =
          | 0 -> R_ARM_NONE
          | 21 -> R_ARM_GLOB_DAT
          | 22 -> R_ARM_JUMP_SLOT
-         | _ -> RELOC_OTHER (ident.e_machine, r)
+         | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
-    | _ -> RELOC_OTHER (ident.e_machine, r)
+    | _ -> RELOC_OTHER (hdr.e_machine, r)
 
 let reloc_type_to_string rel =
   match rel with

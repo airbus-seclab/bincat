@@ -35,6 +35,7 @@ let make_mapped_mem () =
       List.iter (fun sh -> L.debug(fun p -> p "SH: %s" (sh_to_string sh))) elf.sh;
       List.iter (fun rel -> L.debug(fun p -> p "REL: %s" (rel_to_string rel))) elf.rel;
       List.iter (fun rela -> L.debug(fun p -> p "RELA: %s" (rela_to_string rela))) elf.rela;
+      List.iter (fun dyn -> L.debug(fun p -> p "DYNAMIC: %s" (dynamic_to_string dyn))) elf.dynamic;
     end;
   let rec sections_from_ph phlist =
     match phlist with
