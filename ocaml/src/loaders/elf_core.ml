@@ -441,6 +441,9 @@ let to_shdr s hdr shidx =
       sh_entsize = zdec_word_xword s (shofs+16+5*addrsz) hdr.e_ident ;
     }
 
+let linked_shdr shdr shdrs =
+  List.nth shdrs (Z.to_int shdr.sh_link)
+
 let sh_to_string sh =
   Printf.sprintf "idx=%3i %04x %-8s flags=%04x addr=%08x off=%08x sz=%08x link=%4x info=%4x align=%x entsize=%x"
     sh.index
@@ -555,6 +558,16 @@ let rela_to_string (rela:e_rela_t) =
     (reloc_type_to_string rela.r_type)
     (Z.to_int rela.r_addend)
 
+(* String table extraction *)
+
+let get_string s shdr stridx =
+  let rec extract ofs =
+    let b = dec_byte s ofs in
+    if b == 0 then []
+    else b :: extract (ofs+1) in
+  let blist = extract (Z.to_int (Z.add shdr.sh_offset stridx)) in
+  Misc.string_of_chars (List.map Char.chr blist)
+
 
 (* DT dynamic table entries *)
 
@@ -603,6 +616,97 @@ let to_dynamic s ofs ident =
 let dynamic_to_string dyn =
   Printf.sprintf "%-15s: %08x" (dt_tag_to_string dyn.d_tag) (Z.to_int dyn.d_val)
 
+(* Symbol bind type *)
+
+type st_bind_t =
+  | STB_LOCAL | STB_GLOBAL | STB_WEAK
+  | STB_OTHER of int
+
+let to_st_bind x =
+  match x with
+  | 0 -> STB_LOCAL | 1 -> STB_GLOBAL | 2 -> STB_WEAK
+  | x -> STB_OTHER x
+
+let st_bind_to_string stb =
+  match stb with
+  | STB_LOCAL -> "LOCAL" | STB_GLOBAL -> "GLOBAL" | STB_WEAK -> "WEAK"
+  | STB_OTHER x -> (Printf.sprintf "%x" x)
+
+(* Symbol type *)
+
+type st_type_t =
+  | STT_NOTYPE   | STT_OBJECT  | STT_FUNC
+  | STT_SECTION  | STT_FILE
+  | STT_OTHER of int
+
+let to_st_type x =
+  match x with 
+  | 0 -> STT_NOTYPE   | 1 -> STT_OBJECT  | 2 -> STT_FUNC
+  | 3 -> STT_SECTION  | 4 -> STT_FILE
+  | x -> STT_OTHER x
+
+let st_type_to_string typ =
+  match typ with
+  | STT_NOTYPE -> "NOTYPE"
+  | STT_OBJECT -> "OBJECT"
+  | STT_FUNC  -> "FUNC"
+  | STT_SECTION -> "SECTION"
+  | STT_FILE -> "FILE"
+  | STT_OTHER x -> (Printf.sprintf "%x" x)
+
+(* ELF symbol table *)
+
+type e_sym_t = {
+  shdr     : e_shdr_t ;
+  st_name  : Z.t ;
+  name     : string ;
+  st_value : Z.t ;
+  st_size  : Z.t ;
+  st_bind  : st_bind_t ;
+  st_type  : st_type_t ;
+  st_other : Z.t ;
+  st_shndx : Z.t ;
+}
+
+let to_sym s ofs shdr strtab ident =
+  let stridx = zdec_word s ofs ident in
+  match ident.e_class with
+  | ELFCLASS_32 ->
+     {
+       shdr = shdr ;
+       name = get_string s strtab stridx ;
+       st_name = stridx ;
+       st_value = zdec_addr s (ofs+4) ident ;
+       st_size = zdec_word s (ofs+8) ident ;
+       st_bind = to_st_bind ((dec_byte s (ofs+12)) lsr 4) ;
+       st_type = to_st_type ((dec_byte s (ofs+12)) land 0xf) ;
+       st_other = zdec_byte s (ofs+13) ;
+       st_shndx = zdec_half s (ofs+14) ident ;
+     }
+  | ELFCLASS_64 ->
+     {
+       shdr = shdr ;
+       name = get_string s strtab stridx ;
+       st_name = stridx ;
+       st_bind = to_st_bind (dec_byte s (ofs+4) lsr 4);
+       st_type = to_st_type (dec_byte s (ofs+4) land 0xf);
+       st_other = zdec_byte s (ofs+5) ;
+       st_shndx = zdec_half s (ofs+6) ident ;
+       st_value = zdec_addr s (ofs+8) ident ;
+       st_size = zdec_xword s (ofs+16) ident;
+     }
+
+let sym_to_string (sym:e_sym_t) =
+  Printf.sprintf "shidx=%i val=%08x size=%08x bind=%-6s type=%-7s other=%x shndx=%i %s"
+    sym.shdr.index
+    (Z.to_int sym.st_value)
+    (Z.to_int sym.st_size)
+    (st_bind_to_string sym.st_bind)
+    (st_type_to_string sym.st_type)
+    (Z.to_int sym.st_other)
+    (Z.to_int sym.st_shndx)
+    sym.name
+
 (* ELF *)
 
 type elf_t = {
@@ -612,6 +716,7 @@ type elf_t = {
   rel : e_rel_t list;
   rela : e_rela_t list;
   dynamic : e_dynamic_t list ;
+  symtab : e_sym_t list ;
 }
 
 let to_elf s =
@@ -624,6 +729,7 @@ let to_elf s =
   let rel = ref [] in
   let rela = ref [] in
   let dynamic = ref [] in
+  let symtab = ref [] in
   let phdr = List.map (fun phi -> to_phdr s hdr phi) (Misc.seq 0 (hdr.e_phnum-1)) in
   let shdr = List.map (fun shi -> to_shdr s hdr shi) (Misc.seq 0 (hdr.e_shnum-1)) in
   List.iter (fun cur_shdr ->
@@ -640,6 +746,11 @@ let to_elf s =
        dynamic := !dynamic @ (map_section_entities
                                 (fun ofs -> to_dynamic s ofs hdr.e_ident)
                                 cur_shdr)
+    | SHT_SYMTAB ->
+       symtab := !symtab @ (map_section_entities
+                              (fun ofs -> to_sym s ofs cur_shdr
+                                (linked_shdr cur_shdr shdr) hdr.e_ident)
+                              cur_shdr)
     | _ -> ()
   ) shdr;
   {
@@ -649,6 +760,7 @@ let to_elf s =
     rel = !rel ;
     rela = !rela ;
     dynamic = !dynamic ;
+    symtab = !symtab ;
   }
 
 
