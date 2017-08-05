@@ -530,7 +530,7 @@ type e_rela_t = {
   shdr : e_shdr_t ;
   r_offset : Z.t ;
   r_sym : Z.t ;
-  r_type : Z.t ;
+  r_type : reloc_type_t ;
   r_addend : Z.t ;
 }
 
@@ -543,16 +543,16 @@ let to_rela s rofs hdr shdr =
     shdr = shdr ;
     r_offset= zdec_addr s rofs hdr.e_ident ;
     r_sym = Z.logand (Z.shift_right info shift) mask ;
-    r_type= Z.logand info mask ;
+    r_type = to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
     r_addend = zdec_sword_sxword s (rofs+2*addrsz) hdr.e_ident ;
   }
 
-let rela_to_string (rela:e_rela_t) = 
-  Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%02x addend=%-09x"
+let rela_to_string (rela:e_rela_t) =
+  Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%-20s addend=%-09x"
     rela.shdr.index
     (Z.to_int rela.r_offset)
     (Z.to_int rela.r_sym)
-    (Z.to_int rela.r_type)
+    (reloc_type_to_string rela.r_type)
     (Z.to_int rela.r_addend)
 
 
