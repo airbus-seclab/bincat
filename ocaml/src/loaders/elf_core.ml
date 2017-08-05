@@ -730,7 +730,7 @@ let to_elf s =
   let hdr = to_hdr s in
   let phdr = List.map (fun phi -> to_phdr s hdr phi) (Misc.seq 0 (hdr.e_phnum-1)) in
   let shdr = List.map (fun shi -> to_shdr s hdr shi) (Misc.seq 0 (hdr.e_shnum-1)) in
-  let symtab_sections = List.filter (fun sh -> sh.sh_type = SHT_SYMTAB) shdr in
+  let symtab_sections = List.filter (fun sh -> sh.sh_type = SHT_SYMTAB || sh.sh_type = SHT_DYNSYM) shdr in
   let dynamic_sections = List.filter (fun sh -> sh.sh_type = SHT_DYNAMIC) shdr in
   let rel_sections = List.filter (fun sh -> sh.sh_type = SHT_REL) shdr in
   let rela_sections = List.filter (fun sh -> sh.sh_type = SHT_RELA) shdr in
