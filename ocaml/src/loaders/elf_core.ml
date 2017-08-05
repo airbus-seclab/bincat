@@ -445,7 +445,7 @@ let linked_shdr shdr shdrs =
   List.nth shdrs shdr.sh_link
 
 let sh_to_string sh =
-  Printf.sprintf "idx=%3i %04x %-8s flags=%04x addr=%08x off=%08x sz=%08x link=%4x info=%4x align=%x entsize=%x"
+  Printf.sprintf "idx=%3i %04x %-10s flags=%04x addr=%08x off=%08x sz=%08x link=%2i info=%2i align=%x entsize=%x"
     sh.index
     (Z.to_int sh.sh_name)
     (sh_type_to_string sh.sh_type)
@@ -598,7 +598,7 @@ let to_sym s ofs shdr strtab ident =
      }
 
 let sym_to_string (sym:e_sym_t) =
-  Printf.sprintf "shidx=%i val=%08x size=%08x bind=%-6s type=%-7s other=%x shndx=%i %s"
+  Printf.sprintf "shidx=%2i val=%08x size=%08x bind=%-6s type=%-7s other=%x shndx=%2i %s"
     sym.shdr.index
     (Z.to_int sym.st_value)
     (Z.to_int sym.st_size)
@@ -671,7 +671,7 @@ let to_rel s rofs shdr hdr =
   }
 
 let rel_to_string rel =
-  Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%-20s"
+  Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s"
     rel.shdr.index
     (Z.to_int rel.r_offset)
     (Z.to_int rel.r_sym)
@@ -701,7 +701,7 @@ let to_rela s rofs shdr hdr =
   }
 
 let rela_to_string (rela:e_rela_t) =
-  Printf.sprintf "shidx=%3i ofs=%08x sym=%02x type=%-20s addend=%-09x"
+  Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s addend=%-09x"
     rela.shdr.index
     (Z.to_int rela.r_offset)
     (Z.to_int rela.r_sym)
