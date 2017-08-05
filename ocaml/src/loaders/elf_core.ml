@@ -459,7 +459,7 @@ let sh_to_string sh =
     (Z.to_int sh.sh_entsize)
 
 
-(* ELF leocation types *)
+(* ELF relocation types *)
 
 type reloc_type_t =
   | RELOC_OTHER of e_machine_t * int
