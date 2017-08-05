@@ -726,41 +726,44 @@ let to_elf s =
     let sbase = Z.to_int shdr.sh_offset in
     List.map (fun ri -> f (sbase+ri*entsz)) (Misc.seq 0 (sz/entsz-1)) in
   let hdr = to_hdr s in
-  let rel = ref [] in
-  let rela = ref [] in
-  let dynamic = ref [] in
-  let symtab = ref [] in
   let phdr = List.map (fun phi -> to_phdr s hdr phi) (Misc.seq 0 (hdr.e_phnum-1)) in
   let shdr = List.map (fun shi -> to_shdr s hdr shi) (Misc.seq 0 (hdr.e_shnum-1)) in
-  List.iter (fun cur_shdr ->
-    match cur_shdr.sh_type with
-    | SHT_REL ->
-       rel := !rel @ (map_section_entities
-                        (fun ofs -> to_rel s ofs cur_shdr hdr)
-                        cur_shdr)
-    | SHT_RELA ->
-       rela := !rela @ (map_section_entities
-                          (fun ofs -> to_rela s ofs cur_shdr hdr)
-                          cur_shdr)
-    | SHT_DYNAMIC ->
-       dynamic := !dynamic @ (map_section_entities
-                                (fun ofs -> to_dynamic s ofs hdr.e_ident)
-                                cur_shdr)
-    | SHT_SYMTAB ->
-       symtab := !symtab @ (map_section_entities
-                              (fun ofs -> to_sym s ofs cur_shdr
-                                (linked_shdr cur_shdr shdr) hdr.e_ident)
-                              cur_shdr)
-    | _ -> ()
-  ) shdr;
+  let symtab_sections = List.filter (fun sh -> sh.sh_type = SHT_SYMTAB) shdr in
+  let dynamic_sections = List.filter (fun sh -> sh.sh_type = SHT_DYNAMIC) shdr in
+  let rel_sections = List.filter (fun sh -> sh.sh_type = SHT_REL) shdr in
+  let rela_sections = List.filter (fun sh -> sh.sh_type = SHT_RELA) shdr in
+  let symtab = List.flatten (
+    List.map (
+      fun sh ->
+        map_section_entities (fun ofs -> to_sym s ofs sh  (linked_shdr sh shdr) hdr.e_ident)  sh
+    ) symtab_sections
+  ) in
+  let dynamic = List.flatten (
+    List.map (
+      fun sh ->
+        map_section_entities (fun ofs -> to_dynamic s ofs hdr.e_ident)  sh
+    ) dynamic_sections
+  ) in
+  let rel = List.flatten (
+    List.map (
+      fun sh ->
+        (map_section_entities (fun ofs -> to_rel s ofs sh hdr) sh)
+    ) rel_sections
+  ) in
+  let rela = List.flatten (
+    List.map (
+      fun sh ->
+        (map_section_entities (fun ofs -> to_rela s ofs sh hdr) sh)
+    ) rela_sections
+  ) in
   {
     hdr = hdr ;
     ph  = phdr ;
     sh  = shdr ;
-    rel = !rel ;
-    rela = !rela ;
-    dynamic = !dynamic ;
-    symtab = !symtab ;
+    rel = rel ;
+    rela = rela ;
+    dynamic = dynamic ;
+    symtab = symtab ;
   }
 
 
