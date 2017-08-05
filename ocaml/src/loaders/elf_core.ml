@@ -413,7 +413,7 @@ type e_shdr_t = {
   sh_addr      : Z.t ;
   sh_offset    : Z.t ;
   sh_size      : Z.t ;
-  sh_link      : Z.t ;
+  sh_link      : int ;
   sh_info      : Z.t ;
   sh_addralign : Z.t ;
   sh_entsize   :  Z.t ;
@@ -435,14 +435,14 @@ let to_shdr s hdr shidx =
       sh_addr   = zdec_addr s (shofs+8+addrsz) hdr.e_ident ;
       sh_offset = zdec_off s (shofs+8+2*addrsz) hdr.e_ident ;
       sh_size   = zdec_word_xword s (shofs+8+3*addrsz) hdr.e_ident ;
-      sh_link   = zdec_word s (shofs+8+4*addrsz) hdr.e_ident ;
+      sh_link   = Z.to_int (zdec_word s (shofs+8+4*addrsz) hdr.e_ident) ;
       sh_info   = zdec_word s (shofs+12+4*addrsz) hdr.e_ident ;
       sh_addralign = zdec_word_xword s (shofs+16+4*addrsz) hdr.e_ident ;
       sh_entsize = zdec_word_xword s (shofs+16+5*addrsz) hdr.e_ident ;
     }
 
 let linked_shdr shdr shdrs =
-  List.nth shdrs (Z.to_int shdr.sh_link)
+  List.nth shdrs shdr.sh_link
 
 let sh_to_string sh =
   Printf.sprintf "idx=%3i %04x %-8s flags=%04x addr=%08x off=%08x sz=%08x link=%4x info=%4x align=%x entsize=%x"
@@ -453,7 +453,7 @@ let sh_to_string sh =
     (Z.to_int sh.sh_addr)
     (Z.to_int sh.sh_offset)
     (Z.to_int sh.sh_size)
-    (Z.to_int sh.sh_link)
+    sh.sh_link
     (Z.to_int sh.sh_info)
     (Z.to_int sh.sh_addralign)
     (Z.to_int sh.sh_entsize)
