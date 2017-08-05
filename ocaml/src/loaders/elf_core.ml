@@ -653,60 +653,72 @@ let reloc_type_to_string rel =
 
 type e_rel_t = {
   shdr : e_shdr_t ;
+  sym : e_sym_t ;
   r_offset : Z.t ;
   r_sym : Z.t ;
   r_type : reloc_type_t ;
 }
 
-let to_rel s rofs shdr hdr =
+let to_rel s rofs shdr symtab hdr =
   let addrsz, shift,mask = match hdr.e_ident.e_class with
     | ELFCLASS_32 -> 4, 8, Z.of_int 0xff
     | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
+  let symnum = Z.logand (Z.shift_right info shift) mask in
+  let syms = List.filter (fun (sym:e_sym_t) -> sym.shdr.index = shdr.sh_link) symtab in
+  let sym = List.nth syms (Z.to_int symnum) in
   {
     shdr = shdr ;
+    sym = sym ;
     r_offset = zdec_addr s rofs hdr.e_ident ;
-    r_sym = Z.shift_right info shift ;
+    r_sym = symnum ;
     r_type = to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
   }
 
-let rel_to_string rel =
-  Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s"
+let rel_to_string (rel:e_rel_t) =
+  Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s %s"
     rel.shdr.index
     (Z.to_int rel.r_offset)
     (Z.to_int rel.r_sym)
     (reloc_type_to_string rel.r_type)
+    rel.sym.name
 
 (* ELF SHT_RELA relocation entries *)
 
 type e_rela_t = {
   shdr : e_shdr_t ;
+  sym : e_sym_t ;
   r_offset : Z.t ;
   r_sym : Z.t ;
   r_type : reloc_type_t ;
   r_addend : Z.t ;
 }
 
-let to_rela s rofs shdr hdr =
+let to_rela s rofs shdr symtab hdr =
   let addrsz,shift,mask = match hdr.e_ident.e_class with
     | ELFCLASS_32 -> 4, 8, Z.of_int 0xff
     | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
+  let symnum = Z.logand (Z.shift_right info shift) mask in
+  let syms = List.filter (fun (sym:e_sym_t) -> sym.shdr.index = shdr.sh_link) symtab in
+  let sym = List.nth syms (Z.to_int symnum) in
   {
     shdr = shdr ;
+    sym = sym ;
     r_offset= zdec_addr s rofs hdr.e_ident ;
-    r_sym = Z.logand (Z.shift_right info shift) mask ;
+    r_sym = symnum ;
     r_type = to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
     r_addend = zdec_sword_sxword s (rofs+2*addrsz) hdr.e_ident ;
   }
 
 let rela_to_string (rela:e_rela_t) =
-  Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s addend=%-09x"
+  Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s addend=%-09x %s"
     rela.shdr.index
     (Z.to_int rela.r_offset)
     (Z.to_int rela.r_sym)
     (reloc_type_to_string rela.r_type)
     (Z.to_int rela.r_addend)
+    rela.sym.name
 
 
 (* ELF *)
@@ -749,13 +761,13 @@ let to_elf s =
   let rel = List.flatten (
     List.map (
       fun sh ->
-        (map_section_entities (fun ofs -> to_rel s ofs sh hdr) sh)
+        (map_section_entities (fun ofs -> to_rel s ofs sh symtab hdr) sh)
     ) rel_sections
   ) in
   let rela = List.flatten (
     List.map (
       fun sh ->
-        (map_section_entities (fun ofs -> to_rela s ofs sh hdr) sh)
+        (map_section_entities (fun ofs -> to_rela s ofs sh symtab hdr) sh)
     ) rela_sections
   ) in
   {
