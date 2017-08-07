@@ -226,6 +226,7 @@ class ConfigHelpers(object):
             regs["z"] = "0?1"
             regs["c"] = "0?1"
             regs["v"] = "0?1"
+            regs["xzr"] = "0"
             for i in range(31):
                 regs["x%d" % i] = "0?0xFFFFFFFFFFFFFFFF"
         return regs

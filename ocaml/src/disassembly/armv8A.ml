@@ -66,6 +66,7 @@ struct
   let x28 = Register.make ~name:"x28" ~size:64;;
   let x29 = Register.make ~name:"x29" ~size:64;;
   let x30 = Register.make ~name:"x30" ~size:64;;
+  let xzr = Register.make ~name:"xzr" ~size:64;; (* Zero register *)
   let pc = Register.make ~name:"pc" ~size:64;; (* instruction pointer *)
   let sp = Register.make ~name:"sp" ~size:64;; (* stack pointer *)
 
@@ -186,7 +187,7 @@ struct
   let get_reg_lv ?(use_sp = false) num sf =
         if num = 31 && not use_sp then (* zero register *)
             (* XXX see how we can discard the result *)
-            L.abort (fun p->p "Reg XZR as target")
+            V (T(xzr))
         else
             V (reg_sf num sf)
 
