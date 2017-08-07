@@ -232,7 +232,7 @@ struct
     (get_reg_lv ~use_sp:use_sp rm sf,
      get_reg_lv ~use_sp:true rn sf,
      get_reg_lv ~use_sp:use_sp rd sf)
-        
+
 
   (* imm12 : immediate 21:10 *)
   let get_imm12 insn = (insn lsr 10) land 0xfff
@@ -301,8 +301,8 @@ struct
            CF: carry flag,
            VF: Overflow flag
         *)
-        [ Set ( nf_v, TernOp(Cmp(EQ, (msb_stmts reg sz), const1 sz), const 1 sz, const 0 sz));
-          Set ( zf_v, TernOp(Cmp(EQ, reg, const0 sz), const 1 sz, const 0 sz));
+        [ Set ( nf_v, TernOp(Cmp(EQ, (msb_stmts reg sz), const1 sz), const1 1, const0 1));
+          Set ( zf_v, TernOp(Cmp(EQ, reg, const0 sz), const1 1, const0 1));
           Set ( cf_v, cf);
           Set ( vf_v, vf)]
 
@@ -509,19 +509,19 @@ struct
 
 (*
 Signed:
-LDRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:01  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Byte (immediate)
-LDRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:01  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Halfword (immediate)
-LDRSB <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:11  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Byte (immediate)
-LDRSB <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:11  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Byte (immediate)
-LDRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:01  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Halfword (immediate)
-LDRSH <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:11  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Halfword (immediate)
-LDRSH <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:11  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Halfword (immediate)
-LDRSW <31:30:size:F:10  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:10  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Word (immediate)
-LDRSW <31:30:size:F:10  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:10  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Word (immediate)
-STRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Byte (immediate)
-STRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Byte (immediate)
-STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Halfword (immediate)
-STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Halfword (immediate)
+LDRB  <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:01  21:21:_:0  20:12:imm9:  11:10:_:11  9:5:Rn:  4:0:Rt:> Load Register Byte (immediate)
+LDRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:01  21:21:_:0  20:12:imm9:  11:10:_:01  9:5:Rn:  4:0:Rt:> Load Register Halfword (immediate)
+LDRSB <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:11  21:21:_:0  20:12:imm9:  11:10:_:01  9:5:Rn:  4:0:Rt:> Load Register Signed Byte (immediate)
+LDRSB <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:11  21:21:_:0  20:12:imm9:  11:10:_:11  9:5:Rn:  4:0:Rt:> Load Register Signed Byte (immediate)
+LDRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:01  21:21:_:0  20:12:imm9:  11:10:_:11  9:5:Rn:  4:0:Rt:> Load Register Halfword (immediate)
+LDRSH <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:11  21:21:_:0  20:12:imm9:  11:10:_:01  9:5:Rn:  4:0:Rt:> Load Register Signed Halfword (immediate)
+LDRSH <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:11  21:21:_:0  20:12:imm9:  11:10:_:11  9:5:Rn:  4:0:Rt:> Load Register Signed Halfword (immediate)
+LDRSW <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:10  21:21:_:0  20:12:imm9:  11:10:_:01  9:5:Rn:  4:0:Rt:> Load Register Signed Word (immediate)
+LDRSW <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:10  21:21:_:0  20:12:imm9:  11:10:_:11  9:5:Rn:  4:0:Rt:> Load Register Signed Word (immediate)
+STRB  <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:0  20:12:imm9:  11:10:_:01  9:5:Rn:  4:0:Rt:> Store Register Byte (immediate)
+STRB  <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:0  20:12:imm9:  11:10:_:11  9:5:Rn:  4:0:Rt:> Store Register Byte (immediate)
+STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:0  20:12:imm9:  11:10:_:01  9:5:Rn:  4:0:Rt:> Store Register Halfword (immediate)
+STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:0  20:12:imm9:  11:10:_:11  9:5:Rn:  4:0:Rt:> Store Register Halfword (immediate)
 
 *)
   let load_store_reg_imm insn =
@@ -553,13 +553,13 @@ STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00
 
 (*
 Unsigned
-LDRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:01  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Byte (immediate)
-LDRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:01  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Halfword (immediate)
-LDRSB <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:11  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Byte (immediate)
-LDRSH <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:11  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Halfword (immediate)
-LDRSW <31:30:size:F:10  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:10  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Word (immediate)
-STRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:00  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Byte (immediate)
-STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:00  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Halfword (immediate)
+LDRB  <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:01  21:10:imm12:  9:5:Rn:  4:0:Rt:> Load Register Byte (immediate)
+LDRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:01  21:10:imm12:  9:5:Rn:  4:0:Rt:> Load Register Halfword (immediate)
+LDRSB <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:11  21:10:imm12:  9:5:Rn:  4:0:Rt:> Load Register Signed Byte (immediate)
+LDRSH <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:11  21:10:imm12:  9:5:Rn:  4:0:Rt:> Load Register Signed Halfword (immediate)
+LDRSW <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:10  21:10:imm12:  9:5:Rn:  4:0:Rt:> Load Register Signed Word (immediate)
+STRB  <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:imm12:  9:5:Rn:  4:0:Rt:> Store Register Byte (immediate)
+STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:imm12:  9:5:Rn:  4:0:Rt:> Store Register Halfword (immediate)
 *)
   let load_store_reg_uimm insn =
     let%decode insn' = insn "31:30:size:F:01,29:27:_:F:111,26:26:V:F:0,25:24:_:F:01,23:22:opc:F:00,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
@@ -642,6 +642,39 @@ STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:00
             error s.a (Printf.sprintf "load/store type not decoded yet. opcode 0x%x" insn);
     end
 
+  let decode_cond cond =
+      let base_cond = match (cond lsr 1) with
+                  | 0b000 -> Cmp(EQ, zf_lv, const1 1)
+                  | 0b001 -> Cmp(EQ, cf_lv, const1 1)
+                  | 0b010 -> Cmp(EQ, nf_lv, const1 1)
+                  | 0b011 -> Cmp(EQ, vf_lv, const1 1)
+                  | 0b100 -> BBinOp(LogAnd, Cmp(EQ, cf_lv, const1 1), Cmp(EQ, zf_lv, const0 1))
+                  | 0b101 -> Cmp(EQ, nf_lv, vf_lv)
+                  | 0b110 -> BBinOp(LogAnd, Cmp(EQ, nf_lv, vf_lv), Cmp(EQ, zf_lv, const0 1))
+                  | 0b111 -> BConst(true)
+                  | _ -> L.abort (fun p->p "Invalid condition")
+      in
+      if (cond land 1) = 1 && cond != 15 then
+        BUnOp(LogNot, base_cond)
+      else
+        base_cond
+
+  let b_cond s insn =
+      let%decode insn' = insn "31:25:_:F:0101010,24:24:o1:F:0,23:5:imm19:F:xxxxxxxxxxxxxxxxxxx,4:4:o0:F:0,3:0:cond:F:xxxx" in
+      let offset = imm19_v lsl 2 in
+      let cond_il = decode_cond cond_v in
+          [If(cond_il, [Jmp(A(Address.add_offset s.a (Z.of_int (offset+8))))], [Nop])]
+
+
+  let branch (s: state) (insn: int): (Asm.stmt list) =
+    let op0 = (insn lsr 29) land 7 in
+    let op1 = (insn lsr 22) land 15 in
+    if op0 = 0b010 && op1 <= 7 then
+        b_cond s insn
+    else
+        error s.a (Printf.sprintf "Unsupported branch opcode 0x%08x" insn)
+
+
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction str in
@@ -651,6 +684,8 @@ STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:00
         | 0b0000 | 0b0001 | 0b0010 | 0b0011 -> error s.a (Printf.sprintf "Unallocated opcode 0x%x" instruction)
         (* 100x : data processing (immediate) *)
         | 0b1000 | 0b1001 -> data_processing_imm s instruction
+        (* 101x : branches, exceptions, system instructions *)
+        | 0b1010 | 0b1011 -> branch s instruction
         (* x1x0 : loads and stores *)
         | 0b0100 | 0b0110 | 0b1100 | 0b1110 -> load_store s instruction
         (* x101 : data processing (register) *)
