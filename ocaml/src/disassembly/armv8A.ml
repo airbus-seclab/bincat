@@ -303,6 +303,7 @@ struct
         *)
         [ Set ( nf_v, TernOp(Cmp(EQ, (msb_stmts reg sz), const1 sz), const1 1, const0 1));
           Set ( zf_v, TernOp(Cmp(EQ, reg, const0 sz), const1 1, const0 1));
+          (* XXX do CF and VF *)
           Set ( cf_v, cf);
           Set ( vf_v, vf)]
 
@@ -642,6 +643,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
             error s.a (Printf.sprintf "load/store type not decoded yet. opcode 0x%x" insn);
     end
 
+  (* Return statement matching cond, see ConditionHolds in MRA *)
   let decode_cond cond =
       let base_cond = match (cond lsr 1) with
                   | 0b000 -> Cmp(EQ, zf_lv, const1 1)
@@ -659,8 +661,10 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
       else
         base_cond
 
+  (* Conditionnal branch *)
   let b_cond s insn =
       let%decode insn' = insn "31:25:_:F:0101010,24:24:o1:F:0,23:5:imm19:F:xxxxxxxxxxxxxxxxxxx,4:4:o0:F:0,3:0:cond:F:xxxx" in
+      (* XXX signed offset *)
       let offset = imm19_v lsl 2 in
       let cond_il = decode_cond cond_v in
           [If(cond_il, [Jmp(A(Address.add_offset s.a (Z.of_int (offset+8))))], [Nop])]
