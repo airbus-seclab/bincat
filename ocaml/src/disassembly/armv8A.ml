@@ -127,7 +127,7 @@ struct
   (* helper to get register with the right size according to sf value *)
   (* 1 is 64 bits *)
   let reg_sf n sf =
-    if sf == 1 then
+    if sf = 1 then
         T (reg_from_num n)
     else
         P (reg_from_num n, 0, 31)
@@ -171,27 +171,27 @@ struct
   (******************************)
   (* Instruction fields helpers *)
   (******************************)
-  let sf2sz sf = if sf == 1 then 64 else 32
+  let sf2sz sf = if sf = 1 then 64 else 32
 
   (* sf : 32 bit or 64 bits ops *)
   let get_sf insn =
     let sf = (insn lsr 31) land 1 in
     (sf, sf2sz sf)
-  let get_sf_bool insn = ((insn lsr 31) land 1) == 1
+  let get_sf_bool insn = ((insn lsr 31) land 1) = 1
 
   (* S : set flags ? *)
   let get_s insn = (insn lsr 30) land 1
-  let get_s_bool insn = ((insn lsr 30) land 1) == 1
+  let get_s_bool insn = ((insn lsr 30) land 1) = 1
 
   let get_reg_lv ?(use_sp = false) num sf =
-        if num == 31 && not use_sp then (* zero register *)
+        if num = 31 && not use_sp then (* zero register *)
             (* XXX see how we can discard the result *)
             L.abort (fun p->p "Reg XZR as target")
         else
             V (reg_sf num sf)
 
   let get_reg_exp ?(use_sp = false) num sf =
-        if num == 31 && not use_sp then (* zero register *)
+        if num = 31 && not use_sp then (* zero register *)
             const0 (sf2sz sf)
         else
             Lval (V (reg_sf num sf))
@@ -208,7 +208,7 @@ struct
         let num = ((insn lsr 5) land 0x1F) in get_reg_exp ~use_sp:use_sp num sf
   let get_Rd_lv ?(use_sp = false) insn sf =
         let num = (insn land 0x1F) in
-        if num == 31 && not use_sp then L.abort (fun p->p "write to XZR")
+        if num = 31 && not use_sp then L.abort (fun p->p "write to XZR")
         else V(reg_sf num sf)
 
   let get_regs ?(use_sp = false) insn sf =
@@ -226,6 +226,12 @@ struct
     (get_reg_lv ~use_sp:use_sp ((insn lsr 10) land 0x1F) sf,
      get_reg_lv ~use_sp:true ((insn lsr 5) land 0x1F) sf,
      get_reg_lv ~use_sp:use_sp (insn land 0x1F) sf)
+
+  let make_regs_ld_st ?(use_sp = false) sf rm rn rd =
+    (get_reg_lv ~use_sp:use_sp rm sf,
+     get_reg_lv ~use_sp:true rn sf,
+     get_reg_lv ~use_sp:use_sp rd sf)
+        
 
   (* imm12 : immediate 21:10 *)
   let get_imm12 insn = (insn lsr 10) land 0xfff
@@ -269,7 +275,7 @@ struct
       res
 
   let get_shifted_reg sz insn reg amount =
-    if amount == 0 then
+    if amount = 0 then
         reg
     else
         let shift = (insn lsr 22) land 3 in
@@ -282,7 +288,7 @@ struct
 
   (* 32 bits ops zero the top 32 bits, this helper does it if needed *)
   let sf_zero_rd insn sf =
-    if sf == 0 then begin
+    if sf = 0 then begin
         let rd_top = P((reg_from_num (insn land 0x1F)), 32, 63) in
         [Set ( V(rd_top), const 0 32)]
     end else []
@@ -327,7 +333,7 @@ struct
 
   (* Helper for ADD/SUB *)
   let add_sub_core sz dst op1 op op2 set_flags =
-    let op_s = if op == 0 then Add else Sub in
+    let op_s = if op = 0 then Add else Sub in
     let core_stmts =
         [ Set (dst, BinOp(op_s, op1, op2)) ]
         in
@@ -342,20 +348,18 @@ struct
   (* ADD/ ADDS / SUB / SUBS (32/64) with immediate *)
   let add_sub_imm s insn sf =
     let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:0,29:29:S:F:0,28:24:_:F:10001,23:22:shift:F:xx,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
-    let op = (insn lsr 30) land 1 in (* add or sub ? *)
-    let s_b = get_s_bool insn in
-    let sz = sf2sz sf in
-    let imm12 = get_imm12 insn in
-    let shift = get_shifted_imm s insn imm12 sz in
+    let s_b = s_v = 1 in
+    let sz = sf2sz sf_v in
+    let shift = get_shifted_imm s insn imm12_v sz in
     let rd, rn, _ = get_regs ~use_sp:true insn sf in
-    add_sub_core sz rd rn op shift s_b @ sf_zero_rd insn sf
+    add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd insn sf
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with register *)
   let add_sub_reg s insn _is_extend =
     let sf, sz = get_sf insn in
     let shift = (insn lsr 22) land 3 in
     let imm6 = get_imms insn in
-    if (sf == 0 && (imm6 lsr 5) == 1) || (shift == 3) then
+    if (sf = 0 && (imm6 lsr 5) = 1) || (shift = 3) then
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let op = (insn lsr 30) land 1 in
     let s_b = get_s_bool insn in
@@ -384,34 +388,34 @@ struct
   let logic_imm s insn sf =
     let opc = get_opc insn in
     let n = (insn lsr 22) land 1 in
-    if sf == 0 && n == 1 then (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
+    if sf = 0 && n = 1 then (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let sz = sf2sz sf in
     let rd = get_Rd_lv ~use_sp:true insn sf in
     let rn = get_Rn_exp insn sf in
     let immr = get_immr insn in
     let imms = get_imms insn in
     let imm_res = decode_bitmasks sz n immr imms true in
-    logic_core sz rd rn opc imm_res (opc == 0b11) @ sf_zero_rd insn sf
+    logic_core sz rd rn opc imm_res (opc = 0b11) @ sf_zero_rd insn sf
 
   (* AND / ORR / EOR / ANDS (32/64) with register *)
   let logic_reg s insn =
     let sf, sz = get_sf insn in
     let imm6 = get_imms insn in
-    if sf == 0 && (imm6 lsr 5) == 1 then
+    if sf = 0 && (imm6 lsr 5) = 1 then
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let opc = get_opc insn in
     let rd, rn, rm = get_regs insn sf in
     let n = (insn lsr 21) land 1 in
     let shifted_rm = get_shifted_reg sz insn rm imm6 in
-    let shifted_rm' = if n == 1 then UnOp(Not, shifted_rm) else shifted_rm in
-    logic_core sz rd rn opc shifted_rm' (opc == 0b11) @ sf_zero_rd insn sf
+    let shifted_rm' = if n = 1 then UnOp(Not, shifted_rm) else shifted_rm in
+    logic_core sz rd rn opc shifted_rm' (opc = 0b11) @ sf_zero_rd insn sf
 
   (* MOVZ move immediate with optional shift *)
   let mov_wide s insn sf =
     let sz = sf2sz sf in
     let opc = get_opc insn in
     let hw = ((insn lsr 21) land 3) in
-    if (sf == 0 && hw > 1) || (opc == 0b01) then error s.a (Printf.sprintf "Invalid opcode 0x%x" insn);
+    if (sf = 0 && hw > 1) || (opc = 0b01) then error s.a (Printf.sprintf "Invalid opcode 0x%x" insn);
     let rd = get_Rd_lv insn sf in
     let imm16 = const (get_imm16 insn) sz in
     let shift = hw lsl 4 in
@@ -434,7 +438,7 @@ struct
     (* pc is 8 bytes ahead because of pre-fetching. *)
     let current_pc = Z.add (Address.to_int s.a) (Z.of_int 8) in
     let base, imm_ext =
-        if op == 0 then (* ADR *)
+        if op = 0 then (* ADR *)
             Word.of_int current_pc 64, UnOp(SignExt 64, const imm 21)
         else (* ADRP: base is PC aligned to 4k boundaries *)
             Word.of_int (Z.logand current_pc (Z.shift_left (Z.of_int 0xFFFFFFFFFFFFF) 12)) 64,
@@ -470,40 +474,111 @@ struct
     let op1 = (insn lsr 28) land 1 in
     let op2 = (insn lsr 21) land 0b1111 in
     L.debug (fun p -> p "data_processing_reg: op0=%d op1=%d op2=0x%x" op0 op1 op2);
-    if op1 == 1 && op2 == 0b0110 then begin
-        if op0 == 0 then
+    if op1 = 1 && op2 = 0b0110 then begin
+        if op0 = 0 then
             data_proc_2src s insn
         else
             data_proc_1src s insn
     end
     else begin
-        if op1 == 0 then
-            (* op2 == 0xxx *)
-            if (op2 lsr 3) == 0 then
+        if op1 = 0 then
+            (* op2 = 0xxx *)
+            if (op2 lsr 3) = 0 then
                 logic_reg s insn
-            else (* op2 == 1xxx *)
+            else (* op2 = 1xxx *)
                 add_sub_reg s insn (op2 land 1)
         else
             []
     end
 
-  (* LDR / STR *)
-  let load_store_reg insn =
-    let l = (insn lsr 22) land 1 in
-    let sf = (insn lsr 30) land 1 in
-    let sz = sf2sz sf in
-    let rm, rn, rt = get_regs_ld_st insn sf in
-    let s = (insn lsr 12) land 1 in
-    let shl_amount = if s == 1 then (insn lsr 30) land 3 else 0 in
-    let ext_type = (insn lsr 13) land 7 in
-    let offset = extend_reg (Lval rm) ext_type (const shl_amount sz) in
+  (* LDR / STR (register offset) *)
+  let load_store_reg_off insn =
+    let%decode insn' = insn "31:30:size:F:10,29:27:_:F:111,26:26:V:F:0,25:24:_:F:00,23:22:opc:F:00,21:21:_:F:1,20:16:Rm:F:xxxxx,15:13:option:F:xxx,12:12:S:F:x,11:10:_:F:10,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let sz = sf2sz (size_v lsr 1) in
+    let rm, rn, rt = make_regs_ld_st (size_v lsr 1) rm_v rn_v rt_v in
+    let shl_amount = if s_v = 1 then size_v else 0 in
+    let offset = extend_reg (Lval rm) option_v (const shl_amount sz) in
     let addr = BinOp(Add, Lval rn, offset) in
-    if l == 1 then
+    if opc_v = 1 then
         (* load *)
         [Set(rt, Lval(M(addr, sz)))]
     else
         (* store *)
         [Set(M(addr, sz), Lval(rt))]
+
+(*
+Signed:
+LDRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:01  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Byte (immediate)
+LDRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:01  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Halfword (immediate)
+LDRSB <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:11  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Byte (immediate)
+LDRSB <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:11  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Byte (immediate)
+LDRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:01  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Halfword (immediate)
+LDRSH <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:11  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Halfword (immediate)
+LDRSH <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:11  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Halfword (immediate)
+LDRSW <31:30:size:F:10  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:10  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Word (immediate)
+LDRSW <31:30:size:F:10  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:10  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Word (immediate)
+STRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Byte (immediate)
+STRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Byte (immediate)
+STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:01  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Halfword (immediate)
+STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:00  23:22:opc:F:00  21:21:_:F:0  20:12:imm9:F:xxxxxxxxx  11:10:_:F:11  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Halfword (immediate)
+
+*)
+  let load_store_reg_imm insn =
+    let%decode insn' = insn "31:30:size:F:10,29:27:_:F:111,26:26:V:F:0,25:24:_:F:00,23:22:opc:F:10,21:21:_:F:0,20:12:imm9:F:xxxxxxxxx,11:10:op5:F:01,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let mem_sz = match size_v with
+        | 0 -> 8
+        | 1 -> 16
+        | 2 -> 32
+        | _ -> L.abort (fun p->p "impossible size")
+    in
+    let sz = sf2sz (opc_v lsr 1) in
+    let _, rn, rt = make_regs_ld_st (size_v lsr 1) 0 rn_v rt_v in
+    let offset = UnOp(SignExt 64, const imm9_v 9) in
+    let addr, post = match op5_v with
+        (* no index *)
+        | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
+        (* post index *)
+        | 0b01 -> offset, [Set(rn, BinOp(Add, Lval(rn), offset))]
+        (* pre index *)
+        | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
+        | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
+    in
+    if opc_v = 1 then
+        (* load *)
+        [Set(rt, Lval(M(addr, mem_sz)))]@post
+    else
+        (* store *)
+        [Set(M(addr, mem_sz), Lval(rt))]@post
+
+(*
+Unsigned
+LDRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:01  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Byte (immediate)
+LDRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:01  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Halfword (immediate)
+LDRSB <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:11  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Byte (immediate)
+LDRSH <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:11  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Halfword (immediate)
+LDRSW <31:30:size:F:10  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:10  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Load Register Signed Word (immediate)
+STRB  <31:30:size:F:00  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:00  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Byte (immediate)
+STRH  <31:30:size:F:01  29:27:_:F:111  26:26:V:F:0  25:24:_:F:01  23:22:opc:F:00  21:10:imm12:F:xxxxxxxxxxxx  9:5:Rn:F:xxxxx  4:0:Rt:F:xxxxx> Store Register Halfword (immediate)
+*)
+  let load_store_reg_uimm insn =
+    let%decode insn' = insn "31:30:size:F:01,29:27:_:F:111,26:26:V:F:0,25:24:_:F:01,23:22:opc:F:00,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let mem_sz = match size_v with
+        | 0 -> 8
+        | 1 -> 16
+        | 2 -> 32
+        | 3 -> 64
+        | _ -> L.abort (fun p->p "impossible size")
+    in
+    let sz = sf2sz (opc_v lsr 1) in
+    let _, rn, rt = make_regs_ld_st (size_v lsr 1) 0 rn_v rt_v in
+    let offset = BinOp(Shl, UnOp(SignExt 64, const imm12_v 12), const size_v 64) in
+    let addr = BinOp(Add, Lval(rn), offset) in
+    if opc_v = 1 then
+        (* load *)
+        [Set(rt, Lval(M(addr, mem_sz)))]
+    else
+        (* store *)
+        [Set(M(addr, mem_sz), Lval(rt))]
 
   (* STP / STNP / LDP *)
   let load_store_pair insn op3 =
@@ -521,7 +596,7 @@ struct
         | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
         | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
     in
-    if l == 1 then
+    if l = 1 then
         (* load *)
         [Set(rt, Lval(M(addr, sz)));
          Set(rt2, Lval(M(BinOp(Add, addr, const (sz/8) sz), sz)))] @ post
@@ -536,21 +611,35 @@ struct
     let op2 = (insn lsr 26) land 1 in
     let op3 = (insn lsr 23) land 3 in
     let op4 = (insn lsr 16) land 0x3F in
-    let _op5 = (insn lsr 10) land 3 in
+    let op5 = (insn lsr 10) land 3 in
     (* unallocated opcodes *)
-    if (op0 == 0 && op1 == 0 && op2 == 1 &&
-        op3 land 1 == 0 && (op4 land 0x1F) != 0) ||
-       (op0 == 1 && op1 == 0 && op2 == 1) ||
-       (op1 == 0 && op2 == 0 && op3 > 1) ||
-       (op1 == 1 && op3 > 1) then
+    if (op0 = 0 && op1 = 0 && op2 = 1 &&
+        op3 land 1 = 0 && (op4 land 0x1F) != 0) ||
+       (op0 = 1 && op1 = 0 && op2 = 1) ||
+       (op1 = 0 && op2 = 0 && op3 > 1) ||
+       (op1 = 1 && op3 > 1) then
             error s.a (Printf.sprintf "Unallocated opcode 0x%x" insn);
     (* SIMD *)
-    if (op0 == 0) then
+    if (op0 = 0) then
         error s.a (Printf.sprintf "SIMD load/store not decoded yet. opcode 0x%x" insn);
-    if (op1 == 0b10) then
+    if (op1 = 0b10) then
         load_store_pair insn op3
-    else
-        load_store_reg insn
+    else begin
+        if (op1 = 0b11) then
+         begin
+             if op3 > 1 then begin
+                load_store_reg_uimm insn
+             end else begin
+                if op5 = 0b10 then begin
+                    load_store_reg_off insn
+                end else begin
+                    load_store_reg_imm insn
+                end
+             end
+         end
+         else
+            error s.a (Printf.sprintf "load/store type not decoded yet. opcode 0x%x" insn);
+    end
 
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
