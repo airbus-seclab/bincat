@@ -209,13 +209,18 @@ struct
         let num = ((insn lsr 5) land 0x1F) in get_reg_exp ~use_sp:use_sp num sf
   let get_Rd_lv ?(use_sp = false) insn sf =
         let num = (insn land 0x1F) in
-        if num = 31 && not use_sp then L.abort (fun p->p "write to XZR")
-        else V(reg_sf num sf)
+        if num = 31 && not use_sp then begin
+            L.info (fun p->p "write to XZR");
+            let tmp = Register.make (Register.fresh_name ()) (sf2sz sf) in
+            V(T(tmp)), [Directive(Remove(tmp))]
+        end else
+            V(reg_sf num sf), []
 
   let get_regs ?(use_sp = false) insn sf =
-    (get_Rd_lv ~use_sp:use_sp insn sf,
+    let dst, post = get_Rd_lv ~use_sp:use_sp insn sf in
+    (dst,
      get_Rn_exp ~use_sp:use_sp insn sf,
-     get_Rm_exp ~use_sp:use_sp insn sf)
+     get_Rm_exp ~use_sp:use_sp insn sf, post)
 
   let get_regs_ld_st ?(use_sp = false) insn sf =
     (get_reg_lv ~use_sp:use_sp ((insn lsr 16) land 0x1F) sf,
@@ -353,8 +358,8 @@ struct
     let s_b = s_v = 1 in
     let sz = sf2sz sf_v in
     let shift = get_shifted_imm s insn imm12_v sz in
-    let rd, rn, _ = get_regs ~use_sp:true insn sf in
-    add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd insn sf
+    let rd, rn, _, post = get_regs ~use_sp:true insn sf in
+    (add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd insn sf) @ post
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with register *)
   let add_sub_reg s insn _is_extend =
@@ -365,9 +370,9 @@ struct
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let op = (insn lsr 30) land 1 in
     let s_b = get_s_bool insn in
-    let rd, rn, rm = get_regs  insn sf in
+    let rd, rn, rm, post = get_regs insn sf in
     let shifted_rm =  get_shifted_reg sz insn rm imm6 in
-    add_sub_core sz rd rn op shifted_rm s_b
+    (add_sub_core sz rd rn op shifted_rm s_b) @ post
 
   (* AND / ORR / EOR / ANDS (32/64) core *)
   let logic_core sz dst op1 opc op2 set_flags =
@@ -392,12 +397,12 @@ struct
     let n = (insn lsr 22) land 1 in
     if sf = 0 && n = 1 then (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let sz = sf2sz sf in
-    let rd = get_Rd_lv ~use_sp:true insn sf in
+    let rd, post = get_Rd_lv ~use_sp:true insn sf in
     let rn = get_Rn_exp insn sf in
     let immr = get_immr insn in
     let imms = get_imms insn in
     let imm_res = decode_bitmasks sz n immr imms true in
-    logic_core sz rd rn opc imm_res (opc = 0b11) @ sf_zero_rd insn sf
+    logic_core sz rd rn opc imm_res (opc = 0b11) @ sf_zero_rd insn sf @ post
 
   (* AND / ORR / EOR / ANDS (32/64) with register *)
   let logic_reg s insn =
@@ -406,11 +411,11 @@ struct
     if sf = 0 && (imm6 lsr 5) = 1 then
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
     let opc = get_opc insn in
-    let rd, rn, rm = get_regs insn sf in
+    let rd, rn, rm, post = get_regs insn sf in
     let n = (insn lsr 21) land 1 in
     let shifted_rm = get_shifted_reg sz insn rm imm6 in
     let shifted_rm' = if n = 1 then UnOp(Not, shifted_rm) else shifted_rm in
-    logic_core sz rd rn opc shifted_rm' (opc = 0b11) @ sf_zero_rd insn sf
+    logic_core sz rd rn opc shifted_rm' (opc = 0b11) @ sf_zero_rd insn sf @ post
 
   (* MOVZ move immediate with optional shift *)
   let mov_wide s insn sf =
@@ -418,7 +423,7 @@ struct
     let opc = get_opc insn in
     let hw = ((insn lsr 21) land 3) in
     if (sf = 0 && hw > 1) || (opc = 0b01) then error s.a (Printf.sprintf "Invalid opcode 0x%x" insn);
-    let rd = get_Rd_lv insn sf in
+    let rd, post = get_Rd_lv insn sf in
     let imm16 = const (get_imm16 insn) sz in
     let shift = hw lsl 4 in
     let imm = if shift > 0 then BinOp(Shl, imm16, const shift sz) else imm16 in
@@ -428,7 +433,7 @@ struct
         | 0b11 -> (* MOVK XXX *) error s.a (Printf.sprintf "MOVK is not supported")
         | _ -> error s.a "Impossible error"; in
 
-    [ Set (rd, imm) ] @ sf_zero_rd insn sf
+    [ Set (rd, imm) ] @ sf_zero_rd insn sf @ post
 
   (* ADR/ADRP *)
   let pc_rel_addr s insn sf =
@@ -436,7 +441,7 @@ struct
     let immlo = (insn lsr 29) land 3 in
     let immhi = (insn lsr 5) land 0x7ffff in
     let imm = (immhi lsl 2) lor immlo in
-    let rd = get_Rd_lv  insn sf in
+    let rd, post = get_Rd_lv  insn sf in
     (* pc is 8 bytes ahead because of pre-fetching. *)
     let current_pc = Z.add (Address.to_int s.a) (Z.of_int 8) in
     let base, imm_ext =
@@ -446,7 +451,7 @@ struct
             Word.of_int (Z.logand current_pc (Z.shift_left (Z.of_int 0xFFFFFFFFFFFFF) 12)) 64,
             UnOp(SignExt 64, const (imm lsl 12) (21+12))
     in
-        [ Set(rd, BinOp(Add, Const base, imm_ext))]
+        [ Set(rd, BinOp(Add, Const base, imm_ext))] @ post
 
   (* data processing with immediates *)
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
@@ -664,17 +669,47 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
   (* Conditionnal branch *)
   let b_cond s insn =
       let%decode insn' = insn "31:25:_:F:0101010,24:24:o1:F:0,23:5:imm19:F:xxxxxxxxxxxxxxxxxxx,4:4:o0:F:0,3:0:cond:F:xxxx" in
-      (* XXX signed offset *)
       let offset = imm19_v lsl 2 in
+      let signed_offset = sign_extension (Z.of_int offset) 21 64 in
       let cond_il = decode_cond cond_v in
-          [If(cond_il, [Jmp(A(Address.add_offset s.a (Z.of_int (offset+8))))], [Nop])]
+          [If(cond_il, [Jmp(A(Address.add_offset s.a signed_offset))], [Nop])]
 
+  (*
+BLR <31:25:_:1101011  24:23:opc:T:00  22:21:op:01  20:16:op2:11111  15:10:op3:000000  9:5:Rn:  4:0:op4:00000> Branch with Link to Register
+BR  <31:25:_:1101011  24:23:opc:T:00  22:21:op:00  20:16:op2:11111  15:10:op3:000000  9:5:Rn:  4:0:op4:00000> Branch to Register
+RET <31:25:_:1101011  24:23:opc:T:00  22:21:op:10  20:16:op2:11111  15:10:op3:000000  9:5:Rn:  4:0:op4:00000> Return from subroutine
+*)
+
+  let b_uncond_reg s insn =
+      let%decode insn' = insn "31:25:_:F:1101011,24:21:opc:F:x,20:16:op2:F:11111,15:10:op3:F:000000,9:5:Rn:F:xxxxx,4:0:op4:F:00000" in
+      (* pc is 8 bytes ahead because of pre-fetching. *)
+      let current_pc = Z.add (Address.to_int s.a) (Z.of_int 4) in
+      let pre =  if opc_v = 1 then [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ] else [] in
+      pre @ [Call(R(Lval(get_reg_lv rn_v 0)))]
+
+  (*
+BL <31:31:op:F:1,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch with Link
+B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
+*)
+
+  let b_uncond_imm s insn =
+      let%decode insn' = insn "31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx" in
+      (* pc is 8 bytes ahead because of pre-fetching. *)
+      let current_pc = Z.add (Address.to_int s.a) (Z.of_int 4) in
+      let offset = imm26_v lsl 2 in
+      let signed_offset = sign_extension (Z.of_int offset) 28 64 in
+      let pre =  if op_v = 1 then [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ] else [] in
+      pre @ [Call(A(Address.add_offset s.a signed_offset))]
 
   let branch (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 29) land 7 in
     let op1 = (insn lsr 22) land 15 in
     if op0 = 0b010 && op1 <= 7 then
         b_cond s insn
+    else if op0 = 0b110 && op1 > 7 then
+        b_uncond_reg s insn
+    else if (op0 land 3) = 0 then
+        b_uncond_imm s insn
     else
         error s.a (Printf.sprintf "Unsupported branch opcode 0x%08x" insn)
 

@@ -1,3 +1,4 @@
+FLG -ppx /home/raph/boulot/dev/BinCAT/ocaml/src/armv8A_ppx
 PKG zarith ocamlgraph compiler-libs ppx_tools
 S ocaml/src
 S ocaml/src/disassembly
