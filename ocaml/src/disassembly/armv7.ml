@@ -775,6 +775,7 @@ struct
         Imports.prologue = [];
         Imports.stub = [];
         Imports.epilogue = [];
+        Imports.ret_addr = Lval(V(T(lr)))
       } in
       Hashtbl.add Imports.tbl a' fun_desc in
     Hashtbl.iter add_import_to_table  Config.import_tbl;

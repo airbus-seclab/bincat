@@ -24,7 +24,8 @@ struct
         libname: string;
         prologue: Asm.stmt list;
         stub: Asm.stmt list;
-        epilogue: Asm.stmt list
+        epilogue: Asm.stmt list;
+        ret_addr: Asm.exp;
   }
 
   let tbl: (Data.Address.t, fun_type) Hashtbl.t = Hashtbl.create 5

@@ -2468,6 +2468,7 @@ struct
                 Imports.prologue = [];
                 Imports.stub = [];
                 Imports.epilogue = [];
+                Imports.ret_addr = Lval(M(Lval(V(T(esp))), 32))
             }
             in
             Hashtbl.add Imports.tbl a' fundec) Config.import_tbl;

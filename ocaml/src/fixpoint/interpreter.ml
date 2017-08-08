@@ -286,6 +286,8 @@ struct
         L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded." 
           (Data.Address.to_string a) (fundec.Decoder.Imports.name) (List.length stmts));
         Log_trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
+        let ret_addr_exp = fundec.Decoder.Imports.ret_addr in
+        Log_trace.trace a (fun p -> p "return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let b =
             List.fold_left (fun b v ->
                 if stmts <> [] then
@@ -295,7 +297,12 @@ struct
                 in
                 v.Cfa.State.v <- d';
                 let pred = pred_fun v in
-                v.Cfa.State.ip <- Data.Address.add_offset pred.Cfa.State.ip (Z.of_int (List.length pred.Cfa.State.bytes));
+                let addrs, _ = D.mem_to_addresses d' ret_addr_exp in 
+                if Data.Address.Set.cardinal addrs > 1 then
+                   L.abort (fun p->p "multiple return addresses")
+                else
+                    v.Cfa.State.ip <- Data.Address.Set.choose addrs;
+                Log_trace.trace a (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
                 (* set back the stack register to its pred value *)
                 let stack_register = Register.stack_pointer () in
                 v.Cfa.State.v <- D.copy_register stack_register v.Cfa.State.v pred.Cfa.State.v;
@@ -314,6 +321,7 @@ struct
                         match addresses with
                         | [a] ->
                           begin
+                              L.debug (fun p->p "fold_to_target addr : %s" (Data.Address.to_string a));
                               try let res = import_call [v] a ip_pred fun_stack in import := true; res
                               with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
                           end
