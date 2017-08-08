@@ -296,6 +296,7 @@ struct
                 v.Cfa.State.v <- d';
                 let pred = pred_fun v in
                 v.Cfa.State.ip <- Data.Address.add_offset pred.Cfa.State.ip (Z.of_int (List.length pred.Cfa.State.bytes));
+                Log_trace.trace a (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
                 (* set back the stack register to its pred value *)
                 let stack_register = Register.stack_pointer () in
                 v.Cfa.State.v <- D.copy_register stack_register v.Cfa.State.v pred.Cfa.State.v;
