@@ -689,7 +689,7 @@ RET <31:25:_:1101011  24:23:opc:T:00  22:21:op:10  20:16:op2:11111  15:10:op3:00
       (* pc is 8 bytes ahead because of pre-fetching. *)
       let current_pc = Z.add (Address.to_int s.a) (Z.of_int 4) in
       let pre =  if opc_v = 1 then [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ] else [] in
-      pre @ [Call(R(Lval(get_reg_lv rn_v 0)))]
+      pre @ [Call(R(Lval(get_reg_lv rn_v 1)))]
 
   (*
 BL <31:31:op:F:1,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch with Link
