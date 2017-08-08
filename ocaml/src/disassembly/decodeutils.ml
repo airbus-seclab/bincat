@@ -22,13 +22,13 @@ let const0 sz = Const (Word.zero sz)
 
 (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
 let sign_extension i sz nb =
-if Z.testbit i (sz-1) then
-  let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
-  (* ffff00.. mask *)
-  let ff00 = (Z.logxor ff ((Z.sub (Z.shift_left (Z.one) sz) Z.one))) in
-  Z.logor ff00 i
-else
-  i
+    if Z.testbit i (sz-1) then
+      let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
+      (* ffff00.. mask *)
+      let ff00 = (Z.logxor ff ((Z.sub (Z.shift_left (Z.one) sz) Z.one))) in
+      Z.logor ff00 i
+    else
+      i
 
 (** [msb reg sz] statements to get the MSB of _reg_ (size _sz_) *)
 let msb_stmts reg sz =
