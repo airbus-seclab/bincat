@@ -16,7 +16,6 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(* TODO: move parts depending on x86 architecture (eax for instance in result) into a subdirectory x86 *)
 module Make(D: Domain.T) =
 struct
   type fun_type = {
@@ -32,5 +31,55 @@ struct
   let available_stubs: (string, unit) Hashtbl.t = Hashtbl.create 5
 
   exception Found of (Data.Address.t * fun_type)
-  let search_by_name (_fun_name: string): (Data.Address.t * fun_type) = raise Not_found
+  let search_by_name (fun_name: string): (Data.Address.t * fun_type) =
+    try
+      Hashtbl.iter (fun a fundec ->
+        if String.compare fundec.name fun_name = 0 then
+          raise (Found (a, fundec))
+        else ()
+      ) tbl;
+      raise Not_found
+    with Found pair -> pair
+
+  open Asm
+
+  let reg r = Lval (V (T (Register.of_name r)))
+
+  (* strlen *)
+  let strlen_aapcs () =
+    let buf = Lval (V (T (Register.of_name "x0"))) in
+    let res = Register.of_name "x0" in
+    [ Directive (Stub ("strlen",  [Lval (V (T res)) ; buf])) ]
+
+  (* memcpy *)
+  let memcpy_aapcs () =
+    let dst = reg "x0" in
+    let src = reg "x1" in
+    let sz = reg "x2" in
+    let res = reg "x0" in
+    [ Directive (Stub ("memcpy",  [res ; dst ; src ; sz])) ]
+
+
+
+  let aapcs_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
+
+  let init_aapcs () =
+    let funs =
+      [ ("memcpy", memcpy_aapcs) ;
+        (*("sprintf", sprintf_stdcall) ;
+        ("printf", printf_stdcall) ;
+        ("puts", puts_stdcall) ;
+        ("__printf_chk", printf_chk_stdcall) ; *)
+        ("strlen", strlen_aapcs) ]
+    in
+    List.iter (fun (name, body) ->
+      Hashtbl.add aapcs_stubs name (body());
+      Hashtbl.replace available_stubs name ()
+    ) funs
+
+
+  let init () =
+    init_aapcs ()
+
 end
+
