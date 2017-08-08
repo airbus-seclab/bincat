@@ -418,15 +418,7 @@ struct
     let imm = match opc with
         | 0b00 -> (* MOVN *) UnOp(Not, imm)
         | 0b10 -> (* MOVZ *) imm
-<<<<<<< HEAD
         | 0b11 -> (* MOVK XXX *) error s.a (Printf.sprintf "MOVK is not supported")
-=======
-        | 0b11 -> (* MOVK *)
-                (* compute 0x...FFFF0000 mask *)
-                let mask = Z.logxor (Z.sub (Z.shift_left Z.one sz) Z.one) (Z.of_int (0xFFFF lsl shift)) in
-                (* only replace the bits corresponsding to imm in the destination *)
-                BinOp(Or, BinOp(And, Lval(rd), Const (Word.of_int mask sz)), imm)
->>>>>>> 8907500... Port armv7 stubs to armv8
         | _ -> error s.a "Impossible error"; in
 
     [ Set (rd, imm) ] @ sf_zero_rd insn sf
