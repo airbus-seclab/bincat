@@ -662,10 +662,9 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
         | 3 -> 64
         | _ -> L.abort (fun p->p "impossible size")
     in
-    let sz = sf2sz (opc_v lsr 1) in
     let _, rn, rt = make_regs_ld_st (size_v lsr 1) 0 rn_v rt_v in
-    let offset = BinOp(Shl, UnOp(SignExt 64, const imm12_v 12), const size_v 64) in
-    let addr = BinOp(Add, Lval(rn), offset) in
+    let offset = sign_extension (Z.of_int (imm12_v lsl size_v)) 14 64 in
+    let addr = BinOp(Add, Lval(rn), Const (Word.of_int offset 64)) in
     if opc_v = 1 then
         (* load *)
         [Set(rt, Lval(M(addr, mem_sz)))]
@@ -678,13 +677,13 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
     let l = (insn lsr 22) land 1 in
     let imm7 = get_imm7 insn in
     let sf, sz = get_sf insn in
-    let offset = BinOp(Shl, UnOp(SignExt 64, const imm7 7), const (sf+2) 64) in
+    let offset = Const (Word.of_int (sign_extension (Z.of_int (imm7 lsl (sf+2))) 9 64) 64) in
     let rt2, rn, rt = get_regs_pair insn sf in
     let addr, post = match op3 with
         (* no index *)
         | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
         (* post index *)
-        | 0b01 -> offset, [Set(rn, BinOp(Add, Lval(rn), offset))]
+        | 0b01 ->  BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
         (* pre index *)
         | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
         | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
@@ -787,6 +786,7 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
       let signed_offset = sign_extension (Z.of_int offset) 28 64 in
       let pre =  if op_v = 1 then [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ] else [] in
       pre @ [Call(A(Address.add_offset s.a signed_offset))]
+
   let tst_br s insn =
     let%decode insn'= insn "31:31:b5:F:x,30:25:_:F:011011,24:24:op:F:0,23:19:b40:F:xxxxx,18:5:imm14:F:xxxxxxxxxxxxxx,4:0:Rt:F:xxxxx" in
     let sz = sf2sz b5_v in
