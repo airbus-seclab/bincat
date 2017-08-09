@@ -772,6 +772,18 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
          [Jmp(A(Address.add_offset s.a offset))],
          [Nop])]
 
+  let cmp_br s insn =
+    let%decode insn'= insn "31:31:sf:F:0,30:25:_:F:011010,24:24:op:F:0,23:5:imm19:F:xxxxxxxxxxxxxxxxxxx,4:0:Rt:F:xxxxx" in
+    let sz = sf2sz sf_v in
+    let offset = imm19_v lsl 2 in
+    let signed_offset = sign_extension (Z.of_int offset) 21 64 in
+    let cmp_op = if op_v = 0 then EQ else NEQ in (* CBZ/CBNZ *)
+    let rt = get_reg_lv rt_v sf_v in
+    [ If(Cmp(cmp_op, Lval rt, const0 sz),
+         [Jmp(A(Address.add_offset s.a signed_offset))],
+         [Nop])]
+
+
   let branch (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 29) land 7 in
     let op1 = (insn lsr 22) land 15 in
@@ -783,6 +795,8 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
         b_uncond_imm s insn
     else if (op0 land 3) = 1 && op1 > 7 then
         tst_br s insn
+    else if (op0 land 3) = 1 && op1 <= 7 then
+        cmp_br s insn
     else
         error s.a (Printf.sprintf "Unsupported branch opcode 0x%08x" insn)
 
