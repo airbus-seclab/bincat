@@ -313,9 +313,49 @@ struct
           Set ( vf_v, vf)]
 
 
-  let decode_bitmasks sz _n immr _imms _is_imm =
-        (* TODO / XXX :https://www.meriac.com/archex/A64_v82A_ISA/shared_pseudocode.xml#impl-aarch64.DecodeBitMasks.4 *)
-        const immr sz
+  let ror_int value size amount =
+      let mask = (1 lsl (size-amount))-1 in
+      let v_sr = (value lsr amount) land mask in
+      let v_sl = (value land ((1 lsl amount)-1)) lsl amount in
+      v_sr lor v_sl
+
+  let replicate_int value size final_size =
+        if final_size mod size != 0 then
+          L.abort (fun p->p "Invalid replicate params %x %x %x" value size final_size);
+        let res = ref 0 in
+        for i = 0 to (final_size/size-1) do
+          res := !res lor (value lsl (size * i));
+        done;
+        !res
+
+  let rec log2 n =
+    if n <= 1 then 0 else 1 + log2(n asr 1)
+  let decode_bitmasks sz n immr imms is_imm =
+    (*// Compute log2 of element size
+    // 2^len must be in range [2, M]
+    len = HighestSetBit(immN:NOT(imms));*)
+        let len = log2 ((n lsl 7) lor (lnot imms)) in
+        let levels = (1 lsl len)-1 in
+        let s = imms land levels in
+        let r = immr land levels in 
+        let diff = s-r in
+        (*        
+           // From a software perspective, the remaining code is equivalant to:
+            //   esize = 1 << len;
+            //   d = UInt(diff<len-1:0>);
+            //   welem = ZeroExtend(Ones(S + 1), esize);
+            //   telem = ZeroExtend(Ones(d + 1), esize);
+            //   wmask = Replicate(ROR(welem, R));
+            //   tmask = Replicate(telem);
+            //   return (wmask, tmask);
+         *)
+        let esize = 1 lsl len in
+        let welem = (1 lsl (s+1))-1 in
+        let telem = (1 lsl (diff+1))-1 in
+        let wmask_t = ror_int welem esize r in
+        let wmask = replicate_int wmask_t esize sz in
+        let tmask = replicate_int telem esize sz in
+        wmask, tmask
 
   let extend_reg sz reg ext_type shift =
     let len = match ext_type with
@@ -407,8 +447,8 @@ struct
     let rn = get_Rn_exp insn sf in
     let immr = get_immr insn in
     let imms = get_imms insn in
-    let imm_res = decode_bitmasks sz n immr imms true in
-    logic_core sz rd rn opc imm_res (opc = 0b11) @ sf_zero_rd insn sf @ post
+    let imm_res, _ = decode_bitmasks sz n immr imms true in
+    logic_core sz rd rn opc (const imm_res sz) (opc = 0b11) @ sf_zero_rd insn sf @ post
 
   (* AND / ORR / EOR / ANDS (32/64) with register *)
   let logic_reg s insn =
@@ -462,6 +502,20 @@ struct
             UnOp(SignExt 64, const (imm lsl 12) (21+12))
     in
         [ Set(rd, BinOp(Add, Const base, imm_ext))] @ post
+(*
+BFM <31:31:sf:F:0,30:29:opc:F:01,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx> Bitfield Move
+SBFM <31:31:sf:F:0,30:29:opc:F:00,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx> Signed Bitfield Move
+UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx> Unsigned Bitfield Move
+*)
+  let bitfield s insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+    let sz = sf2sz sf_v in
+    let wmask, tmask = decode_bitmasks sz n_v imms_v immr_v false in
+    if opc_v = 2 then
+      let fu = ror sz (Lval (get_reg_lv rn_v sf_v)) (const immr_v 6) in
+      [Set(get_reg_lv rd_v sf_v, BinOp(And, fu, (const tmask sz)))]
+    else
+      L.abort (fun p->p "BFM/SBFM not handled yet")
 
   (* data processing with immediates *)
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
@@ -472,7 +526,7 @@ struct
         | 0b010 | 0b011 -> add_sub_imm s insn sf
         | 0b100         -> logic_imm s insn sf
         | 0b101 -> mov_wide s insn sf
-        | 0b110 -> (* XXX *) error s.a (Printf.sprintf "Bitfield (imm) not decoded (0x%x)" insn)
+        | 0b110 -> bitfield s insn
         | 0b111 -> (* XXX *) error s.a (Printf.sprintf "Extract (imm) not decoded (0x%x)" insn)
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
     in stmts
