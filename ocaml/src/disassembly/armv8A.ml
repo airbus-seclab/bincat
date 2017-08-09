@@ -462,11 +462,27 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     let%decode insn' = insn "31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     let sz = sf2sz sf_v in
     let wmask, tmask = decode_bitmasks sz n_v imms_v immr_v false in
-    if opc_v = 2 then
-      let fu = ror sz (Lval (get_reg_lv rn_v sf_v)) (const immr_v 6) in
-      [Set(get_reg_lv rd_v sf_v, BinOp(And, fu, (const tmask sz)))]
-    else
-      L.abort (fun p->p "BFM/SBFM not handled yet")
+    let rn = get_reg_lv rn_v sf_v in
+    let rd = get_reg_lv rd_v sf_v in
+    let rored = ror sz (Lval rn) (const immr_v 6) in
+    let res = match opc_v with
+      | 2 -> begin (* UBFM *)
+          [Set(rd, BinOp(And, rored, (const tmask sz)))]
+        end
+      | 1 -> begin (* BFM *)
+          (*  (dst AND NOT(wmask)) OR (ROR(src, R) AND wmask); *)
+          let bot = BinOp(Or, BinOp(And, Lval rn, UnOp(Not, const wmask sz)), BinOp(And, rored, const wmask sz)) in
+          [ Set(rd, BinOp(Or, BinOp(And, Lval rn, UnOp(Not, const tmask sz)), BinOp(And, bot, const tmask sz)))]
+        end
+      | 0 -> begin (* SBFM *)
+          let src_s = BinOp(And, const1 sz, BinOp(Shl, Lval rn, const imms_v sz)) in
+          let top = TernOp(Cmp(EQ, src_s, const1 sz), const ((2 lsl sz)-1) sz, const0 sz) in
+          (* (top AND NOT(tmask)) OR (bot AND tmask); *)
+          [Set(rd, BinOp(Or, BinOp(And, top, UnOp(Not, const tmask sz)), BinOp(And, rored, const tmask sz)))]
+        end
+      | _ -> L.abort (fun p->p "BFM/SBFM not handled yet")
+    in
+    res
 
   (* data processing with immediates *)
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
