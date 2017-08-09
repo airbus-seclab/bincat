@@ -401,10 +401,10 @@ struct
   (* ADD/ ADDS / SUB / SUBS (32/64) with immediate *)
   let add_sub_imm s insn sf =
     let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:0,29:29:S:F:0,28:24:_:F:10001,23:22:shift:F:xx,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
-    let s_b = s_v = 1 in
+    let s_b = s_v = 1 in (* set flags ? *)
     let sz = sf2sz sf_v in
     let shift = get_shifted_imm s insn imm12_v sz in
-    let rd, rn, _, post = get_regs ~use_sp:true insn sf in
+    let rd, rn, _, post = get_regs ~use_sp:(not s_b) insn sf in
     (add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd insn sf) @ post
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with register *)
