@@ -549,6 +549,7 @@ STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
         | 0 -> 8
         | 1 -> 16
         | 2 -> 32
+        | 3 -> 64
         | _ -> L.abort (fun p->p "impossible size")
     in
     let sf = (size_v lsr 1) in
@@ -592,6 +593,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
         | 0 -> 8
         | 1 -> 16
         | 2 -> 32
+        | 3 -> 64
         | _ -> L.abort (fun p->p "impossible size")
     in
     let rn = get_reg_lv ~use_sp:true rn_v 1 in
