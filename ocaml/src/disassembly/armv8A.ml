@@ -178,12 +178,12 @@ struct
   let get_sf insn =
     let sf = (insn lsr 31) land 1 in
     (sf, sf2sz sf)
-  let get_sf_bool insn = ((insn lsr 31) land 1) = 1
 
-  (* S : set flags ? *)
-  let get_s insn = (insn lsr 30) land 1
-  let get_s_bool insn = ((insn lsr 30) land 1) = 1
-
+  (* Note about use_sp: register number 31 can mean 2 differents things:
+        - the "zero" register, which always reads "0" and discards writes
+        - SP (stack pointer)
+    pass ~use_sp:true to use the stack pointer
+  *)
   let get_reg_lv ?(use_sp = false) num sf =
         if num = 31 && not use_sp then (* zero register *)
             (* XXX see how we can discard the result *)
@@ -197,16 +197,8 @@ struct
         else
             Lval (V (reg_sf num sf))
 
-  (* Note about use_sp: register number 31 can mean 2 differents things:
-        - the "zero" register, which always reads "0" and discards writes
-        - SP (stack pointer)
-    pass ~use_sp:true to use the stack pointer
-  *)
-  (* Rm (20:16) / Rn (9:5) / Rd (4:0) : registers *)
-  let get_Rm_exp ?(use_sp = false) insn sf =
-        let num = ((insn lsr 16) land 0x1F) in get_reg_exp ~use_sp:use_sp num sf
-  let get_Rn_exp ?(use_sp = false) insn sf =
-        let num = ((insn lsr 5) land 0x1F) in get_reg_exp ~use_sp:use_sp num sf
+  (* helper for destination register, if we have XZR as dest, we generate 
+   * a temporary register and return a pair *)
   let get_Rd_lv ?(use_sp = false) insn sf =
         let num = (insn land 0x1F) in
         if num = 31 && not use_sp then begin
@@ -216,52 +208,10 @@ struct
         end else
             V(reg_sf num sf), []
 
-  let get_regs ?(use_sp = false) insn sf =
-    let dst, post = get_Rd_lv ~use_sp:use_sp insn sf in
-    (dst,
-     get_Rn_exp ~use_sp:use_sp insn sf,
-     get_Rm_exp ~use_sp:use_sp insn sf, post)
-
-  let get_regs_ld_st ?(use_sp = false) insn sf =
-    (get_reg_lv ~use_sp:use_sp ((insn lsr 16) land 0x1F) sf,
-     get_reg_lv ~use_sp:true ((insn lsr 5) land 0x1F) sf,
-     get_reg_lv ~use_sp:use_sp (insn land 0x1F) sf)
-
-  (* gets Rt2 / Rn / Rt (LDP/STP operations) *)
-  let get_regs_pair ?(use_sp = false) insn sf =
-    (get_reg_lv ~use_sp:use_sp ((insn lsr 10) land 0x1F) sf,
-     get_reg_lv ~use_sp:true ((insn lsr 5) land 0x1F) sf,
-     get_reg_lv ~use_sp:use_sp (insn land 0x1F) sf)
-
-  let make_regs_ld_st ?(use_sp = false) sf rm rn rd =
-    (get_reg_lv ~use_sp:use_sp rm sf,
-     get_reg_lv ~use_sp:true rn sf,
-     get_reg_lv ~use_sp:use_sp rd sf)
-
-
-  (* imm12 : immediate 21:10 *)
-  let get_imm12 insn = (insn lsr 10) land 0xfff
-
-  (* imm16 : immediate 20:5 *)
-  let get_imm16 insn = (insn lsr 5) land 0xffff
-
-  (* immr : immediate 21:16 *)
-  let get_immr insn = (insn lsr 16) land 0b111111
-
-  (* imms : immediate 15:10 *)
-  let get_imms insn = (insn lsr 10) land 0b111111
-
-  (* imm7 : immediate 21:15 *)
-  let get_imm7 insn = (insn lsr 15) land 0b1111111
-
-  (* 30:29:opc, used in logic insn *)
-  let get_opc insn = (insn lsr 29) land 3
-
   (* shift *)
-  let get_shifted_imm s insn imm sz =
-    let shift = (insn lsr 22) land 3 in
+  let get_shifted_imm s shift imm sz =
     match shift with
-        | 0b10 | 0b11 -> error s.a (Printf.sprintf "Reserved shift value 0x%x in opcode 0x%x" shift insn)
+        | 0b10 | 0b11 -> error s.a (Printf.sprintf "Reserved shift value 0x%x" shift)
         | 0b00 -> const imm sz
         | 0b01 -> const (imm lsl 12) sz
         | _ -> error s.a "Impossible error !"
@@ -293,9 +243,10 @@ struct
             | _ -> L.abort (fun p->p "Invalid value for shift")
 
   (* 32 bits ops zero the top 32 bits, this helper does it if needed *)
-  let sf_zero_rd insn sf =
-    if sf = 0 then begin
-        let rd_top = P((reg_from_num (insn land 0x1F)), 32, 63) in
+  let sf_zero_rd rd_v sf s_b =
+    (* don't zero if the target is discarded *)
+    if sf = 0 && (not s_b || rd_v != 31) then begin
+        let rd_top = P(reg_from_num rd_v, 32, 63) in
         [Set ( V(rd_top), const 0 32)]
     end else []
 
@@ -403,22 +354,24 @@ struct
     let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:0,29:29:S:F:0,28:24:_:F:10001,23:22:shift:F:xx,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     let s_b = s_v = 1 in (* set flags ? *)
     let sz = sf2sz sf_v in
-    let shift = get_shifted_imm s insn imm12_v sz in
-    let rd, rn, _, post = get_regs ~use_sp:(not s_b) insn sf in
-    (add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd insn sf) @ post
+    let shift = get_shifted_imm s shift_v imm12_v sz in
+    let rd, post = get_Rd_lv ~use_sp:(not s_b) rd_v sf_v in
+    L.debug (fun p->p "coincoin %s" (Asm.string_of_lval rd true));
+    let rn = get_reg_exp ~use_sp:true rn_v sf in 
+    (add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd rd_v sf s_b) @ post
 
-  (* ADD/ ADDS / SUB / SUBS (32/64) with register *)
+  (* ADD/ ADDS / SUB / SUBS (32/64) with shifted register *)
   let add_sub_reg s insn _is_extend =
-    let sf, sz = get_sf insn in
-    let shift = (insn lsr 22) land 3 in
-    let imm6 = get_imms insn in
-    if (sf = 0 && (imm6 lsr 5) = 1) || (shift = 3) then
+    let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:0,29:29:S:F:0,28:24:_:F:01011,23:22:shift:F:xx,21:21:_:F:0,20:16:Rm:F:xxxxx,15:10:imm6:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+    if (sf_v = 0 && (imm6_v lsr 5) = 1) || (shift_v = 3) then
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
-    let op = (insn lsr 30) land 1 in
-    let s_b = get_s_bool insn in
-    let rd, rn, rm, post = get_regs insn sf in
-    let shifted_rm =  get_shifted_reg sz insn rm imm6 in
-    (add_sub_core sz rd rn op shifted_rm s_b) @ post
+    let sz = sf2sz sf_v in
+    let s_b = s_v = 1 in (* set flags ? *)
+    let rd, post = get_Rd_lv rd_v sf_v in
+    let rn = get_reg_exp rn_v sf_v in 
+    let rm = get_reg_exp rm_v sf_v in 
+    let shifted_rm =  get_shifted_reg sz insn rm imm6_v in
+    (add_sub_core sz rd rn op_v shifted_rm s_b) @ post
 
   (* AND / ORR / EOR / ANDS (32/64) core *)
   let logic_core sz dst op1 opc op2 set_flags =
@@ -438,52 +391,50 @@ struct
         core_stmts
 
   (* AND / ORR / EOR / ANDS (32/64) with immediate *)
-  let logic_imm s insn sf =
-    let opc = get_opc insn in
-    let n = (insn lsr 22) land 1 in
-    if sf = 0 && n = 1 then (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
-    let sz = sf2sz sf in
-    let rd, post = get_Rd_lv ~use_sp:true insn sf in
-    let rn = get_Rn_exp insn sf in
-    let immr = get_immr insn in
-    let imms = get_imms insn in
-    let imm_res, _ = decode_bitmasks sz n immr imms true in
-    logic_core sz rd rn opc (const imm_res sz) (opc = 0b11) @ sf_zero_rd insn sf @ post
+  let logic_imm s insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:29:opc:F:00,28:23:_:F:100100,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+    if sf_v = 0 && n_v = 1 then (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
+    let sz = sf2sz sf_v in
+    let flags = opc_v = 3 in
+    let rd, post = get_Rd_lv ~use_sp:(not flags) rd_v sf_v in
+    let rn = get_reg_exp rn_v sf_v in
+    let imm_res, _ = decode_bitmasks sz n_v immr_v imms_v true in
+    logic_core sz rd rn opc_v (const imm_res sz) flags @ sf_zero_rd rd_v sf_v (not flags) @ post
 
-  (* AND / ORR / EOR / ANDS (32/64) with register *)
+  (* AND / ORR / EOR / ANDS (32/64) with shifted register *)
   let logic_reg s insn =
-    let sf, sz = get_sf insn in
-    let imm6 = get_imms insn in
-    if sf = 0 && (imm6 lsr 5) = 1 then
+    let%decode insn' = insn "31:31:sf:F:0,30:29:opc:F:00,28:24:_:F:01010,23:22:shift:F:xx,21:21:N:F:0,20:16:Rm:F:xxxxx,15:10:imm6:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx " in
+    let sz = sf2sz sf_v in
+    if sf_v = 0 && (imm6_v lsr 5) = 1 then
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
-    let opc = get_opc insn in
-    let rd, rn, rm, post = get_regs insn sf in
-    let n = (insn lsr 21) land 1 in
-    let shifted_rm = get_shifted_reg sz insn rm imm6 in
-    let shifted_rm' = if n = 1 then UnOp(Not, shifted_rm) else shifted_rm in
-    logic_core sz rd rn opc shifted_rm' (opc = 0b11) @ sf_zero_rd insn sf @ post
+    let flags = opc_v = 3 in
+    let rd, post = get_Rd_lv ~use_sp:(not flags) rd_v sf_v in
+    let rn = get_reg_exp rn_v sf_v in
+    let rm = get_reg_exp rm_v sf_v in
+    let shifted_rm = get_shifted_reg sz insn rm imm6_v in
+    let shifted_rm' = if n_v = 1 then UnOp(Not, shifted_rm) else shifted_rm in
+    logic_core sz rd rn opc_v shifted_rm' flags @ sf_zero_rd rd_v sf_v (not flags) @ post
 
   (* MOVZ move immediate with optional shift *)
-  let mov_wide s insn sf =
-    let sz = sf2sz sf in
-    let opc = get_opc insn in
-    let hw = ((insn lsr 21) land 3) in
-    if (sf = 0 && hw > 1) || (opc = 0b01) then error s.a (Printf.sprintf "Invalid opcode 0x%x" insn);
-    let rd, post = get_Rd_lv insn sf in
-    let imm16 = const (get_imm16 insn) sz in
-    let shift = hw lsl 4 in
-    let imm = if shift > 0 then BinOp(Shl, imm16, const shift sz) else imm16 in
-    let imm = match opc with
-        | 0b00 -> (* MOVN *) UnOp(Not, imm)
-        | 0b10 -> (* MOVZ *) imm
+  let mov_wide s insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:29:opc:F:11,28:23:_:F:100101,22:21:hw:F:xx,20:5:imm16:F:xxxxxxxxxxxxxxxx,4:0:Rd:F:xxxxx" in
+    let sz = sf2sz sf_v in
+    if (sf_v = 0 && hw_v > 1) || (opc_v = 0b01) then error s.a (Printf.sprintf "Invalid opcode 0x%x" insn);
+    let rd = get_reg_lv rd_v sf_v in
+    let shift = hw_v lsl 4 in
+    let imm_s = if shift > 0 then imm16_v lsl shift else imm16_v in
+    let imm_c = const imm_s sz in
+    let imm_f = match opc_v with
+        | 0b00 -> (* MOVN *) UnOp(Not, imm_c)
+        | 0b10 -> (* MOVZ *) imm_c
         | 0b11 -> (* MOVK *)
                 (* compute 0x...FFFF0000 mask *)
                 let mask = Z.logxor (Z.sub (Z.shift_left Z.one sz) Z.one) (Z.of_int (0xFFFF lsl shift)) in
                 (* only replace the bits corresponsding to imm in the destination *)
-                BinOp(Or, BinOp(And, Lval(rd), Const (Word.of_int mask sz)), imm)
+                BinOp(Or, BinOp(And, Lval(rd), Const (Word.of_int mask sz)), imm_c)
         | _ -> error s.a "Impossible error"; in
 
-    [ Set (rd, imm) ] @ sf_zero_rd insn sf @ post
+    [ Set (rd, imm_f) ] @ sf_zero_rd rd_v sf_v false
 
   (* ADR/ADRP *)
   let pc_rel_addr s insn sf =
@@ -524,8 +475,8 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     let stmts = match op0 with
         | 0b000 | 0b001 -> pc_rel_addr s insn sf
         | 0b010 | 0b011 -> add_sub_imm s insn sf
-        | 0b100         -> logic_imm s insn sf
-        | 0b101 -> mov_wide s insn sf
+        | 0b100         -> logic_imm s insn
+        | 0b101 -> mov_wide s insn
         | 0b110 -> bitfield s insn
         | 0b111 -> (* XXX *) error s.a (Printf.sprintf "Extract (imm) not decoded (0x%x)" insn)
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
@@ -584,8 +535,11 @@ STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
         | 2 -> 32
         | _ -> L.abort (fun p->p "impossible size")
     in
-    let sz = sf2sz (size_v lsr 1) in
-    let rm, rn, rt = make_regs_ld_st (size_v lsr 1) rm_v rn_v rt_v in
+    let sf = (size_v lsr 1) in
+    let sz = sf2sz sf in
+    let rm = get_reg_lv rm_v sf in
+    let rn = get_reg_lv ~use_sp:true rn_v sf in
+    let rt = get_reg_lv rt_v sf in
     let shl_amount = if s_v = 1 then size_v else 0 in
     let offset = extend_reg sz (Lval rm) option_v shl_amount in
     let addr = BinOp(Add, Lval rn, offset) in
@@ -624,8 +578,8 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
         | 2 -> 32
         | _ -> L.abort (fun p->p "impossible size")
     in
-    let sz = sf2sz (opc_v lsr 1) in
-    let _, rn, rt = make_regs_ld_st (size_v lsr 1) 0 rn_v rt_v in
+    let rn = get_reg_lv ~use_sp:true rn_v 1 in
+    let rt = get_reg_lv rt_v 1 in
     let offset = UnOp(SignExt 64, const imm9_v 9) in
     let addr, post = match op5_v with
         (* no index *)
@@ -662,7 +616,8 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
         | 3 -> 64
         | _ -> L.abort (fun p->p "impossible size")
     in
-    let _, rn, rt = make_regs_ld_st (size_v lsr 1) 0 rn_v rt_v in
+    let rn = get_reg_lv ~use_sp:true rn_v 1 in
+    let rt = get_reg_lv rt_v 1 in
     let offset = sign_extension (Z.of_int (imm12_v lsl size_v)) 14 64 in
     let addr = BinOp(Add, Lval(rn), Const (Word.of_int offset 64)) in
     if opc_v = 1 then
@@ -674,11 +629,13 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
 
   (* STP / STNP / LDP *)
   let load_store_pair insn op3 =
-    let l = (insn lsr 22) land 1 in
-    let imm7 = get_imm7 insn in
-    let sf, sz = get_sf insn in
-    let offset = Const (Word.of_int (sign_extension (Z.of_int (imm7 lsl (sf+2))) 9 64) 64) in
-    let rt2, rn, rt = get_regs_pair insn sf in
+    let%decode insn' = insn "31:30:opc:F:00,29:27:_:F:101,26:26:V:F:0,25:23:_:F:001,22:22:L:F:1,21:15:imm7:F:xxxxxxx,14:10:Rt2:F:xxxxx,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let sf = (opc_v lsr 1) land 1 in
+    let sz = sf2sz sf in
+    let offset = Const (Word.of_int (sign_extension (Z.of_int (imm7_v lsl (sf+2))) 9 64) 64) in
+    let rt2 = get_reg_lv rt2_v sf in
+    let rt = get_reg_lv rt_v sf in
+    let rn = get_reg_lv rn_v ~use_sp:true sf in
     let addr, post = match op3 with
         (* no index *)
         | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
@@ -688,7 +645,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
         | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
         | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
     in
-    if l = 1 then
+    if l_v = 1 then
         (* load *)
         [Set(rt, Lval(M(addr, sz)));
          Set(rt2, Lval(M(BinOp(Add, addr, const (sz/8) sz), sz)))] @ post
