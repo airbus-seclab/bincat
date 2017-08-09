@@ -787,6 +787,15 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
       let signed_offset = sign_extension (Z.of_int offset) 28 64 in
       let pre =  if op_v = 1 then [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ] else [] in
       pre @ [Call(A(Address.add_offset s.a signed_offset))]
+  let tst_br s insn =
+    let%decode insn'= insn "31:31:b5:F:x,30:25:_:F:011011,24:24:op:F:0,23:19:b40:F:xxxxx,18:5:imm14:F:xxxxxxxxxxxxxx,4:0:Rt:F:xxxxx" in
+    let sz = sf2sz b5_v in
+    let bitpos = (b5_v lsl 4) lor b40_v in
+    let offset = sign_extension (Z.of_int (imm14_v lsl 2)) 16 64 in
+    let r = get_reg_lv rt_v b5_v in
+    [ If(Cmp(EQ, BinOp(And, BinOp(Shl, Lval r, const bitpos sz), const1 sz), const op_v sz),
+         [Jmp(A(Address.add_offset s.a offset))],
+         [Nop])]
 
   let branch (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 29) land 7 in
@@ -797,6 +806,8 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
         b_uncond_reg s insn
     else if (op0 land 3) = 0 then
         b_uncond_imm s insn
+    else if (op0 land 3) = 1 && op1 > 7 then
+        tst_br s insn
     else
         error s.a (Printf.sprintf "Unsupported branch opcode 0x%08x" insn)
 
