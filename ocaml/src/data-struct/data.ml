@@ -30,7 +30,10 @@ module Word =
     let compare (w1, sz1) (w2, sz2) = 
       let n = Z.compare w1 w2 in
       if n = 0 then sz1 - sz2 else n
-				     
+
+    let compare_value (w1, _) (w2, _) =
+        Z.compare w1 w2
+
     let equal v1 v2 = compare v1 v2 = 0
 					
     let zero sz	= Z.zero, sz
@@ -127,7 +130,7 @@ struct
             if n <> 0 then
                 n
             else
-                Word.compare w1 w2
+                Word.compare_value w1 w2
 
         let equal (r1, w1) (r2, w2) =
             let b = r1 = r2 in
