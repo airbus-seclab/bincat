@@ -640,7 +640,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
         (* no index *)
         | 0b00 | 0b10 -> BinOp(Add, Lval(rn), offset), []
         (* post index *)
-        | 0b01 ->  BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
+        | 0b01 ->  Lval(rn), [Set(rn, BinOp(Add, Lval(rn), offset))]
         (* pre index *)
         | 0b11 -> BinOp(Add, Lval(rn), offset), [Set(rn, BinOp(Add, Lval(rn), offset))]
         | _ -> L.abort (fun p->p "Impossible value in load_store_pair")
