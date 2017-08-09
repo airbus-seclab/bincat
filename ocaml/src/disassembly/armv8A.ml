@@ -317,19 +317,25 @@ struct
         (* TODO / XXX :https://www.meriac.com/archex/A64_v82A_ISA/shared_pseudocode.xml#impl-aarch64.DecodeBitMasks.4 *)
         const immr sz
 
-  let extend_reg reg ext_type shift =
-    let ext_op = match ext_type with
-            | 0 -> ZeroExt 8
-            | 1 -> ZeroExt 16
-            | 2 -> ZeroExt 32
-            | 3 -> ZeroExt 64
-            | 4 -> SignExt 8
-            | 5 -> SignExt 16
-            | 6 -> SignExt 32
-            | 7 -> SignExt 64
+  let extend_reg sz reg ext_type shift =
+    let len = match ext_type with
+            | 0 -> 8
+            | 1 -> 16
+            | 2 -> 32
+            | 3 -> 64
+            | 4 -> 8
+            | 5 -> 16
+            | 6 -> 32
+            | 7 -> 64
             | _ -> L.abort(fun p->p "invalid shift")
     in
-    UnOp(ext_op, BinOp(Shl, reg, shift))
+    let len' = min len (sz-shift) in
+    let ext_op = match ext_type with
+                 | 0 | 1 | 2 | 3 -> ZeroExt len'
+                 | 4 | 5 | 6 | 7 -> SignExt len'
+                 | _ -> L.abort(fun p->p "invalid shift")
+    in
+    BinOp(Shl, UnOp(ext_op, reg), const shift len)
     (*if shift < 0 || shift > 4 then
         L.abort (fun p->p "Invalid shift value for extend_reg")
     else*)
@@ -502,20 +508,42 @@ struct
             []
     end
 
+(*
+LDRB  <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:01  21:21:_:1  20:16:Rm:  15:13:option:011  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Load Register Byte (register)
+LDRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:01  21:21:_:1  20:16:Rm:  15:13:option:  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Load Register Halfword (register)
+LDR   <31:30:size:00  29:27:_:111  26:26:V:1  25:24:_:00  23:22:opc:01  21:21:_:1  20:16:Rm:  15:13:option:011  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Load SIMD&FP Register (register offset)
+LDR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:01  21:21:_:1  20:16:Rm:  15:13:option:  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Load Register (register)
+LDRSB <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:11  21:21:_:1  20:16:Rm:  15:13:option:011  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Load Register Signed Byte (register)
+LDRSH <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:11  21:21:_:1  20:16:Rm:  15:13:option:  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Load Register Signed Halfword (register)
+LDRSW <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:10  21:21:_:1  20:16:Rm:  15:13:option:  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Load Register Signed Word (register)
+STRB  <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:1  20:16:Rm:  15:13:option:011  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Store Register Byte (register)
+STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:1  20:16:Rm:  15:13:option:  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Store Register Halfword (register)
+STR   <31:30:size:00  29:27:_:111  26:26:V:1  25:24:_:00  23:22:opc:00  21:21:_:1  20:16:Rm:  15:13:option:011  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Store SIMD&FP register (register offset)
+STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:1  20:16:Rm:  15:13:option:  12:12:S:  11:10:_:10  9:5:Rn:  4:0:Rt:> Store Register (register)
+*)
   (* LDR / STR (register offset) *)
   let load_store_reg_off insn =
     let%decode insn' = insn "31:30:size:F:10,29:27:_:F:111,26:26:V:F:0,25:24:_:F:00,23:22:opc:F:00,21:21:_:F:1,20:16:Rm:F:xxxxx,15:13:option:F:xxx,12:12:S:F:x,11:10:_:F:10,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let mem_sz = match size_v with
+        | 0 -> 8
+        | 1 -> 16
+        | 2 -> 32
+        | _ -> L.abort (fun p->p "impossible size")
+    in
     let sz = sf2sz (size_v lsr 1) in
     let rm, rn, rt = make_regs_ld_st (size_v lsr 1) rm_v rn_v rt_v in
     let shl_amount = if s_v = 1 then size_v else 0 in
-    let offset = extend_reg (Lval rm) option_v (const shl_amount sz) in
+    let offset = extend_reg sz (Lval rm) option_v shl_amount in
     let addr = BinOp(Add, Lval rn, offset) in
-    if opc_v = 1 then
+    if opc_v != 0 then begin
         (* load *)
-        [Set(rt, Lval(M(addr, sz)))]
-    else
+        if mem_sz < sz then
+            [Set(rt, (UnOp(ZeroExt sz,Lval(M(addr, mem_sz)))))]
+        else
+            [Set(rt, Lval(M(addr, mem_sz)))]
+    end else
         (* store *)
-        [Set(M(addr, sz), Lval(rt))]
+        [Set(M(addr, mem_sz), Lval(rt))]
 
 (*
 Signed:
@@ -623,6 +651,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
     let op3 = (insn lsr 23) land 3 in
     let op4 = (insn lsr 16) land 0x3F in
     let op5 = (insn lsr 10) land 3 in
+    L.debug (fun p->p "load_store: op0=%x op1=%x op2=%x op3=%x op4=%x op5=%x" op0 op1 op2 op3 op4 op5);
     (* unallocated opcodes *)
     if (op0 = 0 && op1 = 0 && op2 = 1 &&
         op3 land 1 = 0 && (op4 land 0x1F) != 0) ||
@@ -631,7 +660,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
        (op1 = 1 && op3 > 1) then
             error s.a (Printf.sprintf "Unallocated opcode 0x%x" insn);
     (* SIMD *)
-    if (op0 = 0) then
+    if (op0 = 0 && op1 =0 && op2 = 1) then
         error s.a (Printf.sprintf "SIMD load/store not decoded yet. opcode 0x%x" insn);
     if (op1 = 0b10) then
         load_store_pair insn op3
