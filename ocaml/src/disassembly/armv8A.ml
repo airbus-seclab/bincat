@@ -197,7 +197,7 @@ struct
         else
             Lval (V (reg_sf num sf))
 
-  (* helper for destination register, if we have XZR as dest, we generate 
+  (* helper for destination register, if we have XZR as dest, we generate
    * a temporary register and return a pair *)
   let get_Rd_lv ?(use_sp = false) insn sf =
         let num = (insn land 0x1F) in
@@ -288,9 +288,9 @@ struct
         let len = log2 ((n lsl 7) lor (lnot imms)) in
         let levels = (1 lsl len)-1 in
         let s = imms land levels in
-        let r = immr land levels in 
+        let r = immr land levels in
         let diff = s-r in
-        (*        
+        (*
            // From a software perspective, the remaining code is equivalant to:
             //   esize = 1 << len;
             //   d = UInt(diff<len-1:0>);
@@ -357,7 +357,7 @@ struct
     let shift = get_shifted_imm s shift_v imm12_v sz in
     let rd, post = get_Rd_lv ~use_sp:(not s_b) rd_v sf_v in
     L.debug (fun p->p "coincoin %s" (Asm.string_of_lval rd true));
-    let rn = get_reg_exp ~use_sp:true rn_v sf in 
+    let rn = get_reg_exp ~use_sp:true rn_v sf in
     (add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd rd_v sf s_b) @ post
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with shifted register *)
@@ -368,8 +368,8 @@ struct
     let sz = sf2sz sf_v in
     let s_b = s_v = 1 in (* set flags ? *)
     let rd, post = get_Rd_lv rd_v sf_v in
-    let rn = get_reg_exp rn_v sf_v in 
-    let rm = get_reg_exp rm_v sf_v in 
+    let rn = get_reg_exp rn_v sf_v in
+    let rm = get_reg_exp rm_v sf_v in
     let shifted_rm =  get_shifted_reg sz insn rm imm6_v in
     (add_sub_core sz rd rn op_v shifted_rm s_b) @ post
 
