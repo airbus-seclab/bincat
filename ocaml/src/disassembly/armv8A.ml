@@ -783,7 +783,7 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
          [Jmp(A(Address.add_offset s.a signed_offset))],
          [Nop])]
 
-
+  (* Branches, Exception Generating and System instructions *)
   let branch (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 29) land 7 in
     let op1 = (insn lsr 22) land 15 in
