@@ -18,8 +18,10 @@ doc/generated
 *.egg-info
 *.swp
 *.egg
-python/test/**
+test/**
 tags
 ocaml/src/bincat_native
 ocaml/test/.cache
 ocaml/src/bincat_ver.ml
+*.no
+
