@@ -35,7 +35,8 @@ sig
       libname: string; (** name of its library *) 
       prologue: Asm.stmt list; (** tranfer operations for its prologue *)
       stub: Asm.stmt list; (** transfer operations for the function itself *)
-      epilogue: Asm.stmt list (** transfer operations for its epilogue *) 
+      epilogue: Asm.stmt list; (** transfer operations for its epilogue *) 
+      ret_addr: Asm.exp (** return addr *)
   }
 
   (** mapping from code addresses to library functions *)

@@ -933,6 +933,7 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
         Imports.prologue = [];
         Imports.stub = [];
         Imports.epilogue = [];
+        Imports.ret_addr =  Lval(V(T(x30)))
       } in
       Hashtbl.add Imports.tbl a' fun_desc in
     Hashtbl.iter add_import_to_table  Config.import_tbl;

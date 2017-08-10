@@ -48,7 +48,7 @@ struct
   let r10 = Register.make ~name:"r10" ~size:32;;
   let r11 = Register.make ~name:"r11" ~size:32;;
   let r12 = Register.make ~name:"r12" ~size:32;;
-  let sp = Register.make_sp ~name:"sp" ~size:32;;
+  let sp = Register.make ~name:"sp" ~size:32;;
   let lr = Register.make ~name:"lr" ~size:32;;
   let pc = Register.make ~name:"pc" ~size:32;;
 
@@ -226,7 +226,7 @@ struct
           end
         else ()
       done;
-      if instruction land (1 lsl 21) = 0 then
+      if instruction land (1 lsl 21) <> 0 then
         stmts := !stmts @
           [ Set (V (reg rn), BinOp(dir_op, Lval (V (reg rn)), const (4*(!reg_count)) 32)) ];
       if !update_pc then
@@ -564,8 +564,16 @@ struct
               false
            | _ -> L.abort (fun p -> p "unexpected opcode %x" opcode)
          end
-       else  (* MRS/MSR *)
+       else  (* Misc + MRS/MSR *)
          begin
+           (* MISC: op1 = 00xx0 && op = 0 *)
+           if (instruction lsr 23) land 3 = 2 && (instruction land (1 lsl 7)) = 0 then
+                (* op0 = 1 & op1 = 1 => BX*)
+                if (instruction lsr 21) land 3 = 1 && (instruction lsr 4) land 7 = 1 then
+                  [ Set (V (T pc), Lval(V(reg (instruction land 0xf)))) ], [], true
+                else
+                  L.abort (fun p -> p "unhandled misc opcode %x" opcode)
+           else
            match (instruction lsr 18) land 0xf with
            | 0b0011 -> (* MRS *)
               if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
@@ -594,7 +602,7 @@ struct
                   Set (V (T vflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 28) 32), zero32),
                                            const 0 1, const 1 1)) ], [], false
               else error s.a "MSR to SPSR not supported"
-           | _ -> error s.a "unkonwn MSR/MRS opcode"
+           | _ -> error s.a "unknown MSR/MRS opcode"
          end in
     let stmt_cc =
       if set_cond_codes
@@ -775,6 +783,7 @@ struct
         Imports.prologue = [];
         Imports.stub = [];
         Imports.epilogue = [];
+        Imports.ret_addr = Lval(V(T(lr)))
       } in
       Hashtbl.add Imports.tbl a' fun_desc in
     Hashtbl.iter add_import_to_table  Config.import_tbl;
