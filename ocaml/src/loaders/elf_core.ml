@@ -406,7 +406,7 @@ let sh_type_to_string sht =
 (* ELF section header *)
 
 type e_shdr_t = {
-  index        : int ;
+  p_sh_index        : int ;
   sh_name      : Z.t ;
   sh_type      : sh_type_t ;
   sh_flags     : Z.t ;
@@ -428,7 +428,7 @@ let to_shdr s hdr shidx =
       | ELFCLASS_64 -> 8 in
     let shofs = (Z.to_int hdr.e_shoff)+(shidx*hdr.e_shentsize) in
     {
-      index     = shidx ;
+      p_sh_index     = shidx ;
       sh_name   = zdec_word s shofs hdr.e_ident ;
       sh_type   = to_sh_type (zdec_word s (shofs+4) hdr.e_ident) ;
       sh_flags  = zdec_word_xword s (shofs+8) hdr.e_ident ;
@@ -446,7 +446,7 @@ let linked_shdr shdr shdrs =
 
 let sh_to_string sh =
   Printf.sprintf "idx=%3i %04x %-10s flags=%04x addr=%08x off=%08x sz=%08x link=%2i info=%2i align=%x entsize=%x"
-    sh.index
+    sh.p_sh_index
     (Z.to_int sh.sh_name)
     (sh_type_to_string sh.sh_type)
     (Z.to_int sh.sh_flags)
@@ -558,9 +558,9 @@ let st_type_to_string typ =
 (* ELF symbol table *)
 
 type e_sym_t = {
-  shdr     : e_shdr_t ;
+  p_st_shdr: e_shdr_t ;
   st_name  : Z.t ;
-  name     : string ;
+  p_st_name : string ;
   st_value : Z.t ;
   st_size  : Z.t ;
   st_bind  : st_bind_t ;
@@ -574,8 +574,8 @@ let to_sym s ofs shdr strtab ident =
   match ident.e_class with
   | ELFCLASS_32 ->
      {
-       shdr = shdr ;
-       name = get_string s strtab stridx ;
+       p_st_shdr = shdr ;
+       p_st_name = get_string s strtab stridx ;
        st_name = stridx ;
        st_value = zdec_addr s (ofs+4) ident ;
        st_size = zdec_word s (ofs+8) ident ;
@@ -586,8 +586,8 @@ let to_sym s ofs shdr strtab ident =
      }
   | ELFCLASS_64 ->
      {
-       shdr = shdr ;
-       name = get_string s strtab stridx ;
+       p_st_shdr = shdr ;
+       p_st_name = get_string s strtab stridx ;
        st_name = stridx ;
        st_bind = to_st_bind (dec_byte s (ofs+4) lsr 4);
        st_type = to_st_type (dec_byte s (ofs+4) land 0xf);
@@ -597,16 +597,16 @@ let to_sym s ofs shdr strtab ident =
        st_size = zdec_xword s (ofs+16) ident;
      }
 
-let sym_to_string (sym:e_sym_t) =
+let sym_to_string sym =
   Printf.sprintf "shidx=%2i val=%08x size=%08x bind=%-6s type=%-7s other=%x shndx=%2i %s"
-    sym.shdr.index
+    sym.p_st_shdr.p_sh_index
     (Z.to_int sym.st_value)
     (Z.to_int sym.st_size)
     (st_bind_to_string sym.st_bind)
     (st_type_to_string sym.st_type)
     (Z.to_int sym.st_other)
     (Z.to_int sym.st_shndx)
-    sym.name
+    sym.p_st_name
 
 
 (* ELF relocation types *)
@@ -652,8 +652,8 @@ let reloc_type_to_string rel =
 (* ELF SHT_REL relocation entries *)
 
 type e_rel_t = {
-  shdr : e_shdr_t ;
-  sym : e_sym_t ;
+  p_r_shdr : e_shdr_t ;
+  p_r_sym : e_sym_t ;
   r_offset : Z.t ;
   r_sym : Z.t ;
   r_type : reloc_type_t ;
@@ -665,11 +665,11 @@ let to_rel s rofs shdr symtab hdr =
     | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
   let symnum = Z.logand (Z.shift_right info shift) mask in
-  let syms = List.filter (fun (sym:e_sym_t) -> sym.shdr.index = shdr.sh_link) symtab in
+  let syms = List.filter (fun sym -> sym.p_st_shdr.p_sh_index = shdr.sh_link) symtab in
   let sym = List.nth syms (Z.to_int symnum) in
   {
-    shdr = shdr ;
-    sym = sym ;
+    p_r_shdr = shdr ;
+    p_r_sym = sym ;
     r_offset = zdec_addr s rofs hdr.e_ident ;
     r_sym = symnum ;
     r_type = to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
@@ -677,17 +677,19 @@ let to_rel s rofs shdr symtab hdr =
 
 let rel_to_string (rel:e_rel_t) =
   Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s %s"
-    rel.shdr.index
+    rel.p_r_shdr.p_sh_index
     (Z.to_int rel.r_offset)
     (Z.to_int rel.r_sym)
     (reloc_type_to_string rel.r_type)
-    rel.sym.name
+    rel.p_r_sym.p_st_name
+
+
 
 (* ELF SHT_RELA relocation entries *)
 
 type e_rela_t = {
-  shdr : e_shdr_t ;
-  sym : e_sym_t ;
+  p_r_shdr : e_shdr_t ;
+  p_r_sym : e_sym_t ;
   r_offset : Z.t ;
   r_sym : Z.t ;
   r_type : reloc_type_t ;
@@ -700,11 +702,11 @@ let to_rela s rofs shdr symtab hdr =
     | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
   let symnum = Z.logand (Z.shift_right info shift) mask in
-  let syms = List.filter (fun (sym:e_sym_t) -> sym.shdr.index = shdr.sh_link) symtab in
+  let syms = List.filter (fun (sym:e_sym_t) -> sym.p_st_shdr.p_sh_index = shdr.sh_link) symtab in
   let sym = List.nth syms (Z.to_int symnum) in
   {
-    shdr = shdr ;
-    sym = sym ;
+    p_r_shdr = shdr ;
+    p_r_sym = sym ;
     r_offset= zdec_addr s rofs hdr.e_ident ;
     r_sym = symnum ;
     r_type = to_reloc_type (Z.to_int (Z.logand info mask)) hdr;
@@ -713,12 +715,12 @@ let to_rela s rofs shdr symtab hdr =
 
 let rela_to_string (rela:e_rela_t) =
   Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s addend=%-09x %s"
-    rela.shdr.index
+    rela.p_r_shdr.p_sh_index
     (Z.to_int rela.r_offset)
     (Z.to_int rela.r_sym)
     (reloc_type_to_string rela.r_type)
     (Z.to_int rela.r_addend)
-    rela.sym.name
+    rela.p_r_sym.p_st_name
 
 
 (* ELF *)
