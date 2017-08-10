@@ -426,7 +426,7 @@ struct
     let imm_c = const imm_s sz in
     let imm_f = match opc_v with
         | 0b00 -> (* MOVN *) UnOp(Not, imm_c)
-        | 0b10 -> (* MOVZ *) imm_c
+        | 0b10 -> (* MOVZ *) UnOp(ZeroExt sz, imm_c)
         | 0b11 -> (* MOVK *)
                 (* compute 0x...FFFF0000 mask *)
                 let mask = Z.logxor (Z.sub (Z.shift_left Z.one sz) Z.one) (Z.of_int (0xFFFF lsl shift)) in
