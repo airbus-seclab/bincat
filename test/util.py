@@ -256,7 +256,7 @@ class ARM(Arch):
     AS_TMP_DIR = counter("arm-as-%i")
     AS = ["arm-linux-gnueabi-as"]
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
-    OBJDUMP = ["objdump", "-m", "arm"]
+    OBJDUMP = ["arm-linux-gnueabi-objdump", "-m", "arm"]
     EGGLOADER = "eggloader_armv7"
     QEMU = "qemu-arm"
     def assemble(self, tmpdir, asm):
@@ -296,7 +296,7 @@ class AARCH64(ARM):
                  "n", "z", "c", "v"]
     AS = ["aarch64-linux-gnu-as"]
     OBJCOPY = ["aarch64-linux-gnu-objcopy"]
-    OBJDUMP = ["objdump", "-m", "aarch64"]
+    OBJDUMP = ["aarch64-linux-gnu-objdump", "-m", "aarch64"]
     EGGLOADER = "eggloader_armv8"
     QEMU = "qemu-aarch64"
 
