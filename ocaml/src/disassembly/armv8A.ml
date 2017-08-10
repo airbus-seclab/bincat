@@ -484,6 +484,18 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     in
     res
 
+  let extr s insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:29:op21:F:00,28:23:_:F:100111,22:22:N:F:0,21:21:o0:F:0,20:16:Rm:F:xxxxx,15:10:imms:F:0xxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+    let sz = sf2sz sf_v in
+    let rn = get_reg_lv rn_v sf_v in
+    let rm = get_reg_lv rm_v sf_v in
+    let rd = get_reg_lv rd_v sf_v in
+    let tmp = Register.make (Register.fresh_name ()) (2*sz) in
+    let tmp_v = V(T(tmp)) in
+    [ Set(tmp_v, Lval rn); Set(tmp_v, BinOp(Or, BinOp(Shl, Lval tmp_v, const sz (sz*2)), Lval rm));
+      Set(rd, Lval(V(P(tmp, imms_v, imms_v+sz)))); Directive(Remove tmp)]
+
+
   (* data processing with immediates *)
   let data_processing_imm (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 23) land 7 in
@@ -494,7 +506,7 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
         | 0b100         -> logic_imm s insn
         | 0b101 -> mov_wide s insn
         | 0b110 -> bitfield s insn
-        | 0b111 -> (* XXX *) error s.a (Printf.sprintf "Extract (imm) not decoded (0x%x)" insn)
+        | 0b111 -> extr s insn
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
     in stmts
 
