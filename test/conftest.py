@@ -2,7 +2,22 @@
 import pytest
 
 
-
+def armv8_bitmasks():
+    res = []
+    size = 2
+    while size <= 64:
+        for length in range(1, size):
+            result = 0xffffffffffffffff >> (64 - length)
+            e = size
+            while e < 64:
+                result |= result << e
+                e *= 2
+            for rotation in range(0, size):
+                result = (result >> 63) | (result << 1)
+                result &= 0xFFFFFFFFFFFFFFFF
+                res.append(result)
+        size *= 2
+    return res
 
 class TestValues:
     _name = "NA"
@@ -18,6 +33,7 @@ class TestValues:
     armv7shift = [0, 31]
     armv7op = [1, 0xff]
     x86carryop = [ "stc", "clc"]
+    armv8bitmasks = armv8_bitmasks()[0:10]
 
 class Large(TestValues):
     _name = "large"

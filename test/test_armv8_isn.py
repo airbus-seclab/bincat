@@ -30,13 +30,24 @@ def test_data_xfer_offsets(tmpdir, armv8off):
     compare(tmpdir, asm, ["x0", "x1", "x2", "x3", "x4"])
 
 @mov_imm
-def test_mov(tmpdir, op):
+def test_mov(tmpdir, op, op16):
     asm = """
-        {op} x0, 124
+        mov x0, 0
+        sub x0, x0, 1
+        {op} x0, #{op16}
         mov w1, w0
         mov w2, w1
     """.format(**locals())
     compare(tmpdir, asm, ["x0","x1","x2"])
+
+@dataop_comp_logic
+def test_data_proc_logic_imm(tmpdir, op, armv7op, armv7op_, armv8bitmasks):
+    asm = """
+            mov x0, #{armv7op}
+            mov x1, #{armv7op_}
+            {op} x2, x0, #{armv8bitmasks}
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0","x1", "x2"])
 
 @dataop_comp_logic
 def test_data_proc_logic(tmpdir, op, armv7op, armv7op_):
