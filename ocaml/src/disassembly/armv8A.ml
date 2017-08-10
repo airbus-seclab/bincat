@@ -623,7 +623,10 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
     in
     if opc_v = 1 then
         (* load *)
-        [Set(rt, Lval(M(addr, mem_sz)))]@post
+        if mem_sz < 32 then
+            [Set(rt, (UnOp(ZeroExt 32,Lval(M(addr, mem_sz)))))] @ post
+        else
+            [Set(rt, Lval(M(addr, mem_sz)))] @ post
     else
         (* store *)
         [Set(M(addr, mem_sz), Lval(rt))]@post
@@ -648,13 +651,16 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
         | _ -> L.abort (fun p->p "impossible size")
     in
     let sf = (size_v land 1) in
+    let sz = sf2sz sf in
     let rn = get_reg_lv ~use_sp:true rn_v 1 in
     let rt = get_reg_lv rt_v sf in
     let offset = sign_extension (Z.of_int (imm12_v lsl size_v)) 14 64 in
     let addr = BinOp(Add, Lval(rn), Const (Word.of_int offset 64)) in
     if opc_v = 1 then
-        (* load *)
-        [Set(rt, Lval(M(addr, mem_sz)))]
+        if mem_sz < sz then
+            [Set(rt, (UnOp(ZeroExt sz,Lval(M(addr, mem_sz)))))]
+        else
+            [Set(rt, Lval(M(addr, mem_sz)))]
     else
         (* store *)
         [Set(M(addr, mem_sz), Lval(rt))]
