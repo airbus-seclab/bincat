@@ -386,9 +386,9 @@
 
       state_item:
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET EQUAL v=init    { init_register r v }
-    | MEM LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init    { Hashtbl.add Config.memory_content m v }
-    | STACK LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init  { Hashtbl.add Config.stack_content m v }
-    | HEAP LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init   { Hashtbl.add Config.heap_content m v }
+    | MEM LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init    { Config.memory_content := (m, v) :: !Config.memory_content }
+    | STACK LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init  { Config.stack_content := (m, v)  :: !Config.stack_content }
+    | HEAP LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init   { Config.heap_content := (m, v) :: !Config.heap_content }
 
       repeat:
     | i=INT { i, 1 }

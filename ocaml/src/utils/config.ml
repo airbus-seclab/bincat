@@ -21,7 +21,6 @@ let fun_unroll = ref 50;;
 let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
-  
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
@@ -68,7 +67,7 @@ let mode = ref Protected
 
 let in_mcfa_file = ref "";;
 let out_mcfa_file = ref "";;
-  
+
 let load_mcfa = ref false;;
 let store_mcfa = ref false;;
 
@@ -113,9 +112,9 @@ let fs = ref Z.zero
 let gs = ref Z.zero
 
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
-(** after the first forward analysis from binary has been performed *) 
+(** after the first forward analysis from binary has been performed *)
 let interleave = ref false
-  
+
 type tvalue =
   | Taint of Z.t
   | TMask of Z.t * Z.t (* second element is a mask on the first one *)
@@ -130,20 +129,19 @@ let reg_override: (Z.t, ((string * (Register.t -> tvalue)) list)) Hashtbl.t = Ha
 let mem_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
 let heap_override: (Z.t, (Z.t * tvalue) list) Hashtbl.t = Hashtbl.create 5
-  
-    
-(* tables for the initialisation of the global memory, stack and heap *)
-(* first element in the key is the address ; second one is the number of repetition *)
-type ctbl = (Z.t * int, cvalue * (tvalue option)) Hashtbl.t
+
+(* lists for the initialisation of the global memory, stack and heap *)
+(* first element is the key is the address ; second one is the number of repetition *)
+type mem_init_t = ((Z.t * int) * (cvalue * (tvalue option))) list
 
 let register_content: (string, (Register.t -> cvalue * tvalue option)) Hashtbl.t = Hashtbl.create 10
-let memory_content: ctbl = Hashtbl.create 10
-let stack_content: ctbl = Hashtbl.create 10
-let heap_content: ctbl = Hashtbl.create 10
+let memory_content: mem_init_t ref = ref []
+let stack_content: mem_init_t ref = ref []
+let heap_content: mem_init_t ref = ref []
 
 type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
 let sections: sec_t = ref []
-  
+
 let import_tbl: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
 
 (* tainting and typing rules for functions *)
@@ -151,7 +149,6 @@ type taint_t =
   | No_taint
   | Buf_taint
   | Addr_taint
-      
 
 (** data stuctures for the assertions *)
 let assert_untainted_functions: (Z.t, taint_t list) Hashtbl.t = Hashtbl.create 5
@@ -167,11 +164,11 @@ let typing_rules : (string, TypedC.ftyp) Hashtbl.t = Hashtbl.create 5
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;
   Hashtbl.clear assert_tainted_functions;
-  Hashtbl.clear memory_content;
-  Hashtbl.clear stack_content;
-  Hashtbl.clear heap_content;
   Hashtbl.clear import_tbl;
   Hashtbl.clear reg_override;
   Hashtbl.clear mem_override;
   Hashtbl.clear stack_override;
-  Hashtbl.clear heap_override
+  Hashtbl.clear heap_override;
+  memory_content := [];
+  stack_content := [];
+  heap_content := [];
