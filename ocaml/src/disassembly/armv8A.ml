@@ -484,6 +484,7 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     in
     res
 
+  (* EXTR *)
   let extr s insn =
     let%decode insn' = insn "31:31:sf:F:0,30:29:op21:F:00,28:23:_:F:100111,22:22:N:F:0,21:21:o0:F:0,20:16:Rm:F:xxxxx,15:10:imms:F:0xxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     let sz = sf2sz sf_v in
@@ -492,8 +493,8 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     let rd = get_reg_lv rd_v sf_v in
     let tmp = Register.make (Register.fresh_name ()) (2*sz) in
     let tmp_v = V(T(tmp)) in
-    [ Set(tmp_v, Lval rn); Set(tmp_v, BinOp(Or, BinOp(Shl, Lval tmp_v, const sz (sz*2)), Lval rm));
-      Set(rd, Lval(V(P(tmp, imms_v, imms_v+sz)))); Directive(Remove tmp)]
+    [ Set(tmp_v, UnOp(ZeroExt (sz*2),Lval rn)); Set(tmp_v, BinOp(Or, BinOp(Shl, Lval tmp_v, const sz (sz*2)), UnOp(ZeroExt (sz*2), Lval rm)));
+      Set(rd, Lval(V(P(tmp, imms_v, imms_v+sz-1)))); Directive(Remove tmp)]
 
 
   (* data processing with immediates *)
@@ -564,7 +565,7 @@ STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
         | 3 -> 64
         | _ -> L.abort (fun p->p "impossible size")
     in
-    let sf = (size_v lsr 1) in
+    let sf = (size_v land 1) in
     let sz = sf2sz sf in
     let rm = get_reg_lv rm_v sf in
     let rn = get_reg_lv ~use_sp:true rn_v sf in
@@ -646,8 +647,9 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
         | 3 -> 64
         | _ -> L.abort (fun p->p "impossible size")
     in
+    let sf = (size_v land 1) in
     let rn = get_reg_lv ~use_sp:true rn_v 1 in
-    let rt = get_reg_lv rt_v 1 in
+    let rt = get_reg_lv rt_v sf in
     let offset = sign_extension (Z.of_int (imm12_v lsl size_v)) 14 64 in
     let addr = BinOp(Add, Lval(rn), Const (Word.of_int offset 64)) in
     if opc_v = 1 then
