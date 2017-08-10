@@ -55,11 +55,27 @@ let make_mapped_mem () =
           } in
           L.debug(fun p -> p "ELF loading: %s" (section_to_string section));
           section :: (sections_from_ph tail)
-       | _ -> sections_from_ph tail
-  in
+       | _ -> sections_from_ph tail in
   let sections = sections_from_ph elf.ph in
+  let max_addr = List.fold_left (fun mx sec -> Z.max mx (Data.Address.to_int sec.virt_addr_end)) Z.zero sections in
+  let reloc_end_addr = List.fold_left (fun addr (rel:e_rel_t) ->
+    let sym_name = rel.p_r_sym.Elf_core.p_st_name in
+    L.debug (fun p -> p "Relocate %s at %08x ; patch address %08x"
+        sym_name (Z.to_int addr) (Z.to_int rel.r_offset)) ;
+    patch_rel mapped_file rel addr elf ;
+    Hashtbl.replace Config.import_tbl addr ("all", sym_name) ;
+    Z.(addr + ~$4)) max_addr elf.rel in
+  let reloc_sec = {
+    virt_addr = Data.Address.global_of_int max_addr ;
+    virt_addr_end = Data.Address.global_of_int reloc_end_addr ;
+    virt_size = Z.(reloc_end_addr - max_addr) ;
+    raw_addr = Z.zero ;
+    raw_addr_end = Z.zero ;
+    raw_size = Z.zero ;
+    name = "relocations" ;
+  } in
   {
     mapped_file = mapped_file ;
-    sections  = sections ;
+    sections  = sections @ [ reloc_sec ] ;
     entrypoint = entrypoint ;
   }
