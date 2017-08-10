@@ -59,7 +59,7 @@ CMX = $(ML:.ml=.cmx)
 
 DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I domains -I data-struct -I utils -I disassembly -I frontend -I loaders
 
-CAMLOPTIONS = -g -w Ael -warn-error +a-7-50-42 $(DIROPT)
+CAMLOPTIONS = -g -w Ael -warn-error +a-7-50-42-44 $(DIROPT)
 
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt
