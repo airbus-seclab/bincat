@@ -414,7 +414,7 @@ type e_shdr_t = {
   sh_offset    : Z.t ;
   sh_size      : Z.t ;
   sh_link      : int ;
-  sh_info      : Z.t ;
+  sh_info      : int ;
   sh_addralign : Z.t ;
   sh_entsize   :  Z.t ;
 }
@@ -436,7 +436,7 @@ let to_shdr s hdr shidx =
       sh_offset = zdec_off s (shofs+8+2*addrsz) hdr.e_ident ;
       sh_size   = zdec_word_xword s (shofs+8+3*addrsz) hdr.e_ident ;
       sh_link   = Z.to_int (zdec_word s (shofs+8+4*addrsz) hdr.e_ident) ;
-      sh_info   = zdec_word s (shofs+12+4*addrsz) hdr.e_ident ;
+      sh_info   = Z.to_int (zdec_word s (shofs+12+4*addrsz) hdr.e_ident) ;
       sh_addralign = zdec_word_xword s (shofs+16+4*addrsz) hdr.e_ident ;
       sh_entsize = zdec_word_xword s (shofs+16+5*addrsz) hdr.e_ident ;
     }
@@ -454,7 +454,7 @@ let sh_to_string sh =
     (Z.to_int sh.sh_offset)
     (Z.to_int sh.sh_size)
     sh.sh_link
-    (Z.to_int sh.sh_info)
+    sh.sh_info
     (Z.to_int sh.sh_addralign)
     (Z.to_int sh.sh_entsize)
 
