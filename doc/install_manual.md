@@ -19,7 +19,9 @@ distributions.
 
 on Debian Sid:
 ```
-apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev libocamlgraph-ocaml-dev python-setuptools python-dev
+apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
+  libocamlgraph-ocaml-dev python-setuptools python-dev libppx-core-ocaml-dev \
+  libppx-tools-ocaml-dev ocaml-compiler-libs
 ```
 
 on Ubuntu 16.04:
