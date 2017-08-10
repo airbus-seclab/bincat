@@ -2467,8 +2467,10 @@ struct
                 Imports.name = fname;
                 Imports.prologue = [];
                 Imports.stub = [];
-                Imports.epilogue = [];
-                Imports.ret_addr = Lval(M(Lval(V(T(esp))), 32))
+                (* Fix ESP: ret emulation *)
+                Imports.epilogue = [Set(V(T(esp)), BinOp(Add, Lval (V(T(esp))), const 4 32)) ];
+                (* Get return address from the stack, ESP already has been fixed by the 'ret' *)    
+                Imports.ret_addr = Lval(M(BinOp(Sub, Lval(V(T(esp))), const 4 32), 32))
             }
             in
             Hashtbl.add Imports.tbl a' fundec) Config.import_tbl;
