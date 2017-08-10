@@ -24,6 +24,10 @@ module L = Log.Make(struct let name = "elf" end)
 let dec_byte s ofs = Bigarray.Array1.get s ofs
 let zdec_byte s ofs = Z.of_int (dec_byte s ofs)
 
+let enc_byte s ofs b =
+  L.debug (fun p -> p "write %02x at %08x" b ofs);
+  s.{ofs} <- b
+let zenc_byte s ofs b = enc_byte s ofs (Z.to_int b)
 
 (* ELF ident data *)
 
@@ -176,6 +180,10 @@ let dec_half s ofs ident =
   | ELFDATA_2MSB -> (dec_byte s (ofs+1)) lor ((dec_byte s ofs) lsl 8)
 let zdec_half s ofs ident = Z.of_int (dec_half s ofs ident)
 
+let zenc_half s ofs half ident =
+  match ident.e_data with
+  | ELFDATA_2LSB -> zenc_byte s ofs Z.(half land ~$0xff) ; zenc_byte s (ofs+1) Z.(half asr 8)
+  | ELFDATA_2MSB -> zenc_byte s ofs Z.(half asr 8) ; zenc_byte s (ofs+1) Z.(half land ~$0xff)
 
 let zdec_word s ofs ident =
   match ident.e_data with
@@ -201,6 +209,19 @@ let zdec_sword s ofs ident =
   if Z.equal (Z.shift_right word 31) Z.zero
     then word
     else Z.pred (Z.lognot word) (* negative *)
+
+let zenc_word s ofs word ident = 
+  match ident.e_data with
+  | ELFDATA_2LSB ->
+     zenc_byte s ofs Z.(word land ~$0xff);
+     zenc_byte s (ofs+1) Z.((word asr 8) land ~$0xff);
+     zenc_byte s (ofs+2) Z.((word asr 16) land ~$0xff);
+     zenc_byte s (ofs+3) Z.((word asr 24) land ~$0xff)
+  | ELFDATA_2MSB ->
+     zenc_byte s ofs Z.((word asr 24) land ~$0xff);
+     zenc_byte s (ofs+1) Z.((word asr 16) land ~$0xff);
+     zenc_byte s (ofs+2) Z.((word asr 8) land ~$0xff);
+     zenc_byte s (ofs+3) Z.(word land ~$0xff)
 
 let zdec_xword s ofs ident =
   match ident.e_data with
@@ -243,11 +264,36 @@ let zdec_sxword s ofs ident =
     then xword
     else Z.pred (Z.lognot xword) (* negative *)
 
+let zenc_xword s ofs xword ident = 
+  match ident.e_data with
+  | ELFDATA_2LSB ->
+     zenc_byte s ofs Z.(xword land ~$0xff);
+     zenc_byte s (ofs+1) Z.((xword asr 8) land ~$0xff);
+     zenc_byte s (ofs+2) Z.((xword asr 16) land ~$0xff);
+     zenc_byte s (ofs+3) Z.((xword asr 24) land ~$0xff);
+     zenc_byte s (ofs+4) Z.((xword asr 32) land ~$0xff);
+     zenc_byte s (ofs+5) Z.((xword asr 40) land ~$0xff);
+     zenc_byte s (ofs+6) Z.((xword asr 48) land ~$0xff);
+     zenc_byte s (ofs+7) Z.((xword asr 56) land ~$0xff)
+  | ELFDATA_2MSB ->
+     zenc_byte s ofs Z.((xword asr 56) land ~$0xff);
+     zenc_byte s (ofs+1) Z.((xword asr 48) land ~$0xff);
+     zenc_byte s (ofs+2) Z.((xword asr 40) land ~$0xff);
+     zenc_byte s (ofs+3) Z.((xword asr 32) land ~$0xff);
+     zenc_byte s (ofs+4) Z.((xword asr 24) land ~$0xff);
+     zenc_byte s (ofs+5) Z.((xword asr 16) land ~$0xff);
+     zenc_byte s (ofs+6) Z.((xword asr 8) land ~$0xff);
+     zenc_byte s (ofs+7) Z.(xword land ~$0xff)
 
 let zdec_word_xword s ofs ident =
   match ident.e_class with
   | ELFCLASS_32 -> zdec_word s ofs ident
   | ELFCLASS_64 -> zdec_xword s ofs ident
+
+let zenc_word_xword s ofs wordxword ident =
+  match ident.e_class with
+  | ELFCLASS_32 -> zenc_word s ofs wordxword ident
+  | ELFCLASS_64 -> zenc_xword s ofs wordxword ident
 
 let zdec_off = zdec_word_xword
 
