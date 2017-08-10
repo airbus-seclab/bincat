@@ -444,6 +444,9 @@ let to_shdr s hdr shidx =
 let linked_shdr shdr shdrs =
   List.nth shdrs shdr.sh_link
 
+let info_shdr shdr shdrs =
+  List.nth shdrs shdr.sh_info
+
 let sh_to_string sh =
   Printf.sprintf "idx=%3i %04x %-10s flags=%04x addr=%08x off=%08x sz=%08x link=%2i info=%2i align=%x entsize=%x"
     sh.p_sh_index
