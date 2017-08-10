@@ -7,7 +7,7 @@ arm = AARCH64(
 )
 compare = arm.compare
 
-mov_imm = pytest.mark.parametrize("op", ["mov", "movk", "movn"])
+mov_imm = pytest.mark.parametrize("op", ["movz", "movk", "movn"])
 dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
 dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add"])
 
