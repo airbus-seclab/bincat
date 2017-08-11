@@ -20,6 +20,8 @@ let const1 sz = Const (Word.one sz)
 (** [const0 sz] builds an Asm constant 0 of size _sz_  *)
 let const0 sz = Const (Word.zero sz)
 
+let z_mask_ff bits = Z.sub (Z.shift_left Z.one bits) Z.one
+
 (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
 let sign_extension i sz nb =
     if Z.testbit i (sz-1) then

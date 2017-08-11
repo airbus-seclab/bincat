@@ -265,10 +265,9 @@ struct
 
 
   let ror_int value size amount =
-    let value_z = Z.of_int value in
     let mask = Z.sub (Z.shift_left Z.one (size-amount)) Z.one in
-    let v_sr = Z.logand (Z.shift_right value_z amount) mask in
-    let v_sl = Z.shift_left (Z.logand value_z (Z.sub (Z.shift_left Z.one amount) Z.one)) (size-amount) in
+    let v_sr = Z.logand (Z.shift_right value amount) mask in
+    let v_sl = Z.shift_left (Z.logand value (Z.sub (Z.shift_left Z.one amount) Z.one)) (size-amount) in
     Z.logor v_sr v_sl
 
   let replicate_z (value:Z.t) size final_size =
@@ -287,13 +286,13 @@ struct
     (*// Compute log2 of element size
     // 2^len must be in range [2, M]
     len = HighestSetBit(immN:NOT(imms));*)
-    let len = log2 (((n lsl 7) lor (lnot imms)) land 0x3F) in
+    let len = log2 (((n lsl 6) lor (lnot imms)) land 0x7F) in
     L.debug (fun p->p "decode_bitmask: len= %d" len); 
     let levels = (1 lsl len)-1 in
     let s = imms land levels in
     let r = immr land levels in
     L.debug (fun p->p "decode_bitmask: S=%x R=%x" s r); 
-    let diff = s-r in
+    let diff = (s-r) land 0x3F in
     (*
        // From a software perspective, the remaining code is equivalant to:
         //   esize = 1 << len;
@@ -305,12 +304,12 @@ struct
         //   return (wmask, tmask);
      *)
     let esize = 1 lsl len in
-    let welem = (1 lsl (s+1))-1 in
-    let telem = (1 lsl (diff+1))-1 in
+    let welem = z_mask_ff (s+1) in
+    let telem = z_mask_ff (diff+1) in
     let wmask_t = ror_int welem esize r in
     let wmask = replicate_z wmask_t esize sz in
-    let tmask = replicate_z (Z.of_int telem) esize sz in
-    L.debug (fun p->p "decode_bitmask: esize=%d welem=%x telem=%x wmask_t=%s wmask=%s tmask=%s" esize welem telem (Z.format "%x" wmask_t) (Z.format "%x" wmask) (Z.format "%x" tmask)); 
+    let tmask = replicate_z telem esize sz in
+    L.debug (fun p->p "decode_bitmask: esize=%d diff=%d welem=%s telem=%s wmask_t=%s wmask=%s tmask=%s" esize diff (Z.format "%x" welem) (Z.format "%x" telem) (Z.format "%x" wmask_t) (Z.format "%x" wmask) (Z.format "%x" tmask)); 
     wmask, tmask
 
   let extend_reg sz reg ext_type shift =
@@ -472,7 +471,9 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     let rored = ror sz (Lval rn) (const immr_v 6) in
     let res = match opc_v with
       | 2 -> begin (* UBFM *)
-          [Set(rd, BinOp(And, rored, Const(Word.of_int tmask sz)))]
+             (* bits(datasize) bot = ROR(src, R) AND wmask;
+                X[d] = bot AND tmask; *)
+          [Set(rd, BinOp(And, BinOp(And, rored,  Const(Word.of_int wmask sz)), Const(Word.of_int tmask sz)))]
         end
       | 1 -> begin (* BFM *)
           (*  (dst AND NOT(wmask)) OR (ROR(src, R) AND wmask); *)
