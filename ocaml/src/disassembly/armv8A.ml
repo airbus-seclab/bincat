@@ -526,6 +526,52 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     (* XXX *)
     error s.a (Printf.sprintf "Data processing (1 source) not decoded yet (0x%x)" insn)
 
+  (*
+MADD   <31:31:sf:0  30:29:op54:00  28:24:_:11011  23:21:op31:000         20:16:Rm:  15:15:o0:0  14:10:Ra:  9:5:Rn:  4:0:Rd:> Multiply-Add
+MSUB   <31:31:sf:0  30:29:op54:00  28:24:_:11011  23:21:op31:000         20:16:Rm:  15:15:o0:1  14:10:Ra:  9:5:Rn:  4:0:Rd:> Multiply-Subtract
+SMADDL <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:0  22:21:_:01  20:16:Rm:  15:15:o0:0  14:10:Ra:  9:5:Rn:  4:0:Rd:> Signed Multiply-Add Long
+SMSUBL <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:0  22:21:_:01  20:16:Rm:  15:15:o0:1  14:10:Ra:  9:5:Rn:  4:0:Rd:> Signed Multiply-Subtract Long
+UMADDL <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:1  22:21:_:01  20:16:Rm:  15:15:o0:0  14:10:Ra:  9:5:Rn:  4:0:Rd:> Unsigned Multiply-Add Long
+UMSUBL <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:1  22:21:_:01  20:16:Rm:  15:15:o0:1  14:10:Ra:  9:5:Rn:  4:0:Rd:> Unsigned Multiply-Subtract Long
+SMULH  <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:0  22:21:_:10  20:16:Rm:  15:15:o0:0  14:10:Ra:  9:5:Rn:  4:0:Rd:> Signed Multiply High
+UMULH  <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:1  22:21:_:10  20:16:Rm:  15:15:o0:0  14:10:Ra:  9:5:Rn:  4:0:Rd:> Unsigned Multiply High
+*)
+  let data_proc_3src s insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:29:op54:F:00,28:24:_:F:11011,23:21:op31:F:000,20:16:Rm:F:xxxxx,15:15:o0:F:1,14:10:Ra:F:xxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+    let op = if o0_v = 0 then Add else Sub in
+    if sf_v = 0 && (op31_v != 0) then
+      error s.a (Printf.sprintf "invalid instruction 0x%x" insn);
+    let sz = sf2sz sf_v in
+    let tmp = Register.make (Register.fresh_name ()) (sz*2) in
+    let u_v = op31_v lsr 2 in
+    match op31_v with
+    | 0 ->
+        (* MADD / MSUB *)
+        let rd = get_reg_lv rd_v sf_v in
+        let rn = get_reg_exp rn_v sf_v in
+        let rm = get_reg_exp rm_v sf_v in
+        let ra = get_reg_exp ra_v sf_v in
+        [ Set(V(T(tmp)), BinOp(op, UnOp(ZeroExt (sz*2), ra), BinOp(Mul, rn, rm)));
+          Set(rd, Lval(V(P(tmp, 0, sz-1))));
+          Directive(Remove tmp) ]
+    | 2 | 6 ->
+          (* [US]MULH *)
+          let rd = get_reg_lv rd_v 1 in
+          let rn = get_reg_exp rn_v 1 in
+          let rm = get_reg_exp rm_v 1 in
+          [ Set(V(T(tmp)), if u_v = 1 then BinOp(Mul, rn, rm) else BinOp(IMul, rn, rm));
+            Set(rd, Lval(V(P(tmp, sz, sz*2-1))));
+            Directive(Remove tmp) ]
+    | _ ->
+          (* [US]M(ADD|SUB)L *)
+          let rd = get_reg_lv rd_v 1 in
+          let rn = get_reg_exp rn_v 0 in
+          let rm = get_reg_exp rm_v 0 in
+          let ra = get_reg_exp ra_v 1 in
+          [ Set(V(T(tmp)), BinOp(op, ra, if u_v = 1 then BinOp(Mul, rn, rm) else BinOp(IMul, rn, rm)));
+            Set(rd, Lval(V(P(tmp, sz, 64))));
+            Directive(Remove tmp) ]
+
   (* data processing with registers *)
   let data_processing_reg (s: state) (insn: int): (Asm.stmt list) =
     let op0 = (insn lsr 30) land 1 in
@@ -546,7 +592,12 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
             else (* op2 = 1xxx *)
                 add_sub_reg s insn (op2 land 1)
         else
-            []
+            match op2 with
+                | 0 -> error s.a (Printf.sprintf "ADD/SUB with carry not decoded yet (0x%x)" insn)
+                | 2 -> error s.a (Printf.sprintf "cond compare not decoded yet (0x%x)" insn)
+                | 4 -> error s.a (Printf.sprintf "cond select not decoded yet (0x%x)" insn)
+                | _ when op2 >= 8 && op2 <= 15 -> data_proc_3src s insn
+                | _-> error s.a (Printf.sprintf "invalid opcode (0x%x)" insn)
     end
 
 (*
