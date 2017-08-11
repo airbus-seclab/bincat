@@ -49,8 +49,8 @@ struct
   (* strlen *)
   let strlen_aapcs () =
     let buf = Lval (V (T (Register.of_name "r0"))) in
-    let res = Register.of_name "r0" in
-    [ Directive (Stub ("strlen",  [Lval (V (T res)) ; buf])) ]
+    let res = reg "r0" in
+    [ Directive (Stub ("strlen",  [res ; buf])) ]
 
   (* memcpy *)
   let memcpy_aapcs () =
