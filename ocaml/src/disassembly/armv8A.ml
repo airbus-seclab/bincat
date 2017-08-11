@@ -265,48 +265,53 @@ struct
 
 
   let ror_int value size amount =
-      let mask = (1 lsl (size-amount))-1 in
-      let v_sr = (value lsr amount) land mask in
-      let v_sl = (value land ((1 lsl amount)-1)) lsl amount in
-      v_sr lor v_sl
+    let value_z = Z.of_int value in
+    let mask = Z.sub (Z.shift_left Z.one (size-amount)) Z.one in
+    let v_sr = Z.logand (Z.shift_right value_z amount) mask in
+    let v_sl = Z.shift_left (Z.logand value_z (Z.sub (Z.shift_left Z.one amount) Z.one)) (size-amount) in
+    Z.logor v_sr v_sl
 
-  let replicate_int value size final_size =
+  let replicate_z (value:Z.t) size final_size =
         if final_size mod size != 0 then
-          L.abort (fun p->p "Invalid replicate params %x %x %x" value size final_size);
-        let res = ref 0 in
+          L.abort (fun p->p "Invalid replicate params %s %x %x" (Z.to_string value) size final_size);
+        let res = ref Z.zero in
         for i = 0 to (final_size/size-1) do
-          res := !res lor (value lsl (size * i));
+          res :=  Z.logor !res (Z.shift_left value (size * i));
         done;
         !res
 
   let rec log2 n =
     if n <= 1 then 0 else 1 + log2(n asr 1)
-  let decode_bitmasks sz n immr imms is_imm =
+  let decode_bitmasks sz n imms immr is_imm =
+    L.debug (fun p->p "decode_bitmask(%d,%d,%x,%x)" sz n imms immr); 
     (*// Compute log2 of element size
     // 2^len must be in range [2, M]
     len = HighestSetBit(immN:NOT(imms));*)
-        let len = log2 ((n lsl 7) lor (lnot imms)) in
-        let levels = (1 lsl len)-1 in
-        let s = imms land levels in
-        let r = immr land levels in
-        let diff = s-r in
-        (*
-           // From a software perspective, the remaining code is equivalant to:
-            //   esize = 1 << len;
-            //   d = UInt(diff<len-1:0>);
-            //   welem = ZeroExtend(Ones(S + 1), esize);
-            //   telem = ZeroExtend(Ones(d + 1), esize);
-            //   wmask = Replicate(ROR(welem, R));
-            //   tmask = Replicate(telem);
-            //   return (wmask, tmask);
-         *)
-        let esize = 1 lsl len in
-        let welem = (1 lsl (s+1))-1 in
-        let telem = (1 lsl (diff+1))-1 in
-        let wmask_t = ror_int welem esize r in
-        let wmask = replicate_int wmask_t esize sz in
-        let tmask = replicate_int telem esize sz in
-        wmask, tmask
+    let len = log2 (((n lsl 7) lor (lnot imms)) land 0x3F) in
+    L.debug (fun p->p "decode_bitmask: len= %d" len); 
+    let levels = (1 lsl len)-1 in
+    let s = imms land levels in
+    let r = immr land levels in
+    L.debug (fun p->p "decode_bitmask: S=%x R=%x" s r); 
+    let diff = s-r in
+    (*
+       // From a software perspective, the remaining code is equivalant to:
+        //   esize = 1 << len;
+        //   d = UInt(diff<len-1:0>);
+        //   welem = ZeroExtend(Ones(S + 1), esize);
+        //   telem = ZeroExtend(Ones(d + 1), esize);
+        //   wmask = Replicate(ROR(welem, R));
+        //   tmask = Replicate(telem);
+        //   return (wmask, tmask);
+     *)
+    let esize = 1 lsl len in
+    let welem = (1 lsl (s+1))-1 in
+    let telem = (1 lsl (diff+1))-1 in
+    let wmask_t = ror_int welem esize r in
+    let wmask = replicate_z wmask_t esize sz in
+    let tmask = replicate_z (Z.of_int telem) esize sz in
+    L.debug (fun p->p "decode_bitmask: esize=%d welem=%x telem=%x wmask_t=%s wmask=%s tmask=%s" esize welem telem (Z.format "%x" wmask_t) (Z.format "%x" wmask) (Z.format "%x" tmask)); 
+    wmask, tmask
 
   let extend_reg sz reg ext_type shift =
     let len = match ext_type with
@@ -398,8 +403,8 @@ struct
     let flags = opc_v = 3 in
     let rd, post = get_Rd_lv ~use_sp:(not flags) rd_v sf_v in
     let rn = get_reg_exp rn_v sf_v in
-    let imm_res, _ = decode_bitmasks sz n_v immr_v imms_v true in
-    logic_core sz rd rn opc_v (const imm_res sz) flags @ sf_zero_rd rd_v sf_v (not flags) @ post
+    let imm_res, _ = decode_bitmasks sz n_v imms_v immr_v true in
+    logic_core sz rd rn opc_v (Const(Word.of_int imm_res sz)) flags @ sf_zero_rd rd_v sf_v (not flags) @ post
 
   (* AND / ORR / EOR / ANDS (32/64) with shifted register *)
   let logic_reg s insn =
@@ -467,18 +472,18 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     let rored = ror sz (Lval rn) (const immr_v 6) in
     let res = match opc_v with
       | 2 -> begin (* UBFM *)
-          [Set(rd, BinOp(And, rored, (const tmask sz)))]
+          [Set(rd, BinOp(And, rored, Const(Word.of_int tmask sz)))]
         end
       | 1 -> begin (* BFM *)
           (*  (dst AND NOT(wmask)) OR (ROR(src, R) AND wmask); *)
-          let bot = BinOp(Or, BinOp(And, Lval rn, UnOp(Not, const wmask sz)), BinOp(And, rored, const wmask sz)) in
-          [ Set(rd, BinOp(Or, BinOp(And, Lval rn, UnOp(Not, const tmask sz)), BinOp(And, bot, const tmask sz)))]
+          let bot = BinOp(Or, BinOp(And, Lval rn, UnOp(Not, Const(Word.of_int wmask sz))), BinOp(And, rored, Const(Word.of_int wmask sz))) in
+          [ Set(rd, BinOp(Or, BinOp(And, Lval rn, UnOp(Not, Const(Word.of_int tmask sz))), BinOp(And, bot, Const(Word.of_int tmask sz))))]
         end
       | 0 -> begin (* SBFM *)
           let src_s = BinOp(And, const1 sz, BinOp(Shl, Lval rn, const imms_v sz)) in
           let top = TernOp(Cmp(EQ, src_s, const1 sz), const ((2 lsl sz)-1) sz, const0 sz) in
           (* (top AND NOT(tmask)) OR (bot AND tmask); *)
-          [Set(rd, BinOp(Or, BinOp(And, top, UnOp(Not, const tmask sz)), BinOp(And, rored, const tmask sz)))]
+          [Set(rd, BinOp(Or, BinOp(And, top, UnOp(Not, Const(Word.of_int tmask sz))), BinOp(And, rored, Const(Word.of_int tmask sz))))]
         end
       | _ -> L.abort (fun p->p "BFM/SBFM not handled yet")
     in
