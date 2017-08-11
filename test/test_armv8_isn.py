@@ -30,11 +30,11 @@ def test_data_xfer_offsets(tmpdir, armv8off):
     compare(tmpdir, asm, ["x0", "x1", "x2", "x3", "x4"])
 
 @mov_imm
-def test_mov(tmpdir, op, op16):
+def test_mov(tmpdir, op, op16, armv8shift):
     asm = """
         mov x0, 0
         sub x0, x0, 1
-        {op} x0, #{op16}
+        {op} x0, #{op16}, LSL #{armv8shift}
         mov w1, w0
         mov w2, w1
     """.format(**locals())
@@ -100,3 +100,24 @@ def test_ubfm32(tmpdir, op6_32, op6_32_, armv7op, armv7op_):
             UBFM w2, w0, #{op6_32}, #{op6_32_}
     """.format(**locals())
     compare(tmpdir, asm, ["x0","x1", "x2"])
+
+def test_madd_sub32(tmpdir, op32, op32_, op32__, op32___):
+    asm = """
+            mov w0, #{op32}
+            mov w1, #{op32_}
+            mov w2, #{op32__}
+            mov w3, #{op32___}
+            madd w0, w1, w2, w3
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0","x1", "x2", "x3"])
+
+def test_madd_sub64(tmpdir, op64, op64_, op64__, op64___):
+    asm = """
+            mov x0, #{op64}
+            mov x1, #{op64_}
+            mov x2, #{op64__}
+            mov x3, #{op64___}
+            madd x0, x1, x2, x3
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0","x1", "x2", "x3"])
+

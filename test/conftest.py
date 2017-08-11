@@ -33,6 +33,7 @@ class TestValues:
     someval64 = [ 0x27f4a35c5ed39a5f, 0xd2ac53201ca173f6 ]
     shift = [ 1, 32]
     armv7shift = [0, 31]
+    armv8shift = [0, 16, 32, 48]
     armv7op = [1, 0xff]
     x86carryop = [ "stc", "clc"]
     armv8bitmasks = armv8_bitmasks()[0:10]
