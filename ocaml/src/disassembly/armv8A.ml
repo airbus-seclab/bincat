@@ -281,12 +281,13 @@ struct
 
   let rec log2 n =
     if n <= 1 then 0 else 1 + log2(n asr 1)
+
   let decode_bitmasks sz n imms immr is_imm =
     L.debug (fun p->p "decode_bitmask(%d,%d,%x,%x)" sz n imms immr); 
     (*// Compute log2 of element size
     // 2^len must be in range [2, M]
     len = HighestSetBit(immN:NOT(imms));*)
-    let len = log2 (((n lsl 6) lor (lnot imms)) land 0x7F) in
+    let len = log2 (((n lsl 6) lor ((lnot imms) land 0x3F)) land 0x7F) in
     L.debug (fun p->p "decode_bitmask: len= %d" len); 
     let levels = (1 lsl len)-1 in
     let s = imms land levels in
