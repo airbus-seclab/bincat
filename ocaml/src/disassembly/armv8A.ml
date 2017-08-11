@@ -427,8 +427,9 @@ struct
     if (sf_v = 0 && hw_v > 1) || (opc_v = 0b01) then error s.a (Printf.sprintf "Invalid opcode 0x%x" insn);
     let rd = get_reg_lv rd_v sf_v in
     let shift = hw_v lsl 4 in
-    let imm_s = if shift > 0 then imm16_v lsl shift else imm16_v in
-    let imm_c = const imm_s sz in
+    let imm_c = if shift > 0 then Const (Word.of_int (Z.shift_left (Z.of_int imm16_v) shift) sz) else const imm16_v sz in
+    L.debug (fun p->p "mov_wide: opc:%x sz:%d shift:%d imm16:%x " opc_v sz shift imm16_v );
+    L.debug (fun p->p "mov_wide: imm_c=%s" (Asm.string_of_exp imm_c true));
     let imm_f = match opc_v with
         | 0b00 -> (* MOVN *) UnOp(Not, imm_c)
         | 0b10 -> (* MOVZ *) UnOp(ZeroExt sz, imm_c)
