@@ -76,7 +76,6 @@ struct
   let printf_aapcs () =
     let format_and_res = reg "r0" in
     let va_arg = reg "r1" in
-    let res = Register.of_name "eax" in
     [ Directive (Stub ("printf",  [ format_and_res ; format_and_res ; va_arg])) ]
 
 
