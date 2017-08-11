@@ -21,6 +21,8 @@ def armv8_bitmasks():
 
 class TestValues:
     _name = "NA"
+    op6 = [ 0, 1, 0x3F ]
+    op6_32 = [ 0, 1, 31 ]
     op8 =  [ 1, 0xff ]
     op16 = [ 1, 0xffff ]
     op32 = [ 1, 0xffffffff]

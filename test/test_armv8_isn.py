@@ -12,12 +12,12 @@ dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
 dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add"])
 
 # XXX make this work ? PC is actually random because of ASLR
-def test_adrp(tmpdir, op32):
-    asm = """
-    label:
-        adrp x0, label
-    """.format(**locals())
-    compare(tmpdir, asm, ["x0"])
+#def test_adrp(tmpdir, op32):
+#    asm = """
+#    label:
+#        adrp x0, label
+#    """.format(**locals())
+#    compare(tmpdir, asm, ["x0"])
 
 def test_data_xfer_offsets(tmpdir, armv8off):
     asm = """
@@ -85,3 +85,18 @@ def test_data_proc_arith_32(tmpdir, op, armv7op, armv7op_):
     """.format(**locals())
     compare(tmpdir, asm, ["x0","x1", "x2"])
 
+def test_ubfm(tmpdir, op6, op6_, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            mov x1, #{armv7op_}
+            UBFM x2, x0, #{op6}, #{op6_}
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0","x1", "x2"])
+
+def test_ubfm32(tmpdir, op6_32, op6_32_, armv7op, armv7op_):
+    asm = """
+            mov w0, #{armv7op}
+            mov w1, #{armv7op_}
+            UBFM w2, w0, #{op6_32}, #{op6_32_}
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0","x1", "x2"])
