@@ -85,6 +85,13 @@ struct
     let va_arg = reg "r2" in
     [ Directive (Stub ("printf",  [ res ; format ; va_arg])) ]
 
+  (* sprintf_chk *)
+  let sprintf_chk_aapcs () =
+    let buf_and_res = reg "r0" in
+    let format = reg "r3" in
+    let va_arg = reg "sp" in
+    [ Directive (Stub ("sprintf",  [ buf_and_res ; buf_and_res ; format ; va_arg])) ]
+
 
   let aapcs_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
 
@@ -95,6 +102,7 @@ struct
         ("sprintf", sprintf_aapcs) ;
         ("printf", printf_aapcs) ;
         ("__printf_chk", printf_chk_aapcs) ;
+        ("__sprintf_chk", sprintf_chk_aapcs) ;
         ("strlen", strlen_aapcs) ]
     in
     List.iter (fun (name, body) -> 
