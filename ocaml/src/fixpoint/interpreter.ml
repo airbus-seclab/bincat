@@ -280,12 +280,14 @@ struct
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let import_call vertices a (pred_fun: Cfa.State.t -> Cfa.State.t) fun_stack =
+    let import_call vertices a fun_stack =
         let fundec = Hashtbl.find Decoder.Imports.tbl a in
         let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
         L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded." 
           (Data.Address.to_string a) (fundec.Decoder.Imports.name) (List.length stmts));
         Log_trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
+        let ret_addr_exp = fundec.Decoder.Imports.ret_addr in
+        Log_trace.trace a (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let b =
             List.fold_left (fun b v ->
                 if stmts <> [] then
@@ -294,17 +296,19 @@ struct
                     List.fold_left (fun (d, b) stmt -> let d', b' = process_value d stmt fun_stack in d', b||b') (v.Cfa.State.v, false) stmts
                 in
                 v.Cfa.State.v <- d';
-                let pred = pred_fun v in
-                v.Cfa.State.ip <- Data.Address.add_offset pred.Cfa.State.ip (Z.of_int (List.length pred.Cfa.State.bytes));
-                (* set back the stack register to its pred value *)
-                let stack_register = Register.stack_pointer () in
-                v.Cfa.State.v <- D.copy_register stack_register v.Cfa.State.v pred.Cfa.State.v;
+                let addrs, _ = D.mem_to_addresses d' ret_addr_exp in 
+                let a = match Data.Address.Set.elements addrs with
+                        | [a] -> a
+                        | []  -> L.abort (fun p->p "no return address")
+                        | _l  -> L.abort (fun p->p "multiple return addresses") in
+                v.Cfa.State.ip <- a;
+                Log_trace.trace a (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
                 b||b') false vertices
         in
         vertices, b
 		
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
-        let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) (ip_pred: Cfa.State.t -> Cfa.State.t) : (Cfa.State.t list * bool) =
+        let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) : (Cfa.State.t list * bool) =
             let import = ref false in
             let res =
                 List.fold_left (fun (l, b) v ->
@@ -314,7 +318,8 @@ struct
                         match addresses with
                         | [a] ->
                           begin
-                              try let res = import_call [v] a ip_pred fun_stack in import := true; res
+                              L.debug (fun p->p "fold_to_target addr : %s" (Data.Address.to_string a));
+                              try let res = import_call [v] a fun_stack in import := true; res
                               with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, b||is_tainted
                           end
                         | [] -> L.abort (fun p -> p "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
@@ -393,7 +398,7 @@ struct
              | Jmp (A a) ->
 		begin
 		  try
-		    let res = import_call vertices a (fun v -> Cfa.pred g (Cfa.pred g v)) fun_stack in
+		    let res = import_call vertices a fun_stack in
 		    fun_stack := List.tl !fun_stack;
 		    res
 		  with Not_found ->
@@ -401,18 +406,18 @@ struct
 		end
 		  
              | Jmp (R target) ->
-		  fold_to_target (fun _a -> ()) vertices target (fun v -> Cfa.pred g (Cfa.pred g v))
+		  fold_to_target (fun _a -> ()) vertices target
 			 
              | Call (A a) ->
 		add_to_fun_stack a;
 		begin
 		  try		   
-		    import_call vertices a (fun v -> Cfa.pred g v) fun_stack 
+		    import_call vertices a fun_stack 
 		  with Not_found ->
 		    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
 		    vertices, false
 		end
-	     | Call (R target) -> fold_to_target add_to_fun_stack vertices target (fun v -> Cfa.pred g v)
+	     | Call (R target) -> fold_to_target add_to_fun_stack vertices target
 		
              | Return -> List.fold_left (fun (l, b) v ->
 			     let v', b' = process_ret fun_stack v in

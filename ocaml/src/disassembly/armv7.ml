@@ -602,7 +602,7 @@ struct
                   Set (V (T vflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 28) 32), zero32),
                                            const 0 1, const 1 1)) ], [], false
               else error s.a "MSR to SPSR not supported"
-           | _ -> error s.a "unkonwn MSR/MRS opcode"
+           | _ -> error s.a "unknown MSR/MRS opcode"
          end in
     let stmt_cc =
       if set_cond_codes
@@ -783,6 +783,7 @@ struct
         Imports.prologue = [];
         Imports.stub = [];
         Imports.epilogue = [];
+        Imports.ret_addr = Lval(V(T(lr)))
       } in
       Hashtbl.add Imports.tbl a' fun_desc in
     Hashtbl.iter add_import_to_table  Config.import_tbl;
