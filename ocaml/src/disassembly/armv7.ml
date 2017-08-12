@@ -387,14 +387,8 @@ struct
            end,
              begin
                let one33 = const 1 33 in
-               let zero32 = const 0 32 in
                match int_shift_count with
-               | Some 0 -> [ Set( V (T cflag), (* 0 for lsr means 32 ! *)
-                                  TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const 0x80000000 32), zero32),
-                                          const 0 1, const 1 1)) ]
-               | Some n -> [ Set( V (T cflag),  (* shift count is an immediate, we can directly test the bit *)
-                                  TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl (n-1)) 32), zero32),
-                                            const 0 1, const 1 1)) ]
+               | Some n -> let nm1 = (n-1) mod 32 in [ Set (V (T cflag), Lval (V (preg rm nm1 nm1))) ]
                | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
                                  TernOp (Cmp (EQ,
                                               BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
