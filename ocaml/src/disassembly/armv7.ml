@@ -247,6 +247,33 @@ struct
     @ jmp_or_call_stmt
 
 
+  let asr_stmt exp shift =
+    let sign_mask = const ((-1) lsl (32-shift)) 32 in
+    let shifted = BinOp(Shr, exp, const shift 32) in
+    let msb = BinOp(Shr, exp, const 31 32) in
+    let sign = TernOp( Cmp (EQ, msb, const 0 32), const 0 32, sign_mask) in
+    BinOp(Or, shifted, sign)
+
+
+  let asr_stmt_exp exp shift_exp =
+    let sign_mask = BinOp(Shl, const (-1) 32, BinOp(Sub, const 32 32, shift_exp)) in
+    let shifted = BinOp(Shr, exp, shift_exp) in
+    let msb = BinOp(Shr, exp, const 31 32) in
+    let sign = TernOp( Cmp (EQ, msb, const 0 32), const 0 32, sign_mask) in
+    BinOp(Or, shifted, sign)
+
+  let ror_stmt exp shift =
+    let left = BinOp(Shr, exp, const shift 32) in
+    let right = BinOp(Shl, exp, const (32-shift) 32) in
+    BinOp(Or, left, right)
+
+  let ror_stmt_exp exp shift_exp =
+    let left = BinOp(Shr, exp, shift_exp) in
+    let right = BinOp(Shl, exp, BinOp(Sub, const 32 32, shift_exp)) in
+    BinOp(Or, left, right)
+
+
+
   let single_data_transfer s instruction = 
     let rd = (instruction lsr 12) land 0xf in
     let rn = (instruction lsr 16) land 0xf in
