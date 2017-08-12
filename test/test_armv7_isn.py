@@ -339,6 +339,29 @@ def test_data_xfer_with_lsl(tmpdir):
     """
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8"])
 
+def test_data_xfer_with_ror_asr(tmpdir):
+    asm = """
+            mov r0, #123
+            push { r0 }
+            mov r0, #101
+            push { r0 }
+            mov r0, #61
+            push { r0 }
+            mov r0, #42
+            push { r0 }
+            mov r1, #1
+            ldr r2, [sp, r1]
+            ldr r3, [sp, r1, asr #1]
+            ldr r4, [sp, r1, ror #31]
+            ldr r5, [sp, r1, ror #30]
+            mov r1, #2
+            ldr r6, [sp, r1, ror #30]
+            mov r1, #0x80000000
+            ldr r6, [sp, r1, ror #28]!
+            pop { r7, r8 }
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8"])
+
 
 def test_data_xfer_unaligned_word(tmpdir):
     asm = """
