@@ -391,10 +391,10 @@ def test_data_xfer_unaligned_word(tmpdir):
 def test_data_xfer_unaligned_byte(tmpdir):
     asm = """
             push { r10, r11 }
-            mov r10, #0xaa
-            orr r10, r10, #0x5500
-            orr r10, r10, #0xbb0000
-            orr r10, r10, #0x22000000
+            mov r10, #0xa6
+            orr r10, r10, #0x5200
+            orr r10, r10, #0xf70000
+            orr r10, r10, #0x4e000000
             mvn r11, r10
             mov r0, r10, lsl #1
             mov r1, r10, lsl #2
