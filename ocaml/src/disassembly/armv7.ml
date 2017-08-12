@@ -398,7 +398,26 @@ struct
                                               one33),
                                          const 1 1, const 0 1)) ]
              end
-        | 0b10 -> (* asr *) error s.a "Asr shift operation for shifted register not implemented"
+        | 0b10 -> (* asr *)
+           begin
+             match int_shift_count with
+             | Some 0 -> asr_stmt (Lval (V (reg rm))) 32 (* 0 actually encodes lsr #32 *)
+             | Some x -> asr_stmt (Lval (V (reg rm))) x
+             | None -> asr_stmt_exp (Lval (V (reg rm))) op3
+           end,
+             begin
+               let one33 = const 1 33 in
+               match int_shift_count with
+               | Some n -> let nm1 = (n-1) mod 32 in [ Set (V (T cflag), Lval (V (preg rm nm1 nm1))) ]
+               | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
+                                 TernOp (Cmp (EQ,
+                                              BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
+                                                    BinOp(Shr,
+                                                          BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))), one33),
+                                                          UnOp(ZeroExt 33, op3))),
+                                              one33),
+                                         const 1 1, const 0 1)) ]
+             end
         | 0b11 -> (* ror *) error s.a "Ror shift operation for shifted register not implemented"
         | st -> L.abort (fun p -> p "unexpected shift type %x" st)
     in
