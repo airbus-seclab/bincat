@@ -272,7 +272,9 @@ struct
     let right = BinOp(Shl, exp, BinOp(Sub, const 32 32, shift_exp)) in
     BinOp(Or, left, right)
 
-
+  let set_cflag_from_bit rm n =
+    let nm1 = (n-1) mod 32 in
+    Set (V (T cflag), Lval (V (preg rm nm1 nm1)))
 
   let single_data_transfer s instruction = 
     let rd = (instruction lsr 12) land 0xf in
@@ -388,7 +390,7 @@ struct
              begin
                let one33 = const 1 33 in
                match int_shift_count with
-               | Some n -> let nm1 = (n-1) mod 32 in [ Set (V (T cflag), Lval (V (preg rm nm1 nm1))) ]
+               | Some n -> [ set_cflag_from_bit rm n ]
                | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
                                  TernOp (Cmp (EQ,
                                               BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
@@ -408,7 +410,7 @@ struct
              begin
                let one33 = const 1 33 in
                match int_shift_count with
-               | Some n -> let nm1 = (n-1) mod 32 in [ Set (V (T cflag), Lval (V (preg rm nm1 nm1))) ]
+               | Some n -> [ set_cflag_from_bit rm n ]
                | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
                                  TernOp (Cmp (EQ,
                                               BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
@@ -434,7 +436,7 @@ struct
                | Some 0 -> (* RRX operation *)
                   let carry_out = TernOp( Cmp (EQ, BinOp(And, Lval (V (reg rm)), const 1 32), const 0 32), const 0 1, const 1 1) in
                   [ Set ( V (T cflag), carry_out) ]
-               | Some n -> let nm1 = (n-1) mod 32 in [ Set (V (T cflag), Lval (V (preg rm nm1 nm1))) ]
+               | Some n -> [ set_cflag_from_bit rm n ]
                | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
                                  TernOp (Cmp (EQ,
                                               BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
