@@ -295,8 +295,12 @@ struct
           | 0b01 -> (* logical shift right *)
              let actual_shift = if shift_amount = 0 then 32 else shift_amount in
              BinOp(Shl, Lval (V (reg rm)), const actual_shift 32)
-          | 0b10 -> (* asr *) error s.a "single data xfer offset from reg with asr not implemented"
-          | 0b11 -> (* ror *) error s.a "single data xfer offset from reg with ror not implemented"
+          | 0b10 -> (* asr *)
+             let actual_shift = if shift_amount = 0 then 32 else shift_amount in
+             asr_stmt (Lval (V (reg rm))) actual_shift
+          | 0b11 -> (* ror *)
+             let actual_shift = if shift_amount = 0 then 32 else shift_amount in
+             ror_stmt (Lval (V (reg rm))) actual_shift
           | _ -> error s.a "unexpected shift type insingle data xfer" in
     let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
     let preindex = (instruction land (1 lsl 24)) <> 0 in
