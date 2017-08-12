@@ -276,6 +276,19 @@ struct
     let nm1 = (n-1) mod 32 in
     Set (V (T cflag), Lval (V (preg rm nm1 nm1)))
 
+  let set_cflag_from_bit_exp rm n_exp =
+    let one33 = const 1 33 in
+    let rm33 = UnOp(ZeroExt 33, Lval (V (reg rm))) in
+    Set ( V (T cflag),
+          TernOp (Cmp (EQ,
+                       BinOp(And, one33,
+                             BinOp(Shr, (* We shift left 1 and right n_exp, but on 33 bits *)
+                                   BinOp(Shl, rm33, one33),
+                                   UnOp(ZeroExt 33, n_exp))),
+                       one33),
+                  const 1 1, const 0 1))
+
+
   let single_data_transfer s instruction = 
     let rd = (instruction lsr 12) land 0xf in
     let rn = (instruction lsr 16) land 0xf in
@@ -388,17 +401,9 @@ struct
              | _ -> BinOp(Shr, Lval (V (reg rm)), op3)
            end,
              begin
-               let one33 = const 1 33 in
                match int_shift_count with
                | Some n -> [ set_cflag_from_bit rm n ]
-               | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
-                                 TernOp (Cmp (EQ,
-                                              BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
-                                                    BinOp(Shr,
-                                                          BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))), one33),
-                                                          UnOp(ZeroExt 33, op3))),
-                                              one33),
-                                         const 1 1, const 0 1)) ]
+               | None -> [ set_cflag_from_bit_exp rm op3 ]
              end
         | 0b10 -> (* asr *)
            begin
@@ -408,17 +413,9 @@ struct
              | None -> asr_stmt_exp (Lval (V (reg rm))) op3
            end,
              begin
-               let one33 = const 1 33 in
                match int_shift_count with
                | Some n -> [ set_cflag_from_bit rm n ]
-               | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
-                                 TernOp (Cmp (EQ,
-                                              BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
-                                                    BinOp(Shr,
-                                                          BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))), one33),
-                                                          UnOp(ZeroExt 33, op3))),
-                                              one33),
-                                         const 1 1, const 0 1)) ]
+               | None -> [ set_cflag_from_bit_exp rm op3 ]
              end
         | 0b11 -> (* ror *)
            begin
@@ -431,20 +428,12 @@ struct
              | None -> ror_stmt_exp (Lval (V (reg rm))) op3
            end,
              begin
-               let one33 = const 1 33 in
                match int_shift_count with
                | Some 0 -> (* RRX operation *)
                   let carry_out = TernOp( Cmp (EQ, BinOp(And, Lval (V (reg rm)), const 1 32), const 0 32), const 0 1, const 1 1) in
                   [ Set ( V (T cflag), carry_out) ]
                | Some n -> [ set_cflag_from_bit rm n ]
-               | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
-                                 TernOp (Cmp (EQ,
-                                              BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
-                                                    BinOp(Shr,
-                                                          BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))), one33),
-                                                          UnOp(ZeroExt 33, op3))),
-                                              one33),
-                                         const 1 1, const 0 1)) ]
+               | None -> [ set_cflag_from_bit_exp rm op3 ]
              end
         | st -> L.abort (fun p -> p "unexpected shift type %x" st)
     in
