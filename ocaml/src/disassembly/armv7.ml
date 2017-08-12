@@ -418,7 +418,32 @@ struct
                                               one33),
                                          const 1 1, const 0 1)) ]
              end
-        | 0b11 -> (* ror *) error s.a "Ror shift operation for shifted register not implemented"
+        | 0b11 -> (* ror *)
+           begin
+             match int_shift_count with
+             | Some 0 -> (* RRX operation *)
+                let shifted = BinOp(Shr, Lval (V (reg rm)), const 1 32) in
+                let carry_in = TernOp( Cmp (EQ, Lval (V (T cflag)), const 0 1), const 0 32, const 0x80000000 32) in
+                BinOp(Or, shifted, carry_in)
+             | Some x -> ror_stmt (Lval (V (reg rm))) x
+             | None -> ror_stmt_exp (Lval (V (reg rm))) op3
+           end,
+             begin
+               let one33 = const 1 33 in
+               match int_shift_count with
+               | Some 0 -> (* RRX operation *)
+                  let carry_out = TernOp( Cmp (EQ, BinOp(And, Lval (V (reg rm)), const 1 32), const 0 32), const 0 1, const 1 1) in
+                  [ Set ( V (T cflag), carry_out) ]
+               | Some n -> let nm1 = (n-1) mod 32 in [ Set (V (T cflag), Lval (V (preg rm nm1 nm1))) ]
+               | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
+                                 TernOp (Cmp (EQ,
+                                              BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
+                                                    BinOp(Shr,
+                                                          BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))), one33),
+                                                          UnOp(ZeroExt 33, op3))),
+                                              one33),
+                                         const 1 1, const 0 1)) ]
+             end
         | st -> L.abort (fun p -> p "unexpected shift type %x" st)
     in
     let to33bits x = UnOp(ZeroExt 33, x) in
