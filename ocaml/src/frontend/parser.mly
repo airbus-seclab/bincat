@@ -146,10 +146,12 @@
 	(* complete the table of function rules with type information *)
 	List.iter (fun header -> 
 	    try
+          L.debug (fun p -> p "Open npk file [%s]" header);
 	      let p = TypedC.read header in	  
 	      List.iter (fun (s, f) ->
+            L.debug (fun p -> p "  - loaded type for [%s]" s);
 		Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
-	    with _ -> L.warn (fun p -> p "failed to load header %s" header)) !npk_headers
+	    with e -> L.exc e (fun p -> p "failed to load header %s" header)) !npk_headers
 	;;
 
 	%}
