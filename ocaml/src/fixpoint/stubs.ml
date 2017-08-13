@@ -59,7 +59,7 @@ struct
             let off_arg = !Config.stack_width / 8 in
             let format_num d dst_off c fmt_pos arg pad_char pad_left: int * int * D.t =
               let rec compute digit_nb fmt_pos =
-		let c = Bytes.get format_string fmt_pos in
+                let c = Bytes.get format_string fmt_pos in
                     match c with
                     | c when '0' <= c && c <= '9' ->
                       let n = ((Char.code c) - (Char.code '0')) in
@@ -214,17 +214,17 @@ struct
 
     let puts d args =
       match args with
-      | [Asm.Lval ret ; str] ->
-	 Log.open_stdout();
-	L.analysis (fun p -> p "puts output:");
-	let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
-	let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
+      | [ Asm.Lval ret ; str ] ->
+         Log.open_stdout();
+        L.analysis (fun p -> p "puts output:");
+        let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
+        let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
         Log.dump_stdout();
         L.analysis (fun p -> p "--- end of puts--");
-	d', is_tainted
-	  
+        d', is_tainted
+
       | _ -> L.abort (fun p -> p "invalid call to puts stub")
-	 
+
     let process d fun_name (args: Asm.exp list): D.t * bool =
         let d, is_tainted =
             try
@@ -242,7 +242,7 @@ struct
             | Exit -> d, false
             | e ->
                L.exc e (fun p -> p "processing stub [%s]" fun_name);
-              L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name); 
+              L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
               d, false
         in
         if !Config.call_conv = Config.STDCALL then
