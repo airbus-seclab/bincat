@@ -628,11 +628,15 @@ struct
          begin
            (* MISC: op1 = 00xx0 && op = 0 *)
            if (instruction lsr 23) land 3 = 2 && (instruction land (1 lsl 7)) = 0 then
-                (* op0 = 1 & op1 = 1 => BX*)
-                if (instruction lsr 21) land 3 = 1 && (instruction lsr 4) land 7 = 1 then
-                  [ Set (V (T pc), Lval(V(reg (instruction land 0xf)))) ], [], true
-                else
-                  L.abort (fun p -> p "unhandled misc opcode %x" opcode)
+             let set_pc = Set (V (T pc), Lval(V(reg (instruction land 0xf)))) in
+             match (instruction lsr 21) land 3, (instruction lsr 4) land 7 with
+             | 1, 1 -> (* BX  *) [ set_pc ], [], true
+             | 1, 3 -> (* BLX *) [
+               Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ;
+               set_pc ;
+               Call (R (Lval (V (T pc))))
+             ], [], false
+             | _ -> L.abort (fun p -> p "unhandled misc opcode %x" opcode)
            else
            match (instruction lsr 18) land 0xf with
            | 0b0011 -> (* MRS *)
