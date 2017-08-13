@@ -17,6 +17,7 @@
 *)
 
 Printf.printf "BinCAT %s\n" Bincat_ver.version_string;
+flush stdout;
 if (Array.length Sys.argv < 4) then
         print_endline "Usage: bincat init.ini output.ini outlog"
 else
