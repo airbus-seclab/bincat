@@ -316,6 +316,19 @@ def test_data_xfer_str_8(tmpdir):
     """
     compare(tmpdir, asm, ["r0", "r1", "r2"])
 
+def test_data_xfer_ldrh_strh(tmpdir):
+    asm = """
+            mov r0, #123
+            mov r1, #101
+            strh r0, [sp, #-2]!
+            strh r1, [sp, #-2]!
+            ldr  r2, [sp]
+            ldrh r3, [sp], #2
+            ldrsb r4, [sp], #1
+            ldrsb r5, [sp], #1
+    """
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
+
 def test_data_xfer_with_lsl(tmpdir):
     asm = """
             mov r0, #123
