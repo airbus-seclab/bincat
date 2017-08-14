@@ -78,17 +78,15 @@ let read mapped_mem vaddr =
   let file_offset = Z.to_int (Z.add section.raw_addr offset) in
   L.debug (fun p -> p "Section found [%s], reading at paddr=%08x" section.name file_offset);
   (* check if we're out of the section's raw data *)
-  if file_offset >= (Z.to_int section.raw_addr_end) then
-    begin
-      L.debug (fun p -> p "paddr=%08x is out of the section on disk" (file_offset));
-      None
-    end
-  else
-    begin
-      let byte = Bigarray.Array1.get mapped_mem.mapped_file file_offset in
-      L.debug(fun p -> p "read byte %02x" byte);
-      Some (Data.Word.of_int (Z.of_int byte) 8)
-    end
+  let byte = if file_offset >= (Z.to_int section.raw_addr_end) then
+      begin
+        L.debug (fun p -> p "paddr=%08x is out of the section on disk" (file_offset));
+        0
+      end
+    else
+      Bigarray.Array1.get mapped_mem.mapped_file file_offset in
+  L.debug(fun p -> p "read byte %02x" byte);
+  Data.Word.of_int (Z.of_int byte) 8
 
 
 let string_from_addr mapped_mem vaddr len =

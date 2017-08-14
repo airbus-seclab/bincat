@@ -303,9 +303,7 @@ module Make(D: T) =
           let mapped_mem = match !Mapped_mem.current_mapping with
             | None -> L.abort (fun p -> p "File not mmaped")
             | Some x -> x in
-          let read_file addr = match Mapped_mem.read mapped_mem addr with
-            | Some x -> D.of_word x
-            | None -> D.top in
+          let read_file addr = D.of_word (Mapped_mem.read mapped_mem addr) in
           List.rev_map read_file exp_addrs
         in
 
