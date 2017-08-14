@@ -342,16 +342,10 @@ struct
     let stmts,update_pc = if (instruction land (1 lsl 20)) = 0 then (* store *)
         [ Set (src_or_dst, Lval dst_or_src)], false
       else (* load *)
-        begin
-          let load_stmt = Set (dst_or_src, Lval src_or_dst) in
-          let stmts' =
-            if length = 32 then
-              [ load_stmt ]
-            else
-              [ load_stmt ;
-                Set (V (preg rd 8 31), const 0 24) ] in
-          stmts', rd = 15
-        end in
+        if length = 32 then
+          [ Set (V (reg rd), Lval src_or_dst) ], rd = 15
+        else
+          [ Set (V (reg rd), UnOp(ZeroExt 32, Lval src_or_dst)) ], rd = 15 in
     let write_back_stmt = Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) in
     let stmts' =
       if preindex then
