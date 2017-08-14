@@ -366,6 +366,45 @@ struct
     else
       stmts'
 
+  let halfword_data_transfer s instruction =
+    let rd = (instruction lsr 12) land 0xf in
+    let rn = (instruction lsr 16) land 0xf in
+    let load = (instruction land (1 lsl 20)) <> 0 in
+    let writeback = (instruction land (1 lsl 21)) <> 0 in
+    let immediate = (instruction land (1 lsl 22)) <> 0 in
+    let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
+    let preindex = (instruction land (1 lsl 24)) <> 0 in
+    let extend_op = if (instruction land (1 lsl 6)) = 0 then (ZeroExt 32) else (SignExt 32) in
+    let length = if (instruction land (1 lsl 5)) <> 0 then 16 else 8 in
+    let ofs = if immediate then
+        const (((instruction lsr 4) land 0xf0) lor (instruction land 0xf)) 32
+      else
+        let rm = instruction land 0xf in
+        Lval (V (reg rm)) in
+    let index_expr = BinOp(updown, Lval (V (reg rn)), ofs) in
+    let src_or_dst = match preindex,writeback with
+      | true, false -> M (index_expr, length)
+      | true, true
+      | false, false -> M (Lval (V (reg rn)), length) (* if post-indexing, write back is implied and W=0 *)
+      | false, true -> error s.a "Undefined combination (post indexing and W=1)" in
+    let stmts, update_pc = if load then
+        [ Set (V (reg rd), UnOp(extend_op, Lval src_or_dst)) ], rd = 15
+      else
+        [ Set (src_or_dst, Lval (V (preg rd 0 (length-1)))) ], false in
+    let write_back_stmt = Set (V (reg rn), index_expr) in
+    let stmts' =
+      if preindex then
+        if writeback then
+          write_back_stmt :: stmts
+        else
+          stmts
+      else
+        stmts @ [ write_back_stmt ] in
+    if update_pc then
+      stmts' @ [ Jmp (R (Lval (V (T pc)))) ]
+    else
+      stmts'
+
   let data_proc s instruction =
     let rd = (instruction lsr 12) land 0xf in
     let rn = (instruction lsr 16) land 0xf in
@@ -713,8 +752,8 @@ struct
        else if instruction land 0x0fb00ff0 = 0x01000090 then single_data_swap s instruction
        else if instruction land 0x0fc000f0 = 0x00000090 then mul_mla s instruction
        else if instruction land 0x0f8000f0 = 0x08000090 then (* multiply long *) error s.a "mul long"
-       else if instruction land 0x0e400f90 = 0x00000090 then (* halfword data transfer, reg *) error s.a "halfword data xfer reg"
-       else if instruction land 0x0e400090 = 0x00400090 then (* halfword data transfer, imm *) error s.a "halfword data xfer imm"
+       else if instruction land 0x0e400f90 = 0x00000090 then (* halfword data transfer, reg *) halfword_data_transfer s instruction
+       else if instruction land 0x0e400090 = 0x00400090 then (* halfword data transfer, imm *) halfword_data_transfer s instruction
        else data_proc s instruction
     | 0b001 -> data_proc s instruction
     | 0b010 -> single_data_transfer s instruction
