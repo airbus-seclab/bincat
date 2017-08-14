@@ -246,6 +246,16 @@ struct
     @ [ Set (V (T pc), BinOp(Add, Lval (V (T pc)), const ofs32 32)) ]
     @ jmp_or_call_stmt
 
+  let branch_exchange s instruction =
+    let set_pc = Set (V (T pc), Lval(V(reg (instruction land 0xf)))) in
+    if instruction land (1 lsl 5) = 0 then (* BX *)
+      [ set_pc ; Jmp (R (Lval (V (T pc)))) ]
+    else (* BLX *)
+      [
+        Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ;
+        set_pc ;
+        Call (R (Lval (V (T pc))))
+      ]
 
   let asr_stmt exp shift =
     let sign_mask = const ((-1) lsl (32-shift)) 32 in
@@ -624,20 +634,8 @@ struct
               false
            | _ -> L.abort (fun p -> p "unexpected opcode %x" opcode)
          end
-       else  (* Misc + MRS/MSR *)
+       else  (* MRS/MSR *)
          begin
-           (* MISC: op1 = 00xx0 && op = 0 *)
-           if (instruction lsr 23) land 3 = 2 && (instruction land (1 lsl 7)) = 0 then
-             let set_pc = Set (V (T pc), Lval(V(reg (instruction land 0xf)))) in
-             match (instruction lsr 21) land 3, (instruction lsr 4) land 7 with
-             | 1, 1 -> (* BX  *) [ set_pc ], [], true
-             | 1, 3 -> (* BLX *) [
-               Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ;
-               set_pc ;
-               Call (R (Lval (V (T pc))))
-             ], [], false
-             | _ -> L.abort (fun p -> p "unhandled misc opcode %x" opcode)
-           else
            match (instruction lsr 18) land 0xf with
            | 0b0011 -> (* MRS *)
               if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
@@ -709,31 +707,23 @@ struct
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction s str in
-    let stmts = match (instruction lsr 26) land 0x3 with
-    | 0b00 ->
-       begin
-         if ((instruction lsr 4) land 0xf) = 0x9 then
-           match (instruction lsr 23) land 0x7 with
-           | 0b000 -> mul_mla s instruction (* multiply *) 
-           | 0b010 -> single_data_swap s instruction (* single data swap *)
-           | _ -> L.abort (fun p -> p "Unexpected opcode %x" instruction)
-         else (* data processing / PSR transfer *) 
-           data_proc s instruction
-       end
-    | 0b01 -> single_data_transfer s instruction
-    | 0b10 ->
-       begin
-         match (instruction lsr 25) land 1 with
-         | 0 -> block_data_transfer s instruction (* block data transfer *)
-         | 1 -> branch s instruction
-         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
-       end
-    | 0b11 ->
-       begin
-         match (instruction lsr 24) land 3 with
-         | 0b11 -> (* software interrupt *) error s.a (Printf.sprintf "software interrupt not implemented (swi=%08x)" instruction)
-         | _ -> (* coproc *) error s.a "coprocessor operation not implemented"
-       end
+    let stmts = match (instruction lsr 25) land 0x7 with
+    | 0b000 ->
+       if instruction land 0x0fffffd0 = 0x012fff10 then branch_exchange s instruction
+       else if instruction land 0x0fb00ff0 = 0x01000090 then single_data_swap s instruction
+       else if instruction land 0x0fc000f0 = 0x00000090 then mul_mla s instruction
+       else if instruction land 0x0f8000f0 = 0x08000090 then (* multiply long *) error s.a "mul long"
+       else if instruction land 0x0e400f90 = 0x00000090 then (* halfword data transfer, reg *) error s.a "halfword data xfer reg"
+       else if instruction land 0x0e400090 = 0x00400090 then (* halfword data transfer, imm *) error s.a "halfword data xfer imm"
+       else data_proc s instruction
+    | 0b001 -> data_proc s instruction
+    | 0b010 -> single_data_transfer s instruction
+    | 0b011 when instruction land (1 lsl 4) = 0 -> single_data_transfer s instruction
+    | 0b100 -> block_data_transfer s instruction (* block data transfer *)
+    | 0b101 -> branch s instruction
+    | 0b110 -> error s.a (Printf.sprintf "Comprocessor data transfer not implemented (isn=%08x)" instruction)
+    | 0b111 when instruction land (1 lsl 24) = 0 -> error s.a (Printf.sprintf "coprocessor operation or register transfer (isn=%08x)" instruction)
+    | 0b111 when instruction land (1 lsl 24) <> 0 -> error s.a (Printf.sprintf "software interrupt not implemented (swi=%08x)" instruction)
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
     let stmts_cc = match (instruction lsr 28) land 0xf with
     | 0xf -> []    (* never *) 
