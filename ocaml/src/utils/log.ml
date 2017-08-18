@@ -73,10 +73,18 @@ module Make(Modname: sig val name : string end) = struct
           _loglvl := Some lvl;
           lvl
 
-  let log_debug () = loglevel () >= 4
+  let log_debug2 () = loglevel () >= 6
+  let log_debug () = loglevel () >= 5
+  let log_info2 () = loglevel () >= 4
   let log_info () = loglevel () >= 3
   let log_warn () = loglevel () >= 2
   let log_error () = loglevel () >= 1
+
+  let debug2 fmsg =
+    if log_debug2 () then
+    let msg = fmsg Printf.sprintf in
+    Printf.fprintf !logfid  "[DEBUG2] %s: %s\n" modname msg;
+    flush !logfid
 
   let debug fmsg =
     if log_debug () then
@@ -95,6 +103,12 @@ module Make(Modname: sig val name : string end) = struct
             Printf.fprintf !logfid  "[TRACE] %s: %s\n" pc h;
             log_trace l in
         log_trace (split_on_char '\n' msg) ;
+    flush !logfid
+
+  let info2 fmsg =
+    if log_info () then
+    let msg = fmsg Printf.sprintf in
+    Printf.fprintf !logfid  "[INFO2] %s: %s\n" modname msg;
     flush !logfid
 
   let info fmsg =
