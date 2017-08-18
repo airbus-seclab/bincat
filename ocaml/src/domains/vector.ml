@@ -515,40 +515,68 @@ module Make(V: Val) =
               done;
               new_v
 
-        let ishl v i =
-            let n  = Array.length v      in
-            let v' = Array.make n V.zero in
-            let o  = n-i                 in
+        let ishl v shift =
+            let v_len  = Array.length v      in
+            let res = Array.make v_len V.zero in
+            let o  = v_len-shift                 in
                 for j = 0 to o-1 do
-                    v'.(j) <- v.(i+j)
+                    res.(j) <- v.(shift+j)
                 done;
-            L.debug (fun p -> p "ishl(%s, %d) = %s, (o==%d)"
-	      (to_string v) i (to_string v') o);
-            v'
+            L.debug (fun p -> p "ishl(%s, %d) = %s"
+              (to_string v) shift (to_string res));
+            res
+
+        let ishr v shift pad =
+          let v_len = Array.length v in
+          let res = Array.make v_len pad in
+          for j = 0 to v_len-shift-1 do
+            res.(j+shift) <- v.(j)
+          done;
+            L.debug (fun p -> p "ishr(%s, %d) = %s"
+              (to_string v) shift (to_string res));
+          res
+
+        let irotate v shift =
+          let v_len = Array.length v in
+          let res = Array.make v_len V.zero in
+          for j = 0 to v_len-1 do
+            res.(j) <- v.((j+shift) mod v_len)
+          done;
+          L.debug (fun p -> p "irotate(%s,%d)=%s"
+            (to_string v) shift (to_string res));
+          res
+
+
+        let shift_count_to_int v =
+          let z_shift_count = to_z v in
+          try
+            Z.to_int z_shift_count
+          with Z.Overflow ->
+            raise (Exceptions.Too_many_concrete_elements
+                     (Printf.sprintf "vector.shr: shift count overflow: %s"
+                        (Z.to_string z_shift_count)))
+
 
         let shl v1 v2 =
-          let z_shift_count = to_z v2 in
-          let shift_count =
-            try
-              Z.to_int z_shift_count
-            with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.shl: shift count overflow: %s" (Z.to_string z_shift_count)))
-          in ishl v1 shift_count
+          let shift_count = shift_count_to_int v2 in
+          ishl v1 shift_count
 
-        let shr v n =
-          let v_len = Array.length v in
-          let z_shift_count = to_z n in
-          let shift_count =
-            try
-              Z.to_int z_shift_count
-            with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.shr: shift count overflow: %s" (Z.to_string z_shift_count)))
-          in
-          let v' = Array.make v_len V.zero in
-          for j = 0 to v_len-shift_count-1 do
-            v'.(j+shift_count) <- v.(j)
-          done;
-          L.debug (fun p -> p "shr(%s,%s)=%s"
-            (to_string v) (to_string n) (to_string v'));
-          v'
+        let shr v1 v2 =
+          let shift_count = shift_count_to_int v2 in
+          ishr v1 shift_count V.zero (* pad with zero *)
+
+        let _ashr v1 v2 =
+          let shift_count = shift_count_to_int v2 in
+          ishr v1 shift_count v1.(0) (* pad with high bit *)
+
+        let _rol v1 v2 =
+          let shift_count = shift_count_to_int v2 in
+          irotate v1 shift_count
+
+        let _ror v1 v2 =
+          let shift_count = shift_count_to_int v2 in
+          irotate v1 (-shift_count)
+
 
         let mul v2 v1 =
             let n   = Array.length v1 in
