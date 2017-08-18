@@ -290,7 +290,7 @@ struct
           (Data.Address.to_string a) (fundec.Decoder.Imports.name) (List.length stmts));
         Log_trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
         let ret_addr_exp = fundec.Decoder.Imports.ret_addr in
-        Log_trace.trace a (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
+        L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let b =
             List.fold_left (fun b v ->
                 if stmts <> [] then
@@ -305,7 +305,7 @@ struct
                         | []  -> L.abort (fun p->p "no return address")
                         | _l  -> L.abort (fun p->p "multiple return addresses") in
                 v.Cfa.State.ip <- a;
-                Log_trace.trace a (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
+                L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
                 b||b') false vertices
         in
         vertices, b
