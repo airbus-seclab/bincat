@@ -226,10 +226,13 @@ struct
                  | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, false
-            | Directive (Stub (fun_name, args)) -> 
+            | Directive (Stub (fun_name, call_conv)) ->
                L.debug(fun p -> p "Processing stub %s" fun_name);
-               Stubs.process d fun_name args
-               (* fun_stack := List.tl !fun_stack; *)
+              let d',is_tainted',cleanup_stmts = Stubs.process d fun_name call_conv in
+              if List.length cleanup_stmts > 0 then
+                L.warn (fun p -> p "cleanup statements are not processed (yet!): %s"
+                  (Asm.string_of_stmts cleanup_stmts true));
+              d', is_tainted'
             | _ 				 -> raise Jmp_exn
           in L.debug (fun p -> p "process_value returns taint : %B"  tainted); res, tainted
       with Exceptions.Empty _ -> D.bot,false

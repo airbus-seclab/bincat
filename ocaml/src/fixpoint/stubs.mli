@@ -23,5 +23,5 @@ sig
 
   (** [process d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args]. 
 It returns also a boolean true whenever the result is tainted. *) 
-  val process : D.t -> string -> Asm.exp list -> D.t * bool
+  val process : D.t -> string -> Asm.calling_convention_t -> D.t * bool * Asm.stmt list
 end

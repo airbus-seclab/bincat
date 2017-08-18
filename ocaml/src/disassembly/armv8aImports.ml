@@ -44,40 +44,38 @@ struct
 
   open Asm
 
-  let reg r = Lval (V (T (Register.of_name r)))
+  let reg r = V (T (Register.of_name r))
 
-  (* strlen *)
-  let strlen_aapcs () =
-    let buf = Lval (V (T (Register.of_name "x0"))) in
-    let res = Register.of_name "x0" in
-    [ Directive (Stub ("strlen",  [Lval (V (T res)) ; buf])) ]
+  let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
-  (* memcpy *)
-  let memcpy_aapcs () =
-    let dst = reg "x0" in
-    let src = reg "x1" in
-    let sz = reg "x2" in
-    let res = reg "x0" in
-    [ Directive (Stub ("memcpy",  [res ; dst ; src ; sz])) ]
-
-
+  let aapcs_calling_convention = {
+    return = reg "x0" ;
+    callee_cleanup = (fun _x -> []) ;
+    arguments = function
+      | 0 -> Lval (reg "x0")
+      | 1 -> Lval (reg "x1")
+      | 2 -> Lval (reg "x2")
+      | 3 -> Lval (reg "x3")
+      | 4 -> Lval (M (Lval (reg "sp"), 64))
+      | n -> Lval (M ((BinOp (Add, Lval (reg "sp"), const ((n-5)*8) 64)), 64)) ;
+  }
 
   let aapcs_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
 
   let init_aapcs () =
     let funs =
-      [ ("memcpy", memcpy_aapcs) ;
-        (*("sprintf", sprintf_stdcall) ;
-        ("printf", printf_stdcall) ;
-        ("puts", puts_stdcall) ;
-        ("__printf_chk", printf_chk_stdcall) ; *)
-        ("strlen", strlen_aapcs) ]
+      [ "memcpy" ;
+        "puts";
+        "sprintf";
+        "printf" ;
+        "__printf_chk" ;
+        "__sprintf_chk" ;
+        "strlen" ]
     in
-    List.iter (fun (name, body) ->
-      Hashtbl.add aapcs_stubs name (body());
+    List.iter (fun name ->
+      Hashtbl.add aapcs_stubs name [ Directive (Stub (name, aapcs_calling_convention)) ];
       Hashtbl.replace available_stubs name ()
     ) funs
-
 
   let init () =
     init_aapcs ()

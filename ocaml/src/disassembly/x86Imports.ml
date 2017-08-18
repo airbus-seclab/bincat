@@ -46,89 +46,53 @@ struct
   open Asm
 
   (* x86 depend *)
-      
-  let esp () = Register.of_name "esp"
- 
-  (* x86 dependent *)
-  let arg n =
-    let esp = Register.of_name "esp" in
-    Lval (M (BinOp (Add, Lval (V (T (esp))), Const (Data.Word.of_int (Z.of_int n) !Config.stack_width)), !Config.stack_width))
 
-  (* x86 dependent *)
-  let sprintf_stdcall () =
-    let buf = arg 4 in
-    let format = arg 8 in
-    let va_arg = BinOp (Add, Lval (V (T (esp ()))), Const (Data.Word.of_int (Z.of_int 12) !Config.stack_width)) in
-    let res = Register.of_name "eax" in
-    [ Directive (Stub ("sprintf",  [Lval (V (T res)) ; buf ; format ; va_arg])) ]
+  let reg r = V (T (Register.of_name r))
 
-  let sprintf_cdecl = sprintf_stdcall
+  let cdecl_calling_convention = {
+    return = reg "eax" ;
+    callee_cleanup = (fun _x -> [ ]) ;
+    arguments = function
+    | 0 -> Lval (M (Lval (reg "esp"),!Config.stack_width))
+    | n ->
+       Lval (M (BinOp (Add,
+                      Lval (reg "esp"),
+                      Const (Data.Word.of_int (Z.of_int (n * !Config.stack_width / 8)) !Config.stack_width)),
+               !Config.stack_width))
+  }
 
-    let printf_stdcall () =
-    let format = arg 4 in
-    let va_arg = BinOp (Add, Lval (V (T (esp()))), Const (Data.Word.of_int (Z.of_int 8) !Config.stack_width)) in
-    let res = Register.of_name "eax" in
-    [ Directive (Stub ("printf",  [Lval (V (T res)) ; format ; va_arg])) ]
+  let stdcall_calling_convention = { cdecl_calling_convention with
+      callee_cleanup = (fun nargs -> [
+        Set (reg "esp", BinOp(Add, Lval (reg "esp"),
+                              Const (Data.Word.of_int (Z.of_int (nargs * !Config.stack_width/8)) !Config.stack_width))) ])
+  }
 
-  let printf_cdecl = printf_stdcall
-
-  let puts_stdcall () =
-    let str = arg 4 in
-    let res = Register.of_name "eax" in
-    [ Directive (Stub ("puts",  [Lval (V (T res)) ; str])) ]
-
-  let puts_cdecl = puts_stdcall
-    
-  let strlen_stdcall () =
-    let buf = arg 4 in
-    let res = Register.of_name "eax" in
-    [ Directive (Stub ("strlen",  [Lval (V (T res)) ; buf])) ]
-
-  let strlen_cdecl = strlen_stdcall
-
-  let memcpy_stdcall () =
-    let dst = arg 4 in
-    let src = arg 8 in
-    let sz = arg 12 in
-    let res = Register.of_name "eax" in
-    [ Directive (Stub ("memcpy",  [Lval (V (T res)) ; dst ; src ; sz])) ]
-
-  let memcpy_cdecl = memcpy_stdcall
-
-  (* QEMU stb of printf *)
-  let printf_chk_stdcall () =
-    let format = arg 8 in
-    let va_arg = BinOp (Add, Lval (V (T (esp()))), Const (Data.Word.of_int (Z.of_int 12) !Config.stack_width)) in
-   
-    let res = Register.of_name "eax" in
-    [ Directive (Stub ("printf",  [Lval (V (T res)) ; format ; va_arg])) ]
-      
-  let printf_chk_cdecl = printf_chk_stdcall 
-    
   let stdcall_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
   let cdecl_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
 
-  let init_stdcall () =
-    let funs =
-      [("memcpy", memcpy_stdcall) ; ("sprintf", sprintf_stdcall) ; ("printf", printf_stdcall);
-       ("puts", puts_stdcall);
-       ("__printf_chk", printf_chk_stdcall) ; ("strlen", strlen_stdcall)
-      ]
-    in
-    List.iter (fun (name, body) -> 
-      Hashtbl.add stdcall_stubs name (body());
+
+  let funs = [
+    "memcpy" ;
+    "puts";
+    "sprintf";
+    "printf" ;
+    "__printf_chk" ;
+    "__sprintf_chk" ;
+    "strlen" ;
+  ]
+
+  let init_cdecl () =
+    List.iter (fun name ->
+      Hashtbl.add cdecl_stubs name [ Directive (Stub (name, cdecl_calling_convention)) ];
       Hashtbl.replace available_stubs name ()
     ) funs
 
-  let init_cdecl () =
-	let funs =
-	  [("memcpy", memcpy_cdecl) ; ("sprintf", sprintf_cdecl) ; ("printf", printf_cdecl);
-	   ("puts", puts_cdecl);
-       ("__printf_chk", printf_chk_cdecl) ; ("strlen", strlen_cdecl)
-      ]
-    in
-    List.iter (fun (name, body) -> Hashtbl.add cdecl_stubs name (body())) funs
-  	 
+  let init_stdcall () =
+    List.iter (fun name ->
+      Hashtbl.add stdcall_stubs name [ Directive (Stub (name, stdcall_calling_convention)) ];
+      Hashtbl.replace available_stubs name ()
+    ) funs
+
   let init () =
     init_stdcall ();
     init_cdecl ()
