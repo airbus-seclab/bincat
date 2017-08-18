@@ -162,6 +162,7 @@ module Make(Modname: sig val name : string end) = struct
 end
 
 module Stdout = Make(struct let name = "stdout" end)
+module Trace = Make(struct let name = "trace" end)
 
 (** close the log file *)
 let close () =

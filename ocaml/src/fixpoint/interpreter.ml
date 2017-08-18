@@ -19,7 +19,6 @@
 (** Fixpoint iterator *)
 
 module L = Log.Make(struct let name = "interpreter" end)
-module Log_trace = Log.Make(struct let name = "trace" end)
 
 module Make(D: Domain.T)(Decoder: Decoder.Make) =
 struct
@@ -288,7 +287,7 @@ struct
         let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
         L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded." 
           (Data.Address.to_string a) (fundec.Decoder.Imports.name) (List.length stmts));
-        Log_trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
+        Log.Trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
         let ret_addr_exp = fundec.Decoder.Imports.ret_addr in
         L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let b =
@@ -634,7 +633,7 @@ struct
             begin
             match r with
             | Some (v, ip', d') ->
-               Log_trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
+               Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
 	       	(* add overrides if needed *)
