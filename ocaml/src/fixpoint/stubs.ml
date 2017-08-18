@@ -206,10 +206,8 @@ struct
       let format_addr = args 0 in
       let va_args = shift args 1 in
       (* creating a very large temporary buffer to store the output of printf *)
-      Log.open_stdout();
       let d', is_tainted = print d ret format_addr va_args None in
       L.analysis (fun p -> p "printf output:");
-      Log.dump_stdout();
       L.analysis (fun p -> p "--- end of printf--");
       d', is_tainted
 
@@ -217,11 +215,9 @@ struct
 
     let puts d ret args =
       let str = args 0 in
-      Log.open_stdout();
       L.analysis (fun p -> p "puts output:");
       let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
       let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
-      Log.dump_stdout();
       L.analysis (fun p -> p "--- end of puts--");
       d', is_tainted
 
