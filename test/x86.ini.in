@@ -43,7 +43,7 @@ format = raw
 [analyzer]
 ini_version = 2
 unroll = 150
-loglevel = 4
+loglevel = 10
 store_marshalled_cfa = true
 in_marshalled_cfa_file = "incfa.marshal"
 out_marshalled_cfa_file = "outcfa.marshal"
@@ -79,6 +79,8 @@ reg[ebp] = 0x2000
 
 #here addresses are supposed to be absolute and not of the form ds:o
 stack[0x1000*8192] = |00|?0xFF
+
+{regmem}
 
 [override]
 {overrides}
