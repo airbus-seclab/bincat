@@ -97,14 +97,9 @@ class BCTest:
         return open(self.result.logf).read()
     def get_stdout(self):
         s = []
-        rec = False
         for l in open(self.result.logf):
-            if "--- end of printf" in l:
-                rec = False
-            if rec:
-                s.append(l[:-1])
-            if "printf output" in l:
-                rec = True
+            if l.startswith("[STDOUT] "):
+                s.append(l[9:])
         return "".join(s)
 
 class Arch:
