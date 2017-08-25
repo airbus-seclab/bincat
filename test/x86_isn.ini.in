@@ -48,6 +48,7 @@ store_marshalled_cfa = true
 in_marshalled_cfa_file = "incfa.marshal"
 out_marshalled_cfa_file = "outcfa.marshal"
 analysis = forward_binary
+cut = {code_length}
 
 [state]
 reg[cf] = 0?1
@@ -90,4 +91,10 @@ stack[0x1000*8192] = |00|?0xFF
 #read uses a different calling convention
 * = read<stdcall>(@, *, @)
 
+[imports]
+0x80000000 = all,"printf"
+0x80000001 = all,"sprintf"
+0x80000002 = all,"memcpy"
+0x80000003 = all,"strlen"
+headers = "libc.no"
 
