@@ -53,11 +53,10 @@ struct
     return = reg "eax" ;
     callee_cleanup = (fun _x -> [ ]) ;
     arguments = function
-    | 0 -> Lval (M (Lval (reg "esp"),!Config.stack_width))
     | n ->
        Lval (M (BinOp (Add,
                       Lval (reg "esp"),
-                      Const (Data.Word.of_int (Z.of_int (n * !Config.stack_width / 8)) !Config.stack_width)),
+                      Const (Data.Word.of_int (Z.of_int ((n+1) * !Config.stack_width / 8)) !Config.stack_width)),
                !Config.stack_width))
   }
 
