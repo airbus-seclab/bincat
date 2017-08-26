@@ -52,6 +52,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   in
   begin
     try
+      Config.reset ();
       lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
       Parser.process Lexer.token lexbuf
     with

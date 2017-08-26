@@ -177,3 +177,56 @@ let clear_tables () =
   Hashtbl.clear mem_override;
   Hashtbl.clear stack_override;
   Hashtbl.clear heap_override
+
+
+let reset () =
+  blackAddresses := SAddresses.empty;
+  loglevel := 3;
+  unroll := 20;
+  fun_unroll := 50;
+  loglevel := 3;
+  max_instruction_size := 16;
+  blackAddresses := SAddresses.empty;
+  memory_model := Flat;
+  architecture := X86;
+  endianness := LITTLE;
+  analysis := (Forward Bin);
+  mode := Protected;
+  in_mcfa_file := "";
+  out_mcfa_file := "";
+  load_mcfa := false;
+  store_mcfa := false;
+  binary := "";
+  format := RAW;
+  call_conv := CDECL;
+  text := "";
+  code_length := 0;
+  ep := Z.zero;
+  phys_code_addr := 0;
+  rva_code := Z.zero;
+  address_sz := 32;
+  operand_sz := 32;
+  stack_width := 32;
+  sections:= [];
+  cs := Z.zero;
+  ds := Z.zero;
+  ss := Z.zero;
+  es := Z.zero;
+  fs := Z.zero;
+  gs := Z.zero;
+  interleave := false;
+  Hashtbl.reset module_loglevel;
+  Hashtbl.reset reg_override;
+  Hashtbl.reset mem_override;
+  Hashtbl.reset stack_override;
+  Hashtbl.reset heap_override;
+  Hashtbl.reset register_content;
+  Hashtbl.reset memory_content;
+  Hashtbl.reset stack_content;
+  Hashtbl.reset heap_content;
+  Hashtbl.reset gdt;
+  Hashtbl.reset import_tbl;
+  Hashtbl.reset assert_untainted_functions;
+  Hashtbl.reset assert_tainted_functions;
+  Hashtbl.reset tainting_rules;
+  Hashtbl.reset typing_rules;
