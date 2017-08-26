@@ -24,17 +24,18 @@ endianness = little
 
 [binary]
 filepath = "{filepath}"
-format = binary
+format = raw
 
 
 [analyzer]
 ini_version = 2
 unroll = 150
-loglevel = 4
+loglevel = 10
 store_marshalled_cfa = true
 in_marshalled_cfa_file = "incfa.marshal"
 out_marshalled_cfa_file = "outcfa.marshal"
 analysis = forward_binary
+cut = {code_length}
 
 [state]
 reg[n] = 0?1
@@ -61,6 +62,11 @@ reg[pc] = 0
 #here addresses are supposed to be absolute and not of the form ds:o
 stack[0x1000*8192] = |00|?0xFF
 
+{regmem}
+
+[override]
+{overrides}
+ 
 
 [libc]
 #tainting rules for libc
@@ -68,6 +74,11 @@ stack[0x1000*8192] = |00|?0xFF
 # call_conv = fastcall
 * = open(@, _)
 #read uses a different calling convention
-* = read<stdcall>(@, *, @)
+* = read<aapcs>(@, *, @)
 
-
+[imports]
+0x4 = all,"strlen"
+0x8 = all,"memcpy"
+0xc = all,"printf"
+0x10 = all,"sprintf"
+headers = "libc.no"

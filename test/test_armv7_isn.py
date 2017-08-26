@@ -3,7 +3,7 @@ import os
 from util import ARM
 
 arm = ARM(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7_isn.ini.in')
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7.ini.in')
 )
 compare = arm.compare
 
