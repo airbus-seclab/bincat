@@ -246,6 +246,58 @@ struct
     @ [ Set (V (T pc), BinOp(Add, Lval (V (T pc)), const ofs32 32)) ]
     @ jmp_or_call_stmt
 
+  let branch_exchange s instruction =
+    let set_pc = Set (V (T pc), Lval(V(reg (instruction land 0xf)))) in
+    if instruction land (1 lsl 5) = 0 then (* BX *)
+      [ set_pc ; Jmp (R (Lval (V (T pc)))) ]
+    else (* BLX *)
+      [
+        Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ;
+        set_pc ;
+        Call (R (Lval (V (T pc))))
+      ]
+
+  let asr_stmt exp shift =
+    let sign_mask = const ((-1) lsl (32-shift)) 32 in
+    let shifted = BinOp(Shr, exp, const shift 32) in
+    let msb = BinOp(Shr, exp, const 31 32) in
+    let sign = TernOp( Cmp (EQ, msb, const 0 32), const 0 32, sign_mask) in
+    BinOp(Or, shifted, sign)
+
+
+  let asr_stmt_exp exp shift_exp =
+    let sign_mask = BinOp(Shl, const (-1) 32, BinOp(Sub, const 32 32, shift_exp)) in
+    let shifted = BinOp(Shr, exp, shift_exp) in
+    let msb = BinOp(Shr, exp, const 31 32) in
+    let sign = TernOp( Cmp (EQ, msb, const 0 32), const 0 32, sign_mask) in
+    BinOp(Or, shifted, sign)
+
+  let ror_stmt exp shift =
+    let left = BinOp(Shr, exp, const shift 32) in
+    let right = BinOp(Shl, exp, const (32-shift) 32) in
+    BinOp(Or, left, right)
+
+  let ror_stmt_exp exp shift_exp =
+    let left = BinOp(Shr, exp, shift_exp) in
+    let right = BinOp(Shl, exp, BinOp(Sub, const 32 32, shift_exp)) in
+    BinOp(Or, left, right)
+
+  let set_cflag_from_bit rm n =
+    let nm1 = (n-1) mod 32 in
+    Set (V (T cflag), Lval (V (preg rm nm1 nm1)))
+
+  let set_cflag_from_bit_exp rm n_exp =
+    let one33 = const 1 33 in
+    let rm33 = UnOp(ZeroExt 33, Lval (V (reg rm))) in
+    Set ( V (T cflag),
+          TernOp (Cmp (EQ,
+                       BinOp(And, one33,
+                             BinOp(Shr, (* We shift left 1 and right n_exp, but on 33 bits *)
+                                   BinOp(Shl, rm33, one33),
+                                   UnOp(ZeroExt 33, n_exp))),
+                       one33),
+                  const 1 1, const 0 1))
+
 
   let single_data_transfer s instruction = 
     let rd = (instruction lsr 12) land 0xf in
@@ -268,8 +320,12 @@ struct
           | 0b01 -> (* logical shift right *)
              let actual_shift = if shift_amount = 0 then 32 else shift_amount in
              BinOp(Shl, Lval (V (reg rm)), const actual_shift 32)
-          | 0b10 -> (* asr *) error s.a "single data xfer offset from reg with asr not implemented"
-          | 0b11 -> (* ror *) error s.a "single data xfer offset from reg with ror not implemented"
+          | 0b10 -> (* asr *)
+             let actual_shift = if shift_amount = 0 then 32 else shift_amount in
+             asr_stmt (Lval (V (reg rm))) actual_shift
+          | 0b11 -> (* ror *)
+             let actual_shift = if shift_amount = 0 then 32 else shift_amount in
+             ror_stmt (Lval (V (reg rm))) actual_shift
           | _ -> error s.a "unexpected shift type insingle data xfer" in
     let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
     let preindex = (instruction land (1 lsl 24)) <> 0 in
@@ -286,17 +342,50 @@ struct
     let stmts,update_pc = if (instruction land (1 lsl 20)) = 0 then (* store *)
         [ Set (src_or_dst, Lval dst_or_src)], false
       else (* load *)
-        begin
-          let load_stmt = Set (dst_or_src, Lval src_or_dst) in
-          let stmts' =
-            if length = 32 then
-              [ load_stmt ]
-            else
-              [ load_stmt ;
-                Set (V (preg rd 8 31), const 0 24) ] in
-          stmts', rd = 15
-        end in
+        if length = 32 then
+          [ Set (V (reg rd), Lval src_or_dst) ], rd = 15
+        else
+          [ Set (V (reg rd), UnOp(ZeroExt 32, Lval src_or_dst)) ], rd = 15 in
     let write_back_stmt = Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) in
+    let stmts' =
+      if preindex then
+        if writeback then
+          write_back_stmt :: stmts
+        else
+          stmts
+      else
+        stmts @ [ write_back_stmt ] in
+    if update_pc then
+      stmts' @ [ Jmp (R (Lval (V (T pc)))) ]
+    else
+      stmts'
+
+  let halfword_data_transfer s instruction =
+    let rd = (instruction lsr 12) land 0xf in
+    let rn = (instruction lsr 16) land 0xf in
+    let load = (instruction land (1 lsl 20)) <> 0 in
+    let writeback = (instruction land (1 lsl 21)) <> 0 in
+    let immediate = (instruction land (1 lsl 22)) <> 0 in
+    let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
+    let preindex = (instruction land (1 lsl 24)) <> 0 in
+    let extend_op = if (instruction land (1 lsl 6)) = 0 then (ZeroExt 32) else (SignExt 32) in
+    let length = if (instruction land (1 lsl 5)) <> 0 then 16 else 8 in
+    let ofs = if immediate then
+        const (((instruction lsr 4) land 0xf0) lor (instruction land 0xf)) 32
+      else
+        let rm = instruction land 0xf in
+        Lval (V (reg rm)) in
+    let index_expr = BinOp(updown, Lval (V (reg rn)), ofs) in
+    let src_or_dst = match preindex,writeback with
+      | true, false -> M (index_expr, length)
+      | true, true
+      | false, false -> M (Lval (V (reg rn)), length) (* if post-indexing, write back is implied and W=0 *)
+      | false, true -> error s.a "Undefined combination (post indexing and W=1)" in
+    let stmts, update_pc = if load then
+        [ Set (V (reg rd), UnOp(extend_op, Lval src_or_dst)) ], rd = 15
+      else
+        [ Set (src_or_dst, Lval (V (preg rd 0 (length-1)))) ], false in
+    let write_back_stmt = Set (V (reg rn), index_expr) in
     let stmts' =
       if preindex then
         if writeback then
@@ -355,26 +444,40 @@ struct
              | _ -> BinOp(Shr, Lval (V (reg rm)), op3)
            end,
              begin
-               let one33 = const 1 33 in
-               let zero32 = const 0 32 in
                match int_shift_count with
-               | Some 0 -> [ Set( V (T cflag), (* 0 for lsr means 32 ! *)
-                                  TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const 0x80000000 32), zero32),
-                                          const 0 1, const 1 1)) ]
-               | Some n -> [ Set( V (T cflag),  (* shift count is an immediate, we can directly test the bit *)
-                                  TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl (n-1)) 32), zero32),
-                                            const 0 1, const 1 1)) ]
-               | None -> [ Set ( V (T cflag),                           (* shift count comes from a register. *)
-                                 TernOp (Cmp (EQ,
-                                              BinOp(And, one33, (* We shift left 1 and right but on 33 bits *)
-                                                    BinOp(Shr,
-                                                          BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))), one33),
-                                                          UnOp(ZeroExt 33, op3))),
-                                              one33),
-                                         const 1 1, const 0 1)) ]
+               | Some n -> [ set_cflag_from_bit rm n ]
+               | None -> [ set_cflag_from_bit_exp rm op3 ]
              end
-        | 0b10 -> (* asr *) error s.a "Asr shift operation for shifted register not implemented"
-        | 0b11 -> (* ror *) error s.a "Ror shift operation for shifted register not implemented"
+        | 0b10 -> (* asr *)
+           begin
+             match int_shift_count with
+             | Some 0 -> asr_stmt (Lval (V (reg rm))) 32 (* 0 actually encodes lsr #32 *)
+             | Some x -> asr_stmt (Lval (V (reg rm))) x
+             | None -> asr_stmt_exp (Lval (V (reg rm))) op3
+           end,
+             begin
+               match int_shift_count with
+               | Some n -> [ set_cflag_from_bit rm n ]
+               | None -> [ set_cflag_from_bit_exp rm op3 ]
+             end
+        | 0b11 -> (* ror *)
+           begin
+             match int_shift_count with
+             | Some 0 -> (* RRX operation *)
+                let shifted = BinOp(Shr, Lval (V (reg rm)), const 1 32) in
+                let carry_in = TernOp( Cmp (EQ, Lval (V (T cflag)), const 0 1), const 0 32, const 0x80000000 32) in
+                BinOp(Or, shifted, carry_in)
+             | Some x -> ror_stmt (Lval (V (reg rm))) x
+             | None -> ror_stmt_exp (Lval (V (reg rm))) op3
+           end,
+             begin
+               match int_shift_count with
+               | Some 0 -> (* RRX operation *)
+                  let carry_out = TernOp( Cmp (EQ, BinOp(And, Lval (V (reg rm)), const 1 32), const 0 32), const 0 1, const 1 1) in
+                  [ Set ( V (T cflag), carry_out) ]
+               | Some n -> [ set_cflag_from_bit rm n ]
+               | None -> [ set_cflag_from_bit_exp rm op3 ]
+             end
         | st -> L.abort (fun p -> p "unexpected shift type %x" st)
     in
     let to33bits x = UnOp(ZeroExt 33, x) in
@@ -564,16 +667,8 @@ struct
               false
            | _ -> L.abort (fun p -> p "unexpected opcode %x" opcode)
          end
-       else  (* Misc + MRS/MSR *)
+       else  (* MRS/MSR *)
          begin
-           (* MISC: op1 = 00xx0 && op = 0 *)
-           if (instruction lsr 23) land 3 = 2 && (instruction land (1 lsl 7)) = 0 then
-                (* op0 = 1 & op1 = 1 => BX*)
-                if (instruction lsr 21) land 3 = 1 && (instruction lsr 4) land 7 = 1 then
-                  [ Set (V (T pc), Lval(V(reg (instruction land 0xf)))) ], [], true
-                else
-                  L.abort (fun p -> p "unhandled misc opcode %x" opcode)
-           else
            match (instruction lsr 18) land 0xf with
            | 0b0011 -> (* MRS *)
               if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
@@ -645,31 +740,23 @@ struct
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction s str in
-    let stmts = match (instruction lsr 26) land 0x3 with
-    | 0b00 ->
-       begin
-         if ((instruction lsr 4) land 0xf) = 0x9 then
-           match (instruction lsr 23) land 0x7 with
-           | 0b000 -> mul_mla s instruction (* multiply *) 
-           | 0b010 -> single_data_swap s instruction (* single data swap *)
-           | _ -> L.abort (fun p -> p "Unexpected opcode %x" instruction)
-         else (* data processing / PSR transfer *) 
-           data_proc s instruction
-       end
-    | 0b01 -> single_data_transfer s instruction
-    | 0b10 ->
-       begin
-         match (instruction lsr 25) land 1 with
-         | 0 -> block_data_transfer s instruction (* block data transfer *)
-         | 1 -> branch s instruction
-         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
-       end
-    | 0b11 ->
-       begin
-         match (instruction lsr 24) land 3 with
-         | 0b11 -> (* software interrupt *) error s.a (Printf.sprintf "software interrupt not implemented (swi=%08x)" instruction)
-         | _ -> (* coproc *) error s.a "coprocessor operation not implemented"
-       end
+    let stmts = match (instruction lsr 25) land 0x7 with
+    | 0b000 ->
+       if instruction land 0x0fffffd0 = 0x012fff10 then branch_exchange s instruction
+       else if instruction land 0x0fb00ff0 = 0x01000090 then single_data_swap s instruction
+       else if instruction land 0x0fc000f0 = 0x00000090 then mul_mla s instruction
+       else if instruction land 0x0f8000f0 = 0x08000090 then (* multiply long *) error s.a "mul long"
+       else if instruction land 0x0e400f90 = 0x00000090 then (* halfword data transfer, reg *) halfword_data_transfer s instruction
+       else if instruction land 0x0e400090 = 0x00400090 then (* halfword data transfer, imm *) halfword_data_transfer s instruction
+       else data_proc s instruction
+    | 0b001 -> data_proc s instruction
+    | 0b010 -> single_data_transfer s instruction
+    | 0b011 when instruction land (1 lsl 4) = 0 -> single_data_transfer s instruction
+    | 0b100 -> block_data_transfer s instruction (* block data transfer *)
+    | 0b101 -> branch s instruction
+    | 0b110 -> error s.a (Printf.sprintf "Comprocessor data transfer not implemented (isn=%08x)" instruction)
+    | 0b111 when instruction land (1 lsl 24) = 0 -> error s.a (Printf.sprintf "coprocessor operation or register transfer (isn=%08x)" instruction)
+    | 0b111 when instruction land (1 lsl 24) <> 0 -> error s.a (Printf.sprintf "software interrupt not implemented (swi=%08x)" instruction)
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
     let stmts_cc = match (instruction lsr 28) land 0xf with
     | 0xf -> []    (* never *) 

@@ -13,3 +13,6 @@ eggloader_armv7: eggloader_armv7.c
 eggloader_armv8: eggloader_armv8.c
 	aarch64-linux-gnu-gcc -static -g -o $@ $<
 
+libc.no: libc.c
+	c2newspeak --typed-npk -o $@ $<
+

@@ -49,8 +49,8 @@ struct
   (* strlen *)
   let strlen_aapcs () =
     let buf = Lval (V (T (Register.of_name "r0"))) in
-    let res = Register.of_name "r0" in
-    [ Directive (Stub ("strlen",  [Lval (V (T res)) ; buf])) ]
+    let res = reg "r0" in
+    [ Directive (Stub ("strlen",  [res ; buf])) ]
 
   (* memcpy *)
   let memcpy_aapcs () =
@@ -60,6 +60,37 @@ struct
     let res = reg "r0" in
     [ Directive (Stub ("memcpy",  [res ; dst ; src ; sz])) ]
 
+  (* puts *)
+  let puts_aapcs () =
+    let res_and_src = reg "r0" in
+    [ Directive (Stub ("puts", [res_and_src ; res_and_src])) ]
+
+  (* sprintf *)
+  let sprintf_aapcs () =
+    let buf_and_res = reg "r0" in
+    let format = reg "r1" in
+    let va_arg = reg "r2" in
+    [ Directive (Stub ("sprintf",  [ buf_and_res ; buf_and_res ; format ; va_arg])) ]
+
+  (* printf *)
+  let printf_aapcs () =
+    let format_and_res = reg "r0" in
+    let va_arg = reg "r1" in
+    [ Directive (Stub ("printf",  [ format_and_res ; format_and_res ; va_arg])) ]
+
+  (* printf_chk *)
+  let printf_chk_aapcs () =
+    let res = reg "r0" in
+    let format = reg "r1" in
+    let va_arg = reg "r2" in
+    [ Directive (Stub ("printf",  [ res ; format ; va_arg])) ]
+
+  (* sprintf_chk *)
+  let sprintf_chk_aapcs () =
+    let buf_and_res = reg "r0" in
+    let format = reg "r3" in
+    let va_arg = reg "sp" in
+    [ Directive (Stub ("sprintf",  [ buf_and_res ; buf_and_res ; format ; va_arg])) ]
 
 
   let aapcs_stubs: (string, stmt list) Hashtbl.t = Hashtbl.create 5;;
@@ -67,10 +98,11 @@ struct
   let init_aapcs () =
     let funs =
       [ ("memcpy", memcpy_aapcs) ;
-        (*("sprintf", sprintf_stdcall) ;
-        ("printf", printf_stdcall) ;
-        ("puts", puts_stdcall) ;
-        ("__printf_chk", printf_chk_stdcall) ; *)
+        ("puts", puts_aapcs) ;
+        ("sprintf", sprintf_aapcs) ;
+        ("printf", printf_aapcs) ;
+        ("__printf_chk", printf_chk_aapcs) ;
+        ("__sprintf_chk", sprintf_chk_aapcs) ;
         ("strlen", strlen_aapcs) ]
     in
     List.iter (fun (name, body) -> 
