@@ -284,7 +284,9 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         if self.chk_remap.isChecked():
             if (self.s.remapped_bin_path is None or
                     not os.path.isfile(self.s.remapped_bin_path)):
-                fname = idaapi.askfile_c(1, "*.*", "Save remapped binary")
+                # IDA 6/7 compat
+                askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') else idaapi.askfile_c
+                fname = askfile(1, None, "Save remapped binary")
                 if not fname:
                     bc_log.error(
                         'No filename provided. You can provide a filename or '
