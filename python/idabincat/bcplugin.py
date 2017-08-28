@@ -48,6 +48,7 @@ import idabincat.npkgen
 from idabincat.plugin_options import PluginOptions
 from idabincat.analyzer_conf import AnalyzerConfig, AnalyzerConfigurations
 from idabincat.gui import GUI
+import pybincat
 
 from PyQt5 import QtCore
 # used in idaapi
