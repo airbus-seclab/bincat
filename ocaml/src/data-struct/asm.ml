@@ -108,7 +108,7 @@ and directive_t =
   | Default_unroll (** set the current unroll value to the default value (in Config) *)
   | Unroll_until of exp * cmp * exp * int * int (** Unroll (e, cmp terminator, bs, sz) set the current unroll value to tmin (n, bs) where n is an offset from memory [e].
                                                     This offset is the minimal integer where (sz)[e] cmp terminator is true *)
-  | Stub of string * calling_convention_t (** Stub (f, res, args) is the stub of the function f with args as arguments *)
+  | Stub of string * calling_convention_t (** Stub (f, args) is the stub of the function f with args as arguments *)
 (** type of statements *)
 and stmt =
   | Set  of lval * exp    		   (** store the expression into the left value *)
