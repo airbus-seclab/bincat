@@ -16,14 +16,11 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-Printf.printf "BinCAT %s\n" Bincat_ver.version_string;
-flush stdout;
-if (Array.length Sys.argv < 4) then
-        print_endline "Usage: bincat init.ini output.ini outlog"
-else
-  try
-    Main.process Sys.argv.(1) Sys.argv.(2) Sys.argv.(3)
-  with e -> 
-      Printf.fprintf stderr "EXCEPTION: %s\nCheck log file for details [%s]\n" (Printexc.to_string e) Sys.argv.(3);
-      raise e
+(***************************************************************************************)
+(* common signatures of loaders *)
+(***************************************************************************************)
 
+module type Loader =
+sig
+  val make_mapped_mem : unit -> Mapped_mem.t
+end

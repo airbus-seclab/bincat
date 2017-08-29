@@ -134,17 +134,6 @@ module Make(D: T) =
       | Val of D.t Env.t (* For Ocaml non-gurus : Val is a Map, indexed by Key, with values of D.t *)
       | BOT
 
-    type section = {
-        virt_addr : Data.Address.t ;
-        virt_size : Z.t ;
-        raw_addr : Z.t ;
-        raw_size : Z.t ;
-        name : string }
-
-    let sections_addr : section list ref = ref []
-    type arrayt = ((int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t)
-    let mapped_file : arrayt option ref = ref None
-
     let bot = BOT
 		
     let is_bot m = m = BOT
@@ -290,25 +279,6 @@ module Make(D: T) =
            else 0 (* return 0 if a1 <= a <= a2 *)
 	
 
-    (** get byte from sections, depending on addr:
-            - real value if in raw data
-            - TOP if in section but not raw data
-            - raise Not_found if not in sections *)
-    let read_from_sections addr =
-        let is_in_section addr section =
-            if (Data.Address.compare addr section.virt_addr >= 0) &&
-               (Data.Address.compare addr (Data.Address.add_offset section.virt_addr section.virt_size) < 0) then
-                true else false in
-        let sec = List.find (fun section_info -> is_in_section addr section_info) !sections_addr in
-        (* check if we're out of the section's raw data *)
-        let offset = (Data.Address.sub addr sec.virt_addr) in
-            if Z.compare offset sec.raw_size > 0 then
-                D.top
-            else
-                match !mapped_file with
-                | None -> L.abort (fun p -> p "File not mapped!")
-                | Some map -> D.of_word (Data.Word.of_int (Z.of_int (Bigarray.Genarray.get map [|(Z.to_int (Z.add sec.raw_addr offset))|])) 8)
-
 
     (** computes the value read from the map where _addr_ is located 
         The logic is the following:
@@ -328,9 +298,13 @@ module Make(D: T) =
         try
             List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs
         with Not_found ->
-            L.debug (fun p -> p "\tNot found in mapping, checking sections");
-            (* not in mem map, check file sections, again, will raise [Not_found] if not matched *)
-            List.rev_map (fun cur_addr -> read_from_sections cur_addr) exp_addrs
+          L.debug (fun p -> p "\tNot found in mapping, checking sections");
+          (* not in mem map, check file sections, again, will raise [Not_found] if not matched *)
+          let mapped_mem = match !Mapped_mem.current_mapping with
+            | None -> L.abort (fun p -> p "File not mmaped")
+            | Some x -> x in
+          let read_file addr = D.of_word (Mapped_mem.read mapped_mem addr) in
+          List.rev_map read_file exp_addrs
         in
 
         (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
@@ -745,21 +719,8 @@ module Make(D: T) =
            let m = Env.empty in
            let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
            Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2' m')
-	       
-	       
-    let convert_section sec =
-        match sec with (lvirt_addr, lvirt_size, lraw_addr, lraw_size, lname) ->
-            { virt_addr = Data.Address.of_int Data.Address.Global lvirt_addr !Config.address_sz;
-              virt_size = lvirt_size;
-              raw_addr = lraw_addr;
-              raw_size = lraw_size;
-              name = lname }
-    let init () = sections_addr := List.map convert_section !Config.sections ;
-                  let bin_fd = Unix.openfile !Config.binary [Unix.O_RDONLY] 0 in
-                  mapped_file := Some (Bigarray.Genarray.map_file bin_fd ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false [|-1|]);
-		  Unix.close bin_fd;
-                  Val (Env.empty)
-		      
+
+
     (** returns size of content, rounded to the next multiple of Config.operand_sz *)
     let size_of_content c =
       let round_sz sz =
@@ -952,7 +913,7 @@ module Make(D: T) =
     let print_bytes bytes nb =
           let str = Bytes.make nb ' ' in
               List.iteri (fun i c -> Bytes.set str i (D.to_char c)) bytes;
-              Log.print (Bytes.to_string str);;
+              Log.Stdout.stdout (fun p -> p "%s" (Bytes.to_string str));;
 
     let print_until m e terminator term_sz upper_bound with_exception pad_options =
       let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options in
@@ -969,7 +930,7 @@ module Make(D: T) =
           let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m false pad_options) in
           print_bytes bytes nb;
           m
-        | BOT -> Log.print "_"; BOT
+        | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
 
     let copy_chars_to_register m reg offset src nb pad_options =
       match m with
@@ -1081,9 +1042,9 @@ module Make(D: T) =
         | Val m' -> 
           let str, len = to_hex m' src nb capitalise pad_option false word_sz in
           (* str is already stripped in hex *)
-          Log.print str;
+          Log.Stdout.stdout (fun p -> p "%s" str);
           m, len
-        | BOT -> Log.print "_"; m, raise (Exceptions.Empty "unrel.print_hex: environment is empty")
+        | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "unrel.print_hex: environment is empty")
 
     let copy m dst arg sz: t =
 	(* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)
@@ -1111,9 +1072,12 @@ module Make(D: T) =
                   String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
               else raise (Exceptions.Empty "unrel.print")
           in
-          Log.print str';
+          Log.Stdout.stdout (fun p -> p "%s" str');
           m
-        | BOT -> Log.print "_"; m
+        | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
+
+    let init () = Val (Env.empty)
+
   end
     
     

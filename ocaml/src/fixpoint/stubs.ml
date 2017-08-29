@@ -18,48 +18,45 @@
 
 module L = Log.Make(struct let name = "stubs" end)
 
+
 module Make (D: Domain.T) =
 struct
-    let strlen (d: D.t) (args: Asm.exp list): D.t * bool =
-        match args with
-        | [Asm.Lval ret ; buf] ->
-          let zero = Asm.Const (Data.Word.zero 8) in
-          let len = D.get_offset_from buf Asm.EQ zero 10000 8 d in
-          if len > !Config.unroll then
-              begin
-                  L.analysis (fun p -> p "updates automatic loop unrolling with the computed string length = %d" len);
-                  Config.unroll := len
-              end;
-          D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
-        | _ -> L.abort (fun p -> p "invalid call to strlen stub")
 
-    let memcpy (d: D.t) (args: Asm.exp list): D.t * bool =
-        L.analysis (fun p -> p "memcpy stub");
-        match args with
-        | [Asm.Lval ret ; dst ; src ; sz] ->
-          begin
-              try
-                  let n = Z.to_int (D.value_of_exp d sz) in
-                  let d' = D.copy d dst (Asm.Lval (Asm.M (src, (8*n)))) (8*n) in
-                  D.set ret dst d'
-              with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
-          end
-        | _ -> L.abort (fun p -> p "invalid call to memcpy stub")
+
+    let shift argfun n = fun x -> (argfun (n+x))
+
+    let strlen (d: D.t) ret args : D.t * bool =
+      let zero = Asm.Const (Data.Word.zero 8) in
+      let len = D.get_offset_from (args 0) Asm.EQ zero 10000 8 d in
+      if len > !Config.unroll then
+        begin
+          L.analysis (fun p -> p "updates automatic loop unrolling with the computed string length = %d" len);
+          Config.unroll := len
+        end;
+      D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
+
+    let memcpy (d: D.t) ret args : D.t * bool =
+      L.analysis (fun p -> p "memcpy stub");
+      let dst = args 0 in
+      let src = args 1 in
+      let sz = args 2 in
+      try
+        let n = Z.to_int (D.value_of_exp d sz) in
+        let d' = D.copy d dst (Asm.Lval (Asm.M (src, (8*n)))) (8*n) in
+        D.set ret dst d'
+      with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
     let print (d: D.t) ret format_addr va_args (to_buffer: Asm.exp option): D.t * bool =
         (* ret has to contain the number of bytes stored in dst ;
            format_addr is the address of the format string ;
-           va_args is the address of the first parameter
-           (hence the second one will be at va_args + !Config.stack_width/8,
-           the third one at va_args + 2*!Config.stack_width/8, etc. *)
+           va_args the list of values needed to fill the format string *)
         try
             let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
             let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
             L.analysis (fun p -> p "format string: %s" format_string);
-            let off_arg = !Config.stack_width / 8 in
             let format_num d dst_off c fmt_pos arg pad_char pad_left: int * int * D.t =
               let rec compute digit_nb fmt_pos =
-		let c = Bytes.get format_string fmt_pos in
+                let c = Bytes.get format_string fmt_pos in
                     match c with
                     | c when '0' <= c && c <= '9' ->
                       let n = ((Char.code c) - (Char.code '0')) in
@@ -167,7 +164,7 @@ struct
                           | _ -> fill_buffer d fmt_pos 2 dst_off arg_nb
                       end
                     | _ (* = 2 ie previous char is % *) ->
-                      let arg = Asm.Lval (Asm.M (Asm.BinOp (Asm.Add, va_args, Asm.Const (Data.Word.of_int (Z.of_int (arg_nb*off_arg)) !Config.stack_width)), !Config.stack_width)) in
+                      let arg = va_args arg_nb in
                       let fmt_pos', buf_len, d' = format_arg d fmt_pos dst_off arg in
                       fill_buffer d' fmt_pos' 0 (dst_off+buf_len) (arg_nb+1)
                 else
@@ -192,69 +189,59 @@ struct
           L.abort (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 
+    let sprintf (d: D.t) ret args : D.t * bool =
+      let dst = args 0 in
+      let format_addr = args 1 in
+      let  va_args = shift args 2 in
+      print d ret format_addr va_args (Some dst)
 
-    let sprintf (d: D.t) (args: Asm.exp list): D.t * bool =
-        match args with
-        | [Asm.Lval ret ; dst ; format_addr ; va_args] ->
-          print d ret format_addr va_args (Some dst)
-        | _ -> L.abort (fun p -> p "invalid call to (s)printf stub")
+    let sprintf_chk (d: D.t) ret args : D.t * bool =
+      let dst = args 0 in
+      let format_addr = args 3 in
+      let  va_args = shift args 4 in
+      print d ret format_addr va_args (Some dst)
 
-    let printf d args =
+    let printf d ret args =
         (* TODO: not optimal as buffer destination is built as for sprintf *)
-        match args with
-        | [Asm.Lval ret ; format_addr ; va_args] ->
-          (* creating a very large temporary buffer to store the output of printf *)
-          Log.open_stdout();
-          let d', is_tainted = print d ret format_addr va_args None in
-          L.analysis (fun p -> p "printf output:");
-          Log.dump_stdout();
-          L.analysis (fun p -> p "--- end of printf--");
-          d', is_tainted
-        | _ -> L.abort (fun p -> p "invalid call to printf stub")
+      let format_addr = args 0 in
+      let va_args = shift args 1 in
+      (* creating a very large temporary buffer to store the output of printf *)
+      let d', is_tainted = print d ret format_addr va_args None in
+      L.analysis (fun p -> p "printf output:");
+      L.analysis (fun p -> p "--- end of printf--");
+      d', is_tainted
 
-    let puts d args =
-      match args with
-      | [Asm.Lval ret ; str] ->
-	 Log.open_stdout();
-	L.analysis (fun p -> p "puts output:");
-	let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
-	let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
-        Log.dump_stdout();
-        L.analysis (fun p -> p "--- end of puts--");
-	d', is_tainted
-	  
-      | _ -> L.abort (fun p -> p "invalid call to puts stub")
-	 
-    let process d fun_name (args: Asm.exp list): D.t * bool =
-        let d, is_tainted =
-            try
-                let apply_f =
-                    match fun_name with
-                    | "memcpy" -> memcpy
-                    | "sprintf" -> sprintf
-                    | "printf" -> printf
-                    | "puts" -> puts
-                    | "strlen" -> strlen
-                    | _ -> L.analysis(fun p -> p "No stub available for function [%s]" fun_name); raise Exit
-                in
-                apply_f d args
-            with
-            | Exit -> d, false
-            | e ->
-               L.exc e (fun p -> p "processing stub [%s]" fun_name);
-              L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name); 
-              d, false
-        in
-        if !Config.call_conv = Config.STDCALL then
-            let sp = Register.stack_pointer () in
-            let vsp = Asm.V (Asm.T sp) in
-            let sp_sz = Register.size sp in
-            let c = Data.Word.of_int (Z.of_int (!Config.stack_width / 8)) sp_sz in
-            let e = Asm.BinOp (Asm.Add, Asm.Lval vsp, Asm.Const c) in
-            let d', is_tainted' =
-                D.set vsp e d
-            in
-            d', is_tainted || is_tainted'
-        else
-            d, is_tainted
+    let printf_chk d ret args = printf d ret (shift args 1)
+
+    let puts d ret args =
+      let str = args 0 in
+      L.analysis (fun p -> p "puts output:");
+      let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
+      let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
+      L.analysis (fun p -> p "--- end of puts--");
+      d', is_tainted
+
+
+    let process d fun_name call_conv : D.t * bool * Asm.stmt list =
+      let apply_f, arg_nb =
+        match fun_name with
+        | "memcpy" -> memcpy, 3
+        | "sprintf" -> sprintf, 0
+        | "printf" -> printf, 0
+        | "__sprintf_chk" -> sprintf_chk, 0
+        | "__printf_chk" -> printf_chk, 0
+        | "puts" -> puts, 1
+        | "strlen" -> strlen, 1
+        | _ -> L.abort(fun p -> p "No stub available for function [%s]" fun_name) in
+      let d', is_tainted =
+        try
+          apply_f d call_conv.Asm.return call_conv.Asm.arguments
+        with
+        | Exit -> d, false
+        | e ->
+           L.exc e (fun p -> p "processing stub [%s]" fun_name);
+          L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
+          d, false in
+      let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
+      d', is_tainted, cleanup_stmts
 end

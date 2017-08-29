@@ -21,6 +21,8 @@ let fun_unroll = ref 50;;
 let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
+let max_instruction_size = ref 16;;
+
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
@@ -32,9 +34,10 @@ type memory_model_t =
 let memory_model = ref Flat
 
 type format_t =
-  | Pe
-  | Elf
-  | Binary
+  | RAW          (** no structure ; codes begins at phys_code_addr and is loader at rva_code *)
+  | IDA_REMAPPED (** IDA remapped file ; codes begins at phys_code_addr and is loader at rva_code *)
+  | PE
+  | ELF
 
 type archi_t =
   | X86
@@ -74,7 +77,7 @@ let store_mcfa = ref false;;
 (* name of binary file to analyze *)
 let binary = ref "";;
 
-let format = ref Pe
+let format = ref RAW
 
 type call_conv_t =
   | CDECL
@@ -172,3 +175,56 @@ let clear_tables () =
   memory_content := [];
   stack_content := [];
   heap_content := [];
+
+let reset () =
+  blackAddresses := SAddresses.empty;
+  loglevel := 3;
+  unroll := 20;
+  fun_unroll := 50;
+  loglevel := 3;
+  max_instruction_size := 16;
+  blackAddresses := SAddresses.empty;
+  memory_model := Flat;
+  architecture := X86;
+  endianness := LITTLE;
+  analysis := (Forward Bin);
+  mode := Protected;
+  in_mcfa_file := "";
+  out_mcfa_file := "";
+  load_mcfa := false;
+  store_mcfa := false;
+  binary := "";
+  format := RAW;
+  call_conv := CDECL;
+  text := "";
+  code_length := 0;
+  ep := Z.zero;
+  phys_code_addr := 0;
+  rva_code := Z.zero;
+  address_sz := 32;
+  operand_sz := 32;
+  stack_width := 32;
+  sections:= [];
+  cs := Z.zero;
+  ds := Z.zero;
+  ss := Z.zero;
+  es := Z.zero;
+  fs := Z.zero;
+  gs := Z.zero;
+  interleave := false;
+  memory_content := [];
+  stack_content := [];
+  heap_content := [];
+  Hashtbl.reset module_loglevel;
+  Hashtbl.reset reg_override;
+  Hashtbl.reset mem_override;
+  Hashtbl.reset stack_override;
+  Hashtbl.reset heap_override;
+  Hashtbl.reset register_content;
+  Hashtbl.reset gdt;
+  Hashtbl.reset import_tbl;
+  Hashtbl.reset assert_untainted_functions;
+  Hashtbl.reset assert_tainted_functions;
+  Hashtbl.reset tainting_rules;
+  Hashtbl.reset typing_rules;
+

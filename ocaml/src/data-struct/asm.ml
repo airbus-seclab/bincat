@@ -87,10 +87,19 @@ and bexp =
   | Cmp    of cmp * exp * exp        (** comparison *)
   | BBinOp of logbinop * bexp * bexp (** binary boolean operation *)
   | BConst of bool                   (** boolean constant true of false *)
-		
-	   
+
+(** data type of jump targets *)
+type jmp_target =
+  | A of Address.t (** target is an absolute address *)
+  | R of exp       (** target is the value of the expression *)
+
+type calling_convention_t = {
+  return : lval ;
+  arguments : int -> exp ;
+  callee_cleanup : int -> stmt list ;
+}
 (** type of directives for the analyzer *)
-type directive_t =
+and directive_t =
   | Remove of Register.t   (** remove the register *)
   | Forget of lval (** forget the (partial) content of the given register or memory zone *)
   | Taint of exp option * lval (** conditional tainting: if the expression is true then the left value must be tainted. None is for unconditional tainting *)
@@ -98,16 +107,10 @@ type directive_t =
   | Unroll of exp * int (** Unroll (e, bs) set the current unroll value to tmin (e, bs) *)
   | Default_unroll (** set the current unroll value to the default value (in Config) *)
   | Unroll_until of exp * cmp * exp * int * int (** Unroll (e, cmp terminator, bs, sz) set the current unroll value to tmin (n, bs) where n is an offset from memory [e].
-						    This offset is the minimal integer where (sz)[e] cmp terminator is true *)
-  | Stub of string * (exp list) (** Stub (f, args) is the stub of the function f with args as arguments *)    
-
-(** data type of jump targets *)
-type jmp_target = 
-  | A of Address.t (** target is an absolute address *)
-  | R of exp       (** target is the value of the expression *)
-
+                                                    This offset is the minimal integer where (sz)[e] cmp terminator is true *)
+  | Stub of string * calling_convention_t (** Stub (f, args) is the stub of the function f with args as arguments *)
 (** type of statements *)
-type stmt =
+and stmt =
   | Set  of lval * exp    		   (** store the expression into the left value *)
   | If of bexp * (stmt list) * (stmt list) (** conditional statement *)
   | Jmp	 of jmp_target                     (** jump *)				    

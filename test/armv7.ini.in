@@ -1,28 +1,11 @@
 # used as a template for tests
 [settings]
 mode = protected
-call_conv = cdecl
+call_conv = aapcs
 mem_sz = 32
 op_sz = 32
 stack_width = 32
 
-[x86]
-#Linux 32-bits
-mem_model = flat
-GDT[1] = 0x00cf9b000000ffff
-GDT[2] = 0x00cf93000000ffff
-GDT[3] = 0x00cffb000000ffff
-GDT[4] = 0x00cff3000000ffff
-GDT[5] = 0x80008b04200020ab
-GDT[6] = 0xffc093dff0000001
-GDT[7] = 0x0040f30000000fff
-GDT[8] = 0x0000f2000400ffff
-cs = 0x1b
-ds = 0x23
-ss = 0x23
-es = 0x23
-fs = 0x3b
-gs = 0x00
 
 [loader]
 # Starting point of the analysis
@@ -33,54 +16,57 @@ code_va = 0x00
 code_phys = 0x00
 #side of the code section
 code_length = {code_length}
-architecture = x86
+architecture = armv7
+
+[armv7]
+endianness = little
+
 
 [binary]
 filepath = "{filepath}"
-format = pe
+format = raw
 
 
 [analyzer]
 ini_version = 2
 unroll = 150
-loglevel = 4
+loglevel = 10
 store_marshalled_cfa = true
 in_marshalled_cfa_file = "incfa.marshal"
 out_marshalled_cfa_file = "outcfa.marshal"
 analysis = forward_binary
+cut = {code_length}
 
 [state]
-reg[cf] = 0?1
-reg[of] = 0?1
-reg[zf] = 0?1
-reg[sf] = 0?1
-reg[pf] = 0?1
-reg[af] = 0?1
-reg[tf] = 0?1
-reg[if] = 0?1
-reg[df] = 0?1
-reg[iopl] = 0?1
-reg[nt] = 0?1
-reg[rf] = 0?1
-reg[vm] = 0?1
-reg[ac] = 0?1
-reg[vif] = 0?1
-reg[vip] = 0?1
-reg[id] = 0?1
-reg[eax] = 0
-reg[ebx] = 0
-reg[ecx] = 0
-reg[edi] = 0
-reg[esi] = 0
-reg[edx] = 0
-reg[esp] = 0x2000
-reg[ebp] = 0x2000
+reg[n] = 0?1
+reg[z] = 0?1
+reg[c] = 0?1
+reg[v] = 0?1
+reg[r0] = 0
+reg[r1] = 0
+reg[r2] = 0
+reg[r3] = 0
+reg[r4] = 0
+reg[r5] = 0
+reg[r6] = 0
+reg[r7] = 0
+reg[r8] = 0
+reg[r9] = 0
+reg[r10] = 0
+reg[r11] = 0
+reg[r12] = 0
+reg[sp] = 0x2000
+reg[lr] = 0
+reg[pc] = 0
 
 #here addresses are supposed to be absolute and not of the form ds:o
 stack[0x1000*8192] = |00|?0xFF
 
+{regmem}
+
 [override]
 {overrides}
+ 
 
 [libc]
 #tainting rules for libc
@@ -88,6 +74,11 @@ stack[0x1000*8192] = |00|?0xFF
 # call_conv = fastcall
 * = open(@, _)
 #read uses a different calling convention
-* = read<stdcall>(@, *, @)
+* = read<aapcs>(@, *, @)
 
-
+[imports]
+0x4 = all,"strlen"
+0x8 = all,"memcpy"
+0xc = all,"printf"
+0x10 = all,"sprintf"
+headers = "libc.no"

@@ -37,17 +37,18 @@ architecture = x86
 
 [binary]
 filepath = "{filepath}"
-format = pe
+format = raw
 
 
 [analyzer]
 ini_version = 2
 unroll = 150
-loglevel = 4
+loglevel = 10
 store_marshalled_cfa = true
 in_marshalled_cfa_file = "incfa.marshal"
 out_marshalled_cfa_file = "outcfa.marshal"
 analysis = forward_binary
+cut = {code_length}
 
 [state]
 reg[cf] = 0?1
@@ -75,7 +76,10 @@ reg[esi] = 0
 reg[edx] = 0
 reg[esp] = 0x2000
 reg[ebp] = 0x2000
+
+#here addresses are supposed to be absolute and not of the form ds:o
 stack[0x1000*8192] = |00|?0xFF
+
 {regmem}
 
 [override]
@@ -93,5 +97,6 @@ stack[0x1000*8192] = |00|?0xFF
 0x80000000 = all,"printf"
 0x80000001 = all,"sprintf"
 0x80000002 = all,"memcpy"
+0x80000003 = all,"strlen"
 headers = "libc.no"
 

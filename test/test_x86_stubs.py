@@ -4,7 +4,7 @@ from util import X86
 
 
 x86 = X86(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)),'x86_stub.ini.in')
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),'x86.ini.in')
 )
 
 xfail = pytest.mark.xfail
@@ -33,7 +33,7 @@ def test_printf_num(tmpdir, val, fmt, mod, zeropad, sz):
 
     expected = fmtstr % val
     
-    assert expected == bc.get_stdout(), (repr(fmtstr)+"\n"+bc.listing)
+    assert expected == bc.get_stdout().strip(), (repr(fmtstr)+"\n"+bc.listing)
     assert len(expected) == bc.result.last_reg("eax").value, (repr(fmtstr)+"\n"+bc.listing)
 
 

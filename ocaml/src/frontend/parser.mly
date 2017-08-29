@@ -46,15 +46,12 @@
 	(STACK_WIDTH, "stack_width", "settings");
     (ARCHITECTURE, "architecture", "loader");
 	(ENTRYPOINT, "analyser_ep", "loader");
-	(CODE_LENGTH, "code_length", "loader");
 	(FORMAT, "format", "binary");
 	(FILEPATH, "filepath", "binary");
-	(CODE_PHYS_ADDR, "code_phys", "loader");
 	(ANALYSIS, "analysis", "analyzer");
 	(STORE_MCFA, "store_marshalled_cfa", "analyzer");
 	(IN_MCFA_FILE, "in_marshalled_cfa_file", "analyzer");
 	(OUT_MCFA_FILE, "out_marshalled_cfa_file", "analyzer");
-	(CODE_VA, "code_va", "loader");
       ];;
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
@@ -113,18 +110,6 @@
           | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
           | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
         end;
-	(* open the binary to pick up the text section *)
-	let fid  =
-	  try
-	    let fid = open_in_bin !Config.binary in
-	    seek_in fid !Config.phys_code_addr;
-	    fid
-	  with _ -> L.abort (fun p -> p "failed to open the binary to analyze")
-
-	in
-	Config.text := String.make !Config.code_length '\x00';
-	really_input fid !Config.text 0 !Config.code_length;
-	close_in fid;
 	(* fill the table of tainting rules for each provided library *)
 	let add_tainting_rules l (c, funs) =
 	  let c' =
@@ -158,7 +143,7 @@
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
-%token FORMAT PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
+%token FORMAT RAW IDA_REMAPPED PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER 
 %token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
@@ -290,10 +275,10 @@
     | l=loader_item ll=loader { l; ll }
 
       loader_item:
-    | CODE_LENGTH EQUAL i=INT 	 { update_mandatory CODE_LENGTH; Config.code_length := Z.to_int i }
+    | CODE_LENGTH EQUAL i=INT 	 { Config.code_length := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
-    | CODE_PHYS_ADDR EQUAL i=INT { update_mandatory CODE_PHYS_ADDR; Config.phys_code_addr := Z.to_int i }
-    | CODE_VA EQUAL i=INT 	 { update_mandatory CODE_VA; Config.rva_code := i }
+    | CODE_PHYS_ADDR EQUAL i=INT { Config.phys_code_addr := Z.to_int i }
+    | CODE_VA EQUAL i=INT 	 { Config.rva_code := i }
     | ARCHITECTURE EQUAL a=architecture 	 { update_mandatory ARCHITECTURE; Config.architecture := a }
     
     architecture:
@@ -340,13 +325,11 @@
     | FORMAT EQUAL f=format 	{ update_mandatory FORMAT; Config.format := f }
 
 
-
       format:
-    | PE  { Config.Pe }
-    | ELF { Config.Elf }
-    | BINARY { Config.Binary }
-
-  
+    | PE  { Config.PE }
+    | ELF { Config.ELF }
+    | RAW { Config.RAW }
+    | IDA_REMAPPED { Config.IDA_REMAPPED }
 
 
       analyzer:

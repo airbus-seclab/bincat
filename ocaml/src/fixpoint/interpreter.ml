@@ -19,7 +19,6 @@
 (** Fixpoint iterator *)
 
 module L = Log.Make(struct let name = "interpreter" end)
-module Log_trace = Log.Make(struct let name = "trace" end)
 
 module Make(D: Domain.T)(Decoder: Decoder.Make) =
 struct
@@ -226,10 +225,13 @@ struct
                  | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, false   
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, false
-            | Directive (Stub (fun_name, args)) -> 
+            | Directive (Stub (fun_name, call_conv)) ->
                L.debug(fun p -> p "Processing stub %s" fun_name);
-               Stubs.process d fun_name args
-               (* fun_stack := List.tl !fun_stack; *)
+              let d',is_tainted',cleanup_stmts = Stubs.process d fun_name call_conv in
+              if List.length cleanup_stmts > 0 then
+                L.warn (fun p -> p "cleanup statements are not processed (yet!): %s"
+                  (Asm.string_of_stmts cleanup_stmts true));
+              d', is_tainted'
             | _ 				 -> raise Jmp_exn
           in L.debug (fun p -> p "process_value returns taint : %B"  tainted); res, tainted
       with Exceptions.Empty _ -> D.bot,false
@@ -285,9 +287,9 @@ struct
         let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
         L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded." 
           (Data.Address.to_string a) (fundec.Decoder.Imports.name) (List.length stmts));
-        Log_trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
+        Log.Trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
         let ret_addr_exp = fundec.Decoder.Imports.ret_addr in
-        Log_trace.trace a (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
+        L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let b =
             List.fold_left (fun b v ->
                 if stmts <> [] then
@@ -302,7 +304,7 @@ struct
                         | []  -> L.abort (fun p->p "no return address")
                         | _l  -> L.abort (fun p->p "multiple return addresses") in
                 v.Cfa.State.ip <- a;
-                Log_trace.trace a (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
+                L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
                 b||b') false vertices
         in
         vertices, b
@@ -488,7 +490,7 @@ struct
 
     (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial state s. 
      g is the initial CFA reduced to the singleton s *) 
-    let forward_bin (code: Code.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+    let forward_bin (mapped_mem: Mapped_mem.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
       let module Vertices = Set.Make(Cfa.State) in
       (* check whether the instruction pointer is in the black list of addresses to decode *)
       if Config.SAddresses.mem (Data.Address.to_int s.Cfa.State.ip) !Config.blackAddresses then
@@ -618,17 +620,20 @@ struct
             L.debug (fun p -> p "################### %s" (Data.Address.to_string v.Cfa.State.ip));
             Log.current_address := Some v.Cfa.State.ip;
             (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
-            let text'        = Code.sub code v.Cfa.State.ip						         in
+            let text'        = Mapped_mem.string_from_addr mapped_mem v.Cfa.State.ip !Config.max_instruction_size in
             (* the corresponding instruction is decoded and the successor state of v are computed and added to    *)
             (* the CFA                                                                                             *)
             (* except the abstract value field which is set to v.Cfa.State.value. The right value will be          *)
             (* computed next step                                                                                  *)
             (* the new instruction pointer (offset variable) is also returned                                      *)
-            let r = Decoder.parse text' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v)                   in
+            let r = match text' with
+            | Some text'' ->  Decoder.parse text'' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v)
+            | None -> L.abort(fun p -> p "Could not retrieve %i bytes at %s to decode next instruction"
+              !Config.max_instruction_size (Data.Address.to_string v.Cfa.State.ip) ) in
             begin
             match r with
             | Some (v, ip', d') ->
-               Log_trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
+               Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
                let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
 	       	(* add overrides if needed *)
