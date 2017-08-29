@@ -284,7 +284,9 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         if self.chk_remap.isChecked():
             if (self.s.remapped_bin_path is None or
                     not os.path.isfile(self.s.remapped_bin_path)):
-                fname = idaapi.askfile_c(1, "*.*", "Save remapped binary")
+                # IDA 6/7 compat
+                askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') else idaapi.askfile_c
+                fname = askfile(1, None, "Save remapped binary")
                 if not fname:
                     bc_log.error(
                         'No filename provided. You can provide a filename or '
@@ -1548,14 +1550,20 @@ class Hooks(idaapi.UI_Hooks):
         self.gui.show_windows()
 
     def updating_actions(self, ctx):
-        if ctx.form_type == idaapi.BWN_DISASM:
-            idaview = idaapi.get_tform_idaview(ctx.form)
-            place, x, y = idaapi.get_custom_viewer_place(idaview, False)
-            if idaapi.isCode(idaapi.getFlags(place.toea())):
-                self.s.set_current_ea(place.toea())
+        # IDA 6/7 compat
+        win_type = ctx.widget_type if hasattr(ctx, "widget_type") else ctx.form_type
+        if win_type == idaapi.BWN_DISASM:
+            ea = idaapi.get_screen_ea()
+            if idaapi.isCode(idaapi.getFlags(ea)):
+                self.s.set_current_ea(ea)
 
     def populating_tform_popup(self, form, popup):
-        if idaapi.get_tform_type(form) == idaapi.BWN_DISASM:
+        # IDA 6/7 compat
+        try:
+            win_type = idaapi.get_widget_type(form)
+        except AttributeError:
+            win_type = idaapi.get_tform_type(form)
+        if win_type == idaapi.BWN_DISASM:
             idaapi.attach_action_to_popup(form, popup, "bincat:ana_from_here",
                                           "BinCAT/", idaapi.SETMENU_APP)
             idaapi.attach_action_to_popup(form, popup, "bincat:add_override",
@@ -1645,3 +1653,15 @@ class GUI(object):
         if self.hooks:
             self.hooks.unhook()
             self.hooks = None
+        self.BinCATTaintedForm.Close(0)
+        self.BinCATDebugForm.Close(0)
+        self.BinCATHexForm.Close(0)
+        self.BinCATOverridesForm.Close(0)
+        self.BinCATConfigurationsForm.Close(0)
+        self.vtmodel = None
+        self.overrides_model = None
+        self.configurations_model = None
+        idaapi.unregister_action("bincat:show_windows")
+        idaapi.unregister_action("bincat:remap_act")
+        idaapi.unregister_action("bincat:options_act")
+        idaapi.unregister_action("bincat:ana_from_here")

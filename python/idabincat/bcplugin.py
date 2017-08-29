@@ -42,11 +42,13 @@ except ImportError:
 
 import idc
 import idaapi
+from idaapi import NW_OPENIDB, NW_CLOSEIDB, NW_TERMIDA, NW_REMOVE
 import idabincat.netnode
 import idabincat.npkgen
 from idabincat.plugin_options import PluginOptions
 from idabincat.analyzer_conf import AnalyzerConfig, AnalyzerConfigurations
 from idabincat.gui import GUI
+import pybincat
 
 from PyQt5 import QtCore
 # used in idaapi
@@ -112,7 +114,9 @@ class BincatPlugin(idaapi.plugin_t):
 
     # IDA API methods: init, run, term
     def init(self):
-        procname = idaapi.get_inf_structure().get_proc_name()
+        info = idaapi.get_inf_structure()
+        # IDA 6/7 compat
+        procname = info.procname if hasattr(info, 'procname') else info.get_proc_name()[0]
         if procname[0] != 'metapc' and procname[0] != 'ARM':
             bc_log.info("Not on a supported CPU, not loading BinCAT")
             return idaapi.PLUGIN_SKIP
@@ -166,8 +170,11 @@ class BincatPlugin(idaapi.plugin_t):
 
     def term(self):
         if self.state:
+            bc_log.debug("Terminating BinCAT")
             self.state.clear_background()
             self.state.gui.term()
+            self.state.gui = None
+            self.state = None
 
 
 class Analyzer(object):
@@ -550,7 +557,11 @@ class State(object):
 
     def analysis_finish_cb(self, outfname, logfname, cfaoutfname, ea=None):
         bc_log.debug("Parsing analyzer result file")
-        cfa = cfa_module.CFA.parse(outfname, logs=logfname)
+        try:
+            cfa = cfa_module.CFA.parse(outfname, logs=logfname)
+        except (pybincat.PyBinCATException):
+            bc_log.error("Could not parse result file")
+            return None
         self.clear_background()
         self.cfa = cfa
         if cfa:
@@ -725,7 +736,7 @@ class State(object):
                         continue
                     f = new_npk_fname
             # Relative paths are copied
-            elif f.endswith('.no'):
+            elif f.endswith('.no') and os.path.isfile(f):
                 if f[0] != os.path.sep:
                     temp_npk_fname = os.path.join(path, os.path.basename(f))
                     shutil.copyfile(f, temp_npk_fname)
