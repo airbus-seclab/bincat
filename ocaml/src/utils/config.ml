@@ -174,7 +174,7 @@ let clear_tables () =
   Hashtbl.clear heap_override;
   memory_content := [];
   stack_content := [];
-  heap_content := [];
+  heap_content := []
 
 let reset () =
   blackAddresses := SAddresses.empty;
