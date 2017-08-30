@@ -309,6 +309,10 @@ class AnalyzerConfig(object):
             return ''
 
     @property
+    def file_type(self):
+        return self._config.get('loader', 'file_type').lower()
+
+    @property
     def code_va(self):
         return self._config.get('loader', 'code_va').lower()
 
@@ -355,6 +359,10 @@ class AnalyzerConfig(object):
         if '"' not in value:
             value = ','.join(['"%s"' % f for f in value.split(',')])
         self._config.set('imports', 'headers', value)
+
+    @file_type.setter
+    def file_type(self, value):
+        self._config.set('loader', 'file_type', value)
 
     @code_va.setter
     def code_va(self, value):
