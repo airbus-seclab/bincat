@@ -117,7 +117,7 @@ class BincatPlugin(idaapi.plugin_t):
         info = idaapi.get_inf_structure()
         # IDA 6/7 compat
         procname = info.procname if hasattr(info, 'procname') else info.get_proc_name()[0]
-        if procname[0] != 'metapc' and procname[0] != 'ARM':
+        if procname != 'metapc' and procname != 'ARM':
             bc_log.info("Not on a supported CPU, not loading BinCAT")
             return idaapi.PLUGIN_SKIP
         try:
