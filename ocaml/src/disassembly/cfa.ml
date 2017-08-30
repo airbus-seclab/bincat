@@ -47,7 +47,7 @@ sig
 	  mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
 	  mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	  mutable bytes: char list;      (** corresponding list of bytes *)
-	  mutable is_tainted: bool (** true whenever a source left value is the stmt list (field stmts) may be tainted *)
+	  mutable taint_sources: Taint.t (** set of taint sources*)
 	}
 
     val compare: t -> t -> int
@@ -115,7 +115,7 @@ sig
   val unmarshal: string -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
-  val init_abstract_value: unit -> domain
+  val init_abstract_value: unit -> domain * Taint.t
 end
 
 (** the control flow automaton functor *)
@@ -149,7 +149,7 @@ struct
 	  mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
 	  mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
 	  mutable bytes: char list;      (** corresponding list of bytes *)
-	  mutable is_tainted: bool (** true whenever a source left value is the stmt list (field stmts) may be tainted *)
+	 mutable taint_sources: Taint.t (** set of taint sources. Empty if not tainted  *)
 	}
       
 	(** the state identificator counter *)
@@ -188,68 +188,45 @@ struct
         
   (* return the given domain updated by the initial values and intitial tainting for registers with respected ti the provided configuration *)
   let init_registers d =
-	let check b sz name =
-	  if (String.length (Bits.z_to_bit_string b)) > sz then
-	    L.abort (fun p -> p "Illegal initialisation for register %s" name)
-	in
-	let check_mask b m sz name =
-	  if (String.length (Bits.z_to_bit_string b)) > sz || (String.length (Bits.z_to_bit_string m)) > sz then
-	    L.abort (fun p -> p "Illegal initialization for register %s" name)
-	in
-	(* checks whether the provided value is compatible with the capacity of the parameter of type Register _r_ *)
-	let check_init_size r (c, t) =
-	  let sz   = Register.size r in
-	  let name = Register.name r in
-	  begin
-	    match c with
-	    | Config.Content c    -> check c sz name
-	    | Config.CMask (b, m) -> check_mask b m sz name
-	    | _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
-	  end;
-	  begin
-	    match t with
-	    | Some (Config.Taint c)      -> check c sz name
-	    | Some (Config.TMask (b, m)) -> check_mask b m sz name
-	    | _ -> ()
-	  end;
-	  (c, t)
-	in
 	(* the domain d' is updated with the content for each register with initial content and tainting value given in the configuration file *)
 	Hashtbl.fold
-	  (fun rname vfun d ->
+	  (fun rname vfun (d, taint) ->
         let r = Register.of_name rname in
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global in
-	    let v = vfun r in
-	    Domain.set_register_from_config r region (check_init_size r v) d
+	    let v = vfun r in        Init_check.check_register_init r v;
+	    let d', taint' = Domain.set_register_from_config r region v d in
+        d', Taint.logor taint taint'
 	  )
-	  Config.register_content d
+	  Config.register_content (d, Taint.U)
       
-
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding lists in Config *)
     let init_mem domain region content_list =
-        List.fold_left (fun domain entry -> let addr, nb = fst entry in
+        List.fold_left (fun (domain, prev_taint) entry -> let addr, nb = fst entry in
                             let content = snd entry in
                             L.debug (fun p->p "init: %x" (Z.to_int addr));
                             let addr' = Data.Address.of_int region addr !Config.address_sz in
-                            Domain.set_memory_from_config addr' Data.Address.Global content nb domain
-                     ) domain (List.rev content_list)
+                            let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
+                            d', Taint.logor prev_taint taint'
+                     ) (domain, Taint.U) (List.rev content_list)
       (* end of init utilities *)
       (*************************)
 
-    (** CFA creation.
-    Return the abstract value generated from the Config module *)
-    let init_abstract_value () =
-      let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+  let init_abstract_value () =
+    let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
-	let d' = init_mem (init_registers d) Data.Address.Global !Config.memory_content in
+    let d', taint1 = init_registers d in
+	let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
 	(* init of the Stack memory *)
-	let d' = init_mem d' Data.Address.Stack !Config.stack_content in
+	let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
 	(* init of the Heap memory *)
-	init_mem d' Data.Address.Heap !Config.heap_content
+	let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
+    d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
 
+  (* CFA creation.
+     Return the abstract value generated from the Config module *)
   let init_state (ip: Data.Address.t): State.t =
-	let d' = init_abstract_value () in
+	let d', taint = init_abstract_value () in
 	{
 	  id = 0;
 	  ip = ip;
@@ -264,7 +241,7 @@ struct
 		op_sz = !Config.operand_sz;
 		addr_sz = !Config.address_sz;
 	  };
-	  is_tainted = false;
+	  taint_sources = taint;
 	}
 	
 
@@ -283,7 +260,6 @@ struct
     
   let remove_successor (g: t) (src: State.t) (dst: State.t): unit = G.remove_edge g src dst
 	
- 
   let add_state (g: t) (v: State.t): unit = G.add_vertex g v
 
   let add_successor g src dst = G.add_edge g src dst
@@ -320,7 +296,7 @@ struct
 	let print_ip s =
 	  let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
 	  Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
-        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (string_of_bool s.is_tainted);
+        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.to_string s.taint_sources);
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
 	  if !Config.loglevel > 2 then
 	    begin

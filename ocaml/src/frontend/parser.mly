@@ -213,24 +213,14 @@
     }
     
     tainting_reg:
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_ALL {
-      (r, fun reg -> (Config.Taint (Bits.ff ((Register.size reg )/8)))) }
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA TAINT_NONE {
-      (r, (fun _ -> Config.Taint Z.zero)) }
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA s=tcontent {
-      (r, (fun _ -> s)) } 
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA i=init { (r, (fun _ -> i)) } 
 
     tainting_addr:
-    | MEM LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.mem_override, a, c }
-    | HEAP LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.heap_override, a, c }
-    | STACK LEFT_SQ_BRACKET a=INT RIGHT_SQ_BRACKET COMMA c = tainting_addr_content { Config.stack_override, a, c }
+    | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }
+    | HEAP LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, r, i }
+    | STACK LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, r, i }
     
 
-    tainting_addr_content:
-    | TAINT_ALL { Config.Taint (Z.of_string "ff") }
-    | TAINT_NONE { Config.Taint Z.zero }
-    | s=tcontent { s }
-    
       imports:
     |                     { () }
     | i=import l=imports  { i ; l }
@@ -421,6 +411,12 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
-    | t=INT 		{ (Config.Taint t) }
-    | t=INT MASK t2=INT { (Config.TMask (t, t2)) }
+    | t=INT 		{ let tid =
+                        if Z.compare t Z.zero = 0 then None
+                        else Some (Taint.Src.new_src())
+                      in
+                      Config.Taint (t, tid) }
+    | TAINT_ALL { Config.Taint_all (Taint.new_src()) }
+    | TAINT_NONE { Config.Taint (Z.zero, None) }
+    | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src())) }
 

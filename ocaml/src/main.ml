@@ -85,21 +85,22 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   let module Interpreter = Interpreter.Make(Domain)(Decoder) in
 
   (* defining the dump function to provide to the fixpoint engine *)
-  let dump cfa = Interpreter.Cfa.print resultfile cfa in
+    let dump cfa = Interpreter.Cfa.print resultfile cfa in
   
-    (* internal function to launch backward/forward analysis from a previous CFA and config *)
+  (* internal function to launch backward/forward analysis from a previous CFA and config *)
     let from_cfa fixpoint =
       let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
       let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-      let d        = Interpreter.Cfa.init_abstract_value () in
+      let d, taint        = Interpreter.Cfa.init_abstract_value () in
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
         prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
+        prev_s.Interpreter.Cfa.State.taint_sources <- taint;
         fixpoint orig_cfa prev_s dump
-      with
-      | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
+    with
+    | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
     in
-    (* launching the right analysis depending on the value of !Config.analysis *)
+  (* launching the right analysis depending on the value of !Config.analysis *)
     let cfa =
         match !Config.analysis with
 

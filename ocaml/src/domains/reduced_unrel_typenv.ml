@@ -91,7 +91,7 @@ module Make(D: Unrel.T) =
    in
    uenv, tenv'
      
-  let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*bool =
+  let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*Taint.t =
     let uenv', b = U.set lv e uenv in
     try
       let typ = type_of_exp tenv uenv e in
@@ -118,14 +118,20 @@ module Make(D: Unrel.T) =
   let widen (uenv1, tenv1) (uenv2, tenv2) = U.widen uenv1 uenv2, T.widen tenv1 tenv2
 
   let set_memory_from_config a r c n (uenv, tenv) =
-    U.set_memory_from_config a r c n uenv, tenv
+    let uenv', taint = U.set_memory_from_config a r c n uenv in
+    (uenv', tenv), taint
 
-  let set_register_from_config register region c  (uenv, tenv) =
-    U.set_register_from_config register region c uenv, tenv
+  let set_register_from_config register region c (uenv, tenv) =
+    let uenv', taint = U.set_register_from_config register region c uenv in
+    (uenv', tenv), taint
 
-  let taint_register_mask r c (uenv, tenv) = U.taint_register_mask r c uenv, tenv
+  let taint_register_mask r c (uenv, tenv): t * Taint.t =
+    let uenv', taint = U.taint_register_mask r c uenv in
+    (uenv', tenv), taint
 
-  let taint_address_mask a c (uenv, tenv) = U.taint_address_mask a c uenv, tenv
+  let taint_address_mask a c (uenv, tenv) =
+    let uenv', taint = U.taint_address_mask a c uenv in
+    (uenv', tenv), taint
     
   let compare (uenv, tenv) e1 cmp e2 =
     let uenv', b = U.compare uenv e1 cmp e2 in
@@ -133,7 +139,7 @@ module Make(D: Unrel.T) =
 
   let mem_to_addresses (uenv, _tenv) e = U.mem_to_addresses uenv e
 
-  let is_tainted e (uenv, _tenv) = U.is_tainted e uenv
+  let taint_sources e (uenv, _tenv) = U.taint_sources e uenv
        
 
   let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv) =

@@ -21,11 +21,9 @@ module L = Log.Make(struct let name = "stubs" end)
 
 module Make (D: Domain.T) =
 struct
-
-
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let strlen (d: D.t) ret args : D.t * bool =
+    let strlen (d: D.t) ret args : D.t * Taint.t =
       let zero = Asm.Const (Data.Word.zero 8) in
       let len = D.get_offset_from (args 0) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then
@@ -35,7 +33,7 @@ struct
         end;
       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
 
-    let memcpy (d: D.t) ret args : D.t * bool =
+    let memcpy (d: D.t) ret args : D.t * Taint.t =
       L.analysis (fun p -> p "memcpy stub");
       let dst = args 0 in
       let src = args 1 in
@@ -46,7 +44,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
-    let print (d: D.t) ret format_addr va_args (to_buffer: Asm.exp option): D.t * bool =
+    let print (d: D.t) ret format_addr va_args (to_buffer: Asm.exp option): D.t * Taint.t =
         (* ret has to contain the number of bytes stored in dst ;
            format_addr is the address of the format string ;
            va_args the list of values needed to fill the format string *)
@@ -189,13 +187,13 @@ struct
           L.abort (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 
-    let sprintf (d: D.t) ret args : D.t * bool =
+    let sprintf (d: D.t) ret args : D.t * Taint.t =
       let dst = args 0 in
       let format_addr = args 1 in
       let  va_args = shift args 2 in
       print d ret format_addr va_args (Some dst)
 
-    let sprintf_chk (d: D.t) ret args : D.t * bool =
+    let sprintf_chk (d: D.t) ret args : D.t * Taint.t =
       let dst = args 0 in
       let format_addr = args 3 in
       let  va_args = shift args 4 in
@@ -222,7 +220,7 @@ struct
       d', is_tainted
 
 
-    let process d fun_name call_conv : D.t * bool * Asm.stmt list =
+    let process d fun_name call_conv : D.t * Taint.t * Asm.stmt list =
       let apply_f, arg_nb =
         match fun_name with
         | "memcpy" -> memcpy, 3
@@ -233,15 +231,15 @@ struct
         | "puts" -> puts, 1
         | "strlen" -> strlen, 1
         | _ -> L.abort(fun p -> p "No stub available for function [%s]" fun_name) in
-      let d', is_tainted =
+      let d', taint =
         try
           apply_f d call_conv.Asm.return call_conv.Asm.arguments
         with
-        | Exit -> d, false
+        | Exit -> d, Taint.U
         | e ->
            L.exc e (fun p -> p "processing stub [%s]" fun_name);
           L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
-          d, false in
+          d, Taint.U in
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
-      d', is_tainted, cleanup_stmts
+      d', taint, cleanup_stmts
 end

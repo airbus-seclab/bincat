@@ -21,40 +21,39 @@ module L = Log.Make(struct let name = "pointer" end)
 open Data.Address
 
 module Make (V: Vector.T) =
-    (struct
-        type t =
-          | BOT
-          | Val of (region * V.t) (** a pointer is a pair (r, o) where r is the region it points-to and o an offset in that region *)
-          | TOP
+  (struct
+    type t =
+      | BOT
+      | Val of (region * V.t) (** a pointer is a pair (r, o) where r is the region it points-to and o an offset in that region *)
+      | TOP
 
-        let bot = BOT
-        let top = TOP
-        let is_bot p = p = BOT
+    let bot = BOT
+    let top = TOP
+    let is_bot p = p = BOT
 
-	let forget p pos =
-	  match p with
-            | BOT         -> BOT
-            | TOP         -> TOP
-            | Val (r, v) -> Val (r, V.forget v pos)
-	       
-        let to_z p =
-            match p with
-            | BOT         -> raise (Exceptions.Empty "pointer.to_z: undefined")
-            | TOP         -> raise (Exceptions.Too_many_concrete_elements "pointer.to_z: imprecise")
-            | Val (_r, v) -> V.to_z v
+    let forget p pos =
+      match p with
+      | BOT         -> BOT
+      | TOP         -> TOP
+      | Val (r, v) -> Val (r, V.forget v pos)
 
-	let to_char p =
-	  match p with
-            | BOT         -> raise (Exceptions.Empty "pointer.to_z: undefined")
-            | TOP         -> raise (Exceptions.Too_many_concrete_elements "pointer.to_char: imprecise")
-            | Val (_r, v) -> V.to_char v
+    let to_z p =
+      match p with
+      | BOT         -> raise (Exceptions.Empty "pointer.to_z: undefined")
+      | TOP         -> raise (Exceptions.Too_many_concrete_elements "pointer.to_z: imprecise")
+      | Val (_r, v) -> V.to_z v
 
-	       
-        let to_string p =
-            match p with
-            | BOT -> "B0x_"
-            | TOP -> "T0x?"
-            | Val (r, o) -> Printf.sprintf "%c%s" (char_of_region r) (V.to_string o)
+    let to_char p =
+      match p with
+      | BOT         -> raise (Exceptions.Empty "pointer.to_z: undefined")
+      | TOP         -> raise (Exceptions.Too_many_concrete_elements "pointer.to_char: imprecise")
+      | Val (_r, v) -> V.to_char v
+
+    let to_string p =
+      match p with
+      | BOT -> "B0x_"
+      | TOP -> "T0x?"
+      | Val (r, o) -> Printf.sprintf "%c%s" (char_of_region r) (V.to_string o)
 
 
 	let to_strings p =
@@ -62,8 +61,8 @@ module Make (V: Vector.T) =
 	    | BOT -> "B0x_", "_"
             | TOP -> "T0x?", "?"
             | Val (r, o) -> let s, t = V.to_strings o in
-			    Printf.sprintf "%c%s" (char_of_region r) s, t 
-	       
+			    Printf.sprintf "%c%s" (char_of_region r) s, t
+
         let untaint p =
             match p with
             | TOP | BOT  -> p
@@ -136,7 +135,7 @@ module Make (V: Vector.T) =
                 begin
                     try Val (r, V.binary op o1 o2)
                     with
-		    | Exceptions.Error _ as e -> raise e 
+		    | Exceptions.Error _ as e -> raise e
 		    | _ -> BOT
                 end
               | r1, r2                ->
@@ -168,14 +167,16 @@ module Make (V: Vector.T) =
             match p1, p2 with
             | BOT, _ | _, TOP 	   -> true
             | _, BOT | TOP, _            -> false
-            | Val (r1, o1), Val (r2, o2) -> 
+            | Val (r1, o1), Val (r2, o2) ->
               if r1 = r2 then V.is_subset o1 o2
               else false
-		  
-        let taint_of_config t n prev =
-            match prev with
-            | Val (r, o) -> Val (r, V.taint_of_config t n (Some o))
-            | _ 	   -> prev
+        let taint_of_config taint n prev: t * Taint.t =
+          match prev with
+          | Val (r, o) ->
+             let o', taint' = V.taint_of_config taint n (Some o) in
+             Val (r, o'), taint'
+               
+          | _ 	   -> prev, Taint.U
 
         let of_config r c n = Val (r, V.of_config c n)
 
@@ -188,56 +189,57 @@ module Make (V: Vector.T) =
               if r1 = r2 then Val (r1, V.combine o1 o2 l u)
               else BOT
 
-        let extract p l u =
-            match p with
-            | BOT | TOP  -> p
-            | Val (r, o) ->
-              try
-                  Val (r, V.extract o l u)
-              with _ -> BOT
+    let extract p l u =
+      match p with
+      | BOT | TOP  -> p
+      | Val (r, o) ->
+         try
+           Val (r, V.extract o l u)
+         with _ -> BOT
 
-        let from_position p i len =
-            L.debug (fun x -> x "Pointer.from_position %s %d %d" (to_string p) i len);
-            match p with
-            | BOT | TOP -> p
-            | Val (r, o) ->
-              try
-                  Val (r, V.from_position o i len)
-              with _ -> BOT
+    let from_position p i len =
+      L.debug (fun x -> x "Pointer.from_position %s %d %d" (to_string p) i len);
+      match p with
+      | BOT | TOP -> p
+      | Val (r, o) ->
+         try
+           Val (r, V.from_position o i len)
+         with _ -> BOT
 
-        let is_tainted p =
-            match p with
-            | BOT 	   -> false
-            | TOP 	   -> true
-            | Val (_, o) -> V.is_tainted o
+    let of_repeat_val v v_len nb =
+      match v with
+      | BOT -> BOT
+      | TOP -> TOP
+      | Val (region, offset) ->
+         let newoffset = V.of_repeat_val offset v_len nb in
+         Val(region, newoffset)
 
-        let of_repeat_val v v_len nb =
-            match v with
-            | BOT -> BOT
-            | TOP -> TOP
-            | Val (region, offset) ->
-              let newoffset = V.of_repeat_val offset v_len nb in
-              Val(region, newoffset)
-
-        let rec concat l =
-            L.debug (fun p -> p "concat len %d" (List.length l));
-            match l with
-            | [ ] -> BOT
-            | [v] -> L.debug (fun p -> p "concat single : %s" (to_string v)); v
-            | v::l' ->
-              let v' = concat l' in
-              L.debug (fun p -> p "concat : %s %s" (to_string v) (to_string v'));
-              match v, v' with
-              | BOT, _ | _, BOT -> BOT
-              | TOP, _ | _, TOP -> TOP
-              | Val (r1, o1), Val (r2, o2 ) ->
-                if r1 = r2 then
-                    Val (r1, V.concat o1 o2)
-                else BOT
+    let rec concat l =
+      L.debug (fun p -> p "concat len %d" (List.length l));
+      match l with
+      | [ ] -> BOT
+      | [v] -> L.debug (fun p -> p "concat single : %s" (to_string v)); v
+      | v::l' ->
+         let v' = concat l' in
+         L.debug (fun p -> p "concat : %s %s" (to_string v) (to_string v'));
+         match v, v' with
+         | BOT, _ | _, BOT -> BOT
+         | TOP, _ | _, TOP -> TOP
+         | Val (r1, o1), Val (r2, o2 ) ->
+            if r1 = r2 then
+              Val (r1, V.concat o1 o2)
+            else BOT
 
 	let get_minimal_taint p =
 	  match p with
-	  | TOP | BOT -> Tainting.TOP
+	  | TOP -> Taint.TOP
+      | BOT -> Taint.U
 	  | Val (_, o) -> V.get_minimal_taint o
-	     
+
+    let taint_sources p =
+      match p with
+	  | TOP -> Taint.TOP
+      | BOT ->  Taint.U
+	  | Val (_, o) -> V.taint_sources o
+
     end: Unrel.T)

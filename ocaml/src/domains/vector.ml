@@ -32,9 +32,6 @@ sig
     (** top *)
     val top: t
 
-    (** returns true whenever the bit may be tainted *)
-    val is_tainted: t -> bool
-
     (** comparison to top *)
     val is_top: t -> bool
 
@@ -54,7 +51,7 @@ sig
     val of_z: Z.t -> t
 
     (** taint the given value from Z.t value *)
-    val taint_of_z: Z.t -> t -> t
+    val taint_of_z: Z.t -> t -> Taint.Src.id_t option -> t
 
     (** abstract join *)
     val join: t -> t -> t
@@ -104,7 +101,7 @@ sig
     val taint: t -> t
 
     (** update taint *)
-    val update_taint: Tainting.t -> t -> t
+    val update_taint: Taint.t -> t -> t
 
     (** set bit *)
     val set_bit: t -> t
@@ -143,10 +140,10 @@ sig
     val compare: t -> Asm.cmp -> t -> bool
 
     (** undefine the taint of the given value *)
-    val forget_taint: t -> t
+    val forget_taint: t -> Taint.Src.id_t option -> t
 
     (** returns the taint value of the given parameter *)
-    val get_taint: t -> Tainting.t
+    val get_taint: t -> Taint.t
 end
 
 (** signature of vector *)
@@ -164,9 +161,6 @@ sig
     (** forgets the content while preserving the taint *)
     val forget: t -> (int * int) option -> t
     (** the forget operation is bounded to bits from l to u if the second parameter is Some (l, u) *)
-
-    (** returns true whenever at least one bit may be tainted *)
-    val is_tainted: t -> bool
 
     (** value conversion. May raise an exception *)
     val to_z: t -> Z.t
@@ -202,7 +196,7 @@ sig
     val taint: t -> t
 
     (** span taint *)
-    val span_taint: t -> Tainting.t -> t
+    val span_taint: t -> Taint.t -> t
 
     (** conversion from word *)
     val of_word: Data.Word.t -> t
@@ -221,8 +215,9 @@ sig
     val of_config: Config.cvalue -> int -> t
       
     (** conversion from a tainting value.
-    The value option is a possible previous init *)
-    val taint_of_config: Config.tvalue -> int -> t option -> t
+        The value option is a possible previous init. 
+        The computed taint is also returned *)
+    val taint_of_config: Config.tvalue -> int -> t option -> t * Taint.t
 
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t
@@ -240,7 +235,10 @@ sig
     val concat: t -> t -> t
 
     (** returns the minimal taint value of the given parameter *)
-    val get_minimal_taint: t -> Tainting.t
+    val get_minimal_taint: t -> Taint.t
+
+    (** returns the taint value of the given parameter *)
+    val taint_sources: t -> Taint.t
 end
 
 module Make(V: Val) =
@@ -647,7 +645,7 @@ module Make(V: Val) =
 	let is_neg v1 =
 	  V.is_one v1.(0) || V.is_top v1.(0)
 
-        let core_idiv v1 v2 =
+    let core_idiv v1 v2 =
 	  let is_neg_v1 = is_neg v1 in
 	  let is_neg_v2 = is_neg v2 in
 	  let v1' = if is_neg_v1 then neg v1 else v1 in
@@ -662,27 +660,27 @@ module Make(V: Val) =
 	    (Array.length rem') (to_string rem'));
 	  quo',rem'
 
-        let div v1 v2 = fst (core_div v1 v2)
-        let modulo v1 v2 = snd (core_div v1 v2)
-        let idiv v1 v2 = fst (core_idiv v1 v2)
-        let imodulo v1 v2 = snd (core_idiv v1 v2)
+    let div v1 v2 = fst (core_div v1 v2)
+    let modulo v1 v2 = snd (core_div v1 v2)
+    let idiv v1 v2 = fst (core_idiv v1 v2)
+    let imodulo v1 v2 = snd (core_idiv v1 v2)
 
 
         let binary op v1 v2 =
-            match op with
-            | Asm.Add -> add v1 v2
-            | Asm.Sub -> sub v1 v2
-            | Asm.Xor -> xor v1 v2
-            | Asm.And -> logand v1 v2
-            | Asm.Or  -> logor v1 v2
-            | Asm.IMul -> imul v1 v2
-            | Asm.IDiv -> idiv v1 v2
-            | Asm.Mul -> mul v1 v2
-            | Asm.Div -> div v1 v2
-            | Asm.Mod -> modulo v1 v2
-            | Asm.IMod -> imodulo v1 v2
-            | Asm.Shl -> shl v1 v2
-            | Asm.Shr -> shr v1 v2
+          match op with
+          | Asm.Add -> add v1 v2
+          | Asm.Sub -> sub v1 v2
+          | Asm.Xor -> xor v1 v2
+          | Asm.And -> logand v1 v2
+          | Asm.Or  -> logor v1 v2
+          | Asm.IMul -> imul v1 v2
+          | Asm.IDiv -> idiv v1 v2
+          | Asm.Mul -> mul v1 v2
+          | Asm.Div -> div v1 v2
+          | Asm.Mod -> modulo v1 v2
+          | Asm.IMod -> imodulo v1 v2
+          | Asm.Shl -> shl v1 v2
+          | Asm.Shr -> shr v1 v2
 
 
         let unary op v =
@@ -699,42 +697,42 @@ module Make(V: Val) =
         let span_taint v t = Array.map (V.update_taint t) v
 	  
 	let get_minimal_taint v =
-	  Array.fold_left (fun acc v -> Tainting.min acc (V.get_taint v)) Tainting.U v
+	  Array.fold_left (fun acc v -> Taint.min acc (V.get_taint v)) Taint.U v
 	  
 
         let nth_of_z_as_val v i = if Z.testbit v i then V.one else V.zero
         let nth_of_z v i = if Z.testbit v i then Z.one else Z.zero
 
         let of_word w =
-            let sz = Data.Word.size w	   in
-            let w' = Data.Word.to_int w  in
-            let r  = Array.make sz V.top in
-            let n' =sz-1 in
-            for i = 0 to n' do
-                r.(n'-i) <- nth_of_z_as_val w' i 
-            done;
-            r
+          let sz = Data.Word.size w	   in
+          let w' = Data.Word.to_int w  in
+          let r  = Array.make sz V.top in
+          let n' =sz-1 in
+          for i = 0 to n' do
+            r.(n'-i) <- nth_of_z_as_val w' i 
+          done;
+          r
 
         let to_addresses r v = Data.Address.Set.singleton (r, to_word V.to_z v)
-
+          
         let is_subset v1 v2 = for_all2 V.is_subset v1 v2
 
         let of_config c n =
-            let v  = Array.make n V.top in
-            let n' = n-1                in
-            begin
-                match c with
-                | Config.Bytes b         ->
-                  let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-                  for i = 0 to n' do
-                      v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
-                  done;
-                | Config.Bytes_Mask (b, m) -> 
-                  let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-                  for i = 0 to n' do
-                      if Z.testbit m i then
-                          v.(n'-i) <- V.top
-                      else
+          let v  = Array.make n V.top in
+          let n' = n-1                in
+          begin
+            match c with
+            | Config.Bytes b         ->
+               let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+               for i = 0 to n' do
+                 v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
+               done;
+            | Config.Bytes_Mask (b, m) -> 
+               let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+               for i = 0 to n' do
+                 if Z.testbit m i then
+                   v.(n'-i) <- V.top
+                 else
                           v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
                   done;
                 | Config.Content c         ->
@@ -751,30 +749,51 @@ module Make(V: Val) =
             end;
             v
 
-        let taint_of_config t n (prev: t option) =
+        let taint_of_config t n (prev: t option): t * Taint.t =
             let v =
                 match prev with
                 | Some v' -> Array.copy v'
                 | None    -> Array.make n V.top
             in
             match t with
-            | Config.Taint b ->
+            | Config.Taint (b, tid) ->
               let n' =n-1 in
-              for i = 0 to n' do
-                  v.(n'-i) <- V.taint_of_z (nth_of_z b i) v.(n'-i)
+              for i = 0 to n' do                
+                  v.(n'-i) <- V.taint_of_z (nth_of_z b i) v.(n'-i) tid
               done;
-              v
-            | Config.TMask (b, m) ->
+              let taint =
+                match b, tid with
+                | b, None when Z.compare b Z.zero = 0 -> Taint.U
+                | _, Some tid -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+                | _, _ -> L.abort (fun _p -> "Illegal taint configuration (no source provided)")
+              in
+              v, taint
+
+            | Config.Taint_all tid ->
+               let n' =n-1 in
+               for i = 0 to n' do
+                 v.(n'-i) <- V.taint_of_z Z.one v.(n'-i) (Some tid)
+               done;
+               v, Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+                 
+            | Config.TMask (b, m, tid) ->
               let n' = n-1 in
               for i = 0 to n' do
                   let bnth = nth_of_z b i in
                   let mnth = nth_of_z m i in
                   if Z.compare mnth Z.zero = 0 then
-                      v.(n'-i) <- V.taint_of_z bnth v.(n'-i)
+                      v.(n'-i) <- V.taint_of_z bnth v.(n'-i) tid
                   else
-                      v.(n'-i) <- V.forget_taint v.(n'-i)
+                      v.(n'-i) <- V.forget_taint v.(n'-i) tid
               done;
-              v
+              let taint =
+                match b, m, tid with
+                | b, m, None when Z.compare b Z.zero = 0 && Z.compare m Z.zero = 0 -> Taint.U
+                | _, m, Some tid when Z.compare m Z.zero = 0 -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+                | _, _, Some tid -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
+                | _, _, _ -> L.abort (fun _p -> "Illegal taint configuration (no source provided)")
+              in
+              v, taint
 
     let forget v opt =
       L.debug (fun (p: ('a, unit, string) format -> 'a) -> 
@@ -792,37 +811,37 @@ module Make(V: Val) =
 	     v'
 	  | None -> Array.map V.forget v'
 	  
-        (** copy bits from v2 to bits from low to up of v1,
-         *  vectors can be of different sizes *)
-        let combine v1 v2 low up =
+    (** copy bits from v2 to bits from low to up of v1,
+        vectors can be of different sizes *)
+    let combine v1 v2 low up =
 	  L.debug (fun p -> p "combine(%s(%d)[%d:%d] <- %s(%d))"
 	    (to_string v1) (Array.length v1)  low up (to_string v2) (Array.length v2));
-        let sz2 = Array.length v2 in
-	if sz2 <> up-low+1 then
-	  L.abort (fun p -> p "combine: source is %d bits while it is supposed to fit into %d bits (from bit %i to %i)"
-	    sz2 (up-low+1) low up)
-	else
-	  if low > up then L.abort (fun p -> p "combine : low=%i > up=%i" low up)
+      let sz2 = Array.length v2 in
+	  if sz2 <> up-low+1 then
+	    L.abort (fun p -> p "combine: source is %d bits while it is supposed to fit into %d bits (from bit %i to %i)"
+	      sz2 (up-low+1) low up)
 	  else
-            let sz1 = Array.length v1 in
-            if up >= sz1 then
-              L.abort (fun p -> p "combine : writing out of v1: up=%i >= length(v1)=%i" up sz1)
+	    if low > up then L.abort (fun p -> p "combine : low=%i > up=%i" low up)
+	    else
+          let sz1 = Array.length v1 in
+          if up >= sz1 then
+            L.abort (fun p -> p "combine : writing out of v1: up=%i >= length(v1)=%i" up sz1)
             else
-	      begin
-		let v = Array.copy v1 in
-		let j = ref 0 in
-		for i = (sz1-1-up) to (sz1-1-low) do
-		  v.(i) <- v2.(!j);
-		  j := !j+1;
-		done;
-                v
-	      end
+	        begin
+		      let v = Array.copy v1 in
+		      let j = ref 0 in
+		      for i = (sz1-1-up) to (sz1-1-low) do
+		        v.(i) <- v2.(!j);
+		        j := !j+1;
+		      done;
+              v
+	        end
 
         let extract v low up =
             L.debug (fun p -> p "extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v));
             let v' = Array.make (up-low+1) V.top in
-            let n  = Array.length v           in
-            let o  = n-up - 1                  in
+            let n  = Array.length v in
+            let o  = n-up - 1 in
             for i = o to n-low-1 do
                 v'.(i-o) <- v.(i)
             done;
@@ -833,14 +852,13 @@ module Make(V: Val) =
             Array.sub v (n-l-1) len
 
 
-        let is_tainted v = exists V.is_tainted v
-
         let of_repeat_val v v_len nb =
             let access_mod idx =
                 v.(idx mod v_len) in
             let v_array = Array.init (nb*v_len) access_mod in
             v_array
 
-
+        let taint_sources v =
+          Array.fold_left (fun acc elt -> Taint.logor acc (V.get_taint elt)) (Taint.U) v
 					
     end: T)
