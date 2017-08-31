@@ -1,4 +1,4 @@
-GITVERSION:=$(shell git describe)
+GITVERSION:=$(shell git describe --dirty)
 
 ML=\
 utils/misc.ml\
