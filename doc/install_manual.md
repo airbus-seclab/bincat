@@ -21,14 +21,14 @@ on Debian Sid:
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
   libocamlgraph-ocaml-dev python-setuptools python-dev libppx-core-ocaml-dev \
-  libppx-tools-ocaml-dev ocaml-compiler-libs
+  libppx-tools-ocaml-dev ocaml-compiler-libs libppx-tools-ocaml-dev
 ```
 
 on Ubuntu 16.04:
 ```
 apt install make python python-pip python-setuptools python-dev python-pytest \
         nasm libc6-dev-i386 gcc-multilib ocaml menhir ocaml-findlib \
-        libzarith-ocaml-dev libocamlgraph-ocaml-dev
+        libzarith-ocaml-dev libocamlgraph-ocaml-dev libppx-tools-ocaml-dev
 ```
 
 #### Installing c2newspeak
