@@ -94,11 +94,7 @@ let call_conv_to_string cc =
 
 let call_conv = ref CDECL
 
-let text = ref ""
-let code_length = ref 0
 let ep = ref Z.zero
-let phys_code_addr = ref 0
-let rva_code = ref Z.zero
 
 let address_sz = ref 32
 let operand_sz = ref 32
@@ -197,11 +193,7 @@ let reset () =
   binary := "";
   format := RAW;
   call_conv := CDECL;
-  text := "";
-  code_length := 0;
   ep := Z.zero;
-  phys_code_addr := 0;
-  rva_code := Z.zero;
   address_sz := 32;
   operand_sz := 32;
   stack_width := 32;

@@ -1,10 +1,26 @@
-# used as a template for tests
-[settings]
+# used as a config file template for tests
+
+[analyzer]
+ini_version = 3
+unroll = 150
+loglevel = 10
+store_marshalled_cfa = true
+in_marshalled_cfa_file = "incfa.marshal"
+out_marshalled_cfa_file = "outcfa.marshal"
+analysis = forward_binary
+analysis_ep = 0x00
+cut = {code_length}
+
+[program]
 mode = protected
 call_conv = cdecl
 mem_sz = 32
 op_sz = 32
 stack_width = 32
+architecture = x86
+filepath = "{filepath}"
+format = raw
+
 
 [x86]
 #Linux 32-bits
@@ -23,32 +39,6 @@ ss = 0x23
 es = 0x23
 fs = 0x3b
 gs = 0x00
-
-[loader]
-# Starting point of the analysis
-analysis_ep = 0x00
-# Virtual address of the code section
-code_va = 0x00
-#physical address (offset) of the code section
-code_phys = 0x00
-#side of the code section
-code_length = {code_length}
-architecture = x86
-
-[binary]
-filepath = "{filepath}"
-format = raw
-
-
-[analyzer]
-ini_version = 2
-unroll = 150
-loglevel = 10
-store_marshalled_cfa = true
-in_marshalled_cfa_file = "incfa.marshal"
-out_marshalled_cfa_file = "outcfa.marshal"
-analysis = forward_binary
-cut = {code_length}
 
 [state]
 reg[cf] = 0?1
