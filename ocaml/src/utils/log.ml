@@ -159,6 +159,16 @@ module Make(Modname: sig val name : string end) = struct
     flush Pervasives.stdout;
     raise (Exceptions.Error msg)
 
+  let exc_and_abort e fmsg =
+    let msg = fmsg Printf.sprintf in
+    Printf.fprintf !logfid  "[ABORT] %s: %s\n" modname msg;
+    Printf.fprintf !logfid  "%s\n" (Printexc.to_string e);
+    Printexc.print_backtrace !logfid;
+    flush !logfid
+    flush Pervasives.stdout;
+    raise (Exceptions.Error msg)
+
+
   (* These functions are not submitted to the module specific log level *)
   let analysis fmsg =
     if !Config.loglevel >= 1 then

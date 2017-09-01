@@ -180,11 +180,9 @@ struct
 
         with
         | Exceptions.Too_many_concrete_elements _ as e ->
-           L.exc e (fun p -> p "(s)printf: Unknown address of the format string or imprecise value of the format string");
-          L.abort (fun p -> p "(s)printf: Unknown address of the format string or imprecise value of the format string")
+           L.exc_and_abort e (fun p -> p "(s)printf: Unknown address of the format string or imprecise value of the format string")
         | Not_found as e ->
-           L.exc e (fun p -> p "address of the null terminator in the format string in (s)printf not found");
-          L.abort (fun p -> p "address of the null terminator in the format string in (s)printf not found")
+           L.exc_and_abort e (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 
     let sprintf (d: D.t) ret args : D.t * Taint.t =

@@ -342,8 +342,7 @@ struct
                                               (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
                     | Exceptions.Too_many_concrete_elements _ as e ->
-                       L.exc e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip));
-                      L.abort (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                       L.exc_and_abort e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                 ) ([], Taint.U) vertices
             in
             if !import then fun_stack := List.tl !fun_stack;
