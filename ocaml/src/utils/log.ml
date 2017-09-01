@@ -105,7 +105,7 @@ module Make(Modname: sig val name : string end) = struct
     flush !logfid
 
   let info2 fmsg =
-    if log_info () then
+    if log_info2 () then
     let msg = fmsg Printf.sprintf in
     Printf.fprintf !logfid  "[INFO2] %s: %s\n" modname msg;
     flush !logfid
