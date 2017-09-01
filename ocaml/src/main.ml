@@ -70,7 +70,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     | Config.PE -> L.abort (fun p -> p "PE file format not implemented yet")
     | Config.ELF -> Elf.make_mapped_mem
     | Config.RAW -> Raw.make_mapped_mem
-    | Config.IDA_REMAPPED -> Ida_remapped.make_mapped_mem in
+    | Config.MANUAL -> Manual.make_mapped_mem in
   Mapped_mem.current_mapping := Some (do_map_file ());
   let decoder =
     match !Config.architecture with

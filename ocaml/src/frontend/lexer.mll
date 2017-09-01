@@ -140,7 +140,7 @@ rule token = parse
   | "format" 		    { FORMAT }
   | "pe" 		    { PE }
   | "elf" 		    { ELF }
-  | "ida_remapped"          { IDA_REMAPPED }
+  | "manual"                { MANUAL }
   | "raw"                   { RAW }
   | "binary" 		    { BINARY }
   | "mode"                  { MODE }

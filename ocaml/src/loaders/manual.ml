@@ -16,9 +16,9 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(* loader for IDA remapped binaries *)
+(* manual loader using [sections] section in config file *)
 
-module L = Log.Make(struct let name = "ida_remapped" end)
+module L = Log.Make(struct let name = "loader.manual" end)
 
 open Mapped_mem
 
