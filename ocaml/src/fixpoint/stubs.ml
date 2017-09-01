@@ -235,7 +235,7 @@ struct
         with
         | Exit -> d, Taint.U
         | e ->
-           L.exc e (fun p -> p "processing stub [%s]" fun_name);
+           L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
           L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
           d, Taint.U in
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
