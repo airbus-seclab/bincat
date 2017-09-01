@@ -25,7 +25,7 @@ let dec_byte s ofs = Bigarray.Array1.get s ofs
 let zdec_byte s ofs = Z.of_int (dec_byte s ofs)
 
 let enc_byte s ofs b =
-  L.debug (fun p -> p "write %02x at %08x" b ofs);
+  L.debug2 (fun p -> p "write %02x at %08x" b ofs);
   s.{ofs} <- b
 let zenc_byte s ofs b = enc_byte s ofs (Z.to_int b)
 

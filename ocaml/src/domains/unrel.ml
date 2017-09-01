@@ -325,7 +325,7 @@ module Make(D: T) =
       let map_val = Env.find itv domain in
       match itv with
       | Env.Key.Mem_Itv (low_addr, high_addr) ->
-         L.debug (fun p -> p "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr));
+         L.debug2 (fun p -> p "Splitting (%s, %s) at %s" (Data.Address.to_string low_addr) (Data.Address.to_string high_addr) (Data.Address.to_string addr));
         let dom' = Env.remove itv domain in
          (* addr just below the new byte *)
         let addr_before = Data.Address.dec addr  in
@@ -382,7 +382,7 @@ module Make(D: T) =
       let addrs = if big_endian then List.rev addrs else addrs in
       (* helper to update one byte in memory *)
       let update_one_key (addr, byte) domain =
-        L.debug (fun p -> p "update_one_key (%s, %s)" (Data.Address.to_string addr) (D.to_string byte));
+        L.debug2 (fun p -> p "update_one_key (%s, %s)" (Data.Address.to_string addr) (D.to_string byte));
         let key = safe_find addr domain in
         match key with
         | Some (Env.Key.Reg _, _) -> L.abort (fun p -> p "Implementation error: the found key is a Reg")
@@ -661,7 +661,7 @@ module Make(D: T) =
       | Val m' ->
          let v', _ = eval_exp m' src in
          let v' = span_taint m' src v' in
-         L.debug (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
+         L.info2 (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
          let b = D.taint_sources v' in
          if D.is_bot v' then
            BOT, b

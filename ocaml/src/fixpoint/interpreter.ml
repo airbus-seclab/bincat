@@ -170,7 +170,7 @@ struct
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t): D.t * Taint.t =
-        L.debug (fun p -> p "process_value ---------\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
+        L.debug2 (fun p -> p "process_value VVVVVVVVVVVVVVVVVVVVVVVVVVVVVV\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
       try
         let res, tainted = 
             match s with
@@ -236,14 +236,16 @@ struct
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
             | Directive (Stub (fun_name, call_conv)) ->
-               L.debug(fun p -> p "Processing stub %s" fun_name);
+               L.info2(fun p -> p "Processing stub %s" fun_name);
               let d',taint',cleanup_stmts = Stubs.process d fun_name call_conv in
               if List.length cleanup_stmts > 0 then
                 L.warn (fun p -> p "cleanup statements are not processed (yet!): %s"
                   (Asm.string_of_stmts cleanup_stmts true));
               d', taint'
             | _ 				 -> raise Jmp_exn
-          in L.debug (fun p -> p "process_value returns taint : %s" (Taint.to_string tainted)); res, tainted
+        in L.debug2 (fun p -> p "end of process_value taint=%s ---------\n%s\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" 
+          (Taint.to_string tainted) (String.concat " " (D.to_string res)));
+        res, tainted
       with Exceptions.Empty _ -> D.bot,Taint.U
 
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
@@ -451,7 +453,6 @@ struct
 	     with Exceptions.Bot_deref -> [], Taint.U (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
 	   end
            in 
-           L.debug (fun p->p "process_list returns tainted: %s" (Taint.to_string tainted));
            new_vert, tainted
         | []       -> vertices, Taint.U
       in
@@ -591,7 +592,7 @@ struct
             let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
             let rules' =
                 List.map (fun ((addr, nb), rule) ->
-                  L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
+                  L.analysis (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
                   Init_check.check_mem rule;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
                   D.set_memory_from_config addr' Data.Address.Global rule nb) rules
@@ -607,7 +608,7 @@ struct
         waiting := Vertices.remove v !waiting;
         begin
           try
-            L.debug (fun p -> p "################### %s" (Data.Address.to_string v.Cfa.State.ip));
+            L.info2 (fun p -> p "################### %s" (Data.Address.to_string v.Cfa.State.ip));
             Log.current_address := Some v.Cfa.State.ip;
             (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
             let text'        = Mapped_mem.string_from_addr mapped_mem v.Cfa.State.ip !Config.max_instruction_size in

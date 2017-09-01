@@ -401,7 +401,7 @@ module Make(V: Val) =
 		| Some b -> b
 		| None -> rec_lt v1 v2 (i+1)
 	    in let res = rec_lt v1 v2 0 in
-	       L.debug (fun p -> p "lt_core %s %s %s = %b"
+	       L.debug2 (fun p -> p "lt_core %s %s %s = %b"
 		 (to_string v1) (if final then "<=" else "<")
 		 (to_string v2) res);
 	       res
@@ -426,7 +426,7 @@ module Make(V: Val) =
 
         let add v1 v2 =
 	  let res = core_add_sub V.add v1 v2 in
-	  L.debug (fun p -> p "add(%s, %s) = %s"
+	  L.debug2 (fun p -> p "add(%s, %s) = %s"
 	    (to_string v1) (to_string v2) (to_string res));
 	  res
 
@@ -434,7 +434,7 @@ module Make(V: Val) =
 
         let xor v1 v2 =
 	  let res = map2 V.xor v1 v2 in
-	  L.debug (fun p -> p "xor(%s, %s) = %s"
+	  L.debug2 (fun p -> p "xor(%s, %s) = %s"
 	    (to_string v1) (to_string v2) (to_string res));
 	  res
 
@@ -453,7 +453,7 @@ module Make(V: Val) =
 	      (to_string v1) lv1 (to_string v2) lv2)
 	  else
 	    let res = map2 V.logand v1 v2 in
-	    L.debug (fun p -> p "logand(%s, %s)=%s"
+	    L.debug2 (fun p -> p "logand(%s, %s)=%s"
 	      (to_string v1) (to_string v2) (to_string res));
 	    res
 	  
@@ -464,7 +464,7 @@ module Make(V: Val) =
 			 (to_string v1) lv1 (to_string v2) lv2)
 	  else
 	    let res = map2 V.logor v1 v2 in
-	    L.debug (fun p -> p "logor(%s, %s)=%s"
+	    L.debug2 (fun p -> p "logor(%s, %s)=%s"
 			     (to_string v1) (to_string v2) (to_string res));
 	    res
 
@@ -501,7 +501,7 @@ module Make(V: Val) =
 
         let zero_extend v new_sz =
           let sz = Array.length v in
-          L.debug (fun p -> p "zero_extend((%d)%s, %d)" sz (to_string v) new_sz);
+          L.debug2 (fun p -> p "zero_extend((%d)%s, %d)" sz (to_string v) new_sz);
             if new_sz < sz then
               L.abort (fun p -> p "zero_extend cannont extend v=(%d)%s to %d bits"
 		sz (to_string v) new_sz)
@@ -520,7 +520,7 @@ module Make(V: Val) =
                 for j = 0 to o-1 do
                     res.(j) <- v.(shift+j)
                 done;
-            L.debug (fun p -> p "ishl(%s, %d) = %s"
+            L.debug2 (fun p -> p "ishl(%s, %d) = %s"
               (to_string v) shift (to_string res));
             res
 
@@ -530,7 +530,7 @@ module Make(V: Val) =
           for j = 0 to v_len-shift-1 do
             res.(j+shift) <- v.(j)
           done;
-            L.debug (fun p -> p "ishr(%s, %d) = %s"
+            L.debug2 (fun p -> p "ishr(%s, %d) = %s"
               (to_string v) shift (to_string res));
           res
 
@@ -540,7 +540,7 @@ module Make(V: Val) =
           for j = 0 to v_len-1 do
             res.(j) <- v.((j+shift) mod v_len)
           done;
-          L.debug (fun p -> p "irotate(%s,%d)=%s"
+          L.debug2 (fun p -> p "irotate(%s,%d)=%s"
             (to_string v) shift (to_string res));
           res
 
@@ -590,16 +590,16 @@ module Make(V: Val) =
 	    !res
 
         let imul v1 v2 =
-          L.debug (fun p -> p "imul((%d)%s, (%d)%s)"
+          L.debug2 (fun p -> p "imul((%d)%s, (%d)%s)"
 	    (Array.length v1) (to_string v1) (Array.length v2) (to_string v2));
           let v1_len = Array.length v1 in
           let v2_len = Array.length v2 in
           let long_v1 = sign_extend v1 (v1_len*2) in
           let long_v2 = sign_extend v2 (v2_len*2) in
           let fullres = mul long_v1 long_v2 in
-          L.debug (fun p -> p "imul fullres = %s" (to_string fullres));
+          L.debug2 (fun p -> p "imul fullres = %s" (to_string fullres));
           let res = Array.sub fullres (v1_len*2) (v1_len*2) in
-          L.debug (fun p -> p "imul return %s" (to_string res));
+          L.debug2 (fun p -> p "imul return %s" (to_string res));
           res
 
         (** return v1 / v2, modulo of v1 / v2 *)
@@ -634,7 +634,7 @@ module Make(V: Val) =
 		    end
 		done;
 		rem := truncate !rem lv2;
-		L.debug (fun p -> p "core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
+		L.debug2 (fun p -> p "core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
 				 (Array.length v1) (to_string v1)
 				 (Array.length v2) (to_string v2)
 				 (Array.length quo) (to_string quo)
@@ -653,7 +653,7 @@ module Make(V: Val) =
 	  let quo,rem = core_div v1' v2' in
 	  let quo' = if is_neg_v1 <> is_neg_v2 then (neg quo) else quo in
 	  let rem' = if is_neg_v1 then (neg rem) else rem in
-	  L.debug (fun p -> p "core_idiv (%d)%s, (%d)%s = (%d)%s mod=(%d)%s"
+	  L.debug2 (fun p -> p "core_idiv (%d)%s, (%d)%s = (%d)%s mod=(%d)%s"
 	    (Array.length v1) (to_string v1)
 	    (Array.length v2) (to_string v2)
 	    (Array.length quo') (to_string quo')
@@ -687,7 +687,7 @@ module Make(V: Val) =
             match op with
             | Asm.Not       -> lognot v
             | Asm.SignExt i -> sign_extend v i
-            | Asm.ZeroExt i -> let res = zero_extend v i in L.debug (fun p -> p
+            | Asm.ZeroExt i -> let res = zero_extend v i in L.debug2 (fun p -> p
             "zero_extend new length : %d" (Array.length res)); res
 
         let untaint v = Array.map V.untaint v
@@ -814,7 +814,7 @@ module Make(V: Val) =
     (** copy bits from v2 to bits from low to up of v1,
         vectors can be of different sizes *)
     let combine v1 v2 low up =
-	  L.debug (fun p -> p "combine(%s(%d)[%d:%d] <- %s(%d))"
+      L.debug2 (fun p -> p "combine(%s(%d)[%d:%d] <- %s(%d))"
 	    (to_string v1) (Array.length v1)  low up (to_string v2) (Array.length v2));
       let sz2 = Array.length v2 in
 	  if sz2 <> up-low+1 then
@@ -838,7 +838,7 @@ module Make(V: Val) =
 	        end
 
         let extract v low up =
-            L.debug (fun p -> p "extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v));
+            L.debug2 (fun p -> p "extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v));
             let v' = Array.make (up-low+1) V.top in
             let n  = Array.length v in
             let o  = n-up - 1 in

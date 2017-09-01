@@ -28,15 +28,15 @@ let make_mapped_mem () =
   let entrypoint = Data.Address.global_of_int !Config.ep (* elf.hdr.e_entry *) in
   let mapped_file = map_file !Config.binary in
   let elf = Elf_core.to_elf mapped_file in
-  if L.log_debug () then
+  if L.log_debug2 () then
     begin
-      L.debug(fun p -> p "HDR: %s" (hdr_to_string elf.hdr));
-      List.iter (fun ph -> L.debug(fun p -> p "PH: %s" (ph_to_string ph))) elf.ph;
-      List.iter (fun sh -> L.debug(fun p -> p "SH: %s" (sh_to_string sh))) elf.sh;
-      List.iter (fun rel -> L.debug(fun p -> p "REL: %s" (rel_to_string rel))) elf.rel;
-      List.iter (fun rela -> L.debug(fun p -> p "RELA: %s" (rela_to_string rela))) elf.rela;
-      List.iter (fun dyn -> L.debug(fun p -> p "DYNAMIC: %s" (dynamic_to_string dyn))) elf.dynamic;
-      List.iter (fun sym -> L.debug(fun p -> p "SYMTAB: %s" (sym_to_string sym))) elf.symtab;
+      L.debug2(fun p -> p "HDR: %s" (hdr_to_string elf.hdr));
+      List.iter (fun ph -> L.debug2(fun p -> p "PH: %s" (ph_to_string ph))) elf.ph;
+      List.iter (fun sh -> L.debug2(fun p -> p "SH: %s" (sh_to_string sh))) elf.sh;
+      List.iter (fun rel -> L.debug2(fun p -> p "REL: %s" (rel_to_string rel))) elf.rel;
+      List.iter (fun rela -> L.debug2(fun p -> p "RELA: %s" (rela_to_string rela))) elf.rela;
+      List.iter (fun dyn -> L.debug2(fun p -> p "DYNAMIC: %s" (dynamic_to_string dyn))) elf.dynamic;
+      List.iter (fun sym -> L.debug2(fun p -> p "SYMTAB: %s" (sym_to_string sym))) elf.symtab;
     end;
   let rec sections_from_ph phlist =
     match phlist with

@@ -862,7 +862,7 @@ struct
     Imports.init();
     (* creates the import table from import section *)
     let add_import_to_table a (libname, fname) =
-      L.debug(fun p -> p "loading import %s.%s at %x" libname fname (Z.to_int a));
+      L.info(fun p -> p "loading import %s.%s at %x" libname fname (Z.to_int a));
       let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
       let fun_desc =  {
         Imports.libname = libname;
