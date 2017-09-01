@@ -200,12 +200,10 @@ struct
       print d ret format_addr va_args (Some dst)
 
     let printf d ret args =
-        (* TODO: not optimal as buffer destination is built as for sprintf *)
       let format_addr = args 0 in
       let va_args = shift args 1 in
-      (* creating a very large temporary buffer to store the output of printf *)
-      let d', is_tainted = print d ret format_addr va_args None in
       L.analysis (fun p -> p "printf output:");
+      let d', is_tainted = print d ret format_addr va_args None in
       L.analysis (fun p -> p "--- end of printf--");
       d', is_tainted
 
@@ -218,8 +216,7 @@ struct
       let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
       L.analysis (fun p -> p "--- end of puts--");
       d', is_tainted
-
-
+   
     let process d fun_name call_conv : D.t * Taint.t * Asm.stmt list =
       let apply_f, arg_nb =
         match fun_name with
