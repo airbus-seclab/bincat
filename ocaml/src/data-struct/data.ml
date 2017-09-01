@@ -101,16 +101,16 @@ struct
 
         (* these memory regions are supposed not to overlap *)
         type region =
-          | Global (** abstract base address of global variables and code *)
-          | Stack  (** abstract base address of the stack *)
-          | Heap   (** abstract base address of a dynamically allocated memory block *)
+          | Global 
+          | Stack 
+          | Heap of int * int 
 
 
         let char_of_region r =
             match r with
             | Global -> 'G'
             | Stack  -> 'S'
-            | Heap   -> 'H'
+            | Heap _  -> 'H'
 
         type t = region * Word.t
 
