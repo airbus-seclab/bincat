@@ -92,7 +92,7 @@ module Make(Modname: sig val name : string end) = struct
     flush !logfid
 
   let trace adrs fmsg =
-    if log_debug () then
+    if log_info2 () then
         let pc = Data.Address.to_string adrs in
     let msg = fmsg Printf.sprintf in
         let rec log_trace strlist =
