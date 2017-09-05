@@ -120,10 +120,10 @@ struct
             | Global, _ -> -1
             | Stack, Stack -> 0
             | Stack, Global -> 1
-            | Stack, Heap -> -1
-            | Heap, Heap -> 0
-            | Heap, Global -> 1
-            | Heap, Stack -> 1
+            | Stack, Heap _ -> -1
+            | Heap (id1, _), Heap (id2, _) -> id1 - id2
+            | Heap _, Global -> 1
+            | Heap _, Stack -> 1
 
         let compare (r1, w1) (r2, w2) =
             let n = compare_region r1 r2 in
