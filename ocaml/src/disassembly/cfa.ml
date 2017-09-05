@@ -210,8 +210,20 @@ struct
                             d', Taint.logor prev_taint taint'
                      ) (domain, Taint.U) (List.rev content_list)
       (* end of init utilities *)
-      (*************************)
-
+   
+    let init_heap domain content_list =
+      (* TODO: factorize with init_mem *)
+      List.fold_left (fun (domain, prev_taint) entry ->
+        let repeat, nb = fst entry in
+        let content = snd entry in
+        let content_size = Config.size_of_content content in
+        let heap_chunk_id = Data.Address.new_heap_chunk () in
+        let addr' = Data.Address.of_int (Data.Address.Heap (heap_chunk_id, content_size)) !Config.address_sz in
+        let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
+        d', Taint.logor prev_taint taint'
+      ) (domain, Taint.U) (List.rev content_list)
+  
+      
   let init_abstract_value () =
     let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
@@ -220,7 +232,7 @@ struct
 	(* init of the Stack memory *)
 	let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
 	(* init of the Heap memory *)
-	let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
+	let d', taint4 = init_heap d' Data.Address.Heap !Config.heap_content in
     d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
 
   (* CFA creation.

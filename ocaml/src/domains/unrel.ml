@@ -730,20 +730,7 @@ module Make(D: T) =
            let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
            Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2' m')
 
-    (** returns size of content, rounded to the next multiple of Config.operand_sz *)
-    let size_of_content c =
-      let round_sz sz =
-        if sz < !Config.operand_sz then
-          !Config.operand_sz
-        else
-          if sz mod !Config.operand_sz <> 0 then
-            !Config.operand_sz * (sz / !Config.operand_sz + 1)
-          else
-            sz
-      in
-      match c with
-      | Config.Content z | Config.CMask (z, _) -> round_sz (Z.numbits z)
-      | Config.Bytes b | Config.Bytes_Mask (b, _) -> (String.length b)*4
+    
 		 
          
     (** builds an abstract tainted value from a config concrete tainted value *)
@@ -776,7 +763,7 @@ module Make(D: T) =
         match domain with
         | BOT    -> BOT, Taint.U
         | Val domain' ->
-           let sz = size_of_content content in
+           let sz = Config.size_of_content content in
            let v', taint = of_config region (content, taint) sz in
            if nb > 1 then
              if sz != 8 then

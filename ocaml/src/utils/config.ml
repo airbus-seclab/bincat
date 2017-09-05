@@ -230,3 +230,17 @@ let reset () =
   Hashtbl.reset typing_rules;
   Hashtbl.clear heap_override;;
 
+(** returns size of content, rounded to the next multiple of operand_sz *)
+    let size_of_content c =
+      let round_sz sz =
+        if sz < !operand_sz then
+          !operand_sz
+        else
+          if sz mod !operand_sz <> 0 then
+            !operand_sz * (sz / !operand_sz + 1)
+          else
+            sz
+      in
+      match c with
+      | Content z | CMask (z, _) -> round_sz (Z.numbits z)
+      | Bytes b | Bytes_Mask (b, _) -> (String.length b)*4
