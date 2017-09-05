@@ -164,7 +164,7 @@ module Make(Modname: sig val name : string end) = struct
     Printf.fprintf !logfid  "[ABORT] %s: %s\n" modname msg;
     Printf.fprintf !logfid  "%s\n" (Printexc.to_string e);
     Printexc.print_backtrace !logfid;
-    flush !logfid
+    flush !logfid;
     flush Pervasives.stdout;
     raise (Exceptions.Error msg)
 
