@@ -291,7 +291,7 @@ struct
 	      with
             _ -> L.abort (fun p -> p "computed instruction pointer at return instruction is either undefined or imprecise")
 	    end
-	  with Failure "hd" -> L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, Taint.U
+	  with Failure _ -> L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, Taint.U
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)

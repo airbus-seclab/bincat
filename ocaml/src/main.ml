@@ -60,9 +60,9 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
        close_in cin;
       L.abort (fun p -> p "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
 	
-    | Failure "lexing: empty token" ->
+    | Failure msg ->
        close_in cin;
-      L.abort (fun p -> p "Parse error near location %s of %s" (string_of_position lexbuf) configfile)
+      L.abort (fun p -> p "Parse error (%s) near location %s of %s" msg (string_of_position lexbuf) configfile)
   end;
   close_in cin;
   (* generating modules needed for the analysis wrt to the provided configuration *)
