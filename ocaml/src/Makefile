@@ -56,13 +56,15 @@ fixpoint/stubs.mli\
 LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
 BINDIR=$(DESTDIR)/$(PREFIX)/bin/
 
+CPPO_VER=-V OCAML:$(shell ocamlc -vnum)
+CPPO="cppo $(CPPO_VER)"
 CAMLLIBDIR:=$(shell ocamlc -where)
 
 CMX = $(ML:.ml=.cmx)
 
 DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders
 
-CAMLOPTIONS = -g -w Ael -warn-error +a-7-50-42-44 $(DIROPT)
+CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44 $(DIROPT)
 
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt
@@ -117,7 +119,7 @@ CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmru
 all: $(LIBNAME) $(EXENAME)
 
 armv8A_ppx: disassembly/armv8A_ppx.ml
-	$(CAMLOPT) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I `ocamlfind query compiler-libs` -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
+	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I `ocamlfind query compiler-libs` -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
 
 $(LIBNAME): $(OBJ) 
 	rm -f $(BINCATOBJ)
