@@ -98,9 +98,9 @@ else
 	@echo "Making Windows binary release."
 	-rm -rf bincat-windows
 	mkdir -p bincat-windows/bin
-	cp $(shell ldd ocaml/src/bincat_native.exe|grep libgmp|awk '{print $$3};') bincat-windows/bin
+	cp $(shell ldd ocaml/src/bincat.exe|grep libgmp|awk '{print $$3};') bincat-windows/bin
 	cp $(shell which c2newspeak.exe) bincat-windows/bin
-	cp ocaml/src/bincat_native.exe bincat-windows/bin
+	cp ocaml/src/bincat.exe bincat-windows/bin
 	cp README.md bincat-windows
 	cp -r python/build/lib/ bincat-windows/python
 	cp python/windows_install.py bincat-windows/
