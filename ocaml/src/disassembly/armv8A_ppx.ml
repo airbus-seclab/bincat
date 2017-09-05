@@ -78,7 +78,7 @@ let parse_let loc let_spec =
                         [(_, {pexp_desc = Pexp_constant (Const_string (opc, None))})]) } } -> insn_ident, opc
         #else
         pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
-                        [(_, {pexp_desc = Pexp_constant (PConst_string (opc, None))})]) } } -> insn_ident, opc
+                        [(_, {pexp_desc = Pexp_constant (Pconst_string (opc, None))})]) } } -> insn_ident, opc
         #endif
     | _ ->
       raise (Location.Error (
