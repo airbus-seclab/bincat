@@ -244,8 +244,12 @@ let string_of_directive d extended =
   | Unroll (e, bs) -> Printf.sprintf "unroll current loop min (%s, %d) times" (string_of_exp e false) bs
   | Default_unroll -> "set unroll value to its default value"
   | Unroll_until (e, cmp, terminator, ub, sz) -> Printf.sprintf "unroll current loop min (n, %d) times with n = minimal offset from e such that (%d)[%s+n] %s %s" ub sz (string_of_exp e false) (string_of_cmp cmp) (string_of_exp terminator false)
-  | Stub (f, _) -> Printf.sprintf "stub of %s" f
-     
+  | Stub (f, cc) ->
+     if extended then
+       Printf.sprintf "%s <- stub of %s" (string_of_lval cc.return extended) f
+     else
+       Printf.sprintf "stub of %s" f
+
 
 let string_of_target tgt =
   match tgt with
