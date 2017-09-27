@@ -18,12 +18,30 @@
 
 module L = Log.Make(struct let name = "stubs" end)
 
+module type T =
+sig
+  type domain_t
 
-module Make (D: Domain.T) =
+  (** [process d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args]. 
+It returns also a boolean true whenever the result is tainted. *) 
+  val process : domain_t -> string -> Asm.calling_convention_t -> 
+    domain_t * Taint.t * Asm.stmt list
+
+  val init : unit -> unit
+
+  val stubs : (string, (domain_t -> Asm.lval -> (int -> Asm.exp) -> 
+                         domain_t * Taint.t) * int) Hashtbl.t
+end
+
+
+module Make (D: Domain.T) : (T with type domain_t := D.t )  =
 struct
+
+    type domain_t = D.t
+
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let strlen (d: D.t) ret args : D.t * Taint.t =
+    let strlen (d: domain_t) ret args : domain_t * Taint.t =
       let zero = Asm.Const (Data.Word.zero 8) in
       let len = D.get_offset_from (args 0) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then
@@ -33,7 +51,7 @@ struct
         end;
       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
 
-    let memcpy (d: D.t) ret args : D.t * Taint.t =
+    let memcpy (d: domain_t) ret args : domain_t * Taint.t =
       L.analysis (fun p -> p "memcpy stub");
       let dst = args 0 in
       let src = args 1 in
@@ -44,7 +62,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
-    let print (d: D.t) ret format_addr va_args (to_buffer: Asm.exp option): D.t * Taint.t =
+    let print (d: domain_t) ret format_addr va_args (to_buffer: Asm.exp option): domain_t * Taint.t =
         (* ret has to contain the number of bytes stored in dst ;
            format_addr is the address of the format string ;
            va_args the list of values needed to fill the format string *)
@@ -52,7 +70,7 @@ struct
             let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
             let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
             L.analysis (fun p -> p "format string: %s" format_string);
-            let format_num d dst_off c fmt_pos arg pad_char pad_left: int * int * D.t =
+            let format_num d dst_off c fmt_pos arg pad_char pad_left: int * int * domain_t =
               let rec compute digit_nb fmt_pos =
                 let c = Bytes.get format_string fmt_pos in
                     match c with
@@ -104,7 +122,7 @@ struct
                 let n = ((Char.code c) - (Char.code '0')) in
                     compute n fmt_pos
             in
-            let format_arg d fmt_pos dst_off arg: int * int * D.t =
+            let format_arg d fmt_pos dst_off arg: int * int * domain_t =
                 let c = Bytes.get format_string fmt_pos in
                 match c with
                 | 's' -> (* %s *)
@@ -135,7 +153,7 @@ struct
                 | '-' -> format_num d dst_off '0' (fmt_pos+1) arg ' ' false
                 | _ -> L.abort (fun p -> p "Unknown format in format string")
             in
-            let rec copy_char d c (fmt_pos: int) dst_off arg_nb: int * D.t =
+            let rec copy_char d c (fmt_pos: int) dst_off arg_nb: int * domain_t =
                 let src = (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) in
                 let dump =
                     match to_buffer with
@@ -145,7 +163,7 @@ struct
                 let d' = dump src 8 in
                     fill_buffer d' (fmt_pos+1) 0 (dst_off+1) arg_nb
             (* state machine for format string parsing *)
-            and fill_buffer (d: D.t) (fmt_pos: int) (state_id: int) (dst_off: int) arg_nb: int * D.t =
+            and fill_buffer (d: domain_t) (fmt_pos: int) (state_id: int) (dst_off: int) arg_nb: int * domain_t =
                 if fmt_pos < str_len then
                     match state_id with
                     | 0 -> (* look for % *)
@@ -185,13 +203,13 @@ struct
            L.exc_and_abort e (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 
-    let sprintf (d: D.t) ret args : D.t * Taint.t =
+    let sprintf (d: domain_t) ret args : domain_t * Taint.t =
       let dst = args 0 in
       let format_addr = args 1 in
       let  va_args = shift args 2 in
       print d ret format_addr va_args (Some dst)
 
-    let sprintf_chk (d: D.t) ret args : D.t * Taint.t =
+    let sprintf_chk (d: domain_t) ret args : domain_t * Taint.t =
       let dst = args 0 in
       let format_addr = args 3 in
       let  va_args = shift args 4 in
@@ -217,18 +235,14 @@ struct
       L.analysis (fun p -> p "--- end of puts--");
       d', is_tainted
 
+    let stubs = Hashtbl.create 5
 
-    let process d fun_name call_conv : D.t * Taint.t * Asm.stmt list =
+    let process d fun_name call_conv : domain_t * Taint.t * Asm.stmt list =
       let apply_f, arg_nb =
-        match fun_name with
-        | "memcpy" -> memcpy, 3
-        | "sprintf" -> sprintf, 0
-        | "printf" -> printf, 0
-        | "__sprintf_chk" -> sprintf_chk, 0
-        | "__printf_chk" -> printf_chk, 0
-        | "puts" -> puts, 1
-        | "strlen" -> strlen, 1
-        | _ -> L.abort(fun p -> p "No stub available for function [%s]" fun_name) in
+        try
+          Hashtbl.find stubs fun_name
+        with
+        | Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name) in
       let d', taint =
         try
           apply_f d call_conv.Asm.return call_conv.Asm.arguments
@@ -240,4 +254,15 @@ struct
           d, Taint.U in
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
       d', taint, cleanup_stmts
+
+
+    let init () =
+      Hashtbl.replace stubs "memcpy"        (memcpy,      3);
+      Hashtbl.replace stubs "sprintf"       (sprintf,     0);
+      Hashtbl.replace stubs "printf"        (printf,      0);
+      Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);
+      Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
+      Hashtbl.replace stubs "puts"          (puts,        1);
+      Hashtbl.replace stubs "strlen"        (strlen,      1);
+
 end

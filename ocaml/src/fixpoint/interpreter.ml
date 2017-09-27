@@ -23,23 +23,24 @@ module L = Log.Make(struct let name = "interpreter" end)
 module Make(D: Domain.T)(Decoder: Decoder.Make) =
 struct
 
-    (** Decoder *)
-    module Decoder = Decoder(D)
+    (** stubs *)
+    module Stubs = Stubs.Make(D)
 
-    type import_attrib_type = {
-      mutable name: string;
-      mutable addr: Z.t option;
-      mutable typing_rule: bool;
-      mutable tainting_rule: bool;
-      mutable stub: bool;
+    (** Decoder *)
+    module Decoder = Decoder(D)(Stubs)
+
+    type import_attrib_t = {
+      mutable ia_name: string;
+      mutable ia_addr: Z.t option;
+      mutable ia_typing_rule: bool;
+      mutable ia_tainting_rule: bool;
+      mutable ia_stub: bool;
     }
 
 				 
     (** Control Flow Automaton *)
     module Cfa = Decoder.Cfa
 
-    (** stubs *)
-    module Stubs = Stubs.Make(D)
 
     open Asm
       
@@ -297,12 +298,14 @@ struct
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let import_call vertices a fun_stack =
         let fundec = Hashtbl.find Decoder.Imports.tbl a in
-        let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
+        let stmts = fundec.Asm.prologue @ fundec.Asm.stub @ fundec.Asm.epilogue in
         L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded." 
-          (Data.Address.to_string a) (fundec.Decoder.Imports.name) (List.length stmts));
+          (Data.Address.to_string a) (fundec.Asm.name) (List.length stmts));
         Log.Trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
-        let ret_addr_exp = fundec.Decoder.Imports.ret_addr in
+        let ret_addr_exp = fundec.Asm.ret_addr in
         L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
+        Log.Trace.trace a (fun p -> p "%s" 
+          (Asm.string_of_stmts [ Asm.Jmp(R ret_addr_exp) ] true));
         let t =
             List.fold_left (fun t v ->
                 if stmts <> [] then
@@ -533,38 +536,38 @@ struct
       if L.log_info () then
         begin
           let empty_desc = {
-              name = "n/a";
-              addr = None;
-              typing_rule = false;
-              tainting_rule = false;
-              stub = false;
+              ia_name = "n/a";
+              ia_addr = None;
+              ia_typing_rule = false;
+              ia_tainting_rule = false;
+              ia_stub = false;
             } in
           let yesno b = if b then "YES" else "no" in
           let itbl = Hashtbl.create 5 in
           Hashtbl.iter (fun a (libname, fname) ->
             let func_desc = { empty_desc with
-              name = libname ^ "." ^ fname;
-              addr = Some a;
+              ia_name = libname ^ "." ^ fname;
+              ia_addr = Some a;
             } in
             Hashtbl.add itbl fname func_desc) Config.import_tbl;
           Hashtbl.iter (fun name _typing_rule ->
             let func_desc =
               try
                 Hashtbl.find itbl name
-              with Not_found -> { empty_desc with name = "?." ^ name } in
-            Hashtbl.replace itbl name { func_desc with typing_rule=true })  Config.typing_rules;
+              with Not_found -> { empty_desc with ia_name = "?." ^ name } in
+            Hashtbl.replace itbl name { func_desc with ia_typing_rule=true })  Config.typing_rules;
           Hashtbl.iter (fun  (libname, name) (_callconv, _taint_ret, _taint_args) ->
             let func_desc =
               try
                 Hashtbl.find itbl name
-              with Not_found -> { empty_desc with name = libname ^ "." ^ name } in
-            Hashtbl.replace itbl name { func_desc with tainting_rule=true })  Config.tainting_rules;
-          Hashtbl.iter (fun name _  ->
+              with Not_found -> { empty_desc with ia_name = libname ^ "." ^ name } in
+            Hashtbl.replace itbl name { func_desc with ia_tainting_rule=true })  Config.tainting_rules;
+          Hashtbl.iter (fun name _ ->
             let func_desc =
               try
                 Hashtbl.find itbl name
-              with Not_found -> { empty_desc with name = "?." ^ name } in
-            Hashtbl.replace itbl name { func_desc with stub=true })  Decoder.Imports.available_stubs;
+              with Not_found -> { empty_desc with ia_name = "?." ^ name } in
+            Hashtbl.replace itbl name { func_desc with ia_stub=true })  Stubs.stubs;
 
           let addr_to_str x = match x with
             | Some a -> 
@@ -580,8 +583,8 @@ struct
           L.info (fun p -> p "Dumping state of imports");
           Hashtbl.iter (fun _name func_desc ->
             L.info (fun p -> p "| IMPORT %-30s addr=%-16s typing=%-3s tainting=%-3s stub=%-3s"
-              func_desc.name (addr_to_str func_desc.addr) 
-              (yesno func_desc.typing_rule) (yesno func_desc.tainting_rule) (yesno func_desc.stub)))
+              func_desc.ia_name (addr_to_str func_desc.ia_addr) 
+              (yesno func_desc.ia_typing_rule) (yesno func_desc.ia_tainting_rule) (yesno func_desc.ia_stub)))
             itbl;
           L.info (fun p -> p "End of dump");
         end;

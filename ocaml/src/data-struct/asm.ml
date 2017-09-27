@@ -276,4 +276,14 @@ let string_of_stmt s extended =
 let string_of_stmts stmt_list extended =
   let list_str = List.map (fun s -> string_of_stmt s extended) stmt_list
   in Printf.sprintf "[ %s ]" (String.concat ",\n" list_str)
- 
+
+
+(** abstract data type for library functions *)
+type import_desc_t = {
+  name: string;        (** function name *)
+  libname: string;     (** name of its library *)
+  prologue: stmt list; (** tranfer operations for its prologue *)
+  stub: stmt list;     (** transfer operations for the function itself *)
+  epilogue: stmt list; (** transfer operations for its epilogue *)
+  ret_addr: exp        (** return addr *)
+  }

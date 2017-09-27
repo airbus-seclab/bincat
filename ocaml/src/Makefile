@@ -20,6 +20,7 @@ loaders/raw.ml\
 loaders/elf_core.ml\
 loaders/elf.ml\
 disassembly/decodeutils.ml\
+fixpoint/stubs.ml\
 disassembly/x86Imports.ml\
 disassembly/armv7Imports.ml\
 disassembly/armv8aImports.ml\
@@ -37,7 +38,6 @@ disassembly/cfa.ml\
 disassembly/x86.ml\
 disassembly/armv7.ml\
 disassembly/armv8A.ml\
-fixpoint/stubs.ml\
 fixpoint/interpreter.ml\
 bincat_ver.ml \
 main.ml

@@ -22,7 +22,7 @@
 
 module L = Log.Make(struct let name = "x86" end)
 
-module Make(Domain: Domain.T) =
+module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 struct
 
   open Data
@@ -91,7 +91,7 @@ struct
   module Cfa = Cfa.Make(Domain)
 
   (** import table *)
-  module Imports = X86Imports.Make(Domain)
+  module Imports = X86Imports.Make(Domain)(Stubs)
       
 
 
@@ -2366,145 +2366,9 @@ struct
         in
         decode s;;
 
-    (** converts a signature function to typing directives for stdcall with respect to the stdcall calling convention *)
-    let forget_reserved_registers_stdcall () =
-      [ Directive (Forget (V (T ecx))) ; Directive (Forget (V (T edx))) ]
-  
-
-    let forget_reserved_registers_cdecl = forget_reserved_registers_stdcall
-      
-    let type_directives_cdecl (typing_rule: TypedC.ftyp): (Asm.stmt list * Asm.stmt list * int) =
-        let epilogue =
-            try
-                [ Directive (Type (V (T eax), Types.typ_of_npk (snd typing_rule))) ]
-            with _ -> []
-        in
-        let off = !Config.stack_width / 8 in
-        let sz, prologue =
-	  match fst typing_rule with
-	  | None -> 0, []
-	  | Some args ->
-	     List.fold_left (fun (sz, stmts) (typ, _name) ->
-            let lv = M (BinOp (Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz) !Config.stack_width)), !Config.stack_width) in 
-            sz+off, (Directive (Type (lv, Types.typ_of_npk typ)))::stmts
-        ) (off, []) args
-        in
-        prologue, epilogue@(forget_reserved_registers_cdecl ()), sz
-
-   
-    let taint_directives_stdcall taint_ret taint_args =
-        let taint_arg taint =
-            match taint with
-            | Config.No_taint -> []
-            | Config.Buf_taint -> [Directive (Taint (None, M (Lval (V (T eax)), !Config.operand_sz)))]
-            | Config.Addr_taint -> [Directive (Taint (None, V (T eax)))]
-        in
-        let taint_ret' =
-            match taint_ret with
-            | None -> []
-            | Some t -> taint_arg t
-        in
-        List.fold_left (fun l arg -> (taint_arg arg)@l) [] taint_args, taint_ret'
-    let type_directives_stdcall typing_rule =
-        let prologue, epilogue, sz =
-            type_directives_cdecl typing_rule in
-        (* clean stack + forget volatile registers *)
-        let sz' = sz / 8 in
-        let clean_stack = Asm.Set (V (T esp), BinOp(Add, Lval (V (T esp)), Const (Word.of_int (Z.of_int sz') (Register.size esp)))) in
-        prologue, (clean_stack::(forget_reserved_registers_stdcall ()))@epilogue
-
-    let default_stub_stdcall () = [ Directive (Forget (V (T eax))) ]
-
-    let default_stub_cdecl = default_stub_stdcall
-
-    let taint_directives_cdecl = taint_directives_stdcall
-
-
-    let get_stub name =
-        match !Config.call_conv with
-        | Config.STDCALL ->
-          begin
-              try
-                  Hashtbl.find Imports.stdcall_stubs name
-              with Not_found -> default_stub_stdcall ()
-          end
-        | Config.CDECL ->
-          begin
-              try
-                  Hashtbl.find Imports.cdecl_stubs name
-              with Not_found -> default_stub_cdecl ()
-          end 
-        | _ -> L.abort (fun p -> p "calling convention not managed for the while")   
-
-    let replace_types type_directive =
-        Hashtbl.iter (fun name typing_rule ->
-            try
-                let a, fundec = Imports.search_by_name name in
-                let prologue, epilogue = type_directive typing_rule in 
-                Hashtbl.replace Imports.tbl a
-                    { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
-                                  Imports.epilogue = fundec.Imports.epilogue@epilogue ; Imports.stub = get_stub name}
-            with Not_found ->
-                L.analysis (fun p -> p "from config file: Typing information for function %s without import address => ignored." name); ()
-        ) Config.typing_rules
-
-    let replace_taint taint_directives funame taint_ret taint_args =
-        let a, fundec = Imports.search_by_name funame in
-        let prologue, epilogue = taint_directives taint_ret taint_args in
-        Hashtbl.replace Imports.tbl a
-            { fundec with Imports.prologue = fundec.Imports.prologue@prologue ;
-                          Imports.epilogue = fundec.Imports.epilogue@epilogue ;  }
-
-
-    (** initialization of the import table *)
-    let init_imports () =
-        Imports.init();
-        (* creates the import table from import section *)
-        Hashtbl.iter (fun a (libname, fname) ->
-            let a' = Data.Address.of_int Data.Address.Global a !Config.address_sz in
-            let fundec =  {
-                Imports.libname = libname;
-                Imports.name = fname;
-                Imports.prologue = [];
-                Imports.stub = [];
-                (* Fix ESP: ret emulation *)
-                Imports.epilogue = [Set(V(T(esp)), BinOp(Add, Lval (V(T(esp))), const 4 32)) ];
-                (* Get return address from the stack, ESP already has been fixed by the 'ret' *)    
-                Imports.ret_addr = Lval(M(BinOp(Sub, Lval(V(T(esp))), const 4 32), 32))
-            }
-            in
-            Hashtbl.add Imports.tbl a' fundec) Config.import_tbl;
-        (* adds typing information to prologue and epilogue *)
-         
-    begin	
-        match !Config.call_conv with
-        | Config.STDCALL -> replace_types type_directives_stdcall
-        | Config.CDECL -> replace_types (fun r -> let e, p, _ = type_directives_cdecl r in e, p)
-        | _ -> L.debug (fun p -> p "Calling convention not managed. Typing and tainting directives ignored")
-    end;
-    (* adds tainting information to prologue and epilogue *)
-    Hashtbl.iter (fun (_libname, funame) (callconv, taint_ret, taint_args) ->
-        try
-            match callconv with
-            | Config.STDCALL ->
-              replace_taint taint_directives_stdcall funame taint_ret taint_args
-
-            | Config.CDECL ->
-              replace_taint taint_directives_cdecl funame taint_ret taint_args
-
-            | _ -> raise (Failure "calling convention not supported")
-        with 
-          Not_found ->
-          L.analysis (fun p -> p"Typing information for function without import address ignored"); ()
-        | Failure msg -> L.abort (fun p -> p "%s" msg)
-
-    ) Config.tainting_rules
-
-	
-      
      (** initialization of the decoder *)
     let init () =
-      init_imports();
+      Imports.init ();
       let ldt = Hashtbl.create 5  in
       let gdt = Hashtbl.create 19 in
       let idt = Hashtbl.create 15 in

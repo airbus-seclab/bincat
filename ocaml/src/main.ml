@@ -72,16 +72,16 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     | Config.RAW -> Raw.make_mapped_mem
     | Config.MANUAL -> Manual.make_mapped_mem in
   Mapped_mem.current_mapping := Some (do_map_file ());
+  let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
+  let module Pointer 	 = Pointer.Make(Vector)	in
+  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
   let decoder =
     match !Config.architecture with
     | Config.X86 -> (module X86.Make: Decoder.Make)
     | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
     | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
   in
-  let module Decoder = (val decoder: Decoder.Make) in        
-  let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
-  let module Pointer 	 = Pointer.Make(Vector)	in
-  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
+  let module Decoder = (val decoder: Decoder.Make) in
   let module Interpreter = Interpreter.Make(Domain)(Decoder) in
 
   (* defining the dump function to provide to the fixpoint engine *)
