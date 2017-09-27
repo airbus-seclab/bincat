@@ -299,13 +299,12 @@ struct
     let import_call vertices a fun_stack =
         let fundec = Hashtbl.find Decoder.Imports.tbl a in
         let stmts = fundec.Asm.prologue @ fundec.Asm.stub @ fundec.Asm.epilogue in
+        L.info2 (fun p -> p "################### %s" (Data.Address.to_string a));
         L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded." 
           (Data.Address.to_string a) (fundec.Asm.name) (List.length stmts));
         Log.Trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
         let ret_addr_exp = fundec.Asm.ret_addr in
         L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
-        Log.Trace.trace a (fun p -> p "%s" 
-          (Asm.string_of_stmts [ Asm.Jmp(R ret_addr_exp) ] true));
         let t =
             List.fold_left (fun t v ->
                 if stmts <> [] then
@@ -319,8 +318,10 @@ struct
                         | [a] -> a
                         | []  -> L.abort (fun p->p "no return address")
                         | _l  -> L.abort (fun p->p "multiple return addresses") in
+                L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
                 v.Cfa.State.ip <- a;
-                L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
+                Log.Trace.trace a (fun p -> p "%s"
+                                              (Asm.string_of_stmts [ Asm.Jmp(R ret_addr_exp) ] true));
                 Taint.logor t t') Taint.U vertices
         in
         vertices, t
