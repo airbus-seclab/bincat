@@ -67,8 +67,9 @@ let find_section section_list vaddr =
   try
     List.find (fun section_info -> is_in_section vaddr section_info) section_list
   with 
-  | Not_found as e -> L.exc e (fun p -> p "vaddr=%s" (Data.Address.to_string vaddr)); raise e
-
+  | Not_found -> raise (Exceptions.Error
+                          (Printf.sprintf "No mapped section at vaddr=%s"
+                                          (Data.Address.to_string vaddr)))
 
 (** return Some byte from mapped mem at vaddr or None if it is out of the file and raises Not_found if not in any section*)
 let read mapped_mem vaddr =
