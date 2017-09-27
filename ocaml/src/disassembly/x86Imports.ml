@@ -102,11 +102,9 @@ struct
         name = fname ;
         libname = libname ;
         prologue = typing_pro @ tainting_pro ;
-        stub = stub_stmts ;
-        epilogue = typing_epi @ tainting_epi @ [ 
-                       Set(reg "esp", BinOp(Add, Lval (reg "esp"), const 4 32))
-                     ];
-        ret_addr = Lval(M (Lval (reg "esp"),!Config.stack_width)) ;
+        stub = stub_stmts @ [ Set(reg "esp", BinOp(Add, Lval (reg "esp"), const 4 32)) ] ;
+        epilogue = typing_epi @ tainting_epi ;
+        ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const 4 32),!Config.stack_width)) ;
       } in
       Hashtbl.replace tbl (Data.Address.global_of_int adrs) fundesc
     ) Config.import_tbl
