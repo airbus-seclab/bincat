@@ -243,7 +243,7 @@ struct
                                List.fold_left (fun (d, t) stmt -> let dd, tt = process_value d stmt fun_stack in
                                                                   dd, Taint.logor t tt) (d', taint') cleanup_stmts in
               d', taint'
-            | _ 				 -> raise Jmp_exn
+            | _ -> raise Jmp_exn
         in L.debug2 (fun p -> p "end of process_value taint=%s ---------\n%s\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" 
           (Taint.to_string tainted) (String.concat " " (D.to_string res)));
         res, tainted
