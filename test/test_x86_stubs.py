@@ -7,7 +7,7 @@ x86 = X86(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'x86.ini.in')
 )
 
-xfail = pytest.mark.xfail
+xfail = pytest.mark.skip
 
 @pytest.mark.parametrize("val",[0, 1, 0x1f2, 0x1fa4, 0x45f672, 0x8245fa3d, 0xffffffff])
 @pytest.mark.parametrize("fmt",[xfail("i"),
