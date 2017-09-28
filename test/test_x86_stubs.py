@@ -114,7 +114,7 @@ def test_sprintf_string(tmpdir, val, numl, numr):
 
 
 @pytest.mark.parametrize("src",["", "TEST", "X"*41])
-def test_memcpy(tmpdir, src):
+def test_memcpy_call(tmpdir, src):
     asm = """
            push {length}
            push 0x20000
