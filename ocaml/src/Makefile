@@ -163,6 +163,7 @@ clean:
 	-rm -f ocamldoc.sty ocamldoc.out
 	-rm -f disassembly/*.so
 	-rm -f $(LIBNAME) $(EXEBYTE) $(EXEOPT)
+	-rm -f armv8A_ppx
 	-rm -f frontend/lexer.ml frontend/lexer.mli frontend/parser.ml frontend/parser.mli frontend/*.conflicts frontend/*.automaton
 	# Files moved in revision 2097c09e19f8
 	-rm -f parser.ml parser.mli lexer.ml
