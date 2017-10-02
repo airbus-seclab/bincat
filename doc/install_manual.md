@@ -21,7 +21,7 @@ distributions.
 on Debian Sid:
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
-  libocamlgraph-ocaml-dev python-setuptools python-dev libppx-core-ocaml-dev \
+  libocamlgraph-ocaml-dev python-setuptools python-dev \
   libppx-tools-ocaml-dev ocaml-compiler-libs libppx-tools-ocaml-dev cppo
 ```
 
