@@ -335,6 +335,7 @@ def test_shift_shld_on_mem32(tmpdir, x86carryop, op32, op32_, shift):
             top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
                            "eax":0xffffffff if (shift > 32) else 0})
 
+@pytest.mark.xfail
 def test_shift_shld_on_mem16(tmpdir, x86carryop, op16, op16_, shift):
     asm = """
             {x86carryop}
