@@ -870,6 +870,13 @@ let patch_rel s (rel:e_rel_t) symaddr elf =
   | R_386_RELATIVE -> () 
   | _ -> L.abort (fun p -> p "Unsuppored relocation type for [%s]" (rel_to_string rel))
 
+let patch_rela s (rela:e_rela_t) symaddr elf =
+  match rela.r_type with
+  | R_AARCH64_GLOB_DAT | R_AARCH64_JUMP_SLOT  ->
+     let patched_file_offset = Z.to_int (vaddr_to_paddr rela.r_offset elf.ph) in
+     zenc_word_xword s patched_file_offset Z.(symaddr + rela.r_addend) elf.hdr.e_ident
+  | _ -> L.abort (fun p -> p "Unsuppored relocation type for [%s]" (rela_to_string rela))
+
 
 (*
 let () =
