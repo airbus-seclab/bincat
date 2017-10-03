@@ -309,8 +309,8 @@ class AnalyzerConfig(object):
             return ''
 
     @property
-    def file_type(self):
-        return self._config.get('program', 'file_type').lower()
+    def format(self):
+        return self._config.get('program', 'format').lower()
 
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
@@ -348,9 +348,9 @@ class AnalyzerConfig(object):
             value = ','.join(['"%s"' % f for f in value.split(',')])
         self._config.set('imports', 'headers', value)
 
-    @file_type.setter
-    def file_type(self, value):
-        self._config.set('program', 'file_type', value)
+    @format.setter
+    def format(self, value):
+        self._config.set('program', 'format', value)
 
     def replace_section_mappings(self, maplist):
         """
