@@ -1,12 +1,12 @@
 GITVERSION:=$(shell git describe --dirty)
 
 ML=\
+utils/exceptions.ml\
 utils/misc.ml\
 data-struct/register.ml\
 utils/mapOpt.ml\
 utils/setExt.ml\
 utils/bits.ml\
-utils/exceptions.ml\
 data-struct/taint.ml\
 utils/config.ml\
 data-struct/data.ml\
