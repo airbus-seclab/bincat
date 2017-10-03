@@ -105,12 +105,16 @@ struct
           | Stack 
           | Heap of int * int 
 
+        let heap_id = ref 0
 
+        let new_heap_chunk sz =
+          let r = Heap (!heap_id, sz) in
+          
         let char_of_region r =
             match r with
             | Global -> 'G'
             | Stack  -> 'S'
-            | Heap _  -> 'H'
+            | Heap _ -> 'H'
 
         type t = region * Word.t
 

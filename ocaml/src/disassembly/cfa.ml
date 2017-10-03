@@ -217,8 +217,8 @@ struct
         let repeat, nb = fst entry in
         let content = snd entry in
         let content_size = Config.size_of_content content in
-        let heap_chunk_id = Data.Address.new_heap_chunk () in
-        let addr' = Data.Address.of_int (Data.Address.Heap (heap_chunk_id, content_size)) !Config.address_sz in
+        let heap_region = Data.Address.new_heap_region  in
+        let addr' = Data.Address.of_int heap_region !Config.address_sz in
         let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
         d', Taint.logor prev_taint taint'
       ) (domain, Taint.U) (List.rev content_list)
