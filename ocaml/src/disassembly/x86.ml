@@ -1474,7 +1474,7 @@ struct
             If (is_one,    (* OF is computed only if n == 1 *)
                 [Set ((V (T fof)), (* OF is set if signed changed. We saved sign in fof *)
                     BinOp(Xor,  Lval (V (T fof)), dst_msb));],
-                [clear_flag fof])
+                [ undef_flag fof ])
         in
         let ops =
                 [
@@ -1493,8 +1493,10 @@ struct
         [If(Cmp(EQ, n_masked, const0 8), [], 
             (* if shifted by more than opsize, everything is undef *)
             (* TODO : forget dst *)
-            [If(Cmp(GT, n_masked, sz'), [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf;],
-               ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)])])]
+            [ If(Cmp(GT, n_masked, sz'),
+                 [undef_flag fcf; undef_flag fof; undef_flag fsf; undef_flag faf; undef_flag fzf; Directive (Forget dst)],
+                 ops @ [(sign_flag_stmts sz res) ; (zero_flag_stmts sz res) ; (parity_flag_stmts sz res)]
+        )] )]
 
 
     (* ROL *)
