@@ -95,7 +95,7 @@ type jmp_target =
 
 type calling_convention_t = {
   return : lval ;
-  arguments : int -> exp ;
+  arguments : int -> lval ;
   callee_cleanup : int -> stmt list ;
 }
 (** type of directives for the analyzer *)

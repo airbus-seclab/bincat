@@ -33,12 +33,12 @@ struct
     return = reg "eax" ;
     callee_cleanup = (fun _x -> [ ]) ;
     arguments = function
-    | n -> Lval (M (BinOp (Add,
-                           Lval (reg "esp"),
-                           Const (Data.Word.of_int (Z.of_int ((n+1) * !Config.stack_width / 8))
-                                    !Config.stack_width)),
-                    !Config.stack_width))
-  }
+    | n -> M (BinOp (Add,
+                     Lval (reg "esp"),
+                     Const (Data.Word.of_int (Z.of_int ((n+1) * !Config.stack_width / 8))
+                                             !Config.stack_width)),
+              !Config.stack_width)
+    }
 
   let stdcall_calling_convention = {
     cdecl_calling_convention with

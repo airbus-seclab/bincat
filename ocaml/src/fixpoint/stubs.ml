@@ -29,7 +29,7 @@ It returns also a boolean true whenever the result is tainted. *)
 
   val init : unit -> unit
 
-  val stubs : (string, (domain_t -> Asm.lval -> (int -> Asm.exp) -> 
+  val stubs : (string, (domain_t -> Asm.lval -> (int -> Asm.lval) -> 
                          domain_t * Taint.t) * int) Hashtbl.t
 end
 
@@ -43,7 +43,7 @@ struct
 
     let strlen (d: domain_t) ret args : domain_t * Taint.t =
       let zero = Asm.Const (Data.Word.zero 8) in
-      let len = D.get_offset_from (args 0) Asm.EQ zero 10000 8 d in
+      let len = D.get_offset_from (Asm.Lval (args 0)) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then
         begin
           L.analysis (fun p -> p "updates automatic loop unrolling with the computed string length = %d" len);
@@ -53,9 +53,9 @@ struct
 
     let memcpy (d: domain_t) ret args : domain_t * Taint.t =
       L.analysis (fun p -> p "memcpy stub");
-      let dst = args 0 in
-      let src = args 1 in
-      let sz = args 2 in
+      let dst = Asm.Lval (args 0) in
+      let src = Asm.Lval (args 1) in
+      let sz =  Asm.Lval (args 2) in
       try
         let n = Z.to_int (D.value_of_exp d sz) in
         let d' = D.copy d dst (Asm.Lval (Asm.M (src, (8*n)))) (8*n) in
@@ -180,7 +180,7 @@ struct
                           | _ -> fill_buffer d fmt_pos 2 dst_off arg_nb
                       end
                     | _ (* = 2 ie previous char is % *) ->
-                      let arg = va_args arg_nb in
+                      let arg = Asm.Lval (va_args arg_nb) in
                       let fmt_pos', buf_len, d' = format_arg d fmt_pos dst_off arg in
                       fill_buffer d' fmt_pos' 0 (dst_off+buf_len) (arg_nb+1)
                 else
@@ -204,20 +204,20 @@ struct
 
 
     let sprintf (d: domain_t) ret args : domain_t * Taint.t =
-      let dst = args 0 in
-      let format_addr = args 1 in
+      let dst = Asm.Lval (args 0) in
+      let format_addr = Asm.Lval (args 1) in
       let  va_args = shift args 2 in
       print d ret format_addr va_args (Some dst)
 
     let sprintf_chk (d: domain_t) ret args : domain_t * Taint.t =
-      let dst = args 0 in
-      let format_addr = args 3 in
-      let  va_args = shift args 4 in
+      let dst = Asm.Lval (args 0) in
+      let format_addr = Asm.Lval (args 3) in
+      let va_args = shift args 4 in
       print d ret format_addr va_args (Some dst)
 
     let printf d ret args =
         (* TODO: not optimal as buffer destination is built as for sprintf *)
-      let format_addr = args 0 in
+      let format_addr = Asm.Lval (args 0) in
       let va_args = shift args 1 in
       (* creating a very large temporary buffer to store the output of printf *)
       let d', is_tainted = print d ret format_addr va_args None in
@@ -228,7 +228,7 @@ struct
     let printf_chk d ret args = printf d ret (shift args 1)
 
     let puts d ret args =
-      let str = args 0 in
+      let str = Asm.Lval (args 0) in
       L.analysis (fun p -> p "puts output:");
       let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
       let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in

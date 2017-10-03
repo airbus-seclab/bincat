@@ -31,12 +31,12 @@ struct
     return = reg "x0" ;
     callee_cleanup = (fun _x -> []) ;
     arguments = function
-    | 0 -> Lval (reg "x0")
-    | 1 -> Lval (reg "x1")
-    | 2 -> Lval (reg "x2")
-    | 3 -> Lval (reg "x3")
-    | 4 -> Lval (M (Lval (reg "sp"), 32))
-    | n -> Lval (M ((BinOp (Add, Lval (reg "sp"), const ((n-5)*4) 32)), 32)) ;
+    | 0 -> reg "x0"
+    | 1 -> reg "x1"
+    | 2 -> reg "x2"
+    | 3 -> reg "x3"
+    | 4 -> M (Lval (reg "sp"), 32)
+    | n -> M ((BinOp (Add, Lval (reg "sp"), const ((n-5)*4) 32)), 32) ;
   }
 
 
