@@ -69,10 +69,10 @@ struct
     | _ -> [], []
 
 
-  let stub_stmts_from_name name =
+  let stub_stmts_from_name name callconv=
     if  Hashtbl.mem Stubs.stubs name then
       [
-        Directive (Stub (name, aapcs_calling_convention)) ;
+        Directive (Stub (name, callconv)) ;
         Directive (Forget (reg "r1")) ;
         Directive (Forget (reg "r2")) ;
         Directive (Forget (reg "r3")) ;
@@ -87,10 +87,11 @@ struct
       ]
 
   let init_imports () =
+    let cc = aapcs_calling_convention in
     Hashtbl.iter (fun adrs (libname,fname) ->
-      let typing_pro,typing_epi = typing_rule_stmts_from_name fname in
+      let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc in
       let tainting_pro,tainting_epi = tainting_stmts_from_name libname fname  in
-      let stub_stmts = stub_stmts_from_name fname in
+      let stub_stmts = stub_stmts_from_name fname cc in
       let fundesc:Asm.import_desc_t = {
         name = fname ;
         libname = libname ;

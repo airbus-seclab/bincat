@@ -48,12 +48,14 @@ struct
                                        !Config.stack_width))) ])
   }
 
-  let typing_rule_stmts_from_name name =
-    try
-      let _rule = Hashtbl.find Config.typing_rules name in
-      [], []
-    with
-    | _ -> [], []
+  let get_callconv () =
+    match !Config.call_conv with
+    | Config.CDECL -> cdecl_calling_convention
+    | Config.STDCALL -> stdcall_calling_convention
+    | Config.FASTCALL -> L.abort (fun p -> p "Fast call not implemented yet")
+    | c -> L.abort (fun p -> p "Calling convention [%s] not supported for x86 architecture"
+                               (Config.call_conv_to_string c))
+
 
   let tainting_stmts_from_name libname name =
     try
@@ -77,27 +79,20 @@ struct
     with
     | _ -> [], []
 
-  let stub_stmts_from_name name =
-    let cc = 
-      match !Config.call_conv with
-      | Config.CDECL -> cdecl_calling_convention
-      | Config.STDCALL -> stdcall_calling_convention
-      | Config.FASTCALL -> L.abort (fun p -> p "Fast call not implemented yet")
-      | c -> L.abort (fun p -> p "Calling convention [%s] not supported fot x86 architecture"
-        (Config.call_conv_to_string c)) in
-
+  let stub_stmts_from_name name callconv =
     if  Hashtbl.mem Stubs.stubs name then
-      [ Directive (Stub (name, cc)) ]
+      [ Directive (Stub (name, callconv)) ]
     else
       [ Directive (Forget (reg "eax")) ]
 
 
 
   let init_imports () =
+    let cc = get_callconv () in
     Hashtbl.iter (fun adrs (libname,fname) ->
-      let typing_pro,typing_epi = typing_rule_stmts_from_name fname in
+      let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc in
       let tainting_pro,tainting_epi = tainting_stmts_from_name libname fname  in
-      let stub_stmts = stub_stmts_from_name fname in
+      let stub_stmts = stub_stmts_from_name fname cc in
       let fundesc:Asm.import_desc_t = {
         name = fname ;
         libname = libname ;

@@ -21,6 +21,7 @@ loaders/elf_core.ml\
 loaders/elf.ml\
 disassembly/decodeutils.ml\
 fixpoint/stubs.ml\
+fixpoint/rules.ml\
 disassembly/x86Imports.ml\
 disassembly/armv7Imports.ml\
 disassembly/armv8aImports.ml\
