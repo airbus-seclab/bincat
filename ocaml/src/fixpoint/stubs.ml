@@ -238,20 +238,15 @@ struct
     let stubs = Hashtbl.create 5
 
     let process d fun_name call_conv : domain_t * Taint.t * Asm.stmt list =
-      let apply_f, arg_nb =
-        try
-          Hashtbl.find stubs fun_name
-        with
-        | Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name) in
-      let d', taint =
-        try
-          apply_f d call_conv.Asm.return call_conv.Asm.arguments
-        with
-        | Exit -> d, Taint.U
-        | e ->
-           L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
-          L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
-          d, Taint.U in
+      let apply_f, arg_nb = try Hashtbl.find stubs fun_name
+                            with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name) in
+      let d', taint = try apply_f d call_conv.Asm.return call_conv.Asm.arguments
+                      with
+                      | Exit -> d, Taint.U
+                      | e ->
+                         L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
+                         L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
+                         d, Taint.U in
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
       d', taint, cleanup_stmts
 
