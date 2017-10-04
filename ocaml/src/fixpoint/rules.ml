@@ -7,9 +7,12 @@ let typing_rule_stmts name callconv =
         | None -> []
         | Some args ->
            List.mapi (fun i (typ,_name) -> Asm.Directive (Asm.Type (callconv.Asm.arguments i, Types.typ_of_npk typ))) args in
-          let epilogue =  [ Asm.Directive (Asm.Type (callconv.Asm.return,
-                                                     Types.typ_of_npk (snd rule))) ] in
-          prologue, epilogue
+      let epilogue =  [ Asm.Directive (Asm.Type (callconv.Asm.return,
+                                                 Types.typ_of_npk (snd rule))) ] in
+      prologue, epilogue
+    end
+  else [], []
+
 
 let tainting_rule_stmts libname name _callconv =
   if Hashtbl.mem Config.tainting_rules (libname,name) then
