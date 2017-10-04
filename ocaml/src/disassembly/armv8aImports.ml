@@ -47,29 +47,6 @@ struct
     with
     | _ -> [], []
 
-  let tainting_stmts_from_name libname name =
-    try
-      let _callconv,ret,args = Hashtbl.find Config.tainting_rules (libname,name) in
-      let taint_arg taint =
-        match taint with
-        | Config.No_taint -> []
-        | Config.Buf_taint -> [ Directive (Taint (None, M (Lval (reg "x0"), 
-                                                           !Config.operand_sz))) ]
-        | Config.Addr_taint -> [ Directive (Taint (None, (reg "x0"))) ]
-      in
-      let taint_ret_stmts =
-        match ret with
-        | None -> []
-        | Some t -> taint_arg t
-      in
-      let _taint_args_stmts =
-        List.fold_left (fun l arg -> (taint_arg arg)@l) [] args
-      in
-      [], taint_ret_stmts @ taint_ret_stmts
-    with
-    | _ -> [], []
-
-
   let stub_stmts_from_name name callconv =
     if  Hashtbl.mem Stubs.stubs name then
       [
@@ -91,7 +68,7 @@ struct
     let cc = aapcs_calling_convention in
     Hashtbl.iter (fun adrs (libname,fname) ->
       let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc in
-      let tainting_pro,tainting_epi = tainting_stmts_from_name libname fname  in
+      let tainting_pro,tainting_epi = Rules.tainting_rule_stmts libname fname cc in
       let stub_stmts = stub_stmts_from_name fname cc in
       let fundesc:Asm.import_desc_t = {
         name = fname ;
