@@ -53,11 +53,13 @@ let check_register_init r (c, t) =
   end
 
   
-let check_mem (c, t) =
-  match t with
-  | None | Some (Taint_all _) -> ()
-  | Some (Taint (t', _)) | Some (TMask (t', _, _)) ->
-     let taint_sz = Z.numbits t' in
+let check_mem (c, t): unit =
+  let taint_sz =
+      match t with
+      | None | Some (Taint_all _) -> 0
+      | Some (Taint (t', _)) | Some (TMask (t', _, _)) -> Z.numbits t'
+      | Some (TBytes (s, _)) | Some (TBytes_Mask (s, _, _)) -> (String.length s)*4
+  in
      match c with
      | None -> ()
      | Some (Content c) -> check_content (Bits.z_to_bit_string c) taint_sz ""

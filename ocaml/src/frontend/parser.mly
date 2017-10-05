@@ -404,6 +404,8 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
+    | s=HEX_BYTES { Config.TBytes (s, Some (Taint.Src.new_src())) }
+    | s=HEX_BYTES MASK m=INT 	{ Config.TBytes_Mask (s, m, Some (Taint.Src.new_src())) }
     | t=INT 		{ let tid =
                         if Z.compare t Z.zero = 0 then None
                         else Some (Taint.Src.new_src())
