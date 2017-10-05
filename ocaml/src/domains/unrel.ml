@@ -768,7 +768,8 @@ module Make(D: T) =
          let v', taint = D.taint_of_config taint (Register.size reg) v in
 	     Val (Env.replace k v' m'), taint
 
-    let taint_address_mask a taint m: t * Taint.t =
+    let taint_address_mask a (taint: Config.tvalue) m: t * Taint.t =
+      L.debug (fun p->p "Unrel.taint_address_mask (%s)" (Data.Address.to_string a));
       match m with
       | BOT -> BOT, Taint.U
       | Val m' ->
@@ -778,6 +779,7 @@ module Make(D: T) =
 	     Val (Env.replace k v' m'), taint
 
     let set_memory_from_config addr region (content, taint) nb domain: t * Taint.t =
+      L.debug (fun p->p "Unrel.set_memory_from_config");
       if nb > 0 then
         let content' = match content with
                         | None -> L.abort (fun p -> p "Unrel.set_memory_from_config with no content")
