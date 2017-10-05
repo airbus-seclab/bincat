@@ -526,6 +526,10 @@ class BinCATHexForm_t(idaapi.PluginForm):
             text="0xFF")
         if not res:
             return
+        # from v0.7, overrides follow the init syntax, so to update taint only
+        # we prefix by '!'
+        if mask[0] != '!':
+            mask = '!'+mask
         region = cfa.PRETTY_REGIONS[self.current_region]
         if region == 'global':
             region = 'mem'
