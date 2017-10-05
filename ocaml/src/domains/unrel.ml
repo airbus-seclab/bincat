@@ -731,19 +731,25 @@ module Make(D: T) =
            Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2' m')
 
     (** returns size of content, rounded to the next multiple of Config.operand_sz *)
-    let size_of_content c =
-      let round_sz sz =
-        if sz < !Config.operand_sz then
-          !Config.operand_sz
+    let round_sz sz =
+      if sz < !Config.operand_sz then
+        !Config.operand_sz
+      else
+        if sz mod !Config.operand_sz <> 0 then
+          !Config.operand_sz * (sz / !Config.operand_sz + 1)
         else
-          if sz mod !Config.operand_sz <> 0 then
-            !Config.operand_sz * (sz / !Config.operand_sz + 1)
-          else
-            sz
-      in
+          sz
+
+    let size_of_content c =
       match c with
       | Config.Content z | Config.CMask (z, _) -> round_sz (Z.numbits z)
       | Config.Bytes b | Config.Bytes_Mask (b, _) -> (String.length b)*4
+
+    let size_of_taint t =
+      match t with
+      | Config.Taint (z, _) | Config.TMask (z, _, _) -> round_sz (Z.numbits z)
+      | Config.TBytes (b, _) | Config.TBytes_Mask (b, _, _) -> (String.length b)*4
+      | Config.Taint_all _ -> 0
 		 
          
     (** builds an abstract tainted value from a config concrete tainted value *)
@@ -768,7 +774,7 @@ module Make(D: T) =
       | Val m' ->
 	     let k = Env.Key.Mem a in
 	     let v = Env.find k m' in
-         let v', taint = D.taint_of_config taint 8 v in
+         let v', taint = D.taint_of_config taint (size_of_taint taint) v in
 	     Val (Env.replace k v' m'), taint
 
     let set_memory_from_config addr region (content, taint) nb domain: t * Taint.t =
