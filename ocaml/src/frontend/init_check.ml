@@ -59,7 +59,8 @@ let check_mem (c, t) =
   | Some (Taint (t', _)) | Some (TMask (t', _, _)) ->
      let taint_sz = Z.numbits t' in
      match c with
-     | Content c -> check_content (Bits.z_to_bit_string c) taint_sz ""
-     | CMask (c, m) -> check_mask (Bits.z_to_bit_string c) m taint_sz ""
-     | Bytes s -> check_content s taint_sz ""
-     | Bytes_Mask (s, n) ->  check_mask s n taint_sz ""
+     | None -> ()
+     | Some (Content c) -> check_content (Bits.z_to_bit_string c) taint_sz ""
+     | Some (CMask (c, m)) -> check_mask (Bits.z_to_bit_string c) m taint_sz ""
+     | Some (Bytes s) -> check_content s taint_sz ""
+     | Some (Bytes_Mask (s, n)) ->  check_mask s n taint_sz ""
