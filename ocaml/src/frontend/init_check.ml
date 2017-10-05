@@ -40,9 +40,10 @@ let check_register_init r (c, t) =
   let name = Register.name r in
   begin
 	match c with
-	| Content c    -> check_content (Bits.z_to_bit_string c) sz name
-	| CMask (b, m) -> check_mask (Bits.z_to_bit_string b) m sz name
-	| _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
+	| Some Content c    -> check_content (Bits.z_to_bit_string c) sz name
+	| Some CMask (b, m) -> check_mask (Bits.z_to_bit_string b) m sz name
+	| Some _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
+    | None -> ()
   end;
   begin
 	match t with

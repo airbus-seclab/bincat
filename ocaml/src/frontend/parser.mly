@@ -393,9 +393,9 @@
 
     (* memory and register init *)
      init:
-    | TAINT tcontent 	            { L.abort (fun p -> p "Parser: illegal initial content: undefined content with defined tainting value") }
-    | c=mcontent 	            { c, None }
-    | c1=mcontent TAINT c2=tcontent { c1, Some c2 }
+    | TAINT c=tcontent              { None,    Some c }
+    | c=mcontent                    { Some c,  None }
+    | c1=mcontent TAINT c2=tcontent { Some c1, Some c2 }
 
       mcontent:
     | s=HEX_BYTES { Config.Bytes s }
