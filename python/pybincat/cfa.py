@@ -292,7 +292,7 @@ class State(object):
         new_state.final = outputkv.pop("final", None) == "true"
         new_state.statements = outputkv.pop("statements", "")
         new_state.bytes = outputkv.pop("bytes", "")
-        new_state.tainted = outputkv.pop("tainted", "False") == "true"
+        new_state.tainted = outputkv.pop("tainted", "") != ""
         new_state._outputkv = outputkv
         new_state._regaddrs = None
         new_state._regtypes = None
