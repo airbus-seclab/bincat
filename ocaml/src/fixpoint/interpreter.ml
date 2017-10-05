@@ -641,7 +641,7 @@ struct
 		   L.analysis (fun p -> p "applied tainting (%d) override(s)" (List.length rules));
 		   List.map (fun v ->
              let d', taint =
-               List.fold_left (fun (d, taint) f -> let d', taint' = f d in d', Taint.logor taint taint'
+               List.fold_left (fun (d, taint) rule -> let d', taint' = rule d in d', Taint.logor taint taint'
                ) (v.Cfa.State.v, v.Cfa.State.taint_sources) rules
              in
 		     v.Cfa.State.v <- d';
