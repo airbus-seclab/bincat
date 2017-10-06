@@ -918,5 +918,5 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
 
 
   let init () =
-    Stubs.init ()
+    Imports.init ()
 end

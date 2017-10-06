@@ -76,7 +76,7 @@ struct
         prologue = typing_pro @ tainting_pro ;
         stub = stub_stmts ;
         epilogue = typing_epi @ tainting_epi ;
-        ret_addr = Lval(reg "lr") ;
+        ret_addr = Lval(reg "x30") ;
       } in
       Hashtbl.replace tbl (Data.Address.global_of_int adrs) fundesc
     ) Config.import_tbl
