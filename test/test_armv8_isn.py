@@ -3,7 +3,7 @@ import os
 from util import AARCH64
 
 arm = AARCH64(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv8_isn.ini.in')
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv8.ini.in')
 )
 compare = arm.compare
 
