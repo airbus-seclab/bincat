@@ -80,7 +80,7 @@
 	    | _ 	  -> L.abort (fun p -> p "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
 
       (** update the register table in configuration module *)
-      let init_register rname v = Hashtbl.add Config.register_content rname (fun _ -> v)
+      let init_register rname v = Config.register_content := (rname, v) :: !Config.register_content
 
       let update_mandatory key =
 	    let kname, sname, _ = Hashtbl.find mandatory_keys key in

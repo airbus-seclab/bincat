@@ -189,15 +189,17 @@ struct
   (* return the given domain updated by the initial values and intitial tainting for registers with respected ti the provided configuration *)
   let init_registers d =
 	(* the domain d' is updated with the content for each register with initial content and tainting value given in the configuration file *)
-	Hashtbl.fold
-	  (fun rname vfun (d, taint) ->
+	List.fold_left
+	  (fun (d, taint) rcontent  ->
+        let rname = fst rcontent in
+        let v = snd rcontent in
         let r = Register.of_name rname in
 	    let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global in
-	    let v = vfun r in        Init_check.check_register_init r v;
+	    Init_check.check_register_init r v;
 	    let d', taint' = Domain.set_register_from_config r region v d in
         d', Taint.logor taint taint'
 	  )
-	  Config.register_content (d, Taint.U)
+	  (d, Taint.U) (List.rev !Config.register_content)
       
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding lists in Config *)

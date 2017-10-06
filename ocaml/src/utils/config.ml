@@ -135,8 +135,9 @@ let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) H
 (* lists for the initialisation of the global memory, stack and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
 type mem_init_t = ((Z.t * int) * (cvalue option * tvalue option)) list
+type reg_init_t = (string * (cvalue option * tvalue option)) list
 
-let register_content: (string, (Register.t -> cvalue option * tvalue option)) Hashtbl.t = Hashtbl.create 10
+let register_content: reg_init_t ref = ref []
 let memory_content: mem_init_t ref = ref []
 let stack_content: mem_init_t ref = ref []
 let heap_content: mem_init_t ref = ref []
@@ -210,12 +211,12 @@ let reset () =
   memory_content := [];
   stack_content := [];
   heap_content := [];
+  register_content := [];
   Hashtbl.reset module_loglevel;
   Hashtbl.reset reg_override;
   Hashtbl.reset mem_override;
   Hashtbl.reset stack_override;
   Hashtbl.reset heap_override;
-  Hashtbl.reset register_content;
   Hashtbl.reset gdt;
   Hashtbl.reset import_tbl;
   Hashtbl.reset assert_untainted_functions;
