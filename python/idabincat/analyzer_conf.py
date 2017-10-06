@@ -302,7 +302,7 @@ class AnalyzerConfig(object):
     @property
     def headers_files(self):
         try:
-            value = self._config.get('imports', 'headers')
+            value = self._config.get('analyzer', 'headers')
             value = value.replace('"', '')
             return value
         except ConfigParser.NoOptionError:
@@ -346,7 +346,7 @@ class AnalyzerConfig(object):
     def headers_files(self, value):
         if '"' not in value:
             value = ','.join(['"%s"' % f for f in value.split(',')])
-        self._config.set('imports', 'headers', value)
+        self._config.set('analyzer', 'headers', value)
 
     @format.setter
     def format(self, value):
@@ -504,7 +504,7 @@ class AnalyzerConfig(object):
                 headers_filenames.append(c)
         # remove duplicates
         quoted_filenames = ['"%s"' % h for h in headers_filenames]
-        config.set('imports', 'headers', ','.join(quoted_filenames))
+        config.set('analyzer', 'headers', ','.join(quoted_filenames))
         # [libc section]
         # config.add_section('libc')
         # config.set('libc', 'call_conv', 'fastcall')
