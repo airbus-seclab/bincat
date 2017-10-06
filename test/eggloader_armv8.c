@@ -23,10 +23,15 @@ int main(int argc, char *argv[])
         unsigned long x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15,
                 x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30;
         unsigned int nzcv;
+        void *spsav;
+        void *retsav;
 
         char ret_to_main[] =
-                "\xfe\x07\x41\xf8"     //   ldr     x30, [sp],#16
-                "\xc0\x03\x5f\xd6";    //   ret
+                "\xfd\x03\x1e\xaa"    // mov x29, x30   ; save x30 (lr) from test
+                "\x9e\x00\x00\x58"    // ldr x30, 0x10  ;
+                "\xdf\x03\x00\x91"    // mov sp, x30    ; restore stack
+                "\x9e\x00\x00\x58"    // ldr x30, 0x10  ; put return address in lr
+                "\xc0\x03\x5f\xd6";   // ret
 
         if (argc != 2) usage();
 
@@ -36,19 +41,35 @@ int main(int argc, char *argv[])
         len = lseek(f, 0, SEEK_END);
         if (len == -1) { perror("lseek"); return -3; }
 
-        egg = mmap(NULL, len+sizeof(ret_to_main), PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
+        egg = mmap(NULL, len+sizeof(ret_to_main)+2*sizeof(void *), PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
         if (!egg) { perror("mmap"); return -4; }
         memcpy(((char *)egg)+len, ret_to_main, sizeof(ret_to_main));
+
+        spsav = egg+len+sizeof(ret_to_main)-1;
+        retsav = egg+len+sizeof(ret_to_main)-1+sizeof(spsav);
 
         asm volatile(
         "b .after\n"
         ".before:\n"
-        "str x30, [sp,#-16]!\n"
-                );
+        "ldr x0, %[retsav]\n"
+        "str x30, [x0]\n"
+        "str x29, [sp,#-16]!\n"  // push fp
+        "ldr x0, %[spsav]\n"
+        "mov x1, sp\n"
+        "str x1, [x0]\n"
+        "sub sp, sp, #0x1000\n"  // create some space to mess up with the stack
+        : 
+        [retsav] "=m" (retsav),
+        [spsav] "=m" (spsav));
+
         (*egg)();
+
          asm volatile(
         ".after:\n"
         "bl .before\n"
+        "mov x30, x29\n"       // restore x30 from test
+        "ldr x29, [sp], #16\n" // restore x29 (fp)
+
         "str x0, %[reg0]\n"
         "str x1, %[reg1]\n"
         "str x2, %[reg2]\n"
