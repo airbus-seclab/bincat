@@ -11,13 +11,35 @@ mov_imm = pytest.mark.parametrize("op", ["movz", "movk", "movn"])
 dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
 dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add"])
 
-# XXX make this work ? PC is actually random because of ASLR
-#def test_adrp(tmpdir, op32):
-#    asm = """
-#    label:
-#        adrp x0, label
-#    """.format(**locals())
-#    compare(tmpdir, asm, ["x0"])
+def test_adrp1(tmpdir, op32):
+    asm = """
+    label1:
+        adrp x0, label1
+        mov x0,x0
+        mov x0,x0
+        mov x0,x0
+        mov x0,x0
+        mov x0,x0
+    label2:
+        adrp x1, label2
+        sub x3, x1, x0
+    """.format(**locals())
+    compare(tmpdir, asm, ["x3"])
+
+
+def test_adrp2(tmpdir, op32):
+    asm = """
+        adrp x0, label
+        mov x0,x0
+        mov x0,x0
+    label:
+        mov x0,x0
+        mov x0,x0
+        mov x0,x0
+        adrp x1, label
+        sub x3, x1, x0
+    """.format(**locals())
+    compare(tmpdir, asm, ["x3"])
 
 def test_data_xfer_offsets(tmpdir, armv8off):
     asm = """
