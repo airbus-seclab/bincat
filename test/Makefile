@@ -2,7 +2,7 @@ COVERAGE=medium
 PYTESTFLAGS=
 
 test: eggloader_x86 eggloader_armv8 eggloader_armv7
-	python -m pytest --tb=line --coverage $(COVERAGE) $(PYTESTFLAGS)
+	python2 -m pytest --tb=line --coverage $(COVERAGE) $(PYTESTFLAGS)
 
 eggloader_x86: eggloader_x86.c
 	gcc -m32 -g -o $@ $<
