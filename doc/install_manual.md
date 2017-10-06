@@ -37,6 +37,7 @@ apt install make python python-pip python-setuptools python-dev python-pytest \
 If you also want to run bincat tests, install the following packages:
 * gcc-aarch64-linux-gnu
 * gcc-arm-linux-gnueabi
+* qemu
 
 ##### on Archlinux:
 Install packages first
@@ -56,9 +57,18 @@ eval `opam config env`
 opam install zarith ocamlgraph menhir ppx_tools cppo --use-internal-solver
 ```
 
-If you also want to run bincat tests, install the following packages:
+If you also want to run bincat tests, install the following packages, and run the following commands:
 * aarch64-linux-gnu-gcc
 * arm-linux-gnueabihf-gcc (from AUR)
+* arm-linux-gnueabihf-gcc (from AUR)
+* qemu-arch-extra
+```
+ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-gnueabi-gcc
+ln -s /usr/bin/arm-linux-gnueabihf-as /usr/bin/arm-linux-gnueabi-as
+ln -s /usr/bin/arm-linux-gnueabihf-objcopy /usr/bin/arm-linux-gnueabi-objcopy
+ln -s /usr/bin/arm-linux-gnueabihf-objdump /usr/bin/arm-linux-gnueabi-objdump
+```
+
 
 These instruction have been tested from a clean chroot (`pacstrap -i -c -d bincat-test base`, then `systemd-nspawn -b -D bincat-test`).
 
