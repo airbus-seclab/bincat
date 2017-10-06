@@ -26,6 +26,7 @@ apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
 ```
 
 ##### on Ubuntu 16.04:
+Enable the `universe` repository.
 ```
 apt install make python python-pip python-setuptools python-dev python-pytest \
         nasm libc6-dev-i386 gcc-multilib ocaml menhir ocaml-findlib \
