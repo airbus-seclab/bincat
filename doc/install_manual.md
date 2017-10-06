@@ -34,6 +34,10 @@ apt install make python python-pip python-setuptools python-dev python-pytest \
         cppo
 ```
 
+If you also want to run bincat tests, install the following packages:
+* gcc-aarch64-linux-gnu
+* gcc-arm-linux-gnueabi
+
 ##### on Archlinux:
 Install packages first
 ```
@@ -52,7 +56,7 @@ eval `opam config env`
 opam install zarith ocamlgraph menhir ppx_tools cppo --use-internal-solver
 ```
 
-If you also want to run bincat test, install the following packages:
+If you also want to run bincat tests, install the following packages:
 * aarch64-linux-gnu-gcc
 * arm-linux-gnueabihf-gcc (from AUR)
 
