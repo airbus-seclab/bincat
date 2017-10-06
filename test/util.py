@@ -68,7 +68,7 @@ class InitFile:
             v["code_length"] = fstat.st_size
         v["regmem"] = ("\n".join("mem[%#x]=|%s|" % (addr, val.encode("hex"))
                                  for (addr,val) in self.mem.iteritems())
-                       + "\n".join("reg[%s]=%#x" % (regname, val)
+                       + "\n".join("reg[%s]=%s" % (regname, val)
                                  for (regname,val) in self.reg.iteritems())
                        )
         return self.template.format(**v)
