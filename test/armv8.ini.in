@@ -10,7 +10,7 @@ out_marshalled_cfa_file = "outcfa.marshal"
 analysis = forward_binary
 analysis_ep = 0x00
 cut = {code_length}
-headers = libc.no
+headers = "libc.no"
 
 [program]
 mode = protected
