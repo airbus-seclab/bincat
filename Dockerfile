@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         make python python-pip python-setuptools python-dev python-pytest \
         vim nasm libc6-dev-i386 gcc-multilib \
         ocaml menhir ocaml-findlib libzarith-ocaml-dev \
-        libocamlgraph-ocaml-dev wget git
+        libocamlgraph-ocaml-dev libppx-tools-ocaml-dev cppo wget git
 
 # Install a later version of firejail for it to be able to report exit codes correctly
 RUN wget http://fr.archive.ubuntu.com/ubuntu/pool/universe/f/firejail/firejail_0.9.44.8-1_amd64.deb ; dpkg -i firejail*deb; rm firejail*deb
