@@ -96,7 +96,7 @@
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
-	let supported_version = 3 in
+	let supported_version = 4 in
 	if input_version != supported_version then
 	  L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
 
@@ -225,7 +225,6 @@
 
       import:
     | a=INT EQUAL libname=STRING COMMA fname=QUOTED_STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
-    | HEADER EQUAL npk_list=npk { npk_headers := npk_list }    
 
       npk:
     | { [] }
@@ -331,6 +330,7 @@
     | IN_MCFA_FILE EQUAL f=QUOTED_STRING       { update_mandatory IN_MCFA_FILE; Config.in_mcfa_file := f }
     | OUT_MCFA_FILE EQUAL f=QUOTED_STRING       { update_mandatory OUT_MCFA_FILE; Config.out_mcfa_file := f }
     | STORE_MCFA EQUAL v=STRING      { update_mandatory STORE_MCFA; update_boolean "store_mcfa" Config.store_mcfa v }
+    | HEADER EQUAL npk_list=npk { npk_headers := npk_list }
 
       analysis_kind:
     | FORWARD_BIN  { Config.Forward Config.Bin }

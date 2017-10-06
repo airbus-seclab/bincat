@@ -1,7 +1,7 @@
 # used as a config file template for tests
 
 [analyzer]
-ini_version = 3
+ini_version = 4
 unroll = 150
 loglevel = 10
 store_marshalled_cfa = true
