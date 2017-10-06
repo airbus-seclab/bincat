@@ -755,9 +755,26 @@ module Make(V: Val) =
                 | Some v' -> Array.copy v'
                 | None    -> Array.make n V.top
             in
+            let n' =n-1 in
             match t with
+            | Config.TBytes (b, tid) ->
+               let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+               for i = 0 to n' do
+                 v.(n'-i) <- V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid
+               done;
+               let taint = match tid with | None ->  Taint.U | Some t -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t)) in
+               v, taint
+            | Config.TBytes_Mask (b, m, tid) ->
+               let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+               for i = 0 to n' do
+                 if Z.testbit m i then
+                     v.(n'-i) <- V.forget_taint v.(n'-i) tid
+                 else
+                     v.(n'-i) <- V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid
+               done;
+               let taint = match tid with | None ->  Taint.U | Some t -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t)) in
+               v, taint
             | Config.Taint (b, tid) ->
-              let n' =n-1 in
               for i = 0 to n' do                
                   v.(n'-i) <- V.taint_of_z (nth_of_z b i) v.(n'-i) tid
               done;

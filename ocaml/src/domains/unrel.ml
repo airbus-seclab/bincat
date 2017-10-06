@@ -731,19 +731,25 @@ module Make(D: T) =
            Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2' m')
 
     (** returns size of content, rounded to the next multiple of Config.operand_sz *)
-    let size_of_content c =
-      let round_sz sz =
-        if sz < !Config.operand_sz then
-          !Config.operand_sz
+    let round_sz sz =
+      if sz < !Config.operand_sz then
+        !Config.operand_sz
+      else
+        if sz mod !Config.operand_sz <> 0 then
+          !Config.operand_sz * (sz / !Config.operand_sz + 1)
         else
-          if sz mod !Config.operand_sz <> 0 then
-            !Config.operand_sz * (sz / !Config.operand_sz + 1)
-          else
-            sz
-      in
+          sz
+
+    let size_of_content c =
       match c with
       | Config.Content z | Config.CMask (z, _) -> round_sz (Z.numbits z)
       | Config.Bytes b | Config.Bytes_Mask (b, _) -> (String.length b)*4
+
+    let size_of_taint t =
+      match t with
+      | Config.Taint (z, _) | Config.TMask (z, _, _) -> round_sz (Z.numbits z)
+      | Config.TBytes (b, _) | Config.TBytes_Mask (b, _, _) -> (String.length b)*4
+      | Config.Taint_all _ -> 0
 		 
          
     (** builds an abstract tainted value from a config concrete tainted value *)
@@ -762,22 +768,28 @@ module Make(D: T) =
          let v', taint = D.taint_of_config taint (Register.size reg) v in
 	     Val (Env.replace k v' m'), taint
 
-    let taint_address_mask a taint m: t * Taint.t =
+    let taint_address_mask a (taint: Config.tvalue) m: t * Taint.t =
+      L.debug (fun p->p "Unrel.taint_address_mask (%s)" (Data.Address.to_string a));
       match m with
       | BOT -> BOT, Taint.U
       | Val m' ->
 	     let k = Env.Key.Mem a in
 	     let v = Env.find k m' in
-         let v', taint = D.taint_of_config taint 8 v in
+         let v', taint = D.taint_of_config taint (size_of_taint taint) v in
 	     Val (Env.replace k v' m'), taint
 
     let set_memory_from_config addr region (content, taint) nb domain: t * Taint.t =
+      L.debug (fun p->p "Unrel.set_memory_from_config");
       if nb > 0 then
+        let content' = match content with
+                        | None -> L.abort (fun p -> p "Unrel.set_memory_from_config with no content")
+                        | Some a -> a
+        in
         match domain with
         | BOT    -> BOT, Taint.U
         | Val domain' ->
-           let sz = size_of_content content in
-           let v', taint = of_config region (content, taint) sz in
+           let sz = size_of_content content' in
+           let v', taint = of_config region (content', taint) sz in
            if nb > 1 then
              if sz != 8 then
                L.abort (fun p -> p "Repeated memory init only works with bytes")
@@ -785,7 +797,7 @@ module Make(D: T) =
                Val (write_repeat_byte_in_mem addr domain' v' nb), taint
            else
              let big_endian =
-               match content with
+               match content' with
                | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
                | _ -> false
              in
@@ -793,12 +805,16 @@ module Make(D: T) =
       else
         domain, Taint.U
 	      
-    let set_register_from_config r region c m: t * Taint.t =
+    let set_register_from_config r region config_val m: t * Taint.t =
       match m with
       | BOT    -> BOT, Taint.U
       | Val m' ->
+         let config_val' = match config_val with
+                        | (None, _) -> L.abort (fun p -> p "taint only update not handled yet")
+                        | (Some c, t) -> (c, t)
+         in
          let sz = Register.size r in
-         let vt, taint = of_config region c sz in
+         let vt, taint = of_config region config_val' sz in
          Val (Env.add (Env.Key.Reg r) vt m'), taint
 	       
     let value_of_exp m e =

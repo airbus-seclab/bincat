@@ -118,6 +118,8 @@ type tvalue =
   | Taint_all of Taint.Src.id_t (* None means no taint source *)
   | Taint of Z.t * (Taint.Src.id_t option) (* None means no taint source *)
   | TMask of Z.t * Z.t * (Taint.Src.id_t option) (* second element is a mask on the first one. For the taint component, None means no source *)
+  | TBytes of string * (Taint.Src.id_t option)
+  | TBytes_Mask of (string * Z.t * (Taint.Src.id_t option))
 
 type cvalue =
   | Content of Z.t
@@ -125,16 +127,16 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
-let reg_override: (Z.t, ((string * (Register.t -> (cvalue * tvalue option))) list)) Hashtbl.t = Hashtbl.create 5
-let mem_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
-let stack_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
-let heap_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
+let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue option))) list)) Hashtbl.t = Hashtbl.create 5
+let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
+let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
+let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
 
 (* lists for the initialisation of the global memory, stack and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
-type mem_init_t = ((Z.t * int) * (cvalue * (tvalue option))) list
+type mem_init_t = ((Z.t * int) * (cvalue option * tvalue option)) list
 
-let register_content: (string, (Register.t -> cvalue * tvalue option)) Hashtbl.t = Hashtbl.create 10
+let register_content: (string, (Register.t -> cvalue option * tvalue option)) Hashtbl.t = Hashtbl.create 10
 let memory_content: mem_init_t ref = ref []
 let stack_content: mem_init_t ref = ref []
 let heap_content: mem_init_t ref = ref []

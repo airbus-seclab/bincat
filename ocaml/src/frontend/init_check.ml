@@ -40,9 +40,10 @@ let check_register_init r (c, t) =
   let name = Register.name r in
   begin
 	match c with
-	| Content c    -> check_content (Bits.z_to_bit_string c) sz name
-	| CMask (b, m) -> check_mask (Bits.z_to_bit_string b) m sz name
-	| _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
+	| Some Content c    -> check_content (Bits.z_to_bit_string c) sz name
+	| Some CMask (b, m) -> check_mask (Bits.z_to_bit_string b) m sz name
+	| Some _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
+    | None -> ()
   end;
   begin
 	match t with
@@ -52,13 +53,16 @@ let check_register_init r (c, t) =
   end
 
   
-let check_mem (c, t) =
-  match t with
-  | None | Some (Taint_all _) -> ()
-  | Some (Taint (t', _)) | Some (TMask (t', _, _)) ->
-     let taint_sz = Z.numbits t' in
+let check_mem (c, t): unit =
+  let taint_sz =
+      match t with
+      | None | Some (Taint_all _) -> 0
+      | Some (Taint (t', _)) | Some (TMask (t', _, _)) -> Z.numbits t'
+      | Some (TBytes (s, _)) | Some (TBytes_Mask (s, _, _)) -> (String.length s)*4
+  in
      match c with
-     | Content c -> check_content (Bits.z_to_bit_string c) taint_sz ""
-     | CMask (c, m) -> check_mask (Bits.z_to_bit_string c) m taint_sz ""
-     | Bytes s -> check_content s taint_sz ""
-     | Bytes_Mask (s, n) ->  check_mask s n taint_sz ""
+     | None -> if taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
+     | Some (Content c) -> check_content (Bits.z_to_bit_string c) taint_sz ""
+     | Some (CMask (c, m)) -> check_mask (Bits.z_to_bit_string c) m taint_sz ""
+     | Some (Bytes s) -> check_content s taint_sz ""
+     | Some (Bytes_Mask (s, n)) ->  check_mask s n taint_sz ""

@@ -598,7 +598,11 @@ struct
                   L.analysis (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
                   Init_check.check_mem rule;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
-                  D.set_memory_from_config addr' Data.Address.Global rule nb) rules
+                  match rule with
+                       | (None, None) -> L.abort (fun p->p "(None, None) override")
+                       | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
+                       | (None, Some t) -> D.taint_address_mask addr' t
+                ) rules
             in
             hash_add_or_append overrides ip rules'
 
@@ -637,7 +641,7 @@ struct
 		   L.analysis (fun p -> p "applied tainting (%d) override(s)" (List.length rules));
 		   List.map (fun v ->
              let d', taint =
-               List.fold_left (fun (d, taint) f -> let d', taint' = f d in d', Taint.logor taint taint'
+               List.fold_left (fun (d, taint) rule -> let d', taint' = rule d in d', Taint.logor taint taint'
                ) (v.Cfa.State.v, v.Cfa.State.taint_sources) rules
              in
 		     v.Cfa.State.v <- d';

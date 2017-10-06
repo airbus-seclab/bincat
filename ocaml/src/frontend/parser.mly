@@ -393,9 +393,9 @@
 
     (* memory and register init *)
      init:
-    | TAINT tcontent 	            { L.abort (fun p -> p "Parser: illegal initial content: undefined content with defined tainting value") }
-    | c=mcontent 	            { c, None }
-    | c1=mcontent TAINT c2=tcontent { c1, Some c2 }
+    | TAINT c=tcontent              { None,    Some c }
+    | c=mcontent                    { Some c,  None }
+    | c1=mcontent TAINT c2=tcontent { Some c1, Some c2 }
 
       mcontent:
     | s=HEX_BYTES { Config.Bytes s }
@@ -404,6 +404,8 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
+    | s=HEX_BYTES { Config.TBytes (s, Some (Taint.Src.new_src())) }
+    | s=HEX_BYTES MASK m=INT 	{ Config.TBytes_Mask (s, m, Some (Taint.Src.new_src())) }
     | t=INT 		{ let tid =
                         if Z.compare t Z.zero = 0 then None
                         else Some (Taint.Src.new_src())
