@@ -35,7 +35,11 @@ struct
     | 1 -> reg "x1"
     | 2 -> reg "x2"
     | 3 -> reg "x3"
-    | 4 -> M (Lval (reg "sp"), 32)
+    | 4 -> reg "x4"
+    | 5 -> reg "x5"
+    | 6 -> reg "x6"
+    | 7 -> reg "x7"
+    | 8 -> M (Lval (reg "sp"), 32)
     | n -> M ((BinOp (Add, Lval (reg "sp"), const ((n-5)*4) 32)), 32) ;
   }
 
@@ -48,20 +52,19 @@ struct
     | _ -> [], []
 
   let stub_stmts_from_name name callconv =
-    if  Hashtbl.mem Stubs.stubs name then
-      [
-        Directive (Stub (name, callconv)) ;
+    let stub_call = 
+      if  Hashtbl.mem Stubs.stubs name then
+        [ Directive (Stub (name, callconv)) ]
+      else
+        [ Directive (Forget (reg "x0")) ] in
+    stub_call @ [
         Directive (Forget (reg "x1")) ;
         Directive (Forget (reg "x2")) ;
         Directive (Forget (reg "x3")) ;
-      ]
-
-    else
-      [
-        Directive (Forget (reg "x0")) ;
-        Directive (Forget (reg "x1")) ;
-        Directive (Forget (reg "x2")) ;
-        Directive (Forget (reg "x3")) ;
+        Directive (Forget (reg "x4")) ;
+        Directive (Forget (reg "x5")) ;
+        Directive (Forget (reg "x6")) ;
+        Directive (Forget (reg "x7")) ;
       ]
 
   let init_imports () =
