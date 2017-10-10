@@ -443,23 +443,6 @@ class AnalyzerConfig(object):
         arch = ConfigHelpers.get_arch(analysis_start_va)
         config.set('program', 'architecture', arch)
 
-        # arch-specifig sections
-        if arch == 'x86':
-            config.add_section(arch)
-            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
-
-        # Load default GDT/Segment registers according to file type
-        ftype = ConfigHelpers.get_file_type()
-        # XXX move this logic to PluginOptions
-        if ftype == "pe":
-            os_name = "windows"
-        else:  # default to Linux config if not windows
-            os_name = "linux"
-        os_specific = os.path.join(
-            config_path, "conf", "%s-%s.ini" % (os_name, arch))
-        bc_log.debug("Reading OS config from %s", os_specific)
-        config.read(os_specific)
-
         input_file = idaapi.get_input_file_path()
         if not os.path.isfile(input_file):
             # get_input_file_path returns file path from IDB, which may not
@@ -469,6 +452,7 @@ class AnalyzerConfig(object):
             if os.path.isfile(guessed_path):
                 input_file = guessed_path
 
+        ftype = ConfigHelpers.get_file_type()
         config.set('program', 'filepath', '"%s"' % input_file)
         config.set('program', 'format', ftype)
 
@@ -505,6 +489,23 @@ class AnalyzerConfig(object):
         # remove duplicates
         quoted_filenames = ['"%s"' % h for h in headers_filenames]
         config.set('analyzer', 'headers', ','.join(quoted_filenames))
+
+        # arch-specifig sections
+        if arch == 'x86':
+            config.add_section(arch)
+            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
+
+        # Load default GDT/Segment registers according to file type
+        # XXX move this logic to PluginOptions
+        if ftype == "pe":
+            os_name = "windows"
+        else:  # default to Linux config if not windows
+            os_name = "linux"
+        os_specific = os.path.join(
+            config_path, "conf", "%s-%s.ini" % (os_name, arch))
+        bc_log.debug("Reading OS config from %s", os_specific)
+        config.read(os_specific)
+
         # [libc section]
         # config.add_section('libc')
         # config.set('libc', 'call_conv', 'fastcall')
