@@ -361,12 +361,22 @@ struct
     let sz = sf2sz sf_v in
     let shift = get_shifted_imm s shift_v imm12_v sz in
     let rd, post = get_Rd_lv ~use_sp:(not s_b) rd_v sf_v in
-    L.debug (fun p->p "coincoin %s" (Asm.string_of_lval rd true));
     let rn = get_reg_exp ~use_sp:true rn_v sf in
     (add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd rd_v sf s_b) @ post
 
+  (* ADD/ ADDS / SUB / SUBS (32/64) with extended register *)
+  let add_sub_reg_ext s insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:1,29:29:S:F:1,28:24:_:F:01011,23:22:opt:F:00,21:21:_:F:1,20:16:Rm:F:xxxxx,15:13:option:F:xxx,12:10:imm3:F:xxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+    let sz = sf2sz sf_v in
+    let s_b = s_v = 1 in (* set flags ? *)
+    let rd, post = get_Rd_lv rd_v sf_v in
+    let rn = get_reg_exp rn_v sf_v in
+    let rm = get_reg_exp rm_v sf_v in
+    let extended_reg =  extend_reg sz rm option_v imm3_v in
+    (add_sub_core sz rd rn op_v extended_reg s_b) @ post
+
   (* ADD/ ADDS / SUB / SUBS (32/64) with shifted register *)
-  let add_sub_reg s insn _is_extend =
+  let add_sub_reg_shift s insn =
     let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:0,29:29:S:F:0,28:24:_:F:01011,23:22:shift:F:xx,21:21:_:F:0,20:16:Rm:F:xxxxx,15:10:imm6:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     if (sf_v = 0 && (imm6_v lsr 5) = 1) || (shift_v = 3) then
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
@@ -590,8 +600,12 @@ UMULH  <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:1  22:21:_:10  20:16:R
             (* op2 = 0xxx *)
             if (op2 lsr 3) = 0 then
                 logic_reg s insn
-            else (* op2 = 1xxx *)
-                add_sub_reg s insn (op2 land 1)
+            else begin (* op2 = 1xxx : shifted / extended register *)
+                if (op2 land 1) = 0 then (* shifted *)
+                    add_sub_reg_shift s insn
+                else (* extended *)
+                    add_sub_reg_ext s insn
+            end
         else
             match op2 with
                 | 0 -> error s.a (Printf.sprintf "ADD/SUB with carry not decoded yet (0x%x)" insn)
