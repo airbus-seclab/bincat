@@ -526,10 +526,16 @@ class BinCATHexForm_t(idaapi.PluginForm):
             text="0xFF")
         if not res:
             return
+        try:
+            mask_value = int(mask, 16)
+        except ValueError:
+            mask_value = int(mask)
+        if mask_value > 0xFF:
+            bc_log.error("invalid mask value")
+
         # from v0.7, overrides follow the init syntax, so to update taint only
-        # we prefix by '!'
-        if mask[0] != '!':
-            mask = '!'+mask
+        # we prefix by '!' and we use | | syntax to ensure we only taint bytes
+        mask = "!|%02x|" % mask_value
         region = cfa.PRETTY_REGIONS[self.current_region]
         if region == 'global':
             region = 'mem'
