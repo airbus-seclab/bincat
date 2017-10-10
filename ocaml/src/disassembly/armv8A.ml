@@ -327,11 +327,11 @@ struct
     in
     let len' = min len (sz-shift) in
     let ext_op = match ext_type with
-                 | 0 | 1 | 2 | 3 -> ZeroExt len'
-                 | 4 | 5 | 6 | 7 -> SignExt len'
+                 | 0 | 1 | 2 | 3 -> ZeroExt sz
+                 | 4 | 5 | 6 | 7 -> SignExt sz
                  | _ -> L.abort(fun p->p "invalid shift")
     in
-    BinOp(Shl, UnOp(ext_op, reg), const shift len)
+    BinOp(Shl, UnOp(ext_op, Lval( V( P(reg_from_num reg, 0, len'-1)))), const shift len)
     (*if shift < 0 || shift > 4 then
         L.abort (fun p->p "Invalid shift value for extend_reg")
     else*)
@@ -371,8 +371,7 @@ struct
     let s_b = s_v = 1 in (* set flags ? *)
     let rd, post = get_Rd_lv rd_v sf_v in
     let rn = get_reg_exp rn_v sf_v in
-    let rm = get_reg_exp rm_v sf_v in
-    let extended_reg =  extend_reg sz rm option_v imm3_v in
+    let extended_reg =  extend_reg sz rm_v option_v imm3_v in
     (add_sub_core sz rd rn op_v extended_reg s_b) @ post
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with shifted register *)
@@ -640,11 +639,10 @@ STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
     in
     let sf = (size_v land 1) in
     let sz = sf2sz sf in
-    let rm = get_reg_lv rm_v sf in
     let rn = get_reg_lv ~use_sp:true rn_v sf in
     let rt = get_reg_lv rt_v sf in
     let shl_amount = if s_v = 1 then size_v else 0 in
-    let offset = extend_reg sz (Lval rm) option_v shl_amount in
+    let offset = extend_reg sz rm_v option_v shl_amount in
     let addr = BinOp(Add, Lval rn, offset) in
     if opc_v != 0 then begin
         (* load *)
