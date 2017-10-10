@@ -480,7 +480,7 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     let wmask, tmask = decode_bitmasks sz n_v imms_v immr_v false in
     let rn = get_reg_lv rn_v sf_v in
     let rd = get_reg_lv rd_v sf_v in
-    let rored = ror sz (Lval rn) (const immr_v 6) in
+    let rored = if immr_v = 0 then (Lval rn) else ror sz (Lval rn) (const immr_v 6) in
     let res = match opc_v with
       | 2 -> begin (* UBFM *)
              (* bits(datasize) bot = ROR(src, R) AND wmask;
@@ -493,8 +493,8 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
           [ Set(rd, BinOp(Or, BinOp(And, Lval rn, UnOp(Not, Const(Word.of_int tmask sz))), BinOp(And, bot, Const(Word.of_int tmask sz))))]
         end
       | 0 -> begin (* SBFM *)
-          let src_s = BinOp(And, const1 sz, BinOp(Shl, Lval rn, const imms_v sz)) in
-          let top = TernOp(Cmp(EQ, src_s, const1 sz), const ((2 lsl sz)-1) sz, const0 sz) in
+          let src_s = BinOp(And, const1 sz, BinOp(Shr, Lval rn, const imms_v sz)) in
+          let top = TernOp(Cmp(EQ, src_s, const1 sz), const_of_Z (z_mask_ff sz) sz, const0 sz) in
           (* (top AND NOT(tmask)) OR (bot AND tmask); *)
           [Set(rd, BinOp(Or, BinOp(And, top, UnOp(Not, Const(Word.of_int tmask sz))), BinOp(And, rored, Const(Word.of_int tmask sz))))]
         end
