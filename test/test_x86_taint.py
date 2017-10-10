@@ -25,7 +25,6 @@ def test_flag_taint(tmpdir):
 
 def test_cmov_taint(tmpdir):
     asm = """
-        xor ebx, ebx
         cmovz ebx, ecx
     """
 
