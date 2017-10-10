@@ -202,7 +202,7 @@ struct
   let get_Rd_lv ?(use_sp = false) insn sf =
         let num = (insn land 0x1F) in
         if num = 31 && not use_sp then begin
-            L.info (fun p->p "write to XZR");
+            L.debug (fun p->p "write to XZR");
             let tmp = Register.make (Register.fresh_name ()) (sf2sz sf) in
             V(T(tmp)), [Directive(Remove(tmp))]
         end else
