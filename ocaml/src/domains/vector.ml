@@ -411,20 +411,20 @@ module Make(V: Val) =
 	let gt v1 v2 = lt v2 v1
 	let geq v1 v2 = leq v2 v1
 
-        let compare v1 op v2 =
-            if (Array.length v1) != (Array.length v2) then
-              L.abort (fun p -> p "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
-			 (to_string v1) (Asm.string_of_cmp op) (to_string v2)
-			 (Array.length v1) (Array.length v2));
-            match op with
-            | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-            | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-	    | Asm.LT -> lt v1 v2
-	    | Asm.LEQ -> leq v1 v2
-	    | Asm.GT -> gt v1 v2
-	    | Asm.GEQ -> geq v1 v2
-
-        let add v1 v2 =
+    let compare v1 op v2 =
+      if (Array.length v1) != (Array.length v2) then
+        L.abort (fun p -> p "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
+		  (to_string v1) (Asm.string_of_cmp op) (to_string v2)
+		  (Array.length v1) (Array.length v2));
+      match op with
+      | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+      | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
+	  | Asm.LT -> lt v1 v2
+	  | Asm.LEQ -> leq v1 v2
+	  | Asm.GT -> gt v1 v2
+	  | Asm.GEQ -> geq v1 v2
+         
+    let add v1 v2 =
 	  let res = core_add_sub V.add v1 v2 in
 	  L.debug2 (fun p -> p "add(%s, %s) = %s"
 	    (to_string v1) (to_string v2) (to_string res));

@@ -511,23 +511,21 @@ module Make(D: T) =
              if r then (* condition is true *)
                let r2, tsrc2 = eval_bexp c false in
                if r2 then
-                 let v1, _ = eval e1 in
-                 let v2, _ = eval e2 in
-                 D.join v1 v2, Taint.logor tsrc tsrc2
+                 let v1, tsrc1' = eval e1 in
+                 let v2, tsrc2' = eval e2 in
+                 D.join v1 v2, Taint.logor tsrc2 (Taint.logor tsrc1' tsrc2')
                else
-                 fst (eval e1), tsrc
+                 let v1, tsrc1' = eval e1 in
+                 v1, Taint.logor tsrc1' tsrc2
              else
                let r2, tsrc2 = eval_bexp c false in
                if r2 then
-                 fst (eval e2), tsrc2
+                 let v2, tsrc2' = eval e2 in
+                 v2, Taint.logor tsrc2 tsrc2'
                else
-                 D.bot, Taint.U
+                 D.bot, tsrc
            in
-           match taint_res with
-           | Taint.U -> res, Taint.U
-           | _ -> 
-             let res' = D.taint res in
-             res', D.taint_sources res'
+           D.span_taint res taint_res, taint_res
                
       (* TODO: factorize with Interpreter.restrict *)
       and eval_bexp (c: Asm.bexp) (b: bool): bool * Taint.t =
@@ -667,10 +665,10 @@ module Make(D: T) =
            BOT, b
          else
            match dst with
-           | Asm.V r -> 
+           | Asm.V r ->  
               begin
                 match r with
-                | Asm.T r' ->
+                | Asm.T r' -> 
                    Val (Env.add (Env.Key.Reg r') v' m'), b
                 | Asm.P (r', low, up) ->
                    try
