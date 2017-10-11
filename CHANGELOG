@@ -1,3 +1,10 @@
+2017-10-XX: v0.7:
+* ARMv7 (partial) support
+* ARMv8 (partial) support
+* ELF loader
+* multiple taint sources
+* hundreds of fixes
+
 2017-06-29: v0.6:
 * Core engine works on Windows !
 * bincat_native is more sane, checks arguments and displays version

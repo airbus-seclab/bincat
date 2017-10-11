@@ -348,7 +348,13 @@ struct
         in
     (* flags ? *)
     if set_flags then begin
-        let cf = carry_stmts sz op1 op_s op2 in
+        (* ARMv8 implements "sub" with
+         * operand2 = NOT(imm);
+         * (result, -) = AddWithCarry(operand1, operand2, '1');*
+         * so we emulate this behaviour
+         *)
+        let op2' = if op = 1 (*sub*) then BinOp(Add, UnOp(Not, op2), const1 sz) else op2 in
+        let cf = carry_stmts sz op1 Add op2' in
         let vf = overflow_stmts sz (Lval dst) op1 op_s op2 in
         core_stmts @ (flags_stmts sz (Lval dst) cf vf)
     end else
