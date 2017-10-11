@@ -887,8 +887,14 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
       let current_pc = Z.add (Address.to_int s.a) (Z.of_int 4) in
       let offset = imm26_v lsl 2 in
       let signed_offset = sign_extension (Z.of_int offset) 28 64 in
-      let pre =  if op_v = 1 then [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ] else [] in
-      pre @ [Call(A(Address.add_offset s.a signed_offset))]
+      if op_v = 1 then (* BL *)
+        [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ;
+           Call(A(Address.add_offset s.a signed_offset))
+        ]
+      else
+        [
+           Jmp(A(Address.add_offset s.a signed_offset))
+        ]
 
   let tst_br s insn =
     let%decode insn'= insn "31:31:b5:F:x,30:25:_:F:011011,24:24:op:F:0,23:19:b40:F:xxxxx,18:5:imm14:F:xxxxxxxxxxxxxx,4:0:Rt:F:xxxxx" in
