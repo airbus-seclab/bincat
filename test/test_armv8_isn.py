@@ -186,3 +186,33 @@ def test_fp_fmov(tmpdir, armv7op):
     """.format(**locals())
     compare(tmpdir, asm, ["q0", "q10"])
 
+
+def test_fp_eor(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            fmov s0, w0
+            mov x1, #{armv7op_}
+            fmov s1, w1
+            eor v2.8b, v0.8b, v1.8b
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0", "x1", "q0", "q1", "q2"])
+
+def test_fp_orr(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            fmov s0, w0
+            mov x1, #{armv7op_}
+            fmov s1, w1
+            orr v2.8b, v0.8b, v1.8b
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0", "x1", "q0", "q1", "q2"])
+
+def test_fp_and(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            fmov s0, w0
+            mov x1, #{armv7op_}
+            fmov s1, w1
+            and v2.8b, v0.8b, v1.8b
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0", "x1", "q0", "q1", "q2"])
