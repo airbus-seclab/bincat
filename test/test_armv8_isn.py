@@ -143,3 +143,18 @@ def test_madd_sub64(tmpdir, op64, op64_, op64__, op64___):
     """.format(**locals())
     compare(tmpdir, asm, ["x0","x1", "x2", "x3"])
 
+def test_sxtw(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov w0, #{armv7op}
+            sxtw x0, w0
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0"])
+
+def test_add_sxtw(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            mov x1, #{armv7op_}
+            add x2, x1, w0, sxtw
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0", "x1", "x2"])
+

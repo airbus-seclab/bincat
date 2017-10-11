@@ -244,7 +244,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         cmdline = [ "bincat", 
                     [self.initfname,  self.outfname, self.logfname ]]
         # start the process
-        bc_log.debug("Analyzer cmdline: [%s %s]", (cmdline[0]," ".join(cmdline[1])))
+        bc_log.debug("Analyzer cmdline: [%s %s]", cmdline[0], " ".join(cmdline[1]))
         try:
             self.start(*cmdline)
         except Exception as e:

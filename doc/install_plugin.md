@@ -1,36 +1,28 @@
 ### IDA plugin Linux
 
-#### Automatic install
+#### Plugin install
 
 User install:
 * run `make IDAuser`
 
 Global install:
-* define `IDAPATH` env variable
+* define `IDAPATH` env variable to the folder IDA is installed in.
 * Run `make IDAinstall`.
 
-#### Manual install
+#### Dependencies
 
+##### python requests module
 
-* install IDA (v6.9 or later version) with bundled Python
-* copy or symlink BinCAT plugin and libs into IDA plugins folder
-```
-mkdir -p ~/.idapro/plugins
-ln -s $(pwd)/python/{idabincat,pybincat,idabincat/bcplugin.py} ~/.idapro/plugins/
-```
-* install Python *requests* library for IDA's bundled Python
+If you are running ida7: ensure that the python `requests` module is installed. Use `pip2` or a distribution-provided package.
+
+If you are running ida 6.9 with bundled python: manually install requests.
 ```
 virtualenv -p $(which python2) /tmp/installrequests
 . /tmp/installrequests/bin/activate
 pip install requests
 deactivate
-cp -a /tmp/installrequests/lib/python*/site-packages/requests ~/.idapro/plugins/
+cp -a /tmp/installrequests/lib/python*/site-packages/{requests,urllib3,chardet,certifi,idna} ~/.idapro/plugins/
 rm -rf /tmp/installrequests
-```
-* install BinCAT configuration files
-```
-mkdir -p ~/.idapro/idabincat
-cp -a python/idabincat/conf ~/.idapro/idabincat/
 ```
 
 If there's a problem with `hashlib` on Debian, do the following:

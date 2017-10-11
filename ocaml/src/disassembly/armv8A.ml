@@ -202,7 +202,7 @@ struct
   let get_Rd_lv ?(use_sp = false) insn sf =
         let num = (insn land 0x1F) in
         if num = 31 && not use_sp then begin
-            L.info (fun p->p "write to XZR");
+            L.debug (fun p->p "write to XZR");
             let tmp = Register.make (Register.fresh_name ()) (sf2sz sf) in
             V(T(tmp)), [Directive(Remove(tmp))]
         end else
@@ -327,11 +327,11 @@ struct
     in
     let len' = min len (sz-shift) in
     let ext_op = match ext_type with
-                 | 0 | 1 | 2 | 3 -> ZeroExt len'
-                 | 4 | 5 | 6 | 7 -> SignExt len'
+                 | 0 | 1 | 2 | 3 -> ZeroExt sz
+                 | 4 | 5 | 6 | 7 -> SignExt sz
                  | _ -> L.abort(fun p->p "invalid shift")
     in
-    BinOp(Shl, UnOp(ext_op, reg), const shift len)
+    BinOp(Shl, UnOp(ext_op, Lval( V( P(reg_from_num reg, 0, len'-1)))), const shift len)
     (*if shift < 0 || shift > 4 then
         L.abort (fun p->p "Invalid shift value for extend_reg")
     else*)
@@ -361,12 +361,21 @@ struct
     let sz = sf2sz sf_v in
     let shift = get_shifted_imm s shift_v imm12_v sz in
     let rd, post = get_Rd_lv ~use_sp:(not s_b) rd_v sf_v in
-    L.debug (fun p->p "coincoin %s" (Asm.string_of_lval rd true));
     let rn = get_reg_exp ~use_sp:true rn_v sf in
     (add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd rd_v sf s_b) @ post
 
+  (* ADD/ ADDS / SUB / SUBS (32/64) with extended register *)
+  let add_sub_reg_ext s insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:1,29:29:S:F:1,28:24:_:F:01011,23:22:opt:F:00,21:21:_:F:1,20:16:Rm:F:xxxxx,15:13:option:F:xxx,12:10:imm3:F:xxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+    let sz = sf2sz sf_v in
+    let s_b = s_v = 1 in (* set flags ? *)
+    let rd, post = get_Rd_lv rd_v sf_v in
+    let rn = get_reg_exp rn_v sf_v in
+    let extended_reg =  extend_reg sz rm_v option_v imm3_v in
+    (add_sub_core sz rd rn op_v extended_reg s_b) @ post
+
   (* ADD/ ADDS / SUB / SUBS (32/64) with shifted register *)
-  let add_sub_reg s insn _is_extend =
+  let add_sub_reg_shift s insn =
     let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:0,29:29:S:F:0,28:24:_:F:01011,23:22:shift:F:xx,21:21:_:F:0,20:16:Rm:F:xxxxx,15:10:imm6:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     if (sf_v = 0 && (imm6_v lsr 5) = 1) || (shift_v = 3) then
         (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
@@ -470,7 +479,7 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     let wmask, tmask = decode_bitmasks sz n_v imms_v immr_v false in
     let rn = get_reg_lv rn_v sf_v in
     let rd = get_reg_lv rd_v sf_v in
-    let rored = ror sz (Lval rn) (const immr_v 6) in
+    let rored = if immr_v = 0 then (Lval rn) else ror sz (Lval rn) (const immr_v 6) in
     let res = match opc_v with
       | 2 -> begin (* UBFM *)
              (* bits(datasize) bot = ROR(src, R) AND wmask;
@@ -483,8 +492,8 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
           [ Set(rd, BinOp(Or, BinOp(And, Lval rn, UnOp(Not, Const(Word.of_int tmask sz))), BinOp(And, bot, Const(Word.of_int tmask sz))))]
         end
       | 0 -> begin (* SBFM *)
-          let src_s = BinOp(And, const1 sz, BinOp(Shl, Lval rn, const imms_v sz)) in
-          let top = TernOp(Cmp(EQ, src_s, const1 sz), const ((2 lsl sz)-1) sz, const0 sz) in
+          let src_s = BinOp(And, const1 sz, BinOp(Shr, Lval rn, const imms_v sz)) in
+          let top = TernOp(Cmp(EQ, src_s, const1 sz), const_of_Z (z_mask_ff sz) sz, const0 sz) in
           (* (top AND NOT(tmask)) OR (bot AND tmask); *)
           [Set(rd, BinOp(Or, BinOp(And, top, UnOp(Not, Const(Word.of_int tmask sz))), BinOp(And, rored, Const(Word.of_int tmask sz))))]
         end
@@ -590,8 +599,12 @@ UMULH  <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:1  22:21:_:10  20:16:R
             (* op2 = 0xxx *)
             if (op2 lsr 3) = 0 then
                 logic_reg s insn
-            else (* op2 = 1xxx *)
-                add_sub_reg s insn (op2 land 1)
+            else begin (* op2 = 1xxx : shifted / extended register *)
+                if (op2 land 1) = 0 then (* shifted *)
+                    add_sub_reg_shift s insn
+                else (* extended *)
+                    add_sub_reg_ext s insn
+            end
         else
             match op2 with
                 | 0 -> error s.a (Printf.sprintf "ADD/SUB with carry not decoded yet (0x%x)" insn)
@@ -626,11 +639,10 @@ STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
     in
     let sf = (size_v land 1) in
     let sz = sf2sz sf in
-    let rm = get_reg_lv rm_v sf in
     let rn = get_reg_lv ~use_sp:true rn_v sf in
     let rt = get_reg_lv rt_v sf in
     let shl_amount = if s_v = 1 then size_v else 0 in
-    let offset = extend_reg sz (Lval rm) option_v shl_amount in
+    let offset = extend_reg sz rm_v option_v shl_amount in
     let addr = BinOp(Add, Lval rn, offset) in
     if opc_v != 0 then begin
         (* load *)

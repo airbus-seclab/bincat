@@ -30,6 +30,8 @@ Supported host platforms:
 
 Supported CPU for analysis (for now):
 * x86-32
+* ARMv7
+* ARMv8
 
 ## Installation
 
@@ -44,7 +46,7 @@ On Linux:
 
 ### IDA Plugin
 
-**Only IDA v6.9 or later are supported**
+**Only IDA v6.9 or later (7 included) are supported**
 
 #### Install for Windows
 
