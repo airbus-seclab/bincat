@@ -16,10 +16,13 @@ git clone https://github.com/airbus-seclab/c2newspeak.git
 cd c2newspeak
 make
 make install
+export PATH=$PATH:$PWD/bin
 cd ..
 ```
 
 ### Compile BinCAT
+
+make sure that `c2newspeak` is in `$PATH`.
 
 ```
 git clone https://github.com/airbus-seclab/bincat.git
