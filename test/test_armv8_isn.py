@@ -178,3 +178,11 @@ def test_add_sxtw(tmpdir, armv7op, armv7op_):
     """.format(**locals())
     compare(tmpdir, asm, ["x0", "x1", "x2"])
 
+def test_fp_fmov(tmpdir, armv7op):
+    asm = """
+            mov x0, #{armv7op}
+            fmov s0, w0
+            fmov s10, w0
+    """.format(**locals())
+    compare(tmpdir, asm, ["q0", "q10"])
+
