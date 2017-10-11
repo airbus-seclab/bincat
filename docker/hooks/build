@@ -1,0 +1,2 @@
+#!/bin/sh
+docker build --build-arg SOURCE_BRANCH="$SOURCE_BRANCH" -t $IMAGE_NAME .

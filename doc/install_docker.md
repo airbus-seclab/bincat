@@ -12,4 +12,4 @@ This will automatically fetch a public Docker image and run it on your machine.
 If you choose not to run the provided docker container, you may use this
 command to build it, from the root of the repository :
 
-* run ```docker build -t bincat .```
+* run ```docker build -t bincat .``` from the docker/ directory.

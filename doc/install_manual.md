@@ -114,7 +114,7 @@ If messages indicating that the `-fPIC` must be used, update your OCaml installa
 **Warning**: the authors do not use macOS anymore, and thus do not test this
 procedure anymore. If you run into problems on macOS, we recommend running
 bincat in a linux virtual machine, or in a docker container (build procedure
-provided in Dockerfile).
+provided in docker/Dockerfile).
 
 By default non initialized external symobols are not exported by `ranlib`.
 Hence some symbols in `_caml_table` are not exported which results in a link
