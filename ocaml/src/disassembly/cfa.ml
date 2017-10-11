@@ -228,7 +228,7 @@ struct
   (* CFA creation.
      Return the abstract value generated from the Config module *)
   let init_state (ip: Data.Address.t): State.t =
-	let d', taint = init_abstract_value () in
+	let d', _taint = init_abstract_value () in
 	{
 	  id = 0;
 	  ip = ip;
@@ -243,7 +243,7 @@ struct
 		op_sz = !Config.operand_sz;
 		addr_sz = !Config.address_sz;
 	  };
-	  taint_sources = taint;
+	  taint_sources = Taint.U;
 	}
 	
 
