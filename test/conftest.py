@@ -27,6 +27,7 @@ class TestValues:
     op16 = [ 1, 0xffff ]
     op32 = [ 1, 0xffffffff]
     op64 = [ 1, 0xffffffffffffffff]
+    op12 = [ 1, 0x800, 0xFFF]
     someval8 = [ 0x2e, 0xa5 ]
     someval16 = [ 0x4b2e, 0xc68b ]
     someval32 = [ 0x5ed39a5f, 0xd2a173f6 ]

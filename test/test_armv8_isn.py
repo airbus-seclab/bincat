@@ -9,7 +9,7 @@ compare = arm.compare
 
 mov_imm = pytest.mark.parametrize("op", ["movz", "movk", "movn"])
 dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
-dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add"])
+dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add", "adds", "subs"])
 
 def test_adrp1(tmpdir, op32):
     asm = """
@@ -87,7 +87,23 @@ def test_data_proc_arith(tmpdir, op, armv7op, armv7op_):
             mov x1, #{armv7op_}
             {op} x2, x0, x1
     """.format(**locals())
-    compare(tmpdir, asm, ["x0","x1", "x2"])
+    if op[-1] != 's':
+        top_allowed = {"n":1, "c":1, "v":1, "z":1}
+    else:
+        top_allowed = {}
+    compare(tmpdir, asm, ["x0","x1", "x2", "n", "c", "v", "z"], top_allowed = top_allowed)
+
+@dataop_comp_arith
+def test_data_proc_arith_imm(tmpdir, op, armv7op, op12):
+    asm = """
+            mov x0, #{armv7op}
+            {op} x2, x0, #{op12}
+    """.format(**locals())
+    if op[-1] != 's':
+        top_allowed = {"n":1, "c":1, "v":1, "z":1}
+    else:
+        top_allowed = {}
+    compare(tmpdir, asm, ["x0", "x2", "n", "c", "z", "v"], top_allowed = top_allowed)
 
 @dataop_comp_logic
 def test_data_proc_logic_32(tmpdir, op, armv7op, armv7op_):
@@ -105,7 +121,11 @@ def test_data_proc_arith_32(tmpdir, op, armv7op, armv7op_):
             mov w1, #{armv7op_}
             {op} w2, w0, w1
     """.format(**locals())
-    compare(tmpdir, asm, ["x0","x1", "x2"])
+    if op[-1] != 's':
+        top_allowed = {"n":1, "c":1, "v":1, "z":1}
+    else:
+        top_allowed = {}
+    compare(tmpdir, asm, ["x0","x1", "x2", "n", "c", "v", "z"], top_allowed = top_allowed)
 
 def test_ubfm(tmpdir, op6, op6_, armv7op, armv7op_):
     asm = """
