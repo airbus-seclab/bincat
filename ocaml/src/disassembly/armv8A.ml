@@ -272,7 +272,7 @@ struct
 
   (* 32 bits ops zero the top 32 bits, this helper does it if needed *)
   let sf_zero_rd rd_v sf s_b =
-    (* don't zero if the target is discarded *)
+    (* don't zero if the target is discarded (set flags or XZR) *)
     if sf = 0 && (not s_b || rd_v != 31) then begin
         let rd_top = P(reg_from_num rd_v, 32, 63) in
         [Set ( V(rd_top), const 0 32)]
@@ -680,8 +680,9 @@ STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
     let addr = BinOp(Add, Lval rn, offset) in
     if opc_v != 0 then begin
         (* load *)
-        if mem_sz < sz then
-            [Set(rt, (UnOp(ZeroExt sz,Lval(M(addr, mem_sz)))))]
+        if mem_sz < sz then begin
+            [Set(rt, (UnOp(ZeroExt sz,Lval(M(addr, mem_sz)))))] @ sf_zero_rd rt_v sf false
+        end
         else
             [Set(rt, Lval(M(addr, mem_sz)))]
     end else
