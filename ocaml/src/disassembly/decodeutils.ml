@@ -22,6 +22,8 @@ let const0 sz = Const (Word.zero sz)
 
 let z_mask_ff bits = Z.sub (Z.shift_left Z.one bits) Z.one
 
+let const_mask n sz = Const (Word.of_int (z_mask_ff n) sz)
+
 (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
 let sign_extension i sz nb =
     if Z.testbit i (sz-1) then
