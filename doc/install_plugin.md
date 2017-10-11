@@ -21,7 +21,7 @@ virtualenv -p $(which python2) /tmp/installrequests
 . /tmp/installrequests/bin/activate
 pip install requests
 deactivate
-cp -a /tmp/installrequests/lib/python*/site-packages/requests ~/.idapro/plugins/
+cp -a /tmp/installrequests/lib/python*/site-packages/{requests,urllib3,chardet,certifi,idna} ~/.idapro/plugins/
 rm -rf /tmp/installrequests
 ```
 
