@@ -928,6 +928,78 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
         error s.a (Printf.sprintf "Unsupported branch opcode 0x%08x" insn)
 
 
+  (* SIMD three same - C4.1.5, page C-302) *)
+  let simd_three_same s insn = 
+    let q = (insn lsr 30) land 1 in
+    let u = (insn lsr 29) land 1 in
+    let size = (insn lsr 22) land 3 in
+    let opcode = (insn lsr 11) land 0x1f in
+    let rm = (insn lsr 16) land 0x1f in
+    let rn = (insn lsr 5) land 0x1f in
+    let rd = insn land 0x1f in
+    match u,size,opcode with
+    | 1, 0b00, 0b00011 -> (* EOR (vector) *)
+       let res128 = BinOp(Xor, Lval (V (qreg rm)), Lval (V (qreg rn))) in
+       let masked_res = if q = 0 then BinOp(And, res128, const_mask 64 128) else res128 in
+       [ Set (V (qreg rd), masked_res) ]
+    | 0, 0b10, 0b00011 -> (* ORR (vector, register) *)
+       let res128 = BinOp(Or, Lval (V (qreg rm)), Lval (V (qreg rn))) in
+       let masked_res = if q = 0 then BinOp(And, res128, const_mask 64 128) else res128 in
+       [ Set (V (qreg rd), masked_res) ]
+    | 0, 0b00, 0b00011 -> (* AND (vector) *)
+       let res128 = BinOp(And, Lval (V (qreg rm)), Lval (V (qreg rn))) in
+       let masked_res = if q = 0 then BinOp(And, res128, const_mask 64 128) else res128 in
+       [ Set (V (qreg rd), masked_res) ]
+
+    | _ -> error s.a "SIMD three same"
+
+
+  (* Scalar Floating-Point and Advanced SIMD *)
+
+  (* Conversion between floating-point and fixed-point *)
+  let fp_fp_conv  (s: state) (insn: int): (Asm.stmt list) =
+    error s.a "Conversion between floating-point and fixed-point not implemented"
+
+
+  (* Conversion between floating-point and integer *)
+  let fp_int_conv  (s: state) (insn: int): (Asm.stmt list) =
+    let sf = (insn lsr 31) land 1 in
+    let s_ = (insn lsr 29) land 1 in
+    let typ = (insn lsr 22) land 3 in
+    let rmode = (insn lsr 19) land 3 in
+    let opcode = (insn lsr 16) land 7 in
+    let rn = (insn lsr 5) land 0x1f in
+    let rd = insn land 0x1f in
+    match sf, s_, typ, rmode, opcode with
+      | 0, 0, 0b00, 0b00, 0b110 -> [ Set( V (wreg rd), Lval (V (sreg rn))) ]
+      | 0, 0, 0b00, 0b00, 0b111 -> [ Set( V (qreg rd), UnOp(ZeroExt 128, Lval (V (wreg rn)))) ]
+      | _ -> error s.a (Printf.sprintf "Unsupported floating-point and integer conversion instruction opcode: 0x%08x" insn)
+
+  let scalar_fp_simd  (s: state) (insn: int): (Asm.stmt list) =
+    let op0 = (insn lsr 28) land 0xf in
+    let op1 = (insn lsr 23) land 3 in
+    let op2 = (insn lsr 19) land 0xf in
+    let op3 = (insn lsr 10) land 0x1ff in
+    let f =
+      if (op0 land 5) = 1 && (op1 land 2) = 0 then
+        begin
+          if (op2 land 4) = 0 then  fp_fp_conv  else fp_int_conv
+        end
+      else if (op0 land 9) = 0 && (op1 land 2) = 0 then
+        begin
+          if (op2 land 4) = 4 && (op3 land 1) = 1 then
+            simd_three_same
+          else
+            error s.a (Printf.sprintf "Unsupported scalar floating point or SIMD opcode: 0x%08x" insn)
+        end
+      else
+        begin
+          L.debug (fun p -> p "FP/SIMD instruction decoded as: op0=%x op1=%x op2=%x op3=%x" op0 op1 op2 op3);
+          error s.a (Printf.sprintf "Unsupported scalar floating point or SIMD opcode: 0x%08x" insn)
+        end
+    in f s insn
+
+
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction str in
@@ -943,6 +1015,7 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
         | 0b0100 | 0b0110 | 0b1100 | 0b1110 -> load_store s instruction
         (* x101 : data processing (register) *)
         | 0b0101 | 0b1101 -> data_processing_reg s instruction
+        | 0b0111 | 0b1111 -> scalar_fp_simd s instruction
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
     in
     return s str stmts
