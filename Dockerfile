@@ -1,5 +1,7 @@
 FROM ubuntu:16.04
 
+# default value
+ARG GIT_SHA1=master
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN mkdir /install
@@ -20,13 +22,10 @@ RUN pip install Flask
 
 RUN mkdir -p /tmp/bincat_web
 
-# expects the local directory to contain
-# * the contents of the bincat repository
-# * a c2newspeak/ subdirectory containing the c2newspeak repository
-ADD . BinCAT
+RUN git clone https://github.com/airbus-seclab/bincat/
 RUN git clone --depth 1 https://github.com/airbus-seclab/c2newspeak/
 RUN cd c2newspeak && make && make install && ln -s /install/c2newspeak/bin/c2newspeak /bin/c2newspeak
-RUN cd BinCAT && make && make install
+RUN cd bincat && git checkout "$GIT_SHA1" && make && make install
 WORKDIR /
 ENV FLASK_APP webbincat.wsgi
 
