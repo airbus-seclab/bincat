@@ -76,6 +76,45 @@ struct
   let cflag = Register.make ~name:"c" ~size:1;;
   let vflag = Register.make ~name:"v" ~size:1;;
 
+  (* SIMD/FP registers *)
+  (* SIMD register Qx      [................] 128 bits *)
+  (* Double precision Dx   [xxxxxxxx........]  64 bits *)
+  (* Single precision Sx   [xxxxxxxxxxxx....]  32 bits *)
+  (* Half precision Hx     [xxxxxxxxxxxxxx..]  16 bits *)
+  (* byte Bx               [xxxxxxxxxxxxxxx.]   8 bits *)
+  let q0 = Register.make ~name:"q0" ~size:128;;
+  let q1 = Register.make ~name:"q1" ~size:128;;
+  let q2 = Register.make ~name:"q2" ~size:128;;
+  let q3 = Register.make ~name:"q3" ~size:128;;
+  let q4 = Register.make ~name:"q4" ~size:128;;
+  let q5 = Register.make ~name:"q5" ~size:128;;
+  let q6 = Register.make ~name:"q6" ~size:128;;
+  let q7 = Register.make ~name:"q7" ~size:128;;
+  let q8 = Register.make ~name:"q8" ~size:128;;
+  let q9 = Register.make ~name:"q9" ~size:128;;
+  let q10 = Register.make ~name:"q10" ~size:128;;
+  let q11 = Register.make ~name:"q11" ~size:128;;
+  let q12 = Register.make ~name:"q12" ~size:128;;
+  let q13 = Register.make ~name:"q13" ~size:128;;
+  let q14 = Register.make ~name:"q15" ~size:128;;
+  let q15 = Register.make ~name:"q14" ~size:128;;
+  let q16 = Register.make ~name:"q16" ~size:128;;
+  let q17 = Register.make ~name:"q17" ~size:128;;
+  let q18 = Register.make ~name:"q18" ~size:128;;
+  let q19 = Register.make ~name:"q19" ~size:128;;
+  let q20 = Register.make ~name:"q20" ~size:128;;
+  let q21 = Register.make ~name:"q21" ~size:128;;
+  let q22 = Register.make ~name:"q22" ~size:128;;
+  let q23 = Register.make ~name:"q23" ~size:128;;
+  let q24 = Register.make ~name:"q24" ~size:128;;
+  let q25 = Register.make ~name:"q25" ~size:128;;
+  let q26 = Register.make ~name:"q26" ~size:128;;
+  let q27 = Register.make ~name:"q27" ~size:128;;
+  let q28 = Register.make ~name:"q28" ~size:128;;
+  let q29 = Register.make ~name:"q29" ~size:128;;
+  let q30 = Register.make ~name:"q30" ~size:128;;
+  let q31 = Register.make ~name:"q31" ~size:128;;
+
   let nf_v = V( T(nflag) )
   let zf_v = V( T(zflag) )
   let cf_v = V( T(cflag) )
@@ -94,8 +133,25 @@ struct
     | 24 -> x24 | 25 -> x25 | 26 -> x26 | 27 -> x27 | 28 -> x28 | 29 -> x29 | 30 -> x30 | 31 -> sp
     | _ -> L.abort (fun p -> p "Unknown register number %i" n)
 
+  let qreg_from_num n =
+    match n with
+    | 0 -> q0   | 1 -> q1   | 2 -> q2   | 3 -> q3   | 4 -> q4   | 5 -> q5   | 6 -> q6   | 7 -> q7
+    | 8 -> q8   | 9 -> q9   | 10 -> q10 | 11 -> q11 | 12 -> q12 | 13 -> q13 | 14 -> q14 | 15 -> q15
+    | 16 -> q16 | 17 -> q17 | 18 -> q18 | 19 -> q19 | 20 -> q20 | 21 -> q21 | 22 -> q22 | 23 -> q23
+    | 24 -> q24 | 25 -> q25 | 26 -> q26 | 27 -> q27 | 28 -> q28 | 29 -> q29 | 30 -> q30 | 31 -> sp
+    | _ -> L.abort (fun p -> p "Unknown register number %i" n)
+
   let reg n =
     T (reg_from_num n)
+
+  let wreg n =
+    P ((reg_from_num n), 0, 31)
+
+  let qreg n =
+    T (qreg_from_num n)
+
+  let sreg n =
+    P ((qreg_from_num n), 0, 31)
 
   (* helper to get register with the right size according to sf value *)
   (* 1 is 64 bits *)
