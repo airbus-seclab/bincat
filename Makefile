@@ -35,7 +35,6 @@ IDAuser:
 	mkdir -p "${IDAUSR}/plugins"
 	cp -r $$(${PYTHON} -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAUSR}/plugins/pybincat"
 	rm -rf "${IDAUSR}/plugins/idabincat"
-	@echo $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')
 	cp -r $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAUSR}/plugins/idabincat"
 	rm -f "${IDAUSR}/plugins/bcplugin.py"
 	cp $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAUSR}/plugins/bcplugin.py"
@@ -49,7 +48,6 @@ IDAinstall: # install globally
 	rm -rf "${IDAPATH}/plugins/pybincat"
 	cp -r $$(${PYTHON} -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAPATH}/plugins/pybincat"
 	rm -rf "${IDAPATH}/plugins/idabincat"
-	@echo $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')
 	cp -r $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAPATH}/plugins/idabincat"
 	rm -f "${IDAPATH}/plugins/bcplugin.py"
 	cp $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAPATH}/plugins/bcplugin.py"
