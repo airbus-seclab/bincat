@@ -68,7 +68,7 @@ struct
       L.debug (fun p -> p "restrict: e=%s b=%B" (Asm.string_of_bexp e true) b);
       let rec process e b =
         match e with
-        | BConst b' 		  -> if b = b' then d, Taint.U else D.bot, Taint.U
+        | BConst b' 		  -> if b = b' then d, Taint.U else D.bot, Taint.BOT
         | BUnOp (LogNot, e) 	  -> process e (not b)
 					     
         | BBinOp (LogOr, e1, e2)  ->
@@ -208,7 +208,7 @@ struct
             | Directive (Taint (e, lv)) 	 ->
                 begin
                  match lv with
-                 | V (T r) ->
+                 | V (T r) -> 
                     begin
                       match e with
                       | None ->
@@ -453,24 +453,26 @@ struct
 				  
              | _       -> vertices, Taint.U
 			    
-      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * Taint.t) =
+      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.t =
         match stmts with
         | s::stmts ->
-	   let new_vert, tainted = begin
-	     try
-               let (new_vertices: Cfa.State.t list), (t: Taint.t) = process_vertices vertices s in
-               let vert, t' = process_list new_vertices stmts in vert, Taint.logor t t'
-	     with Exceptions.Bot_deref -> [], Taint.U (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
-	   end
-           in 
+	       let new_vert, tainted =
+             begin
+	           try
+                 let (new_vertices: Cfa.State.t list), (t: Taint.t) = process_vertices vertices s in
+                 let vert, t' = process_list new_vertices stmts in
+                 vert, Taint.logor t t'
+	           with Exceptions.Bot_deref -> [], Taint.BOT (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
+	         end
+           in
+
            new_vert, tainted
         | []       -> vertices, Taint.U
       in
-      let vstart = copy v v.Cfa.State.v None true
-      in
+      let vstart = copy v v.Cfa.State.v None true in
       vstart.Cfa.State.ip <- ip;
-      let vertices, t = process_list [vstart] v.Cfa.State.stmts in
-      vstart.Cfa.State.taint_sources <- t;
+      let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
+      List.iter (fun v -> v.Cfa.State.taint_sources <- taint) vertices;
       vertices
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
