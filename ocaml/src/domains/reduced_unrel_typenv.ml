@@ -129,10 +129,18 @@ module Make(D: Unrel.T) =
     let uenv', taint = U.taint_register_mask r c uenv in
     (uenv', tenv), taint
 
+  let span_taint_to_register register taint (uenv, tenv) =
+    let uenv', taint' = U.span_taint_to_register register taint uenv in
+    (uenv', tenv), taint'
+
   let taint_address_mask a c (uenv, tenv) =
     let uenv', taint = U.taint_address_mask a c uenv in
     (uenv', tenv), taint
-    
+
+  let span_taint_to_addr a taint (uenv, tenv) =
+    let uenv', taint' = U.span_taint_to_addr a taint uenv in
+    (uenv', tenv), taint'
+      
   let compare (uenv, tenv) e1 cmp e2 =
     let uenv', b = U.compare uenv e1 cmp e2 in
     (uenv', tenv), b

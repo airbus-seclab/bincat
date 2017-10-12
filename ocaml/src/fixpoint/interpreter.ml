@@ -206,33 +206,40 @@ struct
                d, Taint.U
                 
             | Directive (Taint (e, lv)) 	 ->
-               begin
-                 let cond =
-                   match e with
-                   | None -> true
-                   | Some c ->
-                      match D.taint_sources c d with
-                      | Taint.U -> false
-                      | _ -> true                         
-                 in
+                begin
                  match lv with
-                 | V (T r) ->                      
-                    if cond then
-                      let taint_src = Taint.new_src () in
-                      let mask = Config.Taint_all taint_src in
-                      D.taint_register_mask r mask d
-                   else
-                     d, Taint.U
+                 | V (T r) ->
+                    begin
+                      match e with
+                      | None ->
+                         let taint_src = Taint.new_src () in
+                         let mask = Config.Taint_all taint_src in
+                         D.taint_register_mask r mask d
+                      | Some c ->
+                         match D.taint_sources c d with
+                         | Taint.U -> d, Taint.U
+                         | src -> D.span_taint_to_register r src d   
+                    end
+                   
                  | M (_, 8) ->
-                    if cond then
+                    begin
                       try
-                        let taint_src = Taint.new_src () in
+                        
                         match Data.Address.Set.elements (fst (D.mem_to_addresses d (Lval lv))) with
-                        | [a] -> D.taint_address_mask a (Config.Taint (Z.of_int 0xff, Some taint_src)) d
+                        | [a] ->
+                           begin
+                             match e with
+                             | None ->
+                                let taint_src = Taint.new_src () in
+                                D.taint_address_mask a (Config.Taint (Z.of_int 0xff, Some taint_src)) d
+                             | Some c ->
+                                match D.taint_sources c d with
+                                | Taint.U -> d, Taint.U
+                                | src -> D.span_taint_to_addr a src d   
+                           end
                         | _ -> raise Exit 
                       with _ -> L.analysis (fun p -> p "Tainting directive ignored"); d, Taint.U
-                    else
-                      d, Taint.U
+                    end
                  | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, Taint.U   
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
