@@ -76,6 +76,45 @@ struct
   let cflag = Register.make ~name:"c" ~size:1;;
   let vflag = Register.make ~name:"v" ~size:1;;
 
+  (* SIMD/FP registers *)
+  (* SIMD register Qx      [................] 128 bits *)
+  (* Double precision Dx   [xxxxxxxx........]  64 bits *)
+  (* Single precision Sx   [xxxxxxxxxxxx....]  32 bits *)
+  (* Half precision Hx     [xxxxxxxxxxxxxx..]  16 bits *)
+  (* byte Bx               [xxxxxxxxxxxxxxx.]   8 bits *)
+  let q0 = Register.make ~name:"q0" ~size:128;;
+  let q1 = Register.make ~name:"q1" ~size:128;;
+  let q2 = Register.make ~name:"q2" ~size:128;;
+  let q3 = Register.make ~name:"q3" ~size:128;;
+  let q4 = Register.make ~name:"q4" ~size:128;;
+  let q5 = Register.make ~name:"q5" ~size:128;;
+  let q6 = Register.make ~name:"q6" ~size:128;;
+  let q7 = Register.make ~name:"q7" ~size:128;;
+  let q8 = Register.make ~name:"q8" ~size:128;;
+  let q9 = Register.make ~name:"q9" ~size:128;;
+  let q10 = Register.make ~name:"q10" ~size:128;;
+  let q11 = Register.make ~name:"q11" ~size:128;;
+  let q12 = Register.make ~name:"q12" ~size:128;;
+  let q13 = Register.make ~name:"q13" ~size:128;;
+  let q14 = Register.make ~name:"q15" ~size:128;;
+  let q15 = Register.make ~name:"q14" ~size:128;;
+  let q16 = Register.make ~name:"q16" ~size:128;;
+  let q17 = Register.make ~name:"q17" ~size:128;;
+  let q18 = Register.make ~name:"q18" ~size:128;;
+  let q19 = Register.make ~name:"q19" ~size:128;;
+  let q20 = Register.make ~name:"q20" ~size:128;;
+  let q21 = Register.make ~name:"q21" ~size:128;;
+  let q22 = Register.make ~name:"q22" ~size:128;;
+  let q23 = Register.make ~name:"q23" ~size:128;;
+  let q24 = Register.make ~name:"q24" ~size:128;;
+  let q25 = Register.make ~name:"q25" ~size:128;;
+  let q26 = Register.make ~name:"q26" ~size:128;;
+  let q27 = Register.make ~name:"q27" ~size:128;;
+  let q28 = Register.make ~name:"q28" ~size:128;;
+  let q29 = Register.make ~name:"q29" ~size:128;;
+  let q30 = Register.make ~name:"q30" ~size:128;;
+  let q31 = Register.make ~name:"q31" ~size:128;;
+
   let nf_v = V( T(nflag) )
   let zf_v = V( T(zflag) )
   let cf_v = V( T(cflag) )
@@ -88,42 +127,31 @@ struct
 
   let reg_from_num n =
     match n with
-    | 0 -> x0
-    | 1 -> x1
-    | 2 -> x2
-    | 3 -> x3
-    | 4 -> x4
-    | 5 -> x5
-    | 6 -> x6
-    | 7 -> x7
-    | 8 -> x8
-    | 9 -> x9
-    | 10 -> x10
-    | 11 -> x11
-    | 12 -> x12
-    | 13 -> x13
-    | 14 -> x14
-    | 15 -> x15
-    | 16 -> x16
-    | 17 -> x17
-    | 18 -> x18
-    | 19 -> x19
-    | 20 -> x20
-    | 21 -> x21
-    | 22 -> x22
-    | 23 -> x23
-    | 24 -> x24
-    | 25 -> x25
-    | 26 -> x26
-    | 27 -> x27
-    | 28 -> x28
-    | 29 -> x29
-    | 30 -> x30
-    | 31 -> sp
+    | 0 -> x0   | 1 -> x1   | 2 -> x2   | 3 -> x3   | 4 -> x4   | 5 -> x5   | 6 -> x6   | 7 -> x7
+    | 8 -> x8   | 9 -> x9   | 10 -> x10 | 11 -> x11 | 12 -> x12 | 13 -> x13 | 14 -> x14 | 15 -> x15
+    | 16 -> x16 | 17 -> x17 | 18 -> x18 | 19 -> x19 | 20 -> x20 | 21 -> x21 | 22 -> x22 | 23 -> x23
+    | 24 -> x24 | 25 -> x25 | 26 -> x26 | 27 -> x27 | 28 -> x28 | 29 -> x29 | 30 -> x30 | 31 -> sp
+    | _ -> L.abort (fun p -> p "Unknown register number %i" n)
+
+  let qreg_from_num n =
+    match n with
+    | 0 -> q0   | 1 -> q1   | 2 -> q2   | 3 -> q3   | 4 -> q4   | 5 -> q5   | 6 -> q6   | 7 -> q7
+    | 8 -> q8   | 9 -> q9   | 10 -> q10 | 11 -> q11 | 12 -> q12 | 13 -> q13 | 14 -> q14 | 15 -> q15
+    | 16 -> q16 | 17 -> q17 | 18 -> q18 | 19 -> q19 | 20 -> q20 | 21 -> q21 | 22 -> q22 | 23 -> q23
+    | 24 -> q24 | 25 -> q25 | 26 -> q26 | 27 -> q27 | 28 -> q28 | 29 -> q29 | 30 -> q30 | 31 -> sp
     | _ -> L.abort (fun p -> p "Unknown register number %i" n)
 
   let reg n =
     T (reg_from_num n)
+
+  let wreg n =
+    P ((reg_from_num n), 0, 31)
+
+  let qreg n =
+    T (qreg_from_num n)
+
+  let sreg n =
+    P ((qreg_from_num n), 0, 31)
 
   (* helper to get register with the right size according to sf value *)
   (* 1 is 64 bits *)
@@ -244,7 +272,7 @@ struct
 
   (* 32 bits ops zero the top 32 bits, this helper does it if needed *)
   let sf_zero_rd rd_v sf s_b =
-    (* don't zero if the target is discarded *)
+    (* don't zero if the target is discarded (set flags or XZR) *)
     if sf = 0 && (not s_b || rd_v != 31) then begin
         let rd_top = P(reg_from_num rd_v, 32, 63) in
         [Set ( V(rd_top), const 0 32)]
@@ -652,8 +680,9 @@ STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
     let addr = BinOp(Add, Lval rn, offset) in
     if opc_v != 0 then begin
         (* load *)
-        if mem_sz < sz then
-            [Set(rt, (UnOp(ZeroExt sz,Lval(M(addr, mem_sz)))))]
+        if mem_sz < sz then begin
+            [Set(rt, (UnOp(ZeroExt sz,Lval(M(addr, mem_sz)))))] @ sf_zero_rd rt_v sf false
+        end
         else
             [Set(rt, Lval(M(addr, mem_sz)))]
     end else
@@ -858,8 +887,14 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
       let current_pc = Z.add (Address.to_int s.a) (Z.of_int 4) in
       let offset = imm26_v lsl 2 in
       let signed_offset = sign_extension (Z.of_int offset) 28 64 in
-      let pre =  if op_v = 1 then [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ] else [] in
-      pre @ [Call(A(Address.add_offset s.a signed_offset))]
+      if op_v = 1 then (* BL *)
+        [  Set( V(T(x30)), Const (Word.of_int current_pc 64)) ;
+           Call(A(Address.add_offset s.a signed_offset))
+        ]
+      else
+        [
+           Jmp(A(Address.add_offset s.a signed_offset))
+        ]
 
   let tst_br s insn =
     let%decode insn'= insn "31:31:b5:F:x,30:25:_:F:011011,24:24:op:F:0,23:19:b40:F:xxxxx,18:5:imm14:F:xxxxxxxxxxxxxx,4:0:Rt:F:xxxxx" in
@@ -900,6 +935,78 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
         error s.a (Printf.sprintf "Unsupported branch opcode 0x%08x" insn)
 
 
+  (* SIMD three same - C4.1.5, page C-302) *)
+  let simd_three_same s insn = 
+    let q = (insn lsr 30) land 1 in
+    let u = (insn lsr 29) land 1 in
+    let size = (insn lsr 22) land 3 in
+    let opcode = (insn lsr 11) land 0x1f in
+    let rm = (insn lsr 16) land 0x1f in
+    let rn = (insn lsr 5) land 0x1f in
+    let rd = insn land 0x1f in
+    match u,size,opcode with
+    | 1, 0b00, 0b00011 -> (* EOR (vector) *)
+       let res128 = BinOp(Xor, Lval (V (qreg rm)), Lval (V (qreg rn))) in
+       let masked_res = if q = 0 then BinOp(And, res128, const_mask 64 128) else res128 in
+       [ Set (V (qreg rd), masked_res) ]
+    | 0, 0b10, 0b00011 -> (* ORR (vector, register) *)
+       let res128 = BinOp(Or, Lval (V (qreg rm)), Lval (V (qreg rn))) in
+       let masked_res = if q = 0 then BinOp(And, res128, const_mask 64 128) else res128 in
+       [ Set (V (qreg rd), masked_res) ]
+    | 0, 0b00, 0b00011 -> (* AND (vector) *)
+       let res128 = BinOp(And, Lval (V (qreg rm)), Lval (V (qreg rn))) in
+       let masked_res = if q = 0 then BinOp(And, res128, const_mask 64 128) else res128 in
+       [ Set (V (qreg rd), masked_res) ]
+
+    | _ -> error s.a "SIMD three same"
+
+
+  (* Scalar Floating-Point and Advanced SIMD *)
+
+  (* Conversion between floating-point and fixed-point *)
+  let fp_fp_conv  (s: state) (insn: int): (Asm.stmt list) =
+    error s.a "Conversion between floating-point and fixed-point not implemented"
+
+
+  (* Conversion between floating-point and integer *)
+  let fp_int_conv  (s: state) (insn: int): (Asm.stmt list) =
+    let sf = (insn lsr 31) land 1 in
+    let s_ = (insn lsr 29) land 1 in
+    let typ = (insn lsr 22) land 3 in
+    let rmode = (insn lsr 19) land 3 in
+    let opcode = (insn lsr 16) land 7 in
+    let rn = (insn lsr 5) land 0x1f in
+    let rd = insn land 0x1f in
+    match sf, s_, typ, rmode, opcode with
+      | 0, 0, 0b00, 0b00, 0b110 -> [ Set( V (wreg rd), Lval (V (sreg rn))) ]
+      | 0, 0, 0b00, 0b00, 0b111 -> [ Set( V (qreg rd), UnOp(ZeroExt 128, Lval (V (wreg rn)))) ]
+      | _ -> error s.a (Printf.sprintf "Unsupported floating-point and integer conversion instruction opcode: 0x%08x" insn)
+
+  let scalar_fp_simd  (s: state) (insn: int): (Asm.stmt list) =
+    let op0 = (insn lsr 28) land 0xf in
+    let op1 = (insn lsr 23) land 3 in
+    let op2 = (insn lsr 19) land 0xf in
+    let op3 = (insn lsr 10) land 0x1ff in
+    let f =
+      if (op0 land 5) = 1 && (op1 land 2) = 0 then
+        begin
+          if (op2 land 4) = 0 then  fp_fp_conv  else fp_int_conv
+        end
+      else if (op0 land 9) = 0 && (op1 land 2) = 0 then
+        begin
+          if (op2 land 4) = 4 && (op3 land 1) = 1 then
+            simd_three_same
+          else
+            error s.a (Printf.sprintf "Unsupported scalar floating point or SIMD opcode: 0x%08x" insn)
+        end
+      else
+        begin
+          L.debug (fun p -> p "FP/SIMD instruction decoded as: op0=%x op1=%x op2=%x op3=%x" op0 op1 op2 op3);
+          error s.a (Printf.sprintf "Unsupported scalar floating point or SIMD opcode: 0x%08x" insn)
+        end
+    in f s insn
+
+
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction str in
@@ -915,6 +1022,7 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
         | 0b0100 | 0b0110 | 0b1100 | 0b1110 -> load_store s instruction
         (* x101 : data processing (register) *)
         | 0b0101 | 0b1101 -> data_processing_reg s instruction
+        | 0b0111 | 0b1111 -> scalar_fp_simd s instruction
         | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction)
     in
     return s str stmts
