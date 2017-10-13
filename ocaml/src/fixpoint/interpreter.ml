@@ -133,12 +133,13 @@ struct
 	      end
         ) l;
 
-       List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
-                                      begin
-					L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
-					Cfa.remove_state g v; l'
-                                      end
-	 else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
+        List.fold_left (fun l' v ->
+          if D.is_bot v.Cfa.State.v then
+            begin
+			  L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
+			  Cfa.remove_state g v; l'
+            end
+	      else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
       with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 								
  
@@ -416,7 +417,11 @@ struct
 	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * Taint.t) =
         try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s fun_stack in v.Cfa.State.v <- d; v::l, Taint.logor b b') ([], Taint.U) vertices
+          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s fun_stack in
+                                          v.Cfa.State.v <- d;
+                                          let taint = Taint.logor b b' in
+                                          (*v.Cfa.State.taint_sources <- taint;*)
+                                          v::l, taint) ([], Taint.U) vertices
         with Jmp_exn ->
              match s with 
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts
@@ -472,7 +477,12 @@ struct
       let vstart = copy v v.Cfa.State.v None true in
       vstart.Cfa.State.ip <- ip;
       let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
-      List.iter (fun v -> v.Cfa.State.taint_sources <- taint) vertices;
+      begin
+        try let pred = Cfa.pred g vstart in
+            pred.Cfa.State.taint_sources <- taint;
+            L.debug (fun p -> p "taint = %s (ip = %s)" (Taint.to_string taint) (Data.Address.to_string pred.Cfa.State.ip))
+        with _ -> ()
+      end;
       vertices
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
@@ -642,7 +652,7 @@ struct
             | Some (v, ip', d') ->
                Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
-               let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
+              let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
 	       	(* add overrides if needed *)
 	       let new_vertices =
 		 try
@@ -660,8 +670,8 @@ struct
 		   Not_found -> new_vertices
 	       in
 	       (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
-               let vertices'  = filter_vertices true g new_vertices in
-               List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
+           let vertices'  = filter_vertices true g new_vertices in
+           List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
                (* udpate the internal state of the decoder *)
                d := d'
             | None -> ()
