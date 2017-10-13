@@ -478,9 +478,9 @@ struct
       vstart.Cfa.State.ip <- ip;
       let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
       begin
-        try let pred = Cfa.pred g vstart in
-            pred.Cfa.State.taint_sources <- taint;
-            L.debug (fun p -> p "taint = %s (ip = %s)" (Taint.to_string taint) (Data.Address.to_string pred.Cfa.State.ip))
+        try 
+          v.Cfa.State.taint_sources <- taint;
+          List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- Taint.logor v.Cfa.State.taint_sources taint) !fun_stack;
         with _ -> ()
       end;
       vertices
