@@ -861,22 +861,10 @@ let vaddr_to_paddr vaddr ph =
     ph in
   Z.(phdr.p_offset + vaddr - phdr.p_vaddr)
 
-let patch_rel s (rel:e_rel_t) symaddr elf =
-  match rel.r_type with
-  | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
-  | R_386_GLOB_DAT | R_386_JUMP_SLOT ->
-     let patched_file_offset = Z.to_int (vaddr_to_paddr rel.r_offset elf.ph) in
-     zenc_word_xword s patched_file_offset symaddr elf.hdr.e_ident
-  | R_386_RELATIVE -> () 
-  | _ -> L.abort (fun p -> p "Unsupported relocation type for [%s]" (rel_to_string rel))
 
-let patch_rela s (rela:e_rela_t) symaddr elf =
-  match rela.r_type with
-  | R_AARCH64_GLOB_DAT | R_AARCH64_JUMP_SLOT  ->
-     let patched_file_offset = Z.to_int (vaddr_to_paddr rela.r_offset elf.ph) in
-     zenc_word_xword s patched_file_offset Z.(symaddr + rela.r_addend) elf.hdr.e_ident
-  | _ -> L.abort (fun p -> p "Unsupported relocation type for [%s]" (rela_to_string rela))
-
+let patch_elf elf s vaddr value = 
+  let paddr = Z.to_int (vaddr_to_paddr vaddr elf.ph) in
+  zenc_word_xword s paddr value elf.hdr.e_ident
 
 (*
 let () =
