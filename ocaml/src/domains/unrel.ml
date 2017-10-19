@@ -1068,6 +1068,7 @@ module Make(D: T) =
                         let v' =
                           match src_tainted, D.taint_sources r with
                           | Taint.U, Taint.U -> r
+                          | _, Taint.U -> D.span_taint r src_tainted
                           | _, _ -> D.taint r
                         in
                         write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
