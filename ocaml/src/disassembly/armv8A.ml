@@ -406,7 +406,7 @@ struct
     let rd, post = get_Rd_lv rd_v sf_v in
     let rn = get_reg_exp rn_v sf_v in
     let extended_reg =  extend_reg sz rm_v option_v imm3_v in
-    (add_sub_core sz rd rn op_v extended_reg s_b) @ post
+    (add_sub_core sz rd rn op_v extended_reg s_b @ sf_zero_rd rd_v sf_v s_b) @ post
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with shifted register *)
   let add_sub_reg_shift s insn =
@@ -419,7 +419,7 @@ struct
     let rn = get_reg_exp rn_v sf_v in
     let rm = get_reg_exp rm_v sf_v in
     let shifted_rm =  get_shifted_reg sz insn rm imm6_v in
-    (add_sub_core sz rd rn op_v shifted_rm s_b) @ post
+    (add_sub_core sz rd rn op_v shifted_rm s_b @ sf_zero_rd rd_v sf_v s_b) @ post
 
   (* AND / ORR / EOR / ANDS (32/64) core *)
   let logic_core sz dst op1 opc op2 set_flags =
@@ -533,7 +533,7 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
         end
       | _ -> L.abort (fun p->p "BFM/SBFM not handled yet")
     in
-    res
+    res @ sf_zero_rd rd_v sf_v false
 
   (* EXTR *)
   let extr s insn =
