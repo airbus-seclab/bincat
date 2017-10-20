@@ -128,7 +128,7 @@ module Make(Modname: sig val name : string end) = struct
           log_stdout l in
       let remain = log_stdout (split_on_char '\n' msg) in
       stdout_remain := remain ;
-      if remain <> "" then info (fun p -> p "line buffered stdout=[%s]" remain);
+      if remain <> "" then info2 (fun p -> p "line buffered stdout=[%s]" remain);
     flush !logfid
 
 
