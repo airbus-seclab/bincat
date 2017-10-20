@@ -52,7 +52,7 @@ struct
     | _ -> [], []
 
   let stub_stmts_from_name name callconv =
-    let stub_call = 
+    let stub_call =
       if  Hashtbl.mem Stubs.stubs name then
         [ Directive (Stub (name, callconv)) ]
       else

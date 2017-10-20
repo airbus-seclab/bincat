@@ -39,7 +39,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       Printexc.print_raw_backtrace stdout raw_bt
     in
     Printexc.set_uncaught_exception_handler print_exc;
-  
+
     (* opening the configuration file *)
     let cin =
       try open_in configfile
@@ -59,7 +59,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     | Parser.Error ->
        close_in cin;
       L.abort (fun p -> p "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
-	
+
     | Failure msg ->
        close_in cin;
       L.abort (fun p -> p "Parse error (%s) near location %s of %s" msg (string_of_position lexbuf) configfile)
@@ -72,9 +72,9 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     | Config.RAW -> Raw.make_mapped_mem
     | Config.MANUAL -> Manual.make_mapped_mem in
   Mapped_mem.current_mapping := Some (do_map_file ());
-  let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
-  let module Pointer 	 = Pointer.Make(Vector)	in
-  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
+  let module Vector      = Vector.Make(Reduced_bit_tainting) in
+  let module Pointer     = Pointer.Make(Vector) in
+  let module Domain      = Reduced_unrel_typenv.Make(Pointer) in
   let decoder =
     match !Config.architecture with
     | Config.X86 -> (module X86.Make: Decoder.Make)
@@ -86,7 +86,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
 
   (* defining the dump function to provide to the fixpoint engine *)
     let dump cfa = Interpreter.Cfa.print resultfile cfa in
-  
+
   (* internal function to launch backward/forward analysis from a previous CFA and config *)
     let from_cfa fixpoint =
       let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
@@ -108,9 +108,9 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
         | Config.Forward Config.Bin ->
           (* 6: generate code *)
           (* 7: generate the nitial cfa with only an initial state *)
-          let ep' 	= Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-          let s  	= Interpreter.Cfa.init_state ep'					        in
-          let g 	= Interpreter.Cfa.create ()					        in
+          let ep'   = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+          let s     = Interpreter.Cfa.init_state ep'                            in
+          let g     = Interpreter.Cfa.create ()                         in
           Interpreter.Cfa.add_state g s;
           let cfa =
             match !Mapped_mem.current_mapping with

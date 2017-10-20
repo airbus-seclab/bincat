@@ -56,12 +56,12 @@ module Make (V: Vector.T) =
       | Val (r, o) -> Printf.sprintf "%c%s" (char_of_region r) (V.to_string o)
 
 
-	let to_strings p =
-	  match p with
-	    | BOT -> "B0x_", "_"
+    let to_strings p =
+      match p with
+        | BOT -> "B0x_", "_"
             | TOP -> "T0x?", "?"
             | Val (r, o) -> let s, t = V.to_strings o in
-			    Printf.sprintf "%c%s" (char_of_region r) s, t
+                Printf.sprintf "%c%s" (char_of_region r) s, t
 
         let untaint p =
             match p with
@@ -80,8 +80,8 @@ module Make (V: Vector.T) =
 
         let join p1 p2 =
             match p1, p2 with
-            | BOT, p | p, BOT 	   -> p
-            | TOP, _ | _, TOP 	   -> TOP
+            | BOT, p | p, BOT      -> p
+            | TOP, _ | _, TOP      -> TOP
             | Val (r1, o1), Val (r2, o2) ->
               match r1, r2 with
               | Global, r | r, Global -> Val (r, V.join o1 o2)
@@ -92,8 +92,8 @@ module Make (V: Vector.T) =
         let widen p1 p2 =
             match p1, p2 with
             | p, BOT
-            | BOT, p 			   -> p
-            | TOP, _ | _, TOP		   -> TOP
+            | BOT, p               -> p
+            | TOP, _ | _, TOP          -> TOP
             | Val (r1, o1), Val (r2, o2) ->
               match r1, r2 with
               | Global, r | r, Global ->
@@ -105,38 +105,38 @@ module Make (V: Vector.T) =
 
         let meet p1 p2 =
             match p1, p2 with
-            | TOP, p | p, TOP 	   -> p
-            | BOT, p | p, BOT 	   -> p
+            | TOP, p | p, TOP      -> p
+            | BOT, p | p, BOT      -> p
             | Val (r1, o1), Val (r2, o2) ->
               match r1, r2 with
               | Global, r | r, Global ->
                 Val (r, V.meet o1 o2)
               | r1, r2 ->
                  if r1 = r2 then
-		   try Val (r1, V.meet o1 o2)
-		   with _ -> BOT
+           try Val (r1, V.meet o1 o2)
+           with _ -> BOT
                 else BOT
 
         let unary op p =
             match p with
-            | BOT 	   -> BOT
-            | TOP 	   -> TOP
+            | BOT      -> BOT
+            | TOP      -> TOP
             | Val (r, o) ->
               try Val (r, V.unary op o)
               with _ -> BOT
 
         let binary op p1 p2 =
             match p1, p2 with
-            | BOT, _ | _, BOT 	   -> BOT
-            | TOP, _ | _, TOP 	   -> TOP
+            | BOT, _ | _, BOT      -> BOT
+            | TOP, _ | _, TOP      -> TOP
             | Val (r1, o1), Val (r2, o2) ->
               match r1, r2 with
               | Global, r | r, Global ->
                 begin
                     try Val (r, V.binary op o1 o2)
                     with
-		    | Exceptions.Error _ as e -> raise e
-		    | _ -> BOT
+            | Exceptions.Error _ as e -> raise e
+            | _ -> BOT
                 end
               | r1, r2                ->
                 try
@@ -149,23 +149,23 @@ module Make (V: Vector.T) =
 
         let compare p1 op p2 =
             match p1, p2 with
-            | BOT, BOT 		   -> op = Asm.EQ || op = Asm.LEQ
-            | BOT, _ 			   -> op = Asm.LEQ || op = Asm.LT
-            | _, BOT 			   -> false
-            | _, TOP | TOP, _		   -> true
+            | BOT, BOT         -> op = Asm.EQ || op = Asm.LEQ
+            | BOT, _               -> op = Asm.LEQ || op = Asm.LT
+            | _, BOT               -> false
+            | _, TOP | TOP, _          -> true
             | Val (r1, o1), Val (r2, o2) ->
               if r1 = r2 || r1 = Global || r2 = Global then V.compare o1 op o2
               else true
 
         let to_addresses p =
             match p with
-            | BOT 	   -> raise (Exceptions.Empty "pointer.to_addresses: undefined pointer")
-            | TOP 	   -> raise (Exceptions.Too_many_concrete_elements "pointer.to_addresses: imprecise pointer")
+            | BOT      -> raise (Exceptions.Empty "pointer.to_addresses: undefined pointer")
+            | TOP      -> raise (Exceptions.Too_many_concrete_elements "pointer.to_addresses: imprecise pointer")
             | Val (r, o) -> V.to_addresses r o
 
         let is_subset p1 p2 =
             match p1, p2 with
-            | BOT, _ | _, TOP 	   -> true
+            | BOT, _ | _, TOP      -> true
             | _, BOT | TOP, _            -> false
             | Val (r1, o1), Val (r2, o2) ->
               if r1 = r2 then V.is_subset o1 o2
@@ -175,16 +175,16 @@ module Make (V: Vector.T) =
           | Val (r, o) ->
              let o', taint' = V.taint_of_config taint n (Some o) in
              Val (r, o'), taint'
-               
-          | _ 	   -> prev, Taint.U
+
+          | _      -> prev, Taint.U
 
         let of_config r c n = Val (r, V.of_config c n)
 
         let combine p1 p2 l u =
           L.debug2 (fun p -> p "Pointer.combine between %s and %s" (to_string p1) (to_string p2));
             match p1, p2 with
-            | BOT, _ | _, BOT 	   -> BOT
-            | TOP, _ | _, TOP 	   -> TOP
+            | BOT, _ | _, BOT      -> BOT
+            | TOP, _ | _, TOP      -> TOP
             | Val (r1, o1), Val (r2, o2) ->
               if r1 = r2 then Val (r1, V.combine o1 o2 l u)
               else BOT
@@ -230,16 +230,16 @@ module Make (V: Vector.T) =
               Val (r1, V.concat o1 o2)
             else BOT
 
-	let get_minimal_taint p =
-	  match p with
-	  | TOP -> Taint.TOP
+    let get_minimal_taint p =
+      match p with
+      | TOP -> Taint.TOP
       | BOT -> Taint.U
-	  | Val (_, o) -> V.get_minimal_taint o
+      | Val (_, o) -> V.get_minimal_taint o
 
     let taint_sources p =
       match p with
-	  | TOP -> Taint.TOP
+      | TOP -> Taint.TOP
       | BOT ->  Taint.U
-	  | Val (_, o) -> V.taint_sources o
+      | Val (_, o) -> V.taint_sources o
 
     end: Unrel.T)

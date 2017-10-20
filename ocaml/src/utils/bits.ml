@@ -24,5 +24,5 @@ let ff nb =
     s := Z.add ff (Z.shift_left !s 8)
   done;
   !s
-					  
-       
+
+

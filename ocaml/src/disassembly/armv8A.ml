@@ -166,10 +166,10 @@ struct
   module Imports = Armv8aImports.Make(Domain)(Stubs)
 
   type state = {
-    mutable g 	    : Cfa.t; 	   (** current cfa *)
-    mutable b 	    : Cfa.State.t; (** state predecessor *)
-    a 	     	    : Address.t;   (** current address to decode *)
-    buf 	     	: string;      (** buffer to decode *)
+    mutable g       : Cfa.t;       (** current cfa *)
+    mutable b       : Cfa.State.t; (** state predecessor *)
+    a               : Address.t;   (** current address to decode *)
+    buf             : string;      (** buffer to decode *)
   }
 
   (* fatal error reporting *)
@@ -311,16 +311,16 @@ struct
     if n <= 1 then 0 else 1 + log2(n asr 1)
 
   let decode_bitmasks sz n imms immr is_imm =
-    L.debug (fun p->p "decode_bitmask(%d,%d,%x,%x)" sz n imms immr); 
+    L.debug (fun p->p "decode_bitmask(%d,%d,%x,%x)" sz n imms immr);
     (*// Compute log2 of element size
     // 2^len must be in range [2, M]
     len = HighestSetBit(immN:NOT(imms));*)
     let len = log2 (((n lsl 6) lor ((lnot imms) land 0x3F)) land 0x7F) in
-    L.debug (fun p->p "decode_bitmask: len= %d" len); 
+    L.debug (fun p->p "decode_bitmask: len= %d" len);
     let levels = (1 lsl len)-1 in
     let s = imms land levels in
     let r = immr land levels in
-    L.debug (fun p->p "decode_bitmask: S=%x R=%x" s r); 
+    L.debug (fun p->p "decode_bitmask: S=%x R=%x" s r);
     let diff = (s-r) land 0x3F in
     (*
        // From a software perspective, the remaining code is equivalant to:
@@ -338,7 +338,7 @@ struct
     let wmask_t = ror_int welem esize r in
     let wmask = replicate_z wmask_t esize sz in
     let tmask = replicate_z telem esize sz in
-    L.debug (fun p->p "decode_bitmask: esize=%d diff=%d welem=%s telem=%s wmask_t=%s wmask=%s tmask=%s" esize diff (Z.format "%x" welem) (Z.format "%x" telem) (Z.format "%x" wmask_t) (Z.format "%x" wmask) (Z.format "%x" tmask)); 
+    L.debug (fun p->p "decode_bitmask: esize=%d diff=%d welem=%s telem=%s wmask_t=%s wmask=%s tmask=%s" esize diff (Z.format "%x" welem) (Z.format "%x" telem) (Z.format "%x" wmask_t) (Z.format "%x" wmask) (Z.format "%x" tmask));
     wmask, tmask
 
   let extend_reg sz reg ext_type shift =
@@ -936,7 +936,7 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
 
 
   (* SIMD three same - C4.1.5, page C-302) *)
-  let simd_three_same s insn = 
+  let simd_three_same s insn =
     let q = (insn lsr 30) land 1 in
     let u = (insn lsr 29) land 1 in
     let size = (insn lsr 22) land 3 in
@@ -1040,7 +1040,7 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
       Some (v', ip', ())
     with
       | Exceptions.Error _ as e -> raise e
-      | _ 			  -> (*end of buffer *) None
+      | _             -> (*end of buffer *) None
 
 
   let init () =

@@ -209,13 +209,13 @@ sig
 
     (** check whether the first argument is included in the second one *)
     val is_subset: t -> t -> bool
-      
+
     (** conversion from a config value.
     The integer parameter is the size in bits of the config value *)
     val of_config: Config.cvalue -> int -> t
-      
+
     (** conversion from a tainting value.
-        The value option is a possible previous init. 
+        The value option is a possible previous init.
         The computed taint is also returned *)
     val taint_of_config: Config.tvalue -> int -> t option -> t * Taint.t
 
@@ -247,12 +247,12 @@ module Make(V: Val) =
 
         let top sz = Array.make sz V.top
 
-	let exists p v =
-	  try
-	    Array.iter (fun b -> if p b then raise Exit) v;
-	    false
-	  with Exit -> true
-	    
+    let exists p v =
+      try
+        Array.iter (fun b -> if p b then raise Exit) v;
+        false
+      with Exit -> true
+
         let exist2 p v1 v2 =
             let n = min (Array.length v1) (Array.length v2) in
             try
@@ -264,11 +264,11 @@ module Make(V: Val) =
             | Exit -> true
             | _    -> false
 
-	(* let iter2 f v1 v2 =
-	  for i = 0 to (Array.length v1) -1 do
-	    f v1.(i) v2.(i)
-	  done
-	*)
+    (* let iter2 f v1 v2 =
+      for i = 0 to (Array.length v1) -1 do
+        f v1.(i) v2.(i)
+      done
+    *)
         let for_all2 p v1 v2 =
             try
                 for i = 0 to (Array.length v1)-1 do
@@ -301,10 +301,10 @@ module Make(V: Val) =
 
     let size v = Array.length v
 
-    let to_z v = v_to_z V.to_z v 
+    let to_z v = v_to_z V.to_z v
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
     let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
-    let extract_strings v = 
+    let extract_strings v =
        let v' =
             if exists V.is_top v then
                 let v_bytes = Bytes.create (Array.length v) in
@@ -323,32 +323,32 @@ module Make(V: Val) =
                     "ALL"
                 else
                     Data.Word.to_string r
-            with _ -> 
+            with _ ->
                 let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
                 Array.iteri set_taint_char v;
                 "0b"^Bytes.to_string taint_bytes
         in
-	v', t
+    v', t
     let to_string v =
      let v', t = extract_strings v in
      if String.compare t "0x0" == 0 then v'
      else Printf.sprintf "%s!%s" v' t
 
     let map2 f v1 v2 =
-	  let n = Array.length v1 in
-	  let n2 = Array.length v2 in
-	  if n <> n2 then
-	    L.abort (fun p -> p "map2 on vectors of different sizes (v1=%s(%i) v2=%s(%i)"
-	      (to_string v1) n (to_string v2) n2)
-	  else
+      let n = Array.length v1 in
+      let n2 = Array.length v2 in
+      if n <> n2 then
+        L.abort (fun p -> p "map2 on vectors of different sizes (v1=%s(%i) v2=%s(%i)"
+          (to_string v1) n (to_string v2) n2)
+      else
             let v = Array.make n V.top in
             for i = 0 to n-1 do
                 v.(i) <- f v1.(i) v2.(i)
             done;
             v
-	  
+
     let to_strings v = extract_strings v
-      
+
         let concat v1 v2 = Array.append v1 v2
 
         let join v1 v2 = map2 V.join v1 v2
@@ -364,9 +364,9 @@ module Make(V: Val) =
         let core_add_sub op v1 v2 =
           let n = Array.length v1 and lv2 = (Array.length v2) in
           if n <> lv2 then
-	    L.abort (fun p -> p "code_add_sub vectors of different sizes (v1=%s(%i) v2=%s(%i))"
-	      (to_string v1) n (to_string v2) lv2)
-	  else
+        L.abort (fun p -> p "code_add_sub vectors of different sizes (v1=%s(%i) v2=%s(%i))"
+          (to_string v1) n (to_string v2) lv2)
+      else
             let v = Array.make n V.zero in
             let carry_borrow = ref None in
             for i = n-1 downto 0 do
@@ -386,87 +386,87 @@ module Make(V: Val) =
             done;
             v
 
-	  
-	let lt_core v1 v2 final =
-	  let lv1 = Array.length v1 in
-	  let lv2 = Array.length v2 in
+
+    let lt_core v1 v2 final =
+      let lv1 = Array.length v1 in
+      let lv2 = Array.length v2 in
           if lv1 <> lv2 then
             L.abort (fun p -> p "lt_core : comparing vectors of different sizes (v1:%i, v2:%i)" lv1 lv2)
-	  else
-	    let rec rec_lt v1 v2 i =
-	      if i >= lv1 then final
-	      else
-		let nxt = V.lt_multibit_helper v1.(i) v2.(i) in
-		match nxt with
-		| Some b -> b
-		| None -> rec_lt v1 v2 (i+1)
-	    in let res = rec_lt v1 v2 0 in
-	       L.debug2 (fun p -> p "lt_core %s %s %s = %b"
-		 (to_string v1) (if final then "<=" else "<")
-		 (to_string v2) res);
-	       res
+      else
+        let rec rec_lt v1 v2 i =
+          if i >= lv1 then final
+          else
+        let nxt = V.lt_multibit_helper v1.(i) v2.(i) in
+        match nxt with
+        | Some b -> b
+        | None -> rec_lt v1 v2 (i+1)
+        in let res = rec_lt v1 v2 0 in
+           L.debug2 (fun p -> p "lt_core %s %s %s = %b"
+         (to_string v1) (if final then "<=" else "<")
+         (to_string v2) res);
+           res
 
-	let lt v1 v2 = lt_core v1 v2 false
-	let leq v1 v2 = lt_core v1 v2 true
-	let gt v1 v2 = lt v2 v1
-	let geq v1 v2 = leq v2 v1
+    let lt v1 v2 = lt_core v1 v2 false
+    let leq v1 v2 = lt_core v1 v2 true
+    let gt v1 v2 = lt v2 v1
+    let geq v1 v2 = leq v2 v1
 
     let compare v1 op v2 =
       if (Array.length v1) != (Array.length v2) then
         L.abort (fun p -> p "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
-		  (to_string v1) (Asm.string_of_cmp op) (to_string v2)
-		  (Array.length v1) (Array.length v2));
+          (to_string v1) (Asm.string_of_cmp op) (to_string v2)
+          (Array.length v1) (Array.length v2));
       match op with
       | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
       | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-	  | Asm.LT -> lt v1 v2
-	  | Asm.LEQ -> leq v1 v2
-	  | Asm.GT -> gt v1 v2
-	  | Asm.GEQ -> geq v1 v2
-         
+      | Asm.LT -> lt v1 v2
+      | Asm.LEQ -> leq v1 v2
+      | Asm.GT -> gt v1 v2
+      | Asm.GEQ -> geq v1 v2
+
     let add v1 v2 =
-	  let res = core_add_sub V.add v1 v2 in
-	  L.debug2 (fun p -> p "add(%s, %s) = %s"
-	    (to_string v1) (to_string v2) (to_string res));
-	  res
+      let res = core_add_sub V.add v1 v2 in
+      L.debug2 (fun p -> p "add(%s, %s) = %s"
+        (to_string v1) (to_string v2) (to_string res));
+      res
 
         let sub v1 v2 = core_add_sub V.sub v1 v2
 
         let xor v1 v2 =
-	  let res = map2 V.xor v1 v2 in
-	  L.debug2 (fun p -> p "xor(%s, %s) = %s"
-	    (to_string v1) (to_string v2) (to_string res));
-	  res
+      let res = map2 V.xor v1 v2 in
+      L.debug2 (fun p -> p "xor(%s, %s) = %s"
+        (to_string v1) (to_string v2) (to_string res));
+      res
 
-	let lognot v = Array.map V.lognot v
+    let lognot v = Array.map V.lognot v
 
-	let neg v =
-	  let n = Array.length v in
-	  let one = Array.make n V.zero in
-	  one.(n-1) <- V.one;
-	  add (lognot v) one
+    let neg v =
+      let n = Array.length v in
+      let one = Array.make n V.zero in
+      one.(n-1) <- V.one;
+      add (lognot v) one
 
         let logand v1 v2 =
-	  let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
+      let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
           if lv1 <> lv2 then
-	    L.abort (fun p -> p "logand vectors of different sizes (v1=%s(%i) v2=%s(%i))"
-	      (to_string v1) lv1 (to_string v2) lv2)
-	  else
-	    let res = map2 V.logand v1 v2 in
-	    L.debug2 (fun p -> p "logand(%s, %s)=%s"
-	      (to_string v1) (to_string v2) (to_string res));
-	    res
-	  
+        L.abort (fun p -> p "logand vectors of different sizes (v1=%s(%i) v2=%s(%i))"
+          (to_string v1) lv1 (to_string v2) lv2)
+      else
+        let res = map2 V.logand v1 v2 in
+        L.debug2 (fun p -> p "logand(%s, %s)=%s"
+          (to_string v1) (to_string v2) (to_string res));
+        res
+
         let logor v1 v2 =
-	  let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
+      let lv1 = (Array.length v1) and lv2 = (Array.length v2) in
           if lv1 <> lv2 then
-	    L.abort (fun p -> p "logor vectors of different sizes (v1=%s(%i) v2=%s(%i))"
-			 (to_string v1) lv1 (to_string v2) lv2)
-	  else
-	    let res = map2 V.logor v1 v2 in
-	    L.debug2 (fun p -> p "logor(%s, %s)=%s"
-			     (to_string v1) (to_string v2) (to_string res));
-	    res
+        L.abort (fun p -> p "logor vectors of different sizes (v1=%s(%i) v2=%s(%i))"
+             (to_string v1) lv1 (to_string v2) lv2)
+      else
+        let res = map2 V.logor v1 v2 in
+        L.debug2 (fun p -> p "logor(%s, %s)=%s"
+                 (to_string v1) (to_string v2) (to_string res));
+        res
 
         let sign_extend v i =
             let n = Array.length v in
@@ -486,25 +486,25 @@ module Make(V: Val) =
                     v'
                 end
 
-	let truncate v new_sz =
-	  let sz = Array.length v in
+    let truncate v new_sz =
+      let sz = Array.length v in
           L.debug (fun p -> p "truncate((%d)%s, %d)" sz (to_string v) new_sz);
-	  if sz < new_sz then
+      if sz < new_sz then
             L.abort (fun p -> p "truncate cannont truncate v=(%d)%s to %d bits"
-	      sz (to_string v) new_sz)
-	  else
-	    let res = Array.make new_sz V.zero in
-	    for i = 0 to new_sz-1 do
-	      res.(i) <- v.(i+sz-new_sz)
-	    done;
-	    res
+          sz (to_string v) new_sz)
+      else
+        let res = Array.make new_sz V.zero in
+        for i = 0 to new_sz-1 do
+          res.(i) <- v.(i+sz-new_sz)
+        done;
+        res
 
         let zero_extend v new_sz =
           let sz = Array.length v in
           L.debug2 (fun p -> p "zero_extend((%d)%s, %d)" sz (to_string v) new_sz);
             if new_sz < sz then
               L.abort (fun p -> p "zero_extend cannont extend v=(%d)%s to %d bits"
-		sz (to_string v) new_sz)
+        sz (to_string v) new_sz)
             else
               let o  = new_sz - sz              in
               let new_v = Array.make new_sz V.zero in
@@ -581,17 +581,17 @@ module Make(V: Val) =
             let nn   = 2*n in
             let v2_ext = zero_extend v2 nn    in
             let res = ref (Array.make nn V.zero) in
-	    
-	    for i = 0 to n-1 do
-	      let v2_ext_shift = ishl v2_ext (n-i-1) in
-	      let v2_ext_shift_mul = Array.map (V.logand v1.(i)) v2_ext_shift in
-	      res := add !res v2_ext_shift_mul
-	    done;
-	    !res
+
+        for i = 0 to n-1 do
+          let v2_ext_shift = ishl v2_ext (n-i-1) in
+          let v2_ext_shift_mul = Array.map (V.logand v1.(i)) v2_ext_shift in
+          res := add !res v2_ext_shift_mul
+        done;
+        !res
 
         let imul v1 v2 =
           L.debug2 (fun p -> p "imul((%d)%s, (%d)%s)"
-	    (Array.length v1) (to_string v1) (Array.length v2) (to_string v2));
+        (Array.length v1) (to_string v1) (Array.length v2) (to_string v2));
           let v1_len = Array.length v1 in
           let v2_len = Array.length v2 in
           let long_v1 = sign_extend v1 (v1_len*2) in
@@ -607,58 +607,58 @@ module Make(V: Val) =
           let lv1   = Array.length v1    in
           let lv2   = Array.length v2    in
           if lv1 < lv2 then
-            L.abort (fun p -> p "core_div : dividing a vector by a bigger vector is not supported (v1=%s(%i) v2=%s(%i))" 
-	      (to_string v1) lv1 (to_string v2) lv2)
-	  else
-	    begin
+            L.abort (fun p -> p "core_div : dividing a vector by a bigger vector is not supported (v1=%s(%i) v2=%s(%i))"
+          (to_string v1) lv1 (to_string v2) lv2)
+      else
+        begin
               (* find most significant bit to 1 and check that v2 is not zero *)
-	      let v2_ext = if lv1 > lv2 then zero_extend v2 lv1 else v2 in
-	      let msb1 = ref 0 in
-	      while (!msb1 < lv1) && (V.is_zero v2_ext.(!msb1)) do
-		msb1 := !msb1+1;
-	      done;
-	      if !msb1 = lv1 then
-		L.abort (fun p -> p "core_div((%d)%s, (%d)%s): Division by zero"
-		  (Array.length v1) (to_string v1)
-		  (Array.length v2) (to_string v2)
-		)
-	      else
-		let quo = Array.make lv1 V.zero in
-		let rem = ref v1 in 
-		for i = !msb1 downto 0 do
-		  let sv2 = ishl v2_ext i in
-		  if geq !rem sv2 then
-		    begin
-		      rem := sub !rem sv2;
-		      quo.(lv1-i-1) <- V.one;
-		    end
-		done;
-		rem := truncate !rem lv2;
-		L.debug2 (fun p -> p "core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
-				 (Array.length v1) (to_string v1)
-				 (Array.length v2) (to_string v2)
-				 (Array.length quo) (to_string quo)
-				 (Array.length !rem) (to_string !rem));
-		quo,!rem
-	    end
+          let v2_ext = if lv1 > lv2 then zero_extend v2 lv1 else v2 in
+          let msb1 = ref 0 in
+          while (!msb1 < lv1) && (V.is_zero v2_ext.(!msb1)) do
+        msb1 := !msb1+1;
+          done;
+          if !msb1 = lv1 then
+        L.abort (fun p -> p "core_div((%d)%s, (%d)%s): Division by zero"
+          (Array.length v1) (to_string v1)
+          (Array.length v2) (to_string v2)
+        )
+          else
+        let quo = Array.make lv1 V.zero in
+        let rem = ref v1 in
+        for i = !msb1 downto 0 do
+          let sv2 = ishl v2_ext i in
+          if geq !rem sv2 then
+            begin
+              rem := sub !rem sv2;
+              quo.(lv1-i-1) <- V.one;
+            end
+        done;
+        rem := truncate !rem lv2;
+        L.debug2 (fun p -> p "core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
+                 (Array.length v1) (to_string v1)
+                 (Array.length v2) (to_string v2)
+                 (Array.length quo) (to_string quo)
+                 (Array.length !rem) (to_string !rem));
+        quo,!rem
+        end
 
-	let is_neg v1 =
-	  V.is_one v1.(0) || V.is_top v1.(0)
+    let is_neg v1 =
+      V.is_one v1.(0) || V.is_top v1.(0)
 
     let core_idiv v1 v2 =
-	  let is_neg_v1 = is_neg v1 in
-	  let is_neg_v2 = is_neg v2 in
-	  let v1' = if is_neg_v1 then neg v1 else v1 in
-	  let v2' = if is_neg_v2 then neg v2 else v2 in
-	  let quo,rem = core_div v1' v2' in
-	  let quo' = if is_neg_v1 <> is_neg_v2 then (neg quo) else quo in
-	  let rem' = if is_neg_v1 then (neg rem) else rem in
-	  L.debug2 (fun p -> p "core_idiv (%d)%s, (%d)%s = (%d)%s mod=(%d)%s"
-	    (Array.length v1) (to_string v1)
-	    (Array.length v2) (to_string v2)
-	    (Array.length quo') (to_string quo')
-	    (Array.length rem') (to_string rem'));
-	  quo',rem'
+      let is_neg_v1 = is_neg v1 in
+      let is_neg_v2 = is_neg v2 in
+      let v1' = if is_neg_v1 then neg v1 else v1 in
+      let v2' = if is_neg_v2 then neg v2 else v2 in
+      let quo,rem = core_div v1' v2' in
+      let quo' = if is_neg_v1 <> is_neg_v2 then (neg quo) else quo in
+      let rem' = if is_neg_v1 then (neg rem) else rem in
+      L.debug2 (fun p -> p "core_idiv (%d)%s, (%d)%s = (%d)%s mod=(%d)%s"
+        (Array.length v1) (to_string v1)
+        (Array.length v2) (to_string v2)
+        (Array.length quo') (to_string quo')
+        (Array.length rem') (to_string rem'));
+      quo',rem'
 
     let div v1 v2 = fst (core_div v1 v2)
     let modulo v1 v2 = snd (core_div v1 v2)
@@ -695,26 +695,26 @@ module Make(V: Val) =
         let taint v = Array.map V.taint v
 
         let span_taint v t = Array.map (V.update_taint t) v
-	  
-	let get_minimal_taint v =
-	  Array.fold_left (fun acc v -> Taint.min acc (V.get_taint v)) Taint.U v
-	  
+
+    let get_minimal_taint v =
+      Array.fold_left (fun acc v -> Taint.min acc (V.get_taint v)) Taint.U v
+
 
         let nth_of_z_as_val v i = if Z.testbit v i then V.one else V.zero
         let nth_of_z v i = if Z.testbit v i then Z.one else Z.zero
 
         let of_word w =
-          let sz = Data.Word.size w	   in
+          let sz = Data.Word.size w    in
           let w' = Data.Word.to_int w  in
           let r  = Array.make sz V.top in
           let n' =sz-1 in
           for i = 0 to n' do
-            r.(n'-i) <- nth_of_z_as_val w' i 
+            r.(n'-i) <- nth_of_z_as_val w' i
           done;
           r
 
         let to_addresses r v = Data.Address.Set.singleton (r, to_word V.to_z v)
-          
+
         let is_subset v1 v2 = for_all2 V.is_subset v1 v2
 
         let of_config c n =
@@ -727,7 +727,7 @@ module Make(V: Val) =
                for i = 0 to n' do
                  v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
                done;
-            | Config.Bytes_Mask (b, m) -> 
+            | Config.Bytes_Mask (b, m) ->
                let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
                for i = 0 to n' do
                  if Z.testbit m i then
@@ -775,7 +775,7 @@ module Make(V: Val) =
                let taint = match tid with | None ->  Taint.U | Some t -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t)) in
                v, taint
             | Config.Taint (b, tid) ->
-              for i = 0 to n' do                
+              for i = 0 to n' do
                   v.(n'-i) <- V.taint_of_z (nth_of_z b i) v.(n'-i) tid
               done;
               let taint =
@@ -792,7 +792,7 @@ module Make(V: Val) =
                  v.(n'-i) <- V.taint_of_z Z.one v.(n'-i) (Some tid)
                done;
                v, Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
-                 
+
             | Config.TMask (b, m, tid) ->
               let n' = n-1 in
               for i = 0 to n' do
@@ -813,46 +813,46 @@ module Make(V: Val) =
               v, taint
 
     let forget v opt =
-      L.debug (fun (p: ('a, unit, string) format -> 'a) -> 
+      L.debug (fun (p: ('a, unit, string) format -> 'a) ->
         match opt with
         | None -> p "Forget vector [%s(%d)] (all bits)%0.0i%0.0i" (to_string v) (Array.length v) 0 0
         | Some (l,u) -> p "Forget vector [%s(%d)] bits %i -> %i " (to_string v) (Array.length v) l u
       );
-	  let v' = Array.copy v in
-	  match opt with
-	  | Some (l, u) ->
-	     let n = (Array.length v')-1 in
-	     for i = l to u do
-	       v'.(n-i) <- V.forget v'.(n-i)
-	     done;
-	     v'
-	  | None -> Array.map V.forget v'
-	  
+      let v' = Array.copy v in
+      match opt with
+      | Some (l, u) ->
+         let n = (Array.length v')-1 in
+         for i = l to u do
+           v'.(n-i) <- V.forget v'.(n-i)
+         done;
+         v'
+      | None -> Array.map V.forget v'
+
     (** copy bits from v2 to bits from low to up of v1,
         vectors can be of different sizes *)
     let combine v1 v2 low up =
       L.debug2 (fun p -> p "combine(%s(%d)[%d:%d] <- %s(%d))"
-	    (to_string v1) (Array.length v1)  low up (to_string v2) (Array.length v2));
+        (to_string v1) (Array.length v1)  low up (to_string v2) (Array.length v2));
       let sz2 = Array.length v2 in
-	  if sz2 <> up-low+1 then
-	    L.abort (fun p -> p "combine: source is %d bits while it is supposed to fit into %d bits (from bit %i to %i)"
-	      sz2 (up-low+1) low up)
-	  else
-	    if low > up then L.abort (fun p -> p "combine : low=%i > up=%i" low up)
-	    else
+      if sz2 <> up-low+1 then
+        L.abort (fun p -> p "combine: source is %d bits while it is supposed to fit into %d bits (from bit %i to %i)"
+          sz2 (up-low+1) low up)
+      else
+        if low > up then L.abort (fun p -> p "combine : low=%i > up=%i" low up)
+        else
           let sz1 = Array.length v1 in
           if up >= sz1 then
             L.abort (fun p -> p "combine : writing out of v1: up=%i >= length(v1)=%i" up sz1)
             else
-	        begin
-		      let v = Array.copy v1 in
-		      let j = ref 0 in
-		      for i = (sz1-1-up) to (sz1-1-low) do
-		        v.(i) <- v2.(!j);
-		        j := !j+1;
-		      done;
+            begin
+              let v = Array.copy v1 in
+              let j = ref 0 in
+              for i = (sz1-1-up) to (sz1-1-low) do
+                v.(i) <- v2.(!j);
+                j := !j+1;
+              done;
               v
-	        end
+            end
 
         let extract v low up =
             L.debug2 (fun p -> p "extract(%s, %d, %d), sz : %d" (to_string v) low up (Array.length v));
@@ -877,5 +877,5 @@ module Make(V: Val) =
 
         let taint_sources v =
           Array.fold_left (fun acc elt -> Taint.logor acc (V.get_taint elt)) (Taint.U) v
-					
+
     end: T)

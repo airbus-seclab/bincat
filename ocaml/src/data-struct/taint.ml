@@ -58,7 +58,7 @@ module SrcSet = SetExt.Make (Src)
 
 
 (* a taint value can be
-   - undefined (BOT) 
+   - undefined (BOT)
    - untainted (U)
    - or a set (S) of (possible) tainting sources
    - or an unknown taint (TOP) *)
@@ -82,7 +82,7 @@ let join_predicate v1 v2 =
 
 let join (t1: t) (t2: t): t =
   match t1, t2 with
-  | BOT, t | t, BOT -> t  
+  | BOT, t | t, BOT -> t
   | U, U -> U
   | _, U  | U, _ -> TOP
   | S src1, S src2 -> S (SrcSet.union_on_predicate join_predicate src1 src2)
@@ -90,7 +90,7 @@ let join (t1: t) (t2: t): t =
 
 let logor (t1: t) (t2: t): t =
   match t1, t2 with
-  | BOT, t | t, BOT -> t  
+  | BOT, t | t, BOT -> t
   | U, U -> U
   | t, U  | U, t -> t
   | S src1, S src2 -> S (SrcSet.union_on_predicate join_predicate src1 src2)
@@ -106,7 +106,7 @@ let inter_predicate v1 v2 =
 
 let logand (t1: t) (t2: t): t =
   match t1, t2 with
-  | BOT, t | t, BOT -> t  
+  | BOT, t | t, BOT -> t
   | U, U -> U
   | _, U | U, _ -> U
   | S src1, S src2 ->
@@ -130,7 +130,7 @@ let meet (t1: t) (t2: t): t =
 
 let to_char (t: t): char =
   match t with
-  | BOT -> '_' 
+  | BOT -> '_'
   | TOP -> '?'
   | S _ -> '1'
   | U -> '0'
@@ -186,8 +186,8 @@ let min (t1: t) (t2: t): t =
 let is_tainted (t: t): bool =
   match t with
   | S _ | TOP -> true
-  | U	    -> false
-  | BOT	    -> false
+  | U       -> false
+  | BOT     -> false
 
 let to_z (t: t): Z.t =
   match t with

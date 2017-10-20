@@ -26,27 +26,27 @@ sig
   (** abstract data type for the nodes of the control flow graph *)
   module State:
   sig
-    
-    (** data type for the decoding context *)
-	type ctx_t = {
-	  addr_sz: int; (** size in bits of the addresses *)
-	  op_sz  : int; (** size in bits of operands *)
-	}
-      
-    type t  = {
-	  id: int; 	     		    (** unique identificator of the state *)
-	  mutable ip: Data.Address.t;   (** instruction pointer *)
 
-	  mutable v: domain; 	    (** abstract value *)
-	  mutable ctx: ctx_t ; 	    (** context of decoding *)
-	  mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
-	  mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
-	  mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
-	  mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
-	  mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
-	  mutable bytes: char list;      (** corresponding list of bytes *)
-	  mutable taint_sources: Taint.t (** set of taint sources. Empty if not tainted  *)
-	}
+    (** data type for the decoding context *)
+    type ctx_t = {
+      addr_sz: int; (** size in bits of the addresses *)
+      op_sz  : int; (** size in bits of operands *)
+    }
+
+    type t  = {
+      id: int;                  (** unique identificator of the state *)
+      mutable ip: Data.Address.t;   (** instruction pointer *)
+
+      mutable v: domain;        (** abstract value *)
+      mutable ctx: ctx_t ;      (** context of decoding *)
+      mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
+      mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
+      mutable back_loop: bool; (** true whenever the state belongs to a loop that is backward analysed *)
+      mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
+      mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
+      mutable bytes: char list;      (** corresponding list of bytes *)
+      mutable taint_sources: Taint.t (** set of taint sources. Empty if not tainted  *)
+    }
 
     val compare: t -> t -> int
   end
@@ -56,19 +56,19 @@ sig
   class oracle:
     domain ->
   object
-    (** returns the computed concrete value of the given register 
-        may raise an exception if the conretization fails 
+    (** returns the computed concrete value of the given register
+        may raise an exception if the conretization fails
         (not a singleton, bottom) *)
     method value_of_register: Register.t -> Z.t
-      
+
   end
- 
+
   (** abstract data type of the control flow graph *)
   type t
 
   (** [create] creates an empty CFG *)
   val create: unit -> t
-    
+
   (** [init addr] creates a state whose ip field is _addr_ *)
   val init_state: Data.Address.t -> State.t
 
@@ -78,7 +78,7 @@ sig
   (** [copy_state cfg state] creates a fresh copy of the state _state_ in the CFG _cfg_.
       The fresh copy is returned *)
   val copy_state: t -> State.t -> State.t
-    
+
   (** [remove_state cfg state] removes the state _state_ from the CFG _cfg_ *)
   val remove_state: t -> State.t -> unit
 
@@ -87,8 +87,8 @@ sig
   val pred: t -> State.t -> State.t
 
   (** [pred cfg state] returns the successor of the state _state_ in the given cfg _cfg_. *)
-  val succs: t -> State.t -> State.t list  
-    
+  val succs: t -> State.t -> State.t list
+
   (** iter the function on all states of the graph *)
   val iter_state: (State.t -> unit) -> t -> unit
 
@@ -97,19 +97,19 @@ sig
 
   (** [remove_successor cfg src dst] removes _dst_ from the successor set of _src_ in the CFG _cfg_ *)
   val remove_successor: t -> State.t -> State.t -> unit
-      
+
   (** [last_addr cfg] returns the address of latest added state of _cfg_ whose address is _addr_ *)
   val last_addr: t -> Data.Address.t -> State.t
 
   (** returns every state without successor in the given cfg *)
   val sinks: t -> State.t list
-    
+
   (** [print dumpfile cfg] dump the _cfg_ into the text file _dumpfile_ *)
   val print: string -> t -> unit
-    
+
   (** [marshal fname cfg] marshal the CFG _cfg_ and stores the result into the file _fname_ *)
   val marshal: string -> t -> unit
-    
+
   (** [unmarshal fname] unmarshal the CFG in the file _fname_ *)
   val unmarshal: string -> t
 

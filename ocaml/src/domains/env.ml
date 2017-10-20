@@ -23,7 +23,7 @@ module Key =
           | Reg of Register.t
           | Mem_Itv of Data.Address.t * Data.Address.t (* interval of addresses, from init *)
           | Mem of Data.Address.t                      (* address to single byte *)
-		     
+
         let compare v1 v2 =
             match v1, v2 with
             | Reg r1, Reg r2 -> Register.compare r1 r2
@@ -43,7 +43,7 @@ module Key =
               else 0
             | Reg _ , _    -> 1
             | _   , _    -> -1
-			     
+
         let to_string x =
           match x with
           | Reg r -> Printf.sprintf "reg[%s]"  (Register.name r)

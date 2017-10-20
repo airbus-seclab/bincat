@@ -235,9 +235,9 @@ struct
 
   let branch s instruction =
     let link = (instruction land (1 lsl 24)) <> 0 in
-    let link_stmt,jmp_or_call_stmt = 
+    let link_stmt,jmp_or_call_stmt =
       if link then
-        ([ Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ], [ Call (R (Lval (V (T pc)))) ]) 
+        ([ Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ], [ Call (R (Lval (V (T pc)))) ])
       else
         ([ ], [ Jmp (R (Lval (V (T pc)))) ]) in
     let ofs = (instruction land 0xffffff) lsl 2 in
@@ -299,7 +299,7 @@ struct
                   const 1 1, const 0 1))
 
 
-  let single_data_transfer s instruction = 
+  let single_data_transfer s instruction =
     let rd = (instruction lsr 12) land 0xf in
     let rn = (instruction lsr 16) land 0xf in
     let ofs = if instruction land (1 lsl 25) = 0 then (* immediate value *)
@@ -418,7 +418,7 @@ struct
           else
             Lval (V (reg (shift_op lsr 4))), None in
         match (shift_op lsr 1) land 0x3 with
-        | 0b00 -> (* lsl *) 
+        | 0b00 -> (* lsl *)
            begin
              match  int_shift_count with
              | Some 0 -> Lval (V (reg rm))
@@ -431,7 +431,7 @@ struct
                                   TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl (32-n)) 32),const 0 32),
                                           const 0 1, const 1 1)) ]
                | None -> [ Set ( V (T cflag),   (* shift count comes from a register. We shift again on 33 bits *)
-                                 TernOp (Cmp (EQ, BinOp(And, 
+                                 TernOp (Cmp (EQ, BinOp(And,
                                                         BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))),
                                                               UnOp(ZeroExt 33, op3)),
                                                         const (1 lsl 32) 33), const 0 33),
@@ -542,7 +542,7 @@ struct
            nflag_update_from_reg_exp (reg_from_num rd) ;
            vflag_update_exp (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (reg rd))) ;
            (* sub is computed witn sub a,b = a+(not b)+1, hence the carry *)
-           Set (V (T tmpreg), BinOp(Add, BinOp(Add, 
+           Set (V (T tmpreg), BinOp(Add, BinOp(Add,
                                                to33bits (Lval (V (reg rn))),
                                                to33bits (UnOp(Not, op2_stmt))),
                                     const 1 33)) ;
@@ -555,7 +555,7 @@ struct
          [ zflag_update_exp (Lval (V (reg rd))) ;
            nflag_update_from_reg_exp (reg_from_num rd) ;
            vflag_update_exp op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (reg rd))) ;
-           Set (V (T tmpreg), BinOp(Add, BinOp(Add, 
+           Set (V (T tmpreg), BinOp(Add, BinOp(Add,
                                                to33bits op2_stmt,
                                                to33bits (UnOp(Not, Lval (V (reg rn))))),
                                     const 1 33)) ;
@@ -656,7 +656,7 @@ struct
               false
            | 0b1011 -> (* CMN - set condition codes on Op1 + Op2 *)
               let tmpreg = Register.make (Register.fresh_name ()) 33 in
-              [], 
+              [],
               [ Set( V (T tmpreg), BinOp(Add, to33bits (Lval (V (reg rn))),
                                          to33bits op2_stmt) ) ;
                 Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
@@ -685,7 +685,7 @@ struct
                                                const 28 32))),
                              const 0b10000 32)) ], [], false (* 0b10000 means user mode *)
               else error s.a "MRS from SPSR not supported"
-           | 0b1010 -> (* MSR *) 
+           | 0b1010 -> (* MSR *)
               if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
                 let zero32 = const 0 32 in
                 [ Set (V (T nflag), TernOp(Cmp (EQ, BinOp(And, op2_stmt, const (1 lsl 31) 32), zero32),
@@ -720,7 +720,7 @@ struct
     | 0b0101 -> n_is_clear (* PL - N clear (positive or zero) *)
     | 0b0110 -> v_is_set (* VS - V set (overflow) *)
     | 0b0111 -> v_is_clear (* VC - V clear (no overflow) *)
-    | 0b1000 -> BBinOp(LogAnd, c_is_set, z_is_clear) (* HI - C set and Z clear (unsigned higher) *) 
+    | 0b1000 -> BBinOp(LogAnd, c_is_set, z_is_clear) (* HI - C set and Z clear (unsigned higher) *)
     | 0b1001 -> BBinOp(LogOr, c_is_clear, z_is_set) (* LS - C clear or Z set (unsigned lower or same) *)
     | 0b1010 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_set), BBinOp(LogAnd, n_is_clear, v_is_clear))
                 (* GE - N set and V set, or N clear and V clear (greater or equal) *)
@@ -759,8 +759,8 @@ struct
     | 0b111 when instruction land (1 lsl 24) <> 0 -> error s.a (Printf.sprintf "software interrupt not implemented (swi=%08x)" instruction)
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
     let stmts_cc = match (instruction lsr 28) land 0xf with
-    | 0xf -> []    (* never *) 
-    | 0xe -> stmts (* always *) 
+    | 0xf -> []    (* never *)
+    | 0xe -> stmts (* always *)
     | cc -> wrap_cc cc stmts in
     let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
     (* XXX: 12 bytes if a register is used to specify a shift amount *)

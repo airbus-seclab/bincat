@@ -66,7 +66,7 @@ let is_in_section vaddr section =
 let find_section section_list vaddr =
   try
     List.find (fun section_info -> is_in_section vaddr section_info) section_list
-  with 
+  with
   | Not_found -> raise (Exceptions.Error
                           (Printf.sprintf "No mapped section at vaddr=%s"
                                           (Data.Address.to_string vaddr)))

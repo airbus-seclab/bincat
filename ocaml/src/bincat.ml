@@ -23,7 +23,7 @@ if (Array.length Sys.argv < 4) then
 else
   try
     Main.process Sys.argv.(1) Sys.argv.(2) Sys.argv.(3)
-  with e -> 
+  with e ->
       Printf.fprintf stderr "EXCEPTION: %s\nCheck log file for details [%s]\n" (Printexc.to_string e) Sys.argv.(3);
       raise e
 

@@ -24,8 +24,8 @@
 
 
 (* utilities *)
-let letter 	 = ['a'-'z' 'A'-'Z']
-let digit 	 = ['0'-'9']
+let letter   = ['a'-'z' 'A'-'Z']
+let digit    = ['0'-'9']
 
 (* integers *)
 let hex_digits = ['0' -'9' 'a' - 'f' 'A'-'F']+
@@ -37,7 +37,7 @@ let integer = hexa_int | dec_int | oct_int
 (* special characters *)
 let path_symbols = '.' | '/' | '\\' | ':'
 let white_space  = [' ' '\t' '\r']+
-let newline 	 = "\r" | "\n" | "\r\n"
+let newline      = "\r" | "\n" | "\r\n"
 
 
 (* left operands in configuration rules *)
@@ -46,47 +46,47 @@ let value        = (digit | path_symbols | letter | '_' | '-' | '@')*
 (* tokens *)
 rule token = parse
   (* escape tokens *)
-  | white_space 	    { token lexbuf }
-  | newline 		    { new_line lexbuf; token lexbuf }
-  | '#'         	    { comment lexbuf }
+  | white_space         { token lexbuf }
+  | newline             { new_line lexbuf; token lexbuf }
+  | '#'                 { comment lexbuf }
   (* section separators *)
-  | '[' 		    { LEFT_SQ_BRACKET }
-  | ']' 		    { RIGHT_SQ_BRACKET }
+  | '['             { LEFT_SQ_BRACKET }
+  | ']'             { RIGHT_SQ_BRACKET }
   (* tainting rules for functions *)
-  | '='         	    { EQUAL }
-  | '*'         	    { STAR }
-  | '('         	    { LPAREN }
-  | ')'         	    { RPAREN }
-  | '<'         	    { LANGLE_BRACKET }
-  | '>'         	    { RANGLE_BRACKET }
-  | ','         	    { COMMA }
-  | ';'         	    { SEMI_COLON }
+  | '='                 { EQUAL }
+  | '*'                 { STAR }
+  | '('                 { LPAREN }
+  | ')'                 { RPAREN }
+  | '<'                 { LANGLE_BRACKET }
+  | '>'                 { RANGLE_BRACKET }
+  | ','                 { COMMA }
+  | ';'                 { SEMI_COLON }
   | '_'                     { UNDERSCORE }
   (* byte string *)
-  | '|'         	    { read_bytes (Buffer.create 80) lexbuf }
+  | '|'                 { read_bytes (Buffer.create 80) lexbuf }
   (* quoted string *)
-  | '"'         	    { read_string (Buffer.create 80) lexbuf }
-  | '@'         	    { AT }
+  | '"'                 { read_string (Buffer.create 80) lexbuf }
+  | '@'                 { AT }
   (* end of file *)
-  | eof         	    { EOF }
+  | eof                 { EOF }
   (* specification of the intial configuration of a register *)
-  | "reg"       	    { REG }
+  | "reg"               { REG }
   (* specification of the intial configuration of a memory location *)
-  | "mem"       	    { MEM }
+  | "mem"               { MEM }
   (* taint mask for a memory location or a register *)
-  | '!'         	    { TAINT }
+  | '!'                 { TAINT }
   (* mask for taint or value *)
-  | '?' 		    { MASK }
+  | '?'             { MASK }
   (* state section *)
-  | "state"    		    { STATE }
+  | "state"             { STATE }
   (* program section *)
   | "program"                { PROGRAM }
   (* analyzer section *)
-  | "analyzer"  	    { ANALYZER }
+  | "analyzer"          { ANALYZER }
   (* sections section *)
-  | "section"  	    { SECTION }
-  | "sections"  	    { SECTIONS }
-  | "architecture"  	    { ARCHITECTURE }
+  | "section"       { SECTION }
+  | "sections"          { SECTIONS }
+  | "architecture"          { ARCHITECTURE }
   | "armv7"                 { ARMV7 }
   | "ARMv7"                 { ARMV7 }
   | "armv8"                 { ARMV8 }
@@ -94,22 +94,22 @@ rule token = parse
   | "endianness"            { ENDIANNESS }
   | "little"                { LITTLE }
   | "big"                   { BIG }
-  | "x86"  	    { X86 }
+  | "x86"       { X86 }
   (* settings tokens *)
-  | "mem_model" 	    { MEM_MODEL }
-  | "op_sz"     	    { OP_SZ }
-  | "mem_sz"    	    { MEM_SZ }
-  | "stack_width" 	    { STACK_WIDTH }
-  | "call_conv" 	    { CALL_CONV }
-  | "flat"      	    { FLAT }
-  | "segmented" 	    { SEGMENTED }
-  | "cdecl"     	    { CDECL }
-  | "stdcall"   	    { STDCALL }
-  | "fastcall"  	    { FASTCALL }
+  | "mem_model"         { MEM_MODEL }
+  | "op_sz"             { OP_SZ }
+  | "mem_sz"            { MEM_SZ }
+  | "stack_width"       { STACK_WIDTH }
+  | "call_conv"         { CALL_CONV }
+  | "flat"              { FLAT }
+  | "segmented"         { SEGMENTED }
+  | "cdecl"             { CDECL }
+  | "stdcall"           { STDCALL }
+  | "fastcall"          { FASTCALL }
   | "aapcs"             { AAPCS }
   (* analyzer tokens *)
-  | "ini_version"    	    { INI_VERSION }
-  | "unroll"    	    { UNROLL }
+  | "ini_version"           { INI_VERSION }
+  | "unroll"            { UNROLL }
   | "function_unroll"       { FUN_UNROLL }
   | "cut"                   { CUT }
   | "loglevel"              { LOGLEVEL }
@@ -117,22 +117,22 @@ rule token = parse
   | "in_marshalled_cfa_file"   { IN_MCFA_FILE }
   | "out_marshalled_cfa_file"   { OUT_MCFA_FILE }
   (* address separator *)
-  | "," 		    { COMMA }
+  | ","             { COMMA }
   (* GDT tokens *)
   | "GDT"                   { GDT }
   (* loader tokens *)
-  | "ss" 	    	    { SS }
-  | "ds" 		    { DS }
-  | "cs" 	    	    { CS }
-  | "es" 		    { ES }
-  | "fs" 		    { FS }
-  | "gs" 		    { GS }
+  | "ss"                { SS }
+  | "ds"            { DS }
+  | "cs"                { CS }
+  | "es"            { ES }
+  | "fs"            { FS }
+  | "gs"            { GS }
   | "analysis_ep"           { ENTRYPOINT }
   (* binary tokens *)
-  | "filepath" 		    { FILEPATH }
-  | "format" 		    { FORMAT }
-  | "pe" 		    { PE }
-  | "elf" 		    { ELF }
+  | "filepath"          { FILEPATH }
+  | "format"            { FORMAT }
+  | "pe"            { PE }
+  | "elf"           { ELF }
   | "manual"                { MANUAL }
   | "raw"                   { RAW }
   | "mode"                  { MODE }
@@ -150,15 +150,15 @@ rule token = parse
   | "forward_cfa"           { FORWARD_CFA }
   | "backward"              { BACKWARD }
   (* left operand of type integer *)
-  | integer as i 	    { INT (Z.of_string i) }
+  | integer as i        { INT (Z.of_string i) }
   (* misc left operands *)
-  | "headers"  	    { HEADER }
+  | "headers"       { HEADER }
   | "override"      { OVERRIDE }
-  | "TAINT_ALL"  	    { TAINT_ALL }
-  | "TAINT_NONE"  	    { TAINT_NONE }
+  | "TAINT_ALL"         { TAINT_ALL }
+  | "TAINT_NONE"        { TAINT_NONE }
   | value as v      { STRING v }
- 
-      
+
+
 
 (* skip comments *)
 and comment = parse

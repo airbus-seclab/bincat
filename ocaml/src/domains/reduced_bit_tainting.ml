@@ -20,7 +20,7 @@
 (** its signature is Vector.Value_domain *)
 
 module L = Log.Make(struct let name = "reduced_bit_tainting" end)
-  
+
 module B = Bit
 module T = Taint
 
@@ -29,7 +29,7 @@ type t = B.t * T.t
 let top = B.TOP, T.TOP
 
 let forget (_v, t) = B.TOP, t
-  
+
 let is_top (v, _t) = v = B.TOP
 
 let to_z (v, _t) = B.to_z v
@@ -68,7 +68,7 @@ let widen (v1, t1) (v2, t2) = B.widen v1 v2, T.widen t1 t2
 
 let to_char (v, _t) = B.to_char v
 
-let to_string (v, _t) = B.to_string v 
+let to_string (v, _t) = B.to_string v
 
 let string_of_taint (_v, t) = T.to_string t
 
@@ -90,9 +90,9 @@ let is_one (v, _t) = v = B.ONE
 
 let zero = B.ZERO, T.U
 let is_zero (v, _t) = v = B.ZERO
-	      
+
 let is_subset (v1, _t1) (v2, _t2) = B.is_subset v1 v2
-					  
+
 let of_z z =
   if Z.compare z Z.zero = 0 then
     B.ZERO, T.U

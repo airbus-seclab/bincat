@@ -21,13 +21,13 @@ module Word: sig
 
     (** abstract data type *)
     type t
-	   
+
     (** returns the size in bits of the word *)
     val size: t -> int
 
     (** returns zero if the two parameters are equal
-	a negative integer if the first one is less than the second one
-	a positive integer otherwise *)
+    a negative integer if the first one is less than the second one
+    a positive integer otherwise *)
     val compare: t -> t -> int
 
     (** comparison *)
@@ -44,7 +44,7 @@ module Word: sig
 
     (** word substraction *)
     val sub: t -> t -> t
-			 
+
     (** string representation *)
     val to_string: t -> string
 
@@ -62,7 +62,7 @@ module Word: sig
 
     (** [sign_extension w n] sign extends _w_ to be on _n_ bits *)
     val size_extension: t -> int -> t
-	    
+
   end
 
 (** Address Data Type *)
@@ -73,31 +73,31 @@ module Address: sig
     | Global (** abstract base address of global variables and code *)
     | Stack (** abstract base address of the stack *)
     | Heap (** abstract base address of a dynamically allocated memory block *)
-	
-	
+
+
   (** char conversion of a region *)
   val char_of_region: region -> char
-				    
+
   (** data type of an address *)
   type t = region * Word.t
-		      
+
   (** returns zero if the two parameters are equal
       a negative integer if the first one is less than the second one
       a positive integer otherwise *)
   val compare: t -> t -> int
-			   
+
   (** comparison *)
   val equal: t -> t -> bool
-			 
+
   (** [of_string r a n] generates the address whose basis is _r_, offset is _a_ and size in bits is _n_ *)
   val of_string: region -> string -> int -> t
-					      
+
   (** string representation *)
   val to_string: t -> string
-			
+
   (** returns the offset of the address *)
   val to_int: t -> Z.t
-		     
+
   (** generation from a given region, offset of type Z.t and size in bits *)
   val of_int: region -> Z.t -> int -> t
 
@@ -106,22 +106,22 @@ module Address: sig
 
   (** generation from a given word *)
   val of_word: Word.t -> t
-				     
+
   (** returns the size in bits needed to the store the given address *)
   val size: t -> int
-		   
+
   (** add an offset to the given address *)
   val add_offset: t -> Z.t -> t
-				
+
   (** add one to the given address *)
   val inc: t -> t
 
   (** substract one to the given address *)
   val dec: t -> t
-				
+
   (** conversion to a word whose size is given by the integer parameter *)
   val to_word: t -> int -> Word.t
-			     
+
   (** returns the distance between two addresses into the same region *)
   val sub: t -> t -> Z.t
 
@@ -139,13 +139,13 @@ module Address: sig
 
   (** negation *)
   val neg: t -> t
-		  
+
   (** extends the size in bits of the given address *)
   val size_extension: t -> int -> t
-				    
+
   (** set of addresses *)
   module Set: (Set.S with type elt = t)
-		
+
 end
-		  
-		  
+
+

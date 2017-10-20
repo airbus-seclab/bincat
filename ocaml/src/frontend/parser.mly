@@ -18,7 +18,7 @@
 
 %{
     module L = Log.Make(struct let name = "parser" end)
-  
+
     let missing_item item section =
       (* error message printing *)
       L.abort (fun p -> p "missing %s in section %s\n" item section);;
@@ -34,7 +34,7 @@
 
     (* current override address *)
     let override_addr = ref Z.zero
-      
+
     (* temporary table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
 
@@ -59,11 +59,11 @@
 
     let x86_mandatory_items =  [
       (SS, "ss");
-	  (DS, "ds");
-	  (CS, "cs");
-	  (ES, "es");
-	  (FS, "fs");
-	  (GS, "gs");
+      (DS, "ds");
+      (CS, "cs");
+      (ES, "es");
+      (FS, "fs");
+      (GS, "gs");
       (GDT, "gdt");
       (MEM_MODEL, "mem_model");
        ];;
@@ -74,72 +74,72 @@
 
       (** set the corresponding option reference *)
       let update_boolean optname opt v =
-	    match String.uppercase v with
-	    | "TRUE"  -> opt := true
-	    | "FALSE" -> opt := false
-	    | _ 	  -> L.abort (fun p -> p "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
+        match String.uppercase v with
+        | "TRUE"  -> opt := true
+        | "FALSE" -> opt := false
+        | _       -> L.abort (fun p -> p "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
 
       (** update the register table in configuration module *)
       let init_register rname v = Config.register_content := (rname, v) :: !Config.register_content
 
       let update_mandatory key =
-	    let kname, sname, _ = Hashtbl.find mandatory_keys key in
-	    Hashtbl.replace mandatory_keys key (kname, sname, true);;
+        let kname, sname, _ = Hashtbl.find mandatory_keys key in
+        Hashtbl.replace mandatory_keys key (kname, sname, true);;
 
       let update_arch_mandatory_key tbl key =
          let kname,  _ = Hashtbl.find tbl key in
-	     Hashtbl.replace tbl key (kname, true);;
-      
+         Hashtbl.replace tbl key (kname, true);;
+
       let update_x86_mandatory key = update_arch_mandatory_key x86_mandatory_keys key;;
       let _update_armv7_mandatory key = update_arch_mandatory_key armv7_mandatory_keys key;;
       let _update_armv8_mandatory key = update_arch_mandatory_key armv8_mandatory_keys key;;
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
-	let supported_version = 4 in
-	if input_version != supported_version then
-	  L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
+    let supported_version = 4 in
+    if input_version != supported_version then
+      L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
 
       (** footer function *)
       let check_context () =
-	(* check whether all mandatory items are provided *)
-	    Hashtbl.iter (fun _ (pname, sname, b) -> if not b then missing_item pname sname) mandatory_keys;
+    (* check whether all mandatory items are provided *)
+        Hashtbl.iter (fun _ (pname, sname, b) -> if not b then missing_item pname sname) mandatory_keys;
         begin
           match !Config.architecture with
           | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
           | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
           | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
         end;
-	(* fill the table of tainting rules for each provided library *)
-	let add_tainting_rules l (c, funs) =
-	  let c' =
-	    match c with
-	      None    -> !Config.call_conv
-	    | Some c' -> c'
-	  in
-	  let add (fname, c, r, args) =
-	    let c' =
-	      match c with
-		None 	-> c'
-	      | Some c' -> c'
-	    in
-	    Hashtbl.replace Config.tainting_rules (l, fname) (c', r, args)
-	  in
-	  List.iter add (List.rev funs)
-	in
-	Hashtbl.iter add_tainting_rules libraries;
-	(* complete the table of function rules with type information *)
-	List.iter (fun header -> 
-	    try
+    (* fill the table of tainting rules for each provided library *)
+    let add_tainting_rules l (c, funs) =
+      let c' =
+        match c with
+          None    -> !Config.call_conv
+        | Some c' -> c'
+      in
+      let add (fname, c, r, args) =
+        let c' =
+          match c with
+        None    -> c'
+          | Some c' -> c'
+        in
+        Hashtbl.replace Config.tainting_rules (l, fname) (c', r, args)
+      in
+      List.iter add (List.rev funs)
+    in
+    Hashtbl.iter add_tainting_rules libraries;
+    (* complete the table of function rules with type information *)
+    List.iter (fun header ->
+        try
           L.debug (fun p -> p "Open npk file [%s]" header);
-	      let p = TypedC.read header in	  
-	      List.iter (fun (s, f) ->
+          let p = TypedC.read header in
+          List.iter (fun (s, f) ->
             L.debug (fun p -> p "  - loaded type for [%s]" s);
-		Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
-	    with e -> L.exc e (fun p -> p "failed to load header %s" header)) !npk_headers
-	;;
+        Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
+        with e -> L.exc e (fun p -> p "failed to load header %s" header)) !npk_headers
+    ;;
 
-	%}
+    %}
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED STATE
@@ -149,7 +149,7 @@
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG
-%token <string> STRING 
+%token <string> STRING
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
@@ -161,7 +161,7 @@
 
 
     sections:
-    | s=section 	       { s }
+    | s=section            { s }
     | ss=sections s=section    { ss; s }
 
       section:
@@ -185,7 +185,7 @@
     | a=override_addr EQUAL i = override_item { a ; i }
 
     override_addr:
-    | a=INT  { override_addr := a } 
+    | a=INT  { override_addr := a }
 
     override_item:
     |                     { () }
@@ -197,27 +197,27 @@
     tainting_reg_item:
     | t=tainting_reg {
       try
-	    let l = Hashtbl.find Config.reg_override !override_addr in
-	    Hashtbl.replace Config.reg_override !override_addr (t::l)
+        let l = Hashtbl.find Config.reg_override !override_addr in
+        Hashtbl.replace Config.reg_override !override_addr (t::l)
       with Not_found -> Hashtbl.add Config.reg_override !override_addr [t] }
 
     tainting_addr_item:
     | c=tainting_addr {
       let (tbl, a, o) = c in
       try
-	let l' = Hashtbl.find tbl !override_addr in
-	Hashtbl.replace tbl !override_addr ((a, o)::l')
+    let l' = Hashtbl.find tbl !override_addr in
+    Hashtbl.replace tbl !override_addr ((a, o)::l')
       with Not_found -> Hashtbl.add tbl !override_addr [(a, o)]
     }
-    
+
     tainting_reg:
-    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA i=init { (r, (fun _ -> i)) } 
+    | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA i=init { (r, (fun _ -> i)) }
 
     tainting_addr:
     | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }
     | HEAP LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, r, i }
     | STACK LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, r, i }
-    
+
 
       imports:
     |                     { () }
@@ -230,7 +230,7 @@
     | { [] }
     | s=QUOTED_STRING { [ s ] }
     | s=QUOTED_STRING COMMA l=npk { s::l }
-    
+
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
 
@@ -288,17 +288,17 @@
 
     x86_item:
     | MEM_MODEL EQUAL m=memmodel { update_x86_mandatory MEM_MODEL; Config.memory_model := m }
-    | CS EQUAL i=init         	 { update_x86_mandatory CS; init_register "cs" i }
-    | DS EQUAL i=init          	 { update_x86_mandatory DS; init_register "ds" i }
-    | SS EQUAL i=init          	 { update_x86_mandatory SS; init_register "ss" i }
-    | ES EQUAL i=init 	      	 { update_x86_mandatory ES; init_register "es" i }
-    | FS EQUAL i=init 	      	 { update_x86_mandatory FS; init_register "fs" i }
-    | GS EQUAL i=init 	      	 { update_x86_mandatory GS; init_register "gs" i }
+    | CS EQUAL i=init            { update_x86_mandatory CS; init_register "cs" i }
+    | DS EQUAL i=init            { update_x86_mandatory DS; init_register "ds" i }
+    | SS EQUAL i=init            { update_x86_mandatory SS; init_register "ss" i }
+    | ES EQUAL i=init            { update_x86_mandatory ES; init_register "es" i }
+    | FS EQUAL i=init            { update_x86_mandatory FS; init_register "fs" i }
+    | GS EQUAL i=init            { update_x86_mandatory GS; init_register "gs" i }
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
-   
+
 
       memmodel:
-    | FLAT 	{ Config.Flat }
+    | FLAT  { Config.Flat }
     | SEGMENTED { Config.Segmented }
 
     armv7_section:
@@ -314,15 +314,15 @@
 
 
       analyzer:
-    | a=analyzer_item 		  { a }
+    | a=analyzer_item         { a }
     | a=analyzer_item aa=analyzer { a; aa }
 
       analyzer_item:
-    | INI_VERSION EQUAL i=INT 	     { check_ini_version (Z.to_int i) }
-    | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
-    | FUN_UNROLL EQUAL i=INT 	     { Config.fun_unroll := Z.to_int i }
+    | INI_VERSION EQUAL i=INT        { check_ini_version (Z.to_int i) }
+    | UNROLL EQUAL i=INT         { Config.unroll := Z.to_int i }
+    | FUN_UNROLL EQUAL i=INT         { Config.fun_unroll := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
-    | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
+    | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
     | LOGLEVEL modname=STRING EQUAL i=INT
                                      { Hashtbl.add Config.module_loglevel modname (Z.to_int i) }
@@ -349,7 +349,7 @@
     | i=INT COMMA l=addresses { i::l }
 
       state:
-    | s=state_item 	    { s }
+    | s=state_item      { s }
     | s=state_item ss=state { s; ss }
 
       state_item:
@@ -363,25 +363,25 @@
     | i=INT STAR n=INT { i, Z.to_int n }
 
       library:
-    | l=library_item 		{ l }
+    | l=library_item        { l }
     | l=library_item ll=library { l; ll }
 
       library_item:
     | CALL_CONV EQUAL c=callconv  { let funs = snd (Hashtbl.find libraries !libname) in Hashtbl.replace libraries !libname (Some c, funs)  }
-    | v=fun_rule 		  { let f, c, a = v in let cl, funs = Hashtbl.find libraries !libname in Hashtbl.replace libraries !libname (cl, (f, c, None, a)::funs) }
+    | v=fun_rule          { let f, c, a = v in let cl, funs = Hashtbl.find libraries !libname in Hashtbl.replace libraries !libname (cl, (f, c, None, a)::funs) }
     | r=argument EQUAL v=fun_rule { let f, c, a = v in let cl, funs = Hashtbl.find libraries !libname in Hashtbl.replace libraries !libname (cl, (f, c, Some r, a)::funs) }
 
       fun_rule:
     | f=STRING LANGLE_BRACKET c=callconv RANGLE_BRACKET a=arguments { f, Some c, List.rev a }
-    | f=STRING 	a=arguments 			     		    { f, None, List.rev a }
+    | f=STRING  a=arguments                             { f, None, List.rev a }
 
       arguments:
     | arg_list = delimited (LPAREN, separated_list (COMMA, argument), RPAREN) { arg_list }
 
      argument:
     | UNDERSCORE { Config.No_taint }
-    | AT 	 { Config.Addr_taint }
-    | STAR 	 { Config.Buf_taint }
+    | AT     { Config.Addr_taint }
+    | STAR   { Config.Buf_taint }
 
       assert_rules:
     |                               { () }
@@ -399,14 +399,14 @@
 
       mcontent:
     | s=HEX_BYTES { Config.Bytes s }
-    | s=HEX_BYTES MASK m=INT 	{ Config.Bytes_Mask (s, m) }
-    | m=INT 		{ Config.Content m }
+    | s=HEX_BYTES MASK m=INT    { Config.Bytes_Mask (s, m) }
+    | m=INT         { Config.Content m }
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
     | s=HEX_BYTES { Config.TBytes (s, Some (Taint.Src.new_src())) }
-    | s=HEX_BYTES MASK m=INT 	{ Config.TBytes_Mask (s, m, Some (Taint.Src.new_src())) }
-    | t=INT 		{ let tid =
+    | s=HEX_BYTES MASK m=INT    { Config.TBytes_Mask (s, m, Some (Taint.Src.new_src())) }
+    | t=INT         { let tid =
                         if Z.compare t Z.zero = 0 then None
                         else Some (Taint.Src.new_src())
                       in

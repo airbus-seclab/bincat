@@ -23,15 +23,15 @@ type t
 
 (** returns the set of current used registers *)
 val used: unit -> t list
-	   
+
 (** creates a register from the given string and size
-May raise Invalid_argument if a register with that name already exists 
+May raise Invalid_argument if a register with that name already exists
 or is a reserved name f *)
 val make: name:string -> size:int -> t
 
 (** creates a stack pointer register from the given string and size *)
 val make_sp: name:string -> size:int -> t
-		  
+
 (** returns a fresh register name *)
 val fresh_name: unit -> string
 
@@ -46,7 +46,7 @@ val equal: t -> t -> bool
 
 (** comparison *)
 val compare: t -> t -> int
-			 
+
 (** returns the size in bits of the register *)
 val size: t -> int
 

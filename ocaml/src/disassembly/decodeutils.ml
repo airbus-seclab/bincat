@@ -45,9 +45,9 @@ let msb_stmts reg sz =
 let carry_stmts sz op1 op op2 =
   (* carry is 1 if the sz+1 bit of the result is 1 *)
   let sz_p1 = sz+1 in
-  let zext = ZeroExt (sz_p1)	  in
-  let op1' = UnOp (zext, op1)	  in
-  let op2' = UnOp (zext, op2)	  in
+  let zext = ZeroExt (sz_p1)      in
+  let op1' = UnOp (zext, op1)     in
+  let op2' = UnOp (zext, op2)     in
   let res = BinOp (op, op1', op2') in
   let msb = msb_stmts res sz_p1 in
   TernOp(Cmp (EQ, msb, const1 sz_p1), const1 1, const0 1)
@@ -58,10 +58,10 @@ let carry_stmts sz op1 op op2 =
 let carry_stmts_3 sz op1 op op2 op3 =
   (* carry is 1 if the sz+1 bit of the result is 1 *)
   let sz_p1 = sz+1 in
-  let zext = ZeroExt (sz_p1)	  in
-  let op1' = UnOp (zext, op1)	  in
-  let op2' = UnOp (zext, op2)	  in
-  let op3' = UnOp (zext, op3)	  in
+  let zext = ZeroExt (sz_p1)      in
+  let op1' = UnOp (zext, op1)     in
+  let op2' = UnOp (zext, op2)     in
+  let op3' = UnOp (zext, op3)     in
   let res = BinOp(op, BinOp (op, op1', op2'), op3') in
   let msb = msb_stmts res sz_p1 in
   TernOp(Cmp (EQ, msb, const1 sz_p1), const1 1, const0 1)
@@ -79,6 +79,6 @@ let overflow_stmts sz res op1 op op2 =
     | Add -> EQ
     | Sub -> NEQ
     | _ -> raise (Invalid_argument "unexpected operation in overflow flag computation") in
-  let c1 	      = Cmp (cmp_op, sign_op1, sign_op2)   	      in
-  let c2 	      = Cmp (NEQ, sign_res, sign_op1)         in
+  let c1          = Cmp (cmp_op, sign_op1, sign_op2)          in
+  let c2          = Cmp (NEQ, sign_res, sign_op1)         in
   TernOp (BBinOp (LogAnd, c1, c2), const1 1, const0 1)

@@ -27,32 +27,32 @@ open Config
 let check_content content_sz taint_sz msg =
   let msg' = if String.compare msg "" = 0 then msg else "for register "^msg in
   if content_sz > taint_sz then
-	L.abort (fun p -> p "Illegal initialisation/override %s" msg')
-	  
+    L.abort (fun p -> p "Illegal initialisation/override %s" msg')
+
 let check_mask content_sz mask taint_sz msg =
   let msg' = if String.compare msg "" = 0 then msg else "for register "^msg in
   if content_sz > taint_sz || (Z.numbits mask) > taint_sz then
-	    L.abort (fun p -> p "Illegal initialization/override %s" msg')
-    
+        L.abort (fun p -> p "Illegal initialization/override %s" msg')
+
 (* checks whether the provided value is compatible with the capacity of the parameter of type Register *)
 let check_register_init r (c, t) =
   let sz   = Register.size r in
   let name = Register.name r in
   begin
-	match c with
-	| Some Content c    -> check_content (Z.numbits c) sz name
-	| Some CMask (b, m) -> check_mask (Z.numbits b) m sz name
-	| Some _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
+    match c with
+    | Some Content c    -> check_content (Z.numbits c) sz name
+    | Some CMask (b, m) -> check_mask (Z.numbits b) m sz name
+    | Some _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
     | None -> ()
   end;
   begin
-	match t with
-	| Some (Taint (c, _taint_src))    -> check_content (Z.numbits c) sz name
-	| Some (TMask (b, m, _taint_src)) -> check_mask (Z.numbits b) m sz name
-	| _ -> ()
+    match t with
+    | Some (Taint (c, _taint_src))    -> check_content (Z.numbits c) sz name
+    | Some (TMask (b, m, _taint_src)) -> check_mask (Z.numbits b) m sz name
+    | _ -> ()
   end
 
-  
+
 let check_mem (c, t): unit =
   let taint_sz =
       match t with
