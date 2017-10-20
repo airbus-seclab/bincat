@@ -1500,7 +1500,7 @@ class HandleAddOverride(idaapi.action_handler_t):
             "Add Taint override for %s" % highlighted,
             "Taint value for %s (e.g. !TAINT_ALL (reg only), "
             "!TAINT_NONE (reg only), !0b001, !0xabc)" %
-            highlighted, text=("!TAINT_ALL" if htype == "reg" else "!|0xFF|"))
+            highlighted, text=("!TAINT_ALL" if htype == "reg" else "!|FF|"))
         if not res:
             return 1  # refresh IDA windows
         htext = "%s[%s]" % (htype, highlighted)
