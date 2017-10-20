@@ -7,20 +7,20 @@ it to an expected *license* value.
 
 This program expects a few arguments:
 ```
-$ ./get_key 
+$ ./get_key_x86
 Usage: ./get_key company department name licence
 ```
 
 It returns an error message if an incorrect license key is entered:
 ```
-$ ./get_key company department name wrong_serial
+$ ./get_key_x86 company department name wrong_serial
 Licence=>[025E60CB08F00A1A23F236CC78FC819CE6590DD7]
 Invalid serial wrong_serial
 ```
 
 The program indicates if the correct license key is entered:
 ```
-$ ./get_key company department name 025E60CB08F00A1A23F236CC78FC819CE6590DD7
+$ ./get_key_x86 company department name 025E60CB08F00A1A23F236CC78FC819CE6590DD7
 Licence=>[025E60CB08F00A1A23F236CC78FC819CE6590DD7]
 Thank you for registering !
 ```
@@ -29,14 +29,13 @@ Thank you for registering !
 
 ## Pre-requisites
 1. BinCAT has to be installed first (see [README](../README.md#installation))
-2. Download the [**get_key**](../../../raw/master/doc/get_key/get_key)
-   executable from this repository
+2. Download one of the the get_key executable from this repository ([**x86**](../../../raw/master/doc/get_key/get_key_x86), [**armv7**](../../../raw/master/doc/get_key/get_key_armv7), or [**armv8**](../../../raw/master/doc/get_key/get_key_armv8))
+
 
 ### 1. Run an analysis and observe results
 
 1. Load the BinCAT plugin by using the **Ctrl + Shift + b** shortcut
-2. Open the [**get_key**](../../../raw/master/doc/get_key/get_key)
-   executable in IDA
+2. Open the get_key_ARCH executable in IDA
 3. From the **IDA View-A** view, go to address `0x93B` using the **g**
    shortcut
 4. Use the **Ctrl-Shift-A** shortcut to open the analysis start window (see
@@ -76,9 +75,9 @@ mem[0x300200] = |6c6f6c2100|
 15. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
-    should be `0x1D50`). At this address, you can observe the contents of the
-    `buffer` pointer (`char *`) where `sprintf` results will be output (the
-    value should be `0x1DEC`)
+    should be `0x1D50`). Open the **BinCAT Memory** view at this address, to
+    observe the contents of the `buffer` pointer (`char *`) where `sprintf`
+    results will be output (the value should be `0x1DEC`)
 16. Advance to the next instruction at address `0x80C`, and observe the
     value of the `buffer` that has been formatted by `sprintf` at address
     `0x1DEC`
@@ -93,9 +92,11 @@ mem[0x300200] = |6c6f6c2100|
 This tutorial shows how to taint a register, and observe taint propagation.
 
 1. Go back to address `0x93B`
-2. Override the value of every byte at addresses `0x300140`-`0x300147` which
-   contains the null-terminated `company` string (see section 
-   [Override taint](manual.md#override-taint) of the manual), and set it to `0xFF`
+2. From the **BinCAT Memory** view, section `global`, override the value of every byte at
+   addresses `0x300140`-`0x300147` which contains the
+   null-terminated `company` string (see section [Override
+   taint](manual.md#override-taint) of the manual), and set it to `0xFF`.
+   Re-run the analysis.
 3. Advance to the next instruction at address `0x93F`, and observe that this
    memory range is indeed tainted: both the ascii and hexadecimal
    representations of this string are displayed as green text
