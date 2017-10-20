@@ -22,6 +22,7 @@ import os
 import idc
 import logging
 import string
+import re
 import idc
 import idaapi
 import idautils
@@ -931,7 +932,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
             None,
             "Add Taint override for %s" % regname,
             "Taint value for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
-            regname, text="TAINT_ALL")
+            regname, text="!TAINT_ALL")
         if not res:
             return
         htext = "reg[%s]" % regname
@@ -1150,7 +1151,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(OverridesModel, self).__init__(*args, **kwargs)
         self.s = state
-        self.headers = ["eip", "addr or reg", "taint"]
+        self.headers = ["eip", "addr or reg", "[value][!taint]"]
 
     def data(self, index, role):
         if role not in (QtCore.Qt.ForegroundRole, QtCore.Qt.DisplayRole,
@@ -1162,8 +1163,9 @@ class OverridesModel(QtCore.QAbstractTableModel):
             if col == 1:
                 return "Example valid addresses: reg[eax], mem[0x1234]"
             if col == 2:
-                return ("Example taint values: 0x1234 (reg or mem), "
-                        "TAINT_ALL (reg only), TAINT_NONE (reg only)")
+                return ("Example override values: !0x1234 (reg or mem), "
+                        "!TAINT_ALL (reg only), !TAINT_NONE (reg only), "
+                        "0x12?0x12", "|0xFF|![0x10|")
             return
         if role == QtCore.Qt.ForegroundRole:
             # basic syntax checking
@@ -1178,10 +1180,22 @@ class OverridesModel(QtCore.QAbstractTableModel):
                             txt.startswith('stack[0x')):
                         return
             else:  # Taint column
-                if txt in ("TAINT_ALL", "TAINT_NONE"):
-                    if self.s.overrides[row][1].startswith("reg"):
-                        return
-                if txt.startswith("0x") or txt.startswith("0b"):
+                if not self.s.overrides[row][1].startswith("reg"):
+                    if "TAINT_ALL" in txt or "TAINT_NONE" in txt:
+                        return QtGui.QBrush(QtCore.Qt.red)
+                pattern = (
+                    # value (optional) - hex, oct, dec, bin, or string
+                    r"^((0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+)"
+                    # if value is present: optional top mask - hex, oct or bin
+                    "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?"
+                    # taint (optional) - same as value, PLUS TAINT_* for
+                    # registers
+                    "(!(0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+|"
+                    "TAINT_ALL|TAINT_NONE)"
+                    # if taint is present: optional top mask - same as value
+                    # top mask
+                    "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?$")
+                if re.match(pattern, txt):
                     return
             return QtGui.QBrush(QtCore.Qt.red)
         rawdata = self.s.overrides[row][col]
@@ -1464,13 +1478,6 @@ class HandleAddOverride(idaapi.action_handler_t):
         if highlighted is None:
             highlighted = ''
         address = self.s.current_ea
-        mask, res = QtWidgets.QInputDialog.getText(
-            None,
-            "Add Taint override for %s" % highlighted,
-            "Taint value for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
-            highlighted, text="TAINT_ALL")
-        if not res:
-            return 1  # refresh IDA windows
         # guess whether highlighted text is register or address
         try:
             # is it a register?
@@ -1486,9 +1493,16 @@ class HandleAddOverride(idaapi.action_handler_t):
                 "assuming it's a memory address, edit value in Overrides "
                 "window if that's incorrect", highlighted)
             htype = "mem"
-
         else:
             htype = "reg"
+        mask, res = QtWidgets.QInputDialog.getText(
+            None,
+            "Add Taint override for %s" % highlighted,
+            "Taint value for %s (e.g. !TAINT_ALL (reg only), "
+            "!TAINT_NONE (reg only), !0b001, !0xabc)" %
+            highlighted, text=("!TAINT_ALL" if htype == "reg" else "!|0xFF|"))
+        if not res:
+            return 1  # refresh IDA windows
         htext = "%s[%s]" % (htype, highlighted)
         self.s.overrides.append((address, htext, mask))
         return 1
