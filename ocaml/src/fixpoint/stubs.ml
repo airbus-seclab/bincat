@@ -46,13 +46,13 @@ struct
       let len = D.get_offset_from (Asm.Lval (args 0)) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then
         begin
-          L.analysis (fun p -> p "updates automatic loop unrolling with the computed string length = %d" len);
+          L.info (fun p -> p "updates automatic loop unrolling with the computed string length = %d" len);
           Config.unroll := len
         end;
       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
 
     let memcpy (d: domain_t) ret args : domain_t * Taint.t =
-      L.analysis (fun p -> p "memcpy stub");
+      L.info (fun p -> p "memcpy stub");
       let dst = Asm.Lval (args 0) in
       let src = Asm.Lval (args 1) in
       let sz =  Asm.Lval (args 2) in
@@ -69,7 +69,7 @@ struct
         try
             let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
             let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
-            L.analysis (fun p -> p "format string: %s" format_string);
+            L.info (fun p -> p "(s)printf stub, format string: \"%s\"" (String.escaped format_string));
             let format_num d dst_off c fmt_pos arg pad_char pad_left: int * int * domain_t =
               let rec compute digit_nb fmt_pos =
                 let c = Bytes.get format_string fmt_pos in
@@ -83,7 +83,7 @@ struct
                           match c with
                           | 'x' | 'X' ->
                             let sz = Config.size_of_long () in
-                            L.analysis (fun p -> p "hypothesis used in format string: size of long = %d bits" sz);
+                            L.info (fun p -> p "hypothesis used in format string: size of long = %d bits" sz);
                             let dump =
                                 match to_buffer with
                                 | Some dst ->
@@ -221,18 +221,16 @@ struct
       let va_args = shift args 1 in
       (* creating a very large temporary buffer to store the output of printf *)
       let d', is_tainted = print d ret format_addr va_args None in
-      L.analysis (fun p -> p "printf output:");
-      L.analysis (fun p -> p "--- end of printf--");
       d', is_tainted
 
     let printf_chk d ret args = printf d ret (shift args 1)
 
     let puts d ret args =
       let str = Asm.Lval (args 0) in
-      L.analysis (fun p -> p "puts output:");
+      L.info (fun p -> p "puts output:");
       let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
       let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
-      L.analysis (fun p -> p "--- end of puts--");
+      L.info (fun p -> p "--- end of puts--");
       d', is_tainted
 
     let stubs = Hashtbl.create 5
@@ -245,7 +243,7 @@ struct
                       | Exit -> d, Taint.U
                       | e ->
                          L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
-                         L.analysis (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
+                         L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
                          d, Taint.U in
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
       d', taint, cleanup_stmts
