@@ -484,12 +484,12 @@ class Meminfo():
         return idx+self.start
 
 
-class BinCATHexForm_t(idaapi.PluginForm):
+class BinCATMemForm_t(idaapi.PluginForm):
     """
-    BinCAT hex form.
+    BinCAT memory display form.
     """
     def __init__(self, state):
-        super(BinCATHexForm_t, self).__init__()
+        super(BinCATMemForm_t, self).__init__()
         self.s = state
         self.shown = False
         self.created = False
@@ -656,7 +656,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
             return
         self.shown = True
         return idaapi.PluginForm.Show(
-            self, "BinCAT Hex",
+            self, "BinCAT Memory",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_MENU |
                      idaapi.PluginForm.FORM_SAVE |
@@ -666,7 +666,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
 
 class BinCATDebugForm_t(idaapi.PluginForm):
     """
-    BinCAT Debug form.
+    BinCAT Debug form: display IL and instruction bytes, if present in BinCAT
+    output.
     """
     def __init__(self, state):
         super(BinCATDebugForm_t, self).__init__()
@@ -681,9 +682,9 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         self.parent = self.FormToPyQtWidget(form)
         layout = QtWidgets.QGridLayout()
 
-        self.stmt_lbl = QtWidgets.QLabel("Statements")
+        self.stmt_lbl = QtWidgets.QLabel("IL statements")
         self.stmt_data = QtWidgets.QLabel()
-        self.bytes_lbl = QtWidgets.QLabel("Bytes")
+        self.bytes_lbl = QtWidgets.QLabel("Instruction bytes")
         self.bytes_data = QtWidgets.QLabel()
 
         self.stmt_data.setTextInteractionFlags(
@@ -726,7 +727,7 @@ class BinCATDebugForm_t(idaapi.PluginForm):
             return
         self.shown = True
         return idaapi.PluginForm.Show(
-            self, "BinCAT Debugging",
+            self, "BinCAT IL",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_SAVE |
                      idaapi.PluginForm.FORM_RESTORE |
@@ -736,7 +737,7 @@ class BinCATDebugForm_t(idaapi.PluginForm):
 class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
     """
     http://stackoverflow.com/questions/35397943/how-to-make-a-fast-qtableview-with-html-formatted-and-clickable-cells
-    Represents tainted data with colors in the BinCATTaintedForm_t
+    Represents tainted data with colors in the BinCATRegistersForm_t
     """
     def paint(self, painter, options, index):
         self.initStyleOption(options, index)
@@ -757,14 +758,14 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
         painter.restore()
 
 
-class BinCATTaintedForm_t(idaapi.PluginForm):
+class BinCATRegistersForm_t(idaapi.PluginForm):
     """
     BinCAT Tainted values form
     This form displays the values of tainted registers
     """
 
     def __init__(self, state, vtmodel):
-        super(BinCATTaintedForm_t, self).__init__()
+        super(BinCATRegistersForm_t, self).__init__()
         self.s = state
         self.vtmodel = vtmodel
         self.shown = False
@@ -841,7 +842,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             return
         self.shown = True
         return idaapi.PluginForm.Show(
-            self, "BinCAT Tainting",
+            self, "BinCAT Registers",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_SAVE |
                      idaapi.PluginForm.FORM_RESTORE |
@@ -939,7 +940,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
     """
-    Used as model in BinCATTaintedForm TableView widgets.
+    Used as model in BinCATRegistersForm TableView widgets.
 
     Contains tainting and values for registers
     """
@@ -1588,9 +1589,9 @@ class GUI(object):
         """
         self.s = state
         self.vtmodel = ValueTaintModel(state)
-        self.BinCATTaintedForm = BinCATTaintedForm_t(state, self.vtmodel)
+        self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.vtmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
-        self.BinCATHexForm = BinCATHexForm_t(state)
+        self.BinCATMemForm = BinCATMemForm_t(state)
         self.overrides_model = OverridesModel(state)
         self.BinCATOverridesForm = BinCATOverridesForm_t(
             state, self.overrides_model)
@@ -1646,27 +1647,27 @@ class GUI(object):
 
     def show_windows(self):
         self.BinCATDebugForm.Show()
-        self.BinCATTaintedForm.Show()
+        self.BinCATRegistersForm.Show()
         self.BinCATOverridesForm.Show()
         self.BinCATConfigurationsForm.Show()
-        self.BinCATHexForm.Show()
+        self.BinCATMemForm.Show()
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()
 
     def after_change_ea(self):
-        self.BinCATTaintedForm.update_current_ea(self.s.current_ea)
+        self.BinCATRegistersForm.update_current_ea(self.s.current_ea)
         self.vtmodel.endResetModel()
         self.BinCATDebugForm.update(self.s.current_state)
-        self.BinCATHexForm.update_current_ea(self.s.current_ea)
+        self.BinCATMemForm.update_current_ea(self.s.current_ea)
 
     def term(self):
         if self.hooks:
             self.hooks.unhook()
             self.hooks = None
-        self.BinCATTaintedForm.Close(0)
+        self.BinCATRegistersForm.Close(0)
         self.BinCATDebugForm.Close(0)
-        self.BinCATHexForm.Close(0)
+        self.BinCATMemForm.Close(0)
         self.BinCATOverridesForm.Close(0)
         self.BinCATConfigurationsForm.Close(0)
         self.vtmodel = None
