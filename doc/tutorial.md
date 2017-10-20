@@ -29,13 +29,20 @@ Thank you for registering !
 
 ## Pre-requisites
 1. BinCAT has to be installed first (see [README](../README.md#installation))
-2. Download one of the the get_key executable from this repository ([**x86**](../../../raw/master/doc/get_key/get_key_x86), [**armv7**](../../../raw/master/doc/get_key/get_key_armv7), or [**armv8**](../../../raw/master/doc/get_key/get_key_armv8))
+2. Download one of the the get_key_x86([**x86**](../../../raw/master/doc/get_key/get_key_x86) executable from this repository.
+
+This tutorial relates to the `get_key_x86` binary, targetting the `x86` CPU
+architecture.
+Binaries and configuration files are also provided for the following architectures:
+
+* `armv7`: [**binary**](../../../raw/master/doc/get_key/get_key_armv7), [**configuration**](../../../raw/master/doc/get_key/get_key_armv7.ini)
+* `armv8`: [**binary**](../../../raw/master/doc/get_key/get_key_armv8), [**configuration**](../../../raw/master/doc/get_key/get_key_armv8.ini)
 
 
 ### 1. Run an analysis and observe results
 
 1. Load the BinCAT plugin by using the **Ctrl + Shift + b** shortcut
-2. Open the get_key_ARCH executable in IDA
+2. Open the `get_key_x86` executable in IDA
 3. From the **IDA View-A** view, go to address `0x93B` using the **g**
    shortcut
 4. Use the **Ctrl-Shift-A** shortcut to open the analysis start window (see
@@ -92,8 +99,8 @@ mem[0x300200] = |6c6f6c2100|
 This tutorial shows how to taint a register, and observe taint propagation.
 
 1. Go back to address `0x93B`
-2. From the **BinCAT Memory** view, section `global`, override the value of every byte at
-   addresses `0x300140`-`0x300147` which contains the
+2. From the **BinCAT Memory** view, section `global`, override the value of
+   every byte at addresses `0x300140`-`0x300147` which contains the
    null-terminated `company` string (see section [Override
    taint](manual.md#override-taint) of the manual), and set it to `0xFF`.
    Re-run the analysis.
