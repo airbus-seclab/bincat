@@ -75,7 +75,7 @@ mem[0x300200] = |6c6f6c2100|
     become gray
 15. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
-    Observe the value of the `esp` register in the **BinCAT Tainting** view (it
+    Observe the value of the `esp` register in the **BinCAT Registers** view (it
     should be `0x1D50`). At this address, you can observe the contents of the
     `buffer` pointer (`char *`) where `sprintf` results will be output (the
     value should be `0x1DEC`)
@@ -86,7 +86,7 @@ mem[0x300200] = |6c6f6c2100|
     and observe the inferred types for the call to `sprintf`
 18. Go to address `0xA93`, which contains a call to a location that is stored
     on the stack. Notice that IDA cannot resolve the destination address. In
-    the **BinCAT Tainting** view, use the *goto next node (1)* drop down menu
+    the **BinCAT Registers** view, use the *goto next node (1)* drop down menu
     to jump to the destination
 
 ### 2. Use taint override
