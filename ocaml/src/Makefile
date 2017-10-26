@@ -1,5 +1,13 @@
 GITVERSION:=$(shell git describe --dirty)
 
+LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
+BINDIR=$(DESTDIR)/$(PREFIX)/bin/
+
+CPPO_VER=-V OCAML:$(shell ocamlc -vnum)
+CPPO="cppo $(CPPO_VER)"
+CAMLLIBDIR:=$(shell ocamlc -where)
+
+
 ML=\
 utils/exceptions.ml\
 utils/misc.ml\
@@ -54,12 +62,10 @@ disassembly/cfa.mli\
 disassembly/decoder.mli\
 fixpoint/stubs.mli
 
-LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
-BINDIR=$(DESTDIR)/$(PREFIX)/bin/
 
-CPPO_VER=-V OCAML:$(shell ocamlc -vnum)
-CPPO="cppo $(CPPO_VER)"
-CAMLLIBDIR:=$(shell ocamlc -where)
+DEPS-armv8A := armv8A_ppx
+OPTS-armv8A :=  -ppx ./armv8A_ppx -warn-error -26-27
+
 
 CMX = $(ML:.ml=.cmx)
 
@@ -133,20 +139,20 @@ bincat_ver.ml: update_gitver
 	[ -f $@ ] || touch $@
 	grep -q $(GITVERSION) bincat_ver.ml || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
 
-disassembly/armv8A.cmx: armv8A_ppx disassembly/armv8A.ml
-	$(CAMLCOMPIL) -ppx ./armv8A_ppx -warn-error -26-27 -c $(LIBX) disassembly/armv8A.ml
 
-%.cmx: %.ml %.mli
-	$(CAMLCOMPIL) -c $(LIBX) $*.ml
+.SECONDEXPANSION:
 
-%.cmi: %.mli
-	$(CAMLCOMPIL) -c $*.mli
+%.cmx: %.ml %.mli $$(DEPS-$$(*F))
+	$(CAMLCOMPIL) -c $(LIBX) $(OPTS-$(*F)) $*.ml
 
-%.cmx: %.ml
-	$(CAMLCOMPIL) -c $(LIBX) $*.ml
+%.cmi: %.mli $$(DEPS-$$(*F))
+	$(CAMLCOMPIL) -c $(OPTS-$(*F)) $*.mli
 
-%.cmo: %.ml
-	$(CAMLCOMPIL) -c $(LIBX) $*.ml
+%.cmx: %.ml $$(DEPS-$$(*F))
+	$(CAMLCOMPIL) -c $(LIBX) $(OPTS-$(*F)) $*.ml
+
+%.cmo: %.ml $$(DEPS-$$(*F))
+	$(CAMLCOMPIL) -c $(LIBX) $(OPTS-$(*F)) $*.ml
 
 
 %.ml: %.mll
