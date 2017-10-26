@@ -52,7 +52,7 @@ loaders/loader.mli\
 domains/domain.mli\
 disassembly/cfa.mli\
 disassembly/decoder.mli\
-fixpoint/stubs.mli\
+fixpoint/stubs.mli
 
 LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
 BINDIR=$(DESTDIR)/$(PREFIX)/bin/
