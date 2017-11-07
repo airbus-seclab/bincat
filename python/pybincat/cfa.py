@@ -38,8 +38,14 @@ def reg_len(regname):
             "x12": 64, "x13": 64, "x14": 64, "x15": 64, "x16": 64, "x17": 64,
             "x18": 64, "x19": 64, "x20": 64, "x21": 64, "x22": 64, "x23": 64,
             "x24": 64, "x25": 64, "x26": 64, "x27": 64, "x28": 64, "x29": 64,
-            "x30": 64, "sp": 64, "pc": 64, "xzr":64,
-            "c": 1, "n": 1, "v": 1, "z": 1}[regname]
+            "x30": 64, "sp": 64,
+            "q0": 128, "q1": 128, "q2": 128, "q3": 128, "q4": 128, "q5": 128,
+            "q6": 128, "q7": 128, "q8": 128, "q9": 128, "q10": 128, "q11": 128,
+            "q12": 128, "q13": 128, "q14": 128, "q15": 128, "q16": 128, "q17": 128,
+            "q18": 128, "q19": 128, "q20": 128, "q21": 128, "q22": 128, "q23": 128,
+            "q24": 128, "q25": 128, "q26": 128, "q27": 128, "q28": 128, "q29": 128,
+            "q30": 128, "q31": 128,
+            "pc": 64, "xzr":64,"c": 1, "n": 1, "v": 1, "z": 1}[regname]
     elif CFA.arch == "armv7":
         return {
             "r0": 32, "r1": 32, "r2": 32, "r3": 32, "r4": 32, "r5": 32,
@@ -237,7 +243,7 @@ class State(object):
     example valtaints: G0x1234 G0x12!0xF0 S0x12!ALL
     """
     __slots__ = ['address', 'node_id', '_regaddrs', '_regtypes', 'final',
-                 'statements', 'bytes', 'tainted', '_outputkv']
+                 'statements', 'bytes', 'tainted', 'taintsrc', '_outputkv']
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
@@ -292,7 +298,21 @@ class State(object):
         new_state.final = outputkv.pop("final", None) == "true"
         new_state.statements = outputkv.pop("statements", "")
         new_state.bytes = outputkv.pop("bytes", "")
-        new_state.tainted = outputkv.pop("tainted", "False") == "true"
+        taintedstr = outputkv.pop("tainted", "")
+        if taintedstr == "true":
+            # v0.6 format
+            tainted = True
+            taintsrc = ["t-0"]
+        elif taintedstr == "":
+            # v0.7 format, not tainted
+            tainted = False
+            taintsrc = []
+        else:
+            # v0.7 format, tainted
+            taintsrc = taintedstr.split(', ')
+            tainted = True
+        new_state.tainted = tainted
+        new_state.taintsrc = taintsrc
         new_state._outputkv = outputkv
         new_state._regaddrs = None
         new_state._regtypes = None

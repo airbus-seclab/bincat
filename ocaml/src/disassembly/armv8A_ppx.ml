@@ -3,6 +3,7 @@ open Asttypes
 open Parsetree
 open Ast_convenience
 
+
 (* str.split(',') -> list *)
 let opc2fields str =
     let comma = Str.regexp "," in
@@ -71,8 +72,14 @@ let parse_let loc let_spec =
     in
     match spec with
     | { pvb_pat = { ppat_desc = Ppat_var { txt = new_insn }};
+        (* fugly code to deal with AST changes *)
+        #if OCAML_VERSION < (4, 03, 0)
         pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
                         [(_, {pexp_desc = Pexp_constant (Const_string (opc, None))})]) } } -> insn_ident, opc
+        #else
+        pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
+                        [(_, {pexp_desc = Pexp_constant (Pconst_string (opc, None))})]) } } -> insn_ident, opc
+        #endif
     | _ ->
       raise (Location.Error (
           Location.error ~loc "let%decode syntax is invalid"))

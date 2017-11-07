@@ -1,41 +1,29 @@
-# used as a template for tests
-[settings]
-mode = protected
-call_conv = aapcs
-mem_sz = 32
-op_sz = 32
-stack_width = 32
-
-
-[loader]
-# Starting point of the analysis
-analysis_ep = 0x00
-# Virtual address of the code section
-code_va = 0x00
-#physical address (offset) of the code section
-code_phys = 0x00
-#side of the code section
-code_length = {code_length}
-architecture = armv7
-
-[armv7]
-endianness = little
-
-
-[binary]
-filepath = "{filepath}"
-format = raw
-
+# used as a config file template for tests
 
 [analyzer]
-ini_version = 2
+ini_version = 4
 unroll = 150
 loglevel = 10
 store_marshalled_cfa = true
 in_marshalled_cfa_file = "incfa.marshal"
 out_marshalled_cfa_file = "outcfa.marshal"
 analysis = forward_binary
+analysis_ep = 0x00
 cut = {code_length}
+headers = "libc.no"
+
+[program]
+mode = protected
+call_conv = aapcs
+mem_sz = 32
+op_sz = 32
+stack_width = 32
+architecture = armv7
+filepath = "{filepath}"
+format = raw
+
+[armv7]
+endianness = little
 
 [state]
 reg[n] = 0?1
@@ -81,4 +69,3 @@ stack[0x1000*8192] = |00|?0xFF
 0x8 = all,"memcpy"
 0xc = all,"printf"
 0x10 = all,"sprintf"
-headers = "libc.no"

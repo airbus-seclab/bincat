@@ -92,7 +92,7 @@ module Make(Modname: sig val name : string end) = struct
     flush !logfid
 
   let trace adrs fmsg =
-    if log_debug () then
+    if log_info2 () then
         let pc = Data.Address.to_string adrs in
     let msg = fmsg Printf.sprintf in
         let rec log_trace strlist =
@@ -105,7 +105,7 @@ module Make(Modname: sig val name : string end) = struct
     flush !logfid
 
   let info2 fmsg =
-    if log_info () then
+    if log_info2 () then
     let msg = fmsg Printf.sprintf in
     Printf.fprintf !logfid  "[INFO2] %s: %s\n" modname msg;
     flush !logfid
@@ -128,7 +128,7 @@ module Make(Modname: sig val name : string end) = struct
           log_stdout l in
       let remain = log_stdout (split_on_char '\n' msg) in
       stdout_remain := remain ;
-      if remain <> "" then info (fun p -> p "line buffered stdout=[%s]" remain);
+      if remain <> "" then info2 (fun p -> p "line buffered stdout=[%s]" remain);
     flush !logfid
 
 
@@ -158,6 +158,16 @@ module Make(Modname: sig val name : string end) = struct
     flush !logfid;
     flush Pervasives.stdout;
     raise (Exceptions.Error msg)
+
+  let exc_and_abort e fmsg =
+    let msg = fmsg Printf.sprintf in
+    Printf.fprintf !logfid  "[ABORT] %s: %s\n" modname msg;
+    Printf.fprintf !logfid  "%s\n" (Printexc.to_string e);
+    Printexc.print_backtrace !logfid;
+    flush !logfid;
+    flush Pervasives.stdout;
+    raise (Exceptions.Error msg)
+
 
   (* These functions are not submitted to the module specific log level *)
   let analysis fmsg =

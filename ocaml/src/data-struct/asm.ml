@@ -95,7 +95,7 @@ type jmp_target =
 
 type calling_convention_t = {
   return : lval ;
-  arguments : int -> exp ;
+  arguments : int -> lval ;
   callee_cleanup : int -> stmt list ;
 }
 (** type of directives for the analyzer *)
@@ -244,8 +244,12 @@ let string_of_directive d extended =
   | Unroll (e, bs) -> Printf.sprintf "unroll current loop min (%s, %d) times" (string_of_exp e false) bs
   | Default_unroll -> "set unroll value to its default value"
   | Unroll_until (e, cmp, terminator, ub, sz) -> Printf.sprintf "unroll current loop min (n, %d) times with n = minimal offset from e such that (%d)[%s+n] %s %s" ub sz (string_of_exp e false) (string_of_cmp cmp) (string_of_exp terminator false)
-  | Stub (f, _) -> Printf.sprintf "stub of %s" f
-     
+  | Stub (f, cc) ->
+     if extended then
+       Printf.sprintf "%s <- stub of %s" (string_of_lval cc.return extended) f
+     else
+       Printf.sprintf "stub of %s" f
+
 
 let string_of_target tgt =
   match tgt with
@@ -276,4 +280,14 @@ let string_of_stmt s extended =
 let string_of_stmts stmt_list extended =
   let list_str = List.map (fun s -> string_of_stmt s extended) stmt_list
   in Printf.sprintf "[ %s ]" (String.concat ",\n" list_str)
- 
+
+
+(** abstract data type for library functions *)
+type import_desc_t = {
+  name: string;        (** function name *)
+  libname: string;     (** name of its library *)
+  prologue: stmt list; (** tranfer operations for its prologue *)
+  stub: stmt list;     (** transfer operations for the function itself *)
+  epilogue: stmt list; (** transfer operations for its epilogue *)
+  ret_addr: exp        (** return addr *)
+  }

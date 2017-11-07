@@ -27,6 +27,7 @@ class TestValues:
     op16 = [ 1, 0xffff ]
     op32 = [ 1, 0xffffffff]
     op64 = [ 1, 0xffffffffffffffff]
+    op12 = [ 1, 0x800, 0xFFF]
     someval8 = [ 0x2e, 0xa5 ]
     someval16 = [ 0x4b2e, 0xc68b ]
     someval32 = [ 0x5ed39a5f, 0xd2a173f6 ]
@@ -37,6 +38,7 @@ class TestValues:
     armv7op = [1, 0xff]
     x86carryop = [ "stc", "clc"]
     armv8bitmasks = armv8_bitmasks()[0:10]
+    armv8off = [-512, -8, 0, 8, 504]
 
 class Large(TestValues):
     _name = "large"
@@ -52,7 +54,7 @@ class Large(TestValues):
     x86carryop = [ "stc", "clc" ]
     armv7shift = [0, 1, 7, 8, 0xf, 31]
     armv7op = [(x<<y) for x in [1, 0x7f , 0x80, 0xff] for y in range(0,28,4)]
-    armv8off = [-512, -8, 0, 8, 504]
+    armv8bitmasks = armv8_bitmasks()[0:150]
 
 class Medium(TestValues):
     _name = "medium"
@@ -64,7 +66,7 @@ class Medium(TestValues):
     x86carryop = [ "stc", "clc" ]
     armv7shift = [0, 1, 0xf, 31]
     armv7op = [1, 0x7f , 0x80, 0xff, 0x7f00, 0x8000, 0x7f000000, 0xff000000, 0x8000000]
-    armv8off = [-512, -8, 0, 8, 504]
+    armv8bitmasks = armv8_bitmasks()[0:20]
 
 class Small(TestValues):
     _name = "small"

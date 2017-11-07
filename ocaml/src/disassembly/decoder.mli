@@ -19,8 +19,10 @@
 (***************************************************************************************)
 (* common signatures of decoders *)
 (***************************************************************************************)
-  
-module type Make = functor (D: Domain.T) ->
+
+
+
+module type Make = functor (D: Domain.T) (Stubs: Stubs.T with type domain_t := D.t) ->
 sig
   (** control flow graph *)
   module Cfa: (Cfa.T with type domain = D.t) 
@@ -29,19 +31,9 @@ sig
   module Imports:
   sig
     
-    (** abstract data type for library functions *)
-    type fun_type = {
-      name: string; (** function name *)
-      libname: string; (** name of its library *) 
-      prologue: Asm.stmt list; (** tranfer operations for its prologue *)
-      stub: Asm.stmt list; (** transfer operations for the function itself *)
-      epilogue: Asm.stmt list; (** transfer operations for its epilogue *) 
-      ret_addr: Asm.exp (** return addr *)
-  }
 
   (** mapping from code addresses to library functions *)
-  val tbl: (Data.Address.t, fun_type) Hashtbl.t
-  val available_stubs: (string, unit) Hashtbl.t
+  val tbl: (Data.Address.t, Asm.import_desc_t) Hashtbl.t
   end
 
     (** decoding context *)

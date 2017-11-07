@@ -1,3 +1,11 @@
+2017-10-20: v0.7:
+* ARMv7 support (without thumb instruction set)
+* ARMv8 (partial) support
+* multiple taint sources (rainbow tainting!)
+* ELF loader (BinCAT can be run without IDA)
+* hundreds of fixes
+* internal code refactoring and improvements
+
 2017-06-29: v0.6:
 * Core engine works on Windows !
 * bincat_native is more sane, checks arguments and displays version

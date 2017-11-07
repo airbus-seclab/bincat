@@ -39,19 +39,19 @@
     let mandatory_keys = Hashtbl.create 20;;
 
     let mandatory_items = [
-	(MODE, "mode", "settings");
-	(CALL_CONV, "call_conv", "settings");
-	(MEM_SZ, "mem_sz", "settings");
-	(OP_SZ, "op_sz", "settings");
-	(STACK_WIDTH, "stack_width", "settings");
-    (ARCHITECTURE, "architecture", "loader");
-	(ENTRYPOINT, "analyser_ep", "loader");
-	(FORMAT, "format", "binary");
-	(FILEPATH, "filepath", "binary");
-	(ANALYSIS, "analysis", "analyzer");
-	(STORE_MCFA, "store_marshalled_cfa", "analyzer");
-	(IN_MCFA_FILE, "in_marshalled_cfa_file", "analyzer");
-	(OUT_MCFA_FILE, "out_marshalled_cfa_file", "analyzer");
+      (MODE, "mode", "program");
+      (CALL_CONV, "call_conv", "program");
+      (MEM_SZ, "mem_sz", "program");
+      (OP_SZ, "op_sz", "program");
+      (STACK_WIDTH, "stack_width", "program");
+      (ARCHITECTURE, "architecture", "program");
+      (FORMAT, "format", "program");
+      (FILEPATH, "filepath", "program");
+      (ENTRYPOINT, "analyser_ep", "analyzer");
+      (ANALYSIS, "analysis", "analyzer");
+      (STORE_MCFA, "store_marshalled_cfa", "analyzer");
+      (IN_MCFA_FILE, "in_marshalled_cfa_file", "analyzer");
+      (OUT_MCFA_FILE, "out_marshalled_cfa_file", "analyzer");
       ];;
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
@@ -80,7 +80,7 @@
 	    | _ 	  -> L.abort (fun p -> p "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
 
       (** update the register table in configuration module *)
-      let init_register rname v = Hashtbl.add Config.register_content rname (fun _ -> v)
+      let init_register rname v = Config.register_content := (rname, v) :: !Config.register_content
 
       let update_mandatory key =
 	    let kname, sname, _ = Hashtbl.find mandatory_keys key in
@@ -96,7 +96,7 @@
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
-	let supported_version = 2 in
+	let supported_version = 4 in
 	if input_version != supported_version then
 	  L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
 
@@ -142,10 +142,10 @@
 	%}
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
 %token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
-%token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED BINARY STATE CODE_LENGTH
-%token FORMAT RAW IDA_REMAPPED PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED CODE_PHYS_ADDR
-%token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA SETTINGS UNDERSCORE LOADER 
-%token GDT CODE_VA CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON
+%token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED STATE
+%token FORMAT RAW MANUAL PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
+%token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA UNDERSCORE
+%token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG
@@ -165,9 +165,7 @@
     | ss=sections s=section    { ss; s }
 
       section:
-    | LEFT_SQ_BRACKET SETTINGS RIGHT_SQ_BRACKET s=settings   { s }
-    | LEFT_SQ_BRACKET LOADER RIGHT_SQ_BRACKET 	l=loader     { l }
-    | LEFT_SQ_BRACKET BINARY RIGHT_SQ_BRACKET 	b=binary     { b }
+    | LEFT_SQ_BRACKET PROGRAM RIGHT_SQ_BRACKET p=program   { p }
     | LEFT_SQ_BRACKET STATE RIGHT_SQ_BRACKET  st=state       { st }
     | LEFT_SQ_BRACKET ANALYZER RIGHT_SQ_BRACKET a=analyzer   { a }
     | LEFT_SQ_BRACKET SECTIONS RIGHT_SQ_BRACKET s=data_sections   { s }
@@ -227,7 +225,6 @@
 
       import:
     | a=INT EQUAL libname=STRING COMMA fname=QUOTED_STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
-    | HEADER EQUAL npk_list=npk { npk_headers := npk_list }    
 
       npk:
     | { [] }
@@ -237,47 +234,56 @@
       libname:
     | l=STRING { libname := l; Hashtbl.add libraries l (None, []) }
 
-      settings:
-    | s=setting_item 		 { s }
-    | s=setting_item ss=settings { s; ss }
+    program:
+    | p=program_item             { p }
+    | p=program_item pp=program  { p; pp }
 
-      setting_item:
+    program_item:
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
-    | OP_SZ EQUAL i=INT          { update_mandatory OP_SZ; try Config.operand_sz := Z.to_int i with _ -> L.abort (fun p -> p "illegal operand size: [%s]" (Z.to_string i)) }
-    | MEM_SZ EQUAL i=INT         { update_mandatory MEM_SZ; try Config.address_sz := Z.to_int i with _ -> L.abort (fun p -> p "illegal address size: [%s]" (Z.to_string i)) }
-    | STACK_WIDTH EQUAL i=INT    { update_mandatory STACK_WIDTH; try Config.stack_width := Z.to_int i with _ -> L.abort (fun p -> p "illegal stack width: [%s]" (Z.to_string i)) }
+    | OP_SZ EQUAL i=INT          {
+      update_mandatory OP_SZ;
+      try Config.operand_sz := Z.to_int i
+      with _ -> L.abort (fun p -> p "illegal operand size: [%s]" (Z.to_string i))
+    }
+    | MEM_SZ EQUAL i=INT         {
+      update_mandatory MEM_SZ;
+      try Config.address_sz := Z.to_int i
+      with _ -> L.abort (fun p -> p "illegal address size: [%s]" (Z.to_string i))
+    }
+    | STACK_WIDTH EQUAL i=INT    {
+      update_mandatory STACK_WIDTH;
+      try Config.stack_width := Z.to_int i
+      with _ -> L.abort (fun p -> p "illegal stack width: [%s]" (Z.to_string i))
+    }
     | MODE EQUAL m=mmode         { update_mandatory MODE ; Config.mode := m }
+    | ARCHITECTURE EQUAL a=architecture  { update_mandatory ARCHITECTURE; Config.architecture := a }
+    | FILEPATH EQUAL f=QUOTED_STRING     { update_mandatory FILEPATH; Config.binary := f }
+    | FORMAT EQUAL f=format      { update_mandatory FORMAT; Config.format := f }
 
-      callconv:
+      format:
+    | PE  { Config.PE }
+    | ELF { Config.ELF }
+    | RAW { Config.RAW }
+    | MANUAL { Config.MANUAL }
+
+    callconv:
     | CDECL    { Config.CDECL }
     | FASTCALL { Config.FASTCALL }
     | STDCALL  { Config.STDCALL }
     | AAPCS    { Config.AAPCS }
 
-
-      mmode:
+    mmode:
     | PROTECTED { Config.Protected }
-    | REAL 	{ Config.Real }
+    | REAL      { Config.Real }
 
-
-      loader:
-    | l=loader_item 	      { l }
-    | l=loader_item ll=loader { l; ll }
-
-      loader_item:
-    | CODE_LENGTH EQUAL i=INT 	 { Config.code_length := Z.to_int i }
-    | ENTRYPOINT EQUAL i=INT  	 { update_mandatory ENTRYPOINT; Config.ep := i }
-    | CODE_PHYS_ADDR EQUAL i=INT { Config.phys_code_addr := Z.to_int i }
-    | CODE_VA EQUAL i=INT 	 { Config.rva_code := i }
-    | ARCHITECTURE EQUAL a=architecture 	 { update_mandatory ARCHITECTURE; Config.architecture := a }
-    
     architecture:
-    | X86 { Config.X86 }
+    | X86   { Config.X86 }
     | ARMV7 { Config.ARMv7 }
     | ARMV8 { Config.ARMv8 }
 
-        x86_section:
-    | s=x86_item 	    { s }
+
+    x86_section:
+    | s=x86_item                { s }
     | s=x86_item ss=x86_section { s; ss }
 
     x86_item:
@@ -306,21 +312,6 @@
     armv8_section:
     |  { () }
 
-      binary:
-    | b=binary_item 	      { b }
-    | b=binary_item bb=binary { b; bb }
-
-      binary_item:
-    | FILEPATH EQUAL f=QUOTED_STRING 	{ update_mandatory FILEPATH; Config.binary := f }
-    | FORMAT EQUAL f=format 	{ update_mandatory FORMAT; Config.format := f }
-
-
-      format:
-    | PE  { Config.PE }
-    | ELF { Config.ELF }
-    | RAW { Config.RAW }
-    | IDA_REMAPPED { Config.IDA_REMAPPED }
-
 
       analyzer:
     | a=analyzer_item 		  { a }
@@ -330,6 +321,7 @@
     | INI_VERSION EQUAL i=INT 	     { check_ini_version (Z.to_int i) }
     | UNROLL EQUAL i=INT 	     { Config.unroll := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT 	     { Config.fun_unroll := Z.to_int i }
+    | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses 	     { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
     | LOGLEVEL modname=STRING EQUAL i=INT
@@ -338,6 +330,7 @@
     | IN_MCFA_FILE EQUAL f=QUOTED_STRING       { update_mandatory IN_MCFA_FILE; Config.in_mcfa_file := f }
     | OUT_MCFA_FILE EQUAL f=QUOTED_STRING       { update_mandatory OUT_MCFA_FILE; Config.out_mcfa_file := f }
     | STORE_MCFA EQUAL v=STRING      { update_mandatory STORE_MCFA; update_boolean "store_mcfa" Config.store_mcfa v }
+    | HEADER EQUAL npk_list=npk { npk_headers := npk_list }
 
       analysis_kind:
     | FORWARD_BIN  { Config.Forward Config.Bin }
@@ -400,9 +393,9 @@
 
     (* memory and register init *)
      init:
-    | TAINT tcontent 	            { L.abort (fun p -> p "Parser: illegal initial content: undefined content with defined tainting value") }
-    | c=mcontent 	            { c, None }
-    | c1=mcontent TAINT c2=tcontent { c1, Some c2 }
+    | TAINT c=tcontent              { None,    Some c }
+    | c=mcontent                    { Some c,  None }
+    | c1=mcontent TAINT c2=tcontent { Some c1, Some c2 }
 
       mcontent:
     | s=HEX_BYTES { Config.Bytes s }
@@ -411,6 +404,8 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
+    | s=HEX_BYTES { Config.TBytes (s, Some (Taint.Src.new_src())) }
+    | s=HEX_BYTES MASK m=INT 	{ Config.TBytes_Mask (s, m, Some (Taint.Src.new_src())) }
     | t=INT 		{ let tid =
                         if Z.compare t Z.zero = 0 then None
                         else Some (Taint.Src.new_src())

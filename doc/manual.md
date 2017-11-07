@@ -40,16 +40,16 @@ instruction of the program. Overrides will apply at the *next* instruction.
 
 * from the **IDA View-A** view: click on a register name or memory address,
   then use the **Ctrl + Shift + o** shortcut
-* from the **BinCAT Tainting** view which shows the registers: right click on
+* from the **BinCAT Registers** view which shows the registers: right click on
   a register, then choose the **Add taint override** menu
 
-![Add override from BinCAT Tainting view using context menu](img/add-taint-override-tainting-view.png)
+![Add override from BinCAT Registers view using context menu](img/add-taint-override-registers-view.png)
 
-* from the **BinCAT Hex** view which shows the contents of the memory: select
+* from the **BinCAT Memory** view which shows the contents of the memory: select
   a memory range, then right click, then choose the **Override taint for
   selection** menu, and input a mask that must be applied to each selected byte
 
-![Add override from BinCAT Hex view using context menu](img/add-taint-override-hex-view.png)
+![Add override from BinCAT Memory view using context menu](img/add-taint-override-memory-view.png)
 
 The following values can be used for register overrides:
 * **TAINT_ALL** indicates that all register bytes are tainted
@@ -73,7 +73,7 @@ instructions:
 
 ![BinCAT View-A view](img/ida-view-A.png)
 
-### BinCAT Tainting
+### BinCAT Registers
 This view displays taint and value for each register (general, flags, segment
 registers), at a given point in the analysis.
 
@@ -96,18 +96,18 @@ Register contents are represented:
 * Type is displayed as a tooltip, shown when the mouse hovers a register, if
   type data is available
 
-![BinCAT Tainting view](img/bincat-tainting.png)
+![BinCAT Registers view](img/bincat-registers.png)
 
-### BinCAT Hex view
+### BinCAT Memory view
 
 This view displays the memory contents. BinCAT's representation splits memory
 into 3 regions: heap, stack, and global, which can be chosen using a drop-down
 menu on this view. Then, a second drop-down menu allow selecting the displayed
 address range.
 
-Memory contents are displayed as a grid, using the same conventions are for the **BinCAT Tainting** view described above, regarding value, taint and type.
+Memory contents are displayed as a grid, using the same conventions are for the **BinCAT Registers** view described above, regarding value, taint and type.
 
-![BinCAT Hex view](img/bincat-hex.png)
+![BinCAT Memory view](img/bincat-memory.png)
 
 ### BinCAT Overrides
 
@@ -120,15 +120,16 @@ re-run the analysis, with updated overrides.
 
 ![BinCAT Overrides view](img/bincat-overrides.png)
 
-### BinCAT Debugging
+### BinCAT IL
 
 This view displays the list of BinCAT intermediate language instruction that
-represents the currently selected instruction, as well as the associated bytes. 
+represents the currently selected instruction, as well as the associated
+instruction bytes. 
 
 BinCAT only outputs intermediate language debugging data if loglevel > 2 in the
 analysis parameters. This data is useful for BinCAT developers and debuggers.
 
-![BinCAT Debugging view](img/bincat-debugging.png)
+![BinCAT IL view](img/bincat-il.png)
 
 ### BinCAT Configurations
 

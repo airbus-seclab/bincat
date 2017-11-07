@@ -1,12 +1,12 @@
-GITVERSION:=$(shell git describe)
+GITVERSION:=$(shell git describe --dirty)
 
 ML=\
+utils/exceptions.ml\
 utils/misc.ml\
 data-struct/register.ml\
 utils/mapOpt.ml\
 utils/setExt.ml\
 utils/bits.ml\
-utils/exceptions.ml\
 data-struct/taint.ml\
 utils/config.ml\
 data-struct/data.ml\
@@ -15,11 +15,13 @@ frontend/init_check.ml\
 data-struct/types.ml\
 data-struct/asm.ml\
 data-struct/mapped_mem.ml\
-loaders/ida_remapped.ml\
+loaders/manual.ml\
 loaders/raw.ml\
 loaders/elf_core.ml\
 loaders/elf.ml\
 disassembly/decodeutils.ml\
+fixpoint/stubs.ml\
+fixpoint/rules.ml\
 disassembly/x86Imports.ml\
 disassembly/armv7Imports.ml\
 disassembly/armv8aImports.ml\
@@ -37,7 +39,6 @@ disassembly/cfa.ml\
 disassembly/x86.ml\
 disassembly/armv7.ml\
 disassembly/armv8A.ml\
-fixpoint/stubs.ml\
 fixpoint/interpreter.ml\
 bincat_ver.ml \
 main.ml
@@ -56,13 +57,15 @@ fixpoint/stubs.mli\
 LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
 BINDIR=$(DESTDIR)/$(PREFIX)/bin/
 
+CPPO_VER=-V OCAML:$(shell ocamlc -vnum)
+CPPO="cppo $(CPPO_VER)"
 CAMLLIBDIR:=$(shell ocamlc -where)
 
 CMX = $(ML:.ml=.cmx)
 
 DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders
 
-CAMLOPTIONS = -g -w Ael -warn-error +a-7-50-42-44 $(DIROPT)
+CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58 $(DIROPT)
 
 CAMLC   =ocamlc $(DIROPT)
 CAMLOPT =ocamlopt
@@ -117,7 +120,7 @@ CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmru
 all: $(LIBNAME) $(EXENAME)
 
 armv8A_ppx: disassembly/armv8A_ppx.ml
-	$(CAMLOPT) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I `ocamlfind query compiler-libs` -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
+	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I `ocamlfind query compiler-libs` -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
 
 $(LIBNAME): $(OBJ) 
 	rm -f $(BINCATOBJ)
@@ -161,6 +164,7 @@ clean:
 	-rm -f ocamldoc.sty ocamldoc.out
 	-rm -f disassembly/*.so
 	-rm -f $(LIBNAME) $(EXEBYTE) $(EXEOPT)
+	-rm -f armv8A_ppx
 	-rm -f frontend/lexer.ml frontend/lexer.mli frontend/parser.ml frontend/parser.mli frontend/*.conflicts frontend/*.automaton
 	# Files moved in revision 2097c09e19f8
 	-rm -f parser.ml parser.mli lexer.ml

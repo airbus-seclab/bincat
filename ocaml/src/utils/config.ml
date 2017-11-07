@@ -35,7 +35,7 @@ let memory_model = ref Flat
 
 type format_t =
   | RAW          (** no structure ; codes begins at phys_code_addr and is loader at rva_code *)
-  | IDA_REMAPPED (** IDA remapped file ; codes begins at phys_code_addr and is loader at rva_code *)
+  | MANUAL       (** uses [sections] to map file in virtual mem *)
   | PE
   | ELF
 
@@ -94,11 +94,7 @@ let call_conv_to_string cc =
 
 let call_conv = ref CDECL
 
-let text = ref ""
-let code_length = ref 0
 let ep = ref Z.zero
-let phys_code_addr = ref 0
-let rva_code = ref Z.zero
 
 let address_sz = ref 32
 let operand_sz = ref 32
@@ -122,6 +118,8 @@ type tvalue =
   | Taint_all of Taint.Src.id_t (* None means no taint source *)
   | Taint of Z.t * (Taint.Src.id_t option) (* None means no taint source *)
   | TMask of Z.t * Z.t * (Taint.Src.id_t option) (* second element is a mask on the first one. For the taint component, None means no source *)
+  | TBytes of string * (Taint.Src.id_t option)
+  | TBytes_Mask of (string * Z.t * (Taint.Src.id_t option))
 
 type cvalue =
   | Content of Z.t
@@ -129,16 +127,17 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
-let reg_override: (Z.t, ((string * (Register.t -> (cvalue * tvalue option))) list)) Hashtbl.t = Hashtbl.create 5
-let mem_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
-let stack_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
-let heap_override: (Z.t, ((Z.t * int) * (cvalue * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
+let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue option))) list)) Hashtbl.t = Hashtbl.create 5
+let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
+let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
+let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
 
 (* lists for the initialisation of the global memory, stack and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
-type mem_init_t = ((Z.t * int) * (cvalue * (tvalue option))) list
+type mem_init_t = ((Z.t * int) * (cvalue option * tvalue option)) list
+type reg_init_t = (string * (cvalue option * tvalue option)) list
 
-let register_content: (string, (Register.t -> cvalue * tvalue option)) Hashtbl.t = Hashtbl.create 10
+let register_content: reg_init_t ref = ref []
 let memory_content: mem_init_t ref = ref []
 let stack_content: mem_init_t ref = ref []
 let heap_content: mem_init_t ref = ref []
@@ -197,11 +196,7 @@ let reset () =
   binary := "";
   format := RAW;
   call_conv := CDECL;
-  text := "";
-  code_length := 0;
   ep := Z.zero;
-  phys_code_addr := 0;
-  rva_code := Z.zero;
   address_sz := 32;
   operand_sz := 32;
   stack_width := 32;
@@ -216,12 +211,12 @@ let reset () =
   memory_content := [];
   stack_content := [];
   heap_content := [];
+  register_content := [];
   Hashtbl.reset module_loglevel;
   Hashtbl.reset reg_override;
   Hashtbl.reset mem_override;
   Hashtbl.reset stack_override;
   Hashtbl.reset heap_override;
-  Hashtbl.reset register_content;
   Hashtbl.reset gdt;
   Hashtbl.reset import_tbl;
   Hashtbl.reset assert_untainted_functions;

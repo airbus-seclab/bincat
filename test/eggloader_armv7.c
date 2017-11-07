@@ -22,9 +22,11 @@ int main(int argc, char *argv[])
         int len;
         unsigned int cpsr;
         unsigned int r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15;
+        void *spsav;
 
         char ret_to_main[] =
-                "\x04\xf0\x9d\xe4";    //   pop { pc }
+                "\x00\xd0\x9f\xe5"  // ldr sp, [pc, #0]
+                "\x04\xf0\x9d\xe4"; // pop { pc }
 
         if (argc != 2) usage();
 
@@ -34,15 +36,19 @@ int main(int argc, char *argv[])
         len = lseek(f, 0, SEEK_END);
         if (len == -1) { perror("lseek"); return -3; }
 
-        egg = mmap(NULL, len+sizeof(ret_to_main), PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
+        egg = mmap(NULL, len+sizeof(ret_to_main)+sizeof(void *), PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
         if (!egg) { perror("mmap"); return -4; }
         memcpy(((char *)egg)+len, ret_to_main, sizeof(ret_to_main));
+        spsav = egg+len+sizeof(ret_to_main)-1;
 
         asm volatile(
         "b .after\n"
         ".before:\n"
         "push { lr }\n"
-                );
+        "ldr r0, %[spsav]\n"
+        "str sp, [r0]\n"
+        :
+        [spsav] "=m" (spsav));
         (*egg)();
          asm volatile(
         ".after:\n"

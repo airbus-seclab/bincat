@@ -141,12 +141,12 @@ def analyze():
             "Supplied init.ini file format is incorrect (missing section "
             "header).", 400)
     # check required sections are present
-    for section in ["binary", "analyzer"]:
+    for section in ["program", "analyzer"]:
         if not config.has_section(section):
             return flask.make_response(
                 "No [%s] section in supplied init.ini file." % section, 400)
     # check required values are present
-    for section, key in [("binary", "filepath"),
+    for section, key in [("program", "filepath"),
                          ("analyzer", "in_marshalled_cfa_file"),
                          ("analyzer", "store_marshalled_cfa"),
                          ("analyzer", "analysis")]:
@@ -156,22 +156,21 @@ def analyze():
             return flask.make_response(
                 "No %s key in [%s] section in supplied init.ini file."
                 % (section, key), 400)
-    binary_name = config.get('binary', 'filepath').lower()
+    binary_name = config.get('program', 'filepath').lower()
     analysis_method = config.get('analyzer', 'analysis').lower()
     input_files = [binary_name]
     if analysis_method in ("forward_cfa", "backward"):
         in_marshalled_cfa_file = \
             config.get('analyzer', 'in_marshalled_cfa_file').lower()
         input_files.append(in_marshalled_cfa_file)
-    if config.has_section("imports"):
-        try:
-            headers_fname = config.get("imports", "headers")
-            for hfname in headers_fname.split(','):
-                if hfname:
-                    input_files.append(hfname)
-        except ConfigParser.NoOptionError:
-            # this is not mandatory
-            pass
+    try:
+        headers_fname = config.get("analyzer", "headers")
+        for hfname in headers_fname.split(','):
+            if hfname:
+                input_files.append(hfname)
+    except ConfigParser.NoOptionError:
+        # this is not mandatory
+        pass
     # remove double quotes that surround filenames
     input_files = [s.replace('"', '') for s in input_files]
     for fname in input_files:

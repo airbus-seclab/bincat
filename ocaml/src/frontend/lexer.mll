@@ -79,12 +79,8 @@ rule token = parse
   | '?' 		    { MASK }
   (* state section *)
   | "state"    		    { STATE }
-  (* setting section *)
-  | "settings"              { SETTINGS }
-  (* loader section *)
-  | "loader"                { LOADER }
-  (* binary section *)
-  | "binary"                { BINARY }
+  (* program section *)
+  | "program"                { PROGRAM }
   (* analyzer section *)
   | "analyzer"  	    { ANALYZER }
   (* sections section *)
@@ -131,18 +127,14 @@ rule token = parse
   | "es" 		    { ES }
   | "fs" 		    { FS }
   | "gs" 		    { GS }
-  | "code_va"               { CODE_VA }
-  | "code_length"           { CODE_LENGTH }
-  | "code_phys"             { CODE_PHYS_ADDR }
   | "analysis_ep"           { ENTRYPOINT }
   (* binary tokens *)
   | "filepath" 		    { FILEPATH }
   | "format" 		    { FORMAT }
   | "pe" 		    { PE }
   | "elf" 		    { ELF }
-  | "ida_remapped"          { IDA_REMAPPED }
+  | "manual"                { MANUAL }
   | "raw"                   { RAW }
-  | "binary" 		    { BINARY }
   | "mode"                  { MODE }
   | "protected"             { PROTECTED }
   | "real"                  { REAL }

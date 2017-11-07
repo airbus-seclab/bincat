@@ -3,21 +3,43 @@ import os
 from util import AARCH64
 
 arm = AARCH64(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv8_isn.ini.in')
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv8.ini.in')
 )
 compare = arm.compare
 
 mov_imm = pytest.mark.parametrize("op", ["movz", "movk", "movn"])
 dataop_comp_logic = pytest.mark.parametrize("op", ["and", "eor", "orr", "bic"])
-dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add"])
+dataop_comp_arith = pytest.mark.parametrize("op", ["sub", "add", "adds", "subs"])
 
-# XXX make this work ? PC is actually random because of ASLR
-#def test_adrp(tmpdir, op32):
-#    asm = """
-#    label:
-#        adrp x0, label
-#    """.format(**locals())
-#    compare(tmpdir, asm, ["x0"])
+def test_adrp1(tmpdir, op32):
+    asm = """
+    label1:
+        adrp x0, label1
+        mov x0,x0
+        mov x0,x0
+        mov x0,x0
+        mov x0,x0
+        mov x0,x0
+    label2:
+        adrp x1, label2
+        sub x3, x1, x0
+    """.format(**locals())
+    compare(tmpdir, asm, ["x3"])
+
+
+def test_adrp2(tmpdir, op32):
+    asm = """
+        adrp x0, label
+        mov x0,x0
+        mov x0,x0
+    label:
+        mov x0,x0
+        mov x0,x0
+        mov x0,x0
+        adrp x1, label
+        sub x3, x1, x0
+    """.format(**locals())
+    compare(tmpdir, asm, ["x3"])
 
 def test_data_xfer_offsets(tmpdir, armv8off):
     asm = """
@@ -65,7 +87,23 @@ def test_data_proc_arith(tmpdir, op, armv7op, armv7op_):
             mov x1, #{armv7op_}
             {op} x2, x0, x1
     """.format(**locals())
-    compare(tmpdir, asm, ["x0","x1", "x2"])
+    if op[-1] != 's':
+        top_allowed = {"n":1, "c":1, "v":1, "z":1}
+    else:
+        top_allowed = {}
+    compare(tmpdir, asm, ["x0","x1", "x2", "n", "c", "v", "z"], top_allowed = top_allowed)
+
+@dataop_comp_arith
+def test_data_proc_arith_imm(tmpdir, op, armv7op, op12):
+    asm = """
+            mov x0, #{armv7op}
+            {op} x2, x0, #{op12}
+    """.format(**locals())
+    if op[-1] != 's':
+        top_allowed = {"n":1, "c":1, "v":1, "z":1}
+    else:
+        top_allowed = {}
+    compare(tmpdir, asm, ["x0", "x2", "n", "c", "z", "v"], top_allowed = top_allowed)
 
 @dataop_comp_logic
 def test_data_proc_logic_32(tmpdir, op, armv7op, armv7op_):
@@ -83,7 +121,11 @@ def test_data_proc_arith_32(tmpdir, op, armv7op, armv7op_):
             mov w1, #{armv7op_}
             {op} w2, w0, w1
     """.format(**locals())
-    compare(tmpdir, asm, ["x0","x1", "x2"])
+    if op[-1] != 's':
+        top_allowed = {"n":1, "c":1, "v":1, "z":1}
+    else:
+        top_allowed = {}
+    compare(tmpdir, asm, ["x0","x1", "x2", "n", "c", "v", "z"], top_allowed = top_allowed)
 
 def test_ubfm(tmpdir, op6, op6_, armv7op, armv7op_):
     asm = """
@@ -121,3 +163,56 @@ def test_madd_sub64(tmpdir, op64, op64_, op64__, op64___):
     """.format(**locals())
     compare(tmpdir, asm, ["x0","x1", "x2", "x3"])
 
+def test_sxtw(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov w0, #{armv7op}
+            sxtw x0, w0
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0"])
+
+def test_add_sxtw(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            mov x1, #{armv7op_}
+            add x2, x1, w0, sxtw
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0", "x1", "x2"])
+
+def test_fp_fmov(tmpdir, armv7op):
+    asm = """
+            mov x0, #{armv7op}
+            fmov s0, w0
+            fmov s10, w0
+    """.format(**locals())
+    compare(tmpdir, asm, ["q0", "q10"])
+
+
+def test_simd_eor(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            fmov s0, w0
+            mov x1, #{armv7op_}
+            fmov s1, w1
+            eor v2.8b, v0.8b, v1.8b
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0", "x1", "q0", "q1", "q2"])
+
+def test_simd_orr(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            fmov s0, w0
+            mov x1, #{armv7op_}
+            fmov s1, w1
+            orr v2.8b, v0.8b, v1.8b
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0", "x1", "q0", "q1", "q2"])
+
+def test_simd_and(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov x0, #{armv7op}
+            fmov s0, w0
+            mov x1, #{armv7op_}
+            fmov s1, w1
+            and v2.8b, v0.8b, v1.8b
+    """.format(**locals())
+    compare(tmpdir, asm, ["x0", "x1", "q0", "q1", "q2"])

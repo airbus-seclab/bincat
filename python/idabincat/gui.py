@@ -22,6 +22,7 @@ import os
 import idc
 import logging
 import string
+import re
 import idc
 import idaapi
 import idautils
@@ -298,7 +299,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             self.s.edit_config.binary_filepath = self.s.remapped_bin_path
             self.s.edit_config.code_va = "0x0"
             self.s.edit_config.code_phys = "0x0"
-            self.s.edit_config.file_type = "ida_remapped"
+            self.s.edit_config.format = "manual"
             size = os.stat(self.s.edit_config.binary_filepath).st_size
             self.s.edit_config.code_length = "0x%0X" % size
             self.s.edit_config.replace_section_mappings(
@@ -484,12 +485,12 @@ class Meminfo():
         return idx+self.start
 
 
-class BinCATHexForm_t(idaapi.PluginForm):
+class BinCATMemForm_t(idaapi.PluginForm):
     """
-    BinCAT hex form.
+    BinCAT memory display form.
     """
     def __init__(self, state):
-        super(BinCATHexForm_t, self).__init__()
+        super(BinCATMemForm_t, self).__init__()
         self.s = state
         self.shown = False
         self.created = False
@@ -526,6 +527,16 @@ class BinCATHexForm_t(idaapi.PluginForm):
             text="0xFF")
         if not res:
             return
+        try:
+            mask_value = int(mask, 16)
+        except ValueError:
+            mask_value = int(mask)
+        if mask_value > 0xFF:
+            bc_log.error("invalid mask value")
+
+        # from v0.7, overrides follow the init syntax, so to update taint only
+        # we prefix by '!' and we use | | syntax to ensure we only taint bytes
+        mask = "!|%02x|" % mask_value
         region = cfa.PRETTY_REGIONS[self.current_region]
         if region == 'global':
             region = 'mem'
@@ -646,7 +657,7 @@ class BinCATHexForm_t(idaapi.PluginForm):
             return
         self.shown = True
         return idaapi.PluginForm.Show(
-            self, "BinCAT Hex",
+            self, "BinCAT Memory",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_MENU |
                      idaapi.PluginForm.FORM_SAVE |
@@ -656,7 +667,8 @@ class BinCATHexForm_t(idaapi.PluginForm):
 
 class BinCATDebugForm_t(idaapi.PluginForm):
     """
-    BinCAT Debug form.
+    BinCAT Debug form: display IL and instruction bytes, if present in BinCAT
+    output.
     """
     def __init__(self, state):
         super(BinCATDebugForm_t, self).__init__()
@@ -671,9 +683,9 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         self.parent = self.FormToPyQtWidget(form)
         layout = QtWidgets.QGridLayout()
 
-        self.stmt_lbl = QtWidgets.QLabel("Statements")
+        self.stmt_lbl = QtWidgets.QLabel("IL statements")
         self.stmt_data = QtWidgets.QLabel()
-        self.bytes_lbl = QtWidgets.QLabel("Bytes")
+        self.bytes_lbl = QtWidgets.QLabel("Instruction bytes")
         self.bytes_data = QtWidgets.QLabel()
 
         self.stmt_data.setTextInteractionFlags(
@@ -716,7 +728,7 @@ class BinCATDebugForm_t(idaapi.PluginForm):
             return
         self.shown = True
         return idaapi.PluginForm.Show(
-            self, "BinCAT Debugging",
+            self, "BinCAT IL",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_SAVE |
                      idaapi.PluginForm.FORM_RESTORE |
@@ -726,7 +738,7 @@ class BinCATDebugForm_t(idaapi.PluginForm):
 class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
     """
     http://stackoverflow.com/questions/35397943/how-to-make-a-fast-qtableview-with-html-formatted-and-clickable-cells
-    Represents tainted data with colors in the BinCATTaintedForm_t
+    Represents tainted data with colors in the BinCATRegistersForm_t
     """
     def paint(self, painter, options, index):
         self.initStyleOption(options, index)
@@ -747,14 +759,14 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
         painter.restore()
 
 
-class BinCATTaintedForm_t(idaapi.PluginForm):
+class BinCATRegistersForm_t(idaapi.PluginForm):
     """
     BinCAT Tainted values form
     This form displays the values of tainted registers
     """
 
     def __init__(self, state, vtmodel):
-        super(BinCATTaintedForm_t, self).__init__()
+        super(BinCATRegistersForm_t, self).__init__()
         self.s = state
         self.vtmodel = vtmodel
         self.shown = False
@@ -831,7 +843,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             return
         self.shown = True
         return idaapi.PluginForm.Show(
-            self, "BinCAT Tainting",
+            self, "BinCAT Registers",
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_SAVE |
                      idaapi.PluginForm.FORM_RESTORE |
@@ -920,7 +932,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
             None,
             "Add Taint override for %s" % regname,
             "Taint value for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
-            regname, text="TAINT_ALL")
+            regname, text="!TAINT_ALL")
         if not res:
             return
         htext = "reg[%s]" % regname
@@ -929,7 +941,7 @@ class BinCATTaintedForm_t(idaapi.PluginForm):
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
     """
-    Used as model in BinCATTaintedForm TableView widgets.
+    Used as model in BinCATRegistersForm TableView widgets.
 
     Contains tainting and values for registers
     """
@@ -1139,7 +1151,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(OverridesModel, self).__init__(*args, **kwargs)
         self.s = state
-        self.headers = ["eip", "addr or reg", "taint"]
+        self.headers = ["eip", "addr or reg", "[value][!taint]"]
 
     def data(self, index, role):
         if role not in (QtCore.Qt.ForegroundRole, QtCore.Qt.DisplayRole,
@@ -1151,8 +1163,9 @@ class OverridesModel(QtCore.QAbstractTableModel):
             if col == 1:
                 return "Example valid addresses: reg[eax], mem[0x1234]"
             if col == 2:
-                return ("Example taint values: 0x1234 (reg or mem), "
-                        "TAINT_ALL (reg only), TAINT_NONE (reg only)")
+                return ("Example override values: !0x1234 (reg or mem), "
+                        "!TAINT_ALL (reg only), !TAINT_NONE (reg only), "
+                        "0x12?0x12", "|0xFF|![0x10|")
             return
         if role == QtCore.Qt.ForegroundRole:
             # basic syntax checking
@@ -1167,10 +1180,22 @@ class OverridesModel(QtCore.QAbstractTableModel):
                             txt.startswith('stack[0x')):
                         return
             else:  # Taint column
-                if txt in ("TAINT_ALL", "TAINT_NONE"):
-                    if self.s.overrides[row][1].startswith("reg"):
-                        return
-                if txt.startswith("0x") or txt.startswith("0b"):
+                if not self.s.overrides[row][1].startswith("reg"):
+                    if "TAINT_ALL" in txt or "TAINT_NONE" in txt:
+                        return QtGui.QBrush(QtCore.Qt.red)
+                pattern = (
+                    # value (optional) - hex, oct, dec, bin, or string
+                    r"^((0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+)"
+                    # if value is present: optional top mask - hex, oct or bin
+                    "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?"
+                    # taint (optional) - same as value, PLUS TAINT_* for
+                    # registers
+                    "(!(0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+|"
+                    "TAINT_ALL|TAINT_NONE)"
+                    # if taint is present: optional top mask - same as value
+                    # top mask
+                    "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?$")
+                if re.match(pattern, txt):
                     return
             return QtGui.QBrush(QtCore.Qt.red)
         rawdata = self.s.overrides[row][col]
@@ -1449,17 +1474,18 @@ class HandleAddOverride(idaapi.action_handler_t):
     def activate(self, ctx):
         self.s.gui.show_windows()
 
-        highlighted = idaapi.get_highlighted_identifier()
+        # IDA 7 compat bug: get_highlighted_identifier is mapped to
+        # get_highlight which expects a widget as arguments
+        # moreover, it returns a tuple instead of a String
+        try:
+            highlighted = idaapi.get_highlighted_identifier()
+        except TypeError:
+            highlighted = idaapi.get_highlight(ctx.widget)
         if highlighted is None:
-            highlighted = ''
+            return 0
+        elif type(highlighted) is tuple:
+            highlighted = highlighted[0]
         address = self.s.current_ea
-        mask, res = QtWidgets.QInputDialog.getText(
-            None,
-            "Add Taint override for %s" % highlighted,
-            "Taint value for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
-            highlighted, text="TAINT_ALL")
-        if not res:
-            return 1  # refresh IDA windows
         # guess whether highlighted text is register or address
         try:
             # is it a register?
@@ -1475,9 +1501,16 @@ class HandleAddOverride(idaapi.action_handler_t):
                 "assuming it's a memory address, edit value in Overrides "
                 "window if that's incorrect", highlighted)
             htype = "mem"
-
         else:
             htype = "reg"
+        mask, res = QtWidgets.QInputDialog.getText(
+            None,
+            "Add Taint override for %s" % highlighted,
+            "Taint value for %s (e.g. !TAINT_ALL (reg only), "
+            "!TAINT_NONE (reg only), !0b001, !0xabc)" %
+            highlighted, text=("!TAINT_ALL" if htype == "reg" else "!|FF|"))
+        if not res:
+            return 1  # refresh IDA windows
         htext = "%s[%s]" % (htype, highlighted)
         self.s.overrides.append((address, htext, mask))
         return 1
@@ -1554,7 +1587,7 @@ class Hooks(idaapi.UI_Hooks):
         # IDA 6/7 compat
         win_type = ctx.widget_type if hasattr(ctx, "widget_type") else ctx.form_type
         if win_type == idaapi.BWN_DISASM:
-            ea = idaapi.get_screen_ea()
+            ea = ctx.cur_ea
             if idaapi.isCode(idaapi.getFlags(ea)):
                 self.s.set_current_ea(ea)
 
@@ -1578,9 +1611,9 @@ class GUI(object):
         """
         self.s = state
         self.vtmodel = ValueTaintModel(state)
-        self.BinCATTaintedForm = BinCATTaintedForm_t(state, self.vtmodel)
+        self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.vtmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
-        self.BinCATHexForm = BinCATHexForm_t(state)
+        self.BinCATMemForm = BinCATMemForm_t(state)
         self.overrides_model = OverridesModel(state)
         self.BinCATOverridesForm = BinCATOverridesForm_t(
             state, self.overrides_model)
@@ -1636,27 +1669,27 @@ class GUI(object):
 
     def show_windows(self):
         self.BinCATDebugForm.Show()
-        self.BinCATTaintedForm.Show()
+        self.BinCATRegistersForm.Show()
         self.BinCATOverridesForm.Show()
         self.BinCATConfigurationsForm.Show()
-        self.BinCATHexForm.Show()
+        self.BinCATMemForm.Show()
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()
 
     def after_change_ea(self):
-        self.BinCATTaintedForm.update_current_ea(self.s.current_ea)
+        self.BinCATRegistersForm.update_current_ea(self.s.current_ea)
         self.vtmodel.endResetModel()
         self.BinCATDebugForm.update(self.s.current_state)
-        self.BinCATHexForm.update_current_ea(self.s.current_ea)
+        self.BinCATMemForm.update_current_ea(self.s.current_ea)
 
     def term(self):
         if self.hooks:
             self.hooks.unhook()
             self.hooks = None
-        self.BinCATTaintedForm.Close(0)
+        self.BinCATRegistersForm.Close(0)
         self.BinCATDebugForm.Close(0)
-        self.BinCATHexForm.Close(0)
+        self.BinCATMemForm.Close(0)
         self.BinCATOverridesForm.Close(0)
         self.BinCATConfigurationsForm.Close(0)
         self.vtmodel = None

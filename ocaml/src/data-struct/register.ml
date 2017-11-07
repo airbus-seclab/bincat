@@ -54,7 +54,10 @@ let size r = r.sz
 
 let used () = Set.elements !registers
 
-let of_name name = Set.choose (Set.filter (fun r -> r.name = name) !registers)
+let of_name name =
+  try Set.choose (Set.filter (fun r -> r.name = name) !registers)
+  with Not_found -> raise (Exceptions.Error
+                             (Printf.sprintf "Register %s not found" name))
 
 let is_stack_pointer r = r.is_sp
 

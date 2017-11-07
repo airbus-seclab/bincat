@@ -49,7 +49,7 @@ let map_file filename : array_t =
   let mapped_file = Bigarray.Array1.map_file
     bin_fd ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false (-1) in
   Unix.close bin_fd;
-  L.debug (fun p -> p "Mapped file [%s]. Array size=%i" filename (Bigarray.Array1.dim mapped_file));
+  L.info2 (fun p -> p "Mapped file [%s]. Array size=%i" filename (Bigarray.Array1.dim mapped_file));
   mapped_file
 
 let section_to_string section =
@@ -67,20 +67,21 @@ let find_section section_list vaddr =
   try
     List.find (fun section_info -> is_in_section vaddr section_info) section_list
   with 
-  | Not_found as e -> L.exc e (fun p -> p "vaddr=%s" (Data.Address.to_string vaddr)); raise e
-
+  | Not_found -> raise (Exceptions.Error
+                          (Printf.sprintf "No mapped section at vaddr=%s"
+                                          (Data.Address.to_string vaddr)))
 
 (** return Some byte from mapped mem at vaddr or None if it is out of the file and raises Not_found if not in any section*)
 let read mapped_mem vaddr =
-  L.debug (fun p -> p "Reading byte at vaddr=%s" (Data.Address.to_string vaddr));
+  L.debug2 (fun p -> p "Reading byte at vaddr=%s" (Data.Address.to_string vaddr));
   let section = find_section mapped_mem.sections vaddr in
   let offset = Data.Address.sub vaddr section.virt_addr in
   let file_offset = Z.to_int (Z.add section.raw_addr offset) in
-  L.debug (fun p -> p "Section found [%s], reading at paddr=%08x" section.name file_offset);
+  L.debug2 (fun p -> p "Section found [%s], reading at paddr=%08x" section.name file_offset);
   (* check if we're out of the section's raw data *)
   let byte = if file_offset >= (Z.to_int section.raw_addr_end) then
       begin
-        L.debug (fun p -> p "paddr=%08x is out of the section on disk" (file_offset));
+        L.debug2 (fun p -> p "paddr=%08x is out of the section on disk" (file_offset));
         0
       end
     else
@@ -90,13 +91,13 @@ let read mapped_mem vaddr =
 
 
 let string_from_addr mapped_mem vaddr len =
-  L.debug (fun p -> p "Reading string at vaddr=%s len=%i" (Data.Address.to_string vaddr) len);
+  L.debug2 (fun p -> p "Reading string at vaddr=%s len=%i" (Data.Address.to_string vaddr) len);
   let sec = find_section mapped_mem.sections vaddr in
   let raddr = Z.to_int (Z.add sec.raw_addr (Data.Address.sub vaddr sec.virt_addr)) in
-  L.debug (fun p -> p "Section found [%s], reading at paddr=%08x" sec.name raddr);
+  L.debug2 (fun p -> p "Section found [%s], reading at paddr=%08x" sec.name raddr);
   if raddr >= (Z.to_int sec.raw_addr_end) then
     begin
-      L.debug (fun p -> p "paddr=%08x is out of the section on disk" raddr);
+      L.debug2 (fun p -> p "paddr=%08x is out of the section on disk" raddr);
       None
     end
   else
@@ -105,6 +106,8 @@ let string_from_addr mapped_mem vaddr len =
     let bytes = List.map
       (fun addr -> Char.chr (Bigarray.Array1.get mapped_mem.mapped_file addr))
       addrs in
-    L.debug (fun p -> p "read bytes %s" (String.concat " " (List.map (fun b -> Printf.sprintf "%02x" (Char.code b)) bytes)));
+    L.debug (fun p -> p "read %i bytes at %s: [%s]"
+      len (Data.Address.to_string vaddr)
+      (String.concat " " (List.map (fun b -> Printf.sprintf "%02x" (Char.code b)) bytes)));
     Some (Misc.string_of_chars bytes)
 

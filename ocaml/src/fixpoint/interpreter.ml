@@ -23,23 +23,24 @@ module L = Log.Make(struct let name = "interpreter" end)
 module Make(D: Domain.T)(Decoder: Decoder.Make) =
 struct
 
-    (** Decoder *)
-    module Decoder = Decoder(D)
+    (** stubs *)
+    module Stubs = Stubs.Make(D)
 
-    type import_attrib_type = {
-      mutable name: string;
-      mutable addr: Z.t option;
-      mutable typing_rule: bool;
-      mutable tainting_rule: bool;
-      mutable stub: bool;
+    (** Decoder *)
+    module Decoder = Decoder(D)(Stubs)
+
+    type import_attrib_t = {
+      mutable ia_name: string;
+      mutable ia_addr: Z.t option;
+      mutable ia_typing_rule: bool;
+      mutable ia_tainting_rule: bool;
+      mutable ia_stub: bool;
     }
 
 				 
     (** Control Flow Automaton *)
     module Cfa = Decoder.Cfa
 
-    (** stubs *)
-    module Stubs = Stubs.Make(D)
 
     open Asm
       
@@ -67,7 +68,7 @@ struct
       L.debug (fun p -> p "restrict: e=%s b=%B" (Asm.string_of_bexp e true) b);
       let rec process e b =
         match e with
-        | BConst b' 		  -> if b = b' then d, Taint.U else D.bot, Taint.U
+        | BConst b' 		  -> if b = b' then d, Taint.U else D.bot, Taint.BOT
         | BUnOp (LogNot, e) 	  -> process e (not b)
 					     
         | BBinOp (LogOr, e1, e2)  ->
@@ -132,12 +133,13 @@ struct
 	      end
         ) l;
 
-       List.fold_left (fun l' v -> if D.is_bot v.Cfa.State.v then
-                                      begin
-					L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
-					Cfa.remove_state g v; l'
-                                      end
-	 else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
+        List.fold_left (fun l' v ->
+          if D.is_bot v.Cfa.State.v then
+            begin
+			  L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
+			  Cfa.remove_state g v; l'
+            end
+	      else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
       with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 								
  
@@ -170,7 +172,7 @@ struct
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
     
     let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t): D.t * Taint.t =
-        L.debug (fun p -> p "process_value ---------\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
+        L.debug2 (fun p -> p "process_value VVVVVVVVVVVVVVVVVVVVVVVVVVVVVV\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
       try
         let res, tainted = 
             match s with
@@ -205,45 +207,54 @@ struct
                d, Taint.U
                 
             | Directive (Taint (e, lv)) 	 ->
-               begin
-                 let cond =
-                   match e with
-                   | None -> true
-                   | Some c ->
-                      match D.taint_sources c d with
-                      | Taint.U -> false
-                      | _ -> true                         
-                 in
+                begin
                  match lv with
-                 | V (T r) ->                      
-                    if cond then
-                      let taint_src = Taint.new_src () in
-                      let mask = Config.Taint_all taint_src in
-                      D.taint_register_mask r mask d
-                   else
-                     d, Taint.U
+                 | V (T r) -> 
+                    begin
+                      match e with
+                      | None ->
+                         let taint_src = Taint.new_src () in
+                         let mask = Config.Taint_all taint_src in
+                         D.taint_register_mask r mask d
+                      | Some c ->
+                         match D.taint_sources c d with
+                         | Taint.U -> d, Taint.U
+                         | src -> D.span_taint_to_register r src d   
+                    end
+                   
                  | M (_, 8) ->
-                    if cond then
+                    begin
                       try
-                        let taint_src = Taint.new_src () in
+                        
                         match Data.Address.Set.elements (fst (D.mem_to_addresses d (Lval lv))) with
-                        | [a] -> D.taint_address_mask a (Config.Taint (Z.of_int 0xff, Some taint_src)) d
+                        | [a] ->
+                           begin
+                             match e with
+                             | None ->
+                                let taint_src = Taint.new_src () in
+                                D.taint_address_mask a (Config.Taint (Z.of_int 0xff, Some taint_src)) d
+                             | Some c ->
+                                match D.taint_sources c d with
+                                | Taint.U -> d, Taint.U
+                                | src -> D.span_taint_to_addr a src d   
+                           end
                         | _ -> raise Exit 
                       with _ -> L.analysis (fun p -> p "Tainting directive ignored"); d, Taint.U
-                    else
-                      d, Taint.U
+                    end
                  | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, Taint.U   
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
             | Directive (Stub (fun_name, call_conv)) ->
-               L.debug(fun p -> p "Processing stub %s" fun_name);
-              let d',taint',cleanup_stmts = Stubs.process d fun_name call_conv in
-              if List.length cleanup_stmts > 0 then
-                L.warn (fun p -> p "cleanup statements are not processed (yet!): %s"
-                  (Asm.string_of_stmts cleanup_stmts true));
+               L.info2(fun p -> p "Processing stub %s" fun_name);
+              let d', taint', cleanup_stmts = Stubs.process d fun_name call_conv in
+              let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
+                               List.fold_left (fun (d, t) stmt -> let dd, tt = process_value d stmt fun_stack in
+                                                                  dd, Taint.logor t tt) (d', taint') cleanup_stmts in
               d', taint'
-            | _ 				 -> raise Jmp_exn
-          in L.debug (fun p -> p "process_value returns taint : %s" (Taint.to_string tainted)); res, tainted
+            | _ -> raise Jmp_exn
+        in L.debug2 (fun p -> p "end of process_value taint=%s ---------\n%s\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^" 
+          (Taint.to_string tainted) (String.concat " " (D.to_string res)));
+        res, tainted
       with Exceptions.Empty _ -> D.bot,Taint.U
 
     and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
@@ -289,17 +300,18 @@ struct
 	      with
             _ -> L.abort (fun p -> p "computed instruction pointer at return instruction is either undefined or imprecise")
 	    end
-	  with Failure "hd" -> L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, Taint.U
+	  with Failure _ -> L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, Taint.U
 		       
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let import_call vertices a fun_stack =
         let fundec = Hashtbl.find Decoder.Imports.tbl a in
-        let stmts = fundec.Decoder.Imports.prologue @ fundec.Decoder.Imports.stub @ fundec.Decoder.Imports.epilogue in
+        let stmts = fundec.Asm.prologue @ fundec.Asm.stub @ fundec.Asm.epilogue in
+        L.info2 (fun p -> p "################### %s" (Data.Address.to_string a));
         L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded." 
-          (Data.Address.to_string a) (fundec.Decoder.Imports.name) (List.length stmts));
+          (Data.Address.to_string a) (fundec.Asm.name) (List.length stmts));
         Log.Trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
-        let ret_addr_exp = fundec.Decoder.Imports.ret_addr in
+        let ret_addr_exp = fundec.Asm.ret_addr in
         L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let t =
             List.fold_left (fun t v ->
@@ -314,8 +326,10 @@ struct
                         | [a] -> a
                         | []  -> L.abort (fun p->p "no return address")
                         | _l  -> L.abort (fun p->p "multiple return addresses") in
+                L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
                 v.Cfa.State.ip <- a;
-                L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string v.Cfa.State.ip));
+                Log.Trace.trace a (fun p -> p "%s"
+                                              (Asm.string_of_stmts [ Asm.Jmp(R ret_addr_exp) ] true));
                 Taint.logor t t') Taint.U vertices
         in
         vertices, t
@@ -340,8 +354,7 @@ struct
                                               (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
                     | Exceptions.Too_many_concrete_elements _ as e ->
-                       L.exc e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip));
-                      L.abort (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
+                       L.exc_and_abort e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                 ) ([], Taint.U) vertices
             in
             if !import then fun_stack := List.tl !fun_stack;
@@ -404,7 +417,11 @@ struct
 	      
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * Taint.t) =
         try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s fun_stack in v.Cfa.State.v <- d; v::l, Taint.logor b b') ([], Taint.U) vertices
+          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s fun_stack in
+                                          v.Cfa.State.v <- d;
+                                          let taint = Taint.logor b b' in
+                                          (*v.Cfa.State.taint_sources <- taint;*)
+                                          v::l, taint) ([], Taint.U) vertices
         with Jmp_exn ->
              match s with 
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts
@@ -441,25 +458,31 @@ struct
 				  
              | _       -> vertices, Taint.U
 			    
-      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): (Cfa.State.t list * Taint.t) =
+      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.t =
         match stmts with
         | s::stmts ->
-	   let new_vert, tainted = begin
-	     try
-               let (new_vertices: Cfa.State.t list), (t: Taint.t) = process_vertices vertices s in
-               let vert, t' = process_list new_vertices stmts in vert, Taint.logor t t'
-	     with Exceptions.Bot_deref -> [], Taint.U (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
-	   end
-           in 
-           L.debug (fun p->p "process_list returns tainted: %s" (Taint.to_string tainted));
+	       let new_vert, tainted =
+             begin
+	           try
+                 let (new_vertices: Cfa.State.t list), (t: Taint.t) = process_vertices vertices s in
+                 let vert, t' = process_list new_vertices stmts in
+                 vert, Taint.logor t t'
+	           with Exceptions.Bot_deref -> [], Taint.BOT (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
+	         end
+           in
+
            new_vert, tainted
         | []       -> vertices, Taint.U
       in
-      let vstart = copy v v.Cfa.State.v None true
-      in
+      let vstart = copy v v.Cfa.State.v None true in
       vstart.Cfa.State.ip <- ip;
-      let vertices, t = process_list [vstart] v.Cfa.State.stmts in
-      vstart.Cfa.State.taint_sources <- t;
+      let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
+      begin
+        try 
+          v.Cfa.State.taint_sources <- taint;
+          List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- Taint.logor v.Cfa.State.taint_sources taint) !fun_stack;
+        with _ -> ()
+      end;
       vertices
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
@@ -533,38 +556,38 @@ struct
       if L.log_info () then
         begin
           let empty_desc = {
-              name = "n/a";
-              addr = None;
-              typing_rule = false;
-              tainting_rule = false;
-              stub = false;
+              ia_name = "n/a";
+              ia_addr = None;
+              ia_typing_rule = false;
+              ia_tainting_rule = false;
+              ia_stub = false;
             } in
           let yesno b = if b then "YES" else "no" in
           let itbl = Hashtbl.create 5 in
           Hashtbl.iter (fun a (libname, fname) ->
             let func_desc = { empty_desc with
-              name = libname ^ "." ^ fname;
-              addr = Some a;
+              ia_name = libname ^ "." ^ fname;
+              ia_addr = Some a;
             } in
             Hashtbl.add itbl fname func_desc) Config.import_tbl;
           Hashtbl.iter (fun name _typing_rule ->
             let func_desc =
               try
                 Hashtbl.find itbl name
-              with Not_found -> { empty_desc with name = "?." ^ name } in
-            Hashtbl.replace itbl name { func_desc with typing_rule=true })  Config.typing_rules;
+              with Not_found -> { empty_desc with ia_name = "?." ^ name } in
+            Hashtbl.replace itbl name { func_desc with ia_typing_rule=true })  Config.typing_rules;
           Hashtbl.iter (fun  (libname, name) (_callconv, _taint_ret, _taint_args) ->
             let func_desc =
               try
                 Hashtbl.find itbl name
-              with Not_found -> { empty_desc with name = libname ^ "." ^ name } in
-            Hashtbl.replace itbl name { func_desc with tainting_rule=true })  Config.tainting_rules;
-          Hashtbl.iter (fun name _  ->
+              with Not_found -> { empty_desc with ia_name = libname ^ "." ^ name } in
+            Hashtbl.replace itbl name { func_desc with ia_tainting_rule=true })  Config.tainting_rules;
+          Hashtbl.iter (fun name _ ->
             let func_desc =
               try
                 Hashtbl.find itbl name
-              with Not_found -> { empty_desc with name = "?." ^ name } in
-            Hashtbl.replace itbl name { func_desc with stub=true })  Decoder.Imports.available_stubs;
+              with Not_found -> { empty_desc with ia_name = "?." ^ name } in
+            Hashtbl.replace itbl name { func_desc with ia_stub=true })  Stubs.stubs;
 
           let addr_to_str x = match x with
             | Some a -> 
@@ -580,8 +603,8 @@ struct
           L.info (fun p -> p "Dumping state of imports");
           Hashtbl.iter (fun _name func_desc ->
             L.info (fun p -> p "| IMPORT %-30s addr=%-16s typing=%-3s tainting=%-3s stub=%-3s"
-              func_desc.name (addr_to_str func_desc.addr) 
-              (yesno func_desc.typing_rule) (yesno func_desc.tainting_rule) (yesno func_desc.stub)))
+              func_desc.ia_name (addr_to_str func_desc.ia_addr) 
+              (yesno func_desc.ia_typing_rule) (yesno func_desc.ia_tainting_rule) (yesno func_desc.ia_stub)))
             itbl;
           L.info (fun p -> p "End of dump");
         end;
@@ -591,10 +614,14 @@ struct
             let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
             let rules' =
                 List.map (fun ((addr, nb), rule) ->
-                  L.debug (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
+                  L.analysis (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
                   Init_check.check_mem rule;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
-                  D.set_memory_from_config addr' Data.Address.Global rule nb) rules
+                  match rule with
+                       | (None, None) -> L.abort (fun p->p "(None, None) override")
+                       | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
+                       | (None, Some t) -> D.taint_address_mask addr' t
+                ) rules
             in
             hash_add_or_append overrides ip rules'
 
@@ -607,7 +634,7 @@ struct
         waiting := Vertices.remove v !waiting;
         begin
           try
-            L.debug (fun p -> p "################### %s" (Data.Address.to_string v.Cfa.State.ip));
+            L.info2 (fun p -> p "################### %s" (Data.Address.to_string v.Cfa.State.ip));
             Log.current_address := Some v.Cfa.State.ip;
             (* the subsequence of instruction bytes starting at the offset provided the field ip of v is extracted *)
             let text'        = Mapped_mem.string_from_addr mapped_mem v.Cfa.State.ip !Config.max_instruction_size in
@@ -625,7 +652,7 @@ struct
             | Some (v, ip', d') ->
                Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
-               let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
+              let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
 	       	(* add overrides if needed *)
 	       let new_vertices =
 		 try
@@ -633,7 +660,7 @@ struct
 		   L.analysis (fun p -> p "applied tainting (%d) override(s)" (List.length rules));
 		   List.map (fun v ->
              let d', taint =
-               List.fold_left (fun (d, taint) f -> let d', taint' = f d in d', Taint.logor taint taint'
+               List.fold_left (fun (d, taint) rule -> let d', taint' = rule d in d', Taint.logor taint taint'
                ) (v.Cfa.State.v, v.Cfa.State.taint_sources) rules
              in
 		     v.Cfa.State.v <- d';
@@ -643,8 +670,8 @@ struct
 		   Not_found -> new_vertices
 	       in
 	       (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
-               let vertices'  = filter_vertices true g new_vertices in
-               List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
+           let vertices'  = filter_vertices true g new_vertices in
+           List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
                (* udpate the internal state of the decoder *)
                d := d'
             | None -> ()

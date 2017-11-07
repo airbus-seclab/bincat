@@ -78,7 +78,7 @@ class ConfigHelpers(object):
         if f_type in ConfigHelpers.ftypes:
             return ConfigHelpers.ftypes[f_type]
         else:
-            return "binary"
+            return "raw"
 
     @staticmethod
     def get_memory_model():
@@ -231,6 +231,8 @@ class ConfigHelpers(object):
             regs["xzr"] = "0"
             for i in range(31):
                 regs["x%d" % i] = "0?0xFFFFFFFFFFFFFFFF"
+            for i in range(32):
+                regs["q%d" % i] = "0?0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
         return regs
 
     @staticmethod
@@ -258,7 +260,7 @@ class AnalyzerConfig(object):
             self._config = ConfigParser.RawConfigParser()
         self._config.optionxform = str
         # make sure all sections are created
-        for section in ("analyzer", "settings", "loader", "binary",
+        for section in ("analyzer", "program",
                         "sections", "state", "imports"):
             if not self._config.has_section(section):
                 self._config.add_section(section)
@@ -270,7 +272,7 @@ class AnalyzerConfig(object):
     @property
     def analysis_ep(self):
         try:
-            return self._config.get('loader', 'analysis_ep')
+            return self._config.get('analyzer', 'analysis_ep')
         except ConfigParser.NoOptionError:
             return ""
 
@@ -288,7 +290,7 @@ class AnalyzerConfig(object):
     @property
     def binary_filepath(self):
         # remove quotes
-        value = self._config.get('binary', 'filepath')
+        value = self._config.get('program', 'filepath')
         value = value.replace('"', '')
         return value
 
@@ -302,34 +304,22 @@ class AnalyzerConfig(object):
     @property
     def headers_files(self):
         try:
-            value = self._config.get('imports', 'headers')
+            value = self._config.get('analyzer', 'headers')
             value = value.replace('"', '')
             return value
         except ConfigParser.NoOptionError:
             return ''
 
     @property
-    def file_type(self):
-        return self._config.get('loader', 'file_type').lower()
-
-    @property
-    def code_va(self):
-        return self._config.get('loader', 'code_va').lower()
-
-    @property
-    def code_phys(self):
-        return self._config.get('loader', 'code_phys').lower()
-
-    @property
-    def code_length(self):
-        return self._config.get('loader', 'code_length').lower()
+    def format(self):
+        return self._config.get('program', 'format').lower()
 
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
         if type(value) in (int, long):
             value = "0x%X" % value
-        self._config.set('loader', 'analysis_ep', value)
+        self._config.set('analyzer', 'analysis_ep', value)
 
     @stop_address.setter
     def stop_address(self, value):
@@ -345,7 +335,7 @@ class AnalyzerConfig(object):
         # make sure value is surrounded by quotes
         if '"' not in value:
             value = '"%s"' % value
-        self._config.set('binary', 'filepath', value)
+        self._config.set('program', 'filepath', value)
 
     @in_marshalled_cfa_file.setter
     def in_marshalled_cfa_file(self, value):
@@ -358,23 +348,11 @@ class AnalyzerConfig(object):
     def headers_files(self, value):
         if '"' not in value:
             value = ','.join(['"%s"' % f for f in value.split(',')])
-        self._config.set('imports', 'headers', value)
+        self._config.set('analyzer', 'headers', value)
 
-    @file_type.setter
-    def file_type(self, value):
-        self._config.set('loader', 'file_type', value)
-
-    @code_va.setter
-    def code_va(self, value):
-        self._config.set('loader', 'code_va', value)
-
-    @code_phys.setter
-    def code_phys(self, value):
-        self._config.set('loader', 'code_phys', value)
-
-    @code_length.setter
-    def code_length(self, value):
-        self._config.set('loader', 'code_length', value)
+    @format.setter
+    def format(self, value):
+        self._config.set('program', 'format', value)
 
     def replace_section_mappings(self, maplist):
         """
@@ -450,52 +428,23 @@ class AnalyzerConfig(object):
 
         code_start_va, code_end_va = ConfigHelpers.get_code_section(
             analysis_start_va)
-        code_len = code_end_va - code_start_va
 
-        # [settings] section
-        config.add_section('settings')
+        config.set('analyzer', 'analysis_ep', "0x%0X" % analysis_start_va)
+
+        # [program] section
+        config.add_section('program')
         # IDA doesn't really support real mode
-        config.set('settings', 'mode', 'protected')
-        config.set('settings', 'call_conv',
+        config.set('program', 'mode', 'protected')
+        config.set('program', 'call_conv',
                    ConfigHelpers.get_call_convention())
-        config.set('settings', 'mem_sz',
+        config.set('program', 'mem_sz',
                    ConfigHelpers.get_bitness(code_start_va))
-        config.set('settings', 'op_sz', ConfigHelpers.get_stack_width())
-        config.set('settings', 'stack_width', ConfigHelpers.get_stack_width())
+        config.set('program', 'op_sz', ConfigHelpers.get_stack_width())
+        config.set('program', 'stack_width', ConfigHelpers.get_stack_width())
 
-        # [loader section]
-        config.add_section('loader')
-        # code section va
-        config.set('loader', 'code_va', "0x%X" % code_start_va)
-        # code section offset
-        config.set('loader', 'code_phys',
-                   hex(idaapi.get_fileregion_offset(code_start_va)))
-        # code section length
-        config.set('loader', 'code_length', "0x%0X" % code_len)
-
-        config.set('loader', 'analysis_ep', "0x%0X" % analysis_start_va)
         arch = ConfigHelpers.get_arch(analysis_start_va)
-        config.set('loader', 'architecture', arch)
+        config.set('program', 'architecture', arch)
 
-        # arch-specifig sections
-        if arch == 'x86':
-            config.add_section(arch)
-            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
-
-        # Load default GDT/Segment registers according to file type
-        ftype = ConfigHelpers.get_file_type()
-        # XXX move this logic to PluginOptions
-        if ftype == "pe":
-            os_name = "windows"
-        else:  # default to Linux config if not windows
-            os_name = "linux"
-        os_specific = os.path.join(
-            config_path, "conf", "%s-%s.ini" % (os_name, arch))
-        bc_log.debug("Reading OS config from %s", os_specific)
-        config.read(os_specific)
-
-        # [binary section]
-        config.add_section('binary')
         input_file = idaapi.get_input_file_path()
         if not os.path.isfile(input_file):
             # get_input_file_path returns file path from IDB, which may not
@@ -505,8 +454,9 @@ class AnalyzerConfig(object):
             if os.path.isfile(guessed_path):
                 input_file = guessed_path
 
-        config.set('binary', 'filepath', '"%s"' % input_file)
-        config.set('binary', 'format', ftype)
+        ftype = ConfigHelpers.get_file_type()
+        config.set('program', 'filepath', '"%s"' % input_file)
+        config.set('program', 'format', ftype)
 
         # [sections section]
         config.add_section("sections")
@@ -540,7 +490,24 @@ class AnalyzerConfig(object):
                 headers_filenames.append(c)
         # remove duplicates
         quoted_filenames = ['"%s"' % h for h in headers_filenames]
-        config.set('imports', 'headers', ','.join(quoted_filenames))
+        config.set('analyzer', 'headers', ','.join(quoted_filenames))
+
+        # arch-specifig sections
+        if arch == 'x86':
+            config.add_section(arch)
+            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
+
+        # Load default GDT/Segment registers according to file type
+        # XXX move this logic to PluginOptions
+        if ftype == "pe":
+            os_name = "windows"
+        else:  # default to Linux config if not windows
+            os_name = "linux"
+        os_specific = os.path.join(
+            config_path, "conf", "%s-%s.ini" % (os_name, arch))
+        bc_log.debug("Reading OS config from %s", os_specific)
+        config.read(os_specific)
+
         # [libc section]
         # config.add_section('libc')
         # config.set('libc', 'call_conv', 'fastcall')

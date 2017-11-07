@@ -25,7 +25,7 @@ let dec_byte s ofs = Bigarray.Array1.get s ofs
 let zdec_byte s ofs = Z.of_int (dec_byte s ofs)
 
 let enc_byte s ofs b =
-  L.debug (fun p -> p "write %02x at %08x" b ofs);
+  L.debug2 (fun p -> p "write %02x at %08x" b ofs);
   s.{ofs} <- b
 let zenc_byte s ofs b = enc_byte s ofs (Z.to_int b)
 
@@ -405,10 +405,10 @@ let to_phdr s hdr phidx =
       p_offset = zdec_off s (phofs+addrsz) hdr.e_ident ;
       p_vaddr  = zdec_addr s (phofs+2*addrsz) hdr.e_ident ;
       p_paddr  = zdec_addr s (phofs+3*addrsz) hdr.e_ident ;
-      p_filesz = zdec_word s (phofs+4*addrsz) hdr.e_ident ;
-      p_memsz  = zdec_word s (phofs+4+4*addrsz) hdr.e_ident ;
+      p_filesz = zdec_word_xword s (phofs+4*addrsz) hdr.e_ident ;
+      p_memsz  = zdec_word_xword s (phofs+5*addrsz) hdr.e_ident ;
       p_flags  = zdec_word s (phofs+flagofs) hdr.e_ident ;
-      p_align  = zdec_word s (phofs+16+3*addrsz) hdr.e_ident ;
+      p_align  = zdec_word_xword s (phofs+5*(addrsz+2)-2) hdr.e_ident ;
     }
 
 let ph_to_string ph =
@@ -667,6 +667,10 @@ type reloc_type_t =
   | R_386_JUMP_SLOT | R_386_RELATIVE | R_386_GOTOFF | R_386_GOTPC
   (* ARM relocation types *)
   | R_ARM_NONE | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
+  (* AARCH64 relocation types *)
+  | R_AARCH64_COPY | R_AARCH64_GLOB_DAT | R_AARCH64_JUMP_SLOT | R_AARCH64_RELATIVE
+  | R_AARCH64_TLS_DTPREL64 | R_AARCH64_TLS_DTPMOD64 | R_AARCH64_TLS_TPREL64
+  | R_AARCH64_TLSDESC | R_AARCH64_IRELATIVE
 
 let to_reloc_type r hdr =
     match hdr.e_machine with
@@ -686,6 +690,20 @@ let to_reloc_type r hdr =
          | 22 -> R_ARM_JUMP_SLOT
          | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
+    | AARCH64 ->
+       begin
+         match r with
+         | 1024 -> R_AARCH64_COPY
+         | 1025 -> R_AARCH64_GLOB_DAT
+         | 1026 -> R_AARCH64_JUMP_SLOT
+         | 1027 -> R_AARCH64_RELATIVE
+         | 1028 -> R_AARCH64_TLS_DTPREL64
+         | 1029 -> R_AARCH64_TLS_DTPMOD64
+         | 1030 -> R_AARCH64_TLS_TPREL64
+         | 1031 -> R_AARCH64_TLSDESC
+         | 1032 -> R_AARCH64_IRELATIVE
+         | _ -> RELOC_OTHER (hdr.e_machine, r)
+       end
     | _ -> RELOC_OTHER (hdr.e_machine, r)
 
 let reloc_type_to_string rel =
@@ -695,6 +713,11 @@ let reloc_type_to_string rel =
   | R_386_GLOB_DAT -> "R_386_GLOB_DAT"  | R_386_JUMP_SLOT -> "R_386_JUMP_SLOT"  | R_386_RELATIVE -> "R_386_RELATIVE"
   | R_386_GOTOFF -> "R_386_GOTOFF"      | R_386_GOTPC -> "R_386_GOTPC"          | R_ARM_NONE -> "R_ARM_NONE"
   | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT"
+  | R_AARCH64_COPY -> "R_AARCH64_COPY"                 | R_AARCH64_GLOB_DAT -> "R_AARCH64_GLOB_DAT"
+  | R_AARCH64_JUMP_SLOT -> "R_AARCH64_JUMP_SLOT"       | R_AARCH64_RELATIVE -> "R_AARCH64_RELATIVE"
+  | R_AARCH64_TLS_DTPREL64 -> "R_AARCH64_TLS_DTPREL64" | R_AARCH64_TLS_DTPMOD64 -> "R_AARCH64_TLS_DTPMOD64"
+  | R_AARCH64_TLS_TPREL64 -> "R_AARCH64_TLS_TPREL64"   | R_AARCH64_TLSDESC -> "R_AARCH64_TLSDESC"
+  | R_AARCH64_IRELATIVE -> "R_AARCH64_IRELATIVE"
   | RELOC_OTHER (mach,num) -> (Printf.sprintf "reloc(%s,%#x)" (e_machine_to_string mach) num)
 
 
@@ -838,15 +861,10 @@ let vaddr_to_paddr vaddr ph =
     ph in
   Z.(phdr.p_offset + vaddr - phdr.p_vaddr)
 
-let patch_rel s (rel:e_rel_t) symaddr elf =
-  match rel.r_type with
-  | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
-  | R_386_GLOB_DAT | R_386_JUMP_SLOT ->
-     let patched_file_offset = Z.to_int (vaddr_to_paddr rel.r_offset elf.ph) in
-     zenc_word_xword s patched_file_offset symaddr elf.hdr.e_ident
-  | R_386_RELATIVE -> () 
-  | _ -> L.abort (fun p -> p "Unsuppored relocation type for [%s]" (rel_to_string rel))
 
+let patch_elf elf s vaddr value = 
+  let paddr = Z.to_int (vaddr_to_paddr vaddr elf.ph) in
+  zenc_word_xword s paddr value elf.hdr.e_ident
 
 (*
 let () =

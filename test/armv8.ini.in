@@ -1,0 +1,108 @@
+# used as a config file template for tests
+
+[analyzer]
+ini_version = 4
+unroll = 150
+loglevel = 10
+store_marshalled_cfa = true
+in_marshalled_cfa_file = "incfa.marshal"
+out_marshalled_cfa_file = "outcfa.marshal"
+analysis = forward_binary
+analysis_ep = 0x00
+cut = {code_length}
+headers = "libc.no"
+
+[program]
+mode = protected
+call_conv = cdecl
+mem_sz = 32
+op_sz = 32
+stack_width = 32
+architecture = armv8
+filepath = "{filepath}"
+format = raw
+
+
+[state]
+reg[n] = 0?1
+reg[z] = 0?1
+reg[c] = 0?1
+reg[v] = 0?1
+reg[x0] = 0?0xffffffffffffffff
+reg[x1] = 0?0xffffffffffffffff
+reg[x2] = 0?0xffffffffffffffff
+reg[x3] = 0?0xffffffffffffffff
+reg[x4] = 0?0xffffffffffffffff
+reg[x5] = 0?0xffffffffffffffff
+reg[x6] = 0?0xffffffffffffffff
+reg[x7] = 0?0xffffffffffffffff
+reg[x8] = 0?0xffffffffffffffff
+reg[x9] = 0?0xffffffffffffffff
+reg[x10] = 0?0xffffffffffffffff
+reg[x11] = 0?0xffffffffffffffff
+reg[x12] = 0?0xffffffffffffffff
+reg[x13] = 0?0xffffffffffffffff
+reg[x14] = 0?0xffffffffffffffff
+reg[x15] = 0?0xffffffffffffffff
+reg[x16] = 0?0xffffffffffffffff
+reg[x17] = 0?0xffffffffffffffff
+reg[x18] = 0?0xffffffffffffffff
+reg[x19] = 0?0xffffffffffffffff
+reg[x20] = 0?0xffffffffffffffff
+reg[x21] = 0?0xffffffffffffffff
+reg[x22] = 0?0xffffffffffffffff
+reg[x23] = 0?0xffffffffffffffff
+reg[x24] = 0?0xffffffffffffffff
+reg[x25] = 0?0xffffffffffffffff
+reg[x26] = 0?0xffffffffffffffff
+reg[x27] = 0?0xffffffffffffffff
+reg[x28] = 0?0xffffffffffffffff
+reg[x29] = 0?0xffffffffffffffff
+reg[x30] = 0?0xffffffffffffffff
+reg[q0] = 0?0xffffffffffffffffffffffffffffffff
+reg[q1] = 0?0xffffffffffffffffffffffffffffffff
+reg[q2] = 0?0xffffffffffffffffffffffffffffffff
+reg[q3] = 0?0xffffffffffffffffffffffffffffffff
+reg[q4] = 0?0xffffffffffffffffffffffffffffffff
+reg[q5] = 0?0xffffffffffffffffffffffffffffffff
+reg[q6] = 0?0xffffffffffffffffffffffffffffffff
+reg[q7] = 0?0xffffffffffffffffffffffffffffffff
+reg[q8] = 0?0xffffffffffffffffffffffffffffffff
+reg[q9] = 0?0xffffffffffffffffffffffffffffffff
+reg[q10] = 0?0xffffffffffffffffffffffffffffffff
+reg[q11] = 0?0xffffffffffffffffffffffffffffffff
+reg[q12] = 0?0xffffffffffffffffffffffffffffffff
+reg[q13] = 0?0xffffffffffffffffffffffffffffffff
+reg[q14] = 0?0xffffffffffffffffffffffffffffffff
+reg[q15] = 0?0xffffffffffffffffffffffffffffffff
+reg[q16] = 0?0xffffffffffffffffffffffffffffffff
+reg[q17] = 0?0xffffffffffffffffffffffffffffffff
+reg[q18] = 0?0xffffffffffffffffffffffffffffffff
+reg[q19] = 0?0xffffffffffffffffffffffffffffffff
+reg[q20] = 0?0xffffffffffffffffffffffffffffffff
+reg[q21] = 0?0xffffffffffffffffffffffffffffffff
+reg[q22] = 0?0xffffffffffffffffffffffffffffffff
+reg[q23] = 0?0xffffffffffffffffffffffffffffffff
+reg[q24] = 0?0xffffffffffffffffffffffffffffffff
+reg[q25] = 0?0xffffffffffffffffffffffffffffffff
+reg[q26] = 0?0xffffffffffffffffffffffffffffffff
+reg[q27] = 0?0xffffffffffffffffffffffffffffffff
+reg[q28] = 0?0xffffffffffffffffffffffffffffffff
+reg[q29] = 0?0xffffffffffffffffffffffffffffffff
+reg[q30] = 0?0xffffffffffffffffffffffffffffffff
+reg[q31] = 0?0xffffffffffffffffffffffffffffffff
+reg[sp] = 0x2000
+
+#here addresses are supposed to be absolute and not of the form ds:o
+stack[0x1000*8192] = |00|?0xFF
+
+
+[libc]
+#tainting rules for libc
+#default calling convention for this lib
+# call_conv = fastcall
+* = open(@, _)
+#read uses a different calling convention
+* = read<stdcall>(@, *, @)
+
+
