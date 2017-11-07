@@ -140,7 +140,7 @@
 	;;
 
 	%}
-%token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
+%token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT 
 %token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED STATE
 %token FORMAT RAW MANUAL PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
@@ -153,6 +153,7 @@
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
+%token <int> TAINT
 %start <unit> process
 %%
 (* in every below rule a later rule in the file order may inhibit a previous rule *)
@@ -404,7 +405,7 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
-    | s=HEX_BYTES { Config.TBytes (s, Some (Taint.Src.new_src())) }
+    | s=HEX_BYTES {Config.TBytes (s, Some (Taint.Src.new_src())) }
     | s=HEX_BYTES MASK m=INT 	{ Config.TBytes_Mask (s, m, Some (Taint.Src.new_src())) }
     | t=INT 		{ let tid =
                         if Z.compare t Z.zero = 0 then None
