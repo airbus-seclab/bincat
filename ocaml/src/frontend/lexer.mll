@@ -74,7 +74,7 @@ rule token = parse
   (* specification of the intial configuration of a memory location *)
   | "mem"       	    { MEM }
   (* taint mask for a memory location or a register *)
-  | '!'         	    { TAINT lexbuf.lex_start_p.pos_lnum}
+  | '!'         	    { TAINT }
   (* mask for taint or value *)
   | '?' 		    { MASK }
   (* state section *)

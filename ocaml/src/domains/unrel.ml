@@ -131,7 +131,7 @@ module Make(D: T) =
 			    
     (** type of the Map from Dimension (register or memory) to abstract values *)
     type t     =
-      | Val of D.t Env.t (* For Ocaml non-gurus : Val is a Map, indexed by Key, with values of D.t *)
+      | Val of D.t Env.t (* For Ocaml non-gurus : Env is a Map, indexed by Key, with values of D.t *)
       | BOT
 
     let bot = BOT
@@ -751,11 +751,19 @@ module Make(D: T) =
 		 
          
     (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, taint) sz: D.t * Taint.t =
+    let of_config region (content, taint) sz: (D.t * Taint.t) * (Taint.Src.id_t option) =
       let v' = D.of_config region content sz in
+      let extract_src_id taint =
+        match taint with
+        | Config.Taint_all id -> Some id
+        | Config.Taint (_, v) -> v
+        | Config.TMask (_, _, v) -> v
+        | Config.TBytes (_, v) -> v
+        | Config.TBytes_Mask (_, _, v) -> v
+      in
       match taint with
-      | Some taint' -> D.taint_of_config taint' sz v'
-      | None 	-> D.taint_of_config (Config.Taint (Z.zero, None)) sz v'
+      | Some taint' -> D.taint_of_config taint' sz v', extract_src_id taint'
+      | None 	-> D.taint_of_config (Config.Taint (Z.zero, None)) sz v', None
          
     let taint_register_mask reg taint m: t * Taint.t =
       match m with
@@ -763,7 +771,7 @@ module Make(D: T) =
       | Val m' ->
 	     let k = Env.Key.Reg reg in
 	     let v = Env.find k m' in
-         let v', taint = D.taint_of_config taint (Register.size reg) v in
+         let v', taint =  D.taint_of_config taint (Register.size reg) v in
 	     Val (Env.replace k v' m'), taint
 
     let span_taint_to_register reg taint m: t * Taint.t =
@@ -797,15 +805,16 @@ module Make(D: T) =
     let set_memory_from_config addr region (content, taint) nb domain: t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");
       if nb > 0 then
-        let content' = match content with
-                        | None -> L.abort (fun p -> p "Unrel.set_memory_from_config with no content")
-                        | Some a -> a
+        let content' =
+          match content with
+          | None -> L.abort (fun p -> p "Unrel.set_memory_from_config with no content")
+          | Some a -> a
         in
         match domain with
         | BOT    -> BOT, Taint.U
         | Val domain' ->
            let sz = size_of_content content' in
-           let v', taint = of_config region (content', taint) sz in
+           let (v', taint), taint_src = of_config region (content', taint) sz in
            if nb > 1 then
              if sz != 8 then
                L.abort (fun p -> p "Repeated memory init only works with bytes")
@@ -817,6 +826,11 @@ module Make(D: T) =
                | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
                | _ -> false
              in
+             begin
+               match taint_src with
+               | None -> ()
+               | Some id -> Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))
+             end;
              Val (write_in_memory addr domain' v' sz true big_endian), taint
       else
         domain, Taint.U
@@ -825,12 +839,18 @@ module Make(D: T) =
       match m with
       | BOT    -> BOT, Taint.U
       | Val m' ->
-         let config_val' = match config_val with
-                        | (None, _) -> L.abort (fun p -> p "taint only update not handled yet")
-                        | (Some c, t) -> (c, t)
+         let config_val' =
+           match config_val with
+           | (None, _) -> L.abort (fun p -> p "taint only update not handled yet")
+           | (Some c, t) -> (c, t)
          in
          let sz = Register.size r in
-         let vt, taint = of_config region config_val' sz in
+         let (vt, taint), src = of_config region config_val' sz in
+          begin
+           match src with
+           | Some id -> Hashtbl.add Dump.taint_src_tbl id (Dump.R r)
+           | None -> ()
+         end;
          Val (Env.add (Env.Key.Reg r) vt m'), taint
 	       
     let value_of_exp m e =

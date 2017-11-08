@@ -25,18 +25,13 @@ module Src =
 
     (*current id for the generation of fresh taint sources *)
     let (current_id: id_t ref) = ref 0
-
-    (* association table for the correspondence bewteen source id and location in the code *)
-    let id_tbl = Hashtbl.create 5
-      
-    let new_src (loc: int): id_t =
+  
+    let new_src (): id_t =
       current_id := !current_id + 1;
-      Hashtbl.add id_tbl !current_id loc;
       !current_id
 
     let clear () =
-      current_id := 0;
-      Hashtbl.clear id_tbl
+      current_id := 0
         
     (* a value may be surely Tainted or Maybe tainted *)
     type t =
@@ -76,6 +71,8 @@ type t =
   | S of SrcSet.t
   | TOP
 
+let clear = Src.clear
+  
 let new_src = Src.new_src
 
 let singleton src = S (SrcSet.singleton src)
