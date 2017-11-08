@@ -34,6 +34,9 @@
 
     (* current override address *)
     let override_addr = ref Z.zero
+
+    (* current taint source id *)
+    let taint_id = ref 0
       
     (* temporary table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
@@ -394,10 +397,13 @@
 
     (* memory and register init *)
      init:
-    | TAINT c=tcontent              { None,    Some c }
+    | set_taint_id c=tcontent            { None, Some c }
     | c=mcontent                    { Some c,  None }
-    | c1=mcontent TAINT c2=tcontent { Some c1, Some c2 }
+    | c1=mcontent set_taint_id c2=tcontent { Some c1, Some c2 }
 
+    set_taint_id:
+    | t=TAINT {taint_id := t }
+    
       mcontent:
     | s=HEX_BYTES { Config.Bytes s }
     | s=HEX_BYTES MASK m=INT 	{ Config.Bytes_Mask (s, m) }
@@ -405,14 +411,14 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
-    | s=HEX_BYTES {Config.TBytes (s, Some (Taint.Src.new_src())) }
-    | s=HEX_BYTES MASK m=INT 	{ Config.TBytes_Mask (s, m, Some (Taint.Src.new_src())) }
+    | s=HEX_BYTES {Config.TBytes (s, Some (Taint.Src.new_src !taint_id)) }
+    | s=HEX_BYTES MASK m=INT 	{ Config.TBytes_Mask (s, m, Some (Taint.Src.new_src !taint_id)) }
     | t=INT 		{ let tid =
                         if Z.compare t Z.zero = 0 then None
-                        else Some (Taint.Src.new_src())
+                        else Some (Taint.Src.new_src !taint_id)
                       in
                       Config.Taint (t, tid) }
-    | TAINT_ALL { Config.Taint_all (Taint.new_src()) }
+    | TAINT_ALL { Config.Taint_all (Taint.new_src !taint_id) }
     | TAINT_NONE { Config.Taint (Z.zero, None) }
-    | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src())) }
+    | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src !taint_id)) }
 
