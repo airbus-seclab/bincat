@@ -34,6 +34,10 @@ module Src =
       Hashtbl.add id_tbl !current_id loc;
       !current_id
 
+    let clear () =
+      current_id := 0;
+      Hashtbl.clear id_tbl
+        
     (* a value may be surely Tainted or Maybe tainted *)
     type t =
       | Tainted of id_t (** surely tainted by the given source *)
