@@ -12,4 +12,4 @@ let clear () =
 let string_of_src src =
   match src with
   | R r -> "r-"^(Register.name r)
-  | M (a, sz) -> "m-("^(Data.Address.to_string a)^","^(string_of_int sz)^")"  
+  | M (a, sz) -> "M("^(Data.Address.to_string a)^","^(string_of_int sz)^")"  
