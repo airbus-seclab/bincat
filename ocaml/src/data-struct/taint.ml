@@ -30,6 +30,9 @@ module Src =
       current_id := !current_id + 1;
       !current_id
 
+    let clear () =
+      current_id := 0
+
     (* a value may be surely Tainted or Maybe tainted *)
     type t =
       | Tainted of id_t (** surely tainted by the given source *)
@@ -67,6 +70,8 @@ type t =
   | U
   | S of SrcSet.t
   | TOP
+
+let clear = Src.clear
 
 let new_src = Src.new_src
 

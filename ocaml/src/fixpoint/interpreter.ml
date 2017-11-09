@@ -214,6 +214,7 @@ struct
                       match e with
                       | None ->
                          let taint_src = Taint.new_src () in
+                         Hashtbl.add Dump.taint_src_tbl taint_src (Dump.R r);
                          let mask = Config.Taint_all taint_src in
                          D.taint_register_mask r mask d
                       | Some c ->
@@ -232,6 +233,7 @@ struct
                              match e with
                              | None ->
                                 let taint_src = Taint.new_src () in
+                                Hashtbl.add Dump.taint_src_tbl taint_src (Dump.M (a, 8));
                                 D.taint_address_mask a (Config.Taint (Z.of_int 0xff, Some taint_src)) d
                              | Some c ->
                                 match D.taint_sources c d with

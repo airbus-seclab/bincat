@@ -52,7 +52,8 @@
       (STORE_MCFA, "store_marshalled_cfa", "analyzer");
       (IN_MCFA_FILE, "in_marshalled_cfa_file", "analyzer");
       (OUT_MCFA_FILE, "out_marshalled_cfa_file", "analyzer");
-      ];;
+    ];;
+
       List.iter (fun (k, kname, sname) -> Hashtbl.add mandatory_keys k (kname, sname, false)) mandatory_items;;
 
     let x86_mandatory_keys = Hashtbl.create 20;;
@@ -67,7 +68,8 @@
       (GDT, "gdt");
       (MEM_MODEL, "mem_model");
        ];;
-      List.iter (fun (k, kname) -> Hashtbl.add x86_mandatory_keys k (kname, false)) x86_mandatory_items;;
+
+    List.iter (fun (k, kname) -> Hashtbl.add x86_mandatory_keys k (kname, false)) x86_mandatory_items;;
 
     let armv7_mandatory_keys = Hashtbl.create 20;;
     let armv8_mandatory_keys = Hashtbl.create 20;;
@@ -140,7 +142,7 @@
     ;;
 
     %}
-%token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT TAINT
+%token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT
 %token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED STATE
 %token FORMAT RAW MANUAL PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
@@ -153,6 +155,7 @@
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
+%token TAINT
 %start <unit> process
 %%
 (* in every below rule a later rule in the file order may inhibit a previous rule *)
@@ -393,9 +396,10 @@
 
     (* memory and register init *)
      init:
-    | TAINT c=tcontent              { None,    Some c }
+    | TAINT c=tcontent            { None, Some c }
     | c=mcontent                    { Some c,  None }
     | c1=mcontent TAINT c2=tcontent { Some c1, Some c2 }
+
 
       mcontent:
     | s=HEX_BYTES { Config.Bytes s }
@@ -404,14 +408,14 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
-    | s=HEX_BYTES { Config.TBytes (s, Some (Taint.Src.new_src())) }
-    | s=HEX_BYTES MASK m=INT    { Config.TBytes_Mask (s, m, Some (Taint.Src.new_src())) }
+    | s=HEX_BYTES {Config.TBytes (s, Some (Taint.Src.new_src ())) }
+    | s=HEX_BYTES MASK m=INT    { Config.TBytes_Mask (s, m, Some (Taint.Src.new_src ())) }
     | t=INT         { let tid =
                         if Z.compare t Z.zero = 0 then None
-                        else Some (Taint.Src.new_src())
+                        else Some (Taint.Src.new_src ())
                       in
                       Config.Taint (t, tid) }
-    | TAINT_ALL { Config.Taint_all (Taint.new_src()) }
+    | TAINT_ALL { Config.Taint_all (Taint.new_src ()) }
     | TAINT_NONE { Config.Taint (Z.zero, None) }
-    | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src())) }
+    | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src ())) }
 
