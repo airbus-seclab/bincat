@@ -242,10 +242,10 @@ sig
 end
 
 module Make(V: Val) =
-    (struct
-        type t = V.t array (** bit order is big endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *)
-
-        let top sz = Array.make sz V.top
+  (struct
+    type t = V.t array (** bit order is big endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *)
+      
+    let top sz = Array.make sz V.top
 
     let exists p v =
       try
@@ -253,36 +253,32 @@ module Make(V: Val) =
         false
       with Exit -> true
 
-        let exist2 p v1 v2 =
-            let n = min (Array.length v1) (Array.length v2) in
-            try
-                for i = 0 to n-1 do
-                    if p v1.(i) v2.(i) then raise Exit
-                done;
-                false
-            with
-            | Exit -> true
-            | _    -> false
+    let exist2 p v1 v2 =
+      let n = min (Array.length v1) (Array.length v2) in
+      try
+        for i = 0 to n-1 do
+          if p v1.(i) v2.(i) then raise Exit
+        done;
+        false
+      with
+      | Exit -> true
+      | _    -> false
 
-    (* let iter2 f v1 v2 =
-      for i = 0 to (Array.length v1) -1 do
-        f v1.(i) v2.(i)
-      done
-    *)
-        let for_all2 p v1 v2 =
-            try
-                for i = 0 to (Array.length v1)-1 do
-                    if not (p v1.(i) v2.(i)) then raise Exit
-                done;
-                true
-            with
-            | _-> false
-
-        let v_to_z conv v =
-          let z = ref Z.zero in
-          for i = 0 to (Array.length v) - 1 do
-            let n = conv v.(i) in
-            z := Z.add n (Z.shift_left !z 1)
+  
+    let for_all2 p v1 v2 =
+      try
+        for i = 0 to (Array.length v1)-1 do
+          if not (p v1.(i) v2.(i)) then raise Exit
+        done;
+        true
+      with
+      | _-> false
+         
+    let v_to_z conv v =
+      let z = ref Z.zero in
+      for i = 0 to (Array.length v) - 1 do
+        let n = conv v.(i) in
+        z := Z.add n (Z.shift_left !z 1)
           done;
           !z
 
@@ -304,6 +300,7 @@ module Make(V: Val) =
     let to_z v = v_to_z V.to_z v
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
     let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
+      
     let extract_strings v =
        let v' =
             if exists V.is_top v then
@@ -321,14 +318,15 @@ module Make(V: Val) =
                 let r = to_word (fun v -> let t = V.taint_to_z v in if Z.compare t Z.one <> 0 then all := false; t) v in
                 if !all then
                     "ALL"
-                else
+                  else
                     Data.Word.to_string r
             with _ ->
                 let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
                 Array.iteri set_taint_char v;
                 "0b"^Bytes.to_string taint_bytes
         in
-    v', t
+        v', t
+          
     let to_string v =
      let v', t = extract_strings v in
      if String.compare t "0x0" == 0 then v'

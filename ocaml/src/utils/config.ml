@@ -127,15 +127,15 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
-let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue option))) list)) Hashtbl.t = Hashtbl.create 5
-let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
-let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
-let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
+let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list option))) list)) Hashtbl.t = Hashtbl.create 5
+let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list option)) list) Hashtbl.t = Hashtbl.create 5
+let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list option)) list) Hashtbl.t = Hashtbl.create 5
+let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list option)) list) Hashtbl.t = Hashtbl.create 5
 
 (* lists for the initialisation of the global memory, stack and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
-type mem_init_t = ((Z.t * int) * (cvalue option * tvalue option)) list
-type reg_init_t = (string * (cvalue option * tvalue option)) list
+type mem_init_t = ((Z.t * int) * (cvalue option * tvalue list option)) list
+type reg_init_t = (string * (cvalue option * tvalue list option)) list
 
 let register_content: reg_init_t ref = ref []
 let memory_content: mem_init_t ref = ref []

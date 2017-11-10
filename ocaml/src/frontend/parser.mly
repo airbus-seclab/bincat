@@ -35,6 +35,9 @@
     (* current override address *)
     let override_addr = ref Z.zero
 
+    (* function to apply to retrieve taint source *)
+    let taint_fun = ref (fun () -> Taint.Src.new_src ())
+      
     (* temporary table used to check that all mandatory elements are filled in the configuration file *)
     let mandatory_keys = Hashtbl.create 20;;
 
@@ -396,9 +399,9 @@
 
     (* memory and register init *)
      init:
-    | TAINT c=tcontent            { None, Some c }
+    | set_default_source_function c=tcontent            { None, Some c }
     | c=mcontent                    { Some c,  None }
-    | c1=mcontent TAINT c2=tcontent { Some c1, Some c2 }
+    | c1=mcontent set_default_source_function c2=tcontent   { Some c1, Some c2 }
 
 
       mcontent:
@@ -408,14 +411,25 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
-    | s=HEX_BYTES {Config.TBytes (s, Some (Taint.Src.new_src ())) }
-    | s=HEX_BYTES MASK m=INT    { Config.TBytes_Mask (s, m, Some (Taint.Src.new_src ())) }
+    | s=HEX_BYTES { [Config.TBytes (s, Some (!taint_fun()))] }
+    | s=HEX_BYTES MASK m=INT    { [Config.TBytes_Mask (s, m, Some (!taint_fun()))] }
     | t=INT         { let tid =
                         if Z.compare t Z.zero = 0 then None
-                        else Some (Taint.Src.new_src ())
+                        else Some (!taint_fun())
                       in
-                      Config.Taint (t, tid) }
-    | TAINT_ALL { Config.Taint_all (Taint.new_src ()) }
-    | TAINT_NONE { Config.Taint (Z.zero, None) }
-    | t=INT MASK t2=INT { Config.TMask (t, t2, Some (Taint.Src.new_src ())) }
+                      [Config.Taint (t, tid)] }
+    | TAINT_ALL { [Config.Taint_all (!taint_fun ())] }
+    | TAINT_NONE { [Config.Taint (Z.zero, None)] }
+    | t=INT MASK t2=INT { [Config.TMask (t, t2, Some (!taint_fun()))] }
+    | srcs = taint_sources { srcs }
 
+    taint_sources:
+    | set_source_function ts = tcontent { ts }
+    | set_source_function ts = tcontent SEMI_COLON tss = taint_sources { ts@tss }
+
+    set_default_source_function:
+    | TAINT { taint_fun := fun () -> Taint.Src.new_src () }
+
+    set_source_function:
+    | id=INT COMMA { taint_fun := fun () -> (Z.to_int id) }
+    
