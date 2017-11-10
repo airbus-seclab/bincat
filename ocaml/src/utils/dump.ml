@@ -13,3 +13,7 @@ let string_of_src src =
   match src with
   | R r -> "r-"^(Register.name r)
   | M (a, sz) -> "M("^(Data.Address.to_string a)^","^(string_of_int sz)^")"
+
+let marshal fid = Marshal.to_channel fid taint_src_tbl
+
+let unmarshal fid = taint_src_tbl = Marshal.from_channel fid

@@ -751,7 +751,7 @@ module Make(D: T) =
 
 
     (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, taint) sz: (D.t * Taint.t) * (Taint.Src.id_t option) =
+    let of_config region (content, (taint: Config.tvalue list option)) sz: (D.t * Taint.t) * (Taint.Src.id_t option) =
       let v' = D.of_config region content sz in
       let extract_src_id taint =
         match taint with
@@ -762,7 +762,9 @@ module Make(D: T) =
         | Config.TBytes_Mask (_, _, v) -> v
       in
       match taint with
-      | Some taint' -> D.taint_of_config taint' sz v', extract_src_id taint'
+      | Some taint' ->
+         let t = List.fold_left (fun t new_t -> Taint.logor t (extract_src_id new_t)) Taint.U taint' in
+           D.taint_of_config taint' sz v', extract_src_id t
       | None    -> D.taint_of_config (Config.Taint (Z.zero, None)) sz v', None
 
     let taint_register_mask reg taint m: t * Taint.t =
@@ -802,7 +804,7 @@ module Make(D: T) =
          let v' = D.span_taint v taint in
          Val (Env.replace k v' m'), taint
 
-    let set_memory_from_config addr region (content, taint) nb domain: t * Taint.t =
+    let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue option list)) nb domain: t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");
       if nb > 0 then
         let content' =
@@ -829,7 +831,9 @@ module Make(D: T) =
              begin
                match taint_src with
                | None -> ()
-               | Some id -> Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))
+               | Some id ->
+                  if not (Hashtbl.mem Dump.taint_src_tbl id) then
+                   Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))
              end;
              Val (write_in_memory addr domain' v' sz true big_endian), taint
       else

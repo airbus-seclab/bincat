@@ -94,7 +94,10 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
 
     (* internal function to launch backward/forward analysis from a previous CFA and config *)
     let from_cfa fixpoint =
-      let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
+      let fid = open_in_bin !Config.in_mcfa_file in
+      let orig_cfa = Interpreter.Cfa.unmarshal fid in
+      Dump.unmarshal fid;
+      close_in fid;
       let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
       let d, taint = Interpreter.Cfa.init_abstract_value () in
       try
@@ -137,7 +140,12 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
 
     (* dumping results *)
     if !Config.store_mcfa = true then
-      Interpreter.Cfa.marshal !Config.out_mcfa_file cfa;
+      begin
+        let fid = open_in_bin !Config.out_mcfa_file in
+        Interpreter.Cfa.marshal fid cfa;
+        Dump.marshal fid;
+        close_out fid
+      end;
     dump cfa;
     Log.close();
   with e ->

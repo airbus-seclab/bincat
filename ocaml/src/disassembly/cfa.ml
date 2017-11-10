@@ -327,15 +327,12 @@ struct
   let marshal (outfname: string) (cfa: t): unit =
     let cfa_marshal_fd = open_out_bin outfname in
     Marshal.to_channel cfa_marshal_fd cfa [];
-    Marshal.to_channel cfa_marshal_fd !state_cpt [];
-    close_out cfa_marshal_fd;;
+    Marshal.to_channel cfa_marshal_fd !state_cpt [];;
 
-  let unmarshal (infname: string): t =
-    let cfa_marshal_fd = open_in_bin infname in
-    let origcfa = Marshal.from_channel cfa_marshal_fd in
-    let last_id = Marshal.from_channel cfa_marshal_fd in
+  let unmarshal fid: t =
+    let origcfa = Marshal.from_channel fid in
+    let last_id = Marshal.from_channel fid in
     state_cpt := last_id;
-    close_in cfa_marshal_fd;
     origcfa
 
 end
