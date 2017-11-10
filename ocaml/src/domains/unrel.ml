@@ -762,10 +762,8 @@ module Make(D: T) =
         | Config.TBytes_Mask (_, _, v) -> v
       in
       match taint with
-      | Some taint' ->
-         let t = List.fold_left (fun t new_t -> Taint.logor t (extract_src_id new_t)) Taint.U taint' in
-           D.taint_of_config taint' sz v', extract_src_id t
-      | None    -> D.taint_of_config (Config.Taint (Z.zero, None)) sz v', None
+      | Some taint' -> D.taint_of_config taint' sz v', List.map extract_src_id taint'
+      | None -> D.taint_of_config (Config.Taint (Z.zero, None)) sz v', None
 
     let taint_register_mask reg taint m: t * Taint.t =
       match m with
