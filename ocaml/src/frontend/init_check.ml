@@ -56,9 +56,9 @@ let check_register_init r (c, t) =
 let check_mem (c, t): unit =
   let taint_sz =
       match t with
-      | None | Some (Taint_all _) -> 0
-      | Some (Taint (t', _)) | Some (TMask (t', _, _)) -> Z.numbits t'
-      | Some (TBytes (s, _)) | Some (TBytes_Mask (s, _, _)) -> (String.length s)*4
+      | Taint_all | Taint_none -> 0
+      | Taint (t', _) | TMask (t', _, _) -> Z.numbits t'
+      | TBytes (s, _) | TBytes_Mask (s, _, _) -> (String.length s)*4
   in
      match c with
      | None -> if taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
