@@ -51,7 +51,7 @@ sig
     val of_z: Z.t -> t
 
     (** taint the given value from Z.t value *)
-    val taint_of_z: Z.t -> t -> Taint.Src.id_t option -> t
+    val taint_of_z: Z.t -> t -> Taint.Src.id_t list option -> t
 
     (** abstract join *)
     val join: t -> t -> t
