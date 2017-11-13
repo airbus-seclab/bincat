@@ -56,7 +56,7 @@ let check_register_init r (c, t) =
 let check_mem (c, t): unit =
   let taint_sz =
       match t with
-      | Taint_all | Taint_none -> 0
+      | Taint_all _ | Taint_none _ -> 0
       | Taint (t', _) | TMask (t', _, _) -> Z.numbits t'
       | TBytes (s, _) | TBytes_Mask (s, _, _) -> (String.length s)*4
   in
