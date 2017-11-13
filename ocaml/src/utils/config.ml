@@ -119,7 +119,7 @@ type tvalue =
   | Taint of Z.t * (Taint.Src.id_t option) (* None means no taint source *)
   | TMask of Z.t * Z.t * (Taint.Src.id_t option) (* second element is a mask on the first one *)
   | TBytes of string * Taint.Src.id_t
-  | TBytes_Mask of (string * Z.t * (Taint.Src.id_t option))
+  | TBytes_Mask of (string * Z.t * Taint.Src.id_t)
 
 type cvalue =
   | Content of Z.t
