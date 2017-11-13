@@ -56,6 +56,11 @@ sig
     (** abstract join *)
     val join: t -> t -> t
 
+    (** abstract join on taint component only 
+        this function should only be called when the value of the 
+        two parameters are the same. No check done *)
+    val taint_join: t -> t -> t
+      
     (** abstract meet *)
     val meet: t -> t -> t
 
@@ -731,8 +736,8 @@ module Make(V: Val) =
                  if Z.testbit m i then
                    v.(n'-i) <- V.top
                  else
-                          v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
-                  done;
+                   v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
+               done;
                 | Config.Content c         ->
                   for i = 0 to n' do
                       v.(n'-i) <- nth_of_z_as_val c i
@@ -747,69 +752,68 @@ module Make(V: Val) =
             end;
             v
 
-        let taint_of_config t n (prev: t option): t * Taint.t =
+        let taint_of_config taints n (prev: t option): t * Taint.t =
             let v =
                 match prev with
                 | Some v' -> Array.copy v'
                 | None    -> Array.make n V.top
             in
-            let n' =n-1 in
-            match t with
-            | Config.TBytes (b, tid) ->
-               let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-               for i = 0 to n' do
-                 v.(n'-i) <- V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid
-               done;
-               let taint = match tid with | None ->  Taint.U | Some t -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t)) in
-               v, taint
-            | Config.TBytes_Mask (b, m, tid) ->
-               let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-               for i = 0 to n' do
-                 if Z.testbit m i then
-                     v.(n'-i) <- V.forget_taint v.(n'-i) tid
-                 else
-                     v.(n'-i) <- V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid
-               done;
-               let taint = match tid with | None ->  Taint.U | Some t -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t)) in
-               v, taint
-            | Config.Taint (b, tid) ->
-              for i = 0 to n' do
-                  v.(n'-i) <- V.taint_of_z (nth_of_z b i) v.(n'-i) tid
-              done;
-              let taint =
-                match b, tid with
-                | b, None when Z.compare b Z.zero = 0 -> Taint.U
-                | _, Some tid -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
-                | _, _ -> L.abort (fun _p -> "Illegal taint configuration (no source provided)")
-              in
-              v, taint
-
-            | Config.Taint_all tid ->
-               let n' =n-1 in
-               for i = 0 to n' do
-                 v.(n'-i) <- V.taint_of_z Z.one v.(n'-i) (Some tid)
-               done;
-               v, Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
-
-            | Config.TMask (b, m, tid) ->
-              let n' = n-1 in
-              for i = 0 to n' do
-                  let bnth = nth_of_z b i in
-                  let mnth = nth_of_z m i in
-                  if Z.compare mnth Z.zero = 0 then
-                      v.(n'-i) <- V.taint_of_z bnth v.(n'-i) tid
-                  else
-                      v.(n'-i) <- V.forget_taint v.(n'-i) tid
-              done;
-              let taint =
-                match b, m, tid with
-                | b, m, None when Z.compare b Z.zero = 0 && Z.compare m Z.zero = 0 -> Taint.U
-                | _, m, Some tid when Z.compare m Z.zero = 0 -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
-                | _, _, Some tid -> Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
-                | _, _, _ -> L.abort (fun _p -> "Illegal taint configuration (no source provided)")
-              in
-              v, taint
-
+            let n' = n-1 in
+            let set_one_taint t =
+              match t with
+              | Config.TBytes (b, tid) ->
+                 let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+                 for i = 0 to n' do
+                   v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
+                 done;
+                 Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t)) 
+                   
+              | Config.TBytes_Mask (b, m, tid) ->
+                 let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+                 for i = 0 to n' do
+                   if Z.testbit m i then
+                     v.(n'-i) <- V.taint_join v.(n'-i) (V.forget_taint v.(n'-i) tid)
+                   else
+                     v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
+                 done;
+                 Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t))
+                   
+              | Config.Taint (b, tid) ->
+                 for i = 0 to n' do
+                   v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z b i) v.(n'-i) tid)
+                 done;
+                if Z.compare b Z.zero = 0 then Taint.U
+                else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+                  
+              | Config.Taint_all tid ->
+                 let n' =n-1 in
+                 for i = 0 to n' do
+                   v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z Z.one v.(n'-i) (Some tid))
+                 done;
+                 Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+                   
+              | Config.TMask (b, m, tid) ->
+                 let n' = n-1 in
+                 for i = 0 to n' do
+                   let bnth = nth_of_z b i in
+                   let mnth = nth_of_z m i in
+                   if Z.compare mnth Z.zero = 0 then
+                     v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z bnth v.(n'-i) tid)
+                   else
+                     v.(n'-i) <- V.taint_join v.(n'-i) (V.forget_taint v.(n'-i) tid)
+                 done;
+                 if Z.compare m Z.zero = 0 then
+                   if Z.compare b Z.zero = 0 then Taint.U
+                   else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+                 else Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
+            in
+            let taint' =
+              match taint with
+              | None -> Taint.U
+              | Some taint' -> List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taint'
+            in
+            v, taint'
+              
     let forget v opt =
       L.debug (fun (p: ('a, unit, string) format -> 'a) ->
         match opt with
