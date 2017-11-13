@@ -766,7 +766,7 @@ module Make(V: Val) =
                  for i = 0 to n' do
                    v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
                  done;
-                 Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t)) 
+                 Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid)) 
                    
               | Config.TBytes_Mask (b, m, tid) ->
                  let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
@@ -808,7 +808,7 @@ module Make(V: Val) =
                  else Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
             in
             let taint' =
-              match taint with
+              match taints with
               | None -> Taint.U
               | Some taint' -> List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taint'
             in
