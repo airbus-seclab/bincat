@@ -170,13 +170,13 @@ module Make (V: Vector.T) =
             | Val (r1, o1), Val (r2, o2) ->
               if r1 = r2 then V.is_subset o1 o2
               else false
+                
         let taint_of_config taint n prev: t * Taint.t =
           match prev with
           | Val (r, o) ->
              let o', taint' = V.taint_of_config taint n (Some o) in
              Val (r, o'), taint'
-
-          | _      -> prev, Taint.U
+          | _      -> prev, Taint.BOT
 
         let of_config r c n = Val (r, V.of_config c n)
 

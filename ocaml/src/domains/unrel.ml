@@ -71,7 +71,7 @@ module type T =
 
     (** taint the given abstract value.
     The size of the value is given by the int parameter. The taint itself is also returned *)
-    val taint_of_config: Config.tvalue -> int -> t -> t * Taint.t
+    val taint_of_config: Config.tvalue list -> int -> t -> t * Taint.t
 
 
     (** join two abstract values *)
@@ -751,19 +751,25 @@ module Make(D: T) =
 
 
     (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, (taint: Config.tvalue list option)) sz: (D.t * Taint.t) * (Taint.Src.id_t option) =
+    let of_config region (content, (taint: Config.tvalue list option)) sz: (D.t * Taint.t) * (Taint.Src.id_t list option) =
       let v' = D.of_config region content sz in
       let extract_src_id taint =
+        let extract acc taint =
         match taint with
-        | Config.Taint_all id -> Some id
-        | Config.Taint (_, v) -> v
-        | Config.TMask (_, _, v) -> v
-        | Config.TBytes (_, v) -> v
-        | Config.TBytes_Mask (_, _, v) -> v
+        | Config.Taint_all id 
+        | Config.Taint (_, Some id) 
+        | Config.TMask (_, _, Some id)  
+        | Config.TBytes (_, Some id) 
+        | Config.TBytes_Mask (_, _, Some id) -> id::acc
+        | _ -> acc
+        in 
+        let res = List.fold_left extract [] taint in
+        if res = [] then None
+        else Some res
       in
       match taint with
-      | Some taint' -> D.taint_of_config taint' sz v', List.map extract_src_id taint'
-      | None -> D.taint_of_config (Config.Taint (Z.zero, None)) sz v', None
+      | Some taint' -> D.taint_of_config taint' sz v', extract_src_id taint'
+      | None -> D.taint_of_config [Config.Taint (Z.zero, None)] sz v', None
 
     let taint_register_mask reg taint m: t * Taint.t =
       match m with
@@ -771,7 +777,7 @@ module Make(D: T) =
       | Val m' ->
          let k = Env.Key.Reg reg in
          let v = Env.find k m' in
-         let v', taint =  D.taint_of_config taint (Register.size reg) v in
+         let v', taint =  D.taint_of_config [taint] (Register.size reg) v in
          Val (Env.replace k v' m'), taint
 
     let span_taint_to_register reg taint m: t * Taint.t =
@@ -790,7 +796,7 @@ module Make(D: T) =
       | Val m' ->
          let k = Env.Key.Mem a in
          let v = Env.find k m' in
-         let v', taint = D.taint_of_config taint (size_of_taint taint) v in
+         let v', taint = D.taint_of_config [taint] (size_of_taint taint) v in
          Val (Env.replace k v' m'), taint
 
     let span_taint_to_addr a taint m: t * Taint.t =
@@ -802,7 +808,7 @@ module Make(D: T) =
          let v' = D.span_taint v taint in
          Val (Env.replace k v' m'), taint
 
-    let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue option list)) nb domain: t * Taint.t =
+    let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue list option)) nb domain: t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");
       if nb > 0 then
         let content' =
@@ -829,9 +835,9 @@ module Make(D: T) =
              begin
                match taint_src with
                | None -> ()
-               | Some id ->
-                  if not (Hashtbl.mem Dump.taint_src_tbl id) then
-                   Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))
+               | Some ids ->
+                  List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
+                   Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) ids
              end;
              Val (write_in_memory addr domain' v' sz true big_endian), taint
       else
@@ -850,7 +856,9 @@ module Make(D: T) =
          let (vt, taint), src = of_config region config_val' sz in
           begin
            match src with
-           | Some id -> Hashtbl.add Dump.taint_src_tbl id (Dump.R r)
+           | Some ids -> List.iter (fun id ->
+             if not (Hashtbl.mem Dump.taint_src_tbl id) then
+               Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) ids
            | None -> ()
          end;
          Val (Env.add (Env.Key.Reg r) vt m'), taint
