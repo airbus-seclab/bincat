@@ -747,7 +747,7 @@ module Make(D: T) =
       match t with
       | Config.Taint (z, _) | Config.TMask (z, _, _) -> round_sz (Z.numbits z)
       | Config.TBytes (b, _) | Config.TBytes_Mask (b, _, _) -> (String.length b)*4
-      | Config.Taint_all _ -> 0
+      | Config.Taint_all _ | Config.Taint_none _-> 0
 
 
     (** builds an abstract tainted value from a config concrete tainted value *)
