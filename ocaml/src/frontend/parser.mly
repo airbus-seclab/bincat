@@ -411,16 +411,14 @@
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
      tcontent:
-    | s=HEX_BYTES { [Config.TBytes (s, Some (!taint_fun()))] }
-    | s=HEX_BYTES MASK m=INT    { [Config.TBytes_Mask (s, m, Some (!taint_fun()))] }
-    | t=INT         { let tid =
-                        if Z.compare t Z.zero = 0 then None
-                        else Some (!taint_fun())
-                      in
-                      [Config.Taint (t, tid)] }
+    | s=HEX_BYTES { [Config.TBytes (s, !taint_fun())] }
+    | s=HEX_BYTES MASK m=INT    { [Config.TBytes_Mask (s, m, !taint_fun())] }
+    | t=INT         { 
+      if Z.compare t Z.zero = 0 then [Config.Taint_none (!taint_fun())]
+      else [Config.Taint (t, !taint_fun())] }
     | TAINT_ALL { [Config.Taint_all (!taint_fun ())] }
     | TAINT_NONE { [Config.Taint_none (!taint_fun ())] }
-    | t=INT MASK t2=INT { [Config.TMask (t, t2, Some (!taint_fun()))] }
+    | t=INT MASK t2=INT { [Config.TMask (t, t2, !taint_fun())] }
     | srcs = taint_sources { srcs }
 
     taint_sources:
