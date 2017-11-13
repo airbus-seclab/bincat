@@ -419,7 +419,7 @@
                       in
                       [Config.Taint (t, tid)] }
     | TAINT_ALL { [Config.Taint_all (!taint_fun ())] }
-    | TAINT_NONE { [Config.Taint (Z.zero, None)] }
+    | TAINT_NONE { [Config.Taint_none (!taint_fun ())] }
     | t=INT MASK t2=INT { [Config.TMask (t, t2, Some (!taint_fun()))] }
     | srcs = taint_sources { srcs }
 
