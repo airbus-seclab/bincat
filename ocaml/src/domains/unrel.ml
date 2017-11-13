@@ -756,11 +756,12 @@ module Make(D: T) =
       let extract_src_id taint =
         let extract acc taint =
         match taint with
-        | Config.Taint_all id 
-        | Config.Taint (_, Some id) 
-        | Config.TMask (_, _, Some id)  
-        | Config.TBytes (_, Some id) 
-        | Config.TBytes_Mask (_, _, Some id) -> id::acc
+        | Config.Taint_all id
+        | Config.Taint_none id   
+        | Config.Taint (_, id) 
+        | Config.TMask (_, _, id)  
+        | Config.TBytes (_, id) 
+        | Config.TBytes_Mask (_, _, id) -> id::acc
         | _ -> acc
         in 
         let res = List.fold_left extract [] taint in
