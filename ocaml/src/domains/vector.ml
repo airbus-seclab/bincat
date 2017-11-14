@@ -794,7 +794,7 @@ module Make(V: Val) =
         | Config.Taint_none ->
            let n' =n-1 in
            for i = 0 to n' do
-             v.(n'-i) <- V.taint_join v.(n'-i) (V.untaint Z.zero v.(n'-i) tid)
+             v.(n'-i) <- V.taint_join v.(n'-i) (V.untaint v.(n'-i))
            done;
            Taint.U
              
