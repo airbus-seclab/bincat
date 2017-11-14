@@ -145,7 +145,7 @@ sig
     val compare: t -> Asm.cmp -> t -> bool
 
     (** undefine the taint of the given value *)
-    val forget_taint: t -> Taint.Src.id_t option -> t
+    val forget_taint: t -> Taint.Src.id_t -> t
 
     (** returns the taint value of the given parameter *)
     val get_taint: t -> Taint.t
