@@ -399,9 +399,9 @@
 
     (* memory and register init *)
      init:
-    | set_default_source_function c=tcontent            { None, Some c }
-    | c=mcontent                    { Some c,  None }
-    | c1=mcontent set_default_source_function c2=tcontent   { Some c1, Some c2 }
+    | set_default_source_function c=tcontent            { None, c }
+    | c=mcontent                    { Some c, []  }
+    | c1=mcontent set_default_source_function c2=tcontent   { Some c1, c2 }
 
 
       mcontent:
