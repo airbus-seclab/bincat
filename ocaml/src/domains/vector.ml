@@ -791,10 +791,10 @@ module Make(V: Val) =
              v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z Z.one v.(n'-i) tid)
            done;
            Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
-        | Config.Taint_none _tid ->
+        | Config.Taint_none ->
            let n' =n-1 in
            for i = 0 to n' do
-             v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z Z.zero v.(n'-i) tid)
+             v.(n'-i) <- V.taint_join v.(n'-i) (V.untaint Z.zero v.(n'-i) tid)
            done;
            Taint.U
              
