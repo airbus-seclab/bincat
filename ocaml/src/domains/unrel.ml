@@ -747,7 +747,7 @@ module Make(D: T) =
       match t with
       | Config.Taint (z, _) | Config.TMask (z, _, _) -> round_sz (Z.numbits z)
       | Config.TBytes (b, _) | Config.TBytes_Mask (b, _, _) -> (String.length b)*4
-      | Config.Taint_all _ | Config.Taint_none _-> 0
+      | Config.Taint_all _ | Config.Taint_none -> 0
 
 
     (** builds an abstract tainted value from a config concrete tainted value *)
@@ -761,13 +761,12 @@ module Make(D: T) =
         | Config.TMask (_, _, id)  
         | Config.TBytes (_, id) 
         | Config.TBytes_Mask (_, _, id) -> id::acc
-        | Config.Taint_none _ -> acc
+        | Config.Taint_none -> acc
         in 
         List.fold_left extract [] taint 
       in
       match taint with
       | Some taint' -> D.taint_of_config taint' sz v', extract_src_id taint'
-      (* | None -> D.taint_of_config [Config.Taint_none (Z.zero, None)] sz v', None*)
       | None -> (v', Taint.U), []
 
     let taint_register_mask reg taint m: t * Taint.t =
