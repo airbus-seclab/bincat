@@ -807,7 +807,7 @@ module Make(D: T) =
          let v' = D.span_taint v taint in
          Val (Env.replace k v' m'), taint
 
-    let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue list option)) nb domain: t * Taint.t =
+    let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue list) nb domain: t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");
       if nb > 0 then
         let content' =
