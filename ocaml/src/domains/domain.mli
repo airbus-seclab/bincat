@@ -82,7 +82,7 @@ module type T =
 
       (** [set_register_from_config r c nb m] update the abstract value _m_ with the value configuration (pair content * tainting value) for register _r_.
       The integer _nb_ is the number of consecutive configuration _t_ to set. The computed taint is also returned *)
-      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue option * Config.tvalue list option -> t -> t * Taint.t
+      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue option * Config.tvalue list -> t -> t * Taint.t
 
       (** apply the given taint mask to the given register. The computed taint is also returned *)
       val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.t
