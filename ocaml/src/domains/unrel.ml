@@ -751,7 +751,7 @@ module Make(D: T) =
 
 
     (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, (taint: Config.tvalue list option)) sz: (D.t * Taint.t) * (Taint.Src.id_t list) =
+    let of_config region (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) * (Taint.Src.id_t list) =
       let v' = D.of_config region content sz in
       let extract_src_id taint =
         let extract acc taint =

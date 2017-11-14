@@ -222,7 +222,7 @@ sig
     (** conversion from a tainting value.
         The value option is a possible previous init.
         The computed taint is also returned *)
-    val taint_of_config: Config.tvalue -> int -> t option -> t * Taint.t
+    val taint_of_config: Config.tvalue list -> int -> t option -> t * Taint.t
 
     (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
     val combine: t -> t -> int -> int -> t
