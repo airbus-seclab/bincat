@@ -324,7 +324,7 @@ struct
     close_out f;;
 
 
-  let marshal fid (cfa: t): unit =
+  let marshal (fid:out_channel) (cfa: t): unit =
     Marshal.to_channel fid cfa [];
     Marshal.to_channel fid !state_cpt [];;
 
