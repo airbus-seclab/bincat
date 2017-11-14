@@ -759,7 +759,7 @@ module Make(V: Val) =
         | None    -> Array.make n V.top
       in
       let n' = n-1 in
-      let set_one_taint t =
+      let set_one_taint (t: Config.tvalue): Taint.t =
         match t with
         | Config.TBytes (b, tid) ->
            let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
@@ -813,7 +813,7 @@ module Make(V: Val) =
              else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
            else Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
       in
-      let taint' = List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taint in
+      let taint' = List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taints in
       v, taint'
         
     let forget v opt =
@@ -874,8 +874,7 @@ module Make(V: Val) =
 
 
         let of_repeat_val v v_len nb =
-            let access_mod idx =
-                v.(idx mod v_len) in
+            let access_mod idx = v.(idx mod v_len) in
             let v_array = Array.init (nb*v_len) access_mod in
             v_array
 
