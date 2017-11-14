@@ -51,7 +51,7 @@ sig
     val of_z: Z.t -> t
 
     (** taint the given value from Z.t value *)
-    val taint_of_z: Z.t -> t -> Taint.Src.id_t list option -> t
+    val taint_of_z: Z.t -> t -> Taint.Src.id_t -> t
 
     (** abstract join *)
     val join: t -> t -> t
@@ -287,18 +287,18 @@ module Make(V: Val) =
           done;
           !z
 
-        let to_char (v: t): char =
-          let l = Array.length v in
-          if l <> 8 then
-            L.abort (fun p -> p "attempting to convert a vector of size %i into a char" l)
-          else
-            begin
-              let c = ref 0 in
-              for i = 0 to 7 do
-                c := (V.to_int v.(i)) + ((!c) lsl 1)
-              done;
-              Char.chr !c
-            end
+    let to_char (v: t): char =
+      let l = Array.length v in
+      if l <> 8 then
+        L.abort (fun p -> p "attempting to convert a vector of size %i into a char" l)
+      else
+        begin
+          let c = ref 0 in
+          for i = 0 to 7 do
+            c := (V.to_int v.(i)) + ((!c) lsl 1)
+          done;
+          Char.chr !c
+        end
 
     let size v = Array.length v
 
@@ -307,30 +307,30 @@ module Make(V: Val) =
     let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
       
     let extract_strings v =
-       let v' =
-            if exists V.is_top v then
-                let v_bytes = Bytes.create (Array.length v) in
-                let set_char = (fun i c -> Bytes.set v_bytes i (V.to_char c)) in
-                Array.iteri set_char v ;
-                "0b"^Bytes.to_string v_bytes
-            else
-                Data.Word.to_string (to_word V.to_z v)
+      let v' =
+        if exists V.is_top v then
+          let v_bytes = Bytes.create (Array.length v) in
+          let set_char = (fun i c -> Bytes.set v_bytes i (V.to_char c)) in
+          Array.iteri set_char v ;
+          "0b"^Bytes.to_string v_bytes
+        else
+          Data.Word.to_string (to_word V.to_z v)
       in
       let taint_bytes = Bytes.create (Array.length v) in
-        let t =
-          try
-                let all = ref true in
-                let r = to_word (fun v -> let t = V.taint_to_z v in if Z.compare t Z.one <> 0 then all := false; t) v in
-                if !all then
-                    "ALL"
-                  else
-                    Data.Word.to_string r
-            with _ ->
-                let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
-                Array.iteri set_taint_char v;
-                "0b"^Bytes.to_string taint_bytes
-        in
-        v', t
+      let t =
+        try
+          let all = ref true in
+          let r = to_word (fun v -> let t = V.taint_to_z v in if Z.compare t Z.one <> 0 then all := false; t) v in
+          if !all then
+            "ALL"
+          else
+            Data.Word.to_string r
+        with _ ->
+          let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
+          Array.iteri set_taint_char v;
+          "0b"^Bytes.to_string taint_bytes
+      in
+      v', t
           
     let to_string v =
      let v', t = extract_strings v in
@@ -669,151 +669,151 @@ module Make(V: Val) =
     let imodulo v1 v2 = snd (core_idiv v1 v2)
 
 
-        let binary op v1 v2 =
-          match op with
-          | Asm.Add -> add v1 v2
-          | Asm.Sub -> sub v1 v2
-          | Asm.Xor -> xor v1 v2
-          | Asm.And -> logand v1 v2
-          | Asm.Or  -> logor v1 v2
-          | Asm.IMul -> imul v1 v2
-          | Asm.IDiv -> idiv v1 v2
-          | Asm.Mul -> mul v1 v2
-          | Asm.Div -> div v1 v2
-          | Asm.Mod -> modulo v1 v2
-          | Asm.IMod -> imodulo v1 v2
-          | Asm.Shl -> shl v1 v2
-          | Asm.Shr -> shr v1 v2
-
-
-        let unary op v =
-            match op with
-            | Asm.Not       -> lognot v
-            | Asm.SignExt i -> sign_extend v i
-            | Asm.ZeroExt i -> let res = zero_extend v i in L.debug2 (fun p -> p
-            "zero_extend new length : %d" (Array.length res)); res
-
-        let untaint v = Array.map V.untaint v
-
-        let taint v = Array.map V.taint v
-
-        let span_taint v t = Array.map (V.update_taint t) v
-
+    let binary op v1 v2 =
+      match op with
+      | Asm.Add -> add v1 v2
+      | Asm.Sub -> sub v1 v2
+      | Asm.Xor -> xor v1 v2
+      | Asm.And -> logand v1 v2
+      | Asm.Or  -> logor v1 v2
+      | Asm.IMul -> imul v1 v2
+      | Asm.IDiv -> idiv v1 v2
+      | Asm.Mul -> mul v1 v2
+      | Asm.Div -> div v1 v2
+      | Asm.Mod -> modulo v1 v2
+      | Asm.IMod -> imodulo v1 v2
+      | Asm.Shl -> shl v1 v2
+      | Asm.Shr -> shr v1 v2
+         
+         
+    let unary op v =
+      match op with
+      | Asm.Not       -> lognot v
+      | Asm.SignExt i -> sign_extend v i
+      | Asm.ZeroExt i -> let res = zero_extend v i in L.debug2 (fun p -> p
+        "zero_extend new length : %d" (Array.length res)); res
+        
+    let untaint v = Array.map V.untaint v
+      
+    let taint v = Array.map V.taint v
+      
+    let span_taint v t = Array.map (V.update_taint t) v
+      
     let get_minimal_taint v =
       Array.fold_left (fun acc v -> Taint.min acc (V.get_taint v)) Taint.U v
+        
+        
+    let nth_of_z_as_val v i = if Z.testbit v i then V.one else V.zero
+    let nth_of_z v i = if Z.testbit v i then Z.one else Z.zero
+        
+    let of_word w =
+      let sz = Data.Word.size w    in
+      let w' = Data.Word.to_int w  in
+      let r  = Array.make sz V.top in
+      let n' =sz-1 in
+      for i = 0 to n' do
+        r.(n'-i) <- nth_of_z_as_val w' i
+      done;
+      r
+        
+    let to_addresses r v = Data.Address.Set.singleton (r, to_word V.to_z v)
+      
+    let is_subset v1 v2 = for_all2 V.is_subset v1 v2
+      
+    let of_config c n =
+      let v  = Array.make n V.top in
+      let n' = n-1                in
+      begin
+        match c with
+        | Config.Bytes b         ->
+           let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+           for i = 0 to n' do
+             v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
+           done;
+        | Config.Bytes_Mask (b, m) ->
+           let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+           for i = 0 to n' do
+             if Z.testbit m i then
+               v.(n'-i) <- V.top
+             else
+               v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
+           done;
+        | Config.Content c         ->
+           for i = 0 to n' do
+             v.(n'-i) <- nth_of_z_as_val c i
+           done
+        | Config.CMask (c, m) ->
+           for i = 0 to n' do
+             if Z.testbit m i then
+               v.(n'-i) <- V.top
+             else
+               v.(n'-i) <- nth_of_z_as_val c i
+           done
+      end;
+      v
 
-
-        let nth_of_z_as_val v i = if Z.testbit v i then V.one else V.zero
-        let nth_of_z v i = if Z.testbit v i then Z.one else Z.zero
-
-        let of_word w =
-          let sz = Data.Word.size w    in
-          let w' = Data.Word.to_int w  in
-          let r  = Array.make sz V.top in
-          let n' =sz-1 in
-          for i = 0 to n' do
-            r.(n'-i) <- nth_of_z_as_val w' i
-          done;
-          r
-
-        let to_addresses r v = Data.Address.Set.singleton (r, to_word V.to_z v)
-
-        let is_subset v1 v2 = for_all2 V.is_subset v1 v2
-
-        let of_config c n =
-          let v  = Array.make n V.top in
-          let n' = n-1                in
-          begin
-            match c with
-            | Config.Bytes b         ->
-               let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-               for i = 0 to n' do
-                 v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
-               done;
-            | Config.Bytes_Mask (b, m) ->
-               let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-               for i = 0 to n' do
-                 if Z.testbit m i then
-                   v.(n'-i) <- V.top
-                 else
-                   v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
-               done;
-                | Config.Content c         ->
-                  for i = 0 to n' do
-                      v.(n'-i) <- nth_of_z_as_val c i
-                  done
-                | Config.CMask (c, m) ->
-                  for i = 0 to n' do
-                      if Z.testbit m i then
-                          v.(n'-i) <- V.top
-                      else
-                          v.(n'-i) <- nth_of_z_as_val c i
-                  done
-            end;
-            v
-
-        let taint_of_config taints n (prev: t option): t * Taint.t =
-            let v =
-                match prev with
-                | Some v' -> Array.copy v'
-                | None    -> Array.make n V.top
-            in
-            let n' = n-1 in
-            let set_one_taint t =
-              match t with
-              | Config.TBytes (b, tid) ->
-                 let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-                 for i = 0 to n' do
-                   v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
-                 done;
-                 Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid)) 
-                   
-              | Config.TBytes_Mask (b, m, tid) ->
-                 let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-                 for i = 0 to n' do
-                   if Z.testbit m i then
-                     v.(n'-i) <- V.taint_join v.(n'-i) (V.forget_taint v.(n'-i) tid)
-                   else
-                     v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
-                 done;
-                 Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t))
-                   
-              | Config.Taint (b, tid) ->
-                 for i = 0 to n' do
-                   v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z b i) v.(n'-i) tid)
-                 done;
-                if Z.compare b Z.zero = 0 then Taint.U
-                else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
-                  
-              | Config.Taint_all tid ->
-                 let n' =n-1 in
-                 for i = 0 to n' do
-                   v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z Z.one v.(n'-i) (Some tid))
-                 done;
-                 Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
-                   
-              | Config.TMask (b, m, tid) ->
-                 let n' = n-1 in
-                 for i = 0 to n' do
-                   let bnth = nth_of_z b i in
-                   let mnth = nth_of_z m i in
-                   if Z.compare mnth Z.zero = 0 then
-                     v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z bnth v.(n'-i) tid)
-                   else
-                     v.(n'-i) <- V.taint_join v.(n'-i) (V.forget_taint v.(n'-i) tid)
-                 done;
-                 if Z.compare m Z.zero = 0 then
-                   if Z.compare b Z.zero = 0 then Taint.U
-                   else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
-                 else Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
-            in
-            let taint' =
-              match taints with
-              | None -> Taint.U
-              | Some taint' -> List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taint'
-            in
-            v, taint'
-              
+    let taint_of_config taints n (prev: t option): t * Taint.t =
+      let v =
+        match prev with
+        | Some v' -> Array.copy v'
+        | None    -> Array.make n V.top
+      in
+      let n' = n-1 in
+      let set_one_taint t =
+        match t with
+        | Config.TBytes (b, tid) ->
+           let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+           for i = 0 to n' do
+             v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
+           done;
+           Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid)) 
+             
+        | Config.TBytes_Mask (b, m, tid) ->
+           let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
+           for i = 0 to n' do
+             if Z.testbit m i then
+               v.(n'-i) <- V.taint_join v.(n'-i) (V.forget_taint v.(n'-i) tid)
+             else
+               v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
+           done;
+           Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t))
+             
+        | Config.Taint (b, tid) ->
+           for i = 0 to n' do
+             v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z b i) v.(n'-i) tid)
+           done;
+          if Z.compare b Z.zero = 0 then Taint.U
+          else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+            
+        | Config.Taint_all tid ->
+           let n' =n-1 in
+           for i = 0 to n' do
+             v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z Z.one v.(n'-i) (Some tid))
+           done;
+           Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+             
+        | Config.TMask (b, m, tid) ->
+           let n' = n-1 in
+           for i = 0 to n' do
+             let bnth = nth_of_z b i in
+             let mnth = nth_of_z m i in
+             if Z.compare mnth Z.zero = 0 then
+               v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z bnth v.(n'-i) tid)
+             else
+               v.(n'-i) <- V.taint_join v.(n'-i) (V.forget_taint v.(n'-i) tid)
+           done;
+           if Z.compare m Z.zero = 0 then
+             if Z.compare b Z.zero = 0 then Taint.U
+             else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+           else Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
+      in
+      let taint' =
+        match taints with
+        | None -> Taint.U
+        | Some taint' -> List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taint'
+      in
+      v, taint'
+        
     let forget v opt =
       L.debug (fun (p: ('a, unit, string) format -> 'a) ->
         match opt with
