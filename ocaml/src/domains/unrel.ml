@@ -751,26 +751,24 @@ module Make(D: T) =
 
 
     (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, (taint: Config.tvalue list option)) sz: (D.t * Taint.t) * (Taint.Src.id_t list option) =
+    let of_config region (content, (taint: Config.tvalue list option)) sz: (D.t * Taint.t) * (Taint.Src.id_t list) =
       let v' = D.of_config region content sz in
       let extract_src_id taint =
         let extract acc taint =
         match taint with
         | Config.Taint_all id
-        | Config.Taint_none id   
         | Config.Taint (_, id) 
         | Config.TMask (_, _, id)  
         | Config.TBytes (_, id) 
         | Config.TBytes_Mask (_, _, id) -> id::acc
-        | _ -> acc
+        | Config.Taint_none _ -> acc
         in 
-        let res = List.fold_left extract [] taint in
-        if res = [] then None
-        else Some res
+        List.fold_left extract [] taint 
       in
       match taint with
       | Some taint' -> D.taint_of_config taint' sz v', extract_src_id taint'
-      | None -> D.taint_of_config [Config.Taint (Z.zero, None)] sz v', None
+      (* | None -> D.taint_of_config [Config.Taint_none (Z.zero, None)] sz v', None*)
+      | None -> (v', Taint.U), []
 
     let taint_register_mask reg taint m: t * Taint.t =
       match m with
@@ -821,7 +819,7 @@ module Make(D: T) =
         | BOT    -> BOT, Taint.U
         | Val domain' ->
            let sz = size_of_content content' in
-           let (v', taint), taint_src = of_config region (content', taint) sz in
+           let (v', taint), taint_srcs = of_config region (content', taint) sz in
            if nb > 1 then
              if sz != 8 then
                L.abort (fun p -> p "Repeated memory init only works with bytes")
@@ -832,14 +830,9 @@ module Make(D: T) =
                match content' with
                | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
                | _ -> false
-             in
-             begin
-               match taint_src with
-               | None -> ()
-               | Some ids ->
-                  List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
-                   Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) ids
-             end;
+             in          
+             List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
+                 Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;
              Val (write_in_memory addr domain' v' sz true big_endian), taint
       else
         domain, Taint.U
@@ -854,14 +847,10 @@ module Make(D: T) =
            | (Some c, t) -> (c, t)
          in
          let sz = Register.size r in
-         let (vt, taint), src = of_config region config_val' sz in
-          begin
-           match src with
-           | Some ids -> List.iter (fun id ->
-             if not (Hashtbl.mem Dump.taint_src_tbl id) then
-               Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) ids
-           | None -> ()
-         end;
+         let (vt, taint), taint_srcs = of_config region config_val' sz in
+         List.iter (fun id ->
+           if not (Hashtbl.mem Dump.taint_src_tbl id) then
+             Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) taint_srcs;
          Val (Env.add (Env.Key.Reg r) vt m'), taint
 
     let value_of_exp m e =
@@ -883,35 +872,35 @@ module Make(D: T) =
       match m with
       | BOT -> raise (Exceptions.Empty "unrel.i_get_bytes: environment is empty")
       | Val m' ->
-     let v, _ = eval_exp m' addr in
-     let addrs = Data.Address.Set.elements (D.to_addresses v) in
-     let term = fst (eval_exp m' terminator) in
-     let off = sz / 8 in
-     let rec find (a: Data.Address.t) (o: int): (int * D.t list) =
-       if o >= upper_bound then
-         if with_exception then raise Not_found
-           else o, []
-       else
-         let a' = Data.Address.add_offset a (Z.of_int o) in
-         let v = get_mem_value m' a' sz in
-         if D.compare v cmp term then
-           match pad_options with
-           | None -> o, []
-           | Some (pad_char, pad_left) ->
-          if o = upper_bound then upper_bound, []
-          else
-            let n = upper_bound-o in
-            let z = D.of_word (Data.Word.of_int (Z.of_int (Char.code pad_char)) 8) in
-            if pad_left then L.abort (fun p -> p "left padding in i_get_bytes not managed")
-            else
-              let chars = ref [] in
-              for _i = 0 to n-1 do
-            chars := z::!chars
-              done;
-              upper_bound, !chars
-         else
-           let o', l = find a (o+off) in
-           o', v::l
+         let v, _ = eval_exp m' addr in
+         let addrs = Data.Address.Set.elements (D.to_addresses v) in
+         let term = fst (eval_exp m' terminator) in
+         let off = sz / 8 in
+         let rec find (a: Data.Address.t) (o: int): (int * D.t list) =
+           if o >= upper_bound then
+             if with_exception then raise Not_found
+             else o, []
+           else
+             let a' = Data.Address.add_offset a (Z.of_int o) in
+             let v = get_mem_value m' a' sz in
+             if D.compare v cmp term then
+               match pad_options with
+               | None -> o, []
+               | Some (pad_char, pad_left) ->
+                  if o = upper_bound then upper_bound, []
+                  else
+                    let n = upper_bound-o in
+                    let z = D.of_word (Data.Word.of_int (Z.of_int (Char.code pad_char)) 8) in
+                    if pad_left then L.abort (fun p -> p "left padding in i_get_bytes not managed")
+                    else
+                      let chars = ref [] in
+                      for _i = 0 to n-1 do
+                        chars := z::!chars
+                      done;
+                      upper_bound, !chars
+             else
+               let o', l = find a (o+off) in
+               o', v::l
      in
      match addrs with
      | [a] -> find a 0
