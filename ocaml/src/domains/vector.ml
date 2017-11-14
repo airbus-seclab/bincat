@@ -507,9 +507,9 @@ module Make(V: Val) =
           L.debug2 (fun p -> p "zero_extend((%d)%s, %d)" sz (to_string v) new_sz);
             if new_sz < sz then
               L.abort (fun p -> p "zero_extend cannont extend v=(%d)%s to %d bits"
-        sz (to_string v) new_sz)
+                sz (to_string v) new_sz)
             else
-              let o  = new_sz - sz              in
+              let o  = new_sz - sz in
               let new_v = Array.make new_sz V.zero in
               for i = 0 to sz-1 do
                 new_v.(i+o) <- v.(i)
@@ -612,41 +612,41 @@ module Make(V: Val) =
           if lv1 < lv2 then
             L.abort (fun p -> p "core_div : dividing a vector by a bigger vector is not supported (v1=%s(%i) v2=%s(%i))"
           (to_string v1) lv1 (to_string v2) lv2)
-      else
-        begin
-              (* find most significant bit to 1 and check that v2 is not zero *)
-          let v2_ext = if lv1 > lv2 then zero_extend v2 lv1 else v2 in
-          let msb1 = ref 0 in
-          while (!msb1 < lv1) && (V.is_zero v2_ext.(!msb1)) do
-        msb1 := !msb1+1;
-          done;
-          if !msb1 = lv1 then
-        L.abort (fun p -> p "core_div((%d)%s, (%d)%s): Division by zero"
-          (Array.length v1) (to_string v1)
-          (Array.length v2) (to_string v2)
-        )
           else
-        let quo = Array.make lv1 V.zero in
-        let rem = ref v1 in
-        for i = !msb1 downto 0 do
-          let sv2 = ishl v2_ext i in
-          if geq !rem sv2 then
             begin
-              rem := sub !rem sv2;
-              quo.(lv1-i-1) <- V.one;
+          (* find most significant bit to 1 and check that v2 is not zero *)
+              let v2_ext = if lv1 > lv2 then zero_extend v2 lv1 else v2 in
+              let msb1 = ref 0 in
+              while (!msb1 < lv1) && (V.is_zero v2_ext.(!msb1)) do
+                msb1 := !msb1+1;
+              done;
+              if !msb1 = lv1 then
+                L.abort (fun p -> p "core_div((%d)%s, (%d)%s): Division by zero"
+                  (Array.length v1) (to_string v1)
+                  (Array.length v2) (to_string v2)
+                )
+              else
+                let quo = Array.make lv1 V.zero in
+                let rem = ref v1 in
+                for i = !msb1 downto 0 do
+                  let sv2 = ishl v2_ext i in
+                  if geq !rem sv2 then
+                    begin
+                      rem := sub !rem sv2;
+                      quo.(lv1-i-1) <- V.one;
+                    end
+                done;
+                rem := truncate !rem lv2;
+                L.debug2 (fun p -> p "core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
+                  (Array.length v1) (to_string v1)
+                  (Array.length v2) (to_string v2)
+                  (Array.length quo) (to_string quo)
+                  (Array.length !rem) (to_string !rem));
+                quo,!rem
             end
-        done;
-        rem := truncate !rem lv2;
-        L.debug2 (fun p -> p "core_div((%d)%s, (%d)%s) = (%d)%s rem=(%d)%s"
-                 (Array.length v1) (to_string v1)
-                 (Array.length v2) (to_string v2)
-                 (Array.length quo) (to_string quo)
-                 (Array.length !rem) (to_string !rem));
-        quo,!rem
-        end
 
-    let is_neg v1 =
-      V.is_one v1.(0) || V.is_top v1.(0)
+        let is_neg v1 =
+          V.is_one v1.(0) || V.is_top v1.(0)
 
     let core_idiv v1 v2 =
       let is_neg_v1 = is_neg v1 in
@@ -776,7 +776,7 @@ module Make(V: Val) =
              else
                v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
            done;
-           Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted t))
+           Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
              
         | Config.Taint (b, tid) ->
            for i = 0 to n' do
@@ -788,9 +788,15 @@ module Make(V: Val) =
         | Config.Taint_all tid ->
            let n' =n-1 in
            for i = 0 to n' do
-             v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z Z.one v.(n'-i) (Some tid))
+             v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z Z.one v.(n'-i) tid)
            done;
            Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+        | Config.Taint_none _tid ->
+           let n' =n-1 in
+           for i = 0 to n' do
+             v.(n'-i) <- V.taint_join v.(n'-i) (V.taint_of_z Z.zero v.(n'-i) tid)
+           done;
+           Taint.U
              
         | Config.TMask (b, m, tid) ->
            let n' = n-1 in

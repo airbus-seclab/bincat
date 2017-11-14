@@ -117,7 +117,7 @@ let interleave = ref false
 type tvalue =
   | Taint_all of Taint.Src.id_t 
   | Taint of Z.t * Taint.Src.id_t
-  | Taint_none of Taint.Src.id_t   
+  | Taint_none   
   | TMask of Z.t * Z.t * Taint.Src.id_t (* second element is a mask on the first one *)
   | TBytes of string * Taint.Src.id_t
   | TBytes_Mask of (string * Z.t * Taint.Src.id_t)
