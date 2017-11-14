@@ -135,8 +135,8 @@ let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list option)) li
 
 (* lists for the initialisation of the global memory, stack and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
-type mem_init_t = ((Z.t * int) * (cvalue option * tvalue list option)) list
-type reg_init_t = (string * (cvalue option * tvalue list option)) list
+type mem_init_t = ((Z.t * int) * (cvalue option * tvalue list)) list
+type reg_init_t = (string * (cvalue option * tvalue list)) list
 
 let register_content: reg_init_t ref = ref []
 let memory_content: mem_init_t ref = ref []
