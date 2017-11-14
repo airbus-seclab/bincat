@@ -813,11 +813,7 @@ module Make(V: Val) =
              else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
            else Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
       in
-      let taint' =
-        match taints with
-        | None -> Taint.U
-        | Some taint' -> List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taint'
-      in
+      let taint' = List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taint in
       v, taint'
         
     let forget v opt =
