@@ -109,10 +109,10 @@ sig
   val print: string -> t -> unit
 
   (** [marshal fname cfg] marshal the CFG _cfg_ and stores the result into the file _fname_ *)
-  val marshal: string -> t -> unit
+  val marshal: out_channel -> t -> unit
 
   (** [unmarshal fname] unmarshal the CFG in the file _fname_ *)
-  val unmarshal: string -> t
+  val unmarshal: in_channel -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
   val init_abstract_value: unit -> domain * Taint.t
@@ -324,10 +324,9 @@ struct
     close_out f;;
 
 
-  let marshal (outfname: string) (cfa: t): unit =
-    let cfa_marshal_fd = open_out_bin outfname in
-    Marshal.to_channel cfa_marshal_fd cfa [];
-    Marshal.to_channel cfa_marshal_fd !state_cpt [];;
+  let marshal fid (cfa: t): unit =
+    Marshal.to_channel fid cfa [];
+    Marshal.to_channel fid !state_cpt [];;
 
   let unmarshal fid: t =
     let origcfa = Marshal.from_channel fid in
