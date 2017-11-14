@@ -417,7 +417,7 @@
       if Z.compare t Z.zero = 0 then [Config.Taint_none (!taint_fun())]
       else [Config.Taint (t, !taint_fun())] }
     | TAINT_ALL { [Config.Taint_all (!taint_fun ())] }
-    | TAINT_NONE { [Config.Taint_none (!taint_fun ())] }
+    | TAINT_NONE { [Config.Taint_none] }
     | t=INT MASK t2=INT { [Config.TMask (t, t2, !taint_fun())] }
     | srcs = taint_sources { srcs }
 
