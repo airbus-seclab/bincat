@@ -45,12 +45,11 @@ let check_register_init r (c, t) =
     | Some _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
     | None -> ()
   end;
-  begin
+  List.iter (fun t -> 
     match t with
-    | Some (Taint (c, _taint_src))    -> check_content (Z.numbits c) sz name
-    | Some (TMask (b, m, _taint_src)) -> check_mask (Z.numbits b) m sz name
-    | _ -> ()
-  end
+    | Taint (c, _taint_src)    -> check_content (Z.numbits c) sz name
+    | TMask (b, m, _taint_src) -> check_mask (Z.numbits b) m sz name
+    | _ -> ()) t
 
 
 let check_mem (c, t): unit =
