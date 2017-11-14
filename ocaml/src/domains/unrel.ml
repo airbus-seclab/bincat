@@ -765,9 +765,10 @@ module Make(D: T) =
         in 
         List.fold_left extract [] taint 
       in
-      match taint with
-      | Some taint' -> D.taint_of_config taint' sz v', extract_src_id taint'
-      | None -> (v', Taint.U), []
+      if taint = [] then
+        (v', Taint.U), []
+      else
+        D.taint_of_config taint sz v', extract_src_id taint
 
     let taint_register_mask reg taint m: t * Taint.t =
       match m with
