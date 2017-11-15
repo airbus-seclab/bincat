@@ -108,11 +108,8 @@ let taint_of_z z (v, _t) tid =
   let t' =
   if Z.compare Z.zero z = 0 then T.U
   else
-    match tid with
-    | Some tid' ->
-       if Z.compare Z.one z = 0 then T.singleton (T.Src.Tainted tid')
-       else T.singleton (T.Src.Maybe tid')
-    | None -> L.abort (fun _p -> "no taint source provided in Reduced_bit_tainting.taint_of_z")
+    if Z.compare Z.one z = 0 then T.singleton (T.Src.Tainted tid')
+    else T.singleton (T.Src.Maybe tid')
   in
   v, t'
 
