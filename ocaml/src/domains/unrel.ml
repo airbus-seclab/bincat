@@ -743,12 +743,20 @@ module Make(D: T) =
       | Config.Content z | Config.CMask (z, _) -> round_sz (Z.numbits z)
       | Config.Bytes b | Config.Bytes_Mask (b, _) -> (String.length b)*4
 
-    let size_of_taint t =
+    let size_of_taint (t: Config.tvalue): int =
       match t with
       | Config.Taint (z, _) | Config.TMask (z, _, _) -> round_sz (Z.numbits z)
       | Config.TBytes (b, _) | Config.TBytes_Mask (b, _, _) -> (String.length b)*4
       | Config.Taint_all _ | Config.Taint_none -> 0
 
+    let size_of_taints (taints: Config.tvalue list): int =
+      let sz = ref 0 in
+      List.iter (fun t ->
+        let n = size_of_taint t in
+        if !sz = 0 then sz := n
+        else if n <> !sz then L.abort (fun p -> p "illegal taint list with different sizes")
+      ) taints;
+      !sz
 
     (** builds an abstract tainted value from a config concrete tainted value *)
     let of_config region (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) * (Taint.Src.id_t list) =
@@ -788,14 +796,14 @@ module Make(D: T) =
          let v' = D.span_taint v taint in
          Val (Env.replace k v' m'), taint
 
-    let taint_address_mask a (taint: Config.tvalue) m: t * Taint.t =
+    let taint_address_mask a (taints: Config.tvalue list) m: t * Taint.t =
       L.debug (fun p->p "Unrel.taint_address_mask (%s)" (Data.Address.to_string a));
       match m with
       | BOT -> BOT, Taint.BOT
       | Val m' ->
          let k = Env.Key.Mem a in
          let v = Env.find k m' in
-         let v', taint = D.taint_of_config [taint] (size_of_taint taint) v in
+         let v', taint = D.taint_of_config taints (size_of_taints taints) v in
          Val (Env.replace k v' m'), taint
 
     let span_taint_to_addr a taint m: t * Taint.t =
