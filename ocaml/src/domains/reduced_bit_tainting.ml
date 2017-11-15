@@ -108,8 +108,8 @@ let taint_of_z z (v, _t) tid =
   let t' =
   if Z.compare Z.zero z = 0 then T.U
   else
-    if Z.compare Z.one z = 0 then T.singleton (T.Src.Tainted tid')
-    else T.singleton (T.Src.Maybe tid')
+    if Z.compare Z.one z = 0 then T.singleton (T.Src.Tainted tid)
+    else T.singleton (T.Src.Maybe tid)
   in
   v, t'
 
