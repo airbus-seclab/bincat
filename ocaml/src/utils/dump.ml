@@ -14,7 +14,7 @@ let string_of_src src =
   | R r -> "r-"^(Register.name r)
   | M (a, sz) -> "M("^(Data.Address.to_string a)^","^(string_of_int sz)^")"
 
-let marshal fid = Marshal.to_channel fid taint_src_tbl
+let marshal (fid: out_channel): unit = Marshal.to_channel fid taint_src_tbl []
 
 let unmarshal (fid: in_channel): unit =
   Hashtbl.iter (fun k v -> Hashtbl.add taint_src_tbl k v) (Marshal.from_channel fid)
