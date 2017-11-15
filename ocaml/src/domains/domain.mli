@@ -93,7 +93,7 @@ module type T =
 
       (** apply the given taint mask to the given memory address.
           The computed taint is also returned *)
-      val taint_address_mask: Data.Address.t -> Config.tvalue -> t -> t * Taint.t
+      val taint_address_mask: Data.Address.t -> Config.tvalue list -> t -> t * Taint.t
 
       (** apply the given taint mask to the given memory address *)
       val span_taint_to_addr: Data.Address.t -> Taint.t -> t -> t * Taint.t
