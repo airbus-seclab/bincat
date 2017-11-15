@@ -144,7 +144,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
         let fid = open_in_bin !Config.out_mcfa_file in
         Interpreter.Cfa.marshal fid cfa;
         Dump.marshal fid;
-        close_out fid
+        close_in fid
       end;
     dump cfa;
     Log.close();
