@@ -40,7 +40,7 @@ let forget_taint (v, _t) tid = v, T.singleton (T.Src.Maybe tid)
 
 let join (v1, t1) (v2, t2) = B.join v1 v2, T.join t1 t2
 
-let taint_join (v, t1) (_, t2) = v, T.join t1 t2
+let taint_logor (v, t1) (_, t2) = v, T.logor t1 t2
   
 let meet (v1, t1) (v2, t2) = B.meet v1 v2, T.meet t1 t2
 
