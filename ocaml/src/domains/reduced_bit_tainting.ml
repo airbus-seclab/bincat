@@ -36,10 +36,7 @@ let to_z (v, _t) = B.to_z v
 
 let to_int (v, _t) = B.to_int v
 
-let forget_taint (v, _t) tid =
-  match tid with
-  | Some tid' -> v, T.singleton (T.Src.Maybe tid')
-  | None -> v, T.TOP
+let forget_taint (v, _t) tid = v, T.singleton (T.Src.Maybe tid)
 
 let join (v1, t1) (v2, t2) = B.join v1 v2, T.join t1 t2
 
