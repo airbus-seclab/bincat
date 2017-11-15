@@ -52,16 +52,25 @@ let check_register_init r (c, t) =
     | _ -> ()) t
 
 
-let check_mem (c, t): unit =
-  let taint_sz =
+let check_mem (c, taints): unit =
+  let taint_sz = ref 0 in
+  let compute_sz () =
+    let compute t =
       match t with
-      | Taint_all _ | Taint_none  -> 0
-      | Taint (t', _) | TMask (t', _, _) -> Z.numbits t'
-      | TBytes (s, _) | TBytes_Mask (s, _, _) -> (String.length s)*4
+      | Taint_all _ | Taint_none  -> ()
+      | Taint (t', _) | TMask (t', _, _) ->
+         let n = Z.numbits t' in
+         if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)") 
+      | TBytes (s, _) | TBytes_Mask (s, _, _) ->
+         let n = (String.length s)*4 in
+         if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)")
+    in
+    List.iter compute taints
   in
-     match c with
-     | None -> if taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
-     | Some (Content ct) -> check_content (Z.numbits ct) taint_sz ""
-     | Some (CMask (ct, m)) -> check_mask (Z.numbits ct) m taint_sz ""
-     | Some (Bytes s) -> check_content ((String.length s)*4) taint_sz ""
-     | Some (Bytes_Mask (s, n)) ->  check_mask ((String.length s)*4) n taint_sz ""
+  compute_sz();
+  match c with
+  | None -> if taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
+  | Some (Content ct) -> check_content (Z.numbits ct) !taint_sz ""
+  | Some (CMask (ct, m)) -> check_mask (Z.numbits ct) m !taint_sz ""
+  | Some (Bytes s) -> check_content ((String.length s)*4) !taint_sz ""
+  | Some (Bytes_Mask (s, n)) ->  check_mask ((String.length s)*4) n !taint_sz ""
