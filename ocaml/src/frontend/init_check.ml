@@ -60,16 +60,20 @@ let check_mem (c, taints): unit =
       | Taint_all _ | Taint_none  -> ()
       | Taint (t', _) | TMask (t', _, _) ->
          let n = Z.numbits t' in
-         if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)") 
+         if !taint_sz = 0 then
+           taint_sz := n
+         else if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)") 
       | TBytes (s, _) | TBytes_Mask (s, _, _) ->
          let n = (String.length s)*4 in
-         if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)")
+         if !taint_sz = 0 then
+           taint_sz := n
+         else if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)")
     in
     List.iter compute taints
   in
   compute_sz();
   match c with
-  | None -> if taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
+  | None -> if !taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
   | Some (Content ct) -> check_content (Z.numbits ct) !taint_sz ""
   | Some (CMask (ct, m)) -> check_mask (Z.numbits ct) m !taint_sz ""
   | Some (Bytes s) -> check_content ((String.length s)*4) !taint_sz ""
