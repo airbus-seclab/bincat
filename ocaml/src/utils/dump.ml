@@ -16,4 +16,5 @@ let string_of_src src =
 
 let marshal fid = Marshal.to_channel fid taint_src_tbl
 
-let unmarshal fid = taint_src_tbl = Marshal.from_channel fid
+let unmarshal (fid: in_channel): unit =
+  Hashtbl.iter (fun k v -> Hashtbl.add taint_src_tbl k v) (Marshal.from_channel fid)
