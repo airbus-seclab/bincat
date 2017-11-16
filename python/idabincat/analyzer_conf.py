@@ -220,6 +220,7 @@ class ConfigHelpers(object):
             regs["z"] = "0?1"
             regs["c"] = "0?1"
             regs["v"] = "0?1"
+            regs["t"] = "0"
             for i in range(13):
                 regs["r%d" % i] = "0?0xFFFFFFFF"
         elif arch == "armv8":
