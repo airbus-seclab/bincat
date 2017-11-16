@@ -248,15 +248,19 @@ struct
     @ jmp_or_call_stmt
 
   let branch_exchange s instruction =
-    let set_pc = Set (V (T pc), Lval(V(reg (instruction land 0xf)))) in
+    let zero = const 0 32 in
+    let one = const 1 32 in
+    let jreg = Lval(V(reg (instruction land 0xf))) in
+    let bit1 = BinOp(And, jreg, one) in
+    let target = BinOp(And, jreg, const 0xfffffffe 32) in
+    let set_pc_and_t =
+      [ Set (V (T tflag), TernOp(Cmp (EQ, bit1, zero), zero, one)) ;
+        Set (V (T pc), target ) ] in
     if instruction land (1 lsl 5) = 0 then (* BX *)
-      [ set_pc ; Jmp (R (Lval (V (T pc)))) ]
+      set_pc_and_t @ [ Jmp (R (Lval (V (T pc)))) ]
     else (* BLX *)
-      [
-        Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ;
-        set_pc ;
-        Call (R (Lval (V (T pc))))
-      ]
+      Set( V (T lr), Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32)) ::
+        set_pc_and_t @ [ Call (R (Lval (V (T pc)))) ]
 
   let asr_stmt exp shift =
     let sign_mask = const ((-1) lsl (32-shift)) 32 in
