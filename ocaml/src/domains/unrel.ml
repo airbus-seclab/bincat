@@ -758,11 +758,8 @@ module Make(D: T) =
       ) taints;
       !sz
 
-    (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) * (Taint.Src.id_t list) =
-      let v' = D.of_config region content sz in
-      let extract_src_id taint =
-        let extract acc taint =
+    let extract_taint_src_ids taint =
+      let extract acc taint =
         match taint with
         | Config.Taint_all id
         | Config.Taint (_, id) 
@@ -770,13 +767,16 @@ module Make(D: T) =
         | Config.TBytes (_, id) 
         | Config.TBytes_Mask (_, _, id) -> id::acc
         | Config.Taint_none -> acc
-        in 
-        List.fold_left extract [] taint 
-      in
+      in 
+      List.fold_left extract [] taint 
+   
+    (** builds an abstract tainted value from a config concrete tainted value *)
+    let of_config region (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) =
+      let v' = D.of_config region content sz in  
       if taint = [] then
         (v', Taint.U), []
       else
-        D.taint_of_config taint sz v', extract_src_id taint
+        D.taint_of_config taint sz v'
 
     let taint_register_mask reg taint m: t * Taint.t =
       match m with
@@ -821,6 +821,9 @@ module Make(D: T) =
         match domain with
         | BOT    -> BOT, Taint.BOT
         | Val domain' ->
+           let taint_srcs = extract_taint_src_ids taint in
+           List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
+               Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
            match content with
            | None ->
               begin
@@ -841,7 +844,7 @@ module Make(D: T) =
               end
            | Some content' -> 
               let sz = size_of_content content' in
-              let (v', taint), taint_srcs = of_config region (content', taint) sz in
+              let (v', taint) = of_config region (content', taint) sz in
               if nb > 1 then
                 if sz != 8 then
                   L.abort (fun p -> p "Repeated memory init only works with bytes")
@@ -852,9 +855,7 @@ module Make(D: T) =
                   match content' with
                   | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
                   | _ -> false
-                in          
-                List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
-                    Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;
+                in                          
                 Val (write_in_memory addr domain' v' sz true big_endian), taint
       else
         domain, Taint.U
@@ -864,7 +865,7 @@ module Make(D: T) =
            | (None, t) -> taint_register_mask r t m
            | (Some c, t) ->
               match m with
-              | BOT    -> BOT, Taint.U
+              | BOT    -> BOT, Taint.BOT
               | Val m' ->
                  let sz = Register.size r in
                  let (vt, taint), taint_srcs = of_config region config_val' sz in
