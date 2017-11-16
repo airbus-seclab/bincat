@@ -58,7 +58,7 @@ struct
   let zflag = Register.make ~name:"z" ~size:1;;
   let cflag = Register.make ~name:"c" ~size:1;;
   let vflag = Register.make ~name:"v" ~size:1;;
-
+  let tflag = Register.make ~name:"t" ~size:1;;
 
   let reg_from_num n =
     match n with
@@ -105,6 +105,7 @@ struct
     a                     : Address.t;    (** current address to decode *)
     buf                   : string;       (** buffer to decode *)
     endianness            : Config.endianness_t;      (** whether memory access is little endian *)
+    thumbmode             : bool;
   }
 
   (* fatal error reporting *)
@@ -737,7 +738,7 @@ struct
     [ If (asm_cond, stmts, []) ]
 
 
-  let decode (s: state): Cfa.State.t * Data.Address.t =
+  let decode_arm (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let instruction = build_instruction s str in
     let stmts = match (instruction lsr 25) land 0x7 with
@@ -766,17 +767,25 @@ struct
     (* XXX: 12 bytes if a register is used to specify a shift amount *)
     return s instruction (Set( V (T pc), current_pc) :: stmts_cc)
 
+  let decode_thumb (_s: state): Cfa.State.t * Data.Address.t =
+    L.abort (fun p -> p "Thumb mode not implemented yet")
 
-  let parse text cfg _ctx state addr _oracle =
+  let parse text cfg _ctx state addr oracle =
+    let tflag_val =
+      try oracle#value_of_register tflag
+      with Exceptions.Too_many_concrete_elements _ ->
+        raise (Exceptions.Too_many_concrete_elements "Value of T flag cannot be determined. Cannot disassemble next instruction") in
     let s =  {
       g = cfg;
       b = state;
       a = addr;
       buf = text;
-      endianness = !Config.endianness
+      endianness = !Config.endianness;
+      thumbmode = tflag_val = Z.one;
     }
     in
     try
+      let decode = if  s.thumbmode then decode_thumb else decode_arm in
       let v', ip' = decode s in
       Some (v', ip', ())
     with
