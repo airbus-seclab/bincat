@@ -107,34 +107,35 @@
 
       (** footer function *)
       let check_context () =
-    (* check whether all mandatory items are provided *)
+        (* check whether all mandatory items are provided *)
         Hashtbl.iter (fun _ (pname, sname, b) -> if not b then missing_item pname sname) mandatory_keys;
-        begin
-          match !Config.architecture with
-          | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
-          | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
-          | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
-        end;
-    (* fill the table of tainting rules for each provided library *)
-    let add_tainting_rules l (c, funs) =
-      let c' =
-        match c with
-          None    -> !Config.call_conv
-        | Some c' -> c'
-      in
-      let add (fname, c, r, args) =
-        let c' =
-          match c with
-        None    -> c'
-          | Some c' -> c'
+        if !Config.analysis = Config.Forward Config.Bin then
+          begin
+            match !Config.architecture with
+            | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
+            | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
+            | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
+          end;
+        (* fill the table of tainting rules for each provided library *)
+        let add_tainting_rules l (c, funs) =
+          let c' =
+            match c with
+              None    -> !Config.call_conv
+            | Some c' -> c'
+          in
+          let add (fname, c, r, args) =
+            let c' =
+              match c with
+                None    -> c'
+              | Some c' -> c'
+            in
+            Hashtbl.replace Config.tainting_rules (l, fname) (c', r, args)
+          in
+          List.iter add (List.rev funs)
         in
-        Hashtbl.replace Config.tainting_rules (l, fname) (c', r, args)
-      in
-      List.iter add (List.rev funs)
-    in
-    Hashtbl.iter add_tainting_rules libraries;
+        Hashtbl.iter add_tainting_rules libraries;
     (* complete the table of function rules with type information *)
-    List.iter (fun header ->
+        List.iter (fun header ->
         try
           L.debug (fun p -> p "Open npk file [%s]" header);
           let p = TypedC.read header in
