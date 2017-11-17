@@ -112,6 +112,8 @@ struct
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
+  let notimplemented isn = L.abort (fun p -> p "%s thumb16 instruction not implemented yet" isn)
+
   let string_to_char_list str =
     let len = String.length str in
     let rec process i =
@@ -787,7 +789,12 @@ struct
     return s instruction (Set( V (T pc), current_pc) :: stmts_cc)
 
 
-  let notimplemented isn = L.abort (fun p -> p "%s thumb16 instruction not implemented yet" isn)
+(*  _____ _              _     *)
+(* |_   _| |_ _  _ _ __ | |__  *)
+(*   | | | ' \ || | '  \| '_ \ *)
+(*   |_| |_||_\_,_|_|_|_|_.__/ *)
+(*                             *)
+
 
   let decode_thumb_misc _s isn =
     match (isn lsr 6) land 0x3f with
