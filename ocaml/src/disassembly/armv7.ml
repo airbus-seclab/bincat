@@ -135,12 +135,27 @@ struct
         lor ((Char.code (String.get str 1)) lsl 16)
         lor ((Char.code (String.get str 0)) lsl 24)
 
+  let build_thumb16_instruction s str =
+    match s.endianness with
+    | Config.LITTLE ->
+        (Char.code (String.get str 0))
+        lor ((Char.code (String.get str 1)) lsl 8)
+    | Config.BIG ->
+        (Char.code (String.get str 1))
+        lor ((Char.code (String.get str 0)) lsl 8)
+
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
-    s.b.Cfa.State.bytes <- [ Char.chr (instruction land 0xff) ;
-                             Char.chr ((instruction lsr 8) land 0xff) ;
-                             Char.chr ((instruction lsr 16) land 0xff) ;
-                             Char.chr ((instruction lsr 24) land 0xff) ];
+    s.b.Cfa.State.bytes <-
+      if s.thumbmode && (((instruction lsr 11) land 0x3) != 0) &&
+           (((instruction lsr 13) land 0x7) = 0b111) then (* Thumb 16 bits instruction *)
+        [ Char.chr (instruction land 0xff) ;
+          Char.chr ((instruction lsr 8) land 0xff) ; ]
+      else (* Arm or Thumb 32 bits instruction *)
+        [ Char.chr (instruction land 0xff) ;
+          Char.chr ((instruction lsr 8) land 0xff) ;
+          Char.chr ((instruction lsr 16) land 0xff) ;
+          Char.chr ((instruction lsr 24) land 0xff) ];
     (*    s.b.Cfa.State.bytes <- string_to_char_list str; *)
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
 
@@ -771,8 +786,48 @@ struct
     (* XXX: 12 bytes if a register is used to specify a shift amount *)
     return s instruction (Set( V (T pc), current_pc) :: stmts_cc)
 
-  let decode_thumb (_s: state): Cfa.State.t * Data.Address.t =
-    L.abort (fun p -> p "Thumb mode not implemented yet")
+
+  let notimplemented isn = L.abort (fun p -> p "%s thumb16 instruction not implemented yet" isn)
+
+  let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
+    let str = String.sub s.buf 0 2 in
+    let instruction = build_thumb16_instruction s str in
+    let stmts =
+      if (instruction lsr 13) land 7 = 0b111 && (instruction lsr 11) land 3 != 0 then
+        L.abort (fun p -> p "Thumb 32bit instruction decoding not implemented yet")
+      else
+        match (instruction lsr 10) land 0x3f with
+        | 0b010000 -> (* Data-processing *)
+           notimplemented "data processing"
+        | 0b010001 -> (* Special data instructions and branch and exchange *)
+           notimplemented "special data/branch/exch"
+        | 0b010010 | 0b010011 -> (* Load from Literal Pool *)
+           notimplemented "load from literal pool"
+        | 0b010100 | 0b010101 | 0b010110 | 0b010111 -> (* Load/store single data item *)
+           notimplemented "single data item loading/storage"
+        | 0b101000 | 0b101001 -> (* Generate PC-relative address *)
+           notimplemented "pc-relative address generation"
+        | 0b101010 | 0b101011 -> (* Generate SP-relative address *)
+           notimplemented "sp-relative address generation"
+        | 0b101100 | 0b101101 | 0b101110 | 0b101111 -> (* Miscellaneous 16-bit instructions *)
+           notimplemented "misc"
+        | 0b110000 | 0b110001 -> (* Store multiple registers *)
+           notimplemented "multiple reg storage"
+        | 0b110010 | 0b110011 -> (* Load multiple registers *)
+           notimplemented "multiple reg loading"
+        | 0b110100 | 0b110101 | 0b110110 | 0b110111 -> (* Conditional branch, and Supervisor Call *)
+           notimplemented "conditional branching/syscall"
+        | 0b111000 | 0b111001 -> (* Unconditional Branch *)
+           notimplemented "unconditional branching"
+        | _ ->
+           if (instruction lsr 14) land 3 = 0 then
+             (* Shift (immediate), add, subtract, move, and compare *)
+             notimplemented "shift/add/sub/mov/cmp"
+           else
+             L.abort (fun p -> p "Unknown thumb encoding %04x" instruction) in
+    let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
+    (* XXX: 12 bytes if a register is used to specify a shift amount *)
+    return s instruction (Set( V (T pc), current_pc) :: stmts)
 
   let parse text cfg _ctx state addr oracle =
     let tflag_val =
