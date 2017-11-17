@@ -789,6 +789,50 @@ struct
 
   let notimplemented isn = L.abort (fun p -> p "%s thumb16 instruction not implemented yet" isn)
 
+  let decode_thumb_misc _s isn =
+    match (isn lsr 6) land 0x3f with
+    | 0b011001 ->
+       if (isn lsr 5) land 1 = 0 then (* Set Endianness SETEND *)
+         notimplemented "SETEND"
+       else (* Change Processor State CPS *)
+         notimplemented "CPS"
+    | 0b000000 | 0b000001 -> (* Add Immediate to SP ADD (SP plus immediate) *)
+       notimplemented "ADD on SP"
+    | 0b000010 | 0b000011 -> (* Subtract Immediate from SP SUB (SP minus immediate) *)
+       notimplemented "SUB on SP"
+    | 0b000100 | 0b000101 | 0b000110 | 0b000111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
+       notimplemented "CBZ/CBNZ (0)"
+    | 0b001000 -> (* Signed Extend Halfword SXTH *)
+       notimplemented "SXTH"
+    | 0b001001 -> (* Signed Extend Byte SXTB *)
+       notimplemented "SXTB"
+    | 0b001010 -> (* Unsigned Extend Halfword UXTH *)
+       notimplemented "UXTH"
+    | 0b001011 -> (* Unsigned Extend Byte UXTB *)
+       notimplemented "UXTB"
+    | 0b001100 | 0b001101 | 0b001110 | 0b001111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
+       notimplemented "CBNZ/CBZ (1)"
+    | 0b010000 | 0b010001 | 0b010010 | 0b010011 | 0b010100 | 0b010101 | 0b010110 | 0b010111 -> (* Push Multiple Registers PUSH *)
+       notimplemented "PUSH"
+    | 0b100100 | 0b100101 | 0b100110 | 0b100111 -> (* Compare and Branch on Nonzero CBNZ, CBZ *)
+       notimplemented "CBNZ/CBZ (2)"
+    | 0b101000 -> (* Byte-Reverse Word REV *)
+       notimplemented "REV"
+    | 0b101001 -> (* Byte-Reverse Packed Halfword REV16 *)
+       notimplemented "REV16"
+    | 0b101011 -> (* Byte-Reverse Signed Halfword REVSH *)
+       notimplemented "REVSH"
+    | 0b101100 | 0b101101 | 0b101110 | 0b101111 -> (* Compare and Branch on Nonzero CBNZ, CBZ *)
+       notimplemented "CBNZ/CBZ (3)"
+    | 0b110000 | 0b110001 | 0b110010 | 0b110011 | 0b110100 | 0b110101 | 0b110110 | 0b110111 -> (* Pop Multiple Registers POP *)
+       notimplemented "POP"
+    | 0b111000 | 0b111001 | 0b111010 | 0b111011 -> (* Breakpoint BKPT *)
+       notimplemented "BKPT"
+    | 0b111100 | 0b111101 | 0b111110 | 0b111111 -> (* If-Then, and hints If-Then, and hints *)
+       notimplemented "hints"
+    | _ ->  L.abort (fun p -> p "Unknown thumb misc encoding %04x" isn)
+
+
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
@@ -810,7 +854,7 @@ struct
         | 0b101010 | 0b101011 -> (* Generate SP-relative address *)
            notimplemented "sp-relative address generation"
         | 0b101100 | 0b101101 | 0b101110 | 0b101111 -> (* Miscellaneous 16-bit instructions *)
-           notimplemented "misc"
+           decode_thumb_misc s instruction
         | 0b110000 | 0b110001 -> (* Store multiple registers *)
            notimplemented "multiple reg storage"
         | 0b110010 | 0b110011 -> (* Load multiple registers *)
