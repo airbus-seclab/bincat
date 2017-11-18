@@ -935,6 +935,17 @@ struct
        notimplemented "SUB 8 (imm)"
     | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
 
+
+  let decode_thumb_branching_svcall _s isn =
+    match isn lsr 8 land 0xf with
+    | 0b1110 -> (* Permanently UNDEFINED *)
+       L.abort (fun p -> p "Thumb16 instruction %04x permanently undefined" isn)
+    | 0b1111 -> (* Supervisor Call *)
+       notimplemented "SVC"
+    | _ -> (* Conditional branch *)
+       notimplemented "conditional branch"
+
+
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
@@ -962,7 +973,7 @@ struct
         | 0b110010 | 0b110011 -> (* Load multiple registers *)
            notimplemented "multiple reg loading"
         | 0b110100 | 0b110101 | 0b110110 | 0b110111 -> (* Conditional branch, and Supervisor Call *)
-           notimplemented "conditional branching/syscall"
+           decode_thumb_branching_svcall s instruction
         | 0b111000 | 0b111001 -> (* Unconditional Branch *)
            notimplemented "unconditional branching"
         | _ ->
