@@ -1,0 +1,72 @@
+# used as a config file template for tests
+
+[analyzer]
+ini_version = 4
+unroll = 150
+loglevel = 10
+store_marshalled_cfa = true
+in_marshalled_cfa_file = "incfa.marshal"
+out_marshalled_cfa_file = "outcfa.marshal"
+analysis = forward_binary
+analysis_ep = 0x00
+cut = {code_length}
+headers = "libc.no"
+
+[program]
+mode = protected
+call_conv = aapcs
+mem_sz = 32
+op_sz = 32
+stack_width = 32
+architecture = armv7
+filepath = "{filepath}"
+format = raw
+
+[armv7]
+endianness = little
+
+[state]
+reg[t] = 1
+reg[n] = 0?1
+reg[z] = 0?1
+reg[c] = 0?1
+reg[v] = 0?1
+reg[r0] = 0
+reg[r1] = 0
+reg[r2] = 0
+reg[r3] = 0
+reg[r4] = 0
+reg[r5] = 0
+reg[r6] = 0
+reg[r7] = 0
+reg[r8] = 0
+reg[r9] = 0
+reg[r10] = 0
+reg[r11] = 0
+reg[r12] = 0
+reg[sp] = 0x2000
+reg[lr] = 0
+reg[pc] = 0
+
+#here addresses are supposed to be absolute and not of the form ds:o
+stack[0x1000*8192] = |00|?0xFF
+
+{regmem}
+
+[override]
+{overrides}
+ 
+
+[libc]
+#tainting rules for libc
+#default calling convention for this lib
+# call_conv = fastcall
+* = open(@, _)
+#read uses a different calling convention
+* = read<aapcs>(@, *, @)
+
+[imports]
+0x4 = all,"strlen"
+0x8 = all,"memcpy"
+0xc = all,"printf"
+0x10 = all,"sprintf"
