@@ -147,19 +147,23 @@ struct
         lor ((Char.code (String.get str 0)) lsl 8)
 
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
+    let isn_size =
+      if s.thumbmode && ((((instruction lsr 11) land 0x3) = 0) ||
+                           (((instruction lsr 13) land 0x7) != 0b111))
+      then 2 (* Thumb 16 bits instruction *)
+      else 4 (* Arm or Thumb 32 bits instruction *) in
     s.b.Cfa.State.stmts <- stmts;
     s.b.Cfa.State.bytes <-
-      if s.thumbmode && ((((instruction lsr 11) land 0x3) = 0) ||
-           (((instruction lsr 13) land 0x7) != 0b111)) then (* Thumb 16 bits instruction *)
+      if isn_size = 2 then
         [ Char.chr (instruction land 0xff) ;
           Char.chr ((instruction lsr 8) land 0xff) ; ]
-      else (* Arm or Thumb 32 bits instruction *)
+      else
         [ Char.chr (instruction land 0xff) ;
           Char.chr ((instruction lsr 8) land 0xff) ;
           Char.chr ((instruction lsr 16) land 0xff) ;
           Char.chr ((instruction lsr 24) land 0xff) ];
     (*    s.b.Cfa.State.bytes <- string_to_char_list str; *)
-    s.b, Data.Address.add_offset s.a (Z.of_int 4)
+    s.b, Data.Address.add_offset s.a (Z.of_int isn_size)
 
   let ror32 value n =
     (value lsr n) lor ((value lsl (32-n)) land 0xffffffff)
