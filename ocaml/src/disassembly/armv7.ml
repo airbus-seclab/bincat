@@ -840,6 +840,37 @@ struct
     | _ ->  L.abort (fun p -> p "Unknown thumb misc encoding %04x" isn)
 
 
+  let decode_thumb_shift_add_sub_mov_cmp _s isn =
+    match (isn lsr 11) land 7 with
+    | 0b011 ->
+       begin
+         match (isn lsr 9) land 3 with
+         | 0b00 -> (* Add register ADD (register) *)
+            notimplemented "ADD (reg)"
+         | 0b01 -> (* Subtract register SUB (register) *)
+            notimplemented "SUB (reg)"
+         | 0b10 -> (* Add 3-bit immediate ADD (immediate, Thumb) *)
+            notimplemented "ADD 3 (imm)"
+         | 0b11 -> (* Subtract 3-bit immediate SUB (immediate, Thumb) *)
+            notimplemented "SUB 3 (imm)"
+         | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
+       end
+    | 0b000 -> (* Logical Shift Left LSL (immediate) *)
+       notimplemented "LSL (imm)"
+    | 0b001 -> (* Logical Shift Right LSR (immediate) *)
+       notimplemented "LSR (imm)"
+    | 0b010 -> (* Arithmetic Shift Right ASR (immediate) *)
+       notimplemented "ASR (imm)"
+    | 0b100 -> (* Move MOV (immediate) *)
+       notimplemented "MOV (imm)"
+    | 0b101 -> (* Compare CMP (immediate) *)
+       notimplemented "CMP (imm)"
+    | 0b110 -> (* Add 8-bit immediate ADD (immediate, Thumb) *)
+       notimplemented "ADD 8 (imm)"
+    | 0b111 -> (* Subtract 8-bit immediate SUB (immediate, Thumb) *)
+       notimplemented "SUB 8 (imm)"
+    | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
+
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
@@ -873,7 +904,7 @@ struct
         | _ ->
            if (instruction lsr 14) land 3 = 0 then
              (* Shift (immediate), add, subtract, move, and compare *)
-             notimplemented "shift/add/sub/mov/cmp"
+             decode_thumb_shift_add_sub_mov_cmp s instruction
            else
              L.abort (fun p -> p "Unknown thumb encoding %04x" instruction) in
     let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
