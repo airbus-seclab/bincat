@@ -814,6 +814,22 @@ struct
     done;
     (!stmts) @ [ Set (V (T sp), BinOp(Sub, Lval (V (T sp)), const !bitcount 32)) ]
 
+  let thumb_pop _s isn =
+    let reglist = ((isn lsl 7) land 0x8000) lor (isn land 0xff) in (* reglist = bit8:0000000:bit7-0 bit8=r15=pc *)
+    let stmts = ref [] in
+    let bitcount = ref 0 in
+    for i = 0 to 15 do
+      if (reglist lsr i) land 1 = 1 then
+        begin
+          let stmt = Set (V (reg i),
+                          Lval (M (BinOp(Add, Lval (V (T sp)), const !bitcount 32), 32))) in
+          bitcount := !bitcount+4;
+          stmts := stmt :: (!stmts)
+        end
+    done;
+    (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ]
+
+
   let decode_thumb_misc s isn =
     match (isn lsr 6) land 0x3f with
     | 0b011001 ->
@@ -850,7 +866,7 @@ struct
     | 0b101100 | 0b101101 | 0b101110 | 0b101111 -> (* Compare and Branch on Nonzero CBNZ, CBZ *)
        notimplemented "CBNZ/CBZ (3)"
     | 0b110000 | 0b110001 | 0b110010 | 0b110011 | 0b110100 | 0b110101 | 0b110110 | 0b110111 -> (* Pop Multiple Registers POP *)
-       notimplemented "POP"
+       thumb_pop s isn
     | 0b111000 | 0b111001 | 0b111010 | 0b111011 -> (* Breakpoint BKPT *)
        notimplemented "BKPT"
     | 0b111100 | 0b111101 | 0b111110 | 0b111111 -> (* If-Then, and hints If-Then, and hints *)
