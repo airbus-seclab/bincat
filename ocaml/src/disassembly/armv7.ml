@@ -95,6 +95,21 @@ struct
   let c_is_clear = Cmp(EQ, Lval (V (T cflag)), const 0 1)
   let v_is_clear = Cmp(EQ, Lval (V (T vflag)), const 0 1)
 
+  let zflag_update_exp res_exp = Set(V (T zflag), TernOp (Cmp(EQ, res_exp, const 0 32),
+                                                            const 1 1, const 0 1))
+  let vflag_update_exp a b res =
+    let bit31 = const 0x80000000 32 in
+    Set(V (T (vflag)), TernOp (BBinOp (LogAnd,
+                                       Cmp (EQ, BinOp(And, a, bit31),
+                                            BinOp(And, b, bit31)),
+                                       Cmp (NEQ, BinOp(And, a, bit31),
+                                            BinOp(And, res, bit31))),
+                               const 1 1, const 0 1))
+
+
+  let to33bits x = UnOp(ZeroExt 33, x)
+  let to33bits_s x = UnOp(SignExt 33, x)
+
   module Cfa = Cfa.Make(Domain)
 
   module Imports = Armv7Imports.Make(Domain)(Stubs)
@@ -506,22 +521,10 @@ struct
              end
         | st -> L.abort (fun p -> p "unexpected shift type %x" st)
     in
-    let to33bits x = UnOp(ZeroExt 33, x) in
-    let to33bits_s x = UnOp(SignExt 33, x) in
-    let bit31 = const 0x80000000 32 in
-    let zflag_update_exp res_exp = Set(V (T zflag), TernOp (Cmp(EQ, res_exp, const 0 32),
-                                                            const 1 1, const 0 1)) in
     let _nflag_update_exp res_exp = Set(V (T nflag), TernOp (Cmp(EQ, BinOp(And, res_exp, const 0x80000000 32),
                                                                 const 0 32),
                                                             const 0 1, const 1 1)) in
     let nflag_update_from_reg_exp res_reg = Set(V (T nflag), Lval (V (P (res_reg, 31, 31)))) in
-    let vflag_update_exp a b res =
-      Set(V (T (vflag)), TernOp (BBinOp (LogAnd,
-                                         Cmp (EQ, BinOp(And, a, bit31),
-                                              BinOp(And, b, bit31)),
-                                         Cmp (NEQ, BinOp(And, a, bit31),
-                                              BinOp(And, res, bit31))),
-                                 const 1 1, const 0 1)) in
     let set_cflag_vflag_after_add_with_carry a b carry =
       let tmpregu = Register.make (Register.fresh_name ()) 33 in
       let tmpregs = Register.make (Register.fresh_name ()) 33 in
