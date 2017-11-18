@@ -844,7 +844,17 @@ struct
     | _ ->  L.abort (fun p -> p "Unknown thumb misc encoding %04x" isn)
 
 
-  let decode_thumb_shift_add_sub_mov_cmp _s isn =
+  let thumb_mov_imm _s isn =
+    (* XXX: do not set flags if instruction in an IT block. See A8.6.96 and IT instruction *)
+    (* XXX: IT block cannot happen here yet as IT instruction raises an error *)
+    let regnum = (isn lsr 8) land 7 in
+    let imm = isn land 0xff in
+    [ Set (V (reg regnum), const imm 32) ;
+      Set (V (T zflag), const (if imm = 0 then 1 else 0) 1) ;
+      Set (V (T nflag), const (imm lsr 31) 1) ;
+   ]
+
+  let decode_thumb_shift_add_sub_mov_cmp s isn =
     match (isn lsr 11) land 7 with
     | 0b011 ->
        begin
@@ -866,7 +876,7 @@ struct
     | 0b010 -> (* Arithmetic Shift Right ASR (immediate) *)
        notimplemented "ASR (imm)"
     | 0b100 -> (* Move MOV (immediate) *)
-       notimplemented "MOV (imm)"
+       thumb_mov_imm s isn
     | 0b101 -> (* Compare CMP (immediate) *)
        notimplemented "CMP (imm)"
     | 0b110 -> (* Add 8-bit immediate ADD (immediate, Thumb) *)
