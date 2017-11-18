@@ -30,9 +30,9 @@ def test_assign(tmpdir, cmpall):
     asm = """
         mov r0, #0x12
         mov r1, r0
-        mov r2, r1
+        movs r2, r1
     """
-    cmpall(tmpdir, asm, ["r0","r1", "r2"])
+    cmpall(tmpdir, asm, ["r0","r1", "r2", "n", "z"])
 
 
 
