@@ -937,14 +937,24 @@ struct
     | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
 
 
-  let decode_thumb_branching_svcall _s isn =
+  let thumb_cond_branching _s isn =
+    let cc = (isn lsr 8) land 0xf in
+    let imm8 = isn land 0xff in
+    let imm32 = (imm8 lsl 24) lsr 23 in (* SignExtend (imm8:'0',32) *)
+    let branching = [
+        Set (V (T pc), BinOp( Add, Lval (V (T pc)), const imm32 32)) ;
+        Jmp (R (Lval (V (T pc)))) ;
+      ] in
+    [ If (asm_cond cc, branching, [] ) ]
+
+  let decode_thumb_branching_svcall s isn =
     match isn lsr 8 land 0xf with
     | 0b1110 -> (* Permanently UNDEFINED *)
        L.abort (fun p -> p "Thumb16 instruction %04x permanently undefined" isn)
     | 0b1111 -> (* Supervisor Call *)
        notimplemented "SVC"
     | _ -> (* Conditional branch *)
-       notimplemented "conditional branch"
+       thumb_cond_branching s isn
 
 
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
