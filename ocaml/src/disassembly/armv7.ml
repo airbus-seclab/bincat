@@ -149,8 +149,8 @@ struct
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
     s.b.Cfa.State.bytes <-
-      if s.thumbmode && (((instruction lsr 11) land 0x3) != 0) &&
-           (((instruction lsr 13) land 0x7) = 0b111) then (* Thumb 16 bits instruction *)
+      if s.thumbmode && ((((instruction lsr 11) land 0x3) = 0) ||
+           (((instruction lsr 13) land 0x7) != 0b111)) then (* Thumb 16 bits instruction *)
         [ Char.chr (instruction land 0xff) ;
           Char.chr ((instruction lsr 8) land 0xff) ; ]
       else (* Arm or Thumb 32 bits instruction *)
