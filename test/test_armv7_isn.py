@@ -304,6 +304,30 @@ def test_data_xfer_push_pop(tmpdir, cmpall):
     """
     cmpall(tmpdir, asm, ["r0","r1"])
 
+def test_data_xfer_push1_pop(tmpdir, cmpall):
+    asm = """
+            mov r0, #123
+            mov r1, #13
+            mov r2, #18
+            push { r0 }
+            push { r1 }
+            push { r2 }
+            pop { r3,r4,r5 }
+    """
+    cmpall(tmpdir, asm, ["r0","r1","r2","r3","r4","r5"])
+
+def test_data_xfer_push_pop1(tmpdir, cmpall):
+    asm = """
+            mov r0, #123
+            mov r1, #13
+            mov r2, #18
+            push { r0, r1, r2}
+            pop { r3 }
+            pop { r4 }
+            pop { r5 }
+    """
+    cmpall(tmpdir, asm, ["r0","r1","r2","r3","r4","r5"])
+
 
 def test_data_xfer_offsets(tmpdir, cmpall):
     asm = """
