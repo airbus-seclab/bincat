@@ -982,7 +982,7 @@ struct
              decode_thumb_shift_add_sub_mov_cmp s instruction
            else
              L.abort (fun p -> p "Unknown thumb encoding %04x" instruction) in
-    let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
+    let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32) in (* pc is 4 bytes ahead in thumb mode because of pre-fetching. *)
     (* XXX: 12 bytes if a register is used to specify a shift amount *)
     return s instruction (Set( V (T pc), current_pc) :: stmts)
 
