@@ -50,6 +50,12 @@ dataop_comp_arith_with_carry = pytest.mark.parametrize("op", [ "adc", "sbc", "rs
 dataop_test_logic = pytest.mark.parametrize("op", ["tst", "teq"])
 dataop_test_arith = pytest.mark.parametrize("op", ["cmp", "cmn"])
 
+def test_movs_imm(tmpdir, cmpall, op8):
+    asm = """
+        movs r0, #{op8}
+    """.format(**locals())
+    cmpall(tmpdir, asm, ["r0", "n", "z"])
+
 
 def test_mov_reg(tmpdir):
     asm = """
