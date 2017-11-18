@@ -106,6 +106,30 @@ struct
                                             BinOp(And, res, bit31))),
                                const 1 1, const 0 1))
 
+  let asm_cond cc = match cc with
+    | 0b0000 -> z_is_set (* EQ - Z set (equal) *)
+    | 0b0001 -> z_is_clear (* NE - Z clear (not equal) *)
+    | 0b0010 -> c_is_set (* CS - C set (unsigned higher or same) *)
+    | 0b0011 -> c_is_clear (* CC - C clear (unsigned lower) *)
+    | 0b0100 -> n_is_set (* MI - N set (negative) *)
+    | 0b0101 -> n_is_clear (* PL - N clear (positive or zero) *)
+    | 0b0110 -> v_is_set (* VS - V set (overflow) *)
+    | 0b0111 -> v_is_clear (* VC - V clear (no overflow) *)
+    | 0b1000 -> BBinOp(LogAnd, c_is_set, z_is_clear) (* HI - C set and Z clear (unsigned higher) *)
+    | 0b1001 -> BBinOp(LogOr, c_is_clear, z_is_set) (* LS - C clear or Z set (unsigned lower or same) *)
+    | 0b1010 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_set), BBinOp(LogAnd, n_is_clear, v_is_clear))
+    (* GE - N set and V set, or N clear and V clear (greater or equal) *)
+    | 0b1011 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_clear), BBinOp(LogAnd, n_is_clear, v_is_set))
+    (* LT - N set and V clear, or N clear and V set (less than) *)
+    | 0b1100 -> BBinOp(LogOr, BBinOp(LogAnd, z_is_clear, BBinOp(LogOr, n_is_set, v_is_set)),
+                       BBinOp(LogAnd, n_is_clear, v_is_clear))
+    (* GT - Z clear, and either N set and V set, or N clear and V clear (greater than) *)
+    | 0b1101 -> BBinOp(LogOr, z_is_set,
+                       BBinOp(LogOr, BBinOp(LogAnd, z_is_set, v_is_clear),
+                              BBinOp(LogAnd, n_is_clear, v_is_set)))
+    (* LE - Z set, or N set and V clear, or N clear and V set (less than or equal) *)
+    | _ -> L.abort (fun p -> p "Unexpected condiction code %x" cc)
+
 
   let to33bits x = UnOp(ZeroExt 33, x)
   let to33bits_s x = UnOp(SignExt 33, x)
@@ -740,30 +764,7 @@ struct
       stmt_cc
 
   let wrap_cc cc stmts =
-    let asm_cond = match cc with
-    | 0b0000 -> z_is_set (* EQ - Z set (equal) *)
-    | 0b0001 -> z_is_clear (* NE - Z clear (not equal) *)
-    | 0b0010 -> c_is_set (* CS - C set (unsigned higher or same) *)
-    | 0b0011 -> c_is_clear (* CC - C clear (unsigned lower) *)
-    | 0b0100 -> n_is_set (* MI - N set (negative) *)
-    | 0b0101 -> n_is_clear (* PL - N clear (positive or zero) *)
-    | 0b0110 -> v_is_set (* VS - V set (overflow) *)
-    | 0b0111 -> v_is_clear (* VC - V clear (no overflow) *)
-    | 0b1000 -> BBinOp(LogAnd, c_is_set, z_is_clear) (* HI - C set and Z clear (unsigned higher) *)
-    | 0b1001 -> BBinOp(LogOr, c_is_clear, z_is_set) (* LS - C clear or Z set (unsigned lower or same) *)
-    | 0b1010 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_set), BBinOp(LogAnd, n_is_clear, v_is_clear))
-                (* GE - N set and V set, or N clear and V clear (greater or equal) *)
-    | 0b1011 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_clear), BBinOp(LogAnd, n_is_clear, v_is_set))
-                (* LT - N set and V clear, or N clear and V set (less than) *)
-    | 0b1100 -> BBinOp(LogOr, BBinOp(LogAnd, z_is_clear, BBinOp(LogOr, n_is_set, v_is_set)),
-                       BBinOp(LogAnd, n_is_clear, v_is_clear))
-                (* GT - Z clear, and either N set and V set, or N clear and V clear (greater than) *)
-    | 0b1101 -> BBinOp(LogOr, z_is_set,
-                       BBinOp(LogOr, BBinOp(LogAnd, z_is_set, v_is_clear),
-                              BBinOp(LogAnd, n_is_clear, v_is_set)))
-                (* LE - Z set, or N set and V clear, or N clear and V set (less than or equal) *)
-    | _ -> L.abort (fun p -> p "Unexpected condiction code %x" cc) in
-    [ If (asm_cond, stmts, []) ]
+    [ If (asm_cond cc, stmts, []) ]
 
 
   let decode_arm (s: state): Cfa.State.t * Data.Address.t =
