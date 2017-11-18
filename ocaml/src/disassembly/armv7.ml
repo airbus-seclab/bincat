@@ -799,8 +799,22 @@ struct
 (*   |_| |_||_\_,_|_|_|_|_.__/ *)
 (*                             *)
 
+  let thumb_push _s isn =
+    let reglist = ((isn lsl 6) land 0x4000) lor (isn land 0xff) in (* reglist = 0:bit8:000000:bit7-0 bit8=r14=lr*)
+    let stmts = ref [] in
+    let bitcount = ref 0 in
+    for i = 14 downto 0 do
+      if (reglist lsr i) land 1 = 1 then
+        begin
+          bitcount := !bitcount+4;
+          let stmt = Set (M (BinOp(Sub, Lval (V (T sp)), const !bitcount 32), 32),
+                          Lval (V (reg i))) in
+          stmts := stmt :: (!stmts)
+        end
+    done;
+    (!stmts) @ [ Set (V (T sp), BinOp(Sub, Lval (V (T sp)), const !bitcount 32)) ]
 
-  let decode_thumb_misc _s isn =
+  let decode_thumb_misc s isn =
     match (isn lsr 6) land 0x3f with
     | 0b011001 ->
        if (isn lsr 5) land 1 = 0 then (* Set Endianness SETEND *)
@@ -824,7 +838,7 @@ struct
     | 0b001100 | 0b001101 | 0b001110 | 0b001111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
        notimplemented "CBNZ/CBZ (1)"
     | 0b010000 | 0b010001 | 0b010010 | 0b010011 | 0b010100 | 0b010101 | 0b010110 | 0b010111 -> (* Push Multiple Registers PUSH *)
-       notimplemented "PUSH"
+       thumb_push s isn
     | 0b100100 | 0b100101 | 0b100110 | 0b100111 -> (* Compare and Branch on Nonzero CBNZ, CBZ *)
        notimplemented "CBNZ/CBZ (2)"
     | 0b101000 -> (* Byte-Reverse Word REV *)
