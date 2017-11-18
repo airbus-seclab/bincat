@@ -296,16 +296,16 @@ def test_data_proc_read_pc(tmpdir):
 ##
 ## DATA XFER
 
-def test_data_xfer_push_pop(tmpdir):
+def test_data_xfer_push_pop(tmpdir, cmpall):
     asm = """
             mov r0, #123
             push { r0 }
             pop { r1 }
     """
-    compare(tmpdir, asm, ["r0","r1"])
+    cmpall(tmpdir, asm, ["r0","r1"])
 
 
-def test_data_xfer_offsets(tmpdir):
+def test_data_xfer_offsets(tmpdir, cmpall):
     asm = """
             mov r0, #0
             mov r1, #123
@@ -320,7 +320,7 @@ def test_data_xfer_offsets(tmpdir):
             ldr r5, [sp, #0x10]
             add sp, #0x14
     """
-    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
+    cmpall(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
 
 def test_data_xfer_str_8(tmpdir):
     asm = """
