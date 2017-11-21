@@ -1021,7 +1021,8 @@ struct
       | Some v ->
          if (v land 0xf) = 0
          then stmts, itdependant_stmts
-         else L.abort (fun p -> p "ITSTATE management not supported yet") in
+         else let next_itstate = if v land 7 = 0 then 0 else (v land 0xf0) lor ((v lsl 1) land 0xf) in
+              wrap_cc (v lsr 4) stmts, [ Set (V (T itstate), const next_itstate 8)] in
     return s instruction (Set( V (T pc), current_pc) :: stmts1 @ stmts2)
 
   let parse text cfg _ctx state addr oracle =
