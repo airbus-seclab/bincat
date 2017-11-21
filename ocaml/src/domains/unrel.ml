@@ -774,13 +774,13 @@ module Make(D: T) =
     let of_config region (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) =
       let v' = D.of_config region content sz in  
       if taint = [] then
-        (v', Taint.U), []
+        (v', Taint.U)
       else
         D.taint_of_config taint sz v'
 
     let taint_register_mask reg taint m: t * Taint.t =
       match m with
-      | BOT -> BOT, Taint.U
+      | BOT -> BOT, Taint.BOT
       | Val m' ->
          let k = Env.Key.Reg reg in
          let v = Env.find k m' in
@@ -821,26 +821,25 @@ module Make(D: T) =
         match domain with
         | BOT    -> BOT, Taint.BOT
         | Val domain' ->
-           let taint_srcs = extract_taint_src_ids taint in
-           List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
-               Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
-           match content with
-           | None ->
-              begin
-                let taint_sz = size_of_taints taint in
-                let rec repeat (m, t) n =
-                  if n < nb then
-                    let a' = Data.Address.add_offset addr (Z.of_int (n*taint_sz)) in
-                    let k = Env.Key.Mem a' in
-                    let v = Env.find k m in
-                    let v', taint' = D.taint_of_config taint taint_sz v in
-                    let m' = Env.replace k v' m in
+           let taint_srcs = extract_taint_src_ids taint in          
+           let m', taint, sz =
+             match content with
+             | None ->
+                begin
+                  let taint_sz = size_of_taints taint in
+                  let rec repeat (m, t) n =
+                    if n < nb then
+                      let a' = Data.Address.add_offset addr (Z.of_int (n*taint_sz)) in
+                      let k = Env.Key.Mem a' in
+                      let v = Env.find k m in
+                      let v', taint' = D.taint_of_config taint taint_sz v in
+                      let m' = Env.replace k v' m in
                     repeat (m', taint') (n+1)
-                  else
-                    m, t
-                in
-                let m', taint = repeat (domain', Taint.U) 0 in
-                Val m', taint                
+                    else
+                      m, t
+                  in
+                  let m', taint = repeat (domain', Taint.U) 0 in
+                  m', taint, taint_sz                
               end
            | Some content' -> 
               let sz = size_of_content content' in
@@ -849,29 +848,39 @@ module Make(D: T) =
                 if sz != 8 then
                   L.abort (fun p -> p "Repeated memory init only works with bytes")
                 else
-                  Val (write_repeat_byte_in_mem addr domain' v' nb), taint
+                  write_repeat_byte_in_mem addr domain' v' nb, taint, sz
               else
                 let big_endian =
                   match content' with
                   | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
                   | _ -> false
                 in                          
-                Val (write_in_memory addr domain' v' sz true big_endian), taint
+               write_in_memory addr domain' v' sz true big_endian, taint, sz
+           in
+           List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
+               Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
+           Val m', taint
       else
         domain, Taint.U
 
-    let set_register_from_config r region config_val m: t * Taint.t =  
-           match config_val with
-           | (None, t) -> taint_register_mask r t m
-           | (Some c, t) ->
-              match m with
-              | BOT    -> BOT, Taint.BOT
-              | Val m' ->
+    let set_register_from_config r region (content, taint) m: t * Taint.t =
+      match m with
+      | BOT    -> BOT, Taint.BOT
+      | Val m' ->
+         let taint_srcs = extract_taint_src_ids taint in
+         List.iter (fun id ->
+           if not (Hashtbl.mem Dump.taint_src_tbl id) then
+             Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) taint_srcs;
+         match content with
+         | None ->
+            let k = Env.Key.Reg r in
+            let v = Env.find k m' in
+            let v', taint' =  D.taint_of_config taint (Register.size reg) v in
+            Val (Env.replace k v' m'), taint'
+           | Some c ->
                  let sz = Register.size r in
-                 let (vt, taint), taint_srcs = of_config region config_val' sz in
-                 List.iter (fun id ->
-                   if not (Hashtbl.mem Dump.taint_src_tbl id) then
-                     Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) taint_srcs;
+                 let (vt, taint) = of_config region config_val' sz in
+                 
                  Val (Env.add (Env.Key.Reg r) vt m'), taint
 
     let value_of_exp m e =
