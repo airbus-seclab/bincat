@@ -217,19 +217,23 @@ struct
       (* end of init utilities *)
       (*************************)
 
-  let init_abstract_value () =
-    let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
-    (* initialisation of Global memory + registers *)
-    let d', taint1 = init_registers d in
-    let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
+    let update_abstract_value d =
+      (* initialisation of Global memory + registers *)
+      let d', taint1 = init_registers d in
+      let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
     (* init of the Stack memory *)
-    let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
+      let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
     (* init of the Heap memory *)
-    let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
-    d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
+      let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
+      d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
+        
+    let init_abstract_value () =
+      let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+      update_abstract_value d
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
+    
   let init_state (ip: Data.Address.t): State.t =
     let d', _taint = init_abstract_value () in
     {
