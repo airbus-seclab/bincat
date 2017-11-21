@@ -976,6 +976,24 @@ struct
     | _ -> (* Conditional branch *)
        thumb_cond_branching s isn
 
+  let decode_thumb_special_data_branch_exch _s isn =
+    match (isn lsr 6) land 0xf with
+    | 0b0000 -> (* Add Low Registers ADD (register)*)
+       notimplemented "ADD (low reg)"
+    | 0b0001 | 0b0010 | 0b0011 -> (* Add High Registers ADD (register) *)
+       notimplemented "ADD (high reg)"
+    | 0b0101 | 0b0110 | 0b0111 -> (* Compare High Registers CMP (register) *)
+       notimplemented "CMP (high reg)"
+    | 0b1000 -> (* Move Low Registers MOV (register) *)
+       notimplemented "MOV (low reg)"
+    | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
+       notimplemented "MOV (high reg)"
+    | 0b1100 | 0b1101 -> (* Branch and Exchange BX *)
+       notimplemented "BX"
+    | 0b1110 | 0b1111 -> (* Branch with Link and Exchange BLX *)
+       notimplemented "BLX"
+    | _ -> L.abort (fun p -> p "Unknown or unpredictable instruction %04x" isn)
+
 
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
@@ -988,7 +1006,7 @@ struct
         | 0b010000 -> (* Data-processing *)
            notimplemented "data processing"
         | 0b010001 -> (* Special data instructions and branch and exchange *)
-           notimplemented "special data/branch/exch"
+           decode_thumb_special_data_branch_exch s instruction
         | 0b010010 | 0b010011 -> (* Load from Literal Pool *)
            notimplemented "load from literal pool"
         | 0b010100 | 0b010101 | 0b010110 | 0b010111 -> (* Load/store single data item *)
