@@ -875,13 +875,12 @@ module Make(D: T) =
          | None ->
             let k = Env.Key.Reg r in
             let v = Env.find k m' in
-            let v', taint' =  D.taint_of_config taint (Register.size reg) v in
+            let v', taint' =  D.taint_of_config taint (Register.size r) v in
             Val (Env.replace k v' m'), taint'
-           | Some c ->
-                 let sz = Register.size r in
-                 let (vt, taint) = of_config region config_val' sz in
-                 
-                 Val (Env.add (Env.Key.Reg r) vt m'), taint
+         | Some c ->
+            let sz = Register.size r in
+            let (vt, taint) = of_config region c sz in                 
+            Val (Env.add (Env.Key.Reg r) vt m'), taint
 
     let value_of_exp m e =
       match m with
