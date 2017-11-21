@@ -767,7 +767,10 @@ struct
       stmt_cc
 
   let wrap_cc cc stmts =
-    [ If (asm_cond cc, stmts, []) ]
+    match cc with
+    | 0xf -> []    (* never *)
+    | 0xe -> stmts (* always *)
+    | cc -> [ If (asm_cond cc, stmts, []) ]
 
 
   let decode_arm (s: state): Cfa.State.t * Data.Address.t =
@@ -791,10 +794,8 @@ struct
     | 0b111 when instruction land (1 lsl 24) = 0 -> error s.a (Printf.sprintf "coprocessor operation or register transfer (isn=%08x)" instruction)
     | 0b111 when instruction land (1 lsl 24) <> 0 -> error s.a (Printf.sprintf "software interrupt not implemented (swi=%08x)" instruction)
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
-    let stmts_cc = match (instruction lsr 28) land 0xf with
-    | 0xf -> []    (* never *)
-    | 0xe -> stmts (* always *)
-    | cc -> wrap_cc cc stmts in
+    let cc = (instruction lsr 28) land 0xf in
+    let stmts_cc = wrap_cc cc stmts in
     let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 8)) 32) in (* pc is 8 bytes ahead because of pre-fetching. *)
     (* XXX: 12 bytes if a register is used to specify a shift amount *)
     return s instruction (Set( V (T pc), current_pc) :: stmts_cc)
