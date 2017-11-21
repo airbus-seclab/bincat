@@ -836,6 +836,22 @@ struct
     done;
     (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ], []
 
+  let decode_thumb_it_hints _s isn =
+    if isn land 0xf != 0 then (* If-Then*)
+      notimplemented "IT"
+    else
+      match (isn lsr 4) land 0x7 with
+      | 0b000 -> (* No Operation hint NOP *)
+         notimplemented "hint NOP"
+      | 0b001 -> (* Yield hint YIELD *)
+         notimplemented "hint YIELD"
+      | 0b010 -> (* Wait For Event hint WFE *)
+         notimplemented "hint WFE"
+      | 0b011 -> (* Wait For Interrupt hint WFI *)
+         notimplemented "hint WFI"
+      | 0b100 -> (* Send Event hint SEV *)
+         notimplemented "hint SEV"
+      | _ -> L.abort (fun p -> p "Unkown hint instruction encoding %04x" isn)
 
   let decode_thumb_misc s isn =
     match (isn lsr 6) land 0x3f with
@@ -877,7 +893,7 @@ struct
     | 0b111000 | 0b111001 | 0b111010 | 0b111011 -> (* Breakpoint BKPT *)
        notimplemented "BKPT"
     | 0b111100 | 0b111101 | 0b111110 | 0b111111 -> (* If-Then and hints *)
-       notimplemented "hints"
+       decode_thumb_it_hints s isn
     | _ ->  L.abort (fun p -> p "Unknown thumb misc encoding %04x" isn)
 
 
