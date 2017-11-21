@@ -836,9 +836,13 @@ struct
     done;
     (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ], []
 
-  let decode_thumb_it_hints _s isn =
+  let thumb_it _s isn =
+    let new_itstate = isn land 0xff in
+    [ Set( V (T itstate), const new_itstate 8) ], []
+
+  let decode_thumb_it_hints s isn =
     if isn land 0xf != 0 then (* If-Then*)
-      notimplemented "IT"
+      thumb_it s isn
     else
       match (isn lsr 4) land 0x7 with
       | 0b000 -> (* No Operation hint NOP *)
