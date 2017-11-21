@@ -923,6 +923,7 @@ struct
       zflag_update_exp (Lval (V (P (tmpreg, 0, 31)))) ;
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
       vflag_update_exp  (Lval (V rn)) not_imm32 (Lval (V (P (tmpreg, 0, 31)))) ;
+      Directive (Remove tmpreg) ;
     ], []
 
 
