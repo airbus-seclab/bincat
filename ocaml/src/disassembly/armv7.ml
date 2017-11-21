@@ -977,7 +977,13 @@ struct
     | _ -> (* Conditional branch *)
        thumb_cond_branching s isn
 
-  let decode_thumb_special_data_branch_exch _s isn =
+  let thumb_mov_high_reg _s isn =
+    let rm = (isn lsr 3) land 0xf in
+    let rd = ((isn lsr 4) land 8) lor (isn land 7) in
+    let jump_pc = if rd = 15 then [ Jmp (R (Lval (V (T pc)))) ] else [] in
+    [ Set (V (reg rd), Lval (V (reg rm))) ] @ jump_pc, []
+
+  let decode_thumb_special_data_branch_exch s isn =
     match (isn lsr 6) land 0xf with
     | 0b0000 -> (* Add Low Registers ADD (register)*)
        notimplemented "ADD (low reg)"
@@ -988,7 +994,7 @@ struct
     | 0b1000 -> (* Move Low Registers MOV (register) *)
        notimplemented "MOV (low reg)"
     | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
-       notimplemented "MOV (high reg)"
+       thumb_mov_high_reg s isn
     | 0b1100 | 0b1101 -> (* Branch and Exchange BX *)
        notimplemented "BX"
     | 0b1110 | 0b1111 -> (* Branch with Link and Exchange BLX *)
