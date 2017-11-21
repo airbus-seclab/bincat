@@ -876,7 +876,7 @@ struct
        thumb_pop s isn
     | 0b111000 | 0b111001 | 0b111010 | 0b111011 -> (* Breakpoint BKPT *)
        notimplemented "BKPT"
-    | 0b111100 | 0b111101 | 0b111110 | 0b111111 -> (* If-Then, and hints If-Then, and hints *)
+    | 0b111100 | 0b111101 | 0b111110 | 0b111111 -> (* If-Then and hints *)
        notimplemented "hints"
     | _ ->  L.abort (fun p -> p "Unknown thumb misc encoding %04x" isn)
 
