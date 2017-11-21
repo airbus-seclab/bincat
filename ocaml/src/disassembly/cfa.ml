@@ -116,6 +116,9 @@ sig
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
   val init_abstract_value: unit -> domain * Taint.t
+
+  (** [update_abstract_value] updates the given abstract state from the input configuration *)
+  val update_abstract_value: domain -> domain * Taint.t
 end
 
 (** the control flow automaton functor *)
