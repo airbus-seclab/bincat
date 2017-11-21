@@ -819,7 +819,7 @@ struct
           stmts := stmt :: (!stmts)
         end
     done;
-    (!stmts) @ [ Set (V (T sp), BinOp(Sub, Lval (V (T sp)), const !bitcount 32)) ]
+    (!stmts) @ [ Set (V (T sp), BinOp(Sub, Lval (V (T sp)), const !bitcount 32)) ], []
 
   let thumb_pop _s isn =
     let reglist = ((isn lsl 7) land 0x8000) lor (isn land 0xff) in (* reglist = bit8:0000000:bit7-0 bit8=r15=pc *)
@@ -834,7 +834,7 @@ struct
           stmts := stmt :: (!stmts)
         end
     done;
-    (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ]
+    (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ], []
 
 
   let decode_thumb_misc s isn =
@@ -882,14 +882,11 @@ struct
 
 
   let thumb_mov_imm _s isn =
-    (* XXX: do not set flags if instruction in an IT block. See A8.6.96 and IT instruction *)
-    (* XXX: IT block cannot happen here yet as IT instruction raises an error *)
     let regnum = (isn lsr 8) land 7 in
     let imm = isn land 0xff in
-    [ Set (V (reg regnum), const imm 32) ;
-      Set (V (T zflag), const (if imm = 0 then 1 else 0) 1) ;
-      Set (V (T nflag), const (imm lsr 31) 1) ;
-   ]
+    [ Set (V (reg regnum), const imm 32) ],
+    [ Set (V (T zflag), const (if imm = 0 then 1 else 0) 1) ;
+      Set (V (T nflag), const (imm lsr 31) 1) ; ]
 
   let thumb_cmp_imm _s isn =
     let rn = reg ((isn lsr 8) land 7) in
@@ -905,7 +902,7 @@ struct
       zflag_update_exp (Lval (V (P (tmpreg, 0, 31)))) ;
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
       vflag_update_exp  (Lval (V rn)) not_imm32 (Lval (V (P (tmpreg, 0, 31)))) ;
-    ]
+    ], []
 
 
   let decode_thumb_shift_add_sub_mov_cmp s isn =
@@ -948,7 +945,7 @@ struct
         Set (V (T pc), BinOp( Add, Lval (V (T pc)), const imm32 32)) ;
         Jmp (R (Lval (V (T pc)))) ;
       ] in
-    [ If (asm_cond cc, branching, [] ) ]
+    [ If (asm_cond cc, branching, [] ) ], []
 
   let decode_thumb_branching_svcall s isn =
     match isn lsr 8 land 0xf with
@@ -963,7 +960,7 @@ struct
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
-    let stmts =
+    let stmts, itdependant_stmts =
       if (instruction lsr 13) land 7 = 0b111 && (instruction lsr 11) land 3 != 0 then
         L.abort (fun p -> p "Thumb 32bit instruction decoding not implemented yet")
       else
@@ -998,7 +995,14 @@ struct
              L.abort (fun p -> p "Unknown thumb encoding %04x" instruction) in
     (* pc is 4 bytes ahead in thumb mode because of pre-fetching. *)
     let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32) in
-    return s instruction (Set( V (T pc), current_pc) :: stmts)
+    let stmts1,stmts2 =
+      match s.itstate with
+      | None -> L.abort (fun p -> p "Could not obtain a concrete ITSTATE value. Decoding not supported yet in this case")
+      | Some v ->
+         if (v land 0xf) = 0
+         then stmts, itdependant_stmts
+         else L.abort (fun p -> p "ITSTATE management not supported yet") in
+    return s instruction (Set( V (T pc), current_pc) :: stmts1 @ stmts2)
 
   let parse text cfg _ctx state addr oracle =
     let tflag_val =
