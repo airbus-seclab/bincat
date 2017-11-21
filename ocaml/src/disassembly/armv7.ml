@@ -52,6 +52,8 @@ struct
   let lr = Register.make ~name:"lr" ~size:32;;
   let pc = Register.make ~name:"pc" ~size:32;;
 
+  (* execution state registers *)
+  let itstate = Register.make ~name:"itstate" ~size:8;;
 
   (* condition flags are modeled as registers of size 1 *)
   let nflag = Register.make ~name:"n" ~size:1;;
@@ -145,6 +147,7 @@ struct
     buf                   : string;       (** buffer to decode *)
     endianness            : Config.endianness_t;      (** whether memory access is little endian *)
     thumbmode             : bool;
+    itstate               : int option;
   }
 
   (* fatal error reporting *)
@@ -1002,6 +1005,9 @@ struct
       try oracle#value_of_register tflag
       with Exceptions.Too_many_concrete_elements _ ->
         raise (Exceptions.Too_many_concrete_elements "Value of T flag cannot be determined. Cannot disassemble next instruction") in
+    let itstate_val =
+      try Some (Z.to_int (oracle#value_of_register itstate))
+      with Exceptions.Too_many_concrete_elements _ -> None in
     let s =  {
       g = cfg;
       b = state;
@@ -1009,6 +1015,7 @@ struct
       buf = text;
       endianness = !Config.endianness;
       thumbmode = tflag_val = Z.one;
+      itstate = itstate_val;
     }
     in
     try
