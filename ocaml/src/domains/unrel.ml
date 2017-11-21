@@ -879,7 +879,7 @@ module Make(D: T) =
             Val (Env.replace k v' m'), taint'
          | Some c ->
             let sz = Register.size r in
-            let (vt, taint) = of_config region c sz in                 
+            let (vt, taint) = of_config region (c, taint) sz in                 
             Val (Env.add (Env.Key.Reg r) vt m'), taint
 
     let value_of_exp m e =

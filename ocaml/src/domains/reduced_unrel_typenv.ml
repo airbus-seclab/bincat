@@ -121,7 +121,7 @@ module Make(D: Unrel.T) =
     let uenv', taint = U.set_memory_from_config a r c n uenv in
     (uenv', tenv), taint
 
-  let set_register_from_config register region c (uenv, tenv) =
+  let set_register_from_config register region (c: Config.cvalue option * Config.tvalue list) (uenv, tenv) =
     let uenv', taint = U.set_register_from_config register region c uenv in
     (uenv', tenv), taint
 
