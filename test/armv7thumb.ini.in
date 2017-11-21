@@ -26,6 +26,7 @@ format = raw
 endianness = little
 
 [state]
+reg[itstate] = 0
 reg[t] = 1
 reg[n] = 0?1
 reg[z] = 0?1
