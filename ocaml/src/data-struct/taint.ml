@@ -46,7 +46,6 @@ module Src =
     let compare (src1: t) (src2: t): int =
       match src1, src2 with
       | Tainted id1, Tainted id2 -> id1 - id2
-      | Tainted _, _ -> -1
       | Tainted id1, Maybe id2 -> id1 - id2
       | Maybe id1, Maybe id2 -> id1 - id2
       | Maybe id1, Tainted id2 -> if id1 = id2 then 1 else id1 - id2
