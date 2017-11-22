@@ -90,7 +90,7 @@ let is_one (v, _t) = v = B.ONE
 let zero = B.ZERO, T.U
 let is_zero (v, _t) = v = B.ZERO
 
-let is_subset (v1, _t1) (v2, _t2) = B.is_subset v1 v2
+let is_subset (v1, t1) (v2, t2) = B.is_subset v1 v2 && T.is_subset t1 t2
 
 let of_z z =
   if Z.compare z Z.zero = 0 then
