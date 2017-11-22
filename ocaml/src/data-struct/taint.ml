@@ -76,7 +76,7 @@ let is_subset t1 t2 =
   | BOT, _
   | _, TOP
   | U, U -> true
-  | S s1, S s2 when SrcSet.is_subset s1 s2 = true -> true
+  | S s1, S s2 when SrcSet.subset s1 s2 = true -> true
   | _, _ -> false
 
 let clear = Src.clear
