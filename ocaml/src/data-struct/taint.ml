@@ -47,8 +47,9 @@ module Src =
       match src1, src2 with
       | Tainted id1, Tainted id2 -> id1 - id2
       | Tainted _, _ -> -1
-      | Maybe _, Tainted _ -> 1
+      | Tainted id1, Maybe id2 -> id1 - id2
       | Maybe id1, Maybe id2 -> id1 - id2
+      | Maybe id1, Tainted id2 -> if id1 = id2 then 1 else id1 - id2
 
     let to_string src =
       match src with
