@@ -137,7 +137,7 @@ struct
 
   let cflag_update_stmts_with_carry op a b =
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    [ Set (V (T tmpreg), BinOp(op, UnOp(ZeroExt 33, Lval (V (T cflag))),
+    [ Set (V (T tmpreg), BinOp(op, to33bits (Lval (V (T cflag))),
                                BinOp(op, to33bits a, to33bits b))) ;
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
       Directive (Remove tmpreg) ]
