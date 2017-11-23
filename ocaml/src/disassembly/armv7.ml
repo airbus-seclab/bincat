@@ -952,7 +952,7 @@ struct
          | 0b00 -> (* Add register ADD (register) *)
             op_add rd rn (Lval (V (reg rm_or_imm3)))
          | 0b01 -> (* Subtract register SUB (register) *)
-            notimplemented "SUB (reg)"
+            op_sub rd rn (Lval (V (reg rm_or_imm3)))
          | 0b10 -> (* Add 3-bit immediate ADD (immediate, Thumb) *)
             op_add rd rn (const rm_or_imm3 32)
          | 0b11 -> (* Subtract 3-bit immediate SUB (immediate, Thumb) *)
