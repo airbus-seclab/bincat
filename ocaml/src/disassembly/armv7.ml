@@ -956,7 +956,7 @@ struct
          | 0b10 -> (* Add 3-bit immediate ADD (immediate, Thumb) *)
             op_add rd rn (const rm_or_imm3 32)
          | 0b11 -> (* Subtract 3-bit immediate SUB (immediate, Thumb) *)
-            notimplemented "SUB 3 (imm)"
+            op_sub rd rn (const rm_or_imm3 32)
          | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
        end
     | 0b000 -> (* Logical Shift Left LSL (immediate) *)
