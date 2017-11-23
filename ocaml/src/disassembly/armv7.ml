@@ -189,6 +189,19 @@ struct
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
       Directive (Remove tmpreg) ]
 
+  let op_rsb rd rn op2_stmt =
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn)))) ],
+    [ zflag_update_exp (Lval (V (reg rd))) ;
+      nflag_update_exp (reg_from_num rd) ;
+      vflag_update_exp op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (reg rd))) ;
+      Set (V (T tmpreg), BinOp(Add, BinOp(Add,
+                                          to33bits op2_stmt,
+                                          to33bits (UnOp(Not, Lval (V (reg rn))))),
+                               const 1 33)) ;
+      Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
+      Directive (Remove tmpreg) ]
+
 
   module Cfa = Cfa.Make(Domain)
 
@@ -621,18 +634,8 @@ struct
          let opstmts,flagstmts = op_sub rd rn op2_stmt in
          opstmts, flagstmts, rd = 15
       | 0b0011 -> (* RSB - Rd:= Op2 - Op1 *)
-         let tmpreg = Register.make (Register.fresh_name ()) 33 in
-         [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn)))) ],
-         [ zflag_update_exp (Lval (V (reg rd))) ;
-           nflag_update_exp (reg_from_num rd) ;
-           vflag_update_exp op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (reg rd))) ;
-           Set (V (T tmpreg), BinOp(Add, BinOp(Add,
-                                               to33bits op2_stmt,
-                                               to33bits (UnOp(Not, Lval (V (reg rn))))),
-                                    const 1 33)) ;
-           Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
-           Directive (Remove tmpreg) ],
-         rd = 15
+         let opstmts,flagstmts = op_rsb rd rn op2_stmt in
+         opstmts, flagstmts, rd = 15
     | 0b0100 -> (* ADD - Rd:= Op1 + Op2 *)
        let opstmts,flagstmts = op_add rd rn op2_stmt in
        opstmts, flagstmts, rd = 15
