@@ -1043,7 +1043,7 @@ struct
     | 0b1000 -> (* Test *)
        notimplemented "TST (register)"
     | 0b1001 -> (* Reverse Subtract from 0 *)
-       notimplemented "RSB (immediate)"
+       op_rsb op0 op1 (const 0 32)
     | 0b1010 -> (* Compare High Registers *)
        notimplemented "CMP (register)"
     | 0b1011 -> (* Compare Negative *)
