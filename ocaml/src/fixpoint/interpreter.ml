@@ -715,7 +715,10 @@ struct
 
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
       match src with
-      | Lval lv -> D.set lv (Lval dst) d
+      | Lval lv ->
+         let d', taint = D.set lv (Lval dst) d in
+         if Asm.equal_lval lv dst then d', taint
+         else D.forget_lval dst d', taint
       | UnOp (Not, Lval lv) -> D.set lv (UnOp (Not, Lval dst)) d
       | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
       | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
