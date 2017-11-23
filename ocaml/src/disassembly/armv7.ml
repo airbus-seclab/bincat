@@ -954,7 +954,7 @@ struct
          | 0b01 -> (* Subtract register SUB (register) *)
             notimplemented "SUB (reg)"
          | 0b10 -> (* Add 3-bit immediate ADD (immediate, Thumb) *)
-            notimplemented "ADD 3 (imm)"
+            op_add rd rn (const rm_or_imm3 32)
          | 0b11 -> (* Subtract 3-bit immediate SUB (immediate, Thumb) *)
             notimplemented "SUB 3 (imm)"
          | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
