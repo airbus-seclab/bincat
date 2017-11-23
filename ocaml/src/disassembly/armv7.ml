@@ -97,8 +97,15 @@ struct
   let c_is_clear = Cmp(EQ, Lval (V (T cflag)), const 0 1)
   let v_is_clear = Cmp(EQ, Lval (V (T vflag)), const 0 1)
 
+
+  let to33bits x = UnOp(ZeroExt 33, x)
+  let to33bits_s x = UnOp(SignExt 33, x)
+
+  let nflag_update_from_reg_exp res_reg = Set(V (T nflag), Lval (V (P (res_reg, 31, 31))))
+
   let zflag_update_exp res_exp = Set(V (T zflag), TernOp (Cmp(EQ, res_exp, const 0 32),
                                                             const 1 1, const 0 1))
+
   let vflag_update_exp a b res =
     let bit31 = const 0x80000000 32 in
     Set(V (T (vflag)), TernOp (BBinOp (LogAnd,
@@ -107,6 +114,34 @@ struct
                                        Cmp (NEQ, BinOp(And, a, bit31),
                                             BinOp(And, res, bit31))),
                                const 1 1, const 0 1))
+
+  let set_cflag_vflag_after_add_with_carry a b carry =
+    let tmpregu = Register.make (Register.fresh_name ()) 33 in
+    let tmpregs = Register.make (Register.fresh_name ()) 33 in
+    [ Set (V (T tmpregu), BinOp(Add, BinOp(Add, to33bits a, to33bits b),
+                                to33bits carry)) ;
+      Set (V (T tmpregs), BinOp(Add, BinOp(Add, to33bits_s a, to33bits_s b),
+                                to33bits carry)) ;
+      Set (V (T cflag), Lval (V (P (tmpregu, 32, 32)))) ;
+      Set (V (T vflag), TernOp(Cmp(EQ, Lval (V (P (tmpregs, 31, 31))),
+                                   Lval (V (P (tmpregs, 32, 32)))),
+                               const 0 1, const 1 1)) ;
+      Directive(Remove tmpregu) ;
+      Directive(Remove tmpregs) ]
+
+  let cflag_update_stmts op a b =
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    [ Set (V (T tmpreg), BinOp(op, to33bits a, to33bits b)) ;
+      Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
+      Directive (Remove tmpreg) ]
+
+  let cflag_update_stmts_with_carry op a b =
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    [ Set (V (T tmpreg), BinOp(op, UnOp(ZeroExt 33, Lval (V (T cflag))),
+                               BinOp(op, to33bits a, to33bits b))) ;
+      Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
+      Directive (Remove tmpreg) ]
+
 
   let asm_cond cc = match cc with
     | 0b0000 -> z_is_set (* EQ - Z set (equal) *)
@@ -132,9 +167,6 @@ struct
     (* LE - Z set, or N set and V clear, or N clear and V set (less than or equal) *)
     | _ -> L.abort (fun p -> p "Unexpected condiction code %x" cc)
 
-
-  let to33bits x = UnOp(ZeroExt 33, x)
-  let to33bits_s x = UnOp(SignExt 33, x)
 
   module Cfa = Cfa.Make(Domain)
 
@@ -548,34 +580,6 @@ struct
              end
         | st -> L.abort (fun p -> p "unexpected shift type %x" st)
     in
-    let _nflag_update_exp res_exp = Set(V (T nflag), TernOp (Cmp(EQ, BinOp(And, res_exp, const 0x80000000 32),
-                                                                const 0 32),
-                                                            const 0 1, const 1 1)) in
-    let nflag_update_from_reg_exp res_reg = Set(V (T nflag), Lval (V (P (res_reg, 31, 31)))) in
-    let set_cflag_vflag_after_add_with_carry a b carry =
-      let tmpregu = Register.make (Register.fresh_name ()) 33 in
-      let tmpregs = Register.make (Register.fresh_name ()) 33 in
-      [ Set (V (T tmpregu), BinOp(Add, BinOp(Add, to33bits a, to33bits b),
-                                 to33bits carry)) ;
-        Set (V (T tmpregs), BinOp(Add, BinOp(Add, to33bits_s a, to33bits_s b),
-                                 to33bits carry)) ;
-        Set (V (T cflag), Lval (V (P (tmpregu, 32, 32)))) ;
-        Set (V (T vflag), TernOp(Cmp(EQ, Lval (V (P (tmpregs, 31, 31))),
-                                     Lval (V (P (tmpregs, 32, 32)))),
-                                 const 0 1, const 1 1)) ;
-        Directive(Remove tmpregu) ;
-        Directive(Remove tmpregs) ] in
-    let cflag_update_stmts op a b =
-      let tmpreg = Register.make (Register.fresh_name ()) 33 in
-      [ Set (V (T tmpreg), BinOp(op, to33bits a, to33bits b)) ;
-        Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
-        Directive (Remove tmpreg) ] in
-    let cflag_update_stmts_with_carry op a b =
-      let tmpreg = Register.make (Register.fresh_name ()) 33 in
-      [ Set (V (T tmpreg), BinOp(op, UnOp(ZeroExt 33, Lval (V (T cflag))),
-                                 BinOp(op, to33bits a, to33bits b))) ;
-        Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
-        Directive (Remove tmpreg) ] in
     let stmts, flags_stmts, update_pc =
       let opcode = (instruction lsr 21) land 0xf in
       match opcode with
