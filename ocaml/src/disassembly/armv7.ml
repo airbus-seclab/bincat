@@ -986,6 +986,12 @@ struct
       ] in
     [ If (asm_cond cc, branching, [] ) ], []
 
+  let thumb_branching _s isn =
+    let ofs = (isn land 0x7ff) lsl 1 in
+    [ Set (V (T pc),
+           BinOp(Add, Lval (V (T pc)), sconst ofs 12 32)) ;
+      Jmp (R (Lval (V (T pc)))) ], []
+
   let decode_thumb_branching_svcall s isn =
     match isn lsr 8 land 0xf with
     | 0b1110 -> (* Permanently UNDEFINED *)
@@ -1097,7 +1103,7 @@ struct
         | 0b110100 | 0b110101 | 0b110110 | 0b110111 -> (* Conditional branch, and Supervisor Call *)
            decode_thumb_branching_svcall s instruction
         | 0b111000 | 0b111001 -> (* Unconditional Branch *)
-           notimplemented "unconditional branching"
+           thumb_branching s instruction
         | _ ->
            if (instruction lsr 14) land 3 = 0 then
              (* Shift (immediate), add, subtract, move, and compare *)
