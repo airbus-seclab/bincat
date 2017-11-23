@@ -450,13 +450,14 @@ struct
         end
          | Call (R target) -> fold_to_target add_to_fun_stack vertices target
 
-             | Return -> List.fold_left (fun (l, b) v ->
-                 let v', b' = process_ret fun_stack v in
-                 match v' with
-                 | None -> l, Taint.logor b b'
-                 | Some v -> v::l, Taint.logor b b') ([], Taint.U) vertices
-
-             | _       -> vertices, Taint.U
+         | Return ->
+            List.fold_left (fun (l, b) v ->
+              let v', b' = process_ret fun_stack v in
+              match v' with
+              | None -> l, Taint.logor b b'
+              | Some v -> v::l, Taint.logor b b') ([], Taint.U) vertices
+            
+         | _       -> vertices, Taint.U
 
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.t =
         match stmts with
@@ -724,7 +725,7 @@ struct
       | UnOp (Not, Lval lv) ->
         let d', taint = D.set lv (UnOp (Not, Lval dst)) d in
         if Asm.equal_lval lv dst then d', taint
-        else D.forget_lval lv dst then d', taint
+        else D.forget_lval dst d, taint
           
       | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
       | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
