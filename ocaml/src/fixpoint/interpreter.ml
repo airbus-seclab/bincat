@@ -316,9 +316,7 @@ struct
         let ret_addr_exp = fundec.Asm.ret_addr in
         L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let t =
-            List.fold_left (fun t v ->
-                if stmts <> [] then
-                    Config.interleave := true;
+            List.fold_left (fun t v ->             
                 let d', t' =
                     List.fold_left (fun (d, t) stmt -> let d', t' = process_value d stmt fun_stack in d', Taint.logor t t') (v.Cfa.State.v, Taint.U) stmts
                 in
@@ -692,18 +690,21 @@ struct
     (******************** BACKWARD *******************************)
     (*************************************************************)
     let back_add_sub op dst e1 e2 d =
+      let d', taint =
       match e1, e2 with
       | Lval lv1, Lval lv2 ->
          let e = Lval dst in
          let d', b = D.set lv1 (BinOp (op, e, e2)) d in
-         let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
+         let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in         
          d, Taint.logor b b'
 
       | Lval lv, e | e, Lval lv ->
          let e' = Lval dst in
          D.set lv (BinOp (op, e', e)) d
 
-      | _ -> D.forget_lval dst d, Taint.U
+      | _ -> d, Taint.U
+      in
+      D.forget_lval dst d', taint
 
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
       match src with
