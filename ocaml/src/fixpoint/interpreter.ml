@@ -697,7 +697,7 @@ struct
          let d', b = D.set lv1 (BinOp (op, e, e2)) d in
          let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
          let d =
-           if (Asm.with_lval dst e1) or (Asm.with_lval dst e2) then d
+           if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then d
            else D.forget_lval dst d
          in
          d, Taint.logor b b'
@@ -725,6 +725,7 @@ struct
     let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * Taint.t) =
       (* BE CAREFUL: this function does not apply to nested if statements *)
       let rec back d stmt =
+        L.debug (fun p -> p "back of %s.........." (Asm.string_of_stmt stmt true));
         match stmt with
         | Call _
         | Return
