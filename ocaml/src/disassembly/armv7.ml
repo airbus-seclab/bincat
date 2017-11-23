@@ -1074,6 +1074,55 @@ struct
                            const (imm lsl 2) 32),
                     32))) ], []
 
+  let decode_thumb_load_store_single_data_item _s isn =
+    match (isn lsr 12) land 0xf with
+    | 0b0101 ->
+       begin
+         match (isn lsr 9) land 0x7 with
+         | 0b000 -> (* Store Register *)
+            notimplemented "STR (register)"
+         | 0b001 -> (* Store Register Halfword *)
+            notimplemented "STRH (register)"
+         | 0b010 -> (* Store Register Byte *)
+            notimplemented "STRB (register)"
+         | 0b011 -> (* Load Register Signed Byte *)
+            notimplemented "LDRSB (register)"
+         | 0b100 -> (* Load Register *)
+            notimplemented "LDR (register)"
+         | 0b101 -> (* Load Register Halfword *)
+            notimplemented "LDRH (register)"
+         | 0b110 -> (* Load Register Byte *)
+            notimplemented "LDRB (register)"
+         | 0b111 -> (* Load Register Signed Halfword *)
+            notimplemented "LDRSH (register)"
+         | _ -> L.abort (fun p -> p "Internal error")
+       end
+    | 0b0110 ->
+         if (isn lsr 11) land 1 = 0
+         then (* Store Register *)
+           notimplemented "STR (immediate)"
+         else (* Load Register *)
+           notimplemented "LDR (immediate)"
+    | 0b0111 ->
+         if (isn lsr 11) land 1 = 0
+         then (* Store Register Byte *)
+           notimplemented "STRB (immediate)"
+         else
+            notimplemented "LDRB (immediate)"
+    | 0b1000 ->
+         if (isn lsr 11) land 1 = 0
+         then (* Store Register Halfword *)
+           notimplemented "STRH (immediate)"
+         else
+           notimplemented "LDRH (immediate)"
+    | 0b1001 ->
+       if (isn lsr 11) land 1 = 0
+       then (* Store Register SP relative *)
+         notimplemented "STR (immediate)"
+       else (* Load Register SP relative *)
+         notimplemented "LDR (immediate)"
+    | _ -> L.abort (fun p -> p "Internal error")
+
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
@@ -1111,7 +1160,7 @@ struct
                 decode_thumb_shift_add_sub_mov_cmp s instruction
              | 0b010 | 0b011 | 0b100 -> (* Load/store single data item *)
                 (* 0b0100 does not belong here but is taken care of before*)
-                notimplemented "Load/store single data item"
+                decode_thumb_load_store_single_data_item s instruction
              | _ -> L.abort (fun p -> p "Unknown thumb encoding %04x" instruction)
            end in
     (* pc is 4 bytes ahead in thumb mode because of pre-fetching. *)
