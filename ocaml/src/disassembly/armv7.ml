@@ -1020,6 +1020,43 @@ struct
     | _ -> L.abort (fun p -> p "Unknown or unpredictable instruction %04x" isn)
 
 
+  let decode_thumb_data_processing _s isn =
+    match (isn lsr 6) land 0xf with
+    | 0b0000 -> (* Bitwise AND *)
+       notimplemented "AND (register)"
+    | 0b0001 -> (* Bitwise Exclusive OR *)
+       notimplemented "EOR (register)"
+    | 0b0010 -> (* Logical Shift Left *)
+       notimplemented "LSL (register)"
+    | 0b0011 -> (* Logical Shift Right *)
+       notimplemented "LSR (register)"
+    | 0b0100 -> (* Arithmetic Shift Right *)
+       notimplemented "ASR (register)"
+    | 0b0101 -> (* Add with Carry *)
+       notimplemented "ADC (register)"
+    | 0b0110 -> (* Subtract with Carry *)
+       notimplemented "SBC (register)"
+    | 0b0111 -> (* Rotate Right *)
+       notimplemented "ROR (register)"
+    | 0b1000 -> (* Test *)
+       notimplemented "TST (register)"
+    | 0b1001 -> (* Reverse Subtract from 0 *)
+       notimplemented "RSB (immediate)"
+    | 0b1010 -> (* Compare High Registers *)
+       notimplemented "CMP (register)"
+    | 0b1011 -> (* Compare Negative *)
+       notimplemented "CMN (register)"
+    | 0b1100 -> (* Bitwise OR *)
+       notimplemented "ORR (register)"
+    | 0b1101 -> (* Multiply Two *)
+       notimplemented "Registers MUL"
+    | 0b1110 -> (* Bitwise Bit Clear *)
+       notimplemented "BIC (register)"
+    | 0b1111 -> (* Bitwise NOT *)
+       notimplemented "MVN (register)"
+    | _ -> L.abort (fun p -> p "internal error")
+
+
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
@@ -1029,7 +1066,7 @@ struct
       else
         match (instruction lsr 10) land 0x3f with
         | 0b010000 -> (* Data-processing *)
-           notimplemented "data processing"
+           decode_thumb_data_processing s instruction
         | 0b010001 -> (* Special data instructions and branch and exchange *)
            decode_thumb_special_data_branch_exch s instruction
         | 0b010010 | 0b010011 -> (* Load from Literal Pool *)
