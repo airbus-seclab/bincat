@@ -944,10 +944,13 @@ struct
   let decode_thumb_shift_add_sub_mov_cmp s isn =
     match (isn lsr 11) land 7 with
     | 0b011 ->
+       let rm_or_imm3 = (isn lsr 6) land 7 in
+       let rn = (isn lsr 3) land 7 in
+       let rd = isn land 7 in
        begin
          match (isn lsr 9) land 3 with
          | 0b00 -> (* Add register ADD (register) *)
-            notimplemented "ADD (reg)"
+            op_add rd rn (Lval (V (reg rm_or_imm3)))
          | 0b01 -> (* Subtract register SUB (register) *)
             notimplemented "SUB (reg)"
          | 0b10 -> (* Add 3-bit immediate ADD (immediate, Thumb) *)
