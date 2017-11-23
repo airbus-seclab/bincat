@@ -168,6 +168,14 @@ struct
     | _ -> L.abort (fun p -> p "Unexpected condiction code %x" cc)
 
 
+  let op_add rd rn op2_stmt =
+    [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ],
+    [ zflag_update_exp (Lval (V (reg rd))) ;
+      nflag_update_exp (reg_from_num rd) ;
+      vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
+    @ cflag_update_stmts Add (Lval (V (reg rn))) op2_stmt
+
+
   module Cfa = Cfa.Make(Domain)
 
   module Imports = Armv7Imports.Make(Domain)(Stubs)
@@ -623,12 +631,8 @@ struct
            Directive (Remove tmpreg) ],
          rd = 15
     | 0b0100 -> (* ADD - Rd:= Op1 + Op2 *)
-      [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ],
-      [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_exp (reg_from_num rd) ;
-        vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
-      @ cflag_update_stmts Add (Lval (V (reg rn))) op2_stmt,
-      rd = 15
+       let opstmts,flagstmts = op_add rd rn op2_stmt in
+       opstmts, flagstmts, rd = 15
     | 0b0101 -> (* ADC - Rd:= Op1 + Op2 + C *)
       [ Set (V (reg rd), BinOp(Add, UnOp(ZeroExt 32, Lval (V (T cflag))),
                                 BinOp(Add, Lval (V (reg rn)), op2_stmt) )) ],
