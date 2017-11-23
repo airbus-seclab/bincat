@@ -1021,6 +1021,8 @@ struct
 
 
   let decode_thumb_data_processing _s isn =
+    let op1 = (isn lsr 3) land 7 in
+    let op0 = isn land 7 in
     match (isn lsr 6) land 0xf with
     | 0b0000 -> (* Bitwise AND *)
        notimplemented "AND (register)"
