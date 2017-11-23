@@ -175,6 +175,20 @@ struct
       vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
     @ cflag_update_stmts Add (Lval (V (reg rn))) op2_stmt
 
+  let op_sub rd rn op2_stmt =
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ],
+    [ zflag_update_exp (Lval (V (reg rd))) ;
+      nflag_update_exp (reg_from_num rd) ;
+      vflag_update_exp (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (reg rd))) ;
+      (* sub is computed witn sub a,b = a+(not b)+1, hence the carry *)
+      Set (V (T tmpreg), BinOp(Add, BinOp(Add,
+                                          to33bits (Lval (V (reg rn))),
+                                          to33bits (UnOp(Not, op2_stmt))),
+                               const 1 33)) ;
+      Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
+      Directive (Remove tmpreg) ]
+
 
   module Cfa = Cfa.Make(Domain)
 
@@ -604,19 +618,8 @@ struct
         @ op2_carry_stmt,
         rd = 15
       | 0b0010 -> (* SUB - Rd:= Op1 + not Op2 + 1 *)
-         let tmpreg = Register.make (Register.fresh_name ()) 33 in
-         [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ],
-         [ zflag_update_exp (Lval (V (reg rd))) ;
-           nflag_update_exp (reg_from_num rd) ;
-           vflag_update_exp (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (reg rd))) ;
-           (* sub is computed witn sub a,b = a+(not b)+1, hence the carry *)
-           Set (V (T tmpreg), BinOp(Add, BinOp(Add,
-                                               to33bits (Lval (V (reg rn))),
-                                               to33bits (UnOp(Not, op2_stmt))),
-                                    const 1 33)) ;
-           Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
-           Directive (Remove tmpreg) ],
-         rd = 15
+         let opstmts,flagstmts = op_sub rd rn op2_stmt in
+         opstmts, flagstmts, rd = 15
       | 0b0011 -> (* RSB - Rd:= Op2 - Op1 *)
          let tmpreg = Register.make (Register.fresh_name ()) 33 in
          [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn)))) ],
