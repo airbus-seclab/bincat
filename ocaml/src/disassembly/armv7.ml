@@ -101,7 +101,7 @@ struct
   let to33bits x = UnOp(ZeroExt 33, x)
   let to33bits_s x = UnOp(SignExt 33, x)
 
-  let nflag_update_from_reg_exp res_reg = Set(V (T nflag), Lval (V (P (res_reg, 31, 31))))
+  let nflag_update_exp res_reg = Set(V (T nflag), Lval (V (P (res_reg, 31, 31))))
 
   let zflag_update_exp res_exp = Set(V (T zflag), TernOp (Cmp(EQ, res_exp, const 0 32),
                                                             const 1 1, const 0 1))
@@ -586,20 +586,20 @@ struct
       | 0b0000 -> (* AND - Rd:= Op1 AND Op2 *)
         [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ],
         [ zflag_update_exp (Lval (V (reg rd))) ;
-          nflag_update_from_reg_exp (reg_from_num rd) ]
+          nflag_update_exp (reg_from_num rd) ]
         @ op2_carry_stmt,
         rd = 15
       | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *)
         [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ],
         [ zflag_update_exp (Lval (V (reg rd))) ;
-          nflag_update_from_reg_exp (reg_from_num rd) ]
+          nflag_update_exp (reg_from_num rd) ]
         @ op2_carry_stmt,
         rd = 15
       | 0b0010 -> (* SUB - Rd:= Op1 + not Op2 + 1 *)
          let tmpreg = Register.make (Register.fresh_name ()) 33 in
          [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ],
          [ zflag_update_exp (Lval (V (reg rd))) ;
-           nflag_update_from_reg_exp (reg_from_num rd) ;
+           nflag_update_exp (reg_from_num rd) ;
            vflag_update_exp (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (reg rd))) ;
            (* sub is computed witn sub a,b = a+(not b)+1, hence the carry *)
            Set (V (T tmpreg), BinOp(Add, BinOp(Add,
@@ -613,7 +613,7 @@ struct
          let tmpreg = Register.make (Register.fresh_name ()) 33 in
          [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn)))) ],
          [ zflag_update_exp (Lval (V (reg rd))) ;
-           nflag_update_from_reg_exp (reg_from_num rd) ;
+           nflag_update_exp (reg_from_num rd) ;
            vflag_update_exp op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (reg rd))) ;
            Set (V (T tmpreg), BinOp(Add, BinOp(Add,
                                                to33bits op2_stmt,
@@ -625,7 +625,7 @@ struct
     | 0b0100 -> (* ADD - Rd:= Op1 + Op2 *)
       [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ],
       [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_from_reg_exp (reg_from_num rd) ;
+        nflag_update_exp (reg_from_num rd) ;
         vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
       @ cflag_update_stmts Add (Lval (V (reg rn))) op2_stmt,
       rd = 15
@@ -633,7 +633,7 @@ struct
       [ Set (V (reg rd), BinOp(Add, UnOp(ZeroExt 32, Lval (V (T cflag))),
                                 BinOp(Add, Lval (V (reg rn)), op2_stmt) )) ],
       [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_from_reg_exp (reg_from_num rd) ;
+        nflag_update_exp (reg_from_num rd) ;
         vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
       @ cflag_update_stmts_with_carry Add (Lval (V (reg rn))) op2_stmt,
       rd = 15
@@ -643,7 +643,7 @@ struct
                                       UnOp(ZeroExt 32, Lval (V (T cflag))) ),
                                 const 1 32)) ],
        [ zflag_update_exp (Lval (V (reg rd))) ;
-         nflag_update_from_reg_exp (reg_from_num rd) ; ]
+         nflag_update_exp (reg_from_num rd) ; ]
        @ set_cflag_vflag_after_add_with_carry (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (T cflag))),
       rd = 15
     | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *)
@@ -652,31 +652,31 @@ struct
                                       UnOp(ZeroExt 32, Lval (V (T cflag))) ),
                                 const 1 32)) ],
        [ zflag_update_exp (Lval (V (reg rd))) ;
-         nflag_update_from_reg_exp (reg_from_num rd) ; ]
+         nflag_update_exp (reg_from_num rd) ; ]
        @ set_cflag_vflag_after_add_with_carry op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (T cflag))),
       rd = 15
     | 0b1100 -> (* ORR - Rd:= Op1 OR Op2 *)
       [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ],
       [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_from_reg_exp (reg_from_num rd) ]
+        nflag_update_exp (reg_from_num rd) ]
       @ op2_carry_stmt,
       rd = 15
     | 0b1101 -> (* MOV - Rd:= Op2 *)
       [ Set (V (reg rd), op2_stmt) ],
       [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_from_reg_exp (reg_from_num rd) ]
+        nflag_update_exp (reg_from_num rd) ]
       @ op2_carry_stmt,
       rd = 15
     | 0b1110 -> (* BIC - Rd:= Op1 AND NOT Op2 *)
       [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), UnOp(Not, op2_stmt)) ) ],
       [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_from_reg_exp (reg_from_num rd) ]
+        nflag_update_exp (reg_from_num rd) ]
       @ op2_carry_stmt,
       rd = 15
     | 0b1111 -> (* MVN - Rd:= NOT Op2 *)
       [ Set (V (reg rd), UnOp(Not, op2_stmt)) ],
       [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_from_reg_exp (reg_from_num rd) ]
+        nflag_update_exp (reg_from_num rd) ]
       @ op2_carry_stmt,
       rd = 15
     | _ -> (* TST/TEQ/CMP/CMN or MRS/MSR *)
@@ -688,7 +688,7 @@ struct
               [],
               [ Set(V (T tmpreg), BinOp(And, Lval (V (reg rn)), op2_stmt)) ;
                 zflag_update_exp (Lval (V (T tmpreg))) ;
-                nflag_update_from_reg_exp tmpreg ;
+                nflag_update_exp tmpreg ;
                 Directive (Remove tmpreg) ]
               @ op2_carry_stmt,
               false
@@ -697,7 +697,7 @@ struct
               [],
               [ Set(V (T tmpreg), BinOp(Xor, Lval (V (reg rn)), op2_stmt)) ;
                 zflag_update_exp (Lval (V (T tmpreg))) ;
-                nflag_update_from_reg_exp tmpreg ;
+                nflag_update_exp tmpreg ;
                 Directive (Remove tmpreg) ]
               @ op2_carry_stmt,
               false
@@ -709,7 +709,7 @@ struct
                                          to33bits(BinOp(Add, UnOp(Not, op2_stmt),
                                                         const 1 32)))) ;
                 zflag_update_exp (Lval (V (P (tmpreg, 0, 31)))) ;
-                nflag_update_from_reg_exp tmpreg ;
+                nflag_update_exp tmpreg ;
                 vflag_update_exp  (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (P (tmpreg, 0, 31)))) ;
                 Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
                 Directive (Remove tmpreg) ],
@@ -721,7 +721,7 @@ struct
                                          to33bits op2_stmt) ) ;
                 Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
                 zflag_update_exp (Lval (V (P (tmpreg, 0, 31)))) ;
-                nflag_update_from_reg_exp tmpreg ;
+                nflag_update_exp tmpreg ;
                 vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (P (tmpreg, 0, 31)))) ;
                 Directive (Remove tmpreg) ],
               false
