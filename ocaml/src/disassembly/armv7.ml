@@ -1058,6 +1058,15 @@ struct
        notimplemented "MVN (register)"
     | _ -> L.abort (fun p -> p "internal error")
 
+  let thumb_ldr _s isn =
+    let rt = (isn lsr 8) land 7 in
+    let imm = isn land 0xff in
+    [ Set (V (reg rt),
+           Lval (M (BinOp (Add,
+                           BinOp(And, Lval (V (T pc)),
+                                 const 0xfffffffc 32),
+                           const (imm lsl 2) 32),
+                    32))) ], []
 
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
@@ -1072,7 +1081,7 @@ struct
         | 0b010001 -> (* Special data instructions and branch and exchange *)
            decode_thumb_special_data_branch_exch s instruction
         | 0b010010 | 0b010011 -> (* Load from Literal Pool *)
-           notimplemented "load from literal pool"
+           thumb_ldr s instruction
         | 0b010100 | 0b010101 | 0b010110 | 0b010111 -> (* Load/store single data item *)
            notimplemented "single data item loading/storage"
         | 0b101000 | 0b101001 -> (* Generate PC-relative address *)
