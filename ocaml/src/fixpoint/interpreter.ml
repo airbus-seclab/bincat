@@ -704,11 +704,12 @@ struct
 
       | Lval lv, e | e, Lval lv ->
          let e' = Lval dst in
-         let d =
-           if Asm.with_lval dst e then d
-           else D.forget_lval dst d
+         let d', taint = D.set lv (BinOp (op, e', e)) d in
+         let d' =
+           if Asm.with_lval dst e then d'
+           else D.forget_lval dst d'
          in
-         D.set lv (BinOp (op, e', e)) d
+         d', taint
 
       | _ -> D.forget_lval dst d, Taint.U
 
@@ -716,13 +717,20 @@ struct
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
       match src with
       | Lval lv ->
+         L.debug (fun p -> p "case 1");
          let d', taint = D.set lv (Lval dst) d in
          if Asm.equal_lval lv dst then d', taint
          else D.forget_lval dst d', taint
-      | UnOp (Not, Lval lv) -> D.set lv (UnOp (Not, Lval dst)) d
-      | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
-      | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
-      | _ -> D.forget_lval dst d, Taint.U
+
+      | UnOp (Not, Lval lv) ->
+         L.debug (fun p -> p "case 2");
+        let d', taint = D.set lv (UnOp (Not, Lval dst)) d in
+        if Asm.equal_lval lv dst then d', taint
+        else D.forget_lval lv dst then d', taint
+          
+      | BinOp (Add, e1, e2)  ->          L.debug (fun p -> p "case 3"); back_add_sub Sub dst e1 e2 d
+      | BinOp (Sub, e1, e2) ->          L.debug (fun p -> p "case 4"); back_add_sub Add dst e1 e2 d
+      | _ ->          L.debug (fun p -> p "case 5"); D.forget_lval dst d, Taint.U
 
     (** backward transfert function on the given abstract value *)
     let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * Taint.t) =
