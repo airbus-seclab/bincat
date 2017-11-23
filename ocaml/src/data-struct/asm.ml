@@ -294,3 +294,13 @@ type import_desc_t = {
   epilogue: stmt list; (** transfer operations for its epilogue *)
   ret_addr: exp        (** return addr *)
   }
+
+
+(** returns true whenever the given expression contains the given lvalue *)
+let rec with_lval lv e =
+  match e with
+  | Const _ -> false
+  | Lval lv' -> equal_lval lv lv'
+  | BinOp (_, e1, e2)
+  | TernOp (_, e1, e2)  -> (with_lval lv e1) or (with_lval lv e2)
+  | UnOp (_, e') -> with_lval lv e'
