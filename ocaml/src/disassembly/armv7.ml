@@ -1105,11 +1105,15 @@ struct
         | 0b111000 | 0b111001 -> (* Unconditional Branch *)
            thumb_branching s instruction
         | _ ->
-           if (instruction lsr 14) land 3 = 0 then
-             (* Shift (immediate), add, subtract, move, and compare *)
-             decode_thumb_shift_add_sub_mov_cmp s instruction
-           else
-             L.abort (fun p -> p "Unknown thumb encoding %04x" instruction) in
+           begin
+             match (instruction lsr 13) land 7 with
+             | 0b000 | 0b001 -> (* Shift (immediate), add, subtract, move, and compare *)
+                decode_thumb_shift_add_sub_mov_cmp s instruction
+             | 0b010 | 0b011 | 0b100 -> (* Load/store single data item *)
+                (* 0b0100 does not belong here but is taken care of before*)
+                notimplemented "Load/store single data item"
+             | _ -> L.abort (fun p -> p "Unknown thumb encoding %04x" instruction)
+           end in
     (* pc is 4 bytes ahead in thumb mode because of pre-fetching. *)
     let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32) in
     let stmts1,stmts2 =
