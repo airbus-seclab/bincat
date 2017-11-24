@@ -1058,7 +1058,7 @@ struct
     | 0b0000 -> (* Bitwise AND *)
        notimplemented "AND (register)"
     | 0b0001 -> (* Bitwise Exclusive OR *)
-       notimplemented "EOR (register)"
+       op_eor op0 op0 (Lval (V (reg op1))) |> mark_couple
     | 0b0010 -> (* Logical Shift Left *)
        notimplemented "LSL (register)"
     | 0b0011 -> (* Logical Shift Right *)
