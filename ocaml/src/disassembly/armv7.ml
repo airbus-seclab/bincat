@@ -1072,7 +1072,9 @@ struct
     | 0b0111 -> (* Rotate Right *)
        notimplemented "ROR (register)"
     | 0b1000 -> (* Test *)
-       notimplemented "TST (register)"
+       let tmpreg = Register.make (Register.fresh_name ()) 32 in
+       let opstmts,flagstmts = op_and tmpreg op0 (Lval (V (reg op1))) in
+       mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
     | 0b1001 -> (* Reverse Subtract from 0 *)
        op_rsb op0 op1 (const 0 32) |> mark_couple
     | 0b1010 -> (* Compare High Registers *)
