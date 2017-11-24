@@ -982,7 +982,14 @@ struct
     | 0b000 -> (* Logical Shift Left LSL (immediate) *)
        notimplemented "LSL (imm)"
     | 0b001 -> (* Logical Shift Right LSR (immediate) *)
-       notimplemented "LSR (imm)"
+       let imm5 = (isn lsr 6) land 0x1f in
+       let shift = if imm5 = 0 then 32 else imm5 in
+       let rm = (isn lsr 3) land 7 in
+       let rd = isn land 7 in
+       [ MARK_FLAG (Set (V (T cflag), Lval (V (preg rm (shift-1) (shift-1))))) ;
+         MARK_ISN  (Set (V (reg rd), BinOp (Shr, Lval (V (reg rm)), const shift 32))) ;
+         MARK_FLAG (nflag_update_exp (reg_from_num rd)) ;
+         MARK_FLAG (zflag_update_exp (Lval ( V (reg rd)))) ; ]
     | 0b010 -> (* Arithmetic Shift Right ASR (immediate) *)
        notimplemented "ASR (imm)"
     | 0b100 -> (* Move MOV (immediate) *)
