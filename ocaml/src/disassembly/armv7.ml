@@ -718,13 +718,8 @@ struct
            match opcode with
            | 0b1000 -> (* TST - set condition codes on Op1 AND Op2 *)
               let tmpreg = Register.make (Register.fresh_name ()) 32 in
-              [],
-              [ Set(V (T tmpreg), BinOp(And, Lval (V (reg rn)), op2_stmt)) ;
-                zflag_update_exp (Lval (V (T tmpreg))) ;
-                nflag_update_exp tmpreg ;
-                Directive (Remove tmpreg) ]
-              @ op2_carry_stmt,
-              false
+              let opstmts,flagstmts = op_and tmpreg rn op2_stmt in
+              [], opstmts @ flagstmts @ [ Directive (Remove tmpreg) ] @ op2_carry_stmt, false
            | 0b1001 -> (* TEQ - set condition codes on Op1 EOR Op2 *)
               let tmpreg = Register.make (Register.fresh_name ()) 32 in
               [],
