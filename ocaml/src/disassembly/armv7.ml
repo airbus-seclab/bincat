@@ -978,7 +978,16 @@ struct
          | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
        end |> mark_couple
     | 0b000 -> (* Logical Shift Left LSL (immediate) *)
-       notimplemented "LSL (imm)"
+       let shift = (isn lsr 6) land 0x1f in
+       if shift > 0 then
+         let rm = (isn lsr 3) land 7 in
+         let rd = isn land 7 in
+         [ MARK_FLAG (Set (V (T cflag), Lval (V (preg rm (32-shift) (32-shift))))) ;
+           MARK_ISN  (Set (V (reg rd), BinOp (Shl, Lval (V (reg rm)), const shift 32))) ;
+           MARK_FLAG (nflag_update_exp (reg_from_num rd)) ;
+           MARK_FLAG (zflag_update_exp (Lval ( V (reg rd)))) ; ]
+       else
+         []
     | 0b001 -> (* Logical Shift Right LSR (immediate) *)
        let imm5 = (isn lsr 6) land 0x1f in
        let shift = if imm5 = 0 then 32 else imm5 in
