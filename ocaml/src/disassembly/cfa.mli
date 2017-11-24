@@ -38,6 +38,7 @@ sig
       mutable ip: Data.Address.t;   (** instruction pointer *)
 
       mutable v: domain;        (** abstract value *)
+      mutable back_v: domain option; (** abstract value computed in backward mode. None means undefined *)
       mutable ctx: ctx_t ;      (** context of decoding *)
       mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
       mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
