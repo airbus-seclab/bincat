@@ -217,6 +217,26 @@ struct
     itstate               : int option;
   }
 
+  type isn_or_flag_mark_t =
+    | MARK_ISN of Asm.stmt
+    | MARK_FLAG of Asm.stmt
+
+  let mark_as_isn l =
+    List.map (fun i -> MARK_ISN i) l
+
+  let mark_as_flag l =
+    List.map (fun i -> MARK_FLAG i) l
+
+  let mark_couple l =
+    let li,lf = l in
+    (mark_as_isn li) @ (mark_as_flag lf)
+
+  let remove_marks l =
+    List.map (function | MARK_ISN x -> x | MARK_FLAG x -> x) l
+
+  let remove_marks_keep_isn l =
+    List.filter (function | MARK_ISN _ -> true | MARK_FLAG _ -> false ) l |> remove_marks
+
   (* fatal error reporting *)
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
