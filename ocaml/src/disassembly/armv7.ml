@@ -207,6 +207,11 @@ struct
     [ zflag_update_exp (Lval (V (reg rd))) ;
       nflag_update_exp (reg_from_num rd) ]
 
+  let op_and rd rn op2_stmt =
+    [ Set (V (T rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ],
+    [ zflag_update_exp (Lval (V (T rd))) ;
+      nflag_update_exp rd ]
+
   module Cfa = Cfa.Make(Domain)
 
   module Imports = Armv7Imports.Make(Domain)(Stubs)
@@ -643,11 +648,8 @@ struct
       let opcode = (instruction lsr 21) land 0xf in
       match opcode with
       | 0b0000 -> (* AND - Rd:= Op1 AND Op2 *)
-        [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ],
-        [ zflag_update_exp (Lval (V (reg rd))) ;
-          nflag_update_exp (reg_from_num rd) ]
-        @ op2_carry_stmt,
-        rd = 15
+         let opstmts,flagstmts = op_and (reg_from_num rd) rn op2_stmt in
+         opstmts, flagstmts @ op2_carry_stmt, rd = 15
       | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *)
          let opstmts,flagstmts = op_eor rd rn op2_stmt in
          opstmts, flagstmts @ op2_carry_stmt, rd = 15
