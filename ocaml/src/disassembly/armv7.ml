@@ -202,6 +202,10 @@ struct
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
       Directive (Remove tmpreg) ]
 
+  let op_eor rd rn op2_stmt =
+    [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ],
+    [ zflag_update_exp (Lval (V (reg rd))) ;
+      nflag_update_exp (reg_from_num rd) ]
 
   module Cfa = Cfa.Make(Domain)
 
@@ -645,11 +649,8 @@ struct
         @ op2_carry_stmt,
         rd = 15
       | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *)
-        [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ],
-        [ zflag_update_exp (Lval (V (reg rd))) ;
-          nflag_update_exp (reg_from_num rd) ]
-        @ op2_carry_stmt,
-        rd = 15
+         let opstmts,flagstmts = op_eor rd rn op2_stmt in
+         opstmts, flagstmts @ op2_carry_stmt, rd = 15
       | 0b0010 -> (* SUB - Rd:= Op1 + not Op2 + 1 *)
          let opstmts,flagstmts = op_sub rd rn op2_stmt in
          opstmts, flagstmts, rd = 15
