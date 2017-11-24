@@ -146,6 +146,7 @@ struct
       id: int;                          (** unique identificator of the state *)
       mutable ip: Data.Address.t;       (** instruction pointer *)
       mutable v: Domain.t;              (** abstract value *)
+      mutable back_v: domain option; (** abstract value computed in backward mode. None means undefined *)
       mutable ctx: ctx_t ;              (** context of decoding *)
       mutable stmts: Asm.stmt list;     (** list of statements of the succesor state *)
       mutable final: bool;              (** true whenever a widening operator has been applied to the v field *)
@@ -241,6 +242,7 @@ struct
       id = 0;
       ip = ip;
       v = d';
+      back_v = None;
       final = false;
       back_loop = false;
       forward_loop = false;
