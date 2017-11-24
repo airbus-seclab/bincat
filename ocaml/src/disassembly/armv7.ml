@@ -854,7 +854,7 @@ struct
           stmts := stmt :: (!stmts)
         end
     done;
-    (!stmts) @ [ Set (V (T sp), BinOp(Sub, Lval (V (T sp)), const !bitcount 32)) ], []
+    (!stmts) @ [ Set (V (T sp), BinOp(Sub, Lval (V (T sp)), const !bitcount 32)) ] |> mark_as_isn
 
   let thumb_pop _s isn =
     let reglist = ((isn lsl 7) land 0x8000) lor (isn land 0xff) in (* reglist = bit8:0000000:bit7-0 bit8=r15=pc *)
@@ -869,11 +869,11 @@ struct
           stmts := stmt :: (!stmts)
         end
     done;
-    (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ], []
+    (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ] |> mark_as_isn
 
   let thumb_it _s isn =
     let new_itstate = isn land 0xff in
-    [ Set( V (T itstate), const new_itstate 8) ], []
+    [ Set( V (T itstate), const new_itstate 8) ] |> mark_as_isn
 
   let decode_thumb_it_hints s isn =
     if isn land 0xf != 0 then (* If-Then*)
@@ -939,9 +939,9 @@ struct
   let thumb_mov_imm _s isn =
     let regnum = (isn lsr 8) land 7 in
     let imm = isn land 0xff in
-    [ Set (V (reg regnum), const imm 32) ],
-    [ Set (V (T zflag), const (if imm = 0 then 1 else 0) 1) ;
-      Set (V (T nflag), const (imm lsr 31) 1) ; ]
+    [ MARK_ISN (Set (V (reg regnum), const imm 32)) ;
+      MARK_FLAG (Set (V (T zflag), const (if imm = 0 then 1 else 0) 1)) ;
+      MARK_FLAG (Set (V (T nflag), const (imm lsr 31) 1)) ; ]
 
   let thumb_cmp_imm _s isn =
     let rn = reg ((isn lsr 8) land 7) in
@@ -958,7 +958,7 @@ struct
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
       vflag_update_exp  (Lval (V rn)) not_imm32 (Lval (V (P (tmpreg, 0, 31)))) ;
       Directive (Remove tmpreg) ;
-    ], []
+    ] |> mark_as_isn
 
 
   let decode_thumb_shift_add_sub_mov_cmp s isn =
@@ -978,7 +978,7 @@ struct
          | 0b11 -> (* Subtract 3-bit immediate SUB (immediate, Thumb) *)
             op_sub rd rn (const rm_or_imm3 32)
          | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
-       end
+       end |> mark_couple
     | 0b000 -> (* Logical Shift Left LSL (immediate) *)
        notimplemented "LSL (imm)"
     | 0b001 -> (* Logical Shift Right LSR (immediate) *)
@@ -1004,13 +1004,13 @@ struct
         Set (V (T pc), BinOp( Add, Lval (V (T pc)), const imm32 32)) ;
         Jmp (R (Lval (V (T pc)))) ;
       ] in
-    [ If (asm_cond cc, branching, [] ) ], []
+    [ If (asm_cond cc, branching, [] ) ] |> mark_as_isn
 
   let thumb_branching _s isn =
     let ofs = (isn land 0x7ff) lsl 1 in
     [ Set (V (T pc),
            BinOp(Add, Lval (V (T pc)), sconst ofs 12 32)) ;
-      Jmp (R (Lval (V (T pc)))) ], []
+      Jmp (R (Lval (V (T pc)))) ] |> mark_as_isn
 
   let decode_thumb_branching_svcall s isn =
     match isn lsr 8 land 0xf with
@@ -1025,7 +1025,7 @@ struct
     let rm = (isn lsr 3) land 0xf in
     let rd = ((isn lsr 4) land 8) lor (isn land 7) in
     let jump_pc = if rd = 15 then [ Jmp (R (Lval (V (T pc)))) ] else [] in
-    [ Set (V (reg rd), Lval (V (reg rm))) ] @ jump_pc, []
+    [ Set (V (reg rd), Lval (V (reg rm))) ] @ jump_pc |> mark_as_isn
 
   let decode_thumb_special_data_branch_exch s isn =
     match (isn lsr 6) land 0xf with
@@ -1069,7 +1069,7 @@ struct
     | 0b1000 -> (* Test *)
        notimplemented "TST (register)"
     | 0b1001 -> (* Reverse Subtract from 0 *)
-       op_rsb op0 op1 (const 0 32)
+       op_rsb op0 op1 (const 0 32) |> mark_couple
     | 0b1010 -> (* Compare High Registers *)
        notimplemented "CMP (register)"
     | 0b1011 -> (* Compare Negative *)
@@ -1092,7 +1092,7 @@ struct
                            BinOp(And, Lval (V (T pc)),
                                  const 0xfffffffc 32),
                            const (imm lsl 2) 32),
-                    32))) ], []
+                    32))) ] |> mark_as_isn
 
   let decode_thumb_load_store_single_data_item _s isn =
     match (isn lsr 12) land 0xf with
@@ -1128,7 +1128,12 @@ struct
          then (* Store Register Byte *)
            notimplemented "STRB (immediate)"
          else
-            notimplemented "LDRB (immediate)"
+           let imm5 = (isn lsr 6) land 0x1f in
+           let rn = (isn lsr 3) land 7 in
+           let rt = isn land 7 in
+           [ Set (V (reg rt),
+                  UnOp(ZeroExt 32,
+                       Lval (M (BinOp (Add, Lval (V (reg rn)), const imm5 32), 8)))) ] |> mark_as_isn
     | 0b1000 ->
          if (isn lsr 11) land 1 = 0
          then (* Store Register Halfword *)
@@ -1146,7 +1151,7 @@ struct
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
-    let stmts, itdependant_stmts =
+    let marked_stmts =
       if (instruction lsr 13) land 7 = 0b111 && (instruction lsr 11) land 3 != 0 then
         L.abort (fun p -> p "Thumb 32bit instruction decoding not implemented yet")
       else
@@ -1185,15 +1190,15 @@ struct
            end in
     (* pc is 4 bytes ahead in thumb mode because of pre-fetching. *)
     let current_pc = Const (Word.of_int (Z.add (Address.to_int s.a) (Z.of_int 4)) 32) in
-    let stmts1,stmts2 =
+    let filtered_stmts =
       match s.itstate with
       | None -> L.abort (fun p -> p "Could not obtain a concrete ITSTATE value. Decoding not supported yet in this case")
       | Some v ->
          if (v land 0xf) = 0
-         then stmts, itdependant_stmts
+         then remove_marks marked_stmts
          else let next_itstate = if v land 7 = 0 then 0 else (v land 0xf0) lor ((v lsl 1) land 0xf) in
-              wrap_cc (v lsr 4) stmts, [ Set (V (T itstate), const next_itstate 8)] in
-    return s instruction (Set( V (T pc), current_pc) :: stmts1 @ stmts2)
+              (wrap_cc (v lsr 4) (remove_marks_keep_isn marked_stmts)) @ [ Set (V (T itstate), const next_itstate 8)] in
+    return s instruction (Set( V (T pc), current_pc) :: filtered_stmts)
 
   let parse text cfg _ctx state addr oracle =
     let tflag_val =
