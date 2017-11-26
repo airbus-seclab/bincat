@@ -1013,9 +1013,9 @@ struct
   let thumb_cond_branching _s isn =
     let cc = (isn lsr 8) land 0xf in
     let imm8 = isn land 0xff in
-    let imm32 = (imm8 lsl 24) lsr 23 in (* SignExtend (imm8:'0',32) *)
+    let ofs = sconst (imm8 lsl 1) 9 32 in
     let branching = [
-        Set (V (T pc), BinOp( Add, Lval (V (T pc)), const imm32 32)) ;
+        Set (V (T pc), BinOp( Add, Lval (V (T pc)), ofs)) ;
         Jmp (R (Lval (V (T pc)))) ;
       ] in
     [ If (asm_cond cc, branching, [] ) ] |> mark_as_isn
