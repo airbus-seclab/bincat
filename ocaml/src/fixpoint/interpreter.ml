@@ -766,11 +766,18 @@ struct
           List.fold_left (fun (d, b) s ->
             let d', b' = backward_process v.Cfa.State.branch d s in
             d', Taint.logor b b'
-          ) (v.Cfa.State.v, Taint.U) (List.rev pred.Cfa.State.stmts)
+          ) (v.Cfa.State.back_v, Taint.U) (List.rev pred.Cfa.State.stmts)
         in
         let d' = D.meet pred.Cfa.State.v d' in
-        pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
+        let v' = D.meet pred.Cfa.State.v d' in
         pred.Cfa.State.taint_sources <- taint_sources;
+        begin
+          match pred.Cfa.State.back_v with
+          | None -> 
+             pred.Cfa.State.back_v <- Some v'
+          | Some v2 ->
+             pred.Cfa.State.back_v <- Some (D.join v' v2)
+        end;
         [pred]
       in
       update_abstract_value g v ip backward

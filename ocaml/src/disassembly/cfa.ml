@@ -305,11 +305,19 @@ struct
   let print (dumpfile: string) (g: t): unit =
     let f = open_out dumpfile in
     (* state printing (detailed) *)
+    let print_field = if !Config.analysis = Config.Backward then
+        fun s ->
+          match s.back_v with
+          | None -> []
+          | Some v -> Domain.to_string v
+      else
+         fun s -> Domain.to_string s.v
+    in
     let print_ip s =
       let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
       Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
         (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.to_string s.taint_sources);
-      List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
+      List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s);
       if !Config.loglevel > 2 then
         begin
           Printf.fprintf f "statements =";
