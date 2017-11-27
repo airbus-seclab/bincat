@@ -693,16 +693,22 @@ struct
          
     let back_add_sub op dst e1 e2 d =
       match e1, e2 with
-      | Lval lv1, Lval lv2 -> 
-         let e = Lval dst in
-         let d', b = D.set lv1 (BinOp (op, e, e2)) d in
-         let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
-         let d =
-           if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then d
-           else D.forget_lval dst d
-         in
-         d, Taint.logor b b'
-
+      | Lval lv1, Lval lv2 ->
+         if Asm.equal_lval lv1 lv2 then
+           if op = Asm.ADD then
+             let len = Asm.lval_length lv1 in
+             D.set lv1 (BinOp (Asm.lsr, Lval dst, Const (Data.Word.zero ...))) d 
+           d, Taint.U
+         else
+           let e = Lval dst in
+           let d', b = D.set lv1 (BinOp (op, e, e2)) d in
+           let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
+           let d =
+             if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then d
+             else D.forget_lval dst d
+           in
+           d, Taint.logor b b'
+             
       | Lval lv, e | e, Lval lv ->
          let e' = Lval dst in
          let d', taint = D.set lv (BinOp (op, e', e)) d in
@@ -729,6 +735,7 @@ struct
           
       | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
       | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
+         
       | _ -> D.forget_lval dst d, Taint.TOP
 
     (** backward transfert function on the given abstract value *)

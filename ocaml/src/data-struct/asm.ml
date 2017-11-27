@@ -304,3 +304,11 @@ let rec with_lval lv e =
   | BinOp (_, e1, e2)
   | TernOp (_, e1, e2)  -> (with_lval lv e1)  || (with_lval lv e2)
   | UnOp (_, e') -> with_lval lv e'
+
+(** returns the length in bits of the given lvalue *)
+let lval_length lv =
+  match lv with
+  | V (T r) 
+  | V (P (r, _, _)) -> Register.size r
+  | M (_, n) -> n
+    
