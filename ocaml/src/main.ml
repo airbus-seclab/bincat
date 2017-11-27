@@ -102,8 +102,8 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
         let d, taint = Interpreter.Cfa.update_abstract_value prev_s.Interpreter.Cfa.State.v in
-        prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
-        prev_s.Interpreter.Cfa.State.taint_sources <- taint;
+        prev_s.Interpreter.Cfa.State.back_v <- Some (Domain.meet prev_s.Interpreter.Cfa.State.v d);
+        prev_s.Interpreter.Cfa.State.back_taint_sources <- Some taint;
         fixpoint orig_cfa prev_s dump
     with
     | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")

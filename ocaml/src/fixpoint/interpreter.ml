@@ -692,9 +692,8 @@ struct
     (*************************************************************)
          
     let back_add_sub op dst e1 e2 d =
-      L.debug (fun p -> p "back_add_sub");
       match e1, e2 with
-      | Lval lv1, Lval lv2 -> L.debug (fun p -> p "case 1");
+      | Lval lv1, Lval lv2 -> 
          let e = Lval dst in
          let d', b = D.set lv1 (BinOp (op, e, e2)) d in
          let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
@@ -713,7 +712,7 @@ struct
          in
          d', taint
 
-      | _ -> L.debug (fun p -> p "case 3"); D.forget_lval dst d, Taint.U
+      | _ ->  D.forget_lval dst d, Taint.U
 
 
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
