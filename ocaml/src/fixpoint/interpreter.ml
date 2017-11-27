@@ -762,21 +762,28 @@ struct
 
     let back_update_abstract_value (g:Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (pred: Cfa.State.t): Cfa.State.t list =
       let backward _g v _ip =
+        let start_v =
+          match v.Cfa.State.back_v with
+          | Some d -> d
+          | None -> raise (Exceptions.Empty "undefined abstract value used in backward mode")
+        in
         let d', taint_sources =
           List.fold_left (fun (d, b) s ->
             let d', b' = backward_process v.Cfa.State.branch d s in
             d', Taint.logor b b'
-          ) (v.Cfa.State.back_v, Taint.U) (List.rev pred.Cfa.State.stmts)
+          ) (start_v, Taint.U) (List.rev pred.Cfa.State.stmts)
         in
         let d' = D.meet pred.Cfa.State.v d' in
         let v' = D.meet pred.Cfa.State.v d' in
-        pred.Cfa.State.taint_sources <- taint_sources;
         begin
-          match pred.Cfa.State.back_v with
-          | None -> 
-             pred.Cfa.State.back_v <- Some v'
-          | Some v2 ->
-             pred.Cfa.State.back_v <- Some (D.join v' v2)
+          match pred.Cfa.State.back_v, pred.Cfa.State.back_taint_sources with
+          | None, None -> 
+             pred.Cfa.State.back_v <- Some v';
+            pred.Cfa.State.back_taint_sources <- Some taint_sources
+          | Some v2, Some t2 ->
+             pred.Cfa.State.back_v <- Some (D.join v' v2);
+            pred.Cfa.State.back_taint_sources <- Some (Taint.join t2 taint_sources)
+          | _, _ -> raise (Exceptions.Error "inconsistent state in backward mode")
         end;
         [pred]
       in
