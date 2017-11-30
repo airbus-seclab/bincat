@@ -1320,21 +1320,23 @@ struct
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
         let cf_stmt =
-            let c = Cmp (LT, sz', n_masked) in
+          let c = Cmp (LT, sz', n_masked) in
+          let aexp = Cmp (EQ, one_sz, BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked))))) in
             If (c,
                 [undef_flag fcf],
                 (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
+                [Set (V (T fcf), TernOp (aexp, const1 1, const0 1))])
         in
         let of_stmt =
-            let is_one = Cmp (EQ, n_masked, one8) in
+          let is_one = Cmp (EQ, n_masked, one8) in
+          let xexp = Cmp(EQ, const1 (Register.size fcf), BinOp(Xor, Lval (V (T fcf)),
+                           BinOp (And, one_sz,
+                                  (BinOp(Shr, ldst,
+                                         BinOp(Sub, sz', n_masked)))))) in
             let op =
                 (* last bit having been "evicted out"  xor CF*)
                 Set (V (T fof),
-                     BinOp(Xor, Lval (V (T fcf)),
-                           BinOp (And, one_sz,
-                                  (BinOp(Shr, ldst,
-                                         BinOp(Sub, sz', n_masked))))))
+                     TernOp(xexp, const1 1, const0 1))
             in
             If (is_one,    (* OF is set if n == 1 only *)
                 [op] ,
@@ -1361,7 +1363,7 @@ struct
         let ldst = Lval dst in
         let dst_msb = msb_stmts ldst sz in
         let cf_stmt =
-            let c = Cmp (LT, sz', n_masked) in
+          let c = Cmp (LT, sz', n_masked) in
             If (c,
                 [undef_flag fcf],
                 (* CF is the last bit having been "evicted out" *)

@@ -28,7 +28,7 @@ module type T =
   sig
     (** abstract data type *)
     type t
-
+ 
     (** bottom value *)
     val bot: t
 
@@ -668,7 +668,7 @@ module Make(D: T) =
            | Asm.V r ->
               begin
                 match r with
-                | Asm.T r' ->
+                | Asm.T r' ->                 
                    Val (Env.add (Env.Key.Reg r') v' m'), b
                 | Asm.P (r', low, up) ->
                    try
