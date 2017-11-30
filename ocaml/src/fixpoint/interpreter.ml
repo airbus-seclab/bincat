@@ -112,34 +112,34 @@ struct
         List.iter (fun v ->
             let n, jd =
               try
-        let n', jd' = Hashtbl.find !unroll_tbl ip in
-        let d' = D.join jd' v.Cfa.State.v in
-        Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
+                let n', jd' = Hashtbl.find !unroll_tbl ip in
+                let d' = D.join jd' v.Cfa.State.v in
+                Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
               with Not_found ->
-        Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
-        1, v.Cfa.State.v
+                Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
+                1, v.Cfa.State.v
             in
-        let nb_max =
-          match !unroll_nb with
-          | None -> !Config.unroll
-          | Some n -> n
-        in
+            let nb_max =
+              match !unroll_nb with
+              | None -> !Config.unroll
+              | Some n -> n
+            in
             if n <= nb_max then
               ()
             else
-          begin
-        L.analysis (fun p -> p "widening occurs at %s" (Data.Address.to_string ip));
-        widen jd v
-          end
-        ) l;
-
+              begin
+                L.analysis (fun p -> p "widening occurs at %s" (Data.Address.to_string ip));
+                widen jd v
+              end
+          ) l;
+        
         List.fold_left (fun l' v ->
-          if D.is_bot v.Cfa.State.v then
-            begin
-              L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
-              Cfa.remove_state g v; l'
-            end
-          else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
+            if D.is_bot v.Cfa.State.v then
+              begin
+                L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
+                Cfa.remove_state g v; l'
+              end
+            else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
       with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 
 
