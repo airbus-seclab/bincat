@@ -694,11 +694,12 @@ struct
     let back_add_sub op dst e1 e2 d =
       match e1, e2 with
       | Lval lv1, Lval lv2 ->
-         if Asm.equal_lval lv1 lv2 then
-           if op = Asm.ADD then
+        if Asm.equal_lval lv1 lv2 then
+           if op = Asm.Sub then
              let len = Asm.lval_length lv1 in
-             D.set lv1 (BinOp (Asm.lsr, Lval dst, Const (Data.Word.zero ...))) d 
-           d, Taint.U
+             D.set lv1 (BinOp (Asm.Shr, Lval dst, Const (Data.Word.one len))) d
+           else
+             d, Taint.U
          else
            let e = Lval dst in
            let d', b = D.set lv1 (BinOp (op, e, e2)) d in
@@ -722,6 +723,7 @@ struct
 
 
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
+      L.debug (fun p -> p "back_set");
       match src with
       | Lval lv ->
          let d', taint = D.set lv (Lval dst) d in
@@ -779,7 +781,6 @@ struct
             d', Taint.logor b b'
           ) (start_v, Taint.U) (List.rev pred.Cfa.State.stmts)
         in
-        let d' = D.meet pred.Cfa.State.v d' in
         let v' = D.meet pred.Cfa.State.v d' in
         begin
           match pred.Cfa.State.back_v, pred.Cfa.State.back_taint_sources with

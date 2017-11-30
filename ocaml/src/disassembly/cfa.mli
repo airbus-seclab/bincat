@@ -18,7 +18,7 @@
 (** signature of the unrolled control flow graph *)
 
 module type T =
-sig
+  sig
   (** abstract data type for the abstract values in state of the CFG *)
   type domain
 

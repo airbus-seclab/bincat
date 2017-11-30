@@ -82,7 +82,7 @@ module Make(D: Unrel.T) =
      | Asm.V (Asm.T r) -> if typ = Types.UNKNOWN then T.forget_register r tenv else T.set_register r typ tenv
      | Asm.V (Asm.P (r, _, _)) -> T.forget_register r tenv
      | Asm.M (e, _sz) ->
-    try
+        try
       let addrs, _ = U.mem_to_addresses uenv e in
       match Data.Address.Set.elements addrs with
       | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ)); if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv

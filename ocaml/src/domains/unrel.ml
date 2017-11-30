@@ -715,7 +715,8 @@ module Make(D: T) =
            else
              let m' = Env.empty in
              let m' = Env.fold (fun k v1 m' ->
-               try let v2 = Env.find k m2' in Env.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
+               try let v2 = Env.find k m2' in
+                   Env.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
              Val m'
 
     let widen m1 m2 =
