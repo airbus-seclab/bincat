@@ -1362,12 +1362,13 @@ struct
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
         let dst_msb = msb_stmts ldst sz in
-        let cf_stmt =
+        let cf_stmt = 
           let c = Cmp (LT, sz', n_masked) in
+          let aexp = Cmp (EQ, one_sz, BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one8))))) in
             If (c,
                 [undef_flag fcf],
                 (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one8)))))])
+                [Set (V (T fcf), TernOp (aexp, const1 1, const0 1))])
         in
         let of_stmt =
             let is_one = Cmp (EQ, n_masked, one8) in
@@ -1375,8 +1376,9 @@ struct
                 if arith then
                     (clear_flag fof)
                 else
+                  let dexp = Cmp (EQ, const1 sz, dst_msb) in
                     (* MSB of original dest *)
-                    (Set (V (T fof), dst_msb))
+                    (Set (V (T fof), TernOp (dexp, const1 1, const0 1)))
             in
             If (is_one,    (* OF is set if n == 1 only *)
                 [op] ,
