@@ -961,21 +961,11 @@ struct
       MARK_FLAG (Set (V (T nflag), const (imm lsr 31) 1)) ; ]
 
   let thumb_cmp_imm _s isn =
-    let rn = reg ((isn lsr 8) land 7) in
-    let not_imm =  lnot (isn land 0xff) in
-    let not_imm32 = const not_imm 32 in
-    let not_imm33 = const not_imm 33 in
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    [ Set (V (T tmpreg),
-           BinOp(Add,
-                 BinOp(Add, to33bits (Lval (V rn)), not_imm33),
-                 to33bits (Lval (V (T cflag))))) ;
-      Set (V (T nflag), Lval (V (P (tmpreg, 31, 31)))) ;
-      zflag_update_exp (Lval (V (P (tmpreg, 0, 31)))) ;
-      Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
-      vflag_update_exp  (Lval (V rn)) not_imm32 (Lval (V (P (tmpreg, 0, 31)))) ;
-      Directive (Remove tmpreg) ;
-    ] |> mark_as_isn
+    let rn = (isn lsr 8) land 7 in
+    let imm = isn land 0xff in
+    let tmpreg = Register.make (Register.fresh_name ()) 32 in
+    let opstmts,flagstmts = op_sub tmpreg rn (const imm 32) in
+    mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
 
 
   let decode_thumb_shift_add_sub_mov_cmp s isn =
