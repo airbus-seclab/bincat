@@ -1013,7 +1013,9 @@ struct
     | 0b101 -> (* Compare CMP (immediate) *)
        thumb_cmp_imm s isn
     | 0b110 -> (* Add 8-bit immediate ADD (immediate, Thumb) *)
-       notimplemented "ADD 8 (imm)"
+       let rdn = (isn lsr 8) land 7 in
+       let imm8 = isn land 0xff in
+       op_add (reg rdn) rdn (const imm8 32) |> mark_couple
     | 0b111 -> (* Subtract 8-bit immediate SUB (immediate, Thumb) *)
        notimplemented "SUB 8 (imm)"
     | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
