@@ -62,7 +62,7 @@ struct
   let vflag = Register.make ~name:"v" ~size:1;;
   let tflag = Register.make ~name:"t" ~size:1;;
 
-  let reg_from_num n =
+  let reg n =
     match n with
     | 0 -> r0
     | 1 -> r1
@@ -82,11 +82,11 @@ struct
     | 15 -> pc
     | _ -> L.abort (fun p -> p "Unknown register number %i" n)
 
-  let reg n =
-    T (reg_from_num n)
+  let treg n =
+    T (reg n)
 
   let preg n a b =
-    P ((reg_from_num n), a, b)
+    P ((reg n), a, b)
 
   let n_is_set = Cmp(EQ, Lval (V (T nflag)), const 1 1)
   let z_is_set = Cmp(EQ, Lval (V (T zflag)), const 1 1)
@@ -169,21 +169,21 @@ struct
 
 
   let op_add rd rn op2_stmt =
-    [ Set (V (reg rd), BinOp(Add, Lval (V (reg rn)), op2_stmt) ) ],
-    [ zflag_update_exp (Lval (V (reg rd))) ;
-      nflag_update_exp (reg_from_num rd) ;
-      vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
-    @ cflag_update_stmts Add (Lval (V (reg rn))) op2_stmt
+    [ Set (V (T rd), BinOp(Add, Lval (V (treg rn)), op2_stmt) ) ],
+    [ zflag_update_exp (Lval (V (T rd))) ;
+      nflag_update_exp rd ;
+      vflag_update_exp (Lval (V (treg rn))) op2_stmt (Lval (V (T rd))) ; ]
+    @ cflag_update_stmts Add (Lval (V (treg rn))) op2_stmt
 
   let op_sub rd rn op2_stmt =
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    [ Set (V (reg rd), BinOp(Sub, Lval (V (reg rn)), op2_stmt) ) ],
-    [ zflag_update_exp (Lval (V (reg rd))) ;
-      nflag_update_exp (reg_from_num rd) ;
-      vflag_update_exp (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (reg rd))) ;
+    [ Set (V (T rd), BinOp(Sub, Lval (V (treg rn)), op2_stmt) ) ],
+    [ zflag_update_exp (Lval (V (T rd))) ;
+      nflag_update_exp rd ;
+      vflag_update_exp (Lval (V (treg rn))) (UnOp(Not, op2_stmt)) (Lval (V (T rd))) ;
       (* sub is computed witn sub a,b = a+(not b)+1, hence the carry *)
       Set (V (T tmpreg), BinOp(Add, BinOp(Add,
-                                          to33bits (Lval (V (reg rn))),
+                                          to33bits (Lval (V (treg rn))),
                                           to33bits (UnOp(Not, op2_stmt))),
                                const 1 33)) ;
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
@@ -191,24 +191,24 @@ struct
 
   let op_rsb rd rn op2_stmt =
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    [ Set (V (reg rd), BinOp(Sub, op2_stmt, Lval (V (reg rn)))) ],
-    [ zflag_update_exp (Lval (V (reg rd))) ;
-      nflag_update_exp (reg_from_num rd) ;
-      vflag_update_exp op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (reg rd))) ;
+    [ Set (V (T rd), BinOp(Sub, op2_stmt, Lval (V (treg rn)))) ],
+    [ zflag_update_exp (Lval (V (T rd))) ;
+      nflag_update_exp rd ;
+      vflag_update_exp op2_stmt (UnOp(Not, (Lval (V (treg rn))))) (Lval (V (T rd))) ;
       Set (V (T tmpreg), BinOp(Add, BinOp(Add,
                                           to33bits op2_stmt,
-                                          to33bits (UnOp(Not, Lval (V (reg rn))))),
+                                          to33bits (UnOp(Not, Lval (V (treg rn))))),
                                const 1 33)) ;
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
       Directive (Remove tmpreg) ]
 
   let op_eor rd rn op2_stmt =
-    [ Set (V (reg rd), BinOp(Xor, Lval (V (reg rn)), op2_stmt) ) ],
-    [ zflag_update_exp (Lval (V (reg rd))) ;
-      nflag_update_exp (reg_from_num rd) ]
+    [ Set (V (T rd), BinOp(Xor, Lval (V (treg rn)), op2_stmt) ) ],
+    [ zflag_update_exp (Lval (V (T rd))) ;
+      nflag_update_exp rd ]
 
   let op_and rd rn op2_stmt =
-    [ Set (V (T rd), BinOp(And, Lval (V (reg rn)), op2_stmt) ) ],
+    [ Set (V (T rd), BinOp(And, Lval (V (treg rn)), op2_stmt) ) ],
     [ zflag_update_exp (Lval (V (T rd))) ;
       nflag_update_exp rd ]
 
@@ -312,9 +312,9 @@ struct
     let rm = instruction land 0xf in
     let work_on_byte = instruction land (1 lsl 22) <> 0 in
     let length,src,mem,dst  = if work_on_byte then
-        8, (V (preg rm 0 7)), (M (Lval (V (reg rn)), 8)), (V (preg rd 0 7))
+        8, (V (preg rm 0 7)), (M (Lval (V (treg rn)), 8)), (V (preg rd 0 7))
       else
-        32, (V (reg rm)), M (Lval (V (reg rn)), 32), (V (reg rd)) in
+        32, (V (treg rm)), M (Lval (V (treg rn)), 32), (V (treg rd)) in
     let stmts =
       if rm = rd then
         let tmpreg = Register.make (Register.fresh_name ()) length in
@@ -340,18 +340,18 @@ struct
     let set_cc = instruction land (1 lsl 20) <> 0 in
     let tmpreg = Register.make (Register.fresh_name ()) 64 in
     let accu_stmt = if accumulate then
-        Set (V (reg rd), BinOp(Add, Lval (V (P (tmpreg, 0, 31))),
-                               Lval (V (reg rn))))
+        Set (V (treg rd), BinOp(Add, Lval (V (P (tmpreg, 0, 31))),
+                               Lval (V (treg rn))))
       else
-        Set (V (reg rd), Lval (V (P (tmpreg, 0, 31)))) in
+        Set (V (treg rd), Lval (V (P (tmpreg, 0, 31)))) in
     let cc_stmts = if set_cc then
-        [ Set(V (T zflag), TernOp (Cmp(EQ, Lval (V (reg rd)), const 0 32),
+        [ Set(V (T zflag), TernOp (Cmp(EQ, Lval (V (treg rd)), const 0 32),
                                    const 1 1, const 0 1)) ;
           Set(V (T nflag), Lval (V (preg rd 31 31))) ;
           Directive (Forget (V (T cflag))) ]
       else
         [] in
-    let stmt = Set (V (T tmpreg), BinOp(Mul, Lval (V (reg rm)), Lval (V (reg rs)))) in
+    let stmt = Set (V (T tmpreg), BinOp(Mul, Lval (V (treg rm)), Lval (V (treg rs)))) in
     stmt :: accu_stmt :: Directive (Remove tmpreg) :: cc_stmts
 
 
@@ -372,13 +372,13 @@ struct
           begin
             if store then
               stmts := !stmts @
-                [ Set( M (BinOp(dir_op, Lval (V (reg rn)), const !ofs 32), 32),
-                            Lval (V (reg regtest))) ]
+                [ Set( M (BinOp(dir_op, Lval (V (treg rn)), const !ofs 32), 32),
+                            Lval (V (treg regtest))) ]
             else
               begin
                 stmts := !stmts @
-                  [ Set( V (reg regtest),
-                         Lval (M (BinOp(dir_op, Lval (V (reg rn)), const !ofs 32), 32))) ];
+                  [ Set( V (treg regtest),
+                         Lval (M (BinOp(dir_op, Lval (V (treg rn)), const !ofs 32), 32))) ];
                 if i = 15 then update_pc := true
               end;
             ofs := !ofs+4;
@@ -388,7 +388,7 @@ struct
       done;
       if instruction land (1 lsl 21) <> 0 then
         stmts := !stmts @
-          [ Set (V (reg rn), BinOp(dir_op, Lval (V (reg rn)), const (4*(!reg_count)) 32)) ];
+          [ Set (V (treg rn), BinOp(dir_op, Lval (V (treg rn)), const (4*(!reg_count)) 32)) ];
       if !update_pc then
         stmts := !stmts @ [ Jmp (R (Lval (V (T pc)))) ];
       !stmts
@@ -409,7 +409,7 @@ struct
   let branch_exchange s instruction =
     let zero = const 0 32 in
     let one = const 1 32 in
-    let jreg = Lval(V(reg (instruction land 0xf))) in
+    let jreg = Lval(V(treg (instruction land 0xf))) in
     let bit1 = BinOp(And, jreg, one) in
     let target = BinOp(And, jreg, const 0xfffffffe 32) in
     let set_pc_and_t =
@@ -452,7 +452,7 @@ struct
 
   let set_cflag_from_bit_exp rm n_exp =
     let one33 = const 1 33 in
-    let rm33 = UnOp(ZeroExt 33, Lval (V (reg rm))) in
+    let rm33 = UnOp(ZeroExt 33, Lval (V (treg rm))) in
     Set ( V (T cflag),
           TernOp (Cmp (EQ,
                        BinOp(And, one33,
@@ -478,39 +478,39 @@ struct
           match  shift_type with
           | 0b00 -> (* logical shift left *)
              if shift_amount = 0 then
-              Lval (V (reg rm))
+              Lval (V (treg rm))
             else
-              BinOp(Shl, Lval (V (reg rm)), const shift_amount 32)
+              BinOp(Shl, Lval (V (treg rm)), const shift_amount 32)
           | 0b01 -> (* logical shift right *)
              let actual_shift = if shift_amount = 0 then 32 else shift_amount in
-             BinOp(Shl, Lval (V (reg rm)), const actual_shift 32)
+             BinOp(Shl, Lval (V (treg rm)), const actual_shift 32)
           | 0b10 -> (* asr *)
              let actual_shift = if shift_amount = 0 then 32 else shift_amount in
-             asr_stmt (Lval (V (reg rm))) actual_shift
+             asr_stmt (Lval (V (treg rm))) actual_shift
           | 0b11 -> (* ror *)
              let actual_shift = if shift_amount = 0 then 32 else shift_amount in
-             ror_stmt (Lval (V (reg rm))) actual_shift
+             ror_stmt (Lval (V (treg rm))) actual_shift
           | _ -> error s.a "unexpected shift type insingle data xfer" in
     let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
     let preindex = (instruction land (1 lsl 24)) <> 0 in
     let writeback = (instruction land (1 lsl 21)) <> 0 in
     let length, dst_or_src = if (instruction land (1 lsl 22)) = 0 then
-        32, (V (reg rd))
+        32, (V (treg rd))
       else
         8, (V (preg rd 0 7)) in
     let src_or_dst = match preindex,writeback with
-      | true, false -> M (BinOp(updown, Lval (V (reg rn)), ofs), length)
+      | true, false -> M (BinOp(updown, Lval (V (treg rn)), ofs), length)
       | true, true
-      | false, false -> M (Lval (V (reg rn)), length) (* if post-indexing, write back is implied and W=0 *)
+      | false, false -> M (Lval (V (treg rn)), length) (* if post-indexing, write back is implied and W=0 *)
       | false, true -> error s.a "Undefined combination (post indexing and W=1)" in
     let stmts,update_pc = if (instruction land (1 lsl 20)) = 0 then (* store *)
         [ Set (src_or_dst, Lval dst_or_src)], false
       else (* load *)
         if length = 32 then
-          [ Set (V (reg rd), Lval src_or_dst) ], rd = 15
+          [ Set (V (treg rd), Lval src_or_dst) ], rd = 15
         else
-          [ Set (V (reg rd), UnOp(ZeroExt 32, Lval src_or_dst)) ], rd = 15 in
-    let write_back_stmt = Set (V (reg rn), BinOp(updown, Lval (V (reg rn)), ofs)) in
+          [ Set (V (treg rd), UnOp(ZeroExt 32, Lval src_or_dst)) ], rd = 15 in
+    let write_back_stmt = Set (V (treg rn), BinOp(updown, Lval (V (treg rn)), ofs)) in
     let stmts' =
       if preindex then
         if writeback then
@@ -538,18 +538,18 @@ struct
         const (((instruction lsr 4) land 0xf0) lor (instruction land 0xf)) 32
       else
         let rm = instruction land 0xf in
-        Lval (V (reg rm)) in
-    let index_expr = BinOp(updown, Lval (V (reg rn)), ofs) in
+        Lval (V (treg rm)) in
+    let index_expr = BinOp(updown, Lval (V (treg rn)), ofs) in
     let src_or_dst = match preindex,writeback with
       | true, false -> M (index_expr, length)
       | true, true
-      | false, false -> M (Lval (V (reg rn)), length) (* if post-indexing, write back is implied and W=0 *)
+      | false, false -> M (Lval (V (treg rn)), length) (* if post-indexing, write back is implied and W=0 *)
       | false, true -> error s.a "Undefined combination (post indexing and W=1)" in
     let stmts, update_pc = if load then
-        [ Set (V (reg rd), UnOp(extend_op, Lval src_or_dst)) ], rd = 15
+        [ Set (V (treg rd), UnOp(extend_op, Lval src_or_dst)) ], rd = 15
       else
         [ Set (src_or_dst, Lval (V (preg rd 0 (length-1)))) ], false in
-    let write_back_stmt = Set (V (reg rn), index_expr) in
+    let write_back_stmt = Set (V (treg rn), index_expr) in
     let stmts' =
       if preindex then
         if writeback then
@@ -580,23 +580,23 @@ struct
           if shift_op land 1 = 0 then
             const (shift_op lsr 3) 32, Some (shift_op lsr 3)
           else
-            Lval (V (reg (shift_op lsr 4))), None in
+            Lval (V (treg (shift_op lsr 4))), None in
         match (shift_op lsr 1) land 0x3 with
         | 0b00 -> (* lsl *)
            begin
              match  int_shift_count with
-             | Some 0 -> Lval (V (reg rm))
-             | _ -> BinOp(Shl, Lval (V (reg rm)), op3)
+             | Some 0 -> Lval (V (treg rm))
+             | _ -> BinOp(Shl, Lval (V (treg rm)), op3)
            end,
              begin
                match int_shift_count with
                | Some 0 -> [] (* lsl 0 => preserve carry *)
                | Some n -> [ Set( V (T cflag),  (* shift count is an immediate, we can directly test the bit *)
-                                  TernOp (Cmp (EQ, BinOp(And, Lval (V (reg rm)), const (1 lsl (32-n)) 32),const 0 32),
+                                  TernOp (Cmp (EQ, BinOp(And, Lval (V (treg rm)), const (1 lsl (32-n)) 32),const 0 32),
                                           const 0 1, const 1 1)) ]
                | None -> [ Set ( V (T cflag),   (* shift count comes from a register. We shift again on 33 bits *)
                                  TernOp (Cmp (EQ, BinOp(And,
-                                                        BinOp(Shl, UnOp(ZeroExt 33, Lval (V (reg rm))),
+                                                        BinOp(Shl, UnOp(ZeroExt 33, Lval (V (treg rm))),
                                                               UnOp(ZeroExt 33, op3)),
                                                         const (1 lsl 32) 33), const 0 33),
                                          const 0 1, const 1 1)) ]
@@ -605,7 +605,7 @@ struct
            begin
              match int_shift_count with
              | Some 0 -> const 0 32 (* 0 actually encodes lsr #32 *)
-             | _ -> BinOp(Shr, Lval (V (reg rm)), op3)
+             | _ -> BinOp(Shr, Lval (V (treg rm)), op3)
            end,
              begin
                match int_shift_count with
@@ -615,9 +615,9 @@ struct
         | 0b10 -> (* asr *)
            begin
              match int_shift_count with
-             | Some 0 -> asr_stmt (Lval (V (reg rm))) 32 (* 0 actually encodes lsr #32 *)
-             | Some x -> asr_stmt (Lval (V (reg rm))) x
-             | None -> asr_stmt_exp (Lval (V (reg rm))) op3
+             | Some 0 -> asr_stmt (Lval (V (treg rm))) 32 (* 0 actually encodes lsr #32 *)
+             | Some x -> asr_stmt (Lval (V (treg rm))) x
+             | None -> asr_stmt_exp (Lval (V (treg rm))) op3
            end,
              begin
                match int_shift_count with
@@ -628,16 +628,16 @@ struct
            begin
              match int_shift_count with
              | Some 0 -> (* RRX operation *)
-                let shifted = BinOp(Shr, Lval (V (reg rm)), const 1 32) in
+                let shifted = BinOp(Shr, Lval (V (treg rm)), const 1 32) in
                 let carry_in = TernOp( Cmp (EQ, Lval (V (T cflag)), const 0 1), const 0 32, const 0x80000000 32) in
                 BinOp(Or, shifted, carry_in)
-             | Some x -> ror_stmt (Lval (V (reg rm))) x
-             | None -> ror_stmt_exp (Lval (V (reg rm))) op3
+             | Some x -> ror_stmt (Lval (V (treg rm))) x
+             | None -> ror_stmt_exp (Lval (V (treg rm))) op3
            end,
              begin
                match int_shift_count with
                | Some 0 -> (* RRX operation *)
-                  let carry_out = TernOp( Cmp (EQ, BinOp(And, Lval (V (reg rm)), const 1 32), const 0 32), const 0 1, const 1 1) in
+                  let carry_out = TernOp( Cmp (EQ, BinOp(And, Lval (V (treg rm)), const 1 32), const 0 32), const 0 1, const 1 1) in
                   [ Set ( V (T cflag), carry_out) ]
                | Some n -> [ set_cflag_from_bit rm n ]
                | None -> [ set_cflag_from_bit_exp rm op3 ]
@@ -648,45 +648,45 @@ struct
       let opcode = (instruction lsr 21) land 0xf in
       match opcode with
       | 0b0000 -> (* AND - Rd:= Op1 AND Op2 *)
-         let opstmts,flagstmts = op_and (reg_from_num rd) rn op2_stmt in
+         let opstmts,flagstmts = op_and (reg rd) rn op2_stmt in
          opstmts, flagstmts @ op2_carry_stmt, rd = 15
       | 0b0001 -> (* EOR - Rd:= Op1 EOR Op2 *)
-         let opstmts,flagstmts = op_eor rd rn op2_stmt in
+         let opstmts,flagstmts = op_eor (reg rd) rn op2_stmt in
          opstmts, flagstmts @ op2_carry_stmt, rd = 15
       | 0b0010 -> (* SUB - Rd:= Op1 + not Op2 + 1 *)
-         let opstmts,flagstmts = op_sub rd rn op2_stmt in
+         let opstmts,flagstmts = op_sub (reg rd) rn op2_stmt in
          opstmts, flagstmts, rd = 15
       | 0b0011 -> (* RSB - Rd:= Op2 - Op1 *)
-         let opstmts,flagstmts = op_rsb rd rn op2_stmt in
+         let opstmts,flagstmts = op_rsb (reg rd) rn op2_stmt in
          opstmts, flagstmts, rd = 15
     | 0b0100 -> (* ADD - Rd:= Op1 + Op2 *)
-       let opstmts,flagstmts = op_add rd rn op2_stmt in
+       let opstmts,flagstmts = op_add (reg rd) rn op2_stmt in
        opstmts, flagstmts, rd = 15
     | 0b0101 -> (* ADC - Rd:= Op1 + Op2 + C *)
-      [ Set (V (reg rd), BinOp(Add, UnOp(ZeroExt 32, Lval (V (T cflag))),
-                                BinOp(Add, Lval (V (reg rn)), op2_stmt) )) ],
-      [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_exp (reg_from_num rd) ;
-        vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (reg rd))) ; ]
-      @ cflag_update_stmts_with_carry Add (Lval (V (reg rn))) op2_stmt,
+      [ Set (V (treg rd), BinOp(Add, UnOp(ZeroExt 32, Lval (V (T cflag))),
+                                BinOp(Add, Lval (V (treg rn)), op2_stmt) )) ],
+      [ zflag_update_exp (Lval (V (treg rd))) ;
+        nflag_update_exp (reg rd) ;
+        vflag_update_exp (Lval (V (treg rn))) op2_stmt (Lval (V (treg rd))) ; ]
+      @ cflag_update_stmts_with_carry Add (Lval (V (treg rn))) op2_stmt,
       rd = 15
     | 0b0110 -> (* SBC - Rd:= Op1 - Op2 + C - 1 *)
-       [ Set (V (reg rd), BinOp(Sub,
-                                BinOp(Add, BinOp(Sub, Lval (V (reg rn)), op2_stmt),
+       [ Set (V (treg rd), BinOp(Sub,
+                                BinOp(Add, BinOp(Sub, Lval (V (treg rn)), op2_stmt),
                                       UnOp(ZeroExt 32, Lval (V (T cflag))) ),
                                 const 1 32)) ],
-       [ zflag_update_exp (Lval (V (reg rd))) ;
-         nflag_update_exp (reg_from_num rd) ; ]
-       @ set_cflag_vflag_after_add_with_carry (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (T cflag))),
+       [ zflag_update_exp (Lval (V (treg rd))) ;
+         nflag_update_exp (reg rd) ; ]
+       @ set_cflag_vflag_after_add_with_carry (Lval (V (treg rn))) (UnOp(Not, op2_stmt)) (Lval (V (T cflag))),
       rd = 15
     | 0b0111 -> (* RSC - Rd:= Op2 - Op1 + C - 1 *)
-       [ Set (V (reg rd), BinOp(Sub,
-                                BinOp(Add, BinOp(Sub, op2_stmt, Lval (V (reg rn))),
+       [ Set (V (treg rd), BinOp(Sub,
+                                BinOp(Add, BinOp(Sub, op2_stmt, Lval (V (treg rn))),
                                       UnOp(ZeroExt 32, Lval (V (T cflag))) ),
                                 const 1 32)) ],
-       [ zflag_update_exp (Lval (V (reg rd))) ;
-         nflag_update_exp (reg_from_num rd) ; ]
-       @ set_cflag_vflag_after_add_with_carry op2_stmt (UnOp(Not, (Lval (V (reg rn))))) (Lval (V (T cflag))),
+       [ zflag_update_exp (Lval (V (treg rd))) ;
+         nflag_update_exp (reg rd) ; ]
+       @ set_cflag_vflag_after_add_with_carry op2_stmt (UnOp(Not, (Lval (V (treg rn))))) (Lval (V (T cflag))),
       rd = 15
     | 0b1100 -> (* ORR - Rd:= Op1 OR Op2 *)
       [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ],
@@ -695,9 +695,9 @@ struct
       @ op2_carry_stmt,
       rd = 15
     | 0b1101 -> (* MOV - Rd:= Op2 *)
-      [ Set (V (reg rd), op2_stmt) ],
-      [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_exp (reg_from_num rd) ]
+      [ Set (V (treg rd), op2_stmt) ],
+      [ zflag_update_exp (Lval (V (treg rd))) ;
+        nflag_update_exp (reg rd) ]
       @ op2_carry_stmt,
       rd = 15
     | 0b1110 -> (* BIC - Rd:= Op1 AND NOT Op2 *)
@@ -723,7 +723,7 @@ struct
            | 0b1001 -> (* TEQ - set condition codes on Op1 EOR Op2 *)
               let tmpreg = Register.make (Register.fresh_name ()) 32 in
               [],
-              [ Set(V (T tmpreg), BinOp(Xor, Lval (V (reg rn)), op2_stmt)) ;
+              [ Set(V (T tmpreg), BinOp(Xor, Lval (V (treg rn)), op2_stmt)) ;
                 zflag_update_exp (Lval (V (T tmpreg))) ;
                 nflag_update_exp tmpreg ;
                 Directive (Remove tmpreg) ]
@@ -733,24 +733,24 @@ struct
               let tmpreg = Register.make (Register.fresh_name ()) 33 in
               [],
               [
-                Set( V (T tmpreg), BinOp(Add, to33bits (Lval (V (reg rn))),
+                Set( V (T tmpreg), BinOp(Add, to33bits (Lval (V (treg rn))),
                                          to33bits(BinOp(Add, UnOp(Not, op2_stmt),
                                                         const 1 32)))) ;
                 zflag_update_exp (Lval (V (P (tmpreg, 0, 31)))) ;
                 nflag_update_exp tmpreg ;
-                vflag_update_exp  (Lval (V (reg rn))) (UnOp(Not, op2_stmt)) (Lval (V (P (tmpreg, 0, 31)))) ;
+                vflag_update_exp  (Lval (V (treg rn))) (UnOp(Not, op2_stmt)) (Lval (V (P (tmpreg, 0, 31)))) ;
                 Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
                 Directive (Remove tmpreg) ],
               false
            | 0b1011 -> (* CMN - set condition codes on Op1 + Op2 *)
               let tmpreg = Register.make (Register.fresh_name ()) 33 in
               [],
-              [ Set( V (T tmpreg), BinOp(Add, to33bits (Lval (V (reg rn))),
+              [ Set( V (T tmpreg), BinOp(Add, to33bits (Lval (V (treg rn))),
                                          to33bits op2_stmt) ) ;
                 Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
                 zflag_update_exp (Lval (V (P (tmpreg, 0, 31)))) ;
                 nflag_update_exp tmpreg ;
-                vflag_update_exp (Lval (V (reg rn))) op2_stmt (Lval (V (P (tmpreg, 0, 31)))) ;
+                vflag_update_exp (Lval (V (treg rn))) op2_stmt (Lval (V (P (tmpreg, 0, 31)))) ;
                 Directive (Remove tmpreg) ],
               false
            | _ -> L.abort (fun p -> p "unexpected opcode %x" opcode)
@@ -760,7 +760,7 @@ struct
            match (instruction lsr 18) land 0xf with
            | 0b0011 -> (* MRS *)
               if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
-                [ Set (V (reg rd),
+                [ Set (V (treg rd),
                        BinOp(Or,
                              BinOp(Or,
                                    BinOp(Or, BinOp(Shl, UnOp(ZeroExt 32, Lval (V (T nflag))),
@@ -848,7 +848,7 @@ struct
         begin
           bitcount := !bitcount+4;
           let stmt = Set (M (BinOp(Sub, Lval (V (T sp)), const !bitcount 32), 32),
-                          Lval (V (reg i))) in
+                          Lval (V (treg i))) in
           stmts := stmt :: (!stmts)
         end
     done;
@@ -861,7 +861,7 @@ struct
     for i = 0 to 15 do
       if (reglist lsr i) land 1 = 1 then
         begin
-          let stmt = Set (V (reg i),
+          let stmt = Set (V (treg i),
                           Lval (M (BinOp(Add, Lval (V (T sp)), const !bitcount 32), 32))) in
           bitcount := !bitcount+4;
           stmts := stmt :: (!stmts)
@@ -937,7 +937,7 @@ struct
   let thumb_mov_imm _s isn =
     let regnum = (isn lsr 8) land 7 in
     let imm = isn land 0xff in
-    [ MARK_ISN (Set (V (reg regnum), const imm 32)) ;
+    [ MARK_ISN (Set (V (treg regnum), const imm 32)) ;
       MARK_FLAG (Set (V (T zflag), const (if imm = 0 then 1 else 0) 1)) ;
       MARK_FLAG (Set (V (T nflag), const (imm lsr 31) 1)) ; ]
 
@@ -968,13 +968,13 @@ struct
        begin
          match (isn lsr 9) land 3 with
          | 0b00 -> (* Add register ADD (register) *)
-            op_add rd rn (Lval (V (reg rm_or_imm3)))
+            op_add (reg rd) rn (Lval (V (treg rm_or_imm3)))
          | 0b01 -> (* Subtract register SUB (register) *)
-            op_sub rd rn (Lval (V (reg rm_or_imm3)))
+            op_sub (reg rd) rn (Lval (V (treg rm_or_imm3)))
          | 0b10 -> (* Add 3-bit immediate ADD (immediate, Thumb) *)
-            op_add rd rn (const rm_or_imm3 32)
+            op_add (reg rd) rn (const rm_or_imm3 32)
          | 0b11 -> (* Subtract 3-bit immediate SUB (immediate, Thumb) *)
-            op_sub rd rn (const rm_or_imm3 32)
+            op_sub (reg rd) rn (const rm_or_imm3 32)
          | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
        end |> mark_couple
     | 0b000 -> (* Logical Shift Left LSL (immediate) *)
@@ -983,9 +983,9 @@ struct
          let rm = (isn lsr 3) land 7 in
          let rd = isn land 7 in
          [ MARK_FLAG (Set (V (T cflag), Lval (V (preg rm (32-shift) (32-shift))))) ;
-           MARK_ISN  (Set (V (reg rd), BinOp (Shl, Lval (V (reg rm)), const shift 32))) ;
-           MARK_FLAG (nflag_update_exp (reg_from_num rd)) ;
-           MARK_FLAG (zflag_update_exp (Lval ( V (reg rd)))) ; ]
+           MARK_ISN  (Set (V (treg rd), BinOp (Shl, Lval (V (treg rm)), const shift 32))) ;
+           MARK_FLAG (nflag_update_exp (reg rd)) ;
+           MARK_FLAG (zflag_update_exp (Lval ( V (treg rd)))) ; ]
        else
          []
     | 0b001 -> (* Logical Shift Right LSR (immediate) *)
@@ -994,9 +994,9 @@ struct
        let rm = (isn lsr 3) land 7 in
        let rd = isn land 7 in
        [ MARK_FLAG (Set (V (T cflag), Lval (V (preg rm (shift-1) (shift-1))))) ;
-         MARK_ISN  (Set (V (reg rd), BinOp (Shr, Lval (V (reg rm)), const shift 32))) ;
-         MARK_FLAG (nflag_update_exp (reg_from_num rd)) ;
-         MARK_FLAG (zflag_update_exp (Lval ( V (reg rd)))) ; ]
+         MARK_ISN  (Set (V (treg rd), BinOp (Shr, Lval (V (treg rm)), const shift 32))) ;
+         MARK_FLAG (nflag_update_exp (reg rd)) ;
+         MARK_FLAG (zflag_update_exp (Lval ( V (treg rd)))) ; ]
     | 0b010 -> (* Arithmetic Shift Right ASR (immediate) *)
        notimplemented "ASR (imm)"
     | 0b100 -> (* Move MOV (immediate) *)
@@ -1039,7 +1039,7 @@ struct
     let rm = (isn lsr 3) land 0xf in
     let rd = ((isn lsr 4) land 8) lor (isn land 7) in
     let jump_pc = if rd = 15 then [ Jmp (R (Lval (V (T pc)))) ] else [] in
-    [ Set (V (reg rd), Lval (V (reg rm))) ] @ jump_pc |> mark_as_isn
+    [ Set (V (treg rd), Lval (V (treg rm))) ] @ jump_pc |> mark_as_isn
 
   let decode_thumb_special_data_branch_exch s isn =
     match (isn lsr 6) land 0xf with
@@ -1067,7 +1067,7 @@ struct
     | 0b0000 -> (* Bitwise AND *)
        notimplemented "AND (register)"
     | 0b0001 -> (* Bitwise Exclusive OR *)
-       op_eor op0 op0 (Lval (V (reg op1))) |> mark_couple
+       op_eor (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b0010 -> (* Logical Shift Left *)
        notimplemented "LSL (register)"
     | 0b0011 -> (* Logical Shift Right *)
@@ -1082,28 +1082,32 @@ struct
        notimplemented "ROR (register)"
     | 0b1000 -> (* Test *)
        let tmpreg = Register.make (Register.fresh_name ()) 32 in
-       let opstmts,flagstmts = op_and tmpreg op0 (Lval (V (reg op1))) in
+       let opstmts,flagstmts = op_and tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
     | 0b1001 -> (* Reverse Subtract from 0 *)
-       op_rsb op0 op1 (const 0 32) |> mark_couple
-    | 0b1010 -> (* Compare High Registers *)
-       notimplemented "CMP (register)"
+       op_rsb (reg op0) op1 (const 0 32) |> mark_couple
+    | 0b1010 -> (* Compare Registers *)
+       let tmpreg = Register.make (Register.fresh_name ()) 32 in
+       let opstmts,flagstmts = op_sub tmpreg op0 (Lval (V (treg op1))) in
+       mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
     | 0b1011 -> (* Compare Negative *)
-       notimplemented "CMN (register)"
+       let tmpreg = Register.make (Register.fresh_name ()) 32 in
+       let opstmts,flagstmts = op_add tmpreg op0 (Lval (V (treg op1))) in
+       mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
     | 0b1100 -> (* Bitwise OR *)
-       notimplemented "ORR (register)"
+       op_orr (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b1101 -> (* Multiply Two *)
        notimplemented "Registers MUL"
     | 0b1110 -> (* Bitwise Bit Clear *)
-       notimplemented "BIC (register)"
+       op_bic (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b1111 -> (* Bitwise NOT *)
-       notimplemented "MVN (register)"
+       op_mvn (reg op0) (Lval (V (treg op1))) |> mark_couple
     | _ -> L.abort (fun p -> p "internal error")
 
   let thumb_ldr _s isn =
     let rt = (isn lsr 8) land 7 in
     let imm = isn land 0xff in
-    [ Set (V (reg rt),
+    [ Set (V (treg rt),
            Lval (M (BinOp (Add,
                            BinOp(And, Lval (V (T pc)),
                                  const 0xfffffffc 32),
@@ -1147,9 +1151,9 @@ struct
            let imm5 = (isn lsr 6) land 0x1f in
            let rn = (isn lsr 3) land 7 in
            let rt = isn land 7 in
-           [ Set (V (reg rt),
+           [ Set (V (treg rt),
                   UnOp(ZeroExt 32,
-                       Lval (M (BinOp (Add, Lval (V (reg rn)), const imm5 32), 8)))) ] |> mark_as_isn
+                       Lval (M (BinOp (Add, Lval (V (treg rn)), const imm5 32), 8)))) ] |> mark_as_isn
     | 0b1000 ->
          if (isn lsr 11) land 1 = 0
          then (* Store Register Halfword *)
