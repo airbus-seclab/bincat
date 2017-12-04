@@ -48,4 +48,7 @@ sig
 
   (** initialize the decoder and returns its initial context *)
     val init: unit -> ctx_t
+
+    (** returns the expression to check whether an overflow occurs *)
+    val overflow_expression: unit -> exp
   end
