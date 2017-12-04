@@ -212,6 +212,11 @@ struct
     [ zflag_update_exp (Lval (V (T rd))) ;
       nflag_update_exp rd ]
 
+  let op_bic rd rn op2_stmt =
+    [ Set (V (T rd), BinOp(And, Lval (V (treg rn)), UnOp(Not, op2_stmt)) ) ],
+    [ zflag_update_exp (Lval (V (T rd))) ;
+      nflag_update_exp rd ]
+
   module Cfa = Cfa.Make(Domain)
 
   module Imports = Armv7Imports.Make(Domain)(Stubs)
@@ -701,11 +706,8 @@ struct
       @ op2_carry_stmt,
       rd = 15
     | 0b1110 -> (* BIC - Rd:= Op1 AND NOT Op2 *)
-      [ Set (V (reg rd), BinOp(And, Lval (V (reg rn)), UnOp(Not, op2_stmt)) ) ],
-      [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_exp (reg_from_num rd) ]
-      @ op2_carry_stmt,
-      rd = 15
+       let opstmts,flagstmts = op_bic (reg rd) rn op2_stmt in
+       opstmts, flagstmts @ op2_carry_stmt, rd = 15
     | 0b1111 -> (* MVN - Rd:= NOT Op2 *)
       [ Set (V (reg rd), UnOp(Not, op2_stmt)) ],
       [ zflag_update_exp (Lval (V (reg rd))) ;
