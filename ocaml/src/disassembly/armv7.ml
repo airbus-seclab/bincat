@@ -867,7 +867,18 @@ struct
           stmts := stmt :: (!stmts)
         end
     done;
-    (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ] |> mark_as_isn
+    let jmppc =
+      if reglist lsr 15 = 1 then
+        [ Set (V (T tflag), TernOp (Cmp (EQ, BinOp(And, Lval (V (T pc)), const 3 32), const 0 32),
+                                    const 0 1,    (* back to ARM mode *)
+                                    const 1 1)) ; (* stay in thumb mode *)
+          If (Cmp (EQ, Lval (V (T tflag)), const 1 1),
+              [ Set (V (P (pc, 0, 0)), const 0 1) ],
+              [ Set (V (P (pc, 0, 1)), const 0 2) ]) ;
+          Jmp (R (Lval (V (T pc)))) ; ]
+      else [] in
+
+    (!stmts) @ [ Set (V (T sp), BinOp(Add, Lval (V (T sp)), const !bitcount 32)) ] @ jmppc|> mark_as_isn
 
   let thumb_it _s isn =
     let new_itstate = isn land 0xff in
