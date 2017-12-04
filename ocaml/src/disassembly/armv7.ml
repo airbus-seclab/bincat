@@ -222,6 +222,13 @@ struct
       [ zflag_update_exp (Lval (V (T rd))) ;
         nflag_update_exp rd ]
 
+  let op_orr rd rn op2_stmt =
+    [ Set (V (T rd), BinOp(Or, Lval (V (treg rn)), op2_stmt) ) ],
+    [ zflag_update_exp (Lval (V (T rd))) ;
+      nflag_update_exp rd ]
+
+
+
   module Cfa = Cfa.Make(Domain)
 
   module Imports = Armv7Imports.Make(Domain)(Stubs)
@@ -699,11 +706,8 @@ struct
        @ set_cflag_vflag_after_add_with_carry op2_stmt (UnOp(Not, (Lval (V (treg rn))))) (Lval (V (T cflag))),
       rd = 15
     | 0b1100 -> (* ORR - Rd:= Op1 OR Op2 *)
-      [ Set (V (reg rd), BinOp(Or, Lval (V (reg rn)), op2_stmt) ) ],
-      [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_exp (reg_from_num rd) ]
-      @ op2_carry_stmt,
-      rd = 15
+       let opstmts,flagstmts = op_orr (reg rd) rn op2_stmt in
+       opstmts, flagstmts @ op2_carry_stmt, rd = 15
     | 0b1101 -> (* MOV - Rd:= Op2 *)
       [ Set (V (treg rd), op2_stmt) ],
       [ zflag_update_exp (Lval (V (treg rd))) ;
