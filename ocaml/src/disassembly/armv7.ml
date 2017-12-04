@@ -787,4 +787,5 @@ struct
   let init () =
     Imports.init ()
 
+  let overflow_expression () = Lval (V (T vflag))
 end
