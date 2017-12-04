@@ -217,6 +217,11 @@ struct
     [ zflag_update_exp (Lval (V (T rd))) ;
       nflag_update_exp rd ]
 
+  let op_mvn rd op2_stmt =
+      [ Set (V (T rd), UnOp(Not, op2_stmt)) ],
+      [ zflag_update_exp (Lval (V (T rd))) ;
+        nflag_update_exp rd ]
+
   module Cfa = Cfa.Make(Domain)
 
   module Imports = Armv7Imports.Make(Domain)(Stubs)
@@ -709,11 +714,8 @@ struct
        let opstmts,flagstmts = op_bic (reg rd) rn op2_stmt in
        opstmts, flagstmts @ op2_carry_stmt, rd = 15
     | 0b1111 -> (* MVN - Rd:= NOT Op2 *)
-      [ Set (V (reg rd), UnOp(Not, op2_stmt)) ],
-      [ zflag_update_exp (Lval (V (reg rd))) ;
-        nflag_update_exp (reg_from_num rd) ]
-      @ op2_carry_stmt,
-      rd = 15
+       let opstmts,flagstmts = op_mvn (reg rd) op2_stmt in
+       opstmts, flagstmts @ op2_carry_stmt, rd = 15
     | _ -> (* TST/TEQ/CMP/CMN or MRS/MSR *)
        if (instruction land (1 lsl 20)) <> 0 then (* S=1 => TST/TEQ/CMP/CMN *)
          begin
