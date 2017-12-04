@@ -1078,7 +1078,7 @@ struct
     let op0 = isn land 7 in
     match (isn lsr 6) land 0xf with
     | 0b0000 -> (* Bitwise AND *)
-       notimplemented "AND (register)"
+       op_and (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b0001 -> (* Bitwise Exclusive OR *)
        op_eor (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b0010 -> (* Logical Shift Left *)
