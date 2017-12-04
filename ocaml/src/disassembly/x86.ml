@@ -2408,6 +2408,8 @@ struct
         with
         | Exceptions.Error _ as e -> raise e
         | _               -> (*end of buffer *) None
+
+    let overflow_expression () = Lval (V (T fcf))
 end
 (* end Decoder *)
 
