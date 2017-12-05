@@ -715,27 +715,20 @@ struct
                D.join d1 d2, Taint.join taint1 taint2
 
            else
-             d, Taint.U
+             D.forget_lval dst d, Taint.TOP
          else
-           let e = Lval dst in
-           let d', b = D.set lv1 (BinOp (op, e, e2)) d in
-           let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
-           let d =
-             if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then d
-             else D.forget_lval dst d
-           in
-           d, Taint.logor b b'
-             
+          if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then 
+           D.set lv1 (BinOp (op, Lval dst, e2)) d
+          else D.forget_lval dst d, Taint.TOP
+            
+      | Lval lv, Const c | Const c, Lval lv -> D.set lv (BinOp (op, Lval dst, Const c)) d
+               
       | Lval lv, e | e, Lval lv ->
-         let e' = Lval dst in
-         let d', taint = D.set lv (BinOp (op, e', e)) d in
-         let d' =
-           if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then d'
-           else D.forget_lval dst d'
-         in
-         d', taint
+           if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then
+             D.set lv (BinOp (op, Lval dst, e)) d             
+           else D.forget_lval dst d, Taint.TOP
 
-      | _ ->  D.forget_lval dst d, Taint.U
+      | _ ->  D.forget_lval dst d, Taint.TOP
 
 
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
