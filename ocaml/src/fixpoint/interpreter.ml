@@ -106,18 +106,19 @@ struct
 
     (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor
     the widening may be also launched if the threshold is reached *)
-    let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
+    let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (get_field: Cfa.State.t -> D.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
       try
         let l = process_stmts g v ip in
         List.iter (fun v ->
+          let d = get_field v in
           let n, jd =
             try
               let n', jd' = Hashtbl.find !unroll_tbl ip in
-              let d' = D.join jd' v.Cfa.State.v in
+              let d' = D.join jd' d in
               Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
             with Not_found ->
-              Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
-              1, v.Cfa.State.v
+              Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, d);
+              1, d
           in
           let nb_max =
             match !unroll_nb with
@@ -134,7 +135,7 @@ struct
         ) l;
         
         List.fold_left (fun l' v ->
-          if D.is_bot v.Cfa.State.v then
+          if D.is_bot (get_field v) then
             begin
               L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
               Cfa.remove_state g v; l'
@@ -652,7 +653,7 @@ struct
             | Some (v, ip', d') ->
                Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
-              let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
+              let new_vertices = update_abstract_value g v (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
             (* add overrides if needed *)
            let new_vertices =
          try
@@ -701,38 +702,45 @@ struct
       match e1, e2 with
       | Lval lv1, Lval lv2 ->
         if Asm.equal_lval lv1 lv2 then
-           if op = Asm.Sub then
+            if op = Asm.Sub then
              let len = Asm.lval_length lv1 in
              let shift = BinOp (Asm.Shr, Lval dst, Const (Data.Word.of_int (Z.of_int 1) len)) in
-             try
-               if Z.compare Z.one (D.value_of_exp d (Decoder.overflow_expression())) = 0 then
-                 D.set lv1 (shift_and_add shift len) d
-               else
-                 D.set lv1 shift d
-             with _ ->
-               let d1, taint1 = D.set lv1 shift d in
-               let d2, taint2 = D.set lv1 (shift_and_add shift len) d in 
-               D.join d1 d2, Taint.join taint1 taint2
-
+             let d', taint =
+               try
+                 if Z.compare Z.one (D.value_of_exp d (Decoder.overflow_expression())) = 0 then
+                   D.set lv1 (shift_and_add shift len) d
+                 else
+                   D.set lv1 shift d
+               with _ ->
+                 let d1, taint1 = D.set lv1 shift d in
+                 let d2, taint2 = D.set lv1 (shift_and_add shift len) d in 
+                 D.join d1 d2, Taint.join taint1 taint2
+             in
+             if Asm.with_lval dst (Lval lv1) then
+               d', taint
+             else D.forget_lval dst d', taint
            else
              D.forget_lval dst d, Taint.TOP
          else
           if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then 
-           D.set lv1 (BinOp (op, Lval dst, e2)) d
+            D.set lv1 (BinOp (op, Lval dst, e2)) d
           else D.forget_lval dst d, Taint.TOP
             
-      | Lval lv, Const c | Const c, Lval lv -> D.set lv (BinOp (op, Lval dst, Const c)) d
+      | Lval lv, Const c | Const c, Lval lv ->
+         let d', taint = D.set lv (BinOp (op, Lval dst, Const c)) d in
+         if Asm.with_lval dst (Lval lv) then
+           d', taint
+         else D.forget_lval dst d', taint
                
       | Lval lv, e | e, Lval lv ->
            if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then
-             D.set lv (BinOp (op, Lval dst, e)) d             
+             D.set lv (BinOp (op, Lval dst, e)) d
            else D.forget_lval dst d, Taint.TOP
 
       | _ ->  D.forget_lval dst d, Taint.TOP
 
 
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
-      L.debug (fun p -> p "back_set");
       match src with
       | Lval lv ->
          let d', taint = D.set lv (Lval dst) d in
@@ -796,14 +804,20 @@ struct
           | None, None -> 
              pred.Cfa.State.back_v <- Some v';
             pred.Cfa.State.back_taint_sources <- Some taint_sources
-          | Some v2, Some t2 ->
+          | Some v2, Some t2 -> 
              pred.Cfa.State.back_v <- Some (D.join v' v2);
             pred.Cfa.State.back_taint_sources <- Some (Taint.join t2 taint_sources)
-          | _, _ -> raise (Exceptions.Error "inconsistent state in backward mode")
+          | _, _ -> 
+             raise (Exceptions.Error "inconsistent state in backward mode")
         end;
         [pred]
       in
-      update_abstract_value g v ip backward
+      let get_field v =
+        match v.Cfa.State.back_v with
+        | Some d -> d
+        | None -> raise (Exceptions.Error "Illegal call to get_field in interpreter")
+      in
+      update_abstract_value g v get_field ip backward
 
 
     let back_unroll g v pred =
@@ -884,7 +898,7 @@ struct
         succ.Cfa.State.taint_sources <- taint_sources;
         [succ]
       in
-      update_abstract_value g v ip forward
+      update_abstract_value g v (fun v -> v.Cfa.State.v) ip forward
 
     (****************************)
     (* FIXPOINT ON CFA *)
