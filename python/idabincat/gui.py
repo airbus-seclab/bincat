@@ -150,9 +150,18 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
 class TaintLaunchForm_t(QtWidgets.QDialog):
     def update_from_edit_config(self):
         config = self.s.edit_config
-        self.ip_start_addr.setText(config.analysis_ep)
-        cut = config.stop_address or ""
-        self.ip_stop_addr.setText(cut)
+        if config:
+            self.ip_start_addr.setText(config.analysis_ep)
+            cut = config.stop_address or ""
+            self.ip_stop_addr.setText(cut)
+            if config.analysis_method == 'forward_binary':
+                self.radio_forward.setChecked(True)
+            else:
+                self.radio_backward.setChecked(True)
+        else:
+            # new config
+            self.ip_start_addr.setText("0x%0X" % self.s.current_ea)
+            self.ip_stop_addr.setText("")
 
     def __init__(self, parent, state):
         super(TaintLaunchForm_t, self).__init__(parent)
@@ -181,11 +190,19 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
             self.s.edit_config = self.s.configurations[conf_name]
         else:
             idx = len(self.s.configurations.names_cache)
-            self.s.edit_config = self.s.configurations.new_config(
-                self.s.current_ea, None)
+            self.s.edit_config = None
         self.conf_select.currentIndexChanged.connect(self._load_config)
 
         self.conf_select.setCurrentIndex(idx)
+
+        self.radio_group = QtWidgets.QButtonGroup()
+        self.radio_forward = QtWidgets.QRadioButton("Forward")
+        self.radio_backward = QtWidgets.QRadioButton("Backward")
+
+        self.radio_group.addButton(self.radio_forward)
+        self.radio_group.addButton(self.radio_backward)
+
+        self.radio_forward.setChecked(True)
 
         # Start, cancel and analyzer config buttons
         self.btn_load = QtWidgets.QPushButton('&Load analyzer config...')
@@ -218,14 +235,17 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         layout.addWidget(lbl_configuration, 3, 0)
         layout.addWidget(self.conf_select, 3, 1)
 
-        layout.addWidget(self.btn_load, 4, 0)
-        layout.addWidget(self.btn_edit_conf, 4, 1)
+        layout.addWidget(self.radio_forward, 4, 0)
+        layout.addWidget(self.radio_backward, 4, 1)
 
-        layout.addWidget(self.chk_save, 5, 0)
-        layout.addWidget(self.chk_remap, 5, 1)
+        layout.addWidget(self.btn_load, 5, 0)
+        layout.addWidget(self.btn_edit_conf, 5, 1)
 
-        layout.addWidget(self.btn_start, 6, 0)
-        layout.addWidget(self.btn_cancel, 6, 1)
+        layout.addWidget(self.chk_save, 6, 0)
+        layout.addWidget(self.chk_remap, 6, 1)
+
+        layout.addWidget(self.btn_start, 7, 0)
+        layout.addWidget(self.btn_cancel, 7, 1)
 
         self.setLayout(layout)
 
@@ -248,15 +268,25 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         try:
             start_addr = int(self.ip_start_addr.text(), 16)
         except ValueError as e:
-            bc_log.error('Provided start address is invalid (%s)', e)
+            bc_log.error("Provided start address is invalid (%s)", e)
             return
-        start_addr = int(self.ip_start_addr.text(), 16)
         if self.ip_stop_addr.text() == "":
             stop_addr = None
         else:
             stop_addr = self.ip_stop_addr.text()
-        self.s.edit_config.analysis_ep = start_addr
-        self.s.edit_config.stop_address = stop_addr
+        if self.radio_forward.isChecked():
+            analysis_method = "forward_binary"
+        else:
+            analysis_method = "backward"
+
+        if not self.s.edit_config:
+            # new config
+            self.s.edit_config = self.s.configurations.new_config(
+                start_addr, stop_addr, analysis_method)
+        else:
+            self.s.edit_config.analysis_ep = start_addr
+            self.s.edit_config.stop_address = stop_addr
+            self.s.edit_config.analysis_method = analysis_method
 
         ea_int = int(self.ip_start_addr.text(), 16)
 
@@ -316,10 +346,24 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
 
     def edit_config(self):
         # display edit form
-        start_addr = self.ip_start_addr.text()
+        try:
+            start_addr = int(self.ip_start_addr.text(), 16)
+        except ValueError as e:
+            bc_log.error("Provided start address is invalid (%s)", e)
+            return
         stop_addr = self.ip_stop_addr.text()
-        self.s.edit_config.analysis_ep = start_addr
-        self.s.edit_config.stop_address = stop_addr
+        if self.radio_forward.isChecked():
+            analysis_method = "forward_binary"
+        else:
+            analysis_method = "backward"
+        if not self.s.edit_config:
+            # new config
+            self.s.edit_config = self.s.configurations.new_config(
+                start_addr, stop_addr, analysis_method)
+        else:
+            self.s.edit_config.analysis_ep = start_addr
+            self.s.edit_config.stop_address = stop_addr
+            self.s.edit_config.analysis_method = analysis_method
         editdlg = EditConfigurationFileForm_t(self, self.s)
         if editdlg.exec_() == QtWidgets.QDialog.Accepted:
             self.update_from_edit_config()
@@ -347,8 +391,7 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
     def _load_config(self, index):
         if index == len(self.s.configurations.names_cache):
             # new config
-            self.s.edit_config = self.s.configurations.new_config(
-                self.s.current_ea, None)
+            self.s.edit_config = None
         else:
             name = self.s.configurations.names_cache[index]
             self.s.edit_config = self.s.configurations[name]
@@ -625,6 +668,9 @@ class BinCATMemForm_t(idaapi.PluginForm):
                     last_addr = stop
                 self.mem_ranges[region] = merged
 
+            if not self.mem_ranges:
+                # happens in backward mode: states having no defined memory
+                return
             former_region = self.region_select.currentText()
             newregion = ""
             newregidx = -1
@@ -644,6 +690,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
 
             self.range_select.blockSignals(True)
             self.range_select.clear()
+
             for r in self.mem_ranges.values()[0]:
                 self.range_select.addItem("%08x-%08x" % r)
             self.range_select.blockSignals(False)
