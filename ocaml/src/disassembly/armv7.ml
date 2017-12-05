@@ -267,7 +267,7 @@ struct
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
-  let notimplemented isn = L.abort (fun p -> p "%s thumb16 instruction not implemented yet" isn)
+  let notimplemented isn = L.abort (fun p -> p "%s thumb instruction not implemented yet" isn)
 
   let string_to_char_list str =
     let len = String.length str in
@@ -1181,12 +1181,63 @@ struct
          notimplemented "LDR (immediate)"
     | _ -> L.abort (fun p -> p "Internal error")
 
+
+  let decode_thumb32 _s isn isn2 =
+    let op1 = (isn lsr 11) land 3 in
+    let op2 = (isn lsr 4) land 0x7f in
+    let op = isn2 lsr 15 in
+    match op1 with
+    | 0b01 ->
+       if op2 land 0x64 = 0 then (* Load/store multiple *)
+         notimplemented "thumb32 load/store multible"
+       else if op2 land 0x64 = 4 then (* Load/store dual, load/store exclusive, table branch *)
+         notimplemented  "load/store dual/excl, table branch"
+       else if op2 land 0x60 = 0x20 then (* Data-processing (shifted register) *)
+         notimplemented "Data-processing (shifted register)"
+       else if op2 land 0x40 = 40 then (* Coprocessor instructions *)
+         notimplemented "Coprocessor instructions"
+       else L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
+    | 0b10 ->
+       if op = 1 then (* Branches and miscellaneous control *)
+         notimplemented "Branches and miscellaneous control"
+       else
+         if op2 land 0x20 = 0 then (* Data-processing (modified immediate) *)
+           notimplemented "Data-processing (modified immediate)"
+         else (* Data-processing (modified immediate) *)
+           notimplemented "Data-processing (plain binary immediate)"
+    | 0b11 ->
+       if op2 land 0x71 = 0 then (* Store single data item *)
+         notimplemented "Store single data item"
+       else if op2 land 0x71 = 0x10 then (* Advanced SIMD element or structure load/store *)
+         notimplemented "Advanced SIMD element or structure load/store"
+       else if op2 land 0x67 = 1 then (* Load byte, memory hints *)
+         notimplemented "Load byte, memory hints"
+       else if op2 land 0x67 = 3 then (* Load halfword, memory hints *)
+         notimplemented "Load halfword, memory hints"
+       else if op2 land 0x67 = 5 then (* Load word *)
+         notimplemented "Load word"
+       else if op2 land 0x67 = 7 then
+         L.abort (fun p -> p "undefined Thumb32 instruction")
+       else if op2 land 0x70 = 0x20 then (* Data-processing (register) *)
+         notimplemented "Data-processing (register)"
+       else if op2 land 0x78 = 0x30 then (* Multiply, multiply accumulate, and absolute difference *)
+         notimplemented "Multiply, multiply accumulate, and absolute difference"
+       else if op2 land 0x78 = 0x38 then (* Long multiply, long multiply accumulate, and divide *)
+         notimplemented "Long multiply, long multiply accumulate, and divide"
+       else if op2 land 0x40 = 0x40 then (* Coprocessor instructions *)
+         notimplemented "Coprocessor instructions"
+       else L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
+    | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding")
+
+
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
     let marked_stmts =
       if (instruction lsr 13) land 7 = 0b111 && (instruction lsr 11) land 3 != 0 then
-        L.abort (fun p -> p "Thumb 32bit instruction decoding not implemented yet")
+        let str2 = String.sub s.buf 2 2 in
+        let isn2 = build_thumb16_instruction s str2 in
+        decode_thumb32 s instruction isn2
       else
         match (instruction lsr 10) land 0x3f with
         | 0b010000 -> (* Data-processing *)
