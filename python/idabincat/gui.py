@@ -820,6 +820,8 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         # width from the model are not respected, not sure why...
         for idx, w in enumerate(self.vtmodel.colswidths):
             self.vttable.setColumnWidth(idx, w)
+        # Make it editable
+        self.vttable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers | QtWidgets.QAbstractItemView.DoubleClicked)
 
         self.vttable.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
@@ -957,6 +959,16 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         self.mono_font = QtGui.QFont("Monospace")
         self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
         self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
+
+    def flags(self, index):
+        if index.column() > 0:
+            return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEditable
+        else:
+            return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+
+    def setData(self, index, value, role):
+        bc_log.debug("ValueTaintModel.setData(["+str(index.column())+","+str(index.row())+"],"+str(value)+","+str(role)+")")
+        return True
 
     @staticmethod
     def rowcmp(row):
