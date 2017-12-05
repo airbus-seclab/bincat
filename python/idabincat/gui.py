@@ -664,6 +664,89 @@ class BinCATMemForm_t(idaapi.PluginForm):
                      idaapi.PluginForm.FORM_RESTORE |
                      idaapi.PluginForm.FORM_TAB))
 
+class BinCATConfigForm_t(idaapi.PluginForm):
+    """
+    BinCAT initial configuration form
+    This form allows the definition and edition of
+    initial registers and memory
+    """
+
+    def __init__(self, state, vtmodel):
+        super(BinCATConfigForm_t, self).__init__()
+        self.vtmodel = vtmodel
+        self.shown = False
+        self.created = False
+
+    def OnCreate(self, form):
+        self.created = True
+
+        # Get parent widget
+        self.parent = self.FormToPyQtWidget(form)
+        layout = QtWidgets.QGridLayout(self.parent)
+
+        splitter = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(splitter, 0, 0)
+
+        # RVA address label
+        self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
+        splitter.addWidget(self.alabel)
+
+        # Inital config Table
+        self.conftable = QtWidgets.QTableView(self.parent)
+        self.conftable.setItemDelegate(RegisterItemDelegate())
+        self.conftable.setSortingEnabled(True)
+        self.conftable.setModel(self.vtmodel)
+        self.conftable.setShowGrid(False)
+        self.conftable.verticalHeader().setVisible(False)
+        self.conftable.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.conftable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.conftable.customContextMenuRequested.connect(
+            self._handle_context_menu_requested)
+        # width from the model are not respected, not sure why...
+        for idx, w in enumerate(self.vtmodel.colswidths):
+            self.conftable.setColumnWidth(idx, w)
+        # Make it editable
+        self.conftable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
+                                       | QtWidgets.QAbstractItemView.DoubleClicked)
+
+        self.conftable.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.conftable.horizontalHeader().setStretchLastSection(True)
+        self.conftable.horizontalHeader().setMinimumHeight(36)
+
+        layout.addWidget(self.vttable, 1, 0)
+
+        layout.setRowStretch(1, 0)
+
+        self.parent.setLayout(layout)
+
+        if isinstance(self.s.current_ea, int):
+            self.update_current_ea(self.s.current_ea)
+
+    def OnClose(self, form):
+        self.shown = False
+
+    def Show(self):
+        if self.shown:
+            return
+        self.shown = True
+        return idaapi.PluginForm.Show(
+            self, "BinCAT Configuration",
+            options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_SAVE |
+                     idaapi.PluginForm.FORM_MENU |
+                     idaapi.PluginForm.FORM_RESTORE |
+                     idaapi.PluginForm.FORM_TAB))
+
+    def update_current_ea(self, ea):
+        """
+        :param ea: int or long
+        """
+        self.rvatxt = '0x%08x' % ea
+        if not (self.shown and self.created):
+            return
+        self.alabel.setText('RVA: %s' % self.rvatxt)
 
 class BinCATDebugForm_t(idaapi.PluginForm):
     """
@@ -1624,6 +1707,7 @@ class GUI(object):
         self.s = state
         self.vtmodel = ValueTaintModel(state)
         self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.vtmodel)
+        self.BinCATConfigForm = BinCATConfigForm_t(state, self.vtmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
         self.BinCATMemForm = BinCATMemForm_t(state)
         self.overrides_model = OverridesModel(state)
@@ -1682,6 +1766,7 @@ class GUI(object):
     def show_windows(self):
         self.BinCATDebugForm.Show()
         self.BinCATRegistersForm.Show()
+        self.BinCATConfigForm.Show()
         self.BinCATOverridesForm.Show()
         self.BinCATConfigurationsForm.Show()
         self.BinCATMemForm.Show()
@@ -1691,6 +1776,7 @@ class GUI(object):
 
     def after_change_ea(self):
         self.BinCATRegistersForm.update_current_ea(self.s.current_ea)
+        self.BinCATConfigForm.update_current_ea(self.s.current_ea)
         self.vtmodel.endResetModel()
         self.BinCATDebugForm.update(self.s.current_state)
         self.BinCATMemForm.update_current_ea(self.s.current_ea)
