@@ -1040,6 +1040,11 @@ class InitConfigModel(QtCore.QAbstractTableModel):
         self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
         self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
 
+    def flags(self, index):
+        return (QtCore.Qt.ItemIsEditable
+                | QtCore.Qt.ItemIsSelectable
+                | QtCore.Qt.ItemIsEnabled)
+
     def endResetModel(self):
         """
         Rebuild a list of rows
