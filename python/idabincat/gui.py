@@ -1030,41 +1030,36 @@ class InitConfigModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(InitConfigModel, self).__init__(*args, **kwargs)
         self.s = state
-        self.headers = ["register", "value", "taint"]
-        self.colswidths = [90, 90, 90]
+        self.headers = ["register", "value", "top", "taint"]
+        self.colswidths = [90, 90, 90, 90]
         #: list of Value (addresses)
         self.rows = []
-        self.changed_rows = set()
         self.default_font = QtGui.QFont("AnyStyle")
         self.mono_font = QtGui.QFont("Monospace")
         self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
         self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
+        self.reg_re = re.compile("(?P<value>[^!?]+)(?P<top>\?[^!]+)?(?P<taint>!.*)?")
 
     def flags(self, index):
-        return (QtCore.Qt.ItemIsEditable
-                | QtCore.Qt.ItemIsSelectable
-                | QtCore.Qt.ItemIsEnabled)
+        flags =  (QtCore.Qt.ItemIsSelectable
+                    | QtCore.Qt.ItemIsEnabled)
+        if index.column() > 0:
+            flags |= QtCore.Qt.ItemIsEditable
+        return flags
+
 
     def endResetModel(self):
         """
         Rebuild a list of rows
         """
-        state = self.s.current_state
+        if idaapi.get_screen_ea() != idaapi.BADADDR:
+            config = AnalyzerConfig.get_default_config(idaapi.get_screen_ea(), "")
+        else:
+            config = None
         #: list of Values (addresses)
         self.rows = []
-        self.changed_rows = set()
-        if state:
-            self.rows = filter(lambda x: x.region == "reg", state.regaddrs)
-            self.rows = sorted(self.rows, key=ValueTaintModel.rowcmp)
-
-            # find parent state
-            parents = [nodeid for nodeid in self.s.cfa.edges
-                       if state.node_id in self.s.cfa.edges[nodeid]]
-            for pnode in parents:
-                pstate = self.s.cfa[pnode]
-                for k in state.list_modified_keys(pstate):
-                    if k in self.rows:
-                        self.changed_rows.add(self.rows.index(k))
+        if config:
+            self.rows = filter(lambda x: x[0][0:3] == "reg", config.state)
 
         super(InitConfigModel, self).endResetModel()
 
@@ -1076,55 +1071,53 @@ class InitConfigModel(QtCore.QAbstractTableModel):
         elif role == QtCore.Qt.SizeHintRole:
             return QtCore.QSize(self.colswidths[section], 20)
 
+
+    def setData(self, index, value, role):
+        if role != QtCore.Qt.EditRole:
+            return False
+        col = index.column()
+        row = index.row()
+        if col == 0:
+            return False
+        if row > len(self.rows):
+            return False
+        else:
+            # existing row
+            bc_log.debug("Try to change :"+value)
+        return True  # success
+
+
     def data(self, index, role):
         col = index.column()
         if role == QtCore.Qt.SizeHintRole:
             # XXX not obeyed. why?
             return QtCore.QSize(self.colswidths[col], 20)
         elif role == QtCore.Qt.FontRole:
-            if index.row() in self.changed_rows:
-                if col in [1, 3]:
-                    return self.diff_font_mono
-                else:
-                    return self.diff_font
+            if col in [1, 3]:
+                return self.mono_font
             else:
-                if col in [1, 3]:
-                    return self.mono_font
-                else:
-                    return self.default_font
+                return self.default_font
         elif role == QtCore.Qt.ToolTipRole: # add tooltip ?
             return
         elif role != QtCore.Qt.DisplayRole:
             return
-        regaddr = self.rows[index.row()]
+
+        regconfig = self.rows[index.row()]
 
         if col == 0:  # register name
-            return str(regaddr.value)
-        v = self.s.current_state[regaddr]
-        if not v:
-            return ""
+            return regconfig[0][4:-1]
+
+        m = self.reg_re.match(regconfig[1])
         if col == 1:  # value
-            concatv = v[0]
-            strval = ''
-            for idx, nextv in enumerate(v[1:]):
-                if idx > 50:
-                    strval = concatv.__valuerepr__(16, True) + '...'
-                    break
-                concatv = concatv & nextv
-            if not strval:
-                strval = concatv.__valuerepr__(16, True)
-            concatv = v[0]
-            strtaint = ''
-            for idx, nextv in enumerate(v[1:]):
-                if idx > 50:
-                    strtaint = concatv.__taintrepr__(16, True) + '...'
-                    break
-                concatv = concatv & nextv
-            if not strtaint:
-                strtaint = concatv.__taintrepr__(16, True)
-            if strtaint != "":
-                strval = Meminfo.color_valtaint(strval, strtaint)
-            return strval
+            return m.group('value')
+
+        if col == 2:  # top
+            v = m.group('top') or '?'
+            return v[1:]
+
+        if col == 3:  # taint
+            v = m.group('taint') or '!'
+            return v[1:]
 
     def rowCount(self, parent):
         return len(self.rows)
