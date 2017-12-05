@@ -80,7 +80,7 @@ struct
            in
            if b then D.join v1 v2, taint_sources
            else D.meet v1 v2, taint_sources
-
+             
         | BBinOp (LogAnd, e1, e2) ->
            let v1, taint1 = process e1 b in
            let v2, taint2 = process e2 b in
@@ -110,29 +110,29 @@ struct
       try
         let l = process_stmts g v ip in
         List.iter (fun v ->
-            let n, jd =
-              try
-        let n', jd' = Hashtbl.find !unroll_tbl ip in
-        let d' = D.join jd' v.Cfa.State.v in
-        Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
-              with Not_found ->
-        Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
-        1, v.Cfa.State.v
-            in
-        let nb_max =
-          match !unroll_nb with
-          | None -> !Config.unroll
-          | Some n -> n
-        in
-            if n <= nb_max then
-              ()
-            else
-          begin
-        L.analysis (fun p -> p "widening occurs at %s" (Data.Address.to_string ip));
-        widen jd v
-          end
+          let n, jd =
+            try
+              let n', jd' = Hashtbl.find !unroll_tbl ip in
+              let d' = D.join jd' v.Cfa.State.v in
+              Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
+            with Not_found ->
+              Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
+              1, v.Cfa.State.v
+          in
+          let nb_max =
+            match !unroll_nb with
+            | None -> !Config.unroll
+            | Some n -> n
+          in
+          if n <= nb_max then
+            ()
+          else
+            begin
+              L.analysis (fun p -> p "widening occurs at %s" (Data.Address.to_string ip));
+              widen jd v
+            end
         ) l;
-
+        
         List.fold_left (fun l' v ->
           if D.is_bot v.Cfa.State.v then
             begin
@@ -508,7 +508,7 @@ struct
             else
               (* explore if a greater abstract state of v has already been explored *)
               if subsuming then
-        Cfa.iter_state (fun prev ->
+                Cfa.iter_state (fun prev ->
                   if v.Cfa.State.id = prev.Cfa.State.id then
                     ()
                   else
@@ -690,14 +690,30 @@ struct
 
     (******************** BACKWARD *******************************)
     (*************************************************************)
-         
+
+    let shift_and_add shift len =
+      let one = Const (Data.Word.one len) in
+      let one' = Const (Data.Word.of_int (Z.of_int (len-1)) len) in
+      let shifted_one = BinOp (Asm.Shl, one, one') in
+      BinOp (Asm.Add, shift, shifted_one)
+        
     let back_add_sub op dst e1 e2 d =
       match e1, e2 with
       | Lval lv1, Lval lv2 ->
         if Asm.equal_lval lv1 lv2 then
            if op = Asm.Sub then
              let len = Asm.lval_length lv1 in
-             D.set lv1 (BinOp (Asm.Shr, Lval dst, Const (Data.Word.one len))) d
+             let shift = BinOp (Asm.Shr, Lval dst, Const (Data.Word.of_int (Z.of_int 1) len)) in
+             try
+               if Z.compare Z.one (D.value_of_exp d (Decoder.overflow_expression())) = 0 then
+                 D.set lv1 (shift_and_add shift len) d
+               else
+                 D.set lv1 shift d
+             with _ ->
+               let d1, taint1 = D.set lv1 shift d in
+               let d2, taint2 = D.set lv1 (shift_and_add shift len) d in 
+               D.join d1 d2, Taint.join taint1 taint2
+
            else
              d, Taint.U
          else
@@ -752,7 +768,7 @@ struct
         | Nop -> d, Taint.U
         | Directive (Forget _) -> d, Taint.U
         | Directive (Remove r) -> D.add_register r d, Taint.U
-        | Directive (Taint _) -> D.forget d, Taint.U
+        | Directive (Taint _) -> D.forget d, Taint.TOP
         | Directive (Type _) -> D.forget d, Taint.U
         | Directive (Unroll _) -> d, Taint.U
         | Directive (Unroll_until _) -> d, Taint.U
@@ -760,10 +776,10 @@ struct
         | Directive (Stub _) -> d, Taint.U
         | Set (dst, src) -> back_set dst src d
         | Assert (_bexp, _msg) -> d, Taint.U (* TODO *)
-        | If (e, istmts, estmts) ->
+        | If (_e, istmts, estmts) ->
            match branch with
-           | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) istmts in let v, b' = restrict d' e true in v, Taint.logor b b'
-           | Some false -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) estmts in let v, b' = restrict d' e false in v, Taint.logor b b'
+           | Some true -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) (List.rev istmts)
+           | Some false -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) (List.rev estmts)
            | None -> D.forget d, Taint.U
       in
       back d stmt

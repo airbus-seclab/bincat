@@ -715,7 +715,9 @@ module Make(D: T) =
            else
              let m' = Env.empty in
              let m' = Env.fold (fun k v1 m' ->
+               L.debug (fun p -> p "key = %s... (value=%s)" (Env.Key.to_string k) (D.to_string v1));
                try let v2 = Env.find k m2' in
+                   L.debug (fun p -> p "meet with (new=%s)" (D.to_string v2));
                    Env.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
              Val m'
 
