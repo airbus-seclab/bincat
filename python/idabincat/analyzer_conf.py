@@ -314,6 +314,10 @@ class AnalyzerConfig(object):
     def format(self):
         return self._config.get('program', 'format').lower()
 
+    @property
+    def state(self):
+        return self._config.items('state')
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
