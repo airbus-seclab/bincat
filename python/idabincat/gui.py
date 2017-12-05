@@ -761,7 +761,7 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
 
 class BinCATRegistersForm_t(idaapi.PluginForm):
     """
-    BinCAT Tainted values form
+    BinCAT Register values form
     This form displays the values of tainted registers
     """
 
