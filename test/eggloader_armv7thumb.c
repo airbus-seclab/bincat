@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
                    PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
         if (!egg) { perror("mmap"); return -4; }
         if (len != aligned_len) 
-                memcpy(((char *)egg)+len, "\x00\x1c", 2); // nop padding for alignment
+                memcpy(((char *)egg)+len, "\x10\xbf", 2); // nop padding for alignment (yield)
         memcpy(((char *)egg)+aligned_len, ret_to_main, sizeof(ret_to_main));
         spsav = egg+aligned_len+sizeof(ret_to_main)-1;
 
