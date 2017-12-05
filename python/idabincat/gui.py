@@ -1785,11 +1785,12 @@ class GUI(object):
         if self.hooks:
             self.hooks.unhook()
             self.hooks = None
-        self.BinCATRegistersForm.Close(0)
-        self.BinCATDebugForm.Close(0)
-        self.BinCATMemForm.Close(0)
-        self.BinCATOverridesForm.Close(0)
-        self.BinCATConfigurationsForm.Close(0)
+        self.BinCATConfigForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATRegistersForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATDebugForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATMemForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATOverridesForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATConfigurationsForm.Close(idaapi.PluginForm.FORM_SAVE)
         self.vtmodel = None
         self.overrides_model = None
         self.configurations_model = None
