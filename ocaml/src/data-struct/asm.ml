@@ -308,7 +308,7 @@ let rec with_lval lv e =
 (** returns the length in bits of the given lvalue *)
 let lval_length lv =
   match lv with
-  | V (T r) 
-  | V (P (r, _, _)) -> Register.size r
+  | V (T r) -> Register.size r
+  | V (P (_r, l, u)) -> u-l+1 
   | M (_, n) -> n
     
