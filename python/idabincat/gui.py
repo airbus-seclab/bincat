@@ -676,6 +676,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.vtmodel = vtmodel
         self.shown = False
         self.created = False
+        self.s = state
 
     def OnCreate(self, form):
         self.created = True
@@ -701,8 +702,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.conftable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
         self.conftable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.conftable.customContextMenuRequested.connect(
-            self._handle_context_menu_requested)
         # width from the model are not respected, not sure why...
         for idx, w in enumerate(self.vtmodel.colswidths):
             self.conftable.setColumnWidth(idx, w)
@@ -715,7 +714,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.conftable.horizontalHeader().setStretchLastSection(True)
         self.conftable.horizontalHeader().setMinimumHeight(36)
 
-        layout.addWidget(self.vttable, 1, 0)
+        layout.addWidget(self.conftable, 1, 0)
 
         layout.setRowStretch(1, 0)
 
@@ -1021,6 +1020,112 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         htext = "reg[%s]" % regname
         self.s.overrides.append((self.s.current_ea, htext, mask))
 
+
+class InitConfigModel(QtCore.QAbstractTableModel):
+    """
+    Used as model in BinCATConfigForm_t TableView widgets.
+
+    Contains tainting and values for registers
+    """
+    def __init__(self, state, *args, **kwargs):
+        super(InitConfigModel, self).__init__(*args, **kwargs)
+        self.s = state
+        self.headers = ["register", "value", "taint"]
+        self.colswidths = [90, 90, 90]
+        #: list of Value (addresses)
+        self.rows = []
+        self.changed_rows = set()
+        self.default_font = QtGui.QFont("AnyStyle")
+        self.mono_font = QtGui.QFont("Monospace")
+        self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
+        self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
+
+    def endResetModel(self):
+        """
+        Rebuild a list of rows
+        """
+        state = self.s.current_state
+        #: list of Values (addresses)
+        self.rows = []
+        self.changed_rows = set()
+        if state:
+            self.rows = filter(lambda x: x.region == "reg", state.regaddrs)
+            self.rows = sorted(self.rows, key=ValueTaintModel.rowcmp)
+
+            # find parent state
+            parents = [nodeid for nodeid in self.s.cfa.edges
+                       if state.node_id in self.s.cfa.edges[nodeid]]
+            for pnode in parents:
+                pstate = self.s.cfa[pnode]
+                for k in state.list_modified_keys(pstate):
+                    if k in self.rows:
+                        self.changed_rows.add(self.rows.index(k))
+
+        super(InitConfigModel, self).endResetModel()
+
+    def headerData(self, section, orientation, role):
+        if orientation != QtCore.Qt.Horizontal:
+            return
+        if role == QtCore.Qt.DisplayRole:
+            return self.headers[section]
+        elif role == QtCore.Qt.SizeHintRole:
+            return QtCore.QSize(self.colswidths[section], 20)
+
+    def data(self, index, role):
+        col = index.column()
+        if role == QtCore.Qt.SizeHintRole:
+            # XXX not obeyed. why?
+            return QtCore.QSize(self.colswidths[col], 20)
+        elif role == QtCore.Qt.FontRole:
+            if index.row() in self.changed_rows:
+                if col in [1, 3]:
+                    return self.diff_font_mono
+                else:
+                    return self.diff_font
+            else:
+                if col in [1, 3]:
+                    return self.mono_font
+                else:
+                    return self.default_font
+        elif role == QtCore.Qt.ToolTipRole: # add tooltip ?
+            return
+        elif role != QtCore.Qt.DisplayRole:
+            return
+        regaddr = self.rows[index.row()]
+
+        if col == 0:  # register name
+            return str(regaddr.value)
+        v = self.s.current_state[regaddr]
+        if not v:
+            return ""
+        if col == 1:  # value
+            concatv = v[0]
+            strval = ''
+            for idx, nextv in enumerate(v[1:]):
+                if idx > 50:
+                    strval = concatv.__valuerepr__(16, True) + '...'
+                    break
+                concatv = concatv & nextv
+            if not strval:
+                strval = concatv.__valuerepr__(16, True)
+            concatv = v[0]
+            strtaint = ''
+            for idx, nextv in enumerate(v[1:]):
+                if idx > 50:
+                    strtaint = concatv.__taintrepr__(16, True) + '...'
+                    break
+                concatv = concatv & nextv
+            if not strtaint:
+                strtaint = concatv.__taintrepr__(16, True)
+            if strtaint != "":
+                strval = Meminfo.color_valtaint(strval, strtaint)
+            return strval
+
+    def rowCount(self, parent):
+        return len(self.rows)
+
+    def columnCount(self, parent):
+        return len(self.headers)
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
     """
@@ -1360,7 +1465,6 @@ class BinCATOverridesView(QtWidgets.QTableView):
 
 # Configurations list - panel, view, model
 
-
 class BinCATConfigurationsForm_t(idaapi.PluginForm):
     def __init__(self, state, configurations_model):
         super(BinCATConfigurationsForm_t, self).__init__()
@@ -1694,8 +1798,9 @@ class GUI(object):
         """
         self.s = state
         self.vtmodel = ValueTaintModel(state)
+        self.configmodel = InitConfigModel(state)
         self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.vtmodel)
-        self.BinCATConfigForm = BinCATConfigForm_t(state, self.vtmodel)
+        self.BinCATConfigForm = BinCATConfigForm_t(state, self.configmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
         self.BinCATMemForm = BinCATMemForm_t(state)
         self.overrides_model = OverridesModel(state)
@@ -1761,11 +1866,13 @@ class GUI(object):
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()
+        self.configmodel.beginResetModel()
 
     def after_change_ea(self):
         self.BinCATRegistersForm.update_current_ea(self.s.current_ea)
         self.BinCATConfigForm.update_current_ea(self.s.current_ea)
         self.vtmodel.endResetModel()
+        self.configmodel.endResetModel()
         self.BinCATDebugForm.update(self.s.current_state)
         self.BinCATMemForm.update_current_ea(self.s.current_ea)
 
