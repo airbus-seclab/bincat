@@ -738,8 +738,12 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         self.parent.setLayout(layout)
 
+        self.cfg_select.clear()
+        self.cfg_select.addItems(
+            self.s.configurations.names_cache + ['(new)'])
+        # pre-select preferred conf, if any
         if isinstance(self.s.current_ea, int):
-            self.update_current_ea(self.s.current_ea)
+            conf_name = self.s.configurations.get_pref(self.s.current_ea)
 
     @QtCore.pyqtSlot(str)
     def _load_config(self, index):
@@ -770,17 +774,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
                      idaapi.PluginForm.FORM_RESTORE |
                      idaapi.PluginForm.FORM_TAB))
 
-    def update_current_ea(self, ea):
-        """
-        :param ea: int or long
-        """
-        if not (self.shown and self.created):
-            return
-        self.cfg_select.clear()
-        self.cfg_select.addItems(
-            self.s.configurations.names_cache + ['(new)'])
-        # pre-select preferred conf, if any
-        conf_name = self.s.configurations.get_pref(self.s.current_ea)
 
 class BinCATDebugForm_t(idaapi.PluginForm):
     """
@@ -1896,13 +1889,10 @@ class GUI(object):
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()
-        self.configmodel.beginResetModel()
 
     def after_change_ea(self):
         self.BinCATRegistersForm.update_current_ea(self.s.current_ea)
-        self.BinCATConfigForm.update_current_ea(self.s.current_ea)
         self.vtmodel.endResetModel()
-        self.configmodel.endResetModel()
         self.BinCATDebugForm.update(self.s.current_state)
         self.BinCATMemForm.update_current_ea(self.s.current_ea)
 
