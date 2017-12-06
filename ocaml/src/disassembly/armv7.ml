@@ -1130,51 +1130,59 @@ struct
                     32))) ] |> mark_as_isn
 
   let decode_thumb_load_store_single_data_item _s isn =
-    let rn = (isn lsr 3) land 7 in
-    let rt = isn land 7 in
-    let stmts = 
-      if isn land 0xf000 = 0x5000 then
-        let rm = (isn lsr 6) land 7 in
-        let ofs = BinOp (Add, Lval (V (treg rm)), Lval (V (treg rn))) in
-        match (isn lsr 9) land 0x7 with
-        | 0b000 -> (* STR (register) Store Register *)
-           [ Set (M (ofs, 32), Lval (V (treg rt))) ]
-        | 0b001 -> (* STRH (register) Store Register Halfword *)
-           [ Set (M (ofs, 16), Lval (V (preg rt 0 15))) ]
-        | 0b010 -> (* STRB (register) Store Register Byte *)
-           [ Set (M (ofs, 8), Lval (V (preg rt 0 7))) ]
-        | 0b011 -> (* LDRSB (register) Load Register Signed Byte *)
-           [ Set (V (treg rt), UnOp (SignExt 32, Lval (M (ofs, 8)))) ]
-        | 0b100 -> (* LDR (register) Load Register *)
-           [ Set (V (treg rt), Lval (M (ofs, 32))) ]
-        | 0b101 -> (* LDRH (register) Load Register Halfword *)
-           [ Set (V (treg rt), UnOp( ZeroExt 32, Lval (M (ofs, 16)))) ]
-        | 0b110 -> (* LDRB (register) Load Register Byte *)
-           [ Set (V (treg rt), UnOp( ZeroExt 32, Lval (M (ofs, 8)))) ]
-        | 0b111 -> (* LDRSH (register) Load Register Signed Halfword *)
-           [ Set (V (treg rt), UnOp( SignExt 32, Lval (M (ofs, 16)))) ]
-        | _ -> L.abort (fun p -> p "Internal error")
-      else
-        let imm5 = (isn lsr 6) land 0x1f in
-        let ofs = BinOp (Add, Lval (V (treg rn)), const imm5 32) in
-        match isn lsr 11 land 0x1f with
-        | 0b01100 -> (* Store Register *)
+    let stmts =
+      match (isn lsr 12) land 0xf with
+      | 0b0101 ->
+         let rn = (isn lsr 3) land 7 in
+         let rt = isn land 7 in
+         let rm = (isn lsr 6) land 7 in
+         let ofs = BinOp (Add, Lval (V (treg rm)), Lval (V (treg rn))) in
+         begin
+           match (isn lsr 9) land 0x7 with
+           | 0b000 -> (* STR (register) Store Register *)
+              [ Set (M (ofs, 32), Lval (V (treg rt))) ]
+           | 0b001 -> (* STRH (register) Store Register Halfword *)
+              [ Set (M (ofs, 16), Lval (V (preg rt 0 15))) ]
+           | 0b010 -> (* STRB (register) Store Register Byte *)
+              [ Set (M (ofs, 8), Lval (V (preg rt 0 7))) ]
+           | 0b011 -> (* LDRSB (register) Load Register Signed Byte *)
+              [ Set (V (treg rt), UnOp (SignExt 32, Lval (M (ofs, 8)))) ]
+           | 0b100 -> (* LDR (register) Load Register *)
+              [ Set (V (treg rt), Lval (M (ofs, 32))) ]
+           | 0b101 -> (* LDRH (register) Load Register Halfword *)
+              [ Set (V (treg rt), UnOp( ZeroExt 32, Lval (M (ofs, 16)))) ]
+           | 0b110 -> (* LDRB (register) Load Register Byte *)
+              [ Set (V (treg rt), UnOp( ZeroExt 32, Lval (M (ofs, 8)))) ]
+           | 0b111 -> (* LDRSH (register) Load Register Signed Halfword *)
+              [ Set (V (treg rt), UnOp( SignExt 32, Lval (M (ofs, 16)))) ]
+           | _ -> L.abort (fun p -> p "Internal error")
+         end
+      | 0b1001 ->
+         if isn land 0x800 = 0 then  (* Store Register SP relative *)
            notimplemented "STR (immediate)"
-        | 0b01101 -> (* LDR (immediate) Load Register *)
-           [ Set (V (treg rt), Lval (M (ofs, 32))) ]
-        | 0b01110 -> (* Store Register Byte *)
-           notimplemented "STRB (immediate)"
-        | 0b01111 -> (* LDRB (immediate) *)
-           [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs, 8)))) ]
-        | 0b10000 -> (* Store Register Halfword *)
-           notimplemented "STRH (immediate)"
-        | 0b10001 -> (* Load Register Halfword *)
-           notimplemented "LDRH (immediate)"
-        | 0b10010 -> (* Store Register SP relative *)
-           notimplemented "STR (immediate)"
-        | 0b10011 -> (* Load Register SP relative *)
+         else (* Load Register SP relative *)
            notimplemented "LDR (immediate)"
-        | _ -> L.abort (fun p -> p "Internal error") in
+      | _ -> 
+         let rn = (isn lsr 3) land 7 in
+         let rt = isn land 7 in
+         let imm5 = (isn lsr 6) land 0x1f in
+         let ofs = BinOp (Add, Lval (V (treg rn)), const imm5 32) in
+         begin
+           match isn lsr 11 land 0x1f with
+           | 0b01100 -> (* STR (immediate) Store Register *)
+              [ Set (M (ofs, 32), Lval (V (treg rt))) ]
+           | 0b01101 -> (* LDR (immediate) Load Register *)
+              [ Set (V (treg rt), Lval (M (ofs, 32))) ]
+           | 0b01110 -> (* Store Register Byte *)
+              notimplemented "STRB (immediate)"
+           | 0b01111 -> (* LDRB (immediate) *)
+              [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs, 8)))) ]
+           | 0b10000 -> (* Store Register Halfword *)
+              notimplemented "STRH (immediate)"
+           | 0b10001 -> (* Load Register Halfword *)
+              notimplemented "LDRH (immediate)"
+           | _ -> L.abort (fun p -> p "Internal error")
+         end in
     mark_as_isn stmts
 
 
