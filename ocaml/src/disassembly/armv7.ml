@@ -1159,8 +1159,12 @@ struct
                    Lval (M (BinOp (Add, Lval (V (treg rm)),
                                    Lval (V (treg rn))),
                             32))) ]
-         | 0b101 -> (* Load Register Halfword *)
-            notimplemented "LDRH (register)"
+         | 0b101 -> (* LDRH (register) Load Register Halfword *)
+            [ Set (V (treg rt),
+                   UnOp( ZeroExt 32,
+                         Lval (M (BinOp (Add, Lval (V (treg rm)),
+                                         Lval (V (treg rn))),
+                                  16)))) ]
          | 0b110 -> (* Load Register Byte *)
             notimplemented "LDRB (register)"
          | 0b111 -> (* Load Register Signed Halfword *)
