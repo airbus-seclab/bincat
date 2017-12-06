@@ -1137,8 +1137,11 @@ struct
        let rt = isn land 7 in
        begin
          match (isn lsr 9) land 0x7 with
-         | 0b000 -> (* Store Register *)
-            notimplemented "STR (register)"
+         | 0b000 -> (* STR (register) Store Register *)
+            [ Set (M (BinOp (Add, Lval (V (treg rm)),
+                                   Lval (V (treg rn))),
+                            32),
+                   Lval (V (treg rt))) ]
          | 0b001 -> (* Store Register Halfword *)
             notimplemented "STRH (register)"
          | 0b010 -> (* Store Register Byte *)
