@@ -202,38 +202,44 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_registers_with_state(arch):
+        # returns a dict with register names as key
+        # value is an array with [ "value", "topmask", "taintmask"]
         regs = {}
         if arch == "x86":
             for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
-                regs[name] = "0?0xFFFFFFFF"
+                regs[name] = ["0", "0xFFFFFFFF", ""]
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
                          "rf", "vm", "ac", "vif", "vip", "id"]:
-                regs[name] = "0?1"
-            regs["esp"] = "0x2000"
-            regs["df"] = "0"
-            regs["iopl"] = "3"
+                regs[name] = ["0", "1", ""]
+            regs["esp"] = ["0x2000", "", ""]
+            regs["df"] = ["0", "", ""]
+            regs["iopl"] = ["3", "", ""]
         elif arch == "armv7":
-            regs["sp"] = "0x2000"
-            regs["lr"] = "0x0"
-            regs["pc"] = "0x0"
-            regs["n"] = "0?1"
-            regs["z"] = "0?1"
-            regs["c"] = "0?1"
-            regs["v"] = "0?1"
+            regs["sp"] = ["0x2000", "", ""]
+            regs["lr"] = ["0x0", "", ""]
+            regs["pc"] = ["0x0", "", ""]
+            regs["n"] = ["0", "1", ""]
+            regs["z"] = ["0", "1", ""]
+            regs["c"] = ["0", "1", ""]
+            regs["v"] = ["0", "1", ""]
             for i in range(13):
-                regs["r%d" % i] = "0?0xFFFFFFFF"
+                regs["r%d" % i] = ["0", "0xFFFFFFFF", ""]
         elif arch == "armv8":
-            regs["sp"] = "0x2000"
-            regs["n"] = "0?1"
-            regs["z"] = "0?1"
-            regs["c"] = "0?1"
-            regs["v"] = "0?1"
-            regs["xzr"] = "0"
+            regs["sp"] = ["0x2000", "", ""]
+            regs["n"] = ["0", "1", ""]
+            regs["z"] = ["0", "1", ""]
+            regs["c"] = ["0", "1", ""]
+            regs["v"] = ["0", "1", ""]
+            regs["xzr"] = ["0", "", ""]
             for i in range(31):
-                regs["x%d" % i] = "0?0xFFFFFFFFFFFFFFFF"
+                regs["x%d" % i] = ["0", "0xFFFFFFFFFFFFFFFF", ""]
             for i in range(32):
-                regs["q%d" % i] = "0?0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+                regs["q%d" % i] = ["0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""]
         return regs
+
+    @staticmethod
+    def get_initial_mem(arch=None):
+        return [["stack", "0x1000*8192", "|00|?0xFF"]]
 
     @staticmethod
     def get_arch(entrypoint):
@@ -247,6 +253,44 @@ class ConfigHelpers(object):
             else:
                 return "armv8"
 
+
+class InitialState(object):
+    """
+    Stores the initial state configuration:
+        * registers
+        * memory
+    """
+    def __init__(self,entrypoint = None):
+        arch = ConfigHelpers.get_arch(entrypoint)
+        self.regs = ConfigHelpers.get_registers_with_state(arch)
+        self.mem = ConfigHelpers.get_initial_mem(arch)
+
+    @staticmethod
+    def reg_to_strs(regname, value):
+        val_str = value[0]
+        if value[1] != "": # add top mask if needed
+            val_str += "?"+value[1]
+        if value[2] != "": # add taint mask if needed
+            val_str += ":"+value[2]
+        return ["reg[%s]" % regname, val_str]
+
+    @staticmethod
+    def mem_to_strs(memdef):
+        return ["%s[%s]" % (memdef[0], memdef[1]), memdef[2]]
+
+    def as_kv(self):
+        res = []
+        for regname, value in self.regs.items():
+            print regname+" :"+repr(value)
+            res.append(self.reg_to_strs(regname, value))
+        for memdef in self.mem:
+            res.append(self.mem_to_strs(memdef))
+        return res
+
+    @staticmethod
+    def get_default(entrypoint):
+        state = InitialState(entrypoint)
+        return state.as_kv()
 
 class AnalyzerConfig(object):
     """
@@ -478,11 +522,9 @@ class AnalyzerConfig(object):
 
         # [state section]
         config.add_section("state")
-        regs = ConfigHelpers.get_registers_with_state(arch)
-        for rname, val in regs.iteritems():
-            config.set("state", ("reg[%s]" % rname), val)
-        # Default stack
-        config.set("state", "stack[0x1000*8192]", "|00|?0xFF")
+        init_state = InitialState.get_default(analysis_start_va)
+        for key, val in init_state:
+            config.set("state", key, val)
 
         imports = ConfigHelpers.get_imports()
         # [import] section
