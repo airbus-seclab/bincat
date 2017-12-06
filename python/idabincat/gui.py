@@ -1038,7 +1038,9 @@ class InitConfigModel(QtCore.QAbstractTableModel):
         self.mono_font = QtGui.QFont("Monospace")
         self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
         self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
-        self.reg_re = re.compile("(?P<value>[^!?]+)(?P<top>\?[^!]+)?(?P<taint>!.*)?")
+        # regex to parse init syntax for registers
+        # example: reg[eax] = 100?0xF!0xF0
+        self.reg_re = re.compile("(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
 
     def flags(self, index):
         flags =  (QtCore.Qt.ItemIsSelectable
@@ -1059,7 +1061,12 @@ class InitConfigModel(QtCore.QAbstractTableModel):
         #: list of Values (addresses)
         self.rows = []
         if config:
-            self.rows = filter(lambda x: x[0][0:3] == "reg", config.state)
+            for reg in filter(lambda x: x[0][0:3] == "reg", config.state):
+                m = self.reg_re.match(reg[1])
+                self.rows.append([reg[0][4:-1],
+                                m.group('value') or '',
+                                m.group('top') or '',
+                                m.group('taint') or ''])
 
         super(InitConfigModel, self).endResetModel()
 
@@ -1084,7 +1091,11 @@ class InitConfigModel(QtCore.QAbstractTableModel):
         else:
             # existing row
             bc_log.debug("Try to change :"+value)
-        return True  # success
+            self.rows[row][col] = value
+            bc_log.debug(self.rows)
+            init = map(lambda x:"reg[%s] = %s%s%s" % (x[0], x[1], '?'+x[2] if x[2] else "", '!'+x[3] if x[3] else ""), self.rows)
+            bc_log.debug("\n".join(init))
+        return True  #success
 
 
     def data(self, index, role):
@@ -1102,22 +1113,8 @@ class InitConfigModel(QtCore.QAbstractTableModel):
         elif role != QtCore.Qt.DisplayRole:
             return
 
-        regconfig = self.rows[index.row()]
-
-        if col == 0:  # register name
-            return regconfig[0][4:-1]
-
-        m = self.reg_re.match(regconfig[1])
-        if col == 1:  # value
-            return m.group('value')
-
-        if col == 2:  # top
-            v = m.group('top') or '?'
-            return v[1:]
-
-        if col == 3:  # taint
-            v = m.group('taint') or '!'
-            return v[1:]
+        reg = self.rows[index.row()]
+        return reg[col]
 
     def rowCount(self, parent):
         return len(self.rows)
