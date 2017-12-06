@@ -318,6 +318,14 @@ class AnalyzerConfig(object):
     def state(self):
         return self._config.items('state')
 
+    @state.setter
+    def state(self, value):
+        self._config.remove_section('state')
+        self._config.add_section('state')
+        for new_v in value:
+            self._config.set('state', new_v[0], new_v[1])
+        bc_log.debug("Updated state with :"+repr(self._config.items('state')))
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
