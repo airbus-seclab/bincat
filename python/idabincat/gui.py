@@ -671,9 +671,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
     initial registers and memory
     """
 
-    def __init__(self, state, cfgmodel):
+    def __init__(self, state, cfgregmodel, cfgmemmodel):
         super(BinCATConfigForm_t, self).__init__()
-        self.cfgmodel = cfgmodel
+        self.cfgregmodel = cfgregmodel
+        self.cfgmemmodel = cfgmemmodel
         self.shown = False
         self.created = False
         self.s = state
@@ -710,31 +711,53 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
 
-        # Inital config Table
-        self.conftable = QtWidgets.QTableView(self.parent)
-        self.conftable.setItemDelegate(RegisterItemDelegate())
-        self.conftable.setSortingEnabled(True)
-        self.conftable.setModel(self.cfgmodel)
-        self.conftable.setShowGrid(False)
-        self.conftable.verticalHeader().setVisible(False)
-        self.conftable.verticalHeader().setSectionResizeMode(
+        # Inital config: registers table
+        self.regstable = QtWidgets.QTableView(self.parent)
+        self.regstable.setItemDelegate(RegisterItemDelegate())
+        self.regstable.setModel(self.cfgregmodel)
+        self.regstable.setShowGrid(False)
+        self.regstable.verticalHeader().setVisible(False)
+        self.regstable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.conftable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        #self.regstable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.regstable.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.regstable.horizontalHeader().setStretchLastSection(True)
+        self.regstable.horizontalHeader().setMinimumHeight(36)
         # width from the model are not respected, not sure why...
-        for idx, w in enumerate(self.cfgmodel.colswidths):
-            self.conftable.setColumnWidth(idx, w)
+        for idx, w in enumerate(self.cfgregmodel.colswidths):
+            self.regstable.setColumnWidth(idx, w)
         # Make it editable
-        self.conftable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
+        self.regstable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
                                        | QtWidgets.QAbstractItemView.DoubleClicked)
 
-        self.conftable.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
-        self.conftable.horizontalHeader().setStretchLastSection(True)
-        self.conftable.horizontalHeader().setMinimumHeight(36)
 
-        layout.addWidget(self.conftable, 1, 0)
-
+        # add the regstable to row 1 and make it less stretchable
+        layout.addWidget(self.regstable, 1, 0)
         layout.setRowStretch(1, 0)
+
+        # Inital config: mem table
+        self.memtable = QtWidgets.QTableView(self.parent)
+        self.memtable.setItemDelegate(RegisterItemDelegate())
+        self.memtable.setModel(self.cfgmemmodel)
+        self.memtable.setShowGrid(False)
+        self.memtable.verticalHeader().setVisible(False)
+        self.memtable.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.memtable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        # width from the model are not respected, not sure why...
+        for idx, w in enumerate(self.cfgmemmodel.colswidths):
+            self.memtable.setColumnWidth(idx, w)
+        # Make it editable
+        self.memtable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
+                                       | QtWidgets.QAbstractItemView.DoubleClicked)
+
+        self.memtable.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.memtable.horizontalHeader().setStretchLastSection(True)
+        self.memtable.horizontalHeader().setMinimumHeight(36)
+
+        layout.addWidget(self.memtable, 2, 0)
 
         self.parent.setLayout(layout)
 
@@ -747,7 +770,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
     @QtCore.pyqtSlot(str)
     def _load_config(self, index):
-        self.cfgmodel.beginResetModel()
+        self.cfgregmodel.beginResetModel()
+        self.cfgmemmodel.beginResetModel()
         if index == len(self.s.configurations.names_cache):
             # new config
             self.s.edit_config = self.s.configurations.new_config(
@@ -755,7 +779,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         else:
             name = self.s.configurations.names_cache[index]
             self.s.edit_config = self.s.configurations[name]
-        self.cfgmodel.endResetModel()
+        self.cfgregmodel.endResetModel()
+        self.cfgmemmodel.endResetModel()
         self.rvatxt = self.s.edit_config.analysis_ep
         self.alabel.setText('RVA: %s' % self.rvatxt)
 
@@ -1049,14 +1074,111 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         self.s.overrides.append((self.s.current_ea, htext, mask))
 
 
-class InitConfigModel(QtCore.QAbstractTableModel):
+class InitConfigMemModel(QtCore.QAbstractTableModel):
+    """
+    Used as model in BinCATConfigForm_t TableView memory widget.
+
+    Contains tainting and values for memory
+    """
+    def __init__(self, state, *args, **kwargs):
+        super(InitConfigMemModel, self).__init__(*args, **kwargs)
+        self.s = state
+        self.headers = ["region", "address", "value"]
+        self.colswidths = [90, 90, 900]
+        #: list of Value (addresses)
+        self.rows = []
+        self.default_font = QtGui.QFont("AnyStyle")
+        self.mono_font = QtGui.QFont("Monospace")
+        self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
+        self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
+        self.mem_addr_re = re.compile("(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
+
+    def flags(self, index):
+        flags =  (QtCore.Qt.ItemIsSelectable
+                    | QtCore.Qt.ItemIsEnabled)
+        flags |= QtCore.Qt.ItemIsEditable
+        return flags
+
+
+    def endResetModel(self):
+        """
+        Rebuild a list of rows
+        """
+        if idaapi.get_screen_ea() != idaapi.BADADDR:
+            config = self.s.edit_config
+        else:
+            config = None
+        #: list of Values (addresses)
+        self.rows = []
+        if config:
+            for mem in filter(lambda x: x[0][0:3] != "reg", config.state):
+                m = self.mem_addr_re.match(mem[0])
+                self.rows.append([m.group('region'),
+                                m.group('address') or '',
+                                mem[1]])
+
+        super(InitConfigMemModel, self).endResetModel()
+
+    def headerData(self, section, orientation, role):
+        if orientation != QtCore.Qt.Horizontal:
+            return
+        if role == QtCore.Qt.DisplayRole:
+            return self.headers[section]
+        elif role == QtCore.Qt.SizeHintRole:
+            return QtCore.QSize(self.colswidths[section], 20)
+
+
+    def setData(self, index, value, role):
+        if role != QtCore.Qt.EditRole:
+            return False
+        col = index.column()
+        row = index.row()
+        if col == 0:
+            return False
+        if row > len(self.rows):
+            return False
+        else:
+            # existing row
+            bc_log.debug("Try to change :"+value)
+            self.rows[row][col] = value
+            bc_log.debug(self.rows)
+            init = map(lambda x:"%s[%s] = %s" % (x[0], x[1], x[2]), self.rows)
+            bc_log.debug("\n".join(init))
+        return True  #success
+
+
+    def data(self, index, role):
+        col = index.column()
+        if role == QtCore.Qt.SizeHintRole:
+            # XXX not obeyed. why?
+            return QtCore.QSize(self.colswidths[col], 20)
+        elif role == QtCore.Qt.FontRole:
+            if col in [1, 3]:
+                return self.mono_font
+            else:
+                return self.default_font
+        elif role == QtCore.Qt.ToolTipRole: # add tooltip ?
+            return
+        elif role != QtCore.Qt.DisplayRole:
+            return
+
+        reg = self.rows[index.row()]
+        return reg[col]
+
+    def rowCount(self, parent):
+        return len(self.rows)
+
+    def columnCount(self, parent):
+        return len(self.headers)
+
+class InitConfigRegModel(QtCore.QAbstractTableModel):
     """
     Used as model in BinCATConfigForm_t TableView widgets.
 
     Contains tainting and values for registers
     """
     def __init__(self, state, *args, **kwargs):
-        super(InitConfigModel, self).__init__(*args, **kwargs)
+        super(InitConfigRegModel, self).__init__(*args, **kwargs)
         self.s = state
         self.headers = ["register", "value", "top", "taint"]
         self.colswidths = [90, 90, 90, 90]
@@ -1096,7 +1218,7 @@ class InitConfigModel(QtCore.QAbstractTableModel):
                                 m.group('top') or '',
                                 m.group('taint') or ''])
 
-        super(InitConfigModel, self).endResetModel()
+        super(InitConfigRegModel, self).endResetModel()
 
     def headerData(self, section, orientation, role):
         if orientation != QtCore.Qt.Horizontal:
@@ -1821,9 +1943,10 @@ class GUI(object):
         """
         self.s = state
         self.vtmodel = ValueTaintModel(state)
-        self.configmodel = InitConfigModel(state)
+        self.configregmodel = InitConfigRegModel(state)
+        self.configmemmodel = InitConfigMemModel(state)
         self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.vtmodel)
-        self.BinCATConfigForm = BinCATConfigForm_t(state, self.configmodel)
+        self.BinCATConfigForm = BinCATConfigForm_t(state, self.configregmodel, self.configmemmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
         self.BinCATMemForm = BinCATMemForm_t(state)
         self.overrides_model = OverridesModel(state)
