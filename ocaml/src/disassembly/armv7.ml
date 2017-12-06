@@ -1147,8 +1147,11 @@ struct
                                    Lval (V (treg rn))),
                             16),
                    Lval (V (preg rt 0 15))) ]
-         | 0b010 -> (* Store Register Byte *)
-            notimplemented "STRB (register)"
+         | 0b010 -> (* STRB (register) Store Register Byte *)
+            [ Set (M (BinOp (Add, Lval (V (treg rm)),
+                                   Lval (V (treg rn))),
+                            8),
+                   Lval (V (preg rt 0 7))) ]
          | 0b011 -> (* Load Register Signed Byte *)
             notimplemented "LDRSB (register)"
          | 0b100 -> (* LDR (register) Load Register *)
