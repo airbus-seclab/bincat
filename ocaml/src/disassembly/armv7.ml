@@ -1176,8 +1176,8 @@ struct
               [ Set (M (ofs, 32), Lval (V (treg rt))) ]
            | 0b01101 -> (* LDR (immediate) Load Register *)
               [ Set (V (treg rt), Lval (M (ofs, 32))) ]
-           | 0b01110 -> (* Store Register Byte *)
-              notimplemented "STRB (immediate)"
+           | 0b01110 -> (* STRB (immediate) Store Register Byte *)
+              [ Set (M (ofs, 8), Lval (V (preg rt 0 7))) ]
            | 0b01111 -> (* LDRB (immediate) *)
               [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs, 8)))) ]
            | 0b10000 -> (* Store Register Halfword *)
