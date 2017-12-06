@@ -1284,6 +1284,11 @@ let decode_thumb32_data_proc_shift_reg _s isn isn2 =
        else L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
     | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding")
 
+  let thumb_generate_sp_relative _s isn =
+    let rd = (isn lsr 8) land 7 in
+    let imm8 = isn land 0xff in
+    let value = const (imm8 lsl 2) 32 in
+    op_add (reg rd) 13 value |> mark_couple (* 13 = sp *)
 
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
@@ -1304,7 +1309,7 @@ let decode_thumb32_data_proc_shift_reg _s isn isn2 =
         | 0b101000 | 0b101001 -> (* Generate PC-relative address *)
            notimplemented "pc-relative address generation"
         | 0b101010 | 0b101011 -> (* Generate SP-relative address *)
-           notimplemented "sp-relative address generation"
+           thumb_generate_sp_relative s instruction
         | 0b101100 | 0b101101 | 0b101110 | 0b101111 -> (* Miscellaneous 16-bit instructions *)
            decode_thumb_misc s instruction
         | 0b110000 | 0b110001 -> (* Store multiple registers *)
