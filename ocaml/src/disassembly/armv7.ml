@@ -1180,8 +1180,8 @@ struct
               [ Set (M (ofs, 8), Lval (V (preg rt 0 7))) ]
            | 0b01111 -> (* LDRB (immediate) *)
               [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs, 8)))) ]
-           | 0b10000 -> (* Store Register Halfword *)
-              notimplemented "STRH (immediate)"
+           | 0b10000 -> (* STRH (immediate) Store Register Halfword *)
+              [ Set (M (ofs, 16), Lval (V (preg rt 0 15))) ]
            | 0b10001 -> (* Load Register Halfword *)
               notimplemented "LDRH (immediate)"
            | _ -> L.abort (fun p -> p "Internal error")
