@@ -724,7 +724,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.regstable.verticalHeader().setVisible(False)
         self.regstable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        #self.regstable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        #self.regstable.setContextMenuPolicy(Qt.CustomContextMenu)
         self.regstable.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
         self.regstable.horizontalHeader().setMinimumHeight(36)
@@ -743,7 +743,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.memtable.verticalHeader().setVisible(False)
         self.memtable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.memtable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.memtable.setContextMenuPolicy(Qt.CustomContextMenu)
         # Make it editable
         self.memtable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
                                        | QtWidgets.QAbstractItemView.DoubleClicked)
@@ -820,12 +820,12 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         self.bytes_data = QtWidgets.QLabel()
 
         self.stmt_data.setTextInteractionFlags(
-            QtCore.Qt.TextSelectableByMouse |
-            QtCore.Qt.TextSelectableByKeyboard)
+            Qt.TextSelectableByMouse |
+            Qt.TextSelectableByKeyboard)
         self.stmt_data.setWordWrap(True)
         self.bytes_data.setTextInteractionFlags(
-            QtCore.Qt.TextSelectableByMouse |
-            QtCore.Qt.TextSelectableByKeyboard)
+            Qt.TextSelectableByMouse |
+            Qt.TextSelectableByKeyboard)
         self.bytes_data.setWordWrap(True)
         self.settxt()
 
@@ -945,7 +945,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         self.vttable.verticalHeader().setVisible(False)
         self.vttable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.vttable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.vttable.setContextMenuPolicy(Qt.CustomContextMenu)
         self.vttable.customContextMenuRequested.connect(
             self._handle_context_menu_requested)
         # width from the model are not respected, not sure why...
@@ -1089,9 +1089,9 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         self.mem_addr_re = re.compile("(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
 
     def flags(self, index):
-        flags =  (QtCore.Qt.ItemIsSelectable
-                    | QtCore.Qt.ItemIsEnabled)
-        flags |= QtCore.Qt.ItemIsEditable
+        flags =  (Qt.ItemIsSelectable
+                    | Qt.ItemIsEnabled)
+        flags |= Qt.ItemIsEditable
         return flags
 
 
@@ -1115,14 +1115,14 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         super(InitConfigMemModel, self).endResetModel()
 
     def headerData(self, section, orientation, role):
-        if orientation != QtCore.Qt.Horizontal:
+        if orientation != Qt.Horizontal:
             return
-        if role == QtCore.Qt.DisplayRole:
+        if role == Qt.DisplayRole:
             return self.headers[section]
 
 
     def setData(self, index, value, role):
-        if role != QtCore.Qt.EditRole:
+        if role != Qt.EditRole:
             return False
         col = index.column()
         row = index.row()
@@ -1142,11 +1142,11 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
 
     def data(self, index, role):
         col = index.column()
-        if role == QtCore.Qt.FontRole:
+        if role == Qt.FontRole:
             return self.mono_font
-        elif role == QtCore.Qt.ToolTipRole: # add tooltip ?
+        elif role == Qt.ToolTipRole: # add tooltip ?
             return
-        elif role != QtCore.Qt.DisplayRole and role != QtCore.Qt.EditRole:
+        elif role != Qt.DisplayRole and role != Qt.EditRole:
             return
 
         reg = self.rows[index.row()]
@@ -1177,10 +1177,10 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         self.reg_re = re.compile("(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
 
     def flags(self, index):
-        flags =  (QtCore.Qt.ItemIsSelectable
-                    | QtCore.Qt.ItemIsEnabled)
+        flags =  (Qt.ItemIsSelectable
+                    | Qt.ItemIsEnabled)
         if index.column() > 0:
-            flags |= QtCore.Qt.ItemIsEditable
+            flags |= Qt.ItemIsEditable
         return flags
 
 
@@ -1205,13 +1205,13 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         super(InitConfigRegModel, self).endResetModel()
 
     def headerData(self, section, orientation, role):
-        if orientation != QtCore.Qt.Horizontal:
+        if orientation != Qt.Horizontal:
             return
-        if role == QtCore.Qt.DisplayRole:
+        if role == Qt.DisplayRole:
             return self.headers[section]
 
     def setData(self, index, value, role):
-        if role != QtCore.Qt.EditRole:
+        if role != Qt.EditRole:
             return False
         col = index.column()
         row = index.row()
@@ -1231,11 +1231,11 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
 
     def data(self, index, role):
         col = index.column()
-        if role == QtCore.Qt.FontRole:
+        if role == Qt.FontRole:
             return self.mono_font
-        elif role == QtCore.Qt.ToolTipRole: # add tooltip ?
+        elif role == Qt.ToolTipRole: # add tooltip ?
             return
-        elif role != QtCore.Qt.DisplayRole:
+        elif role != Qt.DisplayRole:
             return
 
         reg = self.rows[index.row()]
@@ -1319,19 +1319,19 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         super(ValueTaintModel, self).endResetModel()
 
     def headerData(self, section, orientation, role):
-        if orientation != QtCore.Qt.Horizontal:
+        if orientation != Qt.Horizontal:
             return
-        if role == QtCore.Qt.DisplayRole:
+        if role == Qt.DisplayRole:
             return self.headers[section]
-        elif role == QtCore.Qt.SizeHintRole:
+        elif role == Qt.SizeHintRole:
             return QtCore.QSize(self.colswidths[section], 20)
 
     def data(self, index, role):
         col = index.column()
-        if role == QtCore.Qt.SizeHintRole:
+        if role == Qt.SizeHintRole:
             # XXX not obeyed. why?
             return QtCore.QSize(self.colswidths[col], 20)
-        elif role == QtCore.Qt.FontRole:
+        elif role == Qt.FontRole:
             if index.row() in self.changed_rows:
                 if col in [1, 3]:
                     return self.diff_font_mono
@@ -1342,13 +1342,13 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                     return self.mono_font
                 else:
                     return self.default_font
-        elif role == QtCore.Qt.ToolTipRole:
+        elif role == Qt.ToolTipRole:
             regaddr = self.rows[index.row()]
             t = self.s.current_state.regtypes.get(regaddr, None)
             if t:
                 return t[0]
             return
-        elif role != QtCore.Qt.DisplayRole:
+        elif role != Qt.DisplayRole:
             return
         regaddr = self.rows[index.row()]
 
@@ -1462,12 +1462,12 @@ class OverridesModel(QtCore.QAbstractTableModel):
         self.headers = ["eip", "addr or reg", "[value][!taint]"]
 
     def data(self, index, role):
-        if role not in (QtCore.Qt.ForegroundRole, QtCore.Qt.DisplayRole,
-                        QtCore.Qt.EditRole, QtCore.Qt.ToolTipRole):
+        if role not in (Qt.ForegroundRole, Qt.DisplayRole,
+                        Qt.EditRole, Qt.ToolTipRole):
             return
         col = index.column()
         row = index.row()
-        if role == QtCore.Qt.ToolTipRole:
+        if role == Qt.ToolTipRole:
             if col == 1:
                 return "Example valid addresses: reg[eax], mem[0x1234]"
             if col == 2:
@@ -1475,7 +1475,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
                         "!TAINT_ALL (reg only), !TAINT_NONE (reg only), "
                         "0x12?0x12", "|0xFF|![0x10|")
             return
-        if role == QtCore.Qt.ForegroundRole:
+        if role == Qt.ForegroundRole:
             # basic syntax checking
             if col not in (1, 2):
                 return
@@ -1490,7 +1490,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
             else:  # Taint column
                 if not self.s.overrides[row][1].startswith("reg"):
                     if "TAINT_ALL" in txt or "TAINT_NONE" in txt:
-                        return QtGui.QBrush(QtCore.Qt.red)
+                        return QtGui.QBrush(Qt.red)
                 pattern = (
                     # value (optional) - hex, oct, dec, bin, or string
                     r"^((0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+)"
@@ -1505,7 +1505,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
                     "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?$")
                 if re.match(pattern, txt):
                     return
-            return QtGui.QBrush(QtCore.Qt.red)
+            return QtGui.QBrush(Qt.red)
         rawdata = self.s.overrides[row][col]
         if col == 0:
             return "%x" % rawdata
@@ -1513,7 +1513,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
             return str(rawdata)
 
     def setData(self, index, value, role):
-        if role != QtCore.Qt.EditRole:
+        if role != Qt.EditRole:
             return False
         col = index.column()
         row = index.row()
@@ -1534,15 +1534,15 @@ class OverridesModel(QtCore.QAbstractTableModel):
         return True  # success
 
     def headerData(self, section, orientation, role):
-        if orientation != QtCore.Qt.Horizontal:
+        if orientation != Qt.Horizontal:
             return
-        if role == QtCore.Qt.DisplayRole:
+        if role == Qt.DisplayRole:
             return self.headers[section]
 
     def flags(self, index):
-        return (QtCore.Qt.ItemIsEditable
-                | QtCore.Qt.ItemIsSelectable
-                | QtCore.Qt.ItemIsEnabled)
+        return (Qt.ItemIsEditable
+                | Qt.ItemIsSelectable
+                | Qt.ItemIsEnabled)
 
     def rowCount(self, parent):
         return len(self.s.overrides)
@@ -1676,14 +1676,14 @@ class ConfigurationsModel(QtCore.QAbstractTableModel):
         self.headers = ["configuration name"]
 
     def data(self, index, role):
-        if role not in (QtCore.Qt.EditRole, QtCore.Qt.DisplayRole):
+        if role not in (Qt.EditRole, Qt.DisplayRole):
             return
         row = index.row()
         name = self.s.configurations.names_cache[row]
         return name
 
     def setData(self, index, value, role):
-        if role != QtCore.Qt.EditRole:
+        if role != Qt.EditRole:
             return False
         row = index.row()
         oldname = self.s.configurations.names_cache[row]
@@ -1699,15 +1699,15 @@ class ConfigurationsModel(QtCore.QAbstractTableModel):
         return True
 
     def headerData(self, section, orientation, role):
-        if orientation != QtCore.Qt.Horizontal:
+        if orientation != Qt.Horizontal:
             return
-        if role == QtCore.Qt.DisplayRole:
+        if role == Qt.DisplayRole:
             return self.headers[section]
 
     def flags(self, index):
-        return (QtCore.Qt.ItemIsEditable
-                | QtCore.Qt.ItemIsSelectable
-                | QtCore.Qt.ItemIsEnabled)
+        return (Qt.ItemIsEditable
+                | Qt.ItemIsSelectable
+                | Qt.ItemIsEnabled)
 
     def rowCount(self, parent):
         return len(self.s.configurations)
@@ -1980,10 +1980,10 @@ class GUI(object):
     def show_windows(self):
         self.BinCATDebugForm.Show()
         self.BinCATRegistersForm.Show()
-        self.BinCATConfigForm.Show()
         self.BinCATOverridesForm.Show()
         self.BinCATConfigurationsForm.Show()
         self.BinCATMemForm.Show()
+        self.BinCATConfigForm.Show()
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()
