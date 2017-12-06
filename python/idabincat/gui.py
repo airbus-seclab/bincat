@@ -27,6 +27,7 @@ import idc
 import idaapi
 import idautils
 from dump_binary import dump_binary
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore, QtWidgets, QtGui
 import idabincat.hexview as hexview
 import pybincat.cfa as cfa
@@ -711,6 +712,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
 
+        # Splitter for tables
+        tables_split = QtWidgets.QSplitter(Qt.Vertical,self.parent)
+        layout.addWidget(tables_split, 1, 0)
+
         # Inital config: registers table
         self.regstable = QtWidgets.QTableView(self.parent)
         self.regstable.setItemDelegate(RegisterItemDelegate())
@@ -721,43 +726,34 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.ResizeToContents)
         #self.regstable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.regstable.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
-        self.regstable.horizontalHeader().setStretchLastSection(True)
+            QtWidgets.QHeaderView.Interactive)
         self.regstable.horizontalHeader().setMinimumHeight(36)
-        # width from the model are not respected, not sure why...
-        for idx, w in enumerate(self.cfgregmodel.colswidths):
-            self.regstable.setColumnWidth(idx, w)
         # Make it editable
         self.regstable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
                                        | QtWidgets.QAbstractItemView.DoubleClicked)
 
 
-        # add the regstable to row 1 and make it less stretchable
-        layout.addWidget(self.regstable, 1, 0)
-        layout.setRowStretch(1, 0)
+        tables_split.addWidget(self.regstable)
 
         # Inital config: mem table
         self.memtable = QtWidgets.QTableView(self.parent)
         self.memtable.setItemDelegate(RegisterItemDelegate())
         self.memtable.setModel(self.cfgmemmodel)
-        self.memtable.setShowGrid(False)
+        self.memtable.setShowGrid(True)
         self.memtable.verticalHeader().setVisible(False)
         self.memtable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
         self.memtable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        # width from the model are not respected, not sure why...
-        for idx, w in enumerate(self.cfgmemmodel.colswidths):
-            self.memtable.setColumnWidth(idx, w)
         # Make it editable
         self.memtable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
                                        | QtWidgets.QAbstractItemView.DoubleClicked)
 
         self.memtable.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
+            QtWidgets.QHeaderView.Interactive)
         self.memtable.horizontalHeader().setStretchLastSection(True)
         self.memtable.horizontalHeader().setMinimumHeight(36)
 
-        layout.addWidget(self.memtable, 2, 0)
+        tables_split.addWidget(self.memtable)
 
         self.parent.setLayout(layout)
 
@@ -1084,7 +1080,6 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         super(InitConfigMemModel, self).__init__(*args, **kwargs)
         self.s = state
         self.headers = ["region", "address", "value"]
-        self.colswidths = [90, 90, 900]
         #: list of Value (addresses)
         self.rows = []
         self.default_font = QtGui.QFont("AnyStyle")
@@ -1124,8 +1119,6 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
             return
         if role == QtCore.Qt.DisplayRole:
             return self.headers[section]
-        elif role == QtCore.Qt.SizeHintRole:
-            return QtCore.QSize(self.colswidths[section], 20)
 
 
     def setData(self, index, value, role):
@@ -1149,17 +1142,11 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
 
     def data(self, index, role):
         col = index.column()
-        if role == QtCore.Qt.SizeHintRole:
-            # XXX not obeyed. why?
-            return QtCore.QSize(self.colswidths[col], 20)
-        elif role == QtCore.Qt.FontRole:
-            if col in [1, 3]:
-                return self.mono_font
-            else:
-                return self.default_font
+        if role == QtCore.Qt.FontRole:
+            return self.mono_font
         elif role == QtCore.Qt.ToolTipRole: # add tooltip ?
             return
-        elif role != QtCore.Qt.DisplayRole:
+        elif role != QtCore.Qt.DisplayRole and role != QtCore.Qt.EditRole:
             return
 
         reg = self.rows[index.row()]
@@ -1181,13 +1168,10 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         super(InitConfigRegModel, self).__init__(*args, **kwargs)
         self.s = state
         self.headers = ["register", "value", "top", "taint"]
-        self.colswidths = [90, 90, 90, 90]
         #: list of Value (addresses)
         self.rows = []
         self.default_font = QtGui.QFont("AnyStyle")
         self.mono_font = QtGui.QFont("Monospace")
-        self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
-        self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
         # regex to parse init syntax for registers
         # example: reg[eax] = 100?0xF!0xF0
         self.reg_re = re.compile("(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
@@ -1225,9 +1209,6 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
             return
         if role == QtCore.Qt.DisplayRole:
             return self.headers[section]
-        elif role == QtCore.Qt.SizeHintRole:
-            return QtCore.QSize(self.colswidths[section], 20)
-
 
     def setData(self, index, value, role):
         if role != QtCore.Qt.EditRole:
@@ -1250,14 +1231,8 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
 
     def data(self, index, role):
         col = index.column()
-        if role == QtCore.Qt.SizeHintRole:
-            # XXX not obeyed. why?
-            return QtCore.QSize(self.colswidths[col], 20)
-        elif role == QtCore.Qt.FontRole:
-            if col in [1, 3]:
-                return self.mono_font
-            else:
-                return self.default_font
+        if role == QtCore.Qt.FontRole:
+            return self.mono_font
         elif role == QtCore.Qt.ToolTipRole: # add tooltip ?
             return
         elif role != QtCore.Qt.DisplayRole:
