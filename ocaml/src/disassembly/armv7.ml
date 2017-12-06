@@ -1158,8 +1158,11 @@ struct
            | _ -> L.abort (fun p -> p "Internal error")
          end
       | 0b1001 ->
-         if isn land 0x800 = 0 then  (* Store Register SP relative *)
-           notimplemented "STR (immediate)"
+         let imm8 = isn land 0xff in
+         let rt = isn lsr 8 land 7 in
+         let ofs = BinOp (Add, Lval (V (T sp)), const imm8 32) in
+         if isn land 0x800 = 0 then  (* STR (immediate) Store Register SP relative *)
+           [ Set (M (ofs, 32), Lval (V (treg rt))) ]
          else (* Load Register SP relative *)
            notimplemented "LDR (immediate)"
       | _ -> 
