@@ -1082,7 +1082,6 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         self.headers = ["region", "address", "value"]
         #: list of Value (addresses)
         self.rows = []
-        self.default_font = QtGui.QFont("AnyStyle")
         self.mono_font = QtGui.QFont("Monospace")
         self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
         self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
@@ -1160,7 +1159,7 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
 
 class InitConfigRegModel(QtCore.QAbstractTableModel):
     """
-    Used as model in BinCATConfigForm_t TableView widgets.
+    Used as model in BinCATConfigForm_t TableView register's widget.
 
     Contains tainting and values for registers
     """
@@ -1170,7 +1169,6 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         self.headers = ["register", "value", "top", "taint"]
         #: list of Value (addresses)
         self.rows = []
-        self.default_font = QtGui.QFont("AnyStyle")
         self.mono_font = QtGui.QFont("Monospace")
         # regex to parse init syntax for registers
         # example: reg[eax] = 100?0xF!0xF0
