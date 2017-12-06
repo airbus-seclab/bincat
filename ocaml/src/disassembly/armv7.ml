@@ -1175,8 +1175,12 @@ struct
                          Lval (M (BinOp (Add, Lval (V (treg rm)),
                                          Lval (V (treg rn))),
                                   8)))) ]
-         | 0b111 -> (* Load Register Signed Halfword *)
-            notimplemented "LDRSH (register)"
+         | 0b111 -> (* LDRSH (register) Load Register Signed Halfword *)
+            [ Set (V (treg rt),
+                   UnOp( SignExt 32,
+                         Lval (M (BinOp (Add, Lval (V (treg rm)),
+                                         Lval (V (treg rn))),
+                                  16)))) ]
          | _ -> L.abort (fun p -> p "Internal error")
        end |> mark_as_isn
     | 0b0110 ->
