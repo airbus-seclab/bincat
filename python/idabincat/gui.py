@@ -671,9 +671,9 @@ class BinCATConfigForm_t(idaapi.PluginForm):
     initial registers and memory
     """
 
-    def __init__(self, state, vtmodel):
+    def __init__(self, state, cfgmodel):
         super(BinCATConfigForm_t, self).__init__()
-        self.vtmodel = vtmodel
+        self.cfgmodel = cfgmodel
         self.shown = False
         self.created = False
         self.s = state
@@ -688,22 +688,40 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         splitter = QtWidgets.QSplitter(self.parent)
         layout.addWidget(splitter, 0, 0)
 
+        # Config name label
+        self.curlabel = QtWidgets.QLabel('Current config:')
+        splitter.addWidget(self.curlabel)
+
+        # current config combo
+        self.cfg_select = QtWidgets.QComboBox()
+        self.cfg_select.addItems(
+            self.s.configurations.names_cache + ['(new)'])
+        # pre-select preferred conf, if any
+        conf_name = self.s.configurations.get_pref(self.s.current_ea)
+        self.cfg_select.currentIndexChanged.connect(self._load_config)
+        splitter.addWidget(self.cfg_select)
+
         # RVA address label
-        self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
+        self.alabel = QtWidgets.QLabel('RVA: none')
         splitter.addWidget(self.alabel)
+
+        # leave space for comboboxes in splitter, rather than between widgets
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
 
         # Inital config Table
         self.conftable = QtWidgets.QTableView(self.parent)
         self.conftable.setItemDelegate(RegisterItemDelegate())
         self.conftable.setSortingEnabled(True)
-        self.conftable.setModel(self.vtmodel)
+        self.conftable.setModel(self.cfgmodel)
         self.conftable.setShowGrid(False)
         self.conftable.verticalHeader().setVisible(False)
         self.conftable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
         self.conftable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         # width from the model are not respected, not sure why...
-        for idx, w in enumerate(self.vtmodel.colswidths):
+        for idx, w in enumerate(self.cfgmodel.colswidths):
             self.conftable.setColumnWidth(idx, w)
         # Make it editable
         self.conftable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
@@ -722,6 +740,20 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         if isinstance(self.s.current_ea, int):
             self.update_current_ea(self.s.current_ea)
+
+    @QtCore.pyqtSlot(str)
+    def _load_config(self, index):
+        self.cfgmodel.beginResetModel()
+        if index == len(self.s.configurations.names_cache):
+            # new config
+            self.s.edit_config = self.s.configurations.new_config(
+                self.s.current_ea, None)
+        else:
+            name = self.s.configurations.names_cache[index]
+            self.s.edit_config = self.s.configurations[name]
+        self.cfgmodel.endResetModel()
+        self.rvatxt = self.s.edit_config.analysis_ep
+        self.alabel.setText('RVA: %s' % self.rvatxt)
 
     def OnClose(self, form):
         self.shown = False
@@ -742,10 +774,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         """
         :param ea: int or long
         """
-        self.rvatxt = '0x%08x' % ea
         if not (self.shown and self.created):
             return
-        self.alabel.setText('RVA: %s' % self.rvatxt)
+        self.cfg_select.clear()
+        self.cfg_select.addItems(
+            self.s.configurations.names_cache + ['(new)'])
+        # pre-select preferred conf, if any
+        conf_name = self.s.configurations.get_pref(self.s.current_ea)
 
 class BinCATDebugForm_t(idaapi.PluginForm):
     """
@@ -1055,7 +1090,7 @@ class InitConfigModel(QtCore.QAbstractTableModel):
         Rebuild a list of rows
         """
         if idaapi.get_screen_ea() != idaapi.BADADDR:
-            config = AnalyzerConfig.get_default_config(idaapi.get_screen_ea(), "")
+            config = self.s.edit_config
         else:
             config = None
         #: list of Values (addresses)
