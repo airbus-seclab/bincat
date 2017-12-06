@@ -356,7 +356,7 @@
     | i=INT COMMA l=addresses { i::l }
 
     state:
-    | s=state_item      { s }
+    |                     { () }
     | s=state_item ss=state { s; ss }
 
       state_item:
