@@ -1163,8 +1163,8 @@ struct
          let ofs = BinOp (Add, Lval (V (T sp)), const imm8 32) in
          if isn land 0x800 = 0 then  (* STR (immediate) Store Register SP relative *)
            [ Set (M (ofs, 32), Lval (V (treg rt))) ]
-         else (* Load Register SP relative *)
-           notimplemented "LDR (immediate)"
+         else (* LDR (immediate) Load Register SP relative *)
+           [ Set (V (treg rt), Lval (M (ofs, 32))) ]
       | _ -> 
          let rn = (isn lsr 3) land 7 in
          let rt = isn land 7 in
