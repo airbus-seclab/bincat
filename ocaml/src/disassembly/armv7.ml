@@ -1142,8 +1142,15 @@ struct
             notimplemented "STRB (register)"
          | 0b011 -> (* Load Register Signed Byte *)
             notimplemented "LDRSB (register)"
-         | 0b100 -> (* Load Register *)
-            notimplemented "LDR (register)"
+         | 0b100 -> (* LDR (register) Load Register *)
+            let rm = (isn lsr 6) land 7 in
+            let rn = (isn lsr 3) land 7 in
+            let rt = isn land 7 in
+            mark_as_isn [
+                Set (V (treg rt),
+                     Lval (M (BinOp (Add, Lval (V (treg rm)),
+                                     Lval (V (treg rn))),
+                              32))) ]
          | 0b101 -> (* Load Register Halfword *)
             notimplemented "LDRH (register)"
          | 0b110 -> (* Load Register Byte *)
