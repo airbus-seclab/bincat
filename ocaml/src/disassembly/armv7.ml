@@ -1135,52 +1135,25 @@ struct
        let rm = (isn lsr 6) land 7 in
        let rn = (isn lsr 3) land 7 in
        let rt = isn land 7 in
+       let ofs = BinOp (Add, Lval (V (treg rm)), Lval (V (treg rn))) in
        begin
          match (isn lsr 9) land 0x7 with
          | 0b000 -> (* STR (register) Store Register *)
-            [ Set (M (BinOp (Add, Lval (V (treg rm)),
-                                   Lval (V (treg rn))),
-                            32),
-                   Lval (V (treg rt))) ]
+            [ Set (M (ofs, 32), Lval (V (treg rt))) ]
          | 0b001 -> (* STRH (register) Store Register Halfword *)
-            [ Set (M (BinOp (Add, Lval (V (treg rm)),
-                                   Lval (V (treg rn))),
-                            16),
-                   Lval (V (preg rt 0 15))) ]
+            [ Set (M (ofs, 16), Lval (V (preg rt 0 15))) ]
          | 0b010 -> (* STRB (register) Store Register Byte *)
-            [ Set (M (BinOp (Add, Lval (V (treg rm)),
-                                   Lval (V (treg rn))),
-                            8),
-                   Lval (V (preg rt 0 7))) ]
+            [ Set (M (ofs, 8), Lval (V (preg rt 0 7))) ]
          | 0b011 -> (* LDRSB (register) Load Register Signed Byte *)
-            [ Set (V (treg rt),
-                   UnOp( SignExt 32,
-                         Lval (M (BinOp (Add, Lval (V (treg rm)),
-                                         Lval (V (treg rn))),
-                                  8)))) ]
+            [ Set (V (treg rt), UnOp (SignExt 32, Lval (M (ofs, 8)))) ]
          | 0b100 -> (* LDR (register) Load Register *)
-            [ Set (V (treg rt),
-                   Lval (M (BinOp (Add, Lval (V (treg rm)),
-                                   Lval (V (treg rn))),
-                            32))) ]
+            [ Set (V (treg rt), Lval (M (ofs, 32))) ]
          | 0b101 -> (* LDRH (register) Load Register Halfword *)
-            [ Set (V (treg rt),
-                   UnOp( ZeroExt 32,
-                         Lval (M (BinOp (Add, Lval (V (treg rm)),
-                                         Lval (V (treg rn))),
-                                  16)))) ]
+            [ Set (V (treg rt), UnOp( ZeroExt 32, Lval (M (ofs, 16)))) ]
          | 0b110 -> (* LDRB (register) Load Register Byte *)
-            [ Set (V (treg rt),
-                   UnOp( ZeroExt 32,
-                         Lval (M (BinOp (Add, Lval (V (treg rm)),
-                                         Lval (V (treg rn))),
-                                  8)))) ]
+            [ Set (V (treg rt), UnOp( ZeroExt 32, Lval (M (ofs, 8)))) ]
          | 0b111 -> (* LDRSH (register) Load Register Signed Halfword *)
-            [ Set (V (treg rt),
-                   UnOp( SignExt 32,
-                         Lval (M (BinOp (Add, Lval (V (treg rm)),
-                                         Lval (V (treg rn))),
-                                  16)))) ]
+            [ Set (V (treg rt), UnOp( SignExt 32, Lval (M (ofs, 16)))) ]
          | _ -> L.abort (fun p -> p "Internal error")
        end |> mark_as_isn
     | 0b0110 ->
