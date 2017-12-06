@@ -1132,6 +1132,9 @@ struct
   let decode_thumb_load_store_single_data_item _s isn =
     match (isn lsr 12) land 0xf with
     | 0b0101 ->
+       let rm = (isn lsr 6) land 7 in
+       let rn = (isn lsr 3) land 7 in
+       let rt = isn land 7 in
        begin
          match (isn lsr 9) land 0x7 with
          | 0b000 -> (* Store Register *)
@@ -1143,9 +1146,6 @@ struct
          | 0b011 -> (* Load Register Signed Byte *)
             notimplemented "LDRSB (register)"
          | 0b100 -> (* LDR (register) Load Register *)
-            let rm = (isn lsr 6) land 7 in
-            let rn = (isn lsr 3) land 7 in
-            let rt = isn land 7 in
             mark_as_isn [
                 Set (V (treg rt),
                      Lval (M (BinOp (Add, Lval (V (treg rm)),
@@ -1163,8 +1163,14 @@ struct
          if (isn lsr 11) land 1 = 0
          then (* Store Register *)
            notimplemented "STR (immediate)"
-         else (* Load Register *)
-           notimplemented "LDR (immediate)"
+         else (* LDR (immediate) Load Register *)
+           let rt = isn land 7 in
+           let rn = (isn lsr 3) land 7 in
+           let imm5 = (isn lsr 6) land 0x1f in
+           mark_as_isn [ Set (V (treg rt),
+                              Lval (M (BinOp (Add,
+                                              Lval (V (treg rn)),
+                                              const imm5 32), 32))) ]
     | 0b0111 ->
          if (isn lsr 11) land 1 = 0
          then (* Store Register Byte *)
