@@ -1280,26 +1280,6 @@ let decode_thumb32_data_proc_shift_reg _s isn isn2 =
     | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding")
 
 
-  let decode_thumb_single_load_store _s isn =
-    match (isn lsr 9) land 7 with
-    | 0b000 -> (* Store Register STR (register) *)
-       notimplemented "STR (register)"
-    | 0b001 -> (* Store Register Halfword STRH (register) *)
-       notimplemented "STRH (register)"
-    | 0b010 -> (* Store Register Byte STRB (register) *)
-       notimplemented "STRB (register)"
-    | 0b011 -> (* Load Register Signed Byte LDRSB (register) *)
-       notimplemented "LDRSB (register)"
-    | 0b100 -> (* Load Register LDR (register) *)
-       notimplemented "LDR (register)"
-    | 0b101 -> (* Load Register Halfword LDRH (register) *)
-       notimplemented "LDRH (register)"
-    | 0b110 -> (* Load Register Byte LDRB (register) *)
-       notimplemented "LDRB (register)"
-    | 0b111 -> (* Load Register Signed Halfword LDRSH (register) *)
-       notimplemented "LDRSH (register)"
-    | _ -> L.abort (fun p -> p "internal error")
-
   let decode_thumb (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 2 in
     let instruction = build_thumb16_instruction s str in
@@ -1316,8 +1296,6 @@ let decode_thumb32_data_proc_shift_reg _s isn isn2 =
            decode_thumb_special_data_branch_exch s instruction
         | 0b010010 | 0b010011 -> (* Load from Literal Pool *)
            thumb_ldr s instruction
-        | 0b010100 | 0b010101 | 0b010110 | 0b010111 -> (* Load/store single data item *)
-           decode_thumb_single_load_store s instruction
         | 0b101000 | 0b101001 -> (* Generate PC-relative address *)
            notimplemented "pc-relative address generation"
         | 0b101010 | 0b101011 -> (* Generate SP-relative address *)
