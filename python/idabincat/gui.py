@@ -703,6 +703,11 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfg_select.currentIndexChanged.connect(self._load_config)
         splitter.addWidget(self.cfg_select)
 
+        # Edit that config button
+        self.edit_cfg_btn = QtWidgets.QPushButton('&Edit')
+        self.edit_cfg_btn.clicked.connect(self.edit_config)
+        splitter.addWidget(self.edit_cfg_btn)
+
         # RVA address label
         self.alabel = QtWidgets.QLabel('RVA: none')
         splitter.addWidget(self.alabel)
@@ -729,8 +734,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.Interactive)
         self.regstable.horizontalHeader().setMinimumHeight(36)
         # Make it editable
-        self.regstable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
-                                       | QtWidgets.QAbstractItemView.DoubleClicked)
+        self.regstable.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
 
 
         tables_split.addWidget(self.regstable)
@@ -779,6 +783,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfgmemmodel.endResetModel()
         self.rvatxt = self.s.edit_config.analysis_ep
         self.alabel.setText('RVA: %s' % self.rvatxt)
+
+    def edit_config(self):
+        editdlg = EditConfigurationFileForm_t(self.parent, self.s)
+        editdlg.exec_()
 
     def OnClose(self, form):
         self.shown = False
@@ -1170,6 +1178,7 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         #: list of Value (addresses)
         self.rows = []
         self.mono_font = QtGui.QFont("Monospace")
+        self.config = None
         # regex to parse init syntax for registers
         # example: reg[eax] = 100?0xF!0xF0
         self.reg_re = re.compile("(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
@@ -1187,13 +1196,13 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         Rebuild a list of rows
         """
         if idaapi.get_screen_ea() != idaapi.BADADDR:
-            config = self.s.edit_config
+            self.config = self.s.edit_config
         else:
-            config = None
+            self.config = None
         #: list of Values (addresses)
         self.rows = []
-        if config:
-            for reg in filter(lambda x: x[0][0:3] == "reg", config.state):
+        if self.config:
+            for reg in filter(lambda x: x[0][0:3] == "reg", self.config.state):
                 m = self.reg_re.match(reg[1])
                 self.rows.append([reg[0][4:-1],
                                 m.group('value') or '',
@@ -1222,8 +1231,9 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
             bc_log.debug("Try to change :"+value)
             self.rows[row][col] = value
             bc_log.debug(self.rows)
-            init = map(lambda x:"reg[%s] = %s%s%s" % (x[0], x[1], '?'+x[2] if x[2] else "", '!'+x[3] if x[3] else ""), self.rows)
-            bc_log.debug("\n".join(init))
+            init = map(lambda x:["reg[%s]" % x[0],"%s%s%s" % (x[1], '?'+x[2] if x[2] else "", '!'+x[3] if x[3] else "")], self.rows)
+            if self.config:
+                self.config.state = init
         return True  #success
 
 
@@ -1233,7 +1243,7 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
             return self.mono_font
         elif role == Qt.ToolTipRole: # add tooltip ?
             return
-        elif role != Qt.DisplayRole:
+        elif role != Qt.DisplayRole and role != Qt.EditRole:
             return
 
         reg = self.rows[index.row()]
