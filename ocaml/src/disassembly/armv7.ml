@@ -1156,20 +1156,16 @@ struct
         | _ -> L.abort (fun p -> p "Internal error")
       else
         let imm5 = (isn lsr 6) land 0x1f in
+        let ofs = BinOp (Add, Lval (V (treg rn)), const imm5 32) in
         match isn lsr 11 land 0x1f with
         | 0b01100 -> (* Store Register *)
            notimplemented "STR (immediate)"
         | 0b01101 -> (* LDR (immediate) Load Register *)
-           [ Set (V (treg rt),
-                  Lval (M (BinOp (Add,
-                                  Lval (V (treg rn)),
-                                  const imm5 32), 32))) ]
+           [ Set (V (treg rt), Lval (M (ofs, 32))) ]
         | 0b01110 -> (* Store Register Byte *)
            notimplemented "STRB (immediate)"
         | 0b01111 -> (* LDRB (immediate) *)
-           [ Set (V (treg rt),
-                  UnOp(ZeroExt 32,
-                       Lval (M (BinOp (Add, Lval (V (treg rn)), const imm5 32), 8)))) ]
+           [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs, 8)))) ]
         | 0b10000 -> (* Store Register Halfword *)
            notimplemented "STRH (immediate)"
         | 0b10001 -> (* Load Register Halfword *)
