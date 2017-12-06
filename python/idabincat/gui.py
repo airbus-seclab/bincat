@@ -1091,8 +1091,7 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         #: list of Value (addresses)
         self.rows = []
         self.mono_font = QtGui.QFont("Monospace")
-        self.diff_font = QtGui.QFont("AnyStyle", weight=QtGui.QFont.Bold)
-        self.diff_font_mono = QtGui.QFont("Monospace", weight=QtGui.QFont.Bold)
+        self.config = None
         self.mem_addr_re = re.compile("(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
 
     def flags(self, index):
@@ -1107,13 +1106,13 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         Rebuild a list of rows
         """
         if idaapi.get_screen_ea() != idaapi.BADADDR:
-            config = self.s.edit_config
+            self.config = self.s.edit_config
         else:
-            config = None
+            self.config = None
         #: list of Values (addresses)
         self.rows = []
-        if config:
-            for mem in filter(lambda x: x[0][0:3] != "reg", config.state):
+        if self.config:
+            for mem in filter(lambda x: x[0][0:3] != "reg", self.config.state):
                 m = self.mem_addr_re.match(mem[0])
                 self.rows.append([m.group('region'),
                                 m.group('address') or '',
@@ -1139,11 +1138,9 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
             return False
         else:
             # existing row
-            bc_log.debug("Try to change :"+value)
             self.rows[row][col] = value
-            bc_log.debug(self.rows)
-            init = map(lambda x:"%s[%s] = %s" % (x[0], x[1], x[2]), self.rows)
-            bc_log.debug("\n".join(init))
+            init = map(lambda x:["%s[%s]" % (x[0], x[1]), x[2]], self.rows)
+            self.config.state = init
         return True  #success
 
 
