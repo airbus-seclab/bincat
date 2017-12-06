@@ -1146,11 +1146,10 @@ struct
          | 0b011 -> (* Load Register Signed Byte *)
             notimplemented "LDRSB (register)"
          | 0b100 -> (* LDR (register) Load Register *)
-            mark_as_isn [
-                Set (V (treg rt),
-                     Lval (M (BinOp (Add, Lval (V (treg rm)),
-                                     Lval (V (treg rn))),
-                              32))) ]
+            [ Set (V (treg rt),
+                   Lval (M (BinOp (Add, Lval (V (treg rm)),
+                                   Lval (V (treg rn))),
+                            32))) ]
          | 0b101 -> (* Load Register Halfword *)
             notimplemented "LDRH (register)"
          | 0b110 -> (* Load Register Byte *)
@@ -1158,7 +1157,7 @@ struct
          | 0b111 -> (* Load Register Signed Halfword *)
             notimplemented "LDRSH (register)"
          | _ -> L.abort (fun p -> p "Internal error")
-       end
+       end |> mark_as_isn
     | 0b0110 ->
          if (isn lsr 11) land 1 = 0
          then (* Store Register *)
