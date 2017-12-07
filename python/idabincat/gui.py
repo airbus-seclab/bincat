@@ -308,7 +308,6 @@ class TaintLaunchForm_t(QtWidgets.QDialog):
         else:
             self.s.remap_binary = False
 
-        # XXX copy?
         self.s.current_config = self.s.edit_config
 
         self.s.start_analysis()
@@ -801,14 +800,18 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.btn_start.clicked.connect(self.launch_analysis)
         btn_split.addWidget(self.btn_start)
 
+        self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
+        self.chk_remap.setChecked(self.s.remap_binary)
+
+        btn_split.addWidget(self.chk_remap)
         # Save config button
         self.btn_save_cfg = QtWidgets.QPushButton('&Save')
         self.btn_save_cfg.clicked.connect(self.save_config)
         btn_split.addWidget(self.btn_save_cfg)
 
-        self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
-        self.chk_remap.setChecked(self.s.remap_binary)
-        btn_split.addWidget(self.chk_remap)
+        self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
+        self.chk_save.setChecked(PluginOptions.get("save_to_idb") == "True")
+        btn_split.addWidget(self.chk_save)
 
         self.parent.setLayout(layout)
 
@@ -840,29 +843,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.s.edit_config.analysis_ep = start_addr
         self.s.edit_config.stop_address = stop_addr
 
-        ea_int = int(self.ip_start_addr.text(), 16)
 
         # always save config under "(last used)" slot
-        config_name = "(last used)"
-        self.s.configurations[config_name] = self.s.edit_config
-        self.s.configurations.set_pref(ea_int, config_name)
+        self.save_config("(last used)")
 
         # if requested, also save under user-specified slot
         if self.chk_save.isChecked():
-            idx = self.conf_select.currentIndex()
-            if idx == len(self.s.configurations.names_cache):
-                # new config, prompt name
-                config_name, res = QtWidgets.QInputDialog.getText(
-                    self,
-                    "Configuration name",
-                    "Under what name should this new configuration be saved?",
-                    text="0x%0X" % self.s.current_ea)
-                if not res:
-                    return
-            else:
-                config_name = self.s.configurations.names_cache[idx]
-            self.s.configurations[config_name] = self.s.edit_config
-            self.s.configurations.set_pref(ea_int, config_name)
+            self.save_config()
 
         if self.chk_remap.isChecked():
             if (self.s.remapped_bin_path is None or
@@ -929,25 +916,28 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfgmemmodel.endResetModel()
 
 
-    def save_config(self):
-        idx = self.cfg_select.currentIndex()
-        if idx == len(self.s.configurations.names_cache):
-            # new config, prompt name
-            config_name, res = QtWidgets.QInputDialog.getText(
-                self,
-                "Configuration name",
-                "Under what name should this new configuration be saved?",
-                text="0x%0X" % self.s.current_ea)
-            if not res:
-                return
-        else:
-            config_name = self.s.configurations.names_cache[idx]
+    def save_config(self, config_name=None):
+        ea_int = int(self.ip_start_addr.text(), 16)
+        if not config_name:
+            idx = self.cfg_select.currentIndex()
+            if idx == len(self.s.configurations.names_cache):
+                # new config, prompt name
+                config_name, res = QtWidgets.QInputDialog.getText(
+                    self.parent,
+                    "Configuration name",
+                    "Under what name should this new configuration be saved?",
+                    text="0x%0X" % self.s.current_ea)
+                if not res:
+                    return
+            else:
+                config_name = self.s.configurations.names_cache[idx]
         self.s.configurations[config_name] = self.s.edit_config
         self.s.configurations.set_pref(ea_int, config_name)
 
     def edit_config(self):
         editdlg = EditConfigurationFileForm_t(self.parent, self.s)
-        editdlg.exec_()
+        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
+            self.update_from_edit_config()
 
     def OnClose(self, form):
         self.shown = False
@@ -1266,10 +1256,10 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         """
         Rebuild a list of rows
         """
-        if idaapi.get_screen_ea() != idaapi.BADADDR:
+        if self.s.edit_config is not None:
             self.config = self.s.edit_config
         else:
-            self.config = None
+            return
         #: list of Values (addresses)
         self.rows = []
         if self.config:
@@ -1353,10 +1343,10 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         """
         Rebuild a list of rows
         """
-        if idaapi.get_screen_ea() != idaapi.BADADDR:
+        if self.s.edit_config is not None:
             self.config = self.s.edit_config
         else:
-            self.config = None
+            return
         #: list of Values (addresses)
         self.rows = []
         if self.config:
@@ -1386,9 +1376,7 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
             return False
         else:
             # existing row
-            bc_log.debug("Try to change :"+value)
             self.rows[row][col] = value
-            bc_log.debug(self.rows)
             init = map(lambda x:["reg[%s]" % x[0],"%s%s%s" % (x[1], '?'+x[2] if x[2] else "", '!'+x[3] if x[3] else "")], self.rows)
             if self.config:
                 self.config.state = init
