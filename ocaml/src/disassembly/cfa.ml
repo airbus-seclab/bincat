@@ -311,7 +311,7 @@ struct
     let print_field = if !Config.analysis = Config.Backward then
         fun s ->
           match s.back_v with
-          | None -> []
+          | None -> Domain.to_string s.v
           | Some v -> Domain.to_string v
       else
          fun s -> Domain.to_string s.v

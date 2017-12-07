@@ -743,8 +743,8 @@ class State(object):
                     f = temp_npk_fname
             else:
                 bc_log.warning(
-                    "Header file %s does not match expected extensions "
-                    "(.c, .no), ignoring.", f)
+                    "Header file %s does not exist or does not match expected "
+                    "extensions (.c, .no), ignoring.", f)
                 continue
 
             new_headers_filenames.append(f)

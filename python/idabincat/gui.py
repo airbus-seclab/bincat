@@ -417,6 +417,9 @@ class BinCATMemForm_t(idaapi.PluginForm):
                     last_addr = stop
                 self.mem_ranges[region] = merged
 
+            if not self.mem_ranges:
+                # happens in backward mode: states having no defined memory
+                return
             former_region = self.region_select.currentText()
             newregion = ""
             newregidx = -1
@@ -436,6 +439,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
 
             self.range_select.blockSignals(True)
             self.range_select.clear()
+
             for r in self.mem_ranges.values()[0]:
                 self.range_select.addItem("%08x-%08x" % r)
             self.range_select.blockSignals(False)
@@ -565,12 +569,23 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.btn_copy_stop = QtWidgets.QPushButton('<- Current')
         self.btn_copy_stop.clicked.connect(self.copy_stop)
 
+        self.radio_group = QtWidgets.QButtonGroup()
+        self.radio_forward = QtWidgets.QRadioButton("Forward")
+        self.radio_backward = QtWidgets.QRadioButton("Backward")
+
+        self.radio_group.addButton(self.radio_forward)
+        self.radio_group.addButton(self.radio_backward)
+
+        self.radio_forward.setChecked(True)
+
         addr_split.addWidget(lbl_start_addr)
         addr_split.addWidget(self.ip_start_addr)
         addr_split.addWidget(self.btn_copy_start)
         addr_split.addWidget(lbl_stop_addr)
         addr_split.addWidget(self.ip_stop_addr)
         addr_split.addWidget(self.btn_copy_stop)
+        addr_split.addWidget(self.radio_forward)
+        addr_split.addWidget(self.radio_backward)
 
         addr_split.setStretchFactor(0, 0)
         addr_split.setStretchFactor(1, 1)
@@ -623,13 +638,18 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         except ValueError as e:
             bc_log.error('Provided start address is invalid (%s)', e)
             return
-        start_addr = int(self.ip_start_addr.text(), 16)
         if self.ip_stop_addr.text() == "":
             stop_addr = None
         else:
             stop_addr = self.ip_stop_addr.text()
+        if self.radio_forward.isChecked():
+            analysis_method = "forward_binary"
+        else:
+            analysis_method = "backward"
+
         self.s.edit_config.analysis_ep = start_addr
         self.s.edit_config.stop_address = stop_addr
+        self.s.edit_config.analysis_method = analysis_method
 
 
         # always save config under "(last used)" slot
@@ -700,6 +720,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.ip_start_addr.setText(config.analysis_ep)
         cut = config.stop_address or ""
         self.ip_stop_addr.setText(cut)
+        self.radio_forward.setChecked(config.analysis_method == "forward_binary")
         self.cfgregmodel.endResetModel()
         self.cfgmemmodel.endResetModel()
 
