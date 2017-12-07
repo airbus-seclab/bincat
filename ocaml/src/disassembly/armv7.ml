@@ -1189,52 +1189,52 @@ struct
     mark_as_isn stmts
 
 
-let decode_thumb32_data_proc_shift_reg _s isn isn2 =
-  let op = (isn lsr 5) land 0xf in
-  let rn = isn land 0xf in
-  let tst = (isn lsr 4) land 1 in
-  match op with
-  | 0b0000 ->
-     if tst = 0 then (* Bitwise AND AND (register) *)
-       notimplemented "AND (register)"
-     else (* TST (register) *)
-       notimplemented "TST (register)"
-  | 0b0001 -> (* Bitwise Bit Clear BIC (register) *)
-     notimplemented "BIC (register)"
-  | 0b0010 ->
-     if rn = 0xf then (* Move MOV (register) *)
-       notimplemented "ORR (register)"
-     else (* Bitwise OR ORR (register) *)
-       notimplemented "ORR (register)"
-  | 0b0011 ->
-     if rn = 0xf then (* Bitwise NOT MVN (register) *)
-       notimplemented "MVN (register)"
-     else (* Bitwise OR NOT ORN (register) *)
-       notimplemented "ORN (register)"
-  | 0b0100 ->
-     if tst = 0 then (* Bitwise Exclusive OR EOR (register) *)
-       notimplemented "EOR (register)"
-     else (* Test Equivalence TEQ (register) *)
-       notimplemented "TEQ (register)"
-  | 0b0110 -> (* Pack Halfword PKH *)
-     notimplemented "PKH"
-  | 0b1000 ->
-     if tst = 0 then (* Add ADD (register) *)
-       notimplemented "ADD (register)"
-     else (* Compare Negative CMN (register) *)
-       notimplemented "CMN (register)"
-  | 0b1010 -> (* Add with Carry ADC (register) *)
-     notimplemented "ADC (register)"
-  | 0b1011 -> (* Subtract with Carry SBC (register) *)
-     notimplemented "SBC (register)"
-  | 0b1101 ->
-     if tst = 0 then (* Subtract SUB (register) *)
-       notimplemented "SUB (register)"
-     else (* Compare CMP (register) *)
-       notimplemented "CMP (register)"
-  | 0b1110 -> (* Reverse Subtract RSB (register) *)
-     notimplemented "RSB (register)"
-  | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
+  let decode_thumb32_data_proc_shift_reg _s isn isn2 =
+    let op = (isn lsr 5) land 0xf in
+    let rn = isn land 0xf in
+    let tst = (isn lsr 4) land 1 in
+    match op with
+    | 0b0000 ->
+       if tst = 0 then (* Bitwise AND AND (register) *)
+         notimplemented "AND (register)"
+       else (* TST (register) *)
+         notimplemented "TST (register)"
+    | 0b0001 -> (* Bitwise Bit Clear BIC (register) *)
+       notimplemented "BIC (register)"
+    | 0b0010 ->
+       if rn = 0xf then (* Move MOV (register) *)
+         notimplemented "ORR (register)"
+       else (* Bitwise OR ORR (register) *)
+         notimplemented "ORR (register)"
+    | 0b0011 ->
+       if rn = 0xf then (* Bitwise NOT MVN (register) *)
+         notimplemented "MVN (register)"
+       else (* Bitwise OR NOT ORN (register) *)
+         notimplemented "ORN (register)"
+    | 0b0100 ->
+       if tst = 0 then (* Bitwise Exclusive OR EOR (register) *)
+         notimplemented "EOR (register)"
+       else (* Test Equivalence TEQ (register) *)
+         notimplemented "TEQ (register)"
+    | 0b0110 -> (* Pack Halfword PKH *)
+       notimplemented "PKH"
+    | 0b1000 ->
+       if tst = 0 then (* Add ADD (register) *)
+         notimplemented "ADD (register)"
+       else (* Compare Negative CMN (register) *)
+         notimplemented "CMN (register)"
+    | 0b1010 -> (* Add with Carry ADC (register) *)
+       notimplemented "ADC (register)"
+    | 0b1011 -> (* Subtract with Carry SBC (register) *)
+       notimplemented "SBC (register)"
+    | 0b1101 ->
+       if tst = 0 then (* Subtract SUB (register) *)
+         notimplemented "SUB (register)"
+       else (* Compare CMP (register) *)
+         notimplemented "CMP (register)"
+    | 0b1110 -> (* Reverse Subtract RSB (register) *)
+       notimplemented "RSB (register)"
+    | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
 
 
   let decode_thumb32 s isn isn2 =
