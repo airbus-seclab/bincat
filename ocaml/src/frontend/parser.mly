@@ -355,8 +355,8 @@
     | i=INT { [ i ] }
     | i=INT COMMA l=addresses { i::l }
 
-      state:
-    | s=state_item      { s }
+    state:
+    |                     { () }
     | s=state_item ss=state { s; ss }
 
       state_item:
@@ -411,7 +411,11 @@
     | m=INT         { Config.Content m }
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
-     tcontent:
+    tcontent:
+    | o=one_tcontent { o }
+    | srcs = taint_sources { srcs }
+    
+    one_tcontent:
     | s=HEX_BYTES { [Config.TBytes (s, !taint_fun())] }
     | s=HEX_BYTES MASK m=INT    { [Config.TBytes_Mask (s, m, !taint_fun())] }
     | t=INT         { 
@@ -420,11 +424,10 @@
     | TAINT_ALL { [Config.Taint_all (!taint_fun ())] }
     | TAINT_NONE { [Config.Taint_none] }
     | t=INT MASK t2=INT { [Config.TMask (t, t2, !taint_fun())] }
-    | srcs = taint_sources { srcs }
 
     taint_sources:
-    | set_source_function ts = tcontent { ts }
-    | set_source_function ts = tcontent SEMI_COLON tss = taint_sources { ts@tss }
+    | set_source_function ts = one_tcontent { ts }
+    | set_source_function ts = one_tcontent STAR tss = taint_sources { ts@tss }
 
     set_default_source_function:
     | TAINT { taint_fun := fun () -> Taint.Src.new_src () }
