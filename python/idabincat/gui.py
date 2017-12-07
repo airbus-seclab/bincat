@@ -530,10 +530,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         # current config combo
         self.cfg_select = QtWidgets.QComboBox()
-        self.cfg_select.addItems(
-            self.s.configurations.names_cache + ['(new)'])
-        # pre-select preferred conf, if any
-        conf_name = self.s.configurations.get_pref(self.s.current_ea)
         self.cfg_select.currentIndexChanged.connect(self._load_config)
         cfg_split.addWidget(self.cfg_select)
 
@@ -707,9 +703,16 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfgregmodel.endResetModel()
         self.cfgmemmodel.endResetModel()
 
+    def update_config_list(self, to_select=None):
+        self.cfg_select.clear()
+        self.cfg_select.addItems(
+            self.s.configurations.names_cache + ['(new)'])
+        if to_select:
+           self.cfg_select.setCurrentText(to_select)
 
     def save_config(self, config_name=None):
         ea_int = int(self.ip_start_addr.text(), 16)
+        should_update = False
         if not config_name:
             idx = self.cfg_select.currentIndex()
             if idx == len(self.s.configurations.names_cache):
@@ -721,10 +724,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
                     text="0x%0X" % self.s.current_ea)
                 if not res:
                     return
+                should_update = True
             else:
                 config_name = self.s.configurations.names_cache[idx]
         self.s.configurations[config_name] = self.s.edit_config
         self.s.configurations.set_pref(ea_int, config_name)
+        if should_update:
+            self.update_config_list(config_name)
 
     def edit_config(self):
         editdlg = EditConfigurationFileForm_t(self.parent, self.s)
@@ -1665,6 +1671,7 @@ class ConfigurationsModel(QtCore.QAbstractTableModel):
         idx = BinCATConfigurationsView.clickedIndex
         name = self.s.configurations.names_cache[idx]
         del self.s.configurations[name]
+        self.s.gui.BinCATConfigForm.update_config_list()
 
 
 class BinCATConfigurationsView(QtWidgets.QTableView):
