@@ -687,39 +687,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.parent = self.FormToPyQtWidget(form)
         layout = QtWidgets.QGridLayout(self.parent)
 
-        splitter = QtWidgets.QSplitter(self.parent)
-        layout.addWidget(splitter, 0, 0)
-
-        # Config name label
-        self.curlabel = QtWidgets.QLabel('Current config:')
-        splitter.addWidget(self.curlabel)
-
-        # current config combo
-        self.cfg_select = QtWidgets.QComboBox()
-        self.cfg_select.addItems(
-            self.s.configurations.names_cache + ['(new)'])
-        # pre-select preferred conf, if any
-        conf_name = self.s.configurations.get_pref(self.s.current_ea)
-        self.cfg_select.currentIndexChanged.connect(self._load_config)
-        splitter.addWidget(self.cfg_select)
-
-        # Edit that config button
-        self.edit_cfg_btn = QtWidgets.QPushButton('&Edit')
-        self.edit_cfg_btn.clicked.connect(self.edit_config)
-        splitter.addWidget(self.edit_cfg_btn)
-
-        # RVA address label
-        self.alabel = QtWidgets.QLabel('RVA: none')
-        splitter.addWidget(self.alabel)
-
-        # leave space for comboboxes in splitter, rather than between widgets
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setStretchFactor(2, 0)
-
-        # Splitter for tables
+        # ----------- TABLES -----------------------
+        # Splitter for reg & mem tables
         tables_split = QtWidgets.QSplitter(Qt.Vertical,self.parent)
-        layout.addWidget(tables_split, 1, 0)
+        layout.addWidget(tables_split, 0, 0)
 
         # Inital config: registers table
         self.regstable = QtWidgets.QTableView(self.parent)
@@ -735,7 +706,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.regstable.horizontalHeader().setMinimumHeight(36)
         # Make it editable
         self.regstable.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
-
 
         tables_split.addWidget(self.regstable)
 
@@ -759,6 +729,87 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         tables_split.addWidget(self.memtable)
 
+        # ----------- Config options -----------------------
+        # Horizontal splitter for config boxes
+        cfg_split = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(cfg_split, 1, 0)
+        # Config name label
+        self.curlabel = QtWidgets.QLabel('Current config:')
+        cfg_split.addWidget(self.curlabel)
+
+        # current config combo
+        self.cfg_select = QtWidgets.QComboBox()
+        self.cfg_select.addItems(
+            self.s.configurations.names_cache + ['(new)'])
+        # pre-select preferred conf, if any
+        conf_name = self.s.configurations.get_pref(self.s.current_ea)
+        self.cfg_select.currentIndexChanged.connect(self._load_config)
+        cfg_split.addWidget(self.cfg_select)
+
+        # Edit that config button
+        self.btn_edit_cfg = QtWidgets.QPushButton('&Edit .ini')
+        self.btn_edit_cfg.clicked.connect(self.edit_config)
+        cfg_split.addWidget(self.btn_edit_cfg)
+
+        # Load config button
+        self.btn_load = QtWidgets.QPushButton('&Load .ini')
+        self.btn_load.clicked.connect(self.choose_file)
+        cfg_split.addWidget(self.btn_load)
+
+
+        # leave space for comboboxes in cfg_split, rather than between widgets
+        cfg_split.setStretchFactor(0, 0)
+        cfg_split.setStretchFactor(1, 1)
+        cfg_split.setStretchFactor(2, 0)
+
+        # Horizontal splitter for addresses
+        addr_split = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(addr_split, 2, 0)
+
+        # Start address
+        lbl_start_addr = QtWidgets.QLabel("Start addr:")
+        self.ip_start_addr = QtWidgets.QLineEdit(self.parent)
+        self.btn_copy_start = QtWidgets.QPushButton('<- Current')
+        self.btn_copy_start.clicked.connect(self.copy_start)
+
+        # Stop address
+        lbl_stop_addr = QtWidgets.QLabel("Stop addr:")
+        self.ip_stop_addr = QtWidgets.QLineEdit(self.parent)
+        self.btn_copy_stop = QtWidgets.QPushButton('<- Current')
+        self.btn_copy_stop.clicked.connect(self.copy_stop)
+
+        addr_split.addWidget(lbl_start_addr)
+        addr_split.addWidget(self.ip_start_addr)
+        addr_split.addWidget(self.btn_copy_start)
+        addr_split.addWidget(lbl_stop_addr)
+        addr_split.addWidget(self.ip_stop_addr)
+        addr_split.addWidget(self.btn_copy_stop)
+
+        addr_split.setStretchFactor(0, 0)
+        addr_split.setStretchFactor(1, 1)
+        addr_split.setStretchFactor(2, 0)
+        addr_split.setStretchFactor(3, 0)
+        addr_split.setStretchFactor(4, 1)
+        addr_split.setStretchFactor(5, 0)
+
+        # ----------- Analysis buttons -----------------------
+        # Horizontal splitter for buttons
+        btn_split = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(btn_split, 3, 0)
+
+        self.btn_start = QtWidgets.QPushButton('&Start')
+        self.btn_start.clicked.connect(self.launch_analysis)
+        btn_split.addWidget(self.btn_start)
+
+        # Save config button
+        self.btn_save_cfg = QtWidgets.QPushButton('&Save')
+        self.btn_save_cfg.clicked.connect(self.save_config)
+        btn_split.addWidget(self.btn_save_cfg)
+
+        self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
+        self.chk_remap.setChecked(self.s.remap_binary)
+        btn_split.addWidget(self.chk_remap)
+
         self.parent.setLayout(layout)
 
         self.cfg_select.clear()
@@ -768,10 +819,96 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if isinstance(self.s.current_ea, int):
             conf_name = self.s.configurations.get_pref(self.s.current_ea)
 
+    def copy_start(self):
+        self.ip_start_addr.setText("0x%x" % idaapi.get_screen_ea())
+
+    def copy_stop(self):
+        self.ip_stop_addr.setText("0x%x" % idaapi.get_screen_ea())
+
+    def launch_analysis(self):
+        bc_log.info("Launching the analyzer")
+        try:
+            start_addr = int(self.ip_start_addr.text(), 16)
+        except ValueError as e:
+            bc_log.error('Provided start address is invalid (%s)', e)
+            return
+        start_addr = int(self.ip_start_addr.text(), 16)
+        if self.ip_stop_addr.text() == "":
+            stop_addr = None
+        else:
+            stop_addr = self.ip_stop_addr.text()
+        self.s.edit_config.analysis_ep = start_addr
+        self.s.edit_config.stop_address = stop_addr
+
+        ea_int = int(self.ip_start_addr.text(), 16)
+
+        # always save config under "(last used)" slot
+        config_name = "(last used)"
+        self.s.configurations[config_name] = self.s.edit_config
+        self.s.configurations.set_pref(ea_int, config_name)
+
+        # if requested, also save under user-specified slot
+        if self.chk_save.isChecked():
+            idx = self.conf_select.currentIndex()
+            if idx == len(self.s.configurations.names_cache):
+                # new config, prompt name
+                config_name, res = QtWidgets.QInputDialog.getText(
+                    self,
+                    "Configuration name",
+                    "Under what name should this new configuration be saved?",
+                    text="0x%0X" % self.s.current_ea)
+                if not res:
+                    return
+            else:
+                config_name = self.s.configurations.names_cache[idx]
+            self.s.configurations[config_name] = self.s.edit_config
+            self.s.configurations.set_pref(ea_int, config_name)
+
+        if self.chk_remap.isChecked():
+            if (self.s.remapped_bin_path is None or
+                    not os.path.isfile(self.s.remapped_bin_path)):
+                # IDA 6/7 compat
+                askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') else idaapi.askfile_c
+                fname = askfile(1, None, "Save remapped binary")
+                if not fname:
+                    bc_log.error(
+                        'No filename provided. You can provide a filename or '
+                        'uncheck the "Remap binary" option.')
+                    return
+                dump_binary(fname)
+                self.s.remapped_bin_path = fname
+            self.s.remap_binary = True
+            self.s.edit_config.binary_filepath = self.s.remapped_bin_path
+            self.s.edit_config.code_va = "0x0"
+            self.s.edit_config.code_phys = "0x0"
+            self.s.edit_config.format = "manual"
+            size = os.stat(self.s.edit_config.binary_filepath).st_size
+            self.s.edit_config.code_length = "0x%0X" % size
+            self.s.edit_config.replace_section_mappings(
+                [("ph2", 0, size, 0, size)])
+        else:
+            self.s.remap_binary = False
+
+        # XXX copy?
+        self.s.current_config = self.s.edit_config
+
+        self.s.start_analysis()
+
+    def choose_file(self):
+        options = QtWidgets.QFileDialog.Options()
+        default_filename = os.path.join(os.path.dirname(__file__),
+                                        'init.ini')
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self.parent, "Choose configuration file", default_filename,
+            "Configuration files (*.ini)", options=options)
+        if not filename or not os.path.exists(filename):
+            return
+
+        self.s.edit_config = AnalyzerConfig.load_from_str(open(filename, 'r').read())
+        self.update_from_edit_config()
+
     @QtCore.pyqtSlot(str)
     def _load_config(self, index):
-        self.cfgregmodel.beginResetModel()
-        self.cfgmemmodel.beginResetModel()
         if index == len(self.s.configurations.names_cache):
             # new config
             self.s.edit_config = self.s.configurations.new_config(
@@ -779,10 +916,34 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         else:
             name = self.s.configurations.names_cache[index]
             self.s.edit_config = self.s.configurations[name]
+        self.update_from_edit_config()
+
+    def update_from_edit_config(self):
+        self.cfgregmodel.beginResetModel()
+        self.cfgmemmodel.beginResetModel()
+        config = self.s.edit_config
+        self.ip_start_addr.setText(config.analysis_ep)
+        cut = config.stop_address or ""
+        self.ip_stop_addr.setText(cut)
         self.cfgregmodel.endResetModel()
         self.cfgmemmodel.endResetModel()
-        self.rvatxt = self.s.edit_config.analysis_ep
-        self.alabel.setText('RVA: %s' % self.rvatxt)
+
+
+    def save_config(self):
+        idx = self.cfg_select.currentIndex()
+        if idx == len(self.s.configurations.names_cache):
+            # new config, prompt name
+            config_name, res = QtWidgets.QInputDialog.getText(
+                self,
+                "Configuration name",
+                "Under what name should this new configuration be saved?",
+                text="0x%0X" % self.s.current_ea)
+            if not res:
+                return
+        else:
+            config_name = self.s.configurations.names_cache[idx]
+        self.s.configurations[config_name] = self.s.edit_config
+        self.s.configurations.set_pref(ea_int, config_name)
 
     def edit_config(self):
         editdlg = EditConfigurationFileForm_t(self.parent, self.s)
