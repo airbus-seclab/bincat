@@ -1284,6 +1284,16 @@ let decode_thumb32_data_proc_shift_reg _s isn isn2 =
        else L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
     | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding")
 
+  let thumb_generate_pc_relative _s isn =
+    let rd = (isn lsr 8) land 7 in
+    let imm8 = isn land 0xff in
+    let value = const (imm8 lsl 2) 32 in
+    mark_as_isn [ Set (V (treg rd),
+                       BinOp (Add,
+                              BinOp(And, Lval (V (T pc)),
+                                    const 0xfffffffc 32),
+                              value)) ]
+
   let thumb_generate_sp_relative _s isn =
     let rd = (isn lsr 8) land 7 in
     let imm8 = isn land 0xff in
@@ -1307,7 +1317,7 @@ let decode_thumb32_data_proc_shift_reg _s isn isn2 =
         | 0b010010 | 0b010011 -> (* Load from Literal Pool *)
            thumb_ldr s instruction
         | 0b101000 | 0b101001 -> (* Generate PC-relative address *)
-           notimplemented "pc-relative address generation"
+           thumb_generate_pc_relative s instruction
         | 0b101010 | 0b101011 -> (* Generate SP-relative address *)
            thumb_generate_sp_relative s instruction
         | 0b101100 | 0b101101 | 0b101110 | 0b101111 -> (* Miscellaneous 16-bit instructions *)
