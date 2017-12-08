@@ -588,11 +588,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         addr_split.addWidget(self.radio_backward)
 
         addr_split.setStretchFactor(0, 0)
-        addr_split.setStretchFactor(1, 1)
-        addr_split.setStretchFactor(2, 0)
-        addr_split.setStretchFactor(3, 0)
-        addr_split.setStretchFactor(4, 1)
+        addr_split.setStretchFactor(1, 1) # ip_start
+        addr_split.setStretchFactor(2, 0) # btn copy start
+        addr_split.setStretchFactor(3, 0) # lbl_stop
+        addr_split.setStretchFactor(4, 1) # ip_stop
         addr_split.setStretchFactor(5, 0)
+        addr_split.setStretchFactor(6, 0)
+        addr_split.setStretchFactor(7, 0)
 
         # ----------- Analysis buttons -----------------------
         # Horizontal splitter for buttons
@@ -1080,13 +1082,10 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         else:
             return
         #: list of Values (addresses)
-        self.rows = []
         if self.config:
-            for mem in filter(lambda x: x[0][0:3] != "reg", self.config.state):
-                m = self.mem_addr_re.match(mem[0])
-                self.rows.append([m.group('region'),
-                                m.group('address') or '',
-                                mem[1]])
+            self.rows = self.config.state.mem
+        else:
+            self.rows = []
 
         super(InitConfigMemModel, self).endResetModel()
 
@@ -1109,8 +1108,8 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         else:
             # existing row
             self.rows[row][col] = value
-            init = map(lambda x:["%s[%s]" % (x[0], x[1]), x[2]], self.rows)
-            self.config.state = init
+            if self.config:
+                self.config.state.set_mem(self.rows)
         return True  #success
 
 
@@ -1167,15 +1166,10 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         else:
             return
         #: list of Values (addresses)
-        self.rows = []
         if self.config:
-            for reg in filter(lambda x: x[0][0:3] == "reg", self.config.state):
-                m = self.reg_re.match(reg[1])
-                self.rows.append([reg[0][4:-1],
-                                m.group('value') or '',
-                                m.group('top') or '',
-                                m.group('taint') or ''])
-
+            self.rows = self.config.state.regs
+        else:
+            self.rows = []
         super(InitConfigRegModel, self).endResetModel()
 
     def headerData(self, section, orientation, role):
@@ -1196,9 +1190,8 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         else:
             # existing row
             self.rows[row][col] = value
-            init = map(lambda x:["reg[%s]" % x[0],"%s%s%s" % (x[1], '?'+x[2] if x[2] else "", '!'+x[3] if x[3] else "")], self.rows)
             if self.config:
-                self.config.state = init
+                self.config.state.set_regs(self.rows)
         return True  #success
 
 

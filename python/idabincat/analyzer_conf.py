@@ -22,6 +22,7 @@ import functools
 import glob
 import os
 import os.path
+import re
 import StringIO
 import ConfigParser
 import idaapi
@@ -202,39 +203,39 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_registers_with_state(arch):
-        # returns a dict with register names as key
-        # value is an array with [ "value", "topmask", "taintmask"]
-        regs = {}
+        # returns an array of arrays
+        # ["name", "value", "topmask", "taintmask"]
+        regs = []
         if arch == "x86":
             for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
-                regs[name] = ["0", "0xFFFFFFFF", ""]
+                regs.append([name, "0", "0xFFFFFFFF", ""])
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
                          "rf", "vm", "ac", "vif", "vip", "id"]:
-                regs[name] = ["0", "1", ""]
-            regs["esp"] = ["0x2000", "", ""]
-            regs["df"] = ["0", "", ""]
-            regs["iopl"] = ["3", "", ""]
+                regs.append([name, "0", "1", ""])
+            regs.append(["esp", "0x2000", "", ""])
+            regs.append(["df", "0", "", ""])
+            regs.append(["iopl", "3", "", ""])
         elif arch == "armv7":
-            regs["sp"] = ["0x2000", "", ""]
-            regs["lr"] = ["0x0", "", ""]
-            regs["pc"] = ["0x0", "", ""]
-            regs["n"] = ["0", "1", ""]
-            regs["z"] = ["0", "1", ""]
-            regs["c"] = ["0", "1", ""]
-            regs["v"] = ["0", "1", ""]
+            regs.append(["sp", "0x2000", "", ""])
+            regs.append(["lr", "0x0", "", ""])
+            regs.append(["pc", "0x0", "", ""])
+            regs.append(["n", "0", "1", ""])
+            regs.append(["z", "0", "1", ""])
+            regs.append(["c", "0", "1", ""])
+            regs.append(["v", "0", "1", ""])
             for i in range(13):
-                regs["r%d" % i] = ["0", "0xFFFFFFFF", ""]
+                regs.append(["r%d" % i, "0", "0xFFFFFFFF", ""])
         elif arch == "armv8":
-            regs["sp"] = ["0x2000", "", ""]
-            regs["n"] = ["0", "1", ""]
-            regs["z"] = ["0", "1", ""]
-            regs["c"] = ["0", "1", ""]
-            regs["v"] = ["0", "1", ""]
-            regs["xzr"] = ["0", "", ""]
+            regs.append(["sp", "0x2000", "", ""])
+            regs.append(["n", "0", "1", ""])
+            regs.append(["z", "0", "1", ""])
+            regs.append(["c", "0", "1", ""])
+            regs.append(["v", "0", "1", ""])
+            regs.append(["xzr", "0", "", ""])
             for i in range(31):
-                regs["x%d" % i] = ["0", "0xFFFFFFFFFFFFFFFF", ""]
+                regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
             for i in range(32):
-                regs["q%d" % i] = ["0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""]
+                regs.append(["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
         return regs
 
     @staticmethod
@@ -247,6 +248,9 @@ class ConfigHelpers(object):
         if procname == "metapc":
             return "x86"
         elif procname.startswith("arm"):
+            if not entrypoint:
+                first_seg = idaapi.get_first_seg()
+                start_ea = seg.start_ea if hasattr(seg, "start_ea") else seg.startEA
             segment_size = ConfigHelpers.get_segment_size(entrypoint)
             if segment_size == 32:
                 return "armv7"
@@ -260,19 +264,52 @@ class InitialState(object):
         * registers
         * memory
     """
-    def __init__(self,entrypoint = None):
-        arch = ConfigHelpers.get_arch(entrypoint)
-        self.regs = ConfigHelpers.get_registers_with_state(arch)
-        self.mem = ConfigHelpers.get_initial_mem(arch)
+    def __init__(self,entrypoint=None,config=None):
+        if config:
+            arch = config.get('program','architecture') 
+            self.mem = []
+            self.regs = []
+            for k,v in config.items('state'):
+                if k[0:3] == "reg":
+                    self.regs.append(InitialState.reg_init_parse(k, v))
+                else:
+                    self.mem.append(InitialState.mem_init_parse(k, v))
+        else:
+            arch = ConfigHelpers.get_arch(entrypoint)
+            self.regs = ConfigHelpers.get_registers_with_state(arch)
+            self.mem = ConfigHelpers.get_initial_mem(arch)
+
+    def set_regs(self, regs):
+        self.regs = regs
+
+    def set_mem(self, mem):
+        self.mem = mem
 
     @staticmethod
-    def reg_to_strs(regname, value):
-        val_str = value[0]
-        if value[1] != "": # add top mask if needed
-            val_str += "?"+value[1]
-        if value[2] != "": # add taint mask if needed
-            val_str += ":"+value[2]
-        return ["reg[%s]" % regname, val_str]
+    def mem_init_parse(mem_addr, mem_val):
+        mem_addr_re = re.compile("(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
+        m = mem_addr_re.match(mem_addr)
+        return [m.group('region'), m.group('address'), mem_val]
+
+    @staticmethod
+    def reg_init_parse(reg_spec, reg_val):
+        if reg_spec[0:3] != "reg":
+            raise ValueError("Invalid reg spec, not starting with 'reg'")
+        reg_re = re.compile("(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
+        m = reg_re.match(reg_val)
+        return [reg_spec[4:-1], 
+                m.group('value') or '',
+                m.group('top') or '',
+                m.group('taint') or '']
+
+    @staticmethod
+    def reg_to_strs(regspec):
+        val_str = regspec[1]
+        if regspec[2] != "": # add top mask if needed
+            val_str += "?"+regspec[2]
+        if regspec[3] != "": # add taint mask if needed
+            val_str += ":"+regspec[3]
+        return ["reg[%s]" % regspec[0], val_str]
 
     @staticmethod
     def mem_to_strs(memdef):
@@ -280,9 +317,8 @@ class InitialState(object):
 
     def as_kv(self):
         res = []
-        for regname, value in self.regs.items():
-            print regname+" :"+repr(value)
-            res.append(self.reg_to_strs(regname, value))
+        for regdef in self.regs:
+            res.append(self.reg_to_strs(regdef))
         for memdef in self.mem:
             res.append(self.mem_to_strs(memdef))
         return res
@@ -300,8 +336,10 @@ class AnalyzerConfig(object):
         self.version = "0.0"
         if config:
             self._config = config
+            self.init_state = InitialState(config=config)
         else:
             self._config = ConfigParser.RawConfigParser()
+            self.init_state = InitialState()
         self._config.optionxform = str
         # make sure all sections are created
         for section in ("analyzer", "program",
@@ -360,15 +398,7 @@ class AnalyzerConfig(object):
 
     @property
     def state(self):
-        return self._config.items('state')
-
-    @state.setter
-    def state(self, value):
-        self._config.remove_section('state')
-        self._config.add_section('state')
-        for new_v in value:
-            self._config.set('state', new_v[0], new_v[1])
-        bc_log.debug("Updated state with :"+repr(self._config.items('state')))
+        return self.init_state
 
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
@@ -478,6 +508,10 @@ class AnalyzerConfig(object):
             self._config.write(configfile)
 
     def __str__(self):
+        self._config.remove_section('state')
+        self._config.add_section('state')
+        for key, val in self.init_state.as_kv():
+            self._config.set("state", key, val)
         sio = StringIO.StringIO()
         self._config.write(sio)
         sio.seek(0)
