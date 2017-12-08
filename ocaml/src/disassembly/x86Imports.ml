@@ -71,12 +71,12 @@ struct
       let tainting_pro,tainting_epi, cc = Rules.tainting_rule_stmts libname fname (fun cc -> get_local_callconv cc) in
       let cc' =
         match cc with
-        | Some cc -> local_callconv cc
+        | Some cc -> cc
         | None -> default_cc
       in
       let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc' in
     
-      let stub_stmts = stub_stmts_from_name fname cc in
+      let stub_stmts = stub_stmts_from_name fname cc' in
       let fundesc:Asm.import_desc_t = {
         name = fname ;
         libname = libname ;
