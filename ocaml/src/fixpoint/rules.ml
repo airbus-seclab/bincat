@@ -14,10 +14,11 @@ let typing_rule_stmts name callconv =
   else [], []
 
 
-let tainting_rule_stmts libname name =
+let tainting_rule_stmts libname name get_callconv =
   if Hashtbl.mem Config.tainting_rules (libname,name) then
     begin
-      let callconv,ret,args = Hashtbl.find Config.tainting_rules (libname,name) in
+      let cc,ret,args = Hashtbl.find Config.tainting_rules (libname,name) in
+      let callconv = get_callconv cc in
       let one_taint (l, i) arg =
        match arg with
        | Config.No_taint -> l, i+1
@@ -36,6 +37,6 @@ let tainting_rule_stmts libname name =
            | Config.Buf_taint -> [Asm.Directive (Asm.Taint (None, Asm.M(Asm.Lval (callconv.Asm.return), !Config.operand_sz)))]
       in
       let taint_args_stmts = List.rev (fst (List.fold_left one_taint ([], 0) args)) in
-      taint_args_stmts, taint_ret_stmts, callconv
+      taint_args_stmts, taint_ret_stmts, Some callconv
     end
   else [], [], None
