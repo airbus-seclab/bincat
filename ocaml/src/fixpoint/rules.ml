@@ -14,24 +14,28 @@ let typing_rule_stmts name callconv =
   else [], []
 
 
-let tainting_rule_stmts libname name _callconv =
+let tainting_rule_stmts libname name =
   if Hashtbl.mem Config.tainting_rules (libname,name) then
     begin
-      let _callconv,ret,args = Hashtbl.find Config.tainting_rules (libname,name) in
-      let taint_arg taint =
-        match taint with
-        | Config.No_taint -> []
-        | Config.Buf_taint -> [ ]
-        | Config.Addr_taint -> [ ]
+      let callconv,ret,args = Hashtbl.find Config.tainting_rules (libname,name) in
+      let one_taint (l, i) arg =
+       match arg with
+       | Config.No_taint -> l, i+1
+       | Config.Addr_taint -> (Asm.Directive (Asm.Taint (None, callconv.Asm.arguments i)))::l, i+1
+       | Config.Buf_taint ->
+          let lv = Asm.M (Asm.Lval (callconv.Asm.arguments i), !Config.operand_sz) in
+            (Asm.Directive (Asm.Taint (None, lv)))::l, i+1
       in
-      let taint_ret_stmts =
+      let taint_ret_stmts = 
         match ret with
         | None -> []
-        | Some t -> taint_arg t
+        | Some t' ->
+           match t' with
+           | Config.No_taint -> []
+           | Config.Addr_taint -> [Asm.Directive (Asm.Taint (None, callconv.Asm.return))]
+           | Config.Buf_taint -> [Asm.Directive (Asm.Taint (None, Asm.M(Asm.Lval (callconv.Asm.return), !Config.operand_sz)))]
       in
-      let _taint_args_stmts =
-        List.fold_left (fun l arg -> (taint_arg arg)@l) [] args
-      in
-      [], taint_ret_stmts @ taint_ret_stmts
+      let taint_args_stmts = List.rev (fst (List.fold_left one_taint ([], 0) args)) in
+      taint_args_stmts, taint_ret_stmts, callconv
     end
-  else [], []
+  else [], [], None
