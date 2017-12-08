@@ -295,7 +295,7 @@ class InitialState(object):
     def reg_init_parse(reg_spec, reg_val):
         if reg_spec[0:3] != "reg":
             raise ValueError("Invalid reg spec, not starting with 'reg'")
-        reg_re = re.compile("(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
+        reg_re = re.compile("(?P<value>[^!?]+)?(\?(?P<top>[^!]+))?(!(?P<taint>[^#]*))?(?P<cmt>#.*)?")
         m = reg_re.match(reg_val)
         return [reg_spec[4:-1], 
                 m.group('value') or '',
