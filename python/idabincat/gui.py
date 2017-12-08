@@ -633,6 +633,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
     def copy_stop(self):
         self.ip_stop_addr.setText("0x%x" % idaapi.get_screen_ea())
 
+    def get_analysis_method(self):
+        if self.radio_forward.isChecked():
+            analysis_method = "forward_binary"
+        else:
+            analysis_method = "backward"
+        return analysis_method
+
     def launch_analysis(self):
         bc_log.info("Launching the analyzer")
         try:
@@ -644,10 +651,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             stop_addr = None
         else:
             stop_addr = self.ip_stop_addr.text()
-        if self.radio_forward.isChecked():
-            analysis_method = "forward_binary"
-        else:
-            analysis_method = "backward"
+        analysis_method = self.get_analysis_method()
 
         self.s.edit_config.analysis_ep = start_addr
         self.s.edit_config.stop_address = stop_addr
@@ -709,7 +713,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if index == len(self.s.configurations.names_cache):
             # new config
             self.s.edit_config = self.s.configurations.new_config(
-                self.s.current_ea, None)
+                self.s.current_ea, None, self.get_analysis_method())
         else:
             name = self.s.configurations.names_cache[index]
             self.s.edit_config = self.s.configurations[name]
