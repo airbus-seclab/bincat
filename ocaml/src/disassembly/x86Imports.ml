@@ -68,7 +68,7 @@ struct
   let init_imports () =
     let default_cc = get_callconv () in
     Hashtbl.iter (fun adrs (libname,fname) ->
-      let tainting_pro,tainting_epi, cc = Rules.tainting_rule_stmts libname fname cc in
+      let tainting_pro,tainting_epi, cc = Rules.tainting_rule_stmts libname fname (fun cc -> get_local_callconv cc) in
       let cc' =
         match cc with
         | Some cc -> local_callconv cc

@@ -66,7 +66,7 @@ struct
   let init_imports () =
     let cc = aapcs_calling_convention in
     Hashtbl.iter (fun adrs (libname,fname) ->
-      let tainting_pro,tainting_epi = Rules.tainting_rule_stmts libname fname in
+      let tainting_pro,tainting_epi = Rules.tainting_rule_stmts libname fname (fun _ -> aapcs_calling_convention) in
       let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc in
       let stub_stmts = stub_stmts_from_name fname cc in
       let fundesc:Asm.import_desc_t = {
