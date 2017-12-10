@@ -727,8 +727,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.ip_start_addr.setText(config.analysis_ep)
         cut = config.stop_address or ""
         self.ip_stop_addr.setText(cut)
-        self.radio_forward.setChecked(
-            config.analysis_method == "forward_binary")
+        if config.analysis_method == "forward_binary":
+            self.radio_forward.setChecked(True)
+        else:
+            self.radio_backward.setChecked(True)
         self.cfgregmodel.endResetModel()
         self.cfgmemmodel.endResetModel()
 
