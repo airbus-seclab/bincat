@@ -308,7 +308,7 @@ class InitialState(object):
         if regspec[2] != "":  # add top mask if needed
             val_str += "?"+regspec[2]
         if regspec[3] != "":  # add taint mask if needed
-            val_str += ":"+regspec[3]
+            val_str += "!"+regspec[3]
         return ["reg[%s]" % regspec[0], val_str]
 
     @staticmethod
