@@ -147,6 +147,7 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         self.setWindowTitle("BinCAT configuration")
         super(BinCATOptionsForm_t, self).show()
 
+
 class Meminfo():
     """
     Helper class to access memory as a str
@@ -460,6 +461,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
                      idaapi.PluginForm.FORM_RESTORE |
                      idaapi.PluginForm.FORM_TAB))
 
+
 class BinCATConfigForm_t(idaapi.PluginForm):
     """
     BinCAT initial configuration form
@@ -484,7 +486,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         # ----------- TABLES -----------------------
         # Splitter for reg & mem tables
-        tables_split = QtWidgets.QSplitter(Qt.Vertical,self.parent)
+        tables_split = QtWidgets.QSplitter(Qt.Vertical, self.parent)
         layout.addWidget(tables_split, 0, 0)
 
         # Inital config: registers table
@@ -495,12 +497,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.regstable.verticalHeader().setVisible(False)
         self.regstable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        #self.regstable.setContextMenuPolicy(Qt.CustomContextMenu)
+        # self.regstable.setContextMenuPolicy(Qt.CustomContextMenu)
         self.regstable.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
         self.regstable.horizontalHeader().setMinimumHeight(36)
         # Make it editable
-        self.regstable.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
+        self.regstable.setEditTriggers(
+            QtWidgets.QAbstractItemView.AllEditTriggers)
 
         tables_split.addWidget(self.regstable)
 
@@ -514,8 +517,9 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.ResizeToContents)
         self.memtable.setContextMenuPolicy(Qt.CustomContextMenu)
         # Make it editable
-        self.memtable.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers
-                                       | QtWidgets.QAbstractItemView.DoubleClicked)
+        self.memtable.setEditTriggers(
+            QtWidgets.QAbstractItemView.NoEditTriggers
+            | QtWidgets.QAbstractItemView.DoubleClicked)
 
         self.memtable.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
@@ -546,7 +550,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.btn_load = QtWidgets.QPushButton('&Load .ini')
         self.btn_load.clicked.connect(self.choose_file)
         cfg_split.addWidget(self.btn_load)
-
 
         # leave space for comboboxes in cfg_split, rather than between widgets
         cfg_split.setStretchFactor(0, 0)
@@ -588,10 +591,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         addr_split.addWidget(self.radio_backward)
 
         addr_split.setStretchFactor(0, 0)
-        addr_split.setStretchFactor(1, 1) # ip_start
-        addr_split.setStretchFactor(2, 0) # btn copy start
-        addr_split.setStretchFactor(3, 0) # lbl_stop
-        addr_split.setStretchFactor(4, 1) # ip_stop
+        addr_split.setStretchFactor(1, 1)  # ip_start
+        addr_split.setStretchFactor(2, 0)  # btn copy start
+        addr_split.setStretchFactor(3, 0)  # lbl_stop
+        addr_split.setStretchFactor(4, 1)  # ip_stop
         addr_split.setStretchFactor(5, 0)
         addr_split.setStretchFactor(6, 0)
         addr_split.setStretchFactor(7, 0)
@@ -623,9 +626,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfg_select.clear()
         self.cfg_select.addItems(
             self.s.configurations.names_cache + ['(new)'])
-        # pre-select preferred conf, if any
-        if isinstance(self.s.current_ea, int):
-            conf_name = self.s.configurations.get_pref(self.s.current_ea)
 
     def copy_start(self):
         self.ip_start_addr.setText("0x%x" % idaapi.get_screen_ea())
@@ -657,7 +657,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.s.edit_config.stop_address = stop_addr
         self.s.edit_config.analysis_method = analysis_method
 
-
         # always save config under "(last used)" slot
         self.save_config("(last used)")
 
@@ -669,7 +668,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             if (self.s.remapped_bin_path is None or
                     not os.path.isfile(self.s.remapped_bin_path)):
                 # IDA 6/7 compat
-                askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') else idaapi.askfile_c
+                askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') \
+                    else idaapi.askfile_c
                 fname = askfile(1, None, "Save remapped binary")
                 if not fname:
                     bc_log.error(
@@ -705,7 +705,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if not filename or not os.path.exists(filename):
             return
 
-        self.s.edit_config = AnalyzerConfig.load_from_str(open(filename, 'r').read())
+        self.s.edit_config = AnalyzerConfig.load_from_str(
+            open(filename, 'r').read())
         self.update_from_edit_config()
 
     @QtCore.pyqtSlot(str)
@@ -726,7 +727,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.ip_start_addr.setText(config.analysis_ep)
         cut = config.stop_address or ""
         self.ip_stop_addr.setText(cut)
-        self.radio_forward.setChecked(config.analysis_method == "forward_binary")
+        self.radio_forward.setChecked(
+            config.analysis_method == "forward_binary")
         self.cfgregmodel.endResetModel()
         self.cfgmemmodel.endResetModel()
 
@@ -735,7 +737,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfg_select.addItems(
             self.s.configurations.names_cache + ['(new)'])
         if to_select:
-           self.cfg_select.setCurrentText(to_select)
+            self.cfg_select.setCurrentText(to_select)
 
     def save_config(self, config_name=None):
         ea_int = int(self.ip_start_addr.text(), 16)
@@ -1068,14 +1070,14 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         self.rows = []
         self.mono_font = QtGui.QFont("Monospace")
         self.config = None
-        self.mem_addr_re = re.compile("(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
+        self.mem_addr_re = re.compile(
+            "(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
 
     def flags(self, index):
-        flags =  (Qt.ItemIsSelectable
-                    | Qt.ItemIsEnabled)
+        flags = (Qt.ItemIsSelectable
+                 | Qt.ItemIsEnabled)
         flags |= Qt.ItemIsEditable
         return flags
-
 
     def endResetModel(self):
         """
@@ -1099,7 +1101,6 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         if role == Qt.DisplayRole:
             return self.headers[section]
 
-
     def setData(self, index, value, role):
         if role != Qt.EditRole:
             return False
@@ -1114,14 +1115,13 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
             self.rows[row][col] = value
             if self.config:
                 self.config.state.set_mem(self.rows)
-        return True  #success
-
+        return True   # success
 
     def data(self, index, role):
         col = index.column()
         if role == Qt.FontRole:
             return self.mono_font
-        elif role == Qt.ToolTipRole: # add tooltip ?
+        elif role == Qt.ToolTipRole:  # add tooltip ?
             return
         elif role != Qt.DisplayRole and role != Qt.EditRole:
             return
@@ -1134,6 +1134,7 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
 
     def columnCount(self, parent):
         return len(self.headers)
+
 
 class InitConfigRegModel(QtCore.QAbstractTableModel):
     """
@@ -1151,15 +1152,15 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         self.config = None
         # regex to parse init syntax for registers
         # example: reg[eax] = 100?0xF!0xF0
-        self.reg_re = re.compile("(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
+        self.reg_re = re.compile(
+            "(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
 
     def flags(self, index):
-        flags =  (Qt.ItemIsSelectable
-                    | Qt.ItemIsEnabled)
+        flags = (Qt.ItemIsSelectable
+                 | Qt.ItemIsEnabled)
         if index.column() > 0:
             flags |= Qt.ItemIsEditable
         return flags
-
 
     def endResetModel(self):
         """
@@ -1196,14 +1197,13 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
             self.rows[row][col] = value
             if self.config:
                 self.config.state.set_regs(self.rows)
-        return True  #success
-
+        return True  # success
 
     def data(self, index, role):
         col = index.column()
         if role == Qt.FontRole:
             return self.mono_font
-        elif role == Qt.ToolTipRole: # add tooltip ?
+        elif role == Qt.ToolTipRole:  # add tooltip ?
             return
         elif role != Qt.DisplayRole and role != Qt.EditRole:
             return
@@ -1216,6 +1216,7 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
 
     def columnCount(self, parent):
         return len(self.headers)
+
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
     """
@@ -1862,7 +1863,8 @@ class Hooks(idaapi.UI_Hooks):
 
     def updating_actions(self, ctx):
         # IDA 6/7 compat
-        win_type = ctx.widget_type if hasattr(ctx, "widget_type") else ctx.form_type
+        win_type = ctx.widget_type if hasattr(ctx, "widget_type") else \
+            ctx.form_type
         if win_type == idaapi.BWN_DISASM:
             ea = ctx.cur_ea
             if idaapi.isCode(idaapi.getFlags(ea)):
@@ -1875,10 +1877,12 @@ class Hooks(idaapi.UI_Hooks):
         except AttributeError:
             win_type = idaapi.get_tform_type(form)
         if win_type == idaapi.BWN_DISASM:
-            idaapi.attach_action_to_popup(form, popup, "bincat:ana_from_here",
-                                          "BinCAT/", idaapi.SETMENU_APP)
-            idaapi.attach_action_to_popup(form, popup, "bincat:add_override",
-                                          "BinCAT/", idaapi.SETMENU_APP)
+            idaapi.attach_action_to_popup(
+                form, popup, "bincat:ana_from_here",
+                "BinCAT/", idaapi.SETMENU_APP)
+            idaapi.attach_action_to_popup(
+                form, popup, "bincat:add_override",
+                "BinCAT/", idaapi.SETMENU_APP)
 
 
 class GUI(object):
@@ -1891,7 +1895,8 @@ class GUI(object):
         self.configregmodel = InitConfigRegModel(state)
         self.configmemmodel = InitConfigMemModel(state)
         self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.vtmodel)
-        self.BinCATConfigForm = BinCATConfigForm_t(state, self.configregmodel, self.configmemmodel)
+        self.BinCATConfigForm = BinCATConfigForm_t(
+            state, self.configregmodel, self.configmemmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
         self.BinCATMemForm = BinCATMemForm_t(state)
         self.overrides_model = OverridesModel(state)

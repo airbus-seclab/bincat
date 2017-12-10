@@ -264,12 +264,12 @@ class InitialState(object):
         * registers
         * memory
     """
-    def __init__(self,entrypoint=None,config=None):
+    def __init__(self, entrypoint=None, config=None):
         if config:
-            arch = config.get('program','architecture') 
+            arch = config.get('program', 'architecture')
             self.mem = []
             self.regs = []
-            for k,v in config.items('state'):
+            for k, v in config.items('state'):
                 if k[0:3] == "reg":
                     self.regs.append(InitialState.reg_init_parse(k, v))
                 else:
@@ -297,7 +297,7 @@ class InitialState(object):
             raise ValueError("Invalid reg spec, not starting with 'reg'")
         reg_re = re.compile("(?P<value>[^!?]+)?(\?(?P<top>[^!]+))?(!(?P<taint>[^#]*))?(?P<cmt>#.*)?")
         m = reg_re.match(reg_val)
-        return [reg_spec[4:-1], 
+        return [reg_spec[4:-1],
                 m.group('value') or '',
                 m.group('top') or '',
                 m.group('taint') or '']
@@ -305,9 +305,9 @@ class InitialState(object):
     @staticmethod
     def reg_to_strs(regspec):
         val_str = regspec[1]
-        if regspec[2] != "": # add top mask if needed
+        if regspec[2] != "":  # add top mask if needed
             val_str += "?"+regspec[2]
-        if regspec[3] != "": # add taint mask if needed
+        if regspec[3] != "":  # add taint mask if needed
             val_str += ":"+regspec[3]
         return ["reg[%s]" % regspec[0], val_str]
 
@@ -327,6 +327,7 @@ class InitialState(object):
     def get_default(entrypoint):
         state = InitialState(entrypoint)
         return state.as_kv()
+
 
 class AnalyzerConfig(object):
     """
