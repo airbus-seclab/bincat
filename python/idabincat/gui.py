@@ -542,12 +542,16 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         cfg_split.addWidget(self.cfg_select)
 
         # Edit that config button
-        self.btn_edit_cfg = QtWidgets.QPushButton('&Edit .ini')
+        self.btn_edit_cfg = QtWidgets.QPushButton('&Edit...')
         self.btn_edit_cfg.clicked.connect(self.edit_config)
+        self.btn_edit_cfg.setIcon(self.btn_edit_cfg.style().standardIcon(
+            QtWidgets.QStyle.SP_FileDialogContentsView))
         cfg_split.addWidget(self.btn_edit_cfg)
 
         # Load config button
-        self.btn_load = QtWidgets.QPushButton('&Load .ini')
+        self.btn_load = QtWidgets.QPushButton('&Load...')
+        self.btn_load.setIcon(self.btn_load.style().standardIcon(
+            QtWidgets.QStyle.SP_DialogOpenButton))
         self.btn_load.clicked.connect(self.choose_file)
         cfg_split.addWidget(self.btn_load)
 
