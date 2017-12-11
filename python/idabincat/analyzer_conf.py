@@ -285,6 +285,12 @@ class InitialState(object):
     def set_mem(self, mem):
         self.mem = mem
 
+    def add_mem(self, index, mem_entry):
+        if index >= len(self.mem) or index < 0:
+            self.mem.append(mem_entry)
+        else:
+            self.mem.insert(index, mem_entry)
+
     @staticmethod
     def mem_init_parse(mem_addr, mem_val):
         mem_addr_re = re.compile("(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")

@@ -523,6 +523,9 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.Interactive)
         self.memtable.horizontalHeader().setStretchLastSection(True)
         self.memtable.horizontalHeader().setMinimumHeight(36)
+        # Custom menu
+        self.memtable.customContextMenuRequested.connect(
+            self._mem_table_menu)
 
         tables_split.addWidget(self.memtable)
 
@@ -642,6 +645,22 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfg_select.clear()
         self.cfg_select.addItems(
             self.s.configurations.names_cache + ['(new)'])
+
+    def _mem_table_menu(self, qpoint):
+        menu = QtWidgets.QMenu(self.memtable)
+        add_mem_entry = QtWidgets.QAction(
+            "Add memory entry", self.memtable)
+        add_mem_entry.triggered.connect(
+            lambda: self._add_mem_entry(self.memtable.indexAt(qpoint)))
+        menu.addAction(add_mem_entry)
+        # add header height to qpoint, else menu is misplaced. not sure why...
+        qpoint2 = qpoint + \
+            QtCore.QPoint(0, self.memtable.horizontalHeader().height())
+        menu.exec_(self.memtable.mapToGlobal(qpoint2))
+
+    def _add_mem_entry(self, index):
+        self.cfgmemmodel.add_mem_entry(index.row())
+        return
 
     def copy_start(self):
         self.ip_start_addr.setText("0x%x" % idaapi.get_screen_ea())
@@ -1141,8 +1160,6 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
             return False
         col = index.column()
         row = index.row()
-        if col == 0:
-            return False
         if row > len(self.rows):
             return False
         else:
@@ -1161,8 +1178,16 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         elif role != Qt.DisplayRole and role != Qt.EditRole:
             return
 
-        reg = self.rows[index.row()]
-        return reg[col]
+        mem = self.rows[index.row()]
+        return mem[col]
+
+    def add_mem_entry(self, index):
+        default = ["region", "address", "value"]
+        if index >= len(self.rows) or index < 0:
+            self.rows.append(default)
+        else:
+            self.rows.insert(index+1, default)
+        self.endResetModel()
 
     def rowCount(self, parent):
         return len(self.rows)
