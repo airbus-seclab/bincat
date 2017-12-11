@@ -476,6 +476,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.shown = False
         self.created = False
         self.s = state
+        self.index = None
 
     def OnCreate(self, form):
         self.created = True
@@ -541,6 +542,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfg_select.currentIndexChanged.connect(self._load_config)
         cfg_split.addWidget(self.cfg_select)
 
+        # Delete that config button
+        self.btn_del_cfg = QtWidgets.QPushButton('Delete')
+        self.btn_del_cfg.clicked.connect(self.del_config)
+        self.btn_del_cfg.setIcon(self.btn_del_cfg.style().standardIcon(
+            QtWidgets.QStyle.SP_TrashIcon))
+        cfg_split.addWidget(self.btn_del_cfg)
+
         # Edit that config button
         self.btn_edit_cfg = QtWidgets.QPushButton('&Edit...')
         self.btn_edit_cfg.clicked.connect(self.edit_config)
@@ -552,7 +560,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.btn_load = QtWidgets.QPushButton('&Load...')
         self.btn_load.setIcon(self.btn_load.style().standardIcon(
             QtWidgets.QStyle.SP_DialogOpenButton))
-        self.btn_load.clicked.connect(self.choose_file)
+        self.btn_load.clicked.connect(self.load_file)
         cfg_split.addWidget(self.btn_load)
 
         # leave space for comboboxes in cfg_split, rather than between widgets
@@ -699,7 +707,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         self.s.start_analysis()
 
-    def choose_file(self):
+    def load_file(self):
         options = QtWidgets.QFileDialog.Options()
         default_filename = os.path.join(os.path.dirname(__file__),
                                         'init.ini')
@@ -713,8 +721,19 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             open(filename, 'r').read())
         self.update_from_edit_config()
 
+    def del_config(self):
+        # check if we have a config,
+        if (self.index and
+            self.index > 0 and # last used is special
+            self.index != len(self.s.configurations.names_cache)): #(new)
+            name = self.s.configurations.names_cache[self.index]
+            del self.s.configurations[name]
+            self.update_config_list()
+
+
     @QtCore.pyqtSlot(str)
     def _load_config(self, index):
+        self.index = index
         if index == len(self.s.configurations.names_cache):
             # new config
             self.s.edit_config = self.s.configurations.new_config(
