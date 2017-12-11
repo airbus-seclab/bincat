@@ -1240,6 +1240,37 @@ struct
     | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
 
 
+
+  let decode_thumb32_branches_misc s isn isn2 =
+    let op = (isn lsr 4) land 0x7f in
+    let op1 = (isn2 lsr 12) land 7 in
+    let _op2 = (isn2 lsr 8) land 0xf in
+    match op1 with
+    | 0b000 | 0b010 ->
+       begin
+         if op land 0x38 = 0x38 then
+           match op with
+           | 0b0111000 | 0b0111001 -> notimplemented "MSR"
+           | 0b0111010 -> notimplemented "change proc state and hints"
+           | 0b0111011 -> notimplemented "misc control"
+           | 0b0111100 -> notimplemented "BXJ"
+           | 0b0111101 -> notimplemented "exception return SUBS PC,LR"
+           | 0b0111110 | 0b0111111 -> notimplemented "MRS"
+           | 0b1111111 ->
+              if op1 = 0 then
+                notimplemented "SMC"
+              else
+                L.abort (fun p -> p "permanently undefined thumb32 instruction %04x %04x" isn isn2)
+           | _ -> L.abort (fun p -> p "unexpected thumb32 encoding %04x %04x" isn isn2)
+         else (* Conditional branch *)
+           notimplemented "conditional branch"
+       end
+    | 0b001 | 0b011 -> notimplemented "B"
+    | 0b100 | 0b110 | 0b101 | 0b111 -> (* BL, BLX *)
+       notimplemented "BL/BLX"
+    | _ -> L.abort (fun p -> p "unexpected thumb32 encoding %04x %04x" isn isn2)
+
+
   let decode_thumb32 s isn isn2 =
     let op1 = (isn lsr 11) land 3 in
     let op2 = (isn lsr 4) land 0x7f in
@@ -1257,7 +1288,7 @@ struct
        else L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
     | 0b10 ->
        if op = 1 then (* Branches and miscellaneous control *)
-         notimplemented "Branches and miscellaneous control"
+         decode_thumb32_branches_misc s isn isn2
        else
          if op2 land 0x20 = 0 then (* Data-processing (modified immediate) *)
            notimplemented "Data-processing (modified immediate)"
