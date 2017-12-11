@@ -653,6 +653,11 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         add_mem_entry.triggered.connect(
             lambda: self._add_mem_entry(self.memtable.indexAt(qpoint)))
         menu.addAction(add_mem_entry)
+        remove_mem_entry = QtWidgets.QAction(
+            "Remove memory entry", self.memtable)
+        remove_mem_entry.triggered.connect(
+            lambda: self._remove_mem_entry(self.memtable.indexAt(qpoint)))
+        menu.addAction(remove_mem_entry)
         # add header height to qpoint, else menu is misplaced. not sure why...
         qpoint2 = qpoint + \
             QtCore.QPoint(0, self.memtable.horizontalHeader().height())
@@ -660,6 +665,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
     def _add_mem_entry(self, index):
         self.cfgmemmodel.add_mem_entry(index.row())
+        return
+
+    def _remove_mem_entry(self, index):
+        self.cfgmemmodel.remove_mem_entry(index.row())
         return
 
     def copy_start(self):
@@ -1181,12 +1190,19 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         mem = self.rows[index.row()]
         return mem[col]
 
+    def remove_mem_entry(self, index):
+        if index < len(self.rows) and index >= 0:
+            del self.rows[index]
+            self.config.state.set_mem(self.rows)
+            self.endResetModel()
+
     def add_mem_entry(self, index):
-        default = ["region", "address", "value"]
+        default = ["mem", "0x0", "0x0"]
         if index >= len(self.rows) or index < 0:
             self.rows.append(default)
         else:
             self.rows.insert(index+1, default)
+        self.config.state.set_mem(self.rows)
         self.endResetModel()
 
     def rowCount(self, parent):
