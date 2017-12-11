@@ -988,15 +988,17 @@ struct
        end |> mark_couple
     | 0b000 -> (* Logical Shift Left LSL (immediate) *)
        let shift = (isn lsr 6) land 0x1f in
+       let rm = (isn lsr 3) land 7 in
+       let rd = isn land 7 in
+       let flags_stmts = mark_as_flag [
+           nflag_update_exp (reg rd) ;
+           zflag_update_exp (Lval ( V (treg rd))) ; ] in
        if shift > 0 then
-         let rm = (isn lsr 3) land 7 in
-         let rd = isn land 7 in
-         [ MARK_FLAG (Set (V (T cflag), Lval (V (preg rm (32-shift) (32-shift))))) ;
-           MARK_ISN  (Set (V (treg rd), BinOp (Shl, Lval (V (treg rm)), const shift 32))) ;
-           MARK_FLAG (nflag_update_exp (reg rd)) ;
-           MARK_FLAG (zflag_update_exp (Lval ( V (treg rd)))) ; ]
+         MARK_FLAG (Set (V (T cflag), Lval (V (preg rm (32-shift) (32-shift))))) ::
+           MARK_ISN  (Set (V (treg rd), BinOp (Shl, Lval (V (treg rm)), const shift 32))) ::
+             flags_stmts
        else
-         []
+         MARK_ISN (Set (V (treg rd), Lval (V (treg rm)))) :: flags_stmts
     | 0b001 -> (* Logical Shift Right LSR (immediate) *)
        let imm5 = (isn lsr 6) land 0x1f in
        let shift = if imm5 = 0 then 32 else imm5 in
