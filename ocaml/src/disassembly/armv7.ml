@@ -1241,6 +1241,30 @@ struct
 
 
 
+  let thumb32_bl_blx_immediate _s isn isn2 =
+    let immh = isn land 0x3ff in
+    let imml = isn2 land 0x7ff in
+    let toARM = isn2 land 0x1000 = 0 in (* true -> BLX | false -> BL *)
+    let bit_s = (isn lsr 10) land 1 in
+    let j1 = (isn2 lsr 13) land 1 in
+    let j2 = (isn2 lsr 11) land 1 in
+    let i1 = lnot (j1 lxor bit_s) in
+    let i2 = lnot (j2 lxor bit_s) in
+    let imm32 = sconst ((imml lsl 1) lor
+                        (immh lsl 12) lor
+                        (i2 lsl 22) lor
+                        (i1 lsl 23) lor
+                        (bit_s lsl 24)) 25 32 in
+    let alignpc =
+      if toARM then BinOp(And, Lval (V (T pc)), const 0xfffffffc 32)
+      else Lval (V (T pc)) in
+    let exch =
+      if toARM then [ Set (V (T tflag), const 0 1) ] else [] in
+    [ Set( V (T lr), Lval (V (T pc))) ;
+      Set (V (T pc), BinOp(Add, alignpc, imm32)) ;
+    ] @ exch @ [ Call (R (Lval (V (T pc)))) ] |> mark_as_isn
+
+
   let decode_thumb32_branches_misc s isn isn2 =
     let op = (isn lsr 4) land 0x7f in
     let op1 = (isn2 lsr 12) land 7 in
@@ -1267,7 +1291,7 @@ struct
        end
     | 0b001 | 0b011 -> notimplemented "B"
     | 0b100 | 0b110 | 0b101 | 0b111 -> (* BL, BLX *)
-       notimplemented "BL/BLX"
+       thumb32_bl_blx_immediate s isn isn2
     | _ -> L.abort (fun p -> p "unexpected thumb32 encoding %04x %04x" isn isn2)
 
 
