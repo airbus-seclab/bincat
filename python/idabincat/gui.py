@@ -1593,174 +1593,6 @@ class BinCATOverridesView(QtWidgets.QTableView):
         self.m.remove_row(index)
 
 
-# Configurations list - panel, view, model
-
-class BinCATConfigurationsForm_t(idaapi.PluginForm):
-    def __init__(self, state, configurations_model):
-        super(BinCATConfigurationsForm_t, self).__init__()
-        self.s = state
-        self.model = configurations_model
-        self.shown = False
-        self.created = False
-
-    def OnCreate(self, form):
-        self.created = True
-
-        # Get parent widget
-        self.parent = self.FormToPyQtWidget(form)
-        layout = QtWidgets.QGridLayout()
-
-        # title label
-        self.label = QtWidgets.QLabel('List of analysis configurations')
-        layout.addWidget(self.label, 0, 0)
-
-        # Configurations Table
-        self.table = BinCATConfigurationsView(self.model)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setSortingEnabled(True)
-        self.table.setModel(self.model)
-        self.s.configurations.register_callbacks(
-            self.model.beginResetModel, self.model.endResetModel)
-        self.table.verticalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
-
-        self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setStretchLastSection(True)
-
-        layout.addWidget(self.table, 1, 0, 1, 2)
-
-        self.edit_conf = QtWidgets.QPushButton('&Edit', self.parent)
-        self.edit_conf.clicked.connect(self._edit)
-        layout.addWidget(self.edit_conf, 2, 0)
-
-        self.export_conf = QtWidgets.QPushButton('&Export', self.parent)
-        self.export_conf.clicked.connect(self._export)
-        layout.addWidget(self.export_conf, 2, 1)
-
-        layout.setRowStretch(1, 0)
-
-        self.parent.setLayout(layout)
-
-    def OnClose(self, form):
-        self.shown = False
-
-    def Show(self):
-        if self.shown:
-            return
-        self.shown = True
-        return idaapi.PluginForm.Show(
-            self, "BinCAT Configurations",
-            options=(idaapi.PluginForm.FORM_PERSIST |
-                     idaapi.PluginForm.FORM_SAVE |
-                     idaapi.PluginForm.FORM_RESTORE |
-                     idaapi.PluginForm.FORM_TAB))
-
-    def _edit(self):
-        selectionModel = self.table.selectionModel()
-        if not selectionModel.hasSelection():
-            return
-        index = selectionModel.selectedRows()[0].row()
-        name = self.s.configurations.names_cache[index]
-        editdlg = EditConfigurationFileForm_t(self.parent, self.s)
-        editdlg.set_config(str(self.s.configurations[name]))
-        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.s.configurations[name] = self.s.edit_config
-
-    def _export(self):
-        selectionModel = self.table.selectionModel()
-        if not selectionModel.hasSelection():
-            return
-        index = selectionModel.selectedRows()[0].row()
-        name = self.s.configurations.names_cache[index]
-        fname = idaapi.askfile_c(1, "*.ini", "Save exported configuration")
-        if fname:
-            with open(fname, 'w') as f:
-                f.write(str(self.s.configurations[name]))
-
-
-class ConfigurationsModel(QtCore.QAbstractTableModel):
-    def __init__(self, state, *args, **kwargs):
-        super(ConfigurationsModel, self).__init__(*args, **kwargs)
-        self.s = state
-        self.headers = ["configuration name"]
-
-    def data(self, index, role):
-        if role not in (Qt.EditRole, Qt.DisplayRole):
-            return
-        row = index.row()
-        name = self.s.configurations.names_cache[row]
-        return name
-
-    def setData(self, index, value, role):
-        if role != Qt.EditRole:
-            return False
-        row = index.row()
-        oldname = self.s.configurations.names_cache[row]
-        # ensure names are unique
-        for idx, name in enumerate(self.s.configurations.names_cache):
-            if name == value and idx != row:
-                return False
-        if row > len(self.s.configurations):
-            return False
-        conf = self.s.configurations[oldname]
-        del self.s.configurations[oldname]
-        self.s.configurations[value] = conf
-        return True
-
-    def headerData(self, section, orientation, role):
-        if orientation != Qt.Horizontal:
-            return
-        if role == Qt.DisplayRole:
-            return self.headers[section]
-
-    def flags(self, index):
-        return (Qt.ItemIsEditable
-                | Qt.ItemIsSelectable
-                | Qt.ItemIsEnabled)
-
-    def rowCount(self, parent):
-        return len(self.s.configurations)
-
-    def columnCount(self, parent):
-        return len(self.headers)
-
-    def remove_row(self, checked):
-        idx = BinCATConfigurationsView.clickedIndex
-        name = self.s.configurations.names_cache[idx]
-        del self.s.configurations[name]
-        self.s.gui.BinCATConfigForm.update_config_list()
-
-
-class BinCATConfigurationsView(QtWidgets.QTableView):
-    clickedIndex = None
-
-    def __init__(self, model, parent=None):
-        super(BinCATConfigurationsView, self).__init__(parent)
-        self.m = model
-        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
-        self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-
-    def contextMenuEvent(self, event):
-        if (self.m.rowCount(None) == 0 or
-                len(self.selectedIndexes()) == 0):
-            return
-        menu = QtWidgets.QMenu(self)
-        action = QtWidgets.QAction('Remove', self)
-        action.triggered.connect(self.m.remove_row)
-        menu.addAction(action)
-        BinCATConfigurationsView.clickedIndex = self.indexAt(event.pos()).row()
-        menu.popup(QtGui.QCursor.pos())
-
-    def remove_row(self):
-        try:
-            index = self.table.selectedIndexes()[0].row()
-        except IndexError:
-            bc_log.warning("Could not identify selected row")
-            return
-        self.m.remove_row(index)
-
-
 class HandleAnalyzeHere(idaapi.action_handler_t):
     """
     Action handler for BinCAT/ Taint from here
@@ -1941,9 +1773,6 @@ class GUI(object):
         self.overrides_model = OverridesModel(state)
         self.BinCATOverridesForm = BinCATOverridesForm_t(
             state, self.overrides_model)
-        self.configurations_model = ConfigurationsModel(state)
-        self.BinCATConfigurationsForm = BinCATConfigurationsForm_t(
-            state, self.configurations_model)
 
         # XXX fix
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
@@ -1995,7 +1824,6 @@ class GUI(object):
         self.BinCATDebugForm.Show()
         self.BinCATRegistersForm.Show()
         self.BinCATOverridesForm.Show()
-        self.BinCATConfigurationsForm.Show()
         self.BinCATMemForm.Show()
         self.BinCATConfigForm.Show()
 
@@ -2017,7 +1845,6 @@ class GUI(object):
         self.BinCATDebugForm.Close(idaapi.PluginForm.FORM_SAVE)
         self.BinCATMemForm.Close(idaapi.PluginForm.FORM_SAVE)
         self.BinCATOverridesForm.Close(idaapi.PluginForm.FORM_SAVE)
-        self.BinCATConfigurationsForm.Close(idaapi.PluginForm.FORM_SAVE)
         self.vtmodel = None
         self.overrides_model = None
         self.configurations_model = None
