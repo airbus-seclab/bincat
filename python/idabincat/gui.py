@@ -563,6 +563,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.btn_load.clicked.connect(self.load_file)
         cfg_split.addWidget(self.btn_load)
 
+        # Export config button
+        self.btn_export = QtWidgets.QPushButton('Export...')
+        self.btn_export.setIcon(self.btn_export.style().standardIcon(
+            QtWidgets.QStyle.SP_DialogOpenButton))
+        self.btn_export.clicked.connect(self.export_file)
+        cfg_split.addWidget(self.btn_export)
+
         # leave space for comboboxes in cfg_split, rather than between widgets
         cfg_split.setStretchFactor(0, 0)
         cfg_split.setStretchFactor(1, 1)
@@ -706,6 +713,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.s.current_config = self.s.edit_config
 
         self.s.start_analysis()
+
+    def export_file(self):
+        options = QtWidgets.QFileDialog.Options()
+        fname = idaapi.askfile_c(1, "*.ini", "Save exported configuration")
+        if fname:
+            with open(fname, 'w') as f:
+                f.write(str(self.s.edit_config))
 
     def load_file(self):
         options = QtWidgets.QFileDialog.Options()
