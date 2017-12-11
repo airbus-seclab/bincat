@@ -1162,7 +1162,7 @@ struct
       | 0b1001 ->
          let imm8 = isn land 0xff in
          let rt = isn lsr 8 land 7 in
-         let ofs = BinOp (Add, Lval (V (T sp)), const imm8 32) in
+         let ofs = BinOp (Add, Lval (V (T sp)), const (imm8 lsl 2) 32) in
          if isn land 0x800 = 0 then  (* STR (immediate) Store Register SP relative *)
            [ Set (M (ofs, 32), Lval (V (treg rt))) ]
          else (* LDR (immediate) Load Register SP relative *)
@@ -1171,21 +1171,22 @@ struct
          let rn = (isn lsr 3) land 7 in
          let rt = isn land 7 in
          let imm5 = (isn lsr 6) land 0x1f in
-         let ofs = BinOp (Add, Lval (V (treg rn)), const imm5 32) in
+         let ofs sz = BinOp (Add, Lval (V (treg rn)), const (imm5 lsl sz) 32) in 
+         (* imm5 is shifted by 0 for byte access, 1 for halfword access, 2 for word access *)
          begin
            match isn lsr 11 land 0x1f with
            | 0b01100 -> (* STR (immediate) Store Register *)
-              [ Set (M (ofs, 32), Lval (V (treg rt))) ]
+              [ Set (M (ofs 2, 32), Lval (V (treg rt))) ]
            | 0b01101 -> (* LDR (immediate) Load Register *)
-              [ Set (V (treg rt), Lval (M (ofs, 32))) ]
+              [ Set (V (treg rt), Lval (M (ofs 2, 32))) ]
            | 0b01110 -> (* STRB (immediate) Store Register Byte *)
-              [ Set (M (ofs, 8), Lval (V (preg rt 0 7))) ]
+              [ Set (M (ofs 0, 8), Lval (V (preg rt 0 7))) ]
            | 0b01111 -> (* LDRB (immediate) *)
-              [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs, 8)))) ]
+              [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs 0, 8)))) ]
            | 0b10000 -> (* STRH (immediate) Store Register Halfword *)
-              [ Set (M (ofs, 16), Lval (V (preg rt 0 15))) ]
+              [ Set (M (ofs 1, 16), Lval (V (preg rt 0 15))) ]
            | 0b10001 -> (* LDRH (immediate) Load Register Halfword *)
-              [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs, 16)))) ]
+              [ Set (V (treg rt), UnOp(ZeroExt 32, Lval (M (ofs 1, 16)))) ]
            | _ -> L.abort (fun p -> p "Internal error")
          end in
     mark_as_isn stmts
