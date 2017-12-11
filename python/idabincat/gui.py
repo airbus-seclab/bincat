@@ -19,20 +19,18 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os
-import idc
 import logging
 import string
 import re
-import idc
 import idaapi
 import idautils
-from dump_binary import dump_binary
-from PyQt5.QtCore import Qt
 from PyQt5 import QtCore, QtWidgets, QtGui
-import idabincat.hexview as hexview
+from PyQt5.QtCore import Qt
 import pybincat.cfa as cfa
+import idabincat.hexview as hexview
+from idabincat.dump_binary import dump_binary
 from idabincat.plugin_options import PluginOptions
-from analyzer_conf import AnalyzerConfig
+from idabincat.analyzer_conf import AnalyzerConfig
 
 # Logging
 bc_log = logging.getLogger('bincat.gui')
@@ -148,7 +146,7 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         super(BinCATOptionsForm_t, self).show()
 
 
-class Meminfo():
+class Meminfo(object):
     """
     Helper class to access memory as a str
     """
@@ -188,7 +186,7 @@ class Meminfo():
         except IndexError:
             # between two ranges
             return ""
-        if len(values) == 0 or values[0] is None:
+        if not values or values[0] is None:
             res = "_"
         else:
             value = values[0]
@@ -223,7 +221,7 @@ class Meminfo():
             values = self[idx]
         except IndexError:
             return ""
-        if len(values) == 0 or values[0] is None:
+        if not values or values[0] is None:
             res = "__"
         else:
             res = Meminfo.color_valtaint(
@@ -266,8 +264,7 @@ class Meminfo():
         t = self.state.regtypes.get(addr_value, None)
         if t:
             return t[0]
-        else:
-            return ""
+        return ""
 
     def abs_addr_from_idx(self, idx):
         """
@@ -715,7 +712,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.s.start_analysis()
 
     def export_file(self):
-        options = QtWidgets.QFileDialog.Options()
         fname = idaapi.askfile_c(1, "*.ini", "Save exported configuration")
         if fname:
             with open(fname, 'w') as f:
