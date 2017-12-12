@@ -316,7 +316,7 @@ module Make(V: Val) =
         else
           Data.Word.to_string (to_word V.to_z v)
       in
-      (*let taint_bytes = Bytes.create (Array.length v) in*)
+      let taint_bytes = Bytes.create (Array.length v) in
       let t =
         try
           let all = ref true in
@@ -326,10 +326,9 @@ module Make(V: Val) =
           else
             Data.Word.to_string r
         with _ ->
-          let res = ref "" in
-          let set_taint_char = (fun c -> res := !res ^ (V.string_of_taint c)) in
-          Array.iter set_taint_char v;
-          "0b"^(!res)
+          let set_taint_char = (fun i c -> Bytes.set taint_bytes i (V.char_of_taint c)) in
+          Array.iteri set_taint_char v;
+          "0b"^Bytes.to_string taint_bytes
       in
       v', t
         
