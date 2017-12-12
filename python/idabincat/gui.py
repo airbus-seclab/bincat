@@ -488,46 +488,52 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         layout.addWidget(tables_split, 0, 0)
 
         # Inital config: registers table
-        self.regstable = QtWidgets.QTableView(self.parent)
-        self.regstable.setItemDelegate(RegisterItemDelegate())
-        self.regstable.setModel(self.cfgregmodel)
-        self.regstable.setShowGrid(False)
-        self.regstable.verticalHeader().setVisible(False)
-        self.regstable.verticalHeader().setSectionResizeMode(
+        self.regs_table = QtWidgets.QTableView(self.parent)
+        self.regs_table.setItemDelegate(RegisterItemDelegate())
+        self.regs_table.setModel(self.cfgregmodel)
+        self.regs_table.setShowGrid(False)
+        self.regs_table.verticalHeader().setVisible(False)
+        self.regs_table.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        # self.regstable.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.regstable.horizontalHeader().setSectionResizeMode(
+        # self.regs_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.regs_table.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
-        self.regstable.horizontalHeader().setMinimumHeight(36)
+        self.regs_table.horizontalHeader().setMinimumHeight(36)
         # Make it editable
-        self.regstable.setEditTriggers(
+        self.regs_table.setEditTriggers(
             QtWidgets.QAbstractItemView.AllEditTriggers)
 
-        tables_split.addWidget(self.regstable)
+        tables_split.addWidget(self.regs_table)
 
         # Inital config: mem table
-        self.memtable = QtWidgets.QTableView(self.parent)
-        self.memtable.setItemDelegate(RegisterItemDelegate())
-        self.memtable.setModel(self.cfgmemmodel)
-        self.memtable.setShowGrid(True)
-        self.memtable.verticalHeader().setVisible(False)
-        self.memtable.verticalHeader().setSectionResizeMode(
+        self.mem_table = QtWidgets.QTableView(self.parent)
+        self.mem_table.setItemDelegate(RegisterItemDelegate())
+        self.mem_table.setModel(self.cfgmemmodel)
+        self.mem_table.setShowGrid(True)
+        self.mem_table.verticalHeader().setVisible(False)
+        self.mem_table.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.memtable.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.mem_table.setContextMenuPolicy(Qt.CustomContextMenu)
         # Make it editable
-        self.memtable.setEditTriggers(
+        self.mem_table.setEditTriggers(
             QtWidgets.QAbstractItemView.NoEditTriggers
             | QtWidgets.QAbstractItemView.DoubleClicked)
 
-        self.memtable.horizontalHeader().setSectionResizeMode(
+        self.mem_table.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
-        self.memtable.horizontalHeader().setStretchLastSection(True)
-        self.memtable.horizontalHeader().setMinimumHeight(36)
+        self.mem_table.horizontalHeader().setStretchLastSection(True)
+        self.mem_table.horizontalHeader().setMinimumHeight(36)
         # Custom menu
-        self.memtable.customContextMenuRequested.connect(
+        self.mem_table.customContextMenuRequested.connect(
             self._mem_table_menu)
 
-        tables_split.addWidget(self.memtable)
+        tables_split.addWidget(self.mem_table)
+
+        # For backward we just show a help text
+        self.lbl_back_help = QtWidgets.QLabel("Backward mode uses overrides, initial "
+        "configuration makes no sense in this mode.")
+        self.lbl_back_help.hide()
+        tables_split.addWidget(self.lbl_back_help)
 
         # ----------- Config options -----------------------
         # Horizontal splitter for config boxes
@@ -594,6 +600,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.radio_group = QtWidgets.QButtonGroup()
         self.radio_forward = QtWidgets.QRadioButton("Forward")
         self.radio_backward = QtWidgets.QRadioButton("Backward")
+        self.radio_forward.toggled.connect(self._forward_toggled)
 
         self.radio_group.addButton(self.radio_forward)
         self.radio_group.addButton(self.radio_backward)
@@ -648,22 +655,33 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfg_select.addItems(
             self.s.configurations.names_cache + ['(new)'])
 
+    def _forward_toggled(self, checked):
+        if not checked:  # Backward checked
+            # Backward uses overrides so we hide the main config
+            self.regs_table.hide()
+            self.mem_table.hide()
+            self.lbl_back_help.show()
+        else:
+            self.lbl_back_help.hide()
+            self.regs_table.show()
+            self.mem_table.show()
+
     def _mem_table_menu(self, qpoint):
-        menu = QtWidgets.QMenu(self.memtable)
+        menu = QtWidgets.QMenu(self.mem_table)
         add_mem_entry = QtWidgets.QAction(
-            "Add memory entry", self.memtable)
+            "Add memory entry", self.mem_table)
         add_mem_entry.triggered.connect(
-            lambda: self._add_mem_entry(self.memtable.indexAt(qpoint)))
+            lambda: self._add_mem_entry(self.mem_table.indexAt(qpoint)))
         menu.addAction(add_mem_entry)
         remove_mem_entry = QtWidgets.QAction(
-            "Remove memory entry", self.memtable)
+            "Remove memory entry", self.mem_table)
         remove_mem_entry.triggered.connect(
-            lambda: self._remove_mem_entry(self.memtable.indexAt(qpoint)))
+            lambda: self._remove_mem_entry(self.mem_table.indexAt(qpoint)))
         menu.addAction(remove_mem_entry)
         # add header height to qpoint, else menu is misplaced. not sure why...
         qpoint2 = qpoint + \
-            QtCore.QPoint(0, self.memtable.horizontalHeader().height())
-        menu.exec_(self.memtable.mapToGlobal(qpoint2))
+            QtCore.QPoint(0, self.mem_table.horizontalHeader().height())
+        menu.exec_(self.mem_table.mapToGlobal(qpoint2))
 
     def _add_mem_entry(self, index):
         self.cfgmemmodel.add_mem_entry(index.row())
