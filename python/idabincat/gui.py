@@ -1096,22 +1096,22 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
 
     def _handle_context_menu_requested(self, qpoint):
         menu = QtWidgets.QMenu(self.vttable)
-        add_taint_override = QtWidgets.QAction(
-            "Add taint override", self.vttable)
-        add_taint_override.triggered.connect(
-            lambda: self._add_taint_override(self.vttable.indexAt(qpoint)))
-        menu.addAction(add_taint_override)
+        add_override = QtWidgets.QAction(
+            "Add override", self.vttable)
+        add_override.triggered.connect(
+            lambda: self._add_override(self.vttable.indexAt(qpoint)))
+        menu.addAction(add_override)
         # add header height to qpoint, else menu is misplaced. not sure why...
         qpoint2 = qpoint + \
             QtCore.QPoint(0, self.vttable.horizontalHeader().height())
         menu.exec_(self.vttable.mapToGlobal(qpoint2))
 
-    def _add_taint_override(self, index):
+    def _add_override(self, index):
         regname = self.vtmodel.rows[index.row()].value
         mask, res = QtWidgets.QInputDialog.getText(
             None,
-            "Add Taint override for %s" % regname,
-            "Taint value for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
+            "Add override for %s" % regname,
+            "Override value!taint for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
             regname, text="!TAINT_ALL")
         if not res:
             return
@@ -1691,8 +1691,8 @@ class HandleAddOverride(idaapi.action_handler_t):
             htype = "reg"
         mask, res = QtWidgets.QInputDialog.getText(
             None,
-            "Add Taint override for %s" % highlighted,
-            "Taint value for %s (e.g. !TAINT_ALL (reg only), "
+            "Add override for %s" % highlighted,
+            "Overried value for %s (e.g. !TAINT_ALL (reg only), "
             "!TAINT_NONE (reg only), !0b001, !0xabc)" %
             highlighted, text=("!TAINT_ALL" if htype == "reg" else "!|FF|"))
         if not res:
@@ -1822,9 +1822,9 @@ class GUI(object):
         idaapi.attach_action_to_menu("Edit/BinCAT/analyse",
                                      "bincat:ana_from_here",
                                      idaapi.SETMENU_APP)
-        # Add taint override menu
+        # Add override menu
         add_taint_override_act = idaapi.action_desc_t(
-            'bincat:add_override', 'Add taint override...',
+            'bincat:add_override', 'Add override...',
             HandleAddOverride(self.s), 'Ctrl-Shift-O')
         idaapi.register_action(add_taint_override_act)
 
