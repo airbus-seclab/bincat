@@ -499,7 +499,7 @@ class AnalyzerConfig(object):
             for eip, ov_set in ov_by_eip.items():
                 hex_addr = "0x%x" % eip
                 self._config.set("override", hex_addr, ''.join(ov_set))
-        else:
+        else:  # backward
             # 2. Empty state section
             self._config.remove_section("state")
             self._config.add_section("state")
