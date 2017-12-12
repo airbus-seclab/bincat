@@ -205,7 +205,12 @@ let is_tainted (t: t): bool =
 let to_z (t: t): Z.t =
   match t with
   | U -> Z.zero
-  | S _ -> Z.one
+  | S srcs when SrcSet.cardinal srcs = 1 ->
+     begin
+       match SrcSet.choose srcs with
+          | Src.Tainted _ -> Z.one
+          | Src.Maybe _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
+     end
   | _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
 
 let to_string t =
