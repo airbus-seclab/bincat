@@ -1105,39 +1105,39 @@ struct
        op_and (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b0001 -> (* Bitwise Exclusive OR *)
        op_eor (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
-    | 0b0010 -> (* Logical Shift Left *)
+    | 0b0010 -> (* LSL Logical Shift Left *)
        notimplemented s "LSL (register)"
-    | 0b0011 -> (* Logical Shift Right *)
+    | 0b0011 -> (* LSR Logical Shift Right *)
        notimplemented s "LSR (register)"
-    | 0b0100 -> (* Arithmetic Shift Right *)
+    | 0b0100 -> (* ASR Arithmetic Shift Right *)
        notimplemented s "ASR (register)"
-    | 0b0101 -> (* Add with Carry *)
+    | 0b0101 -> (* ADC Add with Carry *)
        notimplemented s "ADC (register)"
-    | 0b0110 -> (* Subtract with Carry *)
+    | 0b0110 -> (* SBC Subtract with Carry *)
        notimplemented s "SBC (register)"
-    | 0b0111 -> (* Rotate Right *)
+    | 0b0111 -> (* ROR Rotate Right *)
        notimplemented s "ROR (register)"
-    | 0b1000 -> (* Test *)
+    | 0b1000 -> (* TST Test *)
        let tmpreg = Register.make (Register.fresh_name ()) 32 in
        let opstmts,flagstmts = op_and tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
-    | 0b1001 -> (* Reverse Subtract from 0 *)
+    | 0b1001 -> (* RSB Reverse Subtract from 0 *)
        op_rsb (reg op0) op1 (const 0 32) |> mark_couple
-    | 0b1010 -> (* Compare Registers *)
+    | 0b1010 -> (* CMP Compare Registers *)
        let tmpreg = Register.make (Register.fresh_name ()) 32 in
        let opstmts,flagstmts = op_sub tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
-    | 0b1011 -> (* Compare Negative *)
+    | 0b1011 -> (* CMN Compare Negative *)
        let tmpreg = Register.make (Register.fresh_name ()) 32 in
        let opstmts,flagstmts = op_add tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
-    | 0b1100 -> (* Bitwise OR *)
+    | 0b1100 -> (* ORR Bitwise OR *)
        op_orr (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b1101 -> (* MUL Multiply Two Registers *)
        thumb_mul s isn
-    | 0b1110 -> (* Bitwise Bit Clear *)
+    | 0b1110 -> (* BIC Bitwise Bit Clear *)
        op_bic (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
-    | 0b1111 -> (* Bitwise NOT *)
+    | 0b1111 -> (* MVN Bitwise NOT *)
        op_mvn (reg op0) (Lval (V (treg op1))) |> mark_couple
     | _ -> L.abort (fun p -> p "internal error")
 
