@@ -1265,7 +1265,7 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         # regex to parse init syntax for registers
         # example: reg[eax] = 100?0xF!0xF0
         self.reg_re = re.compile(
-            "(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
+            r"(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
 
     def flags(self, index):
         flags = (Qt.ItemIsSelectable
