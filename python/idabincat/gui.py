@@ -495,13 +495,16 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.regs_table.verticalHeader().setVisible(False)
         self.regs_table.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        # self.regs_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.regs_table.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.Interactive)
         self.regs_table.horizontalHeader().setMinimumHeight(36)
         # Make it editable
         self.regs_table.setEditTriggers(
             QtWidgets.QAbstractItemView.AllEditTriggers)
+        # Custom menu
+        self.regs_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.regs_table.customContextMenuRequested.connect(
+            self._regs_table_menu)
 
         tables_split.addWidget(self.regs_table)
 
@@ -513,7 +516,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.mem_table.verticalHeader().setVisible(False)
         self.mem_table.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.mem_table.setContextMenuPolicy(Qt.CustomContextMenu)
         # Make it editable
         self.mem_table.setEditTriggers(
             QtWidgets.QAbstractItemView.NoEditTriggers
@@ -524,6 +526,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.mem_table.horizontalHeader().setStretchLastSection(True)
         self.mem_table.horizontalHeader().setMinimumHeight(36)
         # Custom menu
+        self.mem_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.mem_table.customContextMenuRequested.connect(
             self._mem_table_menu)
 
@@ -665,6 +668,18 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             self.lbl_back_help.hide()
             self.regs_table.show()
             self.mem_table.show()
+
+    def _regs_table_menu(self, qpoint):
+        menu = QtWidgets.QMenu(self.regs_table)
+        all_taint_top = QtWidgets.QAction(
+            "Set all taints to top", self.regs_table)
+        all_taint_top.triggered.connect(
+            lambda: self.cfgregmodel.all_taint_top())
+        menu.addAction(all_taint_top)
+        # add header height to qpoint, else menu is misplaced. not sure why...
+        qpoint2 = qpoint + \
+            QtCore.QPoint(0, self.mem_table.horizontalHeader().height())
+        menu.exec_(self.regs_table.mapToGlobal(qpoint2))
 
     def _mem_table_menu(self, qpoint):
         menu = QtWidgets.QMenu(self.mem_table)
@@ -1258,6 +1273,13 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         if index.column() > 0:
             flags |= Qt.ItemIsEditable
         return flags
+
+    def all_taint_top(self):
+        for i in xrange(0, len(self.rows)):
+            size = ConfigHelpers.register_size(ConfigHelpers.get_arch(self.s.edit_config.analysis_ep), self.rows[i][0])
+            if size >= 8:
+                self.rows[i][-1] = "0?0x"+"F"*(size/4)
+        self.endResetModel()
 
     def endResetModel(self):
         """
