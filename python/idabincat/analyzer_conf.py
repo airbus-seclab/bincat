@@ -25,11 +25,11 @@ import os.path
 import re
 import StringIO
 import ConfigParser
-import idaapi
 import logging
-import idabincat.netnode
+import idaapi
 import idautils
 import ida_segment
+import idabincat.netnode
 from idabincat.plugin_options import PluginOptions
 
 # Logging
@@ -87,7 +87,7 @@ class ConfigHelpers(object):
             # get_input_file_path returns file path from IDB, which may not
             # exist locally if IDB has been moved (eg. send idb+binary to
             # another analyst)
-            guessed_path = idaapi.get_path(ida_loader.PATH_TYPE_IDB)
+            guessed_path = idaapi.get_path(idaapi.PATH_TYPE_IDB)
             guessed_path = guessed_path.replace('idb', 'exe')
             if os.path.isfile(guessed_path):
                 return guessed_path
