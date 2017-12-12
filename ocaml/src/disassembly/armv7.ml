@@ -1268,8 +1268,8 @@ struct
     let bit_s = (isn lsr 10) land 1 in
     let j1 = (isn2 lsr 13) land 1 in
     let j2 = (isn2 lsr 11) land 1 in
-    let i1 = lnot (j1 lxor bit_s) in
-    let i2 = lnot (j2 lxor bit_s) in
+    let i1 = 1 lxor (j1 lxor bit_s) in
+    let i2 = 1 lxor (j2 lxor bit_s) in
     let imm32 = sconst ((imml lsl 1) lor
                         (immh lsl 12) lor
                         (i2 lsl 22) lor
