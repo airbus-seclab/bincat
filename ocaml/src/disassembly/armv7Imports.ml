@@ -21,6 +21,7 @@ struct
   open Asm
 
   let reg r = V (T (Register.of_name r))
+  let preg r x y = V (P ((Register.of_name r), x, y))
 
   let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
@@ -69,13 +70,14 @@ struct
       let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc in
       let tainting_pro,tainting_epi = Rules.tainting_rule_stmts libname fname cc in
       let stub_stmts = stub_stmts_from_name fname cc in
+      let set_tflag = [ Set( reg "t", Lval (preg "lr" 0 0)) ] in
       let fundesc:Asm.import_desc_t = {
         name = fname ;
         libname = libname ;
         prologue = typing_pro @ tainting_pro ;
         stub = stub_stmts ;
-        epilogue = typing_epi @ tainting_epi ;
-        ret_addr = Lval(reg "lr") ;
+        epilogue = typing_epi @ tainting_epi @ set_tflag ;
+        ret_addr = BinOp(And, Lval(reg "lr"), const 0xfffffffe 32) ;
       } in
       Hashtbl.replace tbl (Data.Address.global_of_int adrs) fundesc
     ) Config.import_tbl
