@@ -551,6 +551,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfg_select.currentIndexChanged.connect(self._load_config)
         cfg_split.addWidget(self.cfg_select)
 
+        # Duplicate that config button
+        self.btn_dup_cfg = QtWidgets.QPushButton('Duplicate')
+        self.btn_dup_cfg.clicked.connect(lambda: self._save_config(None, True))
+        self.btn_dup_cfg.setIcon(self.btn_dup_cfg.style().standardIcon(
+            QtWidgets.QStyle.SP_TrashIcon))
+        cfg_split.addWidget(self.btn_dup_cfg)
+
         # Delete that config button
         self.btn_del_cfg = QtWidgets.QPushButton('Delete')
         self.btn_del_cfg.clicked.connect(self._del_config)
@@ -844,12 +851,12 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             self.cfg_select.setCurrentText(to_select)
 
     # callback when the "save" button is clicked
-    def _save_config(self, config_name=None):
+    def _save_config(self, config_name=None, always_prompt=False):
         ea_int = int(self.ip_start_addr.text(), 16)
         should_update = False
         if not config_name:
             idx = self.cfg_select.currentIndex()
-            if idx == len(self.s.configurations.names_cache):
+            if always_prompt or idx == len(self.s.configurations.names_cache):
                 # new config, prompt name
                 config_name, res = QtWidgets.QInputDialog.getText(
                     self.parent,
