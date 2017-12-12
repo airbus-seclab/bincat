@@ -534,7 +534,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         # For backward we just show a help text
         self.lbl_back_help = QtWidgets.QLabel("Backward mode uses overrides, initial "
-        "configuration makes no sense in this mode.")
+                                              "configuration makes no sense in this mode.")
         self.lbl_back_help.hide()
         tables_split.addWidget(self.lbl_back_help)
 
@@ -553,14 +553,14 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         # Delete that config button
         self.btn_del_cfg = QtWidgets.QPushButton('Delete')
-        self.btn_del_cfg.clicked.connect(self.del_config)
+        self.btn_del_cfg.clicked.connect(self._del_config)
         self.btn_del_cfg.setIcon(self.btn_del_cfg.style().standardIcon(
             QtWidgets.QStyle.SP_TrashIcon))
         cfg_split.addWidget(self.btn_del_cfg)
 
         # Edit that config button
         self.btn_edit_cfg = QtWidgets.QPushButton('&Edit...')
-        self.btn_edit_cfg.clicked.connect(self.edit_config)
+        self.btn_edit_cfg.clicked.connect(self._edit_config)
         self.btn_edit_cfg.setIcon(self.btn_edit_cfg.style().standardIcon(
             QtWidgets.QStyle.SP_FileDialogContentsView))
         cfg_split.addWidget(self.btn_edit_cfg)
@@ -569,14 +569,14 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.btn_load = QtWidgets.QPushButton('&Load...')
         self.btn_load.setIcon(self.btn_load.style().standardIcon(
             QtWidgets.QStyle.SP_DialogOpenButton))
-        self.btn_load.clicked.connect(self.load_file)
+        self.btn_load.clicked.connect(self._load_file)
         cfg_split.addWidget(self.btn_load)
 
         # Export config button
         self.btn_export = QtWidgets.QPushButton('Export...')
         self.btn_export.setIcon(self.btn_export.style().standardIcon(
             QtWidgets.QStyle.SP_DialogOpenButton))
-        self.btn_export.clicked.connect(self.export_file)
+        self.btn_export.clicked.connect(self._export_file)
         cfg_split.addWidget(self.btn_export)
 
         # leave space for comboboxes in cfg_split, rather than between widgets
@@ -592,13 +592,13 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         lbl_start_addr = QtWidgets.QLabel("Start addr:")
         self.ip_start_addr = QtWidgets.QLineEdit(self.parent)
         self.btn_copy_start = QtWidgets.QPushButton('<- Current')
-        self.btn_copy_start.clicked.connect(self.copy_start)
+        self.btn_copy_start.clicked.connect(self._copy_start)
 
         # Stop address
         lbl_stop_addr = QtWidgets.QLabel("Stop addr:")
         self.ip_stop_addr = QtWidgets.QLineEdit(self.parent)
         self.btn_copy_stop = QtWidgets.QPushButton('<- Current')
-        self.btn_copy_stop.clicked.connect(self.copy_stop)
+        self.btn_copy_stop.clicked.connect(self._copy_stop)
 
         self.radio_group = QtWidgets.QButtonGroup()
         self.radio_forward = QtWidgets.QRadioButton("Forward")
@@ -645,7 +645,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         btn_split.addWidget(self.chk_remap)
         # Save config button
         self.btn_save_cfg = QtWidgets.QPushButton('&Save')
-        self.btn_save_cfg.clicked.connect(self.save_config)
+        self.btn_save_cfg.clicked.connect(self._save_config)
         btn_split.addWidget(self.btn_save_cfg)
 
         self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
@@ -673,8 +673,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         menu = QtWidgets.QMenu(self.regs_table)
         all_taint_top = QtWidgets.QAction(
             "Set all taints to top", self.regs_table)
-        all_taint_top.triggered.connect(
-            lambda: self.cfgregmodel.all_taint_top())
+        all_taint_top.triggered.connect(self.cfgregmodel.all_taint_top)
         menu.addAction(all_taint_top)
         # add header height to qpoint, else menu is misplaced. not sure why...
         qpoint2 = qpoint + \
@@ -706,10 +705,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfgmemmodel.remove_mem_entry(index.row())
         return
 
-    def copy_start(self):
+    def _copy_start(self):
         self.ip_start_addr.setText("0x%x" % idaapi.get_screen_ea())
 
-    def copy_stop(self):
+    def _copy_stop(self):
         self.ip_stop_addr.setText("0x%x" % idaapi.get_screen_ea())
 
     def get_analysis_method(self):
@@ -737,11 +736,11 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.s.edit_config.analysis_method = analysis_method
 
         # always save config under "(last used)" slot
-        self.save_config("(last used)")
+        self._save_config("(last used)")
 
         # if requested, also save under user-specified slot
         if self.chk_save.isChecked():
-            self.save_config()
+            self._save_config()
 
         if self.chk_remap.isChecked():
             if (self.s.remapped_bin_path is None or
@@ -775,13 +774,15 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         self.s.start_analysis()
 
-    def export_file(self):
+    # callback when the "Export" button is clicked
+    def _export_file(self):
         fname = idaapi.askfile_c(1, "*.ini", "Save exported configuration")
         if fname:
             with open(fname, 'w') as f:
                 f.write(str(self.s.edit_config))
 
-    def load_file(self):
+    # callback when the "Load" button is clicked
+    def _load_file(self):
         options = QtWidgets.QFileDialog.Options()
         default_filename = os.path.join(os.path.dirname(__file__),
                                         'init.ini')
@@ -795,16 +796,18 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             open(filename, 'r').read())
         self.update_from_edit_config()
 
-    def del_config(self):
+    # callback when the "Delete" button is clicked
+    def _del_config(self):
         # check if we have a config,
         if (self.index and
-            self.index > 0 and # last used is special
-            self.index != len(self.s.configurations.names_cache)): #(new)
+                self.index > 0 and # last used is special
+                self.index != len(self.s.configurations.names_cache)): #(new)
             name = self.s.configurations.names_cache[self.index]
             del self.s.configurations[name]
             self.update_config_list()
 
 
+    # Called when the edit combo is changed
     @QtCore.pyqtSlot(str)
     def _load_config(self, index):
         self.index = index
@@ -817,6 +820,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             self.s.edit_config = self.s.configurations[name]
         self.update_from_edit_config()
 
+    # Update various fields from the current edit_config
+    # useful when the configuration was edited manually
     def update_from_edit_config(self):
         self.cfgregmodel.beginResetModel()
         self.cfgmemmodel.beginResetModel()
@@ -838,7 +843,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if to_select:
             self.cfg_select.setCurrentText(to_select)
 
-    def save_config(self, config_name=None):
+    # callback when the "save" button is clicked
+    def _save_config(self, config_name=None):
         ea_int = int(self.ip_start_addr.text(), 16)
         should_update = False
         if not config_name:
@@ -860,7 +866,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if should_update:
             self.update_config_list(config_name)
 
-    def edit_config(self):
+    # callback when the "edit" button is clicked
+    def _edit_config(self):
         editdlg = EditConfigurationFileForm_t(self.parent, self.s)
         if editdlg.exec_() == QtWidgets.QDialog.Accepted:
             self.update_from_edit_config()
@@ -1170,7 +1177,7 @@ class InitConfigMemModel(QtCore.QAbstractTableModel):
         self.mono_font = QtGui.QFont("Monospace")
         self.config = None
         self.mem_addr_re = re.compile(
-            "(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
+            r"(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
 
     def flags(self, index):
         flags = (Qt.ItemIsSelectable
@@ -1276,7 +1283,8 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
 
     def all_taint_top(self):
         for i in xrange(0, len(self.rows)):
-            size = ConfigHelpers.register_size(ConfigHelpers.get_arch(self.s.edit_config.analysis_ep), self.rows[i][0])
+            size = ConfigHelpers.register_size(ConfigHelpers.get_arch(self.s.edit_config.analysis_ep),
+                                               self.rows[i][0])
             if size >= 8:
                 self.rows[i][-1] = "0?0x"+"F"*(size/4)
         self.endResetModel()
