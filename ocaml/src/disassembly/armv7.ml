@@ -920,7 +920,8 @@ struct
     | 0b000000 | 0b000001 -> (* Add Immediate to SP ADD (SP plus immediate) *)
        notimplemented s "ADD on SP"
     | 0b000010 | 0b000011 -> (* Subtract Immediate from SP SUB (SP minus immediate) *)
-       notimplemented s "SUB on SP"
+       let imm7 = isn land 0x7f in
+       op_sub sp 13 (const (imm7 lsl 2) 32) |> mark_couple
     | 0b000100 | 0b000101 | 0b000110 | 0b000111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
        notimplemented s "CBZ/CBNZ (0)"
     | 0b001000 -> (* Signed Extend Halfword SXTH *)
