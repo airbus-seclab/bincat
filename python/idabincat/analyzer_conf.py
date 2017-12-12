@@ -217,6 +217,30 @@ class ConfigHelpers(object):
         return imports
 
     @staticmethod
+    def register_size(arch, reg):
+        if arch == 'x86':
+            if reg in ['eax', 'ecx', 'edx', 'ebx', 'ebp', 'esi', 'edi', 'esp']:
+                return 32
+            if reg in ['cf', 'pf', 'af', 'zf', 'sf', 'tf', 'if', 'of', 'nt',
+                         'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
+                return 1
+            if reg == 'iopl':
+                return 3
+        elif arch == 'armv7':
+            if reg[0] == 'r' or reg in ['sp', 'lr', 'pc']:
+                return 32
+            if reg in ['n', 'z', 'c', 'v']:
+                return 1
+        elif arch == 'armv8':
+            if reg[0] == 'x' or reg in ['xzr', 'sp']:
+                return 64
+            if reg[0] == 'q':
+                return 128
+            if reg in ['n', 'z', 'c', 'v']:
+                return 1
+        return None
+
+    @staticmethod
     def get_registers_with_state(arch):
         # returns an array of arrays
         # ["name", "value", "topmask", "taintmask"]
