@@ -1083,6 +1083,19 @@ struct
        notimplemented s "BLX"
     | _ -> L.abort (fun p -> p "Unknown or unpredictable instruction %04x" isn)
 
+  let thumb_mul _s isn =
+    let rn = (isn lsr 3) land 7 in
+    let rdm = isn land 7 in
+    let dest = V (treg rdm) in
+    let tmp = Register.make (Register.fresh_name ()) 64 in
+    [ MARK_ISN (Set (V (T tmp),
+                    BinOp(Mul,
+                          Lval dest,
+                          Lval (V (treg (rn)))))) ;
+      MARK_ISN (Set (dest, Lval (V (P (tmp, 0, 31))))) ;
+      MARK_ISN (Directive (Remove tmp)) ;
+      MARK_FLAG (zflag_update_exp (Lval dest)) ;
+      MARK_FLAG (nflag_update_exp (reg rdm)) ]
 
   let decode_thumb_data_processing s isn =
     let op1 = (isn lsr 3) land 7 in
@@ -1120,8 +1133,8 @@ struct
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
     | 0b1100 -> (* Bitwise OR *)
        op_orr (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
-    | 0b1101 -> (* Multiply Two *)
-       notimplemented s "Registers MUL"
+    | 0b1101 -> (* MUL Multiply Two Registers *)
+       thumb_mul s isn
     | 0b1110 -> (* Bitwise Bit Clear *)
        op_bic (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b1111 -> (* Bitwise NOT *)
