@@ -1261,7 +1261,7 @@ struct
       else Lval (V (T pc)) in
     let exch =
       if toARM then [ Set (V (T tflag), const 0 1) ] else [] in
-    [ Set( V (T lr), Lval (V (T pc))) ;
+    [ Set( V (T lr), BinOp (Or, Lval (V (T pc)), const 1 32)) ;
       Set (V (T pc), BinOp(Add, alignpc, imm32)) ;
     ] @ exch @ [ Call (R (Lval (V (T pc)))) ] |> mark_as_isn
 
