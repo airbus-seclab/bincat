@@ -145,7 +145,11 @@ let to_char (t: t): char =
   match t with
   | BOT -> '_'
   | TOP -> '?'
-  | S _ -> '1'
+  | S srcs ->
+     let elts = SrcSet.elements srcs in
+     if List.for_all (fun src -> match src with | Src.Tainted _ -> true | Src.Maybe _ -> false) elts then
+       '1'
+     else '?'
   | U -> '0'
 
 let equal (t1: t) (t2: t): bool =
@@ -205,7 +209,12 @@ let is_tainted (t: t): bool =
 let to_z (t: t): Z.t =
   match t with
   | U -> Z.zero
-  | S _ -> Z.one
+  | S srcs when SrcSet.cardinal srcs = 1 ->
+     begin
+       match SrcSet.choose srcs with
+          | Src.Tainted _ -> Z.one
+          | Src.Maybe _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
+     end
   | _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
 
 let to_string t =

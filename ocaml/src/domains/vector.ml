@@ -771,7 +771,7 @@ module Make(V: Val) =
              
         | Config.TBytes_Mask (b, m, tid) ->
            let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
-           for i = 0 to n' do
+           for i = 0 to n' do           
              if Z.testbit m i then
                v.(n'-i) <- V.taint_logor v.(n'-i) (V.forget_taint v.(n'-i) tid)
              else
@@ -792,6 +792,7 @@ module Make(V: Val) =
              v.(n'-i) <- V.taint_logor v.(n'-i) (V.taint_of_z Z.one v.(n'-i) tid)
            done;
            Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
+             
         | Config.Taint_none ->
            let n' =n-1 in
            for i = 0 to n' do

@@ -417,7 +417,7 @@
     
     one_tcontent:
     | s=HEX_BYTES { [Config.TBytes (s, !taint_fun())] }
-    | s=HEX_BYTES MASK m=INT    { [Config.TBytes_Mask (s, m, !taint_fun())] }
+    | s=HEX_BYTES MASK m=INT    {[Config.TBytes_Mask (s, m, !taint_fun())] }
     | t=INT         { 
       if Z.compare t Z.zero = 0 then [Config.Taint_none]
       else [Config.Taint (t, !taint_fun())] }
