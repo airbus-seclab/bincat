@@ -1057,6 +1057,12 @@ struct
     let jump_pc = if rd = 15 then [ Jmp (R (Lval (V (T pc)))) ] else [] in
     [ Set (V (treg rd), Lval (V (treg rm))) ] @ jump_pc |> mark_as_isn
 
+  let thumb_bx _s isn =
+    let rm = (isn lsr 3) land 0xf in
+    [ Set (V (T tflag), Lval (V (preg rm 0 0))) ;
+      Set (V (T pc), BinOp (And, Lval (V (treg rm)), const 0xfffffffe 32)) ;
+      Jmp (R (Lval (V (T pc)))) ] |> mark_as_isn
+
   let decode_thumb_special_data_branch_exch s isn =
     match (isn lsr 6) land 0xf with
     | 0b0000 -> (* Add Low Registers ADD (register)*)
@@ -1072,7 +1078,7 @@ struct
     | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
        thumb_mov_high_reg s isn
     | 0b1100 | 0b1101 -> (* Branch and Exchange BX *)
-       notimplemented s "BX"
+       thumb_bx s isn
     | 0b1110 | 0b1111 -> (* Branch with Link and Exchange BLX *)
        notimplemented s "BLX"
     | _ -> L.abort (fun p -> p "Unknown or unpredictable instruction %04x" isn)
