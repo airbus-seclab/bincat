@@ -26,7 +26,6 @@ import re
 import StringIO
 import ConfigParser
 import idaapi
-import idc
 import logging
 import idabincat.netnode
 import idautils
@@ -80,6 +79,22 @@ class ConfigHelpers(object):
             return ConfigHelpers.ftypes[f_type]
         else:
             return "raw"
+
+    @staticmethod
+    def guess_file_path():
+        input_file = idaapi.get_input_file_path()
+        if not os.path.isfile(input_file):
+            # get_input_file_path returns file path from IDB, which may not
+            # exist locally if IDB has been moved (eg. send idb+binary to
+            # another analyst)
+            guessed_path = idaapi.get_path(ida_loader.PATH_TYPE_IDB)
+            guessed_path = guessed_path.replace('idb', 'exe')
+            if os.path.isfile(guessed_path):
+                return guessed_path
+            guessed_path = guessed_path.replace('.exe', '')
+            if os.path.isfile(guessed_path):
+                return guessed_path
+        return input_file
 
     @staticmethod
     def get_memory_model():
@@ -248,9 +263,6 @@ class ConfigHelpers(object):
         if procname == "metapc":
             return "x86"
         elif procname.startswith("arm"):
-            if not entrypoint:
-                first_seg = idaapi.get_first_seg()
-                start_ea = seg.start_ea if hasattr(seg, "start_ea") else seg.startEA
             segment_size = ConfigHelpers.get_segment_size(entrypoint)
             if segment_size == 32:
                 return "armv7"
@@ -544,7 +556,7 @@ class AnalyzerConfig(object):
             bc_log.warning("Default config file %s could not be found",
                            configfile)
 
-        code_start_va, code_end_va = ConfigHelpers.get_code_section(
+        code_start_va, _ = ConfigHelpers.get_code_section(
             analysis_start_va)
 
         config.set('analyzer', 'analysis_ep', "0x%0X" % analysis_start_va)
@@ -564,15 +576,7 @@ class AnalyzerConfig(object):
         arch = ConfigHelpers.get_arch(analysis_start_va)
         config.set('program', 'architecture', arch)
 
-        input_file = idaapi.get_input_file_path()
-        if not os.path.isfile(input_file):
-            # get_input_file_path returns file path from IDB, which may not
-            # exist locally if IDB has been moved (eg. send idb+binary to
-            # another analyst)
-            guessed_path = idc.GetIdbPath().replace('idb', 'exe')
-            if os.path.isfile(guessed_path):
-                input_file = guessed_path
-
+        input_file = ConfigHelpers.guess_file_path()
         ftype = ConfigHelpers.get_file_type()
         config.set('program', 'filepath', '"%s"' % input_file)
         config.set('program', 'format', ftype)

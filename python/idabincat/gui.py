@@ -30,7 +30,7 @@ import pybincat.cfa as cfa
 import idabincat.hexview as hexview
 from idabincat.dump_binary import dump_binary
 from idabincat.plugin_options import PluginOptions
-from idabincat.analyzer_conf import AnalyzerConfig
+from idabincat.analyzer_conf import AnalyzerConfig, ConfigHelpers
 
 # Logging
 bc_log = logging.getLogger('bincat.gui')
@@ -628,7 +628,9 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         btn_split.addWidget(self.btn_start)
 
         self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
-        self.chk_remap.setChecked(self.s.remap_binary)
+        # Only check by default if the file is not an ELF
+        if ConfigHelpers.get_file_type() != "elf":
+            self.chk_remap.setChecked(self.s.remap_binary)
 
         btn_split.addWidget(self.chk_remap)
         # Save config button
@@ -733,6 +735,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
                 [("ph2", 0, size, 0, size)])
         else:
             self.s.remap_binary = False
+            self.s.edit_config.binary_filepath = "%s" % ConfigHelpers.guess_file_path()
 
         # XXX copy?
         self.s.current_config = self.s.edit_config
