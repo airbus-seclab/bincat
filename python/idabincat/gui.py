@@ -762,6 +762,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
                         'No filename provided. You can provide a filename or '
                         'uncheck the "Remap binary" option.')
                     return
+                fname =  ConfigHelpers.string_decode(fname)
                 dump_binary(fname)
                 self.s.remapped_bin_path = fname
             self.s.remap_binary = True

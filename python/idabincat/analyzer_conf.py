@@ -99,6 +99,7 @@ class ConfigHelpers(object):
     @staticmethod
     def guess_file_path():
         input_file = idaapi.get_input_file_path()
+        input_file = ConfigHelpers.string_decode(input_file)
         if not os.path.isfile(input_file):
             # get_input_file_path returns file path from IDB, which may not
             # exist locally if IDB has been moved (eg. send idb+binary to
@@ -433,7 +434,7 @@ class AnalyzerConfig(object):
         # remove quotes
         value = self._config.get('program', 'filepath')
         value = value.replace('"', '')
-        return value
+        return value.decode('utf-8')
 
     @property
     def in_marshalled_cfa_file(self):
@@ -484,7 +485,7 @@ class AnalyzerConfig(object):
         # make sure value is surrounded by quotes
         if '"' not in value:
             value = '"%s"' % value
-        self._config.set('program', 'filepath', value)
+        self._config.set('program', 'filepath', value.encode('utf-8'))
 
     @in_marshalled_cfa_file.setter
     def in_marshalled_cfa_file(self, value):
@@ -618,7 +619,7 @@ class AnalyzerConfig(object):
 
         input_file = ConfigHelpers.guess_file_path()
         ftype = ConfigHelpers.get_file_type()
-        config.set('program', 'filepath', '"%s"' % input_file)
+        config.set('program', 'filepath', '"%s"' % input_file.encode('utf-8'))
 
         # For now BinCAT engine only parses elf files
         if ftype != "elf":
