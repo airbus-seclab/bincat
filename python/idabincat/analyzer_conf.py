@@ -22,6 +22,7 @@ import functools
 import glob
 import os
 import os.path
+import sys
 import re
 import StringIO
 import ConfigParser
@@ -80,6 +81,21 @@ class ConfigHelpers(object):
         else:
             return "raw"
 
+    # Helper function to get a filename as a Unicode string
+    @staticmethod
+    def string_decode(string):
+        if idaapi.get_kernel_version()[0] == '7':
+            # IDA 7 only has UTF-8 strings
+            string_u = string.decode('UTF-8')
+        else:
+            # IDA 6 uses the system locale
+            # on Linux it's usually UTF-8 but we can't be sure
+            # on Windows getfilesystemencoding returns "mbcs"
+            # but it decodes cpXXXX correctly apparently
+            string_u = string.decode(sys.getfilesystemencoding())
+        return string_u
+
+    # Helper that returns an Unicode string with the file path
     @staticmethod
     def guess_file_path():
         input_file = idaapi.get_input_file_path()
