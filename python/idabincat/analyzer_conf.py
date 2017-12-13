@@ -603,7 +603,12 @@ class AnalyzerConfig(object):
         input_file = ConfigHelpers.guess_file_path()
         ftype = ConfigHelpers.get_file_type()
         config.set('program', 'filepath', '"%s"' % input_file)
-        config.set('program', 'format', ftype)
+
+        # For now BinCAT engine only parses elf files
+        if ftype != "elf":
+            config.set('program', 'format', 'manual')
+        else:
+            config.set('program', 'format', ftype)
 
         # [sections section]
         config.add_section('sections')
