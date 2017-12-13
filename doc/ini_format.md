@@ -68,3 +68,5 @@ where:
 
 * `|hexvalues|?topmask!taintmask`
 
+Caveats:
+* `topmask` and `taintmask` must have the same length as hexvalues.

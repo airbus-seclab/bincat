@@ -29,7 +29,7 @@ Thank you for registering !
 
 ## Pre-requisites
 1. BinCAT has to be installed first (see [README](../README.md#installation))
-2. Download one of the the get_key_x86([**x86**](../../../raw/master/doc/get_key/get_key_x86) executable from this repository.
+2. Download one of the ([**x86**](../../../raw/master/doc/get_key/get_key_x86)) [executables](../../../raw/master/doc/get_key) from this repository.
 
 This tutorial relates to the `get_key_x86` binary, targetting the `x86` CPU
 architecture.
