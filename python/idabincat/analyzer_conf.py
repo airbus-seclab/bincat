@@ -564,8 +564,14 @@ class AnalyzerConfig(object):
     # Output functions: save config to a file, or the IDB (for a given
     # address, or as default)
     def write(self, filepath):
+        # OCaml can only handle "local" encodings for file name
+        # So, ugly code following
+        binpath = self.binary_filepath
+        local_binpath = ('"%s"' % binpath).encode(sys.getfilesystemencoding())
+        self._config.set('program', 'filepath', local_binpath)
         with open(filepath, 'w') as configfile:
             self._config.write(configfile)
+        self.binary_filepath = binpath
 
     def __str__(self):
         self._config.remove_section('state')
