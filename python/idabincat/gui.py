@@ -668,6 +668,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
     def _forward_toggled(self, checked):
         if not checked:  # Backward checked
             # Backward uses overrides so we hide the main config
+            idaapi.warning("Backward mode is _experimental_, expect bugs !")
             self.regs_table.hide()
             self.mem_table.hide()
             self.lbl_back_help.show()
