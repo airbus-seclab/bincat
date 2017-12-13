@@ -302,7 +302,7 @@ class State(object):
             # v0.6 format
             tainted = True
             taintsrc = ["t-0"]
-        elif taintedstr == "":
+        elif taintedstr == "" or taintedstr == "?":
             # v0.7 format, not tainted
             tainted = False
             taintsrc = []
