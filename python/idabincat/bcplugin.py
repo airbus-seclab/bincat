@@ -57,7 +57,7 @@ from PyQt5 import QtWidgets
 # Logging
 logging.basicConfig(level=logging.DEBUG)
 bc_log = logging.getLogger('bincat.plugin')
-bc_log.setLevel(logging.DEBUG)
+bc_log.setLevel(logging.INFO)
 
 
 def dedup_loglines(loglines, max=None):
@@ -273,7 +273,8 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
     def procanalyzer_on_finish(self):
         bc_log.info("Analyzer process finished")
         exitcode = self.exitCode()
-        bc_log.error("analyzer returned exit code=%i", exitcode)
+        if exitcode != 0:
+            bc_log.error("analyzer returned exit code=%i", exitcode)
         self.process_output()
 
     def process_output(self):
@@ -284,18 +285,18 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         bc_log.info(str(self.readAllStandardOutput()))
         bc_log.info("---- stderr ----------------")
         bc_log.info(str(self.readAllStandardError()))
-        bc_log.debug("---- logfile ---------------")
+        bc_log.info("---- logfile ---------------")
         if os.path.exists(self.logfname):
             with open(self.logfname, 'rb') as f:
                 log_lines = f.readlines()
             log_lines = dedup_loglines(log_lines, max=100)
             if len(log_lines) > 100:
-                bc_log.debug("---- Only the last 100 log lines (deduped) are displayed here ---")
-                bc_log.debug("---- See full log in %s ---" % self.logfname)
+                bc_log.info("---- Only the last 100 log lines (deduped) are displayed here ---")
+                bc_log.info("---- See full log in %s ---" % self.logfname)
             for line in log_lines:
-                bc_log.debug(line.rstrip())
+                bc_log.info(line.rstrip())
 
-        bc_log.debug("====== end of logfile ======")
+        bc_log.info("====== end of logfile ======")
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
@@ -414,17 +415,17 @@ class WebAnalyzer(Analyzer):
             logfp.write(analyzer_log_contents)
         bc_log.info("---- stdout+stderr ----------------")
         bc_log.info(self.download_file(files["stdout.txt"]))
-        bc_log.debug("---- logfile ---------------")
+        bc_log.info("---- logfile ---------------")
         log_lines = analyzer_log_contents.split('\n')
 
         log_lines = dedup_loglines(log_lines, max=100)
         if len(log_lines) > 100:
-            bc_log.debug("---- Only the last 100 log lines (deduped) are displayed here ---")
-            bc_log.debug("---- See full log in %s ---" % self.logfname)
+            bc_log.info("---- Only the last 100 log lines (deduped) are displayed here ---")
+            bc_log.info("---- See full log in %s ---" % self.logfname)
         for line in log_lines:
-            bc_log.debug(line.rstrip())
+            bc_log.info(line.rstrip())
 
-        bc_log.debug("----------------------------")
+        bc_log.info("----------------------------")
         if "cfaout.marshal" in files:
             # might be absent (ex. when analysis failed, or not requested)
             with open(self.cfaoutfname, 'wb') as cfaoutfp:
@@ -690,7 +691,7 @@ class State(object):
             bc_log.error("Analyzer is unavailable", exc_info=True)
             return
 
-        bc_log.debug("Current analyzer path: %s", path)
+        bc_log.info("Current analyzer path: %s", path)
 
         # Update overrides
         self.current_config.update_overrides(self.overrides)

@@ -15,6 +15,7 @@ OUR_NETNODE = "$ com.bincat"
 CHUNK_INDEX_TAG = "M"
 CHUNK_TAG = "N"
 g_logger = logging.getLogger("netnode")
+g_logger.setLevel(logging.INFO)
 
 
 class Netnode(object):
