@@ -29,10 +29,11 @@ Thank you for registering !
 
 ## Pre-requisites
 1. BinCAT has to be installed first (see [README](../README.md#installation))
-2. Download one of the ([**x86**](../../../raw/master/doc/get_key/get_key_x86)) [executables](../../../raw/master/doc/get_key) from this repository.
+2. Download one of the [executables](../../../raw/master/doc/get_key) from this repository.
 
-This tutorial relates to the `get_key_x86` binary, targetting the `x86` CPU
-architecture.
+This tutorial relates to the
+[`get_key_x86`](../../../raw/master/doc/get_key/get_key_x86) binary, targetting
+the `x86` CPU architecture.
 Binaries and configuration files are also provided for the following architectures:
 
 * `armv7`: [**binary**](../../../raw/master/doc/get_key/get_key_armv7), [**configuration**](../../../raw/master/doc/get_key/get_key_armv7.ini)
@@ -45,11 +46,10 @@ Binaries and configuration files are also provided for the following architectur
 2. Open the `get_key_x86` executable in IDA
 3. From the **IDA View-A** view, go to address `0x93B` using the **g**
    shortcut
-4. Use the **Ctrl-Shift-A** shortcut to open the analysis start window (see
-   section [Start an analysis](manual.md#start-an-analysis) of the manual)
-5. Ensure that the **Analyzer configuration** dropdown is set to **(new)**
-6. Check the **Save configuration to IDB** option
-7. Check the **Remap binary** option
+4. Focus the "BinCAT Configuration" pane
+5. Click `<-- Current` to define the start address
+6. Ensure that the **Analyzer configuration** dropdown is set to **(new)**
+7. Check the **Save configuration to IDB** option
 8. Click the **Edit analyzer config** button
 9. Paste the following lines at the end of the `[state]` section, **overwriting
    the existing stack initialization** (`stack[0x1000*8192]...`). This defines
@@ -73,24 +73,22 @@ mem[0x300200] = |6c6f6c2100|
 ```
 10. Click **Save**
 11. Click **Start**
-12. Choose a location where the remapped binary should be saved. This will only
-   be requested the first time an analysis is run on this binary
-13. Enter a name under which this configuration should be saved
-14. Notice that after a few seconds, the analysis has finished running, and the
+12. Enter a name under which this configuration should be saved
+13. Notice that after a few seconds, the analysis has finished running, and the
     background for some of the instructions in the **IDA View-A** view has
     become gray
-15. Go to address `0x807` using the **g** shortcut. This instruction is
+14. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
     should be `0x1D50`). Open the **BinCAT Memory** view at this address, to
     observe the contents of the `buffer` pointer (`char *`) where `sprintf`
     results will be output (the value should be `0x1DEC`)
-16. Advance to the next instruction at address `0x80C`, and observe the
+15. Advance to the next instruction at address `0x80C`, and observe the
     value of the `buffer` that has been formatted by `sprintf` at address
     `0x1DEC`
-17. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
+16. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
     and observe the inferred types for the call to `sprintf`
-18. Go to address `0xA93`, which contains a call to a location that is stored
+17. Go to address `0xA93`, which contains a call to a location that is stored
     on the stack. Notice that IDA cannot resolve the destination address. In
     the **BinCAT Registers** view, use the *goto next node (1)* drop down menu
     to jump to the destination
