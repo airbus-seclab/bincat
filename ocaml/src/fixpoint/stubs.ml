@@ -280,7 +280,7 @@ struct
 
     let init () =
       Hashtbl.replace stubs "memcpy"        (memcpy,      3);
-      Hashtbl.replace stubs "memcpy"        (memset,      3);
+      Hashtbl.replace stubs "memset"        (memset,      3);
       Hashtbl.replace stubs "sprintf"       (sprintf,     0);
       Hashtbl.replace stubs "printf"        (printf,      0);
       Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);
