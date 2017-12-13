@@ -95,6 +95,13 @@ class ConfigHelpers(object):
             string_u = string.decode(sys.getfilesystemencoding())
         return string_u
 
+    @staticmethod
+    def askfile(types, prompt):
+        # IDA 6/7 compat
+        askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') else idaapi.askfile_c
+        fname = askfile(1, types, prompt)
+        return ConfigHelpers.string_decode(fname)
+
     # Helper that returns an Unicode string with the file path
     @staticmethod
     def guess_file_path():

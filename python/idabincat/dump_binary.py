@@ -19,6 +19,7 @@ import logging
 import idc
 import idautils
 import idaapi
+from idabincat.analyzer_conf import ConfigHelpers
 
 dump_log = logging.getLogger('bincat.plugin.dump_binary')
 dump_log.setLevel(logging.DEBUG)
@@ -58,5 +59,5 @@ def dump_binary(fname):
 
 
 if __name__ == '__main__':
-    fname = idaapi.askfile_c(1, "*.*", "Save to binary")
+    fname = ConfigHelpers.askfile("*.*", "Save to binary")
     dump_binary(fname)

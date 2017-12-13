@@ -753,16 +753,12 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if self.chk_remap.isChecked():
             if (self.s.remapped_bin_path is None or
                     not os.path.isfile(self.s.remapped_bin_path)):
-                # IDA 6/7 compat
-                askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') \
-                    else idaapi.askfile_c
-                fname = askfile(1, None, "Save remapped binary")
+                fname = ConfigHelpers.askfile(None, "Save remapped binary")
                 if not fname:
                     bc_log.error(
                         'No filename provided. You can provide a filename or '
                         'uncheck the "Remap binary" option.')
                     return
-                fname =  ConfigHelpers.string_decode(fname)
                 dump_binary(fname)
                 self.s.remapped_bin_path = fname
             self.s.remap_binary = True
@@ -788,7 +784,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
     # callback when the "Export" button is clicked
     def _export_file(self):
-        fname = idaapi.askfile_c(1, "*.ini", "Save exported configuration")
+        fname = ConfigHelpers.askfile("*.ini", "Save exported configuration")
         if fname:
             with open(fname, 'w') as f:
                 f.write(str(self.s.edit_config))
@@ -1808,7 +1804,7 @@ class HandleRemap(idaapi.action_handler_t):
 
     def activate(self, ctx):
         # display config window
-        fname = idaapi.askfile_c(1, "*.*", "Save to binary")
+        fname = ConfigHelpers.askfile("*.*", "Save to binary")
         if fname:
             dump_binary(fname)
             self.state.remapped_bin_path = fname
