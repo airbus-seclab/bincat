@@ -1664,6 +1664,9 @@ class OverridesModel(QtCore.QAbstractTableModel):
     def remove_row(self, checked):
         del self.s.overrides[BinCATOverridesView.clickedIndex]
 
+    def remove_all(self):
+        self.s.overrides.clear()
+
 
 class BinCATOverridesView(QtWidgets.QTableView):
     clickedIndex = None
@@ -1682,8 +1685,14 @@ class BinCATOverridesView(QtWidgets.QTableView):
         action = QtWidgets.QAction('Remove', self)
         action.triggered.connect(self.m.remove_row)
         menu.addAction(action)
+        action = QtWidgets.QAction('Remove all', self)
+        action.triggered.connect(self.m.remove_all)
+        menu.addAction(action)
         BinCATOverridesView.clickedIndex = self.indexAt(event.pos()).row()
         menu.popup(QtGui.QCursor.pos())
+
+    def remove_all(self):
+        self.m.remove_all()
 
     def remove_row(self):
         try:

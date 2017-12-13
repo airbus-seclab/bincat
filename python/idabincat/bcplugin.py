@@ -241,7 +241,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
             return
 
     def run(self):
-        cmdline = [ "bincat", 
+        cmdline = [ "bincat",
                     [self.initfname,  self.outfname, self.logfname ]]
         # start the process
         bc_log.debug("Analyzer cmdline: [%s %s]", cmdline[0], " ".join(cmdline[1]))
@@ -822,6 +822,10 @@ class CallbackWrappedList(collections.MutableSequence):
     @_callback_wrap
     def __delitem__(self, item):
         del self._data[item]
+
+    @_callback_wrap
+    def clear(self):
+        self._data = []
 
     def __len__(self):
         return len(self._data)
