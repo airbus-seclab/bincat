@@ -80,7 +80,7 @@ struct
            in
            if b then D.join v1 v2, taint_sources
            else D.meet v1 v2, taint_sources
-
+             
         | BBinOp (LogAnd, e1, e2) ->
            let v1, taint1 = process e1 b in
            let v2, taint2 = process e2 b in
@@ -106,40 +106,41 @@ struct
 
     (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor
     the widening may be also launched if the threshold is reached *)
-    let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
+    let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (get_field: Cfa.State.t -> D.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
       try
         let l = process_stmts g v ip in
         List.iter (fun v ->
-            let n, jd =
-              try
-                let n', jd' = Hashtbl.find !unroll_tbl ip in
-                let d' = D.join jd' v.Cfa.State.v in
-                Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
-              with Not_found ->
-                Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, v.Cfa.State.v);
-                1, v.Cfa.State.v
-            in
-            let nb_max =
-              match !unroll_nb with
-              | None -> !Config.unroll
-              | Some n -> n
-            in
-            if n <= nb_max then
-              ()
-            else
-              begin
-                L.analysis (fun p -> p "widening occurs at %s" (Data.Address.to_string ip));
-                widen jd v
-              end
-          ) l;
+          let d = get_field v in
+          let n, jd =
+            try
+              let n', jd' = Hashtbl.find !unroll_tbl ip in
+              let d' = D.join jd' d in
+              Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
+            with Not_found ->
+              Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, d);
+              1, d
+          in
+          let nb_max =
+            match !unroll_nb with
+            | None -> !Config.unroll
+            | Some n -> n
+          in
+          if n <= nb_max then
+            ()
+          else
+            begin
+              L.analysis (fun p -> p "widening occurs at %s" (Data.Address.to_string ip));
+              widen jd v
+            end
+        ) l;
         
         List.fold_left (fun l' v ->
-            if D.is_bot v.Cfa.State.v then
-              begin
-                L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
-                Cfa.remove_state g v; l'
-              end
-            else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
+          if D.is_bot (get_field v) then
+            begin
+              L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
+              Cfa.remove_state g v; l'
+            end
+          else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
       with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 
 
@@ -316,9 +317,7 @@ struct
         let ret_addr_exp = fundec.Asm.ret_addr in
         L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let t =
-            List.fold_left (fun t v ->
-                if stmts <> [] then
-                    Config.interleave := true;
+            List.fold_left (fun t v ->             
                 let d', t' =
                     List.fold_left (fun (d, t) stmt -> let d', t' = process_value d stmt fun_stack in d', Taint.logor t t') (v.Cfa.State.v, Taint.U) stmts
                 in
@@ -452,13 +451,14 @@ struct
         end
          | Call (R target) -> fold_to_target add_to_fun_stack vertices target
 
-             | Return -> List.fold_left (fun (l, b) v ->
-                 let v', b' = process_ret fun_stack v in
-                 match v' with
-                 | None -> l, Taint.logor b b'
-                 | Some v -> v::l, Taint.logor b b') ([], Taint.U) vertices
-
-             | _       -> vertices, Taint.U
+         | Return ->
+            List.fold_left (fun (l, b) v ->
+              let v', b' = process_ret fun_stack v in
+              match v' with
+              | None -> l, Taint.logor b b'
+              | Some v -> v::l, Taint.logor b b') ([], Taint.U) vertices
+            
+         | _       -> vertices, Taint.U
 
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.t =
         match stmts with
@@ -509,7 +509,7 @@ struct
             else
               (* explore if a greater abstract state of v has already been explored *)
               if subsuming then
-        Cfa.iter_state (fun prev ->
+                Cfa.iter_state (fun prev ->
                   if v.Cfa.State.id = prev.Cfa.State.id then
                     ()
                   else
@@ -653,7 +653,7 @@ struct
             | Some (v, ip', d') ->
                Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
-              let new_vertices = update_abstract_value g v ip' (process_stmts fun_stack)                in
+              let new_vertices = update_abstract_value g v (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
             (* add overrides if needed *)
            let new_vertices =
          try
@@ -691,32 +691,77 @@ struct
 
     (******************** BACKWARD *******************************)
     (*************************************************************)
+
+    let shift_and_add shift len =
+      let one = Const (Data.Word.one len) in
+      let one' = Const (Data.Word.of_int (Z.of_int (len-1)) len) in
+      let shifted_one = BinOp (Asm.Shl, one, one') in
+      BinOp (Asm.Add, shift, shifted_one)
+        
     let back_add_sub op dst e1 e2 d =
       match e1, e2 with
       | Lval lv1, Lval lv2 ->
-         let e = Lval dst in
-         let d', b = D.set lv1 (BinOp (op, e, e2)) d in
-         let d, b' = D.set lv2 (BinOp (op, e, e1)) d' in
-         d, Taint.logor b b'
-
+        if Asm.equal_lval lv1 lv2 then
+            if op = Asm.Sub then
+             let len = Asm.lval_length lv1 in
+             let shift = BinOp (Asm.Shr, Lval dst, Const (Data.Word.of_int (Z.of_int 1) len)) in
+             let d', taint =
+               try
+                 if Z.compare Z.one (D.value_of_exp d (Decoder.overflow_expression())) = 0 then
+                   D.set lv1 (shift_and_add shift len) d
+                 else
+                   D.set lv1 shift d
+               with _ ->
+                 let d1, taint1 = D.set lv1 shift d in
+                 let d2, taint2 = D.set lv1 (shift_and_add shift len) d in 
+                 D.join d1 d2, Taint.join taint1 taint2
+             in
+             if Asm.with_lval dst (Lval lv1) then
+               d', taint
+             else D.forget_lval dst d', taint
+           else
+             D.forget_lval dst d, Taint.TOP
+         else
+          if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then 
+            D.set lv1 (BinOp (op, Lval dst, e2)) d
+          else D.forget_lval dst d, Taint.TOP
+            
+      | Lval lv, Const c | Const c, Lval lv ->
+         let d', taint = D.set lv (BinOp (op, Lval dst, Const c)) d in
+         if Asm.with_lval dst (Lval lv) then
+           d', taint
+         else D.forget_lval dst d', taint
+               
       | Lval lv, e | e, Lval lv ->
-         let e' = Lval dst in
-         D.set lv (BinOp (op, e', e)) d
+           if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then
+             D.set lv (BinOp (op, Lval dst, e)) d
+           else D.forget_lval dst d, Taint.TOP
 
-      | _ -> D.forget_lval dst d, Taint.U
+      | _ ->  D.forget_lval dst d, Taint.TOP
+
 
     let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
       match src with
-      | Lval lv -> D.set lv (Lval dst) d
-      | UnOp (Not, Lval lv) -> D.set lv (UnOp (Not, Lval dst)) d
+      | Lval lv ->
+         let d', taint = D.set lv (Lval dst) d in
+         if Asm.equal_lval lv dst then d', taint
+         else D.forget_lval dst d', taint
+
+      | UnOp (Not, Lval lv) ->
+        let d', taint = D.set lv (UnOp (Not, Lval dst)) d in
+        if Asm.equal_lval lv dst then d', taint
+        else D.forget_lval dst d, taint
+          
       | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
       | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
-      | _ -> D.forget_lval dst d, Taint.U
+         
+      | _ -> D.forget_lval dst d, Taint.TOP
 
     (** backward transfert function on the given abstract value *)
     let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * Taint.t) =
       (* BE CAREFUL: this function does not apply to nested if statements *)
       let rec back d stmt =
+        L.debug (fun p -> p "back of %s.........." (Asm.string_of_stmt stmt true));
         match stmt with
         | Call _
         | Return
@@ -724,7 +769,7 @@ struct
         | Nop -> d, Taint.U
         | Directive (Forget _) -> d, Taint.U
         | Directive (Remove r) -> D.add_register r d, Taint.U
-        | Directive (Taint _) -> D.forget d, Taint.U
+        | Directive (Taint _) -> D.forget d, Taint.TOP
         | Directive (Type _) -> D.forget d, Taint.U
         | Directive (Unroll _) -> d, Taint.U
         | Directive (Unroll_until _) -> d, Taint.U
@@ -732,29 +777,47 @@ struct
         | Directive (Stub _) -> d, Taint.U
         | Set (dst, src) -> back_set dst src d
         | Assert (_bexp, _msg) -> d, Taint.U (* TODO *)
-        | If (e, istmts, estmts) ->
+        | If (_e, istmts, estmts) ->
            match branch with
-           | Some true -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) istmts in let v, b' = restrict d' e true in v, Taint.logor b b'
-           | Some false -> let d', b = List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) estmts in let v, b' = restrict d' e false in v, Taint.logor b b'
+           | Some true -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) (List.rev istmts)
+           | Some false -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.logor b b') (d, Taint.U) (List.rev estmts)
            | None -> D.forget d, Taint.U
       in
       back d stmt
 
     let back_update_abstract_value (g:Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (pred: Cfa.State.t): Cfa.State.t list =
       let backward _g v _ip =
+        let start_v =
+          match v.Cfa.State.back_v with
+          | Some d -> d
+          | None -> raise (Exceptions.Empty "undefined abstract value used in backward mode")
+        in
         let d', taint_sources =
           List.fold_left (fun (d, b) s ->
             let d', b' = backward_process v.Cfa.State.branch d s in
             d', Taint.logor b b'
-          ) (v.Cfa.State.v, Taint.U) (List.rev pred.Cfa.State.stmts)
+          ) (start_v, Taint.U) (List.rev pred.Cfa.State.stmts)
         in
-        let d' = D.meet pred.Cfa.State.v d' in
-        pred.Cfa.State.v <- D.meet pred.Cfa.State.v d';
-        L.debug (fun p->p "taint : back lol %s" (Taint.to_string taint_sources));
-        pred.Cfa.State.taint_sources <- taint_sources;
+        let v' = D.meet pred.Cfa.State.v d' in
+        begin
+          match pred.Cfa.State.back_v, pred.Cfa.State.back_taint_sources with
+          | None, None -> 
+             pred.Cfa.State.back_v <- Some v';
+            pred.Cfa.State.back_taint_sources <- Some taint_sources
+          | Some v2, Some t2 -> 
+             pred.Cfa.State.back_v <- Some (D.join v' v2);
+            pred.Cfa.State.back_taint_sources <- Some (Taint.join t2 taint_sources)
+          | _, _ -> 
+             raise (Exceptions.Error "inconsistent state in backward mode")
+        end;
         [pred]
       in
-      update_abstract_value g v ip backward
+      let get_field v =
+        match v.Cfa.State.back_v with
+        | Some d -> d
+        | None -> raise (Exceptions.Error "Illegal call to get_field in interpreter")
+      in
+      update_abstract_value g v get_field ip backward
 
 
     let back_unroll g v pred =
@@ -835,7 +898,7 @@ struct
         succ.Cfa.State.taint_sources <- taint_sources;
         [succ]
       in
-      update_abstract_value g v ip forward
+      update_abstract_value g v (fun v -> v.Cfa.State.v) ip forward
 
     (****************************)
     (* FIXPOINT ON CFA *)

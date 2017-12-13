@@ -62,6 +62,35 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
+    let memset (d: domain_t) ret args: domain_t * Taint.t =
+      let arg0 = args 0 in
+      let dst = Asm.Lval arg0 in
+      let src = args 1 in
+      let nb = Asm.Lval (args 2) in
+      
+      try
+        let nb' = D.value_of_exp d nb in
+        let byte =
+        match src with
+        | Asm.V (Asm.T r) -> Asm.V (Asm.P (r, 0, 7))
+        | Asm.V (Asm.P (r, l, u)) when u-l>=7-> Asm.V (Asm.P (r, l, l+7)) (* little endian only ? *)
+        | Asm.M (e, n) when Z.compare (Z.of_int n) nb' >= 0 -> Asm.M(e, 8) (* little endian only ? *)
+        | _ -> raise (Exceptions.Error "inconsistent argument for memset")
+        in
+        let sz = Asm.lval_length arg0 in
+        let byte_exp = Asm.Lval byte in
+        let one_set d i =
+          if Z.compare i nb' < 0 then
+            let addr = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int i sz)) in
+            fst (D.set (Asm.M(addr, 8)) byte_exp d) (* we ignore taint as the source is a constant *)
+          else
+            d
+        in            
+        let d' = one_set d Z.zero in
+        (* result is tainted if the destination to copy the byte is tainted *)
+        D.set ret dst d'
+      with _ -> L.abort (fun p -> p "too large number of bytes to copy in memset stub")
+        
     let print (d: domain_t) ret format_addr va_args (to_buffer: Asm.exp option): domain_t * Taint.t =
         (* ret has to contain the number of bytes stored in dst ;
            format_addr is the address of the format string ;
@@ -251,6 +280,7 @@ struct
 
     let init () =
       Hashtbl.replace stubs "memcpy"        (memcpy,      3);
+      Hashtbl.replace stubs "memset"        (memset,      3);
       Hashtbl.replace stubs "sprintf"       (sprintf,     0);
       Hashtbl.replace stubs "printf"        (printf,      0);
       Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);

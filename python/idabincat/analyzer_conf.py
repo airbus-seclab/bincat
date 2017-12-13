@@ -331,6 +331,10 @@ class AnalyzerConfig(object):
         else:
             self._config.set('analyzer', 'cut', value)
 
+    @analysis_method.setter
+    def analysis_method(self, value):
+        self._config.set('analyzer', 'analysis', value.lower())
+
     @binary_filepath.setter
     def binary_filepath(self, value):
         # make sure value is surrounded by quotes
@@ -377,17 +381,32 @@ class AnalyzerConfig(object):
         self._config.set('analyzer', 'in_marshalled_cfa_file', in_cfa)
 
     def update_overrides(self, overrides):
-        # 1. Empty existing overrides sections
+        # 1. Empty override section
         self._config.remove_section("override")
         self._config.add_section("override")
-        # 2. Add sections from overrides argument
-        ov_by_eip = collections.defaultdict(set)
-        for (eip, register, value) in overrides:
-            ov_by_eip[eip].add("%s, %s;" % (register, value))
-        # 3. Add to config
-        for eip, ov_set in ov_by_eip.items():
-            hex_addr = "0x%x" % eip
-            self._config.set("override", hex_addr, ''.join(ov_set))
+
+        if self.analysis_method == "forward_binary":
+            # 2. Add sections from overrides argument
+            ov_by_eip = collections.defaultdict(set)
+            for (eip, register, value) in overrides:
+                ov_by_eip[eip].add("%s, %s;" % (register, value))
+
+            # 3. Add to config
+            for eip, ov_set in ov_by_eip.items():
+                hex_addr = "0x%x" % eip
+                self._config.set("override", hex_addr, ''.join(ov_set))
+        else:
+            # 2. Empty state section
+            self._config.remove_section("state")
+            self._config.add_section("state")
+
+            # 3. Get overrides for current eip only, define that as initial
+            # state
+            initial_eip = int(self.analysis_ep, 16)
+            for (eip, register, value) in overrides:
+                if eip != initial_eip:
+                    continue
+                self._config.set("state", register, value)
 
     @staticmethod
     def load_from_str(string):
@@ -410,9 +429,11 @@ class AnalyzerConfig(object):
         return sio.read()
 
     @staticmethod
-    def get_default_config(analysis_start_va, analysis_stop_va):
+    def get_default_config(analysis_start_va, analysis_stop_va,
+                           analysis_method):
         """
-        Returns a new AnalyzerConfig for the given entry point & cut
+        Returns a new AnalyzerConfig for the given entry point, cut and
+        analysis method
         """
         # this function will use the default parameters
         config = ConfigParser.RawConfigParser()
@@ -431,6 +452,7 @@ class AnalyzerConfig(object):
             analysis_start_va)
 
         config.set('analyzer', 'analysis_ep', "0x%0X" % analysis_start_va)
+        config.set('analyzer', 'analysis', analysis_method)
 
         # [program] section
         config.add_section('program')
@@ -460,18 +482,31 @@ class AnalyzerConfig(object):
         config.set('program', 'format', ftype)
 
         # [sections section]
-        config.add_section("sections")
+        config.add_section('sections')
         for s in ConfigHelpers.get_sections():
-            config.set("sections", "section[%s]" % s[0],
-                       "0x%x, 0x%x, 0x%x, 0x%x" % (s[1], s[2], s[3], s[4]))
+            config.set('sections', 'section[%s]' % s[0],
+                       '0x%x, 0x%x, 0x%x, 0x%x' % (s[1], s[2], s[3], s[4]))
 
-        # [state section]
-        config.add_section("state")
-        regs = ConfigHelpers.get_registers_with_state(arch)
-        for rname, val in regs.iteritems():
-            config.set("state", ("reg[%s]" % rname), val)
-        # Default stack
-        config.set("state", "stack[0x1000*8192]", "|00|?0xFF")
+        if analysis_method == 'forward_binary':
+            # [state section]
+            config.add_section('state')
+            config.add_section('override')
+            # hack to add comments
+            config.set('override',
+                       '; This will be overriden by values from the BinCAT '
+                       'Overrides view')
+            regs = ConfigHelpers.get_registers_with_state(arch)
+            for rname, val in regs.iteritems():
+                config.set('state', ('reg[%s]' % rname), val)
+            # Default stack
+            config.set('state', 'stack[0x1000*8192]', '|00|?0xFF')
+        else:
+            # backward
+            config.add_section('state')
+            # hack to add comments
+            config.set('state',
+                       '; This will be overriden by values from the BinCAT '
+                       'Overrides view')
 
         imports = ConfigHelpers.get_imports()
         # [import] section
@@ -493,11 +528,6 @@ class AnalyzerConfig(object):
         quoted_filenames = ['"%s"' % h for h in headers_filenames]
         config.set('analyzer', 'headers', ','.join(quoted_filenames))
 
-        # arch-specifig sections
-        if arch == 'x86':
-            config.add_section(arch)
-            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
-
         # Load default GDT/Segment registers according to file type
         # XXX move this logic to PluginOptions
         if ftype == "pe":
@@ -508,6 +538,19 @@ class AnalyzerConfig(object):
             config_path, "conf", "%s-%s.ini" % (os_name, arch))
         bc_log.debug("Reading OS config from %s", os_specific)
         config.read(os_specific)
+
+        # arch-specifig sections
+        if arch == 'x86':
+            try:
+                config.add_section(arch)
+            except ConfigParser.DuplicateSectionError:
+                # already exists in (arch,OS)-specific config
+                pass
+            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
+            if analysis_method == 'backward':
+                # remove segment registers
+                for seg_reg in ('cs', 'ds', 'ss', 'es', 'fs', 'gs'):
+                    config.remove_option('x86', seg_reg)
 
         # [libc section]
         # config.add_section('libc')
@@ -567,11 +610,12 @@ class AnalyzerConfigurations(object):
                 del self._prefs[k]
         self.refresh_cache()
 
-    def new_config(self, start_va, stop_va):
+    def new_config(self, start_va, stop_va, analysis_config):
         """
         return new configuration
         """
-        return AnalyzerConfig.get_default_config(start_va, stop_va)
+        return AnalyzerConfig.get_default_config(start_va, stop_va,
+                                                 analysis_config)
 
     def __getitem__(self, name_or_address):
         """

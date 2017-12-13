@@ -40,6 +40,7 @@ sig
       id: int;                          (** unique identificator of the state *)
       mutable ip: Data.Address.t;       (** instruction pointer *)
       mutable v: domain;                (** abstract value *)
+      mutable back_v: domain option; (** abstract value computed in backward mode. None means undefined *)
       mutable ctx: ctx_t ;              (** context of decoding *)
       mutable stmts: Asm.stmt list;     (** list of statements of the succesor state *)
       mutable final: bool;              (** true whenever a widening operator has been applied to the v field *)
@@ -47,7 +48,8 @@ sig
       mutable forward_loop: bool;       (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
-      mutable taint_sources: Taint.t    (** set of taint sources*)
+      mutable taint_sources: Taint.t;    (** set of taint sources*)
+      mutable back_taint_sources: Taint.t option (** set of taint sources in backward mode. None means undefined *)
     }
 
     val compare: t -> t -> int
@@ -116,6 +118,9 @@ sig
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
   val init_abstract_value: unit -> domain * Taint.t
+
+  (** [update_abstract_value] updates the given abstract state from the input configuration *)
+  val update_abstract_value: domain -> domain * Taint.t
 end
 
 (** the control flow automaton functor *)
@@ -142,6 +147,7 @@ struct
       id: int;                          (** unique identificator of the state *)
       mutable ip: Data.Address.t;       (** instruction pointer *)
       mutable v: Domain.t;              (** abstract value *)
+      mutable back_v: domain option; (** abstract value computed in backward mode. None means undefined *)
       mutable ctx: ctx_t ;              (** context of decoding *)
       mutable stmts: Asm.stmt list;     (** list of statements of the succesor state *)
       mutable final: bool;              (** true whenever a widening operator has been applied to the v field *)
@@ -149,7 +155,8 @@ struct
       mutable forward_loop: bool;       (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
-     mutable taint_sources: Taint.t     (** set of taint sources. Empty if not tainted  *)
+      mutable taint_sources: Taint.t;     (** set of taint sources. Empty if not tainted  *)
+      mutable back_taint_sources: Taint.t option (** set of taint sources in backward mode. None means undefined *)
     }
 
     (** the state identificator counter *)
@@ -214,25 +221,30 @@ struct
       (* end of init utilities *)
       (*************************)
 
-  let init_abstract_value () =
-    let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
-    (* initialisation of Global memory + registers *)
-    let d', taint1 = init_registers d in
-    let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
+    let update_abstract_value d =
+      (* initialisation of Global memory + registers *)
+      let d', taint1 = init_registers d in
+      let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
     (* init of the Stack memory *)
-    let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
+      let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
     (* init of the Heap memory *)
-    let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
-    d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
+      let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
+      d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
+        
+    let init_abstract_value () =
+      let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+      update_abstract_value d
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
+    
   let init_state (ip: Data.Address.t): State.t =
     let d', _taint = init_abstract_value () in
     {
       id = 0;
       ip = ip;
       v = d';
+      back_v = None;
       final = false;
       back_loop = false;
       forward_loop = false;
@@ -244,6 +256,7 @@ struct
         addr_sz = !Config.address_sz;
       };
       taint_sources = Taint.U;
+      back_taint_sources = None;
     }
 
 
@@ -295,11 +308,19 @@ struct
   let print (dumpfile: string) (g: t): unit =
     let f = open_out dumpfile in
     (* state printing (detailed) *)
+    let print_field = if !Config.analysis = Config.Backward then
+        fun s ->
+          match s.back_v with
+          | None -> Domain.to_string s.v
+          | Some v -> Domain.to_string v
+      else
+         fun s -> Domain.to_string s.v
+    in
     let print_ip s =
       let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
       Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
         (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.to_string s.taint_sources);
-      List.iter (fun v -> Printf.fprintf f "%s\n" v) (Domain.to_string s.v);
+      List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s);
       if !Config.loglevel > 2 then
         begin
           Printf.fprintf f "statements =";

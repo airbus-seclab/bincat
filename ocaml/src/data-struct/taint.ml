@@ -46,9 +46,9 @@ module Src =
     let compare (src1: t) (src2: t): int =
       match src1, src2 with
       | Tainted id1, Tainted id2 -> id1 - id2
-      | Tainted _, _ -> -1
-      | Maybe _, Tainted _ -> 1
+      | Tainted id1, Maybe id2 -> id1 - id2
       | Maybe id1, Maybe id2 -> id1 - id2
+      | Maybe id1, Tainted id2 -> if id1 = id2 then 1 else id1 - id2
 
     let to_string src =
       match src with
@@ -70,6 +70,14 @@ type t =
   | U
   | S of SrcSet.t
   | TOP
+
+let is_subset t1 t2 =
+  match t1, t2 with
+  | BOT, _
+  | _, TOP
+  | U, U -> true
+  | S s1, S s2 when SrcSet.subset s1 s2 = true -> true
+  | _, _ -> false
 
 let clear = Src.clear
 
@@ -137,7 +145,11 @@ let to_char (t: t): char =
   match t with
   | BOT -> '_'
   | TOP -> '?'
-  | S _ -> '1'
+  | S srcs ->
+     let elts = SrcSet.elements srcs in
+     if List.for_all (fun src -> match src with | Src.Tainted _ -> true | Src.Maybe _ -> false) elts then
+       '1'
+     else '?'
   | U -> '0'
 
 let equal (t1: t) (t2: t): bool =
@@ -197,7 +209,12 @@ let is_tainted (t: t): bool =
 let to_z (t: t): Z.t =
   match t with
   | U -> Z.zero
-  | S _ -> Z.one
+  | S srcs when SrcSet.cardinal srcs = 1 ->
+     begin
+       match SrcSet.choose srcs with
+          | Src.Tainted _ -> Z.one
+          | Src.Maybe _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
+     end
   | _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
 
 let to_string t =

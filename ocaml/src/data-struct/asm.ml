@@ -294,3 +294,21 @@ type import_desc_t = {
   epilogue: stmt list; (** transfer operations for its epilogue *)
   ret_addr: exp        (** return addr *)
   }
+
+
+(** returns true whenever the given expression contains the given lvalue *)
+let rec with_lval lv e =
+  match e with
+  | Const _ -> false
+  | Lval lv' -> equal_lval lv lv'
+  | BinOp (_, e1, e2)
+  | TernOp (_, e1, e2)  -> (with_lval lv e1)  || (with_lval lv e2)
+  | UnOp (_, e') -> with_lval lv e'
+
+(** returns the length in bits of the given lvalue *)
+let lval_length lv =
+  match lv with
+  | V (T r) -> Register.size r
+  | V (P (_r, l, u)) -> u-l+1 
+  | M (_, n) -> n
+    

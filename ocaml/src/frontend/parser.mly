@@ -107,34 +107,35 @@
 
       (** footer function *)
       let check_context () =
-    (* check whether all mandatory items are provided *)
+        (* check whether all mandatory items are provided *)
         Hashtbl.iter (fun _ (pname, sname, b) -> if not b then missing_item pname sname) mandatory_keys;
-        begin
-          match !Config.architecture with
-          | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
-          | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
-          | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
-        end;
-    (* fill the table of tainting rules for each provided library *)
-    let add_tainting_rules l (c, funs) =
-      let c' =
-        match c with
-          None    -> !Config.call_conv
-        | Some c' -> c'
-      in
-      let add (fname, c, r, args) =
-        let c' =
-          match c with
-        None    -> c'
-          | Some c' -> c'
+        if !Config.analysis = Config.Forward Config.Bin then
+          begin
+            match !Config.architecture with
+            | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
+            | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
+            | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
+          end;
+        (* fill the table of tainting rules for each provided library *)
+        let add_tainting_rules l (c, funs) =
+          let c' =
+            match c with
+              None    -> !Config.call_conv
+            | Some c' -> c'
+          in
+          let add (fname, c, r, args) =
+            let c' =
+              match c with
+                None    -> c'
+              | Some c' -> c'
+            in
+            Hashtbl.replace Config.tainting_rules (l, fname) (c', r, args)
+          in
+          List.iter add (List.rev funs)
         in
-        Hashtbl.replace Config.tainting_rules (l, fname) (c', r, args)
-      in
-      List.iter add (List.rev funs)
-    in
-    Hashtbl.iter add_tainting_rules libraries;
+        Hashtbl.iter add_tainting_rules libraries;
     (* complete the table of function rules with type information *)
-    List.iter (fun header ->
+        List.iter (fun header ->
         try
           L.debug (fun p -> p "Open npk file [%s]" header);
           let p = TypedC.read header in
@@ -354,8 +355,8 @@
     | i=INT { [ i ] }
     | i=INT COMMA l=addresses { i::l }
 
-      state:
-    | s=state_item      { s }
+    state:
+    |                     { () }
     | s=state_item ss=state { s; ss }
 
       state_item:
@@ -410,20 +411,23 @@
     | m=INT         { Config.Content m }
     | m=INT MASK m2=INT { Config.CMask (m, m2) }
 
-     tcontent:
+    tcontent:
+    | o=one_tcontent { o }
+    | srcs = taint_sources { srcs }
+    
+    one_tcontent:
     | s=HEX_BYTES { [Config.TBytes (s, !taint_fun())] }
-    | s=HEX_BYTES MASK m=INT    { [Config.TBytes_Mask (s, m, !taint_fun())] }
+    | s=HEX_BYTES MASK m=INT    {[Config.TBytes_Mask (s, m, !taint_fun())] }
     | t=INT         { 
       if Z.compare t Z.zero = 0 then [Config.Taint_none]
       else [Config.Taint (t, !taint_fun())] }
     | TAINT_ALL { [Config.Taint_all (!taint_fun ())] }
     | TAINT_NONE { [Config.Taint_none] }
     | t=INT MASK t2=INT { [Config.TMask (t, t2, !taint_fun())] }
-    | srcs = taint_sources { srcs }
 
     taint_sources:
-    | set_source_function ts = tcontent { ts }
-    | set_source_function ts = tcontent SEMI_COLON tss = taint_sources { ts@tss }
+    | set_source_function ts = one_tcontent { ts }
+    | set_source_function ts = one_tcontent STAR tss = taint_sources { ts@tss }
 
     set_default_source_function:
     | TAINT { taint_fun := fun () -> Taint.Src.new_src () }

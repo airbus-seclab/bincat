@@ -18,7 +18,7 @@
 (** signature of the unrolled control flow graph *)
 
 module type T =
-sig
+  sig
   (** abstract data type for the abstract values in state of the CFG *)
   type domain
 
@@ -38,6 +38,7 @@ sig
       mutable ip: Data.Address.t;   (** instruction pointer *)
 
       mutable v: domain;        (** abstract value *)
+      mutable back_v: domain option; (** abstract value computed in backward mode. None means undefined *)
       mutable ctx: ctx_t ;      (** context of decoding *)
       mutable stmts: Asm.stmt list; (** list of statements of the succesor state *)
       mutable final: bool;          (** true whenever a widening operator has been applied to the v field *)
@@ -45,7 +46,9 @@ sig
       mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
       mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;      (** corresponding list of bytes *)
-      mutable taint_sources: Taint.t (** set of taint sources. Empty if not tainted  *)
+      mutable taint_sources: Taint.t; (** set of taint sources *)
+      mutable back_taint_sources: Taint.t option (** set of taint sources in backward mode. None means undefined *)
+
     }
 
     val compare: t -> t -> int
@@ -115,6 +118,9 @@ sig
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
   val init_abstract_value: unit -> domain * Taint.t
+
+  (** [update_abstract_value] updates the given abstract state from the input configuration *)
+  val update_abstract_value: domain -> domain * Taint.t
 end
 
 module Make: functor (D: Domain.T) ->

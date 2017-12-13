@@ -99,11 +99,11 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       Dump.unmarshal fid;
       close_in fid;
       let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-      let d, taint = Interpreter.Cfa.init_abstract_value () in
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
-        prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
-        prev_s.Interpreter.Cfa.State.taint_sources <- taint;
+        let d, taint = Interpreter.Cfa.update_abstract_value prev_s.Interpreter.Cfa.State.v in
+        prev_s.Interpreter.Cfa.State.back_v <- Some (Domain.meet prev_s.Interpreter.Cfa.State.v d);
+        prev_s.Interpreter.Cfa.State.back_taint_sources <- Some taint;
         fixpoint orig_cfa prev_s dump
     with
     | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
@@ -118,7 +118,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
           (* 7: generate the initial cfa with only an initial state *)
          let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
          let s = Interpreter.Cfa.init_state ep' in
-         let g  = Interpreter.Cfa.create ()                         in
+         let g = Interpreter.Cfa.create () in
          Interpreter.Cfa.add_state g s;
          let cfa =
            match !Mapped_mem.current_mapping with

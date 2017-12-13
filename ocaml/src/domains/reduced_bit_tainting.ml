@@ -40,7 +40,7 @@ let forget_taint (v, _t) tid = v, T.singleton (T.Src.Maybe tid)
 
 let join (v1, t1) (v2, t2) = B.join v1 v2, T.join t1 t2
 
-let taint_join (v, t1) (_, t2) = v, T.join t1 t2
+let taint_logor (v, t1) (_, t2) = v, T.logor t1 t2
   
 let meet (v1, t1) (v2, t2) = B.meet v1 v2, T.meet t1 t2
 
@@ -90,7 +90,7 @@ let is_one (v, _t) = v = B.ONE
 let zero = B.ZERO, T.U
 let is_zero (v, _t) = v = B.ZERO
 
-let is_subset (v1, _t1) (v2, _t2) = B.is_subset v1 v2
+let is_subset (v1, t1) (v2, t2) = B.is_subset v1 v2 && T.is_subset t1 t2
 
 let of_z z =
   if Z.compare z Z.zero = 0 then

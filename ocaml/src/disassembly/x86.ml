@@ -843,7 +843,7 @@ struct
         let eax'  = V (to_reg eax i)                    in
         let esi'  = V (to_reg esi s.addr_sz)            in
         let mesi' = M (add_segment s (Lval esi') es, i) in
-    let taint_stmt = Directive (Taint (Some (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg esi s.addr_sz)), 8)))), V (T ecx))) in
+        let taint_stmt = Directive (Taint (Some (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg esi s.addr_sz)), 8)))), V (T ecx))) in
         return s ((Set (eax', Lval mesi'))::taint_stmt::(inc_dec_wrt_df [esi] i))
 
     (** state generation for SCAS *)
@@ -851,10 +851,10 @@ struct
         let eax' = V (to_reg eax i)                    in
         let edi' = V (to_reg edi s.addr_sz)            in
         let mem  = M (add_segment s (Lval edi') es, i) in
-    let taint_stmt =
-      Directive (Taint (Some (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i)))), V (T ecx))) in
-    let typ = Types.T (TypedC.Int (Newspeak.Unsigned, i)) in
-    let type_stmt = Directive (Type (mem, typ)) in
+        let taint_stmt =
+          Directive (Taint (Some (BinOp (Or, Lval (V (to_reg eax i)), Lval (M (Lval (V (to_reg edi s.addr_sz)), i)))), V (T ecx))) in
+        let typ = Types.T (TypedC.Int (Newspeak.Unsigned, i)) in
+        let type_stmt = Directive (Type (mem, typ)) in
         return s ((cmp_stmts (Lval eax') (Lval mem) i) @ [type_stmt ; taint_stmt] @ (inc_dec_wrt_df [edi] i) )
 
 
@@ -1320,21 +1320,23 @@ struct
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
         let cf_stmt =
-            let c = Cmp (LT, sz', n_masked) in
+          let c = Cmp (LT, sz', n_masked) in
+          let aexp = Cmp (EQ, one_sz, BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked))))) in
             If (c,
                 [undef_flag fcf],
                 (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked)))))])
+                [Set (V (T fcf), TernOp (aexp, const1 1, const0 1))])
         in
         let of_stmt =
-            let is_one = Cmp (EQ, n_masked, one8) in
+          let is_one = Cmp (EQ, n_masked, one8) in
+          let xexp = Cmp(EQ, const1 (Register.size fcf), BinOp(Xor, Lval (V (T fcf)),
+                           BinOp (And, one_sz,
+                                  (BinOp(Shr, ldst,
+                                         BinOp(Sub, sz', n_masked)))))) in
             let op =
                 (* last bit having been "evicted out"  xor CF*)
                 Set (V (T fof),
-                     BinOp(Xor, Lval (V (T fcf)),
-                           BinOp (And, one_sz,
-                                  (BinOp(Shr, ldst,
-                                         BinOp(Sub, sz', n_masked))))))
+                     TernOp(xexp, const1 1, const0 1))
             in
             If (is_one,    (* OF is set if n == 1 only *)
                 [op] ,
@@ -1360,12 +1362,13 @@ struct
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
         let dst_msb = msb_stmts ldst sz in
-        let cf_stmt =
-            let c = Cmp (LT, sz', n_masked) in
+        let cf_stmt = 
+          let c = Cmp (LT, sz', n_masked) in
+          let aexp = Cmp (EQ, one_sz, BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one8))))) in
             If (c,
                 [undef_flag fcf],
                 (* CF is the last bit having been "evicted out" *)
-                [Set (V (T fcf), BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one8)))))])
+                [Set (V (T fcf), TernOp (aexp, const1 1, const0 1))])
         in
         let of_stmt =
             let is_one = Cmp (EQ, n_masked, one8) in
@@ -1373,8 +1376,9 @@ struct
                 if arith then
                     (clear_flag fof)
                 else
+                  let dexp = Cmp (EQ, const1 sz, dst_msb) in
                     (* MSB of original dest *)
-                    (Set (V (T fof), dst_msb))
+                    (Set (V (T fof), TernOp (dexp, const1 1, const0 1)))
             in
             If (is_one,    (* OF is set if n == 1 only *)
                 [op] ,
@@ -2404,6 +2408,8 @@ struct
         with
         | Exceptions.Error _ as e -> raise e
         | _               -> (*end of buffer *) None
+
+    let overflow_expression () = Lval (V (T fcf))
 end
 (* end Decoder *)
 

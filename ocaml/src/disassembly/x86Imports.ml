@@ -48,14 +48,15 @@ struct
                                        !Config.stack_width))) ])
   }
 
-  let get_callconv () =
-    match !Config.call_conv with
+  let get_local_callconv cc =
+    match cc with
     | Config.CDECL -> cdecl_calling_convention
     | Config.STDCALL -> stdcall_calling_convention
     | Config.FASTCALL -> L.abort (fun p -> p "Fast call not implemented yet")
     | c -> L.abort (fun p -> p "Calling convention [%s] not supported for x86 architecture"
                                (Config.call_conv_to_string c))
 
+  let get_callconv () = get_local_callconv !Config.call_conv
 
   let stub_stmts_from_name name callconv =
     if  Hashtbl.mem Stubs.stubs name then
@@ -65,11 +66,17 @@ struct
 
 
   let init_imports () =
-    let cc = get_callconv () in
+    let default_cc = get_callconv () in
     Hashtbl.iter (fun adrs (libname,fname) ->
-      let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc in
-      let tainting_pro,tainting_epi = Rules.tainting_rule_stmts libname fname cc in
-      let stub_stmts = stub_stmts_from_name fname cc in
+      let tainting_pro,tainting_epi, cc = Rules.tainting_rule_stmts libname fname (fun cc -> get_local_callconv cc) in
+      let cc' =
+        match cc with
+        | Some cc -> cc
+        | None -> default_cc
+      in
+      let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc' in
+    
+      let stub_stmts = stub_stmts_from_name fname cc' in
       let fundesc:Asm.import_desc_t = {
         name = fname ;
         libname = libname ;
