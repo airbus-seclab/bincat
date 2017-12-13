@@ -8,6 +8,10 @@ open Asm
 (** [const c sz] builds the asm constant of size _sz_ from int _c_ *)
 let const c sz = Const (Word.of_int (Z.of_int c) sz)
 
+(** [sconst c isz sz] builds the signed asm constant of size _sz_ by
+    sign extending  _c_ seen as a signed int of _isz_ bits *)
+let sconst c isz sz = Const (Word.of_int (Z.signed_extract (Z.of_int c) 0 isz) sz)
+
 (** [const_of_Z z sz] builds the asm constant of size _sz_ from Z _z_ *)
 let const_of_Z z sz = Const (Word.of_int z sz)
 

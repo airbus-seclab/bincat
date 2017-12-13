@@ -288,6 +288,7 @@ class ConfigHelpers(object):
             regs.append(["z", "0", "1", ""])
             regs.append(["c", "0", "1", ""])
             regs.append(["v", "0", "1", ""])
+            regs.append(["t", "0", "", ""])
         elif arch == "armv8":
             for i in range(31):
                 regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
