@@ -802,6 +802,9 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.s.edit_config = AnalyzerConfig.load_from_str(
             open(filename, 'r').read())
         self.update_from_edit_config()
+        # if the current config is "new", ask for a name
+        if self.index == len(self.s.configurations.names_cache):
+            self._save_config()
 
     # callback when the "Delete" button is clicked
     def _del_config(self):
