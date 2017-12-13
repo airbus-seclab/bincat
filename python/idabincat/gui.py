@@ -773,6 +773,9 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             self.s.edit_config.replace_section_mappings(
                 [("ph2", 0, size, 0, size)])
         else:
+            if self.s.edit_config.format != "elf":
+                bc_log.warning("This file format is not natively supported by"
+                               "BinCAT, you should probably remap the binary.")
             self.s.remap_binary = False
             self.s.edit_config.binary_filepath = "%s" % ConfigHelpers.guess_file_path()
 
