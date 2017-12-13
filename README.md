@@ -73,8 +73,9 @@ BinCAT should work with IDA on Wine, once pip is installed:
 * Load the plugin by using the `Ctrl-Shift-B` shortcut, or using the
   `Edit -> Plugins -> BinCAT` menu
 
-* Select an instruction in any IDA view, then use the `Ctrl-Shift-A` shortcut,
-  or the `BinCAT -> Analyze from here` context menu
+* Go to the instruction where you want to start the analysis
+* Select the `BinCAT Configuration` pane, click `<-- Current` to define the start address
+* Launch the analysis
 
 ### Configuration
 Global options can be configured through the `Edit/BinCAT/Options` menu.
@@ -83,14 +84,15 @@ Default config and options are stored in `$IDAUSR/idabincat/conf`.
 
 #### Options
 
-* Use remote bincat: select if you are running docker in a Docker container
-* Remote URL: http://localhost:5000 (or the URL of a remote BinCAT server)
-* Autostart: autoload BinCAT at IDA startup
-* Save to IDB: default state for the `save to idb` checkbox
+* "Use remote bincat": select if you are running docker in a Docker container
+* "Remote URL": http://localhost:5000 (or the URL of a remote BinCAT server)
+* "Autostart": autoload BinCAT at IDA startup
+* "Save to IDB": default state for the `save to idb` checkbox
 
 
-#### Analyzer configuration files
-Default config for analyzer.
+### Analyzer configuration files
+
+See the [doc](doc/ini_format.md) for a description of the configuration format.
 
 ## Documentation
 A [manual](doc/manual.md) is provided. 
