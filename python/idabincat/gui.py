@@ -825,6 +825,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
     # Called when the edit combo is changed
     @QtCore.pyqtSlot(str)
     def _load_config(self, index):
+        if not self.s.current_ea:
+            self.s.current_ea = idaapi.get_screen_ea()
         self.index = index
         if index == len(self.s.configurations.names_cache):
             # new config
