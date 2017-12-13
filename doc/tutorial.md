@@ -46,7 +46,7 @@ Binaries and configuration files are also provided for the following architectur
 2. Open the `get_key_x86` executable in IDA
 3. From the **IDA View-A** view, go to address `0x93B` using the **g**
    shortcut
-4. Focus the "BinCAT Configuration" pane
+4. Focus the **BinCAT Configuration** pane
 5. Click `<-- Current` to define the start address
 6. Ensure that the **Analyzer configuration** dropdown is set to **(new)**
 7. Check the **Save configuration to IDB** option
@@ -72,23 +72,24 @@ mem[0x3001C0] = |6c6f6c3100|
 mem[0x300200] = |6c6f6c2100|
 ```
 10. Click **Save**
-11. Click **Start**
-12. Enter a name under which this configuration should be saved
+11. Enter a name under which this configuration should be saved
+12. Click **Start**
 13. Notice that after a few seconds, the analysis has finished running, and the
     background for some of the instructions in the **IDA View-A** view has
     become gray
-14. Go to address `0x807` using the **g** shortcut. This instruction is
+14. Switch to the **BinCAT registers** view.
+15. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
     should be `0x1D50`). Open the **BinCAT Memory** view at this address, to
     observe the contents of the `buffer` pointer (`char *`) where `sprintf`
     results will be output (the value should be `0x1DEC`)
-15. Advance to the next instruction at address `0x80C`, and observe the
+16. Advance to the next instruction at address `0x80C`, and observe the
     value of the `buffer` that has been formatted by `sprintf` at address
     `0x1DEC`
-16. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
+17. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
     and observe the inferred types for the call to `sprintf`
-17. Go to address `0xA93`, which contains a call to a location that is stored
+18. Go to address `0xA93`, which contains a call to a location that is stored
     on the stack. Notice that IDA cannot resolve the destination address. In
     the **BinCAT Registers** view, use the *goto next node (1)* drop down menu
     to jump to the destination
@@ -103,7 +104,7 @@ This tutorial shows how to taint a register, and observe taint propagation.
    taint](manual.md#override-taint) of the manual), and set it to `0xFF`.
    Re-run the analysis.
 3. Advance to the next instruction at address `0x93F`, and observe that this
-   memory range is indeed tainted: both the ascii and hexadecimal
+   memory range is indeed tainted: both the ASCII and hexadecimal
    representations of this string are displayed as green text
 4. In the **IDA View-A** view, notice that some instructions are displayed
    against a green background, since they manipulate tainted data
