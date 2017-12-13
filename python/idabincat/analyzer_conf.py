@@ -248,13 +248,15 @@ class ConfigHelpers(object):
         if arch == "x86":
             for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
                 regs.append([name, "0", "0xFFFFFFFF", ""])
+            regs.append(["esp", "0x2000", "", ""])
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
                          "rf", "vm", "ac", "vif", "vip", "id"]:
                 regs.append([name, "0", "1", ""])
-            regs.append(["esp", "0x2000", "", ""])
             regs.append(["df", "0", "", ""])
             regs.append(["iopl", "3", "", ""])
         elif arch == "armv7":
+            for i in range(13):
+                regs.append(["r%d" % i, "0", "0xFFFFFFFF", ""])
             regs.append(["sp", "0x2000", "", ""])
             regs.append(["lr", "0x0", "", ""])
             regs.append(["pc", "0x0", "", ""])
@@ -262,19 +264,17 @@ class ConfigHelpers(object):
             regs.append(["z", "0", "1", ""])
             regs.append(["c", "0", "1", ""])
             regs.append(["v", "0", "1", ""])
-            for i in range(13):
-                regs.append(["r%d" % i, "0", "0xFFFFFFFF", ""])
         elif arch == "armv8":
+            for i in range(31):
+                regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
             regs.append(["sp", "0x2000", "", ""])
+            for i in range(32):
+                regs.append(["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
             regs.append(["n", "0", "1", ""])
             regs.append(["z", "0", "1", ""])
             regs.append(["c", "0", "1", ""])
             regs.append(["v", "0", "1", ""])
             regs.append(["xzr", "0", "", ""])
-            for i in range(31):
-                regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
-            for i in range(32):
-                regs.append(["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
         return regs
 
     @staticmethod
