@@ -76,6 +76,8 @@ CMX = $(ML:.ml=.cmx)
 
 DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders
 
+#  W58: no cmx file was found in path for module Z
+#  not really a problem.
 CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58 -w -58 $(DIROPT)
 
 CAMLC   =ocamlc $(DIROPT)
