@@ -40,7 +40,6 @@ except ImportError:
     # log message will be displayed later
     pass
 
-import idc
 import idaapi
 from idaapi import NW_OPENIDB, NW_CLOSEIDB, NW_TERMIDA, NW_REMOVE
 import idabincat.netnode

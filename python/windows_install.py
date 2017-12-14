@@ -46,7 +46,8 @@ if os.path.isdir(p_idabincat) and os.path.isdir(p_pybincat):
         print "Copying 'pybincat' to "+plugin_dir
         dir_util.copy_tree(p_pybincat, os.path.join(plugin_dir, "pybincat"))
         print "Copying 'bcplugin.py' to "+plugin_dir
-        shutil.copy(os.path.join(p_idabincat, "bcplugin.py"), os.path.join(plugin_dir, "bcplugin.py"))
+        shutil.copy(os.path.join(p_idabincat, "bcplugin.py"),
+                    os.path.join(plugin_dir, "bcplugin.py"))
         print "Plugin installed"
     except OSError as e:
         print "Could not install! Error: "+str(e)+"\n"
