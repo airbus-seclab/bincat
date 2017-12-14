@@ -16,7 +16,6 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
 import logging
-import idautils
 import idaapi
 from idabincat.analyzer_conf import ConfigHelpers
 
