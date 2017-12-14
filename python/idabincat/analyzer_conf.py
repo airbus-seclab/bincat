@@ -35,7 +35,7 @@ from idabincat.plugin_options import PluginOptions
 
 # Logging
 bc_log = logging.getLogger('bincat-cfg')
-bc_log.setLevel(logging.DEBUG)
+bc_log.setLevel(logging.INFO)
 
 # Needed because IDA doesn't store s_psize
 class pesection_t(ctypes.Structure):
