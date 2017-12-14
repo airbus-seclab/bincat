@@ -65,7 +65,11 @@ fixpoint/stubs.mli
 
 
 DEPS-armv8A := armv8A_ppx
-OPTS-armv8A :=  -ppx ./armv8A_ppx -warn-error -26-27
+OPTS-armv8A := -ppx ./armv8A_ppx
+
+# Suppress "this open statement shadows the value ..."
+# as it is legitimately done
+OPTS-elf_core := -w -44
 
 
 CMX = $(ML:.ml=.cmx)
@@ -155,13 +159,11 @@ bincat_ver.ml: update_gitver
 %.cmo: %.ml $$(DEPS-$$(*F))
 	$(CAMLCOMPIL) -c $(LIBX) $(OPTS-$(*F)) $*.ml
 
-
 %.ml: %.mll
 	$(CAMLLEX) $*.mll
 
 %.ml %.mli: %.mly
 	$(MENHIR) $*.mly
-
 
 clean:
 	-rm -f .depend
