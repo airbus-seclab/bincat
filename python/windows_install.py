@@ -1,30 +1,32 @@
 import shutil
 import distutils.dir_util as dir_util
-import os.path
 import StringIO
 import os
-import idaapi
+import os.path
 import sys
-import idc
+import idaapi
 
 try:
     import requests
     print "'requests' is installed, good."
 except ImportError:
-    print "requests is not installed, trying to install"
-    import pip
-    # Fugly hack (cause IDA console is not a real one)
-    saved_stdout = sys.stdout
-    saved_stderr = sys.stderr
-    sys.stdout = StringIO.StringIO()
-    sys.stderr = StringIO.StringIO()
-    pip.main(['install', "requests"])
-    sys.stdout.seek(0)
-    sys.stderr.seek(0)
-    saved_stdout.write(sys.stdout.read())
-    saved_stderr.write(sys.stderr.read())
-    sys.stdout = saved_stdout
-    sys.stderr = saved_stderr
+    if idaapi.ask_yn(idaapi.ASKBTN_NO,
+                     "'requests' is not installed, do you want to install it ?\n"
+                     "Choose 'no' if you do not intend to use a distant BinCAT server") == idaapi.ASKBTN_YES:
+        print "requests is not installed, trying to install"
+        import pip
+        # Fugly hack (cause IDA console is not a real one)
+        saved_stdout = sys.stdout
+        saved_stderr = sys.stderr
+        sys.stdout = StringIO.StringIO()
+        sys.stderr = StringIO.StringIO()
+        pip.main(['install', "requests"])
+        sys.stdout.seek(0)
+        sys.stderr.seek(0)
+        saved_stdout.write(sys.stdout.read())
+        saved_stderr.write(sys.stderr.read())
+        sys.stdout = saved_stdout
+        sys.stderr = saved_stderr
 
 userdir = idaapi.get_user_idadir()
 plugin_dir = os.path.join(userdir, "plugins")
