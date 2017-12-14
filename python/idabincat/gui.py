@@ -759,17 +759,16 @@ class BinCATConfigForm_t(idaapi.PluginForm):
                         'No filename provided. You can provide a filename or '
                         'uncheck the "Remap binary" option.')
                     return
-                dump_binary(fname)
+                sections = dump_binary(fname)
+                if not sections:
+                    bc_log.error("Could not remap binary")
+                    return
                 self.s.remapped_bin_path = fname
+                self.s.remapped_sections = sections
             self.s.remap_binary = True
             self.s.edit_config.binary_filepath = self.s.remapped_bin_path
-            self.s.edit_config.code_va = "0x0"
-            self.s.edit_config.code_phys = "0x0"
             self.s.edit_config.format = "manual"
-            size = os.stat(self.s.edit_config.binary_filepath).st_size
-            self.s.edit_config.code_length = "0x%0X" % size
-            self.s.edit_config.replace_section_mappings(
-                [("ph2", 0, size, 0, size)])
+            self.s.edit_config.replace_section_mappings(self.s.remapped_sections)
         else:
             if self.s.edit_config.format != "elf":
                 bc_log.warning("This file format is not natively supported by"
