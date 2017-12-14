@@ -310,7 +310,7 @@ struct
   let rec log2 n =
     if n <= 1 then 0 else 1 + log2(n asr 1)
 
-  let decode_bitmasks sz n imms immr is_imm =
+  let decode_bitmasks sz n imms immr =
     L.debug (fun p->p "decode_bitmask(%d,%d,%x,%x)" sz n imms immr);
     (*// Compute log2 of element size
       // 2^len must be in range [2, M]
@@ -399,8 +399,8 @@ struct
     (add_sub_core sz rd rn op_v shift s_b @ sf_zero_rd rd_v sf s_b) @ post
 
   (* ADD/ ADDS / SUB / SUBS (32/64) with extended register *)
-  let add_sub_reg_ext s insn =
-    let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:1,29:29:S:F:1,28:24:_:F:01011,23:22:opt:F:00,21:21:_:F:1,20:16:Rm:F:xxxxx,15:13:option:F:xxx,12:10:imm3:F:xxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+  let add_sub_reg_ext insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:30:op:F:1,29:29:S:F:1,28:24:_:F:01011,23:22:_opt:F:00,21:21:_:F:1,20:16:Rm:F:xxxxx,15:13:option:F:xxx,12:10:imm3:F:xxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     let sz = sf2sz sf_v in
     let s_b = s_v = 1 in (* set flags ? *)
     let rd, post = get_Rd_lv rd_v sf_v in
@@ -446,12 +446,12 @@ struct
     let flags = opc_v = 3 in
     let rd, post = get_Rd_lv ~use_sp:(not flags) rd_v sf_v in
     let rn = get_reg_exp rn_v sf_v in
-    let imm_res, _ = decode_bitmasks sz n_v imms_v immr_v true in
+    let imm_res, _ = decode_bitmasks sz n_v imms_v immr_v in
     logic_core sz rd rn opc_v (Const(Word.of_int imm_res sz)) flags @ sf_zero_rd rd_v sf_v (not flags) @ post
 
   (* AND / ORR / EOR / ANDS (32/64) with shifted register *)
   let logic_reg s insn =
-    let%decode insn' = insn "31:31:sf:F:0,30:29:opc:F:00,28:24:_:F:01010,23:22:shift:F:xx,21:21:N:F:0,20:16:Rm:F:xxxxx,15:10:imm6:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx " in
+    let%decode insn' = insn "31:31:sf:F:0,30:29:opc:F:00,28:24:_:F:01010,23:22:_shift:F:xx,21:21:N:F:0,20:16:Rm:F:xxxxx,15:10:imm6:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx " in
     let sz = sf2sz sf_v in
     if sf_v = 0 && (imm6_v lsr 5) = 1 then
       (error s.a (Printf.sprintf "Invalid opcode 0x%x" insn));
@@ -507,10 +507,10 @@ BFM <31:31:sf:F:0,30:29:opc:F:01,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxx
 SBFM <31:31:sf:F:0,30:29:opc:F:00,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx> Signed Bitfield Move
 UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx> Unsigned Bitfield Move
 *)
-  let bitfield s insn =
+  let bitfield insn =
     let%decode insn' = insn "31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxxxx,15:10:imms:F:xxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     let sz = sf2sz sf_v in
-    let wmask, tmask = decode_bitmasks sz n_v imms_v immr_v false in
+    let wmask, tmask = decode_bitmasks sz n_v imms_v immr_v in
     let rn = get_reg_lv rn_v sf_v in
     let rd = get_reg_lv rd_v sf_v in
     let rored = if immr_v = 0 then (Lval rn) else ror sz (Lval rn) (const immr_v 6) in
@@ -536,8 +536,8 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     res @ sf_zero_rd rd_v sf_v false
 
   (* EXTR *)
-  let extr s insn =
-    let%decode insn' = insn "31:31:sf:F:0,30:29:op21:F:00,28:23:_:F:100111,22:22:N:F:0,21:21:o0:F:0,20:16:Rm:F:xxxxx,15:10:imms:F:0xxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+  let extr insn =
+    let%decode insn' = insn "31:31:sf:F:0,30:29:_op21:F:00,28:23:_:F:100111,22:22:_N:F:0,21:21:o0:F:0,20:16:Rm:F:xxxxx,15:10:imms:F:0xxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     let sz = sf2sz sf_v in
     let rn = get_reg_lv rn_v sf_v in
     let rm = get_reg_lv rm_v sf_v in
@@ -557,8 +557,8 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
       | 0b010 | 0b011 -> add_sub_imm s insn sf
       | 0b100         -> logic_imm s insn
       | 0b101 -> mov_wide s insn
-      | 0b110 -> bitfield s insn
-      | 0b111 -> extr s insn
+      | 0b110 -> bitfield insn
+      | 0b111 -> extr insn
       | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" insn)
     in stmts
 
@@ -581,7 +581,7 @@ SMULH  <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:0  22:21:_:10  20:16:R
 UMULH  <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:1  22:21:_:10  20:16:Rm:  15:15:o0:0  14:10:Ra:  9:5:Rn:  4:0:Rd:> Unsigned Multiply High
 *)
   let data_proc_3src s insn =
-    let%decode insn' = insn "31:31:sf:F:0,30:29:op54:F:00,28:24:_:F:11011,23:21:op31:F:000,20:16:Rm:F:xxxxx,15:15:o0:F:1,14:10:Ra:F:xxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
+    let%decode insn' = insn "31:31:sf:F:0,30:29:_op54:F:00,28:24:_:F:11011,23:21:op31:F:000,20:16:Rm:F:xxxxx,15:15:o0:F:1,14:10:Ra:F:xxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx" in
     let op = if o0_v = 0 then Add else Sub in
     if sf_v = 0 && (op31_v != 0) then
       error s.a (Printf.sprintf "invalid instruction 0x%x" insn);
@@ -637,7 +637,7 @@ UMULH  <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:1  22:21:_:10  20:16:R
           if (op2 land 1) = 0 then (* shifted *)
             add_sub_reg_shift s insn
           else (* extended *)
-            add_sub_reg_ext s insn
+            add_sub_reg_ext insn
         end
       else
         match op2 with
@@ -663,7 +663,7 @@ STR   <31:30:size:10  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
 *)
   (* LDR / STR (register offset) *)
   let load_store_reg_off insn =
-    let%decode insn' = insn "31:30:size:F:10,29:27:_:F:111,26:26:V:F:0,25:24:_:F:00,23:22:opc:F:00,21:21:_:F:1,20:16:Rm:F:xxxxx,15:13:option:F:xxx,12:12:S:F:x,11:10:_:F:10,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let%decode insn' = insn "31:30:size:F:10,29:27:_:F:111,26:26:_V:F:0,25:24:_:F:00,23:22:opc:F:00,21:21:_:F:1,20:16:Rm:F:xxxxx,15:13:option:F:xxx,12:12:S:F:x,11:10:_:F:10,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
     let mem_sz = match size_v with
       | 0 -> 8
       | 1 -> 16
@@ -707,7 +707,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:00  23:22:opc:00  21:21:_:
 
 *)
   let load_store_reg_imm insn =
-    let%decode insn' = insn "31:30:size:F:10,29:27:_:F:111,26:26:V:F:0,25:24:_:F:00,23:22:opc:F:10,21:21:_:F:0,20:12:imm9:F:xxxxxxxxx,11:10:op5:F:01,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let%decode insn' = insn "31:30:size:F:10,29:27:_:F:111,26:26:_V:F:0,25:24:_:F:00,23:22:opc:F:10,21:21:_:F:0,20:12:imm9:F:xxxxxxxxx,11:10:op5:F:01,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
     let mem_sz = match size_v with
       | 0 -> 8
       | 1 -> 16
@@ -748,7 +748,7 @@ STRB  <31:30:size:00  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
 STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:imm12:  9:5:Rn:  4:0:Rt:> Store Register Halfword (immediate)
 *)
   let load_store_reg_uimm insn =
-    let%decode insn' = insn "31:30:size:F:01,29:27:_:F:111,26:26:V:F:0,25:24:_:F:01,23:22:opc:F:00,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let%decode insn' = insn "31:30:size:F:01,29:27:_:F:111,26:26:_V:F:0,25:24:_:F:01,23:22:opc:F:00,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
     let mem_sz = match size_v with
       | 0 -> 8
       | 1 -> 16
@@ -773,7 +773,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
 
   (* STP / STNP / LDP *)
   let load_store_pair insn op3 =
-    let%decode insn' = insn "31:30:opc:F:00,29:27:_:F:101,26:26:V:F:0,25:23:_:F:001,22:22:L:F:1,21:15:imm7:F:xxxxxxx,14:10:Rt2:F:xxxxx,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
+    let%decode insn' = insn "31:30:opc:F:00,29:27:_:F:101,26:26:_V:F:0,25:23:_:F:001,22:22:L:F:1,21:15:imm7:F:xxxxxxx,14:10:Rt2:F:xxxxx,9:5:Rn:F:xxxxx,4:0:Rt:F:xxxxx" in
     let sf = (opc_v lsr 1) land 1 in
     let sz = sf2sz sf in
     let offset = Const (Word.of_int (sign_extension (Z.of_int (imm7_v lsl (sf+2))) 9 64) 64) in
@@ -855,7 +855,7 @@ STRH  <31:30:size:01  29:27:_:111  26:26:V:0  25:24:_:01  23:22:opc:00  21:10:im
 
   (* Conditionnal branch *)
   let b_cond s insn =
-    let%decode insn' = insn "31:25:_:F:0101010,24:24:o1:F:0,23:5:imm19:F:xxxxxxxxxxxxxxxxxxx,4:4:o0:F:0,3:0:cond:F:xxxx" in
+    let%decode insn' = insn "31:25:_:F:0101010,24:24:_o1:F:0,23:5:imm19:F:xxxxxxxxxxxxxxxxxxx,4:4:_o0:F:0,3:0:cond:F:xxxx" in
     let offset = imm19_v lsl 2 in
     let signed_offset = sign_extension (Z.of_int offset) 21 64 in
     let cond_il = decode_cond cond_v in
@@ -868,7 +868,7 @@ RET <31:25:_:1101011  24:23:opc:T:00  22:21:op:10  20:16:op2:11111  15:10:op3:00
 *)
 
   let b_uncond_reg s insn =
-    let%decode insn' = insn "31:25:_:F:1101011,24:21:opc:F:x,20:16:op2:F:11111,15:10:op3:F:000000,9:5:Rn:F:xxxxx,4:0:op4:F:00000" in
+    let%decode insn' = insn "31:25:_:F:1101011,24:21:opc:F:x,20:16:_op2:F:11111,15:10:_op3:F:000000,9:5:Rn:F:xxxxx,4:0:_op4:F:00000" in
     (* pc is 8 bytes ahead because of pre-fetching. *)
     let current_pc = Z.add (Address.to_int s.a) (Z.of_int 4) in
     if opc_v = 1 then (* BLR *)
@@ -965,7 +965,7 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
 
   (* Conversion between floating-point and fixed-point *)
   let fp_fp_conv  (s: state) (insn: int): (Asm.stmt list) =
-    error s.a "Conversion between floating-point and fixed-point not implemented"
+    error s.a (Printf.sprintf "Conversion between floating-point and fixed-point not implemented, opcode : 0x%08x" insn)
 
 
   (* Conversion between floating-point and integer *)
@@ -1046,5 +1046,5 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
   let init () =
     Imports.init ()
 
-  let overflow_expression () = Lval (V (T vflag)) 
+  let overflow_expression () = Lval (V (T vflag))
 end
