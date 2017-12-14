@@ -20,7 +20,7 @@ import idaapi
 from idabincat.analyzer_conf import ConfigHelpers
 
 dump_log = logging.getLogger('bincat.plugin.dump_binary')
-dump_log.setLevel(logging.DEBUG)
+dump_log.setLevel(logging.INFO)
 
 
 # Dumps a remapped binary (as seen in IDA to disk)
