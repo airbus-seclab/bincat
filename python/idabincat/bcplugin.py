@@ -141,7 +141,7 @@ class BincatPlugin(idaapi.plugin_t):
             if os.path.isdir(bin_path):
                 os.environ['PATH'] += ";"+bin_path
             if no_spawn:
-                bc_exe = os.path.join(bin_path, "bincat.exe")
+                bc_exe = os.path.join(bin_path, "bincat")
             else:
                 bc_exe = distutils.spawn.find_executable('bincat')
         if bc_exe is None and no_spawn is False:
