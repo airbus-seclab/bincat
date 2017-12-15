@@ -554,8 +554,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         # Duplicate that config button
         self.btn_dup_cfg = QtWidgets.QPushButton('Duplicate')
         self.btn_dup_cfg.clicked.connect(lambda: self._save_config(None, True))
-        self.btn_dup_cfg.setIcon(self.btn_dup_cfg.style().standardIcon(
-            QtWidgets.QStyle.SP_TrashIcon))
         cfg_split.addWidget(self.btn_dup_cfg)
 
         # Delete that config button
