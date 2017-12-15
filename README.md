@@ -52,7 +52,7 @@ On Linux:
 
 * Unzip BinCAT
 * In IDA, click on "File -> Script File..." menu (or type ALT-F7)
-* Select `windows_install.py`
+* Select `install_plugin.py`
 * BinCAT is now installed in your IDA user dir
 * Restart IDA
 
