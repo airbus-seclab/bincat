@@ -16,7 +16,7 @@ IDAUSR	?= $(HOME)/.idapro
 
 all:
 	@echo "Compiling OCaml part................................................."
-	@make -C $(MLPATH) all DEBUG=$(DEBUG)
+	@make -C $(MLPATH) all DEBUG=$(DEBUG) STATIC=$(STATIC)
 	@echo "Building python part................................................."
 	@make -C $(PYPATH) all
 	@echo "Building headers......................................................"

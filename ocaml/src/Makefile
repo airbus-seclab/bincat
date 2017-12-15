@@ -130,7 +130,12 @@ ifeq ($(detected_OS), Linux)
 endif
 
 CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmrun
+
+ifeq ($(STATIC), 1)
+all: $(LIBNAME) static
+else
 all: $(LIBNAME) $(EXENAME)
+endif
 
 armv8A_ppx: disassembly/armv8A_ppx.ml
 	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I `ocamlfind query compiler-libs` -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
@@ -141,6 +146,11 @@ $(LIBNAME): $(OBJ)
 
 $(EXENAME): $(OBJ) $(BINCATOBJ)
 	$(CAMLCOMPIL)  $(CFLAGS) -o $@ $(LIBX) $(OCAMLOPT) $+
+
+# Build $(EXENAME) statically
+static: CFLAGS+=-ccopt -static
+static: $(EXENAME)
+	strip $(EXENAME)
 
 bincat_ver.ml: update_gitver
 	[ -f $@ ] || touch $@
