@@ -102,7 +102,7 @@ else
 	cp ocaml/src/bincat.exe bincat-windows/bin
 	cp README.md bincat-windows
 	cp -r python/build/lib/ bincat-windows/python
-	cp python/windows_install.py bincat-windows/
+	cp python/install_plugin.py bincat-windows/
 	cp -r python/idabincat/conf/ bincat-windows/python/idabincat
 	cp -r doc bincat-windows
 	zip -r bincat-win-$(shell git describe --dirty).zip bincat-windows
