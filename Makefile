@@ -108,6 +108,20 @@ else
 	zip -r bincat-win-$(shell git describe --dirty).zip bincat-windows
 endif
 
+lindist: STATIC=1
+lindist: clean all
+	@echo "Making Linux binary release."
+	-rm -rf bincat-linux
+	mkdir -p bincat-linux/bin
+	cp ocaml/src/bincat bincat-linux/bin
+	#cp $(which c2newspeak) bincat-linux/bin
+	cp README.md bincat-linux
+	cp -r python/build/lib* bincat-linux/python
+	cp python/install_plugin.py bincat-linux/
+	cp -r python/idabincat/conf/ bincat-linux/python/idabincat
+	cp -r doc bincat-linux
+	tar cvZf bincat-bin-$(shell git describe --dirty).tar.xz bincat-linux
+
 tags:
 	otags -vi -r ocaml
 
