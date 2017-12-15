@@ -1329,7 +1329,7 @@ struct
         in
         let of_stmt =
           let is_one = Cmp (EQ, n_masked, one8) in
-          let xexp = Cmp(EQ, const1 (Register.size fcf), BinOp(Xor, Lval (V (T fcf)),
+          let xexp = Cmp(EQ, one_sz, BinOp(Xor, UnOp(ZeroExt sz, (Lval (V (T fcf)))),
                            BinOp (And, one_sz,
                                   (BinOp(Shr, ldst,
                                          BinOp(Sub, sz', n_masked)))))) in
