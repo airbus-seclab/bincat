@@ -102,7 +102,7 @@ A [tutorial](doc/tutorial.md) is provided to help you try BinCAT's features.
 ## Article and presentations about BinCAT
 
 * [SSTIC 2017](https://www.sstic.org/2017/presentation/bincat_purrfecting_binary_static_analysis/), Rennes, France: [article](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Article-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (english), [slides](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Slides-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (french), [video of the presentation](https://static.sstic.org/videos2017/SSTIC_2017-06-07_P07.mp4) (french)
-* [REcon 2017](https://recon.cx/2017/montreal/talks/bincat.html), Montreal, Canada: [slides](https://syscall.eu/bincat/bincat-recon.pdf)
+* [REcon 2017](https://recon.cx/2017/montreal/talks/bincat.html), Montreal, Canada: [slides](https://syscall.eu/bincat/bincat-recon.pdf), [video](https://recon.cx/media-archive/2017/mtl/recon2017-mtl-05-philippe-biondi-xavier-mehrenberger-raphael-rigo-sarah-zennou-BinCAT-purrfecting-binary-static-analysis.mp4)
 
 ## Licenses
 
