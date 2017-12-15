@@ -95,35 +95,32 @@ ifneq ($(OS),Windows_NT)
 	    $(error "windist only works on Windows.")
 else
 	@echo "Making Windows binary release."
-	-rm -rf bincat-windows
-	mkdir -p bincat-windows/bin
-	cp $(shell ldd ocaml/src/bincat.exe|grep libgmp|awk '{print $$3};') bincat-windows/bin
-	cp $(shell which c2newspeak.exe) bincat-windows/bin
-	cp ocaml/src/bincat.exe bincat-windows/bin
-	cp README.md bincat-windows
-	cp -r python/build/lib/ bincat-windows/python
-	cp python/install_plugin.py bincat-windows/
-	cp -r python/idabincat/conf/ bincat-windows/python/idabincat
-	cp -r lib/*.no bincat-windows/python/idabincat/conf
-	cp -r doc bincat-windows
+	$(eval distdir := bincat-win-$(shell git describe --dirty))
+	mkdir -p $(distdir)/bin
+	cp $(shell ldd ocaml/src/bincat.exe|grep libgmp|awk '{print $$3};') $(distdir)/bin
+	cp $(shell which c2newspeak.exe) $(distdir)/bin
+	cp ocaml/src/bincat.exe $(distdir)/bin
+	cp -r python/build/lib/ $(distdir)/python
+	cp -r python/idabincat/conf/ $(distdir)/python/idabincat
+	cp -r lib/*.no $(distdir)/python/idabincat/conf
+	cp -r python/install_plugin.py README.md doc $(distdir)
 	zip -r bincat-win-$(shell git describe --dirty).zip bincat-windows
+	-rm -rf $(distdir)
 endif
 
 lindist: STATIC=1
 lindist: clean all
 	@echo "Making Linux binary release."
-	$(eval linuxdir := bincat-bin-$(shell git describe --dirty))
-	mkdir -p $(linuxdir)/bin
-	cp ocaml/src/bincat $(linuxdir)/bin
+	$(eval distdir := bincat-bin-$(shell git describe --dirty))
+	mkdir -p $(distdir)/bin
+	cp ocaml/src/bincat $(distdir)/bin
 	#cp $(which c2newspeak) bincat-linux/bin
-	cp README.md $(linuxdir)
-	cp -r python/build/lib* $(linuxdir)/python
-	cp python/install_plugin.py $(linuxdir)/
-	cp -r python/idabincat/conf/ $(linuxdir)/python/idabincat
-	cp -r lib/*.no $(linuxdir)/python/idabincat/conf
-	cp -r doc $(linuxdir)
-	tar cvZf $(linuxdir).tar.xz $(linuxdir)
-	-rm -rf $(linuxdir)
+	cp -r python/build/lib* $(distdir)/python
+	cp -r python/idabincat/conf/ $(distdir)/python/idabincat
+	cp -r lib/*.no $(distdir)/python/idabincat/conf
+	cp -r python/install_plugin.py README.md doc $(distdir)
+	tar cvZf $(distdir).tar.xz $(distdir)
+	-rm -rf $(distdir)
 
 tags:
 	otags -vi -r ocaml
