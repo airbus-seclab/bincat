@@ -119,7 +119,7 @@ lindist: clean all
 	cp -r python/idabincat/conf/ $(distdir)/python/idabincat
 	cp -r lib/*.no $(distdir)/python/idabincat/conf
 	cp -r python/install_plugin.py README.md doc $(distdir)
-	tar cvZf $(distdir).tar.xz $(distdir)
+	tar cvJf $(distdir).tar.xz $(distdir)
 	-rm -rf $(distdir)
 
 tags:
