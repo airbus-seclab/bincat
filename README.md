@@ -14,7 +14,7 @@ It features:
 
 ### In action
 
-You can check BinCAT in action here:
+You can check (an older version of) BinCAT in action here:
 
 * [Basic analysis](https://syscall.eu/bincat/main.mp4)
 * [Using data tainting](https://syscall.eu/bincat/taint.mp4)
@@ -90,22 +90,13 @@ Default config and options are stored in `$IDAUSR/idabincat/conf`.
 * "Save to IDB": default state for the `save to idb` checkbox
 
 
-### Analyzer configuration files
-
-See the [doc](doc/ini_format.md) for a description of the configuration format.
-
 ## Documentation
-A [manual](doc/manual.md) is provided. 
+A [manual](doc/manual.md) is provided and check [here](doc/ini_format.md) for a
+description of the configuration file format.
+
 
 A [tutorial](doc/tutorial.md) is provided to help you try BinCAT's features. 
-It makes use of a [sample binary](doc/get_key/get_key) and screenshots.
 
-### Log levels
-
-1. basic info
-2. more info
-3. debug
-4. advanced debug
 
 ## Article and presentations about BinCAT
 
