@@ -104,7 +104,7 @@ else
 	cp -r python/build/lib/ bincat-windows/python
 	cp python/install_plugin.py bincat-windows/
 	cp -r python/idabincat/conf/ bincat-windows/python/idabincat
-	cp -r lib/ bincat-windows/python/idabincat/conf
+	cp -r lib/*.no bincat-windows/python/idabincat/conf
 	cp -r doc bincat-windows
 	zip -r bincat-win-$(shell git describe --dirty).zip bincat-windows
 endif
@@ -112,16 +112,18 @@ endif
 lindist: STATIC=1
 lindist: clean all
 	@echo "Making Linux binary release."
-	-rm -rf bincat-linux
-	mkdir -p bincat-linux/bin
-	cp ocaml/src/bincat bincat-linux/bin
+	$(eval linuxdir := bincat-bin-$(shell git describe --dirty))
+	mkdir -p $(linuxdir)/bin
+	cp ocaml/src/bincat $(linuxdir)/bin
 	#cp $(which c2newspeak) bincat-linux/bin
-	cp README.md bincat-linux
-	cp -r python/build/lib* bincat-linux/python
-	cp python/install_plugin.py bincat-linux/
-	cp -r python/idabincat/conf/ bincat-linux/python/idabincat
-	cp -r doc bincat-linux
-	tar cvZf bincat-bin-$(shell git describe --dirty).tar.xz bincat-linux
+	cp README.md $(linuxdir)
+	cp -r python/build/lib* $(linuxdir)/python
+	cp python/install_plugin.py $(linuxdir)/
+	cp -r python/idabincat/conf/ $(linuxdir)/python/idabincat
+	cp -r lib/*.no $(linuxdir)/python/idabincat/conf
+	cp -r doc $(linuxdir)
+	tar cvZf $(linuxdir).tar.xz $(linuxdir)
+	-rm -rf $(linuxdir)
 
 tags:
 	otags -vi -r ocaml
