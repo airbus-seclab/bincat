@@ -104,7 +104,7 @@ else
 	cp -r python/idabincat/conf/ $(distdir)/python/idabincat
 	cp -r lib/*.no $(distdir)/python/idabincat/conf
 	cp -r python/install_plugin.py README.md doc $(distdir)
-	zip -r bincat-win-$(shell git describe --dirty).zip bincat-windows
+	zip -r $(distdir).zip $(distdir)
 	-rm -rf $(distdir)
 endif
 
