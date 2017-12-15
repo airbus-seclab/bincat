@@ -104,6 +104,7 @@ else
 	cp -r python/build/lib/ bincat-windows/python
 	cp python/windows_install.py bincat-windows/
 	cp -r python/idabincat/conf/ bincat-windows/python/idabincat
+	cp lib/*.no python/idabincat/conf/
 	cp -r doc bincat-windows
 	zip -r bincat-win-$(shell git describe --dirty).zip bincat-windows
 endif
