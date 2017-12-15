@@ -50,7 +50,7 @@ Binaries and configuration files are also provided for the following architectur
 5. Click `<-- Current` to define the start address
 6. Ensure that the **Analyzer configuration** dropdown is set to **(new)**
 7. Check the **Save configuration to IDB** option
-8. Click the **Edit analyzer config** button
+8. Click the **Edit...** button
 9. Paste the following lines at the end of the `[state]` section, **overwriting
    the existing stack initialization** (`stack[0x1000*8192]...`). This defines
    a value for `argc`, creates 5 pointers to strings, and initializes 5
@@ -71,25 +71,26 @@ mem[0x300180] = |64657000|
 mem[0x3001C0] = |6c6f6c3100|
 mem[0x300200] = |6c6f6c2100|
 ```
-10. Click **Save**
-11. Enter a name under which this configuration should be saved
-12. Click **Start**
-13. Notice that after a few seconds, the analysis has finished running, and the
+10. Click **Save** to close the configuration edit dialogue
+11. Click **Save** to save the configuration to the IDB
+12. Enter a name under which this configuration should be saved
+13. Click **Start**
+14. Notice that after a few seconds, the analysis has finished running, and the
     background for some of the instructions in the **IDA View-A** view has
     become gray
-14. Switch to the **BinCAT registers** view.
-15. Go to address `0x807` using the **g** shortcut. This instruction is
+15. Switch to the **BinCAT registers** view.
+16. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
     should be `0x1D50`). Open the **BinCAT Memory** view at this address, to
     observe the contents of the `buffer` pointer (`char *`) where `sprintf`
     results will be output (the value should be `0x1DEC`)
-16. Advance to the next instruction at address `0x80C`, and observe the
+17. Advance to the next instruction at address `0x80C`, and observe the
     value of the `buffer` that has been formatted by `sprintf` at address
     `0x1DEC`
-17. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
+18. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
     and observe the inferred types for the call to `sprintf`
-18. Go to address `0xA93`, which contains a call to a location that is stored
+19. Go to address `0xA93`, which contains a call to a location that is stored
     on the stack. Notice that IDA cannot resolve the destination address. In
     the **BinCAT Registers** view, use the *goto next node (1)* drop down menu
     to jump to the destination
