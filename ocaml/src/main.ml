@@ -21,13 +21,15 @@ module L = Log.Make(struct let name = "main" end)
 (** Entry points of the library *)
 
 (** [process cfile rfile lfile] launches an analysis run such that:
-    - [cfile] is the name of the configuration file
-    - [rfile] is the name of the result file
-    - [lfile] is the name of the log file *)
+    - [configfile] is the name of the configuration file
+    - [resultfile] is the name of the result file
+    - [logfile] is the name of the log file *)
 let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* cleaning global data structures *)
   Config.clear_tables();
   Register.clear();
+  Taint.clear();
+  Dump.clear();
   (* setting the log file *)
   Log.init logfile;
   L.info (fun m -> m "BinCAT version %s" Bincat_ver.version_string);
@@ -47,51 +49,54 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     in
     (* parsing the configuration file to fill configuration information *)
     let lexbuf = Lexing.from_channel cin in
-  let string_of_position pos =
-    Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum (pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol)
-  in
-  begin
-    try
-      Config.reset ();
-      lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
-      Parser.process Lexer.token lexbuf
-    with
-    | Parser.Error ->
-       close_in cin;
-      L.abort (fun p -> p "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
-	
-    | Failure msg ->
-       close_in cin;
-      L.abort (fun p -> p "Parse error (%s) near location %s of %s" msg (string_of_position lexbuf) configfile)
-  end;
-  close_in cin;
+    let string_of_position pos =
+      let n = pos.Lexing.lex_curr_p.Lexing.pos_cnum - pos.Lexing.lex_curr_p.Lexing.pos_bol in
+      Printf.sprintf "(%d, %d)" pos.Lexing.lex_curr_p.Lexing.pos_lnum n
+    in
+    begin
+      try
+        Config.reset ();
+        lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
+        Parser.process Lexer.token lexbuf
+      with
+      | Parser.Error ->
+         close_in cin;
+        L.abort (fun p -> p "Syntax error near location %s of %s" (string_of_position lexbuf) configfile)
+	      
+      | Failure msg ->
+         close_in cin;
+        L.abort (fun p -> p "Parse error (%s) near location %s of %s" msg (string_of_position lexbuf) configfile)
+    end;
+    close_in cin;
   (* generating modules needed for the analysis wrt to the provided configuration *)
-  let do_map_file = match !Config.format with
-    | Config.PE -> L.abort (fun p -> p "PE file format not implemented yet")
-    | Config.ELF -> Elf.make_mapped_mem
-    | Config.RAW -> Raw.make_mapped_mem
-    | Config.MANUAL -> Manual.make_mapped_mem in
-  Mapped_mem.current_mapping := Some (do_map_file ());
-  let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
-  let module Pointer 	 = Pointer.Make(Vector)	in
-  let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
-  let decoder =
-    match !Config.architecture with
-    | Config.X86 -> (module X86.Make: Decoder.Make)
-    | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
-    | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
-  in
-  let module Decoder = (val decoder: Decoder.Make) in
-  let module Interpreter = Interpreter.Make(Domain)(Decoder) in
-
-  (* defining the dump function to provide to the fixpoint engine *)
+    let do_map_file =
+      match !Config.format with
+      | Config.PE -> L.abort (fun p -> p "PE file format not implemented yet")
+      | Config.ELF -> Elf.make_mapped_mem
+      | Config.RAW -> Raw.make_mapped_mem
+      | Config.MANUAL -> Manual.make_mapped_mem
+    in
+    Mapped_mem.current_mapping := Some (do_map_file ());
+    let module Vector 	 = Vector.Make(Reduced_bit_tainting) in
+    let module Pointer 	 = Pointer.Make(Vector)	in
+    let module Domain 	 = Reduced_unrel_typenv.Make(Pointer) in
+    let decoder =
+      match !Config.architecture with
+      | Config.X86 -> (module X86.Make: Decoder.Make)
+      | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
+      | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
+    in
+    let module Decoder = (val decoder: Decoder.Make) in
+    let module Interpreter = Interpreter.Make(Domain)(Decoder) in
+    
+    (* defining the dump function to provide to the fixpoint engine *)
     let dump cfa = Interpreter.Cfa.print resultfile cfa in
-  
-  (* internal function to launch backward/forward analysis from a previous CFA and config *)
+    
+    (* internal function to launch backward/forward analysis from a previous CFA and config *)
     let from_cfa fixpoint =
       let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
       let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-      let d, taint        = Interpreter.Cfa.init_abstract_value () in
+      let d, taint = Interpreter.Cfa.init_abstract_value () in
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
         prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
@@ -100,20 +105,20 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     with
     | Not_found -> L.abort (fun p -> p "entry point of the analysis not in the given CFA")
     in
-  (* launching the right analysis depending on the value of !Config.analysis *)
+    (* launching the right analysis depending on the value of !Config.analysis *)
     let cfa =
-        match !Config.analysis with
-
-        (* forward analysis from a binary *)
-        | Config.Forward Config.Bin ->
+      match !Config.analysis with
+        
+      (* forward analysis from a binary *)
+      | Config.Forward Config.Bin ->
           (* 6: generate code *)
-          (* 7: generate the nitial cfa with only an initial state *)
-          let ep' 	= Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-          let s  	= Interpreter.Cfa.init_state ep'					        in
-          let g 	= Interpreter.Cfa.create ()					        in
-          Interpreter.Cfa.add_state g s;
-          let cfa =
-            match !Mapped_mem.current_mapping with
+          (* 7: generate the initial cfa with only an initial state *)
+         let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+         let s = Interpreter.Cfa.init_state ep' in
+         let g 	= Interpreter.Cfa.create ()					        in
+         Interpreter.Cfa.add_state g s;
+         let cfa =
+           match !Mapped_mem.current_mapping with
             | Some mm -> Interpreter.forward_bin mm g s dump
             | None -> L.abort(fun p -> p "File to be analysed not mapped")
           in
@@ -135,7 +140,10 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       Interpreter.Cfa.marshal !Config.out_mcfa_file cfa;
     dump cfa;
     Log.close();
-  with e -> L.exc e (fun p -> p "Exception caught in main loop") ; Log.close (); raise e;;
+  with e ->
+    L.exc e (fun p -> p "Exception caught in main loop");
+    Log.close ();
+    raise e;;
 
 (* enables the process function to be callable from the .so *)
 Callback.register "process" process;;

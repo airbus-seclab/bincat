@@ -326,6 +326,10 @@ struct
 	  | Config.ARMv7 -> "armv7"
 	  | Config.ARMv8 -> "armv8" in
 	Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
+    (* taint sources *)
+	Printf.fprintf f "[taint sources]\n";
+    Hashtbl.iter (fun id src -> Printf.fprintf f "%d = %s\n" id (Dump.string_of_src src)) Dump.taint_src_tbl;
+    Printf.fprintf f "\n";
 	(* edge printing (summary) *)
 	Printf.fprintf f "[edges]\n";
 	G.iter_edges_e (fun e -> Printf.fprintf f "e%d_%d = %d -> %d\n" (G.E.src e).id (G.E.dst e).id (G.E.src e).id (G.E.dst e).id) g;

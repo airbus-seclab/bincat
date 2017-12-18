@@ -143,7 +143,6 @@ class CFA(object):
                 continue
             elif section == 'loader':
                 continue
-            raise PyBinCATException("Cannot parse section name (%r)" % section)
 
         CFA._valcache = dict()
         cfa = cls(states, edges, nodes)
