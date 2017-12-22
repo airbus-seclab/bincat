@@ -102,7 +102,8 @@ else
 	cp ocaml/src/bincat.exe $(distdir)/bin
 	cp -r python/build/lib/ $(distdir)/python
 	cp -r python/idabincat/conf/ $(distdir)/python/idabincat
-	cp -r lib/*.no $(distdir)/python/idabincat/conf
+	mkdir $(distdir)/python/idabincat/lib
+	cp -r lib/*.no $(distdir)/python/idabincat/lib
 	cp -r python/install_plugin.py README.md doc $(distdir)
 	zip -r $(distdir).zip $(distdir)
 	-rm -rf $(distdir)
