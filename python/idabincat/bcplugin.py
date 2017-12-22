@@ -568,7 +568,7 @@ class State(object):
         if cfa:
             # XXX add user preference for saving to idb? in that case, store
             # reference to marshalled cfa elsewhere
-            bc_log.info("Storing analysis results to idb")
+            bc_log.info("Storing analysis results to idb...")
             with open(outfname, 'rb') as f:
                 self.netnode["out.ini"] = f.read()
             with open(logfname, 'rb') as f:
@@ -579,6 +579,7 @@ class State(object):
             if cfaoutfname is not None and os.path.isfile(cfaoutfname):
                 with open(cfaoutfname, 'rb') as f:
                     self.last_cfaout_marshal = f.read()
+            bc_log.info("Analysis results have been stored idb.")
         else:
             bc_log.info("Empty or unparseable result file.")
         bc_log.debug("----------------------------")
