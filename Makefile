@@ -118,7 +118,8 @@ lindist: clean all
 	#cp $(which c2newspeak) bincat-linux/bin
 	cp -r python/build/lib* $(distdir)/python
 	cp -r python/idabincat/conf/ $(distdir)/python/idabincat
-	cp -r lib/*.no $(distdir)/python/idabincat/conf
+	mkdir $(distdir)/python/idabincat/lib
+	cp -r lib/*.no $(distdir)/python/idabincat/lib
 	cp -r python/install_plugin.py README.md doc $(distdir)
 	tar cvJf $(distdir).tar.xz $(distdir)
 	-rm -rf $(distdir)
