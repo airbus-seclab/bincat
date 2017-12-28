@@ -2325,6 +2325,7 @@ struct
             (* long nop *)
             | '\x1F' -> let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
             (* CMOVcc *)
+            | '\x31' (* RDTSC *) ->  return s [ Directive (Forget (V (T edx))); Directive (Forget (V (T eax)))]                                                               
             | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
 
             | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
@@ -2352,17 +2353,17 @@ struct
             | '\xb5' -> load_far_ptr s gs
 
             | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 1 in
-              return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
+                        return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
             | '\xb7' ->
                let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in
               return s [ Set (reg, UnOp(ZeroExt 32, rm)) ]
 
             | '\xba' -> grp8 s
             | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btc s reg rm
-        | '\xbc' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsf s reg rm
-        | '\xbd' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsr s reg rm
+            | '\xbc' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsf s reg rm
+            | '\xbd' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsr s reg rm
             | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
-              return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
+                        return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
             | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in return s [ Set (reg, UnOp(SignExt 32, rm)) ]
 
             | '\xc0' -> (* XADD *)  xadd_mrm s 8
