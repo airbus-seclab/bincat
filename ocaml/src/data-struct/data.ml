@@ -105,8 +105,6 @@ struct
           | Stack 
           | Heap of int * int 
 
-        type t = region * Word.t
-          
         let heap_id = ref 0
 
         let new_heap_chunk sz =
@@ -118,7 +116,7 @@ struct
             | Stack  -> 'S'
             | Heap _ -> 'H'
 
-
+        type t = region * Word.t
 
         let compare_region r1 r2 =
             match r1, r2 with
