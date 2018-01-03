@@ -106,11 +106,11 @@ struct
           | Heap   (** abstract base address of a dynamically allocated memory block *)
 
 
-        let char_of_region r =
+        let string_of_region r =
             match r with
-            | Global -> 'G'
-            | Stack  -> 'S'
-            | Heap   -> 'H'
+            | Global -> ""
+            | Stack  -> "S"
+            | Heap   -> "H"
 
         type t = region * Word.t
 
@@ -148,7 +148,7 @@ struct
             else
                 raise (Exceptions.Error "Address generation for this memory mode not yet managed")
 
-        let to_string (r, w) = Printf.sprintf "%c%s" (char_of_region r) (Word.to_string w)
+        let to_string (r, w) = Printf.sprintf "%s%s" (string_of_region r) (Word.to_string w)
 
         (** returns the offset of the address *)
         let to_int (_r, w) = Word.to_int w

@@ -53,7 +53,7 @@ module Make (V: Vector.T) =
       match p with
       | BOT -> "B0x_"
       | TOP -> "T0x?"
-      | Val (r, o) -> Printf.sprintf "%c%s" (char_of_region r) (V.to_string o)
+      | Val (r, o) -> Printf.sprintf "%s%s" (string_of_region r) (V.to_string o)
 
 
     let to_strings p =
@@ -61,7 +61,7 @@ module Make (V: Vector.T) =
         | BOT -> "B0x_", "_"
             | TOP -> "T0x?", "?"
             | Val (r, o) -> let s, t = V.to_strings o in
-                Printf.sprintf "%c%s" (char_of_region r) s, t
+                Printf.sprintf "%s%s" (string_of_region r) s, t
 
         let untaint p =
             match p with
