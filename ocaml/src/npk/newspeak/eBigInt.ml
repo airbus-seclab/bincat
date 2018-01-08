@@ -637,9 +637,9 @@ let round_futur_last_digit s off_set length =
        if l < off_set then true else begin
          let current_char = String.get s l in
          if current_char = '9' then
-           (String.set s l '0'; round_rec (pred l))
+           (Bytes.set s l '0'; round_rec (pred l))
          else
-           (String.set s l (Char.chr (succ (Char.code current_char)));
+           (Bytes.set s l (Char.chr (succ (Char.code current_char)));
             false)
        end
      in round_rec (pred l)
