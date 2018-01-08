@@ -61,3 +61,10 @@ try:
     dir_util.copy_tree(os.path.join(p_idabincat, "conf"), confpath)
 except OSError as e:
     print "Could not install! Error: "+str(e)+"\n"
+
+libpath = os.path.join(userdir, 'idabincat', 'lib')
+print "Installing default headers in "+libpath
+try:
+    dir_util.copy_tree(os.path.join(p_idabincat, "lib"), libpath)
+except OSError as e:
+    print "Could not install! Error: "+str(e)+"\n"

@@ -68,7 +68,7 @@ def reg_len(regname):
 
 
 #: maps short region names to pretty names
-PRETTY_REGIONS = {'g': 'global', 's': 'stack', 'h': 'heap',
+PRETTY_REGIONS = {'': 'global', 's': 'stack', 'h': 'heap',
                   'b': 'bottom', 't': 'top'}  # used for pointers only
 
 #: split src region + address (left of '=')
@@ -76,7 +76,7 @@ RE_REGION_ADDR = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
 #: split value
 
 RE_VALTAINT = re.compile(
-    "(?P<memreg>[a-zA-Z])(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
+    "(?P<memreg>[a-zA-Z]?)(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
 
 
 class PyBinCATParseError(PyBinCATException):
@@ -188,7 +188,7 @@ class CFA(object):
             subprocess.call(["bincat", initfname, outfname, logfname])
         return cls.parse(outfname, logs=logfname)
 
-    def _toValue(self, eip, region="g"):
+    def _toValue(self, eip, region=""):
         if type(eip) in [int, long]:
             addr = Value(region, eip, 0)
         elif type(eip) is Value:

@@ -291,7 +291,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
         self.mem_ranges = None
         self.current_region = None
         self.current_range_idx = None
-        #: region name (1 letter) -> address
+        #: region name (0-1 letter) -> address
         self.last_visited = dict((k, None) for k in cfa.PRETTY_REGIONS.keys())
         self.pretty_to_int_map = \
             dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
@@ -354,8 +354,6 @@ class BinCATMemForm_t(idaapi.PluginForm):
     def update_region(self, pretty_region):
         region = self.pretty_to_int_map[pretty_region]
         self.current_region = region
-        if region == "":
-            return
         self.range_select.blockSignals(True)
         self.range_select.clear()
         for r in self.mem_ranges[region]:
@@ -419,7 +417,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
                 # happens in backward mode: states having no defined memory
                 return
             former_region = self.region_select.currentText()
-            newregion = ""
+            newregion = None
             newregidx = -1
             self.region_select.blockSignals(True)
             self.region_select.clear()
@@ -429,7 +427,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
                 if pretty_reg == former_region:
                     newregion = pretty_reg
                     newregidx = ridx
-                if newregion == "":
+                if newregion is None:
                     newregion = pretty_reg
                     newregidx = 0
             self.region_select.setCurrentIndex(newregidx)
@@ -554,8 +552,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         # Duplicate that config button
         self.btn_dup_cfg = QtWidgets.QPushButton('Duplicate')
         self.btn_dup_cfg.clicked.connect(lambda: self._save_config(None, True))
-        self.btn_dup_cfg.setIcon(self.btn_dup_cfg.style().standardIcon(
-            QtWidgets.QStyle.SP_TrashIcon))
         cfg_split.addWidget(self.btn_dup_cfg)
 
         # Delete that config button

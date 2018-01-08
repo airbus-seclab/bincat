@@ -1329,7 +1329,7 @@ struct
         in
         let of_stmt =
           let is_one = Cmp (EQ, n_masked, one8) in
-          let xexp = Cmp(EQ, const1 (Register.size fcf), BinOp(Xor, Lval (V (T fcf)),
+          let xexp = Cmp(EQ, one_sz, BinOp(Xor, UnOp(ZeroExt sz, (Lval (V (T fcf)))),
                            BinOp (And, one_sz,
                                   (BinOp(Shr, ldst,
                                          BinOp(Sub, sz', n_masked)))))) in
@@ -2322,6 +2322,8 @@ struct
             match getchar s with
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
+            (* long nop *)
+            | '\x1F' -> let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
             (* CMOVcc *)
             | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
 

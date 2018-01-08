@@ -142,7 +142,12 @@ ifeq ($(detected_OS), Linux)
 endif
 
 CFLAGS=-ccopt -lasmrun
+
+ifeq ($(STATIC), 1)
+all: $(LIBNAME) static
+else
 all: $(LIBNAME) $(EXENAME)
+endif
 
 armv8A_ppx: disassembly/armv8A_ppx.ml
 	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I +ppx_tools -I +compiler-libs -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
@@ -153,6 +158,11 @@ $(LIBNAME): $(NPKLIB) $(OBJ)
 
 $(EXENAME): $(NPKLIB) $(OBJ) $(BINCATOBJ)
 	$(CAMLCOMPIL) $(CFLAGS) $(EXTLIBINCL) $(EXTLIB) $+ -o $@
+
+# Build $(EXENAME) statically
+static: CFLAGS+=-ccopt -static
+static: $(EXENAME)
+	strip $(EXENAME)
 
 bincat_ver.ml: update_gitver
 	[ -f $@ ] || touch $@
@@ -182,13 +192,11 @@ npk/newspeak/newspeak.cmi:
 %.cmo: %.ml $$(DEPS-$$(*F))
 	$(CAMLC) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.ml
 
-
 %.ml: %.mll
 	$(CAMLLEX) $*.mll
 
 %.ml %.mli: %.mly
 	$(MENHIR) $*.mly
-
 
 clean:
 	-$(MAKE) -C npk clean

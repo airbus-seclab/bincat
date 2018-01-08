@@ -132,16 +132,17 @@ class BincatPlugin(idaapi.plugin_t):
         if no_spawn:
             bc_exe = None
         else:
-            # Check if bincat_native is available
+            # Check if bincat is available
             bc_exe = distutils.spawn.find_executable('bincat')
-        if bc_exe is None and os.name == 'nt':
+        if bc_exe is None:
             # add to PATH
             userdir = idaapi.get_user_idadir()
             bin_path = os.path.join(userdir, "plugins", "idabincat", "bin")
             if os.path.isdir(bin_path):
-                os.environ['PATH'] += ";"+bin_path
+                path_env_sep = ';' if os.name == 'nt' else ':'
+                os.environ['PATH'] += path_env_sep+bin_path
             if no_spawn:
-                bc_exe = os.path.join(bin_path, "bincat.exe")
+                bc_exe = os.path.join(bin_path, "bincat")
             else:
                 bc_exe = distutils.spawn.find_executable('bincat')
         if bc_exe is None and no_spawn is False:
@@ -567,7 +568,7 @@ class State(object):
         if cfa:
             # XXX add user preference for saving to idb? in that case, store
             # reference to marshalled cfa elsewhere
-            bc_log.info("Storing analysis results to idb")
+            bc_log.info("Storing analysis results to idb...")
             with open(outfname, 'rb') as f:
                 self.netnode["out.ini"] = f.read()
             with open(logfname, 'rb') as f:
@@ -578,6 +579,7 @@ class State(object):
             if cfaoutfname is not None and os.path.isfile(cfaoutfname):
                 with open(cfaoutfname, 'rb') as f:
                     self.last_cfaout_marshal = f.read()
+            bc_log.info("Analysis results have been stored idb.")
         else:
             bc_log.info("Empty or unparseable result file.")
         bc_log.debug("----------------------------")

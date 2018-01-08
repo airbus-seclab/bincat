@@ -14,7 +14,7 @@ It features:
 
 ### In action
 
-You can check BinCAT in action here:
+You can check (an older version of) BinCAT in action here:
 
 * [Basic analysis](https://syscall.eu/bincat/main.mp4)
 * [Using data tainting](https://syscall.eu/bincat/taint.mp4)
@@ -52,8 +52,9 @@ On Linux:
 
 * Unzip BinCAT
 * In IDA, click on "File -> Script File..." menu (or type ALT-F7)
-* Select `windows_install.py`
+* Select `install_plugin.py`
 * BinCAT is now installed in your IDA user dir
+* Restart IDA
 
 Or [install manually](doc/plugin_manual_win.md).
 
@@ -90,27 +91,18 @@ Default config and options are stored in `$IDAUSR/idabincat/conf`.
 * "Save to IDB": default state for the `save to idb` checkbox
 
 
-### Analyzer configuration files
-
-See the [doc](doc/ini_format.md) for a description of the configuration format.
-
 ## Documentation
-A [manual](doc/manual.md) is provided. 
+A [manual](doc/manual.md) is provided and check [here](doc/ini_format.md) for a
+description of the configuration file format.
+
 
 A [tutorial](doc/tutorial.md) is provided to help you try BinCAT's features. 
-It makes use of a [sample binary](doc/get_key/get_key) and screenshots.
 
-### Log levels
-
-1. basic info
-2. more info
-3. debug
-4. advanced debug
 
 ## Article and presentations about BinCAT
 
 * [SSTIC 2017](https://www.sstic.org/2017/presentation/bincat_purrfecting_binary_static_analysis/), Rennes, France: [article](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Article-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (english), [slides](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Slides-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (french), [video of the presentation](https://static.sstic.org/videos2017/SSTIC_2017-06-07_P07.mp4) (french)
-* [REcon 2017](https://recon.cx/2017/montreal/talks/bincat.html), Montreal, Canada: [slides](https://syscall.eu/bincat/bincat-recon.pdf)
+* [REcon 2017](https://recon.cx/2017/montreal/talks/bincat.html), Montreal, Canada: [slides](https://syscall.eu/bincat/bincat-recon.pdf), [video](https://recon.cx/media-archive/2017/mtl/recon2017-mtl-05-philippe-biondi-xavier-mehrenberger-raphael-rigo-sarah-zennou-BinCAT-purrfecting-binary-static-analysis.mp4)
 
 ## Licenses
 

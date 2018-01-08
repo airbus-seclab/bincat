@@ -20,6 +20,15 @@ The input file is split into various sections:
 * `override`: state overrides
 * and arch specific sections: `x86`, `armv7` and `armv8`
 
+
+### Log levels
+
+Set the `loglevel` option in the `[analyzer]` section to between `1` and `4`:
+1. basic info
+2. more info
+3. debug
+4. advanced debug
+
 ## State syntax
 
 ### Value syntax
