@@ -205,6 +205,7 @@ clean:
 	-rm -f parser.ml parser.mli lexer.ml
 
 install: $(LIBNAME) $(EXENAME)
+	$(MAKE) -C npk/ install
 	install $(LIBNAME) $(LIBDIR)
 	install $(EXENAME) $(BINDIR)
 	$(LDCONFIG) $(LIBDIR)
