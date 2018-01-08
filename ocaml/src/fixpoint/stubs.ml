@@ -98,7 +98,7 @@ struct
         try
             let zero = Asm.Const (Data.Word.of_int Z.zero 8) in
             let str_len, format_string = D.get_bytes format_addr Asm.EQ zero 1000 8 d in
-            L.info (fun p -> p "(s)printf stub, format string: \"%s\"" (String.escaped format_string));
+            L.info (fun p -> p "(s)printf stub, format string: \"%s\"" (String.escaped (Bytes.to_string format_string)));
             let format_num d dst_off c fmt_pos arg pad_char pad_left: int * int * domain_t =
               let rec compute digit_nb fmt_pos =
                 let c = Bytes.get format_string fmt_pos in
