@@ -103,13 +103,15 @@ struct
         type region =
           | Global 
           | Stack 
-          | Heap of int * int 
+          | Heap of int * int (* first int is the id ; second ont is the size in bits *)
 
         let heap_id = ref 0
 
-        let new_heap_chunk sz =
+        let new_heap_region sz =
           let r = Heap (!heap_id, sz) in
-          
+          heap_id := !heap_id + 1;
+          r
+            
         let char_of_region r =
             match r with
             | Global -> 'G'
