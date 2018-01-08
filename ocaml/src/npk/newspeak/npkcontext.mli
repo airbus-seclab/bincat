@@ -69,6 +69,7 @@ val remove_temp : bool ref
 
 val accept_flex_array: bool ref
 val typed_npk: bool ref
+
 (** If no_opt is set, then no code simplification is performed *)
 val no_opt : bool ref
 
@@ -122,13 +123,16 @@ val get_fname : unit -> string
 
 (* rename to report_warning *)
 (* TODO: unify these functions!!! into one, with a level!!! *)
+
 (* TODO: remove this function?? or rename? *)
 val report_warning : string -> string -> unit
+
 (* TODO: remove this function *)
 (* TODO: clean up/simplify npkcontext interface *)
 val report_strict_warning: string -> string -> unit
 
 val report_ignore_warning: string -> string -> error -> unit
+
   (** [report_accept_warning file_function message error_type] *)
 val report_accept_warning: string -> string -> error -> unit
 
