@@ -80,6 +80,9 @@ MLI=\
   newspeak/abiparser.mli\
   version.mli
 
+OPTS-newspeak := -w -7
+OPTS-lowspeak := -w -7
+OPTS-npk2lpk := -w -7
 
 EXTLIB := unix graph zarith bigarray
 PACKAGES := ocamlgraph zarith
