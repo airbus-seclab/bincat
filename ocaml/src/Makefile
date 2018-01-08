@@ -82,7 +82,7 @@ DEPS-reduced_unrel_typenv := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
 OPTS-reduced_unrel_typenv := -I npk/c2newspeak -I npk/newspeak
 
 
-EXTLIB := unix graph zarith bigarray
+EXTLIB := nums str unix graph zarith bigarray
 PACKAGES := ocamlgraph zarith
 
 EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
@@ -112,7 +112,6 @@ else
     CAMLCOMPIL = $(CAMLOPT)
     OBJ = $(ML:.ml=.cmx)
     NPKLIB:=npk/newspeak.cmxa
-    EXTLIB:=nums str $(EXTLIB)
     EXTLIB:=$(EXTLIB:=.cmxa)
     EXENAME=$(EXEOPT)
     BINCATOBJ = bincat.cmx

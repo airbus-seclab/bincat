@@ -84,7 +84,7 @@ OPTS-newspeak := -w -7
 OPTS-lowspeak := -w -7
 OPTS-npk2lpk := -w -7
 
-EXTLIB := unix graph zarith bigarray
+EXTLIB := nums str unix graph zarith bigarray
 PACKAGES := ocamlgraph zarith
 
 EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
@@ -108,14 +108,15 @@ ifeq ($(BYTECODE), 1)
     EXENAME=c2newspeak.byte
     LIBNAME=newspeak.cma
     CAMLDEPOPT =
+    C2NPKOBJ=c2newspeak/c2newspeak.cmo
 else
     CAMLCOMPIL = $(CAMLOPT)
     OBJ = $(ML:.ml=.cmx)
-    EXTLIB:=nums str $(EXTLIB)
     EXTLIB:=$(EXTLIB:=.cmxa)
     EXENAME=c2newspeak.opt
     LIBNAME=newspeak.cmxa
     CAMLDEPOPT = -native
+    C2NPKOBJ=c2newspeak/c2newspeak.cmx
 endif
 
 
@@ -127,7 +128,7 @@ all: $(LIBNAME) $(EXENAME)
 $(LIBNAME): $(OBJ)
 	$(CAMLCOMPIL) $(CFLAGS) $(EXTLIBINCL) $+ -a -o $@
 
-$(EXENAME): $(LIBNAME) c2newspeak/c2newspeak.cmx
+$(EXENAME): $(LIBNAME) $(C2NPKOBJ)
 	$(CAMLCOMPIL) $(CFLAGS) $(EXTLIBINCL) $(EXTLIB) $+ -o $@
 
 
@@ -168,7 +169,7 @@ clean:
 
 
 install: $(EXENAME)
-	install $(EXENAME) $(BINDIR)
+	install $(EXENAME) $(BINDIR)/c2newspeak
 
 .depend: $(ML) $(MLI)
 	rm -f .depend
