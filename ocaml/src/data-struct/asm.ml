@@ -98,6 +98,7 @@ type calling_convention_t = {
   arguments : int -> lval ;
   callee_cleanup : int -> stmt list ;
 }
+
 (** type of directives for the analyzer *)
 and directive_t =
   | Remove of Register.t        (** remove the register *)
@@ -112,6 +113,7 @@ and directive_t =
             This offset is the minimal integer where (sz)[e] cmp terminator is true
         *)
   | Stub of string * calling_convention_t (** Stub (f, args) is the stub of the function f with args as arguments *)
+
 (** type of statements *)
 and stmt =
   | Set  of lval * exp                     (** store the expression into the left value *)
