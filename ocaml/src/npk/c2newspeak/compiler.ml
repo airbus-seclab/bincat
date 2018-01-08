@@ -22,9 +22,9 @@
 *)
 
 let process lexer_name lexbuf =
-  Lexer.init lexer_name lexbuf;
+  NpkLexer.init lexer_name lexbuf;
   Synthack.init_tbls ();
-  try Parser.parse Lexer.token lexbuf
+  try NpkParser.parse NpkLexer.token lexbuf
   with Parsing.Parse_error -> 
     let src_file = "Compiler.parse" in
     let lexeme 	 = Lexing.lexeme lexbuf in

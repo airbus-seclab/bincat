@@ -24,7 +24,7 @@
 *)
 
 
-open Parser
+open NpkParser
 (* TODO : token_tbl redundant with parser => try to remove *)
 let token_tbl = Hashtbl.create 50
 

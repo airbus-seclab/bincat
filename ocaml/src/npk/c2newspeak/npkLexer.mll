@@ -24,7 +24,7 @@
 *)
 
 {
-open Parser
+open NpkParser
 open Lexing
 open Pp_syntax
 
@@ -51,7 +51,7 @@ let unknown_lexeme lexbuf =
   let line = string_of_int pos.pos_lnum in
   let lexeme = Lexing.lexeme lexbuf in
   let err_msg = "line: "^line^", unknown keyword: "^lexeme in
-    Npkcontext.report_error "Lexer.unknown_lexeme" err_msg
+    Npkcontext.report_error "NpkLexer.unknown_lexeme" err_msg
 
 let int_of_hex_character str =
   let str = "0x"^str in
@@ -180,7 +180,7 @@ rule token = parse
   | float               { FLOATCST (value, suffix) }
   | "'" ((('\\'_)|[^'\\''\''])+ as c)
     "'"                 { CHARACTER (character (Lexing.from_string c)) }
-  | wide_character      { Npkcontext.report_error "Lexer.token" 
+  | wide_character      { Npkcontext.report_error "NpkLexer.token" 
 			    "wide characters not supported" }
   | '"' ((('\\'_)|[^'\\''"'])* as str)
     '"'                 { 
@@ -194,7 +194,7 @@ rule token = parse
 	end;
 	STRING (!res) 
     }
-  | wide_string         { Npkcontext.report_error "Lexer.token" 
+  | wide_string         { Npkcontext.report_error "NpkLexer.token" 
 			    "wide string literals not supported" }
 (* punctuation *)
   | "..."               { ELLIPSIS }
@@ -251,7 +251,7 @@ rule token = parse
   | "#" line            { preprocess lexbuf; cnt_line lexbuf; 
 			  token lexbuf }
 
-  | "/*!npk"            { NPK (Parser.assertion npk_spec lexbuf) }
+  | "/*!npk"            { NPK (NpkParser.assertion npk_spec lexbuf) }
   | "/*"                { comment lexbuf }
   | line_comment        { cnt_line lexbuf; token lexbuf }
   | new_line            { cnt_line lexbuf; token lexbuf }

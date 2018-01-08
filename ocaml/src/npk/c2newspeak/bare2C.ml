@@ -55,10 +55,10 @@ let apply_attrs attrs t =
       ([], _) -> t
     | (new_sz::[], T.Int (sign, _)) -> T.Int (sign, new_sz)
     | (_::[], _) -> 
-	Npkcontext.report_error "Parser.apply_attr" 
+	Npkcontext.report_error "NpkParser.apply_attr" 
 	  "wrong type, integer expected"
     | _ -> 
-	Npkcontext.report_error "Parser.apply_attr" 
+	Npkcontext.report_error "NpkParser.apply_attr" 
 	  "more than one attribute not handled yet"
 
 let rec normalize_base_typ t =
@@ -263,14 +263,14 @@ and process_stmtkind loc x =
 	  (T.If (condition, body1, body2), loc)::[]
     | For (init, condition, body, continue) -> 
 	if (init = []) then  begin
-	  Npkcontext.report_warning "Parser.iteration_statement" 
+	  Npkcontext.report_warning "NpkParser.iteration_statement" 
 	    "init statement expected"
 	end else if (continue = []) then begin
-	  Npkcontext.report_warning "Parser.iteration_statement" 
+	  Npkcontext.report_warning "NpkParser.iteration_statement" 
 	    "increment statement expected"
 	end;
 	if (condition = None) then begin
-	  Npkcontext.report_warning "Parser.expression_statement" 
+	  Npkcontext.report_warning "NpkParser.expression_statement" 
 	    "halting condition should be explicit"
 	end;
 	let init = process_blk init in
@@ -302,7 +302,7 @@ and process_stmtkind loc x =
 	let body = process_blk body in
 	  (T.Label lbl, loc)::body
     | Goto lbl -> 
-	Npkcontext.report_accept_warning "Parser.statement" "goto statement"
+	Npkcontext.report_accept_warning "NpkParser.statement" "goto statement"
 	  Npkcontext.ForwardGoto;
 	(T.Goto lbl, loc)::[]
     | UserSpec a -> (T.UserSpec a, loc)::[]
@@ -378,7 +378,7 @@ and process_exp e =
 	let id = gen_tmp_id () in
 	let decl = (T.LocalDecl (id, T.VDecl d), loc) in
 	let e = (T.Exp (T.Var id), loc) in
-	  Npkcontext.report_accept_warning "Parser.cast_expression" 
+	  Npkcontext.report_accept_warning "NpkParser.cast_expression" 
 	    "local composite creation" Npkcontext.DirtySyntax;
 	  T.BlkExp (blk@decl::e::[])
 
@@ -396,7 +396,7 @@ and process_offset_exp o =
 and build_type_decl d =
   let (sdecls, (t, _, _)) = normalize_decl d in
     if (sdecls <> []) then begin 
-      Npkcontext.report_error "Parser.build_type_decl" 
+      Npkcontext.report_error "NpkParser.build_type_decl" 
        "unexpected enum or composite declaration"
     end;
     t
@@ -462,7 +462,7 @@ let process_global (x, loc) =
     | GlbTypedef x -> build_glbtypedef loc x
     | GlbUserSpec x -> (T.GlbUserSpec x, loc)::[]
     | GlbSkip -> 
-	Npkcontext.report_accept_warning "Parser.translation_unit" 
+	Npkcontext.report_accept_warning "NpkParser.translation_unit" 
 	  "unnecessary semicolon" Npkcontext.DirtySyntax;
 	[]
 

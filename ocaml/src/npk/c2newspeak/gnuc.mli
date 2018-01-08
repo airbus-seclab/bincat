@@ -23,7 +23,7 @@
   email: charles.hymans@penjili.org
 *)
 
-val find_token: string -> Parser.token
+val find_token: string -> NpkParser.token
 
 val is_gnuc_token: string -> bool
 

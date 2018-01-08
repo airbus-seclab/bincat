@@ -63,7 +63,7 @@ let build_funparams params types =
     List.map add_param_type params
 
 let report_asm tokens =
-  let loc = "Parser.report_asm" in
+  let loc = "NpkParser.report_asm" in
   let tokens = ListUtils.to_string (fun x -> x) "' '" tokens in
   let msg = "assembly directive '"^tokens^"'" in
     Npkcontext.report_ignore_warning loc msg Npkcontext.Asm
@@ -166,14 +166,14 @@ function_declarator:
 | pointer direct_declarator 
   LPAREN identifier_list RPAREN
   old_parameter_declaration_list           { 
-    Npkcontext.report_accept_warning "Parser.declarator"
+    Npkcontext.report_accept_warning "NpkParser.declarator"
       "deprecated style of function definition" Npkcontext.DirtySyntax;
     ($1, Bare.Function ($2, build_funparams $4 $6))
   }
 | direct_declarator 
   LPAREN identifier_list RPAREN
   old_parameter_declaration_list           { 
-    Npkcontext.report_accept_warning "Parser.declarator"
+    Npkcontext.report_accept_warning "NpkParser.declarator"
       "deprecated style of function definition" Npkcontext.DirtySyntax;
     (0, Bare.Function ($1, build_funparams $3 $5))
   }
@@ -246,7 +246,7 @@ struct_declarator:
   declarator                               { ($1, None) }
 | declarator COLON expression              { ($1, Some $3) }
 | COLON expression                         { 
-    Npkcontext.report_accept_warning "Parser.struct_declarator"
+    Npkcontext.report_accept_warning "NpkParser.struct_declarator"
       "anonymous field declaration in structure" Npkcontext.DirtySyntax;
     ((0, Bare.Abstract), Some $2) 
   }
@@ -265,7 +265,7 @@ old_parameter_declaration:
       match init with
 	  None when attr = [] -> (b, m)
 	| _ -> 
-	    Npkcontext.report_error "Parser.old_parameter_declaration"
+	    Npkcontext.report_error "NpkParser.old_parameter_declaration"
 	      "parameter can not be initialized"
     in
       List.map normalize_param m
@@ -405,7 +405,7 @@ case_list:
 | DEFAULT COLON statement_list case_list   { 
     let (cases, _) = $4 in
       if cases <> [] then begin
-	Npkcontext.report_accept_warning "Parser.case_list" 
+	Npkcontext.report_accept_warning "NpkParser.case_list" 
 	  "switch with default case in intermediary position" 
 	  Npkcontext.DirtySyntax
       end;
@@ -439,7 +439,7 @@ expression:
 | FUNNAME                                  { Bare.FunName }
 | LPAREN expression_sequence RPAREN        { $2 }
 | LPAREN compound_statement RPAREN         { 
-    Npkcontext.report_accept_warning "Parser.relational_expression"
+    Npkcontext.report_accept_warning "NpkParser.relational_expression"
       "block within expression" Npkcontext.DirtySyntax;
     Bare.BlkExp $2
   }
@@ -456,7 +456,7 @@ expression:
 // GNU C
 | BUILTIN_CONSTANT_P 
   LPAREN expression_sequence RPAREN        { 
-     Npkcontext.report_warning "Parser.assignment_expression"
+     Npkcontext.report_warning "NpkParser.assignment_expression"
        "__builtin_constant_p ignored, assuming value 0";
     BareSyntax.exp_of_int 0
   }
@@ -507,7 +507,7 @@ expression:
 // TODO: factor the two rules for QMARK
 | expression QMARK expression_sequence
     COLON expression           %prec QMARK {
-	Npkcontext.report_strict_warning "Parser.expression"
+	Npkcontext.report_strict_warning "NpkParser.expression"
 	  "conditional expression";
       Bare.IfExp ($1, Some $3, $5)
   }
@@ -516,7 +516,7 @@ expression:
 | expression assignment_operator
                    expression     %prec EQ { Bare.Set ($1, $2, $3) }
 | AND IDENTIFIER { Npkcontext.report_warning
-                     "Parser.expression"
+                     "NpkParser.expression"
                      "ignoring address of label, parsing as NULL instead";
                     Bare.Cst (Cir.CInt (Newspeak.Nat.zero), Csyntax.Ptr Csyntax.Void)
                    }
@@ -536,7 +536,7 @@ offsetof_member:
 expression_sequence:
   expression                               { $1 }
 | expression_sequence COMMA expression     { 
-    Npkcontext.report_accept_warning "Parser.expression"
+    Npkcontext.report_accept_warning "NpkParser.expression"
       "comma in expression" Npkcontext.DirtySyntax;
     let loc = get_loc () in
       Bare.BlkExp ((Bare.Exp $1, loc)::(Bare.Exp $3, loc)::[])
@@ -607,7 +607,7 @@ init_list:
   init COMMA init_list                     { (InitAnon, $1)::$3 }
 | init                                     { (InitAnon, $1)::[] }
 |                                          {
-    Npkcontext.report_strict_warning "Parser.init_list"
+    Npkcontext.report_strict_warning "NpkParser.init_list"
       "comma terminated initializer";
   []
   }
@@ -670,17 +670,17 @@ ityp:
 | LONG INT                               { !Conf.size_of_long }
 | LONG LONG INT                          { !Conf.size_of_longlong }
 | SHORT                                  { 
-    Npkcontext.report_strict_warning "Parser.ityp" 
+    Npkcontext.report_strict_warning "NpkParser.ityp" 
       "'short' is not normalized: use 'short int' instead";
     !Conf.size_of_short
   }
 | LONG                                   { 
-    Npkcontext.report_strict_warning "Parser.ityp" 
+    Npkcontext.report_strict_warning "NpkParser.ityp" 
       "'long' is not normalized: use 'long int' instead";
     !Conf.size_of_long
   }
 | LONG LONG                              { 
-    Npkcontext.report_strict_warning "Parser.ityp" 
+    Npkcontext.report_strict_warning "NpkParser.ityp" 
       "'long long' is not standard: use 'long long int' instead";
     !Conf.size_of_longlong
   }
@@ -692,7 +692,7 @@ ityp:
 ident_or_tname:
   IDENTIFIER                             { $1 }
 | TYPEDEF_NAME                           {
-    Npkcontext.report_warning "Parser.ident_or_tname" 
+    Npkcontext.report_warning "NpkParser.ident_or_tname" 
       ("identifier "^$1^" is defined as a type, avoid using it for "
 	^"another purpose");
     $1 
@@ -703,7 +703,7 @@ enum_list:
   enum                                   { $1::[] }
 | enum COMMA enum_list                   { $1::$3 }
 | enum COMMA                             { 
-    Npkcontext.report_strict_warning "Parser.enum_list"   
+    Npkcontext.report_strict_warning "NpkParser.enum_list"   
       "unnecessary comma";  
     $1::[] 
   }
@@ -717,7 +717,7 @@ enum:
 field_blk:
   LBRACE field_list RBRACE               { $2 }
 | LBRACE RBRACE                          { 
-    Npkcontext.report_accept_warning "Parser.field_blk"
+    Npkcontext.report_accept_warning "NpkParser.field_blk"
       "empty struct or union" Npkcontext.DirtySyntax;
     [] 
   }
@@ -735,75 +735,75 @@ type_specifier:
 | ityp                                    { Bare.Integer (Newspeak.Signed, $1) }
 | SIGNED CHAR                             { Bare.Integer (Newspeak.Signed, !Conf.size_of_char) }
 | SIGNED ityp                             {
-    Npkcontext.report_strict_warning "Parser.type_specifier" 
+    Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       "signed specifier not necessary";
     Bare.Integer (Newspeak.Signed, $2)
   }
 | UNSIGNED CHAR                           { Bare.Integer (Newspeak.Unsigned, !Conf.size_of_char) }
 | LONG LONG UNSIGNED INT                  {
-    Npkcontext.report_strict_warning "Parser.type_specifier"
+    Npkcontext.report_strict_warning "NpkParser.type_specifier"
       ("'long long unsigned int' is not normalized : "
       ^"use 'unsigned long long int' instead");
     Bare.Integer (Newspeak.Unsigned, !Conf.size_of_longlong)
   }
 | UNSIGNED ityp                           { Bare.Integer (Newspeak.Unsigned, $2) }
 | UNSIGNED                                { 
-    Npkcontext.report_strict_warning "Parser.type_specifier"
+    Npkcontext.report_strict_warning "NpkParser.type_specifier"
       "unspecified integer kind";
     Bare.Integer (Newspeak.Unsigned, !Conf.size_of_int)
   }
 
 | LONG SIGNED INT                         {
-  Npkcontext.report_strict_warning "Parser.type_specifier" 
+  Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       ("'long signed int' is not normalized: "
        ^"use 'signed long int' instead");
     Bare.Integer (Newspeak.Signed, !Conf.size_of_long)
   }
 
 | LONG SIGNED                             {
-  Npkcontext.report_strict_warning "Parser.type_specifier" 
+  Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       ("'long signed' is not normalized: "
        ^"use 'signed long int' instead");
     Bare.Integer (Newspeak.Signed, !Conf.size_of_long)
   }
 
 | LONG UNSIGNED INT                        {
-  Npkcontext.report_strict_warning "Parser.type_specifier" 
+  Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       ("'long unsigned int' is not normalized: "
        ^"use 'unsigned long int' instead");
     Bare.Integer (Newspeak.Unsigned, !Conf.size_of_long)
   }
 
 | LONG UNSIGNED                            {
-  Npkcontext.report_strict_warning "Parser.type_specifier" 
+  Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       ("'long unsigned' is not normalized: "
        ^"use 'unsigned long int' instead");
     Bare.Integer (Newspeak.Unsigned, !Conf.size_of_long)
   }
 
 | SHORT SIGNED INT                         {
-  Npkcontext.report_strict_warning "Parser.type_specifier" 
+  Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       ("'short signed int' is not normalized: "
        ^"use 'signed short int' instead");
     Bare.Integer (Newspeak.Signed, !Conf.size_of_short)
   }
 
 | SHORT SIGNED                             {
-  Npkcontext.report_strict_warning "Parser.type_specifier" 
+  Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       ("'short signed' is not normalized: "
        ^"use 'signed short int' instead");
     Bare.Integer (Newspeak.Signed, !Conf.size_of_short)
   }
 
 | SHORT UNSIGNED INT                       {
-  Npkcontext.report_strict_warning "Parser.type_specifier" 
+  Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       ("'short unsigned int' is not normalized: "
        ^"use 'unsigned short int' instead");
     Bare.Integer (Newspeak.Unsigned, !Conf.size_of_short)
   }
 
 | SHORT UNSIGNED                           {
-  Npkcontext.report_strict_warning "Parser.type_specifier" 
+  Npkcontext.report_strict_warning "NpkParser.type_specifier" 
       ("'short unsigned' is not normalized: "
        ^"use 'unsigned short int' instead");
     Bare.Integer (Newspeak.Unsigned, !Conf.size_of_short)
@@ -826,7 +826,7 @@ type_specifier:
       expression
     RPAREN                                 { Bare.TypeofExpr $3 }
 | LABEL                                    { Npkcontext.report_warning
-                                               "Parser.type_specifier"
+                                               "NpkParser.type_specifier"
                                                "accepting local label";
                                              Bare.Label
                                            }
@@ -863,7 +863,7 @@ external_declaration:
   RPAREN RPAREN STATIC function_definition { (Bare.FunctionDef (true, $8), get_loc ())::[] }
 | extension_option
   EXTERN function_definition               {
-    Npkcontext.report_ignore_warning "Parser.external_declaration" 
+    Npkcontext.report_ignore_warning "NpkParser.external_declaration" 
       "extern function definition" Npkcontext.ExternFunDef;
     let ((b, m), _) = $3 in
       (Bare.GlbDecl ((false, false), (b, ((m, []), None)::[])), get_loc ())::[]
@@ -898,7 +898,7 @@ type_qualifier:
   CONST                                    { }
 | attribute                                { }
 | VOLATILE                                 { 
-    Npkcontext.report_ignore_warning "Parser.type_qualifier" 
+    Npkcontext.report_ignore_warning "NpkParser.type_qualifier" 
       "type qualifier 'volatile'" Npkcontext.Volatile;
     }
 | AUTO                                     { }
@@ -914,7 +914,7 @@ field_declaration:
   declaration_specifiers
   struct_declarator_list attribute_list    { flatten_field_decl ($1, $2) }
 | declaration_specifiers                   { 
-    Npkcontext.report_accept_warning "Parser.field_declaration"
+    Npkcontext.report_accept_warning "NpkParser.field_declaration"
       "anonymous field declaration in structure" Npkcontext.DirtySyntax;
     flatten_field_decl ($1, ((0, Bare.Abstract), None)::[]) 
   }
@@ -946,16 +946,16 @@ attribute_name:
       | "__artificial__" | "__cold__" | "cold"
           -> ()
       | "dllimport" -> 
-	  Npkcontext.report_warning "Parser.attribute" 
+	  Npkcontext.report_warning "NpkParser.attribute" 
 	    "ignoring attribute dllimport"
       | "packed" | "__packed__" -> 
-	  Npkcontext.report_ignore_warning "Parser.attribute_name" 
+	  Npkcontext.report_ignore_warning "NpkParser.attribute_name" 
 	    "packed attribute" Npkcontext.Pack
       | "__transparent_union__" -> 
-	  Npkcontext.report_accept_warning "Parser.attribute_name" 
+	  Npkcontext.report_accept_warning "NpkParser.attribute_name" 
 	    "transparent union" Npkcontext.TransparentUnion
       | "weak" | "__weak__" ->
-	  Npkcontext.report_warning "Parser.attribute" 
+	  Npkcontext.report_warning "NpkParser.attribute" 
 	    "ignoring attribute weak"
       | _ -> raise Parsing.Parse_error
     end;
@@ -965,7 +965,7 @@ attribute_name:
   match $1 with
   | "alias" ->
       begin
-        Npkcontext.report_warning "Parser.attribute"
+        Npkcontext.report_warning "NpkParser.attribute"
         ("ignoring attribute alias");
         []
       end
@@ -981,7 +981,7 @@ attribute_name:
     match ($1, $3) with
 	(("__format_arg__" | "aligned" | "__regparm__" | "regparm"), _::[]) -> []
       | (("packed" | "__packed__"), _::[]) -> 
-	  Npkcontext.report_ignore_warning "Parser.attribute_name" 
+	  Npkcontext.report_ignore_warning "NpkParser.attribute_name" 
 	    "packed attribute" Npkcontext.Pack;
 	  []
       | (("__nonnull__" | "__nonnull"), _) -> []

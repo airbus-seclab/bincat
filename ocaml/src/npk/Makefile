@@ -38,10 +38,10 @@ ML=\
   c2newspeak/bare2C.ml\
   c2newspeak/csyntax2TypedC.ml\
   c2newspeak/preprocess.ml\
-  c2newspeak/parser.ml\
+  c2newspeak/npkParser.ml\
   c2newspeak/pp_parser.ml\
   c2newspeak/pp_lexer.ml\
-  c2newspeak/lexer.ml\
+  c2newspeak/npkLexer.ml\
   c2newspeak/compiler.ml\
   c2newspeak/pp_syntax.ml\
   c2newspeak/params.ml
@@ -50,7 +50,7 @@ MLI=\
   utils/standardApplication.mli\
   utils/strSet.mli\
   utils/listUtils.mli\
-  c2newspeak/parser.mli\
+  c2newspeak/npkParser.mli\
   c2newspeak/synthack.mli\
   c2newspeak/bare2C.mli\
   c2newspeak/csyntax.mli\
@@ -58,7 +58,6 @@ MLI=\
   c2newspeak/bareSyntax.mli\
   c2newspeak/pp_parser.mli\
   c2newspeak/compiler.mli\
-  c2newspeak/parser.mli\
   c2newspeak/gnuc.mli\
   c2newspeak/typedC.mli\
   c2newspeak/gotoElimination.mli\
@@ -163,7 +162,8 @@ clean:
 	rm -f disassembly/*.so
 	rm -f newspeak.{a,cma,cmxa} c2newspeak.{opt,byte}
 	rm -f armv8A_ppx
-	rm -f c2newspeak/{,pp_,abi}{lexer,parser}.{ml,mli,output}
+	rm -f c2newspeak/{pp_,abi}{lexer,parser}.{ml,mli,output}
+	rm -f c2newspeak/npk{Lexer,Parser}.{ml,mli,output}
 	rm -f newspeak/{,abi}{lexer,parser}.{ml,mli,output}
 
 
