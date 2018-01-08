@@ -68,9 +68,22 @@ DEPS-armv8A := armv8A_ppx
 OPTS-armv8A :=  -ppx ./armv8A_ppx -warn-error -26-27
 OPTS-elf_core := -w -44
 OPTS-elf := -w -44
+DEPS-config := npk/c2newspeak/typedC.cmi
+OPTS-config := -I npk/c2newspeak
+DEPS-types := npk/c2newspeak/typedC.cmi
+OPTS-types := -I npk/c2newspeak
+DEPS-rules := npk/c2newspeak/typedC.cmi
+OPTS-rules := -I npk/c2newspeak
+DEPS-parser := npk/c2newspeak/typedC.cmi
+OPTS-parser := -I npk/c2newspeak
+DEPS-x86 := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
+OPTS-x86 := -I npk/c2newspeak -I npk/newspeak
+DEPS-reduced_unrel_typenv := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
+OPTS-reduced_unrel_typenv := -I npk/c2newspeak -I npk/newspeak
 
-EXTLIB := unix graph zarith newspeak bigarray newspeak 
-PACKAGES := ocamlgraph zarith newspeak
+
+EXTLIB := unix graph zarith bigarray
+PACKAGES := ocamlgraph zarith
 
 EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
 LIBINCL = $(EXTLIBINCL) -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders -I fixpoint
@@ -90,6 +103,7 @@ EXEBYTE=bincat.byte
 ifeq ($(BYTECODE), 1)
     CAMLCOMPIL = $(CAMLC)
     OBJ = $(ML:.ml=.cmo)
+    NPKLIB:=npk/newspeak.cma
     EXTLIB:=$(EXTLIB:=.cma)
     EXENAME=$(EXEBYTE)
     BINCATOBJ = bincat.cmo
@@ -97,6 +111,7 @@ ifeq ($(BYTECODE), 1)
 else
     CAMLCOMPIL = $(CAMLOPT)
     OBJ = $(ML:.ml=.cmx)
+    NPKLIB:=npk/newspeak.cmxa
     EXTLIB:=nums str $(EXTLIB)
     EXTLIB:=$(EXTLIB:=.cmxa)
     EXENAME=$(EXEOPT)
@@ -133,16 +148,28 @@ all: $(LIBNAME) $(EXENAME)
 armv8A_ppx: disassembly/armv8A_ppx.ml
 	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I +ppx_tools -I +compiler-libs -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
 
-$(LIBNAME): $(OBJ) 
+$(LIBNAME): $(NPKLIB) $(OBJ)
 	rm -f $(BINCATOBJ)
 	$(CAMLCOMPIL) $(SHARED) $(CFLAGS) $(EXTLIBINCL) $(EXTLIB) $+ -o $@
 
-$(EXENAME): $(OBJ) $(BINCATOBJ)
+$(EXENAME): $(NPKLIB) $(OBJ) $(BINCATOBJ)
 	$(CAMLCOMPIL) $(CFLAGS) $(EXTLIBINCL) $(EXTLIB) $+ -o $@
 
 bincat_ver.ml: update_gitver
 	[ -f $@ ] || touch $@
 	grep -q $(GITVERSION) bincat_ver.ml || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
+
+
+# dependencies on newspeak
+$(NPKLIB):
+	$(MAKE) -C npk/ BYTECODE=$(BYTECODE)
+
+npk/c2newspeak/typedC.cmi:
+	$(MAKE) -C npk/ BYTECODE=$(BYTECODE)
+
+npk/newspeak/newspeak.cmi:
+	$(MAKE) -C npk/ BYTECODE=$(BYTECODE)
+
 
 
 .SECONDEXPANSION:
@@ -165,6 +192,7 @@ bincat_ver.ml: update_gitver
 
 
 clean:
+	-$(MAKE) -C npk clean
 	-rm -f .depend
 	-rm -f `find . -name "*.cm[ixo]"`
 	-rm -f `find . -name  "*.o"`
