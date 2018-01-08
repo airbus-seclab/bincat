@@ -1292,7 +1292,7 @@ let translate prog =
     declare_global d.is_extern x d.name d.t d.initialization
   in
 
-  let add_glbdecl name (t, loc, storage) =
+  let _add_glbdecl name (t, loc, storage) =
     Npkcontext.set_loc loc;
     try	Hashtbl.add glbdecls name (translate_typ t, loc, storage)
     with _ -> 
