@@ -144,7 +144,7 @@ module Address: sig
   val size_extension: t -> int -> t
 
   (** returns a fresh heap region of the given size (in bits) *)
-  val new_heap_region: int -> region
+  val new_heap_region: Z.t -> region
     
   (** set of addresses *)
   module Set: (Set.S with type elt = t)
