@@ -1,0 +1,176 @@
+SHELL=/bin/bash
+GITVERSION:=$(shell git describe --dirty)
+
+LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
+BINDIR=$(DESTDIR)/$(PREFIX)/bin/
+
+CPPO_VER=-V OCAML:$(shell ocamlc -vnum)
+CPPO="cppo $(CPPO_VER)"
+CAMLLIBDIR:=$(shell ocamlc -where)
+
+
+ML=\
+  version.ml\
+  utils/standardApplication.ml\
+  utils/listUtils.ml\
+  utils/strSet.ml\
+  newspeak/conf.ml\
+  newspeak/eBigInt.ml\
+  newspeak/temps.ml\
+  newspeak/newspeak.ml\
+  newspeak/npkcontext.ml\
+  newspeak/lowspeak.ml\
+  newspeak/npkil.ml\
+  newspeak/abilexer.ml\
+  newspeak/npk2lpk.ml\
+  newspeak/linker.ml\
+  newspeak/cir.ml\
+  newspeak/cir2npkil.ml\
+  newspeak/abiparser.ml\
+  newspeak/x2newspeak.ml\
+  c2newspeak/typedC.ml\
+  c2newspeak/gnuc.ml\
+  c2newspeak/bareSyntax.ml\
+  c2newspeak/csyntax.ml\
+  c2newspeak/gotoElimination.ml\
+  c2newspeak/typedC2Cir.ml\
+  c2newspeak/synthack.ml\
+  c2newspeak/bare2C.ml\
+  c2newspeak/csyntax2TypedC.ml\
+  c2newspeak/preprocess.ml\
+  c2newspeak/parser.ml\
+  c2newspeak/pp_parser.ml\
+  c2newspeak/pp_lexer.ml\
+  c2newspeak/lexer.ml\
+  c2newspeak/compiler.ml\
+  c2newspeak/pp_syntax.ml\
+  c2newspeak/params.ml
+
+MLI=\
+  utils/standardApplication.mli\
+  utils/strSet.mli\
+  utils/listUtils.mli\
+  c2newspeak/parser.mli\
+  c2newspeak/synthack.mli\
+  c2newspeak/bare2C.mli\
+  c2newspeak/csyntax.mli\
+  c2newspeak/params.mli\
+  c2newspeak/bareSyntax.mli\
+  c2newspeak/pp_parser.mli\
+  c2newspeak/compiler.mli\
+  c2newspeak/parser.mli\
+  c2newspeak/gnuc.mli\
+  c2newspeak/typedC.mli\
+  c2newspeak/gotoElimination.mli\
+  c2newspeak/csyntax2TypedC.mli\
+  c2newspeak/typedC2Cir.mli\
+  c2newspeak/pp_syntax.mli\
+  newspeak/npkcontext.mli\
+  newspeak/cir2npkil.mli\
+  newspeak/temps.mli\
+  newspeak/newspeak.mli\
+  newspeak/conf.mli\
+  newspeak/lowspeak.mli\
+  newspeak/x2newspeak.mli\
+  newspeak/eBigInt.mli\
+  newspeak/npkil.mli\
+  newspeak/linker.mli\
+  newspeak/npk2lpk.mli\
+  newspeak/cir.mli\
+  newspeak/abiparser.mli\
+  version.mli
+
+
+EXTLIB := unix graph zarith bigarray
+PACKAGES := ocamlgraph zarith
+
+EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
+LIBINCL = $(EXTLIBINCL) -I utils -I newspeak -I c2newspeak
+
+
+CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58-26
+
+CAMLC   =ocamlc
+CAMLOPT =ocamlopt
+CAMLLEX =ocamllex
+MENHIR  =menhir --explain
+CAMLDEP =ocamldep
+CAMLDOC =ocamldoc
+
+
+ifeq ($(BYTECODE), 1)
+    CAMLCOMPIL = $(CAMLC)
+    OBJ = $(ML:.ml=.cmo)
+    EXTLIB:=$(EXTLIB:=.cma)
+    EXENAME=c2newspeak.byte
+    LIBNAME=newspeak.cma
+    CAMLDEPOPT =
+else
+    CAMLCOMPIL = $(CAMLOPT)
+    OBJ = $(ML:.ml=.cmx)
+    EXTLIB:=nums str $(EXTLIB)
+    EXTLIB:=$(EXTLIB:=.cmxa)
+    EXENAME=c2newspeak.opt
+    LIBNAME=newspeak.cmxa
+    CAMLDEPOPT = -native
+endif
+
+
+CFLAGS=
+
+all: $(LIBNAME) $(EXENAME)
+
+
+$(LIBNAME): $(OBJ)
+	$(CAMLCOMPIL) $(CFLAGS) $(EXTLIBINCL) $+ -a -o $@
+
+$(EXENAME): $(LIBNAME) c2newspeak/c2newspeak.cmx
+	$(CAMLCOMPIL) $(CFLAGS) $(EXTLIBINCL) $(EXTLIB) $+ -o $@
+
+
+
+
+
+.SECONDEXPANSION:
+
+%.cmi: %.mli $$(DEPS-$$(*F))
+	$(CAMLCOMPIL) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.mli
+
+%.cmx: %.ml $$(DEPS-$$(*F))
+	$(CAMLOPT) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.ml
+
+%.cmo: %.ml $$(DEPS-$$(*F))
+	$(CAMLC) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.ml
+
+
+%.ml: %.mll
+	$(CAMLLEX) $*.mll
+
+%.ml %.mli: %.mly
+	$(MENHIR) $*.mly
+
+
+clean:
+	rm -f .depend
+	rm -f `find . -name "*.cm[ixo]"`
+	rm -f `find . -name  "*.o"`
+	rm -f `find . -name "*~"`
+	rm -f ocamldoc.sty ocamldoc.out
+	rm -f disassembly/*.so
+	rm -f newspeak.{a,cma,cmxa} c2newspeak.{opt,byte}
+	rm -f armv8A_ppx
+	rm -f c2newspeak/{,pp_,abi}{lexer,parser}.{ml,mli,output}
+	rm -f newspeak/{,abi}{lexer,parser}.{ml,mli,output}
+
+
+
+install: $(EXENAME)
+	install $(EXENAME) $(BINDIR)
+
+.depend: $(ML) $(MLI)
+	rm -f .depend
+	-$(CAMLDEP) $(LIBINCL) -slash $(CAMLDEPOPT) $+ > .depend
+
+.PHONY: depend all clean install
+
+include .depend
