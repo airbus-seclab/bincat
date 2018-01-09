@@ -1362,7 +1362,7 @@ struct
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
         let dst_msb = msb_stmts ldst sz in
-        let cf_stmt = 
+        let cf_stmt =
           let c = Cmp (LT, sz', n_masked) in
           let aexp = Cmp (EQ, one_sz, BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one8))))) in
             If (c,
@@ -2325,7 +2325,7 @@ struct
             (* long nop *)
             | '\x1F' -> let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
             (* CMOVcc *)
-            | '\x31' (* RDTSC *) ->  return s [ Directive (Forget (V (T edx))); Directive (Forget (V (T eax)))]                                                               
+            | '\x31' (* RDTSC *) ->  return s [ Directive (Forget (V (T edx))); Directive (Forget (V (T eax)))]
             | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
 
             | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
