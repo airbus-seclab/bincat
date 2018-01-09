@@ -970,7 +970,23 @@ module Make(D: T) =
       | _, _ -> BOT
 
 
-    let strip str = String.sub str 3 (String.length str - 3)
+    (* Remove the prefix of the string, if needed
+     * For example : "S0x1F" => "1F" or "0b1" => "1" or "1" => "1"
+     *
+     *)
+    let strip str =
+      L.debug (fun p->p "strip, before: %s" str);
+      let res = if String.length str < 3 then str else
+          let fst_chr = String.get str 0 in
+          let skip = if fst_chr = 'G' || fst_chr = 'S' || fst_chr = 'H' then 1 else 0 in
+          let prefix = String.sub str skip 2 in
+          if String.compare prefix "0x" = 0 || String.compare prefix "0b" = 0 then
+            String.sub str (skip+2) (String.length str - (skip+2))
+          else
+            String.sub str skip (String.length str - skip)
+      in
+      L.debug (fun p->p "strip, after: %s" res);
+      res
 
     let copy_until m dst e terminator term_sz upper_bound with_exception pad_options: int * t =
       match m with
