@@ -33,8 +33,6 @@ open Npkil
 
 module Nat = Newspeak.Nat
 
-module StrSet = Set.Make(String)
-
 module N = Newspeak
 
 exception GenerateTmpNatExn

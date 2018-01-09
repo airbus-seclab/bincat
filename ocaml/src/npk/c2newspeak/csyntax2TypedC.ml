@@ -27,7 +27,6 @@
 *)
 
 open Csyntax
-module Nat = Newspeak.Nat
 module C = TypedC
 
 (* range a b = [a;a+1;..b-1;b] *)

@@ -143,9 +143,6 @@ let zero_f = Const (N.CFloat (0., "0."))
 
 let make_int_coerce t e = UnOp (Coerce (Newspeak.domain_of_typ t), e)
 
-module Int_map = 
-  Map.Make (struct type t = int let compare = Pervasives.compare end)
-
 let rec seq sep f l =
   match l with
     | [] -> ""
