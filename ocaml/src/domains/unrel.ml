@@ -748,16 +748,6 @@ module Make(D: T) =
       match t with
       | Config.Taint (z, _) | Config.TMask (z, _, _) -> round_sz (Z.numbits z)
       | Config.TBytes (b, _) | Config.TBytes_Mask (b, _, _) -> (String.length b)*4
-<<<<<<< HEAD
-      | Config.Taint_all _ -> 0
-
-		 
-         
-    (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, taint) sz: (D.t * Taint.t) * (Taint.Src.id_t option) =
-      let v' = D.of_config region content sz in
-      let extract_src_id taint =
-=======
       | Config.Taint_all _ | Config.Taint_none -> 0
 
     let size_of_taints (taints: Config.tvalue list): int =
@@ -771,7 +761,6 @@ module Make(D: T) =
 
     let extract_taint_src_ids taint =
       let extract acc taint =
->>>>>>> master
         match taint with
         | Config.Taint_all id
         | Config.Taint (_, id) 
