@@ -611,20 +611,20 @@ struct
           L.info (fun p -> p "End of dump");
         end;
 
-      let heap_fun_region nb rule =
+      let heap_fun_region ip nb rule =
         let content_sz =
           match fst rule with
           | Some c -> Config.size_of_content c
           | None -> 0
         in
-        Data.Address.new_heap_region (nb*content_sz)
+        Data.Address.get_heap_region ip (nb*content_sz)
       in
       List.iter (fun (tbl, fregion) ->
         Hashtbl.iter (fun z rules ->
             let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
             let rules' =
               List.map (fun ((addr, nb), rule) ->
-                let region = fregion nb rule in
+                let region = fregion ip nb rule in
                   L.analysis (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
                   Init_check.check_mem rule;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
