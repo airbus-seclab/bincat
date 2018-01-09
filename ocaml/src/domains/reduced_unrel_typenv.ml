@@ -95,10 +95,16 @@ module Make(D: Unrel.T) =
     let uenv', b = U.set lv e uenv in
     try
       let typ = type_of_exp tenv uenv e in
-      let _, tenv' = set_type lv typ (uenv, tenv) in
+      let _, tenv' = set_type lv typ (uenv', tenv) in
       (uenv', tenv'), b
     with _ -> set_type lv Types.UNKNOWN (uenv', tenv), b
 
+  let set_lval_to_addr (lv: Asm.lval) (a: Data.Address.t) (sz: int) ((uenv, tenv): t): t*Taint.t =
+    let uenv', b = U.set_lval_to_addr lv a sz uenv in
+    try
+      let _, tenv' = set_type lv (Types.TypedC.Ptr (T.of_key (Env.Key.Reg r))) uenv' 
+    with _ -> set_type lv (Types.TypedC.Ptr Types.UNKNOWN) (uenv', tenv), b
+      
   let char_type uenv tenv dst =
      let typ = Types.T (TypedC.Int (Newspeak.Signed, 8)) in
      try
