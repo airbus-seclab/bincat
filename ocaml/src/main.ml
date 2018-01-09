@@ -101,7 +101,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
-        let d, taint = Interpreter.Cfa.update_abstract_value prev_s.Interpreter.Cfa.State.v in
+        let d, taint = Interpreter.Cfa.update_abstract_value ep' prev_s.Interpreter.Cfa.State.v in
         prev_s.Interpreter.Cfa.State.back_v <- Some (Domain.meet prev_s.Interpreter.Cfa.State.v d);
         prev_s.Interpreter.Cfa.State.back_taint_sources <- Some taint;
         fixpoint orig_cfa prev_s dump
