@@ -861,7 +861,6 @@ module Make(D: T) =
            List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
                Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
            Val m', taint
->>>>>>> master
       else
         domain, Taint.U
 
