@@ -655,7 +655,7 @@ object
 
   method process_exp e =
     match e with
-        (* Coerce [a;b] Coerce [c;d] e 
+        (* Coerce [a;b] Coerce [c;d] e
            -> Coerce [c;d] if [a;b] contains [c;d] *)
       | UnOp (Coerce r1, UnOp (Coerce r2, e)) when contains r1 r2 -> 
           UnOp (Coerce r2, e)
@@ -767,7 +767,8 @@ object
 (* This rule is incorrect when body is blocking !!!
         (Select (body, []), _)::tl | (Select ([], body), _)::tl -> 
           (self#process_blk body)@tl*)
-        (Select (body, (Guard Const CInt i, _)::_), _)::tl
+      | (Select (body, (Guard Const CInt i, _)::_), _)::tl
+          when Nat.compare i Nat.zero = 0 -> body@tl
       | (Select ((Guard Const CInt i, _)::_, body), _)::tl
           when Nat.compare i Nat.zero = 0 -> body@tl
       | (Guard Const CInt i, _)::tl when Nat.compare i Nat.one = 0 -> tl

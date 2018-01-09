@@ -652,7 +652,8 @@ object
 (* This rule is incorrect when body is blocking !!!
         (Select (body, []), _)::tl | (Select ([], body), _)::tl -> 
           (self#process_blk body)@tl*)
-        (Select (body, (Guard Const N.CInt i, _)::_), _)::tl
+      |  (Select (body, (Guard Const N.CInt i, _)::_), _)::tl
+          when N.Nat.compare i N.Nat.zero = 0 -> body@tl
       | (Select ((Guard Const N.CInt i, _)::_, body), _)::tl
           when N.Nat.compare i N.Nat.zero = 0 -> body@tl
       | (Guard Const N.CInt i, _)::tl when N.Nat.compare i N.Nat.one = 0 -> tl
