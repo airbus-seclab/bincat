@@ -72,7 +72,7 @@ module Address: sig
   type region =
     | Global (** abstract base address of global variables and code *)
     | Stack (** abstract base address of the stack *)
-    | Heap of int * Z.t (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
+    | Heap of int * int (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
 	
 	
   (** char conversion of a region *)
@@ -144,7 +144,7 @@ module Address: sig
   val size_extension: t -> int -> t
 
   (** returns a fresh heap region of the given size (in bits) *)
-  val new_heap_region: Z.t -> region
+  val new_heap_region: int -> region
     
   (** set of addresses *)
   module Set: (Set.S with type elt = t)

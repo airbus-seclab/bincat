@@ -611,11 +611,20 @@ struct
           L.info (fun p -> p "End of dump");
         end;
 
-    List.iter (fun (tbl, region) ->
+      let heap_fun_region nb rule =
+        let content_sz =
+          match fst rule with
+          | Some c -> Config.size_of_content c
+          | None -> 0
+        in
+        Data.Address.new_heap_region (nb*content_sz)
+      in
+      List.iter (fun (tbl, fregion) ->
         Hashtbl.iter (fun z rules ->
             let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
             let rules' =
-                List.map (fun ((addr, nb), rule) ->
+              List.map (fun ((addr, nb), rule) ->
+                let region = fregion nb rule in
                   L.analysis (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
                   Init_check.check_mem rule;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
@@ -628,8 +637,9 @@ struct
             hash_add_or_append overrides ip rules'
 
         ) tbl)
-        [(Config.mem_override, Data.Address.Global) ;
-         (Config.stack_override, Data.Address.Stack) ; (Config.heap_override, Data.Address.Heap)];
+        [(Config.mem_override, (fun _ _ -> Data.Address.Global)) ;
+         (Config.stack_override, (fun _ _ -> Data.Address.Stack)); (Config.heap_override, heap_fun_region)];
+    
       while !continue do
         (* a waiting node is randomly chosen to be explored *)
         let v = Vertices.choose !waiting in

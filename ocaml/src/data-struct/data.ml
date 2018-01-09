@@ -103,7 +103,7 @@ struct
         type region =
           | Global 
           | Stack 
-          | Heap of int * Z.t (* first int is the id ; second ont is the size in bits *)
+          | Heap of int * int (* first int is the id ; second ont is the size in bits *)
 
         let heap_id = ref 0
 
