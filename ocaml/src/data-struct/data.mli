@@ -72,15 +72,8 @@ module Address: sig
   type region =
     | Global (** abstract base address of global variables and code *)
     | Stack (** abstract base address of the stack *)
-<<<<<<< HEAD
     | Heap of int * int (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
-	
-	
-=======
-    | Heap (** abstract base address of a dynamically allocated memory block *)
 
-
->>>>>>> master
   (** char conversion of a region *)
   val char_of_region: region -> char
 
