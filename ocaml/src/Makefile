@@ -154,7 +154,7 @@ all: $(LIBNAME) $(EXENAME)
 endif
 
 armv8A_ppx: disassembly/armv8A_ppx.ml
-	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I +ppx_tools -I +compiler-libs -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
+	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I +compiler-libs -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
 
 $(LIBNAME): $(NPKLIB) $(OBJ)
 	rm -f $(BINCATOBJ)
