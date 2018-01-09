@@ -441,7 +441,7 @@ let sibling_elimination stmts lbl g_offset vdecls =
   let backward_wrap stmt l stmts =
     try
       let e, before, blk', after = b_delete_goto ((stmt,l)::stmts) in
-      let l' = try snd (List.hd (List.rev blk')) with Failure "hd" -> l in
+      let l' = try snd (List.hd (List.rev blk')) with Failure _ -> l in
       let blk', after' = 
 	avoid_break_continue_capture blk' l l' g_offset vdecls 
       in
@@ -720,12 +720,12 @@ let outward stmts lbl g_level g_offset =
 	      
 let rec if_else_in lbl l e before cond if_blk else_blk g_offset g_loc =
   let lbl' = Var (fresh_lbl lbl) in
-  let lb = try snd (List.hd before) with Failure "hd" -> l in
+  let lb = try snd (List.hd before) with Failure _ -> l in
   let set = if cond_equal lbl' e then [] else [Exp (Set (lbl', None, e)), lb] in
     if search_lbl if_blk lbl then 
       begin
 	let cond = Csyntax.and_bexp (normalize_bexp lbl') cond in
-	let l' = try snd (List.hd if_blk) with Failure "hd" -> l in
+	let l' = try snd (List.hd if_blk) with Failure _ -> l in
 	let g_lbl = goto_lbl lbl g_offset in
 	let if' = If (lbl', [Goto g_lbl, g_loc], []) in
 	let if_blk' = (if', l')::if_blk in
@@ -741,7 +741,7 @@ let rec if_else_in lbl l e before cond if_blk else_blk g_offset g_loc =
     else 
       begin
 	let cond = Csyntax.and_bexp (normalize_bexp (Unop(Not, lbl'))) cond in
-	let l' = try snd (List.hd else_blk) with Failure "hd" -> l in
+	let l' = try snd (List.hd else_blk) with Failure _ -> l in
 	let g_lbl = goto_lbl lbl g_offset in
 	let if' = If (lbl', [Goto g_lbl, g_loc], []) in
 	let else_blk' = (if', l')::else_blk in
@@ -775,7 +775,7 @@ and loop_in lbl l e before cond blk g_offset g_loc b =
 
 	    | _ -> (stmt, l)::(search_and_add stmts)
   in
-  let lb = try snd (List.hd before) with Failure "hd" -> l in
+  let lb = try snd (List.hd before) with Failure _ -> l in
   let set = 
     if cond_equal lbl' e then [] else [Exp (Set (lbl', None, e)), lb] 
   in
@@ -786,7 +786,7 @@ and loop_in lbl l e before cond blk g_offset g_loc b =
   let g_lbl = goto_lbl lbl g_offset in
   let if' = If(lbl', [Goto g_lbl, g_loc], []) in
   let blk' = search_and_add blk in
-  let l' = try snd (List.hd blk') with Failure "hd" -> l in
+  let l' = try snd (List.hd blk') with Failure _ -> l in
   let blk' = (if', l')::blk' in
   let blk' = inward lbl g_offset g_loc blk' in
   let decls, before = extract_decls before in
@@ -819,10 +819,10 @@ and cswitch_in lbl l e before cond cases default g_offset g_loc =
   in
   let declr = LocalDecl (tswitch, VDecl d) in
   let tswitch = Var tswitch in
-  let lb = try snd (List.hd before) with Failure "hd" -> l in
+  let lb = try snd (List.hd before) with Failure _ -> l in
   let set = if cond_equal lbl' e then [] else [Exp (Set (lbl', None, e)), lb] in
   let set_if = Exp (Set(tswitch, None, cond)) in
-  let last = try (snd (List.hd (List.rev before))) with Failure "hd" -> l in
+  let last = try (snd (List.hd (List.rev before))) with Failure _ -> l in
   let before' = before @ [set_if, last] in
   let decls, before' = extract_decls before' in
   let g_lbl = goto_lbl lbl g_offset in
@@ -862,7 +862,7 @@ and cswitch_in lbl l e before cond cases default g_offset g_loc =
 	    set @ decls @ [(declr, lb) ; (if', lb) ; (switch', l)]
 
 and block_in lbl l e before blk g_offset g_loc =
-  let lb = try snd (List.hd before) with Failure "hd" -> l in
+  let lb = try snd (List.hd before) with Failure _ -> l in
   let blk' = (If(e, [Goto (goto_lbl lbl g_offset), g_loc], []), lb)::blk in
   let blk' = inward lbl g_offset g_loc blk' in
   let lbl' =  Var (fresh_lbl lbl) in
@@ -965,7 +965,7 @@ let lifting_and_inward stmts lbl l_level g_level g_offset g_loc vdecls =
 		  let g_lbl = goto_lbl lbl g_offset in
 		  let lbl' = Var (fresh_lbl lbl) in
 		  let if' = If(lbl', [Goto g_lbl, g_loc], []) in
-		  let l_set = try snd (List.hd (List.rev blk)) with Failure "hd" -> l in
+		  let l_set = try snd (List.hd (List.rev blk)) with Failure _ -> l in
 		  let set = if cond_equal lbl' e then [] else [Exp (Set (lbl', None, e)), l_set] in
 		  let blk', after' = avoid_break_continue_capture blk l l_set g_offset vdecls in
 		  let blk' = [(if', l) ; (stmt, l)] @ blk' @ set in
@@ -1207,7 +1207,7 @@ let renaming_block_variables stmts =
   in
   let pop_block () = 
     try stack := List.tl !stack
-    with Failure "tl" -> 
+    with Failure _ ->
       invalid_arg "Goto_elimination.pop_block: the stack is empty"
   in
   let rec explore stmts =

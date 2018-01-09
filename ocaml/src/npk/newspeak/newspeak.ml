@@ -630,8 +630,8 @@ let read name =
                        " Operation aborted.")
         end;
         Marshal.from_channel cin
-  with Failure "input_value: bad object" -> 
-    invalid_arg ("Newspeak.read: "^name^" is not an .npk file")
+  with Failure _error ->
+    invalid_arg ("Newspeak.read: "^name^" could not be read")
 
 class builder =
 object

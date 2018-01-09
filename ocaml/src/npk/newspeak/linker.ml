@@ -37,6 +37,8 @@ module StrSet = Set.Make(String)
 
 module N = Newspeak
 
+exception GenerateTmpNatExn
+
 (*--------------*)
 (* Linking time *)
 (*--------------*)
@@ -113,7 +115,7 @@ and generate_exp e =
         try 
 	  generate_addr_of lv (Nat.to_int (generate_tmp_nat sz))
         with 
-	    Failure "generate_tmp_nat" -> N.AddrOf (generate_lv lv)
+	    GenerateTmpNatExn -> N.AddrOf (generate_lv lv)
       end
     | UnOp (o, e) -> N.UnOp (generate_unop o, generate_exp e)
     | BinOp (o, e1, e2) -> N.BinOp (o, generate_exp e1, generate_exp e2)
@@ -135,7 +137,7 @@ and generate_unop o =
 
 and generate_tmp_nat x =
   match x with
-      Unknown -> raise (Failure "generate_tmp_nat")
+      Unknown -> raise GenerateTmpNatExn
     | Known i -> i
     | Length name -> begin
         match get_glob_typ name with

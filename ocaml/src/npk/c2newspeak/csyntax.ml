@@ -243,7 +243,7 @@ let char_cst_of_lexeme x = (Cir.CInt (N.Nat.of_int x), char_typ ())
 let float_cst_of_lexeme (value, suffix) =
   let f = 
     try float_of_string value 
-    with Failure "float_of_string" -> 
+    with Failure _->
       Npkcontext.report_error "Csyntax.float_cst_of_lexeme" 
 	"float not representable"
   in
