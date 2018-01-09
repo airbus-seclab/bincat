@@ -86,6 +86,7 @@ class NpkGen(object):
         res = re.sub(r"__attribute__.*? ", " ", res)
 
         res = res.replace("$", "D_")
+        res = res.replace("::", "__")
 
         return res
 
