@@ -96,7 +96,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     let from_cfa fixpoint =
       let orig_cfa = Interpreter.Cfa.unmarshal !Config.in_mcfa_file in
       let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-      let d, taint = Interpreter.Cfa.init_abstract_value () in
+      let d, taint = Interpreter.Cfa.init_abstract_value ep' in
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
         prev_s.Interpreter.Cfa.State.v <- Domain.meet prev_s.Interpreter.Cfa.State.v d;
