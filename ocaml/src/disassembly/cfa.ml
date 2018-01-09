@@ -115,7 +115,7 @@ sig
   val unmarshal: string -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
-  val init_abstract_value: unit -> domain * Taint.t
+  val init_abstract_value: Data.Address.t -> domain * Taint.t
 end
 
 (** the control flow automaton functor *)
@@ -218,20 +218,20 @@ struct
       | Some c' -> Config.size_of_content c'
       | None -> 0
          
-    let init_heap domain content_list =
+    let init_heap ip domain content_list =
       (* TODO: factorize with init_mem *)
       List.fold_left (fun (domain, prev_taint) entry ->
         let addr, nb = fst entry in
         let content = snd entry in
         let content_size = get_content_size (fst content) in
-        let heap_region = Data.Address.new_heap_region (nb*content_size) in
+        let heap_region = Data.Address.new_heap_region ip (nb*content_size) in
         let addr' = Data.Address.of_int heap_region addr !Config.address_sz in
         let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
         d', Taint.logor prev_taint taint'
       ) (domain, Taint.U) (List.rev content_list)
   
       
-  let init_abstract_value () =
+  let init_abstract_value ip =
     let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
 	(* initialisation of Global memory + registers *)
     let d', taint1 = init_registers d in
@@ -239,13 +239,13 @@ struct
 	(* init of the Stack memory *)
 	let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
 	(* init of the Heap memory *)
-	let d', taint4 = init_heap d' !Config.heap_content in
+	let d', taint4 = init_heap ip d' !Config.heap_content in
     d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
   let init_state (ip: Data.Address.t): State.t =
-	let d', _taint = init_abstract_value () in
+	let d', _taint = init_abstract_value ip in
 	{
 	  id = 0;
 	  ip = ip;
