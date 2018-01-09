@@ -637,8 +637,8 @@ struct
             hash_add_or_append overrides ip rules'
 
         ) tbl)
-        [(Config.mem_override, (fun _ _ -> Data.Address.Global)) ;
-         (Config.stack_override, (fun _ _ -> Data.Address.Stack)); (Config.heap_override, heap_fun_region)];
+        [(Config.mem_override, (fun _ _ _ -> Data.Address.Global)) ;
+         (Config.stack_override, (fun _ _ _ -> Data.Address.Stack)); (Config.heap_override, heap_fun_region)];
     
       while !continue do
         (* a waiting node is randomly chosen to be explored *)
