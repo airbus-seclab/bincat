@@ -24,7 +24,7 @@ open Mapped_mem
 
 
 let section_from_config_entry config_section_entry =
-  match config_section_entry 
+  match config_section_entry
   with (lvirt_addr, lvirt_size, lraw_addr, lraw_size, lname) ->
     {
       virt_addr = Data.Address.global_of_int lvirt_addr ;

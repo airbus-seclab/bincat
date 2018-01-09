@@ -46,18 +46,18 @@ module Make(D: Unrel.T) =
       match lv with
       | Asm.V (Asm.T r)  | Asm.V (Asm.P (r, _, _)) -> T.remove_register r tenv
       | _ -> let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) in
-	     T.remove_addresses addrs tenv 
+         T.remove_addresses addrs tenv
     in
     U.forget_lval lv uenv, tenv'
 
   let add_register r (uenv, tenv) = U.add_register r uenv, T.add_register r tenv
 
   let to_string (uenv, tenv) = (U.to_string uenv) @ (T.to_string tenv)
-    
+
   let value_of_register (uenv, _tenv) r = U.value_of_register uenv r
 
   let string_of_register (uenv, tenv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
-    
+
   let value_of_exp (uenv, _tenv) e = U.value_of_exp uenv e
 
   let type_of_exp tenv uenv e =
@@ -66,15 +66,15 @@ module Make(D: Unrel.T) =
     | Asm.Lval (Asm.V (Asm.T r)) -> T.of_key (Env.Key.Reg r) tenv
     | Asm.Lval (Asm.M (e, _sz)) ->
        begin
-	 try
-	   let addrs, _ = U.mem_to_addresses uenv e in
-	   match Data.Address.Set.elements addrs with
-	   | [a] -> T.of_key (Env.Key.Mem a) tenv
-	   | _ -> Types.UNKNOWN
-	 with Exceptions.Too_many_concrete_elements _ -> Types.UNKNOWN
+     try
+       let addrs, _ = U.mem_to_addresses uenv e in
+       match Data.Address.Set.elements addrs with
+       | [a] -> T.of_key (Env.Key.Mem a) tenv
+       | _ -> Types.UNKNOWN
+     with Exceptions.Too_many_concrete_elements _ -> Types.UNKNOWN
        end
     | _ -> Types.UNKNOWN
-	 
+
   let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv): t): t =
     L.debug (fun p -> p "set_type %s %s" (Asm.string_of_lval lv true) (Types.to_string typ));
    let tenv' =
@@ -82,15 +82,15 @@ module Make(D: Unrel.T) =
      | Asm.V (Asm.T r) -> if typ = Types.UNKNOWN then T.forget_register r tenv else T.set_register r typ tenv
      | Asm.V (Asm.P (r, _, _)) -> T.forget_register r tenv
      | Asm.M (e, _sz) ->
-	try
-	  let addrs, _ = U.mem_to_addresses uenv e in
-	  match Data.Address.Set.elements addrs with
-	  | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ)); if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
-	  | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
-	with Exceptions.Too_many_concrete_elements _ -> T.forget tenv
+        try
+      let addrs, _ = U.mem_to_addresses uenv e in
+      match Data.Address.Set.elements addrs with
+      | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ)); if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
+      | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
+    with Exceptions.Too_many_concrete_elements _ -> T.forget tenv
    in
    uenv, tenv'
-     
+
   let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv): t): t*Taint.t =
     let uenv', b = U.set lv e uenv in
     try
@@ -102,12 +102,12 @@ module Make(D: Unrel.T) =
   let char_type uenv tenv dst =
      let typ = Types.T (TypedC.Int (Newspeak.Signed, 8)) in
      try
-       let addrs, _ = U.mem_to_addresses uenv dst in 
+       let addrs, _ = U.mem_to_addresses uenv dst in
        match Data.Address.Set.elements addrs with
        | [a] -> if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
        | l ->  List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l (* TODO: replace by a weak update *)
      with Exceptions.Too_many_concrete_elements _ -> T.top
-	
+
   let copy (uenv, tenv) dst src sz: t =
     U.copy uenv dst src sz, char_type uenv tenv dst
 
@@ -121,7 +121,7 @@ module Make(D: Unrel.T) =
     let uenv', taint = U.set_memory_from_config a r c n uenv in
     (uenv', tenv), taint
 
-  let set_register_from_config register region c (uenv, tenv) =
+  let set_register_from_config register region (c: Config.cvalue option * Config.tvalue list) (uenv, tenv) =
     let uenv', taint = U.set_register_from_config register region c uenv in
     (uenv', tenv), taint
 
@@ -140,7 +140,7 @@ module Make(D: Unrel.T) =
   let span_taint_to_addr a taint (uenv, tenv) =
     let uenv', taint' = U.span_taint_to_addr a taint uenv in
     (uenv', tenv), taint'
-      
+
   let compare (uenv, tenv) e1 cmp e2 =
     let uenv', b = U.compare uenv e1 cmp e2 in
     (uenv', tenv), b
@@ -148,7 +148,7 @@ module Make(D: Unrel.T) =
   let mem_to_addresses (uenv, _tenv) e = U.mem_to_addresses uenv e
 
   let taint_sources e (uenv, _tenv) = U.taint_sources e uenv
-       
+
 
   let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv) =
     U.get_offset_from addr cmp terminator upper_bound sz uenv
@@ -156,7 +156,7 @@ module Make(D: Unrel.T) =
   let get_bytes addr cmp terminator upper_bound term_sz (uenv, _tenv) =
     U.get_bytes addr cmp terminator upper_bound term_sz uenv
 
- 
+
   let print (uenv, _tenv) src sz: t =
     U.print uenv src sz, T.top
 
@@ -167,15 +167,15 @@ module Make(D: Unrel.T) =
   let print_hex (uenv, tenv) src sz capitalise pad_option word_sz: t * int =
     let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz in
     (uenv', tenv), len
-   
+
   let copy_chars (uenv, tenv) dst src sz pad_options =
     let tenv' = char_type uenv tenv dst in
     U.copy_chars uenv dst src sz pad_options, tenv'
-      
+
 
   let print_chars (uenv, _tenv) src sz pad_options =
     U.print_chars uenv src sz pad_options, T.top
-      
+
   let copy_until (uenv, tenv) dst arg terminator term_sz upper_bound with_exception pad_options =
     let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options in
     let tenv' = char_type uenv tenv dst in

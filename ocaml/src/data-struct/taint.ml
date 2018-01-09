@@ -25,14 +25,14 @@ module Src =
 
     (*current id for the generation of fresh taint sources *)
     let (current_id: id_t ref) = ref 0
-  
+
     let new_src (): id_t =
       current_id := !current_id + 1;
       !current_id
 
     let clear () =
       current_id := 0
-        
+
     (* a value may be surely Tainted or Maybe tainted *)
     type t =
       | Tainted of id_t (** surely tainted by the given source *)
@@ -46,9 +46,9 @@ module Src =
     let compare (src1: t) (src2: t): int =
       match src1, src2 with
       | Tainted id1, Tainted id2 -> id1 - id2
-      | Tainted _, _ -> -1
-      | Maybe _, Tainted _ -> 1
+      | Tainted id1, Maybe id2 -> id1 - id2
       | Maybe id1, Maybe id2 -> id1 - id2
+      | Maybe id1, Tainted id2 -> if id1 = id2 then 1 else id1 - id2
 
     let to_string src =
       match src with
@@ -61,7 +61,7 @@ module SrcSet = SetExt.Make (Src)
 
 
 (* a taint value can be
-   - undefined (BOT) 
+   - undefined (BOT)
    - untainted (U)
    - or a set (S) of (possible) tainting sources
    - or an unknown taint (TOP) *)
@@ -71,8 +71,16 @@ type t =
   | S of SrcSet.t
   | TOP
 
+let is_subset t1 t2 =
+  match t1, t2 with
+  | BOT, _
+  | _, TOP
+  | U, U -> true
+  | S s1, S s2 when SrcSet.subset s1 s2 = true -> true
+  | _, _ -> false
+
 let clear = Src.clear
-  
+
 let new_src = Src.new_src
 
 let singleton src = S (SrcSet.singleton src)
@@ -87,7 +95,7 @@ let join_predicate v1 v2 =
 
 let join (t1: t) (t2: t): t =
   match t1, t2 with
-  | BOT, t | t, BOT -> t  
+  | BOT, t | t, BOT -> t
   | U, U -> U
   | _, U  | U, _ -> TOP
   | S src1, S src2 -> S (SrcSet.union_on_predicate join_predicate src1 src2)
@@ -95,7 +103,7 @@ let join (t1: t) (t2: t): t =
 
 let logor (t1: t) (t2: t): t =
   match t1, t2 with
-  | BOT, t | t, BOT -> t  
+  | BOT, t | t, BOT -> t
   | U, U -> U
   | t, U  | U, t -> t
   | S src1, S src2 -> S (SrcSet.union_on_predicate join_predicate src1 src2)
@@ -111,7 +119,7 @@ let inter_predicate v1 v2 =
 
 let logand (t1: t) (t2: t): t =
   match t1, t2 with
-  | BOT, t | t, BOT -> t  
+  | BOT, t | t, BOT -> t
   | U, U -> U
   | _, U | U, _ -> U
   | S src1, S src2 ->
@@ -135,9 +143,13 @@ let meet (t1: t) (t2: t): t =
 
 let to_char (t: t): char =
   match t with
-  | BOT -> '_' 
+  | BOT -> '_'
   | TOP -> '?'
-  | S _ -> '1'
+  | S srcs ->
+     let elts = SrcSet.elements srcs in
+     if List.for_all (fun src -> match src with | Src.Tainted _ -> true | Src.Maybe _ -> false) elts then
+       '1'
+     else '?'
   | U -> '0'
 
 let equal (t1: t) (t2: t): bool =
@@ -191,13 +203,18 @@ let min (t1: t) (t2: t): t =
 let is_tainted (t: t): bool =
   match t with
   | S _ | TOP -> true
-  | U	    -> false
-  | BOT	    -> false
+  | U       -> false
+  | BOT     -> false
 
 let to_z (t: t): Z.t =
   match t with
   | U -> Z.zero
-  | S _ -> Z.one
+  | S srcs when SrcSet.cardinal srcs = 1 ->
+     begin
+       match SrcSet.choose srcs with
+          | Src.Tainted _ -> Z.one
+          | Src.Maybe _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
+     end
   | _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
 
 let to_string t =

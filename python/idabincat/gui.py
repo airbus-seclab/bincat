@@ -19,19 +19,18 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os
-import idc
 import logging
 import string
 import re
-import idc
 import idaapi
 import idautils
-from dump_binary import dump_binary
 from PyQt5 import QtCore, QtWidgets, QtGui
-import idabincat.hexview as hexview
+from PyQt5.QtCore import Qt
 import pybincat.cfa as cfa
+import idabincat.hexview as hexview
+from idabincat.dump_binary import dump_binary
 from idabincat.plugin_options import PluginOptions
-from analyzer_conf import AnalyzerConfig
+from idabincat.analyzer_conf import AnalyzerConfig, ConfigHelpers
 
 # Logging
 bc_log = logging.getLogger('bincat.gui')
@@ -147,215 +146,7 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         super(BinCATOptionsForm_t, self).show()
 
 
-class TaintLaunchForm_t(QtWidgets.QDialog):
-    def update_from_edit_config(self):
-        config = self.s.edit_config
-        self.ip_start_addr.setText(config.analysis_ep)
-        cut = config.stop_address or ""
-        self.ip_stop_addr.setText(cut)
-
-    def __init__(self, parent, state):
-        super(TaintLaunchForm_t, self).__init__(parent)
-        self.s = state
-
-        layout = QtWidgets.QGridLayout()
-        lbl_cst_editor = QtWidgets.QLabel("BinCAT analysis parameters")
-        self.s.current_ea = idaapi.get_screen_ea()
-
-        # Start address
-        lbl_start_addr = QtWidgets.QLabel("Start address:")
-        self.ip_start_addr = QtWidgets.QLineEdit(self)
-
-        lbl_stop_addr = QtWidgets.QLabel("Stop address:")
-        self.ip_stop_addr = QtWidgets.QLineEdit(self)
-
-        # analysis configuration
-        lbl_configuration = QtWidgets.QLabel("Analyzer configuration:")
-        self.conf_select = QtWidgets.QComboBox(self)
-        self.conf_select.addItems(
-            self.s.configurations.names_cache + ['(new)'])
-        # pre-select preferred conf, if any
-        conf_name = self.s.configurations.get_pref(self.s.current_ea)
-        if conf_name:
-            idx = self.s.configurations.names_cache.index(conf_name)
-            self.s.edit_config = self.s.configurations[conf_name]
-        else:
-            idx = len(self.s.configurations.names_cache)
-            self.s.edit_config = self.s.configurations.new_config(
-                self.s.current_ea, None)
-        self.conf_select.currentIndexChanged.connect(self._load_config)
-
-        self.conf_select.setCurrentIndex(idx)
-
-        # Start, cancel and analyzer config buttons
-        self.btn_load = QtWidgets.QPushButton('&Load analyzer config...')
-        self.btn_load.clicked.connect(self.choose_file)
-
-        self.btn_edit_conf = QtWidgets.QPushButton('&Edit analyzer config...')
-        self.btn_edit_conf.clicked.connect(self.edit_config)
-
-        self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
-        self.chk_save.setChecked(
-            PluginOptions.get("save_to_idb") == "True")
-
-        self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
-        self.chk_remap.setChecked(self.s.remap_binary)
-
-        self.btn_start = QtWidgets.QPushButton('&Start')
-        self.btn_start.clicked.connect(self.launch_analysis)
-
-        self.btn_cancel = QtWidgets.QPushButton('Cancel')
-        self.btn_cancel.clicked.connect(self.close)
-
-        layout.addWidget(lbl_cst_editor, 0, 0)
-
-        layout.addWidget(lbl_start_addr, 1, 0)
-        layout.addWidget(self.ip_start_addr, 1, 1)
-
-        layout.addWidget(lbl_stop_addr, 2, 0)
-        layout.addWidget(self.ip_stop_addr, 2, 1)
-
-        layout.addWidget(lbl_configuration, 3, 0)
-        layout.addWidget(self.conf_select, 3, 1)
-
-        layout.addWidget(self.btn_load, 4, 0)
-        layout.addWidget(self.btn_edit_conf, 4, 1)
-
-        layout.addWidget(self.chk_save, 5, 0)
-        layout.addWidget(self.chk_remap, 5, 1)
-
-        layout.addWidget(self.btn_start, 6, 0)
-        layout.addWidget(self.btn_cancel, 6, 1)
-
-        self.setLayout(layout)
-
-        self.btn_start.setFocus()
-
-        # Load config for address if it exists
-        self.update_from_edit_config()
-
-    def rbRegistersHandler(self):
-        self.cb_registers.setEnabled(True)
-
-    def rbMemoryHandler(self):
-        self.ip_memory.setEnabled(True)
-
-    def cbRegistersHandler(self, text):
-        bc_log.debug("selected register is %s ", text)
-
-    def launch_analysis(self):
-        bc_log.info("Launching the analyzer")
-        try:
-            start_addr = int(self.ip_start_addr.text(), 16)
-        except ValueError as e:
-            bc_log.error('Provided start address is invalid (%s)', e)
-            return
-        start_addr = int(self.ip_start_addr.text(), 16)
-        if self.ip_stop_addr.text() == "":
-            stop_addr = None
-        else:
-            stop_addr = self.ip_stop_addr.text()
-        self.s.edit_config.analysis_ep = start_addr
-        self.s.edit_config.stop_address = stop_addr
-
-        ea_int = int(self.ip_start_addr.text(), 16)
-
-        # always save config under "(last used)" slot
-        config_name = "(last used)"
-        self.s.configurations[config_name] = self.s.edit_config
-        self.s.configurations.set_pref(ea_int, config_name)
-
-        # if requested, also save under user-specified slot
-        if self.chk_save.isChecked():
-            idx = self.conf_select.currentIndex()
-            if idx == len(self.s.configurations.names_cache):
-                # new config, prompt name
-                config_name, res = QtWidgets.QInputDialog.getText(
-                    self,
-                    "Configuration name",
-                    "Under what name should this new configuration be saved?",
-                    text="0x%0X" % self.s.current_ea)
-                if not res:
-                    return
-            else:
-                config_name = self.s.configurations.names_cache[idx]
-            self.s.configurations[config_name] = self.s.edit_config
-            self.s.configurations.set_pref(ea_int, config_name)
-
-        if self.chk_remap.isChecked():
-            if (self.s.remapped_bin_path is None or
-                    not os.path.isfile(self.s.remapped_bin_path)):
-                # IDA 6/7 compat
-                askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') else idaapi.askfile_c
-                fname = askfile(1, None, "Save remapped binary")
-                if not fname:
-                    bc_log.error(
-                        'No filename provided. You can provide a filename or '
-                        'uncheck the "Remap binary" option.')
-                    return
-                dump_binary(fname)
-                self.s.remapped_bin_path = fname
-            self.s.remap_binary = True
-            self.s.edit_config.binary_filepath = self.s.remapped_bin_path
-            self.s.edit_config.code_va = "0x0"
-            self.s.edit_config.code_phys = "0x0"
-            self.s.edit_config.format = "manual"
-            size = os.stat(self.s.edit_config.binary_filepath).st_size
-            self.s.edit_config.code_length = "0x%0X" % size
-            self.s.edit_config.replace_section_mappings(
-                [("ph2", 0, size, 0, size)])
-        else:
-            self.s.remap_binary = False
-
-        # XXX copy?
-        self.s.current_config = self.s.edit_config
-
-        self.s.start_analysis()
-
-        self.close()
-
-    def edit_config(self):
-        # display edit form
-        start_addr = self.ip_start_addr.text()
-        stop_addr = self.ip_stop_addr.text()
-        self.s.edit_config.analysis_ep = start_addr
-        self.s.edit_config.stop_address = stop_addr
-        editdlg = EditConfigurationFileForm_t(self, self.s)
-        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.update_from_edit_config()
-
-    def choose_file(self):
-        options = QtWidgets.QFileDialog.Options()
-        default_filename = os.path.join(os.path.dirname(__file__),
-                                        'init.ini')
-        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Choose configuration file", default_filename,
-            "Configuration files (*.ini)", options=options)
-        if not filename or not os.path.exists(filename):
-            return
-        editdlg = EditConfigurationFileForm_t(self, self.s)
-        editdlg.set_config(open(filename, 'r').read())
-        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.update_from_edit_config()
-
-    def show(self):
-        self.setFixedSize(460, 200)
-        self.setWindowTitle(" Analysis launcher: ")
-        super(TaintLaunchForm_t, self).show()
-
-    @QtCore.pyqtSlot(int)
-    def _load_config(self, index):
-        if index == len(self.s.configurations.names_cache):
-            # new config
-            self.s.edit_config = self.s.configurations.new_config(
-                self.s.current_ea, None)
-        else:
-            name = self.s.configurations.names_cache[index]
-            self.s.edit_config = self.s.configurations[name]
-        self.update_from_edit_config()
-
-
-class Meminfo():
+class Meminfo(object):
     """
     Helper class to access memory as a str
     """
@@ -395,7 +186,7 @@ class Meminfo():
         except IndexError:
             # between two ranges
             return ""
-        if len(values) == 0 or values[0] is None:
+        if not values or values[0] is None:
             res = "_"
         else:
             value = values[0]
@@ -430,7 +221,7 @@ class Meminfo():
             values = self[idx]
         except IndexError:
             return ""
-        if len(values) == 0 or values[0] is None:
+        if not values or values[0] is None:
             res = "__"
         else:
             res = Meminfo.color_valtaint(
@@ -473,8 +264,7 @@ class Meminfo():
         t = self.state.regtypes.get(addr_value, None)
         if t:
             return t[0]
-        else:
-            return ""
+        return ""
 
     def abs_addr_from_idx(self, idx):
         """
@@ -625,6 +415,9 @@ class BinCATMemForm_t(idaapi.PluginForm):
                     last_addr = stop
                 self.mem_ranges[region] = merged
 
+            if not self.mem_ranges:
+                # happens in backward mode: states having no defined memory
+                return
             former_region = self.region_select.currentText()
             newregion = ""
             newregidx = -1
@@ -644,6 +437,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
 
             self.range_select.blockSignals(True)
             self.range_select.clear()
+
             for r in self.mem_ranges.values()[0]:
                 self.range_select.addItem("%08x-%08x" % r)
             self.range_select.blockSignals(False)
@@ -661,6 +455,445 @@ class BinCATMemForm_t(idaapi.PluginForm):
             options=(idaapi.PluginForm.FORM_PERSIST |
                      idaapi.PluginForm.FORM_MENU |
                      idaapi.PluginForm.FORM_SAVE |
+                     idaapi.PluginForm.FORM_RESTORE |
+                     idaapi.PluginForm.FORM_TAB))
+
+
+class BinCATConfigForm_t(idaapi.PluginForm):
+    """
+    BinCAT initial configuration form
+    This form allows the definition and edition of
+    initial registers and memory
+    """
+
+    def __init__(self, state, cfgregmodel, cfgmemmodel):
+        super(BinCATConfigForm_t, self).__init__()
+        self.cfgregmodel = cfgregmodel
+        self.cfgmemmodel = cfgmemmodel
+        self.shown = False
+        self.created = False
+        self.s = state
+        self.index = None
+
+    def OnCreate(self, form):
+        self.created = True
+
+        # Get parent widget
+        self.parent = self.FormToPyQtWidget(form)
+        layout = QtWidgets.QGridLayout(self.parent)
+
+        # ----------- TABLES -----------------------
+        # Splitter for reg & mem tables
+        tables_split = QtWidgets.QSplitter(Qt.Vertical, self.parent)
+        layout.addWidget(tables_split, 0, 0)
+
+        # Inital config: registers table
+        self.regs_table = QtWidgets.QTableView(self.parent)
+        self.regs_table.setItemDelegate(RegisterItemDelegate())
+        self.regs_table.setModel(self.cfgregmodel)
+        self.regs_table.setShowGrid(False)
+        self.regs_table.verticalHeader().setVisible(False)
+        self.regs_table.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.regs_table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Interactive)
+        self.regs_table.horizontalHeader().setMinimumHeight(36)
+        # Make it editable
+        self.regs_table.setEditTriggers(
+            QtWidgets.QAbstractItemView.AllEditTriggers)
+        # Custom menu
+        self.regs_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.regs_table.customContextMenuRequested.connect(
+            self._regs_table_menu)
+
+        tables_split.addWidget(self.regs_table)
+
+        # Inital config: mem table
+        self.mem_table = QtWidgets.QTableView(self.parent)
+        self.mem_table.setItemDelegate(RegisterItemDelegate())
+        self.mem_table.setModel(self.cfgmemmodel)
+        self.mem_table.setShowGrid(True)
+        self.mem_table.verticalHeader().setVisible(False)
+        self.mem_table.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        # Make it editable
+        self.mem_table.setEditTriggers(
+            QtWidgets.QAbstractItemView.NoEditTriggers
+            | QtWidgets.QAbstractItemView.DoubleClicked)
+
+        self.mem_table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Interactive)
+        self.mem_table.horizontalHeader().setStretchLastSection(True)
+        self.mem_table.horizontalHeader().setMinimumHeight(36)
+        # Custom menu
+        self.mem_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.mem_table.customContextMenuRequested.connect(
+            self._mem_table_menu)
+
+        tables_split.addWidget(self.mem_table)
+
+        # For backward we just show a help text
+        self.lbl_back_help = QtWidgets.QLabel("Backward mode uses overrides, initial "
+                                              "configuration makes no sense in this mode.")
+        self.lbl_back_help.hide()
+        tables_split.addWidget(self.lbl_back_help)
+
+        # ----------- Config options -----------------------
+        # Horizontal splitter for config boxes
+        cfg_split = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(cfg_split, 1, 0)
+        # Config name label
+        self.curlabel = QtWidgets.QLabel('Current config:')
+        cfg_split.addWidget(self.curlabel)
+
+        # current config combo
+        self.cfg_select = QtWidgets.QComboBox()
+        self.cfg_select.currentIndexChanged.connect(self._load_config)
+        cfg_split.addWidget(self.cfg_select)
+
+        # Duplicate that config button
+        self.btn_dup_cfg = QtWidgets.QPushButton('Duplicate')
+        self.btn_dup_cfg.clicked.connect(lambda: self._save_config(None, True))
+        cfg_split.addWidget(self.btn_dup_cfg)
+
+        # Delete that config button
+        self.btn_del_cfg = QtWidgets.QPushButton('Delete')
+        self.btn_del_cfg.clicked.connect(self._del_config)
+        self.btn_del_cfg.setIcon(self.btn_del_cfg.style().standardIcon(
+            QtWidgets.QStyle.SP_TrashIcon))
+        cfg_split.addWidget(self.btn_del_cfg)
+
+        # Edit that config button
+        self.btn_edit_cfg = QtWidgets.QPushButton('&Edit...')
+        self.btn_edit_cfg.clicked.connect(self._edit_config)
+        self.btn_edit_cfg.setIcon(self.btn_edit_cfg.style().standardIcon(
+            QtWidgets.QStyle.SP_FileDialogContentsView))
+        cfg_split.addWidget(self.btn_edit_cfg)
+
+        # Load config button
+        self.btn_load = QtWidgets.QPushButton('&Load...')
+        self.btn_load.setIcon(self.btn_load.style().standardIcon(
+            QtWidgets.QStyle.SP_DialogOpenButton))
+        self.btn_load.clicked.connect(self._load_file)
+        cfg_split.addWidget(self.btn_load)
+
+        # Export config button
+        self.btn_export = QtWidgets.QPushButton('Export...')
+        self.btn_export.setIcon(self.btn_export.style().standardIcon(
+            QtWidgets.QStyle.SP_DialogOpenButton))
+        self.btn_export.clicked.connect(self._export_file)
+        cfg_split.addWidget(self.btn_export)
+
+        # leave space for comboboxes in cfg_split, rather than between widgets
+        cfg_split.setStretchFactor(0, 0)
+        cfg_split.setStretchFactor(1, 1)
+        cfg_split.setStretchFactor(2, 0)
+
+        # Horizontal splitter for addresses
+        addr_split = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(addr_split, 2, 0)
+
+        # Start address
+        lbl_start_addr = QtWidgets.QLabel("Start addr:")
+        self.ip_start_addr = QtWidgets.QLineEdit(self.parent)
+        self.btn_copy_start = QtWidgets.QPushButton('<- Current')
+        self.btn_copy_start.clicked.connect(self._copy_start)
+
+        # Stop address
+        lbl_stop_addr = QtWidgets.QLabel("Stop addr:")
+        self.ip_stop_addr = QtWidgets.QLineEdit(self.parent)
+        self.btn_copy_stop = QtWidgets.QPushButton('<- Current')
+        self.btn_copy_stop.clicked.connect(self._copy_stop)
+
+        self.radio_group = QtWidgets.QButtonGroup()
+        self.radio_forward = QtWidgets.QRadioButton("Forward")
+        self.radio_backward = QtWidgets.QRadioButton("Backward")
+        self.radio_forward.toggled.connect(self._forward_toggled)
+
+        self.radio_group.addButton(self.radio_forward)
+        self.radio_group.addButton(self.radio_backward)
+
+        self.radio_forward.setChecked(True)
+
+        addr_split.addWidget(lbl_start_addr)
+        addr_split.addWidget(self.ip_start_addr)
+        addr_split.addWidget(self.btn_copy_start)
+        addr_split.addWidget(lbl_stop_addr)
+        addr_split.addWidget(self.ip_stop_addr)
+        addr_split.addWidget(self.btn_copy_stop)
+        addr_split.addWidget(self.radio_forward)
+        addr_split.addWidget(self.radio_backward)
+
+        addr_split.setStretchFactor(0, 0)
+        addr_split.setStretchFactor(1, 1)  # ip_start
+        addr_split.setStretchFactor(2, 0)  # btn copy start
+        addr_split.setStretchFactor(3, 0)  # lbl_stop
+        addr_split.setStretchFactor(4, 1)  # ip_stop
+        addr_split.setStretchFactor(5, 0)
+        addr_split.setStretchFactor(6, 0)
+        addr_split.setStretchFactor(7, 0)
+
+        # ----------- Analysis buttons -----------------------
+        # Horizontal splitter for buttons
+        btn_split = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(btn_split, 3, 0)
+
+        self.btn_start = QtWidgets.QPushButton('&Start')
+        self.btn_start.clicked.connect(self.launch_analysis)
+        btn_split.addWidget(self.btn_start)
+
+        self.chk_remap = QtWidgets.QCheckBox('&Remap binary')
+        # Only check by default if the file is not an ELF
+        if ConfigHelpers.get_file_type() != "elf":
+            self.chk_remap.setChecked(self.s.remap_binary)
+
+        btn_split.addWidget(self.chk_remap)
+        # Save config button
+        self.btn_save_cfg = QtWidgets.QPushButton('&Save')
+        self.btn_save_cfg.clicked.connect(self._save_config)
+        btn_split.addWidget(self.btn_save_cfg)
+
+        self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
+        self.chk_save.setChecked(PluginOptions.get("save_to_idb") == "True")
+        btn_split.addWidget(self.chk_save)
+
+        self.parent.setLayout(layout)
+
+        self.cfg_select.clear()
+        self.cfg_select.addItems(
+            self.s.configurations.names_cache + ['(new)'])
+
+    def _forward_toggled(self, checked):
+        if not checked:  # Backward checked
+            # Backward uses overrides so we hide the main config
+            idaapi.warning("Backward mode is _experimental_, expect bugs !")
+            self.regs_table.hide()
+            self.mem_table.hide()
+            self.lbl_back_help.show()
+        else:
+            self.lbl_back_help.hide()
+            self.regs_table.show()
+            self.mem_table.show()
+
+    def _regs_table_menu(self, qpoint):
+        menu = QtWidgets.QMenu(self.regs_table)
+        all_taint_top = QtWidgets.QAction(
+            "Set all taints to top", self.regs_table)
+        all_taint_top.triggered.connect(self.cfgregmodel.all_taint_top)
+        menu.addAction(all_taint_top)
+        # add header height to qpoint, else menu is misplaced. not sure why...
+        qpoint2 = qpoint + \
+            QtCore.QPoint(0, self.mem_table.horizontalHeader().height())
+        menu.exec_(self.regs_table.mapToGlobal(qpoint2))
+
+    def _mem_table_menu(self, qpoint):
+        menu = QtWidgets.QMenu(self.mem_table)
+        add_mem_entry = QtWidgets.QAction(
+            "Add memory entry", self.mem_table)
+        add_mem_entry.triggered.connect(
+            lambda: self._add_mem_entry(self.mem_table.indexAt(qpoint)))
+        menu.addAction(add_mem_entry)
+        remove_mem_entry = QtWidgets.QAction(
+            "Remove memory entry", self.mem_table)
+        remove_mem_entry.triggered.connect(
+            lambda: self._remove_mem_entry(self.mem_table.indexAt(qpoint)))
+        menu.addAction(remove_mem_entry)
+        # add header height to qpoint, else menu is misplaced. not sure why...
+        qpoint2 = qpoint + \
+            QtCore.QPoint(0, self.mem_table.horizontalHeader().height())
+        menu.exec_(self.mem_table.mapToGlobal(qpoint2))
+
+    def _add_mem_entry(self, index):
+        self.cfgmemmodel.add_mem_entry(index.row())
+        return
+
+    def _remove_mem_entry(self, index):
+        self.cfgmemmodel.remove_mem_entry(index.row())
+        return
+
+    def _copy_start(self):
+        self.ip_start_addr.setText("0x%x" % idaapi.get_screen_ea())
+
+    def _copy_stop(self):
+        self.ip_stop_addr.setText("0x%x" % idaapi.get_screen_ea())
+
+    def get_analysis_method(self):
+        if self.radio_forward.isChecked():
+            analysis_method = "forward_binary"
+        else:
+            analysis_method = "backward"
+        return analysis_method
+
+    def launch_analysis(self):
+        bc_log.info("Launching the analyzer")
+        try:
+            start_addr = int(self.ip_start_addr.text(), 16)
+        except ValueError as e:
+            bc_log.error('Provided start address is invalid (%s)', e)
+            return
+        if self.ip_stop_addr.text() == "":
+            stop_addr = None
+        else:
+            stop_addr = self.ip_stop_addr.text()
+        analysis_method = self.get_analysis_method()
+
+        self.s.edit_config.analysis_ep = start_addr
+        self.s.edit_config.stop_address = stop_addr
+        self.s.edit_config.analysis_method = analysis_method
+
+        # always save config under "(last used)" slot
+        self._save_config("(last used)")
+
+        # if requested, also save under user-specified slot
+        if self.chk_save.isChecked():
+            self._save_config()
+
+        if self.chk_remap.isChecked():
+            if (self.s.remapped_bin_path is None or
+                    not os.path.isfile(self.s.remapped_bin_path)):
+                fname = ConfigHelpers.askfile(None, "Save remapped binary")
+                if not fname:
+                    bc_log.error(
+                        'No filename provided. You can provide a filename or '
+                        'uncheck the "Remap binary" option.')
+                    return
+                sections = dump_binary(fname)
+                if not sections:
+                    bc_log.error("Could not remap binary")
+                    return
+                self.s.remapped_bin_path = fname
+                self.s.remapped_sections = sections
+            self.s.remap_binary = True
+            self.s.edit_config.binary_filepath = self.s.remapped_bin_path
+            self.s.edit_config.format = "manual"
+            self.s.edit_config.replace_section_mappings(self.s.remapped_sections)
+        else:
+            if self.s.edit_config.format != "elf":
+                bc_log.warning("This file format is not natively supported by"
+                               "BinCAT, you should probably remap the binary.")
+            self.s.remap_binary = False
+            self.s.edit_config.binary_filepath = "%s" % ConfigHelpers.guess_file_path()
+
+        # XXX copy?
+        self.s.current_config = self.s.edit_config
+
+        self.s.start_analysis()
+
+    # callback when the "Export" button is clicked
+    def _export_file(self):
+        fname = ConfigHelpers.askfile("*.ini", "Save exported configuration")
+        if fname:
+            with open(fname, 'w') as f:
+                f.write(str(self.s.edit_config))
+
+    # callback when the "Load" button is clicked
+    def _load_file(self):
+        options = QtWidgets.QFileDialog.Options()
+        default_filename = os.path.join(os.path.dirname(__file__),
+                                        'init.ini')
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self.parent, "Choose configuration file", default_filename,
+            "Configuration files (*.ini)", options=options)
+        if not filename or not os.path.exists(filename):
+            return
+
+        self.s.edit_config = AnalyzerConfig.load_from_str(
+            open(filename, 'r').read())
+        self.update_from_edit_config()
+        # if the current config is "new", ask for a name
+        if self.index == len(self.s.configurations.names_cache):
+            self._save_config()
+
+    # callback when the "Delete" button is clicked
+    def _del_config(self):
+        # check if we have a config,
+        if (self.index and
+                self.index > 0 and # last used is special
+                self.index != len(self.s.configurations.names_cache)): #(new)
+            name = self.s.configurations.names_cache[self.index]
+            del self.s.configurations[name]
+            self.update_config_list()
+
+
+    # Called when the edit combo is changed
+    @QtCore.pyqtSlot(str)
+    def _load_config(self, index):
+        if not self.s.current_ea:
+            self.s.current_ea = idaapi.get_screen_ea()
+        self.index = index
+        if index == len(self.s.configurations.names_cache):
+            # new config
+            self.s.edit_config = self.s.configurations.new_config(
+                self.s.current_ea, None, self.get_analysis_method())
+        else:
+            name = self.s.configurations.names_cache[index]
+            self.s.edit_config = self.s.configurations[name]
+        self.update_from_edit_config()
+
+    # Update various fields from the current edit_config
+    # useful when the configuration was edited manually
+    def update_from_edit_config(self):
+        self.cfgregmodel.beginResetModel()
+        self.cfgmemmodel.beginResetModel()
+        config = self.s.edit_config
+        self.ip_start_addr.setText(config.analysis_ep)
+        cut = config.stop_address or ""
+        self.ip_stop_addr.setText(cut)
+        if config.analysis_method == "forward_binary":
+            self.radio_forward.setChecked(True)
+        else:
+            self.radio_backward.setChecked(True)
+        self.cfgregmodel.endResetModel()
+        self.cfgmemmodel.endResetModel()
+
+    def update_config_list(self, to_select=None):
+        self.cfg_select.clear()
+        self.cfg_select.addItems(
+            self.s.configurations.names_cache + ['(new)'])
+        if to_select:
+            self.cfg_select.setCurrentText(to_select)
+
+    # callback when the "save" button is clicked
+    def _save_config(self, config_name=None, always_prompt=False):
+        ea_int = int(self.ip_start_addr.text(), 16)
+        should_update = False
+        if not config_name:
+            idx = self.cfg_select.currentIndex()
+            if always_prompt or idx == len(self.s.configurations.names_cache):
+                # new config, prompt name
+                config_name, res = QtWidgets.QInputDialog.getText(
+                    self.parent,
+                    "Configuration name",
+                    "Under what name should this new configuration be saved?",
+                    text="0x%0X" % self.s.current_ea)
+                if not res:
+                    return
+                should_update = True
+            else:
+                config_name = self.s.configurations.names_cache[idx]
+        self.s.configurations[config_name] = self.s.edit_config
+        self.s.configurations.set_pref(ea_int, config_name)
+        if should_update:
+            self.update_config_list(config_name)
+
+    # callback when the "edit" button is clicked
+    def _edit_config(self):
+        editdlg = EditConfigurationFileForm_t(self.parent, self.s)
+        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
+            self.update_from_edit_config()
+
+    def OnClose(self, form):
+        self.shown = False
+
+    def Show(self):
+        if self.shown:
+            return
+        self.shown = True
+        return idaapi.PluginForm.Show(
+            self, "BinCAT Configuration",
+            options=(idaapi.PluginForm.FORM_PERSIST |
+                     idaapi.PluginForm.FORM_SAVE |
+                     idaapi.PluginForm.FORM_MENU |
                      idaapi.PluginForm.FORM_RESTORE |
                      idaapi.PluginForm.FORM_TAB))
 
@@ -689,12 +922,12 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         self.bytes_data = QtWidgets.QLabel()
 
         self.stmt_data.setTextInteractionFlags(
-            QtCore.Qt.TextSelectableByMouse |
-            QtCore.Qt.TextSelectableByKeyboard)
+            Qt.TextSelectableByMouse |
+            Qt.TextSelectableByKeyboard)
         self.stmt_data.setWordWrap(True)
         self.bytes_data.setTextInteractionFlags(
-            QtCore.Qt.TextSelectableByMouse |
-            QtCore.Qt.TextSelectableByKeyboard)
+            Qt.TextSelectableByMouse |
+            Qt.TextSelectableByKeyboard)
         self.bytes_data.setWordWrap(True)
         self.settxt()
 
@@ -761,7 +994,7 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
 
 class BinCATRegistersForm_t(idaapi.PluginForm):
     """
-    BinCAT Tainted values form
+    BinCAT Register values form
     This form displays the values of tainted registers
     """
 
@@ -814,7 +1047,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         self.vttable.verticalHeader().setVisible(False)
         self.vttable.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.vttable.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.vttable.setContextMenuPolicy(Qt.CustomContextMenu)
         self.vttable.customContextMenuRequested.connect(
             self._handle_context_menu_requested)
         # width from the model are not respected, not sure why...
@@ -916,27 +1149,210 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
 
     def _handle_context_menu_requested(self, qpoint):
         menu = QtWidgets.QMenu(self.vttable)
-        add_taint_override = QtWidgets.QAction(
-            "Add taint override", self.vttable)
-        add_taint_override.triggered.connect(
-            lambda: self._add_taint_override(self.vttable.indexAt(qpoint)))
-        menu.addAction(add_taint_override)
+        add_override = QtWidgets.QAction(
+            "Add override", self.vttable)
+        add_override.triggered.connect(
+            lambda: self._add_override(self.vttable.indexAt(qpoint)))
+        menu.addAction(add_override)
         # add header height to qpoint, else menu is misplaced. not sure why...
         qpoint2 = qpoint + \
             QtCore.QPoint(0, self.vttable.horizontalHeader().height())
         menu.exec_(self.vttable.mapToGlobal(qpoint2))
 
-    def _add_taint_override(self, index):
+    def _add_override(self, index):
         regname = self.vtmodel.rows[index.row()].value
         mask, res = QtWidgets.QInputDialog.getText(
             None,
-            "Add Taint override for %s" % regname,
-            "Taint value for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
+            "Add override for %s" % regname,
+            "Override value!taint for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
             regname, text="!TAINT_ALL")
         if not res:
             return
         htext = "reg[%s]" % regname
         self.s.overrides.append((self.s.current_ea, htext, mask))
+
+
+class InitConfigMemModel(QtCore.QAbstractTableModel):
+    """
+    Used as model in BinCATConfigForm_t TableView memory widget.
+
+    Contains tainting and values for memory
+    """
+    def __init__(self, state, *args, **kwargs):
+        super(InitConfigMemModel, self).__init__(*args, **kwargs)
+        self.s = state
+        self.headers = ["region", "address", "value"]
+        #: list of Value (addresses)
+        self.rows = []
+        self.mono_font = QtGui.QFont("Monospace")
+        self.config = None
+        self.mem_addr_re = re.compile(
+            r"(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
+
+    def flags(self, index):
+        flags = (Qt.ItemIsSelectable
+                 | Qt.ItemIsEnabled)
+        flags |= Qt.ItemIsEditable
+        return flags
+
+    def endResetModel(self):
+        """
+        Rebuild a list of rows
+        """
+        if self.s.edit_config is not None:
+            self.config = self.s.edit_config
+        else:
+            return
+        #: list of Values (addresses)
+        if self.config:
+            self.rows = self.config.state.mem
+        else:
+            self.rows = []
+
+        super(InitConfigMemModel, self).endResetModel()
+
+    def headerData(self, section, orientation, role):
+        if orientation != Qt.Horizontal:
+            return
+        if role == Qt.DisplayRole:
+            return self.headers[section]
+
+    def setData(self, index, value, role):
+        if role != Qt.EditRole:
+            return False
+        col = index.column()
+        row = index.row()
+        if row > len(self.rows):
+            return False
+        else:
+            # existing row
+            self.rows[row][col] = value
+            if self.config:
+                self.config.state.set_mem(self.rows)
+        return True   # success
+
+    def data(self, index, role):
+        col = index.column()
+        if role == Qt.FontRole:
+            return self.mono_font
+        elif role == Qt.ToolTipRole:  # add tooltip ?
+            return
+        elif role != Qt.DisplayRole and role != Qt.EditRole:
+            return
+
+        mem = self.rows[index.row()]
+        return mem[col]
+
+    def remove_mem_entry(self, index):
+        if index < len(self.rows) and index >= 0:
+            del self.rows[index]
+            self.config.state.set_mem(self.rows)
+            self.endResetModel()
+
+    def add_mem_entry(self, index):
+        default = ["mem", "0x0", "0x0"]
+        if index >= len(self.rows) or index < 0:
+            self.rows.append(default)
+        else:
+            self.rows.insert(index+1, default)
+        self.config.state.set_mem(self.rows)
+        self.endResetModel()
+
+    def rowCount(self, parent):
+        return len(self.rows)
+
+    def columnCount(self, parent):
+        return len(self.headers)
+
+
+class InitConfigRegModel(QtCore.QAbstractTableModel):
+    """
+    Used as model in BinCATConfigForm_t TableView register's widget.
+
+    Contains tainting and values for registers
+    """
+    def __init__(self, state, *args, **kwargs):
+        super(InitConfigRegModel, self).__init__(*args, **kwargs)
+        self.s = state
+        self.headers = ["register", "value", "top", "taint"]
+        #: list of Value (addresses)
+        self.rows = []
+        self.mono_font = QtGui.QFont("Monospace")
+        self.config = None
+        # regex to parse init syntax for registers
+        # example: reg[eax] = 100?0xF!0xF0
+        self.reg_re = re.compile(
+            r"(?P<value>[^!?]+)(\?(?P<top>[^!]+))?(!(?P<taint>.*))?")
+
+    def flags(self, index):
+        flags = (Qt.ItemIsSelectable
+                 | Qt.ItemIsEnabled)
+        if index.column() > 0:
+            flags |= Qt.ItemIsEditable
+        return flags
+
+    def all_taint_top(self):
+        for i in xrange(0, len(self.rows)):
+            size = ConfigHelpers.register_size(ConfigHelpers.get_arch(self.s.edit_config.analysis_ep),
+                                               self.rows[i][0])
+            if size >= 8:
+                self.rows[i][-1] = "0?0x"+"F"*(size/4)
+        self.endResetModel()
+
+    def endResetModel(self):
+        """
+        Rebuild a list of rows
+        """
+        if self.s.edit_config is not None:
+            self.config = self.s.edit_config
+        else:
+            return
+        #: list of Values (addresses)
+        if self.config:
+            self.rows = self.config.state.regs
+        else:
+            self.rows = []
+        super(InitConfigRegModel, self).endResetModel()
+
+    def headerData(self, section, orientation, role):
+        if orientation != Qt.Horizontal:
+            return
+        if role == Qt.DisplayRole:
+            return self.headers[section]
+
+    def setData(self, index, value, role):
+        if role != Qt.EditRole:
+            return False
+        col = index.column()
+        row = index.row()
+        if col == 0:
+            return False
+        if row > len(self.rows):
+            return False
+        else:
+            # existing row
+            self.rows[row][col] = value
+            if self.config:
+                self.config.state.set_regs(self.rows)
+        return True  # success
+
+    def data(self, index, role):
+        col = index.column()
+        if role == Qt.FontRole:
+            return self.mono_font
+        elif role == Qt.ToolTipRole:  # add tooltip ?
+            return
+        elif role != Qt.DisplayRole and role != Qt.EditRole:
+            return
+
+        reg = self.rows[index.row()]
+        return reg[col]
+
+    def rowCount(self, parent):
+        return len(self.rows)
+
+    def columnCount(self, parent):
+        return len(self.headers)
 
 
 class ValueTaintModel(QtCore.QAbstractTableModel):
@@ -1011,19 +1427,19 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         super(ValueTaintModel, self).endResetModel()
 
     def headerData(self, section, orientation, role):
-        if orientation != QtCore.Qt.Horizontal:
+        if orientation != Qt.Horizontal:
             return
-        if role == QtCore.Qt.DisplayRole:
+        if role == Qt.DisplayRole:
             return self.headers[section]
-        elif role == QtCore.Qt.SizeHintRole:
+        elif role == Qt.SizeHintRole:
             return QtCore.QSize(self.colswidths[section], 20)
 
     def data(self, index, role):
         col = index.column()
-        if role == QtCore.Qt.SizeHintRole:
+        if role == Qt.SizeHintRole:
             # XXX not obeyed. why?
             return QtCore.QSize(self.colswidths[col], 20)
-        elif role == QtCore.Qt.FontRole:
+        elif role == Qt.FontRole:
             if index.row() in self.changed_rows:
                 if col in [1, 3]:
                     return self.diff_font_mono
@@ -1034,13 +1450,13 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                     return self.mono_font
                 else:
                     return self.default_font
-        elif role == QtCore.Qt.ToolTipRole:
+        elif role == Qt.ToolTipRole:
             regaddr = self.rows[index.row()]
             t = self.s.current_state.regtypes.get(regaddr, None)
             if t:
                 return t[0]
             return
-        elif role != QtCore.Qt.DisplayRole:
+        elif role != Qt.DisplayRole:
             return
         regaddr = self.rows[index.row()]
 
@@ -1154,12 +1570,12 @@ class OverridesModel(QtCore.QAbstractTableModel):
         self.headers = ["eip", "addr or reg", "[value][!taint]"]
 
     def data(self, index, role):
-        if role not in (QtCore.Qt.ForegroundRole, QtCore.Qt.DisplayRole,
-                        QtCore.Qt.EditRole, QtCore.Qt.ToolTipRole):
+        if role not in (Qt.ForegroundRole, Qt.DisplayRole,
+                        Qt.EditRole, Qt.ToolTipRole):
             return
         col = index.column()
         row = index.row()
-        if role == QtCore.Qt.ToolTipRole:
+        if role == Qt.ToolTipRole:
             if col == 1:
                 return "Example valid addresses: reg[eax], mem[0x1234]"
             if col == 2:
@@ -1167,7 +1583,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
                         "!TAINT_ALL (reg only), !TAINT_NONE (reg only), "
                         "0x12?0x12", "|0xFF|![0x10|")
             return
-        if role == QtCore.Qt.ForegroundRole:
+        if role == Qt.ForegroundRole:
             # basic syntax checking
             if col not in (1, 2):
                 return
@@ -1182,7 +1598,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
             else:  # Taint column
                 if not self.s.overrides[row][1].startswith("reg"):
                     if "TAINT_ALL" in txt or "TAINT_NONE" in txt:
-                        return QtGui.QBrush(QtCore.Qt.red)
+                        return QtGui.QBrush(Qt.red)
                 pattern = (
                     # value (optional) - hex, oct, dec, bin, or string
                     r"^((0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+)"
@@ -1197,7 +1613,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
                     "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?$")
                 if re.match(pattern, txt):
                     return
-            return QtGui.QBrush(QtCore.Qt.red)
+            return QtGui.QBrush(Qt.red)
         rawdata = self.s.overrides[row][col]
         if col == 0:
             return "%x" % rawdata
@@ -1205,7 +1621,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
             return str(rawdata)
 
     def setData(self, index, value, role):
-        if role != QtCore.Qt.EditRole:
+        if role != Qt.EditRole:
             return False
         col = index.column()
         row = index.row()
@@ -1226,15 +1642,15 @@ class OverridesModel(QtCore.QAbstractTableModel):
         return True  # success
 
     def headerData(self, section, orientation, role):
-        if orientation != QtCore.Qt.Horizontal:
+        if orientation != Qt.Horizontal:
             return
-        if role == QtCore.Qt.DisplayRole:
+        if role == Qt.DisplayRole:
             return self.headers[section]
 
     def flags(self, index):
-        return (QtCore.Qt.ItemIsEditable
-                | QtCore.Qt.ItemIsSelectable
-                | QtCore.Qt.ItemIsEnabled)
+        return (Qt.ItemIsEditable
+                | Qt.ItemIsSelectable
+                | Qt.ItemIsEnabled)
 
     def rowCount(self, parent):
         return len(self.s.overrides)
@@ -1244,6 +1660,9 @@ class OverridesModel(QtCore.QAbstractTableModel):
 
     def remove_row(self, checked):
         del self.s.overrides[BinCATOverridesView.clickedIndex]
+
+    def remove_all(self):
+        self.s.overrides.clear()
 
 
 class BinCATOverridesView(QtWidgets.QTableView):
@@ -1263,176 +1682,14 @@ class BinCATOverridesView(QtWidgets.QTableView):
         action = QtWidgets.QAction('Remove', self)
         action.triggered.connect(self.m.remove_row)
         menu.addAction(action)
+        action = QtWidgets.QAction('Remove all', self)
+        action.triggered.connect(self.m.remove_all)
+        menu.addAction(action)
         BinCATOverridesView.clickedIndex = self.indexAt(event.pos()).row()
         menu.popup(QtGui.QCursor.pos())
 
-    def remove_row(self):
-        try:
-            index = self.table.selectedIndexes()[0].row()
-        except IndexError:
-            bc_log.warning("Could not identify selected row")
-            return
-        self.m.remove_row(index)
-
-
-# Configurations list - panel, view, model
-
-
-class BinCATConfigurationsForm_t(idaapi.PluginForm):
-    def __init__(self, state, configurations_model):
-        super(BinCATConfigurationsForm_t, self).__init__()
-        self.s = state
-        self.model = configurations_model
-        self.shown = False
-        self.created = False
-
-    def OnCreate(self, form):
-        self.created = True
-
-        # Get parent widget
-        self.parent = self.FormToPyQtWidget(form)
-        layout = QtWidgets.QGridLayout()
-
-        # title label
-        self.label = QtWidgets.QLabel('List of analysis configurations')
-        layout.addWidget(self.label, 0, 0)
-
-        # Configurations Table
-        self.table = BinCATConfigurationsView(self.model)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setSortingEnabled(True)
-        self.table.setModel(self.model)
-        self.s.configurations.register_callbacks(
-            self.model.beginResetModel, self.model.endResetModel)
-        self.table.verticalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
-
-        self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setStretchLastSection(True)
-
-        layout.addWidget(self.table, 1, 0, 1, 2)
-
-        self.edit_conf = QtWidgets.QPushButton('&Edit', self.parent)
-        self.edit_conf.clicked.connect(self._edit)
-        layout.addWidget(self.edit_conf, 2, 0)
-
-        self.export_conf = QtWidgets.QPushButton('&Export', self.parent)
-        self.export_conf.clicked.connect(self._export)
-        layout.addWidget(self.export_conf, 2, 1)
-
-        layout.setRowStretch(1, 0)
-
-        self.parent.setLayout(layout)
-
-    def OnClose(self, form):
-        self.shown = False
-
-    def Show(self):
-        if self.shown:
-            return
-        self.shown = True
-        return idaapi.PluginForm.Show(
-            self, "BinCAT Configurations",
-            options=(idaapi.PluginForm.FORM_PERSIST |
-                     idaapi.PluginForm.FORM_SAVE |
-                     idaapi.PluginForm.FORM_RESTORE |
-                     idaapi.PluginForm.FORM_TAB))
-
-    def _edit(self):
-        selectionModel = self.table.selectionModel()
-        if not selectionModel.hasSelection():
-            return
-        index = selectionModel.selectedRows()[0].row()
-        name = self.s.configurations.names_cache[index]
-        editdlg = EditConfigurationFileForm_t(self.parent, self.s)
-        editdlg.set_config(str(self.s.configurations[name]))
-        if editdlg.exec_() == QtWidgets.QDialog.Accepted:
-            self.s.configurations[name] = self.s.edit_config
-
-    def _export(self):
-        selectionModel = self.table.selectionModel()
-        if not selectionModel.hasSelection():
-            return
-        index = selectionModel.selectedRows()[0].row()
-        name = self.s.configurations.names_cache[index]
-        fname = idaapi.askfile_c(1, "*.ini", "Save exported configuration")
-        if fname:
-            with open(fname, 'w') as f:
-                f.write(str(self.s.configurations[name]))
-
-
-class ConfigurationsModel(QtCore.QAbstractTableModel):
-    def __init__(self, state, *args, **kwargs):
-        super(ConfigurationsModel, self).__init__(*args, **kwargs)
-        self.s = state
-        self.headers = ["configuration name"]
-
-    def data(self, index, role):
-        if role not in (QtCore.Qt.EditRole, QtCore.Qt.DisplayRole):
-            return
-        row = index.row()
-        name = self.s.configurations.names_cache[row]
-        return name
-
-    def setData(self, index, value, role):
-        if role != QtCore.Qt.EditRole:
-            return False
-        row = index.row()
-        oldname = self.s.configurations.names_cache[row]
-        # ensure names are unique
-        for idx, name in enumerate(self.s.configurations.names_cache):
-            if name == value and idx != row:
-                return False
-        if row > len(self.s.configurations):
-            return False
-        conf = self.s.configurations[oldname]
-        del self.s.configurations[oldname]
-        self.s.configurations[value] = conf
-        return True
-
-    def headerData(self, section, orientation, role):
-        if orientation != QtCore.Qt.Horizontal:
-            return
-        if role == QtCore.Qt.DisplayRole:
-            return self.headers[section]
-
-    def flags(self, index):
-        return (QtCore.Qt.ItemIsEditable
-                | QtCore.Qt.ItemIsSelectable
-                | QtCore.Qt.ItemIsEnabled)
-
-    def rowCount(self, parent):
-        return len(self.s.configurations)
-
-    def columnCount(self, parent):
-        return len(self.headers)
-
-    def remove_row(self, checked):
-        idx = BinCATConfigurationsView.clickedIndex
-        name = self.s.configurations.names_cache[idx]
-        del self.s.configurations[name]
-
-
-class BinCATConfigurationsView(QtWidgets.QTableView):
-    clickedIndex = None
-
-    def __init__(self, model, parent=None):
-        super(BinCATConfigurationsView, self).__init__(parent)
-        self.m = model
-        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
-        self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-
-    def contextMenuEvent(self, event):
-        if (self.m.rowCount(None) == 0 or
-                len(self.selectedIndexes()) == 0):
-            return
-        menu = QtWidgets.QMenu(self)
-        action = QtWidgets.QAction('Remove', self)
-        action.triggered.connect(self.m.remove_row)
-        menu.addAction(action)
-        BinCATConfigurationsView.clickedIndex = self.indexAt(event.pos()).row()
-        menu.popup(QtGui.QCursor.pos())
+    def remove_all(self):
+        self.m.remove_all()
 
     def remove_row(self):
         try:
@@ -1454,8 +1711,7 @@ class HandleAnalyzeHere(idaapi.action_handler_t):
     def activate(self, ctx):
         self.s.gui.show_windows()
 
-        AnalyzerLauncher = TaintLaunchForm_t(None, self.s)
-        AnalyzerLauncher.exec_()
+        self.s.gui.BinCATConfigForm.launch_analysis()
 
         return 1
 
@@ -1505,8 +1761,8 @@ class HandleAddOverride(idaapi.action_handler_t):
             htype = "reg"
         mask, res = QtWidgets.QInputDialog.getText(
             None,
-            "Add Taint override for %s" % highlighted,
-            "Taint value for %s (e.g. !TAINT_ALL (reg only), "
+            "Add override for %s" % highlighted,
+            "Overried value for %s (e.g. !TAINT_ALL (reg only), "
             "!TAINT_NONE (reg only), !0b001, !0xabc)" %
             highlighted, text=("!TAINT_ALL" if htype == "reg" else "!|FF|"))
         if not res:
@@ -1545,7 +1801,7 @@ class HandleRemap(idaapi.action_handler_t):
 
     def activate(self, ctx):
         # display config window
-        fname = idaapi.askfile_c(1, "*.*", "Save to binary")
+        fname = ConfigHelpers.askfile("*.*", "Save to binary")
         if fname:
             dump_binary(fname)
             self.state.remapped_bin_path = fname
@@ -1585,7 +1841,8 @@ class Hooks(idaapi.UI_Hooks):
 
     def updating_actions(self, ctx):
         # IDA 6/7 compat
-        win_type = ctx.widget_type if hasattr(ctx, "widget_type") else ctx.form_type
+        win_type = ctx.widget_type if hasattr(ctx, "widget_type") else \
+            ctx.form_type
         if win_type == idaapi.BWN_DISASM:
             ea = ctx.cur_ea
             if idaapi.isCode(idaapi.getFlags(ea)):
@@ -1598,10 +1855,12 @@ class Hooks(idaapi.UI_Hooks):
         except AttributeError:
             win_type = idaapi.get_tform_type(form)
         if win_type == idaapi.BWN_DISASM:
-            idaapi.attach_action_to_popup(form, popup, "bincat:ana_from_here",
-                                          "BinCAT/", idaapi.SETMENU_APP)
-            idaapi.attach_action_to_popup(form, popup, "bincat:add_override",
-                                          "BinCAT/", idaapi.SETMENU_APP)
+            idaapi.attach_action_to_popup(
+                form, popup, "bincat:ana_from_here",
+                "BinCAT/", idaapi.SETMENU_APP)
+            idaapi.attach_action_to_popup(
+                form, popup, "bincat:add_override",
+                "BinCAT/", idaapi.SETMENU_APP)
 
 
 class GUI(object):
@@ -1611,15 +1870,16 @@ class GUI(object):
         """
         self.s = state
         self.vtmodel = ValueTaintModel(state)
+        self.configregmodel = InitConfigRegModel(state)
+        self.configmemmodel = InitConfigMemModel(state)
         self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.vtmodel)
+        self.BinCATConfigForm = BinCATConfigForm_t(
+            state, self.configregmodel, self.configmemmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
         self.BinCATMemForm = BinCATMemForm_t(state)
         self.overrides_model = OverridesModel(state)
         self.BinCATOverridesForm = BinCATOverridesForm_t(
             state, self.overrides_model)
-        self.configurations_model = ConfigurationsModel(state)
-        self.BinCATConfigurationsForm = BinCATConfigurationsForm_t(
-            state, self.configurations_model)
 
         # XXX fix
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
@@ -1632,9 +1892,9 @@ class GUI(object):
         idaapi.attach_action_to_menu("Edit/BinCAT/analyse",
                                      "bincat:ana_from_here",
                                      idaapi.SETMENU_APP)
-        # Add taint override menu
+        # Add override menu
         add_taint_override_act = idaapi.action_desc_t(
-            'bincat:add_override', 'Add taint override...',
+            'bincat:add_override', 'Add override...',
             HandleAddOverride(self.s), 'Ctrl-Shift-O')
         idaapi.register_action(add_taint_override_act)
 
@@ -1671,8 +1931,8 @@ class GUI(object):
         self.BinCATDebugForm.Show()
         self.BinCATRegistersForm.Show()
         self.BinCATOverridesForm.Show()
-        self.BinCATConfigurationsForm.Show()
         self.BinCATMemForm.Show()
+        self.BinCATConfigForm.Show()
 
     def before_change_ea(self):
         self.vtmodel.beginResetModel()
@@ -1687,11 +1947,11 @@ class GUI(object):
         if self.hooks:
             self.hooks.unhook()
             self.hooks = None
-        self.BinCATRegistersForm.Close(0)
-        self.BinCATDebugForm.Close(0)
-        self.BinCATMemForm.Close(0)
-        self.BinCATOverridesForm.Close(0)
-        self.BinCATConfigurationsForm.Close(0)
+        self.BinCATConfigForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATRegistersForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATDebugForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATMemForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATOverridesForm.Close(idaapi.PluginForm.FORM_SAVE)
         self.vtmodel = None
         self.overrides_model = None
         self.configurations_model = None

@@ -283,6 +283,16 @@ class ARM(Arch):
         self.extract_flags(regs)
         return regs
 
+class Thumb(ARM):
+    OBJDUMP = ["arm-linux-gnueabi-objdump", "-m", "arm", "--disassembler-options=force-thumb"]
+    EGGLOADER = "eggloader_armv7thumb"
+    def assemble(self, tmpdir, asm):
+        asm = """
+           .code 16
+           .thumb_func
+        """ + asm
+        return ARM.assemble(self, tmpdir, asm)
+
 class AARCH64(ARM):
     ALL_REGS = [ "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10",
                  "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20",

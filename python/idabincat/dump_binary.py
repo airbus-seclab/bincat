@@ -16,15 +16,17 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
 import logging
-import idc
-import idautils
 import idaapi
+from idabincat.analyzer_conf import ConfigHelpers
 
 dump_log = logging.getLogger('bincat.plugin.dump_binary')
-dump_log.setLevel(logging.DEBUG)
+dump_log.setLevel(logging.INFO)
 
 
-def dump_binary(fname):
+# Dumps a remapped binary (as seen in IDA to disk)
+# returns a list of sections
+# [(name, va, vasize, raw_addr, raw_size)]
+def dump_binary(path):
     max_addr = 0
     # Check if we have a buggy IDA or not
     try:
@@ -35,28 +37,36 @@ def dump_binary(fname):
         buggy = False
     if buggy:
         f = idaapi.qfile_t()
-        f.open(fname, 'wb+')
-        segments = [x for x in idautils.Segments()]
-        max_addr = idc.GetSegmentAttr(segments[-1], idc.SEGATTR_END)
-        # TODO check max_addr to see if it's sane to write such a big file
+        f.open(path, 'wb+')
+        segments = [idaapi.getnseg(x) for x in range(idaapi.get_segm_qty())]
+        max_addr = segments.endEA # no need for IDA 7 compat, it's not buggy
+        if max_addr > 200*1024*1024:
+            if idaapi.ask_yn(idaapi.ASKBTN_NO, "Dump file is over 200MB,"
+                                               " do you want to dump it anyway ?") != idaapi.ASKBTN_YES:
+                return None
+
         idaapi.base2file(f.get_fp(), 0, 0, max_addr)
         f.close()
+        return [("dump", 0, max_addr, 0, max_addr)]
 
     else:
-        with open(fname, 'wb+') as f:
+        sections = []
+        current_offset = 0
+        with open(path, 'wb+') as f:
             # over all segments
-            for s in idautils.Segments():
-                start = idc.GetSegmentAttr(s, idc.SEGATTR_START)
-                end = idc.GetSegmentAttr(s, idc.SEGATTR_END)
+            for n in range(idaapi.get_segm_qty()):
+                seg = idaapi.getnseg(n)
+                start_ea = seg.start_ea if hasattr(seg, "start_ea") else seg.startEA
+                end_ea = seg.end_ea if hasattr(seg, "end_ea") else seg.endEA
+                size = end_ea - start_ea
                 # print "Start: %x, end: %x, size: %x" % (start, end, end-start)
-                max_addr = max(max_addr, end)
-                f.seek(start, 0)
                 # Only works with fixed IDAPython.
-                f.write(idaapi.get_many_bytes_ex(start, end-start)[0])
-
-    dump_log.debug("section[dump] = 0, 0x%x, 0, 0x%x", max_addr, max_addr)
-
+                f.write(idaapi.get_many_bytes_ex(start_ea, size)[0])
+                sections.append((idaapi.get_segm_name(seg), start_ea, size, current_offset, size))
+                current_offset += size
+        dump_log.debug(repr(sections))
+        return sections
 
 if __name__ == '__main__':
-    fname = idaapi.askfile_c(1, "*.*", "Save to binary")
+    fname = ConfigHelpers.askfile("*.*", "Save to binary")
     dump_binary(fname)

@@ -20,7 +20,7 @@
 (** its signature is Vector.Value_domain *)
 
 module L = Log.Make(struct let name = "reduced_bit_tainting" end)
-  
+
 module B = Bit
 module T = Taint
 
@@ -29,20 +29,19 @@ type t = B.t * T.t
 let top = B.TOP, T.TOP
 
 let forget (_v, t) = B.TOP, t
-  
+
 let is_top (v, _t) = v = B.TOP
 
 let to_z (v, _t) = B.to_z v
 
 let to_int (v, _t) = B.to_int v
 
-let forget_taint (v, _t) tid =
-  match tid with
-  | Some tid' -> v, T.singleton (T.Src.Maybe tid')
-  | None -> v, T.TOP
+let forget_taint (v, _t) tid = v, T.singleton (T.Src.Maybe tid)
 
 let join (v1, t1) (v2, t2) = B.join v1 v2, T.join t1 t2
 
+let taint_logor (v, t1) (_, t2) = v, T.logor t1 t2
+  
 let meet (v1, t1) (v2, t2) = B.meet v1 v2, T.meet t1 t2
 
 let xor (v1, t1) (v2, t2) = B.xor v1 v2, T.logor t1 t2
@@ -68,7 +67,7 @@ let widen (v1, t1) (v2, t2) = B.widen v1 v2, T.widen t1 t2
 
 let to_char (v, _t) = B.to_char v
 
-let to_string (v, _t) = B.to_string v 
+let to_string (v, _t) = B.to_string v
 
 let string_of_taint (_v, t) = T.to_string t
 
@@ -90,9 +89,9 @@ let is_one (v, _t) = v = B.ONE
 
 let zero = B.ZERO, T.U
 let is_zero (v, _t) = v = B.ZERO
-	      
-let is_subset (v1, _t1) (v2, _t2) = B.is_subset v1 v2
-					  
+
+let is_subset (v1, t1) (v2, t2) = B.is_subset v1 v2 && T.is_subset t1 t2
+
 let of_z z =
   if Z.compare z Z.zero = 0 then
     B.ZERO, T.U
@@ -106,11 +105,8 @@ let taint_of_z z (v, _t) tid =
   let t' =
   if Z.compare Z.zero z = 0 then T.U
   else
-    match tid with
-    | Some tid' ->
-       if Z.compare Z.one z = 0 then T.singleton (T.Src.Tainted tid')
-       else T.singleton (T.Src.Maybe tid')
-    | None -> L.abort (fun _p -> "no taint source provided in Reduced_bit_tainting.taint_of_z")
+    if Z.compare Z.one z = 0 then T.singleton (T.Src.Tainted tid)
+    else T.singleton (T.Src.Maybe tid)
   in
   v, t'
 

@@ -17,7 +17,7 @@
 *)
 
 (** raised when the address to compute has an unexpected format *)
-exception Illegal_address                
+exception Illegal_address
 
 (** raised when an abstract operation produces an empty value *)
 exception Empty of string

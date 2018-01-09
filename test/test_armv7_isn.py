@@ -1,27 +1,38 @@
 import pytest
 import os
-from util import ARM
+from util import ARM,Thumb
 
 arm = ARM(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7.ini.in')
 )
 compare = arm.compare
 
+thumb = Thumb(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7thumb.ini.in')
+)
+tcompare = thumb.compare
 
-def test_nop(tmpdir):
+@pytest.fixture()
+def cmpall():
+    def cmpall_(*args, **kargs):
+        compare(*args, **kargs)
+        tcompare(*args, **kargs)
+    return cmpall_
+
+def test_nop(tmpdir, cmpall):
     asm = """
         mov r0,r0
     """
-    compare(tmpdir, asm, [])
+    cmpall(tmpdir, asm, [])
 
 
-def test_assign(tmpdir):
+def test_assign(tmpdir, cmpall):
     asm = """
         mov r0, #0x12
         mov r1, r0
-        mov r2, r1
+        movs r2, r1
     """
-    compare(tmpdir, asm, ["r0","r1", "r2"])
+    cmpall(tmpdir, asm, ["r0","r1", "r2", "n", "z"])
 
 
 
@@ -38,6 +49,12 @@ dataop_comp_arith = pytest.mark.parametrize("op", [ "sub", "rsb", "add"])
 dataop_comp_arith_with_carry = pytest.mark.parametrize("op", [ "adc", "sbc", "rsc"])
 dataop_test_logic = pytest.mark.parametrize("op", ["tst", "teq"])
 dataop_test_arith = pytest.mark.parametrize("op", ["cmp", "cmn"])
+
+def test_movs_imm(tmpdir, cmpall, op8):
+    asm = """
+        movs r0, #{op8}
+    """.format(**locals())
+    cmpall(tmpdir, asm, ["r0", "n", "z"])
 
 
 def test_mov_reg(tmpdir):
@@ -279,16 +296,40 @@ def test_data_proc_read_pc(tmpdir):
 ##
 ## DATA XFER
 
-def test_data_xfer_push_pop(tmpdir):
+def test_data_xfer_push_pop(tmpdir, cmpall):
     asm = """
             mov r0, #123
             push { r0 }
             pop { r1 }
     """
-    compare(tmpdir, asm, ["r0","r1"])
+    cmpall(tmpdir, asm, ["r0","r1"])
+
+def test_data_xfer_push1_pop(tmpdir, cmpall):
+    asm = """
+            mov r0, #123
+            mov r1, #13
+            mov r2, #18
+            push { r0 }
+            push { r1 }
+            push { r2 }
+            pop { r3,r4,r5 }
+    """
+    cmpall(tmpdir, asm, ["r0","r1","r2","r3","r4","r5"])
+
+def test_data_xfer_push_pop1(tmpdir, cmpall):
+    asm = """
+            mov r0, #123
+            mov r1, #13
+            mov r2, #18
+            push { r0, r1, r2}
+            pop { r3 }
+            pop { r4 }
+            pop { r5 }
+    """
+    cmpall(tmpdir, asm, ["r0","r1","r2","r3","r4","r5"])
 
 
-def test_data_xfer_offsets(tmpdir):
+def test_data_xfer_offsets(tmpdir, cmpall):
     asm = """
             mov r0, #0
             mov r1, #123
@@ -303,7 +344,7 @@ def test_data_xfer_offsets(tmpdir):
             ldr r5, [sp, #0x10]
             add sp, #0x14
     """
-    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
+    cmpall(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
 
 def test_data_xfer_str_8(tmpdir):
     asm = """

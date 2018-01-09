@@ -4,6 +4,7 @@
 * [Installation](#installation)
 * [Main commands and features](#main-commands-and-features)
 * [IDA Views](#ida-views)
+* [.ini file format](#ini-file-format)
 
 ## Installation
 See [README](../README.md#installation).
@@ -16,16 +17,13 @@ See [README](../README.md#installation).
 
 ### Start an analysis
 In the **IDA View-A** view, go to the instruction you want the analysis to
-start from. Then, you can either:
-* Use the **Edit >> BinCAT >> Analyze from here** menu
-* Use the context menu (right click in **IDA View-A**), then select the
+start from. Then, you should:
+1. Use configuration pane to set the inital state and start adress
+2. Start the analysis from:
+  * the "Start" button
+  * the context menu (right click in **IDA View-A**), then select the
   **BinCAT >> Analyze from here** menu
-* Use the **Ctrl + Shift + a** shortcut
-
-![BinCAT Start analysis dialog](img/bincat-start-analysis.png)
-
-* Click **Start** to run the analysis with a new configuration (automatically
-  generated)
+  * the **Ctrl + Shift + a** shortcut
 
 ### Override taint
 *Taint* can be overridden for any register value or memory byte, at any
@@ -131,18 +129,18 @@ analysis parameters. This data is useful for BinCAT developers and debuggers.
 
 ![BinCAT IL view](img/bincat-il.png)
 
-### BinCAT Configurations
+### BinCAT Configuration pane
 
-This view displays the list of BinCAT analysis configurations that were saved by the user. Users may:
-* Display or edit configurations: select a configuration, then click the
-  **Edit** button
-* Export configurations; select a configuration, then click the **Export** button
-* Delete configurations: select a configuration, right click, then choose the
-  **Remove** menu
+This pane is the starting point for BinCAT analysis. It contains:
+* the initial state for registers
+* the initial state for memory
+* the entrypoint ("Start addr") for analysis
+* the cut-off points for analysis ("Stop addr")
+* the various configurations stored in the IDB, along with loading and export capabilities
 
-![BinCAT Configuration view](img/bincat-configurations.png)
+![BinCAT configuration pane](img/bincat-conf-pane.png)
 
-### Ida Output Window
+### IDA Output Window
 
 This view displays log messages that stem from the BinCAT plugin, or the BinCAT
 analyzer.
@@ -150,3 +148,6 @@ analyzer.
 It also features a python shell, which can be used to debug the BinCAT plugin:
 a global variable (`bc_state`) allows accessing its internal objects.
 
+## .ini file format
+
+See the [dedicated page](ini_format.md).

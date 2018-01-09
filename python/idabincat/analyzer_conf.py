@@ -22,19 +22,20 @@ import functools
 import glob
 import os
 import os.path
+import sys
+import re
 import StringIO
 import ConfigParser
-import idaapi
-import idc
 import logging
-import idabincat.netnode
+import idaapi
 import idautils
 import ida_segment
+import idabincat.netnode
 from idabincat.plugin_options import PluginOptions
 
 # Logging
 bc_log = logging.getLogger('bincat-cfg')
-bc_log.setLevel(logging.DEBUG)
+bc_log.setLevel(logging.INFO)
 
 # Needed because IDA doesn't store s_psize
 class pesection_t(ctypes.Structure):
@@ -79,6 +80,45 @@ class ConfigHelpers(object):
             return ConfigHelpers.ftypes[f_type]
         else:
             return "raw"
+
+    # Helper function to get a filename as a Unicode string
+    @staticmethod
+    def string_decode(string):
+        if idaapi.get_kernel_version()[0] == '7':
+            # IDA 7 only has UTF-8 strings
+            string_u = string.decode('UTF-8')
+        else:
+            # IDA 6 uses the system locale
+            # on Linux it's usually UTF-8 but we can't be sure
+            # on Windows getfilesystemencoding returns "mbcs"
+            # but it decodes cpXXXX correctly apparently
+            string_u = string.decode(sys.getfilesystemencoding())
+        return string_u
+
+    @staticmethod
+    def askfile(types, prompt):
+        # IDA 6/7 compat
+        askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') else idaapi.askfile_c
+        fname = askfile(1, types, prompt)
+        return ConfigHelpers.string_decode(fname)
+
+    # Helper that returns an Unicode string with the file path
+    @staticmethod
+    def guess_file_path():
+        input_file = idaapi.get_input_file_path()
+        input_file = ConfigHelpers.string_decode(input_file)
+        if not os.path.isfile(input_file):
+            # get_input_file_path returns file path from IDB, which may not
+            # exist locally if IDB has been moved (eg. send idb+binary to
+            # another analyst)
+            guessed_path = idaapi.get_path(idaapi.PATH_TYPE_IDB)
+            guessed_path = guessed_path.replace('idb', 'exe')
+            if os.path.isfile(guessed_path):
+                return guessed_path
+            guessed_path = guessed_path.replace('.exe', '')
+            if os.path.isfile(guessed_path):
+                return guessed_path
+        return input_file
 
     @staticmethod
     def get_memory_model():
@@ -136,7 +176,7 @@ class ConfigHelpers(object):
             # IDA 6/7 compat
             start_ea = seg.start_ea if hasattr(seg, "start_ea") else seg.startEA
             end_ea = seg.end_ea if hasattr(seg, "end_ea") else seg.endEA
-            if (seg.type == idaapi.SEG_CODE and start_ea <= entrypoint < end_ea):
+            if seg.type == idaapi.SEG_CODE and start_ea <= entrypoint < end_ea:
                 # TODO : check PE/ELF for **physical** (raw) section size
                 return start_ea, end_ea
         bc_log.error("No code section has been found for entrypoint %#08x",
@@ -201,39 +241,70 @@ class ConfigHelpers(object):
         return imports
 
     @staticmethod
+    def register_size(arch, reg):
+        if arch == 'x86':
+            if reg in ['eax', 'ecx', 'edx', 'ebx', 'ebp', 'esi', 'edi', 'esp']:
+                return 32
+            if reg in ['cf', 'pf', 'af', 'zf', 'sf', 'tf', 'if', 'of', 'nt',
+                         'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
+                return 1
+            if reg == 'iopl':
+                return 3
+        elif arch == 'armv7':
+            if reg[0] == 'r' or reg in ['sp', 'lr', 'pc']:
+                return 32
+            if reg in ['n', 'z', 'c', 'v']:
+                return 1
+        elif arch == 'armv8':
+            if reg[0] == 'x' or reg in ['xzr', 'sp']:
+                return 64
+            if reg[0] == 'q':
+                return 128
+            if reg in ['n', 'z', 'c', 'v']:
+                return 1
+        return None
+
+    @staticmethod
     def get_registers_with_state(arch):
-        regs = {}
+        # returns an array of arrays
+        # ["name", "value", "topmask", "taintmask"]
+        regs = []
         if arch == "x86":
             for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
-                regs[name] = "0?0xFFFFFFFF"
+                regs.append([name, "0", "0xFFFFFFFF", ""])
+            regs.append(["esp", "0x2000", "", ""])
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
                          "rf", "vm", "ac", "vif", "vip", "id"]:
-                regs[name] = "0?1"
-            regs["esp"] = "0x2000"
-            regs["df"] = "0"
-            regs["iopl"] = "3"
+                regs.append([name, "0", "1", ""])
+            regs.append(["df", "0", "", ""])
+            regs.append(["iopl", "3", "", ""])
         elif arch == "armv7":
-            regs["sp"] = "0x2000"
-            regs["lr"] = "0x0"
-            regs["pc"] = "0x0"
-            regs["n"] = "0?1"
-            regs["z"] = "0?1"
-            regs["c"] = "0?1"
-            regs["v"] = "0?1"
             for i in range(13):
-                regs["r%d" % i] = "0?0xFFFFFFFF"
+                regs.append(["r%d" % i, "0", "0xFFFFFFFF", ""])
+            regs.append(["sp", "0x2000", "", ""])
+            regs.append(["lr", "0x0", "", ""])
+            regs.append(["pc", "0x0", "", ""])
+            regs.append(["n", "0", "1", ""])
+            regs.append(["z", "0", "1", ""])
+            regs.append(["c", "0", "1", ""])
+            regs.append(["v", "0", "1", ""])
+            regs.append(["t", "0", "", ""])
         elif arch == "armv8":
-            regs["sp"] = "0x2000"
-            regs["n"] = "0?1"
-            regs["z"] = "0?1"
-            regs["c"] = "0?1"
-            regs["v"] = "0?1"
-            regs["xzr"] = "0"
             for i in range(31):
-                regs["x%d" % i] = "0?0xFFFFFFFFFFFFFFFF"
+                regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
+            regs.append(["sp", "0x2000", "", ""])
             for i in range(32):
-                regs["q%d" % i] = "0?0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+                regs.append(["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
+            regs.append(["n", "0", "1", ""])
+            regs.append(["z", "0", "1", ""])
+            regs.append(["c", "0", "1", ""])
+            regs.append(["v", "0", "1", ""])
+            regs.append(["xzr", "0", "", ""])
         return regs
+
+    @staticmethod
+    def get_initial_mem(arch=None):
+        return [["stack", "0x1000*8192", "|00|?0xFF"]]
 
     @staticmethod
     def get_arch(entrypoint):
@@ -248,6 +319,83 @@ class ConfigHelpers(object):
                 return "armv8"
 
 
+class InitialState(object):
+    """
+    Stores the initial state configuration:
+        * registers
+        * memory
+    """
+    def __init__(self, entrypoint=None, config=None):
+        if config:
+            arch = config.get('program', 'architecture')
+            self.mem = []
+            self.regs = []
+            for k, v in config.items('state'):
+                if k[0:3] == "reg":
+                    self.regs.append(InitialState.reg_init_parse(k, v))
+                else:
+                    self.mem.append(InitialState.mem_init_parse(k, v))
+        else:
+            arch = ConfigHelpers.get_arch(entrypoint)
+            self.regs = ConfigHelpers.get_registers_with_state(arch)
+            self.mem = ConfigHelpers.get_initial_mem(arch)
+
+    def set_regs(self, regs):
+        self.regs = regs
+
+    def set_mem(self, mem):
+        self.mem = mem
+
+    def add_mem(self, index, mem_entry):
+        if index >= len(self.mem) or index < 0:
+            self.mem.append(mem_entry)
+        else:
+            self.mem.insert(index, mem_entry)
+
+    @staticmethod
+    def mem_init_parse(mem_addr, mem_val):
+        mem_addr_re = re.compile("(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
+        m = mem_addr_re.match(mem_addr)
+        return [m.group('region'), m.group('address'), mem_val]
+
+    @staticmethod
+    def reg_init_parse(reg_spec, reg_val):
+        if reg_spec[0:3] != "reg":
+            raise ValueError("Invalid reg spec, not starting with 'reg'")
+        reg_re = re.compile("(?P<value>[^!?]+)?(\?(?P<top>[^!]+))?(!(?P<taint>[^#]*))?(?P<cmt>#.*)?")
+        m = reg_re.match(reg_val)
+        return [reg_spec[4:-1],
+                m.group('value') or '',
+                m.group('top') or '',
+                m.group('taint') or '']
+
+    @staticmethod
+    def reg_to_strs(regspec):
+        val_str = regspec[1]
+        if regspec[2] != "":  # add top mask if needed
+            val_str += "?"+regspec[2]
+        if regspec[3] != "":  # add taint mask if needed
+            val_str += "!"+regspec[3]
+        return ["reg[%s]" % regspec[0], val_str]
+
+    @staticmethod
+    def mem_to_strs(memdef):
+        return ["%s[%s]" % (memdef[0], memdef[1]), memdef[2]]
+
+    def as_kv(self):
+        res = []
+        for regdef in self.regs:
+            res.append(self.reg_to_strs(regdef))
+        for memdef in self.mem:
+            res.append(self.mem_to_strs(memdef))
+        return res
+
+    @staticmethod
+    def get_default(entrypoint):
+        state = InitialState(entrypoint)
+        return state.as_kv()
+
+
 class AnalyzerConfig(object):
     """
     Handles configuration files for the analyzer.
@@ -256,8 +404,10 @@ class AnalyzerConfig(object):
         self.version = "0.0"
         if config:
             self._config = config
+            self.init_state = InitialState(config=config)
         else:
             self._config = ConfigParser.RawConfigParser()
+            self.init_state = InitialState()
         self._config.optionxform = str
         # make sure all sections are created
         for section in ("analyzer", "program",
@@ -292,7 +442,7 @@ class AnalyzerConfig(object):
         # remove quotes
         value = self._config.get('program', 'filepath')
         value = value.replace('"', '')
-        return value
+        return value.decode('utf-8')
 
     @property
     def in_marshalled_cfa_file(self):
@@ -314,6 +464,10 @@ class AnalyzerConfig(object):
     def format(self):
         return self._config.get('program', 'format').lower()
 
+    @property
+    def state(self):
+        return self.init_state
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
@@ -330,12 +484,16 @@ class AnalyzerConfig(object):
         else:
             self._config.set('analyzer', 'cut', value)
 
+    @analysis_method.setter
+    def analysis_method(self, value):
+        self._config.set('analyzer', 'analysis', value.lower())
+
     @binary_filepath.setter
     def binary_filepath(self, value):
         # make sure value is surrounded by quotes
         if '"' not in value:
             value = '"%s"' % value
-        self._config.set('program', 'filepath', value)
+        self._config.set('program', 'filepath', value.encode('utf-8'))
 
     @in_marshalled_cfa_file.setter
     def in_marshalled_cfa_file(self, value):
@@ -376,17 +534,32 @@ class AnalyzerConfig(object):
         self._config.set('analyzer', 'in_marshalled_cfa_file', in_cfa)
 
     def update_overrides(self, overrides):
-        # 1. Empty existing overrides sections
+        # 1. Empty override section
         self._config.remove_section("override")
         self._config.add_section("override")
-        # 2. Add sections from overrides argument
-        ov_by_eip = collections.defaultdict(set)
-        for (eip, register, value) in overrides:
-            ov_by_eip[eip].add("%s, %s;" % (register, value))
-        # 3. Add to config
-        for eip, ov_set in ov_by_eip.items():
-            hex_addr = "0x%x" % eip
-            self._config.set("override", hex_addr, ''.join(ov_set))
+
+        if self.analysis_method == "forward_binary":
+            # 2. Add sections from overrides argument
+            ov_by_eip = collections.defaultdict(set)
+            for (eip, register, value) in overrides:
+                ov_by_eip[eip].add("%s, %s;" % (register, value))
+
+            # 3. Add to config
+            for eip, ov_set in ov_by_eip.items():
+                hex_addr = "0x%x" % eip
+                self._config.set("override", hex_addr, ''.join(ov_set))
+        else:  # backward
+            # 2. Empty state section
+            self._config.remove_section("state")
+            self._config.add_section("state")
+
+            # 3. Get overrides for current eip only, define that as initial
+            # state
+            initial_eip = int(self.analysis_ep, 16)
+            for (eip, register, value) in overrides:
+                if eip != initial_eip:
+                    continue
+                self._config.set("state", register, value)
 
     @staticmethod
     def load_from_str(string):
@@ -399,19 +572,31 @@ class AnalyzerConfig(object):
     # Output functions: save config to a file, or the IDB (for a given
     # address, or as default)
     def write(self, filepath):
+        # OCaml can only handle "local" encodings for file name
+        # So, ugly code following
+        binpath = self.binary_filepath
+        local_binpath = ('"%s"' % binpath).encode(sys.getfilesystemencoding())
+        self._config.set('program', 'filepath', local_binpath)
         with open(filepath, 'w') as configfile:
             self._config.write(configfile)
+        self.binary_filepath = binpath
 
     def __str__(self):
+        self._config.remove_section('state')
+        self._config.add_section('state')
+        for key, val in self.init_state.as_kv():
+            self._config.set("state", key, val)
         sio = StringIO.StringIO()
         self._config.write(sio)
         sio.seek(0)
         return sio.read()
 
     @staticmethod
-    def get_default_config(analysis_start_va, analysis_stop_va):
+    def get_default_config(analysis_start_va, analysis_stop_va,
+                           analysis_method):
         """
-        Returns a new AnalyzerConfig for the given entry point & cut
+        Returns a new AnalyzerConfig for the given entry point, cut and
+        analysis method
         """
         # this function will use the default parameters
         config = ConfigParser.RawConfigParser()
@@ -426,10 +611,11 @@ class AnalyzerConfig(object):
             bc_log.warning("Default config file %s could not be found",
                            configfile)
 
-        code_start_va, code_end_va = ConfigHelpers.get_code_section(
+        code_start_va, _ = ConfigHelpers.get_code_section(
             analysis_start_va)
 
         config.set('analyzer', 'analysis_ep', "0x%0X" % analysis_start_va)
+        config.set('analyzer', 'analysis', analysis_method)
 
         # [program] section
         config.add_section('program')
@@ -445,32 +631,41 @@ class AnalyzerConfig(object):
         arch = ConfigHelpers.get_arch(analysis_start_va)
         config.set('program', 'architecture', arch)
 
-        input_file = idaapi.get_input_file_path()
-        if not os.path.isfile(input_file):
-            # get_input_file_path returns file path from IDB, which may not
-            # exist locally if IDB has been moved (eg. send idb+binary to
-            # another analyst)
-            guessed_path = idc.GetIdbPath().replace('idb', 'exe')
-            if os.path.isfile(guessed_path):
-                input_file = guessed_path
-
+        input_file = ConfigHelpers.guess_file_path()
         ftype = ConfigHelpers.get_file_type()
-        config.set('program', 'filepath', '"%s"' % input_file)
-        config.set('program', 'format', ftype)
+        config.set('program', 'filepath', '"%s"' % input_file.encode('utf-8'))
+
+        # For now BinCAT engine only parses elf files
+        if ftype != "elf":
+            config.set('program', 'format', 'manual')
+        else:
+            config.set('program', 'format', ftype)
 
         # [sections section]
-        config.add_section("sections")
+        config.add_section('sections')
         for s in ConfigHelpers.get_sections():
-            config.set("sections", "section[%s]" % s[0],
-                       "0x%x, 0x%x, 0x%x, 0x%x" % (s[1], s[2], s[3], s[4]))
+            config.set('sections', 'section[%s]' % s[0],
+                       '0x%x, 0x%x, 0x%x, 0x%x' % (s[1], s[2], s[3], s[4]))
 
-        # [state section]
-        config.add_section("state")
-        regs = ConfigHelpers.get_registers_with_state(arch)
-        for rname, val in regs.iteritems():
-            config.set("state", ("reg[%s]" % rname), val)
-        # Default stack
-        config.set("state", "stack[0x1000*8192]", "|00|?0xFF")
+        if analysis_method == 'forward_binary':
+            # [state section]
+            config.add_section('state')
+            config.add_section('override')
+            # hack to add comments
+            config.set('override',
+                       '; This will be overriden by values from the BinCAT '
+                       'Overrides view')
+            config.set('state', 'stack[0x1000*8192]', '|00|?0xFF')
+            init_state = InitialState.get_default(analysis_start_va)
+            for key, val in init_state:
+                config.set("state", key, val)
+        else:
+            # backward
+            config.add_section('state')
+            # hack to add comments
+            config.set('state',
+                       '; This will be overriden by values from the BinCAT '
+                       'Overrides view')
 
         imports = ConfigHelpers.get_imports()
         # [import] section
@@ -492,11 +687,6 @@ class AnalyzerConfig(object):
         quoted_filenames = ['"%s"' % h for h in headers_filenames]
         config.set('analyzer', 'headers', ','.join(quoted_filenames))
 
-        # arch-specifig sections
-        if arch == 'x86':
-            config.add_section(arch)
-            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
-
         # Load default GDT/Segment registers according to file type
         # XXX move this logic to PluginOptions
         if ftype == "pe":
@@ -507,6 +697,19 @@ class AnalyzerConfig(object):
             config_path, "conf", "%s-%s.ini" % (os_name, arch))
         bc_log.debug("Reading OS config from %s", os_specific)
         config.read(os_specific)
+
+        # arch-specifig sections
+        if arch == 'x86':
+            try:
+                config.add_section(arch)
+            except ConfigParser.DuplicateSectionError:
+                # already exists in (arch,OS)-specific config
+                pass
+            config.set('x86', 'mem_model', ConfigHelpers.get_memory_model())
+            if analysis_method == 'backward':
+                # remove segment registers
+                for seg_reg in ('cs', 'ds', 'ss', 'es', 'fs', 'gs'):
+                    config.remove_option('x86', seg_reg)
 
         # [libc section]
         # config.add_section('libc')
@@ -566,11 +769,12 @@ class AnalyzerConfigurations(object):
                 del self._prefs[k]
         self.refresh_cache()
 
-    def new_config(self, start_va, stop_va):
+    def new_config(self, start_va, stop_va, analysis_config):
         """
         return new configuration
         """
-        return AnalyzerConfig.get_default_config(start_va, stop_va)
+        return AnalyzerConfig.get_default_config(start_va, stop_va,
+                                                 analysis_config)
 
     def __getitem__(self, name_or_address):
         """

@@ -20,8 +20,8 @@ module type T =
 sig
   type domain_t
 
-  (** [process d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args]. 
-It returns also a boolean true whenever the result is tainted. *) 
+  (** [process d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args].
+It returns also a boolean true whenever the result is tainted. *)
   val process : domain_t -> string -> Asm.calling_convention_t ->
     domain_t * Taint.t * Asm.stmt list
 

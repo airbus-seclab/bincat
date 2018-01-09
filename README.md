@@ -14,7 +14,7 @@ It features:
 
 ### In action
 
-You can check BinCAT in action here:
+You can check (an older version of) BinCAT in action here:
 
 * [Basic analysis](https://syscall.eu/bincat/main.mp4)
 * [Using data tainting](https://syscall.eu/bincat/taint.mp4)
@@ -52,8 +52,9 @@ On Linux:
 
 * Unzip BinCAT
 * In IDA, click on "File -> Script File..." menu (or type ALT-F7)
-* Select `windows_install.py`
+* Select `install_plugin.py`
 * BinCAT is now installed in your IDA user dir
+* Restart IDA
 
 Or [install manually](doc/plugin_manual_win.md).
 
@@ -73,8 +74,9 @@ BinCAT should work with IDA on Wine, once pip is installed:
 * Load the plugin by using the `Ctrl-Shift-B` shortcut, or using the
   `Edit -> Plugins -> BinCAT` menu
 
-* Select an instruction in any IDA view, then use the `Ctrl-Shift-A` shortcut,
-  or the `BinCAT -> Analyze from here` context menu
+* Go to the instruction where you want to start the analysis
+* Select the `BinCAT Configuration` pane, click `<-- Current` to define the start address
+* Launch the analysis
 
 ### Configuration
 Global options can be configured through the `Edit/BinCAT/Options` menu.
@@ -83,32 +85,24 @@ Default config and options are stored in `$IDAUSR/idabincat/conf`.
 
 #### Options
 
-* Use remote bincat: select if you are running docker in a Docker container
-* Remote URL: http://localhost:5000 (or the URL of a remote BinCAT server)
-* Autostart: autoload BinCAT at IDA startup
-* Save to IDB: default state for the `save to idb` checkbox
+* "Use remote bincat": select if you are running docker in a Docker container
+* "Remote URL": http://localhost:5000 (or the URL of a remote BinCAT server)
+* "Autostart": autoload BinCAT at IDA startup
+* "Save to IDB": default state for the `save to idb` checkbox
 
-
-#### Analyzer configuration files
-Default config for analyzer.
 
 ## Documentation
-A [manual](doc/manual.md) is provided. 
+A [manual](doc/manual.md) is provided and check [here](doc/ini_format.md) for a
+description of the configuration file format.
+
 
 A [tutorial](doc/tutorial.md) is provided to help you try BinCAT's features. 
-It makes use of a [sample binary](doc/get_key/get_key) and screenshots.
 
-### Log levels
-
-1. basic info
-2. more info
-3. debug
-4. advanced debug
 
 ## Article and presentations about BinCAT
 
 * [SSTIC 2017](https://www.sstic.org/2017/presentation/bincat_purrfecting_binary_static_analysis/), Rennes, France: [article](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Article-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (english), [slides](https://www.sstic.org/media/SSTIC2017/SSTIC-actes/bincat_purrfecting_binary_static_analysis/SSTIC2017-Slides-bincat_purrfecting_binary_static_analysis-biondi_rigo_zennou_mehrenberger.pdf) (french), [video of the presentation](https://static.sstic.org/videos2017/SSTIC_2017-06-07_P07.mp4) (french)
-* [REcon 2017](https://recon.cx/2017/montreal/talks/bincat.html), Montreal, Canada: [slides](https://syscall.eu/bincat/bincat-recon.pdf)
+* [REcon 2017](https://recon.cx/2017/montreal/talks/bincat.html), Montreal, Canada: [slides](https://syscall.eu/bincat/bincat-recon.pdf), [video](https://recon.cx/media-archive/2017/mtl/recon2017-mtl-05-philippe-biondi-xavier-mehrenberger-raphael-rigo-sarah-zennou-BinCAT-purrfecting-binary-static-analysis.mp4)
 
 ## Licenses
 

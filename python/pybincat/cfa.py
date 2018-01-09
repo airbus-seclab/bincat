@@ -50,8 +50,8 @@ def reg_len(regname):
         return {
             "r0": 32, "r1": 32, "r2": 32, "r3": 32, "r4": 32, "r5": 32,
             "r6": 32, "r7": 32, "r8": 32, "r9": 32, "r10": 32, "r11": 32,
-            "r12": 32, "sp": 32, "lr": 32, "pc": 32,
-            "c": 1, "n": 1, "v": 1, "z": 1}[regname]
+            "r12": 32, "sp": 32, "lr": 32, "pc": 32, "itstate": 8,
+            "c": 1, "n": 1, "v": 1, "z": 1, "t": 1}[regname]
     elif CFA.arch == "x86":
         return {
             "eax": 32, "ebx": 32, "ecx": 32, "edx": 32,
@@ -302,7 +302,7 @@ class State(object):
             # v0.6 format
             tainted = True
             taintsrc = ["t-0"]
-        elif taintedstr == "":
+        elif taintedstr == "" or taintedstr == "?":
             # v0.7 format, not tainted
             tainted = False
             taintsrc = []

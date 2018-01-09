@@ -22,20 +22,20 @@
 type t =
     | T of TypedC.typ
     | UNKNOWN
-  
+
 
 let to_string t =
   match t with
   | T t' -> TypedC.string_of_typ t'
   | UNKNOWN -> "?"
-     
+
 let typ_of_npk npk_t = T npk_t
 
 let join t1 t2 =
   match t1, t2 with
-   | T t1', T t2' when TypedC.equals_typ t1' t2' -> t1  
+   | T t1', T t2' when TypedC.equals_typ t1' t2' -> t1
    | _ , _ -> UNKNOWN
-     
+
 let meet t1 t2 =
   match t1, t2 with
   | T t1', T t2' when TypedC.equals_typ t1' t2' -> t1

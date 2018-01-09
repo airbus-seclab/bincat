@@ -210,7 +210,7 @@ let zdec_sword s ofs ident =
     then word
     else Z.pred (Z.lognot word) (* negative *)
 
-let zenc_word s ofs word ident = 
+let zenc_word s ofs word ident =
   match ident.e_data with
   | ELFDATA_2LSB ->
      zenc_byte s ofs Z.(word land ~$0xff);
@@ -264,7 +264,7 @@ let zdec_sxword s ofs ident =
     then xword
     else Z.pred (Z.lognot xword) (* negative *)
 
-let zenc_xword s ofs xword ident = 
+let zenc_xword s ofs xword ident =
   match ident.e_data with
   | ELFDATA_2LSB ->
      zenc_byte s ofs Z.(xword land ~$0xff);
@@ -590,7 +590,7 @@ type st_type_t =
   | STT_OTHER of int
 
 let to_st_type x =
-  match x with 
+  match x with
   | 0 -> STT_NOTYPE   | 1 -> STT_OBJECT  | 2 -> STT_FUNC
   | 3 -> STT_SECTION  | 4 -> STT_FILE
   | x -> STT_OTHER x
@@ -862,7 +862,7 @@ let vaddr_to_paddr vaddr ph =
   Z.(phdr.p_offset + vaddr - phdr.p_vaddr)
 
 
-let patch_elf elf s vaddr value = 
+let patch_elf elf s vaddr value =
   let paddr = Z.to_int (vaddr_to_paddr vaddr elf.ph) in
   zenc_word_xword s paddr value elf.hdr.e_ident
 

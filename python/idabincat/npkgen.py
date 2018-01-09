@@ -28,7 +28,7 @@ except ImportError:
     pass
 
 npk_log = logging.getLogger('bincat.plugin.npkgen')
-npk_log.setLevel(logging.DEBUG)
+npk_log.setLevel(logging.INFO)
 
 
 class NpkGenException(Exception):

@@ -115,11 +115,12 @@ let gs = ref Z.zero
 let interleave = ref false
 
 type tvalue =
-  | Taint_all of Taint.Src.id_t (* None means no taint source *)
-  | Taint of Z.t * (Taint.Src.id_t option) (* None means no taint source *)
-  | TMask of Z.t * Z.t * (Taint.Src.id_t option) (* second element is a mask on the first one. For the taint component, None means no source *)
-  | TBytes of string * (Taint.Src.id_t option)
-  | TBytes_Mask of (string * Z.t * (Taint.Src.id_t option))
+  | Taint_all of Taint.Src.id_t 
+  | Taint of Z.t * Taint.Src.id_t
+  | Taint_none   
+  | TMask of Z.t * Z.t * Taint.Src.id_t (* second element is a mask on the first one *)
+  | TBytes of string * Taint.Src.id_t
+  | TBytes_Mask of (string * Z.t * Taint.Src.id_t)
 
 type cvalue =
   | Content of Z.t
@@ -127,15 +128,15 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
-let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue option))) list)) Hashtbl.t = Hashtbl.create 5
-let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
-let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
-let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue option)) list) Hashtbl.t = Hashtbl.create 5
+let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
+let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
+let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
+let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 
 (* lists for the initialisation of the global memory, stack and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
-type mem_init_t = ((Z.t * int) * (cvalue option * tvalue option)) list
-type reg_init_t = (string * (cvalue option * tvalue option)) list
+type mem_init_t = ((Z.t * int) * (cvalue option * tvalue list)) list
+type reg_init_t = (string * (cvalue option * tvalue list)) list
 
 let register_content: reg_init_t ref = ref []
 let memory_content: mem_init_t ref = ref []
@@ -164,7 +165,7 @@ let tainting_rules : ((string * string), (call_conv_t * taint_t option * taint_t
 (** data structure for the typing rules of import functions *)
 let typing_rules : (string, TypedC.ftyp) Hashtbl.t = Hashtbl.create 5
 
-  
+
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;
   Hashtbl.clear assert_tainted_functions;

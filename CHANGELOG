@@ -1,3 +1,18 @@
+2017-12-22: v0.8.1:
+Small bugfixes:
+* correctly install .no files
+* decode long NOP form in x86
+* new log message
+* experimental Linux static build
+
+2017-12-15: v0.8:
+* ARMv7 thumb mode support (partial)
+* Better rainbow tainting
+* Backward mode progress (still experimental !)
+* memset stub
+* GUI to edit initial state
+* Lots of bug fixes
+
 2017-10-20: v0.7:
 * ARMv7 support (without thumb instruction set)
 * ARMv8 (partial) support

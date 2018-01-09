@@ -397,16 +397,16 @@ module Make(Ord: OrderedType) =
           (Empty, None, Empty)
        | Node(l, v, r, _) ->
           match p x v with
-          | None ->    
+          | None ->
              let c = Ord.compare x v in
              if c < 0 then
                let (ll, pres, rl) = split_on_predicate p x l in (ll, pres, join rl v r)
              else
                let (lr, pres, rr) = split_on_predicate p x r in (join l v lr, pres, rr)
           | Some v' -> (l, Some v', r)
-					   
+
          let union_on_predicate p s1 s2 =
-           let rec union s1 s2 = 
+           let rec union s1 s2 =
              match (s1, s2) with
                (Empty, t2) -> t2
              | (t1, Empty) -> t1
@@ -414,21 +414,21 @@ module Make(Ord: OrderedType) =
                 if h1 >= h2 then
                   if h2 = 1 then add v2 s1 else begin
                     let (l2, res, r2) = split_on_predicate p v1 s2 in
-	                let v' =
-		              match res with
-		              | None -> v1
-		              | Some v' -> v'
-	                in
+                    let v' =
+                      match res with
+                      | None -> v1
+                      | Some v' -> v'
+                    in
                     join (union l1 l2) v' (union r1 r2)
                   end
                 else
                   if h1 = 1 then add v1 s2 else begin
                     let (l1, res, r1) = split_on_predicate p v2 s1 in
-	                let v' =
-		              match res with
-		              | None -> v2
-		              | Some v' -> v'
-	                in
+                    let v' =
+                      match res with
+                      | None -> v2
+                      | Some v' -> v'
+                    in
                     join (union l1 l2) v' (union r1 r2)
                   end
            in

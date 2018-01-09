@@ -21,13 +21,13 @@
 module Word =
   struct
     type t = Z.t * int (* the integer is the size in bits *)
-		     
+
     (* TODO print leading zeros *)
     let to_string w = Z.format "%#x" (fst w)
-		     
+
     let size w = snd w
-		     
-    let compare (w1, sz1) (w2, sz2) = 
+
+    let compare (w1, sz1) (w2, sz2) =
       let n = Z.compare w1 w2 in
       if n = 0 then sz1 - sz2 else n
 
@@ -35,24 +35,24 @@ module Word =
         Z.compare w1 w2
 
     let equal v1 v2 = compare v1 v2 = 0
-					
-    let zero sz	= Z.zero, sz
-			    
+
+    let zero sz = Z.zero, sz
+
     let one sz = Z.one, sz
-			  
+
     let add w1 w2 =
       let w' = Z.add (fst w1) (fst w2) in
       w', max (Z.numbits w') (max (size w1) (size w2))
-	      
+
     let sub w1 w2 =
       let w' = Z.sub (fst w1) (fst w2) in
       w', max (Z.numbits w') (max (size w1) (size w2))
-	      
-	      
+
+
     let of_int v sz = v, sz
-			   
+
     let to_int v = fst v
-		       
+
     let of_string v n =
         try
           let v' = Z.of_string v in
@@ -61,12 +61,12 @@ module Word =
           else
             v', n
         with _ -> raise (Exceptions.Error (Printf.sprintf "Illegal conversion from Z.t to word of %s" v))
-			
+
     let hash w = Z.hash (fst w)
-			
-    let size_extension (v, sz) n = 
+
+    let size_extension (v, sz) n =
         if sz >= n then (v, sz)
-        else 
+        else
             (v, n)
 
     (** returns the lowest n bit of the given int *)
@@ -81,7 +81,7 @@ module Word =
             truncate_int w n, n
 
     (** binary operation on words supposed to have the same size
-	result is truncated to have size of the operands *)
+    result is truncated to have size of the operands *)
     let binary op (w1, sz) (w2, _) =
         truncate_int (op w1 w2) sz, sz
 
@@ -90,7 +90,7 @@ module Word =
 
     let shift_left (w, sz) i = Z.shift_left w i, sz-i
     let shift_right (w, sz) i = Z.shift_right w i, sz-i
-    let neg (w, sz) = Z.neg w, sz			
+    let neg (w, sz) = Z.neg w, sz
 end
 
 (** Address Data Type *)
@@ -165,7 +165,7 @@ struct
                 false
 
         let of_string r a n =
-            if !Config.mode = Config.Protected then 
+            if !Config.mode = Config.Protected then
                 let w = Word.of_string a n in
                 if Word.compare w (Word.zero n) < 0 then
                     raise (Exceptions.Error "Tried to create negative address")
@@ -215,7 +215,7 @@ struct
                 raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)))
               else
                   Word.to_int w
-            | _, _ 	-> raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)))
+            | _, _  -> raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)))
 
         let binary op ((r1, w1): t) ((r2, w2): t): t =
             let r' =
