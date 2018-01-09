@@ -88,7 +88,11 @@ PACKAGES := ocamlgraph zarith
 EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
 LIBINCL = $(EXTLIBINCL) -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders -I fixpoint
 
-CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58 -w -42
+#  W58: no cmx file was found in path for module Z
+#  -> not really a problem.
+#  W42: use of XXX relies on type-directed disambiguation
+#  -> not really a pb
+CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58 -w -42 -w -58
 
 CAMLC   =ocamlc
 CAMLOPT =ocamlopt
