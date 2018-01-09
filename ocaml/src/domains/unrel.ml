@@ -822,30 +822,6 @@ module Make(D: T) =
         match domain with
         | BOT    -> BOT, Taint.BOT
         | Val domain' ->
-<<<<<<< HEAD
-
-           let sz = size_of_content content' in
-
-           let (v', taint), taint_src = of_config region (content', taint) sz in
-
-           if nb > 1 then
-             if sz != 8 then
-               L.abort (fun p -> p "Repeated memory init only works with bytes")
-             else
-               Val (write_repeat_byte_in_mem addr domain' v' nb), taint
-           else
-             let big_endian =
-               match content' with
-               | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
-               | _ -> false
-             in
-             begin
-               match taint_src with
-               | None -> ()
-               | Some id -> Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))
-             end;
-             Val (write_in_memory addr domain' v' sz true big_endian), taint
-=======
            let taint_srcs = extract_taint_src_ids taint in          
            let m', taint, sz =
              match content with
