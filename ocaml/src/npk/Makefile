@@ -90,7 +90,7 @@ EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
 LIBINCL = $(EXTLIBINCL) -I utils -I newspeak -I c2newspeak
 
 
-CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58-26
+CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58-26 -unsafe-string
 
 CAMLC   =ocamlc
 CAMLOPT =ocamlopt
