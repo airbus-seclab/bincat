@@ -117,14 +117,12 @@ module type T =
   val unmarshal: in_channel -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
-<<<<<<< HEAD
+
   val init_abstract_value: Data.Address.t -> domain * Taint.t
-=======
-  val init_abstract_value: unit -> domain * Taint.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
   val update_abstract_value: domain -> domain * Taint.t
->>>>>>> master
+
 end
 
 module Make: functor (D: Domain.T) ->
