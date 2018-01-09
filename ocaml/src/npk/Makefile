@@ -121,7 +121,11 @@ endif
 
 CFLAGS=
 
+ifeq ($(STATIC), 1)
+all: $(LIBNAME) static
+else
 all: $(LIBNAME) $(EXENAME)
+endif
 
 
 $(LIBNAME): $(OBJ)
@@ -130,9 +134,10 @@ $(LIBNAME): $(OBJ)
 $(EXENAME): $(LIBNAME) $(C2NPKOBJ)
 	$(CAMLCOMPIL) $(CFLAGS) $(EXTLIBINCL) $(EXTLIB) $+ -o $@
 
-
-
-
+# Build $(EXENAME) statically
+static: CFLAGS+=-ccopt -static
+static: $(EXENAME)
+	strip $(EXENAME)
 
 .SECONDEXPANSION:
 
