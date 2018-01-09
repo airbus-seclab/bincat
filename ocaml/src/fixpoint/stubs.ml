@@ -41,7 +41,14 @@ struct
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let strlen (d: domain_t) ret args : domain_t * Taint.t =
+    let heap_allocator ip (d: domain_t) ret args: domain_t * Taint.t =
+      try
+        let sz = D.value_of_exp (Asm.Lval (args 0)) d in
+        let heap_addr = Data.Address.new_heap_region ip sz in
+         D.set_lval_to_addr ret heap_addr sz d
+      with _ -> raise (Exceptions.Too_many_concrete_elements "heap allocation: unprecise size to allocate")
+        
+    let strlen (d: domain_t) ret args: domain_t * Taint.t =
       let zero = Asm.Const (Data.Word.zero 8) in
       let len = D.get_offset_from (Asm.Lval (args 0)) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then

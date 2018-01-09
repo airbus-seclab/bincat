@@ -24,7 +24,7 @@
    | BOT (** bottom *)
    | Val of Types.t Env.t (** a map from Memory/Reg to a type *)
 
- let init () = Val (Env.empty)
+ let init () = BOT
 
  let top = Val (Env.empty)
 
