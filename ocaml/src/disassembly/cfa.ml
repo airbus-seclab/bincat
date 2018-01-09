@@ -121,7 +121,7 @@ sig
   val init_abstract_value: Data.Address.t -> domain * Taint.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
-  val update_abstract_value: domain -> domain * Taint.t
+  val update_abstract_value: Data.Address.t -> domain -> domain * Taint.t
 
 end
 
@@ -222,7 +222,6 @@ struct
                      ) (domain, Taint.U) (List.rev content_list)
       (* end of init utilities *)
 
-<<<<<<< HEAD
     let get_content_size c =
       match c with
       | Some c' -> Config.size_of_content c'
@@ -241,8 +240,7 @@ struct
       ) (domain, Taint.U) (List.rev content_list)
   
       
-  let init_abstract_value ip =
-    let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+  let update_abstract_value ip d =
 	(* initialisation of Global memory + registers *)
     let d', taint1 = init_registers d in
 	let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
@@ -251,47 +249,17 @@ struct
 	(* init of the Heap memory *)
 	let d', taint4 = init_heap ip d' !Config.heap_content in
     d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
-=======
-    let update_abstract_value d =
-      (* initialisation of Global memory + registers *)
-      let d', taint1 = init_registers d in
-      let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
-    (* init of the Stack memory *)
-      let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
-    (* init of the Heap memory *)
-      let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
-      d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
-        
-    let init_abstract_value () =
+
+    let init_abstract_value ip =
       let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
-      update_abstract_value d
->>>>>>> master
+      update_abstract_value ip d
+
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
     
   let init_state (ip: Data.Address.t): State.t =
-<<<<<<< HEAD
-	let d', _taint = init_abstract_value ip in
-	{
-	  id = 0;
-	  ip = ip;
-	  v = d';
-	  final = false;
-	  back_loop = false;
-	  forward_loop = false;
-	  branch = None;
-	  stmts = [];
-	  bytes = [];
-	  ctx = {
-		op_sz = !Config.operand_sz;
-		addr_sz = !Config.address_sz;
-	  };
-	  taint_sources = Taint.U;
-	}
-	
-=======
-    let d', _taint = init_abstract_value () in
+    let d', _taint = init_abstract_value ip in
     {
       id = 0;
       ip = ip;
@@ -311,7 +279,6 @@ struct
       back_taint_sources = None;
     }
 
->>>>>>> master
 
   (* CFA utilities *)
   (*****************)

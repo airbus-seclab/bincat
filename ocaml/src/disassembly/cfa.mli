@@ -121,7 +121,7 @@ module type T =
   val init_abstract_value: Data.Address.t -> domain * Taint.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
-  val update_abstract_value: domain -> domain * Taint.t
+  val update_abstract_value: Data.Address.t -> domain -> domain * Taint.t
 
 end
 
