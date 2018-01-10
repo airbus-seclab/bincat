@@ -359,6 +359,9 @@ struct
     Printf.fprintf f "[taint sources]\n";
     Hashtbl.iter (fun id src -> Printf.fprintf f "%d = %s\n" id (Dump.string_of_src src)) Dump.taint_src_tbl;
     Printf.fprintf f "\n";
+    Printf.fprintf f "[heap ids]\n";
+    Hashtbl.iter (fun id ip -> Printf.fprintf f "%d : %s\n" id (Data.Address.to_string ip)) Dump.heap_id_tbl;
+    Printf.fprintf f "\n";
     (* edge printing (summary) *)
     Printf.fprintf f "[edges]\n";
     G.iter_edges_e (fun e -> Printf.fprintf f "e%d_%d = %d -> %d\n" (G.E.src e).id (G.E.dst e).id (G.E.src e).id (G.E.dst e).id) g;
