@@ -147,6 +147,8 @@ module Make (V: Vector.T) =
 
         let of_word w = Val (Global, V.of_word w)
 
+        let of_addr ((r, w): Data.Address.t): t = Val (r, V.of_word w)
+          
         let compare p1 op p2 =
             match p1, p2 with
             | BOT, BOT         -> op = Asm.EQ || op = Asm.LEQ
