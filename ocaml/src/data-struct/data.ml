@@ -118,11 +118,8 @@ struct
           r
 
         let get_heap_region id =
-          try
-            let sz = Hashtbl.find heap_tbl id in
-            Heap (id, sz)
-          with
-            Not_found -> raise (Exceptions.Error "Unknown heap id")
+          let sz = Hashtbl.find heap_tbl id in
+          Heap (id, sz)
               
         let char_of_region r =
             match r with
