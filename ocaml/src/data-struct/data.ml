@@ -111,26 +111,18 @@ struct
 
         let heap_tbl = Hashtbl.create 5
           
-        let new_heap_region (addr: t) sz =
+        let new_heap_region sz =
           let r = Heap (!heap_id, sz) in
+          Hashtbl.add heap_tbl !heap_id sz;
           heap_id := !heap_id + 1;
-          Hashtbl.add heap_tbl addr r;
           r
 
-        let get_heap_region addr sz =
+        let get_heap_region id =
           try
-            let r = Hashtbl.find heap_tbl addr in
-            match r with
-            | Heap (id, sz') ->
-               if sz > sz' then
-                 let r' = Heap (id, sz) in
-                 Hashtbl.replace heap_tbl addr r';
-                 r'
-               else
-                 r
-            | _ -> raise (Exceptions.Error "unexpected non heap region")
+            let sz = Hashtbl.find heap_tbl id in
+            Heap (id, sz)
           with
-            Not_found -> new_heap_region addr sz
+            Not_found -> raise (Exceptions.Error "Unknown heap id")
               
         let char_of_region r =
             match r with

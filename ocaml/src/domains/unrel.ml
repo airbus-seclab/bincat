@@ -55,6 +55,9 @@ module type T =
     (** converts a word into an abstract value *)
     val of_word: Data.Word.t -> t
 
+    (** converts an address into an abstract value *)
+    val of_addr: Data.Address.t -> t
+      
     (** comparison.
     Returns true whenever the concretization of the first parameter is included in the concretization of the second parameter *)
     val is_subset: t -> t -> bool
@@ -653,6 +656,30 @@ module Make(D: T) =
       | _ -> v
 
 
+    let set_to_memory dst_exp dst_sz v' m' b =
+      let v, b' = eval_exp m' dst_exp in
+      let addrs = D.to_addresses v in
+      try
+        let l     = Data.Address.Set.elements addrs in
+        let t' = Taint.logor b b' in
+        match l with
+        | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), t'
+        | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), t'
+      with
+      | Exceptions.Too_many_concrete_elements "unrel.set" -> Val (Env.empty), Taint.TOP
+      | Exceptions.Empty _ -> BOT, Taint.BOT
+
+    let set_to_register r v' m' =
+      match r with
+      | Asm.T r' ->                 
+         Val (Env.add (Env.Key.Reg r') v' m')
+      | Asm.P (r', low, up) ->
+         try
+           let prev = Env.find (Env.Key.Reg r') m' in
+           Val (Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m')
+         with
+           Not_found -> BOT
+             
     let set dst src m: (t * Taint.t) =
       match m with
       | BOT    -> BOT, Taint.U
@@ -665,31 +692,9 @@ module Make(D: T) =
            BOT, b
          else
            match dst with
-           | Asm.V r ->
-              begin
-                match r with
-                | Asm.T r' ->                 
-                   Val (Env.add (Env.Key.Reg r') v' m'), b
-                | Asm.P (r', low, up) ->
-                   try
-                     let prev = Env.find (Env.Key.Reg r') m' in
-                     Val (Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'), b
-                   with
-                     Not_found -> BOT, b
-              end
-
-           | Asm.M (e, n) ->
-              let v, b' = eval_exp m' e in
-              let addrs = D.to_addresses v in
-              try
-                let l     = Data.Address.Set.elements addrs in
-                let t' = Taint.logor b b' in
-                match l with
-                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), t'
-                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), t'
-              with
-              | Exceptions.Too_many_concrete_elements "unrel.set" -> Val (Env.empty), Taint.TOP
-              | Exceptions.Empty _ -> BOT, Taint.U
+           | Asm.V r -> set_to_register r v' m', b
+           | Asm.M (e, n) -> set_to_memory e n v' m' b
+              
 
     let join m1 m2 =
       match m1, m2 with
@@ -883,6 +888,16 @@ module Make(D: T) =
             let (vt, taint) = of_config region (c, taint) sz in                 
             Val (Env.add (Env.Key.Reg r) vt m'), taint
 
+    let set_lval_to_addr lv a m =
+      match m with
+      | BOT -> BOT, Taint.BOT
+      | Val m' ->
+         let v = V.of_addr a in
+         match lv with
+         | Asm.M (e, n) -> set_to_memory e n v m' Taint.U
+         | Asm.V r -> set_to_register r v m'
+         | _ -> forget_lval lv m (* could be more precise *)
+        
     let value_of_exp m e =
       match m with
       | BOT -> raise (Exceptions.Empty "unrel.value_of_exp: environment is empty")

@@ -22,7 +22,7 @@ module type T =
 sig
   type domain_t
 
-  (** [process d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args].
+  (** [process d fun args] applies to the abstract value [d] the transfer function corresponding to the call to the function library named [fun] with arguments [args].
 It returns also a boolean true whenever the result is tainted. *)
   val process : domain_t -> string -> Asm.calling_convention_t ->
     domain_t * Taint.t * Asm.stmt list
@@ -34,7 +34,7 @@ It returns also a boolean true whenever the result is tainted. *)
 end
 
 
-module Make (D: Domain.T) : (T with type domain_t := D.t )  =
+module Make (D: Domain.T) : (T with type domain_t := D.t)  =
 struct
 
     type domain_t = D.t
@@ -43,9 +43,9 @@ struct
 
     let heap_allocator ip (d: domain_t) ret args: domain_t * Taint.t =
       try
-        let sz = D.value_of_exp (Asm.Lval (args 0)) d in
-        let heap_addr = Data.Address.new_heap_region ip sz in
-         D.set_lval_to_addr ret heap_addr sz d
+        let sz = D.value_of_exp d (Asm.Lval (args 0)) in
+        let heap_region = Data.Address.new_heap_region ip (Z.to_int sz) in
+         D.set_lval_to_addr ret (heap_region, Data.Word.zero !Config.address_sz) d, Taint.U
       with _ -> raise (Exceptions.Too_many_concrete_elements "heap allocation: unprecise size to allocate")
         
     let strlen (d: domain_t) ret args: domain_t * Taint.t =
@@ -295,5 +295,6 @@ struct
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
+      Hashtbl.replace stubs "heap_allocator" (heap_allocator, 1);
 
 end
