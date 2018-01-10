@@ -112,10 +112,11 @@ struct
         let heap_tbl = Hashtbl.create 5
           
         let new_heap_region sz =
-          let r = Heap (!heap_id, sz) in
-          Hashtbl.add heap_tbl !heap_id sz;
+          let id = !heap_id in 
+          let r = Heap (n, sz) in
+          Hashtbl.add heap_tbl n sz;
           heap_id := !heap_id + 1;
-          r
+          r, n
 
         let get_heap_region id =
           let sz = Hashtbl.find heap_tbl id in
