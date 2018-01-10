@@ -233,7 +233,7 @@ struct
         let addr, nb = fst entry in
         let content = snd entry in
         let content_size = get_content_size (fst content) in
-        let heap_region = Data.Address.new_heap_region ip (nb*content_size) in
+        let heap_region = Data.Address.new_heap_region (nb*content_size) in
         let addr' = Data.Address.of_int heap_region addr !Config.address_sz in
         let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
         d', Taint.logor prev_taint taint'
