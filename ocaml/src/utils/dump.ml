@@ -24,4 +24,4 @@ let marshal (fid: out_channel): unit =
 
 let unmarshal (fid: in_channel): unit =
   Hashtbl.iter (fun k v -> Hashtbl.add taint_src_tbl k v) (Marshal.from_channel fid);
-  Hashtbl.iter (fun k v -> Hashtbl.add heap_id_tbl k v) (Marshal.from_channel fid);
+  Hashtbl.iter (fun k v -> Hashtbl.add heap_id_tbl k v) (Marshal.from_channel fid)
