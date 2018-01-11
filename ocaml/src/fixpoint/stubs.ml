@@ -46,7 +46,7 @@ struct
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
         let heap_region, id = Data.Address.new_heap_region (Z.to_int sz) in
         Hashtbl.add Dump.heap_id_tbl id ip;
-         D.set_lval_to_addr ret (heap_region, Data.Word.zero !Config.address_sz) d, Taint.U
+         D.set_lval_to_addr ret (heap_region, Data.Word.zero !Config.address_sz) d
       with _ -> raise (Exceptions.Too_many_concrete_elements "heap allocation: unprecise size to allocate")
         
     let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
@@ -273,8 +273,10 @@ struct
     let stubs = Hashtbl.create 5
 
     let process ip d fun_name call_conv : domain_t * Taint.t * Asm.stmt list =
-      let apply_f, arg_nb = try Hashtbl.find stubs fun_name
-                            with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name) in
+      let apply_f, arg_nb =
+        try Hashtbl.find stubs fun_name
+        with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name)
+      in
       let d', taint =
         try apply_f ip d call_conv.Asm.return call_conv.Asm.arguments
         with
