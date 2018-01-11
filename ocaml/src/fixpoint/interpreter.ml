@@ -172,7 +172,7 @@ struct
 
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
 
-    let rec process_value (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t): D.t * Taint.t =
+    let rec process_value (ip: Data.Address.t) (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t): D.t * Taint.t =
         L.debug2 (fun p -> p "process_value VVVVVVVVVVVVVVVVVVVVVVVVVVVVVV\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
       try
         let res, tainted =
@@ -249,9 +249,9 @@ struct
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
             | Directive (Stub (fun_name, call_conv)) ->
                L.info2(fun p -> p "Processing stub %s" fun_name);
-              let d', taint', cleanup_stmts = Stubs.process d fun_name call_conv in
+              let d', taint', cleanup_stmts = Stubs.process ip d fun_name call_conv in
               let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
-                               List.fold_left (fun (d, t) stmt -> let dd, tt = process_value d stmt fun_stack in
+                               List.fold_left (fun (d, t) stmt -> let dd, tt = process_value ip d stmt fun_stack in
                                                                   dd, Taint.logor t tt) (d', taint') cleanup_stmts in
               d', taint'
             | _ -> raise Jmp_exn
@@ -260,12 +260,12 @@ struct
         res, tainted
       with Exceptions.Empty _ -> D.bot,Taint.U
 
-    and process_if (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
+    and process_if (ip: Data.Address.t) (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
       if has_jmp then_stmts || has_jmp else_stmts then
              raise Jmp_exn
            else
-             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value d s fun_stack in d', Taint.logor b b') (restrict d e true) then_stmts in
-             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value d s fun_stack in d', Taint.logor b b') (restrict d e false) else_stmts in
+             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value ip d s fun_stack in d', Taint.logor b b') (restrict d e true) then_stmts in
+             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value ip d s fun_stack in d', Taint.logor b b') (restrict d e false) else_stmts in
              D.join dt de, Taint.logor bt be
 
 
@@ -319,7 +319,7 @@ struct
         let t =
             List.fold_left (fun t v ->             
                 let d', t' =
-                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value d stmt fun_stack in d', Taint.logor t t') (v.Cfa.State.v, Taint.U) stmts
+                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value a d stmt fun_stack in d', Taint.logor t t') (v.Cfa.State.v, Taint.U) stmts
                 in
                 v.Cfa.State.v <- d';
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in
@@ -418,7 +418,7 @@ struct
 
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * Taint.t) =
         try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.v s fun_stack in
+          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.ip v.Cfa.State.v s fun_stack in
                                           v.Cfa.State.v <- d;
                                           let taint = Taint.logor b b' in
                                           (*v.Cfa.State.taint_sources <- taint;*)
@@ -872,7 +872,7 @@ struct
         succ
 
 
-    let forward_process (d: D.t) (stmt: Asm.stmt) (branch: bool option): (D.t * Taint.t) =
+    let forward_process (ip: Data.Address.t) (d: D.t) (stmt: Asm.stmt) (branch: bool option): (D.t * Taint.t) =
       (* function stack *)
       let fun_stack = ref [] in
       let rec forward (d: D.t) (stmt: Asm.stmt): (D.t * Taint.t) =
@@ -893,7 +893,7 @@ struct
         | Assert (_bexp, _msg) -> d, Taint.U (* TODO *)
         | Asm.If (e, istmts, estmts) ->
            begin
-             try process_if d e istmts estmts fun_stack
+             try process_if ip d e istmts estmts fun_stack
              with Jmp_exn ->
                match branch with
                | Some true -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', Taint.logor b b') (restrict d e true) istmts
@@ -908,7 +908,7 @@ struct
     let forward_abstract_value (g:Cfa.t) (succ: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
       let forward _g v _ip =
         let d', taint_sources = List.fold_left (fun (d, b) s ->
-          let d', b' = forward_process d s (succ.Cfa.State.branch) in
+          let d', b' = forward_process v.Cfa.State.up d s (succ.Cfa.State.branch) in
           d', Taint.logor b b') (v.Cfa.State.v, Taint.U) (succ.Cfa.State.stmts)
         in
         L.debug (fun p->p "forward_abstract_value taint : %s" (Taint.to_string taint_sources));
