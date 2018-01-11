@@ -22,9 +22,9 @@ module type T =
 sig
   type domain_t
 
-  (** [process d fun args] applies to the abstract value [d] the transfer function corresponding to the call to the function library named [fun] with arguments [args].
+  (** [process d fun args] applies to the abstract value [d] the transfer function corresponding to the call to the function library named [fun] with arguments [args]. Parameter [ip] is the address in the code of the call
 It returns also a boolean true whenever the result is tainted. *)
-  val process : domain_t -> string -> Asm.calling_convention_t ->
+  val process : Data.Address.t -> domain_t -> string -> Asm.calling_convention_t ->
     domain_t * Taint.t * Asm.stmt list
 
   val init : unit -> unit
@@ -99,7 +99,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large number of bytes to copy in memset stub")
         
-    let print (_ip: Data.Address.t) (d: domain_t) ret format_addr va_args (to_buffer: Asm.exp option): domain_t * Taint.t =
+    let print (d: domain_t) ret format_addr va_args (to_buffer: Asm.exp option): domain_t * Taint.t =
         (* ret has to contain the number of bytes stored in dst ;
            format_addr is the address of the format string ;
            va_args the list of values needed to fill the format string *)
@@ -260,7 +260,7 @@ struct
       let d', is_tainted = print d ret format_addr va_args None in
       d', is_tainted
 
-    let printf_chk (_ip: Data.Address.t) d ret args = printf d ret (shift args 1)
+    let printf_chk (ip: Data.Address.t) d ret args = printf ip d ret (shift args 1)
 
     let puts (_ip: Data.Address.t) d ret args =
       let str = Asm.Lval (args 0) in
@@ -272,17 +272,18 @@ struct
 
     let stubs = Hashtbl.create 5
 
-    let process d fun_name call_conv : domain_t * Taint.t * Asm.stmt list =
+    let process ip d fun_name call_conv : domain_t * Taint.t * Asm.stmt list =
       let apply_f, arg_nb = try Hashtbl.find stubs fun_name
                             with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name) in
-      let d', taint = try apply_f d call_conv.Asm.return call_conv.Asm.arguments
-                      with
-                      | Exit -> d, Taint.U
-                      | e ->
-                         L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
-                         L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
-                         d, Taint.U in
-
+      let d', taint =
+        try apply_f ip d call_conv.Asm.return call_conv.Asm.arguments
+        with
+        | Exit -> d, Taint.U
+        | e ->
+           L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
+          L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
+          d, Taint.U
+      in
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
       d', taint, cleanup_stmts
 
@@ -296,6 +297,6 @@ struct
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
-      Hashtbl.replace stubs "heap_allocator" (heap_allocator, 1);
+      Hashtbl.replace stubs "heap_allocator" (heap_allocator, 1)
 
 end
