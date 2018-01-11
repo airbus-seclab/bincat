@@ -222,10 +222,15 @@
 
     tainting_addr:
     | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }
-    | HEAP LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, r, i }
+    | HEAP LEFT_SQ_BRACKET r=repeat_heap RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, r, i }
     | STACK LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, r, i }
 
+    heap_couple:
+    | id=INT COMMA offset=INT { id, offset }
 
+    repeat_heap:
+    | c=heap_couple STAR n=INT { c, Z.to_int n }
+    
       imports:
     |                     { () }
     | i=import l=imports  { i ; l }
