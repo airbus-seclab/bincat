@@ -663,8 +663,8 @@ module Make(D: T) =
         let l     = Data.Address.Set.elements addrs in
         let t' = Taint.logor b b' in
         match l with
-        | [a] -> (* strong update *) Val (write_in_memory a m' v' n true false), t'
-        | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false false) m' l), t'
+        | [a] -> (* strong update *) Val (write_in_memory a m' v' dst_sz true false), t'
+        | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' dst_sz false false) m' l), t'
       with
       | Exceptions.Too_many_concrete_elements "unrel.set" -> Val (Env.empty), Taint.TOP
       | Exceptions.Empty _ -> BOT, Taint.BOT
@@ -892,7 +892,7 @@ module Make(D: T) =
       match m with
       | BOT -> BOT, Taint.BOT
       | Val m' ->
-         let v = V.of_addr a in
+         let v = D.of_addr a in
          match lv with
          | Asm.M (e, n) -> set_to_memory e n v m' Taint.U
          | Asm.V r -> set_to_register r v m'

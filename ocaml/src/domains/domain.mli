@@ -68,7 +68,7 @@ module type T =
       val set: Asm.lval -> Asm.exp -> t -> t * Taint.t
 
       (** set the given left value to the given address ; the given integer is the size of the address *)
-      val set_lval_to_addr: Asm.lval -> Data.Address.t -> t -> t
+      val set_lval_to_addr: Asm.lval -> Data.Address.t -> t -> t * Taint.t
         
       (** joins the two abstract values *)
       val join: t -> t -> t
