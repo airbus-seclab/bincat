@@ -99,11 +99,18 @@ module Make(D: Unrel.T) =
       (uenv', tenv'), b
     with _ -> set_type lv Types.UNKNOWN (uenv', tenv), b
 
-  let set_lval_to_addr (lv: Asm.lval) (a: Data.Address.t) (sz: int) ((uenv, tenv): t): t*Taint.t =
-    let uenv', b = U.set_lval_to_addr lv a sz uenv in
+  let set_lval_to_addr (lv: Asm.lval) (a: Data.Address.t) ((uenv, tenv): t): t*Taint.t =
+    let uenv', b = U.set_lval_to_addr lv a uenv in
     try
-      let _, tenv' = set_type lv (Types.TypedC.Ptr (T.of_key (Env.Key.Reg r))) uenv' 
-    with _ -> set_type lv (Types.TypedC.Ptr Types.UNKNOWN) (uenv', tenv), b
+      let buf_typ = T.of_key (Env.Key.Mem a) tenv in
+      let ptr_typ =
+        match buf_typ with
+        | Types.T t -> Types.T (TypedC.Ptr t)
+        | Types.UNKNOWN->  Types.UNKNOWN (* could be more precise: we know it is a pointer *)
+      in    
+      let _, tenv' = set_type lv ptr_typ (uenv', tenv) in
+      (uenv', tenv'), b
+    with _ -> set_type lv Types.UNKNOWN (uenv', tenv), b
       
   let char_type uenv tenv dst =
      let typ = Types.T (TypedC.Int (Newspeak.Signed, 8)) in
