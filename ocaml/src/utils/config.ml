@@ -131,7 +131,7 @@ type cvalue =
 let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
-let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
+let heap_override: (Z.t, (((int * Z.t) * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 
 (* lists for the initialisation of the global memory, stack and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
