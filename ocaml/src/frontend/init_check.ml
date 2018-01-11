@@ -62,12 +62,15 @@ let check_mem (c, taints) (mem_sz: int option): unit =
          let n = Z.numbits t' in
          if !taint_sz = 0 then
            taint_sz := n
-         else if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)") 
+         else
+           if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)")
+           
       | TBytes (s, _) | TBytes_Mask (s, _, _) ->
          let n = (String.length s)*4 in
          if !taint_sz = 0 then
            taint_sz := n
-         else if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)")
+         else
+           if !taint_sz <> n then L.abort (fun p -> p "Illegal taint source list (different sizes)")
     in
     List.iter compute taints
   in
@@ -78,7 +81,7 @@ let check_mem (c, taints) (mem_sz: int option): unit =
     | Some mem_sz' ->
        if mem_sz' < memc then
          L.abort (fun p -> p "content size exceeds size of the destination")
-           
+  in
   match c with
   | None ->
      if !taint_sz > 8 then
