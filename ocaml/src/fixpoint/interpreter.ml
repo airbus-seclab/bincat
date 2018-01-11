@@ -611,22 +611,13 @@ struct
           L.info (fun p -> p "End of dump");
         end;
 
-      let heap_fun_region id nb rule =
-        let content_sz =
-          match fst rule with
-          | Some c -> Config.size_of_content c
-          | None -> 0
-        in
-        Data.Address.get_heap_region id (nb*content_sz)
-      in
       List.iter (fun (tbl, region) ->
         Hashtbl.iter (fun z rules ->
             let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
             let rules' =
               List.map (fun ((addr, nb), rule) ->
-                let region = fregion ip nb rule in
                   L.analysis (fun p -> p "Adding override rule for address 0x%x" (Z.to_int addr));
-                  Init_check.check_mem rule;
+                  Init_check.check_mem rule None;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
                   match rule with
                        | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
@@ -639,7 +630,22 @@ struct
         [Config.mem_override, Data.Address.Global ;
          Config.stack_override, Data.Address.Stack]
 
-      (*; (Config.heap_override, heap_fun_region)];*)
+        Hashtbl.iter (fun z rules ->
+          let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
+          let rules' =
+            List.map (fun (((id, offset), nb), rule) ->
+              L.analysis (fun p -> p "Adding override rule for heap id %d" (Z.to_int id));
+              let heap_region, heap_sz = Data.Address.get_heap_region id in
+              Init_check.check_mem rule (Some heap_sz);
+              let addr' = Data.Address.of_int heap_region addr !Config.address_sz in
+              match rule with
+              | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
+              | (None, t) -> D.taint_address_mask addr' t
+            ) rules
+          in
+          hash_add_or_append overrides ip rules'
+        ) Config.heap_override;
+
     
       while !continue do
         (* a waiting node is randomly chosen to be explored *)
