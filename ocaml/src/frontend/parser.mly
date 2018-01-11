@@ -196,41 +196,52 @@
 
     override_item:
     |                     { () }
-    | tainting_reg_item { () }
-    | tainting_reg_item SEMI_COLON override_item { () }
-    | tainting_addr_item { () }
-    | tainting_addr_item SEMI_COLON override_item { () }
+    | override_reg_item { () }
+    | override_reg_item SEMI_COLON override_item { () }
+    | override_addr_item { () }
+    | override_addr_item SEMI_COLON override_item { () }
+    | override_heap_item { () }
+    | override_heap_item SEMI_COLON override_item { () }
 
-    tainting_reg_item:
-    | t=tainting_reg {
+    override_reg_item:
+    | t=override_reg {
       try
         let l = Hashtbl.find Config.reg_override !override_addr in
         Hashtbl.replace Config.reg_override !override_addr (t::l)
       with Not_found -> Hashtbl.add Config.reg_override !override_addr [t] }
 
-    tainting_addr_item:
-    | c=tainting_addr {
+    override_addr_item:
+    | c=override_one_addr {
       let (tbl, a, o) = c in
       try
-    let l' = Hashtbl.find tbl !override_addr in
-    Hashtbl.replace tbl !override_addr ((a, o)::l')
+        let l' = Hashtbl.find tbl !override_addr in
+        Hashtbl.replace tbl !override_addr ((a, o)::l')
       with Not_found -> Hashtbl.add tbl !override_addr [(a, o)]
     }
-
-    tainting_reg:
+    
+    override_heap_item:
+    | HEAP LEFT_SQ_BRACKET r=repeat_heap RIGHT_SQ_BRACKET COMMA i = init {
+      try
+        let l' = Hashtbl.find Config.heap_override !override_addr in
+        Hashtbl.replace Config.heap_override !override_addr ((r, i)::l')
+      with Not_found -> Hashtbl.add Config.heap_override !override_addr [r, i]
+        }
+   
+    
+    override_reg:
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA i=init { (r, (fun _ -> i)) }
 
-    tainting_addr:
-    | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }
-    | HEAP LEFT_SQ_BRACKET r=repeat_heap RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, r, i }
+    override_one_addr:
+    | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }  
     | STACK LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, r, i }
 
-    heap_couple:
-    | id=INT COMMA offset=INT { id, offset }
-
+  
     repeat_heap:
     | c=heap_couple STAR n=INT { c, Z.to_int n }
-    
+
+      heap_couple:
+    | id=INT COMMA offset=INT { id, offset }
+
       imports:
     |                     { () }
     | i=import l=imports  { i ; l }
