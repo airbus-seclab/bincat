@@ -889,14 +889,14 @@ module Make(D: T) =
             Val (Env.add (Env.Key.Reg r) vt m'), taint
 
     let set_lval_to_addr lv a m =
+      (* TODO: should we taint the lvalue if the address to set is tainted ? *)
       match m with
       | BOT -> BOT, Taint.BOT
       | Val m' ->
          let v = D.of_addr a in
          match lv with
          | Asm.M (e, n) -> set_to_memory e n v m' Taint.U
-         | Asm.V r -> set_to_register r v m'
-         | _ -> forget_lval lv m (* could be more precise *)
+         | Asm.V r -> set_to_register r v m', Taint.U
         
     let value_of_exp m e =
       match m with
