@@ -559,6 +559,7 @@ class State(object):
                 idaapi.set_item_color(ea, color)
 
     def analysis_finish_cb(self, outfname, logfname, cfaoutfname, ea=None):
+        idaapi.show_wait_box("Parsing BinCAT analysis results")
         bc_log.debug("Parsing analyzer result file")
         try:
             cfa = cfa_module.CFA.parse(outfname, logs=logfname)
@@ -618,6 +619,7 @@ class State(object):
                 idaapi.set_item_color(ea, 0xDDFFDD)
             else:
                 idaapi.set_item_color(ea, 0xCDCFCE)
+        idaapi.hide_wait_box()
 
     def set_current_node(self, node_id):
         if self.cfa:
