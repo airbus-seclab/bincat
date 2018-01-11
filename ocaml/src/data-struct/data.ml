@@ -113,10 +113,10 @@ struct
           
         let new_heap_region sz =
           let id = !heap_id in 
-          let r = Heap (n, sz) in
-          Hashtbl.add heap_tbl n sz;
+          let r = Heap (id, sz) in
+          Hashtbl.add heap_tbl id sz;
           heap_id := !heap_id + 1;
-          r, n
+          r, id
 
         let get_heap_region id =
           let sz = Hashtbl.find heap_tbl id in
