@@ -29,7 +29,7 @@ It returns also a boolean true whenever the result is tainted. *)
 
   val init : unit -> unit
 
-  val stubs : (string, (domain_t -> Asm.lval -> (int -> Asm.lval) ->
+  val stubs : (string, (Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
                          domain_t * Taint.t) * int) Hashtbl.t
 end
 
@@ -41,14 +41,15 @@ struct
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let heap_allocator ip (d: domain_t) ret args: domain_t * Taint.t =
+    let heap_allocator (ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
       try
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
-        let heap_region = Data.Address.new_heap_region ip (Z.to_int sz) in
+        let heap_region, id = Data.Address.new_heap_region (Z.to_int sz) in
+        Hashtbl.add Dump.heap_id_tbl id ip;
          D.set_lval_to_addr ret (heap_region, Data.Word.zero !Config.address_sz) d, Taint.U
       with _ -> raise (Exceptions.Too_many_concrete_elements "heap allocation: unprecise size to allocate")
         
-    let strlen (d: domain_t) ret args: domain_t * Taint.t =
+    let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
       let zero = Asm.Const (Data.Word.zero 8) in
       let len = D.get_offset_from (Asm.Lval (args 0)) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then
@@ -58,7 +59,7 @@ struct
         end;
       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
 
-    let memcpy (d: domain_t) ret args : domain_t * Taint.t =
+    let memcpy (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.t =
       L.info (fun p -> p "memcpy stub");
       let dst = Asm.Lval (args 0) in
       let src = Asm.Lval (args 1) in
@@ -69,7 +70,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
-    let memset (d: domain_t) ret args: domain_t * Taint.t =
+    let memset (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
       let arg0 = args 0 in
       let dst = Asm.Lval arg0 in
       let src = args 1 in
@@ -98,7 +99,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large number of bytes to copy in memset stub")
         
-    let print (d: domain_t) ret format_addr va_args (to_buffer: Asm.exp option): domain_t * Taint.t =
+    let print (_ip: Data.Address.t) (d: domain_t) ret format_addr va_args (to_buffer: Asm.exp option): domain_t * Taint.t =
         (* ret has to contain the number of bytes stored in dst ;
            format_addr is the address of the format string ;
            va_args the list of values needed to fill the format string *)
@@ -239,19 +240,19 @@ struct
            L.exc_and_abort e (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 
-    let sprintf (d: domain_t) ret args : domain_t * Taint.t =
+    let sprintf (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.t =
       let dst = Asm.Lval (args 0) in
       let format_addr = Asm.Lval (args 1) in
       let  va_args = shift args 2 in
       print d ret format_addr va_args (Some dst)
 
-    let sprintf_chk (d: domain_t) ret args : domain_t * Taint.t =
+    let sprintf_chk (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.t =
       let dst = Asm.Lval (args 0) in
       let format_addr = Asm.Lval (args 3) in
       let va_args = shift args 4 in
       print d ret format_addr va_args (Some dst)
 
-    let printf d ret args =
+    let printf (_ip: Data.Address.t) d ret args =
         (* TODO: not optimal as buffer destination is built as for sprintf *)
       let format_addr = Asm.Lval (args 0) in
       let va_args = shift args 1 in
@@ -259,9 +260,9 @@ struct
       let d', is_tainted = print d ret format_addr va_args None in
       d', is_tainted
 
-    let printf_chk d ret args = printf d ret (shift args 1)
+    let printf_chk (_ip: Data.Address.t) d ret args = printf d ret (shift args 1)
 
-    let puts d ret args =
+    let puts (_ip: Data.Address.t) d ret args =
       let str = Asm.Lval (args 0) in
       L.info (fun p -> p "puts output:");
       let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
