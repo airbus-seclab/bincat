@@ -52,7 +52,7 @@ let check_register_init r (c, t) =
     | _ -> ()) t
 
 
-let check_mem (c, taints): unit =
+let check_mem (c, taints) (mem_sz: int option): unit =
   let taint_sz = ref 0 in
   let compute_sz () =
     let compute t =
@@ -72,9 +72,33 @@ let check_mem (c, taints): unit =
     List.iter compute taints
   in
   compute_sz();
+  let check_mem_sz memc =
+    match mem_sz with
+    | None -> ()
+    | Some mem_sz' ->
+       if mem_sz' < memc then
+         L.abort (fun p -> p "content size exceeds size of the destination")
+           
   match c with
-  | None -> if !taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
-  | Some (Content ct) -> check_content (Z.numbits ct) !taint_sz ""
-  | Some (CMask (ct, m)) -> check_mask (Z.numbits ct) m !taint_sz ""
-  | Some (Bytes s) -> check_content ((String.length s)*4) !taint_sz ""
-  | Some (Bytes_Mask (s, n)) ->  check_mask ((String.length s)*4) n !taint_sz ""
+  | None ->
+     if !taint_sz > 8 then
+       L.abort (fun p -> p "Illegal taint override, byte only without value override")
+  | Some (Content ct) ->
+     let sz = Z.numbits ct in
+     check_mem_sz sz;
+     check_content sz !taint_sz ""
+       
+  | Some (CMask (ct, m)) ->
+     let sz = Z.numbits ct in
+     check_mem_sz sz;
+     check_mask sz m !taint_sz ""
+       
+  | Some (Bytes s) ->
+     let sz = (String.length s)*4 in
+     check_mem_sz sz;
+     check_content sz !taint_sz ""
+       
+  | Some (Bytes_Mask (s, n)) ->
+     let sz = (String.length s)*4 in
+     check_mem_sz sz;
+     check_mask sz n !taint_sz ""
