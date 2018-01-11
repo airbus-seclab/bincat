@@ -241,6 +241,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
             return
 
     def run(self):
+        idaapi.show_wait_box("Running analysis")
         cmdline = [ "bincat",
                     [self.initfname,  self.outfname, self.logfname ]]
         # start the process
@@ -297,6 +298,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
                 bc_log.info(line.rstrip())
 
         bc_log.info("====== end of logfile ======")
+        idaapi.hide_wait_box()
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
