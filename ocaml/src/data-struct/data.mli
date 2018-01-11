@@ -145,8 +145,8 @@ module Address: sig
   (** returns a fresh heap region of the given size (in bits). The id of the new region is also returned *)
   val new_heap_region: int -> region * int
 
-  (** returns the fresh heap region associated to the given heap id. May raise Not_found if it is not a valid id *)
-  val get_heap_region: t -> int -> region
+  (** returns the region associated to the given heap id. The size of the region is alos returned *)
+  val get_heap_region: int -> region * int
  
   (** set of addresses *)
   module Set: (Set.S with type elt = t)
