@@ -27,7 +27,7 @@ It returns also a boolean true whenever the result is tainted. *)
 
   val init : unit -> unit
 
-  val stubs : (string, (domain_t -> Asm.lval -> (int -> Asm.lval) ->
+  val stubs : (string, (Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
                          domain_t * Taint.t) * int) Hashtbl.t
 end
 
