@@ -224,8 +224,7 @@ let reset () =
   Hashtbl.reset assert_untainted_functions;
   Hashtbl.reset assert_tainted_functions;
   Hashtbl.reset tainting_rules;
-  Hashtbl.reset typing_rules;
-  Hashtbl.clear heap_override;;
+  Hashtbl.reset typing_rules;;
 
 (** returns size of content, rounded to the next multiple of operand_sz *)
     let size_of_content c =
