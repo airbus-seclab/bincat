@@ -16,4 +16,6 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-type t = A (* allocated *) | F (* freed *) | TOP (* unknown status *)
+type abstract_t = A (* allocated *) | F (* freed *) | TOP (* unknown status *)
+
+type t = (int, abstract_t) Hashtbl.t
