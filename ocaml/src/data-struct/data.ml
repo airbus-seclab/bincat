@@ -99,11 +99,13 @@ struct
 
     module A = struct
 
+      type heap_id_t = int
+        
         (* these memory regions are supposed not to overlap *)
         type region =
           | Global 
           | Stack 
-          | Heap of int * int (* first int is the id ; second ont is the size in bits *)
+          | Heap of heap_id_t * int (* first int is the id ; second ont is the size in bits *)
 
         type t = region * Word.t
           

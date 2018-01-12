@@ -68,11 +68,14 @@ module Word: sig
 (** Address Data Type *)
 module Address: sig
 
+  (* unique identifier type of a heap chunk *)
+  type heap_id_t = int
+    
   (** these memory regions are supposed not to overlap *)
   type region =
     | Global (** abstract base address of global variables and code *)
     | Stack (** abstract base address of the stack *)
-    | Heap of int * int (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
+    | Heap of heap_id_t * int (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
 
   (** char conversion of a region *)
   val char_of_region: region -> char
