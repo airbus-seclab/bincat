@@ -1395,7 +1395,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                 return (6, row)
             else:
                 # used for arm*
-                if (value.startswith(("r", "x")) and 47 < ord(value[1]) < 58):
+                if value.startswith(("r", "x") and 47 < ord(value[1]) < 58):
                     if len(value) == 2:
                         # r0, r1, ..., r9
                         return (3, row)
@@ -1743,7 +1743,7 @@ class HandleAddOverride(idaapi.action_handler_t):
             highlighted = idaapi.get_highlight(ctx.widget)
         if highlighted is None:
             return 0
-        elif type(highlighted) is tuple:
+        elif isinstance(highlighted, tuple):
             highlighted = highlighted[0]
         address = self.s.current_ea
         # guess whether highlighted text is register or address
