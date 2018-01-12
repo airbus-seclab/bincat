@@ -559,8 +559,10 @@ class State(object):
                 idaapi.set_item_color(ea, color)
 
     def analysis_finish_cb(self, outfname, logfname, cfaoutfname, ea=None):
-        idaapi.show_wait_box("Parsing BinCAT analysis results")
+        idaapi.show_wait_box("HIDECANCEL\nParsing BinCAT analysis results")
         bc_log.debug("Parsing analyzer result file")
+        # Here we can't check for user_cancelled because the UI is
+        # unresponsive when parsing.
         try:
             cfa = cfa_module.CFA.parse(outfname, logs=logfname)
         except (pybincat.PyBinCATException):
@@ -586,6 +588,7 @@ class State(object):
         else:
             bc_log.info("Empty or unparseable result file.")
         bc_log.debug("----------------------------")
+        idaapi.replace_wait_box("Updating IDB with BinCAT results")
         # Update current RVA to start address (nodeid = 0)
         # by default, use current ea - e.g, in case there is no results (cfa is
         # None) or no node 0 (happens in backward mode)
@@ -605,6 +608,10 @@ class State(object):
         if not cfa:
             return
         for addr, nodeids in cfa.states.items():
+            if idaapi.user_cancelled() > 0:
+                bc_log.info("User cancelled!")
+                idaapi.hide_wait_box()
+                return None
             ea = addr.value
             tainted = False
             for n_id in nodeids:
