@@ -1013,8 +1013,13 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
 
         splitter = QtWidgets.QSplitter(self.parent)
         layout.addWidget(splitter, 0, 0)
+
+        # RVA address label
+        self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
+        splitter.addWidget(self.alabel)
+
         # Node id label
-        self.nilabel = QtWidgets.QLabel('Nodes at this address:')
+        self.nilabel = QtWidgets.QLabel('Node:')
         splitter.addWidget(self.nilabel)
 
         # Node combobox
@@ -1022,19 +1027,21 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         self.node_select.currentTextChanged.connect(self.update_node)
         splitter.addWidget(self.node_select)
 
-        # RVA address label
-        self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
-        splitter.addWidget(self.alabel)
+        # Node id label
+        self.nnlabel = QtWidgets.QLabel('Next node(s):')
+        splitter.addWidget(self.nnlabel)
 
         # Goto combo box
         self.nextnodes_combo = QtWidgets.QComboBox()
         self.nextnodes_combo.currentTextChanged.connect(self.goto_next)
         splitter.addWidget(self.nextnodes_combo)
+
         # leave space for comboboxes in splitter, rather than between widgets
         splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setStretchFactor(2, 0)
-        splitter.setStretchFactor(3, 1)
+        splitter.setStretchFactor(1, 0)
+        splitter.setStretchFactor(2, 1)
+        splitter.setStretchFactor(3, 0)
+        splitter.setStretchFactor(4, 1)
 
         # Value Taint Table
         self.vttable = QtWidgets.QTableView(self.parent)
@@ -1126,8 +1133,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
                 self.nextnodes_combo.setEnabled(False)
             else:
                 for nid in next_nodes:
-                    self.nextnodes_combo.addItem(
-                        "goto next node (%d)" % len(next_nodes))
+                    self.nextnodes_combo.addItem("")
                     self.nextnodes_combo.addItem(str(nid))
                 self.nextnodes_combo.setEnabled(True)
             self.nextnodes_combo.blockSignals(False)
@@ -1926,6 +1932,7 @@ class GUI(object):
         self.hooks.hook()
 
     def show_windows(self):
+        # XXX hide debug form by default (issue #27)
         self.BinCATDebugForm.Show()
         self.BinCATRegistersForm.Show()
         self.BinCATOverridesForm.Show()
