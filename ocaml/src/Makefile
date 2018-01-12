@@ -43,6 +43,7 @@ domains/unrel.ml\
 domains/vector.ml\
 domains/pointer.ml\
 domains/reduced_bit_tainting.ml\
+domains/heap.ml\
 domains/reduced_unrel_typenv.ml\
 disassembly/cfa.ml\
 disassembly/x86.ml\
