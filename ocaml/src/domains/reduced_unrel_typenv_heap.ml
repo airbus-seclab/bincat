@@ -35,7 +35,7 @@ module Make(D: Unrel.T) =
 
   let forget (uenv, tenv, henv) = U.forget uenv, T.forget tenv, T.forget henv
 
-  let is_bot (uenv, _tenv) = U.is_bot uenv 
+  let is_bot (uenv, tenv, henv) = U.is_bot uenv || T.is_bot tenv || H.is_bot henv
 
   let is_subset (uenv1, tenv1) (uenv2, tenv2) =
     U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2

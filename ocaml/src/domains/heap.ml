@@ -39,3 +39,6 @@ let forget m =
   match m with
   | BOT -> BOT
   | Val m' -> Val (Map.map (fun _ -> TOP) m')
+
+let is_bot m = m = BOT
+

@@ -26,6 +26,8 @@
 
  let init () = BOT
 
+ let is_bot m = m = BOT
+     
  let top = Val (Env.empty)
 
  let join env1 env2 =
