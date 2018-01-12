@@ -16,10 +16,21 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-type abstract_t = | A (* allocated *) | F (* freed *) | TOP (* unknown status *)
+type status =
+  | A (* allocated *)
+  | F (* freed *)
+  | TOP (* unknown status *)
 
+module Key =
+struct
+  type t = Data.Address.heap_id_t
+  let compare = compare
+end
+  
+module Map = MapOpt.Make(Key)
+  
 type t =
   | BOT
-  | Val of (int, abstract_t) Hashtbl.t
+  | Val of status Map.t
 
-
+let init () = Val (Map.empty)
