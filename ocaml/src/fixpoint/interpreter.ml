@@ -178,7 +178,7 @@ struct
         let res, tainted =
             match s with
             | Nop                -> d, Taint.U
-            | If (e, then_stmts, else_stmts) -> process_if d e then_stmts else_stmts fun_stack
+            | If (e, then_stmts, else_stmts) -> process_if ip d e then_stmts else_stmts fun_stack
             | Set (dst, src)         -> D.set dst src d
             | Directive (Remove r)       -> let d' = D.remove_register r d in Register.remove r; d', Taint.U
             | Directive (Forget lval)        -> D.forget_lval lval d, Taint.U
@@ -628,22 +628,24 @@ struct
 
         ) tbl)
         [Config.mem_override, Data.Address.Global ;
-         Config.stack_override, Data.Address.Stack]
+         Config.stack_override, Data.Address.Stack];
 
         Hashtbl.iter (fun z rules ->
           let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
-          let rules' =
+          try
+            let rules' =
             List.map (fun (((id, offset), nb), rule) ->
               L.analysis (fun p -> p "Adding override rule for heap id %d" (Z.to_int id));
-              let heap_region, heap_sz = Data.Address.get_heap_region id in
+              let heap_region, heap_sz = Data.Address.get_heap_region (Z.to_int id) in
               Init_check.check_mem rule (Some heap_sz);
-              let addr' = Data.Address.of_int heap_region addr !Config.address_sz in
+              let addr' = Data.Address.of_int heap_region offset !Config.address_sz in
               match rule with
               | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
               | (None, t) -> D.taint_address_mask addr' t
             ) rules
           in
-          hash_add_or_append overrides ip rules'
+            hash_add_or_append overrides ip rules'
+              with _ -> raise (Exceptions.Error "id of heap is too large")
         ) Config.heap_override;
 
     
@@ -908,7 +910,7 @@ struct
     let forward_abstract_value (g:Cfa.t) (succ: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
       let forward _g v _ip =
         let d', taint_sources = List.fold_left (fun (d, b) s ->
-          let d', b' = forward_process v.Cfa.State.up d s (succ.Cfa.State.branch) in
+          let d', b' = forward_process v.Cfa.State.ip d s (succ.Cfa.State.branch) in
           d', Taint.logor b b') (v.Cfa.State.v, Taint.U) (succ.Cfa.State.stmts)
         in
         L.debug (fun p->p "forward_abstract_value taint : %s" (Taint.to_string taint_sources));

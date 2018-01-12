@@ -120,7 +120,7 @@ struct
 
         let get_heap_region id =
           let sz = Hashtbl.find heap_tbl id in
-          Heap (id, sz)
+          Heap (id, sz), sz
               
         let char_of_region r =
             match r with
