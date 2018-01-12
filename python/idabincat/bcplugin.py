@@ -213,6 +213,29 @@ class Analyzer(object):
     def logfname(self):
         return os.path.join(self.path, "analyzer.log")
 
+class LocalAnalyzerTimer(object):
+    """
+    IDA timer used to kill the BinCAT analyzer if the user
+    cancels the analysis
+    """
+    def __init__(self, qprocess):
+        self.interval = 500 # ms
+        self.qprocess = qprocess
+        self.timer = idaapi.register_timer(self.interval, self)
+        if self.timer is None:
+            raise RuntimeError, "Failed to register timer"
+
+    def __call__(self):
+        if idaapi.user_cancelled():
+            bc_log.info("Analysis cancelled by user, terminating process")
+            self.qprocess.terminate()
+            return -1
+        else:
+            return self.interval
+
+    def destroy(self):
+        idaapi.unregister_timer(self.timer)
+
 
 class LocalAnalyzer(Analyzer, QtCore.QProcess):
     """
@@ -242,6 +265,10 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
 
     def run(self):
         idaapi.show_wait_box("Running analysis")
+
+        # Create a timer to allow for cancellation
+        self.timer = LocalAnalyzerTimer(self)
+
         cmdline = [ "bincat",
                     [self.initfname,  self.outfname, self.logfname ]]
         # start the process
@@ -282,6 +309,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         """
         Try to process analyzer output.
         """
+        self.timer.destroy()
         bc_log.info("---- stdout ----------------")
         bc_log.info(str(self.readAllStandardOutput()))
         bc_log.info("---- stderr ----------------")
@@ -566,6 +594,7 @@ class State(object):
         try:
             cfa = cfa_module.CFA.parse(outfname, logs=logfname)
         except (pybincat.PyBinCATException):
+            idaapi.hide_wait_box()
             bc_log.error("Could not parse result file")
             return None
         self.clear_background()
