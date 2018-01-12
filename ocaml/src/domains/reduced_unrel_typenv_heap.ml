@@ -16,7 +16,7 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(** reduced product Unrel x TypEnv *)
+(** reduced product Unrel x TypEnv x Heap *)
 (** signature is of type Domain.T *)
 
 module L = Log.Make(struct let name = "reduced_unrel_typenv" end)
@@ -25,16 +25,17 @@ module Make(D: Unrel.T) =
 (struct
   module U = Unrel.Make(D)
   module T = Typenv
+  module H = Heap
 
-  type t = U.t * T.t
+  type t = U.t * T.t * H.t
 
-  let init () = U.init (), T.init ()
+  let init () = U.init (), T.init (), H.init ()
 
-  let bot = U.BOT, T.BOT
+  let bot = U.BOT, T.BOT, H.BOT
 
   let forget (uenv, tenv) = U.forget uenv, T.forget tenv
 
-  let is_bot (uenv, _tenv) = U.is_bot uenv
+  let is_bot (uenv, _tenv) = U.is_bot uenv 
 
   let is_subset (uenv1, tenv1) (uenv2, tenv2) =
     U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2
