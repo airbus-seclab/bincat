@@ -33,7 +33,7 @@ module Make(D: Unrel.T) =
 
   let bot = U.BOT, T.BOT, H.BOT
 
-  let forget (uenv, tenv) = U.forget uenv, T.forget tenv
+  let forget (uenv, tenv, henv) = U.forget uenv, T.forget tenv, T.forget henv
 
   let is_bot (uenv, _tenv) = U.is_bot uenv 
 

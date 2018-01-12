@@ -34,3 +34,8 @@ type t =
   | Val of status Map.t
 
 let init () = Val (Map.empty)
+
+let forget m =
+  match m with
+  | BOT -> BOT
+  | Val m' -> Val (Map.map (fun _ -> TOP) m')
