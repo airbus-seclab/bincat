@@ -40,22 +40,24 @@ module Make(D: Unrel.T) =
   let is_subset (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) =
     U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2 && H.is_subset henv1 henv2
 
-  let remove_register r (uenv, tenv) = U.remove_register r uenv, T.remove_register r tenv
+  let remove_register r (uenv, tenv, henv) = U.remove_register r uenv, T.remove_register r tenv, henv
 
-  let forget_lval lv (uenv, tenv) =
+  let forget_lval lv (uenv, tenv, henv) =
     let tenv' =
       match lv with
-      | Asm.V (Asm.T r)  | Asm.V (Asm.P (r, _, _)) -> T.remove_register r tenv
-      | _ -> let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) in
+      | Asm.V (Asm.T r)
+      | Asm.V (Asm.P (r, _, _)) -> T.remove_register r tenv
+      | _ ->
+         let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) in
          T.remove_addresses addrs tenv
     in
-    U.forget_lval lv uenv, tenv'
+    U.forget_lval lv uenv, tenv', henv
 
-  let add_register r (uenv, tenv) = U.add_register r uenv, T.add_register r tenv
+  let add_register r (uenv, tenv, henv) = U.add_register r uenv, T.add_register r tenv, henv
 
-  let to_string (uenv, tenv) = (U.to_string uenv) @ (T.to_string tenv)
+  let to_string (uenv, tenv, henv) = (U.to_string uenv) @ (T.to_string tenv) @ (H.to_string henv)
 
-  let value_of_register (uenv, _tenv) r = U.value_of_register uenv r
+  let value_of_register (uenv, _tenv, _henv) r = U.value_of_register uenv r
 
   let string_of_register (uenv, tenv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
 

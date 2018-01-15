@@ -21,6 +21,12 @@ type status =
   | F (* freed *)
   | TOP (* unknown status *)
 
+let string_of_status s =
+  match s with
+  | A -> "A"
+  | F -> "F"
+  | TOP -> "?"
+     
 let leq s1 s2 =
   match s1, s2 with
   | A, A
@@ -61,5 +67,17 @@ let is_subset m1 m2 =
            let v2 = Map.find k m2' in
            if not (leq v1 v2) then
              raise Exit
-         with Not_found -> raise Exit) m1'
+         with Not_found -> raise Exit) m1';
+       true
      with Exit -> false
+
+let to_string m =
+  match m with
+  | BOT -> ["_"]
+  | Val m' ->
+     Map.fold (
+       fun addr_id status acc ->
+         let status' = string_of_status status in
+         let _, sz = Data.Address.get_heap_region addr_id in
+     ("H["^(string_of_int addr_id)^":"^(Z.to_string sz)^"]="^status')::acc
+     ) m' []
