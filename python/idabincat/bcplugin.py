@@ -632,7 +632,15 @@ class State(object):
             except (KeyError, TypeError):
                 # no cfa is None, or no node0
                 pass
-        self.set_current_ea(current_ea, force=True)
+        try:
+            self.set_current_ea(current_ea, force=True)
+        except TypeError as e:
+            bc_log.warn("Could not load results from IDB")
+            bc_log.warn("------ BEGIN EXCEPTION -----")
+            bc_log.exception(e)
+            bc_log.warn("------ END EXCEPTION -----")
+            idaapi.hide_wait_box()
+            return None
         self.netnode["current_ea"] = current_ea
         if not cfa:
             return
