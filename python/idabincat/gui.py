@@ -1395,7 +1395,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                 return (6, row)
             else:
                 # used for arm*
-                if value.startswith(("r", "x") and 47 < ord(value[1]) < 58):
+                if value.startswith(("r", "x")) and 47 < ord(value[1]) < 58:
                     if len(value) == 2:
                         # r0, r1, ..., r9
                         return (3, row)
