@@ -30,3 +30,5 @@ exception Error of string
 
 (** raised when an undefine dereference occurs *)
 exception Bot_deref
+
+exception Use_after_free of Data.Address.t
