@@ -211,33 +211,36 @@ module Make(D: T) =
         match k with
         | Env.Key.Reg _ -> in_itv := false; prev_addr := addr_zero; itvs
         | Env.Key.Mem_Itv (_low_addr, _high_addr) -> in_itv := false; prev_addr := addr_zero; itvs
-        | Env.Key.Mem (addr) -> let new_itv =
-                                  if !in_itv && Data.Address.compare (!prev_addr) (Data.Address.inc addr) == 0 then
-                                    begin
-                                      (* continue byte string *)
-                                      prev_addr := addr;
-                                      let cur_start = fst (List.hd itvs) in cur_start := addr;
-                                      itvs
-                                    end else begin
-                                      (* not contiguous, create new itv *)
-                                      in_itv := true;
-                                      prev_addr := addr;
-                                      let new_head = (ref addr, addr) in
-                                      new_head :: itvs
-                                    end
-              in new_itv
+        | Env.Key.Mem (addr) ->
+           let new_itv =
+             if !in_itv && Data.Address.compare (!prev_addr) (Data.Address.inc addr) == 0 then
+               begin
+                 (* continue byte string *)
+                 prev_addr := addr;
+                 let cur_start = fst (List.hd itvs) in cur_start := addr;
+                 itvs
+               end else begin
+                 (* not contiguous, create new itv *)
+                 in_itv := true;
+                 prev_addr := addr;
+                 let new_head = (ref addr, addr) in
+                 new_head :: itvs
+               end
+           in new_itv
       in
-      let itv_to_str itv = let low = !(fst itv) in let high = snd itv in
-                                                   let addr_str = Printf.sprintf "mem[%s, %s]" (Data.Address.to_string low) (Data.Address.to_string high) in
-                                                   let len = (Z.to_int (Data.Address.sub high low))+1 in
-                                                   let strs = let indices = Array.make len 0 in
-                                                              for offset = 0 to len-1 do
-                                                                indices.(offset) <- offset
-                                                              done ;
-                                                              let buffer = Buffer.create (len*10) in
-                                                              Array.iter (fun off -> Printf.bprintf buffer ", %s" (D.to_string (Env.find (Env.Key.Mem (Data.Address.add_offset low (Z.of_int off))) m))) indices ;
-                                                              Buffer.contents buffer
-                                                   in Printf.sprintf "%s = %s" addr_str (String.sub strs 2 ((String.length strs)-2))
+      let itv_to_str itv =
+        let low = !(fst itv) in
+        let high = snd itv in
+        let addr_str = Printf.sprintf "mem[%s, %s]" (Data.Address.to_string low) (Data.Address.to_string high) in
+        let len = (Z.to_int (Data.Address.sub high low))+1 in
+        let strs = let indices = Array.make len 0 in
+                   for offset = 0 to len-1 do
+                     indices.(offset) <- offset
+                   done;
+                   let buffer = Buffer.create (len*10) in
+                   Array.iter (fun off -> Printf.bprintf buffer ", %s" (D.to_string (Env.find (Env.Key.Mem (Data.Address.add_offset low (Z.of_int off))) m))) indices ;
+                   Buffer.contents buffer
+        in Printf.sprintf "%s = %s" addr_str (String.sub strs 2 ((String.length strs)-2))
       in
       let itvs = Env.fold build_itv m [] in
       List.fold_left (fun strs v -> (itv_to_str v)::strs) strs itvs
@@ -261,7 +264,11 @@ module Make(D: T) =
     let get_addr_array base nb =
       let arr = Array.make nb base in
       for i = 0 to nb-1 do
-        arr.(i) <- Data.Address.add_offset base (Z.of_int i);
+        let addr' = Data.Address.add_offset base (Z.of_int i) in
+        match addr' with
+        | Data.Address.Heap (_, sz), o when Z.compare sz (Data.Word.to_int o) < 0 ->
+           raise (Exceptions.Empty (Printf.sprintf "undefine dereference in heap (%s)" (Data.Address.to_string addr')))
+        | _ -> arr.(i) <- addr'
       done;
       arr
 
