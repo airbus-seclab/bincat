@@ -59,7 +59,7 @@ module Make(D: Unrel.T) =
 
   let value_of_register (uenv, _tenv, _henv) r = U.value_of_register uenv r
 
-  let string_of_register (uenv, tenv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
+  let string_of_register (uenv, tenv, _henv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
 
   let value_of_exp (uenv, _tenv) e = U.value_of_exp uenv e
 
