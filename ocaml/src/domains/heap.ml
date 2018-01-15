@@ -81,3 +81,15 @@ let to_string m =
          let _, sz = Data.Address.get_heap_region addr_id in
      ("H["^(string_of_int addr_id)^":"^(Z.to_string sz)^"]="^status')::acc
      ) m' []
+
+let is_allocated m addr =
+  match m with
+  | BOT -> false
+  | Val m' ->
+     try
+       match addr with
+       | Data.Address.Heap (id, _) ->
+          let status = Map.find m' id in
+          if status = A then true else false
+       | _ -> true
+     with _ -> false
