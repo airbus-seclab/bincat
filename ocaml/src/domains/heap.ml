@@ -21,13 +21,21 @@ type status =
   | F (* freed *)
   | TOP (* unknown status *)
 
+let leq s1 s2 =
+  match s1, s2 with
+  | A, A
+  | F, F
+  | A, TOP
+  | F, TOP -> true
+  | _, _ -> false
+     
 module Key =
 struct
   type t = Data.Address.heap_id_t
   let compare = compare
 end
   
-module Map = MapOpt.Make(Key)
+module Map = MapOpt.Make(Key) (* a key not in the map means its value is BOT *)
   
 type t =
   | BOT
@@ -42,3 +50,16 @@ let forget m =
 
 let is_bot m = m = BOT
 
+let is_subset m1 m2 =
+  match m1, m2 with
+  | BOT, _ -> true
+  | _, BOT -> false
+  | Val m1', Val m2' ->
+     try
+       Map.iteri (fun k v1 ->
+         try
+           let v2 = Map.find k m2' in
+           if not (leq v1 v2) then
+             raise Exit
+         with Not_found -> raise Exit) m1'
+     with Exit -> false

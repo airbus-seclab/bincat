@@ -19,7 +19,7 @@
 (** reduced product Unrel x TypEnv x Heap *)
 (** signature is of type Domain.T *)
 
-module L = Log.Make(struct let name = "reduced_unrel_typenv" end)
+module L = Log.Make(struct let name = "reduced_unrel_typenv_heap" end)
 
 module Make(D: Unrel.T) =
 (struct
@@ -37,8 +37,8 @@ module Make(D: Unrel.T) =
 
   let is_bot (uenv, tenv, henv) = U.is_bot uenv || T.is_bot tenv || H.is_bot henv
 
-  let is_subset (uenv1, tenv1) (uenv2, tenv2) =
-    U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2
+  let is_subset (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) =
+    U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2 && H.is_subset henv1 henv2
 
   let remove_register r (uenv, tenv) = U.remove_register r uenv, T.remove_register r tenv
 

@@ -227,21 +227,7 @@ struct
         let neg (r, w) = r, Word.neg w
     end
     include A
-    module Set =
-    struct
-      module S = Set.Make(A)
-      include S
-      let elements s =
-        let elts =
-          S.fold (fun ((r, o) as a) l ->
-            match r with
-            | Heap (_, sz) when sz < o ->
-                raise (Exceptions.Empty (Printf.sprintf "undefined derefence in heap %s" (A.to_string (r, o))))
-            | _ -> a::l  
-          ) s
-        in
-        List.rev elts
-    end
+    module Set = Set.Make(A)
 
 end
 
