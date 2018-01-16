@@ -475,8 +475,11 @@ module Make(D: T) =
                let addresses = Data.Address.Set.elements (D.to_addresses r) in
                let rec to_value a =
                  match a with
-                 | [a]  -> let v = get_mem_value m a n in v, Taint.logor tsrc  (D.taint_sources v)
+                 | [a]  ->
+                    check_allocation a;
+                   let v = get_mem_value m a n in v, Taint.logor tsrc (D.taint_sources v)
                  | a::l ->
+                    check_allocation a;
                     let v = get_mem_value m a n in
                     let v', tsrc' = to_value l in
                     D.join v v', Taint.join (D.taint_sources v) (Taint.logor tsrc tsrc')
@@ -594,7 +597,7 @@ module Make(D: T) =
       | _, _ -> m
 
     (* TODO factorize with compare_env *)
-    let compare m (e1: Asm.exp) op e2 =
+    let compare m is_allocated (e1: Asm.exp) op e2 =
       match m with
       | BOT -> BOT, Taint.U
       | Val m' ->
@@ -687,7 +690,7 @@ module Make(D: T) =
          with
            Not_found -> BOT
              
-    let set dst src m: (t * Taint.t) =
+    let set dst src is_allocated m: (t * Taint.t) =
       match m with
       | BOT    -> BOT, Taint.U
       | Val m' ->
@@ -905,7 +908,7 @@ module Make(D: T) =
          | Asm.M (e, n) -> set_to_memory e n v m' Taint.U
          | Asm.V r -> set_to_register r v m', Taint.U
         
-    let value_of_exp m e =
+    let value_of_exp m is_allocated e =
       match m with
       | BOT -> raise (Exceptions.Empty "unrel.value_of_exp: environment is empty")
       | Val m' -> D.to_z (fst (eval_exp m' e))
