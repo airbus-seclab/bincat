@@ -125,7 +125,7 @@ struct
      with Exceptions.Too_many_concrete_elements _ -> T.top
 
   let copy (uenv, tenv, henv) dst src sz: t =
-    U.copy uenv dst src sz, char_type uenv tenv dst, henv
+    U.copy uenv dst src sz, char_type uenv tenv dst, henv, tenv
 
   let join (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.join uenv1 uenv2, T.join tenv1 tenv2
 
