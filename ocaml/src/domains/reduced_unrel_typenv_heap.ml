@@ -61,7 +61,7 @@ struct
 
   let string_of_register (uenv, tenv, _henv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
 
-  let value_of_exp (uenv, _tenv, henv) e = U.value_of_exp uenv (H.is_allocated henv) e
+  let value_of_exp (uenv, _tenv, henv) e = U.value_of_exp uenv e (H.check_status henv)
 
   let type_of_exp tenv uenv e =
     match e with
