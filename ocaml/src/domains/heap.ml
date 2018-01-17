@@ -88,7 +88,7 @@ let check_allocation m addr =
   | Val m' ->
      try
        match addr with
-       | Data.Address.Heap (id, _) ->
+       | Data.Address.Heap (id, _), _ ->
           let status = Map.find m' id in
           if status <> A then raise (Exceptions.Use_after_free (Data.Address.to_string addr))
        | _ -> ()
