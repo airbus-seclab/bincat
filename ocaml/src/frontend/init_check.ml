@@ -52,7 +52,7 @@ let check_register_init r (c, t) =
     | _ -> ()) t
 
 
-let check_mem (c, taints) (mem_sz: int option): unit =
+let check_mem (c, taints) (mem_sz: Z.t option): unit =
   let taint_sz = ref 0 in
   let compute_sz () =
     let compute t =
@@ -79,7 +79,7 @@ let check_mem (c, taints) (mem_sz: int option): unit =
     match mem_sz with
     | None -> ()
     | Some mem_sz' ->
-       if mem_sz' < memc then
+       if Z.compare mem_sz' (Z.of_int memc) < 0 then
          L.abort (fun p -> p "content size exceeds size of the destination")
   in
   match c with

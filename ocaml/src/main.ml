@@ -79,7 +79,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     Mapped_mem.current_mapping := Some (do_map_file ());
     let module Vector    = Vector.Make(Reduced_bit_tainting) in
     let module Pointer   = Pointer.Make(Vector) in
-    let module Domain    = Reduced_unrel_typenv.Make(Pointer) in
+    let module Domain    = Reduced_unrel_typenv_heap.Make(Pointer) in
     let decoder =
       match !Config.architecture with
       | Config.X86 -> (module X86.Make: Decoder.Make)
