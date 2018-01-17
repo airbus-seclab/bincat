@@ -300,6 +300,7 @@ struct
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
-      Hashtbl.replace stubs "heap_allocator" (heap_allocator, 1)
+      Hashtbl.replace stubs "heap_allocator" (heap_allocator, 1);
+      Hashtbl.replace stubs "malloc" (heap_allocator, 1)
 
 end
