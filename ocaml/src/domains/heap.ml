@@ -16,25 +16,47 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-type status =
-  | A (* allocated *)
-  | F (* freed *)
-  | TOP (* unknown status *)
+module Status =
+  struct
+    type t =
+      | BOT (* undefined *)
+      | A (* allocated *)
+      | F (* freed *)
+      | TOP (* unknown status *)
+          
+    let to_string s =
+      match s with
+      | BOT -> "_"
+      | A -> "A"
+      | F -> "F"
+      | TOP -> "?"
+         
+         
+    let leq s1 s2 =
+      match s1, s2 with
+      | A, A
+      | F, F
+      | A, TOP
+      | F, TOP
+      | BOT, _ -> true
+      | _, _  -> false
 
-let string_of_status s =
-  match s with
-  | A -> "A"
-  | F -> "F"
-  | TOP -> "?"
-     
-let leq s1 s2 =
-  match s1, s2 with
-  | A, A
-  | F, F
-  | A, TOP
-  | F, TOP -> true
-  | _, _ -> false
-     
+    let join s1 s2 =
+      match s1, s2 with
+      | A, A -> A
+      | F, F -> F
+      | BOT, s | s, BOT -> s
+      | _, _ -> TOP
+
+    let meet s1 s2 =
+      match s1, s2 with
+      | A, A -> A
+      | F, F -> F
+      | BOT, s | s, BOT -> s
+      | TOP, s | s, TOP -> s
+      | _, _ -> BOT  
+  end
+    
 module Key =
 struct
   type t = Data.Address.heap_id_t
@@ -45,7 +67,7 @@ module Map = MapOpt.Make(Key) (* a key not in the map means its status is BOT *)
   
 type t =
   | BOT
-  | Val of status Map.t
+  | Val of Status.t Map.t
 
 let init () = BOT
 
@@ -65,7 +87,7 @@ let is_subset m1 m2 =
        Map.iteri (fun k v1 ->
          try
            let v2 = Map.find k m2' in
-           if not (leq v1 v2) then
+           if not (Status.leq v1 v2) then
              raise Exit
          with Not_found -> raise Exit) m1';
        true
@@ -77,7 +99,7 @@ let to_string m =
   | Val m' ->
      Map.fold (
        fun addr_id status acc ->
-         let status' = string_of_status status in
+         let status' = Status.to_string status in
          let _, sz = Data.Address.get_heap_region addr_id in
      ("H["^(string_of_int addr_id)^":"^(Z.to_string sz)^"]="^status')::acc
      ) m' []
@@ -94,3 +116,8 @@ let check_status m addr =
             raise (Exceptions.Use_after_free (Data.Address.to_string addr))
        | _ -> ()
      with _ -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
+
+let join m1 m2 =
+   match m1, m2 with
+   | BOT, m | m, BOT -> m
+   | Val m1', Val env2' -> Val (Map.join status_join m1' m2')

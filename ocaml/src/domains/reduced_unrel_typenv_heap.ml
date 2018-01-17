@@ -127,7 +127,7 @@ struct
   let copy (uenv, tenv, henv) dst src sz: t =
     U.copy uenv dst src sz, char_type uenv tenv dst, henv, tenv
 
-  let join (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.join uenv1 uenv2, T.join tenv1 tenv2
+  let join (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.join uenv1 uenv2, T.join tenv1 tenv2, H.join henv1 henv2
 
   let meet (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.meet uenv1 uenv2, T.meet tenv1 tenv2
 
