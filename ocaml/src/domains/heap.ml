@@ -130,3 +130,4 @@ let fold apply m1 m2 =
 
 let join m1 m2 = fold Status.join m1 m2
 let meet m1 m2 = fold Status.meet m1 m2
+let widen = join
