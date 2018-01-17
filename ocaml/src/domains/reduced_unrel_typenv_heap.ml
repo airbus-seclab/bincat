@@ -63,14 +63,14 @@ struct
 
   let value_of_exp (uenv, _tenv, henv) e = U.value_of_exp uenv e (H.check_status henv)
 
-  let type_of_exp tenv uenv e =
+  let type_of_exp tenv uenv henv e =
     match e with
     | Asm.Lval (Asm.V (Asm.P (_r, _, _))) -> Types.UNKNOWN
     | Asm.Lval (Asm.V (Asm.T r)) -> T.of_key (Env.Key.Reg r) tenv
     | Asm.Lval (Asm.M (e, _sz)) ->
        begin
      try
-       let addrs, _ = U.mem_to_addresses uenv e in
+       let addrs, _ = U.mem_to_addresses uenv e (H.check_status henv) in
        match Data.Address.Set.elements addrs with
        | [a] -> T.of_key (Env.Key.Mem a) tenv
        | _ -> Types.UNKNOWN
