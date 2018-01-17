@@ -129,7 +129,7 @@ struct
 
   let join (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.join uenv1 uenv2, T.join tenv1 tenv2, H.join henv1 henv2
 
-  let meet (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.meet uenv1 uenv2, T.meet tenv1 tenv2
+  let meet (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.meet uenv1 uenv2, T.meet tenv1 tenv2, H.meet henv1 henv2
 
   let widen (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.widen uenv1 uenv2, T.widen tenv1 tenv2
 

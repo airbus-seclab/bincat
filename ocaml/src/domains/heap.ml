@@ -74,7 +74,7 @@ let init () = BOT
 let forget m =
   match m with
   | BOT -> BOT
-  | Val m' -> Val (Map.map (fun _ -> TOP) m')
+  | Val m' -> Val (Map.map (fun _ -> Status.TOP) m')
 
 let is_bot m = m = BOT
 
@@ -112,12 +112,21 @@ let check_status m addr =
        match addr with
        | Data.Address.Heap (id, _), _ ->
           let status = Map.find id m' in
-          if status <> A then
+          if status <> Status.A then
             raise (Exceptions.Use_after_free (Data.Address.to_string addr))
        | _ -> ()
      with _ -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
 
-let join m1 m2 =
+let fold apply m1 m2 =
    match m1, m2 with
    | BOT, m | m, BOT -> m
-   | Val m1', Val env2' -> Val (Map.join status_join m1' m2')
+   | Val m1', Val m2' ->
+      Val (Map.fold (fun k v2 m' ->
+          try
+            let v' = Map.find k m' in
+            Map.replace k (apply v' v2) m'
+          with Not_found -> Map.add k v2 m'
+      ) m2' m1')
+
+let join m1 m2 = fold Status.join m1 m2
+let meet m1 m2 = fold Status.meet m1 m2
