@@ -82,14 +82,15 @@ let to_string m =
      ("H["^(string_of_int addr_id)^":"^(Z.to_string sz)^"]="^status')::acc
      ) m' []
 
-let check_allocation m addr =
+let check_status m addr =
   match m with
   | BOT -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
   | Val m' ->
      try
        match addr with
        | Data.Address.Heap (id, _), _ ->
-          let status = Map.find m' id in
-          if status <> A then raise (Exceptions.Use_after_free (Data.Address.to_string addr))
+          let status = Map.find id m' in
+          if status <> A then
+            raise (Exceptions.Use_after_free (Data.Address.to_string addr))
        | _ -> ()
      with _ -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
