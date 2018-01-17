@@ -92,15 +92,15 @@ struct
       | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
     with Exceptions.Too_many_concrete_elements _ -> T.forget tenv
    in
-   uenv, tenv'
+   uenv, tenv', henv
 
   let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv, henv): t): t*Taint.t =
-    let uenv', b = U.set lv e (H.is_allocated henv) uenv in
+    let uenv', b = U.set lv e uenv (H.check_status henv) in
     try
-      let typ = type_of_exp tenv uenv e in
-      let _, tenv' = set_type lv typ (uenv', tenv) in
-      (uenv', tenv'), b
-    with _ -> set_type lv Types.UNKNOWN (uenv', tenv), b
+      let typ = type_of_exp tenv uenv henv e in
+      let _, tenv', _ = set_type lv typ (uenv', tenv, henv) in
+      (uenv', tenv', henv), b
+    with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv), b
 
   let set_lval_to_addr (lv: Asm.lval) (a: Data.Address.t) ((uenv, tenv, henv): t): t*Taint.t =
     let uenv', b = U.set_lval_to_addr lv a uenv in
