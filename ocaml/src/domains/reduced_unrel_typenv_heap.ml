@@ -22,7 +22,7 @@
 module L = Log.Make(struct let name = "reduced_unrel_typenv_heap" end)
 
 module Make(D: Unrel.T) =
-struct
+(struct
   module U = Unrel.Make(D)
   module T = Typenv
   module H = Heap
@@ -33,7 +33,7 @@ struct
 
   let bot = U.BOT, T.BOT, H.BOT
 
-  let forget (uenv, tenv, henv) = U.forget uenv, T.forget tenv, T.forget henv
+  let forget (uenv, tenv, henv) = U.forget uenv, T.forget tenv, H.forget henv
 
   let is_bot (uenv, tenv, henv) = U.is_bot uenv || T.is_bot tenv || H.is_bot henv
 
@@ -51,7 +51,7 @@ struct
          let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) (H.check_status henv) in
          T.remove_addresses addrs tenv
     in
-    U.forget_lval lv uenv, tenv', henv
+    U.forget_lval lv uenv (H.check_status henv), tenv', henv
 
   let add_register r (uenv, tenv, henv) = U.add_register r uenv, T.add_register r tenv, henv
 
@@ -125,7 +125,7 @@ struct
      with Exceptions.Too_many_concrete_elements _ -> T.top
 
   let copy (uenv, tenv, henv) dst src sz: t =
-    U.copy uenv dst src sz, char_type uenv tenv dst, henv, tenv
+    U.copy uenv dst src sz (H.check_status henv), char_type uenv tenv henv dst, henv
 
   let join (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.join uenv1 uenv2, T.join tenv1 tenv2, H.join henv1 henv2
 
@@ -135,73 +135,72 @@ struct
 
   let set_memory_from_config a r c n (uenv, tenv, henv) =
     let uenv', taint = U.set_memory_from_config a r c n uenv in
-    (uenv', tenv), taint
+    (uenv', tenv, henv), taint
 
   let set_register_from_config register region (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv) =
     let uenv', taint = U.set_register_from_config register region c uenv in
-    (uenv', tenv), taint
+    (uenv', tenv, henv), taint
 
   let taint_register_mask r c (uenv, tenv, henv): t * Taint.t =
     let uenv', taint = U.taint_register_mask r c uenv in
-    (uenv', tenv), taint
+    (uenv', tenv, henv), taint
 
   let span_taint_to_register register taint (uenv, tenv, henv) =
     let uenv', taint' = U.span_taint_to_register register taint uenv in
-    (uenv', tenv), taint'
+    (uenv', tenv, henv), taint'
 
   let taint_address_mask a c (uenv, tenv, henv) =
     let uenv', taint = U.taint_address_mask a c uenv in
-    (uenv', tenv), taint
+    (uenv', tenv, henv), taint
 
   let span_taint_to_addr a taint (uenv, tenv, henv) =
     let uenv', taint' = U.span_taint_to_addr a taint uenv in
-    (uenv', tenv), taint'
+    (uenv', tenv, henv), taint'
 
   let compare (uenv, tenv, henv) e1 cmp e2 =
-    let uenv', b = U.compare uenv (H.is_allocated henv) e1 cmp e2 in
-    (uenv', tenv), b
+    let uenv', b = U.compare uenv (H.check_status henv) e1 cmp e2 in
+    (uenv', tenv, henv), b
 
-  let mem_to_addresses (uenv, _tenv, henv) e = U.mem_to_addresses uenv e
+  let mem_to_addresses (uenv, _tenv, henv) e = U.mem_to_addresses uenv e (H.check_status henv)
 
-  let taint_sources e (uenv, _tenv, henv) = U.taint_sources e uenv
+  let taint_sources e (uenv, _tenv, henv) = U.taint_sources e uenv (H.check_status henv)
 
 
   let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv, henv) =
-    U.get_offset_from addr cmp terminator upper_bound sz uenv
+    U.get_offset_from addr cmp terminator upper_bound sz uenv (H.check_status henv)
 
   let get_bytes addr cmp terminator upper_bound term_sz (uenv, _tenv, henv) =
-    U.get_bytes addr cmp terminator upper_bound term_sz uenv
+    U.get_bytes addr cmp terminator upper_bound term_sz uenv (H.check_status henv)
 
 
-  let print (uenv, _tenv, henv) src sz: t =
-    U.print uenv src sz, T.top
+  let print (uenv, _tenv, henv) src sz: t = U.print uenv src sz (H.check_status henv), T.top, henv
 
   let copy_hex (uenv, _tenv, henv) dst src sz capitalise pad_option word_sz: t * int =
-    let uenv', len = U.copy_hex uenv dst src sz capitalise pad_option word_sz in
-    (uenv', T.top), len
+    let uenv', len = U.copy_hex uenv dst src sz capitalise pad_option word_sz (H.check_status henv) in
+    (uenv', T.top, henv), len
 
   let print_hex (uenv, tenv, henv) src sz capitalise pad_option word_sz: t * int =
-    let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz in
-    (uenv', tenv), len
+    let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz (H.check_status henv) in
+    (uenv', tenv, henv), len
 
   let copy_chars (uenv, tenv, henv) dst src sz pad_options =
-    let tenv' = char_type uenv tenv dst in
-    U.copy_chars uenv dst src sz pad_options, tenv'
+    let tenv' = char_type uenv tenv henv dst in
+    U.copy_chars uenv dst src sz pad_options (H.check_status henv), tenv', henv
 
 
   let print_chars (uenv, _tenv, henv) src sz pad_options =
-    U.print_chars uenv src sz pad_options, T.top
+    U.print_chars uenv src sz pad_options (H.check_status henv), T.top, henv
 
   let copy_until (uenv, tenv, henv) dst arg terminator term_sz upper_bound with_exception pad_options =
-    let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options in
-    let tenv' = char_type uenv tenv dst in
-    len, (uenv', tenv')
+    let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options (H.check_status henv) in
+    let tenv' = char_type uenv tenv henv dst in
+    len, (uenv', tenv', henv)
 
   let print_until (uenv, _tenv, henv) arg terminator term_sz upper_bound with_exception pad_options =
-    let len, uenv' = U.print_until uenv arg terminator term_sz upper_bound with_exception pad_options in
-    len, (uenv', T.top)
+    let len, uenv' = U.print_until uenv arg terminator term_sz upper_bound with_exception pad_options (H.check_status henv) in
+    len, (uenv', T.top, henv)
 
 
   let copy_register r (uenv, tenv, henv) (usrc, tsrc, hsrc) =
-    U.copy_register r uenv usrc, T.set_register r (type_of_exp tsrc usrc (Asm.Lval (Asm.V (Asm.T r)))) tenv
- end
+    U.copy_register r uenv usrc, T.set_register r (type_of_exp tsrc usrc hsrc (Asm.Lval (Asm.V (Asm.T r)))) tenv, henv
+ end: Domain.T)
