@@ -49,7 +49,35 @@ struct
         let d' = D.allocate_on_heap d id in
          D.set_lval_to_addr ret (heap_region, Data.Word.zero !Config.address_sz) d'
       with _ -> raise (Exceptions.Too_many_concrete_elements "heap allocation: unprecise size to allocate")
-        
+
+    let check_free (ip: Data.Address.t) ((r, o): Data.Address.t): unit =
+      match r with
+      | Heap _ ->
+         if Data.Word.compare o Data.Word.zero <> 0 then
+           raise (Exceptions.Undefined_free: 
+                    (Printf.sprintf "at instruction %s: base address to free is not zero (%s)")
+           (Data.Address.to_string ip)
+           (Data.Address.to_string (r, o)))
+             
+      | _ ->
+         raise (Exceptions.Undefined_free
+                  (Printf.sprintf "at instruction %s: base address (%s) to free not in the heap"
+                  (Data.Address.to_string ip)
+                  (Data.Address.to_string (r, o))))
+           
+    let heap_deallocator (ip: Data.Address.t) (d: domain_t) _ret args: domain_t * Taint.t =
+      let ptr = Asm.Lval (args 0) in
+      let mem = Asm.Lval (Asm.M (ptr, !Config.address_sz)) in
+      try
+        let addrs = D.mem_to_addresses d mem in
+        match addrs with
+        | [a] -> check_free ip a; D.deallocate d a
+        | _::_ -> Listf.fold_left (fun d a -> check_free ip a; D.weak_deallocate d a) d
+        | [] -> ????
+      with
+        Exceptions.Too_many_concrete_elements _ ->
+          raise (Exceptions.Too_many_concrete_elements
+      
     let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
       let zero = Asm.Const (Data.Word.zero 8) in
       let len = D.get_offset_from (Asm.Lval (args 0)) Asm.EQ zero 10000 8 d in

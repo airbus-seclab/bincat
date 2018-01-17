@@ -165,5 +165,11 @@ number of copied bytes is returned *)
 
     (** [allocate_on_heap d id] allocate the id heap chunk into d *)
       val allocate_on_heap: t -> Data.Address.heap_id_t -> t
+
+    (** [deallocate d a] allocate the heap memory chunk at address a *)
+      val deallocate: t -> Data.Address.t -> t
+
+      (** [deallocate d addrs] weake allocate the heap memory chunks at addresses addrs *)
+      val weak_deallocate: t -> Data.Address.t list -> t
     end
 
