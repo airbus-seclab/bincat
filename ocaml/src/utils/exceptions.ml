@@ -36,3 +36,6 @@ exception Use_after_free of string
 
 (** the string is the address on which the out of bound in heap occurs *)
 exception Heap_out_of_bounds of string
+
+(** call to a deallocator is undefined (pointer does not point on the heap, or the pointed address is not the basis of an allocation, etc. *)
+exception Undefined_free of string
