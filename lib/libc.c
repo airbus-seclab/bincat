@@ -6,3 +6,4 @@ void *memcpy(void *dest, const void *src, unsigned int n) {}
 unsigned int strlen(const char *s) {}
 int puts(const char *s) {}
 void *malloc(unsigned int) {} 
+void free(void *) {}

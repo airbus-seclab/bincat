@@ -301,6 +301,7 @@ struct
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "heap_allocator" (heap_allocator, 1);
-      Hashtbl.replace stubs "malloc" (heap_allocator, 1)
+      Hashtbl.replace stubs "malloc" (heap_allocator, 1);
+      Hashtbl.replace stubs "free" (heap_deallocator, 1)
 
 end
