@@ -103,7 +103,7 @@ struct
     with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv), b
 
   let set_lval_to_addr (lv: Asm.lval) (a: Data.Address.t) ((uenv, tenv, henv): t): t*Taint.t =
-    let uenv', b = U.set_lval_to_addr lv a uenv in
+    let uenv', b = U.set_lval_to_addr lv a uenv (H.check_status henv) in
     try
       let buf_typ = T.of_key (Env.Key.Mem a) tenv in
       let ptr_typ =
@@ -111,9 +111,9 @@ struct
         | Types.T t -> Types.T (TypedC.Ptr t)
         | Types.UNKNOWN->  Types.UNKNOWN (* could be more precise: we know it is a pointer *)
       in    
-      let _, tenv' = set_type lv ptr_typ (uenv', tenv) in
-      (uenv', tenv'), b
-    with _ -> set_type lv Types.UNKNOWN (uenv', tenv), b
+      let _, tenv', _ = set_type lv ptr_typ (uenv', tenv, henv) in
+      (uenv', tenv', henv), b
+    with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv), b
       
   let char_type uenv tenv dst =
      let typ = Types.T (TypedC.Int (Newspeak.Signed, 8)) in
