@@ -115,10 +115,10 @@ struct
       (uenv', tenv', henv), b
     with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv), b
       
-  let char_type uenv tenv dst =
+  let char_type uenv tenv henv dst =
      let typ = Types.T (TypedC.Int (Newspeak.Signed, 8)) in
      try
-       let addrs, _ = U.mem_to_addresses uenv dst in
+       let addrs, _ = U.mem_to_addresses uenv dst (H.check_status henv) in
        match Data.Address.Set.elements addrs with
        | [a] -> if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
        | l ->  List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l (* TODO: replace by a weak update *)
