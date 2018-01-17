@@ -48,7 +48,7 @@ struct
       | Asm.V (Asm.T r)
       | Asm.V (Asm.P (r, _, _)) -> T.remove_register r tenv
       | _ ->
-         let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) in
+         let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) (H.check_status henv) in
          T.remove_addresses addrs tenv
     in
     U.forget_lval lv uenv, tenv', henv
