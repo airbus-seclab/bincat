@@ -31,4 +31,8 @@ exception Error of string
 (** raised when an undefine dereference occurs *)
 exception Bot_deref
 
-exception Use_after_free of Data.Address.t
+(** the string is the address on which the use after free occurs *)
+exception Use_after_free of string
+
+(** the string is the address on which the out of bound in heap occurs *)
+exception Heap_out_of_bounds of string

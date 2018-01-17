@@ -41,13 +41,13 @@ struct
   let compare = compare
 end
   
-module Map = MapOpt.Make(Key) (* a key not in the map means its value is BOT *)
+module Map = MapOpt.Make(Key) (* a key not in the map means its status is BOT *)
   
 type t =
   | BOT
   | Val of status Map.t
 
-let init () = Val (Map.empty)
+let init () = BOT
 
 let forget m =
   match m with
@@ -84,12 +84,12 @@ let to_string m =
 
 let check_allocation m addr =
   match m with
-  | BOT -> raise Exceptions.Use_after_free
+  | BOT -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
   | Val m' ->
      try
        match addr with
        | Data.Address.Heap (id, _) ->
           let status = Map.find m' id in
-          if status <> A then raise Exceptions.Use_after_free
+          if status <> A then raise (Exceptions.Use_after_free (Data.Address.to_string addr))
        | _ -> ()
-     with _ -> raise Exceptions.Use_after_free
+     with _ -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
