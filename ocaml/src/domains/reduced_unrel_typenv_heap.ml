@@ -86,7 +86,7 @@ struct
      | Asm.V (Asm.P (r, _, _)) -> T.forget_register r tenv
      | Asm.M (e, _sz) ->
         try
-      let addrs, _ = U.mem_to_addresses uenv e in
+      let addrs, _ = U.mem_to_addresses uenv e (H.check_status henv) in
       match Data.Address.Set.elements addrs with
       | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ)); if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
       | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
