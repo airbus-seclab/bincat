@@ -131,3 +131,8 @@ let fold apply m1 m2 =
 let join m1 m2 = fold Status.join m1 m2
 let meet m1 m2 = fold Status.meet m1 m2
 let widen = join
+
+let alloc m id =
+  match m with
+  | BOT -> Val (Map.add id Status.A Map.empty)  
+  | Val m' -> Val (Map.add id Status.A m')

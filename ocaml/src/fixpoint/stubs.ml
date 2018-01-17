@@ -46,7 +46,8 @@ struct
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
         let heap_region, id = Data.Address.new_heap_region sz in
         Hashtbl.add Dump.heap_id_tbl id ip;
-         D.set_lval_to_addr ret (heap_region, Data.Word.zero !Config.address_sz) d
+        let d' = D.allocate_on_heap d id in
+         D.set_lval_to_addr ret (heap_region, Data.Word.zero !Config.address_sz) d'
       with _ -> raise (Exceptions.Too_many_concrete_elements "heap allocation: unprecise size to allocate")
         
     let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =

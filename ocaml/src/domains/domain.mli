@@ -162,5 +162,8 @@ number of copied bytes is returned *)
 
       (** [copy_register r dst src] returns dst with value of register r being replaced by its value in src *)
       val copy_register: Register.t -> t -> t -> t
+
+    (** [allocate_on_heap d id] allocate the id heap chunk into d *)
+      val allocate_on_heap: t -> Data.Address.heap_id_t -> t
     end
 
