@@ -50,14 +50,16 @@ struct
          D.set_lval_to_addr ret (heap_region, Data.Word.zero !Config.address_sz) d'
       with _ -> raise (Exceptions.Too_many_concrete_elements "heap allocation: unprecise size to allocate")
 
-    let check_free (ip: Data.Address.t) ((r, o): Data.Address.t): unit =
+    let check_free (ip: Data.Address.t) ((r, o): Data.Address.t): Data.Address.heap_id_t =
       match r with
-      | Heap _ ->
-         if Data.Word.compare o Data.Word.zero <> 0 then
-           raise (Exceptions.Undefined_free: 
-                    (Printf.sprintf "at instruction %s: base address to free is not zero (%s)")
+      | Data.Address.Heap (id, _) ->
+         if Data.Word.compare o (Data.Word.zero !Config.address_sz) <> 0 then
+           raise (Exceptions.Undefined_free
+                    (Printf.sprintf "at instruction %s: base address to free is not zero (%s)"
            (Data.Address.to_string ip)
-           (Data.Address.to_string (r, o)))
+           (Data.Address.to_string (r, o))))
+         else
+           id
              
       | _ ->
          raise (Exceptions.Undefined_free
@@ -69,14 +71,21 @@ struct
       let ptr = Asm.Lval (args 0) in
       let mem = Asm.Lval (Asm.M (ptr, !Config.address_sz)) in
       try
-        let addrs = D.mem_to_addresses d mem in
-        match addrs with
-        | [a] -> check_free ip a; D.deallocate d a
-        | _::_ -> Listf.fold_left (fun d a -> check_free ip a; D.weak_deallocate d a) d
-        | [] -> ????
+        let addrs, taint = D.mem_to_addresses d mem in
+        let addrs' = Data.Address.Set.elements addrs in 
+        match addrs' with
+        | [a] ->
+           let id = check_free ip a in
+           D.deallocate d id, taint
+             
+        | _::_ ->
+           let ids = List.fold_left (fun ids a -> (check_free ip a)::ids) [] addrs' in
+           D.weak_deallocate d ids, taint
+             
+        | [] -> raise (Exceptions.Error "unexpected empty list of addresses to deallocate")
       with
         Exceptions.Too_many_concrete_elements _ ->
-          raise (Exceptions.Too_many_concrete_elements
+          raise (Exceptions.Too_many_concrete_elements "Stubs: too many addresses to deallocate")
       
     let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
       let zero = Asm.Const (Data.Word.zero 8) in

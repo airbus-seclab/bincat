@@ -136,3 +136,28 @@ let alloc m id =
   match m with
   | BOT -> Val (Map.add id Status.A Map.empty)  
   | Val m' -> Val (Map.add id Status.A m')
+
+
+let dealloc m id =
+  match m with
+  | BOT -> raise (Exceptions.Empty "Heap.dealloc failed")
+  | Val m' ->
+     try
+       let _status = Map.find id m' in
+       Val (Map.replace id Status.F m')
+     with Not_found -> raise (Exceptions.Error
+                                (Printf.sprintf "unknown heap id %d to deallocate" id))
+
+let weak_dealloc m ids =
+  match m with
+  | BOT -> raise (Exceptions.Empty "Heap.dealloc failed")
+  | Val m' ->
+     Val (List.fold_left (fun m' id ->
+       try
+         let status = Map.find id m' in
+         Map.replace id (Status.join status Status.F) m'
+       with Not_found -> raise (Exceptions.Error
+                                (Printf.sprintf "unknown heap id %d to weak deallocate" id))
+     ) m' ids) 
+       
+     

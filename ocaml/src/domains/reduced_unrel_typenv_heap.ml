@@ -205,4 +205,8 @@ module Make(D: Unrel.T) =
     U.copy_register r uenv usrc, T.set_register r (type_of_exp tsrc usrc hsrc (Asm.Lval (Asm.V (Asm.T r)))) tenv, henv
 
   let allocate_on_heap (uenv, tenv, henv) id = uenv, tenv, H.alloc henv id
+
+  let deallocate (uenv, tenv, henv) addr = uenv, tenv, H.dealloc henv addr
+
+  let weak_deallocate (uenv, tenv, henv) addrs = uenv, tenv, H.weak_dealloc henv addrs
  end: Domain.T)
