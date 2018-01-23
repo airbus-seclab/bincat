@@ -77,8 +77,8 @@ module Address: sig
     | Stack (** abstract base address of the stack *)
     | Heap of heap_id_t * Z.t (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
 
-  (** char conversion of a region *)
-  val char_of_region: region -> char
+  (** string conversion of a region *)
+  val string_of_region: region -> string
 
   (** data type of an address *)
   type t = region * Word.t

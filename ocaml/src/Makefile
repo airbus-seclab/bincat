@@ -9,102 +9,118 @@ CAMLLIBDIR:=$(shell ocamlc -where)
 
 
 ML=\
-utils/exceptions.ml\
-utils/misc.ml\
-data-struct/register.ml\
-utils/mapOpt.ml\
-utils/setExt.ml\
-utils/bits.ml\
-data-struct/taint.ml\
-utils/config.ml\
-data-struct/data.ml\
-utils/log.ml\
-frontend/init_check.ml\
-data-struct/types.ml\
-data-struct/asm.ml\
-utils/dump.ml\
-data-struct/mapped_mem.ml\
-loaders/manual.ml\
-loaders/raw.ml\
-loaders/elf_core.ml\
-loaders/elf.ml\
-disassembly/decodeutils.ml\
-fixpoint/stubs.ml\
-fixpoint/rules.ml\
-disassembly/x86Imports.ml\
-disassembly/armv7Imports.ml\
-disassembly/armv8aImports.ml\
-frontend/lexer.ml\
-frontend/parser.ml\
-domains/env.ml\
-domains/typenv.ml\
-domains/bit.ml\
-domains/unrel.ml\
-domains/vector.ml\
-domains/pointer.ml\
-domains/reduced_bit_tainting.ml\
-domains/heap.ml\
-domains/reduced_unrel_typenv_heap.ml\
-disassembly/cfa.ml\
-disassembly/x86.ml\
-disassembly/armv7.ml\
-disassembly/armv8A.ml\
-fixpoint/interpreter.ml\
-bincat_ver.ml \
-main.ml
+  utils/exceptions.ml\
+  utils/misc.ml\
+  data-struct/register.ml\
+  utils/mapOpt.ml\
+  utils/setExt.ml\
+  utils/bits.ml\
+  data-struct/taint.ml\
+  utils/config.ml\
+  data-struct/data.ml\
+  utils/log.ml\
+  frontend/init_check.ml\
+  data-struct/types.ml\
+  data-struct/asm.ml\
+  utils/dump.ml\
+  data-struct/mapped_mem.ml\
+  loaders/manual.ml\
+  loaders/raw.ml\
+  loaders/elf_core.ml\
+  loaders/elf.ml\
+  disassembly/decodeutils.ml\
+  fixpoint/stubs.ml\
+  fixpoint/rules.ml\
+  disassembly/x86Imports.ml\
+  disassembly/armv7Imports.ml\
+  disassembly/armv8aImports.ml\
+  frontend/lexer.ml\
+  frontend/parser.ml\
+  domains/env.ml\
+  domains/typenv.ml\
+  domains/bit.ml\
+  domains/unrel.ml\
+  domains/vector.ml\
+  domains/pointer.ml\
+  domains/reduced_bit_tainting.ml\
+  domains/heap.ml\
+  domains/reduced_unrel_typenv_heap.ml\
+  disassembly/cfa.ml\
+  disassembly/x86.ml\
+  disassembly/armv7.ml\
+  disassembly/armv8A.ml\
+  fixpoint/interpreter.ml\
+  bincat_ver.ml \
+  main.ml
 
 MLI=\
-data-struct/register.mli\
-utils/mapOpt.mli\
-utils/setExt.mli\
-data-struct/data.mli\
-loaders/loader.mli\
-domains/domain.mli\
-disassembly/cfa.mli\
-disassembly/decoder.mli\
-fixpoint/stubs.mli
+  data-struct/register.mli\
+  utils/mapOpt.mli\
+  utils/setExt.mli\
+  data-struct/data.mli\
+  loaders/loader.mli\
+  domains/domain.mli\
+  disassembly/cfa.mli\
+  disassembly/decoder.mli\
+  fixpoint/stubs.mli
 
 
 DEPS-armv8A := armv8A_ppx
-OPTS-armv8A := -ppx ./armv8A_ppx
-
-# Suppress "this open statement shadows the value ..."
-# as it is legitimately done
+OPTS-armv8A :=  -ppx ./armv8A_ppx -warn-error -26-27
 OPTS-elf_core := -w -44
+OPTS-elf := -w -44
+DEPS-config := npk/c2newspeak/typedC.cmi
+OPTS-config := -I npk/c2newspeak
+DEPS-types := npk/c2newspeak/typedC.cmi
+OPTS-types := -I npk/c2newspeak
+DEPS-rules := npk/c2newspeak/typedC.cmi
+OPTS-rules := -I npk/c2newspeak
+DEPS-parser := npk/c2newspeak/typedC.cmi
+OPTS-parser := -I npk/c2newspeak
+DEPS-x86 := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
+OPTS-x86 := -I npk/c2newspeak -I npk/newspeak
+DEPS-reduced_unrel_typenv_heap := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
+OPTS-reduced_unrel_typenv_heap := -I npk/c2newspeak -I npk/newspeak
 
 
-CMX = $(ML:.ml=.cmx)
+EXTLIB := nums str unix graph zarith bigarray
+PACKAGES := ocamlgraph zarith
 
-DIROPT = -I `ocamlfind query newspeak` -I fixpoint -I `ocamlfind query ocamlgraph` -I `ocamlfind query zarith` -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders
+EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
+LIBINCL = $(EXTLIBINCL) -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders -I fixpoint
 
 #  W58: no cmx file was found in path for module Z
-#  not really a problem.
-CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58 -w -58 $(DIROPT)
+#  -> not really a problem.
+#  W42: use of XXX relies on type-directed disambiguation
+#  -> not really a pb
+CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58 -w -42 -w -58
 
-CAMLC   =ocamlc $(DIROPT)
+CAMLC   =ocamlc
 CAMLOPT =ocamlopt
 CAMLLEX =ocamllex
 MENHIR  =menhir --explain
-CAMLDEP =ocamldep $(DIROPT)
-CAMLDOC =ocamldoc $(DIROPT)
+CAMLDEP =ocamldep
+CAMLDOC =ocamldoc
 
 EXEOPT=bincat
 EXEBYTE=bincat.byte
 
 ifeq ($(BYTECODE), 1)
-CAMLCOMPIL = $(CAMLC) $(CAMLOPTIONS)
-OBJ = $(ML:.ml=.cmo)
-LIBX:=unix.cma graph.cma zarith.cma newspeak.cma bigarray.cma newspeak.cma
-EXENAME=$(EXEBYTE)
-BINCATOBJ = bincat.cmo
-CAMLDEPOPT = 
+    CAMLCOMPIL = $(CAMLC)
+    OBJ = $(ML:.ml=.cmo)
+    NPKLIB:=npk/newspeak.cma
+    EXTLIB:=$(EXTLIB:=.cma)
+    EXENAME=$(EXEBYTE)
+    BINCATOBJ = bincat.cmo
+    CAMLDEPOPT = 
 else
-CAMLCOMPIL = $(CAMLOPT) $(CAMLOPTIONS)
-OBJ = $(ML:.ml=.cmx)
-LIBX:=unix.cmxa graph.cmxa nums.cmxa str.cmxa zarith.cmxa newspeak.cmxa bigarray.cmxa newspeak.cmxa
-EXENAME=$(EXEOPT)
-BINCATOBJ = bincat.cmx
-CAMLDEPOPT = -native
+    CAMLCOMPIL = $(CAMLOPT)
+    OBJ = $(ML:.ml=.cmx)
+    NPKLIB:=npk/newspeak.cmxa
+    EXTLIB:=$(EXTLIB:=.cmxa)
+    EXENAME=$(EXEOPT)
+    BINCATOBJ = bincat.cmx
+    CAMLDEPOPT = -native
 endif
 
 
@@ -130,7 +146,7 @@ ifeq ($(detected_OS), Linux)
     LDCONFIG=ldconfig
 endif
 
-CFLAGS=-ccopt -L$(CAMLLIBDIR) -ccopt -L`ocamlfind query newspeak` -ccopt -lasmrun
+CFLAGS=-ccopt -lasmrun
 
 ifeq ($(STATIC), 1)
 all: $(LIBNAME) static
@@ -139,14 +155,14 @@ all: $(LIBNAME) $(EXENAME)
 endif
 
 armv8A_ppx: disassembly/armv8A_ppx.ml
-	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I `ocamlfind query compiler-libs` -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
+	$(CAMLOPT) -pp $(CPPO) -warn-error -33-9-17 -I `ocamlfind query ppx_tools` -I +compiler-libs -o armv8A_ppx  str.cmxa ocamlcommon.cmxa ppx_tools.cmxa $+
 
-$(LIBNAME): $(OBJ) 
+$(LIBNAME): $(NPKLIB) $(OBJ)
 	rm -f $(BINCATOBJ)
-	$(CAMLCOMPIL) $(SHARED) $(CFLAGS) -o $(LIBNAME) $(LIBX) $(OCAMLOPT) $+
+	$(CAMLCOMPIL) $(SHARED) $(CFLAGS) $(EXTLIBINCL) $(EXTLIB) $+ -o $@
 
-$(EXENAME): $(OBJ) $(BINCATOBJ)
-	$(CAMLCOMPIL)  $(CFLAGS) -o $@ $(LIBX) $(OCAMLOPT) $+
+$(EXENAME): $(NPKLIB) $(OBJ) $(BINCATOBJ)
+	$(CAMLCOMPIL) $(CFLAGS) $(EXTLIBINCL) $(EXTLIB) $+ -o $@
 
 # Build $(EXENAME) statically
 static: CFLAGS+=-ccopt -static
@@ -158,19 +174,28 @@ bincat_ver.ml: update_gitver
 	grep -q $(GITVERSION) bincat_ver.ml || sed s/XXX/$(GITVERSION)/ bincat_ver.ml.tmpl > $@
 
 
+# dependencies on newspeak
+$(NPKLIB):
+	$(MAKE) -C npk/ BYTECODE=$(BYTECODE)
+
+npk/c2newspeak/typedC.cmi:
+	$(MAKE) -C npk/ BYTECODE=$(BYTECODE)
+
+npk/newspeak/newspeak.cmi:
+	$(MAKE) -C npk/ BYTECODE=$(BYTECODE)
+
+
+
 .SECONDEXPANSION:
 
-%.cmx: %.ml %.mli $$(DEPS-$$(*F))
-	$(CAMLCOMPIL) -c $(LIBX) $(OPTS-$(*F)) $*.ml
-
 %.cmi: %.mli $$(DEPS-$$(*F))
-	$(CAMLCOMPIL) -c $(OPTS-$(*F)) $*.mli
+	$(CAMLCOMPIL) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.mli
 
 %.cmx: %.ml $$(DEPS-$$(*F))
-	$(CAMLCOMPIL) -c $(LIBX) $(OPTS-$(*F)) $*.ml
+	$(CAMLOPT) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.ml
 
 %.cmo: %.ml $$(DEPS-$$(*F))
-	$(CAMLCOMPIL) -c $(LIBX) $(OPTS-$(*F)) $*.ml
+	$(CAMLC) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.ml
 
 %.ml: %.mll
 	$(CAMLLEX) $*.mll
@@ -179,6 +204,7 @@ bincat_ver.ml: update_gitver
 	$(MENHIR) $*.mly
 
 clean:
+	-$(MAKE) -C npk clean
 	-rm -f .depend
 	-rm -f `find . -name "*.cm[ixo]"`
 	-rm -f `find . -name  "*.o"`
@@ -192,13 +218,14 @@ clean:
 	-rm -f parser.ml parser.mli lexer.ml
 
 install: $(LIBNAME) $(EXENAME)
+	$(MAKE) -C npk/ install
 	install $(LIBNAME) $(LIBDIR)
 	install $(EXENAME) $(BINDIR)
 	$(LDCONFIG) $(LIBDIR)
 
 .depend: $(ML) $(MLI)
 	rm -f .depend
-	-$(CAMLDEP) -slash $(CAMLDEPOPT) $+ > .depend
+	-$(CAMLDEP) $(LIBINCL) -slash $(CAMLDEPOPT) $+ > .depend
 
 doc: $(ML) $(MLI)
 	@mkdir -p $(DOCPATH)/html

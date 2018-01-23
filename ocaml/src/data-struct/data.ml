@@ -107,6 +107,7 @@ struct
           | Stack 
           | Heap of heap_id_t * Z.t (* first int is the id ; second ont is the size in bits *)
 
+
         type t = region * Word.t
           
         let heap_id = ref 0
@@ -123,12 +124,13 @@ struct
         let get_heap_region id =
           let sz = Hashtbl.find heap_tbl id in
           Heap (id, sz), sz
-              
-        let char_of_region r =
+  
+        let string_of_region r =
             match r with
-            | Global -> 'G'
-            | Stack  -> 'S'
-            | Heap _ -> 'H'
+            | Global -> ""
+            | Stack  -> "S"
+            | Heap (id, _)  -> "H_"^(string_of_int id)
+
 
    
 
@@ -166,7 +168,7 @@ struct
             else
                 raise (Exceptions.Error "Address generation for this memory mode not yet managed")
 
-        let to_string (r, w) = Printf.sprintf "%c%s" (char_of_region r) (Word.to_string w)
+        let to_string (r, w) = Printf.sprintf "%s%s" (string_of_region r) (Word.to_string w)
 
         (** returns the offset of the address *)
         let to_int (_r, w) = Word.to_int w

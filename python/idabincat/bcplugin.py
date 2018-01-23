@@ -213,6 +213,29 @@ class Analyzer(object):
     def logfname(self):
         return os.path.join(self.path, "analyzer.log")
 
+class LocalAnalyzerTimer(object):
+    """
+    IDA timer used to kill the BinCAT analyzer if the user
+    cancels the analysis
+    """
+    def __init__(self, qprocess):
+        self.interval = 500 # ms
+        self.qprocess = qprocess
+        self.timer = idaapi.register_timer(self.interval, self)
+        if self.timer is None:
+            raise RuntimeError, "Failed to register timer"
+
+    def __call__(self):
+        if idaapi.user_cancelled():
+            bc_log.info("Analysis cancelled by user, terminating process")
+            self.qprocess.terminate()
+            return -1
+        else:
+            return self.interval
+
+    def destroy(self):
+        idaapi.unregister_timer(self.timer)
+
 
 class LocalAnalyzer(Analyzer, QtCore.QProcess):
     """
@@ -241,6 +264,11 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
             return
 
     def run(self):
+        idaapi.show_wait_box("Running analysis")
+
+        # Create a timer to allow for cancellation
+        self.timer = LocalAnalyzerTimer(self)
+
         cmdline = [ "bincat",
                     [self.initfname,  self.outfname, self.logfname ]]
         # start the process
@@ -281,6 +309,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         """
         Try to process analyzer output.
         """
+        self.timer.destroy()
         bc_log.info("---- stdout ----------------")
         bc_log.info(str(self.readAllStandardOutput()))
         bc_log.info("---- stderr ----------------")
@@ -297,6 +326,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
                 bc_log.info(line.rstrip())
 
         bc_log.info("====== end of logfile ======")
+        idaapi.hide_wait_box()
         self.finish_cb(self.outfname, self.logfname, self.cfaoutfname)
 
 
@@ -557,10 +587,14 @@ class State(object):
                 idaapi.set_item_color(ea, color)
 
     def analysis_finish_cb(self, outfname, logfname, cfaoutfname, ea=None):
+        idaapi.show_wait_box("HIDECANCEL\nParsing BinCAT analysis results")
         bc_log.debug("Parsing analyzer result file")
+        # Here we can't check for user_cancelled because the UI is
+        # unresponsive when parsing.
         try:
             cfa = cfa_module.CFA.parse(outfname, logs=logfname)
         except (pybincat.PyBinCATException):
+            idaapi.hide_wait_box()
             bc_log.error("Could not parse result file")
             return None
         self.clear_background()
@@ -583,6 +617,7 @@ class State(object):
         else:
             bc_log.info("Empty or unparseable result file.")
         bc_log.debug("----------------------------")
+        idaapi.replace_wait_box("Updating IDB with BinCAT results")
         # Update current RVA to start address (nodeid = 0)
         # by default, use current ea - e.g, in case there is no results (cfa is
         # None) or no node 0 (happens in backward mode)
@@ -597,11 +632,23 @@ class State(object):
             except (KeyError, TypeError):
                 # no cfa is None, or no node0
                 pass
-        self.set_current_ea(current_ea, force=True)
+        try:
+            self.set_current_ea(current_ea, force=True)
+        except TypeError as e:
+            bc_log.warn("Could not load results from IDB")
+            bc_log.warn("------ BEGIN EXCEPTION -----")
+            bc_log.exception(e)
+            bc_log.warn("------ END EXCEPTION -----")
+            idaapi.hide_wait_box()
+            return None
         self.netnode["current_ea"] = current_ea
         if not cfa:
             return
         for addr, nodeids in cfa.states.items():
+            if idaapi.user_cancelled() > 0:
+                bc_log.info("User cancelled!")
+                idaapi.hide_wait_box()
+                return None
             ea = addr.value
             tainted = False
             for n_id in nodeids:
@@ -616,6 +663,7 @@ class State(object):
                 idaapi.set_item_color(ea, 0xDDFFDD)
             else:
                 idaapi.set_item_color(ea, 0xCDCFCE)
+        idaapi.hide_wait_box()
 
     def set_current_node(self, node_id):
         if self.cfa:

@@ -5,7 +5,6 @@
 * cppo
 * ocamlfind
 * zarith library >=1.4
-* newspeak (https://github.com/airbus-seclab/c2newspeak)
 * python 2.7
 * pytest for tests
 * ocamldoc for the ocaml documentation generation
@@ -71,15 +70,6 @@ ln -s /usr/bin/arm-linux-gnueabihf-objdump /usr/bin/arm-linux-gnueabi-objdump
 
 
 These instruction have been tested from a clean chroot (`pacstrap -i -c -d bincat-test base`, then `systemd-nspawn -b -D bincat-test`).
-
-#### Installing c2newspeak
-```
-git clone https://github.com/airbus-seclab/c2newspeak
-cd c2newspeak
-make
-make install
-sudo ln -s `pwd`/bin/c2newspeak /usr/bin/c2newspeak
-```
 
 ### Installing BinCAT
 

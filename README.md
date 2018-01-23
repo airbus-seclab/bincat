@@ -116,3 +116,6 @@ The BinCAT IDA plugin includes code from
 [python-pyqt5-hexview](https://github.com/williballenthin/python-pyqt5-hexview)
 by Willi Ballenthin, released under the Apache License 2.0.
 
+BinCAT includes a modified copy of
+[newspeak](https://github.com/airbus-seclab/c2newspeak).
+

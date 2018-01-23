@@ -291,7 +291,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
         self.mem_ranges = None
         self.current_region = None
         self.current_range_idx = None
-        #: region name (1 letter) -> address
+        #: region name (0-1 letter) -> address
         self.last_visited = dict((k, None) for k in cfa.PRETTY_REGIONS.keys())
         self.pretty_to_int_map = \
             dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
@@ -354,8 +354,6 @@ class BinCATMemForm_t(idaapi.PluginForm):
     def update_region(self, pretty_region):
         region = self.pretty_to_int_map[pretty_region]
         self.current_region = region
-        if region == "":
-            return
         self.range_select.blockSignals(True)
         self.range_select.clear()
         for r in self.mem_ranges[region]:
@@ -419,7 +417,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
                 # happens in backward mode: states having no defined memory
                 return
             former_region = self.region_select.currentText()
-            newregion = ""
+            newregion = None
             newregidx = -1
             self.region_select.blockSignals(True)
             self.region_select.clear()
@@ -429,7 +427,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
                 if pretty_reg == former_region:
                     newregion = pretty_reg
                     newregidx = ridx
-                if newregion == "":
+                if newregion is None:
                     newregion = pretty_reg
                     newregidx = 0
             self.region_select.setCurrentIndex(newregidx)
@@ -1015,8 +1013,13 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
 
         splitter = QtWidgets.QSplitter(self.parent)
         layout.addWidget(splitter, 0, 0)
+
+        # RVA address label
+        self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
+        splitter.addWidget(self.alabel)
+
         # Node id label
-        self.nilabel = QtWidgets.QLabel('Nodes at this address:')
+        self.nilabel = QtWidgets.QLabel('Node:')
         splitter.addWidget(self.nilabel)
 
         # Node combobox
@@ -1024,19 +1027,21 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         self.node_select.currentTextChanged.connect(self.update_node)
         splitter.addWidget(self.node_select)
 
-        # RVA address label
-        self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
-        splitter.addWidget(self.alabel)
+        # Node id label
+        self.nnlabel = QtWidgets.QLabel('Next node(s):')
+        splitter.addWidget(self.nnlabel)
 
         # Goto combo box
         self.nextnodes_combo = QtWidgets.QComboBox()
         self.nextnodes_combo.currentTextChanged.connect(self.goto_next)
         splitter.addWidget(self.nextnodes_combo)
+
         # leave space for comboboxes in splitter, rather than between widgets
         splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setStretchFactor(2, 0)
-        splitter.setStretchFactor(3, 1)
+        splitter.setStretchFactor(1, 0)
+        splitter.setStretchFactor(2, 1)
+        splitter.setStretchFactor(3, 0)
+        splitter.setStretchFactor(4, 1)
 
         # Value Taint Table
         self.vttable = QtWidgets.QTableView(self.parent)
@@ -1128,8 +1133,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
                 self.nextnodes_combo.setEnabled(False)
             else:
                 for nid in next_nodes:
-                    self.nextnodes_combo.addItem(
-                        "goto next node (%d)" % len(next_nodes))
+                    self.nextnodes_combo.addItem("")
                     self.nextnodes_combo.addItem(str(nid))
                 self.nextnodes_combo.setEnabled(True)
             self.nextnodes_combo.blockSignals(False)
@@ -1391,7 +1395,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                 return (6, row)
             else:
                 # used for arm*
-                if (value.startswith(("r", "x")) and 47 < ord(value[1]) < 58):
+                if value.startswith(("r", "x")) and 47 < ord(value[1]) < 58:
                     if len(value) == 2:
                         # r0, r1, ..., r9
                         return (3, row)
@@ -1739,7 +1743,7 @@ class HandleAddOverride(idaapi.action_handler_t):
             highlighted = idaapi.get_highlight(ctx.widget)
         if highlighted is None:
             return 0
-        elif type(highlighted) is tuple:
+        elif isinstance(highlighted, tuple):
             highlighted = highlighted[0]
         address = self.s.current_ea
         # guess whether highlighted text is register or address
@@ -1928,6 +1932,7 @@ class GUI(object):
         self.hooks.hook()
 
     def show_windows(self):
+        # XXX hide debug form by default (issue #27)
         self.BinCATDebugForm.Show()
         self.BinCATRegistersForm.Show()
         self.BinCATOverridesForm.Show()
