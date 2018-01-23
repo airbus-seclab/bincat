@@ -43,6 +43,14 @@ struct
   let ebp = Register.make ~name:"ebp" ~size:32;;
   let esi = Register.make ~name:"esi" ~size:32;;
   let edi = Register.make ~name:"edi" ~size:32;;
+  let xmm0 = Register.make ~name:"xmm0" ~size:128;;
+  let xmm1 = Register.make ~name:"xmm1" ~size:128;;
+  let xmm2 = Register.make ~name:"xmm2" ~size:128;;
+  let xmm3 = Register.make ~name:"xmm3" ~size:128;;
+  let xmm4 = Register.make ~name:"xmm4" ~size:128;;
+  let xmm5 = Register.make ~name:"xmm5" ~size:128;;
+  let xmm6 = Register.make ~name:"xmm6" ~size:128;;
+  let xmm7 = Register.make ~name:"xmm7" ~size:128;;
   let cl = P(ecx, 0, 7);;
 
   Hashtbl.add register_tbl 0 eax;;
