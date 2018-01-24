@@ -900,6 +900,7 @@ module Make(D: T) =
 
     let set_lval_to_addr lv a m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
+      L.debug (fun p -> p "set_lval_to_addr lv=%s a=%s" (Asm.string_of_lval lv true) (Data.Address.to_string a));
       match m with
       | BOT -> BOT, Taint.BOT
       | Val m' ->
