@@ -69,7 +69,7 @@ type t =
   | BOT
   | Val of Status.t Map.t
 
-let init () = BOT
+let init () = Val (Map.empty)
 
 let forget m =
   match m with
