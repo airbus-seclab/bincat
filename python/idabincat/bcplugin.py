@@ -346,9 +346,9 @@ class WebAnalyzer(Analyzer):
         try:
             version_req = requests.get(self.server_url + "/version")
             srv_api_version = str(version_req.text)
-        except:
+        except requests.ConnectionError as e:
             raise AnalyzerUnavailable(
-                "BinCAT server at %s could not be reached" % self.server_url)
+                "BinCAT server at %s could not be reached : %s" % (self.server_url, str(e)))
         if srv_api_version != WebAnalyzer.API_VERSION:
             raise AnalyzerUnavailable(
                 "API mismatch: this plugin supports version %s, while server "
@@ -552,6 +552,9 @@ class State(object):
         """
         if (PluginOptions.get("web_analyzer") == "True" and
                 PluginOptions.get("server_url") != ""):
+            if requests is None:
+                bc_log.error("Trying to launch a remote analysis without the 'requests' module !")
+                raise AnalyzerUnavailable()
             return WebAnalyzer(*args, **kwargs)
         else:
             return LocalAnalyzer(*args, **kwargs)
