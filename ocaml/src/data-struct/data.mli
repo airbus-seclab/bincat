@@ -70,12 +70,15 @@ module Address: sig
 
   (** unique identifier type of a heap chunk *)
   type heap_id_t = int
+
+  (** trick to ensure that address into the heap have the same size as in global and stack region *)
+  type pos = int
     
   (** these memory regions are supposed not to overlap *)
   type region =
     | Global (** abstract base address of global variables and code *)
     | Stack (** abstract base address of the stack *)
-    | Heap of heap_id_t * Z.t (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
+    | Heap of (heap_id_t * pos) * Z.t (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
 
   (** string conversion of a region *)
   val string_of_region: region -> string
@@ -146,7 +149,7 @@ module Address: sig
   val size_extension: t -> int -> t
 
   (** returns a fresh heap region of the given size (in bits). The id of the new region is also returned *)
-  val new_heap_region: Z.t -> region * int
+  val new_heap_regions: Z.t -> region list * int
 
   (** returns the region associated to the given heap id. The size of the region is also returned *)
   val get_heap_region: int -> region * Z.t

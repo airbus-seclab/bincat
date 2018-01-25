@@ -459,6 +459,7 @@ module Make(D: T) =
                v, D.taint_sources v
              with Not_found -> D.bot, Taint.U
            end
+
         | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
            begin
              try
@@ -468,6 +469,7 @@ module Make(D: T) =
              with
              | Not_found -> D.bot, Taint.U
            end
+
         | Asm.Lval (Asm.M (e, n))            ->
            begin
              let r, tsrc = eval e in
@@ -477,7 +479,9 @@ module Make(D: T) =
                  match a with
                  | [a]  ->
                     check_address_validity a;
-                   let v = get_mem_value m a n in v, Taint.logor tsrc (D.taint_sources v)
+                   let v = get_mem_value m a n in
+                   v, Taint.logor tsrc (D.taint_sources v)
+
                  | a::l ->
                     check_address_validity a;
                     let v = get_mem_value m a n in
@@ -486,8 +490,7 @@ module Make(D: T) =
 
                  | []   -> raise Exceptions.Bot_deref
                in
-               let value = to_value addresses in
-               value
+               to_value addresses
              with
              | Exceptions.Too_many_concrete_elements _ -> D.top, Taint.TOP
              | Not_found ->
@@ -898,16 +901,25 @@ module Make(D: T) =
             let (vt, taint) = of_config region (c, taint) sz in                 
             Val (Env.add (Env.Key.Reg r) vt m'), taint
 
-    let set_lval_to_addr lv a m check_address_validity =
+    let set_lval_to_addr lv addrs m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
-      L.debug (fun p -> p "set_lval_to_addr lv=%s a=%s" (Asm.string_of_lval lv true) (Data.Address.to_string a));
       match m with
       | BOT -> BOT, Taint.BOT
       | Val m' ->
-         let v = D.of_addr a in
-         match lv with
-         | Asm.M (e, n) -> set_to_memory e n v m' Taint.U check_address_validity
-         | Asm.V r -> set_to_register r v m', Taint.U
+        match lv with
+         | Asm.M (e, n) ->
+            if List.length addrs = n*8 then
+              List.fold_left (fun m' a ->
+                let v = D.of_addr a in
+                set_to_memory e n v m' Taint.U check_address_validity) m' addrs
+            else
+              raise (Exceptions.Empty "address list is too large to fit into the dereferenced memory") 
+         | Asm.V r ->
+            if List.length addrs = 1 then
+              let v = D.of_addr (List.hd addrs) in
+              set_to_register r v m', Taint.U
+            else
+              raise (Exceptions.Empty "address list is too large to fit into the register") 
         
     let value_of_exp m e check_address_validity =
       match m with

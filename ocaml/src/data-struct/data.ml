@@ -100,12 +100,12 @@ struct
     module A = struct
 
       type heap_id_t = int
-        
+      type pos = int
         (* these memory regions are supposed not to overlap *)
         type region =
           | Global 
           | Stack 
-          | Heap of heap_id_t * Z.t (* first int is the id ; second ont is the size in bits *)
+          | Heap of (heap_id_t * pos) * Z.t (* first int is the id ; second int is the size in bits *)
 
 
         type t = region * Word.t
@@ -113,13 +113,23 @@ struct
         let heap_id = ref 0
 
         let heap_tbl = Hashtbl.create 5
-          
+
+        let gen_region_list id sz =
+          let nb = !Config.address_sz / 8 in
+          let rec process nth =
+            if nth < nb then
+              Heap((id, nth), sz)::(process (nth+1))
+            else
+              []
+          in
+          process 0
+            
         let new_heap_region sz =
           let id = !heap_id in 
-          let r = Heap (id, sz) in
+          let regions = gen_region_list id sz in
           Hashtbl.add heap_tbl id sz;
           heap_id := !heap_id + 1;
-          r, id
+          regions, id
 
         let get_heap_region id =
           let sz = Hashtbl.find heap_tbl id in
