@@ -39,6 +39,7 @@ type format_t =
   | MANUAL       (** uses [sections] to map file in virtual mem *)
   | PE
   | ELF
+  | ELFOBJ
 
 type archi_t =
   | X86

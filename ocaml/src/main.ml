@@ -72,7 +72,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     let do_map_file =
       match !Config.format with
       | Config.PE -> L.abort (fun p -> p "PE file format not implemented yet")
-      | Config.ELF -> Elf.make_mapped_mem
+      | Config.ELF | Config.ELFOBJ -> Elf.make_mapped_mem
       | Config.RAW -> Raw.make_mapped_mem
       | Config.MANUAL -> Manual.make_mapped_mem
     in

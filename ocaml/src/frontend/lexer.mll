@@ -134,6 +134,7 @@ rule token = parse
   | "format"            { FORMAT }
   | "pe"            { PE }
   | "elf"           { ELF }
+  | "elfobj"        { ELFOBJ }
   | "manual"                { MANUAL }
   | "raw"                   { RAW }
   | "mode"                  { MODE }
