@@ -651,7 +651,7 @@ class State(object):
         if not cfa:
             return
         for addr, nodeids in cfa.states.items():
-            if idaapi.user_cancelled() > 0:
+            if hasattr(idaapi, "user_cancelled") and idaapi.user_cancelled() > 0:
                 bc_log.info("User cancelled!")
                 idaapi.hide_wait_box()
                 return None
