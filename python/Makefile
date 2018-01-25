@@ -2,7 +2,7 @@ all:
 	python2 ./setup.py build
 
 install:
-	python2 ./setup.py install
+	python2 ./setup.py install --prefix=$(PREFIX) --root=$(DESTDIR)
 
 doc:
 	make -C doc generate
