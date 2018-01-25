@@ -146,7 +146,7 @@ class BincatPlugin(idaapi.plugin_t):
             else:
                 bc_exe = distutils.spawn.find_executable('bincat')
         if bc_exe is None and no_spawn is False:
-            bc_log.warning('Could not find bincat binary, will not be able to run analysis')
+            bc_log.warning('Could not find bincat binary, will not be able to run local analysis')
 
         if PluginOptions.get("autostart") != "True":
             # will initialize later
