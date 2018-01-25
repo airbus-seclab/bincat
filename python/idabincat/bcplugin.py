@@ -260,7 +260,9 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
             npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(
                 imports_data=imports_data, destfname=destfname)
             return npk_fname
-        except idabincat.npkgen.NpkGenException as e:
+        except idabincat.npkgen.NpkGenException:
+            bc_log.warning("Could not compile header file, "
+                           "types from IDB will not be used for type propagation")
             return
 
     def run(self):
@@ -367,8 +369,9 @@ class WebAnalyzer(Analyzer):
             return
         npk_res = requests.post(self.server_url + "/convert_to_tnpk/" + sha256)
         if npk_res.status_code != 200:
-            bc_log.error("Error while compiling file to tnpk "
-                         "on BinCAT analysis server.")
+            bc_log.warning("Error while compiling file to tnpk "
+                           "on BinCAT analysis server, types from IDB will not be "
+                           "used for type propagation")
             return
         res = npk_res.json()
         if 'status' not in res or res['status'] != 'ok':
