@@ -552,7 +552,7 @@ class State(object):
         """
         if (PluginOptions.get("web_analyzer") == "True" and
                 PluginOptions.get("server_url") != ""):
-            if requests is None:
+            if 'requests' not in sys.modules:
                 bc_log.error("Trying to launch a remote analysis without the 'requests' module !")
                 raise AnalyzerUnavailable()
             return WebAnalyzer(*args, **kwargs)
