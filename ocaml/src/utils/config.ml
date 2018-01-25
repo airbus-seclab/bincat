@@ -22,6 +22,7 @@ let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
 let max_instruction_size = ref 16;;
+let external_symbol_max_size = ref 32;
 
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)

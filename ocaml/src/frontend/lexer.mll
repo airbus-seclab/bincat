@@ -111,6 +111,7 @@ rule token = parse
   | "ini_version"           { INI_VERSION }
   | "unroll"            { UNROLL }
   | "function_unroll"       { FUN_UNROLL }
+  | "external_symbol_max_size" { EXT_SYM_MAX_SIZE }
   | "cut"                   { CUT }
   | "loglevel"              { LOGLEVEL }
   | "store_marshalled_cfa"  { STORE_MCFA }
