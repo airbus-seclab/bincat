@@ -77,7 +77,21 @@ let make_mapped_mem () =
           L.debug(fun p -> p "ELF loading: %s" (section_to_string section));
           section :: (sections_from_ph tail)
        | _ -> sections_from_ph tail in
-  let sections = sections_from_ph elf.ph in
+  let sections_from_elfobj ()  =
+    let stat = Unix.stat !Config.binary in
+    let file_length = Z.of_int stat.Unix.st_size in
+    [ {
+        virt_addr = Data.Address.global_of_int Z.zero;
+        virt_addr_end = Data.Address.global_of_int file_length;
+        virt_size = file_length ;
+        raw_addr = Z.zero ;
+        raw_addr_end = file_length ;
+        raw_size = file_length ;
+        name = Filename.basename !Config.binary
+    } ] in
+  let sections = if !Config.format = Config.ELFOBJ
+                 then sections_from_elfobj ()
+                 else sections_from_ph elf.ph in
   let max_addr = List.fold_left (fun mx sec -> Z.max mx (Data.Address.to_int sec.virt_addr_end)) Z.zero sections in
   reloc_external_addr := max_addr;
 
