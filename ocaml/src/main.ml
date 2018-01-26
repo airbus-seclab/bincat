@@ -68,6 +68,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
         L.abort (fun p -> p "Parse error (%s) near location %s of %s" msg (string_of_position lexbuf) configfile)
     end;
     close_in cin;
+    L._loglvl := None; (* reset log level to use the one from configuration file *)
   (* generating modules needed for the analysis wrt to the provided configuration *)
     let do_map_file =
       match !Config.format with
