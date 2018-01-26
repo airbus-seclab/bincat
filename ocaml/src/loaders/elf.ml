@@ -95,7 +95,7 @@ let make_mapped_mem () =
   let max_addr = List.fold_left (fun mx sec -> Z.max mx (Data.Address.to_int sec.virt_addr_end)) Z.zero sections in
   reloc_external_addr := max_addr;
 
-  let jump_slot_reloc sym offset _addend =
+  let jump_slot_reloc symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let value = !reloc_external_addr in
@@ -103,9 +103,9 @@ let make_mapped_mem () =
       (Z.to_int value) (Z.to_int addr) sym_name);
     patch_elf elf mapped_file sections addr value;
     Hashtbl.replace Config.import_tbl !reloc_external_addr ("all", sym_name) ;
-    reloc_external_addr := Z.add !reloc_external_addr  (Z.of_int (!Config.address_sz/8)) in
+    reloc_external_addr := Z.add !reloc_external_addr symsize in
 
-  let glob_dat_reloc sym offset addend =
+  let glob_dat_reloc symsize sym offset addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let sym_value = sym.Elf_core.st_value in
@@ -114,7 +114,7 @@ let make_mapped_mem () =
         begin
           let value = !reloc_external_addr in
           Hashtbl.replace Config.import_tbl !reloc_external_addr ("all", sym_name);
-          reloc_external_addr := Z.add !reloc_external_addr  (Z.of_int (!Config.address_sz/8));
+          reloc_external_addr := Z.add !reloc_external_addr symsize;
           value
         end
       else Z.(sym_value + addend) in
@@ -123,8 +123,10 @@ let make_mapped_mem () =
     patch_elf elf mapped_file sections addr value in
 
   let get_reloc_func = function
-    | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT -> jump_slot_reloc
-    | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT -> glob_dat_reloc
+    | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT
+      -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
+    | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT
+      -> glob_dat_reloc (Z.of_int (!Config.address_sz/8))
     | R_386_RELATIVE -> (fun _ _ _ -> ())
     | rt -> L.abort (fun p -> p "Unsupported relocation type [%s]" (reloc_type_to_string rt)) in
 
