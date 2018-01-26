@@ -26,6 +26,25 @@ module L = Log.Make(struct let name = "elf" end)
 
 let reloc_external_addr = ref Z.zero
 
+
+let vaddr_to_paddr vaddr sections =
+  let sec = try
+      List.find
+        (fun s ->
+          let svaddr = Data.Address.to_int s.virt_addr in
+          (Z.leq svaddr vaddr) && (Z.lt vaddr (Z.add svaddr s.raw_size)))
+        sections
+    with
+    | Not_found -> L.abort (fun p -> p "Could not convert vaddr=%08x to file offset"
+                                   (Z.to_int vaddr)) in
+  Z.(sec.raw_addr + vaddr - (Data.Address.to_int sec.virt_addr))
+
+
+let patch_elf elf s sections vaddr value =
+  let paddr = Z.to_int (vaddr_to_paddr vaddr sections) in
+  zenc_word_xword s paddr value elf.hdr.e_ident
+
+
 let make_mapped_mem () =
   let entrypoint = Data.Address.global_of_int !Config.ep (* elf.hdr.e_entry *) in
   let mapped_file = map_file !Config.binary in
@@ -68,7 +87,7 @@ let make_mapped_mem () =
     let value = !reloc_external_addr in
     L.debug (fun p -> p "REL JUMP_SLOT: write %08x at %08x to relocate %s"
       (Z.to_int value) (Z.to_int addr) sym_name);
-    patch_elf elf mapped_file addr value;
+    patch_elf elf mapped_file sections addr value;
     Hashtbl.replace Config.import_tbl !reloc_external_addr ("all", sym_name) ;
     reloc_external_addr := Z.add !reloc_external_addr  (Z.of_int (!Config.address_sz/8)) in
 
@@ -87,7 +106,7 @@ let make_mapped_mem () =
       else Z.(sym_value + addend) in
     L.debug (fun p -> p "REL GLOB_DAT: write %08x at %08x to relocate %s"
       (Z.to_int value) (Z.to_int offset) sym_name);
-    patch_elf elf mapped_file addr value in
+    patch_elf elf mapped_file sections addr value in
 
   let get_reloc_func = function
     | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT -> jump_slot_reloc

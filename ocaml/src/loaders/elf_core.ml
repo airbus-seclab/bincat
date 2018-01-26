@@ -855,17 +855,6 @@ let to_elf s =
   }
 
 
-let vaddr_to_paddr vaddr ph =
-  let phdr = List.find
-    (fun ph -> (Z.leq ph.p_vaddr vaddr) && (Z.lt vaddr (Z.add ph.p_vaddr ph.p_filesz)))
-    ph in
-  Z.(phdr.p_offset + vaddr - phdr.p_vaddr)
-
-
-let patch_elf elf s vaddr value =
-  let paddr = Z.to_int (vaddr_to_paddr vaddr elf.ph) in
-  zenc_word_xword s paddr value elf.hdr.e_ident
-
 (*
 let () =
   let f = open_in_bin Sys.argv.(1) in
