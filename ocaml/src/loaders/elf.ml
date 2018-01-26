@@ -145,6 +145,8 @@ let make_mapped_mem () =
       -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
     | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT
       -> glob_dat_reloc (Z.of_int (!Config.address_sz/8))
+    | R_386_32 -> obj_reloc (Z.of_int (!Config.external_symbol_max_size))
+    | R_386_PC32 -> obj_reloc_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_386_RELATIVE -> (fun _ _ _ -> ())
     | rt -> L.abort (fun p -> p "Unsupported relocation type [%s]" (reloc_type_to_string rt)) in
 
