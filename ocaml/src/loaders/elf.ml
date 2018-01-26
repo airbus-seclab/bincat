@@ -122,6 +122,24 @@ let make_mapped_mem () =
       (Z.to_int value) (Z.to_int offset) sym_name);
     patch_elf elf mapped_file sections addr value in
 
+  let obj_reloc symsize sym offset _addend =
+    let sym_name = sym.Elf_core.p_st_name in
+    let addr = offset in
+    let value = !reloc_external_addr in
+    L.debug (fun p -> p "REL 386_32: write %08x at %08x to relocate %s"
+                        (Z.to_int value) (Z.to_int addr) sym_name);
+    patch_elf elf mapped_file sections addr value;
+    reloc_external_addr := Z.add !reloc_external_addr symsize in
+
+  let obj_reloc_rel symsize sym offset _addend =
+    let sym_name = sym.Elf_core.p_st_name in
+    let addr = offset in
+    let value = Z.(!reloc_external_addr - offset) in
+    L.debug (fun p -> p "REL 386_PC32: write %08x at %08x to relocate %s"
+                        (Z.to_int value) (Z.to_int addr) sym_name);
+    patch_elf elf mapped_file sections addr value;
+    reloc_external_addr := Z.add !reloc_external_addr symsize in
+
   let get_reloc_func = function
     | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT
       -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
