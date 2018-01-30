@@ -100,7 +100,7 @@ let to_string m =
      Map.fold (
        fun addr_id status acc ->
          let status' = Status.to_string status in
-         let _, sz = Data.Address.get_heap_region addr_id in
+         let _, sz = Data.Address.get_heap_regions addr_id in
      ("H["^(string_of_int addr_id)^":"^(Z.to_string sz)^"]="^status')::acc
      ) m' []
 
@@ -110,7 +110,7 @@ let check_status m addr =
   | Val m' ->
      try
        match addr with
-       | Data.Address.Heap (id, _), _ ->
+       | Data.Address.Heap ((id, _), _), _ ->
           let status = Map.find id m' in
           if status <> Status.A then
             raise (Exceptions.Use_after_free (Data.Address.to_string addr))

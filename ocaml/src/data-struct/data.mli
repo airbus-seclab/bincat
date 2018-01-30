@@ -152,7 +152,7 @@ module Address: sig
   val new_heap_regions: Z.t -> region list * int
 
   (** returns the region associated to the given heap id. The size of the region is also returned *)
-  val get_heap_region: int -> region * Z.t
+  val get_heap_regions: int -> region list * Z.t
  
   (** set of addresses *)
   module Set: (Set.S with type elt = t)

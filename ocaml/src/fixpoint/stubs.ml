@@ -44,7 +44,7 @@ struct
     let heap_allocator (ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
       try
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
-        let regions, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
+        let regions, id = Data.Address.new_heap_regions (Z.mul (Z.of_int 8) sz) in
         Hashtbl.add Dump.heap_id_tbl id ip;
         let d' = D.allocate_on_heap d id in
         let zero = Data.Word.zero !Config.address_sz in

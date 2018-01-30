@@ -124,25 +124,22 @@ struct
           in
           process 0
             
-        let new_heap_region sz =
+        let new_heap_regions sz =
           let id = !heap_id in 
           let regions = gen_region_list id sz in
-          Hashtbl.add heap_tbl id sz;
+          Hashtbl.add heap_tbl id (regions, sz);
           heap_id := !heap_id + 1;
           regions, id
 
-        let get_heap_region id =
-          let sz = Hashtbl.find heap_tbl id in
-          Heap (id, sz), sz
+        let get_heap_regions id =
+          let regions, sz = Hashtbl.find heap_tbl id in
+          regions, sz
   
         let string_of_region r =
             match r with
             | Global -> ""
             | Stack  -> "S"
-            | Heap (id, _)  -> "H_"^(string_of_int id)
-
-
-   
+            | Heap ((id, nth),_)  -> "H_"^(string_of_int id)^"/"^(string_of_int nth)
 
         let compare_region r1 r2 =
             match r1, r2 with
@@ -151,7 +148,11 @@ struct
             | Stack, Stack -> 0
             | Stack, Global -> 1
             | Stack, Heap _ -> -1
-            | Heap (id1, _), Heap (id2, _) -> id1 - id2
+            | Heap ((id1, nth1), _), Heap ((id2, nth2), _) ->
+               let n = id1 - id2 in
+               if n = 0 then nth1 -nth2
+               else n
+                 
             | Heap _, Global -> 1
             | Heap _, Stack -> 1
 

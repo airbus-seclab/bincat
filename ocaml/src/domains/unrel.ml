@@ -676,22 +676,18 @@ module Make(D: T) =
         let l     = Data.Address.Set.elements addrs in
         let t' = Taint.logor b b' in
         match l with
-        | [a] -> (* strong update *) Val (write_in_memory a m' v' dst_sz true false), t'
-        | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' dst_sz false false) m' l), t'
+        | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true false, t'
+        | l   -> (* weak update *) List.fold_left (fun m a ->  write_in_memory a m v' dst_sz false false) m' l, t'
       with
-      | Exceptions.Too_many_concrete_elements "unrel.set" -> Val (Env.empty), Taint.TOP
-      | Exceptions.Empty _ -> BOT, Taint.BOT
+      | Exceptions.Too_many_concrete_elements "unrel.set" -> Env.empty, Taint.TOP
 
     let set_to_register r v' m' =
       match r with
-      | Asm.T r' ->                 
-         Val (Env.add (Env.Key.Reg r') v' m')
+      | Asm.T r' ->  Env.add (Env.Key.Reg r') v' m'
       | Asm.P (r', low, up) ->
-         try
-           let prev = Env.find (Env.Key.Reg r') m' in
-           Val (Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m')
-         with
-           Not_found -> BOT
+         let prev = Env.find (Env.Key.Reg r') m' in
+           Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'
+         
              
     let set dst src m check_address_validity: (t * Taint.t) =
       match m with
@@ -705,9 +701,18 @@ module Make(D: T) =
            BOT, b
          else
            match dst with
-           | Asm.V r -> set_to_register r v' m', b
-           | Asm.M (e, n) -> set_to_memory e n v' m' b check_address_validity
-              
+           | Asm.V r ->
+              begin
+                try
+                  Val (set_to_register r v' m'), b
+                with Not_found -> BOT, Taint.BOT
+              end
+                
+           | Asm.M (e, n) ->
+              try
+                let m', taint = set_to_memory e n v' m' b check_address_validity in
+                Val m', taint
+              with _ -> BOT, Taint.BOT
 
     let join m1 m2 =
       match m1, m2 with
@@ -859,7 +864,8 @@ module Make(D: T) =
                   in
                   let m', taint = repeat (domain', Taint.U) 0 in
                   m', taint, taint_sz                
-              end
+                end
+                  
            | Some content' -> 
               let sz = size_of_content content' in
               let (v', taint) = of_config region (content', taint) sz in
@@ -901,23 +907,34 @@ module Make(D: T) =
             let (vt, taint) = of_config region (c, taint) sz in                 
             Val (Env.add (Env.Key.Reg r) vt m'), taint
 
-    let set_lval_to_addr lv addrs m check_address_validity =
+    let set_lval_to_addrs lv addrs m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
       match m with
       | BOT -> BOT, Taint.BOT
       | Val m' ->
-        match lv with
+         match lv with
          | Asm.M (e, n) ->
             if List.length addrs = n*8 then
-              List.fold_left (fun m' a ->
-                let v = D.of_addr a in
-                set_to_memory e n v m' Taint.U check_address_validity) m' addrs
+              try
+                let m', taint, _ =
+                  List.fold_left (fun (m', taint, i) a ->
+                    let v = D.of_addr a in
+                    let e' = Asm.BinOp (Asm.Add, e, Asm.Const (Data.Word.of_int i !Config.operand_sz)) in
+                    let m', taint' =
+                      set_to_memory e' 8 v m' Taint.U check_address_validity
+                    in
+                    m', Taint.logor taint taint', Z.add i Z.one) (m', Taint.U, Z.zero) addrs
+                in
+                Val m', taint
+              with _ -> BOT, Taint.BOT 
             else
               raise (Exceptions.Empty "address list is too large to fit into the dereferenced memory") 
          | Asm.V r ->
             if List.length addrs = 1 then
               let v = D.of_addr (List.hd addrs) in
-              set_to_register r v m', Taint.U
+              try
+                Val (set_to_register r v m'), Taint.U
+              with Not_found -> BOT, Taint.BOT
             else
               raise (Exceptions.Empty "address list is too large to fit into the register") 
         
