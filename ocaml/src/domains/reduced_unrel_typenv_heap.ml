@@ -107,7 +107,9 @@ module Make(D: Unrel.T) =
     try
       let buf_typ =
         T.of_key (List.fold_left
-                    (fun prev_t a -> Types.join prev_t (Env.Key.Mem a)) Types.BOT addrs) tenv
+                    (fun prev_t a ->
+                      let new_t = T.of_key (Env.Key.Mem a) tenv in
+                      Types.join prev_t new_t) Types.BOT addrs) tenv
       in
       let ptr_typ =
         match buf_typ with
