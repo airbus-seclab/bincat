@@ -153,7 +153,7 @@ module Address: sig
   val new_heap_regions: Z.t -> region list * int
 
   (** returns the heap region associated to the given heap id. The size of the region is also returned *)
-  val get_heap_regions: int -> regions * Z.t
+  val get_heap_regions: int -> region list * Z.t
 
   (** returns the size of the heap region in bits *)
   (** may raise Not_found *)

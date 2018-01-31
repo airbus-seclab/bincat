@@ -230,14 +230,19 @@ struct
     let init_heap ip domain content_list =
       (* TODO: factorize with init_mem *)
       List.fold_left (fun (domain, prev_taint) entry ->
-        let addr, nb = fst entry in
+        let offset, nb = fst entry in
         let content = snd entry in
         let content_size = Z.of_int (get_content_size (fst content)) in
         let nb' = Z.of_int nb in
-        let heap_region, id = Data.Address.new_heap_region (Z.mul nb' content_size) in
+        let heap_regions, id = Data.Address.new_heap_regions (Z.mul nb' content_size) in
         Hashtbl.add Dump.heap_id_tbl id ip;
-        let addr' = Data.Address.of_int heap_region addr !Config.address_sz in
-        let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
+        let addrs' = List.map (fun region -> Data.Address.of_int region offset !Config.address_sz) heap_regions in
+        let d', taint' = List.fold_left (fun (d, taint) addr' ->
+          let d', taint' =
+            Domain.set_memory_from_config addr' Data.Address.Global content nb d
+          in
+          d', Taint.logor taint taint') (domain, Taint.U) addrs'
+        in
         d', Taint.logor prev_taint taint'
       ) (domain, Taint.U) (List.rev content_list)
   

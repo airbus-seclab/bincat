@@ -118,7 +118,7 @@ struct
           let nb = !Config.address_sz / 8 in
           let rec process nth =
             if nth < nb then
-              Heap((id, nth), sz)::(process (nth+1))
+              Heap((id, Some nth), sz)::(process (nth+1))
             else
               []
           in
@@ -141,7 +141,8 @@ struct
             match r with
             | Global -> ""
             | Stack  -> "S"
-            | Heap ((id, nth),_)  -> "H_"^(string_of_int id)^"/"^(string_of_int nth)
+            | Heap ((id, None),_)  -> "H_"^(string_of_int id)
+            | Heap ((id, Some nth),_)  -> "H_"^(string_of_int id)^"/"^(string_of_int nth)
 
         let compare_region r1 r2 =
             match r1, r2 with
@@ -150,7 +151,18 @@ struct
             | Stack, Stack -> 0
             | Stack, Global -> 1
             | Stack, Heap _ -> -1
-            | Heap ((id1, nth1), _), Heap ((id2, nth2), _) ->
+            | Heap ((id1, None), _), Heap ((id2, None), _) -> id1 - id2
+            | Heap ((id1, None), _), Heap ((id2, Some _), _) ->
+               let n = id1 - id2 in
+               if n = 0 then -1
+               else n
+                 
+            | Heap ((id1, Some _), _), Heap ((id2, None), _) ->
+               let n = id1 - id2 in
+               if n = 0 then 1
+               else n
+                 
+            | Heap ((id1, Some nth1), _), Heap ((id2, Some nth2), _) ->
                let n = id1 - id2 in
                if n = 0 then nth1 -nth2
                else n

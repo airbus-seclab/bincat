@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus Group
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -634,16 +634,17 @@ struct
           let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
           try
             let rules' =
-            List.map (fun (((id, offset), nb), rule) ->
-              L.analysis (fun p -> p "Adding override rule for heap id %d" (Z.to_int id));
-              let heap_region, heap_sz = Data.Address.get_heap_region (Z.to_int id) in
-              Init_check.check_mem rule (Some heap_sz);
-              let addr' = Data.Address.of_int heap_region offset !Config.address_sz in
-              match rule with
-              | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
-              | (None, t) -> D.taint_address_mask addr' t
-            ) rules
-          in
+              List.map (fun (((id, offset), nb), rule) ->
+                let id' = Z.to_int id in
+                L.analysis (fun p -> p "Adding override rule for heap id %d" id');
+                let heap_sz = Data.Address.size_of_heap_region id' in
+                Init_check.check_mem rule (Some heap_sz);
+                let addr' = Data.Address.of_int (Data.Address.Heap((id', None), heap_sz)) offset !Config.address_sz in
+                match rule with
+                | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
+                | (None, t) -> D.taint_address_mask addr' t
+              ) rules
+            in
             hash_add_or_append overrides ip rules'
               with _ -> raise (Exceptions.Error "id of heap is too large")
         ) Config.heap_override;

@@ -54,14 +54,20 @@ struct
 
     let check_free (ip: Data.Address.t) ((r, o): Data.Address.t): Data.Address.heap_id_t =
       match r with
-      | Data.Address.Heap ((id, nth), _) ->
-         if nth <> 0 || Data.Word.compare o (Data.Word.zero !Config.address_sz) <> 0 then
+      | Data.Address.Heap ((id, None), _) ->
+         if Data.Word.compare o (Data.Word.zero !Config.address_sz) <> 0 then
            raise (Exceptions.Undefined_free
                     (Printf.sprintf "at instruction %s: base address to free is not zero (%s)"
            (Data.Address.to_string ip)
            (Data.Address.to_string (r, o))))
          else
            id
+             
+      | Data.Address.Heap ((_, Some _), _) ->
+         raise (Exceptions.Undefined_free
+                    (Printf.sprintf "at instruction %s: illegal partial base address to free is not zero (%s)"
+           (Data.Address.to_string ip)
+           (Data.Address.to_string (r, o))))
              
       | _ ->
          raise (Exceptions.Undefined_free

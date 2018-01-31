@@ -106,15 +106,15 @@ module Make(D: Unrel.T) =
     let uenv', b = U.set_lval_to_addrs lv addrs uenv (H.check_status henv) in
     try
       let buf_typ =
-        T.of_key (List.fold_left
-                    (fun prev_t a ->
-                      let new_t = T.of_key (Env.Key.Mem a) tenv in
-                      Types.join prev_t new_t) Types.BOT addrs) tenv
+        List.fold_left
+          (fun prev_t a ->
+            let new_t = T.of_key (Env.Key.Mem a) tenv in
+            Types.join prev_t new_t) Types.BOT addrs
       in
       let ptr_typ =
         match buf_typ with
         | Types.T t -> Types.T (TypedC.Ptr t)
-        | Types.UNKNOWN->  Types.UNKNOWN (* could be more precise: we know it is a pointer *)
+        | t ->  t (* TODO: could be more precise: we know it is a pointer *)
       in    
       let _, tenv', _ = set_type lv ptr_typ (uenv', tenv, henv) in
       (uenv', tenv', henv), b
