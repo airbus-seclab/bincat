@@ -101,12 +101,13 @@ struct
 
       type heap_id_t = int
       type pos = int option
-        (* these memory regions are supposed not to overlap *)
-        type region =
-          | Global 
-          | Stack 
-          | Heap of (heap_id_t * pos) * Z.t (* first int is the id ; second int is the size in bits *)
-
+        
+      (* these memory regions are supposed not to overlap *)
+      type region =
+        | Global 
+        | Stack 
+        | Heap of (heap_id_t * pos) * Z.t (* first int is the id ; second int is the size in bits *)
+            
 
         type t = region * Word.t
           
@@ -122,7 +123,7 @@ struct
             else
               []
           in
-          process 0
+          List.rev (process 0)
             
         let new_heap_regions sz =
           let id = !heap_id in 
