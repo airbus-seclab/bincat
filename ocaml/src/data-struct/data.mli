@@ -72,13 +72,14 @@ module Address: sig
   type heap_id_t = int
 
   (** trick to ensure that address into the heap have the same size as in global and stack region *)
-  type pos = int
+  type pos = int option (** None means an address that can be used as a key in any environment 
+                            Some n represents the symbolic nth byte of a heap address *)
     
   (** these memory regions are supposed not to overlap *)
   type region =
     | Global (** abstract base address of global variables and code *)
     | Stack (** abstract base address of the stack *)
-    | Heap of (heap_id_t * pos) * Z.t (** abstract base address of a dynamically allocated memory block. First integer is a unique id for the block ; second integer is its size in bits *)
+    | Heap of (heap_id_t * pos) * Z.t (** abstract base address of a dynamically allocated memory block. First pair is a unique id for the block  and a position ; the Z.t integer is the size in bits of the allocation *)
 
   (** string conversion of a region *)
   val string_of_region: region -> string
@@ -151,8 +152,12 @@ module Address: sig
   (** returns a fresh heap region of the given size (in bits). The id of the new region is also returned *)
   val new_heap_regions: Z.t -> region list * int
 
-  (** returns the region associated to the given heap id. The size of the region is also returned *)
-  val get_heap_regions: int -> region list * Z.t
+  (** returns the heap region associated to the given heap id. The size of the region is also returned *)
+  val get_heap_regions: int -> regions * Z.t
+
+  (** returns the size of the heap region in bits *)
+  (** may raise Not_found *)
+  val size_of_heap_region: int -> Z.t
  
   (** set of addresses *)
   module Set: (Set.S with type elt = t)

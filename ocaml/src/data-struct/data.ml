@@ -100,7 +100,7 @@ struct
     module A = struct
 
       type heap_id_t = int
-      type pos = int
+      type pos = int option
         (* these memory regions are supposed not to overlap *)
         type region =
           | Global 
@@ -134,7 +134,9 @@ struct
         let get_heap_regions id =
           let regions, sz = Hashtbl.find heap_tbl id in
           regions, sz
-  
+
+        let size_of_heap_region id = snd (Hashtbl.find heap_tbl id)
+          
         let string_of_region r =
             match r with
             | Global -> ""
