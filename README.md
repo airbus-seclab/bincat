@@ -50,7 +50,7 @@ On Linux:
 
 #### Install for Windows
 
-* Unzip BinCAT
+* Unzip the [binary distribution](https://github.com/airbus-seclab/bincat/releases)  of BinCAT (not the git repo)
 * In IDA, click on "File -> Script File..." menu (or type ALT-F7)
 * Select `install_plugin.py`
 * BinCAT is now installed in your IDA user dir
