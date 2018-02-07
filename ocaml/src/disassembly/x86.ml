@@ -2042,6 +2042,17 @@ struct
       Directive (Unroll_until (mem, cmp, Lval (V (to_reg eax i)), 10000, i))
 
     let switch_operand_size s = s.operand_sz <- if s.operand_sz = 16 then 32 else 16
+
+    let mod_rm_on_xmm2 s sz =
+      let md, _reg, rm = mod_nnn_rm (Char.code (getchar s)) in
+      match md with
+      | 0b11 -> return s [ Directive (Forget (V (T xmm2))) ]
+      | _ ->
+         let rm' = exp_of_md s md rm s.operand_sz sz in
+         return s [ Directive (Forget rm') ]
+
+    (* raised by xmm instructions starting by 0xF2 *)
+    exception No_rep of Cfa.State.t * Data.Address.t
         
     (** decoding of one instruction *)
     let decode s =
@@ -2287,13 +2298,14 @@ struct
         and rep s c =
         (* rep prefix *)
 
-            let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
+          try
             let v, ip = decode s in
             (* TODO: remove this hack *)
             begin
               match List.hd v.Cfa.State.stmts with
               | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
               | _ ->
+                 let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
                  let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
                  let zf_stmts =
                            if s.repe || s.repne then
@@ -2326,13 +2338,22 @@ struct
                      v.Cfa.State.stmts <- stmts
                    end;
                 end;
-                v, ip
+            v, ip
+          with No_rep (v, ip) -> v, ip
 
         and decode_snd_opcode s =
             match getchar s with
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
-            
+
+            | '\x10' -> (* MOVSD *) (* TODO: make it more precise *)
+               let v, ip = return s [ Directive (Forget (V (T xmm1))) ] in
+               raise (No_rep (v, ip))
+                 
+            | '\x11' -> (* MOVSD *) (* TODO: make it more precise *)
+               let v, ip = mod_rm_on_xmm2 s 64 in
+               raise (No_rep (v, ip))
+                 
             | '\x1F' -> (* long nop *) let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
             
             | '\x28' -> (* MOVAPD *) (* TODO: make it more precise *)
@@ -2341,15 +2362,9 @@ struct
               return s [ Directive (Forget (V (T xmm1))) ]
 
             | '\x29' -> (* MOVAPD *) (* TODO: make it more precise *)
-               begin
                  switch_operand_size s; (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
-                 let md, _reg, rm = mod_nnn_rm (Char.code (getchar s)) in
-                 match md with
-                 | 0b11 -> return s [ Directive (Forget (V (T xmm2))) ]
-                 | _ ->
-                    let rm' = exp_of_md s md rm s.operand_sz 128 in
-                    return s [ Directive (Forget rm') ]
-               end
+                 mod_rm_on_xmm2 s 128
+
                  
             | c when '\x40' <= c && c <= '\x4f' -> (* CMOVcc *) let cond = (Char.code c) - 0x40 in cmovcc s cond
 
