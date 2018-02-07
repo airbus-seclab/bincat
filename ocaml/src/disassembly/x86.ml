@@ -2041,6 +2041,8 @@ struct
       let mem  = add_segment s (Lval edi') es in
       Directive (Unroll_until (mem, cmp, Lval (V (to_reg eax i)), 10000, i))
 
+    let switch_operand_size s = s.operand_sz <- if s.operand_sz = 16 then 32 else 16
+        
     (** decoding of one instruction *)
     let decode s =
         let add_sub_mrm s op use_carry sz direction =
@@ -2147,7 +2149,7 @@ struct
             | '\x63' -> (* ARPL *) arpl s
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
-            | '\x66' -> (* operand size switch *) s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
+            | '\x66' -> (* operand size switch *) switch_operand_size s; decode s
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
             | '\x68' -> (* PUSH immediate *) push_immediate s s.operand_sz
             | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.operand_sz s.operand_sz true in imul_stmts s dst src imm
@@ -2330,10 +2332,26 @@ struct
             match getchar s with
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
-            (* long nop *)
-            | '\x1F' -> let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
-            (* CMOVcc *)
-            | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
+            
+            | '\x1F' -> (* long nop *) let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
+            
+            | '\x28' -> (* MOVAPD *) (* TODO: make it more precise *)
+               switch_operand_size s;
+              (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
+              return s [ Directive (Forget (V (T xmm1))) ]
+
+            | '\x29' -> (* MOVAPD *) (* TODO: make it more precise *)
+               begin
+                 switch_operand_size s; (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
+                 let md, _reg, rm = mod_nnn_rm (Char.code (getchar s)) in
+                 match md with
+                 | 0b11 -> return s [ Directive (Forget (V (T xmm2))) ]
+                 | _ ->
+                    let rm' = exp_of_md s md rm s.operand_sz 128 in
+                    return s [ Directive (Forget rm') ]
+               end
+                 
+            | c when '\x40' <= c && c <= '\x4f' -> (* CMOVcc *) let cond = (Char.code c) - 0x40 in cmovcc s cond
 
             | '\x57' -> (* XORPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
 
@@ -2369,10 +2387,11 @@ struct
 
             | '\xba' -> grp8 s
             | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btc s reg rm
-        | '\xbc' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsf s reg rm
-        | '\xbd' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsr s reg rm
+            | '\xbc' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsf s reg rm
+            | '\xbd' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsr s reg rm
             | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
-              return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
+                        return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
+                        
             | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in return s [ Set (reg, UnOp(SignExt 32, rm)) ]
 
             | '\xc0' -> (* XADD *)  xadd_mrm s 8
