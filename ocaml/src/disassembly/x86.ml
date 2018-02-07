@@ -2346,12 +2346,17 @@ struct
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
 
-            | '\x10' -> (* MOVSD *) (* TODO: make it more precise *)
-               let v, ip = return s [ Directive (Forget (V (T xmm1))) ] in
+            | '\x10' -> (* MOVSD / MOVSS *) (* TODO: make it more precise *)
+               let v, ip = return s [ Directive (Forget (V (T xmm1))) ] in               
                raise (No_rep (v, ip))
                  
-            | '\x11' -> (* MOVSD *) (* TODO: make it more precise *)
-               let v, ip = mod_rm_on_xmm2 s 64 in
+            | '\x11' -> (* MOVSD / MOVSS *) (* TODO: make it more precise *)
+               let sz =
+                 if s.repne then 64
+                 else if s.repe then 32
+                 else error s.a "unknown instruction 0F11"
+               in
+               let v, ip = mod_rm_on_xmm2 s sz in
                raise (No_rep (v, ip))
                  
             | '\x1F' -> (* long nop *) let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
