@@ -2391,8 +2391,13 @@ struct
 
             | '\x29' -> (* MOVAPD *) (* TODO: make it more precise *)
                  switch_operand_size s; (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
-                 mod_rm_on_xmm2 s 128
-
+              mod_rm_on_xmm2 s 128
+                
+            | '\x2F' -> (* COMISS *) (* TODO: make it more precise *)
+               let forgets =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ fzf ; fpf ; fcf ; mxcsr_ie ; mxcsr_de; xmm1]
+               in
+               return s forgets
                  
             | c when '\x40' <= c && c <= '\x4f' -> (* CMOVcc *) let cond = (Char.code c) - 0x40 in cmovcc s cond
 
