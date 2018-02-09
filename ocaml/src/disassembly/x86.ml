@@ -2407,13 +2407,19 @@ struct
 
             | '\x59' -> (* MULPS / MULSD / MULSS *) (* TODO: make it more precise *)
                let forgets =
-                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de; xmm1]
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; xmm1]
                in
                return s forgets
 
             | '\x5C' -> (* SUBPS / SUBSD / SUBSS *) (* TODO: make it more precise *)
                let forgets =
-                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de; xmm1]
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; xmm1]
+               in
+               return s forgets
+
+            | '\x5E' -> (* DIVPS / DIVSD / DIVSS *) (* TODO: make it more precise *)
+               let forgets =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; mxcsr_ze ; xmm1]
                in
                return s forgets
                  
