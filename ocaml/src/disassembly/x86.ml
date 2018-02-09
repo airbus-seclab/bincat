@@ -51,6 +51,7 @@ struct
   let xmm5 = Register.make ~name:"xmm5" ~size:128;;
   let xmm6 = Register.make ~name:"xmm6" ~size:128;;
   let xmm7 = Register.make ~name:"xmm7" ~size:128;;
+ 
   let cl = P(ecx, 0, 7);;
 
   Hashtbl.add register_tbl 0 eax;;
@@ -95,6 +96,28 @@ struct
   let fs = Register.make ~name:"fs" ~size:16;;
   let gs = Register.make ~name:"gs" ~size:16;;
 
+  (***********************************************************************)
+  (* Creation of the flags for the mxcsr register *)
+  (***********************************************************************)
+  let mxcsr_fz = Register.make ~name:"mxcsr_fz" ~size:1;; (* bit 15: Flush to zero  *)
+  let mxcsr_round = Register.make ~name:"mxcsr_round" ~size:2;; (* bit 13 and 14: rounding mode st:
+                                                                   - bit 14:  round positive 
+                                                                   - bit 13 : round negative 
+                                                                   - bit 13 and 14 : round to zero or round to the nearest *)
+  let mxcsr_pm = Register.make ~name:"mxcsr_pm" ~size:1;; (* bit 12: Precision mask *)
+  let mxcsr_um = Register.make ~name:"mxcsr_um" ~size:1;; (* bit 11: Underflow mask *)
+  let mxcsr_om = Register.make ~name:"mxcsr_om" ~size:1;; (* bit 10: Overflow mask *)
+  let mxcsr_zm = Register.make ~name:"mxcsr_zm" ~size:1;; (* bit 9: Divide by zero mask *)
+  let mxcsr_dm = Register.make ~name:"mxcsr_dm" ~size:1;; (* bit 8: Denormal mask *)
+  let mxcsr_im = Register.make ~name:"mxcsr_im" ~size:1;; (* bit 7: Invalid operation mask *)
+  let mxcsr_daz = Register.make ~name:"mxcsr_daz" ~size:1;; (* bit 6: Denormals are zero *)
+  let mxcsr_pe = Register.make ~name:"mxcsr_pe" ~size:1;; (* bit 5: Precision flag *)
+  let mxcsr_ue = Register.make ~name:"mxcsr_ue" ~size:1;; (* bit 4: Underflow flag *)
+  let mxcsr_oe = Register.make ~name:"mxcsr_oe" ~size:1;; (* bit 3: Overflow flag *)
+  let mxcsr_ze = Register.make ~name:"mxcsr_ze" ~size:1;; (* bit 2: Divide by zero flag *)
+  let mxcsr_de = Register.make ~name:"mxcsr_de" ~size:1;; (* bit 1: Denormal flag *)
+  let mxcsr_ie = Register.make ~name:"mxcsr_ie" ~size:1;; (* bit 0: Invalid operation flag *)
+  
   (** control flow automaton *)
   module Cfa = Cfa.Make(Domain)
 
@@ -2376,6 +2399,11 @@ struct
             | '\x54' -> (* ANDPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
                
             | '\x57' -> (* XORPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
+            | '\x58' -> (* ADDSD *) (* TODO: make it more precise *)
+               (* let forget_flags =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_fof ; mxcsr_fuf ;  ]
+                  in *)
+               return s [ Directive (Forget (V (T xmm1))) ]
 
             | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
