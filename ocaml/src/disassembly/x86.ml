@@ -2399,12 +2399,18 @@ struct
             | '\x54' -> (* ANDPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
                
             | '\x57' -> (* XORPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
-            | '\x58' -> (* ADDPS / ADDSD *) (* TODO: make it more precise *)
+            | '\x58' -> (* ADDPS / ADDSD / ADSS *) (* TODO: make it more precise *)
                let forgets =
                  List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de; xmm1]
                in
                return s forgets
 
+            | '\x5C' -> (* SUBPS / SUBSD / SUBSS *) (* TODO: make it more precise *)
+               let forgets =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de; xmm1]
+               in
+               return s forgets
+                 
             | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
             | '\xa0' -> push s [V (T fs)]
