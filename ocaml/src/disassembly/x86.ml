@@ -30,43 +30,21 @@ struct
   open Decodeutils
 
   (************************************************************************)
-  (* Creation of the general purpose registers *)
+  (* Creation of the registers *)
   (************************************************************************)
 
+  (* general purpose registers *)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
 
   let eax = Register.make ~name:"eax" ~size:32;;
   let ecx = Register.make ~name:"ecx" ~size:32;;
+  let cl = P(ecx, 0, 7);;
   let edx = Register.make ~name:"edx" ~size:32;;
   let ebx = Register.make ~name:"ebx" ~size:32;;
   let esp = Register.make_sp ~name:"esp" ~size:32;;
   let ebp = Register.make ~name:"ebp" ~size:32;;
   let esi = Register.make ~name:"esi" ~size:32;;
   let edi = Register.make ~name:"edi" ~size:32;;
-  let xmm0 = Register.make ~name:"xmm0" ~size:128;;
-  let xmm1 = Register.make ~name:"xmm1" ~size:128;;
-  let xmm2 = Register.make ~name:"xmm2" ~size:128;;
-  let xmm3 = Register.make ~name:"xmm3" ~size:128;;
-  let xmm4 = Register.make ~name:"xmm4" ~size:128;;
-  let xmm5 = Register.make ~name:"xmm5" ~size:128;;
-  let xmm6 = Register.make ~name:"xmm6" ~size:128;;
-  let xmm7 = Register.make ~name:"xmm7" ~size:128;;
-
-  (* floating point unit *)
-  let st0 = Register.make ~name:"st0" ~size:80;;
-  let st1 = Register.make ~name:"st1" ~size:80;;
-  let st2 = Register.make ~name:"st2" ~size:80;;
-  let st3 = Register.make ~name:"st3" ~size:80;;
-  let st4 = Register.make ~name:"st4" ~size:80;;
-  let st5 = Register.make ~name:"st5" ~size:80;;
-  let st6 = Register.make ~name:"st6" ~size:80;;
-  let st7 = Register.make ~name:"st7" ~size:80;;
-  let c0 = Register.make ~name:"C0" ~size:1;;
-  let c1 = Register.make ~name:"C1" ~size:1;;
-  let c2 = Register.make ~name:"C2" ~size:1;;
-  let c3 = Register.make ~name:"C3" ~size:1;;
-  
-  let cl = P(ecx, 0, 7);;
 
   Hashtbl.add register_tbl 0 eax;;
   Hashtbl.add register_tbl 1 ecx;;
@@ -77,9 +55,31 @@ struct
   Hashtbl.add register_tbl 6 esi;;
   Hashtbl.add register_tbl 7 edi;;
 
+  (* xmm registers *)
+  let xmm0 = Register.make ~name:"xmm0" ~size:128;;
+  let xmm1 = Register.make ~name:"xmm1" ~size:128;;
+  let xmm2 = Register.make ~name:"xmm2" ~size:128;;
+  let xmm3 = Register.make ~name:"xmm3" ~size:128;;
+  let xmm4 = Register.make ~name:"xmm4" ~size:128;;
+  let xmm5 = Register.make ~name:"xmm5" ~size:128;;
+  let xmm6 = Register.make ~name:"xmm6" ~size:128;;
+  let xmm7 = Register.make ~name:"xmm7" ~size:128;;
+
+  (* floating point unit *)
+  let st_ptr = Register.make ~name:"st_ptr" ~size:3;;
+  
+  let c0 = Register.make ~name:"C0" ~size:1;;
+  let c1 = Register.make ~name:"C1" ~size:1;;
+  let c2 = Register.make ~name:"C2" ~size:1;;
+  let c3 = Register.make ~name:"C3" ~size:1;;
+  
+
+
+ 
+
 
   (*************************************************************************)
-  (* Creation of the flag registers *)
+  (* Creation of the general flag registers *)
   (*************************************************************************)
   let fcf    = Register.make ~name:"cf" ~size:1;;
   let fpf    = Register.make ~name:"pf" ~size:1;;
@@ -2485,6 +2485,28 @@ struct
             | '\xc1' -> (* XADD *)  xadd_mrm s s.operand_sz
 
             | '\xc7' -> (* CMPXCHG8B *)  cmpxchg8b_mrm s
+
+            | '\xd9' -> (* FPU *) 
+               begin
+                 match getchar s with
+                 | '\xe8' | '\xe9' | '\xea' | '\xeb' | '\xec' | '\xed' | '\xee' ->
+                    let lv_st = V (T st_ptr) in
+                    let sz = Register.size st_ptr in
+                    let stmts = [
+                      Set (lv_st, BinOp (Sub, Lval lv_st, const 1 sz)) ;
+                      Directive (Forget (M (Lval lv_st, 80))) ; (* TODO: be more precise and store the actual constant *)
+                      If (Cmp (LT, Lval lv_st, const 0 sz),
+                      [Set (lv_st, const 1 sz)],
+                      [Set (lv_st, const 0 sz)]
+                      );
+                      Directive (Forget (V (T c1))) ;
+                      Directive (Forget (V (T c2))) ;
+                      Directive (Forget (V (T c3))) ;
+                    ]
+                    in
+                    return s stmts
+                 | c -> error s.a (Printf.sprintf "unknown opcode 0xd9%x\n" (Char.code c))
+               end
 
             | c        -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
         in
