@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus Group
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -51,7 +51,21 @@ struct
   let xmm5 = Register.make ~name:"xmm5" ~size:128;;
   let xmm6 = Register.make ~name:"xmm6" ~size:128;;
   let xmm7 = Register.make ~name:"xmm7" ~size:128;;
- 
+
+  (* floating point unit *)
+  let st0 = Register.make ~name:"st0" ~size:80;;
+  let st1 = Register.make ~name:"st1" ~size:80;;
+  let st2 = Register.make ~name:"st2" ~size:80;;
+  let st3 = Register.make ~name:"st3" ~size:80;;
+  let st4 = Register.make ~name:"st4" ~size:80;;
+  let st5 = Register.make ~name:"st5" ~size:80;;
+  let st6 = Register.make ~name:"st6" ~size:80;;
+  let st7 = Register.make ~name:"st7" ~size:80;;
+  let c0 = Register.make ~name:"C0" ~size:1;;
+  let c1 = Register.make ~name:"C1" ~size:1;;
+  let c2 = Register.make ~name:"C2" ~size:1;;
+  let c3 = Register.make ~name:"C3" ~size:1;;
+  
   let cl = P(ecx, 0, 7);;
 
   Hashtbl.add register_tbl 0 eax;;
@@ -2393,7 +2407,7 @@ struct
                  switch_operand_size s; (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
               mod_rm_on_xmm2 s 128
                 
-            | '\x2F' -> (* COMISS *) (* TODO: make it more precise *)
+            | '\x2F' -> (* COMISS / CMOISD *) (* TODO: make it more precise *)
                let forgets =
                  List.map (fun flag -> Directive (Forget (V (T flag)))) [ fzf ; fpf ; fcf ; mxcsr_ie ; mxcsr_de; xmm1]
                in
