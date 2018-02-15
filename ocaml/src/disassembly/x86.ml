@@ -65,6 +65,9 @@ struct
   let xmm6 = Register.make ~name:"xmm6" ~size:128;;
   let xmm7 = Register.make ~name:"xmm7" ~size:128;;
 
+  let xmm_tbl = Hashtbl.create 7;;
+  List.iteri (fun i r -> Hashtbl.add xmm_tbl i r) [ xmm0 ; xmm1 ; xmm2 ; xmm3 ; xmm4 ; xmm5 ; xmm6 ; xmm7 ];;
+    
   (* floating point unit *)
   let st_ptr = Register.make ~name:"st_ptr" ~size:3;;
   
@@ -2471,7 +2474,25 @@ struct
             | '\x29' -> (* MOVAPD *) (* TODO: make it more precise *)
                  switch_operand_size s; (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
               mod_rm_on_xmm2 s 128
-                
+
+            | '\x2A' -> (* CVTSI2SD / CVTSI2SS *) (* TODO: make it more precise *)
+               let c = getchar s in
+               let _, reg, _ = mod_nnn_rm (Char.code c) in 
+               let xmm = Hashtbl.find xmm_tbl reg in
+               let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [xmm ; mxcsr_pm] in
+               let v, ip = return s forgets in 
+               raise (No_rep (v, ip))
+
+            | '\x2C' -> (* CVTTSD2SI / CVTTSS2SI *) (* TODO: make it more precise *)
+               let c = getchar s in
+               let _, reg, _ = mod_nnn_rm (Char.code c) in
+               let reg' = Hashtbl.find register_tbl reg in
+               let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [reg' ; mxcsr_im ; mxcsr_pm] in
+               let v, ip = return s forgets in 
+               raise (No_rep (v, ip))
+
+                 
+                 
             | '\x2F' -> (* COMISS / CMOISD *) (* TODO: make it more precise *)
                let forgets =
                  List.map (fun flag -> Directive (Forget (V (T flag)))) [ fzf ; fpf ; fcf ; mxcsr_ie ; mxcsr_de; xmm1]
