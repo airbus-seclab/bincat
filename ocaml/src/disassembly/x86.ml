@@ -2088,6 +2088,71 @@ struct
          let rm' = exp_of_md s md rm s.operand_sz sz in
          return s [ Directive (Forget rm') ]
 
+    let decode_coprocessor c s =
+      match c with
+      | '\xd9' ->
+         begin
+           let c = getchar s in
+           let c' = Char.code c in
+           if c' <= 0x0F && c' >= 0x00 then
+             let md, reg, rm = mod_nnn_rm c' in
+             let rm' = exp_of_md s md rm s.operand_sz 32 in
+             match reg with
+             | 0b10 -> (* FST *) (* TODO: be more precise *) return s [Directive (Forget rm')]
+             | 0b11 -> (* FSTP *) (* TODO: be more precise *)
+                let lv_st = V (T st_ptr) in
+                let sz = Register.size st_ptr in
+                let stmts = [
+                  Directive (Forget rm') ;
+                  Directive (Forget (M (Lval lv_st, sz)))
+                ]
+                in
+                return s stmts
+                              
+             | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" c)  
+           else
+           match c with
+           | '\xe8' | '\xe9' | '\xea' | '\xeb' | '\xec' | '\xed' | '\xee' ->
+                (* FLDL / FLDS *)
+              let lv_st = V (T st_ptr) in
+              let sz = Register.size st_ptr in
+              let stmts = [
+                Set (lv_st, BinOp (Sub, Lval lv_st, const 1 sz)) ;
+                Directive (Forget (M (Lval lv_st, 80))) ; (* TODO: be more precise and store the actual constant *)
+                If (Cmp (LT, Lval lv_st, const 0 sz),
+                    [Set (lv_st, const 1 sz)],
+                    [Set (lv_st, const 0 sz)]
+                );
+                Directive (Forget (V (T c1))) ;
+                Directive (Forget (V (T c2))) ;
+                Directive (Forget (V (T c3))) ;
+              ]
+              in
+              return s stmts
+                
+           | '\xdd' ->
+              let c = getchar s in
+              let c' = Char.code c in
+              if c' <= 0x0F && c' >= 0x00 then
+                let md, reg, rm = mod_nnn_rm c' in
+                let rm' = exp_of_md s md rm s.operand_sz 64 in
+                match reg with
+                | 0b11 -> (* FSTP *)
+                   let lv_st = V (T st_ptr) in
+                   let sz = Register.size st_ptr in
+                   let stmts = [
+                     Directive (Forget rm') ;
+                     Directive (Forget (M (Lval lv_st, sz)))
+                   ]
+                   in
+                   return s stmts
+                 | c -> error s.a (Printf.sprintf "unknown opcode 0xdd%x\n" c)    
+              else error s.a (Printf.sprintf "unknown opcode 0xdd%x\n" (Char.code c))
+              
+           | c -> error s.a (Printf.sprintf "unknown opcode 0xd9%x\n" (Char.code c))
+         end
+      | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" (Char.code c))     
+                 
     (* raised by xmm instructions starting by 0xF2 *)
     exception No_rep of Cfa.State.t * Data.Address.t
         
@@ -2303,7 +2368,7 @@ struct
             | '\xd4' -> (* AAM *) aam s
             | '\xd5' -> (* AAD *) aad s
             | '\xd7' -> (* XLAT *) xlat s
-            | c when '\xd8' <= c && c <= '\xdf' -> (* ESC (escape to coprocessor instruction set *) error s.a "ESC to coprocessor instruction set. Interpreter halts"
+            | c when '\xd8' <= c && c <= '\xdf' -> (* ESC (escape to coprocessor instruction set *) decode_coprocessor c s
 
             | c when '\xe0' <= c && c <= '\xe2' -> (* LOOPNE/LOOPE/LOOP *) loop s c
             | '\xe3' -> (* JCXZ *) jecxz s
@@ -2430,6 +2495,11 @@ struct
                in
                return s forgets
 
+            | '\x5A' -> (* CVTSD2SS *) (* TODO: make it more precise *)
+               let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [xmm1 ; mxcsr_om ; mxcsr_um ; mxcsr_im ; mxcsr_pm ; mxcsr_dm] in
+               let v, ip = return s forgets in 
+               raise (No_rep (v, ip))
+               
             | '\x5C' -> (* SUBPS / SUBSD / SUBSS *) (* TODO: make it more precise *)
                let forgets =
                  List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; xmm1]
@@ -2486,27 +2556,6 @@ struct
 
             | '\xc7' -> (* CMPXCHG8B *)  cmpxchg8b_mrm s
 
-            | '\xd9' -> (* FPU *) 
-               begin
-                 match getchar s with
-                 | '\xe8' | '\xe9' | '\xea' | '\xeb' | '\xec' | '\xed' | '\xee' ->
-                    let lv_st = V (T st_ptr) in
-                    let sz = Register.size st_ptr in
-                    let stmts = [
-                      Set (lv_st, BinOp (Sub, Lval lv_st, const 1 sz)) ;
-                      Directive (Forget (M (Lval lv_st, 80))) ; (* TODO: be more precise and store the actual constant *)
-                      If (Cmp (LT, Lval lv_st, const 0 sz),
-                      [Set (lv_st, const 1 sz)],
-                      [Set (lv_st, const 0 sz)]
-                      );
-                      Directive (Forget (V (T c1))) ;
-                      Directive (Forget (V (T c2))) ;
-                      Directive (Forget (V (T c3))) ;
-                    ]
-                    in
-                    return s stmts
-                 | c -> error s.a (Printf.sprintf "unknown opcode 0xd9%x\n" (Char.code c))
-               end
 
             | c        -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
         in
