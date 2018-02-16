@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus Group
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -30,20 +30,21 @@ struct
   open Decodeutils
 
   (************************************************************************)
-  (* Creation of the general purpose registers *)
+  (* Creation of the registers *)
   (************************************************************************)
 
+  (* general purpose registers *)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
 
   let eax = Register.make ~name:"eax" ~size:32;;
   let ecx = Register.make ~name:"ecx" ~size:32;;
+  let cl = P(ecx, 0, 7);;
   let edx = Register.make ~name:"edx" ~size:32;;
   let ebx = Register.make ~name:"ebx" ~size:32;;
   let esp = Register.make_sp ~name:"esp" ~size:32;;
   let ebp = Register.make ~name:"ebp" ~size:32;;
   let esi = Register.make ~name:"esi" ~size:32;;
   let edi = Register.make ~name:"edi" ~size:32;;
-  let cl = P(ecx, 0, 7);;
 
   Hashtbl.add register_tbl 0 eax;;
   Hashtbl.add register_tbl 1 ecx;;
@@ -54,9 +55,34 @@ struct
   Hashtbl.add register_tbl 6 esi;;
   Hashtbl.add register_tbl 7 edi;;
 
+  (* xmm registers *)
+  let xmm0 = Register.make ~name:"xmm0" ~size:128;;
+  let xmm1 = Register.make ~name:"xmm1" ~size:128;;
+  let xmm2 = Register.make ~name:"xmm2" ~size:128;;
+  let xmm3 = Register.make ~name:"xmm3" ~size:128;;
+  let xmm4 = Register.make ~name:"xmm4" ~size:128;;
+  let xmm5 = Register.make ~name:"xmm5" ~size:128;;
+  let xmm6 = Register.make ~name:"xmm6" ~size:128;;
+  let xmm7 = Register.make ~name:"xmm7" ~size:128;;
+
+  let xmm_tbl = Hashtbl.create 7;;
+  List.iteri (fun i r -> Hashtbl.add xmm_tbl i r) [ xmm0 ; xmm1 ; xmm2 ; xmm3 ; xmm4 ; xmm5 ; xmm6 ; xmm7 ];;
+    
+  (* floating point unit *)
+  let st_ptr = Register.make ~name:"st_ptr" ~size:3;;
+  
+  let c0 = Register.make ~name:"C0" ~size:1;;
+  let c1 = Register.make ~name:"C1" ~size:1;;
+  let c2 = Register.make ~name:"C2" ~size:1;;
+  let c3 = Register.make ~name:"C3" ~size:1;;
+  
+
+
+ 
+
 
   (*************************************************************************)
-  (* Creation of the flag registers *)
+  (* Creation of the general flag registers *)
   (*************************************************************************)
   let fcf    = Register.make ~name:"cf" ~size:1;;
   let fpf    = Register.make ~name:"pf" ~size:1;;
@@ -87,6 +113,28 @@ struct
   let fs = Register.make ~name:"fs" ~size:16;;
   let gs = Register.make ~name:"gs" ~size:16;;
 
+  (***********************************************************************)
+  (* Creation of the flags for the mxcsr register *)
+  (***********************************************************************)
+  let mxcsr_fz = Register.make ~name:"mxcsr_fz" ~size:1;; (* bit 15: Flush to zero  *)
+  let mxcsr_round = Register.make ~name:"mxcsr_round" ~size:2;; (* bit 13 and 14: rounding mode st:
+                                                                   - bit 14:  round positive 
+                                                                   - bit 13 : round negative 
+                                                                   - bit 13 and 14 : round to zero or round to the nearest *)
+  let mxcsr_pm = Register.make ~name:"mxcsr_pm" ~size:1;; (* bit 12: Precision mask *)
+  let mxcsr_um = Register.make ~name:"mxcsr_um" ~size:1;; (* bit 11: Underflow mask *)
+  let mxcsr_om = Register.make ~name:"mxcsr_om" ~size:1;; (* bit 10: Overflow mask *)
+  let mxcsr_zm = Register.make ~name:"mxcsr_zm" ~size:1;; (* bit 9: Divide by zero mask *)
+  let mxcsr_dm = Register.make ~name:"mxcsr_dm" ~size:1;; (* bit 8: Denormal mask *)
+  let mxcsr_im = Register.make ~name:"mxcsr_im" ~size:1;; (* bit 7: Invalid operation mask *)
+  let mxcsr_daz = Register.make ~name:"mxcsr_daz" ~size:1;; (* bit 6: Denormals are zero *)
+  let mxcsr_pe = Register.make ~name:"mxcsr_pe" ~size:1;; (* bit 5: Precision flag *)
+  let mxcsr_ue = Register.make ~name:"mxcsr_ue" ~size:1;; (* bit 4: Underflow flag *)
+  let mxcsr_oe = Register.make ~name:"mxcsr_oe" ~size:1;; (* bit 3: Overflow flag *)
+  let mxcsr_ze = Register.make ~name:"mxcsr_ze" ~size:1;; (* bit 2: Divide by zero flag *)
+  let mxcsr_de = Register.make ~name:"mxcsr_de" ~size:1;; (* bit 1: Denormal flag *)
+  let mxcsr_ie = Register.make ~name:"mxcsr_ie" ~size:1;; (* bit 0: Invalid operation flag *)
+  
   (** control flow automaton *)
   module Cfa = Cfa.Make(Domain)
 
@@ -2033,6 +2081,84 @@ struct
       let mem  = add_segment s (Lval edi') es in
       Directive (Unroll_until (mem, cmp, Lval (V (to_reg eax i)), 10000, i))
 
+    let switch_operand_size s = s.operand_sz <- if s.operand_sz = 16 then 32 else 16
+
+    let mod_rm_on_xmm2 s sz =
+      let md, _reg, rm = mod_nnn_rm (Char.code (getchar s)) in
+      match md with
+      | 0b11 -> return s [ Directive (Forget (V (T xmm2))) ]
+      | _ ->
+         let rm' = exp_of_md s md rm s.operand_sz sz in
+         return s [ Directive (Forget rm') ]
+
+    let decode_coprocessor c s =
+      match c with
+      | '\xd9' ->
+         begin
+           let c = getchar s in
+           let c' = Char.code c in
+           if c' <= 0x0F && c' >= 0x00 then
+             let md, reg, rm = mod_nnn_rm c' in
+             let rm' = exp_of_md s md rm s.operand_sz 32 in
+             match reg with
+             | 0b10 -> (* FST *) (* TODO: be more precise *) return s [Directive (Forget rm')]
+             | 0b11 -> (* FSTP *) (* TODO: be more precise *)
+                let lv_st = V (T st_ptr) in
+                let sz = Register.size st_ptr in
+                let stmts = [
+                  Directive (Forget rm') ;
+                  Directive (Forget (M (Lval lv_st, sz)))
+                ]
+                in
+                return s stmts
+                              
+             | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" c)  
+           else
+           match c with
+           | '\xe8' | '\xe9' | '\xea' | '\xeb' | '\xec' | '\xed' | '\xee' ->
+                (* FLDL / FLDS *)
+              let lv_st = V (T st_ptr) in
+              let sz = Register.size st_ptr in
+              let stmts = [
+                Set (lv_st, BinOp (Sub, Lval lv_st, const 1 sz)) ;
+                Directive (Forget (M (Lval lv_st, 80))) ; (* TODO: be more precise and store the actual constant *)
+                If (Cmp (LT, Lval lv_st, const 0 sz),
+                    [Set (lv_st, const 1 sz)],
+                    [Set (lv_st, const 0 sz)]
+                );
+                Directive (Forget (V (T c1))) ;
+                Directive (Forget (V (T c2))) ;
+                Directive (Forget (V (T c3))) ;
+              ]
+              in
+              return s stmts
+                
+           | '\xdd' ->
+              let c = getchar s in
+              let c' = Char.code c in
+              if c' <= 0x0F && c' >= 0x00 then
+                let md, reg, rm = mod_nnn_rm c' in
+                let rm' = exp_of_md s md rm s.operand_sz 64 in
+                match reg with
+                | 0b11 -> (* FSTP *)
+                   let lv_st = V (T st_ptr) in
+                   let sz = Register.size st_ptr in
+                   let stmts = [
+                     Directive (Forget rm') ;
+                     Directive (Forget (M (Lval lv_st, sz)))
+                   ]
+                   in
+                   return s stmts
+                 | c -> error s.a (Printf.sprintf "unknown opcode 0xdd%x\n" c)    
+              else error s.a (Printf.sprintf "unknown opcode 0xdd%x\n" (Char.code c))
+              
+           | c -> error s.a (Printf.sprintf "unknown opcode 0xd9%x\n" (Char.code c))
+         end
+      | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" (Char.code c))     
+                 
+    (* raised by xmm instructions starting by 0xF2 *)
+    exception No_rep of Cfa.State.t * Data.Address.t
+        
     (** decoding of one instruction *)
     let decode s =
         let add_sub_mrm s op use_carry sz direction =
@@ -2139,7 +2265,7 @@ struct
             | '\x63' -> (* ARPL *) arpl s
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
-            | '\x66' -> (* operand size switch *) s.operand_sz <- if s.operand_sz = 16 then 32 else 16; decode s
+            | '\x66' -> (* operand size switch *) switch_operand_size s; decode s
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
             | '\x68' -> (* PUSH immediate *) push_immediate s s.operand_sz
             | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.operand_sz s.operand_sz true in imul_stmts s dst src imm
@@ -2245,7 +2371,7 @@ struct
             | '\xd4' -> (* AAM *) aam s
             | '\xd5' -> (* AAD *) aad s
             | '\xd7' -> (* XLAT *) xlat s
-            | c when '\xd8' <= c && c <= '\xdf' -> (* ESC (escape to coprocessor instruction set *) error s.a "ESC to coprocessor instruction set. Interpreter halts"
+            | c when '\xd8' <= c && c <= '\xdf' -> (* ESC (escape to coprocessor instruction set *) decode_coprocessor c s
 
             | c when '\xe0' <= c && c <= '\xe2' -> (* LOOPNE/LOOPE/LOOP *) loop s c
             | '\xe3' -> (* JCXZ *) jecxz s
@@ -2277,13 +2403,14 @@ struct
         and rep s c =
         (* rep prefix *)
 
-            let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
+          try
             let v, ip = decode s in
             (* TODO: remove this hack *)
             begin
               match List.hd v.Cfa.State.stmts with
               | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
               | _ ->
+                 let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
                  let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
                  let zf_stmts =
                            if s.repe || s.repne then
@@ -2316,7 +2443,8 @@ struct
                      v.Cfa.State.stmts <- stmts
                    end;
                 end;
-                v, ip
+            v, ip
+          with No_rep (v, ip) -> v, ip
 
         and decode_snd_opcode s =
             match getchar s with
@@ -2328,6 +2456,88 @@ struct
             | '\x31' (* RDTSC *) ->  return s [ Directive (Forget (V (T edx))); Directive (Forget (V (T eax)))]
             | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
 
+            | '\x10' -> (* MOVSD / MOVSS *) (* TODO: make it more precise *)
+               let v, ip = return s [ Directive (Forget (V (T xmm1))) ] in               
+               raise (No_rep (v, ip))
+                 
+            | '\x11' -> (* MOVSD / MOVSS *) (* TODO: make it more precise *)
+               let sz =
+                 if s.repne then 64
+                 else if s.repe then 32
+                 else error s.a "unknown instruction 0F11"
+               in
+               let v, ip = mod_rm_on_xmm2 s sz in
+               raise (No_rep (v, ip))
+                 
+            | '\x1F' -> (* long nop *) let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
+            
+            | '\x28' -> (* MOVAPD *) (* TODO: make it more precise *)
+               switch_operand_size s;
+              (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
+              return s [ Directive (Forget (V (T xmm1))) ]
+
+            | '\x29' -> (* MOVAPD *) (* TODO: make it more precise *)
+                 switch_operand_size s; (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
+              mod_rm_on_xmm2 s 128
+
+            | '\x2A' -> (* CVTSI2SD / CVTSI2SS *) (* TODO: make it more precise *)
+               let c = getchar s in
+               let _, reg, _ = mod_nnn_rm (Char.code c) in 
+               let xmm = Hashtbl.find xmm_tbl reg in
+               let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [xmm ; mxcsr_pm] in
+               let v, ip = return s forgets in 
+               raise (No_rep (v, ip))
+
+            | '\x2C' -> (* CVTTSD2SI / CVTTSS2SI *) (* TODO: make it more precise *)
+               let c = getchar s in
+               let _, reg, _ = mod_nnn_rm (Char.code c) in
+               let reg' = Hashtbl.find register_tbl reg in
+               let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [reg' ; mxcsr_im ; mxcsr_pm] in
+               let v, ip = return s forgets in 
+               raise (No_rep (v, ip))
+
+                 
+                 
+            | '\x2F' -> (* COMISS / CMOISD *) (* TODO: make it more precise *)
+               let forgets =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ fzf ; fpf ; fcf ; mxcsr_ie ; mxcsr_de; xmm1]
+               in
+               return s forgets
+                 
+            | c when '\x40' <= c && c <= '\x4f' -> (* CMOVcc *) let cond = (Char.code c) - 0x40 in cmovcc s cond
+
+            | '\x54' -> (* ANDPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
+               
+            | '\x57' -> (* XORPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
+            | '\x58' -> (* ADDPS / ADDSD / ADSS *) (* TODO: make it more precise *)
+               let forgets =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de; xmm1]
+               in
+               return s forgets
+
+            | '\x59' -> (* MULPS / MULSD / MULSS *) (* TODO: make it more precise *)
+               let forgets =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; xmm1]
+               in
+               return s forgets
+
+            | '\x5A' -> (* CVTSD2SS *) (* TODO: make it more precise *)
+               let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [xmm1 ; mxcsr_om ; mxcsr_um ; mxcsr_im ; mxcsr_pm ; mxcsr_dm] in
+               let v, ip = return s forgets in 
+               raise (No_rep (v, ip))
+               
+            | '\x5C' -> (* SUBPS / SUBSD / SUBSS *) (* TODO: make it more precise *)
+               let forgets =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; xmm1]
+               in
+               return s forgets
+
+            | '\x5E' -> (* DIVPS / DIVSD / DIVSS *) (* TODO: make it more precise *)
+               let forgets =
+                 List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; mxcsr_ze ; xmm1]
+               in
+               return s forgets
+                 
             | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
             | '\xa0' -> push s [V (T fs)]
@@ -2364,12 +2574,14 @@ struct
             | '\xbd' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 1 in bsr s reg rm
             | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
                         return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
+
             | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in return s [ Set (reg, UnOp(SignExt 32, rm)) ]
 
             | '\xc0' -> (* XADD *)  xadd_mrm s 8
             | '\xc1' -> (* XADD *)  xadd_mrm s s.operand_sz
 
             | '\xc7' -> (* CMPXCHG8B *)  cmpxchg8b_mrm s
+
 
             | c        -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
         in
