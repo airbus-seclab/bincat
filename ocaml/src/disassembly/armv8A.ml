@@ -491,7 +491,8 @@ struct
     let immlo = (insn lsr 29) land 3 in
     let immhi = (insn lsr 5) land 0x7ffff in
     let imm = (immhi lsl 2) lor immlo in
-    let rd, post = get_Rd_lv  insn sf in
+    (* destination is always 64 bits *)
+    let rd, post = get_Rd_lv  insn 1 in
     (* pc is 8 bytes ahead because of pre-fetching. *)
     let current_pc = Z.add (Address.to_int s.a) (Z.of_int 8) in
     let base, imm_ext =
