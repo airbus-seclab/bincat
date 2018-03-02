@@ -66,6 +66,7 @@ let make_mapped_mem () =
        match ph.p_type with
        | PT_LOAD ->
           let section = {
+            mapped_file = mapped_file ;
             virt_addr = Data.Address.global_of_int ph.p_vaddr ;
             virt_addr_end = Data.Address.global_of_int (Z.add ph.p_vaddr ph.p_memsz) ;
             virt_size = ph.p_memsz ;
@@ -81,6 +82,7 @@ let make_mapped_mem () =
     let stat = Unix.stat !Config.binary in
     let file_length = Z.of_int stat.Unix.st_size in
     [ {
+        mapped_file = mapped_file ;
         virt_addr = Data.Address.global_of_int Z.zero;
         virt_addr_end = Data.Address.global_of_int file_length;
         virt_size = file_length ;
@@ -163,6 +165,7 @@ let make_mapped_mem () =
   ) elf.rela;
 
   let reloc_sec = {
+    mapped_file = mapped_file ;
     virt_addr = Data.Address.global_of_int max_addr ;
     virt_addr_end = Data.Address.global_of_int !reloc_external_addr ;
     virt_size = Z.(!reloc_external_addr - max_addr) ;
@@ -172,7 +175,6 @@ let make_mapped_mem () =
     name = "relocations" ;
   } in
   {
-    mapped_file = mapped_file ;
     sections  = sections @ [ reloc_sec ] ;
     entrypoint = entrypoint ;
   }

@@ -24,6 +24,7 @@ type array_t =
   ((int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t)
 
 type section_t = {
+  mapped_file : array_t ;
   virt_addr : Data.Address.t ;
   virt_addr_end : Data.Address.t ;
   virt_size : Z.t ;
@@ -34,7 +35,6 @@ type section_t = {
 }
 
 type t = {
-  mapped_file : array_t ;
   sections : section_t list ;
   entrypoint : Data.Address.t ;
 }
@@ -85,7 +85,7 @@ let read mapped_mem vaddr =
         0
       end
     else
-      Bigarray.Array1.get mapped_mem.mapped_file file_offset in
+      Bigarray.Array1.get section.mapped_file file_offset in
   L.debug(fun p -> p "read byte %02x" byte);
   Data.Word.of_int (Z.of_int byte) 8
 
@@ -104,7 +104,7 @@ let string_from_addr mapped_mem vaddr len =
     let last_raddr = (min (raddr + len) (Z.to_int sec.raw_addr_end))-1 in
     let addrs = Misc.seq raddr last_raddr in
     let bytes = List.map
-      (fun addr -> Char.chr (Bigarray.Array1.get mapped_mem.mapped_file addr))
+      (fun addr -> Char.chr (Bigarray.Array1.get sec.mapped_file addr))
       addrs in
     L.debug (fun p -> p "read %i bytes at %s: [%s]"
       len (Data.Address.to_string vaddr)
