@@ -940,7 +940,7 @@ module Make(D: T) =
                   List.fold_left (fun (m', ith) a -> 
                     let v = D.of_addr a in
                     let r' = Asm.P (r, ith, ith+7) in
-                    set_to_register r' v m', ith+1) (m', 0) addrs
+                    set_to_register r' v m', ith+8) (m', 0) addrs
                 in
                 Val m', Taint.U
               with Not_found -> BOT, Taint.BOT

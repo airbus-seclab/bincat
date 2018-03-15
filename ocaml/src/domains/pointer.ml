@@ -193,7 +193,7 @@ module Make (V: Vector.T) =
              match r1, r2 with
              | Data.Address.Global, r 
              | r, Data.Address.Global -> r
-             | r1, r2 when Data.Address.compare_region r1 r2 = 0 -> Data.Address.normalize_region r
+             | r1, r2 when Data.Address.compare_region r1 r2 = 0 -> Data.Address.normalize_region r1
              | _, _ -> raise Exit
            in
            Val (r', V.combine o1 o2 l u)
