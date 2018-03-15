@@ -31,6 +31,7 @@ let make_mapped_mem () =
   let zero = Z.of_int 0 in
   let section = {
     mapped_file = mapped_file ;
+    mapped_file_name = !Config.binary ;
     virt_addr = Data.Address.of_int Data.Address.Global zero !Config.address_sz ;
     virt_addr_end = Data.Address.of_int Data.Address.Global file_length !Config.address_sz ;
     virt_size = file_length ;

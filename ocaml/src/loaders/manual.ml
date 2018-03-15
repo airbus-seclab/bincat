@@ -23,10 +23,11 @@ module L = Log.Make(struct let name = "loader.manual" end)
 open Mapped_mem
 
 
-let section_from_config_entry mapped_file config_section_entry =
+let section_from_config_entry filename mapped_file config_section_entry =
   match config_section_entry
   with (lvirt_addr, lvirt_size, lraw_addr, lraw_size, lname) ->
     {
+      mapped_file_name = filename ;
       mapped_file = mapped_file ;
       virt_addr = Data.Address.global_of_int lvirt_addr ;
       virt_addr_end = Data.Address.global_of_int (Z.add lvirt_addr lvirt_size) ;
@@ -38,8 +39,9 @@ let section_from_config_entry mapped_file config_section_entry =
     }
 
 let make_mapped_mem () =
-  let mapped_file = map_file !Config.binary in
-  let sections = List.map (fun s -> section_from_config_entry mapped_file s) !Config.sections in
+  let fn = !Config.binary in
+  let mapped_file = map_file fn in
+  let sections = List.map (fun s -> section_from_config_entry fn mapped_file s) !Config.sections in
   let entrypoint = Data.Address.global_of_int !Config.ep in
   {
     sections  = sections ;

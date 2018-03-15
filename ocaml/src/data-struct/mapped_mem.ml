@@ -24,14 +24,15 @@ type array_t =
   ((int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t)
 
 type section_t = {
+  mapped_file_name : string ;
   mapped_file : array_t ;
+  name : string ;
   virt_addr : Data.Address.t ;
   virt_addr_end : Data.Address.t ;
   virt_size : Z.t ;
   raw_addr : Z.t ;
   raw_size : Z.t ;
   raw_addr_end : Z.t ;
-  name : string
 }
 
 type t = {
@@ -53,10 +54,11 @@ let map_file filename : array_t =
   mapped_file
 
 let section_to_string section =
-  (Printf.sprintf "%-10s: vaddr=%s-%s <- paddr=%08x-%08x"
-    section.name (Data.Address.to_string section.virt_addr)
-    (Data.Address.to_string section.virt_addr_end)
-    (Z.to_int section.raw_addr) (Z.to_int section.raw_addr_end))
+  (Printf.sprintf "%-25s: vaddr=%s-%s <- paddr=%08x-%08x"
+     ((Filename.basename section.mapped_file_name) ^ "." ^ section.name)
+     (Data.Address.to_string section.virt_addr)
+     (Data.Address.to_string section.virt_addr_end)
+     (Z.to_int section.raw_addr) (Z.to_int section.raw_addr_end))
 
 let is_in_section vaddr section =
   (Data.Address.compare vaddr section.virt_addr >= 0) &&
