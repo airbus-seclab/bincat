@@ -188,16 +188,9 @@ module Make (V: Vector.T) =
       | BOT, _ | _, BOT      -> BOT
       | TOP, _ | _, TOP      -> TOP
       | Val (r1, o1), Val (r2, o2) ->
-         try
-           let r' =
-             match r1, r2 with
-             | Data.Address.Global, r 
-             | r, Data.Address.Global -> r
-             | r1, r2 when Data.Address.compare_region r1 r2 = 0 -> Data.Address.normalize_region r1
-             | _, _ -> raise Exit
-           in
-           Val (r', V.combine o1 o2 l u)
-         with Exit -> BOT
+         if r1 = r2 then 
+           Val (r1, V.combine o1 o2 l u)
+         else BOT
            
     let extract p l u =
       match p with
@@ -224,62 +217,21 @@ module Make (V: Vector.T) =
          let newoffset = V.of_repeat_val offset v_len nb in
          Val(region, newoffset)
 
-    let check_heap_chunk o p r =
-      match p, r with
-      | Val (Heap ((id, Some nth_p), _), o'), Heap ((id', Some nth_r), _) ->
-         if id <> id' || V.compare o Asm.EQ o' = false then raise Exit
-         else nth_p = nth_r
-      
-      | _, _ -> false
-           
-    let concat_in_heap l =     
-      match l with
-      | [Val (Heap ((_id, None), _), _) as r] -> r
-      | (Val (Heap ((id, Some _), sz), o))::_l' ->
-         begin
-           try
-             let regions, _ = Data.Address.get_heap_regions id in
-             if List.for_all2 (check_heap_chunk o) l regions then
-               Val (Heap ((id, None), sz), o)
-             else 
-               raise Exceptions.Illegal_address
-           with
-           | _ -> raise Exceptions.Illegal_address
-         end
-           
-      | _ -> raise Exceptions.Illegal_address
-
-    let in_heap v =
-      match v with
-      | Val (Heap ((_, _), _), _) -> true
-      | _ -> false
          
     let rec concat l =
       L.debug2 (fun p -> p "concat len %d" (List.length l));
       match l with
       | [ ] -> BOT
-      | [v] -> L.debug2 (fun p -> p "concat single : %s" (to_string v));
-        if in_heap v then
-          concat_in_heap l
-        else
-          v
-            
+      | [v] -> v           
       | v::l' ->
-         if in_heap v then
-           concat_in_heap l
-         else
-           begin
              let v' = concat l' in
-             L.debug2 (fun p -> p "concat : %s %s" (to_string v) (to_string v'));
              match v, v' with
              | BOT, _ | _, BOT -> BOT
              | TOP, _ | _, TOP -> TOP
              | Val (r1, o1), Val (r2, o2) ->
-                L.debug2 (fun p -> p "concat offsets %s and %s" (V.to_string o1) (V.to_string o2)); 
                 if r1 = r2 then
                   Val (r1, V.concat o1 o2)
                 else BOT
-           end
              
     let get_minimal_taint p =
       match p with

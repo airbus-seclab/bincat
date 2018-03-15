@@ -639,7 +639,7 @@ struct
                 L.analysis (fun p -> p "Adding override rule for heap id %d" id');
                 let heap_sz = Data.Address.size_of_heap_region id' in
                 Init_check.check_mem rule (Some heap_sz);
-                let addr' = Data.Address.of_int (Data.Address.Heap((id', None), heap_sz)) offset !Config.address_sz in
+                let addr' = Data.Address.of_int (Data.Address.Heap(id', heap_sz)) offset !Config.address_sz in
                 match rule with
                 | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
                 | (None, t) -> D.taint_address_mask addr' t

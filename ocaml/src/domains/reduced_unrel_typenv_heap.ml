@@ -102,15 +102,10 @@ module Make(D: Unrel.T) =
       (uenv', tenv', henv), b
     with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv), b
 
-  let set_lval_to_addrs (lv: Asm.lval) (addrs: Data.Address.t list) ((uenv, tenv, henv): t): t*Taint.t =
-    let uenv', b = U.set_lval_to_addrs lv addrs uenv (H.check_status henv) in
+  let set_lval_to_addr (lv: Asm.lval) (addr: Data.Address.t) ((uenv, tenv, henv): t): t*Taint.t =
+    let uenv', b = U.set_lval_to_addr lv addr uenv (H.check_status henv) in
     try
-      let buf_typ =
-        List.fold_left
-          (fun prev_t a ->
-            let new_t = T.of_key (Env.Key.Mem a) tenv in
-            Types.join prev_t new_t) Types.BOT addrs
-      in
+      let buf_typ = T.of_key (Env.Key.Mem addr) tenv in
       let ptr_typ =
         match buf_typ with
         | Types.T t -> Types.T (TypedC.Ptr t)

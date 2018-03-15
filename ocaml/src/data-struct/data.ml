@@ -91,7 +91,24 @@ module Word =
     let shift_left (w, sz) i = Z.shift_left w i, sz-i
     let shift_right (w, sz) i = Z.shift_right w i, sz-i
     let neg (w, sz) = Z.neg w, sz
-end
+
+    let rec i_to_bytes (z: Z.t) (nb: int) (max: int): t list =
+      if nb < max then
+        (Z.logand z (Z.of_int 0xFF), 8)::(i_to_bytes (Z.shift_left z 8) (nb+1) max)
+      else
+        []
+          
+    let to_bytes ((w, sz): t): t list =
+      if sz = 8 then
+        [w, sz]
+      else
+        if sz mod 8 <> 0 then
+          raise (Invalid_argument "Word: incompatible size for byte splitting")
+        else
+          let nb = sz / 8 in
+          i_to_bytes w 0 nb
+          
+  end
 
 (** Address Data Type *)
 module Address =
@@ -106,7 +123,7 @@ struct
       type region =
         | Global 
         | Stack 
-        | Heap of (heap_id_t * pos) * Z.t (* first int is the id ; second int is the size in bits *)
+        | Heap of heap_id_t * Z.t (* first int is the id ; second int is the size in bits *)
             
 
         type t = region * Word.t
@@ -115,41 +132,25 @@ struct
 
         let heap_tbl = Hashtbl.create 5
 
-        let gen_region_list id sz =
-          let nb = !Config.address_sz / 8 in
-          let rec process nth =
-            if nth < nb then
-              Heap((id, Some nth), sz)::(process (nth+1))
-            else
-              []
-          in
-          List.rev (process 0)
             
-        let new_heap_regions sz =
+        let new_heap_region sz =
           let id = !heap_id in 
-          let regions = gen_region_list id sz in
-          Hashtbl.add heap_tbl id (regions, sz);
+          let region = Heap (id, sz) in
+          Hashtbl.add heap_tbl id sz;
           heap_id := !heap_id + 1;
-          regions, id
+          region, id
 
-        let get_heap_regions id =
-          let regions, sz = Hashtbl.find heap_tbl id in
-          regions, sz
-
-        let normalize_region r =
-          match r with
-          | Global 
-          | Stack  -> r
-          | Heap ((id, _), o)  -> Heap ((id, None), o)
+        let get_heap_region id =
+          let sz = Hashtbl.find heap_tbl id in
+          Heap (id, sz), sz
                
-        let size_of_heap_region id = snd (Hashtbl.find heap_tbl id)
+        let size_of_heap_region id = Hashtbl.find heap_tbl id
           
         let string_of_region r =
             match r with
             | Global -> ""
             | Stack  -> "S"
-            | Heap ((id, None),_)  -> "H_"^(string_of_int id)
-            | Heap ((id, Some nth),_)  -> "H_"^(string_of_int id)^"/"^(string_of_int nth)
+            | Heap (id, _)  -> "H"^(string_of_int id)
 
         let compare_region r1 r2 =
           match r1, r2 with
@@ -158,39 +159,12 @@ struct
             | Stack, Stack -> 0
             | Stack, Global -> 1
             | Stack, Heap _ -> -1
-            | Heap ((id1, _), _), Heap ((id2, _), _) -> id1 - id2
+            | Heap (id1, _), Heap (id2, _) -> id1 - id2
             | Heap _, Global -> 1
             | Heap _, Stack -> 1
-               
-        let icompare_region r1 r2 =
-            match r1, r2 with
-            | Global, Global -> 0
-            | Global, _ -> -1
-            | Stack, Stack -> 0
-            | Stack, Global -> 1
-            | Stack, Heap _ -> -1
-            | Heap ((id1, None), _), Heap ((id2, None), _) -> id1 - id2
-            | Heap ((id1, None), _), Heap ((id2, Some _), _) ->
-               let n = id1 - id2 in
-               if n = 0 then -1
-               else n
-                 
-            | Heap ((id1, Some _), _), Heap ((id2, None), _) ->
-               let n = id1 - id2 in
-               if n = 0 then 1
-               else n
-                 
-            | Heap ((id1, Some nth1), _), Heap ((id2, Some nth2), _) ->
-               let n = id1 - id2 in
-               if n = 0 then nth1 -nth2
-               else n
-                 
-            | Heap _, Global -> 1
-            | Heap _, Stack -> 1
-
-              
+      
         let compare (r1, w1) (r2, w2) =
-            let n = icompare_region r1 r2 in
+            let n = compare_region r1 r2 in
             if n <> 0 then
                 n
             else

@@ -44,17 +44,17 @@ struct
     let heap_allocator (ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
       try
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
-        let regions, id = Data.Address.new_heap_regions (Z.mul (Z.of_int 8) sz) in
+        let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
         Hashtbl.add Dump.heap_id_tbl id ip;
         let d' = D.allocate_on_heap d id in
-        let zero = Data.Word.zero 8 in
-        let addrs = List.map (fun r -> r, zero) regions in
-        D.set_lval_to_addrs ret addrs d'
+        let zero = Data.Word.zero !Config.address_sz in
+        let addr = region, zero in
+        D.set_lval_to_addr ret addr d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
     let check_free (ip: Data.Address.t) ((r, o): Data.Address.t): Data.Address.heap_id_t =
       match r with
-      | Data.Address.Heap ((id, None), _) ->
+      | Data.Address.Heap (id, _) ->
          if Data.Word.compare o (Data.Word.zero !Config.address_sz) <> 0 then
            raise (Exceptions.Undefined_free
                     (Printf.sprintf "at instruction %s: base address to free is not zero (%s)"
@@ -62,13 +62,7 @@ struct
            (Data.Address.to_string (r, o))))
          else
            id
-             
-      | Data.Address.Heap ((_, Some _), _) ->
-         raise (Exceptions.Undefined_free
-                    (Printf.sprintf "at instruction %s: illegal partial base address to free is not zero (%s)"
-           (Data.Address.to_string ip)
-           (Data.Address.to_string (r, o))))
-             
+          
       | _ ->
          raise (Exceptions.Undefined_free
                   (Printf.sprintf "at instruction %s: base address (%s) to free not in the heap"

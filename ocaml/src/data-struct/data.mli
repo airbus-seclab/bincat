@@ -63,6 +63,9 @@ module Word: sig
     (** [sign_extension w n] sign extends _w_ to be on _n_ bits *)
     val size_extension: t -> int -> t
 
+  (** returns the list of byte-size words constituting the given word. LSB first *)
+    val to_bytes: t -> t list
+      
   end
 
 (** Address Data Type *)
@@ -79,19 +82,10 @@ module Address: sig
   type region =
     | Global (** abstract base address of global variables and code *)
     | Stack (** abstract base address of the stack *)
-    | Heap of (heap_id_t * pos) * Z.t (** abstract base address of a dynamically allocated memory block. First pair is a unique id for the block  and a position ; the Z.t integer is the size in bits of the allocation *)
+    | Heap of heap_id_t * Z.t (** abstract base address of a dynamically allocated memory block. The Z.t integer is the size in bits of the allocation *)
 
   (** string conversion of a region *)
   val string_of_region: region -> string
-
-  (** region comparison returns zero if the two parameters are equal
-      a negative integer if the first one is less than the second one
-      a positive integer otherwise *)
-  val compare_region: region -> region -> int
-
-  (** region normalization. Identity for Global and Stack ; for Heap returns the canonical value *)
-  (** use this function very carefully *)
-  val normalize_region: region -> region
     
   (** data type of an address *)
   type t = region * Word.t
@@ -159,10 +153,10 @@ module Address: sig
   val size_extension: t -> int -> t
 
   (** returns a fresh heap region of the given size (in bits). The id of the new region is also returned *)
-  val new_heap_regions: Z.t -> region list * int
+  val new_heap_region: Z.t -> region * int
 
   (** returns the heap region associated to the given heap id. The size of the region is also returned *)
-  val get_heap_regions: int -> region list * Z.t
+  val get_heap_region: int -> region * Z.t
 
   (** returns the size of the heap region in bits *)
   (** may raise Not_found *)
