@@ -38,11 +38,9 @@ let section_from_config_entry filename mapped_file config_section_entry =
       name = lname;
     }
 
-let make_mapped_mem () =
-  let fn = !Config.binary in
-  let mapped_file = map_file fn in
-  let sections = List.map (fun s -> section_from_config_entry fn mapped_file s) !Config.sections in
-  let entrypoint = Data.Address.global_of_int !Config.ep in
+let make_mapped_mem filepath entrypoint =
+  let mapped_file = map_file filepath in
+  let sections = List.map (fun s -> section_from_config_entry filepath mapped_file s) !Config.sections in
   {
     sections  = sections ;
     entrypoint = entrypoint ;

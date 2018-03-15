@@ -45,10 +45,8 @@ let patch_elf elf s sections vaddr value =
   zenc_word_xword s paddr value elf.hdr.e_ident
 
 
-let make_mapped_mem () =
-  let fn = !Config.binary in
-  let entrypoint = Data.Address.global_of_int !Config.ep (* elf.hdr.e_entry *) in
-  let mapped_file = map_file fn in
+let make_mapped_mem filepath entrypoint =
+  let mapped_file = map_file filepath in
   let elf = Elf_core.to_elf mapped_file in
   if L.log_debug2 () then
     begin
@@ -68,7 +66,7 @@ let make_mapped_mem () =
        | PT_LOAD ->
           let section = {
             mapped_file = mapped_file ;
-            mapped_file_name = fn ;
+            mapped_file_name = filepath ;
             virt_addr = Data.Address.global_of_int ph.p_vaddr ;
             virt_addr_end = Data.Address.global_of_int (Z.add ph.p_vaddr ph.p_memsz) ;
             virt_size = ph.p_memsz ;
@@ -84,7 +82,7 @@ let make_mapped_mem () =
     let stat = Unix.stat !Config.binary in
     let file_length = Z.of_int stat.Unix.st_size in
     [ {
-        mapped_file_name = fn ;
+        mapped_file_name = filepath ;
         mapped_file = mapped_file ;
         virt_addr = Data.Address.global_of_int Z.zero;
         virt_addr_end = Data.Address.global_of_int file_length;
@@ -168,7 +166,7 @@ let make_mapped_mem () =
   ) elf.rela;
 
   let reloc_sec = {
-    mapped_file_name = fn ;
+    mapped_file_name = filepath ;
     mapped_file = mapped_file ;
     virt_addr = Data.Address.global_of_int max_addr ;
     virt_addr_end = Data.Address.global_of_int !reloc_external_addr ;

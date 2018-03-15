@@ -77,7 +77,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       | Config.RAW -> Raw.make_mapped_mem
       | Config.MANUAL -> Manual.make_mapped_mem
     in
-    let cur_map = do_map_file () in
+    let cur_map = do_map_file !Config.binary (Data.Address.global_of_int !Config.ep) in
     Mapped_mem.current_mapping := Some cur_map;
     if L.log_info2 () then
       begin
