@@ -145,6 +145,8 @@ let memory_content: mem_init_t ref = ref []
 let stack_content: mem_init_t ref = ref []
 let heap_content: mem_init_t ref = ref []
 
+let elf_coredumps : string list ref = ref []
+
 type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
 let sections: sec_t = ref []
 
