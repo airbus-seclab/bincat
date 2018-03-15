@@ -47,10 +47,10 @@ struct
         let regions, id = Data.Address.new_heap_regions (Z.mul (Z.of_int 8) sz) in
         Hashtbl.add Dump.heap_id_tbl id ip;
         let d' = D.allocate_on_heap d id in
-        let zero = Data.Word.zero !Config.address_sz in
+        let zero = Data.Word.zero 8 in
         let addrs = List.map (fun r -> r, zero) regions in
-         D.set_lval_to_addrs ret addrs d'
-      with _ -> raise (Exceptions.Too_many_concrete_elements "heap allocation: unprecise size to allocate")
+        D.set_lval_to_addrs ret addrs d'
+      with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
     let check_free (ip: Data.Address.t) ((r, o): Data.Address.t): Data.Address.heap_id_t =
       match r with

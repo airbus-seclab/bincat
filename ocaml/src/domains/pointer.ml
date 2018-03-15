@@ -188,9 +188,17 @@ module Make (V: Vector.T) =
       | BOT, _ | _, BOT      -> BOT
       | TOP, _ | _, TOP      -> TOP
       | Val (r1, o1), Val (r2, o2) ->
-         if r1 = r2 then Val (r1, V.combine o1 o2 l u)
-         else BOT
-           
+         try
+           let r' =
+             match r1, r2 with
+             | Data.Address.Global, r 
+             | r, Data.Address.Global -> r
+             | r1, r2 when r1 = r2 -> r1
+             | _, _ -> raise Exit
+           in
+           Val (r', V.combine o1 o2 l u)
+         with Exit -> BOT
+           <
     let extract p l u =
       match p with
       | BOT | TOP  -> p
@@ -267,6 +275,7 @@ module Make (V: Vector.T) =
              | BOT, _ | _, BOT -> BOT
              | TOP, _ | _, TOP -> TOP
              | Val (r1, o1), Val (r2, o2) ->
+                L.debug2 (fun p -> p "concat offsets %s and %s" (V.to_string o1) (V.to_string o2)); 
                 if r1 = r2 then
                   Val (r1, V.concat o1 o2)
                 else BOT

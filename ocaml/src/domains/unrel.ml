@@ -909,6 +909,8 @@ module Make(D: T) =
 
     let set_lval_to_addrs lv addrs m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
+      L.debug2 (fun p -> p "entering set_lval_to_addrs with lv = %s" (Asm.string_of_lval lv true));
+      
       match m with
       | BOT -> BOT, Taint.BOT
       | Val m' ->
@@ -928,15 +930,24 @@ module Make(D: T) =
                 Val m', taint
               with _ -> BOT, Taint.BOT 
             else
-              raise (Exceptions.Empty "address list is too large to fit into the dereferenced memory") 
-         | Asm.V r ->
-            if List.length addrs = 1 then
-              let v = D.of_addr (List.hd addrs) in
+              raise (Exceptions.Empty "address list is too large to fit into the dereferenced memory")
+                
+         | Asm.V (Asm.T r) ->
+            let n = Register.size r in
+            if List.length addrs = n/8 then
               try
-                Val (set_to_register r v m'), Taint.U
+                let m', _ =
+                  List.fold_left (fun (m', ith) a -> 
+                    let v = D.of_addr a in
+                    let r' = Asm.P (r, ith, ith+7) in
+                    set_to_register r' v m', ith+1) (m', 0) addrs
+                in
+                Val m', Taint.U
               with Not_found -> BOT, Taint.BOT
             else
-              raise (Exceptions.Empty "address list is too large to fit into the register") 
+              raise (Exceptions.Empty "address list is too large to fit into the register")
+
+         | Asm.V Asm.P _ -> forget m, Taint.TOP (* TODO: could be more precise *)
         
     let value_of_exp m e check_address_validity =
       match m with
