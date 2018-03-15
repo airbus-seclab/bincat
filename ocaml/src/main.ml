@@ -77,8 +77,9 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       | Config.RAW -> Raw.make_mapped_mem
       | Config.MANUAL -> Manual.make_mapped_mem
     in
-    let cur_map = do_map_file !Config.binary (Data.Address.global_of_int !Config.ep) in
-    Mapped_mem.current_mapping := Some cur_map;
+    let exe_map = do_map_file !Config.binary (Data.Address.global_of_int !Config.ep) in
+    let complete_map = Elf_coredump.add_coredumps exe_map !Config.elf_coredumps in
+    Mapped_mem.current_mapping := Some complete_map;
     if L.log_info2 () then
       begin
         L.info2(fun p -> p "-- Dump of mapped sections");
@@ -94,7 +95,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
                            (Z.to_int sec.Mapped_mem.raw_size)
                            sec.Mapped_mem.name
                            sec.Mapped_mem.mapped_file_name))
-              cur_map.Mapped_mem.sections;
+              complete_map.Mapped_mem.sections;
         L.info2(fun p -> p "-- End of mapped sections dump");
       end;
     let module Vector    = Vector.Make(Reduced_bit_tainting) in
