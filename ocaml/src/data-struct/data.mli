@@ -88,6 +88,10 @@ module Address: sig
       a negative integer if the first one is less than the second one
       a positive integer otherwise *)
   val compare_region: region -> region -> int
+
+  (** region normalization. Identity for Global and Stack ; for Heap returns the canonical value *)
+  (** use this function very carefully *)
+  val normalize_region: region -> region
     
   (** data type of an address *)
   type t = region * Word.t

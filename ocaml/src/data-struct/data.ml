@@ -136,6 +136,12 @@ struct
           let regions, sz = Hashtbl.find heap_tbl id in
           regions, sz
 
+        let normalize_region r =
+          match r with
+          | Global 
+          | Stack  -> r
+          | Heap ((id, _), o)  -> Heap ((id, None), o)
+               
         let size_of_heap_region id = snd (Hashtbl.find heap_tbl id)
           
         let string_of_region r =
