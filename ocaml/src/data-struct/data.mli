@@ -84,6 +84,11 @@ module Address: sig
   (** string conversion of a region *)
   val string_of_region: region -> string
 
+  (** region comparison returns zero if the two parameters are equal
+      a negative integer if the first one is less than the second one
+      a positive integer otherwise *)
+  val compare_region: region -> region -> int
+    
   (** data type of an address *)
   type t = region * Word.t
 

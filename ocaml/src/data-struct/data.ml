@@ -146,6 +146,17 @@ struct
             | Heap ((id, Some nth),_)  -> "H_"^(string_of_int id)^"/"^(string_of_int nth)
 
         let compare_region r1 r2 =
+          match r1, r2 with
+            | Global, Global -> 0
+            | Global, _ -> -1
+            | Stack, Stack -> 0
+            | Stack, Global -> 1
+            | Stack, Heap _ -> -1
+            | Heap ((id1, _), _), Heap ((id2, _), _) -> id1 - id2
+            | Heap _, Global -> 1
+            | Heap _, Stack -> 1
+               
+        let icompare_region r1 r2 =
             match r1, r2 with
             | Global, Global -> 0
             | Global, _ -> -1
@@ -171,8 +182,9 @@ struct
             | Heap _, Global -> 1
             | Heap _, Stack -> 1
 
+              
         let compare (r1, w1) (r2, w2) =
-            let n = compare_region r1 r2 in
+            let n = icompare_region r1 r2 in
             if n <> 0 then
                 n
             else
