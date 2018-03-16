@@ -144,8 +144,11 @@ let dealloc m id =
   | BOT -> raise (Exceptions.Empty "Heap.dealloc failed")
   | Val m' ->
      try
-       let _status = Map.find id m' in
-       Val (Map.replace id Status.F m')
+       let status = Map.find id m' in
+       if status = Status.A then
+         Val (Map.replace id Status.F m')
+       else
+         raise Exceptions.Double_free 
      with Not_found -> raise (Exceptions.Error
                                 (Printf.sprintf "unknown heap id %d to deallocate" id))
 
@@ -156,7 +159,10 @@ let weak_dealloc m ids =
      Val (List.fold_left (fun m' id ->
        try
          let status = Map.find id m' in
-         Map.replace id (Status.join status Status.F) m'
+         if status = Status.A then
+           Map.replace id (Status.join status Status.F) m'
+         else
+           raise Exceptions.Double_free 
        with Not_found -> raise (Exceptions.Error
                                 (Printf.sprintf "unknown heap id %d to weak deallocate" id))
      ) m' ids) 

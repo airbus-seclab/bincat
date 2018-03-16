@@ -39,3 +39,6 @@ exception Heap_out_of_bounds of string
 
 (** call to a deallocator is undefined (pointer does not point on the heap, or the pointed address is not the basis of an allocation, etc. *)
 exception Undefined_free of string
+
+(** double free exception *)
+exception Double_free

@@ -77,6 +77,7 @@ struct
         match addrs' with
         | [a] ->
            let id = check_free ip a in
+           L.debug2 (fun p -> p "check_free");
            D.deallocate d id, taint
              
         | _::_ ->
