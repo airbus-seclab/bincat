@@ -20,6 +20,10 @@
 module L = Log.Make(struct let name = "elf" end)
 
 
+let read_string s (ofs : Z.t) (sz : Z.t) =
+  let bytes = List.map (fun addr -> Char.chr (Bigarray.Array1.get s addr))
+                (Misc.seq (Z.to_int ofs) (Z.to_int Z.(ofs+sz-Z.one))) in
+  Misc.string_of_chars bytes
 
 let dec_byte s ofs = Bigarray.Array1.get s ofs
 let zdec_byte s ofs = Z.of_int (dec_byte s ofs)
@@ -794,6 +798,56 @@ let rela_to_string (rela:e_rela_t) =
     (Z.to_int rela.r_addend)
     rela.p_r_sym.p_st_name
 
+(* ELF Note section *)
+
+type note_t = {
+  n_type : Z.t ;
+  n_name : string ;
+  n_desc : string ;
+}
+
+let note_to_string note =
+  Printf.sprintf "type=%s name=%s desc len=%#x"
+  (Z.format "%08x" note.n_type)
+  note.n_name
+  (String.length note.n_desc)
+
+let to_notes s (hdr : e_hdr_t) (note_ph : e_phdr_t) =
+  let addrsz = match hdr.e_ident.e_class with
+    | ELFCLASS_32 -> Z.of_int 4
+    | ELFCLASS_64 -> Z.of_int 8 in
+  let sz = note_ph.p_filesz in
+  let start_ofs = note_ph.p_offset in
+  let read_one_note ofs =
+    let p = ref ofs in
+    let namesz = zdec_word_xword s (Z.to_int !p) hdr.e_ident in
+    p := Z.(!p + addrsz) ;
+    let descsz = zdec_word_xword s (Z.to_int !p) hdr.e_ident in
+    p := Z.(!p + addrsz) ;
+    let ntype = zdec_word_xword s (Z.to_int !p) hdr.e_ident in
+    p := Z.(!p + addrsz) ;
+    let name = read_string s !p Z.(namesz - ~$1) in
+    p := Z.((!p + namesz + addrsz - ~$1) / addrsz * addrsz) ;
+    let desc = read_string s !p descsz in
+    p := Z.((!p + descsz + addrsz - ~$1) / addrsz * addrsz) ;
+    let note = {
+        n_type = ntype ;
+        n_name = name ;
+        n_desc = desc ;
+      } in
+    note, !p in
+  let rec read_notes ofs (sz : Z.t) =
+    if Z.leq sz Z.zero then
+      begin
+        if Z.lt sz Z.zero then
+          L.warn(fun p -> p "Decoding of PT_NOTE section went past end of the section by %s bytes" (Z.format "%i" (Z.neg sz)));
+        []
+      end
+    else
+      let sec,newofs = read_one_note ofs in
+      sec :: (read_notes newofs Z.(sz + ofs - newofs)) in
+  read_notes start_ofs sz
+
 
 (* ELF *)
 
@@ -806,6 +860,15 @@ type elf_t = {
   dynamic : e_dynamic_t list ;
   symtab : e_sym_t list ;
 }
+
+let get_all_notes s elf =
+  let rec read_notes_from_phlist ph_list =
+    match ph_list with
+    | [] -> []
+    | ph :: tail ->
+       List.append (to_notes s elf.hdr ph) (read_notes_from_phlist tail) in
+  read_notes_from_phlist (List.filter (fun h -> h.p_type == PT_NOTE) elf.ph)
+
 
 let to_elf s =
   let map_section_entities f shdr =
