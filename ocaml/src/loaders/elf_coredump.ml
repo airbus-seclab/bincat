@@ -28,7 +28,6 @@ module L = Log.Make(struct let name = "elf_coredump" end)
 let make_coredump_mapped_mem filepath =
   let mapped_file = map_file filepath in
   let elf = Elf_core.to_elf mapped_file in
-  let notes = Elf_core.get_all_notes mapped_file elf in
   if L.log_debug2 () then
     begin
       L.debug2(fun p -> p "Parsing ELF coredump file [%s]" filepath);
@@ -40,7 +39,7 @@ let make_coredump_mapped_mem filepath =
       List.iter (fun dyn -> L.debug2(fun p -> p "DYNAMIC: %s" (dynamic_to_string dyn))) elf.dynamic;
       List.iter (fun sym -> L.debug2(fun p -> p "SYMTAB: %s" (sym_to_string sym))) elf.symtab;
       L.debug2(fun p -> p "Parsing PT_NOTE headers from coredump file [%s]" filepath);
-      List.iter (fun note -> L.debug2(fun p -> p "NOTE: %s" (note_to_string note))) notes;
+      List.iter (fun note -> L.debug2(fun p -> p "NOTE: %s" (note_to_string note))) elf.notes;
     end;
   let rec sections_from_ph phlist =
     match phlist with

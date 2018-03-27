@@ -800,7 +800,7 @@ let rela_to_string (rela:e_rela_t) =
 
 (* ELF Note section *)
 
-type note_t = {
+type e_note_t = {
   n_type : Z.t ;
   n_name : string ;
   n_desc : string ;
@@ -859,15 +859,16 @@ type elf_t = {
   rela : e_rela_t list;
   dynamic : e_dynamic_t list ;
   symtab : e_sym_t list ;
+  notes : e_note_t list ;
 }
 
-let get_all_notes s elf =
+let get_all_notes s hdr phlist =
   let rec read_notes_from_phlist ph_list =
     match ph_list with
     | [] -> []
     | ph :: tail ->
-       List.append (to_notes s elf.hdr ph) (read_notes_from_phlist tail) in
-  read_notes_from_phlist (List.filter (fun h -> h.p_type == PT_NOTE) elf.ph)
+       List.append (to_notes s hdr ph) (read_notes_from_phlist tail) in
+  read_notes_from_phlist (List.filter (fun h -> h.p_type == PT_NOTE) phlist)
 
 
 let to_elf s =
@@ -907,6 +908,7 @@ let to_elf s =
         (map_section_entities (fun ofs -> to_rela s ofs sh symtab hdr) sh)
     ) rela_sections
   ) in
+  let notes = get_all_notes s hdr phdr in
   {
     hdr = hdr ;
     ph  = phdr ;
@@ -915,6 +917,7 @@ let to_elf s =
     rela = rela ;
     dynamic = dynamic ;
     symtab = symtab ;
+    notes= notes ;
   }
 
 
