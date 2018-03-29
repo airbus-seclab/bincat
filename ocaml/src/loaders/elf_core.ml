@@ -870,6 +870,42 @@ let get_all_notes s hdr phlist =
        List.append (to_notes s hdr ph) (read_notes_from_phlist tail) in
   read_notes_from_phlist (List.filter (fun h -> h.p_type == PT_NOTE) phlist)
 
+let find_note note_list note_type note_name =
+  List.hd (List.filter (fun note -> (note.n_type == note_type
+                                     || (String.equal note.n_name note_name)))
+             note_list)
+
+
+let elf_to_coredump_regs elf =
+  let make_reg_LE s name ofs sz =
+    let value = Z.of_bits (String.sub s ofs sz) in
+    (name, (Some (Config.Content value),[])) in
+  let _make_reg_BE s name ofs sz =
+    let buf = Buffer.create 16 in
+    for i = ofs+sz-1 downto ofs do
+        Buffer.add_char buf s.[i]
+    done;
+    let value = Z.of_bits (Buffer.contents buf) in
+    (name, (Some (Config.Content value), [])) in
+  match elf.hdr.e_ident.e_osabi, elf.hdr.e_machine with
+  | ELFOSABI_SYSVV, X86 ->
+     let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
+     let registers = List.map (fun (name,ofs) -> make_reg_LE prstatus.n_desc name ofs 4)
+                       (
+                       [ ("ebx", 0x48) ; ("ecx", 0x4c) ; ("edx", 0x50) ; ("esi", 0x54) ;
+                         ("edi", 0x58) ; ("ebp", 0x5c) ; ("eax", 0x60) ; ("ds", 0x64)  ;
+                         ("es", 0x68)  ; ("fs", 0x6c)  ; ("gs", 0x70)  ; (* ("eip", 0x78) ; *)
+                         ("cs", 0x7c)  ; ("esp", 0x84) ; ("ss", 0x88) ]) in
+     let f = Z.of_bits (String.sub prstatus.n_desc 0x80 4) in
+     let eflags = List.map (fun (fname, fofs, fmask) -> (fname, (Some (Config.Content (Z.logand (Z.shift_right f fofs) (Z.of_int fmask))), [])))
+                    [ ("cf",    0, 1) ; ("pf",    2, 1) ; ("af",    4, 1) ; ("zf",    6, 1) ;
+                      ("sf",    7, 1) ; ("tf",    8, 1) ; ("if",    9, 1) ; ("df",   10, 1) ;
+                      ("of",   11, 1) ; ("iopl", 12, 3) ; ("nt",   14, 1) ; ("rf",   16, 1) ;
+                      ("vm",   17, 1) ; ("ac",   18, 1) ; ("vif",  19, 1) ; ("vip",  20, 1) ;
+                      ("id",   21, 1) ; ] in
+     let all_regs = List.append registers eflags in
+     all_regs
+  | _ -> raise (Exceptions.Error "Unsupported ELF coredump ABI/Machine type. Cannot extract registers")
 
 let to_elf s =
   let map_section_entities f shdr =
