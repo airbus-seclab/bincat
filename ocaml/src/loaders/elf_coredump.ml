@@ -28,6 +28,8 @@ module L = Log.Make(struct let name = "elf_coredump" end)
 let make_coredump_mapped_mem filepath =
   let mapped_file = map_file filepath in
   let elf = Elf_core.to_elf mapped_file in
+  let regs = Elf_core.elf_to_coredump_regs elf in
+  Config.registers_from_coredump := List.append !Config.registers_from_coredump regs ;
   if L.log_debug2 () then
     begin
       L.debug2(fun p -> p "Parsing ELF coredump file [%s]" filepath);
@@ -40,6 +42,14 @@ let make_coredump_mapped_mem filepath =
       List.iter (fun sym -> L.debug2(fun p -> p "SYMTAB: %s" (sym_to_string sym))) elf.symtab;
       L.debug2(fun p -> p "Parsing PT_NOTE headers from coredump file [%s]" filepath);
       List.iter (fun note -> L.debug2(fun p -> p "NOTE: %s" (note_to_string note))) elf.notes;
+      L.debug2(fun p -> p "Parsing registers from PRSTATUS PT_NOTE header from coredump file [%s]" filepath);
+      List.iter (fun (name,(content, _taints)) ->
+          L.debug2(fun p -> p "Coredump PRSTATUS: %s=%s"
+                              name
+                              (match content with
+                               | Some Config.Content x -> (Z.format "%08x" x)
+                               | _ -> "??") ))
+        regs;
     end;
   let rec sections_from_ph phlist =
     match phlist with
