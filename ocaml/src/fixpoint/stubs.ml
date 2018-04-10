@@ -321,6 +321,8 @@ struct
         try apply_f ip d call_conv.Asm.return call_conv.Asm.arguments
         with
         | Exit -> d, Taint.U
+        | Exceptions.Use_after_free _ as e -> raise e 
+        | Exceptions.Double_free -> raise Exceptions.Double_free
         | e ->
            L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
           L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
