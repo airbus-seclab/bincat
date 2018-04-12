@@ -1634,8 +1634,9 @@ struct
                               const 1 1, const 0 1) in
       let cf_stmt = Set (V (T fcf), new_cf_val) in
       (* of flag is affected only by single-bit rotate ; otherwise it is undefined *)
+      let bexp = Cmp(EQ, BinOp(Xor, Lval old_cf, BinOp(Shr, Lval dst, sz8m1)), onesz) in
       let of_stmt = If (Cmp (EQ, count_masked, one8),
-            [Set (V (T fof), BinOp(Xor, Lval old_cf, BinOp(Shr, Lval dst, sz8m1)))],
+            [Set (V (T fof), TernOp(bexp, const1 1, const0 1))],
             [undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
       let stmts =  [
