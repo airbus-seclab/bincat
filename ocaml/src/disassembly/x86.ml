@@ -1553,9 +1553,11 @@ struct
       let res = BinOp (Or, high, low) in
       let msb = BinOp(Shr, (Lval dst), szm1_exp) in
       let smsb = BinOp(Shr, (Lval dst), szm2_exp) in
-      let cf_stmt = Set (V (T fcf), msb) in
+      let bexp = Cmp(EQ, one, msb) in
+      let cf_stmt = Set (V (T fcf), TernOp (bexp, const1 1, const0 1)) in
+      let bexp' = Cmp(EQ, one, BinOp(Xor, msb, smsb)) in
       let of_stmt = If (Cmp (EQ, count_masked, one),
-            [Set (V (T fof), BinOp(Xor, msb, smsb))],
+            [Set (V (T fof), TernOp (bexp', const1 1, const0 1))],
             [undef_flag fof]) in
       (* beware of that : of_stmt has to be analysed *after* having set cf *)
       let stmts =  [Set (dst, res) ; cf_stmt ; of_stmt ] in
