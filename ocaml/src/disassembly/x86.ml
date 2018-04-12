@@ -1424,17 +1424,19 @@ struct
         let dst_msb = BinOp(And, one, BinOp(Shr, ldst, dst_sz_min_one)) in
         let cf_stmt = Set (V (T fcf), BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked))))) in
         let of_stmt =
-            let is_one = Cmp (EQ, n_masked, one8) in
+          let is_one = Cmp (EQ, n_masked, one8) in
+          let bexp = Cmp (EQ, one, BinOp(Xor,  Lval (V (T fof)), dst_msb)) in
             If (is_one,    (* OF is computed only if n == 1 *)
                 [Set ((V (T fof)), (* OF is set if signed changed. We saved sign in fof *)
-                    BinOp(Xor,  Lval (V (T fof)), dst_msb));],
+                    TernOp (bexp, const1 1, const0 1));],
                 [undef_flag fof])
         in
         let lv = Lval dst in
+        let bexp' = Cmp (EQ, one, dst_msb) in
         let ops =
             [
                 (* save sign *)
-                Set ((V (T fof)), dst_msb);
+                Set ((V (T fof)), TernOp (bexp', const1 1, const0 1));
                 cf_stmt;
                 (* dst = (dst << n) | (src >> (sz-n)) *)
                 Set (dst, (BinOp(Or,
@@ -1653,22 +1655,22 @@ struct
       ]
 
     let grp2 s sz e =
-        let nnn, dst = core_grp s sz in
-        let n =
-            match e with
-            | Some e' -> e'
-            | None -> get_imm s 8 8 false
-        in
-        match nnn with
-    | 0 -> return s (rotate_l_stmt dst sz n) (* ROL *)
-    | 1 -> return s (rotate_r_stmt dst sz n) (* ROR *)
-    | 2 -> return s (rotate_l_carry_stmt dst sz n) (* RCL *)
-    | 3 -> return s (rotate_r_carry_stmt dst sz n) (* RCR *)
-        | 4
-        | 6 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
-        | 5 -> return s (shift_r_stmt dst sz n false) (* SHR *)
-        | 7 -> return s (shift_r_stmt dst sz n true) (* SAR *)
-        | _ -> error s.a "Illegal opcode in grp 2"
+      let nnn, dst = core_grp s sz in
+      let n =
+        match e with
+        | Some e' -> e'
+        | None -> get_imm s 8 8 false
+      in
+      match nnn with
+      | 0 -> return s (rotate_l_stmt dst sz n) (* ROL *)
+      | 1 -> return s (rotate_r_stmt dst sz n) (* ROR *)
+      | 2 -> return s (rotate_l_carry_stmt dst sz n) (* RCL *)
+      | 3 -> return s (rotate_r_carry_stmt dst sz n) (* RCR *)
+      | 4
+      | 6 -> return s (shift_l_stmt dst sz n) (* SHL/SAL *)
+      | 5 -> return s (shift_r_stmt dst sz n false) (* SHR *)
+      | 7 -> return s (shift_r_stmt dst sz n true) (* SAR *)
+      | _ -> error s.a "Illegal opcode in grp 2"
 
     let grp3 s sz =
         let nnn, reg = core_grp s sz in

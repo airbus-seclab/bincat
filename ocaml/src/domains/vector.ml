@@ -861,7 +861,7 @@ module Make(V: Val) =
         | Some (l,u) -> p "Forget vector [%s(%d)] bits %i -> %i " (to_string v) (Array.length v) l u
       );
       let v' = Array.copy v in
-      match opt with
+        match opt with
       | Some (l, u) ->
          let n = (Array.length v')-1 in
          for i = l to u do

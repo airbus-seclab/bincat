@@ -15,10 +15,10 @@ data-struct/register.ml\
 utils/mapOpt.ml\
 utils/setExt.ml\
 utils/bits.ml\
-data-struct/taint.ml\
 utils/config.ml\
 data-struct/data.ml\
 utils/log.ml\
+data-struct/taint.ml\
 frontend/init_check.ml\
 data-struct/types.ml\
 data-struct/asm.ml\
