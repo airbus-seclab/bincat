@@ -15,5 +15,7 @@ module Make (V: Vector.T) =
            Val (PtrSet.fold (fun v e -> V.join v e) e' V.bot)
          else
            e
-             
+
+    let bot = BOT
+      
    end: Unrel.T)
