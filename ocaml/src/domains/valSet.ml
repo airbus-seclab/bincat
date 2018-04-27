@@ -1,8 +1,10 @@
-(* set of pointers *)
-module Make (V: Vector.T) =
+(* set of Unrel.T values *)
+module Make (V: Unrel.T) =
   (struct
     module Ptr = Pointer.Make(V)
-    module PtrSet = Set.Make(struct type t = Ptr.t let compare = Ptr.total_order end)
+      
+    module PtrSet = Set.Make(struct type t = Ptr.t let compare = V.total_order end)
+
     type t =
       | Val of PtrSet.t 
       | BOT
@@ -19,5 +21,7 @@ module Make (V: Vector.T) =
     let bot = BOT
 
     let is_bot e = e = BOT
+
+    let forget = VSet.map V.forget
       
    end: Unrel.T)

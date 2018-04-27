@@ -152,6 +152,7 @@ sig
 
     (** returns the taint value of the given parameter *)
     val get_taint: t -> Taint.t
+
 end
 
 (** signature of vector *)
@@ -159,9 +160,6 @@ module type T =
 sig
     (** abstract data type *)
     type t
-
-    (** total order on vector elements *)
-    val total_order: t -> t -> int
       
     (** top on sz bit-width *)
     val top: int -> t

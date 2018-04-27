@@ -42,7 +42,7 @@ ML=\
   domains/unrel.ml\
   domains/vector.ml\
   domains/pointer.ml\
-  domains/ptrSet.ml\
+  domains/valSet.ml\
   domains/reduced_bit_tainting.ml\
   domains/heap.ml\
   domains/reduced_unrel_typenv_heap.ml\
