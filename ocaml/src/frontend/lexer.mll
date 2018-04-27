@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -111,6 +111,7 @@ rule token = parse
   | "ini_version"           { INI_VERSION }
   | "unroll"            { UNROLL }
   | "function_unroll"       { FUN_UNROLL }
+  | "kset_bound"        { KSET_BOUND }
   | "cut"                   { CUT }
   | "loglevel"              { LOGLEVEL }
   | "store_marshalled_cfa"  { STORE_MCFA }
