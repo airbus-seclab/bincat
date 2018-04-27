@@ -35,6 +35,9 @@ sig
     (** comparison to top *)
     val is_top: t -> bool
 
+    (** bot *)
+    val bot: t
+      
     (** forget the content while preserving the taint *)
     val forget: t -> t
 
