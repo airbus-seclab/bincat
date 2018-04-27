@@ -154,7 +154,7 @@
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
-%token ENDIANNESS LITTLE BIG
+%token ENDIANNESS LITTLE BIG KSET_BOUND
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
@@ -343,6 +343,7 @@
       analyzer_item:
     | INI_VERSION EQUAL i=INT        { check_ini_version (Z.to_int i) }
     | UNROLL EQUAL i=INT         { Config.unroll := Z.to_int i }
+    | KSET_BOUND EQUAL i=INT         { Config.kset_bound := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT         { Config.fun_unroll := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
