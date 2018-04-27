@@ -157,6 +157,9 @@ sig
     (** abstract data type *)
     type t
 
+    (** total order on vector elements *)
+    val total_order: t -> t -> int
+      
     (** top on sz bit-width *)
     val top: int -> t
 
