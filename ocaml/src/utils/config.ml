@@ -18,6 +18,7 @@
 
 let unroll = ref 20;;
 let fun_unroll = ref 50;;
+let kset_bound = ref 3;;
 let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
@@ -183,6 +184,7 @@ let reset () =
   loglevel := 3;
   unroll := 20;
   fun_unroll := 50;
+  kset_bound := 3;
   loglevel := 3;
   max_instruction_size := 16;
   blackAddresses := SAddresses.empty;
