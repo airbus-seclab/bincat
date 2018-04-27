@@ -23,5 +23,10 @@ module Make (V: Unrel.T) =
     let is_bot e = e = BOT
 
     let forget = VSet.map V.forget
-      
+
+    let taint_sources e =
+      match e with
+      | BOT -> Taint.BOT
+      | Val e' -> VSet.fold (fun e t -> Taint.logor (V.taint_sources e) t) e' Taint.U 
+         
    end: Unrel.T)
