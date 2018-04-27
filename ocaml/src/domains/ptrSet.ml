@@ -17,5 +17,7 @@ module Make (V: Vector.T) =
            e
 
     let bot = BOT
+
+    let is_bot e = e = BOT
       
    end: Unrel.T)
