@@ -49,6 +49,9 @@ dataop_comp_arith = pytest.mark.parametrize("op", [ "sub", "rsb", "add"])
 dataop_comp_arith_with_carry = pytest.mark.parametrize("op", [ "adc", "sbc", "rsc"])
 dataop_test_logic = pytest.mark.parametrize("op", ["tst", "teq"])
 dataop_test_arith = pytest.mark.parametrize("op", ["cmp", "cmn"])
+condition_codes = [ "eq", "ne", "cs", "cc", "mi", "pl",
+                    "vs", "vc", "hi", "ls", "ge", "lt",
+                    "gt", "le", "al" ]
 
 def test_movs_imm(tmpdir, cmpall, op8):
     asm = """
@@ -666,3 +669,15 @@ def test_swap_swap_byte_same_reg(tmpdir):
             pop { r2 }
     """
     compare(tmpdir, asm, ["r0", "r1", "r2"])
+
+
+@pytest.mark.parametrize("flags", range(15))
+@pytest.mark.parametrize("cc", condition_codes)
+def test_cond(tmpdir, flags, cc):
+    asm = """
+            mov r0, #{flags:#x}0000000
+            msr cpsr, r0
+            mov r1, #0
+            mov{cc} r1, #1
+    """.format(**locals())
+    compare(tmpdir, asm, ["n", "z", "v", "c", "r1"])
