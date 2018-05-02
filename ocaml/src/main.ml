@@ -98,7 +98,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       let orig_cfa = Interpreter.Cfa.unmarshal fid in
       Dump.unmarshal fid;
       close_in fid;
-      let ep'      = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+      let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
         let d, taint = Interpreter.Cfa.update_abstract_value prev_s.Interpreter.Cfa.State.v in
