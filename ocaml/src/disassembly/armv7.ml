@@ -163,7 +163,7 @@ struct
                               BBinOp(LogAnd, n_is_clear, v_is_clear)))
     (* GT - Z clear, and either N set and V set, or N clear and V clear (greater than) *)
     | 0b1101 -> BBinOp(LogOr, z_is_set,
-                       BBinOp(LogOr, BBinOp(LogAnd, z_is_set, v_is_clear),
+                       BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_clear),
                               BBinOp(LogAnd, n_is_clear, v_is_set)))
     (* LE - Z set, or N set and V clear, or N clear and V set (less than or equal) *)
     | _ -> L.abort (fun p -> p "Unexpected condiction code %x" cc)
