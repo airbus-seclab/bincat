@@ -3,7 +3,7 @@ PREFIXOPT = --prefix=$(PREFIX)
 endif
 
 ifdef DESTDIR
-DESTDIROPT = --prefix=$(DESTDIR)
+DESTDIROPT = --root=$(DESTDIR)
 endif
 
 all:
