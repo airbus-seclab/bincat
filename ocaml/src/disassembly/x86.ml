@@ -2461,8 +2461,6 @@ struct
             match getchar s with
             | '\x00' -> grp6 s
             | '\x01' -> grp7 s
-            (* long nop *)
-            | '\x1F' -> let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
             (* CMOVcc *)
             | '\x31' (* RDTSC *) ->  return s [ Directive (Forget (V (T edx))); Directive (Forget (V (T eax)))]
             | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
