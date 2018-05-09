@@ -33,13 +33,13 @@ IDAuser:
 	@echo "Linking pybincat and idabincat inside IDA Python ...................."
 	rm -rf "${IDAUSR}/plugins/pybincat"
 	mkdir -p "${IDAUSR}/plugins"
-	cp -r $$(${PYTHON} -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAUSR}/plugins/pybincat"
+	cp -r python/pybincat "${IDAUSR}/plugins/pybincat"
 	rm -rf "${IDAUSR}/plugins/idabincat"
-	cp -r $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAUSR}/plugins/idabincat"
+	cp -r python/idabincat "${IDAUSR}/plugins/idabincat"
 	rm -f "${IDAUSR}/plugins/bcplugin.py"
-	cp $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAUSR}/plugins/bcplugin.py"
+	cp python/idabincat/bcplugin.py "${IDAUSR}/plugins/bcplugin.py"
 	mkdir -p $(IDAUSR)/idabincat
-	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
+	cp -r "python/idabincat/conf" "${IDAUSR}/idabincat"
 	# .no file
 	cp -r lib "${IDAUSR}/idabincat"
 
