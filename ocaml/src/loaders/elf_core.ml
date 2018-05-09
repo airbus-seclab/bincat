@@ -873,7 +873,7 @@ let get_all_notes s hdr phlist =
 let find_note note_list note_type note_name =
   match
     List.filter (fun note -> (note.n_type == note_type
-                              || (String.equal note.n_name note_name)))
+                              && (String.equal note.n_name note_name)))
                 note_list
   with
   | [] -> L.abort (fun p -> p "NT_PRSTATUS note section not found in coredump file")
