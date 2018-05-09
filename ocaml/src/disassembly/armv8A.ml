@@ -486,7 +486,7 @@ struct
     [ Set (rd, imm_f) ] @ sf_zero_rd rd_v sf_v false
 
   (* ADR/ADRP *)
-  let pc_rel_addr s insn sf =
+  let pc_rel_addr s insn _sf =
     let op = (insn lsr 31) land 1 in
     let immlo = (insn lsr 29) land 3 in
     let immhi = (insn lsr 5) land 0x7ffff in

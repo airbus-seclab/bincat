@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -878,10 +878,10 @@ module Make(D: T) =
             let v = Env.find k m' in
             let v', taint' =  D.taint_of_config taint (Register.size r) v in
             Val (Env.replace k v' m'), taint'
-         | Some c ->
+         | Some c ->  
             let sz = Register.size r in
-            let (vt, taint) = of_config region (c, taint) sz in                 
-            Val (Env.add (Env.Key.Reg r) vt m'), taint
+            let vt, taint = of_config region (c, taint) sz in               
+            Val (Env.replace (Env.Key.Reg r) vt m'), taint
 
     let value_of_exp m e =
       match m with
