@@ -871,9 +871,19 @@ let get_all_notes s hdr phlist =
   read_notes_from_phlist (List.filter (fun h -> h.p_type == PT_NOTE) phlist)
 
 let find_note note_list note_type note_name =
-  List.hd (List.filter (fun note -> (note.n_type == note_type
-                                     || (String.equal note.n_name note_name)))
-             note_list)
+  match
+    List.filter (fun note -> (note.n_type == note_type
+                              || (String.equal note.n_name note_name)))
+                note_list
+  with
+  | [] -> L.abort (fun p -> p "NT_PRSTATUS note section not found in coredump file")
+  | n::[] -> n
+  | l ->
+     begin
+       List.iter (fun n -> L.debug2(fun p -> p "matching note %s" (note_to_string n))) l;
+       L.abort (fun p -> p "More than 1 NT_PRSTATUS note section (%i sections found)" (List.length l))
+     end
+
 
 
 let elf_to_coredump_regs elf =
