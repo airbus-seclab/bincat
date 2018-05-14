@@ -236,7 +236,7 @@ module Make (V: Vector.T) =
     let get_minimal_taint p =
       match p with
       | TOP -> Taint.TOP
-      | BOT -> Taint.U
+      | BOT -> Taint.BOT
       | Val (_, o) -> V.get_minimal_taint o
 
     let taint_sources p =
