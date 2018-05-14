@@ -79,7 +79,8 @@ let read mapped_mem vaddr =
   let section = find_section mapped_mem.sections vaddr in
   let offset = Data.Address.sub vaddr section.virt_addr in
   let file_offset = Z.to_int (Z.add section.raw_addr offset) in
-  L.debug2 (fun p -> p "Section found [%s], reading at paddr=%08x" section.name file_offset);
+  L.debug2 (fun p -> p "Section found [%s:%s], reading at paddr=%08x"
+                       section.mapped_file_name section.name file_offset);
   (* check if we're out of the section's raw data *)
   let byte = if file_offset >= (Z.to_int section.raw_addr_end) then
       begin
@@ -96,7 +97,8 @@ let string_from_addr mapped_mem vaddr len =
   L.debug2 (fun p -> p "Reading string at vaddr=%s len=%i" (Data.Address.to_string vaddr) len);
   let sec = find_section mapped_mem.sections vaddr in
   let raddr = Z.to_int (Z.add sec.raw_addr (Data.Address.sub vaddr sec.virt_addr)) in
-  L.debug2 (fun p -> p "Section found [%s], reading at paddr=%08x" sec.name raddr);
+  L.debug2 (fun p -> p "Section found [%s:%s], reading at paddr=%08x"
+                       sec.mapped_file_name sec.name raddr);
   if raddr >= (Z.to_int sec.raw_addr_end) then
     begin
       L.debug2 (fun p -> p "paddr=%08x is out of the section on disk" raddr);
