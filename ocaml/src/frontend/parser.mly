@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -154,7 +154,7 @@
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
-%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE
+%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE SKIP
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
@@ -332,6 +332,7 @@
     | EXT_SYM_MAX_SIZE EQUAL i=INT         { Config.external_symbol_max_size := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
+    | SKIP EQUAL l=addresses          { List.iter (fun a -> Config.skipAddresses := Config.SAddresses.add a !Config.skipAddresses) l } 
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
     | LOGLEVEL modname=STRING EQUAL i=INT
                                      { Hashtbl.add Config.module_loglevel modname (Z.to_int i) }
