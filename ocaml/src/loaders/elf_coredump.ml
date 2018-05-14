@@ -57,12 +57,21 @@ let make_coredump_mapped_mem filepath =
     | ph :: tail ->
        match ph.p_type with
        | PT_LOAD ->
+          (* we make sure the section in memory is not bigger than the section on
+             disk because, as a coredump, it could hide parts of sections from the
+             binary. Exemple of problematic PH coredump entry, on ARM:
+             Type   Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align
+             LOAD   0x001000 0x00010000 0x00000000 0x00000 0x77000 R E 0x1000
+             that overloads the executable PH:
+             LOAD   0x000000 0x00010000 0x00010000 0x76320 0x76320 R E 0x10000
+           *)
+          let sec_size = Z.min ph.p_filesz ph.p_memsz in
           let section = {
             mapped_file = mapped_file ;
             mapped_file_name = filepath ;
             virt_addr = Data.Address.global_of_int ph.p_vaddr ;
-            virt_addr_end = Data.Address.global_of_int (Z.add ph.p_vaddr ph.p_memsz) ;
-            virt_size = ph.p_memsz ;
+            virt_addr_end = Data.Address.global_of_int (Z.add ph.p_vaddr sec_size) ;
+            virt_size = sec_size ;
             raw_addr = ph.p_offset ;
             raw_addr_end = Z.add ph.p_offset ph.p_filesz ;
             raw_size = ph.p_filesz ;
