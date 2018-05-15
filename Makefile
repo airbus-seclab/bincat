@@ -13,6 +13,7 @@ DOCGENPATH =doc/generated
 MLLIBDIR=../../python/idabincat
 IDAPATH   ?= $(HOME)/ida-6.95
 IDAUSR	?= $(HOME)/.idapro
+C2NPK := ../ocaml/src/npk/c2newspeak.opt
 
 all:
 	@echo "Compiling OCaml part................................................."
@@ -20,7 +21,7 @@ all:
 	@echo "Building python part................................................."
 	@make -C $(PYPATH) all
 	@echo "Building headers......................................................"
-	@make -C $(NPKPATH) all
+	@make -C $(NPKPATH) all C2NPK=$(C2NPK)
 
 
 install: all
