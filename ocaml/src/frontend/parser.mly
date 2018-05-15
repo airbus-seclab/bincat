@@ -154,7 +154,7 @@
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
-%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP
+%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP FUN_SKIP
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
@@ -332,7 +332,8 @@
     | EXT_SYM_MAX_SIZE EQUAL i=INT         { Config.external_symbol_max_size := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
-    | NOP EQUAL l=addresses          { List.iter (fun a -> Config.nopAddresses := Config.SAddresses.add a !Config.nopAddresses) l } 
+    | NOP EQUAL l=addresses          { List.iter (fun a -> Config.nopAddresses := Config.SAddresses.add a !Config.nopAddresses) l }
+    | FUN_SKIP EQUAL l=fun_skip_list { List.iter (fun a -> Config.nopAddresses := Config.SAddresses.add a !Config.nopAddresses) l } 
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
     | LOGLEVEL modname=STRING EQUAL i=INT
                                      { Hashtbl.add Config.module_loglevel modname (Z.to_int i) }
@@ -358,6 +359,14 @@
     | i=INT { [ i ] }
     | i=INT COMMA l=addresses { i::l }
 
+    fun_skip_list:
+    | i=INT LPAREN pair_skip RPAREN { [ i ] }
+    | i=INT COMMA l=fun_skip_list { i::l }
+
+    pair_skip:
+    | bytes=INT COMMA ret=mcontent { bytes, Some ret }
+    | bytes=INT { bytes, None }
+              
     state:
     |                     { () }
     | s=state_item ss=state { s; ss }
