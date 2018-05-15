@@ -478,14 +478,19 @@ struct
       in
       let vstart = copy v v.Cfa.State.v None true in
       vstart.Cfa.State.ip <- ip;
-      let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
-      begin
-        try
-          v.Cfa.State.taint_sources <- taint;
-          List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- Taint.logor v.Cfa.State.taint_sources taint) !fun_stack;
-        with _ -> ()
-      end;
-      vertices
+      (* check if the instruction has to be skiped *)
+      let ia = Data.Address.to_int ip in
+      if not (Config.SAddresses.mem ia !Config.nopAddresses) then
+        let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
+        begin
+          try
+            v.Cfa.State.taint_sources <- taint;
+            List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- Taint.logor v.Cfa.State.taint_sources taint) !fun_stack;
+          with _ -> ()
+        end;
+        vertices
+      else
+        [vstart]
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
     let filter_vertices (subsuming: bool) g vertices =
@@ -507,6 +512,7 @@ struct
               raise Exit
               end
             else
+              
               (* explore if a greater abstract state of v has already been explored *)
               if subsuming then
                 Cfa.iter_state (fun prev ->

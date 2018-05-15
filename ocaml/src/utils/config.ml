@@ -27,7 +27,7 @@ let external_symbol_max_size = ref 32;
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
-let skipAddresses = ref SAddresses.empty
+let nopAddresses = ref SAddresses.empty
 
 type memory_model_t =
   | Flat
@@ -188,7 +188,7 @@ let reset () =
   fun_unroll := 50;
   loglevel := 3;
   max_instruction_size := 16;
-  skipAddresses := SAddresses.empty;
+  nopAddresses := SAddresses.empty;
   memory_model := Flat;
   architecture := X86;
   endianness := LITTLE;
