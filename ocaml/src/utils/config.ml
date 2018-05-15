@@ -28,7 +28,8 @@ let external_symbol_max_size = ref 32;
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
 let nopAddresses = ref SAddresses.empty
-
+let funSkipTbl = Hahstbl.create 5
+                  
 type memory_model_t =
   | Flat
   | Segmented
@@ -217,6 +218,7 @@ let reset () =
   stack_content := [];
   heap_content := [];
   register_content := [];
+  Hashtbl.reset funSkipTbl;
   Hashtbl.reset module_loglevel;
   Hashtbl.reset reg_override;
   Hashtbl.reset mem_override;
