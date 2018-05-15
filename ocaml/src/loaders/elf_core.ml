@@ -920,6 +920,24 @@ let elf_to_coredump_regs elf =
                       ("id",   21, 1) ; ] in
      let all_regs = List.append registers eflags in
      all_regs
+  | ELFOSABI_SYSVV, ARM ->
+     let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
+     let registers = ref [] in
+     for i = 0 to 12 do
+       let rname = Printf.sprintf "r%i" i in
+       registers := (make_reg_LE prstatus.n_desc rname (0x48+i*4) 4) :: !registers
+     done;
+     registers := (make_reg_LE prstatus.n_desc "sp" 0x7c 4) :: !registers;
+     registers := (make_reg_LE prstatus.n_desc "lr" 0x80 4) :: !registers;
+     registers := (make_reg_LE prstatus.n_desc "pc" 0x84 4) :: !registers;
+     let cspr = Z.of_bits (String.sub prstatus.n_desc 0x88 4) in
+     let itstate = Z.(((cspr asr 25) land ~$3) lor ((cspr asr 8) land ~$0xfc)) in
+     registers := ("itstate", (Some (Config.Content itstate), [])) :: !registers;
+     let flags = make_flags prstatus.n_desc 0x88 4
+                            [ ("n", 31, 1) ; ("z", 30, 1) ;
+                              ("c", 29, 1) ; ("v", 28, 1) ;
+                              ("t", 5,  1) ] in
+     List.append !registers flags
   | _ -> raise (Exceptions.Error "Unsupported ELF coredump ABI/Machine type. Cannot extract registers")
 
 let to_elf s =
