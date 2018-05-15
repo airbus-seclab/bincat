@@ -898,6 +898,11 @@ let elf_to_coredump_regs elf =
     done;
     let value = Z.of_bits (Buffer.contents buf) in
     (name, (Some (Config.Content value), [])) in
+  let make_flags s ofs sz flag_list =
+    let fval = Z.of_bits (String.sub s ofs sz) in
+    List.map (fun (fname, fofs, fmask) ->
+        (fname, (Some (Config.Content (Z.logand (Z.shift_right fval fofs)
+                                                (Z.of_int fmask))), []))) flag_list in
   match elf.hdr.e_ident.e_osabi, elf.hdr.e_machine with
   | ELFOSABI_SYSVV, X86 ->
      let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
@@ -907,8 +912,7 @@ let elf_to_coredump_regs elf =
                          ("edi", 0x58) ; ("ebp", 0x5c) ; ("eax", 0x60) ; ("ds", 0x64)  ;
                          ("es", 0x68)  ; ("fs", 0x6c)  ; ("gs", 0x70)  ; (* ("eip", 0x78) ; *)
                          ("cs", 0x7c)  ; ("esp", 0x84) ; ("ss", 0x88) ]) in
-     let f = Z.of_bits (String.sub prstatus.n_desc 0x80 4) in
-     let eflags = List.map (fun (fname, fofs, fmask) -> (fname, (Some (Config.Content (Z.logand (Z.shift_right f fofs) (Z.of_int fmask))), [])))
+     let eflags = make_flags prstatus.n_desc 0x80 4
                     [ ("cf",    0, 1) ; ("pf",    2, 1) ; ("af",    4, 1) ; ("zf",    6, 1) ;
                       ("sf",    7, 1) ; ("tf",    8, 1) ; ("if",    9, 1) ; ("df",   10, 1) ;
                       ("of",   11, 1) ; ("iopl", 12, 3) ; ("nt",   14, 1) ; ("rf",   16, 1) ;
