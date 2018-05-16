@@ -29,8 +29,8 @@ Enable the `universe` repository.
 ```
 apt install make python python-pip python-setuptools python-dev python-pytest \
         nasm libc6-dev-i386 gcc-multilib ocaml menhir ocaml-findlib \
-        libzarith-ocaml-dev libocamlgraph-ocaml-dev libppx-tools-ocaml-dev \
-        cppo
+        libzarith-ocaml-dev libocamlgraph-ocaml-dev ocaml-compiler-libs \
+        libppx-tools-ocaml-dev cppo
 ```
 
 If you also want to run bincat tests, install the following packages:
