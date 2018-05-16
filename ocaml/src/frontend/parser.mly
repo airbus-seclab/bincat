@@ -333,7 +333,7 @@
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | NOP EQUAL l=addresses          { List.iter (fun a -> Config.nopAddresses := Config.SAddresses.add a !Config.nopAddresses) l }
-    | FUN_SKIP EQUAL l=fun_skip_list { List.iter (fun (a, param) -> Hashtbl.replace Config.funSkipTbl a param) } 
+    | FUN_SKIP EQUAL l=fun_skip_list { List.iter (fun (a, param) -> Hashtbl.replace Config.funSkipTbl a param) l } 
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
     | LOGLEVEL modname=STRING EQUAL i=INT
                                      { Hashtbl.add Config.module_loglevel modname (Z.to_int i) }
@@ -360,12 +360,12 @@
     | i=INT COMMA l=addresses { i::l }
 
     fun_skip_list:
-    | f=fun_skip LPAREN pair_skip RPAREN { [ f ] }
+    | f=fun_skip { [ f ] }
     | f=fun_skip COMMA l=fun_skip_list { f::l }
 
     fun_skip:
-    | s=IDENT { Config.Fun_name s}                        
-    | i = INT { Config.Fun_addr i }
+    | s=STRING LPAREN p=pair_skip RPAREN { Config.Fun_name s, p }                        
+    | i = INT LPAREN p=pair_skip RPAREN { Config.Fun_addr i, p }
       
     pair_skip:
     | bytes=INT COMMA ret=init { bytes, ret }
