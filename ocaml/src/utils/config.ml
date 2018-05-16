@@ -28,7 +28,8 @@ let external_symbol_max_size = ref 32;
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
 let nopAddresses = ref SAddresses.empty
-let funSkipTbl = Hahstbl.create 5
+
+
                   
 type memory_model_t =
   | Flat
@@ -132,6 +133,12 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
+type fun_t =
+  | Fun_name of string
+  | Fun_addr of Z.t
+              
+let funSkipTbl: (fun_t, int * (cvalue option * tvalue list) Hashtbl.t  = Hahstbl.create 5
+                                
 let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5

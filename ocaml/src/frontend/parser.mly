@@ -360,12 +360,16 @@
     | i=INT COMMA l=addresses { i::l }
 
     fun_skip_list:
-    | i=INT LPAREN pair_skip RPAREN { [ i ] }
-    | i=INT COMMA l=fun_skip_list { i::l }
+    | f=fun_skip LPAREN pair_skip RPAREN { [ f ] }
+    | f=fun_skip COMMA l=fun_skip_list { f::l }
 
+    fun_skip:
+    | s=IDENT { Config.Fun_name s}                        
+    | i = INT { Config.Fun_addr i }
+      
     pair_skip:
-    | bytes=INT COMMA ret=mcontent { bytes, Some ret }
-    | bytes=INT { bytes, None }
+    | bytes=INT COMMA ret=init { bytes, ret }
+    | bytes=INT { bytes, (None, []) }
               
     state:
     |                     { () }

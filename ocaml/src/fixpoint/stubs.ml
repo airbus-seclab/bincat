@@ -286,6 +286,6 @@ struct
       Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
-      Hashtbl.replace stubs "strlen"        (strlen,      1);
+      Hashtbl.replace stubs "strlen"        (strlen,      1);;
 
 end
