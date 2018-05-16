@@ -21,7 +21,7 @@ distributions.
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
   libocamlgraph-ocaml-dev python-setuptools python-dev \
-  libppx-tools-ocaml-dev ocaml-compiler-libs libppx-tools-ocaml-dev cppo
+  ocaml-compiler-libs libppx-tools-ocaml-dev cppo
 ```
 
 ##### on Ubuntu 16.04:
