@@ -24,7 +24,7 @@ RUN pip install Flask
 RUN mkdir -p /tmp/bincat_web
 
 RUN git clone https://github.com/airbus-seclab/bincat/
-RUN cd bincat && git checkout "$SOURCE_BRANCH" && make && make PREFIX=/usr install
+RUN cd bincat && git checkout "$SOURCE_BRANCH" && make PREFIX=/usr && make PREFIX=/usr install
 WORKDIR /
 ENV FLASK_APP webbincat.wsgi
 ENV PYTHONPATH /usr/lib/python2.6/site-packages
