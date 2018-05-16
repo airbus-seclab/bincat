@@ -23,11 +23,10 @@ RUN pip install Flask
 RUN mkdir -p /tmp/bincat_web
 
 RUN git clone https://github.com/airbus-seclab/bincat/
-RUN git clone --depth 1 https://github.com/airbus-seclab/c2newspeak/
-RUN cd c2newspeak && make && make install && ln -s /install/c2newspeak/bin/c2newspeak /bin/c2newspeak
 RUN cd bincat && git checkout "$SOURCE_BRANCH" && make && make PREFIX=/usr install
 WORKDIR /
 ENV FLASK_APP webbincat.wsgi
+ENV PYTHONPATH /usr/lib/python2.6/site-packages
 
 CMD python -m flask run --host=0.0.0.0 --port 5000
 EXPOSE 5000
