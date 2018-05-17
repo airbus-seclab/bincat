@@ -243,7 +243,7 @@ let string_of_jmp_target t extended =
   | A a -> Address.to_string a
   | R e -> Printf.sprintf "%s" (string_of_exp e extended)
 
-let strinf_of_fun f =
+let string_of_fun f =
   match f with
   | Fun_name f -> f
   | Fun_addr a -> Data.Address.to_string a
