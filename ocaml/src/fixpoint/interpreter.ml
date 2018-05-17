@@ -249,8 +249,14 @@ struct
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
 
             | Directive (Skip (f, call_conv)) ->
-               L.info2 (fun p -> p "Skipping %s" (Config.string_of_fun f));
-               let d',  taint, cleanup_stmts = Stubs.skip d f call_conv in
+               L.info2 (fun p -> p "Skipping %s" (Asm.string_of_fun f));
+               (* TODO: optimize to avoid type switching *)
+               let f' =
+                 match f with
+                 | Asm.Fun_name s -> Config.Fun_name s
+                 | Asm.Fun_addr a -> Config.Fun_addr (Data.Address.to_int a)
+               in                                   
+               let d',  taint, cleanup_stmts = Stubs.skip d f' call_conv in
                let d', taint' =
                  Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
                  List.fold_left (fun (d, t) stmt ->
