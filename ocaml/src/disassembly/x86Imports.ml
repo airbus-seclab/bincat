@@ -27,7 +27,7 @@ struct
 
   let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
-  let tbl: (Data.Address.t, Asm.import_desc_t * Config.call_conv_t) Hashtbl.t = Hashtbl.create 5
+  let tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t = Hashtbl.create 5
 
   let cdecl_calling_convention = {
     return = reg "eax" ;
