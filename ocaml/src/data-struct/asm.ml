@@ -93,19 +93,22 @@ type jmp_target =
   | A of Address.t (** target is an absolute address *)
   | R of exp       (** target is the value of the expression *)
 
-type calling_convention_t = {
-  return : lval ;
-  arguments : int -> lval ;
-  callee_cleanup : int -> stmt list ;
-}
 
 (** a function is identified either by its name or its address in the code *)
 type fun_t =
   | Fun_name of string
   | Fun_addr of Z.t
+
+(** calling convention of functions *)
+type calling_convention_t = {
+  return: lval;
+  arguments: int -> lval;
+  callee_cleanup: int -> stmt list;
+}
+
               
 (** type of directives for the analyzer *)
-type directive_t =
+and directive_t =
   | Remove of Register.t        (** remove the register *)
   | Forget of lval              (** forget the (partial) content of the given register or memory zone *)
   | Taint of exp option * lval  (** conditional tainting: if the expression is true then the left value must be tainted. None is for unconditional tainting *)
@@ -119,7 +122,7 @@ type directive_t =
         *)
 
   | Stub of string * calling_convention_t (** Stub (f, args) is the stub of the function f with args as arguments *)
-  | Stub of fun_t * calling_convention_t (** Skip (f, calling_conv) will skip the function _f_ but restablish the stack wrt the calling convention _calling_conv_ *)
+  | Skip of fun_t * calling_convention_t (** Skip (f, calling_conv) will skip the function _f_ but restablish the stack wrt the calling convention _calling_conv_ *)
 
 (** type of statements *)
 and stmt =
