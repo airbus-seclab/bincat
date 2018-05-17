@@ -99,8 +99,13 @@ type calling_convention_t = {
   callee_cleanup : int -> stmt list ;
 }
 
+(** a function is identified either by its name or its address in the code *)
+type fun_t =
+  | Fun_name of string
+  | Fun_addr of Z.t
+              
 (** type of directives for the analyzer *)
-and directive_t =
+type directive_t =
   | Remove of Register.t        (** remove the register *)
   | Forget of lval              (** forget the (partial) content of the given register or memory zone *)
   | Taint of exp option * lval  (** conditional tainting: if the expression is true then the left value must be tainted. None is for unconditional tainting *)
@@ -114,6 +119,7 @@ and directive_t =
         *)
 
   | Stub of string * calling_convention_t (** Stub (f, args) is the stub of the function f with args as arguments *)
+  | Stub of fun_t * calling_convention_t (** Skip (f, calling_conv) will skip the function _f_ but restablish the stack wrt the calling convention _calling_conv_ *)
 
 (** type of statements *)
 and stmt =
