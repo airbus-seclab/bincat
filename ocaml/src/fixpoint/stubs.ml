@@ -278,7 +278,7 @@ struct
            L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
            d, Taint.U
       in
-      let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
+      let cleanup_stmts = call_conv.Asm.callee_cleanup arg_nb in
       d', taint, cleanup_stmts
 
     let skip d f call_conv: domain_t * Taint.t * Asm.stmt list =
@@ -286,22 +286,21 @@ struct
       let sz = Config.size_of_config ret_val in
       let d, taint =
         match call_conv.Asm.return with
-        | Asm.R r  when Register.size r = sz -> D.set_register_from_config r Data.Address.Global ret_val d 
+        | Asm.V (Asm.T r)  when Register.size r = sz -> D.set_register_from_config r Data.Address.Global ret_val d 
         | Asm.M (e, n) when sz = n ->
-           let addrs, taint = D.mem_to_addresses d e in
+           let addrs, _ = D.mem_to_addresses d e in
            let d', taint' =
-             match addrs with
+             match Data.Address.Set.elements addrs with
              | [a] ->     
                 D.set_memory_from_config a Data.Address.Global ret_val 1 d
-             | _ -> D.forget d (* TODO: be more precise *)
+             | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
            in
-          d', Taint.logor d d'
+          d', taint'
            
-        | _ -> D.forget d (* TODO: be more precise *)
+        | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
       in
-      let d', taint'  = D.set_from_taint_config d call_conv.Asm.return ret in
-      let cleanup_stmts = call_conv.Asm.cleanup arg_nb in
-      d', Taint.logor taint tain', cleanup_stmts
+      let cleanup_stmts = call_conv.Asm.callee_cleanup (Z.to_int arg_nb) in
+      d,taint, cleanup_stmts
           
     let init () =
       Hashtbl.replace stubs "memcpy"        (memcpy,      3);

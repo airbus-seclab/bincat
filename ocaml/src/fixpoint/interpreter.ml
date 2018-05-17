@@ -249,16 +249,16 @@ struct
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
 
             | Directive (Skip (f, call_conv)) ->
-               L.info2 fun p -> p "Processing %s" (Config.string_of_fun f));
-              let d',  taint, cleanup_stmts = Stubs.skip d f call_conv in
-              let d', taint' =
-                Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
-                List.fold_left (fun (d, t) stmt ->
-                    let dd, tt = process_value d stmt fun_stack in
-                    dd, Taint.logor t tt) (d', taint) cleanup_stmts
-              in
-              d', taint'
-              
+               L.info2 (fun p -> p "Skipping %s" (Config.string_of_fun f));
+               let d',  taint, cleanup_stmts = Stubs.skip d f call_conv in
+               let d', taint' =
+                 Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
+                 List.fold_left (fun (d, t) stmt ->
+                     let dd, tt = process_value d stmt fun_stack in
+                     dd, Taint.logor t tt) (d', taint) cleanup_stmts
+               in
+               d', taint'
+               
             | Directive (Stub (fun_name, call_conv)) ->
                L.info2(fun p -> p "Processing %s" fun_name);
               let d', taint', cleanup_stmts = Stubs.process d fun_name call_conv in
@@ -266,9 +266,12 @@ struct
                                List.fold_left (fun (d, t) stmt -> let dd, tt = process_value d stmt fun_stack in
                                                                   dd, Taint.logor t tt) (d', taint') cleanup_stmts in
               d', taint'
+              
             | _ -> raise Jmp_exn
-        in L.debug2 (fun p -> p "end of process_value taint=%s ---------\n%s\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
-          (Taint.to_string tainted) (String.concat " " (D.to_string res)));
+                 
+        in
+        L.debug2 (fun p -> p "end of process_value taint=%s ---------\n%s\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+                             (Taint.to_string tainted) (String.concat " " (D.to_string res)));
         res, tainted
       with Exceptions.Empty _ -> D.bot,Taint.U
 
