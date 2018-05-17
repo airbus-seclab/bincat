@@ -247,8 +247,20 @@ struct
                  | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, Taint.U
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
+
+            | Directive (Skip (f, call_conv)) ->
+               L.info2 fun p -> p "Processing %s" (Config.string_of_fun f));
+              let d',  taint, cleanup_stmts = Stubs.skip d f call_conv in
+              let d', taint' =
+                Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
+                List.fold_left (fun (d, t) stmt ->
+                    let dd, tt = process_value d stmt fun_stack in
+                    dd, Taint.logor t tt) (d', taint) cleanup_stmts
+              in
+              d', taint'
+              
             | Directive (Stub (fun_name, call_conv)) ->
-               L.info2(fun p -> p "Processing stub %s" fun_name);
+               L.info2(fun p -> p "Processing %s" fun_name);
               let d', taint', cleanup_stmts = Stubs.process d fun_name call_conv in
               let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
                                List.fold_left (fun (d, t) stmt -> let dd, tt = process_value d stmt fun_stack in
@@ -307,16 +319,16 @@ struct
 
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let import_call vertices a fun_stack =
-      
-      let fundec = Hashtbl.find Decoder.Imports.tbl a in
+    let skip_or_import_call vertices a fun_stack =     
+      let fundec =
+        try
+          let fdec, call_conv = Hashtbl.find Decoder.Imports.tbl a in
+            Decoder.Imports.skip (Some (fdec, call_conv)) a
+        with
+        | Not_found -> Decoder.Imports.skip None a
+      in
         let stmts = fundec.Asm.prologue @ fundec.Asm.stub @ fundec.Asm.epilogue in
-        L.info2 (fun p -> p "################### %s" (Data.Address.to_string a));
-        L.analysis (fun p -> p "at %s: library call for %s found. %i statements loaded."
-          (Data.Address.to_string a) (fundec.Asm.name) (List.length stmts));
-        Log.Trace.trace a (fun p -> p "%s" (Asm.string_of_stmts stmts true));
         let ret_addr_exp = fundec.Asm.ret_addr in
-        L.debug (fun p -> p "stub return address exp: %s" (Asm.string_of_exp ret_addr_exp true));
         let t =
             List.fold_left (fun t v ->             
                 let d', t' =
@@ -348,7 +360,7 @@ struct
                         | [a] ->
                           begin
                               L.debug (fun p->p "fold_to_target addr : %s" (Data.Address.to_string a));
-                              try let res = import_call [v] a fun_stack in import := true; res
+                              try let res = skip_or_import_call [v] a fun_stack in import := true; res
                               with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, Taint.logor t taint_sources
                           end
                         | [] -> L.abort (fun p -> p "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
@@ -429,37 +441,37 @@ struct
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts
 
              | Jmp (A a) ->
-        begin
-          try
-            let res = import_call vertices a fun_stack in
-            fun_stack := List.tl !fun_stack;
-            res
-          with Not_found ->
-            List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.U
-        end
-
+                begin
+                  try
+                    let res = skip_or_import_call vertices a fun_stack in
+                    fun_stack := List.tl !fun_stack;
+                    res
+                  with Not_found ->
+                    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.U
+                end
+               
              | Jmp (R target) ->
-          fold_to_target (fun _a -> ()) vertices target
-
+                fold_to_target (fun _a -> ()) vertices target
+               
              | Call (A a) ->
-        add_to_fun_stack a;
-        begin
-          try
-            import_call vertices a fun_stack
-          with Not_found ->
-            List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
-            vertices, Taint.U
-        end
-         | Call (R target) -> fold_to_target add_to_fun_stack vertices target
-
-         | Return ->
-            List.fold_left (fun (l, b) v ->
-              let v', b' = process_ret fun_stack v in
-              match v' with
-              | None -> l, Taint.logor b b'
-              | Some v -> v::l, Taint.logor b b') ([], Taint.U) vertices
-            
-         | _       -> vertices, Taint.U
+                add_to_fun_stack a;
+                begin
+                  try
+                    skip_or_import_call vertices a fun_stack
+                  with Not_found ->
+                    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
+                    vertices, Taint.U
+                end
+             | Call (R target) -> fold_to_target add_to_fun_stack vertices target
+                                
+             | Return ->
+                List.fold_left (fun (l, b) v ->
+                    let v', b' = process_ret fun_stack v in
+                    match v' with
+                    | None -> l, Taint.logor b b'
+                    | Some v -> v::l, Taint.logor b b') ([], Taint.U) vertices
+               
+             | _       -> vertices, Taint.U
 
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.t =
         match stmts with

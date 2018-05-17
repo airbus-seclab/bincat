@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -25,7 +25,7 @@ struct
 
   let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
-  let tbl: (Data.Address.t, import_desc_t) Hashtbl.t = Hashtbl.create 5
+  let tbl: (Data.Address.t, import_desc_t * Config.call_conv_t) Hashtbl.t = Hashtbl.create 5
 
   let aapcs_calling_convention = {
     return = reg "x0" ;
@@ -81,7 +81,7 @@ struct
         epilogue = typing_epi @ tainting_epi ;
         ret_addr = Lval(reg "x30") ;
       } in
-      Hashtbl.replace tbl (Data.Address.global_of_int adrs) fundesc
+      Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc)
     ) Config.import_tbl
 
 

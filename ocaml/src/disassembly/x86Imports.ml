@@ -27,7 +27,7 @@ struct
 
   let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
-  let tbl: (Data.Address.t, Asm.import_desc_t) Hashtbl.t = Hashtbl.create 5
+  let tbl: (Data.Address.t, Asm.import_desc_t * Config.call_conv_t) Hashtbl.t = Hashtbl.create 5
 
   let cdecl_calling_convention = {
     return = reg "eax" ;
@@ -65,6 +65,8 @@ struct
       [ Directive (Forget (reg "eax")) ]
 
 
+  let stack_width () = !Confid.stack_width/8
+                     
   let init_imports () =
     let default_cc = get_callconv () in
     Hashtbl.iter (fun adrs (libname,fname) ->
@@ -81,14 +83,38 @@ struct
         name = fname ;
         libname = libname ;
         prologue = typing_pro @ tainting_pro ;
-        stub = stub_stmts @ [ Set(reg "esp", BinOp(Add, Lval (reg "esp"), const 4 32)) ] ;
+        stub = stub_stmts @ [ Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ] ;
         epilogue = typing_epi @ tainting_epi ;
-        ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const 4 32),!Config.stack_width)) ;
+        ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width)) ;
       } in
-      Hashtbl.replace tbl (Data.Address.global_of_int adrs) fundesc
+      Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc')
     ) Config.import_tbl
 
 
+  let skip fdesc a =
+    let ia = Data.Address.to_int a in
+    let key, fdesc', call_conv =
+      match fdesc with
+      | Some (fdesc', cc) -> Config.Fun_name fdesc'.Asm.fname, fdesc', cc
+      | None ->
+         let fdesc' =
+           {
+          name = "" ;
+          libname = "" ;
+          prologue = [] ;
+          stub = stmts;
+          epilogue = [];
+          ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width)) ;
+           }
+         in
+         Config.Fun_addr ia, get_local_callconv (), fdesc'
+    in
+    if Hashtbl.mem Config.FunSkipTbl key then
+      let stmts = [Directive (Skip (key, call_conv)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
+        { fdesc' with stub = stmts }
+    else
+      raise Not_found
+    
   let init () =
     Stubs.init ();
     init_imports ()

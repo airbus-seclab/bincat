@@ -133,6 +133,27 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
+
+let size_of_content c =
+  match c with
+  | Content z | CMask (z, _) -> round_sz (Z.numbits z)
+  | Bytes b | Bytes_Mask (b, _) -> (String.length b)*4
+                                               
+let size_of_taint (t: tvalue): int =
+  match t with
+  | Taint (z, _) | TMask (z, _, _) -> round_sz (Z.numbits z)
+  | TBytes (b, _) | TBytes_Mask (b, _, _) -> (String.length b)*4
+  | Taint_all _ | Taint_none -> 0
+
+let size_of_taints (taints: tvalue list): int =
+  let sz = ref 0 in
+  List.iter (fun t ->
+      let n = size_of_taint t in
+      if !sz = 0 then sz := n
+      else if n <> !sz then L.abort (fun p -> p "illegal taint list with different sizes")
+    ) taints;
+  !sz
+      
 type fun_t =
   | Fun_name of string
   | Fun_addr of Z.t
