@@ -2,12 +2,7 @@
 
 #### Plugin install
 
-User install:
 * run `make IDAuser`
-
-Global install:
-* define `IDAPATH` env variable to the folder IDA is installed in.
-* Run `make IDAinstall`.
 
 #### Dependencies
 

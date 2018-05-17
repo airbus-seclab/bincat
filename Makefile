@@ -44,19 +44,6 @@ IDAuser:
 	# .no file
 	cp -r lib "${IDAUSR}/idabincat"
 
-IDAinstall: # install globally
-	@echo "Linking pybincat and idabincat inside IDA Python ...................."
-	rm -rf "${IDAPATH}/plugins/pybincat"
-	cp -r $$(${PYTHON} -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAPATH}/plugins/pybincat"
-	rm -rf "${IDAPATH}/plugins/idabincat"
-	cp -r $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAPATH}/plugins/idabincat"
-	rm -f "${IDAPATH}/plugins/bcplugin.py"
-	cp $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAPATH}/plugins/bcplugin.py"
-	mkdir -p $(IDAUSR)/idabincat
-	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
-	# .no file
-	cp -r lib "${IDAUSR}/idabincat"
-
 test: all
 	make -C $(TESTPATH) test
 
@@ -128,5 +115,5 @@ lindist: clean all
 tags:
 	otags -vi -r ocaml
 
-.PHONY: install clean IDAinstall tags
+.PHONY: install clean tags
 
