@@ -93,9 +93,9 @@ struct
 
   let skip fdesc a =
     let ia = Data.Address.to_int a in
-    let key, fdesc', call_conv =
+    let key, fasm, fdesc', call_conv =
       match fdesc with
-      | Some (fdesc', cc) -> Config.Fun_name fdesc'.Asm.name, fdesc', cc
+      | Some (fdesc', cc) -> Config.Fun_name fdesc'.Asm.name, Asm.Fun_name fdesc'.name, fdesc', cc
       | None ->
          let fdesc' =
            {
@@ -107,10 +107,10 @@ struct
           ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width));
            }
          in
-         Config.Fun_addr ia, fdesc', get_callconv ()
+         Config.Fun_addr ia, Asm.Fun_addr a, fdesc', get_callconv ()
     in
     if Hashtbl.mem Config.funSkipTbl key then
-      let stmts = [Directive (Skip (key, call_conv)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
+      let stmts = [Directive (Skip (fasm, call_conv)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
         { fdesc' with stub = stmts }
     else
       raise Not_found
