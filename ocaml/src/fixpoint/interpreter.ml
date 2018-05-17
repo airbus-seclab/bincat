@@ -803,6 +803,7 @@ struct
         | Directive (Unroll_until _) -> d, Taint.U
         | Directive Default_unroll -> d, Taint.U
         | Directive (Stub _) -> d, Taint.U
+        | Directive (Skip _) -> d, Taint.U
         | Set (dst, src) -> back_set dst src d
         | Assert (_bexp, _msg) -> d, Taint.U (* TODO *)
         | If (_e, istmts, estmts) ->
@@ -894,6 +895,7 @@ struct
         | Asm.Directive (Asm.Type _)
         | Asm.Directive (Asm.Unroll _)
         | Asm.Directive (Asm.Stub _)
+        | Asm.Directive (Asm.Skip _)
         | Asm.Directive (Asm.Unroll_until _)
         | Asm.Directive Asm.Default_unroll
         | Asm.Jmp (Asm.A _)
