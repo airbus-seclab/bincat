@@ -163,7 +163,11 @@ let size_of_taints (taints: tvalue list): int =
     ) taints;
   !sz
 
-let size_of_config (c, t) = max (size_of_content c) (size_of_taints t)
+let size_of_config (c, t) =
+  let nt = size_of_taints t in
+  match c with
+  | None -> nt
+  | Some c' -> max (size_of_content c') nt 
 
 type fun_t =
   | Fun_name of string

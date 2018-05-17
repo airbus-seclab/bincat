@@ -283,7 +283,7 @@ struct
 
     let skip d f call_conv: domain_t * Taint.t * Asm.stmt list =
       let arg_nb, ret_val = Hashtbl.find Config.funSkipTbl f in
-      let sz = size_of_config ret_val in
+      let sz = Config.size_of_config ret_val in
       let d, taint =
         match call_conv.Asm.return with
         | Asm.R r  when Register.size r = sz -> D.set_register_from_config r Data.Address.Global ret_val d 
