@@ -95,19 +95,19 @@ struct
     let ia = Data.Address.to_int a in
     let key, fdesc', call_conv =
       match fdesc with
-      | Some (fdesc', cc) -> Config.Fun_name fdesc'.Asm.fname, fdesc', cc
+      | Some (fdesc', cc) -> Config.Fun_name fdesc'.Asm.name, fdesc', cc
       | None ->
          let fdesc' =
            {
-          name = "" ;
-          libname = "" ;
-          prologue = [] ;
-          stub = stmts;
+          name = "";
+          libname = "";
+          prologue = [];
+          stub = [];
           epilogue = [];
-          ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width)) ;
+          ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width));
            }
          in
-         Config.Fun_addr ia, get_local_callconv (), fdesc'
+         Config.Fun_addr ia, fdesc', get_callconv ()
     in
     if Hashtbl.mem Config.FunSkipTbl key then
       let stmts = [Directive (Skip (key, call_conv)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
