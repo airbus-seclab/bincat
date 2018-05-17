@@ -162,7 +162,9 @@ let size_of_taints (taints: tvalue list): int =
       else if n <> !sz then failwith "illegal taint list with different sizes"
     ) taints;
   !sz
-      
+
+let size_of_config (c, t) = max (size_of_content c) (size_of_taints t)
+
 type fun_t =
   | Fun_name of string
   | Fun_addr of Z.t
