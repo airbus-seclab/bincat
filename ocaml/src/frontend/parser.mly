@@ -149,12 +149,12 @@
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT
 %token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED STATE
-%token FORMAT RAW MANUAL PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
+%token FORMAT RAW MANUAL PE ELF ELFOBJ ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA UNDERSCORE
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
-%token ENDIANNESS LITTLE BIG
+%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
@@ -270,6 +270,7 @@
       format:
     | PE  { Config.PE }
     | ELF { Config.ELF }
+    | ELFOBJ { Config.ELFOBJ }
     | RAW { Config.RAW }
     | MANUAL { Config.MANUAL }
 
@@ -328,6 +329,7 @@
     | INI_VERSION EQUAL i=INT        { check_ini_version (Z.to_int i) }
     | UNROLL EQUAL i=INT         { Config.unroll := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT         { Config.fun_unroll := Z.to_int i }
+    | EXT_SYM_MAX_SIZE EQUAL i=INT         { Config.external_symbol_max_size := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }

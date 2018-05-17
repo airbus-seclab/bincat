@@ -1,8 +1,16 @@
+ifdef PREFIX
+PREFIXOPT = --prefix=$(PREFIX)
+endif
+
+ifdef DESTDIR
+DESTDIROPT = --root=$(DESTDIR)
+endif
+
 all:
 	python2 ./setup.py build
 
 install:
-	python2 ./setup.py install
+	python2 ./setup.py install $(PREFIXOPT) $(DESTDIROPT)
 
 doc:
 	make -C doc generate

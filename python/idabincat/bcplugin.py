@@ -146,7 +146,7 @@ class BincatPlugin(idaapi.plugin_t):
             else:
                 bc_exe = distutils.spawn.find_executable('bincat')
         if bc_exe is None and no_spawn is False:
-            bc_log.warning('Could not find bincat binary, will not be able to run analysis')
+            bc_log.warning('Could not find bincat binary, will not be able to run local analysis')
 
         if PluginOptions.get("autostart") != "True":
             # will initialize later
@@ -260,7 +260,9 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
             npk_fname = idabincat.npkgen.NpkGen().generate_tnpk(
                 imports_data=imports_data, destfname=destfname)
             return npk_fname
-        except idabincat.npkgen.NpkGenException as e:
+        except idabincat.npkgen.NpkGenException:
+            bc_log.warning("Could not compile header file, "
+                           "types from IDB will not be used for type propagation")
             return
 
     def run(self):
@@ -344,9 +346,9 @@ class WebAnalyzer(Analyzer):
         try:
             version_req = requests.get(self.server_url + "/version")
             srv_api_version = str(version_req.text)
-        except:
+        except requests.ConnectionError as e:
             raise AnalyzerUnavailable(
-                "BinCAT server at %s could not be reached" % self.server_url)
+                "BinCAT server at %s could not be reached : %s" % (self.server_url, str(e)))
         if srv_api_version != WebAnalyzer.API_VERSION:
             raise AnalyzerUnavailable(
                 "API mismatch: this plugin supports version %s, while server "
@@ -367,8 +369,9 @@ class WebAnalyzer(Analyzer):
             return
         npk_res = requests.post(self.server_url + "/convert_to_tnpk/" + sha256)
         if npk_res.status_code != 200:
-            bc_log.error("Error while compiling file to tnpk "
-                         "on BinCAT analysis server.")
+            bc_log.warning("Error while compiling file to tnpk "
+                           "on BinCAT analysis server, types from IDB will not be "
+                           "used for type propagation")
             return
         res = npk_res.json()
         if 'status' not in res or res['status'] != 'ok':
@@ -549,6 +552,9 @@ class State(object):
         """
         if (PluginOptions.get("web_analyzer") == "True" and
                 PluginOptions.get("server_url") != ""):
+            if 'requests' not in sys.modules:
+                bc_log.error("Trying to launch a remote analysis without the 'requests' module !")
+                raise AnalyzerUnavailable()
             return WebAnalyzer(*args, **kwargs)
         else:
             return LocalAnalyzer(*args, **kwargs)
@@ -645,7 +651,7 @@ class State(object):
         if not cfa:
             return
         for addr, nodeids in cfa.states.items():
-            if idaapi.user_cancelled() > 0:
+            if hasattr(idaapi, "user_cancelled") and idaapi.user_cancelled() > 0:
                 bc_log.info("User cancelled!")
                 idaapi.hide_wait_box()
                 return None

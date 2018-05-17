@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libocamlgraph-ocaml-dev libppx-tools-ocaml-dev cppo wget git
 
 # Install a later version of firejail for it to be able to report exit codes correctly
-RUN wget http://fr.archive.ubuntu.com/ubuntu/pool/universe/f/firejail/firejail_0.9.44.8-1_amd64.deb ; dpkg -i firejail*deb; rm firejail*deb
+RUN wget http://fr.archive.ubuntu.com/ubuntu/pool/universe/f/firejail/firejail_0.9.52-2_amd64.deb ; dpkg -i firejail*deb; rm firejail*deb
 
 # ubuntu-packaged python-flask does not provide the flask executable, or a
 # working module

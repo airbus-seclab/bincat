@@ -760,12 +760,16 @@ module Make(V: Val) =
         | None    -> Array.make n V.top
       in
       let n' = n-1 in
-      let set_one_taint (t: Config.tvalue): Taint.t =
+      let set_one_taint (is_first: bool) (t: Config.tvalue): Taint.t =
         match t with
         | Config.TBytes (b, tid) ->
            let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
            for i = 0 to n' do
-             v.(n'-i) <- V.taint_logor v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
+             let v' = V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid in
+             if is_first then
+               v.(n'-i) <- v'
+             else
+               v.(n'-i) <- V.taint_logor v.(n'-i) v'
            done;
            Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid)) 
              
@@ -773,15 +777,27 @@ module Make(V: Val) =
            let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
            for i = 0 to n' do           
              if Z.testbit m i then
-               v.(n'-i) <- V.taint_logor v.(n'-i) (V.forget_taint v.(n'-i) tid)
+               let v' = V.forget_taint v.(n'-i) tid in
+               if is_first then
+                 v.(n'-i) <- v'
+               else
+                 v.(n'-i) <- V.taint_logor v.(n'-i) v'
              else
-               v.(n'-i) <- V.taint_logor v.(n'-i) (V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid)
+               let v' = V.taint_of_z (nth_of_z (get_byte b (n'-i)) (i mod 4)) v.(n'-i) tid in
+               if is_first then
+                 v.(n'-i) <- v'
+               else
+                 v.(n'-i) <- V.taint_logor v.(n'-i) v'
            done;
            Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
              
         | Config.Taint (b, tid) ->
            for i = 0 to n' do
-             v.(n'-i) <- V.taint_logor v.(n'-i) (V.taint_of_z (nth_of_z b i) v.(n'-i) tid)
+             let v' = V.taint_of_z (nth_of_z b i) v.(n'-i) tid in
+               if is_first then
+                 v.(n'-i) <- v'
+               else
+                 v.(n'-i) <- V.taint_logor v.(n'-i) v'
            done;
           if Z.compare b Z.zero = 0 then Taint.U
           else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
@@ -789,14 +805,22 @@ module Make(V: Val) =
         | Config.Taint_all tid ->
            let n' =n-1 in
            for i = 0 to n' do
-             v.(n'-i) <- V.taint_logor v.(n'-i) (V.taint_of_z Z.one v.(n'-i) tid)
+             let v' = V.taint_of_z Z.one v.(n'-i) tid in
+             if is_first then
+               v.(n'-i) <- v'
+             else
+               v.(n'-i) <- V.taint_logor v.(n'-i) v'
            done;
            Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
              
         | Config.Taint_none ->
            let n' =n-1 in
            for i = 0 to n' do
-             v.(n'-i) <- V.taint_logor v.(n'-i) (V.untaint v.(n'-i))
+             let v' = V.untaint v.(n'-i) in
+             if is_first then
+               v.(n'-i) <- v'
+             else
+               v.(n'-i) <- V.taint_logor v.(n'-i) v'
            done;
            Taint.U
              
@@ -806,17 +830,29 @@ module Make(V: Val) =
              let bnth = nth_of_z b i in
              let mnth = nth_of_z m i in
              if Z.compare mnth Z.zero = 0 then
-               v.(n'-i) <- V.taint_logor v.(n'-i) (V.taint_of_z bnth v.(n'-i) tid)
+               let v' = V.taint_of_z bnth v.(n'-i) tid in
+               if is_first then
+                 v.(n'-i) <- v'
+               else
+                 v.(n'-i) <- V.taint_logor v.(n'-i) v'
              else
-               v.(n'-i) <- V.taint_logor v.(n'-i) (V.forget_taint v.(n'-i) tid)
+               let v' = V.forget_taint v.(n'-i) tid in
+               if is_first then
+                 v.(n'-i) <- v' 
+               else
+               v.(n'-i) <- V.taint_logor v.(n'-i) v'
            done;
            if Z.compare m Z.zero = 0 then
              if Z.compare b Z.zero = 0 then Taint.U
              else Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted tid))
            else Taint.S (Taint.SrcSet.singleton (Taint.Src.Maybe tid))
       in
-      let taint' = List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint t)) Taint.U taints in
-      v, taint'
+      if List.length taints > 0 then
+        let taint0 = set_one_taint true (List.hd taints) in
+        let taint' = List.fold_left (fun prev_t t -> Taint.logor prev_t (set_one_taint false t)) taint0 (List.tl taints) in
+        v, taint'
+      else
+        v, Taint.U
         
     let forget v opt =
       L.debug (fun (p: ('a, unit, string) format -> 'a) ->
@@ -825,7 +861,7 @@ module Make(V: Val) =
         | Some (l,u) -> p "Forget vector [%s(%d)] bits %i -> %i " (to_string v) (Array.length v) l u
       );
       let v' = Array.copy v in
-      match opt with
+        match opt with
       | Some (l, u) ->
          let n = (Array.length v')-1 in
          for i = l to u do
