@@ -331,8 +331,8 @@ struct
     let skip_or_import_call vertices a fun_stack =     
       let fundec =
         try
-          let fdec, call_conv = Hashtbl.find Decoder.Imports.tbl a in
-            Decoder.Imports.skip (Some (fdec, call_conv)) a
+          let ret = Hashtbl.find Decoder.Imports.tbl a in
+            Decoder.Imports.skip (Some ret) a
         with
         | Not_found -> Decoder.Imports.skip None a
       in
