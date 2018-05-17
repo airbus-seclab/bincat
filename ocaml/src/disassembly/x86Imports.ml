@@ -65,7 +65,7 @@ struct
       [ Directive (Forget (reg "eax")) ]
 
 
-  let stack_width () = !Confid.stack_width/8
+  let stack_width () = !Config.stack_width/8
                      
   let init_imports () =
     let default_cc = get_callconv () in
