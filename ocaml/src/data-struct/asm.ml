@@ -243,6 +243,11 @@ let string_of_jmp_target t extended =
   | A a -> Address.to_string a
   | R e -> Printf.sprintf "%s" (string_of_exp e extended)
 
+let strinf_of_fun f =
+  match f with
+  | Fun_name f -> f
+  | Fun_addr a -> Data.Address.to_string a
+                
 let string_of_directive d extended =
   match d with
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
@@ -264,6 +269,12 @@ let string_of_directive d extended =
        Printf.sprintf "%s <- stub of %s" (string_of_lval cc.return extended) f
      else
        Printf.sprintf "stub of %s" f
+  | Skip (f, cc) ->
+     let fs = string_of_fun f in
+     if extended then
+       Printf.sprintf "%s <- skip of %s" (string_of_lval cc.return extended) fs
+     else
+       Printf.sprintf "skip of %s" fs
 
 
 let string_of_target tgt =
