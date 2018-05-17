@@ -78,26 +78,49 @@ struct
     Hashtbl.iter (fun adrs (libname,fname) ->
         let tainting_pro,tainting_epi, cc = Rules.tainting_rule_stmts libname fname (fun cc -> get_local_callconv cc) in
         let cc' =
-        match cc with
-        | Some cc -> cc
-        | None -> default_cc
-      in
-      let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc' in
-      let stub_stmts = stub_stmts_from_name fname cc' in
-      let set_tflag = [ Set( reg "t", Lval (preg "lr" 0 0)) ] in
-      let fundesc:Asm.import_desc_t = {
-        name = fname ;
-        libname = libname ;
-        prologue = typing_pro @ tainting_pro ;
-        stub = stub_stmts ;
-        epilogue = typing_epi @ tainting_epi @ set_tflag ;
-        ret_addr = BinOp(And, Lval(reg "lr"), const 0xfffffffe 32) ;
-      } in
-      Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc')
-    ) Config.import_tbl
+          match cc with
+          | Some cc -> cc
+          | None -> default_cc
+        in
+        let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc' in
+        let stub_stmts = stub_stmts_from_name fname cc' in
+        let set_tflag = [ Set( reg "t", Lval (preg "lr" 0 0)) ] in
+        let fundesc:Asm.import_desc_t = {
+            name = fname ;
+            libname = libname ;
+            prologue = typing_pro @ tainting_pro ;
+            stub = stub_stmts ;
+            epilogue = typing_epi @ tainting_epi @ set_tflag ;
+            ret_addr = BinOp(And, Lval(reg "lr"), const 0xfffffffe 32) ;
+          } in
+        Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc')
+      ) Config.import_tbl
 
 
 
+  let skip fdesc a =
+    let ia = Data.Address.to_int a in
+    let key, fasm, fdesc', call_conv =
+      match fdesc with
+      | Some (fdesc', cc) -> Config.Fun_name fdesc'.Asm.name, Asm.Fun_name fdesc'.name, fdesc', cc
+      | None ->
+         let fdesc' =
+           {
+          name = "";
+          libname = "";
+          prologue = [];
+          stub = [];
+          epilogue = [ Set( reg "t", Lval (preg "lr" 0 0)) ] ;
+          ret_addr =BinOp(And, Lval(reg "lr"), const 0xfffffffe 32) ;
+           }
+         in
+         Config.Fun_addr ia, Asm.Fun_addr a, fdesc', get_callconv ()
+    in
+    if Hashtbl.mem Config.funSkipTbl key then
+        { fdesc' with stub = [Directive (Skip (fasm, call_conv))]}
+    else
+      raise Not_found
+    
   let init () =
     Stubs.init ();
     init_imports ()
