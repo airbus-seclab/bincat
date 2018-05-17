@@ -97,7 +97,7 @@ type jmp_target =
 (** a function is identified either by its name or its address in the code *)
 type fun_t =
   | Fun_name of string
-  | Fun_addr of Z.t
+  | Fun_addr of Address.t
 
 (** calling convention of functions *)
 type calling_convention_t = {
