@@ -33,7 +33,7 @@ sig
 
 
   (** mapping from code addresses to library functions *)
-  val tbl: (Data.Address.t, Asm.import_desc_t) Hashtbl.t
+  val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
   end
 
     (** decoding context *)
