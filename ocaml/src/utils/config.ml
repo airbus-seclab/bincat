@@ -159,7 +159,7 @@ let size_of_taints (taints: tvalue list): int =
   List.iter (fun t ->
       let n = size_of_taint t in
       if !sz = 0 then sz := n
-      else if n <> !sz then L.abort (fun p -> p "illegal taint list with different sizes")
+      else if n <> !sz then failwith "illegal taint list with different sizes"
     ) taints;
   !sz
       
