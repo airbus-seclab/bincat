@@ -109,7 +109,7 @@ struct
          in
          Config.Fun_addr ia, fdesc', get_callconv ()
     in
-    if Hashtbl.mem Config.FunSkipTbl key then
+    if Hashtbl.mem Config.funSkipTbl key then
       let stmts = [Directive (Skip (key, call_conv)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
         { fdesc' with stub = stmts }
     else
