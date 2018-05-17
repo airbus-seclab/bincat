@@ -60,6 +60,13 @@ def reg_len(regname):
             "sp": 16, "bp": 16, "cs": 16, "ds": 16, "es": 16, "ss": 16,
             "fs": 16, "gs": 16,
             "iopl": 2,
+            "mxcsr_fz":1, "mxcsr_round":2, "mxcsr_pm":1, "mxcsr_um":1,
+            "mxcsr_om":1, "mxcsr_zm":1, "mxcsr_dm":1, "mxcsr_im":1,
+            "mxcsr_daz":1, "mxcsr_pe":1, "mxcsr_ue":1, "mxcsr_oe":1,
+            "mxcsr_ze":1, "mxcsr_de":1, "mxcsr_ie":1,
+            "xmm0":128, "xmm1":128, "xmm2":128, "xmm3":128,
+            "xmm4":128, "xmm5":128, "xmm6":128, "xmm7":128,
+            "st_ptr":3, "c0" : 1, "c1" : 1, "c2": 1, "c3": 1,
             "cf": 1, "pf": 1, "af": 1, "zf": 1, "sf": 1, "tf": 1, "if": 1,
             "df": 1, "of": 1, "nt": 1, "rf": 1, "vm": 1, "ac": 1, "vif": 1,
             "vip": 1, "id": 1}[regname]
