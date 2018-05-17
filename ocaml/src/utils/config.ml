@@ -133,7 +133,16 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
-
+(** returns size of content, rounded to the next multiple of Config.operand_sz *)
+let round_sz sz =
+  if sz < !operand_sz then
+    !operand_sz
+  else
+    if sz mod !operand_sz <> 0 then
+      !operand_sz * (sz / !operand_sz + 1)
+    else
+      sz
+      
 let size_of_content c =
   match c with
   | Content z | CMask (z, _) -> round_sz (Z.numbits z)
