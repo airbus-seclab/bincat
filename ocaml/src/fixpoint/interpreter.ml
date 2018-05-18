@@ -249,7 +249,7 @@ struct
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
 
             | Directive (Skip (f, call_conv)) ->
-               L.info2 (fun p -> p "Skipping %s" (Asm.string_of_fun f));
+               L.analysis (fun p -> p "Skipping %s" (Asm.string_of_fun f));
                (* TODO: optimize to avoid type switching *)
                let f' =
                  match f with
