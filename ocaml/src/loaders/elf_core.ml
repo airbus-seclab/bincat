@@ -939,6 +939,20 @@ let elf_to_coredump_regs elf =
                               ("c", 29, 1) ; ("v", 28, 1) ;
                               ("t", 5,  1) ] in
      List.append !registers flags
+  | ELFOSABI_SYSVV, AARCH64 ->
+     let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
+     let registers = ref [] in
+     for i = 0 to 30 do
+       let rname = Printf.sprintf "x%i" i in
+       registers := (make_reg_LE prstatus.n_desc rname (0x70+i*8) 8) :: !registers
+     done;
+     registers := (make_reg_LE prstatus.n_desc "sp" 0x168 8) :: !registers;
+     registers := (make_reg_LE prstatus.n_desc "pc" 0x170 8) :: !registers;
+     let flags = make_flags prstatus.n_desc 0x178 4
+                            [ ("n", 31, 1) ; ("z", 30, 1) ;
+                              ("c", 29, 1) ; ("v", 28, 1) ] in
+     List.append !registers flags
+
   | _ -> raise (Exceptions.Error 
                   (Printf.sprintf "Cannot extract registers: ELF coredump ABI/Machine [%s/%s] type not supported yet." 
                                   (e_osabi_to_string elf.hdr.e_ident.e_osabi)
