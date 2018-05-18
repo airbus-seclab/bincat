@@ -1258,6 +1258,6 @@ def test_skipfunc(tmpdir):
        end:
           """
     bc = x86.make_bc_test(tmpdir, asm)
-    bc.initfile.add_analyzer_entry("fun_skip=0x100(3)")
+    bc.initfile.add_analyzer_entry("fun_skip=0x100(0,3)")
 
     check(tmpdir, asm, { "eax":3, "ebx": 5}, bctest=bc)
