@@ -368,8 +368,8 @@
     | i = INT LPAREN p=pair_skip RPAREN { Config.Fun_addr i, p }
       
     pair_skip:
-    | bytes=INT COMMA ret=init { bytes, ret }
-    | bytes=INT { bytes, (None, []) }
+    | bytes=INT COMMA ret=init { bytes, Some ret }
+    | bytes=INT { bytes, None }
               
     state:
     |                     { () }

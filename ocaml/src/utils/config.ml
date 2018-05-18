@@ -173,7 +173,7 @@ type fun_t =
   | Fun_name of string
   | Fun_addr of Z.t
               
-let funSkipTbl: (fun_t, Z.t * (cvalue option * tvalue list)) Hashtbl.t  = Hashtbl.create 5
+let funSkipTbl: (fun_t, Z.t * ((cvalue option * tvalue list) option)) Hashtbl.t  = Hashtbl.create 5
                                 
 let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5

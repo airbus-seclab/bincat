@@ -283,21 +283,24 @@ struct
 
     let skip d f call_conv: domain_t * Taint.t * Asm.stmt list =
       let arg_nb, ret_val = Hashtbl.find Config.funSkipTbl f in
-      let sz = Config.size_of_config ret_val in
       let d, taint =
-        match call_conv.Asm.return with
-        | Asm.V (Asm.T r)  when Register.size r = sz -> D.set_register_from_config r Data.Address.Global ret_val d 
-        | Asm.M (e, n) when sz = n ->
-           let addrs, _ = D.mem_to_addresses d e in
-           let d', taint' =
-             match Data.Address.Set.elements addrs with
-             | [a] ->     
-                D.set_memory_from_config a Data.Address.Global ret_val 1 d
+        match ret_val with
+        | None -> D.forget_lval call_conv.Asm.return d, Taint.TOP
+        | Some ret_val' ->
+           let sz = Config.size_of_config ret_val' in
+           match call_conv.Asm.return with
+           | Asm.V (Asm.T r)  when Register.size r = sz -> D.set_register_from_config r Data.Address.Global ret_val' d 
+           | Asm.M (e, n) when sz = n ->
+              let addrs, _ = D.mem_to_addresses d e in
+              let d', taint' =
+                match Data.Address.Set.elements addrs with
+                | [a] ->     
+                   D.set_memory_from_config a Data.Address.Global ret_val' 1 d
              | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
-           in
-          d', taint'
-           
-        | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
+              in
+              d', taint'
+              
+           | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
       in
       let cleanup_stmts = call_conv.Asm.callee_cleanup (Z.to_int arg_nb) in
       d,taint, cleanup_stmts
