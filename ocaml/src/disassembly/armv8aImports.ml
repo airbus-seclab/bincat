@@ -100,12 +100,17 @@ struct
 
 
   let skip fdesc a =
-    let ia = Data.Address.to_int a in
-    let key, fasm, fdesc', call_conv =
       match fdesc with
-      | Some (fdesc', cc) -> Config.Fun_name fdesc'.Asm.name, Asm.Fun_name fdesc'.name, fdesc', cc
+      | Some (fdesc', cc) ->
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_name fdesc'.Asm.name) then
+           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc))]  in
+           { fdesc' with stub = stmts }
+         else
+           fdesc'
+        
       | None ->
-         let fdesc' =
+         let ia = Data.Address.to_int a in
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_addr ia) then
            {
           name = "";
           libname = "";
@@ -114,13 +119,8 @@ struct
           epilogue = [] ;
           ret_addr =Lval(reg "x30");
            }
-         in
-         Config.Fun_addr ia, Asm.Fun_addr a, fdesc', get_callconv ()
-    in
-    if Hashtbl.mem Config.funSkipTbl key then
-        { fdesc' with stub = [Directive (Skip (fasm, call_conv))]}
-    else
-      raise Not_found
+         else
+           raise Not_found
 
   let init () =
     Stubs.init ();
