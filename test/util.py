@@ -146,7 +146,7 @@ class Arch:
     def make_bc_test(self, tmpdir, asm):
         return BCTest(self, tmpdir, asm)
 
-    def run_bc_test(self, bctest):
+    def run_bc_test(self, bctest, testname):
         try:
             bctest.run()
         except Exception,e:  # hack to add test name in the exception
@@ -159,7 +159,7 @@ class Arch:
         hline="\n=========================\n"
 
         bctest = self.make_bc_test(tmpdir, asm)
-        bincat = self.run_bc_test(bctest)
+        bincat = self.run_bc_test(bctest, testname)
 
         diff = []
         same = []
@@ -203,7 +203,7 @@ class Arch:
             regs = self.ALL_REGS
 
         bctest = self.make_bc_test(tmpdir, asm)
-        bincat = self.run_bc_test(bctest)
+        bincat = self.run_bc_test(bctest, testname)
 
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
