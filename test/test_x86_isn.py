@@ -1244,7 +1244,7 @@ def test_bcd_aad(tmpdir, op16, base):
 ## |_| \_,_|_||_| /__/_\_\_| .__/
 ##                         |_|
 
-def test_skipfunc(tmpdir):
+def test_fun_skip_noarg(tmpdir):
     asm = """
            mov eax, 1
            mov ebx, 4
