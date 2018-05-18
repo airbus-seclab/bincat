@@ -939,7 +939,10 @@ let elf_to_coredump_regs elf =
                               ("c", 29, 1) ; ("v", 28, 1) ;
                               ("t", 5,  1) ] in
      List.append !registers flags
-  | _ -> raise (Exceptions.Error "Unsupported ELF coredump ABI/Machine type. Cannot extract registers")
+  | _ -> raise (Exceptions.Error 
+                  (Printf.sprintf "Cannot extract registers: ELF coredump ABI/Machine [%s/%s] type not supported yet." 
+                                  (e_osabi_to_string elf.hdr.e_ident.e_osabi)
+                                  (e_machine_to_string elf.hdr.e_machine)))
 
 let to_elf s =
   let map_section_entities f shdr =
