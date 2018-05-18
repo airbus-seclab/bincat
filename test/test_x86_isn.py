@@ -1244,6 +1244,20 @@ def test_bcd_aad(tmpdir, op16, base):
 ## |_| \_,_|_||_| /__/_\_\_| .__/
 ##                         |_|
 
+def test_isn_nopping(tmpdir):
+    asm = """
+           mov eax, 1
+           mov ebx, 1
+           align 0x10
+           mov eax, 2
+           align 0x10
+           mov ebx, 2
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("nop=0x10,0x20")
+
+    check(tmpdir, asm, { "eax":1, "ebx": 1}, bctest=bc)
+
 def test_fun_skip_noarg(tmpdir):
     asm = """
            mov eax, 1
