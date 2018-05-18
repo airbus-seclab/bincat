@@ -1275,3 +1275,25 @@ def test_fun_skip_noarg(tmpdir):
     bc.initfile.add_analyzer_entry("fun_skip=0x100(0,3)")
 
     check(tmpdir, asm, { "eax":3, "ebx": 5}, bctest=bc)
+
+
+def test_fun_skip_arg(tmpdir):
+    asm = """
+           mov ebx, 0
+           push 1
+           mov eax, 1
+           push 2
+           push 3
+           call lbl
+           pop ebx
+           jmp end
+       align 0x100
+       lbl:
+           mov eax, 2
+           ret
+       end:
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("fun_skip=0x100(2,3)")
+
+    check(tmpdir, asm, { "eax":3, "ebx": 1 }, bctest=bc)
