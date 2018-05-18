@@ -6,6 +6,7 @@ x86 = X86(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'x86.ini.in')
 )
 compare = x86.compare
+check = x86.check
 
 
 def test_assign(tmpdir):
@@ -1236,3 +1237,27 @@ def test_bcd_aad(tmpdir, op16, base):
     compare(tmpdir, asm, ["eax", "sf", "zf", "pf", "of", "af", "cf"],
             top_allowed = {"of":1, "af":1, "cf":1 })
 
+
+##  ___               _   _
+## | __|  _ _ _    __| |_(_)_ __
+## | _| || | ' \  (_-< / / | '_ \
+## |_| \_,_|_||_| /__/_\_\_| .__/
+##                         |_|
+
+def test_skipfunc(tmpdir):
+    asm = """
+           mov eax, 1
+           mov ebx, 4
+           call lbl
+           mov ebx, 5
+           jmp end
+       align 0x100
+       lbl:
+           mov eax, 2
+           ret
+       end:
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("fun_skip=0x100(3)")
+
+    check(tmpdir, asm, { "eax":3, "ebx": 5}, bctest=bc)
