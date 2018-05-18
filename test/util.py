@@ -154,11 +154,12 @@ class Arch:
         return { reg : getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
 
 
-    def check(self, tmpdir, asm, regs):
+    def check(self, tmpdir, asm, regs, bctest=None):
         testname = inspect.stack()[1][3]
         hline="\n=========================\n"
 
-        bctest = self.make_bc_test(tmpdir, asm)
+        if bctest is None:
+            bctest = self.make_bc_test(tmpdir, asm)
         bincat = self.run_bc_test(bctest, testname)
 
         diff = []
