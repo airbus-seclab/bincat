@@ -53,7 +53,7 @@ Install ocaml packages using opam
 ```
 opam init --use-internal-solver
 eval `opam config env`
-opam install zarith ocamlgraph menhir ppx_tools cppo --use-internal-solver
+opam install zarith ocamlgraph menhir ppx_tools cppo num --use-internal-solver
 ```
 
 If you also want to run bincat tests, install the following packages, and run the following commands:

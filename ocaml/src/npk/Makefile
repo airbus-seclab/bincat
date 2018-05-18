@@ -84,7 +84,7 @@ OPTS-lowspeak := -w -7
 OPTS-npk2lpk := -w -7
 
 EXTLIB := nums str unix graph zarith bigarray
-PACKAGES := ocamlgraph zarith
+PACKAGES := ocamlgraph zarith num
 
 EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
 LIBINCL = $(EXTLIBINCL) -I utils -I newspeak -I c2newspeak
