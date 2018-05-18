@@ -53,6 +53,8 @@ class InitFile:
         self["entrypoint"] = 0
         self.values.update(values)
         self.set_directives(directives)
+        self.program_entries=[]
+        self.analyzer_entries=[]
         self.mem={}
         self.reg={}
     def __setitem__(self, attr, val):
@@ -71,6 +73,8 @@ class InitFile:
                        + "\n".join("reg[%s]=%s" % (regname, val)
                                  for (regname,val) in self.reg.iteritems())
                        )
+        v["analyzer_section"] = "\n".join(self.analyzer_entries)
+        v["program_section"] = "\n".join(self.program_entries)
         return self.template.format(**v)
     def set_directives(self, directives):
         overrides = directives.get("overrides",{})
@@ -79,6 +83,10 @@ class InitFile:
         self.mem[addr] = val
     def set_reg(self, regname, val):
         self.reg[regname] = val
+    def add_program_entry(self, entry):
+        self.program_entries.append(entry)
+    def add_analyzer_entry(self, entry):
+        self.analyzer_entries.append(entry)
 
 class BCTest:
     def __init__(self, arch, tmpdir, asm):
