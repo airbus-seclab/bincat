@@ -817,18 +817,16 @@ let note_to_string note =
   (String.length note.n_desc)
 
 let to_notes s (hdr : e_hdr_t) (note_ph : e_phdr_t) =
-  let addrsz = match hdr.e_ident.e_class with
-    | ELFCLASS_32 -> Z.of_int 4
-    | ELFCLASS_64 -> Z.of_int 8 in
+  let addrsz = Z.of_int 4 in
   let sz = note_ph.p_filesz in
   let start_ofs = note_ph.p_offset in
   let read_one_note ofs =
     let p = ref ofs in
-    let namesz = zdec_word_xword s (Z.to_int !p) hdr.e_ident in
+    let namesz = zdec_word s (Z.to_int !p) hdr.e_ident in
     p := Z.(!p + addrsz) ;
-    let descsz = zdec_word_xword s (Z.to_int !p) hdr.e_ident in
+    let descsz = zdec_word s (Z.to_int !p) hdr.e_ident in
     p := Z.(!p + addrsz) ;
-    let ntype = zdec_word_xword s (Z.to_int !p) hdr.e_ident in
+    let ntype = zdec_word s (Z.to_int !p) hdr.e_ident in
     p := Z.(!p + addrsz) ;
     let name = read_string s !p Z.(namesz - ~$1) in
     p := Z.((!p + namesz + addrsz - ~$1) / addrsz * addrsz) ;
