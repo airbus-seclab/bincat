@@ -42,7 +42,7 @@ Set the `loglevel` option in the `[analyzer]` section to between `1` and `4`:
 
 * ret_val is the value and taint of the return. The syntax follows the one described in the state syntax for the initialisation of the memory and registers.
 
-* example. To skip the calls to kill (that has 2 arguments) but set its return value to 0, add fun_skip = kill(2, 0)
+* example. To skip the calls to kill (that has 2 arguments) add fun_skip=kill(2). To specifiy also its return value to be 0, then add fun_skip = kill(2, 0). 
 
 ## State syntax
 
