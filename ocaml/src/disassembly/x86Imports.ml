@@ -92,28 +92,26 @@ struct
 
 
   let skip fdesc a =
-    let ia = Data.Address.to_int a in
-    let key, fasm, fdesc', call_conv =
       match fdesc with
-      | Some (fdesc', cc) -> Config.Fun_name fdesc'.Asm.name, Asm.Fun_name fdesc'.name, fdesc', cc
+      | Some (fdesc', cc) ->
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_name fdesc'.Asm.name) then
+           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
+           { fdesc' with stub = stmts }
+         else
+           fdesc'
       | None ->
-         let fdesc' =
+         let ia = Data.Address.to_int a in
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_addr ia) then
            {
           name = "";
           libname = "";
           prologue = [];
-          stub = [];
+          stub = [Directive (Skip (Asm.Fun_addr a, get_callconv())) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ];
           epilogue = [];
           ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width));
            }
-         in
-         Config.Fun_addr ia, Asm.Fun_addr a, fdesc', get_callconv ()
-    in
-    if Hashtbl.mem Config.funSkipTbl key then
-      let stmts = [Directive (Skip (fasm, call_conv)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
-        { fdesc' with stub = stmts }
-    else
-      raise Not_found
+          else
+            raise Not_found
     
   let init () =
     Stubs.init ();
