@@ -67,18 +67,18 @@ struct
 
   let xmm_tbl = Hashtbl.create 7;;
   List.iteri (fun i r -> Hashtbl.add xmm_tbl i r) [ xmm0 ; xmm1 ; xmm2 ; xmm3 ; xmm4 ; xmm5 ; xmm6 ; xmm7 ];;
-    
+
   (* floating point unit *)
   let st_ptr = Register.make ~name:"st_ptr" ~size:3;;
-  
+
   let c0 = Register.make ~name:"C0" ~size:1;;
   let c1 = Register.make ~name:"C1" ~size:1;;
   let c2 = Register.make ~name:"C2" ~size:1;;
   let c3 = Register.make ~name:"C3" ~size:1;;
-  
 
 
- 
+
+
 
 
   (*************************************************************************)
@@ -118,8 +118,8 @@ struct
   (***********************************************************************)
   let mxcsr_fz = Register.make ~name:"mxcsr_fz" ~size:1;; (* bit 15: Flush to zero  *)
   let mxcsr_round = Register.make ~name:"mxcsr_round" ~size:2;; (* bit 13 and 14: rounding mode st:
-                                                                   - bit 14:  round positive 
-                                                                   - bit 13 : round negative 
+                                                                   - bit 14:  round positive
+                                                                   - bit 13 : round negative
                                                                    - bit 13 and 14 : round to zero or round to the nearest *)
   let mxcsr_pm = Register.make ~name:"mxcsr_pm" ~size:1;; (* bit 12: Precision mask *)
   let mxcsr_um = Register.make ~name:"mxcsr_um" ~size:1;; (* bit 11: Underflow mask *)
@@ -134,7 +134,7 @@ struct
   let mxcsr_ze = Register.make ~name:"mxcsr_ze" ~size:1;; (* bit 2: Divide by zero flag *)
   let mxcsr_de = Register.make ~name:"mxcsr_de" ~size:1;; (* bit 1: Denormal flag *)
   let mxcsr_ie = Register.make ~name:"mxcsr_ie" ~size:1;; (* bit 0: Invalid operation flag *)
-  
+
   (** control flow automaton *)
   module Cfa = Cfa.Make(Domain)
 
@@ -1533,7 +1533,7 @@ struct
                     BinOp(Xor,  Lval (V (T fof)), dst_msb_sz1));],
                 [ undef_flag fof ])
         in
-        let obexp = Cmp (EQ, one, dst_msb) in 
+        let obexp = Cmp (EQ, one, dst_msb) in
         let ops =
                 [
                     (* save sign *)
@@ -2122,8 +2122,7 @@ struct
                 ]
                 in
                 return s stmts
-                              
-             | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" c)  
+             | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" c)
            else
            match c with
            | '\xe8' | '\xe9' | '\xea' | '\xeb' | '\xec' | '\xed' | '\xee' ->
@@ -2143,7 +2142,6 @@ struct
               ]
               in
               return s stmts
-                
            | '\xdd' ->
               let c = getchar s in
               let c' = Char.code c in
@@ -2160,16 +2158,15 @@ struct
                    ]
                    in
                    return s stmts
-                 | c -> error s.a (Printf.sprintf "unknown opcode 0xdd%x\n" c)    
+                 | c -> error s.a (Printf.sprintf "unknown opcode 0xdd%x\n" c)
               else error s.a (Printf.sprintf "unknown opcode 0xdd%x\n" (Char.code c))
-              
            | c -> error s.a (Printf.sprintf "unknown opcode 0xd9%x\n" (Char.code c))
          end
-      | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" (Char.code c))     
-                 
+      | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" (Char.code c))
+
     (* raised by xmm instructions starting by 0xF2 *)
     exception No_rep of Cfa.State.t * Data.Address.t
-        
+
     (** decoding of one instruction *)
     let decode s =
         let add_sub_mrm s op use_carry sz direction =
@@ -2466,9 +2463,9 @@ struct
             | c when '\x40' <= c && c <= '\x4f' -> let cond = (Char.code c) - 0x40 in cmovcc s cond
 
             | '\x10' -> (* MOVSD / MOVSS *) (* TODO: make it more precise *)
-               let v, ip = return s [ Directive (Forget (V (T xmm1))) ] in               
+               let v, ip = return s [ Directive (Forget (V (T xmm1))) ] in
                raise (No_rep (v, ip))
-                 
+
             | '\x11' -> (* MOVSD / MOVSS *) (* TODO: make it more precise *)
                let sz =
                  if s.repne then 64
@@ -2477,9 +2474,9 @@ struct
                in
                let v, ip = mod_rm_on_xmm2 s sz in
                raise (No_rep (v, ip))
-                 
+
             | '\x1F' -> (* long nop *) let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
-            
+
             | '\x28' -> (* MOVAPD *) (* TODO: make it more precise *)
                switch_operand_size s;
               (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
@@ -2491,10 +2488,10 @@ struct
 
             | '\x2A' -> (* CVTSI2SD / CVTSI2SS *) (* TODO: make it more precise *)
                let c = getchar s in
-               let _, reg, _ = mod_nnn_rm (Char.code c) in 
+               let _, reg, _ = mod_nnn_rm (Char.code c) in
                let xmm = Hashtbl.find xmm_tbl reg in
                let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [xmm ; mxcsr_pm] in
-               let v, ip = return s forgets in 
+               let v, ip = return s forgets in
                raise (No_rep (v, ip))
 
             | '\x2C' -> (* CVTTSD2SI / CVTTSS2SI *) (* TODO: make it more precise *)
@@ -2502,21 +2499,21 @@ struct
                let _, reg, _ = mod_nnn_rm (Char.code c) in
                let reg' = Hashtbl.find register_tbl reg in
                let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [reg' ; mxcsr_im ; mxcsr_pm] in
-               let v, ip = return s forgets in 
+               let v, ip = return s forgets in
                raise (No_rep (v, ip))
 
-                 
-                 
+
+
             | '\x2F' -> (* COMISS / CMOISD *) (* TODO: make it more precise *)
                let forgets =
                  List.map (fun flag -> Directive (Forget (V (T flag)))) [ fzf ; fpf ; fcf ; mxcsr_ie ; mxcsr_de; xmm1]
                in
                return s forgets
-                 
+
             | c when '\x40' <= c && c <= '\x4f' -> (* CMOVcc *) let cond = (Char.code c) - 0x40 in cmovcc s cond
 
             | '\x54' -> (* ANDPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
-               
+
             | '\x57' -> (* XORPD *) (* TODO: make it more precise *) return s [ Directive (Forget (V (T xmm1))) ]
             | '\x58' -> (* ADDPS / ADDSD / ADSS *) (* TODO: make it more precise *)
                let forgets =
@@ -2532,9 +2529,9 @@ struct
 
             | '\x5A' -> (* CVTSD2SS *) (* TODO: make it more precise *)
                let forgets = List.map (fun r -> Directive (Forget (V (T r)))) [xmm1 ; mxcsr_om ; mxcsr_um ; mxcsr_im ; mxcsr_pm ; mxcsr_dm] in
-               let v, ip = return s forgets in 
+               let v, ip = return s forgets in
                raise (No_rep (v, ip))
-               
+
             | '\x5C' -> (* SUBPS / SUBSD / SUBSS *) (* TODO: make it more precise *)
                let forgets =
                  List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; xmm1]
@@ -2546,7 +2543,7 @@ struct
                  List.map (fun flag -> Directive (Forget (V (T flag)))) [ mxcsr_oe ; mxcsr_ue ;  mxcsr_ie ; mxcsr_pe ; mxcsr_de ; mxcsr_ze ; xmm1]
                in
                return s forgets
-                 
+
             | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
             | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
             | '\xa0' -> push s [V (T fs)]
