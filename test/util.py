@@ -57,6 +57,8 @@ class InitFile:
         self.analyzer_entries=[]
         self.mem={}
         self.reg={}
+        self.conf_edits=[]
+
     def __setitem__(self, attr, val):
         self.values[attr] = val
     def __getitem__(self, attr):
@@ -75,7 +77,11 @@ class InitFile:
                        )
         v["analyzer_section"] = "\n".join(self.analyzer_entries)
         v["program_section"] = "\n".join(self.program_entries)
-        return self.template.format(**v)
+        conf = self.template.format(**v)
+        print self.conf_edits
+        for before,after in self.conf_edits:
+            conf = conf.replace(before, after)
+        return conf
     def set_directives(self, directives):
         overrides = directives.get("overrides",{})
         self["overrides"] = "\n".join("%#010x=%s" % (addr, val) for addr,val in overrides.iteritems())
@@ -87,6 +93,8 @@ class InitFile:
         self.program_entries.append(entry)
     def add_analyzer_entry(self, entry):
         self.analyzer_entries.append(entry)
+    def add_conf_replace(self, before, after):
+        self.conf_edits.append((before, after))
 
 class BCTest:
     def __init__(self, arch, tmpdir, asm):
