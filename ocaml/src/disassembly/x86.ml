@@ -1470,14 +1470,14 @@ struct
         let ldst = Lval dst in
         let dst_sz_min_one = const (sz-1) sz in
         let dst_msb = BinOp(And, one, BinOp(Shr, ldst, dst_sz_min_one)) in
+        let dst_msb_sz1 = TernOp (Cmp (EQ, one, dst_msb), const1 1, const0 1) in
         let cbexp = Cmp (EQ, one, BinOp (And, one, (BinOp(Shr, ldst, BinOp(Sub, sz', n_masked))))) in
         let cf_stmt = Set (V (T fcf), TernOp (cbexp, const1 1, const0 1)) in
         let of_stmt =
           let is_one = Cmp (EQ, n_masked, one8) in
-          let bexp = Cmp (EQ, one, BinOp(Xor,  Lval (V (T fof)), dst_msb)) in
             If (is_one,    (* OF is computed only if n == 1 *)
                 [Set ((V (T fof)), (* OF is set if signed changed. We saved sign in fof *)
-                    TernOp (bexp, const1 1, const0 1));],
+                    BinOp(Xor,  Lval (V (T fof)), dst_msb_sz1));],
                 [undef_flag fof])
         in
         let lv = Lval dst in
