@@ -21,7 +21,7 @@ distributions.
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
   libocamlgraph-ocaml-dev python-setuptools python-dev \
-  libppx-tools-ocaml-dev ocaml-compiler-libs libppx-tools-ocaml-dev cppo
+  ocaml-compiler-libs libppx-tools-ocaml-dev cppo
 ```
 
 ##### on Ubuntu 16.04:
@@ -29,8 +29,8 @@ Enable the `universe` repository.
 ```
 apt install make python python-pip python-setuptools python-dev python-pytest \
         nasm libc6-dev-i386 gcc-multilib ocaml menhir ocaml-findlib \
-        libzarith-ocaml-dev libocamlgraph-ocaml-dev libppx-tools-ocaml-dev \
-        cppo
+        libzarith-ocaml-dev libocamlgraph-ocaml-dev ocaml-compiler-libs \
+        libppx-tools-ocaml-dev cppo
 ```
 
 If you also want to run bincat tests, install the following packages:
@@ -53,7 +53,7 @@ Install ocaml packages using opam
 ```
 opam init --use-internal-solver
 eval `opam config env`
-opam install zarith ocamlgraph menhir ppx_tools cppo --use-internal-solver
+opam install zarith ocamlgraph menhir ppx_tools cppo num --use-internal-solver
 ```
 
 If you also want to run bincat tests, install the following packages, and run the following commands:

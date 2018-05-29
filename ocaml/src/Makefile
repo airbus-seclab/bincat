@@ -83,7 +83,7 @@ OPTS-reduced_unrel_typenv := -I npk/c2newspeak -I npk/newspeak
 
 
 EXTLIB := nums str unix graph zarith bigarray
-PACKAGES := ocamlgraph zarith
+PACKAGES := ocamlgraph zarith num
 
 EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
 LIBINCL = $(EXTLIBINCL) -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders -I fixpoint
