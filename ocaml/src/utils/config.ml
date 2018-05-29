@@ -142,9 +142,12 @@ type mem_init_t = ((Z.t * int) * (cvalue option * tvalue list)) list
 type reg_init_t = (string * (cvalue option * tvalue list)) list
 
 let register_content: reg_init_t ref = ref []
+let registers_from_coredump: reg_init_t ref = ref []
 let memory_content: mem_init_t ref = ref []
 let stack_content: mem_init_t ref = ref []
 let heap_content: mem_init_t ref = ref []
+
+let elf_coredumps : string list ref = ref []
 
 type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
 let sections: sec_t = ref []

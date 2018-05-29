@@ -206,7 +206,7 @@ struct
         let d', taint' = Domain.set_register_from_config r region v d in
         d', Taint.logor taint taint'
       )
-      (d, Taint.U) (List.rev !Config.register_content)
+      (d, Taint.U) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
 
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding lists in Config *)

@@ -28,6 +28,7 @@ ML=\
   loaders/raw.ml\
   loaders/elf_core.ml\
   loaders/elf.ml\
+  loaders/elf_coredump.ml\
   disassembly/decodeutils.ml\
   fixpoint/stubs.ml\
   fixpoint/rules.ml\

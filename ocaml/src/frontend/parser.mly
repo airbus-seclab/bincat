@@ -154,7 +154,7 @@
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
-%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP
+%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
@@ -363,6 +363,7 @@
     | s=state_item ss=state { s; ss }
 
       state_item:
+    | LOAD_ELF_COREDUMP EQUAL f=QUOTED_STRING                       { Config.elf_coredumps := f :: !Config.elf_coredumps }
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET EQUAL v=init    { init_register r v }
     | MEM LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init    { Config.memory_content := (m, v) :: !Config.memory_content }
     | STACK LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init  { Config.stack_content := (m, v)  :: !Config.stack_content }

@@ -79,6 +79,7 @@ rule token = parse
   | '?'             { MASK }
   (* state section *)
   | "state"             { STATE }
+  | "load_elf_coredump" { LOAD_ELF_COREDUMP }
   (* program section *)
   | "program"                { PROGRAM }
   (* analyzer section *)
