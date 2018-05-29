@@ -25,7 +25,7 @@ def getLastState(prgm):
         if len(nextStates) == 0:
             return curState
         assert len(nextStates) == 1, \
-            "expected exactly 1 destination state after running this instruction"
+            "expected exactly 1 destination state after running this instruction (node: %s)" % curState.node_id
         curState = nextStates[0]
 
 class Bincat:
