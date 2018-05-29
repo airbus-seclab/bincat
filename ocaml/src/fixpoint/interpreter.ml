@@ -248,7 +248,7 @@ struct
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.U
 
-            | Directive (Skip (f, call_conv)) ->
+            | Directive (Skip (f, call_conv)) as skip_statement ->
                L.analysis (fun p -> p "Skipping %s" (Asm.string_of_fun f));
                (* TODO: optimize to avoid type switching *)
                let f' =
@@ -258,17 +258,17 @@ struct
                in                                   
                let d',  taint, cleanup_stmts = Stubs.skip d f' call_conv in
                let d', taint' =
-                 Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
+                 Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (skip_statement :: cleanup_stmts) true));
                  List.fold_left (fun (d, t) stmt ->
                      let dd, tt = process_value d stmt fun_stack in
                      dd, Taint.logor t tt) (d', taint) cleanup_stmts
                in
                d', taint'
                
-            | Directive (Stub (fun_name, call_conv)) ->
+            | Directive (Stub (fun_name, call_conv)) as stub_statement ->
                L.info2(fun p -> p "Processing %s" fun_name);
               let d', taint', cleanup_stmts = Stubs.process d fun_name call_conv in
-              let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts cleanup_stmts true));
+              let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (stub_statement :: cleanup_stmts) true));
                                List.fold_left (fun (d, t) stmt -> let dd, tt = process_value d stmt fun_stack in
                                                                   dd, Taint.logor t tt) (d', taint') cleanup_stmts in
               d', taint'
