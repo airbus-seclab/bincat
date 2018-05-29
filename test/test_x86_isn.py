@@ -705,9 +705,9 @@ def test_cond_cmovxx_reg32(tmpdir):
                     ["ebx", "ecx", "edx", "of", "sf", "zf", "cf", "pf", "af"],
                     top_allowed={ "af":1 })
 
-def test_cond_jump_jne(tmpdir, op8):
+def test_cond_jump_jne(tmpdir, loop_cnt):
     asm = """
-            mov ecx, {op8}
+            mov ecx, {loop_cnt}
             mov eax, 0
          loop:
             inc eax
