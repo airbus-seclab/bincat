@@ -512,7 +512,13 @@ struct
         end;
         vertices
       else
-        [vstart]
+        begin
+          Log.Trace.trace v.Cfa.State.ip (fun p -> p "nop ; forced by config");
+          L.analysis(fun p -> p "Instruction at address %s nopped by config"
+                                (Data.Address.to_string v.Cfa.State.ip));
+          [vstart]
+        end
+
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
     let filter_vertices (subsuming: bool) g vertices =
