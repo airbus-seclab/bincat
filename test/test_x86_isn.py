@@ -736,6 +736,7 @@ def test_loop_repne_scasb(tmpdir):
          """
     compare(tmpdir, asm, ["edi", "ecx", "edx", "zf", "cf", "of", "pf", "af", "sf"])
 
+@pytest.mark.xfail
 def test_loop_repne_scasb_unknown_memory(tmpdir):
     asm = """
             mov edi, esp
@@ -1163,7 +1164,6 @@ def test_misc_lea_imm(tmpdir):
           """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-@pytest.mark.xfail
 def test_read_code_as_data(tmpdir):
     asm = """
            call lbl
