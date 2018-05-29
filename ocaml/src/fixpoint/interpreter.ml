@@ -501,7 +501,7 @@ struct
       let vstart = copy v v.Cfa.State.v None true in
       vstart.Cfa.State.ip <- ip;
       (* check if the instruction has to be skiped *)
-      let ia = Data.Address.to_int ip in
+      let ia = Data.Address.to_int v.Cfa.State.ip in
       if not (Config.SAddresses.mem ia !Config.nopAddresses) then
         let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
         begin
