@@ -1110,7 +1110,7 @@ struct
     let size_push_pop lv sz = if is_segment lv then !Config.stack_width else sz
 
     (** returns true whenever the left value contains the stack register *)
-    let with_stack_pointer a lv =
+    let with_stack_pointer is_pop a lv =
         let rec has e =
             match e with
             | UnOp (_, e') -> has e'
@@ -1120,7 +1120,7 @@ struct
         and in_lv lv =
             match lv with
             | M (e, _) -> has e
-            | V (T r) | V (P (r, _, _)) -> if Register.compare r cs = 0 then error a "Illegal POP CS"; Register.is_stack_pointer r
+            | V (T r) | V (P (r, _, _)) -> if is_pop && Register.compare r cs = 0 then error a "Illegal POP CS"; Register.is_stack_pointer r
         in
         in_lv lv
 
@@ -1149,7 +1149,7 @@ struct
         List.fold_left (fun stmts lv ->
             let n = size_push_pop lv s.addr_sz in
             let incr = set_esp Add esp' n in
-            if with_stack_pointer s.a lv then
+            if with_stack_pointer true s.a lv then
                 [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) s.operand_sz), s.operand_sz))) ] @ stmts
 
             else
@@ -1174,7 +1174,7 @@ struct
         (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
         (* this is the purpose of the pre and post statements *)
         let pre, post=
-          if List.exists (with_stack_pointer s.a) v then
+          if List.exists (with_stack_pointer false s.a) v then
               [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
             else
                 [], []
@@ -1185,7 +1185,7 @@ struct
                 fun stmts lv ->
                     let n = size_push_pop lv s.addr_sz in
                     let st =
-                        if with_stack_pointer s.a lv then
+                        if with_stack_pointer false s.a lv then
                             (* save the esp value to its value before the first push (see PUSHA specifications) *)
                             Set (M (Lval (V esp'), s.operand_sz), Lval (replace_reg lv esp t))
                         else
