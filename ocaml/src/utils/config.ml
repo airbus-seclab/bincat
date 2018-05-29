@@ -29,6 +29,8 @@ module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
 let nopAddresses = ref SAddresses.empty
 
+
+                  
 type memory_model_t =
   | Flat
   | Segmented
@@ -131,6 +133,48 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
+(** returns size of content, rounded to the next multiple of Config.operand_sz *)
+let round_sz sz =
+  if sz < !operand_sz then
+    !operand_sz
+  else
+    if sz mod !operand_sz <> 0 then
+      !operand_sz * (sz / !operand_sz + 1)
+    else
+      sz
+      
+let size_of_content c =
+  match c with
+  | Content z | CMask (z, _) -> round_sz (Z.numbits z)
+  | Bytes b | Bytes_Mask (b, _) -> (String.length b)*4
+                                               
+let size_of_taint (t: tvalue): int =
+  match t with
+  | Taint (z, _) | TMask (z, _, _) -> round_sz (Z.numbits z)
+  | TBytes (b, _) | TBytes_Mask (b, _, _) -> (String.length b)*4
+  | Taint_all _ | Taint_none -> 0
+
+let size_of_taints (taints: tvalue list): int =
+  let sz = ref 0 in
+  List.iter (fun t ->
+      let n = size_of_taint t in
+      if !sz = 0 then sz := n
+      else if n <> !sz then failwith "illegal taint list with different sizes"
+    ) taints;
+  !sz
+
+let size_of_config (c, t) =
+  let nt = size_of_taints t in
+  match c with
+  | None -> nt
+  | Some c' -> max (size_of_content c') nt 
+
+type fun_t =
+  | Fun_name of string
+  | Fun_addr of Z.t
+              
+let funSkipTbl: (fun_t, Z.t * ((cvalue option * tvalue list) option)) Hashtbl.t  = Hashtbl.create 5
+                                
 let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
@@ -220,6 +264,7 @@ let reset () =
   stack_content := [];
   heap_content := [];
   register_content := [];
+  Hashtbl.reset funSkipTbl;
   Hashtbl.reset module_loglevel;
   Hashtbl.reset reg_override;
   Hashtbl.reset mem_override;

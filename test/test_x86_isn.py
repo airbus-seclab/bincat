@@ -6,6 +6,7 @@ x86 = X86(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'x86.ini.in')
 )
 compare = x86.compare
+check = x86.check
 
 
 def test_assign(tmpdir):
@@ -1236,3 +1237,63 @@ def test_bcd_aad(tmpdir, op16, base):
     compare(tmpdir, asm, ["eax", "sf", "zf", "pf", "of", "af", "cf"],
             top_allowed = {"of":1, "af":1, "cf":1 })
 
+
+##  ___               _   _
+## | __|  _ _ _    __| |_(_)_ __
+## | _| || | ' \  (_-< / / | '_ \
+## |_| \_,_|_||_| /__/_\_\_| .__/
+##                         |_|
+
+def test_isn_nopping(tmpdir):
+    asm = """
+           mov eax, 1
+           mov ebx, 1
+           align 0x10
+           mov eax, 2
+           align 0x10
+           mov ebx, 2
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("nop=0x10,0x20")
+
+    check(tmpdir, asm, { "eax":1, "ebx": 1}, bctest=bc)
+
+def test_fun_skip_noarg(tmpdir):
+    asm = """
+           mov eax, 1
+           mov ebx, 4
+           call lbl
+           mov ebx, 5
+           jmp end
+       align 0x100
+       lbl:
+           mov eax, 2
+           ret
+       end:
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("fun_skip=0x100(0,3)")
+
+    check(tmpdir, asm, { "eax":3, "ebx": 5}, bctest=bc)
+
+
+def test_fun_skip_arg(tmpdir):
+    asm = """
+           mov ebx, 0
+           push 1
+           mov eax, 1
+           push 2
+           push 3
+           call lbl
+           pop ebx
+           jmp end
+       align 0x100
+       lbl:
+           mov eax, 2
+           ret
+       end:
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("fun_skip=0x100(2,3)")
+
+    check(tmpdir, asm, { "eax":3, "ebx": 1 }, bctest=bc)

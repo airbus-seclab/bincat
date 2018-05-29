@@ -53,6 +53,8 @@ class InitFile:
         self["entrypoint"] = 0
         self.values.update(values)
         self.set_directives(directives)
+        self.program_entries=[]
+        self.analyzer_entries=[]
         self.mem={}
         self.reg={}
     def __setitem__(self, attr, val):
@@ -71,6 +73,8 @@ class InitFile:
                        + "\n".join("reg[%s]=%s" % (regname, val)
                                  for (regname,val) in self.reg.iteritems())
                        )
+        v["analyzer_section"] = "\n".join(self.analyzer_entries)
+        v["program_section"] = "\n".join(self.program_entries)
         return self.template.format(**v)
     def set_directives(self, directives):
         overrides = directives.get("overrides",{})
@@ -79,6 +83,10 @@ class InitFile:
         self.mem[addr] = val
     def set_reg(self, regname, val):
         self.reg[regname] = val
+    def add_program_entry(self, entry):
+        self.program_entries.append(entry)
+    def add_analyzer_entry(self, entry):
+        self.analyzer_entries.append(entry)
 
 class BCTest:
     def __init__(self, arch, tmpdir, asm):
@@ -101,6 +109,16 @@ class BCTest:
             if l.startswith("[STDOUT] "):
                 s.append(l[9:])
         return "".join(s)
+
+def val2str(val, top=None, taint=None, ttop=None):
+    s = "%08x" % val
+    if top:
+        s += " ? %08x" % top
+    if taint or ttop:
+        s += " ! %08x" % taint
+        if ttop:
+            s += "? %08x" % ttop
+    return s
 
 class Arch:
     ALL_REGS = []
@@ -128,18 +146,66 @@ class Arch:
     def make_bc_test(self, tmpdir, asm):
         return BCTest(self, tmpdir, asm)
 
-    def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
-        if regs is None:
-            regs = self.ALL_REGS
-
-        bctest = self.make_bc_test(tmpdir, asm)
-        testname = inspect.stack()[1][3]
-        hline="\n=========================\n"
+    def run_bc_test(self, bctest, testname):
         try:
             bctest.run()
         except Exception,e:  # hack to add test name in the exception
             pytest.fail("%s: %r\n%s"%(testname,e,bctest.listing))
-        bincat = { reg : getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
+        return { reg : getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
+
+
+    def check(self, tmpdir, asm, regs, bctest=None):
+        testname = inspect.stack()[1][3]
+        hline="\n=========================\n"
+
+        if bctest is None:
+            bctest = self.make_bc_test(tmpdir, asm)
+        bincat = self.run_bc_test(bctest, testname)
+
+        diff = []
+        same = []
+        diff_summary = []
+        for r,v in regs.iteritems():
+            if type(v) is tuple:
+                v = list(v)
+            else:
+                v = [v]
+            v += [0,0,0]
+            target_value, target_vtop, target_taint, target_ttop = v[:4]
+            target_str = val2str(target_value, target_vtop, target_taint, target_ttop)
+            value = bincat[r].value
+            vtop = bincat[r].vtop
+            taint = bincat[r].taint
+            ttop = bincat[r].ttop
+            if (value != target_value or vtop != target_vtop
+                or taint != target_taint or ttop != target_ttop):
+                diff.append("- target:  %s = %s" %
+                            (r, target_str))
+                diff.append("+ bincat:  %s = %s  %r" %
+                            (r, val2str(value, vtop, taint, ttop), bincat[r]))
+                diff_summary.append(r)
+            else:
+                same.append("  both  :  %s = %s  %r" %
+                            (r, target_str, bincat[r]))
+        assert not diff, ("%s: (%s)" % (testname, ", ".join(diff_summary))
+                          +hline
+                          +bctest.listing
+                          +hline
+                          +"\n".join(diff)
+                          +hline
+                          +"\n".join(same))
+
+
+
+    def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
+        testname = inspect.stack()[1][3]
+        hline="\n=========================\n"
+        if regs is None:
+            regs = self.ALL_REGS
+
+        bctest = self.make_bc_test(tmpdir, asm)
+        bincat = self.run_bc_test(bctest, testname)
+
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
         except subprocess.CalledProcessError,e:

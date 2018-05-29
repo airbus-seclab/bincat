@@ -20,6 +20,7 @@ The input file is split into various sections:
 * `override`: state overrides
 * and arch specific sections: `x86`, `armv7` and `armv8`
 
+## Analyzer section
 
 ### Log levels
 
@@ -28,6 +29,20 @@ Set the `loglevel` option in the `[analyzer]` section to between `1` and `4`:
 2. more info
 3. debug
 4. advanced debug
+
+### Fun_skip
+
+* The value associated to the key _skip_fun_ is a list of functions to skip, separated by a comma:
+
+* fun_skip = sk(arg_nb, ret_val), ...
+
+* sk is either a function name or an address 
+
+* arg_nb is the number of its arguments
+
+* ret_val is the value and taint of the return. The syntax follows the one described in the state syntax for the initialisation of the memory and registers.
+
+* example. To skip the calls to kill (that has 2 arguments) add fun_skip=kill(2). To specifiy also its return value to be 0, then add fun_skip = kill(2, 0). 
 
 ## State syntax
 

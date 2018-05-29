@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -93,12 +93,20 @@ type jmp_target =
   | A of Address.t (** target is an absolute address *)
   | R of exp       (** target is the value of the expression *)
 
+
+(** a function is identified either by its name or its address in the code *)
+type fun_t =
+  | Fun_name of string
+  | Fun_addr of Address.t
+
+(** calling convention of functions *)
 type calling_convention_t = {
-  return : lval ;
-  arguments : int -> lval ;
-  callee_cleanup : int -> stmt list ;
+  return: lval;
+  arguments: int -> lval;
+  callee_cleanup: int -> stmt list;
 }
 
+              
 (** type of directives for the analyzer *)
 and directive_t =
   | Remove of Register.t        (** remove the register *)
@@ -114,6 +122,7 @@ and directive_t =
         *)
 
   | Stub of string * calling_convention_t (** Stub (f, args) is the stub of the function f with args as arguments *)
+  | Skip of fun_t * calling_convention_t (** Skip (f, calling_conv) will skip the function _f_ but restablish the stack wrt the calling convention _calling_conv_ *)
 
 (** type of statements *)
 and stmt =
@@ -234,6 +243,11 @@ let string_of_jmp_target t extended =
   | A a -> Address.to_string a
   | R e -> Printf.sprintf "%s" (string_of_exp e extended)
 
+let string_of_fun f =
+  match f with
+  | Fun_name f -> f
+  | Fun_addr a -> Data.Address.to_string a
+                
 let string_of_directive d extended =
   match d with
   | Remove r -> Printf.sprintf "remove %s" (Register.name r)
@@ -255,6 +269,12 @@ let string_of_directive d extended =
        Printf.sprintf "%s <- stub of %s" (string_of_lval cc.return extended) f
      else
        Printf.sprintf "stub of %s" f
+  | Skip (f, cc) ->
+     let fs = string_of_fun f in
+     if extended then
+       Printf.sprintf "%s <- skip of %s" (string_of_lval cc.return extended) fs
+     else
+       Printf.sprintf "skip of %s" fs
 
 
 let string_of_target tgt =

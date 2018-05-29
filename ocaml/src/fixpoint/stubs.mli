@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -22,13 +22,17 @@ sig
 
   (** [process d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args].
 It returns also a boolean true whenever the result is tainted. *)
-  val process : domain_t -> string -> Asm.calling_convention_t ->
+  val process: domain_t -> string -> Asm.calling_convention_t ->
     domain_t * Taint.t * Asm.stmt list
 
-  val init : unit -> unit
+  val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.t * Asm.stmt list
+    
+  val init: unit -> unit
 
-  val stubs : (string, (domain_t -> Asm.lval -> (int -> Asm.lval) ->
+  val stubs: (string, (domain_t -> Asm.lval -> (int -> Asm.lval) ->
                          domain_t * Taint.t) * int) Hashtbl.t
+
+
 end
 
 (** functor to generate transfer functions on the given abstract value that simulates the behavior of common library functions *)

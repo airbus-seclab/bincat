@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -33,7 +33,10 @@ sig
 
 
   (** mapping from code addresses to library functions *)
-  val tbl: (Data.Address.t, Asm.import_desc_t) Hashtbl.t
+    val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
+
+    (** returns a function modeling a skip of the given import function wrt to the given calling convention *)
+      val skip: (Asm.import_desc_t * Asm.calling_convention_t) option -> Data.Address.t -> Asm.import_desc_t
   end
 
     (** decoding context *)
