@@ -1277,7 +1277,7 @@ def test_fun_skip_noarg(tmpdir):
     check(tmpdir, asm, { "eax":3, "ebx": 5}, bctest=bc)
 
 
-def test_fun_skip_arg(tmpdir):
+def test_fun_skip_arg_stdcall(tmpdir):
     asm = """
            mov ebx, 0
            push 1
@@ -1295,5 +1295,6 @@ def test_fun_skip_arg(tmpdir):
           """
     bc = x86.make_bc_test(tmpdir, asm)
     bc.initfile.add_analyzer_entry("fun_skip=0x100(2,3)")
+    bc.initfile.add_conf_replace("call_conv = cdecl","call_conv = stdcall")
 
     check(tmpdir, asm, { "eax":3, "ebx": 1 }, bctest=bc)

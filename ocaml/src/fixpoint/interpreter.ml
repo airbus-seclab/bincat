@@ -501,7 +501,7 @@ struct
       let vstart = copy v v.Cfa.State.v None true in
       vstart.Cfa.State.ip <- ip;
       (* check if the instruction has to be skiped *)
-      let ia = Data.Address.to_int ip in
+      let ia = Data.Address.to_int v.Cfa.State.ip in
       if not (Config.SAddresses.mem ia !Config.nopAddresses) then
         let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
         begin
@@ -512,7 +512,13 @@ struct
         end;
         vertices
       else
-        [vstart]
+        begin
+          Log.Trace.trace v.Cfa.State.ip (fun p -> p "nop ; forced by config");
+          L.analysis(fun p -> p "Instruction at address %s nopped by config"
+                                (Data.Address.to_string v.Cfa.State.ip));
+          [vstart]
+        end
+
 
     (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
     let filter_vertices (subsuming: bool) g vertices =
