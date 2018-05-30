@@ -1190,6 +1190,8 @@ struct
                             let lv_repl = Lval (replace_reg lv esp t) in
                                 Set (M (Lval (V esp'), s.operand_sz), lv_repl)
                         end else begin
+                            (* TODO: some CPUs only move the 16 bits of the segment register and leave the rest
+                             * of the stack untouched *)
                             let lv_ext = if is_segment lv then UnOp (ZeroExt s.operand_sz, Lval lv) else Lval lv in
                             Set (M (Lval (V esp'), s.operand_sz), lv_ext);
                         end
