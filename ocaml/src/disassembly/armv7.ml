@@ -632,6 +632,7 @@ struct
            end,
              begin
                match int_shift_count with
+               | Some 0 -> [ set_cflag_from_bit rm 32 ]
                | Some n -> [ set_cflag_from_bit rm n ]
                | None -> [ set_cflag_from_bit_exp rm op3 ]
              end
@@ -644,6 +645,7 @@ struct
            end,
              begin
                match int_shift_count with
+               | Some 0 -> [ set_cflag_from_bit rm 32 ]
                | Some n -> [ set_cflag_from_bit rm n ]
                | None -> [ set_cflag_from_bit_exp rm op3 ]
              end
