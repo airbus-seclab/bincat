@@ -173,6 +173,9 @@ type fun_t =
   | Fun_name of string
   | Fun_addr of Z.t
               
+(* List of functions to skip
+ * (addr/name, nb_of_args_bytes * (ret value))
+ *)
 let funSkipTbl: (fun_t, Z.t * ((cvalue option * tvalue list) option)) Hashtbl.t  = Hashtbl.create 5
                                 
 let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
