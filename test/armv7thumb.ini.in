@@ -68,8 +68,8 @@ stack[0x1000*8192] = |00|?0xFF
 #read uses a different calling convention
 * = read<aapcs>(@, *, @)
 
-[imports]
-0x4 = all,"strlen"
-0x8 = all,"memcpy"
-0xc = all,"printf"
-0x10 = all,"sprintf"
+#[imports]
+#0x4 = all,"strlen"
+#0x8 = all,"memcpy"
+#0xc = all,"printf"
+#0x10 = all,"sprintf"
