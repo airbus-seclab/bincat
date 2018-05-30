@@ -1143,14 +1143,35 @@ def test_misc_mov_rm8_r8(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-def test_misc_push_cs(tmpdir):
+def test_misc_push_segs_sel(tmpdir):
     asm = """
             push 0
             pop eax
+            push 0
+            pop ebx
+            push 0
+            pop ecx
+            push 0
+            pop edx
+            push 0
+            pop edi
+            push 0
+            pop esi
+
             push cs
             pop eax
+            push ds
+            pop ebx
+            push ss
+            pop ecx
+            push es
+            pop edx
+            push fs
+            pop edi
+            push gs
+            pop esi
           """
-    compare(tmpdir, asm, ["eax"])
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "edi", "esi"])
 
 
 def test_misc_lea_imm(tmpdir):

@@ -2203,7 +2203,7 @@ struct
             | '\x03' -> (* ADD *) add_sub_mrm s Add false s.operand_sz 1
             | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax 8
             | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz
-            | '\x06' -> (* PUSH es *) let es' = to_reg es s.operand_sz in push s [V es']
+            | '\x06' -> (* PUSH es *) let es' = to_reg es 16 in push s [V es']
             | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
             | '\x08' -> (* OR *) or_xor_and_mrm s Or 8 0
             | '\x09' -> (* OR *) or_xor_and_mrm s Or s.operand_sz 0
@@ -2223,7 +2223,7 @@ struct
 
             | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax 8
             | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz
-            | '\x16' -> (* PUSH ss *) let ss' = to_reg ss s.operand_sz in push s [V ss']
+            | '\x16' -> (* PUSH ss *) let ss' = to_reg ss 16 in push s [V ss']
             | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
 
             | '\x18' -> (* SBB *) add_sub_mrm s Sub true 8 0
@@ -2232,7 +2232,7 @@ struct
             | '\x1B' -> (* SBB *) add_sub_mrm s Sub true s.operand_sz 1
             | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax 8
             | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz
-            | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds s.operand_sz in push s [V ds']
+            | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds 16 in push s [V ds']
             | '\x1F' -> (* POP ds *) let ds' = to_reg ds s.operand_sz in pop s [V ds']
 
             | '\x20' -> (* AND *) or_xor_and_mrm s And 8 0
