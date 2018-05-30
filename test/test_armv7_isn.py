@@ -34,8 +34,6 @@ def test_assign(tmpdir, cmpall):
     """
     cmpall(tmpdir, asm, ["r0","r1", "r2", "n", "z"])
 
-
-
 ##  ___   _ _____ _     ___ ___  ___   ___ 
 ## |   \ /_\_   _/_\   | _ \ _ \/ _ \ / __|
 ## | |) / _ \| |/ _ \  |  _/   / (_) | (__ 
@@ -332,7 +330,8 @@ def test_data_xfer_push_pop1(tmpdir, cmpall):
     cmpall(tmpdir, asm, ["r0","r1","r2","r3","r4","r5"])
 
 
-def test_data_xfer_offsets(tmpdir, cmpall):
+# Fails for thumb (not valid assembly)
+def test_data_xfer_offsets(tmpdir):
     asm = """
             mov r0, #0
             mov r1, #123
@@ -347,7 +346,7 @@ def test_data_xfer_offsets(tmpdir, cmpall):
             ldr r5, [sp, #0x10]
             add sp, #0x14
     """
-    cmpall(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5"])
 
 def test_data_xfer_str_8(tmpdir):
     asm = """
