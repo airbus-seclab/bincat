@@ -129,18 +129,18 @@ class BincatPlugin(idaapi.plugin_t):
             return idaapi.PLUGIN_SKIP
         PluginOptions.init()
 
+        # add plugin's 'bin' dir to PATH
+        userdir = idaapi.get_user_idadir()
+        bin_path = os.path.join(userdir, "plugins", "idabincat", "bin")
+        if os.path.isdir(bin_path):
+            path_env_sep = ';' if os.name == 'nt' else ':'
+            os.environ['PATH'] += path_env_sep+bin_path
         if no_spawn:
             bc_exe = None
         else:
             # Check if bincat is available
             bc_exe = distutils.spawn.find_executable('bincat')
         if bc_exe is None:
-            # add to PATH
-            userdir = idaapi.get_user_idadir()
-            bin_path = os.path.join(userdir, "plugins", "idabincat", "bin")
-            if os.path.isdir(bin_path):
-                path_env_sep = ';' if os.name == 'nt' else ':'
-                os.environ['PATH'] += path_env_sep+bin_path
             if no_spawn:
                 bc_exe = os.path.join(bin_path, "bincat")
             else:
