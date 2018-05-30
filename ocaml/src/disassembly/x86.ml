@@ -1185,11 +1185,14 @@ struct
                 fun stmts lv ->
                     let n = size_push_pop lv s.addr_sz in
                     let st =
-                        if with_stack_pointer false s.a lv then
+                        if with_stack_pointer false s.a lv then begin
                             (* save the esp value to its value before the first push (see PUSHA specifications) *)
-                            Set (M (Lval (V esp'), s.operand_sz), Lval (replace_reg lv esp t))
-                        else
-                            Set (M (Lval (V esp'), s.operand_sz), Lval lv);
+                            let lv_repl = Lval (replace_reg lv esp t) in
+                                Set (M (Lval (V esp'), s.operand_sz), lv_repl)
+                        end else begin
+                            let lv_ext = if is_segment lv then UnOp (ZeroExt s.operand_sz, Lval lv) else Lval lv in
+                            Set (M (Lval (V esp'), s.operand_sz), lv_ext);
+                        end
                     in
                     [ set_esp Sub esp' n ; st ] @ stmts
 
@@ -2199,7 +2202,7 @@ struct
             | '\x0D' -> (* OR imm *) or_xor_and_eax s Or s.operand_sz s.operand_sz
 
 
-            | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs s.operand_sz in push s [V cs']
+            | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs 16 in push s [V cs']
             | '\x0F' -> (* 2-byte escape *) decode_snd_opcode s
 
             | '\x10' -> (* ADC *) add_sub_mrm s Add true 8 0
