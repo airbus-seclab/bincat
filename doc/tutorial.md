@@ -48,13 +48,13 @@ Binaries and configuration files are also provided for the following architectur
    shortcut
 4. Focus the **BinCAT Configuration** pane
 5. Click `<-- Current` to define the start address
-6. Ensure that the **Analyzer configuration** dropdown is set to **(new)**
+6. Ensure that the **Current config** dropdown is set to **(new)**
 7. Check the **Save configuration to IDB** option
 8. Click the **Edit...** button
 9. Paste the following lines at the end of the `[state]` section, **overwriting
    the existing stack initialization** (`stack[0x1000*8192]...`). This defines
-   a value for `argc`, creates 5 pointers to strings, and initializes 5
-   null-terminated strings, and also initialized a stack to **TOP** (unknown
+   a value for `argc`, creates 5 pointers to strings, initializes 5
+   null-terminated strings, and also initializes a stack to **TOP** (unknown
    value)
 ```
 stack[0x1000*4099] = |00|?0xFF
