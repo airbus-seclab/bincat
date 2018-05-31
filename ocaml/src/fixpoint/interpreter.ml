@@ -369,7 +369,15 @@ struct
                         | [a] ->
                           begin
                               L.debug (fun p->p "fold_to_target addr : %s" (Data.Address.to_string a));
-                              try let res = skip_or_import_call [v] a fun_stack in import := true; res
+                              try
+                                let res = skip_or_import_call [v] a fun_stack in
+                                import := true;
+                                let new_flags = match v.Cfa.State.flags with
+                                  | None | Some [] -> Some [Cfa.State.Skipped]
+                                  | Some flags -> Some (Cfa.State.Skipped :: flags)
+                                in
+                                  v.Cfa.State.flags <- new_flags;
+                                res
                               with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, Taint.logor t taint_sources
                           end
                         | [] -> L.abort (fun p -> p "Unreachable jump target from ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
