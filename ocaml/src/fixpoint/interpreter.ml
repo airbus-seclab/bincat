@@ -513,6 +513,11 @@ struct
         vertices
       else
         begin
+          let new_flags = match v.Cfa.State.flags with
+            | None | Some [] -> Some [Cfa.State.Nopped]
+            | Some flags -> Some (Cfa.State.Nopped :: flags)
+          in
+            v.Cfa.State.flags <- new_flags;
           Log.Trace.trace v.Cfa.State.ip (fun p -> p "nop ; forced by config");
           L.analysis(fun p -> p "Instruction at address %s nopped by config"
                                 (Data.Address.to_string v.Cfa.State.ip));
