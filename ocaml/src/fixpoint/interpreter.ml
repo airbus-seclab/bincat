@@ -329,10 +329,11 @@ struct
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let skip_or_import_call vertices a fun_stack =     
+      (* will raise Not_found if no import or skip is found *)
       let fundec =
         try
-          let ret = Hashtbl.find Decoder.Imports.tbl a in
-            Decoder.Imports.skip (Some ret) a
+          let import_desc = Hashtbl.find Decoder.Imports.tbl a in
+            Decoder.Imports.skip (Some import_desc) a
         with
         | Not_found -> Decoder.Imports.skip None a
       in

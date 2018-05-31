@@ -434,6 +434,13 @@ class AnalyzerConfig(object):
             return ""
 
     @property
+    def nops(self):
+        try:
+            return self._config.get('analyzer', 'nop')
+        except ConfigParser.NoOptionError:
+            return ""
+
+    @property
     def analysis_method(self):
         return self._config.get('analyzer', 'analysis').lower()
 
@@ -483,6 +490,15 @@ class AnalyzerConfig(object):
             self._config.remove_option('analyzer', 'cut')
         else:
             self._config.set('analyzer', 'cut', value)
+
+    @nops.setter
+    def nops(self, value):
+        if type(value) in (int, long):
+            value = "0x%X" % value
+        if value is None or value == "":
+            self._config.remove_option('analyzer', 'nop')
+        else:
+            self._config.set('analyzer', 'nop', value)
 
     @analysis_method.setter
     def analysis_method(self, value):
