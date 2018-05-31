@@ -36,6 +36,10 @@ sig
       op_sz  : int; (** size in bits of operands *)
     }
 
+    type flags_t =
+       | Nopped
+       | Skipped
+
     type t  = {
       id: int;                          (** unique identificator of the state *)
       mutable ip: Data.Address.t;       (** instruction pointer *)
@@ -49,7 +53,8 @@ sig
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.t;    (** set of taint sources*)
-      mutable back_taint_sources: Taint.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable flags: (flags_t list) option;
     }
 
     val compare: t -> t -> int
@@ -142,6 +147,11 @@ struct
       op_sz  : int; (** size in bits of operands *)
     }
 
+    type flags_t =
+       | Nopped
+       | Skipped
+
+
     (** abstract data type of a state *)
     type t = {
       id: int;                          (** unique identificator of the state *)
@@ -156,7 +166,8 @@ struct
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.t;     (** set of taint sources. Empty if not tainted  *)
-      mutable back_taint_sources: Taint.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable flags: (flags_t list) option;
     }
 
     (** the state identificator counter *)
@@ -257,6 +268,7 @@ struct
       };
       taint_sources = Taint.U;
       back_taint_sources = None;
+      flags = None;
     }
 
 
