@@ -179,7 +179,7 @@ class ConfigHelpers(object):
             if seg.type == idaapi.SEG_CODE and start_ea <= entrypoint < end_ea:
                 # TODO : check PE/ELF for **physical** (raw) section size
                 return start_ea, end_ea
-        bc_log.error("No code section has been found for entrypoint %#08x",
+        bc_log.error("No code section has been found for entrypoint %#08X",
                      entrypoint)
         return -1, -1
 
