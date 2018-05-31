@@ -82,8 +82,10 @@ mem[0x300200] = |6c6f6c2100|
 16. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
-    should be `0x1D50`). Open the **BinCAT Memory** view at this address, to
-    observe the contents of the `buffer` pointer (`char *`) where `sprintf`
+    should be `0x1D50`). Open the **BinCAT Memory** view, select the `stack`
+    section in the first drop-down menu at the top of the panel (`global` is
+    selected by default), then scroll the the `0x1D50` address,
+    to observe the contents of the `buffer` pointer (`char *`) where `sprintf`
     results will be output (the value should be `0x1DEC`)
 17. Advance to the next instruction at address `0x80C`, and observe the
     value of the `buffer` that has been formatted by `sprintf` at address
@@ -92,7 +94,7 @@ mem[0x300200] = |6c6f6c2100|
     and observe the inferred types for the call to `sprintf`
 19. Go to address `0xA93`, which contains a call to a location that is stored
     on the stack. Notice that IDA cannot resolve the destination address. In
-    the **BinCAT Registers** view, use the *goto next node (1)* drop down menu
+    the **BinCAT Registers** view, use the *Next node(s):* drop down menu
     to jump to the destination
 
 ### 2. Use taint override
