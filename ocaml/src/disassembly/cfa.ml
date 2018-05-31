@@ -292,6 +292,17 @@ struct
   let add_successor g src dst = G.add_edge g src dst
 
 
+  let rec string_of_flags flags: string =
+    let str_list =
+      match flags with
+        | None -> ""
+        | Some [] -> ""
+        | Some (Nopped :: tail) -> "Nopped," ^ (string_of_flags (Some tail))
+        | Some (Skipped :: tail) -> "Skipped," ^ (string_of_flags (Some tail))
+    in
+      str_list
+
+
   (** returns the list of successors of the given vertex in the given CFA *)
   let succs g v  = G.succ g v
 
@@ -330,8 +341,8 @@ struct
     in
     let print_ip s =
       let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
-      Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
-        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.to_string s.taint_sources);
+      Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\nflags=%s\n" s.id
+        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.to_string s.taint_sources) (string_of_flags s.flags)
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s);
       if !Config.loglevel > 2 then
         begin
