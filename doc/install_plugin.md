@@ -2,6 +2,8 @@
 
 #### Plugin install
 
+* clone this repository `git clone https://github.com/airbus-seclab/bincat`
+* `cd bincat`
 * run `make IDAuser`
 
 #### Dependencies

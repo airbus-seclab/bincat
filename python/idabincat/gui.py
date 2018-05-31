@@ -710,10 +710,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         return
 
     def _copy_start(self):
-        self.ip_start_addr.setText("0x%x" % idaapi.get_screen_ea())
+        self.ip_start_addr.setText("0x%X" % idaapi.get_screen_ea())
 
     def _copy_stop(self):
-        self.ip_stop_addr.setText("0x%x" % idaapi.get_screen_ea())
+        self.ip_stop_addr.setText("0x%X" % idaapi.get_screen_ea())
 
     def get_analysis_method(self):
         if self.radio_forward.isChecked():
@@ -1105,7 +1105,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         """
         :param ea: int or long
         """
-        self.rvatxt = '0x%08x' % ea
+        self.rvatxt = '0x%08X' % ea
         if not (self.shown and self.created):
             return
         self.alabel.setText('RVA: %s' % self.rvatxt)
