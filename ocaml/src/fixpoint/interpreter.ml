@@ -329,13 +329,16 @@ struct
 
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let skip_or_import_call vertices a fun_stack =     
+      let skip = ref false in
       (* will raise Not_found if no import or skip is found *)
       let fundec =
         try
           let import_desc = Hashtbl.find Decoder.Imports.tbl a in
-            Decoder.Imports.skip (Some import_desc) a
+              let skip_desc = Decoder.Imports.skip (Some import_desc) a in
+                  skip := true;
+                  skip_desc
         with
-        | Not_found -> Decoder.Imports.skip None a
+        | Not_found -> skip := true; Decoder.Imports.skip None a
       in
         let stmts = fundec.Asm.prologue @ fundec.Asm.stub @ fundec.Asm.epilogue in
         let ret_addr_exp = fundec.Asm.ret_addr in
@@ -356,7 +359,7 @@ struct
                                               (Asm.string_of_stmts [ Asm.Jmp(R ret_addr_exp) ] true));
                 Taint.logor t t') Taint.U vertices
         in
-        vertices, t
+        (vertices, t), !skip
 
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
         let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) : (Cfa.State.t list * Taint.t) =
@@ -371,13 +374,10 @@ struct
                           begin
                               L.debug (fun p->p "fold_to_target addr : %s" (Data.Address.to_string a));
                               try
-                                let res = skip_or_import_call [v] a fun_stack in
+                                let res, skip = skip_or_import_call [v] a fun_stack in
                                 import := true;
-                                let new_flags = match v.Cfa.State.flags with
-                                  | None | Some [] -> Some [Cfa.State.Skipped]
-                                  | Some flags -> Some (Cfa.State.Skipped :: flags)
-                                in
-                                  v.Cfa.State.flags <- new_flags;
+                                let flag = if skip then Cfa.State.Skip else Cfa.State.Import in
+                                    v.Cfa.State.flags <- flag :: v.Cfa.State.flags;
                                 res
                               with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, Taint.logor t taint_sources
                           end
@@ -461,7 +461,7 @@ struct
              | Jmp (A a) ->
                 begin
                   try
-                    let res = skip_or_import_call vertices a fun_stack in
+                    let res, _ = skip_or_import_call vertices a fun_stack in
                     fun_stack := List.tl !fun_stack;
                     res
                   with Not_found ->
@@ -475,7 +475,9 @@ struct
                 add_to_fun_stack a;
                 begin
                   try
-                    skip_or_import_call vertices a fun_stack
+                    let res, _ = skip_or_import_call vertices a fun_stack
+                    in
+                    res
                   with Not_found ->
                     List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
                     vertices, Taint.U
@@ -522,11 +524,7 @@ struct
         vertices
       else
         begin
-          let new_flags = match v.Cfa.State.flags with
-            | None | Some [] -> Some [Cfa.State.Nopped]
-            | Some flags -> Some (Cfa.State.Nopped :: flags)
-          in
-            v.Cfa.State.flags <- new_flags;
+          v.Cfa.State.flags <- Cfa.State.Nop :: v.Cfa.State.flags;
           Log.Trace.trace v.Cfa.State.ip (fun p -> p "nop ; forced by config");
           L.analysis(fun p -> p "Instruction at address %s nopped by config"
                                 (Data.Address.to_string v.Cfa.State.ip));
