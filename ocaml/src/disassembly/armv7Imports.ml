@@ -98,11 +98,19 @@ struct
 
 
 
+  (** check if fdesc (import description) or a (address) should be skipped
+   *  raise Not_found if not
+   *  else
+   *    return either a 
+   *      - *patched* fdesc (stub replaced with 'Skip')
+   *      - new minimal fdesc to Skip
+   * *)
   let skip fdesc a =
       match fdesc with
       | Some (fdesc', cc) ->
          if Hashtbl.mem Config.funSkipTbl (Config.Fun_name fdesc'.Asm.name) then
            let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc))]  in
+           (* replace stub statements *)
            { fdesc' with stub = stmts }
          else
            fdesc'
