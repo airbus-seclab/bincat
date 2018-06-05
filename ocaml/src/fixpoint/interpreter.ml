@@ -335,11 +335,13 @@ struct
         try
           let import_desc = Hashtbl.find Decoder.Imports.tbl a in
               let skip_desc = Decoder.Imports.skip (Some import_desc) a in
+                  L.debug2(fun p->p "toto");
                   skip := true;
                   skip_desc
         with
-        | Not_found -> skip := true; Decoder.Imports.skip None a
+        | Not_found -> skip := true; L.debug2(fun p->p "toto2");Decoder.Imports.skip None a
       in
+        L.debug2(fun p->p "toto3 %b" !skip);
         let stmts = fundec.Asm.prologue @ fundec.Asm.stub @ fundec.Asm.epilogue in
         let ret_addr_exp = fundec.Asm.ret_addr in
         let t =
@@ -461,7 +463,9 @@ struct
              | Jmp (A a) ->
                 begin
                   try
-                    let res, _ = skip_or_import_call vertices a fun_stack in
+                    let res, skip = skip_or_import_call vertices a fun_stack in
+                    let flag = if skip then Cfa.State.Skip else Cfa.State.Import in
+                        v.Cfa.State.flags <- flag :: v.Cfa.State.flags;
                     fun_stack := List.tl !fun_stack;
                     res
                   with Not_found ->
@@ -475,8 +479,10 @@ struct
                 add_to_fun_stack a;
                 begin
                   try
-                    let res, _ = skip_or_import_call vertices a fun_stack
+                    let res, skip = skip_or_import_call vertices a fun_stack
                     in
+                    let flag = if skip then Cfa.State.Skip else Cfa.State.Import in
+                        v.Cfa.State.flags <- flag :: v.Cfa.State.flags;
                     res
                   with Not_found ->
                     List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
