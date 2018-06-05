@@ -249,7 +249,8 @@ class State(object):
     example valtaints: G0x1234 G0x12!0xF0 S0x12!ALL
     """
     __slots__ = ['address', 'node_id', '_regaddrs', '_regtypes', 'final',
-                 'statements', 'bytes', 'tainted', 'taintsrc', '_outputkv']
+                 'statements', 'bytes', 'tainted', 'taintsrc', '_outputkv',
+                 'flags']
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
@@ -263,6 +264,7 @@ class State(object):
         self.statements = ""
         self.bytes = ""
         self.tainted = False
+        self.flags = []
 
     @property
     def regaddrs(self):
@@ -304,6 +306,7 @@ class State(object):
         new_state.final = outputkv.pop("final", None) == "true"
         new_state.statements = outputkv.pop("statements", "")
         new_state.bytes = outputkv.pop("bytes", "")
+        new_state.flags = outputkv.pop("flags", "").split(",")
         taintedstr = outputkv.pop("tainted", "")
         if taintedstr == "true":
             # v0.6 format
