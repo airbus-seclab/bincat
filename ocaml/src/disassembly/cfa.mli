@@ -34,8 +34,9 @@ module type T =
     }
 
     type flags_t =
-       | Nopped
-       | Skipped
+       | Nop           (* Instruction was 'nop'ed due to config *)
+       | Skip          (* 'Skip' due to config *)
+       | Import        (* import *)
 
     type t  = {
       id: int;                  (** unique identificator of the state *)
@@ -52,7 +53,7 @@ module type T =
       mutable bytes: char list;      (** corresponding list of bytes *)
       mutable taint_sources: Taint.t; (** set of taint sources *)
       mutable back_taint_sources: Taint.t option; (** set of taint sources in backward mode. None means undefined *)
-      mutable flags: (flags_t list) option;
+      mutable flags: flags_t list;      (** list of flags *)
 
     }
 

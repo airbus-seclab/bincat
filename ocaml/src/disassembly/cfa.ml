@@ -37,8 +37,9 @@ sig
     }
 
     type flags_t =
-       | Nopped
-       | Skipped
+       | Nop           (* Instruction was 'nop'ed due to config *)
+       | Skip          (* 'Skip' due to config *)
+       | Import        (* import *)
 
     type t  = {
       id: int;                          (** unique identificator of the state *)
@@ -54,7 +55,7 @@ sig
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.t;    (** set of taint sources*)
       mutable back_taint_sources: Taint.t option; (** set of taint sources in backward mode. None means undefined *)
-      mutable flags: (flags_t list) option;
+      mutable flags: flags_t list;      (** list of flags *)
     }
 
     val compare: t -> t -> int
@@ -148,9 +149,9 @@ struct
     }
 
     type flags_t =
-       | Nopped
-       | Skipped
-
+       | Nop           (* Instruction was 'nop'ed due to config *)
+       | Skip          (* 'Skip' due to config *)
+       | Import        (* import *)
 
     (** abstract data type of a state *)
     type t = {
@@ -167,7 +168,7 @@ struct
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.t;     (** set of taint sources. Empty if not tainted  *)
       mutable back_taint_sources: Taint.t option; (** set of taint sources in backward mode. None means undefined *)
-      mutable flags: (flags_t list) option;
+      mutable flags: flags_t list;      (** list of flags *)
     }
 
     (** the state identificator counter *)
@@ -268,7 +269,7 @@ struct
       };
       taint_sources = Taint.U;
       back_taint_sources = None;
-      flags = None;
+      flags = [];
     }
 
 
@@ -295,10 +296,10 @@ struct
   let rec string_of_flags flags: string =
     let str_list =
       match flags with
-        | None -> ""
-        | Some [] -> ""
-        | Some (Nopped :: tail) -> "Nopped," ^ (string_of_flags (Some tail))
-        | Some (Skipped :: tail) -> "Skipped," ^ (string_of_flags (Some tail))
+        | [] -> ""
+        | Nop:: tail -> "Nop," ^ (string_of_flags tail)
+        | Skip:: tail -> "Skip," ^ (string_of_flags tail)
+        | Import:: tail -> "Import," ^ (string_of_flags tail)
     in
       str_list
 
