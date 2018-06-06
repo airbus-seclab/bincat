@@ -315,7 +315,7 @@ class State(object):
             taintsrc = []
         else:
             # v0.7 format, tainted
-            taintsrc = taintedstr.split(', ')
+            taintsrc = map(str.strip, taintedstr.split(','))
             tainted = True
         new_state.tainted = tainted
         new_state.taintsrc = taintsrc
