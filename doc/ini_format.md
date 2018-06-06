@@ -58,7 +58,25 @@ For example `nop=0x1234, 0x9876` will make the analyzer handle the
 instructions at addresses `0x1234` and `0x9876` as a "nop", moving to the
 next instruction without side effects.
 
+## Program section
+
+### Coredumps
+
+BinCAT can load ELF coredumps, for example:
+
+```ini
+[program]
+mode = protected
+[...]
+format = elf
+load_elf_coredump = "core_get_key_x86"
+```
+
+BinCAT will load the inital state from the specified core file.
+
 ## State syntax
+
+When using a coredump, the `[state]` section should be empty
 
 ### Value syntax
 
