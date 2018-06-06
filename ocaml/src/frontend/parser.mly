@@ -246,6 +246,7 @@
     | p=program_item pp=program  { p; pp }
 
     program_item:
+    | LOAD_ELF_COREDUMP EQUAL f=QUOTED_STRING                       { Config.elf_coredumps := f :: !Config.elf_coredumps }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
     | OP_SZ EQUAL i=INT          {
       update_mandatory OP_SZ;
@@ -376,7 +377,6 @@
     | s=state_item ss=state { s; ss }
 
       state_item:
-    | LOAD_ELF_COREDUMP EQUAL f=QUOTED_STRING                       { Config.elf_coredumps := f :: !Config.elf_coredumps }
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET EQUAL v=init    { init_register r v }
     | MEM LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init    { Config.memory_content := (m, v) :: !Config.memory_content }
     | STACK LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init  { Config.stack_content := (m, v)  :: !Config.stack_content }
