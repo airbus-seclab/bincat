@@ -34,7 +34,7 @@ plugin_dir = os.path.join(userdir, "plugins")
 
 bincat_path = os.path.dirname(os.path.realpath(__file__))
 
-if not os.path.isdir(plugin_dir) or not os.path.isdir(bincat_path):
+if not os.path.isdir(userdir) or not os.path.isdir(bincat_path):
     print "Something's wrong: %s or %s is not a dir" % (plugin_dir, bincat_path)
 
 p_idabincat = os.path.join(bincat_path, "python", "idabincat")
