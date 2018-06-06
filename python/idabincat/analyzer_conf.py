@@ -475,6 +475,13 @@ class AnalyzerConfig(object):
         return self._config.get('program', 'format').lower()
 
     @property
+    def coredump(self):
+        try:
+            return self._config.get('program', 'load_elf_coredump')
+        except ConfigParser.NoOptionError:
+            return None
+
+    @property
     def state(self):
         return self.init_state
 

@@ -530,6 +530,11 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         tables_split.addWidget(self.mem_table)
 
+        # Coredump path, hidden by default
+        self.lbl_core_path = QtWidgets.QLabel()
+        self.lbl_core_path.hide()
+        tables_split.addWidget(self.lbl_core_path)
+
         # For backward we just show a help text
         self.lbl_back_help = QtWidgets.QLabel("Backward mode uses overrides, initial "
                                               "configuration makes no sense in this mode.")
@@ -834,6 +839,16 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.cfgregmodel.beginResetModel()
         self.cfgmemmodel.beginResetModel()
         config = self.s.edit_config
+        # If we have a coredump, disable mem/regs
+        if config.coredump:
+            self.regs_table.setEnabled(False)
+            self.mem_table.setEnabled(False)
+            self.lbl_core_path.setText("Coredump path: "+config.coredump)
+            self.lbl_core_path.show()
+        else:
+            self.regs_table.setEnabled(True)
+            self.mem_table.setEnabled(True)
+            self.lbl_core_path.hide()
         self.ip_start_addr.setText(config.analysis_ep)
         cut = config.stop_address or ""
         self.ip_stop_addr.setText(cut)
