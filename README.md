@@ -35,33 +35,36 @@ Supported CPU for analysis (for now):
 
 ## Installation
 
-### Analyzer
-The analyzer can be used locally or through a Web service.
-
-On Windows, the [binary distribution](https://github.com/airbus-seclab/bincat/releases) includes the analyzer.
-
-On Linux:
-* Using Docker: [Docker installation instructions](doc/install_docker.md)
-* Manual: [Manual installation instructions](doc/install_manual.md)
-
-### IDA Plugin
-
 **Only IDA v6.9 or later (7 included) are supported**
 
-#### Install for Windows
+### Binary distribution install (recommended)
 
-* Unzip the [binary distribution](https://github.com/airbus-seclab/bincat/releases)  of BinCAT (not the git repo)
+The [binary distribution](https://github.com/airbus-seclab/bincat/releases) includes everything needed:
+
+* the analyzer
+* the IDA plugin
+
+Install steps:
+
+* Extract the [binary distribution](https://github.com/airbus-seclab/bincat/releases) of BinCAT (not the git repo)
 * In IDA, click on "File -> Script File..." menu (or type ALT-F7)
 * Select `install_plugin.py`
 * BinCAT is now installed in your IDA user dir
 * Restart IDA
 
-Or [install manually](doc/plugin_manual_win.md).
+### Manual installation
 
+#### Analyzer
+The analyzer can be used locally or through a Web service.
 
-#### Linux install
+On Linux:
+* Using Docker: [Docker installation instructions](doc/install_docker.md)
+* Manual: [Manual installation instructions](doc/install_manual.md)
 
-[Installation instructions](doc/install_plugin.md)
+#### IDA Plugin
+
+* [Windows manual install](doc/plugin_manual_win.md).
+* [Linux manual install](doc/install_plugin.md)
 
 BinCAT should work with IDA on Wine, once pip is installed:
 
