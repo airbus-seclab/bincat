@@ -37,9 +37,13 @@ def dump_binary(path):
         buggy = False
     if buggy:
         f = idaapi.qfile_t()
-        f.open(path, 'wb+')
+        try:
+            f.open(path, 'wb+')
+        except TypeError:
+            # Another ugly hack for IDA 6/7 compat (unicode strings)
+            f.open(str(path), 'wb+')
         segments = [idaapi.getnseg(x) for x in range(idaapi.get_segm_qty())]
-        max_addr = segments.endEA # no need for IDA 7 compat, it's not buggy
+        max_addr = segments[-1].endEA # no need for IDA 7 compat, it's not buggy
         if max_addr > 200*1024*1024:
             if idaapi.ask_yn(idaapi.ASKBTN_NO, "Dump file is over 200MB,"
                                                " do you want to dump it anyway ?") != idaapi.ASKBTN_YES:
