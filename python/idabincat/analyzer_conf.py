@@ -153,7 +153,10 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_bitness(ea):
-        bitness = idaapi.getseg(ea).bitness
+        seg = idaapi.getseg(ea)
+        if not seg:
+            seg = idaapi.getseg(idautils.Segments().next())
+        bitness = seg.bitness
         return {0: 16, 1: 32, 2: 64}[bitness]
 
     @staticmethod
