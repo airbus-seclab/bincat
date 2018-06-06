@@ -28,6 +28,7 @@ import sys
 import tempfile
 import traceback
 import zlib
+
 # Ugly but IDA Python Linux doesn't have it !
 try:
     import distutils.spawn
@@ -305,7 +306,11 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         exitcode = self.exitCode()
         if exitcode != 0:
             bc_log.error("analyzer returned exit code=%i", exitcode)
-        self.process_output()
+        try:
+            self.process_output()
+        except Exception as e:
+            idaapi.hide_wait_box()
+            bc_log.error("Caught exception, hiding wait box", exc_info=True)
 
     def process_output(self):
         """
@@ -599,7 +604,7 @@ class State(object):
         # unresponsive when parsing.
         try:
             cfa = cfa_module.CFA.parse(outfname, logs=logfname)
-        except (pybincat.PyBinCATException):
+        except pybincat.PyBinCATException:
             idaapi.hide_wait_box()
             bc_log.error("Could not parse result file")
             return None
@@ -706,7 +711,7 @@ class State(object):
         filepath = self.current_config.binary_filepath
         if os.path.isfile(filepath):
             return filepath
-        filepath = ConfigHelpers.guess_filepath()
+        filepath = ConfigHelpers.guess_file_path()
         if os.path.isfile(filepath):
             return filepath
         # give up
@@ -735,7 +740,7 @@ class State(object):
         # *Analyzer instance, killing an unlucky QProcess in the process
         try:
             self.analyzer = self.new_analyzer(path, self.analysis_finish_cb)
-        except AnalyzerUnavailable as e:
+        except AnalyzerUnavailable:
             bc_log.error("Analyzer is unavailable", exc_info=True)
             return
 
@@ -810,7 +815,7 @@ class State(object):
                     "ida-generated header could be invalid.")
             else:
                 headers_filenames.append(npk_filename)
-            bc_log.debug("Final npk files: %r" % headers_filenames)
+            bc_log.debug("Final npk files: %r", headers_filenames)
         self.current_config.headers_files = ','.join(headers_filenames)
 
         self.current_config.write(self.analyzer.initfname)
