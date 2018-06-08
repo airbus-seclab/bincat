@@ -2379,8 +2379,8 @@ struct
               let sp = V (to_reg esp s.operand_sz) in
               let bp = V (to_reg ebp s.operand_sz) in
               return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp]))
-            | '\xca' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs)]))
-            | '\xcb' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
+            | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
+            | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs)]))
             | '\xcc' -> (* INT 3 *) error s.a "INT 3 decoded. Interpreter halts"
             | '\xcd' -> (* INT *) let c = getchar s in error s.a (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
             | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
