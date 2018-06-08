@@ -22,6 +22,7 @@ import os
 import logging
 import string
 import re
+from colorsys import hsv_to_rgb
 import idaapi
 import idautils
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -36,6 +37,54 @@ from idabincat.analyzer_conf import AnalyzerConfig, ConfigHelpers
 bc_log = logging.getLogger('bincat.gui')
 bc_log.setLevel(logging.DEBUG)
 
+GREENS = [
+    (247,253,134),
+    (209,215, 93),
+    ( 75,112, 26),
+    (117,122, 29),
+    ( 43, 69,  9),
+    (100,189,141),
+    (110,155, 52),
+    ( 20, 87, 51),
+    (163,168, 56),
+    ( 72, 75, 10),
+    (187,235,125),
+    ( 40,120, 77),
+    (  7, 54, 29),
+    (149,198, 86),
+    ( 66,154,107),
+]
+
+BLUES_AND_YELLOWS = [
+    (173,109,  0),
+    (  2, 28, 66),
+    (173,170,  0),
+    ( 41,  2, 67),
+    (140, 88,  0),
+    (  4, 68,162),
+    (246,241,  0),
+    ( 57,  2, 94),
+    (207,130,  0),
+    (  4, 49,114),
+    (100, 98,  0),
+    (246,155,  0),
+    ( 71,  3,116),
+    (100, 63,  0),
+    (207,203,  0),
+    ( 99,  3,165),
+    (140,137,  0),
+    (  5, 58,136),
+    ( 84,  3,139),
+    (  4, 39, 92),
+]
+
+
+COLS = GREENS # BLUES_AND_YELLOWS
+
+
+def taint_color(n):
+    r, g, b = COLS[n%len(COLS)]
+    return b | g<<8 | r << 16
 
 class EditConfigurationFileForm_t(QtWidgets.QDialog):
     def __init__(self, parent, state):

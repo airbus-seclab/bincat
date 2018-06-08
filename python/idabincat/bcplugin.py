@@ -47,7 +47,7 @@ import idabincat.netnode
 import idabincat.npkgen
 from idabincat.plugin_options import PluginOptions
 from idabincat.analyzer_conf import AnalyzerConfig, AnalyzerConfigurations, ConfigHelpers
-from idabincat.gui import GUI
+from idabincat.gui import GUI, taint_color
 import pybincat
 
 from PyQt5 import QtCore
@@ -662,18 +662,22 @@ class State(object):
                 return None
             ea = addr.value
             tainted = False
+            taint_id = 1
             for n_id in nodeids:
                 # is it tainted?
                 # find children state
                 state = cfa[n_id]
                 if state.tainted:
                     tainted = True
+                    if state.taintsrc:
+                        # Take the first one
+                        taint_id = int(state.taintsrc[0].split("-")[1])
                     break
 
             if tainted:
-                idaapi.set_item_color(ea, 0xDDFFDD)
+                idaapi.set_item_color(ea, taint_color(taint_id))
             else:
-                idaapi.set_item_color(ea, 0xCDCFCE)
+                idaapi.set_item_color(ea, 0xF0F0F0)
         idaapi.hide_wait_box()
 
     def set_current_node(self, node_id):
