@@ -496,8 +496,8 @@ struct
             in
             BinOp (Add, base', scaled_index)
 
-    (** returns the statements for a memory operation encoded in _md_ _rm_ *)
-    let md_from_mem s md rm sz =
+    (** returns the statements for a memory operation encoded in _md_ _rm_ (32 bits) *)
+    let md_from_mem_32 s md rm sz =
         let rm_lv = find_reg_lv rm s.addr_sz in
         if rm = 4 then
             sib s md
@@ -515,6 +515,38 @@ struct
             | 2 ->
               BinOp (Add, rm_lv, disp s s.addr_sz s.addr_sz)
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
+
+    (** returns the statements for a memory operation encoded in _md_ _rm_ (16 bits) *)
+    let md_from_mem_16 s md rm sz =
+        let bx = Lval (V(P(ebx, 0, 15))) in
+        let bp = Lval (V(P(ebp, 0, 15))) in
+        let si = Lval (V(P(esi, 0, 15))) in
+        let di = Lval (V(P(edi, 0, 15))) in
+        let base = match rm with
+          | 0 -> BinOp(Add, bx, si)
+          | 1 -> BinOp(Add, bx, di)
+          | 2 -> BinOp(Add, bp, si)
+          | 3 -> BinOp(Add, bp, di)
+          | 4 -> si
+          | 5 -> di
+          | 6 -> if md == 0 then disp s 16 16 else bp
+          | 7 -> bx
+          | _ -> error s.a "Decoder: illegal value in md_from_mem_16"
+        in
+        match md with
+        | 0 -> base
+        | 1 ->
+          BinOp (Add, base, UnOp(SignExt 16, disp s 8 sz))
+
+        | 2 ->
+          BinOp (Add, base, disp s 16 16)
+        | _ -> error s.a "Decoder: illegal value in md_from_mem"
+
+    let md_from_mem s md rm sz =
+      match s.addr_sz with
+      | 16 -> md_from_mem_16 s md rm sz
+      | 32 -> md_from_mem_32 s md rm sz
+      | _ -> error s.a "Decoder: illegal s.addr_sz in md_from_mem"
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
     let exp_of_md s md rm sz mem_sz =
