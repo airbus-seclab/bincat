@@ -122,7 +122,7 @@ struct
                             in
                             let d', dst_off' = dump arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) sz in
                             fmt_pos+2, dst_off', d'
-                          | c ->  L.abort (fun p -> p "%x: Unknown format in format string" (Char.code c))
+                          | c ->  L.abort (fun p -> p "Unknown format char in format string: %c" c)
                       end
                     | 'x' | 'X' ->
                       let copy =
@@ -146,7 +146,7 @@ struct
                       fmt_pos+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
 
                     (* value is in memory *)
-                    | c ->  L.abort (fun p -> p "%x: Unknown format in format string" (Char.code c))
+                    | c ->  L.abort (fun p -> p "Unknown format char in format string: %c" c)
                 in
                 let n = ((Char.code c) - (Char.code '0')) in
                     compute n fmt_pos
@@ -180,7 +180,7 @@ struct
                 | '0' -> format_num d dst_off '0' (fmt_pos+1) arg '0' true
                 | ' ' -> format_num d dst_off '0' (fmt_pos+1) arg ' ' true
                 | '-' -> format_num d dst_off '0' (fmt_pos+1) arg ' ' false
-                | _ -> L.abort (fun p -> p "Unknown format in format string")
+                | _ -> L.abort (fun p -> p "Unknown format or modifier in format string: %c" c)
             in
             let rec copy_char d c (fmt_pos: int) dst_off arg_nb: int * domain_t =
                 let src = (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) in
