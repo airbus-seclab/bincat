@@ -1156,7 +1156,7 @@ struct
     let pop_stmts is_pop s lv =
         let esp'  = esp_lval () in
         List.fold_left (fun stmts lv ->
-            let n = size_push_pop lv s.addr_sz in
+            let n = size_push_pop lv s.operand_sz in
             let incr = set_esp Add esp' n in
             if with_stack_pointer is_pop s.a lv then
                 [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) !Config.stack_width), s.operand_sz))) ] @ stmts
