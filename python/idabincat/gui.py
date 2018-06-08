@@ -1995,6 +1995,12 @@ class GUI(object):
         self.hooks = Hooks(state, self)
         self.hooks.hook()
 
+    def focus_registers(self):
+        if getattr(idaapi, "activate_widget"):
+            widget = idaapi.find_widget("BinCAT Registers")
+            if widget:
+                idaapi.activate_widget(widget, True)
+
     def show_windows(self):
         # XXX hide debug form by default (issue #27)
         self.BinCATDebugForm.Show()

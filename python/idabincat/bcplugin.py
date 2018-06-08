@@ -680,6 +680,7 @@ class State(object):
             else:
                 idaapi.set_item_color(ea, 0xF0F0F0)
         idaapi.hide_wait_box()
+        self.gui.focus_registers()
 
     def set_current_node(self, node_id):
         if self.cfa:
