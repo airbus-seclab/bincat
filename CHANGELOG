@@ -1,4 +1,5 @@
 2018-06-08: v0.9:
+* shades of greens to different taint sources in IDA
 * coredump loader
 * skip/nop options for analyzer
 * x86: MMX decoding
