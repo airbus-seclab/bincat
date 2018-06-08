@@ -28,6 +28,7 @@ import sys
 import tempfile
 import traceback
 import zlib
+from ConfigParser import NoSectionError
 
 # Ugly but IDA Python Linux doesn't have it !
 try:
@@ -604,7 +605,7 @@ class State(object):
         # unresponsive when parsing.
         try:
             cfa = cfa_module.CFA.parse(outfname, logs=logfname)
-        except pybincat.PyBinCATException:
+        except (pybincat.PyBinCATException, NoSectionError):
             idaapi.hide_wait_box()
             bc_log.error("Could not parse result file")
             return None
