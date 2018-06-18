@@ -2265,7 +2265,7 @@ struct
             | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax 8
             | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz
             | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds 16 in push s [V ds']
-            | '\x1F' -> (* POP ds *) let ds' = to_reg ds s.operand_sz in pop s [V ds']
+            | '\x1F' -> (* POP ds *) let ds' = to_reg ds 16 in pop s [V ds']
 
             | '\x20' -> (* AND *) or_xor_and_mrm s And 8 0
             | '\x21' -> (* AND *) or_xor_and_mrm s And s.operand_sz 0
