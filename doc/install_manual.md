@@ -1,7 +1,7 @@
 ## Install (Linux / macOS)
 ### Dependencies
 
-* ocaml >= 4.02.3 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
+* ocaml >= 4.03 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * cppo
 * ocamlfind
 * zarith library >=1.4
