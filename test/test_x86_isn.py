@@ -40,12 +40,6 @@ def test_mov_eax(tmpdir):
         mov dl, al
         mov [0x100000], al
         pop eax
-        jmp lbl
-align 0x100
-        dd 0x01234567
-        dd 0
-lbl:
-        nop
     """.format(**locals())
     compare(tmpdir, asm, ["eax","ebx","ecx","edx"])
 
