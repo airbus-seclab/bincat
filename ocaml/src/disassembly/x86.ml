@@ -1276,7 +1276,7 @@ struct
 
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
-        let imm = int_of_bytes s (n/8) in
+        let imm = int_of_bytes s (s.addr_sz/8) in
         let leax = V (to_reg eax n) in
         let lmem = M (add_segment s (const_of_Z imm s.addr_sz) s.segments.data, n) in
         let dst, src =
