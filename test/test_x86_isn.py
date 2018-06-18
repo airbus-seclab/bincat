@@ -26,6 +26,29 @@ def test_assign(tmpdir):
     """.format(**locals())
     compare(tmpdir, asm, ["eax","ebx","ecx","edx","esi","edi"])
 
+def test_mov_eax(tmpdir):
+    asm = """
+        mov al, 0x11
+        xor ebx, ebx
+        mov bl, al
+        mov ax, 0x1234
+        xor ecx, ecx
+        mov cx, ax
+        push 0x12345678
+        mov al, [esp]
+        xor edx, edx
+        mov dl, al
+        mov [0x100000], al
+        pop eax
+        jmp lbl
+align 0x100
+        dd 0x01234567
+        dd 0
+lbl:
+        nop
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax","ebx","ecx","edx"])
+
 ##  ___  ___  _        __  ___  ___  ___ 
 ## | _ \/ _ \| |      / / | _ \/ _ \| _ \
 ## |   / (_) | |__   / /  |   / (_) |   /
