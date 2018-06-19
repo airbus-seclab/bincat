@@ -8,6 +8,10 @@ x86 = X86(
 compare = x86.compare
 check = x86.check
 
+#  _ __ ___   _____   __
+# | '_ ` _ \ / _ \ \ / /
+# | | | | | | (_) \ V / 
+# |_| |_| |_|\___/ \_/  
 
 def test_assign(tmpdir):
     asm = """
@@ -1390,3 +1394,17 @@ def test_fun_skip_arg_stdcall(tmpdir):
     bc.initfile.add_conf_replace("call_conv = cdecl","call_conv = stdcall")
 
     check(tmpdir, asm, { "eax":3, "ebx": 1 }, bctest=bc)
+
+# Make sure we can combine regions
+def test_stack_combine(tmpdir):
+    asm = """
+        mov esp, 0x100100
+        push esp
+        pop eax
+        push 0x12345678
+        pop ebx
+        mov ah, bl
+        add eax, ebx
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx"])
+
