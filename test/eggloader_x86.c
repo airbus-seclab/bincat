@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-int (*egg)();
 
 void usage(void)
 {
@@ -21,6 +20,7 @@ int main(int argc, char *argv[])
         int len;
         unsigned int Reax,Rebx,Recx,Redx,Resi,Redi,Resp,Rebp,Reflags,Rsav_esp;
         void *scratch;
+        int (*egg)();
 
         if (argc != 2) usage();
 
