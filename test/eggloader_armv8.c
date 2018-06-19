@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
         if (!egg) { perror("mmap"); return -4; }
         memcpy(((char *)egg)+len, ret_to_main, sizeof(ret_to_main));
 
+        // allocate scratch space for memory writes
         scratch = (void *)mmap((void *)0x100000, 0x1000, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
         if (!scratch) { perror("mmap"); return -4; }
 
