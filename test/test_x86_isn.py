@@ -43,6 +43,39 @@ def test_mov_eax(tmpdir):
     """.format(**locals())
     compare(tmpdir, asm, ["eax","ebx","ecx","edx"])
 
+
+def test_mov_mem(tmpdir, op32, op8):
+    asm = """
+        mov eax, {op32}
+        mov [{op8}+0x100000], al
+        mov [{op8}+0x100004], ax
+        mov [{op8}+0x100008], eax
+        xor ebx, ebx
+        xor ecx, ecx
+        mov bl, [{op8}+0x100000]
+        mov cx, [{op8}+0x100004]
+        mov edx, [{op8}+0x100008]
+    """.format(**locals())
+    compare(tmpdir, asm, ["ebx", "ecx", "edx"])
+
+def test_mov_mem_reg_off(tmpdir, op32, op8):
+    asm = """
+        mov eax, {op32}
+        mov edi, 4
+        mov esi, 0x100400
+        mov [{op8}+esi], al
+        mov [{op8}+esi+edi], ax
+        mov [{op8}+esi+edi*2], eax
+        mov dword [{op8}+esi+edi*4], {op32}
+        xor ebx, ebx
+        xor ecx, ecx
+        mov bl, [{op8}+esi+edi*0]
+        mov cx, [{op8}+esi+edi*1]
+        mov edx, [{op8}+esi+edi*2]
+        mov eax, [{op8}+esi+edi*4]
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx"])
+
 ##  ___  ___  _        __  ___  ___  ___ 
 ## | _ \/ _ \| |      / / | _ \/ _ \| _ \
 ## |   / (_) | |__   / /  |   / (_) |   /
