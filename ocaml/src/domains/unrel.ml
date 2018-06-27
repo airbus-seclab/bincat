@@ -125,8 +125,6 @@ module type T =
     (** returns the minimal taint value of the given parameter *)
     val get_minimal_taint: t -> Taint.t
 
-    (** total order ; may be imcompatible with lattice partial order ! *)
-    val total_order: t -> t -> int
   end
 
 
