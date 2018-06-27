@@ -153,6 +153,8 @@ sig
     (** returns the taint value of the given parameter *)
     val get_taint: t -> Taint.t
 
+    (** total order on values. Not related to the partial order used in AI *)
+    val total_order: t -> t -> int
 end
 
 (** signature of vector *)
