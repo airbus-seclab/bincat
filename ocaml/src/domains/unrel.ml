@@ -140,6 +140,20 @@ module Make(D: T) =
 
     let bot = BOT
 
+    (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)
+    let total_order m1 m2 =
+      match m1, m2 with
+      | BOT, BOT -> 0
+      | BOT, _ -> 1
+      | _, BOT -> -1
+      | Val m1', Val m2' ->
+         let sz1 = Env.size sz1 in
+         let sz2 = Env.size sz2 in
+         let n = sz1 - sz2 in
+         if n<> 0 then n
+         else Env.total_order D.total_order
+         
+           
     let is_bot m = m = BOT
 
     let value_of_register m r =
