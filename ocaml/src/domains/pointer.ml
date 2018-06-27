@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -245,5 +245,22 @@ module Make (V: Vector.T) =
       | BOT ->  Taint.BOT
       | Val (_, o) -> V.taint_sources o
 
-  
+
+    let total_order p1, p2 =
+      (* BOT < TOP < Val *)
+      (* on regions: G < S < H *)
+      match p1, p2 with
+      | BOT, BOT | TOP, TOP -> 0
+      | BOT, _ -> -1
+      | TOP, BOT -> 1
+      | TOP, _ -> -1
+      | Val (r1, o1) -> Val (r2, o2) ->
+         match r1, r2 with
+         | Global, Global | Stack | Stack -> V.total_order o1 o2
+         | Global, Stack | Global, Heap _ -> -1
+         | Stack, Heap -> -1
+         | Heap (id1, _), Heap (id2, _) ->
+            let n = id1 - id2 in
+            if n <> 0 then n
+            else V.total_order o1 o2
     end: Unrel.T)

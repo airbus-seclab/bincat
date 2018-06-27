@@ -125,13 +125,13 @@ module type T =
     (** returns the minimal taint value of the given parameter *)
     val get_minimal_taint: t -> Taint.t
 
+    (** total order on values. No link with the partial order! *)
+    val total_order: t -> t -> int
   end
 
 
 module Make(D: T) =
   struct
-
-
       
     (** type of the Map from Dimension (register or memory) to abstract values *)
     type t     =
@@ -142,10 +142,11 @@ module Make(D: T) =
 
     (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)
     let total_order m1 m2 =
+      (* BOT < Val *)
       match m1, m2 with
       | BOT, BOT -> 0
-      | BOT, _ -> 1
-      | _, BOT -> -1
+      | BOT, _ -> -1
+      | _, BOT -> 1
       | Val m1', Val m2' ->
          let sz1 = Env.size sz1 in
          let sz2 = Env.size sz2 in
