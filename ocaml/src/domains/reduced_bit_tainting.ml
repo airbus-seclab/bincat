@@ -140,4 +140,4 @@ let total_order (v1, t1) (v2, t2) =
   let n = B.total_order v1 v2 in
   if n <> 0 then
     n
-  else T.total_order t1 v2
+  else T.total_order t1 t2
