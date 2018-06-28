@@ -250,6 +250,10 @@ sig
 
     (** returns the taint value of the given parameter *)
     val taint_sources: t -> Taint.t
+
+    (** total order on values. Not related to the partial order used in AI *)
+    val total_order: t -> t -> int
+
 end
 
 module Make(V: Val) =
@@ -889,4 +893,25 @@ module Make(V: Val) =
         let taint_sources v =
           Array.fold_left (fun acc elt -> Taint.logor acc (V.get_taint elt)) (Taint.U) v
 
+        let same_sign n1 n2 = (n1 = 0 && n2 = 0) || (n1 * n2 > 0) 
+        let total_order v1 v2 =
+          let sz1 = Array.size v1 in
+          let sz2 = Array.size v2 in
+          let n = sz1 - sz2 in
+          if n<> 0 then n
+          else
+            let ret = ref (V.total_order v1.(0) v2.(0)) in
+            begin
+              try
+                for i = 1 to sz1-1 do
+                  let n = V.total_order v1.(i) v2.(i) in
+                  if not (same_sign n ret) then
+                    begin
+                      ret := n;
+                      raise Exit
+                    end
+                done
+              with Exit -> 0
+            end;
+            !ret
     end: T)
