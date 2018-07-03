@@ -76,6 +76,6 @@ module Make(D: Unrel.T) =
     let forget_lval lv m check_address_validity =
        match m with
       | BOT -> BOT
-      | Val m' ->
-         begin
+      | Val m' -> Val (USet.map (fun u -> Unrel.forget_lval lv u check_address_validity)
+                     
   end
