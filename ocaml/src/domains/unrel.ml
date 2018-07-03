@@ -147,22 +147,18 @@ module Make(D: T) =
          
   
     let value_of_register m r =
-      match m with
-      | BOT    -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: environment is empty ; can't look up register %s" (Register.name r)))
-      | Val m' -> let v =
-                    try
-                      Env.find (Env.Key.Reg r) m'
-                    with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: register %s not found in environment" (Register.name r)))
-                  in D.to_z v
+      let v =
+        try
+          Env.find (Env.Key.Reg r) m'
+        with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: register %s not found in environment" (Register.name r)))
+      in D.to_z v
 
     let string_of_register m r =
-      match m with
-      | BOT    -> raise (Exceptions.Empty (Printf.sprintf "unrel.string_of_register: environment is empty ; can't look up register %s" (Register.name r)))
-      | Val m' -> let v =
-                    try
-                      Env.find (Env.Key.Reg r) m'
-                    with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
-                  in D.to_string v
+      let v =
+        try
+          Env.find (Env.Key.Reg r) m
+        with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
+      in D.to_string v
 
     let add_register r m =
       let add x =
