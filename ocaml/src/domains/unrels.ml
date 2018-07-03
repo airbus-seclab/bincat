@@ -18,7 +18,7 @@
 
 (* k-set of Unrel *)
 module Make(D: Unrel.T) =
-  (struct
+  struct
     module U = Unrel.Make(D)
     module USet = Set.Make(struct type t = U.t let compare = U.total_order end)
     type t =
@@ -73,6 +73,9 @@ module Make(D: Unrel.T) =
       | Val m' -> Val (USet.map (Unrel.remove_register r) m')
       | BOT -> BOT
 
-    let forget_lval lv m =
-      
-  end: Domain.T)
+    let forget_lval lv m check_address_validity =
+       match m with
+      | BOT -> BOT
+      | Val m' ->
+         begin
+  end

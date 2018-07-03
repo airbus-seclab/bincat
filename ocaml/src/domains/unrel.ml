@@ -562,21 +562,17 @@ module Make(D: T) =
       let v2, tsrc2 = eval_exp env e2 check_address_validity in
       D.compare v1 op v2, Taint.logor tsrc1 tsrc2
 
-    let forget_lval lv m check_address_validity =
-      match m with
-      | BOT -> BOT
-      | Val m' ->
-         begin
-           match lv with
-           | Asm.V (Asm.T r) -> Val (forget_reg m' r None)
-           | Asm.V (Asm.P (r, l, u)) -> Val (forget_reg m' r (Some (l, u)))
-           | Asm.M (e, n) ->
-              let v, _b = eval_exp m' e check_address_validity in
-              let addrs = D.to_addresses v in
-              let l     = Data.Address.Set.elements addrs in
-              Val (List.fold_left (fun m a ->  write_in_memory a m D.top n true false) m' l)
+    let forget_lval lv m check_address_validity = 
+      match lv with
+      | Asm.V (Asm.T r) -> forget_reg m' r None
+      | Asm.V (Asm.P (r, l, u)) -> forget_reg m' r (Some (l, u))
+      | Asm.M (e, n) ->
+         let v, _b = eval_exp m' e check_address_validity in
+         let addrs = D.to_addresses v in
+         let l     = Data.Address.Set.elements addrs in
+         List.fold_left (fun m a ->  write_in_memory a m D.top n true false) m' l
 
-         end
+
 
     let val_restrict m e1 _v1 cmp _e2 v2 =
       match e1, cmp with
