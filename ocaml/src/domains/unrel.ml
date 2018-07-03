@@ -139,17 +139,11 @@ module Make(D: T) =
 
     (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)
     let total_order m1 m2 =
-      (* BOT < Val *)
-      match m1, m2 with
-      | BOT, BOT -> 0
-      | BOT, _ -> -1
-      | _, BOT -> 1
-      | Val m1', Val m2' ->
-         let sz1 = Env.size sz1 in
-         let sz2 = Env.size sz2 in
-         let n = sz1 - sz2 in
-         if n<> 0 then n
-         else Env.total_order D.total_order
+      let sz1 = Env.size m1 in
+      let sz2 = Env.size m2 in
+      let n = sz1 - sz2 in
+      if n<> 0 then n
+      else Env.total_order D.total_order m1 m2
          
            
     let is_bot m = m = BOT
