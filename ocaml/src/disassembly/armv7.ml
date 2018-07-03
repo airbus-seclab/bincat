@@ -154,17 +154,22 @@ struct
     | 0b0111 -> v_is_clear (* VC - V clear (no overflow) *)
     | 0b1000 -> BBinOp(LogAnd, c_is_set, z_is_clear) (* HI - C set and Z clear (unsigned higher) *)
     | 0b1001 -> BBinOp(LogOr, c_is_clear, z_is_set) (* LS - C clear or Z set (unsigned lower or same) *)
-    | 0b1010 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_set), BBinOp(LogAnd, n_is_clear, v_is_clear))
+
     (* GE - N set and V set, or N clear and V clear (greater or equal) *)
-    | 0b1011 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_clear), BBinOp(LogAnd, n_is_clear, v_is_set))
+    | 0b1010 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_set), BBinOp(LogAnd, n_is_clear, v_is_clear))
+
     (* LT - N set and V clear, or N clear and V set (less than) *)
-    | 0b1100 -> BBinOp(LogOr, BBinOp(LogAnd, z_is_clear, BBinOp(LogOr, n_is_set, v_is_set)),
-                       BBinOp(LogAnd, n_is_clear, v_is_clear))
+    | 0b1011 -> BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_clear), BBinOp(LogAnd, n_is_clear, v_is_set))
+
     (* GT - Z clear, and either N set and V set, or N clear and V clear (greater than) *)
-    | 0b1101 -> BBinOp(LogOr, z_is_set,
-                       BBinOp(LogOr, BBinOp(LogAnd, z_is_set, v_is_clear),
-                              BBinOp(LogAnd, n_is_clear, v_is_set)))
+    | 0b1100 -> BBinOp(LogAnd, z_is_clear,
+                       BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_set),
+                              BBinOp(LogAnd, n_is_clear, v_is_clear)))
     (* LE - Z set, or N set and V clear, or N clear and V set (less than or equal) *)
+    | 0b1101 -> BBinOp(LogOr, z_is_set,
+                       BBinOp(LogOr, BBinOp(LogAnd, n_is_set, v_is_clear),
+                              BBinOp(LogAnd, n_is_clear, v_is_set)))
+
     | _ -> L.abort (fun p -> p "Unexpected condiction code %x" cc)
 
 
@@ -627,6 +632,7 @@ struct
            end,
              begin
                match int_shift_count with
+               | Some 0 -> [ set_cflag_from_bit rm 32 ]
                | Some n -> [ set_cflag_from_bit rm n ]
                | None -> [ set_cflag_from_bit_exp rm op3 ]
              end
@@ -639,6 +645,7 @@ struct
            end,
              begin
                match int_shift_count with
+               | Some 0 -> [ set_cflag_from_bit rm 32 ]
                | Some n -> [ set_cflag_from_bit rm n ]
                | None -> [ set_cflag_from_bit_exp rm op3 ]
              end

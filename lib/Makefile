@@ -1,7 +1,7 @@
 OBJS = libc.no
 
 %.no: %.c
-	@c2newspeak --typed-npk -o $@ $<
+	@$(C2NPK) --typed-npk -o $@ $<
 
 all: $(OBJS)
 

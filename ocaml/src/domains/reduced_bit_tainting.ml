@@ -28,7 +28,7 @@ type t = B.t * T.t
 
 let top = B.TOP, T.TOP
 
-let forget (_v, t) = B.TOP, t
+let forget (_v, _t) = B.TOP, T.TOP
 
 let is_top (v, _t) = v = B.TOP
 

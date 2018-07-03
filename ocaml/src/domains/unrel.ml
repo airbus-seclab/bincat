@@ -778,25 +778,7 @@ module Make(D: T) =
         else
           sz
 
-    let size_of_content c =
-      match c with
-      | Config.Content z | Config.CMask (z, _) -> round_sz (Z.numbits z)
-      | Config.Bytes b | Config.Bytes_Mask (b, _) -> (String.length b)*4
-
-    let size_of_taint (t: Config.tvalue): int =
-      match t with
-      | Config.Taint (z, _) | Config.TMask (z, _, _) -> round_sz (Z.numbits z)
-      | Config.TBytes (b, _) | Config.TBytes_Mask (b, _, _) -> (String.length b)*4
-      | Config.Taint_all _ | Config.Taint_none -> 0
-
-    let size_of_taints (taints: Config.tvalue list): int =
-      let sz = ref 0 in
-      List.iter (fun t ->
-        let n = size_of_taint t in
-        if !sz = 0 then sz := n
-        else if n <> !sz then L.abort (fun p -> p "illegal taint list with different sizes")
-      ) taints;
-      !sz
+   
 
     let extract_taint_src_ids taint =
       let extract acc taint =
@@ -843,7 +825,7 @@ module Make(D: T) =
       | Val m' ->
          let k = Env.Key.Mem a in
          let v = Env.find k m' in
-         let v', taint = D.taint_of_config taints (size_of_taints taints) v in
+         let v', taint = D.taint_of_config taints (Config.size_of_taints taints) v in
          Val (Env.replace k v' m'), taint
 
     let span_taint_to_addr a taint m: t * Taint.t =
@@ -866,7 +848,7 @@ module Make(D: T) =
              match content with
              | None ->
                 begin
-                  let taint_sz = size_of_taints taint in
+                  let taint_sz = Config.size_of_taints taint in
                   let rec repeat (m, t) n =
                     if n < nb then
                       let a' = Data.Address.add_offset addr (Z.of_int (n*taint_sz)) in
@@ -883,7 +865,7 @@ module Make(D: T) =
                 end
                   
            | Some content' -> 
-              let sz = size_of_content content' in
+              let sz = Config.size_of_content content' in
               let (v', taint) = of_config region (content', taint) sz in
               if nb > 1 then
                 if sz != 8 then
@@ -918,10 +900,10 @@ module Make(D: T) =
             let v = Env.find k m' in
             let v', taint' =  D.taint_of_config taint (Register.size r) v in
             Val (Env.replace k v' m'), taint'
-         | Some c ->
+         | Some c ->  
             let sz = Register.size r in
-            let (vt, taint) = of_config region (c, taint) sz in                 
-            Val (Env.add (Env.Key.Reg r) vt m'), taint
+            let vt, taint = of_config region (c, taint) sz in               
+            Val (Env.replace (Env.Key.Reg r) vt m'), taint
 
     let set_lval_to_addr lv (region, word) m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)

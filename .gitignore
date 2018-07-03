@@ -25,3 +25,4 @@ ocaml/test/.cache
 ocaml/src/bincat_ver.ml
 ocaml/src/armv8A_ppx
 *.no
+python/idabincat/bin

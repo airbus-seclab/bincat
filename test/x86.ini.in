@@ -11,6 +11,7 @@ analysis = forward_binary
 analysis_ep = 0x00
 cut = {code_length}
 headers = "libc.no"
+{analyzer_section}
 
 [program]
 mode = protected
@@ -21,25 +22,43 @@ stack_width = 32
 architecture = x86
 filepath = "{filepath}"
 format = raw
-
+{program_section}
 
 [x86]
-#Linux 32-bits
 mem_model = flat
+#Linux 32-bits (native)
+#GDT[1] = 0x00cf9b000000ffff
+#GDT[2] = 0x00cf93000000ffff
+#GDT[3] = 0x00cffb000000ffff
+#GDT[4] = 0x00cff3000000ffff
+#GDT[5] = 0x80008b04200020ab
+#GDT[6] = 0xffc093dff0000001
+#GDT[7] = 0x0040f30000000fff
+#GDT[8] = 0x0000f2000400ffff
+#
+#cs = 0x1b
+#ds = 0x23
+#ss = 0x23
+#es = 0x23
+#fs = 0x3b
+#gs = 0x00
+
+# Linux 64 bits
 GDT[1] = 0x00cf9b000000ffff
-GDT[2] = 0x00cf93000000ffff
-GDT[3] = 0x00cffb000000ffff
-GDT[4] = 0x00cff3000000ffff
-GDT[5] = 0x80008b04200020ab
-GDT[6] = 0xffc093dff0000001
-GDT[7] = 0x0040f30000000fff
-GDT[8] = 0x0000f2000400ffff
-cs = 0x1b
-ds = 0x23
-ss = 0x23
-es = 0x23
-fs = 0x3b
-gs = 0x00
+GDT[2] = 0x00af9b000000ffff
+GDT[3] = 0x00cf93000000ffff
+GDT[4] = 0x00cffb000000ffff
+GDT[5] = 0x00cff3000000ffff
+GDT[6] = 0x00affb000000ffff
+GDT[7] = 0x0000000000000000
+GDT[8] = 0x7e008bc18840206f
+GDT[9] = 0x00000000ffff8e7b
+cs = 0x23
+ds = 0x2b
+ss = 0x2b
+es = 0x2b
+fs = 0x00
+gs = 0x63
 
 [state]
 reg[cf] = 0?1

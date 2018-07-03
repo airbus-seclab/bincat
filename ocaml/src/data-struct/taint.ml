@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -71,6 +71,19 @@ type t =
   | S of SrcSet.t
   | TOP
 
+let total_order t1 t2 =
+  (* BOT < TOP < U < S *)
+  match t1, t2 with
+  | BOT, BOT | TOP, TOP | U, U -> 0
+  | S src1, S src2 ->
+     let n1 = Src.cardinal src1 in
+     let n2 = Src.cardinal src2 in
+     
+  | BOT, _ -> -1
+  | TOP, _ -> -1
+  | U, _ -> -1
+  | _, _ -> 1
+          
 let is_subset t1 t2 =
   match t1, t2 with
   | BOT, _

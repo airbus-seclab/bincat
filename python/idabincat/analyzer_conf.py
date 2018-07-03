@@ -153,7 +153,10 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_bitness(ea):
-        bitness = idaapi.getseg(ea).bitness
+        seg = idaapi.getseg(ea)
+        if not seg:
+            seg = idaapi.getseg(idautils.Segments().next())
+        bitness = seg.bitness
         return {0: 16, 1: 32, 2: 64}[bitness]
 
     @staticmethod
@@ -179,7 +182,7 @@ class ConfigHelpers(object):
             if seg.type == idaapi.SEG_CODE and start_ea <= entrypoint < end_ea:
                 # TODO : check PE/ELF for **physical** (raw) section size
                 return start_ea, end_ea
-        bc_log.error("No code section has been found for entrypoint %#08x",
+        bc_log.error("No code section has been found for entrypoint %#08X",
                      entrypoint)
         return -1, -1
 
@@ -434,6 +437,13 @@ class AnalyzerConfig(object):
             return ""
 
     @property
+    def nops(self):
+        try:
+            return self._config.get('analyzer', 'nop')
+        except ConfigParser.NoOptionError:
+            return ""
+
+    @property
     def analysis_method(self):
         return self._config.get('analyzer', 'analysis').lower()
 
@@ -465,6 +475,13 @@ class AnalyzerConfig(object):
         return self._config.get('program', 'format').lower()
 
     @property
+    def coredump(self):
+        try:
+            return self._config.get('program', 'load_elf_coredump')
+        except ConfigParser.NoOptionError:
+            return None
+
+    @property
     def state(self):
         return self.init_state
 
@@ -483,6 +500,15 @@ class AnalyzerConfig(object):
             self._config.remove_option('analyzer', 'cut')
         else:
             self._config.set('analyzer', 'cut', value)
+
+    @nops.setter
+    def nops(self, value):
+        if type(value) in (int, long):
+            value = "0x%X" % value
+        if value is None or value == "":
+            self._config.remove_option('analyzer', 'nop')
+        else:
+            self._config.set('analyzer', 'nop', value)
 
     @analysis_method.setter
     def analysis_method(self, value):

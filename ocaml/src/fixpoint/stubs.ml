@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -27,9 +27,12 @@ It returns also a boolean true whenever the result is tainted. *)
   val process : Data.Address.t -> domain_t -> string -> Asm.calling_convention_t ->
     domain_t * Taint.t * Asm.stmt list
 
-  val init : unit -> unit
+  val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.t * Asm.stmt list
+    
+  val init: unit -> unit
 
   val stubs : (string, (Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
+
                          domain_t * Taint.t) * int) Hashtbl.t
 end
 
@@ -170,7 +173,7 @@ struct
                             in
                             let d', dst_off' = dump arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) sz in
                             fmt_pos+2, dst_off', d'
-                          | c ->  L.abort (fun p -> p "%x: Unknown format in format string" (Char.code c))
+                          | c ->  L.abort (fun p -> p "Unknown format char in format string: %c" c)
                       end
                     | 'x' | 'X' ->
                       let copy =
@@ -194,7 +197,7 @@ struct
                       fmt_pos+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
 
                     (* value is in memory *)
-                    | c ->  L.abort (fun p -> p "%x: Unknown format in format string" (Char.code c))
+                    | c ->  L.abort (fun p -> p "Unknown format char in format string: %c" c)
                 in
                 let n = ((Char.code c) - (Char.code '0')) in
                     compute n fmt_pos
@@ -228,7 +231,7 @@ struct
                 | '0' -> format_num d dst_off '0' (fmt_pos+1) arg '0' true
                 | ' ' -> format_num d dst_off '0' (fmt_pos+1) arg ' ' true
                 | '-' -> format_num d dst_off '0' (fmt_pos+1) arg ' ' false
-                | _ -> L.abort (fun p -> p "Unknown format in format string")
+                | _ -> L.abort (fun p -> p "Unknown format or modifier in format string: %c" c)
             in
             let rec copy_char d c (fmt_pos: int) dst_off arg_nb: int * domain_t =
                 let src = (Asm.Const (Data.Word.of_int (Z.of_int (Char.code c)) 8)) in
@@ -331,7 +334,30 @@ struct
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
       d', taint, cleanup_stmts
 
-
+    let skip d f call_conv: domain_t * Taint.t * Asm.stmt list =
+      let arg_nb, ret_val = Hashtbl.find Config.funSkipTbl f in
+      let d, taint =
+        match ret_val with
+        | None -> D.forget_lval call_conv.Asm.return d, Taint.TOP
+        | Some ret_val' ->
+           let sz = Config.size_of_config ret_val' in
+           match call_conv.Asm.return with
+           | Asm.V (Asm.T r)  when Register.size r = sz -> D.set_register_from_config r Data.Address.Global ret_val' d 
+           | Asm.M (e, n) when sz = n ->
+              let addrs, _ = D.mem_to_addresses d e in
+              let d', taint' =
+                match Data.Address.Set.elements addrs with
+                | [a] ->     
+                   D.set_memory_from_config a Data.Address.Global ret_val' 1 d
+             | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
+              in
+              d', taint'
+              
+           | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
+      in
+      let cleanup_stmts = call_conv.Asm.callee_cleanup (Z.to_int arg_nb) in
+      d,taint, cleanup_stmts
+          
     let init () =
       Hashtbl.replace stubs "memcpy"        (memcpy,      3);
       Hashtbl.replace stubs "memset"        (memset,      3);
@@ -340,8 +366,12 @@ struct
       Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
+<<<<<<< HEAD
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1)
+=======
+      Hashtbl.replace stubs "strlen"        (strlen,      1);;
+>>>>>>> master
 
 end

@@ -2,12 +2,9 @@
 
 #### Plugin install
 
-User install:
+* clone this repository `git clone https://github.com/airbus-seclab/bincat`
+* `cd bincat`
 * run `make IDAuser`
-
-Global install:
-* define `IDAPATH` env variable to the folder IDA is installed in.
-* Run `make IDAinstall`.
 
 #### Dependencies
 

@@ -16,10 +16,11 @@ The input file is split into various sections:
 * `program`: program (target) specific configuration
 * `sections`: input file sections
 * `imports`: input file imports
-* `state`: initial state for register and memory 
+* `state`: initial state for register and memory
 * `override`: state overrides
 * and arch specific sections: `x86`, `armv7` and `armv8`
 
+## Analyzer section
 
 ### Log levels
 
@@ -29,7 +30,53 @@ Set the `loglevel` option in the `[analyzer]` section to between `1` and `4`:
 3. debug
 4. advanced debug
 
+### fun_skip
+
+Allows the user to specify *functions* which should be skipped over:
+they will behave as if they are empty.
+
+`fun_skip` is a list of functions to skip, separated by a comma:
+
+* `fun_skip = sk(arg_nb, ret_val), ...` :
+
+  * `sk` is either a function name or an address
+  * `arg_nb` is the number of arguments
+  * `ret_val` is the value/taint of the return value. The syntax follows the
+    one described in the state syntax for the initialisation of the memory and
+    registers.
+
+For example: `fun_skip=kill(2)` will skip calls to `kill`, which has 2
+arguments. To specifiy also its return value to be 0, then add `fun_skip =
+kill(2, 0)`.
+
+### nop
+
+Users may want to "nop" some instructions, which can be done by using the `nop`
+key.
+
+For example `nop=0x1234, 0x9876` will make the analyzer handle the
+instructions at addresses `0x1234` and `0x9876` as a "nop", moving to the
+next instruction without side effects.
+
+## Program section
+
+### Coredumps
+
+BinCAT can load ELF coredumps, for example:
+
+```ini
+[program]
+mode = protected
+[...]
+format = elf
+load_elf_coredump = "core_get_key_x86"
+```
+
+BinCAT will load the inital state from the specified core file.
+
 ## State syntax
+
+When using a coredump, the `[state]` section should be empty
 
 ### Value syntax
 
@@ -46,7 +93,7 @@ For example: `0x12345600?0x000000FF!0xFF000000` defines a value with
 
 One can also skip some parts:
 
-* `0` : concrete value of 0 
+* `0` : concrete value of 0
 * `0xFF!0xFF` : concrete tainted value of 0xFF
 * `0?0xFFFFFFFF` : unknown value, untainted
 * `0!0xFF?0xFFFFFF00` : concrete value of 0, with the LSB tainted and the rest with unknown taint

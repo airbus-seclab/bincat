@@ -23,23 +23,23 @@ module L = Log.Make(struct let name = "raw" end)
 open Mapped_mem
 
 
-let make_mapped_mem () =
-  let entrypoint = Data.Address.global_of_int !Config.ep in
-  let mapped_file = map_file !Config.binary in
+let make_mapped_mem filepath entrypoint =
+  let mapped_file = map_file filepath in
   let stat = Unix.stat !Config.binary in
   let file_length = Z.of_int stat.Unix.st_size in
   let zero = Z.of_int 0 in
   let section = {
+    mapped_file = mapped_file ;
+    mapped_file_name = filepath ;
     virt_addr = Data.Address.of_int Data.Address.Global zero !Config.address_sz ;
     virt_addr_end = Data.Address.of_int Data.Address.Global file_length !Config.address_sz ;
     virt_size = file_length ;
     raw_addr = zero ;
     raw_addr_end = file_length ;
     raw_size = file_length ;
-    name = Filename.basename !Config.binary
+    name = Filename.basename filepath
   } in
   {
-    mapped_file = mapped_file ;
     sections  = [ section ] ;
     entrypoint = entrypoint ;
   }

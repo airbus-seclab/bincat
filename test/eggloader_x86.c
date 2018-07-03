@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
         int f;
         int len;
         unsigned int Reax,Rebx,Recx,Redx,Resi,Redi,Resp,Rebp,Reflags,Rsav_esp;
+        void *scratch;
 
         if (argc != 2) usage();
 
@@ -32,6 +33,8 @@ int main(int argc, char *argv[])
         egg = mmap(NULL, len+10, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
         if (!egg) { perror("mmap"); return -4; }
 
+        scratch = (void *)mmap((void *)0x100000, 0x1000, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
+        if (!scratch) { perror("mmap"); return -4; }
 
         asm volatile(
         "mov %%esp, %3\n"

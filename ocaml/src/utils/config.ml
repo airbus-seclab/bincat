@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -23,11 +23,15 @@ let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
 let max_instruction_size = ref 16;;
+let external_symbol_max_size = ref 32;
 
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
 let blackAddresses = ref SAddresses.empty
+let nopAddresses = ref SAddresses.empty
 
+
+                  
 type memory_model_t =
   | Flat
   | Segmented
@@ -39,6 +43,7 @@ type format_t =
   | MANUAL       (** uses [sections] to map file in virtual mem *)
   | PE
   | ELF
+  | ELFOBJ
 
 type archi_t =
   | X86
@@ -129,6 +134,51 @@ type cvalue =
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
+(** returns size of content, rounded to the next multiple of Config.operand_sz *)
+let round_sz sz =
+  if sz < !operand_sz then
+    !operand_sz
+  else
+    if sz mod !operand_sz <> 0 then
+      !operand_sz * (sz / !operand_sz + 1)
+    else
+      sz
+      
+let size_of_content c =
+  match c with
+  | Content z | CMask (z, _) -> round_sz (Z.numbits z)
+  | Bytes b | Bytes_Mask (b, _) -> (String.length b)*4
+                                               
+let size_of_taint (t: tvalue): int =
+  match t with
+  | Taint (z, _) | TMask (z, _, _) -> round_sz (Z.numbits z)
+  | TBytes (b, _) | TBytes_Mask (b, _, _) -> (String.length b)*4
+  | Taint_all _ | Taint_none -> 0
+
+let size_of_taints (taints: tvalue list): int =
+  let sz = ref 0 in
+  List.iter (fun t ->
+      let n = size_of_taint t in
+      if !sz = 0 then sz := n
+      else if n <> !sz then failwith "illegal taint list with different sizes"
+    ) taints;
+  !sz
+
+let size_of_config (c, t) =
+  let nt = size_of_taints t in
+  match c with
+  | None -> nt
+  | Some c' -> max (size_of_content c') nt 
+
+type fun_t =
+  | Fun_name of string
+  | Fun_addr of Z.t
+              
+(* List of functions to skip
+ * (addr/name, nb_of_args_bytes * (ret value))
+ *)
+let funSkipTbl: (fun_t, Z.t * ((cvalue option * tvalue list) option)) Hashtbl.t  = Hashtbl.create 5
+                                
 let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
@@ -140,9 +190,12 @@ type mem_init_t = ((Z.t * int) * (cvalue option * tvalue list)) list
 type reg_init_t = (string * (cvalue option * tvalue list)) list
 
 let register_content: reg_init_t ref = ref []
+let registers_from_coredump: reg_init_t ref = ref []
 let memory_content: mem_init_t ref = ref []
 let stack_content: mem_init_t ref = ref []
 let heap_content: mem_init_t ref = ref []
+
+let elf_coredumps : string list ref = ref []
 
 type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
 let sections: sec_t = ref []
@@ -187,7 +240,7 @@ let reset () =
   kset_bound := 3;
   loglevel := 3;
   max_instruction_size := 16;
-  blackAddresses := SAddresses.empty;
+  nopAddresses := SAddresses.empty;
   memory_model := Flat;
   architecture := X86;
   endianness := LITTLE;
@@ -216,6 +269,7 @@ let reset () =
   stack_content := [];
   heap_content := [];
   register_content := [];
+  Hashtbl.reset funSkipTbl;
   Hashtbl.reset module_loglevel;
   Hashtbl.reset reg_override;
   Hashtbl.reset mem_override;

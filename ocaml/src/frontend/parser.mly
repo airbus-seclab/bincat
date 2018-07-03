@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -149,12 +149,12 @@
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT
 %token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED STATE
-%token FORMAT RAW MANUAL PE ELF ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
+%token FORMAT RAW MANUAL PE ELF ELFOBJ ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA UNDERSCORE
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
-%token ENDIANNESS LITTLE BIG KSET_BOUND
+%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
@@ -262,6 +262,7 @@
     | p=program_item pp=program  { p; pp }
 
     program_item:
+    | LOAD_ELF_COREDUMP EQUAL f=QUOTED_STRING                       { Config.elf_coredumps := f :: !Config.elf_coredumps }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
     | OP_SZ EQUAL i=INT          {
       update_mandatory OP_SZ;
@@ -286,6 +287,7 @@
       format:
     | PE  { Config.PE }
     | ELF { Config.ELF }
+    | ELFOBJ { Config.ELFOBJ }
     | RAW { Config.RAW }
     | MANUAL { Config.MANUAL }
 
@@ -345,8 +347,11 @@
     | UNROLL EQUAL i=INT         { Config.unroll := Z.to_int i }
     | KSET_BOUND EQUAL i=INT         { Config.kset_bound := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT         { Config.fun_unroll := Z.to_int i }
+    | EXT_SYM_MAX_SIZE EQUAL i=INT         { Config.external_symbol_max_size := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
+    | NOP EQUAL l=addresses          { List.iter (fun a -> Config.nopAddresses := Config.SAddresses.add a !Config.nopAddresses) l }
+    | FUN_SKIP EQUAL l=fun_skip_list { List.iter (fun (a, param) -> Hashtbl.replace Config.funSkipTbl a param) l } 
     | LOGLEVEL EQUAL i=INT           { Config.loglevel := Z.to_int i }
     | LOGLEVEL modname=STRING EQUAL i=INT
                                      { Hashtbl.add Config.module_loglevel modname (Z.to_int i) }
@@ -372,6 +377,18 @@
     | i=INT { [ i ] }
     | i=INT COMMA l=addresses { i::l }
 
+    fun_skip_list:
+    | f=fun_skip { [ f ] }
+    | f=fun_skip COMMA l=fun_skip_list { f::l }
+
+    fun_skip:
+    | s=STRING LPAREN p=pair_skip RPAREN { Config.Fun_name s, p }                        
+    | i = INT LPAREN p=pair_skip RPAREN { Config.Fun_addr i, p }
+      
+    pair_skip:
+    | bytes=INT COMMA ret=init { bytes, Some ret }
+    | bytes=INT { bytes, None }
+              
     state:
     |                     { () }
     | s=state_item ss=state { s; ss }

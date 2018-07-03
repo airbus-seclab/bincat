@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -27,7 +27,7 @@ struct
 
   let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
-  let tbl: (Data.Address.t, Asm.import_desc_t) Hashtbl.t = Hashtbl.create 5
+  let tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t = Hashtbl.create 5
 
   let cdecl_calling_convention = {
     return = reg "eax" ;
@@ -65,6 +65,8 @@ struct
       [ Directive (Forget (reg "eax")) ]
 
 
+  let stack_width () = !Config.stack_width/8
+                     
   let init_imports () =
     let default_cc = get_callconv () in
     Hashtbl.iter (fun adrs (libname,fname) ->
@@ -81,14 +83,42 @@ struct
         name = fname ;
         libname = libname ;
         prologue = typing_pro @ tainting_pro ;
-        stub = stub_stmts @ [ Set(reg "esp", BinOp(Add, Lval (reg "esp"), const 4 32)) ] ;
+        stub = stub_stmts @ [ Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ] ;
         epilogue = typing_epi @ tainting_epi ;
-        ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const 4 32),!Config.stack_width)) ;
+        ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width)) ;
       } in
-      Hashtbl.replace tbl (Data.Address.global_of_int adrs) fundesc
+      Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc')
     ) Config.import_tbl
 
 
+  let skip fdesc a =
+      match fdesc with
+      | Some (fdesc', cc) ->
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_name fdesc'.Asm.name) then
+           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
+           { fdesc' with stub = stmts }
+         else
+           fdesc'
+      | None ->
+         let ia = Data.Address.to_int a in
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_addr ia) then
+           let arg_nb, _ = Hashtbl.find Config.funSkipTbl (Config.Fun_addr ia) in
+           {
+              name = "";
+              libname = "";
+              prologue = [];
+              stub = [Directive (Skip (Asm.Fun_addr a, get_callconv())) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ];
+              epilogue = [];
+              (* the return address expression is evaluated *after* cleaning up the stack (in stdcall),
+               * so we need to look it up at the correct place, depending on the number of args *)
+              ret_addr = if !Config.call_conv == Config.STDCALL then
+                            Lval(M (BinOp(Sub, Lval (reg "esp"), const (((Z.to_int arg_nb)+1) * stack_width()) 32),!Config.stack_width))
+                        else
+                          Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width));
+           }
+          else
+            raise Not_found
+    
   let init () =
     Stubs.init ();
     init_imports ()

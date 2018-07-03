@@ -20,6 +20,10 @@
 module L = Log.Make(struct let name = "elf" end)
 
 
+let read_string s (ofs : Z.t) (sz : Z.t) =
+  let bytes = List.map (fun addr -> Char.chr (Bigarray.Array1.get s addr))
+                (Misc.seq (Z.to_int ofs) (Z.to_int Z.(ofs+sz-Z.one))) in
+  Misc.string_of_chars bytes
 
 let dec_byte s ofs = Bigarray.Array1.get s ofs
 let zdec_byte s ofs = Z.of_int (dec_byte s ofs)
@@ -664,7 +668,7 @@ type reloc_type_t =
   | RELOC_OTHER of e_machine_t * int
   (* X86 relocation types *)
   | R_386_NONE | R_386_32 | R_386_PC32 | R_386_GOT32 | R_386_PLT32 | R_386_COPY | R_386_GLOB_DAT
-  | R_386_JUMP_SLOT | R_386_RELATIVE | R_386_GOTOFF | R_386_GOTPC
+  | R_386_JUMP_SLOT | R_386_RELATIVE | R_386_GOTOFF | R_386_GOTPC | R_386_TLS_TPOFF
   (* ARM relocation types *)
   | R_ARM_NONE | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
   (* AARCH64 relocation types *)
@@ -679,7 +683,7 @@ let to_reloc_type r hdr =
          match r with
          | 0 -> R_386_NONE  | 1 -> R_386_32        | 2 -> R_386_PC32       | 3 -> R_386_GOT32    | 4 -> R_386_PLT32
          | 5 -> R_386_COPY  | 6 -> R_386_GLOB_DAT  | 7 -> R_386_JUMP_SLOT  | 8 -> R_386_RELATIVE | 9 -> R_386_GOTOFF
-         | 10 -> R_386_GOTPC
+         | 10 -> R_386_GOTPC | 14 -> R_386_TLS_TPOFF
          | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
     | ARM ->
@@ -711,7 +715,8 @@ let reloc_type_to_string rel =
   | R_386_NONE -> "R_386_NONE"          | R_386_32 -> "R_386_32"                | R_386_PC32 -> "R_386_PC32"
   | R_386_GOT32 -> "R_386_GOT32"        | R_386_PLT32 -> "R_386_PLT32"          | R_386_COPY -> "R_386_COPY"
   | R_386_GLOB_DAT -> "R_386_GLOB_DAT"  | R_386_JUMP_SLOT -> "R_386_JUMP_SLOT"  | R_386_RELATIVE -> "R_386_RELATIVE"
-  | R_386_GOTOFF -> "R_386_GOTOFF"      | R_386_GOTPC -> "R_386_GOTPC"          | R_ARM_NONE -> "R_ARM_NONE"
+  | R_386_GOTOFF -> "R_386_GOTOFF"      | R_386_GOTPC -> "R_386_GOTPC"          | R_386_TLS_TPOFF -> "R_386_TLS_TPOFF"
+  | R_ARM_NONE -> "R_ARM_NONE"
   | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT"
   | R_AARCH64_COPY -> "R_AARCH64_COPY"                 | R_AARCH64_GLOB_DAT -> "R_AARCH64_GLOB_DAT"
   | R_AARCH64_JUMP_SLOT -> "R_AARCH64_JUMP_SLOT"       | R_AARCH64_RELATIVE -> "R_AARCH64_RELATIVE"
@@ -738,7 +743,10 @@ let to_rel s rofs shdr symtab hdr =
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
   let symnum = Z.logand (Z.shift_right info shift) mask in
   let syms = List.filter (fun sym -> sym.p_st_shdr.p_sh_index = shdr.sh_link) symtab in
-  let sym = List.nth syms (Z.to_int symnum) in
+  let sym = try List.nth syms (Z.to_int symnum)
+            with Failure _ -> L.abort (fun p -> p "symbol %s of section %i not found for reloc in section %i"
+                                              (Z.to_string symnum) (shdr.sh_link) shdr.p_sh_index)
+  in
   {
     p_r_shdr = shdr ;
     p_r_sym = sym ;
@@ -794,6 +802,54 @@ let rela_to_string (rela:e_rela_t) =
     (Z.to_int rela.r_addend)
     rela.p_r_sym.p_st_name
 
+(* ELF Note section *)
+
+type e_note_t = {
+  n_type : Z.t ;
+  n_name : string ;
+  n_desc : string ;
+}
+
+let note_to_string note =
+  Printf.sprintf "type=%s name=%s desc len=%#x"
+  (Z.format "%08x" note.n_type)
+  note.n_name
+  (String.length note.n_desc)
+
+let to_notes s (hdr : e_hdr_t) (note_ph : e_phdr_t) =
+  let addrsz = Z.of_int 4 in
+  let sz = note_ph.p_filesz in
+  let start_ofs = note_ph.p_offset in
+  let read_one_note ofs =
+    let p = ref ofs in
+    let namesz = zdec_word s (Z.to_int !p) hdr.e_ident in
+    p := Z.(!p + addrsz) ;
+    let descsz = zdec_word s (Z.to_int !p) hdr.e_ident in
+    p := Z.(!p + addrsz) ;
+    let ntype = zdec_word s (Z.to_int !p) hdr.e_ident in
+    p := Z.(!p + addrsz) ;
+    let name = read_string s !p Z.(namesz - ~$1) in
+    p := Z.((!p + namesz + addrsz - ~$1) / addrsz * addrsz) ;
+    let desc = read_string s !p descsz in
+    p := Z.((!p + descsz + addrsz - ~$1) / addrsz * addrsz) ;
+    let note = {
+        n_type = ntype ;
+        n_name = name ;
+        n_desc = desc ;
+      } in
+    note, !p in
+  let rec read_notes ofs (sz : Z.t) =
+    if Z.leq sz Z.zero then
+      begin
+        if Z.lt sz Z.zero then
+          L.warn(fun p -> p "Decoding of PT_NOTE section went past end of the section by %s bytes" (Z.format "%i" (Z.neg sz)));
+        []
+      end
+    else
+      let sec,newofs = read_one_note ofs in
+      sec :: (read_notes newofs Z.(sz + ofs - newofs)) in
+  read_notes start_ofs sz
+
 
 (* ELF *)
 
@@ -805,7 +861,102 @@ type elf_t = {
   rela : e_rela_t list;
   dynamic : e_dynamic_t list ;
   symtab : e_sym_t list ;
+  notes : e_note_t list ;
 }
+
+let get_all_notes s hdr phlist =
+  let rec read_notes_from_phlist ph_list =
+    match ph_list with
+    | [] -> []
+    | ph :: tail ->
+       List.append (to_notes s hdr ph) (read_notes_from_phlist tail) in
+  read_notes_from_phlist (List.filter (fun h -> h.p_type == PT_NOTE) phlist)
+
+let find_note note_list note_type note_name =
+  match
+    List.filter (fun note -> (note.n_type == note_type
+                              && (String.equal note.n_name note_name)))
+                note_list
+  with
+  | [] -> L.abort (fun p -> p "NT_PRSTATUS note section not found in coredump file")
+  | n::[] -> n
+  | l ->
+     begin
+       List.iter (fun n -> L.debug2(fun p -> p "matching note %s" (note_to_string n))) l;
+       L.abort (fun p -> p "More than 1 NT_PRSTATUS note section (%i sections found)" (List.length l))
+     end
+
+
+
+let elf_to_coredump_regs elf =
+  let make_reg_LE s name ofs sz =
+    let value = Z.of_bits (String.sub s ofs sz) in
+    (name, (Some (Config.Content value),[])) in
+  let _make_reg_BE s name ofs sz =
+    let buf = Buffer.create 16 in
+    for i = ofs+sz-1 downto ofs do
+        Buffer.add_char buf s.[i]
+    done;
+    let value = Z.of_bits (Buffer.contents buf) in
+    (name, (Some (Config.Content value), [])) in
+  let make_flags s ofs sz flag_list =
+    let fval = Z.of_bits (String.sub s ofs sz) in
+    List.map (fun (fname, fofs, fmask) ->
+        (fname, (Some (Config.Content (Z.logand (Z.shift_right fval fofs)
+                                                (Z.of_int fmask))), []))) flag_list in
+  match elf.hdr.e_ident.e_osabi, elf.hdr.e_machine with
+  | ELFOSABI_SYSVV, X86 ->
+     let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
+     let registers = List.map (fun (name,ofs) -> make_reg_LE prstatus.n_desc name ofs 4)
+                       (
+                       [ ("ebx", 0x48) ; ("ecx", 0x4c) ; ("edx", 0x50) ; ("esi", 0x54) ;
+                         ("edi", 0x58) ; ("ebp", 0x5c) ; ("eax", 0x60) ; ("ds", 0x64)  ;
+                         ("es", 0x68)  ; ("fs", 0x6c)  ; ("gs", 0x70)  ; (* ("eip", 0x78) ; *)
+                         ("cs", 0x7c)  ; ("esp", 0x84) ; ("ss", 0x88) ]) in
+     let eflags = make_flags prstatus.n_desc 0x80 4
+                    [ ("cf",    0, 1) ; ("pf",    2, 1) ; ("af",    4, 1) ; ("zf",    6, 1) ;
+                      ("sf",    7, 1) ; ("tf",    8, 1) ; ("if",    9, 1) ; ("df",   10, 1) ;
+                      ("of",   11, 1) ; ("iopl", 12, 3) ; ("nt",   14, 1) ; ("rf",   16, 1) ;
+                      ("vm",   17, 1) ; ("ac",   18, 1) ; ("vif",  19, 1) ; ("vip",  20, 1) ;
+                      ("id",   21, 1) ; ] in
+     let all_regs = List.append registers eflags in
+     all_regs
+  | ELFOSABI_SYSVV, ARM ->
+     let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
+     let registers = ref [] in
+     for i = 0 to 12 do
+       let rname = Printf.sprintf "r%i" i in
+       registers := (make_reg_LE prstatus.n_desc rname (0x48+i*4) 4) :: !registers
+     done;
+     registers := (make_reg_LE prstatus.n_desc "sp" 0x7c 4) :: !registers;
+     registers := (make_reg_LE prstatus.n_desc "lr" 0x80 4) :: !registers;
+     registers := (make_reg_LE prstatus.n_desc "pc" 0x84 4) :: !registers;
+     let cspr = Z.of_bits (String.sub prstatus.n_desc 0x88 4) in
+     let itstate = Z.(((cspr asr 25) land ~$3) lor ((cspr asr 8) land ~$0xfc)) in
+     registers := ("itstate", (Some (Config.Content itstate), [])) :: !registers;
+     let flags = make_flags prstatus.n_desc 0x88 4
+                            [ ("n", 31, 1) ; ("z", 30, 1) ;
+                              ("c", 29, 1) ; ("v", 28, 1) ;
+                              ("t", 5,  1) ] in
+     List.append !registers flags
+  | ELFOSABI_SYSVV, AARCH64 ->
+     let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
+     let registers = ref [] in
+     for i = 0 to 30 do
+       let rname = Printf.sprintf "x%i" i in
+       registers := (make_reg_LE prstatus.n_desc rname (0x70+i*8) 8) :: !registers
+     done;
+     registers := (make_reg_LE prstatus.n_desc "sp" 0x168 8) :: !registers;
+     registers := (make_reg_LE prstatus.n_desc "pc" 0x170 8) :: !registers;
+     let flags = make_flags prstatus.n_desc 0x178 4
+                            [ ("n", 31, 1) ; ("z", 30, 1) ;
+                              ("c", 29, 1) ; ("v", 28, 1) ] in
+     List.append !registers flags
+
+  | _ -> raise (Exceptions.Error 
+                  (Printf.sprintf "Cannot extract registers: ELF coredump ABI/Machine [%s/%s] type not supported yet." 
+                                  (e_osabi_to_string elf.hdr.e_ident.e_osabi)
+                                  (e_machine_to_string elf.hdr.e_machine)))
 
 let to_elf s =
   let map_section_entities f shdr =
@@ -844,6 +995,7 @@ let to_elf s =
         (map_section_entities (fun ofs -> to_rela s ofs sh symtab hdr) sh)
     ) rela_sections
   ) in
+  let notes = get_all_notes s hdr phdr in
   {
     hdr = hdr ;
     ph  = phdr ;
@@ -852,19 +1004,9 @@ let to_elf s =
     rela = rela ;
     dynamic = dynamic ;
     symtab = symtab ;
+    notes= notes ;
   }
 
-
-let vaddr_to_paddr vaddr ph =
-  let phdr = List.find
-    (fun ph -> (Z.leq ph.p_vaddr vaddr) && (Z.lt vaddr (Z.add ph.p_vaddr ph.p_filesz)))
-    ph in
-  Z.(phdr.p_offset + vaddr - phdr.p_vaddr)
-
-
-let patch_elf elf s vaddr value =
-  let paddr = Z.to_int (vaddr_to_paddr vaddr elf.ph) in
-  zenc_word_xword s paddr value elf.hdr.e_ident
 
 (*
 let () =

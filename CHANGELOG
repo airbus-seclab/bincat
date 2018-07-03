@@ -1,3 +1,12 @@
+2018-06-08: v0.9:
+* shades of greens to different taint sources in IDA
+* coredump loader
+* skip/nop options for analyzer
+* x86: MMX decoding
+* merge c2newspeak in BinCAT
+* support OCaml 4.06
+* lots of bugfixes
+
 2017-12-22: v0.8.1:
 Small bugfixes:
 * correctly install .no files

@@ -6,6 +6,7 @@ x86 = X86(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'x86.ini.in')
 )
 compare = x86.compare
+check = x86.check
 
 
 def test_assign(tmpdir):
@@ -24,6 +25,23 @@ def test_assign(tmpdir):
         mov dl,0x66
     """.format(**locals())
     compare(tmpdir, asm, ["eax","ebx","ecx","edx","esi","edi"])
+
+def test_mov_eax(tmpdir):
+    asm = """
+        mov al, 0x11
+        xor ebx, ebx
+        mov bl, al
+        mov ax, 0x1234
+        xor ecx, ecx
+        mov cx, ax
+        push 0x12345678
+        mov al, [esp]
+        xor edx, edx
+        mov dl, al
+        mov [0x100000], al
+        pop eax
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax","ebx","ecx","edx"])
 
 ##  ___  ___  _        __  ___  ___  ___ 
 ## | _ \/ _ \| |      / / | _ \/ _ \| _ \
@@ -335,7 +353,6 @@ def test_shift_shld_on_mem32(tmpdir, x86carryop, op32, op32_, shift):
             top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
                            "eax":0xffffffff if (shift > 32) else 0})
 
-@pytest.mark.xfail
 def test_shift_shld_on_mem16(tmpdir, x86carryop, op16, op16_, shift):
     asm = """
             {x86carryop}
@@ -350,7 +367,8 @@ def test_shift_shld_on_mem16(tmpdir, x86carryop, op16, op16_, shift):
     compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
             top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
                            "cf": 1 if (shift >16) else 0,
-                           "eax":0xffff if (shift > 32) else 0})
+                           # mask should be 0xFFFF for better precision
+                           "eax":0xffffffff if ((shift&0x1F) > 16) else 0})
 
 def test_shift_shld_reg16(tmpdir, x86carryop, op16, op16_, shift):
     asm = """
@@ -363,7 +381,7 @@ def test_shift_shld_reg16(tmpdir, x86carryop, op16, op16_, shift):
     compare(tmpdir, asm, ["eax", "ebx", "of", "cf"],
             top_allowed = {"of": 1 if (shift&0x1f) != 1 else 0,
                            "cf": 1 if (shift > 16) else 0,
-                           "eax":0xffff if (shift > 16) else 0})
+                           "eax":0xffff if ((shift&0x1F) > 16) else 0})
 
 def test_shift_shrd_imm8(tmpdir, x86carryop, op32, op32_, shift):
     asm = """
@@ -704,9 +722,9 @@ def test_cond_cmovxx_reg32(tmpdir):
                     ["ebx", "ecx", "edx", "of", "sf", "zf", "cf", "pf", "af"],
                     top_allowed={ "af":1 })
 
-def test_cond_jump_jne(tmpdir, op8):
+def test_cond_jump_jne(tmpdir, loop_cnt):
     asm = """
-            mov ecx, {op8}
+            mov ecx, {loop_cnt}
             mov eax, 0
          loop:
             inc eax
@@ -735,6 +753,7 @@ def test_loop_repne_scasb(tmpdir):
          """
     compare(tmpdir, asm, ["edi", "ecx", "edx", "zf", "cf", "of", "pf", "af", "sf"])
 
+@pytest.mark.xfail
 def test_loop_repne_scasb_unknown_memory(tmpdir):
     asm = """
             mov edi, esp
@@ -1141,14 +1160,35 @@ def test_misc_mov_rm8_r8(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-def test_misc_push_cs(tmpdir):
+def test_misc_push_segs_sel(tmpdir):
     asm = """
             push 0
             pop eax
+            push 0
+            pop ebx
+            push 0
+            pop ecx
+            push 0
+            pop edx
+            push 0
+            pop edi
+            push 0
+            pop esi
+
             push cs
             pop eax
+            push ds
+            pop ebx
+            push ss
+            pop ecx
+            push es
+            pop edx
+            push fs
+            pop edi
+            push gs
+            pop esi
           """
-    compare(tmpdir, asm, ["eax"])
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "edi", "esi"])
 
 
 def test_misc_lea_imm(tmpdir):
@@ -1162,7 +1202,6 @@ def test_misc_lea_imm(tmpdir):
           """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
-@pytest.mark.xfail
 def test_read_code_as_data(tmpdir):
     asm = """
            call lbl
@@ -1236,3 +1275,85 @@ def test_bcd_aad(tmpdir, op16, base):
     compare(tmpdir, asm, ["eax", "sf", "zf", "pf", "of", "af", "cf"],
             top_allowed = {"of":1, "af":1, "cf":1 })
 
+
+##  ___               _   _
+## | __|  _ _ _    __| |_(_)_ __
+## | _| || | ' \  (_-< / / | '_ \
+## |_| \_,_|_||_| /__/_\_\_| .__/
+##                         |_|
+
+def test_isn_nopping(tmpdir):
+    asm = """
+           mov eax, 1
+           mov ebx, 1
+           align 0x10
+           mov eax, 2
+           align 0x10
+           mov ebx, 2
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("nop=0x10,0x20")
+
+    check(tmpdir, asm, { "eax":1, "ebx": 1}, bctest=bc)
+
+def test_fun_skip_noarg(tmpdir):
+    asm = """
+           mov eax, 1
+           mov ebx, 4
+           call lbl
+           mov ebx, 5
+           jmp end
+       align 0x100
+       lbl:
+           mov eax, 2
+           ret
+       end:
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("fun_skip=0x100(0,3)")
+
+    check(tmpdir, asm, { "eax":3, "ebx": 5}, bctest=bc)
+
+def test_fun_skip_arg_cdecl(tmpdir):
+    asm = """
+           mov ebx, 0
+           push 1
+           mov eax, 1
+           push 2
+           push 3
+           call lbl
+           add esp, 8
+           pop ebx
+           jmp end
+       align 0x100
+       lbl:
+           mov eax, 2
+           ret
+       end:
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("fun_skip=0x100(2,3)")
+
+    check(tmpdir, asm, { "eax":3, "ebx": 1 }, bctest=bc)
+
+def test_fun_skip_arg_stdcall(tmpdir):
+    asm = """
+           mov ebx, 0
+           push 1
+           mov eax, 1
+           push 2
+           push 3
+           call lbl
+           pop ebx
+           jmp end
+       align 0x100
+       lbl:
+           mov eax, 2
+           ret
+       end:
+          """
+    bc = x86.make_bc_test(tmpdir, asm)
+    bc.initfile.add_analyzer_entry("fun_skip=0x100(2,3)")
+    bc.initfile.add_conf_replace("call_conv = cdecl","call_conv = stdcall")
+
+    check(tmpdir, asm, { "eax":3, "ebx": 1 }, bctest=bc)

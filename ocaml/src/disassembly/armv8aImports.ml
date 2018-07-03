@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -16,6 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module L = Log.Make(struct let name = "armv8AImports" end)
+         
 module Make(D: Domain.T)(Stubs: Stubs.T with type domain_t := D.t) =
 struct
 
@@ -25,7 +27,7 @@ struct
 
   let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
-  let tbl: (Data.Address.t, import_desc_t) Hashtbl.t = Hashtbl.create 5
+  let tbl: (Data.Address.t, import_desc_t * Asm.calling_convention_t) Hashtbl.t = Hashtbl.create 5
 
   let aapcs_calling_convention = {
     return = reg "x0" ;
@@ -43,7 +45,14 @@ struct
     | n -> M ((BinOp (Add, Lval (reg "sp"), const ((n-5)*4) 32)), 32) ;
   }
 
-
+  let get_local_callconv cc =
+    match cc with
+    | Config.AAPCS -> aapcs_calling_convention
+    | c -> L.abort (fun p -> p "Calling convention [%s] not supported for ARM v8A architecture"
+                               (Config.call_conv_to_string c))
+    
+  let get_callconv () = get_local_callconv !Config.call_conv
+                    
   let typing_rule_stmts_from_name name =
     try
       let _rule = Hashtbl.find Config.typing_rules name in
@@ -68,12 +77,17 @@ struct
       ]
 
   let init_imports () =
-    let cc = aapcs_calling_convention in
+    let default_cc = get_callconv () in
     Hashtbl.iter (fun adrs (libname,fname) ->
-      let tainting_pro,tainting_epi, _ = Rules.tainting_rule_stmts libname fname (fun _ -> cc) in
-      let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc in
-      let stub_stmts = stub_stmts_from_name fname cc in
-      let fundesc:Asm.import_desc_t = {
+        let tainting_pro,tainting_epi, cc = Rules.tainting_rule_stmts libname fname (fun cc -> get_local_callconv cc) in
+        let cc' =
+          match cc with
+          | Some cc -> cc
+          | None -> default_cc
+        in
+        let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc' in
+        let stub_stmts = stub_stmts_from_name fname cc' in
+        let fundesc:Asm.import_desc_t = {
         name = fname ;
         libname = libname ;
         prologue = typing_pro @ tainting_pro ;
@@ -81,10 +95,32 @@ struct
         epilogue = typing_epi @ tainting_epi ;
         ret_addr = Lval(reg "x30") ;
       } in
-      Hashtbl.replace tbl (Data.Address.global_of_int adrs) fundesc
+      Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc')
     ) Config.import_tbl
 
 
+  let skip fdesc a =
+      match fdesc with
+      | Some (fdesc', cc) ->
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_name fdesc'.Asm.name) then
+           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc))]  in
+           { fdesc' with stub = stmts }
+         else
+           fdesc'
+        
+      | None ->
+         let ia = Data.Address.to_int a in
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_addr ia) then
+           {
+          name = "";
+          libname = "";
+          prologue = [];
+          stub = [];
+          epilogue = [] ;
+          ret_addr =Lval(reg "x30");
+           }
+         else
+           raise Not_found
 
   let init () =
     Stubs.init ();

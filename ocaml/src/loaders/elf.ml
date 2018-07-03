@@ -26,9 +26,27 @@ module L = Log.Make(struct let name = "elf" end)
 
 let reloc_external_addr = ref Z.zero
 
-let make_mapped_mem () =
-  let entrypoint = Data.Address.global_of_int !Config.ep (* elf.hdr.e_entry *) in
-  let mapped_file = map_file !Config.binary in
+
+let vaddr_to_paddr vaddr sections =
+  let sec = try
+      List.find
+        (fun s ->
+          let svaddr = Data.Address.to_int s.virt_addr in
+          (Z.leq svaddr vaddr) && (Z.lt vaddr (Z.add svaddr s.raw_size)))
+        sections
+    with
+    | Not_found -> L.abort (fun p -> p "Could not convert vaddr=%08x to file offset"
+                                   (Z.to_int vaddr)) in
+  Z.(sec.raw_addr + vaddr - (Data.Address.to_int sec.virt_addr))
+
+
+let patch_elf elf s sections vaddr value =
+  let paddr = Z.to_int (vaddr_to_paddr vaddr sections) in
+  zenc_word_xword s paddr value elf.hdr.e_ident
+
+
+let make_mapped_mem filepath entrypoint =
+  let mapped_file = map_file filepath in
   let elf = Elf_core.to_elf mapped_file in
   if L.log_debug2 () then
     begin
@@ -47,6 +65,8 @@ let make_mapped_mem () =
        match ph.p_type with
        | PT_LOAD ->
           let section = {
+            mapped_file = mapped_file ;
+            mapped_file_name = filepath ;
             virt_addr = Data.Address.global_of_int ph.p_vaddr ;
             virt_addr_end = Data.Address.global_of_int (Z.add ph.p_vaddr ph.p_memsz) ;
             virt_size = ph.p_memsz ;
@@ -58,21 +78,37 @@ let make_mapped_mem () =
           L.debug(fun p -> p "ELF loading: %s" (section_to_string section));
           section :: (sections_from_ph tail)
        | _ -> sections_from_ph tail in
-  let sections = sections_from_ph elf.ph in
+  let sections_from_elfobj ()  =
+    let stat = Unix.stat !Config.binary in
+    let file_length = Z.of_int stat.Unix.st_size in
+    [ {
+        mapped_file_name = filepath ;
+        mapped_file = mapped_file ;
+        virt_addr = Data.Address.global_of_int Z.zero;
+        virt_addr_end = Data.Address.global_of_int file_length;
+        virt_size = file_length ;
+        raw_addr = Z.zero ;
+        raw_addr_end = file_length ;
+        raw_size = file_length ;
+        name = Filename.basename !Config.binary
+    } ] in
+  let sections = if !Config.format = Config.ELFOBJ
+                 then sections_from_elfobj ()
+                 else sections_from_ph elf.ph in
   let max_addr = List.fold_left (fun mx sec -> Z.max mx (Data.Address.to_int sec.virt_addr_end)) Z.zero sections in
   reloc_external_addr := max_addr;
 
-  let jump_slot_reloc sym offset _addend =
+  let jump_slot_reloc symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let value = !reloc_external_addr in
     L.debug (fun p -> p "REL JUMP_SLOT: write %08x at %08x to relocate %s"
       (Z.to_int value) (Z.to_int addr) sym_name);
-    patch_elf elf mapped_file addr value;
+    patch_elf elf mapped_file sections addr value;
     Hashtbl.replace Config.import_tbl !reloc_external_addr ("all", sym_name) ;
-    reloc_external_addr := Z.add !reloc_external_addr  (Z.of_int (!Config.address_sz/8)) in
+    reloc_external_addr := Z.add !reloc_external_addr symsize in
 
-  let glob_dat_reloc sym offset addend =
+  let glob_dat_reloc symsize sym offset addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let sym_value = sym.Elf_core.st_value in
@@ -81,17 +117,39 @@ let make_mapped_mem () =
         begin
           let value = !reloc_external_addr in
           Hashtbl.replace Config.import_tbl !reloc_external_addr ("all", sym_name);
-          reloc_external_addr := Z.add !reloc_external_addr  (Z.of_int (!Config.address_sz/8));
+          reloc_external_addr := Z.add !reloc_external_addr symsize;
           value
         end
       else Z.(sym_value + addend) in
     L.debug (fun p -> p "REL GLOB_DAT: write %08x at %08x to relocate %s"
       (Z.to_int value) (Z.to_int offset) sym_name);
-    patch_elf elf mapped_file addr value in
+    patch_elf elf mapped_file sections addr value in
+
+  let obj_reloc symsize sym offset _addend =
+    let sym_name = sym.Elf_core.p_st_name in
+    let addr = offset in
+    let value = !reloc_external_addr in
+    L.debug (fun p -> p "REL 386_32: write %08x at %08x to relocate %s"
+                        (Z.to_int value) (Z.to_int addr) sym_name);
+    patch_elf elf mapped_file sections addr value;
+    reloc_external_addr := Z.add !reloc_external_addr symsize in
+
+  let obj_reloc_rel symsize sym offset _addend =
+    let sym_name = sym.Elf_core.p_st_name in
+    let addr = offset in
+    let value = Z.(!reloc_external_addr - offset) in
+    L.debug (fun p -> p "REL 386_PC32: write %08x at %08x to relocate %s"
+                        (Z.to_int value) (Z.to_int addr) sym_name);
+    patch_elf elf mapped_file sections addr value;
+    reloc_external_addr := Z.add !reloc_external_addr symsize in
 
   let get_reloc_func = function
-    | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT -> jump_slot_reloc
-    | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT -> glob_dat_reloc
+    | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT
+      -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
+    | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT
+      -> glob_dat_reloc (Z.of_int (!Config.address_sz/8))
+    | R_386_32 -> obj_reloc (Z.of_int (!Config.external_symbol_max_size))
+    | R_386_PC32 -> obj_reloc_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_386_RELATIVE -> (fun _ _ _ -> ())
     | rt -> L.abort (fun p -> p "Unsupported relocation type [%s]" (reloc_type_to_string rt)) in
 
@@ -108,6 +166,8 @@ let make_mapped_mem () =
   ) elf.rela;
 
   let reloc_sec = {
+    mapped_file_name = filepath ;
+    mapped_file = mapped_file ;
     virt_addr = Data.Address.global_of_int max_addr ;
     virt_addr_end = Data.Address.global_of_int !reloc_external_addr ;
     virt_size = Z.(!reloc_external_addr - max_addr) ;
@@ -117,7 +177,6 @@ let make_mapped_mem () =
     name = "relocations" ;
   } in
   {
-    mapped_file = mapped_file ;
     sections  = sections @ [ reloc_sec ] ;
     entrypoint = entrypoint ;
   }

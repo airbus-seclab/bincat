@@ -10,7 +10,8 @@ try:
     import requests
     print "'requests' is installed, good."
 except ImportError:
-    if idaapi.ask_yn(idaapi.ASKBTN_NO,
+    askyn = idaapi.ask_yn if hasattr(idaapi, "ask_yn") else idaapi.askyn_c
+    if askyn(idaapi.ASKBTN_NO,
                      "'requests' is not installed, do you want to install it ?\n"
                      "Choose 'no' if you do not intend to use a distant BinCAT server") == idaapi.ASKBTN_YES:
         print "requests is not installed, trying to install"
@@ -33,7 +34,7 @@ plugin_dir = os.path.join(userdir, "plugins")
 
 bincat_path = os.path.dirname(os.path.realpath(__file__))
 
-if not os.path.isdir(plugin_dir) or not os.path.isdir(bincat_path):
+if not os.path.isdir(userdir) or not os.path.isdir(bincat_path):
     print "Something's wrong: %s or %s is not a dir" % (plugin_dir, bincat_path)
 
 p_idabincat = os.path.join(bincat_path, "python", "idabincat")
@@ -50,7 +51,7 @@ if os.path.isdir(p_idabincat) and os.path.isdir(p_pybincat):
         print "Copying 'bcplugin.py' to "+plugin_dir
         shutil.copy(os.path.join(p_idabincat, "bcplugin.py"),
                     os.path.join(plugin_dir, "bcplugin.py"))
-        print "Plugin installed"
+        print "Plugin installed, please restart IDA to use BinCAT"
     except OSError as e:
         print "Could not install! Error: "+str(e)+"\n"
 

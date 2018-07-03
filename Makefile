@@ -13,6 +13,7 @@ DOCGENPATH =doc/generated
 MLLIBDIR=../../python/idabincat
 IDAPATH   ?= $(HOME)/ida-6.95
 IDAUSR	?= $(HOME)/.idapro
+C2NPK := ../ocaml/src/npk/c2newspeak.opt
 
 all:
 	@echo "Compiling OCaml part................................................."
@@ -20,7 +21,7 @@ all:
 	@echo "Building python part................................................."
 	@make -C $(PYPATH) all
 	@echo "Building headers......................................................"
-	@make -C $(NPKPATH) all
+	@make -C $(NPKPATH) all C2NPK=$(C2NPK)
 
 
 install: all
@@ -33,26 +34,13 @@ IDAuser:
 	@echo "Linking pybincat and idabincat inside IDA Python ...................."
 	rm -rf "${IDAUSR}/plugins/pybincat"
 	mkdir -p "${IDAUSR}/plugins"
-	cp -r $$(${PYTHON} -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAUSR}/plugins/pybincat"
+	cp -r python/pybincat "${IDAUSR}/plugins/pybincat"
 	rm -rf "${IDAUSR}/plugins/idabincat"
-	cp -r $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAUSR}/plugins/idabincat"
+	cp -r python/idabincat "${IDAUSR}/plugins/idabincat"
 	rm -f "${IDAUSR}/plugins/bcplugin.py"
-	cp $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAUSR}/plugins/bcplugin.py"
+	cp python/idabincat/bcplugin.py "${IDAUSR}/plugins/bcplugin.py"
 	mkdir -p $(IDAUSR)/idabincat
-	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
-	# .no file
-	cp -r lib "${IDAUSR}/idabincat"
-
-IDAinstall: # install globally
-	@echo "Linking pybincat and idabincat inside IDA Python ...................."
-	rm -rf "${IDAPATH}/plugins/pybincat"
-	cp -r $$(${PYTHON} -c 'import os,inspect,pybincat;print os.path.dirname(inspect.getfile(pybincat))') "${IDAPATH}/plugins/pybincat"
-	rm -rf "${IDAPATH}/plugins/idabincat"
-	cp -r $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))') "${IDAPATH}/plugins/idabincat"
-	rm -f "${IDAPATH}/plugins/bcplugin.py"
-	cp $$(${PYTHON} -c 'import os,inspect,idabincat;print os.path.dirname(inspect.getfile(idabincat))')/bcplugin.py "${IDAPATH}/plugins/bcplugin.py"
-	mkdir -p $(IDAUSR)/idabincat
-	cp -r "${PYPATH}/idabincat/conf" "${IDAUSR}/idabincat"
+	cp -r "python/idabincat/conf" "${IDAUSR}/idabincat"
 	# .no file
 	cp -r lib "${IDAUSR}/idabincat"
 
@@ -127,5 +115,5 @@ lindist: clean all
 tags:
 	otags -vi -r ocaml
 
-.PHONY: install clean IDAinstall tags
+.PHONY: install clean tags
 
