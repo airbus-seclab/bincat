@@ -72,5 +72,7 @@ module Make(D: Unrel.T) =
       match m with
       | Val m' -> Val (USet.map (Unrel.remove_register r) m')
       | BOT -> BOT
-             
+
+    let forget_lval lv m =
+      
   end: Domain.T)
