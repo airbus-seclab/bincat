@@ -47,11 +47,10 @@ module Make(D: Unrel.T) =
                         else imprecise_exn r
                    ) m' None
          in
-         begin
            match v with
            | None -> imprecise_exn r
            | Some v' -> v'
-         end
+
          
     let string_of_register m r =
       match m with
@@ -87,4 +86,23 @@ module Make(D: Unrel.T) =
       match m with
       | BOT    -> ["_"]
       | Val m' -> USet.fold (fun u acc -> (Unrel.to_string u) ^ acc) m' []
+
+    let imprecise_value_of_exp e =
+      raise (Exceptions.too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))
+      
+    let value_of_exp m e check_address_validity =
+      match m with
+      | BOT -> raise (Exceptions.Empty "unrels.value_of_exp: environment is empty")
+      | Val m' -> let v = USet.fold (fun u prev ->
+                     let v' = Unrel.value_of_exp u e check_address_validity in
+                     match prev with
+                     | None -> Some v'
+                     | Some v ->
+                        if Z.compare z z' = 0 then prev
+                        else imprecise_value_of_exp e
+                   ) m' None
+         in
+           match v with
+           | None -> imprecise_value_of_exp r
+           | Some v' -> v'
   end
