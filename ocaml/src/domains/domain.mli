@@ -65,10 +65,10 @@ module type T =
 
       (** assignment into the given left value of the given expression.
       Returns also the taint of the given expression *)
-      val set: Asm.lval -> Asm.exp -> t -> t * Taint.t
+      val set: Asm.lval -> Asm.exp -> t -> t * Taint.Set.t
 
       (** set the given left value to the given address; the given integer is the size of the address *)
-      val set_lval_to_addr: Asm.lval -> Data.Address.t -> t -> t * Taint.t
+      val set_lval_to_addr: Asm.lval -> Data.Address.t -> t -> t * Taint.Set.t
         
       (** joins the two abstract values *)
       val join: t -> t -> t
@@ -81,35 +81,35 @@ module type T =
 
       (** [set_memory_from_config a c nb m] update the abstract value in _m_ with the value configuration _c_ (pair content * tainting value ) for the memory location _a_
       The integer _nb_ is the number of consecutive configurations _c_ to set . The computed taint is also returned *)
-      val set_memory_from_config: Data.Address.t -> Data.Address.region -> Config.cvalue option * Config.tvalue list -> int -> t -> t * Taint.t
+      val set_memory_from_config: Data.Address.t -> Data.Address.region -> Config.cvalue option * Config.tvalue list -> int -> t -> t * Taint.Set.t
 
       (** [set_register_from_config r c nb m] update the abstract value _m_ with the value configuration (pair content * tainting value) for register _r_.
       The integer _nb_ is the number of consecutive configuration _t_ to set. The computed taint is also returned *)
-      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue option * Config.tvalue list -> t -> t * Taint.t
+      val set_register_from_config: Register.t -> Data.Address.region -> Config.cvalue option * Config.tvalue list -> t -> t * Taint.Set.t
 
       (** apply the given taint mask to the given register. The computed taint is also returned *)
-      val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.t
+      val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.Set.t
 
       (** apply the given taint to the given register *)
-      val span_taint_to_register: Register.t -> Taint.t -> t -> t * Taint.t
+      val span_taint_to_register: Register.t -> Taint.t -> t -> t * Taint.Set.t
 
 
       (** apply the given taint mask to the given memory address.
           The computed taint is also returned *)
-      val taint_address_mask: Data.Address.t -> Config.tvalue list -> t -> t * Taint.t
+      val taint_address_mask: Data.Address.t -> Config.tvalue list -> t -> t * Taint.Set.t
 
       (** apply the given taint mask to the given memory address *)
-      val span_taint_to_addr: Data.Address.t -> Taint.t -> t -> t * Taint.t
+      val span_taint_to_addr: Data.Address.t -> Taint.t -> t -> t * Taint.Set.t
 
       (** comparison. Returns also the taint value of the comparison *)
-      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t * Taint.t
+      val compare: t -> Asm.exp -> Asm.cmp -> Asm.exp -> t * Taint.Set.t
 
       (** returns the set of addresses pointed by the given expression.
       May raise an exception.
       The taint of the pointer expression is also returned *)
-      val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t * Taint.t
+      val mem_to_addresses: t -> Asm.exp -> Data.Address.Set.t * Taint.Set.t
 
-      val taint_sources: Asm.exp -> t -> Taint.t
+      val taint_sources: Asm.exp -> t -> Taint.Set.t
 
       (** [set_type lv t m] type the left value lv with type t *)
       val set_type: Asm.lval -> Types.t -> t -> t

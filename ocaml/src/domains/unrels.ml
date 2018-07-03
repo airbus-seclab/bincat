@@ -106,16 +106,19 @@ module Make(D: Unrel.T) =
            | None -> imprecise_value_of_exp r
            | Some v' -> v'
 
-    let set dst src m check_address_validity: (t * Taint.S.t) =
+    let set dst src m check_address_validity: (t * Taint.Set.t) =
       match m with
       | BOT    -> BOT, Taint.U
       | Val m' ->
-         let taint = ref (Taint.S.empty) in
+         let taint = ref (Taint.Set.empty) in
          let m2 = USet.map (fun u ->
                       let u', t = U.set dst src u check_address_validity in
                       taint := Taint.S.add !taint t)
          in
          Val m2, !taint
          
-         
+    let set_lval_to_addr lv (region, word) m check_address_validity =
+      match m with
+      | BOT -> BOT, Taint.BOT
+      | Val m' ->
   end

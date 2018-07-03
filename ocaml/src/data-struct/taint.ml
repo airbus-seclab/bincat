@@ -240,4 +240,4 @@ let to_string t =
   | S srcs ->
      SrcSet.fold (fun src acc -> (Src.to_string src)^", "^acc) srcs ""
 
-module S = Set.Make (struct type t = t let compare = total_order end) 
+module Set = Set.Make (struct type t = t let compare = total_order end) 
