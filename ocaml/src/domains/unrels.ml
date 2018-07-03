@@ -82,5 +82,9 @@ module Make(D: Unrel.T) =
       match m with
       | BOT -> Unrel.add_register r (Unrel.empty)
       | Val m' -> Val (USet.map (Unrel.add_register r) m')
-                     
+
+    let to_string m =
+      match m with
+      | BOT    -> ["_"]
+      | Val m' -> USet.fold (fun u acc -> (Unrel.to_string u) ^ acc) m' []
   end
