@@ -134,7 +134,7 @@ module Make(D: T) =
   struct
       
     (** type of the Map from Dimension (register or memory) to abstract values *)
-    type t     = D.t Env.t (* For Ocaml non-gurus : Env is a Map, indexed by Key, with values of D.t *)
+    type t = D.t Env.t (* For Ocaml non-gurus : Env is a Map, indexed by Key, with values of D.t *)
 
 
     (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)
