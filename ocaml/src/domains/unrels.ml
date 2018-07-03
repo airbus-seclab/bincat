@@ -25,7 +25,7 @@ module Make(D: Unrel.T) =
       | BOT
       | Val of USet.t
 
-    let init () = USet.empty
+    let init () = USet.singleton (Unrel.empty)
                 
     let bot = BOT
             
