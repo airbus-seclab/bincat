@@ -175,10 +175,7 @@ module Make(D: T) =
       | BOT    -> BOT
 
 
-    let forget m =
-      match m with
-      | BOT -> BOT
-      | Val m' -> Val (Env.map (fun _ -> D.top) m')
+    let forget m = Env.map (fun _ -> D.top) m'
 
     let forget_reg m' r opt =
       let key = Env.Key.Reg r in
