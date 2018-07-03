@@ -17,7 +17,7 @@
  *)
 
 (* k-set of Unrel *)
-module Make(D: T) =
+module Make(D: Unrel.T) =
   (struct
     module U = Unrel.Make(D)
     module USet = Set.Make(struct type t = U.t let compare = U.total_order end)
@@ -29,9 +29,9 @@ module Make(D: T) =
             
     let is_bot m = m = BOT
 
-    let value_of_register m r =
+    let string_of_register m r =
       match m with
       | BOT -> L.error (fun p -> p "value_of_register: environment is empty ; can't look up register %s" (Register.name r))
-      | Val m' -> 
+      | Val m' -> USet.fold (fun acc u -> (Unrel.value_of_register u)^acc) "" m'
              
   end: Domain.T)
