@@ -239,3 +239,5 @@ let to_string t =
   | TOP -> "?"
   | S srcs ->
      SrcSet.fold (fun src acc -> (Src.to_string src)^", "^acc) srcs ""
+
+module S = Set.Make (struct type t = t let compare = total_order end) 
