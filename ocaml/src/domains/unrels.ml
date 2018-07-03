@@ -25,7 +25,7 @@ module Make(D: Unrel.T) =
       | BOT
       | Val of USet.t
 
-    let init () = USet.singleton (Unrel.empty)
+    let init () = USet.singleton Unrel.empty
                 
     let bot = BOT
             
@@ -76,6 +76,11 @@ module Make(D: Unrel.T) =
     let forget_lval lv m check_address_validity =
        match m with
       | BOT -> BOT
-      | Val m' -> Val (USet.map (fun u -> Unrel.forget_lval lv u check_address_validity)
+      | Val m' -> Val (USet.map (fun u -> Unrel.forget_lval lv u check_address_validity) m')
+                
+    let add_register r m =
+      match m with
+      | BOT -> Unrel.add_register r (Unrel.empty)
+      | Val m' -> Val (USet.map (Unrel.add_register r) m')
                      
   end

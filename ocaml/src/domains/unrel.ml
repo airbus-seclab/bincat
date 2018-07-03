@@ -160,13 +160,7 @@ module Make(D: T) =
         with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
       in D.to_string v
 
-    let add_register r m =
-      let add x =
-        Val (Env.add (Env.Key.Reg r) D.top x)
-      in
-      match m with
-      | BOT    -> add Env.empty
-      | Val m' -> add m'
+    let add_register r m = Env.add (Env.Key.Reg r) D.top x)
 
     let remove_register v m = Env.remove (Env.Key.Reg v) m'
 
