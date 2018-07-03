@@ -59,5 +59,18 @@ module Make(D: Unrel.T) =
       | Val m' -> USet.fold (fun acc u -> (Unrel.value_of_register u)^acc) "" m'
 
     let forget m = USet.map Unrel.forget
+
+    let is_subset m1 m2 =
+      match m1, m2 with
+      | BOT, _ -> true
+      | _, BOT -> false
+      | Val m1', Val m2' ->
+         USet.for_all (fun u1 ->
+             USet.exists (fun u2 -> Unrel.is_subset u1 u2) m2) m1'
+
+    let remove_register r m =
+      match m with
+      | Val m' -> Val (USet.map (Unrel.remove_register r) m')
+      | BOT -> BOT
              
   end: Domain.T)
