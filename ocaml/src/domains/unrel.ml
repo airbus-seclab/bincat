@@ -189,16 +189,12 @@ module Make(D: T) =
     Env.add key top' m'
 
     let is_subset m1 m2 =
-      match m1, m2 with
-      | BOT, _       -> true
-      | _, BOT       -> false
-      | Val m1', Val m2' ->
-         try Env.for_all2 D.is_subset m1' m2'
-         with _ ->
-           try
-             Env.iteri (fun k v1 -> try let v2 = Env.find k m2' in if not (D.is_subset v1 v2) then raise Exit with Not_found -> ()) m1';
-             true
-           with Exit -> false
+      try Env.for_all2 D.is_subset m1 m2
+      with _ ->
+        try
+          Env.iteri (fun k v1 -> try let v2 = Env.find k m2 in if not (D.is_subset v1 v2) then raise Exit with Not_found -> ()) m1;
+          true
+        with Exit -> false
 
 
     let coleasce_to_strs (m : D.t Env.t) (strs : string list) =
