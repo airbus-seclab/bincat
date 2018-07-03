@@ -1227,8 +1227,7 @@ module Make(D: T) =
           m
         | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
 
-    let init () = Val (Env.empty)
-
+   
   end
 
 

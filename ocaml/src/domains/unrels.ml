@@ -25,7 +25,7 @@ module Make(D: Unrel.T) =
       | BOT
       | Val of USet.t
 
-    let init () = BOT
+    let init () = USet.empty
                 
     let bot = BOT
             
@@ -50,6 +50,7 @@ module Make(D: Unrel.T) =
          begin
            match v with
            | None -> imprecise_exn r
+           | Some v' -> v'
          end
          
     let string_of_register m r =
