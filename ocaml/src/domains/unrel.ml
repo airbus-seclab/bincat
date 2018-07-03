@@ -235,10 +235,8 @@ module Make(D: T) =
       | _ -> ""
 
     let to_string m =
-      match m with
-      | BOT    -> ["_"]
-      | Val m' -> let non_itv = Env.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m' [] in
-                  coleasce_to_strs m' non_itv
+      let non_itv = Env.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m' [] in
+      coleasce_to_strs m' non_itv
 
     (***************************)
     (** Memory access function *)
@@ -670,10 +668,7 @@ module Make(D: T) =
          
              
     let set dst src m check_address_validity: (t * Taint.t) =
-      match m with
-      | BOT    -> BOT, Taint.U
-      | Val m' ->
-         let v', _ = eval_exp m' src check_address_validity in
+      let v', _ = eval_exp m' src check_address_validity in
          let v' = span_taint m' src v' in
          L.info2 (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
          let b = D.taint_sources v' in
@@ -685,14 +680,14 @@ module Make(D: T) =
               begin
                 try
                   Val (set_to_register r v' m'), b
-                with Not_found -> BOT, Taint.BOT
+                with Not_found -> raise (Exceptions.empty "Unrel.set (register case)"), Taint.BOT
               end
                 
            | Asm.M (e, n) ->
               try
                 let m', taint = set_to_memory e n v' m' b check_address_validity in
                 Val m', taint
-              with _ -> BOT, Taint.BOT
+              with _ -> raise (Exceptions.empty "Unrel.set (register case)"), Taint.BOT
 
     let join m1 m2 =
       match m1, m2 with
@@ -904,9 +899,7 @@ module Make(D: T) =
             with Not_found -> BOT, Taint.BOT
               
     let value_of_exp m e check_address_validity =
-      match m with
-      | BOT -> raise (Exceptions.Empty "unrel.value_of_exp: environment is empty")
-      | Val m' -> D.to_z (fst (eval_exp m' e check_address_validity))
+      D.to_z (fst (eval_exp m' e check_address_validity))
 
 
     let taint_sources e m check_address_validity =
