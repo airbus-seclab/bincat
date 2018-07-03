@@ -24,5 +24,14 @@ module Make(D: T) =
     type t =
       | BOT
       | Val of USet.t
+
+    let bot = BOT
+            
+    let is_bot m = m = BOT
+
+    let value_of_register m r =
+      match m with
+      | BOT -> L.error (fun p -> p "value_of_register: environment is empty ; can't look up register %s" (Register.name r))
+      | Val m' -> 
              
   end: Domain.T)

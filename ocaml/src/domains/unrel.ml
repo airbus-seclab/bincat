@@ -134,11 +134,8 @@ module Make(D: T) =
   struct
       
     (** type of the Map from Dimension (register or memory) to abstract values *)
-    type t     =
-      | Val of D.t Env.t (* For Ocaml non-gurus : Env is a Map, indexed by Key, with values of D.t *)
-      | BOT
+    type t     = D.t Env.t (* For Ocaml non-gurus : Env is a Map, indexed by Key, with values of D.t *)
 
-    let bot = BOT
 
     (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)
     let total_order m1 m2 =
