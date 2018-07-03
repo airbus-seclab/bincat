@@ -168,11 +168,7 @@ module Make(D: T) =
       | BOT    -> add Env.empty
       | Val m' -> add m'
 
-    let remove_register v m =
-      L.debug (fun p -> p "remove_register(%s)" (Register.name v));
-      match m with
-      | Val m' -> Val (Env.remove (Env.Key.Reg v) m')
-      | BOT    -> BOT
+    let remove_register v m = Env.remove (Env.Key.Reg v) m'
 
 
     let forget m = Env.map (fun _ -> D.top) m'
