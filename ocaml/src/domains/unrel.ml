@@ -145,9 +145,7 @@ module Make(D: T) =
       if n<> 0 then n
       else Env.total_order D.total_order m1 m2
          
-           
-    let is_bot m = m = BOT
-
+  
     let value_of_register m r =
       match m with
       | BOT    -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: environment is empty ; can't look up register %s" (Register.name r)))
