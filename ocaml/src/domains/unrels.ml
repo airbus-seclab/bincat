@@ -108,17 +108,46 @@ module Make(D: Unrel.T) =
 
     let set dst src m check_address_validity: (t * Taint.Set.t) =
       match m with
-      | BOT    -> BOT, Taint.U
+      | BOT    -> BOT, Taint.Set.singleton Taint.U
       | Val m' ->
          let taint = ref (Taint.Set.empty) in
          let m2 = USet.map (fun u ->
-                      let u', t = U.set dst src u check_address_validity in
-                      taint := Taint.S.add !taint t)
+                      let u', t = Unrel.set dst src u check_address_validity in
+                      taint := Taint.S.add !taint t) m'
          in
          Val m2, !taint
          
-    let set_lval_to_addr lv (region, word) m check_address_validity =
+    let set_lval_to_addr lv a m check_address_validity =
       match m with
-      | BOT -> BOT, Taint.BOT
+      | BOT -> BOT, Taint.Set.singleton Taint.BOT
       | Val m' ->
+         let taint = ref (Taint.Set.empty) in
+         let m2 = USet.map (fun u ->
+                      let u', t = Unrel.set_lval_to_addr lv a u check_address_validity in
+                      taint := Taint.Set.add !taint t) m'
+         in
+         Val m2, !taint
+
+    let merge m =
+      let ulist = Uset.elements m in
+      match ulist with
+      | [] -> USet.empty
+      | u::tl -> USet.singleton (List.fold_left (acc u -> Unrel.join acc u) u tl)
+         
+    let join m1 m2 =
+      match m1, m2 with
+      | BOT, m | m, BOT -> m
+      | Val m1', Val m2' ->
+         let m = USet.join m1' m2' in
+         (* check if the size of m exceeds the threshold *)
+         if USet.cardinal m > !Config.kset_bound then
+           Val (USet.join (merge m1' ) (merge m2'))
+         else
+           Val m'
+
+    let meet m1 m2 =
+      match m1, m2 with
+      | BOT, m | m, BOT -> BOT
+      | Val m1', Val m2' ->
+         
   end

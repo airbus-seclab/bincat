@@ -867,14 +867,11 @@ module Make(D: T) =
     let set_lval_to_addr lv (region, word) m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
       L.debug2 (fun p -> p "entering set_lval_to_addrs with lv = %s" (Asm.string_of_lval lv true));
-      
-      match m with
-      | BOT -> BOT, Taint.BOT
-      | Val m' ->
+     
          match lv with
          | Asm.M (e, n) ->
             if n <> !Config.address_sz then
-              raise (Exceptions.Empty "inconsistent derefence size wrt to address size")
+              raise (Exceptions.Empty "inconsistent dereference size wrt to address size")
             else
               begin
                 try
@@ -889,14 +886,14 @@ module Make(D: T) =
                       m', Taint.logor taint taint', Z.add i Z.one) (m', Taint.U, Z.zero) bytes
                   in
                   Val m', taint
-                with _ -> BOT, Taint.BOT 
+                with _ -> raise (Exceptions.Empty "set_lval_to_addr: invalid dereference"), Taint.BOT 
               end
               
          | Asm.V r ->
             let v = D.of_addr (region, word) in
             try
               Val (set_to_register r v m'), Taint.U
-            with Not_found -> BOT, Taint.BOT
+            with Not_found -> raise (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Register.name r))), Taint.BOT
               
     let value_of_exp m e check_address_validity =
       D.to_z (fst (eval_exp m' e check_address_validity))
