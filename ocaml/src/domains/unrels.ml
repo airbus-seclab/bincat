@@ -146,8 +146,30 @@ module Make(D: Unrel.T) =
            Val m'
 
     let meet m1 m2 =
+      let bot = ref false in
+      let add_one_meet m u1 u2 =
+        try
+          USet.add Unrel.meet u1 u2 m
+        with Exceptions.Empty _ ->
+          bot_nb := true;
+          m'
+      in
       match m1, m2 with
       | BOT, m | m, BOT -> BOT
       | Val m1', Val m2' ->
-         
+         let m' =
+           USet.fold (fun u1 m' ->
+               let mm = USet.fold (add_one_meet m' u1) m2' USet.empty in
+               USet.join mm m'
+             ) m1' USet.empty
+         in
+         let card = USet.cardinal m' in
+         if card > !Config.kset_bound then
+           Val (merge m')
+         else
+           (* check if result is BOT *)
+           if card = 0 && !bot then
+             BOT
+           else
+             Val m'
   end

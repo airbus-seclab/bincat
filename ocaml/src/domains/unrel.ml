@@ -703,19 +703,20 @@ module Make(D: T) =
 
     let meet m1 m2 =
       match m1, m2 with
-      | BOT, _ | _, BOT  -> BOT
-      | Val m1', Val m2' ->
-         if Env.is_empty m1' then
+         if Env.is_empty m1 then
            m2
          else
-           if Env.is_empty m2' then
+           if Env.is_empty m2 then
              m1
            else
              let m' = Env.empty in
-             let m' = Env.fold (fun k v1 m' ->
-               try let v2 = Env.find k m2' in
-                   Env.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
-             Val m'
+             Env.fold (fun k v1 m' ->
+                 try let v2 = Env.find k m2 in
+                     let v' = D.meet v1 v2 in
+                     if D.is_bot v' then
+                       raise (Exceptions.Empty "Unrel.meet")
+                     else
+                       Env.add k v' m' with Not_found -> m') m1 m'
 
     let widen m1 m2 =
       match m1, m2 with
