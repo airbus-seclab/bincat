@@ -181,8 +181,18 @@ module Make(D: Unrel.T) =
          let mm2 = merge m2' in
          let u' =
            match USet.elements mm1, USet.elements mm2 with
-               | [], [u] | [u], [] -> Unrel.empty
+               | [], _ | _, [] -> Unrel.empty
                | u1::_, u2::_ -> Unrel.widen u1 u2
          in
          Val u'
+
+    let set_memory_from_config a r conf nb m: t * Taint.Set.t =
+       if nb > 0 then
+        match m with
+        | BOT    -> BOT, Taint.Set.singleton Taint.BOT
+        | Val m' -> USet.fold (fun u (m, t) ->
+                        let u', t' = set_memory_from_config a r conf nb in
+                      Uset.add m u, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
+       else
+         m, Taint.Set.singleton Taint.U
   end
