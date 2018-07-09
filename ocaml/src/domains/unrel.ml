@@ -769,17 +769,14 @@ module Make(D: T) =
          let k = Env.Key.Reg reg in
          let v = Env.find k m' in
          let v' = D.span_taint v taint in
-         Val (Env.replace k v' m'), taint
+         Env.replace k v' m', taint
 
-    let taint_address_mask a (taints: Config.tvalue list) m: t * Taint.t =
+    let taint_address_mask a (taints: Config.tvalue list) m': t * Taint.t =
       L.debug (fun p->p "Unrel.taint_address_mask (%s)" (Data.Address.to_string a));
-      match m with
-      | BOT -> BOT, Taint.BOT
-      | Val m' ->
          let k = Env.Key.Mem a in
          let v = Env.find k m' in
          let v', taint = D.taint_of_config taints (Config.size_of_taints taints) v in
-         Val (Env.replace k v' m'), taint
+         Env.replace k v' m', taint
 
     let span_taint_to_addr a taint m: t * Taint.t =
       match m with
