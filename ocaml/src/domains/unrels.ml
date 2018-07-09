@@ -211,6 +211,7 @@ module Make(D: Unrel.T) =
          
     let taint_register_mask reg taint m = fold_on_taint (Unrel.taint_register_mask reg taint) m
 
-    let span_taint_to_register reg taint m = fold_o_taint (Unrel.span_taint_to_register reg taint) m
+    let span_taint_to_register reg taint m = fold_on_taint (Unrel.span_taint_to_register reg taint) m
 
+    let taint_address_mask a taints m = fold_on_taint (Unrel.taint_address_mask a taints) m
   end
