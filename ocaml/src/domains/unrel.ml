@@ -759,14 +759,11 @@ module Make(D: T) =
       else
         D.taint_of_config taint sz v'
 
-    let taint_register_mask reg taint m: t * Taint.t =
-      match m with
-      | BOT -> BOT, Taint.BOT
-      | Val m' ->
-         let k = Env.Key.Reg reg in
-         let v = Env.find k m' in
-         let v', taint =  D.taint_of_config [taint] (Register.size reg) v in
-         Val (Env.replace k v' m'), taint
+    let taint_register_mask reg taint m': t * Taint.t =
+      let k = Env.Key.Reg reg in
+      let v = Env.find k m' in
+      let v', taint =  D.taint_of_config [taint] (Register.size reg) v in
+      Env.replace k v' m', taint
 
     let span_taint_to_register reg taint m: t * Taint.t =
       match m with
