@@ -186,35 +186,31 @@ module Make(D: Unrel.T) =
          in
          Val u'
 
-    let set_memory_from_config a r conf nb m: t * Taint.Set.t =
-       if nb > 0 then
-        match m with
-        | BOT    -> BOT, Taint.Set.singleton Taint.BOT
-        | Val m' -> USet.fold (fun u (m, t) ->
-                        let u', t' = Unrel.set_memory_from_config a r conf nb u in
-                      Uset.add m u, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
-       else
-         m, Taint.Set.singleton Taint.U
-
-    let set_register_from_config r region conf m =
-      match m with
-      | BOT    -> BOT, Taint.Set.singleton Taint.BOT 
-      | Val m' ->
-         let m', t' =
-           USet.fold (fun u (m, t) ->
-               let u', t' = Unrel.set_register_from_config r region conf u in
-               Uset.add m u, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
-         in
-         Val m', t'
-
-    let taint_register_mask reg taint m =
+            
+    let fold_on_taint m f =
       match m with
       | BOT -> BOT,  Taint.Set.singleton Taint.BOT
       | Val m' ->
          let m', t' =
            USet.fold (fun u (m, t) ->
-               let u', t' = Unrel.taint_register_mask reg taint u in
+               let u', t' = f u in
                Uset.add m u, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
          in
          Val m', t'
+         
+    let set_memory_from_config a r conf nb m: t * Taint.Set.t = 
+      if nb > 0 then
+        fold_on_taint (Unrel.set_mmeory_from_config a r conf)
+      else
+        m, Taint.Set.singleton Taint.U
+
+   
+         
+    let set_register_from_config r region conf m = fold_on_taint (Unrel.set_register_from_config r region conf) m
+
+         
+    let taint_register_mask reg taint m = fold_on_taint (Unrel.taint_register_mask reg taint) m
+
+    let span_taint_to_register reg taint m = fold_o_taint (Unrel.span_taint_to_register reg taint) m
+
   end
