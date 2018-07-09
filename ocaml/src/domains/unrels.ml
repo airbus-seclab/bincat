@@ -172,4 +172,17 @@ module Make(D: Unrel.T) =
              BOT
            else
              Val m'
+
+    let widen m1 m2 =
+      match m1, m2 with
+      | BOT, m | m, BOT  -> m
+      | Val m1', Val m2' ->
+         let mm1 = merge m1' in
+         let mm2 = merge m2' in
+         let u' =
+           match USet.elements mm1, USet.elements mm2 with
+               | [], [u] | [u], [] -> Unrel.empty
+               | u1::_, u2::_ -> Unrel.widen u1 u2
+         in
+         Val u'
   end
