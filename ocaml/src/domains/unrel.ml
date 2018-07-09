@@ -778,14 +778,11 @@ module Make(D: T) =
          let v', taint = D.taint_of_config taints (Config.size_of_taints taints) v in
          Env.replace k v' m', taint
 
-    let span_taint_to_addr a taint m: t * Taint.t =
-      match m with
-      | BOT -> BOT, Taint.BOT
-      | Val m' ->
+    let span_taint_to_addr a taint m': t * Taint.t =
          let k = Env.Key.Mem a in
          let v = Env.find k m' in
          let v' = D.span_taint v taint in
-         Val (Env.replace k v' m'), taint
+         Env.replace k v' m', taint
 
     let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain': t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");  

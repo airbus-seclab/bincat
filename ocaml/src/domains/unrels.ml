@@ -207,7 +207,6 @@ module Make(D: Unrel.T) =
    
          
     let set_register_from_config r region conf m = fold_on_taint (Unrel.set_register_from_config r region conf) m
-
          
     let taint_register_mask reg taint m = fold_on_taint (Unrel.taint_register_mask reg taint) m
 
@@ -215,5 +214,6 @@ module Make(D: Unrel.T) =
 
     let taint_address_mask a taints m = fold_on_taint (Unrel.taint_address_mask a taints) m
 
-    let span_taint_to_addr a t m = fold_on_taint (Unrel.span_taint_to_addr a t) m                                 
+    let span_taint_to_addr a t m = fold_on_taint (Unrel.span_taint_to_addr a t) m
+
   end
