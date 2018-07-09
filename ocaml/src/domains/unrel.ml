@@ -797,11 +797,8 @@ module Make(D: T) =
          Val (Env.replace k v' m'), taint
 
     let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain': t * Taint.t =
-      L.debug (fun p->p "Unrel.set_memory_from_config");
-      if nb > 0 then
-        match domain with
-        | BOT    -> BOT, Taint.BOT
-        | Val domain' ->
+      L.debug (fun p->p "Unrel.set_memory_from_config");  
+      
            let taint_srcs = extract_taint_src_ids taint in          
            let m', taint, sz =
              match content with
@@ -845,10 +842,7 @@ module Make(D: T) =
       else
         domain, Taint.U
 
-    let set_register_from_config r region (content, taint) m: t * Taint.t =
-      match m with
-      | BOT    -> BOT, Taint.BOT
-      | Val m' ->
+    let set_register_from_config r region (content, taint) m': t * Taint.t =     
          let taint_srcs = extract_taint_src_ids taint in
          List.iter (fun id ->
            if not (Hashtbl.mem Dump.taint_src_tbl id) then

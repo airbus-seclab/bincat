@@ -191,8 +191,16 @@ module Make(D: Unrel.T) =
         match m with
         | BOT    -> BOT, Taint.Set.singleton Taint.BOT
         | Val m' -> USet.fold (fun u (m, t) ->
-                        let u', t' = set_memory_from_config a r conf nb in
+                        let u', t' = set_memory_from_config a r conf nb u in
                       Uset.add m u, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
        else
          m, Taint.Set.singleton Taint.U
+
+    let set_register_from_config r region conf m =
+      match m with
+      | BOT    -> BOT, Taint.Set.singleton Taint.BOT 
+      | Val m' ->  USet.fold (fun u (m, t) ->
+                       let u', t' = set_register_from_config r region conf u in
+                       Uset.add m u, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
+         
   end
