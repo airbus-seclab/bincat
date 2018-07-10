@@ -572,7 +572,7 @@ module Make(D: T) =
       match e1, cmp with
       | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ ->
          let v  = Env.find (Env.Key.Reg r) m in
-         let v' = D.meet v v2        in
+         let v' = D.meet v v2 in
          if D.is_bot v' then
            raise (Exceptions.Empty "unrel.val_restrict")
          else
@@ -581,21 +581,16 @@ module Make(D: T) =
 
     (* TODO factorize with compare_env *)
     let compare m check_address_validity (e1: Asm.exp) op e2 =
-      match m with
-      | BOT -> BOT, Taint.U
-      | Val m' ->
-         let v1, b1 = eval_exp m' e1 check_address_validity in
-         let v2, b2 = eval_exp m' e2 check_address_validity in
-         if D.is_bot v1 || D.is_bot v2 then
-           BOT, Taint.U
-         else
-           if D.compare v1 op v2 then
-             try
-               Val (val_restrict m' e1 v1 op e2 v2), Taint.logor b1 b2
-             with Exceptions.Empty _ -> BOT, Taint.U
-           else
-             BOT, Taint.U
-
+      let v1, b1 = eval_exp m' e1 check_address_validity in
+      let v2, b2 = eval_exp m' e2 check_address_validity in
+      if D.is_bot v1 || D.is_bot v2 then
+        raise (Exceptions.Empty "Unrel.compare")
+      else
+        if D.compare v1 op v2 then
+          val_restrict m' e1 v1 op e2 v2, Taint.Set.join b1 b2
+        else
+          raise (Exceptions.Empty "Unrel.compare")
+      
     let mem_to_addresses m e check_address_validity =
       match m with
       | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Cant evaluate %s" (Asm.string_of_exp e true)))

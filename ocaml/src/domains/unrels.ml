@@ -216,4 +216,26 @@ module Make(D: Unrel.T) =
 
     let span_taint_to_addr a t m = fold_on_taint (Unrel.span_taint_to_addr a t) m
 
+    let compare m check_address_validity e1 op e2 =
+      match m with
+      | BOT -> BOT, Taint.Set.singleton Taint.BOT
+      | Val m' ->
+         let bot = ref false in
+         let mres, t = USet.fold (fun u (m', t) ->
+                        try
+                          let ulist', tset' = Unrel.compare u check_validity e1 op e2 in
+                          List.fold_left (fun m' u -> USet.add m' u) m' ulist', tset'
+                          with Empty _ ->
+                            bot := true;
+                            m', t) m' (USet.empty, Taint.Set.singleton Taint.U) 
+         in
+         let card = USet.cardinal mres in
+         if !bot && card = 0 then
+           BOT, Taint.Set.singleton Taint.BOT
+         else
+           if card > !Config.kset_bound then
+             Val (merge mres), Taint.Set.fold Taint.logor t Taint.U
+           else
+             Val mres, t
+           
   end
