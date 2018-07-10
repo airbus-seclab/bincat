@@ -246,5 +246,8 @@ module Make(D: Unrel.T) =
              let addrs', t' = mem_to_addresses u in
              Data.Address.Set.join addrs addrs addrs', Taint.Set.add t' t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
 
-         
+    let taint_sources e m check_address_validity =
+      match m with
+      | BOT -> Taint.Set.singleton Taint.BOT
+      | Val m' ->  USet.fold (fun u t -> Taint.Set.join t (Unrel.taint_sources e u check_address_validity)) m' Taint.Set.empty
   end
