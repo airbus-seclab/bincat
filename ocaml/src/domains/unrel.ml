@@ -591,12 +591,9 @@ module Make(D: T) =
         else
           raise (Exceptions.Empty "Unrel.compare")
       
-    let mem_to_addresses m e check_address_validity =
-      match m with
-      | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true)))
-      | Val m' ->
-         let v, b = eval_exp m' e check_address_validity in
-         D.to_addresses v, b
+    let mem_to_addresses m' e check_address_validity =
+      let v, b = eval_exp m' e check_address_validity in
+      D.to_addresses v, b
 
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
     If e is untainted then nothing is done *)
