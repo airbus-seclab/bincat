@@ -568,7 +568,7 @@ module Make(D: T) =
 
 
 
-    let val_restrict m e1 _v1 cmp _e2 v2 =
+    let val_restrict m e1 _v1 cmp _e2 v2: t list =
       match e1, cmp with
       | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ ->
          let v  = Env.find (Env.Key.Reg r) m in
@@ -576,8 +576,8 @@ module Make(D: T) =
          if D.is_bot v' then
            raise (Exceptions.Empty "unrel.val_restrict")
          else
-           Env.replace (Env.Key.Reg r) v' m
-      | _, _ -> m
+           [Env.replace (Env.Key.Reg r) v' m]
+      | _, _ -> [m]
 
     (* TODO factorize with compare_env *)
     let compare m check_address_validity (e1: Asm.exp) op e2 =
@@ -593,7 +593,7 @@ module Make(D: T) =
       
     let mem_to_addresses m e check_address_validity =
       match m with
-      | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Cant evaluate %s" (Asm.string_of_exp e true)))
+      | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true)))
       | Val m' ->
          let v, b = eval_exp m' e check_address_validity in
          D.to_addresses v, b
