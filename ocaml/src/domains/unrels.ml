@@ -250,4 +250,16 @@ module Make(D: Unrel.T) =
       match m with
       | BOT -> Taint.Set.singleton Taint.BOT
       | Val m' ->  USet.fold (fun u t -> Taint.Set.join t (Unrel.taint_sources e u check_address_validity)) m' Taint.Set.empty
+
+    let get_offset_from e cmp terminator upper_bound sz m check_address_validity =
+        match m with
+      | BOT -> raise (Exceptions.Empty "Unrels.get_offset_from: environment is empty")
+      | Val m' ->
+         Uset.fold (fun u o ->
+             let o' = Unrel.get_offset_from e cmp terminator upeer_bound sz u check_address_validity in
+             match o' with
+             | None -> o
+             | Some o' ->
+                if Z.compare o o' = 0 then Some o
+                else raise (Exceptions.Empty "Unrels.get_offset_from: different offsets found")) m' None
   end

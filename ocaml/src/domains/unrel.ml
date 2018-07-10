@@ -874,18 +874,14 @@ module Make(D: T) =
 
 
     let taint_sources e m check_address_validity =
-      match m with
-      | BOT -> Taint.U
-      | Val m' -> snd (eval_exp m' e check_address_validity)
+      snd (eval_exp m' e check_address_validity)
+                
 
-
-    let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t) (with_exception: bool) pad_options check_address_validity: (int * D.t list) =
+    let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m': t) (with_exception: bool) pad_options check_address_validity: (int * D.t list) =
       L.debug(fun p -> p "i_get_bytes addr=%s cmp=%s terminator=%s upper_bound=%i sz=%i"
         (Asm.string_of_exp addr true) (Asm.string_of_cmp cmp)
         (Asm.string_of_exp terminator true) upper_bound sz);
-      match m with
-      | BOT -> raise (Exceptions.Empty "unrel.i_get_bytes: environment is empty")
-      | Val m' ->
+    
          let v, _ = eval_exp m' addr check_address_validity in
          let addrs = Data.Address.Set.elements (D.to_addresses v) in
          let term = fst (eval_exp m' terminator check_address_validity) in

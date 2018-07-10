@@ -115,8 +115,8 @@ module type T =
       val set_type: Asm.lval -> Types.t -> t -> t
 
 
-      (** [get_address_of addr terminator upper_bound sz m] scans memory to get.
-      The lowest offset o <= upper_bound from address addr such that (sz)[addr+o] cmp terminator is true.
+      (** [get_address_of addr terminator upper_bound sz m] scans memory to get
+      the lowest offset o <= upper_bound from address addr such that (sz)[addr+o] cmp terminator is true.
       May raise an exception if not found or memory too much imprecise *)
       val get_offset_from: Asm.exp -> Asm.cmp -> Asm.exp -> int -> int -> t -> int
 
