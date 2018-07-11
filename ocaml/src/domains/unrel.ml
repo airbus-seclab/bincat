@@ -968,10 +968,7 @@ module Make(D: T) =
       L.debug (fun p->p "strip, after: %s" res);
       res
 
-    let copy_until m dst e terminator term_sz upper_bound with_exception pad_options check_address_validity: int * t =
-      match m with
-      | Val m' ->
-     begin
+    let copy_until m' dst e terminator term_sz upper_bound with_exception pad_options check_address_validity: int * t =  
        let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' dst check_address_validity))) in
        (* TODO optimize: m is pattern matched twice (here and in i_get_bytes) *)
        let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options check_address_validity in
@@ -990,8 +987,7 @@ module Make(D: T) =
          | [] -> raise (Exceptions.Empty "unrel.copy_until")
        in
        len, Val m'
-     end
-      | BOT -> 0, BOT
+   
 
     (* print nb bytes on stdout as raw string *)
     let print_bytes bytes nb =
@@ -1127,14 +1123,12 @@ module Make(D: T) =
           end
         | BOT -> BOT, raise (Exceptions.Empty "unrel.copy_hex: environment is empty")
 
-    let print_hex m src nb capitalise pad_option word_sz check_address_validity: t * int =
-      match m with
-      | Val m' ->
-         let str, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
-          (* str is already stripped in hex *)
-          Log.Stdout.stdout (fun p -> p "%s" str);
-          m, len
-        | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "unrel.print_hex: environment is empty")
+    let print_hex m' src nb capitalise pad_option word_sz check_address_validity: t * int =      
+      let str, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
+      (* str is already stripped in hex *)
+      Log.Stdout.stdout (fun p -> p "%s" str);
+      m, len
+
 
     let copy m' dst arg sz check_address_validity: t =
     (* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)

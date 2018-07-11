@@ -310,4 +310,16 @@ module Make(D: Unrel.T) =
             let u', len = Unrel.print_hex u src nb capitalise pad_option word_sz check_address_validity in
             Val (USet.singleton u'), len
          | _ -> raise (Exceptions.Too_many_concrete_elements "Unrel.print_hex: implemented only for one unrel only")
+
+    let copy_until m' dst e terminator term_sz upper_bound with_exception pad_options check_address_validity =
+       match m with
+       | BOT -> 0, BOT
+       | Val m' ->
+          match USet.elements m' with
+          | [u] ->
+             let u', len = Unrel.copy_until u src nb capitalise pad_option word_sz check_address_validity in
+             Val (USet.singleton u'), len
+         | _ -> raise (Exceptions.Too_many_concrete_elements "Unrel.copy_until: implemented only for one unrel only")
+
+           
   end
