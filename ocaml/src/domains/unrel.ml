@@ -942,10 +942,9 @@ module Make(D: T) =
 
     let get_offset_from e cmp terminator upper_bound sz m check_address_validity = fst (i_get_bytes e cmp terminator upper_bound sz m true None check_address_validity) 
 
-    let copy_register r dst src =
+    let copy_register r dst' src' =
       let k = Env.Key.Reg r in
-      match dst, src with
-      | Val dst', Val src' -> let v = Env.find k src' in Val (Env.replace k v dst')
+      let v = Env.find k src' in Val (Env.replace k v dst')
       | BOT, Val src' -> let v = Env.find k src' in Val (let m = Env.empty in Env.add k v m)
       | _, _ -> BOT
 
@@ -1003,14 +1002,12 @@ module Make(D: T) =
     let copy_chars m dst src nb pad_options check_address_validity =
       snd (copy_until m dst src (Asm.Const (Data.Word.of_int Z.zero 8)) 8 nb false pad_options check_address_validity)
 
-    let print_chars m src nb pad_options check_address_validity =
-        match m with
-        | Val _ ->
-          (* TODO: factorize with copy_until *)
-          let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m false pad_options check_address_validity) in
-          print_bytes bytes nb;
-          m
-        | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
+    let print_chars m' src nb pad_options check_address_validity =
+      (* TODO: factorize with copy_until *)
+      let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m false pad_options check_address_validity) in
+      print_bytes bytes nb;
+      m
+       
 
     let copy_chars_to_register m reg offset src nb pad_options check_address_validity =
       match m with
