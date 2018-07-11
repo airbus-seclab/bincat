@@ -117,14 +117,26 @@ module Make(D: Unrel.T) =
          in
          Val m2, !taint
          
-    let set_lval_to_addr lv a m check_address_validity =
+    let set_lval_to_addr lv addrs m check_address_validity =
       match m with
-      | BOT -> BOT, Taint.Set.singleton Taint.BOT
+      | BOT -> BOT, Taint.BOT
       | Val m' ->
+         let m' =
+           (* check if resulting size would not exceed the kset bound *)
+           if (USet.cardinal m') + (List.length addrs) > !Config.kset_bound then
+             merge m'
+           else m'
+         in
          let taint = ref (Taint.Set.empty) in
-         let m2 = USet.map (fun u ->
-                      let u', t = Unrel.set_lval_to_addr lv a u check_address_validity in
-                      taint := Taint.Set.add !taint t) m'
+         let m2 =
+           List.fold_left (fun acc a ->
+               let m' =
+                 USet.map (fun u ->
+                     let u', t = Unrel.set_lval_to_addr lv a u check_address_validity in
+                     taint := Taint.Set.add !taint t) m'
+               in
+               USet.join acc m'
+             ) USet.empty addrs
          in
          Val m2, !taint
 
@@ -343,7 +355,10 @@ module Make(D: Unrel.T) =
 
     let copy_register r dst src =
         match dst, src with
-        | Val dst', Val src' -> Val (Uset.map )
+        | Val dst', Val src' -> Val (Uset.fold (fun u1 acc ->
+                                         let acc' = USet.map (fun u2 -> Unrel.copy_register r u1 u2) src' in
+                                         Uset.join acc' acc)
+                                         dst' USet.empty)
         | BOT, Val src' ->
            let v = Env.find k src' in Val (let m = Env.empty in Env.add k v m)
         | _, _ -> BOT
