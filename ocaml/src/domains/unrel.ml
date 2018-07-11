@@ -1136,21 +1136,17 @@ module Make(D: T) =
           m, len
         | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "unrel.print_hex: environment is empty")
 
-    let copy m dst arg sz check_address_validity: t =
+    let copy m' dst arg sz check_address_validity: t =
     (* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)
     (* plus make pattern matching more generic for register detection *)
-    match m with
-    | Val m' ->
-       begin
-         let v = fst (eval_exp m' arg check_address_validity) in
-         let addrs = fst (eval_exp m' dst check_address_validity) in
-         match Data.Address.Set.elements (D.to_addresses addrs) with
-         | [a] ->
-        Val (write_in_memory a m' v sz true false)
-         | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
-         | [ ] -> raise (Exceptions.Empty "unrel.copy")
-       end
-    | BOT -> BOT
+      let v = fst (eval_exp m' arg check_address_validity) in
+      let addrs = fst (eval_exp m' dst check_address_validity) in
+      match Data.Address.Set.elements (D.to_addresses addrs) with
+      | [a] ->
+         Val (write_in_memory a m' v sz true false)
+      | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
+      | [ ] -> raise (Exceptions.Empty "unrel.copy")
+    
 
     (* display (char) arg on stdout as a raw string *)
     let print m arg _sz check_address_validity: t =

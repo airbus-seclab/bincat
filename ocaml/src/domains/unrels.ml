@@ -255,19 +255,25 @@ module Make(D: Unrel.T) =
         match m with
       | BOT -> raise (Exceptions.Empty "Unrels.get_offset_from: environment is empty")
       | Val m' ->
-         Uset.fold (fun u o ->
-             let o' = Unrel.get_offset_from e cmp terminator upeer_bound sz u check_address_validity in
-             match o' with
-             | None -> o
-             | Some o' ->
-                if Z.compare o o' = 0 then Some o
-                else raise (Exceptions.Empty "Unrels.get_offset_from: different offsets found")) m' None
-
+         let res =
+           Uset.fold (fun u o ->
+               let o' = Unrel.get_offset_from e cmp terminator upeer_bound sz u check_address_validity in
+               match o' with
+               | None -> o
+               | Some o' ->
+                  if Z.compare o o' = 0 then Some o
+                  else raise (Exceptions.Empty "Unrels.get_offset_from: different offsets found")) m' None
+         in
+         match res with
+         | Some o -> o
+         | _ -> raise (Exceptions.Empty "Unrels.get_offset_from: undefined offset")
+            
     let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t) check_address_validity =
           match m with
       | BOT -> raise (Exceptions.Empty "Unrels.get_bytes: environment is empty")
       | Val m' ->
-         USet.fold (fun u acc ->
+         let res =
+           USet.fold (fun u acc ->
              let bytes, len = Unrel.get_bytes e cmp terminator upper_bound sz u chack_address_validity in
              match acc with
              | None -> Some (bytes, len)
@@ -279,5 +285,15 @@ module Make(D: Unrel.T) =
                     raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")
                 else
                   raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")       
-           ) m' None
+             ) m' None
+         in
+         match res with
+         | Some r -> r
+         | None -> raise (Exceptions.Empty "Unrels.get_bytes: undefined bytes to compute")
+
+    let copy m dst arg sz check_address_validity =
+      match m with
+      | Val m' -> Val (USet.map (fun u -> Unrel.copy u dst arg sz check_address_validity))
+      | BOT -> BOT
+       
   end
