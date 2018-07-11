@@ -262,4 +262,22 @@ module Make(D: Unrel.T) =
              | Some o' ->
                 if Z.compare o o' = 0 then Some o
                 else raise (Exceptions.Empty "Unrels.get_offset_from: different offsets found")) m' None
+
+    let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t) check_address_validity =
+          match m with
+      | BOT -> raise (Exceptions.Empty "Unrels.get_bytes: environment is empty")
+      | Val m' ->
+         USet.fold (fun u acc ->
+             let bytes, len = Unrel.get_bytes e cmp terminator upper_bound sz u chack_address_validity in
+             match acc with
+             | None -> Some (bytes, len)
+             | Some (bytes', len') ->
+                if len = len' then
+                  if Bytes.compare bytes bytes' = 0 then
+                    acc
+                  else
+                    raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")
+                else
+                  raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")       
+           ) m' None
   end
