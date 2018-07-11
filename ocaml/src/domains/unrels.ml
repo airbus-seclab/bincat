@@ -335,4 +335,9 @@ module Make(D: Unrel.T) =
       match m with
       | BOT -> BOT
       | Val m' -> Val (USet.map (fun u -> Unrel.copy_chars u dst src nb pad_options check_address_validity) m')
+
+    let print_chars m' src nb pad_options check_address_validity =
+      match m with
+      | Val m' -> Val (USet.map (fun u -> Unrel.print_chars u src nb pad_options chack_address_validity) m')
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT   
   end
