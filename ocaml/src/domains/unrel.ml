@@ -1149,18 +1149,15 @@ module Make(D: T) =
     
 
     (* display (char) arg on stdout as a raw string *)
-    let print m arg _sz check_address_validity: t =
-        match m with
-        | Val m' ->
-          let str = strip (D.to_string (fst (eval_exp m' arg check_address_validity))) in
-          let str' =
-              if String.length str <= 2 then
-                  String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
-              else raise (Exceptions.Empty "unrel.print")
-          in
-          Log.Stdout.stdout (fun p -> p "%s" str');
-          m
-        | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
+    let print m' arg _sz check_address_validity: unit =
+      let str = strip (D.to_string (fst (eval_exp m' arg check_address_validity))) in
+      let str' =
+        if String.length str <= 2 then
+          String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
+        else raise (Exceptions.Empty "unrel.print")
+      in
+      Log.Stdout.stdout (fun p -> p "%s" str')
+      
 
    
   end

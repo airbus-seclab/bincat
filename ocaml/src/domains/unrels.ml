@@ -295,5 +295,9 @@ module Make(D: Unrel.T) =
       match m with
       | Val m' -> Val (USet.map (fun u -> Unrel.copy u dst arg sz check_address_validity))
       | BOT -> BOT
-       
+
+    let print m arg sz check_address_validity =
+      match m with
+      | Val m' -> USet.iter (fun u -> Unrel.print u arg sz check_address_validity); m
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
   end
