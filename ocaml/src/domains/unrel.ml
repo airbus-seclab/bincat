@@ -1145,7 +1145,7 @@ module Make(D: T) =
       | [a] ->
          Val (write_in_memory a m' v sz true false)
       | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l)
-      | [ ] -> raise (Exceptions.Empty "unrel.copy")
+      | [ ] -> raise (Exceptions.Empty "Unrel.copy")
     
 
     (* display (char) arg on stdout as a raw string *)
@@ -1154,7 +1154,7 @@ module Make(D: T) =
       let str' =
         if String.length str <= 2 then
           String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
-        else raise (Exceptions.Empty "unrel.print")
+        else raise (Exceptions.Empty "Unrel.print")
       in
       Log.Stdout.stdout (fun p -> p "%s" str')
       

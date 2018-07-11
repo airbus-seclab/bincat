@@ -279,7 +279,7 @@ module Make(D: Unrel.T) =
              | None -> Some (bytes, len)
              | Some (bytes', len') ->
                 if len = len' then
-                  if Bytes.compare bytes bytes' = 0 then
+                  if Bytes.equal bytes bytes' then
                     acc
                   else
                     raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")
@@ -300,4 +300,14 @@ module Make(D: Unrel.T) =
       match m with
       | Val m' -> USet.iter (fun u -> Unrel.print u arg sz check_address_validity); m
       | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
+
+    let print_hex m src nb capitalise pad_option word_sz check_address_validity =
+      match m with
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "Unrels.print_hex: environment is empty")
+      | Val m' ->
+         match USet.elements m' with
+         | [u] ->
+            let u', len = Unrel.print_hex u src nb capitalise pad_option word_sz check_address_validity in
+            Val (USet.singleton u'), len
+         | _ -> raise (Exceptions.Too_many_concrete_elements "Unrel.print_hex: implemented only for one unrel only")
   end
