@@ -321,5 +321,18 @@ module Make(D: Unrel.T) =
              Val (USet.singleton u'), len
          | _ -> raise (Exceptions.Too_many_concrete_elements "Unrel.copy_until: implemented only for one unrel only")
 
-           
+    let print_until m e terminator term_sz upper_bound with_exception pad_options check_address_validity =
+      match m with
+       | BOT -> Log.Stdout.stdout (fun p -> p "_"); 0, BOT
+       | Val m' ->
+          match USet.elements m' with
+          | [u] ->
+             let len, u' = Unrel.print_until u e terminator term_sz upper_bound with_exception pad_options check_address_validity in
+             len, Val (USet.singleton u')
+          | _ -> raise (Exceptions.Too_many_concrete_elements "Unrel.print_until: implemented only for one unrel only")
+
+    let copy_chars m dst src nb pad_options check_address_validity =
+      match m with
+      | BOT -> BOT
+      | Val m' -> Val (USet.map (fun u -> Unrel.copy_chars u dst src nb pad_options check_address_validity) m')
   end
