@@ -165,11 +165,14 @@ struct
             | Heap _, Stack -> 1
 
         let equal_region r1 r2 = compare_region r1 r2 = 0
-                               
+
+        let is_null_cst (r, (w, sz)) =
+          r = Global && Config.is_null_cst w && Z.compare sz (Z.of_int !Config.address_sz) = 0
+                                                                                          
         let compare a1 a2 =
           match a1, a2 with
           | NULL, NULL -> 0
-          | NULL, Val (Global, (w, _)) when Z.compare w Z.zero = 0 -> 0
+          | NULL, Val v when is_null_cst v -> 0
           | NULL, _ -> -1
           | _, NULL -> 1
           | Val (r1, w1), Val (r2, w2) ->
@@ -182,7 +185,7 @@ struct
         let equal a1 a2 =
           match a1, a2 with
           | NULL, NULL -> true
-          | NULL, _ | _, NULL -> false
+          | NULL, Val v | Val v, NULL -> is_null_cst v
           | Val (r1, w1), Val (r2, w2) ->
             if equal_region r1 r2 then Word.equal w1 w2
             else false
@@ -193,7 +196,7 @@ struct
                 if Word.compare w (Word.zero n) < 0 then
                     raise (Exceptions.Error "Tried to create negative address")
                 else
-                    r, w
+                    Some (r, w)
             else
                 raise (Exceptions.Error "Address generation for this memory mode not yet managed")
 
