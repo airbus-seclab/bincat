@@ -244,13 +244,13 @@ struct
         let sub a1 a2 =
           match a1, a2 with
           | NULL, _ | _, NULL -> raise (Exceptions.Error "invalid address substraction with NULL operand")           
-          | Val (r1, w1), Val (r2, w2)  when equal_region r1 r2 ->
+          | Val (r1, w1), Val (r2, w2) when equal_region r1 r2 ->
              let w = Word.sub w1 w2 in
              if Word.compare w (Word.zero (Word.size w1)) < 0 then
-               raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)))
+               raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string a1) (to_string a2)))
              else
                Word.to_int w
-          | _, _  -> raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)))
+          | _, _  -> raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string a1) (to_string a2)))
 
         let binary op (a1: t) (a2: t): t =
             match a1, a2 with
