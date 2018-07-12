@@ -103,7 +103,7 @@ struct
         end;
       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
 
-    let memcpy (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.t =
+    let memcpy (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.Set.t =
       L.info (fun p -> p "memcpy stub");
       let dst = Asm.Lval (args 0) in
       let src = Asm.Lval (args 1) in
