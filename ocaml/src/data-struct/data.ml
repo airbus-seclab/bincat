@@ -278,7 +278,11 @@ struct
           | NULL -> raise (Exceptions.Error "Invalid shift_left with NULL operand address")
           | Val (r, w) -> Val (r, Word.shift_left w i)
                         
-        let shift_right (r, w) i = r, Word.shift_right w i
+        let shift_right a i =
+          match a with
+          | NULL -> raise (Exceptions.Error "Invalid shift_right with NULL operand address")
+          | Val (r, w) -> Val (r, Word.shift_right w i)
+                        
         let neg (r, w) = r, Word.neg w
     end
     include A
