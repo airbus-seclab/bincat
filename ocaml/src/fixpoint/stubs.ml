@@ -114,7 +114,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
-    let memset (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
+    let memset (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
       let arg0 = args 0 in
       let dst = Asm.Lval arg0 in
       let src = args 1 in
