@@ -167,7 +167,7 @@ struct
         let equal_region r1 r2 = compare_region r1 r2 = 0
 
         let is_null_cst (r, (w, sz)) =
-          r = Global && Config.is_null_cst w && Z.compare sz (Z.of_int !Config.address_sz) = 0
+          r = Global && Config.is_null_cst w && sz = !Config.address_sz
                                                                                           
         let compare a1 a2 =
           match a1, a2 with
