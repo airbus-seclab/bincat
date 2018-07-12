@@ -127,7 +127,7 @@ struct
 
       type t =
         | NULL
-        | Val of region * Word.t (* valid address *)
+        | Val of (region * Word.t) (* valid address *)
           
         let heap_id = ref 0
 
@@ -235,7 +235,7 @@ struct
 
         let to_word a sz =
           match a with
-          | NULL -> !Config.cst_null, !Config.address_sz
+          | NULL -> !Config.null_cst, !Config.address_sz
           | Val (_, w) ->
             if Word.size w >= sz then w
             else

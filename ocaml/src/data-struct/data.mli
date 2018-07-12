@@ -90,7 +90,7 @@ module Address: sig
   (** data type of an address *)
   type t =
     | NULL
-    | Val of region * Word.t
+    | Val of (region * Word.t)
 
   (** returns zero if the two parameters are equal
       a negative integer if the first one is less than the second one
