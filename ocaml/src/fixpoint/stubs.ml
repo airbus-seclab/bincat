@@ -93,7 +93,7 @@ struct
         Exceptions.Too_many_concrete_elements _ ->
           raise (Exceptions.Too_many_concrete_elements "Stubs: too many addresses to deallocate")
       
-    let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
+    let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
       let zero = Asm.Const (Data.Word.zero 8) in
       let len = D.get_offset_from (Asm.Lval (args 0)) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then
