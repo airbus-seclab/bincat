@@ -944,8 +944,6 @@ module Make(D: T) =
       let v = Env.find k src' in Val (Env.replace k v dst')
       
 
-      | _, _ -> BOT
-
 
     (* Remove the prefix of the string, if needed
      * For example : "S0x1F" => "1F" or "0b1" => "1" or "1" => "1"
