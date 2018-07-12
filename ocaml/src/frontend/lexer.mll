@@ -133,6 +133,7 @@ let value        = (digit | path_symbols | letter | '_' | '-' | '@')*
 
 (* tokens *)
 rule token = parse
+                 
   (* escape tokens *)
   | white_space         { token lexbuf }
   | newline             { new_line lexbuf; token lexbuf }
@@ -173,7 +174,11 @@ rule token = parse
   (* left operand of type integer *)
   | integer as i        { INT (Z.of_string i) }
  
-  | value as v      { STRING v }
+    | value as v {
+                   try
+                     Hashtbl.find keywords v
+                   with Not_found -> STRING v
+                 }
 
 
 
