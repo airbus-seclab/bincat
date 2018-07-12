@@ -162,7 +162,7 @@ module Make(D: T) =
         with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
       in D.to_string v
 
-    let add_register r m = Env.add (Env.Key.Reg r) D.top x)
+    let add_register r m = Env.add (Env.Key.Reg r) D.top x
 
     let remove_register v m = Env.remove (Env.Key.Reg v) m'
 
@@ -696,21 +696,20 @@ module Make(D: T) =
 
 
     let meet m1 m2 =
-      match m1, m2 with
-         if Env.is_empty m1 then
-           m2
-         else
-           if Env.is_empty m2 then
-             m1
-           else
-             let m' = Env.empty in
-             Env.fold (fun k v1 m' ->
-                 try let v2 = Env.find k m2 in
-                     let v' = D.meet v1 v2 in
-                     if D.is_bot v' then
-                       raise (Exceptions.Empty "Unrel.meet")
-                     else
-                       Env.add k v' m' with Not_found -> m') m1 m'
+      if Env.is_empty m1 then
+        m2
+      else
+        if Env.is_empty m2 then
+          m1
+        else
+          let m' = Env.empty in
+          Env.fold (fun k v1 m' ->
+              try let v2 = Env.find k m2 in
+                  let v' = D.meet v1 v2 in
+                  if D.is_bot v' then
+                    raise (Exceptions.Empty "Unrel.meet")
+                  else
+                    Env.add k v' m' with Not_found -> m') m1 m'
 
     let widen m1 m2 =
        try Val (Env.map2 D.widen m1 m2)
@@ -945,7 +944,8 @@ module Make(D: T) =
     let copy_register r dst' src' =
       let k = Env.Key.Reg r in
       let v = Env.find k src' in Val (Env.replace k v dst')
-      | BOT, Val src' -> let v = Env.find k src' in Val (let m = Env.empty in Env.add k v m)
+      
+
       | _, _ -> BOT
 
 

@@ -366,12 +366,9 @@ struct
       Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
-<<<<<<< HEAD
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
-      Hashtbl.replace stubs "free" (heap_deallocator, 1)
-=======
-      Hashtbl.replace stubs "strlen"        (strlen,      1);;
->>>>>>> master
+      Hashtbl.replace stubs "free" (heap_deallocator, 1);;
+
 
 end
