@@ -16,7 +16,6 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-
 (** Word data type *)
 module Word =
   struct
@@ -123,7 +122,7 @@ struct
       type region =
         | Global 
         | Stack 
-        | Heap of (heap_id_t * Z.t) (* first int is the id ; second int is the size in bits *)
+        | Heap of heap_id_t * Z.t (* first int is the id ; second int is the size in bits *)
             
 
       type t = (region * Word.t) option (* None means NULL *)
@@ -166,7 +165,7 @@ struct
         let compare a1 a2 =
           match a1, a2 with
           | None, None -> 0
-          | None, Some (Global, w) when Z.compare w Z.zero = 0 -> 0
+          | None, Some (Global, (w, _)) when Z.compare w Z.zero = 0 -> 0
           | None, _ -> -1
           | _, None -> 1
           | Some (r1, w1), Some (r2, w2) ->
@@ -176,11 +175,13 @@ struct
              else
                Word.compare_value w1 w2
 
-        let equal (r1, w1) (r2, w2) =
-            let b = r1 = r2 in
-            if b then Word.equal w1 w2
-            else
-                false
+        let equal a1 a2 =
+          match a1, a2 with
+          | None, None -> true
+          | None, _ | _, None -> false
+          | Some (r1, w1), Some (r2, w2) ->
+            if r1 = r2 then Word.equal w1 w2
+            else false
 
         let of_string r a n =
             if !Config.mode = Config.Protected then
