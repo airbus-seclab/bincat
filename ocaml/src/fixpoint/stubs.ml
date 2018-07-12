@@ -44,7 +44,7 @@ struct
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let heap_allocator (ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.t =
+    let heap_allocator (ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
       try
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
         let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
