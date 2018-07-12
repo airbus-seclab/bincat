@@ -229,8 +229,8 @@ struct
             let n = Word.size w in
             let w' = Word.add w (Word.of_int o' n) in
             if Word.size w' > n then
-                    r, Word.truncate w' n
-            else r, w'
+                    Val (r, Word.truncate w' n)
+            else Val (r, w')
 
         let dec a = add_offset a (Z.minus_one)
         let inc a = add_offset a (Z.one)
