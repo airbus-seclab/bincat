@@ -81,6 +81,7 @@ let total_order t1 t2 =
      let n = n1-n2 in
      if n <> 0 then n1
      else SrcSet.compare src1 src2
+     
   | BOT, _ -> -1
   | TOP, _ -> -1
   | U, _ -> -1
@@ -240,4 +241,4 @@ let to_string t =
   | S srcs ->
      SrcSet.fold (fun src acc -> (Src.to_string src)^", "^acc) srcs ""
 
-module Set = Set.Make (struct type t = t let compare = total_order end) 
+module Set = Set.Make (struct type aux_t = t type t = aux_t let compare = total_order end) 
