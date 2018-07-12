@@ -271,7 +271,10 @@ struct
           | NULL -> raise (Exceptions.Error "Invalid unary operation with NULL operand address")
           | Val (r, w) -> Val (r, Word.unary op w)
 
-        let size_extension (r, w) sz = r, Word.size_extension w sz
+        let size_extension a sz =
+          match a with
+          | NULL -> NULL
+          | Val (r, w) -> Val (r, Word.size_extension w sz)
 
         let shift_left a i =
           match a with
