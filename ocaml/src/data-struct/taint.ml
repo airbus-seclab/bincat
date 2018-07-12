@@ -76,8 +76,8 @@ let total_order t1 t2 =
   match t1, t2 with
   | BOT, BOT | TOP, TOP | U, U -> 0
   | S src1, S src2 ->
-     let n1 = Src.cardinal src1 in
-     let n2 = Src.cardinal src2 in
+     let n1 = SrcSet.cardinal src1 in
+     let n2 = SrcSet.cardinal src2 in
      let n = n1-n2 in
      if n <> 0 then n1
      else SrcSet.compare src1 src2
