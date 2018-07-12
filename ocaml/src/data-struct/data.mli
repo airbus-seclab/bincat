@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -88,7 +88,7 @@ module Address: sig
   val string_of_region: region -> string
     
   (** data type of an address *)
-  type t = region * Word.t
+  type t = (region * Word.t) option
 
   (** returns zero if the two parameters are equal
       a negative integer if the first one is less than the second one

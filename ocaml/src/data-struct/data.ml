@@ -229,14 +229,17 @@ struct
                   Word.to_int w
             | _, _  -> raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)))
 
-        let binary op ((r1, w1): t) ((r2, w2): t): t =
-            let r' =
-                match r1, r2 with
-                | Global, r | r, Global -> r
-                | r1, r2                ->
-                  if r1 = r2 then r1 else raise (Exceptions.Error "Invalid binary operation on addresses of different regions")
-            in
-            r', Word.binary op w1 w2
+        let binary op (a1: t) (a2: t): t =
+            match a1, a2 with
+            | None, _ | _, None -> raise (Exceptions.Error "Invalid binary operation with at least one NULL operand address")
+            | Some (r1, w1), Some (r2, w2) ->
+               let r' =
+                 match r1, r2 with
+                 | Global, r | r, Global -> r
+                 | r1, r2                ->
+                    if r1 = r2 then r1 else raise (Exceptions.Error "Invalid binary operation on addresses of different regions")
+               in
+               Some (r', Word.binary op w1 w2)
 
         let unary op (r, w) = r, Word.unary op w
 
