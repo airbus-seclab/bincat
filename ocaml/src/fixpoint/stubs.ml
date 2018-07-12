@@ -73,7 +73,7 @@ struct
                   (Data.Address.to_string ip)
                   (Data.Address.to_string a)))
            
-    let heap_deallocator (ip: Data.Address.t) (d: domain_t) _ret args: domain_t * Taint.t =
+    let heap_deallocator (ip: Data.Address.t) (d: domain_t) _ret args: domain_t * Taint.Set.t =
       let mem = Asm.Lval (args 0) in
       try
         let addrs, taint = D.mem_to_addresses d mem in
