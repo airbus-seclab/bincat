@@ -163,12 +163,18 @@ struct
             | Heap _, Global -> 1
             | Heap _, Stack -> 1
       
-        let compare (r1, w1) (r2, w2) =
-            let n = compare_region r1 r2 in
-            if n <> 0 then
-                n
-            else
-                Word.compare_value w1 w2
+        let compare a1 a2 =
+          match a1, a2 with
+          | None, None -> 0
+          | None, Some (Global, w) when Z.compare w Z.zero = 0 -> 0
+          | None, _ -> -1
+          | _, None -> 1
+          | Some (r1, w1), Some (r2, w2) ->
+             let n = compare_region r1 r2 in
+             if n <> 0 then
+               n
+             else
+               Word.compare_value w1 w2
 
         let equal (r1, w1) (r2, w2) =
             let b = r1 = r2 in
