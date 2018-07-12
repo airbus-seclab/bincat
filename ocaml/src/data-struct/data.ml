@@ -217,13 +217,13 @@ struct
         let size a =
           match a with
           | NULL -> !Config.address_sz
-          | Some a -> Word.size (snd a)
+          | Val a -> Word.size (snd a)
 
 
         let add_offset a o' =
           match a with
           | NULL -> raise (Exceptions.Error "undefined shift with NULL address")
-          | Some (r, w) ->
+          | Val (r, w) ->
             let n = Word.size w in
             let w' = Word.add w (Word.of_int o' n) in
             if Word.size w' > n then
@@ -236,15 +236,15 @@ struct
         let to_word a sz =
           match a with
           | NULL -> !Config.cst_null, !Config.address_sz
-          | Some (_, w) ->
+          | Val (_, w) ->
             if Word.size w >= sz then w
             else
                 raise (Exceptions.Error "overflow when tried to convert an address to a word")
 
         let sub a1 a2 =
           match a1, a2 with
-          | None, _ | _, None -> raise (Exceptions.Error "invalid address substraction with NULL operand")           
-          | Some (r1, w1), Some (r2, w2)  when equal_region r1 r2 ->
+          | NULL, _ | _, NULL -> raise (Exceptions.Error "invalid address substraction with NULL operand")           
+          | Val (r1, w1), Val (r2, w2)  when equal_region r1 r2 ->
              let w = Word.sub w1 w2 in
              if Word.compare w (Word.zero (Word.size w1)) < 0 then
                raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string v1) (to_string v2)))
@@ -254,15 +254,15 @@ struct
 
         let binary op (a1: t) (a2: t): t =
             match a1, a2 with
-            | None, _ | _, None -> raise (Exceptions.Error "Invalid binary operation with at least one NULL operand address")
-            | Some (r1, w1), Some (r2, w2) ->
+            | NULL, _ | _, NULL -> raise (Exceptions.Error "Invalid binary operation with at least one NULL operand address")
+            | Val (r1, w1), Val (r2, w2) ->
                let r' =
                  match r1, r2 with
                  | Global, r | r, Global -> r
                  | r1, r2                ->
                     if equal_region r1 r2 then r1 else raise (Exceptions.Error "Invalid binary operation on addresses of different regions")
                in
-               Some (r', Word.binary op w1 w2)
+               Val (r', Word.binary op w1 w2)
 
         let unary op (r, w) = r, Word.unary op w
 
