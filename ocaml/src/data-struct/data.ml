@@ -123,10 +123,10 @@ struct
       type region =
         | Global 
         | Stack 
-        | Heap of heap_id_t * Z.t (* first int is the id ; second int is the size in bits *)
+        | Heap of (heap_id_t * Z.t) (* first int is the id ; second int is the size in bits *)
             
 
-        type t = region * Word.t
+      type t = (region * Word.t) option (* None means NULL *)
           
         let heap_id = ref 0
 

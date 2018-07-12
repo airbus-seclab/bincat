@@ -23,7 +23,7 @@ module L = Log.Make(struct let name = "reduced_unrel_typenv_heap" end)
 
 module Make(D: Unrel.T) =
 (struct
-  module U = Unrel.Make(D)
+  module U = Unrels.Make(D)
   module T = Typenv
   module H = Heap
 
@@ -88,9 +88,11 @@ module Make(D: Unrel.T) =
         try
       let addrs, _ = U.mem_to_addresses uenv e (H.check_status henv) in
       match Data.Address.Set.elements addrs with
-      | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ)); if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
+      | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ));
+               if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
+               
       | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
-    with Exceptions.Too_many_concrete_elements _ -> T.forget tenv
+        with Exceptions.Too_many_concrete_elements _ -> T.forget tenv
    in
    uenv, tenv', henv
 
@@ -105,7 +107,17 @@ module Make(D: Unrel.T) =
   let set_lval_to_addr (lv: Asm.lval) (addrs: Data.Address.t list) ((uenv, tenv, henv): t): t*Taint.t =
     let uenv', b = U.set_lval_to_addr lv addrs uenv (H.check_status henv) in
     try
-      let buf_typ = T.of_key (Env.Key.Mem addr) tenv in
+      let buf_typ =
+        match addr with
+        | [] -> raise Exit
+        | addr::l ->
+           let t = T.of_key (Env.Key.Mem addr) tenv in
+           if List.for_all (fun a ->
+                  let t' = T.of_key (Env.Key.Mem a) tenv in
+                  TypedC.compare t t' = 0) tl then
+             t
+           else raise Exit
+      in
       let ptr_typ =
         match buf_typ with
         | Types.T t -> Types.T (TypedC.Ptr t)
