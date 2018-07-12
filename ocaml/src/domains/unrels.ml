@@ -141,10 +141,10 @@ module Make(D: Unrel.T) =
          Val m2, !taint
 
     let merge m =
-      let ulist = Uset.elements m in
+      let ulist = USet.elements m in
       match ulist with
       | [] -> USet.empty
-      | u::tl -> USet.singleton (List.fold_left (acc u -> Unrel.join acc u) u tl)
+      | u::tl -> USet.singleton (List.fold_left (fun acc u -> Unrel.join acc u) u tl)
          
     let join m1 m2 =
       match m1, m2 with
