@@ -193,7 +193,10 @@ struct
             else
                 raise (Exceptions.Error "Address generation for this memory mode not yet managed")
 
-        let to_string (r, w) = Printf.sprintf "%s%s" (string_of_region r) (Word.to_string w)
+        let to_string a =
+          match a with
+          | None -> "NULL"
+          | Some (r, w) -> Printf.sprintf "%s%s" (string_of_region r) (Word.to_string w)
 
         (** returns the offset of the address *)
         let to_int (_r, w) = Word.to_int w
