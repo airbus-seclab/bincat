@@ -191,14 +191,13 @@ struct
             else false
 
         let of_string r a n =
-            if !Config.mode = Config.Protected then
-                let w = Word.of_string a n in
-                if Word.compare w (Word.zero n) < 0 then
-                    raise (Exceptions.Error "Tried to create negative address")
-                else
-                    Some (r, w)
-            else
-                raise (Exceptions.Error "Address generation for this memory mode not yet managed")
+          if !Config.mode = Config.Protected then
+            let w = Word.of_string a n in
+            if Word.compare w (Word.zero n) < 0 then
+              raise (Exceptions.Error "Tried to create negative address")
+            else Val (r, w)
+          else
+            raise (Exceptions.Error "Address generation for this memory mode not yet managed")
 
         let to_string a =
           match a with
