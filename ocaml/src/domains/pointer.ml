@@ -254,7 +254,7 @@ module Make (V: Vector.T) =
       | BOT, _ -> -1
       | TOP, BOT -> 1
       | TOP, _ -> -1
-      | Val (r1, o1) -> Val (r2, o2) ->
+      | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
          | Global, Global | Stack | Stack -> V.total_order o1 o2
          | Global, Stack | Global, Heap _ -> -1
