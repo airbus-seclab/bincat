@@ -777,49 +777,47 @@ module Make(D: T) =
 
     let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain': t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");  
-      
-           let taint_srcs = extract_taint_src_ids taint in          
-           let m', taint, sz =
-             match content with
-             | None ->
-                begin
-                  let taint_sz = Config.size_of_taints taint in
-                  let rec repeat (m, t) n =
-                    if n < nb then
-                      let a' = Data.Address.add_offset addr (Z.of_int (n*taint_sz)) in
-                      let k = Env.Key.Mem a' in
-                      let v = Env.find k m in
-                      let v', taint' = D.taint_of_config taint taint_sz v in
-                      let m' = Env.replace k v' m in
-                    repeat (m', taint') (n+1)
-                    else
-                      m, t
-                  in
-                  let m', taint = repeat (domain', Taint.U) 0 in
-                  m', taint, taint_sz                
-                end
-                  
-           | Some content' -> 
-              let sz = Config.size_of_content content' in
-              let (v', taint) = of_config region (content', taint) sz in
-              if nb > 1 then
-                if sz != 8 then
-                  L.abort (fun p -> p "Repeated memory init only works with bytes")
-                else
-                  write_repeat_byte_in_mem addr domain' v' nb, taint, sz
-              else
-                let big_endian =
-                  match content' with
-                  | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
-                  | _ -> false
-                in                          
-               write_in_memory addr domain' v' sz true big_endian, taint, sz
-           in
-           List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
-               Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
-           Val m', taint
-      else
-        domain, Taint.U
+      let taint_srcs = extract_taint_src_ids taint in          
+      let m', taint, sz =
+        match content with
+        | None ->
+           begin
+             let taint_sz = Config.size_of_taints taint in
+             let rec repeat (m, t) n =
+               if n < nb then
+                 let a' = Data.Address.add_offset addr (Z.of_int (n*taint_sz)) in
+                 let k = Env.Key.Mem a' in
+                 let v = Env.find k m in
+                 let v', taint' = D.taint_of_config taint taint_sz v in
+                 let m' = Env.replace k v' m in
+                 repeat (m', taint') (n+1)
+               else
+                 m, t
+             in
+             let m', taint = repeat (domain', Taint.U) 0 in
+             m', taint, taint_sz                
+           end
+          
+        | Some content' -> 
+           let sz = Config.size_of_content content' in
+           let (v', taint) = of_config region (content', taint) sz in
+           if nb > 1 then
+             if sz != 8 then
+               L.abort (fun p -> p "Repeated memory init only works with bytes")
+             else
+               write_repeat_byte_in_mem addr domain' v' nb, taint, sz
+           else
+             let big_endian =
+               match content' with
+               | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
+               | _ -> false
+             in                          
+             write_in_memory addr domain' v' sz true big_endian, taint, sz
+      in
+      List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
+                             Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
+      m', taint
+
 
     let set_register_from_config r region (content, taint) m': t * Taint.t =     
          let taint_srcs = extract_taint_src_ids taint in
