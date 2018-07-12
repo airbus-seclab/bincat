@@ -51,8 +51,8 @@ struct
         Hashtbl.add Dump.heap_id_tbl id ip;
         let d' = D.allocate_on_heap d id in
         let zero = Data.Word.zero !Config.address_sz in
-        let addr = region, zero in
-        D.set_lval_to_addr ret [Some addr ; None] d'
+        let addr = Data.Address.Val (region, zero) in
+        D.set_lval_to_addr ret [ addr ; Data.Address.NULL ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
     let check_free (ip: Data.Address.t) ((r, o): Data.Address.t): Data.Address.heap_id_t =
