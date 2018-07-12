@@ -246,7 +246,7 @@ module Make (V: Vector.T) =
       | Val (_, o) -> V.taint_sources o
 
 
-    let total_order p1, p2 =
+    let total_order p1 p2 =
       (* BOT < TOP < Val *)
       (* on regions: G < S < H *)
       match p1, p2 with
