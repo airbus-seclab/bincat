@@ -55,22 +55,23 @@ struct
         D.set_lval_to_addr ret [ addr ; Data.Address.NULL ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
-    let check_free (ip: Data.Address.t) ((r, o): Data.Address.t): Data.Address.heap_id_t =
-      match r with
-      | Data.Address.Heap (id, _) ->
+    let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
+      match a with
+      | Data.Address.Val (Data.Address.Heap (id, _), o) ->
          if Data.Word.compare o (Data.Word.zero !Config.address_sz) <> 0 then
            raise (Exceptions.Undefined_free
                     (Printf.sprintf "at instruction %s: base address to free is not zero (%s)"
            (Data.Address.to_string ip)
-           (Data.Address.to_string (r, o))))
+           (Data.Address.to_string a)))
          else
            id
-          
-      | _ ->
+
+      | Data.Address.NULL -> raise (Exceptions.Undefined_free "address is NULL")
+      | Data.Address.Val (r, o) ->
          raise (Exceptions.Undefined_free
                   (Printf.sprintf "at instruction %s: base address (%s) to free not in the heap"
                   (Data.Address.to_string ip)
-                  (Data.Address.to_string (r, o))))
+                  (Data.Address.to_string a)))
            
     let heap_deallocator (ip: Data.Address.t) (d: domain_t) _ret args: domain_t * Taint.t =
       let mem = Asm.Lval (args 0) in
