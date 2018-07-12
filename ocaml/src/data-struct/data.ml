@@ -266,7 +266,10 @@ struct
                in
                Val (r', Word.binary op w1 w2)
 
-        let unary op (r, w) = r, Word.unary op w
+        let unary op a =
+          match a with
+          | NULL -> raise (Exceptions.Error "Invalid unary operation with NULL operand address")
+          | Val (r, w) -> Val (r, Word.unary op w)
 
         let size_extension (r, w) sz = r, Word.size_extension w sz
 
