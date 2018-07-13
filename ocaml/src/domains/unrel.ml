@@ -141,17 +141,17 @@ module Make(D: T) =
             
     (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)
     let total_order m1 m2 =
-      let sz1 = Env.size m1 in
-      let sz2 = Env.size m2 in
+      let sz1 = Env.cardinal m1 in
+      let sz2 = Env.cardinal m2 in
       let n = sz1 - sz2 in
       if n<> 0 then n
-      else Env.total_order D.total_order m1 m2
+      else Env.compare D.total_order m1 m2
          
   
     let value_of_register m r =
       let v =
         try
-          Env.find (Env.Key.Reg r) m'
+          Env.find (Env.Key.Reg r) m
         with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: register %s not found in environment" (Register.name r)))
       in D.to_z v
 
@@ -162,12 +162,12 @@ module Make(D: T) =
         with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
       in D.to_string v
 
-    let add_register r m = Env.add (Env.Key.Reg r) D.top x
+    let add_register r m = Env.add (Env.Key.Reg r) D.top m
 
-    let remove_register v m = Env.remove (Env.Key.Reg v) m'
+    let remove_register v m = Env.remove (Env.Key.Reg v) m
 
 
-    let forget m = Env.map (fun _ -> D.top) m'
+    let forget m = Env.map (fun _ -> D.top) m
 
     let forget_reg m' r opt =
       let key = Env.Key.Reg r in
@@ -237,8 +237,8 @@ module Make(D: T) =
       | _ -> ""
 
     let to_string m =
-      let non_itv = Env.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m' [] in
-      coleasce_to_strs m' non_itv
+      let non_itv = Env.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m [] in
+      coleasce_to_strs m non_itv
 
     (***************************)
     (** Memory access function *)
@@ -250,7 +250,7 @@ module Make(D: T) =
       for i = 0 to nb-1 do
         let addr' = Data.Address.add_offset base (Z.of_int i) in
         match addr' with
-        | Data.Address.Heap (_, sz), o when Z.compare sz (Data.Word.to_int o) < 0 ->
+        | Val (Data.Address.Heap (_, sz), o) when Z.compare sz (Data.Word.to_int o) < 0 ->
            raise (Exceptions.Heap_out_of_bounds (Data.Address.to_string addr'))
         | _ -> arr.(i) <- addr'
       done;
