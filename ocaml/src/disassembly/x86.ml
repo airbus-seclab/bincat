@@ -2456,14 +2456,21 @@ struct
 
         and rep s c =
         (* rep prefix *)
-
           try
-            let v, ip = decode s in
             (* TODO: remove this hack *)
+            (* get the next instruction *)
+            let v, ip = decode s in
             begin
               match List.hd v.Cfa.State.stmts with
               | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
               | _ ->
+                 (* hack: if we do not have a cmps or a scas remove repe/repne flag *)
+                 begin
+                   match List.hd s.c with
+                    | '\xA6' | '\xA7' | '\xAE' | '\xAF' -> ();
+                    | _ -> s.repe <- false; s.repne <- false;
+                 end;
+                 L.debug (fun p->p "rep decoder: s.repe : %b, s.repne: %b" s.repe s.repne);
                  let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
                  let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
                  let zf_stmts =
