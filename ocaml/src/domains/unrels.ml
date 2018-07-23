@@ -65,7 +65,7 @@ module Make(D: Unrel.T) =
       | _, BOT -> false
       | Val m1', Val m2' ->
          USet.for_all (fun u1 ->
-             USet.exists (fun u2 -> U.is_subset u1 u2) m2) m1'
+             USet.exists (fun u2 -> U.is_subset u1 u2) m2') m1'
 
     let remove_register r m =
       match m with
