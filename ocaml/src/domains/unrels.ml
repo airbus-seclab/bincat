@@ -32,18 +32,18 @@ module Make(D: Unrel.T) =
     let is_bot m = m = BOT
 
     let imprecise_exn r =
-      raise (Exceptions.too_many_concrete_elements (Printf.sprintf "value of register %s is too much imprecise" (Register.name r)))
+      raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "value of register %s is too much imprecise" (Register.name r)))
       
     let value_of_register m r =
       match m with
       | BOT -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register:  environment is empty; can't look up register %s" (Register.name r)))
       | Val m' ->
          let v = USet.fold (fun u prev ->
-                     let v' = Unrel.value_of_register u r in
+                     let v' = U.value_of_register u r in
                      match prev with
                      | None -> Some v'
                      | Some v ->
-                        if Z.compare z z' = 0 then prev
+                        if Z.compare v v' = 0 then prev
                         else imprecise_exn r
                    ) m' None
          in
@@ -55,7 +55,7 @@ module Make(D: Unrel.T) =
     let string_of_register m r =
       match m with
       | BOT ->  raise (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r)))
-      | Val m' -> USet.fold (fun acc u -> (U.value_of_register u)^acc) "" m'
+      | Val m' -> USet.fold (fun acc u -> (U.string_of_register u r)^acc) "" m'
 
     let forget m = USet.map U.forget
 
@@ -88,7 +88,7 @@ module Make(D: Unrel.T) =
       | Val m' -> USet.fold (fun u acc -> (U.to_string u) ^ acc) m' []
 
     let imprecise_value_of_exp e =
-      raise (Exceptions.too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))
+      raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))
       
     let value_of_exp m e check_address_validity =
       match m with
