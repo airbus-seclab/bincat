@@ -166,18 +166,18 @@ module Make(D: Unrel.T) =
       let bot = ref false in
       let add_one_meet m u1 u2 =
         try
-          USet.add U.meet u1 u2 m
+          USet.add (U.meet u1 u2) m
         with Exceptions.Empty _ ->
-          bot_nb := true;
-          m'
+          bot := true;
+          m
       in
       match m1, m2 with
       | BOT, m | m, BOT -> BOT
       | Val m1', Val m2' ->
          let m' =
            USet.fold (fun u1 m' ->
-               let mm = USet.fold (add_one_meet m' u1) m2' USet.empty in
-               USet.join mm m'
+               let mm = USet.fold (fun u2 m -> (add_one_meet m u1 u2)) m2' USet.empty in
+               USet.union mm m'
              ) m1' USet.empty
          in
          let card = USet.cardinal m' in
@@ -201,7 +201,7 @@ module Make(D: Unrel.T) =
                | [], _ | _, [] -> U.empty
                | u1::_, u2::_ -> U.widen u1 u2
          in
-         Val u'
+         Val (USet.singleton u')
 
             
     let fold_on_taint m f =
@@ -211,13 +211,13 @@ module Make(D: Unrel.T) =
          let m', t' =
            USet.fold (fun u (m, t) ->
                let u', t' = f u in
-               Uset.add m u, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
+               USet.add u m, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
          in
          Val m', t'
          
     let set_memory_from_config a r conf nb m: t * Taint.Set.t = 
       if nb > 0 then
-        fold_on_taint (U.set_mmeory_from_config a r conf)
+        fold_on_taint (U.set_memory_from_config a r conf)
       else
         m, Taint.Set.singleton Taint.U
 
