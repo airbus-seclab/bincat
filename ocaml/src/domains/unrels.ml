@@ -217,21 +217,21 @@ module Make(D: Unrel.T) =
          
     let set_memory_from_config a r conf nb m: t * Taint.Set.t = 
       if nb > 0 then
-        fold_on_taint (U.set_memory_from_config a r conf)
+        fold_on_taint m (U.set_memory_from_config a r conf nb)
       else
         m, Taint.Set.singleton Taint.U
 
    
          
-    let set_register_from_config r region conf m = fold_on_taint (U.set_register_from_config r region conf) m
+    let set_register_from_config r region conf m = fold_on_taint m (U.set_register_from_config r region conf)
          
-    let taint_register_mask reg taint m = fold_on_taint (U.taint_register_mask reg taint) m
+    let taint_register_mask reg taint m = fold_on_taint m (U.taint_register_mask reg taint)
 
-    let span_taint_to_register reg taint m = fold_on_taint (U.span_taint_to_register reg taint) m
+    let span_taint_to_register reg taint m = fold_on_taint m (U.span_taint_to_register reg taint)
 
-    let taint_address_mask a taints m = fold_on_taint (U.taint_address_mask a taints) m
+    let taint_address_mask a taints m = fold_on_taint m (U.taint_address_mask a taints)
 
-    let span_taint_to_addr a t m = fold_on_taint (U.span_taint_to_addr a t) m
+    let span_taint_to_addr a t m = fold_on_taint m (U.span_taint_to_addr a t)
 
     let compare m check_address_validity e1 op e2 =
       match m with
@@ -240,9 +240,9 @@ module Make(D: Unrel.T) =
          let bot = ref false in
          let mres, t = USet.fold (fun u (m', t) ->
                         try
-                          let ulist', tset' = U.compare u check_validity e1 op e2 in
-                          List.fold_left (fun m' u -> USet.add m' u) m' ulist', tset'
-                          with Empty _ ->
+                          let ulist', tset' = U.compare u check_address_validity e1 op e2 in
+                          List.fold_left (fun m' u -> USet.add u m') m' ulist', Taint.Set.singleton tset'
+                          with Exceptions.Empty _ ->
                             bot := true;
                             m', t) m' (USet.empty, Taint.Set.singleton Taint.U) 
          in
