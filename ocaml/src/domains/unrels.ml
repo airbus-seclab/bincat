@@ -113,7 +113,8 @@ module Make(D: Unrel.T) =
          let taint = ref (Taint.Set.empty) in
          let m2 = USet.map (fun u ->
                       let u', t = U.set dst src u check_address_validity in
-                      taint := Taint.S.add !taint t) m'
+                      taint := Taint.Set.add t !taint;
+                      u') m'
          in
          Val m2, !taint
          
