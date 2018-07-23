@@ -250,7 +250,8 @@ module Make(D: T) =
       for i = 0 to nb-1 do
         let addr' = Data.Address.add_offset base (Z.of_int i) in
         match addr' with
-        | Val (Data.Address.Heap (_, sz), o) when Z.compare sz (Data.Word.to_int o) < 0 ->
+        | Data.Address.NULL -> raise (Exceptions.Null_deref "Unrel.get_addr_array")
+        | Data.Address.Val (Data.Address.Heap (_, sz), o) when Z.compare sz (Data.Word.to_int o) < 0 ->
            raise (Exceptions.Heap_out_of_bounds (Data.Address.to_string addr'))
         | _ -> arr.(i) <- addr'
       done;
@@ -556,7 +557,7 @@ module Make(D: T) =
       let v2, tsrc2 = eval_exp env e2 check_address_validity in
       D.compare v1 op v2, Taint.logor tsrc1 tsrc2
 
-    let forget_lval lv m check_address_validity = 
+    let forget_lval lv m' check_address_validity = 
       match lv with
       | Asm.V (Asm.T r) -> forget_reg m' r None
       | Asm.V (Asm.P (r, l, u)) -> forget_reg m' r (Some (l, u))
@@ -580,14 +581,14 @@ module Make(D: T) =
       | _, _ -> [m]
 
     (* TODO factorize with compare_env *)
-    let compare m check_address_validity (e1: Asm.exp) op e2 =
+    let compare m' check_address_validity (e1: Asm.exp) op e2 =
       let v1, b1 = eval_exp m' e1 check_address_validity in
       let v2, b2 = eval_exp m' e2 check_address_validity in
       if D.is_bot v1 || D.is_bot v2 then
         raise (Exceptions.Empty "Unrel.compare")
       else
         if D.compare v1 op v2 then
-          val_restrict m' e1 v1 op e2 v2, Taint.Set.join b1 b2
+          val_restrict m' e1 v1 op e2 v2, Taint.logor b1 b2
         else
           raise (Exceptions.Empty "Unrel.compare")
       
@@ -661,19 +662,19 @@ module Make(D: T) =
            Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'
          
              
-    let set dst src m check_address_validity: (t * Taint.t) =
+    let set dst src m' check_address_validity: (t * Taint.t) =
       let v', _ = eval_exp m' src check_address_validity in
          let v' = span_taint m' src v' in
          L.info2 (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
          let b = D.taint_sources v' in
          if D.is_bot v' then
-           BOT, b
+           raise (Exceptions.Empty "Unrel.set"), b
          else
            match dst with
            | Asm.V r ->
               begin
                 try
-                  Val (set_to_register r v' m'), b
+                  set_to_register r v' m', b
                 with Not_found -> raise (Exceptions.empty "Unrel.set (register case)"), Taint.BOT
               end
                 
