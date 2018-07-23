@@ -680,19 +680,15 @@ module Make(D: T) =
                 
            | Asm.M (e, n) ->
               try
-                let m', taint = set_to_memory e n v' m' b check_address_validity in
-                Val m', taint
+                set_to_memory e n v' m' b check_address_validity
               with _ -> raise (Exceptions.Empty "Unrel.set (register case)"), Taint.BOT
 
-    let join m1 m2 =
-      match m1, m2 with
-      | BOT, m | m, BOT  -> m
-      | Val m1', Val m2' ->
-         try Val (Env.map2 D.join m1' m2')
-         with _ ->
-           let m = Env.empty in
-           let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
-           Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in Env.replace k (D.join v v') m with Not_found -> Env.add k v m) m2' m')
+    let join m1' m2' =
+      try Env.map2 D.join m1' m2'
+      with _ ->
+        let m = Env.empty in
+        let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
+        Env.fold (fun k v m -> try let v' = Env.find k m1' in Env.replace k (D.join v v') m with Not_found -> Env.add k v m) m2' m'
 
 
 
