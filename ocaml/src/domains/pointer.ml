@@ -161,7 +161,10 @@ module Make (V: Vector.T) =
               
     let of_word w = Val (A.Global, V.of_word w)
       
-    let of_addr (r, w): t = Val (r, V.of_word w)
+    let of_addr a: t =
+      match a with
+      | A.NULL -> NULL
+      | A.Val (r, w) -> Val (r, V.of_word w)
       
     let compare p1 op p2 =
       match p1, p2 with
@@ -280,13 +283,14 @@ module Make (V: Vector.T) =
       | BOT, _ -> -1
       | TOP, BOT -> 1
       | TOP, _ -> -1
+      | NULL, NULL -> 0
       | NULL, Val _ -> -1
       | Val _, NULL -> 1
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
-         | A.Global, A.Global | A.Stack | A.Stack -> V.total_order o1 o2
+         | A.Global, A.Global | A.Stack, A.Stack -> V.total_order o1 o2
          | A.Global, A.Stack | A.Global, A.Heap _ -> -1
-         | A.Stack, A.Heap -> -1
+         | A.Stack, A.Heap _ -> -1
          | A.Heap (id1, _), A.Heap (id2, _) ->
             let n = id1 - id2 in
             if n <> 0 then n
