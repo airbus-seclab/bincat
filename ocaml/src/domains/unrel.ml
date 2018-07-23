@@ -1022,7 +1022,7 @@ module Make(D: T) =
 
     let to_hex m src nb capitalise pad_option full_print _word_sz check_address_validity: string * int =
       let capitalise str =
-        if capitalise then String.uppercase str
+        if capitalise then String.uppercase_ascii str
         else str
       in
       let vsrc = fst (eval_exp m src check_address_validity) in
@@ -1102,14 +1102,14 @@ module Make(D: T) =
          in
          write m' Z.zero, len
       | [] -> raise (Exceptions.Empty "unrel.copy_hex")
-      | _  -> Val (Env.empty), len (* TODO could be more precise *)
+      | _  -> Env.empty, len (* TODO could be more precise *)
   
 
     let print_hex m' src nb capitalise pad_option word_sz check_address_validity: t * int =      
       let str, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
       (* str is already stripped in hex *)
       Log.Stdout.stdout (fun p -> p "%s" str);
-      m, len
+      m', len
 
 
     let copy m' dst arg sz check_address_validity: t =
