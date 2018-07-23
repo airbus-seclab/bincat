@@ -160,7 +160,7 @@ module Make(D: Unrel.T) =
          if USet.cardinal m > !Config.kset_bound then
            Val (USet.union (merge m1' ) (merge m2'))
          else
-           Val m'
+           Val m
 
     let meet m1 m2 =
       let bot = ref false in
