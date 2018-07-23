@@ -116,9 +116,9 @@ module Make (V: Vector.T) =
     let meet p1 p2 =
       match p1, p2 with
       | TOP, p | p, TOP      -> p
-      | BOT, p | p, BOT -> BOT
+      | BOT, _ | _, BOT -> BOT
       | NULL, NULL -> NULL
-      | NULL, p | p, NULL -> TOP
+      | NULL, _ | _, NULL -> TOP
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
          | A.Global, r | r, A.Global ->
@@ -172,7 +172,7 @@ module Make (V: Vector.T) =
       | BOT, _  -> op = Asm.LEQ || op = Asm.LT
       | _, BOT  -> false
       | _, TOP | TOP, _  -> true
-      | NULL, p | p, NULL -> false
+      | NULL, _ | _, NULL -> false
       | Val (r1, o1), Val (r2, o2) ->
          if r1 = r2 || r1 = A.Global || r2 = A.Global then V.compare o1 op o2
          else true
@@ -189,7 +189,7 @@ module Make (V: Vector.T) =
       | BOT, _ | _, TOP -> true
       | _, BOT | TOP, _  -> false
       | NULL, NULL -> true
-      | NULL, p | p, NULL -> false
+      | NULL, _ | _, NULL -> false
       | Val (r1, o1), Val (r2, o2) ->
          if r1 = r2 then V.is_subset o1 o2
          else false
@@ -281,8 +281,9 @@ module Make (V: Vector.T) =
       match p1, p2 with
       | BOT, BOT | TOP, TOP -> 0
       | BOT, _ -> -1
-      | TOP, BOT -> 1
+      | _, BOT -> 1
       | TOP, _ -> -1
+      | _, TOP -> 1
       | NULL, NULL -> 0
       | NULL, Val _ -> -1
       | Val _, NULL -> 1
@@ -290,7 +291,10 @@ module Make (V: Vector.T) =
          match r1, r2 with
          | A.Global, A.Global | A.Stack, A.Stack -> V.total_order o1 o2
          | A.Global, A.Stack | A.Global, A.Heap _ -> -1
+         | A.Stack, A.Global -> 1
          | A.Stack, A.Heap _ -> -1
+         | A.Heap _, A.Stack -> 1
+         | A.Heap _, A.Global -> 1
          | A.Heap (id1, _), A.Heap (id2, _) ->
             let n = id1 - id2 in
             if n <> 0 then n
