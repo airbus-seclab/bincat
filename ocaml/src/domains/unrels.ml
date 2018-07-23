@@ -103,7 +103,7 @@ module Make(D: Unrel.T) =
                    ) m' None
          in
            match v with
-           | None -> imprecise_value_of_exp r
+           | None -> imprecise_value_of_exp e
            | Some v' -> v'
 
     let set dst src m check_address_validity: (t * Taint.Set.t) =
