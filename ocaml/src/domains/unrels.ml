@@ -55,7 +55,7 @@ module Make(D: Unrel.T) =
     let string_of_register m r =
       match m with
       | BOT ->  raise (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r)))
-      | Val m' -> USet.fold (fun acc u -> (U.string_of_register u r)^acc) "" m'
+      | Val m' -> USet.fold (fun u acc -> (U.string_of_register u r)^acc) m' ""
 
     let forget m = USet.map U.forget
 
