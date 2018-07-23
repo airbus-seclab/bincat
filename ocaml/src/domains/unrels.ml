@@ -79,7 +79,7 @@ module Make(D: Unrel.T) =
                 
     let add_register r m =
       match m with
-      | BOT -> U.add_register r (U.empty)
+      | BOT -> Val (USet.singleton (U.add_register r (U.empty)))
       | Val m' -> Val (USet.map (U.add_register r) m')
 
     let to_string m =
