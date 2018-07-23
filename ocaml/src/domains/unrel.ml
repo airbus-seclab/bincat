@@ -826,11 +826,11 @@ module Make(D: T) =
             let k = Env.Key.Reg r in
             let v = Env.find k m' in
             let v', taint' =  D.taint_of_config taint (Register.size r) v in
-            Val (Env.replace k v' m'), taint'
+            Env.replace k v' m', taint'
          | Some c ->  
             let sz = Register.size r in
             let vt, taint = of_config region (c, taint) sz in               
-            Val (Env.replace (Env.Key.Reg r) vt m'), taint
+            Env.replace (Env.Key.Reg r) vt m', taint
 
     let set_lval_to_addr lv (region, word) m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
@@ -846,21 +846,21 @@ module Make(D: T) =
                   let bytes = Data.Word.to_bytes word in
                   let m', taint, _ =
                     List.fold_left (fun (m', taint, i) byte ->
-                      let v = D.of_addr (region, byte) in
+                      let v = D.of_addr (Data.Address.Val (region, byte)) in
                       let e' = Asm.BinOp (Asm.Add, e, Asm.Const (Data.Word.of_int i !Config.operand_sz)) in
                       let m', taint' =
                         set_to_memory e' 8 v m' Taint.U check_address_validity
                       in
                       m', Taint.logor taint taint', Z.add i Z.one) (m', Taint.U, Z.zero) bytes
                   in
-                  Val m', taint
+                  m', taint
                 with _ -> raise (Exceptions.Empty "set_lval_to_addr: invalid dereference"), Taint.BOT 
               end
               
          | Asm.V r ->
             let v = D.of_addr (region, word) in
             try
-              Val (set_to_register r v m'), Taint.U
+              set_to_register r v m', Taint.U
             with Not_found -> raise (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Register.name r))), Taint.BOT
               
     let value_of_exp m e check_address_validity =
