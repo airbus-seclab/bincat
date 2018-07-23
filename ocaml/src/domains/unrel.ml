@@ -675,14 +675,14 @@ module Make(D: T) =
               begin
                 try
                   set_to_register r v' m', b
-                with Not_found -> raise (Exceptions.empty "Unrel.set (register case)"), Taint.BOT
+                with Not_found -> raise (Exceptions.Empty "Unrel.set (register case)"), Taint.BOT
               end
                 
            | Asm.M (e, n) ->
               try
                 let m', taint = set_to_memory e n v' m' b check_address_validity in
                 Val m', taint
-              with _ -> raise (Exceptions.empty "Unrel.set (register case)"), Taint.BOT
+              with _ -> raise (Exceptions.Empty "Unrel.set (register case)"), Taint.BOT
 
     let join m1 m2 =
       match m1, m2 with
