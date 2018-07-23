@@ -851,7 +851,7 @@ module Make(D: T) =
                       let m', taint' =
                         set_to_memory e' 8 v m' Taint.U check_address_validity
                       in
-                      m', Taint.logor taint taint', Z.add i Z.one) (m', Taint.U, Z.zero) bytes
+                      m', Taint.logor taint taint', Z.add i Z.one) (m, Taint.U, Z.zero) bytes
                   in
                   m', taint
                 with _ -> raise (Exceptions.Empty "set_lval_to_addr: invalid dereference"), Taint.BOT 
