@@ -727,7 +727,7 @@ module Make(V: Val) =
       done;
       r
         
-    let to_addresses r v = Data.Address.Set.singleton (r, to_word V.to_z v)
+    let to_addresses r v = Data.Address.Set.singleton (Data.Address.Val (r, to_word V.to_z v))
       
     let is_subset v1 v2 = for_all2 V.is_subset v1 v2
       
