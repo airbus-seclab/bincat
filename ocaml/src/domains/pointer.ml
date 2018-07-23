@@ -57,6 +57,7 @@ module Make (V: Vector.T) =
       match p with
       | BOT -> "B0x_"
       | TOP -> "T0x?"
+      | NULL -> "NULL"
       | Val (r, o) -> Printf.sprintf "%s%s" (A.string_of_region r) (V.to_string o)
 
 
@@ -86,8 +87,10 @@ module Make (V: Vector.T) =
          
     let join p1 p2 =
       match p1, p2 with
-      | BOT, p | p, BOT      -> p
-      | TOP, _ | _, TOP      -> TOP
+      | BOT, p | p, BOT -> p
+      | TOP, _ | _, TOP -> TOP
+      | NULL, NULL -> NULL
+      | NULL, Val _ | Val _, NULL -> TOP
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
          | A.Global, r | r, A.Global -> Val (r, V.join o1 o2)
@@ -99,8 +102,7 @@ module Make (V: Vector.T) =
       match p1, p2 with
       | p, BOT | BOT, p -> p
       | NULL, NULL -> NULL
-      | NULL, p -> TOP
-      | p, NULL -> p
+      | NULL, _ | _, NULL -> TOP
       | TOP, _ | _, TOP -> TOP
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
