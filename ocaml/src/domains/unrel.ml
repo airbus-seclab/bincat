@@ -137,6 +137,8 @@ module Make(D: T) =
     type t = D.t Env.t (* For Ocaml non-gurus : Env is a Map, indexed by Key, with values of D.t *)
 
 
+    let empty = Env.empty
+              
     let top = Env.empty
             
     (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)

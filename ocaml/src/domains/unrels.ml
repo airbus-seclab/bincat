@@ -25,7 +25,7 @@ module Make(D: Unrel.T) =
       | BOT
       | Val of USet.t
 
-    let init () = USet.singleton Unrel.empty
+    let init () = USet.singleton U.empty
                 
     let bot = BOT
             
@@ -55,9 +55,9 @@ module Make(D: Unrel.T) =
     let string_of_register m r =
       match m with
       | BOT ->  raise (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r)))
-      | Val m' -> USet.fold (fun acc u -> (Unrel.value_of_register u)^acc) "" m'
+      | Val m' -> USet.fold (fun acc u -> (U.value_of_register u)^acc) "" m'
 
-    let forget m = USet.map Unrel.forget
+    let forget m = USet.map U.forget
 
     let is_subset m1 m2 =
       match m1, m2 with
@@ -65,27 +65,27 @@ module Make(D: Unrel.T) =
       | _, BOT -> false
       | Val m1', Val m2' ->
          USet.for_all (fun u1 ->
-             USet.exists (fun u2 -> Unrel.is_subset u1 u2) m2) m1'
+             USet.exists (fun u2 -> U.is_subset u1 u2) m2) m1'
 
     let remove_register r m =
       match m with
-      | Val m' -> Val (USet.map (Unrel.remove_register r) m')
+      | Val m' -> Val (USet.map (U.remove_register r) m')
       | BOT -> BOT
 
     let forget_lval lv m check_address_validity =
        match m with
       | BOT -> BOT
-      | Val m' -> Val (USet.map (fun u -> Unrel.forget_lval lv u check_address_validity) m')
+      | Val m' -> Val (USet.map (fun u -> U.forget_lval lv u check_address_validity) m')
                 
     let add_register r m =
       match m with
-      | BOT -> Unrel.add_register r (Unrel.empty)
-      | Val m' -> Val (USet.map (Unrel.add_register r) m')
+      | BOT -> U.add_register r (U.empty)
+      | Val m' -> Val (USet.map (U.add_register r) m')
 
     let to_string m =
       match m with
       | BOT    -> ["_"]
-      | Val m' -> USet.fold (fun u acc -> (Unrel.to_string u) ^ acc) m' []
+      | Val m' -> USet.fold (fun u acc -> (U.to_string u) ^ acc) m' []
 
     let imprecise_value_of_exp e =
       raise (Exceptions.too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))
@@ -94,7 +94,7 @@ module Make(D: Unrel.T) =
       match m with
       | BOT -> raise (Exceptions.Empty "unrels.value_of_exp: environment is empty")
       | Val m' -> let v = USet.fold (fun u prev ->
-                     let v' = Unrel.value_of_exp u e check_address_validity in
+                     let v' = U.value_of_exp u e check_address_validity in
                      match prev with
                      | None -> Some v'
                      | Some v ->
@@ -112,7 +112,7 @@ module Make(D: Unrel.T) =
       | Val m' ->
          let taint = ref (Taint.Set.empty) in
          let m2 = USet.map (fun u ->
-                      let u', t = Unrel.set dst src u check_address_validity in
+                      let u', t = U.set dst src u check_address_validity in
                       taint := Taint.S.add !taint t) m'
          in
          Val m2, !taint
@@ -132,7 +132,7 @@ module Make(D: Unrel.T) =
            List.fold_left (fun acc a ->
                let m' =
                  USet.map (fun u ->
-                     let u', t = Unrel.set_lval_to_addr lv a u check_address_validity in
+                     let u', t = U.set_lval_to_addr lv a u check_address_validity in
                      taint := Taint.Set.add !taint t) m'
                in
                USet.join acc m'
@@ -144,7 +144,7 @@ module Make(D: Unrel.T) =
       let ulist = USet.elements m in
       match ulist with
       | [] -> USet.empty
-      | u::tl -> USet.singleton (List.fold_left (fun acc u -> Unrel.join acc u) u tl)
+      | u::tl -> USet.singleton (List.fold_left (fun acc u -> U.join acc u) u tl)
          
     let join m1 m2 =
       match m1, m2 with
@@ -161,7 +161,7 @@ module Make(D: Unrel.T) =
       let bot = ref false in
       let add_one_meet m u1 u2 =
         try
-          USet.add Unrel.meet u1 u2 m
+          USet.add U.meet u1 u2 m
         with Exceptions.Empty _ ->
           bot_nb := true;
           m'
@@ -193,8 +193,8 @@ module Make(D: Unrel.T) =
          let mm2 = merge m2' in
          let u' =
            match USet.elements mm1, USet.elements mm2 with
-               | [], _ | _, [] -> Unrel.empty
-               | u1::_, u2::_ -> Unrel.widen u1 u2
+               | [], _ | _, [] -> U.empty
+               | u1::_, u2::_ -> U.widen u1 u2
          in
          Val u'
 
@@ -212,21 +212,21 @@ module Make(D: Unrel.T) =
          
     let set_memory_from_config a r conf nb m: t * Taint.Set.t = 
       if nb > 0 then
-        fold_on_taint (Unrel.set_mmeory_from_config a r conf)
+        fold_on_taint (U.set_mmeory_from_config a r conf)
       else
         m, Taint.Set.singleton Taint.U
 
    
          
-    let set_register_from_config r region conf m = fold_on_taint (Unrel.set_register_from_config r region conf) m
+    let set_register_from_config r region conf m = fold_on_taint (U.set_register_from_config r region conf) m
          
-    let taint_register_mask reg taint m = fold_on_taint (Unrel.taint_register_mask reg taint) m
+    let taint_register_mask reg taint m = fold_on_taint (U.taint_register_mask reg taint) m
 
-    let span_taint_to_register reg taint m = fold_on_taint (Unrel.span_taint_to_register reg taint) m
+    let span_taint_to_register reg taint m = fold_on_taint (U.span_taint_to_register reg taint) m
 
-    let taint_address_mask a taints m = fold_on_taint (Unrel.taint_address_mask a taints) m
+    let taint_address_mask a taints m = fold_on_taint (U.taint_address_mask a taints) m
 
-    let span_taint_to_addr a t m = fold_on_taint (Unrel.span_taint_to_addr a t) m
+    let span_taint_to_addr a t m = fold_on_taint (U.span_taint_to_addr a t) m
 
     let compare m check_address_validity e1 op e2 =
       match m with
@@ -235,7 +235,7 @@ module Make(D: Unrel.T) =
          let bot = ref false in
          let mres, t = USet.fold (fun u (m', t) ->
                         try
-                          let ulist', tset' = Unrel.compare u check_validity e1 op e2 in
+                          let ulist', tset' = U.compare u check_validity e1 op e2 in
                           List.fold_left (fun m' u -> USet.add m' u) m' ulist', tset'
                           with Empty _ ->
                             bot := true;
@@ -261,7 +261,7 @@ module Make(D: Unrel.T) =
     let taint_sources e m check_address_validity =
       match m with
       | BOT -> Taint.Set.singleton Taint.BOT
-      | Val m' ->  USet.fold (fun u t -> Taint.Set.join t (Unrel.taint_sources e u check_address_validity)) m' Taint.Set.empty
+      | Val m' ->  USet.fold (fun u t -> Taint.Set.join t (U.taint_sources e u check_address_validity)) m' Taint.Set.empty
 
     let get_offset_from e cmp terminator upper_bound sz m check_address_validity =
         match m with
@@ -269,7 +269,7 @@ module Make(D: Unrel.T) =
       | Val m' ->
          let res =
            Uset.fold (fun u o ->
-               let o' = Unrel.get_offset_from e cmp terminator upeer_bound sz u check_address_validity in
+               let o' = U.get_offset_from e cmp terminator upeer_bound sz u check_address_validity in
                match o' with
                | None -> o
                | Some o' ->
@@ -286,7 +286,7 @@ module Make(D: Unrel.T) =
       | Val m' ->
          let res =
            USet.fold (fun u acc ->
-             let bytes, len = Unrel.get_bytes e cmp terminator upper_bound sz u chack_address_validity in
+             let bytes, len = U.get_bytes e cmp terminator upper_bound sz u chack_address_validity in
              match acc with
              | None -> Some (bytes, len)
              | Some (bytes', len') ->
@@ -305,12 +305,12 @@ module Make(D: Unrel.T) =
 
     let copy m dst arg sz check_address_validity =
       match m with
-      | Val m' -> Val (USet.map (fun u -> Unrel.copy u dst arg sz check_address_validity))
+      | Val m' -> Val (USet.map (fun u -> U.copy u dst arg sz check_address_validity))
       | BOT -> BOT
 
     let print m arg sz check_address_validity =
       match m with
-      | Val m' -> USet.iter (fun u -> Unrel.print u arg sz check_address_validity); m
+      | Val m' -> USet.iter (fun u -> U.print u arg sz check_address_validity); m
       | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
 
     let print_hex m src nb capitalise pad_option word_sz check_address_validity =
@@ -319,9 +319,9 @@ module Make(D: Unrel.T) =
       | Val m' ->
          match USet.elements m' with
          | [u] ->
-            let u', len = Unrel.print_hex u src nb capitalise pad_option word_sz check_address_validity in
+            let u', len = U.print_hex u src nb capitalise pad_option word_sz check_address_validity in
             Val (USet.singleton u'), len
-         | _ -> raise (Exceptions.Too_many_concrete_elements "Unrel.print_hex: implemented only for one unrel only")
+         | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
 
     let copy_until m' dst e terminator term_sz upper_bound with_exception pad_options check_address_validity =
        match m with
@@ -329,9 +329,9 @@ module Make(D: Unrel.T) =
        | Val m' ->
           match USet.elements m' with
           | [u] ->
-             let u', len = Unrel.copy_until u src nb capitalise pad_option word_sz check_address_validity in
+             let u', len = U.copy_until u src nb capitalise pad_option word_sz check_address_validity in
              Val (USet.singleton u'), len
-         | _ -> raise (Exceptions.Too_many_concrete_elements "Unrel.copy_until: implemented only for one unrel only")
+         | _ -> raise (Exceptions.Too_many_concrete_elements "U.copy_until: implemented only for one unrel only")
 
     let print_until m e terminator term_sz upper_bound with_exception pad_options check_address_validity =
       match m with
@@ -339,24 +339,24 @@ module Make(D: Unrel.T) =
        | Val m' ->
           match USet.elements m' with
           | [u] ->
-             let len, u' = Unrel.print_until u e terminator term_sz upper_bound with_exception pad_options check_address_validity in
+             let len, u' = U.print_until u e terminator term_sz upper_bound with_exception pad_options check_address_validity in
              len, Val (USet.singleton u')
-          | _ -> raise (Exceptions.Too_many_concrete_elements "Unrel.print_until: implemented only for one unrel only")
+          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_until: implemented only for one unrel only")
 
     let copy_chars m dst src nb pad_options check_address_validity =
       match m with
       | BOT -> BOT
-      | Val m' -> Val (USet.map (fun u -> Unrel.copy_chars u dst src nb pad_options check_address_validity) m')
+      | Val m' -> Val (USet.map (fun u -> U.copy_chars u dst src nb pad_options check_address_validity) m')
 
     let print_chars m' src nb pad_options check_address_validity =
       match m with
-      | Val m' -> Val (USet.map (fun u -> Unrel.print_chars u src nb pad_options chack_address_validity) m')
+      | Val m' -> Val (USet.map (fun u -> U.print_chars u src nb pad_options chack_address_validity) m')
       | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
 
     let copy_register r dst src =
         match dst, src with
         | Val dst', Val src' -> Val (Uset.fold (fun u1 acc ->
-                                         let acc' = USet.map (fun u2 -> Unrel.copy_register r u1 u2) src' in
+                                         let acc' = USet.map (fun u2 -> U.copy_register r u1 u2) src' in
                                          Uset.join acc' acc)
                                          dst' USet.empty)
         | BOT, Val src' ->
