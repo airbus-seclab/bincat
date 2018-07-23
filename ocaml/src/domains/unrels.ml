@@ -117,10 +117,17 @@ module Make(D: Unrel.T) =
                       u') m'
          in
          Val m2, !taint
-         
+
+    (* auxiliary function that will join all set elements *)
+    let merge m =
+      let ulist = USet.elements m in
+      match ulist with
+      | [] -> USet.empty
+      | u::tl -> USet.singleton (List.fold_left (fun acc u -> U.join acc u) u tl)
+               
     let set_lval_to_addr lv addrs m check_address_validity =
       match m with
-      | BOT -> BOT, Taint.BOT
+      | BOT -> BOT, Taint.Set.singleton Taint.BOT
       | Val m' ->
          let m' =
            (* check if resulting size would not exceed the kset bound *)
@@ -134,27 +141,24 @@ module Make(D: Unrel.T) =
                let m' =
                  USet.map (fun u ->
                      let u', t = U.set_lval_to_addr lv a u check_address_validity in
-                     taint := Taint.Set.add !taint t) m'
+                     taint := Taint.Set.add t !taint;
+                     u') m'
                in
-               USet.join acc m'
+               USet.union acc m'
              ) USet.empty addrs
          in
          Val m2, !taint
 
-    let merge m =
-      let ulist = USet.elements m in
-      match ulist with
-      | [] -> USet.empty
-      | u::tl -> USet.singleton (List.fold_left (fun acc u -> U.join acc u) u tl)
+  
          
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT -> m
       | Val m1', Val m2' ->
-         let m = USet.join m1' m2' in
+         let m = USet.union m1' m2' in
          (* check if the size of m exceeds the threshold *)
          if USet.cardinal m > !Config.kset_bound then
-           Val (USet.join (merge m1' ) (merge m2'))
+           Val (USet.union (merge m1' ) (merge m2'))
          else
            Val m'
 
