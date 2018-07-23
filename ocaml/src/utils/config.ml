@@ -120,7 +120,9 @@ let gs = ref Z.zero
 let null_cst = ref Z.zero
 (* predicate to check whether the given Z.t is the NULL value *) 
 let is_null_cst z = Z.compare z !null_cst = 0
-                  
+
+let char_of_null_cst () = Char.chr (Z.to_int !null_cst)
+  
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)
 let interleave = ref false
