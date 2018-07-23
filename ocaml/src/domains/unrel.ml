@@ -858,17 +858,17 @@ module Make(D: T) =
               end
               
          | Asm.V r ->
-            let v = D.of_addr (region, word) in
+            let v = D.of_addr (Data.Address.Val (region, word)) in
             try
-              set_to_register r v m', Taint.U
-            with Not_found -> raise (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Register.name r))), Taint.BOT
+              set_to_register r v m, Taint.U
+            with Not_found -> raise (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Asm.string_of_reg r))), Taint.BOT
               
     let value_of_exp m e check_address_validity =
-      D.to_z (fst (eval_exp m' e check_address_validity))
+      D.to_z (fst (eval_exp m e check_address_validity))
 
 
     let taint_sources e m check_address_validity =
-      snd (eval_exp m' e check_address_validity)
+      snd (eval_exp m e check_address_validity)
                 
 
     let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m': t) (with_exception: bool) pad_options check_address_validity: (int * D.t list) =
@@ -938,7 +938,8 @@ module Make(D: T) =
 
     let copy_register r dst' src' =
       let k = Env.Key.Reg r in
-      let v = Env.find k src' in Val (Env.replace k v dst')
+      let v = Env.find k src' in
+      Env.replace k v dst'
       
 
 
@@ -963,7 +964,7 @@ module Make(D: T) =
     let copy_until m' dst e terminator term_sz upper_bound with_exception pad_options check_address_validity: int * t =  
        let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' dst check_address_validity))) in
        (* TODO optimize: m is pattern matched twice (here and in i_get_bytes) *)
-       let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options check_address_validity in
+       let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m' with_exception pad_options check_address_validity in
        let copy_byte a m' strong =
          let m', _ =
            List.fold_left (fun (m', i) byte ->
@@ -978,7 +979,7 @@ module Make(D: T) =
          | _::_  -> List.fold_left (fun m' a -> copy_byte a m' false) m' addrs
          | [] -> raise (Exceptions.Empty "unrel.copy_until")
        in
-       len, Val m'
+       len, m'
    
 
     (* print nb bytes on stdout as raw string *)
@@ -997,31 +998,26 @@ module Make(D: T) =
 
     let print_chars m' src nb pad_options check_address_validity =
       (* TODO: factorize with copy_until *)
-      let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m false pad_options check_address_validity) in
+      let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m' false pad_options check_address_validity) in
       print_bytes bytes nb;
-      m
+      m'
        
 
     let copy_chars_to_register m reg offset src nb pad_options check_address_validity =
-      match m with
-      | Val m' ->
      let terminator = Asm.Const (Data.Word.of_int Z.zero 8) in
      let len, bytes = i_get_bytes src Asm.EQ terminator nb 8 m false pad_options check_address_validity in
-     begin
-       let new_v = D.concat bytes in
-       let key = Env.Key.Reg reg in
-       let new_v' =
-         if offset = 0 then new_v
-         else
-           try let prev = Env.find key m' in
-           let low = offset*8 in
-           D.combine prev new_v low (low*len-1)
-           with Not_found -> raise (Exceptions.Empty "unrel.copy_chars_to_register")
-       in
-       try Val (Env.replace key new_v' m')
-       with Not_found -> Val (Env.add key new_v m')
-     end
-      | BOT -> BOT
+     let new_v = D.concat bytes in
+     let key = Env.Key.Reg reg in
+     let new_v' =
+       if offset = 0 then new_v
+       else
+         try let prev = Env.find key m in
+             let low = offset*8 in
+             D.combine prev new_v low (low*len-1)
+         with Not_found -> raise (Exceptions.Empty "unrel.copy_chars_to_register")
+     in
+     try Env.replace key new_v' m
+     with Not_found -> Env.add key new_v m
 
 
     let to_hex m src nb capitalise pad_option full_print _word_sz check_address_validity: string * int =
@@ -1079,39 +1075,35 @@ module Make(D: T) =
       in
       str', String.length str'
 
-    let copy_hex m dst src nb capitalise pad_option word_sz check_address_validity: t * int =
+    let copy_hex m' dst src nb capitalise pad_option word_sz check_address_validity: t * int =
         (* TODO generalise to non concrete src value *)
-        match m with
-        | Val m' ->
-          begin
-              let _, src_tainted = (eval_exp m' src check_address_validity) in
-              let str_src, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
-              let vdst = fst (eval_exp m' dst check_address_validity) in
-              let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
-              match dst_addrs with
-              | [dst_addr] ->
-                let znb = Z.of_int nb in
-                let rec write m' o =
-                    if Z.compare o znb < 0 then
-                        let c = String.get str_src (Z.to_int o) in
-                        let dst = Data.Address.add_offset dst_addr o in
-                        let i' = Z.of_int (Char.code c) in
-                        let r = D.of_word (Data.Word.of_int i' 8) in
-                        let v' =
-                          match src_tainted, D.taint_sources r with
-                          | Taint.U, Taint.U -> r
-                          | _, Taint.U -> D.span_taint r src_tainted
-                          | _, _ -> D.taint r
-                        in
-                        write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
-                    else
-                        m'
-                in
-                Val (write m' Z.zero), len
-              | [] -> raise (Exceptions.Empty "unrel.copy_hex")
-              | _  -> Val (Env.empty), len (* TODO could be more precise *)
-          end
-        | BOT -> BOT, raise (Exceptions.Empty "unrel.copy_hex: environment is empty")
+      let _, src_tainted = (eval_exp m' src check_address_validity) in
+      let str_src, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
+      let vdst = fst (eval_exp m' dst check_address_validity) in
+      let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
+      match dst_addrs with
+      | [dst_addr] ->
+         let znb = Z.of_int nb in
+         let rec write m' o =
+           if Z.compare o znb < 0 then
+             let c = String.get str_src (Z.to_int o) in
+             let dst = Data.Address.add_offset dst_addr o in
+             let i' = Z.of_int (Char.code c) in
+             let r = D.of_word (Data.Word.of_int i' 8) in
+             let v' =
+               match src_tainted, D.taint_sources r with
+               | Taint.U, Taint.U -> r
+               | _, Taint.U -> D.span_taint r src_tainted
+               | _, _ -> D.taint r
+             in
+             write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
+           else
+             m'
+         in
+         write m' Z.zero, len
+      | [] -> raise (Exceptions.Empty "unrel.copy_hex")
+      | _  -> Val (Env.empty), len (* TODO could be more precise *)
+  
 
     let print_hex m' src nb capitalise pad_option word_sz check_address_validity: t * int =      
       let str, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
