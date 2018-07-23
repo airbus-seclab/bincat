@@ -44,4 +44,4 @@ exception Undefined_free of string
 exception Double_free
 
 (** NULL dereference *)
-exception Null_deref
+exception Null_deref of string
