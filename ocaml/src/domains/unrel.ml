@@ -709,11 +709,11 @@ module Make(D: T) =
                     Env.add k v' m' with Not_found -> m') m1 m'
 
     let widen m1 m2 =
-       try Val (Env.map2 D.widen m1 m2)
+       try Env.map2 D.widen m1 m2
          with _ ->
            let m = Env.empty in
            let m' = Env.fold (fun k v m -> Env.add k v m) m1 m in
-           Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2' m')
+           Env.fold (fun k v m -> try let v' = Env.find k m1 in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2 m'
 
     (** returns size of content, rounded to the next multiple of Config.operand_sz *)
     let round_sz sz =
