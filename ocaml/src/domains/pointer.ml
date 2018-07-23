@@ -269,7 +269,7 @@ module Make (V: Vector.T) =
       | TOP -> Taint.TOP
       | BOT ->  Taint.BOT
       | NULL -> Taint.U
-      | Val (A.Val (_, o)) -> V.taint_sources o
+      | Val (_, o) -> V.taint_sources o
 
 
     let total_order p1 p2 =
