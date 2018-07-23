@@ -202,9 +202,9 @@ module Make (V: Vector.T) =
     let combine p1 p2 l u =
       L.debug2 (fun p -> p "Pointer.combine between %s and %s" (to_string p1) (to_string p2));
       match p1, p2 with
-      | BOT, _ | _, BOT      -> BOT
-      | TOP, _ | _, TOP      -> TOP
-      | NULL,  | _, NULL -> raise (Exceptions.Empty "")
+      | BOT, _ | _, BOT  -> BOT
+      | TOP, _ | _, TOP  -> TOP
+      | NULL, _  | _, NULL -> raise (Exceptions.Empty "")
       | Val (r1, o1), Val (r2, o2) ->
          if r1 = r2 then 
            Val (r1, V.combine o1 o2 l u)
