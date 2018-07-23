@@ -85,7 +85,7 @@ module Make(D: Unrel.T) =
     let to_string m =
       match m with
       | BOT    -> ["_"]
-      | Val m' -> USet.fold (fun u acc -> (U.to_string u) ^ acc) m' []
+      | Val m' -> USet.fold (fun u acc -> (U.to_string u) @ acc) m' []
 
     let imprecise_value_of_exp e =
       raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))
@@ -98,7 +98,7 @@ module Make(D: Unrel.T) =
                      match prev with
                      | None -> Some v'
                      | Some v ->
-                        if Z.compare z z' = 0 then prev
+                        if Z.compare v v' = 0 then prev
                         else imprecise_value_of_exp e
                    ) m' None
          in
