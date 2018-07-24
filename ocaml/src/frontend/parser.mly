@@ -157,6 +157,8 @@
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP
 %token <string> STRING
 %token <string> HEX_BYTES
+%token <string> STACK_HEX_BYTES
+%token <string> HEAP_HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
 %token <Z.t> SINT

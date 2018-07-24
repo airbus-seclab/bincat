@@ -162,7 +162,10 @@ rule token = parse
   | ';'                 { SEMI_COLON }
   | '_'                     { UNDERSCORE }
   (* byte string *)
-  | '|'                 { read_bytes (Buffer.create 80) lexbuf }
+  | '|'                 { HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
+  | "G|"                 { HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
+  | "S|"                 { STACK_HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
+  | "H|"                 { HEAP_HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
   (* quoted string *)
   | '"'                 { read_string (Buffer.create 80) lexbuf }
   | '@'                 { AT }
@@ -211,7 +214,7 @@ and read_bytes buf =
   | '|'       { if Buffer.length buf mod 2 != 0 then
                     raise (SyntaxError "Byte string length should be even !")
                 else
-                    HEX_BYTES (Buffer.contents buf)
+                    Buffer.contents buf
               }
   | hex_digits
         { Buffer.add_string buf (Lexing.lexeme lexbuf);

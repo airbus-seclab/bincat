@@ -585,7 +585,8 @@ struct
               let reg = Register.of_name rname in
               let rule = rfun reg in
               let rule =
-              if Register.is_stack_pointer reg then
+                if Register.is_stack_pointer reg then
+                  (* TODO: remove when Stack and Global regions will be merged *)
               match fst rule with
                     | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd rule
                     | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd rule
