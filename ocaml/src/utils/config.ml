@@ -152,7 +152,7 @@ let round_sz sz =
       
 let size_of_content c =
   match c with
-  | Content z | CMask (z, _) -> round_sz (Z.numbits z)
+  | Content z | CMask (z, _) -> round_sz (Z.numbits (snd z))
   | Bytes b | Bytes_Mask (b, _) -> (String.length b)*4
                                                
 let size_of_taint (t: tvalue): int =
