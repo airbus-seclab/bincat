@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -739,11 +739,11 @@ module Make(V: Val) =
              else
                v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
            done;
-        | Config.Content c         ->
+        | Config.Content (_, c)         ->
            for i = 0 to n' do
              v.(n'-i) <- nth_of_z_as_val c i
            done
-        | Config.CMask (c, m) ->
+        | Config.CMask ((_, c), m) ->
            for i = 0 to n' do
              if Z.testbit m i then
                v.(n'-i) <- V.top
