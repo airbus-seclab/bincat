@@ -76,6 +76,7 @@
 
     let armv7_mandatory_keys = Hashtbl.create 20;;
     let armv8_mandatory_keys = Hashtbl.create 20;;
+    let powerpc_mandatory_keys = Hashtbl.create 20;;
 
       (** set the corresponding option reference *)
       let update_boolean optname opt v =
@@ -98,6 +99,7 @@
       let update_x86_mandatory key = update_arch_mandatory_key x86_mandatory_keys key;;
       let _update_armv7_mandatory key = update_arch_mandatory_key armv7_mandatory_keys key;;
       let _update_armv8_mandatory key = update_arch_mandatory_key armv8_mandatory_keys key;;
+      let _update_powerpc_mandatory key = update_arch_mandatory_key powerpc_mandatory_keys key;;
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
@@ -115,6 +117,7 @@
             | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
             | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
             | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
+            | Config.POWERPC -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc_mandatory_keys
           end;
         (* fill the table of tainting rules for each provided library *)
         let add_tainting_rules l (c, funs) =
@@ -154,6 +157,7 @@
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
+%token POWERPC SVR
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP
 %token <string> STRING
 %token <string> HEX_BYTES
@@ -284,6 +288,7 @@
     | FASTCALL { Config.FASTCALL }
     | STDCALL  { Config.STDCALL }
     | AAPCS    { Config.AAPCS }
+    | SVR      { Config.SVR }
 
     mmode:
     | PROTECTED { Config.Protected }
@@ -293,7 +298,7 @@
     | X86   { Config.X86 }
     | ARMV7 { Config.ARMv7 }
     | ARMV8 { Config.ARMv8 }
-
+    | POWERPC { Config.POWERPC }
 
     x86_section:
     | s=x86_item                { s }

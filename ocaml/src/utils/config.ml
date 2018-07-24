@@ -48,11 +48,13 @@ type archi_t =
   | X86
   | ARMv7
   | ARMv8 (* ARMv8-A *)
+  | POWERPC
 
 let archi_to_string = function
   | X86 -> "x86"
   | ARMv7 -> "armv7"
   | ARMv8 -> "armv8"
+  | POWERPC -> "powerpc"
 
 let architecture = ref X86;;
 
@@ -94,6 +96,7 @@ type call_conv_t =
   | STDCALL
   | FASTCALL
   | AAPCS (* ARM *)
+  | SVR (* PowerPC *)
 
 let call_conv_to_string cc =
   match cc with
@@ -101,6 +104,7 @@ let call_conv_to_string cc =
   | STDCALL -> "STDCALL"
   | FASTCALL -> "FASTCALL"
   | AAPCS -> "AAPCS"
+  | SVR -> "SVR"
 
 let call_conv = ref CDECL
 

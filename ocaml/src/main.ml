@@ -106,6 +106,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       | Config.X86 -> (module X86.Make: Decoder.Make)
       | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
       | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
+      | Config.POWERPC -> (module Powerpc.Make: Decoder.Make)
     in
     let module Decoder = (val decoder: Decoder.Make) in
     let module Interpreter = Interpreter.Make(Domain)(Decoder) in

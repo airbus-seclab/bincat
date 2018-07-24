@@ -40,6 +40,11 @@ let _ =
     "ARMv7", ARMV7;
     "armv8", ARMV8;
     "ARMv8", ARMV8;
+    "powerpc", POWERPC;
+    "PowerPC", POWERPC;
+    "POWERPC", POWERPC;
+    "ppc"    , POWERPC;
+    "PPC"    , POWERPC;
     "endianness", ENDIANNESS;
     "little", LITTLE;
     "big", BIG;
@@ -56,6 +61,7 @@ let _ =
     "stdcall", STDCALL;
     "fastcall", FASTCALL;
     "aapcs", AAPCS;
+    "svr", SVR;
     (* analyzer tokens *)
     "ini_version", INI_VERSION;
     "unroll", UNROLL;
