@@ -76,5 +76,5 @@ let check_mem (c, taints): unit =
   | None -> if !taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
   | Some (Content ct) -> check_content (Z.numbits (snd ct)) !taint_sz ""
   | Some (CMask (ct, m)) -> check_mask (Z.numbits (snd ct)) m !taint_sz ""
-  | Some (Bytes s) -> check_content ((String.length s)*4) !taint_sz ""
-  | Some (Bytes_Mask (s, n)) ->  check_mask ((String.length s)*4) n !taint_sz ""
+  | Some (Bytes (_, s)) -> check_content ((String.length s)*4) !taint_sz ""
+  | Some (Bytes_Mask (s, n)) ->  check_mask ((String.length (snd s))*4) n !taint_sz ""

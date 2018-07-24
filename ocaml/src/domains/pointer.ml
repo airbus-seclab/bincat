@@ -183,7 +183,8 @@ module Make (V: Vector.T) =
             match c with
             | Config.Content (ru, _) -> Data.Address.region_from_config ru
             | Config.CMask ((ru, _), _) -> Data.Address.region_from_config ru
-            | _ -> Data.Address.Global
+            | Config.Bytes (ru, _) -> Data.Address.region_from_config ru
+            | Config.Bytes_Mask ((ru, _), _) -> Data.Address.region_from_config ru
           in
           Val (r, V.of_config c n)
 

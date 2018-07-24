@@ -79,7 +79,7 @@
 
       (** set the corresponding option reference *)
       let update_boolean optname opt v =
-        match String.uppercase v with
+        match String.uppercase_ascii v with
         | "TRUE"  -> opt := true
         | "FALSE" -> opt := false
         | _       -> L.abort (fun p -> p "Illegal boolean value for %s option (expected TRUE or FALSE)" optname)
@@ -427,11 +427,16 @@
 
 
       mcontent:
-    | s=HEX_BYTES { Config.Bytes s }
-    | s=HEX_BYTES MASK m=INT    { Config.Bytes_Mask (s, m) }
+    | s=byte_kind { Config.Bytes s }
+    | s=byte_kind MASK m=INT    { Config.Bytes_Mask (s, m) }
     | m=int_kind         { Config.Content m }
     | m=int_kind MASK m2=INT { Config.CMask (m, m2) }
 
+      byte_kind:
+    | b = HEX_BYTES  { (Config.G, b) }
+    | b = STACK_HEX_BYTES { (Config.S, b) }
+    | b = HEAP_HEX_BYTES { (Config.H, b) }
+            
     int_kind:
     | i=INT { (Config.G, i) }
     | i=SINT { (Config.S, i) }
