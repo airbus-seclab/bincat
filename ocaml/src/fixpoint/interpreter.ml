@@ -662,7 +662,7 @@ struct
                   Init_check.check_mem rule;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
                   match rule with
-                       | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
+                       | (Some _, _) -> D.set_memory_from_config addr' rule nb
                        | (None, t) -> D.taint_address_mask addr' t
                 ) rules
             in
