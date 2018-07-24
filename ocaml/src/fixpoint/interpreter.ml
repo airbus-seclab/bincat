@@ -583,10 +583,16 @@ struct
         let rules' =
           List.map (fun (rname, rfun) ->
             let reg = Register.of_name rname in
-            let region = if Register.is_stack_pointer reg then Data.Address.Stack else Data.Address.Global in
-            let rule = rfun reg in
+            let rule =
+              if Register.is_stack_pointer reg then
+              match fst rfun with
+                    | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd rfun
+                    | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd rfun
+                    | _ -> rfun
+              else rfun
+            in
             Init_check.check_register_init reg rule;
-            D.set_register_from_config reg region rule) rules
+            D.set_register_from_config reg rule) rules
         in
         hash_add_or_append overrides ip rules'
       ) Config.reg_override;
