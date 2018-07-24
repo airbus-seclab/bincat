@@ -130,13 +130,10 @@ def val2str(val, top=None, taint=None, ttop=None):
 
 class Arch:
     ALL_REGS = []
+    QEMU = None
     def __init__(self, ini_in_file=None):
         self.ini_in_file  = ini_in_file
 
-    def assemble(self, tmpdir, asm):
-        raise NotImplemented
-    def cpu_run(self, tmpdir, opcodesfname):
-        raise NotImplemented
     def extract_flags(self, regs):
         pass
     def prettify_listing(self, asm):
@@ -256,6 +253,29 @@ class Arch:
                           +hline
                           +"\n".join(diff)+"\n=========================\n"+"\n".join(same))
 
+    def assemble(self, tmpdir, asm):
+        d = tmpdir.mkdir(self.AS_TMP_DIR.next())
+        inf = d.join("asm.S")
+        obj = d.join("asm.o")
+        outf = d.join("opcodes")
+        inf.write(".text\n.globl _start\n_start:\n" + asm)
+        subprocess.check_call(self.AS + ["-o", str(obj), str(inf)])
+        subprocess.check_call(self.OBJCOPY + ["-O", "binary", str(obj), str(outf)])
+        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)])
+        s = [l for l in lst.splitlines() if l.startswith(" ")]
+        listing = "\n".join(s)
+        opcodes = open(str(outf)).read()
+        return listing, str(outf),opcodes
+    def cpu_run(self, tmpdir, opcodesfname):
+        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
+        cmd = [eggloader, opcodesfname]
+        if self.QEMU:
+            cmd = [self.QEMU] + cmd
+        out = subprocess.check_output(cmd)
+        regs = { reg: int(val,16) for reg, val in
+                (l.strip().split("=") for l in out.splitlines()) }
+        self.extract_flags(regs)
+        return regs
 
 
 
@@ -273,7 +293,7 @@ class X86(Arch):
     NASM_TMP_DIR = counter("nasm-%i")
     ALL_FLAGS = ["cf","pf", "af", "zf","sf","df","of"]
     ALL_REGS = ["eax","ebx","ecx","edx", "esi","edi","esp", "ebp"] + ALL_FLAGS
-
+    EGGLOADER= 'eggloader_x86'
     def assemble(self, tmpdir, asm):
         d = tmpdir.mkdir(self.NASM_TMP_DIR.next())
         inf = d.join("asm.S")
@@ -292,14 +312,6 @@ class X86(Arch):
         regs["sf"] = (flags >> 7) & 1
         regs["df"] = (flags >> 10) & 1
         regs["of"] = (flags >> 11) & 1
-
-    def cpu_run(self, tmpdir, opcodesfname):
-        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)),'eggloader_x86')
-        out = subprocess.check_output([eggloader, opcodesfname])
-        regs = { reg: int(val,16) for reg, val in
-                (l.strip().split("=") for l in out.splitlines()) }
-        self.extract_flags(regs)
-        return regs
 
     def prettify_listing(self, asm):
         s = []
@@ -328,19 +340,6 @@ class ARM(Arch):
     OBJDUMP = ["arm-linux-gnueabi-objdump", "-m", "arm"]
     EGGLOADER = "eggloader_armv7"
     QEMU = "qemu-arm"
-    def assemble(self, tmpdir, asm):
-        d = tmpdir.mkdir(self.AS_TMP_DIR.next())
-        inf = d.join("asm.S")
-        obj = d.join("asm.o")
-        outf = d.join("opcodes")
-        inf.write(".text\n.globl _start\n_start:\n" + asm)
-        subprocess.check_call(self.AS + ["-o", str(obj), str(inf)])
-        subprocess.check_call(self.OBJCOPY + ["-O", "binary", str(obj), str(outf)])
-        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)])
-        s = [l for l in lst.splitlines() if l.startswith(" ")]
-        listing = "\n".join(s)
-        opcodes = open(str(outf)).read()
-        return listing, str(outf),opcodes
 
     def extract_flags(self, regs):
         cpsr = regs.pop("cpsr")
@@ -348,14 +347,6 @@ class ARM(Arch):
         regs["z"] = (cpsr >> 30) & 1
         regs["c"] = (cpsr >> 29) & 1
         regs["v"] = (cpsr >> 28) & 1
-
-    def cpu_run(self, tmpdir, opcodesfname):
-        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
-        out = subprocess.check_output([self.QEMU, eggloader, opcodesfname])
-        regs = { reg: int(val,16) for reg, val in
-                (l.strip().split("=") for l in out.splitlines()) }
-        self.extract_flags(regs)
-        return regs
 
 class Thumb(ARM):
     OBJDUMP = ["arm-linux-gnueabi-objdump", "-m", "arm", "--disassembler-options=force-thumb"]
