@@ -49,6 +49,11 @@ type archi_t =
   | ARMv7
   | ARMv8 (* ARMv8-A *)
 
+let archi_to_string = function
+  | X86 -> "x86"
+  | ARMv7 -> "armv7"
+  | ARMv8 -> "armv8"
+
 let architecture = ref X86;;
 
 type endianness_t =

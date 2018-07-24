@@ -337,11 +337,7 @@ struct
       Printf.fprintf f "\n";
     in
     G.iter_vertex print_ip g;
-    let architecture_str =
-      match !Config.architecture with
-      | Config.X86 -> "x86"
-      | Config.ARMv7 -> "armv7"
-      | Config.ARMv8 -> "armv8" in
+    let architecture_str = Config.archi_to_string !Config.architecture in
     Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
     (* taint sources *)
     Printf.fprintf f "[taint sources]\n";
