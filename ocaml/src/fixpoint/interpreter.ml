@@ -582,14 +582,15 @@ struct
         let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
         let rules' =
           List.map (fun (rname, rfun) ->
-            let reg = Register.of_name rname in
-            let rule =
+              let reg = Register.of_name rname in
+              let rule = rfun reg in
+              let rule =
               if Register.is_stack_pointer reg then
-              match fst rfun with
-                    | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd rfun
-                    | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd rfun
-                    | _ -> rfun
-              else rfun
+              match fst rule with
+                    | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd rule
+                    | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd rule
+                    | _ -> rule
+              else rule
             in
             Init_check.check_register_init reg rule;
             D.set_register_from_config reg rule) rules
