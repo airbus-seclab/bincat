@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -48,7 +48,7 @@ module Word =
       let w' = Z.sub (fst w1) (fst w2) in
       w', max (Z.numbits w') (max (size w1) (size w2))
 
-
+  
     let of_int v sz = v, sz
 
     let to_int v = fst v
@@ -111,6 +111,12 @@ struct
             | Global -> ""
             | Stack  -> "S"
             | Heap   -> "H"
+
+        let region_from_config c =
+          match c with
+          | Config.G -> Global
+          | Config.S -> Stack
+          | Config.H -> Heap 
 
         type t = region * Word.t
 

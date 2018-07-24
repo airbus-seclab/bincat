@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -178,7 +178,14 @@ module Make (V: Vector.T) =
              Val (r, o'), taint'
           | _      -> prev, Taint.BOT
 
-        let of_config r c n = Val (r, V.of_config c n)
+        let of_config c n =
+          let r =
+            match c with
+            | Config.Content (ru, _) -> Data.Address.region_from_config ru
+            | Config.CMask ((ru, _), _) -> Data.Address.region_from_config ru
+            | _ -> Data.Address.Global
+          in
+          Val (r, V.of_config c n)
 
         let combine p1 p2 l u =
           L.debug2 (fun p -> p "Pointer.combine between %s and %s" (to_string p1) (to_string p2));
