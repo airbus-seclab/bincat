@@ -19,8 +19,95 @@
 {
   open Parser
   open Lexing
-    exception SyntaxError of string
-}
+  exception SyntaxError of string
+
+  (* keyword table *)
+let keywords = Hashtbl.create 50
+let _ =
+    List.iter (fun (keyword, token) -> Hashtbl.replace keywords keyword token)
+   [
+     "state", STATE;
+    (* program section *)
+     "program", PROGRAM;
+     "load_elf_coredump", LOAD_ELF_COREDUMP;
+    (* analyzer section *)
+     "analyzer", ANALYZER;
+    (* sections section *)
+     "section", SECTION;
+     "sections", SECTIONS;
+    "architecture", ARCHITECTURE;
+    "armv7", ARMV7;
+    "ARMv7", ARMV7;
+    "armv8", ARMV8;
+    "ARMv8", ARMV8;
+    "endianness", ENDIANNESS;
+    "little", LITTLE;
+    "big", BIG;
+    "x86", X86;
+    (* settings tokens *)
+    "mem_model", MEM_MODEL;
+    "op_sz", OP_SZ;
+    "mem_sz", MEM_SZ;
+    "stack_width", STACK_WIDTH;
+    "call_conv", CALL_CONV;
+    "flat", FLAT;
+    "segmented", SEGMENTED;
+    "cdecl", CDECL;
+    "stdcall", STDCALL;
+    "fastcall", FASTCALL;
+    "aapcs", AAPCS;
+    (* analyzer tokens *)
+    "ini_version", INI_VERSION;
+    "unroll", UNROLL;
+    "function_unroll", FUN_UNROLL;
+    "external_symbol_max_size", EXT_SYM_MAX_SIZE;
+    "cut", CUT;
+    "loglevel", LOGLEVEL;
+    "store_marshalled_cfa", STORE_MCFA;
+    "in_marshalled_cfa_file", IN_MCFA_FILE;
+    "out_marshalled_cfa_file", OUT_MCFA_FILE;
+    (* GDT tokens *)
+    "GDT", GDT;
+    (* loader tokens *)
+    "ss", SS;
+    "ds", DS;
+    "cs", CS;
+    "es", ES;
+    "fs", FS;
+    "gs", GS;
+    "analysis_ep", ENTRYPOINT;
+    (* binary tokens *)
+    "filepath", FILEPATH;
+    "format", FORMAT;
+    "pe", PE;
+    "elf", ELF;
+    "elfobj", ELFOBJ;
+    "manual", MANUAL;
+    "raw", RAW;
+    "mode", MODE;
+    "protected", PROTECTED;
+    "real", REAL;
+    "assert", ASSERT;
+    "call", CALL;
+    "U", U;
+    "T", T;
+    "imports", IMPORTS;
+    "stack", STACK;
+    "heap", HEAP;
+    "analysis", ANALYSIS;
+    "forward_binary", FORWARD_BIN;
+    "forward_cfa", FORWARD_CFA;
+    "backward", BACKWARD;
+    (* misc left operands *)
+    "headers", HEADER;
+    "override", OVERRIDE;
+    "nop", NOP;
+    "fun_skip", FUN_SKIP;
+    "TAINT_ALL", TAINT_ALL;
+    "TAINT_NONE", TAINT_NONE
+    ]
+ }
+
 
 
 (* utilities *)
@@ -77,91 +164,15 @@ rule token = parse
   | '!'                 { TAINT }
   (* mask for taint or value *)
   | '?'             { MASK }
-  (* state section *)
-  | "state"             { STATE }
-  (* program section *)
-  | "program"                { PROGRAM }
-  | "load_elf_coredump" { LOAD_ELF_COREDUMP }
-  (* analyzer section *)
-  | "analyzer"          { ANALYZER }
-  (* sections section *)
-  | "section"       { SECTION }
-  | "sections"          { SECTIONS }
-  | "architecture"          { ARCHITECTURE }
-  | "armv7"                 { ARMV7 }
-  | "ARMv7"                 { ARMV7 }
-  | "armv8"                 { ARMV8 }
-  | "ARMv8"                 { ARMV8 }
-  | "endianness"            { ENDIANNESS }
-  | "little"                { LITTLE }
-  | "big"                   { BIG }
-  | "x86"       { X86 }
-  (* settings tokens *)
-  | "mem_model"         { MEM_MODEL }
-  | "op_sz"             { OP_SZ }
-  | "mem_sz"            { MEM_SZ }
-  | "stack_width"       { STACK_WIDTH }
-  | "call_conv"         { CALL_CONV }
-  | "flat"              { FLAT }
-  | "segmented"         { SEGMENTED }
-  | "cdecl"             { CDECL }
-  | "stdcall"           { STDCALL }
-  | "fastcall"          { FASTCALL }
-  | "aapcs"             { AAPCS }
-  (* analyzer tokens *)
-  | "ini_version"           { INI_VERSION }
-  | "unroll"            { UNROLL }
-  | "function_unroll"       { FUN_UNROLL }
-  | "external_symbol_max_size" { EXT_SYM_MAX_SIZE }
-  | "cut"                   { CUT }
-  | "loglevel"              { LOGLEVEL }
-  | "store_marshalled_cfa"  { STORE_MCFA }
-  | "in_marshalled_cfa_file"   { IN_MCFA_FILE }
-  | "out_marshalled_cfa_file"   { OUT_MCFA_FILE }
   (* address separator *)
   | ","             { COMMA }
-  (* GDT tokens *)
-  | "GDT"                   { GDT }
-  (* loader tokens *)
-  | "ss"                { SS }
-  | "ds"            { DS }
-  | "cs"                { CS }
-  | "es"            { ES }
-  | "fs"            { FS }
-  | "gs"            { GS }
-  | "analysis_ep"           { ENTRYPOINT }
-  (* binary tokens *)
-  | "filepath"          { FILEPATH }
-  | "format"            { FORMAT }
-  | "pe"            { PE }
-  | "elf"           { ELF }
-  | "elfobj"        { ELFOBJ }
-  | "manual"                { MANUAL }
-  | "raw"                   { RAW }
-  | "mode"                  { MODE }
-  | "protected"             { PROTECTED }
-  | "real"                  { REAL }
-  | "assert"                { ASSERT }
-  | "call"                  { CALL }
-  | "U"                     { U }
-  | "T"                     { T }
-  | "imports"               { IMPORTS }
-  | "stack"                 { STACK }
-  | "heap"                  { HEAP }
-  | "analysis"              { ANALYSIS }
-  | "forward_binary"        { FORWARD_BIN }
-  | "forward_cfa"           { FORWARD_CFA }
-  | "backward"              { BACKWARD }
   (* left operand of type integer *)
   | integer as i        { INT (Z.of_string i) }
-  (* misc left operands *)
-  | "headers"       { HEADER }
-  | "override"      { OVERRIDE }
-  | "nop"      { NOP }
-  | "fun_skip"      { FUN_SKIP }    
-  | "TAINT_ALL"         { TAINT_ALL }
-  | "TAINT_NONE"        { TAINT_NONE }
-  | value as v      { STRING v }
+    | value as v      {
+                   try
+                     Hashtbl.find keywords v
+                   with Not_found -> STRING v
+                 }
 
 
 
