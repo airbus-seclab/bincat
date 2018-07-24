@@ -431,9 +431,9 @@
     | m=int_kind MASK m2=INT { Config.CMask (m, m2) }
 
     int_kind:
-    | i=INT { (i, Config.G) }
-    | i=SINT { (i, Config.S) }
-    | i=HINT { (i, Config.H) }
+    | i=INT { (Config.G, i) }
+    | i=SINT { (Config.S, i) }
+    | i=HINT { (Config.H, i) }
 
     tcontent:
     | o=one_tcontent { o }
