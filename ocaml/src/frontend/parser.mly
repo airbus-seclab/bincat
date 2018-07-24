@@ -427,8 +427,13 @@
       mcontent:
     | s=HEX_BYTES { Config.Bytes s }
     | s=HEX_BYTES MASK m=INT    { Config.Bytes_Mask (s, m) }
-    | m=INT         { Config.Content m }
-    | m=INT MASK m2=INT { Config.CMask (m, m2) }
+    | m=int_kind         { Config.Content m }
+    | m=int_kind MASK m2=INT { Config.CMask (m, m2) }
+
+    int_kind:
+    | i=INT { (i, Config.G) }
+    | i=SINT { (i, Config.S) }
+    | i=HINT { (i, Config.H) }
 
     tcontent:
     | o=one_tcontent { o }

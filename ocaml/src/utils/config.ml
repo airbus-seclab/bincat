@@ -127,9 +127,16 @@ type tvalue =
   | TBytes of string * Taint.Src.id_t
   | TBytes_Mask of (string * Z.t * Taint.Src.id_t)
 
+type region =
+  | G (* global *)
+  | H (* heap *)
+  | S (* stack *)
+
+type content = region * Z.t
+             
 type cvalue =
-  | Content of Z.t
-  | CMask of Z.t * Z.t
+  | Content of content
+  | CMask of content * Z.t
   | Bytes of string
   | Bytes_Mask of (string * Z.t)
 
