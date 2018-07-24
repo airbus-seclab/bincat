@@ -324,6 +324,7 @@ class X86(Arch):
         return "\n".join(s)
     
 
+
 ##    _   ___ __  __ 
 ##   /_\ | _ \  \/  |
 ##  / _ \|   / |\/| |
@@ -380,3 +381,31 @@ class AARCH64(ARM):
         regs["c"] = (nzcv >> 29) & 1
         regs["v"] = (nzcv >> 28) & 1
 
+
+##  ___                    ___  ___
+## | _ \_____ __ _____ _ _| _ \/ __|
+## |  _/ _ \ V  V / -_) '_|  _/ (__
+## |_| \___/\_/\_/\___|_| |_|  \___|
+##
+## PowerPC
+
+
+class PowerPC(Arch):
+    ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+                 "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
+                 "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
+                 "r30", "r31", "lt", "gt", "eq", "so" ]
+    # "cr", "lr", "ctr" ]
+    AS_TMP_DIR = counter("powerpc-as-%i")
+    AS = ["powerpc-linux-gnu-as"]
+    OBJCOPY = ["powerpc-linux-gnu-objcopy"]
+    OBJDUMP = ["powerpc-linux-gnu-objdump", "-m", "powerpc"]
+    EGGLOADER = "eggloader_powerpc"
+    QEMU = "qemu-ppc"
+
+    def extract_flags(self, regs):
+        cr = regs.pop("cr")
+        regs["lt"] = cr & 1
+        regs["gt"] = (cr >> 1) & 1
+        regs["eq"] = (cr >> 2) & 1
+        regs["so"] = (cr >> 3) & 1
