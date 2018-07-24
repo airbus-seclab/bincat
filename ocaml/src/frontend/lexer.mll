@@ -106,7 +106,16 @@ let _ =
     "TAINT_ALL", TAINT_ALL;
     "TAINT_NONE", TAINT_NONE
     ]
- }
+
+let strip_int s =
+  let start = String.sub s 0 1 in
+  let s' =
+    if String.compare start "H" = 0 || String.compare start "S" = 0 then
+      String.sub s 1 ((String.length s)-1)
+    else s
+  in
+  Z.of_string s'
+}
 
 
 
@@ -120,7 +129,10 @@ let hexa_int     = ("0X" | "0x") hex_digits
 let dec_int      = digit+
 let oct_int      = ("0o" | "0O") ['0'-'7']+
 let integer = hexa_int | dec_int | oct_int
-
+let global_integer = ("G" | "") integer
+let heap_integer = "H" integer
+let stack_integer = "S" integer
+                  
 (* special characters *)
 let path_symbols = '.' | '/' | '\\' | ':'
 let white_space  = [' ' '\t' '\r']+
@@ -167,7 +179,9 @@ rule token = parse
   (* address separator *)
   | ","             { COMMA }
   (* left operand of type integer *)
-  | integer as i        { INT (Z.of_string i) }
+  | global_integer as i        { INT (strip_int i) }
+    | stack_integer as i { SINT (strip_int i) }
+    | heap_integer as i { HINT (strip_int i) }
     | value as v      {
                    try
                      Hashtbl.find keywords v

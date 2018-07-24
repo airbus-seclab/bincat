@@ -159,6 +159,8 @@
 %token <string> HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
+%token <Z.t> SINT
+%token <Z.t> HINT
 %token TAINT
 %start <unit> process
 %%
