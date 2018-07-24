@@ -28,6 +28,12 @@ let z_mask_ff bits = Z.sub (Z.shift_left Z.one bits) Z.one
 
 let const_mask n sz = Const (Word.of_int (z_mask_ff n) sz)
 
+(** zero extend to 33 bits *)
+let to33bits x = UnOp(ZeroExt 33, x)
+
+(** sign extend to 33 bits *)
+let to33bits_s x = UnOp(SignExt 33, x)
+
 (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
 let sign_extension i sz nb =
     if Z.testbit i (sz-1) then
