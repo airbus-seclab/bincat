@@ -67,7 +67,7 @@ module type T =
 
     (** value generation from configuration.
     The size of the value is given by the int parameter *)
-    val of_config: Data.Address.region -> Config.cvalue -> int -> t
+    val of_config: Config.cvalue -> int -> t
 
     (** taint the given abstract value.
     The size of the value is given by the int parameter. The taint itself is also returned *)
@@ -487,7 +487,7 @@ module Make(D: T) =
            end
 
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 && Register.is_stack_pointer r1 ->
-           let v = D.of_config Data.Address.Stack (Config.Content Z.zero) (Register.size r1) in
+           let v = D.of_config (Config.Content (Config.S, Z.zero)) (Register.size r1) in
            v, D.taint_sources v
 
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
@@ -754,8 +754,8 @@ module Make(D: T) =
       List.fold_left extract [] taint 
    
     (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) =
-      let v' = D.of_config region content sz in  
+    let of_config (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) =
+      let v' = D.of_config content sz in  
       if taint = [] then
         (v', Taint.U)
       else
@@ -798,7 +798,7 @@ module Make(D: T) =
          let v' = D.span_taint v taint in
          Val (Env.replace k v' m'), taint
 
-    let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain: t * Taint.t =
+    let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain: t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");
       if nb > 0 then
         match domain with
@@ -826,7 +826,7 @@ module Make(D: T) =
               end
            | Some content' -> 
               let sz = Config.size_of_content content' in
-              let (v', taint) = of_config region (content', taint) sz in
+              let (v', taint) = of_config (content', taint) sz in
               if nb > 1 then
                 if sz != 8 then
                   L.abort (fun p -> p "Repeated memory init only works with bytes")
@@ -846,7 +846,7 @@ module Make(D: T) =
       else
         domain, Taint.U
 
-    let set_register_from_config r region (content, taint) m: t * Taint.t =
+    let set_register_from_config r (content, taint) m: t * Taint.t =
       match m with
       | BOT    -> BOT, Taint.BOT
       | Val m' ->
@@ -862,7 +862,7 @@ module Make(D: T) =
             Val (Env.replace k v' m'), taint'
          | Some c ->  
             let sz = Register.size r in
-            let vt, taint = of_config region (c, taint) sz in               
+            let vt, taint = of_config (c, taint) sz in               
             Val (Env.replace (Env.Key.Reg r) vt m'), taint
 
     let value_of_exp m e =
