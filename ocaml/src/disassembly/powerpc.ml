@@ -143,6 +143,9 @@ struct
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
+  let not_implemented s isn isn_name =
+    L.abort (fun p -> p "at %s: instruction %s not implemented yet (isn=%08x." (Address.to_string s.a) isn_name isn)
+
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
     s.b.Cfa.State.bytes <-
@@ -165,12 +168,107 @@ struct
         lor ((Char.code (String.get str 1)) lsl 16)
         lor ((Char.code (String.get str 0)) lsl 24)
 
+  let decode_010011 s isn =
+    match isn with
+    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+
+  let decode_011110 s isn =
+    match isn with
+    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+
+  let decode_011111 s isn =
+    match isn with
+    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+
+  let decode_111010 s isn =
+    match isn with
+    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+
+  let decode_111011 s isn =
+    match isn with
+    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+
+  let decode_111110 s isn =
+    match isn with
+    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+
+  let decode_111111 s isn =
+    match isn with
+    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+
+
   let decode s: Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
-    let instruction = build_instruction s str in
-    let stmts = match instruction with
-      | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" instruction) in
-    return s instruction stmts
+    let isn  = build_instruction s str in
+    let stmts = match (isn lsr 26) land 0x3f with
+      | 0x60 -> []
+(*      | 0b000000 ->  *)
+(*      | 0b000001 ->  *)
+      | 0b000010 -> not_implemented s isn "tdi"
+      | 0b000011 -> not_implemented s isn "twi"
+(*      | 0b000100 -> *)
+(*      | 0b000101 -> *)
+(*      | 0b000110 -> *)
+      | 0b000111 -> not_implemented s isn "mulli"
+      | 0b001000 -> not_implemented s isn "subfic"
+(*      | 0b001001 ->  *)
+      | 0b001010 -> not_implemented s isn "cmpli"
+      | 0b001011 -> not_implemented s isn "cmpi"
+      | 0b001100 -> not_implemented s isn "addic"
+      | 0b001101 -> not_implemented s isn "addic."
+      | 0b001110 -> not_implemented s isn "addi"
+      | 0b001111 -> not_implemented s isn "addis"
+      | 0b010000 -> not_implemented s isn "bc??"
+      | 0b010001 -> not_implemented s isn "sc"
+      | 0b010010 -> not_implemented s isn "b??"
+      | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
+      | 0b010100 -> not_implemented s isn "rlwimi??"
+      | 0b010101 -> not_implemented s isn "rlwinm??"
+(*      | 0b010110 ->  *)
+      | 0b010111 -> not_implemented s isn "rlwnm??"
+      | 0b011000 -> not_implemented s isn "ori"
+      | 0b011001 -> not_implemented s isn "oris"
+      | 0b011010 -> not_implemented s isn "xori"
+      | 0b011011 -> not_implemented s isn "xoris"
+      | 0b011100 -> not_implemented s isn "andi."
+      | 0b011101 -> not_implemented s isn "andis."
+      | 0b011110 -> decode_011110 s isn (* rldicl?? rldicr?? rldic?? rldimi?? rldcl?? rldcr??*)
+      | 0b011111 -> decode_011111 s isn (* cmp rw subfc?? mulhdu?? addc?? mulhwu?? mfcr lwarx ldx lwzx slw?? cntlzw?? sld?? and?? cmpl subf?? ldux dcbst lwzux cntlzd??.... *)
+      | 0b100000 -> not_implemented s isn "lwz"
+      | 0b100001 -> not_implemented s isn "lwzu"
+      | 0b100010 -> not_implemented s isn "lbz"
+      | 0b100011 -> not_implemented s isn "lbzu"
+      | 0b100100 -> not_implemented s isn "stw"
+      | 0b100101 -> not_implemented s isn "stwu"
+      | 0b100110 -> not_implemented s isn "stb"
+      | 0b100111 -> not_implemented s isn "stbu"
+      | 0b101000 -> not_implemented s isn "lhz"
+      | 0b101001 -> not_implemented s isn "lhzu"
+      | 0b101010 -> not_implemented s isn "lha"
+      | 0b101011 -> not_implemented s isn "lhau"
+      | 0b101100 -> not_implemented s isn "sth"
+      | 0b101101 -> not_implemented s isn "sthu"
+      | 0b101110 -> not_implemented s isn "lmw"
+      | 0b101111 -> not_implemented s isn "stmw"
+      | 0b110000 -> not_implemented s isn "lfs"
+      | 0b110001 -> not_implemented s isn "lfsu"
+      | 0b110010 -> not_implemented s isn "lfd"
+      | 0b110011 -> not_implemented s isn "lfdu"
+      | 0b110100 -> not_implemented s isn "stfs"
+      | 0b110101 -> not_implemented s isn "stfsu"
+      | 0b110110 -> not_implemented s isn "stfd"
+      | 0b110111 -> not_implemented s isn "stfdu"
+(*      | 0b111000 ->  *)
+(*      | 0b111001 ->  *)
+      | 0b111010 -> decode_111010 s isn (* ld ldu lwa *)
+      | 0b111011 -> decode_111011 s isn (* fdivs?? fsubs?? f... *)
+      | 0b111100 -> decode_111110 s isn (* std stdu *)
+(*      | 0b111101 ->  *)
+(*      | 0b111110 ->  *)
+      | 0b111111 -> decode_111111 s isn (* fcmpu frsp?? ... *)
+
+      | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn) in
+    return s isn stmts
 
 
   let parse text cfg _ctx state addr _oracle =
