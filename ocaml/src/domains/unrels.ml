@@ -251,7 +251,7 @@ module Make(D: Unrel.T) =
            BOT, Taint.Set.singleton Taint.BOT
          else
            if card > !Config.kset_bound then
-             Val (merge mres), Taint.Set.fold Taint.logor t Taint.U
+             Val (merge mres), Taint.Set.singleton (Taint.Set.fold Taint.logor t Taint.U)
            else
              Val mres, t
 
