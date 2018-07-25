@@ -110,11 +110,11 @@ module Make(D: Unrel.T) =
       let buf_typ =
         match addrs with
         | [] -> raise Exit
-        | addr::l ->
+        | addr::tl ->
            let t = T.of_key (Env.Key.Mem addr) tenv in
            if List.for_all (fun a ->
                   let t' = T.of_key (Env.Key.Mem a) tenv in
-                  Typed.equal t t') tl then
+                  Types.equal t t') tl then
              t
            else raise Exit
       in
