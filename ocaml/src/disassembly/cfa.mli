@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -118,10 +118,10 @@ module type T =
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
 
-  val init_abstract_value: Data.Address.t -> domain * Taint.t
+  val init_abstract_value: Data.Address.t -> domain * Taint.Set.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
-  val update_abstract_value: Data.Address.t -> domain -> domain * Taint.t
+  val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t
 
 end
 

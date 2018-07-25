@@ -118,10 +118,10 @@ sig
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
 
-  val init_abstract_value: Data.Address.t -> domain * Taint.t
+  val init_abstract_value: Data.Address.t -> domain * Taint.Set.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
-  val update_abstract_value: Data.Address.t -> domain -> domain * Taint.t
+  val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t
 
 end
 
@@ -206,9 +206,9 @@ struct
         let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global in
         Init_check.check_register_init r v;
         let d', taint' = Domain.set_register_from_config r region v d in
-        d', Taint.logor taint taint'
+        d', Taint.Set.union taint taint'
       )
-      (d, Taint.U) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
+      (d, Taint.Set.empty) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
 
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding lists in Config *)
@@ -218,8 +218,8 @@ struct
                             L.debug (fun p->p "init: %x" (Z.to_int addr));
                             let addr' = Data.Address.of_int region addr !Config.address_sz in
                             let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
-                            d', Taint.logor prev_taint taint'
-                     ) (domain, Taint.U) (List.rev content_list)
+                            d', Taint.Set.union prev_taint taint'
+                     ) (domain, Taint.Set.singleton Taint.U) (List.rev content_list)
       (* end of init utilities *)
 
     let get_content_size c =
@@ -241,8 +241,8 @@ struct
           let d', taint =
             Domain.set_memory_from_config addr' Data.Address.Global content nb domain
           in
-          d', Taint.logor prev_taint taint
-        ) (domain, Taint.U) (List.rev content_list)
+          d', Taint.Set.union prev_taint taint
+        ) (domain, Taint.Set.empty) (List.rev content_list)
   
       
   let update_abstract_value ip d =
@@ -253,7 +253,7 @@ struct
 	let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
 	(* init of the Heap memory *)
 	let d', taint4 = init_heap ip d' !Config.heap_content in
-    d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
+    d', Taint.Set.union taint4 (Taint.Set.union taint3 (Taint.Set.union taint2 taint1))
 
     let init_abstract_value ip =
       let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
