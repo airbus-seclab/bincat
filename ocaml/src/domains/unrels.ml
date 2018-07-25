@@ -310,12 +310,12 @@ module Make(D: Unrel.T) =
 
     let copy m dst arg sz check_address_validity =
       match m with
-      | Val m' -> Val (USet.map (fun u -> U.copy u dst arg sz check_address_validity))
+      | Val m' -> Val (USet.map (fun u -> U.copy u dst arg sz check_address_validity) m')
       | BOT -> BOT
 
     let print m arg sz check_address_validity =
       match m with
-      | Val m' -> USet.iter (fun u -> U.print u arg sz check_address_validity); m
+      | Val m' -> USet.iter (fun u -> U.print u arg sz check_address_validity) m'; m
       | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
 
     let print_hex m src nb capitalise pad_option word_sz check_address_validity =
