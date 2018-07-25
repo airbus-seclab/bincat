@@ -273,12 +273,12 @@ module Make(D: Unrel.T) =
       | BOT -> raise (Exceptions.Empty "Unrels.get_offset_from: environment is empty")
       | Val m' ->
          let res =
-           Uset.fold (fun u o ->
-               let o' = U.get_offset_from e cmp terminator upeer_bound sz u check_address_validity in
-               match o' with
-               | None -> o
-               | Some o' ->
-                  if Z.compare o o' = 0 then Some o
+           USet.fold (fun u o ->
+               let o' = U.get_offset_from e cmp terminator upper_bound sz u check_address_validity in
+               match o with
+               | None -> Some o'
+               | Some o ->
+                  if o = o' then Some o
                   else raise (Exceptions.Empty "Unrels.get_offset_from: different offsets found")) m' None
          in
          match res with
