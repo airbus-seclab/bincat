@@ -313,6 +313,29 @@ module Make(D: Unrel.T) =
       | Val m' -> Val (USet.map (fun u -> U.copy u dst arg sz check_address_validity) m')
       | BOT -> BOT
 
+    let copy_hex m dst src nb capitalise pad_option word_sz check_address_validity =
+      match m with
+      | Val m' ->
+         let m, n =
+           USet.fold (fun u (acc, n) ->
+               let u', n' = U.copy_hex u dst src nb capitalise pad_option word_sz check_address_validity in
+               let nn =
+                 match n with
+                 | None -> Some n'
+                 | Some n  ->
+                    if n = n' then Some n' 
+                    else raise (Exceptions.Empty "diffrent lengths of  bytes copied in Unrels.copy_hex")
+               in
+               USet.add u' acc, nn
+             ) m' (USet.empty, None)
+         in
+         begin
+           match n  with
+           | Some n' -> Val m, n'
+           | None -> raise (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_hex")
+         end
+      | BOT -> BOT, 0
+             
     let print m arg sz check_address_validity =
       match m with
       | Val m' -> USet.iter (fun u -> U.print u arg sz check_address_validity) m'; m
