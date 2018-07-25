@@ -280,7 +280,7 @@ struct
         op_sz = !Config.operand_sz;
         addr_sz = !Config.address_sz;
       };
-      taint_sources = Taint.U;
+      taint_sources = Taint.Set.empty;
       back_taint_sources = None;
     }
 
@@ -344,7 +344,7 @@ struct
     let print_ip s =
       let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
       Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
-        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.to_string s.taint_sources);
+        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.Set.fold (fun src acc -> (Taint.to_string src)^acc) s.taint_sources "");
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s);
       if !Config.loglevel > 2 then
         begin
