@@ -154,6 +154,14 @@ struct
     let imm = (isn land 0xffff) in
     op1, op2, imm
 
+
+  (* Operation decoders *)
+
+  let decode_ori _state isn =
+    let s, a, uimm = decode_D_Form isn in
+    [ Set (V (treg a), BinOp(Or, Lval (V (treg s)), const uimm 32) ) ]
+
+
   (* Decoding and switching *)
 
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
@@ -249,7 +257,7 @@ struct
       | 0b010101 -> not_implemented s isn "rlwinm??"
 (*      | 0b010110 ->  *)
       | 0b010111 -> not_implemented s isn "rlwnm??"
-      | 0b011000 -> not_implemented s isn "ori"
+      | 0b011000 -> decode_ori s isn
       | 0b011001 -> not_implemented s isn "oris"
       | 0b011010 -> not_implemented s isn "xori"
       | 0b011011 -> not_implemented s isn "xoris"
