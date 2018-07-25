@@ -161,8 +161,8 @@ module Address: sig
   val get_heap_region: int -> region * Z.t
 
   (** returns the size of the heap region in bits *)
-  (** may raise Not_found *)
   val size_of_heap_region: int -> Z.t
+  (** may raise Not_found *)
  
   (** set of addresses *)
   module Set: (Set.S with type elt = t)
