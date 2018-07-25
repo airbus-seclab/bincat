@@ -834,7 +834,7 @@ module Make(D: T) =
             let vt, taint = of_config region (c, taint) sz in               
             Env.replace (Env.Key.Reg r) vt m', taint
 
-    let set_lval_to_addr lv (region, word) m check_address_validity =
+    let set_lval_to_addr lv addr m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
       L.debug2 (fun p -> p "entering set_lval_to_addrs with lv = %s" (Asm.string_of_lval lv true));
      
@@ -844,23 +844,28 @@ module Make(D: T) =
               raise (Exceptions.Empty "inconsistent dereference size wrt to address size")
             else
               begin
-                try
-                  let bytes = Data.Word.to_bytes word in
-                  let m', taint, _ =
-                    List.fold_left (fun (m', taint, i) byte ->
-                      let v = D.of_addr (Data.Address.Val (region, byte)) in
-                      let e' = Asm.BinOp (Asm.Add, e, Asm.Const (Data.Word.of_int i !Config.operand_sz)) in
-                      let m', taint' =
-                        set_to_memory e' 8 v m' Taint.U check_address_validity
-                      in
-                      m', Taint.logor taint taint', Z.add i Z.one) (m, Taint.U, Z.zero) bytes
-                  in
-                  m', taint
-                with _ -> raise (Exceptions.Empty "set_lval_to_addr: invalid dereference"), Taint.BOT 
+                match addr with
+                | Data.Address.NULL ->
+                   let v = D.of_addr addr in
+                   set_to_memory e !Config.address_sz v m Taint.U check_address_validity 
+                | Data.Address.Val (region, word) ->                               
+                   try
+                     let bytes = Data.Word.to_bytes word in
+                     let m', taint, _ =
+                       List.fold_left (fun (m', taint, i) byte ->
+                           let v = D.of_addr (Data.Address.Val (region, byte)) in
+                           let e' = Asm.BinOp (Asm.Add, e, Asm.Const (Data.Word.of_int i !Config.operand_sz)) in
+                           let m', taint' =
+                             set_to_memory e' 8 v m' Taint.U check_address_validity
+                           in
+                           m', Taint.logor taint taint', Z.add i Z.one) (m, Taint.U, Z.zero) bytes
+                     in
+                     m', taint
+                   with _ -> raise (Exceptions.Empty "set_lval_to_addr: invalid dereference"), Taint.BOT 
               end
               
          | Asm.V r ->
-            let v = D.of_addr (Data.Address.Val (region, word)) in
+            let v = D.of_addr addr in
             try
               set_to_register r v m, Taint.U
             with Not_found -> raise (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Asm.string_of_reg r))), Taint.BOT
