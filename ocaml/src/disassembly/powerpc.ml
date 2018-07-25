@@ -146,6 +146,14 @@ struct
   let not_implemented s isn isn_name =
     L.abort (fun p -> p "at %s: instruction %s not implemented yet (isn=%08x." (Address.to_string s.a) isn_name isn)
 
+  (* PPC Forms decoding *)
+
+  let decode_D_Form isn =
+    let op1 = (isn lsr 21) land 0x1f in
+    let op2 = (isn lsr 16) land 0x1f in
+    let imm = (isn land 0xffff) in
+    op1, op2, imm
+
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
     s.b.Cfa.State.bytes <-
