@@ -114,7 +114,7 @@ module Make(D: Unrel.T) =
            let t = T.of_key (Env.Key.Mem addr) tenv in
            if List.for_all (fun a ->
                   let t' = T.of_key (Env.Key.Mem a) tenv in
-                  TypedC.compare t t' = 0) tl then
+                  TypedC.equas_typ t t') tl then
              t
            else raise Exit
       in
