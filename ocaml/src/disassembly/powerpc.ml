@@ -360,8 +360,39 @@ struct
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
   let decode_111111 s isn =
-    match isn with
-    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+    match (isn lsr 1) land 0x1f with
+    | 0b10111 -> not_implemented s isn "fsel??"
+    | 0b11001 -> not_implemented s isn "fmul??"
+    | 0b11100 -> not_implemented s isn "fmsub??"
+    | 0b11101 -> not_implemented s isn "fmadd??"
+    | 0b11110 -> not_implemented s isn "fnmsub??"
+    | 0b11111 -> not_implemented s isn "fnmadd??"
+    | _ ->
+       match (isn lsr 1) land 0x3ff with
+       | 0b0000000000 -> not_implemented s isn "fcmpu"
+       | 0b0000001100 -> not_implemented s isn "frsp??"
+       | 0b0000001110 -> not_implemented s isn "fctiw??"
+       | 0b0000001111 -> not_implemented s isn "fctiwz??"
+       | 0b0000010010 -> not_implemented s isn "fdiv??"
+       | 0b0000010100 -> not_implemented s isn "fsub??"
+       | 0b0000010101 -> not_implemented s isn "fadd??"
+       | 0b0000010110 -> not_implemented s isn "fsqrt??"
+       | 0b0000011010 -> not_implemented s isn "frsqrte??"
+       | 0b0000100000 -> not_implemented s isn "fcmpo"
+       | 0b0000100110 -> not_implemented s isn "mtfsb1??"
+       | 0b0000101000 -> not_implemented s isn "fneg??"
+       | 0b0001000000 -> not_implemented s isn "mcrfs"
+       | 0b0001000110 -> not_implemented s isn "mtfsb0??"
+       | 0b0001001000 -> not_implemented s isn "fmr??"
+       | 0b0010000110 -> not_implemented s isn "mtfsfi??"
+       | 0b0010001000 -> not_implemented s isn "fnabs??"
+       | 0b0100001000 -> not_implemented s isn "fabs??"
+       | 0b1001000111 -> not_implemented s isn "mffs??"
+       | 0b1011000111 -> not_implemented s isn "mtfsf??"
+       | 0b1100101110 -> not_implemented s isn "fctid??"
+       | 0b1100101111 -> not_implemented s isn "fctidz??"
+       | 0b1101001110 -> not_implemented s isn "fcfid??"
+       | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
 
   let decode s: Cfa.State.t * Data.Address.t =
