@@ -179,8 +179,21 @@ struct
         lor ((Char.code (String.get str 0)) lsl 24)
 
   let decode_010011 s isn =
-    match isn with
-    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+    match (isn lsr 1) land 0x3ff with
+    | 0b0000000000-> not_implemented s isn "mcrf"
+    | 0b0000010000-> not_implemented s isn "bclr??"
+    | 0b0000100001-> not_implemented s isn "crnor"
+    | 0b0000110010-> not_implemented s isn "rfi"
+    | 0b0010000001-> not_implemented s isn "crandc"
+    | 0b0010010110-> not_implemented s isn "isync"
+    | 0b0011000001-> not_implemented s isn "crxor"
+    | 0b0011100001-> not_implemented s isn "crnand"
+    | 0b0100000001-> not_implemented s isn "crand"
+    | 0b0100100001-> not_implemented s isn "creqv"
+    | 0b0110100001-> not_implemented s isn "crorc"
+    | 0b0111000001-> not_implemented s isn "cror"
+    | 0b1000010000-> not_implemented s isn "bcctr??"
+    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
   let decode_011110 s isn =
     match isn with
