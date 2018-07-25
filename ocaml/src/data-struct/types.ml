@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -52,4 +52,11 @@ let is_subset t1 t2 =
   | _, BOT -> false
   | T t1', T t2' when TypedC.equals_typ t1' t2' -> true
   | _, UNKNOWN -> true
+  | _, _ -> false
+
+let equal t1 t2 =
+  match t1, t2 with
+  | BOT, BOT -> true
+  | UNKNOWN, UNKNOWN -> false
+  | T t1, T t2 -> TypedC.equals_typ t1 t2
   | _, _ -> false
