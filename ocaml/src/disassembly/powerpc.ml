@@ -154,6 +154,8 @@ struct
     let imm = (isn land 0xffff) in
     op1, op2, imm
 
+  (* Decoding and switching *)
+
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
     s.b.Cfa.State.bytes <-
