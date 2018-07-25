@@ -340,8 +340,18 @@ struct
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
   let decode_111011 s isn =
-    match isn with
-    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+    match (isn lsr 1) land 0x1f with
+    | 0b10010 -> not_implemented s isn "fdivs??"
+    | 0b10100 -> not_implemented s isn "fsubs??"
+    | 0b10101 -> not_implemented s isn "adds??"
+    | 0b10110 -> not_implemented s isn "fsqrts??"
+    | 0b11000 -> not_implemented s isn "fres??"
+    | 0b11001 -> not_implemented s isn "fmuls??"
+    | 0b11100 -> not_implemented s isn "fmsubs??"
+    | 0b11101 -> not_implemented s isn "fmadds??"
+    | 0b11110 -> not_implemented s isn "fnmsubs??"
+    | 0b11111 -> not_implemented s isn "fnmadds??"
+    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
   let decode_111110 s isn =
     match isn with
