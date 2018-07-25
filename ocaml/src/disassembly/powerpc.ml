@@ -204,8 +204,14 @@ struct
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
   let decode_011110 s isn =
-    match isn with
-    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+    match (isn lsr 1) land 0xf with
+    | 0b0000 | 0b0001 -> not_implemented s isn "rldicl??"
+    | 0b0010 | 0b0011 -> not_implemented s isn "rldicr??"
+    | 0b0100 | 0b0101 -> not_implemented s isn "rldic??"
+    | 0b0110 | 0b0111 -> not_implemented s isn "rldimi??"
+    | 0b1000 -> not_implemented s isn "rldcl??"
+    | 0b1001 -> not_implemented s isn "rldcr??"
+    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
   let decode_011111 s isn =
     match isn with
