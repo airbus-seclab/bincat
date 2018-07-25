@@ -120,6 +120,8 @@ struct
     | 27 -> r27
     | 28 -> r28
     | 29 -> r29
+    | 30 -> r30
+    | 31 -> r31
     | _ -> L.abort (fun p -> p "Unknown register number %i" n)
 
   let treg n =
