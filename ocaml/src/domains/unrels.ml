@@ -57,7 +57,7 @@ module Make(D: Unrel.T) =
       | BOT ->  raise (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r)))
       | Val m' -> USet.fold (fun u acc -> (U.string_of_register u r)^acc) m' ""
 
-    let forget m = USet.map U.forget
+    let forget m = USet.map U.forget m
 
     let is_subset m1 m2 =
       match m1, m2 with
@@ -172,7 +172,7 @@ module Make(D: Unrel.T) =
           m
       in
       match m1, m2 with
-      | BOT, m | m, BOT -> BOT
+      | BOT, _ | _, BOT -> BOT
       | Val m1', Val m2' ->
          let m' =
            USet.fold (fun u1 m' ->
@@ -211,7 +211,7 @@ module Make(D: Unrel.T) =
          let m', t' =
            USet.fold (fun u (m, t) ->
                let u', t' = f u in
-               USet.add u m, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
+               USet.add u' m, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
          in
          Val m', t'
          
@@ -359,12 +359,19 @@ module Make(D: Unrel.T) =
       | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
 
     let copy_register r dst src =
-        match dst, src with
-        | Val dst', Val src' -> Val (Uset.fold (fun u1 acc ->
-                                         let acc' = USet.map (fun u2 -> U.copy_register r u1 u2) src' in
-                                         Uset.join acc' acc)
-                                         dst' USet.empty)
-        | BOT, Val src' ->
-           let v = Env.find k src' in Val (let m = Env.empty in Env.add k v m)
-        | _, _ -> BOT
+      match src with
+      | Val src' ->
+         begin
+           let dst' =
+             match dst with
+             | Val dst' -> dst'
+             | BOT -> USet.empty
+           in
+           Val (USet.fold (fun u1 acc ->
+                    let acc' = USet.map (fun u2 -> U.copy_register r u1 u2) src' in
+                    USet.union acc' acc)
+                  dst' USet.empty)
+         end
+      | BOT -> BOT
+              
   end
