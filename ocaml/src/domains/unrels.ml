@@ -353,9 +353,9 @@ module Make(D: Unrel.T) =
       | BOT -> BOT
       | Val m' -> Val (USet.map (fun u -> U.copy_chars u dst src nb pad_options check_address_validity) m')
 
-    let print_chars m' src nb pad_options check_address_validity =
+    let print_chars m src nb pad_options check_address_validity =
       match m with
-      | Val m' -> Val (USet.map (fun u -> U.print_chars u src nb pad_options chack_address_validity) m')
+      | Val m' -> Val (USet.map (fun u -> U.print_chars u src nb pad_options check_address_validity) m')
       | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
 
     let copy_register r dst src =
