@@ -64,7 +64,7 @@ struct
       | LEQ -> GT
       | GT  -> LEQ
 
-    let restrict (d: D.t) (e: Asm.bexp) (b: bool): (D.t * Taint.t) =
+    let restrict (d: D.t) (e: Asm.bexp) (b: bool): (D.t * Taint.Set.t) =
       L.debug (fun p -> p "restrict: e=%s b=%B" (Asm.string_of_bexp e true) b);
       let rec process e b =
         match e with
@@ -483,7 +483,7 @@ struct
                
              | _       -> vertices, Taint.U
 
-      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.t =
+      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.Set.t =
         match stmts with
         | s::stmts ->
            let new_vert, tainted =
@@ -815,7 +815,7 @@ struct
       | _ ->  D.forget_lval dst d, Taint.TOP
 
 
-    let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.t) =
+    let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.Set.t) =
       match src with
       | Lval lv ->
          let d', taint = D.set lv (Lval dst) d in
@@ -833,7 +833,7 @@ struct
       | _ -> D.forget_lval dst d, Taint.TOP
 
     (** backward transfert function on the given abstract value *)
-    let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * Taint.t) =
+    let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * Taint.Set.t) =
       (* BE CAREFUL: this function does not apply to nested if statements *)
       let rec back d stmt =
         L.debug (fun p -> p "back of %s.........." (Asm.string_of_stmt stmt true));
