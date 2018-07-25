@@ -260,13 +260,13 @@ module Make(D: Unrel.T) =
       | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true)))
       | Val m' ->
          USet.fold (fun u (addrs, t) ->
-             let addrs', t' = mem_to_addresses u in
-             Data.Address.Set.join addrs addrs addrs', Taint.Set.add t' t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
+             let addrs', t' = U.mem_to_addresses u e check_address_validity in
+             Data.Address.Set.union addrs addrs', Taint.Set.add t' t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
 
     let taint_sources e m check_address_validity =
       match m with
       | BOT -> Taint.Set.singleton Taint.BOT
-      | Val m' ->  USet.fold (fun u t -> Taint.Set.join t (U.taint_sources e u check_address_validity)) m' Taint.Set.empty
+      | Val m' ->  USet.fold (fun u t -> Taint.Set.union t (U.taint_sources e u check_address_validity)) m' Taint.Set.empty
 
     let get_offset_from e cmp terminator upper_bound sz m check_address_validity =
         match m with
