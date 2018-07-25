@@ -836,8 +836,7 @@ module Make(D: T) =
 
     let set_lval_to_addr lv addr m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
-      L.debug2 (fun p -> p "entering set_lval_to_addrs with lv = %s" (Asm.string_of_lval lv true));
-     
+      L.debug2 (fun p -> p "entering set_lval_to_addrs with lv = %s" (Asm.string_of_lval lv true));  
          match lv with
          | Asm.M (e, n) ->
             if n <> !Config.address_sz then

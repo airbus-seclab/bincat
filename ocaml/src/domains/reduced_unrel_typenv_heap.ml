@@ -108,7 +108,7 @@ module Make(D: Unrel.T) =
     let uenv', b = U.set_lval_to_addr lv addrs uenv (H.check_status henv) in
     try
       let buf_typ =
-        match addr with
+        match addrs with
         | [] -> raise Exit
         | addr::l ->
            let t = T.of_key (Env.Key.Mem addr) tenv in
