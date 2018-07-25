@@ -333,8 +333,11 @@ struct
     | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
   let decode_111010 s isn =
-    match isn with
-    | _ -> error s.a (Printf.sprintf "Unimplemented or unknown opcode 0x%x" isn)
+    match isn land 0x3 with
+    | 0b00 -> not_implemented s isn "ld"
+    | 0b01 -> not_implemented s isn "ldu"
+    | 0b10 -> not_implemented s isn "lwa"
+    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
   let decode_111011 s isn =
     match isn with
