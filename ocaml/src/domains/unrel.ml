@@ -413,7 +413,11 @@ module Make(D: T) =
       do_update new_mem domain
 
 
-
+    let check_address_lv oracle a =
+      match a with
+      | Data.Address.NULL -> raise (Exceptions.Empty "Dereferencing a NULL address")
+      | Data.Address.Val _ -> oracle a
+                
     (***************************)
     (* Non mem functions  :)   *)
     (***************************)
@@ -465,12 +469,12 @@ module Make(D: T) =
                let rec to_value a =
                  match a with
                  | [a]  ->
-                    check_address_validity a;
+                    check_address_lv check_address_validity a;
                    let v = get_mem_value m a n in
                    v, Taint.logor tsrc (D.taint_sources v)
 
                  | a::l ->
-                    check_address_validity a;
+                    check_address_lv check_address_validity a;
                     let v = get_mem_value m a n in
                     let v', tsrc' = to_value l in
                     D.join v v', Taint.join (D.taint_sources v) (Taint.logor tsrc tsrc')

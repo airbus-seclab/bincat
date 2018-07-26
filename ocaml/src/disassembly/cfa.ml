@@ -361,7 +361,7 @@ struct
       | Config.ARMv8 -> "armv8" in
     Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
     (* taint sources *)
-    Printf.fprintf f "[taint sources]\n";
+    Printf.fprintf f "[taint sources]\n"; 
     Hashtbl.iter (fun id src -> Printf.fprintf f "%d = %s\n" id (Dump.string_of_src src)) Dump.taint_src_tbl;
     Printf.fprintf f "\n";
     Printf.fprintf f "[heap ids]\n";

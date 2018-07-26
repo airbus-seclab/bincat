@@ -114,7 +114,6 @@ let check_status m addr =
           let status = Map.find id m' in
           if status <> Status.A then
             raise (Exceptions.Use_after_free (Data.Address.to_string addr))
-       | Data.Address.NULL -> raise (Exceptions.Null_deref "Heap.check_status")
        | _ -> ()
      with _ -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
 
