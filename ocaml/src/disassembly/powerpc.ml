@@ -201,7 +201,7 @@ struct
     | 0b0110100001-> not_implemented s isn "crorc"
     | 0b0111000001-> not_implemented s isn "cror"
     | 0b1000010000-> not_implemented s isn "bcctr??"
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
+    | _ -> error s.a (Printf.sprintf "decode_010011: unknown opcode 0x%x" isn)
 
   let decode_011110 s isn =
     match (isn lsr 1) land 0xf with
@@ -211,7 +211,7 @@ struct
     | 0b0110 | 0b0111 -> not_implemented s isn "rldimi??"
     | 0b1000 -> not_implemented s isn "rldcl??"
     | 0b1001 -> not_implemented s isn "rldcr??"
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
+    | _ -> error s.a (Printf.sprintf "decode_011110: unknown opcode 0x%x" isn)
 
   let decode_011111 s isn =
     match (isn lsr 1) land 0x3ff with
@@ -330,14 +330,14 @@ struct
     | 0b1111010111 -> not_implemented s isn "stfiwx"
     | 0b1111011010 -> not_implemented s isn "extsw"
     | 0b1111110110 -> not_implemented s isn "dcbz"
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
+    | _ -> error s.a (Printf.sprintf "decode_011111: unknown opcode 0x%x" isn)
 
   let decode_111010 s isn =
     match isn land 0x3 with
     | 0b00 -> not_implemented s isn "ld"
     | 0b01 -> not_implemented s isn "ldu"
     | 0b10 -> not_implemented s isn "lwa"
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
+    | _ -> error s.a (Printf.sprintf "decode_111010: unknown opcode 0x%x" isn)
 
   let decode_111011 s isn =
     match (isn lsr 1) land 0x1f with
@@ -351,13 +351,13 @@ struct
     | 0b11101 -> not_implemented s isn "fmadds??"
     | 0b11110 -> not_implemented s isn "fnmsubs??"
     | 0b11111 -> not_implemented s isn "fnmadds??"
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
+    | _ -> error s.a (Printf.sprintf "decode_111011: unknown opcode 0x%x" isn)
 
   let decode_111110 s isn =
     match isn land 0x3 with
     | 0b00 -> not_implemented s isn "std"
     | 0b01 -> not_implemented s isn "stdu"
-    | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
+    | _ -> error s.a (Printf.sprintf "decode_111110: unknown opcode 0x%x" isn)
 
   let decode_111111 s isn =
     match (isn lsr 1) land 0x1f with
@@ -392,7 +392,7 @@ struct
        | 0b1100101110 -> not_implemented s isn "fctid??"
        | 0b1100101111 -> not_implemented s isn "fctidz??"
        | 0b1101001110 -> not_implemented s isn "fcfid??"
-       | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
+       | _ -> error s.a (Printf.sprintf "decode_11111: unknown opcode 0x%x" isn)
 
 
   let decode s: Cfa.State.t * Data.Address.t =
