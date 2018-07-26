@@ -460,9 +460,9 @@ struct
 (*      | 0b111001 ->  *)
       | 0b111010 -> decode_111010 s isn (* ld ldu lwa *)
       | 0b111011 -> decode_111011 s isn (* fdivs?? fsubs?? f... *)
-      | 0b111100 -> decode_111110 s isn (* std stdu *)
+(*      | 0b111100 ->  *)
 (*      | 0b111101 ->  *)
-(*      | 0b111110 ->  *)
+      | 0b111110 ->  decode_111110 s isn (* std stdu *)
       | 0b111111 -> decode_111111 s isn (* fcmpu frsp?? ... *)
 
       | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn) in
