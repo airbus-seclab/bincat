@@ -113,7 +113,7 @@ module Make(D: Unrel.T) =
       match m with
       | BOT    -> BOT, Taint.Set.singleton Taint.U
       | Val m' ->
-         let taint = ref (Taint.Set.empty) in
+         let taint = ref (Taint.Set.singleton Taint.U) in
          let m2 = USet.map (fun u ->
                       let u', t = U.set dst src u check_address_validity in
                       taint := Taint.Set.add t !taint;
@@ -138,7 +138,7 @@ module Make(D: Unrel.T) =
              merge m'
            else m'
          in
-         let taint = ref (Taint.Set.empty) in
+         let taint = ref (Taint.Set.singleton Taint.U) in
          let m2 =
            List.fold_left (fun acc a ->
                let m' =
@@ -269,7 +269,7 @@ module Make(D: Unrel.T) =
     let taint_sources e m check_address_validity =
       match m with
       | BOT -> Taint.Set.singleton Taint.BOT
-      | Val m' ->  USet.fold (fun u t -> Taint.Set.add (U.taint_sources e u check_address_validity) t) m' Taint.Set.empty
+      | Val m' ->  USet.fold (fun u t -> Taint.Set.add (U.taint_sources e u check_address_validity) t) m' (Taint.Set.singleton Taint.U)
 
     let get_offset_from e cmp terminator upper_bound sz m check_address_validity =
         match m with

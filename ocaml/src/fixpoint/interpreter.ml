@@ -177,11 +177,11 @@ struct
       try
         let res, tainted =
             match s with
-            | Nop                -> d, Taint.Set.empty
+            | Nop                -> d, Taint.Set.singleton Taint.U
             | If (e, then_stmts, else_stmts) -> process_if ip d e then_stmts else_stmts fun_stack
             | Set (dst, src)         -> D.set dst src d
-            | Directive (Remove r)       -> let d' = D.remove_register r d in Register.remove r; d', Taint.Set.empty
-            | Directive (Forget lval)        -> D.forget_lval lval d, Taint.Set.empty
+            | Directive (Remove r)       -> let d' = D.remove_register r d in Register.remove r; d', Taint.Set.singleton Taint.U
+            | Directive (Forget lval)        -> D.forget_lval lval d, Taint.Set.singleton Taint.U
             | Directive (Unroll (e, bs)) ->
                begin
                  try
@@ -189,12 +189,12 @@ struct
                    unroll_wrapper f
                  with _ -> ()
                end;
-              d, Taint.Set.empty
+              d, Taint.Set.singleton Taint.U
 
             | Directive (Default_unroll) ->
                L.analysis (fun p -> p "set unroll parameter to its default value");
               unroll_nb := None;
-              d, Taint.Set.empty
+              d, Taint.Set.singleton Taint.U
 
             | Asm.Directive (Asm.Unroll_until (addr, cmp, terminator, upper_bound, sz)) ->
                begin
@@ -205,7 +205,7 @@ struct
                    unroll_wrapper f;
                  with _ -> ()
                end;
-               d, Taint.Set.empty
+               d, Taint.Set.singleton Taint.U
 
             | Directive (Taint (e, lv))      ->
                 begin
@@ -244,11 +244,11 @@ struct
                                 D.span_taint_to_addr a taint' d
                            end
                         | _ -> raise Exit
-                      with _ -> L.analysis (fun p -> p "Tainting directive ignored"); d, Taint.Set.empty
+                      with _ -> L.analysis (fun p -> p "Tainting directive ignored"); d, Taint.Set.singleton Taint.U
                     end
-                 | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, Taint.Set.empty
+                 | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, Taint.Set.singleton Taint.U
                end
-            | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.Set.empty
+            | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.Set.singleton Taint.U
 
             | Directive (Skip (f, call_conv)) as skip_statement ->
                L.analysis (fun p -> p "Skipping %s" (Asm.string_of_fun f));
@@ -342,7 +342,7 @@ struct
         let t =
             List.fold_left (fun t v ->             
                 let d', t' =
-                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value a d stmt fun_stack in d', Taint.Set.union t t') (v.Cfa.State.v, Taint.Set.empty) stmts
+                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value a d stmt fun_stack in d', Taint.Set.union t t') (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
                 in
                 v.Cfa.State.v <- d';
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in
@@ -354,7 +354,7 @@ struct
                 v.Cfa.State.ip <- a;
                 Log.Trace.trace a (fun p -> p "%s"
                                               (Asm.string_of_stmts [ Asm.Jmp(R ret_addr_exp) ] true));
-                Taint.Set.union t t') Taint.Set.empty vertices
+                Taint.Set.union t t') (Taint.Set.singleton Taint.U) vertices
         in
         vertices, t
 
@@ -379,7 +379,7 @@ struct
                     with
                     | Exceptions.Too_many_concrete_elements _ as e ->
                        L.exc_and_abort e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
-                ) ([], Taint.Set.empty) vertices
+                ) ([], Taint.Set.singleton Taint.U) vertices
             in
             if !import then fun_stack := List.tl !fun_stack;
             res
@@ -410,7 +410,7 @@ struct
         v'.Cfa.State.v <- d;
         v'.Cfa.State.branch <- branch;
         v'.Cfa.State.bytes <- [];
-        v'.Cfa.State.taint_sources <- Taint.Set.empty;
+        v'.Cfa.State.taint_sources <- Taint.Set.singleton Taint.U;
         if is_pred then
           Cfa.add_successor g v v'
         else
@@ -428,7 +428,7 @@ struct
                 l, b
               else
                 (copy v d (Some true) false)::l, Taint.Set.union b taint_sources
-            with Exceptions.Empty "Interpreter.process_if_with_jmp" -> l, b) ([], Taint.Set.empty) vertices)
+            with Exceptions.Empty "Interpreter.process_if_with_jmp" -> l, b) ([], Taint.Set.singleton Taint.U) vertices)
           in
           let vert, b' = process_list vertices' stmts in
           vert, Taint.Set.union b b'
@@ -445,7 +445,7 @@ struct
                                           v.Cfa.State.v <- d;
                                           let taint = Taint.Set.union b b' in
                                           (*v.Cfa.State.taint_sources <- taint;*)
-                                          v::l, taint) ([], Taint.Set.empty) vertices
+                                          v::l, taint) ([], Taint.Set.singleton Taint.U) vertices
         with Jmp_exn ->
              match s with
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts
@@ -457,7 +457,7 @@ struct
                     fun_stack := List.tl !fun_stack;
                     res
                   with Not_found ->
-                    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.Set.empty
+                    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.Set.singleton Taint.U
                 end
                
              | Jmp (R target) ->
@@ -470,7 +470,7 @@ struct
                     skip_or_import_call vertices a fun_stack
                   with Not_found ->
                     List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
-                    vertices, Taint.Set.empty
+                    vertices, Taint.Set.singleton Taint.U
                 end
              | Call (R target) -> fold_to_target add_to_fun_stack vertices target
                                 
@@ -479,9 +479,9 @@ struct
                     let v', b' = process_ret fun_stack v in
                     match v' with
                     | None -> l, Taint.Set.union b b'
-                    | Some v -> v::l, Taint.Set.union b b') ([], Taint.Set.empty) vertices
+                    | Some v -> v::l, Taint.Set.union b b') ([], Taint.Set.singleton Taint.U) vertices
                
-             | _       -> vertices, Taint.Set.empty
+             | _       -> vertices, Taint.Set.singleton Taint.U
 
       and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.Set.t =
         match stmts with
@@ -497,7 +497,7 @@ struct
            in
 
            new_vert, tainted
-        | []       -> vertices, Taint.Set.empty
+        | []       -> vertices, Taint.Set.singleton Taint.U
       in
       let vstart = copy v v.Cfa.State.v None true in
       vstart.Cfa.State.ip <- ip;
@@ -849,23 +849,23 @@ struct
         | Call _
         | Return
         | Jmp _
-        | Nop -> d, Taint.Set.empty
-        | Directive (Forget _) -> d, Taint.Set.empty
-        | Directive (Remove r) -> D.add_register r d, Taint.Set.empty
+        | Nop -> d, Taint.Set.singleton Taint.U
+        | Directive (Forget _) -> d, Taint.Set.singleton Taint.U
+        | Directive (Remove r) -> D.add_register r d, Taint.Set.singleton Taint.U
         | Directive (Taint _) -> D.forget d, Taint.Set.singleton Taint.TOP
-        | Directive (Type _) -> D.forget d, Taint.Set.empty
-        | Directive (Unroll _) -> d, Taint.Set.empty
-        | Directive (Unroll_until _) -> d, Taint.Set.empty
-        | Directive Default_unroll -> d, Taint.Set.empty
-        | Directive (Stub _) -> d, Taint.Set.empty
-        | Directive (Skip _) -> d, Taint.Set.empty
+        | Directive (Type _) -> D.forget d, Taint.Set.singleton Taint.U
+        | Directive (Unroll _) -> d, Taint.Set.singleton Taint.U
+        | Directive (Unroll_until _) -> d, Taint.Set.singleton Taint.U
+        | Directive Default_unroll -> d, Taint.Set.singleton Taint.U
+        | Directive (Stub _) -> d, Taint.Set.singleton Taint.U
+        | Directive (Skip _) -> d, Taint.Set.singleton Taint.U
         | Set (dst, src) -> back_set dst src d
-        | Assert (_bexp, _msg) -> d, Taint.Set.empty (* TODO *)
+        | Assert (_bexp, _msg) -> d, Taint.Set.singleton Taint.U (* TODO *)
         | If (_e, istmts, estmts) ->
            match branch with
-           | Some true -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.Set.union b b') (d, Taint.Set.empty) (List.rev istmts)
-           | Some false -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.Set.union b b') (d, Taint.Set.empty) (List.rev estmts)
-           | None -> D.forget d, Taint.Set.empty
+           | Some true -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.Set.union b b') (d, Taint.Set.singleton Taint.U) (List.rev istmts)
+           | Some false -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.Set.union b b') (d, Taint.Set.singleton Taint.U) (List.rev estmts)
+           | None -> D.forget d, Taint.Set.singleton Taint.U
       in
       back d stmt
 
@@ -880,7 +880,7 @@ struct
           List.fold_left (fun (d, b) s ->
             let d', b' = backward_process v.Cfa.State.branch d s in
             d', Taint.Set.union b b'
-          ) (start_v, Taint.Set.empty) (List.rev pred.Cfa.State.stmts)
+          ) (start_v, Taint.Set.singleton Taint.U) (List.rev pred.Cfa.State.stmts)
         in
         let v' = D.meet pred.Cfa.State.v d' in
         begin
@@ -955,9 +955,9 @@ struct
         | Asm.Directive Asm.Default_unroll
         | Asm.Jmp (Asm.A _)
         | Asm.Return
-        | Asm.Call (Asm.A _) -> d, Taint.Set.empty
+        | Asm.Call (Asm.A _) -> d, Taint.Set.singleton Taint.U
         | Asm.Set (dst, src) -> D.set dst src d
-        | Assert (_bexp, _msg) -> d, Taint.Set.empty (* TODO *)
+        | Assert (_bexp, _msg) -> d, Taint.Set.singleton Taint.U (* TODO *)
         | Asm.If (e, istmts, estmts) ->
            begin
              try process_if ip d e istmts estmts fun_stack
@@ -976,7 +976,7 @@ struct
       let forward _g v _ip =
         let d', taint_sources = List.fold_left (fun (d, b) s ->
           let d', b' = forward_process v.Cfa.State.ip d s (succ.Cfa.State.branch) in
-          d', Taint.Set.union b b') (v.Cfa.State.v, Taint.Set.empty) (succ.Cfa.State.stmts)
+          d', Taint.Set.union b b') (v.Cfa.State.v, Taint.Set.singleton Taint.U) (succ.Cfa.State.stmts)
         in
         succ.Cfa.State.v <- D.meet succ.Cfa.State.v d';
         succ.Cfa.State.taint_sources <- taint_sources;

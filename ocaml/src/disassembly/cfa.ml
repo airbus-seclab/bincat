@@ -216,7 +216,7 @@ struct
         let d', taint' = Domain.set_register_from_config r v' d in
         d', Taint.Set.union taint taint'
       )
-      (d, Taint.Set.empty) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
+      (d, Taint.Set.singleton Taint.U) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
 
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding lists in Config *)
@@ -227,7 +227,7 @@ struct
                             let addr' = Data.Address.of_int region addr !Config.address_sz in
                             let d', taint' = Domain.set_memory_from_config addr' content nb domain in
                             d', Taint.Set.union prev_taint taint'
-                     ) (domain, Taint.Set.empty) (List.rev content_list)
+                     ) (domain, Taint.Set.singleton Taint.U) (List.rev content_list)
       (* end of init utilities *)
 
     let get_content_size c =
@@ -250,7 +250,7 @@ struct
             Domain.set_memory_from_config addr' content nb domain
           in
           d', Taint.Set.union prev_taint taint
-        ) (domain, Taint.Set.empty) (List.rev content_list)
+        ) (domain, Taint.Set.singleton Taint.U) (List.rev content_list)
   
       
   let update_abstract_value ip d =
@@ -288,7 +288,7 @@ struct
         op_sz = !Config.operand_sz;
         addr_sz = !Config.address_sz;
       };
-      taint_sources = Taint.Set.empty;
+      taint_sources = Taint.Set.singleton Taint.U;
       back_taint_sources = None;
     }
 
