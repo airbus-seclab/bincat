@@ -216,3 +216,20 @@ def test_simd_and(tmpdir, armv7op, armv7op_):
             and v2.8b, v0.8b, v1.8b
     """.format(**locals())
     compare(tmpdir, asm, ["x0", "x1", "q0", "q1", "q2"])
+
+
+# This tests does arithmetic between the stack and the global region
+# x2 is S0x0, and then stored on the stack
+# ldr w3, [x0] should trigger a pointer.combine between G0x0 (first line)
+# and S0x0, setting x3 to bottom
+def test_stack_combine(tmpdir):
+    asm = """
+            mov x3, 0
+            mov x0, sp
+            mov x1, sp
+            sub x2, x0, x1
+            str x2, [x0]
+            ldr w3, [x0]
+            add x3, x3, 0x100
+    """.format(**locals())
+    compare(tmpdir, asm, [ "x3"])

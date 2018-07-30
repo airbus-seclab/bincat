@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
         int len;
         unsigned int cpsr;
         unsigned int r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15;
-        void *spsav;
+        void *spsav, *scratch;
 
         char ret_to_main[] =
                 "\x00\xd0\x9f\xe5"  // ldr sp, [pc, #0]
@@ -40,6 +40,10 @@ int main(int argc, char *argv[])
         if (!egg) { perror("mmap"); return -4; }
         memcpy(((char *)egg)+len, ret_to_main, sizeof(ret_to_main));
         spsav = egg+len+sizeof(ret_to_main)-1;
+        //
+        // allocate scratch space for memory writes
+        scratch = (void *)mmap((void *)0x100000, 0x1000, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
+        if (!scratch) { perror("mmap"); return -4; }
 
         asm volatile(
         "b .after\n"

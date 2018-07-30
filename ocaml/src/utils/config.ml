@@ -135,11 +135,19 @@ type tvalue =
   | TBytes of string * Taint.Src.id_t
   | TBytes_Mask of (string * Z.t * Taint.Src.id_t)
 
+type region =
+  | G (* global *)
+  | H (* heap *)
+  | S (* stack *)
+
+type content = region * Z.t
+type bytes = region * string
+           
 type cvalue =
-  | Content of Z.t
-  | CMask of Z.t * Z.t
-  | Bytes of string
-  | Bytes_Mask of (string * Z.t)
+  | Content of content
+  | CMask of content * Z.t
+  | Bytes of bytes
+  | Bytes_Mask of bytes * Z.t
 
 (** returns size of content, rounded to the next multiple of Config.operand_sz *)
 let round_sz sz =
@@ -153,8 +161,8 @@ let round_sz sz =
       
 let size_of_content c =
   match c with
-  | Content z | CMask (z, _) -> round_sz (Z.numbits z)
-  | Bytes b | Bytes_Mask (b, _) -> (String.length b)*4
+  | Content z | CMask (z, _) -> round_sz (Z.numbits (snd z))
+  | Bytes (_, b) | Bytes_Mask ((_, b), _) -> (String.length b)*4
                                                
 let size_of_taint (t: tvalue): int =
   match t with
@@ -226,7 +234,10 @@ let tainting_rules : ((string * string), (call_conv_t * taint_t option * taint_t
 (** data structure for the typing rules of import functions *)
 let typing_rules : (string, TypedC.ftyp) Hashtbl.t = Hashtbl.create 5
 
-
+(** default size of the initial heap *)
+(* 1 Go in bits *)
+let default_heap_size = ref (Z.mul (Z.shift_left Z.one 30) (Z.of_int 8))
+                      
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;
   Hashtbl.clear assert_tainted_functions;
@@ -290,16 +301,16 @@ let reset () =
   Hashtbl.reset typing_rules;;
 
 (** returns size of content, rounded to the next multiple of operand_sz *)
-    let size_of_content c =
-      let round_sz sz =
-        if sz < !operand_sz then
-          !operand_sz
-        else
-          if sz mod !operand_sz <> 0 then
-            !operand_sz * (sz / !operand_sz + 1)
-          else
-            sz
-      in
-      match c with
-      | Content z | CMask (z, _) -> round_sz (Z.numbits z)
-      | Bytes b | Bytes_Mask (b, _) -> (String.length b)*4
+let size_of_content c =
+  let round_sz sz =
+    if sz < !operand_sz then
+      !operand_sz
+    else
+      if sz mod !operand_sz <> 0 then
+        !operand_sz * (sz / !operand_sz + 1)
+      else
+        sz
+  in
+  match c with
+  | Content z | CMask (z, _) -> round_sz (Z.numbits (snd z))
+  | Bytes b | Bytes_Mask (b, _) -> (String.length (snd b))*4

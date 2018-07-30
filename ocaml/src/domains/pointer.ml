@@ -113,6 +113,17 @@ module Make (V: Vector.T) =
             else BOT
 
 
+                    
+        let of_config c n =
+          let r =
+            match c with
+            | Config.Content (ru, _) -> Data.Address.region_from_config ru
+            | Config.CMask ((ru, _), _) -> Data.Address.region_from_config ru
+            | Config.Bytes (ru, _) -> Data.Address.region_from_config ru
+            | Config.Bytes_Mask ((ru, _), _) -> Data.Address.region_from_config ru
+          in
+          Val (r, V.of_config c n)
+
     let meet p1 p2 =
       match p1, p2 with
       | TOP, p | p, TOP      -> p
@@ -202,8 +213,7 @@ module Make (V: Vector.T) =
          Val (r, o'), taint'
       | _      -> prev, Taint.BOT
         
-    let of_config r c n = Val (r, V.of_config c n)
-      
+
     let combine p1 p2 l u =
       L.debug2 (fun p -> p "Pointer.combine between %s and %s" (to_string p1) (to_string p2));
       match p1, p2 with

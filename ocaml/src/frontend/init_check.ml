@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -40,8 +40,8 @@ let check_register_init r (c, t) =
   let name = Register.name r in
   begin
     match c with
-    | Some Content c    -> check_content (Z.numbits c) sz name
-    | Some CMask (b, m) -> check_mask (Z.numbits b) m sz name
+    | Some Content c    -> check_content (Z.numbits (snd c)) sz name
+    | Some CMask (b, m) -> check_mask (Z.numbits (snd b)) m sz name
     | Some _ -> L.abort (fun p -> p "Illegal memory init \"|xx|\" spec used for register")
     | None -> ()
   end;
@@ -83,25 +83,24 @@ let check_mem (c, taints) (mem_sz: Z.t option): unit =
          L.abort (fun p -> p "content size exceeds size of the destination")
   in
   match c with
-  | None ->
-     if !taint_sz > 8 then
-       L.abort (fun p -> p "Illegal taint override, byte only without value override")
+  | None -> if !taint_sz > 8 then L.abort (fun p -> p "Illegal taint override, byte only without value override") ;
   | Some (Content ct) ->
-     let sz = Z.numbits ct in
+     let sz = Z.numbits (snd ct) in
      check_mem_sz sz;
      check_content sz !taint_sz ""
-       
+     
   | Some (CMask (ct, m)) ->
-     let sz = Z.numbits ct in
+     let sz = Z.numbits (snd ct) in
      check_mem_sz sz;
      check_mask sz m !taint_sz ""
-       
-  | Some (Bytes s) ->
+     
+  | Some (Bytes (_, s)) ->
      let sz = (String.length s)*4 in
      check_mem_sz sz;
      check_content sz !taint_sz ""
-       
+     
   | Some (Bytes_Mask (s, n)) ->
-     let sz = (String.length s)*4 in
+     let sz = (String.length (snd s))*4 in
      check_mem_sz sz;
      check_mask sz n !taint_sz ""
+

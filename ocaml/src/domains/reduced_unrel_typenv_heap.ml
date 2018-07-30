@@ -145,12 +145,12 @@ module Make(D: Unrel.T) =
 
   let widen (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.widen uenv1 uenv2, T.widen tenv1 tenv2, H.widen henv1 henv2
 
-  let set_memory_from_config a r c n (uenv, tenv, henv) =
-    let uenv', taint = U.set_memory_from_config a r c n uenv in
+  let set_memory_from_config a c n (uenv, tenv, henv) =
+    let uenv', taint = U.set_memory_from_config a c n uenv in
     (uenv', tenv, henv), taint
 
-  let set_register_from_config register region (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv) =
-    let uenv', taint = U.set_register_from_config register region c uenv in
+  let set_register_from_config register (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv) =
+    let uenv', taint = U.set_register_from_config register c uenv in
     (uenv', tenv, henv), taint
 
   let taint_register_mask r c (uenv, tenv, henv): t * Taint.Set.t =

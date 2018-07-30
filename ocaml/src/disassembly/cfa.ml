@@ -203,9 +203,17 @@ struct
         let rname = fst rcontent in
         let v = snd rcontent in
         let r = Register.of_name rname in
-        let region = if Register.is_stack_pointer r then Data.Address.Stack else Data.Address.Global in
-        Init_check.check_register_init r v;
-        let d', taint' = Domain.set_register_from_config r region v d in
+        let v' =
+          (* TODO: remove when regions Global and Stack will be merged *)
+          if Register.is_stack_pointer r then
+            match fst v with
+            | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd v
+            | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd v
+            | _ -> v
+          else v
+        in
+        Init_check.check_register_init r v';
+        let d', taint' = Domain.set_register_from_config r v' d in
         d', Taint.Set.union taint taint'
       )
       (d, Taint.Set.empty) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
@@ -217,9 +225,9 @@ struct
                             let content = snd entry in
                             L.debug (fun p->p "init: %x" (Z.to_int addr));
                             let addr' = Data.Address.of_int region addr !Config.address_sz in
-                            let d', taint' = Domain.set_memory_from_config addr' Data.Address.Global content nb domain in
+                            let d', taint' = Domain.set_memory_from_config addr' content nb domain in
                             d', Taint.Set.union prev_taint taint'
-                     ) (domain, Taint.Set.singleton Taint.U) (List.rev content_list)
+                     ) (domain, Taint.Set.empty) (List.rev content_list)
       (* end of init utilities *)
 
     let get_content_size c =
@@ -239,7 +247,7 @@ struct
           Hashtbl.add Dump.heap_id_tbl id ip;
           let addr' = Data.Address.of_int region offset !Config.address_sz in
           let d', taint =
-            Domain.set_memory_from_config addr' Data.Address.Global content nb domain
+            Domain.set_memory_from_config addr' content nb domain
           in
           d', Taint.Set.union prev_taint taint
         ) (domain, Taint.Set.empty) (List.rev content_list)

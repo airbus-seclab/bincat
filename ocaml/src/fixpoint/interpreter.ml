@@ -582,11 +582,19 @@ struct
         let ip = Data.Address.of_int Data.Address.Global z !Config.address_sz in
         let rules' =
           List.map (fun (rname, rfun) ->
-            let reg = Register.of_name rname in
-            let region = if Register.is_stack_pointer reg then Data.Address.Stack else Data.Address.Global in
-            let rule = rfun reg in
+              let reg = Register.of_name rname in
+              let rule = rfun reg in
+              let rule =
+                if Register.is_stack_pointer reg then
+                  (* TODO: remove when Stack and Global regions will be merged *)
+              match fst rule with
+                    | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd rule
+                    | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd rule
+                    | _ -> rule
+              else rule
+            in
             Init_check.check_register_init reg rule;
-            D.set_register_from_config reg region rule) rules
+            D.set_register_from_config reg rule) rules
         in
         hash_add_or_append overrides ip rules'
       ) Config.reg_override;
@@ -655,7 +663,7 @@ struct
                   Init_check.check_mem rule None;
                   let addr' = Data.Address.of_int region addr !Config.address_sz in
                   match rule with
-                       | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
+                       | (Some _, _) -> D.set_memory_from_config addr' rule nb
                        | (None, t) -> D.taint_address_mask addr' t
                 ) rules
             in
@@ -676,7 +684,7 @@ struct
                 Init_check.check_mem rule (Some heap_sz);
                 let addr' = Data.Address.of_int (Data.Address.Heap(id', heap_sz)) offset !Config.address_sz in
                 match rule with
-                | (Some _, _) -> D.set_memory_from_config addr' Data.Address.Global rule nb
+                | (Some _, _) -> D.set_memory_from_config addr' rule nb
                 | (None, t) -> D.taint_address_mask addr' t
               ) rules
             in

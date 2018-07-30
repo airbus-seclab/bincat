@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -891,18 +891,18 @@ let find_note note_list note_type note_name =
 let elf_to_coredump_regs elf =
   let make_reg_LE s name ofs sz =
     let value = Z.of_bits (String.sub s ofs sz) in
-    (name, (Some (Config.Content value),[])) in
+    (name, (Some (Config.Content (Config.G, value)),[])) in
   let _make_reg_BE s name ofs sz =
     let buf = Buffer.create 16 in
     for i = ofs+sz-1 downto ofs do
         Buffer.add_char buf s.[i]
     done;
     let value = Z.of_bits (Buffer.contents buf) in
-    (name, (Some (Config.Content value), [])) in
+    (name, (Some (Config.Content (Config.G, value)), [])) in
   let make_flags s ofs sz flag_list =
     let fval = Z.of_bits (String.sub s ofs sz) in
     List.map (fun (fname, fofs, fmask) ->
-        (fname, (Some (Config.Content (Z.logand (Z.shift_right fval fofs)
+        (fname, (Some (Config.Content (Config.G, Z.logand (Z.shift_right fval fofs)
                                                 (Z.of_int fmask))), []))) flag_list in
   match elf.hdr.e_ident.e_osabi, elf.hdr.e_machine with
   | ELFOSABI_SYSVV, X86 ->
@@ -933,7 +933,7 @@ let elf_to_coredump_regs elf =
      registers := (make_reg_LE prstatus.n_desc "pc" 0x84 4) :: !registers;
      let cspr = Z.of_bits (String.sub prstatus.n_desc 0x88 4) in
      let itstate = Z.(((cspr asr 25) land ~$3) lor ((cspr asr 8) land ~$0xfc)) in
-     registers := ("itstate", (Some (Config.Content itstate), [])) :: !registers;
+     registers := ("itstate", (Some (Config.Content (Config.G, itstate)), [])) :: !registers;
      let flags = make_flags prstatus.n_desc 0x88 4
                             [ ("n", 31, 1) ; ("z", 30, 1) ;
                               ("c", 29, 1) ; ("v", 28, 1) ;

@@ -214,19 +214,19 @@ module Make(D: Unrel.T) =
          let m', t' =
            USet.fold (fun u (m, t) ->
                let u', t' = f u in
-               USet.add u' m, Taint.Set.add t' t) m' (USet.empty, Taint.Set.empty)
+               USet.add u' m, Taint.Set.add t' t) m' (USet.empty, Taint.Set.singleton Taint.U)
          in
          Val m', t'
          
-    let set_memory_from_config a r conf nb m: t * Taint.Set.t = 
+    let set_memory_from_config a conf nb m: t * Taint.Set.t = 
       if nb > 0 then
-        fold_on_taint m (U.set_memory_from_config a r conf nb)
+        fold_on_taint m (U.set_memory_from_config a conf nb)
       else
         m, Taint.Set.singleton Taint.U
 
    
          
-    let set_register_from_config r region conf m = fold_on_taint m (U.set_register_from_config r region conf)
+    let set_register_from_config r conf m = fold_on_taint m (U.set_register_from_config r conf)
          
     let taint_register_mask reg taint m = fold_on_taint m (U.taint_register_mask reg taint)
 

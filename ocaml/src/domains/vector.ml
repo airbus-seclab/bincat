@@ -733,12 +733,12 @@ module Make(V: Val) =
       let n' = n-1                in
       begin
         match c with
-        | Config.Bytes b         ->
+        | Config.Bytes (_, b)         ->
            let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
            for i = 0 to n' do
              v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
            done;
-        | Config.Bytes_Mask (b, m) ->
+        | Config.Bytes_Mask ((_, b), m) ->
            let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
            for i = 0 to n' do
              if Z.testbit m i then
@@ -746,11 +746,11 @@ module Make(V: Val) =
              else
                v.(n'-i) <- nth_of_z_as_val (get_byte b (n'-i)) (i mod 4)
            done;
-        | Config.Content c         ->
+        | Config.Content (_, c)         ->
            for i = 0 to n' do
              v.(n'-i) <- nth_of_z_as_val c i
            done
-        | Config.CMask (c, m) ->
+        | Config.CMask ((_, c), m) ->
            for i = 0 to n' do
              if Z.testbit m i then
                v.(n'-i) <- V.top

@@ -157,8 +157,12 @@
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token <string> STRING
 %token <string> HEX_BYTES
+%token <string> STACK_HEX_BYTES
+%token <string> HEAP_HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
+%token <Z.t> SINT
+%token <Z.t> HINT
 %token TAINT
 %start <unit> process
 %%
@@ -440,10 +444,20 @@
 
 
       mcontent:
-    | s=HEX_BYTES { Config.Bytes s }
-    | s=HEX_BYTES MASK m=INT    { Config.Bytes_Mask (s, m) }
-    | m=INT         { Config.Content m }
-    | m=INT MASK m2=INT { Config.CMask (m, m2) }
+    | s=byte_kind { Config.Bytes s }
+    | s=byte_kind MASK m=INT    { Config.Bytes_Mask (s, m) }
+    | m=int_kind         { Config.Content m }
+    | m=int_kind MASK m2=INT { Config.CMask (m, m2) }
+
+      byte_kind:
+    | b = HEX_BYTES  { (Config.G, b) }
+    | b = STACK_HEX_BYTES { (Config.S, b) }
+    | b = HEAP_HEX_BYTES { (Config.H, b) }
+            
+    int_kind:
+    | i=INT { (Config.G, i) }
+    | i=SINT { (Config.S, i) }
+    | i=HINT { (Config.H, i) }
 
     tcontent:
     | o=one_tcontent { o }

@@ -8,6 +8,10 @@ x86 = X86(
 compare = x86.compare
 check = x86.check
 
+#  _ __ ___   _____   __
+# | '_ ` _ \ / _ \ \ / /
+# | | | | | | (_) \ V / 
+# |_| |_| |_|\___/ \_/  
 
 def test_assign(tmpdir):
     asm = """
@@ -42,6 +46,39 @@ def test_mov_eax(tmpdir):
         pop eax
     """.format(**locals())
     compare(tmpdir, asm, ["eax","ebx","ecx","edx"])
+
+
+def test_mov_mem(tmpdir, op32, op8):
+    asm = """
+        mov eax, {op32}
+        mov [{op8}+0x100000], al
+        mov [{op8}+0x100004], ax
+        mov [{op8}+0x100008], eax
+        xor ebx, ebx
+        xor ecx, ecx
+        mov bl, [{op8}+0x100000]
+        mov cx, [{op8}+0x100004]
+        mov edx, [{op8}+0x100008]
+    """.format(**locals())
+    compare(tmpdir, asm, ["ebx", "ecx", "edx"])
+
+def test_mov_mem_reg_off(tmpdir, op32, op8):
+    asm = """
+        mov eax, {op32}
+        mov edi, 4
+        mov esi, 0x100400
+        mov [{op8}+esi], al
+        mov [{op8}+esi+edi], ax
+        mov [{op8}+esi+edi*2], eax
+        mov dword [{op8}+esi+edi*4], {op32}
+        xor ebx, ebx
+        xor ecx, ecx
+        mov bl, [{op8}+esi+edi*0]
+        mov cx, [{op8}+esi+edi*1]
+        mov edx, [{op8}+esi+edi*2]
+        mov eax, [{op8}+esi+edi*4]
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx"])
 
 ##  ___  ___  _        __  ___  ___  ___ 
 ## | _ \/ _ \| |      / / | _ \/ _ \| _ \
@@ -1357,3 +1394,17 @@ def test_fun_skip_arg_stdcall(tmpdir):
     bc.initfile.add_conf_replace("call_conv = cdecl","call_conv = stdcall")
 
     check(tmpdir, asm, { "eax":3, "ebx": 1 }, bctest=bc)
+
+# Make sure we can combine regions
+def test_stack_combine(tmpdir):
+    asm = """
+        mov esp, 0x100100
+        push esp
+        pop eax
+        push 0x12345678
+        pop ebx
+        mov ah, bl
+        add eax, ebx
+    """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx"])
+

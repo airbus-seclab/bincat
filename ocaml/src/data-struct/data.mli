@@ -84,6 +84,10 @@ module Address: sig
     | Stack (** abstract base address of the stack *)
     | Heap of heap_id_t * Z.t (** abstract base address of a dynamically allocated memory block. The Z.t integer is the size in bits of the allocation *)
 
+
+  (** conversion from Config.region to region *)
+  val region_from_config: Config.region -> region
+    
   (** string conversion of a region *)
   val string_of_region: region -> string
     

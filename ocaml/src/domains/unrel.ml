@@ -70,7 +70,7 @@ module type T =
 
     (** value generation from configuration.
     The size of the value is given by the int parameter *)
-    val of_config: Data.Address.region -> Config.cvalue -> int -> t
+    val of_config: Config.cvalue -> int -> t
 
     (** taint the given abstract value.
     The size of the value is given by the int parameter. The taint itself is also returned *)
@@ -494,7 +494,7 @@ module Make(D: T) =
            end
 
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 && Register.is_stack_pointer r1 ->
-           let v = D.of_config Data.Address.Stack (Config.Content Z.zero) (Register.size r1) in
+           let v = D.of_config (Config.Content (Config.S, Z.zero)) (Register.size r1) in
            v, D.taint_sources v
 
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
@@ -746,8 +746,8 @@ module Make(D: T) =
       List.fold_left extract [] taint 
    
     (** builds an abstract tainted value from a config concrete tainted value *)
-    let of_config region (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) =
-      let v' = D.of_config region content sz in  
+    let of_config (content, (taint: Config.tvalue list)) sz: (D.t * Taint.t) =
+      let v' = D.of_config content sz in  
       if taint = [] then
         (v', Taint.U)
       else
@@ -773,12 +773,13 @@ module Make(D: T) =
          Env.replace k v' m', taint
 
     let span_taint_to_addr a taint m': t * Taint.t =
-         let k = Env.Key.Mem a in
-         let v = Env.find k m' in
-         let v' = D.span_taint v taint in
-         Env.replace k v' m', taint
+      let k = Env.Key.Mem a in
+      let v = Env.find k m' in
+      let v' = D.span_taint v taint in
+      Env.replace k v' m', taint
 
-    let set_memory_from_config addr region ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain': t * Taint.t =
+
+    let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain': t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");  
       let taint_srcs = extract_taint_src_ids taint in          
       let m', taint, sz =
@@ -803,7 +804,7 @@ module Make(D: T) =
           
         | Some content' -> 
            let sz = Config.size_of_content content' in
-           let (v', taint) = of_config region (content', taint) sz in
+           let (v', taint) = of_config (content', taint) sz in
            if nb > 1 then
              if sz != 8 then
                L.abort (fun p -> p "Repeated memory init only works with bytes")
@@ -822,22 +823,25 @@ module Make(D: T) =
       m', taint
 
 
-    let set_register_from_config r region (content, taint) m': t * Taint.t =     
-         let taint_srcs = extract_taint_src_ids taint in
-         List.iter (fun id ->
-           if not (Hashtbl.mem Dump.taint_src_tbl id) then
-             Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) taint_srcs;
-         match content with
-         | None ->
-            let k = Env.Key.Reg r in
-            let v = Env.find k m' in
-            let v', taint' =  D.taint_of_config taint (Register.size r) v in
-            Env.replace k v' m', taint'
-         | Some c ->  
-            let sz = Register.size r in
-            let vt, taint = of_config region (c, taint) sz in               
+
+    let set_register_from_config r (content, taint) m': t * Taint.t =     
+      let taint_srcs = extract_taint_src_ids taint in
+      List.iter (fun id ->
+          if not (Hashtbl.mem Dump.taint_src_tbl id) then
+            Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) taint_srcs;
+      match content with
+      | None ->
+         let k = Env.Key.Reg r in
+         let v = Env.find k m' in
+         let v', taint' =  D.taint_of_config taint (Register.size r) v in
+         Env.replace k v' m', taint'
+      | Some c ->  
+         let sz = Register.size r in
+
+            let vt, taint = of_config  (c, taint) sz in               
             Env.replace (Env.Key.Reg r) vt m', taint
 
+            
     let set_lval_to_addr lv addr m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
       L.debug2 (fun p -> p "entering set_lval_to_addrs with lv = %s" (Asm.string_of_lval lv true));  
@@ -872,16 +876,17 @@ module Make(D: T) =
             try
               set_to_register r v m, Taint.U
             with Not_found -> raise (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Asm.string_of_reg r))), Taint.BOT
-              
+            
     let value_of_exp m e check_address_validity =
       D.to_z (fst (eval_exp m e check_address_validity))
 
 
     let taint_sources e m check_address_validity =
       snd (eval_exp m e check_address_validity)
-                
+
 
     let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m': t) (with_exception: bool) pad_options check_address_validity: (int * D.t list) =
+
       L.debug(fun p -> p "i_get_bytes addr=%s cmp=%s terminator=%s upper_bound=%i sz=%i"
         (Asm.string_of_exp addr true) (Asm.string_of_cmp cmp)
         (Asm.string_of_exp terminator true) upper_bound sz);

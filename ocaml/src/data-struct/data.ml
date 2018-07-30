@@ -47,7 +47,7 @@ module Word =
       let w' = Z.sub (fst w1) (fst w2) in
       w', max (Z.numbits w') (max (size w1) (size w2))
 
-
+  
     let of_int v sz = v, sz
 
     let to_int v = fst v
@@ -152,6 +152,15 @@ struct
             | Global -> ""
             | Stack  -> "S"
             | Heap (id, _)  -> "H"^(string_of_int id)
+    
+
+        let region_from_config c =
+          match c with
+          | Config.G -> Global
+          | Config.S -> Stack
+          | Config.H -> fst (new_heap_region !Config.default_heap_size) 
+
+
 
         let compare_region r1 r2 =
           match r1, r2 with

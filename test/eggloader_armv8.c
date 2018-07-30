@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 {
         int f;
         int len;
-        void *raddr;
+        void *raddr, *scratch;
         typedef struct { unsigned long low,high; } vreg; // 128bit SIMD registers
         struct {
                 unsigned long x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15,
@@ -55,6 +55,11 @@ int main(int argc, char *argv[])
         egg = mmap(NULL, len+sizeof(ret_to_main)+2*sizeof(void *), PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
         if (!egg) { perror("mmap"); return -4; }
         memcpy(((char *)egg)+len, ret_to_main, sizeof(ret_to_main));
+
+        // allocate scratch space for memory writes
+        scratch = (void *)mmap((void *)0x100000, 0x1000, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
+        if (!scratch) { perror("mmap"); return -4; }
+
 
         spsav = egg+len+sizeof(ret_to_main)-1;
         retsav = egg+len+sizeof(ret_to_main)-1+sizeof(spsav);

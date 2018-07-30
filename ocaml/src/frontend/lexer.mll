@@ -25,8 +25,7 @@
 let keywords = Hashtbl.create 50
 let _ =
   List.iter (fun (keyword, token) -> Hashtbl.replace keywords keyword token)
-    [
-     "state", STATE;
+     ["state", STATE;
     (* program section *)
      "program", PROGRAM;
      "load_elf_coredump", LOAD_ELF_COREDUMP;
@@ -107,6 +106,15 @@ let _ =
     "TAINT_ALL", TAINT_ALL;
     "TAINT_NONE", TAINT_NONE
     ]
+
+let strip_int s =
+  let start = String.sub s 0 1 in
+  let s' =
+    if String.compare start "H" = 0 || String.compare start "S" = 0 then
+      String.sub s 1 ((String.length s)-1)
+    else s
+  in
+  Z.of_string s'
 }
 
 
@@ -121,7 +129,10 @@ let hexa_int     = ("0X" | "0x") hex_digits
 let dec_int      = digit+
 let oct_int      = ("0o" | "0O") ['0'-'7']+
 let integer = hexa_int | dec_int | oct_int
-
+let global_integer = ("G" | "") integer
+let heap_integer = "H" integer
+let stack_integer = "S" integer
+                  
 (* special characters *)
 let path_symbols = '.' | '/' | '\\' | ':'
 let white_space  = [' ' '\t' '\r']+
@@ -152,7 +163,10 @@ rule token = parse
   | ';'                 { SEMI_COLON }
   | '_'                     { UNDERSCORE }
   (* byte string *)
-  | '|'                 { read_bytes (Buffer.create 80) lexbuf }
+  | '|'                 { HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
+  | "G|"                 { HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
+  | "S|"                 { STACK_HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
+  | "H|"                 { HEAP_HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
   (* quoted string *)
   | '"'                 { read_string (Buffer.create 80) lexbuf }
   | '@'                 { AT }
@@ -166,15 +180,13 @@ rule token = parse
   | '!'                 { TAINT }
   (* mask for taint or value *)
   | '?'             { MASK }
-  (* state section *)
- 
   (* address separator *)
   | ","             { COMMA }
- 
   (* left operand of type integer *)
-  | integer as i        { INT (Z.of_string i) }
- 
-    | value as v {
+  | global_integer as i        { INT (strip_int i) }
+    | stack_integer as i { SINT (strip_int i) }
+    | heap_integer as i { HINT (strip_int i) }
+    | value as v      {
                    try
                      Hashtbl.find keywords v
                    with Not_found -> STRING v
@@ -203,7 +215,7 @@ and read_bytes buf =
   | '|'       { if Buffer.length buf mod 2 != 0 then
                     raise (SyntaxError "Byte string length should be even !")
                 else
-                    HEX_BYTES (Buffer.contents buf)
+                    Buffer.contents buf
               }
   | hex_digits
         { Buffer.add_string buf (Lexing.lexeme lexbuf);
