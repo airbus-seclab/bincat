@@ -397,9 +397,9 @@ class PowerPC(Arch):
                  "r30", "r31", "lr", "ctr", "lt0", "gt0", "eq0", "so0" ]
     # "cr", "lr", "ctr" ]
     AS_TMP_DIR = counter("powerpc-as-%i")
-    AS = ["powerpc-linux-gnu-as"]
+    AS = ["powerpc-linux-gnu-as", "-mpower9", "-mbig"]
     OBJCOPY = ["powerpc-linux-gnu-objcopy"]
-    OBJDUMP = ["powerpc-linux-gnu-objdump", "-m", "powerpc"]
+    OBJDUMP = ["powerpc-linux-gnu-objdump", "-mpowerpc", "-EB"]
     EGGLOADER = "eggloader_powerpc"
     QEMU = "qemu-ppc"
 
