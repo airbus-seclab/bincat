@@ -79,6 +79,7 @@ struct
   let r31 = Register.make ~name:"r31" ~size:32;;
 
   let lr = Register.make ~name:"lr" ~size:32;;
+  let ctr = Register.make ~name:"ctr" ~size:32;;
 
   (* condition flags are modeled as registers of size 1 *)
   let lt0 = Register.make ~name:"lt0" ~size:1;;
