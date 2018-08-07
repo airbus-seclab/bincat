@@ -191,6 +191,7 @@
     | LEFT_SQ_BRACKET ARMV7 RIGHT_SQ_BRACKET a=armv7_section     { a }
     | LEFT_SQ_BRACKET ARMV8 RIGHT_SQ_BRACKET a=armv8_section     { a }
     | LEFT_SQ_BRACKET X86 RIGHT_SQ_BRACKET x=x86_section     { x }
+    | LEFT_SQ_BRACKET POWERPC RIGHT_SQ_BRACKET x=powerpc_section     { x }
 
     overrides:
     |                     { () }
@@ -320,6 +321,10 @@
     | SEGMENTED { Config.Segmented }
 
     armv7_section:
+    |  { () }
+    | ENDIANNESS EQUAL e=endianness { Config.endianness := e }
+
+    powerpc_section:
     |  { () }
     | ENDIANNESS EQUAL e=endianness { Config.endianness := e }
 
