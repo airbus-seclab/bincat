@@ -24,8 +24,8 @@ filepath = "{filepath}"
 format = raw
 {program_section}
 
-[armv7]
-endianness = little
+[powerpc]
+endianness = big
 
 [state]
 reg[lt0] = 0?1
