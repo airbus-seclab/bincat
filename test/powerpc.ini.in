@@ -64,6 +64,8 @@ reg[r28] = 0
 reg[r29] = 0
 reg[r30] = 0
 reg[r31] = 0
+reg[lr] = 0
+reg[ctr] = 0
 
 #here addresses are supposed to be absolute and not of the form ds:o
 stack[0x1000*8192] = |00|?0xFF
