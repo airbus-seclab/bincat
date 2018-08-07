@@ -424,7 +424,7 @@ class State(object):
                     continue
                 if addr.value + len(vlist) > item.value:
                     return vlist[item.value-addr.value:]
-            raise IndexError
+            raise IndexError(item)
 
     def mem_ranges(self):
         """
