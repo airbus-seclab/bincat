@@ -1,7 +1,7 @@
 COVERAGE=medium
 PYTESTFLAGS=
 
-test: eggloader_x86 eggloader_armv8 eggloader_armv7 eggloader_armv7thumb
+test: eggloader_x86 eggloader_armv8 eggloader_armv7 eggloader_armv7thumb eggloader_powerpc
 	python2 -m pytest --tb=line --coverage $(COVERAGE) $(PYTESTFLAGS)
 
 eggloader_x86: eggloader_x86.c
@@ -14,6 +14,9 @@ eggloader_armv7thumb: eggloader_armv7thumb.c
 
 eggloader_armv8: eggloader_armv8.c
 	aarch64-linux-gnu-gcc -static -g -o $@ $<
+
+eggloader_powerpc: eggloader_powerpc.c
+	powerpc-linux-gnu-gcc -static -g -o $@ $<
 
 libc.no: libc.c
 	c2newspeak --typed-npk -o $@ $<
