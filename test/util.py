@@ -200,7 +200,20 @@ class Arch:
                           +hline
                           +"\n".join(same))
 
+    def show_cpu(self, tmpdir, asm, regs=None):
+        testname = inspect.stack()[1][3]
+        hline="\n=========================\n"
+        if regs is None:
+            regs = self.ALL_REGS
+        bctest = self.make_bc_test(tmpdir, asm)
+        try:
+            cpu = self.cpu_run(tmpdir, bctest.filename)
+        except subprocess.CalledProcessError,e:
+            pytest.fail("%s: %s\n%s"%(testname,e,bctest.listing))
 
+        print hline
+        for reg in regs:
+            print "%6s = %08x" % (reg, cpu[reg])
 
     def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
         testname = inspect.stack()[1][3]
