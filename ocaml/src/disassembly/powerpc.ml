@@ -171,6 +171,12 @@ struct
     let s, a, uimm = decode_D_Form isn in
     [ Set (V (treg a), BinOp(Or, Lval (V (treg s)), const uimm 32) ) ]
 
+  let decode_addis _state isn =
+    let d, a, simm = decode_D_Form isn in
+    match a == 0 with
+    | true -> [ Set (V (treg d), const (simm lsl 16) 32) ]
+    | false -> [ Set (V (treg d), BinOp(Add, Lval (V (treg a)), const (simm lsl 16) 32)) ]
+
 
   (* Decoding and switching *)
 
@@ -425,7 +431,7 @@ struct
       | 0b001100 -> not_implemented s isn "addic"
       | 0b001101 -> not_implemented s isn "addic."
       | 0b001110 -> not_implemented s isn "addi"
-      | 0b001111 -> not_implemented s isn "addis"
+      | 0b001111 -> decode_addis s isn
       | 0b010000 -> not_implemented s isn "bc??"
       | 0b010001 -> not_implemented s isn "sc"
       | 0b010010 -> not_implemented s isn "b??"
