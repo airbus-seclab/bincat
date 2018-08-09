@@ -283,7 +283,7 @@ class State(object):
                 import traceback
                 traceback.print_exc(e)
                 raise PyBinCATException(
-                    "Cannot parse taint or type data at address %s\n%s" %
+                    "Cannot parse taint or type data at address %s\n%r" %
                     (self.address, e))
         return self._regaddrs
 
