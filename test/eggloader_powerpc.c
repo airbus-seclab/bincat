@@ -23,14 +23,14 @@ void usage(void)
   macro(0)  macro(1)  macro(2)  macro(3)  macro(4)  macro(5)  macro(6)  macro(7) \
   macro(8)  macro(9)  macro(10) macro(11) macro(12) macro(13) macro(14) macro(15) \
   macro(16) macro(17) macro(18) macro(19) macro(20) macro(21) macro(22) macro(23) \
-  macro(24) macro(25) macro(26)  // macro(27) macro(28) macro(29) macro(30) macro(31) 
+  macro(24) macro(25) // macro(26) macro(27) macro(28) macro(29) macro(30) macro(31)
 // we cannot use more that 30 operands  in inline assembly, so we do not transfer r27-r31
 
 int main(int argc, char *argv[])
 {
         int f;
         int len;
-        unsigned int cr, ctr, lr;
+        unsigned int cr, ctr, xer, lr;
         unsigned int reg[32];
         void *spsav;
         int i;
@@ -78,10 +78,13 @@ int main(int argc, char *argv[])
                 "stw %%r3, %[ctr]\n"
                 "mfcr %%r3\n"
                 "stw %%r3, %[cr]\n"
+                "mfspr %%r3, 1\n"         // read XER
+                "stw %%r3, %[xer]\n"
               :
                 FOR_ALL_GPREGS(DECLREG)
                 [ctr]"=m"(ctr),
                 [cr]"=m"(cr),
+                [xer]"=m"(xer),
                 [lr]"=m"(lr)
         );
 
@@ -89,5 +92,6 @@ int main(int argc, char *argv[])
                 printf("r%i=%08x\n", i, reg[i]);
         printf("ctr=%08x\n", ctr);
         printf("cr=%08x\n", cr);
+        printf("xer=%08x\n", xer);
         printf("lr=%08x\n", lr);
 }

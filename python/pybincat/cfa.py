@@ -78,6 +78,7 @@ def reg_len(regname):
             "r18": 32, "r19": 32, "r20": 32, "r21": 32, "r22": 32, "r23": 32,
             "r24": 32, "r25": 32, "r26": 32, "r27": 32, "r28": 32, "r29": 32,
             "r30": 32, "r31": 32, "lr": 32, "ctr": 32,
+            "tbc": 7, "so": 1, "ov": 1, "ca": 1,
             "lt0":1, "gt0": 1, "eq0": 1, "so0": 1 }[regname]
     else:
         raise KeyError("Unkown arch %s" % CFA.arch)

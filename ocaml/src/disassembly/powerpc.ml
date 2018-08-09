@@ -82,10 +82,19 @@ struct
   let ctr = Register.make ~name:"ctr" ~size:32;;
 
   (* condition flags are modeled as registers of size 1 *)
+
+  (* fields from Fixed Point Exception Register (XER) *)
+  let so = Register.make ~name:"so" ~size:1;;
+  let ov = Register.make ~name:"ov" ~size:1;;
+  let ca = Register.make ~name:"ca" ~size:1;;
+  let tbc = Register.make ~name:"tbc" ~size:7;;
+
+  (* fields from Condition Register (CR) *)
   let lt0 = Register.make ~name:"lt0" ~size:1;;
   let gt0 = Register.make ~name:"gt0" ~size:1;;
   let eq0 = Register.make ~name:"eq0" ~size:1;;
   let so0 = Register.make ~name:"so0" ~size:1;;
+
 
   module Imports = PowerpcImports.Make(Domain)(Stubs)
 
