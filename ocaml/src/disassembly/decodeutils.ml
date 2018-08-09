@@ -49,6 +49,13 @@ let msb_expr reg sz =
     let sz_min_one = const (sz-1) sz in
     BinOp(And, (const1 sz), BinOp(Shr, reg, sz_min_one))
 
+(** [msb reg] expression to get the MSB of _reg_ *)
+let msb_reg reg =
+  let sz = Register.size reg in
+  let sz_min_one = const (sz-1) sz in
+  BinOp(Shr, Lval (V (T reg)), sz_min_one)
+
+
 (** [carry_stmts sz op1 op op2] produces the statement to compute the carry flag
     according to operation _op_ whose operands are _op1_ and _op2_,
     returns a value of ONE bit *)
