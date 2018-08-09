@@ -29,6 +29,8 @@ class TestValues:
     op32 = [ 1, 0xffffffff]
     op64 = [ 1, 0xffffffffffffffff]
     op12 = [ 1, 0x800, 0xFFF]
+    op32h = [ 0, 0xffff ]
+    op32l = [ 0, 1, 0xffff ]
     someval8 = [ 0x2e, 0xa5 ]
     someval16 = [ 0x4b2e, 0xc68b ]
     someval32 = [ 0x5ed39a5f, 0xd2a173f6 ]
@@ -50,6 +52,7 @@ class Large(TestValues):
     op64 = op32 +  [ 0x123456789, 0x100000000000,  0x65a227c6f24c562a,
                      0x7fffffffffffffff, 0x8000000000000000, 0x80000000000000001,
                      0xa812f8c42dec45ab, 0xffff123456789abc,  0xffffffffffffffff ]
+    op32h = [ 0, 0x1234, 0x7fff, 0x8000, 0xffff ]
     shift = [0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 24, 31,
                32, 33, 48, 63, 64, 65, 127, 128, 129, 255 ]
     x86carryop = [ "stc", "clc" ]
@@ -63,6 +66,7 @@ class Medium(TestValues):
     op16 = [ 0, 1, 0xff, 0x7fff, 0x8000, 0xffff ]
     op32 = [ 0, 1, 0x7fffffff, 0x80000000, 0xffffffff]
     op64 = [ 0, 1, 0x7fffffffffffffff, 0x8000000000000000, 0xffffffffffffffff]
+    op32h = [ 0, 0x7fff, 0x8000, 0xffff ]
     shift = [ 0, 1, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff]
     x86carryop = [ "stc", "clc" ]
     armv7shift = [0, 1, 0xf, 31]
