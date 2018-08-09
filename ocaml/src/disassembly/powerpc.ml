@@ -154,7 +154,7 @@ struct
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
   let not_implemented s isn isn_name =
-    L.abort (fun p -> p "at %s: instruction %s not implemented yet (isn=%08x." (Address.to_string s.a) isn_name isn)
+    L.abort (fun p -> p "at %s: instruction %s not implemented yet (isn=%08x)" (Address.to_string s.a) isn_name isn)
 
   (* PPC Forms decoding *)
 
