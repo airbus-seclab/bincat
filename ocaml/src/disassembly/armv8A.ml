@@ -285,7 +285,7 @@ struct
        CF: carry flag,
        VF: Overflow flag
     *)
-    [ Set ( nf_v, TernOp(Cmp(EQ, (msb_stmts reg sz), const1 sz), const1 1, const0 1));
+    [ Set ( nf_v, TernOp(Cmp(EQ, (msb_expr reg sz), const1 sz), const1 1, const0 1));
       Set ( zf_v, TernOp(Cmp(EQ, reg, const0 sz), const1 1, const0 1));
       (* XXX do CF and VF *)
       Set ( cf_v, cf);

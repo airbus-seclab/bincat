@@ -44,8 +44,8 @@ let sign_extension i sz nb =
     else
       i
 
-(** [msb reg sz] statements to get the MSB of _reg_ (size _sz_) *)
-let msb_stmts reg sz =
+(** [msb_expr expr sz] expression to get the MSB of _expr_ (size _sz_) *)
+let msb_expr reg sz =
     let sz_min_one = const (sz-1) sz in
     BinOp(And, (const1 sz), BinOp(Shr, reg, sz_min_one))
 
@@ -59,7 +59,7 @@ let carry_stmts sz op1 op op2 =
   let op1' = UnOp (zext, op1)     in
   let op2' = UnOp (zext, op2)     in
   let res = BinOp (op, op1', op2') in
-  let msb = msb_stmts res sz_p1 in
+  let msb = msb_expr res sz_p1 in
   TernOp(Cmp (EQ, msb, const1 sz_p1), const1 1, const0 1)
 
 (** [carry_stmts_3 sz op1 op op2] produces the statement to compute the carry flag
@@ -73,7 +73,7 @@ let carry_stmts_3 sz op1 op op2 op3 =
   let op2' = UnOp (zext, op2)     in
   let op3' = UnOp (zext, op3)     in
   let res = BinOp(op, BinOp (op, op1', op2'), op3') in
-  let msb = msb_stmts res sz_p1 in
+  let msb = msb_expr res sz_p1 in
   TernOp(Cmp (EQ, msb, const1 sz_p1), const1 1, const0 1)
 
 (** [overflow_stmts sz res op1 op op2] produces the statement to compute the overflow flag according to
@@ -81,9 +81,9 @@ let carry_stmts_3 sz op1 op op2 op3 =
     returns a value of ONE bit *)
 let overflow_stmts sz res op1 op op2 =
   (* flag is set if both op1 and op2 have the same nth bit and the hightest bit of res differs *)
-  let sign_res  = msb_stmts res sz in
-  let sign_op1  = msb_stmts op1 sz in
-  let sign_op2  = msb_stmts op2 sz in
+  let sign_res  = msb_expr res sz in
+  let sign_op1  = msb_expr op1 sz in
+  let sign_op2  = msb_expr op2 sz in
   let cmp_op =
     match op with
     | Add -> EQ

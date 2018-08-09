@@ -1455,7 +1455,7 @@ struct
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
-        let dst_msb = msb_stmts ldst sz in
+        let dst_msb = msb_expr ldst sz in
         let cf_stmt =
           let c = Cmp (LT, sz', n_masked) in
           let aexp = Cmp (EQ, one_sz, BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one8))))) in
