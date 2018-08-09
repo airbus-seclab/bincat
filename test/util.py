@@ -407,10 +407,10 @@ class PowerPC(Arch):
     def extract_flags(self, regs):
         cr = regs.pop("cr")
         xer = regs.pop("xer")
-        regs["lt"] = cr & 1
-        regs["gt"] = (cr >> 1) & 1
-        regs["eq"] = (cr >> 2) & 1
-        regs["so"] = (cr >> 3) & 1
+        regs["lt0"] = (cr >> 31) & 1
+        regs["gt0"] = (cr >> 30) & 1
+        regs["eq0"] = (cr >> 29) & 1
+        regs["so0"] = (cr >> 28) & 1
         regs["so"] = (xer >> 31) & 1
         regs["ov"] = (xer >> 30) & 1
         regs["ca"] = (xer >> 29) & 1
