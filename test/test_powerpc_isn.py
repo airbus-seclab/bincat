@@ -118,6 +118,16 @@ def test_logic_xor_flags(tmpdir, op32h, op32l, op32h_, op32l_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0" ])
 
+def test_logic_or_flags(tmpdir, op32h, op32l, op32h_, op32l_):
+    asm = """
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        lis %r4, {op32h_}
+        ori %r4, %r4, {op32l_}
+        or. %r5, %r3, %r4
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0" ])
+
 
 ##  ___              _      _
 ## / __|_ __  ___ __(_)__ _| |
