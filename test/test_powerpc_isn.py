@@ -6,7 +6,13 @@ powerpc = PowerPC(os.path.join(os.path.dirname(os.path.realpath(__file__)),'powe
 compare = powerpc.compare
 
 
-def test_nop(tmpdir):
+##  ___          _
+## | _ ) __ _ __(_)__ ___
+## | _ \/ _` (_-< / _(_-<
+## |___/\__,_/__/_\__/__/
+## Basics
+
+def test_basics_nop(tmpdir):
     asm = """
         ori %r0,%r31,0
         nop
@@ -14,14 +20,14 @@ def test_nop(tmpdir):
     compare(tmpdir, asm, [])
 
 
-def test_assign(tmpdir):
+def test_basics_assign(tmpdir):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
     """
     compare(tmpdir, asm, ["r3"])
 
-def test_assign2(tmpdir):
+def test_basics_assign2(tmpdir):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -32,7 +38,16 @@ def test_assign2(tmpdir):
     """
     compare(tmpdir, asm, ["r3", "r4", "r5"])
 
-def test_add(tmpdir):
+
+
+##    _       _ _   _              _   _
+##   /_\  _ _(_) |_| |_  _ __  ___| |_(_)__ ___
+##  / _ \| '_| |  _| ' \| '  \/ -_)  _| / _(_-<
+## /_/ \_\_| |_|\__|_||_|_|_|_\___|\__|_\__/__/
+## Arithmetics
+
+
+def test_arith_add(tmpdir):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -42,7 +57,7 @@ def test_add(tmpdir):
     """
     compare(tmpdir, asm, ["r3", "r4", "r5" ])
 
-def test_add_dot(tmpdir):
+def test_arith_add_dot(tmpdir):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -52,7 +67,7 @@ def test_add_dot(tmpdir):
     """
     compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0" ])
 
-def test_addo(tmpdir):
+def test_arith_addo(tmpdir):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -62,7 +77,7 @@ def test_addo(tmpdir):
     """
     compare(tmpdir, asm, ["r3", "r4", "r5", "ov" ])
 
-def test_addo_dot(tmpdir):
+def test_arith_addo_dot(tmpdir):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -73,7 +88,7 @@ def test_addo_dot(tmpdir):
     compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0", "ov" ])
 
 
-def test_add_flags(tmpdir, op32h, op32l, op32h_, op32l_):
+def test_arith_add_flags(tmpdir, op32h, op32l, op32h_, op32l_):
     asm = """
         lis %r3, {op32h}
         ori %r3, %r3, {op32l}
@@ -83,8 +98,16 @@ def test_add_flags(tmpdir, op32h, op32l, op32h_, op32l_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0", "ov" ])
 
+
+##  ___              _      _
+## / __|_ __  ___ __(_)__ _| |
+## \__ \ '_ \/ -_) _| / _` | |
+## |___/ .__/\___\__|_\__,_|_|
+##     |_|
+## Special
+
 @pytest.mark.parametrize("crval", [x<<12 for x in range(16)])
-def test_mtcrf(tmpdir, crval):
+def test_special_mtcrf(tmpdir, crval):
     asm = """
         lis %r3, {crval}
         mtcrf 0xff, %r3
@@ -92,7 +115,7 @@ def test_mtcrf(tmpdir, crval):
     compare(tmpdir, asm, ["r3", "gt0", "lt0", "eq0", "so0" ])
 
 @pytest.mark.parametrize("xerval", [x<<13 for x in range(8)])
-def test_mtspr_xer(tmpdir, xerval, op8):
+def test_special_mtspr_xer(tmpdir, xerval, op8):
     asm = """
         lis %r3, {xerval}
         ori %r3, %r3, {op8}
@@ -100,7 +123,7 @@ def test_mtspr_xer(tmpdir, xerval, op8):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "so", "ov", "ca", "tbc"])
 
-def test_XERso_to_CRso(tmpdir):
+def test_special_XERso_to_CRso(tmpdir):
     asm = """
         lis %r3, 0x8000
         mtspr 1, %r3     ; so = 1
@@ -110,12 +133,3 @@ def test_XERso_to_CRso(tmpdir):
         add. %r6, %r5, %r3
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "gt0", "lt0", "eq0", "so0", "so", "ov", "ca" ])
-
-def test_xxx(tmpdir):
-    asm = """
-    sradi %r3, %r4, 5
-    std %r3, 20(%r5)
-    stswi %r3, %r4, 3
-    tlbia
-    """
-    compare(tmpdir, asm, ["r3", "r4", "r5" ])
