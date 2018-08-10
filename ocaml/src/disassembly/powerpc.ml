@@ -176,6 +176,17 @@ struct
 
   (* Operation decoders *)
 
+  let decode_mtspr state isn =
+    let rS, sprn = decode_XFX_Form isn in
+    let sprf = decode_split_field sprn in
+    match sprf with
+    | 1 -> (* XER *)
+       [ Set( V (T so), Lval (V (preg rS 31 31))) ;
+         Set( V (T ov), Lval (V (preg rS 30 30))) ;
+         Set( V (T ca), Lval (V (preg rS 29 29))) ;
+         Set( V (T tbc), Lval (V (preg rS 0 6))) ]
+    | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported" n)
+
   let decode_mtcrf _state isn =
     let rS, crm1 = decode_XFX_Form isn in
     let crm = (crm1 lsr 1) land 0xff in
@@ -326,7 +337,7 @@ struct
     | 0b0110111100 -> not_implemented s isn "or??"
     | 0b0111001001 | 0b1111001001 -> not_implemented s isn "divdu??"
     | 0b0111001011 | 0b1111001011 -> not_implemented s isn "divwu??"
-    | 0b0111010011 -> not_implemented s isn "mtspr"
+    | 0b0111010011 -> decode_mtspr s isn
     | 0b0111010110 -> not_implemented s isn "dcbi"
     | 0b0111011100 -> not_implemented s isn "nand??"
     | 0b0111101001 | 0b1111101001 -> not_implemented s isn "divd??"
