@@ -108,7 +108,7 @@ def test_arith_add_flags(tmpdir, op32h, op32l, op32h_, op32l_):
 ##           |___/
 ## Logic
 
-@pytest.mark.parametrize("logic", ["or", "xor"])
+@pytest.mark.parametrize("logic", ["or", "xor", "and"])
 def test_logic_with_flags(tmpdir, logic, op32h, op32l, op32h_, op32l_):
     asm = """
         lis %r3, {op32h}
