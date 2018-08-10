@@ -156,6 +156,11 @@ struct
   let not_implemented s isn isn_name =
     L.abort (fun p -> p "at %s: instruction %s not implemented yet (isn=%08x)" (Address.to_string s.a) isn_name isn)
 
+  (* split field decoding *)
+
+    let decode_split_field x =
+      ((x lsr 5) land 0x1f) lor ((x land 0x1f) lsl 5)
+
   (* PPC Forms decoding *)
 
   let decode_D_Form isn =
