@@ -238,13 +238,9 @@ struct
         Set( V (T so0), Lval (V (preg rS 28 28))); ]
     else []
 
-  let decode_xor _state isn =
+  let decode_logic _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
-    Set( V (treg rA), BinOp (Xor, Lval (V (treg rS)), Lval (V (treg rB)))) :: compute_flags_stmts 0 rc rS rB rA
-
-  let decode_or _state isn =
-    let rS, rA, rB, rc = decode_X_Form isn in
-    Set( V (treg rA), BinOp (Or, Lval (V (treg rS)), Lval (V (treg rB)))) :: compute_flags_stmts 0 rc rS rB rA
+    Set( V (treg rA), BinOp (op, Lval (V (treg rS)), Lval (V (treg rB)))) :: compute_flags_stmts 0 rc rS rB rA
 
   let decode_ori _state isn =
     let s, a, uimm = decode_D_Form isn in
@@ -373,7 +369,7 @@ struct
     | 0b0100110010 -> not_implemented s isn "tlbie"
     | 0b0100110110 -> not_implemented s isn "eciwx"
     | 0b0100110111 -> not_implemented s isn "lhzux"
-    | 0b0100111100 -> decode_xor s isn
+    | 0b0100111100 -> decode_logic s isn Xor
     | 0b0101010011 -> not_implemented s isn "mfspr"
     | 0b0101010101 -> not_implemented s isn "lwax"
     | 0b0101010111 -> not_implemented s isn "lhax"
@@ -387,7 +383,7 @@ struct
     | 0b0110110010 -> not_implemented s isn "slbie"
     | 0b0110110110 -> not_implemented s isn "ecowx"
     | 0b0110110111 -> not_implemented s isn "sthux"
-    | 0b0110111100 -> decode_or s isn
+    | 0b0110111100 -> decode_logic s isn Or
     | 0b0111001001 | 0b1111001001 -> not_implemented s isn "divdu??"
     | 0b0111001011 | 0b1111001011 -> not_implemented s isn "divwu??"
     | 0b0111010011 -> decode_mtspr s isn
