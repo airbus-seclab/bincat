@@ -241,6 +241,10 @@ struct
     | true -> [ Set (V (treg d), const (simm lsl 16) 32) ]
     | false -> [ Set (V (treg d), BinOp(Add, Lval (V (treg a)), const (simm lsl 16) 32)) ]
 
+  let decode_add _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    Set (V (treg rD), BinOp(Add, Lval (V (treg rA)), Lval (V (treg rB)))) :: compute_flags_stmts oe rc rA rB rD
+
 
   (* Decoding and switching *)
 
@@ -347,7 +351,7 @@ struct
     | 0b0011110010 -> not_implemented s isn "mtsrin"
     | 0b0011110110 -> not_implemented s isn "dcbtst"
     | 0b0011110111 -> not_implemented s isn "stbux"
-    | 0b0100001010 | 0b1100001010 -> not_implemented s isn "add??"
+    | 0b0100001010 | 0b1100001010 ->  decode_add s isn
     | 0b0100010110 -> not_implemented s isn "dcbt"
     | 0b0100010111 -> not_implemented s isn "lhzx"
     | 0b0100011100 -> not_implemented s isn "eqv??"
