@@ -176,6 +176,16 @@ struct
 
   (* Operation decoders *)
 
+  let decode_mtcrf _state isn =
+    let rS, crm1 = decode_XFX_Form isn in
+    let crm = (crm1 lsr 1) land 0xff in
+    if crm land 1 == 1 then
+      [ Set( V (T lt0), Lval (V (preg rS 31 31)));
+        Set( V (T gt0), Lval (V (preg rS 30 30)));
+        Set( V (T eq0), Lval (V (preg rS 29 29)));
+        Set( V (T so0), Lval (V (preg rS 28 28))); ]
+    else []
+
   let decode_ori _state isn =
     let s, a, uimm = decode_D_Form isn in
     [ Set (V (treg a), BinOp(Or, Lval (V (treg s)), const uimm 32) ) ]
@@ -273,7 +283,7 @@ struct
     | 0b0001111100 -> not_implemented s isn "nor??"
     | 0b0010001000 | 0b1010001000 -> not_implemented s isn "subfe??"
     | 0b0010001010 | 0b1010001010 -> not_implemented s isn "adde??"
-    | 0b0010010000 -> not_implemented s isn "mtcrf"
+    | 0b0010010000 -> decode_mtcrf s isn
     | 0b0010010010 -> not_implemented s isn "mtmsr"
     | 0b0010010101 -> not_implemented s isn "stdx"
     | 0b0010010110 -> not_implemented s isn "stwcx."
