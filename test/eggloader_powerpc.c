@@ -24,7 +24,7 @@ void usage(void)
   macro(8)  macro(9)  macro(10) macro(11) macro(12) macro(13) macro(14) macro(15) \
   macro(16) macro(17) macro(18) macro(19) macro(20) macro(21) macro(22) macro(23) \
   macro(24) macro(25) // macro(26) macro(27) macro(28) macro(29) macro(30) macro(31)
-// we cannot use more that 30 operands  in inline assembly, so we do not transfer r27-r31
+// we cannot use more that 30 operands  in inline assembly, so we do not transfer r26-r31
 
 int main(int argc, char *argv[])
 {
