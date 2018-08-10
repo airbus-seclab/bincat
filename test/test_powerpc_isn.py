@@ -83,6 +83,14 @@ def test_add_flags(tmpdir, op32h, op32l, op32h_, op32l_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0", "ov" ])
 
+@pytest.mark.parametrize("crval", [x<<12 for x in range(16)])
+def test_mtcrf(tmpdir, crval):
+    asm = """
+        lis %r3, {crval}
+        mtcrf 0xff, %r3
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "gt0", "lt0", "eq0", "so0" ])
+
 def test_xxx(tmpdir):
     asm = """
     sradi %r3, %r4, 5
