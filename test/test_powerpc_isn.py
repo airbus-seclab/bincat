@@ -91,6 +91,15 @@ def test_mtcrf(tmpdir, crval):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "gt0", "lt0", "eq0", "so0" ])
 
+@pytest.mark.parametrize("xerval", [x<<13 for x in range(8)])
+def test_mtspr_xer(tmpdir, xerval, op8):
+    asm = """
+        lis %r3, {xerval}
+        ori %r3, %r3, {op8}
+        mtspr 1, %r3
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "so", "ov", "ca", "tbc"])
+
 def test_xxx(tmpdir):
     asm = """
     sradi %r3, %r4, 5
