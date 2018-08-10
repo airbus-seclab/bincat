@@ -323,7 +323,7 @@ struct
     | 0b0000011000 -> not_implemented s isn "slw??"
     | 0b0000011010 -> not_implemented s isn "cntlzw??"
     | 0b0000011011 -> not_implemented s isn "sld??"
-    | 0b0000011100 -> not_implemented s isn "and??"
+    | 0b0000011100 -> decode_logic s isn And
     | 0b0000100000 -> not_implemented s isn "cmpl"
     | 0b0000101000 | 0b1000101000 -> not_implemented s isn "subf??"
     | 0b0000110101 -> not_implemented s isn "ldux"
