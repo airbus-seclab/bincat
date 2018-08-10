@@ -169,6 +169,10 @@ struct
     let imm = (isn land 0xffff) in
     op1, op2, imm
 
+  let decode_XFX_Form isn =
+    let rSD = (isn lsr 21) land 0x1f in
+    let regnum = (isn lsr 11) land 0x3ff in
+    rSD,regnum
 
   (* Operation decoders *)
 
