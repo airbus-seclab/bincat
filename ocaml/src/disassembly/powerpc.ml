@@ -242,6 +242,10 @@ struct
     let rS, rA, rB, rc = decode_X_Form isn in
     Set( V (treg rA), BinOp (Xor, Lval (V (treg rS)), Lval (V (treg rB)))) :: compute_flags_stmts 0 rc rS rB rA
 
+  let decode_or _state isn =
+    let rS, rA, rB, rc = decode_X_Form isn in
+    Set( V (treg rA), BinOp (Or, Lval (V (treg rS)), Lval (V (treg rB)))) :: compute_flags_stmts 0 rc rS rB rA
+
   let decode_ori _state isn =
     let s, a, uimm = decode_D_Form isn in
     [ Set (V (treg a), BinOp(Or, Lval (V (treg s)), const uimm 32) ) ]
@@ -383,7 +387,7 @@ struct
     | 0b0110110010 -> not_implemented s isn "slbie"
     | 0b0110110110 -> not_implemented s isn "ecowx"
     | 0b0110110111 -> not_implemented s isn "sthux"
-    | 0b0110111100 -> not_implemented s isn "or??"
+    | 0b0110111100 -> decode_or s isn
     | 0b0111001001 | 0b1111001001 -> not_implemented s isn "divdu??"
     | 0b0111001011 | 0b1111001011 -> not_implemented s isn "divwu??"
     | 0b0111010011 -> decode_mtspr s isn
