@@ -100,6 +100,17 @@ def test_mtspr_xer(tmpdir, xerval, op8):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "so", "ov", "ca", "tbc"])
 
+def test_XERso_to_CRso(tmpdir):
+    asm = """
+        lis %r3, 0x8000
+        mtspr 1, %r3     ; so = 1
+        lis %r4, 0
+        mtcrf 0xff,%r4
+        lis %r5, 0
+        add. %r6, %r5, %r3
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "gt0", "lt0", "eq0", "so0", "so", "ov", "ca" ])
+
 def test_xxx(tmpdir):
     asm = """
     sradi %r3, %r4, 5
