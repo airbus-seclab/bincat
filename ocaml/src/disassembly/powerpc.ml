@@ -149,6 +149,32 @@ struct
   let eq_is_clear = Cmp(EQ, Lval (V (T eq0)), const 0 1)
   let so_is_clear = Cmp(EQ, Lval (V (T so0)), const 0 1)
 
+  let compute_flags_stmts oe rc rA rB rD =
+      let arith_flags = match rc == 1 with
+        | false -> []
+        | true -> [
+          Set(V (T lt0), TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
+                                const1 1, const0 1)) ;
+          Set(V (T gt0), TernOp(BBinOp (LogAnd,
+                                        Cmp (EQ, msb_reg (reg rD), const0 32),
+                                        Cmp (NEQ, Lval (V (treg rD)), const0 32)),
+                                const1 1, const0 1)) ;
+          Set(V (T eq0), TernOp(Cmp (EQ, Lval (V (treg rD)), const0 32),
+                                const1 1, const0 1)) ;
+          Set(V (T so0), Lval (V (T so))) ;
+          ] in
+      let ov_flags = match oe == 1 with
+        | false -> []
+        | true -> [
+          Set(V (T ov), TernOp (BBinOp(LogAnd,
+                                       Cmp (EQ, msb_reg (reg rA), msb_reg (reg rB)),
+                                       Cmp (NEQ, msb_reg (reg rA), msb_reg (reg rD))),
+                                const1 1, const0 1)) ;
+          Set(V (T so), BinOp (Or, Lval (V (T ov)), Lval (V (T so)))) ;
+        ] in
+      ov_flags @ arith_flags
+
+
   (* fatal error reporting *)
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
