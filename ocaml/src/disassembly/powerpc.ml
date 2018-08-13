@@ -230,6 +230,8 @@ struct
          Set (vpreg rD 0 6, lvt tbc) ]
     | 8 -> (* LR *)
        [ Set (vtreg rD, lvt lr) ]
+    | 9 -> (* CTR *)
+       [ Set (vtreg rD, lvt ctr) ]
     | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported yet" n)
 
   let decode_mtspr state isn =
@@ -243,6 +245,8 @@ struct
          Set (vt tbc, lvpreg rS 0 6) ]
     | 8 -> (* LR *)
        [ Set (vt lr, lvtreg rS) ]
+    | 9 -> (* LR *)
+       [ Set (vt ctr, lvtreg rS) ]
     | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported yet" n)
 
   let decode_mtcrf _state isn =
