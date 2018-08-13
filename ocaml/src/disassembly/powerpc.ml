@@ -134,29 +134,44 @@ struct
   let preg n a b =
     P ((reg n), a, b)
 
+  let vt r = V (T r)
+
+  let vp r a b = V (P (r, a, b))
+
+  let vtreg n = V (T (reg n))
+
+  let vpreg n a b = V (P (reg n, a, b))
+
+  let lvt r = Lval (V (T r))
+
+  let lvp r a b = Lval (V (P (r, a, b)))
+
+  let lvtreg n = Lval (V (T (reg n)))
+
+  let lvpreg n a b = Lval (V (P (reg n, a, b)))
 
   let compute_flags_stmts oe rc rA rB rD =
       let arith_flags = match rc == 1 with
         | false -> []
         | true -> [
-          Set(V (P (cr, 31, 31)), TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
-                                       const1 1, const0 1)) ;
-          Set(V (P (cr, 30, 30)), TernOp(BBinOp (LogAnd,
-                                               Cmp (EQ, msb_reg (reg rD), const0 32),
-                                               Cmp (NEQ, Lval (V (treg rD)), const0 32)),
+            Set(vp cr 31 31, TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
+                                    const1 1, const0 1)) ;
+            Set(vp cr 30 30, TernOp(BBinOp (LogAnd,
+                                            Cmp (EQ, msb_reg (reg rD), const0 32),
+                                            Cmp (NEQ, lvtreg rD, const0 32)),
                                 const1 1, const0 1)) ;
-          Set(V (P (cr, 29, 29)), TernOp(Cmp (EQ, Lval (V (treg rD)), const0 32),
-                                       const1 1, const0 1)) ;
-          Set(V (P (cr, 28, 28)), Lval (V (T so))) ;
+            Set(vp cr 29 29, TernOp(Cmp (EQ, lvtreg rD, const0 32),
+                                    const1 1, const0 1)) ;
+            Set(vp cr 28 28, lvt so) ;
           ] in
       let ov_flags = match oe == 1 with
         | false -> []
         | true -> [
-          Set(V (T ov), TernOp (BBinOp(LogAnd,
+          Set(vt ov, TernOp (BBinOp(LogAnd,
                                        Cmp (EQ, msb_reg (reg rA), msb_reg (reg rB)),
                                        Cmp (NEQ, msb_reg (reg rA), msb_reg (reg rD))),
                                 const1 1, const0 1)) ;
-          Set(V (T so), BinOp (Or, Lval (V (T ov)), Lval (V (T so)))) ;
+          Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ] in
       ov_flags @ arith_flags
 
@@ -208,36 +223,36 @@ struct
     let sprf = decode_split_field sprn in
     match sprf with
     | 1 -> (* XER *)
-       [ Set( V (T so), Lval (V (preg rS 31 31))) ;
-         Set( V (T ov), Lval (V (preg rS 30 30))) ;
-         Set( V (T ca), Lval (V (preg rS 29 29))) ;
-         Set( V (T tbc), Lval (V (preg rS 0 6))) ]
+       [ Set (vt so, lvpreg rS 31 31) ;
+         Set (vt ov, lvpreg rS 30 30) ;
+         Set (vt ca, lvpreg rS 29 29) ;
+         Set (vt tbc, lvpreg rS 0 6) ]
     | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported" n)
 
   let decode_mtcrf _state isn =
     let rS, crm1 = decode_XFX_Form isn in
     let crm = (crm1 lsr 1) land 0xff in
     if crm land 1 == 1 then
-      [ Set( V (P (cr, 28,31)), Lval (V (preg rS 28 31))) ]
+      [ Set (vp cr 28 31, lvpreg rS 28 31) ]
     else []
 
   let decode_logic _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
-    Set( V (treg rA), BinOp (op, Lval (V (treg rS)), Lval (V (treg rB)))) :: compute_flags_stmts 0 rc rS rB rA
+    Set( vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: compute_flags_stmts 0 rc rS rB rA
 
   let decode_ori _state isn =
     let s, a, uimm = decode_D_Form isn in
-    [ Set (V (treg a), BinOp(Or, Lval (V (treg s)), const uimm 32) ) ]
+    [ Set (vtreg a, BinOp(Or, lvtreg s, const uimm 32) ) ]
 
   let decode_addis _state isn =
     let d, a, simm = decode_D_Form isn in
     match a == 0 with
-    | true -> [ Set (V (treg d), const (simm lsl 16) 32) ]
-    | false -> [ Set (V (treg d), BinOp(Add, Lval (V (treg a)), const (simm lsl 16) 32)) ]
+    | true -> [ Set (vtreg d, const (simm lsl 16) 32) ]
+    | false -> [ Set (vtreg d, BinOp(Add, lvtreg a, const (simm lsl 16) 32)) ]
 
   let decode_add _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    Set (V (treg rD), BinOp(Add, Lval (V (treg rA)), Lval (V (treg rB)))) :: compute_flags_stmts oe rc rA rB rD
+    Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: compute_flags_stmts oe rc rA rB rD
 
 
   (* Decoding and switching *)
