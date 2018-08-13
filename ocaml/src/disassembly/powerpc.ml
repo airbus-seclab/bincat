@@ -230,7 +230,7 @@ struct
          Set (vpreg rD 0 6, lvt tbc) ]
     | 8 -> (* LR *)
        [ Set (vtreg rD, lvt lr) ]
-    | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported" n)
+    | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported yet" n)
 
   let decode_mtspr state isn =
     let rS, sprn = decode_XFX_Form isn in
@@ -243,7 +243,7 @@ struct
          Set (vt tbc, lvpreg rS 0 6) ]
     | 8 -> (* LR *)
        [ Set (vt lr, lvtreg rS) ]
-    | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported" n)
+    | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported yet" n)
 
   let decode_mtcrf _state isn =
     let rS, crm1 = decode_XFX_Form isn in
