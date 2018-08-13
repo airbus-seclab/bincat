@@ -200,6 +200,21 @@ class Arch:
                           +hline
                           +"\n".join(same))
 
+    def bf2mask(self, bitfield):
+        if not bitfield:
+            return -1
+        mask = 0
+        for s in bitfield:
+            if "-" in s:
+                start,stop = s.split("-")
+            else:
+                start = stop = s
+            start = int(start)
+            stop = int(stop)
+            for b in range(start, stop+1):
+                mask |= (1<<b)
+        return mask
+
     def show_cpu(self, tmpdir, asm, regs=None):
         testname = inspect.stack()[1][3]
         hline="\n=========================\n"
@@ -213,6 +228,9 @@ class Arch:
 
         print hline
         for reg in regs:
+            regspec = reg.split(":")
+            reg = regspec[0]
+            bitfield = regspec[1:]
             print "%6s = %08x" % (reg, cpu[reg])
 
     def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
@@ -233,16 +251,21 @@ class Arch:
         same = []
         diff_summary = []
         for r in regs:
+            regspec = r.split(":")
+            r = regspec[0]
+            bitfield = regspec[1:]
+            mask = self.bf2mask(bitfield)
+            maskstring = "" if mask == -1 else (" (mask=%08x)" % mask)
             vtop = bincat[r].vtop
             value = bincat[r].value
-            if cpu[r] & ~vtop != value & ~vtop:
+            if cpu[r] & ~vtop & mask != value & ~vtop & mask:
                 diff.append("- cpu   :  %s = %08x" % (r, cpu[r]))
                 diff.append("+ bincat:  %s = %08x  %r" % (r,value,bincat[r]))
                 diff_summary.append(r)
             else:
-                same.append("  both  :  %s = %08x  %r" % (r, value,bincat[r]))
+                same.append("  both  :  %s = %08x  %r%s" % (r, value,bincat[r], maskstring))
             allow_top = top_allowed.get(r,0)
-            if vtop & ~allow_top:
+            if vtop & ~allow_top & mask:
                 diff.append("+ top allowed:  %s = %08x ? %08x" % (r,cpu[r], allow_top))
                 diff.append("+ bincat     :  %s = %08x ? %08x  %r" % (r,value,vtop,bincat[r]))
                 diff_summary.append("%s(top)" % r)
