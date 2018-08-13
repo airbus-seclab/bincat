@@ -170,8 +170,8 @@ struct
 
   (* split field decoding *)
 
-    let decode_split_field x =
-      ((x lsr 5) land 0x1f) lor ((x land 0x1f) lsl 5)
+  let decode_split_field x =
+    ((x lsr 5) land 0x1f) lor ((x land 0x1f) lsl 5)
 
   (* PPC Forms decoding *)
 
