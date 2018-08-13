@@ -80,6 +80,7 @@ struct
 
   let lr = Register.make ~name:"lr" ~size:32;;
   let ctr = Register.make ~name:"ctr" ~size:32;;
+  let cr = Register.make ~name:"cr" ~size:32;;
 
   (* condition flags are modeled as registers of size 1 *)
 
@@ -88,13 +89,6 @@ struct
   let ov = Register.make ~name:"ov" ~size:1;;
   let ca = Register.make ~name:"ca" ~size:1;;
   let tbc = Register.make ~name:"tbc" ~size:7;;
-
-  (* fields from Condition Register (CR) *)
-  let lt0 = Register.make ~name:"lt0" ~size:1;;
-  let gt0 = Register.make ~name:"gt0" ~size:1;;
-  let eq0 = Register.make ~name:"eq0" ~size:1;;
-  let so0 = Register.make ~name:"so0" ~size:1;;
-
 
   module Imports = PowerpcImports.Make(Domain)(Stubs)
 
@@ -140,28 +134,20 @@ struct
   let preg n a b =
     P ((reg n), a, b)
 
-  let lt_is_set = Cmp(EQ, Lval (V (T lt0)), const 1 1)
-  let gt_is_set = Cmp(EQ, Lval (V (T gt0)), const 1 1)
-  let eq_is_set = Cmp(EQ, Lval (V (T eq0)), const 1 1)
-  let so_is_set = Cmp(EQ, Lval (V (T so0)), const 1 1)
-  let lt_is_clear = Cmp(EQ, Lval (V (T lt0)), const 0 1)
-  let gt_is_clear = Cmp(EQ, Lval (V (T gt0)), const 0 1)
-  let eq_is_clear = Cmp(EQ, Lval (V (T eq0)), const 0 1)
-  let so_is_clear = Cmp(EQ, Lval (V (T so0)), const 0 1)
 
   let compute_flags_stmts oe rc rA rB rD =
       let arith_flags = match rc == 1 with
         | false -> []
         | true -> [
-          Set(V (T lt0), TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
+          Set(V (P (cr, 31, 31)), TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
+                                       const1 1, const0 1)) ;
+          Set(V (P (cr, 30, 30)), TernOp(BBinOp (LogAnd,
+                                               Cmp (EQ, msb_reg (reg rD), const0 32),
+                                               Cmp (NEQ, Lval (V (treg rD)), const0 32)),
                                 const1 1, const0 1)) ;
-          Set(V (T gt0), TernOp(BBinOp (LogAnd,
-                                        Cmp (EQ, msb_reg (reg rD), const0 32),
-                                        Cmp (NEQ, Lval (V (treg rD)), const0 32)),
-                                const1 1, const0 1)) ;
-          Set(V (T eq0), TernOp(Cmp (EQ, Lval (V (treg rD)), const0 32),
-                                const1 1, const0 1)) ;
-          Set(V (T so0), Lval (V (T so))) ;
+          Set(V (P (cr, 29, 29)), TernOp(Cmp (EQ, Lval (V (treg rD)), const0 32),
+                                       const1 1, const0 1)) ;
+          Set(V (P (cr, 28, 28)), Lval (V (T so))) ;
           ] in
       let ov_flags = match oe == 1 with
         | false -> []
@@ -232,10 +218,7 @@ struct
     let rS, crm1 = decode_XFX_Form isn in
     let crm = (crm1 lsr 1) land 0xff in
     if crm land 1 == 1 then
-      [ Set( V (T lt0), Lval (V (preg rS 31 31)));
-        Set( V (T gt0), Lval (V (preg rS 30 30)));
-        Set( V (T eq0), Lval (V (preg rS 29 29)));
-        Set( V (T so0), Lval (V (preg rS 28 28))); ]
+      [ Set( V (P (cr, 28,31)), Lval (V (preg rS 28 31))) ]
     else []
 
   let decode_logic _state isn op =
@@ -585,6 +568,6 @@ struct
   let init () =
     Imports.init ()
 
-  let overflow_expression () = Lval (V (T so0))
+  let overflow_expression () = Lval (V (P (cr, 28, 28)))
 
 end

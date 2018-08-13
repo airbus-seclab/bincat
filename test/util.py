@@ -430,9 +430,7 @@ class PowerPC(Arch):
     ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
                  "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
                  "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
-                 "r30", "r31", "lr", "ctr", "so", "ov", "ca", "tbc",
-                 "lt0", "gt0", "eq0", "so0" ]
-    # "cr", "lr", "ctr" ]
+                 "r30", "r31", "lr", "ctr", "cr", "so", "ov", "ca", "tbc" ]
     AS_TMP_DIR = counter("powerpc-as-%i")
     AS = ["powerpc-linux-gnu-as", "-mpower9", "-mbig"]
     OBJCOPY = ["powerpc-linux-gnu-objcopy"]
@@ -441,12 +439,7 @@ class PowerPC(Arch):
     QEMU = "qemu-ppc"
 
     def extract_flags(self, regs):
-        cr = regs.pop("cr")
         xer = regs.pop("xer")
-        regs["lt0"] = (cr >> 31) & 1
-        regs["gt0"] = (cr >> 30) & 1
-        regs["eq0"] = (cr >> 29) & 1
-        regs["so0"] = (cr >> 28) & 1
         regs["so"] = (xer >> 31) & 1
         regs["ov"] = (xer >> 30) & 1
         regs["ca"] = (xer >> 29) & 1

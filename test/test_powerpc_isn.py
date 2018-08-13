@@ -65,7 +65,7 @@ def test_arith_add_dot(tmpdir):
         ori %r4, %r4, 0xffff
         add. %r5, %r3, %r4
     """
-    compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
 
 def test_arith_addo(tmpdir):
     asm = """
@@ -85,7 +85,7 @@ def test_arith_addo_dot(tmpdir):
         ori %r4, %r4, 0xffff
         addo. %r5, %r3, %r4
     """
-    compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0", "ov" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
 
 
 def test_arith_add_flags(tmpdir, op32h, op32l, op32h_, op32l_):
@@ -96,7 +96,7 @@ def test_arith_add_flags(tmpdir, op32h, op32l, op32h_, op32l_):
         ori %r4, %r4, {op32l_}
         addo. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0", "ov" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
 
 
 
@@ -133,7 +133,7 @@ def test_special_mtcrf(tmpdir, crval):
         lis %r3, {crval}
         mtcrf 0xff, %r3
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "gt0", "lt0", "eq0", "so0" ])
+    compare(tmpdir, asm, ["r3", "cr:28-31" ])
 
 @pytest.mark.parametrize("xerval", [x<<13 for x in range(8)])
 def test_special_mtspr_xer(tmpdir, xerval, op8):
@@ -153,4 +153,4 @@ def test_special_XERso_to_CRso(tmpdir):
         lis %r5, 0
         add. %r6, %r5, %r3
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "gt0", "lt0", "eq0", "so0", "so", "ov", "ca" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "cr:28-31", "so", "ov", "ca" ])

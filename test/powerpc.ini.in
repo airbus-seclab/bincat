@@ -28,10 +28,7 @@ format = raw
 endianness = big
 
 [state]
-reg[lt0] = 0?1
-reg[gt0] = 0?1
-reg[eq0] = 0?1
-reg[so0] = 0?1
+reg[cr] = 0x0?0xffffffff
 reg[so] = 0?1
 reg[ov] = 0?1
 reg[ca] = 0?1
