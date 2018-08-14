@@ -406,6 +406,27 @@ struct
       Directive (Remove tmpreg) ;
     ] @ (xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD)
 
+  let decode_addme _state isn =
+    let rD, rA, _, oe, rc = decode_XO_Form isn in
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let isn_stmts = [
+      Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), BinOp(Add, const 0xffffffff 33, to33bits (lvt ca)))) ;
+      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
+      Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg 32 32, const1 1),
+                          const1 1, const0 1)) ;
+      Directive (Remove tmpreg) ;
+      ] in
+    let xer_stmts =
+      if oe == 1 then [
+          Set(vt ov, TernOp (BBinOp(LogAnd,
+                                    Cmp (EQ, lvtreg rA, const 0x80000000 32),
+                                    Cmp (EQ, lvtreg rD, const 0x7fffffff 32)),
+                             const1 1, const0 1)) ;
+          Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
+        ]
+      else [] in
+    isn_stmts @ xer_stmts @ (cr_flags_stmts rc rD)
+
   let decode_sub _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
@@ -514,7 +535,7 @@ struct
     | 0b0011010111 -> not_implemented s isn "stbx"
     | 0b0011101000 | 0b1011101000 -> not_implemented s isn "subfme??"
     | 0b0011101001 | 0b1011101001 -> not_implemented s isn "mulld"
-    | 0b0011101010 | 0b1011101010 -> not_implemented s isn "addme??"
+    | 0b0011101010 | 0b1011101010 -> decode_addme s isn
     | 0b0011101011 | 0b1011101011 -> not_implemented s isn "mullw??"
     | 0b0011110010 -> not_implemented s isn "mtsrin"
     | 0b0011110110 -> not_implemented s isn "dcbtst"
