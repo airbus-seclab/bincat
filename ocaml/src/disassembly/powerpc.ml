@@ -319,9 +319,15 @@ struct
   let decode_mtcrf _state isn =
     let rS, crm1 = decode_XFX_Form isn in
     let crm = (crm1 lsr 1) land 0xff in
-    if crm land 1 == 1 then
-      [ Set (vp cr 28 31, lvpreg rS 28 31) ]
-    else []
+    if crm == 0xff then (* shortcut for special case when all CR fields are set with rS *)
+      [ Set (vt cr, lvtreg rS) ]
+    else
+      let stmts = ref [] in
+      for i = 0 to 7 do
+        if (crm lsr i) land 1 == 1 then
+          stmts := Set (vp cr (i*4) (i*4+3), lvpreg rS (i*4) (i*4+3)) :: !stmts
+      done;
+      !stmts
 
   let decode_logic _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
