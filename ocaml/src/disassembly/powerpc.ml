@@ -190,6 +190,15 @@ struct
         ]
       else []
 
+    (* Update XER flag after rD <- neg rA *)
+    let xer_flags_stmts_neg oe rA =
+      if oe == 1 then [
+          Set(vt ov, TernOp (Cmp (EQ, lvtreg rA, const 0x80000000 32),
+                             const1 1, const0 1)) ;
+          Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
+        ]
+      else []
+
 
   (* fatal error reporting *)
   let error a msg =
@@ -336,6 +345,10 @@ struct
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
 
+  let decode_neg _state isn =
+    let rD, rA, _, oe, rc = decode_XO_Form isn in
+    Set (vtreg rD, BinOp(Add, UnOp(Not, lvtreg rA), const1 32)) :: ((xer_flags_stmts_neg oe rA) @ (cr_flags_stmts rc rD))
+
   (* Decoding and switching *)
 
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
@@ -417,7 +430,7 @@ struct
     | 0b0001010100 -> not_implemented s isn "ldarx"
     | 0b0001010110 -> not_implemented s isn "dcbf"
     | 0b0001010111 -> not_implemented s isn "lbzx"
-    | 0b0001101000 | 0b1001101000 -> not_implemented s isn "neg??"
+    | 0b0001101000 | 0b1001101000 -> decode_neg s isn
     | 0b0001110111 -> not_implemented s isn "lbzux"
     | 0b0001111100 -> not_implemented s isn "nor??"
     | 0b0010001000 | 0b1010001000 -> not_implemented s isn "subfe??"
