@@ -46,7 +46,7 @@ def test_basics_assign2(tmpdir):
 ## /_/ \_\_| |_|\__|_||_|_|_|_\___|\__|_\__/__/
 ## Arithmetics
 
-ARITH_OPS = ["add", "sub"]
+ARITH_OPS = ["add", "sub", "addc"]
 
 @pytest.mark.parametrize("op", ARITH_OPS)
 def test_arith_add(tmpdir, op):
@@ -93,15 +93,18 @@ def test_arith_addo_dot(tmpdir, op):
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
 
 @pytest.mark.parametrize("op", ARITH_OPS)
-def test_arith_add_flags(tmpdir, op, op32h, op32l, op32h_, op32l_):
+@pytest.mark.parametrize("xer", [0x2000, 0x0000])
+def test_arith_add_flags(tmpdir, op, xer, op32h, op32l, op32h_, op32l_):
     asm = """
+        lis %r3, {xer}
+        mtspr 1, %r3       # update XER
         lis %r3, {op32h}
         ori %r3, %r3, {op32l}
         lis %r4, {op32h_}
         ori %r4, %r4, {op32l_}
         {op}o. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov", "ca" ])
 
 
 
