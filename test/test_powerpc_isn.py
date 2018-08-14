@@ -46,7 +46,7 @@ def test_basics_assign2(tmpdir):
 ## /_/ \_\_| |_|\__|_||_|_|_|_\___|\__|_\__/__/
 ## Arithmetics
 
-ARITH_OPS = ["add", "sub", "addc"]
+ARITH_OPS = ["add", "sub", "addc", "adde"]
 
 @pytest.mark.parametrize("op", ARITH_OPS)
 def test_arith_add(tmpdir, op):
