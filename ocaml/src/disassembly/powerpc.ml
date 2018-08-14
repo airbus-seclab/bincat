@@ -329,6 +329,27 @@ struct
       done;
       !stmts
 
+  let decode_cmp _state isn =
+    let crfD, rA, rB, _ = decode_X_Form isn in
+    let ltbit = 31-crfD in
+    let gtbit = 30-crfD in
+    let eqbit = 29-crfD in
+    let sobit = 28-crfD in
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    [
+      Set (vt tmpreg, BinOp(Sub, to33bits_s (lvtreg rA), to33bits_s (lvtreg rB))) ;
+      Set (vp cr ltbit ltbit, TernOp (Cmp (NEQ, msb_reg tmpreg, const0 33),
+                                          const1 1, const0 1)) ;
+      Set (vp cr gtbit gtbit, TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 33),
+                                            Cmp(NEQ, lvt tmpreg, const0 33)),
+                                                        const1 1, const0 1)) ;
+      Set (vp cr eqbit eqbit, TernOp (Cmp (EQ, lvtreg rA, lvtreg rB),
+                                      const1 1, const0 1)) ;
+
+      Set (vp cr sobit sobit, lvt so) ;
+      Directive (Remove tmpreg) ;
+    ]
+
   let decode_logic _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
     Set( vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA)
@@ -408,7 +429,7 @@ struct
 
   let decode_011111 s isn =
     match (isn lsr 1) land 0x3ff with
-    | 0b0000000000 -> not_implemented s isn "cmp"
+    | 0b0000000000 -> decode_cmp s isn
     | 0b0000000100 -> not_implemented s isn "tw"
     | 0b0000001000 | 0b1000001000 -> not_implemented s isn "subfc??"
     | 0b0000001001 -> not_implemented s isn "mulhdu??"
