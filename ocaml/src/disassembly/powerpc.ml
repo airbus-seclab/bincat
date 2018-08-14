@@ -364,6 +364,12 @@ struct
     | true -> [ Set (vtreg d, const (simm lsl 16) 32) ]
     | false -> [ Set (vtreg d, BinOp(Add, lvtreg a, const (simm lsl 16) 32)) ]
 
+  let decode_addi _state isn =
+    let d, a, simm = decode_D_Form isn in
+    match a == 0 with
+    | true -> [ Set (vtreg d, sconst simm 16 32) ]
+    | false -> [ Set (vtreg d, BinOp(Add, lvtreg a, sconst simm 16 32)) ]
+
   let decode_add _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
@@ -650,7 +656,7 @@ struct
       | 0b001011 -> not_implemented s isn "cmpi"
       | 0b001100 -> not_implemented s isn "addic"
       | 0b001101 -> not_implemented s isn "addic."
-      | 0b001110 -> not_implemented s isn "addi"
+      | 0b001110 -> decode_addi s isn
       | 0b001111 -> decode_addis s isn
       | 0b010000 -> not_implemented s isn "bc??"
       | 0b010001 -> not_implemented s isn "sc"
