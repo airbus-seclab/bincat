@@ -121,6 +121,14 @@ def test_arith_addi(tmpdir, op32h, op32l, op16_s):
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r3", "r4", "r5"])
 
+def test_arith_addic(tmpdir, op32h, op32l, op16_s):
+    asm = """
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        addic %r4, %r3, {op16_s}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "ca"])
+
 
 
 
