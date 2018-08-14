@@ -99,6 +99,58 @@ def test_arith_add_flags(tmpdir, op32h, op32l, op32h_, op32l_):
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
 
 
+def test_arith_sub(tmpdir):
+    asm = """
+        lis %r3, 0x1234
+        ori %r3, %r3, 0x5678
+        lis %r4, 0xabcd
+        ori %r4, %r4, 0xffff
+        sub %r5, %r3, %r4
+    """
+    compare(tmpdir, asm, ["r3", "r4", "r5" ])
+
+def test_arith_sub_dot(tmpdir):
+    asm = """
+        lis %r3, 0x1234
+        ori %r3, %r3, 0x5678
+        lis %r4, 0xabcd
+        ori %r4, %r4, 0xffff
+        sub. %r5, %r3, %r4
+    """
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
+
+def test_arith_subo(tmpdir):
+    asm = """
+        lis %r3, 0x1234
+        ori %r3, %r3, 0x5678
+        lis %r4, 0xabcd
+        ori %r4, %r4, 0xffff
+        subo %r5, %r3, %r4
+    """
+    compare(tmpdir, asm, ["r3", "r4", "r5", "ov" ])
+
+def test_arith_subo_dot(tmpdir):
+    asm = """
+        lis %r3, 0x1234
+        ori %r3, %r3, 0x5678
+        lis %r4, 0xabcd
+        ori %r4, %r4, 0xffff
+        subo. %r5, %r3, %r4
+    """
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
+
+
+def test_arith_sub_flags(tmpdir, op32h, op32l, op32h_, op32l_):
+    asm = """
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        lis %r4, {op32h_}
+        ori %r4, %r4, {op32l_}
+        subo. %r5, %r3, %r4
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
+
+
 
 
 ##  _              _
