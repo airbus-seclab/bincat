@@ -267,7 +267,17 @@ def test_special_mtcrf(tmpdir, crval):
         lis %r3, {crval}
         mtcrf 0xff, %r3
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "cr:28-31" ])
+    compare(tmpdir, asm, ["r3", "cr" ])
+
+def test_special_mtcrf2(tmpdir, op8, op32h, op32l):
+    asm = """
+        lis %r3, 0
+        mtcrf 0xff, %r3
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        mtcrf {op8:#x}, %r3
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "cr" ])
 
 @pytest.mark.parametrize("xerval", [x<<13 for x in range(8)])
 def test_special_mtspr_xer(tmpdir, xerval, op8):
