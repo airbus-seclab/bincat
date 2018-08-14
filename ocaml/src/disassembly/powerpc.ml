@@ -150,30 +150,34 @@ struct
 
   let lvpreg n a b = Lval (V (P (reg n, a, b)))
 
-  let compute_flags_stmts oe rc rA rB rD =
-      let arith_flags = match rc == 1 with
-        | false -> []
-        | true -> [
-            Set(vp cr 31 31, TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
-                                    const1 1, const0 1)) ;
-            Set(vp cr 30 30, TernOp(BBinOp (LogAnd,
-                                            Cmp (EQ, msb_reg (reg rD), const0 32),
-                                            Cmp (NEQ, lvtreg rD, const0 32)),
-                                const1 1, const0 1)) ;
-            Set(vp cr 29 29, TernOp(Cmp (EQ, lvtreg rD, const0 32),
-                                    const1 1, const0 1)) ;
-            Set(vp cr 28 28, lvt so) ;
-          ] in
-      let ov_flags = match oe == 1 with
-        | false -> []
-        | true -> [
+  (* Update CR[0] according to the latest result. Must be called after XER has been updated for CR[0].so to reflect XER.so *)
+  let cr_flags_stmts rc rD =
+    if rc == 1 then [
+        Set(vp cr 31 31, (* cr[0].lt *)
+            TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
+                   const1 1, const0 1)) ;
+        Set(vp cr 30 30, (* cr[0].gt *)
+            TernOp(BBinOp (LogAnd,
+                           Cmp (EQ, msb_reg (reg rD), const0 32),
+                           Cmp (NEQ, lvtreg rD, const0 32)),
+                   const1 1, const0 1)) ;
+        Set(vp cr 29 29, (* cr[0].eq *)
+            TernOp(Cmp (EQ, lvtreg rD, const0 32),
+                   const1 1, const0 1)) ;
+        Set(vp cr 28 28, lvt so) ; (* cr[0].so *)
+      ]
+    else []
+
+    (* Update XER flag after rD <- rA + rB *)
+    let xer_flags_stmts_add oe rA rB rD =
+      if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                       Cmp (EQ, msb_reg (reg rA), msb_reg (reg rB)),
-                                       Cmp (NEQ, msb_reg (reg rA), msb_reg (reg rD))),
-                                const1 1, const0 1)) ;
+                                    Cmp (EQ, msb_reg (reg rA), msb_reg (reg rB)),
+                                    Cmp (NEQ, msb_reg (reg rA), msb_reg (reg rD))),
+                             const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
-        ] in
-      ov_flags @ arith_flags
+        ]
+      else []
 
 
   (* fatal error reporting *)
@@ -258,7 +262,7 @@ struct
 
   let decode_logic _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
-    Set( vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: compute_flags_stmts 0 rc rS rB rA
+    Set( vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA)
 
   let decode_ori _state isn =
     let s, a, uimm = decode_D_Form isn in
@@ -272,7 +276,7 @@ struct
 
   let decode_add _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: compute_flags_stmts oe rc rA rB rD
+    Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
 
 
   (* Decoding and switching *)
