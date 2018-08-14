@@ -55,6 +55,7 @@ def test_arith_add(tmpdir, op):
         ori %r3, %r3, 0x5678
         lis %r4, 0xabcd
         ori %r4, %r4, 0xffff
+        mtspr 1, %r3       # update XER
         {op} %r5, %r3, %r4
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5" ])
@@ -66,6 +67,7 @@ def test_arith_add_dot(tmpdir, op):
         ori %r3, %r3, 0x5678
         lis %r4, 0xabcd
         ori %r4, %r4, 0xffff
+        mtspr 1, %r3       # update XER
         {op}. %r5, %r3, %r4
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
@@ -77,6 +79,7 @@ def test_arith_addo(tmpdir, op):
         ori %r3, %r3, 0x5678
         lis %r4, 0xabcd
         ori %r4, %r4, 0xffff
+        mtspr 1, %r3       # update XER
         {op}o %r5, %r3, %r4
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "ov" ])
@@ -88,6 +91,7 @@ def test_arith_addo_dot(tmpdir, op):
         ori %r3, %r3, 0x5678
         lis %r4, 0xabcd
         ori %r4, %r4, 0xffff
+        mtspr 1, %r3       # update XER
         {op}o. %r5, %r3, %r4
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
