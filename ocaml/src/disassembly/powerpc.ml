@@ -355,20 +355,20 @@ struct
     Set( vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA)
 
   let decode_ori _state isn =
-    let s, a, uimm = decode_D_Form isn in
-    [ Set (vtreg a, BinOp(Or, lvtreg s, const uimm 32) ) ]
+    let rS, rA, uimm = decode_D_Form isn in
+    [ Set (vtreg rA, BinOp(Or, lvtreg rS, const uimm 32) ) ]
 
   let decode_addis _state isn =
-    let d, a, simm = decode_D_Form isn in
-    match a == 0 with
-    | true -> [ Set (vtreg d, const (simm lsl 16) 32) ]
-    | false -> [ Set (vtreg d, BinOp(Add, lvtreg a, const (simm lsl 16) 32)) ]
+    let rD, rA, simm = decode_D_Form isn in
+    match rA == 0 with
+    | true -> [ Set (vtreg rD, const (simm lsl 16) 32) ]
+    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, const (simm lsl 16) 32)) ]
 
   let decode_addi _state isn =
-    let d, a, simm = decode_D_Form isn in
-    match a == 0 with
-    | true -> [ Set (vtreg d, sconst simm 16 32) ]
-    | false -> [ Set (vtreg d, BinOp(Add, lvtreg a, sconst simm 16 32)) ]
+    let rD, rA, simm = decode_D_Form isn in
+    match rA == 0 with
+    | true -> [ Set (vtreg rD, sconst simm 16 32) ]
+    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, sconst simm 16 32)) ]
 
   let decode_addic _state isn =
     let rD, rA, simm = decode_D_Form isn in
