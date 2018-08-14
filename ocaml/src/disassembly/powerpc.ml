@@ -226,6 +226,13 @@ struct
     let rc = (isn land 1) in
     rD, rA, rB, oe, rc
 
+  let decode_XL_Form isn =
+    let rD = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rB = (isn lsr 11) land 0x1f in
+    let lk = (isn land 1) in
+    rD, rA, rB, lk
+
   let decode_XFX_Form isn =
     let rSD = (isn lsr 21) land 0x1f in
     let regnum = (isn lsr 11) land 0x3ff in
@@ -245,6 +252,29 @@ struct
                then [ Jmp (R (const signext_li 32)) ]
                else [ Jmp (R (const ((cia+signext_li) land 0xffffffff) 32)) ] in
     update_lr @ jump
+
+  let wrap_with_bi_bo_condition bi bo exprs =
+    let dec_ctr = Set( vt ctr, BinOp(Sub, lvt ctr, const1 32)) in
+    let cmp0_ctr cond = Cmp(cond, lvt ctr, const0 32) in
+    let cmpbi_cr cond = Cmp(cond, lvp cr bi bi, const 0 1) in
+    match bo lsr 1 with
+    | 0b0000 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr NEQ, cmpbi_cr EQ), exprs, []) ]
+    | 0b0001 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr EQ, cmpbi_cr EQ), exprs, []) ]
+    | 0b0010 | 0b0011 -> [ If (cmpbi_cr EQ, exprs, []) ]
+    | 0b0100 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr NEQ, cmpbi_cr NEQ), exprs, []) ]
+    | 0b0101 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr EQ, cmpbi_cr NEQ), exprs, []) ]
+    | 0b0110 | 0b0111 -> [ If (cmpbi_cr NEQ, exprs, []) ]
+    | 0b1000 | 0b1100 -> [ dec_ctr ; If (cmp0_ctr NEQ, exprs, []) ]
+    | 0b1001 | 0b1101 -> [ dec_ctr ; If (cmp0_ctr EQ, exprs, []) ]
+    | _ -> exprs
+
+
+  let decode_bclr state isn =
+    let bo, bi, _, lk = decode_XL_Form isn in
+    let cia = Z.to_int (Address.to_int state.a) in
+    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
+    let jump_expr = Jmp (R (lvt lr)) in
+    wrap_with_bi_bo_condition bi bo (jump_expr :: update_lr)
 
   let decode_mfspr state isn =
     let rD, sprn = decode_XFX_Form isn in
@@ -333,7 +363,7 @@ struct
   let decode_010011 s isn =
     match (isn lsr 1) land 0x3ff with
     | 0b0000000000-> not_implemented s isn "mcrf"
-    | 0b0000010000-> not_implemented s isn "bclr??"
+    | 0b0000010000-> decode_bclr s isn
     | 0b0000100001-> not_implemented s isn "crnor"
     | 0b0000110010-> not_implemented s isn "rfi"
     | 0b0010000001-> not_implemented s isn "crandc"
