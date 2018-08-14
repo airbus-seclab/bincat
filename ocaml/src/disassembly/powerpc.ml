@@ -233,6 +233,19 @@ struct
 
   (* Operation decoders *)
 
+  let decode_branch state isn =
+    let li = isn land 0x03fffffc in
+    let aa = (isn lsr 1) land 1 in
+    let lk = isn land 1 in
+    let signext_li = if li land 0x02000000 == 0 then li else li lor 0xfc000000 in
+    let cia = Z.to_int (Address.to_int state.a) in
+    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
+    L.debug2(fun p -> p "branch cia=%08x li=%08x signext_li=%08x sum=%08x" cia li signext_li (cia+signext_li));
+    let jump = if aa == 1
+               then [ Jmp (R (const signext_li 32)) ]
+               else [ Jmp (R (const ((cia+signext_li) land 0xffffffff) 32)) ] in
+    update_lr @ jump
+
   let decode_mfspr state isn =
     let rD, sprn = decode_XFX_Form isn in
     let sprf = decode_split_field sprn in
@@ -549,7 +562,7 @@ struct
       | 0b001111 -> decode_addis s isn
       | 0b010000 -> not_implemented s isn "bc??"
       | 0b010001 -> not_implemented s isn "sc"
-      | 0b010010 -> not_implemented s isn "b??"
+      | 0b010010 -> decode_branch s isn
       | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
       | 0b010100 -> not_implemented s isn "rlwimi??"
       | 0b010101 -> not_implemented s isn "rlwinm??"
