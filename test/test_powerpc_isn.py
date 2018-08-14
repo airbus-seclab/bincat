@@ -110,6 +110,18 @@ def test_arith_add_flags(tmpdir, op, xer, op32h, op32l, op32h_, op32l_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov", "ca" ])
 
+def test_arith_addi(tmpdir, op32h, op32l, op16_s):
+    asm = """
+        lis %r0, {op32h}
+        ori %r0, %r0, {op32l}
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        addi %r4, %r3, {op16_s}
+        addi %r5, %r0, {op16_s}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0", "r3", "r4", "r5"])
+
+
 
 
 ##  _              _
