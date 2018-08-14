@@ -171,6 +171,79 @@ def test_logic_with_flags(tmpdir, logic, op32h, op32l, op32h_, op32l_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0" ])
 
+##  ___                  _    _
+## | _ )_ _ __ _ _ _  __| |_ (_)_ _  __ _
+## | _ \ '_/ _` | ' \/ _| ' \| | ' \/ _` |
+## |___/_| \__,_|_||_\__|_||_|_|_||_\__, |
+##                                  |___/
+## Branching
+
+def test_branch_b(tmpdir):
+    asm = """
+        lis %r3, 0x1234
+        lis %r4, 0x4321
+        b next
+        lis %r3, 0xabcd
+      next:
+        lis %r4, 0xdcba
+    """
+    compare(tmpdir, asm, ["r3", "r4"])
+
+def test_branch_b_back(tmpdir):
+    asm = """
+        lis %r3, 0x1234
+        lis %r4, 0x1234
+        lis %r5, 0x1234
+        lis %r6, 0x1234
+        b j1
+        lis %r3, 0xabcd
+      j2:
+        lis %r4, 0xabcd
+        b j3
+      j1:
+        b j2
+        lis %r5, 0xdcba
+      j3:
+        lis %r6, 0xdcba
+    """
+    compare(tmpdir, asm, ["r3", "r4"])
+
+def test_branch_and_link(tmpdir):
+    asm = """
+        lis %r3, 0x1234
+        lis %r4, 0x1234
+        lis %r5, 0x1234
+        lis %r6, 0x1234
+        bl j1
+        lis %r3, 0xabcd
+        b j2
+      j1:
+        lis %r4, 0xabcd
+        blr
+        lis %r5, 0xdcba
+      j2:
+        lis %r6, 0xdcba
+    """
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6"])
+
+def test_branch_and_link2(tmpdir):
+    asm = """
+        bl j1
+        nop
+        nop
+      j1:
+        mflr %r3
+        bl j2
+        nop
+        nop
+        nop
+        nop
+      j2:
+        mflr %r4
+        sub %r3, %r4, %r3
+    """
+    compare(tmpdir, asm, ["r3"])
+
 
 ##  ___              _      _
 ## / __|_ __  ___ __(_)__ _| |
