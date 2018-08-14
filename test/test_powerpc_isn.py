@@ -129,6 +129,15 @@ def test_arith_addic(tmpdir, op32h, op32l, op16_s):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "ca"])
 
+def test_arith_addic_dot(tmpdir, op32h, op32l, op16_s):
+    asm = """
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        mtspr 1, %r3       # update XER (for XER.so flag)
+        addic. %r4, %r3, {op16_s}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "ca", "cr:29-31"])
+
 
 
 
