@@ -289,6 +289,9 @@ struct
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
 
+  let decode_sub _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
 
   (* Decoding and switching *)
 
@@ -358,7 +361,7 @@ struct
     | 0b0000011011 -> not_implemented s isn "sld??"
     | 0b0000011100 -> decode_logic s isn And
     | 0b0000100000 -> not_implemented s isn "cmpl"
-    | 0b0000101000 | 0b1000101000 -> not_implemented s isn "subf??"
+    | 0b0000101000 | 0b1000101000 -> decode_sub s isn
     | 0b0000110101 -> not_implemented s isn "ldux"
     | 0b0000110110 -> not_implemented s isn "dcbst"
     | 0b0000110111 -> not_implemented s isn "lwzux"
