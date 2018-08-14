@@ -169,7 +169,7 @@ def test_logic_with_flags(tmpdir, logic, op32h, op32l, op32h_, op32l_):
         ori %r4, %r4, {op32l_}
         {logic}. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "gt0", "lt0", "eq0" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
 
 ##  ___                  _    _
 ## | _ )_ _ __ _ _ _  __| |_ (_)_ _  __ _
