@@ -368,6 +368,17 @@ struct
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
 
+  let decode_addc _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    [
+      Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), to33bits (lvtreg rB))) ;
+      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
+      Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg 32 32, const1 1),
+                          const1 1, const0 1)) ;
+      Directive (Remove tmpreg) ;
+    ] @ (xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD)
+
   let decode_sub _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
@@ -433,7 +444,7 @@ struct
     | 0b0000000100 -> not_implemented s isn "tw"
     | 0b0000001000 | 0b1000001000 -> not_implemented s isn "subfc??"
     | 0b0000001001 -> not_implemented s isn "mulhdu??"
-    | 0b0000001010 | 0b1000001010 -> not_implemented s isn "addc??"
+    | 0b0000001010 | 0b1000001010 -> decode_addc s isn
     | 0b0000001011 -> not_implemented s isn "mulhwu??"
     | 0b0000010011 -> not_implemented s isn "mfcr"
     | 0b0000010100 -> not_implemented s isn "lwarx"
