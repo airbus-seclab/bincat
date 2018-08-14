@@ -179,6 +179,17 @@ struct
         ]
       else []
 
+    (* Update XER flag after rD <- rB - rA *)
+    let xer_flags_stmts_sub oe rA rB rD =
+      if oe == 1 then [
+          Set(vt ov, TernOp (BBinOp(LogAnd,
+                                    Cmp (NEQ, msb_reg (reg rA), msb_reg (reg rB)),
+                                    Cmp (NEQ, msb_reg (reg rB), msb_reg (reg rD))),
+                             const1 1, const0 1)) ;
+          Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
+        ]
+      else []
+
 
   (* fatal error reporting *)
   let error a msg =
