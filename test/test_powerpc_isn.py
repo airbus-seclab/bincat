@@ -171,6 +171,15 @@ def test_logic_with_flags(tmpdir, logic, op32h, op32l, op32h_, op32l_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
 
+def test_logic_neg(tmpdir, op32h, op32l):
+    asm = """
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        nego. %r4, %r3
+    """.format(**locals())
+    powerpc.show_cpu(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov" ])
+
+
 ##  ___                  _    _
 ## | _ )_ _ __ _ _ _  __| |_ (_)_ _  __ _
 ## | _ \ '_/ _` | ' \/ _| ' \| | ' \/ _` |
