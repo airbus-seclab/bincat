@@ -177,7 +177,29 @@ def test_logic_neg(tmpdir, op32h, op32l):
         ori %r3, %r3, {op32l}
         nego. %r4, %r3
     """.format(**locals())
-    powerpc.show_cpu(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov" ])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov" ])
+
+
+##   ___
+##  / __|___ _ __  _ __  __ _ _ _ ___
+## | (__/ _ \ '  \| '_ \/ _` | '_/ -_)
+##  \___\___/_|_|_| .__/\__,_|_| \___|
+##                |_|
+## Compare
+
+@pytest.mark.parametrize("crfD", range(8))
+def test_compare_cmp(tmpdir, crfD, op32h, op32h_):
+    so = op32h & 0x8000
+    asm = """
+        lis %r3, 0
+        mtcrf 0xff, %r3
+        lis %r3, {so}
+        mtspr 1, %r3     ; so = 1
+        lis %r3, {op32h}
+        lis %r4, {op32h_}
+        cmp  cr{crfD}, %r3, %r4
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "cr"])
 
 
 ##  ___                  _    _
