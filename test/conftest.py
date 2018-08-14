@@ -26,6 +26,7 @@ class TestValues:
     op6_32 = [ 0, 1, 31 ]
     op8 =  [ 1, 0xff ]
     op16 = [ 1, 0xffff ]
+    op16_s = [ 1, 0x7fff, -0x8000 ]
     op32 = [ 1, 0xffffffff]
     op64 = [ 1, 0xffffffffffffffff]
     op12 = [ 1, 0x800, 0xFFF]
@@ -47,6 +48,7 @@ class Large(TestValues):
     _name = "large"
     op8 = [ 0, 1, 2, 7, 8, 0xf, 0x10, 0x7f, 0x80, 0x81, 0xff]
     op16 = op8 +  [0x1234, 0x7fff, 0x8000, 0x8001, 0xfa72, 0xffff]
+    op16_s = op8 + [ 0x1234, 0x7fff, -0x8000 -0x7fff, -1]
     op32 = op16 +  [0x12345678, 0x1812fada, 0x12a4b4cd,
                     0x7fffffff, 0x80000000, 0x80000001, 0xffffffff ]
     op64 = op32 +  [ 0x123456789, 0x100000000000,  0x65a227c6f24c562a,
@@ -64,6 +66,7 @@ class Medium(TestValues):
     _name = "medium"
     op8 =  [ 0, 1, 0x7f, 0x80, 0xff ]
     op16 = [ 0, 1, 0xff, 0x7fff, 0x8000, 0xffff ]
+    op16_s = [ -0x8000, -0x7fff, -0xff, -1, 0, 1, 0xff, 0x7fff]
     op32 = [ 0, 1, 0x7fffffff, 0x80000000, 0xffffffff]
     op64 = [ 0, 1, 0x7fffffffffffffff, 0x8000000000000000, 0xffffffffffffffff]
     op32h = [ 0, 0x7fff, 0x8000, 0xffff ]
