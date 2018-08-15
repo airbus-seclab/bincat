@@ -309,6 +309,27 @@ def test_branch_and_link2(tmpdir):
     """
     compare(tmpdir, asm, ["r3"])
 
+def test_branch_bcctr(tmpdir):
+    asm = """
+        lis %r3, 0x1234
+        lis %r4, 0x1234
+        lis %r5, 0x1234
+        lis %r6, 0x1234
+        bl j1
+        lis %r3, 0xabcd
+        b j2
+      j1:
+        lis %r4, 0xabcd
+        mflr %r7
+        mtctr %r7
+        bctr
+        lis %r5, 0xdcba
+      j2:
+        lis %r6, 0xdcba
+    """
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6"])
+
+
 
 ##   ___                          ___ ___
 ##  / _ \ _ __ ___   ___ _ _     / __| _ \
