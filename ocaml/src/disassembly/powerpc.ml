@@ -729,8 +729,8 @@ struct
       | 0b010111 -> not_implemented s isn "rlwnm??"
       | 0b011000 -> decode_logic_imm s isn Or
       | 0b011001 -> decode_logic_imm_shifted s isn Or
-      | 0b011010 -> not_implemented s isn "xori"
-      | 0b011011 -> not_implemented s isn "xoris"
+      | 0b011010 -> decode_logic_imm s isn Xor
+      | 0b011011 -> decode_logic_imm_shifted s isn Xor
       | 0b011100 -> not_implemented s isn "andi."
       | 0b011101 -> not_implemented s isn "andis."
       | 0b011110 -> decode_011110 s isn (* rldicl?? rldicr?? rldic?? rldimi?? rldcl?? rldcr??*)
