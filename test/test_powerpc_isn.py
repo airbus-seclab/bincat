@@ -310,6 +310,27 @@ def test_branch_and_link2(tmpdir):
     compare(tmpdir, asm, ["r3"])
 
 
+##   ___                          ___ ___
+##  / _ \ _ __ ___   ___ _ _     / __| _ \
+## | (_) | '_ (_-<  / _ \ ' \   | (__|   /
+##  \___/| .__/__/  \___/_||_|   \___|_|_\
+##       |_|
+## Ops on CR
+
+
+CR_OPS = ["crand"]
+
+@pytest.mark.parametrize("op", CR_OPS)
+def test_cr_ops(tmpdir, op, op32l, op32h, op5, op5_, op5__):
+    asm = """
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        mtcrf 0xff, %r3
+        {op} {op5}, {op5_}, {op5__}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "cr"])
+
+
 ##  ___              _      _
 ## / __|_ __  ___ __(_)__ _| |
 ## \__ \ '_ \/ -_) _| / _` | |
