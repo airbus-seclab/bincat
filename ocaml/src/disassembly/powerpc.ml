@@ -539,14 +539,14 @@ struct
     | 0b0000011000 -> not_implemented s isn "slw??"
     | 0b0000011010 -> not_implemented s isn "cntlzw??"
     | 0b0000011011 -> not_implemented s isn "sld??"
-    | 0b0000011100 -> decode_logic s isn And
+    | 0b0000011100 -> decode_logic s isn And (* and *)
     | 0b0000100000 -> not_implemented s isn "cmpl"
     | 0b0000101000 | 0b1000101000 -> decode_sub s isn
     | 0b0000110101 -> not_implemented s isn "ldux"
     | 0b0000110110 -> not_implemented s isn "dcbst"
     | 0b0000110111 -> not_implemented s isn "lwzux"
     | 0b0000111010 -> not_implemented s isn "cntlzd??"
-    | 0b0000111100 -> decode_logic_complement s isn And
+    | 0b0000111100 -> decode_logic_complement s isn And (* andc *)
     | 0b0001000100 -> not_implemented s isn "td"
     | 0b0001001001 -> not_implemented s isn "mulhd??"
     | 0b0001001011 -> not_implemented s isn "mulhw??"
@@ -585,7 +585,7 @@ struct
     | 0b0100110010 -> not_implemented s isn "tlbie"
     | 0b0100110110 -> not_implemented s isn "eciwx"
     | 0b0100110111 -> not_implemented s isn "lhzux"
-    | 0b0100111100 -> decode_logic s isn Xor
+    | 0b0100111100 -> decode_logic s isn Xor (* xor *)
     | 0b0101010011 -> decode_mfspr s isn
     | 0b0101010101 -> not_implemented s isn "lwax"
     | 0b0101010111 -> not_implemented s isn "lhax"
@@ -594,12 +594,12 @@ struct
     | 0b0101110101 -> not_implemented s isn "lwaux"
     | 0b0101110111 -> not_implemented s isn "lhaux"
     | 0b0110010111 -> not_implemented s isn "sthx"
-    | 0b0110011100 -> decode_logic_complement s isn Or
+    | 0b0110011100 -> decode_logic_complement s isn Or (* orc *)
     | 0b1100111010 | 0b1100111011 -> not_implemented s isn "sradi??"
     | 0b0110110010 -> not_implemented s isn "slbie"
     | 0b0110110110 -> not_implemented s isn "ecowx"
     | 0b0110110111 -> not_implemented s isn "sthux"
-    | 0b0110111100 -> decode_logic s isn Or
+    | 0b0110111100 -> decode_logic s isn Or (* or *)
     | 0b0111001001 | 0b1111001001 -> not_implemented s isn "divdu??"
     | 0b0111001011 | 0b1111001011 -> not_implemented s isn "divwu??"
     | 0b0111010011 -> decode_mtspr s isn
@@ -735,12 +735,12 @@ struct
       | 0b010101 -> not_implemented s isn "rlwinm??"
 (*      | 0b010110 ->  *)
       | 0b010111 -> not_implemented s isn "rlwnm??"
-      | 0b011000 -> decode_logic_imm s isn Or
-      | 0b011001 -> decode_logic_imm_shifted s isn Or
-      | 0b011010 -> decode_logic_imm s isn Xor
-      | 0b011011 -> decode_logic_imm_shifted s isn Xor
-      | 0b011100 -> decode_logic_imm_dot s isn And
-      | 0b011101 -> decode_logic_imm_shifted_dot s isn And
+      | 0b011000 -> decode_logic_imm s isn Or              (* ori    *)
+      | 0b011001 -> decode_logic_imm_shifted s isn Or      (* oris   *)
+      | 0b011010 -> decode_logic_imm s isn Xor             (* xor    *)
+      | 0b011011 -> decode_logic_imm_shifted s isn Xor     (* xori   *)
+      | 0b011100 -> decode_logic_imm_dot s isn And         (* andi.  *)
+      | 0b011101 -> decode_logic_imm_shifted_dot s isn And (* andis. *)
       | 0b011110 -> decode_011110 s isn (* rldicl?? rldicr?? rldic?? rldimi?? rldcl?? rldcr??*)
       | 0b011111 -> decode_011111 s isn (* cmp rw subfc?? mulhdu?? addc?? mulhwu?? mfcr lwarx ldx lwzx slw?? cntlzw?? sld?? and?? cmpl subf?? ldux dcbst lwzux cntlzd??.... *)
       | 0b100000 -> not_implemented s isn "lwz"
