@@ -195,7 +195,7 @@ def test_compare_cmp(tmpdir, crfD, op32h, op32h_):
         lis %r3, 0
         mtcrf 0xff, %r3
         lis %r3, {so}
-        mtspr 1, %r3     ; so = 0 or 1
+        mtspr 1, %r3     # so = 0 or 1
         lis %r3, {op32h}
         lis %r4, {op32h_}
         cmp  cr{crfD}, %r3, %r4
@@ -314,7 +314,7 @@ def test_special_mtspr_xer(tmpdir, xerval, op8):
 def test_special_XERso_to_CRso(tmpdir):
     asm = """
         lis %r3, 0x8000
-        mtspr 1, %r3     ; so = 1
+        mtspr 1, %r3     # so = 1
         lis %r4, 0
         mtcrf 0xff,%r4
         lis %r5, 0
