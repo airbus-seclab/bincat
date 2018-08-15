@@ -173,6 +173,15 @@ def test_logic_with_flags(tmpdir, logic, op32h, op32l, op32h_, op32l_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
 
+@pytest.mark.parametrize("logic", ["ori"])
+def test_logic_imm(tmpdir, logic, op32h, op32l, op16):
+    asm = """
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        {logic} %r4, %r3, {op16}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4"])
+
 def test_logic_neg(tmpdir, op32h, op32l):
     asm = """
         lis %r3, {op32h}
