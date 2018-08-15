@@ -200,6 +200,20 @@ def test_logic_neg(tmpdir, op32h, op32l):
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov" ])
 
 
+@pytest.mark.parametrize("exp", range(33))
+def test_cntlzw(tmpdir, exp, op32h, op32l):
+    if exp <= 15:
+        op32l |= 2**exp
+    elif exp <= 31:
+        op32h |= 2**(exp-16)
+    asm = """
+        lis %r3, {op32h}
+        ori %r3, %r3, {op32l}
+        cntlzw. %r4, %r3
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
+
+
 ##   ___
 ##  / __|___ _ __  _ __  __ _ _ _ ___
 ## | (__/ _ \ '  \| '_ \/ _` | '_/ -_)
