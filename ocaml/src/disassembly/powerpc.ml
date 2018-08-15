@@ -363,7 +363,7 @@ struct
 
   let decode_logic _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
-    Set( vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA)
+    Set (vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA)
 
   let decode_logic_complement _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
