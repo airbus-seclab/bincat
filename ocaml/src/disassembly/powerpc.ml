@@ -421,6 +421,21 @@ struct
       else [] in
     isn_stmts @ xer_stmts @ (cr_flags_stmts rc rD)
 
+  let decode_addze _state isn =
+    let rD, rA, _, oe, rc = decode_XO_Form isn in
+    let xer_stmts =
+      if oe == 1 then [
+          Set(vt ov, TernOp (BBinOp(LogAnd,
+                                    Cmp (EQ, lvtreg rD, const 0x80000000 32),
+                                    Cmp (EQ, lvtreg rA, const 0x7fffffff 32)),
+                             const1 1, const0 1)) ;
+          Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
+        ]
+      else [] in
+    (add_with_carry_out (to33bits (lvtreg rA)) (to33bits (lvt ca)) rD)
+    @ xer_stmts
+    @ (cr_flags_stmts rc rD)
+
   let decode_sub _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
@@ -523,7 +538,7 @@ struct
     | 0b0010110101 -> not_implemented s isn "stdux"
     | 0b0010110111 -> not_implemented s isn "stwux"
     | 0b0011001000 | 0b1011001000 -> not_implemented s isn "subfze??"
-    | 0b0011001010 | 0b1011001010 -> not_implemented s isn "addze??"
+    | 0b0011001010 | 0b1011001010 -> decode_addze s isn
     | 0b0011010010 -> not_implemented s isn "mtsr"
     | 0b0011010110 -> not_implemented s isn "stdcx."
     | 0b0011010111 -> not_implemented s isn "stbx"
