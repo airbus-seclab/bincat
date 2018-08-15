@@ -150,21 +150,23 @@ struct
 
   let lvpreg n a b = Lval (V (P (reg n, a, b)))
 
+  let crbit x = vp cr x x
+
   (* Update CR[0] according to the latest result. Must be called after XER has been updated for CR[0].so to reflect XER.so *)
   let cr_flags_stmts rc rD =
     if rc == 1 then [
-        Set(vp cr 31 31, (* cr[0].lt *)
+        Set(crbit 31, (* cr[0].lt *)
             TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
                    const1 1, const0 1)) ;
-        Set(vp cr 30 30, (* cr[0].gt *)
+        Set(crbit 30, (* cr[0].gt *)
             TernOp(BBinOp (LogAnd,
                            Cmp (EQ, msb_reg (reg rD), const0 32),
                            Cmp (NEQ, lvtreg rD, const0 32)),
                    const1 1, const0 1)) ;
-        Set(vp cr 29 29, (* cr[0].eq *)
+        Set(crbit 29, (* cr[0].eq *)
             TernOp(Cmp (EQ, lvtreg rD, const0 32),
                    const1 1, const0 1)) ;
-        Set(vp cr 28 28, lvt so) ; (* cr[0].so *)
+        Set(crbit 28, lvt so) ; (* cr[0].so *)
       ]
     else []
 
@@ -268,7 +270,7 @@ struct
   let wrap_with_bi_bo_condition bi bo exprs =
     let dec_ctr = Set( vt ctr, BinOp(Sub, lvt ctr, const1 32)) in
     let cmp0_ctr cond = Cmp(cond, lvt ctr, const0 32) in
-    let cmpbi_cr cond = Cmp(cond, lvp cr bi bi, const 0 1) in
+    let cmpbi_cr cond = Cmp(cond, Lval (crbit bi), const 0 1) in
     match bo lsr 1 with
     | 0b0000 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr NEQ, cmpbi_cr EQ), exprs, []) ]
     | 0b0001 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr EQ, cmpbi_cr EQ), exprs, []) ]
@@ -347,15 +349,15 @@ struct
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     [
       Set (vt tmpreg, BinOp(Sub, to33bits_s (lvtreg rA), to33bits_s (lvtreg rB))) ;
-      Set (vp cr ltbit ltbit, TernOp (Cmp (NEQ, msb_reg tmpreg, const0 33),
+      Set (crbit ltbit, TernOp (Cmp (NEQ, msb_reg tmpreg, const0 33),
                                           const1 1, const0 1)) ;
-      Set (vp cr gtbit gtbit, TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 33),
+      Set (crbit gtbit, TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 33),
                                             Cmp(NEQ, lvt tmpreg, const0 33)),
                                                         const1 1, const0 1)) ;
-      Set (vp cr eqbit eqbit, TernOp (Cmp (EQ, lvtreg rA, lvtreg rB),
+      Set (crbit eqbit, TernOp (Cmp (EQ, lvtreg rA, lvtreg rB),
                                       const1 1, const0 1)) ;
 
-      Set (vp cr sobit sobit, lvt so) ;
+      Set (crbit sobit, lvt so) ;
       Directive (Remove tmpreg) ;
     ]
 
