@@ -283,11 +283,11 @@ struct
     | _ -> exprs
 
 
-  let decode_bclr state isn =
+  let decode_bclr_bcctr state isn lr_or_ctr=
     let bo, bi, _, lk = decode_XL_Form isn in
     let cia = Z.to_int (Address.to_int state.a) in
     let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let jump_expr = Jmp (R (lvt lr)) in
+    let jump_expr = Jmp (R (lvt lr_or_ctr)) in
     wrap_with_bi_bo_condition bi bo (jump_expr :: update_lr)
 
 
@@ -532,7 +532,7 @@ struct
   let decode_010011 s isn =
     match (isn lsr 1) land 0x3ff with
     | 0b0000000000-> not_implemented s isn "mcrf"
-    | 0b0000010000-> decode_bclr s isn
+    | 0b0000010000-> decode_bclr_bcctr s isn lr        (* bclr *)
     | 0b0000100001-> decode_cr_op_not s isn Or         (* crnor *)
     | 0b0000110010-> not_implemented s isn "rfi"
     | 0b0010000001-> decode_cr_op_complement s isn And (* crandc *)
@@ -543,7 +543,7 @@ struct
     | 0b0100100001-> decode_cr_op_not s isn Xor        (* creqv  *)
     | 0b0110100001-> decode_cr_op_complement s isn Or  (* crorc  *)
     | 0b0111000001-> decode_cr_op s isn Or             (* cror   *)
-    | 0b1000010000-> not_implemented s isn "bcctr??"
+    | 0b1000010000-> decode_bclr_bcctr s isn ctr       (* bcctr  *)
     | _ -> error s.a (Printf.sprintf "decode_010011: unknown opcode 0x%x" isn)
 
   let decode_011110 s isn =
