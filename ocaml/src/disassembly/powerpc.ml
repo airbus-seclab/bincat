@@ -365,6 +365,10 @@ struct
     let rS, rA, rB, rc = decode_X_Form isn in
     Set( vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA)
 
+  let decode_logic_complement _state isn op =
+    let rS, rA, rB, rc = decode_X_Form isn in
+    Set (vtreg rA, BinOp (op, lvtreg rS, UnOp(Not, lvtreg rB))) :: (cr_flags_stmts rc rA)
+
   let decode_ori _state isn =
     let rS, rA, uimm = decode_D_Form isn in
     [ Set (vtreg rA, BinOp(Or, lvtreg rS, const uimm 32) ) ]
@@ -531,7 +535,7 @@ struct
     | 0b0000110110 -> not_implemented s isn "dcbst"
     | 0b0000110111 -> not_implemented s isn "lwzux"
     | 0b0000111010 -> not_implemented s isn "cntlzd??"
-    | 0b0000111100 -> not_implemented s isn "andc??"
+    | 0b0000111100 -> decode_logic_complement s isn And
     | 0b0001000100 -> not_implemented s isn "td"
     | 0b0001001001 -> not_implemented s isn "mulhd??"
     | 0b0001001011 -> not_implemented s isn "mulhw??"
