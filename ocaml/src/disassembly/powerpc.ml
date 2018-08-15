@@ -490,6 +490,12 @@ struct
     let rD, rA, _, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Add, UnOp(Not, lvtreg rA), const1 32)) :: ((xer_flags_stmts_neg oe rA) @ (cr_flags_stmts rc rD))
 
+  (* CR operations *)
+
+  let decode_cr_op _state isn op =
+    let crD, crA, crB, _ = decode_XL_Form isn in
+    [ Set (crbit (31-crD), BinOp (op, Lval (crbit (31-crA)), Lval (crbit (31-crB)))) ]
+
   (* Decoding and switching *)
 
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
@@ -524,7 +530,7 @@ struct
     | 0b0010010110-> not_implemented s isn "isync"
     | 0b0011000001-> not_implemented s isn "crxor"
     | 0b0011100001-> not_implemented s isn "crnand"
-    | 0b0100000001-> not_implemented s isn "crand"
+    | 0b0100000001-> decode_cr_op s isn And
     | 0b0100100001-> not_implemented s isn "creqv"
     | 0b0110100001-> not_implemented s isn "crorc"
     | 0b0111000001-> not_implemented s isn "cror"
