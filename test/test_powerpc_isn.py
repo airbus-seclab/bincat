@@ -162,7 +162,7 @@ def test_arith_addmeo_addzeo_dot(tmpdir, op, xer, op32h, op32l):
 ##           |___/
 ## Logic
 
-@pytest.mark.parametrize("logic", ["or", "xor", "and"])
+@pytest.mark.parametrize("logic", ["or", "xor", "and", "andc"])
 def test_logic_with_flags(tmpdir, logic, op32h, op32l, op32h_, op32l_):
     asm = """
         lis %r3, {op32h}
