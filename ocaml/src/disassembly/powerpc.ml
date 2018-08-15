@@ -377,6 +377,14 @@ struct
     let rS, rA, uimm = decode_D_Form isn in
     [ Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) ]
 
+  let decode_logic_imm_dot _state isn op =
+    let rS, rA, uimm = decode_D_Form isn in
+    Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32)) :: (cr_flags_stmts 1 rA)
+
+  let decode_logic_imm_shifted_dot _state isn op =
+    let rS, rA, uimm = decode_D_Form isn in
+    Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) :: (cr_flags_stmts 1 rA)
+
   (* arithmetics *)
 
   let decode_addis _state isn =
@@ -731,8 +739,8 @@ struct
       | 0b011001 -> decode_logic_imm_shifted s isn Or
       | 0b011010 -> decode_logic_imm s isn Xor
       | 0b011011 -> decode_logic_imm_shifted s isn Xor
-      | 0b011100 -> not_implemented s isn "andi."
-      | 0b011101 -> not_implemented s isn "andis."
+      | 0b011100 -> decode_logic_imm_dot s isn And
+      | 0b011101 -> decode_logic_imm_shifted_dot s isn And
       | 0b011110 -> decode_011110 s isn (* rldicl?? rldicr?? rldic?? rldimi?? rldcl?? rldcr??*)
       | 0b011111 -> decode_011111 s isn (* cmp rw subfc?? mulhdu?? addc?? mulhwu?? mfcr lwarx ldx lwzx slw?? cntlzw?? sld?? and?? cmpl subf?? ldux dcbst lwzux cntlzd??.... *)
       | 0b100000 -> not_implemented s isn "lwz"
