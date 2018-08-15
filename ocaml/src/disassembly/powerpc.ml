@@ -249,6 +249,9 @@ struct
 
   (* Operation decoders *)
 
+
+  (* Branching *)
+
   let decode_branch state isn =
     let li = isn land 0x03fffffc in
     let aa = (isn lsr 1) land 1 in
@@ -284,6 +287,9 @@ struct
     let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
     let jump_expr = Jmp (R (lvt lr)) in
     wrap_with_bi_bo_condition bi bo (jump_expr :: update_lr)
+
+
+  (* special *)
 
   let decode_mfspr state isn =
     let rD, sprn = decode_XFX_Form isn in
@@ -329,6 +335,9 @@ struct
       done;
       !stmts
 
+
+  (* compare *)
+
   let decode_cmp _state isn =
     let crfD, rA, rB, _ = decode_X_Form isn in
     let ltbit = 31-crfD in
@@ -350,6 +359,8 @@ struct
       Directive (Remove tmpreg) ;
     ]
 
+  (* logic *)
+
   let decode_logic _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
     Set( vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA)
@@ -357,6 +368,9 @@ struct
   let decode_ori _state isn =
     let rS, rA, uimm = decode_D_Form isn in
     [ Set (vtreg rA, BinOp(Or, lvtreg rS, const uimm 32) ) ]
+
+
+  (* arithmetics *)
 
   let decode_addis _state isn =
     let rD, rA, simm = decode_D_Form isn in
