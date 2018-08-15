@@ -373,6 +373,9 @@ struct
     let rS, rA, uimm = decode_D_Form isn in
     [ Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32) ) ]
 
+  let decode_logic_imm_shifted _state isn op =
+    let rS, rA, uimm = decode_D_Form isn in
+    [ Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) ]
 
   (* arithmetics *)
 
@@ -725,7 +728,7 @@ struct
 (*      | 0b010110 ->  *)
       | 0b010111 -> not_implemented s isn "rlwnm??"
       | 0b011000 -> decode_logic_imm s isn Or
-      | 0b011001 -> not_implemented s isn "oris"
+      | 0b011001 -> decode_logic_imm_shifted s isn Or
       | 0b011010 -> not_implemented s isn "xori"
       | 0b011011 -> not_implemented s isn "xoris"
       | 0b011100 -> not_implemented s isn "andi."
