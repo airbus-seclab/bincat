@@ -583,7 +583,7 @@ struct
     | 0b0101110101 -> not_implemented s isn "lwaux"
     | 0b0101110111 -> not_implemented s isn "lhaux"
     | 0b0110010111 -> not_implemented s isn "sthx"
-    | 0b0110011100 -> not_implemented s isn "orc??"
+    | 0b0110011100 -> decode_logic_complement s isn Or
     | 0b1100111010 | 0b1100111011 -> not_implemented s isn "sradi??"
     | 0b0110110010 -> not_implemented s isn "slbie"
     | 0b0110110110 -> not_implemented s isn "ecowx"
