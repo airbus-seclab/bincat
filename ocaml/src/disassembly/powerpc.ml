@@ -369,9 +369,9 @@ struct
     let rS, rA, rB, rc = decode_X_Form isn in
     Set (vtreg rA, BinOp (op, lvtreg rS, UnOp(Not, lvtreg rB))) :: (cr_flags_stmts rc rA)
 
-  let decode_ori _state isn =
+  let decode_logic_imm _state isn op =
     let rS, rA, uimm = decode_D_Form isn in
-    [ Set (vtreg rA, BinOp(Or, lvtreg rS, const uimm 32) ) ]
+    [ Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32) ) ]
 
 
   (* arithmetics *)
@@ -724,7 +724,7 @@ struct
       | 0b010101 -> not_implemented s isn "rlwinm??"
 (*      | 0b010110 ->  *)
       | 0b010111 -> not_implemented s isn "rlwnm??"
-      | 0b011000 -> decode_ori s isn
+      | 0b011000 -> decode_logic_imm s isn Or
       | 0b011001 -> not_implemented s isn "oris"
       | 0b011010 -> not_implemented s isn "xori"
       | 0b011011 -> not_implemented s isn "xoris"
