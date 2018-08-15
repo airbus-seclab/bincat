@@ -318,7 +318,8 @@ def test_branch_and_link2(tmpdir):
 ## Ops on CR
 
 
-CR_OPS = ["crand", "crandc"]
+CR_OPS = ["crand", "crandc", "creqv", "crnand",
+          "crnor", "cror", "crorc", "crxor"]
 
 @pytest.mark.parametrize("op", CR_OPS)
 def test_cr_ops(tmpdir, op, op32l, op32h, op5, op5_, op5__):

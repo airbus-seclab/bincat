@@ -500,6 +500,11 @@ struct
     let crD, crA, crB, _ = decode_XL_Form isn in
     [ Set (crbit (31-crD), BinOp (op, Lval (crbit (31-crA)), UnOp(Not, Lval (crbit (31-crB))))) ]
 
+  let decode_cr_op_not _state isn op =
+    let crD, crA, crB, _ = decode_XL_Form isn in
+    [ Set (crbit (31-crD), UnOp(Not, BinOp (op, Lval (crbit (31-crA)), Lval (crbit (31-crB))))) ]
+
+
   (* Decoding and switching *)
 
   let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
@@ -528,16 +533,16 @@ struct
     match (isn lsr 1) land 0x3ff with
     | 0b0000000000-> not_implemented s isn "mcrf"
     | 0b0000010000-> decode_bclr s isn
-    | 0b0000100001-> not_implemented s isn "crnor"
+    | 0b0000100001-> decode_cr_op_not s isn Or         (* crnor *)
     | 0b0000110010-> not_implemented s isn "rfi"
-    | 0b0010000001-> decode_cr_op_complement s isn And
+    | 0b0010000001-> decode_cr_op_complement s isn And (* crandc *)
     | 0b0010010110-> not_implemented s isn "isync"
-    | 0b0011000001-> not_implemented s isn "crxor"
-    | 0b0011100001-> not_implemented s isn "crnand"
-    | 0b0100000001-> decode_cr_op s isn And
-    | 0b0100100001-> not_implemented s isn "creqv"
-    | 0b0110100001-> not_implemented s isn "crorc"
-    | 0b0111000001-> not_implemented s isn "cror"
+    | 0b0011000001-> decode_cr_op s isn Xor            (* crxor  *)
+    | 0b0011100001-> decode_cr_op_not s isn And        (* crnand *)
+    | 0b0100000001-> decode_cr_op s isn And            (* crand  *)
+    | 0b0100100001-> decode_cr_op_not s isn Xor        (* creqv  *)
+    | 0b0110100001-> decode_cr_op_complement s isn Or  (* crorc  *)
+    | 0b0111000001-> decode_cr_op s isn Or             (* cror   *)
     | 0b1000010000-> not_implemented s isn "bcctr??"
     | _ -> error s.a (Printf.sprintf "decode_010011: unknown opcode 0x%x" isn)
 
