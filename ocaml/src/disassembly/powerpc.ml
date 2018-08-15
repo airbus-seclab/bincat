@@ -384,38 +384,32 @@ struct
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
 
-  let decode_addc _state isn =
-    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+
+  let add_with_carry_out expA expB rD =
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     [
-      Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), to33bits (lvtreg rB))) ;
+      Set (vt tmpreg, BinOp(Add, expA, expB)) ;
       Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
       Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg 32 32, const1 1),
                           const1 1, const0 1)) ;
       Directive (Remove tmpreg) ;
-    ] @ (xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD)
+    ]
+
+  let decode_addc _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    (add_with_carry_out (to33bits (lvtreg rA)) (to33bits (lvtreg rB)) rD)
+    @ (xer_flags_stmts_add oe rA rB rD) 
+    @ (cr_flags_stmts rc rD)
 
   let decode_adde _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    [
-      Set (vt tmpreg, BinOp(Add, BinOp(Add, to33bits (lvtreg rA), to33bits (lvtreg rB)), to33bits (lvt ca))) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
-      Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg 32 32, const1 1),
-                          const1 1, const0 1)) ;
-      Directive (Remove tmpreg) ;
-    ] @ (xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD)
+    (add_with_carry_out (BinOp(Add, to33bits (lvtreg rA), to33bits (lvtreg rB))) (to33bits (lvt ca)) rD)
+    @ (xer_flags_stmts_add oe rA rB rD)
+    @ (cr_flags_stmts rc rD)
 
   let decode_addme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    let isn_stmts = [
-      Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), BinOp(Add, const 0xffffffff 33, to33bits (lvt ca)))) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
-      Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg 32 32, const1 1),
-                          const1 1, const0 1)) ;
-      Directive (Remove tmpreg) ;
-      ] in
+    let isn_stmts = add_with_carry_out (to33bits (lvtreg rA)) (BinOp (Add, const 0xffffffff 33, to33bits (lvt ca))) rD in
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
