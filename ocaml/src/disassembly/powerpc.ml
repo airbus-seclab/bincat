@@ -385,6 +385,21 @@ struct
     let rS, rA, uimm = decode_D_Form isn in
     Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) :: (cr_flags_stmts 1 rA)
 
+  let decode_cntlzw _state isn =
+    let rS, rA, _, rc = decode_X_Form isn in
+    let zero x y = Cmp (EQ, lvpreg rS x y, const0 (y-x+1)) in
+    let rec check_zero a b n =
+      if a == b then
+        TernOp (zero a b, const (n+1) 32, const n 32)
+      else
+        let mid = (a+b+1)/2 in
+        TernOp (zero mid b,
+                check_zero a (mid-1) (n+b-mid+1),
+                if mid == b
+                then const n 32
+                else check_zero mid b n) in
+    Set (vtreg rA, check_zero 0 31 0) :: (cr_flags_stmts rc rA)
+
   (* arithmetics *)
 
   let decode_addis _state isn =
@@ -537,7 +552,7 @@ struct
     | 0b0000010101 -> not_implemented s isn "ld??"
     | 0b0000010111 -> not_implemented s isn "lwzx"
     | 0b0000011000 -> not_implemented s isn "slw??"
-    | 0b0000011010 -> not_implemented s isn "cntlzw??"
+    | 0b0000011010 -> decode_cntlzw s isn
     | 0b0000011011 -> not_implemented s isn "sld??"
     | 0b0000011100 -> decode_logic s isn And (* and *)
     | 0b0000100000 -> not_implemented s isn "cmpl"
