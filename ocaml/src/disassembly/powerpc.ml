@@ -254,19 +254,6 @@ struct
 
   (* Branching *)
 
-  let decode_branch state isn =
-    let li = isn land 0x03fffffc in
-    let aa = (isn lsr 1) land 1 in
-    let lk = isn land 1 in
-    let signext_li = if li land 0x02000000 == 0 then li else li lor 0xfc000000 in
-    let cia = Z.to_int (Address.to_int state.a) in
-    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    L.debug2(fun p -> p "branch cia=%08x li=%08x signext_li=%08x sum=%08x" cia li signext_li (cia+signext_li));
-    let jump = if aa == 1
-               then [ Jmp (R (const signext_li 32)) ]
-               else [ Jmp (R (const ((cia+signext_li) land 0xffffffff) 32)) ] in
-    update_lr @ jump
-
   let wrap_with_bi_bo_condition bi bo exprs =
     let dec_ctr = Set( vt ctr, BinOp(Sub, lvt ctr, const1 32)) in
     let cmp0_ctr cond = Cmp(cond, lvt ctr, const0 32) in
@@ -282,13 +269,24 @@ struct
     | 0b1001 | 0b1101 -> [ dec_ctr ; If (cmp0_ctr EQ, exprs, []) ]
     | _ -> exprs
 
+  let decode_branch state isn =
+    let li = isn land 0x03fffffc in
+    let aa = (isn lsr 1) land 1 in
+    let lk = isn land 1 in
+    let signext_li = if li land 0x02000000 == 0 then li else li lor 0xfc000000 in
+    let cia = Z.to_int (Address.to_int state.a) in
+    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
+    let jump = if aa == 1
+               then [ Jmp (R (const signext_li 32)) ]
+               else [ Jmp (R (const ((cia+signext_li) land 0xffffffff) 32)) ] in
+    update_lr @ jump
 
   let decode_bclr_bcctr state isn lr_or_ctr=
     let bo, bi, _, lk = decode_XL_Form isn in
     let cia = Z.to_int (Address.to_int state.a) in
     let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let jump_expr = Jmp (R (lvt lr_or_ctr)) in
-    wrap_with_bi_bo_condition bi bo (jump_expr :: update_lr)
+    let jump = Jmp (R (lvt lr_or_ctr)) in
+    wrap_with_bi_bo_condition bi bo (jump :: update_lr)
 
 
   (* special *)
