@@ -356,42 +356,28 @@ struct
 
   (* compare *)
 
-  let decode_cmp _state isn =
-    let crfD, rA, rB, _ = decode_X_Form isn in
-    let ltbit = 31-crfD in
-    let gtbit = 30-crfD in
-    let eqbit = 29-crfD in
-    let sobit = 28-crfD in
+  let compare_arithmetical crfD exprA exprB =
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     [
-      Set (vt tmpreg, BinOp(Sub, to33bits_s (lvtreg rA), to33bits_s (lvtreg rB))) ;
-      Set (crbit ltbit, TernOp (Cmp (NEQ, msb_reg tmpreg, const0 33),
-                                          const1 1, const0 1)) ;
-      Set (crbit gtbit, TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 33),
-                                            Cmp(NEQ, lvt tmpreg, const0 33)),
-                                                        const1 1, const0 1)) ;
-      Set (crbit eqbit, TernOp (Cmp (EQ, lvtreg rA, lvtreg rB),
-                                      const1 1, const0 1)) ;
-
-      Set (crbit sobit, lvt so) ;
-      Directive (Remove tmpreg) ;
-    ]
-
-  let decode_cmpi _state isn =
-    let crfD, rA, simm = decode_D_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    [
-      Set (vt tmpreg, BinOp(Sub, to33bits_s (lvtreg rA), to33bits_s (sconst simm 16 32))) ;
+      Set (vt tmpreg, BinOp(Sub, to33bits_s exprA, to33bits_s exprB)) ;
       Set (crbit (31-crfD), TernOp (Cmp (NEQ, msb_reg tmpreg, const0 33),
                                           const1 1, const0 1)) ;
       Set (crbit (30-crfD), TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 33),
                                             Cmp(NEQ, lvt tmpreg, const0 33)),
                                                         const1 1, const0 1)) ;
-      Set (crbit (29-crfD), TernOp (Cmp (EQ, lvtreg rA, sconst simm 16 32),
+      Set (crbit (29-crfD), TernOp (Cmp (EQ, exprA, exprB),
                                       const1 1, const0 1)) ;
       Set (crbit (28-crfD), lvt so) ;
       Directive (Remove tmpreg) ;
     ]
+
+  let decode_cmp _state isn =
+    let crfD, rA, rB, _ = decode_X_Form isn in
+    compare_arithmetical crfD (lvtreg rA) (lvtreg rB)
+
+  let decode_cmpi _state isn =
+    let crfD, rA, simm = decode_D_Form isn in
+    compare_arithmetical crfD (lvtreg rA) (sconst simm 16 32)
 
   let compare_logical crfD exprA exprB =
     [
