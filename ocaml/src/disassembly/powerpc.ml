@@ -270,7 +270,7 @@ struct
   let wrap_with_bi_bo_condition bi bo exprs =
     let dec_ctr = Set( vt ctr, BinOp(Sub, lvt ctr, const1 32)) in
     let cmp0_ctr cond = Cmp(cond, lvt ctr, const0 32) in
-    let cmpbi_cr cond = Cmp(cond, Lval (crbit bi), const 0 1) in
+    let cmpbi_cr cond = Cmp(cond, Lval (crbit (31-bi)), const 0 1) in
     match bo lsr 1 with
     | 0b0000 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr NEQ, cmpbi_cr EQ), exprs, []) ]
     | 0b0001 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr EQ, cmpbi_cr EQ), exprs, []) ]
