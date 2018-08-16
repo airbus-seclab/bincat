@@ -386,6 +386,15 @@ struct
       Set (crbit (28-crfD), lvt so) ;
     ]
 
+  let decode_cmpli _state isn =
+    let crfD, rA, uimm = decode_D_Form isn in
+    [
+      Set (crbit (31-crfD), TernOp (Cmp (LT, lvtreg rA, const uimm 32), const1 1, const0 1)) ;
+      Set (crbit (30-crfD), TernOp (Cmp (GT, lvtreg rA, const uimm 32), const1 1, const0 1)) ;
+      Set (crbit (29-crfD), TernOp (Cmp (EQ, lvtreg rA, const uimm 32), const1 1, const0 1)) ;
+      Set (crbit (28-crfD), lvt so) ;
+    ]
+
   (* logic *)
 
   let decode_logic _state isn op =
@@ -778,7 +787,7 @@ struct
       | 0b000111 -> not_implemented s isn "mulli"
       | 0b001000 -> not_implemented s isn "subfic"
 (*      | 0b001001 ->  *)
-      | 0b001010 -> not_implemented s isn "cmpli"
+      | 0b001010 -> decode_cmpli s isn
       | 0b001011 -> not_implemented s isn "cmpi"
       | 0b001100 -> decode_addic s isn 0 (* addic  *)
       | 0b001101 -> decode_addic s isn 1 (* addic. *)
