@@ -533,6 +533,22 @@ struct
     Set (vtreg rA, UnOp(SignExt 32, lvpreg rS 0 15)) :: (cr_flags_stmts rc rA)
 
 
+  (* Load and Store *)
+
+    let decode_stw _state isn =
+      let rS, rA, d = decode_D_Form isn in
+      let signexp_d = sconst d 16 32 in
+      let ea = if rA == 0 then signexp_d
+               else BinOp (Add, lvtreg rA, signexp_d) in
+      [ Set (M (ea, 32), lvtreg rS)  ]
+
+    let decode_lwz _state isn =
+      let rD, rA, d = decode_D_Form isn in
+      let signexp_d = sconst d 16 32 in
+      let ea = if rA == 0 then signexp_d
+               else BinOp (Add, lvtreg rA, signexp_d) in
+      [ Set (vtreg rD, Lval (M (ea, 32))) ]
+
   (* CR operations *)
 
   let decode_cr_op _state isn op =
@@ -818,11 +834,11 @@ struct
       | 0b011101 -> decode_logic_imm_shifted_dot s isn And (* andis. *)
       | 0b011110 -> decode_011110 s isn (* rldicl?? rldicr?? rldic?? rldimi?? rldcl?? rldcr??*)
       | 0b011111 -> decode_011111 s isn (* cmp rw subfc?? mulhdu?? addc?? mulhwu?? mfcr lwarx ldx lwzx slw?? cntlzw?? sld?? and?? cmpl subf?? ldux dcbst lwzux cntlzd??.... *)
-      | 0b100000 -> not_implemented s isn "lwz"
+      | 0b100000 -> decode_lwz s isn
       | 0b100001 -> not_implemented s isn "lwzu"
       | 0b100010 -> not_implemented s isn "lbz"
       | 0b100011 -> not_implemented s isn "lbzu"
-      | 0b100100 -> not_implemented s isn "stw"
+      | 0b100100 -> decode_stw s isn
       | 0b100101 -> not_implemented s isn "stwu"
       | 0b100110 -> not_implemented s isn "stb"
       | 0b100111 -> not_implemented s isn "stbu"
