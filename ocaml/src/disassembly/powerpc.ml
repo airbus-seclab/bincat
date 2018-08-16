@@ -289,6 +289,16 @@ struct
                else [ Jmp (R (const ((cia+signext_li) land 0xffffffff) 32)) ] in
     update_lr @ jump
 
+  let decode_branch_condition state isn=
+    let bo, bi, bd, aa, lk = decode_B_Form isn in
+    let signext_bd = if bd land 0x2000 == 0 then (bd lsl 2) else (bd lsl 2) lor 0xffff0000 in
+    let cia = Z.to_int (Address.to_int state.a) in
+    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
+    let jump = if aa == 1
+               then Jmp (R (const signext_bd 32))
+               else Jmp (R (const ((cia+signext_bd) land 0xffffffff) 32)) in
+    wrap_with_bi_bo_condition bi bo (jump :: update_lr)
+
   let decode_bclr_bcctr state isn lr_or_ctr=
     let bo, bi, _, lk = decode_XL_Form isn in
     let cia = Z.to_int (Address.to_int state.a) in
@@ -765,7 +775,7 @@ struct
       | 0b001101 -> decode_addic s isn 1 (* addic. *)
       | 0b001110 -> decode_addi s isn
       | 0b001111 -> decode_addis s isn
-      | 0b010000 -> not_implemented s isn "bc??"
+      | 0b010000 -> decode_branch_condition s isn (* bc bca bcl bcla *)
       | 0b010001 -> not_implemented s isn "sc"
       | 0b010010 -> decode_branch s isn
       | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
