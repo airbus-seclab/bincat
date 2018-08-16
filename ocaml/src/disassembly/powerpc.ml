@@ -524,6 +524,11 @@ struct
     let rD, rA, _, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Add, UnOp(Not, lvtreg rA), const1 32)) :: ((xer_flags_stmts_neg oe rA) @ (cr_flags_stmts rc rD))
 
+  let decode_extsb _state isn =
+    let rS, rA, _, rc = decode_X_Form isn in
+    Set (vtreg rA, UnOp(SignExt 32, lvpreg rS 0 7)) :: (cr_flags_stmts rc rA)
+
+
   (* CR operations *)
 
   let decode_cr_op _state isn op =
@@ -702,7 +707,7 @@ struct
     | 0b1101010110 -> not_implemented s isn "eieio"
     | 0b1110010110 -> not_implemented s isn "sthbrx"
     | 0b1110011010 -> not_implemented s isn "extsh??"
-    | 0b1110111010 -> not_implemented s isn "extsb??"
+    | 0b1110111010 -> decode_extsb s isn
     | 0b1111010110 -> not_implemented s isn "icbi"
     | 0b1111010111 -> not_implemented s isn "stfiwx"
     | 0b1111011010 -> not_implemented s isn "extsw"
