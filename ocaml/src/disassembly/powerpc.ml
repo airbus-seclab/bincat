@@ -528,6 +528,10 @@ struct
     let rS, rA, _, rc = decode_X_Form isn in
     Set (vtreg rA, UnOp(SignExt 32, lvpreg rS 0 7)) :: (cr_flags_stmts rc rA)
 
+  let decode_extsh _state isn =
+    let rS, rA, _, rc = decode_X_Form isn in
+    Set (vtreg rA, UnOp(SignExt 32, lvpreg rS 0 15)) :: (cr_flags_stmts rc rA)
+
 
   (* CR operations *)
 
@@ -706,7 +710,7 @@ struct
     | 0b1100111000 -> not_implemented s isn "srawi??"
     | 0b1101010110 -> not_implemented s isn "eieio"
     | 0b1110010110 -> not_implemented s isn "sthbrx"
-    | 0b1110011010 -> not_implemented s isn "extsh??"
+    | 0b1110011010 -> decode_extsh s isn
     | 0b1110111010 -> decode_extsb s isn
     | 0b1111010110 -> not_implemented s isn "icbi"
     | 0b1111010111 -> not_implemented s isn "stfiwx"
