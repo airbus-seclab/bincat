@@ -647,7 +647,7 @@ struct
     | 0b0100001010 | 0b1100001010 ->  decode_add s isn
     | 0b0100010110 -> not_implemented s isn "dcbt"
     | 0b0100010111 -> not_implemented s isn "lhzx"
-    | 0b0100011100 -> not_implemented s isn "eqv??"
+    | 0b0100011100 -> decode_logic_complement s isn Xor (* "eqv??" *)
     | 0b0100110010 -> not_implemented s isn "tlbie"
     | 0b0100110110 -> not_implemented s isn "eciwx"
     | 0b0100110111 -> not_implemented s isn "lhzux"
