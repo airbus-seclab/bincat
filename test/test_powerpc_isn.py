@@ -159,6 +159,13 @@ def test_arith_extsb(tmpdir, op8):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
+def test_arith_extsh(tmpdir, op16_s):
+    asm = """
+        li %r3, {op16_s}
+        extsh. %r4, %r3
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
+
 
 ##  _              _
 ## | |   ___  __ _(_)__
