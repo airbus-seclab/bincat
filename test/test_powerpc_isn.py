@@ -342,6 +342,38 @@ def test_branch_bcctr_bclr(tmpdir, op, cr7, bit, cond, ctr):
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6"])
 
 
+@pytest.mark.parametrize("cr7", range(16))
+@pytest.mark.parametrize("cond", [ 0x00,       0x02,       0x04, 0x05, 0x06, 0x07,
+                                   0x08,       0x0a,       0x0c, 0x0d, 0x0e, 0x0f,
+                                   0x10, 0x11, 0x12, 0x13, 0x14,
+                                   0x18, 0x19, 0x0a, 0x1b,                         ])
+@pytest.mark.parametrize("bit", ["gt", "lt", "eq", "so"])
+def test_branch_cond(tmpdir, cr7, bit, cond):
+    asm = """
+        li %r3, {cr7}
+        mtcrf 0xff, %r3
+        lis %r3, 0x1234
+        lis %r4, 0x1234
+        lis %r5, 0x1234
+        bc {cond}, 4*cr7+{bit}, j1
+        lis %r3, 0xabcd
+        b j2
+      j1:
+        lis %r4, 0xabcd
+      j2:
+        lis %r5, 0xabcd
+        b j3
+      j4:
+        lis %r6, 0xabcd
+        b j5
+      j3:
+        bc {cond}, 4*cr7+{bit}, j4
+        lis %r7,0xabcd
+      j5:
+        lis %r8, 0xabcd
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7", "r8", "cr"])
+
 
 ##   ___                          ___ ___
 ##  / _ \ _ __ ___   ___ _ _     / __| _ \
