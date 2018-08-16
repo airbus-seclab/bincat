@@ -221,8 +221,9 @@ def test_cntlzw(tmpdir, exp, op32h, op32l):
 ##                |_|
 ## Compare
 
+@pytest.mark.parametrize("op", ["cmp", "cmpl"])
 @pytest.mark.parametrize("crfD", range(8))
-def test_compare_cmp(tmpdir, crfD, op32h, op32h_):
+def test_compare_cmp_cmpl(tmpdir, op, crfD, op32h, op32h_):
     so = op32h & 0x8000
     asm = """
         lis %r3, 0
@@ -231,7 +232,7 @@ def test_compare_cmp(tmpdir, crfD, op32h, op32h_):
         mtspr 1, %r3     # so = 0 or 1
         lis %r3, {op32h}
         lis %r4, {op32h_}
-        cmp  cr{crfD}, %r3, %r4
+        {op}  cr{crfD}, %r3, %r4
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr"])
 
