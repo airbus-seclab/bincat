@@ -377,6 +377,15 @@ struct
       Directive (Remove tmpreg) ;
     ]
 
+  let decode_cmpl _state isn =
+    let crfD, rA, rB, _ = decode_X_Form isn in
+    [
+      Set (crbit (31-crfD), TernOp (Cmp (LT, lvtreg rA, lvtreg rB), const1 1, const0 1)) ;
+      Set (crbit (30-crfD), TernOp (Cmp (GT, lvtreg rA, lvtreg rB), const1 1, const0 1)) ;
+      Set (crbit (29-crfD), TernOp (Cmp (EQ, lvtreg rA, lvtreg rB), const1 1, const0 1)) ;
+      Set (crbit (28-crfD), lvt so) ;
+    ]
+
   (* logic *)
 
   let decode_logic _state isn op =
@@ -588,7 +597,7 @@ struct
     | 0b0000011010 -> decode_cntlzw s isn
     | 0b0000011011 -> not_implemented s isn "sld??"
     | 0b0000011100 -> decode_logic s isn And (* and *)
-    | 0b0000100000 -> not_implemented s isn "cmpl"
+    | 0b0000100000 -> decode_cmpl s isn
     | 0b0000101000 | 0b1000101000 -> decode_sub s isn
     | 0b0000110101 -> not_implemented s isn "ldux"
     | 0b0000110110 -> not_implemented s isn "dcbst"
