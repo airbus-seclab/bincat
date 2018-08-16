@@ -377,6 +377,22 @@ struct
       Directive (Remove tmpreg) ;
     ]
 
+  let decode_cmpi _state isn =
+    let crfD, rA, simm = decode_D_Form isn in
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    [
+      Set (vt tmpreg, BinOp(Sub, to33bits_s (lvtreg rA), to33bits_s (sconst simm 16 32))) ;
+      Set (crbit (31-crfD), TernOp (Cmp (NEQ, msb_reg tmpreg, const0 33),
+                                          const1 1, const0 1)) ;
+      Set (crbit (30-crfD), TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 33),
+                                            Cmp(NEQ, lvt tmpreg, const0 33)),
+                                                        const1 1, const0 1)) ;
+      Set (crbit (29-crfD), TernOp (Cmp (EQ, lvtreg rA, sconst simm 16 32),
+                                      const1 1, const0 1)) ;
+      Set (crbit (28-crfD), lvt so) ;
+      Directive (Remove tmpreg) ;
+    ]
+
   let decode_cmpl _state isn =
     let crfD, rA, rB, _ = decode_X_Form isn in
     [
@@ -788,7 +804,7 @@ struct
       | 0b001000 -> not_implemented s isn "subfic"
 (*      | 0b001001 ->  *)
       | 0b001010 -> decode_cmpli s isn
-      | 0b001011 -> not_implemented s isn "cmpi"
+      | 0b001011 -> decode_cmpi s isn
       | 0b001100 -> decode_addic s isn 0 (* addic  *)
       | 0b001101 -> decode_addic s isn 1 (* addic. *)
       | 0b001110 -> decode_addi s isn
