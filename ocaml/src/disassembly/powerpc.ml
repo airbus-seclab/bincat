@@ -393,23 +393,21 @@ struct
       Directive (Remove tmpreg) ;
     ]
 
-  let decode_cmpl _state isn =
-    let crfD, rA, rB, _ = decode_X_Form isn in
+  let compare_logical crfD exprA exprB =
     [
-      Set (crbit (31-crfD), TernOp (Cmp (LT, lvtreg rA, lvtreg rB), const1 1, const0 1)) ;
-      Set (crbit (30-crfD), TernOp (Cmp (GT, lvtreg rA, lvtreg rB), const1 1, const0 1)) ;
-      Set (crbit (29-crfD), TernOp (Cmp (EQ, lvtreg rA, lvtreg rB), const1 1, const0 1)) ;
+      Set (crbit (31-crfD), TernOp (Cmp (LT, exprA, exprB), const1 1, const0 1)) ;
+      Set (crbit (30-crfD), TernOp (Cmp (GT, exprA, exprB), const1 1, const0 1)) ;
+      Set (crbit (29-crfD), TernOp (Cmp (EQ, exprA, exprB), const1 1, const0 1)) ;
       Set (crbit (28-crfD), lvt so) ;
     ]
 
+  let decode_cmpl _state isn =
+    let crfD, rA, rB, _ = decode_X_Form isn in
+    compare_logical crfD (lvtreg rA) (lvtreg rB)
+
   let decode_cmpli _state isn =
     let crfD, rA, uimm = decode_D_Form isn in
-    [
-      Set (crbit (31-crfD), TernOp (Cmp (LT, lvtreg rA, const uimm 32), const1 1, const0 1)) ;
-      Set (crbit (30-crfD), TernOp (Cmp (GT, lvtreg rA, const uimm 32), const1 1, const0 1)) ;
-      Set (crbit (29-crfD), TernOp (Cmp (EQ, lvtreg rA, const uimm 32), const1 1, const0 1)) ;
-      Set (crbit (28-crfD), lvt so) ;
-    ]
+    compare_logical crfD (lvtreg rA) (const uimm 32)
 
   (* logic *)
 
