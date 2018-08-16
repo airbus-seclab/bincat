@@ -152,7 +152,12 @@ def test_arith_addmeo_addzeo_dot(tmpdir, op, xer, op32h, op32l):
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov", "ca" ])
 
 
-
+def test_arith_extsb(tmpdir, op8):
+    asm = """
+        li %r3, {op8}
+        extsb. %r4, %r3
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
 
 ##  _              _
