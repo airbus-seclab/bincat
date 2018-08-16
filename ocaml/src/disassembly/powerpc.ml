@@ -216,6 +216,14 @@ struct
 
   (* PPC Forms decoding *)
 
+  let decode_B_Form isn =
+    let bo = (isn lsr 21) land 0x1f in
+    let bi = (isn lsr 16) land 0x1f in
+    let bd = (isn lsr 2) land 0x3fff in
+    let aa = (isn lsr 1) land 1 in
+    let lk = isn land 1 in
+    bo, bi, bd, aa, lk
+
   let decode_D_Form isn =
     let op1 = (isn lsr 21) land 0x1f in
     let op2 = (isn lsr 16) land 0x1f in
