@@ -18,3 +18,7 @@ eggloader_armv8: eggloader_armv8.c
 libc.no: libc.c
 	c2newspeak --typed-npk -o $@ $<
 
+clean:
+	rm -f eggloader_x86 eggloader_armv7 eggloader_armv7thumb eggloader_armv8 libc.no
+
+.PHONY: clean
