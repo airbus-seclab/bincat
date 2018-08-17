@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
                 "mflr %r3\n"
                 "stwu %r3, -4(%r1)\n"   // save lr
                 "mr %r30, %r1\n"        // save sp in r30 in case it gets mangled by a test
+                "li %r3, 0x1000\n"
+                "subf %r1, %r3, %r1\n"  // prepare 4096 bytes of scratch memory in the stack
                 );
         (*egg)();
         asm volatile(
