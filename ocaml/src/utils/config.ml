@@ -62,6 +62,11 @@ type endianness_t =
   | LITTLE
   | BIG
 
+let endianness_to_string e =
+  match e with
+  | LITTLE -> "little endian"
+  | BIG -> "big endian"
+
 let endianness = ref LITTLE;;
 
 type mode_t =
