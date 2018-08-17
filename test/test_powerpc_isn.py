@@ -426,8 +426,10 @@ def  test_lwz_stw(tmpdir):
         ori %r3, %r3, 0xabcd
         stw %r3, 4(%r1)
         lwz %r4, 4(%r1)
+        lhz %r5, 4(%r1)
+        lbz %r6, 4(%r1)
     """
-    compare(tmpdir, asm, ["r3", "r4"])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6"])
 
 ##   ___                          ___ ___
 ##  / _ \ _ __ ___   ___ _ _     / __| _ \
