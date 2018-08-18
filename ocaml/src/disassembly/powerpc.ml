@@ -448,6 +448,14 @@ struct
                 else check_zero mid b n) in
     Set (vtreg rA, check_zero 0 31 0) :: (cr_flags_stmts rc rA)
 
+  let build_mask mb me =
+    let mask =
+      if mb <= me then
+       (1 lsl (32-mb))-(1 lsl (31-me))
+      else
+        0xffffffff-(1 lsl (31-me))+(1 lsl (32-mb)) in
+    const mask 32
+
   let decode_rlwimi _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
     let tmpreg = Register.make (Register.fresh_name ()) 32 in
@@ -462,6 +470,14 @@ struct
           Set (vpreg rA (31-me) 31, lvp tmpreg (31-me) 31) ] in
     let remove = [ Directive (Remove tmpreg) ] in
     rot @ stmts @ remove @ (cr_flags_stmts rc rA)
+
+  let decode_rlwinm _state isn =
+    let rS, rA, sh, mb, me, rc = decode_M_Form isn in
+    Set (vtreg rA, BinOp (And, build_mask mb me,
+                          BinOp (Or,
+                                 BinOp(Shl, lvtreg rS, const sh 32),
+                                 BinOp(Shr, lvtreg rS, const (32-sh) 32))) )
+    :: (cr_flags_stmts rc rA)
 
 
   (* arithmetics *)
@@ -898,7 +914,7 @@ struct
       | 0b010010 -> decode_branch s isn
       | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
       | 0b010100 -> decode_rlwimi s isn
-      | 0b010101 -> not_implemented s isn "rlwinm??"
+      | 0b010101 -> decode_rlwinm s isn
 (*      | 0b010110 ->  *)
       | 0b010111 -> not_implemented s isn "rlwnm??"
       | 0b011000 -> decode_logic_imm s isn Or              (* ori    *)
