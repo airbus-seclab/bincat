@@ -463,6 +463,55 @@ def test_load_indexed(tmpdir, op, val):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7"])
 
+@pytest.mark.parametrize("op", ["stb", "stbu", "sth", "sthu", "stw", "stwu" ])
+@pytest.mark.parametrize("val", [0, 1, 0x7f, 0x80, 0x7fff, 0x8000, 0x7fffffff, 0x80000000, 0xffffffff])
+def test_store(tmpdir, op, val):
+    valh = val >> 16
+    vall = val & 0xffff
+    asm = """
+        lis %r3, 0x5555
+        ori %r3, %r3, 0x5555
+        stw %r3, 12(%r1)
+        stw %r3, -16(%r1)
+        lis %r3, {valh}
+        ori %r3, %r3, {vall}
+        mr %r4, %r1
+        mr %r6, %r1
+        {op} %r3, 12(%r4)
+        {op} %r3, -16(%r6)
+        subf %r4, %r4, %r1
+        subf %r6, %r6, %r1
+        lwz %r5, 12(%r1)
+        lwz %r7, -16(%r1)
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7"])
+
+@pytest.mark.parametrize("op", ["stbux", "stbx", "sthbrx", "sthux",
+                                "sthx", "stwbrx", "stwux", "stwx"])
+@pytest.mark.parametrize("val", [0, 1, 0x7f, 0x80, 0x7fff, 0x8000, 0x7fffffff, 0x80000000, 0xffffffff])
+def test_store_indexed(tmpdir, op, val):
+    valh = val >> 16
+    vall = val & 0xffff
+    asm = """
+        lis %r3, 0x5555
+        ori %r3, %r3, 0x5555
+        stw %r3, 12(%r1)
+        stw %r3, -16(%r1)
+        lis %r3, {valh}
+        ori %r3, %r3, {vall}
+        li %r8, 12
+        li %r9, -16
+        mr %r4, %r1
+        mr %r6, %r1
+        {op} %r3, %r4, %r8
+        {op} %r3, %r6, %r9
+        subf %r4, %r4, %r1
+        subf %r6, %r6, %r1
+        lwz %r5, 12(%r1)
+        lwz %r7, -16(%r1)
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7"])
+
 ##   ___                          ___ ___
 ##  / _ \ _ __ ___   ___ _ _     / __| _ \
 ## | (_) | '_ (_-<  / _ \ ' \   | (__|   /
