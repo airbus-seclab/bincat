@@ -209,6 +209,9 @@ struct
   let not_implemented s isn isn_name =
     L.abort (fun p -> p "at %s: instruction %s not implemented yet (isn=%08x)" (Address.to_string s.a) isn_name isn)
 
+  let not_implemented_64bits s isn isn_name =
+    L.abort (fun p -> p "at %s: instruction %s is 64-bit only (isn=%08x)" (Address.to_string s.a) isn_name isn)
+
   (* split field decoding *)
 
   let decode_split_field x =
@@ -637,12 +640,12 @@ struct
 
   let decode_011110 s isn =
     match (isn lsr 1) land 0xf with
-    | 0b0000 | 0b0001 -> not_implemented s isn "rldicl??"
-    | 0b0010 | 0b0011 -> not_implemented s isn "rldicr??"
-    | 0b0100 | 0b0101 -> not_implemented s isn "rldic??"
-    | 0b0110 | 0b0111 -> not_implemented s isn "rldimi??"
-    | 0b1000 -> not_implemented s isn "rldcl??"
-    | 0b1001 -> not_implemented s isn "rldcr??"
+    | 0b0000 | 0b0001 -> not_implemented_64bits s isn "rldicl??"
+    | 0b0010 | 0b0011 -> not_implemented_64bits s isn "rldicr??"
+    | 0b0100 | 0b0101 -> not_implemented_64bits s isn "rldic??"
+    | 0b0110 | 0b0111 -> not_implemented_64bits s isn "rldimi??"
+    | 0b1000 -> not_implemented_64bits s isn "rldcl??"
+    | 0b1001 -> not_implemented_64bits s isn "rldcr??"
     | _ -> error s.a (Printf.sprintf "decode_011110: unknown opcode 0x%x" isn)
 
   let decode_011111 s isn =
@@ -650,29 +653,29 @@ struct
     | 0b0000000000 -> decode_cmp s isn
     | 0b0000000100 -> not_implemented s isn "tw"
     | 0b0000001000 | 0b1000001000 -> not_implemented s isn "subfc??"
-    | 0b0000001001 -> not_implemented s isn "mulhdu??"
+    | 0b0000001001 -> not_implemented_64bits s isn "mulhdu??"
     | 0b0000001010 | 0b1000001010 -> decode_addc s isn
     | 0b0000001011 -> not_implemented s isn "mulhwu??"
     | 0b0000010011 -> not_implemented s isn "mfcr"
     | 0b0000010100 -> not_implemented s isn "lwarx"
-    | 0b0000010101 -> not_implemented s isn "ld??"
+    | 0b0000010101 -> not_implemented_64bits s isn "ld??"
     | 0b0000010111 -> decode_load s isn ~sz:32 ~update:false ~indexed:true ()  (* lwzx *)
     | 0b0000011000 -> not_implemented s isn "slw??"
     | 0b0000011010 -> decode_cntlzw s isn
-    | 0b0000011011 -> not_implemented s isn "sld??"
+    | 0b0000011011 -> not_implemented_64bits s isn "sld??"
     | 0b0000011100 -> decode_logic s isn And (* and *)
     | 0b0000100000 -> decode_cmpl s isn
     | 0b0000101000 | 0b1000101000 -> decode_sub s isn
-    | 0b0000110101 -> not_implemented s isn "ldux"
+    | 0b0000110101 -> not_implemented_64bits s isn "ldux"
     | 0b0000110110 -> not_implemented s isn "dcbst"
     | 0b0000110111 -> decode_load s isn ~sz:32 ~update:true ~indexed:true ()  (* lwzux *)
-    | 0b0000111010 -> not_implemented s isn "cntlzd??"
+    | 0b0000111010 -> not_implemented_64bits s isn "cntlzd??"
     | 0b0000111100 -> decode_logic_complement s isn And (* andc *)
-    | 0b0001000100 -> not_implemented s isn "td"
-    | 0b0001001001 -> not_implemented s isn "mulhd??"
+    | 0b0001000100 -> not_implemented_64bits s isn "td"
+    | 0b0001001001 -> not_implemented_64bits s isn "mulhd??"
     | 0b0001001011 -> not_implemented s isn "mulhw??"
     | 0b0001010011 -> not_implemented s isn "mfmsr"
-    | 0b0001010100 -> not_implemented s isn "ldarx"
+    | 0b0001010100 -> not_implemented_64bits s isn "ldarx"
     | 0b0001010110 -> not_implemented s isn "dcbf"
     | 0b0001010111 -> decode_load s isn ~sz:8 ~update:false ~indexed:true ()  (* lbzx *)
     | 0b0001101000 | 0b1001101000 -> decode_neg s isn
@@ -682,18 +685,18 @@ struct
     | 0b0010001010 | 0b1010001010 -> decode_adde s isn
     | 0b0010010000 -> decode_mtcrf s isn
     | 0b0010010010 -> not_implemented s isn "mtmsr"
-    | 0b0010010101 -> not_implemented s isn "stdx"
+    | 0b0010010101 -> not_implemented_64bits s isn "stdx"
     | 0b0010010110 -> not_implemented s isn "stwcx."
     | 0b0010010111 -> not_implemented s isn "stwx"
-    | 0b0010110101 -> not_implemented s isn "stdux"
+    | 0b0010110101 -> not_implemented_64bits s isn "stdux"
     | 0b0010110111 -> not_implemented s isn "stwux"
     | 0b0011001000 | 0b1011001000 -> not_implemented s isn "subfze??"
     | 0b0011001010 | 0b1011001010 -> decode_addze s isn
     | 0b0011010010 -> not_implemented s isn "mtsr"
-    | 0b0011010110 -> not_implemented s isn "stdcx."
+    | 0b0011010110 -> not_implemented_64bits s isn "stdcx."
     | 0b0011010111 -> not_implemented s isn "stbx"
     | 0b0011101000 | 0b1011101000 -> not_implemented s isn "subfme??"
-    | 0b0011101001 | 0b1011101001 -> not_implemented s isn "mulld"
+    | 0b0011101001 | 0b1011101001 -> not_implemented_64bits s isn "mulld"
     | 0b0011101010 | 0b1011101010 -> decode_addme s isn
     | 0b0011101011 | 0b1011101011 -> not_implemented s isn "mullw??"
     | 0b0011110010 -> not_implemented s isn "mtsrin"
@@ -708,33 +711,33 @@ struct
     | 0b0100110111 -> decode_load s isn ~sz:16 ~update:true ~indexed:true ()  (* lhzux *)
     | 0b0100111100 -> decode_logic s isn Xor (* xor *)
     | 0b0101010011 -> decode_mfspr s isn
-    | 0b0101010101 -> not_implemented s isn "lwax"
+    | 0b0101010101 -> not_implemented_64bits s isn "lwax"
     | 0b0101010111 -> decode_load s isn ~sz:16 ~update:false ~indexed:true ~algebraic:true ()  (* lhax *)
     | 0b0101110010 -> not_implemented s isn "tlbia"
     | 0b0101110011 -> not_implemented s isn "mftb"
-    | 0b0101110101 -> not_implemented s isn "lwaux"
+    | 0b0101110101 -> not_implemented_64bits s isn "lwaux"
     | 0b0101110111 -> decode_load s isn ~sz:16 ~update:true ~indexed:true ~algebraic:true ()  (* lhaux *)
     | 0b0110010111 -> not_implemented s isn "sthx"
     | 0b0110011100 -> decode_logic_complement s isn Or (* orc *)
-    | 0b1100111010 | 0b1100111011 -> not_implemented s isn "sradi??"
-    | 0b0110110010 -> not_implemented s isn "slbie"
+    | 0b1100111010 | 0b1100111011 -> not_implemented_64bits s isn "sradi??"
+    | 0b0110110010 -> not_implemented_64bits s isn "slbie"
     | 0b0110110110 -> not_implemented s isn "ecowx"
     | 0b0110110111 -> not_implemented s isn "sthux"
     | 0b0110111100 -> decode_logic s isn Or (* or *)
-    | 0b0111001001 | 0b1111001001 -> not_implemented s isn "divdu??"
+    | 0b0111001001 | 0b1111001001 -> not_implemented_64bits s isn "divdu??"
     | 0b0111001011 | 0b1111001011 -> not_implemented s isn "divwu??"
     | 0b0111010011 -> decode_mtspr s isn
     | 0b0111010110 -> not_implemented s isn "dcbi"
     | 0b0111011100 -> not_implemented s isn "nand??"
-    | 0b0111101001 | 0b1111101001 -> not_implemented s isn "divd??"
+    | 0b0111101001 | 0b1111101001 -> not_implemented_64bits s isn "divd??"
     | 0b0111101011 | 0b1111101011 -> not_implemented s isn "divw??"
-    | 0b0111110010 -> not_implemented s isn "slbia"
+    | 0b0111110010 -> not_implemented_64bits s isn "slbia"
     | 0b1000000000 -> not_implemented s isn "mcrxr"
     | 0b1000010101 -> not_implemented s isn "lswx"
     | 0b1000010110 -> decode_load s isn ~sz:32 ~update:false ~indexed:true ~reversed:true ()  (* lwbrx *)
     | 0b1000010111 -> not_implemented s isn "lfsx"
     | 0b1000011000 -> not_implemented s isn "srw??"
-    | 0b1000011011 -> not_implemented s isn "srd??"
+    | 0b1000011011 -> not_implemented_64bits s isn "srd??"
     | 0b1000110110 -> not_implemented s isn "tlbsync"
     | 0b1000110111 -> not_implemented s isn "lfsu??"
     | 0b1001010011 -> not_implemented s isn "mfsr"
@@ -752,7 +755,7 @@ struct
     | 0b1011110111 -> not_implemented s isn "stfdux"
     | 0b1100010110 -> decode_load s isn ~sz:16 ~update:false ~indexed:true ~reversed:true ()  (* lhbrx *)
     | 0b1100011000 -> not_implemented s isn "sraw??"
-    | 0b1100011010 -> not_implemented s isn "srad??"
+    | 0b1100011010 -> not_implemented_64bits s isn "srad??"
     | 0b1100111000 -> not_implemented s isn "srawi??"
     | 0b1101010110 -> not_implemented s isn "eieio"
     | 0b1110010110 -> not_implemented s isn "sthbrx"
@@ -760,15 +763,15 @@ struct
     | 0b1110111010 -> decode_extsb s isn
     | 0b1111010110 -> not_implemented s isn "icbi"
     | 0b1111010111 -> not_implemented s isn "stfiwx"
-    | 0b1111011010 -> not_implemented s isn "extsw"
+    | 0b1111011010 -> not_implemented_64bits s isn "extsw"
     | 0b1111110110 -> not_implemented s isn "dcbz"
     | _ -> error s.a (Printf.sprintf "decode_011111: unknown opcode 0x%x" isn)
 
   let decode_111010 s isn =
     match isn land 0x3 with
-    | 0b00 -> not_implemented s isn "ld"
-    | 0b01 -> not_implemented s isn "ldu"
-    | 0b10 -> not_implemented s isn "lwa"
+    | 0b00 -> not_implemented_64bits s isn "ld"
+    | 0b01 -> not_implemented_64bits s isn "ldu"
+    | 0b10 -> not_implemented_64bits s isn "lwa"
     | _ -> error s.a (Printf.sprintf "decode_111010: unknown opcode 0x%x" isn)
 
   let decode_111011 s isn =
@@ -787,8 +790,8 @@ struct
 
   let decode_111110 s isn =
     match isn land 0x3 with
-    | 0b00 -> not_implemented s isn "std"
-    | 0b01 -> not_implemented s isn "stdu"
+    | 0b00 -> not_implemented_64bits s isn "std"
+    | 0b01 -> not_implemented_64bits s isn "stdu"
     | _ -> error s.a (Printf.sprintf "decode_111110: unknown opcode 0x%x" isn)
 
   let decode_111111 s isn =
@@ -821,9 +824,9 @@ struct
        | 0b0100001000 -> not_implemented s isn "fabs??"
        | 0b1001000111 -> not_implemented s isn "mffs??"
        | 0b1011000111 -> not_implemented s isn "mtfsf??"
-       | 0b1100101110 -> not_implemented s isn "fctid??"
-       | 0b1100101111 -> not_implemented s isn "fctidz??"
-       | 0b1101001110 -> not_implemented s isn "fcfid??"
+       | 0b1100101110 -> not_implemented_64bits s isn "fctid??"
+       | 0b1100101111 -> not_implemented_64bits s isn "fctidz??"
+       | 0b1101001110 -> not_implemented_64bits s isn "fcfid??"
        | _ -> error s.a (Printf.sprintf "decode_11111: unknown opcode 0x%x" isn)
 
 
@@ -834,7 +837,7 @@ struct
       | 0x60 -> []
 (*      | 0b000000 ->  *)
 (*      | 0b000001 ->  *)
-      | 0b000010 -> not_implemented s isn "tdi"
+      | 0b000010 -> not_implemented_64bits s isn "tdi"
       | 0b000011 -> not_implemented s isn "twi"
 (*      | 0b000100 -> *)
 (*      | 0b000101 -> *)
