@@ -575,12 +575,42 @@ struct
                                  reversed sz) in
     Set (vtreg rD, memval) :: update_stmts
 
-    let decode_stw _state isn =
-      let rS, rA, d = decode_D_Form isn in
-      let signexp_d = sconst d 16 32 in
-      let ea = if rA == 0 then signexp_d
-               else BinOp (Add, lvtreg rA, signexp_d) in
-      [ Set (M (ea, 32), lvtreg rS)  ]
+
+  let decode_store _state isn ?(reversed=false) ~indexed ~sz ~update () =
+    let rS, rA, ea =
+      if indexed then
+        begin
+          let rD, rA, rB, _ = decode_X_Form isn in
+          let ea = (if rA == 0 && not update then lvtreg rB
+                    else BinOp (Add, lvtreg rA, lvtreg rB)) in
+          (rD, rA, ea)
+        end
+      else
+        begin
+          let rS, rA, d = decode_D_Form isn in
+          let signexp_d = sconst d 16 32 in
+          let ea = (if rA == 0 && not update then signexp_d
+                    else BinOp (Add, lvtreg rA, signexp_d)) in
+          (rS, rA, ea)
+        end in
+    let update_stmts = if update then [ Set (vtreg rA, ea) ] else [] in
+    let regval = match reversed, sz with
+      | false, 32 -> lvtreg rS
+      | false,  _ -> lvpreg rS 0 (sz-1)
+      | true, 16 -> BinOp (Or,
+                           UnOp (ZeroExt 16, lvpreg rS 8 15),
+                           BinOp (Shl, UnOp(ZeroExt 16, lvpreg rS 0 7), const 8 16))
+      | true, 32 -> BinOp (Or,
+                           BinOp (Or,
+                                  UnOp (ZeroExt 32, lvpreg rS 24 31),
+                                  BinOp (Shl, UnOp (ZeroExt 32, lvpreg rS 16 23), const 8 32)),
+                           BinOp (Or,
+                                  BinOp (Shl, UnOp (ZeroExt 32, lvpreg rS 8 15), const 16 32),
+                                  BinOp (Shl, UnOp (ZeroExt 32, lvpreg rS 0 7), const 24 32)))
+      | _ -> L.abort (fun p -> p "internal error: unexpected decoding combination: reversed=%b sz=%i"
+                                 reversed sz) in
+    Set (M (ea, sz), regval) :: update_stmts
+
 
   (* CR operations *)
 
@@ -687,21 +717,21 @@ struct
     | 0b0010010010 -> not_implemented s isn "mtmsr"
     | 0b0010010101 -> not_implemented_64bits s isn "stdx"
     | 0b0010010110 -> not_implemented s isn "stwcx."
-    | 0b0010010111 -> not_implemented s isn "stwx"
+    | 0b0010010111 -> decode_store s isn ~sz:32 ~update:false ~indexed:true () (* stwx *)
     | 0b0010110101 -> not_implemented_64bits s isn "stdux"
-    | 0b0010110111 -> not_implemented s isn "stwux"
+    | 0b0010110111 -> decode_store s isn ~sz:32 ~update:true ~indexed:true () (* stwux *)
     | 0b0011001000 | 0b1011001000 -> not_implemented s isn "subfze??"
     | 0b0011001010 | 0b1011001010 -> decode_addze s isn
     | 0b0011010010 -> not_implemented s isn "mtsr"
     | 0b0011010110 -> not_implemented_64bits s isn "stdcx."
-    | 0b0011010111 -> not_implemented s isn "stbx"
+    | 0b0011010111 -> decode_store s isn ~sz:8 ~update:false ~indexed:true () (* stbx *)
     | 0b0011101000 | 0b1011101000 -> not_implemented s isn "subfme??"
     | 0b0011101001 | 0b1011101001 -> not_implemented_64bits s isn "mulld"
     | 0b0011101010 | 0b1011101010 -> decode_addme s isn
     | 0b0011101011 | 0b1011101011 -> not_implemented s isn "mullw??"
     | 0b0011110010 -> not_implemented s isn "mtsrin"
     | 0b0011110110 -> not_implemented s isn "dcbtst"
-    | 0b0011110111 -> not_implemented s isn "stbux"
+    | 0b0011110111 -> decode_store s isn ~sz:8 ~update:true ~indexed:true () (* stbux *)
     | 0b0100001010 | 0b1100001010 ->  decode_add s isn
     | 0b0100010110 -> not_implemented s isn "dcbt"
     | 0b0100010111 -> decode_load s isn ~sz:16 ~update:false ~indexed:true ()  (* lhzx *)
@@ -717,12 +747,12 @@ struct
     | 0b0101110011 -> not_implemented s isn "mftb"
     | 0b0101110101 -> not_implemented_64bits s isn "lwaux"
     | 0b0101110111 -> decode_load s isn ~sz:16 ~update:true ~indexed:true ~algebraic:true ()  (* lhaux *)
-    | 0b0110010111 -> not_implemented s isn "sthx"
+    | 0b0110010111 -> decode_store s isn ~sz:16 ~update:false ~indexed:true () (* sthx *)
     | 0b0110011100 -> decode_logic_complement s isn Or (* orc *)
     | 0b1100111010 | 0b1100111011 -> not_implemented_64bits s isn "sradi??"
     | 0b0110110010 -> not_implemented_64bits s isn "slbie"
     | 0b0110110110 -> not_implemented s isn "ecowx"
-    | 0b0110110111 -> not_implemented s isn "sthux"
+    | 0b0110110111 -> decode_store s isn ~sz:16 ~update:true ~indexed:true () (* sthux *)
     | 0b0110111100 -> decode_logic s isn Or (* or *)
     | 0b0111001001 | 0b1111001001 -> not_implemented_64bits s isn "divdu??"
     | 0b0111001011 | 0b1111001011 -> not_implemented s isn "divwu??"
@@ -747,7 +777,7 @@ struct
     | 0b1001110111 -> not_implemented s isn "lfdux"
     | 0b1010010011 -> not_implemented s isn "mfsrin"
     | 0b1010010101 -> not_implemented s isn "stswx"
-    | 0b1010010110 -> not_implemented s isn "stwbrx"
+    | 0b1010010110 -> decode_store s isn ~sz:32 ~update:false ~indexed:true ~reversed:true () (* stwbrx *)
     | 0b1010010111 -> not_implemented s isn "stfsx"
     | 0b1010110111 -> not_implemented s isn "stfsux"
     | 0b1011010101 -> not_implemented s isn "stswi"
@@ -758,7 +788,7 @@ struct
     | 0b1100011010 -> not_implemented_64bits s isn "srad??"
     | 0b1100111000 -> not_implemented s isn "srawi??"
     | 0b1101010110 -> not_implemented s isn "eieio"
-    | 0b1110010110 -> not_implemented s isn "sthbrx"
+    | 0b1110010110 -> decode_store s isn ~sz:16 ~update:false ~indexed:true ~reversed:true () (* sthbrx *)
     | 0b1110011010 -> decode_extsh s isn
     | 0b1110111010 -> decode_extsb s isn
     | 0b1111010110 -> not_implemented s isn "icbi"
@@ -871,16 +901,16 @@ struct
       | 0b100001 -> decode_load s isn ~sz:32 ~update:true ~indexed:false ()  (* lwzu *)
       | 0b100010 -> decode_load s isn ~sz:8 ~update:false ~indexed:false () (* lbz   *)
       | 0b100011 -> decode_load s isn ~sz:8 ~update:true  ~indexed:false () (* lbzu  *)
-      | 0b100100 -> decode_stw s isn
-      | 0b100101 -> not_implemented s isn "stwu"
-      | 0b100110 -> not_implemented s isn "stb"
-      | 0b100111 -> not_implemented s isn "stbu"
+      | 0b100100 -> decode_store s isn ~sz:32 ~update:false ~indexed:false () (* stw *)
+      | 0b100101 -> decode_store s isn ~sz:32 ~update:true ~indexed:false () (* stwu *)
+      | 0b100110 -> decode_store s isn ~sz:8  ~update:false ~indexed:false () (* stb *)
+      | 0b100111 -> decode_store s isn ~sz:8  ~update:true ~indexed:false () (* stbu *)
       | 0b101000 -> decode_load s isn ~sz:16 ~update:false ~indexed:false ()  (* lhz *)
       | 0b101001 -> decode_load s isn ~sz:16 ~update:true  ~indexed:false ()  (* lhzu *)
       | 0b101010 -> decode_load s isn ~sz:16 ~update:false ~indexed:false ~algebraic:true () (* lha  *)
       | 0b101011 -> decode_load s isn ~sz:16 ~update:true  ~indexed:false ~algebraic:true () (* lhau  *)
-      | 0b101100 -> not_implemented s isn "sth"
-      | 0b101101 -> not_implemented s isn "sthu"
+      | 0b101100 -> decode_store s isn ~sz:16 ~update:false ~indexed:false () (* sth *)
+      | 0b101101 -> decode_store s isn ~sz:16 ~update:true ~indexed:false () (* sthu *)
       | 0b101110 -> not_implemented s isn "lmw"
       | 0b101111 -> not_implemented s isn "stmw"
       | 0b110000 -> not_implemented s isn "lfs"
