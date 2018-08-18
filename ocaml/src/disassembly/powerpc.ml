@@ -479,6 +479,15 @@ struct
                                  BinOp(Shr, lvtreg rS, const (32-sh) 32))) )
     :: (cr_flags_stmts rc rA)
 
+  let decode_rlwnm _state isn =
+    let rS, rA, rB, mb, me, rc = decode_M_Form isn in
+    let lval_sh = BinOp(And, lvtreg rB, const 0x1f 32) in
+    let lval_msh = BinOp(Sub, const 32 32, lval_sh) in
+    Set (vtreg rA, BinOp (And, build_mask mb me,
+                          BinOp (Or,
+                                 BinOp(Shl, lvtreg rS, lval_sh),
+                                 BinOp(Shr, lvtreg rS, lval_msh))) )
+    :: (cr_flags_stmts rc rA)
 
   (* arithmetics *)
 
@@ -916,7 +925,7 @@ struct
       | 0b010100 -> decode_rlwimi s isn
       | 0b010101 -> decode_rlwinm s isn
 (*      | 0b010110 ->  *)
-      | 0b010111 -> not_implemented s isn "rlwnm??"
+      | 0b010111 -> decode_rlwnm s isn
       | 0b011000 -> decode_logic_imm s isn Or              (* ori    *)
       | 0b011001 -> decode_logic_imm_shifted s isn Or      (* oris   *)
       | 0b011010 -> decode_logic_imm s isn Xor             (* xor    *)
