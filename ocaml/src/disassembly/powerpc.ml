@@ -233,6 +233,15 @@ struct
     let imm = (isn land 0xffff) in
     op1, op2, imm
 
+  let decode_M_Form isn =
+    let rS = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rBsh = (isn lsr 11) land 0x1f in
+    let mb = (isn lsr 6) land 0x1f in
+    let me = (isn lsr 1) land 0x1f in
+    let rc = (isn land 1) in
+    rS, rA, rBsh, mb, me, rc
+
   let decode_X_Form isn =
     let rSD = (isn lsr 21) land 0x1f in
     let rA = (isn lsr 16) land 0x1f in
