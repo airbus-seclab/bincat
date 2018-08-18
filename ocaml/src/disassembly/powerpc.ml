@@ -538,23 +538,25 @@ struct
 
   (* Load and Store *)
 
-  let decode_load _state isn ?(reversed=false) ?(algebraic=false) ~indexed ~sz ~update () =
-    let rD, rA, ea =
-      if indexed then
-        begin
-          let rD, rA, rB, _ = decode_X_Form isn in
-          let ea = (if rA == 0 && not update then lvtreg rB
-                    else BinOp (Add, lvtreg rA, lvtreg rB)) in
-          (rD, rA, ea)
-        end
+  let decode_load_store_form isn indexed update =
+    if indexed then
+      begin
+        let rSD, rA, rB, _ = decode_X_Form isn in
+        let ea = (if rA == 0 && not update then lvtreg rB
+                  else BinOp (Add, lvtreg rA, lvtreg rB)) in
+        (rSD, rA, ea)
+      end
       else
         begin
-          let rD, rA, d = decode_D_Form isn in
+          let rSD, rA, d = decode_D_Form isn in
           let signexp_d = sconst d 16 32 in
           let ea = (if rA == 0 && not update then signexp_d
                     else BinOp (Add, lvtreg rA, signexp_d)) in
-          (rD, rA, ea)
-        end in
+          (rSD, rA, ea)
+        end
+
+  let decode_load _state isn ?(reversed=false) ?(algebraic=false) ~indexed ~sz ~update () =
+    let rD, rA, ea = decode_load_store_form isn indexed update in
     let update_stmts = if update then [ Set (vtreg rA, ea) ] else [] in
     let extmode = if algebraic then SignExt 32 else ZeroExt 32 in
     let eap n = BinOp (Add, ea, const n 32) in
@@ -577,22 +579,7 @@ struct
 
 
   let decode_store _state isn ?(reversed=false) ~indexed ~sz ~update () =
-    let rS, rA, ea =
-      if indexed then
-        begin
-          let rD, rA, rB, _ = decode_X_Form isn in
-          let ea = (if rA == 0 && not update then lvtreg rB
-                    else BinOp (Add, lvtreg rA, lvtreg rB)) in
-          (rD, rA, ea)
-        end
-      else
-        begin
-          let rS, rA, d = decode_D_Form isn in
-          let signexp_d = sconst d 16 32 in
-          let ea = (if rA == 0 && not update then signexp_d
-                    else BinOp (Add, lvtreg rA, signexp_d)) in
-          (rS, rA, ea)
-        end in
+    let rS, rA, ea = decode_load_store_form isn indexed update in
     let update_stmts = if update then [ Set (vtreg rA, ea) ] else [] in
     let regval = match reversed, sz with
       | false, 32 -> lvtreg rS
