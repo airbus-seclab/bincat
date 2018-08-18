@@ -696,7 +696,7 @@ struct
     | 0b0001010110 -> not_implemented s isn "dcbf"
     | 0b0001010111 -> decode_load s isn ~sz:8 ~update:false ~indexed:true ()  (* lbzx *)
     | 0b0001101000 | 0b1001101000 -> decode_neg s isn
-    | 0b0001110111 -> decode_load s isn ~sz:8 ~update:true  ~indexed:true ()  (* lbzux  *) 
+    | 0b0001110111 -> decode_load s isn ~sz:8 ~update:true  ~indexed:true ()  (* lbzux  *)
     | 0b0001111100 -> not_implemented s isn "nor??"
     | 0b0010001000 | 0b1010001000 -> not_implemented s isn "subfe??"
     | 0b0010001010 | 0b1010001010 -> decode_adde s isn
@@ -733,8 +733,8 @@ struct
     | 0b0101110010 -> not_implemented s isn "tlbia"
     | 0b0101110011 -> not_implemented s isn "mftb"
     | 0b0101110101 -> not_implemented_64bits s isn "lwaux"
-    | 0b0101110111 -> decode_load s isn ~sz:16 ~update:true ~indexed:true ~algebraic:true ()  (* lhaux *)
-    | 0b0110010111 -> decode_store s isn ~sz:16 ~update:false ~indexed:true () (* sthx *)
+    | 0b0101110111 -> decode_load  s isn ~sz:16 ~update:true  ~indexed:true ~algebraic:true ()  (* lhaux *)
+    | 0b0110010111 -> decode_store s isn ~sz:16 ~update:false ~indexed:true                 ()  (* sthx *)
     | 0b0110011100 -> decode_logic_complement s isn Or (* orc *)
     | 0b1100111010 | 0b1100111011 -> not_implemented_64bits s isn "sradi??"
     | 0b0110110010 -> not_implemented_64bits s isn "slbie"
@@ -884,20 +884,20 @@ struct
       | 0b011101 -> decode_logic_imm_shifted_dot s isn And (* andis. *)
       | 0b011110 -> decode_011110 s isn (* rldicl?? rldicr?? rldic?? rldimi?? rldcl?? rldcr??*)
       | 0b011111 -> decode_011111 s isn (* cmp rw subfc?? mulhdu?? addc?? mulhwu?? mfcr lwarx ldx lwzx slw?? cntlzw?? sld?? and?? cmpl subf?? ldux dcbst lwzux cntlzd??.... *)
-      | 0b100000 -> decode_load s isn ~sz:32 ~update:false ~indexed:false ()  (* lwz *)
-      | 0b100001 -> decode_load s isn ~sz:32 ~update:true ~indexed:false ()  (* lwzu *)
-      | 0b100010 -> decode_load s isn ~sz:8 ~update:false ~indexed:false () (* lbz   *)
-      | 0b100011 -> decode_load s isn ~sz:8 ~update:true  ~indexed:false () (* lbzu  *)
-      | 0b100100 -> decode_store s isn ~sz:32 ~update:false ~indexed:false () (* stw *)
-      | 0b100101 -> decode_store s isn ~sz:32 ~update:true ~indexed:false () (* stwu *)
-      | 0b100110 -> decode_store s isn ~sz:8  ~update:false ~indexed:false () (* stb *)
-      | 0b100111 -> decode_store s isn ~sz:8  ~update:true ~indexed:false () (* stbu *)
-      | 0b101000 -> decode_load s isn ~sz:16 ~update:false ~indexed:false ()  (* lhz *)
-      | 0b101001 -> decode_load s isn ~sz:16 ~update:true  ~indexed:false ()  (* lhzu *)
-      | 0b101010 -> decode_load s isn ~sz:16 ~update:false ~indexed:false ~algebraic:true () (* lha  *)
-      | 0b101011 -> decode_load s isn ~sz:16 ~update:true  ~indexed:false ~algebraic:true () (* lhau  *)
-      | 0b101100 -> decode_store s isn ~sz:16 ~update:false ~indexed:false () (* sth *)
-      | 0b101101 -> decode_store s isn ~sz:16 ~update:true ~indexed:false () (* sthu *)
+      | 0b100000 -> decode_load s isn  ~sz:32 ~update:false ~indexed:false                 ()  (* lwz   *)
+      | 0b100001 -> decode_load s isn  ~sz:32 ~update:true  ~indexed:false                 ()  (* lwzu  *)
+      | 0b100010 -> decode_load s isn  ~sz:8  ~update:false ~indexed:false                 ()  (* lbz   *)
+      | 0b100011 -> decode_load s isn  ~sz:8  ~update:true  ~indexed:false                 ()  (* lbzu  *)
+      | 0b100100 -> decode_store s isn ~sz:32 ~update:false ~indexed:false                 ()  (* stw   *)
+      | 0b100101 -> decode_store s isn ~sz:32 ~update:true  ~indexed:false                 ()  (* stwu  *)
+      | 0b100110 -> decode_store s isn ~sz:8  ~update:false ~indexed:false                 ()  (* stb   *)
+      | 0b100111 -> decode_store s isn ~sz:8  ~update:true  ~indexed:false                 ()  (* stbu  *)
+      | 0b101000 -> decode_load s isn  ~sz:16 ~update:false ~indexed:false                 ()  (* lhz   *)
+      | 0b101001 -> decode_load s isn  ~sz:16 ~update:true  ~indexed:false                 ()  (* lhzu  *)
+      | 0b101010 -> decode_load s isn  ~sz:16 ~update:false ~indexed:false ~algebraic:true ()  (* lha   *)
+      | 0b101011 -> decode_load s isn  ~sz:16 ~update:true  ~indexed:false ~algebraic:true ()  (* lhau  *)
+      | 0b101100 -> decode_store s isn ~sz:16 ~update:false ~indexed:false                 ()  (* sth   *)
+      | 0b101101 -> decode_store s isn ~sz:16 ~update:true  ~indexed:false                 ()  (* sthu  *)
       | 0b101110 -> not_implemented s isn "lmw"
       | 0b101111 -> not_implemented s isn "stmw"
       | 0b110000 -> not_implemented s isn "lfs"
