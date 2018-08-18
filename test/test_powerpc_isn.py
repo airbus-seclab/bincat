@@ -236,6 +236,15 @@ def test_logic_rlwimi_rlwinm_dot(tmpdir, op, op32, op32_, op5, op5_, op5__):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
+def test_logic_rlwnm_dot(tmpdir, op32, op32_, op5, op5_, op5__):
+    asm = """
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
+        li %r5, {op5}
+        rlwnm. %r4, %r3, %r5, {op5_}, {op5__}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
+
 
 ##   ___
 ##  / __|___ _ __  _ __  __ _ _ _ ___
