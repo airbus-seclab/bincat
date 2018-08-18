@@ -420,16 +420,48 @@ def test_branch_cond(tmpdir, cr7, bit, cond):
 ## |____\___/\__,_\__,_|  \__,_|_||_\__,_|  |___/\__\___/_| \___|
 ## Load and Store
 
-def  test_lwz_stw(tmpdir):
+
+@pytest.mark.parametrize("op", ["lbz", "lbzu", "lha", "lhau",
+                                "lhz", "lhzu", "lwz", "lwzu",])
+@pytest.mark.parametrize("val", [0, 1, 0x7f, 0x80, 0x7fff, 0x8000, 0x7fffffff, 0x80000000, 0xffffffff])
+def test_load(tmpdir, op, val):
+    valh = val >> 16
+    vall = val & 0xffff
     asm = """
-        lis %r3, 0x1234
-        ori %r3, %r3, 0xabcd
-        stw %r3, 4(%r1)
-        lwz %r4, 4(%r1)
-        lhz %r5, 4(%r1)
-        lbz %r6, 4(%r1)
-    """
-    compare(tmpdir, asm, ["r3", "r4", "r5", "r6"])
+        lis %r3, {valh}
+        ori %r3, %r3, {vall}
+        mr %r4, %r1
+        mr %r6, %r1
+        stw %r3, 12(%r1)
+        stw %r3, -16(%r1)
+        {op} %r5, 12(%r4)
+        {op} %r7, -16(%r6)
+        subf %r4, %r4, %r1
+        subf %r6, %r6, %r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7"])
+
+@pytest.mark.parametrize("op", ["lbzux", "lbzx", "lhaux", "lhax", "lhbrx",
+                                "lhzux", "lhzx", "lwbrx", "lwzux", "lwzx"])
+@pytest.mark.parametrize("val", [0, 1, 0x7f, 0x80, 0x7fff, 0x8000, 0x7fffffff, 0x80000000, 0xffffffff])
+def test_load_indexed(tmpdir, op, val):
+    valh = val >> 16
+    vall = val & 0xffff
+    asm = """
+        lis %r3, {valh}
+        ori %r3, %r3, {vall}
+        li %r8, 12
+        li %r9, -16
+        mr %r4, %r1
+        mr %r6, %r1
+        stw %r3, 12(%r1)
+        stw %r3, -16(%r1)
+        {op} %r5, %r4, %r8
+        {op} %r7, %r6, %r9
+        subf %r4, %r4, %r1
+        subf %r6, %r6, %r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7"])
 
 ##   ___                          ___ ___
 ##  / _ \ _ __ ___   ___ _ _     / __| _ \
