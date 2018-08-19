@@ -679,6 +679,19 @@ struct
                                  reversed sz) in
     Set (M (ea, sz), regval) :: update_stmts
 
+    let decode_lmw _state isn =
+      let rD, rA, d = decode_D_Form isn in
+      let sd = if d land 0x8000 == 0 then d else d lor 0xffff0000 in
+      let rec loadreg ea n =
+        if n == 32 then []
+        else
+          let tail = loadreg (ea+4) (n+1) in
+          if n != rA || n == 31 then
+            Set (vtreg n, Lval (M (BinOp(Add, lvtreg rA,
+                                         const (ea land 0xffffffff) 32), 32))) :: tail
+          else
+            tail in
+      loadreg sd rD
 
   (* CR operations *)
 
@@ -979,7 +992,7 @@ struct
       | 0b101011 -> decode_load s isn  ~sz:16 ~update:true  ~indexed:false ~algebraic:true ()  (* lhau  *)
       | 0b101100 -> decode_store s isn ~sz:16 ~update:false ~indexed:false                 ()  (* sth   *)
       | 0b101101 -> decode_store s isn ~sz:16 ~update:true  ~indexed:false                 ()  (* sthu  *)
-      | 0b101110 -> not_implemented s isn "lmw"
+      | 0b101110 -> decode_lmw s isn
       | 0b101111 -> not_implemented s isn "stmw"
       | 0b110000 -> not_implemented s isn "lfs"
       | 0b110001 -> not_implemented s isn "lfsu"
