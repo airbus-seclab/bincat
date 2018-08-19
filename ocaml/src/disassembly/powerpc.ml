@@ -585,6 +585,23 @@ struct
     let rS, rA, _, rc = decode_X_Form isn in
     Set (vtreg rA, UnOp(SignExt 32, lvpreg rS 0 15)) :: (cr_flags_stmts rc rA)
 
+  let decode_divw _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    let invalid_xer = if oe == 0 then []
+                      else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
+    let invalid_cr = if rc == 0 then []
+                     else [ Directive (Forget (vp cr 29 31)); Set (vp cr 28 28, const1 1) ] in
+    let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
+    [
+      If (BBinOp(LogOr,
+                 Cmp (EQ, lvtreg rB, const0 32),
+                 BBinOp(LogAnd,
+                        Cmp (EQ, lvtreg rA, const 0x80000000 32),
+                        Cmp (EQ, lvtreg rB, const 0xffffffff 32))),
+          Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
+          Set (vtreg rD, BinOp(IDiv, lvtreg rA, lvtreg rB)) ::
+            ((clear_ov oe) @ (cr_flags_stmts rc rD)))
+    ]
 
   (* Load and Store *)
 
@@ -797,7 +814,7 @@ struct
     | 0b0111010110 -> not_implemented s isn "dcbi"
     | 0b0111011100 -> not_implemented s isn "nand??"
     | 0b0111101001 | 0b1111101001 -> not_implemented_64bits s isn "divd??"
-    | 0b0111101011 | 0b1111101011 -> not_implemented s isn "divw??"
+    | 0b0111101011 | 0b1111101011 -> decode_divw s isn
     | 0b0111110010 -> not_implemented_64bits s isn "slbia"
     | 0b1000000000 -> not_implemented s isn "mcrxr"
     | 0b1000010101 -> not_implemented s isn "lswx"
