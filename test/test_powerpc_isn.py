@@ -572,6 +572,20 @@ def test_load_lmw(tmpdir):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r27", "r28", "r29", "r30", "r31"])
 
+def test_load_stmw(tmpdir):
+    asm = """
+        lis %r31, 0x3131
+        lis %r30, 0x3030
+        lis %r29, 0x2929
+        lis %r28, 0x2828
+        stmw %r28, -4(%r1)
+        lwz %r3, -4(%r1)
+        lwz %r4, 0(%r1)
+        lwz %r5, 4(%r1)
+        lwz %r6, 8(%r1)
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r28", "r29", "r30", "r31"])
+
 @pytest.mark.parametrize("op", range(1, 33))
 def test_load_lswi(tmpdir, op):
     asm = """
