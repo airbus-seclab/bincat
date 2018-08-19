@@ -7,6 +7,12 @@
 #include <sys/mman.h>
 #include <string.h>
 
+#define BACKUP_ZONE_ADDR 0x1000
+#define BACKUP_ZONE_ADDR_IN_HEX "\x10\x00"
+
+#define STR(s) _XSTRX_(s)
+#define _XSTRX_(s) #s
+
 int (*egg)();
 
 void usage(void)
@@ -23,14 +29,17 @@ int main(int argc, char *argv[])
         unsigned int reg[32];
         void *spsav;
         int i;
+        int *r1backup;
 
         char ret_to_main[] =
-                "\x7f\xc1\xf3\x78"  //     mr      r1,r30     ; restore sp
+                "\x80\x20" BACKUP_ZONE_ADDR_IN_HEX
+                                    //     lwz  r1, BACKUP_ZONE_ADDR(0) ; restore sp
+                "\x97\xc1\xff\xfc"  //     stwu    r30,-4(r1)           ; save r30 on stack
                 "\x7f\xc8\x02\xa6"  //     mflr    r30
-                "\x97\xc1\xff\xfc"  //     stwu    r30,-4(r1) ; save lr on stack
-                "\x83\xc1\x00\x04"  //     lwz     r30,4(r1)
-                "\x7f\xc8\x03\xa6"  //     mtlr    r30        ; restore old lr
-                "\x4e\x80\x00\x20"; //     blr                ; jump to "after:"
+                "\x97\xc1\xff\xfc"  //     stwu    r30,-4(r1)           ; save lr on stack
+                "\x83\xc1\x00\x08"  //     lwz     r30,8(r1)
+                "\x7f\xc8\x03\xa6"  //     mtlr    r30                  ; restore old lr
+                "\x4e\x80\x00\x20"; //     blr                          ; jump to "after:"
 
 
         if (argc != 2) usage();
@@ -42,9 +51,13 @@ int main(int argc, char *argv[])
         if (len == -1) { perror("lseek"); return -3; }
 
         egg = mmap(NULL, len+sizeof(ret_to_main)+sizeof(void *), PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
-        if (!egg) { perror("mmap"); return -4; }
+        if (!egg) { perror("mmap(egg)"); return -4; }
         memcpy(((char *)egg)+len, ret_to_main, sizeof(ret_to_main));
         spsav = egg+len+sizeof(ret_to_main)-1;
+
+        r1backup = mmap((void*)BACKUP_ZONE_ADDR, 4, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
+        if (!r1backup) { perror("mmap(backup zone)"); return -4; }
+
 
         asm volatile(
                 "bl after\n"
@@ -52,7 +65,7 @@ int main(int argc, char *argv[])
                 "stwu %r31, -4(%r1)\n"  // save r31
                 "mflr %r3\n"
                 "stwu %r3, -4(%r1)\n"   // save lr
-                "mr %r30, %r1\n"        // save sp in r30 in case it gets mangled by a test
+                "stw %r1," STR(BACKUP_ZONE_ADDR) "(0)\n" // save sp in backup zone
                 "li %r3, 0x1000\n"
                 "subf %r1, %r3, %r1\n"  // prepare 4096 bytes of scratch memory in the stack
                 );
@@ -60,14 +73,15 @@ int main(int argc, char *argv[])
         asm volatile(
                 "after:"
                 "bl before\n"
-                "stwu %%r31,-4(%%r1)\n"   // push r31
-                "lwz %%r31,12(%%r1)\n"    // restore old r31 because it is used to move regs to C variables
+                "lwz %%r30, 4(%%r1)\n"     // restore r30 value from test
+                "stwu %%r31,-4(%%r1)\n"   // push r31 from test
+                "lwz %%r31,16(%%r1)\n"    // restore old r31 because it is used to move regs to C variables
                 "stm %%r0, %[reg]\n"       // store r0 -> r31 to reg[]
-                "lwz %%r3, 4(%%r1)\n"     // get lr value from test
+                "lwz %%r3, 12(%%r1)\n"     // get lr value from test
                 "stw %%r3, %[lr]\n"
                 "lwz %%r3, 0(%%r1)\n"     // get r31 value from test
                 "stw %%r3, %[reg31]\n"
-                "addi %%r1, %%r1, 16\n"   // pop test's r31, eggloader's r31, eggloader's lr and test's lr
+                "addi %%r1, %%r1, 20\n"   // pop test's r31, eggloader's r31, eggloader's lr and test's lr
                 "mfcr %%r3\n"
                 "stw %%r3, %[cr]\n"
                 "mfspr %%r3, 1\n"         // read XER
