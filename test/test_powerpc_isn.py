@@ -180,6 +180,19 @@ def test_arith_divw(tmpdir, op32, op32_):
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov"],
             top_allowed = top)
 
+def test_arith_divwu(tmpdir, op32, op32_):
+    asm = """
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
+        lis %r4, {op32_}@h
+        ori %r4, %r4, {op32_}@l
+        divwuo. %r5, %r3, %r4
+    """.format(**locals())
+    invalid = op32_== 0
+    top = { "r5": 0xffffffff, "cr":0xe0000000 } if invalid else {}
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov"],
+            top_allowed = top)
+
 
 ##  _              _
 ## | |   ___  __ _(_)__
