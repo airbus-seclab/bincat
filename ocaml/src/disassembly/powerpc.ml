@@ -489,6 +489,14 @@ struct
                                  BinOp(Shr, lvtreg rS, lval_msh))) )
     :: (cr_flags_stmts rc rA)
 
+  let decode_slw _state isn =
+    let rS, rA, rB, rc = decode_X_Form isn in
+    If (Cmp (EQ, lvpreg rB 5 5, const0 1),
+        [ Set (vtreg rA, BinOp(Shl,lvtreg rS,
+                               UnOp(ZeroExt 32, lvpreg rB 0 4)))] ,
+        [ Set (vtreg rA, const0 32) ] ) :: (cr_flags_stmts rc rA)
+
+
   (* arithmetics *)
 
   let decode_addis _state isn =
@@ -804,7 +812,7 @@ struct
     | 0b0000010100 -> not_implemented s isn "lwarx"
     | 0b0000010101 -> not_implemented_64bits s isn "ld??"
     | 0b0000010111 -> decode_load s isn ~sz:32 ~update:false ~indexed:true ()  (* lwzx *)
-    | 0b0000011000 -> not_implemented s isn "slw??"
+    | 0b0000011000 -> decode_slw s isn
     | 0b0000011010 -> decode_cntlzw s isn
     | 0b0000011011 -> not_implemented_64bits s isn "sld??"
     | 0b0000011100 -> decode_logic s isn And (* and *)
