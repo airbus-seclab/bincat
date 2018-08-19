@@ -693,6 +693,25 @@ struct
             tail in
       loadreg sd rD
 
+    let decode_lswi _state isn =
+      let rD, rA, nb, _ = decode_X_Form isn in
+      let ea x = if rA == 0 then const x 32 else BinOp(Add, lvtreg rA, const x 32) in
+      let nb' = if nb == 0 then 32 else nb in
+      let loadreg = ref [] in
+      for n = 0 to nb'-1 do
+        let reg = (rD+(n/4)) mod 32 in
+        let pos = 24-8*(n mod 4) in
+        loadreg := Set (vpreg reg pos (pos+7), Lval (M (ea n, 8))) :: !loadreg
+      done;
+      if (nb' mod 4) != 0 then
+        begin
+          let pos = 31-8*(nb' mod 4) in
+          let reg = (rD+(nb'/4)) mod 32 in
+          loadreg := Set (vpreg reg 0 pos, const0 (pos+1)) :: !loadreg
+        end;
+      List.rev !loadreg
+
+
   (* CR operations *)
 
   let decode_cr_op _state isn op =
@@ -852,7 +871,7 @@ struct
     | 0b1000110110 -> not_implemented s isn "tlbsync"
     | 0b1000110111 -> not_implemented s isn "lfsu??"
     | 0b1001010011 -> not_implemented s isn "mfsr"
-    | 0b1001010101 -> not_implemented s isn "lswi"
+    | 0b1001010101 -> decode_lswi s isn
     | 0b1001010110 -> not_implemented s isn "sync"
     | 0b1001010111 -> not_implemented s isn "lfdx"
     | 0b1001110111 -> not_implemented s isn "lfdux"
