@@ -572,6 +572,31 @@ def test_load_lmw(tmpdir):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r27", "r28", "r29", "r30", "r31"])
 
+@pytest.mark.parametrize("op", range(1, 33))
+def test_load_lswi(tmpdir, op):
+    asm = """
+        xor %r0, %r0, %r0
+        mr %r1, %r0
+        mr %r2, %r0
+        mr %r3, %r0
+        mr %r4, %r0
+        mr %r28, %r0
+        mr %r29, %r0
+        mr %r30, %r0
+        mr %r31, %r0
+        b j2
+    j1:
+        mflr %r10
+        lswi %r28,%r10,{op}
+        b end
+    j2:
+        bl j1
+        .string "the quick brown fox jumps over the lazy dog"
+        .align 4
+     end:
+        nop
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r28", "r29", "r30", "r31"])
 
 ##   ___                          ___ ___
 ##  / _ \ _ __ ___   ___ _ _     / __| _ \
