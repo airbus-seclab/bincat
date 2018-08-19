@@ -693,6 +693,20 @@ struct
             tail in
       loadreg sd rD
 
+    let decode_stmw _state isn =
+      let rS, rA, d = decode_D_Form isn in
+      let sd = if d land 0x8000 == 0 then d else d lor 0xffff0000 in
+      let rec storereg ea n =
+        if n == 32 then []
+        else
+          let tail = storereg (ea+4) (n+1) in
+          if n != rA || n == 31 then
+            Set (M (BinOp(Add, lvtreg rA, const (ea land 0xffffffff) 32), 32),
+                 lvtreg n) :: tail
+          else
+            tail in
+      storereg sd rS
+
     let decode_lswi _state isn =
       let rD, rA, nb, _ = decode_X_Form isn in
       let ea x = if rA == 0 then const x 32 else BinOp(Add, lvtreg rA, const x 32) in
@@ -1012,7 +1026,7 @@ struct
       | 0b101100 -> decode_store s isn ~sz:16 ~update:false ~indexed:false                 ()  (* sth   *)
       | 0b101101 -> decode_store s isn ~sz:16 ~update:true  ~indexed:false                 ()  (* sthu  *)
       | 0b101110 -> decode_lmw s isn
-      | 0b101111 -> not_implemented s isn "stmw"
+      | 0b101111 -> decode_stmw s isn
       | 0b110000 -> not_implemented s isn "lfs"
       | 0b110001 -> not_implemented s isn "lfsu"
       | 0b110010 -> not_implemented s isn "lfd"
