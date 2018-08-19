@@ -603,6 +603,20 @@ struct
             ((clear_ov oe) @ (cr_flags_stmts rc rD)))
     ]
 
+  let decode_divwu _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    let invalid_xer = if oe == 0 then []
+                      else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
+    let invalid_cr = if rc == 0 then []
+                     else [ Directive (Forget (vp cr 29 31)); Set (vp cr 28 28, const1 1) ] in
+    let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
+    [
+      If (Cmp (EQ, lvtreg rB, const0 32),
+          Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
+          Set (vtreg rD, BinOp(Div, lvtreg rA, lvtreg rB)) ::
+            ((clear_ov oe) @ (cr_flags_stmts rc rD)))
+    ]
+
   (* Load and Store *)
 
   let decode_load_store_form isn indexed update =
@@ -809,7 +823,7 @@ struct
     | 0b0110110111 -> decode_store s isn ~sz:16 ~update:true ~indexed:true () (* sthux *)
     | 0b0110111100 -> decode_logic s isn Or (* or *)
     | 0b0111001001 | 0b1111001001 -> not_implemented_64bits s isn "divdu??"
-    | 0b0111001011 | 0b1111001011 -> not_implemented s isn "divwu??"
+    | 0b0111001011 | 0b1111001011 -> decode_divwu s isn
     | 0b0111010011 -> decode_mtspr s isn
     | 0b0111010110 -> not_implemented s isn "dcbi"
     | 0b0111011100 -> not_implemented s isn "nand??"
