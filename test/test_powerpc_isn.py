@@ -49,7 +49,7 @@ def test_basics_assign2(tmpdir):
 ARITH_OPS = ["add", "sub", "addc", "adde"]
 
 @pytest.mark.parametrize("op", ARITH_OPS)
-def test_arith_add(tmpdir, op):
+def test_arith_op(tmpdir, op):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -61,7 +61,7 @@ def test_arith_add(tmpdir, op):
     compare(tmpdir, asm, ["r3", "r4", "r5" ])
 
 @pytest.mark.parametrize("op", ARITH_OPS)
-def test_arith_add_dot(tmpdir, op):
+def test_arith_op_dot(tmpdir, op):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -73,7 +73,7 @@ def test_arith_add_dot(tmpdir, op):
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
 
 @pytest.mark.parametrize("op", ARITH_OPS)
-def test_arith_addo(tmpdir, op):
+def test_arith_op_o(tmpdir, op):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -85,7 +85,7 @@ def test_arith_addo(tmpdir, op):
     compare(tmpdir, asm, ["r3", "r4", "r5", "ov" ])
 
 @pytest.mark.parametrize("op", ARITH_OPS)
-def test_arith_addo_dot(tmpdir, op):
+def test_arith_op_o_dot(tmpdir, op):
     asm = """
         lis %r3, 0x1234
         ori %r3, %r3, 0x5678
@@ -98,7 +98,7 @@ def test_arith_addo_dot(tmpdir, op):
 
 @pytest.mark.parametrize("op", ARITH_OPS)
 @pytest.mark.parametrize("xer", [0x2000, 0x0000])
-def test_arith_add_flags(tmpdir, op, xer, op32h, op32l, op32h_, op32l_):
+def test_arith_op_flags(tmpdir, op, xer, op32h, op32l, op32h_, op32l_):
     asm = """
         lis %r3, {xer}
         mtspr 1, %r3       # update XER
