@@ -8,7 +8,9 @@
 #include <string.h>
 
 #define BACKUP_ZONE_ADDR 0x1000
+#define BACKUP_ZONE_ADDR_P4 0x1004
 #define BACKUP_ZONE_ADDR_IN_HEX "\x10\x00"
+#define BACKUP_ZONE_ADDR_IN_HEX_P4 "\x10\x04"
 
 #define STR(s) _XSTRX_(s)
 #define _XSTRX_(s) #s
@@ -32,6 +34,8 @@ int main(int argc, char *argv[])
         int *r1backup;
 
         char ret_to_main[] =
+                "\x90\x20" BACKUP_ZONE_ADDR_IN_HEX_P4
+                                    //     lwz  r1, (BACKUP_ZONE_ADDR+4)(0) ; save test sp
                 "\x80\x20" BACKUP_ZONE_ADDR_IN_HEX
                                     //     lwz  r1, BACKUP_ZONE_ADDR(0) ; restore sp
                 "\x97\xc1\xff\xfc"  //     stwu    r30,-4(r1)           ; save r30 on stack
@@ -55,7 +59,7 @@ int main(int argc, char *argv[])
         memcpy(((char *)egg)+len, ret_to_main, sizeof(ret_to_main));
         spsav = egg+len+sizeof(ret_to_main)-1;
 
-        r1backup = mmap((void*)BACKUP_ZONE_ADDR, 4, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
+        r1backup = mmap((void*)BACKUP_ZONE_ADDR, 8, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
         if (!r1backup) { perror("mmap(backup zone)"); return -4; }
 
 
@@ -83,6 +87,8 @@ int main(int argc, char *argv[])
                 "stw %%r3, %[lr]\n"
                 "lwz %%r3, 0(%%r1)\n"     // get r31 value from test
                 "stw %%r3, %[reg31]\n"
+                "lwz %%r3, " STR(BACKUP_ZONE_ADDR_P4) "(0)\n" // get r1 from test
+                "stw %%r3, %[reg1]\n"
                 "addi %%r1, %%r1, 20\n"   // pop test's r31, eggloader's r31, eggloader's lr and test's lr
                 "mfcr %%r3\n"
                 "stw %%r3, %[cr]\n"
@@ -94,6 +100,7 @@ int main(int argc, char *argv[])
                 "addi %%r1, %%r1, 128\n"
               :
                 [reg]"=m"(reg),
+                [reg1]"=m"(reg[1]),
                 [reg31]"=m"(reg[31]),
                 [lr]"=m"(lr),
                 [cr]"=m"(cr),
