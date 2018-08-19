@@ -559,6 +559,20 @@ def test_store_indexed(tmpdir, op, val):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7"])
 
+def test_load_lmw(tmpdir):
+    asm = """
+        lis %r3, 0xdead
+        ori %r3, %r3, 0xbeef
+        stwu %r3, 4(%r1)
+        stwu %r3, 4(%r1)
+        stw %r3, 4(%r1)
+        stw %r3, 8(%r1)
+        stw %r3, 12(%r1)
+        lmw %r27, -4(%r1)
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r27", "r28", "r29", "r30", "r31"])
+
+
 ##   ___                          ___ ___
 ##  / _ \ _ __ ___   ___ _ _     / __| _ \
 ## | (_) | '_ (_-<  / _ \ ' \   | (__|   /
