@@ -15,17 +15,6 @@ void usage(void)
         exit(-1);
 }
 
-#define STREG(n) "stw %%r" #n  ", %[reg" #n "]\n"
-#define DECLREG(n) [reg ## n]"=m"(reg[n]),
-
-
-#define FOR_ALL_GPREGS(macro) \
-  macro(0)  macro(1)  macro(2)  macro(3)  macro(4)  macro(5)  macro(6)  macro(7) \
-  macro(8)  macro(9)  macro(10) macro(11) macro(12) macro(13) macro(14) macro(15) \
-  macro(16) macro(17) macro(18) macro(19) macro(20) macro(21) macro(22) macro(23) \
-  macro(24) macro(25) // macro(26) macro(27) macro(28) macro(29) macro(30) macro(31)
-// we cannot use more that 30 operands  in inline assembly, so we do not transfer r26-r31
-
 int main(int argc, char *argv[])
 {
         int f;
@@ -71,24 +60,28 @@ int main(int argc, char *argv[])
         asm volatile(
                 "after:"
                 "bl before\n"
-                "lwz %%r31,8(%%r1)\n"    // restore r31 because it is used to move regs to C variables
-                FOR_ALL_GPREGS(STREG)
-                "lwz %%r3, 0(%%r1)\n"    // get lr value from test
+                "stwu %%r31,-4(%%r1)\n"   // push r31
+                "lwz %%r31,12(%%r1)\n"    // restore old r31 because it is used to move regs to C variables
+                "stm %%r0, %[reg]\n"       // store r0 -> r31 to reg[]
+                "lwz %%r3, 4(%%r1)\n"     // get lr value from test
                 "stw %%r3, %[lr]\n"
-                "addi %%r1, %%r1, 12\n"  // pop r31, egg lr and test lr
-                "mfctr %%r3\n"
-                "stw %%r3, %[ctr]\n"
+                "lwz %%r3, 0(%%r1)\n"     // get r31 value from test
+                "stw %%r3, %[reg31]\n"
+                "addi %%r1, %%r1, 16\n"   // pop test's r31, eggloader's r31, eggloader's lr and test's lr
                 "mfcr %%r3\n"
                 "stw %%r3, %[cr]\n"
                 "mfspr %%r3, 1\n"         // read XER
                 "stw %%r3, %[xer]\n"
+                "mfctr %%r3\n"
+                "stw %%r3, %[ctr]\n"
               :
-                FOR_ALL_GPREGS(DECLREG)
-                [ctr]"=m"(ctr),
+                [reg]"=m"(reg),
+                [reg31]"=m"(reg[31]),
+                [lr]"=m"(lr),
                 [cr]"=m"(cr),
                 [xer]"=m"(xer),
-                [lr]"=m"(lr)
-        );
+                [ctr]"=m"(ctr)
+                );
 
         for (i = 0; i < 32; i++)
                 printf("r%i=%08x\n", i, reg[i]);
