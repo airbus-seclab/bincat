@@ -60,6 +60,8 @@ int main(int argc, char *argv[])
 
 
         asm volatile(
+                "addi %r1, %r1, -128\n"
+                "stm %r2, 0(%r1)\n"          // save r2->r31 registers
                 "bl after\n"
                 "before:\n"
                 "stwu %r31, -4(%r1)\n"  // save r31
@@ -88,6 +90,8 @@ int main(int argc, char *argv[])
                 "stw %%r3, %[xer]\n"
                 "mfctr %%r3\n"
                 "stw %%r3, %[ctr]\n"
+                "lmw %%r2, 0(%%r1)\n"        // restore r2->r31 registers
+                "addi %%r1, %%r1, 128\n"
               :
                 [reg]"=m"(reg),
                 [reg31]"=m"(reg[31]),
