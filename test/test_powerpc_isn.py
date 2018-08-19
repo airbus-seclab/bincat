@@ -562,8 +562,8 @@ def test_store_indexed(tmpdir, op, val):
 def test_load_lmw(tmpdir):
     asm = """
         lis %r3, 0xdead
-        ori %r3, %r3, 0xbeef
         stwu %r3, 4(%r1)
+        ori %r3, %r3, 0xbeef
         stwu %r3, 4(%r1)
         stw %r3, 4(%r1)
         stw %r3, 8(%r1)
