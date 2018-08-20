@@ -352,19 +352,6 @@ struct
        [ Set (vt ctr, lvtreg rS) ]
     | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported yet" n)
 
-  let decode_mtcrf _state isn =
-    let rS, crm1 = decode_XFX_Form isn in
-    let crm = (crm1 lsr 1) land 0xff in
-    if crm == 0xff then (* shortcut for special case when all CR fields are set with rS *)
-      [ Set (vt cr, lvtreg rS) ]
-    else
-      let stmts = ref [] in
-      for i = 0 to 7 do
-        if (crm lsr i) land 1 == 1 then
-          stmts := Set (vp cr (i*4) (i*4+3), lvpreg rS (i*4) (i*4+3)) :: !stmts
-      done;
-      !stmts
-
 
   (* compare *)
 
@@ -735,6 +722,19 @@ struct
 
 
   (* CR operations *)
+
+  let decode_mtcrf _state isn =
+    let rS, crm1 = decode_XFX_Form isn in
+    let crm = (crm1 lsr 1) land 0xff in
+    if crm == 0xff then (* shortcut for special case when all CR fields are set with rS *)
+      [ Set (vt cr, lvtreg rS) ]
+    else
+      let stmts = ref [] in
+      for i = 0 to 7 do
+        if (crm lsr i) land 1 == 1 then
+          stmts := Set (vp cr (i*4) (i*4+3), lvpreg rS (i*4) (i*4+3)) :: !stmts
+      done;
+      !stmts
 
   let decode_cr_op _state isn op =
     let crD, crA, crB, _ = decode_XL_Form isn in
