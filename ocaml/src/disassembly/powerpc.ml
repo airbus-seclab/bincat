@@ -348,7 +348,7 @@ struct
          Set (vt tbc, lvpreg rS 0 6) ]
     | 8 -> (* LR *)
        [ Set (vt lr, lvtreg rS) ]
-    | 9 -> (* LR *)
+    | 9 -> (* CTR *)
        [ Set (vt ctr, lvtreg rS) ]
     | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported yet" n)
 
