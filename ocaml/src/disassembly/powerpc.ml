@@ -748,6 +748,10 @@ struct
     let crD, crA, crB, _ = decode_XL_Form isn in
     [ Set (crbit (31-crD), UnOp(Not, BinOp (op, Lval (crbit (31-crA)), Lval (crbit (31-crB))))) ]
 
+  let decode_mcrf _state isn =
+    let crfD, crfS, _, _ = decode_XL_Form isn in
+    if crfD = crfS then []
+    else [ Set (vp cr (28-crfD) (31-crfD), lvp cr (28-crfS) (31-crfS)) ]
 
   (* Decoding and switching *)
 
@@ -775,7 +779,7 @@ struct
 
   let decode_010011 s isn =
     match (isn lsr 1) land 0x3ff with
-    | 0b0000000000-> not_implemented s isn "mcrf"
+    | 0b0000000000-> decode_mcrf s isn
     | 0b0000010000-> decode_bclr_bcctr s isn lr        (* bclr *)
     | 0b0000100001-> decode_cr_op_not s isn Or         (* crnor *)
     | 0b0000110010-> not_implemented s isn "rfi"
