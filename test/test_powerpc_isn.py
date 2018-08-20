@@ -654,22 +654,15 @@ def test_cr_mcrf(tmpdir, op3, op3_, op32):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "cr"])
 
-##  ___              _      _
-## / __|_ __  ___ __(_)__ _| |
-## \__ \ '_ \/ -_) _| / _` | |
-## |___/ .__/\___\__|_\__,_|_|
-##     |_|
-## Special
-
 @pytest.mark.parametrize("crval", [x<<12 for x in range(16)])
-def test_special_mtcrf(tmpdir, crval):
+def test_cr_mtcrf(tmpdir, crval):
     asm = """
         lis %r3, {crval}
         mtcrf 0xff, %r3
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "cr" ])
 
-def test_special_mtcrf2(tmpdir, op8, op32h, op32l):
+def test_cr_mtcrf2(tmpdir, op8, op32h, op32l):
     asm = """
         lis %r3, 0
         mtcrf 0xff, %r3
@@ -678,6 +671,14 @@ def test_special_mtcrf2(tmpdir, op8, op32h, op32l):
         mtcrf {op8:#x}, %r3
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "cr" ])
+
+
+##  ___              _      _
+## / __|_ __  ___ __(_)__ _| |
+## \__ \ '_ \/ -_) _| / _` | |
+## |___/ .__/\___\__|_\__,_|_|
+##     |_|
+## Special
 
 @pytest.mark.parametrize("xerval", [x<<13 for x in range(8)])
 def test_special_mtspr_xer(tmpdir, xerval, op8):
