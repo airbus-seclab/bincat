@@ -98,42 +98,42 @@ def test_arith_op_o_dot(tmpdir, op):
 
 @pytest.mark.parametrize("op", ARITH_OPS)
 @pytest.mark.parametrize("xer", [0x2000, 0x0000])
-def test_arith_op_flags(tmpdir, op, xer, op32h, op32l, op32h_, op32l_):
+def test_arith_op_flags(tmpdir, op, xer, op32, op32_):
     asm = """
         lis %r3, {xer}
         mtspr 1, %r3       # update XER
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
-        lis %r4, {op32h_}
-        ori %r4, %r4, {op32l_}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
+        lis %r4, {op32_}@h
+        ori %r4, %r4, {op32_}@l
         {op}o. %r5, %r3, %r4
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov", "ca" ])
 
 @pytest.mark.parametrize("op", ["addi", "addis"])
-def test_arith_addi(tmpdir, op, op32h, op32l, op16_s):
+def test_arith_addi(tmpdir, op, op32, op16_s):
     asm = """
-        lis %r0, {op32h}
-        ori %r0, %r0, {op32l}
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r0, {op32}@h
+        ori %r0, %r0, {op32}@l
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         {op} %r4, %r3, {op16_s}
         {op} %r5, %r0, {op16_s}
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r3", "r4", "r5"])
 
-def test_arith_addic(tmpdir, op32h, op32l, op16_s):
+def test_arith_addic(tmpdir, op32, op16_s):
     asm = """
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         addic %r4, %r3, {op16_s}
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "ca"])
 
-def test_arith_addic_dot(tmpdir, op32h, op32l, op16_s):
+def test_arith_addic_dot(tmpdir, op32, op16_s):
     asm = """
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         mtspr 1, %r3       # update XER (for XER.so flag)
         addic. %r4, %r3, {op16_s}
     """.format(**locals())
@@ -141,12 +141,12 @@ def test_arith_addic_dot(tmpdir, op32h, op32l, op16_s):
 
 @pytest.mark.parametrize("op", ["addme", "addze"])
 @pytest.mark.parametrize("xer", [0x0000, 0x2000])
-def test_arith_addmeo_addzeo_dot(tmpdir, op, xer, op32h, op32l):
+def test_arith_addmeo_addzeo_dot(tmpdir, op, xer, op32):
     asm = """
         lis %r3, {xer}
         mtspr 1, %r3       # update XER
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         {op}o. %r4, %r3
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov", "ca" ])
@@ -202,52 +202,49 @@ def test_arith_divwu(tmpdir, op32, op32_):
 ## Logic
 
 @pytest.mark.parametrize("logic", ["or", "xor", "and", "andc", "orc", "eqv"])
-def test_logic_with_flags(tmpdir, logic, op32h, op32l, op32h_, op32l_):
+def test_logic_with_flags(tmpdir, logic, op32, op32_):
     asm = """
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
-        lis %r4, {op32h_}
-        ori %r4, %r4, {op32l_}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
+        lis %r4, {op32_}@h
+        ori %r4, %r4, {op32_}@l
         {logic}. %r5, %r3, %r4
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
 
 @pytest.mark.parametrize("logic", ["ori", "oris", "xori", "xoris" ])
-def test_logic_imm(tmpdir, logic, op32h, op32l, op16):
+def test_logic_imm(tmpdir, logic, op32, op16):
     asm = """
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         {logic} %r4, %r3, {op16}
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4"])
 
 @pytest.mark.parametrize("logic", ["andi.", "andis." ])
-def test_logic_imm_dot(tmpdir, logic, op32h, op32l, op16):
+def test_logic_imm_dot(tmpdir, logic, op32, op16):
     asm = """
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         {logic} %r4, %r3, {op16}
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
-def test_logic_neg(tmpdir, op32h, op32l):
+def test_logic_neg(tmpdir, op32):
     asm = """
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         nego. %r4, %r3
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov" ])
 
 
 @pytest.mark.parametrize("exp", range(33))
-def test_cntlzw(tmpdir, exp, op32h, op32l):
-    if exp <= 15:
-        op32l |= 2**exp
-    elif exp <= 31:
-        op32h |= 2**(exp-16)
+def test_cntlzw(tmpdir, exp, op32):
+    op32 |= 2**exp
     asm = """
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         cntlzw. %r4, %r3
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
@@ -635,10 +632,10 @@ CR_OPS = ["crand", "crandc", "creqv", "crnand",
           "crnor", "cror", "crorc", "crxor"]
 
 @pytest.mark.parametrize("op", CR_OPS)
-def test_cr_ops(tmpdir, op, op32l, op32h, op5, op5_, op5__):
+def test_cr_ops(tmpdir, op, op32, op5, op5_, op5__):
     asm = """
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         mtcrf 0xff, %r3
         {op} {op5}, {op5_}, {op5__}
     """.format(**locals())
@@ -662,12 +659,12 @@ def test_cr_mtcrf(tmpdir, crval):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "cr" ])
 
-def test_cr_mtcrf2(tmpdir, op8, op32h, op32l):
+def test_cr_mtcrf2(tmpdir, op8, op32):
     asm = """
         lis %r3, 0
         mtcrf 0xff, %r3
-        lis %r3, {op32h}
-        ori %r3, %r3, {op32l}
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
         mtcrf {op8:#x}, %r3
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "cr" ])
