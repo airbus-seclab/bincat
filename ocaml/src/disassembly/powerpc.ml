@@ -736,6 +736,10 @@ struct
       done;
       !stmts
 
+  let decode_mfcr _state isn =
+    let rD, _, _, _ = decode_X_Form isn in
+    [ Set (vtreg rD, lvt cr) ]
+
   let decode_cr_op _state isn op =
     let crD, crA, crB, _ = decode_XL_Form isn in
     [ Set (crbit (31-crD), BinOp (op, Lval (crbit (31-crA)), Lval (crbit (31-crB)))) ]
@@ -812,7 +816,7 @@ struct
     | 0b0000001001 -> not_implemented_64bits s isn "mulhdu??"
     | 0b0000001010 | 0b1000001010 -> decode_addc s isn
     | 0b0000001011 -> not_implemented s isn "mulhwu??"
-    | 0b0000010011 -> not_implemented s isn "mfcr"
+    | 0b0000010011 -> decode_mfcr s isn
     | 0b0000010100 -> not_implemented s isn "lwarx"
     | 0b0000010101 -> not_implemented_64bits s isn "ld??"
     | 0b0000010111 -> decode_load s isn ~sz:32 ~update:false ~indexed:true ()  (* lwzx *)
