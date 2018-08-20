@@ -22,6 +22,7 @@ def armv8_bitmasks():
 class TestValues:
     _name = "NA"
     loop_cnt = [1, 15, 100]
+    op3 = [ 0, 1, 4, 7 ]
     op5 = [ 0, 1, 8, 30, 31 ]
     op6 = [ 0, 1, 0x3F ]
     op6_32 = [ 0, 1, 31 ]
@@ -80,6 +81,7 @@ class Medium(TestValues):
 class Small(TestValues):
     _name = "small"
     x86carryop = [ "stc" ]
+    op3 = [ 0, 7 ]
 
 COVERAGES = [Large, Medium, Small]
 

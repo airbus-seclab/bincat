@@ -645,6 +645,15 @@ def test_cr_ops(tmpdir, op, op32l, op32h, op5, op5_, op5__):
     compare(tmpdir, asm, ["r3", "cr"])
 
 
+def test_cr_mcrf(tmpdir, op3, op3_, op32):
+    asm = """
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
+        mtcrf 0xff, %r3
+        mcrf {op3}, {op3_}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "cr"])
+
 ##  ___              _      _
 ## / __|_ __  ___ __(_)__ _| |
 ## \__ \ '_ \/ -_) _| / _` | |
