@@ -664,6 +664,28 @@ struct
             ((clear_ov oe) @ (cr_flags_stmts rc rD)))
     ]
 
+  let decode_mulchw _state isn op =
+    let rD, rA, rB, rc = decode_X_Form isn in
+    Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 16 31)) :: (cr_flags_stmts rc rD)
+
+  let decode_mulhhw _state isn op =
+    let rD, rA, rB, rc = decode_X_Form isn in
+    Set (vtreg rD, BinOp(op, lvpreg rA 16 31, lvpreg rB 16 31)) :: (cr_flags_stmts rc rD)
+
+  let decode_mulhw _state isn op =
+    let rD, rA, rB, rc = decode_X_Form isn in
+    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    [ Set (vt tmpreg, BinOp(op, lvtreg rA, lvtreg rB)) ;
+      Set (vtreg rD, lvp tmpreg 32 63) ;
+      Directive (Remove tmpreg) ; ]
+    @ (cr_flags_stmts rc rD)
+
+  let decode_mullhw _state isn op =
+    let rD, rA, rB, rc = decode_X_Form isn in
+    Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 0 15)) :: (cr_flags_stmts rc rD)
+
+
+
   (* Load and Store *)
 
   let decode_load_store_form isn indexed update =
@@ -835,25 +857,25 @@ struct
 
   let decode_000100 s isn =
     match (isn lsr 1) land 0x1ff with
-   | 0b000001000 -> not_implemented s isn "mulhhwu"
+   | 0b000001000 -> decode_mulhhw s isn Mul (* mulhhwu *)
    | 0b000001100 -> not_implemented s isn "machhwu"
-   | 0b000101000 -> not_implemented s isn "mulhhw"
+   | 0b000101000 -> decode_mulhhw s isn IMul (* mulhhw *)
    | 0b000101100 -> not_implemented s isn "machhw"
    | 0b000101110 -> not_implemented s isn "nmachhw"
    | 0b001001100 -> not_implemented s isn "machhwsu"
    | 0b001101100 -> not_implemented s isn "machhws"
    | 0b001101110 -> not_implemented s isn "nmachhws"
-   | 0b010001000 -> not_implemented s isn "mulchwu"
+   | 0b010001000 -> decode_mulchw s isn Mul (* mulchwu *)
    | 0b010001100 -> not_implemented s isn "macchwu"
-   | 0b010101000 -> not_implemented s isn "mulchw"
+   | 0b010101000 -> decode_mulchw s isn IMul (* mulchw *)
    | 0b010101100 -> not_implemented s isn "macchw"
    | 0b010101110 -> not_implemented s isn "nmacchw"
    | 0b011001100 -> not_implemented s isn "macchwsu"
    | 0b011101100 -> not_implemented s isn "macchws"
    | 0b011101110 -> not_implemented s isn "nmacchws"
-   | 0b110001000 -> not_implemented s isn "mullhwu"
+   | 0b110001000 -> decode_mullhw s isn Mul (* mullhwu *)
    | 0b110001100 -> not_implemented s isn "maclhwu"
-   | 0b110101000 -> not_implemented s isn "mullhw"
+   | 0b110101000 -> decode_mullhw s isn IMul (* mullhw *)
    | 0b110101100 -> not_implemented s isn "maclhw"
    | 0b110101110 -> not_implemented s isn "nmaclhw"
    | 0b111001100 -> not_implemented s isn "maclhwsu"
@@ -896,7 +918,7 @@ struct
     | 0b0000001000 | 0b1000001000 -> decode_subfc s isn
     | 0b0000001001 -> not_implemented_64bits s isn "mulhdu??"
     | 0b0000001010 | 0b1000001010 -> decode_addc s isn
-    | 0b0000001011 -> not_implemented s isn "mulhwu??"
+    | 0b0000001011 -> decode_mulhw s isn Mul (* mulhwu *)
     | 0b0000010011 -> decode_mfcr s isn
     | 0b0000010100 -> not_implemented s isn "lwarx"
     | 0b0000010101 -> not_implemented_64bits s isn "ld??"
@@ -914,7 +936,7 @@ struct
     | 0b0000111100 -> decode_logic_complement s isn And (* andc *)
     | 0b0001000100 -> not_implemented_64bits s isn "td"
     | 0b0001001001 -> not_implemented_64bits s isn "mulhd??"
-    | 0b0001001011 -> not_implemented s isn "mulhw??"
+    | 0b0001001011 -> decode_mulhw s isn IMul (* mulhw *)
     | 0b0001010011 -> not_implemented s isn "mfmsr"
     | 0b0001010100 -> not_implemented_64bits s isn "ldarx"
     | 0b0001010110 -> not_implemented s isn "dcbf"
