@@ -94,7 +94,7 @@ def test_arith_op_o_dot(tmpdir, op):
         mtspr 1, %r3       # update XER
         {op}o. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov", "ca" ])
 
 @pytest.mark.parametrize("op", ARITH_OPS)
 @pytest.mark.parametrize("xer", [0x2000, 0x0000])
