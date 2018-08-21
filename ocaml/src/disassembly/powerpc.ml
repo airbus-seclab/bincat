@@ -833,6 +833,35 @@ struct
         lor ((Char.code (String.get str 1)) lsl 16)
         lor ((Char.code (String.get str 0)) lsl 24)
 
+  let decode_000100 s isn =
+    match (isn lsr 1) land 0x1ff with
+   | 0b000001000 -> not_implemented s isn "mulhhwu"
+   | 0b000001100 -> not_implemented s isn "machhwu"
+   | 0b000101000 -> not_implemented s isn "mulhhw"
+   | 0b000101100 -> not_implemented s isn "machhw"
+   | 0b000101110 -> not_implemented s isn "nmachhw"
+   | 0b001001100 -> not_implemented s isn "machhwsu"
+   | 0b001101100 -> not_implemented s isn "machhws"
+   | 0b001101110 -> not_implemented s isn "nmachhws"
+   | 0b010001000 -> not_implemented s isn "mulchwu"
+   | 0b010001100 -> not_implemented s isn "macchwu"
+   | 0b010101000 -> not_implemented s isn "mulchw"
+   | 0b010101100 -> not_implemented s isn "macchw"
+   | 0b010101110 -> not_implemented s isn "nmacchw"
+   | 0b011001100 -> not_implemented s isn "macchwsu"
+   | 0b011101100 -> not_implemented s isn "macchws"
+   | 0b011101110 -> not_implemented s isn "nmacchws"
+   | 0b110001000 -> not_implemented s isn "mullhwu"
+   | 0b110001100 -> not_implemented s isn "maclhwu"
+   | 0b110101000 -> not_implemented s isn "mullhw"
+   | 0b110101100 -> not_implemented s isn "maclhw"
+   | 0b110101110 -> not_implemented s isn "nmaclhw"
+   | 0b111001100 -> not_implemented s isn "maclhwsu"
+   | 0b111101100 -> not_implemented s isn "maclhws"
+   | 0b111101110 -> not_implemented s isn "nmaclhws"
+   | _ -> error s.a (Printf.sprintf "decode_000100: unknown opcode 0x%x" isn)
+
+
   let decode_010011 s isn =
     match (isn lsr 1) land 0x3ff with
     | 0b0000000000-> decode_mcrf s isn
@@ -1051,7 +1080,7 @@ struct
 (*      | 0b000001 ->  *)
       | 0b000010 -> not_implemented_64bits s isn "tdi"
       | 0b000011 -> not_implemented s isn "twi"
-(*      | 0b000100 -> *)
+      | 0b000100 -> decode_000100 s isn  (* mulchw mulhhw mulhw mullw ... *)
 (*      | 0b000101 -> *)
 (*      | 0b000110 -> *)
       | 0b000111 -> not_implemented s isn "mulli"
