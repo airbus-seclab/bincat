@@ -403,20 +403,22 @@ def test_branch_and_link2(tmpdir):
     """
     compare(tmpdir, asm, ["r3"])
 
+
+VALID_COND_BYTES = [ 0x00,       0x02,       0x04, 0x05, 0x06, 0x07,
+                     0x08,       0x0a,       0x0c, 0x0d, 0x0e, 0x0f,
+                     0x10, 0x11, 0x12, 0x13, 0x14,
+                     0x18, 0x19, 0x0a, 0x1b,                         ]
+
 @pytest.mark.parametrize("cr7", range(16))
-@pytest.mark.parametrize("cond", [ 0x00,       0x02,       0x04, 0x05, 0x06, 0x07,
-                                   0x08,       0x0a,       0x0c, 0x0d, 0x0e, 0x0f,
-                                   0x10, 0x11, 0x12, 0x13, 0x14,
-                                   0x18, 0x19, 0x0a, 0x1b,                         ])
 @pytest.mark.parametrize("bit", ["gt", "lt", "eq", "so"])
-@pytest.mark.parametrize("op", ["bclr", "bcctr"])
+@pytest.mark.parametrize("cond", VALID_COND_BYTES)
 @pytest.mark.parametrize("ctr", [0, 1])
-def test_branch_bcctr_bclr(tmpdir, op, cr7, bit, cond, ctr):
+def test_branch_bclr(tmpdir, cr7, bit, cond, ctr):
     asm = """
-        li %r3, {cr7}
-        mtcrf 0xff, %r3
-        li %r3, {ctr}
-        mtctr %r3
+        li %r7, {cr7}
+        mtcrf 0xff, %r7
+        li %r8, {ctr}
+        mtctr %r8
         lis %r3, 0x1234
         lis %r4, 0x1234
         lis %r5, 0x1234
@@ -426,21 +428,45 @@ def test_branch_bcctr_bclr(tmpdir, op, cr7, bit, cond, ctr):
         b j2
       j1:
         lis %r4, 0xabcd
-        mflr %r7
-        mtctr %r7
-        {op} {cond}, 4*cr7+{bit}
+        bclr {cond}, 4*cr7+{bit}
         lis %r5, 0xdcba
       j2:
         lis %r6, 0xdcba
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "r6"])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7", "r8", "ctr"])
+
+@pytest.mark.parametrize("cr7", range(16))
+@pytest.mark.parametrize("bit", ["gt", "lt", "eq", "so"])
+@pytest.mark.parametrize("cond", [ x for x in VALID_COND_BYTES if x & 4 ])
+                         # only conds that do not touch to CTR for bcctr
+@pytest.mark.parametrize("ctr", [0, 1])
+def test_branch_bcctr_bclr(tmpdir, cr7, bit, cond, ctr):
+    asm = """
+        li %r7, {cr7}
+        mtcrf 0xff, %r7
+        li %r8, {ctr}
+        mtctr %r8
+        lis %r3, 0x1234
+        lis %r4, 0x1234
+        lis %r5, 0x1234
+        lis %r6, 0x1234
+        bl j1
+        lis %r3, 0xabcd
+        b j2
+      j1:
+        lis %r4, 0xabcd
+        mflr %r9
+        mtctr %r9
+        bcctr {cond}, 4*cr7+{bit}
+        lis %r5, 0xdcba
+      j2:
+        lis %r6, 0xdcba
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7", "r8"])
 
 
 @pytest.mark.parametrize("cr7", range(16))
-@pytest.mark.parametrize("cond", [ 0x00,       0x02,       0x04, 0x05, 0x06, 0x07,
-                                   0x08,       0x0a,       0x0c, 0x0d, 0x0e, 0x0f,
-                                   0x10, 0x11, 0x12, 0x13, 0x14,
-                                   0x18, 0x19, 0x0a, 0x1b,                         ])
+@pytest.mark.parametrize("cond", VALID_COND_BYTES)
 @pytest.mark.parametrize("bit", ["gt", "lt", "eq", "so"])
 def test_branch_cond(tmpdir, cr7, bit, cond):
     asm = """
