@@ -576,6 +576,21 @@ struct
       else [] in
     isn_stmts @ xer_stmts @ (cr_flags_stmts rc rD)
 
+  let decode_subfze _state isn =
+    let rD, rA, _, oe, rc = decode_XO_Form isn in
+    let xer_stmts =
+      if oe == 1 then [
+          Set(vt ov, TernOp (BBinOp(LogAnd,
+                                    Cmp (EQ, lvtreg rD, const 0x80000000 32),
+                                    Cmp (EQ, lvtreg rA, const 0x80000000 32)),
+                             const1 1, const0 1)) ;
+          Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
+        ]
+      else [] in
+    (add_with_carry_out (to33bits (UnOp (Not, (lvtreg rA)))) (to33bits (lvt ca)) rD)
+    @ xer_stmts
+    @ (cr_flags_stmts rc rD)
+
   let decode_addze _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
     let xer_stmts =
@@ -877,7 +892,7 @@ struct
     | 0b0010010111 -> decode_store s isn ~sz:32 ~update:false ~indexed:true () (* stwx *)
     | 0b0010110101 -> not_implemented_64bits s isn "stdux"
     | 0b0010110111 -> decode_store s isn ~sz:32 ~update:true ~indexed:true () (* stwux *)
-    | 0b0011001000 | 0b1011001000 -> not_implemented s isn "subfze??"
+    | 0b0011001000 | 0b1011001000 -> decode_subfze s isn
     | 0b0011001010 | 0b1011001010 -> decode_addze s isn
     | 0b0011010010 -> not_implemented s isn "mtsr"
     | 0b0011010110 -> not_implemented_64bits s isn "stdcx."
