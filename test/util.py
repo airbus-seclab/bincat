@@ -130,7 +130,7 @@ def val2str(val, top=None, taint=None, ttop=None):
 
 class Arch:
     ALL_REGS = []
-    QEMU = None
+    QEMU = []
     def __init__(self, ini_in_file=None):
         self.ini_in_file  = ini_in_file
 
@@ -306,7 +306,7 @@ class Arch:
         eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
         cmd = [eggloader, opcodesfname]
         if self.QEMU:
-            cmd = [self.QEMU] + cmd
+            cmd = self.QEMU + cmd
         out = subprocess.check_output(cmd)
         regs = { reg: int(val,16) for reg, val in
                 (l.strip().split("=") for l in out.splitlines()) }
@@ -376,7 +376,7 @@ class ARM(Arch):
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
     OBJDUMP = ["arm-linux-gnueabi-objdump", "-m", "arm"]
     EGGLOADER = "eggloader_armv7"
-    QEMU = "qemu-arm"
+    QEMU = ["qemu-arm"]
 
     def extract_flags(self, regs):
         cpsr = regs.pop("cpsr")
@@ -407,7 +407,7 @@ class AARCH64(ARM):
     OBJCOPY = ["aarch64-linux-gnu-objcopy"]
     OBJDUMP = ["aarch64-linux-gnu-objdump", "-m", "aarch64"]
     EGGLOADER = "eggloader_armv8"
-    QEMU = "qemu-aarch64"
+    QEMU = ["qemu-aarch64"]
 
 
     def extract_flags(self, regs):
@@ -436,7 +436,7 @@ class PowerPC(Arch):
     OBJCOPY = ["powerpc-linux-gnu-objcopy"]
     OBJDUMP = ["powerpc-linux-gnu-objdump", "-mpowerpc", "-EB"]
     EGGLOADER = "eggloader_powerpc"
-    QEMU = "qemu-ppc"
+    QEMU = ["qemu-ppc"]
 
     def extract_flags(self, regs):
         xer = regs.pop("xer")
