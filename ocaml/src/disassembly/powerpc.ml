@@ -486,6 +486,14 @@ struct
 
   (* arithmetics *)
 
+  let decode_add _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
+
+  let decode_sub _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
+
   let decode_addis _state isn =
     let rD, rA, simm = decode_D_Form isn in
     match rA == 0 with
@@ -518,11 +526,6 @@ struct
       Set (vt ca, lvp tmpreg 32 32) ;
       Directive (Remove tmpreg) ;
     ]
-
-  let decode_add _state isn =
-    let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
-
 
   let add_with_carry_out expA expB rD =
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
@@ -616,10 +619,6 @@ struct
     (add_with_carry_out (to33bits (lvtreg rA)) (to33bits (lvt ca)) rD)
     @ xer_stmts
     @ (cr_flags_stmts rc rD)
-
-  let decode_sub _state isn =
-    let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
 
   let decode_neg _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
