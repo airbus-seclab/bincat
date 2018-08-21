@@ -508,6 +508,17 @@ struct
       Directive (Remove tmpreg) ;
     ] @ (cr_flags_stmts update_cr rD)
 
+  let decode_subfic _state isn =
+    let rD, rA, simm = decode_D_Form isn in
+    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let simm32p1 = if simm land 0x8000 == 0 then simm+1 else ((simm lor 0xffff0000)+1) in
+    [
+      Set (vt tmpreg, BinOp(Add, to33bits ((UnOp (Not, lvtreg rA))), const simm32p1 33)) ;
+      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
+      Set (vt ca, lvp tmpreg 32 32) ;
+      Directive (Remove tmpreg) ;
+    ]
+
   let decode_add _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
@@ -1045,7 +1056,7 @@ struct
 (*      | 0b000101 -> *)
 (*      | 0b000110 -> *)
       | 0b000111 -> not_implemented s isn "mulli"
-      | 0b001000 -> not_implemented s isn "subfic"
+      | 0b001000 -> decode_subfic s isn
 (*      | 0b001001 ->  *)
       | 0b001010 -> decode_cmpli s isn
       | 0b001011 -> decode_cmpi s isn
