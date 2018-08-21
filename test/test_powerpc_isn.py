@@ -196,6 +196,20 @@ def test_arith_divwu(tmpdir, op32, op32_):
             top_allowed = top)
 
 
+@pytest.mark.parametrize("op", ["mulchw","mulchwu", "mulhhw", "mulhhwu",
+                                "mulhw", "mulhwu", "mullhw", "mullhwu"])
+def test_arith_mul(tmpdir, op, op32, op32_):
+    asm = """
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
+        lis %r4, {op32}@h
+        ori %r4, %r4, {op32}@l
+        {op}. %r5, %r3, %r4
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31"])
+
+
+
 ##  _              _
 ## | |   ___  __ _(_)__
 ## | |__/ _ \/ _` | / _|
