@@ -541,6 +541,12 @@ struct
     @ (xer_flags_stmts_add oe rA rB rD)
     @ (cr_flags_stmts rc rD)
 
+  let decode_subfe _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), to33bits (lvtreg rB))) (to33bits (lvt ca)) rD)
+    @ (xer_flags_stmts_sub oe rA rB rD)
+    @ (cr_flags_stmts rc rD)
+
   let decode_addme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
     let isn_stmts = add_with_carry_out (to33bits (lvtreg rA)) (BinOp (Add, const 0xffffffff 33, to33bits (lvt ca))) rD in
@@ -847,7 +853,7 @@ struct
     | 0b0001101000 | 0b1001101000 -> decode_neg s isn
     | 0b0001110111 -> decode_load s isn ~sz:8 ~update:true  ~indexed:true ()  (* lbzux  *)
     | 0b0001111100 -> not_implemented s isn "nor??"
-    | 0b0010001000 | 0b1010001000 -> not_implemented s isn "subfe??"
+    | 0b0010001000 | 0b1010001000 -> decode_subfe s isn
     | 0b0010001010 | 0b1010001010 -> decode_adde s isn
     | 0b0010010000 -> decode_mtcrf s isn
     | 0b0010010010 -> not_implemented s isn "mtmsr"
