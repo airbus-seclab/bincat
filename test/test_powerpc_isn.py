@@ -139,9 +139,9 @@ def test_arith_addic_dot(tmpdir, op32, op16_s):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "ca", "cr:29-31"])
 
-@pytest.mark.parametrize("op", ["addme", "addze", "subfme"])
+@pytest.mark.parametrize("op", ["addme", "addze", "subfme", "subfze"])
 @pytest.mark.parametrize("xer", [0x0000, 0x2000])
-def test_arith_addmeo_addzeo_subfmeo_dot(tmpdir, op, xer, op32):
+def test_arith_addmeo_addzeo_subfmeo_subfzeo_dot(tmpdir, op, xer, op32):
     asm = """
         lis %r3, {xer}
         mtspr 1, %r3       # update XER
