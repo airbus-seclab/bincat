@@ -547,6 +547,21 @@ struct
     @ (xer_flags_stmts_sub oe rA rB rD)
     @ (cr_flags_stmts rc rD)
 
+  let decode_subfme _state isn =
+    let rD, rA, _, oe, rc = decode_XO_Form isn in
+    let isn_stmts = (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), const 0xffffffff 33))
+                       (to33bits (lvt ca)) rD) in
+    let xer_stmts =
+      if oe == 1 then [
+          Set(vt ov, TernOp (BBinOp(LogAnd,
+                                    Cmp (EQ, lvtreg rA, const 0x7fffffff 32),
+                                    Cmp (EQ, lvtreg rD, const 0x7fffffff 32)),
+                             const1 1, const0 1)) ;
+          Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
+        ]
+      else [] in
+    isn_stmts @ xer_stmts @ (cr_flags_stmts rc rD)
+
   let decode_addme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
     let isn_stmts = add_with_carry_out (to33bits (lvtreg rA)) (BinOp (Add, const 0xffffffff 33, to33bits (lvt ca))) rD in
@@ -867,7 +882,7 @@ struct
     | 0b0011010010 -> not_implemented s isn "mtsr"
     | 0b0011010110 -> not_implemented_64bits s isn "stdcx."
     | 0b0011010111 -> decode_store s isn ~sz:8 ~update:false ~indexed:true () (* stbx *)
-    | 0b0011101000 | 0b1011101000 -> not_implemented s isn "subfme??"
+    | 0b0011101000 | 0b1011101000 -> decode_subfme s isn
     | 0b0011101001 | 0b1011101001 -> not_implemented_64bits s isn "mulld"
     | 0b0011101010 | 0b1011101010 -> decode_addme s isn
     | 0b0011101011 | 0b1011101011 -> not_implemented s isn "mullw??"
