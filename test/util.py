@@ -432,7 +432,7 @@ class PowerPC(Arch):
                  "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
                  "r30", "r31", "lr", "ctr", "cr", "so", "ov", "ca", "tbc" ]
     AS_TMP_DIR = counter("powerpc-as-%i")
-    AS = ["powerpc-linux-gnu-as", "-mpower9", "-mbig"]
+    AS = ["powerpc-linux-gnu-as", "-many", "-mbig"]
     OBJCOPY = ["powerpc-linux-gnu-objcopy"]
     OBJDUMP = ["powerpc-linux-gnu-objdump", "-mpowerpc", "-EB"]
     EGGLOADER = "eggloader_powerpc"
