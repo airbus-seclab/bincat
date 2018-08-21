@@ -529,6 +529,12 @@ struct
     @ (xer_flags_stmts_add oe rA rB rD) 
     @ (cr_flags_stmts rc rD)
 
+  let decode_subfc _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), to33bits (lvtreg rB))) (const1 33) rD)
+    @ (xer_flags_stmts_sub oe rA rB rD)
+    @ (cr_flags_stmts rc rD)
+
   let decode_adde _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     (add_with_carry_out (BinOp(Add, to33bits (lvtreg rA), to33bits (lvtreg rB))) (to33bits (lvt ca)) rD)
@@ -812,7 +818,7 @@ struct
     match (isn lsr 1) land 0x3ff with
     | 0b0000000000 -> decode_cmp s isn
     | 0b0000000100 -> not_implemented s isn "tw"
-    | 0b0000001000 | 0b1000001000 -> not_implemented s isn "subfc??"
+    | 0b0000001000 | 0b1000001000 -> decode_subfc s isn
     | 0b0000001001 -> not_implemented_64bits s isn "mulhdu??"
     | 0b0000001010 | 0b1000001010 -> decode_addc s isn
     | 0b0000001011 -> not_implemented s isn "mulhwu??"
