@@ -436,7 +436,7 @@ class PowerPC(Arch):
     OBJCOPY = ["powerpc-linux-gnu-objcopy"]
     OBJDUMP = ["powerpc-linux-gnu-objdump", "-mpowerpc", "-EB"]
     EGGLOADER = "eggloader_powerpc"
-    QEMU = ["qemu-ppc"]
+    QEMU = ["qemu-ppc", "-cpu", "460exb"]
 
     def extract_flags(self, regs):
         xer = regs.pop("xer")
