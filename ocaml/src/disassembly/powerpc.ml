@@ -483,6 +483,28 @@ struct
                                UnOp(ZeroExt 32, lvpreg rB 0 4)))] ,
         [ Set (vtreg rA, const0 32) ] ) :: (cr_flags_stmts rc rA)
 
+  let decode_sraw _state isn =
+    let rS, rA, rB, rc = decode_X_Form isn in
+    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    [
+      If (Cmp (EQ, lvpreg rB 5 5, const1 1),
+          [ Set (vtreg rA, TernOp (Cmp (EQ, lvpreg rS 31 31, const1 1),
+                                   const 0xffffffff 32, const0 32)) ;
+            Set (vt ca, lvpreg rS 31 31) ;  ],
+          [ Set (vt tmpreg , UnOp(SignExt 64, lvtreg rS)) ;
+            Set (vt tmpreg, BinOp (Shr, lvt tmpreg, UnOp(ZeroExt 64, lvpreg rB 0 4))) ;
+            Set (vtreg rA, lvp tmpreg 0 31) ;
+            Directive (Remove tmpreg) ;
+            Set (vt ca, TernOp (BBinOp (LogOr,
+                                        Cmp (EQ, lvpreg rS 31 31, const0 1),
+                                        Cmp (EQ,
+                                             BinOp (Shl, lvtreg rS,
+                                                    BinOp (Sub, const 32 32,
+                                                           UnOp (ZeroExt 32, lvpreg rB 0 4))),
+                                             const0 32)),
+                                const0 1, const1 1))
+        ] )
+    ] @ (cr_flags_stmts rc rA)
 
   (* arithmetics *)
 
@@ -1035,7 +1057,7 @@ struct
     | 0b1011010111 -> not_implemented s isn "stfdx"
     | 0b1011110111 -> not_implemented s isn "stfdux"
     | 0b1100010110 -> decode_load s isn ~sz:16 ~update:false ~indexed:true ~reversed:true ()  (* lhbrx *)
-    | 0b1100011000 -> not_implemented s isn "sraw??"
+    | 0b1100011000 -> decode_sraw s isn
     | 0b1100011010 -> not_implemented_64bits s isn "srad??"
     | 0b1100111000 -> not_implemented s isn "srawi??"
     | 0b1101010110 -> not_implemented s isn "eieio"
