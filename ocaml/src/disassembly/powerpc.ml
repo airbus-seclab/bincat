@@ -691,6 +691,19 @@ struct
       Set (vtreg rD, lvp tmpreg 0 31) ;
       Directive (Remove tmpreg) ; ]
 
+  let decode_mullw _state isn =
+    let rD, rA, rB, oe, rc = decode_XO_Form isn in
+    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let ov_stmt = if oe == 0 then []
+                  else [ Set (vt ov, TernOp (Cmp (EQ, lvp tmpreg 32 63, const0 32),
+                                             const0 1, const1 1)) ;
+                         Set (vt so, BinOp (Or, lvt ov, lvt so)) ] in
+    [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, lvtreg rB)) ;
+      Set (vtreg rD, lvp tmpreg 0 31) ; ]
+    @ ov_stmt
+    @ [ Directive (Remove tmpreg) ]
+    @ (cr_flags_stmts rc rD)
+
   (* Load and Store *)
 
   let decode_load_store_form isn indexed update =
@@ -966,7 +979,7 @@ struct
     | 0b0011101000 | 0b1011101000 -> decode_subfme s isn
     | 0b0011101001 | 0b1011101001 -> not_implemented_64bits s isn "mulld"
     | 0b0011101010 | 0b1011101010 -> decode_addme s isn
-    | 0b0011101011 | 0b1011101011 -> not_implemented s isn "mullw??"
+    | 0b0011101011 | 0b1011101011 -> decode_mullw s isn
     | 0b0011110010 -> not_implemented s isn "mtsrin"
     | 0b0011110110 -> not_implemented s isn "dcbtst"
     | 0b0011110111 -> decode_store s isn ~sz:8 ~update:true ~indexed:true () (* stbux *)
