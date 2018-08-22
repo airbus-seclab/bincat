@@ -306,6 +306,15 @@ def test_logic_shift_dot(tmpdir, op, op32, opshift):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ca"])
 
+def test_logic_srawi(tmpdir, op32, op5):
+    asm = """
+        lis %r3, {op32}@h
+        ori %r3, %r3, {op32}@l
+        mtspr 1, %r3       # set ca to a determined value
+        srawi. %r4, %r3, {op5}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ca"])
+
 
 ##   ___
 ##  / __|___ _ __  _ __  __ _ _ _ ___
