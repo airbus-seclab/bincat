@@ -684,7 +684,12 @@ struct
     let rD, rA, rB, rc = decode_X_Form isn in
     Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 0 15)) :: (cr_flags_stmts rc rD)
 
-
+  let decode_mulli _state isn =
+    let rD, rA, simm = decode_D_Form isn in
+    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, sconst simm 16 32)) ;
+      Set (vtreg rD, lvp tmpreg 0 31) ;
+      Directive (Remove tmpreg) ; ]
 
   (* Load and Store *)
 
@@ -1105,7 +1110,7 @@ struct
       | 0b000100 -> decode_000100 s isn  (* mulchw mulhhw mulhw mullw ... *)
 (*      | 0b000101 -> *)
 (*      | 0b000110 -> *)
-      | 0b000111 -> not_implemented s isn "mulli"
+      | 0b000111 -> decode_mulli s isn
       | 0b001000 -> decode_subfic s isn
 (*      | 0b001001 ->  *)
       | 0b001010 -> decode_cmpli s isn
