@@ -491,6 +491,9 @@ def test_branch_cond(tmpdir, cr7, bit, cond):
         lis %r3, 0x1234
         lis %r4, 0x1234
         lis %r5, 0x1234
+        lis %r6, 0x1234
+        lis %r7, 0x1234
+        lis %r8, 0x1234
         bc {cond}, 4*cr7+{bit}, j1
         lis %r3, 0xabcd
         b j2
