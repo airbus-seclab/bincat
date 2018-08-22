@@ -197,7 +197,8 @@ def test_arith_divwu(tmpdir, op32, op32_):
 
 
 @pytest.mark.parametrize("op", ["mulchw","mulchwu", "mulhhw", "mulhhwu",
-                                "mulhw", "mulhwu", "mullhw", "mullhwu"])
+                                "mulhw", "mulhwu", "mullhw", "mullhwu",
+                                "mullwo"])
 def test_arith_mul(tmpdir, op, op32, op32_):
     asm = """
         lis %r3, {op32}@h
