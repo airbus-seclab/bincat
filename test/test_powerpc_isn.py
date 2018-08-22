@@ -294,16 +294,17 @@ def test_logic_rlwnm_dot(tmpdir, op32, op32_, op5, op5_, op5__):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
-@pytest.mark.parametrize("op", ["slw", "srw"])
+@pytest.mark.parametrize("op", ["slw", "srw", "sraw"])
 @pytest.mark.parametrize("opshift", [0, 1, 6, 30, 31, 32, 35, 63, 66, 125])
 def test_logic_shift_dot(tmpdir, op, op32, opshift):
     asm = """
         lis %r3, {op32}@h
         ori %r3, %r3, {op32}@l
+        mtspr 1, %r3       # set ca to a determined value
         li %r4, {opshift}
         {op}. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31"])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ca"])
 
 
 ##   ___
