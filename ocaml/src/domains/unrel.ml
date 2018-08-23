@@ -300,19 +300,18 @@ module Make(D: T) =
         let map_or_revmap = match endianness' with
           | Config.BIG -> List.map
           | Config.LITTLE -> List.rev_map in
-        let vals =
+        let read_one_byte addr =
           try
-            map_or_revmap (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs
-        with Not_found ->
-          L.debug (fun p -> p "\tNot found in mapping, checking sections");
+            snd (Env.find_key (where addr) map)
+          with Not_found ->
+          L.debug (fun p -> p "Address %s not found in mapping, checking sections"
+                              (Data.Address.to_string addr));
           (* not in mem map, check file sections, again, will raise [Not_found] if not matched *)
           let mapped_mem = match !Mapped_mem.current_mapping with
-            | None -> L.abort (fun p -> p "File not mmaped")
+            | None -> L.abort (fun p -> p "File not mmapped")
             | Some x -> x in
-          let read_file addr = D.of_word (Mapped_mem.read mapped_mem addr) in
-          List.rev_map read_file exp_addrs
-        in
-
+          D.of_word (Mapped_mem.read mapped_mem addr) in
+        let vals = map_or_revmap read_one_byte exp_addrs in
         let res = D.concat vals in
         L.debug (fun p -> p "get_mem_value result : %s" (D.to_string res));
         res
