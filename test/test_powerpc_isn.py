@@ -582,6 +582,26 @@ def test_load_indexed(tmpdir, op, val):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7"])
 
+@pytest.mark.parametrize("op", ["lbz", "lbzu", "lha", "lhau",
+                                "lhz", "lhzu", "lwz", "lwzu",])
+@pytest.mark.parametrize("ofs", [0,1,2,3,4,5,10])
+def test_load_from_mapping(tmpdir, op, ofs):
+    asm = """
+        b j2
+    j1:
+        mflr %r3
+        {op} %r4, {ofs}(%r3)
+        b end
+    j2:
+        bl j1
+        .string "the quick brown fox jumps over the lazy dog"
+        .align 4
+     end:
+        nop
+
+    """.format(**locals())
+    compare(tmpdir, asm, ["r4"])
+
 @pytest.mark.parametrize("op", ["stb", "stbu", "sth", "sthu", "stw", "stwu" ])
 @pytest.mark.parametrize("val", [0, 1, 0x7f, 0x80, 0x7fff, 0x8000, 0x7fffffff, 0x80000000, 0xffffffff])
 def test_store(tmpdir, op, val):
