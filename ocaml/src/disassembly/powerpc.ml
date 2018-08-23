@@ -848,6 +848,18 @@ struct
         end;
       List.rev !loadreg
 
+    let decode_stswi _state isn =
+      let rD, rA, nb, _ = decode_X_Form isn in
+      let ea x = if rA == 0 then const x 32 else BinOp(Add, lvtreg rA, const x 32) in
+      let nb' = if nb == 0 then 32 else nb in
+      let storereg = ref [] in
+      for n = 0 to nb'-1 do
+        let reg = (rD+(n/4)) mod 32 in
+        let pos = 24-8*(n mod 4) in
+        storereg := Set (M (ea n, 8), lvpreg reg pos (pos+7)) :: !storereg
+      done;
+      List.rev !storereg
+
 
   (* CR operations *)
 
@@ -1067,7 +1079,7 @@ struct
     | 0b1010010110 -> decode_store s isn ~sz:32 ~update:false ~indexed:true ~reversed:true () (* stwbrx *)
     | 0b1010010111 -> not_implemented s isn "stfsx"
     | 0b1010110111 -> not_implemented s isn "stfsux"
-    | 0b1011010101 -> not_implemented s isn "stswi"
+    | 0b1011010101 -> decode_stswi s isn
     | 0b1011010111 -> not_implemented s isn "stfdx"
     | 0b1011110111 -> not_implemented s isn "stfdux"
     | 0b1100010110 -> decode_load s isn ~sz:16 ~update:false ~indexed:true ~reversed:true ()  (* lhbrx *)
