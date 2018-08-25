@@ -301,10 +301,13 @@ struct
     let signext_li = if li land 0x02000000 == 0 then li else li lor 0xfc000000 in
     let cia = Z.to_int (Address.to_int state.a) in
     let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let jump = if aa == 1
-               then [ Jmp (R (const signext_li 32)) ]
-               else [ Jmp (R (const ((cia+signext_li) land 0xffffffff) 32)) ] in
-    update_lr @ jump
+    let target = if aa == 1
+                 then (R (const signext_li 32))
+                 else (R (const ((cia+signext_li) land 0xffffffff) 32)) in
+    let jump_stmt = if lk == 0
+                    then [ Jmp target ]
+                    else [ Call target ] in
+    update_lr @ jump_stmt
 
   let decode_branch_condition state isn=
     let bo, bi, bd, aa, lk = decode_B_Form isn in
