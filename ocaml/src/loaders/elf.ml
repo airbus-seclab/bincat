@@ -151,6 +151,9 @@ let make_mapped_mem filepath entrypoint =
     | R_386_32 -> obj_reloc (Z.of_int (!Config.external_symbol_max_size))
     | R_386_PC32 -> obj_reloc_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_386_RELATIVE -> (fun _ _ _ -> ())
+    | R_PPC_ADDR32 -> obj_reloc_rel (Z.of_int (!Config.external_symbol_max_size))
+    | R_PPC_GLOB_DAT -> glob_dat_reloc (Z.of_int (!Config.address_sz/8))
+    | R_PPC_JMP_SLOT -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
     | rt -> L.abort (fun p -> p "Unsupported relocation type [%s]" (reloc_type_to_string rt)) in
 
   (* Relocate REL entries *)
