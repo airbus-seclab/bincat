@@ -226,7 +226,7 @@ def test_arith_mulli(tmpdir, op32, op16_s):
 ##           |___/
 ## Logic
 
-@pytest.mark.parametrize("logic", ["or", "xor", "and", "andc", "orc", "eqv"])
+@pytest.mark.parametrize("logic", ["or", "xor", "and", "andc", "orc", "eqv", "nand", "nor"])
 def test_logic_with_flags(tmpdir, logic, op32, op32_):
     asm = """
         lis %r3, {op32}@h
