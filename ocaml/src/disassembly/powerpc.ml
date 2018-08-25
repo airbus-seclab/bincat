@@ -272,6 +272,11 @@ struct
   (* Operation decoders *)
 
 
+  let do_nothing s isn isn_name =
+    L.analysis (fun p -> p "%s: instruction %s (isn=%08x) ignored"
+                           (Address.to_string s.a) isn_name isn);
+    []
+
   (* Branching *)
 
   let wrap_with_bi_bo_condition bi bo exprs =
@@ -1002,7 +1007,7 @@ struct
     | 0b0000100000 -> decode_cmpl s isn
     | 0b0000101000 | 0b1000101000 -> decode_sub s isn
     | 0b0000110101 -> not_implemented_64bits s isn "ldux"
-    | 0b0000110110 -> not_implemented s isn "dcbst"
+    | 0b0000110110 -> do_nothing s isn "dcbst"
     | 0b0000110111 -> decode_load s isn ~sz:32 ~update:true ~indexed:true ()  (* lwzux *)
     | 0b0000111010 -> not_implemented_64bits s isn "cntlzd??"
     | 0b0000111100 -> decode_logic_complement s isn And (* andc *)
@@ -1011,7 +1016,7 @@ struct
     | 0b0001001011 -> decode_mulhw s isn IMul (* mulhw *)
     | 0b0001010011 -> not_implemented s isn "mfmsr"
     | 0b0001010100 -> not_implemented_64bits s isn "ldarx"
-    | 0b0001010110 -> not_implemented s isn "dcbf"
+    | 0b0001010110 -> do_nothing s isn "dcbf"
     | 0b0001010111 -> decode_load s isn ~sz:8 ~update:false ~indexed:true ()  (* lbzx *)
     | 0b0001101000 | 0b1001101000 -> decode_neg s isn
     | 0b0001110111 -> decode_load s isn ~sz:8 ~update:true  ~indexed:true ()  (* lbzux  *)
@@ -1035,10 +1040,10 @@ struct
     | 0b0011101010 | 0b1011101010 -> decode_addme s isn
     | 0b0011101011 | 0b1011101011 -> decode_mullw s isn
     | 0b0011110010 -> not_implemented s isn "mtsrin"
-    | 0b0011110110 -> not_implemented s isn "dcbtst"
+    | 0b0011110110 -> do_nothing s isn "dcbtst"
     | 0b0011110111 -> decode_store s isn ~sz:8 ~update:true ~indexed:true () (* stbux *)
     | 0b0100001010 | 0b1100001010 ->  decode_add s isn
-    | 0b0100010110 -> not_implemented s isn "dcbt"
+    | 0b0100010110 -> do_nothing s isn "dcbt"
     | 0b0100010111 -> decode_load s isn ~sz:16 ~update:false ~indexed:true ()  (* lhzx *)
     | 0b0100011100 -> decode_logic_complement s isn Xor (* "eqv??" *)
     | 0b0100110010 -> not_implemented s isn "tlbie"
@@ -1062,7 +1067,7 @@ struct
     | 0b0111001001 | 0b1111001001 -> not_implemented_64bits s isn "divdu??"
     | 0b0111001011 | 0b1111001011 -> decode_divwu s isn
     | 0b0111010011 -> decode_mtspr s isn
-    | 0b0111010110 -> not_implemented s isn "dcbi"
+    | 0b0111010110 -> do_nothing s isn "dcbi"
     | 0b0111011100 -> decode_logic_not s isn And (* nand?? *)
     | 0b0111101001 | 0b1111101001 -> not_implemented_64bits s isn "divd??"
     | 0b0111101011 | 0b1111101011 -> decode_divw s isn
@@ -1099,7 +1104,7 @@ struct
     | 0b1111010110 -> not_implemented s isn "icbi"
     | 0b1111010111 -> not_implemented s isn "stfiwx"
     | 0b1111011010 -> not_implemented_64bits s isn "extsw"
-    | 0b1111110110 -> not_implemented s isn "dcbz"
+    | 0b1111110110 -> do_nothing s isn "dcbz"
     | _ -> error s.a (Printf.sprintf "decode_011111: unknown opcode 0x%x" isn)
 
   let decode_111010 s isn =
