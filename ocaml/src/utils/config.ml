@@ -129,6 +129,9 @@ let es = ref Z.zero
 let fs = ref Z.zero
 let gs = ref Z.zero
 
+(* used for powerpc mfspr *)
+let processor_version = ref 0
+
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)
 let interleave = ref false

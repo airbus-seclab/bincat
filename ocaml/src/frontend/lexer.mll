@@ -45,6 +45,7 @@ let _ =
     "POWERPC", POWERPC;
     "ppc"    , POWERPC;
     "PPC"    , POWERPC;
+    "processor_version", PROCESSOR_VERSION;
     "endianness", ENDIANNESS;
     "little", LITTLE;
     "big", BIG;

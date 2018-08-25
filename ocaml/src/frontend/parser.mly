@@ -157,7 +157,7 @@
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
-%token POWERPC SVR
+%token POWERPC SVR PROCESSOR_VERSION
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP
 %token <string> STRING
 %token <string> HEX_BYTES
@@ -326,7 +326,11 @@
 
     powerpc_section:
     |  { () }
+    | i=powerpc_section_item ii=powerpc_section { i; ii }
+
+     powerpc_section_item:
     | ENDIANNESS EQUAL e=endianness { Config.endianness := e }
+    | PROCESSOR_VERSION EQUAL v=INT { Config.processor_version := (Z.to_int v) }
 
     endianness:
     | LITTLE { Config.LITTLE }
