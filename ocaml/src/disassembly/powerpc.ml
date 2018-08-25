@@ -404,6 +404,10 @@ struct
     let rS, rA, rB, rc = decode_X_Form isn in
     Set (vtreg rA, BinOp (op, lvtreg rS, UnOp(Not, lvtreg rB))) :: (cr_flags_stmts rc rA)
 
+  let decode_logic_not _state isn op =
+    let rS, rA, rB, rc = decode_X_Form isn in
+    Set (vtreg rA, UnOp (Not, BinOp (op, lvtreg rS, lvtreg rB))) :: (cr_flags_stmts rc rA)
+
   let decode_logic_imm _state isn op =
     let rS, rA, uimm = decode_D_Form isn in
     [ Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32) ) ]
@@ -1009,7 +1013,7 @@ struct
     | 0b0001010111 -> decode_load s isn ~sz:8 ~update:false ~indexed:true ()  (* lbzx *)
     | 0b0001101000 | 0b1001101000 -> decode_neg s isn
     | 0b0001110111 -> decode_load s isn ~sz:8 ~update:true  ~indexed:true ()  (* lbzux  *)
-    | 0b0001111100 -> not_implemented s isn "nor??"
+    | 0b0001111100 -> decode_logic_not s isn Or (* nor?? *)
     | 0b0010001000 | 0b1010001000 -> decode_subfe s isn
     | 0b0010001010 | 0b1010001010 -> decode_adde s isn
     | 0b0010010000 -> decode_mtcrf s isn
@@ -1057,7 +1061,7 @@ struct
     | 0b0111001011 | 0b1111001011 -> decode_divwu s isn
     | 0b0111010011 -> decode_mtspr s isn
     | 0b0111010110 -> not_implemented s isn "dcbi"
-    | 0b0111011100 -> not_implemented s isn "nand??"
+    | 0b0111011100 -> decode_logic_not s isn And (* nand?? *)
     | 0b0111101001 | 0b1111101001 -> not_implemented_64bits s isn "divd??"
     | 0b0111101011 | 0b1111101011 -> decode_divw s isn
     | 0b0111110010 -> not_implemented_64bits s isn "slbia"
