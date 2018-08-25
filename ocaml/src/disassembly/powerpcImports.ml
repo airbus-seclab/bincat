@@ -106,6 +106,7 @@ struct
     if  Hashtbl.mem Stubs.stubs name then
       [
         Directive (Stub (name, callconv)) ;
+        Directive (Forget (reg "r4")) ;
         Directive (Forget (reg "r5")) ;
         Directive (Forget (reg "r6")) ;
         Directive (Forget (reg "r7")) ;
@@ -115,7 +116,6 @@ struct
         Directive (Forget (reg "r11")) ;
         Directive (Forget (reg "r12")) ;
       ]
-
     else
       [
         Directive (Forget (reg "r3")) ;
@@ -141,14 +141,13 @@ struct
         in
         let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc' in
         let stub_stmts = stub_stmts_from_name fname cc' in
-        let set_tflag = [ Set( reg "t", Lval (preg "lr" 0 0)) ] in
         let fundesc:Asm.import_desc_t = {
             name = fname ;
             libname = libname ;
             prologue = typing_pro @ tainting_pro ;
             stub = stub_stmts ;
-            epilogue = typing_epi @ tainting_epi @ set_tflag ;
-            ret_addr = BinOp(And, Lval(reg "lr"), const 0xfffffffe 32) ;
+            epilogue = typing_epi @ tainting_epi ;
+            ret_addr = Lval(reg "lr") ;
           } in
         Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc')
       ) Config.import_tbl
