@@ -335,7 +335,7 @@ struct
        [ Set (vtreg rD, lvt lr) ]
     | 9 -> (* CTR *)
        [ Set (vtreg rD, lvt ctr) ]
-    | n -> error state.a (Printf.sprintf "mtspr to SPR #%i not supported yet" n)
+    | n -> error state.a (Printf.sprintf "mfspr from SPR #%i not supported yet" n)
 
   let decode_mtspr state isn =
     let rS, sprn = decode_XFX_Form isn in
