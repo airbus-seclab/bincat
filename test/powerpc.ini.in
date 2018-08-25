@@ -26,6 +26,7 @@ format = raw
 
 [powerpc]
 endianness = big
+processor_version = 0x200008d0
 
 [state]
 reg[cr] = 0x0?0xffffffff

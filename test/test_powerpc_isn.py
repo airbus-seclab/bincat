@@ -809,3 +809,12 @@ def test_special_XERso_to_CRso(tmpdir):
         add. %r6, %r5, %r3
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "cr:28-31", "so", "ov", "ca" ])
+
+def test_special_mfspr_processor_version(tmpdir):
+    ## PV value comes from powerpc.ini
+    asm = """
+        lis %r3, 0x1234
+        ori %r3,%r3,0x5678
+        mfspr %r3, 287
+    """
+    compare(tmpdir, asm, ["r3"])
