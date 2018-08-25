@@ -675,6 +675,14 @@ type reloc_type_t =
   | R_AARCH64_COPY | R_AARCH64_GLOB_DAT | R_AARCH64_JUMP_SLOT | R_AARCH64_RELATIVE
   | R_AARCH64_TLS_DTPREL64 | R_AARCH64_TLS_DTPMOD64 | R_AARCH64_TLS_TPREL64
   | R_AARCH64_TLSDESC | R_AARCH64_IRELATIVE
+  (* POWERPC relocation types *)
+  | R_PPC_NONE | R_PPC_ADDR32 | R_PPC_ADDR24 | R_PPC_ADDR16 | R_PPC_ADDR16_LO | R_PPC_ADDR16_HI
+  | R_PPC_ADDR16_HA | R_PPC_ADDR14 | R_PPC_ADDR14_BRTAKEN | R_PPC_ADDR14_BRNTAKEN | R_PPC_REL24
+  | R_PPC_REL14 | R_PPC_REL14_BRTAKEN | R_PPC_REL14_BRNTAKEN | R_PPC_GOT16 | R_PPC_GOT16_LO
+  | R_PPC_GOT16_HI | R_PPC_GOT16_HA | R_PPC_PLTREL24 | R_PPC_COPY | R_PPC_GLOB_DAT
+  | R_PPC_JMP_SLOT | R_PPC_RELATIVE | R_PPC_LOCAL24PC | R_PPC_UADDR32 | R_PPC_UADDR16 | R_PPC_REL32
+  | R_PPC_PLT32 | R_PPC_PLTREL32 | R_PPC_PLT16_LO | R_PPL_PLT16_HI | R_PPC_PLT16_HA | R_PPC_SDAREL16
+  | R_PPC_SECTOFF | R_PPC_SECTOFF_LO | R_PPC_SECTOFF_HI | R_PPC_SECTOFF_HA | R_PPC_ADDR30
 
 let to_reloc_type r hdr =
     match hdr.e_machine with
@@ -708,6 +716,24 @@ let to_reloc_type r hdr =
          | 1032 -> R_AARCH64_IRELATIVE
          | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
+    | POWERPC ->
+       begin
+         match r with
+         | 0  -> R_PPC_NONE            | 1  -> R_PPC_ADDR32         | 2  -> R_PPC_ADDR24
+         | 3  -> R_PPC_ADDR16          | 4  -> R_PPC_ADDR16_LO      | 5  -> R_PPC_ADDR16_HI
+         | 6  -> R_PPC_ADDR16_HA       | 7  -> R_PPC_ADDR14         | 8  -> R_PPC_ADDR14_BRTAKEN
+         | 9  -> R_PPC_ADDR14_BRNTAKEN | 10 -> R_PPC_REL24          | 11 -> R_PPC_REL14
+         | 12 -> R_PPC_REL14_BRTAKEN   | 13 -> R_PPC_REL14_BRNTAKEN | 14 -> R_PPC_GOT16
+         | 15 -> R_PPC_GOT16_LO        | 16 -> R_PPC_GOT16_HI       | 17 -> R_PPC_GOT16_HA
+         | 18 -> R_PPC_PLTREL24        | 19 -> R_PPC_COPY           | 20 -> R_PPC_GLOB_DAT
+         | 21 -> R_PPC_JMP_SLOT        | 22 -> R_PPC_RELATIVE       | 23 -> R_PPC_LOCAL24PC
+         | 24 -> R_PPC_UADDR32         | 25 -> R_PPC_UADDR16        | 26 -> R_PPC_REL32
+         | 27 -> R_PPC_PLT32           | 28 -> R_PPC_PLTREL32       | 29 -> R_PPC_PLT16_LO
+         | 30 -> R_PPL_PLT16_HI        | 31 -> R_PPC_PLT16_HA       | 32 -> R_PPC_SDAREL16
+         | 33 -> R_PPC_SECTOFF         | 34 -> R_PPC_SECTOFF_LO     | 35 -> R_PPC_SECTOFF_HI
+         | 36 -> R_PPC_SECTOFF_HA      | 37 -> R_PPC_ADDR30
+         | _ -> RELOC_OTHER (hdr.e_machine, r)
+       end
     | _ -> RELOC_OTHER (hdr.e_machine, r)
 
 let reloc_type_to_string rel =
@@ -723,6 +749,25 @@ let reloc_type_to_string rel =
   | R_AARCH64_TLS_DTPREL64 -> "R_AARCH64_TLS_DTPREL64" | R_AARCH64_TLS_DTPMOD64 -> "R_AARCH64_TLS_DTPMOD64"
   | R_AARCH64_TLS_TPREL64 -> "R_AARCH64_TLS_TPREL64"   | R_AARCH64_TLSDESC -> "R_AARCH64_TLSDESC"
   | R_AARCH64_IRELATIVE -> "R_AARCH64_IRELATIVE"
+  | R_PPC_NONE -> "R_PPC_NONE"                     | R_PPC_ADDR32 -> "R_PPC_ADDR32"
+  | R_PPC_ADDR24 -> "R_PPC_ADDR24"                 | R_PPC_ADDR16 -> "R_PPC_ADDR16"
+  | R_PPC_ADDR16_LO -> "R_PPC_ADDR16_LO"           | R_PPC_ADDR16_HI -> "R_PPC_ADDR16_HI"
+  | R_PPC_ADDR16_HA -> "R_PPC_ADDR16_HA"           | R_PPC_ADDR14 -> "R_PPC_ADDR14"
+  | R_PPC_ADDR14_BRTAKEN -> "R_PPC_ADDR14_BRTAKEN" | R_PPC_ADDR14_BRNTAKEN -> "R_PPC_ADDR14_BRNTAKEN"
+  | R_PPC_REL24 -> "R_PPC_REL24"                   | R_PPC_REL14 -> "R_PPC_REL14"
+  | R_PPC_REL14_BRTAKEN -> "R_PPC_REL14_BRTAKEN"   | R_PPC_REL14_BRNTAKEN -> "R_PPC_REL14_BRNTAKEN"
+  | R_PPC_GOT16 -> "R_PPC_GOT16"                   | R_PPC_GOT16_LO -> "R_PPC_GOT16_LO"
+  | R_PPC_GOT16_HI -> "R_PPC_GOT16_HI"             | R_PPC_GOT16_HA -> "R_PPC_GOT16_HA"
+  | R_PPC_PLTREL24 -> "R_PPC_PLTREL24"             | R_PPC_COPY -> "R_PPC_COPY"
+  | R_PPC_GLOB_DAT -> "R_PPC_GLOB_DAT"             | R_PPC_JMP_SLOT -> "R_PPC_JMP_SLOT"
+  | R_PPC_RELATIVE -> "R_PPC_RELATIVE"             | R_PPC_LOCAL24PC -> "R_PPC_LOCAL24PC"
+  | R_PPC_UADDR32 -> "R_PPC_UADDR32"               | R_PPC_UADDR16 -> "R_PPC_UADDR16"
+  | R_PPC_REL32 -> "R_PPC_REL32"                   | R_PPC_PLT32 -> "R_PPC_PLT32"
+  | R_PPC_PLTREL32 -> "R_PPC_PLTREL32"             | R_PPC_PLT16_LO -> "R_PPC_PLT16_LO"
+  | R_PPL_PLT16_HI -> "R_PPL_PLT16_HI"             | R_PPC_PLT16_HA -> "R_PPC_PLT16_HA"
+  | R_PPC_SDAREL16 -> "R_PPC_SDAREL16"             | R_PPC_SECTOFF -> "R_PPC_SECTOFF"
+  | R_PPC_SECTOFF_LO -> "R_PPC_SECTOFF_LO"         | R_PPC_SECTOFF_HI -> "R_PPC_SECTOFF_HI"
+  | R_PPC_SECTOFF_HA -> "R_PPC_SECTOFF_HA"         | R_PPC_ADDR30 -> "R_PPC_ADDR30"
   | RELOC_OTHER (mach,num) -> (Printf.sprintf "reloc(%s,%#x)" (e_machine_to_string mach) num)
 
 
