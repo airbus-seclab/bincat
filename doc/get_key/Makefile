@@ -1,6 +1,7 @@
 CFLAGS := -I. -O1 -fPIC
+CXXFLAGS := $(CFLAGS)
 
-OBJ := get_key_x86 get_key_armv7 get_key_armv7_thumb get_key_armv8 get_key_powerpc
+OBJ := get_key_x86 get_key_x86_cpp get_key_armv7 get_key_armv7_thumb get_key_armv8 get_key_powerpc
 all: $(OBJ)
 
 get_key_x86: get_key.c sha1.c
@@ -17,6 +18,10 @@ get_key_armv8: get_key.c sha1.c
 
 get_key_powerpc: get_key.c sha1.c
 	powerpc-linux-gnu-gcc $(CFLAGS) -o $@ $^
+
+get_key_x86_cpp: get_key_cpp.cpp sha1.c
+	g++ $(CXXFLAGS) -m32 -o $@ $^ -L /usr/lib/gcc/i686-linux-gnu/7
+
 
 clean:
 	rm -f $(OBJ) sha1.o
