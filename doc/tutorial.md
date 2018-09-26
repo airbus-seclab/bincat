@@ -52,19 +52,21 @@ Binaries and configuration files are also provided for the following architectur
 7. Check the **Save configuration to IDB** option
 8. Click the **Edit...** button
 9. Paste the following lines at the end of the `[state]` section, **overwriting
-   the existing stack initialization** (`stack[0x1000*8192]...`). This defines
+   the existing stack initialization** (`mem[0x1000*8192]...`). This defines
    a value for `argc`, creates 5 pointers to strings, initializes 5
    null-terminated strings, and also initializes a stack to **TOP** (unknown
    value)
 ```
-stack[0x1000*4099] = |00|?0xFF
-stack[0x2004] = 5
-stack[0x2008] = 0x200000
+mem[0x1000*4099] = |00|?0xFF
+mem[0x2004] = 5
+mem[0x2008] = 0x200000
+
 mem[0x200000] = 0x300100
 mem[0x200004] = 0x300140
 mem[0x200008] = 0x300180
 mem[0x20000C] = 0x3001C0
 mem[0x200010] = 0x300200
+
 mem[0x300100] = |6c6f6c3300|
 mem[0x300140] = |636f6d70616e7900|
 mem[0x300180] = |64657000|
