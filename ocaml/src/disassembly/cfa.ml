@@ -201,17 +201,8 @@ struct
         let rname = fst rcontent in
         let v = snd rcontent in
         let r = Register.of_name rname in
-        let v' =
-          (* TODO: remove when regions Global and Stack will be merged *)
-          if Register.is_stack_pointer r then
-            match fst v with
-            | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd v
-            | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd v
-            | _ -> v
-          else v
-        in
-        Init_check.check_register_init r v';
-        let d', taint' = Domain.set_register_from_config r v' d in
+        Init_check.check_register_init r v;
+        let d', taint' = Domain.set_register_from_config r v d in
         d', Taint.logor taint taint'
       )
       (d, Taint.U) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
@@ -233,11 +224,9 @@ struct
       (* initialisation of Global memory + registers *)
       let d', taint1 = init_registers d in
       let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
-    (* init of the Stack memory *)
-      let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
     (* init of the Heap memory *)
-      let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
-      d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
+      let d', taint3 = init_mem d' Data.Address.Heap !Config.heap_content in
+      d', Taint.logor taint3 (Taint.logor taint2 taint1)
         
     let init_abstract_value () =
       let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in

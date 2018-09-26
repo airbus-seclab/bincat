@@ -584,15 +584,6 @@ struct
           List.map (fun (rname, rfun) ->
               let reg = Register.of_name rname in
               let rule = rfun reg in
-              let rule =
-                if Register.is_stack_pointer reg then
-                  (* TODO: remove when Stack and Global regions will be merged *)
-              match fst rule with
-                    | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd rule
-                    | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd rule
-                    | _ -> rule
-              else rule
-            in
             Init_check.check_register_init reg rule;
             D.set_register_from_config reg rule) rules
         in
@@ -670,8 +661,7 @@ struct
             hash_add_or_append overrides ip rules'
 
         ) tbl)
-        [(Config.mem_override, Data.Address.Global) ;
-         (Config.stack_override, Data.Address.Stack) ; (Config.heap_override, Data.Address.Heap)];
+        [(Config.mem_override, Data.Address.Global) ; (Config.heap_override, Data.Address.Heap)];
       while !continue do
         (* a waiting node is randomly chosen to be explored *)
         let v = Vertices.choose !waiting in

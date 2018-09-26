@@ -99,7 +99,6 @@ let _ =
     "U", U;
     "T", T;
     "imports", IMPORTS;
-    "stack", STACK;
     "heap", HEAP;
     "analysis", ANALYSIS;
     "forward_binary", FORWARD_BIN;
@@ -138,7 +137,6 @@ let oct_int      = ("0o" | "0O") ['0'-'7']+
 let integer = hexa_int | dec_int | oct_int
 let global_integer = ("G" | "") integer
 let heap_integer = "H" integer
-let stack_integer = "S" integer
                   
 (* special characters *)
 let path_symbols = '.' | '/' | '\\' | ':'
@@ -171,7 +169,6 @@ rule token = parse
   (* byte string *)
   | '|'                 { HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
   | "G|"                 { HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
-  | "S|"                 { STACK_HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
   | "H|"                 { HEAP_HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
   (* quoted string *)
   | '"'                 { read_string (Buffer.create 80) lexbuf }
@@ -190,7 +187,6 @@ rule token = parse
   | ","             { COMMA }
   (* left operand of type integer *)
   | global_integer as i        { INT (strip_int i) }
-    | stack_integer as i { SINT (strip_int i) }
     | heap_integer as i { HINT (strip_int i) }
     | value as v      {
                    try

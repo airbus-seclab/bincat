@@ -71,7 +71,6 @@ module Address: sig
   (** these memory regions are supposed not to overlap *)
   type region =
     | Global (** abstract base address of global variables and code *)
-    | Stack (** abstract base address of the stack *)
     | Heap (** abstract base address of a dynamically allocated memory block *)
 
   (** conversion from Config.region to region *)

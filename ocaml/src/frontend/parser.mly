@@ -161,7 +161,6 @@
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP
 %token <string> STRING
 %token <string> HEX_BYTES
-%token <string> STACK_HEX_BYTES
 %token <string> HEAP_HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
@@ -232,7 +231,6 @@
     tainting_addr:
     | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }
     | HEAP LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, r, i }
-    | STACK LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, r, i }
 
 
       imports:
@@ -397,7 +395,6 @@
       state_item:
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET EQUAL v=init    { init_register r v }
     | MEM LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init    { Config.memory_content := (m, v) :: !Config.memory_content }
-    | STACK LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init  { Config.stack_content := (m, v)  :: !Config.stack_content }
     | HEAP LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init   { Config.heap_content := (m, v) :: !Config.heap_content }
 
       repeat:
@@ -448,12 +445,10 @@
 
       byte_kind:
     | b = HEX_BYTES  { (Config.G, b) }
-    | b = STACK_HEX_BYTES { (Config.S, b) }
     | b = HEAP_HEX_BYTES { (Config.H, b) }
             
     int_kind:
     | i=INT { (Config.G, i) }
-    | i=SINT { (Config.S, i) }
     | i=HINT { (Config.H, i) }
 
     tcontent:

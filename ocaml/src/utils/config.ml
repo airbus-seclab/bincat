@@ -147,7 +147,6 @@ type tvalue =
 type region =
   | G (* global *)
   | H (* heap *)
-  | S (* stack *)
 
 type content = region * Z.t
 type bytes = region * string
@@ -205,10 +204,9 @@ let funSkipTbl: (fun_t, Z.t * ((cvalue option * tvalue list) option)) Hashtbl.t 
                                 
 let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
-let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 
-(* lists for the initialisation of the global memory, stack and heap *)
+(* lists for the initialisation of the global memory and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
 type mem_init_t = ((Z.t * int) * (cvalue option * tvalue list)) list
 type reg_init_t = (string * (cvalue option * tvalue list)) list
@@ -216,7 +214,6 @@ type reg_init_t = (string * (cvalue option * tvalue list)) list
 let register_content: reg_init_t ref = ref []
 let registers_from_coredump: reg_init_t ref = ref []
 let memory_content: mem_init_t ref = ref []
-let stack_content: mem_init_t ref = ref []
 let heap_content: mem_init_t ref = ref []
 
 let elf_coredumps : string list ref = ref []
@@ -250,10 +247,8 @@ let clear_tables () =
   Hashtbl.clear import_tbl;
   Hashtbl.clear reg_override;
   Hashtbl.clear mem_override;
-  Hashtbl.clear stack_override;
   Hashtbl.clear heap_override;
   memory_content := [];
-  stack_content := [];
   heap_content := []
 
 let reset () =
@@ -289,14 +284,12 @@ let reset () =
   gs := Z.zero;
   interleave := false;
   memory_content := [];
-  stack_content := [];
   heap_content := [];
   register_content := [];
   Hashtbl.reset funSkipTbl;
   Hashtbl.reset module_loglevel;
   Hashtbl.reset reg_override;
   Hashtbl.reset mem_override;
-  Hashtbl.reset stack_override;
   Hashtbl.reset heap_override;
   Hashtbl.reset gdt;
   Hashtbl.reset import_tbl;

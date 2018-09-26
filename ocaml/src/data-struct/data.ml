@@ -102,20 +102,17 @@ struct
         (* these memory regions are supposed not to overlap *)
         type region =
           | Global (** abstract base address of global variables and code *)
-          | Stack  (** abstract base address of the stack *)
           | Heap   (** abstract base address of a dynamically allocated memory block *)
 
 
         let string_of_region r =
             match r with
             | Global -> ""
-            | Stack  -> "S"
             | Heap   -> "H"
 
         let region_from_config c =
           match c with
           | Config.G -> Global
-          | Config.S -> Stack
           | Config.H -> Heap 
 
         type t = region * Word.t
@@ -124,12 +121,8 @@ struct
             match r1, r2 with
             | Global, Global -> 0
             | Global, _ -> -1
-            | Stack, Stack -> 0
-            | Stack, Global -> 1
-            | Stack, Heap -> -1
             | Heap, Heap -> 0
             | Heap, Global -> 1
-            | Heap, Stack -> 1
 
         let compare (r1, w1) (r2, w2) =
             let n = compare_region r1 r2 in
