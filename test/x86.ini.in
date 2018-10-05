@@ -88,7 +88,7 @@ reg[esp] = 0x2000
 reg[ebp] = 0x2000
 
 #here addresses are supposed to be absolute and not of the form ds:o
-stack[0x1000*8192] = |00|?0xFF
+mem[0x1000*8192] = |00|?0xFF
 
 {regmem}
 
