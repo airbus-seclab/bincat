@@ -282,27 +282,33 @@ module Make(D: T) =
         3) if "map" contains the adresses, get the values and concat them
         4) else check in the "sections" maps and read from the file (or raise Not_found)
     **)
-    let get_mem_value map addr sz =
-      L.debug (fun p -> p "get_mem_value : %s %d" (Data.Address.to_string addr) sz);
+    let get_mem_value ?endianness map addr sz  =
+      let endianness' = match endianness with
+        | None -> !Config.endianness
+        | Some x -> x in
+      L.debug (fun p -> p "get_mem_value : addr=%s sz=%d bytes, %s"
+                          (Data.Address.to_string addr) sz
+                          (Config.endianness_to_string endianness'));
       try
         (* expand the address + size to a list of addresses *)
         let exp_addrs = get_addr_list addr (sz/8) in
 
         (* find the corresponding keys in the map, will raise [Not_found] if no addr matches *)
-        let vals =
+        let map_or_revmap = match endianness' with
+          | Config.BIG -> List.map
+          | Config.LITTLE -> List.rev_map in
+        let read_one_byte addr =
           try
-            List.rev_map (fun cur_addr -> snd (Env.find_key (where cur_addr) map)) exp_addrs
-        with Not_found ->
-          L.debug (fun p -> p "\tNot found in mapping, checking sections");
+            snd (Env.find_key (where addr) map)
+          with Not_found ->
+          L.debug (fun p -> p "Address %s not found in mapping, checking sections"
+                              (Data.Address.to_string addr));
           (* not in mem map, check file sections, again, will raise [Not_found] if not matched *)
           let mapped_mem = match !Mapped_mem.current_mapping with
-            | None -> L.abort (fun p -> p "File not mmaped")
+            | None -> L.abort (fun p -> p "File not mmapped")
             | Some x -> x in
-          let read_file addr = D.of_word (Mapped_mem.read mapped_mem addr) in
-          List.rev_map read_file exp_addrs
-        in
-
-        (* TODO big endian, here the map is reversed so it should be ordered in little endian order *)
+          D.of_word (Mapped_mem.read mapped_mem addr) in
+        let vals = map_or_revmap read_one_byte exp_addrs in
         let res = D.concat vals in
         L.debug (fun p -> p "get_mem_value result : %s" (D.to_string res));
         res
@@ -371,12 +377,19 @@ module Make(D: T) =
 
 
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
-       _big_endian_ if needed. _strong_ means strong update *)
-    let write_in_memory addr domain value sz strong big_endian =
-      L.debug (fun p -> p "write_in_mem (%s, %s, %d)" (Data.Address.to_string addr) (D.to_string value) sz);
+       _endianness_. _strong_ means strong update *)
+    let write_in_memory ?endianness addr domain value sz strong  =
+      let endianness' = match endianness with
+        | None -> !Config.endianness
+        | Some x -> x in
+      L.debug (fun p -> p "write_in_memory (addr=%s, value=%s, size=%d bits, %s)" 
+                          (Data.Address.to_string addr) (D.to_string value) sz
+                          (Config.endianness_to_string endianness'));
       let nb = sz / 8 in
       let addrs = get_addr_list addr nb in
-      let addrs = if big_endian then List.rev addrs else addrs in
+      let addrs = match endianness' with
+        | Config.BIG -> List.rev addrs
+        | Config.LITTLE -> addrs in
       (* helper to update one byte in memory *)
       let update_one_key (addr, byte) domain =
         L.debug2 (fun p -> p "update_one_key (%s, %s)" (Data.Address.to_string addr) (D.to_string byte));
@@ -571,8 +584,7 @@ module Make(D: T) =
          let v, _b = eval_exp m' e check_address_validity in
          let addrs = D.to_addresses v in
          let l     = Data.Address.Set.elements addrs in
-         List.fold_left (fun m a ->  write_in_memory a m D.top n true false) m' l
-
+         List.fold_left (fun m a ->  write_in_memory a m D.top n true) m' l
 
 
     let val_restrict m e1 _v1 cmp _e2 v2: t list =
@@ -655,8 +667,8 @@ module Make(D: T) =
         let l     = Data.Address.Set.elements addrs in
         let t' = Taint.logor b b' in
         match l with
-        | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true false, t'
-        | l   -> (* weak update *) List.fold_left (fun m a ->  write_in_memory a m v' dst_sz false false) m' l, t'
+        | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true, t'
+        | l   -> (* weak update *) List.fold_left (fun m a ->  write_in_memory a m v' dst_sz false) m' l, t'
       with
       | Exceptions.Too_many_concrete_elements "unrel.set" -> Env.empty, Taint.TOP
 
@@ -695,7 +707,6 @@ module Make(D: T) =
         let m = Env.empty in
         let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
         Env.fold (fun k v m -> try let v' = Env.find k m1' in Env.replace k (D.join v v') m with Not_found -> Env.add k v m) m2' m'
-
 
 
     let meet m1 m2 =
@@ -801,8 +812,7 @@ module Make(D: T) =
              let m', taint = repeat (domain', Taint.U) 0 in
              m', taint, taint_sz                
            end
-          
-        | Some content' -> 
+        | Some content' ->
            let sz = Config.size_of_content content' in
            let (v', taint) = of_config (content', taint) sz in
            if nb > 1 then
@@ -811,12 +821,12 @@ module Make(D: T) =
              else
                write_repeat_byte_in_mem addr domain' v' nb, taint, sz
            else
-             let big_endian =
+             let endianness =
                match content' with
-               | Config.Bytes _ | Config.Bytes_Mask (_, _) -> true
-               | _ -> false
-             in                          
-             write_in_memory addr domain' v' sz true big_endian, taint, sz
+               | Config.Bytes _ | Config.Bytes_Mask (_, _) -> Config.BIG
+               | _ -> !Config.endianness
+             in
+             write_in_memory ~endianness:endianness addr domain' v' sz true , taint, sz
       in
       List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
                              Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
@@ -984,7 +994,7 @@ module Make(D: T) =
          let m', _ =
            List.fold_left (fun (m', i) byte ->
          let a' = Data.Address.add_offset a (Z.of_int i) in
-           (write_in_memory a' m' byte 8 strong false), i+1) (m', 0) bytes
+           (write_in_memory a' m' byte 8 strong), i+1) (m', 0) bytes
          in
          m'
        in
@@ -1111,7 +1121,7 @@ module Make(D: T) =
                | _, Taint.U -> D.span_taint r src_tainted
                | _, _ -> D.taint r
              in
-             write (write_in_memory dst m' v' 8 true false) (Z.add o Z.one)
+             write (write_in_memory dst m' v' 8 true) (Z.add o Z.one)
            else
              m'
          in
@@ -1133,8 +1143,8 @@ module Make(D: T) =
       let v = fst (eval_exp m' arg check_address_validity) in
       let addrs = fst (eval_exp m' dst check_address_validity) in
       match Data.Address.Set.elements (D.to_addresses addrs) with
-      | [a] -> write_in_memory a m' v sz true false
-      | _::_ as l -> List.fold_left (fun m a -> write_in_memory a m v sz false false) m' l
+      | [a] -> write_in_memory a m' v sz true
+      | _::_ as l -> List.fold_left (fun m a -> write_in_memory a m v sz false) m' l
       | [ ] -> raise (Exceptions.Empty "Unrel.copy")
     
 

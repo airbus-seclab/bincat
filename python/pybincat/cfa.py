@@ -70,6 +70,15 @@ def reg_len(regname):
             "cf": 1, "pf": 1, "af": 1, "zf": 1, "sf": 1, "tf": 1, "if": 1,
             "df": 1, "of": 1, "nt": 1, "rf": 1, "vm": 1, "ac": 1, "vif": 1,
             "vip": 1, "id": 1}[regname]
+    elif CFA.arch == "powerpc":
+        return {
+            "r0": 32, "r1": 32, "r2": 32, "r3": 32, "r4": 32, "r5": 32,
+            "r6": 32, "r7": 32, "r8": 32, "r9": 32, "r10": 32, "r11": 32,
+            "r12": 32, "r13": 32, "r14": 32, "r15": 32, "r16": 32, "r17": 32,
+            "r18": 32, "r19": 32, "r20": 32, "r21": 32, "r22": 32, "r23": 32,
+            "r24": 32, "r25": 32, "r26": 32, "r27": 32, "r28": 32, "r29": 32,
+            "r30": 32, "r31": 32, "lr": 32, "ctr": 32, "cr": 32,
+            "tbc": 7, "so": 1, "ov": 1, "ca": 1 }[regname]
     else:
         raise KeyError("Unkown arch %s" % CFA.arch)
 
@@ -273,7 +282,7 @@ class State(object):
                 import traceback
                 traceback.print_exc(e)
                 raise PyBinCATException(
-                    "Cannot parse taint or type data at address %s\n%s" %
+                    "Cannot parse taint or type data at address %s\n%r" %
                     (self.address, e))
         return self._regaddrs
 
@@ -415,7 +424,7 @@ class State(object):
                     continue
                 if addr.value + len(vlist) > item.value:
                     return vlist[item.value-addr.value:]
-            raise IndexError
+            raise IndexError(item)
 
     def mem_ranges(self):
         """

@@ -229,7 +229,7 @@ and string_of_exp e extended =
   | Lval lv            -> string_of_lval lv extended
   | BinOp (op, e1, e2) -> Printf.sprintf "(%s %s %s)" (string_of_exp e1 extended) (string_of_binop op) (string_of_exp e2 extended)
   | UnOp (op, e')      -> Printf.sprintf "%s %s" (string_of_unop op extended) (string_of_exp e' extended)
-  | TernOp (c, e1, e2) -> Printf.sprintf "%s?%s:%s" (string_of_bexp c true) (string_of_exp e1 extended) (string_of_exp e2 extended)
+  | TernOp (c, e1, e2) -> Printf.sprintf "(%s?%s:%s)" (string_of_bexp c true) (string_of_exp e1 extended) (string_of_exp e2 extended)
 
 and string_of_bexp e extended =
   match e with

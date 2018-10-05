@@ -1455,7 +1455,7 @@ struct
         let word_1f = Const (Word.of_int (Z.of_int 0x1f) 8) in
         let n_masked = BinOp(And, n, word_1f) in
         let ldst = Lval dst in
-        let dst_msb = msb_stmts ldst sz in
+        let dst_msb = msb_expr ldst sz in
         let cf_stmt =
           let c = Cmp (LT, sz', n_masked) in
           let aexp = Cmp (EQ, one_sz, BinOp (And, one_sz, (BinOp(Shr, ldst, BinOp(Sub,n_masked, one8))))) in
@@ -2456,14 +2456,21 @@ struct
 
         and rep s c =
         (* rep prefix *)
-
           try
-            let v, ip = decode s in
             (* TODO: remove this hack *)
+            (* get the next instruction *)
+            let v, ip = decode s in
             begin
               match List.hd v.Cfa.State.stmts with
               | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
               | _ ->
+                 (* hack: if we do not have a cmps or a scas remove repe/repne flag *)
+                 begin
+                   match List.hd s.c with
+                    | '\xA6' | '\xA7' | '\xAE' | '\xAF' -> ();
+                    | _ -> s.repe <- false; s.repne <- false;
+                 end;
+                 L.debug (fun p->p "rep decoder: s.repe : %b, s.repne: %b" s.repe s.repne);
                  let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
                  let a'  = Data.Address.add_offset s.a (Z.of_int s.o) in
                  let zf_stmts =

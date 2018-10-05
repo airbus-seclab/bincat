@@ -130,13 +130,10 @@ def val2str(val, top=None, taint=None, ttop=None):
 
 class Arch:
     ALL_REGS = []
+    QEMU = []
     def __init__(self, ini_in_file=None):
         self.ini_in_file  = ini_in_file
 
-    def assemble(self, tmpdir, asm):
-        raise NotImplemented
-    def cpu_run(self, tmpdir, opcodesfname):
-        raise NotImplemented
     def extract_flags(self, regs):
         pass
     def prettify_listing(self, asm):
@@ -203,7 +200,39 @@ class Arch:
                           +hline
                           +"\n".join(same))
 
+    def bf2mask(self, bitfield):
+        if not bitfield:
+            return -1
+        mask = 0
+        for s in bitfield:
+            if "-" in s:
+                start,stop = s.split("-")
+            else:
+                start = stop = s
+            start = int(start)
+            stop = int(stop)
+            for b in range(start, stop+1):
+                mask |= (1<<b)
+        return mask
 
+    def show_cpu(self, tmpdir, asm, regs=None):
+        testname = inspect.stack()[1][3]
+        hline="\n=========================\n"
+        if regs is None:
+            regs = self.ALL_REGS
+        bctest = self.make_bc_test(tmpdir, asm)
+        try:
+            cpu = self.cpu_run(tmpdir, bctest.filename)
+        except subprocess.CalledProcessError,e:
+            pytest.fail("%s: %s\n%s"%(testname,e,bctest.listing))
+
+        print hline
+        print asm
+        for reg in regs:
+            regspec = reg.split(":")
+            reg = regspec[0]
+            bitfield = regspec[1:]
+            print "%6s = %08x" % (reg, cpu[reg])
 
     def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
         testname = inspect.stack()[1][3]
@@ -223,16 +252,21 @@ class Arch:
         same = []
         diff_summary = []
         for r in regs:
+            regspec = r.split(":")
+            r = regspec[0]
+            bitfield = regspec[1:]
+            mask = self.bf2mask(bitfield)
+            maskstring = "" if mask == -1 else (" (mask=%08x)" % mask)
             vtop = bincat[r].vtop
             value = bincat[r].value
-            if cpu[r] & ~vtop != value & ~vtop:
+            if cpu[r] & ~vtop & mask != value & ~vtop & mask:
                 diff.append("- cpu   :  %s = %08x" % (r, cpu[r]))
                 diff.append("+ bincat:  %s = %08x  %r" % (r,value,bincat[r]))
                 diff_summary.append(r)
             else:
-                same.append("  both  :  %s = %08x  %r" % (r, value,bincat[r]))
+                same.append("  both  :  %s = %08x  %r%s" % (r, value,bincat[r], maskstring))
             allow_top = top_allowed.get(r,0)
-            if vtop & ~allow_top:
+            if vtop & ~allow_top & mask:
                 diff.append("+ top allowed:  %s = %08x ? %08x" % (r,cpu[r], allow_top))
                 diff.append("+ bincat     :  %s = %08x ? %08x  %r" % (r,value,vtop,bincat[r]))
                 diff_summary.append("%s(top)" % r)
@@ -256,6 +290,29 @@ class Arch:
                           +hline
                           +"\n".join(diff)+"\n=========================\n"+"\n".join(same))
 
+    def assemble(self, tmpdir, asm):
+        d = tmpdir.mkdir(self.AS_TMP_DIR.next())
+        inf = d.join("asm.S")
+        obj = d.join("asm.o")
+        outf = d.join("opcodes")
+        inf.write(".text\n.globl _start\n_start:\n" + asm)
+        subprocess.check_call(self.AS + ["-o", str(obj), str(inf)])
+        subprocess.check_call(self.OBJCOPY + ["-O", "binary", str(obj), str(outf)])
+        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)])
+        s = [l for l in lst.splitlines() if l.startswith(" ")]
+        listing = "\n".join(s)
+        opcodes = open(str(outf)).read()
+        return listing, str(outf),opcodes
+    def cpu_run(self, tmpdir, opcodesfname):
+        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
+        cmd = [eggloader, opcodesfname]
+        if self.QEMU:
+            cmd = self.QEMU + cmd
+        out = subprocess.check_output(cmd)
+        regs = { reg: int(val,16) for reg, val in
+                (l.strip().split("=") for l in out.splitlines()) }
+        self.extract_flags(regs)
+        return regs
 
 
 
@@ -273,7 +330,7 @@ class X86(Arch):
     NASM_TMP_DIR = counter("nasm-%i")
     ALL_FLAGS = ["cf","pf", "af", "zf","sf","df","of"]
     ALL_REGS = ["eax","ebx","ecx","edx", "esi","edi","esp", "ebp"] + ALL_FLAGS
-
+    EGGLOADER= 'eggloader_x86'
     def assemble(self, tmpdir, asm):
         d = tmpdir.mkdir(self.NASM_TMP_DIR.next())
         inf = d.join("asm.S")
@@ -293,14 +350,6 @@ class X86(Arch):
         regs["df"] = (flags >> 10) & 1
         regs["of"] = (flags >> 11) & 1
 
-    def cpu_run(self, tmpdir, opcodesfname):
-        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)),'eggloader_x86')
-        out = subprocess.check_output([eggloader, opcodesfname])
-        regs = { reg: int(val,16) for reg, val in
-                (l.strip().split("=") for l in out.splitlines()) }
-        self.extract_flags(regs)
-        return regs
-
     def prettify_listing(self, asm):
         s = []
         for l in asm.splitlines():
@@ -311,6 +360,7 @@ class X86(Arch):
                 s.append("\t"+l)
         return "\n".join(s)
     
+
 
 ##    _   ___ __  __ 
 ##   /_\ | _ \  \/  |
@@ -327,20 +377,7 @@ class ARM(Arch):
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
     OBJDUMP = ["arm-linux-gnueabi-objdump", "-m", "arm"]
     EGGLOADER = "eggloader_armv7"
-    QEMU = "qemu-arm"
-    def assemble(self, tmpdir, asm):
-        d = tmpdir.mkdir(self.AS_TMP_DIR.next())
-        inf = d.join("asm.S")
-        obj = d.join("asm.o")
-        outf = d.join("opcodes")
-        inf.write(".text\n.globl _start\n_start:\n" + asm)
-        subprocess.check_call(self.AS + ["-o", str(obj), str(inf)])
-        subprocess.check_call(self.OBJCOPY + ["-O", "binary", str(obj), str(outf)])
-        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)])
-        s = [l for l in lst.splitlines() if l.startswith(" ")]
-        listing = "\n".join(s)
-        opcodes = open(str(outf)).read()
-        return listing, str(outf),opcodes
+    QEMU = ["qemu-arm"]
 
     def extract_flags(self, regs):
         cpsr = regs.pop("cpsr")
@@ -348,14 +385,6 @@ class ARM(Arch):
         regs["z"] = (cpsr >> 30) & 1
         regs["c"] = (cpsr >> 29) & 1
         regs["v"] = (cpsr >> 28) & 1
-
-    def cpu_run(self, tmpdir, opcodesfname):
-        eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
-        out = subprocess.check_output([self.QEMU, eggloader, opcodesfname])
-        regs = { reg: int(val,16) for reg, val in
-                (l.strip().split("=") for l in out.splitlines()) }
-        self.extract_flags(regs)
-        return regs
 
 class Thumb(ARM):
     OBJDUMP = ["arm-linux-gnueabi-objdump", "-m", "arm", "--disassembler-options=force-thumb"]
@@ -379,7 +408,7 @@ class AARCH64(ARM):
     OBJCOPY = ["aarch64-linux-gnu-objcopy"]
     OBJDUMP = ["aarch64-linux-gnu-objdump", "-m", "aarch64"]
     EGGLOADER = "eggloader_armv8"
-    QEMU = "qemu-aarch64"
+    QEMU = ["qemu-aarch64"]
 
 
     def extract_flags(self, regs):
@@ -389,3 +418,30 @@ class AARCH64(ARM):
         regs["c"] = (nzcv >> 29) & 1
         regs["v"] = (nzcv >> 28) & 1
 
+
+##  ___                    ___  ___
+## | _ \_____ __ _____ _ _| _ \/ __|
+## |  _/ _ \ V  V / -_) '_|  _/ (__
+## |_| \___/\_/\_/\___|_| |_|  \___|
+##
+## PowerPC
+
+
+class PowerPC(Arch):
+    ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+                 "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
+                 "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
+                 "r30", "r31", "lr", "ctr", "cr", "so", "ov", "ca", "tbc" ]
+    AS_TMP_DIR = counter("powerpc-as-%i")
+    AS = ["powerpc-linux-gnu-as", "-many", "-mpower9", "-mbig"]
+    OBJCOPY = ["powerpc-linux-gnu-objcopy"]
+    OBJDUMP = ["powerpc-linux-gnu-objdump", "-mpowerpc", "-EB"]
+    EGGLOADER = "eggloader_powerpc"
+    QEMU = ["qemu-ppc", "-cpu", "440epx"]
+
+    def extract_flags(self, regs):
+        xer = regs.pop("xer")
+        regs["so"] = (xer >> 31) & 1
+        regs["ov"] = (xer >> 30) & 1
+        regs["ca"] = (xer >> 29) & 1
+        regs["tbc"] = (xer >> 0) & 0x7f

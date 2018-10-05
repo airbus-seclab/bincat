@@ -49,12 +49,24 @@ type archi_t =
   | X86
   | ARMv7
   | ARMv8 (* ARMv8-A *)
+  | POWERPC
+
+let archi_to_string = function
+  | X86 -> "x86"
+  | ARMv7 -> "armv7"
+  | ARMv8 -> "armv8"
+  | POWERPC -> "powerpc"
 
 let architecture = ref X86;;
 
 type endianness_t =
   | LITTLE
   | BIG
+
+let endianness_to_string e =
+  match e with
+  | LITTLE -> "little endian"
+  | BIG -> "big endian"
 
 let endianness = ref LITTLE;;
 
@@ -90,6 +102,7 @@ type call_conv_t =
   | STDCALL
   | FASTCALL
   | AAPCS (* ARM *)
+  | SVR (* PowerPC *)
 
 let call_conv_to_string cc =
   match cc with
@@ -97,6 +110,7 @@ let call_conv_to_string cc =
   | STDCALL -> "STDCALL"
   | FASTCALL -> "FASTCALL"
   | AAPCS -> "AAPCS"
+  | SVR -> "SVR"
 
 let call_conv = ref CDECL
 
@@ -123,6 +137,9 @@ let is_null_cst z = Z.compare z !null_cst = 0
 
 let char_of_null_cst () = Char.chr (Z.to_int !null_cst)
   
+(* used for powerpc mfspr *)
+let processor_version = ref 0
+
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)
 let interleave = ref false

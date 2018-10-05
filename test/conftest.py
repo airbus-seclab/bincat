@@ -22,13 +22,18 @@ def armv8_bitmasks():
 class TestValues:
     _name = "NA"
     loop_cnt = [1, 15, 100]
+    op3 = [ 0, 1, 4, 7 ]
+    op5 = [ 0, 1, 8, 30, 31 ]
     op6 = [ 0, 1, 0x3F ]
     op6_32 = [ 0, 1, 31 ]
     op8 =  [ 1, 0xff ]
     op16 = [ 1, 0xffff ]
+    op16_s = [ 1, 0x7fff, -0x8000 ]
     op32 = [ 1, 0xffffffff]
     op64 = [ 1, 0xffffffffffffffff]
     op12 = [ 1, 0x800, 0xFFF]
+    op32h = [ 0, 0xffff ]
+    op32l = [ 0, 1, 0xffff ]
     someval8 = [ 0x2e, 0xa5 ]
     someval16 = [ 0x4b2e, 0xc68b ]
     someval32 = [ 0x5ed39a5f, 0xd2a173f6 ]
@@ -45,11 +50,13 @@ class Large(TestValues):
     _name = "large"
     op8 = [ 0, 1, 2, 7, 8, 0xf, 0x10, 0x7f, 0x80, 0x81, 0xff]
     op16 = op8 +  [0x1234, 0x7fff, 0x8000, 0x8001, 0xfa72, 0xffff]
+    op16_s = op8 + [ 0x1234, 0x7fff, -0x8000 -0x7fff, -1]
     op32 = op16 +  [0x12345678, 0x1812fada, 0x12a4b4cd,
                     0x7fffffff, 0x80000000, 0x80000001, 0xffffffff ]
     op64 = op32 +  [ 0x123456789, 0x100000000000,  0x65a227c6f24c562a,
                      0x7fffffffffffffff, 0x8000000000000000, 0x80000000000000001,
                      0xa812f8c42dec45ab, 0xffff123456789abc,  0xffffffffffffffff ]
+    op32h = [ 0, 0x1234, 0x7fff, 0x8000, 0xffff ]
     shift = [0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 24, 31,
                32, 33, 48, 63, 64, 65, 127, 128, 129, 255 ]
     x86carryop = [ "stc", "clc" ]
@@ -61,8 +68,10 @@ class Medium(TestValues):
     _name = "medium"
     op8 =  [ 0, 1, 0x7f, 0x80, 0xff ]
     op16 = [ 0, 1, 0xff, 0x7fff, 0x8000, 0xffff ]
+    op16_s = [ -0x8000, -0x7fff, -0xff, -1, 0, 1, 0xff, 0x7fff]
     op32 = [ 0, 1, 0x7fffffff, 0x80000000, 0xffffffff]
     op64 = [ 0, 1, 0x7fffffffffffffff, 0x8000000000000000, 0xffffffffffffffff]
+    op32h = [ 0, 0x7fff, 0x8000, 0xffff ]
     shift = [ 0, 1, 7, 8, 0xf, 0x7f, 0x80, 0x81, 0xff]
     x86carryop = [ "stc", "clc" ]
     armv7shift = [0, 1, 0xf, 31]
@@ -72,6 +81,7 @@ class Medium(TestValues):
 class Small(TestValues):
     _name = "small"
     x86carryop = [ "stc" ]
+    op3 = [ 0, 7 ]
 
 COVERAGES = [Large, Medium, Small]
 
