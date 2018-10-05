@@ -151,7 +151,7 @@ struct
             match r with
             | Global -> ""
             | Stack  -> "S"
-            | Heap (id, _)  -> "H"^(string_of_int id)
+            | Heap (id, _)  -> "H:"^(string_of_int id)
     
 
         let region_from_config c =
