@@ -32,7 +32,7 @@ Thank you for registering !
 2. Download one of the [executables](../../../raw/master/doc/get_key) from this repository.
 
 This tutorial relates to the
-[`get_key_x86`](../../../raw/master/doc/get_key/get_key_x86) binary, targetting
+[`get_key_x86`](../../../raw/master/doc/get_key/get_key_x86) binary, targeting
 the `x86` CPU architecture.
 Binaries and configuration files are also provided for the following architectures:
 
@@ -84,17 +84,18 @@ mem[0x300200] = |6c6f6c2100|
 16. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
-    should be `0x1D50`). Open the **BinCAT Memory** view, select the `stack`
+    should be `0x1D50`).
+17. Open the **BinCAT Memory** view, select the `stack`
     section in the first drop-down menu at the top of the panel (`global` is
     selected by default), then scroll the the `0x1D50` address,
     to observe the contents of the `buffer` pointer (`char *`) where `sprintf`
     results will be output (the value should be `0x1DEC`)
-17. Advance to the next instruction at address `0x80C`, and observe the
+18. Advance to the next instruction at address `0x80C`, and observe the
     value of the `buffer` that has been formatted by `sprintf` at address
     `0x1DEC`
-18. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
+19. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
     and observe the inferred types for the call to `sprintf`
-19. Go to address `0xA93`, which contains a call to a location that is stored
+20. Go to address `0xA93`, which contains a call to a location that is stored
     on the stack. Notice that IDA cannot resolve the destination address. In
     the **BinCAT Registers** view, use the *Next node(s):* drop down menu
     to jump to the destination

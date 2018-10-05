@@ -52,7 +52,7 @@ ln -s /usr/lib/ocaml/caml /usr/include/caml
 Install ocaml packages using opam
 ```
 opam init --use-internal-solver
-eval `opam config env`
+eval $(opam env)
 opam install zarith ocamlgraph menhir ppx_tools cppo num --use-internal-solver
 ```
 
