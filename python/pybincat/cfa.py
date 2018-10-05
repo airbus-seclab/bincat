@@ -84,7 +84,7 @@ def reg_len(regname):
 
 
 #: maps short region names to pretty names
-PRETTY_REGIONS = {'': 'global', 's': 'stack', 'h': 'heap',
+PRETTY_REGIONS = {'': 'global','h': 'heap',
                   'b': 'bottom', 't': 'top'}  # used for pointers only
 
 #: split src region + address (left of '=')

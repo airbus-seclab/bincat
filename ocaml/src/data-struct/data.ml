@@ -121,7 +121,6 @@ struct
       (* these memory regions are supposed not to overlap *)
       type region =
         | Global 
-        | Stack 
         | Heap of heap_id_t * Z.t (* first int is the id ; second int is the size in bits *)
             
 
@@ -150,28 +149,21 @@ struct
         let string_of_region r =
             match r with
             | Global -> ""
-            | Stack  -> "S"
             | Heap (id, _)  -> "H"^(string_of_int id)
     
 
         let region_from_config c =
           match c with
           | Config.G -> Global
-          | Config.S -> Stack
           | Config.H -> fst (new_heap_region !Config.default_heap_size) 
-
 
 
         let compare_region r1 r2 =
           match r1, r2 with
             | Global, Global -> 0
             | Global, _ -> -1
-            | Stack, Stack -> 0
-            | Stack, Global -> 1
-            | Stack, Heap _ -> -1
             | Heap (id1, _), Heap (id2, _) -> id1 - id2
             | Heap _, Global -> 1
-            | Heap _, Stack -> 1
 
         let equal_region r1 r2 = compare_region r1 r2 = 0
 
