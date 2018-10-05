@@ -1250,6 +1250,15 @@ def test_read_code_as_data(tmpdir):
           """
     compare(tmpdir, asm, ["eax"])
 
+def test_misc_lock(tmpdir):
+    asm = """
+        push 0x12345678
+        lock inc word [esp]
+        pop eax
+    """
+    compare(tmpdir, asm, ["eax"])
+
+
 ##  ___  ___ ___  
 ## | _ )/ __|   \ 
 ## | _ \ (__| |) |
