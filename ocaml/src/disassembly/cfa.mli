@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -46,8 +46,8 @@ module type T =
       mutable forward_loop: bool; (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
       mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;      (** corresponding list of bytes *)
-      mutable taint_sources: Taint.t; (** set of taint sources *)
-      mutable back_taint_sources: Taint.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable taint_sources: Taint.Set.t; (** set of taint sources *)
+      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
 
     }
 
@@ -117,10 +117,12 @@ module type T =
   val unmarshal: in_channel -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
-  val init_abstract_value: unit -> domain * Taint.t
+
+  val init_abstract_value: Data.Address.t -> domain * Taint.Set.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
-  val update_abstract_value: domain -> domain * Taint.t
+  val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t
+
 end
 
 module Make: functor (D: Domain.T) ->

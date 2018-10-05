@@ -24,9 +24,8 @@
   (* keyword table *)
 let keywords = Hashtbl.create 50
 let _ =
-    List.iter (fun (keyword, token) -> Hashtbl.replace keywords keyword token)
-   [
-     "state", STATE;
+  List.iter (fun (keyword, token) -> Hashtbl.replace keywords keyword token)
+     ["state", STATE;
     (* program section *)
      "program", PROGRAM;
      "load_elf_coredump", LOAD_ELF_COREDUMP;
@@ -67,6 +66,7 @@ let _ =
     "ini_version", INI_VERSION;
     "unroll", UNROLL;
     "function_unroll", FUN_UNROLL;
+    "kset_bound", KSET_BOUND;
     "external_symbol_max_size", EXT_SYM_MAX_SIZE;
     "cut", CUT;
     "loglevel", LOGLEVEL;
@@ -151,6 +151,7 @@ let value        = (digit | path_symbols | letter | '_' | '-' | '@')*
 
 (* tokens *)
 rule token = parse
+                 
   (* escape tokens *)
   | white_space         { token lexbuf }
   | newline             { new_line lexbuf; token lexbuf }

@@ -18,6 +18,7 @@
 
 let unroll = ref 20;;
 let fun_unroll = ref 50;;
+let kset_bound = ref 3;;
 let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 
@@ -129,6 +130,13 @@ let es = ref Z.zero
 let fs = ref Z.zero
 let gs = ref Z.zero
 
+(* value of the NULL address *)
+let null_cst = ref Z.zero
+(* predicate to check whether the given Z.t is the NULL value *) 
+let is_null_cst z = Z.compare z !null_cst = 0
+
+let char_of_null_cst () = Char.chr (Z.to_int !null_cst)
+  
 (* used for powerpc mfspr *)
 let processor_version = ref 0
 
@@ -206,7 +214,7 @@ let funSkipTbl: (fun_t, Z.t * ((cvalue option * tvalue list) option)) Hashtbl.t 
 let reg_override: (Z.t, ((string * (Register.t -> (cvalue option * tvalue list))) list)) Hashtbl.t = Hashtbl.create 5
 let mem_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 let stack_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
-let heap_override: (Z.t, ((Z.t * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
+let heap_override: (Z.t, (((Z.t * Z.t) * int) * (cvalue option * tvalue list)) list) Hashtbl.t = Hashtbl.create 5
 
 (* lists for the initialisation of the global memory, stack and heap *)
 (* first element is the key is the address ; second one is the number of repetition *)
@@ -243,7 +251,10 @@ let tainting_rules : ((string * string), (call_conv_t * taint_t option * taint_t
 (** data structure for the typing rules of import functions *)
 let typing_rules : (string, TypedC.ftyp) Hashtbl.t = Hashtbl.create 5
 
-
+(** default size of the initial heap *)
+(* 1 Go in bits *)
+let default_heap_size = ref (Z.mul (Z.shift_left Z.one 30) (Z.of_int 8))
+                      
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;
   Hashtbl.clear assert_tainted_functions;
@@ -261,6 +272,7 @@ let reset () =
   loglevel := 3;
   unroll := 20;
   fun_unroll := 50;
+  kset_bound := 3;
   loglevel := 3;
   max_instruction_size := 16;
   nopAddresses := SAddresses.empty;
@@ -303,6 +315,19 @@ let reset () =
   Hashtbl.reset assert_untainted_functions;
   Hashtbl.reset assert_tainted_functions;
   Hashtbl.reset tainting_rules;
-  Hashtbl.reset typing_rules;
-  Hashtbl.clear heap_override;;
+  Hashtbl.reset typing_rules;;
 
+(** returns size of content, rounded to the next multiple of operand_sz *)
+let size_of_content c =
+  let round_sz sz =
+    if sz < !operand_sz then
+      !operand_sz
+    else
+      if sz mod !operand_sz <> 0 then
+        !operand_sz * (sz / !operand_sz + 1)
+      else
+        sz
+  in
+  match c with
+  | Content z | CMask (z, _) -> round_sz (Z.numbits (snd z))
+  | Bytes b | Bytes_Mask (b, _) -> (String.length (snd b))*4

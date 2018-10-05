@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -161,3 +161,11 @@ let compare v1 op v2 =
   | Asm.GT  -> gt v1 v2
 
 let is_subset v1 v2 = eq v1 v2
+
+let total_order v1 v2 =
+  (* TOP < ZERO < ONE *)
+  match v1, v2 with
+  | TOP, TOP | ZERO, ZERO | ONE, ONE -> 0
+  | TOP, _ -> -1
+  | ZERO, ONE -> -1
+  | _, _ -> 1

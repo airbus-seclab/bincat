@@ -48,8 +48,8 @@ sig
       mutable forward_loop: bool;       (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
-      mutable taint_sources: Taint.t;    (** set of taint sources*)
-      mutable back_taint_sources: Taint.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable taint_sources: Taint.Set.t;    (** set of taint sources*)
+      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
     }
 
     val compare: t -> t -> int
@@ -117,10 +117,12 @@ sig
   val unmarshal: in_channel -> t
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
-  val init_abstract_value: unit -> domain * Taint.t
+
+  val init_abstract_value: Data.Address.t -> domain * Taint.Set.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
-  val update_abstract_value: domain -> domain * Taint.t
+  val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t
+
 end
 
 (** the control flow automaton functor *)
@@ -155,8 +157,8 @@ struct
       mutable forward_loop: bool;       (** true whenever the state belongs to a loop that is forward analysed in CFA mode *)
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
-      mutable taint_sources: Taint.t;     (** set of taint sources. Empty if not tainted  *)
-      mutable back_taint_sources: Taint.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable taint_sources: Taint.Set.t;     (** set of taint sources. Empty if not tainted  *)
+      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
     }
 
     (** the state identificator counter *)
@@ -212,9 +214,9 @@ struct
         in
         Init_check.check_register_init r v';
         let d', taint' = Domain.set_register_from_config r v' d in
-        d', Taint.logor taint taint'
+        d', Taint.Set.union taint taint'
       )
-      (d, Taint.U) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
+      (d, Taint.Set.singleton Taint.U) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
 
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding lists in Config *)
@@ -224,30 +226,53 @@ struct
                             L.debug (fun p->p "init: %x" (Z.to_int addr));
                             let addr' = Data.Address.of_int region addr !Config.address_sz in
                             let d', taint' = Domain.set_memory_from_config addr' content nb domain in
-                            d', Taint.logor prev_taint taint'
-                     ) (domain, Taint.U) (List.rev content_list)
+                            d', Taint.Set.union prev_taint taint'
+                     ) (domain, Taint.Set.singleton Taint.U) (List.rev content_list)
       (* end of init utilities *)
-      (*************************)
 
-    let update_abstract_value d =
-      (* initialisation of Global memory + registers *)
-      let d', taint1 = init_registers d in
-      let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
-    (* init of the Stack memory *)
-      let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
-    (* init of the Heap memory *)
-      let d', taint4 = init_mem d' Data.Address.Heap !Config.heap_content in
-      d', Taint.logor taint4 (Taint.logor taint3 (Taint.logor taint2 taint1))
-        
-    let init_abstract_value () =
+    let get_content_size c =
+      match c with
+      | Some c' -> Config.size_of_content c'
+      | None -> 0
+         
+    let init_heap ip domain content_list =
+      (* TODO: factorize with init_mem *)
+      List.fold_left
+        (fun (domain, prev_taint) entry ->
+          let offset, nb = fst entry in
+          let content = snd entry in
+          let content_size = Z.of_int (get_content_size (fst content)) in
+          let nb' = Z.of_int nb in
+          let region, id = Data.Address.new_heap_region (Z.mul nb' content_size) in
+          Hashtbl.add Dump.heap_id_tbl id ip;
+          let addr' = Data.Address.of_int region offset !Config.address_sz in
+          let d', taint =
+            Domain.set_memory_from_config addr' content nb domain
+          in
+          d', Taint.Set.union prev_taint taint
+        ) (domain, Taint.Set.singleton Taint.U) (List.rev content_list)
+  
+      
+  let update_abstract_value ip d =
+	(* initialisation of Global memory + registers *)
+    let d', taint1 = init_registers d in
+	let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
+	(* init of the Stack memory *)
+	let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
+	(* init of the Heap memory *)
+	let d', taint4 = init_heap ip d' !Config.heap_content in
+    d', Taint.Set.union taint4 (Taint.Set.union taint3 (Taint.Set.union taint2 taint1))
+
+    let init_abstract_value ip =
       let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
-      update_abstract_value d
+      update_abstract_value ip d
+
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
     
   let init_state (ip: Data.Address.t): State.t =
-    let d', _taint = init_abstract_value () in
+    let d', _taint = init_abstract_value ip in
     {
       id = 0;
       ip = ip;
@@ -263,7 +288,7 @@ struct
         op_sz = !Config.operand_sz;
         addr_sz = !Config.address_sz;
       };
-      taint_sources = Taint.U;
+      taint_sources = Taint.Set.singleton Taint.U;
       back_taint_sources = None;
     }
 
@@ -327,7 +352,7 @@ struct
     let print_ip s =
       let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
       Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
-        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.to_string s.taint_sources);
+        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.Set.fold (fun src acc -> (Taint.to_string src)^acc) s.taint_sources "");
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s);
       if !Config.loglevel > 2 then
         begin
@@ -340,8 +365,11 @@ struct
     let architecture_str = Config.archi_to_string !Config.architecture in
     Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
     (* taint sources *)
-    Printf.fprintf f "[taint sources]\n";
+    Printf.fprintf f "[taint sources]\n"; 
     Hashtbl.iter (fun id src -> Printf.fprintf f "%d = %s\n" id (Dump.string_of_src src)) Dump.taint_src_tbl;
+    Printf.fprintf f "\n";
+    Printf.fprintf f "[heap ids]\n";
+    Hashtbl.iter (fun id ip -> Printf.fprintf f "%d : %s\n" id (Data.Address.to_string ip)) Dump.heap_id_tbl;
     Printf.fprintf f "\n";
     (* edge printing (summary) *)
     Printf.fprintf f "[edges]\n";

@@ -22,26 +22,76 @@ module type T =
 sig
   type domain_t
 
-  val process: domain_t -> string -> Asm.calling_convention_t ->
-    domain_t * Taint.t * Asm.stmt list
+  val process : Data.Address.t -> domain_t -> string -> Asm.calling_convention_t ->
+    domain_t * Taint.Set.t * Asm.stmt list
 
-  val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.t * Asm.stmt list
+  val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.Set.t * Asm.stmt list
     
   val init: unit -> unit
 
-  val stubs: (string, (domain_t -> Asm.lval -> (int -> Asm.lval) ->
-                         domain_t * Taint.t) * int) Hashtbl.t
+  val stubs : (string, (Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
+
+                         domain_t * Taint.Set.t) * int) Hashtbl.t
 end
 
 
-module Make (D: Domain.T) : (T with type domain_t := D.t )  =
+module Make (D: Domain.T) : (T with type domain_t := D.t)  =
 struct
 
     type domain_t = D.t
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let strlen (d: domain_t) ret args : domain_t * Taint.t =
+    let heap_allocator (ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
+      try
+        let sz = D.value_of_exp d (Asm.Lval (args 0)) in
+        let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
+        Hashtbl.add Dump.heap_id_tbl id ip;
+        let d' = D.allocate_on_heap d id in
+        let zero = Data.Word.zero !Config.address_sz in
+        let addr = Data.Address.Val (region, zero) in
+        D.set_lval_to_addr ret [ addr ; Data.Address.NULL ] d'
+      with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
+
+    let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
+      match a with
+      | Data.Address.Val (Data.Address.Heap (id, _), o) ->
+         if Data.Word.compare o (Data.Word.zero !Config.address_sz) <> 0 then
+           raise (Exceptions.Undefined_free
+                    (Printf.sprintf "at instruction %s: base address to free is not zero (%s)"
+           (Data.Address.to_string ip)
+           (Data.Address.to_string a)))
+         else
+           id
+
+      | Data.Address.NULL -> raise (Exceptions.Undefined_free "address is NULL")
+      | Data.Address.Val _ ->
+         raise (Exceptions.Undefined_free
+                  (Printf.sprintf "at instruction %s: base address (%s) to free not in the heap"
+                  (Data.Address.to_string ip)
+                  (Data.Address.to_string a)))
+           
+    let heap_deallocator (ip: Data.Address.t) (d: domain_t) _ret args: domain_t * Taint.Set.t =
+      let mem = Asm.Lval (args 0) in
+      try
+        let addrs, taint = D.mem_to_addresses d mem in
+        let addrs' = Data.Address.Set.elements addrs in 
+        match addrs' with
+        | [a] ->
+           let id = check_free ip a in
+           L.debug2 (fun p -> p "check_free");
+           D.deallocate d id, taint
+             
+        | _::_ ->
+           let ids = List.fold_left (fun ids a -> (check_free ip a)::ids) [] addrs' in
+           D.weak_deallocate d ids, taint
+             
+        | [] -> raise (Exceptions.Error "unexpected empty list of addresses to deallocate")
+      with
+        Exceptions.Too_many_concrete_elements _ ->
+          raise (Exceptions.Too_many_concrete_elements "Stubs: too many addresses to deallocate")
+      
+    let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
       let zero = Asm.Const (Data.Word.zero 8) in
       let len = D.get_offset_from (Asm.Lval (args 0)) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then
@@ -51,7 +101,7 @@ struct
         end;
       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
 
-    let memcpy (d: domain_t) ret args : domain_t * Taint.t =
+    let memcpy (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.Set.t =
       L.info (fun p -> p "memcpy stub");
       let dst = Asm.Lval (args 0) in
       let src = Asm.Lval (args 1) in
@@ -62,7 +112,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
-    let memset (d: domain_t) ret args: domain_t * Taint.t =
+    let memset (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
       let arg0 = args 0 in
       let dst = Asm.Lval arg0 in
       let src = args 1 in
@@ -91,7 +141,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large number of bytes to copy in memset stub")
         
-    let print (d: domain_t) ret format_addr va_args (to_buffer: Asm.exp option): domain_t * Taint.t =
+    let print (d: domain_t) ret format_addr va_args (to_buffer: Asm.exp option): domain_t * Taint.Set.t =
         (* ret has to contain the number of bytes stored in dst ;
            format_addr is the address of the format string ;
            va_args the list of values needed to fill the format string *)
@@ -232,19 +282,19 @@ struct
            L.exc_and_abort e (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 
-    let sprintf (d: domain_t) ret args : domain_t * Taint.t =
+    let sprintf (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.Set.t =
       let dst = Asm.Lval (args 0) in
       let format_addr = Asm.Lval (args 1) in
       let  va_args = shift args 2 in
       print d ret format_addr va_args (Some dst)
 
-    let sprintf_chk (d: domain_t) ret args : domain_t * Taint.t =
+    let sprintf_chk (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.Set.t =
       let dst = Asm.Lval (args 0) in
       let format_addr = Asm.Lval (args 3) in
       let va_args = shift args 4 in
       print d ret format_addr va_args (Some dst)
 
-    let printf d ret args =
+    let printf (_ip: Data.Address.t) d ret args =
         (* TODO: not optimal as buffer destination is built as for sprintf *)
       let format_addr = Asm.Lval (args 0) in
       let va_args = shift args 1 in
@@ -252,40 +302,42 @@ struct
       let d', is_tainted = print d ret format_addr va_args None in
       d', is_tainted
 
-    let printf_chk d ret args = printf d ret (shift args 1)
+    let printf_chk (ip: Data.Address.t) d ret args = printf ip d ret (shift args 1)
 
-    let puts d ret args =
+    let puts (_ip: Data.Address.t) d ret args =
       let str = Asm.Lval (args 0) in
       L.info (fun p -> p "puts output:");
       let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
-      let d', is_tainted = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
+      let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
       L.info (fun p -> p "--- end of puts--");
-      d', is_tainted
+      d', taint
 
     let stubs = Hashtbl.create 5
 
-    let process d fun_name call_conv : domain_t * Taint.t * Asm.stmt list =
+    let process ip d fun_name call_conv : domain_t * Taint.Set.t * Asm.stmt list =
       let apply_f, arg_nb =
         try Hashtbl.find stubs fun_name
         with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name)
       in
       let d', taint =
-        try apply_f d call_conv.Asm.return call_conv.Asm.arguments
+        try apply_f ip d call_conv.Asm.return call_conv.Asm.arguments
         with
-        | Exit -> d, Taint.U
+        | Exit -> d, Taint.Set.singleton Taint.U
+        | Exceptions.Use_after_free _ as e -> raise e 
+        | Exceptions.Double_free -> raise Exceptions.Double_free
         | e ->
            L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
-           L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
-           d, Taint.U
+          L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
+          d, Taint.Set.singleton Taint.U
       in
-      let cleanup_stmts = call_conv.Asm.callee_cleanup arg_nb in
+      let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
       d', taint, cleanup_stmts
 
-    let skip d f call_conv: domain_t * Taint.t * Asm.stmt list =
+    let skip d f call_conv: domain_t * Taint.Set.t * Asm.stmt list =
       let arg_nb, ret_val = Hashtbl.find Config.funSkipTbl f in
       let d, taint =
         match ret_val with
-        | None -> D.forget_lval call_conv.Asm.return d, Taint.TOP
+        | None -> D.forget_lval call_conv.Asm.return d, Taint.Set.singleton Taint.TOP
         | Some ret_val' ->
            let sz = Config.size_of_config ret_val' in
            match call_conv.Asm.return with
@@ -296,11 +348,11 @@ struct
                 match Data.Address.Set.elements addrs with
                 | [a] ->     
                    D.set_memory_from_config a  ret_val' 1 d
-             | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
+                | _ -> D.forget d, Taint.Set.singleton Taint.TOP (* TODO: be more precise *)
               in
               d', taint'
               
-           | _ -> D.forget d, Taint.TOP (* TODO: be more precise *)
+           | _ -> D.forget d, Taint.Set.singleton Taint.TOP (* TODO: be more precise *)
       in
       let cleanup_stmts = call_conv.Asm.callee_cleanup (Z.to_int arg_nb) in
       d,taint, cleanup_stmts
@@ -313,6 +365,9 @@ struct
       Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
-      Hashtbl.replace stubs "strlen"        (strlen,      1);;
+      Hashtbl.replace stubs "strlen"        (strlen,      1);
+      Hashtbl.replace stubs "malloc" (heap_allocator, 1);
+      Hashtbl.replace stubs "free" (heap_deallocator, 1);;
+
 
 end

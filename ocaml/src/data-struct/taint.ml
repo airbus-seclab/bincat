@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -71,6 +71,22 @@ type t =
   | S of SrcSet.t
   | TOP
 
+let total_order t1 t2 =
+  (* BOT < TOP < U < S *)
+  match t1, t2 with
+  | BOT, BOT | TOP, TOP | U, U -> 0
+  | S src1, S src2 ->
+     let n1 = SrcSet.cardinal src1 in
+     let n2 = SrcSet.cardinal src2 in
+     let n = n1-n2 in
+     if n <> 0 then n1
+     else SrcSet.compare src1 src2
+     
+  | BOT, _ -> -1
+  | TOP, _ -> -1
+  | U, _ -> -1
+  | _, _ -> 1
+          
 let is_subset t1 t2 =
   match t1, t2 with
   | BOT, _
@@ -224,3 +240,5 @@ let to_string t =
   | TOP -> "?"
   | S srcs ->
      SrcSet.fold (fun src acc -> (Src.to_string src)^", "^acc) srcs ""
+
+module Set = Set.Make (struct type aux_t = t type t = aux_t let compare = total_order end) 

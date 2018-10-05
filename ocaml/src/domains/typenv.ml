@@ -22,10 +22,12 @@
 
  type t =
    | BOT (** bottom *)
-   | Val of Types.t Env.t (** a map from Memory/Reg to a type *)
+   | Val of Types.t Env.t (** a map from Memory/Reg to a type. Be careful: a key not in the Env map means a TOP value ! *)
 
  let init () = Val (Env.empty)
 
+ let is_bot m = m = BOT
+     
  let top = Val (Env.empty)
 
  let join env1 env2 =

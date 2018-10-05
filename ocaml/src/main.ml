@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -100,7 +100,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       end;
     let module Vector    = Vector.Make(Reduced_bit_tainting) in
     let module Pointer   = Pointer.Make(Vector) in
-    let module Domain    = Reduced_unrel_typenv.Make(Pointer) in
+    let module Domain   = Reduced_unrel_typenv_heap.Make(Pointer) in
     let decoder =
       match !Config.architecture with
       | Config.X86 -> (module X86.Make: Decoder.Make)
@@ -123,7 +123,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
       try
         let prev_s = Interpreter.Cfa.last_addr orig_cfa ep' in
-        let d, taint = Interpreter.Cfa.update_abstract_value prev_s.Interpreter.Cfa.State.v in
+        let d, taint = Interpreter.Cfa.update_abstract_value ep' prev_s.Interpreter.Cfa.State.v in
         prev_s.Interpreter.Cfa.State.back_v <- Some (Domain.meet prev_s.Interpreter.Cfa.State.v d);
         prev_s.Interpreter.Cfa.State.back_taint_sources <- Some taint;
         fixpoint orig_cfa prev_s dump
