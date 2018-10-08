@@ -108,7 +108,7 @@ class CFA(object):
     _valcache = {}
     arch = None
 
-    def __init__(self, states, edges, nodes):
+    def __init__(self, states, edges, nodes, taintsrsc):
         #: Value (address) -> [node_id]. Nodes marked "final" come first.
         self.states = states
         #: node_id (string) -> list of node_id (string)
@@ -116,6 +116,8 @@ class CFA(object):
         #: node_id (string) -> State
         self.nodes = nodes
         self.logs = None
+        #: taint source id (int) -> taint source (str)
+        self.taintsrcs = {}
 
     @classmethod
     def parse(cls, filename, logs=None):
@@ -123,6 +125,7 @@ class CFA(object):
         states = defaultdict(list)
         edges = defaultdict(list)
         nodes = {}
+        taintsrcs = {}
 
         config = ConfigParser.RawConfigParser()
         try:
@@ -141,7 +144,14 @@ class CFA(object):
             return None
 
         cls.arch = config.get('loader', 'architecture')
-        for section in config.sections():
+        # parse taint sources first -- will be used when parsing State
+        sections = config.sections()
+        if 'taint sources' in config.sections():
+            for srcid, srcname in config.items('taint sources'):
+                taintsrcs[int(srcid)] = srcname
+            sections.remove('taint sources')
+            maxtaintsrcid = max(list(taintsrcs)+[0])
+        for section in sections:
             if section == 'edges':
                 for edgename, edge in config.items(section):
                     src, dst = edge.split(' -> ')
@@ -149,7 +159,8 @@ class CFA(object):
                 continue
             elif section.startswith('node = '):
                 node_id = section[7:]
-                state = State.parse(node_id, dict(config.items(section)))
+                state = State.parse(node_id, dict(config.items(section)),
+                                    maxtaintsrcid)
                 address = state.address
                 if state.final:
                     states[address].insert(0, state.node_id)
@@ -161,7 +172,7 @@ class CFA(object):
                 continue
 
         CFA._valcache = dict()
-        cfa = cls(states, edges, nodes)
+        cfa = cls(states, edges, nodes, taintsrcs)
         if logs:
             cfa.logs = open(logs, 'rb').read()
         return cfa
@@ -300,7 +311,7 @@ class State(object):
         return self._regtypes
 
     @classmethod
-    def parse(cls, node_id, outputkv):
+    def parse(cls, node_id, outputkv, maxtaintsrcid):
         """
         :param outputkv: list of (key, value) tuples for each property set by
             the analyzer at this EIP
@@ -319,11 +330,15 @@ class State(object):
             tainted = True
             taintsrc = ["t-0"]
         elif taintedstr == "" or taintedstr == "?":
-            # v0.7 format, not tainted
+            # v0.7+ format, not tainted
             tainted = False
             taintsrc = []
+        elif taintedstr.startswith("_"):  # XXX == "_"
+            # v1.0 format, tainted = BOT
+            tainted = True
+            taintsrc = ["t-" + str(maxtaintsrcid)]
         else:
-            # v0.7 format, tainted
+            # v0.7+ format, tainted
             taintsrc = map(str.strip, taintedstr.split(','))
             tainted = True
         new_state.tainted = tainted
