@@ -221,7 +221,7 @@ class LocalAnalyzerTimer(object):
     cancels the analysis
     """
     def __init__(self, qprocess):
-        self.interval = 500 # ms
+        self.interval = 500  # ms
         self.qprocess = qprocess
         self.timer = idaapi.register_timer(self.interval, self)
         if self.timer is None:
@@ -273,10 +273,11 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         # Create a timer to allow for cancellation
         self.timer = LocalAnalyzerTimer(self)
 
-        cmdline = [ "bincat",
-                    [self.initfname,  self.outfname, self.logfname ]]
+        cmdline = ["bincat",
+                   [self.initfname, self.outfname, self.logfname]]
         # start the process
-        bc_log.debug("Analyzer cmdline: [%s %s]", cmdline[0], " ".join(cmdline[1]))
+        bc_log.debug(
+            "Analyzer cmdline: [%s %s]", cmdline[0], " ".join(cmdline[1]))
         try:
             self.start(*cmdline)
         except Exception as e:
@@ -376,8 +377,8 @@ class WebAnalyzer(Analyzer):
         npk_res = requests.post(self.server_url + "/convert_to_tnpk/" + sha256)
         if npk_res.status_code != 200:
             bc_log.warning("Error while compiling file to tnpk "
-                           "on BinCAT analysis server, types from IDB will not be "
-                           "used for type propagation")
+                           "on BinCAT analysis server, types from IDB will "
+                           "not be used for type propagation")
             return
         res = npk_res.json()
         if 'status' not in res or res['status'] != 'ok':

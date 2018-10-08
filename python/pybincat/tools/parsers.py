@@ -15,6 +15,8 @@
     You should have received a copy of the GNU Affero General Public License
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
+
+
 def memoize(f):
     """ Memoization decorator for a function taking a single argument """
     class memodict(dict):

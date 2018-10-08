@@ -249,7 +249,7 @@ class ConfigHelpers(object):
             if reg in ['eax', 'ecx', 'edx', 'ebx', 'ebp', 'esi', 'edi', 'esp']:
                 return 32
             if reg in ['cf', 'pf', 'af', 'zf', 'sf', 'tf', 'if', 'of', 'nt',
-                         'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
+                       'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
                 return 1
             if reg == 'iopl':
                 return 3
@@ -297,7 +297,8 @@ class ConfigHelpers(object):
                 regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
             regs.append(["sp", "0x2000", "", ""])
             for i in range(32):
-                regs.append(["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
+                regs.append(
+                    ["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
             regs.append(["n", "0", "1", ""])
             regs.append(["z", "0", "1", ""])
             regs.append(["c", "0", "1", ""])
@@ -357,7 +358,7 @@ class InitialState(object):
 
     @staticmethod
     def mem_init_parse(mem_addr, mem_val):
-        mem_addr_re = re.compile("(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
+        mem_addr_re = re.compile(r"(?P<region>[^[]+)\[(?P<address>[^\]]+)\]")
         m = mem_addr_re.match(mem_addr)
         return [m.group('region'), m.group('address'), mem_val]
 
@@ -365,7 +366,9 @@ class InitialState(object):
     def reg_init_parse(reg_spec, reg_val):
         if reg_spec[0:3] != "reg":
             raise ValueError("Invalid reg spec, not starting with 'reg'")
-        reg_re = re.compile("(?P<value>[^!?]+)?(\?(?P<top>[^!]+))?(!(?P<taint>[^#]*))?(?P<cmt>#.*)?")
+        reg_re = re.compile(
+            r"(?P<value>[^!?]+)?(\?(?P<top>[^!]+))?"
+            "(!(?P<taint>[^#]*))?(?P<cmt>#.*)?")
         m = reg_re.match(reg_val)
         return [reg_spec[4:-1],
                 m.group('value') or '',

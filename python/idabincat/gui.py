@@ -38,53 +38,54 @@ bc_log = logging.getLogger('bincat.gui')
 bc_log.setLevel(logging.DEBUG)
 
 GREENS = [
-    (169,241,100),
-    (207,207,154),
-    (192,195,188),
-    (158,199,191),
-    (195,238,153),
-    (179,179,135),
-    (118,155,148),
-    (195,207,184),
-    (241,242,184),
-    (209,230,189),
-    (152,153,120),
-    ( 77, 98, 94),
-    (254,255,202),
-    ( 99,133,126),
-    ( 86,115,109),
+    (169, 241, 100),
+    (207, 207, 154),
+    (192, 195, 188),
+    (158, 199, 191),
+    (195, 238, 153),
+    (179, 179, 135),
+    (118, 155, 148),
+    (195, 207, 184),
+    (241, 242, 184),
+    (209, 230, 189),
+    (152, 153, 120),
+    ( 77,  98,  94),
+    (254, 255, 202),
+    ( 99, 133, 126),
+    ( 86, 115, 109),
 ]
 
 BLUES_AND_YELLOWS = [
-    (173,109,  0),
-    (  2, 28, 66),
-    (173,170,  0),
-    ( 41,  2, 67),
-    (140, 88,  0),
-    (  4, 68,162),
-    (246,241,  0),
-    ( 57,  2, 94),
-    (207,130,  0),
-    (  4, 49,114),
-    (100, 98,  0),
-    (246,155,  0),
-    ( 71,  3,116),
-    (100, 63,  0),
-    (207,203,  0),
-    ( 99,  3,165),
-    (140,137,  0),
-    (  5, 58,136),
-    ( 84,  3,139),
-    (  4, 39, 92),
+    (173, 109,   0),
+    (  2,  28,  66),
+    (173, 170,   0),
+    ( 41,   2,  67),
+    (140,  88,   0),
+    (  4,  68, 162),
+    (246, 241,   0),
+    ( 57,   2,  94),
+    (207, 130,   0),
+    (  4,  49, 114),
+    (100,  98,   0),
+    (246, 155,   0),
+    ( 71,   3, 116),
+    (100,  63,   0),
+    (207, 203,   0),
+    ( 99,   3, 165),
+    (140, 137,   0),
+    (  5,  58, 136),
+    ( 84,   3, 139),
+    (  4,  39,  92),
 ]
 
 
-COLS = GREENS # BLUES_AND_YELLOWS
+COLS = GREENS  # BLUES_AND_YELLOWS
 
 
 def taint_color(n):
-    r, g, b = COLS[n%len(COLS)]
-    return b | g<<8 | r << 16
+    r, g, b = COLS[n % len(COLS)]
+    return b | g << 8 | r << 16
+
 
 class EditConfigurationFileForm_t(QtWidgets.QDialog):
     def __init__(self, parent, state):
@@ -860,8 +861,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
     def _del_config(self):
         # check if we have a config,
         if (self.index and
-                self.index > 0 and # last used is special
-                self.index != len(self.s.configurations.names_cache)): #(new)
+                self.index > 0 and  # last used is special
+                self.index != len(self.s.configurations.names_cache)):  # (new)
             name = self.s.configurations.names_cache[self.index]
             del self.s.configurations[name]
             self.update_config_list()
@@ -1995,10 +1996,14 @@ class GUI(object):
         self.hooks.hook()
 
     def focus_registers(self):
-        if getattr(idaapi, "activate_widget"):
-            widget = idaapi.find_widget("BinCAT Registers")
-            if widget:
-                idaapi.activate_widget(widget, True)
+        try:
+            if getattr(idaapi, "activate_widget"):
+                widget = idaapi.find_widget("BinCAT Registers")
+                if widget:
+                    idaapi.activate_widget(widget, True)
+        except AttributeError:
+            # IDA 6.95 does not support this
+            pass
 
     def show_windows(self):
         # XXX hide debug form by default (issue #27)

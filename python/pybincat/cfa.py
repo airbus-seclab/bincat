@@ -41,11 +41,11 @@ def reg_len(regname):
             "x30": 64, "sp": 64,
             "q0": 128, "q1": 128, "q2": 128, "q3": 128, "q4": 128, "q5": 128,
             "q6": 128, "q7": 128, "q8": 128, "q9": 128, "q10": 128, "q11": 128,
-            "q12": 128, "q13": 128, "q14": 128, "q15": 128, "q16": 128, "q17": 128,
-            "q18": 128, "q19": 128, "q20": 128, "q21": 128, "q22": 128, "q23": 128,
-            "q24": 128, "q25": 128, "q26": 128, "q27": 128, "q28": 128, "q29": 128,
-            "q30": 128, "q31": 128,
-            "pc": 64, "xzr":64,"c": 1, "n": 1, "v": 1, "z": 1}[regname]
+            "q12": 128, "q13": 128, "q14": 128, "q15": 128, "q16": 128,
+            "q17": 128, "q18": 128, "q19": 128, "q20": 128, "q21": 128,
+            "q22": 128, "q23": 128, "q24": 128, "q25": 128, "q26": 128,
+            "q27": 128, "q28": 128, "q29": 128, "q30": 128, "q31": 128,
+            "pc": 64, "xzr": 64, "c": 1, "n": 1, "v": 1, "z": 1}[regname]
     elif CFA.arch == "armv7":
         return {
             "r0": 32, "r1": 32, "r2": 32, "r3": 32, "r4": 32, "r5": 32,
@@ -60,13 +60,13 @@ def reg_len(regname):
             "sp": 16, "bp": 16, "cs": 16, "ds": 16, "es": 16, "ss": 16,
             "fs": 16, "gs": 16,
             "iopl": 2,
-            "mxcsr_fz":1, "mxcsr_round":2, "mxcsr_pm":1, "mxcsr_um":1,
-            "mxcsr_om":1, "mxcsr_zm":1, "mxcsr_dm":1, "mxcsr_im":1,
-            "mxcsr_daz":1, "mxcsr_pe":1, "mxcsr_ue":1, "mxcsr_oe":1,
-            "mxcsr_ze":1, "mxcsr_de":1, "mxcsr_ie":1,
-            "xmm0":128, "xmm1":128, "xmm2":128, "xmm3":128,
-            "xmm4":128, "xmm5":128, "xmm6":128, "xmm7":128,
-            "st_ptr":3, "c0" : 1, "c1" : 1, "c2": 1, "c3": 1,
+            "mxcsr_fz": 1, "mxcsr_round": 2, "mxcsr_pm": 1, "mxcsr_um": 1,
+            "mxcsr_om": 1, "mxcsr_zm": 1, "mxcsr_dm": 1, "mxcsr_im": 1,
+            "mxcsr_daz": 1, "mxcsr_pe": 1, "mxcsr_ue": 1, "mxcsr_oe": 1,
+            "mxcsr_ze": 1, "mxcsr_de": 1, "mxcsr_ie": 1,
+            "xmm0": 128, "xmm1": 128, "xmm2": 128, "xmm3": 128,
+            "xmm4": 128, "xmm5": 128, "xmm6": 128, "xmm7": 128,
+            "st_ptr": 3, "c0": 1, "c1": 1, "c2": 1, "c3": 1,
             "cf": 1, "pf": 1, "af": 1, "zf": 1, "sf": 1, "tf": 1, "if": 1,
             "df": 1, "of": 1, "nt": 1, "rf": 1, "vm": 1, "ac": 1, "vif": 1,
             "vip": 1, "id": 1}[regname]
@@ -78,21 +78,21 @@ def reg_len(regname):
             "r18": 32, "r19": 32, "r20": 32, "r21": 32, "r22": 32, "r23": 32,
             "r24": 32, "r25": 32, "r26": 32, "r27": 32, "r28": 32, "r29": 32,
             "r30": 32, "r31": 32, "lr": 32, "ctr": 32, "cr": 32,
-            "tbc": 7, "so": 1, "ov": 1, "ca": 1 }[regname]
+            "tbc": 7, "so": 1, "ov": 1, "ca": 1}[regname]
     else:
         raise KeyError("Unkown arch %s" % CFA.arch)
 
 
 #: maps short region names to pretty names
-PRETTY_REGIONS = {'': 'global','h': 'heap',
+PRETTY_REGIONS = {'': 'global', 'h': 'heap',
                   'b': 'bottom', 't': 'top'}  # used for pointers only
 
 #: split src region + address (left of '=')
-RE_REGION_ADDR = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
+RE_REGION_ADDR = re.compile(r"(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
 #: split value
 
 RE_VALTAINT = re.compile(
-    "(?P<memreg>[a-zA-Z]?)(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
+    r"(?P<memreg>[a-zA-Z]?)(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
 
 
 class PyBinCATParseError(PyBinCATException):
@@ -108,7 +108,7 @@ class CFA(object):
     _valcache = {}
     arch = None
 
-    def __init__(self, states, edges, nodes):
+    def __init__(self, states, edges, nodes, taintsrcs):
         #: Value (address) -> [node_id]. Nodes marked "final" come first.
         self.states = states
         #: node_id (string) -> list of node_id (string)
@@ -116,6 +116,8 @@ class CFA(object):
         #: node_id (string) -> State
         self.nodes = nodes
         self.logs = None
+        #: taint source id (int) -> taint source (str)
+        self.taintsrcs = taintsrcs
 
     @classmethod
     def parse(cls, filename, logs=None):
@@ -123,6 +125,7 @@ class CFA(object):
         states = defaultdict(list)
         edges = defaultdict(list)
         nodes = {}
+        taintsrcs = {}
 
         config = ConfigParser.RawConfigParser()
         try:
@@ -141,7 +144,14 @@ class CFA(object):
             return None
 
         cls.arch = config.get('loader', 'architecture')
-        for section in config.sections():
+        # parse taint sources first -- will be used when parsing State
+        sections = config.sections()
+        if 'taint sources' in config.sections():
+            for srcid, srcname in config.items('taint sources'):
+                taintsrcs[int(srcid)] = srcname
+            sections.remove('taint sources')
+            maxtaintsrcid = max(list(taintsrcs)+[0])
+        for section in sections:
             if section == 'edges':
                 for edgename, edge in config.items(section):
                     src, dst = edge.split(' -> ')
@@ -149,7 +159,8 @@ class CFA(object):
                 continue
             elif section.startswith('node = '):
                 node_id = section[7:]
-                state = State.parse(node_id, dict(config.items(section)))
+                state = State.parse(node_id, dict(config.items(section)),
+                                    maxtaintsrcid)
                 address = state.address
                 if state.final:
                     states[address].insert(0, state.node_id)
@@ -161,7 +172,7 @@ class CFA(object):
                 continue
 
         CFA._valcache = dict()
-        cfa = cls(states, edges, nodes)
+        cfa = cls(states, edges, nodes, taintsrcs)
         if logs:
             cfa.logs = open(logs, 'rb').read()
         return cfa
@@ -300,7 +311,7 @@ class State(object):
         return self._regtypes
 
     @classmethod
-    def parse(cls, node_id, outputkv):
+    def parse(cls, node_id, outputkv, maxtaintsrcid):
         """
         :param outputkv: list of (key, value) tuples for each property set by
             the analyzer at this EIP
@@ -319,11 +330,15 @@ class State(object):
             tainted = True
             taintsrc = ["t-0"]
         elif taintedstr == "" or taintedstr == "?":
-            # v0.7 format, not tainted
+            # v0.7+ format, not tainted
             tainted = False
             taintsrc = []
+        elif taintedstr.startswith("_"):  # XXX == "_"
+            # v1.0 format, tainted = BOT
+            tainted = True
+            taintsrc = ["t-" + str(maxtaintsrcid)]
         else:
-            # v0.7 format, tainted
+            # v0.7+ format, tainted
             taintsrc = map(str.strip, taintedstr.split(','))
             tainted = True
         new_state.tainted = tainted
@@ -459,7 +474,7 @@ class State(object):
                 r = self[Value(region, i)]
             except IndexError:
                 i += 1
-                m.append(Value(region, 0,vtop=0,vbot=0xff))
+                m.append(Value(region, 0, vtop=0, vbot=0xff))
             else:
                 m += r
                 i += len(r)
@@ -682,7 +697,7 @@ class Value(object):
         return (self.region, self.value) < (other.region, other.value)
 
     def __add__(self, other):
-        
+
         newlen = max(self.length, getattr(other, "length", 0))
         other = getattr(other, "value", other)
         if other == 0:
@@ -692,11 +707,11 @@ class Value(object):
         mask = (1 << newlen)-1
         # XXX clear value where top or bottom mask is not null
         # XXX complete implementation
-        
+
         return self.__class__(self.region,
                               (self.value+other) & mask,
                               newlen,
-                              self.vtop , self.vbot, self.taint,
+                              self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
 
     def __and__(self, other):
@@ -721,7 +736,7 @@ class Value(object):
         other = getattr(other, "value", other)
 
         mask = (1 << newlen)-1
-        
+
         newvalue = (self.value-other) & mask
         # XXX clear value where top or bottom mask is not null
         # XXX complete implementation
