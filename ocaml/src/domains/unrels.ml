@@ -85,10 +85,11 @@ module Make(D: Unrel.T) =
       | BOT -> Val (USet.singleton (U.add_register r (U.empty)))
       | Val m' -> Val (USet.map (U.add_register r) m')
 
-    let to_string m =
+    let to_string m id =
       match m with
       | BOT    -> ["_"]
-      | Val m' -> USet.fold (fun u acc -> (U.to_string u) @ acc) m' []
+      | Val m' ->
+         fst (USet.fold (fun u (acc, id') -> (acc @ (Printf.sprintf "\n[node %d - unrel %d]" id id')::(U.to_string u)), id'+1) m' ([], 0))
 
     let imprecise_value_of_exp e =
       raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))

@@ -342,23 +342,25 @@ struct
     let f = open_out dumpfile in
     (* state printing (detailed) *)
     let print_field = if !Config.analysis = Config.Backward then
-        fun s ->
+        fun s id ->
           match s.back_v with
-          | None -> Domain.to_string s.v
-          | Some v -> Domain.to_string v
+          | None -> Domain.to_string s.v id
+          | Some v -> Domain.to_string v id
       else
-         fun s -> Domain.to_string s.v
+         fun s id -> Domain.to_string s.v id
     in
     let print_ip s =
       let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
       Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
         (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.Set.fold (fun src acc -> (Taint.to_string src)^acc) s.taint_sources "");
-      List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s);
       if !Config.loglevel > 2 then
         begin
           Printf.fprintf f "statements =";
           List.iter (fun stmt -> Printf.fprintf f " %s\n" (Asm.string_of_stmt stmt true)) s.stmts;
-        end;
+        end
+      else
+        Printf.fprintf f "\n";
+      List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s s.id);
       Printf.fprintf f "\n";
     in
     G.iter_vertex print_ip g;

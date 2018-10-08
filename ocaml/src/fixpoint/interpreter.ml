@@ -172,13 +172,13 @@ struct
 
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
 
-    let rec process_value (ip: Data.Address.t) (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t): D.t * Taint.Set.t =
-        L.debug2 (fun p -> p "process_value VVVVVVVVVVVVVVVVVVVVVVVVVVVVVV\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d)) (Asm.string_of_stmt s true));
+    let rec process_value (ip: Data.Address.t) (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) (node_id: int): D.t * Taint.Set.t =
+        L.debug2 (fun p -> p "process_value VVVVVVVVVVVVVVVVVVVVVVVVVVVVVV\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d node_id)) (Asm.string_of_stmt s true));
       try
         let res, tainted =
             match s with
             | Nop                -> d, Taint.Set.singleton Taint.U
-            | If (e, then_stmts, else_stmts) -> process_if ip d e then_stmts else_stmts fun_stack
+            | If (e, then_stmts, else_stmts) -> process_if ip d e then_stmts else_stmts fun_stack node_id
             | Set (dst, src)         -> D.set dst src d
             | Directive (Remove r)       -> let d' = D.remove_register r d in Register.remove r; d', Taint.Set.singleton Taint.U
             | Directive (Forget lval)        -> D.forget_lval lval d, Taint.Set.singleton Taint.U
@@ -262,7 +262,7 @@ struct
                let d', taint' =
                  Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (skip_statement :: cleanup_stmts) true));
                  List.fold_left (fun (d, t) stmt ->
-                     let dd, tt = process_value ip d stmt fun_stack in
+                     let dd, tt = process_value ip d stmt fun_stack node_id in
                      dd, Taint.Set.union t tt) (d', taint) cleanup_stmts
                in
                d', taint'
@@ -271,7 +271,7 @@ struct
                L.info2(fun p -> p "Processing %s" fun_name);
               let d', taint', cleanup_stmts = Stubs.process ip d fun_name call_conv in
               let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (stub_statement :: cleanup_stmts) true));
-                               List.fold_left (fun (d, t) stmt -> let dd, tt = process_value ip d stmt fun_stack in
+                               List.fold_left (fun (d, t) stmt -> let dd, tt = process_value ip d stmt fun_stack node_id in
                                                                   dd, Taint.Set.union t tt) (d', taint') cleanup_stmts in
               d', taint'
               
@@ -281,12 +281,12 @@ struct
         res, tainted
       with Exceptions.Empty _ -> D.bot, Taint.Set.singleton Taint.BOT
 
-    and process_if (ip: Data.Address.t) (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack =
+    and process_if (ip: Data.Address.t) (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack (node_id: int) =
       if has_jmp then_stmts || has_jmp else_stmts then
              raise Jmp_exn
            else
-             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value ip d s fun_stack in d', Taint.Set.union b b') (restrict d e true) then_stmts in
-             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value ip d s fun_stack in d', Taint.Set.union b b') (restrict d e false) else_stmts in
+             let dt, bt = List.fold_left (fun (d, b) s -> let d', b' = process_value ip d s fun_stack node_id in d', Taint.Set.union b b') (restrict d e true) then_stmts in
+             let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value ip d s fun_stack node_id in d', Taint.Set.union b b') (restrict d e false) else_stmts in
              D.join dt de, Taint.Set.union bt be
 
 
@@ -342,7 +342,7 @@ struct
         let t =
             List.fold_left (fun t v ->             
                 let d', t' =
-                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value a d stmt fun_stack in d', Taint.Set.union t t') (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
+                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value a d stmt fun_stack v.Cfa.State.id in d', Taint.Set.union t t') (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
                 in
                 v.Cfa.State.v <- d';
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in
@@ -439,16 +439,16 @@ struct
         then' @ else', Taint.Set.union be bt
 
 
-      and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt): (Cfa.State.t list * Taint.Set.t) =
+      and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt) : (Cfa.State.t list * Taint.Set.t) =
         try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.ip v.Cfa.State.v s fun_stack in
+          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.ip v.Cfa.State.v s fun_stack v.Cfa.State.id in
                                           v.Cfa.State.v <- d;
                                           let taint = Taint.Set.union b b' in
                                           (*v.Cfa.State.taint_sources <- taint;*)
                                           v::l, taint) ([], Taint.Set.singleton Taint.U) vertices
         with Jmp_exn ->
              match s with
-             | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts
+             | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
 
              | Jmp (A a) ->
                 begin
@@ -938,7 +938,7 @@ struct
         succ
 
 
-    let forward_process (ip: Data.Address.t) (d: D.t) (stmt: Asm.stmt) (branch: bool option): (D.t * Taint.Set.t) =
+    let forward_process (ip: Data.Address.t) (d: D.t) (stmt: Asm.stmt) (branch: bool option) (node_id: int): (D.t * Taint.Set.t) =
       (* function stack *)
       let fun_stack = ref [] in
       let rec forward (d: D.t) (stmt: Asm.stmt): (D.t * Taint.Set.t) =
@@ -960,7 +960,7 @@ struct
         | Assert (_bexp, _msg) -> d, Taint.Set.singleton Taint.U (* TODO *)
         | Asm.If (e, istmts, estmts) ->
            begin
-             try process_if ip d e istmts estmts fun_stack
+             try process_if ip d e istmts estmts fun_stack node_id
              with Jmp_exn ->
                match branch with
                | Some true -> List.fold_left (fun (d, b) stmt -> let d', b' = forward d stmt in d', Taint.Set.union b b') (restrict d e true) istmts
@@ -975,7 +975,7 @@ struct
     let forward_abstract_value (g:Cfa.t) (succ: Cfa.State.t) (ip: Data.Address.t) (v: Cfa.State.t): Cfa.State.t list =
       let forward _g v _ip =
         let d', taint_sources = List.fold_left (fun (d, b) s ->
-          let d', b' = forward_process v.Cfa.State.ip d s (succ.Cfa.State.branch) in
+          let d', b' = forward_process v.Cfa.State.ip d s (succ.Cfa.State.branch) v.Cfa.State.id in
           d', Taint.Set.union b b') (v.Cfa.State.v, Taint.Set.singleton Taint.U) (succ.Cfa.State.stmts)
         in
         succ.Cfa.State.v <- D.meet succ.Cfa.State.v d';

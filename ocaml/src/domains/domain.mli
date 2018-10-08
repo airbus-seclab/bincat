@@ -49,8 +49,8 @@ module type T =
       (** add the given register to the given abstract value *)
       val add_register: Register.t -> t -> t
 
-      (** string conversion *)
-      val to_string: t -> string list
+      (** string conversion. The int parameter is an id to be added to the generated string *)
+      val to_string: t -> int -> string list
 
       (** int conversion of the given register.
       May raise an exception if this kind of operation is not a singleton or is undefined for the given domain *)
