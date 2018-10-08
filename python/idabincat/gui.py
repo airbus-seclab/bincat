@@ -1995,10 +1995,14 @@ class GUI(object):
         self.hooks.hook()
 
     def focus_registers(self):
-        if getattr(idaapi, "activate_widget"):
-            widget = idaapi.find_widget("BinCAT Registers")
-            if widget:
-                idaapi.activate_widget(widget, True)
+        try:
+            if getattr(idaapi, "activate_widget"):
+                widget = idaapi.find_widget("BinCAT Registers")
+                if widget:
+                    idaapi.activate_widget(widget, True)
+        except AttributeError:
+            # IDA 6.95 does not support this
+            pass
 
     def show_windows(self):
         # XXX hide debug form by default (issue #27)
