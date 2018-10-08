@@ -20,17 +20,18 @@ module type T =
 sig
   type domain_t
 
-  (** [process d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args].
+  (** [process ip d fun args] applies to the abstract value [d] the tranfer function corresponding to the call to the function library named [fun] with arguments [args]. Parameter [ip] is the address in the code of the call
 It returns also a boolean true whenever the result is tainted. *)
-  val process: domain_t -> string -> Asm.calling_convention_t ->
-    domain_t * Taint.t * Asm.stmt list
+  val process : Data.Address.t -> domain_t -> string -> Asm.calling_convention_t ->
+    domain_t * Taint.Set.t * Asm.stmt list
 
-  val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.t * Asm.stmt list
+  val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.Set.t * Asm.stmt list
     
   val init: unit -> unit
 
-  val stubs: (string, (domain_t -> Asm.lval -> (int -> Asm.lval) ->
-                         domain_t * Taint.t) * int) Hashtbl.t
+
+  val stubs : (string, (Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
+                         domain_t * Taint.Set.t) * int) Hashtbl.t
 
 
 end

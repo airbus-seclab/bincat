@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus 
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -30,3 +30,18 @@ exception Error of string
 
 (** raised when an undefine dereference occurs *)
 exception Bot_deref
+
+(** the string is the address on which the use after free occurs *)
+exception Use_after_free of string
+
+(** the string is the address on which the out of bound in heap occurs *)
+exception Heap_out_of_bounds of string
+
+(** call to a deallocator is undefined (pointer does not point on the heap, or the pointed address is not the basis of an allocation, etc. *)
+exception Undefined_free of string
+
+(** double free exception *)
+exception Double_free
+
+(** NULL dereference *)
+exception Null_deref of string

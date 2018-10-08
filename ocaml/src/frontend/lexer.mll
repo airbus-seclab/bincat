@@ -24,9 +24,8 @@
   (* keyword table *)
 let keywords = Hashtbl.create 50
 let _ =
-    List.iter (fun (keyword, token) -> Hashtbl.replace keywords keyword token)
-   [
-     "state", STATE;
+  List.iter (fun (keyword, token) -> Hashtbl.replace keywords keyword token)
+     ["state", STATE;
     (* program section *)
      "program", PROGRAM;
      "load_elf_coredump", LOAD_ELF_COREDUMP;
@@ -67,6 +66,7 @@ let _ =
     "ini_version", INI_VERSION;
     "unroll", UNROLL;
     "function_unroll", FUN_UNROLL;
+    "kset_bound", KSET_BOUND;
     "external_symbol_max_size", EXT_SYM_MAX_SIZE;
     "cut", CUT;
     "loglevel", LOGLEVEL;
@@ -99,7 +99,6 @@ let _ =
     "U", U;
     "T", T;
     "imports", IMPORTS;
-    "stack", STACK;
     "heap", HEAP;
     "analysis", ANALYSIS;
     "forward_binary", FORWARD_BIN;
@@ -138,7 +137,6 @@ let oct_int      = ("0o" | "0O") ['0'-'7']+
 let integer = hexa_int | dec_int | oct_int
 let global_integer = ("G" | "") integer
 let heap_integer = "H" integer
-let stack_integer = "S" integer
                   
 (* special characters *)
 let path_symbols = '.' | '/' | '\\' | ':'
@@ -151,6 +149,7 @@ let value        = (digit | path_symbols | letter | '_' | '-' | '@')*
 
 (* tokens *)
 rule token = parse
+                 
   (* escape tokens *)
   | white_space         { token lexbuf }
   | newline             { new_line lexbuf; token lexbuf }
@@ -171,7 +170,6 @@ rule token = parse
   (* byte string *)
   | '|'                 { HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
   | "G|"                 { HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
-  | "S|"                 { STACK_HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
   | "H|"                 { HEAP_HEX_BYTES(read_bytes (Buffer.create 80) lexbuf) }
   (* quoted string *)
   | '"'                 { read_string (Buffer.create 80) lexbuf }
@@ -190,7 +188,6 @@ rule token = parse
   | ","             { COMMA }
   (* left operand of type integer *)
   | global_integer as i        { INT (strip_int i) }
-    | stack_integer as i { SINT (strip_int i) }
     | heap_integer as i { HINT (strip_int i) }
     | value as v      {
                    try

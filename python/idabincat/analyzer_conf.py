@@ -307,7 +307,7 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_initial_mem(arch=None):
-        return [["stack", "0x1000*8192", "|00|?0xFF"]]
+        return [["mem", "0x1000*8192", "|00|?0xFF"]]
 
     @staticmethod
     def get_arch(entrypoint):
@@ -681,7 +681,7 @@ class AnalyzerConfig(object):
             config.set('override',
                        '; This will be overriden by values from the BinCAT '
                        'Overrides view')
-            config.set('state', 'stack[0x1000*8192]', '|00|?0xFF')
+            config.set('state', 'mem[0x1000*8192]', '|00|?0xFF')
             init_state = InitialState.get_default(analysis_start_va)
             for key, val in init_state:
                 config.set("state", key, val)

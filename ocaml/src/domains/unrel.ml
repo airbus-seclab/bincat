@@ -55,6 +55,9 @@ module type T =
     (** converts a word into an abstract value *)
     val of_word: Data.Word.t -> t
 
+    (** converts an address into an abstract value *)
+    val of_addr: Data.Address.t -> t
+      
     (** comparison.
     Returns true whenever the concretization of the first parameter is included in the concretization of the second parameter *)
     val is_subset: t -> t -> bool
@@ -121,60 +124,52 @@ module type T =
 
     (** returns the minimal taint value of the given parameter *)
     val get_minimal_taint: t -> Taint.t
+
+    (** total order on values. No link with the partial order! *)
+    val total_order: t -> t -> int
   end
 
 
 module Make(D: T) =
   struct
-
-
-
+      
     (** type of the Map from Dimension (register or memory) to abstract values *)
-    type t     =
-      | Val of D.t Env.t (* For Ocaml non-gurus : Env is a Map, indexed by Key, with values of D.t *)
-      | BOT
+    type t = D.t Env.t (* For Ocaml non-gurus : Env is a Map, indexed by Key, with values of D.t *)
 
-    let bot = BOT
 
-    let is_bot m = m = BOT
-
+    let empty = Env.empty
+              
+    let top = Env.empty
+            
+    (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)
+    let total_order m1 m2 =
+      let sz1 = Env.cardinal m1 in
+      let sz2 = Env.cardinal m2 in
+      let n = sz1 - sz2 in
+      if n<> 0 then n
+      else Env.compare D.total_order m1 m2
+         
+  
     let value_of_register m r =
-      match m with
-      | BOT    -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: environment is empty ; can't look up register %s" (Register.name r)))
-      | Val m' -> let v =
-                    try
-                      Env.find (Env.Key.Reg r) m'
-                    with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: register %s not found in environment" (Register.name r)))
-                  in D.to_z v
+      let v =
+        try
+          Env.find (Env.Key.Reg r) m
+        with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: register %s not found in environment" (Register.name r)))
+      in D.to_z v
 
     let string_of_register m r =
-      match m with
-      | BOT    -> raise (Exceptions.Empty (Printf.sprintf "unrel.string_of_register: environment is empty ; can't look up register %s" (Register.name r)))
-      | Val m' -> let v =
-                    try
-                      Env.find (Env.Key.Reg r) m'
-                    with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
-                  in D.to_string v
+      let v =
+        try
+          Env.find (Env.Key.Reg r) m
+        with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
+      in D.to_string v
 
-    let add_register r m =
-      let add x =
-        Val (Env.add (Env.Key.Reg r) D.top x)
-      in
-      match m with
-      | BOT    -> add Env.empty
-      | Val m' -> add m'
+    let add_register r m = Env.add (Env.Key.Reg r) D.top m
 
-    let remove_register v m =
-      L.debug (fun p -> p "remove_register(%s)" (Register.name v));
-      match m with
-      | Val m' -> Val (Env.remove (Env.Key.Reg v) m')
-      | BOT    -> BOT
+    let remove_register v m = Env.remove (Env.Key.Reg v) m
 
 
-    let forget m =
-      match m with
-      | BOT -> BOT
-      | Val m' -> Val (Env.map (fun _ -> D.top) m')
+    let forget m = Env.map (fun _ -> D.top) m
 
     let forget_reg m' r opt =
       let key = Env.Key.Reg r in
@@ -188,16 +183,12 @@ module Make(D: T) =
     Env.add key top' m'
 
     let is_subset m1 m2 =
-      match m1, m2 with
-      | BOT, _       -> true
-      | _, BOT       -> false
-      | Val m1', Val m2' ->
-         try Env.for_all2 D.is_subset m1' m2'
-         with _ ->
-           try
-             Env.iteri (fun k v1 -> try let v2 = Env.find k m2' in if not (D.is_subset v1 v2) then raise Exit with Not_found -> ()) m1';
-             true
-           with Exit -> false
+      try Env.for_all2 D.is_subset m1 m2
+      with _ ->
+        try
+          Env.iteri (fun k v1 -> try let v2 = Env.find k m2 in if not (D.is_subset v1 v2) then raise Exit with Not_found -> ()) m1;
+          true
+        with Exit -> false
 
 
     let coleasce_to_strs (m : D.t Env.t) (strs : string list) =
@@ -208,33 +199,36 @@ module Make(D: T) =
         match k with
         | Env.Key.Reg _ -> in_itv := false; prev_addr := addr_zero; itvs
         | Env.Key.Mem_Itv (_low_addr, _high_addr) -> in_itv := false; prev_addr := addr_zero; itvs
-        | Env.Key.Mem (addr) -> let new_itv =
-                                  if !in_itv && Data.Address.compare (!prev_addr) (Data.Address.inc addr) == 0 then
-                                    begin
-                                      (* continue byte string *)
-                                      prev_addr := addr;
-                                      let cur_start = fst (List.hd itvs) in cur_start := addr;
-                                      itvs
-                                    end else begin
-                                      (* not contiguous, create new itv *)
-                                      in_itv := true;
-                                      prev_addr := addr;
-                                      let new_head = (ref addr, addr) in
-                                      new_head :: itvs
-                                    end
-              in new_itv
+        | Env.Key.Mem (addr) ->
+           let new_itv =
+             if !in_itv && Data.Address.compare (!prev_addr) (Data.Address.inc addr) == 0 then
+               begin
+                 (* continue byte string *)
+                 prev_addr := addr;
+                 let cur_start = fst (List.hd itvs) in cur_start := addr;
+                 itvs
+               end else begin
+                 (* not contiguous, create new itv *)
+                 in_itv := true;
+                 prev_addr := addr;
+                 let new_head = (ref addr, addr) in
+                 new_head :: itvs
+               end
+           in new_itv
       in
-      let itv_to_str itv = let low = !(fst itv) in let high = snd itv in
-                                                   let addr_str = Printf.sprintf "mem[%s, %s]" (Data.Address.to_string low) (Data.Address.to_string high) in
-                                                   let len = (Z.to_int (Data.Address.sub high low))+1 in
-                                                   let strs = let indices = Array.make len 0 in
-                                                              for offset = 0 to len-1 do
-                                                                indices.(offset) <- offset
-                                                              done ;
-                                                              let buffer = Buffer.create (len*10) in
-                                                              Array.iter (fun off -> Printf.bprintf buffer ", %s" (D.to_string (Env.find (Env.Key.Mem (Data.Address.add_offset low (Z.of_int off))) m))) indices ;
-                                                              Buffer.contents buffer
-                                                   in Printf.sprintf "%s = %s" addr_str (String.sub strs 2 ((String.length strs)-2))
+      let itv_to_str itv =
+        let low = !(fst itv) in
+        let high = snd itv in
+        let addr_str = Printf.sprintf "mem[%s, %s]" (Data.Address.to_string low) (Data.Address.to_string high) in
+        let len = (Z.to_int (Data.Address.sub high low))+1 in
+        let strs = let indices = Array.make len 0 in
+                   for offset = 0 to len-1 do
+                     indices.(offset) <- offset
+                   done;
+                   let buffer = Buffer.create (len*10) in
+                   Array.iter (fun off -> Printf.bprintf buffer ", %s" (D.to_string (Env.find (Env.Key.Mem (Data.Address.add_offset low (Z.of_int off))) m))) indices ;
+                   Buffer.contents buffer
+        in Printf.sprintf "%s = %s" addr_str (String.sub strs 2 ((String.length strs)-2))
       in
       let itvs = Env.fold build_itv m [] in
       List.fold_left (fun strs v -> (itv_to_str v)::strs) strs itvs
@@ -245,10 +239,8 @@ module Make(D: T) =
       | _ -> ""
 
     let to_string m =
-      match m with
-      | BOT    -> ["_"]
-      | Val m' -> let non_itv = Env.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m' [] in
-                  coleasce_to_strs m' non_itv
+      let non_itv = Env.fold (fun k v strs -> let s = non_itv_to_str k v in if String.length s > 0 then s :: strs else strs) m [] in
+      coleasce_to_strs m non_itv
 
     (***************************)
     (** Memory access function *)
@@ -258,7 +250,12 @@ module Make(D: T) =
     let get_addr_array base nb =
       let arr = Array.make nb base in
       for i = 0 to nb-1 do
-        arr.(i) <- Data.Address.add_offset base (Z.of_int i);
+        let addr' = Data.Address.add_offset base (Z.of_int i) in
+        match addr' with
+        | Data.Address.NULL -> raise (Exceptions.Null_deref "Unrel.get_addr_array")
+        | Data.Address.Val (Data.Address.Heap (_, sz), o) when Z.compare sz (Data.Word.to_int o) < 0 ->
+           raise (Exceptions.Heap_out_of_bounds (Data.Address.to_string addr'))
+        | _ -> arr.(i) <- addr'
       done;
       arr
 
@@ -429,7 +426,11 @@ module Make(D: T) =
       do_update new_mem domain
 
 
-
+    let check_address_lv oracle a =
+      match a with
+      | Data.Address.NULL -> raise (Exceptions.Empty "Dereferencing a NULL address")
+      | Data.Address.Val _ -> oracle a
+                
     (***************************)
     (* Non mem functions  :)   *)
     (***************************)
@@ -450,7 +451,7 @@ module Make(D: T) =
         returns the evaluated expression and a boolean to say if
         the resulting expression is tainted
     *)
-    let rec eval_exp m e: (D.t * Taint.t) =
+    let rec eval_exp m e check_address_validity: (D.t * Taint.t) =
       L.debug (fun p -> p "eval_exp(%s)" (Asm.string_of_exp e true));
       let rec eval (e: Asm.exp): D.t * Taint.t =
         match e with
@@ -462,6 +463,7 @@ module Make(D: T) =
                v, D.taint_sources v
              with Not_found -> D.bot, Taint.U
            end
+
         | Asm.Lval (Asm.V (Asm.P (r, low, up))) ->
            begin
              try
@@ -471,6 +473,7 @@ module Make(D: T) =
              with
              | Not_found -> D.bot, Taint.U
            end
+
         | Asm.Lval (Asm.M (e, n))            ->
            begin
              let r, tsrc = eval e in
@@ -478,16 +481,20 @@ module Make(D: T) =
                let addresses = Data.Address.Set.elements (D.to_addresses r) in
                let rec to_value a =
                  match a with
-                 | [a]  -> let v = get_mem_value m a n in v, Taint.logor tsrc  (D.taint_sources v)
+                 | [a]  ->
+                    check_address_lv check_address_validity a;
+                   let v = get_mem_value m a n in
+                   v, Taint.logor tsrc (D.taint_sources v)
+
                  | a::l ->
+                    check_address_lv check_address_validity a;
                     let v = get_mem_value m a n in
                     let v', tsrc' = to_value l in
                     D.join v v', Taint.join (D.taint_sources v) (Taint.logor tsrc tsrc')
 
                  | []   -> raise Exceptions.Bot_deref
                in
-               let value = to_value addresses in
-               value
+               to_value addresses
              with
              | Exceptions.Too_many_concrete_elements _ -> D.top, Taint.TOP
              | Not_found ->
@@ -498,10 +505,6 @@ module Make(D: T) =
                 L.analysis (fun p -> p ("Undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
                raise Exceptions.Bot_deref
            end
-
-        | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 && Register.is_stack_pointer r1 ->
-           let v = D.of_config (Config.Content (Config.S, Z.zero)) (Register.size r1) in
-           v, D.taint_sources v
 
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
            D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))), Taint.U
@@ -519,10 +522,10 @@ module Make(D: T) =
            v', Taint.logor tsrc (D.taint_sources v')
 
         | Asm.TernOp (c, e1, e2) ->
-           let r, tsrc = eval_bexp c true in
+           let r, tsrc = eval_bexp c true check_address_validity in
            let res, taint_res =
              if r then (* condition is true *)
-               let r2, tsrc2 = eval_bexp c false in
+               let r2, tsrc2 = eval_bexp c false check_address_validity in
                if r2 then
                  let v1, tsrc1' = eval e1 in
                  let v2, tsrc2' = eval e2 in
@@ -531,7 +534,7 @@ module Make(D: T) =
                  let v1, tsrc1' = eval e1 in
                  v1, Taint.logor tsrc1' tsrc2
              else
-               let r2, tsrc2 = eval_bexp c false in
+               let r2, tsrc2 = eval_bexp c false check_address_validity in
                if r2 then
                  let v2, tsrc2' = eval e2 in
                  v2, Taint.logor tsrc2 tsrc2'
@@ -541,84 +544,71 @@ module Make(D: T) =
            D.span_taint res taint_res, taint_res
 
       (* TODO: factorize with Interpreter.restrict *)
-      and eval_bexp (c: Asm.bexp) (b: bool): bool * Taint.t =
+      and eval_bexp (c: Asm.bexp) (b: bool) check_address_validity: bool * Taint.t =
         match c with
         | Asm.BConst b'           -> if b = b' then true, Taint.U else false, Taint.U
-        | Asm.BUnOp (Asm.LogNot, e) -> eval_bexp e (not b)
+        | Asm.BUnOp (Asm.LogNot, e) -> eval_bexp e (not b) check_address_validity
 
         | Asm.BBinOp (Asm.LogOr, e1, e2)  ->
-           let v1, b1 = eval_bexp e1 b in
-           let v2, b2 = eval_bexp e2 b in
+           let v1, b1 = eval_bexp e1 b check_address_validity in
+           let v2, b2 = eval_bexp e2 b check_address_validity in
            if b then v1||v2, Taint.logor b1 b2
            else v1&&v2, Taint.logand b1 b2
 
         | Asm.BBinOp (Asm.LogAnd, e1, e2) ->
-           let v1, b1 = eval_bexp e1 b in
-           let v2, b2 = eval_bexp e2 b in
+           let v1, b1 = eval_bexp e1 b check_address_validity in
+           let v2, b2 = eval_bexp e2 b check_address_validity in
            if b then v1&&v2, Taint.logand b1 b2
            else v1||v2, Taint.logor b1 b2
 
         | Asm.Cmp (cmp, e1, e2)   ->
            let cmp' = if b then cmp else inv_cmp cmp in
-           compare_env m e1 cmp' e2
+           compare_env m e1 cmp' e2 check_address_validity
       in
       eval e
 
-    and compare_env env (e1: Asm.exp) op e2: bool * Taint.t =
-      let v1, tsrc1 = eval_exp env e1 in
-      let v2, tsrc2 = eval_exp env e2 in
+    and compare_env env (e1: Asm.exp) op e2 check_address_validity: bool * Taint.t =
+      let v1, tsrc1 = eval_exp env e1 check_address_validity in
+      let v2, tsrc2 = eval_exp env e2 check_address_validity in
       D.compare v1 op v2, Taint.logor tsrc1 tsrc2
 
-    let forget_lval lv m =
-      match m with
-      | BOT -> BOT
-      | Val m' ->
-         begin
-           match lv with
-           | Asm.V (Asm.T r) -> Val (forget_reg m' r None)
-           | Asm.V (Asm.P (r, l, u)) -> Val (forget_reg m' r (Some (l, u)))
-           | Asm.M (e, n) ->
-              let v, _b = eval_exp m' e in
-              let addrs = D.to_addresses v in
-              let l     = Data.Address.Set.elements addrs in
-              Val (List.fold_left (fun m a ->  write_in_memory a m D.top n true) m' l)
+    let forget_lval lv m' check_address_validity = 
+      match lv with
+      | Asm.V (Asm.T r) -> forget_reg m' r None
+      | Asm.V (Asm.P (r, l, u)) -> forget_reg m' r (Some (l, u))
+      | Asm.M (e, n) ->
+         let v, _b = eval_exp m' e check_address_validity in
+         let addrs = D.to_addresses v in
+         let l     = Data.Address.Set.elements addrs in
+         List.fold_left (fun m a ->  write_in_memory a m D.top n true) m' l
 
-         end
 
-    let val_restrict m e1 _v1 cmp _e2 v2 =
+    let val_restrict m e1 _v1 cmp _e2 v2: t list =
       match e1, cmp with
       | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ ->
          let v  = Env.find (Env.Key.Reg r) m in
-         let v' = D.meet v v2        in
+         let v' = D.meet v v2 in
          if D.is_bot v' then
            raise (Exceptions.Empty "unrel.val_restrict")
          else
-           Env.replace (Env.Key.Reg r) v' m
-      | _, _ -> m
+           [Env.replace (Env.Key.Reg r) v' m]
+      | _, _ -> [m]
 
     (* TODO factorize with compare_env *)
-    let compare m (e1: Asm.exp) op e2 =
-      match m with
-      | BOT -> BOT, Taint.U
-      | Val m' ->
-         let v1, b1 = eval_exp m' e1 in
-         let v2, b2 = eval_exp m' e2 in
-         if D.is_bot v1 || D.is_bot v2 then
-           BOT, Taint.U
-         else
-           if D.compare v1 op v2 then
-             try
-               Val (val_restrict m' e1 v1 op e2 v2), Taint.logor b1 b2
-             with Exceptions.Empty _ -> BOT, Taint.U
-           else
-             BOT, Taint.U
-
-    let mem_to_addresses m e =
-      match m with
-      | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Cant evaluate %s" (Asm.string_of_exp e true)))
-      | Val m' ->
-         let v, b = eval_exp m' e in
-         D.to_addresses v, b
+    let compare m' check_address_validity (e1: Asm.exp) op e2 =
+      let v1, b1 = eval_exp m' e1 check_address_validity in
+      let v2, b2 = eval_exp m' e2 check_address_validity in
+      if D.is_bot v1 || D.is_bot v2 then
+        raise (Exceptions.Empty "Unrel.compare")
+      else
+        if D.compare v1 op v2 then
+          val_restrict m' e1 v1 op e2 v2, Taint.logor b1 b2
+        else
+          raise (Exceptions.Empty "Unrel.compare")
+      
+    let mem_to_addresses m' e check_address_validity =
+      let v, b = eval_exp m' e check_address_validity in
+      D.to_addresses v, b
 
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
     If e is untainted then nothing is done *)
@@ -666,81 +656,77 @@ module Make(D: T) =
       | _ -> v
 
 
-    let set dst src m: (t * Taint.t) =
-      match m with
-      | BOT    -> BOT, Taint.U
-      | Val m' ->
-         let v', _ = eval_exp m' src in
+    let set_to_memory dst_exp dst_sz v' m' b check_address_validity =
+      let v, b' = eval_exp m' dst_exp check_address_validity in
+      let addrs = D.to_addresses v in
+      try
+        let l     = Data.Address.Set.elements addrs in
+        let t' = Taint.logor b b' in
+        match l with
+        | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true, t'
+        | l   -> (* weak update *) List.fold_left (fun m a ->  write_in_memory a m v' dst_sz false) m' l, t'
+      with
+      | Exceptions.Too_many_concrete_elements "unrel.set" -> Env.empty, Taint.TOP
+
+    let set_to_register r v' m' =
+      match r with
+      | Asm.T r' ->  Env.add (Env.Key.Reg r') v' m'
+      | Asm.P (r', low, up) ->
+         let prev = Env.find (Env.Key.Reg r') m' in
+           Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'
+         
+             
+    let set dst src m' check_address_validity: (t * Taint.t) =
+      let v', _ = eval_exp m' src check_address_validity in
          let v' = span_taint m' src v' in
          L.info2 (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
          let b = D.taint_sources v' in
          if D.is_bot v' then
-           BOT, b
+           raise (Exceptions.Empty "Unrel.set"), b
          else
            match dst with
            | Asm.V r ->
               begin
-                match r with
-                | Asm.T r' ->                 
-                   Val (Env.add (Env.Key.Reg r') v' m'), b
-                | Asm.P (r', low, up) ->
-                   try
-                     let prev = Env.find (Env.Key.Reg r') m' in
-                     Val (Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'), b
-                   with
-                     Not_found -> BOT, b
+                try
+                  set_to_register r v' m', b
+                with Not_found -> raise (Exceptions.Empty "Unrel.set (register case)"), Taint.BOT
               end
-
+                
            | Asm.M (e, n) ->
-              let v, b' = eval_exp m' e in
-              let addrs = D.to_addresses v in
               try
-                let l     = Data.Address.Set.elements addrs in
-                let t' = Taint.logor b b' in
-                match l with
-                | [a] -> (* strong update *) Val (write_in_memory a m' v' n true), t'
-                | l   -> (* weak update *) Val (List.fold_left (fun m a ->  write_in_memory a m v' n false) m' l), t'
-              with
-              | Exceptions.Too_many_concrete_elements "unrel.set" -> Val (Env.empty), Taint.TOP
-              | Exceptions.Empty _ -> BOT, Taint.U
+                set_to_memory e n v' m' b check_address_validity
+              with _ -> raise (Exceptions.Empty "Unrel.set (register case)"), Taint.BOT
 
-    let join m1 m2 =
-      match m1, m2 with
-      | BOT, m | m, BOT  -> m
-      | Val m1', Val m2' ->
-         try Val (Env.map2 D.join m1' m2')
-         with _ ->
-           let m = Env.empty in
-           let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
-           Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in Env.replace k (D.join v v') m with Not_found -> Env.add k v m) m2' m')
-
+    let join m1' m2' =
+      try Env.map2 D.join m1' m2'
+      with _ ->
+        let m = Env.empty in
+        let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
+        Env.fold (fun k v m -> try let v' = Env.find k m1' in Env.replace k (D.join v v') m with Not_found -> Env.add k v m) m2' m'
 
 
     let meet m1 m2 =
-      match m1, m2 with
-      | BOT, _ | _, BOT  -> BOT
-      | Val m1', Val m2' ->
-         if Env.is_empty m1' then
-           m2
-         else
-           if Env.is_empty m2' then
-             m1
-           else
-             let m' = Env.empty in
-             let m' = Env.fold (fun k v1 m' ->
-               try let v2 = Env.find k m2' in
-                   Env.add k (D.meet v1 v2) m' with Not_found -> m') m1' m' in
-             Val m'
+      if Env.is_empty m1 then
+        m2
+      else
+        if Env.is_empty m2 then
+          m1
+        else
+          let m' = Env.empty in
+          Env.fold (fun k v1 m' ->
+              try let v2 = Env.find k m2 in
+                  let v' = D.meet v1 v2 in
+                  if D.is_bot v' then
+                    raise (Exceptions.Empty "Unrel.meet")
+                  else
+                    Env.add k v' m' with Not_found -> m') m1 m'
 
     let widen m1 m2 =
-      match m1, m2 with
-      | BOT, m | m, BOT  -> m
-      | Val m1', Val m2' ->
-         try Val (Env.map2 D.widen m1' m2')
+       try Env.map2 D.widen m1 m2
          with _ ->
            let m = Env.empty in
-           let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
-           Val (Env.fold (fun k v m -> try let v' = Env.find k m1' in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2' m')
+           let m' = Env.fold (fun k v m -> Env.add k v m) m1 m in
+           Env.fold (fun k v m -> try let v' = Env.find k m1 in let v2 = try D.widen v' v with _ -> D.top in Env.replace k v2 m with Not_found -> Env.add k v m) m2 m'
 
     (** returns size of content, rounded to the next multiple of Config.operand_sz *)
     let round_sz sz =
@@ -774,132 +760,146 @@ module Make(D: T) =
       else
         D.taint_of_config taint sz v'
 
-    let taint_register_mask reg taint m: t * Taint.t =
-      match m with
-      | BOT -> BOT, Taint.BOT
-      | Val m' ->
-         let k = Env.Key.Reg reg in
-         let v = Env.find k m' in
-         let v', taint =  D.taint_of_config [taint] (Register.size reg) v in
-         Val (Env.replace k v' m'), taint
+    let taint_register_mask reg taint m': t * Taint.t =
+      let k = Env.Key.Reg reg in
+      let v = Env.find k m' in
+      let v', taint =  D.taint_of_config [taint] (Register.size reg) v in
+      Env.replace k v' m', taint
 
-    let span_taint_to_register reg taint m: t * Taint.t =
-      match m with
-      | BOT -> BOT, Taint.BOT
-      | Val m' ->
+    let span_taint_to_register reg taint m': t * Taint.t =
          let k = Env.Key.Reg reg in
          let v = Env.find k m' in
          let v' = D.span_taint v taint in
-         Val (Env.replace k v' m'), taint
+         Env.replace k v' m', taint
 
-    let taint_address_mask a (taints: Config.tvalue list) m: t * Taint.t =
+    let taint_address_mask a (taints: Config.tvalue list) m': t * Taint.t =
       L.debug (fun p->p "Unrel.taint_address_mask (%s)" (Data.Address.to_string a));
-      match m with
-      | BOT -> BOT, Taint.BOT
-      | Val m' ->
          let k = Env.Key.Mem a in
          let v = Env.find k m' in
          let v', taint = D.taint_of_config taints (Config.size_of_taints taints) v in
-         Val (Env.replace k v' m'), taint
+         Env.replace k v' m', taint
 
-    let span_taint_to_addr a taint m: t * Taint.t =
-      match m with
-      | BOT -> BOT, Taint.BOT
-      | Val m' ->
-         let k = Env.Key.Mem a in
+    let span_taint_to_addr a taint m': t * Taint.t =
+      let k = Env.Key.Mem a in
+      let v = Env.find k m' in
+      let v' = D.span_taint v taint in
+      Env.replace k v' m', taint
+
+
+    let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain': t * Taint.t =
+      L.debug (fun p->p "Unrel.set_memory_from_config");  
+      let taint_srcs = extract_taint_src_ids taint in          
+      let m', taint, sz =
+        match content with
+        | None ->
+           begin
+             let taint_sz = Config.size_of_taints taint in
+             let rec repeat (m, t) n =
+               if n < nb then
+                 let a' = Data.Address.add_offset addr (Z.of_int (n*taint_sz)) in
+                 let k = Env.Key.Mem a' in
+                 let v = Env.find k m in
+                 let v', taint' = D.taint_of_config taint taint_sz v in
+                 let m' = Env.replace k v' m in
+                 repeat (m', taint') (n+1)
+               else
+                 m, t
+             in
+             let m', taint = repeat (domain', Taint.U) 0 in
+             m', taint, taint_sz                
+           end
+        | Some content' ->
+           let sz = Config.size_of_content content' in
+           let (v', taint) = of_config (content', taint) sz in
+           if nb > 1 then
+             if sz != 8 then
+               L.abort (fun p -> p "Repeated memory init only works with bytes")
+             else
+               write_repeat_byte_in_mem addr domain' v' nb, taint, sz
+           else
+             let endianness =
+               match content' with
+               | Config.Bytes _ | Config.Bytes_Mask (_, _) -> Config.BIG
+               | _ -> !Config.endianness
+             in
+             write_in_memory ~endianness:endianness addr domain' v' sz true , taint, sz
+      in
+      List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
+                             Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
+      m', taint
+
+
+
+    let set_register_from_config r (content, taint) m': t * Taint.t =     
+      let taint_srcs = extract_taint_src_ids taint in
+      List.iter (fun id ->
+          if not (Hashtbl.mem Dump.taint_src_tbl id) then
+            Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) taint_srcs;
+      match content with
+      | None ->
+         let k = Env.Key.Reg r in
          let v = Env.find k m' in
-         let v' = D.span_taint v taint in
-         Val (Env.replace k v' m'), taint
+         let v', taint' =  D.taint_of_config taint (Register.size r) v in
+         Env.replace k v' m', taint'
+      | Some c ->  
+         let sz = Register.size r in
 
-    let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain: t * Taint.t =
-      L.debug (fun p->p "Unrel.set_memory_from_config");
-      if nb > 0 then
-        match domain with
-        | BOT    -> BOT, Taint.BOT
-        | Val domain' ->
-           let taint_srcs = extract_taint_src_ids taint in          
-           let m', taint, sz =
-             match content with
-             | None ->
-                begin
-                  let taint_sz = Config.size_of_taints taint in
-                  let rec repeat (m, t) n =
-                    if n < nb then
-                      let a' = Data.Address.add_offset addr (Z.of_int (n*taint_sz)) in
-                      let k = Env.Key.Mem a' in
-                      let v = Env.find k m in
-                      let v', taint' = D.taint_of_config taint taint_sz v in
-                      let m' = Env.replace k v' m in
-                    repeat (m', taint') (n+1)
-                    else
-                      m, t
-                  in
-                  let m', taint = repeat (domain', Taint.U) 0 in
-                  m', taint, taint_sz                
+            let vt, taint = of_config  (c, taint) sz in               
+            Env.replace (Env.Key.Reg r) vt m', taint
+
+            
+    let set_lval_to_addr lv addr m check_address_validity =
+      (* TODO: should we taint the lvalue if the address to set is tainted ? *)
+      L.debug2 (fun p -> p "entering set_lval_to_addrs with lv = %s" (Asm.string_of_lval lv true));  
+         match lv with
+         | Asm.M (e, n) ->
+            if n <> !Config.address_sz then
+              raise (Exceptions.Empty "inconsistent dereference size wrt to address size")
+            else
+              begin
+                match addr with
+                | Data.Address.NULL ->
+                   let v = D.of_addr addr in
+                   set_to_memory e !Config.address_sz v m Taint.U check_address_validity 
+                | Data.Address.Val (region, word) ->                               
+                   try
+                     let bytes = Data.Word.to_bytes word in
+                     let m', taint, _ =
+                       List.fold_left (fun (m', taint, i) byte ->
+                           let v = D.of_addr (Data.Address.Val (region, byte)) in
+                           let e' = Asm.BinOp (Asm.Add, e, Asm.Const (Data.Word.of_int i !Config.operand_sz)) in
+                           let m', taint' =
+                             set_to_memory e' 8 v m' Taint.U check_address_validity
+                           in
+                           m', Taint.logor taint taint', Z.add i Z.one) (m, Taint.U, Z.zero) bytes
+                     in
+                     m', taint
+                   with _ -> raise (Exceptions.Empty "set_lval_to_addr: invalid dereference"), Taint.BOT 
               end
-           | Some content' -> 
-              let sz = Config.size_of_content content' in
-              let (v', taint) = of_config (content', taint) sz in
-              if nb > 1 then
-                if sz != 8 then
-                  L.abort (fun p -> p "Repeated memory init only works with bytes")
-                else
-                  write_repeat_byte_in_mem addr domain' v' nb, taint, sz
-              else
-                let endianness =
-                  match content' with
-                  | Config.Bytes _ | Config.Bytes_Mask (_, _) -> Config.BIG
-                  | _ -> !Config.endianness
-                in
-               write_in_memory ~endianness:endianness addr domain' v' sz true , taint, sz
-           in
-           List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
-               Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
-           Val m', taint
-      else
-        domain, Taint.U
-
-    let set_register_from_config r (content, taint) m: t * Taint.t =
-      match m with
-      | BOT    -> BOT, Taint.BOT
-      | Val m' ->
-         let taint_srcs = extract_taint_src_ids taint in
-         List.iter (fun id ->
-           if not (Hashtbl.mem Dump.taint_src_tbl id) then
-             Hashtbl.add Dump.taint_src_tbl id (Dump.R r)) taint_srcs;
-         match content with
-         | None ->
-            let k = Env.Key.Reg r in
-            let v = Env.find k m' in
-            let v', taint' =  D.taint_of_config taint (Register.size r) v in
-            Val (Env.replace k v' m'), taint'
-         | Some c ->  
-            let sz = Register.size r in
-            let vt, taint = of_config (c, taint) sz in               
-            Val (Env.replace (Env.Key.Reg r) vt m'), taint
-
-    let value_of_exp m e =
-      match m with
-      | BOT -> raise (Exceptions.Empty "unrel.value_of_exp: environment is empty")
-      | Val m' -> D.to_z (fst (eval_exp m' e))
+              
+         | Asm.V r ->
+            let v = D.of_addr addr in
+            try
+              set_to_register r v m, Taint.U
+            with Not_found -> raise (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Asm.string_of_reg r))), Taint.BOT
+            
+    let value_of_exp m e check_address_validity =
+      D.to_z (fst (eval_exp m e check_address_validity))
 
 
-    let taint_sources e m =
-      match m with
-      | BOT -> Taint.U
-      | Val m' -> snd (eval_exp m' e)
+    let taint_sources e m check_address_validity =
+      snd (eval_exp m e check_address_validity)
 
 
-    let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m: t) (with_exception: bool) pad_options: (int * D.t list) =
+    let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m': t) (with_exception: bool) pad_options check_address_validity: (int * D.t list) =
+
       L.debug(fun p -> p "i_get_bytes addr=%s cmp=%s terminator=%s upper_bound=%i sz=%i"
         (Asm.string_of_exp addr true) (Asm.string_of_cmp cmp)
         (Asm.string_of_exp terminator true) upper_bound sz);
-      match m with
-      | BOT -> raise (Exceptions.Empty "unrel.i_get_bytes: environment is empty")
-      | Val m' ->
-         let v, _ = eval_exp m' addr in
+    
+         let v, _ = eval_exp m' addr check_address_validity in
          let addrs = Data.Address.Set.elements (D.to_addresses v) in
-         let term = fst (eval_exp m' terminator) in
+         let term = fst (eval_exp m' terminator check_address_validity) in
          let off = sz / 8 in
          let rec find (a: Data.Address.t) (o: int): (int * D.t list) =
            if o >= upper_bound then
@@ -945,9 +945,9 @@ module Make(D: T) =
         end
      | [] -> raise (Exceptions.Empty "unrel.i_get_bytes")
 
-    let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t): int * Bytes.t =
+    let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t) check_address_validity: int * Bytes.t =
       try
-        let len, vals = i_get_bytes e cmp terminator upper_bound sz m true None in
+        let len, vals = i_get_bytes e cmp terminator upper_bound sz m true None check_address_validity in
         let bytes = Bytes.create len in
     (* TODO: endianess ! *)
         List.iteri (fun i v ->
@@ -955,14 +955,13 @@ module Make(D: T) =
         len, bytes
       with Not_found -> raise (Exceptions.Too_many_concrete_elements "unrel.get_bytes")
 
-    let get_offset_from e cmp terminator upper_bound sz m = fst (i_get_bytes e cmp terminator upper_bound sz m true None)
+    let get_offset_from e cmp terminator upper_bound sz m check_address_validity = fst (i_get_bytes e cmp terminator upper_bound sz m true None check_address_validity) 
 
-    let copy_register r dst src =
+    let copy_register r dst' src' =
       let k = Env.Key.Reg r in
-      match dst, src with
-      | Val dst', Val src' -> let v = Env.find k src' in Val (Env.replace k v dst')
-      | BOT, Val src' -> let v = Env.find k src' in Val (let m = Env.empty in Env.add k v m)
-      | _, _ -> BOT
+      let v = Env.find k src' in
+      Env.replace k v dst'
+      
 
 
     (* Remove the prefix of the string, if needed
@@ -983,13 +982,10 @@ module Make(D: T) =
       L.debug (fun p->p "strip, after: %s" res);
       res
 
-    let copy_until m dst e terminator term_sz upper_bound with_exception pad_options: int * t =
-      match m with
-      | Val m' ->
-     begin
-       let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' dst))) in
+    let copy_until m' dst e terminator term_sz upper_bound with_exception pad_options check_address_validity: int * t =  
+       let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' dst check_address_validity))) in
        (* TODO optimize: m is pattern matched twice (here and in i_get_bytes) *)
-       let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options in
+       let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m' with_exception pad_options check_address_validity in
        let copy_byte a m' strong =
          let m', _ =
            List.fold_left (fun (m', i) byte ->
@@ -1004,9 +1000,8 @@ module Make(D: T) =
          | _::_  -> List.fold_left (fun m' a -> copy_byte a m' false) m' addrs
          | [] -> raise (Exceptions.Empty "unrel.copy_until")
        in
-       len, Val m'
-     end
-      | BOT -> 0, BOT
+       len, m'
+   
 
     (* print nb bytes on stdout as raw string *)
     let print_bytes bytes nb =
@@ -1014,51 +1009,44 @@ module Make(D: T) =
               List.iteri (fun i c -> Bytes.set str i (D.to_char c)) bytes;
               Log.Stdout.stdout (fun p -> p "%s" (Bytes.to_string str));;
 
-    let print_until m e terminator term_sz upper_bound with_exception pad_options =
-      let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options in
+    let print_until m e terminator term_sz upper_bound with_exception pad_options check_address_validity =
+      let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options check_address_validity in
       print_bytes bytes len;
       len, m
 
-    let copy_chars m dst src nb pad_options =
-      snd (copy_until m dst src (Asm.Const (Data.Word.of_int Z.zero 8)) 8 nb false pad_options)
+    let copy_chars m dst src nb pad_options check_address_validity =
+      snd (copy_until m dst src (Asm.Const (Data.Word.of_int Z.zero 8)) 8 nb false pad_options check_address_validity)
 
-    let print_chars m src nb pad_options =
-        match m with
-        | Val _ ->
-          (* TODO: factorize with copy_until *)
-          let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m false pad_options) in
-          print_bytes bytes nb;
-          m
-        | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
+    let print_chars m' src nb pad_options check_address_validity =
+      (* TODO: factorize with copy_until *)
+      let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m' false pad_options check_address_validity) in
+      print_bytes bytes nb;
+      m'
+       
 
-    let copy_chars_to_register m reg offset src nb pad_options =
-      match m with
-      | Val m' ->
+    let copy_chars_to_register m reg offset src nb pad_options check_address_validity =
      let terminator = Asm.Const (Data.Word.of_int Z.zero 8) in
-     let len, bytes = i_get_bytes src Asm.EQ terminator nb 8 m false pad_options in
-     begin
-       let new_v = D.concat bytes in
-       let key = Env.Key.Reg reg in
-       let new_v' =
-         if offset = 0 then new_v
-         else
-           try let prev = Env.find key m' in
-           let low = offset*8 in
-           D.combine prev new_v low (low*len-1)
-           with Not_found -> raise (Exceptions.Empty "unrel.copy_chars_to_register")
-       in
-       try Val (Env.replace key new_v' m')
-       with Not_found -> Val (Env.add key new_v m')
-     end
-      | BOT -> BOT
+     let len, bytes = i_get_bytes src Asm.EQ terminator nb 8 m false pad_options check_address_validity in
+     let new_v = D.concat bytes in
+     let key = Env.Key.Reg reg in
+     let new_v' =
+       if offset = 0 then new_v
+       else
+         try let prev = Env.find key m in
+             let low = offset*8 in
+             D.combine prev new_v low (low*len-1)
+         with Not_found -> raise (Exceptions.Empty "unrel.copy_chars_to_register")
+     in
+     try Env.replace key new_v' m
+     with Not_found -> Env.add key new_v m
 
 
-    let to_hex m src nb capitalise pad_option full_print _word_sz: string * int =
+    let to_hex m src nb capitalise pad_option full_print _word_sz check_address_validity: string * int =
       let capitalise str =
-        if capitalise then String.uppercase str
+        if capitalise then String.uppercase_ascii str
         else str
       in
-      let vsrc = fst (eval_exp m src) in
+      let vsrc = fst (eval_exp m src check_address_validity) in
       let str_src, str_taint = D.to_strings vsrc in
       let str_src' = capitalise (strip str_src) in
       let sz = String.length str_src' in
@@ -1108,81 +1096,66 @@ module Make(D: T) =
       in
       str', String.length str'
 
-    let copy_hex m dst src nb capitalise pad_option word_sz: t * int =
+    let copy_hex m' dst src nb capitalise pad_option word_sz check_address_validity: t * int =
         (* TODO generalise to non concrete src value *)
-        match m with
-        | Val m' ->
-          begin
-              let _, src_tainted = (eval_exp m' src) in
-              let str_src, len = to_hex m' src nb capitalise pad_option false word_sz in
-              let vdst = fst (eval_exp m' dst) in
-              let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
-              match dst_addrs with
-              | [dst_addr] ->
-                let znb = Z.of_int nb in
-                let rec write m' o =
-                    if Z.compare o znb < 0 then
-                        let c = String.get str_src (Z.to_int o) in
-                        let dst = Data.Address.add_offset dst_addr o in
-                        let i' = Z.of_int (Char.code c) in
-                        let r = D.of_word (Data.Word.of_int i' 8) in
-                        let v' =
-                          match src_tainted, D.taint_sources r with
-                          | Taint.U, Taint.U -> r
-                          | _, Taint.U -> D.span_taint r src_tainted
-                          | _, _ -> D.taint r
-                        in
-                        write (write_in_memory dst m' v' 8 true) (Z.add o Z.one)
-                    else
-                        m'
-                in
-                Val (write m' Z.zero), len
-              | [] -> raise (Exceptions.Empty "unrel.copy_hex")
-              | _  -> Val (Env.empty), len (* TODO could be more precise *)
-          end
-        | BOT -> BOT, raise (Exceptions.Empty "unrel.copy_hex: environment is empty")
+      let _, src_tainted = (eval_exp m' src check_address_validity) in
+      let str_src, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
+      let vdst = fst (eval_exp m' dst check_address_validity) in
+      let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
+      match dst_addrs with
+      | [dst_addr] ->
+         let znb = Z.of_int nb in
+         let rec write m' o =
+           if Z.compare o znb < 0 then
+             let c = String.get str_src (Z.to_int o) in
+             let dst = Data.Address.add_offset dst_addr o in
+             let i' = Z.of_int (Char.code c) in
+             let r = D.of_word (Data.Word.of_int i' 8) in
+             let v' =
+               match src_tainted, D.taint_sources r with
+               | Taint.U, Taint.U -> r
+               | _, Taint.U -> D.span_taint r src_tainted
+               | _, _ -> D.taint r
+             in
+             write (write_in_memory dst m' v' 8 true) (Z.add o Z.one)
+           else
+             m'
+         in
+         write m' Z.zero, len
+      | [] -> raise (Exceptions.Empty "unrel.copy_hex")
+      | _  -> Env.empty, len (* TODO could be more precise *)
+  
 
-    let print_hex m src nb capitalise pad_option word_sz: t * int =
-      match m with
-      | Val m' ->
-         let str, len = to_hex m' src nb capitalise pad_option false word_sz in
-          (* str is already stripped in hex *)
-          Log.Stdout.stdout (fun p -> p "%s" str);
-          m, len
-        | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "unrel.print_hex: environment is empty")
+    let print_hex m' src nb capitalise pad_option word_sz check_address_validity: t * int =      
+      let str, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
+      (* str is already stripped in hex *)
+      Log.Stdout.stdout (fun p -> p "%s" str);
+      m', len
 
-    let copy m dst arg sz: t =
+
+    let copy m' dst arg sz check_address_validity: t =
     (* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)
     (* plus make pattern matching more generic for register detection *)
-    match m with
-    | Val m' ->
-       begin
-         let v = fst (eval_exp m' arg) in
-         let addrs = fst (eval_exp m' dst) in
-         match Data.Address.Set.elements (D.to_addresses addrs) with
-         | [a] ->
-        Val (write_in_memory a m' v sz true)
-         | _::_ as l -> Val (List.fold_left (fun m a -> write_in_memory ~endianness:Config.LITTLE a m v sz false) m' l)
-         | [ ] -> raise (Exceptions.Empty "unrel.copy")
-       end
-    | BOT -> BOT
+      let v = fst (eval_exp m' arg check_address_validity) in
+      let addrs = fst (eval_exp m' dst check_address_validity) in
+      match Data.Address.Set.elements (D.to_addresses addrs) with
+      | [a] -> write_in_memory a m' v sz true
+      | _::_ as l -> List.fold_left (fun m a -> write_in_memory a m v sz false) m' l
+      | [ ] -> raise (Exceptions.Empty "Unrel.copy")
+    
 
     (* display (char) arg on stdout as a raw string *)
-    let print m arg _sz: t =
-        match m with
-        | Val m' ->
-          let str = strip (D.to_string (fst (eval_exp m' arg))) in
-          let str' =
-              if String.length str <= 2 then
-                  String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
-              else raise (Exceptions.Empty "unrel.print")
-          in
-          Log.Stdout.stdout (fun p -> p "%s" str');
-          m
-        | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
+    let print m' arg _sz check_address_validity: unit =
+      let str = strip (D.to_string (fst (eval_exp m' arg check_address_validity))) in
+      let str' =
+        if String.length str <= 2 then
+          String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
+        else raise (Exceptions.Empty "Unrel.print")
+      in
+      Log.Stdout.stdout (fun p -> p "%s" str')
+      
 
-    let init () = Val (Env.empty)
-
+   
   end
 
 

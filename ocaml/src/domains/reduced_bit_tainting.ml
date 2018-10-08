@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -135,3 +135,9 @@ let logand (v1, t1) (v2, t2) =
   | (v1, t1), (v2, t2) -> B.logand v1 v2, T.logor t1 t2
 
 let is_tainted (_v, t) = T.is_tainted t
+
+let total_order (v1, t1) (v2, t2) =
+  let n = B.total_order v1 v2 in
+  if n <> 0 then
+    n
+  else T.total_order t1 t2

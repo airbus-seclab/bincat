@@ -157,11 +157,10 @@
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
+%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR PROCESSOR_VERSION
-%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP
 %token <string> STRING
 %token <string> HEX_BYTES
-%token <string> STACK_HEX_BYTES
 %token <string> HEAP_HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
@@ -205,35 +204,50 @@
 
     override_item:
     |                     { () }
-    | tainting_reg_item { () }
-    | tainting_reg_item SEMI_COLON override_item { () }
-    | tainting_addr_item { () }
-    | tainting_addr_item SEMI_COLON override_item { () }
+    | override_reg_item { () }
+    | override_reg_item SEMI_COLON override_item { () }
+    | override_addr_item { () }
+    | override_addr_item SEMI_COLON override_item { () }
+    | override_heap_item { () }
+    | override_heap_item SEMI_COLON override_item { () }
 
-    tainting_reg_item:
-    | t=tainting_reg {
+    override_reg_item:
+    | t=override_reg {
       try
         let l = Hashtbl.find Config.reg_override !override_addr in
         Hashtbl.replace Config.reg_override !override_addr (t::l)
       with Not_found -> Hashtbl.add Config.reg_override !override_addr [t] }
 
-    tainting_addr_item:
-    | c=tainting_addr {
+    override_addr_item:
+    | c=override_one_addr {
       let (tbl, a, o) = c in
       try
-    let l' = Hashtbl.find tbl !override_addr in
-    Hashtbl.replace tbl !override_addr ((a, o)::l')
+        let l' = Hashtbl.find tbl !override_addr in
+        Hashtbl.replace tbl !override_addr ((a, o)::l')
       with Not_found -> Hashtbl.add tbl !override_addr [(a, o)]
     }
-
-    tainting_reg:
+    
+    override_heap_item:
+    | HEAP LEFT_SQ_BRACKET r=repeat_heap RIGHT_SQ_BRACKET COMMA i = init {
+      try
+        let l' = Hashtbl.find Config.heap_override !override_addr in
+        Hashtbl.replace Config.heap_override !override_addr ((r, i)::l')
+      with Not_found -> Hashtbl.add Config.heap_override !override_addr [r, i]
+        }
+   
+    
+    override_reg:
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET COMMA i=init { (r, (fun _ -> i)) }
 
-    tainting_addr:
-    | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }
-    | HEAP LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.heap_override, r, i }
-    | STACK LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.stack_override, r, i }
+    override_one_addr:
+    | MEM LEFT_SQ_BRACKET r=repeat RIGHT_SQ_BRACKET COMMA i = init { Config.mem_override, r, i }  
 
+  
+    repeat_heap:
+    | c=heap_couple STAR n=INT { c, Z.to_int n }
+
+      heap_couple:
+    | id=INT COMMA offset=INT { id, offset }
 
       imports:
     |                     { () }
@@ -347,6 +361,7 @@
       analyzer_item:
     | INI_VERSION EQUAL i=INT        { check_ini_version (Z.to_int i) }
     | UNROLL EQUAL i=INT         { Config.unroll := Z.to_int i }
+    | KSET_BOUND EQUAL i=INT         { Config.kset_bound := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT         { Config.fun_unroll := Z.to_int i }
     | EXT_SYM_MAX_SIZE EQUAL i=INT         { Config.external_symbol_max_size := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
@@ -397,7 +412,6 @@
       state_item:
     | REG LEFT_SQ_BRACKET r=STRING RIGHT_SQ_BRACKET EQUAL v=init    { init_register r v }
     | MEM LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init    { Config.memory_content := (m, v) :: !Config.memory_content }
-    | STACK LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init  { Config.stack_content := (m, v)  :: !Config.stack_content }
     | HEAP LEFT_SQ_BRACKET m=repeat RIGHT_SQ_BRACKET EQUAL v=init   { Config.heap_content := (m, v) :: !Config.heap_content }
 
       repeat:
@@ -448,12 +462,10 @@
 
       byte_kind:
     | b = HEX_BYTES  { (Config.G, b) }
-    | b = STACK_HEX_BYTES { (Config.S, b) }
     | b = HEAP_HEX_BYTES { (Config.H, b) }
             
     int_kind:
     | i=INT { (Config.G, i) }
-    | i=SINT { (Config.S, i) }
     | i=HINT { (Config.H, i) }
 
     tcontent:
