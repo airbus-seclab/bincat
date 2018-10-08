@@ -99,7 +99,7 @@ Register contents are represented:
 ### BinCAT Memory view
 
 This view displays the memory contents. BinCAT's representation splits memory
-into 3 regions: heap, stack, and global, which can be chosen using a drop-down
+into 2 regions: mem and heap, which can be chosen using a drop-down
 menu on this view. Then, a second drop-down menu allow selecting the displayed
 address range.
 

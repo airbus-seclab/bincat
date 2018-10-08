@@ -203,17 +203,8 @@ struct
         let rname = fst rcontent in
         let v = snd rcontent in
         let r = Register.of_name rname in
-        let v' =
-          (* TODO: remove when regions Global and Stack will be merged *)
-          if Register.is_stack_pointer r then
-            match fst v with
-            | Some (Config.Content (_, z)) -> Some (Config.Content (Config.S, z)), snd v
-            | Some (Config.CMask ((_, z), t)) -> Some (Config.CMask ((Config.S, z), t)), snd v
-            | _ -> v
-          else v
-        in
-        Init_check.check_register_init r v';
-        let d', taint' = Domain.set_register_from_config r v' d in
+        Init_check.check_register_init r v;
+        let d', taint' = Domain.set_register_from_config r v d in
         d', Taint.Set.union taint taint'
       )
       (d, Taint.Set.singleton Taint.U) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
@@ -254,14 +245,12 @@ struct
   
       
   let update_abstract_value ip d =
-	(* initialisation of Global memory + registers *)
+    (* initialisation of Global memory + registers *)
     let d', taint1 = init_registers d in
-	let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
-	(* init of the Stack memory *)
-	let d', taint3 = init_mem d' Data.Address.Stack !Config.stack_content in
-	(* init of the Heap memory *)
-	let d', taint4 = init_heap ip d' !Config.heap_content in
-    d', Taint.Set.union taint4 (Taint.Set.union taint3 (Taint.Set.union taint2 taint1))
+    let d', taint2 = init_mem d' Data.Address.Global !Config.memory_content in
+    (* init of the Heap memory *)
+    let d', taint3 = init_heap ip d' !Config.heap_content in
+    d', Taint.Set.union taint3 (Taint.Set.union taint2 taint1)
 
     let init_abstract_value ip =
       let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
@@ -371,7 +360,7 @@ struct
     Hashtbl.iter (fun id src -> Printf.fprintf f "%d = %s\n" id (Dump.string_of_src src)) Dump.taint_src_tbl;
     Printf.fprintf f "\n";
     Printf.fprintf f "[heap ids]\n";
-    Hashtbl.iter (fun id ip -> Printf.fprintf f "%d : %s\n" id (Data.Address.to_string ip)) Dump.heap_id_tbl;
+    Hashtbl.iter (fun id ip -> Printf.fprintf f "heap-%d = %s\n" id (Data.Address.to_string ip)) Dump.heap_id_tbl;
     Printf.fprintf f "\n";
     (* edge printing (summary) *)
     Printf.fprintf f "[edges]\n";

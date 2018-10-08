@@ -51,7 +51,7 @@ reg[lr] = 0
 reg[pc] = 0
 
 #here addresses are supposed to be absolute and not of the form ds:o
-stack[0x1000*8192] = |00|?0xFF
+mem[0x1000*8192] = |00|?0xFF
 
 {regmem}
 

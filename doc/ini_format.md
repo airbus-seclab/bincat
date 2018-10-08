@@ -100,14 +100,11 @@ One can also skip some parts:
 
 taint can be also specified by using the magic value `TAINT_ALL`.
 
-Important remark: our memory model consider stack, global memory and
+Important remark: our memory model consider global memory and
 heap as completely separated spaces (without overlap). By default a
 value is considered to be into the global memory space. If one wants
-to set a value in the stack space it has to be prefixed with a
-'S'. For the heap the prefix is 'H'. For instance
-mem[0x1234]=S0x6789 means that pointer at address 0x1234 points to the
-stack at offset 0x6789.
-Work is in progress to merge stack and global space.
+to set a value in the heap space it has to be prefixed with a
+'H'.
 
 ### Registers
 
@@ -124,7 +121,7 @@ Memory state is also defined in the `[state]` section:
 
 where:
 
-* `REGION` can be either `mem`, `stack` or `heap`.
+* `REGION` can be either `mem` or `heap`.
 * `ADDRESS` is a number
 * `*size` is optional and allows to quickly define big slices. read it as a `memset`
 * `VALUE` can either be as defined above OR use the advanced syntax defined below.

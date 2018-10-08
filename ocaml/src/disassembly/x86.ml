@@ -2436,7 +2436,7 @@ struct
             | '\xeb' -> (* JMP to near relative address (offset has byte size) *) relative_jmp s 8
 
 
-            | '\xf0' -> (* LOCK *) error s.a "LOCK instruction found. Interpreter halts"
+            | '\xf0' -> (* LOCK *) L.analysis(fun p -> p "x86 LOCK prefix ignored"); decode s
             | '\xf1' -> (* undefined *) error s.a "Undefined opcode 0xf1"
             | '\xf2' -> (* REPNE *) s.repne <- true; rep s Word.one
             | '\xf3' -> (* REP/REPE *) s.repe <- true; rep s Word.zero

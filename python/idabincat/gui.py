@@ -1660,8 +1660,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
                 if txt.endswith(']'):
                     if (txt.startswith('reg[') or
                             txt.startswith('heap[0x') or
-                            txt.startswith('mem[0x') or
-                            txt.startswith('stack[0x')):
+                            txt.startswith('mem[0x')):
                         return
             else:  # Taint column
                 if not self.s.overrides[row][1].startswith("reg"):

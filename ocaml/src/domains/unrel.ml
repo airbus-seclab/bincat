@@ -506,10 +506,6 @@ module Make(D: T) =
                raise Exceptions.Bot_deref
            end
 
-        | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 && Register.is_stack_pointer r1 ->
-           let v = D.of_config (Config.Content (Config.S, Z.zero)) (Register.size r1) in
-           v, D.taint_sources v
-
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
            D.untaint (D.of_word (Data.Word.of_int (Z.zero) (Register.size r1))), Taint.U
 

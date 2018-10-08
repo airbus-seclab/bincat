@@ -299,11 +299,8 @@ module Make (V: Vector.T) =
       | Val _, NULL -> 1
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
-         | A.Global, A.Global | A.Stack, A.Stack -> V.total_order o1 o2
-         | A.Global, A.Stack | A.Global, A.Heap _ -> -1
-         | A.Stack, A.Global -> 1
-         | A.Stack, A.Heap _ -> -1
-         | A.Heap _, A.Stack -> 1
+         | A.Global, A.Global -> V.total_order o1 o2
+         | A.Global, A.Heap _ -> -1
          | A.Heap _, A.Global -> 1
          | A.Heap (id1, _), A.Heap (id2, _) ->
             let n = id1 - id2 in
