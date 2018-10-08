@@ -110,7 +110,8 @@ let _ =
     "nop", NOP;
     "fun_skip", FUN_SKIP;
     "TAINT_ALL", TAINT_ALL;
-    "TAINT_NONE", TAINT_NONE
+    "TAINT_NONE", TAINT_NONE;
+    "null", NULL
     ]
 
 let strip_int s =

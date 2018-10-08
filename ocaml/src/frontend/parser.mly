@@ -158,7 +158,7 @@
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
-%token POWERPC SVR PROCESSOR_VERSION
+%token POWERPC SVR PROCESSOR_VERSION NULL
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -166,7 +166,7 @@
 %token <Z.t> INT
 %token <Z.t> SINT
 %token <Z.t> HINT
-%token TAINT
+             %token TAINT
 %start <unit> process
 %%
 (* in every below rule a later rule in the file order may inhibit a previous rule *)
@@ -290,6 +290,7 @@
     | ARCHITECTURE EQUAL a=architecture  { update_mandatory ARCHITECTURE; Config.architecture := a }
     | FILEPATH EQUAL f=QUOTED_STRING     { update_mandatory FILEPATH; Config.binary := f }
     | FORMAT EQUAL f=format      { update_mandatory FORMAT; Config.format := f }
+    | NULL EQUAL v=INT { Config.null_cst := v}
 
       format:
     | PE  { Config.PE }
