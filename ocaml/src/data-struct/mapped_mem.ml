@@ -47,8 +47,8 @@ let current_mapping : t option ref = ref None
 
 let map_file filename : array_t =
   let bin_fd = Unix.openfile filename [Unix.O_RDONLY] 0 in
-  let mapped_file = Bigarray.array1_of_genarray (Unix.map_file bin_fd
-    ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false [|-1|]) in
+  let mapped_file = Bigarray.Array1.map_file
+    bin_fd ~pos:Int64.zero Bigarray.int8_unsigned Bigarray.c_layout false (-1) in
   Unix.close bin_fd;
   L.info2 (fun p -> p "Mapped file [%s]. Array size=%i" filename (Bigarray.Array1.dim mapped_file));
   mapped_file
