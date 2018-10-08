@@ -108,7 +108,7 @@ class CFA(object):
     _valcache = {}
     arch = None
 
-    def __init__(self, states, edges, nodes, taintsrsc):
+    def __init__(self, states, edges, nodes, taintsrcs):
         #: Value (address) -> [node_id]. Nodes marked "final" come first.
         self.states = states
         #: node_id (string) -> list of node_id (string)
@@ -117,7 +117,7 @@ class CFA(object):
         self.nodes = nodes
         self.logs = None
         #: taint source id (int) -> taint source (str)
-        self.taintsrcs = {}
+        self.taintsrcs = taintsrcs
 
     @classmethod
     def parse(cls, filename, logs=None):
