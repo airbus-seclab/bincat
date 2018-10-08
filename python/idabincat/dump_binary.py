@@ -43,10 +43,14 @@ def dump_binary(path):
             # Another ugly hack for IDA 6/7 compat (unicode strings)
             f.open(str(path), 'wb+')
         segments = [idaapi.getnseg(x) for x in range(idaapi.get_segm_qty())]
-        max_addr = segments[-1].endEA # no need for IDA 7 compat, it's not buggy
+
+        # no need for IDA 7 compat, it's not buggy
+        max_addr = segments[-1].endEA
+
         if max_addr > 200*1024*1024:
-            if idaapi.ask_yn(idaapi.ASKBTN_NO, "Dump file is over 200MB,"
-                                               " do you want to dump it anyway ?") != idaapi.ASKBTN_YES:
+            if idaapi.ask_yn(
+                    idaapi.ASKBTN_NO, "Dump file is over 200MB,"
+                    " do you want to dump it anyway ?") != idaapi.ASKBTN_YES:
                 return None
 
         idaapi.base2file(f.get_fp(), 0, 0, max_addr)
@@ -60,16 +64,24 @@ def dump_binary(path):
             # over all segments
             for n in range(idaapi.get_segm_qty()):
                 seg = idaapi.getnseg(n)
-                start_ea = seg.start_ea if hasattr(seg, "start_ea") else seg.startEA
-                end_ea = seg.end_ea if hasattr(seg, "end_ea") else seg.endEA
+                if hasattr(seg, "start_ea"):
+                    start_ea = seg.start_ea
+                else:
+                    start_ea = seg.startEA
+                if hasattr(seg, "end_ea"):
+                    end_ea = seg.end_ea
+                else:
+                    end_ea = seg.endEA
                 size = end_ea - start_ea
-                # print "Start: %x, end: %x, size: %x" % (start, end, end-start)
                 # Only works with fixed IDAPython.
                 f.write(idaapi.get_many_bytes_ex(start_ea, size)[0])
-                sections.append((idaapi.get_segm_name(seg), start_ea, size, current_offset, size))
+                sections.append(
+                    (idaapi.get_segm_name(seg), start_ea, size,
+                     current_offset, size))
                 current_offset += size
         dump_log.debug(repr(sections))
         return sections
+
 
 if __name__ == '__main__':
     fname = ConfigHelpers.askfile("*.*", "Save to binary")

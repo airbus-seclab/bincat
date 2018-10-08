@@ -41,11 +41,11 @@ def reg_len(regname):
             "x30": 64, "sp": 64,
             "q0": 128, "q1": 128, "q2": 128, "q3": 128, "q4": 128, "q5": 128,
             "q6": 128, "q7": 128, "q8": 128, "q9": 128, "q10": 128, "q11": 128,
-            "q12": 128, "q13": 128, "q14": 128, "q15": 128, "q16": 128, "q17": 128,
-            "q18": 128, "q19": 128, "q20": 128, "q21": 128, "q22": 128, "q23": 128,
-            "q24": 128, "q25": 128, "q26": 128, "q27": 128, "q28": 128, "q29": 128,
-            "q30": 128, "q31": 128,
-            "pc": 64, "xzr":64,"c": 1, "n": 1, "v": 1, "z": 1}[regname]
+            "q12": 128, "q13": 128, "q14": 128, "q15": 128, "q16": 128,
+            "q17": 128, "q18": 128, "q19": 128, "q20": 128, "q21": 128,
+            "q22": 128, "q23": 128, "q24": 128, "q25": 128, "q26": 128,
+            "q27": 128, "q28": 128, "q29": 128, "q30": 128, "q31": 128,
+            "pc": 64, "xzr": 64, "c": 1, "n": 1, "v": 1, "z": 1}[regname]
     elif CFA.arch == "armv7":
         return {
             "r0": 32, "r1": 32, "r2": 32, "r3": 32, "r4": 32, "r5": 32,
@@ -60,13 +60,13 @@ def reg_len(regname):
             "sp": 16, "bp": 16, "cs": 16, "ds": 16, "es": 16, "ss": 16,
             "fs": 16, "gs": 16,
             "iopl": 2,
-            "mxcsr_fz":1, "mxcsr_round":2, "mxcsr_pm":1, "mxcsr_um":1,
-            "mxcsr_om":1, "mxcsr_zm":1, "mxcsr_dm":1, "mxcsr_im":1,
-            "mxcsr_daz":1, "mxcsr_pe":1, "mxcsr_ue":1, "mxcsr_oe":1,
-            "mxcsr_ze":1, "mxcsr_de":1, "mxcsr_ie":1,
-            "xmm0":128, "xmm1":128, "xmm2":128, "xmm3":128,
-            "xmm4":128, "xmm5":128, "xmm6":128, "xmm7":128,
-            "st_ptr":3, "c0" : 1, "c1" : 1, "c2": 1, "c3": 1,
+            "mxcsr_fz": 1, "mxcsr_round": 2, "mxcsr_pm": 1, "mxcsr_um": 1,
+            "mxcsr_om": 1, "mxcsr_zm": 1, "mxcsr_dm": 1, "mxcsr_im": 1,
+            "mxcsr_daz": 1, "mxcsr_pe": 1, "mxcsr_ue": 1, "mxcsr_oe": 1,
+            "mxcsr_ze": 1, "mxcsr_de": 1, "mxcsr_ie": 1,
+            "xmm0": 128, "xmm1": 128, "xmm2": 128, "xmm3": 128,
+            "xmm4": 128, "xmm5": 128, "xmm6": 128, "xmm7": 128,
+            "st_ptr": 3, "c0": 1, "c1": 1, "c2": 1, "c3": 1,
             "cf": 1, "pf": 1, "af": 1, "zf": 1, "sf": 1, "tf": 1, "if": 1,
             "df": 1, "of": 1, "nt": 1, "rf": 1, "vm": 1, "ac": 1, "vif": 1,
             "vip": 1, "id": 1}[regname]
@@ -78,13 +78,13 @@ def reg_len(regname):
             "r18": 32, "r19": 32, "r20": 32, "r21": 32, "r22": 32, "r23": 32,
             "r24": 32, "r25": 32, "r26": 32, "r27": 32, "r28": 32, "r29": 32,
             "r30": 32, "r31": 32, "lr": 32, "ctr": 32, "cr": 32,
-            "tbc": 7, "so": 1, "ov": 1, "ca": 1 }[regname]
+            "tbc": 7, "so": 1, "ov": 1, "ca": 1}[regname]
     else:
         raise KeyError("Unkown arch %s" % CFA.arch)
 
 
 #: maps short region names to pretty names
-PRETTY_REGIONS = {'': 'global','h': 'heap',
+PRETTY_REGIONS = {'': 'global', 'h': 'heap',
                   'b': 'bottom', 't': 'top'}  # used for pointers only
 
 #: split src region + address (left of '=')
@@ -474,7 +474,7 @@ class State(object):
                 r = self[Value(region, i)]
             except IndexError:
                 i += 1
-                m.append(Value(region, 0,vtop=0,vbot=0xff))
+                m.append(Value(region, 0, vtop=0, vbot=0xff))
             else:
                 m += r
                 i += len(r)
@@ -697,7 +697,7 @@ class Value(object):
         return (self.region, self.value) < (other.region, other.value)
 
     def __add__(self, other):
-        
+
         newlen = max(self.length, getattr(other, "length", 0))
         other = getattr(other, "value", other)
         if other == 0:
@@ -707,11 +707,11 @@ class Value(object):
         mask = (1 << newlen)-1
         # XXX clear value where top or bottom mask is not null
         # XXX complete implementation
-        
+
         return self.__class__(self.region,
                               (self.value+other) & mask,
                               newlen,
-                              self.vtop , self.vbot, self.taint,
+                              self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
 
     def __and__(self, other):
@@ -736,7 +736,7 @@ class Value(object):
         other = getattr(other, "value", other)
 
         mask = (1 << newlen)-1
-        
+
         newvalue = (self.value-other) & mask
         # XXX clear value where top or bottom mask is not null
         # XXX complete implementation

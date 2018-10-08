@@ -12,8 +12,9 @@ try:
 except ImportError:
     askyn = idaapi.ask_yn if hasattr(idaapi, "ask_yn") else idaapi.askyn_c
     if askyn(idaapi.ASKBTN_NO,
-                     "'requests' is not installed, do you want to install it ?\n"
-                     "Choose 'no' if you do not intend to use a distant BinCAT server") == idaapi.ASKBTN_YES:
+             "'requests' is not installed, do you want to install it ?\n"
+             "Choose 'no' if you do not intend to use "
+             "a distant BinCAT server") == idaapi.ASKBTN_YES:
         print "requests is not installed, trying to install"
         import pip
         # Fugly hack (cause IDA console is not a real one)

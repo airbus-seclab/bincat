@@ -249,7 +249,7 @@ class ConfigHelpers(object):
             if reg in ['eax', 'ecx', 'edx', 'ebx', 'ebp', 'esi', 'edi', 'esp']:
                 return 32
             if reg in ['cf', 'pf', 'af', 'zf', 'sf', 'tf', 'if', 'of', 'nt',
-                         'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
+                       'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
                 return 1
             if reg == 'iopl':
                 return 3
@@ -297,7 +297,8 @@ class ConfigHelpers(object):
                 regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
             regs.append(["sp", "0x2000", "", ""])
             for i in range(32):
-                regs.append(["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
+                regs.append(
+                    ["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
             regs.append(["n", "0", "1", ""])
             regs.append(["z", "0", "1", ""])
             regs.append(["c", "0", "1", ""])
