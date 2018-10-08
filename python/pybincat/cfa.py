@@ -88,11 +88,11 @@ PRETTY_REGIONS = {'': 'global','h': 'heap',
                   'b': 'bottom', 't': 'top'}  # used for pointers only
 
 #: split src region + address (left of '=')
-RE_REGION_ADDR = re.compile("(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
+RE_REGION_ADDR = re.compile(r"(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
 #: split value
 
 RE_VALTAINT = re.compile(
-    "(?P<memreg>[a-zA-Z]?)(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
+    r"(?P<memreg>[a-zA-Z]?)(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
 
 
 class PyBinCATParseError(PyBinCATException):
