@@ -124,9 +124,7 @@ struct
         | Heap of heap_id_t * Z.t (* first int is the id ; second int is the size in bits *)
             
 
-      type t =
-        | NULL
-        | Val of (region * Word.t) (* valid address *)
+      type t = region * Word.t (* valid address *)
           
         let heap_id = ref 0
 

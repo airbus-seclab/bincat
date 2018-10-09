@@ -228,7 +228,7 @@ module Make (V: Vector.T) =
     let extract p l u =
       match p with
       | BOT | TOP  -> p
-      | NULL -> raise (Exceptions.Empty "Illegal extract operation on NULL pointer")
+      | NULL -> p (* beware of that case if we go back to a non symbolic value for the NULL address *)
       | Val (r, o) ->
          try
            Val (r, V.extract o l u)
@@ -287,7 +287,7 @@ module Make (V: Vector.T) =
 
     let total_order p1 p2 =
       (* BOT < TOP < NULL < Val *)
-      (* on regions: G < S < H *)
+      (* on regions: G < H *)
       match p1, p2 with
       | BOT, BOT | TOP, TOP -> 0
       | BOT, _ -> -1
