@@ -49,13 +49,13 @@ struct
         Hashtbl.add Dump.heap_id_tbl id ip;
         let d' = D.allocate_on_heap d id in
         let zero = Data.Word.zero !Config.address_sz in
-        let addr = Data.Address.Val (region, zero) in
-        D.set_lval_to_addr ret [ addr ; Data.Address.NULL ] d'
+        let addr = region, zero in
+        D.set_lval_to_addr ret [ addr ; Data.Address.of_null () ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
     let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
       match a with
-      | Data.Address.Val (Data.Address.Heap (id, _), o) ->
+      | Data.Address.Heap (id, _), o ->
          if Data.Word.compare o (Data.Word.zero !Config.address_sz) <> 0 then
            raise (Exceptions.Undefined_free
                     (Printf.sprintf "at instruction %s: base address to free is not zero (%s)"
@@ -64,10 +64,9 @@ struct
          else
            id
 
-      | Data.Address.NULL -> raise (Exceptions.Undefined_free "address is NULL")
-      | Data.Address.Val _ ->
+      | _ ->
          raise (Exceptions.Undefined_free
-                  (Printf.sprintf "at instruction %s: base address (%s) to free not in the heap"
+                  (Printf.sprintf "at instruction %s: base address (%s) to free not in the heap or NULL"
                   (Data.Address.to_string ip)
                   (Data.Address.to_string a)))
            

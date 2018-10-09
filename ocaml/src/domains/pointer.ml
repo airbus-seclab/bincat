@@ -24,7 +24,6 @@ module Make (V: Vector.T) =
   (struct
     type t =
       | BOT
-      | NULL
       | Val of (A.region * V.t) (** a pointer is a pair (r, o) where r is the region it points-to and o an offset in that region *)
       | TOP
              
@@ -36,28 +35,24 @@ module Make (V: Vector.T) =
       match p with
       | BOT  -> BOT
       | TOP  -> TOP
-      | NULL -> NULL
       | Val (r, v) -> Val (r, V.forget v pos)
 
     let to_z p =
       match p with
       | BOT -> raise (Exceptions.Empty "pointer.to_z: undefined")
       | TOP -> raise (Exceptions.Too_many_concrete_elements "pointer.to_z: imprecise")
-      | NULL -> !Config.null_cst
       | Val (_r, v) -> V.to_z v
 
     let to_char p =
       match p with
       | BOT  -> raise (Exceptions.Empty "pointer.to_z: undefined")
       | TOP  -> raise (Exceptions.Too_many_concrete_elements "pointer.to_char: imprecise")
-      | NULL -> Config.char_of_null_cst ()
       | Val (_r, v) -> V.to_char v
 
     let to_string p =
       match p with
       | BOT -> "B0x_"
       | TOP -> "T0x?"
-      | NULL -> "NULL"
       | Val (r, o) -> Printf.sprintf "%s%s" (A.string_of_region r) (V.to_string o)
 
 
@@ -65,32 +60,29 @@ module Make (V: Vector.T) =
       match p with
         | BOT -> "B0x_", "_"
         | TOP -> "T0x?", "?"
-        | NULL -> "NULL", ""
         | Val (r, o) ->
            let s, t = V.to_strings o in
            Printf.sprintf "%s%s" (A.string_of_region r) s, t
                       
     let untaint p =
       match p with
-      | TOP | BOT  | NULL -> p
+      | TOP | BOT  -> p
       | Val (r, o) -> Val (r, V.untaint o)
 
     let taint p =
       match p with
-      | TOP | BOT  | NULL -> p
+      | TOP | BOT  -> p
       | Val (r, o) -> Val (r, V.taint o)
 
     let span_taint p t =
       match p with
-      | TOP | BOT  | NULL -> p
+      | TOP | BOT  -> p
       | Val (r, o) -> Val (r, V.span_taint o t)
          
     let join p1 p2 =
       match p1, p2 with
       | BOT, p | p, BOT -> p
       | TOP, _ | _, TOP -> TOP
-      | NULL, NULL -> NULL
-      | NULL, Val _ | Val _, NULL -> TOP
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
          | A.Global, r | r, A.Global -> Val (r, V.join o1 o2)
@@ -101,8 +93,6 @@ module Make (V: Vector.T) =
     let widen p1 p2 =
       match p1, p2 with
       | p, BOT | BOT, p -> p
-      | NULL, NULL -> NULL
-      | NULL, _ | _, NULL -> TOP
       | TOP, _ | _, TOP -> TOP
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
@@ -128,8 +118,6 @@ module Make (V: Vector.T) =
       match p1, p2 with
       | TOP, p | p, TOP      -> p
       | BOT, _ | _, BOT -> BOT
-      | NULL, NULL -> NULL
-      | NULL, _ | _, NULL -> TOP
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
          | A.Global, r | r, A.Global ->
@@ -144,7 +132,6 @@ module Make (V: Vector.T) =
       match p with
       | BOT  -> BOT
       | TOP  -> TOP
-      | NULL -> raise (Exceptions.Empty "Illegal unary operation with NULL address")
       | Val (r, o) ->
          try Val (r, V.unary op o)
          with _ -> BOT
@@ -153,7 +140,6 @@ module Make (V: Vector.T) =
       match p1, p2 with
       | BOT, _ | _, BOT      -> BOT
       | TOP, _ | _, TOP      -> TOP
-      | NULL, _ | _, NULL -> raise (Exceptions.Empty "Illegal binary operation with NULL address")
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
          | A.Global, r | r, A.Global ->
@@ -172,10 +158,7 @@ module Make (V: Vector.T) =
               
     let of_word w = Val (A.Global, V.of_word w)
       
-    let of_addr a: t =
-      match a with
-      | A.NULL -> NULL
-      | A.Val (r, w) -> Val (r, V.of_word w)
+    let of_addr (r, w): t = Val (r, V.of_word w)
       
     let compare p1 op p2 =
       match p1, p2 with
@@ -183,7 +166,6 @@ module Make (V: Vector.T) =
       | BOT, _  -> op = Asm.LEQ || op = Asm.LT
       | _, BOT  -> false
       | _, TOP | TOP, _  -> true
-      | NULL, _ | _, NULL -> false
       | Val (r1, o1), Val (r2, o2) ->
          if r1 = r2 || r1 = A.Global || r2 = A.Global then V.compare o1 op o2
          else true
@@ -192,22 +174,18 @@ module Make (V: Vector.T) =
       match p with
       | BOT  -> raise (Exceptions.Empty "pointer.to_addresses: undefined pointer")
       | TOP  -> raise (Exceptions.Too_many_concrete_elements "pointer.to_addresses: imprecise pointer")
-      | NULL -> A.Set.singleton A.NULL
       | Val (r, o) -> V.to_addresses r o
          
     let is_subset p1 p2 =
       match p1, p2 with
       | BOT, _ | _, TOP -> true
       | _, BOT | TOP, _  -> false
-      | NULL, NULL -> true
-      | NULL, _ | _, NULL -> false
       | Val (r1, o1), Val (r2, o2) ->
          if r1 = r2 then V.is_subset o1 o2
          else false
            
     let taint_of_config taint n prev: t * Taint.t =
       match prev with
-      | NULL -> prev, Taint.U
       | Val (r, o) ->
          let o', taint' = V.taint_of_config taint n (Some o) in
          Val (r, o'), taint'
@@ -219,7 +197,6 @@ module Make (V: Vector.T) =
       match p1, p2 with
       | BOT, _ | _, BOT  -> BOT
       | TOP, _ | _, TOP  -> TOP
-      | NULL, _  | _, NULL -> raise (Exceptions.Empty "")
       | Val (r1, o1), Val (r2, o2) ->
          if r1 = r2 then 
            Val (r1, V.combine o1 o2 l u)
@@ -228,7 +205,6 @@ module Make (V: Vector.T) =
     let extract p l u =
       match p with
       | BOT | TOP  -> p
-      | NULL -> p (* beware of that case if we go back to a non symbolic value for the NULL address *)
       | Val (r, o) ->
          try
            Val (r, V.extract o l u)
@@ -238,7 +214,6 @@ module Make (V: Vector.T) =
       L.debug2 (fun x -> x "Pointer.from_position %s %d %d" (to_string p) i len);
       match p with
       | BOT | TOP -> p
-      | NULL -> raise (Exceptions.Empty "Illegal from_operation operation on NULL pointer")
       | Val (r, o) ->
          try
            Val (r, V.from_position o i len)
@@ -248,7 +223,6 @@ module Make (V: Vector.T) =
       match v with
       | BOT -> BOT
       | TOP -> TOP
-      | NULL -> raise (Exceptions.Empty "Illegal of_repeat_val operation on NULL pointer")
       | Val (region, offset) ->
          let newoffset = V.of_repeat_val offset v_len nb in
          Val (region, newoffset)
@@ -264,7 +238,6 @@ module Make (V: Vector.T) =
          match v, v' with
          | BOT, _ | _, BOT -> BOT
          | TOP, _ | _, TOP -> TOP
-         | NULL, _ | _, NULL -> raise (Exceptions.Empty "Illegal concat operation with at least one NULL pointer")
          | Val (r1, o1), Val (r2, o2) ->
             if r1 = r2 then
               Val (r1, V.concat o1 o2)
@@ -274,19 +247,17 @@ module Make (V: Vector.T) =
       match p with
       | TOP -> Taint.TOP
       | BOT -> Taint.BOT
-      | NULL -> Taint.U
       | Val (_, o) -> V.get_minimal_taint o
 
     let taint_sources p =
       match p with
       | TOP -> Taint.TOP
       | BOT ->  Taint.BOT
-      | NULL -> Taint.U
       | Val (_, o) -> V.taint_sources o
 
 
     let total_order p1 p2 =
-      (* BOT < TOP < NULL < Val *)
+      (* BOT < TOP <  addr *)
       (* on regions: G < H *)
       match p1, p2 with
       | BOT, BOT | TOP, TOP -> 0
@@ -294,9 +265,6 @@ module Make (V: Vector.T) =
       | _, BOT -> 1
       | TOP, _ -> -1
       | _, TOP -> 1
-      | NULL, NULL -> 0
-      | NULL, Val _ -> -1
-      | Val _, NULL -> 1
       | Val (r1, o1), Val (r2, o2) ->
          match r1, r2 with
          | A.Global, A.Global -> V.total_order o1 o2
