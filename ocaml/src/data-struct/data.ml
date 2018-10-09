@@ -149,7 +149,7 @@ struct
             | Global -> ""
             | Heap (id, _)  -> "H:"^(string_of_int id)
 
-    
+        let of_null () = Global, Word.of_int !Config.null_cst !Config.address_sz    
 
         let region_from_config c =
           match c with

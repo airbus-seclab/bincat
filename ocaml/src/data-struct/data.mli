@@ -92,6 +92,9 @@ module Address: sig
   (** data type of an address *)
   type t = region * Word.t
 
+  (** value of the NULL address *)
+  val of_null: unit -> t
+    
   (** returns zero if the two parameters are equal
       a negative integer if the first one is less than the second one
       a positive integer otherwise *)
