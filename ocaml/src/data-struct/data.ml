@@ -165,88 +165,56 @@ struct
             | Heap _, Global -> 1
 
         let equal_region r1 r2 = compare_region r1 r2 = 0
-
-        let is_null_cst (r, (w, sz)) =
-          r = Global && Config.is_null_cst w && sz = !Config.address_sz
-                                                                                          
-        let compare a1 a2 =
-          match a1, a2 with
-          | NULL, NULL -> 0
-          | NULL, Val v when is_null_cst v -> 0
-          | NULL, _ -> -1
-          | _, NULL -> 1
-          | Val (r1, w1), Val (r2, w2) ->
+                                                                              
+        let compare (r1, w1) (r2, w2) =
              let n = compare_region r1 r2 in
              if n <> 0 then
                n
              else
                Word.compare_value w1 w2
 
-        let equal a1 a2 =
-          match a1, a2 with
-          | NULL, NULL -> true
-          | NULL, Val v | Val v, NULL -> is_null_cst v
-          | Val (r1, w1), Val (r2, w2) ->
+        let equal (r1, w1) (r2, w2) =
             if equal_region r1 r2 then Word.equal w1 w2
             else false
 
         let of_string r a n =
-          if !Config.mode = Config.Protected then
             let w = Word.of_string a n in
             if Word.compare w (Word.zero n) < 0 then
               raise (Exceptions.Error "Tried to create negative address")
-            else Val (r, w)
-          else
-            raise (Exceptions.Error "Address generation for this memory mode not yet managed")
+            else r, w
 
-        let to_string a =
-          match a with
-          | NULL -> "NULL"
-          | Val (r, w) -> Printf.sprintf "%s%s" (string_of_region r) (Word.to_string w)
+        let to_string (r, w) = Printf.sprintf "%s%s" (string_of_region r) (Word.to_string w)
 
         (** returns the offset of the address *)
-        let to_int a =
-          match a with
-          | NULL -> !Config.null_cst
-          | Val (_, w) -> Word.to_int w
+        let to_int (_, w) =  Word.to_int w
 
-        let of_int r i o = Val (r, (i, o))
+        let of_int r i o = r, (i, o)
 
         let global_of_int i = of_int Global i !Config.address_sz
 
-        let of_word w = Val (Global, w)
+        let of_word w = Global, w
 
-        let size a =
-          match a with
-          | NULL -> !Config.address_sz
-          | Val a -> Word.size (snd a)
+        let size a = Word.size (snd a)
 
 
-        let add_offset a o' =
-          match a with
-          | NULL -> raise (Exceptions.Error "undefined shift with NULL address")
-          | Val (r, w) ->
+        let add_offset (r, w) o' =
             let n = Word.size w in
             let w' = Word.add w (Word.of_int o' n) in
             if Word.size w' > n then
-                    Val (r, Word.truncate w' n)
-            else Val (r, w')
+                    r, Word.truncate w' n
+            else r, w'
 
         let dec a = add_offset a (Z.minus_one)
         let inc a = add_offset a (Z.one)
 
-        let to_word a sz =
-          match a with
-          | NULL -> !Config.null_cst, !Config.address_sz
-          | Val (_, w) ->
+        let to_word (_, w) sz =
             if Word.size w >= sz then w
             else
                 raise (Exceptions.Error "overflow when tried to convert an address to a word")
 
         let sub a1 a2 =
           match a1, a2 with
-          | NULL, _ | _, NULL -> raise (Exceptions.Error "invalid address substraction with NULL operand")           
-          | Val (r1, w1), Val (r2, w2) when equal_region r1 r2 ->
+          |  (r1, w1), (r2, w2) when equal_region r1 r2 ->
              let w = Word.sub w1 w2 in
              if Word.compare w (Word.zero (Word.size w1)) < 0 then
                raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string a1) (to_string a2)))
@@ -254,42 +222,24 @@ struct
                Word.to_int w
           | _, _  -> raise (Exceptions.Error (Printf.sprintf "invalid address substraction: %s - %s" (to_string a1) (to_string a2)))
 
-        let binary op (a1: t) (a2: t): t =
-            match a1, a2 with
-            | NULL, _ | _, NULL -> raise (Exceptions.Error "Invalid binary operation with at least one NULL operand address")
-            | Val (r1, w1), Val (r2, w2) ->
+        let binary op (r1, w1) (r2, w2): t =
                let r' =
                  match r1, r2 with
                  | Global, r | r, Global -> r
                  | r1, r2                ->
                     if equal_region r1 r2 then r1 else raise (Exceptions.Error "Invalid binary operation on addresses of different regions")
                in
-               Val (r', Word.binary op w1 w2)
+               r', Word.binary op w1 w2
 
-        let unary op a =
-          match a with
-          | NULL -> raise (Exceptions.Error "Invalid unary operation with NULL operand address")
-          | Val (r, w) -> Val (r, Word.unary op w)
+        let unary op (r, w) = r, Word.unary op w
 
-        let size_extension a sz =
-          match a with
-          | NULL -> NULL
-          | Val (r, w) -> Val (r, Word.size_extension w sz)
+        let size_extension (r,  w) sz = r, Word.size_extension w sz
 
-        let shift_left a i =
-          match a with
-          | NULL -> raise (Exceptions.Error "Invalid shift_left with NULL operand address")
-          | Val (r, w) -> Val (r, Word.shift_left w i)
+        let shift_left (r, w) i = r, Word.shift_left w i
                         
-        let shift_right a i =
-          match a with
-          | NULL -> raise (Exceptions.Error "Invalid shift_right with NULL operand address")
-          | Val (r, w) -> Val (r, Word.shift_right w i)
+        let shift_right (r, w) i = r, Word.shift_right w i
                         
-        let neg a =
-           match a with
-          | NULL -> raise (Exceptions.Error "Invalid neg operation with NULL operand address")
-          | Val (r, w) -> Val (r, Word.neg w)
+        let neg (r, w) = r, Word.neg w
     end
     include A
     module Set = Set.Make(A)
