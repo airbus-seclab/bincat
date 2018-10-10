@@ -37,6 +37,8 @@ module Word =
 
     let zero sz = Z.zero, sz
 
+    let is_zero (z, _) = Z.compare z Z.zero = 0
+                  
     let one sz = Z.one, sz
 
     let add w1 w2 =
@@ -150,6 +152,8 @@ struct
             | Heap (id, _)  -> "H:"^(string_of_int id)
 
         let of_null () = Global, Word.of_int !Config.null_cst !Config.address_sz    
+
+        let is_null (r, w) = r = Global && Word.is_zero w
 
         let region_from_config c =
           match c with

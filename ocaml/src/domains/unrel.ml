@@ -602,7 +602,11 @@ module Make(D: T) =
       
     let mem_to_addresses m' e check_address_validity =
       let v, b = eval_exp m' e check_address_validity in
-      D.to_addresses v, b
+      let addrs = D.to_addresses v in
+      (* check whether the address is allowed to be dereferenced *)
+      (* could be put elsewhere with a set of forbidden addresses to check (e.g. range of low addresses) *)
+      Data.Address.Set.iter (fun a -> if Data.Address.is_null a then raise (Exceptions.Null_deref (Data.Address.to_string a))) addrs;
+      addrs, b
 
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
     If e is untainted then nothing is done *)

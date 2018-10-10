@@ -94,6 +94,9 @@ module Address: sig
 
   (** value of the NULL address *)
   val of_null: unit -> t
+
+  (** returns true whenever the given address is the NULL address *)
+  val is_null: t -> bool
     
   (** returns zero if the two parameters are equal
       a negative integer if the first one is less than the second one
