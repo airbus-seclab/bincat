@@ -16,6 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
+module L = Log.Make(struct let name = "unrels" end)
+         
 (* k-set of Unrel *)
 module Make(D: Unrel.T) =
   struct
@@ -225,7 +227,6 @@ module Make(D: Unrel.T) =
       else
         m, Taint.Set.singleton Taint.U
 
-   
          
     let set_register_from_config r conf m = fold_on_taint m (U.set_register_from_config r conf)
          
@@ -238,6 +239,7 @@ module Make(D: Unrel.T) =
     let span_taint_to_addr a t m = fold_on_taint m (U.span_taint_to_addr a t)
 
     let compare m check_address_validity e1 op e2 =
+      L.debug2 (fun p -> p "compare: %s %s %s" (Asm.string_of_exp e1 true) (Asm.string_of_cmp op) (Asm.string_of_exp e2 true));
       match m with
       | BOT -> BOT, Taint.Set.singleton Taint.BOT
       | Val m' ->
@@ -264,8 +266,10 @@ module Make(D: Unrel.T) =
       | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true)))
       | Val m' ->
          USet.fold (fun u (addrs, t) ->
-             let addrs', t' = U.mem_to_addresses u e check_address_validity in
-             Data.Address.Set.union addrs addrs', Taint.Set.add t' t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
+             try
+               let addrs', t' = U.mem_to_addresses u e check_address_validity in
+               Data.Address.Set.union addrs addrs', Taint.Set.add t' t
+             with _ -> addrs, t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
 
     let taint_sources e m check_address_validity =
       match m with

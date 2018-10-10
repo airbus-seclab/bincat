@@ -69,7 +69,7 @@ struct
       let rec process e b =
         match e with
         | BConst b'           -> if b = b' then d, Taint.Set.singleton Taint.U else D.bot, Taint.Set.singleton Taint.BOT
-        | BUnOp (LogNot, e)       -> process e (not b)
+        | BUnOp (LogNot, e)  -> process e (not b)
 
         | BBinOp (LogOr, e1, e2)  ->
            let v1, taint1 = process e1 b in
