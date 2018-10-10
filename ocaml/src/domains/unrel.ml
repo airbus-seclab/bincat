@@ -555,7 +555,7 @@ module Make(D: T) =
            if b then v1&&v2, Taint.logand b1 b2
            else v1||v2, Taint.logor b1 b2
 
-        | Asm.Cmp (cmp, e1, e2)   ->
+        | Asm.Cmp (cmp, e1, e2)   -> L.debug2 (fun p -> p "eval_bexp, 3rd case");
            let cmp' = if b then cmp else inv_cmp cmp in
            compare_env m e1 cmp' e2 check_address_validity
       in
@@ -583,7 +583,7 @@ module Make(D: T) =
          let v  = Env.find (Env.Key.Reg r) m in
          let v' = D.meet v v2 in
          if D.is_bot v' then
-           raise (Exceptions.Empty "unrel.val_restrict")
+             raise (Exceptions.Empty "unrel.val_restrict")
          else
            [Env.replace (Env.Key.Reg r) v' m]
       | _, _ -> [m]
