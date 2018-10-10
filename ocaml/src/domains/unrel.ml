@@ -555,7 +555,7 @@ module Make(D: T) =
            if b then v1&&v2, Taint.logand b1 b2
            else v1||v2, Taint.logor b1 b2
 
-        | Asm.Cmp (cmp, e1, e2)   -> L.debug2 (fun p -> p "eval_bexp, 3rd case");
+        | Asm.Cmp (cmp, e1, e2)   -> 
            let cmp' = if b then cmp else inv_cmp cmp in
            compare_env m e1 cmp' e2 check_address_validity
       in
@@ -605,7 +605,7 @@ module Make(D: T) =
       let addrs = D.to_addresses v in
       (* check whether the address is allowed to be dereferenced *)
       (* could be put elsewhere with a set of forbidden addresses to check (e.g. range of low addresses) *)
-      Data.Address.Set.iter (fun a -> if Data.Address.is_null a then raise (Exceptions.Null_deref (Data.Address.to_string a))) addrs;
+      Data.Address.Set.iter (fun a -> if Data.Address.is_null a then raise Exceptions.Null_deref (Asm.string_of_exp e true))) addrs;
       addrs, b
 
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
