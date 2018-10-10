@@ -525,8 +525,11 @@ class State(object):
     def __init__(self):
         self.current_ea = None
         self.cfa = None
-        self.current_state = None
+        self.current_node = None
+        #: list of node ids (int)
         self.current_node_ids = []
+        #: cfa.Unrel object or None
+        self.current_unrel = None
         #: last run config
         self.current_config = None
         #: config to be edited
@@ -595,7 +598,7 @@ class State(object):
         """
         if self.cfa:
             color = idaapi.calc_bg_color(idaapi.NIF_BG_COLOR)
-            for v in self.cfa.states:
+            for v in self.cfa.addr_nodes:
                 ea = v.value
                 idaapi.set_item_color(ea, color)
 
@@ -657,7 +660,7 @@ class State(object):
         self.netnode["current_ea"] = current_ea
         if not cfa:
             return
-        for addr, nodeids in cfa.states.items():
+        for addr, nodeids in cfa.addr_nodes.items():
             if hasattr(idaapi, "user_cancelled") and idaapi.user_cancelled() > 0:
                 bc_log.info("User cancelled!")
                 idaapi.hide_wait_box()
@@ -667,13 +670,13 @@ class State(object):
             taint_id = 1
             for n_id in nodeids:
                 # is it tainted?
-                # find children state
-                state = cfa[n_id]
-                if state.tainted:
+                # find child nodes
+                node = cfa[n_id]
+                if node.tainted:
                     tainted = True
-                    if state.taintsrc:
+                    if node.taintsrc:
                         # Take the first one
-                        taint_id = int(state.taintsrc[0].split("-")[1])
+                        taint_id = int(node.taintsrc[0].split("-")[1])
                     break
 
             if tainted:
@@ -683,14 +686,15 @@ class State(object):
         idaapi.hide_wait_box()
         self.gui.focus_registers()
 
-    def set_current_node(self, node_id):
+    def set_current_node(self, node_id, unrel_id=None):
         if self.cfa:
-            state = self.cfa[node_id]
-            if state:
-                self.set_current_ea(state.address.value,
-                                    force=True, node_id=node_id)
+            node = self.cfa[node_id]
+            if node:
+                self.set_current_ea(
+                    node.address.value,
+                    force=True, node_id=node_id, unrel_id=unrel_id)
 
-    def set_current_ea(self, ea, force=False, node_id=None):
+    def set_current_ea(self, ea, force=False, node_id=None, unrel_id=None):
         """
         :param ea: int or long
         """
@@ -698,19 +702,25 @@ class State(object):
             return
         self.gui.before_change_ea()
         self.current_ea = ea
-        nonempty_state = False
+        empty_node = True
         if self.cfa:
             node_ids = self.cfa.node_id_from_addr(ea)
             if node_ids:
-                nonempty_state = True
                 if node_id in node_ids:
-                    self.current_state = self.cfa[node_id]
+                    self.current_node = self.cfa[node_id]
                 else:
-                    self.current_state = self.cfa[node_ids[0]]
+                    self.current_node = self.cfa[node_ids[0]]
                 self.current_node_ids = node_ids
-        if not nonempty_state:
-            self.current_state = None
+                # find unrel_id
+                if not unrel_id:
+                    unrel_id = self.current_node.default_unrel_id()
+                if unrel_id and unrel_id in self.current_node.unrels:
+                    self.current_unrel = self.current_node.unrels[unrel_id]
+                    empty_node = False
+        if empty_node:
+            self.current_node = None
             self.current_node_ids = []
+            self.current_unrel = None
 
         self.gui.after_change_ea()
 
