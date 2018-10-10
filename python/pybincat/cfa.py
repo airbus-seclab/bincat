@@ -94,6 +94,9 @@ RE_REGION_ADDR = re.compile(r"(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
 RE_VALTAINT = re.compile(
     r"(?P<memreg>[a-zA-Z]?)(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
 
+RE_NODE_UNREL = re.compile(
+    r"node (?P<nodeid>\d+) - unrel (?P<unrelid>\d+)")
+
 
 class PyBinCATParseError(PyBinCATException):
     pass
@@ -101,19 +104,19 @@ class PyBinCATParseError(PyBinCATException):
 
 class CFA(object):
     """
-    Holds State for each defined node_id.
+    Holds Node for each defined node_id.
     Several node_ids may share the same address (ex. loops, partitions)
     """
     #: Cache to speed up value parsing. (str, length) -> [Value, ...]
     _valcache = {}
     arch = None
 
-    def __init__(self, states, edges, nodes, taintsrcs):
+    def __init__(self, addr_nodes, edges, nodes, taintsrcs):
         #: Value (address) -> [node_id]. Nodes marked "final" come first.
-        self.states = states
+        self.addr_nodes = addr_nodes
         #: node_id (string) -> list of node_id (string)
         self.edges = edges
-        #: node_id (string) -> State
+        #: node_id (string) -> Node
         self.nodes = nodes
         self.logs = None
         #: taint source id (int) -> taint source (str)
@@ -122,10 +125,11 @@ class CFA(object):
     @classmethod
     def parse(cls, filename, logs=None):
 
-        states = defaultdict(list)
+        addr_nodes = defaultdict(list)
         edges = defaultdict(list)
         nodes = {}
         taintsrcs = {}
+        cfa = cls(addr_nodes, edges, nodes, taintsrcs)
 
         config = ConfigParser.RawConfigParser()
         try:
@@ -141,11 +145,11 @@ class CFA(object):
             raise PyBinCATException(
                 "Parsing error: no sections in %s, check analysis logs" %
                 filename)
-            return None
 
         cls.arch = config.get('loader', 'architecture')
-        # parse taint sources first -- will be used when parsing State
-        sections = config.sections()
+        # parse taint sources first -- will be used when parsing Node
+        # sorting ensures that a node will be parsed before its unrels
+        sections = sorted(config.sections(), reverse=True)
         if 'taint sources' in config.sections():
             for srcid, srcname in config.items('taint sources'):
                 taintsrcs[int(srcid)] = srcname
@@ -159,20 +163,25 @@ class CFA(object):
                 continue
             elif section.startswith('node = '):
                 node_id = section[7:]
-                state = State.parse(node_id, dict(config.items(section)),
-                                    maxtaintsrcid)
-                address = state.address
-                if state.final:
-                    states[address].insert(0, state.node_id)
+                node = Node.parse(node_id, dict(config.items(section)),
+                                  maxtaintsrcid)
+                address = node.address
+                if node.final:
+                    addr_nodes[address].insert(0, node.node_id)
                 else:
-                    states[address].append(state.node_id)
-                nodes[state.node_id] = state
+                    addr_nodes[address].append(node.node_id)
+                nodes[node.node_id] = node
                 continue
+            elif section.startswith('node '):
+                m = RE_NODE_UNREL.match(section)
+                unrel_id = m.group('unrelid')
+                new_unrel = Unrel.parse(unrel_id, dict(config.items(section)))
+                cfa[m.group('nodeid')].unrels[unrel_id] = new_unrel
+                # unrel
             elif section == 'loader':
                 continue
 
         CFA._valcache = dict()
-        cfa = cls(states, edges, nodes, taintsrcs)
         if logs:
             cfa.logs = open(logs, 'rb').read()
         return cfa
@@ -186,17 +195,6 @@ class CFA(object):
         logfile = tempfile.NamedTemporaryFile()
 
         return cls.from_filenames(initfname, outfile.name, logfile.name)
-
-    @classmethod
-    def from_state(cls, state):
-        """
-        Runs analysis.
-        """
-        initfile = tempfile.NamedTemporaryFile()
-        initfile.write(str(state))
-        initfile.close()
-
-        return cls.from_analysis(initfile.name)
 
     @classmethod
     def from_filenames(cls, initfname, outfname, logfname):
@@ -231,7 +229,7 @@ class CFA(object):
 
     def __getitem__(self, node_id):
         """
-        Returns State at provided node_id if it exists, else None.
+        Returns Node at provided node_id if it exists, else None.
         """
         if type(node_id) is int:
             node_id = str(node_id)
@@ -239,76 +237,36 @@ class CFA(object):
 
     def node_id_from_addr(self, addr):
         addr = self._toValue(addr)
-        return self.states[addr]
+        return self.addr_nodes[addr]
 
-    def next_states(self, node_id):
+    def next_nodes(self, node_id):
         """
-        Returns a list of State
+        Returns a list of Node
         """
         return [self[n] for n in self.edges[str(node_id)]]
 
 
-class State(object):
+class Node(object):
     """
-    Contains memory & registers status
+    Stores node data for a given node_id.
 
-    bincat output format examples:
-    reg [eax] = S0xfff488!0
-    111  222    33333333333
-
-    mem[G0x1234, G0x1236] = G0x20, G0x0
-    111 2222222222222222    33333  3333 <-- list of 2 valtaint
-
-    mem[G0x24*32] = G0b????1111!0b????0000
-    111 22222222    3333333333333333333333 <-- list of 1 valtaint
-
-    1: src region (overridden with src region contained in address for memory)
-    2: address
-    3: dst region, value, taint (valtaint)
-
-    example valtaints: G0x1234 G0x12!0xF0 S0x12!ALL
+    1 or more Unrel may be stored, each containg regaddrs, regtypes
     """
-    __slots__ = ['address', 'node_id', '_regaddrs', '_regtypes', 'final',
-                 'statements', 'bytes', 'tainted', 'taintsrc', '_outputkv']
+    __slots__ = ['address', 'node_id', 'final', 'statements', 'bytes',
+                 'tainted', 'taintsrc', 'unrels']
 
     def __init__(self, node_id, address=None, lazy_init=None):
         self.address = address
         #: str
         self.node_id = node_id
-        #: Value -> [Value]. Either 1 value, or a list of 1-byte Values.
-        self._regaddrs = {}
-        #: Value -> "type"
-        self._regtypes = {}
+        #: str (unrel id) -> Unrel
+        self.unrels = {}
         self.final = False
         self.statements = ""
         self.bytes = ""
         self.tainted = False
-
-    @property
-    def regaddrs(self):
-        if self._regaddrs is None:
-            try:
-                self.parse_regaddrs()
-            except Exception as e:
-                import traceback
-                traceback.print_exc(e)
-                raise PyBinCATException(
-                    "Cannot parse taint or type data at address %s\n%r" %
-                    (self.address, e))
-        return self._regaddrs
-
-    @property
-    def regtypes(self):
-        if self._regtypes is None:
-            try:
-                self.parse_regaddrs()
-            except Exception as e:
-                import traceback
-                traceback.print_exc(e)
-                raise PyBinCATException(
-                    "Cannot parse taint or type data at address %s\n%s" %
-                    (self.address, e))
-        return self._regtypes
+        #: list of taint id (int)
+        self.taintsrc = []
 
     @classmethod
     def parse(cls, node_id, outputkv, maxtaintsrcid):
@@ -317,13 +275,14 @@ class State(object):
             the analyzer at this EIP
         """
 
-        new_state = State(node_id)
+        new_node = Node(node_id)
         addr = outputkv.pop("address")
         m = RE_VALTAINT.match(addr)
-        new_state.address = Value(m.group("memreg"), int(m.group("value"), 0), 0)
-        new_state.final = outputkv.pop("final", None) == "true"
-        new_state.statements = outputkv.pop("statements", "")
-        new_state.bytes = outputkv.pop("bytes", "")
+        new_node.address = Value(m.group("memreg"),
+                                 int(m.group("value"), 0), 0)
+        new_node.final = outputkv.pop("final", None) == "true"
+        new_node.statements = outputkv.pop("statements", "")
+        new_node.bytes = outputkv.pop("bytes", "")
         taintedstr = outputkv.pop("tainted", "")
         if taintedstr == "true":
             # v0.6 format
@@ -341,285 +300,18 @@ class State(object):
             # v0.7+ format, tainted
             taintsrc = map(str.strip, taintedstr.split(','))
             tainted = True
-        new_state.tainted = tainted
-        new_state.taintsrc = taintsrc
-        new_state._outputkv = outputkv
-        new_state._regaddrs = None
-        new_state._regtypes = None
-        return new_state
+        new_node.tainted = tainted
+        new_node.taintsrc = taintsrc
+        return new_node
 
-    def parse_regaddrs(self):
-        """
-        Parses entries containing taint & type data
-        """
-        self._regaddrs = {}
-        self._regtypes = {}
-        for k, v in self._outputkv.iteritems():
-            if k.startswith("t-"):
-                typedata = True
-                k = k[2:]
-            else:
-                typedata = False
-
-            m = RE_REGION_ADDR.match(k)
-            if not m:
-                raise PyBinCATException("Parsing error (key=%r)" % (k,))
-            region = m.group("region")
-            addr = m.group("addr")
-            if region == "mem":
-                # use memreg as region instead of 'mem'
-                # ex. "s0xabcd, s0xabce" "g0x24*32"
-                # region in ['s', 'g', 'h']
-                if '*' in addr:
-                    # single repeated value
-                    regaddr, l = addr.split('*')
-                    length = 8
-                    m = RE_VALTAINT.match(regaddr)
-                    region, addr = m.group('memreg'), m.group('value')
-                    v = ', '.join([v] * int(l))
-                else:
-                    regaddr1, regaddr2 = addr.split(', ')
-                    m = RE_VALTAINT.match(regaddr1)
-                    region1, addr = m.group('memreg'), m.group('value')
-                    m = RE_VALTAINT.match(regaddr2)
-                    region2, addr2 = m.group('memreg'), m.group('value')
-                    assert region1 == region2
-                    region = region1
-                    length = 8
-                    # XXX allow non-aligned access (current: assume no overlap)
-            elif region == "reg":
-                length = reg_len(addr)
-
-            # build value
-            concat_value = []
-            regaddr = Value.parse(region, addr, '0', 0)
-            if typedata:
-                self._regtypes[regaddr] = v.split(', ')
-                continue
-            if (v, length) not in CFA._valcache:
-                # add to cache
-                off_vals = []
-                for idx, val in enumerate(v.split(', ')):
-                    m = RE_VALTAINT.match(val)
-                    if not m:
-                        raise PyBinCATException(
-                            "Parsing error (value=%r)" % (v,))
-                    memreg = m.group("memreg")
-                    strval = m.group("value")
-                    taint = m.group("taint")
-                    new_value = Value.parse(memreg, strval, taint, length)
-                    # concatenate
-                    concat_value.append(new_value)
-
-                off_vals.append(concat_value)
-                CFA._valcache[(v, length)] = off_vals
-            for val in CFA._valcache[(v, length)]:
-                self._regaddrs[regaddr] = val
-        del(self._outputkv)
-
-    def __getitem__(self, item):
-        """
-        Return list of Value
-        """
-        if type(item) is str:
-            # register, used for debugging (ex. human input from IDA)
-            item = Value('reg', item, '0', 0)
-        if type(item) is not Value:
-            raise KeyError
-        if item in self.regaddrs:
-            return self.regaddrs[item]
-        else:
-            # looking for address in list of 1-byte Value
-            for addr in self.regaddrs:
-                if addr.region != item.region:
-                    continue
-                vlist = self.regaddrs[addr]
-                v0 = vlist[0]
-                if item.value < addr.value:
-                    continue
-                if addr.value + len(vlist) > item.value:
-                    return vlist[item.value-addr.value:]
-            raise IndexError(item)
-
-    def mem_ranges(self):
-        """
-        Return a dict of regions pointing to a list of tuples
-        the tuples indicate the valid memory ranges
-        ranges are sorted and coleasced
-        """
-        ranges = defaultdict(list)
-        for addr in self.regaddrs.keys():
-            if addr.region != 'reg':
-                ranges[addr.region].append((addr.value, addr.value+len(self.regaddrs[addr])-1))
-        # Sort ranges
-        for region in ranges:
-            ranges[region].sort(key=lambda x: x[0])
-            # merge
-            merged = []
-            last_addr = None
-            for crange in ranges[region]:
-                if last_addr and crange[0] == (last_addr+1):
-                    merged[-1] = (merged[-1][0], crange[1])
-                else:
-                    merged.append(crange)
-                last_addr = crange[1]
-            ranges[region] = merged
-        return ranges
-
-    def get_mem_range(self, region, start, length):
-        m = []
-        i = start
-        while len(m) < length:
-            try:
-                r = self[Value(region, i)]
-            except IndexError:
-                i += 1
-                m.append(Value(region, 0, vtop=0, vbot=0xff))
-            else:
-                m += r
-                i += len(r)
-        m = m[:length]
-        value = "".join(chr(v.value) for v in m)
-        vtop = "".join(chr(v.vtop) for v in m)
-        vbot = "".join(chr(v.vbot) for v in m)
-        return value, vtop, vbot
-
-    def get_string(self, region, start):
-        m = []
-        i = start
-        while True:
-            r = self[Value(region, i)]
-            for v in r:
-                if v.vbot or v.vtop:
-                    raise LookupError("top or bottom values encountered")
-                if v.value == 0:
-                    break
-                m.append(chr(v.value))
-                i += 1
-            else:
-                continue
-            break
-        return "".join(m)
-
-    def __setitem__(self, item, val):
-        if type(val[0]) is list:
-            val = val[0]
-        if type(item.value) is str:
-            # register, overwrite
-            self.regaddrs[item] = val
-            return
-        if len(val) == 1 and val[0].length > 8:
-            val = val[0].split_to_bytelist()
-        for (idx, v) in enumerate(val):
-            addr = item.value + idx
-            recorded = False
-            for e_key, e_val in self.regaddrs.items():
-                # existing keys in regaddrs
-                if type(e_key.value) is str:
-                    # e_key is a register, item is a memory address => skip
-                    continue
-                # e_val: list of Values, or one Value.
-                if len(e_val) == 1 and e_val[0].length > 8:
-                    if (e_key.value > addr or
-                            e_key.value + e_val[0].length < addr):
-                        continue
-                    # existing value needs to be split, too
-                    self.regaddrs[e_key] = e_val[0].split_to_bytelist()
-                else:
-                    if (e_key.value > addr or
-                            e_key.value + len(e_val) < addr):
-                        continue
-                if len(e_val) == (addr - e_key.value):
-                    # appending at the end of existing key e_key
-                    self.regaddrs[e_key].append(v)
-                    if item+idx+1 in self.regaddrs:
-                        # merge with next allocated block
-                        self.regaddrs[e_key].extend(self.regaddrs[e_key+idx+1])
-                        del self.regaddrs[item+idx+1]
-                else:
-                    # value replacement in an existing key
-                    self.regaddrs[e_key][(addr - e_key.value)] = v
-                recorded = True
-                break
-            if not recorded:
-                # new key
-                self.regaddrs[item+idx] = [val[idx]]
-                if item+idx+1 in self.regaddrs:
-                    # merge with next allocated block
-                    self.regaddrs[item+idx].extend(self.regaddrs[item+idx+1])
-                    del self.regaddrs[item+idx+1]
-
-    def __getattr__(self, attr):
-        try:
-            return self.regaddrs[attr]
-        except KeyError as e:
-            raise AttributeError(attr)
-
-    def __eq__(self, other):
-        if set(self.regaddrs.keys()) != set(other.regaddrs.keys()):
-            return False
-        for regaddr in self.regaddrs.keys():
-            if ((len(self.regaddrs[regaddr]) > 1) ^
-                    (len(other.regaddrs[regaddr]) > 1)):
-                # split required, one of them only is split
-                s = self.regaddrs[regaddr]
-                o = other.regaddrs[regaddr]
-                if len(self.regaddrs[regaddr]) == 1:
-                    s = s[0].split_to_bytelist()
-                else:
-                    o = o[0].split_to_bytelist()
-                if s != o:
-                    return False
-            else:
-                # no split required
-                if self.regaddrs[regaddr] != other.regaddrs[regaddr]:
-                    return False
-        return True
-
-    def list_modified_keys(self, other):
-        """
-        Returns a set of (region, name) for which value or tainting
-        differ between self and other.
-        """
-        # List keys present in only one of the states
-        sRA = set(self.regaddrs)
-        oRA = set(other.regaddrs)
-        results = sRA.symmetric_difference(oRA)
-        # Check values
-        for regaddr in sRA & oRA:
-            if self[regaddr] != other[regaddr]:
-                results.add(regaddr)
-        return results
-
-    def diff(self, other, pns="", pno="", parent=None):
-        """
-        :param pns: pretty name for self
-        :param pno: pretty name for other
-        """
-        pns += str(self)
-        pno += str(other)
-        res = ["--- %s" % pns, "+++ %s" % pno]
-        if parent:
-            res.insert(0, "000 Parent %s" % str(parent))
-        for regaddr in self.list_modified_keys(other):
-            region = regaddr.region
-            address = regaddr.value
-            if regaddr.is_concrete() and isinstance(address, int):
-                address = "%#08x" % address
-            res.append("@@ %s %s @@" % (region, address))
-            if (parent is not None) and (regaddr in parent.regaddrs):
-                res.append("0 %s" % (parent.regaddrs[regaddr]))
-            if regaddr not in self.regaddrs:
-                res.append("+ %s" % other.regaddrs[regaddr])
-            elif regaddr not in other.regaddrs:
-                res.append("- %s" % self.regaddrs[regaddr])
-            elif self.regaddrs[regaddr] != other.regaddrs[regaddr]:
-                res.append("- %s" % (self.regaddrs[regaddr]))
-                res.append("+ %s" % (other.regaddrs[regaddr]))
-        return "\n".join(res)
+    def default_unrel_id(self):
+        ids = sorted(self.unrels.keys())
+        if not ids:
+            return None
+        return ids[0]
 
     def __repr__(self):
-        return "State at address %s (node=%s)" % (self.address, self.node_id)
+        return "Node at address %s (node=%s)" % (self.address, self.node_id)
 
 
 @functools.total_ordering
@@ -793,3 +485,339 @@ class Value(object):
             result.append(self[i])
 
         return result
+
+
+class Unrel(object):
+    """
+    Contains memory & registers status for a given (Node, unrel_id)
+
+    bincat output format examples:
+    reg [eax] = 0xfff488!0
+    111  222    33333333333
+
+    mem[0x1234, 0x1236] = 0x20, 0x0
+    111 2222222222222222  33333 3333 <-- list of 2 valtaint
+
+    mem[0x24*32] = 0b????1111!0b????0000
+    111 22222222   3333333333333333333333 <-- list of 1 valtaint
+
+    1: src region (overridden with src region contained in address for memory)
+    2: address
+    3: dst region, value, taint (valtaint)
+
+    example valtaints: 0x1234 0x12!0xF0 0x12!ALL
+    """
+    __slots__ = ['_regaddrs', '_regtypes', '_outputkv', 'unrel_id']
+
+    def __init__(self, unrel_id):
+        #: Value -> [Value]. Either 1 value, or a list of 1-byte Values.
+        self._regaddrs = {}
+        #: Value -> "type"
+        self._regtypes = {}
+        self._regaddrs = None
+        self._regtypes = None
+        self._outputkv = None
+        #: str
+        self.unrel_id = unrel_id
+
+    @property
+    def regaddrs(self):
+        if self._regaddrs is None:
+            try:
+                self.parse_regaddrs()
+            except Exception as e:
+                import traceback
+                traceback.print_exc(e)
+                raise PyBinCATException(
+                    "Cannot parse taint or type data at address %s\n%r" %
+                    (self.address, e))
+        return self._regaddrs
+
+    @property
+    def regtypes(self):
+        if self._regtypes is None:
+            try:
+                self.parse_regaddrs()
+            except Exception as e:
+                import traceback
+                traceback.print_exc(e)
+                raise PyBinCATException(
+                    "Cannot parse taint or type data at address %s\n%s" %
+                    (self.address, e))
+        return self._regtypes
+
+    @classmethod
+    def parse(cls, unrel_id, outputkv):
+        new_unrel = Unrel(unrel_id)
+        new_unrel._outputkv = outputkv
+        return new_unrel
+
+    def parse_regaddrs(self):
+        """
+        Parses entries containing taint & type data
+        """
+        self._regaddrs = {}
+        self._regtypes = {}
+        for k, v in self._outputkv.iteritems():
+            if k.startswith("t-"):
+                typedata = True
+                k = k[2:]
+            else:
+                typedata = False
+
+            m = RE_REGION_ADDR.match(k)
+            if not m:
+                raise PyBinCATException("Parsing error (key=%r)" % (k,))
+            region = m.group("region")
+            addr = m.group("addr")
+            if region == "mem":
+                # use memreg as region instead of 'mem'
+                # ex. "s0xabcd, s0xabce" "g0x24*32"
+                # region in ['s', 'g', 'h']
+                if '*' in addr:
+                    # single repeated value
+                    regaddr, l = addr.split('*')
+                    length = 8
+                    m = RE_VALTAINT.match(regaddr)
+                    region, addr = m.group('memreg'), m.group('value')
+                    v = ', '.join([v] * int(l))
+                else:
+                    regaddr1, regaddr2 = addr.split(', ')
+                    m = RE_VALTAINT.match(regaddr1)
+                    region1, addr = m.group('memreg'), m.group('value')
+                    m = RE_VALTAINT.match(regaddr2)
+                    region2, addr2 = m.group('memreg'), m.group('value')
+                    assert region1 == region2
+                    region = region1
+                    length = 8
+                    # XXX allow non-aligned access (current: assume no overlap)
+            elif region == "reg":
+                length = reg_len(addr)
+
+            # build value
+            concat_value = []
+            regaddr = Value.parse(region, addr, '0', 0)
+            if typedata:
+                self._regtypes[regaddr] = v.split(', ')
+                continue
+            if (v, length) not in CFA._valcache:
+                # add to cache
+                off_vals = []
+                for idx, val in enumerate(v.split(', ')):
+                    m = RE_VALTAINT.match(val)
+                    if not m:
+                        raise PyBinCATException(
+                            "Parsing error (value=%r)" % (v,))
+                    memreg = m.group("memreg")
+                    strval = m.group("value")
+                    taint = m.group("taint")
+                    new_value = Value.parse(memreg, strval, taint, length)
+                    # concatenate
+                    concat_value.append(new_value)
+
+                off_vals.append(concat_value)
+                CFA._valcache[(v, length)] = off_vals
+            for val in CFA._valcache[(v, length)]:
+                self._regaddrs[regaddr] = val
+        del self._outputkv
+
+    def __getitem__(self, item):
+        """
+        Return list of Value
+        """
+        if type(item) is str:
+            # register, used for debugging (ex. human input from IDA)
+            item = Value('reg', item, '0', 0)
+        if type(item) is not Value:
+            raise KeyError
+        if item in self.regaddrs:
+            return self.regaddrs[item]
+        else:
+            # looking for address in list of 1-byte Value
+            for addr in self.regaddrs:
+                if addr.region != item.region:
+                    continue
+                vlist = self.regaddrs[addr]
+                if item.value < addr.value:
+                    continue
+                if addr.value + len(vlist) > item.value:
+                    return vlist[item.value-addr.value:]
+            raise IndexError(item)
+
+    def mem_ranges(self):
+        """
+        Return a dict of regions pointing to a list of tuples
+        the tuples indicate the valid memory ranges
+        ranges are sorted and coleasced
+        """
+        ranges = defaultdict(list)
+        for addr in self.regaddrs.keys():
+            if addr.region != 'reg':
+                ranges[addr.region].append((addr.value, addr.value+len(self.regaddrs[addr])-1))
+        # Sort ranges
+        for region in ranges:
+            ranges[region].sort(key=lambda x: x[0])
+            # merge
+            merged = []
+            last_addr = None
+            for crange in ranges[region]:
+                if last_addr and crange[0] == (last_addr+1):
+                    merged[-1] = (merged[-1][0], crange[1])
+                else:
+                    merged.append(crange)
+                last_addr = crange[1]
+            ranges[region] = merged
+        return ranges
+
+    def get_mem_range(self, region, start, length):
+        m = []
+        i = start
+        while len(m) < length:
+            try:
+                r = self[Value(region, i)]
+            except IndexError:
+                i += 1
+                m.append(Value(region, 0, vtop=0, vbot=0xff))
+            else:
+                m += r
+                i += len(r)
+        m = m[:length]
+        value = "".join(chr(v.value) for v in m)
+        vtop = "".join(chr(v.vtop) for v in m)
+        vbot = "".join(chr(v.vbot) for v in m)
+        return value, vtop, vbot
+
+    def get_string(self, region, start):
+        m = []
+        i = start
+        while True:
+            r = self[Value(region, i)]
+            for v in r:
+                if v.vbot or v.vtop:
+                    raise LookupError("top or bottom values encountered")
+                if v.value == 0:
+                    break
+                m.append(chr(v.value))
+                i += 1
+            else:
+                continue
+            break
+        return "".join(m)
+
+    def __setitem__(self, item, val):
+        if type(val[0]) is list:
+            val = val[0]
+        if type(item.value) is str:
+            # register, overwrite
+            self.regaddrs[item] = val
+            return
+        if len(val) == 1 and val[0].length > 8:
+            val = val[0].split_to_bytelist()
+        for (idx, v) in enumerate(val):
+            addr = item.value + idx
+            recorded = False
+            for e_key, e_val in self.regaddrs.items():
+                # existing keys in regaddrs
+                if type(e_key.value) is str:
+                    # e_key is a register, item is a memory address => skip
+                    continue
+                # e_val: list of Values, or one Value.
+                if len(e_val) == 1 and e_val[0].length > 8:
+                    if (e_key.value > addr or
+                            e_key.value + e_val[0].length < addr):
+                        continue
+                    # existing value needs to be split, too
+                    self.regaddrs[e_key] = e_val[0].split_to_bytelist()
+                else:
+                    if (e_key.value > addr or
+                            e_key.value + len(e_val) < addr):
+                        continue
+                if len(e_val) == (addr - e_key.value):
+                    # appending at the end of existing key e_key
+                    self.regaddrs[e_key].append(v)
+                    if item+idx+1 in self.regaddrs:
+                        # merge with next allocated block
+                        self.regaddrs[e_key].extend(self.regaddrs[e_key+idx+1])
+                        del self.regaddrs[item+idx+1]
+                else:
+                    # value replacement in an existing key
+                    self.regaddrs[e_key][(addr - e_key.value)] = v
+                recorded = True
+                break
+            if not recorded:
+                # new key
+                self.regaddrs[item+idx] = [val[idx]]
+                if item+idx+1 in self.regaddrs:
+                    # merge with next allocated block
+                    self.regaddrs[item+idx].extend(self.regaddrs[item+idx+1])
+                    del self.regaddrs[item+idx+1]
+
+    def __getattr__(self, attr):
+        try:
+            return self.regaddrs[attr]
+        except KeyError as e:
+            raise AttributeError(attr)
+
+    def __eq__(self, other):
+        if set(self.regaddrs.keys()) != set(other.regaddrs.keys()):
+            return False
+        for regaddr in self.regaddrs.keys():
+            if ((len(self.regaddrs[regaddr]) > 1) ^
+                    (len(other.regaddrs[regaddr]) > 1)):
+                # split required, one of them only is split
+                s = self.regaddrs[regaddr]
+                o = other.regaddrs[regaddr]
+                if len(self.regaddrs[regaddr]) == 1:
+                    s = s[0].split_to_bytelist()
+                else:
+                    o = o[0].split_to_bytelist()
+                if s != o:
+                    return False
+            else:
+                # no split required
+                if self.regaddrs[regaddr] != other.regaddrs[regaddr]:
+                    return False
+        return True
+
+    def list_modified_keys(self, other):
+        """
+        Returns a set of (region, name) for which value or tainting
+        differ between self and other.
+        """
+        # List keys present in only one of the nodes
+        sRA = set(self.regaddrs)
+        oRA = set(other.regaddrs)
+        results = sRA.symmetric_difference(oRA)
+        # Check values
+        for regaddr in sRA & oRA:
+            if self[regaddr] != other[regaddr]:
+                results.add(regaddr)
+        return results
+
+    def diff(self, other, pns="", pno="", parent=None):
+        """
+        :param pns: pretty name for self
+        :param pno: pretty name for other
+        """
+        pns += str(self)
+        pno += str(other)
+        res = ["--- %s" % pns, "+++ %s" % pno]
+        if parent:
+            res.insert(0, "000 Parent %s" % str(parent))
+        for regaddr in self.list_modified_keys(other):
+            region = regaddr.region
+            address = regaddr.value
+            if regaddr.is_concrete() and isinstance(address, int):
+                address = "%#08x" % address
+            res.append("@@ %s %s @@" % (region, address))
+            if (parent is not None) and (regaddr in parent.regaddrs):
+                res.append("0 %s" % (parent.regaddrs[regaddr]))
+            if regaddr not in self.regaddrs:
+                res.append("+ %s" % other.regaddrs[regaddr])
+            elif regaddr not in other.regaddrs:
+                res.append("- %s" % self.regaddrs[regaddr])
+            elif self.regaddrs[regaddr] != other.regaddrs[regaddr]:
+                res.append("- %s" % (self.regaddrs[regaddr]))
+                res.append("+ %s" % (other.regaddrs[regaddr]))
+        return "\n".join(res)
+

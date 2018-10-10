@@ -200,8 +200,8 @@ class Meminfo(object):
     """
     Helper class to access memory as a str
     """
-    def __init__(self, state, region, ranges):
-        self.state = state
+    def __init__(self, unrel, region, ranges):
+        self.unrel = unrel
         self.region = region
         #: list of ranges: [[begin int, end int], ...]
         self.ranges = ranges
@@ -296,10 +296,10 @@ class Meminfo(object):
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(
             lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
-        if not in_range or self.state is None:
+        if not in_range or self.unrel is None:
             res = []
         else:
-            res = self.state[addr_value]
+            res = self.unrel[addr_value]
         return res
 
     def get_type(self, idx):
@@ -311,7 +311,7 @@ class Meminfo(object):
             lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
         if not in_range:
             return ""
-        t = self.state.regtypes.get(addr_value, None)
+        t = self.unrel.regtypes.get(addr_value, None)
         if t:
             return t[0]
         return ""
@@ -395,8 +395,8 @@ class BinCATMemForm_t(idaapi.PluginForm):
         cur_reg = self.pretty_to_int_map[self.region_select.currentText()]
         new_range = self.mem_ranges[cur_reg][crangeidx]
         # XXX only create a new Meminfo object on EA change, load ranges from
-        # state in Meminfo __init__ ?
-        meminfo = Meminfo(self.s.current_state, cur_reg, [new_range])
+        # node in Meminfo __init__ ?
+        meminfo = Meminfo(self.s.current_unrel, cur_reg, [new_range])
         self.hexwidget.setNewMem(meminfo)
         self.last_visited[cur_reg] = new_range[0]
 
@@ -449,8 +449,8 @@ class BinCATMemForm_t(idaapi.PluginForm):
         if not (self.shown and self.created):
             return
 
-        if self.s.current_state:
-            self.mem_ranges = self.s.current_state.mem_ranges()
+        if self.s.current_unrel:
+            self.mem_ranges = self.s.current_unrel.mem_ranges()
             # merge region separated by less than 0x100 bytes
             for region in self.mem_ranges:
                 last_addr = None
@@ -464,7 +464,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
                 self.mem_ranges[region] = merged
 
             if not self.mem_ranges:
-                # happens in backward mode: states having no defined memory
+                # happens in backward mode: nodes having no defined memory
                 return
             former_region = self.region_select.currentText()
             newregion = None
@@ -516,11 +516,11 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
     def __init__(self, state, cfgregmodel, cfgmemmodel):
         super(BinCATConfigForm_t, self).__init__()
+        self.s = state
         self.cfgregmodel = cfgregmodel
         self.cfgmemmodel = cfgmemmodel
         self.shown = False
         self.created = False
-        self.s = state
         self.index = None
 
     def OnCreate(self, form):
@@ -867,7 +867,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             del self.s.configurations[name]
             self.update_config_list()
 
-
     # Called when the edit combo is changed
     @QtCore.pyqtSlot(str)
     def _load_config(self, index):
@@ -1006,10 +1005,10 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         self.stmt_data.setText(self.stmt_txt)
         self.bytes_data.setText(self.bytes_txt)
 
-    def update(self, state):
-        if state:
-            self.stmt_txt = state.statements.replace('____', '    ')
-            self.bytes_txt = state.bytes
+    def update(self, node):
+        if node:
+            self.stmt_txt = node.statements.replace('____', '    ')
+            self.bytes_txt = node.bytes
         else:
             self.stmt_txt = ""
             self.bytes_txt = ""
@@ -1076,37 +1075,51 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         self.parent = self.FormToPyQtWidget(form)
         layout = QtWidgets.QGridLayout(self.parent)
 
-        splitter = QtWidgets.QSplitter(self.parent)
-        layout.addWidget(splitter, 0, 0)
+        splitter1 = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(splitter1, 0, 0)
 
         # RVA address label
         self.alabel = QtWidgets.QLabel('RVA: %s' % self.rvatxt)
-        splitter.addWidget(self.alabel)
+        splitter1.addWidget(self.alabel)
 
-        # Node id label
-        self.nilabel = QtWidgets.QLabel('Node:')
-        splitter.addWidget(self.nilabel)
-
-        # Node combobox
-        self.node_select = QtWidgets.QComboBox()
-        self.node_select.currentTextChanged.connect(self.update_node)
-        splitter.addWidget(self.node_select)
-
-        # Node id label
+        # Next node id label
         self.nnlabel = QtWidgets.QLabel('Next node(s):')
-        splitter.addWidget(self.nnlabel)
+        splitter1.addWidget(self.nnlabel)
 
         # Goto combo box
         self.nextnodes_combo = QtWidgets.QComboBox()
         self.nextnodes_combo.currentTextChanged.connect(self.goto_next)
-        splitter.addWidget(self.nextnodes_combo)
-
+        splitter1.addWidget(self.nextnodes_combo)
         # leave space for comboboxes in splitter, rather than between widgets
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 0)
-        splitter.setStretchFactor(2, 1)
-        splitter.setStretchFactor(3, 0)
-        splitter.setStretchFactor(4, 1)
+        splitter1.setStretchFactor(0, 0)
+        splitter1.setStretchFactor(1, 0)
+        splitter1.setStretchFactor(2, 1)
+
+        splitter2 = QtWidgets.QSplitter(self.parent)
+        layout.addWidget(splitter2, 1, 0)
+
+        # Node id label
+        self.nilabel = QtWidgets.QLabel('Node:')
+        splitter2.addWidget(self.nilabel)
+
+        # Node combobox
+        self.node_select = QtWidgets.QComboBox()
+        self.node_select.currentTextChanged.connect(self.update_node)
+        splitter2.addWidget(self.node_select)
+
+        # Unrel id label
+        self.unrellabel = QtWidgets.QLabel('Unrel:')
+        splitter2.addWidget(self.unrellabel)
+
+        # Unrel combobox
+        self.unrel_select = QtWidgets.QComboBox()
+        self.unrel_select.currentTextChanged.connect(self.update_unrel)
+        splitter2.addWidget(self.unrel_select)
+
+        splitter2.setStretchFactor(0, 0)
+        splitter2.setStretchFactor(1, 1)
+        splitter2.setStretchFactor(2, 0)
+        splitter2.setStretchFactor(3, 1)
 
         # Value Taint Table
         self.vttable = QtWidgets.QTableView(self.parent)
@@ -1129,9 +1142,9 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         self.vttable.horizontalHeader().setStretchLastSection(True)
         self.vttable.horizontalHeader().setMinimumHeight(36)
 
-        layout.addWidget(self.vttable, 1, 0)
+        layout.addWidget(self.vttable, 2, 0)
 
-        layout.setRowStretch(1, 0)
+        layout.setRowStretch(2, 0)
 
         self.parent.setLayout(layout)
 
@@ -1154,10 +1167,21 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
 
     @QtCore.pyqtSlot(str)
     def update_node(self, node):
-        if node != "" and (not self.s.current_state or
-                           node != self.s.current_state.node_id):
+        node_id = node.split(' ')[0]
+        if node != "" and (not self.s.current_node or
+                           node_id != self.s.current_node.node_id):
             self.node_select.blockSignals(True)
-            self.s.set_current_node(node.split(' ')[0])
+            self.s.set_current_node(node_id)
+            self.node_select.blockSignals(False)
+
+    @QtCore.pyqtSlot(str)
+    def update_unrel(self, unrel):
+        unrel_id = unrel.split(' ')[0]
+        node_id = self.node_select.currentText().split(' ')[0]
+        if unrel != "" and (not self.s.current_unrel or
+                            unrel_id != self.s.current_unrel.unrel_id):
+            self.node_select.blockSignals(True)
+            self.s.set_current_node(node_id, unrel_id=unrel_id)
             self.node_select.blockSignals(False)
 
     @QtCore.pyqtSlot(str)
@@ -1174,30 +1198,40 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         if not (self.shown and self.created):
             return
         self.alabel.setText('RVA: %s' % self.rvatxt)
-        state = self.s.current_state
-        if state:
-            # nodes at current EA
+        node = self.s.current_node
+        if node:
+            # nodes & unrels at current EA
             self.node_select.blockSignals(True)
+            self.unrel_select.blockSignals(True)
             self.node_select.clear()
-            nodes = sorted(self.s.current_node_ids, key=int)
-            for idx, node in enumerate(nodes):
+            self.unrel_select.clear()
+            node_ids = sorted(self.s.current_node_ids, key=int)
+            unrel_ids = sorted(self.s.current_node.unrels.keys(), key=int)
+            for idx, node_id in enumerate(node_ids):
                 self.node_select.addItem(
-                    node + ' (%d other nodes)' % (len(nodes)-1))
-                if str(node) == self.s.current_state.node_id:
+                    node_id + ' (%d other nodes)' % (len(node_ids)-1))
+                if str(node_id) == self.s.current_node.node_id:
                     self.node_select.setCurrentIndex(idx)
-            self.node_select.setEnabled(len(nodes) != 1)
+            for idx, unrel_id in enumerate(unrel_ids):
+                self.unrel_select.addItem(
+                    unrel_id + ' (%d other unrels)' % (len(unrel_ids)-1))
+                if str(unrel_id) == self.s.current_unrel.unrel_id:
+                    self.unrel_select.setCurrentIndex(idx)
+            self.node_select.setEnabled(len(node_ids) != 1)
+            self.unrel_select.setEnabled(len(unrel_ids) != 1)
             self.node_select.blockSignals(False)
+            self.unrel_select.blockSignals(False)
             # next nodes
             self.nextnodes_combo.blockSignals(True)
             self.nextnodes_combo.clear()
-            next_states = self.s.cfa.next_states(self.s.current_state.node_id)
-            next_nodes = ["node %s at 0x%0X" % (s.node_id, s.address.value)
-                          for s in next_states]
-            if len(next_nodes) == 0:
+            next_nodes = self.s.cfa.next_nodes(self.s.current_node.node_id)
+            next_nodes_txt = ["node %s at 0x%0X" % (s.node_id, s.address.value)
+                              for s in next_nodes]
+            if len(next_nodes_txt) == 0:
                 self.nextnodes_combo.addItem("No data")
                 self.nextnodes_combo.setEnabled(False)
             else:
-                for nid in next_nodes:
+                for nid in next_nodes_txt:
                     self.nextnodes_combo.addItem("")
                     self.nextnodes_combo.addItem(str(nid))
                 self.nextnodes_combo.setEnabled(True)
@@ -1476,22 +1510,24 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         """
         Rebuild a list of rows
         """
-        state = self.s.current_state
+        node = self.s.current_node
+        unrel = self.s.current_unrel
         #: list of Values (addresses)
         self.rows = []
         self.changed_rows = set()
-        if state:
-            self.rows = filter(lambda x: x.region == "reg", state.regaddrs)
+        if node and unrel:
+            self.rows = filter(lambda x: x.region == "reg", unrel.regaddrs)
             self.rows = sorted(self.rows, key=ValueTaintModel.rowcmp)
 
-            # find parent state
+            # find parent nodes
             parents = [nodeid for nodeid in self.s.cfa.edges
-                       if state.node_id in self.s.cfa.edges[nodeid]]
+                       if node.node_id in self.s.cfa.edges[nodeid]]
             for pnode in parents:
-                pstate = self.s.cfa[pnode]
-                for k in state.list_modified_keys(pstate):
-                    if k in self.rows:
-                        self.changed_rows.add(self.rows.index(k))
+                pnode = self.s.cfa[pnode]
+                for punrel in node.unrels.values():
+                    for k in unrel.list_modified_keys(punrel):
+                        if k in self.rows:
+                            self.changed_rows.add(self.rows.index(k))
 
         super(ValueTaintModel, self).endResetModel()
 
@@ -1521,7 +1557,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                     return self.default_font
         elif role == Qt.ToolTipRole:
             regaddr = self.rows[index.row()]
-            t = self.s.current_state.regtypes.get(regaddr, None)
+            t = self.s.current_unrel.regtypes.get(regaddr, None)
             if t:
                 return t[0]
             return
@@ -1531,7 +1567,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
 
         if col == 0:  # register name
             return str(regaddr.value)
-        v = self.s.current_state[regaddr]
+        v = self.s.current_unrel[regaddr]
         if not v:
             return ""
         if col == 1:  # value
@@ -1848,11 +1884,11 @@ class HandleOptions(idaapi.action_handler_t):
     Action handler for BinCAT/Options
     """
     def __init__(self, state):
-        self.state = state
+        self.s = state
 
     def activate(self, ctx):
         # display config window
-        bc_conf_form = BinCATOptionsForm_t(self.state)
+        bc_conf_form = BinCATOptionsForm_t(self.s)
         bc_conf_form.exec_()
         return 1
 
@@ -1865,14 +1901,14 @@ class HandleRemap(idaapi.action_handler_t):
     Action handler for BinCAT/Options
     """
     def __init__(self, state):
-        self.state = state
+        self.s = state
 
     def activate(self, ctx):
         # display config window
         fname = ConfigHelpers.askfile("*.*", "Save to binary")
         if fname:
             dump_binary(fname)
-            self.state.remapped_bin_path = fname
+            self.s.remapped_bin_path = fname
         return 1
 
     def update(self, ctx):
@@ -2019,7 +2055,7 @@ class GUI(object):
     def after_change_ea(self):
         self.BinCATRegistersForm.update_current_ea(self.s.current_ea)
         self.vtmodel.endResetModel()
-        self.BinCATDebugForm.update(self.s.current_state)
+        self.BinCATDebugForm.update(self.s.current_node)
         self.BinCATMemForm.update_current_ea(self.s.current_ea)
 
     def term(self):
