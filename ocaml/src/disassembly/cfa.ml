@@ -355,7 +355,7 @@ struct
     G.iter_vertex print_ip g;
     let architecture_str = Config.archi_to_string !Config.architecture in
     Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
-    Printf.fprintf f "\n[program]\nnull = 0x%s\n\n" (Z.format "%02x" (!Config.null_cst));
+    Printf.fprintf f "\n[program]\nnull = 0x%s\nstack_width=%d\n\n" (Z.format "%02x" (!Config.null_cst) )(!Config.stack_width);
     (* taint sources *)
     Printf.fprintf f "[taint sources]\n"; 
     Hashtbl.iter (fun id src -> Printf.fprintf f "%d = %s\n" id (Dump.string_of_src src)) Dump.taint_src_tbl;
