@@ -6,10 +6,12 @@ import pytest
 from collections import defaultdict
 from pybincat import cfa
 
+
 def counter(fmt="%i", i=0):
     while True:
         yield fmt % i
         i += 1
+
 
 GCC_DIR = counter("gcc-%i")
 
@@ -18,6 +20,7 @@ def getReg(my_state, name):
     v = cfa.Value('reg', name, cfa.reg_len(name))
     return my_state[v][0]
 
+
 def getLastState(prgm):
     curState = prgm['0']
     while True:
@@ -25,8 +28,10 @@ def getLastState(prgm):
         if len(nextStates) == 0:
             return curState
         assert len(nextStates) == 1, \
-            "expected exactly 1 destination state after running this instruction (node: %s)" % curState.node_id
+            ("expected exactly 1 destination state after running this "
+             "instruction (node: %s)" % curState.node_id)
         curState = nextStates[0]
+
 
 class Bincat:
     def __init__(self, tmpdir, initfile):
@@ -35,66 +40,77 @@ class Bincat:
         inif = tmpdir.join('init.ini')
 
         inif.write(initfile)
-        
+
         self.inif = str(inif)
         self.logf = str(logf)
         self.outf = str(outf)
-        
+
         self.cfa = cfa.CFA.from_filenames(str(inif), str(outf), str(logf))
         self.last_state = getLastState(self.cfa)
-        
+
     def last_reg(self, regname):
         return getReg(self.last_state, regname)
 
 class InitFile:
     def __init__(self, fname, values={}, directives={}):
         self.template = open(fname).read()
-        self.values = defaultdict(lambda : "")
+        self.values = defaultdict(lambda: "")
         self["entrypoint"] = 0
         self.values.update(values)
         self.set_directives(directives)
-        self.program_entries=[]
-        self.analyzer_entries=[]
-        self.mem={}
-        self.reg={}
-        self.conf_edits=[]
+        self.program_entries = []
+        self.analyzer_entries = []
+        self.mem = {}
+        self.reg = {}
+        self.conf_edits = []
 
     def __setitem__(self, attr, val):
         self.values[attr] = val
+
     def __getitem__(self, attr):
         return self.values[attr]
+
     def update(self, newvalues):
         self.val.update(newvalues)
+
     def __str__(self):
         v = self.values.copy()
         if "code_length" not in v:
             fstat = os.stat(v["filepath"])
             v["code_length"] = fstat.st_size
         v["regmem"] = ("\n".join("mem[%#x]=|%s|" % (addr, val.encode("hex"))
-                                 for (addr,val) in self.mem.iteritems())
+                                 for (addr, val) in self.mem.iteritems())
                        + "\n".join("reg[%s]=%s" % (regname, val)
-                                 for (regname,val) in self.reg.iteritems())
+                                 for (regname, val) in self.reg.iteritems())
                        )
         v["analyzer_section"] = "\n".join(self.analyzer_entries)
         v["program_section"] = "\n".join(self.program_entries)
         conf = self.template.format(**v)
         print self.conf_edits
-        for before,after in self.conf_edits:
+        for before, after in self.conf_edits:
             conf = conf.replace(before, after)
         return conf
+
     def set_directives(self, directives):
-        overrides = directives.get("overrides",{})
-        self["overrides"] = "\n".join("%#010x=%s" % (addr, val) for addr,val in overrides.iteritems())
+        overrides = directives.get("overrides", {})
+        self["overrides"] = "\n".join(
+            "%#010x=%s" % (addr, val) for addr, val in overrides.iteritems())
+
     def set_mem(self, addr, val):
         self.mem[addr] = val
+
     def set_reg(self, regname, val):
         self.reg[regname] = val
+
     def add_program_entry(self, entry):
         self.program_entries.append(entry)
+
     def add_analyzer_entry(self, entry):
         self.analyzer_entries.append(entry)
+
     def add_conf_replace(self, before, after):
         self.conf_edits.append((before, after))
+
 
 class BCTest:
     def __init__(self, arch, tmpdir, asm):
@@ -107,16 +123,20 @@ class BCTest:
                                  dict(filepath=self.filename),
                                  directives)
         self.result = None
+
     def run(self):
         self.result = Bincat(self.tmpdir, self.initfile)
+
     def get_logs(self):
         return open(self.result.logf).read()
+
     def get_stdout(self):
         s = []
         for l in open(self.result.logf):
             if l.startswith("[STDOUT] "):
                 s.append(l[9:])
         return "".join(s)
+
 
 def val2str(val, top=None, taint=None, ttop=None):
     s = "%08x" % val
@@ -128,22 +148,26 @@ def val2str(val, top=None, taint=None, ttop=None):
             s += "? %08x" % ttop
     return s
 
+
 class Arch:
     ALL_REGS = []
     QEMU = []
+
     def __init__(self, ini_in_file=None):
-        self.ini_in_file  = ini_in_file
+        self.ini_in_file = ini_in_file
 
     def extract_flags(self, regs):
         pass
+
     def prettify_listing(self, asm):
         return asm
+
     def extract_directives_from_asm(self, asm):
         d = defaultdict(dict)
         for l in asm.splitlines():
             if "@override" in l:
                 sl = l.split()
-                addr = int(sl[1],16)
+                addr = int(sl[1], 16)
                 val = sl[sl.index("@override")+1]
                 d["override"][addr] = val
         return d
@@ -154,14 +178,14 @@ class Arch:
     def run_bc_test(self, bctest, testname):
         try:
             bctest.run()
-        except Exception,e:  # hack to add test name in the exception
-            pytest.fail("%s: %r\n%s"%(testname,e,bctest.listing))
-        return { reg : getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
+        except Exception, e:  # hack to add test name in the exception
+            pytest.fail("%s: %r\n%s" % (testname, e, bctest.listing))
+        return {reg: getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
 
 
     def check(self, tmpdir, asm, regs, bctest=None):
         testname = inspect.stack()[1][3]
-        hline="\n=========================\n"
+        hline = "\n=========================\n"
 
         if bctest is None:
             bctest = self.make_bc_test(tmpdir, asm)
@@ -170,12 +194,12 @@ class Arch:
         diff = []
         same = []
         diff_summary = []
-        for r,v in regs.iteritems():
+        for r, v in regs.iteritems():
             if type(v) is tuple:
                 v = list(v)
             else:
                 v = [v]
-            v += [0,0,0]
+            v += [0, 0, 0]
             target_value, target_vtop, target_taint, target_ttop = v[:4]
             target_str = val2str(target_value, target_vtop, target_taint, target_ttop)
             value = bincat[r].value
@@ -193,12 +217,12 @@ class Arch:
                 same.append("  both  :  %s = %s  %r" %
                             (r, target_str, bincat[r]))
         assert not diff, ("%s: (%s)" % (testname, ", ".join(diff_summary))
-                          +hline
-                          +bctest.listing
-                          +hline
-                          +"\n".join(diff)
-                          +hline
-                          +"\n".join(same))
+                          + hline
+                          + bctest.listing
+                          + hline
+                          + "\n".join(diff)
+                          + hline
+                          + "\n".join(same))
 
     def bf2mask(self, bitfield):
         if not bitfield:
@@ -206,25 +230,25 @@ class Arch:
         mask = 0
         for s in bitfield:
             if "-" in s:
-                start,stop = s.split("-")
+                start, stop = s.split("-")
             else:
                 start = stop = s
             start = int(start)
             stop = int(stop)
             for b in range(start, stop+1):
-                mask |= (1<<b)
+                mask |= (1 << b)
         return mask
 
     def show_cpu(self, tmpdir, asm, regs=None):
         testname = inspect.stack()[1][3]
-        hline="\n=========================\n"
+        hline = "\n=========================\n"
         if regs is None:
             regs = self.ALL_REGS
         bctest = self.make_bc_test(tmpdir, asm)
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
-        except subprocess.CalledProcessError,e:
-            pytest.fail("%s: %s\n%s"%(testname,e,bctest.listing))
+        except subprocess.CalledProcessError, e:
+            pytest.fail("%s: %s\n%s" % (testname, e, bctest.listing))
 
         print hline
         print asm
@@ -236,7 +260,7 @@ class Arch:
 
     def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
         testname = inspect.stack()[1][3]
-        hline="\n=========================\n"
+        hline = "\n=========================\n"
         if regs is None:
             regs = self.ALL_REGS
 
@@ -245,8 +269,8 @@ class Arch:
 
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
-        except subprocess.CalledProcessError,e:
-            pytest.fail("%s: %s\n%s"%(testname,e,bctest.listing))
+        except subprocess.CalledProcessError, e:
+            pytest.fail("%s: %s\n%s" % (testname, e, bctest.listing))
 
         diff = []
         same = []
@@ -261,25 +285,25 @@ class Arch:
             value = bincat[r].value
             if cpu[r] & ~vtop & mask != value & ~vtop & mask:
                 diff.append("- cpu   :  %s = %08x" % (r, cpu[r]))
-                diff.append("+ bincat:  %s = %08x  %r" % (r,value,bincat[r]))
+                diff.append("+ bincat:  %s = %08x  %r" % (r, value, bincat[r]))
                 diff_summary.append(r)
             else:
-                same.append("  both  :  %s = %08x  %r%s" % (r, value,bincat[r], maskstring))
-            allow_top = top_allowed.get(r,0)
+                same.append("  both  :  %s = %08x  %r%s" % (r, value, bincat[r], maskstring))
+            allow_top = top_allowed.get(r, 0)
             if vtop & ~allow_top & mask:
-                diff.append("+ top allowed:  %s = %08x ? %08x" % (r,cpu[r], allow_top))
-                diff.append("+ bincat     :  %s = %08x ? %08x  %r" % (r,value,vtop,bincat[r]))
+                diff.append("+ top allowed:  %s = %08x ? %08x" % (r, cpu[r], allow_top))
+                diff.append("+ bincat     :  %s = %08x ? %08x  %r" % (r, value, vtop, bincat[r]))
                 diff_summary.append("%s(top)" % r)
         assert not diff, ("%s: (%s)" % (testname, ", ".join(diff_summary))
-                          +hline
-                          +bctest.listing
-                          +hline
-                          +"\n".join(diff)
-                          +hline
-                          +"\n".join(same))
+                          + hline
+                          + bctest.listing
+                          + hline
+                          + "\n".join(diff)
+                          + hline
+                          + "\n".join(same))
         diff = []
         diff_summary = []
-        for r,t in reg_taints.iteritems():
+        for r, t in reg_taints.iteritems():
             if bincat[r].taint != t:
                 diff.append("- expected :  %s = %08x ! %08x" % (r, cpu[r], t))
                 diff.append("+ bincat   :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
@@ -287,8 +311,8 @@ class Arch:
             else:
                 same.append("  both     :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
         assert not diff, ("%s: (%s)" % (testname, ", ".join(diff_summary))
-                          +hline
-                          +"\n".join(diff)+"\n=========================\n"+"\n".join(same))
+                          + hline
+                          + "\n".join(diff)+"\n=========================\n"+"\n".join(same))
 
     def assemble(self, tmpdir, asm):
         d = tmpdir.mkdir(self.AS_TMP_DIR.next())
@@ -302,35 +326,32 @@ class Arch:
         s = [l for l in lst.splitlines() if l.startswith(" ")]
         listing = "\n".join(s)
         opcodes = open(str(outf)).read()
-        return listing, str(outf),opcodes
+        return listing, str(outf), opcodes
     def cpu_run(self, tmpdir, opcodesfname):
         eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
         cmd = [eggloader, opcodesfname]
         if self.QEMU:
             cmd = self.QEMU + cmd
         out = subprocess.check_output(cmd)
-        regs = { reg: int(val,16) for reg, val in
-                (l.strip().split("=") for l in out.splitlines()) }
+        regs = {reg: int(val, 16) for reg, val in
+                (l.strip().split("=") for l in out.splitlines())}
         self.extract_flags(regs)
         return regs
 
 
-
-
-##      ___   __ 
-## __ _( _ ) / / 
+##      ___   __
+## __ _( _ ) / /
 ## \ \ / _ \/ _ \
 ## /_\_\___/\___/
 ##
 ## X86
 
-
-
 class X86(Arch):
     NASM_TMP_DIR = counter("nasm-%i")
-    ALL_FLAGS = ["cf","pf", "af", "zf","sf","df","of"]
-    ALL_REGS = ["eax","ebx","ecx","edx", "esi","edi","esp", "ebp"] + ALL_FLAGS
-    EGGLOADER= 'eggloader_x86'
+    ALL_FLAGS = ["cf", "pf", "af", "zf", "sf", "df", "of"]
+    ALL_REGS = ["eax", "ebx", "ecx", "edx", "esi", "edi", "esp", "ebp"] + ALL_FLAGS
+    EGGLOADER = 'eggloader_x86'
+
     def assemble(self, tmpdir, asm):
         d = tmpdir.mkdir(self.NASM_TMP_DIR.next())
         inf = d.join("asm.S")
@@ -338,7 +359,7 @@ class X86(Arch):
         inf.write("BITS 32\n"+asm)
         listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
         opcodes = open(str(outf)).read()
-        return listing,str(outf),opcodes
+        return listing, str(outf), opcodes
 
     def extract_flags(self, regs):
         flags = regs.pop("eflags")
@@ -359,10 +380,9 @@ class X86(Arch):
             if l:
                 s.append("\t"+l)
         return "\n".join(s)
-    
 
 
-##    _   ___ __  __ 
+##    _   ___ __  __
 ##   /_\ | _ \  \/  |
 ##  / _ \|   / |\/| |
 ## /_/ \_\_|_\_|  |_|
@@ -370,8 +390,8 @@ class X86(Arch):
 ## ARM
 
 class ARM(Arch):
-    ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
-                 "r11", "r12", "sp", "lr", "pc", "n", "z", "c", "v"]
+    ALL_REGS = ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
+                "r11", "r12", "sp", "lr", "pc", "n", "z", "c", "v"]
     AS_TMP_DIR = counter("arm-as-%i")
     AS = ["arm-linux-gnueabi-as"]
     OBJCOPY = ["arm-linux-gnueabi-objcopy"]
@@ -386,9 +406,11 @@ class ARM(Arch):
         regs["c"] = (cpsr >> 29) & 1
         regs["v"] = (cpsr >> 28) & 1
 
+
 class Thumb(ARM):
     OBJDUMP = ["arm-linux-gnueabi-objdump", "-m", "arm", "--disassembler-options=force-thumb"]
     EGGLOADER = "eggloader_armv7thumb"
+
     def assemble(self, tmpdir, asm):
         asm = """
            .code 16
@@ -396,20 +418,20 @@ class Thumb(ARM):
         """ + asm
         return ARM.assemble(self, tmpdir, asm)
 
+
 class AARCH64(ARM):
-    ALL_REGS = [ "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10",
-                 "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20",
-                 "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", "sp", 
-                 "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10",
-                 "q11", "q12", "q13", "q14", "q15", "q16", "q17", "q18", "q19", "q20",
-                 "q21", "q22", "q23", "q24", "q25", "q26", "q27", "q28", "q29", "q30", "q31", 
-                 "pc", "n", "z", "c", "v"]
+    ALL_REGS = ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10",
+                "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18", "x19", "x20",
+                "x21", "x22", "x23", "x24", "x25", "x26", "x27", "x28", "x29", "x30", "sp",
+                "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10",
+                "q11", "q12", "q13", "q14", "q15", "q16", "q17", "q18", "q19", "q20",
+                "q21", "q22", "q23", "q24", "q25", "q26", "q27", "q28", "q29", "q30", "q31",
+                "pc", "n", "z", "c", "v"]
     AS = ["aarch64-linux-gnu-as"]
     OBJCOPY = ["aarch64-linux-gnu-objcopy"]
     OBJDUMP = ["aarch64-linux-gnu-objdump", "-m", "aarch64"]
     EGGLOADER = "eggloader_armv8"
     QEMU = ["qemu-aarch64"]
-
 
     def extract_flags(self, regs):
         nzcv = regs.pop("nzcv")
@@ -418,7 +440,6 @@ class AARCH64(ARM):
         regs["c"] = (nzcv >> 29) & 1
         regs["v"] = (nzcv >> 28) & 1
 
-
 ##  ___                    ___  ___
 ## | _ \_____ __ _____ _ _| _ \/ __|
 ## |  _/ _ \ V  V / -_) '_|  _/ (__
@@ -426,12 +447,11 @@ class AARCH64(ARM):
 ##
 ## PowerPC
 
-
 class PowerPC(Arch):
-    ALL_REGS = [ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
-                 "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
-                 "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
-                 "r30", "r31", "lr", "ctr", "cr", "so", "ov", "ca", "tbc" ]
+    ALL_REGS = ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+                "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
+                "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
+                "r30", "r31", "lr", "ctr", "cr", "so", "ov", "ca", "tbc"]
     AS_TMP_DIR = counter("powerpc-as-%i")
     AS = ["powerpc-linux-gnu-as", "-many", "-mpower9", "-mbig"]
     OBJCOPY = ["powerpc-linux-gnu-objcopy"]
