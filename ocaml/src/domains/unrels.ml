@@ -266,8 +266,10 @@ module Make(D: Unrel.T) =
       | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true)))
       | Val m' ->
          USet.fold (fun u (addrs, t) ->
-             let addrs', t' = U.mem_to_addresses u e check_address_validity in
-             Data.Address.Set.union addrs addrs', Taint.Set.add t' t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
+             try
+               let addrs', t' = U.mem_to_addresses u e check_address_validity in
+               Data.Address.Set.union addrs addrs', Taint.Set.add t' t
+             with _ -> addrs, t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
 
     let taint_sources e m check_address_validity =
       match m with

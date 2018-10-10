@@ -85,7 +85,9 @@ struct
            let ids = List.fold_left (fun ids a -> (check_free ip a)::ids) [] addrs' in
            D.weak_deallocate d ids, taint
              
-        | [] -> raise (Exceptions.Error "unexpected empty list of addresses to deallocate")
+        | [] ->
+           let msg = Printf.sprintf "Illegal dereference of %s (null)" (Asm.string_of_lval (args 0) true) in
+           raise (Exceptions.Null_deref msg)
       with
         Exceptions.Too_many_concrete_elements _ ->
           raise (Exceptions.Too_many_concrete_elements "Stubs: too many addresses to deallocate")
@@ -324,6 +326,7 @@ struct
         | Exit -> d, Taint.Set.singleton Taint.U
         | Exceptions.Use_after_free _ as e -> raise e 
         | Exceptions.Double_free -> raise Exceptions.Double_free
+        | Exceptions.Null_deref _ as e  -> raise e
         | e ->
            L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
           L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);

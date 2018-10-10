@@ -605,7 +605,7 @@ module Make(D: T) =
       let addrs = D.to_addresses v in
       (* check whether the address is allowed to be dereferenced *)
       (* could be put elsewhere with a set of forbidden addresses to check (e.g. range of low addresses) *)
-      Data.Address.Set.iter (fun a -> if Data.Address.is_null a then raise Exceptions.Null_deref (Asm.string_of_exp e true))) addrs;
+      Data.Address.Set.iter (fun a -> if Data.Address.is_null a then raise (Exceptions.Null_deref (Asm.string_of_exp e true))) addrs;
       addrs, b
 
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
