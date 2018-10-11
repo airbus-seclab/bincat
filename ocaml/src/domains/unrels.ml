@@ -28,25 +28,7 @@ module Make(D: Unrel.T) =
                         let compare (u1, l1) (u2, l2) =
                           let n = U.total_order u1 u2 in
                           if n<> 0 then n
-                          else
-                            let len1 = List.length l1 in
-                            let len2 = List.length l2 in
-                            let n = len1 - len2 in
-                            if n <> 0 then n
-                            else
-                              begin
-                                let n = ref 0 in
-                                try
-                                  List.map2 (fun id1 id2 ->
-                                      let r = Log.compare_msg_id id1 id2 in
-                                      if r <> 0 then
-                                        begin
-                                          n := r;
-                                          raise Exit
-                                        end) l1 l2;
-                                  !n
-                                with Exit -> !n
-                              end
+                          else Log.compare_msg_id_list l1 l2                     
                       end)
     type t =
       | BOT
@@ -82,20 +64,20 @@ module Make(D: Unrel.T) =
     let string_of_register m r =
       match m with
       | BOT ->  raise (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r)))
-      | Val m' -> USet.fold (fun u acc -> (U.string_of_register u r)^acc) m' ""
+      | Val m' -> USet.fold (fun (u, _) acc -> (U.string_of_register u r)^acc) m' ""
 
     let forget m =
       match m with
       | BOT -> BOT
-      | Val m' -> Val (USet.map U.forget m')
+      | Val m' -> Val (USet.map (fun (u, ids) -> U.forget u, ids) m')
 
     let is_subset m1 m2 =
       match m1, m2 with
       | BOT, _ -> true
       | _, BOT -> false
       | Val m1', Val m2' ->
-         USet.for_all (fun u1 ->
-             USet.exists (fun u2 -> U.is_subset u1 u2) m2') m1'
+         USet.for_all (fun (u1, ids1) ->
+             USet.exists (fun (u2, ids2) -> U.is_subset u1 u2 || Log.compare_msg_id_list ids1 ids2 = 0) m2') m1'
 
     let remove_register r m =
       match m with
