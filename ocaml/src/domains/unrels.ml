@@ -81,7 +81,7 @@ module Make(D: Unrel.T) =
 
     let remove_register r m =
       match m with
-      | Val m' -> Val (USet.map (U.remove_register r) m')
+      | Val m' -> Val (USet.map (fun (u, ids) -> U.remove_register r u, ids) m')
       | BOT -> BOT
 
     let forget_lval lv m check_address_validity =
