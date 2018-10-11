@@ -22,12 +22,19 @@ module L = Log.Make(struct let name = "unrels" end)
 module Make(D: Unrel.T) =
   struct
     module U = Unrel.Make(D)
-    module USet = Set.Make(struct type t = U.t let compare = U.total_order end)
+    module USet = Set.Make(
+                      struct
+                        type t = U.t * (Log.msg_id_t list)
+                        let compare (u1, l1) (u2, l2) =
+                          let n = U.total_order u1 u2 in
+                          if n<> 0 then n
+                          else Log.compare_msg_id l1 l2
+                      end)
     type t =
       | BOT
-      | Val of USet.t
+      | Val of USet.t 
 
-    let init () = Val (USet.singleton U.empty)
+    let init () = Val (USet.singleton (U.empty, [])
                 
     let bot = BOT
             
@@ -40,7 +47,7 @@ module Make(D: Unrel.T) =
       match m with
       | BOT -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register:  environment is empty; can't look up register %s" (Register.name r)))
       | Val m' ->
-         let v = USet.fold (fun u prev ->
+         let v = USet.fold (fun (u, ids) prev ->
                      let v' = U.value_of_register u r in
                      match prev with
                      | None -> Some v'
@@ -117,10 +124,10 @@ module Make(D: Unrel.T) =
       | BOT    -> BOT, Taint.Set.singleton Taint.U
       | Val m' ->
          let taint = ref (Taint.Set.singleton Taint.U) in
-         let m2 = USet.map (fun u ->
+         let m2 = USet.map (fun (u, msg) ->
                       let u', t = U.set dst src u check_address_validity in
                       taint := Taint.Set.add t !taint;
-                      u') m'
+                      u', msg) m'
          in
          Val m2, !taint
 
@@ -128,8 +135,8 @@ module Make(D: Unrel.T) =
     let merge m =
       let ulist = USet.elements m in
       match ulist with
-      | [] -> USet.empty
-      | u::tl -> USet.singleton (List.fold_left (fun acc u -> U.join acc u) u tl)
+      | [] -> USet.empty, ""
+      | u::tl -> USet.singleton (List.fold_left (fun acc (u, _) -> U.join acc u) u tl), ""
                
     let set_lval_to_addr lv addrs m check_address_validity =
       match m with
@@ -143,15 +150,15 @@ module Make(D: Unrel.T) =
          in
          let taint = ref (Taint.Set.singleton Taint.U) in
          let m2 =
-           List.fold_left (fun acc a ->
+           List.fold_left (fun acc (a, msg) ->
                let m' =
-                 USet.map (fun u ->
+                 USet.map (fun (u, msg') ->
                      let u', t = U.set_lval_to_addr lv a u check_address_validity in
                      taint := Taint.Set.add t !taint;
-                     u') m'
+                     u', msg'^msg) m'
                in
                USet.union acc m'
-             ) USet.empty addrs
+             ) USet.empty addrs, ""
          in
          Val m2, !taint
 

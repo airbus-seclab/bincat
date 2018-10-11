@@ -67,8 +67,8 @@ module type T =
       Returns also the taint of the given expression *)
       val set: Asm.lval -> Asm.exp -> t -> t * Taint.Set.t
 
-      (** set the given left value to the given list of addresses *)
-      val set_lval_to_addr: Asm.lval -> Data.Address.t list -> t -> t * Taint.Set.t
+      (** set the given left value to the given list of addresses. The asssociated strings are short messages to explain the meaning of these addresses *)
+      val set_lval_to_addr: Asm.lval -> Data.Address.t * string list -> t -> t * Taint.Set.t
         
       (** joins the two abstract values *)
       val join: t -> t -> t

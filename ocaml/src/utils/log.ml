@@ -200,3 +200,16 @@ let close () =
          Printf.fprintf !logfid "[STOP] stopped on %s\n" (Data.Address.to_string adrs)
   end;
   close_out !logfid
+
+(* message management *)
+type msg_id_t = int
+let compare_msg_id id1 id2 = id1 - id2
+let msg_id_tbl: (msg_id_t, string) Hashtbl.t = Hashtbl.create 5
+let msg_id = ref 0
+           
+let new_msg_id (msg: string): msg_id_t =
+  let id = !msg_id in
+  Hashtbl.add msg_id_tbl id msg;
+  msg_id := !msg_id + 1;
+  id
+let get_msg_id id = Hashtbl.find id
