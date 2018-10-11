@@ -87,12 +87,12 @@ module Make(D: Unrel.T) =
     let forget_lval lv m check_address_validity =
        match m with
       | BOT -> BOT
-      | Val m' -> Val (USet.map (fun u -> U.forget_lval lv u check_address_validity) m')
+      | Val m' -> Val (USet.map (fun (u, ids) -> U.forget_lval lv u check_address_validity, ids) m')
                 
     let add_register r m =
       match m with
-      | BOT -> Val (USet.singleton (U.add_register r (U.empty)))
-      | Val m' -> Val (USet.map (U.add_register r) m')
+      | BOT -> Val (USet.singleton (U.add_register r U.empty), [])
+      | Val m' -> Val (USet.map (fun (u, ids) -> U.add_register r u, ids) m')
 
     let to_string m id =
       match m with
