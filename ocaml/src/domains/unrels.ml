@@ -139,8 +139,8 @@ module Make(D: Unrel.T) =
     let merge m =
       let ulist = USet.elements m in
       match ulist with
-      | [] -> USet.empty, ""
-      | u::tl -> USet.singleton (List.fold_left (fun acc (u, _) -> U.join acc u) u tl), ""
+      | [] -> USet.empty
+      | u::tl -> USet.singleton (List.fold_left (fun acc (u, _) -> U.join acc u) (fst u) tl, [])
                
     let set_lval_to_addr lv addrs m check_address_validity =
       match m with
