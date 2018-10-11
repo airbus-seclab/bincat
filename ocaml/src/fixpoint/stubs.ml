@@ -51,8 +51,8 @@ struct
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
         let ip_str = Data.Address.to_string ip in
-        let success_id = Log.new_msg_id "successful  heap allocation at " ^ ip_str in
-        let failure_id = Log.new_msg_id "heap allocation failed at " ^ ip_str in
+        let success_id = Log.new_msg_id ("successful  heap allocation at " ^ ip_str) in
+        let failure_id = Log.new_msg_id ("heap allocation failed at " ^ ip_str) in
         D.set_lval_to_addr ret [ addr, success_id ; Data.Address.of_null (), failure_id ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
