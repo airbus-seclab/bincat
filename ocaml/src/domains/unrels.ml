@@ -110,7 +110,7 @@ module Make(D: Unrel.T) =
     let value_of_exp m e check_address_validity =
       match m with
       | BOT -> raise (Exceptions.Empty "unrels.value_of_exp: environment is empty")
-      | Val m' -> let v = USet.fold (fun u prev ->
+      | Val m' -> let v = USet.fold (fun (u, _) prev ->
                      let v' = U.value_of_exp u e check_address_validity in
                      match prev with
                      | None -> Some v'
