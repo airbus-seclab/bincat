@@ -28,7 +28,25 @@ module Make(D: Unrel.T) =
                         let compare (u1, l1) (u2, l2) =
                           let n = U.total_order u1 u2 in
                           if n<> 0 then n
-                          else Log.compare_msg_id l1 l2
+                          else
+                            let len1 = List.length l1 in
+                            let len2 = List.length l2 in
+                            let n = len1 - len2 in
+                            if n <> 0 then n
+                            else
+                              begin
+                                let n = ref 0 in
+                                try
+                                  List.map2 (fun id1 id2 ->
+                                      let r = Log.compare_msg_id id1 id2 in
+                                      if r <> 0 then
+                                        begin
+                                          n := r;
+                                          raise Exit
+                                        end) l1 l2;
+                                  !n
+                                with Exit -> !n
+                              end
                       end)
     type t =
       | BOT

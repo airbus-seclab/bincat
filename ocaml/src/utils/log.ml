@@ -204,6 +204,7 @@ let close () =
 (* message management *)
 type msg_id_t = int
 let compare_msg_id id1 id2 = id1 - id2
+let equal_msg_id id1 id2 = id1 = id2
 let msg_id_tbl: (msg_id_t, string) Hashtbl.t = Hashtbl.create 5
 let msg_id = ref 0
            
