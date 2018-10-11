@@ -154,15 +154,15 @@ module Make(D: Unrel.T) =
          in
          let taint = ref (Taint.Set.singleton Taint.U) in
          let m2 =
-           List.fold_left (fun acc (a, msg) ->
+           List.fold_left (fun acc (a, msg_id) ->
                let m' =
-                 USet.map (fun (u, msg') ->
+                 USet.map (fun (u, prev_msg_id) ->
                      let u', t = U.set_lval_to_addr lv a u check_address_validity in
                      taint := Taint.Set.add t !taint;
-                     u', msg'^msg) m'
+                     u', msg_id::prev_msg_id) m'
                in
                USet.union acc m'
-             ) USet.empty addrs, ""
+             ) USet.empty addrs
          in
          Val m2, !taint
 
