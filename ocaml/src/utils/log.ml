@@ -233,4 +233,4 @@ let new_msg_id (msg: string): msg_id_t =
   msg_id := !msg_id + 1;
   id
   
-let get_msg_id id = Hashtbl.find id
+let get_msg_from_id id = Hashtbl.find msg_id_tbl id

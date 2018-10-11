@@ -24,7 +24,7 @@ module Make(D: Unrel.T) =
     module U = Unrel.Make(D)
     module USet = Set.Make(
                       struct
-                        type t = U.t * (Log.msg_id_t list)
+                        type t = U.t * (Log.msg_id_t list) (* be careful: the list is supposed to be a stack *)
                         let compare (u1, l1) (u2, l2) =
                           let n = U.total_order u1 u2 in
                           if n<> 0 then n
@@ -98,7 +98,11 @@ module Make(D: Unrel.T) =
       match m with
       | BOT    -> ["_"]
       | Val m' ->
-         fst (USet.fold (fun u (acc, id') -> (acc @ (Printf.sprintf "\n[node %d - unrel %d]" id id')::(U.to_string u)), id'+1) m' ([], 0))
+         fst (USet.fold (fun (u, msg_ids) (acc, id') ->
+                  let msg =
+                    List.fold_left (fun acc msg_id -> (Log.get_msg_from_id msg_id)^acc) "" msg_ids
+                  in
+                  (Printf.sprintf "\n[node %d - unrel %d]\norigin =  %s\n" id id' msg)::(U.to_string u), id'+1) m' ([], 0))
 
     let imprecise_value_of_exp e =
       raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))
