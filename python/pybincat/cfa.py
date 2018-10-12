@@ -88,11 +88,11 @@ PRETTY_REGIONS = {'': 'global', 'h': 'heap',
                   'b': 'bottom', 't': 'top'}  # used for pointers only
 
 #: split src region + address (left of '=')
-RE_REGION_ADDR = re.compile(r"(?P<region>reg|mem)\s*\[(?P<addr>[^]]+)\]")
+RE_REGION_ADDR = re.compile(r"(?P<region>reg|mem|h)\s*\[(?P<addr>[^]]+)\]")
 #: split value
 
 RE_VALTAINT = re.compile(
-    r"(?P<memreg>[a-zA-Z]?)(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
+    r"(?P<memreg>([a-zA-Z]?|H\d+:))(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
 
 RE_NODE_UNREL = re.compile(
     r"node (?P<nodeid>\d+) - unrel (?P<unrelid>\d+)")
@@ -147,6 +147,7 @@ class CFA(object):
                 filename)
 
         cls.arch = config.get('loader', 'architecture')
+        cls.mem_sz = config.get('program', 'mem_sz')
         # parse taint sources first -- will be used when parsing Node
         # sorting ensures that a node will be parsed before its unrels
         sections = sorted(config.sections(), reverse=True)
@@ -334,8 +335,16 @@ class Value(object):
 
     @classmethod
     def parse(cls, region, s, t, length):
-        if region == "T":
-            value, vtop, vbot = 0, 2**length-1, 0
+        region = region.lower()
+        if region.startswith("h"):
+            # ex. region = "H12:" (decimal)
+            heap_id = int(region[1:-1])
+            # ex. value = 0x1234ABCD -- always hex
+            offset = int(s[2:], 16)
+            length = CFA.mem_sz
+        # unused
+        # if region == "t":
+        #     value, vtop, vbot = 0, 2**length-1, 0
         else:
             value, vtop, vbot = parsers.parse_val(s)
         if type(value) is int and length != 0:
@@ -573,7 +582,7 @@ class Unrel(object):
             if region == "mem":
                 # use memreg as region instead of 'mem'
                 # ex. "s0xabcd, s0xabce" "g0x24*32"
-                # region in ['s', 'g', 'h']
+                # region = ''
                 if '*' in addr:
                     # single repeated value
                     regaddr, l = addr.split('*')
@@ -591,6 +600,8 @@ class Unrel(object):
                     region = region1
                     length = 8
                     # XXX allow non-aligned access (current: assume no overlap)
+            elif region == "h":
+                length = CFA.mem_sz
             elif region == "reg":
                 length = reg_len(addr)
 

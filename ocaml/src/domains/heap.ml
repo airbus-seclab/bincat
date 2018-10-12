@@ -101,7 +101,7 @@ let to_string m =
        fun addr_id status acc ->
          let status' = Status.to_string status in
          let _, sz = Data.Address.get_heap_region addr_id in
-     ("H["^(string_of_int addr_id)^":"^(Z.to_string sz)^"]="^status')::acc
+     ("H"^(string_of_int addr_id)^"[0, "^(Z.to_string sz)^"]="^status')::acc
      ) m' []
 
 let check_status m addr =
