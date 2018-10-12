@@ -285,7 +285,7 @@ module Make(D: Unrel.T) =
     let taint_sources e m check_address_validity =
       match m with
       | BOT -> Taint.Set.singleton Taint.BOT
-      | Val m' ->  USet.fold (fun u t -> Taint.Set.add (U.taint_sources e u check_address_validity) t) m' (Taint.Set.singleton Taint.U)
+      | Val m' ->  USet.fold (fun u t -> Taint.Set.add (U.taint_sources e (fst u) check_address_validity) t) m' (Taint.Set.singleton Taint.U)
 
     let get_offset_from e cmp terminator upper_bound sz m check_address_validity =
         match m with
