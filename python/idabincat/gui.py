@@ -291,7 +291,7 @@ class Meminfo(object):
     def __getitem__(self, idx):
         """ relative get - returns [Value, Value, ...]"""
         abs_addr = self.abs_addr_from_idx(idx)
-        if not abs_addr:
+        if abs_addr is None:
             raise IndexError
         addr_value = cfa.Value(self.region, abs_addr, 32)
         in_range = filter(
@@ -341,7 +341,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
         self.mem_ranges = None
         self.current_region = None
         self.current_range_idx = None
-        #: region name (0-1 letter) -> address
+        #: region name (0+ characters) -> address
         self.last_visited = dict((k, None) for k in cfa.PRETTY_REGIONS.keys())
         self.pretty_to_int_map = \
             dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
@@ -392,7 +392,10 @@ class BinCATMemForm_t(idaapi.PluginForm):
         if self.current_range_idx == crangeidx:
             return
         self.current_range_idx = crangeidx
-        cur_reg = self.pretty_to_int_map[self.region_select.currentText()]
+        pretty_region = self.region_select.currentText()
+        if pretty_region not in self.pretty_to_int_map:
+            self.pretty_to_int_map[pretty_region] = pretty_region  # ex: /h\d+/
+        cur_reg = self.pretty_to_int_map[pretty_region]
         new_range = self.mem_ranges[cur_reg][crangeidx]
         # XXX only create a new Meminfo object on EA change, load ranges from
         # node in Meminfo __init__ ?
@@ -402,6 +405,8 @@ class BinCATMemForm_t(idaapi.PluginForm):
 
     @QtCore.pyqtSlot(str)
     def update_region(self, pretty_region):
+        if pretty_region not in self.pretty_to_int_map:
+            self.pretty_to_int_map[pretty_region] = pretty_region  # ex: /h\d+/
         region = self.pretty_to_int_map[pretty_region]
         self.current_region = region
         self.range_select.blockSignals(True)
@@ -412,7 +417,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
         # find address range idx correponding to last visited addr for
         # region
         newrangeidx = 0
-        lva = self.last_visited[region]
+        lva = self.last_visited.get(region, None)
         if lva is not None:
             for ridx, (start, stop) in enumerate(self.mem_ranges[region]):
                 if lva >= start and lva <= stop:
@@ -1559,7 +1564,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
             regaddr = self.rows[index.row()]
             t = self.s.current_unrel.regtypes.get(regaddr, None)
             if t:
-                return t[0]
+                return t
             return
         elif role != Qt.DisplayRole:
             return
