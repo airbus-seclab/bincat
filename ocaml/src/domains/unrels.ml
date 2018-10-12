@@ -310,7 +310,7 @@ module Make(D: Unrel.T) =
       | Val m' ->
          let res =
            USet.fold (fun u acc ->
-             let len, bytes = U.get_bytes e cmp terminator upper_bound sz u check_address_validity in
+             let len, bytes = U.get_bytes e cmp terminator upper_bound sz (fst u) check_address_validity in
              match acc with
              | None -> Some (len, bytes)
              | Some (len', bytes') ->
