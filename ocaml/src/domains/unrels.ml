@@ -226,9 +226,9 @@ module Make(D: Unrel.T) =
       | BOT -> BOT,  Taint.Set.singleton Taint.BOT
       | Val m' ->
          let m', t' =
-           USet.fold (fun u (m, t) ->
+           USet.fold (fun (u, msgs) (m, t) ->
                let u', t' = f u in
-               USet.add u' m, Taint.Set.add t' t) m' (USet.empty, Taint.Set.singleton Taint.U)
+               USet.add (u', msgs) m, Taint.Set.add t' t) m' (USet.empty, Taint.Set.singleton Taint.U)
          in
          Val m', t'
          
