@@ -102,7 +102,7 @@ module Make(D: Unrel.T) =
                   let msg =
                     List.fold_left (fun acc' msg_id -> (Log.get_msg_from_id msg_id)^acc') "" msg_ids
                   in
-                  (Printf.sprintf "\n[node %d - unrel %d]\norigin =  %s\n" id id' msg)::((U.to_string u)@acc), id'+1
+                  (Printf.sprintf "\n[node %d - unrel %d]\ndescription =  %s" id id' msg)::((U.to_string u)@acc), id'+1
                 ) m' ([], 0)) 
 
     let imprecise_value_of_exp e =
