@@ -1,6 +1,5 @@
 import subprocess
 import os
-import sys
 import inspect
 import pytest
 from collections import defaultdict
@@ -71,9 +70,6 @@ class InitFile:
 
     def __getitem__(self, attr):
         return self.values[attr]
-
-    def update(self, newvalues):
-        self.val.update(newvalues)
 
     def __str__(self):
         v = self.values.copy()
@@ -209,7 +205,7 @@ class Arch:
             taint = bincat[r].taint
             ttop = bincat[r].ttop
             if (value != target_value or vtop != target_vtop
-                or taint != target_taint or ttop != target_ttop):
+                    or taint != target_taint or ttop != target_ttop):
                 diff.append("- target:  %s = %s" %
                             (r, target_str))
                 diff.append("+ bincat:  %s = %s  %r" %
