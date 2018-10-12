@@ -278,7 +278,7 @@ module Make(D: Unrel.T) =
       | Val m' ->
          USet.fold (fun u (addrs, t) ->
              try
-               let addrs', t' = U.mem_to_addresses u e check_address_validity in
+               let addrs', t' = U.mem_to_addresses (fst u) e check_address_validity in
                Data.Address.Set.union addrs addrs', Taint.Set.add t' t
              with _ -> addrs, t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
 
