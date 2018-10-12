@@ -47,7 +47,7 @@ Binaries and configuration files are also provided for the following architectur
 3. From the **IDA View-A** view, go to address `0x93B` using the **g**
    shortcut
 4. Focus the **BinCAT Configuration** pane
-5. Click `<-- Current` to define the start address
+5. Ensure that the Start Address is set to `0x93B`, at the bottom of the panel
 6. Ensure that the **Current config** dropdown is set to **(new)**
 7. Check the **Save configuration to IDB** option
 8. Click the **Edit...** button
@@ -80,9 +80,9 @@ mem[0x300200] = |6c6f6c2100|
 14. Notice that after a few seconds, the analysis has finished running, and the
     background for some of the instructions in the **IDA View-A** view has
     become gray
-15. Switch to the **BinCAT registers** view.
-16. Go to address `0x807` using the **g** shortcut. This instruction is
+15. Go to address `0x807` using the **g** shortcut. This instruction is
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
+16. Switch to the **BinCAT registers** view.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
     should be `0x1D50`).
 17. Open the **BinCAT Memory** view, select the `stack`
