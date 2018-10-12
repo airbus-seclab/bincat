@@ -216,9 +216,9 @@ module Make(D: Unrel.T) =
          let u' =
            match USet.elements mm1, USet.elements mm2 with
                | [], _ | _, [] -> U.empty
-               | u1::_, u2::_ -> U.widen u1 u2
+               | (u1, _)::_, (u2, _)::_ -> U.widen u1 u2
          in
-         Val (USet.singleton u')
+         Val (USet.singleton (u', []))
 
             
     let fold_on_taint m f =
