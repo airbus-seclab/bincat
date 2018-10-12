@@ -255,10 +255,10 @@ module Make(D: Unrel.T) =
       | BOT -> BOT, Taint.Set.singleton Taint.BOT
       | Val m' ->
          let bot = ref false in
-         let mres, t = USet.fold (fun u (m', t) ->
+         let mres, t = USet.fold (fun (u, msgs) (m', t) ->
                         try
                           let ulist', tset' = U.compare u check_address_validity e1 op e2 in
-                          List.fold_left (fun m' u -> USet.add u m') m' ulist', Taint.Set.singleton tset'
+                          List.fold_left (fun m' u -> USet.add (u, msgs) m') m' ulist', Taint.Set.singleton tset'
                           with Exceptions.Empty _ ->
                             bot := true;
                             m', t) m' (USet.empty, Taint.Set.singleton Taint.U) 
