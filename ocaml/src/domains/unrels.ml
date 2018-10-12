@@ -293,7 +293,7 @@ module Make(D: Unrel.T) =
       | Val m' ->
          let res =
            USet.fold (fun u o ->
-               let o' = U.get_offset_from e cmp terminator upper_bound sz u check_address_validity in
+               let o' = U.get_offset_from e cmp terminator upper_bound sz (fst u) check_address_validity in
                match o with
                | None -> Some o'
                | Some o ->
