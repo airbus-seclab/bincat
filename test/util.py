@@ -16,21 +16,22 @@ def counter(fmt="%i", i=0):
 GCC_DIR = counter("gcc-%i")
 
 
-def getReg(my_state, name):
+def getReg(my_node, name):
     v = cfa.Value('reg', name, cfa.reg_len(name))
-    return my_state[v][0]
+    # hardcoded first unrel
+    return my_node.unrels["0"][v][0]
 
 
-def getLastState(prgm):
-    curState = prgm['0']
+def getLastNode(prgm):
+    curNode = prgm['0']
     while True:
-        nextStates = prgm.next_states(curState.node_id)
-        if len(nextStates) == 0:
-            return curState
-        assert len(nextStates) == 1, \
-            ("expected exactly 1 destination state after running this "
-             "instruction (node: %s)" % curState.node_id)
-        curState = nextStates[0]
+        nextNodes = prgm.next_nodes(curNode.node_id)
+        if len(nextNodes) == 0:
+            return curNode
+        assert len(nextNodes) == 1, \
+            ("expected exactly 1 destination node after running this "
+             "instruction (node: %s)" % curNode.node_id)
+        curNode = nextNodes[0]
 
 
 class Bincat:
@@ -46,10 +47,11 @@ class Bincat:
         self.outf = str(outf)
 
         self.cfa = cfa.CFA.from_filenames(str(inif), str(outf), str(logf))
-        self.last_state = getLastState(self.cfa)
+        self.last_node = getLastNode(self.cfa)
 
     def last_reg(self, regname):
-        return getReg(self.last_state, regname)
+        return getReg(self.last_node, regname)
+
 
 class InitFile:
     def __init__(self, fname, values={}, directives={}):
@@ -180,7 +182,7 @@ class Arch:
             bctest.run()
         except Exception, e:  # hack to add test name in the exception
             pytest.fail("%s: %r\n%s" % (testname, e, bctest.listing))
-        return {reg: getReg(bctest.result.last_state, reg) for reg in self.ALL_REGS}
+        return {reg: getReg(bctest.result.last_node, reg) for reg in self.ALL_REGS}
 
 
     def check(self, tmpdir, asm, regs, bctest=None):

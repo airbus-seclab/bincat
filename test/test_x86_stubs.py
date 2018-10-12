@@ -84,8 +84,8 @@ def test_sprintf_num(tmpdir, val, fmt, mod, zeropad, sz):
     bc.run()
 
     expected = fmtstr % val
-    
-    assert expected == bc.result.last_state.get_string("",0x100), (repr(fmtstr)+"\n"+bc.listing)
+
+    assert expected == bc.result.last_node.get_string("", 0x100), (repr(fmtstr)+"\n"+bc.listing)
     assert len(expected) == bc.result.last_reg("eax").value, (repr(fmtstr)+"\n"+bc.listing)
 
 
@@ -108,8 +108,8 @@ def test_sprintf_string(tmpdir, val, numl, numr):
     bc.run()
 
     expected = fmtstr % val
-    
-    assert expected == bc.result.last_state.get_string("",0x100), (repr(fmtstr)+"\n"+bc.listing)
+
+    assert expected == bc.result.last_node.get_string("", 0x100), (repr(fmtstr)+"\n"+bc.listing)
     assert len(expected) == bc.result.last_reg("eax").value, (repr(fmtstr)+"\n"+bc.listing)
 
 
@@ -127,7 +127,7 @@ def test_memcpy_call(tmpdir, src):
     bc.initfile.set_mem(0x10000, "\0"*100)
     bc.run()
 
-    assert src == bc.result.last_state.get_string("",0x10000), (repr(src)[:20]+"\n"+bc.listing)
+    assert src == bc.result.last_node.get_string("", 0x10000), (repr(src)[:20]+"\n"+bc.listing)
     assert 0x10000 == bc.result.last_reg("eax").value, (repr(src)[:20]+"\n"+bc.listing)
     
 @pytest.mark.parametrize("src",["", "TEST", "X"*41])
@@ -145,5 +145,5 @@ def test_memcpy_push_ret(tmpdir, src):
     bc.initfile.set_mem(0x10000, "\0"*100)
     bc.run()
 
-    assert src == bc.result.last_state.get_string("",0x10000), (repr(src)[:20]+"\n"+bc.listing)
+    assert src == bc.result.last_node.get_string("", 0x10000), (repr(src)[:20]+"\n"+bc.listing)
     assert 0x10000 == bc.result.last_reg("eax").value, (repr(src)[:20]+"\n"+bc.listing)
