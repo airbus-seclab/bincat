@@ -385,9 +385,9 @@ module Make(D: Unrel.T) =
        | BOT -> Log.Stdout.stdout (fun p -> p "_"); 0, BOT
        | Val m' ->
           match USet.elements m' with
-          | [u] ->
+          | [(u, msg)] ->
              let len, u' = U.print_until u e terminator term_sz upper_bound with_exception pad_options check_address_validity in
-             len, Val (USet.singleton u')
+             len, Val (USet.singleton (u', msg))
           | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_until: implemented only for one unrel only")
 
     let copy_chars m dst src nb pad_options check_address_validity =
