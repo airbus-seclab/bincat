@@ -409,8 +409,8 @@ module Make(D: Unrel.T) =
              | Val dst' -> dst'
              | BOT -> USet.empty
            in
-           Val (USet.fold (fun u1 acc ->
-                    let acc' = USet.map (fun u2 -> U.copy_register r u1 u2) src' in
+           Val (USet.fold (fun (u1,  msg1) acc ->
+                    let acc' = USet.map (fun (u2, _) -> U.copy_register r u1 u2, msg1) src' in
                     USet.union acc' acc)
                   dst' USet.empty)
          end
