@@ -357,7 +357,7 @@ module Make(D: Unrel.T) =
              
     let print m arg sz check_address_validity =
       match m with
-      | Val m' -> USet.iter (fun u -> U.print u arg sz check_address_validity) m'; m
+      | Val m' -> USet.iter (fun (u, _) -> U.print u arg sz check_address_validity) m'; m
       | BOT -> Log.Stdout.stdout (fun p -> p "_"); m
 
     let print_hex m src nb capitalise pad_option word_sz check_address_validity =
