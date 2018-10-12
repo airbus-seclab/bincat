@@ -183,7 +183,7 @@ module Make(D: Unrel.T) =
       let bot = ref false in
       let add_one_meet m u1 u2 =
         try
-          USet.add (U.meet u1 u2) m
+          USet.add (U.meet (fst u1) (fst u2), []) m
         with Exceptions.Empty _ ->
           bot := true;
           m
