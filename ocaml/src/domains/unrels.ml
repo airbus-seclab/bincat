@@ -365,9 +365,9 @@ module Make(D: Unrel.T) =
       | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "Unrels.print_hex: environment is empty")
       | Val m' ->
          match USet.elements m' with
-         | [u] ->
+         | [(u, msg)] ->
             let u', len = U.print_hex u src nb capitalise pad_option word_sz check_address_validity in
-            Val (USet.singleton u'), len
+            Val (USet.singleton (u', msg)), len
          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
 
     let copy_until m dst e terminator term_sz upper_bound with_exception pad_options check_address_validity =
@@ -375,9 +375,9 @@ module Make(D: Unrel.T) =
        | BOT -> 0, BOT
        | Val m' ->
           match USet.elements m' with
-          | [u] ->
+          | [(u, msg)] ->
              let len, u' = U.copy_until u dst e terminator term_sz upper_bound with_exception pad_options check_address_validity in
-             len, Val (USet.singleton u')
+             len, Val (USet.singleton (u', msg))
          | _ -> raise (Exceptions.Too_many_concrete_elements "U.copy_until: implemented only for one unrel only")
 
     let print_until m e terminator term_sz upper_bound with_exception pad_options check_address_validity =
