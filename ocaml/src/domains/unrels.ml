@@ -100,7 +100,7 @@ module Make(D: Unrel.T) =
       | Val m' ->
          fst (USet.fold (fun (u, msg_ids) (acc, id') ->
                   let msg =
-                    List.fold_left (fun acc' msg_id -> (Log.get_msg_from_id msg_id)^acc') "" msg_ids
+                    List.fold_left (fun acc' msg_id -> (Log.get_msg_from_id msg_id)^", "^acc') "" msg_ids
                   in
                   (Printf.sprintf "\n[node %d - unrel %d]\ndescription =  %s" id id' msg)::((U.to_string u)@acc), id'+1
                 ) m' ([], 0)) 
@@ -138,6 +138,7 @@ module Make(D: Unrel.T) =
 
     (* auxiliary function that will join all set elements *)
     let merge m =
+      L.info2 (fun p -> p "threshold on unrel number is exceeded: merging all the unrels into one (join)");
       let ulist = USet.elements m in
       match ulist with
       | [] -> USet.empty
@@ -150,7 +151,7 @@ module Make(D: Unrel.T) =
          let m' =
            (* check if resulting size would not exceed the kset bound *)
            if (USet.cardinal m') + (List.length addrs) > !Config.kset_bound then
-             merge m'
+               merge m'
            else m'
          in
          let taint = ref (Taint.Set.singleton Taint.U) in

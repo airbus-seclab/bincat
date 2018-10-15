@@ -243,7 +243,7 @@ module Make(D: T) =
       coleasce_to_strs m non_itv
 
     (***************************)
-    (** Memory access function *)
+    (* Memory access function  *)
     (***************************)
 
     (* Helper to get an array of addresses : base..(base+nb-1) *)
