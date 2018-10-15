@@ -60,6 +60,7 @@ If you also want to run bincat tests, install the following packages, and run th
 * aarch64-linux-gnu-gcc
 * arm-linux-gnueabihf-gcc (from AUR)
 * arm-linux-gnueabihf-gcc (from AUR)
+* powerpc-linux-gnu-gcc (from AUR)
 * qemu-arch-extra
 ```
 ln -s /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/arm-linux-gnueabi-gcc

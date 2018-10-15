@@ -88,11 +88,11 @@ PRETTY_REGIONS = {'': 'global', 'h': 'heap',
                   'b': 'bottom', 't': 'top'}  # used for pointers only
 
 #: split src region + address (left of '=')
-RE_REGION_ADDR = re.compile(r"(?P<region>reg|mem|h)\s*\[(?P<addr>[^]]+)\]")
+RE_REGION_ADDR = re.compile(r"(?P<region>reg|mem|h[0-9]+)\[(?P<addr>[^]]+)\]")
 #: split value
 
 RE_VALTAINT = re.compile(
-    r"(?P<memreg>([a-zA-Z]?|H\d+:))(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
+    r"(?P<memreg>([a-zA-Z]?|[hH]\d+))-?(?P<value>0[xb][0-9a-fA-F_?]+)(!(?P<taint>\S+)|)?")
 
 RE_NODE_UNREL = re.compile(
     r"node (?P<nodeid>\d+) - unrel (?P<unrelid>\d+)")
@@ -293,7 +293,7 @@ class Node(object):
             # v0.7+ format, not tainted
             tainted = False
             taintsrc = []
-        elif taintedstr.startswith("_"):  # XXX == "_"
+        elif taintedstr == "_":
             # v1.0 format, tainted = BOT
             tainted = True
             taintsrc = ["t-" + str(maxtaintsrcid)]
@@ -336,17 +336,7 @@ class Value(object):
     @classmethod
     def parse(cls, region, s, t, length):
         region = region.lower()
-        if region.startswith("h"):
-            # ex. region = "H12:" (decimal)
-            heap_id = int(region[1:-1])
-            # ex. value = 0x1234ABCD -- always hex
-            offset = int(s[2:], 16)
-            length = CFA.mem_sz
-        # unused
-        # if region == "t":
-        #     value, vtop, vbot = 0, 2**length-1, 0
-        else:
-            value, vtop, vbot = parsers.parse_val(s)
+        value, vtop, vbot = parsers.parse_val(s)
         if type(value) is int and length != 0:
             value &= 2**length-1
             vtop &= 2**length-1
@@ -516,13 +506,12 @@ class Unrel(object):
 
     example valtaints: 0x1234 0x12!0xF0 0x12!ALL
     """
-    __slots__ = ['_regaddrs', '_regtypes', '_outputkv', 'unrel_id']
+    __slots__ = ['_regaddrs', '_regtypes', '_outputkv', 'unrel_id', 'description']
 
     def __init__(self, unrel_id):
         #: Value -> [Value]. Either 1 value, or a list of 1-byte Values.
         self._regaddrs = {}
         #: Value -> "type"
-        self._regtypes = {}
         self._regaddrs = None
         self._regtypes = None
         self._outputkv = None
@@ -568,6 +557,9 @@ class Unrel(object):
         self._regaddrs = {}
         self._regtypes = {}
         for k, v in self._outputkv.iteritems():
+            if k == "description":
+                self.description = k
+                continue
             if k.startswith("t-"):
                 typedata = True
                 k = k[2:]
@@ -585,11 +577,11 @@ class Unrel(object):
                 # region = ''
                 if '*' in addr:
                     # single repeated value
-                    regaddr, l = addr.split('*')
+                    regaddr, repeat = addr.split('*')
                     length = 8
                     m = RE_VALTAINT.match(regaddr)
                     region, addr = m.group('memreg'), m.group('value')
-                    v = ', '.join([v] * int(l))
+                    v = ', '.join([v] * int(repeat))
                 else:
                     regaddr1, regaddr2 = addr.split(', ')
                     m = RE_VALTAINT.match(regaddr1)
@@ -600,8 +592,10 @@ class Unrel(object):
                     region = region1
                     length = 8
                     # XXX allow non-aligned access (current: assume no overlap)
-            elif region == "h":
-                length = CFA.mem_sz
+            elif region and region[0] == "h":
+                # ignore for now -- indicates whether this Heap region has been
+                # allocated or freed
+                continue
             elif region == "reg":
                 length = reg_len(addr)
 
@@ -609,7 +603,10 @@ class Unrel(object):
             concat_value = []
             regaddr = Value.parse(region, addr, '0', 0)
             if typedata:
-                self._regtypes[regaddr] = v.split(', ')
+                if regaddr in self._regtypes:
+                    self._regtypes[regaddr] += " - " + v
+                else:
+                    self._regtypes[regaddr] = v
                 continue
             if (v, length) not in CFA._valcache:
                 # add to cache
@@ -623,6 +620,13 @@ class Unrel(object):
                     strval = m.group("value")
                     taint = m.group("taint")
                     new_value = Value.parse(memreg, strval, taint, length)
+                    if new_value.region:
+                        if regaddr in self._regtypes:
+                            self._regtypes[regaddr] = (
+                                "region %s - %s" % (new_value.region,
+                                                    self._regtypes[regaddr]))
+                        else:
+                            self._regtypes[regaddr] = "region " + new_value.region
                     # concatenate
                     concat_value.append(new_value)
 
@@ -630,6 +634,7 @@ class Unrel(object):
                 CFA._valcache[(v, length)] = off_vals
             for val in CFA._valcache[(v, length)]:
                 self._regaddrs[regaddr] = val
+
         del self._outputkv
 
     def __getitem__(self, item):
