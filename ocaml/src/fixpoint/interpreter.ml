@@ -268,8 +268,8 @@ struct
                d', taint'
                
             | Directive (Stub (fun_name, call_conv)) as stub_statement ->
-               L.info2(fun p -> p "Processing %s" fun_name);
-              let d', taint', cleanup_stmts = Stubs.process ip d fun_name call_conv in
+               let _, _, v, _ = List.hd !fun_stack in
+              let d', taint', cleanup_stmts = Stubs.process ip v.Cfa.State.ip d fun_name call_conv in
               let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (stub_statement :: cleanup_stmts) true));
                                List.fold_left (fun (d, t) stmt -> let dd, tt = process_value ip d stmt fun_stack node_id in
                                                                   dd, Taint.Set.union t tt) (d', taint') cleanup_stmts in
@@ -386,22 +386,22 @@ struct
 
       in
       let add_to_fun_stack a =
-    begin
+        begin
         try
           let n' = (Hashtbl.find fun_unroll_tbl a) + 1 in
           if n' <= !Config.fun_unroll then
           Hashtbl.replace fun_unroll_tbl a n'
           else
-        L.abort (fun p -> p "function at %s has been analysed more than %d times. Analysis stops" (Data.Address.to_string a) !Config.fun_unroll)
-      with Not_found -> Hashtbl.add fun_unroll_tbl a 1
-    end;
-    let f =
+            L.abort (fun p -> p "function at %s has been analysed more than %d times. Analysis stops" (Data.Address.to_string a) !Config.fun_unroll)
+        with Not_found -> Hashtbl.add fun_unroll_tbl a 1
+        end;
+        let f =
           try
             Some (Hashtbl.find Config.import_tbl (Data.Address.to_int a))
           with Not_found -> None
-    in
-    fun_stack := (f, ip, v, !unroll_tbl)::!fun_stack;
-    unroll_tbl := Hashtbl.create 1000
+        in
+        fun_stack := (f, ip, v, !unroll_tbl)::!fun_stack;
+        unroll_tbl := Hashtbl.create 1000
       in
       let copy v d branch is_pred =
     (* TODO: optimize with Cfa.State.copy that copies every field and then here some are updated => copy them directly *)
@@ -703,10 +703,10 @@ struct
               !Config.max_instruction_size (Data.Address.to_string v.Cfa.State.ip) ) in
             begin
             match r with
-            | Some (v, ip', d') ->
+            | Some (v', ip', d') ->
                Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
-              let new_vertices = update_abstract_value g v (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
+              let new_vertices = update_abstract_value g v' (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
             (* add overrides if needed *)
            let new_vertices =
          try

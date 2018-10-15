@@ -22,14 +22,14 @@ module type T =
 sig
   type domain_t
 
-  val process : Data.Address.t -> domain_t -> string -> Asm.calling_convention_t ->
+  val process : Data.Address.t -> Data.Address.t -> domain_t -> string -> Asm.calling_convention_t ->
     domain_t * Taint.Set.t * Asm.stmt list
 
   val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.Set.t * Asm.stmt list
     
   val init: unit -> unit
 
-  val stubs : (string, (Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
+  val stubs : (string, (Data.Address.t -> Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
 
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 end
@@ -42,7 +42,7 @@ struct
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let heap_allocator (ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
+    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
       try
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
         let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
@@ -50,8 +50,8 @@ struct
         let d' = D.allocate_on_heap d id in
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
-        let ip_str = Data.Address.to_string ip in
-        let success_id = Log.new_msg_id ("successful  heap allocation at " ^ ip_str) in
+        let ip_str = Data.Address.to_string calling_ip in
+        let success_id = Log.new_msg_id ("successful heap allocation at " ^ ip_str) in
         let failure_id = Log.new_msg_id ("heap allocation failed at " ^ ip_str) in
         D.set_lval_to_addr ret [ (addr, success_id) ; (Data.Address.of_null (), failure_id) ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
@@ -73,7 +73,7 @@ struct
                   (Data.Address.to_string ip)
                   (Data.Address.to_string a)))
            
-    let heap_deallocator (ip: Data.Address.t) (d: domain_t) _ret args: domain_t * Taint.Set.t =
+    let heap_deallocator (ip: Data.Address.t) _ (d: domain_t) _ret args: domain_t * Taint.Set.t =
       let mem = Asm.Lval (args 0) in
       try
         let addrs, taint = D.mem_to_addresses d mem in
@@ -95,7 +95,7 @@ struct
         Exceptions.Too_many_concrete_elements _ ->
           raise (Exceptions.Too_many_concrete_elements "Stubs: too many addresses to deallocate")
       
-    let strlen (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
+    let strlen (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
       let zero = Asm.Const (Data.Word.zero 8) in
       let len = D.get_offset_from (Asm.Lval (args 0)) Asm.EQ zero 10000 8 d in
       if len > !Config.unroll then
@@ -105,7 +105,7 @@ struct
         end;
       D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d
 
-    let memcpy (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.Set.t =
+    let memcpy (_ip: Data.Address.t) _ (d: domain_t) ret args : domain_t * Taint.Set.t =
       L.info (fun p -> p "memcpy stub");
       let dst = Asm.Lval (args 0) in
       let src = Asm.Lval (args 1) in
@@ -116,7 +116,7 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
-    let memset (_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
+    let memset (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
       let arg0 = args 0 in
       let dst = Asm.Lval arg0 in
       let src = args 1 in
@@ -286,19 +286,19 @@ struct
            L.exc_and_abort e (fun p -> p "address of the null terminator in the format string in (s)printf not found")
 
 
-    let sprintf (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.Set.t =
+    let sprintf (_ip: Data.Address.t) _ (d: domain_t) ret args : domain_t * Taint.Set.t =
       let dst = Asm.Lval (args 0) in
       let format_addr = Asm.Lval (args 1) in
       let  va_args = shift args 2 in
       print d ret format_addr va_args (Some dst)
 
-    let sprintf_chk (_ip: Data.Address.t) (d: domain_t) ret args : domain_t * Taint.Set.t =
+    let sprintf_chk (_ip: Data.Address.t) _ (d: domain_t) ret args : domain_t * Taint.Set.t =
       let dst = Asm.Lval (args 0) in
       let format_addr = Asm.Lval (args 3) in
       let va_args = shift args 4 in
       print d ret format_addr va_args (Some dst)
 
-    let printf (_ip: Data.Address.t) d ret args =
+    let printf (_ip: Data.Address.t) _ d ret args =
         (* TODO: not optimal as buffer destination is built as for sprintf *)
       let format_addr = Asm.Lval (args 0) in
       let va_args = shift args 1 in
@@ -306,9 +306,9 @@ struct
       let d', is_tainted = print d ret format_addr va_args None in
       d', is_tainted
 
-    let printf_chk (ip: Data.Address.t) d ret args = printf ip d ret (shift args 1)
+    let printf_chk (ip: Data.Address.t) calling_ip d ret args = printf ip calling_ip d ret (shift args 1)
 
-    let puts (_ip: Data.Address.t) d ret args =
+    let puts (_ip: Data.Address.t) _ d ret args =
       let str = Asm.Lval (args 0) in
       L.info (fun p -> p "puts output:");
       let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
@@ -318,13 +318,13 @@ struct
 
     let stubs = Hashtbl.create 5
 
-    let process ip d fun_name call_conv : domain_t * Taint.Set.t * Asm.stmt list =
+    let process ip calling_ip d fun_name call_conv : domain_t * Taint.Set.t * Asm.stmt list =
       let apply_f, arg_nb =
         try Hashtbl.find stubs fun_name
         with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name)
       in
       let d', taint =
-        try apply_f ip d call_conv.Asm.return call_conv.Asm.arguments
+        try apply_f ip calling_ip d call_conv.Asm.return call_conv.Asm.arguments
         with
         | Exit -> d, Taint.Set.singleton Taint.U
         | Exceptions.Use_after_free _ as e -> raise e 
