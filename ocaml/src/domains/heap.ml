@@ -34,6 +34,7 @@ module Status =
          
     let leq s1 s2 =
       match s1, s2 with
+      | TOP, TOP
       | A, A
       | F, F
       | A, TOP
