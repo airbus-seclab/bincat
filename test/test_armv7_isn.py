@@ -70,6 +70,10 @@ def test_mov_reg(tmpdir):
 @dataop_mov
 def test_shifted_register_lsl_imm_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
+            # clear carry
+            mov r0, #0
+            adds r0, r0, r0
+
             mov r0, #{armv7op}
             {op}s r1, r0, lsl #{armv7shift}
     """.format(**locals())
@@ -79,6 +83,10 @@ def test_shifted_register_lsl_imm_shift(tmpdir, op, armv7op, armv7shift):
 @dataop_mov
 def test_shifted_register_lsl_reg_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
+            # clear carry
+            mov r0, #0
+            adds r0, r0, r0
+
             mov r0, #{armv7op}
             mov r1, #{armv7shift}
             {op}s r2, r0, lsl r1
@@ -89,6 +97,10 @@ def test_shifted_register_lsl_reg_shift(tmpdir, op, armv7op, armv7shift):
 @dataop_mov
 def test_shifted_register_lsr_imm_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
+            # clear carry
+            mov r0, #0
+            adds r0, r0, r0
+
             mov r0, #{armv7op}
             {op}s r1, r0, lsr #{armv7shift}
     """.format(**locals())
@@ -98,6 +110,10 @@ def test_shifted_register_lsr_imm_shift(tmpdir, op, armv7op, armv7shift):
 @dataop_mov
 def test_shifted_register_lsr_reg_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
+            # clear carry
+            mov r0, #0
+            adds r0, r0, r0
+
             mov r0, #{armv7op}
             mov r1, #{armv7shift}
             {op}s r2, r0, lsr r1
@@ -108,6 +124,10 @@ def test_shifted_register_lsr_reg_shift(tmpdir, op, armv7op, armv7shift):
 @dataop_mov
 def test_shifted_register_lsr_imm_32(tmpdir, op, armv7op):
     asm = """
+            # clear carry
+            mov r0, #0
+            adds r0, r0, r0
+
             mov r0, #{armv7op}
             {op}s r1, r0, lsr #32
     """.format(**locals())
@@ -116,6 +136,10 @@ def test_shifted_register_lsr_imm_32(tmpdir, op, armv7op):
 @dataop_mov
 def test_shifted_register_lsr_reg_32(tmpdir, op, armv7op):
     asm = """
+            # clear carry
+            mov r0, #0
+            adds r0, r0, r0
+
             mov r0, #{armv7op}
             mov r1, #32
             {op}s r2, r0, lsr r1
