@@ -76,8 +76,8 @@ module Make(D: Unrel.T) =
       | BOT, _ -> true
       | _, BOT -> false
       | Val m1', Val m2' ->
-         USet.for_all (fun (u1, ids1) ->
-             USet.exists (fun (u2, ids2) -> U.is_subset u1 u2 || Log.compare_msg_id_list ids1 ids2 = 0) m2') m1'
+         USet.for_all (fun (u2, ids2) ->
+             USet.exists (fun (u1, ids1) -> U.is_subset u1 u2 && Log.compare_msg_id_list ids1 ids2 = 0) m1') m2'
 
     let remove_register r m =
       match m with
