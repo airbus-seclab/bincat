@@ -53,7 +53,7 @@ module Status =
       match s1, s2 with
       | A, A -> A
       | F, F -> F
-      | BOT, s | s, BOT -> s
+      | BOT, s | s, BOT -> BOT
       | TOP, s | s, TOP -> s
       | _, _ -> BOT  
   end
