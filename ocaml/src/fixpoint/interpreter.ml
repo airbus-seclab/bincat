@@ -997,7 +997,7 @@ struct
             let new_vertices' = List.map (unroll g v) new_vertices in
             let vertices' = filter_vertices false g new_vertices' in
             List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
-            continue := not (Vertices.is_empty !waiting)
+            continue := not (Vertices.is_empty !waiting);
           done;
           g
         with

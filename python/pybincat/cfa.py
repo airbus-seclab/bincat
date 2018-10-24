@@ -293,7 +293,8 @@ class Node(object):
             # v0.7+ format, not tainted
             tainted = False
             taintsrc = []
-        elif taintedstr == "_":
+        elif taintedstr.startswith("_"):  # XXX == "_":
+            # XXX "tainted=__" should not happen -- awaiting bugfix
             # v1.0 format, tainted = BOT
             tainted = True
             taintsrc = ["t-" + str(maxtaintsrcid)]
