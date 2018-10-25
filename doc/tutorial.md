@@ -85,9 +85,7 @@ mem[0x300200] = |6c6f6c2100|
 16. Switch to the **BinCAT registers** view.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
     should be `0x1D50`).
-17. Open the **BinCAT Memory** view, select the `stack`
-    section in the first drop-down menu at the top of the panel (`global` is
-    selected by default), then scroll the the `0x1D50` address,
+17. Open the **BinCAT Memory** view, scroll the the `0x1D50` address,
     to observe the contents of the `buffer` pointer (`char *`) where `sprintf`
     results will be output (the value should be `0x1DEC`)
 18. Advance to the next instruction at address `0x80C`, and observe the
@@ -113,7 +111,8 @@ This tutorial shows how to taint a register, and observe taint propagation.
    memory range is indeed tainted: both the ASCII and hexadecimal
    representations of this string are displayed as green text
 4. In the **IDA View-A** view, notice that some instructions are displayed
-   against a green background, since they manipulate tainted data
+   against a non-gray background (green, blue, ...), since they manipulate
+   tainted data
 5. Go to address `0x9E6` (`push eax`). Observe that `eax` is partially tainted
 6. Advance to the next instruction at address `0x9E7`. Notice that `eax` has
    been pushed to the stack, where its taint and value have been copied
