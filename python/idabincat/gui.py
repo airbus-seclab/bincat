@@ -313,7 +313,7 @@ class Meminfo(object):
             return ""
         t = self.unrel.regtypes.get(addr_value, None)
         if t:
-            return t[0]
+            return t
         return ""
 
     def abs_addr_from_idx(self, idx):
