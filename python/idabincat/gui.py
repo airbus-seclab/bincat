@@ -1113,7 +1113,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         splitter2.addWidget(self.node_select)
 
         # Unrel id label
-        self.unrellabel = QtWidgets.QLabel('Unrel:')
+        self.unrellabel = QtWidgets.QLabel('Path:')
         splitter2.addWidget(self.unrellabel)
 
         # Unrel combobox
@@ -1219,7 +1219,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
                     self.node_select.setCurrentIndex(idx)
             for idx, unrel_id in enumerate(unrel_ids):
                 self.unrel_select.addItem(
-                    unrel_id + ' (%d other unrels)' % (len(unrel_ids)-1))
+                    unrel_id + ' (%d other paths)' % (len(unrel_ids)-1))
                 if str(unrel_id) == self.s.current_unrel.unrel_id:
                     self.unrel_select.setCurrentIndex(idx)
             self.node_select.setEnabled(len(node_ids) != 1)
