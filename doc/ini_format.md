@@ -2,12 +2,18 @@
 
 ## Foreword
 
-BinCAT basically takes `.ini` files as input. The ini format varies quite often
+BinCAT takes `.ini` files as input. The ini format varies quite often
 as we introduce new features, so it has a format version, defined in the
 `[analyzer]` section, in the `ini_version` key.
 
 This documentation is *partial*, the only reference is the parser code in
 `parser.mly`.
+
+Example files are provided:
+* for x86, see [get_key_x86.ini](examples/get_key_x86.ini)
+* for armv7, see [get_key_armv7.ini](examples/get_key_armv7.ini)
+* for armv8, see [get_key_armv8.ini](examples/get_key_armv8.ini)
+* for powerpc, see [get_key_powerpc.ini](examples/get_key_powerpc.ini)
 
 ## Sections
 
