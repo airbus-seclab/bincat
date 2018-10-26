@@ -146,7 +146,9 @@ class ConfigHelpers(object):
             idaapi.CM_CC_MANUAL: "manual",
         }[compiler_info.cm & idaapi.CM_CC_MASK]
         # XXX
-        if cc not in ("stdcall", "cdecl", "fastcall"):
+        if ConfigHelpers.get_arch() == "powerpc" and ida_db_info_structure.abiname == "sysv":
+            return "svr"
+        elif cc not in ("stdcall", "cdecl", "fastcall"):
             return "stdcall"
         else:
             return cc
@@ -311,16 +313,20 @@ class ConfigHelpers(object):
         return [["mem", "0x1000*8192", "|00|?0xFF"]]
 
     @staticmethod
-    def get_arch(entrypoint):
+    def get_arch(entrypoint=0):
         procname = idaapi.get_inf_structure().procName.lower()
         if procname == "metapc":
             return "x86"
+        if procname == "ppc":
+            return "powerpc"
         elif procname.startswith("arm"):
             segment_size = ConfigHelpers.get_segment_size(entrypoint)
             if segment_size == 32:
                 return "armv7"
             else:
                 return "armv8"
+        bc_log.error("Unknown architecture")
+        return None
 
 
 class InitialState(object):
