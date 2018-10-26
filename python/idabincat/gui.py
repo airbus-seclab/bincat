@@ -832,7 +832,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             self.s.remap_binary = False
             self.s.edit_config.binary_filepath = "%s" % ConfigHelpers.guess_file_path()
 
-        # XXX copy?
         self.s.current_config = self.s.edit_config
 
         self.s.start_analysis()
