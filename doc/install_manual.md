@@ -14,8 +14,7 @@
 * IDA >= 6.9 (for the plugin)
 
 #### Installing linux packages
-All these dependencies except ida and newspeak are usually packaged by linux
-distributions.
+All these dependencies except IDA are usually packaged by linux distributions.
 
 ##### on Debian Sid:
 ```
@@ -24,7 +23,7 @@ apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
   ocaml-compiler-libs libppx-tools-ocaml-dev cppo
 ```
 
-##### on Ubuntu 16.04:
+##### on Ubuntu 18.04:
 Enable the `universe` repository.
 ```
 apt install make python python-pip python-setuptools python-dev python-pytest \
@@ -36,6 +35,7 @@ apt install make python python-pip python-setuptools python-dev python-pytest \
 If you also want to run bincat tests, install the following packages:
 * gcc-aarch64-linux-gnu
 * gcc-arm-linux-gnueabi
+* gcc-powerpc-linux-gnu
 * qemu
 
 ##### on Archlinux:
@@ -99,7 +99,6 @@ make doc
 ```
 
 ### OCaml compilation
-If messages indicating that the `-fPIC` must be used, update your OCaml installation to 4.02.3.
 
 ## Install (macOS)
 **Warning**: the authors do not use macOS anymore, and thus do not test this
