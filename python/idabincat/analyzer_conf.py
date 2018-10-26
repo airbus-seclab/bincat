@@ -237,6 +237,9 @@ class ConfigHelpers(object):
         if not name:
             imports[ea] = (module, ordinal)
         else:
+            # Remove @@GLIBC... suffix
+            if "@@" in name:
+                name = name.split('@@')[0]
             imports[ea] = (module, name)
         return True
 
