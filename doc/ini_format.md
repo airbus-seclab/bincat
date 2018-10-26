@@ -52,7 +52,7 @@ they will behave as if they are empty.
     registers.
 
 For example: `fun_skip=kill(2)` will skip calls to `kill`, which has 2
-arguments. To specifiy also its return value to be 0, then add `fun_skip =
+arguments. To specify also its return value to be 0, then add `fun_skip =
 kill(2, 0)`.
 
 ### nop
