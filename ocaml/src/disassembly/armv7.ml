@@ -595,7 +595,7 @@ struct
       if is_imm then
         let shift = (instruction lsr 8) land 0xf in
         let imm = instruction land 0xff in
-        const (ror32 imm (2*shift)) 32, [ Set( V (T cflag), const ((imm lsr (2*shift-1)) land 1) 0)]
+        const (ror32 imm (2*shift)) 32, [ Set( V (T cflag), const ((imm lsr (2*shift-1)) land 1) 1)]
       else
         let shift_op = (instruction lsr 4) land 0xff in
         let rm = instruction land 0xf in
