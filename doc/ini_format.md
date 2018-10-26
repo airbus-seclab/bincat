@@ -78,7 +78,7 @@ format = elf
 load_elf_coredump = "core_get_key_x86"
 ```
 
-BinCAT will load the inital state from the specified core file.
+BinCAT will load the initial state from the specified core file.
 
 ## State syntax
 

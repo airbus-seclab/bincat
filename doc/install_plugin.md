@@ -10,7 +10,7 @@
 
 ##### python requests module
 
-If you are running ida7: ensure that the python `requests` module is installed. Use `pip2` or a distribution-provided package.
+If you are running ida 7: ensure that the python `requests` module is installed. Use `pip2` or a distribution-provided package.
 
 If you are running ida 6.9 with bundled python: manually install requests.
 ```

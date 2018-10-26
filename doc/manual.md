@@ -18,7 +18,7 @@ See [README](../README.md#installation).
 ### Start an analysis
 In the **IDA View-A** view, go to the instruction you want the analysis to
 start from. Then, you should:
-1. Use configuration pane to set the inital state and start adress
+1. Use configuration pane to set the initial state and start address
 2. Start the analysis from:
   * the "Start" button
   * the context menu (right click in **IDA View-A**), then select the

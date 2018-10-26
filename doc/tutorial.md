@@ -85,7 +85,7 @@ mem[0x300200] = |6c6f6c2100|
 16. Switch to the **BinCAT registers** view.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
     should be `0x1D50`).
-17. Open the **BinCAT Memory** view, scroll the the `0x1D50` address,
+17. Open the **BinCAT Memory** view, scroll to the `0x1D50` address,
     to observe the contents of the `buffer` pointer (`char *`) where `sprintf`
     results will be output (the value should be `0x1DEC`)
 18. Advance to the next instruction at address `0x80C`, and observe the

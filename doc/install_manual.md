@@ -107,7 +107,7 @@ procedure anymore. If you run into problems on macOS, we recommend running
 bincat in a linux virtual machine, or in a docker container (build procedure
 provided in docker/Dockerfile).
 
-By default non initialized external symobols are not exported by `ranlib`.
+By default non initialized external symbols are not exported by `ranlib`.
 Hence some symbols in `_caml_table` are not exported which results in a link
 failure.
 To avoid this, run the following command:
