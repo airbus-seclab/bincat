@@ -22,7 +22,6 @@ import os
 import logging
 import string
 import re
-from colorsys import hsv_to_rgb
 import idaapi
 import idautils
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -321,7 +320,7 @@ class Meminfo(object):
         convert idx relative to meminfo start to physical addr
         """
         if idx < 0 or idx > self.length:
-            return
+            return None
         return idx+self.start
 
 
