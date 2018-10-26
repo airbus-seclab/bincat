@@ -734,14 +734,12 @@ class State(object):
         # give up
         return None
 
-    def start_analysis(self, config_str=None):
+    def start_analysis(self):
         """
         Creates new temporary dir. File structure:
         input files: init.ini, cfain.marshal
         output files: out.ini, cfaout.marshal
         """
-        if config_str:
-            self.current_config = AnalyzerConfig.load_from_str(config_str)
         binary_filepath = self.guess_filepath()
         if not binary_filepath:
             bc_log.error(
@@ -842,7 +840,7 @@ class State(object):
         """
         Re-run analysis, taking new overrides settings into account
         """
-        if self.start_analysis is None:
+        if self.current_config is None:
             # XXX upload all required files in Web Analyzer
             # XXX Store all required files in IDB
             bc_log.error(

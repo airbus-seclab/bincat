@@ -618,8 +618,6 @@ class AnalyzerConfig(object):
         parser.readfp(sio)
         return AnalyzerConfig(parser)
 
-    # Output functions: save config to a file, or the IDB (for a given
-    # address, or as default)
     def write(self, filepath):
         # OCaml can only handle "local" encodings for file name
         # So, ugly code following
