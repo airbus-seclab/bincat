@@ -148,6 +148,8 @@ class ConfigHelpers(object):
         # XXX
         if ConfigHelpers.get_arch() == "powerpc" and ida_db_info_structure.abiname == "sysv":
             return "svr"
+        if ConfigHelpers.get_arch().startswith('arm'):
+            return "aapcs"
         elif cc not in ("stdcall", "cdecl", "fastcall"):
             return "stdcall"
         else:
@@ -337,15 +339,15 @@ class ConfigHelpers(object):
         return [["mem", "0x1000*8192", "|00|?0xFF"]]
 
     @staticmethod
-    def get_arch(entrypoint=0):
-        procname = idaapi.get_inf_structure().procName.lower()
+    def get_arch():
+        info = idaapi.get_inf_structure()
+        procname = info.procName.lower()
         if procname == "metapc":
             return "x86"
         if procname == "ppc":
             return "powerpc"
         elif procname.startswith("arm"):
-            segment_size = ConfigHelpers.get_segment_size(entrypoint)
-            if segment_size == 32:
+            if info.is_32bit():
                 return "armv7"
             else:
                 return "armv8"
@@ -370,7 +372,7 @@ class InitialState(object):
                 else:
                     self.mem.append(InitialState.mem_init_parse(k, v))
         else:
-            arch = ConfigHelpers.get_arch(entrypoint)
+            arch = ConfigHelpers.get_arch()
             self.regs = ConfigHelpers.get_registers_with_state(arch)
             self.mem = ConfigHelpers.get_initial_mem(arch)
 
@@ -685,7 +687,7 @@ class AnalyzerConfig(object):
         config.set('program', 'op_sz', ConfigHelpers.get_stack_width())
         config.set('program', 'stack_width', ConfigHelpers.get_stack_width())
 
-        arch = ConfigHelpers.get_arch(analysis_start_va)
+        arch = ConfigHelpers.get_arch()
         config.set('program', 'architecture', arch)
 
         input_file = ConfigHelpers.guess_file_path()
