@@ -276,6 +276,13 @@ class ConfigHelpers(object):
                 return 128
             if reg in ['n', 'z', 'c', 'v']:
                 return 1
+        elif arch == 'powerpc':
+            if reg in ['so', 'ov', 'ca']:
+                return 1
+            elif reg == 'tbc':
+                return 7
+            else
+                return 32
         return None
 
     @staticmethod
