@@ -283,7 +283,7 @@ class ConfigHelpers(object):
                 return 1
             elif reg == 'tbc':
                 return 7
-            else
+            else:
                 return 32
         return None
 
