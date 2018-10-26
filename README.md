@@ -61,10 +61,10 @@ The analyzer can be used locally or through a Web service.
 
 On Linux:
 * Using Docker: [Docker installation instructions](doc/install_docker.md)
-* Manual: [building and installation instructions](doc/install_manual.md)
+* Manual: [build and installation instructions](doc/install_manual.md)
 
 On Windows:
-* [building and installation instructions](doc/windows_build.md)
+* [build instructions](doc/windows_build.md)
 
 #### IDA Plugin
 
