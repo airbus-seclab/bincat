@@ -1,4 +1,4 @@
-## Install (Linux / macOS)
+## Building & Install (Linux / macOS)
 ### Dependencies
 
 * ocaml >= 4.03 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)

@@ -40,7 +40,8 @@ Supported CPU for analysis (for now):
 
 ### Binary distribution install (recommended)
 
-The [binary distribution](https://github.com/airbus-seclab/bincat/releases) includes everything needed:
+The [binary distribution](https://github.com/airbus-seclab/bincat/releases)
+includes everything needed:
 
 * the analyzer
 * the IDA plugin
@@ -60,7 +61,10 @@ The analyzer can be used locally or through a Web service.
 
 On Linux:
 * Using Docker: [Docker installation instructions](doc/install_docker.md)
-* Manual: [Manual installation instructions](doc/install_manual.md)
+* Manual: [building and installation instructions](doc/install_manual.md)
+
+On Windows:
+* [building and installation instructions](doc/windows_build.md)
 
 #### IDA Plugin
 
