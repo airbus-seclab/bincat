@@ -162,6 +162,12 @@ class ConfigHelpers(object):
         return {0: 16, 1: 32, 2: 64}[bitness]
 
     @staticmethod
+    def get_endianness():
+        ida_db_info_structure = idaapi.get_inf_structure()
+        return "big" if ida_db_info_structure.is_be() else "little"
+
+
+    @staticmethod
     def get_stack_width():
         ida_db_info_structure = idaapi.get_inf_structure()
         if ida_db_info_structure.is_64bit():
@@ -306,6 +312,14 @@ class ConfigHelpers(object):
             regs.append(["c", "0", "1", ""])
             regs.append(["v", "0", "1", ""])
             regs.append(["xzr", "0", "", ""])
+        elif arch == "powerpc":
+            for i in range(31):
+                regs.append(["r%d" % i, "0", "0xFFFFFFFF", ""])
+            for reg in ['lr', 'ctr', 'cr']:
+                regs.append([reg, "0", "0xFFFFFFFF", ""])
+            for reg in ['so', 'ov', 'ca']:
+                regs.append([reg, "0", "1", ""])
+            regs.append(["tbc", "0", "0x7F", ""])
         return regs
 
     @staticmethod
@@ -745,6 +759,13 @@ class AnalyzerConfig(object):
                 # remove segment registers
                 for seg_reg in ('cs', 'ds', 'ss', 'es', 'fs', 'gs'):
                     config.remove_option('x86', seg_reg)
+        elif arch == "powerpc":
+            try:
+                config.add_section(arch)
+            except ConfigParser.DuplicateSectionError:
+                # already exists in (arch,OS)-specific config
+                pass
+            config.set('powerpc', 'endianness', ConfigHelpers.get_endianness())
 
         # [libc section]
         # config.add_section('libc')
