@@ -781,8 +781,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             analysis_method = "backward"
         return analysis_method
 
-    def launch_analysis(self):
-        bc_log.info("Launching the analyzer")
+    def _update_edit_config(self):
         try:
             start_addr = int(self.ip_start_addr.text(), 16)
         except ValueError as e:
@@ -797,6 +796,12 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.s.edit_config.analysis_ep = start_addr
         self.s.edit_config.stop_address = stop_addr
         self.s.edit_config.analysis_method = analysis_method
+
+    def launch_analysis(self):
+        bc_log.info("Launching the analyzer")
+
+        # Update start_addr/stop_addr/method
+        self._update_edit_config()
 
         # always save config under "(last used)" slot
         self._save_config("(last used)")
@@ -943,6 +948,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
     # callback when the "edit" button is clicked
     def _edit_config(self):
+        # Update start_addr/stop_addr/method
+        self._update_edit_config()
         editdlg = EditConfigurationFileForm_t(self.parent, self.s)
         if editdlg.exec_() == QtWidgets.QDialog.Accepted:
             self.update_from_edit_config()
