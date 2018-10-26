@@ -118,8 +118,8 @@ class BincatPlugin(idaapi.plugin_t):
         info = idaapi.get_inf_structure()
         # IDA 6/7 compat
         procname = info.procname if hasattr(info, 'procname') else info.get_proc_name()[0]
-        if procname != 'metapc' and procname != 'ARM':
-            bc_log.info("Not on a supported CPU, not loading BinCAT")
+        if procname != 'metapc' and procname != 'ARM' and procname != 'PPC':
+            bc_log.info("CPU '%s' is not supported, not loading BinCAT", procname)
             return idaapi.PLUGIN_SKIP
         try:
             from pybincat import cfa as cfa_module
