@@ -32,6 +32,7 @@ Supported CPU for analysis (for now):
 * x86-32
 * ARMv7
 * ARMv8
+* PowerPC
 
 ## Installation
 
