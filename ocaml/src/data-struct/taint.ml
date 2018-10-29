@@ -242,3 +242,15 @@ let to_string t =
      SrcSet.fold (fun src acc -> (Src.to_string src)^", "^acc) srcs ""
 
 module Set = Set.Make (struct type aux_t = t type t = aux_t let compare = total_order end) 
+
+let string_of_set s =
+  let s' = Set.fold (fun s acc -> logor s acc) s U in
+  to_string s'
+  (*
+  Set.fold (fun srcs acc ->
+             let str_taint = to_string srcs in
+             if String.compare str_taint "" = 0 then
+               acc
+             else str_taint^"; "^acc) s' ""
+
+   *)
