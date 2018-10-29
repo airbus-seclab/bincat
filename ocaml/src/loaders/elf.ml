@@ -148,6 +148,7 @@ let make_mapped_mem filepath entrypoint =
       -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
     | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT
       -> glob_dat_reloc (Z.of_int (!Config.address_sz/8))
+    | R_386_TLS_TPOFF
     | R_386_32 -> obj_reloc (Z.of_int (!Config.external_symbol_max_size))
     | R_386_PC32 -> obj_reloc_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_386_RELATIVE -> (fun _ _ _ -> ())
