@@ -739,7 +739,7 @@ struct
             L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
 
           | Exceptions.Use_after_free msg as e ->
-             L.exc e (fun p -> p "possible use after free detected here: %s" msg);
+            L.exc e (fun p -> p "possible use after free in alloc %s, at: %s" msg (Data.Address.to_string v.Cfa.State.ip));
             dump g;
             L.abort (fun p -> p "analysis stopped")
 
