@@ -341,7 +341,8 @@ struct
     let print_ip s =
       let bytes = List.fold_left (fun s c -> s ^" " ^ (Printf.sprintf "%02x" (Char.code c))) "" s.bytes in
       Printf.fprintf f "[node = %d]\naddress = %s\nbytes =%s\nfinal =%s\ntainted=%s\n" s.id
-        (Data.Address.to_string s.ip) bytes (string_of_bool s.final) (Taint.Set.fold (fun src acc -> (Taint.to_string src)^acc) s.taint_sources "");
+        (Data.Address.to_string s.ip) bytes (string_of_bool s.final)
+        (Taint.string_of_set s.taint_sources);
       if !Config.loglevel > 2 then
         begin
           Printf.fprintf f "statements =";
