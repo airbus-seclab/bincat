@@ -27,6 +27,7 @@ import binascii
 import logging
 from collections import namedtuple
 
+from PyQt5 import QtGui
 from PyQt5.QtGui import QColor
 from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QBrush
@@ -84,7 +85,7 @@ class HexItemDelegate(QStyledItemDelegate):
         self.char_hint = QtCore.QSize(dc.idealWidth()-dc.documentMargin(), 22)
         self._model = model
 
-    def get_pixmap(self, txt, hl, rect):
+    def get_pixmap(self, txt, hl, rect, brush):
         """
         store pixmap cache. Switch to LRU cache if too much memory is used.
         """
@@ -99,7 +100,7 @@ class HexItemDelegate(QStyledItemDelegate):
             # introduced in revision 731562b77ece9301f61de6626432891dfc34ba91
             pixmap.fill(QColor.fromRgb(48, 140, 198))
         else:
-            pixmap.fill(Qt.white)
+            pixmap.fill(brush.color())
 
         doc = QTextDocument()
         doc.setHtml(txt)
@@ -117,7 +118,7 @@ class HexItemDelegate(QStyledItemDelegate):
 
         pixmap = self.get_pixmap(option.text,
                                  option.state & QStyle.State_Selected,
-                                 option.rect)
+                                 option.rect, option.backgroundBrush)
 
         qpainter.translate(option.rect.left(), option.rect.top())
         qpainter.drawPixmap(0, 0, pixmap)
@@ -189,7 +190,7 @@ class HexTableModel(QAbstractTableModel):
     def data(self, index, role):
         if not index.isValid():
             return None
-        if role != Qt.ToolTipRole and role != Qt.DisplayRole:
+        if role not in (Qt.ToolTipRole, Qt.DisplayRole, Qt.BackgroundRole):
             return None
 
         elif index.row() == (self._rowcount-1):
@@ -213,7 +214,17 @@ class HexTableModel(QAbstractTableModel):
             else:
                 return self._meminfo.char(bindex)
         else:
-            return self._meminfo.get_type(bindex)
+            t = self._meminfo.get_type(bindex)
+            if role == Qt.ToolTipRole:
+                return t
+            else:
+                if t:
+                    if t.startswith("region "):
+                        return QtGui.QBrush(Qt.lightGray)
+                    else:
+                        return QtGui.QBrush(QtGui.QColor(0xad, 0xd8, 0xe6))
+                else:
+                    return QtGui.QBrush(Qt.white)
 
     @property
     def data_length(self):

@@ -397,11 +397,14 @@ class Value(object):
             return self
 
         mask = (1 << newlen)-1
+        newval = self.value + other
+        if mask:
+            newval = newval & mask
         # XXX clear value where top or bottom mask is not null
         # XXX complete implementation
 
         return self.__class__(self.region,
-                              (self.value+other) & mask,
+                              newval,
                               newlen,
                               self.vtop, self.vbot, self.taint,
                               self.ttop, self.tbot)
@@ -605,7 +608,7 @@ class Unrel(object):
             regaddr = Value.parse(region, addr, '0', 0)
             if typedata:
                 if regaddr in self._regtypes:
-                    self._regtypes[regaddr] += " - " + v
+                    self._regtypes[regaddr] += " -- " + v
                 else:
                     self._regtypes[regaddr] = v
                 continue
@@ -622,12 +625,13 @@ class Unrel(object):
                     taint = m.group("taint")
                     new_value = Value.parse(memreg, strval, taint, length)
                     if new_value.region:
-                        if regaddr in self._regtypes:
-                            self._regtypes[regaddr] = (
-                                "region %s - %s" % (new_value.region,
-                                                    self._regtypes[regaddr]))
+                        curregaddr = regaddr + idx
+                        regstr = "region " + new_value.region
+                        if curregaddr in self._regtypes:
+                            self._regtypes[curregaddr] = (
+                                regstr + " - " + self._regtypes[curregaddr])
                         else:
-                            self._regtypes[regaddr] = "region " + new_value.region
+                            self._regtypes[curregaddr] = regstr
                     # concatenate
                     concat_value.append(new_value)
 
@@ -637,6 +641,19 @@ class Unrel(object):
                 self._regaddrs[regaddr] = val
 
         del self._outputkv
+
+    def getregtype(self, item):
+        """
+        :param item: Value (address)
+        Return str
+        """
+        if type(item) is str:
+            # register, used for debugging (ex. human input from IDA)
+            item = Value('reg', item, '0', 0)
+        if type(item) is not Value:
+            raise KeyError
+        if item in self.regtypes:
+            return self.regtypes[item]
 
     def __getitem__(self, item):
         """
@@ -654,9 +671,9 @@ class Unrel(object):
             for addr in self.regaddrs:
                 if addr.region != item.region:
                     continue
-                vlist = self.regaddrs[addr]
                 if item.value < addr.value:
                     continue
+                vlist = self.regaddrs[addr]
                 if addr.value + len(vlist) > item.value:
                     return vlist[item.value-addr.value:]
             raise IndexError(item)

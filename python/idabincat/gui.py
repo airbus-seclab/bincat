@@ -310,7 +310,7 @@ class Meminfo(object):
             lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
         if not in_range:
             return ""
-        t = self.unrel.regtypes.get(addr_value, None)
+        t = self.unrel.getregtype(addr_value)
         if t:
             return t
         return ""
@@ -1567,9 +1567,18 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                     return self.default_font
         elif role == Qt.ToolTipRole:
             regaddr = self.rows[index.row()]
-            t = self.s.current_unrel.regtypes.get(regaddr, None)
+            t = self.s.current_unrel.getregtype(regaddr)
             if t:
                 return t
+            return
+        elif role == Qt.BackgroundRole:
+            regaddr = self.rows[index.row()]
+            t = self.s.current_unrel.getregtype(regaddr)
+            if t:
+                if t.startswith("region "):
+                    return QtGui.QBrush(Qt.lightGray)
+                else:
+                    return QtGui.QBrush(QtGui.QColor(0xad, 0xd8, 0xe6))
             return
         elif role != Qt.DisplayRole:
             return
