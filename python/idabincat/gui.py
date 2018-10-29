@@ -1070,10 +1070,10 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
     This form displays the values of tainted registers
     """
 
-    def __init__(self, state, vtmodel):
+    def __init__(self, state, regsinfo_model):
         super(BinCATRegistersForm_t, self).__init__()
         self.s = state
-        self.vtmodel = vtmodel
+        self.regsinfo_model = regsinfo_model
         self.shown = False
         self.created = False
         self.rvatxt = ""
@@ -1131,28 +1131,28 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         splitter2.setStretchFactor(2, 0)
         splitter2.setStretchFactor(3, 1)
 
-        # Value Taint Table
-        self.vttable = QtWidgets.QTableView(self.parent)
-        self.vttable.setItemDelegate(RegisterItemDelegate())
-        self.vttable.setSortingEnabled(True)
-        self.vttable.setModel(self.vtmodel)
-        self.vttable.setShowGrid(False)
-        self.vttable.verticalHeader().setVisible(False)
-        self.vttable.verticalHeader().setSectionResizeMode(
+        # Registers Info Table
+        self.regs_table = QtWidgets.QTableView(self.parent)
+        self.regs_table.setItemDelegate(RegisterItemDelegate())
+        self.regs_table.setSortingEnabled(True)
+        self.regs_table.setModel(self.regsinfo_model)
+        self.regs_table.setShowGrid(False)
+        self.regs_table.verticalHeader().setVisible(False)
+        self.regs_table.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.vttable.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.vttable.customContextMenuRequested.connect(
+        self.regs_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.regs_table.customContextMenuRequested.connect(
             self._handle_context_menu_requested)
         # width from the model are not respected, not sure why...
-        for idx, w in enumerate(self.vtmodel.colswidths):
-            self.vttable.setColumnWidth(idx, w)
+        for idx, w in enumerate(self.regsinfo_model.colswidths):
+            self.regs_table.setColumnWidth(idx, w)
 
-        self.vttable.horizontalHeader().setSectionResizeMode(
+        self.regs_table.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.vttable.horizontalHeader().setStretchLastSection(True)
-        self.vttable.horizontalHeader().setMinimumHeight(36)
+        self.regs_table.horizontalHeader().setStretchLastSection(True)
+        self.regs_table.horizontalHeader().setMinimumHeight(36)
 
-        layout.addWidget(self.vttable, 2, 0)
+        layout.addWidget(self.regs_table, 2, 0)
 
         layout.setRowStretch(2, 0)
 
@@ -1261,19 +1261,19 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
             self.nextnodes_combo.blockSignals(False)
 
     def _handle_context_menu_requested(self, qpoint):
-        menu = QtWidgets.QMenu(self.vttable)
+        menu = QtWidgets.QMenu(self.regs_table)
         add_override = QtWidgets.QAction(
-            "Add override", self.vttable)
+            "Add override", self.regs_table)
         add_override.triggered.connect(
-            lambda: self._add_override(self.vttable.indexAt(qpoint)))
+            lambda: self._add_override(self.regs_table.indexAt(qpoint)))
         menu.addAction(add_override)
         # add header height to qpoint, else menu is misplaced. not sure why...
         qpoint2 = qpoint + \
-            QtCore.QPoint(0, self.vttable.horizontalHeader().height())
-        menu.exec_(self.vttable.mapToGlobal(qpoint2))
+            QtCore.QPoint(0, self.regs_table.horizontalHeader().height())
+        menu.exec_(self.regs_table.mapToGlobal(qpoint2))
 
     def _add_override(self, index):
-        regname = self.vtmodel.rows[index.row()].value
+        regname = self.regsinfo_model.rows[index.row()].value
         mask, res = QtWidgets.QInputDialog.getText(
             None,
             "Add override for %s" % regname,
@@ -1468,14 +1468,14 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
 
-class ValueTaintModel(QtCore.QAbstractTableModel):
+class RegistersInfoModel(QtCore.QAbstractTableModel):
     """
     Used as model in BinCATRegistersForm TableView widgets.
 
     Contains tainting and values for registers
     """
     def __init__(self, state, *args, **kwargs):
-        super(ValueTaintModel, self).__init__(*args, **kwargs)
+        super(RegistersInfoModel, self).__init__(*args, **kwargs)
         self.s = state
         self.headers = ["register", "value"]
         self.colswidths = [90, 90]
@@ -1527,7 +1527,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
         self.changed_rows = set()
         if node and unrel:
             self.rows = filter(lambda x: x.region == "reg", unrel.regaddrs)
-            self.rows = sorted(self.rows, key=ValueTaintModel.rowcmp)
+            self.rows = sorted(self.rows, key=RegistersInfoModel.rowcmp)
 
             # find parent nodes
             parents = [nodeid for nodeid in self.s.cfa.edges
@@ -1539,7 +1539,7 @@ class ValueTaintModel(QtCore.QAbstractTableModel):
                         if k in self.rows:
                             self.changed_rows.add(self.rows.index(k))
 
-        super(ValueTaintModel, self).endResetModel()
+        super(RegistersInfoModel, self).endResetModel()
 
     def headerData(self, section, orientation, role):
         if orientation != Qt.Horizontal:
@@ -1983,10 +1983,10 @@ class GUI(object):
         Instanciate BinCAT views
         """
         self.s = state
-        self.vtmodel = ValueTaintModel(state)
+        self.regsinfo_model = RegistersInfoModel(state)
         self.configregmodel = InitConfigRegModel(state)
         self.configmemmodel = InitConfigMemModel(state)
-        self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.vtmodel)
+        self.BinCATRegistersForm = BinCATRegistersForm_t(state, self.regsinfo_model)
         self.BinCATConfigForm = BinCATConfigForm_t(
             state, self.configregmodel, self.configmemmodel)
         self.BinCATDebugForm = BinCATDebugForm_t(state)
@@ -2060,11 +2060,11 @@ class GUI(object):
         self.BinCATConfigForm.Show()
 
     def before_change_ea(self):
-        self.vtmodel.beginResetModel()
+        self.regsinfo_model.beginResetModel()
 
     def after_change_ea(self):
         self.BinCATRegistersForm.update_current_ea(self.s.current_ea)
-        self.vtmodel.endResetModel()
+        self.regsinfo_model.endResetModel()
         self.BinCATDebugForm.update(self.s.current_node)
         self.BinCATMemForm.update_current_ea(self.s.current_ea)
 
@@ -2077,7 +2077,7 @@ class GUI(object):
         self.BinCATDebugForm.Close(idaapi.PluginForm.FORM_SAVE)
         self.BinCATMemForm.Close(idaapi.PluginForm.FORM_SAVE)
         self.BinCATOverridesForm.Close(idaapi.PluginForm.FORM_SAVE)
-        self.vtmodel = None
+        self.regsinfo_model = None
         self.overrides_model = None
         self.configurations_model = None
         idaapi.unregister_action("bincat:show_windows")
