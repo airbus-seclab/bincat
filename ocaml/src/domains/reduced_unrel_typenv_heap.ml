@@ -146,7 +146,7 @@ module Make(D: Unrel.T) =
   let widen (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.widen uenv1 uenv2, T.widen tenv1 tenv2, H.widen henv1 henv2
 
   let set_memory_from_config a c n (uenv, tenv, henv) =
-    let uenv', taint = U.set_memory_from_config a c n uenv in
+    let uenv', taint = U.set_memory_from_config a c n uenv (H.check_status henv) in
     (uenv', tenv, henv), taint
 
   let set_register_from_config register (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv) =

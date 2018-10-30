@@ -16,6 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+module L = Log.Make(struct let name = "heap" end)
+         
 module Status =
   struct
     type t =
@@ -113,9 +115,16 @@ let check_status m addr =
        | Data.Address.Heap (id, _), _ ->
           let status = Map.find id m' in
           if status <> Status.A then
-            raise (Exceptions.Use_after_free (Data.Address.to_string addr))
+            begin
+              let str_addr = Data.Address.to_string addr in
+              L.error (fun p -> p "Use after free on pointer %s" str_addr); 
+              raise (Exceptions.Use_after_free str_addr)
+            end
        | _ -> ()
-     with _ -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
+              with _ ->
+                let str_addr = Data.Address.to_string addr in
+                L.error (fun p -> p"Use after free on pointer %s"str_addr); 
+                raise (Exceptions.Use_after_free str_addr)
 
 let fold apply m1 m2 =
    match m1, m2 with

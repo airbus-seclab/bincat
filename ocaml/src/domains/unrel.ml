@@ -377,7 +377,8 @@ module Make(D: T) =
 
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
        _endianness_. _strong_ means strong update *)
-    let write_in_memory ?endianness addr domain value sz strong  =
+    let write_in_memory ?endianness addr domain value sz strong check_address_validity =
+      check_address_validity addr;
       let endianness' = match endianness with
         | None -> !Config.endianness
         | Some x -> x in
@@ -574,7 +575,7 @@ module Make(D: T) =
          let v, _b = eval_exp m' e check_address_validity in
          let addrs = D.to_addresses v in
          let l     = Data.Address.Set.elements addrs in
-         List.fold_left (fun m a ->  write_in_memory a m D.top n true) m' l
+         List.fold_left (fun m a ->  write_in_memory a m D.top n true check_address_validity) m' l
 
 
     let val_restrict m e1 _v1 cmp _e2 v2: t list =
@@ -661,8 +662,8 @@ module Make(D: T) =
         let l     = Data.Address.Set.elements addrs in
         let t' = Taint.logor b b' in
         match l with
-        | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true, t'
-        | l   -> (* weak update *) List.fold_left (fun m a ->  write_in_memory a m v' dst_sz false) m' l, t'
+        | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true check_address_validity, t'
+        | l   -> (* weak update *) List.fold_left (fun m a -> write_in_memory a m v' dst_sz false check_address_validity) m' l, t'
       with
       | Exceptions.Too_many_concrete_elements "unrel.set" -> Env.empty, Taint.TOP
 
@@ -693,7 +694,8 @@ module Make(D: T) =
            | Asm.M (e, n) ->
               try
                 set_to_memory e n v' m' b check_address_validity
-              with _ -> raise (Exceptions.Empty "Unrel.set (register case)"), Taint.BOT
+              with
+              | _ -> raise (Exceptions.Empty "Unrel.set (memory case)")
 
     let join m1' m2' =
       try Env.map2 D.join m1' m2'
@@ -784,7 +786,7 @@ module Make(D: T) =
       Env.replace k v' m', taint
 
 
-    let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb domain': t * Taint.t =
+    let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb check_address_validity domain': t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");  
       let taint_srcs = extract_taint_src_ids taint in          
       let m', taint, sz =
@@ -820,7 +822,7 @@ module Make(D: T) =
                | Config.Bytes _ | Config.Bytes_Mask (_, _) -> Config.BIG
                | _ -> !Config.endianness
              in
-             write_in_memory ~endianness:endianness addr domain' v' sz true , taint, sz
+             write_in_memory ~endianness:endianness addr domain' v' sz true check_address_validity, taint, sz
       in
       List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
                              Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
@@ -983,7 +985,7 @@ module Make(D: T) =
          let m', _ =
            List.fold_left (fun (m', i) byte ->
          let a' = Data.Address.add_offset a (Z.of_int i) in
-           (write_in_memory a' m' byte 8 strong), i+1) (m', 0) bytes
+           (write_in_memory a' m' byte 8 strong check_address_validity), i+1) (m', 0) bytes
          in
          m'
        in
@@ -1110,7 +1112,7 @@ module Make(D: T) =
                | _, Taint.U -> D.span_taint r src_tainted
                | _, _ -> D.taint r
              in
-             write (write_in_memory dst m' v' 8 true) (Z.add o Z.one)
+             write (write_in_memory dst m' v' 8 true check_address_validity) (Z.add o Z.one)
            else
              m'
          in
@@ -1132,8 +1134,8 @@ module Make(D: T) =
       let v = fst (eval_exp m' arg check_address_validity) in
       let addrs = fst (eval_exp m' dst check_address_validity) in
       match Data.Address.Set.elements (D.to_addresses addrs) with
-      | [a] -> write_in_memory a m' v sz true
-      | _::_ as l -> List.fold_left (fun m a -> write_in_memory a m v sz false) m' l
+      | [a] -> write_in_memory a m' v sz true check_address_validity
+      | _::_ as l -> List.fold_left (fun m a -> write_in_memory a m v sz false check_address_validity) m' l
       | [ ] -> raise (Exceptions.Empty "Unrel.copy")
     
 

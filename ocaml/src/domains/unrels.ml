@@ -124,18 +124,7 @@ module Make(D: Unrel.T) =
            | None -> imprecise_value_of_exp e
            | Some v' -> v'
 
-    let set dst src m check_address_validity: (t * Taint.Set.t) =
-      match m with
-      | BOT    -> BOT, Taint.Set.singleton Taint.U
-      | Val m' ->
-         let taint = ref (Taint.Set.singleton Taint.U) in         
-         let m2 = USet.map (fun (u, msg) ->
-                      let u', t = U.set dst src u check_address_validity in
-                      taint := Taint.Set.add t !taint;
-                      u', msg) m'
-         in
-         Val m2, !taint
-
+                             
     (* auxiliary function that will join all set elements *)
     let merge m =
       L.info2 (fun p -> p "threshold on unrel number is exceeded: merging all the unrels into one (join)");
@@ -143,6 +132,30 @@ module Make(D: Unrel.T) =
       match ulist with
       | [] -> USet.empty
       | u::tl -> USet.singleton (List.fold_left (fun acc (u, _) -> U.join acc u) (fst u) tl, [])
+               
+    let set dst src m check_address_validity: (t * Taint.Set.t) =
+      match m with
+      | BOT    -> BOT, Taint.Set.singleton Taint.BOT
+      | Val m' ->
+         let bot = ref false in
+         let mres, t = USet.fold (fun (u, msg) (m', t) ->
+                           try
+                             let u', t' = U.set dst src u check_address_validity in                             
+                             USet.add (u', msg) m', Taint.Set.add t' t
+                           with _ ->
+                             bot := true;
+                         m', t) m' (USet.empty, Taint.Set.empty)
+         in
+         let card = USet.cardinal mres in
+         if !bot && card = 0 then
+           BOT, Taint.Set.singleton Taint.BOT
+         else
+           if card > !Config.kset_bound then
+             Val (merge mres), Taint.Set.singleton (Taint.Set.fold Taint.logor t Taint.U)
+           else
+             Val mres, t
+         
+  
                
     let set_lval_to_addr lv addrs m check_address_validity =
       match m with
@@ -234,9 +247,9 @@ module Make(D: Unrel.T) =
          in
          Val m', t'
          
-    let set_memory_from_config a conf nb m: t * Taint.Set.t = 
+    let set_memory_from_config a conf nb m check_address_validity: t * Taint.Set.t = 
       if nb > 0 then
-        fold_on_taint m (U.set_memory_from_config a conf nb)
+        fold_on_taint m (U.set_memory_from_config a conf nb check_address_validity)
       else
         m, Taint.Set.singleton Taint.U
 
