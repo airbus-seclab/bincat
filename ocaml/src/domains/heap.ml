@@ -117,14 +117,14 @@ let check_status m addr =
           if status <> Status.A then
             begin
               let str_addr = Data.Address.to_string addr in
-              L.error (fun p -> p "Use after free on pointer %s" str_addr); 
+              L.analysis (fun p -> p "Use after free on pointer %s" str_addr); 
               raise (Exceptions.Use_after_free str_addr)
             end
        | _ -> ()
-              with _ ->
-                let str_addr = Data.Address.to_string addr in
-                L.error (fun p -> p"Use after free on pointer %s"str_addr); 
-                raise (Exceptions.Use_after_free str_addr)
+     with _ ->
+       let str_addr = Data.Address.to_string addr in
+       L.analysis (fun p -> p "Use after free on pointer %s"str_addr); 
+       raise (Exceptions.Use_after_free str_addr)
 
 let fold apply m1 m2 =
    match m1, m2 with
