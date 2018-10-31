@@ -159,6 +159,7 @@
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR PROCESSOR_VERSION NULL
+%token IGNORE_UNKNOWN_RELOCATIONS
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -377,6 +378,7 @@
     | OUT_MCFA_FILE EQUAL f=QUOTED_STRING       { update_mandatory OUT_MCFA_FILE; Config.out_mcfa_file := f }
     | STORE_MCFA EQUAL v=STRING      { update_mandatory STORE_MCFA; update_boolean "store_mcfa" Config.store_mcfa v }
     | HEADER EQUAL npk_list=npk { npk_headers := npk_list }
+    | IGNORE_UNKNOWN_RELOCATIONS EQUAL b=STRING { update_boolean "ignore_unknown_relocations" Config.ignore_unknown_relocations b }
 
       analysis_kind:
     | FORWARD_BIN  { Config.Forward Config.Bin }

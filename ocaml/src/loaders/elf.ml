@@ -154,7 +154,18 @@ let make_mapped_mem filepath entrypoint =
     | R_PPC_ADDR32 -> obj_reloc_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_PPC_GLOB_DAT -> glob_dat_reloc (Z.of_int (!Config.address_sz/8))
     | R_PPC_JMP_SLOT -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
-    | rt -> L.abort (fun p -> p "Unsupported relocation type [%s]" (reloc_type_to_string rt)) in
+    | rt ->
+       let reltype = reloc_type_to_string rt in
+       begin
+         if (!Config.ignore_unknown_relocations)
+         then
+           begin
+             L.analysis (fun p-> p "Ignored relocation type [%s]" reltype);
+             fun _ _ _ -> ()
+           end
+         else
+           L.abort (fun p -> p "Unsupported relocation type [%s]" (reloc_type_to_string rt))
+       end in
 
   (* Relocate REL entries *)
   List.iter (fun (rel:e_rel_t) ->

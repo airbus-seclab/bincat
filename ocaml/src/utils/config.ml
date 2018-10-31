@@ -16,6 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
+let ignore_unknown_relocations = ref false;;
+
 let unroll = ref 20;;
 let fun_unroll = ref 50;;
 let kset_bound = ref 10;;
