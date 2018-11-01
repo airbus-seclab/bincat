@@ -253,6 +253,26 @@ let typing_rules : (string, TypedC.ftyp) Hashtbl.t = Hashtbl.create 5
 (** default size of the initial heap *)
 (* 1 Go in bits *)
 let default_heap_size = ref (Z.mul (Z.shift_left Z.one 30) (Z.of_int 8))
+
+
+(* argv ooptions *)
+type argv_config_t = {
+    ignore_unknown_relocations : bool option ref ;
+  }
+
+let argv_options : argv_config_t = {
+    ignore_unknown_relocations = ref None ;
+  }
+
+
+let apply_option (opt:'a ref) (optval:'a option ref) =
+  match !optval with
+  | None -> ()
+  | Some x -> opt := x;;
+
+let apply_arg_options () =
+  apply_option ignore_unknown_relocations argv_options.ignore_unknown_relocations
+
                       
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;

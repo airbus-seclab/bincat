@@ -69,7 +69,11 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     end;
     close_in cin;
     L._loglvl := None; (* reset log level to use the one from configuration file *)
-  (* generating modules needed for the analysis wrt to the provided configuration *)
+
+    (* override config with arguments from command line *)
+    Config.apply_arg_options();
+
+    (* generating modules needed for the analysis wrt to the provided configuration *)
     let do_map_file =
       match !Config.format with
       | Config.PE -> L.abort (fun p -> p "PE file format not implemented yet")
