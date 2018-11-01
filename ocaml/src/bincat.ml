@@ -19,11 +19,14 @@
 Printf.printf "BinCAT %s\n" Bincat_ver.version_string;
 flush stdout;
 
-(* parse command line arguments *)
 let anon_args = ref [] in
-let speclist = [ ] in
-let usage  = "usage: bincat init.ini output.ini outlog" in
 
+(* parse command line arguments *)
+let speclist = [
+    "--ignore-unknown-relocations", Arg.Unit (fun () -> Config.argv_options.Config.ignore_unknown_relocations := Some true),
+    "Ignore unknown relocations when loading binary instead of aborting" ;
+  ] in
+let usage = "usage: bincat init.ini output.ini outlog" in
 Arg.parse speclist (fun x -> anon_args := x :: !anon_args) usage;
 
 match !anon_args with
