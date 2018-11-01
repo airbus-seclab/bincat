@@ -160,7 +160,7 @@ let make_mapped_mem filepath entrypoint =
          if (!Config.ignore_unknown_relocations)
          then
            begin
-             L.analysis (fun p-> p "Ignored relocation type [%s]" reltype);
+             L.analysis (fun p-> p "Ignored unsupported relocation type [%s]" reltype);
              fun _ _ _ -> ()
            end
          else
