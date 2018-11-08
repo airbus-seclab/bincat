@@ -232,6 +232,7 @@ type sec_t = (Z.t * Z.t * Z.t * Z.t * string) list ref
 let sections: sec_t = ref []
 
 let import_tbl: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
+let import_tbl_rev: (string, Z.t) Hashtbl.t = Hashtbl.create 5
 
 (* tainting and typing rules for functions *)
 type taint_t =

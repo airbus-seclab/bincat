@@ -255,7 +255,10 @@
     | i=import l=imports  { i ; l }
 
       import:
-    | a=INT EQUAL libname=STRING COMMA fname=QUOTED_STRING { Hashtbl.replace Config.import_tbl a (libname, fname) }
+    | a=INT EQUAL libname=STRING COMMA fname=QUOTED_STRING {
+                                                 Hashtbl.replace Config.import_tbl a (libname, fname);
+                                                 Hashtbl.replace Config.import_tbl_rev fname a
+                                               }
 
       npk:
     | { [] }
