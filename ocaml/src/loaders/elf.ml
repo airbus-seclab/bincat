@@ -96,17 +96,29 @@ let make_mapped_mem filepath entrypoint =
                  then sections_from_elfobj ()
                  else sections_from_ph elf.ph in
   let max_addr = List.fold_left (fun mx sec -> Z.max mx (Data.Address.to_int sec.virt_addr_end)) Z.zero sections in
-  reloc_external_addr := max_addr;
+  let max_addr' = Hashtbl.fold (fun _k v mx -> Z.max mx v) Config.import_tbl_rev Z.zero in
+  let min_addr' = Hashtbl.fold (fun _k v mx -> Z.min mx v) Config.import_tbl_rev max_addr in
+  reloc_external_addr := Z.max max_addr (Z.add max_addr' (Z.of_int !Config.external_symbol_max_size));
+
+  let choose_address_for_import sym_name sym_size =
+    try
+      Hashtbl.find Config.import_tbl_rev sym_name
+    with
+    | Not_found ->
+       let v = !reloc_external_addr in
+       begin
+         Hashtbl.replace Config.import_tbl v ("all", sym_name) ;
+         reloc_external_addr := Z.add !reloc_external_addr sym_size;
+         v
+       end in
 
   let jump_slot_reloc symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
-    let value = !reloc_external_addr in
+    let value = choose_address_for_import sym_name symsize in
     L.debug (fun p -> p "REL JUMP_SLOT: write %08x at %08x to relocate %s"
       (Z.to_int value) (Z.to_int addr) sym_name);
-    patch_elf elf mapped_file sections addr value;
-    Hashtbl.replace Config.import_tbl !reloc_external_addr ("all", sym_name) ;
-    reloc_external_addr := Z.add !reloc_external_addr symsize in
+    patch_elf elf mapped_file sections addr value in
 
   let glob_dat_reloc symsize sym offset addend =
     let sym_name = sym.Elf_core.p_st_name in
@@ -114,12 +126,7 @@ let make_mapped_mem filepath entrypoint =
     let sym_value = sym.Elf_core.st_value in
     let value =
       if sym_value = Z.zero then
-        begin
-          let value = !reloc_external_addr in
-          Hashtbl.replace Config.import_tbl !reloc_external_addr ("all", sym_name);
-          reloc_external_addr := Z.add !reloc_external_addr symsize;
-          value
-        end
+        choose_address_for_import sym_name symsize
       else Z.(sym_value + addend) in
     L.debug (fun p -> p "REL GLOB_DAT: write %08x at %08x to relocate %s"
       (Z.to_int value) (Z.to_int offset) sym_name);
@@ -128,20 +135,19 @@ let make_mapped_mem filepath entrypoint =
   let obj_reloc symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
-    let value = !reloc_external_addr in
+    let value = choose_address_for_import sym_name symsize in
     L.debug (fun p -> p "REL 32: write %08x at %08x to relocate %s"
                         (Z.to_int value) (Z.to_int addr) sym_name);
-    patch_elf elf mapped_file sections addr value;
-    reloc_external_addr := Z.add !reloc_external_addr symsize in
+    patch_elf elf mapped_file sections addr value in
 
   let obj_reloc_rel symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
-    let value = Z.(!reloc_external_addr - offset) in
+    let pre_val = choose_address_for_import sym_name symsize in
+    let value = Z.(pre_val - offset) in
     L.debug (fun p -> p "RELA 32: write %08x at %08x to relocate %s"
                         (Z.to_int value) (Z.to_int addr) sym_name);
-    patch_elf elf mapped_file sections addr value;
-    reloc_external_addr := Z.add !reloc_external_addr symsize in
+    patch_elf elf mapped_file sections addr value in
 
   let get_reloc_func = function
     | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT
@@ -183,9 +189,9 @@ let make_mapped_mem filepath entrypoint =
   let reloc_sec = {
     mapped_file_name = filepath ;
     mapped_file = mapped_file ;
-    virt_addr = Data.Address.global_of_int max_addr ;
+    virt_addr = Data.Address.global_of_int min_addr' ;
     virt_addr_end = Data.Address.global_of_int !reloc_external_addr ;
-    virt_size = Z.(!reloc_external_addr - max_addr) ;
+    virt_size = Z.(!reloc_external_addr - min_addr') ;
     raw_addr = Z.zero ;
     raw_addr_end = Z.zero ;
     raw_size = Z.zero ;
