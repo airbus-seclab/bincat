@@ -295,7 +295,7 @@ class ConfigHelpers(object):
         if arch == "x86":
             for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
                 regs.append([name, "0", "0xFFFFFFFF", ""])
-            regs.append(["esp", "0x2000", "", ""])
+            regs.append(["esp", "0xb8001000", "", ""])
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
                          "rf", "vm", "ac", "vif", "vip", "id"]:
                 regs.append([name, "0", "1", ""])
@@ -304,7 +304,7 @@ class ConfigHelpers(object):
         elif arch == "armv7":
             for i in range(13):
                 regs.append(["r%d" % i, "0", "0xFFFFFFFF", ""])
-            regs.append(["sp", "0x2000", "", ""])
+            regs.append(["sp", "0xb8001000", "", ""])
             regs.append(["lr", "0x0", "", ""])
             regs.append(["pc", "0x0", "", ""])
             regs.append(["n", "0", "1", ""])
@@ -315,7 +315,7 @@ class ConfigHelpers(object):
         elif arch == "armv8":
             for i in range(31):
                 regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
-            regs.append(["sp", "0x2000", "", ""])
+            regs.append(["sp", "0xb8001000", "", ""])
             for i in range(32):
                 regs.append(
                     ["q%d" % i, "0", "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", ""])
@@ -336,7 +336,7 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_initial_mem(arch=None):
-        return [["mem", "0x1000*8192", "|00|?0xFF"]]
+        return [["mem", "0xb8000000*8192", "|00|?0xFF"]]
 
     @staticmethod
     def get_arch():
@@ -714,7 +714,7 @@ class AnalyzerConfig(object):
             config.set('override',
                        '; This will be overriden by values from the BinCAT '
                        'Overrides view')
-            config.set('state', 'mem[0x1000*8192]', '|00|?0xFF')
+            config.set('state', 'mem[0xb8000000*8192]', '|00|?0xFF')
             init_state = InitialState.get_default(analysis_start_va)
             for key, val in init_state:
                 config.set("state", key, val)
