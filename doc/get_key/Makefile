@@ -7,6 +7,9 @@ all: $(OBJ)
 get_key_x86: get_key.c sha1.c
 	gcc $(CFLAGS) -m32 -o $@ $^
 
+get_key_malloc_x86: get_key_malloc.c sha1.c
+	gcc $(CFLAGS) -m32 -o $@ $^
+
 get_key_armv7: get_key.c sha1.c
 	arm-linux-gnueabi-gcc $(CFLAGS) -o $@ $^
 
