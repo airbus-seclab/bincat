@@ -52,14 +52,14 @@ Binaries and configuration files are also provided for the following architectur
 7. Check the **Save configuration to IDB** option
 8. Click the **Edit...** button
 9. Paste the following lines at the end of the `[state]` section, **overwriting
-   the existing stack initialization** (`mem[0x1000*8192]...`). This defines
+   the existing stack initialization** (`mem[0xb8000000*8192]...`). This defines
    a value for `argc`, creates 5 pointers to strings, initializes 5
    null-terminated strings, and also initializes a stack to **TOP** (unknown
    value)
 ```
-mem[0x1000*4099] = |00|?0xFF
-mem[0x2004] = 5
-mem[0x2008] = 0x200000
+mem[0xb8000000*4099] = |00|?0xFF
+mem[0xb8001004] = 5
+mem[0xb8001008] = 0x200000
 
 mem[0x200000] = 0x300100
 mem[0x200004] = 0x300140
@@ -84,14 +84,14 @@ mem[0x300200] = |6c6f6c2100|
     located directly before a call to `_sprintf(buffer, "Company = %s\n");`.
 16. Switch to the **BinCAT registers** view.
     Observe the value of the `esp` register in the **BinCAT Registers** view (it
-    should be `0x1D50`).
-17. Open the **BinCAT Memory** view, scroll to the `0x1D50` address,
+    should be `0xB8000D50`).
+17. Open the **BinCAT Memory** view, scroll to the `0xB8000D50` address,
     to observe the contents of the `buffer` pointer (`char *`) where `sprintf`
-    results will be output (the value should be `0x1DEC`)
+    results will be output (the value should be `0xB8000DEC`)
 18. Advance to the next instruction at address `0x80C`, and observe the
     value of the `buffer` that has been formatted by `sprintf` at address
-    `0x1DEC`
-19. Hover your mouse over addresses `0x1D50`, `0x1D54`, `0x1D58` in the stack,
+    `0xB8000DEC`
+19. Hover your mouse over addresses `0xB8000D50`, `0xB8000D54`, `0xB8000D58` in the stack,
     and observe the inferred types for the call to `sprintf`
 20. Go to address `0xA93`, which contains a call to a location that is stored
     on the stack. Notice that IDA cannot resolve the destination address. In
