@@ -11,6 +11,7 @@ It features:
 * taint analysis
 * type reconstruction and propagation
 * backward and forward analysis
+* use-after-free and double-free detection
 
 ### In action
 
