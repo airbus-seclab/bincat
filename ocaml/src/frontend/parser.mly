@@ -74,6 +74,7 @@
 
     List.iter (fun (k, kname) -> Hashtbl.add x86_mandatory_keys k (kname, false)) x86_mandatory_items;;
 
+    let x64_mandatory_keys = Hashtbl.create 20;;
     let armv7_mandatory_keys = Hashtbl.create 20;;
     let armv8_mandatory_keys = Hashtbl.create 20;;
     let powerpc_mandatory_keys = Hashtbl.create 20;;
@@ -97,6 +98,7 @@
          Hashtbl.replace tbl key (kname, true);;
 
       let update_x86_mandatory key = update_arch_mandatory_key x86_mandatory_keys key;;
+      let _update_x64_mandatory key = update_arch_mandatory_key x64_mandatory_keys key;;
       let _update_armv7_mandatory key = update_arch_mandatory_key armv7_mandatory_keys key;;
       let _update_armv8_mandatory key = update_arch_mandatory_key armv8_mandatory_keys key;;
       let _update_powerpc_mandatory key = update_arch_mandatory_key powerpc_mandatory_keys key;;
@@ -115,8 +117,9 @@
           begin
             match !Config.architecture with
             | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
+            | Config.X64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x64") x64_mandatory_keys
             | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
-            | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv7_mandatory_keys
+            | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv8_mandatory_keys
             | Config.POWERPC -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc_mandatory_keys
           end;
         (* fill the table of tainting rules for each provided library *)
@@ -158,7 +161,7 @@
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
-%token POWERPC SVR PROCESSOR_VERSION NULL
+%token POWERPC SVR PROCESSOR_VERSION NULL X64
 %token IGNORE_UNKNOWN_RELOCATIONS
 %token <string> STRING
 %token <string> HEX_BYTES
@@ -191,6 +194,7 @@
     | LEFT_SQ_BRACKET ARMV7 RIGHT_SQ_BRACKET a=armv7_section     { a }
     | LEFT_SQ_BRACKET ARMV8 RIGHT_SQ_BRACKET a=armv8_section     { a }
     | LEFT_SQ_BRACKET X86 RIGHT_SQ_BRACKET x=x86_section     { x }
+    | LEFT_SQ_BRACKET X64 RIGHT_SQ_BRACKET x=x64_section     { x }
     | LEFT_SQ_BRACKET POWERPC RIGHT_SQ_BRACKET x=powerpc_section     { x }
 
     overrides:
@@ -358,7 +362,9 @@
     armv8_section:
     |  { () }
 
-
+    x64_section:
+    |  { () }
+         
       analyzer:
     | a=analyzer_item         { a }
     | a=analyzer_item aa=analyzer { a; aa }

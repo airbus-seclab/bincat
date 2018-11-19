@@ -49,12 +49,14 @@ type format_t =
 
 type archi_t =
   | X86
+  | X64
   | ARMv7
   | ARMv8 (* ARMv8-A *)
   | POWERPC
 
 let archi_to_string = function
   | X86 -> "x86"
+  | X64 -> "x64"
   | ARMv7 -> "armv7"
   | ARMv8 -> "armv8"
   | POWERPC -> "powerpc"

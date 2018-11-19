@@ -49,6 +49,7 @@ let _ =
     "little", LITTLE;
     "big", BIG;
     "x86", X86;
+    "x64", X64;
     (* settings tokens *)
     "mem_model", MEM_MODEL;
     "op_sz", OP_SZ;

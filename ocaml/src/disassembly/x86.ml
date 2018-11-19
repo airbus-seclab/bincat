@@ -28,7 +28,7 @@ struct
   open Data
   open Asm
   open Decodeutils
-
+  include Core_x86
   (************************************************************************)
   (* Creation of the registers *)
   (************************************************************************)
@@ -84,24 +84,25 @@ struct
   (*************************************************************************)
   (* Creation of the general flag registers *)
   (*************************************************************************)
-  let fcf    = Register.make ~name:"cf" ~size:1;;
-  let fpf    = Register.make ~name:"pf" ~size:1;;
-  let faf    = Register.make ~name:"af" ~size:1;;
-  let fzf    = Register.make ~name:"zf" ~size:1;;
-  let fsf    = Register.make ~name:"sf" ~size:1;;
-  let _ftf   = Register.make ~name:"tf" ~size:1;;
-  let fif    = Register.make ~name:"if" ~size:1;;
-  let fdf    = Register.make ~name:"df" ~size:1;;
-  let fof    = Register.make ~name:"of" ~size:1;;
-  let _fiopl = Register.make ~name:"iopl" ~size:2;;
-  let _fnt   = Register.make ~name:"nt" ~size:1;;
-  let _frf   = Register.make ~name:"rf" ~size:1;;
-  let _fvm   = Register.make ~name:"vm" ~size:1;;
-  let _fac   = Register.make ~name:"ac" ~size:1;;
-  let _fvif  = Register.make ~name:"vif" ~size:1;;
-  let _fvip  = Register.make ~name:"vip" ~size:1;;
-  let _fid   = Register.make ~name:"id" ~size:1;;
+  (* let fcf    = Register.make ~name:"cf" ~size:1;;
+   * let fpf    = Register.make ~name:"pf" ~size:1;;
+   * let faf    = Register.make ~name:"af" ~size:1;;
+   * let fzf    = Register.make ~name:"zf" ~size:1;;
+   * let fsf    = Register.make ~name:"sf" ~size:1;;
+   * let _ftf   = Register.make ~name:"tf" ~size:1;;
+   * let fif    = Register.make ~name:"if" ~size:1;;
+   * let fdf    = Register.make ~name:"df" ~size:1;;
+   * let fof    = Register.make ~name:"of" ~size:1;;
+   * let _fiopl = Register.make ~name:"iopl" ~size:2;;
+   * let _fnt   = Register.make ~name:"nt" ~size:1;;
+   * let _frf   = Register.make ~name:"rf" ~size:1;;
+   * let _fvm   = Register.make ~name:"vm" ~size:1;;
+   * let _fac   = Register.make ~name:"ac" ~size:1;;
+   * let _fvif  = Register.make ~name:"vif" ~size:1;;
+   * let _fvip  = Register.make ~name:"vip" ~size:1;;
+   * let _fid   = Register.make ~name:"id" ~size:1;; *)
 
+  
 
   (***********************************************************************)
   (* Creation of the segment registers *)
@@ -2683,7 +2684,7 @@ struct
         | Exceptions.Error _ as e -> raise e
         | _               -> (*end of buffer *) None
 
-    let overflow_expression () = Lval (V (T fcf))
+
 end
 (* end Decoder *)
 
