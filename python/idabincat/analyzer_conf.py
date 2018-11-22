@@ -347,10 +347,10 @@ class ConfigHelpers(object):
         if procname == "ppc":
             return "powerpc"
         elif procname.startswith("arm"):
-            if info.is_32bit():
-                return "armv7"
-            else:
+            if info.is_64bit():
                 return "armv8"
+            else:
+                return "armv7"
         bc_log.error("Unknown architecture")
         return None
 
