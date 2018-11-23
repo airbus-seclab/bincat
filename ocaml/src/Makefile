@@ -83,8 +83,8 @@ DEPS-rules := npk/c2newspeak/typedC.cmi
 OPTS-rules := -I npk/c2newspeak
 DEPS-parser := npk/c2newspeak/typedC.cmi
 OPTS-parser := -I npk/c2newspeak
-DEPS-x86 := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
-OPTS-x86 := -I npk/c2newspeak -I npk/newspeak
+DEPS-core_x86 := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
+OPTS-core_x86 := -I npk/c2newspeak -I npk/newspeak
 DEPS-reduced_unrel_typenv_heap := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
 OPTS-reduced_unrel_typenv_heap := -I npk/c2newspeak -I npk/newspeak
 
