@@ -24,14 +24,13 @@
 module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 struct
 
+  open Asm
   include Core_x86
   (************************************************************************)
   (* Creation of the registers *)
   (************************************************************************)
 
-  (* general purpose registers *)
-  let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
-
+ 
   let eax = Register.make ~name:"eax" ~size:32;;
   let ecx = Register.make ~name:"ecx" ~size:32;;
   let edx = Register.make ~name:"edx" ~size:32;;
@@ -55,7 +54,6 @@ struct
       module Domain = Domain
       module Stubs = Stubs
       let register_tbl = register_tbl
-      let mutable_segments = false
       let ebx = ebx
       let ebp = ebp
       let esi = esi
@@ -64,6 +62,10 @@ struct
       let eax = eax
       let ecx = ecx
       let esp = esp
+      let decode_from_0x40_to_0x4F c sz =
+        match c with
+        | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - 0x40) sz in core_inc_dec (V r) Add sz
+        | _ -> (* DEC *) let r = find_reg ((Char.code c) - 0x48) sz in core_inc_dec (V r) Sub sz 
     end
     module Core = Make(Arch)
     include Core

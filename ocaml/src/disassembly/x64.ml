@@ -32,9 +32,6 @@ struct
   (* Creation of the registers *)
   (************************************************************************)
 
-  (* general purpose registers *)
-  let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
-
   let rax = Register.make ~name:"rax" ~size:64;;
   let rcx = Register.make ~name:"rcx" ~size:64;;
   let rdx = Register.make ~name:"rdx" ~size:64;;
@@ -73,7 +70,6 @@ struct
       module Domain = Domain
       module Stubs = Stubs
       let register_tbl = register_tbl
-      let mutable_segments = false
       let ebx = rbx
       let ebp = rbp
       let esi = rsi
@@ -82,6 +78,7 @@ struct
       let eax = rax
       let ecx = rcx
       let esp = rsp
+      let decode_from_0x40_to_0x4F  c _sz = raise (Exceptions.Error (Printf.sprintf "unknown REX prefix 0x%x\n" (Char.code c)))
     end
   module Core = Make (Arch)
   include Core

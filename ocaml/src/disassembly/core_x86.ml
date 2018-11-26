@@ -25,7 +25,11 @@ module L = Log.Make(struct let name = "core_x86" end)
 open Data        
 open Asm
 open Decodeutils
-   
+
+
+(* table of general purpose registers *)
+let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
+  
 (*************************************************************************)
 (* Creation of the general flag registers *)
 (*************************************************************************)
@@ -261,6 +265,36 @@ let _fid   = Register.make ~name:"id" ~size:1;;
     }
 
   
+ (************************************************************************************)
+    (* common utilities *)
+    (************************************************************************************)
+
+    (** returns the right Asm.reg value from the given register and context of decoding *)
+    let to_reg r sz =
+        if Register.size r = sz then
+            T r
+        else
+            P (r, 0, sz-1)
+
+    (** returns the right Asm.reg value from the register corresponding to the given number and context of decoding *)
+    let find_reg n sz =
+        let r = Hashtbl.find register_tbl n in
+        to_reg r sz
+
+    (** returns the right Lval from the register corresponding to the given number and context of decoding *)
+    let find_reg_lv n sz =
+        Lval ( V ( find_reg n sz ) )
+
+    (** returns the right V from the register corresponding to the given number and context of decoding *)
+    let find_reg_v n sz =
+        V ( find_reg n sz )
+
+    (** returns the slice from 8 to 15 of the given register index *)
+
+    let get_h_slice n =
+      let r = Hashtbl.find register_tbl n in
+      P (r, 8, 15)
+
 
 
     (*******************************************************************************************************)
@@ -435,13 +469,30 @@ let overflow_expression () = Lval (V (T fcf))
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
+
+  let core_inc_dec reg op sz =
+    let dst     = reg                               in
+    let name        = Register.fresh_name ()            in
+    let v           = Register.make ~name:name ~size:sz in
+    let tmp         = V (T v)               in
+    let op1         = Lval tmp              in
+    let op2         = const 1 sz                        in
+    let res         = Lval dst              in
+    let flags_stmts =
+      [
+        overflow_flag_stmts sz res op1 op op2   ; zero_flag_stmts sz res;
+        parity_flag_stmts sz res; adjust_flag_stmts sz op1 op op2;
+        sign_flag_stmts sz res
+      ]
+    in
+    [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @
+      flags_stmts @ [Directive (Remove v)]
     
   module type Arch = 
     sig
       module Domain: Domain.T
       module Stubs: Stubs.T with type domain_t := Domain.t
       val register_tbl: (int, Register.t) Hashtbl.t
-      val mutable_segments: bool
       val ebx: Register.t
       val ebp: Register.t
       val esi: Register.t
@@ -450,6 +501,7 @@ let overflow_expression () = Lval (V (T fcf))
       val eax: Register.t
       val ecx: Register.t
       val esp: Register.t
+      val decode_from_0x40_to_0x4F: char -> int -> Asm.stmt list
     end
     
 module Make(Arch: Arch) = struct
@@ -495,37 +547,7 @@ module Make(Arch: Arch) = struct
         List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
         
-    (************************************************************************************)
-    (* common utilities *)
-    (************************************************************************************)
-
-    (** returns the right Asm.reg value from the given register and context of decoding *)
-    let to_reg r sz =
-        if Register.size r = sz then
-            T r
-        else
-            P (r, 0, sz-1)
-
-    (** returns the right Asm.reg value from the register corresponding to the given number and context of decoding *)
-    let find_reg n sz =
-        let r = Hashtbl.find register_tbl n in
-        to_reg r sz
-
-    (** returns the right Lval from the register corresponding to the given number and context of decoding *)
-    let find_reg_lv n sz =
-        Lval ( V ( find_reg n sz ) )
-
-    (** returns the right V from the register corresponding to the given number and context of decoding *)
-    let find_reg_v n sz =
-        V ( find_reg n sz )
-
-    (** returns the slice from 8 to 15 of the given register index *)
-
-    let get_h_slice n =
-      let r = Hashtbl.find register_tbl n in
-      P (r, 8, 15)
-
-
+   
 
     (***********************************************************************)
     (* State helpers *)
@@ -580,7 +602,7 @@ module Make(Arch: Arch) = struct
         s.b.Cfa.State.bytes <- List.rev s.c;
         s.b, Address.add_offset s.a (Z.of_int s.o)
 
- (************************************************************************************)
+    (************************************************************************************)
     (* segmentation *)
     (************************************************************************************)
 
@@ -777,7 +799,7 @@ module Make(Arch: Arch) = struct
     (* State generation of binary logical/arithmetic operations *)
     (**************************************************************************************)
 
-    (** produces the list of states for for ADD, SUB, ADC, SBB depending on
+    (** produces the list of statements for ADD, SUB, ADC, SBB depending on
     the value of the operator and the boolean value (=true for carry or borrow) *)
     let add_sub s op use_carry dst src sz =
         let name    = Register.fresh_name ()        in
@@ -804,7 +826,7 @@ module Make(Arch: Arch) = struct
 
     (** produces the state corresponding to an add or a sub with an immediate operand *)
     let add_sub_immediate s op b r sz =
-        let r'  = V (to_reg r sz)                                       in
+        let r'  = V (to_reg r sz) in
         (* TODO : check if should sign extend *)
         let w   = get_imm s sz s.operand_sz false in
         add_sub s op b r' w sz
@@ -860,31 +882,9 @@ module Make(Arch: Arch) = struct
         in
         ([tmp_calc] @ flag_stmts @ [ Directive (Remove v) ])
 
-    let inc_dec reg op s sz =
-        let dst     = reg                               in
-        let name        = Register.fresh_name ()            in
-        let v           = Register.make ~name:name ~size:sz in
-        let tmp         = V (T v)               in
-        let op1         = Lval tmp              in
-        let op2         = const 1 sz                        in
-        let res         = Lval dst              in
-        let flags_stmts =
-            [
-                overflow_flag_stmts sz res op1 op op2   ; zero_flag_stmts sz res;
-                parity_flag_stmts sz res; adjust_flag_stmts sz op1 op op2;
-                sign_flag_stmts sz res
-            ]
-        in
-        let stmts =
-            [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @
-            flags_stmts @ [Directive (Remove v)]
-        in
-        return s stmts
-
         
+    let inc_dec reg op s sz = return s (core_inc_dec reg op sz)
    
-   
-
    
     let lea s =
         let c = getchar s in
@@ -2331,9 +2331,8 @@ module Make(Arch: Arch) = struct
             | '\x3E' -> (* data segment = ds *) s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
             | '\x3F' -> (* AAS *) aas s
 
-            | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - 0x40) s.operand_sz in inc_dec (V r) Add s s.operand_sz
-            | c when '\x48' <= c && c <= '\x4f' -> (* DEC *) let r = find_reg ((Char.code c) - 0x48) s.operand_sz in inc_dec (V r) Sub s s.operand_sz
-
+            | c when '\x40' <= c && c <= '\x4F' -> return s (Arch.decode_from_0x40_to_0x4F c s.operand_sz)
+           
             | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - 0x50) s.operand_sz in push s [V r]
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - 0x58) s.operand_sz in pop s [V r]
 
