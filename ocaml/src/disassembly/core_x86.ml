@@ -492,7 +492,6 @@ let overflow_expression () = Lval (V (T fcf))
     sig
       module Domain: Domain.T
       module Stubs: Stubs.T with type domain_t := Domain.t
-      val register_tbl: (int, Register.t) Hashtbl.t
       val ebx: Register.t
       val ebp: Register.t
       val esi: Register.t
@@ -516,7 +515,8 @@ module Make(Arch: Arch) = struct
   (** import table *)
   module Imports = X86Imports.Make(Arch.Domain)(Arch.Stubs)
 
-
+  type rex_t = { w: int; r: int; x: int; b_: int}
+             
   (** complete internal state of the decoder.
     Only the segment field is exported out of the functor (see parse signature) for further reloading *)
     type state = {
@@ -533,6 +533,7 @@ module Make(Arch: Arch) = struct
       mutable rep: bool;               (** true whenever a REP opcode has been decoded *)
       mutable repe: bool;              (** true whenever a REPE opcode has been decoded *)
       mutable repne: bool;             (** true whenever a REPNE opcode has been decoded *)
+      mutable rex: rex_t option; (** REX prefix *)
       }
 
     (** initialization of the decoder *)
@@ -2671,19 +2672,20 @@ module Make(Arch: Arch) = struct
 
   let parse text g is v a ctx =
     let s' = {
-        g          = g;
-        a          = a;
-        o          = 0;
-        c          = [];
-        addr_sz    = !Config.address_sz;
+        g = g;
+        a = a;
+        o = 0;
+        c = [];
+        addr_sz = !Config.address_sz;
         operand_sz = !Config.operand_sz;
-        segments   = copy_segments is a ctx;
+        segments = copy_segments is a ctx;
         rep_prefix = None;
-        buf        = text;
-        b          = v;
-        rep        = false;
-        repe       = false;
-        repne      = false
+        buf = text;
+        b = v;
+        rep = false;
+        repe = false;
+        repne = false;
+        rex = None
       }
     in
     try

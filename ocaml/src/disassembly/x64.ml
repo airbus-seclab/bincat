@@ -69,7 +69,6 @@ struct
     struct
       module Domain = Domain
       module Stubs = Stubs
-      let register_tbl = register_tbl
       let ebx = rbx
       let ebp = rbp
       let esi = rsi
