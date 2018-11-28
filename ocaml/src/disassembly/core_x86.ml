@@ -490,7 +490,7 @@ let overflow_expression () = Lval (V (T fcf))
       flags_stmts @ [Directive (Remove v)]
 
   (** type for REX prefixes *)
-  type rex_t = { w: int; r: int; x: int; b_: int}
+  type rex_t = {w: int; r: int; x: int; b_: int}
 
   type kind_in_0x40_0x4F =
     | S of Asm.stmt list
@@ -670,9 +670,9 @@ module Make(Arch: Arch) = struct
 
     (** [mod_nnn_rm v] split from v into the triple (mod, nnn, rm) where mod are its bits 7-6, nnn its bits 5,4,3 and rm its bits 2, 1, 0 *)
     let mod_nnn_rm v =
-        let rm  = v land 7     in
+        let rm  = v land 7 in
         let nnn = (v lsr 3) land 7 in
-        let md  = (v lsr 6)    in
+        let md  = (v lsr 6) in
         md, nnn, rm   
 
     (** returns the sub expression used in a displacement *)
@@ -683,6 +683,8 @@ module Make(Arch: Arch) = struct
     let sib s md =
         let c              = getchar s                in
         let scale, index, base = mod_nnn_rm (Char.code c) in
+        let index = s.rex.x lsl 3 + index in
+        let base = s.rex.b_ lsl 3 + base in
         let base' =
             let lv = find_reg_lv base s.addr_sz in
             match md with
@@ -776,8 +778,8 @@ module Make(Arch: Arch) = struct
     let operands_from_mod_reg_rm_core s sz ?(mem_sz=sz) dst_sz  =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
-        let reg = s.rex.r lsr 3 + reg in
-        let rm = s.rex.b_ lsr 3 + rm in
+        let reg = s.rex.r lsl 3 + reg in
+        let rm = s.rex.b_ lsl 3 + rm in
         let reg_v =
             if dst_sz = 8 && reg >= 4 then
                 V (get_h_slice (reg-4))
