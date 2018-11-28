@@ -295,7 +295,8 @@ let _fid   = Register.make ~name:"id" ~size:1;;
       let r = Hashtbl.find register_tbl n in
       P (r, 8, 15)
 
-
+    (** default size of immediates *)
+    let default_imm_sz = 32 (* yes for x64 default immediate operand size is 32, see Vol 2A 2.2.1.5 *) 
 
     (*******************************************************************************************************)
     (* statements to set/clear the flags *)
@@ -487,7 +488,14 @@ let overflow_expression () = Lval (V (T fcf))
     in
     [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @
       flags_stmts @ [Directive (Remove v)]
-    
+
+  (** type for REX prefixes *)
+  type rex_t = { w: int; r: int; x: int; b_: int}
+
+  type kind_in_0x40_0x4F =
+    | S of Asm.stmt list
+    | R of rex_t
+         
   module type Arch = 
     sig
       module Domain: Domain.T
@@ -500,9 +508,10 @@ let overflow_expression () = Lval (V (T fcf))
       val eax: Register.t
       val ecx: Register.t
       val esp: Register.t
-      val decode_from_0x40_to_0x4F: char -> int -> Asm.stmt list
+      val decode_from_0x40_to_0x4F: char -> int -> kind_in_0x40_0x4F
     end
-    
+
+             
 module Make(Arch: Arch) = struct
 
   open Arch
@@ -515,7 +524,7 @@ module Make(Arch: Arch) = struct
   (** import table *)
   module Imports = X86Imports.Make(Arch.Domain)(Arch.Stubs)
 
-  type rex_t = { w: int; r: int; x: int; b_: int}
+  
              
   (** complete internal state of the decoder.
     Only the segment field is exported out of the functor (see parse signature) for further reloading *)
@@ -533,7 +542,7 @@ module Make(Arch: Arch) = struct
       mutable rep: bool;               (** true whenever a REP opcode has been decoded *)
       mutable repe: bool;              (** true whenever a REPE opcode has been decoded *)
       mutable repne: bool;             (** true whenever a REPNE opcode has been decoded *)
-      mutable rex: rex_t option; (** REX prefix *)
+      mutable rex: rex_t; (** REX prefix; by defaulet every bit is zero  *)
       }
 
     (** initialization of the decoder *)
@@ -549,7 +558,7 @@ module Make(Arch: Arch) = struct
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
         
    
-
+   
     (***********************************************************************)
     (* State helpers *)
     (***********************************************************************)
@@ -561,7 +570,7 @@ module Make(Arch: Arch) = struct
         s.o <- s.o + 1;
         s.c <- c::s.c;
         c
-
+         
     (** int conversion of a byte in the string code *)
     let int_of_byte s = Z.of_int (Char.code (getchar s))
 
@@ -598,10 +607,13 @@ module Make(Arch: Arch) = struct
     (** update and return the current state with the given statements and the new instruction value.
      The context of decoding is also updated *)
     let return s stmts =
-      s.b.Cfa.State.ctx <- { Cfa.State.addr_sz = s.addr_sz ; Cfa.State.op_sz = s.operand_sz };
-        s.b.Cfa.State.stmts <- stmts;
-        s.b.Cfa.State.bytes <- List.rev s.c;
-        s.b, Address.add_offset s.a (Z.of_int s.o)
+      s.b.Cfa.State.ctx <- {
+          Cfa.State.addr_sz = s.addr_sz;
+          Cfa.State.op_sz = s.operand_sz
+        };
+      s.b.Cfa.State.stmts <- stmts;
+      s.b.Cfa.State.bytes <- List.rev s.c;
+      s.b, Address.add_offset s.a (Z.of_int s.o)
 
     (************************************************************************************)
     (* segmentation *)
@@ -2332,7 +2344,12 @@ module Make(Arch: Arch) = struct
             | '\x3E' -> (* data segment = ds *) s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
             | '\x3F' -> (* AAS *) aas s
 
-            | c when '\x40' <= c && c <= '\x4F' -> return s (Arch.decode_from_0x40_to_0x4F c s.operand_sz)
+            | c when '\x40' <= c && c <= '\x4F' ->
+               begin
+                 match Arch.decode_from_0x40_to_0x4F c s.operand_sz with
+                 | S stmts -> return s stmts
+                 | R rex -> s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
+               end
            
             | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - 0x50) s.operand_sz in push s [V r]
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - 0x58) s.operand_sz in pop s [V r]
@@ -2343,7 +2360,7 @@ module Make(Arch: Arch) = struct
             | '\x63' -> (* ARPL *) arpl s
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
-            | '\x66' -> (* operand size switch *) switch_operand_size s; decode s
+            | '\x66' -> (* operand size switch *) if s.rex.w = 0 then switch_operand_size s; decode s (* for x86: 66H ignored if REX.W = 1, see Vol 2A *)
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
             | '\x68' -> (* PUSH immediate *) push_immediate s s.operand_sz
             | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.operand_sz s.operand_sz true in imul_stmts s dst src imm
@@ -2398,9 +2415,9 @@ module Make(Arch: Arch) = struct
             | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
             | '\x9d' -> (* POPF *) popf s s.operand_sz
             | '\xa0' -> (* MOV EAX *) mov_with_eax s 8 false
-            | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz false
+            | '\xa1' -> (* MOV EAX *) mov_with_eax s 32 false (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
             | '\xa2' -> (* MOV EAX *) mov_with_eax s 8 true
-            | '\xa3' -> (* MOV EAX *) mov_with_eax s s.operand_sz true
+            | '\xa3' -> (* MOV EAX *) mov_with_eax s 32 true (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
             | '\xa4' -> (* MOVSB *) movs s 8
             | '\xa5' -> (* MOVSW *) movs s s.addr_sz
             | '\xa6' -> (* CMPSB *) cmps s 8
@@ -2685,7 +2702,7 @@ module Make(Arch: Arch) = struct
         rep = false;
         repe = false;
         repne = false;
-        rex = None
+        rex = {r=0; w=0; x=0; b_=0};
       }
     in
     try

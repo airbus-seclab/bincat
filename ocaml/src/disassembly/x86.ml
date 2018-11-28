@@ -62,9 +62,12 @@ struct
       let ecx = ecx
       let esp = esp
       let decode_from_0x40_to_0x4F c sz =
-        match c with
-        | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - 0x40) sz in core_inc_dec (V r) Add sz
-        | _ -> (* DEC *) let r = find_reg ((Char.code c) - 0x48) sz in core_inc_dec (V r) Sub sz 
+        let stmts =
+          match c with
+          | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - 0x40) sz in core_inc_dec (V r) Add sz
+          | _ -> (* DEC *) let r = find_reg ((Char.code c) - 0x48) sz in core_inc_dec (V r) Sub sz
+        in
+        S stmts
     end
     module Core = Make(Arch)
     include Core

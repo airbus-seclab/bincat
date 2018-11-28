@@ -77,7 +77,10 @@ struct
       let eax = rax
       let ecx = rcx
       let esp = rsp
-      let decode_from_0x40_to_0x4F  c _sz = raise (Exceptions.Error (Printf.sprintf "unknown REX prefix 0x%x\n" (Char.code c)))
+      let decode_from_0x40_to_0x4F c _sz =
+        let c' = Char.code c in
+         R { w = (c' lsr 3) land 1 ; r = (c' lsr 2) land 1 ; x = (c' lsr 1) land 1 ; b_ = c' land 1  }
+    
     end
   module Core = Make (Arch)
   include Core
