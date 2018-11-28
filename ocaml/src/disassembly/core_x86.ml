@@ -776,6 +776,8 @@ module Make(Arch: Arch) = struct
     let operands_from_mod_reg_rm_core s sz ?(mem_sz=sz) dst_sz  =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
+        let reg = s.rex.r lsr 3 + reg in
+        let rm = s.rex.b_ lsr 3 + rm in
         let reg_v =
             if dst_sz = 8 && reg >= 4 then
                 V (get_h_slice (reg-4))
@@ -2360,7 +2362,7 @@ module Make(Arch: Arch) = struct
             | '\x63' -> (* ARPL *) arpl s
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
-            | '\x66' -> (* operand size switch *) if s.rex.w = 0 then switch_operand_size s; decode s (* for x86: 66H ignored if REX.W = 1, see Vol 2A *)
+            | '\x66' -> (* operand size switch *) if s.rex.w = 0 then switch_operand_size s; decode s (* for x86: 66H ignored if REX.W = 1, see Vol 2A 2.2.1.2 *)
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
             | '\x68' -> (* PUSH immediate *) push_immediate s s.operand_sz
             | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.operand_sz s.operand_sz true in imul_stmts s dst src imm
