@@ -509,6 +509,7 @@ let overflow_expression () = Lval (V (T fcf))
       val ecx: Register.t
       val esp: Register.t
       val decode_from_0x40_to_0x4F: char -> int -> kind_in_0x40_0x4F
+      val get_rex: int -> rex_t option
     end
 
              
@@ -1421,27 +1422,39 @@ module Make(Arch: Arch) = struct
     (*****************************************************************************************)
     (* decoding of opcodes of groups 1 to 8 *)
     (*****************************************************************************************)
-
+    let icore_grp s sz c = 
+      let md, nnn, rm = mod_nnn_rm c in
+      let dst = exp_of_md s md rm sz sz in
+      nnn, dst
+      
     let core_grp s sz =
-        let md, nnn, rm = mod_nnn_rm (Char.code (getchar s)) in
-        let dst     = exp_of_md s md rm sz sz        in
-        nnn, dst
+      let c =  Char.code (getchar s) in
+      icore_grp s sz c
+     
+        
+    let rex_after_grp1_4 s sz =
+      let c = Char.code (getchar s) in
+      match Arch.get_rex c with
+      | Some rex -> s.rex <- rex; core_grp s sz
+      | None -> icore_grp s sz c
+        
+    
 
     let grp1 s reg_sz imm_sz =
-        let nnn, dst = core_grp s reg_sz in
-        let imm = get_imm s imm_sz reg_sz true in
-        (* operation is encoded in bits 5,4,3 *)
-        match nnn with
-        | 0 -> add_sub s Add false dst imm reg_sz
-        | 1 -> or_xor_and s Or dst imm reg_sz
-        | 2 -> add_sub s Add true dst imm reg_sz
-        | 3 -> add_sub s Sub true dst imm reg_sz
-        | 4 -> or_xor_and s And dst imm reg_sz
-        | 5 -> add_sub s Sub false dst imm reg_sz
-        | 6 -> or_xor_and s Xor dst imm reg_sz
-        | 7 -> return s (cmp_stmts (Lval dst) imm reg_sz)
-        | _ -> error s.a "Illegal nnn value in grp1"
-
+      let nnn, dst = rex_after_grp1_4 s reg_sz in
+      let imm = get_imm s imm_sz reg_sz true in
+      (* operation is encoded in bits 5,4,3 *)
+      match nnn with
+      | 0 -> add_sub s Add false dst imm reg_sz
+      | 1 -> or_xor_and s Or dst imm reg_sz
+      | 2 -> add_sub s Add true dst imm reg_sz
+      | 3 -> add_sub s Sub true dst imm reg_sz
+      | 4 -> or_xor_and s And dst imm reg_sz
+      | 5 -> add_sub s Sub false dst imm reg_sz
+      | 6 -> or_xor_and s Xor dst imm reg_sz
+      | 7 -> return s (cmp_stmts (Lval dst) imm reg_sz)
+      | _ -> error s.a "Illegal nnn value in grp1"
+           
     (* SHL *)
     let shift_l_stmt dst sz n =
         let sz' = const sz 8 in
@@ -1795,7 +1808,7 @@ module Make(Arch: Arch) = struct
       ]
 
     let grp2 s sz e =
-      let nnn, dst = core_grp s sz in
+      let nnn, dst = rex_after_grp1_4 s sz in
       let n =
         match e with
         | Some e' -> e'
@@ -1813,7 +1826,7 @@ module Make(Arch: Arch) = struct
       | _ -> error s.a "Illegal opcode in grp 2"
 
     let grp3 s sz =
-        let nnn, reg = core_grp s sz in
+        let nnn, reg = rex_after_grp1_4 s sz in
         let stmts =
             match nnn with
             | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts reg imm sz
@@ -1828,7 +1841,7 @@ module Make(Arch: Arch) = struct
         return s stmts
 
     let grp4 s =
-        let nnn, dst = core_grp s 8 in
+        let nnn, dst = rex_after_grp1_4 s 8 in
         match nnn with
         | 0 -> inc_dec dst Add s 8
         | 1 -> inc_dec dst Sub s 8

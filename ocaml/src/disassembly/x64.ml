@@ -77,9 +77,14 @@ struct
       let eax = rax
       let ecx = rcx
       let esp = rsp
+      let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1  }
+        
+      let get_rex c = Some (iget_rex c)
+        
       let decode_from_0x40_to_0x4F c _sz =
         let c' = Char.code c in
-         R { w = (c' lsr 3) land 1 ; r = (c' lsr 2) land 1 ; x = (c' lsr 1) land 1 ; b_ = c' land 1  }
+        R (iget_rex c')
+        
     
     end
   module Core = Make (Arch)

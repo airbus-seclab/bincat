@@ -68,6 +68,8 @@ struct
           | _ -> (* DEC *) let r = find_reg ((Char.code c) - 0x48) sz in core_inc_dec (V r) Sub sz
         in
         S stmts
+        
+      let get_rex _c = None
     end
     module Core = Make(Arch)
     include Core
