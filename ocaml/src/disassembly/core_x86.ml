@@ -682,47 +682,48 @@ module Make(Arch: Arch) = struct
 
     (** returns the expression associated to a sib *)
     let sib s md =
-        let c              = getchar s                in
-        let scale, index, base = mod_nnn_rm (Char.code c) in
-        let index = s.rex.x lsl 3 + index in
-        let base = s.rex.b_ lsl 3 + base in
-        let base' =
-            let lv = find_reg_lv base s.addr_sz in
-            match md with
-            | 0 -> if base = 5 then
-                  (* [scaled index] + disp32 *)
-                  disp s 32 s.addr_sz
-              else
-                  lv
-            (* [scaled index] + disp8 *)
-            | 1 -> BinOp (Add, lv, disp s 8 s.addr_sz)
-            (* [scaled index] + disp32 *)
-            | 2 -> BinOp (Add, lv, disp s 32 s.addr_sz)
-            | _ -> error s.a "Decoder: illegal value in sib"
+      let c = getchar s in
+      let scale, index, base = mod_nnn_rm (Char.code c) in
+      let index' = s.rex.x lsl 3 + index in
+      let base' = s.rex.b_ lsl 3 + base in
+      let base' =
+        let lv = find_reg_lv base' s.addr_sz in
+        match md with
+        | 0 -> if base = 5 then
+                 (* [scaled index] + disp32 *)
+                 disp s 32 s.addr_sz
+               else
+                 lv
+        (* [scaled index] + disp8 *)
+        | 1 -> BinOp (Add, lv, disp s 8 s.addr_sz)
+        (* [scaled index] + disp32 *)
+        | 2 -> BinOp (Add, lv, disp s 32 s.addr_sz)
+        | _ -> error s.a "Decoder: illegal value in sib"
+      in
+      if index = 4 then
+        base'
+      else
+        let index_lv = find_reg_lv index' s.addr_sz in
+        let scaled_index =
+          if scale = 0 then
+            index_lv
+          else
+            BinOp (Shl, index_lv, const scale s.addr_sz)
         in
-        let index_lv = find_reg_lv index s.addr_sz in
-        if index = 4 then
-            base'
-        else
-            let scaled_index =
-                if scale = 0 then
-                    index_lv
-                else
-                    BinOp (Shl, index_lv, const scale s.addr_sz)
-            in
-            BinOp (Add, base', scaled_index)
+        BinOp (Add, base', scaled_index)
 
     (** returns the statements for a memory operation encoded in _md_ _rm_ (32 bits) *)
     let md_from_mem_32 s md rm sz =
-        let rm_lv = find_reg_lv rm s.addr_sz in
         if rm = 4 then
             sib s md
         else
+          let rm' = s.rex.b_ lsr 3 + rm in
+          let rm_lv = find_reg_lv rm' s.addr_sz in
             match md with
-            | 0 ->
+            | 0 -> 
               begin
                   match rm with
-                  | 5 -> disp s s.addr_sz s.addr_sz
+                  | 5 -> disp s 32 s.addr_sz (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *)
                   | _ -> rm_lv
               end
             | 1 ->
@@ -767,7 +768,8 @@ module Make(Arch: Arch) = struct
     (** returns the statements for a mod/rm with _md_ _rm_ *)
     let exp_of_md s md rm sz mem_sz =
         match md with
-        | n when 0 <= n && n <= 2 -> M (add_data_segment s (md_from_mem s md rm sz), mem_sz)
+        | n when 0 <= n && n <= 2 ->
+           M (add_data_segment s (md_from_mem s md rm sz), mem_sz)
         | 3 ->
             (* special case for ah ch dh bh *)
             if sz = 8 && rm >= 4 then
@@ -780,14 +782,14 @@ module Make(Arch: Arch) = struct
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
         let reg = s.rex.r lsl 3 + reg in
-        let rm = s.rex.b_ lsl 3 + rm in
         let reg_v =
             if dst_sz = 8 && reg >= 4 then
                 V (get_h_slice (reg-4))
             else
-                find_reg_v reg dst_sz in
+              find_reg_v reg dst_sz
+        in
         let rm' = exp_of_md s md rm sz mem_sz in
-    reg_v, rm'
+        reg_v, rm'
 
     let operands_from_mod_reg_rm s sz ?(dst_sz = sz) direction =
       let reg_v,rm' =  operands_from_mod_reg_rm_core s sz dst_sz in
@@ -820,7 +822,7 @@ module Make(Arch: Arch) = struct
     (** produces the list of statements for ADD, SUB, ADC, SBB depending on
     the value of the operator and the boolean value (=true for carry or borrow) *)
     let add_sub s op use_carry dst src sz =
-        let name    = Register.fresh_name ()        in
+        let name    = Register.fresh_name () in
         let res_reg = Register.make ~name:name ~size:sz in
         let res = V (T res_reg) in
         let res_cf_stmts = if use_carry then
