@@ -730,7 +730,7 @@ module Make(Arch: Arch) = struct
               BinOp (Add, rm_lv, UnOp(SignExt s.addr_sz, disp s 8 sz))
 
             | 2 ->
-              BinOp (Add, rm_lv, disp s s.addr_sz s.addr_sz)
+              BinOp (Add, rm_lv, disp s 32 s.addr_sz) (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *)
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
 
     (** returns the statements for a memory operation encoded in _md_ _rm_ (16 bits) *)
@@ -848,7 +848,7 @@ module Make(Arch: Arch) = struct
     let add_sub_immediate s op b r sz =
         let r'  = V (to_reg r sz) in
         (* TODO : check if should sign extend *)
-        let w   = get_imm s sz s.operand_sz false in
+        let w   = get_imm s sz s.imm_sz false in
         add_sub s op b r' w sz
 
 
