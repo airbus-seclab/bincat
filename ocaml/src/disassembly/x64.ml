@@ -85,7 +85,7 @@ struct
         let c' = Char.code c in
         R (iget_rex c')
         
-    
+    let default_segmentation = true
     end
   module Core = Make (Arch)
   include Core

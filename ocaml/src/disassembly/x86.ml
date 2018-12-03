@@ -70,6 +70,7 @@ struct
         S stmts
         
       let get_rex _c = None
+      let default_segmentation = false
     end
     module Core = Make(Arch)
     include Core

@@ -508,6 +508,7 @@ let overflow_expression () = Lval (V (T fcf))
       val eax: Register.t
       val ecx: Register.t
       val esp: Register.t
+      val default_segmentation: bool
       val decode_from_0x40_to_0x4F: char -> int -> kind_in_0x40_0x4F
       val get_rex: int -> rex_t option
     end
@@ -548,7 +549,8 @@ module Make(Arch: Arch) = struct
       }
 
     let rip = Register.make "rip" 64;;
-   
+    let default_segment_tbl = Hashtbl.create 5
+                            
     (** initialization of the decoder *)
     let init () =
       Imports.init ();
@@ -559,6 +561,7 @@ module Make(Arch: Arch) = struct
       Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
         let reg = Hashtbl.create 6 in
         List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
+        Hashtbl.iter (fun r v -> Hashtbl.add default_segment_tbl r v) reg;
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
         
    
@@ -632,15 +635,19 @@ module Make(Arch: Arch) = struct
 
     (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
 
-
+    
     let get_segments a ctx =
         let registers = Hashtbl.create 6 in
         try
             List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
             registers
         with _ -> error a "Decoder: overflow in a segment register"
-
-    let copy_segments s a ctx = { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = get_segments a ctx  }
+                            
+    let copy_segments s a ctx =
+      let segments =
+        if Arch.default_segmentation then default_segment_tbl
+        else get_segments a ctx in
+      { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
     let get_base_address s c =
         if !Config.mode = Config.Protected then
