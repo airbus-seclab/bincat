@@ -536,6 +536,7 @@ module Make(Arch: Arch) = struct
         mutable c         : char list; (** current decoded bytes in reverse order  *)
         mutable addr_sz   : int;       (** current address size in bits *)
         mutable operand_sz: int;       (** current operand size in bits *)
+        imm_sz: int; (** size of immediates *)
         buf                 : string;      (** buffer to decode *)
         mutable o       : int;     (** current offset to decode into the buffer *)
         mutable rep_prefix: bool option; (** None = no rep prefix ; Some true = rep prefix ; Some false = repne/repnz prefix *)
@@ -546,6 +547,8 @@ module Make(Arch: Arch) = struct
       mutable rex: rex_t; (** REX prefix; by defaulet every bit is zero  *)
       }
 
+    let rip = Register.make "rip" 64;;
+   
     (** initialization of the decoder *)
     let init () =
       Imports.init ();
@@ -723,7 +726,9 @@ module Make(Arch: Arch) = struct
             | 0 -> 
               begin
                   match rm with
-                  | 5 -> disp s 32 s.addr_sz (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *)
+                  | 5 -> let disp = disp s 32 s.addr_sz (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *) in
+                         if s.addr_sz = 64 then BinOp(Add, Lval (V (T rip)), disp)
+                         else disp
                   | _ -> rm_lv
               end
             | 1 ->
@@ -848,7 +853,7 @@ module Make(Arch: Arch) = struct
     let add_sub_immediate s op b r sz =
         let r'  = V (to_reg r sz) in
         (* TODO : check if should sign extend *)
-        let w   = get_imm s sz s.imm_sz false in
+        let w   = get_imm s s.imm_sz sz false in
         add_sub s op b r' w sz
 
 
@@ -867,7 +872,7 @@ module Make(Arch: Arch) = struct
     (** returns the states for OR, XOR, AND depending on the the given operator *)
     let or_xor_and s op dst src sz =
         let res   = Set (dst, BinOp(op, Lval dst, src)) in
-        let res'  = Lval dst                    in
+        let res'  = Lval dst in
         let flag_stmts =
             [
                 clear_flag fcf; clear_flag fof; zero_flag_stmts sz res';
@@ -877,7 +882,7 @@ module Make(Arch: Arch) = struct
         in
         return s (res::flag_stmts)
 
-    let or_xor_and_eax s op sz imm_sz =
+    let or_xor_and_eax s op imm_sz sz =
         let eax = find_reg_v 0 sz in
         let imm = get_imm s imm_sz sz false in
             or_xor_and s op eax imm sz
@@ -1020,7 +1025,7 @@ module Make(Arch: Arch) = struct
         let sreg'        = V (T sreg)                            in
         let _mod, reg, _rm = mod_nnn_rm (Char.code (getchar s))              in
         let reg'           = find_reg reg s.operand_sz                   in
-        let src          = get_imm s s.operand_sz s.operand_sz false in
+        let src          = get_imm s s.imm_sz s.operand_sz false in
         let src'         = add_segment s src s.segments.data                 in
         let off          = BinOp (Add, src', const (s.operand_sz /8) s.addr_sz) in
         return s [ Set (V reg', Lval (M (src', s.operand_sz))) ; Set (sreg', Lval (M (off, 16)))]
@@ -1145,7 +1150,7 @@ module Make(Arch: Arch) = struct
             with _ -> error s.a "Illegal segment loading request (illegal index in the description table)"
         end;
         Hashtbl.replace s.segments.reg cs v';
-        let a  = int_of_bytes s (s.operand_sz / 8) in
+        let a  = int_of_bytes s (s.imm_sz / 8) in
         let o  = Address.of_int Address.Global a s.operand_sz        in
         let a' = Address.add_offset o v                              in
         check_jmp s a';
@@ -1289,7 +1294,7 @@ module Make(Arch: Arch) = struct
     (** returns the state for the push of an immediate operands. _sz_ in bits *)
     let push_immediate s sz =
         let c     = get_imm s sz !Config.stack_width true in
-        let esp'  = esp_lval ()                            in
+        let esp'  = esp_lval () in
         let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]
         in
         return s stmts
@@ -1931,7 +1936,7 @@ module Make(Arch: Arch) = struct
 
     let grp8 s =
         let nnn, dst = core_grp s s.operand_sz                                                           in
-        let imm = get_imm s 8 s.operand_sz false in
+        let imm = get_imm s 8 s.imm_sz false in
         match nnn with
         | 4 -> (* BT *) bt s dst imm
         | 5 -> (* BTS *) bts s dst imm
@@ -2040,7 +2045,7 @@ module Make(Arch: Arch) = struct
       let tmp  = Register.make (Register.fresh_name ()) 16 in
       let stmts = [
         Set(V (T tmp), BinOp(Add, UnOp(ZeroExt 16, Lval al), BinOp(Mul, Lval ah, base)));
-    Set(al, Lval (V (P (tmp, 0, 7))));
+        Set(al, Lval (V (P (tmp, 0, 7))));
         Set(ah, const 0 8);
         zero_flag_stmts 8 (Lval al);
         sign_flag_stmts 8 (Lval al);
@@ -2298,7 +2303,7 @@ module Make(Arch: Arch) = struct
             | '\x0A' -> (* OR *) or_xor_and_mrm s Or 8 1
             | '\x0B' -> (* OR *) or_xor_and_mrm s Or s.operand_sz 1
             | '\x0C' -> (* OR imm8 *) or_xor_and_eax s Or 8 8
-            | '\x0D' -> (* OR imm *) or_xor_and_eax s Or s.operand_sz s.operand_sz
+            | '\x0D' -> (* OR imm *) or_xor_and_eax s Or s.imm_sz s.operand_sz
 
 
             | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs 16 in push s [V cs']
@@ -2358,7 +2363,7 @@ module Make(Arch: Arch) = struct
               let imm = get_imm s 8 8 false in
               return s (cmp_stmts (Lval (V (P (eax, 0, 7)))) imm 8)
             | '\x3D' -> (* CMP eAX with immediate *)
-              let i = get_imm s s.operand_sz s.operand_sz false in
+              let i = get_imm s s.imm_sz s.operand_sz false in
               return s (cmp_stmts (Lval (V (P (eax, 0, s.operand_sz-1)))) i s.operand_sz)
             | '\x3E' -> (* data segment = ds *) s.segments.data <- ds (* will be set back to default value if the instruction is a jcc *); decode s
             | '\x3F' -> (* AAS *) aas s
@@ -2381,8 +2386,8 @@ module Make(Arch: Arch) = struct
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
             | '\x66' -> (* operand size switch *) if s.rex.w = 0 then switch_operand_size s; decode s (* for x86: 66H ignored if REX.W = 1, see Vol 2A 2.2.1.2 *)
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
-            | '\x68' -> (* PUSH immediate *) push_immediate s s.operand_sz
-            | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.operand_sz s.operand_sz true in imul_stmts s dst src imm
+            | '\x68' -> (* PUSH immediate *) push_immediate s s.imm_sz
+            | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.imm_sz s.operand_sz true in imul_stmts s dst src imm
             | '\x6a' -> (* PUSH byte *) push_immediate s 8
             | '\x6b' -> (* IMUL imm8 *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s 8 s.operand_sz true in imul_stmts s dst src imm
 
@@ -2394,7 +2399,7 @@ module Make(Arch: Arch) = struct
             | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - 0x70 in jcc s v 8
 
             | '\x80' -> (* grp1 opcode table *) grp1 s 8 8
-            | '\x81' -> (* grp1 opcode table *) grp1 s s.operand_sz s.operand_sz
+            | '\x81' -> (* grp1 opcode table *) grp1 s s.operand_sz s.imm_sz
             | '\x82' -> error s.a ("Undefined opcode 0x82")
             | '\x83' -> (* grp1 opcode table *) grp1 s s.operand_sz 8
             | '\x84' -> (* TEST /r8 *) let dst, src = (operands_from_mod_reg_rm s 8 0) in return s (test_stmts dst src 8)
@@ -2442,7 +2447,7 @@ module Make(Arch: Arch) = struct
             | '\xa6' -> (* CMPSB *) cmps s 8
             | '\xa7' -> (* CMPSW *) cmps s s.addr_sz
             | '\xa8' -> (* TEST AL, imm8 *) return s (test_stmts (find_reg_v 0 8) (get_imm s 8 8 false) 8)
-            | '\xa9' -> (* TEST xAX, imm *) return s (test_stmts (find_reg_v 0 s.operand_sz) (get_imm s s.operand_sz s.operand_sz false) s.operand_sz )
+            | '\xa9' -> (* TEST xAX, imm *) return s (test_stmts (find_reg_v 0 s.operand_sz) (get_imm s s.imm_sz s.operand_sz false) s.operand_sz )
             | '\xaa' -> (* STOS on byte *) stos s 8
             | '\xab' -> (* STOS *) stos s s.addr_sz
             | '\xac' -> (* LODS on byte *) lods s 8
@@ -2465,7 +2470,7 @@ module Make(Arch: Arch) = struct
             | '\xc4' -> (* LES *) load_far_ptr s es
             | '\xc5' -> (* LDS *) load_far_ptr s ds
             | '\xc6' -> (* MOV with byte *) mov_immediate s 8
-            | '\xc7' -> (* MOV with word or double *) mov_immediate s s.operand_sz
+            | '\xc7' -> (* MOV with word or double *) mov_immediate s s.imm_sz
 
             | '\xc9' -> (* LEAVE *)
               let sp = V (to_reg esp s.operand_sz) in
@@ -2490,8 +2495,8 @@ module Make(Arch: Arch) = struct
             | c when '\xe0' <= c && c <= '\xe2' -> (* LOOPNE/LOOPE/LOOP *) loop s c
             | '\xe3' -> (* JCXZ *) jecxz s
 
-            | '\xe8' -> (* relative call *) relative_call s s.operand_sz
-            | '\xe9' -> (* JMP to near relative address (offset has word or double word size) *) relative_jmp s s.operand_sz
+            | '\xe8' -> (* relative call *) relative_call s 32 (* x64: immediates are of size 8 or 32 then sign extended to 64 *)
+            | '\xe9' -> (* JMP to near relative address (offset has word or double word size) *) relative_jmp s s.imm_sz (* x64: immediates are of size 8 or 32 then sign extended to 64 *)
             | '\xea' -> (* JMP to near absolute address *) direct_jmp s
             | '\xeb' -> (* JMP to near relative address (offset has byte size) *) relative_jmp s 8
 
@@ -2503,7 +2508,7 @@ module Make(Arch: Arch) = struct
             | '\xf4' -> (* HLT *) error s.a "Decoder stopped: HLT reached"
             | '\xf5' -> (* CMC *) let fcf' = V (T fcf) in return s [ Set (fcf', UnOp (Not, Lval fcf')) ]
             | '\xf6' -> (* shift to grp3 with byte size *) grp3 s 8
-            | '\xf7' -> (* shift to grp3 with word or double word size *) grp3 s s.operand_sz
+            | '\xf7' -> (* shift to grp3 with word or double word size *) grp3 s s.imm_sz
             | '\xf8' -> (* CLC *) return s (clear_flag fcf fcf_sz)
             | '\xf9' -> (* STC *) return s (set_flag fcf fcf_sz)
             | '\xfa' -> (* CLI *) L.decoder (fun p -> p "entering privilege mode (CLI instruction)"); return s (clear_flag fif fif_sz)
@@ -2714,6 +2719,7 @@ module Make(Arch: Arch) = struct
         c = [];
         addr_sz = !Config.address_sz;
         operand_sz = !Config.operand_sz;
+        imm_sz = 32; (* TODO: change for 8086 *)
         segments = copy_segments is a ctx;
         rep_prefix = None;
         buf = text;
