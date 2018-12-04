@@ -69,7 +69,7 @@ struct
     struct
       module Domain = Domain
       module Stubs = Stubs
-      module Imports = X64Imports
+      module Imports = X64Imports.Make(Domain)(Stubs)
       let ebx = rbx
       let ebp = rbp
       let esi = rsi

@@ -33,6 +33,7 @@ ML=\
   fixpoint/stubs.ml\
   fixpoint/rules.ml\
   disassembly/x86Imports.ml\
+  disassembly/x64Imports.ml\
   disassembly/armv7Imports.ml\
   disassembly/armv8aImports.ml\
   disassembly/powerpcImports.ml\

@@ -16,77 +16,58 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-module L = Log.Make(struct let name = "x86Imports" end)
+module L = Log.Make(struct let name = "x64Imports" end)
 
-module type Arch =
-  sig
-    val eax: Register.t
-    val esp: Register.t
-    val edi: Register.t
-    val esi: Register.t
-    val ecx: Register.t
-    val edx: Register.t
-    val r8: Register.t
-    val r9: Register.t
-  end
-
-module Make(D: Domain.T)(Stubs: Stubs.T with type domain_t := D.t)(A: Arch)=
+module Make(D: Domain.T)(Stubs: Stubs.T with type domain_t := D.t) =
 struct
 
   open Asm
 
-  let reg_size reg = Register.size reg
-
-  let reg r = V (T r)
+  let reg r = V (T (Register.of_name r))
 
   let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
   let tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t = Hashtbl.create 5
 
-  let cdecl_calling_convention = {
-    return = reg A.eax;
+  (*  RDI, RSI, RDX, RCX, R8, R9, XMM0–7 *)
+  let sysv_calling_convention = {
+    return = reg "rax";
     callee_cleanup = (fun _x -> [ ]) ;
     arguments = function
+    | 0 -> (reg "rdi")
+    | 1 -> (reg "rsi")
+    | 2 -> (reg "rdx")
+    | 3 -> (reg "rcx")
+    | 4 -> (reg "r8")
+    | 5 -> (reg "r9")
     | n -> M (BinOp (Add,
-                     Lval (reg A.esp),
-                     Const (Data.Word.of_int (Z.of_int ((n+1) * !Config.stack_width / 8))
+                     Lval (reg "rsp"),
+                     Const (Data.Word.of_int (Z.of_int ((n-5) * !Config.stack_width / 8))
                                              !Config.stack_width)),
               !Config.stack_width)
     }
 
-  let stdcall_calling_convention = {
-    cdecl_calling_convention with
-      callee_cleanup = (fun nargs -> [
-        Set (reg A.esp, BinOp(Add, Lval (reg A.esp),
-                              Const (Data.Word.of_int (Z.of_int (nargs * !Config.stack_width/8))
-                                       !Config.stack_width))) ])
-  }
-
-  (*  RDI, RSI, RDX, RCX, R8, R9, XMM0–7 *)
-  let sysv_calling_convention = {
-    return = reg A.eax;
+  (* RCX/XMM0, RDX/XMM1, R8/XMM2, R9/XMM3 *)
+  let ms_calling_convention = {
+    return = reg "rax";
     callee_cleanup = (fun _x -> [ ]) ;
     arguments = function
-    | 0 -> (reg A.edi)
-    | 1 -> (reg A.esi)
-    | 2 -> (reg A.edx)
-    | 3 -> (reg A.ecx)
-    | 4 -> (reg A.r8)
-    | 5 -> (reg A.r9)
+    | 0 -> (reg "rcx")
+    | 1 -> (reg "rdx")
+    | 2 -> (reg "r8")
+    | 3 -> (reg "r9")
     | n -> M (BinOp (Add,
-                     Lval (reg A.esp),
-                     Const (Data.Word.of_int (Z.of_int ((n+1) * !Config.stack_width / 8))
+                     Lval (reg "rsp"),
+                     Const (Data.Word.of_int (Z.of_int ((n-3) * !Config.stack_width / 8))
                                              !Config.stack_width)),
               !Config.stack_width)
     }
 
   let get_local_callconv cc =
     match cc with
-    | Config.CDECL -> cdecl_calling_convention
-    | Config.STDCALL -> stdcall_calling_convention
     | Config.SYSV -> sysv_calling_convention
-    | Config.FASTCALL -> L.abort (fun p -> p "Fast call not implemented yet")
-    | c -> L.abort (fun p -> p "Calling convention [%s] not supported for x86 architecture"
+    | Config.MS -> ms_calling_convention
+    | c -> L.abort (fun p -> p "Calling convention [%s] not supported for x64 architecture"
                                (Config.call_conv_to_string c))
 
   let get_callconv () = get_local_callconv !Config.call_conv
@@ -95,7 +76,7 @@ struct
     if  Hashtbl.mem Stubs.stubs name then
       [ Directive (Stub (name, callconv)) ]
     else
-      [ Directive (Forget (reg A.eax)) ]
+      [ Directive (Forget (reg "rax")) ]
 
 
   let stack_width () = !Config.stack_width/8
@@ -116,9 +97,9 @@ struct
         name = fname;
         libname = libname;
         prologue = typing_pro @ tainting_pro;
-        stub = stub_stmts @ [ Set(reg A.esp, BinOp(Add, Lval (reg A.esp), const (stack_width()) (reg_size A.esp))) ] ;
+        stub = stub_stmts @ [ Set(reg "rsp", BinOp(Add, Lval (reg "rsp"), const (stack_width()) 64)) ] ;
         epilogue = typing_epi @ tainting_epi ;
-        ret_addr = Lval(M (BinOp(Sub, Lval (reg A.esp), const (stack_width()) (reg_size A.esp)),!Config.stack_width)) ;
+        ret_addr = Lval(M (BinOp(Sub, Lval (reg "rsp"), const (stack_width()) 64),!Config.stack_width)) ;
       } in
       Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc')
     ) Config.import_tbl
@@ -128,7 +109,7 @@ struct
       match fdesc with
       | Some (fdesc', cc) ->
          if Hashtbl.mem Config.funSkipTbl (Config.Fun_name fdesc'.Asm.name) then
-           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc)) ; Set(reg A.esp, BinOp(Add, Lval (reg A.esp), const (stack_width()) (reg_size A.esp))) ]  in
+           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc)) ; Set(reg "rsp", BinOp(Add, Lval (reg "rsp"), const (stack_width()) 64)) ]  in
            { fdesc' with stub = stmts }
          else
            fdesc'
@@ -140,14 +121,14 @@ struct
               name = "";
               libname = "";
               prologue = [];
-              stub = [Directive (Skip (Asm.Fun_addr a, get_callconv())) ; Set(reg A.esp, BinOp(Add, Lval (reg A.esp), const (stack_width()) (reg_size A.esp))) ];
+              stub = [Directive (Skip (Asm.Fun_addr a, get_callconv())) ; Set(reg "rsp", BinOp(Add, Lval (reg "rsp"), const (stack_width()) 64)) ];
               epilogue = [];
               (* the return address expression is evaluated *after* cleaning up the stack (in stdcall),
                * so we need to look it up at the correct place, depending on the number of args *)
               ret_addr = if !Config.call_conv == Config.STDCALL then
-                            Lval(M (BinOp(Sub, Lval (reg A.esp), const (((Z.to_int arg_nb)+1) * stack_width()) (reg_size A.esp)),!Config.stack_width))
+                            Lval(M (BinOp(Sub, Lval (reg "rsp"), const (((Z.to_int arg_nb)+1) * stack_width()) 64),!Config.stack_width))
                         else
-                          Lval(M (BinOp(Sub, Lval (reg A.esp), const (stack_width()) (reg_size A.esp)),!Config.stack_width));
+                          Lval(M (BinOp(Sub, Lval (reg "rsp"), const (stack_width()) 64),!Config.stack_width));
            }
           else
             raise Not_found

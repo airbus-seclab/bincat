@@ -495,11 +495,17 @@ let overflow_expression () = Lval (V (T fcf))
   type kind_in_0x40_0x4F =
     | S of Asm.stmt list
     | R of rex_t
-         
-  module type Arch = 
+
+  module type Arch =
     sig
       module Domain: Domain.T
       module Stubs: Stubs.T with type domain_t := Domain.t
+      module Imports: sig
+            val init: unit -> unit
+            val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
+                      Data.Address.t -> Asm.import_desc_t
+            val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
+      end
       val ebx: Register.t
       val ebp: Register.t
       val esi: Register.t
@@ -524,7 +530,7 @@ module Make(Arch: Arch) = struct
   module Cfa = Cfa.Make(Arch.Domain)
 
   (** import table *)
-  module Imports = Arch.Imports.Make(Arch.Domain)(Arch.Stubs)
+  module Imports = Arch.Imports
 
   (** complete internal state of the decoder.
     Only the segment field is exported out of the functor (see parse signature) for further reloading *)
