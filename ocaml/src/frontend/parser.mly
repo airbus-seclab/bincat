@@ -332,8 +332,7 @@
     | s=x86_item                { s }
     | s=x86_item ss=x86_section { s; ss }
 
-    x86_item:
-    | MEM_MODEL EQUAL m=memmodel { update_x86_mandatory MEM_MODEL; Config.memory_model := m }
+    x64_item:
     | CS EQUAL i=init            { update_x86_mandatory CS; init_register "cs" i }
     | DS EQUAL i=init            { update_x86_mandatory DS; init_register "ds" i }
     | SS EQUAL i=init            { update_x86_mandatory SS; init_register "ss" i }
@@ -343,7 +342,7 @@
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
 
 
-      memmodel:
+    memmodel:
     | FLAT  { Config.Flat }
     | SEGMENTED { Config.Segmented }
 
@@ -368,6 +367,18 @@
 
     x64_section:
     |  { () }
+    | s=x86_item                { s }
+    | s=x86_item ss=x86_section { s; ss }
+
+    x86_item:
+    | MEM_MODEL EQUAL m=memmodel { update_x86_mandatory MEM_MODEL; Config.memory_model := m }
+    | CS EQUAL i=init            { update_x86_mandatory CS; init_register "cs" i }
+    | DS EQUAL i=init            { update_x86_mandatory DS; init_register "ds" i }
+    | SS EQUAL i=init            { update_x86_mandatory SS; init_register "ss" i }
+    | ES EQUAL i=init            { update_x86_mandatory ES; init_register "es" i }
+    | FS EQUAL i=init            { update_x86_mandatory FS; init_register "fs" i }
+    | GS EQUAL i=init            { update_x86_mandatory GS; init_register "gs" i }
+    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
          
       analyzer:
     | a=analyzer_item         { a }
