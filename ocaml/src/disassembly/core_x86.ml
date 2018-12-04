@@ -22,14 +22,14 @@
 
 module L = Log.Make(struct let name = "core_x86" end)
 
-open Data        
+open Data
 open Asm
 open Decodeutils
 
 
 (* table of general purpose registers *)
 let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
-  
+
 (*************************************************************************)
 (* Creation of the general flag registers *)
 (*************************************************************************)
@@ -64,7 +64,7 @@ let _fid   = Register.make ~name:"id" ~size:1;;
   let gs = Register.make ~name:"gs" ~size:16;;
 
 
-  
+
 
   (***********************************************************************)
   (* Creation of the flags for the mxcsr register *)
@@ -88,7 +88,7 @@ let _fid   = Register.make ~name:"id" ~size:1;;
   let mxcsr_de = Register.make ~name:"mxcsr_de" ~size:1;; (* bit 1: Denormal flag *)
   let mxcsr_ie = Register.make ~name:"mxcsr_ie" ~size:1;; (* bit 0: Invalid operation flag *)
 
-  
+
   (* xmm registers *)
   let xmm0 = Register.make ~name:"xmm0" ~size:128;;
   let xmm1 = Register.make ~name:"xmm1" ~size:128;;
@@ -264,7 +264,7 @@ let _fid   = Register.make ~name:"id" ~size:1;;
         reg: (Register.t, segment_register_mask) Hashtbl.t (** current value of the segment registers *)
     }
 
-  
+
  (************************************************************************************)
     (* common utilities *)
     (************************************************************************************)
@@ -296,7 +296,7 @@ let _fid   = Register.make ~name:"id" ~size:1;;
       P (r, 8, 15)
 
     (** default size of immediates *)
-    let default_imm_sz = 32 (* yes for x64 default immediate operand size is 32, see Vol 2A 2.2.1.5 *) 
+    let default_imm_sz = 32 (* yes for x64 default immediate operand size is 32, see Vol 2A 2.2.1.5 *)
 
     (*******************************************************************************************************)
     (* statements to set/clear the flags *)
@@ -519,13 +519,13 @@ let overflow_expression () = Lval (V (T fcf))
       val get_rex: int -> rex_t option
     end
 
-             
+
 module Make(Arch: Arch) = struct
 
   open Arch
 
   let cl = P(ecx, 0, 7)
-         
+
 (** control flow automaton *)
   module Cfa = Cfa.Make(Arch.Domain)
 
@@ -554,7 +554,7 @@ module Make(Arch: Arch) = struct
 
     let rip = Register.make "rip" 64;;
     let default_segment_tbl = Hashtbl.create 5
-                            
+
     (** initialization of the decoder *)
     let init () =
       Imports.init ();
@@ -567,9 +567,9 @@ module Make(Arch: Arch) = struct
         List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
         Hashtbl.iter (fun r v -> Hashtbl.add default_segment_tbl r v) reg;
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg;}
-        
-   
-   
+
+
+
     (***********************************************************************)
     (* State helpers *)
     (***********************************************************************)
@@ -581,7 +581,7 @@ module Make(Arch: Arch) = struct
         s.o <- s.o + 1;
         s.c <- c::s.c;
         c
-         
+
     (** int conversion of a byte in the string code *)
     let int_of_byte s = Z.of_int (Char.code (getchar s))
 
@@ -639,14 +639,14 @@ module Make(Arch: Arch) = struct
 
     (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
 
-    
+
     let get_segments a ctx =
         let registers = Hashtbl.create 6 in
         try
             List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
             registers
         with _ -> error a "Decoder: overflow in a segment register"
-                            
+
     let copy_segments s a ctx =
       let segments =
         if Arch.default_segmentation then default_segment_tbl
@@ -688,7 +688,7 @@ module Make(Arch: Arch) = struct
         let rm  = v land 7 in
         let nnn = (v lsr 3) land 7 in
         let md  = (v lsr 6) in
-        md, nnn, rm   
+        md, nnn, rm
 
     (** returns the sub expression used in a displacement *)
     let disp s nb sz =
@@ -734,7 +734,7 @@ module Make(Arch: Arch) = struct
           let rm' = s.rex.b_ lsr 3 + rm in
           let rm_lv = find_reg_lv rm' s.addr_sz in
             match md with
-            | 0 -> 
+            | 0 ->
               begin
                   match rm with
                   | 5 -> let disp = disp s 32 s.addr_sz (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *) in
@@ -829,8 +829,8 @@ module Make(Arch: Arch) = struct
             | _                          -> false
         in
         List.exists is_set stmts
-   
-   
+
+
     (**************************************************************************************)
     (* State generation of binary logical/arithmetic operations *)
     (**************************************************************************************)
@@ -918,10 +918,10 @@ module Make(Arch: Arch) = struct
         in
         ([tmp_calc] @ flag_stmts @ [ Directive (Remove v) ])
 
-        
+
     let inc_dec reg op s sz = return s (core_inc_dec reg op sz)
-   
-   
+
+
     let lea s =
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
@@ -1440,23 +1440,23 @@ module Make(Arch: Arch) = struct
     (*****************************************************************************************)
     (* decoding of opcodes of groups 1 to 8 *)
     (*****************************************************************************************)
-    let icore_grp s sz c = 
+    let icore_grp s sz c =
       let md, nnn, rm = mod_nnn_rm c in
       let dst = exp_of_md s md rm sz sz in
       nnn, dst
-      
+
     let core_grp s sz =
       let c =  Char.code (getchar s) in
       icore_grp s sz c
-     
-        
+
+
     let rex_after_grp1_4 s sz =
       let c = Char.code (getchar s) in
       match Arch.get_rex c with
       | Some rex -> s.rex <- rex; core_grp s sz
       | None -> icore_grp s sz c
-        
-    
+
+
 
     let grp1 s reg_sz imm_sz =
       let nnn, dst = rex_after_grp1_4 s reg_sz in
@@ -1472,7 +1472,7 @@ module Make(Arch: Arch) = struct
       | 6 -> or_xor_and s Xor dst imm reg_sz
       | 7 -> return s (cmp_stmts (Lval dst) imm reg_sz)
       | _ -> error s.a "Illegal nnn value in grp1"
-           
+
     (* SHL *)
     let shift_l_stmt dst sz n =
         let sz' = const sz 8 in
@@ -2067,7 +2067,7 @@ module Make(Arch: Arch) = struct
         Directive(Remove tmp) ] in
         return s stmts
 
-            
+
     (********)
     (* misc *)
     (*****)
@@ -2282,9 +2282,9 @@ module Make(Arch: Arch) = struct
     (* raised by xmm instructions starting by 0xF2 *)
     exception No_rep of Cfa.State.t * Data.Address.t
 
- 
-     
-      
+
+
+
   (** decoding of one instruction *)
     let decode s =
         let add_sub_mrm s op use_carry sz direction =
@@ -2385,7 +2385,7 @@ module Make(Arch: Arch) = struct
                  | S stmts -> return s stmts
                  | R rex -> s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
                end
-           
+
             | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - 0x50) s.operand_sz in push s [V r]
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - 0x58) s.operand_sz in pop s [V r]
 
