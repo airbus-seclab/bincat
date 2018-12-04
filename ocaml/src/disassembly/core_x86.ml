@@ -524,7 +524,7 @@ module Make(Arch: Arch) = struct
   module Cfa = Cfa.Make(Arch.Domain)
 
   (** import table *)
-  module Imports = X86Imports.Make(Arch.Domain)(Arch.Stubs)
+  module Imports = X86Imports.Make(Arch.Domain)(Arch.Stubs)(struct let eax = Arch.eax let esp = Arch.esp end)
 
   
              

@@ -18,23 +18,28 @@
 
 module L = Log.Make(struct let name = "x86Imports" end)
 
-module Make(D: Domain.T)(Stubs: Stubs.T with type domain_t := D.t) =
+module type Arch =
+  sig
+    val eax: Register.t
+    val esp: Register.t
+  end
+module Make(D: Domain.T)(Stubs: Stubs.T with type domain_t := D.t)(A: Arch)=
 struct
 
   open Asm
 
-  let reg r = V (T (Register.of_name r))
+  let reg r = V (T r)
 
   let const x sz = Const (Data.Word.of_int (Z.of_int x) sz)
 
   let tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t = Hashtbl.create 5
 
   let cdecl_calling_convention = {
-    return = reg "eax" ;
+    return = reg A.eax;
     callee_cleanup = (fun _x -> [ ]) ;
     arguments = function
     | n -> M (BinOp (Add,
-                     Lval (reg "esp"),
+                     Lval (reg A.esp),
                      Const (Data.Word.of_int (Z.of_int ((n+1) * !Config.stack_width / 8))
                                              !Config.stack_width)),
               !Config.stack_width)
@@ -43,7 +48,7 @@ struct
   let stdcall_calling_convention = {
     cdecl_calling_convention with
       callee_cleanup = (fun nargs -> [
-        Set (reg "esp", BinOp(Add, Lval (reg "esp"),
+        Set (reg A.esp, BinOp(Add, Lval (reg A.esp),
                               Const (Data.Word.of_int (Z.of_int (nargs * !Config.stack_width/8))
                                        !Config.stack_width))) ])
   }
@@ -62,7 +67,7 @@ struct
     if  Hashtbl.mem Stubs.stubs name then
       [ Directive (Stub (name, callconv)) ]
     else
-      [ Directive (Forget (reg "eax")) ]
+      [ Directive (Forget (reg A.eax)) ]
 
 
   let stack_width () = !Config.stack_width/8
@@ -83,9 +88,9 @@ struct
         name = fname ;
         libname = libname ;
         prologue = typing_pro @ tainting_pro ;
-        stub = stub_stmts @ [ Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ] ;
+        stub = stub_stmts @ [ Set(reg A.esp, BinOp(Add, Lval (reg A.esp), const (stack_width()) 32)) ] ;
         epilogue = typing_epi @ tainting_epi ;
-        ret_addr = Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width)) ;
+        ret_addr = Lval(M (BinOp(Sub, Lval (reg A.esp), const (stack_width()) 32),!Config.stack_width)) ;
       } in
       Hashtbl.replace tbl (Data.Address.global_of_int adrs) (fundesc, cc')
     ) Config.import_tbl
@@ -95,7 +100,7 @@ struct
       match fdesc with
       | Some (fdesc', cc) ->
          if Hashtbl.mem Config.funSkipTbl (Config.Fun_name fdesc'.Asm.name) then
-           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc)) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ]  in
+           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc)) ; Set(reg A.esp, BinOp(Add, Lval (reg A.esp), const (stack_width()) 32)) ]  in
            { fdesc' with stub = stmts }
          else
            fdesc'
@@ -107,14 +112,14 @@ struct
               name = "";
               libname = "";
               prologue = [];
-              stub = [Directive (Skip (Asm.Fun_addr a, get_callconv())) ; Set(reg "esp", BinOp(Add, Lval (reg "esp"), const (stack_width()) 32)) ];
+              stub = [Directive (Skip (Asm.Fun_addr a, get_callconv())) ; Set(reg A.esp, BinOp(Add, Lval (reg A.esp), const (stack_width()) 32)) ];
               epilogue = [];
               (* the return address expression is evaluated *after* cleaning up the stack (in stdcall),
                * so we need to look it up at the correct place, depending on the number of args *)
               ret_addr = if !Config.call_conv == Config.STDCALL then
-                            Lval(M (BinOp(Sub, Lval (reg "esp"), const (((Z.to_int arg_nb)+1) * stack_width()) 32),!Config.stack_width))
+                            Lval(M (BinOp(Sub, Lval (reg A.esp), const (((Z.to_int arg_nb)+1) * stack_width()) 32),!Config.stack_width))
                         else
-                          Lval(M (BinOp(Sub, Lval (reg "esp"), const (stack_width()) 32),!Config.stack_width));
+                          Lval(M (BinOp(Sub, Lval (reg A.esp), const (stack_width()) 32),!Config.stack_width));
            }
           else
             raise Not_found
