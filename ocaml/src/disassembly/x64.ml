@@ -69,6 +69,7 @@ struct
     struct
       module Domain = Domain
       module Stubs = Stubs
+      module Imports = X64Imports
       let ebx = rbx
       let ebp = rbp
       let esi = rsi

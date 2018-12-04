@@ -524,10 +524,9 @@ module Make(Arch: Arch) = struct
   module Cfa = Cfa.Make(Arch.Domain)
 
   (** import table *)
-  module Imports = X86Imports.Make(Arch.Domain)(Arch.Stubs)(struct let eax = Arch.eax let esp = Arch.esp end)
+  module Imports = Arch.Imports.Make(Arch.Domain)(Arch.Stubs)
 
-  
-             
+
   (** complete internal state of the decoder.
     Only the segment field is exported out of the functor (see parse signature) for further reloading *)
     type state = {
