@@ -64,6 +64,8 @@ let _ =
     "fastcall", FASTCALL;
     "aapcs", AAPCS;
     "svr", SVR;
+    "sysv", SYSV;
+    "ms", MS;
     (* analyzer tokens *)
     "ini_version", INI_VERSION;
     "unroll", UNROLL;

@@ -148,6 +148,11 @@ class ConfigHelpers(object):
         # XXX
         if ConfigHelpers.get_arch() == "powerpc" and ida_db_info_structure.abiname == "sysv":
             return "svr"
+        if ConfigHelpers.get_arch() == "x64":
+            if ConfigHelpers.get_file_type() == 'elf':
+                return "sysv"
+            else:
+                return "ms"
         if ConfigHelpers.get_arch().startswith('arm'):
             return "aapcs"
         elif cc not in ("stdcall", "cdecl", "fastcall"):

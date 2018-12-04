@@ -107,6 +107,8 @@ type call_conv_t =
   | FASTCALL
   | AAPCS (* ARM *)
   | SVR (* PowerPC *)
+  | SYSV (* x64 SystemV *)
+  | MS (* x64 Microsoft *)
 
 let call_conv_to_string cc =
   match cc with
@@ -115,6 +117,8 @@ let call_conv_to_string cc =
   | FASTCALL -> "FASTCALL"
   | AAPCS -> "AAPCS"
   | SVR -> "SVR"
+  | SYSV -> "SYSV"
+  | MS -> "MS"
 
 let call_conv = ref CDECL
 
