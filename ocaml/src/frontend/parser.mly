@@ -321,6 +321,7 @@
 
     architecture:
     | X86   { Config.X86 }
+    | X64   { Config.X64 }
     | ARMV7 { Config.ARMv7 }
     | ARMV8 { Config.ARMv8 }
     | POWERPC { Config.POWERPC }
