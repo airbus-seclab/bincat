@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -54,10 +54,11 @@ let size r = r.sz
 
 let used () = Set.elements !registers
 
-let of_name name =
+let of_name name =  
   try Set.choose (Set.filter (fun r -> r.name = name) !registers)
-  with Not_found -> raise (Exceptions.Error
-                             (Printf.sprintf "Register %s not found" name))
+  with Not_found ->
+    raise (Exceptions.Error
+             (Printf.sprintf "Register %s not found" name))
 
 let is_stack_pointer r = r.is_sp
 

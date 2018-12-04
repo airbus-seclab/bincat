@@ -27,7 +27,6 @@ module L = Log.Make(struct let name = "main" end)
 let process (configfile:string) (resultfile:string) (logfile:string): unit =
   (* cleaning global data structures *)
   Config.clear_tables();
-  Register.clear();
   Taint.clear();
   Dump.clear();
   (* setting the log file *)

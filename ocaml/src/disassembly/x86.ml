@@ -30,7 +30,7 @@ struct
   (* Creation of the registers *)
   (************************************************************************)
 
- 
+
   let eax = Register.make ~name:"eax" ~size:32;;
   let ecx = Register.make ~name:"ecx" ~size:32;;
   let edx = Register.make ~name:"edx" ~size:32;;

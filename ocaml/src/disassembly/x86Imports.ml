@@ -85,9 +85,9 @@ struct
     
       let stub_stmts = stub_stmts_from_name fname cc' in
       let fundesc:Asm.import_desc_t = {
-        name = fname ;
-        libname = libname ;
-        prologue = typing_pro @ tainting_pro ;
+        name = fname;
+        libname = libname;
+        prologue = typing_pro @ tainting_pro;
         stub = stub_stmts @ [ Set(reg A.esp, BinOp(Add, Lval (reg A.esp), const (stack_width()) 32)) ] ;
         epilogue = typing_epi @ tainting_epi ;
         ret_addr = Lval(M (BinOp(Sub, Lval (reg A.esp), const (stack_width()) 32),!Config.stack_width)) ;
