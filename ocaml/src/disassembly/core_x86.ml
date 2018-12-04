@@ -669,8 +669,8 @@ module Make(Arch: Arch) = struct
 
 
     let add_segment s e sreg =
-        let m      = Hashtbl.find s.segments.reg sreg in
-        let ds_val = get_base_address s m             in
+        let seg_reg_val = Hashtbl.find s.segments.reg sreg in
+        let ds_val = get_base_address s seg_reg_val        in
         if Z.compare ds_val Z.zero = 0 then
             e
         else
