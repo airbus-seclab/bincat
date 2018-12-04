@@ -71,7 +71,7 @@ struct
 
 
   let stack_width () = !Config.stack_width/8
-                     
+
   let init_imports () =
     let default_cc = get_callconv () in
     Hashtbl.iter (fun adrs (libname,fname) ->
@@ -82,7 +82,7 @@ struct
         | None -> default_cc
       in
       let typing_pro,typing_epi = Rules.typing_rule_stmts fname cc' in
-    
+
       let stub_stmts = stub_stmts_from_name fname cc' in
       let fundesc:Asm.import_desc_t = {
         name = fname;
@@ -123,7 +123,7 @@ struct
            }
           else
             raise Not_found
-    
+
   let init () =
     Stubs.init ();
     init_imports ()
