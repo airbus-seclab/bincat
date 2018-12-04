@@ -774,7 +774,7 @@ module Make(Arch: Arch) = struct
     let md_from_mem s md rm sz =
       match s.addr_sz with
       | 16 -> md_from_mem_16 s md rm sz
-      | 32 -> md_from_mem_32 s md rm sz
+      | 32 | 64 -> md_from_mem_32 s md rm sz
       | _ -> error s.a "Decoder: illegal s.addr_sz in md_from_mem"
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
