@@ -266,6 +266,17 @@ class ConfigHelpers(object):
                 return 1
             if reg == 'iopl':
                 return 3
+        if arch == 'x64':
+            r9_15d = ["r%dd" % d for d in xrange(9, 16)]
+            if reg in ['rax', 'rcx', 'rdx', 'rbx', 'rbp', 'rsi', 'rdi', 'rsp']+r9_15d:
+                return 64
+            if reg in ["xmm%d" % d for d in xrange(0, 16)]:
+                return 128
+            if reg in ['cf', 'pf', 'af', 'zf', 'sf', 'tf', 'if', 'of', 'nt',
+                       'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
+                return 1
+            if reg == 'iopl':
+                return 3
         elif arch == 'armv7':
             if reg[0] == 'r' or reg in ['sp', 'lr', 'pc']:
                 return 32
@@ -296,6 +307,18 @@ class ConfigHelpers(object):
             for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
                 regs.append([name, "0", "0xFFFFFFFF", ""])
             regs.append(["esp", "0xb8001000", "", ""])
+            for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
+                         "rf", "vm", "ac", "vif", "vip", "id"]:
+                regs.append([name, "0", "1", ""])
+            regs.append(["df", "0", "", ""])
+            regs.append(["iopl", "3", "", ""])
+        if arch == "x64":
+            r9_15d = ["r%dd" % d for d in xrange(9, 16)]
+            for name in ["rax", "rcx", "rdx", "rbx", "rbp", "rsi", "rdi"]+r9_15d:
+                regs.append([name, "0", "0xFFFFFFFFFFFFFFFF", ""])
+            if name in ["xmm%d" % d for d in xrange(0, 16)]:
+                regs.append([name, "0", "0x"+"F"*32, ""])
+            regs.append(["rsp", "0xb8001000", "", ""])
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
                          "rf", "vm", "ac", "vif", "vip", "id"]:
                 regs.append([name, "0", "1", ""])
