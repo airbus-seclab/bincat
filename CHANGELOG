@@ -1,3 +1,6 @@
+2018-11-22: v1.0.1
+* Fix ARM64 detection logic in IDA plugin
+
 2018-11-15: v1.0!
 * Heap analysis with use-after-free and double-free detection
 * PowerPC 32bits support
