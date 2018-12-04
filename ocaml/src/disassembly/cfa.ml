@@ -207,7 +207,7 @@ struct
         let d', taint' = Domain.set_register_from_config r v d in
         d', Taint.Set.union taint taint'
       )
-      (d, Taint.Set.singleton Taint.U) (List.append (!Config.registers_from_coredump) (List.rev !Config.register_content))
+      (d, Taint.Set.singleton Taint.U) (List.append (!Config.registers_from_dump) (List.rev !Config.register_content))
 
     (* main function to initialize memory locations (Global/Stack/Heap) both for content and tainting *)
     (* this filling is done by iterating on corresponding lists in Config *)

@@ -161,7 +161,7 @@
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
-%token POWERPC SVR PROCESSOR_VERSION NULL X64
+%token POWERPC SVR PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP
 %token IGNORE_UNKNOWN_RELOCATIONS
 %token <string> STRING
 %token <string> HEX_BYTES
@@ -277,7 +277,8 @@
     | p=program_item pp=program  { p; pp }
 
     program_item:
-    | LOAD_ELF_COREDUMP EQUAL f=QUOTED_STRING                       { Config.elf_coredumps := f :: !Config.elf_coredumps }
+    | LOAD_ELF_COREDUMP EQUAL f=QUOTED_STRING                       { Config.dumps := f :: !Config.dumps }
+    | LOAD_PE_CRASHDUMP EQUAL f=QUOTED_STRING                       { Config.dumps := f :: !Config.dumps }
     | CALL_CONV EQUAL c=callconv { update_mandatory CALL_CONV; Config.call_conv := c }
     | OP_SZ EQUAL i=INT          {
       update_mandatory OP_SZ;

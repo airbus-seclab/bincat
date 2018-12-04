@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -29,7 +29,7 @@ let make_coredump_mapped_mem filepath =
   let mapped_file = map_file filepath in
   let elf = Elf_core.to_elf mapped_file in
   let regs = Elf_core.elf_to_coredump_regs elf in
-  Config.registers_from_coredump := List.append !Config.registers_from_coredump regs ;
+  Config.registers_from_dump := List.append !Config.registers_from_dump regs ;
   if L.log_debug2 () then
     begin
       L.debug2(fun p -> p "Parsing ELF coredump file [%s]" filepath);

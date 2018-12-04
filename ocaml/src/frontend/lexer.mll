@@ -29,6 +29,7 @@ let _ =
     (* program section *)
      "program", PROGRAM;
      "load_elf_coredump", LOAD_ELF_COREDUMP;
+     "load_pe_crashdump", LOAD_PE_CRASHDUMP;
     (* analyzer section *)
      "analyzer", ANALYZER;
     (* sections section *)

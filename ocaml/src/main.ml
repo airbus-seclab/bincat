@@ -82,7 +82,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       | Config.MANUAL -> Manual.make_mapped_mem
     in
     let exe_map = do_map_file !Config.binary (Data.Address.global_of_int !Config.ep) in
-    let complete_map = Elf_coredump.add_coredumps exe_map !Config.elf_coredumps in
+    let complete_map = Elf_coredump.add_coredumps exe_map !Config.dumps in
     Mapped_mem.current_mapping := Some complete_map;
     if L.log_info2 () then
       begin
