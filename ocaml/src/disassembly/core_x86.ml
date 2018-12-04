@@ -526,7 +526,6 @@ module Make(Arch: Arch) = struct
   (** import table *)
   module Imports = Arch.Imports.Make(Arch.Domain)(Arch.Stubs)
 
-
   (** complete internal state of the decoder.
     Only the segment field is exported out of the functor (see parse signature) for further reloading *)
     type state = {
