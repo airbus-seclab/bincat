@@ -366,7 +366,10 @@ class ConfigHelpers(object):
         info = idaapi.get_inf_structure()
         procname = info.procName.lower()
         if procname == "metapc":
-            return "x86"
+            if info.is_64bit():
+                return "x64"
+            else:
+                return "x86"
         if procname == "ppc":
             return "powerpc"
         elif procname.startswith("arm"):
