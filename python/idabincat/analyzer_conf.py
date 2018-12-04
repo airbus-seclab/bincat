@@ -267,7 +267,7 @@ class ConfigHelpers(object):
             if reg == 'iopl':
                 return 3
         if arch == 'x64':
-            r9_15d = ["r%dd" % d for d in xrange(9, 16)]
+            r9_15d = ["r%d" % d for d in xrange(8, 16)]
             if reg in ['rax', 'rcx', 'rdx', 'rbx', 'rbp', 'rsi', 'rdi', 'rsp']+r9_15d:
                 return 64
             if reg in ["xmm%d" % d for d in xrange(0, 16)]:
@@ -313,7 +313,7 @@ class ConfigHelpers(object):
             regs.append(["df", "0", "", ""])
             regs.append(["iopl", "3", "", ""])
         if arch == "x64":
-            r9_15d = ["r%dd" % d for d in xrange(9, 16)]
+            r9_15d = ["r%d" % d for d in xrange(8, 16)]
             for name in ["rax", "rcx", "rdx", "rbx", "rbp", "rsi", "rdi"]+r9_15d:
                 regs.append([name, "0", "0xFFFFFFFFFFFFFFFF", ""])
             if name in ["xmm%d" % d for d in xrange(0, 16)]:
