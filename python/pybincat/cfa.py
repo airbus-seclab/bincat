@@ -52,6 +52,30 @@ def reg_len(regname):
             "r6": 32, "r7": 32, "r8": 32, "r9": 32, "r10": 32, "r11": 32,
             "r12": 32, "sp": 32, "lr": 32, "pc": 32, "itstate": 8,
             "c": 1, "n": 1, "v": 1, "z": 1, "t": 1}[regname]
+    elif CFA.arch == "x64":
+        return {
+            "rax": 64, "rbx": 64, "rcx": 64, "rdx": 64,
+            "rsi": 64, "rdi": 64, "rsp": 64, "rbp": 64,
+            "r8": 64, "r9": 64, "r10": 64, "r11": 64,
+            "r12": 64, "r13": 64, "r14": 64, "r15": 64, "rip": 64,
+            "eax": 32, "ebx": 32, "ecx": 32, "edx": 32,
+            "esi": 32, "edi": 32, "esp": 32, "ebp": 32,
+            "ax": 16, "bx": 16, "cx": 16, "dx": 16, "si": 16, "di": 16,
+            "sp": 16, "bp": 16, "cs": 16, "ds": 16, "es": 16, "ss": 16,
+            "fs": 16, "gs": 16,
+            "iopl": 2,
+            "mxcsr_fz": 1, "mxcsr_round": 2, "mxcsr_pm": 1, "mxcsr_um": 1,
+            "mxcsr_om": 1, "mxcsr_zm": 1, "mxcsr_dm": 1, "mxcsr_im": 1,
+            "mxcsr_daz": 1, "mxcsr_pe": 1, "mxcsr_ue": 1, "mxcsr_oe": 1,
+            "mxcsr_ze": 1, "mxcsr_de": 1, "mxcsr_ie": 1,
+            "xmm0": 128, "xmm1": 128, "xmm2": 128, "xmm3": 128,
+            "xmm4": 128, "xmm5": 128, "xmm6": 128, "xmm7": 128,
+            "xmm8": 128, "xmm9": 128, "xmm10": 128, "xmm11": 128,
+            "xmm12": 128, "xmm13": 128, "xmm14": 128, "xmm15": 128,
+            "st_ptr": 3, "c0": 1, "c1": 1, "c2": 1, "c3": 1,
+            "cf": 1, "pf": 1, "af": 1, "zf": 1, "sf": 1, "tf": 1, "if": 1,
+            "df": 1, "of": 1, "nt": 1, "rf": 1, "vm": 1, "ac": 1, "vif": 1,
+            "vip": 1, "id": 1}[regname]
     elif CFA.arch == "x86":
         return {
             "eax": 32, "ebx": 32, "ecx": 32, "edx": 32,
