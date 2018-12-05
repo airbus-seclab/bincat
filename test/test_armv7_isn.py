@@ -599,9 +599,19 @@ def test_block_xfer_load_pc(tmpdir):
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4"])
 
 
-
-
-
+def test_block_xfer_load_self(tmpdir):
+    asm = """
+            mov r0, #123
+            mov r1, #101
+            mov r2, #42
+            mov r3, sp
+            str r1, [sp,#-4]
+            str r2, [sp,#-8]
+            str r2, [sp,#-12]
+            sub r3, r3, #12
+            ldmfd r3, {r3, r4, r5}
+    """
+    compare(tmpdir, asm, ["r3", "r4", "r5"])
 
 
 
