@@ -379,6 +379,48 @@ class X86(Arch):
                 s.append("\t"+l)
         return "\n".join(s)
 
+##       __ _ _
+## __ __/ /| | |
+## \ \ / _ \_  _|
+## /_\_\___/ |_|
+##
+## X64
+
+class X64(Arch):
+    NASM_TMP_DIR = counter("nasm-%i")
+    ALL_FLAGS = ["cf", "pf", "af", "zf", "sf", "df", "of"]
+    ALL_REGS = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp"] + [ "r%i" for i in range(8,16) ] + ALL_FLAGS
+    EGGLOADER = 'eggloader_x64'
+
+    def assemble(self, tmpdir, asm):
+        d = tmpdir.mkdir(self.NASM_TMP_DIR.next())
+        inf = d.join("asm.S")
+        outf = d.join("opcodes")
+        inf.write("BITS 64\n"+asm)
+        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
+        opcodes = open(str(outf)).read()
+        return listing, str(outf), opcodes
+
+    def extract_flags(self, regs):
+        flags = regs.pop("eflags")
+        regs["cf"] = flags & 1
+        regs["pf"] = (flags >> 2) & 1
+        regs["af"] = (flags >> 4) & 1
+        regs["zf"] = (flags >> 6) & 1
+        regs["sf"] = (flags >> 7) & 1
+        regs["df"] = (flags >> 10) & 1
+        regs["of"] = (flags >> 11) & 1
+
+    def prettify_listing(self, asm):
+        s = []
+        for l in asm.splitlines():
+            l = l.strip()
+            if "BITS 64" in l or len(l.split()) <= 1:
+                continue
+            if l:
+                s.append("\t"+l)
+        return "\n".join(s)
+
 
 ##    _   ___ __  __
 ##   /_\ | _ \  \/  |
