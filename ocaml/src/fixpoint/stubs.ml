@@ -373,6 +373,8 @@ struct
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1);;
+      Hashtbl.replace stubs "_Znwj" (heap_allocator, 1);; (* new *)
+      Hashtbl.replace stubs "_ZdlPv" (heap_deallocator, 1);; (* delete *)
 
 
 end
