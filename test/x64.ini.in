@@ -15,11 +15,11 @@ headers = "libc.no"
 
 [program]
 mode = protected
-call_conv = cdecl
-mem_sz = 32
-op_sz = 32
-stack_width = 32
-architecture = x86
+call_conv = svr
+mem_sz = 64
+op_sz = 64
+stack_width = 64
+architecture = x64
 filepath = "{filepath}"
 format = raw
 {program_section}
