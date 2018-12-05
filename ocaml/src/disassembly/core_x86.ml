@@ -1425,27 +1425,17 @@ module Make(Arch: Arch) = struct
 
     (*****************************************************************************************)
     (* decoding of opcodes of groups 1 to 8 *)
-    (*****************************************************************************************)
-    let icore_grp s sz c =
+    (*****************************************************************************************)   
+    let core_grp s sz =
+      let c =  Char.code (getchar s) in
       let md, nnn, rm = mod_nnn_rm c in
       let dst = exp_of_md s md rm sz sz in
       nnn, dst
-
-    let core_grp s sz =
-      let c =  Char.code (getchar s) in
-      icore_grp s sz c
-
-
-    let rex_after_grp1_4 s sz =
-      let c = Char.code (getchar s) in
-      match Arch.get_rex c with
-      | Some rex -> s.rex <- rex; core_grp s sz
-      | None -> icore_grp s sz c
-
+      
 
 
     let grp1 s reg_sz imm_sz =
-      let nnn, dst = rex_after_grp1_4 s reg_sz in
+      let nnn, dst = core_grp s reg_sz in
       let imm = get_imm s imm_sz reg_sz true in
       (* operation is encoded in bits 5,4,3 *)
       match nnn with
@@ -1812,7 +1802,7 @@ module Make(Arch: Arch) = struct
       ]
 
     let grp2 s sz e =
-      let nnn, dst = rex_after_grp1_4 s sz in
+      let nnn, dst = core_grp s sz in
       let n =
         match e with
         | Some e' -> e'
@@ -1830,7 +1820,7 @@ module Make(Arch: Arch) = struct
       | _ -> error s.a "Illegal opcode in grp 2"
 
     let grp3 s sz =
-        let nnn, reg = rex_after_grp1_4 s sz in
+        let nnn, reg = core_grp s sz in
         let stmts =
             match nnn with
             | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts reg imm sz
@@ -1845,7 +1835,7 @@ module Make(Arch: Arch) = struct
         return s stmts
 
     let grp4 s =
-        let nnn, dst = rex_after_grp1_4 s 8 in
+        let nnn, dst = core_grp s 8 in
         match nnn with
         | 0 -> inc_dec dst Add s 8
         | 1 -> inc_dec dst Sub s 8
@@ -2369,7 +2359,7 @@ module Make(Arch: Arch) = struct
                begin
                  match Arch.decode_from_0x40_to_0x4F c s.operand_sz with
                  | S stmts -> return s stmts
-                 | R rex -> s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
+                 | R rex -> L.debug (fun p -> p "yep"); s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
                end
 
             | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - 0x50) s.operand_sz in push s [V r]
