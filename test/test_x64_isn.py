@@ -5,7 +5,7 @@ from util import X64
 x64 = X64(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'x64.ini.in')
 )
-compare = x64.show_cpu
+compare = x64.compare
 check = x64.check
 
 #  _ __ ___   _____   __
@@ -32,5 +32,5 @@ def test_assign(tmpdir):
         mov dh,0x55
         mov dl,0x66
     """.format(**locals())
-    compare(tmpdir, asm, ["rax","rbx","rcx","rdx","rsi","rdi",
-                          "r8","r9"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "rsi", "rdi",
+                          "r8", "r9"])
