@@ -24,9 +24,10 @@
 module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 struct
 
+  open Data
+  open Asm
+  open Decodeutils
   include Core_x86
-
-  (* open Decodeutils *)
 
   (************************************************************************)
   (* Creation of the registers *)
@@ -79,13 +80,38 @@ struct
       let ecx = rcx
       let esp = rsp
       let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1  }
-        
+
       let get_rex c = Some (iget_rex c)
-        
-      let decode_from_0x40_to_0x4F c _sz =
+
+      let decode_from_0x40_to_0x4F (c: char) (_sz) : kind_in_0x40_0x4F =
         let c' = Char.code c in
         R (iget_rex c')
-        
+
+        let get_base_address segments rip c =
+            if !Config.mode = Config.Protected then
+                let dt = if c.ti = GDT then segments.gdt else segments.ldt in
+                try
+                    let e = Hashtbl.find dt c.index in
+                    if c.rpl <= e.dpl then
+                        e.base
+                    else
+                        error rip "illegal requested privileged level"
+                with Not_found ->
+                    error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+            else
+                error rip "only protected mode supported"
+
+        let add_segment segments operand_sz rip offset sreg =
+            match (Register.name sreg) with
+              | "ss" | "es" | "cs" | "ds" -> offset
+              | _ ->
+                let seg_reg_val = Hashtbl.find segments.reg sreg in
+                let base_val = get_base_address segments rip seg_reg_val        in
+                if Z.compare base_val Z.zero = 0 then
+                    offset
+                else
+                    BinOp(Add, offset, const_of_Z base_val operand_sz)
+
     let default_segmentation = true
     end
   module Core = Make (Arch)

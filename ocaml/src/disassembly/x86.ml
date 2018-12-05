@@ -25,6 +25,8 @@ module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 struct
 
   open Asm
+  open Data
+  open Decodeutils
   include Core_x86
   (************************************************************************)
   (* Creation of the registers *)
@@ -72,6 +74,27 @@ struct
         
       let get_rex _c = None
       let default_segmentation = false
+      let get_base_address segments rip c =
+          if !Config.mode = Config.Protected then
+              let dt = if c.ti = GDT then segments.gdt else segments.ldt in
+              try
+                  let e = Hashtbl.find dt c.index in
+                  if c.rpl <= e.dpl then
+                      e.base
+                  else
+                      error rip "illegal requested privileged level"
+              with Not_found ->
+                  error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+          else
+              error rip "only protected mode supported"
+
+      let add_segment segments operand_sz rip offset sreg =
+          let seg_reg_val = Hashtbl.find segments.reg sreg in
+          let base_val = get_base_address segments rip seg_reg_val        in
+          if Z.compare base_val Z.zero = 0 then
+              offset
+          else
+              BinOp(Add, offset, const_of_Z base_val operand_sz)
     end
     module Core = Make(Arch)
     include Core

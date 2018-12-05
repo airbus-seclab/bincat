@@ -516,6 +516,9 @@ let overflow_expression () = Lval (V (T fcf))
       val esp: Register.t
       val default_segmentation: bool
       val decode_from_0x40_to_0x4F: char -> int -> kind_in_0x40_0x4F
+      val get_base_address: ctx_t -> Data.Address.t -> segment_register_mask -> Z.t
+      (* add_segment translates the segment selector/offset pair into a linear addresss *)
+      val add_segment: ctx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
       val get_rex: int -> rex_t option
     end
 
@@ -654,27 +657,10 @@ module Make(Arch: Arch) = struct
       { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
     let get_base_address s c =
-        if !Config.mode = Config.Protected then
-            let dt = if c.ti = GDT then s.segments.gdt else s.segments.ldt in
-            try
-                let e = Hashtbl.find dt c.index in
-                if c.rpl <= e.dpl then
-                    e.base
-                else
-                    error s.a "illegal requested privileged level"
-            with Not_found ->
-                error s.a (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
-        else
-            error s.a "only protected mode supported"
-
+        Arch.get_base_address s.segments s.a c
 
     let add_segment s e sreg =
-        let seg_reg_val = Hashtbl.find s.segments.reg sreg in
-        let ds_val = get_base_address s seg_reg_val        in
-        if Z.compare ds_val Z.zero = 0 then
-            e
-        else
-            BinOp(Add, e, const_of_Z ds_val s.operand_sz)
+        Arch.add_segment s.segments s.operand_sz s.a e sreg
 
     let add_data_segment s e = add_segment s e s.segments.data
 
