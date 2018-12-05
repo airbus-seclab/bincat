@@ -106,8 +106,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     let module Domain   = Reduced_unrel_typenv_heap.Make(Pointer) in
     let decoder =
       match !Config.architecture with
-      | Config.X86 -> (module X86.Make: Decoder.Make)
-      | Config.X64 -> (module X64.Make: Decoder.Make)
+      | Config.X86 | Config.X64 -> (module Core_x86.Make: Decoder.Make)
       | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
       | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
       | Config.POWERPC -> (module Powerpc.Make: Decoder.Make)

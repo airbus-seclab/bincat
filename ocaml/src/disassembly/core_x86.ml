@@ -22,6 +22,7 @@
 
 module L = Log.Make(struct let name = "core_x86" end)
 
+module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) = struct
 open Data
 open Asm
 open Decodeutils
@@ -498,13 +499,11 @@ let overflow_expression () = Lval (V (T fcf))
 
   module type Arch =
     sig
-      module Domain: Domain.T
-      module Stubs: Stubs.T with type domain_t := Domain.t
       module Imports: sig
-            val init: unit -> unit
-            val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
-                      Data.Address.t -> Asm.import_desc_t
-            val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
+        val init: unit -> unit
+        val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
+                  Data.Address.t -> Asm.import_desc_t
+        val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
       end
       val ebx: Register.t
       val ebp: Register.t
@@ -522,15 +521,166 @@ let overflow_expression () = Lval (V (T fcf))
       val get_rex: int -> rex_t option
     end
 
+  module X86 =
+    (struct
+      (************************************************************************)
+      (* Creation of the registers *)
+      (************************************************************************)
+      
+      module Imports = X86Imports.Make(Domain)(Stubs)
+                     
+      let eax = Register.make ~name:"eax" ~size:32;;
+      let ecx = Register.make ~name:"ecx" ~size:32;;
+      let edx = Register.make ~name:"edx" ~size:32;;
+      let ebx = Register.make ~name:"ebx" ~size:32;;
+      let esp = Register.make_sp ~name:"esp" ~size:32;;
+      let ebp = Register.make ~name:"ebp" ~size:32;;
+      let esi = Register.make ~name:"esi" ~size:32;;
+      let edi = Register.make ~name:"edi" ~size:32;;
 
-module Make(Arch: Arch) = struct
+  Hashtbl.add register_tbl 0 eax;;
+  Hashtbl.add register_tbl 1 ecx;;
+  Hashtbl.add register_tbl 2 edx;;
+  Hashtbl.add register_tbl 3 ebx;;
+  Hashtbl.add register_tbl 4 esp;;
+  Hashtbl.add register_tbl 5 ebp;;
+  Hashtbl.add register_tbl 6 esi;;
+  Hashtbl.add register_tbl 7 edi;;
 
-  open Arch
+  let decode_from_0x40_to_0x4F c sz =
+    let stmts =
+          match c with
+          | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - 0x40) sz in core_inc_dec (V r) Add sz
+          | _ -> (* DEC *) let r = find_reg ((Char.code c) - 0x48) sz in core_inc_dec (V r) Sub sz
+        in
+        S stmts
+        
+      let get_rex _c = None
+      let default_segmentation = false
+      let get_base_address segments rip c =
+          if !Config.mode = Config.Protected then
+              let dt = if c.ti = GDT then segments.gdt else segments.ldt in
+              try
+                  let e = Hashtbl.find dt c.index in
+                  if c.rpl <= e.dpl then
+                      e.base
+                  else
+                      error rip "illegal requested privileged level"
+              with Not_found ->
+                  error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+          else
+              error rip "only protected mode supported"
+
+      let add_segment segments operand_sz rip offset sreg =
+          let seg_reg_val = Hashtbl.find segments.reg sreg in
+          let base_val = get_base_address segments rip seg_reg_val        in
+          if Z.compare base_val Z.zero = 0 then
+              offset
+          else
+              BinOp(Add, offset, const_of_Z base_val operand_sz)
+end: Arch)
+
+    module X64 =
+      (struct
+        
+
+        (************************************************************************)
+        (* Creation of the registers *)
+        (************************************************************************)
+        
+        let rax = Register.make ~name:"rax" ~size:64;;
+        let rcx = Register.make ~name:"rcx" ~size:64;;
+        let rdx = Register.make ~name:"rdx" ~size:64;;
+        let rbx = Register.make ~name:"rbx" ~size:64;;
+        let rsp = Register.make_sp ~name:"rsp" ~size:64;;
+        let rbp = Register.make ~name:"rbp" ~size:64;;
+        let rsi = Register.make ~name:"rsi" ~size:64;;
+        let rdi = Register.make ~name:"rdi" ~size:64;;
+        let r8 = Register.make ~name:"r8" ~size:64;;
+        let r9 = Register.make ~name:"r9" ~size:64;;
+        let r10 = Register.make ~name:"r10" ~size:64;;
+        let r11 = Register.make ~name:"r11" ~size:64;;
+        let r12 = Register.make ~name:"r12" ~size:64;;
+        let r13 = Register.make ~name:"r13" ~size:64;;
+        let r14 = Register.make ~name:"r14" ~size:64;;
+        let r15 = Register.make ~name:"r15" ~size:64;;
+        
+        List.iteri (fun i r -> Hashtbl.add register_tbl i r) [ rax ; rcx ; rdx ; rbx ; rsp ; rbp ; rsi ; rdi ; r8 ; r9 ; r10 ; r11 ; r12 ; r13 ; r14 ; r15 ];;
+        
+        
+        (* x64-only xmm registers *)
+        let xmm8 = Register.make ~name:"xmm8" ~size:128;;
+        let xmm9 = Register.make ~name:"xmm9" ~size:128;;
+        let xmm10 = Register.make ~name:"xmm10" ~size:128;;
+        let xmm11 = Register.make ~name:"xmm11" ~size:128;;
+        let xmm12 = Register.make ~name:"xmm12" ~size:128;;
+        let xmm13 = Register.make ~name:"xmm13" ~size:128;;
+        let xmm14 = Register.make ~name:"xmm14" ~size:128;;
+        let xmm15 = Register.make ~name:"xmm15" ~size:128;;
+        
+        List.iteri (fun i r -> Hashtbl.add xmm_tbl i r) [ xmm8 ; xmm9 ; xmm10 ; xmm11 ; xmm12 ; xmm13 ; xmm14 ; xmm15 ];;
+        
+        
+            module Imports = X64Imports.Make(Domain)(Stubs)
+            let ebx = rbx
+            let ebp = rbp
+            let esi = rsi
+            let edi = rdi
+            let edx = rdx
+            let eax = rax
+            let ecx = rcx
+            let esp = rsp
+            let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1  }
+                           
+            let get_rex c = Some (iget_rex c)
+                          
+            let decode_from_0x40_to_0x4F (c: char) (_sz) : kind_in_0x40_0x4F =
+              let c' = Char.code c in
+              R (iget_rex c')
+              
+            let get_base_address segments rip c =
+              if !Config.mode = Config.Protected then
+                let dt = if c.ti = GDT then segments.gdt else segments.ldt in
+                try
+                  let e = Hashtbl.find dt c.index in
+                    if c.rpl <= e.dpl then
+                        e.base
+                    else
+                        error rip "illegal requested privileged level"
+                with Not_found ->
+                    error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+            else
+                error rip "only protected mode supported"
+
+        let add_segment segments operand_sz rip offset sreg =
+            match (Register.name sreg) with
+              | "ss" | "es" | "cs" | "ds" -> offset
+              | _ ->
+                let seg_reg_val = Hashtbl.find segments.reg sreg in
+                let base_val = get_base_address segments rip seg_reg_val in
+                if Z.compare base_val Z.zero = 0 then
+                    offset
+                else
+                    BinOp(Add, offset, const_of_Z base_val operand_sz)
+
+    let default_segmentation = true
+
+end: Arch)
+
+    let arch =
+      match !Config.architecture with
+      | Config.X86 -> (module X86: Arch)
+      | Config.X64 -> (module X64: Arch)
+      | _ -> L.abort (fun p -> p "incompatible arcihitecture choice with Core_x86 functor")
+
+    module Arch = (val arch: Arch)
+
+    open Arch
 
   let cl = P(ecx, 0, 7)
 
 (** control flow automaton *)
-  module Cfa = Cfa.Make(Arch.Domain)
+  module Cfa = Cfa.Make(Domain)
 
   (** import table *)
   module Imports = Arch.Imports

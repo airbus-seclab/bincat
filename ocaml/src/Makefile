@@ -51,8 +51,6 @@ ML=\
   domains/reduced_unrel_typenv_heap.ml\
   disassembly/cfa.ml\
   disassembly/core_x86.ml\
-  disassembly/x86.ml\
-  disassembly/x64.ml\
   disassembly/armv7.ml\
   disassembly/armv8A.ml\
   disassembly/powerpc.ml\
