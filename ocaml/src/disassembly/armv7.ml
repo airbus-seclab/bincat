@@ -386,7 +386,11 @@ struct
       let dir_op = if ascend then Add else Sub in
       let ofs = ref (if instruction land (1 lsl 24) = 0 then 0 else 4) in
       let store = instruction land (1 lsl 20) = 0 in
-      let stmts = ref [] in
+      let tmpreg = Register.make (Register.fresh_name ()) 32 in
+      let tmpreg_v = V(T tmpreg) in
+      (* set tmp reg to src register value, so that the src register can be
+       * loaded *)
+      let stmts = ref [Set(tmpreg_v, Lval (V (treg rn)))] in
       let update_pc = ref false in
       let reg_count = ref 0 in
       for i = 0 to 15 do
@@ -395,13 +399,13 @@ struct
           begin
             if store then
               stmts := !stmts @
-                [ Set( M (BinOp(dir_op, Lval (V (treg rn)), const !ofs 32), 32),
+                [ Set( M (BinOp(dir_op, Lval (tmpreg_v), const !ofs 32), 32),
                             Lval (V (treg regtest))) ]
             else
               begin
                 stmts := !stmts @
                   [ Set( V (treg regtest),
-                         Lval (M (BinOp(dir_op, Lval (V (treg rn)), const !ofs 32), 32))) ];
+                         Lval (M (BinOp(dir_op, Lval (tmpreg_v), const !ofs 32), 32))) ];
                 if i = 15 then update_pc := true
               end;
             ofs := !ofs+4;
@@ -414,7 +418,7 @@ struct
           [ Set (V (treg rn), BinOp(dir_op, Lval (V (treg rn)), const (4*(!reg_count)) 32)) ];
       if !update_pc then
         stmts := !stmts @ [ Jmp (R (Lval (V (T pc)))) ];
-      !stmts
+      !stmts @ [Directive (Remove tmpreg)]
 
   let branch s instruction =
     let link = (instruction land (1 lsl 24)) <> 0 in

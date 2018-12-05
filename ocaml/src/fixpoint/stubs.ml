@@ -179,7 +179,7 @@ struct
                             in
                             let d', dst_off' = dump arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) sz in
                             fmt_pos+2, dst_off', d'
-                          | c ->  L.abort (fun p -> p "Unknown format char in format string: %c" c)
+                          | c ->  L.abort (fun p -> p "(s)printf: Unknown format char in format string: %c" c)
                       end
                     | 'x' | 'X' ->
                       let copy =
@@ -203,7 +203,7 @@ struct
                       fmt_pos+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
 
                     (* value is in memory *)
-                    | c ->  L.abort (fun p -> p "Unknown format char in format string: %c" c)
+                    | c ->  L.abort (fun p -> p "(s)printf: Unknown format char in format string: %c" c)
                 in
                 let n = ((Char.code c) - (Char.code '0')) in
                     compute n fmt_pos
