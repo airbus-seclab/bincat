@@ -249,7 +249,8 @@ class Arch:
             pytest.fail("%s: %s\n%s" % (testname, e, bctest.listing))
 
         print hline
-        print asm
+        print bctest.listing
+        print
         for reg in regs:
             regspec = reg.split(":")
             reg = regspec[0]
