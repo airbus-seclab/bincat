@@ -1456,6 +1456,11 @@ let overflow_expression () = Lval (V (T fcf))
         let imm = get_imm s sz sz false in
         return s [ Set (dst, imm) ]
 
+    (* mov immediate info register, no reg/rm *)
+    let mov_imm_direct s c =
+      let op_sz = if s.rex.w = 1 then 64 else s.imm_sz in
+      let r = (find_reg_v ((Char.code c) - 0xb8) op_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (op_sz/8)) op_sz))]
+
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
         let imm = int_of_bytes s (s.addr_sz/8) in
@@ -2599,9 +2604,7 @@ let overflow_expression () = Lval (V (T fcf))
               let n = (Char.code c) - 0xb4  in
               let r = V (P (Hashtbl.find register_tbl n, 8, 15)) in
               return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
-            | c when '\xb8' <= c && c <= '\xbf' -> (* mov immediate word or double into word or double register *)
-              let r = (find_reg_v ((Char.code c) - 0xb8) s.operand_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (s.operand_sz/8)) s.operand_sz))]
-
+            | c when '\xb8' <= c && c <= '\xbf' -> mov_imm_direct s c
             | '\xc0' -> (* shift grp2 with byte size*) grp2 s 8 None
             | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
             | '\xc2' -> (* RET NEAR and pop word *) return s [ Return; (* pop imm16 *) set_esp Add (T esp) (s.addr_sz + 16); ]
