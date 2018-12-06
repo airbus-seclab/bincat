@@ -236,3 +236,10 @@ def test_arith_inc_reg64(tmpdir, op64):
             inc rax
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "of", "sf", "zf", "pf", "af"])
+
+def test_arith_inc_reg64_32(tmpdir, op64):
+    asm = """
+            mov rax, {op64:#x}
+            inc eax
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "pf", "af"])
