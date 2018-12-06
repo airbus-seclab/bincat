@@ -15,7 +15,7 @@ headers = "libc.no"
 
 [program]
 mode = protected
-call_conv = svr
+call_conv = sysv
 mem_sz = 64
 op_sz = 64
 stack_width = 64
@@ -60,14 +60,22 @@ reg[ac] = 0?1
 reg[vif] = 0?1
 reg[vip] = 0?1
 reg[id] = 0?1
-reg[eax] = 0
-reg[ebx] = 0
-reg[ecx] = 0
-reg[edi] = 0
-reg[esi] = 0
-reg[edx] = 0
-reg[esp] = 0x2000
-reg[ebp] = 0x2000
+reg[rax] = 0
+reg[rbx] = 0
+reg[rcx] = 0
+reg[rdi] = 0
+reg[rsi] = 0
+reg[rdx] = 0
+reg[r8] = 0
+reg[r9] = 0
+reg[r10] = 0
+reg[r11] = 0
+reg[r12] = 0
+reg[r13] = 0
+reg[r14] = 0
+reg[r15] = 0
+reg[rsp] = 0x2000
+reg[rbp] = 0x2000
 
 #here addresses are supposed to be absolute and not of the form ds:o
 mem[0x1000*8192] = |00|?0xFF

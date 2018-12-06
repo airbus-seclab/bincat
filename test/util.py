@@ -390,7 +390,7 @@ class X86(Arch):
 class X64(Arch):
     NASM_TMP_DIR = counter("nasm-%i")
     ALL_FLAGS = ["cf", "pf", "af", "zf", "sf", "df", "of"]
-    ALL_REGS = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp"] + [ "r%i" for i in range(8,16) ] + ALL_FLAGS
+    ALL_REGS = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp"] + [ "r%d" % i for i in range(8,16) ] + ALL_FLAGS
     EGGLOADER = 'eggloader_x64'
 
     def assemble(self, tmpdir, asm):
