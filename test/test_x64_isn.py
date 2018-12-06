@@ -34,3 +34,71 @@ def test_assign(tmpdir):
     """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "rsi", "rdi",
                           "r8", "r9"])
+
+def test_32bit_switch(tmpdir):
+    asm = """
+start:
+        ;; prepare rsi and rdi for the test
+        mov rsi, 0xffffffffffffffff
+        mov rdi, rsi
+
+        ;; compute stack width in 64 bits
+        mov rcx, rsp
+        push rax
+        sub rcx, rsp
+
+        ;; prepare the address of the far jump
+        call .getPC1
+.getPC1:
+        pop r8
+        lea r9, [r8+zone_32-.getPC1]
+        mov [r8+.jmpaddr-.getPC1], r9
+
+        ;; jump !
+        jmp far [r8+.jmpaddr-.getPC1]
+
+align 16
+.jmpaddr:
+        dq 0      ;; to be filled with "zone_32" absolute address
+        dq 0x23   ;; descriptor for 32 bit segment for linux
+
+
+BITS 32
+zone_32:
+        ;; prepare a new stack in the scratch space (see eggloader)
+        mov esp, 0x100100
+
+        ;; switch to a 32 bit data segment (descriptor=0x2b for linux)
+        mov eax, 0x2b
+        mov ds, ax
+
+        ;; test 32 bit asssign
+        mov esi, 0x12345678
+
+        ;; compute stack width in 32 bits
+        mov edx, esp
+        push eax
+        sub edx, esp
+        pop eax
+
+        ;; prepare the address of the far jump
+        call .getPC2
+.getPC2:
+        pop eax
+        lea ebx, [eax+the_end-.getPC2]
+        mov [eax+.jmpaddr2-.getPC2], ebx
+
+        ;; Jump !
+        jmp far [eax+.jmpaddr2-.getPC2]
+
+align 16
+.jmpaddr2:
+        dd 0      ;; to be filled with "the_end" absolute address
+        dd 0x33   ;; descriptor for 64 bit segment for linux
+
+
+BITS 64
+the_end:
+        nop
+    """
+    x64.show_cpu(tmpdir, asm, ["rsi", "rdi", "rcx", "rdx"])
