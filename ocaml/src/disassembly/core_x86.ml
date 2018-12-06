@@ -99,6 +99,7 @@ open Decodeutils
                
     module type Arch =
       sig
+        val operand_sz: int
         module Imports:
         functor (D: Domain.T) -> functor (S: Stubs.T with type domain_t := D.t) ->
                sig
@@ -134,7 +135,7 @@ open Decodeutils
 
 module X86 =
   (struct
-          
+    let operand_sz = 32
     (************************************************************************)
     (* Creation of the registers *)
     (************************************************************************)
@@ -197,7 +198,8 @@ module  X64 =
     (************************************************************************)
     (* Creation of the registers *)
     (************************************************************************)
-    
+    let operand_sz = 32
+                   
     let eax = Register.make ~name:"rax" ~size:64
     let ecx = Register.make ~name:"rcx" ~size:64
     let edx = Register.make ~name:"rdx" ~size:64
@@ -2525,6 +2527,9 @@ let overflow_expression () = Lval (V (T fcf))
                begin
                  try
                    let rex = decode_from_0x40_to_0x4F c s.operand_sz in
+                   if rex.w = 1 && s.rex.op_switch then
+                     (* previous operand_switch is ignored *)
+                     switch_operand_size s;
                    s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
                  with Exit -> (* INC *)
                    let r = find_reg ((Char.code c) - 0x40) s.operand_sz in inc_dec (V r) Add s s.operand_sz
@@ -2884,7 +2889,7 @@ let overflow_expression () = Lval (V (T fcf))
         o = 0;
         c = [];
         addr_sz = !Config.address_sz;
-        operand_sz = !Config.operand_sz;
+        operand_sz = operand_sz;
         imm_sz = 32; (* TODO: change for 8086 *)
         segments = copy_segments is a ctx;
         rep_prefix = None;
