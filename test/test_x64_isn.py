@@ -319,4 +319,4 @@ BITS 64
 the_end:
         nop
     """
-    x64.show_cpu(tmpdir, asm, ["rsi", "rdi", "rcx", "rdx"])
+    x64.compare(tmpdir, asm, ["rsi", "rdi", "rcx", "rdx"])
