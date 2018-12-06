@@ -2448,7 +2448,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x02' -> (* ADD *) add_sub_mrm s Add false 8 1
             | '\x03' -> (* ADD *) add_sub_mrm s Add false s.operand_sz 1
             | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax 8
-            | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz
+            | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.imm_sz
             | '\x06' -> (* PUSH es *) let es' = to_reg es 16 in push s [V es']
             | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
             | '\x08' -> (* OR *) or_xor_and_mrm s Or 8 0
@@ -2468,7 +2468,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x13' -> (* ADC *) add_sub_mrm s Add true s.operand_sz 1
 
             | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax 8
-            | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz
+            | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.imm_sz
             | '\x16' -> (* PUSH ss *) let ss' = to_reg ss 16 in push s [V ss']
             | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
 
@@ -2486,7 +2486,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x22' -> (* AND *) or_xor_and_mrm s And 8 1
             | '\x23' -> (* AND *) or_xor_and_mrm s And s.operand_sz 1
             | '\x24' -> (* AND imm8 *) or_xor_and_eax s And 8 8
-            | '\x25' -> (* AND imm *) or_xor_and_eax s And s.operand_sz s.operand_sz
+            | '\x25' -> (* AND imm *) or_xor_and_eax s And s.imm_sz s.operand_sz
 
             | '\x26' -> (* data segment = es *) s.segments.data <- es; decode s
             | '\x27' -> (* DAA *) daa s
@@ -2495,7 +2495,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x2A' -> (* SUB *) add_sub_mrm s Sub false 8 1
             | '\x2B' -> (* SUB *) add_sub_mrm s Sub false s.operand_sz 1
             | '\x2C' -> (* SUB AL with immediate *) add_sub_immediate s Sub false eax 8
-            | '\x2D' -> (* SUB eAX with immediate *) add_sub_immediate s Sub false eax s.operand_sz
+            | '\x2D' -> (* SUB eAX with immediate *) add_sub_immediate s Sub false eax s.imm_sz
             | '\x2E' -> (* data segment = cs *) s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
             | '\x2F' -> (* DAS *) das s
 
@@ -2504,7 +2504,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x32' -> (* XOR *) or_xor_and_mrm s Xor 8 1
             | '\x33' -> (* XOR *) or_xor_and_mrm s Xor s.operand_sz 1
             | '\x34' -> (* XOR imm8 *) or_xor_and_eax s Xor 8 8
-            | '\x35' -> (* XOR imm *) or_xor_and_eax s Xor s.operand_sz s.operand_sz
+            | '\x35' -> (* XOR imm *) or_xor_and_eax s Xor s.imm_sz s.operand_sz
 
             | '\x36' -> (* data segment = ss *) s.segments.data <- ss; decode s
             | '\x37' -> (* AAA *) aaa s
