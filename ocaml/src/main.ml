@@ -114,7 +114,6 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     in
     let module Decoder = (val decoder: Decoder.Make) in
     let module Interpreter = Interpreter.Make(Domain)(Decoder) in
-
     (* defining the dump function to provide to the fixpoint engine *)
     let dump cfa = Interpreter.Cfa.print resultfile cfa in
 
@@ -141,8 +140,9 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       (* forward analysis from a binary *)
       | Config.Forward Config.Bin ->
           (* 6: generate code *)
-          (* 7: generate the initial cfa with only an initial state *)
+         (* 7: generate the initial cfa with only an initial state *)
          let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
+         Interpreter.make_registers();
          let s = Interpreter.Cfa.init_state ep' in
          let g = Interpreter.Cfa.create () in
          Interpreter.Cfa.add_state g s;

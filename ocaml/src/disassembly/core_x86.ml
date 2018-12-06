@@ -698,9 +698,11 @@ let overflow_expression () = Lval (V (T fcf))
 
     let rip = Register.make "rip" 64;;    
     let default_segment_tbl = Hashtbl.create 5;;
+    let init_registers() =
+      Arch.init_registers register_tbl xmm_tbl
+      
     (** initialization of the decoder *)
     let init () =
-      Arch.init_registers register_tbl xmm_tbl;
       let ldt = Hashtbl.create 5  in
       let gdt = Hashtbl.create 19 in
       let idt = Hashtbl.create 15 in

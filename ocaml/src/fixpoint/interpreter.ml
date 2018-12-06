@@ -1023,5 +1023,6 @@ struct
       in
       let g_bwd = process backward g in
       process forward_cfa g_bwd
-  end
+    let make_registers () = Decoder.init_registers ()
+end
 

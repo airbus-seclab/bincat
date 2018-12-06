@@ -1270,4 +1270,5 @@ struct
 
   let overflow_expression () = Lval (V (P (cr, 28, 28)))
 
+  let init_registers () = ()
 end

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2018 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -1468,7 +1468,7 @@ struct
       | Exceptions.Error _ as e -> raise e
       | _  -> (*end of buffer *) None
 
-
+let init_registers () = ()
   let init () =
     Imports.init ()
 

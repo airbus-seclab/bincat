@@ -54,4 +54,7 @@ sig
 
     (** returns the expression to check whether an overflow occurs *)
     val overflow_expression: unit -> Asm.exp
-  end
+
+                                       (** creates registers if not done by default (see x86 and x64 mechanisms) *)
+    val init_registers: unit -> unit
+end
