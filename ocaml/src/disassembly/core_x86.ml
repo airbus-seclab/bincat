@@ -98,10 +98,10 @@ open Decodeutils
 
                
     module type Arch =
-      sig
+      functor (Domain: Domain.T) -> functor (Stubs: Stubs.T with type domain_t := Domain.t) ->
+                               sig
         val operand_sz: int
         module Imports:
-        functor (D: Domain.T) -> functor (S: Stubs.T with type domain_t := D.t) ->
                sig
                  val init: unit -> unit
                  val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
@@ -133,14 +133,14 @@ open Decodeutils
       L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
 
-module X86 =
-  (struct
+module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
+  struct
     let operand_sz = 32
     (************************************************************************)
     (* Creation of the registers *)
     (************************************************************************)
     
-    module Imports = X86Imports.Make
+    module Imports = X86Imports.Make(Domain)(Stubs)
                    
     let eax = Register.make ~name:"eax" ~size:32
     let ecx = Register.make ~name:"ecx" ~size:32
@@ -190,10 +190,10 @@ module X86 =
         offset
       else
         BinOp(Add, offset, const_of_Z base_val operand_sz)
-          end: Arch)
+          end
   
-module  X64 =
-  (struct
+module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
+  struct
     
     (************************************************************************)
     (* Creation of the registers *)
@@ -232,7 +232,7 @@ module  X64 =
       List.iteri (fun i r -> Hashtbl.add xmm_tbl i r) [ xmm8 ; xmm9 ; xmm10 ; xmm11 ; xmm12 ; xmm13 ; xmm14 ; xmm15 ]
       
       
-    module Imports = X64Imports.Make
+    module Imports = X64Imports.Make(Domain)(Stubs)
                    
     let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; op_switch = false  }
                    
@@ -277,12 +277,11 @@ module  X64 =
          
     let default_segmentation = true
                              
-  end: Arch)
+  end
 
 
 module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) = struct
 
-  open Arch
      type ctx_t = ictx_t
 (* table of general purpose registers *)
 let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 8;;
@@ -682,14 +681,14 @@ let overflow_expression () = Lval (V (T fcf))
       flags_stmts @ [Directive (Remove v)]
 
                    
-  let cl = P (Arch.ecx, 0, 7)
+
 
 (** control flow automaton *)
   module Cfa = Cfa.Make(Domain)
-
-  module Imports = Arch.Imports(Domain)(Stubs)
-
-
+  module Arch = Arch(Domain)(Stubs)
+  module Imports = Arch.Imports
+  open Arch
+  let cl = P (Arch.ecx, 0, 7)
   (** complete internal state of the decoder.
     Only the segment field is exported out of the functor (see parse signature) for further reloading *)
     type state = {
@@ -1212,7 +1211,7 @@ let overflow_expression () = Lval (V (T fcf))
     (** checks that the target is within the bounds of the code segment *)
     let check_jmp (s: state) target =
         let a = s.a in
-        let csv = Hashtbl.find s.segments.reg cs                             in
+        let csv = Hashtbl.find s.segments.reg cs in
         let seg : tbl_entry  =
           begin
             try
