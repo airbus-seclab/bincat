@@ -992,10 +992,10 @@ let overflow_expression () = Lval (V (T fcf))
                  overflow_flag_stmts sz (Lval res) (Lval dst) op src ;
                  zero_flag_stmts sz (Lval res) ;
                  sign_flag_stmts sz (Lval res) ;
-                 parity_flag_stmts sz (Lval res) ;
-                 Set(dst, Lval res) ;
-                 Directive (Remove res_reg)
-             ])
+                 parity_flag_stmts sz (Lval res) ; ] @
+                 Arch.set_register dst (Lval res) @
+                 [ Directive (Remove res_reg) ]
+             )
 
 
     (** produces the state corresponding to an add or a sub with an immediate operand *)
@@ -1471,7 +1471,9 @@ let overflow_expression () = Lval (V (T fcf))
     (* mov immediate info register, no reg/rm *)
     let mov_imm_direct s c =
       let op_sz = if s.rex.w = 1 then 64 else s.imm_sz in
-      let r = (find_reg_v ((Char.code c) - 0xb8) op_sz) in return s [Set (r, Const (Word.of_int (int_of_bytes s (op_sz/8)) op_sz))]
+      let base_reg_nb = ((Char.code c) - 0xb8) in
+      let reg_nb = s.rex.b_ lsl 3 + base_reg_nb in
+      let r = (find_reg_v reg_nb op_sz) in return s (Arch.set_register r (Const (Word.of_int (int_of_bytes s (op_sz/8)) op_sz)))
 
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
