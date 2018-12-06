@@ -1470,9 +1470,10 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
     let mov_immediate s sz =
-        let dst, _ = operands_from_mod_reg_rm s sz 0 in
-        let imm = get_imm s sz sz false in
-        return s [ Set (dst, imm) ]
+      let sz' = if sz = 8 then sz else s.operand_sz in
+      let dst, _ = operands_from_mod_reg_rm s sz' 0 in      
+      let imm = get_imm s sz s.operand_sz true in
+      return s [ Set (dst, imm) ]
 
     (* mov immediate info register, no reg/rm *)
     let mov_imm_direct s c =
