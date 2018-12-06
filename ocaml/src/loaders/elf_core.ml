@@ -787,7 +787,7 @@ let to_rel s rofs shdr symtab hdr =
     | ELFCLASS_32 -> 4, 8, Z.of_int 0xff
     | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
-  let symnum = Z.logand (Z.shift_right info shift) mask in
+  let symnum = Z.shift_right info shift in
   let syms = List.filter (fun sym -> sym.p_st_shdr.p_sh_index = shdr.sh_link) symtab in
   let sym = try List.nth syms (Z.to_int symnum)
             with Failure _ -> L.abort (fun p -> p "symbol %s of section %i not found for reloc in section %i"
@@ -827,7 +827,7 @@ let to_rela s rofs shdr symtab hdr =
     | ELFCLASS_32 -> 4, 8, Z.of_int 0xff
     | ELFCLASS_64 -> 8, 32, Z.of_int 0xffffffff in
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
-  let symnum = Z.logand (Z.shift_right info shift) mask in
+  let symnum = Z.shift_right info shift in
   let syms = List.filter (fun (sym:e_sym_t) -> sym.p_st_shdr.p_sh_index = shdr.sh_link) symtab in
   let sym = List.nth syms (Z.to_int symnum) in
   {

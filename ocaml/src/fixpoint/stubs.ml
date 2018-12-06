@@ -133,6 +133,7 @@ struct
         in
         let sz = Asm.lval_length arg0 in
         let byte_exp = Asm.Lval byte in
+        L.info (fun p -> p "memset(%s, %s, %s) stub" (Z.to_string (D.value_of_exp d dst)) (Z.to_string (D.value_of_exp d byte_exp)) (Z.to_string nb'));
         let one_set d i =
           if Z.compare i nb' < 0 then
             let addr = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int i sz)) in
@@ -140,7 +141,9 @@ struct
           else
             d
         in            
-        let d' = one_set d Z.zero in
+        let rec set_loop d i = if Z.sign i < 0 then d
+                               else let d'=one_set d i in set_loop d' (Z.pred i) in
+        let d' = set_loop d nb' in
         (* result is tainted if the destination to copy the byte is tainted *)
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large number of bytes to copy in memset stub")
@@ -176,7 +179,7 @@ struct
                             in
                             let d', dst_off' = dump arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) sz in
                             fmt_pos+2, dst_off', d'
-                          | c ->  L.abort (fun p -> p "Unknown format char in format string: %c" c)
+                          | c ->  L.abort (fun p -> p "(s)printf: Unknown format char in format string: %c" c)
                       end
                     | 'x' | 'X' ->
                       let copy =
@@ -200,7 +203,7 @@ struct
                       fmt_pos+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
 
                     (* value is in memory *)
-                    | c ->  L.abort (fun p -> p "Unknown format char in format string: %c" c)
+                    | c ->  L.abort (fun p -> p "(s)printf: Unknown format char in format string: %c" c)
                 in
                 let n = ((Char.code c) - (Char.code '0')) in
                     compute n fmt_pos
@@ -373,6 +376,8 @@ struct
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1);;
+      Hashtbl.replace stubs "_Znwj" (heap_allocator, 1);; (* new *)
+      Hashtbl.replace stubs "_ZdlPv" (heap_deallocator, 1);; (* delete *)
 
 
 end
