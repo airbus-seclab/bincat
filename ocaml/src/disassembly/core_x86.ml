@@ -497,57 +497,63 @@ let overflow_expression () = Lval (V (T fcf))
     | S of Asm.stmt list
     | R of rex_t
 
-  module type Arch =
-    sig
-      module Imports: sig
+  class virtual arch =
+    object
+      (* module Imports: sig
         val init: unit -> unit
         val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
                   Data.Address.t -> Asm.import_desc_t
         val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
-      end
-      val ebx: Register.t
-      val ebp: Register.t
-      val esi: Register.t
-      val edi: Register.t
-      val edx: Register.t
-      val eax: Register.t
-      val ecx: Register.t
-      val esp: Register.t
-      val default_segmentation: bool
-      val decode_from_0x40_to_0x4F: char -> int -> kind_in_0x40_0x4F
-      val get_base_address: ctx_t -> Data.Address.t -> segment_register_mask -> Z.t
-      (* add_segment translates the segment selector/offset pair into a linear addresss *)
-      val add_segment: ctx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
-      val get_rex: int -> rex_t option
-    end
+      end *)
+      val mutable virtual ebx: Register.t
+      val mutable virtual ebp: Register.t
+      val mutable virtual esi: Register.t
+      val mutable virtual edi: Register.t
+      val mutable virtual edx: Register.t
+      val mutable virtual eax: Register.t
+      val mutable virtual ecx: Register.t
+      val mutable virtual esp: Register.t
+      val mutable virtual default_segmentation: bool
+      method virtual init_registers: unit -> unit
+      method virtual decode_from_0x40_to_0x4F: char -> int -> kind_in_0x40_0x4F
+      method virtual get_base_address: ctx_t -> Data.Address.t -> segment_register_mask -> Z.t
 
-  module X86 =
-    (struct
+      (** method add_segment translates the segment selector/offset pair into a linear addresss *)
+      method virtual add_segment: ctx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
+      method virtual get_rex: int -> rex_t option
+    end;;
+
+  class x86 =
+  object
+    inherit arch
+          
       (************************************************************************)
       (* Creation of the registers *)
       (************************************************************************)
       
-      module Imports = X86Imports.Make(Domain)(Stubs)
+       (* module Imports = X86Imports.Make(Domain)(Stubs) *)
                      
-      let eax = Register.make ~name:"eax" ~size:32;;
-      let ecx = Register.make ~name:"ecx" ~size:32;;
-      let edx = Register.make ~name:"edx" ~size:32;;
-      let ebx = Register.make ~name:"ebx" ~size:32;;
-      let esp = Register.make_sp ~name:"esp" ~size:32;;
-      let ebp = Register.make ~name:"ebp" ~size:32;;
-      let esi = Register.make ~name:"esi" ~size:32;;
-      let edi = Register.make ~name:"edi" ~size:32;;
+      val mutable eax = Register.make ~name:"eax" ~size:32
+      val mutable ecx = Register.make ~name:"ecx" ~size:32
+      val mutable edx = Register.make ~name:"edx" ~size:32
+      val mutable ebx = Register.make ~name:"ebx" ~size:32
+      val mutable esp = Register.make_sp ~name:"esp" ~size:32
+      val mutable ebp = Register.make ~name:"ebp" ~size:32
+      val mutable esi = Register.make ~name:"esi" ~size:32
+      val mutable edi = Register.make ~name:"edi" ~size:32
 
-  Hashtbl.add register_tbl 0 eax;;
-  Hashtbl.add register_tbl 1 ecx;;
-  Hashtbl.add register_tbl 2 edx;;
-  Hashtbl.add register_tbl 3 ebx;;
-  Hashtbl.add register_tbl 4 esp;;
-  Hashtbl.add register_tbl 5 ebp;;
-  Hashtbl.add register_tbl 6 esi;;
-  Hashtbl.add register_tbl 7 edi;;
 
-  let decode_from_0x40_to_0x4F c sz =
+      method init_registers () =
+        Hashtbl.add register_tbl 0 eax;
+        Hashtbl.add register_tbl 1 ecx;
+        Hashtbl.add register_tbl 2 edx;
+        Hashtbl.add register_tbl 3 ebx;
+        Hashtbl.add register_tbl 4 esp;
+        Hashtbl.add register_tbl 5 ebp;
+        Hashtbl.add register_tbl 6 esi;
+        Hashtbl.add register_tbl 7 edi
+
+  method decode_from_0x40_to_0x4F c sz =
     let stmts =
           match c with
           | c when '\x40' <= c && c <= '\x47' -> (* INC *) let r = find_reg ((Char.code c) - 0x40) sz in core_inc_dec (V r) Add sz
@@ -555,9 +561,9 @@ let overflow_expression () = Lval (V (T fcf))
         in
         S stmts
         
-      let get_rex _c = None
-      let default_segmentation = false
-      let get_base_address segments rip c =
+      method get_rex _c = None
+      val mutable default_segmentation = false
+      method get_base_address segments rip c =
           if !Config.mode = Config.Protected then
               let dt = if c.ti = GDT then segments.gdt else segments.ldt in
               try
@@ -571,74 +577,68 @@ let overflow_expression () = Lval (V (T fcf))
           else
               error rip "only protected mode supported"
 
-      let add_segment segments operand_sz rip offset sreg =
+      method add_segment segments operand_sz rip offset sreg =
           let seg_reg_val = Hashtbl.find segments.reg sreg in
-          let base_val = get_base_address segments rip seg_reg_val        in
+          let base_val = self#get_base_address segments rip seg_reg_val in
           if Z.compare base_val Z.zero = 0 then
               offset
           else
               BinOp(Add, offset, const_of_Z base_val operand_sz)
-end: Arch)
+end;;
 
-    module X64 =
-      (struct
+       
+  class x64 =
+    object
+      inherit arch
         
 
         (************************************************************************)
         (* Creation of the registers *)
         (************************************************************************)
         
-        let rax = Register.make ~name:"rax" ~size:64;;
-        let rcx = Register.make ~name:"rcx" ~size:64;;
-        let rdx = Register.make ~name:"rdx" ~size:64;;
-        let rbx = Register.make ~name:"rbx" ~size:64;;
-        let rsp = Register.make_sp ~name:"rsp" ~size:64;;
-        let rbp = Register.make ~name:"rbp" ~size:64;;
-        let rsi = Register.make ~name:"rsi" ~size:64;;
-        let rdi = Register.make ~name:"rdi" ~size:64;;
-        let r8 = Register.make ~name:"r8" ~size:64;;
-        let r9 = Register.make ~name:"r9" ~size:64;;
-        let r10 = Register.make ~name:"r10" ~size:64;;
-        let r11 = Register.make ~name:"r11" ~size:64;;
-        let r12 = Register.make ~name:"r12" ~size:64;;
-        let r13 = Register.make ~name:"r13" ~size:64;;
-        let r14 = Register.make ~name:"r14" ~size:64;;
-        let r15 = Register.make ~name:"r15" ~size:64;;
+        val mutable eax = Register.make ~name:"rax" ~size:64
+        val mutable ecx = Register.make ~name:"rcx" ~size:64
+        val mutable edx = Register.make ~name:"rdx" ~size:64
+        val mutable ebx = Register.make ~name:"rbx" ~size:64
+        val mutable esp = Register.make_sp ~name:"rsp" ~size:64
+        val mutable ebp = Register.make ~name:"rbp" ~size:64
+        val mutable esi = Register.make ~name:"rsi" ~size:64
+        val mutable edi = Register.make ~name:"rdi" ~size:64
         
-        List.iteri (fun i r -> Hashtbl.add register_tbl i r) [ rax ; rcx ; rdx ; rbx ; rsp ; rbp ; rsi ; rdi ; r8 ; r9 ; r10 ; r11 ; r12 ; r13 ; r14 ; r15 ];;
-        
-        
+
+        method init_registers() =
+          let r8 = Register.make ~name:"r8" ~size:64 in
+          let r9 = Register.make ~name:"r9" ~size:64 in
+          let r10 = Register.make ~name:"r10" ~size:64 in
+          let r11 = Register.make ~name:"r11" ~size:64 in
+          let r12 = Register.make ~name:"r12" ~size:64 in
+          let r13 = Register.make ~name:"r13" ~size:64 in
+          let r14 = Register.make ~name:"r14" ~size:64 in
+          let r15 = Register.make ~name:"r15" ~size:64 in
+          List.iteri (fun i r -> Hashtbl.add register_tbl i r) [ rax ; rcx ; rdx ; rbx ; rsp ; rbp ; rsi ; rdi ; r8 ; r9 ; r10 ; r11 ; r12 ; r13 ; r14 ; r15 ];
         (* x64-only xmm registers *)
-        let xmm8 = Register.make ~name:"xmm8" ~size:128;;
-        let xmm9 = Register.make ~name:"xmm9" ~size:128;;
-        let xmm10 = Register.make ~name:"xmm10" ~size:128;;
-        let xmm11 = Register.make ~name:"xmm11" ~size:128;;
-        let xmm12 = Register.make ~name:"xmm12" ~size:128;;
-        let xmm13 = Register.make ~name:"xmm13" ~size:128;;
-        let xmm14 = Register.make ~name:"xmm14" ~size:128;;
-        let xmm15 = Register.make ~name:"xmm15" ~size:128;;
+        let xmm8 = Register.make ~name:"xmm8" ~size:128 in
+            let xmm9 = Register.make ~name:"xmm9" ~size:128 in
+        let xmm10 = Register.make ~name:"xmm10" ~size:128 in
+        let xmm11 = Register.make ~name:"xmm11" ~size:128 in
+        let xmm12 = Register.make ~name:"xmm12" ~size:128 in
+        let xmm13 = Register.make ~name:"xmm13" ~size:128 in
+        let xmm14 = Register.make ~name:"xmm14" ~size:128 in 
+        let xmm15 = Register.make ~name:"xmm15" ~size:128 in        
+        List.iteri (fun i r -> Hashtbl.add xmm_tbl i r) [ xmm8 ; xmm9 ; xmm10 ; xmm11 ; xmm12 ; xmm13 ; xmm14 ; xmm15 ]
         
-        List.iteri (fun i r -> Hashtbl.add xmm_tbl i r) [ xmm8 ; xmm9 ; xmm10 ; xmm11 ; xmm12 ; xmm13 ; xmm14 ; xmm15 ];;
         
-        
-            module Imports = X64Imports.Make(Domain)(Stubs)
-            let ebx = rbx
-            let ebp = rbp
-            let esi = rsi
-            let edi = rdi
-            let edx = rdx
-            let eax = rax
-            let ecx = rcx
-            let esp = rsp
-            let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1  }
+        (*            module Imports = X64Imports.Make(Domain)(Stubs) *)
+
+            method iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1  }
                            
-            let get_rex c = Some (iget_rex c)
+            method get_rex c = Some (self#iget_rex c)
                           
-            let decode_from_0x40_to_0x4F (c: char) (_sz) : kind_in_0x40_0x4F =
+            method decode_from_0x40_to_0x4F (c: char) (_sz) : kind_in_0x40_0x4F =
               let c' = Char.code c in
               R (iget_rex c')
               
-            let get_base_address segments rip c =
+            method get_base_address segments rip c =
               if !Config.mode = Config.Protected then
                 let dt = if c.ti = GDT then segments.gdt else segments.ldt in
                 try
@@ -652,7 +652,7 @@ end: Arch)
             else
                 error rip "only protected mode supported"
 
-        let add_segment segments operand_sz rip offset sreg =
+        method add_segment segments operand_sz rip offset sreg =
             match (Register.name sreg) with
               | "ss" | "es" | "cs" | "ds" -> offset
               | _ ->
@@ -663,21 +663,13 @@ end: Arch)
                 else
                     BinOp(Add, offset, const_of_Z base_val operand_sz)
 
-    let default_segmentation = true
+    val mutable default_segmentation = true
 
-end: Arch)
+end
 
-    let arch =
-      match !Config.architecture with
-      | Config.X86 -> (module X86: Arch)
-      | Config.X64 -> (module X64: Arch)
-      | _ -> L.abort (fun p -> p "incompatible arcihitecture choice with Core_x86 functor")
 
-    module Arch = (val arch: Arch)
-
-    open Arch
-
-  let cl = P(ecx, 0, 7)
+                   
+  (* let cl () = P(arch#ecx, 0, 7) *)
 
 (** control flow automaton *)
   module Cfa = Cfa.Make(Domain)
@@ -711,6 +703,12 @@ end: Arch)
     (** initialization of the decoder *)
     let init () =
       Imports.init ();
+      begin
+        match !Config.architecture with
+        | Config.X86 -> arch = new x86
+        | Config.X64 -> arch = new x64
+      end;
+      arch#init_registers();
       let ldt = Hashtbl.create 5  in
       let gdt = Hashtbl.create 19 in
       let idt = Hashtbl.create 15 in
@@ -790,8 +788,7 @@ end: Arch)
         let index = (v lsr 3)        in
         { rpl = privilege_level_of_int lvl; ti = if ti = 0 then GDT else LDT; index = Word.of_int (Z.of_int index) 13 }
 
-    (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
-
+    
 
     let get_segments a ctx =
         let registers = Hashtbl.create 6 in
@@ -806,13 +803,14 @@ end: Arch)
         else get_segments a ctx in
       { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
-    let get_base_address s c =
-        Arch.get_base_address s.segments s.a c
+    (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
+    let get_base_address arch s c =
+        arch#get_base_address s.segments s.a c
 
-    let add_segment s e sreg =
-        Arch.add_segment s.segments s.operand_sz s.a e sreg
+    let add_segment arch s e sreg =
+        arch#add_segment s.segments s.operand_sz s.a e sreg
 
-    let add_data_segment s e = add_segment s e s.segments.data
+    let add_data_segment arch s e = arch#add_segment s e s.segments.data
 
     (************************************************)
     (* MOD REG R/M *)
