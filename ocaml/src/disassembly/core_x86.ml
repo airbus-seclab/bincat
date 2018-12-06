@@ -119,6 +119,8 @@ open Decodeutils
     val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
     val decode_from_0x40_to_0x4F: char -> int -> rex_t
     val get_base_address: ictx_t -> Data.Address.t -> segment_register_mask -> Z.t
+    (* function to set an lval to an expression *)
+    val set_register: Asm.lval -> Asm.exp -> Asm.stmt list
                    
     (** add_segment translates the segment selector/offset pair into a linear addresss *)
     val add_segment: ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
@@ -178,6 +180,8 @@ module X86 =
       else
         error rip "only protected mode supported"
       
+    let set_register dst value = [ Set(dst, value) ]
+
     let add_segment segments operand_sz rip offset sreg =
       let seg_reg_val = Hashtbl.find segments.reg sreg in
       let base_val = get_base_address segments rip seg_reg_val in
@@ -250,6 +254,14 @@ module  X64 =
       else
         error rip "only protected mode supported"
       
+      let set_register dst value =
+        L.debug(fun p->p "set_register(%s, %s)" (Asm.string_of_lval dst true) (Asm.string_of_exp value true));
+        let normal_set = [ Set(dst, value) ] in
+        match dst with
+        | M(_, _) -> normal_set
+        | V(r) -> match r with
+          | T(_) -> (* full assignation *) normal_set
+          | P(reg, l, u) -> if l == 0 && u == 31 then normal_set @ [ Set(V( P(reg, 32, 63)), const0 32) ] else normal_set
     let add_segment segments operand_sz rip offset sreg =
       match (Register.name sreg) with
       | "ss" | "es" | "cs" | "ds" -> offset
