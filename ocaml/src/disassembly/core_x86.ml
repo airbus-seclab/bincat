@@ -83,7 +83,7 @@ open Decodeutils
     type segment_register_mask = { rpl: privilege_level; ti: table_indicator; index: Word.t }
 
     (** type for REX prefixes *)
-  type rex_t = {w: int; r: int; x: int; b_: int}
+  type rex_t = {w: int; r: int; x: int; b_: int; mutable op_switch: bool}
 
 
     (** decoding context contains all information about
@@ -232,7 +232,7 @@ module  X64 =
       
     module Imports = X64Imports.Make
                    
-    let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1  }
+    let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; op_switch = false  }
                    
     let get_rex c = Some (iget_rex c)
                   
@@ -2533,6 +2533,9 @@ let overflow_expression () = Lval (V (T fcf))
                begin
                  try
                    let rex = decode_from_0x40_to_0x4F c s.operand_sz in
+                   if rex.w = 1 && s.rex.op_switch then
+                     (* previous operand_switch is ignored *)
+                     switch_operand_size s;
                    s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
                  with Exit ->
                        let r = find_reg ((Char.code c) - 0x48) s.operand_sz in
@@ -2548,7 +2551,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x63' -> (* ARPL *) arpl s
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
-            | '\x66' -> (* operand size switch *) if s.rex.w = 0 then switch_operand_size s; decode s (* for x86: 66H ignored if REX.W = 1, see Vol 2A 2.2.1.2 *)
+            | '\x66' -> (* operand size switch *) switch_operand_size s; s.rex.op_switch <- true; (* for x86: 66H ignored if REX.W = 1, see Vol 2A 2.2.1.2, this condition will be used in the rex prefix decoding *) decode s 
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
             | '\x68' -> (* PUSH immediate *) push_immediate s s.imm_sz
             | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.imm_sz s.operand_sz true in imul_stmts s dst src imm
@@ -2889,7 +2892,7 @@ let overflow_expression () = Lval (V (T fcf))
         rep = false;
         repe = false;
         repne = false;
-        rex = {r=0; w=0; x=0; b_=0};
+        rex = {r=0; w=0; x=0; b_=0; op_switch=false};
       }
     in
     try
