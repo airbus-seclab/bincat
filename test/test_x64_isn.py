@@ -130,7 +130,7 @@ def test_arith_adc_reg16(tmpdir, op16, op16_, x86carryop):
             mov ecx, {op16_:#x}
             adc dx, cx
           """.format(**locals())
-    compare(tmpdir, asm, ["edx", "of", "sf", "zf", "cf", "pf", "af"])
+    compare(tmpdir, asm, ["rdx", "of", "sf", "zf", "cf", "pf", "af"])
 
 def test_arith_adc_imm32(tmpdir, op32, op32_, x86carryop):
     asm = """
