@@ -35,6 +35,15 @@ def test_assign(tmpdir):
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "rsi", "rdi",
                           "r8", "r9"])
 
+def test_assign_2(tmpdir):
+    asm = """
+        mov rax,0x0
+        mov rbx,0xffffffffffffffff
+        mov ecx,0xffffffff
+        mov r9,0x82345678
+    """.format(**locals())
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "r9"])
+
 ##    _   ___ ___ _____ _  _ __  __ ___ _____ ___ ___    ___  ___  ___
 ##   /_\ | _ \_ _|_   _| || |  \/  | __|_   _|_ _/ __|  / _ \| _ \/ __|
 ##  / _ \|   /| |  | | | __ | |\/| | _|  | |  | | (__  | (_) |  _/\__ \
