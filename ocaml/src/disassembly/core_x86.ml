@@ -803,10 +803,10 @@ let overflow_expression () = Lval (V (T fcf))
             registers
         with _ -> error a "Decoder: overflow in a segment register"
 
-    let copy_segments s a ctx =
+    let copy_segments s addr ctx =
       let segments =
         if default_segmentation then default_segment_tbl
-        else get_segments a ctx in
+        else get_segments addr ctx in
       { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
       (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
@@ -1211,7 +1211,13 @@ let overflow_expression () = Lval (V (T fcf))
     let check_jmp (s: state) target =
         let a = s.a in
         let csv = Hashtbl.find s.segments.reg cs                             in
-        let seg : tbl_entry  = Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index in
+        let seg : tbl_entry  =
+          begin
+            try
+                Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index
+            with Not_found ->
+              error a (Printf.sprintf "Decoder: Could not find cs segment %s in GDT" (Word.to_string csv.index))
+          end in
         (* compute limit according to granularity *)
         let limit = if (Z.compare seg.gran Z.zero) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
         let target_int   = Address.to_int target                                 in
