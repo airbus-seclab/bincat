@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
         len = lseek(f, 0, SEEK_END);
         if (len == -1) { perror("lseek"); return -3; }
 
-        egg = mmap(NULL, len+10, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
+        egg = mmap((void *)0x800000, len+10, PROT_EXEC|PROT_READ|PROT_WRITE, MAP_PRIVATE, f, 0);
         if (!egg) { perror("mmap"); return -4; }
 
         // allocate scratch space for memory writes
