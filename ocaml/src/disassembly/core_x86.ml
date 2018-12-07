@@ -708,8 +708,8 @@ let overflow_expression () = Lval (V (T fcf))
   module Imports = Arch.Imports
   open Arch
   let cl = P (Arch.ecx, 0, 7)
-  (** complete internal state of the decoder.
-    Only the segment field is exported out of the functor (see parse signature) for further reloading *)
+  (* complete internal state of the decoder.
+     Only the segment field is exported out of the functor (see parse signature) for further reloading *)
     type state = {
         mutable g       : Cfa.t;       (** current cfa *)
         mutable b       : Cfa.State.t; (** state predecessor *)
