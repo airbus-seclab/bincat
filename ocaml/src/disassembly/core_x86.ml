@@ -116,7 +116,6 @@ open Decodeutils
     val eax: Register.t
     val ecx: Register.t
     val esp: Register.t
-    val default_segmentation: bool
     val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
     val decode_from_0x40_to_0x4F: char -> int -> rex_t
     val get_base_address: ictx_t -> Data.Address.t -> segment_register_mask -> Z.t
@@ -125,6 +124,8 @@ open Decodeutils
                    
     (** add_segment translates the segment selector/offset pair into a linear addresss *)
     val add_segment: ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
+    (* Check segments limits, returns (success_bool, base_addr, limit) *)
+    val check_seg_limit: Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
     val get_rex: int -> rex_t option
   end
 
@@ -165,7 +166,6 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let decode_from_0x40_to_0x4F _c _sz = raise Exit
         
     let get_rex _c = None
-    let default_segmentation = false
 
     let get_base_address segments rip c =
       if !Config.mode = Config.Protected then
@@ -190,7 +190,26 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
         offset
       else
         BinOp(Add, offset, const_of_Z base_val operand_sz)
-          end
+
+    let check_seg_limit eip segments sreg addr =
+        let csv = Hashtbl.find segments.reg sreg in
+        let seg : tbl_entry  =
+          begin
+            try
+                Hashtbl.find (if csv.ti = GDT then segments.gdt else segments.ldt) csv.index
+            with Not_found ->
+              error eip (Printf.sprintf "Decoder: Could not find segment %s in GDT (segreg: %s)" (Word.to_string csv.index) (Register.name sreg))
+          end in
+        (* compute limit according to granularity *)
+        let limit = if (Z.compare seg.gran Z.zero) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
+        let addr_int   = Address.to_int addr                                 in
+        let linear_addr = (Z.add seg.base addr_int) in
+        if Z.compare linear_addr limit < 0 then
+            (true, linear_addr, limit)
+        else
+            (false, linear_addr, limit)
+end
+
   
 module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
   struct
@@ -242,17 +261,17 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       let c' = Char.code c in
      iget_rex c'
       
-    let get_base_address segments rip c =
+    let get_base_address segments rip seg_reg_msk =
       if !Config.mode = Config.Protected then
-        let dt = if c.ti = GDT then segments.gdt else segments.ldt in
+        let dt = if seg_reg_msk.ti = GDT then segments.gdt else segments.ldt in
         try
-          let e = Hashtbl.find dt c.index in
-          if c.rpl <= e.dpl then
-            e.base
+          let desc = Hashtbl.find dt seg_reg_msk.index in
+          if seg_reg_msk.rpl <= desc.dpl then
+            desc.base
           else
             error rip "illegal requested privileged level"
         with Not_found ->
-          error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+          error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string seg_reg_msk.index) (if seg_reg_msk.ti = GDT then "Global" else "Local"))
       else
         error rip "only protected mode supported"
       
@@ -275,8 +294,14 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
          else
            BinOp(Add, offset, const_of_Z base_val operand_sz)
          
-    let default_segmentation = true
-                             
+    let check_seg_limit rip segments sreg _addr =
+        (* Segmentation in 64bit never checks limits *)
+        let base_val = 
+          match (Register.name sreg) with
+          (* base is only real for fs and gs *)
+          | "fs" | "gs" -> get_base_address segments rip (Hashtbl.find segments.reg sreg)
+          | _ -> Z.zero in
+        (true, base_val, Z.of_int 0xFFFFFFFF)
   end
 
 
@@ -689,8 +714,8 @@ let overflow_expression () = Lval (V (T fcf))
   module Imports = Arch.Imports
   open Arch
   let cl = P (Arch.ecx, 0, 7)
-  (** complete internal state of the decoder.
-    Only the segment field is exported out of the functor (see parse signature) for further reloading *)
+  (* complete internal state of the decoder.
+     Only the segment field is exported out of the functor (see parse signature) for further reloading *)
     type state = {
         mutable g       : Cfa.t;       (** current cfa *)
         mutable b       : Cfa.State.t; (** state predecessor *)
@@ -710,7 +735,6 @@ let overflow_expression () = Lval (V (T fcf))
       }
 
     let rip = Register.make "rip" 64;;    
-    let default_segment_tbl = Hashtbl.create 5;;
     let init_registers() =
       Arch.init_registers register_tbl xmm_tbl
       
@@ -722,8 +746,6 @@ let overflow_expression () = Lval (V (T fcf))
         (* builds the gdt *)
       Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
         let reg = Hashtbl.create 6 in
-        List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
-        Hashtbl.iter (fun r v -> Hashtbl.add default_segment_tbl r v) reg;
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg; }
 
 
@@ -800,14 +822,15 @@ let overflow_expression () = Lval (V (T fcf))
     let get_segments a ctx =
         let registers = Hashtbl.create 6 in
         try
+            (* ctx#value_of_register gets the value from the interpreter *)
             List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
             registers
         with _ -> error a "Decoder: overflow in a segment register"
 
+    (* copy segments registers from the interpreter context to the decoder *)
     let copy_segments s addr ctx =
       let segments =
-        if default_segmentation then default_segment_tbl
-        else get_segments addr ctx in
+        get_segments addr ctx in
       { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
       (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
@@ -1210,23 +1233,11 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** checks that the target is within the bounds of the code segment *)
     let check_jmp (s: state) target =
-        let a = s.a in
-        let csv = Hashtbl.find s.segments.reg cs in
-        let seg : tbl_entry  =
-          begin
-            try
-                Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index
-            with Not_found ->
-              error a (Printf.sprintf "Decoder: Could not find cs segment %s in GDT" (Word.to_string csv.index))
-          end in
-        (* compute limit according to granularity *)
-        let limit = if (Z.compare seg.gran Z.zero) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
-        let target_int   = Address.to_int target                                 in
-        let linear_target = (Z.add seg.base target_int) in
-        if Z.compare linear_target limit < 0 then
+        let result, linear_addr, limit = check_seg_limit s.a s.segments cs target in
+        if result then
             ()
         else
-            error a (Printf.sprintf "Decoder: jump target (%s) out of limits of the code segment (%s) (GP exception in protected mode)" (Z.to_string linear_target) (Z.to_string limit))
+            error s.a (Printf.sprintf "Decoder: jump target (%s) out of limits of the code segment (%s) (GP exception in protected mode)" (Z.to_string linear_addr) (Z.to_string limit))
 
     (** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
     let return_jcc_stmts s cond_exp imm_sz =
