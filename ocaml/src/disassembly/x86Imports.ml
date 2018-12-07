@@ -29,7 +29,7 @@ struct
 
   let tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t = Hashtbl.create 5
 
-  let cdecl_calling_convention = {
+  let cdecl_calling_convention () = {
     return = reg "eax" ;
     callee_cleanup = (fun _x -> [ ]) ;
     arguments = function
@@ -40,8 +40,10 @@ struct
               !Config.stack_width)
     }
 
-  let stdcall_calling_convention = {
-    cdecl_calling_convention with
+  let stdcall_calling_convention () =
+    let cdecl = cdecl_calling_convention () in
+    {
+    cdecl with
       callee_cleanup = (fun nargs -> [
         Set (reg "esp", BinOp(Add, Lval (reg "esp"),
                               Const (Data.Word.of_int (Z.of_int (nargs * !Config.stack_width/8))
@@ -50,8 +52,8 @@ struct
 
   let get_local_callconv cc =
     match cc with
-    | Config.CDECL -> cdecl_calling_convention
-    | Config.STDCALL -> stdcall_calling_convention
+    | Config.CDECL -> cdecl_calling_convention ()
+    | Config.STDCALL -> stdcall_calling_convention ()
     | Config.FASTCALL -> L.abort (fun p -> p "Fast call not implemented yet")
     | c -> L.abort (fun p -> p "Calling convention [%s] not supported for x86 architecture"
                                (Config.call_conv_to_string c))
