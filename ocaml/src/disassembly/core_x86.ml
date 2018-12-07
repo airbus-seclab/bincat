@@ -116,7 +116,6 @@ open Decodeutils
     val eax: Register.t
     val ecx: Register.t
     val esp: Register.t
-    val default_segmentation: bool
     val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
     val decode_from_0x40_to_0x4F: char -> int -> rex_t
     val get_base_address: ictx_t -> Data.Address.t -> segment_register_mask -> Z.t
@@ -165,7 +164,6 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let decode_from_0x40_to_0x4F _c _sz = raise Exit
         
     let get_rex _c = None
-    let default_segmentation = false
 
     let get_base_address segments rip c =
       if !Config.mode = Config.Protected then
@@ -710,7 +708,6 @@ let overflow_expression () = Lval (V (T fcf))
       }
 
     let rip = Register.make "rip" 64;;    
-    let default_segment_tbl = Hashtbl.create 5;;
     let init_registers() =
       Arch.init_registers register_tbl xmm_tbl
       
@@ -722,8 +719,6 @@ let overflow_expression () = Lval (V (T fcf))
         (* builds the gdt *)
       Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
         let reg = Hashtbl.create 6 in
-        List.iter (fun (r, v) -> Hashtbl.add reg r (get_segment_register_mask v)) [cs, !Config.cs; ds, !Config.ds; ss, !Config.ss; es, !Config.es; fs, !Config.fs; gs, !Config.gs];
-        Hashtbl.iter (fun r v -> Hashtbl.add default_segment_tbl r v) reg;
         { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg; }
 
 
@@ -800,14 +795,15 @@ let overflow_expression () = Lval (V (T fcf))
     let get_segments a ctx =
         let registers = Hashtbl.create 6 in
         try
+            (* ctx#value_of_register gets the value from the interpreter *)
             List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
             registers
         with _ -> error a "Decoder: overflow in a segment register"
 
+    (* copy segments registers from the interpreter context to the decoder *)
     let copy_segments s addr ctx =
       let segments =
-        if default_segmentation then default_segment_tbl
-        else get_segments addr ctx in
+        get_segments addr ctx in
       { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
       (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)

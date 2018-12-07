@@ -131,13 +131,6 @@ let stack_width = ref 32
 
 let gdt: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 19
 
-let cs = ref Z.zero
-let ds = ref Z.zero
-let ss = ref Z.zero
-let es = ref Z.zero
-let fs = ref Z.zero
-let gs = ref Z.zero
-
 (* value of the NULL address *)
 let null_cst = ref Z.zero
 (* predicate to check whether the given Z.t is the NULL value *) 
@@ -317,12 +310,6 @@ let reset () =
   operand_sz := 32;
   stack_width := 32;
   sections:= [];
-  cs := Z.zero;
-  ds := Z.zero;
-  ss := Z.zero;
-  es := Z.zero;
-  fs := Z.zero;
-  gs := Z.zero;
   interleave := false;
   memory_content := [];
   heap_content := [];
