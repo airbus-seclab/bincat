@@ -1307,7 +1307,7 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** call with target as an offset from the current ip *)
     let relative_call s off_sz =
-      let a = relative s off_sz s.operand_sz in
+      let a = relative s off_sz s.addr_sz in
         call s (A a)
 
     (** statements of jump with absolute address as target *)
