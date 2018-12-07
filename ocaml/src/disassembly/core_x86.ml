@@ -127,6 +127,7 @@ open Decodeutils
     (* Check segments limits, returns (success_bool, base_addr, limit) *)
     val check_seg_limit: Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
     val get_rex: int -> rex_t option
+    val prologue: Address.t -> Asm.stmt list
     val epilogue: Z.t -> Asm.stmt list
   end
 
@@ -210,7 +211,8 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
         else
           (false, linear_addr, limit)
 
-        let epilogue _off = []
+    let epilogue _off = []
+    let prologue _a = []
 end
 
   
@@ -310,6 +312,11 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let epilogue off =
       let rip = Register.of_name "rip" in
       [ Set (V (T rip), BinOp(Add, Lval (V (T rip)), const_of_Z off 64)) ]
+
+    let prologue a =
+      let rip = Register.of_name "rip" in
+      [ Set (V (T rip), Const (Word.of_int (Address.to_int a) 64)) ]
+
   end
 
 
@@ -809,7 +816,7 @@ let overflow_expression () = Lval (V (T fcf))
           Cfa.State.op_sz = s.operand_sz
         };
       let off = Z.of_int s.o in
-      s.b.Cfa.State.stmts <- stmts @ (Arch.epilogue off);
+      s.b.Cfa.State.stmts <- (Arch.prologue s.a) @ stmts @ (Arch.epilogue off);
       s.b.Cfa.State.bytes <- List.rev s.c;
       s.b, Address.add_offset s.a off
 
