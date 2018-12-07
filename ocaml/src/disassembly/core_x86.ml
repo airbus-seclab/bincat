@@ -2590,9 +2590,9 @@ let overflow_expression () = Lval (V (T fcf))
             | c when '\x70' <= c && c <= '\x7F' -> (* JCC: short displacement jump on condition *) let v = (Char.code c) - 0x70 in jcc s v 8
 
             | '\x80' -> (* grp1 opcode table *) grp1 s 8 8
-            | '\x81' -> (* grp1 opcode table *) grp1 s 32 s.imm_sz
+            | '\x81' -> (* grp1 opcode table *) grp1 s s.operand_sz s.imm_sz
             | '\x82' -> error s.a ("Undefined opcode 0x82")
-            | '\x83' -> (* grp1 opcode table *) grp1 s 32 8
+            | '\x83' -> (* grp1 opcode table *) grp1 s s.operand_sz 8
             | '\x84' -> (* TEST /r8 *) let dst, src = (operands_from_mod_reg_rm s 8 0) in return s (test_stmts dst src 8)
             | '\x85' -> (* TEST /r *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 0 in return s (test_stmts dst src s.operand_sz)
             | '\x86' -> (* XCHG byte registers *)  xchg_mrm s 8
