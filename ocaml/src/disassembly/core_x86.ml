@@ -906,7 +906,7 @@ let overflow_expression () = Lval (V (T fcf))
         if rm = 4 then
             sib s md
         else
-          let rm' = s.rex.b_ lsr 3 + rm in
+          let rm' = s.rex.b_ lsl 3 + rm in
           let rm_lv = find_reg_lv rm' s.addr_sz in
             match md with
             | 0 ->
