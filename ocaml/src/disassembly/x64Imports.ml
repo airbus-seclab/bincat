@@ -30,7 +30,7 @@ struct
   let tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t = Hashtbl.create 5
 
   (*  RDI, RSI, RDX, RCX, R8, R9, XMM0–7 *)
-  let sysv_calling_convention = {
+  let sysv_calling_convention () = {
     return = reg "rax";
     callee_cleanup = (fun _x -> [ ]) ;
     arguments = function
@@ -48,7 +48,7 @@ struct
     }
 
   (* RCX/XMM0, RDX/XMM1, R8/XMM2, R9/XMM3 *)
-  let ms_calling_convention = {
+  let ms_calling_convention () = {
     return = reg "rax";
     callee_cleanup = (fun _x -> [ ]) ;
     arguments = function
@@ -65,8 +65,8 @@ struct
 
   let get_local_callconv cc =
     match cc with
-    | Config.SYSV -> sysv_calling_convention
-    | Config.MS -> ms_calling_convention
+    | Config.SYSV -> sysv_calling_convention ()
+    | Config.MS -> ms_calling_convention ()
     | c -> L.abort (fun p -> p "Calling convention [%s] not supported for x64 architecture"
                                (Config.call_conv_to_string c))
 
