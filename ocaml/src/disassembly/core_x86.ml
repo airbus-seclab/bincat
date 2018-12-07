@@ -124,6 +124,7 @@ open Decodeutils
                    
     (** add_segment translates the segment selector/offset pair into a linear addresss *)
     val add_segment: ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
+    (* Check segments limits, returns (success_bool, base_addr, limit) *)
     val check_seg_limit: Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
     val get_rex: int -> rex_t option
   end
@@ -260,17 +261,17 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       let c' = Char.code c in
      iget_rex c'
       
-    let get_base_address segments rip c =
+    let get_base_address segments rip seg_reg_msk =
       if !Config.mode = Config.Protected then
-        let dt = if c.ti = GDT then segments.gdt else segments.ldt in
+        let dt = if seg_reg_msk.ti = GDT then segments.gdt else segments.ldt in
         try
-          let e = Hashtbl.find dt c.index in
-          if c.rpl <= e.dpl then
-            e.base
+          let desc = Hashtbl.find dt seg_reg_msk.index in
+          if seg_reg_msk.rpl <= desc.dpl then
+            desc.base
           else
             error rip "illegal requested privileged level"
         with Not_found ->
-          error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+          error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string seg_reg_msk.index) (if seg_reg_msk.ti = GDT then "Global" else "Local"))
       else
         error rip "only protected mode supported"
       
@@ -293,9 +294,14 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
          else
            BinOp(Add, offset, const_of_Z base_val operand_sz)
          
-    let check_seg_limit _rip _segments _sreg _addr =
-        (* TODO *)
-        (true, Z.zero, Z.of_int 0xFFFFFFFF)
+    let check_seg_limit rip segments sreg _addr =
+        (* Segmentation in 64bit never checks limits *)
+        let base_val = 
+          match (Register.name sreg) with
+          (* base is only real for fs and gs *)
+          | "fs" | "gs" -> get_base_address segments rip (Hashtbl.find segments.reg sreg)
+          | _ -> Z.zero in
+        (true, base_val, Z.of_int 0xFFFFFFFF)
   end
 
 
