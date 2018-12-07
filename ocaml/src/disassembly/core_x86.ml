@@ -230,6 +230,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
             
             
     let init_registers register_tbl xmm_tbl =
+      let _rip = Register.make ~name:"rip" ~size:64 in
       let r8 = Register.make ~name:"r8" ~size:64 in
       let r9 = Register.make ~name:"r9" ~size:64 in
       let r10 = Register.make ~name:"r10" ~size:64 in
@@ -734,7 +735,6 @@ let overflow_expression () = Lval (V (T fcf))
       mutable rex: rex_t; (** REX prefix; by default every bit is zero  *)
       }
 
-    let rip = Register.make "rip" 64;;    
     let init_registers() =
       Arch.init_registers register_tbl xmm_tbl
       
@@ -900,7 +900,7 @@ let overflow_expression () = Lval (V (T fcf))
               begin
                   match rm with
                   | 5 -> let disp = disp s 32 s.addr_sz (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *) in
-                         if s.addr_sz = 64 then BinOp(Add, Lval (V (T rip)), disp)
+                         if s.addr_sz = 64 then BinOp(Add, Lval (V (T (Register.of_name "rip"))), disp)
                          else disp
                   | _ -> rm_lv
               end
