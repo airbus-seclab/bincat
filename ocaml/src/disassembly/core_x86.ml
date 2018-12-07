@@ -128,11 +128,13 @@ open Decodeutils
     val check_seg_limit: Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
     val get_rex: int -> rex_t option
     val prologue: Address.t -> Asm.stmt list
-  end
+    val get_operand_sz_for_stack: unit -> int
+                               end
 
     (** fatal error reporting *)
     let error a msg =
       L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
+
 
 
 module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
@@ -211,6 +213,7 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
           (false, linear_addr, limit)
 
     let prologue _a = []
+    let get_operand_sz_for_stack () = raise Exit
 end
 
   
@@ -310,6 +313,8 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let prologue a =
       let rip = Register.of_name "rip" in
       [ Set (V (T rip), Const (Word.of_int (Address.to_int a) 64)) ]
+
+    let get_operand_sz_for_stack () = 64
 
   end
 
@@ -1449,12 +1454,12 @@ let overflow_expression () = Lval (V (T fcf))
                         if with_stack_pointer false s.a lv then begin
                             (* save the esp value to its value before the first push (see PUSHA specifications) *)
                             let lv_repl = Lval (replace_reg lv esp t) in
-                                Set (M (Lval (V esp'), s.operand_sz), lv_repl)
+                                Set (M (Lval (V esp'), n), lv_repl)
                         end else begin
                             (* TODO: some CPUs only move the 16 bits of the segment register and leave the rest
                              * of the stack untouched *)
                             let lv_ext = if is_segment lv then UnOp (ZeroExt s.operand_sz, Lval lv) else Lval lv in
-                            Set (M (Lval (V esp'), s.operand_sz), lv_ext);
+                            Set (M (Lval (V esp'), n), lv_ext);
                         end
                     in
                     [ set_esp Sub esp' n ; st ] @ stmts
@@ -2566,8 +2571,23 @@ let overflow_expression () = Lval (V (T fcf))
                        inc_dec (V r) Sub s s.operand_sz
                end
 
-            | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *) let r = find_reg ((Char.code c) - 0x50) s.operand_sz in push s [V r]
-            | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *) let r = find_reg ((Char.code c) - 0x58) s.operand_sz in pop s [V r]
+            | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *)
+               begin
+                 try let n = Arch.get_operand_sz_for_stack () in
+                     s.operand_sz <- n;
+                 with Exit -> ()
+               end;
+               let r = find_reg ((Char.code c) - 0x50) s.operand_sz in
+               push s [V r]
+               
+            | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *)
+               begin
+                 try let n = Arch.get_operand_sz_for_stack () in
+                     s.operand_sz <- n
+                 with Exit -> ()
+               end;
+               let r = find_reg ((Char.code c) - 0x58) s.operand_sz in
+               pop s [V r]
 
             | '\x60' -> (* PUSHA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
             | '\x61' -> (* POPA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
