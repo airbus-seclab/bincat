@@ -1277,7 +1277,7 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** unconditional jump by adding an offset to the current ip *)
     let relative_jmp s off_sz =
-        let a' = relative s off_sz s.operand_sz in
+        let a' = relative s off_sz s.addr_sz in
         return s [ Jmp (A a') ]
 
     (** common statement to move (a chunk of) esp by a relative offset *)
@@ -1336,7 +1336,7 @@ let overflow_expression () = Lval (V (T fcf))
     let loop s c =
         let ecx' = V (if Register.size ecx = s.addr_sz then T ecx else P (ecx, 0, s.addr_sz-1)) in
         let dec_stmt  = Set (ecx', BinOp(Sub, Lval ecx', Const (Word.one s.addr_sz))) in
-        let a' = relative s 8 s.operand_sz in
+        let a' = relative s 8 s.addr_sz in
         let fzf_cond cst = Cmp (EQ, Lval (V (T fzf)), Const (cst fzf_sz)) in
         let ecx_cond = Cmp (NEQ, Lval ecx', Const (Word.zero s.addr_sz)) in
         let cond =
