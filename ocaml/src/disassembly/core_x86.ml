@@ -127,6 +127,7 @@ open Decodeutils
     (* Check segments limits, returns (success_bool, base_addr, limit) *)
     val check_seg_limit: Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
     val get_rex: int -> rex_t option
+    val epilogue: Z.t -> Asm.stmt list
   end
 
     (** fatal error reporting *)
@@ -207,7 +208,9 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
         if Z.compare linear_addr limit < 0 then
             (true, linear_addr, limit)
         else
-            (false, linear_addr, limit)
+          (false, linear_addr, limit)
+
+        let epilogue _off = []
 end
 
   
@@ -303,6 +306,10 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
           | "fs" | "gs" -> get_base_address segments rip (Hashtbl.find segments.reg sreg)
           | _ -> Z.zero in
         (true, base_val, Z.of_int 0xFFFFFFFF)
+
+    let epilogue off =
+      let rip = Register.of_name "rip" in
+      [ Set (V (T rip), BinOp(Add, Lval (V (T rip)), const_of_Z off 64)) ]
   end
 
 
@@ -511,7 +518,6 @@ let _fid   = Register.make ~name:"id" ~size:1;;
         V ( find_reg n sz )
 
     (** returns the slice from 8 to 15 of the given register index *)
-
     let get_h_slice n =
       let r = Hashtbl.find register_tbl n in
       P (r, 8, 15)
@@ -802,9 +808,10 @@ let overflow_expression () = Lval (V (T fcf))
           Cfa.State.addr_sz = s.addr_sz;
           Cfa.State.op_sz = s.operand_sz
         };
-      s.b.Cfa.State.stmts <- stmts;
+      let off = Z.of_int s.o in
+      s.b.Cfa.State.stmts <- stmts @ (Arch.epilogue off);
       s.b.Cfa.State.bytes <- List.rev s.c;
-      s.b, Address.add_offset s.a (Z.of_int s.o)
+      s.b, Address.add_offset s.a off
 
     (************************************************************************************)
     (* segmentation *)
