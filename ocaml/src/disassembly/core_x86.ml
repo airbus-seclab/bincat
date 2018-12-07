@@ -124,6 +124,7 @@ open Decodeutils
                    
     (** add_segment translates the segment selector/offset pair into a linear addresss *)
     val add_segment: ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
+    val check_seg_limit: Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
     val get_rex: int -> rex_t option
   end
 
@@ -188,7 +189,26 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
         offset
       else
         BinOp(Add, offset, const_of_Z base_val operand_sz)
-          end
+
+    let check_seg_limit eip segments sreg addr =
+        let csv = Hashtbl.find segments.reg sreg in
+        let seg : tbl_entry  =
+          begin
+            try
+                Hashtbl.find (if csv.ti = GDT then segments.gdt else segments.ldt) csv.index
+            with Not_found ->
+              error eip (Printf.sprintf "Decoder: Could not find segment %s in GDT (segreg: %s)" (Word.to_string csv.index) (Register.name sreg))
+          end in
+        (* compute limit according to granularity *)
+        let limit = if (Z.compare seg.gran Z.zero) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
+        let addr_int   = Address.to_int addr                                 in
+        let linear_addr = (Z.add seg.base addr_int) in
+        if Z.compare linear_addr limit < 0 then
+            (true, linear_addr, limit)
+        else
+            (false, linear_addr, limit)
+end
+
   
 module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
   struct
@@ -273,8 +293,9 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
          else
            BinOp(Add, offset, const_of_Z base_val operand_sz)
          
-    let default_segmentation = true
-                             
+    let check_seg_limit _rip _segments _sreg _addr =
+        (* TODO *)
+        (true, Z.zero, Z.of_int 0xFFFFFFFF)
   end
 
 
@@ -1206,23 +1227,11 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** checks that the target is within the bounds of the code segment *)
     let check_jmp (s: state) target =
-        let a = s.a in
-        let csv = Hashtbl.find s.segments.reg cs in
-        let seg : tbl_entry  =
-          begin
-            try
-                Hashtbl.find (if csv.ti = GDT then s.segments.gdt else s.segments.ldt) csv.index
-            with Not_found ->
-              error a (Printf.sprintf "Decoder: Could not find cs segment %s in GDT" (Word.to_string csv.index))
-          end in
-        (* compute limit according to granularity *)
-        let limit = if (Z.compare seg.gran Z.zero) == 0 then seg.limit else (Z.shift_left seg.limit 12) in
-        let target_int   = Address.to_int target                                 in
-        let linear_target = (Z.add seg.base target_int) in
-        if Z.compare linear_target limit < 0 then
+        let result, linear_addr, limit = check_seg_limit s.a s.segments cs target in
+        if result then
             ()
         else
-            error a (Printf.sprintf "Decoder: jump target (%s) out of limits of the code segment (%s) (GP exception in protected mode)" (Z.to_string linear_target) (Z.to_string limit))
+            error s.a (Printf.sprintf "Decoder: jump target (%s) out of limits of the code segment (%s) (GP exception in protected mode)" (Z.to_string linear_addr) (Z.to_string limit))
 
     (** [return_jcc_stmts s e] returns the statements for conditional jumps: e is the condition and o the offset to add to the instruction pointer *)
     let return_jcc_stmts s cond_exp imm_sz =
