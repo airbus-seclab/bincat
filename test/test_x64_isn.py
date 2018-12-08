@@ -253,6 +253,13 @@ def test_arith_inc_reg64_32(tmpdir, op64):
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "of", "sf", "zf", "pf", "af"])
 
+##                                      _
+##  ___  ___  __ _ _ __ ___   ___ _ __ | |_ ___
+## / __|/ _ \/ _` | '_ ` _ \ / _ \ '_ \| __/ __|
+## \__ \  __/ (_| | | | | | |  __/ | | | |_\__ \
+## |___/\___|\__, |_| |_| |_|\___|_| |_|\__|___/
+##           |___/
+
 def test_32bit_switch(tmpdir):
     asm = """
 start:
@@ -320,3 +327,150 @@ the_end:
         nop
     """
     x64.compare(tmpdir, asm, ["rsi", "rdi", "rcx", "rdx"])
+
+
+##  _                          _
+## | |__  _ __ __ _ _ __   ___| |__
+## | '_ \| '__/ _` | '_ \ / __| '_ \
+## | |_) | | | (_| | | | | (__| | | |
+## |_.__/|_|  \__,_|_| |_|\___|_| |_|
+
+
+def test_call(tmpdir):
+    asm = """
+        call .target
+align 0x100
+.target:
+        pop rax
+        call .target2
+align 0x100
+.target2:
+        pop rbx
+        sub rbx, rax
+          """.format(**locals())
+    compare(tmpdir, asm, ["rbx"])
+
+def test_call_indirect(tmpdir):
+    asm = """
+        call .target
+.target:
+        pop rax
+        lea rbx, [rax+.target2-.target]
+        mov [rax+.store-.target], rbx
+        call [rax+.store-.target]
+.store:
+        dq 0
+align 0x100
+.target2:
+        pop rbx
+        sub rbx, rax
+          """.format(**locals())
+    compare(tmpdir, asm, ["rbx"])
+
+def test_jmp(tmpdir):
+    asm = """
+        jmp .target
+        xor rax, rax
+        dec rax
+        jmp .end
+align 0x100
+.target:
+        mov rax, 1
+.end:
+        nop
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax"])
+
+def test_jmp_reg(tmpdir, op8):
+    asm = """
+        lea rbx, [rel {op8:#x}]
+align 0x100
+.start:
+        lea rbx, [rel .target]
+        xor rax, rax
+        dec rax
+        jmp rbx
+align 0x100
+.target:
+        mov rax, 1
+.end:
+        nop
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax"])
+
+##  _    ___   ___  ___     __  ___ ___ ___     __   ___ ___  _  _ ___
+## | |  / _ \ / _ \| _ \   / / | _ \ __| _ \   / /  / __/ _ \| \| |   \
+## | |_| (_) | (_) |  _/  / /  |   / _||  _/  / /  | (_| (_) | .` | |) |
+## |____\___/ \___/|_|   /_/   |_|_\___|_|   /_/    \___\___/|_|\_|___/
+##
+
+def test_cond_test_reg32(tmpdir, op32, op32_):
+    asm = """
+            mov eax, {op32:#x}
+            test eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "sf", "zf", "pf"])
+
+def test_cond_cmp_reg32(tmpdir, op32, op32_):
+    asm = """
+            mov eax, {op32:#x}
+            cmp eax, {op32_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_cond_jump_jne(tmpdir, loop_cnt):
+    asm = """
+            mov ecx, {loop_cnt}
+            mov eax, 0
+         loop:
+            inc eax
+            dec ecx
+            cmp ecx,0
+            jne loop
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "rcx", "zf", "cf", "of", "pf", "af", "sf"])
+
+
+def test_loop_repne_scasb(tmpdir):
+    asm = """
+            push 0x00006A69
+            push 0x68676665
+            push 0x64636261
+            mov edi, esp
+            xor al,al
+            mov ecx, 0xffffffff
+            cld
+            repne scasb
+            pushf
+            sub edi, esp
+            mov edx, ecx
+            not edx
+            popf
+         """
+    compare(tmpdir, asm, ["rdi", "rcx", "rdx", "zf", "cf", "of", "pf", "af", "sf"])
+
+@pytest.mark.xfail
+def test_loop_repne_scasb_unknown_memory(tmpdir):
+    asm = """
+            mov edi, esp
+            xor al,al
+            mov ecx, 0xffffffff
+            cld
+            repne scasb
+            pushf
+            sub edi, esp
+            mov edx, ecx
+            not edx
+            popf
+         """
+    compare(tmpdir, asm, ["rdi", "rcx", "rdx", "zf", "cf", "of", "pf", "af", "sf"])
+
+def test_loop_loop(tmpdir):
+    asm = """
+            mov ecx, 0x40
+            mov eax, 0
+         loop:
+            inc eax
+            loop loop
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "rcx", "zf", "of", "pf", "af", "sf"])
