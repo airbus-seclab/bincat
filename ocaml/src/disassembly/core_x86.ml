@@ -83,7 +83,7 @@ open Decodeutils
     type segment_register_mask = { rpl: privilege_level; ti: table_indicator; index: Word.t }
 
     (** type for REX prefixes *)
-  type rex_t = {w: int; r: int; x: int; b_: int; mutable op_switch: bool}
+  type rex_t = {w: int; r: int; x: int; b_: int; mutable b_used: bool; mutable op_switch: bool}
 
 
     (** decoding context contains all information about
@@ -260,7 +260,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       
     module Imports = X64Imports.Make(Domain)(Stubs)
                    
-    let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; op_switch = false  }
+    let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; b_used = false; op_switch = false  }
                    
     let get_rex c = Some (iget_rex c)
                   
@@ -882,11 +882,14 @@ let overflow_expression () = Lval (V (T fcf))
                  (* [scaled index] + disp32 *)
                  disp s 32 s.addr_sz
                else
-                 lv
+                 begin
+                   s.rex.b_used <- true;
+                   lv
+                 end
         (* [scaled index] + disp8 *)
-        | 1 -> BinOp (Add, lv, disp s 8 s.addr_sz)
+        | 1 -> s.rex.b_used <- true; BinOp (Add, lv, disp s 8 s.addr_sz)
         (* [scaled index] + disp32 *)
-        | 2 -> BinOp (Add, lv, disp s 32 s.addr_sz)
+        | 2 -> s.rex.b_used <- true; BinOp (Add, lv, disp s 32 s.addr_sz)
         | _ -> error s.a "Decoder: illegal value in sib"
       in
       if index = 4 then
@@ -903,11 +906,13 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** returns the statements for a memory operation encoded in _md_ _rm_ (32 bits) *)
     let md_from_mem_32 s md rm sz =
+      L.debug (fun p -> p "entering md_from_mem_32");
         if rm = 4 then
             sib s md
         else
-          let rm' = s.rex.b_ lsl 3 + rm in
-          let rm_lv = find_reg_lv rm' s.addr_sz in
+          begin
+            let rm' = s.rex.b_ lsl 3 + rm in
+            let rm_lv = find_reg_lv rm' s.addr_sz in
             match md with
             | 0 ->
               begin
@@ -915,14 +920,17 @@ let overflow_expression () = Lval (V (T fcf))
                   | 5 -> let disp = disp s 32 s.addr_sz (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *) in
                          if s.addr_sz = 64 then BinOp(Add, Lval (V (T (Register.of_name "rip"))), disp)
                          else disp
-                  | _ -> rm_lv
+                  | _ -> s.rex.b_used <- true; rm_lv
               end
             | 1 ->
+               s.rex.b_used <- true;
               BinOp (Add, rm_lv, UnOp(SignExt s.addr_sz, disp s 8 sz))
 
             | 2 ->
-              BinOp (Add, rm_lv, disp s 32 s.addr_sz) (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *)
+               s.rex.b_used <- true;
+               BinOp (Add, rm_lv, disp s 32 s.addr_sz) (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *)
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
+          end
 
     (** returns the statements for a memory operation encoded in _md_ _rm_ (16 bits) *)
     let md_from_mem_16 s md rm sz =
@@ -970,16 +978,20 @@ let overflow_expression () = Lval (V (T fcf))
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
     let operands_from_mod_reg_rm_core s sz ?(mem_sz=sz) dst_sz  =
+      L.debug (fun p -> p "entering operands_from_mod_reg_rm_core with s.rex.b_=%d and s.rex.r=%d" s.rex.b_ s.rex.r);
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
-        let reg = s.rex.r lsl 3 + reg in
-        let reg_v =
+        let rm' = exp_of_md s md rm sz mem_sz in
+        let reg =
+          if s.rex.b_used then s.rex.r lsl 3 + reg
+          else s.rex.b_ lsl 3 + reg
+        in
+         let reg_v =
             if dst_sz = 8 && reg >= 4 then
                 V (get_h_slice (reg-4))
             else
               find_reg_v reg dst_sz
         in
-        let rm' = exp_of_md s md rm sz mem_sz in
         reg_v, rm'
 
     let operands_from_mod_reg_rm s sz ?(dst_sz = sz) direction =
@@ -2936,7 +2948,7 @@ let overflow_expression () = Lval (V (T fcf))
         rep = false;
         repe = false;
         repne = false;
-        rex = {r=0; w=0; x=0; b_=0; op_switch=false};
+        rex = {r=0; w=0; x=0; b_=0; b_used=false; op_switch=false};
       }
     in
     try
