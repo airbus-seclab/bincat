@@ -2589,7 +2589,9 @@ let overflow_expression () = Lval (V (T fcf))
                      s.operand_sz <- n;
                  with Exit -> ()
                end;
-               let r = find_reg ((Char.code c) - 0x50) s.operand_sz in
+               let n = (Char.code c) - 0x50 in
+               let n'= s.rex.b_ lsl 3 + n in
+               let r = find_reg n' s.operand_sz in
                push s [V r]
                
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *)
@@ -2598,7 +2600,9 @@ let overflow_expression () = Lval (V (T fcf))
                      s.operand_sz <- n
                  with Exit -> ()
                end;
-               let r = find_reg ((Char.code c) - 0x58) s.operand_sz in
+               let n = (Char.code c) - 0x58 in
+               let n' = s.rex.b_ lsl 3 + n in
+               let r = find_reg n' s.operand_sz in
                pop s [V r]
 
             | '\x60' -> (* PUSHA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
