@@ -418,14 +418,28 @@ def test_cond_cmp_reg32(tmpdir, op32, op32_):
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
 
+def test_cond_test_reg64(tmpdir, op64, op64_):
+    asm = """
+            mov rbx, {op64:#x}
+            test rbx, {op64_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "sf", "zf", "pf"])
+
+def test_cond_cmp_reg64(tmpdir, op64, op64_):
+    asm = """
+            mov rbx, {op64:#x}
+            cmp rbx, {op64_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "of", "sf", "zf", "cf", "pf", "af"])
+
 def test_cond_jump_jne(tmpdir, loop_cnt):
     asm = """
-            mov ecx, {loop_cnt}
-            mov eax, 0
+            mov rcx, {loop_cnt}
+            mov rax, 0
          loop:
-            inc eax
-            dec ecx
-            cmp ecx,0
+            inc rax
+            dec rcx
+            cmp rcx,0
             jne loop
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "rcx", "zf", "cf", "of", "pf", "af", "sf"])
@@ -452,25 +466,25 @@ def test_loop_repne_scasb(tmpdir):
 @pytest.mark.xfail
 def test_loop_repne_scasb_unknown_memory(tmpdir):
     asm = """
-            mov edi, esp
+            mov rdi, rsp
             xor al,al
-            mov ecx, 0xffffffff
+            mov rcx, 0xffffffff
             cld
             repne scasb
             pushf
-            sub edi, esp
-            mov edx, ecx
-            not edx
+            sub rdi, rsp
+            mov rdx, rcx
+            not rdx
             popf
          """
     compare(tmpdir, asm, ["rdi", "rcx", "rdx", "zf", "cf", "of", "pf", "af", "sf"])
 
 def test_loop_loop(tmpdir):
     asm = """
-            mov ecx, 0x40
-            mov eax, 0
+            mov rcx, 0x40
+            mov rax, 0
          loop:
-            inc eax
+            inc rax
             loop loop
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "rcx", "zf", "of", "pf", "af", "sf"])
