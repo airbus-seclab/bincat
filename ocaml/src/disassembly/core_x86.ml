@@ -290,6 +290,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
         | V(r) -> match r with
           | T(_) -> (* full assignation *) normal_set
           | P(reg, l, u) -> if l == 0 && u == 31 then normal_set @ [ Set(V( P(reg, 32, 63)), const0 32) ] else normal_set
+                          
     let add_segment segments operand_sz rip offset sreg =
       match (Register.name sreg) with
       | "ss" | "es" | "cs" | "ds" -> offset
@@ -1048,7 +1049,7 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** produces the state corresponding to an add or a sub with an immediate operand *)
     let add_sub_immediate s op b r sz =
-        let r'  = V (to_reg r sz) in
+        let r'  = V (to_reg r s.operand_sz) in
         (* TODO : check if should sign extend *)
         let w   = get_imm s sz s.operand_sz false in
         add_sub s op b r' w sz

@@ -707,7 +707,7 @@ struct
                Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
                (* these vertices are updated by their right abstract values and the new ip                         *)
               let new_vertices = update_abstract_value g v' (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
-            (* add overrides if needed *)
+              (* add overrides if needed *)
            let new_vertices =
          try
            let rules = Hashtbl.find overrides v.Cfa.State.ip in
