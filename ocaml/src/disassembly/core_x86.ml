@@ -1050,7 +1050,7 @@ let overflow_expression () = Lval (V (T fcf))
     let add_sub_immediate s op b r sz =
         let r'  = V (to_reg r sz) in
         (* TODO : check if should sign extend *)
-        let w   = get_imm s s.imm_sz sz false in
+        let w   = get_imm s sz s.operand_sz false in
         add_sub s op b r' w sz
 
 
