@@ -436,15 +436,15 @@ def test_loop_repne_scasb(tmpdir):
             push 0x00006A69
             push 0x68676665
             push 0x64636261
-            mov edi, esp
+            mov rdi, rsp
             xor al,al
-            mov ecx, 0xffffffff
+            mov rcx, 0xffffffff
             cld
             repne scasb
             pushf
-            sub edi, esp
-            mov edx, ecx
-            not edx
+            sub rdi, rsp
+            mov rdx, rcx
+            not rdx
             popf
          """
     compare(tmpdir, asm, ["rdi", "rcx", "rdx", "zf", "cf", "of", "pf", "af", "sf"])
