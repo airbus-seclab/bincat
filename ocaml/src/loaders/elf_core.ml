@@ -139,7 +139,7 @@ let e_machine_to_string mach =
   match mach with
   | NONE -> "NONE"        | SPARC -> "SPARC"      | X86 -> "X86"          | MIPS -> "MIPS"
   | POWERPC -> "POWERPC"  | S390 -> "S390"        | ARM -> "ARM"          | SUPERH -> "SUPERH"
-  | IA64 -> "IA64"        | X86_64 -> "X86"       | AARCH64 -> "AARCH64"  | RISCV -> "RISCV"
+  | IA64 -> "IA64"        | X86_64 -> "X86_64"       | AARCH64 -> "AARCH64"  | RISCV -> "RISCV"
   | OTHER i -> (Printf.sprintf "%08x" i)
 
 (* ELF ident string *)
