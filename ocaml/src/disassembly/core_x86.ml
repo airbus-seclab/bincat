@@ -1111,23 +1111,29 @@ let overflow_expression () = Lval (V (T fcf))
         if md = 3 then
             error s.a "Illegal mod field in LEA"
         else
+          begin
+            let reg = 
+              if s.rex.b_used then (s.rex.r lsl 3) + reg
+              else (s.rex.b_  lsl 3) + reg
+            in
             let reg_v = find_reg_v reg s.operand_sz in
             let src = md_from_mem s md rm s.addr_sz in
             let stmts =
-                if s.addr_sz < s.operand_sz then
-                  [ Set(reg_v, UnOp(ZeroExt s.addr_sz, src)) ]
-                else begin
-                    (* if the destination size is smaller than addr size, we need to truncate *)
-                    if s.operand_sz < s.addr_sz then
-                        let temp_reg = Register.make ~name:(Register.fresh_name ()) ~size:s.addr_sz in
-                        [ Set(V(T(temp_reg)), src);
-                          Set(reg_v, Lval(V(P(temp_reg, 0, s.operand_sz-1))));
-                          Directive (Remove temp_reg)]
-                    else
-                     [ Set(reg_v, src) ]
+              if s.addr_sz < s.operand_sz then
+                [ Set(reg_v, UnOp(ZeroExt s.addr_sz, src)) ]
+              else begin
+                  (* if the destination size is smaller than addr size, we need to truncate *)
+                  if s.operand_sz < s.addr_sz then
+                    let temp_reg = Register.make ~name:(Register.fresh_name ()) ~size:s.addr_sz in
+                    [ Set(V(T(temp_reg)), src);
+                      Set(reg_v, Lval(V(P(temp_reg, 0, s.operand_sz-1))));
+                      Directive (Remove temp_reg)]
+                  else
+                    [ Set(reg_v, src) ]
                 end
             in
             return s stmts
+            end
 
 
     (******************************************************************************************************)
