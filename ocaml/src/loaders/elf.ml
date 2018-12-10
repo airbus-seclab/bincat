@@ -112,7 +112,7 @@ let make_mapped_mem filepath entrypoint =
          v
        end in
 
-  let jump_slot_reloc symsize sym offset _addend =
+  let reloc_jump_slot symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let value = choose_address_for_import sym_name symsize in
@@ -120,7 +120,7 @@ let make_mapped_mem filepath entrypoint =
       (Z.to_int value) (Z.to_int addr) sym_name);
     patch_elf elf mapped_file sections addr value in
 
-  let glob_dat_reloc symsize sym offset addend =
+  let reloc_glob_dat symsize sym offset addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let sym_value = sym.Elf_core.st_value in
@@ -132,7 +132,7 @@ let make_mapped_mem filepath entrypoint =
       (Z.to_int value) (Z.to_int offset) sym_name);
     patch_elf elf mapped_file sections addr value in
 
-  let obj_reloc symsize sym offset _addend =
+  let reloc_obj symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let value = choose_address_for_import sym_name symsize in
@@ -140,7 +140,7 @@ let make_mapped_mem filepath entrypoint =
                         (Z.to_int value) (Z.to_int addr) sym_name);
     patch_elf elf mapped_file sections addr value in
 
-  let obj_reloc_rel symsize sym offset _addend =
+  let reloc_obj_rel symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let pre_val = choose_address_for_import sym_name symsize in
@@ -151,16 +151,16 @@ let make_mapped_mem filepath entrypoint =
 
   let get_reloc_func = function
     | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT
-      -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
+      -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
     | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT
-      -> glob_dat_reloc (Z.of_int (!Config.address_sz/8))
+      -> reloc_glob_dat (Z.of_int (!Config.address_sz/8))
     | R_386_TLS_TPOFF
-    | R_386_32 -> obj_reloc (Z.of_int (!Config.external_symbol_max_size))
-    | R_386_PC32 -> obj_reloc_rel (Z.of_int (!Config.external_symbol_max_size))
+    | R_386_32 -> reloc_obj (Z.of_int (!Config.external_symbol_max_size))
+    | R_386_PC32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_386_RELATIVE -> (fun _ _ _ -> ())
-    | R_PPC_ADDR32 -> obj_reloc_rel (Z.of_int (!Config.external_symbol_max_size))
-    | R_PPC_GLOB_DAT -> glob_dat_reloc (Z.of_int (!Config.address_sz/8))
-    | R_PPC_JMP_SLOT -> jump_slot_reloc (Z.of_int (!Config.address_sz/8))
+    | R_PPC_ADDR32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
+    | R_PPC_GLOB_DAT -> reloc_glob_dat (Z.of_int (!Config.address_sz/8))
+    | R_PPC_JMP_SLOT -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
     | rt ->
        let reltype = reloc_type_to_string rt in
        begin
