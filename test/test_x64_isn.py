@@ -532,3 +532,11 @@ def test_push64(tmpdir):
             pop rcx
          """.format(**locals())
     compare(tmpdir, asm, ["rbx", "rcx"])
+
+def test_push_imm(tmpdir, op64):
+    asm = """
+            mov rax, {op64:#x}
+            push rax
+            pop rbx
+         """.format(**locals())
+    compare(tmpdir, asm, ["rbx"])
