@@ -2021,17 +2021,17 @@ let overflow_expression () = Lval (V (T fcf))
       | 7 -> return s (shift_r_stmt dst sz n true) (* SAR *)
       | _ -> error s.a "Illegal opcode in grp 2"
 
-    let grp3 s sz =
-        let nnn, reg = core_grp s sz in
+    let grp3 s reg_sz imm_sz =
+        let nnn, reg = core_grp s reg_sz in
         let stmts =
             match nnn with
-            | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts reg imm sz
+            | 0 -> (* TEST *) let imm = get_imm s imm_sz reg_sz false in test_stmts reg imm imm_sz
             | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
-            | 3 -> (* NEG *) neg sz reg
-            | 4 -> (* MUL *) mul_stmts Mul (Lval reg) sz
-            | 5 -> (* IMUL *) mul_stmts IMul (Lval reg) sz
-            | 6 -> (* DIV *) div_stmts (Lval reg) sz true
-            | 7 -> (* IDIV *) div_stmts (Lval reg) sz false
+            | 3 -> (* NEG *) neg reg_sz reg
+            | 4 -> (* MUL *) mul_stmts Mul (Lval reg) reg_sz
+            | 5 -> (* IMUL *) mul_stmts IMul (Lval reg) reg_sz
+            | 6 -> (* DIV *) div_stmts (Lval reg) reg_sz true
+            | 7 -> (* IDIV *) div_stmts (Lval reg) reg_sz false
             | _ -> error s.a "Unknown operation in grp 3"
         in
         return s stmts
@@ -2731,8 +2731,8 @@ let overflow_expression () = Lval (V (T fcf))
             | '\xf3' -> (* REP/REPE *) s.repe <- true; rep s Word.zero
             | '\xf4' -> (* HLT *) error s.a "Decoder stopped: HLT reached"
             | '\xf5' -> (* CMC *) let fcf' = V (T fcf) in return s [ Set (fcf', UnOp (Not, Lval fcf')) ]
-            | '\xf6' -> (* shift to grp3 with byte size *) grp3 s 8
-            | '\xf7' -> (* shift to grp3 with word or double word size *) grp3 s s.imm_sz
+            | '\xf6' -> (* shift to grp3 with byte size *) grp3 s s.operand_sz 8
+            | '\xf7' -> (* shift to grp3 with word or double word size *) grp3 s s.operand_sz s.imm_sz
             | '\xf8' -> (* CLC *) return s (clear_flag fcf fcf_sz)
             | '\xf9' -> (* STC *) return s (set_flag fcf fcf_sz)
             | '\xfa' -> (* CLI *) L.decoder (fun p -> p "entering privilege mode (CLI instruction)"); return s (clear_flag fif fif_sz)
