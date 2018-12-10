@@ -488,3 +488,47 @@ def test_loop_loop(tmpdir):
             loop loop
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "rcx", "zf", "of", "pf", "af", "sf"])
+
+
+##                  _          __
+##  _ __  _   _ ___| |__      / /  _ __   ___  _ __
+## | '_ \| | | / __| '_ \    / /  | '_ \ / _ \| '_ \
+## | |_) | |_| \__ \ | | |  / /   | |_) | (_) | |_) |
+## | .__/ \__,_|___/_| |_| /_/    | .__/ \___/| .__/
+## |_|                            |_|         |_|
+
+def test_push16(tmpdir):
+    asm = """
+            xor rbx, rbx
+            mov rax, 0x123456789abcdef0
+            mov rdx, rax
+            push ax
+            pop rbx
+            push dx
+            pop rcx
+         """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rcx"])
+
+def test_push32(tmpdir):
+    asm = """
+            xor rbx, rbx
+            mov rax, 0x123456789abcdef0
+            mov rdx, rax
+            push eax
+            pop rbx
+            push edx
+            pop rcx
+         """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rcx"])
+
+def test_push64(tmpdir):
+    asm = """
+            xor rbx, rbx
+            mov rax, 0x123456789abcdef0
+            mov rdx, rax
+            push rax
+            pop rbx
+            push rdx
+            pop rcx
+         """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rcx"])
