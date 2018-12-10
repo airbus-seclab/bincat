@@ -1024,24 +1024,24 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** produces the list of statements for ADD, SUB, ADC, SBB depending on
     the value of the operator and the boolean value (=true for carry or borrow) *)
-    let add_sub s op use_carry dst src sz =
+    let add_sub s op use_carry dst src _sz =
         let name    = Register.fresh_name () in
-        let res_reg = Register.make ~name:name ~size:sz in
+        let res_reg = Register.make ~name:name ~size:s.operand_sz in
         let res = V (T res_reg) in
         let res_cf_stmts = if use_carry then
-                let carry_ext = UnOp (ZeroExt sz, Lval (V (T fcf))) in
+                let carry_ext = UnOp (ZeroExt s.operand_sz, Lval (V (T fcf))) in
                 [ Set(res, BinOp(op, BinOp(op, Lval dst, src), carry_ext)) ; (* dst-src-cf *)
-                  carry_flag_stmts_3 sz (Lval dst) op src (Lval (V (T fcf)))]
+                  carry_flag_stmts_3 s.operand_sz (Lval dst) op src (Lval (V (T fcf)))]
             else
                 [ Set(res, BinOp(op, Lval dst, src)) ;
-                  carry_flag_stmts sz (Lval dst) op src ; ] in
+                  carry_flag_stmts s.operand_sz (Lval dst) op src ; ] in
         return s
             (res_cf_stmts @ [
-                 adjust_flag_stmts_from_res sz (Lval dst) src (Lval res) ;
-                 overflow_flag_stmts sz (Lval res) (Lval dst) op src ;
-                 zero_flag_stmts sz (Lval res) ;
-                 sign_flag_stmts sz (Lval res) ;
-                 parity_flag_stmts sz (Lval res) ; ] @
+                 adjust_flag_stmts_from_res s.operand_sz (Lval dst) src (Lval res) ;
+                 overflow_flag_stmts s.operand_sz (Lval res) (Lval dst) op src ;
+                 zero_flag_stmts s.operand_sz (Lval res) ;
+                 sign_flag_stmts s.operand_sz (Lval res) ;
+                 parity_flag_stmts s.operand_sz (Lval res) ; ] @
                  Arch.set_register dst (Lval res) @
                  [ Directive (Remove res_reg) ]
              )
@@ -1051,7 +1051,7 @@ let overflow_expression () = Lval (V (T fcf))
     let add_sub_immediate s op b r sz =
         let r'  = V (to_reg r s.operand_sz) in
         (* TODO : check if should sign extend *)
-        let w   = get_imm s sz s.operand_sz false in
+        let w   = get_imm s sz s.operand_sz true in
         add_sub s op b r' w sz
 
 
