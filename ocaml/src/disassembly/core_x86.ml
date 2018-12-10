@@ -697,37 +697,35 @@ let _fid   = Register.make ~name:"id" ~size:1;;
 
 let overflow_expression () = Lval (V (T fcf))
 
-
-
-
-  
-  let core_inc_dec reg op sz =
-    let dst     = reg                               in
-    let name        = Register.fresh_name ()            in
-    let v           = Register.make ~name:name ~size:sz in
-    let tmp         = V (T v)               in
-    let op1         = Lval tmp              in
-    let op2         = const 1 sz                        in
-    let res         = Lval dst              in
-    let flags_stmts =
-      [
-        overflow_flag_stmts sz res op1 op op2   ; zero_flag_stmts sz res;
-        parity_flag_stmts sz res; adjust_flag_stmts sz op1 op op2;
-        sign_flag_stmts sz res
-      ]
-    in
-    [ Set(tmp, Lval dst); Set (dst, BinOp (op, Lval dst, op2)) ] @
-      flags_stmts @ [Directive (Remove v)]
-
-                   
-
-
+                           
 (** control flow automaton *)
   module Cfa = Cfa.Make(Domain)
   module Arch = Arch(Domain)(Stubs)
   module Imports = Arch.Imports
   open Arch
   let cl = P (Arch.ecx, 0, 7)
+
+  let core_inc_dec reg op sz =
+    let dst  = reg  in
+    let name  = Register.fresh_name ()  in
+    let v  = Register.make ~name:name ~size:sz in
+    let tmp = V (T v)  in
+    let op1 = Lval tmp  in
+    let op2 = const 1 sz  in
+    let res  = Lval dst  in
+    let flags_stmts =
+      [
+        overflow_flag_stmts sz res op1 op op2 ; zero_flag_stmts sz res;
+        parity_flag_stmts sz res; adjust_flag_stmts sz op1 op op2;
+        sign_flag_stmts sz res
+      ]
+    in
+    let v' = Arch.set_register dst (BinOp (op, Lval dst, op2)) in
+    ((Set(tmp, Lval dst))::v')@flags_stmts @ [Directive (Remove v)]
+
+                   
+
+
   (* complete internal state of the decoder.
      Only the segment field is exported out of the functor (see parse signature) for further reloading *)
     type state = {
@@ -980,11 +978,9 @@ let overflow_expression () = Lval (V (T fcf))
         | _ -> error s.a "Decoder: illegal value for md in mod_reg_rm extraction"
 
     let operands_from_mod_reg_rm_core s sz ?(mem_sz=sz) dst_sz  =
-      L.debug (fun p -> p "entering operands_from_mod_reg_rm_core with s.rex.b_=%d and s.rex.r=%d" s.rex.b_ s.rex.r);
         let c = getchar s in
         let md, reg, rm = mod_nnn_rm (Char.code c) in
         let rm' = exp_of_md s md rm sz mem_sz in
-        L.debug (fun p -> p "reg=%d rm=%d s.rex.b_used=%b" reg rm s.rex.b_used);
         let reg = s.rex.r lsl 3 + reg in
          let reg_v =
             if dst_sz = 8 && reg >= 4 then
@@ -2038,14 +2034,14 @@ let overflow_expression () = Lval (V (T fcf))
         return s stmts
 
     let grp4 s =
-        let nnn, dst = core_grp s 8 in
+      let nnn, dst = core_grp s 8 in
         match nnn with
         | 0 -> inc_dec dst Add s 8
         | 1 -> inc_dec dst Sub s 8
         | _ -> error s.a "Illegal opcode in grp 4"
 
     let grp5 s =
-        let nnn, dst = core_grp s s.operand_sz in
+      let nnn, dst = core_grp s s.operand_sz in
         match nnn with
         | 0 -> inc_dec dst Add s s.operand_sz
         | 1 -> inc_dec dst Sub s s.operand_sz
@@ -2321,7 +2317,7 @@ let overflow_expression () = Lval (V (T fcf))
       return s stmts
 
     let xadd_mrm s sz =
-      let arg1,arg2 = operands_from_mod_reg_rm_core s sz sz in
+      let arg1, arg2 = operands_from_mod_reg_rm_core s sz sz in
       let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
       let stmts = [ Set(V (T tmp), BinOp(Add, Lval arg1, Lval arg2));
             Set(arg1, Lval arg2) ;
