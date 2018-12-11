@@ -1420,19 +1420,19 @@ let overflow_expression () = Lval (V (T fcf))
     (* replace all occurence of prev_reg by new_reg into lv *)
     let replace_reg lv prev_reg new_reg =
       let rec replace_lv lv =
-    match lv with
-     | M (e, n) -> M (replace_exp e, n)
-         | V (T r) when Register.compare r prev_reg = 0 -> V (T new_reg)
-     | V (P (r, l, u)) when Register.compare r prev_reg = 0 -> V (P (new_reg, l, u))
-     | _ -> lv
-      and replace_exp e =
-    match e with
-    | Lval lv -> Lval (replace_lv lv)
-    | UnOp(op, e) -> UnOp (op, replace_exp e)
-    | BinOp (op, e1, e2) -> BinOp (op, replace_exp e1, replace_exp e2)
-    | _ -> e
-      in
-      replace_lv lv
+          match lv with
+           | M (e, n) -> M (replace_exp e, n)
+           | V (T r) when Register.compare r prev_reg = 0 -> V (T new_reg)
+           | V (P (r, l, u)) when Register.compare r prev_reg = 0 -> V (P (new_reg, l, u))
+           | _ -> lv
+        and replace_exp e =
+          match e with
+          | Lval lv -> Lval (replace_lv lv)
+          | UnOp(op, e) -> UnOp (op, replace_exp e)
+          | BinOp (op, e1, e2) -> BinOp (op, replace_exp e1, replace_exp e2)
+          | _ -> e
+        in
+          replace_lv lv
 
 
 
