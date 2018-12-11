@@ -905,12 +905,19 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** returns the statements for a memory operation encoded in _md_ _rm_ (32 bits) *)
     let md_from_mem_32 s md rm sz =
-      L.debug (fun p -> p "entering md_from_mem_32");
+      L.debug (fun p -> p "md_from_mem_32 with rm=%d md=%d sz=%d" rm md sz);
         if rm = 4 then
             sib s md
         else
           begin
-            let rm' = s.rex.b_ lsl 3 + rm in
+            let rm' =
+              if s.rex.b_used then rm
+              else
+                begin
+                  s.rex.b_used <- true;
+                  s.rex.b_ lsl 3 + rm
+                end
+            in
             let rm_lv = find_reg_lv rm' s.addr_sz in
             match md with
             | 0 ->
@@ -921,11 +928,11 @@ let overflow_expression () = Lval (V (T fcf))
                          else disp
                   | _ -> s.rex.b_used <- true; rm_lv
               end
-            | 1 ->
+            | 1 -> 
                s.rex.b_used <- true;
               BinOp (Add, rm_lv, UnOp(SignExt s.addr_sz, disp s 8 sz))
 
-            | 2 ->
+            | 2 -> 
                s.rex.b_used <- true;
                BinOp (Add, rm_lv, disp s 32 s.addr_sz) (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *)
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
@@ -965,9 +972,16 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
     let exp_of_md s md rm sz mem_sz =
-      let rm' = s.rex.b_ lsl 3 + rm in
+      let rm' =
+        if s.rex.b_used then rm
+        else
+          begin
+            s.rex.b_used <- true;
+            s.rex.b_ lsl 3 + rm
+          end
+      in
         match md with
-        | n when 0 <= n && n <= 2 ->
+        | n when 0 <= n && n <= 2 ->   
            M (add_data_segment s (md_from_mem s md rm' sz), mem_sz)
         | 3 ->
             (* special case for ah ch dh bh *)
@@ -987,7 +1001,7 @@ let overflow_expression () = Lval (V (T fcf))
                 V (get_h_slice (reg-4))
             else
               find_reg_v reg dst_sz
-        in
+         in
         reg_v, rm'
 
     let operands_from_mod_reg_rm s sz ?(dst_sz = sz) direction =
@@ -1112,12 +1126,12 @@ let overflow_expression () = Lval (V (T fcf))
             error s.a "Illegal mod field in LEA"
         else
           begin
+            let src = md_from_mem s md rm s.addr_sz in
             let reg = 
               if s.rex.b_used then (s.rex.r lsl 3) + reg
               else (s.rex.b_  lsl 3) + reg
             in
             let reg_v = find_reg_v reg s.operand_sz in
-            let src = md_from_mem s md rm s.addr_sz in
             let stmts =
               if s.addr_sz < s.operand_sz then
                 [ Set(reg_v, UnOp(ZeroExt s.addr_sz, src)) ]
@@ -2477,7 +2491,7 @@ let overflow_expression () = Lval (V (T fcf))
             return s (cmp_stmts (Lval dst) src sz)
         in
         let mov_mrm s sz direction =
-            let dst, src = operands_from_mod_reg_rm s sz direction in
+          let dst, src = operands_from_mod_reg_rm s sz direction in
             return s [ Set (dst, src) ]
         in
         let rec decode s =
