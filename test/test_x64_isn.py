@@ -260,6 +260,7 @@ def test_arith_inc_reg64_32(tmpdir, op64):
 ## |___/\___|\__, |_| |_| |_|\___|_| |_|\__|___/
 ##           |___/
 
+@pytest.mark.xfail
 def test_32bit_switch(tmpdir):
     asm = """
 start:

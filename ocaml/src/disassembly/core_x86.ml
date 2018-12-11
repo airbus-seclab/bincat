@@ -905,7 +905,6 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** returns the statements for a memory operation encoded in _md_ _rm_ (32 bits) *)
     let md_from_mem_32 s md rm sz =
-      L.debug (fun p -> p "md_from_mem_32 with rm=%d md=%d sz=%d" rm md sz);
         if rm = 4 then
             sib s md
         else
@@ -1533,7 +1532,8 @@ let overflow_expression () = Lval (V (T fcf))
       let op_sz = if s.rex.w = 1 then 64 else s.imm_sz in
       let base_reg_nb = ((Char.code c) - 0xb8) in
       let reg_nb = s.rex.b_ lsl 3 + base_reg_nb in
-      let r = (find_reg_v reg_nb op_sz) in return s (Arch.set_register r (Const (Word.of_int (int_of_bytes s (op_sz/8)) op_sz)))
+      let r = find_reg_v reg_nb op_sz in
+      return s (Arch.set_register r (Const (Word.of_int (int_of_bytes s (op_sz/8)) s.operand_sz)))
 
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
@@ -2038,17 +2038,17 @@ let overflow_expression () = Lval (V (T fcf))
       | 7 -> return s (shift_r_stmt dst sz n true) (* SAR *)
       | _ -> error s.a "Illegal opcode in grp 2"
 
-    let grp3 s reg_sz imm_sz =
-        let nnn, reg = core_grp s reg_sz in
+    let grp3 s sz =
+      let nnn, reg = core_grp s sz in
         let stmts =
             match nnn with
-            | 0 -> (* TEST *) let imm = get_imm s imm_sz reg_sz false in test_stmts reg imm imm_sz
+            | 0 -> (* TEST *) let imm = get_imm s sz sz false in test_stmts reg imm sz
             | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
-            | 3 -> (* NEG *) neg reg_sz reg
-            | 4 -> (* MUL *) mul_stmts Mul (Lval reg) imm_sz
-            | 5 -> (* IMUL *) mul_stmts IMul (Lval reg) imm_sz
-            | 6 -> (* DIV *) div_stmts (Lval reg) imm_sz true
-            | 7 -> (* IDIV *) div_stmts (Lval reg) imm_sz false
+            | 3 -> (* NEG *) neg sz reg
+            | 4 -> (* MUL *) mul_stmts Mul (Lval reg)  sz
+            | 5 -> (* IMUL *) mul_stmts IMul (Lval reg) sz
+            | 6 -> (* DIV *) div_stmts (Lval reg) sz true
+            | 7 -> (* IDIV *) div_stmts (Lval reg) sz false
             | _ -> error s.a "Unknown operation in grp 3"
         in
         return s stmts
@@ -2066,8 +2066,9 @@ let overflow_expression () = Lval (V (T fcf))
         | 0 -> inc_dec dst Add s s.operand_sz
         | 1 -> inc_dec dst Sub s s.operand_sz
         | 2 -> call s (R (Lval dst))
-
+             
         | 4 -> return s [ Jmp (R (Lval dst)) ]
+        | 5 -> return s [Jmp (R (add_segment s (Lval dst) cs))]
         | 6 -> push s [dst]
         | _ -> error s.a "Illegal opcode in grp 5"
 
@@ -2748,8 +2749,8 @@ let overflow_expression () = Lval (V (T fcf))
             | '\xf3' -> (* REP/REPE *) s.repe <- true; rep s Word.zero
             | '\xf4' -> (* HLT *) error s.a "Decoder stopped: HLT reached"
             | '\xf5' -> (* CMC *) let fcf' = V (T fcf) in return s [ Set (fcf', UnOp (Not, Lval fcf')) ]
-            | '\xf6' -> (* shift to grp3  with byte size *) grp3 s s.operand_sz 8
-            | '\xf7' -> (* shift to grp3 with word or double word size *) grp3 s s.operand_sz s.imm_sz
+            | '\xf6' -> (* shift to grp3  with byte size *) grp3 s 8
+            | '\xf7' -> (* shift to grp3 with word or double word size *) grp3 s s.operand_sz
             | '\xf8' -> (* CLC *) return s (clear_flag fcf fcf_sz)
             | '\xf9' -> (* STC *) return s (set_flag fcf fcf_sz)
             | '\xfa' -> (* CLI *) L.decoder (fun p -> p "entering privilege mode (CLI instruction)"); return s (clear_flag fif fif_sz)
