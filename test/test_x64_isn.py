@@ -510,14 +510,15 @@ def test_push16(tmpdir):
          """.format(**locals())
     compare(tmpdir, asm, ["rbx", "rcx"])
 
-def test_push32(tmpdir):
+def test_push16_mem(tmpdir):
     asm = """
             xor rbx, rbx
             mov rax, 0x123456789abcdef0
             mov rdx, rax
-            push eax
+            push ax
+            push rdx
+            push word [rsp-2]
             pop rbx
-            push edx
             pop rcx
          """.format(**locals())
     compare(tmpdir, asm, ["rbx", "rcx"])
