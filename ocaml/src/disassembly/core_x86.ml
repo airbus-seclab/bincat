@@ -1403,7 +1403,7 @@ let overflow_expression () = Lval (V (T fcf))
     let size_push_pop lv sz = if is_segment lv then !Config.stack_width else sz
 
     (** returns true whenever the left value contains the stack register *)
-    let with_stack_pointer is_pop a lv =
+    let with_stack_pointer is_pop ip lv =
         let rec has e =
             match e with
             | UnOp (_, e') -> has e'
@@ -1413,7 +1413,7 @@ let overflow_expression () = Lval (V (T fcf))
         and in_lv lv =
             match lv with
             | M (e, _) -> has e
-            | V (T r) | V (P (r, _, _)) -> if is_pop && Register.compare r cs = 0 then error a "Illegal POP CS"; Register.is_stack_pointer r
+            | V (T r) | V (P (r, _, _)) -> if is_pop && Register.compare r cs = 0 then error ip "Illegal POP CS"; Register.is_stack_pointer r
         in
         in_lv lv
 
