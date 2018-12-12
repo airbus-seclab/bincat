@@ -788,6 +788,7 @@ let overflow_expression () = Lval (V (T fcf))
     (** helper to get immediate of _imm_sz_ bits into a _sz_ int, doing
         _sign_ext_ if true*)
     let get_imm_int s imm_sz sz sign_ext =
+        L.debug (fun p->p "get_imm_int %d %d %b" imm_sz sz sign_ext);
         if imm_sz > sz then
             error s.a (Printf.sprintf "Immediate size (%d) bigger than target size (%d)" imm_sz sz)
         else
