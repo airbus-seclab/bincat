@@ -701,8 +701,8 @@ let overflow_expression () = Lval (V (T fcf))
 (** control flow automaton *)
   module Cfa = Cfa.Make(Domain)
   module Arch = Arch(Domain)(Stubs)
-  module Imports = Arch.Imports
   open Arch
+  module Imports = Arch.Imports
   let cl = P (Arch.ecx, 0, 7)
 
   let core_inc_dec reg op sz =
