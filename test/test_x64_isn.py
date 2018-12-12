@@ -503,6 +503,8 @@ def test_push16(tmpdir):
             xor rbx, rbx
             mov rax, 0x123456789abcdef0
             mov rdx, rax
+            push rdx ; push defined data on stack
+            push rdx
             push ax
             pop rbx
             push dx
