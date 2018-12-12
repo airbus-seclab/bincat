@@ -77,6 +77,17 @@ def test_mov_a0(tmpdir, op64, op8):
     """.format(**locals())
     compare(tmpdir, asm, ["rbx", "rax"])
 
+def test_mov_a2(tmpdir,  op8):
+    asm = """
+        xor rax, rax
+        mov al, {op8:#x}
+        db 0a2h
+        dq 0x100000
+        xor rbx, rbx
+        mov bl, [0x100000]
+    """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rax"])
+
 def test_mov_a1(tmpdir, op64, op8):
     asm = """
         xor rax, rax
@@ -86,6 +97,18 @@ def test_mov_a1(tmpdir, op64, op8):
         dq 0x100000
     """.format(**locals())
     compare(tmpdir, asm, ["rbx", "rax"])
+
+def test_mov_a3(tmpdir,  op64):
+    asm = """
+        xor rax, rax
+        mov rax, {op64:#x}
+        db 0a3h
+        dq 0x100000
+        xor rbx, rbx
+        mov rbx, [0x100000]
+    """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rax"])
+
 
 def test_mov_66a1(tmpdir, op64, op8):
     asm = """
@@ -97,6 +120,19 @@ def test_mov_66a1(tmpdir, op64, op8):
         dq 0x100000
     """.format(**locals())
     compare(tmpdir, asm, ["rbx", "rax"])
+
+def test_mov_66a3(tmpdir,  op64):
+    asm = """
+        xor rax, rax
+        mov rax, {op64:#x}
+        db 066
+        db 0a3h
+        dq 0x100000
+        xor rbx, rbx
+        mov rbx, [0x100000]
+    """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rax"])
+
 
 def test_mov_mem(tmpdir, op64, op8):
     asm = """
