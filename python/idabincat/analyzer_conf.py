@@ -37,6 +37,10 @@ from idabincat.plugin_options import PluginOptions
 bc_log = logging.getLogger('bincat-cfg')
 bc_log.setLevel(logging.INFO)
 
+X64_GPR = ['rax', 'rcx', 'rdx', 'rbx', 'rbp', 'rsi', 'rdi', 'rsp']+["r%d" % d for d in xrange(8, 16)]
+X86_GPR = ['eax', 'ecx', 'edx', 'ebx', 'ebp', 'esi', 'edi', 'esp']
+
+
 # Needed because IDA doesn't store s_psize
 class pesection_t(ctypes.Structure):
     _fields_ = [("s_name", ctypes.c_char * 8),
@@ -264,7 +268,7 @@ class ConfigHelpers(object):
     @staticmethod
     def register_size(arch, reg):
         if arch == 'x86':
-            if reg in ['eax', 'ecx', 'edx', 'ebx', 'ebp', 'esi', 'edi', 'esp']:
+            if reg in X86_GPR:
                 return 32
             if reg in ['cf', 'pf', 'af', 'zf', 'sf', 'tf', 'if', 'of', 'nt',
                        'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
@@ -272,8 +276,7 @@ class ConfigHelpers(object):
             if reg == 'iopl':
                 return 3
         if arch == 'x64':
-            r9_15d = ["r%d" % d for d in xrange(8, 16)]
-            if reg in ['rax', 'rcx', 'rdx', 'rbx', 'rbp', 'rsi', 'rdi', 'rsp']+r9_15d:
+            if reg in X64_GPR:
                 return 64
             if reg in ["xmm%d" % d for d in xrange(0, 16)]:
                 return 128
@@ -309,7 +312,7 @@ class ConfigHelpers(object):
         # ["name", "value", "topmask", "taintmask"]
         regs = []
         if arch == "x86":
-            for name in ["eax", "ecx", "edx", "ebx", "ebp", "esi", "edi"]:
+            for name in X86_GPR:
                 regs.append([name, "0", "0xFFFFFFFF", ""])
             regs.append(["esp", "0xb8001000", "", ""])
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
@@ -318,8 +321,7 @@ class ConfigHelpers(object):
             regs.append(["df", "0", "", ""])
             regs.append(["iopl", "3", "", ""])
         if arch == "x64":
-            r9_15d = ["r%d" % d for d in xrange(8, 16)]
-            for name in ["rax", "rcx", "rdx", "rbx", "rbp", "rsi", "rdi"]+r9_15d:
+            for name in X64_GPR:
                 regs.append([name, "0", "0xFFFFFFFFFFFFFFFF", ""])
             if name in ["xmm%d" % d for d in xrange(0, 16)]:
                 regs.append([name, "0", "0x"+"F"*32, ""])
