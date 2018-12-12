@@ -2640,7 +2640,13 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x60' -> (* PUSHA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
             | '\x61' -> (* POPA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
 
-            | '\x63' -> (* ARPL *) arpl s
+            | '\x63' ->
+               if !Config.address_sz = 32 then (* ARPL *) arpl s
+               else
+                 (*MOVSXD *)
+                 let reg, rm = operands_from_mod_reg_rm s 32 ~dst_sz:64 1 in
+                 return s [ Set (reg, UnOp(SignExt 64, rm)) ]
+              
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
             | '\x66' -> (* operand size switch *) switch_sizes s; s.rex.op_switch <- true; (* for x86: 66H ignored if REX.W = 1, see Vol 2A 2.2.1.2, this condition will be used in the rex prefix decoding *) decode s
