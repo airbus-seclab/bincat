@@ -751,6 +751,7 @@ let overflow_expression () = Lval (V (T fcf))
       
     (** initialization of the decoder *)
     let init () =
+      Imports.init ();
       let ldt = Hashtbl.create 5  in
       let gdt = Hashtbl.create 19 in
       let idt = Hashtbl.create 15 in
