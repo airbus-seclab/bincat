@@ -46,6 +46,28 @@ def test_assign_2(tmpdir):
     """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "r9"])
 
+def test_movzx(tmpdir, op64):
+    asm = """
+            mov rax, {op64:#x}
+            mov rbx, 0
+            movzx bx, al
+            movzx ecx, al
+            movzx edx, ax
+            movzxd rdx, eax
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
+
+def test_movsx(tmpdir, op64):
+    asm = """
+            mov rax, {op64:#x}
+            mov rbx, 0
+            movsx bx, al
+            movsx ecx, al
+            movsx edx, ax
+            movsxd rdx, eax
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
+
 ##    _   ___ ___ _____ _  _ __  __ ___ _____ ___ ___    ___  ___  ___
 ##   /_\ | _ \_ _|_   _| || |  \/  | __|_   _|_ _/ __|  / _ \| _ \/ __|
 ##  / _ \|   /| |  | | | __ | |\/| | _|  | |  | | (__  | (_) |  _/\__ \
