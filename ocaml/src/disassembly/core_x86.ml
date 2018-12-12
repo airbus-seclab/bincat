@@ -2648,7 +2648,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
             | '\x66' -> (* operand size switch *) switch_sizes s; s.rex.op_switch <- true; (* for x86: 66H ignored if REX.W = 1, see Vol 2A 2.2.1.2, this condition will be used in the rex prefix decoding *) decode s
-            | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
+            | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else if s.addr_sz = 32 then 16 else 32; decode s
             | '\x68' -> (* PUSH immediate *) push_immediate s s.imm_sz
             | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.operand_sz s.operand_sz true in imul_stmts s dst src imm
             | '\x6a' -> (* PUSH byte *) push_immediate s 8
