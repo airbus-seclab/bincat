@@ -735,7 +735,7 @@ let overflow_expression () = Lval (V (T fcf))
         mutable c         : char list; (** current decoded bytes in reverse order  *)
         mutable addr_sz   : int;       (** current address size in bits *)
         mutable operand_sz: int;       (** current operand size in bits *)
-        imm_sz: int; (** size of immediates *)
+        mutable imm_sz: int;           (** size of immediates *)
         buf                 : string;      (** buffer to decode *)
         mutable o       : int;     (** current offset to decode into the buffer *)
         mutable rep_prefix: bool option; (** None = no rep prefix ; Some true = rep prefix ; Some false = repne/repnz prefix *)
@@ -789,6 +789,7 @@ let overflow_expression () = Lval (V (T fcf))
     (** helper to get immediate of _imm_sz_ bits into a _sz_ int, doing
         _sign_ext_ if true*)
     let get_imm_int s imm_sz sz sign_ext =
+        L.debug (fun p->p "get_imm_int %d %d %b" imm_sz sz sign_ext);
         if imm_sz > sz then
             error s.a (Printf.sprintf "Immediate size (%d) bigger than target size (%d)" imm_sz sz)
         else
@@ -1104,8 +1105,7 @@ let overflow_expression () = Lval (V (T fcf))
         let v       = Register.make ~name:name ~size:sz in
         let tmp     = V (T v)               in
         let tmp_calc   = Set (tmp, BinOp(And, Lval dst, src)) in
-    L.debug (fun p -> p "%s" (Asm.string_of_stmt tmp_calc true));
-    let tmp' = Lval tmp in
+        let tmp' = Lval tmp in
         let flag_stmts =
             [
                 clear_flag fcf; clear_flag fof; zero_flag_stmts sz tmp';
@@ -2058,7 +2058,7 @@ let overflow_expression () = Lval (V (T fcf))
       let nnn, reg = core_grp s sz in
         let stmts =
             match nnn with
-            | 0 -> (* TEST *) let imm = get_imm s s.imm_sz sz false in test_stmts reg imm sz
+            | 0 -> (* TEST *) let imm = get_imm s s.imm_sz sz true in test_stmts reg imm sz
             | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
             | 3 -> (* NEG *) neg sz reg
             | 4 -> (* MUL *) mul_stmts Mul (Lval reg)  sz
@@ -2419,7 +2419,7 @@ let overflow_expression () = Lval (V (T fcf))
       let mem  = add_segment s (Lval edi') es in
       Directive (Unroll_until (mem, cmp, Lval (V (to_reg eax i)), 10000, i))
 
-    let switch_operand_size s = s.operand_sz <- if s.operand_sz = 16 then 32 else 16
+    let switch_sizes s = s.operand_sz <- if s.operand_sz = 16 then 32 else 16; s.imm_sz <- s.operand_sz;;
 
     let mod_rm_on_xmm2 s sz =
       let md, _reg, rm = mod_nnn_rm (Char.code (getchar s)) in
@@ -2609,7 +2609,7 @@ let overflow_expression () = Lval (V (T fcf))
                    let rex = decode_from_0x40_to_0x4F c s.operand_sz in
                    if rex.w = 1 && s.rex.op_switch then
                      (* previous operand_switch is ignored *)
-                     switch_operand_size s;
+                     switch_sizes s;
                    s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
                  with Exit ->
                        let r = find_reg ((Char.code c) - 0x48) s.operand_sz in
@@ -2646,7 +2646,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x63' -> (* ARPL *) arpl s
             | '\x64' -> (* segment data = fs *) s.segments.data <- fs; decode s
             | '\x65' -> (* segment data = gs *) s.segments.data <- gs; decode s
-            | '\x66' -> (* operand size switch *) switch_operand_size s; s.rex.op_switch <- true; (* for x86: 66H ignored if REX.W = 1, see Vol 2A 2.2.1.2, this condition will be used in the rex prefix decoding *) decode s 
+            | '\x66' -> (* operand size switch *) switch_sizes s; s.rex.op_switch <- true; (* for x86: 66H ignored if REX.W = 1, see Vol 2A 2.2.1.2, this condition will be used in the rex prefix decoding *) decode s
             | '\x67' -> (* address size switch *) s.addr_sz <- if s.addr_sz = 16 then 32 else 16; decode s
             | '\x68' -> (* PUSH immediate *) push_immediate s s.imm_sz
             | '\x69' -> (* IMUL immediate *) let dst, src = operands_from_mod_reg_rm s s.operand_sz 1 in let imm = get_imm s s.operand_sz s.operand_sz true in imul_stmts s dst src imm
@@ -2856,12 +2856,12 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x1F' -> (* long nop *) let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
 
             | '\x28' -> (* MOVAPD *) (* TODO: make it more precise *)
-               switch_operand_size s;
+               switch_sizes s;
               (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
               return s [ Directive (Forget (V (T xmm1))) ]
 
             | '\x29' -> (* MOVAPD *) (* TODO: make it more precise *)
-                 switch_operand_size s; (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
+                 switch_sizes s; (* because this opcode is 66 0F 29 ; 0x66 has been parsed and hence operand size changed *)
               mod_rm_on_xmm2 s 128
 
             | '\x2A' -> (* CVTSI2SD / CVTSI2SS *) (* TODO: make it more precise *)
