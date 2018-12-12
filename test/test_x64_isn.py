@@ -519,7 +519,8 @@ def test_push16_mem(tmpdir):
             mov rdx, rax
             push ax
             push rdx
-            push word [rsp-2]
+            push rdx
+            push word [rsp+2]
             pop rbx
             pop rcx
          """.format(**locals())
