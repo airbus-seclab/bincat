@@ -67,6 +67,37 @@ def test_movsx(tmpdir, op64):
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
 
+def test_mov_a0(tmpdir, op64, op8):
+    asm = """
+        xor rax, rax
+        mov rbx, {op64:#x}
+        mov [0x100000], rbx
+        db 0a0h
+        dq 0x100000
+    """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rax"])
+
+def test_mov_a1(tmpdir, op64, op8):
+    asm = """
+        xor rax, rax
+        mov rbx, {op64:#x}
+        mov [0x100000], rbx
+        db 0a1h
+        dq 0x100000
+    """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rax"])
+
+def test_mov_66a1(tmpdir, op64, op8):
+    asm = """
+        xor rax, rax
+        mov rbx, {op64:#x}
+        mov [0x100000], rbx
+        db 066h
+        db 0a1h
+        dq 0x100000
+    """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rax"])
+
 def test_mov_mem(tmpdir, op64, op8):
     asm = """
         mov rax, {op64:#x}
@@ -99,9 +130,9 @@ def test_mov_mem_reg64_off(tmpdir, op64, op8, op32):
         mov bl, [{op8}+r12+rdi*0]
         mov cx, [{op8}+r12+rdi*1]
         mov edx, [{op8}+r12+rdi*2]
-        mov eax, [{op8}+r12+rdi*4]
         mov r8, [{op8}+r12+rdi*4]
         mov r9d, [{op8}+r12+rdi*8]
+        mov [{op8}+r12], rax
         mov r10, [{op8}+r12]
     """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "r8", "r9","r10"])

@@ -80,6 +80,37 @@ def test_mov_mem_reg_off(tmpdir, op32, op8):
     """.format(**locals())
     compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx"])
 
+def test_mov_a0(tmpdir, op32, op8):
+    asm = """
+        xor eax, eax
+        mov ebx, {op32:#x}
+        mov [0x100000], ebx
+        db 0a0h
+        dd 0x100000
+    """.format(**locals())
+    compare(tmpdir, asm, ["ebx", "eax"])
+
+def test_mov_a1(tmpdir, op32, op8):
+    asm = """
+        xor eax, eax
+        mov ebx, {op32:#x}
+        mov [0x100000], ebx
+        db 0a1h
+        dd 0x100000
+    """.format(**locals())
+    compare(tmpdir, asm, ["ebx", "eax"])
+
+def test_mov_66a1(tmpdir, op32, op8):
+    asm = """
+        xor eax, eax
+        mov ebx, {op32:#x}
+        mov [0x100000], ebx
+        db 066h
+        db 0a1h
+        dd 0x100000
+    """.format(**locals())
+    compare(tmpdir, asm, ["ebx", "eax"])
+
 ##  ___  ___  _        __  ___  ___  ___ 
 ## | _ \/ _ \| |      / / | _ \/ _ \| _ \
 ## |   / (_) | |__   / /  |   / (_) |   /
