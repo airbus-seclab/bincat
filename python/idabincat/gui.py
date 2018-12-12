@@ -931,8 +931,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if not config_name:
             idx = self.cfg_select.currentIndex()
             bc_log.debug("Saving config, idx = %d, cache: %s", idx, repr(self.s.configurations.names_cache))
-            # len-1 as "(last used)" is in the cache (but not "(new)")
-            if always_prompt or idx == len(self.s.configurations.names_cache)-1:
+            if always_prompt or idx == self.cfg_select.count()-1:
                 # new config, prompt name
                 config_name, res = QtWidgets.QInputDialog.getText(
                     self.parent,

@@ -1495,12 +1495,9 @@ let overflow_expression () = Lval (V (T fcf))
                             (* TODO: some CPUs only move the 16 bits of the segment register and leave the rest
                              * of the stack untouched *)
                             let lv_ext =
-                              if s.operand_sz <> s.addr_sz then
-                                if is_segment_fs_gs lv then
+                                if is_segment lv then
                                   UnOp (ZeroExt !Config.stack_width, Lval lv)
                                 else  Lval lv
-                              else
-                                Lval lv
                             in
                             Set (M (Lval (V esp'), n), lv_ext);
                         end
