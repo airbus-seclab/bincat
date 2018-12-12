@@ -907,7 +907,8 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** returns the statements for a memory operation encoded in _md_ _rm_ (32 bits) *)
     let md_from_mem_32 s md rm sz =
-        if rm = 4 then
+      L.debug2 (fun p -> p "entering md_from_mem_32 md=%d rm=%d sz=%d" md rm sz);
+        if rm = 4 || rm = 12 then
             sib s md
         else
           begin
@@ -973,6 +974,7 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** returns the statements for a mod/rm with _md_ _rm_ *)
     let exp_of_md s md rm sz mem_sz =
+      L.debug2 (fun p -> p "entering exp_of_md with md=%d" md);
       let rm' =
         if s.rex.b_used then rm
         else
