@@ -311,7 +311,7 @@ module Make(V: Val) =
       
     let to_z v = v_to_z V.to_z v
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
-    let to_word conv v = Data.Word.of_int (v_to_z conv v) (Array.length v)
+    let to_word conv v = Data.Word.of_int (v_to_z conv v) !Config.address_sz
       
     let extract_strings v =
       let v' =

@@ -330,6 +330,7 @@ struct
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let skip_or_import_call vertices a fun_stack =     
       (* will raise Not_found if no import or skip is found *)
+      L.debug2 (fun p -> p "skip_or_import_tbl at %s" (Data.Address.to_string a));
       let fundec =
         try
           let import_desc = Hashtbl.find Decoder.Imports.tbl a in
