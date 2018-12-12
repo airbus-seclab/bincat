@@ -13,10 +13,10 @@ check = x64.check
 # | | | | | | (_) \ V /
 # |_| |_| |_|\___/ \_/
 
-def test_assign(tmpdir):
+def test_assign(tmpdir, op16, op32):
     asm = """
-        mov rsi,0xabacadae1212abff
-        mov rdi,0x0cadaeaf
+        mov r12,0xabacadae1212abff
+        mov r13d,{op32:#x}
         mov rax,0x0abbccdd
         mov rbx,0xbbccddee11111111
         mov rcx,0xddeeffaa
@@ -31,9 +31,11 @@ def test_assign(tmpdir):
         mov ch,0x44
         mov dh,0x55
         mov dl,0x66
+        mov si, {op16:#x}
+        mov edi,{op32:#x}
     """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "rsi", "rdi",
-                          "r8", "r9"])
+                          "r8", "r9", "r12", "r13"])
 
 def test_assign_2(tmpdir):
     asm = """
