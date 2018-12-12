@@ -33,7 +33,7 @@ open Decodeutils
       | R2
       | R3
 
- 
+
     type table_indicator =
       | GDT
       | LDT
@@ -96,7 +96,7 @@ open Decodeutils
         reg: (Register.t, segment_register_mask) Hashtbl.t; (** current value of the segment registers *)
     }
 
-               
+
     module type Arch =
       functor (Domain: Domain.T) -> functor (Stubs: Stubs.T with type domain_t := Domain.t) ->
                                sig
@@ -107,7 +107,7 @@ open Decodeutils
                  val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
                 Data.Address.t -> Asm.import_desc_t
                  val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
-               end 
+               end
     val ebx: Register.t
     val ebp: Register.t
     val esi: Register.t
@@ -121,7 +121,7 @@ open Decodeutils
     val get_base_address: ictx_t -> Data.Address.t -> segment_register_mask -> Z.t
     (* function to set an lval to an expression *)
     val set_register: Asm.lval -> Asm.exp -> Asm.stmt list
-                   
+
     (** add_segment translates the segment selector/offset pair into a linear addresss *)
     val add_segment: ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
     (* Check segments limits, returns (success_bool, base_addr, limit) *)
@@ -143,9 +143,9 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     (************************************************************************)
     (* Creation of the registers *)
     (************************************************************************)
-    
+
     module Imports = X86Imports.Make(Domain)(Stubs)
-                   
+
     let eax = Register.make ~name:"eax" ~size:32
     let ecx = Register.make ~name:"ecx" ~size:32
     let edx = Register.make ~name:"edx" ~size:32
@@ -165,9 +165,9 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       Hashtbl.add register_tbl 5 ebp;
       Hashtbl.add register_tbl 6 esi;
       Hashtbl.add register_tbl 7 edi
-      
+
     let decode_from_0x40_to_0x4F _c _sz = raise Exit
-        
+
     let get_rex _c = None
 
     let get_base_address segments rip c =
@@ -183,7 +183,7 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
           error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
       else
         error rip "only protected mode supported"
-      
+
     let set_register dst value = [ Set(dst, value) ]
 
     let add_segment segments operand_sz rip offset sreg =
@@ -216,15 +216,15 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let get_operand_sz_for_stack () = raise Exit
 end
 
-  
+
 module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
   struct
-    
+
     (************************************************************************)
     (* Creation of the registers *)
     (************************************************************************)
     let operand_sz = 32
-                   
+
     let eax = Register.make ~name:"rax" ~size:64
     let ecx = Register.make ~name:"rcx" ~size:64
     let edx = Register.make ~name:"rdx" ~size:64
@@ -233,8 +233,8 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let ebp = Register.make ~name:"rbp" ~size:64
     let esi = Register.make ~name:"rsi" ~size:64
     let edi = Register.make ~name:"rdi" ~size:64
-            
-            
+
+
     let init_registers register_tbl xmm_tbl =
       let _rip = Register.make ~name:"rip" ~size:64 in
       let r8 = Register.make ~name:"r8" ~size:64 in
@@ -253,21 +253,21 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       let xmm11 = Register.make ~name:"xmm11" ~size:128 in
       let xmm12 = Register.make ~name:"xmm12" ~size:128 in
       let xmm13 = Register.make ~name:"xmm13" ~size:128 in
-      let xmm14 = Register.make ~name:"xmm14" ~size:128 in 
-      let xmm15 = Register.make ~name:"xmm15" ~size:128 in        
+      let xmm14 = Register.make ~name:"xmm14" ~size:128 in
+      let xmm15 = Register.make ~name:"xmm15" ~size:128 in
       List.iteri (fun i r -> Hashtbl.add xmm_tbl i r) [ xmm8 ; xmm9 ; xmm10 ; xmm11 ; xmm12 ; xmm13 ; xmm14 ; xmm15 ]
-      
-      
+
+
     module Imports = X64Imports.Make(Domain)(Stubs)
-                   
+
     let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; b_used = false; op_switch = false  }
-                   
+
     let get_rex c = Some (iget_rex c)
-                  
+
     let decode_from_0x40_to_0x4F (c: char) (_sz) : rex_t =
       let c' = Char.code c in
      iget_rex c'
-      
+
     let get_base_address segments rip seg_reg_msk =
       if !Config.mode = Config.Protected then
         let dt = if seg_reg_msk.ti = GDT then segments.gdt else segments.ldt in
@@ -281,7 +281,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
           error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string seg_reg_msk.index) (if seg_reg_msk.ti = GDT then "Global" else "Local"))
       else
         error rip "only protected mode supported"
-      
+
       let set_register dst value =
         L.debug(fun p->p "set_register(%s, %s)" (Asm.string_of_lval dst true) (Asm.string_of_exp value true));
         let normal_set = [ Set(dst, value) ] in
@@ -290,7 +290,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
         | V(r) -> match r with
           | T(_) -> (* full assignation *) normal_set
           | P(reg, l, u) -> if l == 0 && u == 31 then normal_set @ [ Set(V( P(reg, 32, 63)), const0 32) ] else normal_set
-                          
+
     let add_segment segments operand_sz rip offset sreg =
       match (Register.name sreg) with
       | "ss" | "es" | "cs" | "ds" -> offset
@@ -301,10 +301,10 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
            offset
          else
            BinOp(Add, offset, const_of_Z base_val operand_sz)
-         
+
     let check_seg_limit rip segments sreg _addr =
         (* Segmentation in 64bit never checks limits *)
-        let base_val = 
+        let base_val =
           match (Register.name sreg) with
           (* base is only real for fs and gs *)
           | "fs" | "gs" -> get_base_address segments rip (Hashtbl.find segments.reg sreg)
@@ -423,7 +423,7 @@ let _fid   = Register.make ~name:"id" ~size:1;;
     (* size of an index in a description table *)
     let index_sz = 64
 
-   
+
     (** builds the high level representation of the given segment register *)
     let get_segment_register_mask v =
         let rpl = privilege_level_of_int (Z.to_int (Z.logand v (Z.of_int 3))) in
@@ -435,7 +435,7 @@ let _fid   = Register.make ~name:"id" ~size:1;;
         in
         { rpl = rpl; ti = ti; index = Word.of_int (Z.shift_right v 3) index_sz }
 
-    
+
     (** converts the given integer into a segment type *)
     let segment_descriptor_of_int v =
         match v with
@@ -498,7 +498,7 @@ let _fid   = Register.make ~name:"id" ~size:1;;
             db = db;
             gran = g; }
 
-   
+
 
  (************************************************************************************)
     (* common utilities *)
@@ -697,7 +697,7 @@ let _fid   = Register.make ~name:"id" ~size:1;;
 
 let overflow_expression () = Lval (V (T fcf))
 
-                           
+
 (** control flow automaton *)
   module Cfa = Cfa.Make(Domain)
   module Arch = Arch(Domain)(Stubs)
@@ -723,7 +723,7 @@ let overflow_expression () = Lval (V (T fcf))
     let v' = Arch.set_register dst (BinOp (op, Lval dst, op2)) in
     ((Set(tmp, Lval dst))::v')@flags_stmts @ [Directive (Remove v)]
 
-                   
+
 
 
   (* complete internal state of the decoder.
@@ -748,7 +748,7 @@ let overflow_expression () = Lval (V (T fcf))
 
     let init_registers() =
       Arch.init_registers register_tbl xmm_tbl
-      
+
     (** initialization of the decoder *)
     let init () =
       Imports.init ();
@@ -831,7 +831,7 @@ let overflow_expression () = Lval (V (T fcf))
         let index = (v lsr 3)        in
         { rpl = privilege_level_of_int lvl; ti = if ti = 0 then GDT else LDT; index = Word.of_int (Z.of_int index) 13 }
 
-    
+
 
     let get_segments a ctx =
         let registers = Hashtbl.create 6 in
@@ -929,11 +929,11 @@ let overflow_expression () = Lval (V (T fcf))
                          else disp
                   | _ -> s.rex.b_used <- true; rm_lv
               end
-            | 1 -> 
+            | 1 ->
                s.rex.b_used <- true;
               BinOp (Add, rm_lv, UnOp(SignExt s.addr_sz, disp s 8 sz))
 
-            | 2 -> 
+            | 2 ->
                s.rex.b_used <- true;
                BinOp (Add, rm_lv, disp s 32 s.addr_sz) (* x64: displacement remains 8 bits or 32 bits, see Vol 2A 2-13 *)
             | _ -> error s.a "Decoder: illegal value in md_from_mem"
@@ -982,7 +982,7 @@ let overflow_expression () = Lval (V (T fcf))
           end
       in
         match md with
-        | n when 0 <= n && n <= 2 ->   
+        | n when 0 <= n && n <= 2 ->
            M (add_data_segment s (md_from_mem s md rm' sz), mem_sz)
         | 3 ->
             (* special case for ah ch dh bh *)
@@ -1127,7 +1127,7 @@ let overflow_expression () = Lval (V (T fcf))
         else
           begin
             let src = md_from_mem s md rm s.addr_sz in
-            let reg = 
+            let reg =
               if s.rex.b_used then (s.rex.r lsl 3) + reg
               else (s.rex.b_  lsl 3) + reg
             in
@@ -1536,7 +1536,7 @@ let overflow_expression () = Lval (V (T fcf))
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
     let mov_immediate s sz =
       let sz' = if sz = 8 then sz else s.operand_sz in
-      let dst, _ = operands_from_mod_reg_rm s sz' 0 in      
+      let dst, _ = operands_from_mod_reg_rm s sz' 0 in
       let imm = get_imm s sz s.operand_sz true in
       return s [ Set (dst, imm) ]
 
@@ -1663,7 +1663,7 @@ let overflow_expression () = Lval (V (T fcf))
       let md, nnn, rm = mod_nnn_rm c in
       let dst = exp_of_md s md rm sz sz in
       nnn, dst
-      
+
 
 
     let grp1 s reg_sz imm_sz =
@@ -2079,7 +2079,7 @@ let overflow_expression () = Lval (V (T fcf))
         | 0 -> inc_dec dst Add s s.operand_sz
         | 1 -> inc_dec dst Sub s s.operand_sz
         | 2 -> call s (R (Lval dst))
-             
+
         | 4 -> return s [ Jmp (R (Lval dst)) ]
         | 5 -> return s [Jmp (R (add_segment s (Lval dst) cs))]
         | 6 -> push s [dst]
@@ -2492,8 +2492,6 @@ let overflow_expression () = Lval (V (T fcf))
     exception No_rep of Cfa.State.t * Data.Address.t
 
 
-
-
   (** decoding of one instruction *)
     let decode s =
         let add_sub_mrm s op use_carry sz direction =
@@ -2599,7 +2597,7 @@ let overflow_expression () = Lval (V (T fcf))
                  with Exit -> (* INC *)
                    let r = find_reg ((Char.code c) - 0x40) s.operand_sz in inc_dec (V r) Add s s.operand_sz
                end
-              
+
             | c when '\x48' <= c && c <= '\x4F' -> (* DEC or REX *)
                begin
                  try
@@ -2624,7 +2622,7 @@ let overflow_expression () = Lval (V (T fcf))
                let n'= s.rex.b_ lsl 3 + n in
                let r = find_reg n' s.operand_sz in
                push s [V r]
-               
+
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *)
                 if not s.rex.op_switch then
                  begin
