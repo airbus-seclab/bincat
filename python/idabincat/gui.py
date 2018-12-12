@@ -30,7 +30,7 @@ import pybincat.cfa as cfa
 import idabincat.hexview as hexview
 from idabincat.dump_binary import dump_binary
 from idabincat.plugin_options import PluginOptions
-from idabincat.analyzer_conf import AnalyzerConfig, ConfigHelpers
+from idabincat.analyzer_conf import AnalyzerConfig, ConfigHelpers, X64_GPR, X86_GPR
 
 # Logging
 bc_log = logging.getLogger('bincat.gui')
@@ -812,7 +812,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         if self.chk_remap.isChecked():
             if (self.s.remapped_bin_path is None or
-                    not os.path.isfile(self.s.remapped_bin_path)):
+                        not os.path.isfile(self.s.remapped_bin_path)
+                        or not self.s.remapped_sections):
                 fname = ConfigHelpers.askfile(None, "Save remapped binary")
                 if not fname:
                     bc_log.error(
@@ -1495,16 +1496,16 @@ class RegistersInfoModel(QtCore.QAbstractTableModel):
         """
         if row.region == 'reg':
             value = row.value
-            if value in ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi",
-                         "edi"]:
+            # GPR first
+            if value in X86_GPR+X64_GPR and  ord(value[1]) > 0x39:
                 return (0, row)
             elif value == 'zf':
-                return (1, row)
+                return (5, row)
             elif value in ["cs", "ds", "ss", "es", "fs", "gs"]:
                 return (6, row)
             else:
-                # used for arm*
-                if value.startswith(("r", "x")) and 47 < ord(value[1]) < 58:
+                # used for arm* and x64
+                if value.startswith(("r", "x")) and 0x30 <= ord(value[1]) <= 0x39:
                     if len(value) == 2:
                         # r0, r1, ..., r9
                         return (3, row)
@@ -1514,7 +1515,7 @@ class RegistersInfoModel(QtCore.QAbstractTableModel):
                 else:
                     return (5, row)
         else:
-            return (2, row)
+            return (7, row)
 
     def endResetModel(self):
         """
