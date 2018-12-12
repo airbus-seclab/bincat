@@ -52,8 +52,7 @@ def test_movzx(tmpdir, op64):
             mov rbx, 0
             movzx bx, al
             movzx ecx, al
-            movzx edx, ax
-            movzxd rdx, eax
+            movzx rdx, ax
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
 
