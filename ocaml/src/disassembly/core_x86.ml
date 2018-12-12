@@ -1104,8 +1104,7 @@ let overflow_expression () = Lval (V (T fcf))
         let v       = Register.make ~name:name ~size:sz in
         let tmp     = V (T v)               in
         let tmp_calc   = Set (tmp, BinOp(And, Lval dst, src)) in
-    L.debug (fun p -> p "%s" (Asm.string_of_stmt tmp_calc true));
-    let tmp' = Lval tmp in
+        let tmp' = Lval tmp in
         let flag_stmts =
             [
                 clear_flag fcf; clear_flag fof; zero_flag_stmts sz tmp';
