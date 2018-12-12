@@ -67,6 +67,44 @@ def test_movsx(tmpdir, op64):
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
 
+def test_mov_mem(tmpdir, op64, op8):
+    asm = """
+        mov rax, {op64:#x}
+        mov [{op8}+0x100000], al
+        mov [{op8}+0x100004], ax
+        mov [{op8}+0x100008], eax
+        mov [{op8}+0x10000C], rax
+        xor ebx, ebx
+        xor ecx, ecx
+        xor r8, r8
+        mov bl, [{op8}+0x100000]
+        mov cx, [{op8}+0x100004]
+        mov edx, [{op8}+0x100008]
+        mov r8, [{op8}+0x10000C]
+    """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "rcx", "rdx", "r8"])
+
+def test_mov_mem_reg_off(tmpdir, op64, op8, op32):
+    asm = """
+        mov rax, {op64}
+        mov rdi, 4
+        mov rsi, 0x100400
+        mov [{op8}+esi], al
+        mov [{op8}+esi+edi], ax
+        mov [{op8}+esi+edi*2], eax
+        mov [{op8}+esi+edi*4], rax
+        mov dword [{op8}+esi+edi*8], {op32}
+        xor ebx, ebx
+        xor ecx, ecx
+        mov bl, [{op8}+esi+edi*0]
+        mov cx, [{op8}+esi+edi*1]
+        mov edx, [{op8}+esi+edi*2]
+        mov eax, [{op8}+esi+edi*4]
+        mov r8, [{op8}+esi+edi*4]
+        mov r9d, [{op8}+esi+edi*8]
+    """.format(**locals())
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "r8", "r9"])
+
 ##    _   ___ ___ _____ _  _ __  __ ___ _____ ___ ___    ___  ___  ___
 ##   /_\ | _ \_ _|_   _| || |  \/  | __|_   _|_ _/ __|  / _ \| _ \/ __|
 ##  / _ \|   /| |  | | | __ | |\/| | _|  | |  | | (__  | (_) |  _/\__ \
