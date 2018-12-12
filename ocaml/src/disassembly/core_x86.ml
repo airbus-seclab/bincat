@@ -1315,12 +1315,46 @@ let overflow_expression () = Lval (V (T fcf))
         let a' = relative s off_sz s.addr_sz in
         return s [ Jmp (A a') ]
 
+    (** builds a left value from esp which is consistent with the stack width *)
+    let esp_lval () = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)
+
     (** common statement to move (a chunk of) esp by a relative offset *)
     let set_esp op esp' n =
         Set (V esp', BinOp (op, Lval (V esp'), const (n / 8) !Config.stack_width))
 
+    (** returns true whenever the left value contains the stack register *)
+    let with_stack_pointer is_pop ip lv =
+        let rec in_exp e =
+            match e with
+            | UnOp (_, e') -> in_exp e'
+            | BinOp (_, e1, e2) -> (in_exp e1) || (in_exp e2)
+            | Lval lv -> in_lv lv
+            | _ -> false
+        and in_lv lv =
+            match lv with
+            | M (e, _) -> in_exp e
+            | V (T r) | V (P (r, _, _)) -> if is_pop && Register.compare r cs = 0 then error ip "Illegal POP CS"; Register.is_stack_pointer r
+        in
+        in_lv lv
 
-    let call s t =
+    (* replace all occurence of prev_reg by new_reg into lv *)
+    let replace_reg lv prev_reg new_reg =
+      let rec replace_lv lv =
+          match lv with
+           | M (e, n) -> M (replace_exp e, n)
+           | V (T r) when Register.compare r prev_reg = 0 -> V (T new_reg)
+           | V (P (r, l, u)) when Register.compare r prev_reg = 0 -> V (P (new_reg, l, u))
+           | _ -> lv
+        and replace_exp e =
+          match e with
+          | Lval lv -> Lval (replace_lv lv)
+          | UnOp(op, e) -> UnOp (op, replace_exp e)
+          | BinOp (op, e1, e2) -> BinOp (op, replace_exp e1, replace_exp e2)
+          | _ -> e
+        in
+          replace_lv lv
+
+    let call s dest_exp =
         let cesp = M (Lval (V (T esp)), !Config.stack_width)   in
         (* call destination *)
         let ip' = Data.Address.add_offset s.a (Z.of_int s.o) in
@@ -1329,15 +1363,26 @@ let overflow_expression () = Lval (V (T fcf))
             [
                 set_esp Sub (T esp) !Config.stack_width;
                 Set (cesp, ip);
-                Call t
+                Call dest_exp
             ]
         in
-        return s stmts
+        stmts
+
+    (** call with expression *)
+    let indirect_call s dst = 
+        let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
+        let has_sp = with_stack_pointer false s.a dst in
+        let pre, real_dst, post =
+          if has_sp then
+              [ Set (V (T t), Lval (V (esp_lval ()))) ], (replace_reg dst esp t), [ Directive (Remove t) ]
+            else
+                [], dst, []
+        in pre @ call s (R (Lval real_dst)) @ post
 
     (** call with target as an offset from the current ip *)
     let relative_call s off_sz =
       let a = relative s off_sz s.addr_sz in
-        call s (A a)
+        return s (call s (A a))
 
     (** statements of jump with absolute address as target *)
     let direct_jmp s =
@@ -1399,43 +1444,9 @@ let overflow_expression () = Lval (V (T fcf))
         | V (T r) | V (P(r, _, _)) -> Register.compare r esp = 0
         | _                        -> false
 
-    (** builds a left value from esp which is consistent with the stack width *)
-    let esp_lval () = if !Config.stack_width = Register.size esp then T esp else P(esp, 0, !Config.stack_width-1)
-
     (** common value used for the decoding of push and pop *)
     let size_push_pop lv sz = if is_segment lv then !Config.stack_width else sz
 
-    (** returns true whenever the left value contains the stack register *)
-    let with_stack_pointer is_pop ip lv =
-        let rec has e =
-            match e with
-            | UnOp (_, e') -> has e'
-            | BinOp (_, e1, e2) -> (has e1) || (has e2)
-            | Lval lv -> in_lv lv
-            | _ -> false
-        and in_lv lv =
-            match lv with
-            | M (e, _) -> has e
-            | V (T r) | V (P (r, _, _)) -> if is_pop && Register.compare r cs = 0 then error ip "Illegal POP CS"; Register.is_stack_pointer r
-        in
-        in_lv lv
-
-    (* replace all occurence of prev_reg by new_reg into lv *)
-    let replace_reg lv prev_reg new_reg =
-      let rec replace_lv lv =
-          match lv with
-           | M (e, n) -> M (replace_exp e, n)
-           | V (T r) when Register.compare r prev_reg = 0 -> V (T new_reg)
-           | V (P (r, l, u)) when Register.compare r prev_reg = 0 -> V (P (new_reg, l, u))
-           | _ -> lv
-        and replace_exp e =
-          match e with
-          | Lval lv -> Lval (replace_lv lv)
-          | UnOp(op, e) -> UnOp (op, replace_exp e)
-          | BinOp (op, e1, e2) -> BinOp (op, replace_exp e1, replace_exp e2)
-          | _ -> e
-        in
-          replace_lv lv
 
 
     let is_segment_fs_gs lv =
@@ -2080,8 +2091,7 @@ let overflow_expression () = Lval (V (T fcf))
         match nnn with
         | 0 -> inc_dec dst Add s s.operand_sz
         | 1 -> inc_dec dst Sub s s.operand_sz
-        | 2 -> call s (R (Lval dst))
-
+        | 2 -> return s (indirect_call s dst)
         | 4 -> return s [ Jmp (R (Lval dst)) ]
         | 5 -> return s [Jmp (R (add_segment s (Lval dst) cs))]
         | 6 -> push s [dst]
@@ -2699,7 +2709,7 @@ let overflow_expression () = Lval (V (T fcf))
               let off = int_of_bytes s (s.operand_sz / 8) in
               let cs' = get_base_address s (Hashtbl.find s.segments.reg cs) in
               let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
-              call s (A a)
+              return s (call s (A a))
             | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
             | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
             | '\x9d' -> (* POPF *) popf s s.operand_sz
