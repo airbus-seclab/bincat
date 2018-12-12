@@ -1403,7 +1403,7 @@ let overflow_expression () = Lval (V (T fcf))
     let size_push_pop lv sz = if is_segment lv then !Config.stack_width else sz
 
     (** returns true whenever the left value contains the stack register *)
-    let with_stack_pointer is_pop a lv =
+    let with_stack_pointer is_pop ip lv =
         let rec has e =
             match e with
             | UnOp (_, e') -> has e'
@@ -1413,26 +1413,26 @@ let overflow_expression () = Lval (V (T fcf))
         and in_lv lv =
             match lv with
             | M (e, _) -> has e
-            | V (T r) | V (P (r, _, _)) -> if is_pop && Register.compare r cs = 0 then error a "Illegal POP CS"; Register.is_stack_pointer r
+            | V (T r) | V (P (r, _, _)) -> if is_pop && Register.compare r cs = 0 then error ip "Illegal POP CS"; Register.is_stack_pointer r
         in
         in_lv lv
 
     (* replace all occurence of prev_reg by new_reg into lv *)
     let replace_reg lv prev_reg new_reg =
       let rec replace_lv lv =
-    match lv with
-     | M (e, n) -> M (replace_exp e, n)
-         | V (T r) when Register.compare r prev_reg = 0 -> V (T new_reg)
-     | V (P (r, l, u)) when Register.compare r prev_reg = 0 -> V (P (new_reg, l, u))
-     | _ -> lv
-      and replace_exp e =
-    match e with
-    | Lval lv -> Lval (replace_lv lv)
-    | UnOp(op, e) -> UnOp (op, replace_exp e)
-    | BinOp (op, e1, e2) -> BinOp (op, replace_exp e1, replace_exp e2)
-    | _ -> e
-      in
-      replace_lv lv
+          match lv with
+           | M (e, n) -> M (replace_exp e, n)
+           | V (T r) when Register.compare r prev_reg = 0 -> V (T new_reg)
+           | V (P (r, l, u)) when Register.compare r prev_reg = 0 -> V (P (new_reg, l, u))
+           | _ -> lv
+        and replace_exp e =
+          match e with
+          | Lval lv -> Lval (replace_lv lv)
+          | UnOp(op, e) -> UnOp (op, replace_exp e)
+          | BinOp (op, e1, e2) -> BinOp (op, replace_exp e1, replace_exp e2)
+          | _ -> e
+        in
+          replace_lv lv
 
 
 
