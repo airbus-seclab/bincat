@@ -1435,6 +1435,11 @@ let overflow_expression () = Lval (V (T fcf))
           replace_lv lv
 
 
+    let is_segment_fs_gs lv =
+        match lv with
+        | V (T r) | V (P(r, _, _)) ->
+           Register.compare r fs = 0 || Register.compare r gs = 0
+        | _ -> false
 
     (** statements generation for pop instructions *)
     let pop_stmts is_pop s lv =
@@ -1462,6 +1467,10 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** generation of statements for the push instructions *)
     let push_stmts (s: state) v =
+      let n =
+        if s.operand_sz = 16 then 16
+        else !Config.stack_width
+      in
         let esp' = esp_lval () in
         let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
         (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
@@ -1476,7 +1485,6 @@ let overflow_expression () = Lval (V (T fcf))
         let stmts =
             List.fold_left (
                 fun stmts lv ->
-                    let n = size_push_pop lv s.addr_sz in
                     let st =
                         if with_stack_pointer false s.a lv then begin
                             (* save the esp value to its value before the first push (see PUSHA specifications) *)
@@ -1485,7 +1493,14 @@ let overflow_expression () = Lval (V (T fcf))
                         end else begin
                             (* TODO: some CPUs only move the 16 bits of the segment register and leave the rest
                              * of the stack untouched *)
-                            let lv_ext = if is_segment lv then UnOp (ZeroExt s.operand_sz, Lval lv) else Lval lv in
+                            let lv_ext =
+                              if s.operand_sz <> s.addr_sz then
+                                if is_segment_fs_gs lv then
+                                  UnOp (ZeroExt !Config.stack_width, Lval lv)
+                                else  Lval lv
+                              else
+                                Lval lv
+                            in
                             Set (M (Lval (V esp'), n), lv_ext);
                         end
                     in
@@ -2601,22 +2616,24 @@ let overflow_expression () = Lval (V (T fcf))
                end
 
             | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *)
-               begin
-                 try let n = Arch.get_operand_sz_for_stack () in
-                     s.operand_sz <- n;
-                 with Exit -> ()
-               end;
+               if not s.rex.op_switch then
+                 begin
+                   try let n = Arch.get_operand_sz_for_stack () in
+                       s.operand_sz <- n;
+                   with Exit -> ()
+                 end;
                let n = (Char.code c) - 0x50 in
                let n'= s.rex.b_ lsl 3 + n in
                let r = find_reg n' s.operand_sz in
                push s [V r]
                
             | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *)
-               begin
-                 try let n = Arch.get_operand_sz_for_stack () in
-                     s.operand_sz <- n
-                 with Exit -> ()
-               end;
+                if not s.rex.op_switch then
+                 begin
+                   try let n = Arch.get_operand_sz_for_stack () in
+                       s.operand_sz <- n
+                   with Exit -> ()
+                 end;
                let n = (Char.code c) - 0x58 in
                let n' = s.rex.b_ lsl 3 + n in
                let r = find_reg n' s.operand_sz in
