@@ -405,6 +405,22 @@ align 0x100
 ## |____\___/ \___/|_|   /_/   |_|_\___|_|   /_/    \___\___/|_|\_|___/
 ##
 
+def test_cond_test_ax16(tmpdir, op16, op16_):
+    asm = """
+            xor rax, rax
+            mov ax, {op16:#x}
+            test ax, {op16_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "sf", "zf", "pf"])
+
+def test_cond_test_reg16(tmpdir, op16, op16_):
+    asm = """
+            xor rbx, rbx
+            mov bx, {op16:#x}
+            test bx, {op16_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rbx", "sf", "zf", "pf"])
+
 def test_cond_test_reg32(tmpdir, op32, op32_):
     asm = """
             mov eax, {op32:#x}
