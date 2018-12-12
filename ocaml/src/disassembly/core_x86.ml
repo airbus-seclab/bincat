@@ -120,7 +120,7 @@ open Decodeutils
     val decode_from_0x40_to_0x4F: char -> int -> rex_t
     val get_base_address: ictx_t -> Data.Address.t -> segment_register_mask -> Z.t
     (* function to set an lval to an expression *)
-    val set_register: Asm.lval -> Asm.exp -> Asm.stmt list
+    val set_dest: Asm.lval -> Asm.exp -> Asm.stmt list
 
     (** add_segment translates the segment selector/offset pair into a linear addresss *)
     val add_segment: ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
@@ -184,7 +184,7 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       else
         error rip "only protected mode supported"
 
-    let set_register dst value = [ Set(dst, value) ]
+    let set_dest dst value = [ Set(dst, value) ]
 
     let add_segment segments operand_sz rip offset sreg =
       let seg_reg_val = Hashtbl.find segments.reg sreg in
@@ -282,8 +282,8 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       else
         error rip "only protected mode supported"
 
-      let set_register dst value =
-        L.debug(fun p->p "set_register(%s, %s)" (Asm.string_of_lval dst true) (Asm.string_of_exp value true));
+      let set_dest dst value =
+        L.debug(fun p->p "set_dest(%s, %s)" (Asm.string_of_lval dst true) (Asm.string_of_exp value true));
         let normal_set = [ Set(dst, value) ] in
         match dst with
         | M(_, _) -> normal_set
@@ -720,7 +720,7 @@ let overflow_expression () = Lval (V (T fcf))
         sign_flag_stmts sz res
       ]
     in
-    let v' = Arch.set_register dst (BinOp (op, Lval dst, op2)) in
+    let v' = Arch.set_dest dst (BinOp (op, Lval dst, op2)) in
     ((Set(tmp, Lval dst))::v')@flags_stmts @ [Directive (Remove v)]
 
 
@@ -1053,7 +1053,7 @@ let overflow_expression () = Lval (V (T fcf))
                  zero_flag_stmts s.operand_sz (Lval res) ;
                  sign_flag_stmts s.operand_sz (Lval res) ;
                  parity_flag_stmts s.operand_sz (Lval res) ; ] @
-                 Arch.set_register dst (Lval res) @
+                 Arch.set_dest dst (Lval res) @
                  [ Directive (Remove res_reg) ]
              )
 
@@ -1546,7 +1546,7 @@ let overflow_expression () = Lval (V (T fcf))
       let base_reg_nb = ((Char.code c) - 0xb8) in
       let reg_nb = s.rex.b_ lsl 3 + base_reg_nb in
       let r = find_reg_v reg_nb op_sz in
-      return s (Arch.set_register r (Const (Word.of_int (int_of_bytes s (op_sz/8)) s.operand_sz)))
+      return s (Arch.set_dest r (Const (Word.of_int (int_of_bytes s (op_sz/8)) s.operand_sz)))
 
     (** returns the the state for the mov from/to eax *)
     let mov_with_eax s n from =
@@ -2504,7 +2504,7 @@ let overflow_expression () = Lval (V (T fcf))
         in
         let mov_mrm s sz direction =
           let dst, src = operands_from_mod_reg_rm s sz direction in
-            return s [ Set (dst, src) ]
+            return s (Arch.set_dest dst src)
         in
         let rec decode s =
             match check_context s (getchar s) with
