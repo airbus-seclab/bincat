@@ -53,8 +53,11 @@ def test_movzx(tmpdir, op64):
             movzx bx, al
             movzx ecx, al
             movzx rdx, ax
+            mov [0x10000c], rax
+            mov r12, 0x10000c
+            movzx r11d, byte [r12+0xc]
           """.format(**locals())
-    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "r11"])
 
 def test_movsx(tmpdir, op64):
     asm = """
@@ -64,8 +67,11 @@ def test_movsx(tmpdir, op64):
             movsx ecx, al
             movsx edx, ax
             movsxd rdx, eax
+            mov [0x10000C], rax
+            mov r12, 0x10000C
+            movzx r11d, byte [r12+0xC]
           """.format(**locals())
-    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "r11"])
 
 def test_mov_a0(tmpdir, op64, op8):
     asm = """
