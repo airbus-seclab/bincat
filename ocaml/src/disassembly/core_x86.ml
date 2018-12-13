@@ -2960,7 +2960,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\xb5' -> load_far_ptr s gs
 
             | '\xb6' -> let reg, rm = operands_from_mod_reg_rm s 8 ~dst_sz:s.operand_sz 1 in
-                        return s [ Set (reg, UnOp(ZeroExt s.operand_sz, rm)) ]
+                        return s (Arch.set_dest reg (UnOp(ZeroExt s.operand_sz, rm)))
             | '\xb7' ->
                let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in
               return s [ Set (reg, UnOp(ZeroExt 32, rm)) ]
