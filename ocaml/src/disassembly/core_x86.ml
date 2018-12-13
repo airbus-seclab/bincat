@@ -2963,7 +2963,7 @@ let overflow_expression () = Lval (V (T fcf))
                         return s (Arch.set_dest reg (UnOp(ZeroExt s.operand_sz, rm)))
             | '\xb7' ->
                let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in
-              return s [ Set (reg, UnOp(ZeroExt 32, rm)) ]
+              return s (Arch.set_dest reg (UnOp(ZeroExt 32, rm)))
 
             | '\xba' -> grp8 s
             | '\xbb' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in btc s reg rm
