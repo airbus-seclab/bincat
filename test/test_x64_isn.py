@@ -183,6 +183,21 @@ def test_mov_mem_reg64_off(tmpdir, op64, op8, op32):
     """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "r8", "r9","r10"])
 
+def test_mov_mem_prefix_rexw0_off(tmpdir, op64, op8):
+        asm = """
+        mov rax, {op64}
+        mov rdi, 4
+        mov r12, 0x100400
+        mov rcx, 0x12345678abcdef90
+        mov [0x100400], rcx
+        mov [{op8}+r12], al
+        xor rcx, rcx
+        mov rcx,  [r12]
+        mov [{op8}+r12+rdi], ax
+        xor rbx, rbx
+        mov rbx,  [r12]
+        """.format(**locals())
+        compare(tmpdir, asm, ["rbx", "rcx"])
 ##    _   ___ ___ _____ _  _ __  __ ___ _____ ___ ___    ___  ___  ___
 ##   /_\ | _ \_ _|_   _| || |  \/  | __|_   _|_ _/ __|  / _ \| _ \/ __|
 ##  / _ \|   /| |  | | | __ | |\/| | _|  | |  | | (__  | (_) |  _/\__ \

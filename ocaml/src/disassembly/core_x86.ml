@@ -2601,10 +2601,7 @@ let overflow_expression () = Lval (V (T fcf))
             | c when '\x40' <= c && c <= '\x47' -> (* INC or REX *)
                begin
                  try
-                   let rex = decode_from_0x40_to_0x4F c s.operand_sz in
-                   if s.rex.op_switch then
-                     (* previous operand_switch is ignored *)
-                     s.operand_sz <- Arch.operand_sz;
+                   let rex = decode_from_0x40_to_0x4F c s.operand_sz in                 
                    s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
                  with Exit -> (* INC *)
                    let r = find_reg ((Char.code c) - 0x40) s.operand_sz in inc_dec (V r) Add s s.operand_sz
