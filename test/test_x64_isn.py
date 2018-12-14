@@ -131,6 +131,8 @@ def test_mov_66a1(tmpdir, op64, op8):
 
 def test_mov_66a3(tmpdir,  op64):
     asm = """
+    mov rax, 0x12345678abcdef
+    mov [0x100000], rax
         xor rax, rax
         mov rax, {op64:#x}
         db 066
