@@ -2714,9 +2714,9 @@ let overflow_expression () = Lval (V (T fcf))
             | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
             | '\x9d' -> (* POPF *) popf s s.operand_sz
             | '\xa0' -> (* MOV EAX *) mov_with_eax s 8 false
-            | '\xa1' -> (* MOV EAX *) mov_with_eax s 32 false (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
+            | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz false (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
             | '\xa2' -> (* MOV EAX *) mov_with_eax s 8 true
-            | '\xa3' -> (* MOV EAX *) mov_with_eax s 32 true (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
+            | '\xa3' -> (* MOV EAX *) mov_with_eax s s.operand_sz true (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
             | '\xa4' -> (* MOVSB *) movs s 8
             | '\xa5' -> (* MOVSW *) movs s s.addr_sz
             | '\xa6' -> (* CMPSB *) cmps s 8
