@@ -106,6 +106,8 @@ def test_mov_a1(tmpdir, op64, op8):
 
 def test_mov_a3(tmpdir,  op64):
     asm = """
+    mov eax, 0x12345678
+mov [0x100004], eax
         xor rax, rax
         mov rax, {op64:#x}
         db 0a3h
