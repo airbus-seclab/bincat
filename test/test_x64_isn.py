@@ -198,6 +198,17 @@ def test_mov_mem_prefix_rexw0_off(tmpdir, op64, op8):
         mov rbx,  [r12]
         """.format(**locals())
         compare(tmpdir, asm, ["rbx", "rcx"])
+
+def test_misc_lea_complex(tmpdir, op32):
+    asm = """
+            mov r8, {op32:#x}
+            mov r12, {op32:#x}
+            mov rax, {op32:#x}
+            lea r9, [r8+r12*2+0x124000]
+            lea rbx, [rax*8+rax+0x124000]
+          """.format(**locals())
+    compare(tmpdir, asm, ["rbx","r9"])
+
 ##    _   ___ ___ _____ _  _ __  __ ___ _____ ___ ___    ___  ___  ___
 ##   /_\ | _ \_ _|_   _| || |  \/  | __|_   _|_ _/ __|  / _ \| _ \/ __|
 ##  / _ \|   /| |  | | | __ | |\/| | _|  | |  | | (__  | (_) |  _/\__ \

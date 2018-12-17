@@ -1294,6 +1294,14 @@ def test_misc_push_segs_sel(tmpdir):
           """
     compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "edi", "esi"])
 
+def test_misc_lea_complex(tmpdir, op32):
+    asm = """
+            mov eax, {op32:#x}
+            mov ebx, {op32:#x}
+            lea eax, [ebx+eax*2+0x124000]
+            lea ebx, [eax*4+ebx+0x124000]
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax"])
 
 def test_misc_lea_imm(tmpdir):
     asm = """
