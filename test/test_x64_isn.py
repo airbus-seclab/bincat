@@ -206,8 +206,9 @@ def test_misc_lea_complex(tmpdir, op32):
             mov rax, {op32:#x}
             lea r9, [r8+r12*2+0x124000]
             lea rbx, [rax*8+rax+0x124000]
+            lea edx, [r8+r12+0x124000]
           """.format(**locals())
-    compare(tmpdir, asm, ["rbx","r9"])
+    compare(tmpdir, asm, ["rbx","r9", "rdx"])
 
 ##    _   ___ ___ _____ _  _ __  __ ___ _____ ___ ___    ___  ___  ___
 ##   /_\ | _ \_ _|_   _| || |  \/  | __|_   _|_ _/ __|  / _ \| _ \/ __|
