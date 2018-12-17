@@ -874,6 +874,7 @@ let overflow_expression () = Lval (V (T fcf))
     let sib s md =
       let c = getchar s in
       let scale, index, base = mod_nnn_rm (Char.code c) in
+      L.debug2 (fun p -> p "sib scale=%d index=%d base=%d" scale index base);
       let index' = s.rex.x lsl 3 + index in
       let base' = s.rex.b_ lsl 3 + base in
       let base' =
