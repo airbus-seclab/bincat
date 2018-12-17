@@ -204,6 +204,7 @@ def test_misc_lea_complex(tmpdir, op32):
             mov r8, {op32:#x}
             mov r12, {op32:#x}
             mov rax, {op32:#x}
+            mov rdx, -1
             lea r9, [r8+r12*2+0x124000]
             lea rbx, [rax*8+rax+0x124000]
             lea edx, [r8+r12+0x124000]
