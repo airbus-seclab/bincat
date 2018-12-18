@@ -75,6 +75,8 @@ open Decodeutils
         db: Z.t;
         gran: Z.t;}
 
+    (** data type for the idt *)
+    type idt_t: idt_desc Array.t
 
  (** data type of a decription table *)
     type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
@@ -92,7 +94,7 @@ open Decodeutils
         mutable data: Register.t;                          (** current segment register for data *)
         gdt: desc_tbl;                                     (** current content of the GDT *)
         ldt: desc_tbl;                                     (** current content of the LDT *)
-        idt: desc_tbl;                                     (** current content of the IDT *)
+        idt: idt_t;                                     (** current content of the IDT *)
         reg: (Register.t, segment_register_mask) Hashtbl.t; (** current value of the segment registers *)
     }
 
@@ -1470,14 +1472,16 @@ let overflow_expression () = Lval (V (T fcf))
     (** state generation for the pop instructions *)
     let pop s lv = return s (pop_stmts true s lv)
 
-    let popf s sz =
+    let popf_stmts sz =
         let name        = Register.fresh_name ()            in
         let v           = Register.make ~name:name ~size:sz in
         let tmp         = V (T v)               in
-            let stmt = set_eflags v in
-            let popst = pop_stmts true s [tmp] in
-            return s (popst @ stmt @ [Directive (Remove v)])
+        let stmt = set_eflags v in
+        let popst = pop_stmts true s [tmp] in
+        (popst @ stmt @ [Directive (Remove v)])
 
+    let popf s sz = return s (popf_stmts sz)
+                  
     (** generation of statements for the push instructions *)
     let push_stmts (s: state) v =
       let n =
@@ -1531,19 +1535,21 @@ let overflow_expression () = Lval (V (T fcf))
         in
         return s stmts
 
-    let pushf s sz =
-        let name        = Register.fresh_name ()            in
+    let pushf_stmts =
+      let name        = Register.fresh_name ()            in
         let v           = Register.make ~name:name ~size:sz in
         let tmp         = V (T v)               in
         let e = get_eflags () in
         let e' =
-            if sz = 32 then
-                (* if sz = 32 should AND EFLAGS with 00FCFFFFH) *)
-                BinOp(And, e, const 0x00FCFFFF 32)
+            if sz = 32 || sz = 64 then
+                (* if sz = 32 || 64 should AND EFLAGS with 00FCFFFFH) *)
+                BinOp(And, e, const 0x00FCFFFF sz)
             else e
         in
         let stmt = [Set(tmp, e')] in
-        return s (stmt @ (push_stmts s [tmp]) @ [Directive (Remove v)])
+        (stmt @ (push_stmts s [tmp]) @ [Directive (Remove v)])
+
+    let pushf s sz = return (pushf_stmts s) 
 
     (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
     let mov_immediate s sz =
@@ -2502,7 +2508,20 @@ let overflow_expression () = Lval (V (T fcf))
     (* raised by xmm instructions starting by 0xF2 *)
     exception No_rep of Cfa.State.t * Data.Address.t
 
+    (** INT 3 *)
+    let int_3 s =
+      let stmts = (* push flags, push ip and save context *)
+       (pushf_stmts s) @ [
+            
+        ]
+      in
+      return s stmts
 
+    let iret s =
+      let stmts = (* /chubbymaggie?lang=frpop ip, pop flags and restore context *)
+        (popf_stmts s) @ [] in
+      return s stmts
+      
   (** decoding of one instruction *)
     let decode s =
         let add_sub_mrm s op use_carry sz direction =
@@ -2707,8 +2726,8 @@ let overflow_expression () = Lval (V (T fcf))
               let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
               return s (call s (A a))
             | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
-            | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
-            | '\x9d' -> (* POPF *) popf s s.operand_sz
+            | '\x9c' -> (* PUSHF *) if s.operand_sz <> 16 then s.operand_sz <- s.stack_width; pushf s s.operand_sz
+            | '\x9d' -> (* POPF *) if s.operand_sz <> 16 then s.operand_sz <- s.stack_width; popf s s.operand_sz
             | '\xa0' -> (* MOV EAX *) mov_with_eax s 8 false
             | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz false (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
             | '\xa2' -> (* MOV EAX *) mov_with_eax s 8 true
@@ -2747,10 +2766,10 @@ let overflow_expression () = Lval (V (T fcf))
               return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp]))
             | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
             | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs)]))
-            | '\xcc' -> (* INT 3 *) error s.a "INT 3 decoded. Interpreter halts"
+            | '\xcc' -> (* INT 3 *) int_3 s
             | '\xcd' -> (* INT *) let c = getchar s in error s.a (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
             | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
-            | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
+            | '\xcf' -> (* IRET *) iret s
 
             | '\xd0' -> (* grp2 shift with one on byte size *) grp2 s 8 (Some (const1 8))
             | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (const1 8))
