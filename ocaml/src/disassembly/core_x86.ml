@@ -874,7 +874,7 @@ let overflow_expression () = Lval (V (T fcf))
     let sib s md =
       let c = getchar s in
       let scale, index, base = mod_nnn_rm (Char.code c) in
-      L.debug2 (fun p -> p "sib scale=%d index=%d base=%d" scale index base);
+      L.debug2 (fun p -> p "sib scale=%d index=%d base=%d md=%d" scale index base md);
       let index' = s.rex.x lsl 3 + index in
       let base' = s.rex.b_ lsl 3 + base in
       let base' =
@@ -894,7 +894,7 @@ let overflow_expression () = Lval (V (T fcf))
         | 2 -> s.rex.b_used <- true; BinOp (Add, lv, disp s 32 s.addr_sz)
         | _ -> error s.a "Decoder: illegal value in sib"
       in
-      if index = 4 then
+      if index = 4 && s.addr_sz = 32 then
         base'
       else
         let index_lv = find_reg_lv index' s.addr_sz in
