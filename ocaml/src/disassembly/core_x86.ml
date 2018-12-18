@@ -894,7 +894,7 @@ let overflow_expression () = Lval (V (T fcf))
         | 2 -> s.rex.b_used <- true; BinOp (Add, lv, disp s 32 s.addr_sz)
         | _ -> error s.a "Decoder: illegal value in sib"
       in
-      if index = 4 then
+      if index = 4 && s.rex.x = 0 then
         base'
       else
         let index_lv = find_reg_lv index' s.addr_sz in
