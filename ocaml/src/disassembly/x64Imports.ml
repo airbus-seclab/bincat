@@ -63,6 +63,10 @@ struct
               !Config.stack_width)
     }
 
+  let set_first_arg e =
+    let r = if !Config.call_conv = Config.SYSV then (reg "rdi") else (reg "rcx") in
+    [Set (r, e)]
+                      
   let get_local_callconv cc =
     match cc with
     | Config.SYSV -> sysv_calling_convention ()

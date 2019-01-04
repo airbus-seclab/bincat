@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -375,8 +375,8 @@ struct
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
-      Hashtbl.replace stubs "free" (heap_deallocator, 1);;
-      Hashtbl.replace stubs "_Znwj" (heap_allocator, 1);; (* new *)
+      Hashtbl.replace stubs "free" (heap_deallocator, 1);
+      Hashtbl.replace stubs "_Znwj" (heap_allocator, 1); (* new *)
       Hashtbl.replace stubs "_ZdlPv" (heap_deallocator, 1);; (* delete *)
 
 

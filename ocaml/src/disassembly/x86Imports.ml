@@ -60,6 +60,13 @@ struct
 
   let get_callconv () = get_local_callconv !Config.call_conv
 
+  let set_first_arg e =
+    let r = reg "esp" in
+    [
+      Set (r, BinOp(Sub, Lval r, Const (Data.Word.of_int (Z.of_int (!Config.stack_width/8)) !Config.stack_width))) ;
+      Set (M(Lval r, !Config.stack_width), e)
+    ]
+    
   let stub_stmts_from_name name callconv =
     if  Hashtbl.mem Stubs.stubs name then
       [ Directive (Stub (name, callconv)) ]
