@@ -29,6 +29,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   Config.clear_tables();
   Taint.clear();
   Dump.clear();
+  Register.clear();
   (* setting the log file *)
   Log.init logfile;
   L.info (fun m -> m "BinCAT version %s" Bincat_ver.version_string);
