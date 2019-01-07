@@ -839,7 +839,7 @@ let overflow_expression () = Lval (V (T fcf))
             (* ctx#value_of_register gets the value from the interpreter *)
             List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
             registers
-        with _ -> error a "Decoder: overflow in a segment register"
+        with _ -> error a "Decoder: Error in get_segments"
 
     (* copy segments registers from the interpreter context to the decoder *)
     let copy_segments s addr ctx =
@@ -2409,12 +2409,12 @@ let overflow_expression () = Lval (V (T fcf))
             | c when '\x6C' <= c && c <= '\x6F' (* INS and OUTS *) || '\xA4' <= c && c <= '\xA5' (* MOVS *) -> c
             | c when '\xAE' <= c && c <= '\xAF' -> (* CMPS *) s.repe <- true; c
             | c when '\xA6' <= c && c <= '\xA7' -> (* SCAS *) s.repe <-true; c
-            | _ -> error s.a (Printf.sprintf "Decoder: undefined behavior of REP with opcode %x" (Char.code c))
+            | _ -> L.warn (fun p->p "%s: Decoder: undefined behavior of REP with opcode %x" (Data.Address.to_string s.a) (Char.code c)); c
         else
         if s.repne then
             match c with
             | c when '\xA6' <= c && c <= '\xA7' || '\xAE' <= c && c <= '\xAF' -> c
-            | _ -> error s.a (Printf.sprintf "Decoder: undefined behavior of REPNE/REPNZ with opcode %x" (Char.code c))
+            | _ -> L.warn (fun p->p "%s: Decoder: undefined behavior of REPNE with opcode %x" (Data.Address.to_string s.a) (Char.code c)); c
         else
             c
 
@@ -2802,7 +2802,7 @@ let overflow_expression () = Lval (V (T fcf))
                  begin
                    match List.hd s.c with
                     | '\xA6' | '\xA7' | '\xAE' | '\xAF' -> ();
-                    | _ -> s.repe <- false; s.repne <- false;
+                    | _ -> s.repe <- false; s.repne <- false; raise (No_rep (v, ip))
                  end;
                  L.debug (fun p->p "rep decoder: s.repe : %b, s.repne: %b" s.repe s.repne);
                  let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in
