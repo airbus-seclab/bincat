@@ -2086,7 +2086,17 @@ let overflow_expression () = Lval (V (T fcf))
         | _ -> error s.a "Illegal opcode in grp 4"
 
     let grp5 s =
-      let nnn, dst = core_grp s s.operand_sz in
+      let c =  Char.code (getchar s) in
+      let md, nnn, rm = mod_nnn_rm c in
+      (* group 5 is annoying, all instructions except inc and dec (/0 and /1)
+       * use 64 bit destination operands in 64 bit mode, so we have
+       * to special case inc and dec *)
+      let sz = match nnn with
+        | 0 | 1 -> s.operand_sz
+        | _ -> begin try (Arch.get_operand_sz_for_stack ())
+            with Exit -> s.operand_sz;  end;
+      in
+      let dst = exp_of_md s md rm sz sz in
         match nnn with
         | 0 -> inc_dec dst Add s s.operand_sz
         | 1 -> inc_dec dst Sub s s.operand_sz
