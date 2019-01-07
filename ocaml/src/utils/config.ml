@@ -130,7 +130,8 @@ let size_of_long () = !operand_sz
 let stack_width = ref 32
 
 let gdt: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 19
-
+let handler: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 10
+                   
 (* value of the NULL address *)
 let null_cst = ref Z.zero
 (* predicate to check whether the given Z.t is the NULL value *) 
@@ -141,6 +142,12 @@ let char_of_null_cst () = Char.chr (Z.to_int !null_cst)
 (* used for powerpc mfspr *)
 let processor_version = ref 0
 
+type signal_kind_t =
+  | Brut_signal
+  | Linux_signal
+
+let signal_kind = ref Brut_signal
+                
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)
 let interleave = ref false

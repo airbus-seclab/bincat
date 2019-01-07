@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -169,7 +169,8 @@ struct
       with _ -> ()
 
     exception Jmp_exn
-
+    exception Handler of Z.t * Data.Address.t (* signal number and associated handler *)
+                       
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
 
     let rec process_value (ip: Data.Address.t) (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) (node_id: int): D.t * Taint.Set.t =
@@ -249,7 +250,7 @@ struct
                  | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, Taint.Set.singleton Taint.U
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.Set.singleton Taint.U
-
+               
             | Directive (Skip (f, call_conv)) as skip_statement ->
                L.analysis (fun p -> p "Skipping %s" (Asm.string_of_fun f));
                (* TODO: optimize to avoid type switching *)
@@ -274,6 +275,8 @@ struct
                                List.fold_left (fun (d, t) stmt -> let dd, tt = process_value ip d stmt fun_stack node_id in
                                                                   dd, Taint.Set.union t tt) (d', taint') cleanup_stmts in
               d', taint'
+
+            | Directive (Handler (sig_nb, handler_addr)) -> raise (Handler (sig_nb, handler_addr))
               
             | _ -> raise Jmp_exn
                  
@@ -442,12 +445,21 @@ struct
 
       and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt) : (Cfa.State.t list * Taint.Set.t) =
         try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.ip v.Cfa.State.v s fun_stack v.Cfa.State.id in
-                                          v.Cfa.State.v <- d;
-                                          let taint = Taint.Set.union b b' in
-                                          (*v.Cfa.State.taint_sources <- taint;*)
-                                          v::l, taint) ([], Taint.Set.singleton Taint.U) vertices
-        with Jmp_exn ->
+          List.fold_left (fun (l, b) v ->
+              let d, b' =
+                try process_value v.Cfa.State.ip v.Cfa.State.v s fun_stack v.Cfa.State.id
+                with
+                  Handler (sig_nb, handler_addr) ->
+                  Hashtbl.replace v.Cfa.State.handlers sig_nb handler_addr;
+                  v.Cfa.State.v, b
+              in
+              v.Cfa.State.v <- d;
+              let taint = Taint.Set.union b b' in
+              (*v.Cfa.State.taint_sources <- taint;*)
+              v::l, taint) ([], Taint.Set.singleton Taint.U) vertices
+        with
+      
+        | Jmp_exn ->
              match s with
              | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
 
@@ -699,7 +711,7 @@ struct
             (* computed next step                                                                                  *)
             (* the new instruction pointer (offset variable) is also returned                                      *)
             let r = match text' with
-            | Some text'' ->  Decoder.parse text'' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v)
+            | Some text'' ->  Decoder.parse text'' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v v.Cfa.State.handlers)
             | None -> L.abort(fun p -> p "Could not retrieve %i bytes at %s to decode next instruction"
               !Config.max_instruction_size (Data.Address.to_string v.Cfa.State.ip) ) in
             begin
@@ -849,6 +861,7 @@ struct
         | Directive Default_unroll -> d, Taint.Set.singleton Taint.U
         | Directive (Stub _) -> d, Taint.Set.singleton Taint.U
         | Directive (Skip _) -> d, Taint.Set.singleton Taint.U
+        | Directive (Handler _) -> d, Taint.Set.singleton Taint.U
         | Set (dst, src) -> back_set dst src d
         | Assert (_bexp, _msg) -> d, Taint.Set.singleton Taint.U (* TODO *)
         | If (_e, istmts, estmts) ->
@@ -941,6 +954,7 @@ struct
         | Asm.Directive (Asm.Unroll _)
         | Asm.Directive (Asm.Stub _)
         | Asm.Directive (Asm.Skip _)
+        | Asm.Directive (Asm.Handler _)
         | Asm.Directive (Asm.Unroll_until _)
         | Asm.Directive Asm.Default_unroll
         | Asm.Jmp (Asm.A _)

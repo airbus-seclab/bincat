@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -49,7 +49,8 @@ sig
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t;    (** set of taint sources*)
-      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable handlers: (Z.t, Data.Address.t) Hashtbl.t (** table of handlers *)
     }
 
     val compare: t -> t -> int
@@ -57,13 +58,15 @@ sig
 
   (** oracle for retrieving any semantic information computed by the interpreter *)
   class oracle:
-    domain ->
+    domain -> (Z.t, Data.Address.t) Hashtbl.t ->
   object
     (** returns the computed concrete value of the given register
         may raise an exception if the conretization fails
         (not a singleton, bottom) *)
     method value_of_register: Register.t -> Z.t
 
+    (** returns the address associated to the given interrupt number *)
+      method get_handler_address: Z.t -> Data.Address.t
   end
 
   (** abstract data type of the control flow graph *)
@@ -158,7 +161,8 @@ struct
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t;     (** set of taint sources. Empty if not tainted  *)
-      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable handlers: (Z.t, Data.Address.t) Hashtbl.t (** table of handlers *)
     }
 
     (** the state identificator counter *)
@@ -183,9 +187,10 @@ struct
   open State
 
 
-  class oracle (d: domain) =
+  class oracle (d: domain) (handlers: (Z.t, Data.Address.t) Hashtbl.t) =
   object
     method value_of_register (reg: Register.t) = Domain.value_of_register d reg
+    method get_handler_address i = Hashtbl.find handlers i
   end
 
   (** type of a CFA *)
@@ -279,6 +284,7 @@ struct
       };
       taint_sources = Taint.Set.singleton Taint.U;
       back_taint_sources = None;
+      handlers = Hashtbl.create 15;
     }
 
 

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -75,9 +75,7 @@ open Decodeutils
         db: Z.t;
         gran: Z.t;}
 
-
-    type idt_t = Data.Address.t array
-               
+                   
  (** data type of a decription table *)
     type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
 
@@ -94,14 +92,13 @@ open Decodeutils
         mutable data: Register.t;                          (** current segment register for data *)
         gdt: desc_tbl;                                     (** current content of the GDT *)
         ldt: desc_tbl;                                     (** current content of the LDT *)
-        idt: idt_t;                                     (** current content of the IDT *)
         reg: (Register.t, segment_register_mask) Hashtbl.t; (** current value of the segment registers *)
     }
 
 
     module type Arch =
       functor (Domain: Domain.T) -> functor (Stubs: Stubs.T with type domain_t := Domain.t) ->
-                               sig
+                                    sig
         val operand_sz: int
         module Imports:
                sig
@@ -760,11 +757,11 @@ let overflow_expression () = Lval (V (T fcf))
       Imports.init ();
       let ldt = Hashtbl.create 5  in
       let gdt = Hashtbl.create 19 in
-      let idt = Array.make 256 (Data.Address.of_null()) in
         (* builds the gdt *)
       Hashtbl.iter (fun o v -> Hashtbl.replace gdt (Word.of_int o 64) (tbl_entry_of_int v)) Config.gdt;
+      
         let reg = Hashtbl.create 6 in
-        { gdt = gdt; ldt = ldt; idt = idt; data = ds; reg = reg; }
+        { gdt = gdt; ldt = ldt;  data = ds; reg = reg; }
 
 
 
@@ -851,7 +848,7 @@ let overflow_expression () = Lval (V (T fcf))
     let copy_segments s addr ctx =
       let segments =
         get_segments addr ctx in
-      { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Array.copy s.idt; data = ds; reg = segments  }
+      { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; data = ds; reg = segments  }
 
       (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
     let get_base_address s c = get_base_address s.segments s.a c
@@ -2511,15 +2508,24 @@ let overflow_expression () = Lval (V (T fcf))
         
       | c -> error s.a (Printf.sprintf "unknown coprocessor instruction starting with 0x%x\n" (Char.code c))
 
-    (* raised by xmm instructions starting by 0xF2 *)
+    (* raised by xmm instructions starting with 0xF2 *)
     exception No_rep of Cfa.State.t * Data.Address.t
 
+    let convert_interrupt_number n =
+      match !Config.signal_kind with
+      | Config.Brut_signal -> n
+      | Config.Linux_signal ->
+         match n with
+         | 3 -> 5
+         | n -> n
+              
     (** INT 3 *)
-    let int_3 s =
-      let stmts = (* push flags, set the first arg of the handler to 3 and call the handler *)
+    let int_3 s ctx =
+      let n = convert_interrupt_number 3 in
+      let stmts = (* push flags, set the first arg of the handler and call the handler *)
         (pushf_stmts s !Config.stack_width)
-        @ (Imports.set_first_arg (const 3 !Config.stack_width))
-        @ (call s (A (s.segments.idt.(3))))
+        @ (Imports.set_first_arg (const n !Config.stack_width))
+        @ (call s (A (ctx#get_handler_address (Z.of_int n))))
       in
       return s stmts
 
@@ -2529,7 +2535,7 @@ let overflow_expression () = Lval (V (T fcf))
       return s stmts
       
   (** decoding of one instruction *)
-    let decode s =
+    let decode s ctx =
         let add_sub_mrm s op use_carry sz direction =
             let dst, src = operands_from_mod_reg_rm s sz direction in
             add_sub s op use_carry dst src sz
@@ -2772,7 +2778,7 @@ let overflow_expression () = Lval (V (T fcf))
               return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp]))
             | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
             | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs)]))
-            | '\xcc' -> (* INT 3 *) int_3 s
+            | '\xcc' -> (* INT 3 *) int_3 s ctx
             | '\xcd' -> (* INT *) let c = getchar s in error s.a (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
             | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
             | '\xcf' -> (* IRET *) iret s
@@ -3005,7 +3011,7 @@ let overflow_expression () = Lval (V (T fcf))
         in
         decode s
 
-  let parse text g is v a ctx =
+  let parse text g (is: ctx_t) v a (ctx: Cfa.oracle): (Cfa.State.t * Data.Address.t * ctx_t) option =
     let s' = {
         g = g;
         a = a;
@@ -3025,7 +3031,7 @@ let overflow_expression () = Lval (V (T fcf))
       }
     in
     try
-      let v', ip = decode s' in
+      let v', ip = decode s' ctx in
       Some (v', ip, s'.segments)
     with
     | Exceptions.Error _ as e -> raise e

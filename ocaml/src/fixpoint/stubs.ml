@@ -321,26 +321,41 @@ struct
 
     let stubs = Hashtbl.create 5
 
+    let signal_process d args: domain_t * Taint.Set.t * Asm.stmt list =
+      try
+        let int_nb = D.value_of_exp d (Asm.Lval (args 0)) in
+        let addrs, taint = D.mem_to_addresses d (Asm.Lval (args 1)) in
+        (* int_nb and addr has to be concrete values *)
+        match Data.Address.Set.elements addrs with
+        | [a] -> d, taint, [Asm.Directive (Asm.Handler (int_nb, a))]
+        | _ -> raise (Exceptions.Too_many_concrete_elements "several possible handler addresses")
+      with Exceptions.Too_many_concrete_elements _ ->
+        L.warn (fun p -> p "uncomputable argument of signal call (signal number or handler address). Skipped");
+        d, Taint.Set.singleton Taint.U, []
+            
     let process ip calling_ip d fun_name call_conv : domain_t * Taint.Set.t * Asm.stmt list =
-      let apply_f, arg_nb =
-        try Hashtbl.find stubs fun_name
-        with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name)
-      in
-      let d', taint =
-        try apply_f ip calling_ip d call_conv.Asm.return call_conv.Asm.arguments
-        with
-        | Exit -> d, Taint.Set.singleton Taint.U
-        | Exceptions.Use_after_free _ as e -> raise e 
-        | Exceptions.Double_free -> raise Exceptions.Double_free
-        | Exceptions.Null_deref _ as e  -> raise e
-        | e ->
-           L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
-          L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
-          d, Taint.Set.singleton Taint.U
-      in
-      let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
-      d', taint, cleanup_stmts
-
+      if String.compare fun_name "signal" = 0 then
+        signal_process d call_conv.Asm.arguments
+      else
+        let apply_f, arg_nb =
+          try Hashtbl.find stubs fun_name
+          with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name)
+        in
+        let d', taint =
+          try apply_f ip calling_ip d call_conv.Asm.return call_conv.Asm.arguments
+          with
+          | Exit -> d, Taint.Set.singleton Taint.U
+          | Exceptions.Use_after_free _ as e -> raise e 
+          | Exceptions.Double_free -> raise Exceptions.Double_free
+          | Exceptions.Null_deref _ as e  -> raise e
+          | e ->
+             L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
+             L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
+             d, Taint.Set.singleton Taint.U
+        in
+        let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
+        d', taint, cleanup_stmts
+        
     let skip d f call_conv: domain_t * Taint.Set.t * Asm.stmt list =
       let arg_nb, ret_val = Hashtbl.find Config.funSkipTbl f in
       let d, taint =
