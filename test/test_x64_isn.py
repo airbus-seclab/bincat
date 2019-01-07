@@ -506,13 +506,13 @@ the_end:
 
 def test_call(tmpdir):
     asm = """
-        call .target
+        call target
 align 0x100
-.target:
+target:
         pop rax
-        call .target2
+        call target2
 align 0x100
-.target2:
+target2:
         pop rbx
         sub rbx, rax
           """.format(**locals())
@@ -520,16 +520,16 @@ align 0x100
 
 def test_call_indirect(tmpdir):
     asm = """
-        call .target
-.target:
+        call target
+target:
         pop rax
-        lea rbx, [rax+.target2-.target]
-        mov [rax+.store-.target], rbx
-        call [rax+.store-.target]
-.store:
+        lea rbx, [rax+target2-target]
+        mov [rax+store-target], rbx
+        call [rax+store-target]
+store:
         dq 0
 align 0x100
-.target2:
+target2:
         pop rbx
         sub rbx, rax
           """.format(**locals())
@@ -537,14 +537,14 @@ align 0x100
 
 def test_jmp(tmpdir):
     asm = """
-        jmp .target
+        jmp target
         xor rax, rax
         dec rax
-        jmp .end
+        jmp end
 align 0x100
-.target:
+target:
         mov rax, 1
-.end:
+end:
         nop
           """.format(**locals())
     compare(tmpdir, asm, ["rax"])
@@ -553,15 +553,15 @@ def test_jmp_reg(tmpdir, op8):
     asm = """
         lea rbx, [rel {op8:#x}]
 align 0x100
-.start:
-        lea rbx, [rel .target]
+start:
+        lea rbx, [rel target]
         xor rax, rax
         dec rax
         jmp rbx
 align 0x100
-.target:
+target:
         mov rax, 1
-.end:
+end:
         nop
           """.format(**locals())
     compare(tmpdir, asm, ["rax"])
