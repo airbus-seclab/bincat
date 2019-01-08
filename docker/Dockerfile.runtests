@@ -9,7 +9,7 @@ WORKDIR /install
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
         make python python-pip python-pytest \
-        vim nasm libc6-dev-i386 gcc-multilib wget git \
+        vim nasm libc6-dev-i386 wget git \
         ocaml menhir ocaml-findlib libzarith-ocaml-dev \
         libocamlgraph-ocaml-dev python-setuptools python-dev \
         ocaml-compiler-libs libppx-tools-ocaml-dev cppo libapparmor1 \
