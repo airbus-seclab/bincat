@@ -321,6 +321,25 @@ struct
       L.info (fun p -> p "--- end of puts--");
       d', taint
 
+    let write _ip _ d ret args =
+      L.info (fun p -> p "write output");
+      let fd =
+        try
+         Z.to_int (D.value_of_exp d (Asm.Lval (args 0)))
+        with _ -> L.abort (fun p -> p "imprecise file descriptor as argument of write")
+      in
+      if fd = 1 then
+        let buf = Asm.Lval (args 1) in
+        try
+          let char_nb = Z.to_int (D.value_of_exp d (Asm.Lval (args 2))) in
+          let d' = D.print d buf (8*char_nb) in
+          let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int char_nb) !Config.operand_sz)) d' in
+          L.info (fun p -> p "--- end of write--");
+          d', taint
+        with Exceptions.Too_many_concrete_elements _ -> L.abort (fun p -> p "imprecise number of char to write")
+      else
+        L.abort (fun p -> p "write output implemented only for stdout")
+      
     let stubs = Hashtbl.create 5
 
     let signal_process d call_conv: domain_t * Taint.Set.t * Asm.stmt list =
@@ -425,10 +444,12 @@ struct
       Hashtbl.replace stubs "memset"        (memset,      3);
       Hashtbl.replace stubs "sprintf"       (sprintf,     0);
       Hashtbl.replace stubs "printf"        (printf,      0);
+      Hashtbl.replace stubs "write" (write, 3);
       Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
+      Hashtbl.replace stubs "signal"        ((fun _ _ _ _ _ -> raise Exit),  0); (* special treatment for signal see signal_process *)
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1);
       Hashtbl.replace stubs "_Znwj" (heap_allocator, 1); (* new *)

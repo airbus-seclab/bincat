@@ -345,7 +345,14 @@ struct
         let t =
             List.fold_left (fun t v ->             
                 let d', t' =
-                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value a d stmt fun_stack v.Cfa.State.id in d', Taint.Set.union t t') (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
+                  List.fold_left (fun (d, t) stmt ->
+                      try
+                        let d', t' = process_value a d stmt fun_stack v.Cfa.State.id in
+                         d', Taint.Set.union t t'
+                      with Handler (sig_nb, handler_addr) -> (* TODO factorize this code with same pattern in process_vertices *)
+                        Hashtbl.replace (fst v.Cfa.State.handlers) sig_nb handler_addr;
+                        d, t
+                      ) (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
                 in
                 v.Cfa.State.v <- d';
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in

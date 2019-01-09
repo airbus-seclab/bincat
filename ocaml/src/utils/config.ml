@@ -146,7 +146,7 @@ type signal_kind_t =
   | Brut_signal
   | Linux_signal
 
-let signal_kind = ref Brut_signal
+let signal_kind = ref Linux_signal
                 
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)

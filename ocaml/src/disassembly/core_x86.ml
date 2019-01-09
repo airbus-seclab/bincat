@@ -2518,17 +2518,18 @@ let overflow_expression () = Lval (V (T fcf))
               
     (** INT 3 *)
     let int_3 s ctx =
+      L.debug2 (fun p -> p "decoding INT 3");
       let n = convert_interrupt_number 3 in
       let handler = ctx#get_handler n in
       let stmts =
         match handler with
-        | Cfa.State.Direct a -> call s (A a)
+        | Cfa.State.Direct a -> (Imports.set_first_arg (const n !Config.stack_width)) @ (call s (A a))
         | Cfa.State.Inlined stmts -> (icall s) @ stmts
       in
       let stmts = (* push flags, set the first arg of the handler and call the handler *)
         (pushf_stmts s !Config.stack_width)
-        @ (Imports.set_first_arg (const n !Config.stack_width))
-        @ stmts 
+        @ stmts
+        @ (if !Config.signal_kind = Config.Brut_signal then [] else popf_stmts s !Config.stack_width)
       in
       return s stmts
 
