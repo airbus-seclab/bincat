@@ -1038,7 +1038,7 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** produces the list of statements for ADD, SUB, ADC, SBB depending on
     the value of the operator and the boolean value (=true for carry or borrow) *)
-    let add_sub s op use_carry dst src _sz =
+    let add_sub s op use_carry dst src dst_sz =
         let name    = Register.fresh_name () in
         let res_reg = Register.make ~name:name ~size:s.operand_sz in
         let res = V (T res_reg) in
@@ -1051,11 +1051,11 @@ let overflow_expression () = Lval (V (T fcf))
                   carry_flag_stmts s.operand_sz (Lval dst) op src ; ] in
         return s
             (res_cf_stmts @ [
-                 adjust_flag_stmts_from_res s.operand_sz (Lval dst) src (Lval res) ;
-                 overflow_flag_stmts s.operand_sz (Lval res) (Lval dst) op src ;
-                 zero_flag_stmts s.operand_sz (Lval res) ;
-                 sign_flag_stmts s.operand_sz (Lval res) ;
-                 parity_flag_stmts s.operand_sz (Lval res) ; ] @
+                 adjust_flag_stmts_from_res dst_sz (Lval dst) src (Lval res) ;
+                 overflow_flag_stmts dst_sz (Lval res) (Lval dst) op src ;
+                 zero_flag_stmts dst_sz (Lval res) ;
+                 sign_flag_stmts dst_sz (Lval res) ;
+                 parity_flag_stmts dst_sz (Lval res) ; ] @
                  Arch.set_dest dst (Lval res) @
                  [ Directive (Remove res_reg) ]
              )
