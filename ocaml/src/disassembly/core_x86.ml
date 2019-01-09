@@ -2815,7 +2815,7 @@ let overflow_expression () = Lval (V (T fcf))
                   * *)
                  begin
                    match List.hd s.c with
-                    | '\xA6' | '\xA7' | '\xAE' | '\xAF' -> ();
+                    | '\x6C' | '\x6D'| '\x6E' | '\x6F' | '\xA6' | '\xA7' | '\xAE' | '\xAF' -> ();
                     | _ -> s.repe <- false; s.repne <- false; raise (No_rep (v, ip))
                  end;
                  L.debug (fun p->p "rep decoder: s.repe : %b, s.repne: %b" s.repe s.repne);
