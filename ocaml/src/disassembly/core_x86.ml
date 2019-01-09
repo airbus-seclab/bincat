@@ -2808,7 +2808,11 @@ let overflow_expression () = Lval (V (T fcf))
               match List.hd v.Cfa.State.stmts with
               | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
               | _ ->
-                 (* hack: if we do not have a cmps or a scas remove repe/repne flag *)
+                 (* XXX:
+                  * if we do not have a cmps or a scas remove repe/repne flag 
+                  * the intel documentation says rep behaviour with non string instructions
+                  * is undefined
+                  * *)
                  begin
                    match List.hd s.c with
                     | '\xA6' | '\xA7' | '\xAE' | '\xAF' -> ();
