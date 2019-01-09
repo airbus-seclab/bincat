@@ -9,6 +9,8 @@ ALLOBJ=libc.no $(EXE)
 test: $(ALLOBJ)
 	python2 -m pytest --tb=line --coverage $(COVERAGE) $(PYTESTFLAGS)
 
+eggloaders: $(ALLOBJ)
+
 eggloader_x86: eggloader_x86.c
 	gcc -m32 -g -o $@ $<
 
