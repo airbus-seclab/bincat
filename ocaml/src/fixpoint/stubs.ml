@@ -29,6 +29,8 @@ sig
     
   val init: unit -> unit
 
+  val default_handler: int -> Asm.stmt list
+    
   val stubs : (string, (Data.Address.t -> Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
 
                          domain_t * Taint.Set.t) * int) Hashtbl.t
@@ -321,9 +323,11 @@ struct
 
     let stubs = Hashtbl.create 5
 
-    let signal_process d args: domain_t * Taint.Set.t * Asm.stmt list =
-      try
-        let int_nb = D.value_of_exp d (Asm.Lval (args 0)) in
+    let signal_process d call_conv: domain_t * Taint.Set.t * Asm.stmt list =
+      let args = call_conv.Asm.arguments in
+      let d, taint, stmts =
+        try
+        let int_nb = Z.to_int (D.value_of_exp d (Asm.Lval (args 0))) in
         let addrs, taint = D.mem_to_addresses d (Asm.Lval (args 1)) in
         (* int_nb and addr has to be concrete values *)
         match Data.Address.Set.elements addrs with
@@ -332,10 +336,13 @@ struct
       with Exceptions.Too_many_concrete_elements _ ->
         L.warn (fun p -> p "uncomputable argument of signal call (signal number or handler address). Skipped");
         d, Taint.Set.singleton Taint.U, []
+      in
+      let cleanup_stmts = (call_conv.Asm.callee_cleanup 2) in
+      d, taint, stmts@cleanup_stmts
             
     let process ip calling_ip d fun_name call_conv : domain_t * Taint.Set.t * Asm.stmt list =
       if String.compare fun_name "signal" = 0 then
-        signal_process d call_conv.Asm.arguments
+        signal_process d call_conv 
       else
         let apply_f, arg_nb =
           try Hashtbl.find stubs fun_name
@@ -379,7 +386,40 @@ struct
       in
       let cleanup_stmts = call_conv.Asm.callee_cleanup (Z.to_int arg_nb) in
       d,taint, cleanup_stmts
-          
+
+    let default_handler sig_nb =
+      (* see man 7 signal. Implementation of POSIX.1-2001 *)
+      let ignore_sig sig_text =
+        L.analysis (fun p -> p "Handling signal %s: ignored" sig_text);
+        []
+      in
+      let abort sig_text =
+        L.analysis (fun p -> p "Handling signal %s: analysis stops" sig_text);
+        L.abort (fun p -> p "see above")
+      in
+      match sig_nb with
+      | 1 (* SIGHUP *) -> abort "SIGHUP"
+      | 2 (* SIGINT *) -> abort "SIGINT"                        
+      | 3 (* SIGQUIT *) -> abort "SIGQUIT"
+      | 4 (* SIGIL *) -> abort "SIGIL"
+      | 5 (* SIGTRAP *) -> abort "SIGTRAP"
+      | 6 (* SIGABRT *) -> abort "SIGABRT"
+      | 7 | 10 (* SIGBUS *) -> abort "SIGBUS"
+      | 8 (* SIGFPE *) -> abort "SIGFPE"
+      | 9 (* SIGKILL *) -> abort "SIGKILL"
+      | 11 (* SIGSEGV *) -> abort "SIGSEGV"
+      | 12 | 31 (* SIGSYS *) -> abort "SIGSYS"
+      | 13 (* SIGPIPE *) -> abort "SIGPIPE"
+      | 14 (* SIGALRM *) -> ignore_sig "SIGALRM"
+      | 15 (* SIGTERM *) -> abort "SIGTERM"
+      | 16 (* SIGUSR1 *) -> ignore_sig "SIGUSR1"
+      | 17 | 18 (* SIGCHLD *) -> abort "SIGCHLD"
+      | 19 | 25 (* SIGCONT *) -> ignore_sig "SIGCONT"
+      | 20 | 24 (* SIGTSTP *) -> ignore_sig "SIGSTP"
+      | 26 (* SIGTTIN *) -> ignore_sig "SIGTTIN"
+      | 27 (* SIGTTOU *) -> ignore_sig "SIGTTOU"
+      | _ -> L.analysis (fun p -> p "received Illegal signal %d. Ignored" sig_nb); []
+      
     let init () =
       Hashtbl.replace stubs "memcpy"        (memcpy,      3);
       Hashtbl.replace stubs "memset"        (memset,      3);

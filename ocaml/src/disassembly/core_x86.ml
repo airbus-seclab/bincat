@@ -1356,19 +1356,16 @@ let overflow_expression () = Lval (V (T fcf))
         in
           replace_lv lv
 
-    let call s dest_exp =
-        let cesp = M (Lval (V (T esp)), !Config.stack_width)   in
+    let icall s =
+      let cesp = M (Lval (V (T esp)), !Config.stack_width)   in
         (* call destination *)
         let ip' = Data.Address.add_offset s.a (Z.of_int s.o) in
         let ip   = Const (Data.Address.to_word ip' s.operand_sz) in
-        let stmts =
-            [
-                set_esp Sub (T esp) !Config.stack_width;
-                Set (cesp, ip);
-                Call dest_exp
-            ]
-        in
-        stmts
+        [set_esp Sub (T esp) !Config.stack_width;
+        Set (cesp, ip)]
+                
+    let call s dest_exp = (icall s)@[Call dest_exp]
+
 
     (** call with expression *)
     let indirect_call s dst = 
@@ -2522,10 +2519,16 @@ let overflow_expression () = Lval (V (T fcf))
     (** INT 3 *)
     let int_3 s ctx =
       let n = convert_interrupt_number 3 in
+      let handler = ctx#get_handler n in
+      let stmts =
+        match handler with
+        | Cfa.State.Direct a -> call s (A a)
+        | Cfa.State.Inlined stmts -> (icall s) @ stmts
+      in
       let stmts = (* push flags, set the first arg of the handler and call the handler *)
         (pushf_stmts s !Config.stack_width)
         @ (Imports.set_first_arg (const n !Config.stack_width))
-        @ (call s (A (ctx#get_handler_address (Z.of_int n))))
+        @ stmts 
       in
       return s stmts
 
@@ -3035,5 +3038,5 @@ let overflow_expression () = Lval (V (T fcf))
       Some (v', ip, s'.segments)
     with
     | Exceptions.Error _ as e -> raise e
-    | _               -> (*end of buffer *) None
+    | _ -> (*end of buffer *) None
   end

@@ -54,7 +54,7 @@ struct
     (* None is for the default value set in Config *)
     let unroll_nb = ref None
 
-    (** opposite the given comparison operator *)
+    (* opposite the given comparison operator *)
     let inv_cmp (cmp: Asm.cmp): Asm.cmp =
       match cmp with
       | EQ  -> NEQ
@@ -169,7 +169,7 @@ struct
       with _ -> ()
 
     exception Jmp_exn
-    exception Handler of Z.t * Data.Address.t (* signal number and associated handler *)
+    exception Handler of int * Data.Address.t
                        
     type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
 
@@ -276,8 +276,7 @@ struct
                                                                   dd, Taint.Set.union t tt) (d', taint') cleanup_stmts in
               d', taint'
 
-            | Directive (Handler (sig_nb, handler_addr)) -> raise (Handler (sig_nb, handler_addr))
-              
+            | Directive (Handler (sig_nb, addr)) -> raise (Handler (sig_nb, addr))
             | _ -> raise Jmp_exn
                  
         in
@@ -449,8 +448,7 @@ struct
               let d, b' =
                 try process_value v.Cfa.State.ip v.Cfa.State.v s fun_stack v.Cfa.State.id
                 with
-                  Handler (sig_nb, handler_addr) ->
-                  Hashtbl.replace v.Cfa.State.handlers sig_nb handler_addr;
+                  Handler (sig_nb, handler_addr') -> Hashtbl.replace (fst v.Cfa.State.handlers) sig_nb handler_addr';
                   v.Cfa.State.v, b
               in
               v.Cfa.State.v <- d;

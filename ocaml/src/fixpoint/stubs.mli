@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -29,7 +29,8 @@ It returns also a boolean true whenever the result is tainted. Parameter [callin
     
   val init: unit -> unit
 
-
+  val default_handler: int -> Asm.stmt list
+    
   val stubs : (string, (Data.Address.t -> Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 

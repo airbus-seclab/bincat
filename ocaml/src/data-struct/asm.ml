@@ -120,10 +120,9 @@ and directive_t =
             tmin (n, bs) where n is an offset from memory [e].
             This offset is the minimal integer where (sz)[e] cmp terminator is true
         *)
-
+  | Handler of int * Address.t (** Handler(sig_nb, addr): handler of signal number _sig_nb_ is at address _addr_ *)
   | Stub of string * calling_convention_t (** Stub (f, args) is the stub of the function f with args as arguments *)
   | Skip of fun_t * calling_convention_t (** Skip (f, calling_conv) will skip the function _f_ but restablish the stack wrt the calling convention _calling_conv_ *)
-  | Handler of Z.t * Address.t (** Handler (sig_nb, handler_addr) specifies that the address _handler_addr_ is the address of the handler for signal number _sig_nb_ *)
 
 (** type of statements *)
 and stmt =
@@ -270,8 +269,9 @@ let string_of_directive d extended =
        Printf.sprintf "%s <- stub of %s" (string_of_lval cc.return extended) f
      else
        Printf.sprintf "stub of %s" f
+
   | Handler (sig_nb, handler_addr) ->
-     Printf.sprintf "handler of signal %d is at address %s" (Z.to_int sig_nb) (Address.to_string handler_addr)
+     Printf.sprintf "the handler of signal %d is set at address %s" sig_nb (Address.to_string handler_addr)
     
   | Skip (f, cc) ->
      let fs = string_of_fun f in
