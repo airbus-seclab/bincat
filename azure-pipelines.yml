@@ -1,0 +1,17 @@
+trigger:
+- azure-pipelines
+
+pool:
+  vmImage: 'vs2017-win2016'
+
+steps:
+- powershell: |
+    mkdir build
+    $ProgressPreference = 'SilentlyContinue'
+    wget "https://github.com/fdopen/opam-repository-mingw/releases/download/0.0.0.2/OCaml32.exe" -O "build\OCaml32.exe"
+  displayName: 'Download OCaml'
+
+- script: |
+    echo build\OCaml32.exe /S
+  displayName: 'Install OCaml'
+
