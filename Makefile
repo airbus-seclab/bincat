@@ -93,7 +93,8 @@ else
 	mkdir "$(distdir)"/python/idabincat/lib
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md doc "$(distdir)"
-	zip -r "$(distdir).zip" "$(distdir)"
+	# 'zip' is not installed by default with cygwin on azure
+	$(PYTHON) -c 'import shutil; shutil.make_archive("$(distdir)", "zip", "$(distdir)")'
 	-rm -rf "$(distdir)"
 endif
 
