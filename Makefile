@@ -101,16 +101,16 @@ lindist: STATIC=1
 lindist: clean all
 	@echo "Making Linux binary release."
 	$(eval distdir := bincat-bin-$(shell git describe --dirty))
-	mkdir -p $(distdir)/bin
-	cp ocaml/src/bincat $(distdir)/bin
-	cp ocaml/src/npk/c2newspeak.opt $(distdir)/bin/c2newspeak
-	cp -r python/build/lib* $(distdir)/python
-	cp -r python/idabincat/conf/ $(distdir)/python/idabincat
-	mkdir $(distdir)/python/idabincat/lib
-	cp -r lib/*.no $(distdir)/python/idabincat/lib
-	cp -r python/install_plugin.py README.md doc $(distdir)
-	tar cvJf $(distdir).tar.xz $(distdir)
-	-rm -rf $(distdir)
+	mkdir -p "$(distdir)/bin"
+	cp ocaml/src/bincat "$(distdir)/bin"
+	cp ocaml/src/npk/c2newspeak.opt "$(distdir)/bin/c2newspeak"
+	cp -r python/build/lib* "$(distdir)/python"
+	cp -r python/idabincat/conf/ "$(distdir)/python/idabincat"
+	mkdir "$(distdir)/python/idabincat/lib"
+	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
+	cp -r python/install_plugin.py README.md doc "$(distdir)"
+	tar cvJf "$(distdir).tar.xz" "$(distdir)"
+	-rm -rf "$(distdir)"
 
 tags:
 	otags -vi -r ocaml
