@@ -85,16 +85,16 @@ else
 	@echo "Making Windows binary release."
 	$(eval distdir := bincat-win-$(shell git describe --dirty))
 	mkdir -p $(distdir)/bin
-	cp $(shell ldd ocaml/src/bincat.exe|grep libgmp|awk '{print $$3};') $(distdir)/bin
-	cp ocaml/src/npk/c2newspeak.opt $(distdir)/bin/c2newspeak.exe
-	cp ocaml/src/bincat.exe $(distdir)/bin
-	cp -r python/build/lib/ $(distdir)/python
-	cp -r python/idabincat/conf/ $(distdir)/python/idabincat
-	mkdir $(distdir)/python/idabincat/lib
-	cp -r lib/*.no $(distdir)/python/idabincat/lib
-	cp -r python/install_plugin.py README.md doc $(distdir)
-	zip -r $(distdir).zip $(distdir)
-	-rm -rf $(distdir)
+	cp "$(shell ldd ocaml/src/bincat.exe|grep libgmp|awk '{print $$3};')" "$(distdir)/bin"
+	cp ocaml/src/npk/c2newspeak.opt "$(distdir)/bin/c2newspeak.exe"
+	cp ocaml/src/bincat.exe "$(distdir)/bin"
+	cp -r python/build/lib/ "$(distdir)/python"
+	cp -r python/idabincat/conf/ "$(distdir)/python/idabincat"
+	mkdir "$(distdir)"/python/idabincat/lib
+	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
+	cp -r python/install_plugin.py README.md doc "$(distdir)"
+	zip -r "$(distdir).zip" "$(distdir)"
+	-rm -rf "$(distdir)"
 endif
 
 lindist: STATIC=1
