@@ -85,7 +85,7 @@ else
 	@echo "Making Windows binary release."
 	$(eval distdir := bincat-win-$(shell git describe --dirty))
 	mkdir -p $(distdir)/bin
-	cp "$(shell ldd ocaml/src/bincat.exe|grep libgmp|awk '{print $$3};')" "$(distdir)/bin"
+	cp "$(shell ldd ocaml/src/bincat.exe|perl -nle 'print $$1 if /.*=> (.*libgmp.*) \(.*\)/')" "$(distdir)/bin"
 	cp ocaml/src/npk/c2newspeak.opt "$(distdir)/bin/c2newspeak.exe"
 	cp ocaml/src/bincat.exe "$(distdir)/bin"
 	cp -r python/build/lib/ "$(distdir)/python"
