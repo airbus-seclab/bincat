@@ -258,10 +258,12 @@ let default_heap_size = ref (Z.mul (Z.shift_left Z.one 30) (Z.of_int 8))
 (* argv ooptions *)
 type argv_config_t = {
     ignore_unknown_relocations : bool option ref ;
+    filepath : string option ref;
   }
 
 let argv_options : argv_config_t = {
     ignore_unknown_relocations = ref None ;
+    filepath = ref None ;
   }
 
 
@@ -271,9 +273,10 @@ let apply_option (opt:'a ref) (optval:'a option ref) =
   | Some x -> opt := x;;
 
 let apply_arg_options () =
-  apply_option ignore_unknown_relocations argv_options.ignore_unknown_relocations
+  apply_option ignore_unknown_relocations argv_options.ignore_unknown_relocations;
+  apply_option binary argv_options.filepath
 
-                      
+
 let clear_tables () =
   Hashtbl.clear assert_untainted_functions;
   Hashtbl.clear assert_tainted_functions;
