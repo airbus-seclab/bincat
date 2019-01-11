@@ -253,10 +253,24 @@ sig
 
 end
 
+  let address_of (x:'a) : int =
+  if Obj.is_block (Obj.repr x) then
+    Obj.magic x
+        else
+    invalid_arg "Can only find address of boxed values.";;
+
 module Make(V: Val) =
   (struct
     type t = V.t array (** bit order is big endian, ie v[0] is the most significant bit and v[Array.length v - 1] the least significant *)
       
+module HashedPhy =
+  struct
+    type t = V.t array
+    let equal = ( == )
+    let hash = address_of
+  end
+  module PhyHtbl = Hashtbl.Make(HashedPhy)
+
     let top sz = Array.make sz V.top
 
     let exists p v =
@@ -339,10 +353,23 @@ module Make(V: Val) =
       in
       v', t
         
+    let hashtbl = ref (PhyHtbl.create 40000)
+
     let to_string v =
-      let v', t = extract_strings v in
-      if String.compare t "0x0" == 0 then v'
-      else Printf.sprintf "%s!%s" v' t
+      try
+        begin
+          let str =PhyHtbl.find !hashtbl v in
+          str
+        end
+      with Not_found -> begin
+          let str = 
+              let v', t = extract_strings v in
+              if String.compare t "0x0" == 0 then v'
+              else Printf.sprintf "%s!%s" v' t
+          in
+          PhyHtbl.add !hashtbl v str;
+          str
+      end
 
     let map2 f v1 v2 =
       let n = Array.length v1 in
