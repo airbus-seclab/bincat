@@ -27,6 +27,8 @@ let speclist = [
     "Ignore unknown relocations when loading binary instead of aborting" ;
     "--filepath", Arg.String (fun arg -> Config.argv_options.Config.filepath := Some arg),
     "Path to file to be analyzed" ;
+    "--entrypoint", Arg.String (fun arg -> Config.argv_options.Config.entrypoint := Some (Z.of_string arg)),
+    "Entry point";
   ] in
 let usage = "usage: bincat init.ini output.ini outlog" in
 Arg.parse speclist (fun x -> anon_args := x :: !anon_args) usage;
