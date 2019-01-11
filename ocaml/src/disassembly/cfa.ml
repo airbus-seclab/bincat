@@ -131,6 +131,9 @@ sig
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
   val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t
 
+  (** [iter_state_ip f ip] iterates function _f_ on states that have _ip_ as ip field *)
+  val iter_state_ip: (State.t -> unit) -> t -> Data.Address.t -> unit
+    
 end
 
 (** the control flow automaton functor *)
@@ -208,7 +211,7 @@ struct
   end
 
   (** type of a CFA *)
-  type t = G.t
+  type t = G.t * (Data.Address.t, State.t list) Hashtbl.t
 
   (* utilities for memory and register initialization with respect to the provided configuration *)
   (***********************************************************************************************)
@@ -304,49 +307,64 @@ struct
   (* CFA utilities *)
   (*****************)
 
-  let copy_state g v =
+  let copy_state (g, _) v =
     let v = { v with id = new_state_id() } in
     G.add_vertex g v;
     v
 
 
-  let create () = G.create ()
+  let create () = G.create (), Hashtbl.create 117
 
-  let remove_state (g: t) (v: State.t): unit = G.remove_vertex g v
+  let remove_state (g, ips: t) (v: State.t): unit =
+    let vid = v.State.id in
+    let rec remove l =
+      match l with
+      | [] -> []
+      | a::l ->
+         if a.State.id = vid then l else a::(remove l)
+    in
+    let states =
+      try
+        remove (Hashtbl.find ips v.State.ip)
+      with Not_found -> []
+    in
+    G.remove_vertex g v;
+    Hashtbl.replace ips v.State.ip states
 
-  let remove_successor (g: t) (src: State.t) (dst: State.t): unit = G.remove_edge g src dst
+  let remove_successor ((g, _): t) (src: State.t) (dst: State.t): unit = G.remove_edge g src dst
 
-  let add_state (g: t) (v: State.t): unit = G.add_vertex g v
+  let add_state (g, ips: t) (v: State.t): unit =   
+     let states =
+       try Hashtbl.find ips v.State.ip
+      with Not_found -> []
+    in
+    G.add_vertex g v;
+    Hashtbl.replace ips v.State.ip (v::states)
 
-  let add_successor g src dst = G.add_edge g src dst
+  let add_successor (g, _ips) src dst: unit = G.add_edge g src dst
 
 
   (** returns the list of successors of the given vertex in the given CFA *)
-  let succs g v  = G.succ g v
+  let succs (g, _) v  = G.succ g v
 
-  let iter_state (f: State.t -> unit) (g: t): unit = G.iter_vertex f g
+  let iter_state (f: State.t -> unit) (g, _: t): unit = G.iter_vertex f g
 
-  let pred (g: t) (v: State.t): State.t =
+  let iter_state_ip (f: State.t -> unit) (_, ips) ip = 
+    try List.iter f (Hashtbl.find ips ip)
+    with Not_found -> ()
+                    
+  let pred (g, _ips: t) (v: State.t): State.t =
     try List.hd (G.pred g v)
     with _ -> raise (Invalid_argument "vertex without predecessor")
 
-  let sinks (g: t): State.t list =
-    G.fold_vertex (fun v l -> if succs g v = [] then v::l else l) g []
+  let sinks (g, ips: t): State.t list =
+    G.fold_vertex (fun v l -> if succs (g, ips) v = [] then v::l else l) g []
 
-  let last_addr (g: t) (ip: Data.Address.t): State.t =
-    let s = ref None in
-    let last s' =
-      if Data.Address.compare s'.ip ip = 0 then
-        match !s with
-        | None -> s := Some s'
-        | Some prev -> if prev.id < s'.id then s := Some s'
-    in
-    G.iter_vertex last g;
-    match !s with
-    | None -> raise Not_found
-    | Some s'   -> s'
-
-  let print (dumpfile: string) (g: t): unit =
+  let last_addr (_, ips: t) (ip: Data.Address.t): State.t =
+    try List.hd (Hashtbl.find ips ip)
+    with _ -> raise Not_found
+     
+  let print (dumpfile: string) (g, _: t): unit =
     let f = open_out dumpfile in
     (* state printing (detailed) *)
     let print_field = if !Config.analysis = Config.Backward then
@@ -389,15 +407,17 @@ struct
     close_out f;;
 
 
-  let marshal (fid:out_channel) (cfa: t): unit =
+  let marshal (fid:out_channel) (cfa, ips: t): unit =
     Marshal.to_channel fid cfa [];
+    Marshal.to_channel fid ips [];
     Marshal.to_channel fid !state_cpt [];;
 
   let unmarshal fid: t =
     let origcfa = Marshal.from_channel fid in
+    let origips = Marshal.from_channel fid in
     let last_id = Marshal.from_channel fid in
     state_cpt := last_id;
-    origcfa
+    origcfa, origips
 
 end
 (** module Cfa *)

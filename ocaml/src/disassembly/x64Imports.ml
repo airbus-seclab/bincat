@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -66,7 +66,9 @@ struct
   let set_first_arg e =
     let r = if !Config.call_conv = Config.SYSV then (reg "rdi") else (reg "rcx") in
     [Set (r, e)]
-                      
+
+  let unset_first_arg () = []
+                         
   let get_local_callconv cc =
     match cc with
     | Config.SYSV -> sysv_calling_convention ()

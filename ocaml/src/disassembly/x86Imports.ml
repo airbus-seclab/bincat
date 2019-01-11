@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -66,7 +66,12 @@ struct
       Set (r, BinOp(Sub, Lval r, Const (Data.Word.of_int (Z.of_int (!Config.stack_width/8)) !Config.stack_width))) ;
       Set (M(Lval r, !Config.stack_width), e)
     ]
-    
+
+  let unset_first_arg () =
+    let r = reg "esp" in
+    [
+      Set (r, BinOp(Add, Lval r, Const (Data.Word.of_int (Z.of_int (!Config.stack_width/8)) !Config.stack_width)))
+    ]
   let stub_stmts_from_name name callconv =
     if  Hashtbl.mem Stubs.stubs name then
       [ Directive (Stub (name, callconv)) ]

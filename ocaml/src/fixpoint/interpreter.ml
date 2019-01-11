@@ -543,7 +543,6 @@ struct
     let filter_vertices (subsuming: bool) g vertices =
       (* predicate to check whether a new state has to be explored or not *)
       let same prev v' =
-        Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip &&
           prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
             prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
               (* fixpoint reached *)
@@ -562,12 +561,12 @@ struct
               
               (* explore if a greater abstract state of v has already been explored *)
               if subsuming then
-                Cfa.iter_state (fun prev ->
+                Cfa.iter_state_ip (fun prev ->
                   if v.Cfa.State.id = prev.Cfa.State.id then
                     ()
                   else
                     if same prev v then raise Exit
-                ) g;
+                ) g v.Cfa.State.ip;
             v::l
           with
             Exit -> l

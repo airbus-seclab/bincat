@@ -109,7 +109,7 @@ open Decodeutils
 
                  (** returns the statements enabling to set the first function argument corresponding to the current calling convention *)
                  val set_first_arg: Asm.exp -> Asm.stmt list
-
+                 val unset_first_arg: unit -> Asm.stmt list
                end
     val ebx: Register.t
     val ebp: Register.t
@@ -2523,7 +2523,7 @@ let overflow_expression () = Lval (V (T fcf))
       let handler = ctx#get_handler n in
       let stmts =
         match handler with
-        | Cfa.State.Direct a -> (Imports.set_first_arg (const n !Config.stack_width)) @ (call s (A a))
+        | Cfa.State.Direct a -> (Imports.set_first_arg (const n !Config.stack_width)) @ (call s (A a)) @ (Imports.unset_first_arg ())
         | Cfa.State.Inlined stmts -> (icall s) @ stmts
       in
       let stmts = (* push flags, set the first arg of the handler and call the handler *)
