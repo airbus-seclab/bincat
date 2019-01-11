@@ -255,7 +255,7 @@ end
 
   let address_of (x:'a) : int =
   if Obj.is_block (Obj.repr x) then
-    Obj.magic x
+    Nativeint.to_int    (Nativeint.shift_left (Nativeint.of_int (Obj.magic x)) 1) (* magic *)
         else
     invalid_arg "Can only find address of boxed values.";;
 
