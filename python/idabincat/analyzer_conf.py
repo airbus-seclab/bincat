@@ -505,13 +505,6 @@ class AnalyzerConfig(object):
             return ""
 
     @property
-    def nops(self):
-        try:
-            return self._config.get('analyzer', 'nop')
-        except ConfigParser.NoOptionError:
-            return ""
-
-    @property
     def analysis_method(self):
         return self._config.get('analyzer', 'analysis').lower()
 
@@ -569,15 +562,6 @@ class AnalyzerConfig(object):
         else:
             self._config.set('analyzer', 'cut', value)
 
-    @nops.setter
-    def nops(self, value):
-        if type(value) in (int, long):
-            value = "0x%X" % value
-        if value is None or value == "":
-            self._config.remove_option('analyzer', 'nop')
-        else:
-            self._config.set('analyzer', 'nop', value)
-
     @analysis_method.setter
     def analysis_method(self, value):
         self._config.set('analyzer', 'analysis', value.lower())
@@ -627,7 +611,7 @@ class AnalyzerConfig(object):
         self._config.set('analyzer', 'out_marshalled_cfa_file', out_cfa)
         self._config.set('analyzer', 'in_marshalled_cfa_file', in_cfa)
 
-    def update_overrides(self, overrides):
+    def update_overrides(self, overrides, nops, skips):
         # 1. Empty override section
         self._config.remove_section("override")
         self._config.add_section("override")
@@ -654,6 +638,17 @@ class AnalyzerConfig(object):
                 if eip != initial_eip:
                     continue
                 self._config.set("state", register, value)
+
+        # 4. Also add nops & skips
+        if len(nops) > 0:
+            self._config.set('analyzer', 'nop', ','.join([n[0] for n in nops]))
+
+        fun_skip_strs = []
+        for sk in skips:
+            fun_skip_strs.append("%s(%s,%s)" % (sk[0], sk[1], sk[2]))
+
+        if len(fun_skip_strs) > 0:
+            self._config.set('analyzer', 'fun_skip', ', '.join(fun_skip_strs))
 
     @staticmethod
     def load_from_str(string):

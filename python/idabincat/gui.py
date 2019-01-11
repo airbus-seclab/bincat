@@ -1631,10 +1631,12 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
     * a taint value
     """
 
-    def __init__(self, state, overrides_model):
+    def __init__(self, state, overrides_model, nops_model, skips_model):
         super(BinCATOverridesForm_t, self).__init__()
         self.s = state
-        self.model = overrides_model
+        self.overrides_model = overrides_model
+        self.nops_model = nops_model
+        self.skips_model = skips_model
         self.shown = False
         self.created = False
 
@@ -1650,27 +1652,61 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
         layout.addWidget(self.label, 0, 0)
 
         # Overrides Taint Table
-        self.table = BinCATOverridesView(self.model)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setSortingEnabled(True)
-        self.table.setModel(self.model)
+        self.overrides_table = BinCATTableView(self.overrides_model)
+        self.overrides_table.verticalHeader().setVisible(False)
+        self.overrides_table.setSortingEnabled(True)
+        self.overrides_table.setModel(self.overrides_model)
         self.s.overrides.register_callbacks(
-            self.model.beginResetModel, self.model.endResetModel)
-        self.table.verticalHeader().setSectionResizeMode(
+            self.overrides_model.beginResetModel,
+            self.overrides_model.endResetModel)
+        self.overrides_table.verticalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
 
-        self.table.horizontalHeader().setSectionResizeMode(
+        self.overrides_table.horizontalHeader().setSectionResizeMode(
             QtWidgets.QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        # self.table.horizontalHeader().setMinimumHeight(36)
+        self.overrides_table.horizontalHeader().setStretchLastSection(True)
 
-        layout.addWidget(self.table, 1, 0)
+        # Nops Table
+        self.nops_table = BinCATTableView(self.nops_model)
+        self.nops_table.verticalHeader().setVisible(False)
+        self.nops_table.setSortingEnabled(True)
+        self.nops_table.setModel(self.nops_model)
+        self.s.nops.register_callbacks(
+            self.nops_model.beginResetModel,
+            self.nops_model.endResetModel)
+        self.nops_table.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+
+        self.nops_table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.nops_table.horizontalHeader().setStretchLastSection(True)
+
+        # Skips Table
+        self.skips_table = BinCATTableView(self.skips_model)
+        self.skips_table.verticalHeader().setVisible(False)
+        self.skips_table.setSortingEnabled(True)
+        self.skips_table.setModel(self.skips_model)
+        self.s.skips.register_callbacks(
+            self.skips_model.beginResetModel,
+            self.skips_model.endResetModel)
+        self.skips_table.verticalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+
+        self.skips_table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents)
+        self.skips_table.horizontalHeader().setStretchLastSection(True)
+
+        layout.addWidget(self.overrides_table, 1, 0)
+        layout.addWidget(self.nops_table, 2, 0)
+        layout.addWidget(self.skips_table, 3, 0)
 
         self.btn_run = QtWidgets.QPushButton('&Re-run analysis', self.parent)
         self.btn_run.clicked.connect(self.s.re_run)
-        layout.addWidget(self.btn_run, 2, 0)
+        layout.addWidget(self.btn_run, 4, 0)
 
         layout.setRowStretch(1, 0)
+        layout.setRowStretch(2, 0)
+        layout.setRowStretch(3, 0)
 
         self.parent.setLayout(layout)
 
@@ -1693,6 +1729,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
     def __init__(self, state, *args, **kwargs):
         super(OverridesModel, self).__init__(*args, **kwargs)
         self.s = state
+        self.clickedIndex = None
         self.headers = ["eip", "addr or reg", "[value][!taint]"]
 
     def data(self, index, role):
@@ -1784,17 +1821,16 @@ class OverridesModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
     def remove_row(self, checked):
-        del self.s.overrides[BinCATOverridesView.clickedIndex]
+        del self.s.overrides[self.clickedIndex]
 
     def remove_all(self):
         self.s.overrides.clear()
 
 
-class BinCATOverridesView(QtWidgets.QTableView):
-    clickedIndex = None
+class BinCATTableView(QtWidgets.QTableView):
 
     def __init__(self, model, parent=None):
-        super(BinCATOverridesView, self).__init__(parent)
+        super(BinCATTableView, self).__init__(parent)
         self.m = model
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectItems)
         self.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
@@ -1810,7 +1846,7 @@ class BinCATOverridesView(QtWidgets.QTableView):
         action = QtWidgets.QAction('Remove all', self)
         action.triggered.connect(self.m.remove_all)
         menu.addAction(action)
-        BinCATOverridesView.clickedIndex = self.indexAt(event.pos()).row()
+        self.m.clickedIndex = self.indexAt(event.pos()).row()
         menu.popup(QtGui.QCursor.pos())
 
     def remove_all(self):
@@ -1823,6 +1859,122 @@ class BinCATOverridesView(QtWidgets.QTableView):
             bc_log.warning("Could not identify selected row")
             return
         self.m.remove_row(index)
+
+
+class SkipsModel(QtCore.QAbstractTableModel):
+    def __init__(self, state, *args, **kwargs):
+        super(SkipsModel, self).__init__(*args, **kwargs)
+        self.s = state
+        self.clickedIndex = None
+        self.headers = ["address or function name", "arg_nb", "fun_skip"]
+
+    def data(self, index, role):
+        if role not in (Qt.DisplayRole, Qt.EditRole, Qt.ToolTipRole):
+            return
+        col = index.column()
+        row = index.row()
+        if role == Qt.ToolTipRole:
+            if col == 0:
+                return "Example valid values: 'kill', '0x1234'"
+            if col == 1:
+                return "Number of arguments that the function expects (int)"
+            if col == 2:
+                return "Value & taint of the return value. Ex. 0xFF!0xFF (value=0xFF, fully tainted)"
+        return self.s.skips[row][col]
+
+    def setData(self, index, value, role):
+        if role != Qt.EditRole:
+            return False
+        col = index.column()
+        row = index.row()
+        if col == 1:
+            if not all(c in '0123456789' for c in value):
+                return False
+        if row > len(self.s.skips):
+            # new row
+            r = [""] * len(self.headers)
+            r[col] = value
+            self.s.skips.append(r)
+        else:
+            # existing row
+            r = list(self.s.skips[row])
+            r[col] = value
+            self.s.skips[row] = r
+        return True  # success
+
+    def headerData(self, section, orientation, role):
+        if orientation != Qt.Horizontal:
+            return
+        if role == Qt.DisplayRole:
+            return self.headers[section]
+
+    def flags(self, index):
+        return (Qt.ItemIsEditable
+                | Qt.ItemIsSelectable
+                | Qt.ItemIsEnabled)
+
+    def rowCount(self, parent):
+        return len(self.s.skips)
+
+    def columnCount(self, parent):
+        return len(self.headers)
+
+    def remove_row(self, checked):
+        del self.s.skips[self.clickedIndex]
+
+    def remove_all(self):
+        self.s.skips.clear()
+
+
+class NopsModel(QtCore.QAbstractTableModel):
+    def __init__(self, state, *args, **kwargs):
+        super(NopsModel, self).__init__(*args, **kwargs)
+        self.s = state
+        self.clickedIndex = None
+        self.headers = ["address or function name"]
+
+    def data(self, index, role):
+        if role not in (Qt.DisplayRole, Qt.EditRole, Qt.ToolTipRole):
+            return
+        row = index.row()
+        if role == Qt.ToolTipRole:
+            return "Example valid values: 'kill', '0x1234'"
+        return self.s.nops[row][0]
+
+    def setData(self, index, value, role):
+        if role != Qt.EditRole:
+            return False
+        row = index.row()
+        if row > len(self.s.nops):
+            # new row
+            self.s.nops.append([value])
+        else:
+            # existing row
+            self.s.nops[row][0] = value
+        return True  # success
+
+    def headerData(self, section, orientation, role):
+        if orientation != Qt.Horizontal:
+            return
+        if role == Qt.DisplayRole:
+            return self.headers[section]
+
+    def flags(self, index):
+        return (Qt.ItemIsEditable
+                | Qt.ItemIsSelectable
+                | Qt.ItemIsEnabled)
+
+    def rowCount(self, parent):
+        return len(self.s.nops)
+
+    def columnCount(self, parent):
+        return len(self.headers)
+
+    def remove_row(self, checked):
+        del self.s.nops[self.clickedIndex]
+
+    def remove_all(self):
+        self.s.nops.clear()
 
 
 class HandleAnalyzeHere(idaapi.action_handler_t):
@@ -1847,7 +1999,6 @@ class HandleAnalyzeHere(idaapi.action_handler_t):
 class HandleAddOverride(idaapi.action_handler_t):
     """
     Action handler for BinCAT/Add Override
-    base class is not a newstyle class...
     """
     def __init__(self, state):
         self.s = state
@@ -1887,13 +2038,57 @@ class HandleAddOverride(idaapi.action_handler_t):
         mask, res = QtWidgets.QInputDialog.getText(
             None,
             "Add override for %s" % highlighted,
-            "Overried value for %s (e.g. !TAINT_ALL (reg only), "
+            "Override value for %s (e.g. !TAINT_ALL (reg only), "
             "!TAINT_NONE (reg only), !0b001, !0xabc)" %
             highlighted, text=("!TAINT_ALL" if htype == "reg" else "!|FF|"))
         if not res:
             return 1  # refresh IDA windows
         htext = "%s[%s]" % (htype, highlighted)
         self.s.overrides.append((address, htext, mask))
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+
+class HandleNopThisInstruction(idaapi.action_handler_t):
+    """
+    Action handler for BinCAT/Replace this instruction with nop
+    """
+    def __init__(self, state):
+        self.s = state
+
+    def activate(self, ctx):
+        self.s.gui.show_windows()
+
+        self.s.nops.append(["0x%x" % self.s.current_ea])
+        return 1
+
+    def update(self, ctx):
+        return idaapi.AST_ENABLE_ALWAYS
+
+
+class HandleSkipThisFunction(idaapi.action_handler_t):
+    """
+    Action handler for BinCAT/Skip this function...
+    """
+    def __init__(self, state):
+        self.s = state
+
+    def activate(self, ctx):
+        self.s.gui.show_windows()
+        argret, res = QtWidgets.QInputDialog.getText(
+            None,
+            "Skip function",
+            "Enter number of arguments and return value, separated by a "
+            "comma. Example: \"1,0xFF!0xFF\"",
+            text=("1, 0xFFFFFFFF!0xFFFFFFFF"))
+        if not res:
+            return 1  # refresh IDA windows
+
+        arg, ret = argret.split(',')
+        self.s.skips.append(
+            ("0x%x" % self.s.current_ea, arg.strip(), ret.strip()))
         return 1
 
     def update(self, ctx):
@@ -1986,6 +2181,12 @@ class Hooks(idaapi.UI_Hooks):
             idaapi.attach_action_to_popup(
                 form, popup, "bincat:add_override",
                 "BinCAT/", idaapi.SETMENU_APP)
+            idaapi.attach_action_to_popup(
+                form, popup, "bincat:nop_instruction",
+                "BinCAT/", idaapi.SETMENU_APP)
+            idaapi.attach_action_to_popup(
+                form, popup, "bincat:skip_function",
+                "BinCAT/", idaapi.SETMENU_APP)
 
 
 class GUI(object):
@@ -2003,8 +2204,10 @@ class GUI(object):
         self.BinCATDebugForm = BinCATDebugForm_t(state)
         self.BinCATMemForm = BinCATMemForm_t(state)
         self.overrides_model = OverridesModel(state)
+        self.nops_model = NopsModel(state)
+        self.skips_model = SkipsModel(state)
         self.BinCATOverridesForm = BinCATOverridesForm_t(
-            state, self.overrides_model)
+            state, self.overrides_model, self.nops_model, self.skips_model)
 
         # XXX fix
         idaapi.set_dock_pos("BinCAT", "IDA View-A", idaapi.DP_TAB)
@@ -2022,6 +2225,19 @@ class GUI(object):
             'bincat:add_override', 'Add override...',
             HandleAddOverride(self.s), 'Ctrl-Shift-O')
         idaapi.register_action(add_taint_override_act)
+
+        # Nop menu
+        nop_instruction_act = idaapi.action_desc_t(
+            'bincat:nop_instruction', 'Replace this instruction with nop',
+            HandleNopThisInstruction(self.s))
+        idaapi.register_action(nop_instruction_act)
+
+        # Skip function menu
+        skip_instruction_act = idaapi.action_desc_t(
+            'bincat:skip_function',
+            'Skip function that starts at current address...',
+            HandleSkipThisFunction(self.s))
+        idaapi.register_action(skip_instruction_act)
 
         # "Show windows" menu
         show_windows_act = idaapi.action_desc_t(
