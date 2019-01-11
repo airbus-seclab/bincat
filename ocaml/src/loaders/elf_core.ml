@@ -673,7 +673,7 @@ type reloc_type_t =
  | R_X86_64_NONE | R_X86_64_64 | R_X86_64_PC32 | R_X86_64_GOT32 | R_X86_64_PLT32 | R_X86_64_COPY
  | R_X86_64_GLOB_DAT | R_X86_64_JUMP_SLOT | R_X86_64_RELATIVE | R_X86_64_GOTPCREL | R_X86_64_32
  | R_X86_64_32S | R_X86_64_16 | R_X86_64_PC16 | R_X86_64_8 | R_X86_64_PC8 | R_X86_64_PC64
- | R_X86_64_GOTOFF64 | R_X86_64_GOTPC32 | R_X86_64_SIZE32 | R_X86_64_SIZE64
+ | R_X86_64_GOTOFF64 | R_X86_64_GOTPC32 | R_X86_64_SIZE32 | R_X86_64_SIZE64 | R_X86_64_IRELATIV
   (* ARM relocation types *)
   | R_ARM_NONE | R_ARM_COPY | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
   (* AARCH64 relocation types *)
@@ -707,7 +707,7 @@ let to_reloc_type r hdr =
          | 8 -> R_X86_64_RELATIVE | 9 -> R_X86_64_GOTPCREL  | 10 -> R_X86_64_32      | 11 -> R_X86_64_32S
          | 12 -> R_X86_64_16      | 13 -> R_X86_64_PC16     | 14 -> R_X86_64_8       | 15 -> R_X86_64_PC8
          | 24 -> R_X86_64_PC64    | 25 -> R_X86_64_GOTOFF64 | 26 -> R_X86_64_GOTPC32
-         | 32 -> R_X86_64_SIZE32  | 33 -> R_X86_64_SIZE64
+         | 32 -> R_X86_64_SIZE32  | 33 -> R_X86_64_SIZE64 | 37 -> R_X86_64_IRELATIV
          | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
     | ARM ->
@@ -766,6 +766,7 @@ let reloc_type_to_string rel =
   | R_X86_64_16 -> "R_X86_64_16"              | R_X86_64_PC16 -> "R_X86_64_PC16"            | R_X86_64_8 -> "R_X86_64_8"
   | R_X86_64_PC8 -> "R_X86_64_PC8"            | R_X86_64_PC64 -> "R_X86_64_PC64"            | R_X86_64_GOTOFF64 -> "R_X86_64_GOTOFF64"
   | R_X86_64_GOTPC32 -> "R_X86_64_GOTPC32"    | R_X86_64_SIZE32 -> "R_X86_64_SIZE32"        | R_X86_64_SIZE64 -> "R_X86_64_SIZE64"
+  | R_X86_64_IRELATIV -> "R_X86_64_IRELATIV"
   | R_ARM_NONE -> "R_ARM_NONE"
   | R_ARM_COPY -> "R_ARM_COPY" | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT"
   | R_AARCH64_COPY -> "R_AARCH64_COPY"                 | R_AARCH64_GLOB_DAT -> "R_AARCH64_GLOB_DAT"
