@@ -93,9 +93,11 @@ else
 	mkdir "$(distdir)"/python/idabincat/lib
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md doc "$(distdir)"
-	# 'zip' is not installed by default with cygwin on azure
-	$(PYTHON) -c 'import shutil; shutil.make_archive("$(distdir)", "zip", "$(distdir)")'
+	# On azure, do not zip or delete $(distdir)
+ifeq ($(BUILD_BUILDID),)
+	zip -r "$(distdir).zip" "$(distdir)"
 	-rm -rf "$(distdir)"
+endif
 endif
 
 lindist: STATIC=1

@@ -21,7 +21,7 @@ steps:
   displayName: 'Install dependencies'
 
 - script: |
-    C:\Ocaml64\bin\bash -l -c 'cd $(cygpath "$BUILD_SOURCESDIRECTORY"); make windist PYTHON=python; echo "##vso[task.setvariable variable=distdir]""$(basename bincat-win-*.zip .zip)"'
+    C:\Ocaml64\bin\bash -l -c 'cd $(cygpath "$BUILD_SOURCESDIRECTORY"); make windist PYTHON=python; echo "##vso[task.setvariable variable=distdir]bincat-win-$(git describe --dirty)"'
   displayName: 'Build BinCAT for Windows'
 
 - task: PublishBuildArtifacts@1
@@ -29,3 +29,4 @@ steps:
   continueOnError: false
   inputs:
     pathtoPublish: $(Build.SourcesDirectory)/$(distdir)
+    artifactName: $(distdir)
