@@ -853,7 +853,9 @@ let to_rela s rofs shdr symtab hdr =
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
   let symnum = Z.shift_right info shift in
   let syms = List.filter (fun (sym:e_sym_t) -> sym.p_st_shdr.p_sh_index = shdr.sh_link) symtab in
-  let sym = List.nth syms (Z.to_int symnum) in
+  let sym = try List.nth syms (Z.to_int symnum)
+            with Failure _ -> L.abort (fun p -> p "RELA at offset %08x: cannot find symbol %i in section %i"
+                                              rofs (Z.to_int symnum) shdr.sh_link) in
   {
     p_r_shdr = shdr ;
     p_r_sym = sym ;
