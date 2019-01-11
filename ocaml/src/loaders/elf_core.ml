@@ -661,6 +661,18 @@ let sym_to_string sym =
     (Z.to_int sym.st_shndx)
     sym.p_st_name
 
+let make_null_sym shdr =
+  {
+    p_st_shdr = shdr ;
+    p_st_name = "" ;
+    st_name = Z.zero;
+    st_value = Z.zero ;
+    st_size = Z.zero ;
+    st_bind = STB_LOCAL ;
+    st_type = STT_NOTYPE ;
+    st_other = Z.zero ;
+    st_shndx = Z.zero ;
+  }
 
 (* ELF relocation types *)
 
@@ -1039,11 +1051,12 @@ let to_elf s =
   let hdr = to_hdr s in
   let phdr = List.map (fun phi -> to_phdr s hdr phi) (Misc.seq 0 (hdr.e_phnum-1)) in
   let shdr = List.map (fun shi -> to_shdr s hdr shi) (Misc.seq 0 (hdr.e_shnum-1)) in
+  let null_sh = List.find (fun sh -> sh.sh_type = SHT_NULL) shdr in
   let symtab_sections = List.filter (fun sh -> sh.sh_type = SHT_SYMTAB || sh.sh_type = SHT_DYNSYM) shdr in
   let dynamic_sections = List.filter (fun sh -> sh.sh_type = SHT_DYNAMIC) shdr in
   let rel_sections = List.filter (fun sh -> sh.sh_type = SHT_REL) shdr in
   let rela_sections = List.filter (fun sh -> sh.sh_type = SHT_RELA) shdr in
-  let symtab = List.flatten (
+  let symtab = (make_null_sym null_sh) :: List.flatten (
     List.map (
       fun sh ->
         map_section_entities (fun ofs -> to_sym s ofs sh  (linked_shdr sh shdr) hdr.e_ident)  sh
