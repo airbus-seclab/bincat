@@ -360,22 +360,13 @@ class BinCATMemForm_t(idaapi.PluginForm):
         # add override for each byte
         mask, res = QtWidgets.QInputDialog.getText(
             None,
-            "Add Taint override",
-            "Taint value each byte in the range %0X-%0X (e.g. 0x00, 0xFF)"
+            "Add override",
+            "Override each byte in the range %0X-%0X (e.g. |00|!|00| (value=0, untainted), !|FF| (fully tainted, do not change value))"
             % (abs_start, abs_end),
-            text="0xFF")
+            text="!|FF|")
         if not res:
             return
-        try:
-            mask_value = int(mask, 16)
-        except ValueError:
-            mask_value = int(mask)
-        if mask_value > 0xFF:
-            bc_log.error("invalid mask value")
 
-        # from v0.7, overrides follow the init syntax, so to update taint only
-        # we prefix by '!' and we use | | syntax to ensure we only taint bytes
-        mask = "!|%02x|" % mask_value
         region = cfa.PRETTY_REGIONS[self.current_region]
         if region == 'global':
             region = 'mem'
@@ -1279,7 +1270,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         mask, res = QtWidgets.QInputDialog.getText(
             None,
             "Add override for %s" % regname,
-            "Override value!taint for %s (e.g. TAINT_ALL, TAINT_NONE, 0b001, 0xabc)" %
+            "Override [value]!taint for %s (e.g. !TAINT_ALL, !TAINT_NONE, 0x00|!|ffffffff|, )" %
             regname, text="!TAINT_ALL")
         if not res:
             return
@@ -1647,11 +1638,10 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
         self.parent = self.FormToPyQtWidget(form)
         layout = QtWidgets.QGridLayout()
 
-        # title label
-        self.label = QtWidgets.QLabel('List of taint overrides (user-defined)')
-        layout.addWidget(self.label, 0, 0)
 
-        # Overrides Taint Table
+        # Overrides
+        self.overrides_label = QtWidgets.QLabel(
+            'List of value and taint overrides (user-defined)')
         self.overrides_table = BinCATTableView(self.overrides_model)
         self.overrides_table.verticalHeader().setVisible(False)
         self.overrides_table.setSortingEnabled(True)
@@ -1666,7 +1656,8 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.ResizeToContents)
         self.overrides_table.horizontalHeader().setStretchLastSection(True)
 
-        # Nops Table
+        # Nops
+        self.nops_label = QtWidgets.QLabel('Instructions replaced with NOPs')
         self.nops_table = BinCATTableView(self.nops_model)
         self.nops_table.verticalHeader().setVisible(False)
         self.nops_table.setSortingEnabled(True)
@@ -1681,7 +1672,8 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.ResizeToContents)
         self.nops_table.horizontalHeader().setStretchLastSection(True)
 
-        # Skips Table
+        # Skips
+        self.skips_label = QtWidgets.QLabel('Skipped functions')
         self.skips_table = BinCATTableView(self.skips_model)
         self.skips_table.verticalHeader().setVisible(False)
         self.skips_table.setSortingEnabled(True)
@@ -1696,13 +1688,16 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
             QtWidgets.QHeaderView.ResizeToContents)
         self.skips_table.horizontalHeader().setStretchLastSection(True)
 
+        layout.addWidget(self.overrides_label, 0, 0)
         layout.addWidget(self.overrides_table, 1, 0)
-        layout.addWidget(self.nops_table, 2, 0)
-        layout.addWidget(self.skips_table, 3, 0)
+        layout.addWidget(self.nops_label, 2, 0)
+        layout.addWidget(self.nops_table, 3, 0)
+        layout.addWidget(self.skips_label, 4, 0)
+        layout.addWidget(self.skips_table, 5, 0)
 
         self.btn_run = QtWidgets.QPushButton('&Re-run analysis', self.parent)
         self.btn_run.clicked.connect(self.s.re_run)
-        layout.addWidget(self.btn_run, 4, 0)
+        layout.addWidget(self.btn_run, 6, 0)
 
         layout.setRowStretch(1, 0)
         layout.setRowStretch(2, 0)
@@ -1730,7 +1725,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
         super(OverridesModel, self).__init__(*args, **kwargs)
         self.s = state
         self.clickedIndex = None
-        self.headers = ["eip", "addr or reg", "[value][!taint]"]
+        self.headers = ["eip", "addr or reg", "[value]!taint"]
 
     def data(self, index, role):
         if role not in (Qt.ForegroundRole, Qt.DisplayRole,
@@ -1744,7 +1739,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
             if col == 2:
                 return ("Example override values: !0x1234 (reg or mem), "
                         "!TAINT_ALL (reg only), !TAINT_NONE (reg only), "
-                        "0x12?0x12", "|0xFF|![0x10|")
+                        "0x12?0x12", "|0xFF|!|0x10|")
             return
         if role == Qt.ForegroundRole:
             # basic syntax checking
@@ -1757,7 +1752,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
                             txt.startswith('heap[0x') or
                             txt.startswith('mem[0x')):
                         return
-            else:  # Taint column
+            else:  # Value + Taint column
                 if not self.s.overrides[row][1].startswith("reg"):
                     if "TAINT_ALL" in txt or "TAINT_NONE" in txt:
                         return QtGui.QBrush(Qt.red)
@@ -1766,13 +1761,13 @@ class OverridesModel(QtCore.QAbstractTableModel):
                     r"^((0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+)"
                     # if value is present: optional top mask - hex, oct or bin
                     "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?"
-                    # taint (optional) - same as value, PLUS TAINT_* for
+                    # taint - same as value, PLUS TAINT_* for
                     # registers
-                    "(!(0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+|"
+                    "!(0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+|"
                     "TAINT_ALL|TAINT_NONE)"
                     # if taint is present: optional top mask - same as value
                     # top mask
-                    "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?$")
+                    "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?$")
                 if re.match(pattern, txt):
                     return
             return QtGui.QBrush(Qt.red)

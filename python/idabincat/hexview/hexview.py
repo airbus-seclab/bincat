@@ -735,9 +735,9 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
 
         if self._hsm.start is not None and self._hsm.end is not None:
             menu.addSeparator()  # --------------------------------------
-            add_action(menu, "Override taint for selection",
+            add_action(menu, "Override value or taint for selection",
                        lambda: self._handle_add_taint_override(False))
-            add_action(menu, "Override taint for selection and re-run",
+            add_action(menu, "Override value or taint for selection and re-run",
                        lambda: self._handle_add_taint_override(True))
         return menu
 
