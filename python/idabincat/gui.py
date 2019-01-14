@@ -360,7 +360,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
         # add override for each byte
         mask, res = QtWidgets.QInputDialog.getText(
             None,
-            "Add override",
+            "Add override...",
             "Override each byte in the range %0X-%0X (e.g. |00|!|00| (value=0, untainted), !|FF| (fully tainted, do not change value))"
             % (abs_start, abs_end),
             text="!|FF|")
@@ -1256,7 +1256,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
     def _handle_context_menu_requested(self, qpoint):
         menu = QtWidgets.QMenu(self.regs_table)
         add_override = QtWidgets.QAction(
-            "Add override", self.regs_table)
+            "Add override...", self.regs_table)
         add_override.triggered.connect(
             lambda: self._add_override(self.regs_table.indexAt(qpoint)))
         menu.addAction(add_override)
