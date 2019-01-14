@@ -390,7 +390,9 @@ struct
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s s.id);
       Printf.fprintf f "\n";
     in
-    G.iter_vertex print_ip g;
+    match !(Config.argv_options.Config.no_state) with
+    | None | Some (false) ->  G.iter_vertex print_ip g;
+    | Some (true) -> ();
     let architecture_str = Config.archi_to_string !Config.architecture in
     Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
     Printf.fprintf f "\n[program]\nnull = 0x%s\nmem_sz=%d\nstack_width=%d\n\n" (Z.format "%02x" (!Config.null_cst) ) (!Config.address_sz)(!Config.stack_width);

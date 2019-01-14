@@ -265,10 +265,12 @@ let default_heap_size = ref (Z.mul (Z.shift_left Z.one 30) (Z.of_int 8))
 (* argv ooptions *)
 type argv_config_t = {
     ignore_unknown_relocations : bool option ref ;
+    no_state : bool option ref ;
   }
 
 let argv_options : argv_config_t = {
     ignore_unknown_relocations = ref None ;
+    no_state = ref None ;
   }
 
 
