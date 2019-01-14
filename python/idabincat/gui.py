@@ -1739,7 +1739,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
             if col == 2:
                 return ("Example override values: !0x1234 (reg or mem), "
                         "!TAINT_ALL (reg only), !TAINT_NONE (reg only), "
-                        "0x12?0x12", "|0xFF|!|0x10|")
+                        "0x12?0x12", "|FF|!|10|")
             return
         if role == Qt.ForegroundRole:
             # basic syntax checking
