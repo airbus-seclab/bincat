@@ -1066,7 +1066,9 @@ let overflow_expression () = Lval (V (T fcf))
         let r'  = V (to_reg r s.operand_sz) in
         (* TODO : check if should sign extend *)
         let w   = get_imm s sz s.operand_sz true in
-        add_sub s op b r' w sz
+        (* XXX damn hack *)
+        let dst_sz = if s.operand_sz = 64 then 64 else sz in
+        add_sub s op b r' w dst_sz
 
 
     let cmp_stmts e1 e2 sz =
