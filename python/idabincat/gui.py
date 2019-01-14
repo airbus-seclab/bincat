@@ -107,7 +107,7 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btn_save, 2, 0)
         layout.addWidget(self.btn_cancel, 2, 1)
         self.setLayout(layout)
-        self.configtxt.setPlainText(str(self.s.edit_config))
+        self.configtxt.setPlainText(str(self.s.edit_config.edit_str()))
         self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
     def sizeHint(self):

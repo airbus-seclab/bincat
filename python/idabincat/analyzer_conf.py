@@ -642,6 +642,11 @@ class AnalyzerConfig(object):
         # 4. Also add nops & skips
         if len(nops) > 0:
             self._config.set('analyzer', 'nop', ','.join([n[0] for n in nops]))
+        else:
+            try:
+                self._config.remove_option('analyzer', 'nop')
+            except ConfigParser.NoSectionError:
+                pass
 
         fun_skip_strs = []
         for sk in skips:
@@ -649,6 +654,11 @@ class AnalyzerConfig(object):
 
         if len(fun_skip_strs) > 0:
             self._config.set('analyzer', 'fun_skip', ', '.join(fun_skip_strs))
+        else:
+            try:
+                self._config.remove_option('analyzer', 'fun_skip')
+            except ConfigParser.NoSectionError:
+                pass
 
     @staticmethod
     def load_from_str(string):
@@ -672,11 +682,40 @@ class AnalyzerConfig(object):
         self._config.remove_section('state')
         self._config.add_section('state')
         for key, val in self.init_state.as_kv():
-            self._config.set("state", key, val)
+            self._config.set('state', key, val)
         sio = StringIO.StringIO()
         self._config.write(sio)
         sio.seek(0)
         return sio.read()
+
+    def edit_str(self):
+        """
+        Return a text representation suitable for user edition
+        """
+        # replaces overrides, nops & skips with warnings. The correct values
+        # will be set before analysis is run
+        if self.analysis_method == 'backward':
+            section = 'state'
+        else:
+            # forward
+            section = 'override'
+        self._config.remove_section(section)
+        # empty section
+        self._config.add_section(section)
+        # hack to add comments
+        self._config.set(
+            section,
+            '; This will be overriden with values from the BinCAT '
+            'Overrides view since the analysis will run in %s mode ;' %
+            self.analysis_method, '')
+
+        self._config.set(
+            'analyzer', 'nop', '; This will be overriden with values '
+            'from the BinCAT Overrides view')
+        self._config.set(
+            'analyzer', 'fun_skip', '; This will be overriden with values '
+            'from the BinCAT Overrides view')
+        return str(self)
 
     @staticmethod
     def get_default_config(analysis_start_va, analysis_stop_va,
@@ -734,25 +773,14 @@ class AnalyzerConfig(object):
             config.set('sections', 'section[%s]' % s[0],
                        '0x%x, 0x%x, 0x%x, 0x%x' % (s[1], s[2], s[3], s[4]))
 
+        config.add_section('state')
+        config.add_section('override')
         if analysis_method == 'forward_binary':
             # [state section]
-            config.add_section('state')
-            config.add_section('override')
-            # hack to add comments
-            config.set('override',
-                       '; This will be overriden by values from the BinCAT '
-                       'Overrides view')
             config.set('state', 'mem[0xb8000000*8192]', '|00|?0xFF')
             init_state = InitialState.get_default(analysis_start_va)
             for key, val in init_state:
-                config.set("state", key, val)
-        else:
-            # backward
-            config.add_section('state')
-            # hack to add comments
-            config.set('state',
-                       '; This will be overriden by values from the BinCAT '
-                       'Overrides view')
+                config.set('state', key, val)
 
         imports = ConfigHelpers.get_imports()
         # [import] section
