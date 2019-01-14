@@ -102,11 +102,13 @@ mem[0x300200] = |6c6f6c2100|
 This tutorial shows how to taint a register, and observe taint propagation.
 
 1. Go back to address `0x93B`
-2. From the **BinCAT Memory** view, section `global`, override the value of
+2. From the **BinCAT Memory** view, section `global`, override the taint of
    every byte at addresses `0x300140`-`0x300147` which contains the
    null-terminated `company` string (see section [Override
-   taint](manual.md#override-taint) of the manual), and set it to `0xFF`.
-   Re-run the analysis.
+   taint or values](manual.md#override-taint-or-values) of
+   the manual), and set it to `!0xFF` (this fully taints
+   the byte, without changing its value).  Re-run the
+   analysis.
 3. Advance to the next instruction at address `0x93F`, and observe that this
    memory range is indeed tainted: both the ASCII and hexadecimal
    representations of this string are displayed as green text
