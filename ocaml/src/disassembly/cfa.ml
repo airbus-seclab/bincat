@@ -371,12 +371,14 @@ struct
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s s.id);
       Printf.fprintf f "\n";
     in
+    begin
     match !(Config.argv_options.Config.no_state) with
-    | None | Some (false) ->  G.iter_vertex print_ip g;
-    | Some (true) -> ();
+        | None | Some (false) ->  G.iter_vertex print_ip g;
+        | Some (true) -> ();
+    end;
     let architecture_str = Config.archi_to_string !Config.architecture in
-    Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
-    Printf.fprintf f "\n[program]\nnull = 0x%s\nmem_sz=%d\nstack_width=%d\n\n" (Z.format "%02x" (!Config.null_cst) ) (!Config.address_sz)(!Config.stack_width);
+    Printf.fprintf f "\n[program]\nnull = 0x%s\nmem_sz=%d\nstack_width=%d\n" (Z.format "%02x" (!Config.null_cst) ) (!Config.address_sz)(!Config.stack_width);
+    Printf.fprintf f "architecture = %s\n\n" architecture_str;
     (* taint sources *)
     Printf.fprintf f "[taint sources]\n"; 
     Hashtbl.iter (fun id src -> Printf.fprintf f "%d = %s\n" id (Dump.string_of_src src)) Dump.taint_src_tbl;
