@@ -16,5 +16,5 @@
 ```
 git clone https://github.com/airbus-seclab/bincat.git
 cd bincat
-make windist
+make windist PYTHON=python
 ```
