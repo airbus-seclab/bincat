@@ -25,37 +25,34 @@ start from. Then, you should:
   **BinCAT >> Analyze from here** menu
   * the **Ctrl + Shift + a** shortcut
 
-### Override taint
-*Taint* can be overridden for any register value or memory byte, at any
-instruction of the program. Overrides will apply at the *next* instruction.
+### Override taint or values
+*Taint* or *Value* can be overridden for any register value or memory byte, at
+any instruction of the program. Overrides will apply at the *next* instruction.
 
-*Taint* overrides can be defined from the following views:
+Overrides can be defined from the following views:
 * from the **IDA View-A** view: right click on a register name or memory
-  address, then use the **Edit >> BinCAT >> Add taint override...** menu, or
-  the contextual menu (right click)
+  address, click the **BinCAT >> Add override...** contextual menu
 
-![Add override from IDA View-A using context menu](img/add-taint-override-view-a.png)
+![Add override from IDA View-A using context menu](img/add-override-view-a.png)
 
 * from the **IDA View-A** view: click on a register name or memory address,
   then use the **Ctrl + Shift + o** shortcut
 * from the **BinCAT Registers** view which shows the registers: right click on
-  a register, then choose the **Add taint override** menu
+  a register, then choose the **Add override...** menu
 
 ![Add override from BinCAT Registers view using context menu](img/add-taint-override-registers-view.png)
 
 * from the **BinCAT Memory** view which shows the contents of the memory: select
-  a memory range, then right click, then choose the **Override taint for
-  selection** menu, and input a mask that must be applied to each selected byte
+  a memory range, then right click, then choose the **Override value or taint for
+  selection** menu
 
 ![Add override from BinCAT Memory view using context menu](img/add-taint-override-memory-view.png)
 
-The following values can be used for register overrides:
-* **TAINT_ALL** indicates that all register bytes are tainted
-* **TAINT_NONE** indicates that no register bytes are tainted
-* a binary or hexadecimal taint mask, such as **0x0F** or **0b00001111**, which
-  will taint the least significant nibble, and untaint the others
+Overrides are made up of an optional value (ex. **|00|**, **0xF0**. Value will be left unchanged if not specified) and a mandatory taint mask (ex. **!0x0F**, **!|FF|**)
 
-For values stored in memory, binary or hexadecimal taint masks are supported.
+For register overrides, the following taint masks are also valid:
+* **!TAINT_ALL** indicates that all register bytes are tainted
+* **!TAINT_NONE** indicates that no register bytes are tainted
 
 Defined taint overrides are then displayed in the **BinCAT Overrides** view.
 
@@ -119,6 +116,16 @@ Memory contents are displayed as a grid, using the same conventions are for the 
 This view lists all user-defined taint overrides, rendered as a grid. Overrides
 can be directly modified by editing grid cells. To remove an override, right
 click on the override that is to be removed, then choose the **Remove** menu.
+
+This view also lists the instructions that are replaced with NOPs by BinCAT. To
+replace an instruction with a NOP, right click this instruction in **IDA
+View-A**, then select **BinCAT >> Replace this instruction with nop**
+
+This view also lists functions that are skipped by BinCAT. To skip a function,
+right click at its address in **IDA View-A**, select **BinCAT >> Skip function
+that starts at current address...**, then input the number of arguments that
+this function takes, as well as its return value, as requested by the dialog
+box.
 
 This view also features a **Re-run analysis** button, which allows conveniently
 re-run the analysis, with updated overrides.

@@ -538,9 +538,13 @@ class State(object):
         self.analyzer = None
         self.hooks = None
         self.netnode = idabincat.netnode.Netnode("$ com.bincat.bcplugin")
-        #: acts as a List of ("eip", "register name", "taint mask")
+        #: acts as a List of (eip (int), "register name", "taint mask")
         #: XXX store in IDB?
         self.overrides = CallbackWrappedList()
+        #: list of [@ or function names (str)]
+        self.nops = CallbackWrappedList()
+        #: list of [@ or function names (str), arg_ng, ret_val]
+        self.skips = CallbackWrappedList()
         #: list of (name, config)
         self.configurations = AnalyzerConfigurations(self)
         # XXX store in idb after encoding?
@@ -762,7 +766,8 @@ class State(object):
         bc_log.info("Current analyzer path: %s", path)
 
         # Update overrides
-        self.current_config.update_overrides(self.overrides)
+        self.current_config.update_overrides(self.overrides, self.nops,
+                                             self.skips)
         analysis_method = self.current_config.analysis_method
         if analysis_method in ("forward_cfa", "backward"):
             if self.last_cfaout_marshal is None:
