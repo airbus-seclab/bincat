@@ -112,8 +112,11 @@ lindist: clean all
 	mkdir "$(distdir)/python/idabincat/lib"
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md doc "$(distdir)"
+	# On azure, do not zip or delete $(distdir)
+ifeq ($(BUILD_BUILDID),)
 	tar cvJf "$(distdir).tar.xz" "$(distdir)"
 	-rm -rf "$(distdir)"
+endif
 
 tags:
 	otags -vi -r ocaml
