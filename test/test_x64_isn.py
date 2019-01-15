@@ -652,7 +652,7 @@ def test_loop_repne_scasb_unknown_memory(tmpdir):
     asm = """
             mov rdi, rsp
             xor al,al
-            mov rcx, 0xffffffff
+            mov rcx, 0xff
             cld
             repne scasb
             pushf
