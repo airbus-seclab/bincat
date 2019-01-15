@@ -56,11 +56,11 @@ doc: all
 
 clean:
 	@echo "Cleaning OCaml part.................................................."
-	@make -C $(MLPATH) clean || /bin/true
+	@make -C $(MLPATH) clean || true
 	@echo "Cleaning lib........................................................."
-	@make -C $(NPKPATH) clean || /bin/true
+	@make -C $(NPKPATH) clean || true
 	@echo "Cleaning python part................................................."
-	@make -C $(PYPATH) clean || /bin/true
+	@make -C $(PYPATH) clean || true
 	echo "Cleaning documentation................................................"
 	-rm -rf $(DOCGENPATH)
 	-rm -rf $(PYPATH)/tests/__pycache__
