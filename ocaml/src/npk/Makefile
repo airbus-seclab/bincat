@@ -167,9 +167,9 @@ clean:
 	rm -f disassembly/*.so
 	rm -f newspeak.{a,cma,cmxa} c2newspeak.{opt,byte}
 	rm -f armv8A_ppx
-	rm -f c2newspeak/{pp_,abi}{lexer,parser}.{ml,mli,output}
-	rm -f c2newspeak/npk{Lexer,Parser}.{ml,mli,output}
-	rm -f newspeak/{,abi}{lexer,parser}.{ml,mli,output}
+	rm -f c2newspeak/{pp_,abi}{lexer,parser}.{ml,mli,output,conflicts}
+	rm -f c2newspeak/npk{Lexer,Parser}.{ml,mli,output,conflicts}
+	rm -f newspeak/{,abi}{lexer,parser}.{ml,mli,output,conflicts}
 
 
 
