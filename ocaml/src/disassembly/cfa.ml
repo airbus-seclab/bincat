@@ -55,7 +55,7 @@ sig
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t;    (** set of taint sources*)
       mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
-      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list) (** table of user defined handlers * default handler behavior *)
+      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list); (** table of user defined handlers * default handler behavior *)
     }
 
     val compare: t -> t -> int
@@ -175,7 +175,7 @@ struct
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t;     (** set of taint sources. Empty if not tainted  *)
       mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
-      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list) (** table of handlers ; None is the default behavior of the signal Some a means the user specified handler is at address a *)
+      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list); (** table of handlers ; None is the default behavior of the signal Some a means the user specified handler is at address a *)
     }
 
     (** the state identificator counter *)

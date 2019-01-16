@@ -54,7 +54,7 @@ module type T =
       mutable bytes: char list;      (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t; (** set of taint sources *)
       mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
-      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list) (** table of handlers *)
+      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list); (** table of handlers *)
     }
 
     val compare: t -> t -> int
