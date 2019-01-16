@@ -1,6 +1,7 @@
 trigger:
-- master
-- azure-pipeline
+  - master
+  - azure-pipeline
+  - x64
 
 jobs:
   - job: Windows_release
