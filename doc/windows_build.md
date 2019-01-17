@@ -3,7 +3,7 @@
 ### Install the OCaml environment
 
 * install OCaml 64-bit from <https://fdopen.github.io/opam-repository-mingw/>
-* install depex (`opam install depext depext-cygwinports`)
+* install depext (`opam install depext depext-cygwinports`)
 * install libgmp (`opam depext conf-gmp.1`)
 * install dependencies (`opam install menhir zarith ocamlgraph ppx_tools cppo num`)
 * source environment variables: `eval $(ocaml-env cygwin)`
@@ -16,5 +16,5 @@
 ```
 git clone https://github.com/airbus-seclab/bincat.git
 cd bincat
-make windist
+make windist PYTHON=python
 ```

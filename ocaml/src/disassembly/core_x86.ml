@@ -842,7 +842,7 @@ let overflow_expression () = Lval (V (T fcf))
             (* ctx#value_of_register gets the value from the interpreter *)
             List.iter (fun r -> Hashtbl.add registers r (get_segment_register_mask (ctx#value_of_register r))) [ cs; ds; ss; es; fs; gs ];
             registers
-        with _ -> error a "Decoder: overflow in a segment register"
+        with _ -> error a "Decoder: Error in get_segments"
 
     (* copy segments registers from the interpreter context to the decoder *)
     let copy_segments s addr ctx =
@@ -1041,7 +1041,7 @@ let overflow_expression () = Lval (V (T fcf))
 
     (** produces the list of statements for ADD, SUB, ADC, SBB depending on
     the value of the operator and the boolean value (=true for carry or borrow) *)
-    let add_sub s op use_carry dst src _sz =
+    let add_sub s op use_carry dst src dst_sz =
         let name    = Register.fresh_name () in
         let res_reg = Register.make ~name:name ~size:s.operand_sz in
         let res = V (T res_reg) in
@@ -1054,11 +1054,11 @@ let overflow_expression () = Lval (V (T fcf))
                   carry_flag_stmts s.operand_sz (Lval dst) op src ; ] in
         return s
             (res_cf_stmts @ [
-                 adjust_flag_stmts_from_res s.operand_sz (Lval dst) src (Lval res) ;
-                 overflow_flag_stmts s.operand_sz (Lval res) (Lval dst) op src ;
-                 zero_flag_stmts s.operand_sz (Lval res) ;
-                 sign_flag_stmts s.operand_sz (Lval res) ;
-                 parity_flag_stmts s.operand_sz (Lval res) ; ] @
+                 adjust_flag_stmts_from_res dst_sz (Lval dst) src (Lval res) ;
+                 overflow_flag_stmts dst_sz (Lval res) (Lval dst) op src ;
+                 zero_flag_stmts dst_sz (Lval res) ;
+                 sign_flag_stmts dst_sz (Lval res) ;
+                 parity_flag_stmts dst_sz (Lval res) ; ] @
                  Arch.set_dest dst (Lval res) @
                  [ Directive (Remove res_reg) ]
              )
@@ -1069,7 +1069,9 @@ let overflow_expression () = Lval (V (T fcf))
         let r'  = V (to_reg r s.operand_sz) in
         (* TODO : check if should sign extend *)
         let w   = get_imm s sz s.operand_sz true in
-        add_sub s op b r' w sz
+        (* XXX damn hack *)
+        let dst_sz = if s.operand_sz = 64 then 64 else sz in
+        add_sub s op b r' w dst_sz
 
 
     let cmp_stmts e1 e2 sz =
@@ -2090,7 +2092,17 @@ let overflow_expression () = Lval (V (T fcf))
         | _ -> error s.a "Illegal opcode in grp 4"
 
     let grp5 s =
-      let nnn, dst = core_grp s s.operand_sz in
+      let c =  Char.code (getchar s) in
+      let md, nnn, rm = mod_nnn_rm c in
+      (* group 5 is annoying, all instructions except inc and dec (/0 and /1)
+       * use 64 bit destination operands in 64 bit mode, so we have
+       * to special case inc and dec *)
+      let sz = match nnn with
+        | 0 | 1 -> s.operand_sz
+        | _ -> begin try (Arch.get_operand_sz_for_stack ())
+            with Exit -> s.operand_sz;  end;
+      in
+      let dst = exp_of_md s md rm sz sz in
         match nnn with
         | 0 -> inc_dec dst Add s s.operand_sz
         | 1 -> inc_dec dst Sub s s.operand_sz
@@ -2413,12 +2425,12 @@ let overflow_expression () = Lval (V (T fcf))
             | c when '\x6C' <= c && c <= '\x6F' (* INS and OUTS *) || '\xA4' <= c && c <= '\xA5' (* MOVS *) -> c
             | c when '\xAE' <= c && c <= '\xAF' -> (* CMPS *) s.repe <- true; c
             | c when '\xA6' <= c && c <= '\xA7' -> (* SCAS *) s.repe <-true; c
-            | _ -> error s.a (Printf.sprintf "Decoder: undefined behavior of REP with opcode %x" (Char.code c))
+            | _ -> L.warn (fun p->p "%s: Decoder: undefined behavior of REP with opcode %x" (Data.Address.to_string s.a) (Char.code c)); c
         else
         if s.repne then
             match c with
             | c when '\xA6' <= c && c <= '\xA7' || '\xAE' <= c && c <= '\xAF' -> c
-            | _ -> error s.a (Printf.sprintf "Decoder: undefined behavior of REPNE/REPNZ with opcode %x" (Char.code c))
+            | _ -> L.warn (fun p->p "%s: Decoder: undefined behavior of REPNE with opcode %x" (Data.Address.to_string s.a) (Char.code c)); c
         else
             c
 
@@ -2833,11 +2845,15 @@ let overflow_expression () = Lval (V (T fcf))
               match List.hd v.Cfa.State.stmts with
               | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
               | _ ->
-                 (* hack: if we do not have a cmps or a scas remove repe/repne flag *)
+                 (* XXX:
+                  * if we do not have a cmps or a scas remove repe/repne flag 
+                  * the intel documentation says rep behaviour with non string instructions
+                  * is undefined
+                  * *)
                  begin
                    match List.hd s.c with
-                    | '\xA6' | '\xA7' | '\xAE' | '\xAF' -> ();
-                    | _ -> s.repe <- false; s.repne <- false;
+                    | '\x6C' | '\x6D'| '\x6E' | '\x6F' | '\xA6' | '\xA7' | '\xAE' | '\xAF' -> ();
+                    | _ -> s.repe <- false; s.repne <- false; raise (No_rep (v, ip))
                  end;
                  L.debug (fun p->p "rep decoder: s.repe : %b, s.repne: %b" s.repe s.repne);
                  let ecx_cond  = Cmp (NEQ, Lval (V (to_reg ecx s.addr_sz)), Const (Word.zero s.addr_sz)) in

@@ -714,7 +714,9 @@ module Make(V: Val) =
     let nth_of_z_as_val v i = if Z.testbit v i then V.one else V.zero
     let nth_of_z v i = if Z.testbit v i then Z.one else Z.zero
         
-    let of_word w =
+
+    (* real implementation of 'of_word' *)
+    let of_word_real w =
       let sz = Data.Word.size w    in
       let w' = Data.Word.to_int w  in
       let r  = Array.make sz V.top in
@@ -723,6 +725,22 @@ module Make(V: Val) =
         r.(n'-i) <- nth_of_z_as_val w' i
       done;
       r
+
+    (* Hashtbl to memoize "of_word" *)
+    let const_htbl = ref (Hashtbl.create 1000)
+
+    (* memoized version, see 'of_word_real' *)
+    let of_word w =
+      try
+        begin
+          let value = Hashtbl.find !const_htbl w in
+          value
+        end
+      with Not_found -> begin
+          let r = of_word_real w in
+          Hashtbl.add !const_htbl w r;
+          r
+     end
         
     let to_addresses r v =
       Data.Address.Set.singleton (r, to_word V.to_z v)

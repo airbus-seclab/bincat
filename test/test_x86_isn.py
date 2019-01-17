@@ -559,6 +559,13 @@ def test_arith_sub_imm32(tmpdir, op32, op32_):
           """.format(**locals())
     compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
+def test_arith_sub_reg8(tmpdir, op32, op8):
+    asm = """
+            mov edx, {op32:#x}
+            sub dl, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["edx", "of", "sf", "zf", "cf", "pf", "af"])
+
 def test_arith_sub_reg32(tmpdir, op32, op32_):
     asm = """
             mov eax, {op32:#x}
@@ -862,7 +869,7 @@ def test_loop_repne_scasb_unknown_memory(tmpdir):
     asm = """
             mov edi, esp
             xor al,al
-            mov ecx, 0xffffffff
+            mov ecx, 0x40
             cld
             repne scasb
             pushf

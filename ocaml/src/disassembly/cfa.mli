@@ -134,7 +134,7 @@ module type T =
 
   (** [iter_state_ip f ip] iterates function _f_ on states that have _ip_ as ip field *)
   val iter_state_ip: (State.t -> unit) -> t -> Data.Address.t -> unit
-  
+
 end
 
 module Make: functor (D: Domain.T) ->

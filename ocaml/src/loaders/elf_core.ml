@@ -661,6 +661,18 @@ let sym_to_string sym =
     (Z.to_int sym.st_shndx)
     sym.p_st_name
 
+let make_null_sym shdr =
+  {
+    p_st_shdr = shdr ;
+    p_st_name = "" ;
+    st_name = Z.zero;
+    st_value = Z.zero ;
+    st_size = Z.zero ;
+    st_bind = STB_LOCAL ;
+    st_type = STT_NOTYPE ;
+    st_other = Z.zero ;
+    st_shndx = Z.zero ;
+  }
 
 (* ELF relocation types *)
 
@@ -673,7 +685,7 @@ type reloc_type_t =
  | R_X86_64_NONE | R_X86_64_64 | R_X86_64_PC32 | R_X86_64_GOT32 | R_X86_64_PLT32 | R_X86_64_COPY
  | R_X86_64_GLOB_DAT | R_X86_64_JUMP_SLOT | R_X86_64_RELATIVE | R_X86_64_GOTPCREL | R_X86_64_32
  | R_X86_64_32S | R_X86_64_16 | R_X86_64_PC16 | R_X86_64_8 | R_X86_64_PC8 | R_X86_64_PC64
- | R_X86_64_GOTOFF64 | R_X86_64_GOTPC32 | R_X86_64_SIZE32 | R_X86_64_SIZE64
+ | R_X86_64_GOTOFF64 | R_X86_64_GOTPC32 | R_X86_64_SIZE32 | R_X86_64_SIZE64 | R_X86_64_IRELATIV
   (* ARM relocation types *)
   | R_ARM_NONE | R_ARM_COPY | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
   (* AARCH64 relocation types *)
@@ -707,7 +719,7 @@ let to_reloc_type r hdr =
          | 8 -> R_X86_64_RELATIVE | 9 -> R_X86_64_GOTPCREL  | 10 -> R_X86_64_32      | 11 -> R_X86_64_32S
          | 12 -> R_X86_64_16      | 13 -> R_X86_64_PC16     | 14 -> R_X86_64_8       | 15 -> R_X86_64_PC8
          | 24 -> R_X86_64_PC64    | 25 -> R_X86_64_GOTOFF64 | 26 -> R_X86_64_GOTPC32
-         | 32 -> R_X86_64_SIZE32  | 33 -> R_X86_64_SIZE64
+         | 32 -> R_X86_64_SIZE32  | 33 -> R_X86_64_SIZE64 | 37 -> R_X86_64_IRELATIV
          | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
     | ARM ->
@@ -766,6 +778,7 @@ let reloc_type_to_string rel =
   | R_X86_64_16 -> "R_X86_64_16"              | R_X86_64_PC16 -> "R_X86_64_PC16"            | R_X86_64_8 -> "R_X86_64_8"
   | R_X86_64_PC8 -> "R_X86_64_PC8"            | R_X86_64_PC64 -> "R_X86_64_PC64"            | R_X86_64_GOTOFF64 -> "R_X86_64_GOTOFF64"
   | R_X86_64_GOTPC32 -> "R_X86_64_GOTPC32"    | R_X86_64_SIZE32 -> "R_X86_64_SIZE32"        | R_X86_64_SIZE64 -> "R_X86_64_SIZE64"
+  | R_X86_64_IRELATIV -> "R_X86_64_IRELATIV"
   | R_ARM_NONE -> "R_ARM_NONE"
   | R_ARM_COPY -> "R_ARM_COPY" | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT"
   | R_AARCH64_COPY -> "R_AARCH64_COPY"                 | R_AARCH64_GLOB_DAT -> "R_AARCH64_GLOB_DAT"
@@ -852,7 +865,9 @@ let to_rela s rofs shdr symtab hdr =
   let info = zdec_word_xword s (rofs+addrsz) hdr.e_ident in
   let symnum = Z.shift_right info shift in
   let syms = List.filter (fun (sym:e_sym_t) -> sym.p_st_shdr.p_sh_index = shdr.sh_link) symtab in
-  let sym = List.nth syms (Z.to_int symnum) in
+  let sym = try List.nth syms (Z.to_int symnum)
+            with Failure _ -> L.abort (fun p -> p "RELA at offset %08x: cannot find symbol %i in section %i"
+                                              rofs (Z.to_int symnum) shdr.sh_link) in
   {
     p_r_shdr = shdr ;
     p_r_sym = sym ;
@@ -1036,11 +1051,12 @@ let to_elf s =
   let hdr = to_hdr s in
   let phdr = List.map (fun phi -> to_phdr s hdr phi) (Misc.seq 0 (hdr.e_phnum-1)) in
   let shdr = List.map (fun shi -> to_shdr s hdr shi) (Misc.seq 0 (hdr.e_shnum-1)) in
+  let null_sh = List.find (fun sh -> sh.sh_type = SHT_NULL) shdr in
   let symtab_sections = List.filter (fun sh -> sh.sh_type = SHT_SYMTAB || sh.sh_type = SHT_DYNSYM) shdr in
   let dynamic_sections = List.filter (fun sh -> sh.sh_type = SHT_DYNAMIC) shdr in
   let rel_sections = List.filter (fun sh -> sh.sh_type = SHT_REL) shdr in
   let rela_sections = List.filter (fun sh -> sh.sh_type = SHT_RELA) shdr in
-  let symtab = List.flatten (
+  let symtab = (make_null_sym null_sh) :: List.flatten (
     List.map (
       fun sh ->
         map_section_entities (fun ofs -> to_sym s ofs sh  (linked_shdr sh shdr) hdr.e_ident)  sh

@@ -6,11 +6,13 @@ ifdef DESTDIR
 DESTDIROPT = --root=$(DESTDIR)
 endif
 
+PYTHON     ?=python2
+
 all:
-	python2 ./setup.py build
+	$(PYTHON) ./setup.py build
 
 install:
-	python2 ./setup.py install $(PREFIXOPT) $(DESTDIROPT)
+	$(PYTHON) ./setup.py install $(PREFIXOPT) $(DESTDIROPT)
 
 doc:
 	make -C doc generate

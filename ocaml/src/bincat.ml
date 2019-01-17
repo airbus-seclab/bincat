@@ -25,6 +25,12 @@ let anon_args = ref [] in
 let speclist = [
     "--ignore-unknown-relocations", Arg.Unit (fun () -> Config.argv_options.Config.ignore_unknown_relocations := Some true),
     "Ignore unknown relocations when loading binary instead of aborting" ;
+    "--no-state", Arg.Unit (fun () -> Config.argv_options.Config.no_state := Some true),
+    "Do not output state in output .ini" ;
+    "--filepath", Arg.String (fun arg -> Config.argv_options.Config.filepath := Some arg),
+    "Path to file to be analyzed" ;
+    "--entrypoint", Arg.String (fun arg -> Config.argv_options.Config.entrypoint := Some (Z.of_string arg)),
+    "Entry point";
   ] in
 let usage = "usage: bincat init.ini output.ini outlog" in
 Arg.parse speclist (fun x -> anon_args := x :: !anon_args) usage;

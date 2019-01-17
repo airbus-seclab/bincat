@@ -31,6 +31,7 @@ Supported host platforms:
 
 Supported CPU for analysis (for now):
 * x86-32
+* x86-64
 * ARMv7
 * ARMv8
 * PowerPC

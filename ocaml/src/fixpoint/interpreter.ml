@@ -513,9 +513,26 @@ struct
                   | _ ->
                      (List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.Set.singleton Taint.U), false
                 end
-               
+
              | Jmp (R target) ->
-                fold_to_target (fun _a -> ()) vertices target, false
+                let res =
+                  begin
+                  match target with
+                  | Lval (M (Const c, _)) ->
+                     begin
+                       let a = Data.Address.of_word c in
+                       try
+                         let res = skip_or_import_call vertices a fun_stack in
+                         fun_stack := List.tl !fun_stack;
+                         res
+                       with Not_found ->
+                         List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.Set.singleton Taint.U
+                     end
+                    
+                  | target -> fold_to_target (fun _a -> ()) vertices target
+                  end
+                in res, false
+                  
                
              | Call (A a) ->
                 add_to_fun_stack a;

@@ -133,7 +133,7 @@ sig
 
   (** [iter_state_ip f ip] iterates function _f_ on states that have _ip_ as ip field *)
   val iter_state_ip: (State.t -> unit) -> t -> Data.Address.t -> unit
-    
+
 end
 
 (** the control flow automaton functor *)
@@ -333,7 +333,9 @@ struct
 
   let remove_successor ((g, _): t) (src: State.t) (dst: State.t): unit = G.remove_edge g src dst
 
-  let add_state (g, ips: t) (v: State.t): unit =   
+
+  let add_state (g, ips: t) (v: State.t): unit =
+
      let states =
        try Hashtbl.find ips v.State.ip
       with Not_found -> []
@@ -353,6 +355,7 @@ struct
     try List.iter f (Hashtbl.find ips ip)
     with Not_found -> ()
                     
+
   let pred (g, _ips: t) (v: State.t): State.t =
     try List.hd (G.pred g v)
     with _ -> raise (Invalid_argument "vertex without predecessor")
@@ -363,7 +366,7 @@ struct
   let last_addr (_, ips: t) (ip: Data.Address.t): State.t =
     try List.hd (Hashtbl.find ips ip)
     with _ -> raise Not_found
-     
+
   let print (dumpfile: string) (g, _: t): unit =
     let f = open_out dumpfile in
     (* state printing (detailed) *)
@@ -390,10 +393,14 @@ struct
       List.iter (fun v -> Printf.fprintf f "%s\n" v) (print_field s s.id);
       Printf.fprintf f "\n";
     in
-    G.iter_vertex print_ip g;
+    begin
+    match !(Config.argv_options.Config.no_state) with
+        | None | Some (false) ->  G.iter_vertex print_ip g;
+        | Some (true) -> ();
+    end;
     let architecture_str = Config.archi_to_string !Config.architecture in
-    Printf.fprintf f "\n[loader]\narchitecture = %s\n\n" architecture_str;
-    Printf.fprintf f "\n[program]\nnull = 0x%s\nmem_sz=%d\nstack_width=%d\n\n" (Z.format "%02x" (!Config.null_cst) ) (!Config.address_sz)(!Config.stack_width);
+    Printf.fprintf f "\n[program]\nnull = 0x%s\nmem_sz=%d\nstack_width=%d\n" (Z.format "%02x" (!Config.null_cst) ) (!Config.address_sz)(!Config.stack_width);
+    Printf.fprintf f "architecture = %s\n\n" architecture_str;
     (* taint sources *)
     Printf.fprintf f "[taint sources]\n"; 
     Hashtbl.iter (fun id src -> Printf.fprintf f "%d = %s\n" id (Dump.string_of_src src)) Dump.taint_src_tbl;

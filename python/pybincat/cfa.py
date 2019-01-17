@@ -170,7 +170,7 @@ class CFA(object):
                 "Parsing error: no sections in %s, check analysis logs" %
                 filename)
 
-        cls.arch = config.get('loader', 'architecture')
+        cls.arch = config.get('program', 'architecture')
         cls.mem_sz = config.get('program', 'mem_sz')
         # parse taint sources first -- will be used when parsing Node
         # sorting ensures that a node will be parsed before its unrels
