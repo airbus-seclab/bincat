@@ -1,5 +1,6 @@
 
 import pytest
+import hashlib
 
 
 def armv8_bitmasks():
@@ -21,6 +22,7 @@ def armv8_bitmasks():
 
 class TestValues:
     _name = "NA"
+    hash_single = False
     loop_cnt = [1, 15, 100]
     op3 = [ 0, 1, 4, 7 ]
     op5 = [ 0, 1, 8, 30, 31 ]
@@ -83,18 +85,31 @@ class Small(TestValues):
     x86carryop = [ "stc" ]
     op3 = [ 0, 7 ]
 
-COVERAGES = [Large, Medium, Small]
+class Smoke(Large):
+    """
+    Fast(er?) test set for CI
+    """
+    hash_single = True
+    _name = "smoke"
+
+
+COVERAGES = [Large, Medium, Small, Smoke]
+
 
 def pytest_addoption(parser):
     parser.addoption("--coverage", choices=[x._name for x in COVERAGES],
                      default="medium", help="test more or less values")
 
 
-
 def pytest_generate_tests(metafunc):
-    fmap = {x._name:x for x in COVERAGES}[metafunc.config.option.coverage]
+    func_name = metafunc.definition.name
+    fmap = {x._name: x for x in COVERAGES}[metafunc.config.option.coverage]
     for fn in metafunc.fixturenames:
-        fnstr = fn.rstrip("_") # alias foo_, foo__, etc. to foo
+        fnstr = fn.rstrip("_")  # alias foo_, foo__, etc. to foo
         if hasattr(fmap, fnstr):
-            metafunc.parametrize(fn, getattr(fmap, fnstr))
-
+            params = getattr(fmap, fnstr)
+            if fmap.hash_single:
+                hashint = int(hashlib.sha1(func_name + fnstr).hexdigest(), 16)
+                paramidx = hashint % len(params)
+                params = [params[paramidx]]
+            metafunc.parametrize(fn, params)
