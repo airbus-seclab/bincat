@@ -738,28 +738,28 @@ def test_push_imm(tmpdir, op64):
 def test_misc_movzx(tmpdir, op32):
     asm = """
             mov eax, {op32:#x}
-            mov ebx, 0
+            mov rbx, 0
             movzx bx, al
-            movzx ecx, al
-            movzx edx, ax
+            movzx rcx, al
+            movzx rdx, ax
           """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
 
 def test_misc_movsx(tmpdir, op32):
     asm = """
             mov eax, {op32:#x}
-            mov ebx, 0
+            mov rbx, 0
             movsx bx, al
-            movsx ecx, al
-            movsx edx, ax
+            movsx rcx, al
+            movsx rdx, ax
           """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
 
 def test_misc_pushf_popf(tmpdir):
     asm = """
             stc
             mov eax, 0x7fffffff
-            mov ebx, 0x7fffffff
+            mov rbx, 0x7fffffff
             pushf
             popf
             adc ax, bx
@@ -774,245 +774,231 @@ def test_misc_pushf(tmpdir):
           """
     compare(tmpdir, asm, ["rdx", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_misc_popf(tmpdir):
-    asm = """
-            mov rax, -1
-            push rax
-            popf
-          """
-    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
-
 
 def test_misc_xlat(tmpdir, op8):
     asm = """
-            mov ecx, 64
+            mov rcx, 64
          loop:
             mov eax, 0x01020304
-            mul ecx
-            push eax
-            dec ecx
+            mul rcx
+            push rax
+            dec rcx
             jnz loop
-            mov ebx, esp
+            mov rbx, rsp
             mov eax, 0xf214cb00
             mov al, {op8:#x}
             xlat
           """.format(**locals())
-    compare(tmpdir, asm, ["eax"])
+    compare(tmpdir, asm, ["rax"])
 
-def test_misc_xchg_m32_r32(tmpdir):
+def test_misc_xchg_m64_r64(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
-           mov eax, 0x87654321
-           xchg [esp+4], eax
-           pop ebx
-           pop ecx
+           mov rax, 0x87654641
+           xchg [rsp+4], rax
+           pop rbx
+           pop rcx
          """
-    compare(tmpdir, asm, ["eax", "ebx", "ecx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx"])
 
 def test_misc_xchg_m8_r8(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
-           mov eax, 0x87654321
-           xchg [esp+4], al
-           pop ebx
-           pop ecx
+           mov rax, 0x87654321
+           xchg [rsp+4], al
+           pop rbx
+           pop rcx
          """
-    compare(tmpdir, asm, ["eax", "ebx", "ecx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx"])
 
-def test_misc_xchg_r32_r32(tmpdir):
+def test_misc_xchg_r64_r64(tmpdir):
     asm = """
-           mov eax, 0x12345678
-           mov ebx, 0x87654321
-           xchg eax, ebx
+           mov rax, 0x12345678
+           mov rbx, 0x87654641
+           xchg rax, rbx
          """
-    compare(tmpdir, asm, ["eax", "ebx"])
+    compare(tmpdir, asm, ["rax", "rbx"])
 
-def test_misc_cmpxchg_r32_r32(tmpdir, someval32, someval32_, someval32__):
+def test_misc_cmpxchg_r64_r64(tmpdir, someval64, someval64_, someval64__):
     asm = """
-           mov eax, {someval32:#x}
-           mov ebx, {someval32_:#x}
-           mov ecx, {someval32__:#x}
-           cmpxchg ebx, ecx
+           mov rax, {someval64:#x}
+           mov rbx, {someval64_:#x}
+           mov rcx, {someval64__:#x}
+           cmpxchg rbx, rcx
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "zf"])
 
 def test_misc_cmpxchg_r16_r16(tmpdir, someval16, someval16_, someval16__):
     asm = """
-           mov eax, {someval16:#x}
-           mov ebx, {someval16_:#x}
-           mov ecx, {someval16__:#x}
+           mov rax, {someval16:#x}
+           mov rbx, {someval16_:#x}
+           mov rcx, {someval16__:#x}
            cmpxchg bx, cx
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "zf"])
 
 def test_misc_cmpxchg_r8_r8(tmpdir, someval8, someval8_, someval8__):
     asm = """
-           mov eax, {someval8:#x}
-           mov ebx, {someval8_:#x}
-           mov ecx, {someval8__:#x}
+           mov rax, {someval8:#x}
+           mov rbx, {someval8_:#x}
+           mov rcx, {someval8__:#x}
            cmpxchg bl, cl
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "zf"])
 
-def test_misc_cmpxchg_m32_r32(tmpdir, someval32, someval32_, someval32__):
+def test_misc_cmpxchg_m64_r64(tmpdir, someval64, someval64_, someval64__):
     asm = """
-           mov eax, {someval32:#x}
+           mov rax, {someval64:#x}
            push 0
-           push {someval32_:#x}
-           mov ecx, {someval32__:#x}
-           cmpxchg [esp+4], ecx
-           pop ebx
-           pop ebx
+           push {someval64_:#x}
+           mov rcx, {someval64__:#x}
+           cmpxchg [rsp+4], rcx
+           pop rbx
+           pop rbx
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "zf"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "zf"])
 
 def test_misc_cmpxchg8b_posofs(tmpdir, someval64, someval64_, someval64__):
-    # keep order of registers so that edx:eax <- v1, ecx:ebx <- v2 and [esp+4] <- v3
+    # keep order of registers so that rdx:eax <- v1, rcx:rbx <- v2 and [rsp+4] <- v3
     v1h, v1l = someval64>>32,   someval64&0xffffffff
     v2h, v2l = someval64_>>32,  someval64_&0xffffffff
     v3h, v3l = someval64__>>32, someval64__&0xffffffff
     asm = """
-           mov edx, {v1h:#x}
-           mov eax, {v1l:#x}
-           mov ecx, {v2h:#x}
-           mov ebx, {v2l:#x}
+           mov rdx, {v1h:#x}
+           mov rax, {v1l:#x}
+           mov rcx, {v2h:#x}
+           mov rbx, {v2l:#x}
            push {v3h:#x}
            push {v3l:#x}
            push 0
-           cmpxchg8b [esp+4]
-           pop esi
-           pop esi
-           pop edi
+           cmpxchg8b [rsp+4]
+           pop rsi
+           pop rsi
+           pop rdi
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "esi", "edi", "zf"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "zf"])
 
 def test_misc_cmpxchg8b_negofs(tmpdir, someval64, someval64_, someval64__):
-    # keep order of registers so that edx:eax <- v1, ecx:ebx <- v2 and [esp+4] <- v3
+    # keep order of registers so that rdx:eax <- v1, rcx:rbx <- v2 and [rsp+4] <- v3
     v1h, v1l = someval64>>32,   someval64&0xffffffff
     v2h, v2l = someval64_>>32,  someval64_&0xffffffff
     v3h, v3l = someval64__>>32, someval64__&0xffffffff
     asm = """
-           mov esi, esp
-           mov edx, {v1h:#x}
-           mov eax, {v1l:#x}
-           mov ecx, {v2h:#x}
-           mov ebx, {v2l:#x}
+           mov rsi, rsp
+           mov rdx, {v1h:#x}
+           mov rax, {v1l:#x}
+           mov rcx, {v2h:#x}
+           mov rbx, {v2l:#x}
            push {v3h:#x}
            push {v3l:#x}
-           cmpxchg8b [esi-8]
-           pop esi
-           pop edi
+           cmpxchg8b [rsi-8]
+           pop rsi
+           pop rdi
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "esi", "edi", "zf"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "zf"])
 
-def test_misc_xadd_r32_r32(tmpdir, op32, op32_):
+def test_misc_xadd_r64_r64(tmpdir, op64, op64_):
     asm = """
-           mov eax, {op32:#x}
-           mov ebx, {op32_:#x}
-           xadd eax, ebx
+           mov eax, {op64:#x}
+           mov rbx, {op64_:#x}
+           xadd rax, rbx
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx"])
+    compare(tmpdir, asm, ["rax", "rbx"])
 
 def test_misc_xadd_r16_r16(tmpdir, op16, op16_):
     asm = """
            mov eax, {op16:#x}
-           mov ebx, {op16_:#x}
+           mov rbx, {op16_:#x}
            xadd ax, bx
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx"])
+    compare(tmpdir, asm, ["rax", "rbx"])
 
 def test_misc_xadd_r8_r8(tmpdir, op8, op8_):
     asm = """
            mov eax, {op8:#x}
-           mov ebx, {op8_:#x}
+           mov rbx, {op8_:#x}
            xadd al, bl
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx"])
+    compare(tmpdir, asm, ["rax", "rbx"])
 
-def test_misc_xadd_m32_r32(tmpdir, op32, op32_):
+def test_misc_xadd_m64_r64(tmpdir, op64, op64_):
     asm = """
-           push 0
-           push {op32_:#x}
-           mov ebx, {op32_:#x}
-           xadd [esp+4], ebx
-           pop eax
-           pop eax
+           xor rax, rax
+           push rax
+           mov rax, {op64_:#x}
+           push rax
+           mov rbx, {op64_:#x}
+           xadd [rsp+8], rbx
+           pop rax
+           pop rax
          """.format(**locals())
-    compare(tmpdir, asm, ["eax", "ebx"])
+    compare(tmpdir, asm, ["rax", "rbx"])
 
 def test_misc_mov_rm32_r32(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
            mov eax, 0x87654321
-           mov [esp+4], eax
-           pop ebx
-           pop ecx
+           mov [rsp+4], eax
+           pop rbx
+           pop rcx
          """
-    compare(tmpdir, asm, ["eax", "ebx", "ecx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx"])
 
 def test_misc_mov_rm8_r8(tmpdir):
     asm = """
            push 0x12345678
            push 0xabcdef12
            mov eax, 0x87654321
-           mov [esp+4], al
-           pop ebx
-           pop ecx
+           mov [rsp+4], al
+           pop rbx
+           pop rcx
          """
-    compare(tmpdir, asm, ["eax", "ebx", "ecx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx"])
 
 def test_misc_push_segs_sel(tmpdir):
     asm = """
             push 0
-            pop eax
+            pop rax
             push 0
-            pop ebx
+            pop rbx
             push 0
-            pop ecx
+            pop rcx
             push 0
-            pop edx
+            pop rdx
             push 0
-            pop edi
+            pop rdi
             push 0
-            pop esi
+            pop rsi
 
-            push cs
-            pop eax
-            push ds
-            pop ebx
-            push ss
-            pop ecx
-            push es
-            pop edx
             push fs
-            pop edi
+            pop rdi
             push gs
-            pop esi
+            pop rsi
           """
-    compare(tmpdir, asm, ["eax", "ebx", "ecx", "edx", "edi", "esi"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "rdi", "rsi"])
 
-def test_misc_lea_complex(tmpdir, op32):
+def test_misc_lea_complex(tmpdir, op64):
     asm = """
-            mov eax, {op32:#x}
-            mov ebx, {op32:#x}
-            lea eax, [ebx+eax*2+0x124000]
-            lea ebx, [eax*4+ebx+0x124000]
+            mov rax, {op64:#x}
+            mov rbx, {op64:#x}
+            lea rax, [rbx+rax*2+0x124000]
+            lea rbx, [rax*4+rbx+0x124000]
           """.format(**locals())
-    compare(tmpdir, asm, ["eax"])
+    compare(tmpdir, asm, ["rax"])
 
 def test_misc_lea_imm(tmpdir):
     asm = """
             mov eax, 0
-            mov ebx, 0
-            mov ecx, 0
+            mov rbx, 0
+            mov rcx, 0
             lea eax, [0x124000]
             lea bx, [0x1240]
             lea cx, [0x124000]
           """
-    compare(tmpdir, asm, ["eax", "ebx", "ecx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx"])
 
 def test_read_code_as_data(tmpdir):
     asm = """
@@ -1020,15 +1006,7 @@ def test_read_code_as_data(tmpdir):
        lbl:
            nop
            nop
-           pop esi
-           mov eax, [esi]
+           pop rsi
+           mov eax, [rsi]
           """
-    compare(tmpdir, asm, ["eax"])
-
-def test_misc_lock(tmpdir):
-    asm = """
-        push 0x12345678
-        lock inc word [esp]
-        pop eax
-    """
-    compare(tmpdir, asm, ["eax"])
+    compare(tmpdir, asm, ["rax"])
