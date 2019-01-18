@@ -764,16 +764,7 @@ def test_misc_pushf_popf(tmpdir):
             popf
             adc ax, bx
           """
-    compare(tmpdir, asm, ["rax", "rdx", "of", "sf", "zf", "cf", "pf", "af"])
-
-def test_misc_pushf(tmpdir):
-    asm = """
-            stc
-            pushf
-            pop rdx
-          """
-    compare(tmpdir, asm, ["rdx", "of", "sf", "zf", "cf", "pf", "af"])
-
+    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
 
 def test_misc_xlat(tmpdir, op8):
     asm = """
