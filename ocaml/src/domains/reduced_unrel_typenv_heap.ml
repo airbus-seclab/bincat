@@ -69,14 +69,15 @@ module Make(D: Unrel.T) =
     | Asm.Lval (Asm.V (Asm.T r)) -> T.of_key (Env.Key.Reg r) tenv
     | Asm.Lval (Asm.M (e, _sz)) ->
        begin
-     try
-       let addrs, _ = U.mem_to_addresses uenv e (H.check_status henv) in
-       match Data.Address.Set.elements addrs with
-       | [a] -> T.of_key (Env.Key.Mem a) tenv
-       | _ -> Types.UNKNOWN
-     with Exceptions.Too_many_concrete_elements _ -> Types.UNKNOWN
+         try
+         let addrs, _ = U.mem_to_addresses uenv e (H.check_status henv) in
+         match Data.Address.Set.elements addrs with
+         | [a] -> T.of_key (Env.Key.Mem a) tenv
+         | _ -> Types.UNKNOWN
+       with Exceptions.Too_many_concrete_elements _ -> Types.UNKNOWN
        end
     | _ -> Types.UNKNOWN
+
 
   let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv, henv): t): t =
     L.debug (fun p -> p "set_type %s %s" (Asm.string_of_lval lv true) (Types.to_string typ));
@@ -98,11 +99,10 @@ module Make(D: Unrel.T) =
 
   let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv, henv): t): t*Taint.Set.t =
     let uenv', b = U.set lv e uenv (H.check_status henv) in
-    try
-      let typ = type_of_exp tenv uenv henv e in
-      let _, tenv', _ = set_type lv typ (uenv', tenv, henv) in
-      (uenv', tenv', henv), b
-    with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv), b
+    let typ = type_of_exp tenv uenv henv e in
+    let _, tenv', _ = set_type lv typ (uenv', tenv, henv) in
+    (uenv', tenv', henv), b
+
 
   let set_lval_to_addr (lv: Asm.lval) (addrs: (Data.Address.t * Log.msg_id_t) list) ((uenv, tenv, henv): t): t*Taint.Set.t =
     let uenv', b = U.set_lval_to_addr lv addrs uenv (H.check_status henv) in
