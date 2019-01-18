@@ -288,9 +288,17 @@ struct
   (* CFA utilities *)
   (*****************)
 
-  let copy_state (g, _) v =
+  let update_ips ips v =
+    let states =
+       try Hashtbl.find ips v.State.ip
+      with Not_found -> []
+    in
+    Hashtbl.replace ips v.State.ip (v::states)
+    
+  let copy_state (g, ips) v =
     let v = { v with id = new_state_id() } in
     G.add_vertex g v;
+    update_ips ips v;
     v
 
 
@@ -315,12 +323,8 @@ struct
   let remove_successor ((g, _): t) (src: State.t) (dst: State.t): unit = G.remove_edge g src dst
 
   let add_state (g, ips: t) (v: State.t): unit =
-     let states =
-       try Hashtbl.find ips v.State.ip
-      with Not_found -> []
-    in
     G.add_vertex g v;
-    Hashtbl.replace ips v.State.ip (v::states)
+    update_ips ips v
 
   let add_successor (g, _ips) src dst: unit = G.add_edge g src dst
 
@@ -330,7 +334,7 @@ struct
 
   let iter_state (f: State.t -> unit) (g, _: t): unit = G.iter_vertex f g
 
-  let iter_state_ip (f: State.t -> unit) (_, ips) ip = 
+  let iter_state_ip (f: State.t -> unit) (_, ips) ip =
     try List.iter f (Hashtbl.find ips ip)
     with Not_found -> ()
 

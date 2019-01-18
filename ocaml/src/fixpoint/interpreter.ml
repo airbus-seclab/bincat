@@ -559,16 +559,19 @@ struct
               
               (* explore if a greater abstract state of v has already been explored *)
               if subsuming then
-                Cfa.iter_state_ip (fun prev ->
-                  if v.Cfa.State.id = prev.Cfa.State.id then
-                    ()
-                  else
-                    if same prev v then raise Exit
-                ) g v.Cfa.State.ip;
+                begin
+                  Cfa.iter_state_ip (fun prev ->
+                      if v.Cfa.State.id = prev.Cfa.State.id then
+                        ()
+                      else
+                        if same prev v then raise Exit
+                    ) g v.Cfa.State.ip
+                end;
             v::l
           with
             Exit -> l
-        ) [] vertices
+          ) [] vertices
+     
 
     (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial state s.
      g is the initial CFA reduced to the singleton s *)
