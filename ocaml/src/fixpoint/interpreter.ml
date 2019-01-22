@@ -289,44 +289,6 @@ struct
              let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value ip d s fun_stack node_id in d', Taint.Set.union b b') (restrict d e false) else_stmts in
              D.join dt de, Taint.Set.union bt be
 
-
-    let process_ret (fun_stack: fun_stack_t) v =
-      try
-        begin
-          let d = v.Cfa.State.v in
-          let d', ipstack, prev_unroll_tbl =
-            let _f, ipstack, _v, prev_unroll_tbl = List.hd !fun_stack in
-            fun_stack := List.tl !fun_stack;
-            (* check and apply tainting and typing rules *)
-            (* 1. check for assert *)
-            (* 2. taint ret *)
-            (* 3. type ret *)
-            d, Some ipstack, prev_unroll_tbl
-          in
-        (* check whether instruction pointers supposed and effective do agree *)
-          try
-            let sp = Register.stack_pointer () in
-            let ip_on_stack, taint_sources = D.mem_to_addresses d' (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
-            match Data.Address.Set.elements (ip_on_stack) with
-            | [a] ->
-               v.Cfa.State.ip <- a;
-              begin
-                match ipstack with
-                | Some ip' ->
-                   if not (Data.Address.equal ip' a) then
-                     L.analysis (fun p -> p "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET instruction"
-                       (Data.Address.to_string ip') (Data.Address.to_string a))
-                | None -> ()
-              end;
-              unroll_tbl := prev_unroll_tbl;
-              Some v, taint_sources
-            | _ -> raise Exit
-          with
-            _ -> L.abort (fun p -> p "computed instruction pointer at return instruction is either undefined or imprecise")
-        end
-      with Failure _ -> L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip)); None, Taint.Set.singleton Taint.BOT
-
-
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
     let skip_or_import_call vertices a fun_stack =     
       (* will raise Not_found if no import or skip is found *)
@@ -359,6 +321,7 @@ struct
         in
         vertices, t
 
+    
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
         let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) : (Cfa.State.t list * Taint.Set.t) =
             let import = ref false in
@@ -404,6 +367,7 @@ struct
         fun_stack := (f, ip, v, !unroll_tbl)::!fun_stack;
         unroll_tbl := Hashtbl.create 1000
       in
+      
       let copy v d branch is_pred =
     (* TODO: optimize with Cfa.State.copy that copies every field and then here some are updated => copy them directly *)
         let v' = Cfa.copy_state g v in
@@ -420,6 +384,46 @@ struct
       in
 
 
+    let iprocess_ret ipstack v fun_stack =
+      let d = v.Cfa.State.v in
+      let sp = Register.stack_pointer () in
+      let ip_on_stack, taint_sources = D.mem_to_addresses d (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
+      match Data.Address.Set.elements (ip_on_stack) with
+      | [a] ->
+         begin
+           match ipstack with
+           | Some ip' ->
+              if not (Data.Address.equal ip' a) then
+                L.analysis (fun p -> p "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET instruction"
+                                       (Data.Address.to_string ip') (Data.Address.to_string a))
+           | None -> ()
+         end;
+        
+         begin
+           try
+             add_to_fun_stack a;
+             let vert, t = skip_or_import_call [v] a fun_stack in
+             Some vert, t
+           with Not_found ->
+             v.Cfa.State.ip <- a;
+             Some [v], taint_sources
+         end
+      | _ -> L.abort (fun p -> p "computed instruction pointer at return instruction is either undefined or imprecise")
+
+    in  
+               
+    let process_ret (fun_stack: fun_stack_t) v =
+      try
+        let _f, ipstack, _v, prev_unroll_tbl = List.hd !fun_stack in
+        fun_stack := List.tl !fun_stack;
+        unroll_tbl := prev_unroll_tbl;
+        iprocess_ret (Some ipstack) v fun_stack
+      with Failure _ ->
+        L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip));
+        iprocess_ret None v fun_stack
+
+    in
+      
       let rec process_if_with_jmp (vertices: Cfa.State.t list) (e: Asm.bexp) (istmts: Asm.stmt list) (estmts: Asm.stmt list) =
         let process_branch stmts branch =
           let vertices', b = (List.fold_left (fun (l, b) v ->
@@ -495,7 +499,7 @@ struct
                     let v', b' = process_ret fun_stack v in
                     match v' with
                     | None -> l, Taint.Set.union b b'
-                    | Some v -> v::l, Taint.Set.union b b') ([], Taint.Set.singleton Taint.U) vertices
+                    | Some v -> v@l, Taint.Set.union b b') ([], Taint.Set.singleton Taint.U) vertices
                
              | _       -> vertices, Taint.Set.singleton Taint.U
 
