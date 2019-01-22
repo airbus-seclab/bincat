@@ -116,7 +116,10 @@ let _ =
     "fun_skip", FUN_SKIP;
     "TAINT_ALL", TAINT_ALL;
     "TAINT_NONE", TAINT_NONE;
-    "null", NULL
+    "null", NULL;
+    "signal_kind", SIGNAL_KIND;
+    "brut_signal", BRUT_SIGNAL;
+    "linux_signal", LINUX_SIGNAL;
     ]
 
 let strip_int s =

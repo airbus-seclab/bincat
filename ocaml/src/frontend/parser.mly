@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -162,7 +162,7 @@
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP
-%token IGNORE_UNKNOWN_RELOCATIONS
+%token IGNORE_UNKNOWN_RELOCATIONS SIGNAL_KIND BRUT_SIGNAL LINUX_SIGNAL
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -300,6 +300,7 @@
     | FILEPATH EQUAL f=QUOTED_STRING     { update_mandatory FILEPATH; Config.binary := f }
     | FORMAT EQUAL f=format      { update_mandatory FORMAT; Config.format := f }
     | NULL EQUAL v=INT { Config.null_cst := v}
+    | SIGNAL_KIND EQUAL s=signal_kind { Config.signal_kind := s}
 
       format:
     | PE  { Config.PE }
@@ -341,7 +342,10 @@
     | GS EQUAL i=init            { update_x86_mandatory GS; init_register "gs" i }
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
 
-
+    signal_kind:
+    | BRUT_SIGNAL { Config.Brut_signal }
+    | LINUX_SIGNAL { Config.Linux_signal }
+          
     memmodel:
     | FLAT  { Config.Flat }
     | SEGMENTED { Config.Segmented }
