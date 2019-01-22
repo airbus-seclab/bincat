@@ -3,7 +3,7 @@
 ### What is BinCAT?
 
 BinCAT is a *static* Binary Code Analysis Toolkit, designed to help reverse
-engineers, directly from IDA.
+engineers, directly from IDA or using Python for automation.
 
 It features:
 
