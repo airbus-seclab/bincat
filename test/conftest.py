@@ -102,7 +102,7 @@ def pytest_addoption(parser):
 
 
 def pytest_generate_tests(metafunc):
-    func_name = metafunc.definition.name
+    func_name = metafunc.function.func_name
     fmap = {x._name: x for x in COVERAGES}[metafunc.config.option.coverage]
     for fn in metafunc.fixturenames:
         fnstr = fn.rstrip("_")  # alias foo_, foo__, etc. to foo
