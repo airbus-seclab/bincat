@@ -3019,7 +3019,7 @@ let overflow_expression () = Lval (V (T fcf))
             | '\xbe' -> let reg, rm = operands_from_mod_reg_rm s 8  ~dst_sz:s.operand_sz 1 in
                         return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ];
 
-            | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:32 1 in return s [ Set (reg, UnOp(SignExt 32, rm)) ]
+            | '\xbf' -> let reg, rm = operands_from_mod_reg_rm s 16 ~dst_sz:s.operand_sz 1 in return s [ Set (reg, UnOp(SignExt s.operand_sz, rm)) ]
 
             | '\xc0' -> (* XADD *)  xadd_mrm s 8
             | '\xc1' -> (* XADD *)  xadd_mrm s s.operand_sz
