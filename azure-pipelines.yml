@@ -21,7 +21,7 @@ jobs:
           C:\Ocaml64\bin\bash -l -c "wget https://bootstrap.pypa.io/get-pip.py ; python get-pip.py"
         displayName: 'Install dependencies'
       - script: |
-          C:\Ocaml64\bin\bash -l -c 'cd $(cygpath "$BUILD_SOURCESDIRECTORY"); make windist PYTHON=python; echo "##vso[task.setvariable variable=distdir]bincat-win-$(git describe --dirty)"'
+          C:\Ocaml64\bin\bash -l -c 'cd $(cygpath "$BUILD_SOURCESDIRECTORY"); echo "##vso[task.setvariable variable=distdir]bincat-win-$(git describe --dirty)"; make windist PYTHON=python'
         displayName: 'Build BinCAT for Windows'
       - task: PublishBuildArtifacts@1
         displayName: Publish BinCAT for Windows installer
@@ -35,7 +35,7 @@ jobs:
     steps:
       - script: docker build -t "bincat:$BUILD_SOURCEVERSION" --build-arg "SOURCE_BRANCH=$BUILD_SOURCEVERSION" "$BUILD_SOURCESDIRECTORY/docker/" -f "$BUILD_SOURCESDIRECTORY/docker/Dockerfile.runtests"
         displayName: 'Build docker image'
-      - script: docker run -v /tmp/linux-release:/install/bincat/release -e AZURE_BUILD=true -w /install/bincat "bincat:$BUILD_SOURCEVERSION" bash -c 'make lindist; echo "##vso[task.setvariable variable=distdir]bincat-bin-$(git describe --dirty)"; cp -R bincat-bin-* release/'
+      - script: docker run -v /tmp/linux-release:/install/bincat/release -e AZURE_BUILD=true -w /install/bincat "bincat:$BUILD_SOURCEVERSION" bash -c 'echo "##vso[task.setvariable variable=distdir]bincat-bin-$(git describe --dirty)"; make lindist; cp -R bincat-bin-* release/'
         displayName: 'Build Linux release'
       - task: PublishBuildArtifacts@1
         displayName: Publish BinCAT for Linux installer
