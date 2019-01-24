@@ -68,10 +68,15 @@ struct
     ]
 
   let unset_first_arg () =
-    let r = reg "esp" in
-    [
-      Set (r, BinOp(Add, Lval r, Const (Data.Word.of_int (Z.of_int (!Config.stack_width/8)) !Config.stack_width)))
-    ]
+    match !Config.call_conv with
+    | Config.CDECL ->
+       let r = reg "esp" in
+       [
+         Set (r, BinOp(Add, Lval r, Const (Data.Word.of_int (Z.of_int (!Config.stack_width/8)) !Config.stack_width)))
+       ]
+    | Config.STDCALL -> [] (* done by the callee *)
+    | cc -> L.abort (fun p -> p "Unset_first_arg: unsupported pour that calling convetion (%s)" (Config.call_conv_to_string cc))
+    
   let stub_stmts_from_name name callconv =
     if  Hashtbl.mem Stubs.stubs name then
       [ Directive (Stub (name, callconv)) ]
