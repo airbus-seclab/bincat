@@ -443,8 +443,8 @@ struct
         
          begin
            try
-             add_to_fun_stack a;
              let vert, t = skip_or_import_call [v] a fun_stack in
+             add_to_fun_stack a;
              if after_stmts <> [] then
                let vert', t' = List.fold_left (fun (l, t) v' ->
                    let v', t' = apply_after_call_stmts v' after_stmts fun_stack in
