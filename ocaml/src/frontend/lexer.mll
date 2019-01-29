@@ -117,9 +117,9 @@ let _ =
     "TAINT_ALL", TAINT_ALL;
     "TAINT_NONE", TAINT_NONE;
     "null", NULL;
-    "signal_kind", SIGNAL_KIND;
-    "brut_signal", BRUT_SIGNAL;
-    "linux_signal", LINUX_SIGNAL;
+    "os", OS;
+    "windows", WINDOWS;
+    "linux", LINUX;
     ]
 
 let strip_int s =

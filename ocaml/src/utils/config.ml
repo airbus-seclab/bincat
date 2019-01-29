@@ -142,11 +142,11 @@ let char_of_null_cst () = Char.chr (Z.to_int !null_cst)
 (* used for powerpc mfspr *)
 let processor_version = ref 0
 
-type signal_kind_t =
-  | Brut_signal
-  | Linux_signal
+type os_t =
+  | Windows
+  | Linux
 
-let signal_kind = ref Linux_signal
+let os = ref Windows
                 
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)

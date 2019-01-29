@@ -1460,10 +1460,10 @@ let overflow_expression () = Lval (V (T fcf))
     let pop_stmts is_pop s lv =
         let esp'  = esp_lval () in
         List.fold_left (fun stmts lv ->
-            let n = size_push_pop lv s.operand_sz in
+            let n = !Config.stack_width in
             let incr = set_esp Add esp' n in
             if with_stack_pointer is_pop s.a lv then
-                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) !Config.stack_width), s.operand_sz))) ] @ stmts
+                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) !Config.stack_width), !Config.stack_width))) ] @ stmts
 
             else
                 [ Set (lv, Lval (M (Lval (V esp'), s.operand_sz))) ; incr ] @ stmts
@@ -2521,9 +2521,9 @@ let overflow_expression () = Lval (V (T fcf))
     exception No_rep of Cfa.State.t * Data.Address.t
 
     let convert_interrupt_number n =
-      match !Config.signal_kind with
-      | Config.Brut_signal -> n
-      | Config.Linux_signal ->
+      match !Config.os with
+      | Config.Windows -> n
+      | Config.Linux ->
          match n with
          | 3 -> 5
          | n -> n
@@ -2539,9 +2539,9 @@ let overflow_expression () = Lval (V (T fcf))
         | Cfa.State.Inlined stmts -> (icall s) @ stmts
       in
       let stmts = (* push flags, set the first arg of the handler and call the handler *)
-        (pushf_stmts s !Config.stack_width)
+        (if !Config.os = Config.Windows then [] else pushf_stmts s !Config.stack_width)
         @ stmts
-        @ (if !Config.signal_kind = Config.Brut_signal then [] else popf_stmts s !Config.stack_width)
+        @ (if !Config.os = Config.Windows then [] else popf_stmts s !Config.stack_width)
       in
       return s stmts
 
@@ -2789,8 +2789,8 @@ let overflow_expression () = Lval (V (T fcf))
             | '\xc7' -> (* MOV with word or double *) mov_immediate s s.imm_sz
 
             | '\xc9' -> (* LEAVE *)
-              let sp = V (to_reg esp s.operand_sz) in
-              let bp = V (to_reg ebp s.operand_sz) in
+              let sp = V (to_reg esp !Config.stack_width) in
+              let bp = V (to_reg ebp !Config.stack_width) in
               return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp]))
             | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
             | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs)]))
