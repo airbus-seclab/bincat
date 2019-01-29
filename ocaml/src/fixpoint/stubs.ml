@@ -200,7 +200,7 @@ struct
                             let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int dst_off) !Config.stack_width))
                             in
                             D.copy_chars d dst'
-                          | _ -> D.print_chars d
+                          | _ -> (fun arg1 arg2 arg3 -> fst (D.print_chars d arg1 arg2 arg3))
                       in
                       fmt_pos+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
 
@@ -332,8 +332,8 @@ struct
         let buf = Asm.Lval (args 1) in
         try
           let char_nb = Z.to_int (D.value_of_exp d (Asm.Lval (args 2))) in
-          let d' = D.print_chars d buf char_nb None in
-          let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int char_nb) !Config.operand_sz)) d' in
+          let d', len = D.print_chars d buf char_nb None in
+          let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
           L.info (fun p -> p "--- end of write--");
           d', taint
         with Exceptions.Too_many_concrete_elements _ -> L.abort (fun p -> p "imprecise number of char to write")

@@ -1001,13 +1001,15 @@ module Make(D: T) =
     (* print nb bytes on stdout as raw string *)
     let print_bytes bytes nb =
           let str = Bytes.make nb ' ' in
-              List.iteri (fun i c -> Bytes.set str i (D.to_char c)) bytes;
-              Log.Stdout.stdout (fun p -> p "%s" (Bytes.to_string str));;
+          List.iteri (fun i c -> Bytes.set str i (D.to_char c)) bytes;
+          let str' = Bytes.to_string str in
+          Log.Stdout.stdout (fun p -> p "%s" str');
+          String.length str';;
 
     let print_until m e terminator term_sz upper_bound with_exception pad_options check_address_validity =
       let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m with_exception pad_options check_address_validity in
-      print_bytes bytes len;
-      len, m
+      let len' = print_bytes bytes len in
+      min len len', m
 
     let copy_chars m dst src nb pad_options check_address_validity =
       snd (copy_until m dst src (Asm.Const (Data.Word.of_int Z.zero 8)) 8 nb false pad_options check_address_validity)
@@ -1015,8 +1017,8 @@ module Make(D: T) =
     let print_chars m' src nb pad_options check_address_validity =
       (* TODO: factorize with copy_until *)
       let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m' false pad_options check_address_validity) in
-      print_bytes bytes nb;
-      m'
+      let len = print_bytes bytes nb in
+      m', len
        
 
     let copy_chars_to_register m reg offset src nb pad_options check_address_validity =

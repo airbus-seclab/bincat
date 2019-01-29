@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -410,10 +410,16 @@ module Make(D: Unrel.T) =
       | BOT -> BOT
       | Val m' -> Val (USet.map (fun (u, msg) -> U.copy_chars u dst src nb pad_options check_address_validity, msg) m')
 
-    let print_chars m src nb pad_options check_address_validity =
+    let print_chars (m: t) src nb pad_options check_address_validity =
       match m with
-      | Val m' -> Val (USet.map (fun (u, msg) -> U.print_chars u src nb pad_options check_address_validity, msg) m')
-      | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT, 0
+      | Val m' ->
+          match USet.elements m' with
+          | [(u, msg)] ->
+            let u', len = U.print_chars u src nb pad_options check_address_validity in
+             Val (USet.singleton (u', msg)), len
+          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_chars: implemented only for one unrel only")
+
 
     let copy_register r dst src =
       match src with

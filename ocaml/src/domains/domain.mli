@@ -157,8 +157,9 @@ number of copied bytes is returned *)
 
     (** [print_chars d src nb pad_options]
       print src until nb bytes are copied or null byte is found. If it found before nb bytes
-      are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *)
-      val print_chars: t -> Asm.exp -> int -> (char * bool) option -> t
+      are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right. Returns 
+also the number of chars effectively written *)
+      val print_chars: t -> Asm.exp -> int -> (char * bool) option -> t * int
 
       (** [copy_register r dst src] returns dst with value of register r being replaced by its value in src *)
       val copy_register: Register.t -> t -> t -> t
