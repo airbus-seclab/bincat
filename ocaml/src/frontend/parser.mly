@@ -162,7 +162,7 @@
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP
-%token IGNORE_UNKNOWN_RELOCATIONS OS WINDOWS LINUX
+%token IGNORE_UNKNOWN_RELOCATIONS OS WINDOWS LINUX STACK INCREASING DECREASING
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -301,6 +301,7 @@
     | FORMAT EQUAL f=format      { update_mandatory FORMAT; Config.format := f }
     | NULL EQUAL v=INT { Config.null_cst := v}
     | OS EQUAL s=os_kind { Config.os := s}
+    | STACK EQUAL s=stack_kind { Config.stack := s}
 
       format:
     | PE  { Config.PE }
@@ -345,7 +346,11 @@
     os_kind:
     | WINDOWS { Config.Windows }
     | LINUX { Config.Linux }
-          
+
+    stack_kind:
+    | INCREASING { Config.Increasing }
+    | DECREASING { Config.Decreasing }
+      
     memmodel:
     | FLAT  { Config.Flat }
     | SEGMENTED { Config.Segmented }

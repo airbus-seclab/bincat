@@ -78,6 +78,12 @@ type mode_t =
   | Protected
   | Real
 
+type stack_kind =
+  | Decreasing
+  | Increasing
+
+let stack = ref Decreasing
+          
 type analysis_src =
   | Bin
   | Cfa

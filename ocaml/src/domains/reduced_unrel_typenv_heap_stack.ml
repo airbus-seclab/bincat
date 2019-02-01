@@ -26,44 +26,57 @@ module Make(D: Unrel.T) =
   module U = Unrels.Make(D)
   module T = Typenv
   module H = Heap
-
-  type t = U.t * T.t * H.t
+  module S = Stack
+           
+  type t = U.t * T.t * H.t * S.t
 
   let init () = U.init (), T.init (), H.init ()
 
-  let bot = U.BOT, T.BOT, H.BOT
+  let bot = U.BOT, T.BOT, H.BOT, S.BOT
 
-  let forget (uenv, tenv, henv) = U.forget uenv, T.forget tenv, H.forget henv
+  let forget (uenv, tenv, henv, senv) = U.forget uenv, T.forget tenv, H.forget henv, senv
 
-  let is_bot (uenv, tenv, henv) = U.is_bot uenv || T.is_bot tenv || H.is_bot henv
+  let is_bot (uenv, tenv, henv, senv) = U.is_bot uenv || T.is_bot tenv || H.is_bot henv || S.is_bot senv
 
-  let is_subset (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) =
-    U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2 && H.is_subset henv1 henv2
+  let is_subset (uenv1, tenv1, henv1, _senv1) (uenv2, tenv2, henv2, _senv2) =
+    U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2 && H.is_subset henv1 henv2 && S.is_subset senv1 senv2
 
-  let remove_register r (uenv, tenv, henv) = U.remove_register r uenv, T.remove_register r tenv, henv
+  let remove_register r (uenv, tenv, henv, senv) = U.remove_register r uenv, T.remove_register r tenv, henv, senv
 
-  let forget_lval lv (uenv, tenv, henv) =
-    let tenv' =
+  let call (uenv, tenv, henv, senv) =
+      let v =
+        try Some (U.to_z uenv (Register.get_stack_pointer))
+        with _ -> None
+      in
+      uenv, tenv, henv, S.add_stack_frame senv u
+
+  let ret (uenv, tenv, henv, senv) = uenv, tenv, henv, U.remove_stack_frame senv
+                                   
+  let forget_lval lv (uenv, tenv, henv, senv) =
+    let tenv', is_stack_register =
       match lv with
       | Asm.V (Asm.T r)
-      | Asm.V (Asm.P (r, _, _)) -> T.remove_register r tenv
+      | Asm.V (Asm.P (r, _, _)) -> T.remove_register r tenv, true
       | _ ->
          let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) (H.check_status henv) in
-         T.remove_addresses addrs tenv
+         T.remove_addresses addrs tenv, false
     in
-    U.forget_lval lv uenv (H.check_status henv), tenv', henv
+    let senv' =
+      if is_stack_register then S.forget_stack_frame senv else senv
+    in
+    U.forget_lval lv uenv (H.check_status henv), tenv', henv, senv'
 
-  let add_register r (uenv, tenv, henv) = U.add_register r uenv, T.add_register r tenv, henv
+  let add_register r (uenv, tenv, henv) = U.add_register r uenv, T.add_register r tenv, henv, senv
 
-  let to_string (uenv, tenv, henv) id = (U.to_string uenv id) @ (T.to_string tenv) @ (H.to_string henv)
+  let to_string (uenv, tenv, henv, senv) id = (U.to_string uenv id) @ (T.to_string tenv) @ (H.to_string henv) @ (S.to_string senv)
 
-  let value_of_register (uenv, _tenv, _henv) r = U.value_of_register uenv r
+  let value_of_register (uenv, _tenv, _henv, _senv) r = U.value_of_register uenv r
 
-  let string_of_register (uenv, tenv, _henv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
+  let string_of_register (uenv, tenv, _henv, _senv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
 
-  let value_of_exp (uenv, _tenv, henv) e = U.value_of_exp uenv e (H.check_status henv)
+  let value_of_exp (uenv, _tenv, henv, _senv) e = U.value_of_exp uenv e (H.check_status henv)
 
-  let type_of_exp tenv uenv henv e =
+  let type_of_exp tenv uenv henv _senv e =
     match e with
     | Asm.Lval (Asm.V (Asm.P (_r, _, _))) -> Types.UNKNOWN
     | Asm.Lval (Asm.V (Asm.T r)) -> T.of_key (Env.Key.Reg r) tenv
@@ -79,7 +92,7 @@ module Make(D: Unrel.T) =
     | _ -> Types.UNKNOWN
 
 
-  let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv, henv): t): t =
+  let set_type (lv: Asm.lval) (typ: Types.t) ((uenv, tenv, henv, senv): t): t =
     L.debug (fun p -> p "set_type %s %s" (Asm.string_of_lval lv true) (Types.to_string typ));
    let tenv' =
      match lv with
@@ -95,16 +108,30 @@ module Make(D: Unrel.T) =
       | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
         with Exceptions.Too_many_concrete_elements _ -> T.forget tenv
    in
-   uenv, tenv', henv
+   uenv, tenv', henv, senv
 
-  let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv, henv): t): t*Taint.Set.t =
+  let stack_register_of_lval lv =
+    match lv with
+    | V (T r) | V (P (r, _, _)) -> if Register.is_stack_register r then Some r else None
+    | _ -> None
+         
+  let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =
     let uenv', b = U.set lv e uenv (H.check_status henv) in
     let typ = type_of_exp tenv uenv henv e in
-    let _, tenv', _ = set_type lv typ (uenv', tenv, henv) in
-    (uenv', tenv', henv), b
+    let _, tenv', _, _ = set_type lv typ (uenv', tenv, henv, senv) in
+    let senv' =
+      match stack_register_of_lval with
+      | None -> senv
+      | Some r -> 
+           try
+             let v = U.value_of_register uenv r in
+             S.update_stack_frame senv v             
+           with _ -> U.forget_stack_pointer senv
+    in
+    (uenv', tenv', henv, senv'), b
 
 
-  let set_lval_to_addr (lv: Asm.lval) (addrs: (Data.Address.t * Log.msg_id_t) list) ((uenv, tenv, henv): t): t*Taint.Set.t =
+  let set_lval_to_addr (lv: Asm.lval) (addrs: (Data.Address.t * Log.msg_id_t) list) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =
     let uenv', b = U.set_lval_to_addr lv addrs uenv (H.check_status henv) in
     try
       let buf_typ =
@@ -123,11 +150,11 @@ module Make(D: Unrel.T) =
         | Types.T t -> Types.T (TypedC.Ptr t)
         | t ->  t (* TODO: could be more precise: we know it is a pointer *)
       in    
-      let _, tenv', _ = set_type lv ptr_typ (uenv', tenv, henv) in
-      (uenv', tenv', henv), b
-    with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv), b
+      let _, tenv', _, _ = set_type lv ptr_typ (uenv', tenv, henv, senv) in
+      (uenv', tenv', henv, senv), b
+    with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv, senv), b
       
-  let char_type uenv tenv henv dst =
+  let char_type uenv tenv henv senv dst =
      let typ = Types.T (TypedC.Int (Newspeak.Signed, 8)) in
      try
        let addrs, _ = U.mem_to_addresses uenv dst (H.check_status henv) in
@@ -136,22 +163,26 @@ module Make(D: Unrel.T) =
        | l ->  List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l (* TODO: replace by a weak update *)
      with Exceptions.Too_many_concrete_elements _ -> T.top
 
-  let copy (uenv, tenv, henv) dst src sz: t =
-    U.copy uenv dst src sz (H.check_status henv), char_type uenv tenv henv dst, henv
+  let copy (uenv, tenv, henv, senv) dst src sz: t =
+    U.copy uenv dst src sz (H.check_status henv), char_type uenv tenv henv dst, henv, senv
 
-  let join (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.join uenv1 uenv2, T.join tenv1 tenv2, H.join henv1 henv2
+  let join (uenv1, tenv1, henv1, senv1) (uenv2, tenv2, henv2, senv2) = U.join uenv1 uenv2, T.join tenv1 tenv2, H.join henv1 henv2, S.join senv1 senv2
 
-  let meet (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.meet uenv1 uenv2, T.meet tenv1 tenv2, H.meet henv1 henv2
+  let meet (uenv1, tenv1, henv1, senv1) (uenv2, tenv2, henv2, senv2) = U.meet uenv1 uenv2, T.meet tenv1 tenv2, H.meet henv1 henv2, S.meet senv1 senv2
 
-  let widen (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) = U.widen uenv1 uenv2, T.widen tenv1 tenv2, H.widen henv1 henv2
+  let widen (uenv1, tenv1, henv1, senv1) (uenv2, tenv2, henv2, senv2) = U.widen uenv1 uenv2, T.widen tenv1 tenv2, H.widen henv1 henv2, S.widen senv1 senv2
 
-  let set_memory_from_config a c n (uenv, tenv, henv) =
+  let set_memory_from_config a c n (uenv, tenv, henv, senv) =
     let uenv', taint = U.set_memory_from_config a c n uenv (H.check_status henv) in
-    (uenv', tenv, henv), taint
+    (uenv', tenv, henv, senv), taint
 
   let set_register_from_config register (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv) =
     let uenv', taint = U.set_register_from_config register c uenv in
-    (uenv', tenv, henv), taint
+    let senv' =
+      if Register.is_stack_pointer r then ...
+      else senv
+    in
+    (uenv', tenv, henv, senv), taint
 
   let taint_register_mask r c (uenv, tenv, henv): t * Taint.Set.t =
     let uenv', taint = U.taint_register_mask r c uenv in
