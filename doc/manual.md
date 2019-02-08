@@ -40,13 +40,13 @@ Overrides can be defined from the following views:
 * from the **BinCAT Registers** view which shows the registers: right click on
   a register, then choose the **Add override...** menu
 
-![Add override from BinCAT Registers view using context menu](img/add-taint-override-registers-view.png)
+![Add override from BinCAT Registers view using context menu](img/add-override-registers-view.png)
 
 * from the **BinCAT Memory** view which shows the contents of the memory: select
   a memory range, then right click, then choose the **Override value or taint for
   selection** menu
 
-![Add override from BinCAT Memory view using context menu](img/add-taint-override-memory-view.png)
+![Add override from BinCAT Memory view using context menu](img/add-override-memory-view.png)
 
 Overrides are made up of an optional value (ex. **|00|**, **0xF0**. Value will be left unchanged if not specified) and a mandatory taint mask (ex. **!0x0F**, **!|FF|**)
 
