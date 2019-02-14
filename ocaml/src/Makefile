@@ -19,6 +19,7 @@ ML=\
   utils/config.ml\
   data-struct/data.ml\
   utils/log.ml\
+  data-struct/interval.ml\
   frontend/init_check.ml\
   data-struct/types.ml\
   data-struct/asm.ml\

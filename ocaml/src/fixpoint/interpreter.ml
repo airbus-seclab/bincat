@@ -343,7 +343,7 @@ struct
 
     
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
-        let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) : (Cfa.State.t list * Taint.Set.t) =
+        let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) from_call: (Cfa.State.t list * Taint.Set.t) =
             let import = ref false in
             let vertices', t =
                 List.fold_left (fun (l, t) v ->
@@ -352,7 +352,8 @@ struct
                         let addresses = Data.Address.Set.elements addrs in
                         match addresses with
                         | [a] ->
-                          begin
+                           begin
+                             if from_call then v.Cfa.State.v <- D.call v.Cfa.State.v;
                               L.debug (fun p->p "fold_to_target addr : %s" (Data.Address.to_string a));
                               try let res = skip_or_import_call [v] a fun_stack in import := true; res
                               with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, Taint.Set.union t taint_sources
@@ -439,8 +440,7 @@ struct
                                        (Data.Address.to_string ip') (Data.Address.to_string a));
               after_stmts
            | None -> []
-         in
-        
+         in       
          begin
            try
              let vert, t = skip_or_import_call [v] a fun_stack in
@@ -461,15 +461,22 @@ struct
     in  
                
     let process_ret (fun_stack: fun_stack_t) v: (Cfa.State.t list option * Taint.Set.t) =
-      try
-        let _f, ipstack, _v', prev_unroll_tbl, after_ret_stmts = List.hd !fun_stack in
-        fun_stack := List.tl !fun_stack;
-        unroll_tbl := prev_unroll_tbl;
-        iprocess_ret (Some (ipstack, after_ret_stmts)) v fun_stack
-      with Failure _ ->
-        L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip));
-        iprocess_ret None v fun_stack
-
+      let res, taint =
+        try
+          let _f, ipstack, _v', prev_unroll_tbl, after_ret_stmts = List.hd !fun_stack in
+          fun_stack := List.tl !fun_stack;
+          unroll_tbl := prev_unroll_tbl;
+          iprocess_ret (Some (ipstack, after_ret_stmts)) v fun_stack
+        with Failure _ ->
+          L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip));
+          iprocess_ret None v fun_stack
+      in
+      let res' =
+        match res with
+        | None -> res
+        | Some vertices -> Some (List.map (fun v -> { v with Cfa.State.v = D.ret v.Cfa.State.v }) vertices)
+      in
+      res', taint
     in
 
       
@@ -544,29 +551,29 @@ struct
                          List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.Set.singleton Taint.U
                      end
                     
-                  | target -> fold_to_target (fun _a -> ()) vertices target
+                  | target -> fold_to_target (fun _a -> ()) vertices target false
                   end
                 in res, false
                   
                
              | Call (A a) ->
                 add_to_fun_stack a;
+               let vertices' = List.map (fun v -> { v with Cfa.State.v = D.call v.Cfa.State.v}) vertices in
                 begin
                   try
-                    skip_or_import_call (vertices: Cfa.State.t list) a fun_stack, true
+                    skip_or_import_call (vertices': Cfa.State.t list) a fun_stack, true
                   with Not_found ->
-                    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
-                    (vertices, Taint.Set.singleton Taint.U), true
+                    List.iter (fun v -> v.Cfa.State.ip <- a) vertices';
+                    (vertices', Taint.Set.singleton Taint.U), true
                 end
-             | Call (R target) -> fold_to_target add_to_fun_stack vertices target, false
+             | Call (R target) -> fold_to_target add_to_fun_stack vertices target true, false
                                 
-             | Return ->
-                List.fold_left (fun (l, b) v ->
+             | Return ->               
+                  List.fold_left (fun (l, b) v ->
                     let v', b' = process_ret fun_stack v in
                     match v' with
                     | None -> l, Taint.Set.union b b'
                     | Some v -> v@l, Taint.Set.union b b') ([], Taint.Set.singleton Taint.U) vertices, false
-
                
              | _       -> (vertices, Taint.Set.singleton Taint.U), false
          
