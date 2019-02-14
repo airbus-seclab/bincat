@@ -48,6 +48,7 @@ ML=\
   domains/unrels.ml\
   domains/reduced_bit_tainting.ml\
   domains/heap.ml\
+  domains/abstractStack.ml\
   domains/reduced_unrel_typenv_heap_stack.ml\
   disassembly/cfa.ml\
   disassembly/core_x86.ml\
@@ -84,8 +85,8 @@ DEPS-parser := npk/c2newspeak/typedC.cmi
 OPTS-parser := -I npk/c2newspeak
 DEPS-core_x86 := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
 OPTS-core_x86 := -I npk/c2newspeak -I npk/newspeak
-DEPS-reduced_unrel_typenv_heap := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
-OPTS-reduced_unrel_typenv_heap := -I npk/c2newspeak -I npk/newspeak
+DEPS-reduced_unrel_typenv_heap_stack := npk/c2newspeak/typedC.cmi npk/newspeak/newspeak.cmi
+OPTS-reduced_unrel_typenv_heap_stack := -I npk/c2newspeak -I npk/newspeak
 
 
 EXTLIB := nums str unix graph zarith bigarray

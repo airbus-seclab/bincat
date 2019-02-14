@@ -16,7 +16,7 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 *)
 
-(** reduced product Unrel x TypEnv x Heap *)
+(** reduced product Unrel x TypEnv x Heap x AbstractStack *)
 (** signature is of type Domain.T *)
 
 module L = Log.Make(struct let name = "reduced_unrel_typenv_heap" end)
@@ -26,11 +26,11 @@ module Make(D: Unrel.T) =
   module U = Unrels.Make(D)
   module T = Typenv
   module H = Heap
-  module S = Stack
+  module S = AbstractStack
            
   type t = U.t * T.t * H.t * S.t
 
-  let init () = U.init (), T.init (), H.init ()
+  let init () = U.init (), T.init (), H.init (), S.init ()
 
   let bot = U.BOT, T.BOT, H.BOT, S.BOT
 
@@ -38,19 +38,19 @@ module Make(D: Unrel.T) =
 
   let is_bot (uenv, tenv, henv, senv) = U.is_bot uenv || T.is_bot tenv || H.is_bot henv || S.is_bot senv
 
-  let is_subset (uenv1, tenv1, henv1, _senv1) (uenv2, tenv2, henv2, _senv2) =
+  let is_subset (uenv1, tenv1, henv1, senv1) (uenv2, tenv2, henv2, senv2) =
     U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2 && H.is_subset henv1 henv2 && S.is_subset senv1 senv2
 
   let remove_register r (uenv, tenv, henv, senv) = U.remove_register r uenv, T.remove_register r tenv, henv, senv
 
   let call (uenv, tenv, henv, senv) =
       let v =
-        try Some (U.to_z uenv (Register.get_stack_pointer))
+        try Some (U.value_of_register uenv (Register.stack_pointer ()))
         with _ -> None
       in
-      uenv, tenv, henv, S.add_stack_frame senv u
+      uenv, tenv, henv, S.add_stack_frame senv v
 
-  let ret (uenv, tenv, henv, senv) = uenv, tenv, henv, U.remove_stack_frame senv
+  let ret (uenv, tenv, henv, senv) = uenv, tenv, henv, S.remove_stack_frame senv
                                    
   let forget_lval lv (uenv, tenv, henv, senv) =
     let tenv', is_stack_register =
@@ -66,7 +66,7 @@ module Make(D: Unrel.T) =
     in
     U.forget_lval lv uenv (H.check_status henv), tenv', henv, senv'
 
-  let add_register r (uenv, tenv, henv) = U.add_register r uenv, T.add_register r tenv, henv, senv
+  let add_register r (uenv, tenv, henv, senv) = U.add_register r uenv, T.add_register r tenv, henv, senv
 
   let to_string (uenv, tenv, henv, senv) id = (U.to_string uenv id) @ (T.to_string tenv) @ (H.to_string henv) @ (S.to_string senv)
 
@@ -112,27 +112,27 @@ module Make(D: Unrel.T) =
 
   let stack_register_of_lval lv =
     match lv with
-    | V (T r) | V (P (r, _, _)) -> if Register.is_stack_register r then Some r else None
+    | Asm.V (Asm.T r) | Asm.V (Asm.P (r, _, _)) -> if Register.is_stack_pointer r then Some r else None
     | _ -> None
          
   let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =
-    let uenv', b = U.set lv e uenv (H.check_status henv) in
-    let typ = type_of_exp tenv uenv henv e in
+    let uenv', b = U.set lv e uenv (H.check_status henv) (S.check_overflow senv) in
+    let typ = type_of_exp tenv uenv henv senv e in
     let _, tenv', _, _ = set_type lv typ (uenv', tenv, henv, senv) in
     let senv' =
-      match stack_register_of_lval with
+      match stack_register_of_lval lv with
       | None -> senv
       | Some r -> 
            try
              let v = U.value_of_register uenv r in
-             S.update_stack_frame senv v             
-           with _ -> U.forget_stack_pointer senv
+             S.update_stack_frame senv v
+           with _ -> S.forget_stack_frame senv
     in
     (uenv', tenv', henv, senv'), b
 
 
   let set_lval_to_addr (lv: Asm.lval) (addrs: (Data.Address.t * Log.msg_id_t) list) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =
-    let uenv', b = U.set_lval_to_addr lv addrs uenv (H.check_status henv) in
+    let uenv', b = U.set_lval_to_addr lv addrs uenv (H.check_status henv) (S.check_overflow senv) in
     try
       let buf_typ =
         match addrs with
@@ -176,81 +176,85 @@ module Make(D: Unrel.T) =
     let uenv', taint = U.set_memory_from_config a c n uenv (H.check_status henv) in
     (uenv', tenv, henv, senv), taint
 
-  let set_register_from_config register (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv) =
+  let set_register_from_config register (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv, senv) =
     let uenv', taint = U.set_register_from_config register c uenv in
     let senv' =
-      if Register.is_stack_pointer r then ...
+      if Register.is_stack_pointer r then
+        try
+          let v = U.value_of_register d r in
+          S.add_stack_frame senv (Some v)
+        with _ -> S.add_stack_frame senv None
       else senv
     in
+    (uenv', tenv, henv, senv'), taint
+
+  let taint_register_mask r c (uenv, tenv, henv, senv): t * Taint.Set.t =
+    let uenv', taint = U.taint_register_mask r c uenv in
     (uenv', tenv, henv, senv), taint
 
-  let taint_register_mask r c (uenv, tenv, henv): t * Taint.Set.t =
-    let uenv', taint = U.taint_register_mask r c uenv in
-    (uenv', tenv, henv), taint
-
-  let span_taint_to_register register taint (uenv, tenv, henv) =
+  let span_taint_to_register register taint (uenv, tenv, henv, senv) =
     let uenv', taint' = U.span_taint_to_register register taint uenv in
-    (uenv', tenv, henv), taint'
+    (uenv', tenv, henv, senv), taint'
 
-  let taint_address_mask a c (uenv, tenv, henv) =
+  let taint_address_mask a c (uenv, tenv, henv, senv) =
     let uenv', taint = U.taint_address_mask a c uenv in
-    (uenv', tenv, henv), taint
+    (uenv', tenv, henv, senv), taint
 
-  let span_taint_to_addr a taint (uenv, tenv, henv) =
+  let span_taint_to_addr a taint (uenv, tenv, henv, senv) =
     let uenv', taint' = U.span_taint_to_addr a taint uenv in
-    (uenv', tenv, henv), taint'
+    (uenv', tenv, henv, senv), taint'
 
   let compare (uenv, tenv, henv) e1 cmp e2 =
     let uenv', b = U.compare uenv (H.check_status henv) e1 cmp e2 in
-    (uenv', tenv, henv), b
+    (uenv', tenv, henv, senv), b
 
-  let mem_to_addresses (uenv, _tenv, henv) e = U.mem_to_addresses uenv e (H.check_status henv)
+  let mem_to_addresses (uenv, _tenv, henv, senv) e = U.mem_to_addresses uenv e (H.check_status henv)
 
-  let taint_sources e (uenv, _tenv, henv) = U.taint_sources e uenv (H.check_status henv)
+  let taint_sources e (uenv, _tenv, henv, senv) = U.taint_sources e uenv (H.check_status henv)
 
 
-  let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv, henv) =
+  let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv, henv, _senv) =
     U.get_offset_from addr cmp terminator upper_bound sz uenv (H.check_status henv)
 
-  let get_bytes addr cmp terminator upper_bound term_sz (uenv, _tenv, henv) =
+  let get_bytes addr cmp terminator upper_bound term_sz (uenv, _tenv, henv, _senv) =
     U.get_bytes addr cmp terminator upper_bound term_sz uenv (H.check_status henv)
 
 
-  let print (uenv, _tenv, henv) src sz: t = U.print uenv src sz (H.check_status henv), T.top, henv
+  let print (uenv, _tenv, henv, senv) src sz: t = U.print uenv src sz (H.check_status henv), T.top, henv, senv
 
-  let copy_hex (uenv, _tenv, henv) dst src sz capitalise pad_option word_sz: t * int =
+  let copy_hex (uenv, _tenv, henv, senv) dst src sz capitalise pad_option word_sz: t * int =
     let uenv', len = U.copy_hex uenv dst src sz capitalise pad_option word_sz (H.check_status henv) in
-    (uenv', T.top, henv), len
+    (uenv', T.top, henv, senv), len
 
-  let print_hex (uenv, tenv, henv) src sz capitalise pad_option word_sz: t * int =
+  let print_hex (uenv, tenv, henv, senv) src sz capitalise pad_option word_sz: t * int =
     let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz (H.check_status henv) in
-    (uenv', tenv, henv), len
+    (uenv', tenv, henv, senv), len
 
-  let copy_chars (uenv, tenv, henv) dst src sz pad_options =
+  let copy_chars (uenv, tenv, henv, senv) dst src sz pad_options =
     let tenv' = char_type uenv tenv henv dst in
-    U.copy_chars uenv dst src sz pad_options (H.check_status henv), tenv', henv
+    U.copy_chars uenv dst src sz pad_options (H.check_status henv), tenv', henv, senv
 
 
-  let print_chars (uenv, _tenv, henv) src sz pad_options =
+  let print_chars (uenv, _tenv, henv, senv) src sz pad_options =
     let uenv', len = U.print_chars uenv src sz pad_options (H.check_status henv) in
-    (uenv', T.top, henv), len
+    (uenv', T.top, henv, senv), len
 
-  let copy_until (uenv, tenv, henv) dst arg terminator term_sz upper_bound with_exception pad_options =
+  let copy_until (uenv, tenv, henv, senv) dst arg terminator term_sz upper_bound with_exception pad_options =
     let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options (H.check_status henv) in
-    let tenv' = char_type uenv tenv henv dst in
-    len, (uenv', tenv', henv)
+    let tenv' = char_type uenv tenv henv senv dst in
+    len, (uenv', tenv', henv, senv)
 
-  let print_until (uenv, _tenv, henv) arg terminator term_sz upper_bound with_exception pad_options =
+  let print_until (uenv, _tenv, henv, senv) arg terminator term_sz upper_bound with_exception pad_options =
     let len, uenv' = U.print_until uenv arg terminator term_sz upper_bound with_exception pad_options (H.check_status henv) in
-    len, (uenv', T.top, henv)
+    len, (uenv', T.top, henv, senv)
 
 
-  let copy_register r (uenv, tenv, henv) (usrc, tsrc, hsrc) =
-    U.copy_register r uenv usrc, T.set_register r (type_of_exp tsrc usrc hsrc (Asm.Lval (Asm.V (Asm.T r)))) tenv, henv
+  let copy_register r (uenv, tenv, henv, senv) (usrc, tsrc, hsrc) =
+    U.copy_register r uenv usrc, T.set_register r (type_of_exp tsrc usrc hsrc (Asm.Lval (Asm.V (Asm.T r)))) tenv, henv, senv
 
-  let allocate_on_heap (uenv, tenv, henv) id = uenv, tenv, H.alloc henv id
+  let allocate_on_heap (uenv, tenv, henv, senv) id = uenv, tenv, H.alloc henv id, senv
 
-  let deallocate (uenv, tenv, henv) addr = uenv, tenv, H.dealloc henv addr
+  let deallocate (uenv, tenv, henv, senv) addr = uenv, tenv, H.dealloc henv addr, senv
 
-  let weak_deallocate (uenv, tenv, henv) addrs = uenv, tenv, H.weak_dealloc henv addrs
+  let weak_deallocate (uenv, tenv, henv, senv) addrs = uenv, tenv, H.weak_dealloc henv addrs, senv
  end: Domain.T)

@@ -27,4 +27,10 @@ let to_string (l, u) =
 
 let singleton v = v, v
 
-let equal (l1, u1) (l2, u2) = Z.compare l1 u1 = 0 && Z.compare u1 u2 
+let equal (l1, u1) (l2, u2) = Z.compare l1 l2 = 0 && Z.compare u1 u2 = 0 
+
+let lower_bound i = fst i
+                  
+let upper_bound i = snd i
+
+let is_included (l1, u1) (l2, u2) = Z.compare l1 l2 <= 0 && Z.compare u1 u2 <= 0
