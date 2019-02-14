@@ -377,9 +377,8 @@ module Make(D: T) =
 
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
        _endianness_. _strong_ means strong update *)
-    let write_in_memory ?endianness addr domain value sz strong check_address_validity check_stack_overflow =
-      check_address_validity addr;
-      check_stack_overflow addr sz;
+    let write_in_memory ?endianness addr domain value sz strong check_address_validity =
+      check_address_validity addr sz;
       let endianness' = match endianness with
         | None -> !Config.endianness
         | Some x -> x in
@@ -447,7 +446,7 @@ module Make(D: T) =
         returns the evaluated expression and a boolean to say if
         the resulting expression is tainted
     *)
-    let rec eval_exp m e check_address_validity check_stack_overflow: (D.t * Taint.t) =
+    let rec eval_exp m e check_address_validity: (D.t * Taint.t) =
       L.debug (fun p -> p "eval_exp(%s)" (Asm.string_of_exp e true));
       let rec eval (e: Asm.exp): D.t * Taint.t =
         match e with

@@ -170,7 +170,13 @@ also the number of chars effectively written *)
     (** [deallocate d a] allocate the heap memory chunk at address a *)
       val deallocate: t -> Data.Address.heap_id_t -> t
 
-      (** [deallocate d addrs] weake allocate the heap memory chunks at addresses addrs *)
+      (** [deallocate d addrs] weak allocate the heap memory chunks at addresses addrs *)
       val weak_deallocate: t -> Data.Address.heap_id_t list -> t
+
+      (** transfer function when a function is entered *)
+      val call: t -> t
+
+      (** transfer function for function exit *)
+        val ret: t -> t
     end
 

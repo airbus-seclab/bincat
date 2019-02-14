@@ -47,13 +47,16 @@ let is_subset d1 d2 =
            | Some i1, Some i2 -> I.is_included i1 i2) f1 f2
      with _ -> false
              
-let add_stack_frame d (v: Z.t option) =
-  let stack_frame =
-    match v with
-    | Some v -> Some (I.singleton v)
-    | None -> None
-  in
-  stack_frame::d
+let add_stack_frame d (v: Z.t option): t =
+  match d with
+  | TOP | BOT -> d
+  | Frames d ->
+     let stack_frame =
+       match v with
+       | Some v -> Some (I.singleton v)
+       | None -> None
+     in
+     Frames (stack_frame::d)
 
 let remove_stack_frame d =
   match d with

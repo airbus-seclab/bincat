@@ -84,10 +84,10 @@ module Make(D: Unrel.T) =
       | Val m' -> Val (USet.map (fun (u, ids) -> U.remove_register r u, ids) m')
       | BOT -> BOT
 
-    let forget_lval lv m check_address_validity check_stack_overflow =
+    let forget_lval lv m check_address_validity =
        match m with
       | BOT -> BOT
-      | Val m' -> Val (USet.map (fun (u, ids) -> U.forget_lval lv u check_address_validity check_stack_overflow, ids) m')
+      | Val m' -> Val (USet.map (fun (u, ids) -> U.forget_lval lv u check_address_validity, ids) m')
                 
     let add_register r m =
       match m with
@@ -133,14 +133,14 @@ module Make(D: Unrel.T) =
       | [] -> USet.empty
       | u::tl -> USet.singleton (List.fold_left (fun acc (u, _) -> U.join acc u) (fst u) tl, [])
                
-    let set dst src m check_address_validity check_stack_overflow: (t * Taint.Set.t) =
+    let set dst src m check_address_validity: (t * Taint.Set.t) =
       match m with
       | BOT    -> BOT, Taint.Set.singleton Taint.BOT
       | Val m' ->
          let bot = ref false in
          let mres, t = USet.fold (fun (u, msg) (m', t) ->
                            try
-                             let u', t' = U.set dst src u check_address_validity check_stack_overflow in                             
+                             let u', t' = U.set dst src u check_address_validity in                             
                              USet.add (u', msg) m', Taint.Set.add t' t
                            with _ ->
                              bot := true;
@@ -157,7 +157,7 @@ module Make(D: Unrel.T) =
          
   
                
-    let set_lval_to_addr lv addrs m check_address_validity check_stack_overflow =
+    let set_lval_to_addr lv addrs m check_address_validity =
       match m with
       | BOT -> BOT, Taint.Set.singleton Taint.BOT
       | Val m' ->
@@ -172,7 +172,7 @@ module Make(D: Unrel.T) =
            List.fold_left (fun acc (a, msg_id) ->
                let m' =
                  USet.map (fun (u, prev_msg_id) ->
-                     let u', t = U.set_lval_to_addr lv a u check_address_validity check_stack_overflow in
+                     let u', t = U.set_lval_to_addr lv a u check_address_validity in
                      taint := Taint.Set.add t !taint;
                      u', msg_id::prev_msg_id) m'
                in
@@ -247,9 +247,9 @@ module Make(D: Unrel.T) =
          in
          Val m', t'
          
-    let set_memory_from_config a conf nb m check_address_validity check_stack_overflow: t * Taint.Set.t = 
+    let set_memory_from_config a conf nb m check_address_validity: t * Taint.Set.t = 
       if nb > 0 then
-        fold_on_taint m (U.set_memory_from_config a conf nb check_address_validity check_stack_overflow)
+        fold_on_taint m (U.set_memory_from_config a conf nb check_address_validity)
       else
         m, Taint.Set.singleton Taint.U
 
@@ -342,17 +342,17 @@ module Make(D: Unrel.T) =
          | Some r -> r
          | None -> raise (Exceptions.Empty "Unrels.get_bytes: undefined bytes to compute")
 
-    let copy m dst arg sz check_address_validity check_stack_overflow =
+    let copy m dst arg sz check_address_validity =
       match m with
-      | Val m' -> Val (USet.map (fun (u, msg) -> U.copy u dst arg sz check_address_validity check_stack_overflow, msg) m')
+      | Val m' -> Val (USet.map (fun (u, msg) -> U.copy u dst arg sz check_address_validity, msg) m')
       | BOT -> BOT
 
-    let copy_hex m dst src nb capitalise pad_option word_sz check_address_validity check_stack_overflow =
+    let copy_hex m dst src nb capitalise pad_option word_sz check_address_validity =
       match m with
       | Val m' ->
          let m, n =
            USet.fold (fun (u, msg) (acc, n) ->
-               let u', n' = U.copy_hex u dst src nb capitalise pad_option word_sz check_address_validity check_stack_overflow in
+               let u', n' = U.copy_hex u dst src nb capitalise pad_option word_sz check_address_validity in
                let nn =
                  match n with
                  | None -> Some n'
@@ -385,13 +385,13 @@ module Make(D: Unrel.T) =
             Val (USet.singleton (u', msg)), len
          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
 
-    let copy_until m dst e terminator term_sz upper_bound with_exception pad_options check_address_validity check_stack_overflow =
+    let copy_until m dst e terminator term_sz upper_bound with_exception pad_options check_address_validity =
        match m with
        | BOT -> 0, BOT
        | Val m' ->
           match USet.elements m' with
           | [(u, msg)] ->
-             let len, u' = U.copy_until u dst e terminator term_sz upper_bound with_exception pad_options check_address_validity check_stack_overflow in
+             let len, u' = U.copy_until u dst e terminator term_sz upper_bound with_exception pad_options check_address_validity in
              len, Val (USet.singleton (u', msg))
          | _ -> raise (Exceptions.Too_many_concrete_elements "U.copy_until: implemented only for one unrel only")
 
@@ -405,10 +405,10 @@ module Make(D: Unrel.T) =
              len, Val (USet.singleton (u', msg))
           | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_until: implemented only for one unrel only")
 
-    let copy_chars m dst src nb pad_options check_address_validity check_stack_overflow =
+    let copy_chars m dst src nb pad_options check_address_validity =
       match m with
       | BOT -> BOT
-      | Val m' -> Val (USet.map (fun (u, msg) -> U.copy_chars u dst src nb pad_options check_address_validity check_stack_overflow, msg) m')
+      | Val m' -> Val (USet.map (fun (u, msg) -> U.copy_chars u dst src nb pad_options check_address_validity, msg) m')
 
     let print_chars (m: t) src nb pad_options check_address_validity =
       match m with

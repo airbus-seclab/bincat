@@ -51,20 +51,24 @@ module Make(D: Unrel.T) =
       uenv, tenv, henv, S.add_stack_frame senv v
 
   let ret (uenv, tenv, henv, senv) = uenv, tenv, henv, S.remove_stack_frame senv
-                                   
+
+  let check_address henv senv a sz =
+    H.check_status henv a;
+    S.check_overflow senv a sz
+
   let forget_lval lv (uenv, tenv, henv, senv): t =
     let tenv', is_stack_register =
       match lv with
       | Asm.V (Asm.T r)
       | Asm.V (Asm.P (r, _, _)) -> T.remove_register r tenv, true
       | _ ->
-         let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) (H.check_status henv) in
+         let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) (check_address henv senv) in
          T.remove_addresses addrs tenv, false
     in
     let senv' =
       if is_stack_register then S.forget_stack_frame senv else senv
     in
-    U.forget_lval lv uenv (H.check_status henv), tenv', henv, senv'
+    U.forget_lval lv uenv (check_address henv senv), tenv', henv, senv'
 
   let add_register r (uenv, tenv, henv, senv) = U.add_register r uenv, T.add_register r tenv, henv, senv
 
@@ -74,16 +78,16 @@ module Make(D: Unrel.T) =
 
   let string_of_register (uenv, tenv, _henv, _senv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
 
-  let value_of_exp (uenv, _tenv, henv, _senv) e = U.value_of_exp uenv e (H.check_status henv)
+  let value_of_exp (uenv, _tenv, henv, senv) e = U.value_of_exp uenv e (check_address henv senv)
 
-  let type_of_exp tenv uenv henv _senv e =
+  let type_of_exp tenv uenv henv senv e =
     match e with
     | Asm.Lval (Asm.V (Asm.P (_r, _, _))) -> Types.UNKNOWN
     | Asm.Lval (Asm.V (Asm.T r)) -> T.of_key (Env.Key.Reg r) tenv
     | Asm.Lval (Asm.M (e, _sz)) ->
        begin
          try
-         let addrs, _ = U.mem_to_addresses uenv e (H.check_status henv) in
+         let addrs, _ = U.mem_to_addresses uenv e (check_address henv senv) in
          match Data.Address.Set.elements addrs with
          | [a] -> T.of_key (Env.Key.Mem a) tenv
          | _ -> Types.UNKNOWN
@@ -100,7 +104,7 @@ module Make(D: Unrel.T) =
      | Asm.V (Asm.P (r, _, _)) -> T.forget_register r tenv
      | Asm.M (e, _sz) ->
         try
-      let addrs, _ = U.mem_to_addresses uenv e (H.check_status henv) in
+      let addrs, _ = U.mem_to_addresses uenv e (check_address henv senv) in
       match Data.Address.Set.elements addrs with
       | [a] -> L.debug (fun p -> p "at %s: inferred type is %s" (Data.Address.to_string a) (Types.to_string typ));
                if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
@@ -115,9 +119,6 @@ module Make(D: Unrel.T) =
     | Asm.V (Asm.T r) | Asm.V (Asm.P (r, _, _)) -> if Register.is_stack_pointer r then Some r else None
     | _ -> None
 
-  let check_address henv senv a =
-    H.chec_status henv a;
-    S.check_overflow senv a
     
   let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =
     let uenv', b = U.set lv e uenv (check_address henv senv) in
@@ -180,9 +181,9 @@ module Make(D: Unrel.T) =
     let uenv', taint = U.set_memory_from_config a c n uenv (check_address henv senv) in
     (uenv', tenv, henv, senv), taint
 
-  let set_register_from_config r (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv, senv) =
+  let set_register_from_config r (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv, senv): t* Taint.Set.t =
     let uenv', taint = U.set_register_from_config r c uenv in
-    let senv' =
+    let (senv': S.t) =
       if Register.is_stack_pointer r then
         try
           let v = U.value_of_register uenv r in
@@ -217,10 +218,10 @@ module Make(D: Unrel.T) =
   let taint_sources e (uenv, _tenv, henv, senv) = U.taint_sources e uenv (check_address henv senv)
 
 
-  let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv, henv, _senv) =
+  let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv, henv, senv) =
     U.get_offset_from addr cmp terminator upper_bound sz uenv (check_address henv senv)
 
-  let get_bytes addr cmp terminator upper_bound term_sz (uenv, _tenv, henv, _senv) =
+  let get_bytes addr cmp terminator upper_bound term_sz (uenv, _tenv, henv, senv) =
     U.get_bytes addr cmp terminator upper_bound term_sz uenv (check_address henv senv)
 
 
@@ -235,7 +236,7 @@ module Make(D: Unrel.T) =
     (uenv', tenv, henv, senv), len
 
   let copy_chars (uenv, tenv, henv, senv) dst src sz pad_options =
-    let tenv' = char_type uenv tenv henv dst in
+    let tenv' = char_type uenv tenv henv senv dst in
     U.copy_chars uenv dst src sz pad_options (check_address henv senv), tenv', henv, senv
 
 
