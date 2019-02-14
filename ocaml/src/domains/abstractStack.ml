@@ -17,7 +17,7 @@
 *)
 
 
-module L = Log.Make(struct let name = "stack" end)
+module L = Log.Make(struct let name = "abstractStack" end)
 
 module I = Interval
          
@@ -107,28 +107,27 @@ let update_stack_frame (d: t) (bound: Z.t): t =
      in
      Frames (stack_frame'::(List.tl d))
 
+let check_one_frame w f =
+  match f with
+  | None -> L.analysis (fun p -> p "possible stack overflow")
+  | Some (l, u) ->
+     let w' = Data.Word.to_int w in
+     if Z.compare l w' <= 0 && Z.compare w' u <= 0 then
+       let legal_len = (Z.to_int (Z.sub u l)) + 1 in
+       if legal_len >= len then
+         ()
+       else
+         L.abort (fun p -> p "stack overflow: trying to write %d bytes from %s (current stack frame is only %d byte width)"
+                             len  (Data.Word.to_string w) legal_len)
+     else ()
+             
 let check_overflow (d: t) (a: Data.Address.t) (len: int): unit =
   match d with
   | TOP -> L.analysis (fun p -> p "possible stack overflow")
   | BOT -> L.abort (fun p -> p "tried to write into an undefined stack")
   | Frames d ->
      match a with
-     | Data.Address.Global, w ->
-        begin
-          let stack_frame = List.hd d in
-          match stack_frame with
-          | None -> L.analysis (fun p -> p "possible stack overflow")
-          | Some (l, u) ->
-             let w' = Data.Word.to_int w in
-             if Z.compare l w' <= 0 && Z.compare w' u <= 0 then
-               let legal_len = (Z.to_int (Z.sub u l)) + 1 in
-               if legal_len >= len then
-                 ()
-               else
-                 L.abort (fun p -> p "stack overflow: trying to write %d bytes from %s (current stack frame is only %d byte width)"
-                                     len  (Data.Word.to_string w) legal_len)
-             else ()
-        end
+     | Data.Address.Global, w -> List.iter (check_one_frame w) d      
      | _ -> ()
                                        
 let join d1 d2 =

@@ -164,7 +164,7 @@ module Make(D: Unrel.T) =
      with Exceptions.Too_many_concrete_elements _ -> T.top
 
   let copy (uenv, tenv, henv, senv) dst src sz: t =
-    U.copy uenv dst src sz (H.check_status henv), char_type uenv tenv henv dst, henv, senv
+    U.copy uenv dst src sz (H.check_status henv) (S.check_overflow senv), char_type uenv tenv henv senv dst, henv, senv
 
   let join (uenv1, tenv1, henv1, senv1) (uenv2, tenv2, henv2, senv2) = U.join uenv1 uenv2, T.join tenv1 tenv2, H.join henv1 henv2, S.join senv1 senv2
 
@@ -173,15 +173,15 @@ module Make(D: Unrel.T) =
   let widen (uenv1, tenv1, henv1, senv1) (uenv2, tenv2, henv2, senv2) = U.widen uenv1 uenv2, T.widen tenv1 tenv2, H.widen henv1 henv2, S.widen senv1 senv2
 
   let set_memory_from_config a c n (uenv, tenv, henv, senv) =
-    let uenv', taint = U.set_memory_from_config a c n uenv (H.check_status henv) in
+    let uenv', taint = U.set_memory_from_config a c n uenv (H.check_status henv) (S.check_overflow senv) in
     (uenv', tenv, henv, senv), taint
 
-  let set_register_from_config register (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv, senv) =
-    let uenv', taint = U.set_register_from_config register c uenv in
+  let set_register_from_config r (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv, senv) =
+    let uenv', taint = U.set_register_from_config r c uenv in
     let senv' =
       if Register.is_stack_pointer r then
         try
-          let v = U.value_of_register d r in
+          let v = U.value_of_register uenv r in
           S.add_stack_frame senv (Some v)
         with _ -> S.add_stack_frame senv None
       else senv
@@ -204,7 +204,7 @@ module Make(D: Unrel.T) =
     let uenv', taint' = U.span_taint_to_addr a taint uenv in
     (uenv', tenv, henv, senv), taint'
 
-  let compare (uenv, tenv, henv) e1 cmp e2 =
+  let compare (uenv, tenv, henv, senv) e1 cmp e2 =
     let uenv', b = U.compare uenv (H.check_status henv) e1 cmp e2 in
     (uenv', tenv, henv, senv), b
 
