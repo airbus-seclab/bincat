@@ -52,7 +52,7 @@ module Make(D: Unrel.T) =
 
   let ret (uenv, tenv, henv, senv) = uenv, tenv, henv, S.remove_stack_frame senv
                                    
-  let forget_lval lv (uenv, tenv, henv, senv) =
+  let forget_lval lv (uenv, tenv, henv, senv): t =
     let tenv', is_stack_register =
       match lv with
       | Asm.V (Asm.T r)
@@ -114,9 +114,13 @@ module Make(D: Unrel.T) =
     match lv with
     | Asm.V (Asm.T r) | Asm.V (Asm.P (r, _, _)) -> if Register.is_stack_pointer r then Some r else None
     | _ -> None
-         
+
+  let check_address henv senv a =
+    H.chec_status henv a;
+    S.check_overflow senv a
+    
   let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =
-    let uenv', b = U.set lv e uenv (H.check_status henv) (S.check_overflow senv) in
+    let uenv', b = U.set lv e uenv (check_address henv senv) in
     let typ = type_of_exp tenv uenv henv senv e in
     let _, tenv', _, _ = set_type lv typ (uenv', tenv, henv, senv) in
     let senv' =
@@ -132,7 +136,7 @@ module Make(D: Unrel.T) =
 
 
   let set_lval_to_addr (lv: Asm.lval) (addrs: (Data.Address.t * Log.msg_id_t) list) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =
-    let uenv', b = U.set_lval_to_addr lv addrs uenv (H.check_status henv) (S.check_overflow senv) in
+    let uenv', b = U.set_lval_to_addr lv addrs uenv (check_address henv senv) in
     try
       let buf_typ =
         match addrs with
@@ -157,14 +161,14 @@ module Make(D: Unrel.T) =
   let char_type uenv tenv henv senv dst =
      let typ = Types.T (TypedC.Int (Newspeak.Signed, 8)) in
      try
-       let addrs, _ = U.mem_to_addresses uenv dst (H.check_status henv) in
+       let addrs, _ = U.mem_to_addresses uenv dst (check_address henv senv) in
        match Data.Address.Set.elements addrs with
        | [a] -> if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
        | l ->  List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l (* TODO: replace by a weak update *)
      with Exceptions.Too_many_concrete_elements _ -> T.top
 
   let copy (uenv, tenv, henv, senv) dst src sz: t =
-    U.copy uenv dst src sz (H.check_status henv) (S.check_overflow senv), char_type uenv tenv henv senv dst, henv, senv
+    U.copy uenv dst src sz (check_address henv senv), char_type uenv tenv henv senv dst, henv, senv
 
   let join (uenv1, tenv1, henv1, senv1) (uenv2, tenv2, henv2, senv2) = U.join uenv1 uenv2, T.join tenv1 tenv2, H.join henv1 henv2, S.join senv1 senv2
 
@@ -173,7 +177,7 @@ module Make(D: Unrel.T) =
   let widen (uenv1, tenv1, henv1, senv1) (uenv2, tenv2, henv2, senv2) = U.widen uenv1 uenv2, T.widen tenv1 tenv2, H.widen henv1 henv2, S.widen senv1 senv2
 
   let set_memory_from_config a c n (uenv, tenv, henv, senv) =
-    let uenv', taint = U.set_memory_from_config a c n uenv (H.check_status henv) (S.check_overflow senv) in
+    let uenv', taint = U.set_memory_from_config a c n uenv (check_address henv senv) in
     (uenv', tenv, henv, senv), taint
 
   let set_register_from_config r (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv, senv) =
@@ -208,49 +212,49 @@ module Make(D: Unrel.T) =
     let uenv', b = U.compare uenv (H.check_status henv) e1 cmp e2 in
     (uenv', tenv, henv, senv), b
 
-  let mem_to_addresses (uenv, _tenv, henv, senv) e = U.mem_to_addresses uenv e (H.check_status henv)
+  let mem_to_addresses (uenv, _tenv, henv, senv) e = U.mem_to_addresses uenv e (check_address henv senv)
 
-  let taint_sources e (uenv, _tenv, henv, senv) = U.taint_sources e uenv (H.check_status henv)
+  let taint_sources e (uenv, _tenv, henv, senv) = U.taint_sources e uenv (check_address henv senv)
 
 
   let get_offset_from addr cmp terminator upper_bound sz (uenv, _tenv, henv, _senv) =
-    U.get_offset_from addr cmp terminator upper_bound sz uenv (H.check_status henv)
+    U.get_offset_from addr cmp terminator upper_bound sz uenv (check_address henv senv)
 
   let get_bytes addr cmp terminator upper_bound term_sz (uenv, _tenv, henv, _senv) =
-    U.get_bytes addr cmp terminator upper_bound term_sz uenv (H.check_status henv)
+    U.get_bytes addr cmp terminator upper_bound term_sz uenv (check_address henv senv)
 
 
-  let print (uenv, _tenv, henv, senv) src sz: t = U.print uenv src sz (H.check_status henv), T.top, henv, senv
+  let print (uenv, _tenv, henv, senv) src sz: t = U.print uenv src sz (check_address henv senv), T.top, henv, senv
 
   let copy_hex (uenv, _tenv, henv, senv) dst src sz capitalise pad_option word_sz: t * int =
-    let uenv', len = U.copy_hex uenv dst src sz capitalise pad_option word_sz (H.check_status henv) in
+    let uenv', len = U.copy_hex uenv dst src sz capitalise pad_option word_sz (check_address henv senv) in
     (uenv', T.top, henv, senv), len
 
   let print_hex (uenv, tenv, henv, senv) src sz capitalise pad_option word_sz: t * int =
-    let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz (H.check_status henv) in
+    let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz (check_address henv senv) in
     (uenv', tenv, henv, senv), len
 
   let copy_chars (uenv, tenv, henv, senv) dst src sz pad_options =
     let tenv' = char_type uenv tenv henv dst in
-    U.copy_chars uenv dst src sz pad_options (H.check_status henv), tenv', henv, senv
+    U.copy_chars uenv dst src sz pad_options (check_address henv senv), tenv', henv, senv
 
 
   let print_chars (uenv, _tenv, henv, senv) src sz pad_options =
-    let uenv', len = U.print_chars uenv src sz pad_options (H.check_status henv) in
+    let uenv', len = U.print_chars uenv src sz pad_options (check_address henv senv) in
     (uenv', T.top, henv, senv), len
 
   let copy_until (uenv, tenv, henv, senv) dst arg terminator term_sz upper_bound with_exception pad_options =
-    let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options (H.check_status henv) in
+    let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options (check_address henv senv) in
     let tenv' = char_type uenv tenv henv senv dst in
     len, (uenv', tenv', henv, senv)
 
   let print_until (uenv, _tenv, henv, senv) arg terminator term_sz upper_bound with_exception pad_options =
-    let len, uenv' = U.print_until uenv arg terminator term_sz upper_bound with_exception pad_options (H.check_status henv) in
+    let len, uenv' = U.print_until uenv arg terminator term_sz upper_bound with_exception pad_options (check_address henv senv) in
     len, (uenv', T.top, henv, senv)
 
 
-  let copy_register r (uenv, tenv, henv, senv) (usrc, tsrc, hsrc) =
-    U.copy_register r uenv usrc, T.set_register r (type_of_exp tsrc usrc hsrc (Asm.Lval (Asm.V (Asm.T r)))) tenv, henv, senv
+  let copy_register r (uenv, tenv, henv, senv) (usrc, tsrc, hsrc, ssrc) =
+    U.copy_register r uenv usrc, T.set_register r (type_of_exp tsrc usrc hsrc ssrc (Asm.Lval (Asm.V (Asm.T r)))) tenv, henv, senv
 
   let allocate_on_heap (uenv, tenv, henv, senv) id = uenv, tenv, H.alloc henv id, senv
 

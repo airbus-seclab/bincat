@@ -107,7 +107,7 @@ let update_stack_frame (d: t) (bound: Z.t): t =
      in
      Frames (stack_frame'::(List.tl d))
 
-let check_one_frame w f =
+let check_one_frame w len f =
   match f with
   | None -> L.analysis (fun p -> p "possible stack overflow")
   | Some (l, u) ->
@@ -127,7 +127,7 @@ let check_overflow (d: t) (a: Data.Address.t) (len: int): unit =
   | BOT -> L.abort (fun p -> p "tried to write into an undefined stack")
   | Frames d ->
      match a with
-     | Data.Address.Global, w -> List.iter (check_one_frame w) d      
+     | Data.Address.Global, w -> List.iter (check_one_frame w len) d      
      | _ -> ()
                                        
 let join d1 d2 =

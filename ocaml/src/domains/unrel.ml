@@ -447,7 +447,7 @@ module Make(D: T) =
         returns the evaluated expression and a boolean to say if
         the resulting expression is tainted
     *)
-    let rec eval_exp m e check_address_validity: (D.t * Taint.t) =
+    let rec eval_exp m e check_address_validity check_stack_overflow: (D.t * Taint.t) =
       L.debug (fun p -> p "eval_exp(%s)" (Asm.string_of_exp e true));
       let rec eval (e: Asm.exp): D.t * Taint.t =
         match e with
@@ -568,7 +568,7 @@ module Make(D: T) =
       let v2, tsrc2 = eval_exp env e2 check_address_validity in
       D.compare v1 op v2, Taint.logor tsrc1 tsrc2
 
-    let forget_lval lv m' check_address_validity check_stack_overflow = 
+    let forget_lval lv m' check_address_validity = 
       match lv with
       | Asm.V (Asm.T r) -> forget_reg m' r None
       | Asm.V (Asm.P (r, l, u)) -> forget_reg m' r (Some (l, u))
@@ -576,7 +576,7 @@ module Make(D: T) =
          let v, _b = eval_exp m' e check_address_validity in
          let addrs = D.to_addresses v in
          let l     = Data.Address.Set.elements addrs in
-         List.fold_left (fun m a ->  write_in_memory a m D.top n true check_address_validity check_stack_overflow) m' l
+         List.fold_left (fun m a ->  write_in_memory a m D.top n true check_address_validity) m' l
 
 
     let val_restrict m e1 _v1 cmp _e2 v2: t list =
@@ -656,15 +656,15 @@ module Make(D: T) =
       | _ -> v
 
 
-    let set_to_memory dst_exp dst_sz v' m' b check_address_validity check_stack_overflow =
+    let set_to_memory dst_exp dst_sz v' m' b check_address_validity =
       let v, b' = eval_exp m' dst_exp check_address_validity in
       let addrs = D.to_addresses v in
       try
         let l     = Data.Address.Set.elements addrs in
         let t' = Taint.logor b b' in
         match l with
-        | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true check_address_validity check_stack_overflow, t'
-        | l   -> (* weak update *) List.fold_left (fun m a -> write_in_memory a m v' dst_sz false check_address_validity check_stack_overflow) m' l, t'
+        | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true check_address_validity, t'
+        | l   -> (* weak update *) List.fold_left (fun m a -> write_in_memory a m v' dst_sz false check_address_validity) m' l, t'
       with
       | Exceptions.Too_many_concrete_elements "unrel.set" -> Env.empty, Taint.TOP
 
@@ -676,7 +676,7 @@ module Make(D: T) =
            Env.replace (Env.Key.Reg r') (D.combine prev v' low up) m'
          
              
-    let set dst src m' check_address_validity check_stack_overflow: (t * Taint.t) =
+    let set dst src m' check_address_validity: (t * Taint.t) =
       let v', _ = eval_exp m' src check_address_validity in
          let v' = span_taint m' src v' in
          L.info2 (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
@@ -694,7 +694,7 @@ module Make(D: T) =
                 
            | Asm.M (e, n) ->
               try
-                set_to_memory e n v' m' b check_address_validity check_stack_overflow
+                set_to_memory e n v' m' b check_address_validity
               with
               | _ -> raise (Exceptions.Empty "Unrel.set (memory case)")
 
@@ -787,7 +787,7 @@ module Make(D: T) =
       Env.replace k v' m', taint
 
 
-    let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb check_address_validity check_stack_overflow domain': t * Taint.t =
+    let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb check_address_validity domain': t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");  
       let taint_srcs = extract_taint_src_ids taint in          
       let m', taint, sz =
@@ -823,7 +823,7 @@ module Make(D: T) =
                | Config.Bytes _ | Config.Bytes_Mask (_, _) -> Config.BIG
                | _ -> !Config.endianness
              in
-             write_in_memory ~endianness:endianness addr domain' v' sz true check_address_validity check_stack_overflow, taint, sz
+             write_in_memory ~endianness:endianness addr domain' v' sz true check_address_validity, taint, sz
       in
       List.iter (fun id -> if not (Hashtbl.mem Dump.taint_src_tbl id) then
                              Hashtbl.add Dump.taint_src_tbl id (Dump.M(addr, sz*nb))) taint_srcs;  
@@ -849,7 +849,7 @@ module Make(D: T) =
             Env.replace (Env.Key.Reg r) vt m', taint
 
             
-    let set_lval_to_addr lv (region, word) m check_address_validity check_stack_overflow =
+    let set_lval_to_addr lv (region, word) m check_address_validity =
       (* TODO: should we taint the lvalue if the address to set is tainted ? *)
       L.debug2 (fun p -> p "entering set_lval_to_addrs with lv = %s" (Asm.string_of_lval lv true));  
          match lv with
@@ -865,7 +865,7 @@ module Make(D: T) =
                         let v = D.of_addr (region, byte) in
                         let e' = Asm.BinOp (Asm.Add, e, Asm.Const (Data.Word.of_int i !Config.operand_sz)) in
                         let m', taint' =
-                          set_to_memory e' 8 v m' Taint.U check_address_validity check_stack_overflow
+                          set_to_memory e' 8 v m' Taint.U check_address_validity
                         in
                         m', Taint.logor taint taint', Z.add i Z.one) (m, Taint.U, Z.zero) bytes
                   in
@@ -978,7 +978,7 @@ module Make(D: T) =
       L.debug (fun p->p "strip, after: %s" res);
       res
 
-    let copy_until m' dst e terminator term_sz upper_bound with_exception pad_options check_address_validity check_stack_overflow: int * t =  
+    let copy_until m' dst e terminator term_sz upper_bound with_exception pad_options check_address_validity: int * t =  
        let addrs = Data.Address.Set.elements (D.to_addresses (fst (eval_exp m' dst check_address_validity))) in
        (* TODO optimize: m is pattern matched twice (here and in i_get_bytes) *)
        let len, bytes = i_get_bytes e Asm.EQ terminator upper_bound term_sz m' with_exception pad_options check_address_validity in
@@ -986,7 +986,7 @@ module Make(D: T) =
          let m', _ =
            List.fold_left (fun (m', i) byte ->
          let a' = Data.Address.add_offset a (Z.of_int i) in
-           (write_in_memory a' m' byte 8 strong check_address_validity check_stack_overflow), i+1) (m', 0) bytes
+           (write_in_memory a' m' byte 8 strong check_address_validity), i+1) (m', 0) bytes
          in
          m'
        in
@@ -1012,8 +1012,8 @@ module Make(D: T) =
       let len' = print_bytes bytes len in
       min len len', m
 
-    let copy_chars m dst src nb pad_options check_address_validity check_stack_overflow =
-      snd (copy_until m dst src (Asm.Const (Data.Word.of_int Z.zero 8)) 8 nb false pad_options check_address_validity check_stack_overflow)
+    let copy_chars m dst src nb pad_options check_address_validity  =
+      snd (copy_until m dst src (Asm.Const (Data.Word.of_int Z.zero 8)) 8 nb false pad_options check_address_validity )
 
     let print_chars m' src nb pad_options check_address_validity =
       (* TODO: factorize with copy_until *)
@@ -1094,7 +1094,7 @@ module Make(D: T) =
       in
       str', String.length str'
 
-    let copy_hex m' dst src nb capitalise pad_option word_sz check_address_validity check_stack_overflow: t * int =
+    let copy_hex m' dst src nb capitalise pad_option word_sz check_address_validity : t * int =
         (* TODO generalise to non concrete src value *)
       let _, src_tainted = (eval_exp m' src check_address_validity) in
       let str_src, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
@@ -1115,7 +1115,7 @@ module Make(D: T) =
                | _, Taint.U -> D.span_taint r src_tainted
                | _, _ -> D.taint r
              in
-             write (write_in_memory dst m' v' 8 true check_address_validity check_stack_overflow) (Z.add o Z.one)
+             write (write_in_memory dst m' v' 8 true check_address_validity ) (Z.add o Z.one)
            else
              m'
          in
@@ -1131,14 +1131,14 @@ module Make(D: T) =
       m', len
 
 
-    let copy m' dst arg sz check_address_validity check_stack_overflow: t =
+    let copy m' dst arg sz check_address_validity : t =
     (* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)
     (* plus make pattern matching more generic for register detection *)
       let v = fst (eval_exp m' arg check_address_validity) in
       let addrs = fst (eval_exp m' dst check_address_validity) in
       match Data.Address.Set.elements (D.to_addresses addrs) with
-      | [a] -> write_in_memory a m' v sz true check_address_validity check_stack_overflow
-      | _::_ as l -> List.fold_left (fun m a -> write_in_memory a m v sz false check_address_validity check_stack_overflow) m' l
+      | [a] -> write_in_memory a m' v sz true check_address_validity 
+      | _::_ as l -> List.fold_left (fun m a -> write_in_memory a m v sz false check_address_validity) m' l
       | [ ] -> raise (Exceptions.Empty "Unrel.copy")
     
 
