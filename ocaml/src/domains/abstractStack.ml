@@ -21,7 +21,7 @@ module L = Log.Make(struct let name = "abstractStack" end)
 
 module I = Interval
          
-type frame = I.t option (* None is TOP *)
+type frame = I.t 
 
 type t =
   | BOT
@@ -40,11 +40,7 @@ let is_subset d1 d2 =
   | _, BOT | BOT, _ -> false
   | Frames f1, Frames f2 ->
      try
-       List.for_all2 (fun f1 f2 ->
-           match f1, f2 with
-           | _, None -> true
-           | None, _ -> false
-           | Some i1, Some i2 -> I.is_included i1 i2) f1 f2
+       List.for_all2 I.contains f1 f2
      with _ -> false
              
 let add_stack_frame d (v: Z.t option): t =
@@ -52,9 +48,9 @@ let add_stack_frame d (v: Z.t option): t =
   | TOP | BOT -> d
   | Frames d ->
      let stack_frame =
-       match v with
-       | Some v -> Some (I.singleton v)
-       | None -> None
+       if !Config.stack = Config.Decreasing then
+         I.lower_singleton v
+       else I.upper_singleton v
      in
      Frames (stack_frame::d)
 
@@ -68,18 +64,9 @@ let forget_stack_frame d =
    match d with
   | BOT -> raise (Exceptions.Empty "forget_stack_frame on undefined stack")
   | TOP -> TOP
-  | Frames d -> Frames (None::(List.tl d))
+  | Frames d -> Frames (I.inf::(List.tl d))
 
-let string_of_stack_frame s =
-  match s with
-  | Some i -> I.to_string i
-  | None -> "[ -oo ; +oo "
 
-let equal_stack_frame s1 s2 =
-  match s1, s2 with
-  | Some i1, Some i2 -> I.equal i1 i2
-  | _, _ -> false
-                      
 let to_string d =
   [
     match d with
@@ -87,42 +74,20 @@ let to_string d =
     | BOT -> "_"
     | Frames i ->
        let s =
-         List.fold_left (fun s i -> (string_of_stack_frame i)^" | "^s) " ]" (List.rev i)
+         List.fold_left (fun s i -> (I.to_string i)^" | "^s) " ]" (List.rev i)
        in
        "[ " ^ s
  ]
   
-let normalize l u =
-  if Z.compare l u < 0 then Some (l, u)
-  else None
-  
-let update_stack_frame (d: t) (bound: Z.t): t =
-  match d with
-  | BOT -> raise (Exceptions.Empty "update_stack_frame on undefined stack")
-  | TOP -> TOP
-  | Frames d ->
-     let stack_frame' =
-       match List.hd d with
-       | None -> None
-       | Some (l, u) ->
-          if !Config.stack = Config.Decreasing then normalize bound u
-          else normalize l bound
-     in
-     Frames (stack_frame'::(List.tl d))
 
-let check_one_frame w len f =
-  match f with
-  | None -> L.analysis (fun p -> p "possible stack overflow")
-  | Some (l, u) ->
-     let w' = Data.Word.to_int w in
-     if Z.compare l w' <= 0 && Z.compare w' u <= 0 then
-       let legal_len = (Z.to_int (Z.sub u l)) + 1 in
-       if legal_len >= len then
-         ()
-       else
-         L.abort (fun p -> p "stack overflow: trying to write %d bytes from %s (current stack frame is only %d byte width)"
-                             len  (Data.Word.to_string w) legal_len)
-     else ()
+let check_frame w len f =
+  let w' = Data.Word.to_int w in
+  let wi = I.of_bounds w' (Z.add w' (Z.of_int len)) in
+  if I.contains wi f then
+    ()
+  else
+    L.abort (fun p -> p "stack overflow: trying to write %d bytes from %s (current stack frame is in %s)"
+                             len  (Data.Word.to_string w) (I.to_string f))
              
 let check_overflow (d: t) (a: Data.Address.t) (len: int): unit =
   match d with
@@ -130,19 +95,19 @@ let check_overflow (d: t) (a: Data.Address.t) (len: int): unit =
   | BOT -> L.abort (fun p -> p "tried to write into an undefined stack")
   | Frames d ->
      match a with
-     | Data.Address.Global, w -> List.iter (check_one_frame w len) d      
+     | Data.Address.Global, w -> check_frame w len (List.hd d)
      | _ -> ()
-                                       
+         
 let join d1 d2 =
   match d1, d2 with
   | TOP, _ | _, TOP -> TOP
   | BOT, d | d, BOT -> d
-  | Frames d1, Frames d2 -> if List.for_all2 equal_stack_frame d1 d2 then Frames d1 else TOP (* TODO: could be more precise *)
+  | Frames d1, Frames d2 -> if List.for_all2 I.equal d1 d2 then Frames d1 else TOP (* TODO: could be more precise *)
 
 let meet d1 d2 =
   match d1, d2 with
   | TOP, d | d, TOP -> d
   | BOT, _ | _, BOT -> BOT
-  | Frames d1, Frames d2 -> if List.for_all2 equal_stack_frame d1 d2 then Frames d1 else BOT
+  | Frames d1, Frames d2 -> if List.for_all2 I.equal d1 d2 then Frames d1 else BOT
 
 let widen = join

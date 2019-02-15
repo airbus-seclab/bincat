@@ -114,26 +114,11 @@ module Make(D: Unrel.T) =
    in
    uenv, tenv', henv, senv
 
-  let stack_register_of_lval lv =
-    match lv with
-    | Asm.V (Asm.T r) | Asm.V (Asm.P (r, _, _)) -> if Register.is_stack_pointer r then Some r else None
-    | _ -> None
-
-    
   let set (lv: Asm.lval) (e: Asm.exp) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =
     let uenv', b = U.set lv e uenv (check_address henv senv) in
     let typ = type_of_exp tenv uenv henv senv e in
     let _, tenv', _, _ = set_type lv typ (uenv', tenv, henv, senv) in
-    let senv' =
-      match stack_register_of_lval lv with
-      | None -> senv
-      | Some r -> 
-           try
-             let v = U.value_of_register uenv r in
-             S.update_stack_frame senv v
-           with _ -> S.forget_stack_frame senv
-    in
-    (uenv', tenv', henv, senv'), b
+    (uenv', tenv', henv, senv), b
 
 
   let set_lval_to_addr (lv: Asm.lval) (addrs: (Data.Address.t * Log.msg_id_t) list) ((uenv, tenv, henv, senv): t): t*Taint.Set.t =

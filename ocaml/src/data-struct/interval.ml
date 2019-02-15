@@ -19,18 +19,46 @@
 
 module L = Log.Make(struct let name = "interval" end)
          
-type bound = Z.t
-type t = bound * bound
+type lower_bound = Z.t option (* None is -oo *)
+type upper_bound = Z.t option  (* None is oo *)
+                               
+type t = lower_bound * upper_bound
 
+let inf = None, None
+
+let string_of_bound b sign =
+  match b with
+  | None -> sign ^ "oo"
+  | Some z -> Z.to_string z
+            
 let to_string (l, u) =
-  Printf.sprintf "[ %s ; %s ]" (Z.to_string l) (Z.to_string u)
+  Printf.sprintf "[ %s ; %s ]" (string_of_bound l "-") (string_of_bound u "+")
 
-let singleton v = v, v
+let lower_singleton v = v, None
 
-let equal (l1, u1) (l2, u2) = Z.compare l1 l2 = 0 && Z.compare u1 u2 = 0 
+let upper_singleton v = None, v
+
+let of_bounds l u = Some l, Some u
+                  
+let equal (l1, u1) (l2, u2) =
+  match l1, u1, l2, u2 with
+  | Some l1, Some u1, Some l2, Some u2 -> Z.compare l1 l2 = 0 && Z.compare u1 u2 = 0
+  | _ -> false
 
 let lower_bound i = fst i
                   
 let upper_bound i = snd i
 
-let is_included (l1, u1) (l2, u2) = Z.compare l1 l2 <= 0 && Z.compare u1 u2 <= 0
+let leq_lower_bound b1 b2 =
+  match b1, b2 with
+  | None, _ -> true
+  | Some z1, Some z2 -> Z.compare z1 z2 <= 0
+  | _ -> false
+
+let leq_upper_bound b1 b2 =
+  match b1, b2 with
+  | _, None -> true
+  | Some z1, Some z2 -> Z.compare z1 z2 <= 0
+  | _ -> false
+     
+let contains (l1, u1) (l2, u2) = leq_lower_bound l2 l1 && leq_upper_bound u1 u2
