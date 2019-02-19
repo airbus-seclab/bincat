@@ -178,5 +178,8 @@ also the number of chars effectively written *)
 
       (** transfer function for function exit *)
         val ret: t -> t
+
+        (** creates the initial stack frame *)
+        val make_first_stack_frame: t -> t
     end
 

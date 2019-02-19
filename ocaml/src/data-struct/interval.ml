@@ -29,10 +29,10 @@ let inf = None, None
 let string_of_bound b sign =
   match b with
   | None -> sign ^ "oo"
-  | Some z -> Z.to_string z
+  | Some z -> Z.format "%#x" z
             
 let to_string (l, u) =
-  Printf.sprintf "[ %s ; %s ]" (string_of_bound l "-") (string_of_bound u "+")
+  Printf.sprintf "[%s ; %s]" (string_of_bound l "-") (string_of_bound u "+")
 
 let lower_singleton v = v, None
 
@@ -49,16 +49,27 @@ let lower_bound i = fst i
                   
 let upper_bound i = snd i
 
-let leq_lower_bound b1 b2 =
+let less_lower_bound b1 b2 cmp =
   match b1, b2 with
   | None, _ -> true
-  | Some z1, Some z2 -> Z.compare z1 z2 <= 0
+  | Some z1, Some z2 -> cmp (Z.compare z1 z2)
   | _ -> false
 
-let leq_upper_bound b1 b2 =
+let less_upper_bound b1 b2 cmp =
   match b1, b2 with
   | _, None -> true
-  | Some z1, Some z2 -> Z.compare z1 z2 <= 0
+  | Some z1, Some z2 -> cmp (Z.compare z1 z2)
   | _ -> false
-     
-let contains (l1, u1) (l2, u2) = leq_lower_bound l2 l1 && leq_upper_bound u1 u2
+
+let icontains (l1, u1) (l2, u2) cmp =
+  less_lower_bound l2 l1 cmp && less_upper_bound u1 u2 cmp
+  
+let strict_contains i1 i2 =
+  L.debug2 (fun p -> p "%s < %s ?" (to_string i1) (to_string i2));
+  let cmp = fun e -> e < 0 in
+  icontains i1 i2 cmp
+
+let contains i1 i2  =
+  L.debug2 (fun p -> p "%s <= %s ?" (to_string i1) (to_string i2));
+  let cmp = fun e -> e <= 0 in
+  icontains i1 i2 cmp

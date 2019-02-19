@@ -28,7 +28,12 @@ type t =
   | TOP
   | Frames of frame list (* stack of stack frames *)
 
-let init () = Frames []
+let make_frame v =
+  if !Config.stack = Config.Decreasing then
+    I.upper_singleton v
+  else I.lower_singleton v
+  
+let init () = TOP
 
 let is_bot s = s = BOT
 
@@ -42,16 +47,12 @@ let is_subset d1 d2 =
      try
        List.for_all2 I.contains f1 f2
      with _ -> false
-             
+
 let add_stack_frame d (v: Z.t option): t =
   match d with
-  | TOP | BOT -> d
+  | TOP | BOT -> Frames [make_frame v]
   | Frames d ->
-     let stack_frame =
-       if !Config.stack = Config.Decreasing then
-         I.lower_singleton v
-       else I.upper_singleton v
-     in
+     let stack_frame = make_frame v in
      Frames (stack_frame::d)
 
 let remove_stack_frame d =
@@ -74,25 +75,28 @@ let to_string d =
     | BOT -> "_"
     | Frames i ->
        let s =
-         List.fold_left (fun s i -> (I.to_string i)^" | "^s) " ]" (List.rev i)
+         List.fold_left (fun s i -> (I.to_string i)^" :: "^s) " ]" (List.rev i)
        in
        "[ " ^ s
  ]
   
 
 let check_frame w len f =
+  L.debug2 (fun p -> p "check_frame with frame=%s" (I.to_string f));
   let w' = Data.Word.to_int w in
-  let wi = I.of_bounds w' (Z.add w' (Z.of_int len)) in
+  let wi = I.of_bounds w' (Z.add w' (Z.of_int (len-1))) in
   if I.contains wi f then
     ()
   else
-    L.abort (fun p -> p "stack overflow: trying to write %d bytes from %s (current stack frame is in %s)"
+    L.abort (fun p -> p "stack overflow: trying to read/write %d byte(s) from %s (current stack frame is in %s)"
                              len  (Data.Word.to_string w) (I.to_string f))
              
-let check_overflow (d: t) (a: Data.Address.t) (len: int): unit =
+let check_overflow (d: t) (a: Data.Address.t): unit =
+  let len = !Config.address_sz / 8 in
+  L.debug2 (fun p -> p "check_overflow at %s (len=%d)" (Data.Address.to_string a) len);
   match d with
   | TOP -> L.analysis (fun p -> p "possible stack overflow")
-  | BOT -> L.abort (fun p -> p "tried to write into an undefined stack")
+  | BOT -> L.abort (fun p -> p "tried to read/write into an undefined stack")
   | Frames d ->
      match a with
      | Data.Address.Global, w -> check_frame w len (List.hd d)

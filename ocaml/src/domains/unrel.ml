@@ -378,7 +378,7 @@ module Make(D: T) =
     (* Write _value_ of size _sz_ in _domain_ at _addr_, in
        _endianness_. _strong_ means strong update *)
     let write_in_memory ?endianness addr domain value sz strong check_address_validity =
-      check_address_validity addr sz;
+      check_address_validity addr;
       let endianness' = match endianness with
         | None -> !Config.endianness
         | Some x -> x in

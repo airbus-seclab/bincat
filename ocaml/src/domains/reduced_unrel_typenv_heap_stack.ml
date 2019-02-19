@@ -30,7 +30,7 @@ module Make(D: Unrel.T) =
            
   type t = U.t * T.t * H.t * S.t
 
-  let init () = U.init (), T.init (), H.init (), S.init ()
+  let init v = U.init (), T.init (), H.init (), S.init v
 
   let bot = U.BOT, T.BOT, H.BOT, S.BOT
 
@@ -43,18 +43,28 @@ module Make(D: Unrel.T) =
 
   let remove_register r (uenv, tenv, henv, senv) = U.remove_register r uenv, T.remove_register r tenv, henv, senv
 
-  let call (uenv, tenv, henv, senv) =
-      let v =
-        try Some (U.value_of_register uenv (Register.stack_pointer ()))
-        with _ -> None
-      in
-      uenv, tenv, henv, S.add_stack_frame senv v
+  let imake_stack_frame (uenv, tenv, henv, senv) =
+    let v =
+      try
+        let v = U.value_of_register uenv (Register.stack_pointer()) in
+        if !Config.stack = Config.Decreasing then
+          Some (Z.sub v Z.one)
+        else
+          Some (Z.add v Z.one) 
+      with _ -> None
+    in
+    (uenv, tenv, henv, S.add_stack_frame senv v)
+    
+  let make_first_stack_frame d = imake_stack_frame d
+    
+    
+  let call d = imake_stack_frame d
 
   let ret (uenv, tenv, henv, senv) = uenv, tenv, henv, S.remove_stack_frame senv
 
-  let check_address henv senv a sz =
+  let check_address henv senv a =
     H.check_status henv a;
-    S.check_overflow senv a sz
+    S.check_overflow senv a
 
   let forget_lval lv (uenv, tenv, henv, senv): t =
     let tenv', is_stack_register =
@@ -168,15 +178,7 @@ module Make(D: Unrel.T) =
 
   let set_register_from_config r (c: Config.cvalue option * Config.tvalue list) (uenv, tenv, henv, senv): t* Taint.Set.t =
     let uenv', taint = U.set_register_from_config r c uenv in
-    let (senv': S.t) =
-      if Register.is_stack_pointer r then
-        try
-          let v = U.value_of_register uenv r in
-          S.add_stack_frame senv (Some v)
-        with _ -> S.add_stack_frame senv None
-      else senv
-    in
-    (uenv', tenv, henv, senv'), taint
+    (uenv', tenv, henv, senv), taint
 
   let taint_register_mask r c (uenv, tenv, henv, senv): t * Taint.Set.t =
     let uenv', taint = U.taint_register_mask r c uenv in

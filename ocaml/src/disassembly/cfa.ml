@@ -283,10 +283,11 @@ struct
      Return the abstract value generated from the Config module *)
   let init_state (ip: Data.Address.t) default_handlers: State.t =
     let d', _taint = init_abstract_value ip in
+    let d2 = Domain.make_first_stack_frame d' in
     {
       id = 0;
       ip = ip;
-      v = d';
+      v = d2;
       back_v = None;
       final = false;
       back_loop = false;
