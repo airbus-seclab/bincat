@@ -2748,7 +2748,7 @@ let overflow_expression () = Lval (V (T fcf))
             | c when '\xb8' <= c && c <= '\xbf' -> mov_imm_direct s c
             | '\xc0' -> (* shift grp2 with byte size*) grp2 s 8 None
             | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
-            | '\xc2' -> (* RET NEAR and pop word *) return s [ Return; (* pop imm16 *) set_esp Add (T esp) (s.addr_sz + 16); ]
+            | '\xc2' -> (* RET NEAR and pop word *) let pop_sz = get_imm s 16 s.operand_sz false in return s [ Return; Set(V(T esp), BinOp(Add, Lval (V (T esp)), BinOp(Add, const (s.addr_sz/8) s.operand_sz, pop_sz))); ]
             | '\xc3' -> (* RET NEAR *) return s [ Return; set_esp Add (T esp) s.addr_sz; ]
             | '\xc4' -> (* LES *) load_far_ptr s es
             | '\xc5' -> (* LDS *) load_far_ptr s ds
