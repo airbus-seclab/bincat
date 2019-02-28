@@ -78,6 +78,10 @@ let make_mapped_mem filepath entrypoint =
           L.debug(fun p -> p "ELF loading: %s" (section_to_string section));
           section :: (sections_from_ph tail)
        | _ -> sections_from_ph tail in
+  let base_address_from_sections sections =
+    match sections with
+    | [] -> L.abort (fun p -> p "No loadable section in ELF. Cannot compute base address")
+    | head::tail -> List.fold_left (fun m s -> min m (s.virt_addr))  head.virt_addr tail in
   let sections_from_elfobj ()  =
     let stat = Unix.stat !Config.binary in
     let file_length = Z.of_int stat.Unix.st_size in
@@ -95,6 +99,7 @@ let make_mapped_mem filepath entrypoint =
   let sections = if !Config.format = Config.ELFOBJ
                  then sections_from_elfobj ()
                  else sections_from_ph elf.ph in
+  let base_address = Data.Address.to_int (base_address_from_sections sections) in
   let max_addr = List.fold_left (fun mx sec -> Z.max mx (Data.Address.to_int sec.virt_addr_end)) Z.zero sections in
   let max_addr' = Hashtbl.fold (fun _k v mx -> Z.max mx v) Config.import_tbl_rev Z.zero in
   let min_addr' = Hashtbl.fold (fun _k v mx -> Z.min mx v) Config.import_tbl_rev max_addr in
@@ -149,6 +154,13 @@ let make_mapped_mem filepath entrypoint =
                         (Z.to_int value) (Z.to_int addr) sym_name);
     patch_elf elf mapped_file sections addr value in
 
+  let reloc_relative _symsize _sym offset addend =
+    let addr = offset in
+    let value = Z.add base_address addend in
+    L.debug (fun p -> p "RELA RELATIVE: write %08x at %08x (base address = %08x)"
+                        (Z.to_int value) (Z.to_int addr) (Z.to_int base_address));
+    patch_elf elf mapped_file sections addr value in
+
   let get_reloc_func = function
     | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT | R_X86_64_JUMP_SLOT
       -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
@@ -157,7 +169,7 @@ let make_mapped_mem filepath entrypoint =
     | R_386_TLS_TPOFF
     | R_386_32 -> reloc_obj (Z.of_int (!Config.external_symbol_max_size))
     | R_386_PC32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
-    | R_386_RELATIVE | R_X86_64_RELATIVE -> (fun _ _ _ -> ())
+    | R_386_RELATIVE | R_X86_64_RELATIVE -> reloc_relative Z.zero
     | R_PPC_ADDR32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_PPC_GLOB_DAT -> reloc_glob_dat (Z.of_int (!Config.address_sz/8))
     | R_PPC_JMP_SLOT -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
