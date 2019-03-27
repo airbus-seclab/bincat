@@ -331,8 +331,9 @@ struct
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in
                 let a = match Data.Address.Set.elements addrs with
                         | [a] -> a
-                        | []  -> L.abort (fun p->p "no return address")
-                        | _   -> L.abort (fun p->p "multiple return addresses") in
+                        | []  ->  raise (Exceptions.Analysis (Exceptions.Empty "no return address can be computed"))
+                        | _   -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "multiple return addresses"))
+                in
                 L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
                 v.Cfa.State.ip <- a;
                 Log.Trace.trace a (fun p -> p "%s"
@@ -456,8 +457,8 @@ struct
              v.Cfa.State.ip <- a;
              Some [v], taint_sources
          end
-      | [] -> L.abort (fun p -> p "no valid instruction pointer at return can be retrieved")
-      | _ -> L.abort (fun p -> p "computed instruction pointer at return is imprecise")
+      | [] -> raise (Exceptions.Analysis (Exceptions.Empty "no valid instruction pointer at return can be retrieved"))
+      | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements  "computed instruction pointer at return is imprecise"))
 
     in  
                
