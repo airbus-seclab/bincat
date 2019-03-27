@@ -31,5 +31,18 @@ type analysis_kind =
 
 exception Analysis of analysis_kind
 
+let string_of_analysis a =
+  match a with
+  | Illegal_address -> "use of illegal address"
+  | Empty msg -> "empty concretization: "^msg
+  | Too_many_concrete_elements msg -> "concretization is too large: "^msg
+  | Bot_deref -> "tried to dereference a bottom value"
+  | Use_after_free msg -> "use after free detected: "^msg
+  | Heap_out_of_bounds msg ->"heap out of bound detected: "^msg
+  | Undefined_free msg -> "undefined free detected: "^msg
+  | Double_free -> "double free detected"
+  | Null_deref msg -> "tried to dereference a NULL value: "^msg
+  | Stack msg -> "stack manipulation error: "^msg
+     
 (** raised when an unexpected behavior happens (undefined decoding, etc.) *)
 exception Error of string
