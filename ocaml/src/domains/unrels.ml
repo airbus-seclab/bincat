@@ -200,7 +200,8 @@ module Make(D: Unrel.T) =
       let add_one_meet m u1 u2 =
         try
           USet.add (U.meet (fst u1) (fst u2), []) m
-        with Exceptions.Analysis (Exceptions.Empty _) ->
+        with Exceptions.Analysis (Exceptions.Empty msg) ->
+          L.analysis (fun p -> p "analysis stops for that context: %s" (Exceptions.string_of_analysis (Exceptions.Empty msg)));
           bot := true;
           m
       in
@@ -275,7 +276,8 @@ module Make(D: Unrel.T) =
                         try
                           let ulist', tset' = U.compare u check_address_validity e1 op e2 in
                           List.fold_left (fun m' u -> USet.add (u, msgs) m') m' ulist', Taint.Set.singleton tset'
-                          with Exceptions.Analysis (Exceptions.Empty _) ->
+                        with Exceptions.Analysis (Exceptions.Empty msg) ->
+                                    L.analysis (fun p -> p "analysis stops for that context: %s" (Exceptions.string_of_analysis (Exceptions.Empty msg)));
                             bot := true;
                             m', t) m' (USet.empty, Taint.Set.singleton Taint.U) 
          in
