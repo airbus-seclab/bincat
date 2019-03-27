@@ -142,7 +142,7 @@ module Make(D: Unrel.T) =
                            try
                              let u', t' = U.set dst src u check_address_validity in                             
                              USet.add (u', msg) m', Taint.Set.add t' t
-                           with _ ->
+                           with Exceptions.Analysis _ ->
                              bot := true;
                          m', t) m' (USet.empty, Taint.Set.empty)
          in
@@ -296,7 +296,7 @@ module Make(D: Unrel.T) =
              try
                let addrs', t' = U.mem_to_addresses (fst u) e check_address_validity in
                Data.Address.Set.union addrs addrs', Taint.Set.add t' t
-             with _ -> addrs, t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
+             with Exceptions.Analysis _ -> addrs, t) m' (Data.Address.Set.empty, Taint.Set.singleton Taint.U)
 
     let taint_sources e m check_address_validity =
       match m with
