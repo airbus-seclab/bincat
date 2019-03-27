@@ -141,7 +141,7 @@ struct
               Cfa.remove_state g v; l'
             end
           else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
-      with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
+      with Exceptions.Analysis (Exceptions.Empty _) -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 
 
     (*************************** Forward from binary file ************************)
@@ -281,7 +281,7 @@ struct
                  
         in
         res, tainted
-      with Exceptions.Empty _ -> D.bot, Taint.Set.singleton Taint.BOT
+      with Exceptions.Analysis (Exceptions.Empty _) -> D.bot, Taint.Set.singleton Taint.BOT
 
     and process_if (ip: Data.Address.t) (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack (node_id: int) =
       if has_jmp then_stmts || has_jmp else_stmts then
@@ -332,7 +332,7 @@ struct
                 let a = match Data.Address.Set.elements addrs with
                         | [a] -> a
                         | []  -> L.abort (fun p->p "no return address")
-                        | _l  -> L.abort (fun p->p "multiple return addresses") in
+                        | _   -> L.abort (fun p->p "multiple return addresses") in
                 L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
                 v.Cfa.State.ip <- a;
                 Log.Trace.trace a (fun p -> p "%s"
@@ -362,7 +362,7 @@ struct
                         | l -> L.abort (fun p -> p "Please select between the addresses %s for jump target from %s\n"
                                               (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
-                    | Exceptions.Too_many_concrete_elements _ as e ->
+                    | Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) as e ->
                        L.exc_and_abort e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                 ) ([], Taint.Set.singleton Taint.U) vertices
             in
@@ -456,7 +456,8 @@ struct
              v.Cfa.State.ip <- a;
              Some [v], taint_sources
          end
-      | _ -> L.abort (fun p -> p "computed instruction pointer at return instruction is either undefined or imprecise")
+      | [] -> L.abort (fun p -> p "no valid instruction pointer at return can be retrieved")
+      | _ -> L.abort (fun p -> p "computed instruction pointer at return is imprecise")
 
     in  
                
@@ -489,7 +490,7 @@ struct
                 l, b
               else
                 (copy v d (Some true) false)::l, Taint.Set.union b taint_sources
-            with Exceptions.Empty "Interpreter.process_if_with_jmp" -> l, b) ([], Taint.Set.singleton Taint.U) vertices)
+            with Exceptions.Analysis (Exceptions.Empty "Interpreter.process_if_with_jmp") -> l, b) ([], Taint.Set.singleton Taint.U) vertices)
           in
           let vert, b', _after_call_stmts = process_list vertices' stmts in
           vert, Taint.Set.union b b'
@@ -588,7 +589,7 @@ struct
                  else
                    let vert, t', stmts' = process_list new_vertices stmts in
                    vert, Taint.Set.union t t', stmts'
-               with Exceptions.Bot_deref -> [], Taint.Set.singleton Taint.BOT, [] (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
+               with Exceptions.Analysis Exceptions.Bot_deref -> [], Taint.Set.singleton Taint.BOT, [] (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
              end
         | [] -> vertices, Taint.Set.singleton Taint.U, []
       in
@@ -830,22 +831,22 @@ struct
             Log.latest_finished_address := Some v.Cfa.State.ip;  (* v.Cfa.State.ip can change because of calls and jumps *)
 
           with
-          | Exceptions.Too_many_concrete_elements _ as e ->
+          | Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) as e ->
              L.exc e (fun p -> p "imprecision here");
             dump g;
             L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
 
-          | Exceptions.Use_after_free msg as e ->
+          | Exceptions.Analysis (Exceptions.Use_after_free msg) as e ->
             L.exc e (fun p -> p "possible use after free in alloc %s, at: %s" msg (Data.Address.to_string v.Cfa.State.ip));
             dump g;
             L.abort (fun p -> p "analysis stopped")
 
-          | Exceptions.Undefined_free msg as e ->
+          | Exceptions.Analysis (Exceptions.Undefined_free msg) as e ->
              L.exc e (fun p -> p "undefined free detected here: %s" msg);
             dump g;
             L.abort (fun p -> p "analysis stopped")
               
-          | Exceptions.Double_free as e ->
+          | Exceptions.Analysis Exceptions.Double_free as e ->
               L.exc e (fun p -> p "possible double free detected here");
             dump g;
             L.abort (fun p -> p "analysis stopped")
@@ -961,7 +962,7 @@ struct
         let start_v =
           match v.Cfa.State.back_v with
           | Some d -> d
-          | None -> raise (Exceptions.Empty "undefined abstract value used in backward mode")
+          | None -> raise (Exceptions.Analysis (Exceptions.Empty "undefined abstract value used in backward mode"))
         in
         let d', taint_sources =
           List.fold_left (fun (d, b) s ->

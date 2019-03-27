@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -367,7 +367,7 @@ module Make(V: Val) =
       
     let widen v1 v2 =
       if Z.compare (to_z v1) (to_z v2) <> 0 then
-        raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.widen with different vectors (v1=%s v2=%s)" (to_string v1) (to_string v2)))
+        raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.widen with different vectors (v1=%s v2=%s)" (to_string v1) (to_string v2))))
       else v1
         
     (* common utility to add and sub *)
@@ -561,9 +561,9 @@ module Make(V: Val) =
       try
         Z.to_int z_shift_count
       with Z.Overflow ->
-        raise (Exceptions.Too_many_concrete_elements
+        raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements
                  (Printf.sprintf "vector.shr: shift count overflow: %s"
-                    (Z.to_string z_shift_count)))
+                    (Z.to_string z_shift_count))))
           
           
     let shl v1 v2 =

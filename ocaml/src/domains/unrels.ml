@@ -41,11 +41,11 @@ module Make(D: Unrel.T) =
     let is_bot m = m = BOT
 
     let imprecise_exn r =
-      raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "value of register %s is too much imprecise" (Register.name r)))
+      raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements (Printf.sprintf "value of register %s is too much imprecise" (Register.name r))))
       
     let value_of_register m r =
       match m with
-      | BOT -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register:  environment is empty; can't look up register %s" (Register.name r)))
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "unrel.value_of_register:  environment is empty; can't look up register %s" (Register.name r))))
       | Val m' ->
          let v = USet.fold (fun (u, _) prev ->
                      let v' = U.value_of_register u r in
@@ -63,7 +63,7 @@ module Make(D: Unrel.T) =
          
     let string_of_register m r =
       match m with
-      | BOT ->  raise (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r)))
+      | BOT ->  raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r))))
       | Val m' -> USet.fold (fun (u, _) acc -> (U.string_of_register u r)^acc) m' ""
 
     let forget m =
@@ -106,11 +106,11 @@ module Make(D: Unrel.T) =
                 ) m' ([], 0)) 
 
     let imprecise_value_of_exp e =
-      raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))
+      raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true))))
       
     let value_of_exp m e check_address_validity =
       match m with
-      | BOT -> raise (Exceptions.Empty "unrels.value_of_exp: environment is empty")
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "unrels.value_of_exp: environment is empty"))
       | Val m' -> let v = USet.fold (fun (u, _) prev ->
                      let v' = U.value_of_exp u e check_address_validity in
                      match prev with
@@ -199,7 +199,7 @@ module Make(D: Unrel.T) =
       let add_one_meet m u1 u2 =
         try
           USet.add (U.meet (fst u1) (fst u2), []) m
-        with Exceptions.Empty _ ->
+        with Exceptions.Analysis (Exceptions.Empty _) ->
           bot := true;
           m
       in
@@ -274,7 +274,7 @@ module Make(D: Unrel.T) =
                         try
                           let ulist', tset' = U.compare u check_address_validity e1 op e2 in
                           List.fold_left (fun m' u -> USet.add (u, msgs) m') m' ulist', Taint.Set.singleton tset'
-                          with Exceptions.Empty _ ->
+                          with Exceptions.Analysis (Exceptions.Empty _) ->
                             bot := true;
                             m', t) m' (USet.empty, Taint.Set.singleton Taint.U) 
          in
@@ -287,9 +287,10 @@ module Make(D: Unrel.T) =
            else
              Val mres, t
 
+         
     let mem_to_addresses m e check_address_validity =
       match m with
-      | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true)))
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true))))
       | Val m' ->
          USet.fold (fun u (addrs, t) ->
              try
@@ -304,7 +305,7 @@ module Make(D: Unrel.T) =
 
     let get_offset_from e cmp terminator upper_bound sz m check_address_validity =
         match m with
-      | BOT -> raise (Exceptions.Empty "Unrels.get_offset_from: environment is empty")
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_offset_from: environment is empty"))
       | Val m' ->
          let res =
            USet.fold (fun u o ->
@@ -313,15 +314,15 @@ module Make(D: Unrel.T) =
                | None -> Some o'
                | Some o ->
                   if o = o' then Some o
-                  else raise (Exceptions.Empty "Unrels.get_offset_from: different offsets found")) m' None
+                  else raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_offset_from: different offsets found"))) m' None
          in
          match res with
          | Some o -> o
-         | _ -> raise (Exceptions.Empty "Unrels.get_offset_from: undefined offset")
+         | _ -> raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_offset_from: undefined offset"))
             
     let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t) check_address_validity =
           match m with
-      | BOT -> raise (Exceptions.Empty "Unrels.get_bytes: environment is empty")
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_bytes: environment is empty"))
       | Val m' ->
          let res =
            USet.fold (fun u acc ->
@@ -333,14 +334,14 @@ module Make(D: Unrel.T) =
                   if Bytes.equal bytes bytes' then
                     acc
                   else
-                    raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")
+                    raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return"))
                 else
-                  raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")       
+                  raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return"))       
              ) m' None
          in
          match res with
          | Some r -> r
-         | None -> raise (Exceptions.Empty "Unrels.get_bytes: undefined bytes to compute")
+         | None -> raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_bytes: undefined bytes to compute"))
 
     let copy m dst arg sz check_address_validity =
       match m with
@@ -358,7 +359,7 @@ module Make(D: Unrel.T) =
                  | None -> Some n'
                  | Some n  ->
                     if n = n' then Some n' 
-                    else raise (Exceptions.Empty "diffrent lengths of  bytes copied in Unrels.copy_hex")
+                    else raise (Exceptions.Analysis (Exceptions.Empty "diffrent lengths of  bytes copied in Unrels.copy_hex"))
                in
                USet.add (u', msg) acc, nn
              ) m' (USet.empty, None)
@@ -366,7 +367,7 @@ module Make(D: Unrel.T) =
          begin
            match n  with
            | Some n' -> Val m, n'
-           | None -> raise (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_hex")
+           | None -> raise (Exceptions.Analysis (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_hex"))
          end
       | BOT -> BOT, 0
              
@@ -377,13 +378,13 @@ module Make(D: Unrel.T) =
 
     let print_hex m src nb capitalise pad_option word_sz check_address_validity =
       match m with
-      | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "Unrels.print_hex: environment is empty")
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Analysis (Exceptions.Empty "Unrels.print_hex: environment is empty"))
       | Val m' ->
          match USet.elements m' with
          | [(u, msg)] ->
             let u', len = U.print_hex u src nb capitalise pad_option word_sz check_address_validity in
             Val (USet.singleton (u', msg)), len
-         | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
+         | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only"))
 
     let copy_until m dst e terminator term_sz upper_bound with_exception pad_options check_address_validity =
        match m with
@@ -393,7 +394,7 @@ module Make(D: Unrel.T) =
           | [(u, msg)] ->
              let len, u' = U.copy_until u dst e terminator term_sz upper_bound with_exception pad_options check_address_validity in
              len, Val (USet.singleton (u', msg))
-         | _ -> raise (Exceptions.Too_many_concrete_elements "U.copy_until: implemented only for one unrel only")
+         | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "U.copy_until: implemented only for one unrel only"))
 
     let print_until m e terminator term_sz upper_bound with_exception pad_options check_address_validity =
       match m with
@@ -403,7 +404,7 @@ module Make(D: Unrel.T) =
           | [(u, msg)] ->
              let len, u' = U.print_until u e terminator term_sz upper_bound with_exception pad_options check_address_validity in
              len, Val (USet.singleton (u', msg))
-          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_until: implemented only for one unrel only")
+          | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "U.print_until: implemented only for one unrel only"))
 
     let copy_chars m dst src nb pad_options check_address_validity =
       match m with
@@ -418,7 +419,7 @@ module Make(D: Unrel.T) =
           | [(u, msg)] ->
             let u', len = U.print_chars u src nb pad_options check_address_validity in
              Val (USet.singleton (u', msg)), len
-          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_chars: implemented only for one unrel only")
+          | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "U.print_chars: implemented only for one unrel only"))
 
 
     let copy_register r dst src =

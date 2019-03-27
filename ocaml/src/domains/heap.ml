@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -108,7 +108,7 @@ let to_string m =
 
 let check_status m addr =
   match m with
-  | BOT -> raise (Exceptions.Use_after_free (Data.Address.to_string addr))
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Use_after_free (Data.Address.to_string addr)))
   | Val m' ->
      try
        match addr with
@@ -118,13 +118,13 @@ let check_status m addr =
             begin
               let str_addr = Data.Address.to_string addr in
               L.analysis (fun p -> p "Use after free on pointer %s" str_addr); 
-              raise (Exceptions.Use_after_free str_addr)
+              raise (Exceptions.Analysis (Exceptions.Use_after_free str_addr))
             end
        | _ -> ()
      with _ ->
        let str_addr = Data.Address.to_string addr in
        L.analysis (fun p -> p "Use after free on pointer %s"str_addr); 
-       raise (Exceptions.Use_after_free str_addr)
+       raise (Exceptions.Analysis (Exceptions.Use_after_free str_addr))
 
 let fold apply m1 m2 =
    match m1, m2 with
@@ -149,20 +149,20 @@ let alloc m id =
 
 let dealloc m id =
   match m with
-  | BOT -> raise (Exceptions.Empty "Heap.dealloc failed")
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "Heap.dealloc failed"))
   | Val m' ->
      try
        let status = Map.find id m' in
        if status = Status.A then
          Val (Map.replace id Status.F m')
        else
-         raise Exceptions.Double_free 
+         raise (Exceptions.Analysis Exceptions.Double_free )
      with Not_found -> raise (Exceptions.Error
                                 (Printf.sprintf "unknown heap id %d to deallocate" id))
 
 let weak_dealloc m ids =
   match m with
-  | BOT -> raise (Exceptions.Empty "Heap.dealloc failed")
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "Heap.weak_dealloc failed"))
   | Val m' ->
      Val (List.fold_left (fun m' id ->
        try
@@ -170,7 +170,7 @@ let weak_dealloc m ids =
          if status = Status.A then
            Map.replace id (Status.join status Status.F) m'
          else
-           raise Exceptions.Double_free 
+           raise (Exceptions.Analysis Exceptions.Double_free)
        with Not_found -> raise (Exceptions.Error
                                 (Printf.sprintf "unknown heap id %d to weak deallocate" id))
      ) m' ids) 

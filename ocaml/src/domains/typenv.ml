@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -89,7 +89,7 @@ let to_string env =
 
 let string_of_register env r =
   match env with
-    | BOT -> raise (Exceptions.Empty (Printf.sprintf "typenv.string_of_register: environment is empty ; can't look up register %s" (Register.name r)))
+    | BOT -> raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "typenv.string_of_register: environment is empty ; can't look up register %s" (Register.name r))))
     | Val env' -> try Types.to_string (Env.find (Env.Key.Reg r) env') with Not_found -> ""
 
 let set_register reg typ env =
@@ -115,7 +115,7 @@ let forget_address (a: Data.Address.t) env =
 
 let of_key (k: Env.Key.t) (env: t): Types.t =
   match env with
-  | BOT -> raise (Exceptions.Empty "typenv.of_key: environment is empty")
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "typenv.of_key: environment is empty"))
   | Val env' ->
      try Env.find k env'
      with Not_found -> Types.UNKNOWN

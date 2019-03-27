@@ -101,7 +101,7 @@ module Make(D: Unrel.T) =
          match Data.Address.Set.elements addrs with
          | [a] -> T.of_key (Env.Key.Mem a) tenv
          | _ -> Types.UNKNOWN
-       with Exceptions.Too_many_concrete_elements _ -> Types.UNKNOWN
+       with Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) -> Types.UNKNOWN
        end
     | _ -> Types.UNKNOWN
 
@@ -120,7 +120,7 @@ module Make(D: Unrel.T) =
                if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
                
       | l -> List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l
-        with Exceptions.Too_many_concrete_elements _ -> T.forget tenv
+        with Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) -> T.forget tenv
    in
    uenv, tenv', henv, senv
 
@@ -161,7 +161,7 @@ module Make(D: Unrel.T) =
        match Data.Address.Set.elements addrs with
        | [a] -> if typ = Types.UNKNOWN then T.forget_address a tenv else T.set_address a typ tenv
        | l ->  List.fold_left (fun tenv' a -> T.forget_address a tenv') tenv l (* TODO: replace by a weak update *)
-     with Exceptions.Too_many_concrete_elements _ -> T.top
+     with (Exceptions.Analysis (Exceptions.Too_many_concrete_elements _)) -> T.top
 
   let copy (uenv, tenv, henv, senv) dst src sz: t =
     U.copy uenv dst src sz (check_address henv senv), char_type uenv tenv henv senv dst, henv, senv

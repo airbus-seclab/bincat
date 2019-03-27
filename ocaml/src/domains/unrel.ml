@@ -154,14 +154,14 @@ module Make(D: T) =
       let v =
         try
           Env.find (Env.Key.Reg r) m
-        with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: register %s not found in environment" (Register.name r)))
+        with Not_found -> raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "unrel.value_of_register: register %s not found in environment" (Register.name r))))
       in D.to_z v
 
     let string_of_register m r =
       let v =
         try
           Env.find (Env.Key.Reg r) m
-        with Not_found -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r)))
+        with Not_found -> raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "unrel.value_of_string: register %s not found in environment" (Register.name r))))
       in D.to_string v
 
     let add_register r m = Env.add (Env.Key.Reg r) D.top m
@@ -253,7 +253,7 @@ module Make(D: T) =
         let addr' = Data.Address.add_offset base (Z.of_int i) in
         match addr' with
         | Data.Address.Heap (_, sz), o when Z.compare sz (Data.Word.to_int o) < 0 ->
-           raise (Exceptions.Heap_out_of_bounds (Data.Address.to_string addr'))
+           raise (Exceptions.Analysis (Exceptions.Heap_out_of_bounds (Data.Address.to_string addr')))
         | _ -> arr.(i) <- addr'
       done;
       arr
@@ -413,8 +413,8 @@ module Make(D: T) =
         | None -> if strong then
                     Env.add (Env.Key.Mem(addr)) byte domain
                   else
-                    raise (Exceptions.Empty (Printf.sprintf
-                                      "unrel.write_in_memory: no key found for weak update at address %s for byte %s" (Data.Address.to_string addr) (D.to_string byte)))
+                    raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf
+                                      "unrel.write_in_memory: no key found for weak update at address %s for byte %s" (Data.Address.to_string addr) (D.to_string byte))))
       in
       let rec do_update new_mem map =
         match new_mem with
@@ -487,18 +487,18 @@ module Make(D: T) =
                     let v', tsrc' = to_value l in
                     D.join v v', Taint.join (D.taint_sources v) (Taint.logor tsrc tsrc')
 
-                 | []   -> raise Exceptions.Bot_deref
+                 | []   -> raise (Exceptions.Analysis Exceptions.Bot_deref)
                in
                to_value addresses
              with
-             | Exceptions.Too_many_concrete_elements _ -> D.top, Taint.TOP
+             | Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) -> D.top, Taint.TOP
              | Not_found ->
                 L.analysis (fun p -> p ("undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
-               raise Exceptions.Bot_deref
-             | Exceptions.Empty _ as ex ->
+               raise (Exceptions.Analysis Exceptions.Bot_deref)
+             | (Exceptions.Analysis (Exceptions.Empty _)) as ex ->
                 L.exc ex (fun p -> p ("Undefined memory dereference"));
                 L.analysis (fun p -> p ("Undefined memory dereference [%s]=[%s]: analysis stops in that context") (Asm.string_of_exp e true) (D.to_string r));
-               raise Exceptions.Bot_deref
+               raise (Exceptions.Analysis Exceptions.Bot_deref)
            end
 
         | Asm.BinOp (Asm.Xor, Asm.Lval (Asm.V (Asm.T r1)), Asm.Lval (Asm.V (Asm.T r2))) when Register.compare r1 r2 = 0 ->
@@ -584,7 +584,7 @@ module Make(D: T) =
          let v  = Env.find (Env.Key.Reg r) m in
          let v' = D.meet v v2 in
          if D.is_bot v' then
-             raise (Exceptions.Empty "unrel.val_restrict")
+             raise (Exceptions.Analysis (Exceptions.Empty "unrel.val_restrict"))
          else
            [Env.replace (Env.Key.Reg r) v' m]
       | _, _ -> [m]
@@ -594,19 +594,19 @@ module Make(D: T) =
       let v1, b1 = eval_exp m' e1 check_address_validity in
       let v2, b2 = eval_exp m' e2 check_address_validity in
       if D.is_bot v1 || D.is_bot v2 then
-        raise (Exceptions.Empty "Unrel.compare")
+        raise (Exceptions.Analysis (Exceptions.Empty "Unrel.compare"))
       else
         if D.compare v1 op v2 then
           val_restrict m' e1 v1 op e2 v2, Taint.logor b1 b2
         else
-          raise (Exceptions.Empty "Unrel.compare")
+          raise (Exceptions.Analysis (Exceptions.Empty "Unrel.compare"))
       
     let mem_to_addresses m' e check_address_validity =
       let v, b = eval_exp m' e check_address_validity in
       let addrs = D.to_addresses v in
       (* check whether the address is allowed to be dereferenced *)
       (* could be put elsewhere with a set of forbidden addresses to check (e.g. range of low addresses) *)
-      Data.Address.Set.iter (fun a -> if Data.Address.is_null a then raise (Exceptions.Null_deref (Asm.string_of_exp e true))) addrs;
+      Data.Address.Set.iter (fun a -> if Data.Address.is_null a then raise (Exceptions.Analysis (Exceptions.Null_deref (Asm.string_of_exp e true)))) addrs;
       addrs, b
 
     (** [span_taint m e v] span the taint of the strongest *tainted* value of e to all the fields of v.
@@ -665,7 +665,7 @@ module Make(D: T) =
         | [a] -> (* strong update *) write_in_memory a m' v' dst_sz true check_address_validity, t'
         | l   -> (* weak update *) List.fold_left (fun m a -> write_in_memory a m v' dst_sz false check_address_validity) m' l, t'
       with
-      | Exceptions.Too_many_concrete_elements "unrel.set" -> Env.empty, Taint.TOP
+      | Exceptions.Analysis (Exceptions.Too_many_concrete_elements "unrel.set") -> Env.empty, Taint.TOP
 
     let set_to_register r v' m' =
       match r with
@@ -681,21 +681,21 @@ module Make(D: T) =
          L.info2 (fun p -> p "(set) %s = %s (%s)" (Asm.string_of_lval dst true) (Asm.string_of_exp src true) (D.to_string v'));
          let b = D.taint_sources v' in
          if D.is_bot v' then
-           raise (Exceptions.Empty "Unrel.set"), b
+           raise (Exceptions.Analysis (Exceptions.Empty "Unrel.set")), b
          else
            match dst with
            | Asm.V r ->
               begin
                 try
                   set_to_register r v' m', b
-                with Not_found -> raise (Exceptions.Empty "Unrel.set (register case)"), Taint.BOT
+                with Not_found -> raise (Exceptions.Analysis (Exceptions.Empty "Unrel.set (register case)")), Taint.BOT
               end
                 
            | Asm.M (e, n) ->
               try
                 set_to_memory e n v' m' b check_address_validity
               with
-              | _ -> raise (Exceptions.Empty "Unrel.set (memory case)")
+              | _ -> raise (Exceptions.Analysis (Exceptions.Empty "Unrel.set (memory case)"))
 
     let join m1' m2' =
       try Env.map2 D.join m1' m2'
@@ -717,7 +717,7 @@ module Make(D: T) =
               try let v2 = Env.find k m2 in
                   let v' = D.meet v1 v2 in
                   if D.is_bot v' then
-                    raise (Exceptions.Empty "Unrel.meet")
+                    raise (Exceptions.Analysis (Exceptions.Empty "Unrel.meet"))
                   else
                     Env.add k v' m' with Not_found -> m') m1 m'
 
@@ -854,7 +854,7 @@ module Make(D: T) =
          match lv with
          | Asm.M (e, n) ->
             if n <> !Config.address_sz then
-              raise (Exceptions.Empty "inconsistent dereference size wrt to address size")
+              raise (Exceptions.Analysis (Exceptions.Empty "inconsistent dereference size wrt to address size"))
             else
               begin
                 try
@@ -869,14 +869,14 @@ module Make(D: T) =
                         m', Taint.logor taint taint', Z.add i Z.one) (m, Taint.U, Z.zero) bytes
                   in
                   m', taint
-                with _ -> raise (Exceptions.Empty "set_lval_to_addr: invalid dereference"), Taint.BOT 
+                with _ -> raise (Exceptions.Analysis (Exceptions.Empty "set_lval_to_addr: invalid dereference")), Taint.BOT 
               end
               
          | Asm.V r ->
             let v = D.of_addr (region, word) in
             try
               set_to_register r v m, Taint.U
-            with Not_found -> raise (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Asm.string_of_reg r))), Taint.BOT
+            with Not_found -> raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "set_lval_to_addr: register %s not found" (Asm.string_of_reg r)))), Taint.BOT
             
     let value_of_exp m e check_address_validity =
       D.to_z (fst (eval_exp m e check_address_validity))
@@ -938,7 +938,7 @@ module Make(D: T) =
           | Some n -> n
           | None -> raise Not_found
         end
-     | [] -> raise (Exceptions.Empty "unrel.i_get_bytes")
+     | [] -> raise (Exceptions.Analysis (Exceptions.Empty "unrel.i_get_bytes"))
 
     let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t) check_address_validity: int * Bytes.t =
       try
@@ -948,7 +948,7 @@ module Make(D: T) =
         List.iteri (fun i v ->
           Bytes.set bytes i (D.to_char v)) vals;
         len, bytes
-      with Not_found -> raise (Exceptions.Too_many_concrete_elements "unrel.get_bytes")
+      with Not_found -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "unrel.get_bytes"))
 
     let get_offset_from e cmp terminator upper_bound sz m check_address_validity = fst (i_get_bytes e cmp terminator upper_bound sz m true None check_address_validity) 
 
@@ -993,7 +993,7 @@ module Make(D: T) =
          match addrs with
          | [a] -> copy_byte a m' true
          | _::_  -> List.fold_left (fun m' a -> copy_byte a m' false) m' addrs
-         | [] -> raise (Exceptions.Empty "unrel.copy_until")
+         | [] -> raise (Exceptions.Analysis (Exceptions.Empty "unrel.copy_until"))
        in
        len, m'
    
@@ -1032,7 +1032,7 @@ module Make(D: T) =
          try let prev = Env.find key m in
              let low = offset*8 in
              D.combine prev new_v low (low*len-1)
-         with Not_found -> raise (Exceptions.Empty "unrel.copy_chars_to_register")
+         with Not_found -> raise (Exceptions.Analysis (Exceptions.Empty "unrel.copy_chars_to_register"))
      in
      try Env.replace key new_v' m
      with Not_found -> Env.add key new_v m
@@ -1119,7 +1119,7 @@ module Make(D: T) =
              m'
          in
          write m' Z.zero, len
-      | [] -> raise (Exceptions.Empty "unrel.copy_hex")
+      | [] -> raise (Exceptions.Analysis (Exceptions.Empty "unrel.copy_hex"))
       | _  -> Env.empty, len (* TODO could be more precise *)
   
 
@@ -1138,7 +1138,7 @@ module Make(D: T) =
       match Data.Address.Set.elements (D.to_addresses addrs) with
       | [a] -> write_in_memory a m' v sz true check_address_validity 
       | _::_ as l -> List.fold_left (fun m a -> write_in_memory a m v sz false check_address_validity) m' l
-      | [ ] -> raise (Exceptions.Empty "Unrel.copy")
+      | [ ] -> raise (Exceptions.Analysis (Exceptions.Empty "Unrel.copy"))
     
 
     (* display (char) arg on stdout as a raw string *)
@@ -1147,7 +1147,7 @@ module Make(D: T) =
       let str' =
         if String.length str <= 2 then
           String.make 1 (Char.chr (Z.to_int (Z.of_string_base 16 str)))
-        else raise (Exceptions.Empty "Unrel.print")
+        else raise (Exceptions.Analysis (Exceptions.Empty "Unrel.print"))
       in
       Log.Stdout.stdout (fun p -> p "%s" str')
       

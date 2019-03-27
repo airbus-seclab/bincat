@@ -229,9 +229,9 @@ let to_z (t: t): Z.t =
      begin
        match SrcSet.choose srcs with
           | Src.Tainted _ -> Z.one
-          | Src.Maybe _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
+          | Src.Maybe _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "Taint.to_z"))
      end
-  | _ -> raise (Exceptions.Too_many_concrete_elements "Taint.to_z")
+  | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "Taint.to_z"))
 
 let to_string t =
   match t with

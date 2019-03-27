@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -1445,11 +1445,12 @@ struct
   let parse text cfg _ctx state addr oracle =
     let tflag_val =
       try oracle#value_of_register tflag
-      with Exceptions.Too_many_concrete_elements _ ->
-        raise (Exceptions.Too_many_concrete_elements "Value of T flag cannot be determined. Cannot disassemble next instruction") in
+      with Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) ->
+        raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "Value of T flag cannot be determined. Cannot disassemble next instruction"))
+    in
     let itstate_val =
       try Some (Z.to_int (oracle#value_of_register itstate))
-      with Exceptions.Too_many_concrete_elements _ -> None in
+      with Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) -> None in
     let s =  {
       g = cfg;
       b = state;

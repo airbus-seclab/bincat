@@ -57,13 +57,13 @@ let add_stack_frame d (v: Z.t option): t =
 
 let remove_stack_frame d =
   match d with
-  | BOT -> raise (Exceptions.Empty "remove_stack_frame on undefined stack")
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "remove_stack_frame on undefined stack"))
   | TOP -> TOP
   | Frames d -> Frames (List.tl d)
     
 let forget_stack_frame d =
    match d with
-  | BOT -> raise (Exceptions.Empty "forget_stack_frame on undefined stack")
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "forget_stack_frame on undefined stack"))
   | TOP -> TOP
   | Frames d -> Frames (I.inf::(List.tl d))
 
@@ -88,15 +88,15 @@ let check_frame w len f =
   if I.contains wi f then
     ()
   else
-    L.abort (fun p -> p "stack overflow: trying to read/write %d byte(s) from %s (current stack frame is in %s)"
-                             len  (Data.Word.to_string w) (I.to_string f))
+   raise (Exceptions.Analysis (Exceptions.Stack (Printf.sprintf "stack overflow: trying to read/write %d byte(s) from %s (current stack frame is in %s)"
+                             len  (Data.Word.to_string w) (I.to_string f))))
              
 let check_overflow (d: t) (a: Data.Address.t): unit =
   let len = !Config.address_sz / 8 in
   L.debug2 (fun p -> p "check_overflow at %s (len=%d)" (Data.Address.to_string a) len);
   match d with
   | TOP -> L.analysis (fun p -> p "possible stack overflow")
-  | BOT -> L.abort (fun p -> p "tried to read/write into an undefined stack")
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Stack "tried to read/write into an undefined stack"))
   | Frames d ->
      match a with
      | Data.Address.Global, w -> check_frame w len (List.hd d)

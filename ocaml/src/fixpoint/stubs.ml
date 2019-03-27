@@ -56,24 +56,24 @@ struct
         let success_id = Log.new_msg_id ("successful heap allocation at " ^ ip_str) in
         let failure_id = Log.new_msg_id ("heap allocation failed at " ^ ip_str) in
         D.set_lval_to_addr ret [ (addr, success_id) ; (Data.Address.of_null (), failure_id) ] d'
-      with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
+      with Z.Overflow -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate"))
 
     let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
       match a with
       | Data.Address.Heap (id, _), o ->
          if Data.Word.compare o (Data.Word.zero !Config.address_sz) <> 0 then
-           raise (Exceptions.Undefined_free
+           raise (Exceptions.Analysis (Exceptions.Undefined_free
                     (Printf.sprintf "at instruction %s: base address to free is not zero (%s)"
            (Data.Address.to_string ip)
-           (Data.Address.to_string a)))
+           (Data.Address.to_string a))))
          else
            id
 
       | _ ->
-         raise (Exceptions.Undefined_free
+         raise (Exceptions.Analysis (Exceptions.Undefined_free
                   (Printf.sprintf "at instruction %s: base address (%s) to free not in the heap or NULL"
                   (Data.Address.to_string ip)
-                  (Data.Address.to_string a)))
+                  (Data.Address.to_string a))))
            
     let heap_deallocator (ip: Data.Address.t) _ (d: domain_t) _ret args: domain_t * Taint.Set.t =
       let mem = Asm.Lval (args 0) in
@@ -92,10 +92,10 @@ struct
              
         | [] ->
            let msg = Printf.sprintf "Illegal dereference of %s (null)" (Asm.string_of_lval (args 0) true) in
-           raise (Exceptions.Null_deref msg)
+           raise (Exceptions.Analysis (Exceptions.Null_deref msg))
       with
-        Exceptions.Too_many_concrete_elements _ ->
-          raise (Exceptions.Too_many_concrete_elements "Stubs: too many addresses to deallocate")
+        Exceptions.Analysis (Exceptions.Too_many_concrete_elements _ ) ->
+          raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "Stubs: too many addresses to deallocate"))
       
     let strlen (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
       let zero = Asm.Const (Data.Word.zero 8) in
@@ -285,7 +285,7 @@ struct
             D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len') !Config.operand_sz)) d'
 
         with
-        | Exceptions.Too_many_concrete_elements _ as e ->
+        | Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) as e ->
            L.exc_and_abort e (fun p -> p "(s)printf: Unknown address of the format string or imprecise value of the format string")
         | Not_found as e ->
            L.exc_and_abort e (fun p -> p "address of the null terminator in the format string in (s)printf not found")
@@ -336,7 +336,7 @@ struct
           let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
           L.info (fun p -> p "--- end of write--");
           d', taint
-        with Exceptions.Too_many_concrete_elements _ -> L.abort (fun p -> p "imprecise number of char to write")
+        with Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) -> L.abort (fun p -> p "imprecise number of char to write")
       else
         L.abort (fun p -> p "write output implemented only for stdout")
       
@@ -351,8 +351,8 @@ struct
         (* int_nb and addr has to be concrete values *)
         match Data.Address.Set.elements addrs with
         | [a] -> d, taint, [Asm.Directive (Asm.Handler (int_nb, a))]
-        | _ -> raise (Exceptions.Too_many_concrete_elements "several possible handler addresses")
-      with Exceptions.Too_many_concrete_elements _ ->
+        | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "several possible handler addresses"))
+        with Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) ->
         L.warn (fun p -> p "uncomputable argument of signal call (signal number or handler address). Skipped");
         d, Taint.Set.singleton Taint.U, []
       in
@@ -371,9 +371,9 @@ struct
           try apply_f ip calling_ip d call_conv.Asm.return call_conv.Asm.arguments
           with
           | Exit -> d, Taint.Set.singleton Taint.U
-          | Exceptions.Use_after_free _ as e -> raise e 
-          | Exceptions.Double_free -> raise Exceptions.Double_free
-          | Exceptions.Null_deref _ as e  -> raise e
+          | Exceptions.Analysis (Exceptions.Use_after_free _) as e -> raise e 
+          | Exceptions.Analysis Exceptions.Double_free -> raise (Exceptions.Analysis (Exceptions.Double_free))
+          | Exceptions.Analysis (Exceptions.Null_deref _) as e  -> raise e
           | e ->
              L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
              L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);

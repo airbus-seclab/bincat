@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -39,14 +39,14 @@ module Make (V: Vector.T) =
 
     let to_z p =
       match p with
-      | BOT -> raise (Exceptions.Empty "pointer.to_z: undefined")
-      | TOP -> raise (Exceptions.Too_many_concrete_elements "pointer.to_z: imprecise")
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "pointer.to_z: undefined"))
+      | TOP -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "pointer.to_z: imprecise"))
       | Val (_r, v) -> V.to_z v
 
     let to_char p =
       match p with
-      | BOT  -> raise (Exceptions.Empty "pointer.to_z: undefined")
-      | TOP  -> raise (Exceptions.Too_many_concrete_elements "pointer.to_char: imprecise")
+      | BOT  -> raise (Exceptions.Analysis (Exceptions.Empty "pointer.to_z: undefined"))
+      | TOP  -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "pointer.to_char: imprecise"))
       | Val (_r, v) -> V.to_char v
 
     let to_string p =
@@ -153,7 +153,7 @@ module Make (V: Vector.T) =
             try
               if r1 = r2 then Val (r1, V.binary op o1 o2)
               else BOT
-            with Exceptions.Too_many_concrete_elements _ -> TOP
+            with Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) -> TOP
               
               
     let of_word w = Val (A.Global, V.of_word w)
@@ -174,8 +174,8 @@ module Make (V: Vector.T) =
            
     let to_addresses p =
       match p with
-      | BOT  -> raise (Exceptions.Empty "pointer.to_addresses: undefined pointer")
-      | TOP  -> raise (Exceptions.Too_many_concrete_elements "pointer.to_addresses: imprecise pointer")
+      | BOT  -> raise (Exceptions.Analysis (Exceptions.Empty "pointer.to_addresses: undefined pointer"))
+      | TOP  -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "pointer.to_addresses: imprecise pointer"))
       | Val (r, o) -> V.to_addresses r o
          
     let is_subset p1 p2 =
