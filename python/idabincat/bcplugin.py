@@ -552,6 +552,7 @@ class State(object):
         #: filepath to last dumped remapped binary
         self.remapped_bin_path = None
         self.remap_binary = True
+        self.remapped_sections = None
         # for debugging purposes, to interact with this object from the console
         global bc_state
         bc_state = self
