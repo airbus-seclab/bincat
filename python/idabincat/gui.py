@@ -826,10 +826,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
                 bc_log.warning("This file format is not natively supported by"
                                "BinCAT, you should probably remap the binary.")
             self.s.remap_binary = False
-            self.s.edit_config.binary_filepath = "%s" % ConfigHelpers.guess_file_path()
 
         self.s.current_config = self.s.edit_config
-
         self.s.start_analysis()
 
     # callback when the "Export" button is clicked
