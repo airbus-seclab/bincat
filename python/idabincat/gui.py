@@ -33,7 +33,7 @@ from idabincat.plugin_options import PluginOptions
 from idabincat.analyzer_conf import AnalyzerConfig, ConfigHelpers, X64_GPR, X86_GPR
 
 # for loading values from IDA debugger 
-from ida_idd import regval_t 
+from ida_idd import regval_t
 from ida_dbg import (get_reg_val, get_ip_val, get_sp_val)
 
 # Logging
@@ -630,11 +630,10 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         cfg_split.addWidget(self.btn_load)
 
         # Load config from Debugger 
-        self.btn_load_from_debug =  QtWidgets.QPushButton('&Load from debugger...')
+        self.btn_load_from_debug = QtWidgets.QPushButton('&Load from debugger...')
         self.btn_load_from_debug.setIcon(self.btn_load.style().standardIcon(QtWidgets.QStyle.SP_FileDialogContentsView))
         self.btn_load_from_debug.clicked.connect(self._load_from_debugger)
         cfg_split.addWidget(self.btn_load_from_debug)
-
 
         # Export config button
         self.btn_export = QtWidgets.QPushButton('Export...')
@@ -814,8 +813,8 @@ class BinCATConfigForm_t(idaapi.PluginForm):
 
         if self.chk_remap.isChecked():
             if (self.s.remapped_bin_path is None or
-                        not os.path.isfile(self.s.remapped_bin_path)
-                        or not self.s.remapped_sections):
+                    not os.path.isfile(self.s.remapped_bin_path)
+                    or not self.s.remapped_sections):
                 fname = ConfigHelpers.askfile(None, "Save remapped binary")
                 if not fname:
                     bc_log.error(
@@ -868,26 +867,28 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if self.index == len(self.s.configurations.names_cache):
             self._save_config()
 
-    # callback when the "Load from debugger" button is clicked
     def _load_from_debugger(self):
+        """
+        callback when the "Load from debugger" button is clicked
+        """
         if not idaapi.is_debugger_on():
             msgBox = QtWidgets.QMessageBox()
-            msgBox.setText("Debugger is off !")
+            msgBox.setText("Debugger is off!")
             msgBox.setIcon(QtWidgets.QMessageBox.Warning)
             msgBox.exec_()
-            return 
-        print('testing load from debugger button')
+            return
         # Get registers value from IDA debugger
         # check the current proc archi to load the correct registers
         rv = regval_t()
         cur_arch = ConfigHelpers.get_arch()
         cur_regs = ConfigHelpers.get_registers_with_state(cur_arch)
         for r in cur_regs:
-            # set rax value 
+            # set rax value
             if get_reg_val(r[0], rv):
-                print("Setting %s to %s"%(hex(rv.ival), r[0])) 
-                self.s.edit_config.state.set_reg(r[0], hex(rv.ival)[:-1], "0xFFFFFFFFFFFFFFFF","0")
-                self.update_from_edit_config()
+                print("Setting %s to %s" % (hex(rv.ival), r[0]))
+                self.s.edit_config.state.set_reg(r[0], hex(rv.ival)[:-1], "0xFFFFFFFFFFFFFFFF", "0")
+        # generate coredump
+        self.update_from_edit_config()
 
     # callback when the "Delete" button is clicked
     def _del_config(self):
@@ -924,7 +925,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if config.coredump:
             self.regs_table.setEnabled(False)
             self.mem_table.setEnabled(False)
-            self.lbl_core_path.setText("Coredump path: "+config.coredump)
+            self.lbl_core_path.setText("Coredump path: " + config.coredump)
             self.lbl_core_path.show()
         else:
             self.regs_table.setEnabled(True)

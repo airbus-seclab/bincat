@@ -602,6 +602,10 @@ class AnalyzerConfig(object):
     def format(self, value):
         self._config.set('program', 'format', value)
 
+    @coredump.setter
+    def format(self, value):
+        self._config.set('program', 'load_elf_coredump', value)
+
     def replace_section_mappings(self, maplist):
         """
         maplist: list of ("name", vaddr: int, vlen: int, paddr: int, plen: hex)
