@@ -543,7 +543,7 @@ class State(object):
         self.overrides = CallbackWrappedList()
         #: list of [@ or function names (str)]
         self.nops = CallbackWrappedList()
-        #: list of [@ or function names (str), arg_ng, ret_val]
+        #: list of [@ or function names (str), arg_nb, ret_val]
         self.skips = CallbackWrappedList()
         #: list of (name, config)
         self.configurations = AnalyzerConfigurations(self)

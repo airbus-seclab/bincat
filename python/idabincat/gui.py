@@ -1802,7 +1802,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
             # existing row
             r = list(self.s.overrides[row])
             r[col] = value
-            self.s.overrides[row] = r
+            self.s.overrides[row] = tuple(r)
         return True  # success
 
     def headerData(self, section, orientation, role):
@@ -1868,7 +1868,7 @@ class SkipsModel(QtCore.QAbstractTableModel):
         super(SkipsModel, self).__init__(*args, **kwargs)
         self.s = state
         self.clickedIndex = None
-        self.headers = ["address or function name", "arg_nb", "fun_skip"]
+        self.headers = ["address or function name", "arg_nb", "ret_val"]
 
     def data(self, index, role):
         if role not in (Qt.DisplayRole, Qt.EditRole, Qt.ToolTipRole):
@@ -1901,7 +1901,7 @@ class SkipsModel(QtCore.QAbstractTableModel):
             # existing row
             r = list(self.s.skips[row])
             r[col] = value
-            self.s.skips[row] = r
+            self.s.skips[row] = tuple(r)
         return True  # success
 
     def headerData(self, section, orientation, role):
@@ -1952,7 +1952,7 @@ class NopsModel(QtCore.QAbstractTableModel):
             self.s.nops.append([value])
         else:
             # existing row
-            self.s.nops[row][0] = value
+            self.s.nops[row] = (value, )
         return True  # success
 
     def headerData(self, section, orientation, role):
