@@ -690,31 +690,9 @@ class AnalyzerConfig(object):
 
     def edit_str(self):
         """
-        Return a text representation suitable for user edition
+        Return a text representation suitable for user edition.
+        Before calling this, caller must call update_overrides.
         """
-        # replaces overrides, nops & skips with warnings. The correct values
-        # will be set before analysis is run
-        if self.analysis_method == 'backward':
-            section = 'state'
-        else:
-            # forward
-            section = 'override'
-        self._config.remove_section(section)
-        # empty section
-        self._config.add_section(section)
-        # hack to add comments
-        self._config.set(
-            section,
-            '; This will be overriden with values from the BinCAT '
-            'Overrides view since the analysis will run in %s mode ;' %
-            self.analysis_method, '')
-
-        self._config.set(
-            'analyzer', 'nop', '; This will be overriden with values '
-            'from the BinCAT Overrides view')
-        self._config.set(
-            'analyzer', 'fun_skip', '; This will be overriden with values '
-            'from the BinCAT Overrides view')
         return str(self)
 
     @staticmethod

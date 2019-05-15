@@ -107,6 +107,8 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btn_save, 2, 0)
         layout.addWidget(self.btn_cancel, 2, 1)
         self.setLayout(layout)
+        self.s.edit_config.update_overrides(self.s.overrides, self.s.nops,
+                                            self.s.skips)
         self.configtxt.setPlainText(str(self.s.edit_config.edit_str()))
         self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
