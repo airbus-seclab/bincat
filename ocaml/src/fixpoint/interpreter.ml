@@ -727,24 +727,22 @@ struct
             match r with
             | Some (v', ip', d') ->
                Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
-               (* these vertices are updated by their right abstract values and the new ip                         *)
-              let new_vertices = update_abstract_value g v' (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
-              (* add overrides if needed *)
-           let new_vertices =
-         try
-           let rules = Hashtbl.find overrides v.Cfa.State.ip in
-           L.analysis (fun p -> p "applied tainting (%d) override(s)" (List.length rules));
-           List.map (fun v ->
-             let d', taint =
-               List.fold_left (fun (d, taint) rule -> let d', taint' = rule d in d', Taint.Set.union taint taint'
-               ) (v.Cfa.State.v, v.Cfa.State.taint_sources) rules
-             in
-             v.Cfa.State.v <- d';
-             v.Cfa.State.taint_sources <- taint;
-             v) new_vertices
-         with
-           Not_found -> new_vertices
-           in
+               (* add overrides if needed *)               
+               begin
+                 try
+                   let rules = Hashtbl.find overrides v'.Cfa.State.ip in
+                   L.analysis (fun p -> p "applied %d override(s)" (List.length rules));
+                       let d', taint =
+                         List.fold_left (fun (d, taint) rule -> let d', taint' = rule d in d', Taint.Set.union taint taint'
+                           ) (v.Cfa.State.v, v.Cfa.State.taint_sources) rules
+                       in
+                       v.Cfa.State.v <- d';
+                       v.Cfa.State.taint_sources <- taint
+                 with
+                   Not_found -> ()
+               end;
+               (* these vertices are updated by their right abstract values and the new ip  *)
+               let new_vertices = update_abstract_value g v' (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
            (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
            let vertices'  = filter_vertices true g new_vertices in
            List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
