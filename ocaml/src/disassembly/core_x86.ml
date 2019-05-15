@@ -1460,13 +1460,13 @@ let overflow_expression () = Lval (V (T fcf))
     let pop_stmts is_pop s lv =
         let esp'  = esp_lval () in
         List.fold_left (fun stmts lv ->
-            let n = size_push_pop lv s.operand_sz in
+            let n = size_push_pop lv s.addr_sz in
             let incr = set_esp Add esp' n in
             if with_stack_pointer is_pop s.a lv then
-                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) !Config.stack_width), s.operand_sz))) ] @ stmts
+                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) !Config.stack_width), s.addr_sz))) ] @ stmts
 
             else
-                [ Set (lv, Lval (M (Lval (V esp'), s.operand_sz))) ; incr ] @ stmts
+                [ Set (lv, Lval (M (Lval (V esp'), s.addr_sz))) ; incr ] @ stmts
         ) [] lv
 
     (** state generation for the pop instructions *)
@@ -2756,8 +2756,8 @@ let overflow_expression () = Lval (V (T fcf))
             | '\xc7' -> (* MOV with word or double *) mov_immediate s s.imm_sz
 
             | '\xc9' -> (* LEAVE *)
-              let sp = V (to_reg esp s.addr_sz) in
-              let bp = V (to_reg ebp s.addr_sz) in
+              let sp = V (to_reg esp !Config.stack_width) in
+              let bp = V (to_reg ebp !Config.stack_width) in
               return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp]))
             | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
             | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs)]))
