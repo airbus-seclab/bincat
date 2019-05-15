@@ -543,7 +543,7 @@ class State(object):
         self.overrides = CallbackWrappedList()
         #: list of [@ or function names (str)]
         self.nops = CallbackWrappedList()
-        #: list of [@ or function names (str), arg_ng, ret_val]
+        #: list of [@ or function names (str), arg_nb, ret_val]
         self.skips = CallbackWrappedList()
         #: list of (name, config)
         self.configurations = AnalyzerConfigurations(self)
@@ -855,6 +855,12 @@ class State(object):
                 "IDB is not yet supported.")
         else:
             self.start_analysis()
+
+    def add_or_replace_override(self, ea, htext, mask):
+        for idx, (e, h, _) in enumerate(self.overrides):
+            if e == ea and h == htext:
+                del self.overrides[idx]
+        self.overrides.append((ea, htext, mask))
 
 
 class CallbackWrappedList(collections.MutableSequence):

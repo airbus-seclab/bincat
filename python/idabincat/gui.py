@@ -107,6 +107,8 @@ class EditConfigurationFileForm_t(QtWidgets.QDialog):
         layout.addWidget(self.btn_save, 2, 0)
         layout.addWidget(self.btn_cancel, 2, 1)
         self.setLayout(layout)
+        self.s.edit_config.update_overrides(self.s.overrides, self.s.nops,
+                                            self.s.skips)
         self.configtxt.setPlainText(str(self.s.edit_config.edit_str()))
         self.configtxt.moveCursor(QtGui.QTextCursor.Start)
 
@@ -373,7 +375,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
         for addr in range(abs_start, abs_end+1):
             ea = self.s.current_ea
             addrstr = "%s[0x%02X]" % (region, addr)
-            self.s.overrides.append((ea, addrstr, mask))
+            self.s.add_or_replace_override(ea, addrstr, mask)
         if re_run:
             self.s.re_run()
 
@@ -883,9 +885,16 @@ class BinCATConfigForm_t(idaapi.PluginForm):
     # Update various fields from the current edit_config
     # useful when the configuration was edited manually
     def update_from_edit_config(self):
+        # load overrides, skips, nops
+        config = self.s.edit_config
+        self.s.overrides.clear()
+        self.s.overrides.extend(config.overrides)
+        self.s.nops.clear()
+        self.s.nops.extend(config.nops)
+        self.s.skips.clear()
+        self.s.skips.extend(config.skips)
         self.cfgregmodel.beginResetModel()
         self.cfgmemmodel.beginResetModel()
-        config = self.s.edit_config
         # If we have a coredump, disable mem/regs
         if config.coredump:
             self.regs_table.setEnabled(False)
@@ -1273,7 +1282,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         if not res:
             return
         htext = "reg[%s]" % regname
-        self.s.overrides.append((self.s.current_ea, htext, mask))
+        self.s.add_or_replace_override(self.s.current_ea, htext, mask)
 
 
 class InitConfigMemModel(QtCore.QAbstractTableModel):
@@ -1793,7 +1802,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
             # existing row
             r = list(self.s.overrides[row])
             r[col] = value
-            self.s.overrides[row] = r
+            self.s.overrides[row] = tuple(r)
         return True  # success
 
     def headerData(self, section, orientation, role):
@@ -1859,7 +1868,7 @@ class SkipsModel(QtCore.QAbstractTableModel):
         super(SkipsModel, self).__init__(*args, **kwargs)
         self.s = state
         self.clickedIndex = None
-        self.headers = ["address or function name", "arg_nb", "fun_skip"]
+        self.headers = ["address or function name", "arg_nb", "ret_val"]
 
     def data(self, index, role):
         if role not in (Qt.DisplayRole, Qt.EditRole, Qt.ToolTipRole):
@@ -1892,7 +1901,7 @@ class SkipsModel(QtCore.QAbstractTableModel):
             # existing row
             r = list(self.s.skips[row])
             r[col] = value
-            self.s.skips[row] = r
+            self.s.skips[row] = tuple(r)
         return True  # success
 
     def headerData(self, section, orientation, role):
@@ -1943,7 +1952,7 @@ class NopsModel(QtCore.QAbstractTableModel):
             self.s.nops.append([value])
         else:
             # existing row
-            self.s.nops[row][0] = value
+            self.s.nops[row] = (value, )
         return True  # success
 
     def headerData(self, section, orientation, role):
@@ -2037,7 +2046,7 @@ class HandleAddOverride(idaapi.action_handler_t):
         if not res:
             return 1  # refresh IDA windows
         htext = "%s[%s]" % (htype, highlighted)
-        self.s.overrides.append((address, htext, mask))
+        self.s.add_or_replace_override(address, htext, mask)
         return 1
 
     def update(self, ctx):
