@@ -373,7 +373,7 @@ class BinCATMemForm_t(idaapi.PluginForm):
         for addr in range(abs_start, abs_end+1):
             ea = self.s.current_ea
             addrstr = "%s[0x%02X]" % (region, addr)
-            self.s.overrides.append((ea, addrstr, mask))
+            self.s.add_or_replace_override(ea, addrstr, mask)
         if re_run:
             self.s.re_run()
 
@@ -1273,7 +1273,7 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         if not res:
             return
         htext = "reg[%s]" % regname
-        self.s.overrides.append((self.s.current_ea, htext, mask))
+        self.s.add_or_replace_override(self.s.current_ea, htext, mask)
 
 
 class InitConfigMemModel(QtCore.QAbstractTableModel):
@@ -2037,7 +2037,7 @@ class HandleAddOverride(idaapi.action_handler_t):
         if not res:
             return 1  # refresh IDA windows
         htext = "%s[%s]" % (htype, highlighted)
-        self.s.overrides.append((address, htext, mask))
+        self.s.add_or_replace_override(address, htext, mask)
         return 1
 
     def update(self, ctx):

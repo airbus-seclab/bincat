@@ -856,6 +856,12 @@ class State(object):
         else:
             self.start_analysis()
 
+    def add_or_replace_override(self, ea, htext, mask):
+        for idx, (e, h, _) in enumerate(self.overrides):
+            if e == ea and h == htext:
+                del self.overrides[idx]
+        self.overrides.append((ea, htext, mask))
+
 
 class CallbackWrappedList(collections.MutableSequence):
     """
