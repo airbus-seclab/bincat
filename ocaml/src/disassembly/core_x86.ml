@@ -2756,8 +2756,8 @@ let overflow_expression () = Lval (V (T fcf))
             | '\xc7' -> (* MOV with word or double *) mov_immediate s s.imm_sz
 
             | '\xc9' -> (* LEAVE *)
-              let sp = V (to_reg esp s.operand_sz) in
-              let bp = V (to_reg ebp s.operand_sz) in
+              let sp = V (to_reg esp s.addr_sz) in
+              let bp = V (to_reg ebp s.addr_sz) in
               return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp]))
             | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
             | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs)]))
