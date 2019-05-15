@@ -546,6 +546,55 @@ class AnalyzerConfig(object):
     def state(self):
         return self.init_state
 
+    @property
+    def overrides(self):
+        if 'override' not in self._config.sections():
+            return []
+        return self._config.items('override')
+
+    @property
+    def skips(self):
+        if not self._config.has_option('analyzer', 'fun_skip'):
+            return []
+        skipstr = self._config.get('analyzer', 'fun_skip')
+        idx = 0
+        res = []
+        err = False
+        while True:
+            try:
+                allow_value_err = False
+                val = []
+                # identify @ or function name
+                endidx = skipstr.index('(', idx)
+                val.append(skipstr[idx:endidx].strip())
+                idx = endidx + 1
+                # identify arg_nb
+                endidx = skipstr.index(',', idx)
+                val.append(skipstr[idx:endidx].strip())
+                idx = endidx + 1
+                # identify ret_val
+                endidx = skipstr.index(')', idx)
+                val.append(skipstr[idx:endidx].strip())
+                idx = endidx + 1
+                res.append(tuple(val))
+                allow_value_err = True
+                idx = 1 + skipstr.index(',', idx)
+            except ValueError:
+                err = not allow_value_err
+                break
+            except:
+                err = True
+        if err:
+            bc_log.error("Error while parsing fun_skip from config", exc_info=True)
+            return []
+        return res
+
+    @property
+    def nops(self):
+        if not self._config.has_option('analyzer', 'nop'):
+            return []
+        return [(n,) for n in self._config.get('analyzer', 'nop').split(', ')]
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):

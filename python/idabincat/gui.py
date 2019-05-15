@@ -885,9 +885,16 @@ class BinCATConfigForm_t(idaapi.PluginForm):
     # Update various fields from the current edit_config
     # useful when the configuration was edited manually
     def update_from_edit_config(self):
+        # load overrides, skips, nops
+        config = self.s.edit_config
+        self.s.overrides.clear()
+        self.s.overrides.extend(config.overrides)
+        self.s.nops.clear()
+        self.s.nops.extend(config.nops)
+        self.s.skips.clear()
+        self.s.skips.extend(config.skips)
         self.cfgregmodel.beginResetModel()
         self.cfgmemmodel.beginResetModel()
-        config = self.s.edit_config
         # If we have a coredump, disable mem/regs
         if config.coredump:
             self.regs_table.setEnabled(False)
