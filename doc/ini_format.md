@@ -148,9 +148,9 @@ modified:
 
 ```
 [override]
-0x4242 = reg[eax], 0x0!TAINT_ALL; reg[esp], 0x00!TAINT_NONE
+0x4242 = reg[eax], 0x0!TAINT_ALL; reg[esp], 0x00
 ```
 
 The key (`0x4242` here) is the instruction pointer value. The value is a
-semicolon separated list of `destination, value!taint`, where `value` is
-optional.
+semicolon separated list of `destination, value!taint`, where either `value` or
+`taint` can be omitted.

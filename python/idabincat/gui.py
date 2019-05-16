@@ -1732,7 +1732,7 @@ class OverridesModel(QtCore.QAbstractTableModel):
         super(OverridesModel, self).__init__(*args, **kwargs)
         self.s = state
         self.clickedIndex = None
-        self.headers = ["eip", "addr or reg", "[value]!taint"]
+        self.headers = ["eip", "addr or reg", "[value][!taint]"]
 
     def data(self, index, role):
         if role not in (Qt.ForegroundRole, Qt.DisplayRole,
@@ -1770,11 +1770,11 @@ class OverridesModel(QtCore.QAbstractTableModel):
                     "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?"
                     # taint - same as value, PLUS TAINT_* for
                     # registers
-                    "!(0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+|"
+                    "(!(0[xbo][0-9a-fA-F]+|\|[0-9a-fA-F]+\||[0-9]+|"
                     "TAINT_ALL|TAINT_NONE)"
                     # if taint is present: optional top mask - same as value
                     # top mask
-                    "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?$")
+                    "(\?0[xbo][0-9a-fA-F]+|[0-9]+)?)?$")
                 if re.match(pattern, txt):
                     return
             return QtGui.QBrush(Qt.red)
