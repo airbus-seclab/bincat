@@ -550,7 +550,18 @@ class AnalyzerConfig(object):
     def overrides(self):
         if 'override' not in self._config.sections():
             return []
-        return self._config.items('override')
+        res = []
+        for ea, overrides in self._config.items('override'):
+            ea = int(ea, 16)
+            for override in overrides.split(';'):
+                override = override.strip()
+                if not override:
+                    continue
+                dest, val = override.split(',')
+                dest = dest.strip()
+                val = val.strip()
+                res.append((ea, dest, val))
+        return res
 
     @property
     def skips(self):
@@ -669,12 +680,12 @@ class AnalyzerConfig(object):
             # 2. Add sections from overrides argument
             ov_by_eip = collections.defaultdict(set)
             for (eip, register, value) in overrides:
-                ov_by_eip[eip].add("%s, %s;" % (register, value))
+                ov_by_eip[eip].add("%s, %s" % (register, value))
 
             # 3. Add to config
             for eip, ov_set in ov_by_eip.items():
                 hex_addr = "0x%x" % eip
-                self._config.set("override", hex_addr, ''.join(ov_set))
+                self._config.set("override", hex_addr, ';'.join(ov_set))
         else:  # backward
             # 2. Empty state section
             self._config.remove_section("state")
