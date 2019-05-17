@@ -146,12 +146,6 @@ def test_shifted_register_lsr_reg_32(tmpdir, op, armv7op):
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "c", "n", "z"])
 
-def test_movt(tmpdir):
-    asm = """
-            movt R8, #2
-    """
-    compare(tmpdir, asm, ["r8"])
-
 def test_shifted_register_asr(tmpdir, armv7shift):
     asm = """
             mov r0, #0x12
