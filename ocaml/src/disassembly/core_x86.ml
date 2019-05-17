@@ -289,7 +289,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
         | M(_, _) -> normal_set
         | V(r) -> match r with
           | T(_) -> (* full assignation *) normal_set
-          | P(reg, l, u) -> if l == 0 && u == 31 then [Set(V(T reg), UnOp(ZeroExt 64, value))]  else normal_set
+          | P(reg, l, u) -> if l == 0 && u == 31 then [Set (V (T reg), UnOp (ZeroExt 64, value))] else normal_set 
 
     let add_segment segments operand_sz rip offset sreg =
       match (Register.name sreg) with
