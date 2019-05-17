@@ -275,11 +275,11 @@ struct
   let error_isn a isn msg =
     L.abort (fun p -> p "at %s: isn=%08x %s" (Address.to_string a) isn msg)
 
-  let notimplemented_arm s isn = L.abort (fun p -> p "at %s: %s ARM instruction not implemented yet"
-                                                 (Address.to_string s.a) isn)
+  let notimplemented_arm s isn mnemo = L.abort (fun p -> p "at %s: %s (%08x): ARM instruction not implemented yet"
+                                                 (Address.to_string s.a) mnemo isn)
 
-  let notimplemented_thumb s isn = L.abort (fun p -> p "at %s: %s thumb instruction not implemented yet"
-                                                 (Address.to_string s.a) isn)
+  let notimplemented_thumb s isn mnemo = L.abort (fun p -> p "at %s: %s (%04x): thumb instruction not implemented yet"
+                                                 (Address.to_string s.a) mnemo isn)
 
   let string_to_char_list str =
     let len = String.length str in
@@ -848,7 +848,7 @@ struct
     | 0b011 ->
            if instruction land (1 lsl 4) = 0
            then single_data_transfer s instruction
-           else error s.a (Printf.sprintf "media instructions not supported yet (opcode=0x%x)" instruction)
+           else notimplemented_arm s instruction "media instructions"
     | 0b100 -> block_data_transfer s instruction (* block data transfer *)
     | 0b101 -> branch s instruction
     | 0b110 -> error s.a (Printf.sprintf "Comprocessor data transfer not implemented (isn=%08x)" instruction)
@@ -919,57 +919,57 @@ struct
     else
       match (isn lsr 4) land 0x7 with
       | 0b000 -> (* No Operation hint NOP *)
-         notimplemented_thumb s "hint NOP"
+         notimplemented_thumb s isn "hint NOP"
       | 0b001 -> (* Yield hint YIELD *)
-         notimplemented_thumb s "hint YIELD"
+         notimplemented_thumb s isn "hint YIELD"
       | 0b010 -> (* Wait For Event hint WFE *)
-         notimplemented_thumb s "hint WFE"
+         notimplemented_thumb s isn "hint WFE"
       | 0b011 -> (* Wait For Interrupt hint WFI *)
-         notimplemented_thumb s "hint WFI"
+         notimplemented_thumb s isn "hint WFI"
       | 0b100 -> (* Send Event hint SEV *)
-         notimplemented_thumb s "hint SEV"
+         notimplemented_thumb s isn "hint SEV"
       | _ -> L.abort (fun p -> p "Unkown hint instruction encoding %04x" isn)
 
   let decode_thumb_misc s isn =
     match (isn lsr 6) land 0x3f with
     | 0b011001 ->
        if (isn lsr 5) land 1 = 0 then (* Set Endianness SETEND *)
-         notimplemented_thumb s "SETEND"
+         notimplemented_thumb s isn "SETEND"
        else (* Change Processor State CPS *)
-         notimplemented_thumb s "CPS"
+         notimplemented_thumb s isn "CPS"
     | 0b000000 | 0b000001 -> (* Add Immediate to SP ADD (SP plus immediate) *)
-       notimplemented_thumb s "ADD on SP"
+       notimplemented_thumb s isn "ADD on SP"
     | 0b000010 | 0b000011 -> (* Subtract Immediate from SP SUB (SP minus immediate) *)
        let imm7 = isn land 0x7f in
        op_sub sp 13 (const (imm7 lsl 2) 32) |> mark_couple
     | 0b000100 | 0b000101 | 0b000110 | 0b000111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
-       notimplemented_thumb s "CBZ/CBNZ (0)"
+       notimplemented_thumb s isn "CBZ/CBNZ (0)"
     | 0b001000 -> (* Signed Extend Halfword SXTH *)
-       notimplemented_thumb s "SXTH"
+       notimplemented_thumb s isn "SXTH"
     | 0b001001 -> (* Signed Extend Byte SXTB *)
-       notimplemented_thumb s "SXTB"
+       notimplemented_thumb s isn "SXTB"
     | 0b001010 -> (* Unsigned Extend Halfword UXTH *)
-       notimplemented_thumb s "UXTH"
+       notimplemented_thumb s isn "UXTH"
     | 0b001011 -> (* Unsigned Extend Byte UXTB *)
-       notimplemented_thumb s "UXTB"
+       notimplemented_thumb s isn "UXTB"
     | 0b001100 | 0b001101 | 0b001110 | 0b001111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
-       notimplemented_thumb s "CBNZ/CBZ (1)"
+       notimplemented_thumb s isn "CBNZ/CBZ (1)"
     | 0b010000 | 0b010001 | 0b010010 | 0b010011 | 0b010100 | 0b010101 | 0b010110 | 0b010111 -> (* Push Multiple Registers PUSH *)
        thumb_push s isn
     | 0b100100 | 0b100101 | 0b100110 | 0b100111 -> (* Compare and Branch on Nonzero CBNZ, CBZ *)
-       notimplemented_thumb s "CBNZ/CBZ (2)"
+       notimplemented_thumb s isn "CBNZ/CBZ (2)"
     | 0b101000 -> (* Byte-Reverse Word REV *)
-       notimplemented_thumb s "REV"
+       notimplemented_thumb s isn "REV"
     | 0b101001 -> (* Byte-Reverse Packed Halfword REV16 *)
-       notimplemented_thumb s "REV16"
+       notimplemented_thumb s isn "REV16"
     | 0b101011 -> (* Byte-Reverse Signed Halfword REVSH *)
-       notimplemented_thumb s "REVSH"
+       notimplemented_thumb s isn "REVSH"
     | 0b101100 | 0b101101 | 0b101110 | 0b101111 -> (* Compare and Branch on Nonzero CBNZ, CBZ *)
-       notimplemented_thumb s "CBNZ/CBZ (3)"
+       notimplemented_thumb s isn "CBNZ/CBZ (3)"
     | 0b110000 | 0b110001 | 0b110010 | 0b110011 | 0b110100 | 0b110101 | 0b110110 | 0b110111 -> (* Pop Multiple Registers POP *)
        thumb_pop s isn
     | 0b111000 | 0b111001 | 0b111010 | 0b111011 -> (* Breakpoint BKPT *)
-       notimplemented_thumb s "BKPT"
+       notimplemented_thumb s isn "BKPT"
     | 0b111100 | 0b111101 | 0b111110 | 0b111111 -> (* If-Then and hints *)
        decode_thumb_it_hints s isn
     | _ ->  L.abort (fun p -> p "Unknown thumb misc encoding %04x" isn)
@@ -1031,7 +1031,7 @@ struct
          MARK_FLAG (nflag_update_exp (reg rd)) ;
          MARK_FLAG (zflag_update_exp (Lval ( V (treg rd)))) ; ]
     | 0b010 -> (* Arithmetic Shift Right ASR (immediate) *)
-       notimplemented_thumb s "ASR (imm)"
+       notimplemented_thumb s isn "ASR (imm)"
     | 0b100 -> (* Move MOV (immediate) *)
        thumb_mov_imm s isn
     | 0b101 -> (* Compare CMP (immediate) *)
@@ -1068,7 +1068,7 @@ struct
     | 0b1110 -> (* Permanently UNDEFINED *)
        L.abort (fun p -> p "Thumb16 instruction %04x permanently undefined" isn)
     | 0b1111 -> (* Supervisor Call *)
-       notimplemented_thumb s "SVC"
+       notimplemented_thumb s isn "SVC"
     | _ -> (* Conditional branch *)
        thumb_cond_branching s isn
 
@@ -1087,21 +1087,21 @@ struct
   let decode_thumb_special_data_branch_exch s isn =
     match (isn lsr 6) land 0xf with
     | 0b0000 -> (* Add Low Registers ADD (register)*)
-       notimplemented_thumb s "ADD (low reg)"
+       notimplemented_thumb s isn "ADD (low reg)"
     | 0b0001 | 0b0010 | 0b0011 -> (* Add High Registers ADD (register) *)
        let rd = ((isn lsr 4) land 0x8) lor (isn land 0x7) in
        let rm = (isn lsr 3) land 0xf in
        op_add (reg rd) rm (Lval (V (treg rd))) |> mark_couple
     | 0b0101 | 0b0110 | 0b0111 -> (* Compare High Registers CMP (register) *)
-       notimplemented_thumb s "CMP (high reg)"
+       notimplemented_thumb s isn "CMP (high reg)"
     | 0b1000 -> (* Move Low Registers MOV (register) *)
-       notimplemented_thumb s "MOV (low reg)"
+       notimplemented_thumb s isn "MOV (low reg)"
     | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
        thumb_mov_high_reg s isn
     | 0b1100 | 0b1101 -> (* Branch and Exchange BX *)
        thumb_bx s isn
     | 0b1110 | 0b1111 -> (* Branch with Link and Exchange BLX *)
-       notimplemented_thumb s "BLX"
+       notimplemented_thumb s isn "BLX"
     | _ -> L.abort (fun p -> p "Unknown or unpredictable instruction %04x" isn)
 
   let thumb_mul _s isn =
@@ -1127,17 +1127,17 @@ struct
     | 0b0001 -> (* Bitwise Exclusive OR *)
        op_eor (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
     | 0b0010 -> (* LSL Logical Shift Left *)
-       notimplemented_thumb s "LSL (register)"
+       notimplemented_thumb s isn "LSL (register)"
     | 0b0011 -> (* LSR Logical Shift Right *)
-       notimplemented_thumb s "LSR (register)"
+       notimplemented_thumb s isn "LSR (register)"
     | 0b0100 -> (* ASR Arithmetic Shift Right *)
-       notimplemented_thumb s "ASR (register)"
+       notimplemented_thumb s isn "ASR (register)"
     | 0b0101 -> (* ADC Add with Carry *)
-       notimplemented_thumb s "ADC (register)"
+       notimplemented_thumb s isn "ADC (register)"
     | 0b0110 -> (* SBC Subtract with Carry *)
-       notimplemented_thumb s "SBC (register)"
+       notimplemented_thumb s isn "SBC (register)"
     | 0b0111 -> (* ROR Rotate Right *)
-       notimplemented_thumb s "ROR (register)"
+       notimplemented_thumb s isn "ROR (register)"
     | 0b1000 -> (* TST Test *)
        let tmpreg = Register.make (Register.fresh_name ()) 32 in
        let opstmts,flagstmts = op_and tmpreg op0 (Lval (V (treg op1))) in
@@ -1240,44 +1240,44 @@ struct
     match op with
     | 0b0000 ->
        if tst = 0 then (* Bitwise AND AND (register) *)
-         notimplemented_thumb s "AND (register)"
+         notimplemented_thumb s isn "AND (register)"
        else (* TST (register) *)
-         notimplemented_thumb s "TST (register)"
+         notimplemented_thumb s isn "TST (register)"
     | 0b0001 -> (* Bitwise Bit Clear BIC (register) *)
-       notimplemented_thumb s "BIC (register)"
+       notimplemented_thumb s isn "BIC (register)"
     | 0b0010 ->
        if rn = 0xf then (* Move MOV (register) *)
-         notimplemented_thumb s "ORR (register)"
+         notimplemented_thumb s isn "ORR (register)"
        else (* Bitwise OR ORR (register) *)
-         notimplemented_thumb s "ORR (register)"
+         notimplemented_thumb s isn "ORR (register)"
     | 0b0011 ->
        if rn = 0xf then (* Bitwise NOT MVN (register) *)
-         notimplemented_thumb s "MVN (register)"
+         notimplemented_thumb s isn "MVN (register)"
        else (* Bitwise OR NOT ORN (register) *)
-         notimplemented_thumb s "ORN (register)"
+         notimplemented_thumb s isn "ORN (register)"
     | 0b0100 ->
        if tst = 0 then (* Bitwise Exclusive OR EOR (register) *)
-         notimplemented_thumb s "EOR (register)"
+         notimplemented_thumb s isn "EOR (register)"
        else (* Test Equivalence TEQ (register) *)
-         notimplemented_thumb s "TEQ (register)"
+         notimplemented_thumb s isn "TEQ (register)"
     | 0b0110 -> (* Pack Halfword PKH *)
-       notimplemented_thumb s "PKH"
+       notimplemented_thumb s isn "PKH"
     | 0b1000 ->
        if tst = 0 then (* Add ADD (register) *)
-         notimplemented_thumb s "ADD (register)"
+         notimplemented_thumb s isn "ADD (register)"
        else (* Compare Negative CMN (register) *)
-         notimplemented_thumb s "CMN (register)"
+         notimplemented_thumb s isn "CMN (register)"
     | 0b1010 -> (* Add with Carry ADC (register) *)
-       notimplemented_thumb s "ADC (register)"
+       notimplemented_thumb s isn "ADC (register)"
     | 0b1011 -> (* Subtract with Carry SBC (register) *)
-       notimplemented_thumb s "SBC (register)"
+       notimplemented_thumb s isn "SBC (register)"
     | 0b1101 ->
        if tst = 0 then (* Subtract SUB (register) *)
-         notimplemented_thumb s "SUB (register)"
+         notimplemented_thumb s isn "SUB (register)"
        else (* Compare CMP (register) *)
-         notimplemented_thumb s "CMP (register)"
+         notimplemented_thumb s isn "CMP (register)"
     | 0b1110 -> (* Reverse Subtract RSB (register) *)
-       notimplemented_thumb s "RSB (register)"
+       notimplemented_thumb s isn "RSB (register)"
     | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
 
 
@@ -1315,22 +1315,22 @@ struct
        begin
          if op land 0x38 = 0x38 then
            match op with
-           | 0b0111000 | 0b0111001 -> notimplemented_thumb s "MSR"
-           | 0b0111010 -> notimplemented_thumb s "change proc state and hints"
-           | 0b0111011 -> notimplemented_thumb s "misc control"
-           | 0b0111100 -> notimplemented_thumb s "BXJ"
-           | 0b0111101 -> notimplemented_thumb s "exception return SUBS PC,LR"
-           | 0b0111110 | 0b0111111 -> notimplemented_thumb s "MRS"
+           | 0b0111000 | 0b0111001 -> notimplemented_thumb s isn "MSR"
+           | 0b0111010 -> notimplemented_thumb s isn "change proc state and hints"
+           | 0b0111011 -> notimplemented_thumb s isn "misc control"
+           | 0b0111100 -> notimplemented_thumb s isn "BXJ"
+           | 0b0111101 -> notimplemented_thumb s isn "exception return SUBS PC,LR"
+           | 0b0111110 | 0b0111111 -> notimplemented_thumb s isn "MRS"
            | 0b1111111 ->
               if op1 = 0 then
-                notimplemented_thumb s "SMC"
+                notimplemented_thumb s isn "SMC"
               else
                 L.abort (fun p -> p "permanently undefined thumb32 instruction %04x %04x" isn isn2)
            | _ -> L.abort (fun p -> p "unexpected thumb32 encoding %04x %04x" isn isn2)
          else (* Conditional branch *)
-           notimplemented_thumb s "conditional branch"
+           notimplemented_thumb s isn "conditional branch"
        end
-    | 0b001 | 0b011 -> notimplemented_thumb s "B"
+    | 0b001 | 0b011 -> notimplemented_thumb s isn "B"
     | 0b100 | 0b110 | 0b101 | 0b111 -> (* BL, BLX *)
        thumb32_bl_blx_immediate s isn isn2
     | _ -> L.abort (fun p -> p "unexpected thumb32 encoding %04x %04x" isn isn2)
@@ -1343,43 +1343,43 @@ struct
     match op1 with
     | 0b01 ->
        if op2 land 0x64 = 0 then (* Load/store multiple *)
-         notimplemented_thumb s "thumb32 load/store multible"
+         notimplemented_thumb s isn "thumb32 load/store multible"
        else if op2 land 0x64 = 4 then (* Load/store dual, load/store exclusive, table branch *)
-         notimplemented_thumb s  "load/store dual/excl, table branch"
+         notimplemented_thumb s isn  "load/store dual/excl, table branch"
        else if op2 land 0x60 = 0x20 then (* Data-processing (shifted register) *)
          decode_thumb32_data_proc_shift_reg s isn isn2
        else if op2 land 0x40 = 40 then (* Coprocessor instructions *)
-         notimplemented_thumb s "Coprocessor instructions"
+         notimplemented_thumb s isn "Coprocessor instructions"
        else L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
     | 0b10 ->
        if op = 1 then (* Branches and miscellaneous control *)
          decode_thumb32_branches_misc s isn isn2
        else
          if op2 land 0x20 = 0 then (* Data-processing (modified immediate) *)
-           notimplemented_thumb s "Data-processing (modified immediate)"
+           notimplemented_thumb s isn "Data-processing (modified immediate)"
          else (* Data-processing (modified immediate) *)
-           notimplemented_thumb s "Data-processing (plain binary immediate)"
+           notimplemented_thumb s isn "Data-processing (plain binary immediate)"
     | 0b11 ->
        if op2 land 0x71 = 0 then (* Store single data item *)
-         notimplemented_thumb s "Store single data item"
+         notimplemented_thumb s isn "Store single data item"
        else if op2 land 0x71 = 0x10 then (* Advanced SIMD element or structure load/store *)
-         notimplemented_thumb s "Advanced SIMD element or structure load/store"
+         notimplemented_thumb s isn "Advanced SIMD element or structure load/store"
        else if op2 land 0x67 = 1 then (* Load byte, memory hints *)
-         notimplemented_thumb s "Load byte, memory hints"
+         notimplemented_thumb s isn "Load byte, memory hints"
        else if op2 land 0x67 = 3 then (* Load halfword, memory hints *)
-         notimplemented_thumb s "Load halfword, memory hints"
+         notimplemented_thumb s isn "Load halfword, memory hints"
        else if op2 land 0x67 = 5 then (* Load word *)
-         notimplemented_thumb s "Load word"
+         notimplemented_thumb s isn "Load word"
        else if op2 land 0x67 = 7 then
          L.abort (fun p -> p "undefined Thumb32 instruction")
        else if op2 land 0x70 = 0x20 then (* Data-processing (register) *)
-         notimplemented_thumb s "Data-processing (register)"
+         notimplemented_thumb s isn "Data-processing (register)"
        else if op2 land 0x78 = 0x30 then (* Multiply, multiply accumulate, and absolute difference *)
-         notimplemented_thumb s "Multiply, multiply accumulate, and absolute difference"
+         notimplemented_thumb s isn "Multiply, multiply accumulate, and absolute difference"
        else if op2 land 0x78 = 0x38 then (* Long multiply, long multiply accumulate, and divide *)
-         notimplemented_thumb s "Long multiply, long multiply accumulate, and divide"
+         notimplemented_thumb s isn "Long multiply, long multiply accumulate, and divide"
        else if op2 land 0x40 = 0x40 then (* Coprocessor instructions *)
-         notimplemented_thumb s "Coprocessor instructions"
+         notimplemented_thumb s isn "Coprocessor instructions"
        else L.abort (fun p -> p "Unexpected thumb32 encoding %04x %04x" isn isn2)
     | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding")
 
@@ -1422,9 +1422,9 @@ struct
         | 0b101100 | 0b101101 | 0b101110 | 0b101111 -> (* Miscellaneous 16-bit instructions *)
            decode_thumb_misc s instruction
         | 0b110000 | 0b110001 -> (* Store multiple registers *)
-           notimplemented_thumb s "multiple reg storage"
+           notimplemented_thumb s instruction "multiple reg storage"
         | 0b110010 | 0b110011 -> (* Load multiple registers *)
-           notimplemented_thumb s "multiple reg loading"
+           notimplemented_thumb s instruction "multiple reg loading"
         | 0b110100 | 0b110101 | 0b110110 | 0b110111 -> (* Conditional branch, and Supervisor Call *)
            decode_thumb_branching_svcall s instruction
         | 0b111000 | 0b111001 -> (* Unconditional Branch *)
