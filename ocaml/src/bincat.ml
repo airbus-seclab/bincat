@@ -41,7 +41,7 @@ match !anon_args with
      try
        Main.process configfile outputfile logfile
      with e ->
-           Printf.fprintf stderr "EXCEPTION: %s\nCheck log file for details [%s]\n" (Printexc.to_string e) Sys.argv.(3);
+           Printf.fprintf stderr "EXCEPTION: %s\nCheck log file for details [%s]\n" (Printexc.to_string e) logfile;
            raise e
    end
 | _ ->  raise (Arg.Bad (Printf.sprintf "expected 3 arguments. Found %i." (List.length !anon_args)))
