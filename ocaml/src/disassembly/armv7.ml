@@ -272,6 +272,12 @@ struct
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
+  let error_isn a isn msg =
+    L.abort (fun p -> p "at %s: isn=%08x %s" (Address.to_string a) isn msg)
+
+  let notimplemented_arm s isn = L.abort (fun p -> p "at %s: %s ARM instruction not implemented yet"
+                                                 (Address.to_string s.a) isn)
+
   let notimplemented_thumb s isn = L.abort (fun p -> p "at %s: %s thumb instruction not implemented yet"
                                                  (Address.to_string s.a) isn)
 
