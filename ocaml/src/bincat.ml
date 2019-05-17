@@ -31,6 +31,8 @@ let speclist = [
     "Path to file to be analyzed" ;
     "--entrypoint", Arg.String (fun arg -> Config.argv_options.Config.entrypoint := Some (Z.of_string arg)),
     "Entry point";
+    "--loglevel", Arg.Int (fun arg -> Config.argv_options.Config.loglevel := Some arg),
+    "Entry point";
   ] in
 let usage = "usage: bincat init.ini output.ini outlog" in
 Arg.parse speclist (fun x -> anon_args := x :: !anon_args) usage;
@@ -41,7 +43,7 @@ match !anon_args with
      try
        Main.process configfile outputfile logfile
      with e ->
-           Printf.fprintf stderr "EXCEPTION: %s\nCheck log file for details [%s]\n" (Printexc.to_string e) Sys.argv.(3);
+           Printf.fprintf stderr "EXCEPTION: %s\nCheck log file for details [%s]\n" (Printexc.to_string e) logfile;
            raise e
    end
 | _ ->  raise (Arg.Bad (Printf.sprintf "expected 3 arguments. Found %i." (List.length !anon_args)))

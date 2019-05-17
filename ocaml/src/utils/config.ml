@@ -261,6 +261,7 @@ type argv_config_t = {
     no_state : bool option ref ;
     filepath : string option ref;
     entrypoint : Z.t option ref ;
+    loglevel : int option ref;
   }
 
 let argv_options : argv_config_t = {
@@ -268,6 +269,7 @@ let argv_options : argv_config_t = {
     no_state = ref None ;
     filepath = ref None ;
     entrypoint = ref None ;
+    loglevel = ref None ;
   }
 
 
@@ -279,7 +281,8 @@ let apply_option (opt:'a ref) (optval:'a option ref) =
 let apply_arg_options () =
   apply_option ignore_unknown_relocations argv_options.ignore_unknown_relocations;
   apply_option binary argv_options.filepath;
-  apply_option ep argv_options.entrypoint
+  apply_option ep argv_options.entrypoint;
+  apply_option loglevel argv_options.loglevel
 
 
 let clear_tables () =
