@@ -839,7 +839,10 @@ struct
        else data_proc s instruction
     | 0b001 -> data_proc s instruction
     | 0b010 -> single_data_transfer s instruction
-    | 0b011 when instruction land (1 lsl 4) = 0 -> single_data_transfer s instruction
+    | 0b011 ->
+           if instruction land (1 lsl 4) = 0
+           then single_data_transfer s instruction
+           else error s.a (Printf.sprintf "media instructions not supported yet (opcode=0x%x)" instruction)
     | 0b100 -> block_data_transfer s instruction (* block data transfer *)
     | 0b101 -> branch s instruction
     | 0b110 -> error s.a (Printf.sprintf "Comprocessor data transfer not implemented (isn=%08x)" instruction)
