@@ -16,5 +16,6 @@
 ```
 git clone https://github.com/airbus-seclab/bincat.git
 cd bincat
+eval $(ocaml-env cygwin)
 make windist PYTHON=python
 ```
