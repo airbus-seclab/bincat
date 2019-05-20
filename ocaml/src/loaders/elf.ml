@@ -121,8 +121,8 @@ let make_mapped_mem filepath entrypoint =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let value = choose_address_for_import sym_name symsize in
-    L.debug (fun p -> p "REL JUMP_SLOT: write %08x at %08x to relocate %s"
-      (Z.to_int value) (Z.to_int addr) sym_name);
+    L.debug (fun p -> p "REL JUMP_SLOT: write %s at %s to relocate %s"
+      (Log.zaddr_to_string value) (Log.zaddr_to_string addr) sym_name);
     patch_elf elf mapped_file sections addr value in
 
   let reloc_glob_dat symsize sym offset addend =
@@ -133,16 +133,16 @@ let make_mapped_mem filepath entrypoint =
       if sym_value = Z.zero then
         choose_address_for_import sym_name symsize
       else Z.(sym_value + addend) in
-    L.debug (fun p -> p "REL GLOB_DAT: write %08x at %08x to relocate %s"
-      (Z.to_int value) (Z.to_int offset) sym_name);
+    L.debug (fun p -> p "REL GLOB_DAT: write %s at %s to relocate %s"
+      (Log.zaddr_to_string value) (Log.zaddr_to_string offset) sym_name);
     patch_elf elf mapped_file sections addr value in
 
   let reloc_obj symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let value = choose_address_for_import sym_name symsize in
-    L.debug (fun p -> p "REL 32: write %08x at %08x to relocate %s"
-                        (Z.to_int value) (Z.to_int addr) sym_name);
+    L.debug (fun p -> p "REL 32: write %s at %s to relocate %s"
+                        (Log.zaddr_to_string value) (Log.zaddr_to_string addr) sym_name);
     patch_elf elf mapped_file sections addr value in
 
   let reloc_obj_rel symsize sym offset _addend =
@@ -150,15 +150,15 @@ let make_mapped_mem filepath entrypoint =
     let addr = offset in
     let pre_val = choose_address_for_import sym_name symsize in
     let value = Z.(pre_val - offset) in
-    L.debug (fun p -> p "RELA 32: write %08x at %08x to relocate %s"
-                        (Z.to_int value) (Z.to_int addr) sym_name);
+    L.debug (fun p -> p "RELA 32: write %s at %s to relocate %s"
+                        (Log.zaddr_to_string value) (Log.zaddr_to_string addr) sym_name);
     patch_elf elf mapped_file sections addr value in
 
   let reloc_relative _symsize _sym offset addend =
     let addr = offset in
     let value = Z.add base_address addend in
-    L.debug (fun p -> p "RELA RELATIVE: write %08x at %08x (base address = %08x)"
-                        (Z.to_int value) (Z.to_int addr) (Z.to_int base_address));
+    L.debug (fun p -> p "RELA RELATIVE: write %s at %s (base address = %s)"
+                        (Log.zaddr_to_string value) (Log.zaddr_to_string addr) (Log.zaddr_to_string base_address));
     patch_elf elf mapped_file sections addr value in
 
   let reloc_copy _symsize sym _offset _addend =

@@ -418,11 +418,11 @@ let to_phdr s hdr phidx =
 let ph_to_string ph =
   Printf.sprintf "%-12s ofs=%s vaddr=%s paddr=%s filesz=%s memsz=%s flags=%s align=%s"
     (p_type_to_string ph.p_type)
-    (Z.format "%08x" ph.p_offset)
-    (Z.format "%08x" ph.p_vaddr)
-    (Z.format "%08x" ph.p_paddr)
-    (Z.format "%08x" ph.p_filesz)
-    (Z.format "%08x" ph.p_memsz)
+    (Log.zaddr_to_string ph.p_offset)
+    (Log.zaddr_to_string ph.p_vaddr)
+    (Log.zaddr_to_string ph.p_paddr)
+    (Log.zaddr_to_string ph.p_filesz)
+    (Log.zaddr_to_string ph.p_memsz)
     (Z.format "%02x" ph.p_flags)
     (Z.format "%02x" ph.p_align)
 
@@ -503,9 +503,9 @@ let sh_to_string sh =
     (Z.to_int sh.sh_name)
     (sh_type_to_string sh.sh_type)
     (Z.format "%04x" sh.sh_flags)
-    (Z.format "%08x" sh.sh_addr)
-    (Z.format "%08x" sh.sh_offset)
-    (Z.format "%08x" sh.sh_size)
+    (Log.zaddr_to_string sh.sh_addr)
+    (Log.zaddr_to_string sh.sh_offset)
+    (Log.zaddr_to_string sh.sh_size)
     sh.sh_link
     sh.sh_info
     (Z.format "%x" sh.sh_addralign)
@@ -896,7 +896,7 @@ type e_note_t = {
 
 let note_to_string note =
   Printf.sprintf "type=%s name=%s desc len=%#x"
-  (Z.format "%08x" note.n_type)
+  (Log.zaddr_to_string note.n_type)
   note.n_name
   (String.length note.n_desc)
 
