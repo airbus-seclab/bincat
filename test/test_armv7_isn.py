@@ -74,6 +74,12 @@ def test_movt(tmpdir, op16):
     """.format(**locals())
     compare(tmpdir, asm, ["r8"])
 
+def test_movw(tmpdir, op16):
+    asm = """
+            movw r8, #{op16}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r8"])
+
 
 @dataop_mov
 def test_shifted_register_lsl_imm_shift(tmpdir, op, armv7op, armv7shift):
