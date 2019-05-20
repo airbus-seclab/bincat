@@ -128,6 +128,8 @@ let address_sz = ref 32
 let operand_sz = ref 32
 let size_of_long () = !operand_sz
 let stack_width = ref 32
+let address_format = ref "%x"
+let address_format0x = ref "%#x"
 
 let gdt: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 19
 
