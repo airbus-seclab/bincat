@@ -62,6 +62,34 @@ class Elf64_Phdr(Structure):
                  ("p_align",  c_ulonglong)]
 
 
+# elf section header for 32 bits 
+
+class Elf32_Shdr(Structure):
+    _fields_ = [("sh_name", c_uint),
+                ("sh_type",c_uint),
+                ("sh_flags",c_uint),                 
+                ("sh_addr",c_uint),
+                ("sh_offset",c_uint),
+                ("sh_size",c_uint),
+                ("sh_link",c_uint),
+                ("sh_info",c_uint),
+                ("sh_addralign",c_uint),
+                ("sh_entsize",c_uint)]
+
+# elf section header for 64 bits 
+class Elf64_Shdr(Structure):
+    _fields_ = [("sh_name", c_uint),
+                ("sh_type",c_uint),
+                ("sh_flags",c_ulonglong),                 
+                ("sh_addr",c_ulonglong),
+                ("sh_offset",c_uint),
+                ("sh_size",c_ulonglong),
+                ("sh_link",c_uint),
+                ("sh_info",c_uint),
+                ("sh_addralign",c_ulonglong),
+                ("sh_entsize",c_ulonglong)]
+
+
 # writes to core file
 def write_core(filename,buffer):
     print("writing to %s"%(filename))
@@ -84,6 +112,24 @@ def get_segs_number():
     print("Total segments : %d "%(segnums))
     return segnums 
 
+# get last offset 
+def get_sh_offset(coreheader):
+    offset = int(0)
+    segSize= int(0) 
+    offset =  sizeof(coreheader) + (coreheader.e_phnum * sizeof(Elf64_Phdr))
+    for ea in Segments():
+        segSize = SegEnd(ea) - SegStart(ea)
+        segt= getseg(ea)
+        try :
+            segBytes = get_bytes(ea,segSize)
+        except Exception as e: 
+            print("Error %s"%(e))
+            
+        offset += segSize
+    print("offset of section header %s"%(hex(offset)))
+    return offset
+
+
 # this function creates the core header
 def create_core_header():
     info = idaapi.get_inf_structure()
@@ -102,14 +148,14 @@ def create_core_header():
     coreheader.e_machine = 0x3e
     coreheader.e_version = 0x01
     coreheader.e_entry = 0x00000000
-    coreheader.e_phoff = 0x40 
-    coreheader.e_shoff = 0x0357E558 
+    coreheader.e_phoff = 0x40 + sizeof(Elf64_Shdr) 
+    coreheader.e_shoff = 0x40 
     coreheader.e_flags = 0x00 
     coreheader.e_ehsize = 0x40 
     coreheader.e_phentsize = 0x38 
     coreheader.e_phnum = get_segs_number()
     coreheader.e_shentsize = 0x40 
-    coreheader.e_shnum = 0xd8 
+    coreheader.e_shnum = 0x01 
     coreheader.e_shstrndx = 0xd7
 
     return coreheader
@@ -153,12 +199,41 @@ def write_segment(filename,coreheader):
         offset += segSize
 
 
+# this function creates a section header table
+def create_section_header(filename):
+    info = idaapi.get_inf_structure()
+    if info.is_64bit():
+        sh = Elf64_Shdr()
+    elif info.is_32bit():
+        sh = Elf32_Shdr()
+
+
+    sh.sh_name   = 0x00
+    sh.sh_type   = 0x00 # SHT_NULL
+    sh.sh_flags  = 0x00
+    sh.sh_addr   = 0x00
+    sh.sh_offset = 0x00
+    sh.sh_size   = 0x00
+    sh.sh_link   = 0x00   # SHN_UNDEF
+    sh.sh_info   = 0x00
+    sh.sh_addralign = 0x00
+    sh.sh_entsize = 0x00
+
+    write_core_offset(filename,buffer(sh),2)
+   
+
+
+
+
 # this function creates the core file
 def create_core(filename):
     # create the core file header
     header = create_core_header()
     print("writing core header")
     write_core(filename,buffer(header))
+    
+    # write a null section header table
+    create_section_header(filename)
 
     # write the program header for each segement
     offset = 0
@@ -177,8 +252,11 @@ def create_core(filename):
         ph = create_program_header(header,SegStart(ea),segSize,perm,offset)
         offset += segSize
         write_core(filename,buffer(ph))
+
+
     # write segment content
     write_segment(filename,header)
+
 
 
 

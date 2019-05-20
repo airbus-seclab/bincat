@@ -1005,6 +1005,7 @@ let elf_to_coredump_regs elf =
                       ("id",   21, 1) ; ] in
      let all_regs = List.append registers eflags in
      all_regs
+  | ELFOSABI_SYSVV, X86_64 -> []
   | ELFOSABI_SYSVV, ARM ->
      let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
      let registers = ref [] in
