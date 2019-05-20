@@ -772,7 +772,14 @@ struct
     | 0,_,0b1011 | 0,_,0b1101 | 0,_,0b1111  -> halfword_data_transfer s instruction
     | 0,_,_ when (op1 land 0b11001 == 0b10000) && (op2 land 0b1000 == 0b0000) -> data_proc_misc_instructions s instruction
     | 0,_,_ when (op1 land 0b11001 == 0b10000) && (op2 land 0b1001 == 0b1000) -> notimplemented_arm s instruction "Halfword multiply and multiply accumulate"
-    | 1,0b10000,_ -> notimplemented_arm s instruction "16-bit immediate load, MOV (immediate)"
+    | 1,0b10000,_ -> if rd == 15
+                     then L.abort (fun p -> p "at %s: MOVW to PC: UNPREDICTABLE"
+                                              (Address.to_string s.a))
+                     else [ Set (V (treg rd),
+                                 Const (Word.of_int (Z.of_int (
+                                                         ((instruction lsr 4) land 0xf000)
+                                                         lor (instruction land 0xfff)
+                                          )) 32))]
     | 1,0b10100,_ -> [ Set (V (preg rd 16 31),
                             Const (Word.of_int (Z.of_int (
                                           ((instruction lsr 4) land 0xf000)
