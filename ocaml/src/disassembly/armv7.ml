@@ -765,6 +765,7 @@ struct
     let op_i = (instruction lsr 25) land 1 in
     let op1 = (instruction lsr 20) land 0x1f in
     let op2 = (instruction lsr 4) land 0xf in
+    let rd = (instruction lsr 12) land 0xf in
     match op_i,op1,op2 with
     | 0,_,0b1001 when op1 lsr 4 == 0 -> mul_mla s instruction
     | 0,_,0b1001 when op1 lsr 4 <> 0 -> data_proc_synchronization_primitives s instruction
@@ -772,10 +773,13 @@ struct
     | 0,_,_ when (op1 land 0b11001 == 0b10000) && (op2 land 0b1000 == 0b0000) -> data_proc_misc_instructions s instruction
     | 0,_,_ when (op1 land 0b11001 == 0b10000) && (op2 land 0b1001 == 0b1000) -> notimplemented_arm s instruction "Halfword multiply and multiply accumulate"
     | 1,0b10000,_ -> notimplemented_arm s instruction "16-bit immediate load, MOV (immediate)"
-    | 1,0b10100,_ -> notimplemented_arm s instruction "High halfword 16-bit immediate load, MOVT"
+    | 1,0b10100,_ -> [ Set (V (preg rd 16 31),
+                            Const (Word.of_int (Z.of_int (
+                                          ((instruction lsr 4) land 0xf000)
+                                          lor (instruction land 0xfff)
+                         )) 16))]
     | 1,0b10010,_ | 1,0b10110,_ -> data_proc_msr_immediate_and_hints s instruction
     | _ ->
-       let rd = (instruction lsr 12) land 0xf in
        let rn = (instruction lsr 16) land 0xf in
        let set_cond_codes = instruction land (1 lsl 20) <> 0 in
        let op2_stmt, op2_carry_stmt = data_proc_second_operand s instruction in
