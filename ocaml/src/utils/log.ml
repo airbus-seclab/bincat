@@ -30,6 +30,13 @@ let split_on_char sep str =
         split p1 (p2+1) in
   split 0 0;;
 
+(** Z address to hex string, padded using architecture address size *)
+let zaddr_to_string zaddr = Z.format !Config.address_format zaddr
+
+(** Z address to hex string, padded using architecture address size,
+    starting with 0x *)
+let zaddr_to_string0x zaddr = Z.format !Config.address_format0x zaddr
+
 
 (** log facilities *)
 
