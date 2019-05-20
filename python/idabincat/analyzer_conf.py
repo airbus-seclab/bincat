@@ -177,7 +177,6 @@ class ConfigHelpers(object):
         ida_db_info_structure = idaapi.get_inf_structure()
         return "big" if ida_db_info_structure.is_be() else "little"
 
-
     @staticmethod
     def get_stack_width():
         ida_db_info_structure = idaapi.get_inf_structure()
@@ -397,7 +396,9 @@ class InitialState(object):
     def __init__(self, entrypoint=None, config=None):
         if config:
             arch = config.get('program', 'architecture')
+            #: list of [region, addres, value]
             self.mem = []
+            #: list of [regname, value, top, taint]
             self.regs = []
             for k, v in config.items('state'):
                 if k[0:3] == "reg":
@@ -411,6 +412,17 @@ class InitialState(object):
 
     def set_regs(self, regs):
         self.regs = regs
+
+    def set_reg(self, regname, value, top='', taint=''):
+        """
+        convenience register setter.
+        """
+        new_reg = [regname, value, top, taint]
+        for idx, reg in enumerate(self.regs):
+            if reg[0] == regname:
+                self.regs[idx] = new_reg
+                return
+        self.regs.append(new_reg)
 
     def set_mem(self, mem):
         self.mem = mem
@@ -589,6 +601,10 @@ class AnalyzerConfig(object):
     @format.setter
     def format(self, value):
         self._config.set('program', 'format', value)
+
+    @coredump.setter
+    def coredump(self, value):
+        self._config.set('program', 'load_elf_coredump', value)
 
     def replace_section_mappings(self, maplist):
         """
