@@ -983,16 +983,11 @@ struct
       thumb_it s isn
     else
       match (isn lsr 4) land 0x7 with
-      | 0b000 -> (* No Operation hint NOP *)
-         notimplemented_thumb s isn "hint NOP"
-      | 0b001 -> (* Yield hint YIELD *)
-         notimplemented_thumb s isn "hint YIELD"
-      | 0b010 -> (* Wait For Event hint WFE *)
-         notimplemented_thumb s isn "hint WFE"
-      | 0b011 -> (* Wait For Interrupt hint WFI *)
-         notimplemented_thumb s isn "hint WFI"
-      | 0b100 -> (* Send Event hint SEV *)
-         notimplemented_thumb s isn "hint SEV"
+      | 0b000 -> L.analysis (fun p -> p "NOP: No Operation hint"); []
+      | 0b001 -> L.analysis (fun p -> p "YIELD: Yield hint") ; []
+      | 0b010 -> L.analysis (fun p -> p "WFE: Wait For Event hint") ; []
+      | 0b011 -> L.analysis (fun p -> p "WFI: Wait For Interrupt hint") ; []
+      | 0b100 -> L.analysis (fun p -> p "SEV: Send Event hint") ; []
       | _ -> L.abort (fun p -> p "Unkown hint instruction encoding %04x" isn)
 
   let decode_thumb_misc s isn =
