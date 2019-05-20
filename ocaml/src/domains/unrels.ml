@@ -195,10 +195,15 @@ module Make(D: Unrel.T) =
            Val m
 
     let meet m1 m2 =
+      L.debug2(fun p -> p "Unrels.meet");
       let bot = ref false in
       let add_one_meet m u1 u2 =
         try
-          USet.add (U.meet (fst u1) (fst u2), []) m
+          let u' = U.meet (fst u1) (fst u2) in
+          if USet.exists (fun (u, _) -> U.is_subset u' u) m then
+            m
+          else
+            USet.add (u', (snd u1)@(snd u2)) m
         with Exceptions.Empty _ ->
           bot := true;
           m
@@ -207,10 +212,7 @@ module Make(D: Unrel.T) =
       | BOT, _ | _, BOT -> BOT
       | Val m1', Val m2' ->
          let m' =
-           USet.fold (fun u1 m' ->
-               let mm = USet.fold (fun u2 m -> (add_one_meet m u1 u2)) m2' USet.empty in
-               USet.union mm m'
-             ) m1' USet.empty
+           USet.fold (fun u1 m' -> USet.fold (fun u2 m -> (add_one_meet m u1 u2)) m2' m') m1' USet.empty
          in
          let card = USet.cardinal m' in
          if card > !Config.kset_bound then
