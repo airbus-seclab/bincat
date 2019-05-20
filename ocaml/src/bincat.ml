@@ -29,6 +29,8 @@ let speclist = [
     "Do not output state in output .ini" ;
     "--filepath", Arg.String (fun arg -> Config.argv_options.Config.filepath := Some arg),
     "Path to file to be analyzed" ;
+    "--load-elf-coredump", Arg.String (fun arg -> Config.(argv_options.dumps := arg :: !(argv_options.dumps))),
+    "Coredump file to be loaded" ;
     "--entrypoint", Arg.String (fun arg -> Config.argv_options.Config.entrypoint := Some (Z.of_string arg)),
     "Entry point";
     "--loglevel", Arg.Int (fun arg -> Config.argv_options.Config.loglevel := Some arg),
