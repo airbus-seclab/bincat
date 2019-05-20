@@ -416,15 +416,15 @@ let to_phdr s hdr phidx =
     }
 
 let ph_to_string ph =
-  Printf.sprintf "%-12s ofs=%08x vaddr=%08x paddr=%08x filesz=%08x memsz=%08x flags=%02x align=%02x"
+  Printf.sprintf "%-12s ofs=%s vaddr=%s paddr=%s filesz=%s memsz=%s flags=%s align=%s"
     (p_type_to_string ph.p_type)
-    (Z.to_int ph.p_offset)
-    (Z.to_int ph.p_vaddr)
-    (Z.to_int ph.p_paddr)
-    (Z.to_int ph.p_filesz)
-    (Z.to_int ph.p_memsz)
-    (Z.to_int ph.p_flags)
-    (Z.to_int ph.p_align)
+    (Z.format "%08x" ph.p_offset)
+    (Z.format "%08x" ph.p_vaddr)
+    (Z.format "%08x" ph.p_paddr)
+    (Z.format "%08x" ph.p_filesz)
+    (Z.format "%08x" ph.p_memsz)
+    (Z.format "%02x" ph.p_flags)
+    (Z.format "%02x" ph.p_align)
 
 
 (* ELF section header type *)
@@ -498,18 +498,18 @@ let info_shdr shdr shdrs =
   List.nth shdrs shdr.sh_info
 
 let sh_to_string sh =
-  Printf.sprintf "idx=%3i %04x %-10s flags=%04x addr=%08x off=%08x sz=%08x link=%2i info=%2i align=%x entsize=%x"
+  Printf.sprintf "idx=%3i %04x %-10s flags=%s addr=%s off=%s sz=%s link=%2i info=%2i align=%s entsize=%s"
     sh.p_sh_index
     (Z.to_int sh.sh_name)
     (sh_type_to_string sh.sh_type)
-    (Z.to_int sh.sh_flags)
-    (Z.to_int sh.sh_addr)
-    (Z.to_int sh.sh_offset)
-    (Z.to_int sh.sh_size)
+    (Z.format "%04x" sh.sh_flags)
+    (Z.format "%08x" sh.sh_addr)
+    (Z.format "%08x" sh.sh_offset)
+    (Z.format "%08x" sh.sh_size)
     sh.sh_link
     sh.sh_info
-    (Z.to_int sh.sh_addralign)
-    (Z.to_int sh.sh_entsize)
+    (Z.format "%x" sh.sh_addralign)
+    (Z.format "%x" sh.sh_entsize)
 
 
 (* String table extraction *)
