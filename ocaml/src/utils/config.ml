@@ -128,6 +128,8 @@ let address_sz = ref 32
 let operand_sz = ref 32
 let size_of_long () = !operand_sz
 let stack_width = ref 32
+let address_format = ref "%x"
+let address_format0x = ref "%#x"
 
 let gdt: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 19
 
@@ -262,6 +264,7 @@ type argv_config_t = {
     filepath : string option ref;
     entrypoint : Z.t option ref ;
     loglevel : int option ref;
+    dumps : string list ref;
   }
 
 let argv_options : argv_config_t = {
@@ -270,6 +273,7 @@ let argv_options : argv_config_t = {
     filepath = ref None ;
     entrypoint = ref None ;
     loglevel = ref None ;
+    dumps = ref [];
   }
 
 
@@ -282,7 +286,8 @@ let apply_arg_options () =
   apply_option ignore_unknown_relocations argv_options.ignore_unknown_relocations;
   apply_option binary argv_options.filepath;
   apply_option ep argv_options.entrypoint;
-  apply_option loglevel argv_options.loglevel
+  apply_option loglevel argv_options.loglevel;
+  dumps := !(argv_options.dumps) @ !dumps
 
 
 let clear_tables () =

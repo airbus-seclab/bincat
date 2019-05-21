@@ -22,7 +22,7 @@ module Word =
     type t = Z.t * int (* the integer is the size in bits *)
 
     (* TODO print leading zeros *)
-    let to_string w = Z.format "%#x" (fst w)
+    let to_string w = Z.format !Config.address_format0x (fst w)
 
     let size w = snd w
 

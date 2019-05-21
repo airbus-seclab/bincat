@@ -54,11 +54,11 @@ let map_file filename : array_t =
   mapped_file
 
 let section_to_string section =
-  (Printf.sprintf "%-25s: vaddr=%s-%s <- paddr=%08x-%08x"
+  (Printf.sprintf "%-25s: vaddr=%s-%s <- paddr=%s-%s"
      ((Filename.basename section.mapped_file_name) ^ "." ^ section.name)
      (Data.Address.to_string section.virt_addr)
      (Data.Address.to_string section.virt_addr_end)
-     (Z.to_int section.raw_addr) (Z.to_int section.raw_addr_end))
+     (Z.format "%08x" section.raw_addr) (Z.format "%08x" section.raw_addr_end))
 
 let is_in_section vaddr section =
   (Data.Address.compare vaddr section.virt_addr >= 0) &&

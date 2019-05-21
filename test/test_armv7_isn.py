@@ -67,6 +67,20 @@ def test_mov_reg(tmpdir):
     """
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "z", "n"])
 
+def test_movt(tmpdir, op16):
+    asm = """
+            mov r8, #0
+            movt r8, #{op16}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r8"])
+
+def test_movw(tmpdir, op16):
+    asm = """
+            movw r8, #{op16}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r8"])
+
+
 @dataop_mov
 def test_shifted_register_lsl_imm_shift(tmpdir, op, armv7op, armv7shift):
     asm = """
@@ -145,12 +159,6 @@ def test_shifted_register_lsr_reg_32(tmpdir, op, armv7op):
             {op}s r2, r0, lsr r1
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "c", "n", "z"])
-
-def test_movt(tmpdir):
-    asm = """
-            movt R8, #2
-    """
-    compare(tmpdir, asm, ["r8"])
 
 def test_shifted_register_asr(tmpdir, armv7shift):
     asm = """
