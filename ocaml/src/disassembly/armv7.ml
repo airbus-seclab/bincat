@@ -907,7 +907,12 @@ struct
     | 0b11000,0b000 -> notimplemented_arm s instruction "USAD8 / ISADA8"
     | 0b11010,0b010 | 0b11011,0b010| 0b11010,0b110| 0b11011,0b110 -> notimplemented_arm s instruction "SBFX"
     | 0b11100,0b000 | 0b11101,0b000| 0b11100,0b100| 0b11101,0b100 -> notimplemented_arm s instruction "BFC / BFI"
-    | 0b11110,0b010 | 0b11111,0b010| 0b11110,0b110| 0b11111,0b110 -> notimplemented_arm s instruction "UBFX"
+    | 0b11110,0b010 | 0b11111,0b010| 0b11110,0b110| 0b11111,0b110 ->
+       let rd = (instruction lsr 12) land 0xf in
+       let rn = instruction land 0xf in
+       let lsb = (instruction lsr 7) land 0x1f in
+       let widthm1 = (instruction lsr 16) land 0x1f in
+       [ Set ( V (treg rd), UnOp(ZeroExt 32, Lval (V (preg rn lsb (lsb+widthm1))))) ]
     | 0b11111,0b111 when instruction lsr 28 == 0xe -> error s.a "UDF: Permanently UNDEFINED opcode. Stopping analysis."
     | _ -> error s.a (Printf.sprintf "unknown media instruction opcode (%08x)" instruction)
 
