@@ -898,6 +898,19 @@ struct
        else
          stmt_cc
 
+  let decode_media_instructions s instruction =
+    let op1 = (instruction lsr 20) land 0x1f in
+    let op2 = (instruction lsr 5) land 7 in
+    match op1,op2 with
+    | 0b00000,_ | 0b00001,_ | 0b00010,_ | 0b00011,_ -> notimplemented_arm s instruction "Parallel addition and subtraction, signed"
+    | 0b00100,_ | 0b00101,_ | 0b00110,_ | 0b00111,_ -> notimplemented_arm s instruction "Parallel addition and subtraction, unsigned"
+    | 0b11000,0b000 -> notimplemented_arm s instruction "USAD8 / ISADA8"
+    | 0b11010,0b010 | 0b11011,0b010| 0b11010,0b110| 0b11011,0b110 -> notimplemented_arm s instruction "SBFX"
+    | 0b11100,0b000 | 0b11101,0b000| 0b11100,0b100| 0b11101,0b100 -> notimplemented_arm s instruction "BFC / BFI"
+    | 0b11110,0b010 | 0b11111,0b010| 0b11110,0b110| 0b11111,0b110 -> notimplemented_arm s instruction "UBFX"
+    | 0b11111,0b111 when instruction lsr 28 == 0xe -> error s.a "UDF: Permanently UNDEFINED opcode. Stopping analysis."
+    | _ -> error s.a (Printf.sprintf "unknown media instruction opcode (%08x)" instruction)
+
   let wrap_cc cc stmts =
     match cc with
     | 0xf -> []    (* never *)
@@ -914,7 +927,7 @@ struct
     | 0b011 ->
            if instruction land (1 lsl 4) = 0
            then single_data_transfer s instruction
-           else notimplemented_arm s instruction "media instructions"
+           else decode_media_instructions s instruction
     | 0b100 -> block_data_transfer s instruction (* block data transfer *)
     | 0b101 -> branch s instruction
     | 0b110 -> error s.a (Printf.sprintf "Comprocessor data transfer not implemented (isn=%08x)" instruction)
