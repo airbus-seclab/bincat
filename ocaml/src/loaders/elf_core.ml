@@ -889,13 +889,15 @@ let rela_to_string (rela:e_rela_t) =
 (* ELF Note section *)
 
 type e_note_t = {
+  ofs : Z.t ;
   n_type : Z.t ;
   n_name : string ;
   n_desc : string ;
 }
 
 let note_to_string note =
-  Printf.sprintf "type=%s name=%s desc len=%#x"
+  Printf.sprintf "%s: type=%s name=%s desc len=%#x"
+  (Log.zaddr_to_string note.ofs)
   (Log.zaddr_to_string note.n_type)
   note.n_name
   (String.length note.n_desc)
@@ -917,6 +919,7 @@ let to_notes s (hdr : e_hdr_t) (note_ph : e_phdr_t) =
     let desc = read_string s !p descsz in
     p := Z.((!p + descsz + addrsz - ~$1) / addrsz * addrsz) ;
     let note = {
+        ofs = ofs ;
         n_type = ntype ;
         n_name = name ;
         n_desc = desc ;
