@@ -47,7 +47,7 @@ let make_coredump_mapped_mem filepath =
           L.debug2(fun p -> p "Coredump PRSTATUS: %s=%s"
                               name
                               (match content with
-                               | Some Config.Content x -> (Z.format "%08x" (snd x))
+                               | Some Config.Content x -> (Log.zaddr_to_string (snd x))
                                | _ -> "??") ))
         regs;
     end;
