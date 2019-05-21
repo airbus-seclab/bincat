@@ -889,13 +889,15 @@ let rela_to_string (rela:e_rela_t) =
 (* ELF Note section *)
 
 type e_note_t = {
+  ofs : Z.t ;
   n_type : Z.t ;
   n_name : string ;
   n_desc : string ;
 }
 
 let note_to_string note =
-  Printf.sprintf "type=%s name=%s desc len=%#x"
+  Printf.sprintf "%s: type=%s name=%s desc len=%#x"
+  (Log.zaddr_to_string note.ofs)
   (Log.zaddr_to_string note.n_type)
   note.n_name
   (String.length note.n_desc)
@@ -917,6 +919,7 @@ let to_notes s (hdr : e_hdr_t) (note_ph : e_phdr_t) =
     let desc = read_string s !p descsz in
     p := Z.((!p + descsz + addrsz - ~$1) / addrsz * addrsz) ;
     let note = {
+        ofs = ofs ;
         n_type = ntype ;
         n_name = name ;
         n_desc = desc ;
@@ -988,6 +991,7 @@ let elf_to_coredump_regs elf =
     List.map (fun (fname, fofs, fmask) ->
         (fname, (Some (Config.Content (Config.G, Z.logand (Z.shift_right fval fofs)
                                                 (Z.of_int fmask))), []))) flag_list in
+  (* Parsing struct elf_prstatus *)
   match elf.hdr.e_ident.e_osabi, elf.hdr.e_machine with
   | ELFOSABI_SYSVV, X86 ->
      let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
@@ -998,6 +1002,23 @@ let elf_to_coredump_regs elf =
                          ("es", 0x68)  ; ("fs", 0x6c)  ; ("gs", 0x70)  ; (* ("eip", 0x78) ; *)
                          ("cs", 0x7c)  ; ("esp", 0x84) ; ("ss", 0x88) ]) in
      let eflags = make_flags prstatus.n_desc 0x80 4
+                    [ ("cf",    0, 1) ; ("pf",    2, 1) ; ("af",    4, 1) ; ("zf",    6, 1) ;
+                      ("sf",    7, 1) ; ("tf",    8, 1) ; ("if",    9, 1) ; ("df",   10, 1) ;
+                      ("of",   11, 1) ; ("iopl", 12, 3) ; ("nt",   14, 1) ; ("rf",   16, 1) ;
+                      ("vm",   17, 1) ; ("ac",   18, 1) ; ("vif",  19, 1) ; ("vip",  20, 1) ;
+                      ("id",   21, 1) ; ] in
+     let all_regs = List.append registers eflags in
+     all_regs
+  | ELFOSABI_SYSVV, X86_64 ->
+     let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
+     L.debug2 (fun p -> p "Found PRSTATUS NOTE: %s" (note_to_string prstatus));
+     let registers = List.map (fun (name,ofs) -> make_reg_LE prstatus.n_desc name ofs 8)
+                       [ ("rax", 0xc0) ; ("rbx", 0x98) ; ("rcx", 0xc8) ; ("rdx", 0xd0)  ;
+                         ("rsi", 0xd8) ; ("rdi", 0xe0) ; ("rbp", 0x90) ; ("rsp", 0x108) ;
+                         ("r8", 0xb8)  ; ("r9", 0xb0)  ; ("r10", 0xa8) ; ("r11", 0xa0)  ;
+                         ("r12", 0x88) ; ("r13", 0x80) ; ("r14", 0x78) ; ("r15", 0x70)  ;
+                      (* ("rip", 0xf0) ; *) ] in
+     let eflags = make_flags prstatus.n_desc 0x100 4
                     [ ("cf",    0, 1) ; ("pf",    2, 1) ; ("af",    4, 1) ; ("zf",    6, 1) ;
                       ("sf",    7, 1) ; ("tf",    8, 1) ; ("if",    9, 1) ; ("df",   10, 1) ;
                       ("of",   11, 1) ; ("iopl", 12, 3) ; ("nt",   14, 1) ; ("rf",   16, 1) ;
