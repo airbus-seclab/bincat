@@ -643,6 +643,7 @@ struct
     | 0b001,_,0b01 -> branch_exchange s instruction
     | 0b001,_,0b11 -> notimplemented_arm s instruction "CLZ"
     | 0b010,_,0b01 -> notimplemented_arm s instruction "BXJ"
+    | 0b011,_,0b01 -> branch_exchange s instruction
     | 0b101,_,_ -> notimplemented_arm s instruction "Saturating addition and subtraction"
     | 0b110,_,0b11 -> notimplemented_arm s instruction "ERET"
     | 0b111,_,0b01 -> notimplemented_arm s instruction "BKPT"
