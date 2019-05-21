@@ -991,6 +991,7 @@ let elf_to_coredump_regs elf =
     List.map (fun (fname, fofs, fmask) ->
         (fname, (Some (Config.Content (Config.G, Z.logand (Z.shift_right fval fofs)
                                                 (Z.of_int fmask))), []))) flag_list in
+  (* Parsing struct elf_prstatus *)
   match elf.hdr.e_ident.e_osabi, elf.hdr.e_machine with
   | ELFOSABI_SYSVV, X86 ->
      let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
