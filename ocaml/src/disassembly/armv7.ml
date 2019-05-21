@@ -904,6 +904,8 @@ struct
     match op1,op2 with
     | 0b00000,_ | 0b00001,_ | 0b00010,_ | 0b00011,_ -> notimplemented_arm s instruction "Parallel addition and subtraction, signed"
     | 0b00100,_ | 0b00101,_ | 0b00110,_ | 0b00111,_ -> notimplemented_arm s instruction "Parallel addition and subtraction, unsigned"
+    | 0b01000,_ | 0b01001,_ | 0b01010,_ | 0b01011,_ | 0b01100,_ | 0b01101,_ | 0b01110,_ | 0b01111,_  -> notimplemented_arm s instruction "Packing, unpacking, saturation, and reversal"
+    | 0b10000,_ | 0b10001,_ | 0b10010,_ | 0b10011,_ | 0b10100,_ | 0b10101,_ | 0b10110,_ | 0b10111,_  -> notimplemented_arm s instruction "Signed multiply, signed and unsigned divide"
     | 0b11000,0b000 -> notimplemented_arm s instruction "USAD8 / ISADA8"
     | 0b11010,0b010 | 0b11011,0b010| 0b11010,0b110| 0b11011,0b110 -> notimplemented_arm s instruction "SBFX"
     | 0b11100,0b000 | 0b11101,0b000| 0b11100,0b100| 0b11101,0b100 -> notimplemented_arm s instruction "BFC / BFI"
