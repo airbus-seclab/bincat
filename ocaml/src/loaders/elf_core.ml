@@ -1009,6 +1009,23 @@ let elf_to_coredump_regs elf =
                       ("id",   21, 1) ; ] in
      let all_regs = List.append registers eflags in
      all_regs
+  | ELFOSABI_SYSVV, X86_64 ->
+     let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
+     L.debug2 (fun p -> p "Found PRSTATUS NOTE: %s" (note_to_string prstatus));
+     let registers = List.map (fun (name,ofs) -> make_reg_LE prstatus.n_desc name ofs 8)
+                       [ ("rax", 0xc0) ; ("rbx", 0x98) ; ("rcx", 0xc8) ; ("rdx", 0xd0)  ;
+                         ("rsi", 0xd8) ; ("rdi", 0xe0) ; ("rbp", 0x90) ; ("rsp", 0x108) ;
+                         ("r8", 0xb8)  ; ("r9", 0xb0)  ; ("r10", 0xa8) ; ("r11", 0xa0)  ;
+                         ("r12", 0x88) ; ("r13", 0x80) ; ("r14", 0x78) ; ("r15", 0x70)  ;
+                      (* ("rip", 0xf0) ; *) ] in
+     let eflags = make_flags prstatus.n_desc 0x100 4
+                    [ ("cf",    0, 1) ; ("pf",    2, 1) ; ("af",    4, 1) ; ("zf",    6, 1) ;
+                      ("sf",    7, 1) ; ("tf",    8, 1) ; ("if",    9, 1) ; ("df",   10, 1) ;
+                      ("of",   11, 1) ; ("iopl", 12, 3) ; ("nt",   14, 1) ; ("rf",   16, 1) ;
+                      ("vm",   17, 1) ; ("ac",   18, 1) ; ("vif",  19, 1) ; ("vip",  20, 1) ;
+                      ("id",   21, 1) ; ] in
+     let all_regs = List.append registers eflags in
+     all_regs
   | ELFOSABI_SYSVV, ARM ->
      let prstatus = find_note elf.notes Z.one (* PRSTATUS *) "CORE" in
      let registers = ref [] in
