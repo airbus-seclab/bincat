@@ -328,6 +328,22 @@ def test_data_proc_read_pc(tmpdir):
     compare(tmpdir, asm, ["r0", "r1", "r2"])
 
 
+##  __  __ ___ ___ ___   _     ___ ___ _  _
+## |  \/  | __|   \_ _| /_\   |_ _/ __| \| |
+## | |\/| | _|| |) | | / _ \   | |\__ \ .` |
+## |_|  |_|___|___/___/_/ \_\ |___|___/_|\_|
+
+def test_media_uxtb(tmpdir, armv7op):
+    asm = """
+            mov r1, #{armv7op}
+            uxtb r2, r1, ror #0
+            uxtb r3, r1, ror #8
+            uxtb r4, r1, ror #16
+            uxtb r5, r1, ror #24
+    """.format(**locals())
+    compare(tmpdir, asm, ["r1", "r2", "r3", "r4", "r5",])
+
+
 ##  ___   _ _____ _    __  _____ ___ ___ 
 ## |   \ /_\_   _/_\   \ \/ / __| __| _ \
 ## | |) / _ \| |/ _ \   >  <| _|| _||   /
