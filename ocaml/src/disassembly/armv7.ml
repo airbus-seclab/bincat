@@ -899,8 +899,15 @@ struct
          stmt_cc
 
   let decode_packing_unpacking_saturation_reversal s instruction =
+    let add_if_needed rn expr =
+      if rn == 0xf
+      then expr
+      else BinOp (Add, Lval (V (treg rn)), expr) in
     let op1 = (instruction lsr 20) land 0x7 in
     let op2 = (instruction lsr 5) land 0x7 in
+    let rn = (instruction lsr 16) land 0xf in
+    let rd = (instruction lsr 12) land 0xf in
+    let rm = instruction land 0xf in
     match op1,op2 with
     | 0b000,0b000 | 0b000,0b010 | 0b000,0b100 | 0b000,0b110 -> notimplemented_arm s instruction "PKH"
     | 0b000,0b011 -> notimplemented_arm s instruction "SXTAB16 / SXTB16"
@@ -916,7 +923,11 @@ struct
     | 0b110,0b000 | 0b110,0b010 | 0b110,0b100 | 0b110,0b110
       | 0b111,0b000 | 0b111,0b010 | 0b111,0b100 | 0b111,0b110 -> notimplemented_arm s instruction "USAT"
     | 0b110,0b001 -> notimplemented_arm s instruction "USAT16"
-    | 0b110,0b011 -> notimplemented_arm s instruction "UXTAB / UXTB"
+    | 0b110,0b011 -> (* UXTB / UXTAB *)
+       let rotate = (instruction lsr 7) land 0x18 in
+       [ Set (V (treg rd),
+              add_if_needed rn (UnOp (ZeroExt 32,
+                                      Lval (V (preg rm rotate (rotate+7)))))) ]
     | 0b111,0b001 -> notimplemented_arm s instruction "RBIT"
     | 0b111,0b011 -> notimplemented_arm s instruction "UXTAH / UXTH"
     | 0b111,0b101 -> notimplemented_arm s instruction "REVSH"
