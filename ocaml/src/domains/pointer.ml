@@ -258,23 +258,4 @@ module Make (V: Vector.T) =
       | Val (_, o) -> V.taint_sources o
 
 
-    let total_order p1 p2 =
-      (* BOT < TOP <  addr *)
-      (* on regions: G < H *)
-      match p1, p2 with
-      | BOT, BOT | TOP, TOP -> 0
-      | BOT, _ -> -1
-      | _, BOT -> 1
-      | TOP, _ -> -1
-      | _, TOP -> 1
-      | Val (r1, o1), Val (r2, o2) ->
-         match r1, r2 with
-         | A.Global, A.Global -> V.total_order o1 o2
-         | A.Global, A.Heap _ -> -1
-         | A.Heap _, A.Global -> 1
-         | A.Heap (id1, _), A.Heap (id2, _) ->
-            let n = id1 - id2 in
-            if n <> 0 then n
-            else V.total_order o1 o2
-            
     end: Unrel.T)
