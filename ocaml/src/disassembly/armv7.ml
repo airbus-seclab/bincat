@@ -915,7 +915,11 @@ struct
     | 0b010,0b000 | 0b010,0b010 | 0b010,0b100 | 0b010,0b110
       | 0b011,0b000 | 0b011,0b010 | 0b011,0b100 | 0b011,0b110 -> notimplemented_arm s instruction "SSAT"
     | 0b010,0b001 -> notimplemented_arm s instruction "SSAT16"
-    | 0b010,0b011 -> notimplemented_arm s instruction "SXTAB / SXTB"
+    | 0b010,0b011 ->
+       let rotate = (instruction lsr 7) land 0x18 in
+       [ Set (V (treg rd),
+              add_if_needed rn (UnOp (SignExt 32,
+                                      Lval (V (preg rm rotate (rotate+7)))))) ]
     | 0b011,0b001 -> notimplemented_arm s instruction "REV"
     | 0b011,0b011 -> notimplemented_arm s instruction "SXTAH / SXTH"
     | 0b011,0b101 -> notimplemented_arm s instruction "REV16"
