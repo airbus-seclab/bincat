@@ -388,6 +388,14 @@ def test_media_sxtab(tmpdir, armv7op, armv7op_):
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5",])
 
+def test_media_pkhtb_pkhbt(tmpdir, armv7op, armv7op_, op5):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
+            pkhbt r2, r0, r1, lsl #{op5}
+            pkhtb r3, r0, r1, asr #{op5}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3"])
 
 
 ##  ___   _ _____ _    __  _____ ___ ___ 
