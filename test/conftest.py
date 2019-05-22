@@ -20,7 +20,13 @@ def armv8_bitmasks():
         size *= 2
     return res
 
-class TestValues:
+
+class TestValues_Meta(type):
+    def __repr__(self):
+        return self._name
+
+class TestValues(object):
+    __metaclass__ = TestValues_Meta
     _name = "NA"
     hash_single = False
     loop_cnt = [1, 15, 100]
@@ -97,18 +103,19 @@ COVERAGES = [Large, Medium, Small, Smoke]
 
 
 def pytest_addoption(parser):
-    parser.addoption("--coverage", choices=[x._name for x in COVERAGES],
-                     default="medium", help="test more or less values")
+    cov = lambda name: {x._name: x for x in COVERAGES}.get(name,name)
+    parser.addoption("--coverage", choices=COVERAGES, #[x._name for x in COVERAGES],
+                     default=Medium, type=cov, help="test more or less values")
 
 
 def pytest_generate_tests(metafunc):
     func_name = metafunc.function.func_name
-    fmap = {x._name: x for x in COVERAGES}[metafunc.config.option.coverage]
+    coverage = metafunc.config.option.coverage
     for fn in metafunc.fixturenames:
         fnstr = fn.rstrip("_")  # alias foo_, foo__, etc. to foo
-        if hasattr(fmap, fnstr):
-            params = getattr(fmap, fnstr)
-            if fmap.hash_single:
+        if hasattr(coverage, fnstr):
+            params = getattr(coverage, fnstr)
+            if coverage.hash_single:
                 hashint = int(hashlib.sha1(func_name + fnstr).hexdigest(), 16)
                 paramidx = hashint % len(params)
                 params = [params[paramidx]]
