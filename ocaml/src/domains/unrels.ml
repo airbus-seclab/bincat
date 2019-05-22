@@ -190,23 +190,11 @@ module Make(D: Unrel.T) =
     let meet m1 m2 =
       let bot = ref false in
       let add_one_meet m u1 u2 =
-        L.debug2 (fun p -> p "into one meet between");
-        let l1 = U.to_string (fst u1) in
-        List.iter (fun s -> (L.debug2 (fun p -> p "%s" s))) l1;
-        L.debug2 (fun p -> p "------------- and --------------------");
-        let l1 = U.to_string (fst u2) in
-        List.iter (fun s -> (L.debug2 (fun p -> p "%s" s))) l1;
-        L.debug2 (fun p -> p "uuuuuuuuuuuuuuuuuuuuu");
         try
           let u' = U.meet (fst u1) (fst u2) in
-          L.debug2 (fun p -> p "meet passed. Result is:");
-          let l1 = U.to_string u' in
-          List.iter (fun s -> (L.debug2 (fun p -> p "%s" s))) l1;
           if List.exists (fun (u, _) -> U.is_subset u' u && U.is_subset u u') m then m
-          else begin
-              L.debug2 (fun p -> p "ajouté !!!!!!!!!!!!!!");
+          else 
               (u', (snd u1)@(snd u2))::m
-              end
         with Exceptions.Empty _ ->
           bot := true;
           m

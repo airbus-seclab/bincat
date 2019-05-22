@@ -74,18 +74,6 @@ struct
         | BBinOp (LogOr, e1, e2)  ->
            let v1, taint1 = process e1 b in
            let v2, taint2 = process e2 b in
-           if not b then
-             begin
-               L.debug2 (fun p -> p "result");
-               let l1 = D.to_string v1 111 in
-               List.iter (fun s -> (L.debug2 (fun p -> p "%s" s))) l1;
-               L.debug2 (fun p -> p "-----------------and----------------------");
-               let l2 = D.to_string v2 222 in
-               List.iter (fun s -> (L.debug2 (fun p -> p "%s" s))) l2;
-               L.debug2 (fun p -> p "result oooooooooooooooooooooooooo");
-               let lres = D.to_string (D.meet v1 v2) 333 in
-               List.iter (fun s -> L.debug2 (fun p -> p "%s" s)) lres;
-             end;
            let taint_sources =
              if b then Taint.Set.union taint1 taint2
              else Taint.Set.inter taint1 taint2
