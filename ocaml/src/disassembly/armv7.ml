@@ -898,13 +898,39 @@ struct
        else
          stmt_cc
 
+  let decode_packing_unpacking_saturation_reversal s instruction =
+    let op1 = (instruction lsr 20) land 0x7 in
+    let op2 = (instruction lsr 5) land 0x7 in
+    match op1,op2 with
+    | 0b000,0b000 | 0b000,0b010 | 0b000,0b100 | 0b000,0b110 -> notimplemented_arm s instruction "PKH"
+    | 0b000,0b011 -> notimplemented_arm s instruction "SXTAB16 / SXTB16"
+    | 0b000,0b101 -> notimplemented_arm s instruction "SEL"
+    | 0b010,0b000 | 0b010,0b010 | 0b010,0b100 | 0b010,0b110
+      | 0b011,0b000 | 0b011,0b010 | 0b011,0b100 | 0b011,0b110 -> notimplemented_arm s instruction "SSAT"
+    | 0b010,0b001 -> notimplemented_arm s instruction "SSAT16"
+    | 0b010,0b011 -> notimplemented_arm s instruction "SXTAB / SXTB"
+    | 0b011,0b001 -> notimplemented_arm s instruction "REV"
+    | 0b011,0b011 -> notimplemented_arm s instruction "SXTAH / SXTH"
+    | 0b011,0b101 -> notimplemented_arm s instruction "REV16"
+    | 0b100,0b011 -> notimplemented_arm s instruction "UXTAB16 / UXTB16"
+    | 0b110,0b000 | 0b110,0b010 | 0b110,0b100 | 0b110,0b110
+      | 0b111,0b000 | 0b111,0b010 | 0b111,0b100 | 0b111,0b110 -> notimplemented_arm s instruction "USAT"
+    | 0b110,0b001 -> notimplemented_arm s instruction "USAT16"
+    | 0b110,0b011 -> notimplemented_arm s instruction "UXTAB / UXTB"
+    | 0b111,0b001 -> notimplemented_arm s instruction "RBIT"
+    | 0b111,0b011 -> notimplemented_arm s instruction "UXTAH / UXTH"
+    | 0b111,0b101 -> notimplemented_arm s instruction "REVSH"
+    | _ -> error s.a (Printf.sprintf "unknown packing/unpacking/saturation/reversal instruction opcode (%08x)" instruction)
+
+
   let decode_media_instructions s instruction =
     let op1 = (instruction lsr 20) land 0x1f in
     let op2 = (instruction lsr 5) land 7 in
     match op1,op2 with
     | 0b00000,_ | 0b00001,_ | 0b00010,_ | 0b00011,_ -> notimplemented_arm s instruction "Parallel addition and subtraction, signed"
     | 0b00100,_ | 0b00101,_ | 0b00110,_ | 0b00111,_ -> notimplemented_arm s instruction "Parallel addition and subtraction, unsigned"
-    | 0b01000,_ | 0b01001,_ | 0b01010,_ | 0b01011,_ | 0b01100,_ | 0b01101,_ | 0b01110,_ | 0b01111,_  -> notimplemented_arm s instruction "Packing, unpacking, saturation, and reversal"
+    | 0b01000,_ | 0b01001,_ | 0b01010,_ | 0b01011,_ | 0b01100,_ | 0b01101,_ | 0b01110,_ | 0b01111,_ ->
+       decode_packing_unpacking_saturation_reversal s instruction
     | 0b10000,_ | 0b10001,_ | 0b10010,_ | 0b10011,_ | 0b10100,_ | 0b10101,_ | 0b10110,_ | 0b10111,_  -> notimplemented_arm s instruction "Signed multiply, signed and unsigned divide"
     | 0b11000,0b000 -> notimplemented_arm s instruction "USAD8 / ISADA8"
     | 0b11010,0b010 | 0b11011,0b010| 0b11010,0b110| 0b11011,0b110 -> notimplemented_arm s instruction "SBFX"
