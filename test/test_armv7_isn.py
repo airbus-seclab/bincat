@@ -367,6 +367,28 @@ def test_media_uxtab(tmpdir, armv7op, armv7op_):
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5",])
 
+def test_media_sxtb(tmpdir, armv7op):
+    asm = """
+            mov r1, #{armv7op}
+            sxtb r2, r1, ror #0
+            sxtb r3, r1, ror #8
+            sxtb r4, r1, ror #16
+            sxtb r5, r1, ror #24
+    """.format(**locals())
+    compare(tmpdir, asm, ["r1", "r2", "r3", "r4", "r5",])
+
+def test_media_sxtab(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
+            sxtab r2, r0, r1, ror #0
+            sxtab r3, r0, r1, ror #8
+            sxtab r4, r0, r1, ror #16
+            sxtab r5, r0, r1, ror #24
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5",])
+
+
 
 ##  ___   _ _____ _    __  _____ ___ ___ 
 ## |   \ /_\_   _/_\   \ \/ / __| __| _ \
