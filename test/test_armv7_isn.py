@@ -333,6 +333,19 @@ def test_data_proc_read_pc(tmpdir):
 ## | |\/| | _|| |) | | / _ \   | |\__ \ .` |
 ## |_|  |_|___|___/___/_/ \_\ |___|___/_|\_|
 
+@pytest.mark.parametrize("ubfxparams",
+                         [(x,y)
+                          for x in pytest.config.option.coverage.op5
+                          for y in pytest.config.option.coverage.op5
+                          if x+y <= 31 and y > 0])
+def test_media_ubfx(tmpdir, armv7op, ubfxparams):
+    op5,op5_ = ubfxparams
+    asm = """
+          mov r2, #{armv7op}
+          ubfx r3, r2, #{op5}, #{op5_}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r2", "r3"])
+
 def test_media_uxtb(tmpdir, armv7op):
     asm = """
             mov r1, #{armv7op}
