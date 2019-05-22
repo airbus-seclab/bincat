@@ -909,7 +909,34 @@ struct
     let rd = (instruction lsr 12) land 0xf in
     let rm = instruction land 0xf in
     match op1,op2 with
-    | 0b000,0b000 | 0b000,0b010 | 0b000,0b100 | 0b000,0b110 -> notimplemented_arm s instruction "PKH"
+    | 0b000,0b000 | 0b000,0b010 | 0b000,0b100 | 0b000,0b110 -> (* PKH *)
+       let tb = (instruction lsr 6) land 1 in
+       let imm5 = (instruction lsr 7) land 0x1f in
+       let op2 =
+         if tb == 0 then
+           begin
+             if imm5 <= 16
+             then Lval (V (preg rm (16-imm5) (31-imm5)))
+             else BinOp (Shl, Lval (V (preg rm 0 15)), const (imm5-16) 16)
+           end
+         else
+           begin
+             if imm5 <= 16
+             then Lval (V (preg rm (imm5) (imm5+15)))
+             else
+               let sign_mask = const ((-1) lsl (32-imm5)) 16 in
+               let shifted = BinOp (Shr, Lval (V (preg rm 16 31)), const (imm5-16) 16) in
+               let msb = Lval (V (preg rm 31 31)) in
+               let sign = TernOp( Cmp (EQ, msb, const 0 1), const 0 16, sign_mask) in
+               BinOp(Or, shifted, sign)
+           end in
+       if tb == 0
+       then (* PKHBT *)
+         [ Set (V (preg rd 0 15), Lval (V (preg rn 0 15))) ;
+           Set (V (preg rd 16 31), op2)  ]
+       else (* PKHTB *)
+         [ Set (V (preg rd 0 15), op2)  ;
+           Set (V (preg rd 16 31), Lval (V (preg rn 16 31))) ]
     | 0b000,0b011 -> notimplemented_arm s instruction "SXTAB16 / SXTB16"
     | 0b000,0b101 -> notimplemented_arm s instruction "SEL"
     | 0b010,0b000 | 0b010,0b010 | 0b010,0b100 | 0b010,0b110
