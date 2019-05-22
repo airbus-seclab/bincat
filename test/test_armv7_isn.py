@@ -343,6 +343,17 @@ def test_media_uxtb(tmpdir, armv7op):
     """.format(**locals())
     compare(tmpdir, asm, ["r1", "r2", "r3", "r4", "r5",])
 
+def test_media_uxtab(tmpdir, armv7op):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op}
+            uxtab r2, r0, r1, ror #0
+            uxtab r3, r0, r1, ror #8
+            uxtab r4, r0, r1, ror #16
+            uxtab r5, r0, r1, ror #24
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5",])
+
 
 ##  ___   _ _____ _    __  _____ ___ ___ 
 ## |   \ /_\_   _/_\   \ \/ / __| __| _ \
