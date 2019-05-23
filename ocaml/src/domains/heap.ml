@@ -126,7 +126,7 @@ let check_status m addr =
        L.analysis (fun p -> p "Use after free on pointer %s"str_addr); 
        raise (Exceptions.Use_after_free str_addr)
 
-let fold apply m1 m2 =
+let fold apply m1 m2 is_join =
    match m1, m2 with
    | BOT, m | m, BOT -> m
    | Val m1', Val m2' ->
@@ -134,11 +134,14 @@ let fold apply m1 m2 =
           try
             let v' = Map.find k m' in
             Map.replace k (apply v' v2) m'
-          with Not_found -> Map.add k v2 m'
+          with Not_found ->
+                if is_join then
+                  Map.add k v2 m'
+                else raise (Exceptions.Empty "Heap.fold")
       ) m2' m1')
 
-let join m1 m2 = fold Status.join m1 m2
-let meet m1 m2 = fold Status.meet m1 m2
+let join m1 m2 = fold Status.join m1 m2 true
+let meet m1 m2 = fold Status.meet m1 m2 false
 let widen = join
 
 let alloc m id =

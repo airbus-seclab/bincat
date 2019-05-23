@@ -712,7 +712,8 @@ module Make(D: T) =
                   raise (Exceptions.Empty "Unrel.meet")
                 else
                   Env.add k v' m'
-              with Not_found -> m') m1 m'
+              with Not_found -> raise (Exceptions.Empty "Unrel.meet")
+            ) m1 m'
 
     let widen m1 m2 =
        try Env.map2 D.widen m1 m2

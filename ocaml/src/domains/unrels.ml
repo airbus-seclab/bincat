@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -127,26 +127,24 @@ module Make(D: Unrel.T) =
       | u::tl -> [List.fold_left (fun acc (u, _) -> U.join acc u) (fst u) tl, []]
                
     let set dst src m check_address_validity: (t * Taint.Set.t) =
+      L.debug2 (fun p -> p "set %s <- %s" (Asm.string_of_lval dst true) (Asm.string_of_exp src true));
       match m with
       | BOT    -> BOT, Taint.Set.singleton Taint.BOT
       | Val m' ->
          let bot = ref false in
          let mres, t = List.fold_left (fun (m', t) (u, msg) ->
                            try
-                             let u', t' = U.set dst src u check_address_validity in                             
-                             (u', msg)::m', Taint.Set.add t' t
+                             let u', t' = U.set dst src u check_address_validity in
+                              (u', msg)::m', Taint.Set.add t' t
                            with _ ->
                              bot := true;
-                         m', t)  ([], Taint.Set.empty) m'
+                             m', t)  ([], Taint.Set.empty) m'
          in
          let card = List.length mres in
          if !bot && card = 0 then
-           BOT, Taint.Set.singleton Taint.BOT
+             BOT, Taint.Set.singleton Taint.BOT
          else
-           if card > !Config.kset_bound then
-             Val (merge mres), Taint.Set.singleton (Taint.Set.fold Taint.logor t Taint.U)
-           else
-             Val mres, t
+           Val mres, t
          
   
                
@@ -281,6 +279,7 @@ module Make(D: Unrel.T) =
              Val mres, t
 
     let mem_to_addresses m e check_address_validity =
+      L.debug2 (fun p -> p "mem_to_addresses %s" (Asm.string_of_exp e true));
       match m with
       | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true)))
       | Val m' ->
