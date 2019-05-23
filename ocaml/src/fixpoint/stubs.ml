@@ -319,6 +319,11 @@ struct
       L.info (fun p -> p "--- end of puts--");
       d', taint
 
+    let putchar (_ip) _ d ret args =
+      let str = Asm.Lval (args 0) in
+      L.info (fun p -> p "putchar output:");
+      let d' = D.print d str 8 in
+      D.set ret (Asm.Const (Data.Word.of_int Z.one !Config.operand_sz)) d'
     let stubs = Hashtbl.create 5
 
     let process ip calling_ip d fun_name call_conv : domain_t * Taint.Set.t * Asm.stmt list =
@@ -374,6 +379,7 @@ struct
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
+      Hashtbl.replace stubs "putchar"        (putchar,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1);;
       Hashtbl.replace stubs "_Znwj" (heap_allocator, 1);; (* new *)
