@@ -118,7 +118,7 @@ module type Arch =
                                   val esp: Register.t
                                   val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
                                   val decode_from_0x40_to_0x4F: char -> int -> rex_t
-                                  val get_base_address: ictx_t -> Data.Address.t -> segment_register_mask -> Z.t
+                                  val arch_get_base_address: ictx_t -> Data.Address.t -> segment_register_mask -> Z.t
                                   (* function to set an lval to an expression *)
                                   val set_dest: Asm.lval -> Asm.exp -> Asm.stmt list
 
@@ -179,7 +179,7 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 
     let get_rex _c = None
 
-    let get_base_address segments rip c =
+    let arch_get_base_address segments rip c =
       if !Config.mode = Config.Protected then
         let dt = if c.ti = GDT then segments.gdt else segments.ldt in
         try
@@ -197,7 +197,7 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 
     let add_segment segments operand_sz rip offset sreg =
       let seg_reg_val = Hashtbl.find segments.reg sreg in
-      let base_val = get_base_address segments rip seg_reg_val in
+      let base_val = arch_get_base_address segments rip seg_reg_val in
       if Z.compare base_val Z.zero = 0 then
         offset
       else
@@ -284,7 +284,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       let c' = Char.code c in
       iget_rex c'
 
-    let get_base_address segments rip seg_reg_msk =
+    let arch_get_base_address segments rip seg_reg_msk =
       if !Config.mode = Config.Protected then
         let dt = if seg_reg_msk.ti = GDT then segments.gdt else segments.ldt in
         try
@@ -312,7 +312,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       | "ss" | "es" | "cs" | "ds" -> offset
       | _ ->
          let seg_reg_val = Hashtbl.find segments.reg sreg in
-         let base_val = get_base_address segments rip seg_reg_val in
+         let base_val = arch_get_base_address segments rip seg_reg_val in
          if Z.compare base_val Z.zero = 0 then
            offset
          else
@@ -323,7 +323,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       let base_val =
         match (Register.name sreg) with
         (* base is only real for fs and gs *)
-        | "fs" | "gs" -> get_base_address segments rip (Hashtbl.find segments.reg sreg)
+        | "fs" | "gs" -> arch_get_base_address segments rip (Hashtbl.find segments.reg sreg)
         | _ -> Z.zero in
       (true, base_val, Z.of_int 0xFFFFFFFF)
 
@@ -872,7 +872,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
   (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
-  let get_base_address s c = get_base_address s.segments s.a c
+  let get_base_address s c = arch_get_base_address s.segments s.a c
 
   let add_segment s e sreg = add_segment s.segments s.operand_sz s.a e sreg
 
