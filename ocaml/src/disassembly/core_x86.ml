@@ -119,14 +119,14 @@ module type Arch =
                                   val esp: Register.t
                                   val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
                                   val decode_from_0x40_to_0x4F: char -> int -> rex_t
-                                  val arch_get_base_address: ictx_t -> Data.Address.t -> segment_register_mask -> Z.t
+                                  val arch_get_base_address: Cfa.oracle -> ictx_t -> Data.Address.t -> Register.t -> Z.t
                                   (* function to set an lval to an expression *)
                                   val set_dest: Asm.lval -> Asm.exp -> Asm.stmt list
 
                                   (** add_segment translates the segment selector/offset pair into a linear addresss *)
-                                  val add_segment: ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
+                                  val add_segment: Cfa.oracle -> ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
                                   (* Check segments limits, returns (success_bool, base_addr, limit) *)
-                                  val check_seg_limit: Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
+                                  val check_seg_limit: Cfa.oracle -> Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
                                   val get_rex: int -> rex_t option
                                   val prologue: Address.t -> Asm.stmt list
                                   val get_operand_sz_for_stack: unit -> int
@@ -181,31 +181,31 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 
     let get_rex _c = None
 
-    let arch_get_base_address segments rip c =
+    let arch_get_base_address _ctx segments rip sreg =
+      let seg_reg_val = Hashtbl.find segments.reg sreg in
       if !Config.mode = Config.Protected then
-        let dt = if c.ti = GDT then segments.gdt else segments.ldt in
+        let dt = if seg_reg_val.ti = GDT then segments.gdt else segments.ldt in
         try
-          let e = Hashtbl.find dt c.index in
-          if c.rpl <= e.dpl then
+          let e = Hashtbl.find dt seg_reg_val.index in
+          if seg_reg_val.rpl <= e.dpl then
             e.base
           else
             error rip "illegal requested privileged level"
         with Not_found ->
-          error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string c.index) (if c.ti = GDT then "Global" else "Local"))
+          error rip (Printf.sprintf "illegal requested index %s in %s Description Table" (Word.to_string seg_reg_val.index) (if seg_reg_val.ti = GDT then "Global" else "Local"))
       else
         error rip "only protected mode supported"
 
     let set_dest dst value = [ Set(dst, value) ]
 
-    let add_segment segments operand_sz rip offset sreg =
-      let seg_reg_val = Hashtbl.find segments.reg sreg in
-      let base_val = arch_get_base_address segments rip seg_reg_val in
+    let add_segment ctx segments operand_sz rip offset sreg =
+      let base_val = arch_get_base_address ctx segments rip sreg in
       if Z.compare base_val Z.zero = 0 then
         offset
       else
         BinOp(Add, offset, const_of_Z base_val operand_sz)
 
-    let check_seg_limit eip segments sreg addr =
+    let check_seg_limit _ctx eip segments sreg addr =
       let csv = Hashtbl.find segments.reg sreg in
       let seg : tbl_entry  =
         begin
@@ -289,13 +289,17 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
       let c' = Char.code c in
       iget_rex c'
 
-    let arch_get_base_address segments rip seg_reg_msk =
+    let arch_get_base_address ctx segments rip sreg =
+      let seg_reg_msk = (Hashtbl.find segments.reg sreg) in
       if !Config.mode = Config.Protected then
         let dt = if seg_reg_msk.ti = GDT then segments.gdt else segments.ldt in
         try
           let desc = Hashtbl.find dt seg_reg_msk.index in
           if seg_reg_msk.rpl <= desc.dpl then
-            desc.base
+            match  Register.name sreg with
+            | "fs" -> ctx#value_of_register fs_base
+            | "gs" -> ctx#value_of_register gs_base
+            | _ -> desc.base
           else
             error rip "illegal requested privileged level"
         with Not_found ->
@@ -312,23 +316,22 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
                 | T(_) -> (* full assignation *) normal_set
                 | P(reg, l, u) -> if l == 0 && u == 31 then [Set (V (T reg), UnOp (ZeroExt 64, value))] else normal_set 
 
-    let add_segment segments operand_sz rip offset sreg =
+    let add_segment ctx segments operand_sz rip offset sreg =
       match (Register.name sreg) with
       | "ss" | "es" | "cs" | "ds" -> offset
       | _ ->
-         let seg_reg_val = Hashtbl.find segments.reg sreg in
-         let base_val = arch_get_base_address segments rip seg_reg_val in
+         let base_val = arch_get_base_address ctx segments rip sreg in
          if Z.compare base_val Z.zero = 0 then
            offset
          else
            BinOp(Add, offset, const_of_Z base_val operand_sz)
 
-    let check_seg_limit rip segments sreg _addr =
+    let check_seg_limit ctx rip segments sreg _addr =
       (* Segmentation in 64bit never checks limits *)
       let base_val =
         match (Register.name sreg) with
         (* base is only real for fs and gs *)
-        | "fs" | "gs" -> arch_get_base_address segments rip (Hashtbl.find segments.reg sreg)
+        | "fs" | "gs" -> arch_get_base_address ctx segments rip sreg
         | _ -> Z.zero in
       (true, base_val, Z.of_int 0xFFFFFFFF)
 
@@ -758,6 +761,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (* complete internal state of the decoder.
      Only the segment field is exported out of the functor (see parse signature) for further reloading *)
   type state = {
+      mutable ctx        : Cfa.oracle;  (** oracle *)
       mutable g          : Cfa.t;       (** current cfa *)
       mutable b          : Cfa.State.t; (** state predecessor *)
       a                  : Address.t;   (** current address to decode *)
@@ -877,9 +881,10 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
   (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
-  let get_base_address s c = arch_get_base_address s.segments s.a c
+  let get_base_address s sreg =
+    arch_get_base_address s.ctx s.segments s.a sreg
 
-  let add_segment s e sreg = add_segment s.segments s.operand_sz s.a e sreg
+  let add_segment s e sreg = add_segment s.ctx s.segments s.operand_sz s.a e sreg
 
   let add_data_segment s e = add_segment s e s.segments.data
 
@@ -1306,7 +1311,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
   (** checks that the target is within the bounds of the code segment *)
   let check_jmp (s: state) target =
-    let result, linear_addr, limit = check_seg_limit s.a s.segments cs target in
+    let result, linear_addr, limit = check_seg_limit s.ctx s.a s.segments cs target in
     if result then
       ()
     else
@@ -2750,7 +2755,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\x99' -> (* CWD / CDQ *) cwd_cdq s
       | '\x9a' -> (* CALL *)
          let off = int_of_bytes s (s.operand_sz / 8) in
-         let cs' = get_base_address s (Hashtbl.find s.segments.reg cs) in
+         let cs' = get_base_address s cs in
          let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
          return s (call s (A a))
       | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
@@ -3033,6 +3038,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
   let parse text g is v a ctx =
     let s' = {
+        ctx = ctx;
         g = g;
         a = a;
         o = 0;
