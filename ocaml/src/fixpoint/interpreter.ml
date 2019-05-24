@@ -309,10 +309,12 @@ struct
                 in
                 v.Cfa.State.v <- d';
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in
-                let a = match Data.Address.Set.elements addrs with
-                        | [a] -> a
-                        | []  -> L.abort (fun p->p "no return address")
-                        | _l  -> L.abort (fun p->p "multiple return addresses") in
+                let a =
+                  match Data.Address.Set.elements addrs with
+                  | [a] -> a
+                  | []  -> L.abort (fun p->p "no return address")
+                  | _l  -> L.abort (fun p->p "multiple return addresses")
+                in
                 L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
                 v.Cfa.State.ip <- a;
                 Log.Trace.trace a (fun p -> p "%s"
@@ -753,26 +755,25 @@ struct
             Log.latest_finished_address := Some v.Cfa.State.ip;  (* v.Cfa.State.ip can change because of calls and jumps *)
 
           with
-          | Exceptions.Too_many_concrete_elements _ as e ->
-             L.exc e (fun p -> p "imprecision here");
-            dump g;
-            L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
+          | Exceptions.Too_many_concrete_elements msg ->
+             L.analysis (fun p -> p "%s" msg);
+           
 
-          | Exceptions.Use_after_free msg as e ->
-            L.exc e (fun p -> p "possible use after free in alloc %s, at: %s" msg (Data.Address.to_string v.Cfa.State.ip));
-            dump g;
-            L.abort (fun p -> p "analysis stopped")
+          | Exceptions.Use_after_free msg ->
+            L.analysis (fun p -> p "possible use after free in alloc %s, at: %s" msg (Data.Address.to_string v.Cfa.State.ip));
+           
 
-          | Exceptions.Undefined_free msg as e ->
-             L.exc e (fun p -> p "undefined free detected here: %s" msg);
-            dump g;
-            L.abort (fun p -> p "analysis stopped")
+          | Exceptions.Undefined_free msg ->
+             L.analysis (fun p -> p "undefined free detected here: %s" msg);
+           
               
-          | Exceptions.Double_free as e ->
-              L.exc e (fun p -> p "possible double free detected here");
-            dump g;
-            L.abort (fun p -> p "analysis stopped")
-              
+          | Exceptions.Double_free ->
+              L.analysis (fun p -> p "possible double free detected");
+          
+
+          | Exceptions.Stop msg ->
+             L.analysis (fun p -> p "analysis stopped for the current context: %s" msg)
+            
           | e             -> L.exc e (fun p -> p "Unexpected exception"); dump g; raise e
         end;
         (* boolean condition of loop iteration is updated *)

@@ -326,7 +326,7 @@ struct
       D.set ret (Asm.Const (Data.Word.of_int Z.one !Config.operand_sz)) d'
 
     let bin_exit (_ip) _ _d _ret _args =
-      L.abort (fun p -> p "stop analysis on call to exit")
+      raise (Exceptions.Stop "on exit call")
       
     let stubs = Hashtbl.create 5
 
@@ -342,10 +342,13 @@ struct
         | Exceptions.Use_after_free _ as e -> raise e 
         | Exceptions.Double_free -> raise Exceptions.Double_free
         | Exceptions.Null_deref _ as e  -> raise e
+        | Exceptions.Stop _ as e -> raise e
+        | Exceptions.Error _ as e -> raise e
         | e ->
-           L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
+          L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
           L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
-          d, Taint.Set.singleton Taint.U
+          d, Taint.Set.singleton Taint.U 
+           
       in
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
       d', taint, cleanup_stmts

@@ -45,3 +45,6 @@ exception Double_free
 
 (** NULL dereference *)
 exception Null_deref of string
+
+(** stop the analysis for the current context *)
+exception Stop of string
