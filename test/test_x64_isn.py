@@ -497,6 +497,14 @@ the_end:
     x64.compare(tmpdir, asm, ["rsi", "rdi", "rcx", "rdx"])
 
 
+def test_fs_access(tmpdir):
+    asm = """
+        mov rax, 0x12345678abcdef
+        mov [fs:0x8], rax
+        mov rbx, [fs:0x8]
+    """
+    compare(tmpdir, asm, ["rax", "rbx"])
+
 ##  _                          _
 ## | |__  _ __ __ _ _ __   ___| |__
 ## | '_ \| '__/ _` | '_ \ / __| '_ \
