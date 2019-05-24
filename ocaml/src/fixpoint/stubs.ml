@@ -322,8 +322,12 @@ struct
     let putchar (_ip) _ d ret args =
       let str = Asm.Lval (args 0) in
       L.info (fun p -> p "putchar output:");
-      let d' = D.print d str 8 in
+      let d' = D.print d str !Config.operand_sz in
       D.set ret (Asm.Const (Data.Word.of_int Z.one !Config.operand_sz)) d'
+
+    let bin_exit (_ip) _ _d _ret _args =
+      L.abort (fun p -> p "stop analysis on call to exit")
+      
     let stubs = Hashtbl.create 5
 
     let process ip calling_ip d fun_name call_conv : domain_t * Taint.Set.t * Asm.stmt list =
@@ -380,6 +384,7 @@ struct
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "putchar"        (putchar,      1);
+      Hashtbl.replace stubs "exit"        (bin_exit,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1);;
       Hashtbl.replace stubs "_Znwj" (heap_allocator, 1);; (* new *)
