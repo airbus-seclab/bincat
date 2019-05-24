@@ -138,3 +138,19 @@ where:
 
 Caveats:
 * `topmask` and `taintmask` must have the same length as hexvalues.
+
+## Override section
+
+Allows the user to override value and taint for registry and memory data.
+
+Contains one item for each instruction pointer value where a value is to be
+modified:
+
+```
+[override]
+0x4242 = reg[eax], 0x0!TAINT_ALL; reg[esp], 0x00
+```
+
+The key (`0x4242` here) is the instruction pointer value. The value is a
+semicolon separated list of `destination, value!taint`, where either `value` or
+`taint` can be omitted.

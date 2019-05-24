@@ -26,7 +26,7 @@ Check the [tutorial](doc/tutorial.md) out to see the corresponding tasks.
 
 Supported host platforms:
 
-* IDA plugin: all, version **6.9 or later** (BinCAT uses PyQt, not PySide)
+* IDA plugin: all, version **7.0 or later** (BinCAT uses PyQt, not PySide)
 * analyzer (local or remote): Linux, Windows, macOS (maybe)
 
 Supported CPU for analysis (for now):
@@ -38,7 +38,9 @@ Supported CPU for analysis (for now):
 
 ## Installation
 
-**Only IDA v6.9 or later (7 included) are supported**
+**Only IDA v7 or later is supported**
+
+v6.9 may work, but we won't support it.
 
 ### Binary distribution install (recommended)
 

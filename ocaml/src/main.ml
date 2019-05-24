@@ -90,13 +90,13 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
         List.iter
           (fun sec ->
             L.info2 (
-                fun p -> p "Mapped section vaddr=%08x-%08x (%#08x bytes) paddr=%08x->%08x (%#08x bytes) %-15s %s"
-                           (Z.to_int (Data.Address.to_int sec.Mapped_mem.virt_addr))
-                           (Z.to_int (Data.Address.to_int sec.Mapped_mem.virt_addr_end))
-                           (Z.to_int sec.Mapped_mem.virt_size)
-                           (Z.to_int sec.Mapped_mem.raw_addr)
-                           (Z.to_int sec.Mapped_mem.raw_addr_end)
-                           (Z.to_int sec.Mapped_mem.raw_size)
+                fun p -> p "Mapped section vaddr=%s-%s (0x%s bytes) paddr=%s->%s (0x%s bytes) %-15s %s"
+                           (Log.zaddr_to_string (Data.Address.to_int sec.Mapped_mem.virt_addr))
+                           (Log.zaddr_to_string (Data.Address.to_int sec.Mapped_mem.virt_addr_end))
+                           (Log.zaddr_to_string sec.Mapped_mem.virt_size)
+                           (Log.zaddr_to_string sec.Mapped_mem.raw_addr)
+                           (Log.zaddr_to_string sec.Mapped_mem.raw_addr_end)
+                           (Log.zaddr_to_string sec.Mapped_mem.raw_size)
                            sec.Mapped_mem.name
                            sec.Mapped_mem.mapped_file_name))
               complete_map.Mapped_mem.sections;

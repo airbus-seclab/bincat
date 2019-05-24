@@ -78,6 +78,10 @@ let make_mapped_mem filepath entrypoint =
           L.debug(fun p -> p "ELF loading: %s" (section_to_string section));
           section :: (sections_from_ph tail)
        | _ -> sections_from_ph tail in
+  let base_address_from_sections sections =
+    match sections with
+    | [] -> L.abort (fun p -> p "No loadable section in ELF. Cannot compute base address")
+    | head::tail -> List.fold_left (fun m s -> min m (s.virt_addr))  head.virt_addr tail in
   let sections_from_elfobj ()  =
     let stat = Unix.stat !Config.binary in
     let file_length = Z.of_int stat.Unix.st_size in
@@ -95,6 +99,7 @@ let make_mapped_mem filepath entrypoint =
   let sections = if !Config.format = Config.ELFOBJ
                  then sections_from_elfobj ()
                  else sections_from_ph elf.ph in
+  let base_address = Data.Address.to_int (base_address_from_sections sections) in
   let max_addr = List.fold_left (fun mx sec -> Z.max mx (Data.Address.to_int sec.virt_addr_end)) Z.zero sections in
   let max_addr' = Hashtbl.fold (fun _k v mx -> Z.max mx v) Config.import_tbl_rev Z.zero in
   let min_addr' = Hashtbl.fold (fun _k v mx -> Z.min mx v) Config.import_tbl_rev max_addr in
@@ -116,8 +121,8 @@ let make_mapped_mem filepath entrypoint =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let value = choose_address_for_import sym_name symsize in
-    L.debug (fun p -> p "REL JUMP_SLOT: write %08x at %08x to relocate %s"
-      (Z.to_int value) (Z.to_int addr) sym_name);
+    L.debug (fun p -> p "REL JUMP_SLOT: write %s at %s to relocate %s"
+      (Log.zaddr_to_string value) (Log.zaddr_to_string addr) sym_name);
     patch_elf elf mapped_file sections addr value in
 
   let reloc_glob_dat symsize sym offset addend =
@@ -128,16 +133,16 @@ let make_mapped_mem filepath entrypoint =
       if sym_value = Z.zero then
         choose_address_for_import sym_name symsize
       else Z.(sym_value + addend) in
-    L.debug (fun p -> p "REL GLOB_DAT: write %08x at %08x to relocate %s"
-      (Z.to_int value) (Z.to_int offset) sym_name);
+    L.debug (fun p -> p "REL GLOB_DAT: write %s at %s to relocate %s"
+      (Log.zaddr_to_string value) (Log.zaddr_to_string offset) sym_name);
     patch_elf elf mapped_file sections addr value in
 
   let reloc_obj symsize sym offset _addend =
     let sym_name = sym.Elf_core.p_st_name in
     let addr = offset in
     let value = choose_address_for_import sym_name symsize in
-    L.debug (fun p -> p "REL 32: write %08x at %08x to relocate %s"
-                        (Z.to_int value) (Z.to_int addr) sym_name);
+    L.debug (fun p -> p "REL 32: write %s at %s to relocate %s"
+                        (Log.zaddr_to_string value) (Log.zaddr_to_string addr) sym_name);
     patch_elf elf mapped_file sections addr value in
 
   let reloc_obj_rel symsize sym offset _addend =
@@ -145,22 +150,35 @@ let make_mapped_mem filepath entrypoint =
     let addr = offset in
     let pre_val = choose_address_for_import sym_name symsize in
     let value = Z.(pre_val - offset) in
-    L.debug (fun p -> p "RELA 32: write %08x at %08x to relocate %s"
-                        (Z.to_int value) (Z.to_int addr) sym_name);
+    L.debug (fun p -> p "RELA 32: write %s at %s to relocate %s"
+                        (Log.zaddr_to_string value) (Log.zaddr_to_string addr) sym_name);
     patch_elf elf mapped_file sections addr value in
+
+  let reloc_relative _symsize _sym offset addend =
+    let addr = offset in
+    let value = Z.add base_address addend in
+    L.debug (fun p -> p "RELA RELATIVE: write %s at %s (base address = %s)"
+                        (Log.zaddr_to_string value) (Log.zaddr_to_string addr) (Log.zaddr_to_string base_address));
+    patch_elf elf mapped_file sections addr value in
+
+  let reloc_copy _symsize sym _offset _addend =
+    (* we do not have the lib to copy the value from, so we do not write any value *)
+    let sym_name = sym.Elf_core.p_st_name in
+    L.analysis (fun p -> p "REL COPY: %s: no lib to copy value from => ignored" sym_name) in
 
   let get_reloc_func = function
     | R_ARM_JUMP_SLOT | R_386_JUMP_SLOT | R_AARCH64_JUMP_SLOT | R_X86_64_JUMP_SLOT
       -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
     | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT | R_X86_64_GLOB_DAT
-      -> reloc_glob_dat (Z.of_int (!Config.address_sz/8))
+      | R_PPC_GLOB_DAT -> reloc_glob_dat (Z.of_int (!Config.address_sz/8))
     | R_386_TLS_TPOFF
     | R_386_32 -> reloc_obj (Z.of_int (!Config.external_symbol_max_size))
     | R_386_PC32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
-    | R_386_RELATIVE | R_X86_64_RELATIVE -> (fun _ _ _ -> ())
+    | R_386_RELATIVE | R_X86_64_RELATIVE | R_PPC_RELATIVE -> reloc_relative Z.zero
     | R_PPC_ADDR32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
-    | R_PPC_GLOB_DAT -> reloc_glob_dat (Z.of_int (!Config.address_sz/8))
     | R_PPC_JMP_SLOT -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
+    | R_386_COPY | R_ARM_COPY | R_X86_64_COPY | R_AARCH64_COPY | R_PPC_COPY
+      -> reloc_copy (Z.of_int (!Config.address_sz/8))
     | rt ->
        let reltype = reloc_type_to_string rt in
        begin

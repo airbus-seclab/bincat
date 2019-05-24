@@ -292,7 +292,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
         | M(_, _) -> normal_set
         | V(r) -> match r with
           | T(_) -> (* full assignation *) normal_set
-          | P(reg, l, u) -> if l == 0 && u == 31 then normal_set @ [ Set(V( P(reg, 32, 63)), const0 32) ] else normal_set
+          | P(reg, l, u) -> if l == 0 && u == 31 then [Set (V (T reg), UnOp (ZeroExt 64, value))] else normal_set 
 
     let add_segment segments operand_sz rip offset sreg =
       match (Register.name sreg) with
@@ -1460,13 +1460,12 @@ let overflow_expression () = Lval (V (T fcf))
     let pop_stmts is_pop s lv =
         let esp'  = esp_lval () in
         List.fold_left (fun stmts lv ->
-            let n = !Config.stack_width in
+            let n = size_push_pop lv s.addr_sz in
             let incr = set_esp Add esp' n in
             if with_stack_pointer is_pop s.a lv then
-                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) !Config.stack_width), !Config.stack_width))) ] @ stmts
-
+                [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) !Config.stack_width), s.addr_sz))) ] @ stmts
             else
-                [ Set (lv, Lval (M (Lval (V esp'), s.operand_sz))) ; incr ] @ stmts
+                [ Set (lv, Lval (M (Lval (V esp'), s.addr_sz))) ; incr ] @ stmts
         ) [] lv
 
     (** state generation for the pop instructions *)
@@ -2781,7 +2780,7 @@ let overflow_expression () = Lval (V (T fcf))
             | c when '\xb8' <= c && c <= '\xbf' -> mov_imm_direct s c
             | '\xc0' -> (* shift grp2 with byte size*) grp2 s 8 None
             | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
-            | '\xc2' -> (* RET NEAR and pop word *) return s [ Return; (* pop imm16 *) set_esp Add (T esp) (s.addr_sz + 16); ]
+            | '\xc2' -> (* RET NEAR and pop word *) let pop_sz = get_imm s 16 s.operand_sz false in return s [ Return; Set(V(T esp), BinOp(Add, Lval (V (T esp)), BinOp(Add, const (s.addr_sz/8) s.operand_sz, pop_sz))); ]
             | '\xc3' -> (* RET NEAR *) return s [ Return; set_esp Add (T esp) s.addr_sz; ]
             | '\xc4' -> (* LES *) load_far_ptr s es
             | '\xc5' -> (* LDS *) load_far_ptr s ds

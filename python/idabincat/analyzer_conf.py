@@ -546,6 +546,66 @@ class AnalyzerConfig(object):
     def state(self):
         return self.init_state
 
+    @property
+    def overrides(self):
+        if 'override' not in self._config.sections():
+            return []
+        res = []
+        for ea, overrides in self._config.items('override'):
+            ea = int(ea, 16)
+            for override in overrides.split(';'):
+                override = override.strip()
+                if not override:
+                    continue
+                dest, val = override.split(',')
+                dest = dest.strip()
+                val = val.strip()
+                res.append((ea, dest, val))
+        return res
+
+    @property
+    def skips(self):
+        if not self._config.has_option('analyzer', 'fun_skip'):
+            return []
+        skipstr = self._config.get('analyzer', 'fun_skip')
+        idx = 0
+        res = []
+        err = False
+        while True:
+            try:
+                allow_value_err = False
+                val = []
+                # identify @ or function name
+                endidx = skipstr.index('(', idx)
+                val.append(skipstr[idx:endidx].strip())
+                idx = endidx + 1
+                # identify arg_nb
+                endidx = skipstr.index(',', idx)
+                val.append(skipstr[idx:endidx].strip())
+                idx = endidx + 1
+                # identify ret_val
+                endidx = skipstr.index(')', idx)
+                val.append(skipstr[idx:endidx].strip())
+                idx = endidx + 1
+                res.append(tuple(val))
+                allow_value_err = True
+                idx = 1 + skipstr.index(',', idx)
+            except ValueError:
+                err = not allow_value_err
+                break
+            except:
+                err = True
+        if err:
+            bc_log.error("Error while parsing fun_skip from config", exc_info=True)
+            return []
+        return res
+
+    @property
+    def nops(self):
+        if not self._config.has_option('analyzer', 'nop'):
+            return []
+        return [(n,) for n in self._config.get('analyzer', 'nop').split(', ')]
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
@@ -620,12 +680,12 @@ class AnalyzerConfig(object):
             # 2. Add sections from overrides argument
             ov_by_eip = collections.defaultdict(set)
             for (eip, register, value) in overrides:
-                ov_by_eip[eip].add("%s, %s;" % (register, value))
+                ov_by_eip[eip].add("%s, %s" % (register, value))
 
             # 3. Add to config
             for eip, ov_set in ov_by_eip.items():
                 hex_addr = "0x%x" % eip
-                self._config.set("override", hex_addr, ''.join(ov_set))
+                self._config.set("override", hex_addr, ';'.join(ov_set))
         else:  # backward
             # 2. Empty state section
             self._config.remove_section("state")
@@ -690,31 +750,9 @@ class AnalyzerConfig(object):
 
     def edit_str(self):
         """
-        Return a text representation suitable for user edition
+        Return a text representation suitable for user edition.
+        Before calling this, caller must call update_overrides.
         """
-        # replaces overrides, nops & skips with warnings. The correct values
-        # will be set before analysis is run
-        if self.analysis_method == 'backward':
-            section = 'state'
-        else:
-            # forward
-            section = 'override'
-        self._config.remove_section(section)
-        # empty section
-        self._config.add_section(section)
-        # hack to add comments
-        self._config.set(
-            section,
-            '; This will be overriden with values from the BinCAT '
-            'Overrides view since the analysis will run in %s mode ;' %
-            self.analysis_method, '')
-
-        self._config.set(
-            'analyzer', 'nop', '; This will be overriden with values '
-            'from the BinCAT Overrides view')
-        self._config.set(
-            'analyzer', 'fun_skip', '; This will be overriden with values '
-            'from the BinCAT Overrides view')
         return str(self)
 
     @staticmethod

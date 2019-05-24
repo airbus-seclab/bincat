@@ -1,7 +1,9 @@
-2019-01-15: v1.1
+2019-01-22: v1.1
 * AMD64 (x86-64) support
 * Huge performance improvements
 * Interface improvements
+* Lots of bugfixes
+* Officially drop IDA v6.9 support
 
 2018-11-22: v1.0.1
 * Fix ARM64 detection logic in IDA plugin

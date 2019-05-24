@@ -125,8 +125,6 @@ module type T =
     (** returns the minimal taint value of the given parameter *)
     val get_minimal_taint: t -> Taint.t
 
-    (** total order on values. No link with the partial order! *)
-    val total_order: t -> t -> int
   end
 
 
@@ -141,14 +139,7 @@ module Make(D: T) =
               
     let top = Env.empty
             
-    (* be careful: this order has nothing to do with the notion of order used in abstract interpretation! *)
-    let total_order m1 m2 =
-      let sz1 = Env.cardinal m1 in
-      let sz2 = Env.cardinal m2 in
-      let n = sz1 - sz2 in
-      if n<> 0 then n
-      else Env.compare D.total_order m1 m2
-         
+ 
   
     let value_of_register m r =
       let v =
@@ -714,12 +705,15 @@ module Make(D: T) =
         else
           let m' = Env.empty in
           Env.fold (fun k v1 m' ->
-              try let v2 = Env.find k m2 in
-                  let v' = D.meet v1 v2 in
-                  if D.is_bot v' then
-                    raise (Exceptions.Analysis (Exceptions.Empty "Unrel.meet"))
-                  else
-                    Env.add k v' m' with Not_found -> m') m1 m'
+              try                
+                let v2 = Env.find k m2 in
+                let v' = D.meet v1 v2 in
+                if D.is_bot v' then
+                  raise (Exceptions.Analysis (Exceptions.Empty "Unrel.meet"))
+                else
+                  Env.add k v' m'
+              with Not_found -> raise (Exceptions.Analysis (Exceptions.Empty "Unrel.meet"))
+            ) m1 m'
 
     let widen m1 m2 =
        try Env.map2 D.widen m1 m2

@@ -48,8 +48,8 @@ def dump_binary(path):
         max_addr = segments[-1].endEA
 
         if max_addr > 200*1024*1024:
-            if idaapi.ask_yn(
-                    idaapi.ASKBTN_NO, "Dump file is over 200MB,"
+            askyn = idaapi.ask_yn if hasattr(idaapi, "ask_yn") else idaapi.askyn_c
+            if askyn(idaapi.ASKBTN_NO, "Dump file is over 200MB,"
                     " do you want to dump it anyway ?") != idaapi.ASKBTN_YES:
                 return None
 

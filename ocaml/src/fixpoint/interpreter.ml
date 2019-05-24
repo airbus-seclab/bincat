@@ -329,10 +329,11 @@ struct
                 in
                 v.Cfa.State.v <- d';
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in
-                let a = match Data.Address.Set.elements addrs with
-                        | [a] -> a
-                        | []  ->  raise (Exceptions.Analysis (Exceptions.Empty "no return address can be computed"))
-                        | _   -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "multiple return addresses"))
+                let a =
+                  match Data.Address.Set.elements addrs with
+                  | [a] -> a
+                  | []  ->  raise (Exceptions.Analysis (Exceptions.Empty "no return address can be computed"))
+                  | _   -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "multiple return addresses"))
                 in
                 L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
                 v.Cfa.State.ip <- a;
@@ -804,24 +805,22 @@ struct
             match r with
             | Some (v', ip', d') ->
                Log.Trace.trace v.Cfa.State.ip (fun p -> p "%s" (Asm.string_of_stmts v.Cfa.State.stmts true));
-               (* these vertices are updated by their right abstract values and the new ip                         *)
-              let new_vertices = update_abstract_value g v' (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
-              (* add overrides if needed *)
-           let new_vertices =
-         try
-           let rules = Hashtbl.find overrides v.Cfa.State.ip in
-           L.analysis (fun p -> p "applied tainting (%d) override(s)" (List.length rules));
-           List.map (fun v ->
-             let d', taint =
-               List.fold_left (fun (d, taint) rule -> let d', taint' = rule d in d', Taint.Set.union taint taint'
-               ) (v.Cfa.State.v, v.Cfa.State.taint_sources) rules
-             in
-             v.Cfa.State.v <- d';
-             v.Cfa.State.taint_sources <- taint;
-             v) new_vertices
-         with
-           Not_found -> new_vertices
-           in
+               (* add overrides if needed *)               
+               begin
+                 try
+                   let rules = Hashtbl.find overrides v'.Cfa.State.ip in
+                   L.analysis (fun p -> p "applied %d override(s)" (List.length rules));
+                       let d', taint =
+                         List.fold_left (fun (d, taint) rule -> let d', taint' = rule d in d', Taint.Set.union taint taint'
+                           ) (v.Cfa.State.v, v.Cfa.State.taint_sources) rules
+                       in
+                       v.Cfa.State.v <- d';
+                       v.Cfa.State.taint_sources <- taint
+                 with
+                   Not_found -> ()
+               end;
+               (* these vertices are updated by their right abstract values and the new ip  *)
+               let new_vertices = update_abstract_value g v' (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
            (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
            let vertices'  = filter_vertices true g new_vertices in
            List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
@@ -832,26 +831,25 @@ struct
             Log.latest_finished_address := Some v.Cfa.State.ip;  (* v.Cfa.State.ip can change because of calls and jumps *)
 
           with
-          | Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) as e ->
-             L.exc e (fun p -> p "imprecision here");
-            dump g;
-            L.abort (fun p -> p "analysis stopped (computed value too much imprecise)")
+          | Exceptions.Analysis (Exceptions.Too_many_concrete_elements msg) ->
+             L.analysis (fun p -> p "%s" msg);
+           
 
-          | Exceptions.Analysis (Exceptions.Use_after_free msg) as e ->
-            L.exc e (fun p -> p "possible use after free in alloc %s, at: %s" msg (Data.Address.to_string v.Cfa.State.ip));
-            dump g;
-            L.abort (fun p -> p "analysis stopped")
+          | Exceptions.Analysis (Exceptions.Use_after_free msg) ->
+            L.analysis (fun p -> p "possible use after free in alloc %s, at: %s" msg (Data.Address.to_string v.Cfa.State.ip));
+           
 
-          | Exceptions.Analysis (Exceptions.Undefined_free msg) as e ->
-             L.exc e (fun p -> p "undefined free detected here: %s" msg);
-            dump g;
-            L.abort (fun p -> p "analysis stopped")
+          | Exceptions.Analysis (Exceptions.Undefined_free msg) ->
+             L.analysis (fun p -> p "undefined free detected here: %s" msg);
+           
               
-          | Exceptions.Analysis Exceptions.Double_free as e ->
-              L.exc e (fun p -> p "possible double free detected here");
-            dump g;
-            L.abort (fun p -> p "analysis stopped")
-              
+          | Exceptions.Analysis Exceptions.Double_free ->
+              L.analysis (fun p -> p "possible double free detected");
+          
+
+          | Exceptions.Analysis (Exceptions.Stop msg) ->
+             L.analysis (fun p -> p "analysis stopped for the current context: %s" msg)
+            
           | e             -> L.exc e (fun p -> p "Unexpected exception"); dump g; raise e
         end;
         (* boolean condition of loop iteration is updated *)

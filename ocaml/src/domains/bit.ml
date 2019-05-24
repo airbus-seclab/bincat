@@ -162,10 +162,4 @@ let compare v1 op v2 =
 
 let is_subset v1 v2 = eq v1 v2
 
-let total_order v1 v2 =
-  (* TOP < ZERO < ONE *)
-  match v1, v2 with
-  | TOP, TOP | ZERO, ZERO | ONE, ONE -> 0
-  | TOP, _ -> -1
-  | ZERO, ONE -> -1
-  | _, _ -> 1
+

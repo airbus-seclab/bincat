@@ -11,7 +11,7 @@
 * python2-sphinx for the python documentation generation
 * menhir for the configuration parsing in ocaml
 * the ocamlgraph library
-* IDA >= 6.9 (for the plugin)
+* IDA >= 7.0 (for the plugin)
 
 #### Installing linux packages
 All these dependencies except IDA are usually packaged by linux distributions.

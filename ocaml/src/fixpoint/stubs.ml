@@ -321,6 +321,7 @@ struct
       L.info (fun p -> p "--- end of puts--");
       d', taint
 
+
     let write _ip _ d ret args =
       L.info (fun p -> p "write output");
       let fd =
@@ -353,11 +354,25 @@ struct
         | [a] -> d, taint, [Asm.Directive (Asm.Handler (int_nb, a))]
         | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "several possible handler addresses"))
         with Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) ->
-        L.warn (fun p -> p "uncomputable argument of signal call (signal number or handler address). Skipped");
-        d, Taint.Set.singleton Taint.U, []
+          L.warn (fun p -> p "uncomputable argument of signal call (signal number or handler address). Skipped");
+          d, Taint.Set.singleton Taint.U, []
       in
       let cleanup_stmts = (call_conv.Asm.callee_cleanup 2) in
       d, taint, stmts@cleanup_stmts
+
+
+    let putchar (_ip) _ d ret args =
+      let str = Asm.Lval (args 0) in
+      L.info (fun p -> p "putchar output:");
+      let d' = D.print d str !Config.operand_sz in
+      D.set ret (Asm.Const (Data.Word.of_int Z.one !Config.operand_sz)) d'
+
+    let bin_exit (_ip) _ _d _ret _args =
+      raise (Exceptions.Analysis (Exceptions.Stop "on exit call"))
+
+    
+
+  
             
     let process ip calling_ip d fun_name call_conv : domain_t * Taint.Set.t * Asm.stmt list =
       if String.compare fun_name "signal" = 0 then
@@ -370,10 +385,7 @@ struct
         let d', taint =
           try apply_f ip calling_ip d call_conv.Asm.return call_conv.Asm.arguments
           with
-          | Exit -> d, Taint.Set.singleton Taint.U
-          | Exceptions.Analysis (Exceptions.Use_after_free _) as e -> raise e 
-          | Exceptions.Analysis Exceptions.Double_free -> raise (Exceptions.Analysis (Exceptions.Double_free))
-          | Exceptions.Analysis (Exceptions.Null_deref _) as e  -> raise e
+          | Exceptions.Analysis _ as e -> raise e                                            
           | e ->
              L.exc e (fun p -> p "error while processing stub [%s]" fun_name);
              L.warn (fun p -> p "uncomputable stub for [%s]. Skipped." fun_name);
@@ -449,7 +461,9 @@ struct
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
-      Hashtbl.replace stubs "signal"        ((fun _ _ _ _ _ -> raise Exit),  0); (* special treatment for signal see signal_process *)
+      Hashtbl.replace stubs "signal"        ((fun _ _ _ _ _ -> raise (Exceptions.Analysis (Exceptions.Stop "on signal that stops execution of the program"))),  0); (* special treatment for signal see signal_process *)
+      Hashtbl.replace stubs "putchar"        (putchar,      1);
+      Hashtbl.replace stubs "exit"        (bin_exit,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1);
       Hashtbl.replace stubs "_Znwj" (heap_allocator, 1); (* new *)

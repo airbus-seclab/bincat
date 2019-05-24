@@ -80,8 +80,7 @@ let total_order t1 t2 =
      let n2 = SrcSet.cardinal src2 in
      let n = n1-n2 in
      if n <> 0 then n1
-     else SrcSet.compare src1 src2
-     
+     else SrcSet.compare src1 src2   
   | BOT, _ -> -1
   | TOP, _ -> -1
   | U, _ -> -1

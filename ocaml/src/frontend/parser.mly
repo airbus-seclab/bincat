@@ -287,7 +287,10 @@
     }
     | MEM_SZ EQUAL i=INT         {
       update_mandatory MEM_SZ;
-      try Config.address_sz := Z.to_int i
+      try
+        Config.address_sz := Z.to_int i;
+        Config.address_format := Printf.sprintf "%%0%ix" ((Z.to_int i)/4);
+        Config.address_format0x := Printf.sprintf "%%#0%ix" ((Z.to_int i)/4+2)
       with _ -> L.abort (fun p -> p "illegal address size: [%s]" (Z.to_string i))
     }
     | STACK_WIDTH EQUAL i=INT    {

@@ -28,6 +28,7 @@ type analysis_kind =
   | Double_free (** double free exception *)
   | Null_deref of string (** NULL dereference *)
   | Stack of string (** Stack errors *)
+  | Stop of string (** stops analysis *)
 
 exception Analysis of analysis_kind
 
@@ -43,6 +44,7 @@ let string_of_analysis a =
   | Double_free -> "double free detected"
   | Null_deref msg -> "tried to dereference a NULL value: "^msg
   | Stack msg -> "stack manipulation error: "^msg
+  | Stop msg -> "analysis stops for the current context: "^msg
      
 (** raised when an unexpected behavior happens (undefined decoding, etc.) *)
 exception Error of string
