@@ -25,7 +25,6 @@ format = raw
 {program_section}
 
 [x64]
-mem_model = flat
 GDT[0] = 0x0000000000000000
 GDT[1] = 0x00cf9b000000ffff
 GDT[2] = 0x00af9b000000ffff

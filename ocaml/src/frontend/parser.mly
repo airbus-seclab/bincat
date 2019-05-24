@@ -75,6 +75,18 @@
     List.iter (fun (k, kname) -> Hashtbl.add x86_mandatory_keys k (kname, false)) x86_mandatory_items;;
 
     let x64_mandatory_keys = Hashtbl.create 20;;
+    List.iter (fun (k, kname) -> Hashtbl.add x64_mandatory_keys k (kname, false)) [
+      (SS, "ss");
+      (DS, "ds");
+      (CS, "cs");
+      (ES, "es");
+      (FS, "fs");
+      (GS, "gs");
+      (GDT, "gdt");
+      (FS_BASE, "fs_base");
+      (GS_BASE, "gs_base");
+      ];;
+
     let armv7_mandatory_keys = Hashtbl.create 20;;
     let armv8_mandatory_keys = Hashtbl.create 20;;
     let powerpc_mandatory_keys = Hashtbl.create 20;;
@@ -98,7 +110,7 @@
          Hashtbl.replace tbl key (kname, true);;
 
       let update_x86_mandatory key = update_arch_mandatory_key x86_mandatory_keys key;;
-      let _update_x64_mandatory key = update_arch_mandatory_key x64_mandatory_keys key;;
+      let update_x64_mandatory key = update_arch_mandatory_key x64_mandatory_keys key;;
       let _update_armv7_mandatory key = update_arch_mandatory_key armv7_mandatory_keys key;;
       let _update_armv8_mandatory key = update_arch_mandatory_key armv8_mandatory_keys key;;
       let _update_powerpc_mandatory key = update_arch_mandatory_key powerpc_mandatory_keys key;;
@@ -331,18 +343,18 @@
     | ARMV8 { Config.ARMv8 }
     | POWERPC { Config.POWERPC }
 
-    x86_section:
-    | s=x86_item                { s }
-    | s=x86_item ss=x86_section { s; ss }
+    x64_section:
+    | s=x64_item                { s }
+    | s=x64_item ss=x64_section { s; ss }
 
     x64_item:
-    | CS EQUAL i=init            { update_x86_mandatory CS; init_register "cs" i }
-    | DS EQUAL i=init            { update_x86_mandatory DS; init_register "ds" i }
-    | SS EQUAL i=init            { update_x86_mandatory SS; init_register "ss" i }
-    | ES EQUAL i=init            { update_x86_mandatory ES; init_register "es" i }
-    | FS EQUAL i=init            { update_x86_mandatory FS; init_register "fs" i }
-    | GS EQUAL i=init            { update_x86_mandatory GS; init_register "gs" i }
-    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x86_mandatory GDT; Hashtbl.replace Config.gdt i v }
+    | CS EQUAL i=init            { update_x64_mandatory CS; init_register "cs" i }
+    | DS EQUAL i=init            { update_x64_mandatory DS; init_register "ds" i }
+    | SS EQUAL i=init            { update_x64_mandatory SS; init_register "ss" i }
+    | ES EQUAL i=init            { update_x64_mandatory ES; init_register "es" i }
+    | FS EQUAL i=init            { update_x64_mandatory FS; init_register "fs" i }
+    | GS EQUAL i=init            { update_x64_mandatory GS; init_register "gs" i }
+    | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x64_mandatory GDT; Hashtbl.replace Config.gdt i v }
 
 
     memmodel:
@@ -368,7 +380,7 @@
     armv8_section:
     |  { () }
 
-    x64_section:
+    x86_section:
     |  { () }
     | s=x86_item                { s }
     | s=x86_item ss=x86_section { s; ss }
