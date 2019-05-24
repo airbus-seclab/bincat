@@ -100,6 +100,7 @@ type ictx_t = {
 module type Arch =
   functor (Domain: Domain.T) -> functor (Stubs: Stubs.T with type domain_t := Domain.t) ->
                                 sig
+                                  module Cfa: Cfa.T
                                   val operand_sz: int
                                   module Imports:
                                   sig
@@ -148,6 +149,7 @@ let error a msg =
 
 module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
   struct
+    module Cfa = Cfa.Make(Domain)
     let operand_sz = 32
     (************************************************************)
     (* Creation of the registers                                *)
@@ -235,6 +237,7 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 
 module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
   struct
+    module Cfa = Cfa.Make(Domain)
 
     (************************************************************)
     (* Creation of the registers                                *)
@@ -725,9 +728,9 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
 
   (** control flow automaton *)
-  module Cfa = Cfa.Make(Domain)
   module Arch = Arch(Domain)(Stubs)
   open Arch
+  module Cfa = Arch.Cfa
   module Imports = Arch.Imports
   let cl = P (Arch.ecx, 0, 7)
 
