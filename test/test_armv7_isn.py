@@ -328,6 +328,68 @@ def test_data_proc_read_pc(tmpdir):
     compare(tmpdir, asm, ["r0", "r1", "r2"])
 
 
+##  __  __ ___ ___ ___   _     ___ ___ _  _
+## |  \/  | __|   \_ _| /_\   |_ _/ __| \| |
+## | |\/| | _|| |) | | / _ \   | |\__ \ .` |
+## |_|  |_|___|___/___/_/ \_\ |___|___/_|\_|
+
+@pytest.mark.parametrize("ubfxparams",
+                         [(x,y)
+                          for x in pytest.config.option.coverage.op5
+                          for y in pytest.config.option.coverage.op5
+                          if x+y <= 31 and y > 0])
+def test_media_ubfx(tmpdir, armv7op, ubfxparams):
+    op5,op5_ = ubfxparams
+    asm = """
+          mov r2, #{armv7op}
+          ubfx r3, r2, #{op5}, #{op5_}
+    """.format(**locals())
+    compare(tmpdir, asm, ["r2", "r3"])
+
+def test_media_uxtb(tmpdir, armv7op):
+    asm = """
+            mov r1, #{armv7op}
+            uxtb r2, r1, ror #0
+            uxtb r3, r1, ror #8
+            uxtb r4, r1, ror #16
+            uxtb r5, r1, ror #24
+    """.format(**locals())
+    compare(tmpdir, asm, ["r1", "r2", "r3", "r4", "r5",])
+
+def test_media_uxtab(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
+            uxtab r2, r0, r1, ror #0
+            uxtab r3, r0, r1, ror #8
+            uxtab r4, r0, r1, ror #16
+            uxtab r5, r0, r1, ror #24
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5",])
+
+def test_media_sxtb(tmpdir, armv7op):
+    asm = """
+            mov r1, #{armv7op}
+            sxtb r2, r1, ror #0
+            sxtb r3, r1, ror #8
+            sxtb r4, r1, ror #16
+            sxtb r5, r1, ror #24
+    """.format(**locals())
+    compare(tmpdir, asm, ["r1", "r2", "r3", "r4", "r5",])
+
+def test_media_sxtab(tmpdir, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            mov r1, #{armv7op_}
+            sxtab r2, r0, r1, ror #0
+            sxtab r3, r0, r1, ror #8
+            sxtab r4, r0, r1, ror #16
+            sxtab r5, r0, r1, ror #24
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5",])
+
+
+
 ##  ___   _ _____ _    __  _____ ___ ___ 
 ## |   \ /_\_   _/_\   \ \/ / __| __| _ \
 ## | |) / _ \| |/ _ \   >  <| _|| _||   /
