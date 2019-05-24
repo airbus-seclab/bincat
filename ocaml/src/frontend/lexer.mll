@@ -87,6 +87,8 @@ let _ =
     "es", ES;
     "fs", FS;
     "gs", GS;
+    "fs_base", FS_BASE;
+    "gs_base", GS_BASE;
     "analysis_ep", ENTRYPOINT;
     (* binary tokens *)
     "filepath", FILEPATH;

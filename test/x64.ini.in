@@ -41,6 +41,8 @@ ss = 0x00
 es = 0x00
 fs = 0x00
 gs = 0x0
+fs_base = 0x4000000
+gs_base = 0x5000000
 
 [state]
 reg[cf] = 0?1

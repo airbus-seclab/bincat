@@ -62,7 +62,7 @@ def reg_len(regname):
             "esi": 32, "edi": 32, "esp": 32, "ebp": 32,
             "ax": 16, "bx": 16, "cx": 16, "dx": 16, "si": 16, "di": 16,
             "sp": 16, "bp": 16, "cs": 16, "ds": 16, "es": 16, "ss": 16,
-            "fs": 16, "gs": 16,
+            "fs": 16, "gs": 16, "fs_base": 64, "gs_base": 64,
             "iopl": 2,
             "mxcsr_fz": 1, "mxcsr_round": 2, "mxcsr_pm": 1, "mxcsr_um": 1,
             "mxcsr_om": 1, "mxcsr_zm": 1, "mxcsr_dm": 1, "mxcsr_im": 1,

@@ -250,6 +250,8 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let esi = Register.make ~name:"rsi" ~size:64
     let edi = Register.make ~name:"rdi" ~size:64
 
+    let fs_base = Register.make ~name:"fs_base" ~size:64
+    let gs_base = Register.make ~name:"gs_base" ~size:64
 
     let init_registers register_tbl xmm_tbl =
       let _rip = Register.make ~name:"rip" ~size:64 in

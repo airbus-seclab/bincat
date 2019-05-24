@@ -166,7 +166,7 @@
     %}
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT
 %token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
-%token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FLAT SEGMENTED STATE
+%token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FS_BASE GS_BASE FLAT SEGMENTED STATE
 %token FORMAT RAW MANUAL PE ELF ELFOBJ ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA UNDERSCORE
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
@@ -354,6 +354,8 @@
     | ES EQUAL i=init            { update_x64_mandatory ES; init_register "es" i }
     | FS EQUAL i=init            { update_x64_mandatory FS; init_register "fs" i }
     | GS EQUAL i=init            { update_x64_mandatory GS; init_register "gs" i }
+    | FS_BASE EQUAL i=init       { update_x64_mandatory FS_BASE; init_register "fs_base" i }
+    | GS_BASE EQUAL i=init       { update_x64_mandatory GS_BASE; init_register "gs_base" i }
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x64_mandatory GDT; Hashtbl.replace Config.gdt i v }
 
 
