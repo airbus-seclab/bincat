@@ -384,6 +384,7 @@ def test_media_pkhtb_pkhbt(tmpdir, armv7op, armv7op_, op5):
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3"])
 
 
+
 ##  ___   _ _____ _    __  _____ ___ ___ 
 ## |   \ /_\_   _/_\   \ \/ / __| __| _ \
 ## | |) / _ \| |/ _ \   >  <| _|| _||   /
