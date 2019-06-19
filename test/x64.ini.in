@@ -25,7 +25,7 @@ format = raw
 {program_section}
 
 [x64]
-mem_model = flat
+GDT[0] = 0x0000000000000000
 GDT[1] = 0x00cf9b000000ffff
 GDT[2] = 0x00af9b000000ffff
 GDT[3] = 0x00cf93000000ffff
@@ -41,6 +41,8 @@ ss = 0x00
 es = 0x00
 fs = 0x00
 gs = 0x0
+fs_base = 0x4000000
+gs_base = 0x5000000
 
 [state]
 reg[cf] = 0?1

@@ -346,47 +346,42 @@ def test_media_ubfx(tmpdir, armv7op, ubfxparams):
     """.format(**locals())
     compare(tmpdir, asm, ["r2", "r3"])
 
-def test_media_uxtb(tmpdir, armv7op):
+
+@pytest.mark.parametrize("opcode", ["uxtb", "uxth", "uxtb16",
+                                    "sxtb", "sxth", "sxtb16"])
+def test_media_uxtb_uxth_uxtb16_sxtb_sxth_sxtb16(tmpdir, opcode, armv7op):
     asm = """
             mov r1, #{armv7op}
-            uxtb r2, r1, ror #0
-            uxtb r3, r1, ror #8
-            uxtb r4, r1, ror #16
-            uxtb r5, r1, ror #24
+            {opcode} r2, r1, ror #0
+            {opcode} r3, r1, ror #8
+            {opcode} r4, r1, ror #16
+            {opcode} r5, r1, ror #24
     """.format(**locals())
     compare(tmpdir, asm, ["r1", "r2", "r3", "r4", "r5",])
 
-def test_media_uxtab(tmpdir, armv7op, armv7op_):
+
+@pytest.mark.parametrize("opcode", ["uxtab", "uxtah", "uxtab16",
+                                    "sxtab", "sxtah", "sxtab16"])
+def test_media_uxtab_uxtah_uxtab16_sxtab_sxtah_sxtab16(tmpdir, opcode, armv7op, armv7op_):
     asm = """
             mov r0, #{armv7op}
             mov r1, #{armv7op_}
-            uxtab r2, r0, r1, ror #0
-            uxtab r3, r0, r1, ror #8
-            uxtab r4, r0, r1, ror #16
-            uxtab r5, r0, r1, ror #24
+            {opcode} r2, r0, r1, ror #0
+            {opcode} r3, r0, r1, ror #8
+            {opcode} r4, r0, r1, ror #16
+            {opcode} r5, r0, r1, ror #24
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5",])
 
-def test_media_sxtb(tmpdir, armv7op):
-    asm = """
-            mov r1, #{armv7op}
-            sxtb r2, r1, ror #0
-            sxtb r3, r1, ror #8
-            sxtb r4, r1, ror #16
-            sxtb r5, r1, ror #24
-    """.format(**locals())
-    compare(tmpdir, asm, ["r1", "r2", "r3", "r4", "r5",])
 
-def test_media_sxtab(tmpdir, armv7op, armv7op_):
+def test_media_pkhtb_pkhbt(tmpdir, armv7op, armv7op_, op5):
     asm = """
             mov r0, #{armv7op}
             mov r1, #{armv7op_}
-            sxtab r2, r0, r1, ror #0
-            sxtab r3, r0, r1, ror #8
-            sxtab r4, r0, r1, ror #16
-            sxtab r5, r0, r1, ror #24
+            pkhbt r2, r0, r1, lsl #{op5}
+            pkhtb r3, r0, r1, asr #{op5}
     """.format(**locals())
-    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r5",])
+    compare(tmpdir, asm, ["r0", "r1", "r2", "r3"])
 
 
 
