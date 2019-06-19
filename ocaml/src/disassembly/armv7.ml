@@ -937,7 +937,22 @@ struct
        else (* PKHTB *)
          [ Set (V (preg rd 0 15), op2)  ;
            Set (V (preg rd 16 31), Lval (V (preg rn 16 31))) ]
-    | 0b000,0b011 -> notimplemented_arm s instruction "SXTAB16 / SXTB16"
+    | 0b000,0b011 -> (* SXTAB16 / SXTB16 *)
+       let rotate = (instruction lsr 7) land 0x18 in
+       let add_if_needed_16 rn a b expr =
+         if rn == 0xf
+         then expr
+         else BinOp (Add, Lval (V (preg rn a b)), expr) in
+       [ Set (V (treg rd),
+              (BinOp (Or,
+                      UnOp(ZeroExt 32,
+                           add_if_needed_16 rn 0 15
+                             (UnOp (SignExt 16, Lval (V (preg rm rotate (rotate+7)))))),
+                      BinOp(Shl,
+                            UnOp(ZeroExt 32,
+                                 add_if_needed_16 rn 16 31
+                                   (UnOp (SignExt 16, Lval (V (preg rm ((rotate+16) mod 32) ((rotate+23) mod 32)))))),
+                            const 16 32))))]
     | 0b000,0b101 -> notimplemented_arm s instruction "SEL"
     | 0b010,0b000 | 0b010,0b010 | 0b010,0b100 | 0b010,0b110
       | 0b011,0b000 | 0b011,0b010 | 0b011,0b100 | 0b011,0b110 -> notimplemented_arm s instruction "SSAT"
@@ -948,9 +963,27 @@ struct
               add_if_needed rn (UnOp (SignExt 32,
                                       Lval (V (preg rm rotate (rotate+7)))))) ]
     | 0b011,0b001 -> notimplemented_arm s instruction "REV"
-    | 0b011,0b011 -> notimplemented_arm s instruction "SXTAH / SXTH"
+    | 0b011,0b011 -> (* SXTAH / SXTH *)
+       let rotate = (instruction lsr 7) land 0x18 in
+       let rotated =
+         if rotate < 24 then
+           Lval (V (preg rm rotate (rotate+15)))
+         else
+           BinOp (Or,
+                  UnOp (ZeroExt 16, Lval (V (preg rm rotate (rotate+7)))),
+                  BinOp (Shl, UnOp (ZeroExt 16, Lval (V (preg rm 0 7))) , const 8 16))
+       in [ Set (V (treg rd),
+                 add_if_needed rn (UnOp (SignExt 32, rotated ))) ]
     | 0b011,0b101 -> notimplemented_arm s instruction "REV16"
-    | 0b100,0b011 -> notimplemented_arm s instruction "UXTAB16 / UXTB16"
+    | 0b100,0b011 -> (* UXTAB16 / UXTB16 *)
+       let rotate = (instruction lsr 7) land 0x18 in
+       [ Set (V (treg rd),
+              add_if_needed rn
+                (BinOp (Or,
+                        UnOp (ZeroExt 32, Lval (V (preg rm rotate (rotate+7)))),
+                        BinOp(Shl,
+                              UnOp (ZeroExt 32, Lval (V (preg rm ((rotate+16) mod 32) ((rotate+23) mod 32)))),
+                              const 16 32))))]
     | 0b110,0b000 | 0b110,0b010 | 0b110,0b100 | 0b110,0b110
       | 0b111,0b000 | 0b111,0b010 | 0b111,0b100 | 0b111,0b110 -> notimplemented_arm s instruction "USAT"
     | 0b110,0b001 -> notimplemented_arm s instruction "USAT16"
@@ -960,7 +993,17 @@ struct
               add_if_needed rn (UnOp (ZeroExt 32,
                                       Lval (V (preg rm rotate (rotate+7)))))) ]
     | 0b111,0b001 -> notimplemented_arm s instruction "RBIT"
-    | 0b111,0b011 -> notimplemented_arm s instruction "UXTAH / UXTH"
+    | 0b111,0b011 -> (* UXTAH / UXTH *)
+       let rotate = (instruction lsr 7) land 0x18 in
+       let rotated =
+         if rotate < 24 then
+           Lval (V (preg rm rotate (rotate+15)))
+         else
+           BinOp (Or,
+                  UnOp (ZeroExt 16, Lval (V (preg rm rotate (rotate+7)))),
+                  BinOp (Shl, UnOp (ZeroExt 16, Lval (V (preg rm 0 7))) , const 8 16))
+       in [ Set (V (treg rd),
+                 add_if_needed rn (UnOp (ZeroExt 32, rotated ))) ]
     | 0b111,0b101 -> notimplemented_arm s instruction "REVSH"
     | _ -> error s.a (Printf.sprintf "unknown packing/unpacking/saturation/reversal instruction opcode (%08x)" instruction)
 
