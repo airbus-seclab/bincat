@@ -100,15 +100,16 @@ module Make(Modname: sig val name : string end) = struct
 
   let trace adrs fmsg =
     if log_info2 () then
-        let pc = Data.Address.to_string adrs in
-    let msg = fmsg Printf.sprintf in
-        let rec log_trace strlist =
-          match strlist with
-          | [] -> ()
-          | h::l ->
-            Printf.fprintf !logfid  "[TRACE] %s: %s\n" pc h;
-            log_trace l in
-        log_trace (split_on_char '\n' msg) ;
+      let pc = Data.Address.to_string adrs in
+      let msg = fmsg Printf.sprintf in
+      let rec log_trace strlist =
+        match strlist with
+        | [] -> ()
+        | h::l ->
+           Printf.fprintf !logfid  "[TRACE] %s: %s\n" pc h;
+           log_trace l
+      in
+      log_trace (split_on_char '\n' msg);
     flush !logfid
 
   let info2 fmsg =
@@ -132,9 +133,10 @@ module Make(Modname: sig val name : string end) = struct
         | [ remain ] -> remain
         | h::l ->
            Printf.fprintf !logfid  "[STDOUT] %s\n" h;
-          log_stdout l in
+           log_stdout l
+      in
       let remain = log_stdout (split_on_char '\n' msg) in
-      stdout_remain := remain ;
+      stdout_remain := remain;
       if remain <> "" then info2 (fun p -> p "line buffered stdout=[%s]" remain);
     flush !logfid
 
