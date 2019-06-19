@@ -163,7 +163,7 @@ struct
         match !unroll_nb with
         | Some _ -> ()
         | None ->
-           let n = f () in
+           let n = max (f ()) !Config.unroll in
            unroll_nb := Some n;
            L.analysis (fun p -> p "automatic loop unrolling detection. Computed value is 0x%x" n)
       with _ -> ()
