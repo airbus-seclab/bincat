@@ -33,3 +33,5 @@ let size (v, b) =
     raise (Exceptions.Error "incompatible size betwen bit vectors and Byte")
 
 let forget (v, b) = V.forget v, B.forget b
+let join (v1, b1) (v2, b2) = V.join v1 v2, B.join b1 b2
+let widen (v1, b1) (v2, b2) = V.widen v1 v2, B.widen b1 b2
