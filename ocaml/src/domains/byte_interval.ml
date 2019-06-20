@@ -42,3 +42,11 @@ let widen (l1, u1) (l2, u2) =
   let l' = if l2 < l1 then lbound else l2 in
   let u' = if u1 < u2 then ubound else u2 in
   l', u'
+
+let to_z v =
+  match v with
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "to_z: undefined interval"))
+  | I (l, u) ->
+     if l = u then Z.of_int l
+     else
+       raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "to_z: undefined interval"))
