@@ -31,3 +31,5 @@ let size (v, b) =
     v_sz
   else
     raise (Exceptions.Error "incompatible size betwen bit vectors and Byte")
+
+let forget (v, b) = V.forget v, B.forget b

@@ -24,3 +24,4 @@ type t =
 
 let top = 0, 255
 let size _ = 8
+let forget _ = top
