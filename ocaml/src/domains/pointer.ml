@@ -19,8 +19,105 @@
 module L = Log.Make(struct let name = "pointer" end)
 
 module A = Data.Address
-         
-module Make (V: Vector.T) =
+
+(** signature of a scalar *)
+module type T =
+sig
+    (** abstract data type *)
+    type t
+      
+    (** top on sz bit-width *)
+    val top: int -> t
+
+    (** returns length *)
+    val size: t -> int
+
+    (** forgets the content while preserving the taint *)
+    val forget: t -> (int * int) option -> t
+    (** the forget operation is bounded to bits from l to u if the second parameter is Some (l, u) *)
+
+    (** value conversion. May raise an exception *)
+    val to_z: t -> Z.t
+
+    (** char conversion. May raise an exception *)
+    val to_char: t -> char
+
+    (** abstract join *)
+    val join: t -> t -> t
+
+    (** abstract meet *)
+    val meet: t -> t -> t
+
+    (** widening *)
+    val widen: t -> t -> t
+
+    (** string conversion *)
+    val to_string: t -> string
+
+    (** string conversion (value string, taint string) *)
+    val to_strings: t -> string * string
+
+    (** binary operation *)
+    val binary: Asm.binop -> t -> t -> t
+
+    (** unary operation *)
+    val unary: Asm.unop -> t -> t
+
+    (** untaint *)
+    val untaint: t -> t
+
+    (** taint *)
+    val taint: t -> t
+
+    (** span taint *)
+    val span_taint: t -> Taint.t -> t
+
+    (** conversion from word *)
+    val of_word: Data.Word.t -> t
+
+    (** comparison *)
+    val compare: t -> Asm.cmp -> t -> bool
+
+    (** conversion to a set of addresses *)
+    val to_addresses: Data.Address.region -> t -> Data.Address.Set.t
+
+    (** check whether the first argument is included in the second one *)
+    val is_subset: t -> t -> bool
+
+    (** conversion from a config value.
+    The integer parameter is the size in bits of the config value *)
+    val of_config: Config.cvalue -> int -> t
+
+    (** conversion from a tainting value.
+        The value option is a possible previous init.
+        The computed taint is also returned *)
+    val taint_of_config: Config.tvalue list -> int -> t option -> t * Taint.t
+
+    (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
+    val combine: t -> t -> int -> int -> t
+
+    (** return the value corresponding to bits l to u may raise an exception if range bits exceeds the capacity of the vector *)
+    val extract: t -> int -> int -> t
+
+    (** [from_position v i len] returns the sub-vector v[i]...v[i-len-1] may raise an exception if i > |v| or i-len-1 < 0 *)
+    val from_position: t -> int -> int -> t
+
+    (** [of_repeat_val v v_len nb] returns the concatenation of pattern v having length v_len, nb times *)
+    val of_repeat_val: t -> int -> int -> t
+
+    (** returns the concatenation of the two given vectors *)
+    val concat: t -> t -> t
+
+    (** returns the minimal taint value of the given parameter *)
+    val get_minimal_taint: t -> Taint.t
+
+    (** returns the taint value of the given parameter *)
+    val taint_sources: t -> Taint.t
+
+
+end
+
+module Make (V: T)=
   (struct
     type t =
       | BOT
