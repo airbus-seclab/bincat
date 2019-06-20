@@ -22,6 +22,18 @@ type t =
   | BOT
   | I of int * int (* lower bound, upper bound *)
 
-let top = 0, 255
+let lbound = 0
+let mbound = 255
+let top = lbound, mbound
 let size _ = 8
 let forget _ = top
+
+let normalize l u =
+  let l' = if l < lbound then lbound else l in
+  let u' = if u > mbound then mbound else u in
+  l', u'
+  
+let join (l1, u1) (l2, u2) =
+  let l = min l1 l2 in
+  let u = max u1 u2 in
+  normalize l u            
