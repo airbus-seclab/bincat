@@ -48,6 +48,8 @@ ML=\
   domains/pointer.ml\
   domains/unrels.ml\
   domains/reduced_bit_tainting.ml\
+  domains/byte_interval.ml\
+  domains/reduced_taintedBitVector_byteInterval.ml\
   domains/heap.ml\
   domains/abstractStack.ml\
   domains/reduced_unrel_typenv_heap_stack.ml\
