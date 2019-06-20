@@ -23,3 +23,4 @@ type t =
   | I of int * int (* lower bound, upper bound *)
 
 let top = 0, 255
+let size _ = 8

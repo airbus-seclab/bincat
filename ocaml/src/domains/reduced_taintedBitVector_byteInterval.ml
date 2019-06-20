@@ -23,3 +23,11 @@ module B = Byte_interval
 type t = V.t * B.t
 
 let top = V.top, B.top
+        
+let size (v, b) =
+  let v_sz = V.size v in
+  let b_sz = B.size b in
+  if v_sz = b_sz then
+    v_sz
+  else
+    raise (Exceptions.Error "incompatible size betwen bit vectors and Byte")
