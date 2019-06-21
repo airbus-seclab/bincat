@@ -921,9 +921,24 @@ struct
         if Asm.equal_lval lv dst then d', taint
         else D.forget_lval dst d, taint
           
-      | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
+      | BinOp (Add, e1, e2) -> back_add_sub Sub dst e1 e2 d
       | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
-         
+(*      | TernOp (bexp, e1, e2) ->
+         let vif = D.eval_exp e1 d in
+         let velse = D.eval_exp e2 d in
+         let vflag = D.eval_exp dst in
+         let dif =
+           if D.compare vflag vif then
+             D.restrict dst vif true
+           else
+             D.bot
+         in
+         let delse =
+           if D.compare vflag velse then
+             D.restrict dst velse false
+         in
+         D.join dif delse
+ *)
       | _ -> D.forget_lval dst d, Taint.Set.singleton Taint.TOP
 
     (** backward transfert function on the given abstract value *)

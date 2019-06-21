@@ -434,8 +434,7 @@ module Make(D: T) =
 
 
     (** evaluates the given expression
-        returns the evaluated expression and a boolean to say if
-        the resulting expression is tainted
+        returns the evaluated expression and its taint
     *)
     let rec eval_exp m e check_address_validity: (D.t * Taint.t) =
       L.debug (fun p -> p "eval_exp(%s)" (Asm.string_of_exp e true));

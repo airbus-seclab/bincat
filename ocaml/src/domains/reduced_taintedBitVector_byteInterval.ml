@@ -38,6 +38,13 @@ let widen (v1, b1) (v2, b2) = V.widen v1 v2, B.widen b1 b2
 let taint (v, b) = V.taint v, b
 let untaint (v, b) = V.untaint v, b
 let taint_sources (v, _b) = V.taint_sources v
+let of_word w = V.of_word w, V.of_word w
+              
+let to_char (v, b) =
+  try
+    V.to_char v
+  with _ -> B.to_char b
+          
 let to_z (v, b) =
   try
     V.to_z v

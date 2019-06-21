@@ -20,14 +20,16 @@ module L = Log.Make(struct let name = "byte_interval" end)
 
 type t =
   | BOT
-  | I of int * int (* lower bound, upper bound *)
+  | I of Z.t * Z.t (* lower bound, upper bound *)
 
-let lbound = 0
-let ubound = 255
+let lbound = Z.zero
+let ubound = Z.of_int 255
 let top = lbound, ubound
+
 let size _ = 8
 let forget _ = top
-
+let of_word w = I (w, w)
+              
 let normalize l u =
   let l' = if l < lbound then lbound else l in
   let u' = if u > ubound then ubound else u in
@@ -47,6 +49,15 @@ let to_z v =
   match v with
   | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "to_z: undefined interval"))
   | I (l, u) ->
-     if l = u then Z.of_int l
+     if Z.compare l u = 0 then l
      else
-       raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "to_z: undefined interval"))
+       raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "to_z: non singleton interval"))
+
+let to_char v =
+  match v with
+  | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "to_char: undefined interval"))
+  | I (l, u) ->
+     if Z.compare l u = 0 then l
+     else
+       raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "to_char: non singleton interval"))
+         
