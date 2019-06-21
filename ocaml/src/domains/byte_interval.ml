@@ -57,7 +57,7 @@ let to_char v =
   match v with
   | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "to_char: undefined interval"))
   | I (l, u) ->
-     if Z.compare l u = 0 then l
+     if Z.compare l u = 0 then Char.chr (Z.to_int l)
      else
-       raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "to_char: non singleton interval"))
+       raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "to_char: non singleton interval or too large"))
          
