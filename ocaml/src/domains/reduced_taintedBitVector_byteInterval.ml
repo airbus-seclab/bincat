@@ -57,3 +57,5 @@ let meet (v1, b1) (v2, b2) = V.meet v1 v2, B.meet b1 b2
 let is_subset (v1, b1) (v2, b2) = V.is_subset v1 v2 && B.is_subset b1 b2
 
 let taint_of_config (v, b) c = V.taint_of_config v c, b
+
+let to_string (v, b) = [V.to_string v ; B.to_string b]

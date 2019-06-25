@@ -75,3 +75,10 @@ let is_subset i1 i2 =
   | BOT, _ -> true
   | _, BOT -> false
   | I (l1, u1), I (l2, u2) -> Z.compare l1 l2 <= 0 && Z.compare u1 u2 <= 0 
+
+let to_string i =
+  match i with
+  | BOT -> "_"
+  | I (l, u) ->
+     if Z.compare l u = 0 then Z.to_string l
+     else "["^(Z.to_string l)^", "^(Z.to_string u)^"]"
