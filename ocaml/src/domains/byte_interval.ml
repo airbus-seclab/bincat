@@ -69,3 +69,9 @@ let meet i1 i2 =
      let u = Z.min u1 u2 in
      if Z.compare l u > 0 then raise (Exceptions.Analysis (Exceptions.Empty "meet"))
      else I (l, u)
+
+let is_subset i1 i2 =
+  match i1, i2 with
+  | BOT, _ -> true
+  | _, BOT -> false
+  | I (l1, u1), I (l2, u2) -> Z.compare l1 l2 <= 0 && Z.compare u1 u2 <= 0 
