@@ -59,3 +59,8 @@ let is_subset (v1, b1) (v2, b2) = V.is_subset v1 v2 && B.is_subset b1 b2
 let taint_of_config (v, b) c = V.taint_of_config v c, b
 
 let to_string (v, b) = [V.to_string v ; B.to_string b]
+
+let to_strings (v, b) =
+  let v_str, taint_str = V.to_strings v in
+  let b_str = B.to_string b in
+  [v_str ; b_str], taint_str
