@@ -49,3 +49,5 @@ let to_z (v, b) =
   try
     V.to_z v
   with _ -> B.to_z b
+
+let get_minimal_taint (v, _b) = V.get_minimal_taint v
