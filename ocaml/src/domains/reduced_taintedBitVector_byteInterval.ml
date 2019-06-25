@@ -51,3 +51,6 @@ let to_z (v, b) =
   with _ -> B.to_z b
 
 let get_minimal_taint (v, _b) = V.get_minimal_taint v
+
+let meet (v1, b1) (v2, b2) =
+  V.meet v1 v2, B.meet b1 b2

@@ -61,4 +61,11 @@ let to_char v =
      else
        raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "to_char: non singleton interval or too large"))
          
-
+let meet i1 i2 =
+  match i1, i2 with
+  | BOT, _ | _, BOT -> raise (Exceptions.Analysis (Exceptions.Empty "meet"))
+  | I (l1, u1), I (l2, u2) ->
+     let l = Z.max l1 l2 in
+     let u = Z.min u1 u2 in
+     if Z.compare l u > 0 then raise (Exceptions.Analysis (Exceptions.Empty "meet"))
+     else I (l, u)
