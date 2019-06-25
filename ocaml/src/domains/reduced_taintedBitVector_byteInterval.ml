@@ -55,3 +55,5 @@ let get_minimal_taint (v, _b) = V.get_minimal_taint v
 let meet (v1, b1) (v2, b2) = V.meet v1 v2, B.meet b1 b2
 
 let is_subset (v1, b1) (v2, b2) = V.is_subset v1 v2 && B.is_subset b1 b2
+
+let taint_of_config (v, b) c = V.taint_of_config v c, b
