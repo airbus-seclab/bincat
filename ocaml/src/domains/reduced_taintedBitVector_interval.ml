@@ -18,49 +18,53 @@
 
 module L = Log.Make(struct let name = "reduced_taintedBitVector_byteInterval" end)
 module V = Vector.Make(Reduced_bit_tainting)
-module B = Byte_interval
+module I = IntervalDomain
 
-type t = V.t * B.t
+type t = V.t * I.t
 
-let top = V.top, B.top
+let top = V.top, I.top
         
-let size (v, b) =
+let size (v, i) =
   let v_sz = V.size v in
-  let b_sz = B.size b in
-  if v_sz = b_sz then
+  let i_sz = I.size i in
+  if v_sz = i_sz then
     v_sz
   else
     raise (Exceptions.Error "incompatible size betwen bit vectors and Byte")
 
-let forget (v, b) = V.forget v, B.forget b
-let join (v1, b1) (v2, b2) = V.join v1 v2, B.join b1 b2
-let widen (v1, b1) (v2, b2) = V.widen v1 v2, B.widen b1 b2
-let taint (v, b) = V.taint v, b
-let untaint (v, b) = V.untaint v, b
-let taint_sources (v, _b) = V.taint_sources v
-let of_word w = V.of_word w, V.of_word w
+let forget (v, i) = V.forget v, I.forget i
+let join (v1, i1) (v2, i2) = V.join v1 v2, I.join i1 i2
+let widen (v1, i1) (v2, i2) = V.widen v1 v2, I.widen i1 i2
+let taint (v, i) = V.taint v, i
+let untaint (v, i) = V.untaint v, i
+let taint_sources (v, _i) = V.taint_sources v
+let of_word w = V.of_word w, I.of_word w
               
-let to_char (v, b) =
+let to_char (v, i) =
   try
     V.to_char v
-  with _ -> B.to_char b
+  with _ -> I.to_char i
           
-let to_z (v, b) =
+let to_z (v, i) =
   try
     V.to_z v
-  with _ -> B.to_z b
+  with _ -> I.to_z i
 
-let get_minimal_taint (v, _b) = V.get_minimal_taint v
+let get_minimal_taint (v, _i) = V.get_minimal_taint v
 
-let meet (v1, b1) (v2, b2) = V.meet v1 v2, B.meet b1 b2
+let meet (v1, i1) (v2, i2) = V.meet v1 v2, I.meet i1 i2
 
-let is_subset (v1, b1) (v2, b2) = V.is_subset v1 v2 && B.is_subset b1 b2
+let is_subset (v1, i1) (v2, i2) = V.is_subset v1 v2 && I.is_subset i1 i2
 
-let taint_of_config (v, b) c = V.taint_of_config v c, b
+let taint_of_config (v, i) c = V.taint_of_config v c, i
 
-let to_string (v, b) = [V.to_string v ; B.to_string b]
+let to_string (v, i) = [V.to_string v; I.to_string i]
 
-let to_strings (v, b) =
+let to_strings (v, i) =
   let v_str, taint_str = V.to_strings v in
-  let b_str = B.to_string b in
-  [v_str ; b_str], taint_str
+  let i_str = I.to_string i in
+  [v_str ; i_str], taint_str
+
+let concat (v1, i1) (v2, i2) = V.concat v1 v2, I.concat i1 i2
+let span_taint (v, i) t = V.span_taint v t, i
+let unary op (v, i) = V.unary op v, I.unary op i 

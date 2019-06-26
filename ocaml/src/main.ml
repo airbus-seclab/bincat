@@ -102,7 +102,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
               complete_map.Mapped_mem.sections;
         L.info2(fun p -> p "-- End of mapped sections dump");
       end;
-    let module Pointer = Pointer.Make(Reduced_taintedBitVector_byteInterval) in
+    let module Pointer = Pointer.Make(Reduced_taintedBitVector_interval) in
     let module Domain = Reduced_unrel_typenv_heap_stack.Make(Pointer) in
     let decoder =
       match !Config.architecture with
