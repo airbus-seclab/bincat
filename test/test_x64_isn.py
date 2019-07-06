@@ -263,6 +263,12 @@ def test_arith_sub_reg16(tmpdir, op16, op16_):
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
 
+def test_arith_sub_imm8(tmpdir, op64, op8):
+    asm = """
+            mov rax, {op64:#x}
+            sub al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
 
 def test_arith_carrytop_adc(tmpdir, op32, op32_):
     asm = """
