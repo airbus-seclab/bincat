@@ -582,6 +582,41 @@ def test_arith_sub_reg16(tmpdir, op16, op16_):
           """.format(**locals())
     compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
+def test_arith_sub_reg8(tmpdir, op32, op8):
+    asm = """
+            mov eax, {op32:#x}
+            mov bl, {op8:#x}
+            sub al, bl
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_arith_add_imm8(tmpdir, op32, op8):
+    asm = """
+            mov eax, {op32:#x}
+            add al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_arith_adc_imm8(tmpdir, op32, op8):
+    asm = """
+            mov eax, {op32:#x}
+            adc al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+def test_arith_sub_imm8(tmpdir, op32, op8):
+    asm = """
+            mov eax, {op32:#x}
+            sub al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_arith_sbb_imm8(tmpdir, op32, op8):
+    asm = """
+            mov eax, {op32:#x}
+            sbb al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
 
 def test_arith_carrytop_adc(tmpdir, op32, op32_):
     asm = """
@@ -789,6 +824,19 @@ def test_logic_not_reg32(tmpdir, op32, op32_):
           """.format(**locals())
     compare(tmpdir, asm, ["eax"])
 
+def test_logic_and_imm8(tmpdir, op32, op8):
+    asm = """
+            mov eax, {op32:#x}
+            and al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax"])
+
+def test_logic_xor_imm8(tmpdir, op32, op8):
+    asm = """
+            mov eax, {op32:#x}
+            xor al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["eax"])
 
 ##  _    ___   ___  ___     __  ___ ___ ___     __   ___ ___  _  _ ___  
 ## | |  / _ \ / _ \| _ \   / / | _ \ __| _ \   / /  / __/ _ \| \| |   \ 
