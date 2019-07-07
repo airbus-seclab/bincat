@@ -1077,12 +1077,12 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let res_reg = Register.make ~name:name ~size:s.operand_sz in
     let res = V (T res_reg) in
     let res_cf_stmts = if use_carry then
-                         let carry_ext = UnOp (ZeroExt s.operand_sz, Lval (V (T fcf))) in
+                         let carry_ext = UnOp (ZeroExt dst_sz, Lval (V (T fcf))) in
                          [ Set(res, BinOp(op, BinOp(op, Lval dst, src), carry_ext)) ; (* dst-src-cf *)
-                           carry_flag_stmts_3 s.operand_sz (Lval dst) op src (Lval (V (T fcf)))]
+                           carry_flag_stmts_3 dst_sz (Lval dst) op src (Lval (V (T fcf)))]
                        else
                          [ Set(res, BinOp(op, Lval dst, src)) ;
-                           carry_flag_stmts s.operand_sz (Lval dst) op src ; ] in
+                           carry_flag_stmts dst_sz (Lval dst) op src ; ] in
     return s
       (res_cf_stmts @ [
          adjust_flag_stmts_from_res dst_sz (Lval dst) src (Lval res) ;
@@ -1099,10 +1099,11 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let add_sub_immediate s op use_carry r op_sz imm_sz =
     let r'  = V (to_reg r op_sz) in
     (* TODO : check if should sign extend *)
-    let w   = get_imm s imm_sz op_sz true in
+    let imm   = get_imm s imm_sz op_sz true in
     (* XXX damn hack *)
-    let dst_sz = if op_sz = 64 then 64 else imm_sz in
-    add_sub s op use_carry r' w dst_sz
+    let dst_sz = if op_sz = 64 then 64 else op_sz in
+    L.debug(fun p->p "add_sub_immediate: op_sz %d, dst_sz %d" op_sz dst_sz);
+    add_sub s op use_carry r' imm dst_sz
 
 
   let cmp_stmts e1 e2 sz =
