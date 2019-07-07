@@ -597,12 +597,14 @@ def test_arith_add_imm8(tmpdir, op32, op8):
           """.format(**locals())
     compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_arith_adc_imm8(tmpdir, op32, op8):
+def test_arith_adc_imm8(tmpdir, op32, op8, x86carryop):
     asm = """
+            {x86carryop}
             mov eax, {op32:#x}
             adc al, {op8:#x}
           """.format(**locals())
     compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
+
 def test_arith_sub_imm8(tmpdir, op32, op8):
     asm = """
             mov eax, {op32:#x}
@@ -610,8 +612,9 @@ def test_arith_sub_imm8(tmpdir, op32, op8):
           """.format(**locals())
     compare(tmpdir, asm, ["eax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_arith_sbb_imm8(tmpdir, op32, op8):
+def test_arith_sbb_imm8(tmpdir, op32, op8, x86carryop):
     asm = """
+            {x86carryop}
             mov eax, {op32:#x}
             sbb al, {op8:#x}
           """.format(**locals())

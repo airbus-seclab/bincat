@@ -263,10 +263,33 @@ def test_arith_sub_reg16(tmpdir, op16, op16_):
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
 
-def test_arith_sub_imm8(tmpdir, op64, op8):
+def test_arith_add_imm8(tmpdir, op32, op8):
     asm = """
-            mov rax, {op64:#x}
+            mov rax, {op32:#x}
+            add al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_arith_adc_imm8(tmpdir, op32, op8, x86carryop):
+    asm = """
+            {x86carryop}
+            mov rax, {op32:#x}
+            adc al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_arith_sub_imm8(tmpdir, op32, op8):
+    asm = """
+            mov rax, {op32:#x}
             sub al, {op8:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
+
+def test_arith_sbb_imm8(tmpdir, op32, op8, x86carryop):
+    asm = """
+            {x86carryop}
+            mov rax, {op32:#x}
+            sbb al, {op8:#x}
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "of", "sf", "zf", "cf", "pf", "af"])
 
