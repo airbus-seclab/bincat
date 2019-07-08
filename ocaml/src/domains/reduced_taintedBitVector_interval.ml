@@ -80,3 +80,4 @@ let extract (v, i) low up = V.extract v low up, I.extract i low up
 let combine (v1, i1) (v2, i2) low up = V.combine v1 v2 low up, I.combine i1 i2 low up
 let of_repeat_val (v, i) len nb = V.of_repeat_val v len nb, I.of_repeat_val i len nb
 let from_position (v, i) l len = V.from_position v l len, I.from_position i l len
+                                                                          (* let of_config c n = V.of_config c n, I.of_config c n*)

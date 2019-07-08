@@ -119,6 +119,40 @@ let unary op i =
               else top i.sz
           else top i.sz
 
+let bounds i = i.l, i.u
+             
+let mul i1 i2 =
+  let l1, u1 = bounds i1 in
+  let l2, u2 = bounds i2 in
+  let l, u =
+    if Z.compare l1 Z.zero >= 0 then
+      if Z.compare l2 Z.zero >= 0 then 
+        Z.mul l1 l2, Z.mul u1 u2
+      else
+        if Z.compare u2 Z.zero < 0 then 
+          Z.mul u1 l2, Z.mul l1 u2
+        else
+          Z.mul u1 l2, Z.mul u1 u2
+    else
+      if Z.compare u1 Z.zero < 0 then
+        if Z.compare l2 Z.zero >= 0 then 
+          Z.mul l1 u2, Z.mul u1 l2
+        else
+          if Z.compare u2 Z.zero < 0 then 
+            Z.mul u1 u2, Z.mul l1 l2
+          else
+            Z.mul l1 u2, Z.mul l1 l2
+      else 
+        if Z.compare l2 Z.zero >= 0 then 
+          Z.mul l1 u2, Z.mul u1 u2
+        else
+          if Z.compare u2 Z.zero < 0 then 
+            Z.mul u1 l2, Z.mul  l1 l2
+          else
+            Z.min (Z.mul l1 u2) (Z.mul u1 l2), Z.max (Z.mul l1 l2) (Z.mul u1 u2)
+  in
+  {l = l; u =u; sz = Z.numbits u}
+    
 let rec binary op i1 i2 =
   match op with
   | Asm.Add ->
@@ -131,6 +165,8 @@ let rec binary op i1 i2 =
      let i2' = {l = Z.neg i2.u; u = Z.neg i2.l; sz = i2.sz } in
      binary Asm.Add i1 i2'
 
+  | Asm.Mul -> mul i1 i2
+     
   | _ ->
      let sz = 2 * (max i1.sz i2.sz) in
      top sz
@@ -190,3 +226,10 @@ let from_position i l len =
   let u' = if Z.compare i.u ubound < 0 then i.u else ubound in
   { l = l'; u = u'; sz = i.sz } 
   
+(* let of_config c n =
+  match c with
+  | Config.Bytes (_, b) ->
+  | Config.Bytes_Mask ((_, b), m) ->
+  | Config.Content (_, c)         ->
+  | Config.CMask ((_, c), m) ->
+ *)
