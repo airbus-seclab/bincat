@@ -183,5 +183,10 @@ let combine i1 i2 low up =
 let of_repeat_val i len nb =
   { l = i.l ; u = Z.mul i.u (Z.shift_left Z.one nb); sz = len*nb }
 
-
+let from_position i l len =
+  let lbound = Z.shift_left Z.one l in
+  let ubound = Z.shift_left Z.one (l+len) in
+  let l' = if Z.compare i.l lbound < 0 then lbound else i.l in
+  let u' = if Z.compare i.u ubound < 0 then i.u else ubound in
+  { l = l'; u = u'; sz = i.sz } 
   
