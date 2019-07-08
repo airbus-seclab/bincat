@@ -155,9 +155,27 @@ let to_addresses r i =
   in
   process i.l
 
-let extract i low up = 
+let extract i low up =
   let l' = max i.l (Z.shift_left Z.one low) in
   let u' = min i.u (Z.shift_left Z.one up) in
   if Z.compare l' u' > 0 then
     raise (Exceptions.Error "illegal extract operation on intervals");
   { l = l'; u = u'; sz = i.sz }
+
+let combine i1 i2 low up =
+  (* TODO: factorize these checks with Vector.combine *)
+  if i2.sz <> up-low+1 then
+        L.abort (fun p -> p "combine: source is %d bits while it is supposed to fit into %d bits (from bit %i to %i)"
+                            i2.sz (up-low+1) low up);
+  
+  if low > up then L.abort (fun p -> p "combine : low=%i > up=%i" low up);     if up >= i1.sz then
+            L.abort (fun p -> p "combine : writing out of v1: up=%i >= length(v1)=%i" up i1.sz);
+  let l' =
+    if Z.compare i1.l (Z.shift_left Z.one low) <= 0 then i1.l
+    else i2.l
+  in
+  let u' =
+    if Z.compare i1.u (Z.shift_left Z.one up) > 0 then i1.u
+    else i2.u
+  in
+  { l = l'; u = u'; sz = i1.sz }
