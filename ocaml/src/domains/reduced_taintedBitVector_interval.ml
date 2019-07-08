@@ -71,3 +71,7 @@ let unary op (v, i) = V.unary op v, I.unary op i
 let binary op (v1, i1) (v2, i2) = V.binary op v1 v2, I.binary op i1 i2
 
 let compare (v1, i1) cmp (v2, i2) = V.compare v1 cmp v2 && I.compare i1 cmp i2
+let to_addresses r (v, i) =
+  let vaddresses = V.to_addresses r v in
+  let iaddresses = I.to_addresses r i in
+  Data.Address.Set.inter vaddresses iaddresses

@@ -143,3 +143,14 @@ let rec compare i1 cmp i2 =
   | Asm.GEQ -> compare i2 Asm.LEQ i1
   | Asm.GT -> compare i2 Asm.LT i1
   | Asm.NEQ -> not (is_subset i1 i2)
+
+let to_addresses r i =
+  let rec process z =
+    if Z.compare z i.u = 0 then
+      Data.Address.Set.singleton (r, Data.Word.of_int z i.sz)
+    else
+      let addresses = process (Z.add z Z.one) in
+      let a = Data.Address.of_int r z i.sz in
+      Data.Address.Set.add a addresses
+  in
+  process i.l
