@@ -135,4 +135,11 @@ let rec binary op i1 i2 =
      let sz = 2 * (max i1.sz i2.sz) in
      top sz
 
-let compare i1 i2 = Z.compare i1.l i2.l <= 0 && Z.compare i2.l i2.l <= 0
+let rec compare i1 cmp i2 =
+  match cmp with
+  | Asm.EQ | Asm.LEQ | Asm.LT ->
+     Z.compare i1.l i2.l <= 0 && Z.compare i2.l i2.l <= 0
+    
+  | Asm.GEQ -> compare i2 Asm.LEQ i1
+  | Asm.GT -> compare i2 Asm.LT i1
+  | Asm.NEQ -> not (is_subset i1 i2)
