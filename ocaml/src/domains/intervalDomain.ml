@@ -154,3 +154,10 @@ let to_addresses r i =
       Data.Address.Set.add a addresses
   in
   process i.l
+
+let extract i low up = 
+  let l' = max i.l (Z.shift_left Z.one low) in
+  let u' = min i.u (Z.shift_left Z.one up) in
+  if Z.compare l' u' > 0 then
+    raise (Exceptions.Error "illegal extract operation on intervals");
+  { l = l'; u = u'; sz = i.sz }
