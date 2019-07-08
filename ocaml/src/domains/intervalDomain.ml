@@ -19,9 +19,11 @@
 module L = Log.Make(struct let name = "byte_interval" end)
 
 type t = {l: Z.t; u: Z.t; sz: int} (* l=lower bound; u=upper bound; sz=width in bits *)
-
+  
 let lbound: Z.t = Z.zero
+
 let ubound (sz: int): Z.t = Z.sub (Z.shift_left Z.one sz) Z.one (* TODO: optimize with memoization ?*)
+
 let top (sz: int): t = {l=lbound; u=ubound sz; sz=sz}
 
 let size (v: t): int = v.sz
@@ -117,4 +119,20 @@ let unary op i =
               else top i.sz
           else top i.sz
 
-                 
+let rec binary op i1 i2 =
+  match op with
+  | Asm.Add ->
+     let l = Z.add i1.l i2.l in
+     let u = Z.add i1.u i2.u in
+     let sz = max (Z.numbits l) (Z.numbits u) in
+     { l = l ; u = u ; sz = sz }
+
+  | Asm.Sub ->
+     let i2' = {l = Z.neg i2.u; u = Z.neg i2.l; sz = i2.sz } in
+     binary Asm.Add i1 i2'
+
+  | _ ->
+     let sz = 2 * (max i1.sz i2.sz) in
+     top sz
+
+let compare i1 i2 = Z.compare i1.l i2.l <= 0 && Z.compare i2.l i2.l <= 0

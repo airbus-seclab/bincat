@@ -68,3 +68,6 @@ let to_strings (v, i) =
 let concat (v1, i1) (v2, i2) = V.concat v1 v2, I.concat i1 i2
 let span_taint (v, i) t = V.span_taint v t, i
 let unary op (v, i) = V.unary op v, I.unary op i 
+let binary op (v1, i1) (v2, i2) = V.binary op v1 v2, I.binary op i1 i2
+
+let compare (v1, i1) (v2, i2) = V.compare v1 v2 && I.compare i1 i2
