@@ -78,3 +78,4 @@ let to_addresses r (v, i) =
 
 let extract (v, i) low up = V.extract v low up, I.extract i low up
 let combine (v1, i1) (v2, i2) low up = V.combine v1 v2 low up, I.combine i1 i2 low up
+let of_repeat_val (v, i) len nb = V.of_repeat_val v len nb, I.of_repeat_val i len nb

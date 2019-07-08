@@ -179,3 +179,9 @@ let combine i1 i2 low up =
     else i2.u
   in
   { l = l'; u = u'; sz = i1.sz }
+
+let of_repeat_val i len nb =
+  { l = i.l ; u = Z.mul i.u (Z.shift_left Z.one nb); sz = len*nb }
+
+
+  
