@@ -144,7 +144,15 @@ let div i1 i2 =
         Z.div l1 l2, Z.div u1 l2
   in
   { l = l; u = u; sz = i1.sz }
-  
+
+let shl i1 i2 =
+  check_size i1 i2;
+  try
+    let l' = Z.shift_left i1.l (Z.to_int i2.l) in
+    let u' = Z.shift_left i1.u (Z.to_int i2.u) in
+    { l = l'; u = u'; sz = i1.sz }
+  with _ (* int converstion of a Z.t value fails *) -> top i1.sz
+                                                     
 let rec binary op i1 i2 =
   match op with
   | Asm.Add ->
