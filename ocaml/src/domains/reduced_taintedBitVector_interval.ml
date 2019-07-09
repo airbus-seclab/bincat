@@ -56,14 +56,21 @@ let meet (v1, i1) (v2, i2) = V.meet v1 v2, I.meet i1 i2
 
 let is_subset (v1, i1) (v2, i2) = V.is_subset v1 v2 && I.is_subset i1 i2
 
-let taint_of_config (v, i) c = V.taint_of_config v c, i
+let taint_of_config taints n (prev: t option): t * Taint.t =
+  let vprev, i'=
+    match prev with
+    | Some (v', i') -> Some v', i'
+    | None -> None, I.top n
+  in
+  let v', taint = V.taint_of_config taints n vprev in
+  (v', i'), taint
 
-let to_string (v, i) = [V.to_string v; I.to_string i]
+let to_string (v, i) = (V.to_string v) ^ (I.to_string i)
 
 let to_strings (v, i) =
   let v_str, taint_str = V.to_strings v in
   let i_str = I.to_string i in
-  [v_str ; i_str], taint_str
+  i_str^v_str, taint_str
 
 let concat (v1, i1) (v2, i2) = V.concat v1 v2, I.concat i1 i2
 let span_taint (v, i) t = V.span_taint v t, i
