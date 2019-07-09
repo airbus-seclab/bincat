@@ -152,6 +152,13 @@ let shl i1 i2 =
     let u' = Z.shift_left i1.u (Z.to_int i2.u) in
     { l = l'; u = u'; sz = i1.sz }
   with _ (* int converstion of a Z.t value fails *) -> top i1.sz
+
+let shr i1 i2 =
+  try
+    let l' = Z.shift_right i1.l (Z.to_int i2.u) in
+    let u' = Z.shift_right i1.u (Z.to_int i2.l) in
+    { l = l'; u = u'; sz = i1.sz }
+  with _ (* int converstion of a Z.t value fails *) -> top i1.sz
                                                      
 let rec binary op i1 i2 =
   match op with
@@ -173,9 +180,9 @@ let rec binary op i1 i2 =
   | Asm.IMod -> 
   | Asm.And -> 
   | Asm.Or -> 
-  | Asm.Xor -> 
-  | Asm.Shr -> 
-  | Asm.Shl -> *)
+  | Asm.Xor -> *)
+  | Asm.Shr -> shr i1 i2
+  | Asm.Shl -> shl i1 i2
   | _ ->
      let sz = 2 * (max i1.sz i2.sz) in
      top sz
