@@ -162,8 +162,22 @@ let shr i1 i2 =
 
 let logor i1 i2 =
   check_size i1 i2;
-  { l = Z.logor i1.l i2.l; u = Z.logor i1.u i2.u; sz = i1.sz }
-  
+  if is_singleton i1 && is_singleton i2 then
+    let b = Z.logor i1.l i2.l in
+    { l = b; u = b; sz = i1.sz }
+  else
+    begin
+	  let u = ref Z.one in
+	  let a = ref i1.u in
+	  let b = ref i2.u in
+	  while (Z.compare !a Z.zero <> 0) || (Z.compare !b Z.zero <> 0) do
+	    u := Z.shift_left !u 1;
+	    a := Z.shift_right !a 1;
+	    b := Z.shift_right !b 1
+	  done;
+	  { l = Z.max i1.l i2.l; u = Z.sub !u Z.one; sz = i1.sz }
+    end
+    
 let rec binary op i1 i2 =
   match op with
   | Asm.Add ->
@@ -182,8 +196,9 @@ let rec binary op i1 i2 =
   | Asm.IDiv ->
   | Asm.Mod -> 
   | Asm.IMod -> 
-  | Asm.And -> 
-  | Asm.Xor -> *)   
+ 
+  | Asm.Xor -> 
+  | Asm.And -> *)
   | Asm.Or -> logor i1 i2
   | Asm.Shr -> shr i1 i2
   | Asm.Shl -> shl i1 i2
