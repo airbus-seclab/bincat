@@ -122,7 +122,7 @@ let bounds i = i.l, i.u
 let mul i1 i2 =
   let l = Z.mul i1.l i2.l in
   let u = Z.mul i1.u i2.u in
-  { l = l; u = u; sz = Z.numbits }
+  { l = l; u = u; sz = Z.numbits u }
 
 let div_cst i c =
   let l, u = bounds i in
@@ -159,7 +159,7 @@ let rec binary op i1 i2 =
 
   | Asm.Mul -> mul i1 i2
   | Asm.Div -> div i1 i2
-  | Asm.IMul -> 
+ (* | Asm.IMul -> 
   | Asm.IDiv ->
   | Asm.Mod -> 
   | Asm.IMod -> 
@@ -167,7 +167,7 @@ let rec binary op i1 i2 =
   | Asm.Or -> 
   | Asm.Xor -> 
   | Asm.Shr -> 
-  | Asm.Shl -> 
+  | Asm.Shl -> *)
   | _ ->
      let sz = 2 * (max i1.sz i2.sz) in
      top sz
