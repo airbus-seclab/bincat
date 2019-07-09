@@ -177,7 +177,15 @@ let logor i1 i2 =
 	  done;
 	  { l = Z.max i1.l i2.l; u = Z.sub !u Z.one; sz = i1.sz }
     end
-    
+
+let logand i1 i2 =
+  check_size i1 i2;
+  if is_singleton i1 && is_singleton i2 then 
+      let l = Z.logand i1.l i2.l in
+	  { l = l;  u = l; sz = i1.sz }
+  else
+    { l = Z.zero; u = Z.min i1.u i2.u; sz = i1.sz }
+  
 let rec binary op i1 i2 =
   match op with
   | Asm.Add ->
@@ -197,8 +205,8 @@ let rec binary op i1 i2 =
   | Asm.Mod -> 
   | Asm.IMod -> 
  
-  | Asm.Xor -> 
-  | Asm.And -> *)
+  | Asm.Xor -> *)
+  | Asm.And -> logand i1 i2
   | Asm.Or -> logor i1 i2
   | Asm.Shr -> shr i1 i2
   | Asm.Shl -> shl i1 i2
