@@ -529,10 +529,7 @@ module Make(V: Val) =
             msb1 := !msb1+1;
           done;
           if !msb1 = lv1 then
-            L.abort (fun p -> p "core_div((%d)%s, (%d)%s): Division by zero"
-              (Array.length v1) (to_string v1)
-              (Array.length v2) (to_string v2)
-            )
+            raise (Exceptions.Analysis Exceptions.DivByZero)
           else
             let quo = Array.make lv1 V.zero in
             let rem = ref v1 in

@@ -120,51 +120,20 @@ let unary op i =
 let bounds i = i.l, i.u
              
 let mul i1 i2 =
-  let l1, u1 = bounds i1 in
-  let l2, u2 = bounds i2 in
-  let l, u =
-    if Z.compare l1 Z.zero >= 0 then
-      if Z.compare l2 Z.zero >= 0 then 
-        Z.mul l1 l2, Z.mul u1 u2
-      else
-        if Z.compare u2 Z.zero < 0 then 
-          Z.mul u1 l2, Z.mul l1 u2
-        else
-          Z.mul u1 l2, Z.mul u1 u2
-    else
-      if Z.compare u1 Z.zero < 0 then
-        if Z.compare l2 Z.zero >= 0 then 
-          Z.mul l1 u2, Z.mul u1 l2
-        else
-          if Z.compare u2 Z.zero < 0 then 
-            Z.mul u1 u2, Z.mul l1 l2
-          else
-            Z.mul l1 u2, Z.mul l1 l2
-      else 
-        if Z.compare l2 Z.zero >= 0 then 
-          Z.mul l1 u2, Z.mul u1 u2
-        else
-          if Z.compare u2 Z.zero < 0 then 
-            Z.mul u1 l2, Z.mul  l1 l2
-          else
-            Z.min (Z.mul l1 u2) (Z.mul u1 l2), Z.max (Z.mul l1 l2) (Z.mul u1 u2)
-  in
-  {l = l; u =u; sz = Z.numbits u}
+  let l = Z.mul i1.l i2.l in
+  let u = Z.mul i1.u i2.u in
+  { l = l; u = u; sz = Z.numbits }
 
 let div_cst i c =
   let l, u = bounds i in
   if Z.compare c Z.zero = 0 then
-    raise (Exceptions.Analysis (Exceptions.Empty "div_cst"));
+    raise (Exceptions.Analysis Exceptions.DivByZero);
   if Z.compare l u = 0 then
     let d = Z.div l c in
     d, d
   else
-    if Z.compare c Z.zero > 0 then 
       Z.div l c, Z.div u c 
-    else
-      Z.div u c, Z.div l c
-  
-  
+    
 let div i1 i2 =
   let l1, u1 = bounds i1 in
   let l2, u2 = bounds i2 in
@@ -172,11 +141,7 @@ let div i1 i2 =
     if Z.compare l2 u2 = 0 then
       div_cst i1 l2 
     else 
-      if Z.compare l2 Z.zero > 0 then
         Z.div l1 l2, Z.div u1 l2
-      else 
-	    let d = Z.max (Z.abs l1) (Z.abs u1) in
-	    Z.neg d, d
   in
   { l = l; u = u; sz = i1.sz }
   
@@ -194,7 +159,15 @@ let rec binary op i1 i2 =
 
   | Asm.Mul -> mul i1 i2
   | Asm.Div -> div i1 i2
-    
+  | Asm.IMul -> 
+  | Asm.IDiv ->
+  | Asm.Mod -> 
+  | Asm.IMod -> 
+  | Asm.And -> 
+  | Asm.Or -> 
+  | Asm.Xor -> 
+  | Asm.Shr -> 
+  | Asm.Shl -> 
   | _ ->
      let sz = 2 * (max i1.sz i2.sz) in
      top sz

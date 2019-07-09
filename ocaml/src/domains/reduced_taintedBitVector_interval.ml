@@ -57,7 +57,7 @@ let meet (v1, i1) (v2, i2) = V.meet v1 v2, I.meet i1 i2
 let is_subset (v1, i1) (v2, i2) = V.is_subset v1 v2 && I.is_subset i1 i2
 
 let taint_of_config taints n (prev: t option): t * Taint.t =
-  let vprev, i'=
+  let vprev, i' =
     match prev with
     | Some (v', i') -> Some v', i'
     | None -> None, I.top n

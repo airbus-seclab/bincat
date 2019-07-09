@@ -29,6 +29,7 @@ type analysis_kind =
   | Null_deref of string (** NULL dereference *)
   | Stack of string (** Stack errors *)
   | Stop of string (** stops analysis *)
+  | DivByZero (** division by zero *)
 
 exception Analysis of analysis_kind
 
@@ -45,6 +46,7 @@ let string_of_analysis a =
   | Null_deref msg -> "tried to dereference a NULL value: "^msg
   | Stack msg -> "stack manipulation error: "^msg
   | Stop msg -> "analysis stops for the current context: "^msg
-     
+  | DivByZero -> "division by zero"
+              
 (** raised when an unexpected behavior happens (undefined decoding, etc.) *)
 exception Error of string
