@@ -22,7 +22,7 @@ module I = IntervalDomain
 
 type t = V.t * I.t
 
-let top = V.top, I.top
+let top sz = V.top sz, I.top sz
         
 let size (v, i) =
   let v_sz = V.size v in
@@ -32,7 +32,7 @@ let size (v, i) =
   else
     raise (Exceptions.Error "incompatible size betwen bit vectors and Byte")
 
-let forget (v, i) = V.forget v, I.forget i
+let forget (v, i) opt = V.forget v opt, I.forget i opt
 let join (v1, i1) (v2, i2) = V.join v1 v2, I.join i1 i2
 let widen (v1, i1) (v2, i2) = V.widen v1 v2, I.widen i1 i2
 let taint (v, i) = V.taint v, i
@@ -80,4 +80,5 @@ let extract (v, i) low up = V.extract v low up, I.extract i low up
 let combine (v1, i1) (v2, i2) low up = V.combine v1 v2 low up, I.combine i1 i2 low up
 let of_repeat_val (v, i) len nb = V.of_repeat_val v len nb, I.of_repeat_val i len nb
 let from_position (v, i) l len = V.from_position v l len, I.from_position i l len
-                                                                          (* let of_config c n = V.of_config c n, I.of_config c n*)
+
+let of_config c n = V.of_config c n, I.of_config c n

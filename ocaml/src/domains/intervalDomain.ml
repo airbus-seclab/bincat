@@ -28,7 +28,8 @@ let top (sz: int): t = {l=lbound; u=ubound sz; sz=sz}
 
 let size (v: t): int = v.sz
              
-let forget (v: t): t = top v.sz
+let forget (v: t) _opt: t =
+  (*TODO: could be more precise by pattern mathcing opt argument *) top v.sz
              
 let of_word (w: Data.Word.t): t =
   let z = Data.Word.to_int w in 
@@ -49,7 +50,7 @@ let widen i1 i2 =
   check_size i1 i2;
   let l' = if Z.compare i2.l i1.l < 0 then lbound else i2.l in
   let u' = if Z.compare i1.u i2.u < 0 then ubound i2.sz else i2.u in
-  l', u'
+  { l=l'; u=u'; sz=i1.sz }
 
 let is_singleton i = Z.compare i.l i.u = 0
                      
@@ -94,10 +95,7 @@ let val_of_sign_extend first last =
 let unary op i =
   match op with
   | Asm.Not ->
-     if is_singleton i then
-       let n = Z.lognot i.l in
-       { l=n; u=n; sz=i.sz }
-     else top i.sz
+     { l=Z.lognot i.u; u=Z.lognot i.l; sz=i.sz }     
 
   | Asm.ZeroExt n ->
      if i.sz >= n then i
@@ -256,10 +254,15 @@ let from_position i l len =
   let u' = if Z.compare i.u ubound < 0 then i.u else ubound in
   { l = l'; u = u'; sz = i.sz } 
   
-(* let of_config c n =
+let of_config c n =
   match c with
   | Config.Bytes (_, b) ->
-  | Config.Bytes_Mask ((_, b), m) ->
-  | Config.Content (_, c)         ->
-  | Config.CMask ((_, c), m) ->
- *)
+     let z = Z.of_string_base 16 b in
+     {l=z; u=z; sz = n}
+     
+  | Config.Bytes_Mask ((_, _), _) -> (* TODO: could be more precise *) top n
+     
+  | Config.Content (_, c) -> {l=c; u=c; sz=n}  
+     
+  | Config.CMask ((_, _c), _) -> (* TODO: could be more precise *) top n
+
