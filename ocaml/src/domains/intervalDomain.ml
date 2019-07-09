@@ -159,7 +159,11 @@ let shr i1 i2 =
     let u' = Z.shift_right i1.u (Z.to_int i2.l) in
     { l = l'; u = u'; sz = i1.sz }
   with _ (* int converstion of a Z.t value fails *) -> top i1.sz
-                                                     
+
+let logor i1 i2 =
+  check_size i1 i2;
+  { l = Z.logor i1.l i2.l; u = Z.logor i1.u i2.u; sz = i1.sz }
+  
 let rec binary op i1 i2 =
   match op with
   | Asm.Add ->
@@ -179,8 +183,8 @@ let rec binary op i1 i2 =
   | Asm.Mod -> 
   | Asm.IMod -> 
   | Asm.And -> 
-  | Asm.Or -> 
-  | Asm.Xor -> *)
+  | Asm.Xor -> *)   
+  | Asm.Or -> logor i1 i2
   | Asm.Shr -> shr i1 i2
   | Asm.Shl -> shl i1 i2
   | _ ->
