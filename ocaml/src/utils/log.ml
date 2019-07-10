@@ -243,6 +243,27 @@ module History =
       Hashtbl.add msg_id_tbl id (prev, msg);
       msg_id := !msg_id + 1;
       id
+
+    let rec get_path id: t list list =
+      let preds, _msg = Hashtbl.find msg_id_tbl id in
+      if preds = [] then
+        []
+      else
+        List.fold_left (fun acc pred ->
+            let paths = List.map (fun p -> id::p) (get_path pred) in
+            paths @ acc
+          ) [] preds
+
+          
       
-    let get_msg id = snd (Hashtbl.find msg_id_tbl id)
+    let rec get_msg id =
+      let preds, msg = Hashtbl.find msg_id_tbl id in
+      if preds = [] then
+        ""
+      else
+        List.fold_left (fun acc pred ->
+            msg ^ " " ^ (get_msg pred) ^ " " ^ acc
+          ) "" preds
+                           
+
   end
