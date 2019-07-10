@@ -85,8 +85,8 @@ module Make(D: Unrel.T) =
                 
     let add_register r m =
       match m with
-      | BOT -> Val ([U.add_register r U.empty, []])
-      | Val m' -> Val (List.map (fun (u, ids) -> U.add_register r u, ids) m')
+      | BOT -> BOT
+      | Val m' -> Val (List.map (fun (u, id) -> U.add_register r u, id) m')
 
     let to_string m id =
       match m with
