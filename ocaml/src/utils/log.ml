@@ -211,35 +211,38 @@ let close () =
   close_out !logfid
 
 (* message management *)
-type msg_id_t = int
-let compare_msg_id id1 id2 = id1 - id2
-let equal_msg_id id1 id2 = id1 = id2
-let msg_id_tbl: (msg_id_t, string) Hashtbl.t = Hashtbl.create 5
-let msg_id = ref 0
-let compare_msg_id_list l1 l2 =
-  let len1 = List.length l1 in
-  let len2 = List.length l2 in
-  let n = len1 - len2 in
-  if n <> 0 then n
-  else
-    begin
-      let n = ref 0 in
-      try
-        List.iter2 (fun id1 id2 ->
-            let r = compare_msg_id id1 id2 in
-            if r <> 0 then
-              begin
-                n := r;
-                raise Exit
-              end) l1 l2;
-        !n
-      with Exit -> !n
-    end
-                            
-let new_msg_id (msg: string): msg_id_t =
-  let id = !msg_id in
-  Hashtbl.add msg_id_tbl id msg;
-  msg_id := !msg_id + 1;
-  id
-  
-let get_msg_from_id id = Hashtbl.find msg_id_tbl id
+module History =
+  struct 
+    type t = int
+    let compare_msg_id id1 id2 = id1 - id2
+    let equal_msg_id id1 id2 = id1 = id2
+    let msg_id_tbl: (t, t list * string) Hashtbl.t = Hashtbl.create 5 (* the t list is the list of its ancestors *)
+    let msg_id = ref 0
+    let compare_msg_id_list l1 l2 =
+      let len1 = List.length l1 in
+      let len2 = List.length l2 in
+      let n = len1 - len2 in
+      if n <> 0 then n
+      else
+        begin
+          let n = ref 0 in
+          try
+            List.iter2 (fun id1 id2 ->
+                let r = compare_msg_id id1 id2 in
+                if r <> 0 then
+                  begin
+                    n := r;
+                    raise Exit
+                  end) l1 l2;
+            !n
+          with Exit -> !n
+        end
+      
+    let new_ (prev: t list) (msg: string): t =
+      let id = !msg_id in
+      Hashtbl.add msg_id_tbl id (prev, msg);
+      msg_id := !msg_id + 1;
+      id
+      
+    let get_msg_from_id id = snd (Hashtbl.find msg_id_tbl id)
+  end

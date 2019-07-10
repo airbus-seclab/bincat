@@ -22,13 +22,13 @@ module L = Log.Make(struct let name = "unrels" end)
 module Make(D: Unrel.T) =
   struct
     module U = Unrel.Make(D)
-    type ut = U.t * (Log.msg_id_t list) (* be careful: the list is supposed to be a stack *)
+    type ut = U.t * Log.History.t
 
     type t =
       | BOT
       | Val of ut list
 
-    let init () = Val [U.empty, []]
+    let init () = Val [U.empty, Log.History.new_ ""]
                 
     let bot = BOT
             

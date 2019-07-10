@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -42,7 +42,7 @@ struct
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
+    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t) (d: domain_t) ret args (prev_h: Log.History.t) : domain_t * Taint.Set.t =
       try
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
         let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
@@ -51,8 +51,8 @@ struct
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
         let ip_str = Data.Address.to_string calling_ip in
-        let success_id = Log.new_msg_id ("successful heap allocation at " ^ ip_str) in
-        let failure_id = Log.new_msg_id ("heap allocation failed at " ^ ip_str) in
+        let success_id = Log.History.new_ prev_h ("successful heap allocation at " ^ ip_str) in
+        let failure_id = Log.History.new_ prev_h ("heap allocation failed at " ^ ip_str) in
         D.set_lval_to_addr ret [ (addr, success_id) ; (Data.Address.of_null (), failure_id) ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
