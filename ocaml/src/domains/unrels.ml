@@ -92,12 +92,10 @@ module Make(D: Unrel.T) =
       match m with
       | BOT    -> ["_"]
       | Val m' ->
-         fst (List.fold_left (fun (acc, id') (u, msg_ids) ->
-                  let msg =
-                    List.fold_left (fun acc' msg_id -> (Log.get_msg_from_id msg_id)^", "^acc') "" msg_ids
-                  in
-                  (Printf.sprintf "\n[node %d - unrel %d]\ndescription =  %s" id id' msg)::((U.to_string u)@acc), id'+1
-                ) ([], 0) m')
+         List.fold_left (fun acc (u, id') ->
+                              let msg = Log.History.get_msg id' in
+                              (Printf.sprintf "\n[node %d - unrel %d]\ndescription =  %s" id id' msg)::((U.to_string u)@acc)
+                             ) [] m'
 
     let imprecise_value_of_exp e =
       raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))

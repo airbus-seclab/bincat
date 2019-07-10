@@ -244,5 +244,5 @@ module History =
       msg_id := !msg_id + 1;
       id
       
-    let get_msg_from_id id = snd (Hashtbl.find msg_id_tbl id)
+    let get_msg id = snd (Hashtbl.find msg_id_tbl id)
   end
