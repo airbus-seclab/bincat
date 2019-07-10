@@ -28,7 +28,7 @@ module Make(D: Unrel.T) =
       | BOT
       | Val of ut list
 
-    let init () = Val [U.empty, Log.History.new_ ""]
+    let init () = Val [U.empty, Log.History.new_ [] ""]
                 
     let bot = BOT
             
