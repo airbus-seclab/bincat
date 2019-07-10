@@ -122,7 +122,10 @@ module Make(D: Unrel.T) =
       L.info2 (fun p -> p "threshold on unrel number is exceeded: merging all the unrels into one (join)");
       match m with
       | [] -> []
-      | u::tl -> [List.fold_left (fun acc (u, _) -> U.join acc u) (fst u) tl, []]
+      | u::tl ->
+         let u', pred = List.fold_left (fun (u', pred) (u, id) -> U.join u' u, id::pred) (fst u, [snd u]) tl in
+         [u', Log.History.new_ pred "merge"]
+                           
                
     let set dst src m check_address_validity: (t * Taint.Set.t) =
       L.debug2 (fun p -> p "set %s <- %s" (Asm.string_of_lval dst true) (Asm.string_of_exp src true));
