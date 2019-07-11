@@ -1077,12 +1077,12 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let res_reg = Register.make ~name:name ~size:s.operand_sz in
     let res = V (T res_reg) in
     let res_cf_stmts = if use_carry then
-                         let carry_ext = UnOp (ZeroExt s.operand_sz, Lval (V (T fcf))) in
+                         let carry_ext = UnOp (ZeroExt dst_sz, Lval (V (T fcf))) in
                          [ Set(res, BinOp(op, BinOp(op, Lval dst, src), carry_ext)) ; (* dst-src-cf *)
-                           carry_flag_stmts_3 s.operand_sz (Lval dst) op src (Lval (V (T fcf)))]
+                           carry_flag_stmts_3 dst_sz (Lval dst) op src (Lval (V (T fcf)))]
                        else
                          [ Set(res, BinOp(op, Lval dst, src)) ;
-                           carry_flag_stmts s.operand_sz (Lval dst) op src ; ] in
+                           carry_flag_stmts dst_sz (Lval dst) op src ; ] in
     return s
       (res_cf_stmts @ [
          adjust_flag_stmts_from_res dst_sz (Lval dst) src (Lval res) ;
@@ -1096,13 +1096,14 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
 
   (** produces the state corresponding to an add or a sub with an immediate operand *)
-  let add_sub_immediate s op b r sz =
-    let r'  = V (to_reg r s.operand_sz) in
+  let add_sub_immediate s op use_carry r op_sz imm_sz =
+    let r'  = V (to_reg r op_sz) in
     (* TODO : check if should sign extend *)
-    let w   = get_imm s sz s.operand_sz true in
+    let imm   = get_imm s imm_sz op_sz true in
     (* XXX damn hack *)
-    let dst_sz = if s.operand_sz = 64 then 64 else sz in
-    add_sub s op b r' w dst_sz
+    let dst_sz = if op_sz = 64 then 64 else op_sz in
+    L.debug(fun p->p "add_sub_immediate: op_sz %d, dst_sz %d" op_sz dst_sz);
+    add_sub s op use_carry r' imm dst_sz
 
 
   let cmp_stmts e1 e2 sz =
@@ -2575,8 +2576,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\x01' -> (* ADD *) add_sub_mrm s Add false s.operand_sz 0
       | '\x02' -> (* ADD *) add_sub_mrm s Add false 8 1
       | '\x03' -> (* ADD *) add_sub_mrm s Add false s.operand_sz 1
-      | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax 8
-      | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.imm_sz
+      | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax 8 8
+      | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz s.imm_sz
       | '\x06' -> (* PUSH es *) let es' = to_reg es 16 in push s [V es']
       | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
       | '\x08' -> (* OR *) or_xor_and_mrm s Or 8 0
@@ -2595,8 +2596,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\x12' -> (* ADC *) add_sub_mrm s Add true 8 1
       | '\x13' -> (* ADC *) add_sub_mrm s Add true s.operand_sz 1
 
-      | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax 8
-      | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.imm_sz
+      | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax 8 8
+      | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz s.imm_sz
       | '\x16' -> (* PUSH ss *) let ss' = to_reg ss 16 in push s [V ss']
       | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
 
@@ -2604,8 +2605,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\x19' -> (* SBB *) add_sub_mrm s Sub true s.operand_sz 0
       | '\x1A' -> (* SBB *) add_sub_mrm s Sub true 8 1
       | '\x1B' -> (* SBB *) add_sub_mrm s Sub true s.operand_sz 1
-      | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax 8
-      | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz
+      | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax 8 8
+      | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz s.imm_sz
       | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds 16 in push s [V ds']
       | '\x1F' -> (* POP ds *) let ds' = to_reg ds 16 in pop s [V ds']
 
@@ -2622,8 +2623,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\x29' -> (* SUB *) add_sub_mrm s Sub false s.operand_sz 0
       | '\x2A' -> (* SUB *) add_sub_mrm s Sub false 8 1
       | '\x2B' -> (* SUB *) add_sub_mrm s Sub false s.operand_sz 1
-      | '\x2C' -> (* SUB AL with immediate *) add_sub_immediate s Sub false eax 8
-      | '\x2D' -> (* SUB eAX with immediate *) add_sub_immediate s Sub false eax s.imm_sz
+      | '\x2C' -> (* SUB AL with immediate *) add_sub_immediate s Sub false eax 8 8
+      | '\x2D' -> (* SUB eAX with immediate *) add_sub_immediate s Sub false eax s.operand_sz s.imm_sz
       | '\x2E' -> (* data segment = cs *) s.segments.data <- cs; (* will be set back to default value if the instruction is a jcc *) decode s
       | '\x2F' -> (* DAS *) das s
 
