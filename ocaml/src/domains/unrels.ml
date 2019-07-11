@@ -224,7 +224,7 @@ module Make(D: Unrel.T) =
          let mm2 = merge m2' in
          match mm1, mm2 with
          | [], _ | _, [] -> BOT
-         | (u1, id1)::_, (u2, id2)::_ -> Val ([U.widen u1 u2], Log.History.new_ [id1 ; id2] "widen")
+         | (u1, id1)::_, (u2, id2)::_ -> Val ([U.widen u1 u2, Log.History.new_ [id1 ; id2] "widen"])
 
 
             
