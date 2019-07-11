@@ -161,12 +161,13 @@ module Make(D: Unrel.T) =
          in
          let taint = ref (Taint.Set.singleton Taint.U) in
          let m2 =
-           List.fold_left (fun acc (a, msg_id) ->
+           List.fold_left (fun acc (a, msg) ->
                let m' =
-                 List.map (fun (u, prev_msg_id) ->
-                     let u', t = U.set_lval_to_addr lv a u check_address_validity in
+                 List.map (fun (u, prev_id) ->
+                     let u', t = U.set_lval_to_addr lv a u check_address_validity in                     
                      taint := Taint.Set.add t !taint;
-                     u', msg_id::prev_msg_id) m'
+                     let id = Log.History.new_ [prev_id] msg in
+                     u', id) m'
                in
                acc @ m'
              ) [] addrs
@@ -233,9 +234,9 @@ module Make(D: Unrel.T) =
       | BOT -> BOT,  Taint.Set.singleton Taint.BOT
       | Val m' ->
          let m', t' =
-           List.fold_left (fun (m, t) (u, msgs)  ->
+           List.fold_left (fun (m, t) (u, id)  ->
                let u', t' = f u in
-               (u', msgs)::m, Taint.Set.add t' t) ([], Taint.Set.singleton Taint.U) m'
+               (u', id)::m, Taint.Set.add t' t) ([], Taint.Set.singleton Taint.U) m'
          in
          Val m', t'
          
