@@ -222,12 +222,10 @@ module Make(D: Unrel.T) =
       | Val m1', Val m2' ->
          let mm1 = merge m1' in
          let mm2 = merge m2' in
-         let u' =
-           match mm1, mm2 with
-               | [], _ | _, [] -> U.empty
-               | (u1, _)::_, (u2, _)::_ -> U.widen u1 u2
-         in
-         Val ([u', []])
+         match mm1, mm2 with
+         | [], _ | _, [] -> BOT
+         | (u1, id1)::_, (u2, id2)::_ -> Val ([U.widen u1 u2], Log.History.new_ [id1 ; id2] "widen")
+
 
             
     let fold_on_taint m f =
