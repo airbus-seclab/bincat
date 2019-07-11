@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -67,8 +67,8 @@ module type T =
       Returns also the taint of the given expression *)
       val set: Asm.lval -> Asm.exp -> t -> t * Taint.Set.t
 
-      (** set the given left value to the given list of addresses. The asssociated Log.History.t refers to the id of a short message explaining the origin of these addresses *)
-      val set_lval_to_addr: Asm.lval -> (Data.Address.t * Log.History.t)  list -> t -> t * Taint.Set.t
+      (** set the given left value to the given list of addresses. The asssociated string a short message explaining the origin of these addresses *)
+      val set_lval_to_addr: Asm.lval -> (Data.Address.t * string) list -> t -> t * Taint.Set.t
         
       (** joins the two abstract values *)
       val join: t -> t -> t

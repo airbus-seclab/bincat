@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -104,7 +104,7 @@ module Make(D: Unrel.T) =
     (uenv', tenv', henv), b
 
 
-  let set_lval_to_addr (lv: Asm.lval) (addrs: (Data.Address.t * Log.msg_id_t) list) ((uenv, tenv, henv): t): t*Taint.Set.t =
+  let set_lval_to_addr (lv: Asm.lval) (addrs: (Data.Address.t * string) list) ((uenv, tenv, henv): t): t*Taint.Set.t =
     let uenv', b = U.set_lval_to_addr lv addrs uenv (H.check_status henv) in
     try
       let buf_typ =
