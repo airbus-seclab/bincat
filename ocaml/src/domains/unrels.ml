@@ -193,8 +193,9 @@ module Make(D: Unrel.T) =
         try
           let u' = U.meet (fst u1) (fst u2) in
           if List.exists (fun (u, _) -> U.is_subset u' u && U.is_subset u u') m then m
-          else 
-              (u', (snd u1)@(snd u2))::m
+          else
+            let id = Log.History.new_ [snd u1; snd u2] "meet" in
+              (u', id)::m
         with Exceptions.Empty _ ->
           bot := true;
           m
