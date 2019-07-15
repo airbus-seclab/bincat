@@ -119,28 +119,26 @@ let unary op i =
 
 let bounds i = i.l, i.u
 
-let div_cst i c =
+let div_rem_cst op i c =
   let l, u = bounds i in
   if Z.compare c Z.zero = 0 then
     raise (Exceptions.Analysis Exceptions.DivByZero);
   if Z.compare l u = 0 then
-    let d = Z.div l c in
+    let d = op l c in
     d, d
   else
       Z.div l c, Z.div u c 
-    
-let div i1 i2 =
+
+let core_div_rem op i1 i2 =
   let l1, u1 = bounds i1 in
   let l2, u2 = bounds i2 in
   let l, u = 
     if Z.compare l2 u2 = 0 then
-      div_cst i1 l2 
+      div_rem_cst op i1 l2 
     else 
-        Z.div l1 l2, Z.div u1 l2
+      op l1 l2, op u1 l2
   in
   { l = l; u = u; sz = i1.sz }
-
-
 
 let lift binop i1 i2 =
   check_size i1 i2;
@@ -168,10 +166,11 @@ let rec binary op i1 i2 =
      binary Asm.Add i1 i2'
 
   | Asm.Mul -> lift Z.mul i1 i2
-  | Asm.Div -> div i1 i2
- (* | Asm.IMul -> 
+  | Asm.Div -> core_div_rem Z.div i1 i2
+  | Asm.Mod -> core_div_rem Z.rem i1 i2
+  (* | Asm.IMul -> 
   | Asm.IDiv ->
-  | Asm.Mod -> 
+
   | Asm.IMod -> *)
  
   | Asm.Xor -> lift Z.logxor i1 i2
