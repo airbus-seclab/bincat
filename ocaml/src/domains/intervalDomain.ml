@@ -181,10 +181,10 @@ let rec binary op i1 i2 =
      { l = l ; u = u ; sz = Z.numbits u }
 
   | Asm.Sub ->
-     let i2' = {l = Z.neg i2.u; u = Z.neg i2.l; sz = i2.sz } in
+     let i2' = {l = Z.lognot i2.u; u = Z.lognot i2.l; sz = i2.sz } in
      binary Asm.Add i1 i2'
 
-  | Asm.Mul -> lift Z.mul i1 i2
+  | Asm.Mul -> Z.mul i1 i2
   | Asm.Div -> core_div_rem Z.div i1 i2
   | Asm.Mod -> core_div_rem Z.rem i1 i2
   | Asm.IMul -> core_imul_idiv_irem (lift Z.mul) i1 i2
