@@ -153,6 +153,25 @@ check_size i1 i2;
     let u' = op i1.u (Z.to_int i2.u) in
     { l = l'; u = u'; sz = i1.sz }
   with _ (* int converstion of a Z.t value fails *) -> top i1.sz
+
+let core_imul_idiv_irem op i1 i2 =
+  check_size i1 i2;
+  let bound = Z.pow (Z.of_int 2) (i1.sz-1) in
+  if Z.compare i1.u bound < 0 then
+    if Z.compare i2.u bound < 0 then
+      (* the two intervals are positive *)
+       op i1 i2
+    else
+      (* TODO could be more precise with a reduction with the bit vector domain *)
+      top i1.sz
+  else
+    if Z.compare i2.u bound >= 0 then
+      (* the two intervals are negative *)
+      top i1.sz
+    else
+      (* TODO could be more precise with a reduction with the bit vector domain *)
+      top i1.sz
+
   
 let rec binary op i1 i2 =
   match op with
@@ -168,19 +187,15 @@ let rec binary op i1 i2 =
   | Asm.Mul -> lift Z.mul i1 i2
   | Asm.Div -> core_div_rem Z.div i1 i2
   | Asm.Mod -> core_div_rem Z.rem i1 i2
-  (* | Asm.IMul -> 
-  | Asm.IDiv ->
-
-  | Asm.IMod -> *)
- 
+  | Asm.IMul -> core_imul_idiv_irem (lift Z.mul) i1 i2
+  | Asm.IDiv -> core_imul_idiv_irem (core_div_rem Z.div) i1 i2
+  | Asm.IMod -> core_imul_idiv_irem (core_div_rem Z.rem) i1 i2
   | Asm.Xor -> lift Z.logxor i1 i2
   | Asm.And -> lift Z.logand i1 i2
   | Asm.Or -> lift Z.logor i1 i2
   | Asm.Shr -> shift Z.shift_right i1 i2
   | Asm.Shl -> shift Z.shift_left i1 i2
-  | _ ->
-     let sz = 2 * (max i1.sz i2.sz) in
-     top sz
+
 
 let rec compare i1 cmp i2 =
   match cmp with
