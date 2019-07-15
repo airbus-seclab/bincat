@@ -118,11 +118,6 @@ let unary op i =
           else top i.sz
 
 let bounds i = i.l, i.u
-             
-let mul i1 i2 =
-  let l = Z.mul i1.l i2.l in
-  let u = Z.mul i1.u i2.u in
-  { l = l; u = u; sz = Z.numbits u }
 
 let div_cst i c =
   let l, u = bounds i in
@@ -145,71 +140,45 @@ let div i1 i2 =
   in
   { l = l; u = u; sz = i1.sz }
 
-let shl i1 i2 =
+
+
+let lift binop i1 i2 =
   check_size i1 i2;
+  let l = binop i1.l i2.l in
+  let u = binop i1.u i2.u in
+  { l = l;  u = u; sz = i1.sz }
+
+let shift op i1 i2 =
+check_size i1 i2;
   try
-    let l' = Z.shift_left i1.l (Z.to_int i2.l) in
-    let u' = Z.shift_left i1.u (Z.to_int i2.u) in
+    let l' = op i1.l (Z.to_int i2.l) in
+    let u' = op i1.u (Z.to_int i2.u) in
     { l = l'; u = u'; sz = i1.sz }
   with _ (* int converstion of a Z.t value fails *) -> top i1.sz
-
-let shr i1 i2 =
-  try
-    let l' = Z.shift_right i1.l (Z.to_int i2.u) in
-    let u' = Z.shift_right i1.u (Z.to_int i2.l) in
-    { l = l'; u = u'; sz = i1.sz }
-  with _ (* int converstion of a Z.t value fails *) -> top i1.sz
-
-let logor i1 i2 =
-  check_size i1 i2;
-  if is_singleton i1 && is_singleton i2 then
-    let b = Z.logor i1.l i2.l in
-    { l = b; u = b; sz = i1.sz }
-  else
-    begin
-	  let u = ref Z.one in
-	  let a = ref i1.u in
-	  let b = ref i2.u in
-	  while (Z.compare !a Z.zero <> 0) || (Z.compare !b Z.zero <> 0) do
-	    u := Z.shift_left !u 1;
-	    a := Z.shift_right !a 1;
-	    b := Z.shift_right !b 1
-	  done;
-	  { l = Z.max i1.l i2.l; u = Z.sub !u Z.one; sz = i1.sz }
-    end
-
-let logand i1 i2 =
-  check_size i1 i2;
-  if is_singleton i1 && is_singleton i2 then 
-      let l = Z.logand i1.l i2.l in
-	  { l = l;  u = l; sz = i1.sz }
-  else
-    { l = Z.zero; u = Z.min i1.u i2.u; sz = i1.sz }
   
 let rec binary op i1 i2 =
   match op with
   | Asm.Add ->
      let l = Z.add i1.l i2.l in
      let u = Z.add i1.u i2.u in
-     let sz = max (Z.numbits l) (Z.numbits u) in
-     { l = l ; u = u ; sz = sz }
+     { l = l ; u = u ; sz = Z.numbits u }
 
   | Asm.Sub ->
      let i2' = {l = Z.neg i2.u; u = Z.neg i2.l; sz = i2.sz } in
      binary Asm.Add i1 i2'
 
-  | Asm.Mul -> mul i1 i2
+  | Asm.Mul -> lift Z.mul i1 i2
   | Asm.Div -> div i1 i2
  (* | Asm.IMul -> 
   | Asm.IDiv ->
   | Asm.Mod -> 
-  | Asm.IMod -> 
+  | Asm.IMod -> *)
  
-  | Asm.Xor -> *)
-  | Asm.And -> logand i1 i2
-  | Asm.Or -> logor i1 i2
-  | Asm.Shr -> shr i1 i2
-  | Asm.Shl -> shl i1 i2
+  | Asm.Xor -> lift Z.logxor i1 i2
+  | Asm.And -> lift Z.logand i1 i2
+  | Asm.Or -> lift Z.logor i1 i2
+  | Asm.Shr -> shift Z.shift_right i1 i2
+  | Asm.Shl -> shift Z.shift_left i1 i2
   | _ ->
      let sz = 2 * (max i1.sz i2.sz) in
      top sz
