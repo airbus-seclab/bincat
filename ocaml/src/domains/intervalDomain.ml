@@ -154,23 +154,33 @@ check_size i1 i2;
     { l = l'; u = u'; sz = i1.sz }
   with _ (* int converstion of a Z.t value fails *) -> top i1.sz
 
-let core_imul_idiv_irem op i1 i2 =
-  check_size i1 i2;
-  let bound = Z.pow (Z.of_int 2) (i1.sz-1) in
-  if Z.compare i1.u bound < 0 then
-    if Z.compare i2.u bound < 0 then
-      (* the two intervals are positive *)
-       op i1 i2
-    else
-      (* TODO could be more precise with a reduction with the bit vector domain *)
-      top i1.sz
+let twos_complement z = Z.add (Z.lognot z) Z.one
+                      
+let abs_pos i nth =
+  (* the interval is surely positive *)
+  if not (Z.testbit i.u nth) then
+    i, true
   else
-    if Z.compare i2.u bound >= 0 then
-      (* the two intervals are negative *)
-      top i1.sz
+    (* the interval is surely negative *)
+    if Z.testbit i.l nth then
+      { l = twos_complement i.u; u = twos_complement i.l; sz = i.sz }, false
     else
+      (* unknown sign *)
+      raise Exit
+  
+let core_imul_idiv_irem op is_mod i1 i2 =
+  check_size i1 i2;
+  let nth = i1.sz-1 in  
+  try
+    let i1', i1_pos = abs_pos i1 nth in
+    let i2', i2_pos = abs_pos i2 nth in
+    let i' = op i1' i2' in
+    if i1_pos = i2_pos || is_mod then i'
+    else
+      {l = twos_complement i'.u; u = twos_complement i'.l; sz = 2*i1.sz }
+    with 
       (* TODO could be more precise with a reduction with the bit vector domain *)
-      top i1.sz
+      Exit -> top (2*i1.sz)
 
   
 let rec binary op i1 i2 =
@@ -187,9 +197,9 @@ let rec binary op i1 i2 =
   | Asm.Mul -> (lift Z.mul) i1 i2
   | Asm.Div -> core_div_rem Z.div i1 i2
   | Asm.Mod -> core_div_rem Z.rem i1 i2
-  | Asm.IMul -> core_imul_idiv_irem (lift Z.mul) i1 i2
-  | Asm.IDiv -> core_imul_idiv_irem (core_div_rem Z.div) i1 i2
-  | Asm.IMod -> core_imul_idiv_irem (core_div_rem Z.rem) i1 i2
+  | Asm.IMul -> core_imul_idiv_irem (lift Z.mul) false i1 i2
+  | Asm.IDiv -> core_imul_idiv_irem (core_div_rem Z.div) false i1 i2
+  | Asm.IMod -> core_imul_idiv_irem (core_div_rem Z.rem) true i1 i2
   | Asm.Xor -> lift Z.logxor i1 i2
   | Asm.And -> lift Z.logand i1 i2
   | Asm.Or -> lift Z.logor i1 i2
