@@ -786,6 +786,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             stop_addr = self.ip_stop_addr.text()
         analysis_method = self.get_analysis_method()
 
+        self.s.edit_config.remap = self.chk_remap.isChecked()
         self.s.edit_config.analysis_ep = start_addr
         self.s.edit_config.stop_address = stop_addr
         self.s.edit_config.analysis_method = analysis_method
@@ -895,6 +896,7 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         self.s.skips.extend(config.skips)
         self.cfgregmodel.beginResetModel()
         self.cfgmemmodel.beginResetModel()
+        self.chk_remap.setChecked(config.remap)
         # If we have a coredump, disable mem/regs
         if config.coredump:
             self.regs_table.setEnabled(False)

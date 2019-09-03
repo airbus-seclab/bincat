@@ -606,6 +606,18 @@ class AnalyzerConfig(object):
             return []
         return [(n,) for n in self._config.get('analyzer', 'nop').split(', ')]
 
+    # Remap binary properties
+    @property
+    def remap(self):
+        if not self._config.has_option('IDA', 'remap_binary'):
+            return False
+        return self._config.get('IDA', 'remap_binary').lower() == "true";
+
+    @remap.setter
+    def remap(self, value):
+        self._config.set('IDA', 'remap_binary', value)
+
+
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
