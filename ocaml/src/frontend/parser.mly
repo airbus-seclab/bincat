@@ -176,7 +176,7 @@
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
-%token IGNORE_UNKNOWN_RELOCATIONS
+%token IGNORE_UNKNOWN_RELOCATIONS IDA
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -212,6 +212,7 @@
     | LEFT_SQ_BRACKET POWERPC RIGHT_SQ_BRACKET x=powerpc_section     { x }
     | LEFT_SQ_BRACKET RV32I RIGHT_SQ_BRACKET x=rv32i_section     { x }
     | LEFT_SQ_BRACKET RV64I RIGHT_SQ_BRACKET x=rv64i_section     { x }
+    | LEFT_SQ_BRACKET IDA RIGHT_SQ_BRACKET x=ida_section     { x }
 
     overrides:
     |                     { () }
@@ -386,6 +387,9 @@
 
     rv64i_section:
     | { () }
+
+    ida_section:
+    | STRING EQUAL STRING { () }
 
     endianness:
     | LITTLE { Config.LITTLE }

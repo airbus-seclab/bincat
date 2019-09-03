@@ -482,7 +482,7 @@ class AnalyzerConfig(object):
         self._config.optionxform = str
         # make sure all sections are created
         for section in ("analyzer", "program",
-                        "sections", "state", "imports"):
+                        "sections", "state", "imports", "IDA"):
             if not self._config.has_section(section):
                 self._config.add_section(section)
 
