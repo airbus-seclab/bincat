@@ -1592,7 +1592,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let imm = get_imm s sz s.operand_sz true in
     return s [ Set (dst, imm) ]
 
-  (* mov immediate info register, no reg/rm *)
+  (* mov immediate into register, no reg/rm *)
   let mov_imm_direct s c =
     let op_sz = if s.rex.w = 1 then 64 else s.imm_sz in
     let base_reg_nb = ((Char.code c) - 0xb8) in
