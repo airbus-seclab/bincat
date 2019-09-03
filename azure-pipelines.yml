@@ -43,7 +43,7 @@ jobs:
         inputs:
           pathtoPublish: /tmp/linux-release/$(distdir)
           artifactName: $(distdir)
-      - script: docker run -v /tmp/test-results:/install/bincat/test-results -w /install/bincat/test "bincat:$BUILD_SOURCEVERSION" bash -c 'python2 -m pytest -n auto --coverage smoke -k "not repne" --junitxml=/install/bincat/test-results/pytest_report.xml || true'
+      - script: docker run -v /tmp/test-results:/install/bincat/test-results -w /install/bincat/test "bincat:$BUILD_SOURCEVERSION" bash -c 'python2 -m pytest --coverage smoke -k "not repne" --junitxml=/install/bincat/test-results/pytest_report.xml || true'
         displayName: 'Run tests'
       - task: PublishTestResults@2
         inputs:
