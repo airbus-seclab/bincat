@@ -802,10 +802,12 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (** extract from the string code the current byte to decode
     The offset field of the decoder state is increased *)
   let getchar s =
-    let c = String.get s.buf s.o in
-    s.o <- s.o + 1;
-    s.c <- c::s.c;
-    c
+    try
+        let c = String.get s.buf s.o in
+        s.o <- s.o + 1;
+        s.c <- c::s.c;
+        c
+    with Invalid_argument _ -> L.abort(fun p -> p "Trying to read outside of file")
 
   (** int conversion of a byte in the string code *)
   let int_of_byte s = Z.of_int (Char.code (getchar s))
