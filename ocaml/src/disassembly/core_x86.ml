@@ -2109,7 +2109,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let nnn, reg = core_grp s sz in
     let stmts =
       match nnn with
-      | 0 -> (* TEST *) let imm = get_imm s sz sz true in test_stmts reg imm sz
+      | 0 -> (* TEST *) let imm = get_imm s (if sz = 8 then 8 else s.imm_sz) sz true in test_stmts reg imm sz
       | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
       | 3 -> (* NEG *) neg sz reg
       | 4 -> (* MUL *) mul_stmts Mul (Lval reg)  sz
