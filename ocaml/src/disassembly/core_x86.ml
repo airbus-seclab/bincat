@@ -1120,7 +1120,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
   (** returns the states for OR, XOR, AND depending on the the given operator *)
   let or_xor_and s op dst src sz =
-    let res   = Set (dst, BinOp(op, Lval dst, src)) in
+    let res   = Arch.set_dest dst (BinOp(op, Lval dst, src)) in
     let res'  = Lval dst in
     let flag_stmts =
       [
@@ -1129,7 +1129,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
         parity_flag_stmts sz res'; undef_flag faf
       ]
     in
-    return s (res::flag_stmts)
+    return s (res@flag_stmts)
 
   let or_xor_and_eax s op imm_sz sz =
     let eax = find_reg_v 0 sz in

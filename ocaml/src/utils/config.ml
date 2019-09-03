@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -53,6 +53,9 @@ type archi_t =
   | ARMv7
   | ARMv8 (* ARMv8-A *)
   | POWERPC
+  | RV32I (* risc-v integer 32 bits *)
+  | RV64I (* risc-v integer 64 bits *)
+
 
 let archi_to_string = function
   | X86 -> "x86"
@@ -60,6 +63,8 @@ let archi_to_string = function
   | ARMv7 -> "armv7"
   | ARMv8 -> "armv8"
   | POWERPC -> "powerpc"
+  | RV32I -> "RV32I"
+  | RV64I -> "RV64I"
 
 let architecture = ref X86;;
 

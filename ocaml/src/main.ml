@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -112,6 +112,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
       | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
       | Config.POWERPC -> (module Powerpc.Make: Decoder.Make)
+      | _ -> failwith "Decoder still in progress"
     in
     let module Decoder = (val decoder: Decoder.Make) in
     let module Interpreter = Interpreter.Make(Domain)(Decoder) in

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -90,7 +90,8 @@
     let armv7_mandatory_keys = Hashtbl.create 20;;
     let armv8_mandatory_keys = Hashtbl.create 20;;
     let powerpc_mandatory_keys = Hashtbl.create 20;;
-
+    let riscV_mandatory_keys = Hashtbl.create 20;;
+    
       (** set the corresponding option reference *)
       let update_boolean optname opt v =
         match String.uppercase_ascii v with
@@ -133,6 +134,7 @@
             | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
             | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv8_mandatory_keys
             | Config.POWERPC -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc_mandatory_keys
+            | Config.RV32I | Config.RV64I -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "RV32I/64I") riscV_mandatory_keys
           end;
         (* fill the table of tainting rules for each provided library *)
         let add_tainting_rules l (c, funs) =
@@ -173,7 +175,7 @@
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
-%token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP
+%token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
 %token IGNORE_UNKNOWN_RELOCATIONS
 %token <string> STRING
 %token <string> HEX_BYTES
@@ -208,6 +210,8 @@
     | LEFT_SQ_BRACKET X86 RIGHT_SQ_BRACKET x=x86_section     { x }
     | LEFT_SQ_BRACKET X64 RIGHT_SQ_BRACKET x=x64_section     { x }
     | LEFT_SQ_BRACKET POWERPC RIGHT_SQ_BRACKET x=powerpc_section     { x }
+    | LEFT_SQ_BRACKET RV32I RIGHT_SQ_BRACKET x=rv32i_section     { x }
+    | LEFT_SQ_BRACKET RV64I RIGHT_SQ_BRACKET x=rv64i_section     { x }
 
     overrides:
     |                     { () }
@@ -342,7 +346,9 @@
     | ARMV7 { Config.ARMv7 }
     | ARMV8 { Config.ARMv8 }
     | POWERPC { Config.POWERPC }
-
+    | RV32I { Config.RV32I }
+    | RV64I { Config.RV64I }
+        
     x64_section:
     | s=x64_item                { s }
     | s=x64_item ss=x64_section { s; ss }
@@ -374,6 +380,12 @@
      powerpc_section_item:
     | ENDIANNESS EQUAL e=endianness { Config.endianness := e }
     | PROCESSOR_VERSION EQUAL v=INT { Config.processor_version := (Z.to_int v) }
+
+    rv32i_section:
+    | { () }
+
+    rv64i_section:
+    | { () }
 
     endianness:
     | LITTLE { Config.LITTLE }
