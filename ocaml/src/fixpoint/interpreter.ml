@@ -531,7 +531,7 @@ struct
           try
             v.Cfa.State.taint_sources <- taint;
             List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- Taint.Set.union v.Cfa.State.taint_sources taint) !fun_stack;
-          with _ -> ()
+          with _ as e -> raise e;
         end;
         vertices
       else
