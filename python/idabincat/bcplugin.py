@@ -594,6 +594,10 @@ class State(object):
             fname = self.netnode["remapped_bin_path"]
             if os.path.isfile(fname):
                 self.remapped_bin_path = fname
+                if "remapped_sections" in self.netnode:
+                    self.remapped_sections = self.netnode["remapped_sections"]
+            else:
+                bc_log.warning("cannot find remapped binary %s", fname)
         if "remap_binary" in self.netnode:
             self.remap_binary = self.netnode["remap_binary"]
 
@@ -630,6 +634,8 @@ class State(object):
                 self.netnode["analyzer.log"] = f.read()
             if self.remapped_bin_path:
                 self.netnode["remapped_bin_path"] = self.remapped_bin_path
+                if self.remapped_sections:
+                    self.netnode["remapped_sections"] = self.remapped_sections
             self.netnode["remap_binary"] = self.remap_binary
             if cfaoutfname is not None and os.path.isfile(cfaoutfname):
                 with open(cfaoutfname, 'rb') as f:
