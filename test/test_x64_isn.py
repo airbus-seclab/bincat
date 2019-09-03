@@ -617,6 +617,14 @@ def test_cond_test_ax16(tmpdir, op16, op16_):
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "sf", "zf", "pf"])
 
+def test_cond_test_reg8(tmpdir, op8, op8_):
+    asm = """
+            xor rcx, rcx
+            mov cl, {op8:#x}
+            test cl, {op8_:#x}
+          """.format(**locals())
+    compare(tmpdir, asm, ["rcx", "sf", "zf", "pf"])
+
 def test_cond_test_reg16(tmpdir, op16, op16_):
     asm = """
             xor rbx, rbx
