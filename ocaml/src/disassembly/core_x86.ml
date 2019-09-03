@@ -823,15 +823,16 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
         _sign_ext_ if true*)
   let get_imm_int s imm_sz sz sign_ext =
     L.debug (fun p->p "get_imm_int %d %d %b" imm_sz sz sign_ext);
-    if imm_sz > sz then
-      error s.a (Printf.sprintf "Immediate size (%d) bigger than target size (%d)" imm_sz sz)
-    else
-      let i = int_of_bytes s (imm_sz/8) in
+    let imm_sz' =
+      if imm_sz > sz then sz
+      else imm_sz
+    in
+      let i = int_of_bytes s (imm_sz'/8) in
       if sign_ext then
-        if imm_sz = sz then
+        if imm_sz' = sz then
           i
         else
-          sign_extension i imm_sz sz
+          sign_extension i imm_sz' sz
       else
         i
 
@@ -2106,7 +2107,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let nnn, reg = core_grp s sz in
     let stmts =
       match nnn with
-      | 0 -> (* TEST *) let imm = get_imm s s.imm_sz sz true in test_stmts reg imm sz
+      | 0 -> (* TEST *) let imm = get_imm s sz sz true in test_stmts reg imm sz
       | 2 -> (* NOT *) [ Set (reg, UnOp (Not, Lval reg)) ]
       | 3 -> (* NEG *) neg sz reg
       | 4 -> (* MUL *) mul_stmts Mul (Lval reg)  sz
