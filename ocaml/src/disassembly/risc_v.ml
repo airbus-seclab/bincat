@@ -81,6 +81,49 @@ struct
     let str = String.sub s.buf 0 4 in
     let opcode = get_opcode str in
       match str with
+
+  (* helpers to get instruction chuncks *)
+  let extract_opcode word = word & 0b1111111
+                          
+  let extract word l u =
+    let n = 32-u in
+    (word lsr n) lsl (n+l)
+    
+  let get_rd word = extract word 7 11
+  let get_funct3 word = extract word 12 14
+  let get_rs1 word = extract word 15 19
+  let get_rs2 word = extract word 20 24
+                   
+  let extract_rtype_fields word =
+    let opcode = extract_opcode word in
+    let rd = get_rd word 7 in
+    let funct3 = get_funct3 word in
+    let rs1 = get_rs1 word in
+    let rs2 = get_rs2 word in
+    let funct7 = extract word 25 31 in
+    funct7, rs2, rs1, funct3, rd, opcode
+    
+  let extract_itype_fields word =
+    let opcode = extract_opcode word in
+    let rd = get_rd word in
+    let funct3 = get_funct3 word in
+    let rs1 = get_rs1 word in
+    let imm = extract word 20 31 in
+    imm, rs1, funct3, rd, opcode
+      
+  let extract_stype_fields word =
+    let opcode = extract_opcode word in
+    let rs1 = get_rs1 word in
+    let rs2 = get_rs2 word in
+    let funct3 = get_funct3 word in
+    let imm = ((extract word 25 31) lsr 5) | (extract word 7 11) in
+    imm, rs2, rs1, funct3, opcode                  
+    
+  let extract_utype_fields word =
+    let opcode = extract_opcode word in
+    let rd = get_rd word in
+    let imm = extract word 12 31 in
+    imm, rd, opcode                  
     
   let parse text cfg _ctx state addr oracle =
      let s =  {
