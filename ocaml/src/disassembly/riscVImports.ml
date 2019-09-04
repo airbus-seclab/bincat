@@ -18,3 +18,7 @@
 
 
 module L = Log.Make(struct let name = "riscVImports" end)
+module Make (D: Domain.T)(Stubs: Stubs.T with type domain_t := D.t) =
+  struct
+    let init () = Stubs.init()
+  end

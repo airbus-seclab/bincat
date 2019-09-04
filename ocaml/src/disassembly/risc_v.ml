@@ -43,8 +43,8 @@ struct
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
   (*  let x0 = Register.make ~name:"x0" ~size:!Config.address_sz;; (* hardcoded to zero *) see Vol I*)
   let x1 = Register.make ~name:"x1" ~size:!Config.address_sz;;
-  let x2 = Register.make ~name:"x2" ~size:!config.address_sz;;
-  let x3 = Register.make ~name:"x3" ~size:!config.address_sz;;
+  let x2 = Register.make ~name:"x2" ~size:!Config.address_sz;;
+  let x3 = Register.make ~name:"x3" ~size:!Config.address_sz;;
   let x4 = Register.make ~name:"x4" ~size:!Config.address_sz;;
   let x5 = Register.make ~name:"x5" ~size:!Config.address_sz;;
   let x6 = Register.make ~name:"x6" ~size:!Config.address_sz;;
@@ -76,10 +76,10 @@ struct
 
   let get_opcode str =
     String.get str 25
- 
+    
 
   (* helpers to get instruction chuncks *)
-  let extract_opcode word = word & 0b1111111
+  let extract_opcode word = word land 0b1111111
                           
   let extract word l u =
     let n = 32-u in
@@ -92,7 +92,7 @@ struct
                    
   let extract_rtype_fields word =
     let opcode = extract_opcode word in
-    let rd = get_rd word 7 in
+    let rd = get_rd word in
     let funct3 = get_funct3 word in
     let rs1 = get_rs1 word in
     let rs2 = get_rs2 word in
@@ -112,7 +112,7 @@ struct
     let rs1 = get_rs1 word in
     let rs2 = get_rs2 word in
     let funct3 = get_funct3 word in
-    let imm = ((extract word 25 31) lsr 5) | (extract word 7 11) in
+    let imm = ((extract word 25 31) lsr 5) lor (extract word 7 11) in
     imm, rs2, rs1, funct3, opcode                  
     
   let extract_utype_fields word =
@@ -120,7 +120,13 @@ struct
     let rd = get_rd word in
     let imm = extract word 12 31 in
     imm, rd, opcode                  
-    
+
+  let decode s instr_sz: Cfa.State.t * Data.Address.t =
+    let str = String.sub s.buf 0 4 in
+    let opcode = extract_opcode str in
+    match opcode with
+    | _ -> failwith "not yet decoded"
+
   let parse text cfg _ctx state addr oracle =
      let s =  {
       g = cfg;
