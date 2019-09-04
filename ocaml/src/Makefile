@@ -37,6 +37,7 @@ ML=\
   disassembly/armv7Imports.ml\
   disassembly/armv8aImports.ml\
   disassembly/powerpcImports.ml\
+  disassembly/rsicVImports.ml\
   frontend/lexer.ml\
   frontend/parser.ml\
   domains/env.ml\
@@ -54,6 +55,7 @@ ML=\
   disassembly/armv7.ml\
   disassembly/armv8A.ml\
   disassembly/powerpc.ml\
+  disassembly/risc_v.ml\
   fixpoint/interpreter.ml\
   bincat_ver.ml \
   main.ml

@@ -76,11 +76,7 @@ struct
 
   let get_opcode str =
     String.get str 25
-    
-  let decode s instr_sz: Cfa.State.t * Data.Address.t =
-    let str = String.sub s.buf 0 4 in
-    let opcode = get_opcode str in
-      match str with
+ 
 
   (* helpers to get instruction chuncks *)
   let extract_opcode word = word & 0b1111111
