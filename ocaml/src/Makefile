@@ -230,7 +230,7 @@ install: $(LIBNAME) $(EXENAME)
 
 .depend: $(ML) $(MLI)
 	rm -f .depend
-	-$(CAMLDEP) $(LIBINCL) -slash $(CAMLDEPOPT) $+ > .depend
+	-$(CAMLDEP) -pp $(CPPO) $(LIBINCL) -slash $(CAMLDEPOPT) $+ > .depend
 
 doc: $(ML) $(MLI)
 	@mkdir -p $(DOCPATH)/html
