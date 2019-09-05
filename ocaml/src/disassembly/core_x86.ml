@@ -1568,7 +1568,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let push_immediate s sz =
     let c     = get_imm s sz !Config.stack_width true in
     let esp'  = esp_lval () in
-    let stmts = [ set_esp Sub esp' sz ; Set (M (Lval (V esp'), sz), c) ]
+    let stmts = [ set_esp Sub esp' !Config.stack_width; Set (M (Lval (V esp'), !Config.stack_width), c) ]
     in
     return s stmts
 
@@ -2764,8 +2764,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
          return s (call s (A a))
       | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
-      | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
-      | '\x9d' -> (* POPF *) popf s s.operand_sz
+      | '\x9c' -> (* PUSHF *) pushf s s.addr_sz
+      | '\x9d' -> (* POPF *) popf s s.addr_sz
       | '\xa0' -> (* MOV EAX *) mov_with_eax s 8 false
       | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz false (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
       | '\xa2' -> (* MOV EAX *) mov_with_eax s 8 true
