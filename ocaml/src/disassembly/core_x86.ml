@@ -1521,10 +1521,6 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
   (** generation of statements for the push instructions *)
   let push_stmts (s: state) v =
-    (*let n =
-      if s.operand_sz = 16 then 16
-      else !Config.stack_width
-    in*)
     let esp' = esp_lval () in
     let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
     (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
@@ -1540,20 +1536,20 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       List.fold_left (
           fun stmts (lv, n) ->
           let st =
-            if with_stack_pointer false s.a lv then begin
+            if with_stack_pointer false s.a lv then
                 (* save the esp value to its value before the first push (see PUSHA specifications) *)
                 let lv_repl = Lval (replace_reg lv esp t) in
                 Set (M (Lval (V esp'), n), lv_repl)
-              end else begin
+              else
                 (* TODO: some CPUs only move the 16 bits of the segment register and leave the rest
                  * of the stack untouched *)
                 let lv_ext =
-                  if is_segment lv then
+                  if is_segment lv && s.operand_sz <> 16 then
                     UnOp (ZeroExt !Config.stack_width, Lval lv)
-                  else  Lval lv
+                  else
+                    Lval lv
                 in
                 Set (M (Lval (V esp'), n), lv_ext);
-              end
           in
           [ set_esp Sub esp' n ; st ] @ stmts
 
@@ -3001,13 +2997,13 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
       | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
       | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
-      | '\xa0' -> push s [V (T fs), 16]
+      | '\xa0' -> let n = if s.operand_sz = 16 then 16 else !Config.stack_width in push s [V (T fs), n]
       | '\xa1' -> pop s [V (T fs), s.operand_sz]
       (*| '\xa2' -> cpuid *)
       | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bt s reg rm
       | '\xa4' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_ld_stmt reg rm s.operand_sz (get_imm s 8 8 false))
       | '\xa5' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_ld_stmt reg rm s.operand_sz (Lval (V cl)))
-      | '\xa8' -> push s [V (T gs), 16]
+      | '\xa8' -> let n = if s.operand_sz = 16 then 16 else !Config.stack_width in push s [V (T gs), n]
       | '\xa9' -> pop s [V (T gs), s.operand_sz]
 
       | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
