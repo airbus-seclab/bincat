@@ -2138,8 +2138,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | 0 | 1 -> s.operand_sz
       | _ -> begin
           try
-            if s.operand_sz <> 16 then
-              Arch.get_operand_sz_for_stack ()
+            if s.operand_sz = 16 then 16
+            else Arch.get_operand_sz_for_stack ()
           with Exit -> s.operand_sz;  end;
     in
     let dst = exp_of_md s md rm sz sz in
