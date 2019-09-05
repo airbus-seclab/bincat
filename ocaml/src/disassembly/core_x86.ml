@@ -2136,8 +2136,11 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
      * to special case inc and dec *)
     let sz = match nnn with
       | 0 | 1 -> s.operand_sz
-      | _ -> begin try (Arch.get_operand_sz_for_stack ())
-                   with Exit -> s.operand_sz;  end;
+      | _ -> begin
+          try
+            if s.operand_sz <> 16 then
+              Arch.get_operand_sz_for_stack ()
+          with Exit -> s.operand_sz;  end;
     in
     let dst = exp_of_md s md rm sz sz in
     match nnn with
@@ -2679,8 +2682,10 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *)
          if not s.rex.op_switch then
            begin
-             try let n = Arch.get_operand_sz_for_stack () in
-                 s.operand_sz <- n;
+             try
+               if s.operand_sz <> 16 then
+                 let n = Arch.get_operand_sz_for_stack () in
+                 s.operand_sz <- n
              with Exit -> ()
            end;
          let n = (Char.code c) - 0x50 in
@@ -2691,7 +2696,9 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *)
          if not s.rex.op_switch then
            begin
-             try let n = Arch.get_operand_sz_for_stack () in
+             try
+               if s.operand_sz <> 16 then
+               let n = Arch.get_operand_sz_for_stack () in
                  s.operand_sz <- n
              with Exit -> ()
            end;
