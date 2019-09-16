@@ -19,14 +19,43 @@ def test_basics_nop(tmpdir):
     """
     show_cpu(tmpdir, asm, [])
 
+def test_basics_assign_lui(tmpdir):
+    asm = """
+        lui x20, 0x12345
+    """
+    compare(tmpdir, asm, ["x20"])
 
-def test_basics_assign1(tmpdir):
+def test_basics_assign_lui_sext(tmpdir):
+    asm = """
+        lui x20, 0x82345
+    """
+    compare(tmpdir, asm, ["x20"])
+
+
+def test_basics_assign_li(tmpdir):
     asm = """
         li x20, 0x12345678
     """
     compare(tmpdir, asm, ["x20"])
 
-def test_basics_assign2(tmpdir):
+def test_basics_assign_li_sext(tmpdir):
+    asm = """
+        li x20,0x82345678
+    """
+    compare(tmpdir, asm, ["x20"])
+
+def test_basics_assign_auipc(tmpdir):
+    asm = """
+        auipc x20,0x12345
+        nop
+        auipc x21,0x12345
+        sub x20,x21,x20
+    """
+    compare(tmpdir, asm, ["x20"])
+
+
+
+def test_basics_assignx2(tmpdir):
     asm = """
         li x0,0xff001234
         li x1,0xff011234
@@ -96,14 +125,15 @@ def test_arith_log_itype(tmpdir, op, op32, op32_):
     {op} r2, r1, op32_
     """.format(**locals())
     compare(tmpdir, asm, ["r1", "r2"])
-    
+
+
 ##  ___                  _    _
 ## | _ )_ _ __ _ _ _  __| |_ (_)_ _  __ _
 ## | _ \ '_/ _` | ' \/ _| ' \| | ' \/ _` |
 ## |___/_| \__,_|_||_\__|_||_|_|_||_\__, |
 ##                                  |___/
 ## Branching
-#JAL, JALR
+
 
 ##  _                 _                 _    ___ _
 ## | |   ___  __ _ __| |   __ _ _ _  __| |  / __| |_ ___ _ _ ___
@@ -111,14 +141,10 @@ def test_arith_log_itype(tmpdir, op, op32, op32_):
 ## |____\___/\__,_\__,_|  \__,_|_||_\__,_|  |___/\__\___/_| \___|
 ## Load and Store
 
-#LOADS: LB, LH, LW, LD, LBU, LHU, LWU
-#STORE: SB, SH, SW, SD
+
 ##  ___              _      _
 ## / __|_ __  ___ __(_)__ _| |
 ## \__ \ '_ \/ -_) _| / _` | |
 ## |___/ .__/\___\__|_\__,_|_|
 ##     |_|
 ## Special
-#B-type: BEQ, BNE, BLT, BGE, BLTU, BGEU
-#LUI
-#AUIPC
