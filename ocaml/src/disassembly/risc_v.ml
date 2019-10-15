@@ -25,7 +25,6 @@ struct
 
   open Data
   open Asm
-  open Decodeutils
      
   module Cfa = Cfa.Make(Domain)
              
@@ -35,10 +34,12 @@ struct
     a: Address.t; (** current address to decode *)
     buf: string; (** buffer to decode *)
     mutable addr_sz: int; (** address size in bits *)
+    mutable c: char list;   (** current decoded bytes in reverse order  *)
     }
 
   module Imports = RiscVImports.Make(Domain)(Stubs)
   let xlen = !Config.address_sz
+
   (************************************************************************)
   (* Creation of the general purpose registers *)
   (************************************************************************)
@@ -84,200 +85,312 @@ struct
       x28; x29; x30; x31 ];;
 
   let get_register (i: int): lval = V ( T(Hashtbl.find reg_tbl i))
-                     
-  let get_opcode str =
-    String.get str 25
     
-
   (* helpers to get instruction chunks *)
-  let extract_opcode word = word land 0b1111111
+  let extract_opcode word_str =
+    let word = Char.code (String.get word_str 3) in
+    word land 0b01111111
                           
-  let extract word l u =
-    let n = 32-u in
-    (word lsr n) lsl (n+l)
+  let extract (word_str: string) (l: int) (u: int): int =
+    let ubyte = u / 8 in
+    let rec get_bytes n =
+      if n <= ubyte then
+        (Char.code (String.get word_str n))::(get_bytes (n+1))
+      else []
+    in
+    let rec to_int bytes n =
+      let cbyte = List.hd bytes in
+      let tl = List.tl bytes in
+      match n with
+      | 0 -> (cbyte lsr l)+(to_int tl (n+1))
+      | n when n = ubyte ->
+         let n = 8 - (u mod 8) in
+         ((cbyte lsr n) lsl n) lsl (ubyte*8)
+      | _ -> (cbyte lsl (n*8)) + (to_int tl (n+1))
+    in
+    let bytes = get_bytes 0 in
+    to_int bytes 0
     
-  let get_rd word = extract word 7 11
+  let get_rd word =
+    let xi = extract word 7 11 in
+    get_register xi, xi=0
+
   let get_funct3 word = extract word 12 14
-  let get_rs1 word = extract word 15 19
-  let get_rs2 word = extract word 20 24
+
+  let get_rs1 word =
+    let xi = extract word 15 19 in
+    get_register xi, xi=0
+    
+  let get_rs2 word = get_register (extract word 20 24)
                    
   let get_rtype_fields word =
-    let rd = get_rd word in
+    let rd, _rd_is_x0 = get_rd word in
     let funct3 = get_funct3 word in
-    let rs1 = get_rs1 word in
+    let rs1, _rs1_is_x0 = get_rs1 word in
     let rs2 = get_rs2 word in
     let funct7 = extract word 25 31 in
     funct7, rs2, rs1, funct3, rd
     
   let get_itype_fields word =
-    let rd = get_rd word in
+    let rd, rd_is_x0 = get_rd word in
     let funct3 = get_funct3 word in
-    let rs1 = get_rs1 word in
+    let rs1, rs1_is_x0 = get_rs1 word in
     let imm = extract word 20 31 in
-    imm, rs1, funct3, rd
-      
+    imm, (rs1, rs1_is_x0), funct3, (rd, rd_is_x0)
+    
   let get_stype_fields word =
-    let rs1 = get_rs1 word in
+    let rs1, _rs1_is_x0 = get_rs1 word in
     let rs2 = get_rs2 word in
     let funct3 = get_funct3 word in
-    let imm = ((extract word 25 31) lsr 5) lor (extract word 7 11) in
+    let imm = ((extract word 25 31) lsl 5) lor (extract word 7 11) in
     imm, rs1, rs2, funct3                  
-    
+
+  let get_btype_fields word =
+    let funct3 = get_funct3 word in
+    let rs1, _rs1_is_x0 = get_rs1 word in
+    let rs2 = get_rs2 word in
+    let imm11 = extract word 7 7 in
+    let imm12 = extract word 31 31 in
+    let imm4_11 = extract word 8 11 in
+    let imm5_10 = extract word 25 30 in
+    let imm =
+      (imm4_11 lsl 1) lor (imm5_10 lsl 5) lor
+        (imm11 lsl 11) lor (imm12 lsl 12)
+    in
+    imm, rs1, rs2, funct3
+
   let get_utype_fields word =
-    let rd = get_rd word in
+    let rd, _rd_is_x0 = get_rd word in
     let imm = extract word 12 31 in
     imm, rd               
 
+  let get_jtype_fields word =
+    let rd, _rd_is_x0 = get_rd word in
+    let imm1_10 = extract word 21 30 in
+    let imm11 = extract word 11 11 in
+    let imm20 = extract word 20 20 in
+    let imm12_19 = extract word 12 19 in
+    let imm =
+      imm1_10 lor (imm11 lsl 11) lor
+        (imm12_19 lsl 12) lor (imm20 lsl 20)
+    in
+    imm, rd
+    
   let sx e = UnOp (SignExt xlen, e)
   let ux e = UnOp (ZeroExt xlen, e)
 
+  let const i len = Const (Word.of_int (Z.of_int i) len)
+                  
   let decode_itype word opcode =
-    let imm, rs1, funct3, rd = get_itype fields word in
-    let rs1_reg = Lval (get_regsiter rs1) in
-    let imm_const = Const imm xlen in
+    let imm, (rs1, rs1_is_x0), funct3, (rd, rd_is_x0) = get_itype_fields word in
+    let imm_const = const imm xlen in
     match opcode with
-    | 0b0000011 -> (* load *)
+    | 0b0000011 -> (* LOAD *)
        begin
-         if rd = 0 then L.error (fun p -> p "illegal x0 destination in store");
+         if rd_is_x0 then L.abort (fun p -> p "illegal x0 destination in store");
          let binop op sz =
-           let e = M (BinOp (Add, rs1_reg, imm_const), sz) in
+           let e = Lval (M (BinOp (Add, Lval rs1, imm_const), sz)) in
            let e' =
              if sz = xlen then e
-             else op (xlen, e)
+             else UnOp(op, e)
            in
            [ Set (rd, e') ]
          in
-         match func3 with
-         | 0b000 -> (* LB *) binop SignExt 8
-         | 0b001 -> (* LH *) binop SignExt 16
-         | 0b010 -> (* LW *) binop SignExt 32
+         match funct3 with
+         | 0b000 -> (* LB *) binop (SignExt 8) 8
+         | 0b001 -> (* LH *) binop (SignExt 16) 16
+         | 0b010 -> (* LW *) binop (SignExt 32) 32
          | 0b011 -> (* LD *)
-            if xlen = 64 then binop SignExt 64
-            else L.error (fun p -> p "no LD instruction in RV32")
+            if xlen = 64 then binop (SignExt 64) 64
+            else L.abort (fun p -> p "no LD instruction in RV32")
            
-         | 0b100 -> (* LBU *) binop ZeroExt 8
-         | 0b101 -> (* LHU *) binop ZeroExt 16
+         | 0b100 -> (* LBU *) binop (ZeroExt 8) 8
+         | 0b101 -> (* LHU *) binop (ZeroExt 16) 16
          | 0b111 -> (* LWU *)
-            if xlen=32 then L.error (fun p -> p "no LWU in RV32")
-            else binop ZeroExt xlen
+            if xlen=32 then L.abort (fun p -> p "no LWU in RV32")
+            else binop (ZeroExt xlen) xlen
 
-         |  L.error (fun p -> p "illegal load opcode %d in itype instruction" fun3)
+         |  _ -> L.abort (fun p -> p "illegal load opcode %d in itype instruction" funct3)
        end
     | 0b0010011 ->
-    let binop op =
-      [ Set (rd, BinOp (op, rs1_reg, imm_const)) ]
-    in
-       match func3 with
-       | b000 -> (* addi *)
-          if rs1 = 0 and rs2 = 0 and imm = 0 then
-            [ Nop ]
-          else binop Add
-                          
-       | b010 -> (* slti *)
-          let len = xlen+1 in
-          let e = BinOp (Sub, SignExt(len, rs1), SignExt(len, imm_const)) in
-          [ Set (rd, ZeroExt(xlen, BinOp(Shr, e, len))) ]
-          
-       | b011 -> (* stliu *)
-          [ Set (rd, TernOp(Cmp(LT, rs1_reg, imm_const))) ]
-         
-       | b100 -> (* xori *) binop Xor
-       | b110 -> (* ori *) binop Or
-       | b111 -> (* andi *) binop And
-                          
-       | b001 -> (* slli *) binop Shl
-                          
-       | b101 -> 
-          match imm with
-          | 0b0000000 -> (* srli *) binop Shr
-          | 0b0100000 -> (* srai *) [ Set (rd, UnOp (SignExt xlen, BinOp(Shr, rs1_reg, imm_const))) ]
-                                  
-          | _ -> L.error (fun p -> p "illegal immediate %d in itype instruction" imm)
+       begin
+         let binop op = [ Set (rd, BinOp (op, Lval rs1, imm_const)) ] in
+         match funct3 with
+         | 0b000 -> (* ADDI *)
+            if rd_is_x0 && rs1_is_x0 && imm = 0 then
+              [ Nop ]
+            else binop Add
+           
+         | 0b010 -> (* SLTI *)
+            let len = xlen+1 in
+            let e = BinOp (Sub, UnOp(SignExt len, Lval rs1), UnOp(SignExt len, imm_const)) in
+            [ Set (rd, UnOp (ZeroExt xlen, BinOp(Shr, e, const len xlen))) ]
+            
+         | 0b011 -> (* STLIU *)
+            [ Set (rd, TernOp(Cmp(LT, Lval rs1, imm_const), const 1 xlen, const 0 xlen)) ]
+           
+         | 0b100 -> (* XORI *) binop Xor
+         | 0b110 -> (* ORI *) binop Or
+         | 0b111 -> (* ANDI *) binop And                          
+         | 0b001 -> (* SLLI *) binop Shl                          
+         | 0b101 ->
+            begin
+              match imm with
+              | 0b0000000 -> (* SRLI *) binop Shr
+              | 0b0100000 -> (* SRAI *)
+                 [ Set (rd, UnOp (SignExt xlen, BinOp(Shr, Lval rs1, imm_const))) ]
               
+              | _ -> L.abort (fun p -> p "illegal immediate %d in I-type instruction" imm)
+            end
+         | _ -> L.abort (fun p -> p "illegal funct3 value %d in I-type instruction" funct3)
+       end
+    | _ -> L.abort (fun p -> p "illegal opcode %d in I-type instruction" opcode)
+            
   let decode_rtype word =
     let funct7, rs2, rs1, funct3, rd = get_rtype_fields word in
-    let rs2_reg = Lval (get_register rs2) in
-    let rs1_reg = Lval (get_register rs1) in
-    let rd_reg = get_register rd in
+    let rs2_reg = Lval rs2 in
+    let rs1_reg = Lval rs1 in
     let binop op =
       [ Set (rd, BinOp (op, rs1_reg, rs2_reg)) ]
     in
     match funct3, funct7 with
-    | 0b000, 0b0000000 -> (* add *) binop Add 
-    | 0b000, 0b0100000 -> (* sub *) binop Sub 
+    | 0b000, 0b0000000 -> (* ADD *) binop Add 
+    | 0b000, 0b0100000 -> (* SUB *) binop Sub 
   
-    | 0b001, 0b0000000 -> (* sll *) binop Shl
+    | 0b001, 0b0000000 -> (* SLL *) binop Shl
        
-    | 0b010, 0b0000000 -> (* slt *)
+    | 0b010, 0b0000000 -> (* SLT *)
        (* rd = rs1 < rs2, signed *)
        let len = xlen+1 in
-       let e = BinOp (Sub, SignExt(len, rs1), SignExt(len, rs2)) in
-       [ Set (rd, ZeroExt(xlen, BinOp(Shr, e, len))) ]
+       let e = BinOp (Sub, UnOp(SignExt len, rs1_reg), UnOp(SignExt len, rs2_reg)) in
+       [ Set (rd, TernOp(Cmp(LT, e, const 0 len), const 1 xlen, const 0 xlen)) ]
        
-    | 0b011, 0b0000000 -> (* sltu *)
+    | 0b011, 0b0000000 -> (* SLTU *)
        (* rd = rs1 < rs2, unsigned *)
-       [ Set (rd, TernOp(Cmp(LT, rs1_reg, rs2_reg))) ]
+       [ Set (rd, TernOp(Cmp(LT, rs1_reg, rs2_reg), const 1 xlen, const 0 xlen)) ]
       
-    | 0b100, 0b0000000 -> (* xor *) binop Xor 
-    | 0b101, 0b0000000 -> (* srl *) binop Shr 
+    | 0b100, 0b0000000 -> (* XOR *) binop Xor 
+    | 0b101, 0b0000000 -> (* SRL *) binop Shr 
        
-    | 0b101, 0b0100000 -> (* sra *)
+    | 0b101, 0b0100000 -> (* SRA *)
        [ Set (rd, UnOp (SignExt xlen, BinOp(Shr, Lval rs1, Lval rs2))) ]
        
-    | 0b110, 0b0000000 -> (* or *) binop Or 
-    | 0b111, 0b0000000 -> (* and *) binop And 
+    | 0b110, 0b0000000 -> (* OR *) binop Or 
+    | 0b111, 0b0000000 -> (* AND *) binop And 
 
-    | _ -> L.error (fun p -> p "illegal combination of funct7=%d and funct3=%d in R-type instruction" funct7 funct3)
+    | _ -> L.abort (fun p -> p "illegal combination of funct7=%d and funct3=%d in R-type instruction" funct7 funct3)
 
   let decode_stype word =
     let imm, rs1, rs2, funct3 = get_stype_fields word in
     let store sz =
-      let addr = BinOp (Add, Lval rs1, Const imm xlen) in
-      let data =
-        if sz = xlen then rs2
-        else
-          [ Set ( M(addr, sz), data ) ]
-      in
+      let addr = BinOp (Add, Lval rs1, const imm xlen) in
+      [ Set (rs2, Lval (M(addr, sz))) ]
+    in
     match funct3 with
     | 0b000 -> (* SB *) store 8
     | 0b001 -> (* SH *) store 16
     | 0b010 -> (* SW *) store 32
     | 0b100 -> (* SD *)
        if xlen = 64 then store 64
-       else L.error (fun p -> p "illegal SD instruction in s-type of RV32")
+       else L.abort (fun p -> p "illegal SD instruction in S-type of RV32")
+    | _ -> L.abort (fun p -> p "illegal funct3 %d in S-type instruction" funct3)
 
-  let decode_btype word =
-    let imm, rd = get_u
-  let decode s instr_sz: Cfa.State.t * Data.Address.t =
-    let str = String.sub s.buf 0 4 in
-    let opcode = extract_opcode str in
+  let decode_btype a word =
+    let imm, rs1, rs2, funct3 = get_btype_fields word in
+    let rs1_exp = Lval rs1 in
+    let rs2_exp = Lval rs2 in
+    let cond =
+      match funct3 with
+      | 0b000 -> (* BEQ *) Cmp (EQ, rs1_exp, rs2_exp)
+      | 0b001 -> (* BNE *) Cmp (NEQ, rs1_exp, rs2_exp)
+      | 0b100 -> (* BLT *) Cmp (LT, rs1_exp, rs2_exp)
+      | 0b101 -> (* BGE *) Cmp (GEQ, rs1_exp, rs2_exp) 
+      | 0b110 -> (* BLTU *)
+         let len = xlen+1 in
+         Cmp (LT, BinOp (Sub, UnOp(SignExt len, rs1_exp), UnOp(SignExt len, rs2_exp)),
+              const 0 len)
+         
+      | 0b111 -> (* BGEU *)
+         let len = xlen+1 in
+         Cmp (GEQ, BinOp (Sub, UnOp(SignExt len, rs1_exp), UnOp(SignExt len, rs2_exp)),
+              const 0 len)
+         
+      | _ -> L.abort (fun p -> p "illegal funct3 in b-type instructions")
+    in
+    let target = Data.Address.add_offset a (Z.of_int imm) in
+    let ip' = Data.Address.add_offset a (Z.of_int 4) in
+    [ If (cond, [Jmp (A target)], [Jmp (A ip')]) ]
+    
+  let decode_utype a opcode word =
+    let imm, rd = get_utype_fields word in
     match opcode with
-    | 0b0110011 -> return s (decode_rtype word)
-    | 0b0010011 | 0b0000011 -> return s (decode_itype word opcode)
-    | 0b0100011 -> return s (decode_stype word)
-    | 0b1100011 -> return s (decode_btype word)
-    | _ -> L.error (fun p -> p "non recognized type of instructions")
+    | 0b0110111 -> (* LUI *) [ Set (rd, const (imm lsl 12) 32) ] 
+    | 0b0010111 -> (* AUIPC *)
+       let ip' = Data.Address.add_offset a (Z.of_int imm) in
+       let c = Const (Word.of_int (Data.Address.to_int ip') 32) in
+       [ Set (rd, c) ; Jmp (A ip') ]
+    | _ -> L.abort (fun p -> p "illegal funct3 in U-type instruction")
 
-  let parse text cfg _ctx state addr oracle =
+  let z4 = Z.of_int 4
+         
+  let decode_jal a word =
+    let imm, rd = get_jtype_fields word in
+    let ip4 = Data.Address.add_offset a z4 in
+    let ip' = Data.Address.add_offset a (Z.of_int imm) in
+    let c = Const (Word.of_int (Data.Address.to_int ip4) xlen) in
+    [ Set (rd, c) ; Jmp (A ip') ]
+       
+   
+  let decode_jalr a word =
+    let imm, (rs1, _is_rs1_x0), funct3, (rd, _is_rd_x0) = get_itype_fields word in
+    if funct3 <> 0b000 then
+      L.abort (fun p -> p "illegal func3 value (%d) in JALR decoding" funct3);
+    let ip4 = Data.Address.add_offset a z4 in
+    let ip' = BinOp(Add, Lval rs1, const imm xlen) in
+    let c = Const (Word.of_int (Data.Address.to_int ip4) xlen) in
+    [ Set (rd, c) ; Jmp (R ip') ]
+
+  let return s stmts =
+    s.b.Cfa.State.stmts <- stmts;
+    s.b.Cfa.State.bytes <- s.c;
+    s.b
+
+  let decode (s: state): Cfa.State.t =
+    let instruction = String.sub s.buf 0 4 in
+    String.iter (fun c -> s.c <- c::s.c) instruction;
+    s.c <- List.rev s.c;
+    let opcode = extract_opcode instruction in
+    match opcode with
+    | 0b0110011 -> return s (decode_rtype instruction)
+    | 0b0010011 | 0b0000011 -> return s (decode_itype instruction opcode)
+    | 0b0100011 -> return s (decode_stype instruction)
+    | 0b1100011 -> return s (decode_btype s.a instruction)
+    | 0b0110111 | 0b0010111 -> return s (decode_utype s.a opcode instruction)
+    | 0b1100111 -> (* JALR *) return s (decode_jalr s.a instruction)
+    | 0b1101111 -> return s (decode_jal s.a instruction)
+    | _ -> L.abort (fun p -> p "non recognized type of instructions")
+
+         
+  let parse text cfg _ctx state addr _oracle =
      let s =  {
       g = cfg;
       b = state;
       a = addr;
       buf = text;
       addr_sz = xlen;
+      c = [];
     }
     in
     try
-      let v' = decode s A in
-      let ip' = Data.Address.add_offset addr (s.addr_sz/8) in
+      let v' = decode s in
+      let ip' = Data.Address.add_offset addr (Z.of_int (s.addr_sz/8)) in
       Some (v', ip', ())
     with
     | Exceptions.Error _ as e -> raise e
     | _  -> (*end of buffer *) None
 
 let init_registers () = ()
-  let init () =
-    Imports.init ()
+let init () = Imports.init ()
 
-  let overflow_expression () = Failwith "Not implemented" (* see comment section 2.4, Vol 1 *)
+let overflow_expression () = failwith "There is no overflow flag in RISC-V" (* see comment section 2.4, Vol 1 *)
 end
