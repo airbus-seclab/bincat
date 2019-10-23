@@ -1079,13 +1079,15 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let name    = Register.fresh_name () in
     let res_reg = Register.make ~name:name ~size:s.operand_sz in
     let res = V (T res_reg) in
-    let res_cf_stmts = if use_carry then
-                         let carry_ext = UnOp (ZeroExt dst_sz, Lval (V (T fcf))) in
-                         [ Set(res, BinOp(op, BinOp(op, Lval dst, src), carry_ext)) ; (* dst-src-cf *)
-                           carry_flag_stmts_3 dst_sz (Lval dst) op src (Lval (V (T fcf)))]
-                       else
-                         [ Set(res, BinOp(op, Lval dst, src)) ;
-                           carry_flag_stmts dst_sz (Lval dst) op src ; ] in
+    let res_cf_stmts =
+      if use_carry then
+        let carry_ext = UnOp (ZeroExt dst_sz, Lval (V (T fcf))) in
+        [ Set(res, BinOp(op, BinOp(op, Lval dst, src), carry_ext)) ; (* dst-src-cf *)
+          carry_flag_stmts_3 dst_sz (Lval dst) op src (Lval (V (T fcf)))]
+      else
+        [ Set(res, BinOp(op, Lval dst, src)) ;
+          carry_flag_stmts dst_sz (Lval dst) op src ; ]
+    in
     return s
       (res_cf_stmts @ [
          adjust_flag_stmts_from_res dst_sz (Lval dst) src (Lval res) ;
@@ -1497,8 +1499,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (** statements generation for pop instructions *)
   let pop_stmts is_pop s lv =
     let esp'  = esp_lval () in
-    List.fold_left (fun stmts lv ->
-        let n = size_push_pop lv s.addr_sz in
+    List.fold_left (fun stmts (lv, n) ->
         let incr = set_esp Add esp' n in
         if with_stack_pointer is_pop s.a lv then
           [ incr ; Set (lv, Lval (M (BinOp (Sub, Lval (V esp'), const (n/8) !Config.stack_width), s.addr_sz))) ] @ stmts
@@ -1513,23 +1514,19 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let popf s sz =
     let name        = Register.fresh_name ()            in
     let v           = Register.make ~name:name ~size:sz in
-    let tmp         = V (T v)               in
+    let tmp         = V (T v) in
     let stmt = set_eflags v in
-    let popst = pop_stmts true s [tmp] in
+    let popst = pop_stmts true s [tmp, sz] in
     return s (popst @ stmt @ [Directive (Remove v)])
 
   (** generation of statements for the push instructions *)
   let push_stmts (s: state) v =
-    let n =
-      if s.operand_sz = 16 then 16
-      else !Config.stack_width
-    in
     let esp' = esp_lval () in
     let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
     (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
     (* this is the purpose of the pre and post statements *)
     let pre, post=
-      if List.exists (with_stack_pointer false s.a) v then
+      if List.exists (fun k -> with_stack_pointer false s.a (fst k)) v then
         [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
       else
         [], []
@@ -1537,22 +1534,22 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
     let stmts =
       List.fold_left (
-          fun stmts lv ->
+          fun stmts (lv, n) ->
           let st =
-            if with_stack_pointer false s.a lv then begin
+            if with_stack_pointer false s.a lv then
                 (* save the esp value to its value before the first push (see PUSHA specifications) *)
                 let lv_repl = Lval (replace_reg lv esp t) in
                 Set (M (Lval (V esp'), n), lv_repl)
-              end else begin
+              else
                 (* TODO: some CPUs only move the 16 bits of the segment register and leave the rest
                  * of the stack untouched *)
                 let lv_ext =
-                  if is_segment lv then
+                  if is_segment lv && s.operand_sz <> 16 then
                     UnOp (ZeroExt !Config.stack_width, Lval lv)
-                  else  Lval lv
+                  else
+                    Lval lv
                 in
                 Set (M (Lval (V esp'), n), lv_ext);
-              end
           in
           [ set_esp Sub esp' n ; st ] @ stmts
 
@@ -1567,7 +1564,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let push_immediate s sz =
     let c     = get_imm s sz !Config.stack_width true in
     let esp'  = esp_lval () in
-    let stmts = [ set_esp Sub esp' !Config.stack_width ; Set (M (Lval (V esp'), !Config.stack_width), c) ]
+    let stmts = [ set_esp Sub esp' !Config.stack_width; Set (M (Lval (V esp'), !Config.stack_width), c) ]
     in
     return s stmts
 
@@ -1583,7 +1580,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       else e
     in
     let stmt = [Set(tmp, e')] in
-    (stmt @ (push_stmts s [tmp]) @ [Directive (Remove v)])
+    (stmt @ (push_stmts s [tmp, sz]) @ [Directive (Remove v)])
 
   let pushf s sz = return s (pushf_stmts s sz)
 
@@ -2135,8 +2132,11 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
      * to special case inc and dec *)
     let sz = match nnn with
       | 0 | 1 -> s.operand_sz
-      | _ -> begin try (Arch.get_operand_sz_for_stack ())
-                   with Exit -> s.operand_sz;  end;
+      | _ -> begin
+          try
+            if s.operand_sz = 16 then 16
+            else Arch.get_operand_sz_for_stack ()
+          with Exit -> s.operand_sz;  end;
     in
     let dst = exp_of_md s md rm sz sz in
     match nnn with
@@ -2145,7 +2145,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     | 2 -> return s (indirect_call s dst)
     | 4 -> return s [ Jmp (R (Lval dst)) ]
     | 5 -> return s [Jmp (R (add_segment s (Lval dst) cs))]
-    | 6 -> push s [dst]
+    | 6 -> push s [dst, sz]
     | _ -> error s.a "Illegal opcode in grp 5"
 
   let grp6 s =
@@ -2581,8 +2581,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\x03' -> (* ADD *) add_sub_mrm s Add false s.operand_sz 1
       | '\x04' -> (* ADD AL with immediate operand *) add_sub_immediate s Add false eax 8 8
       | '\x05' -> (* ADD eAX with immediate operand *) add_sub_immediate s Add false eax s.operand_sz s.imm_sz
-      | '\x06' -> (* PUSH es *) let es' = to_reg es 16 in push s [V es']
-      | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es']
+      | '\x06' -> (* PUSH es *) let es' = to_reg es 16 in push s [V es', 16]
+      | '\x07' -> (* POP es *) let es' = to_reg es s.operand_sz in pop s [V es', s.operand_sz]
       | '\x08' -> (* OR *) or_xor_and_mrm s Or 8 0
       | '\x09' -> (* OR *) or_xor_and_mrm s Or s.operand_sz 0
       | '\x0A' -> (* OR *) or_xor_and_mrm s Or 8 1
@@ -2591,7 +2591,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\x0D' -> (* OR imm *) or_xor_and_eax s Or s.imm_sz s.operand_sz
 
 
-      | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs 16 in push s [V cs']
+      | '\x0E' -> (* PUSH cs *) let cs' = to_reg cs 16 in push s [V cs', 16]
       | '\x0F' -> (* 2-byte escape *) decode_snd_opcode s
 
       | '\x10' -> (* ADC *) add_sub_mrm s Add true 8 0
@@ -2601,8 +2601,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
       | '\x14' -> (* ADC AL with immediate *) add_sub_immediate s Add true eax 8 8
       | '\x15' -> (* ADC eAX with immediate *) add_sub_immediate s Add true eax s.operand_sz s.imm_sz
-      | '\x16' -> (* PUSH ss *) let ss' = to_reg ss 16 in push s [V ss']
-      | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss']
+      | '\x16' -> (* PUSH ss *) let ss' = to_reg ss 16 in push s [V ss', 16]
+      | '\x17' -> (* POP ss *) let ss' = to_reg ss s.operand_sz in pop s [V ss', s.operand_sz]
 
       | '\x18' -> (* SBB *) add_sub_mrm s Sub true 8 0
       | '\x19' -> (* SBB *) add_sub_mrm s Sub true s.operand_sz 0
@@ -2610,8 +2610,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\x1B' -> (* SBB *) add_sub_mrm s Sub true s.operand_sz 1
       | '\x1C' -> (* SBB AL with immediate *) add_sub_immediate s Sub true eax 8 8
       | '\x1D' -> (* SBB eAX with immediate *) add_sub_immediate s Sub true eax s.operand_sz s.imm_sz
-      | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds 16 in push s [V ds']
-      | '\x1F' -> (* POP ds *) let ds' = to_reg ds 16 in pop s [V ds']
+      | '\x1E' -> (* PUSH ds *) let ds' = to_reg ds 16 in push s [V ds', 16]
+      | '\x1F' -> (* POP ds *) let ds' = to_reg ds s.operand_sz in pop s [V ds', s.operand_sz]
 
       | '\x20' -> (* AND *) or_xor_and_mrm s And 8 0
       | '\x21' -> (* AND *) or_xor_and_mrm s And s.operand_sz 0
@@ -2678,29 +2678,33 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | c when '\x50' <= c && c <= '\x57' -> (* PUSH general register *)
          if not s.rex.op_switch then
            begin
-             try let n = Arch.get_operand_sz_for_stack () in
-                 s.operand_sz <- n;
+             try
+               if s.operand_sz <> 16 then
+                 let n = Arch.get_operand_sz_for_stack () in
+                 s.operand_sz <- n
              with Exit -> ()
            end;
          let n = (Char.code c) - 0x50 in
          let n'= s.rex.b_ lsl 3 + n in
          let r = find_reg n' s.operand_sz in
-         push s [V r]
+         push s [V r, s.operand_sz]
 
       | c when '\x58' <= c && c <= '\x5F' -> (* POP into general register *)
          if not s.rex.op_switch then
            begin
-             try let n = Arch.get_operand_sz_for_stack () in
+             try
+               if s.operand_sz <> 16 then
+               let n = Arch.get_operand_sz_for_stack () in
                  s.operand_sz <- n
              with Exit -> ()
            end;
          let n = (Char.code c) - 0x58 in
          let n' = s.rex.b_ lsl 3 + n in
          let r = find_reg n' s.operand_sz in
-         pop s [V r]
+         pop s [V r, s.operand_sz]
 
-      | '\x60' -> (* PUSHA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
-      | '\x61' -> (* POPA *) let l = List.map (fun v -> find_reg_v v s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
+      | '\x60' -> (* PUSHA *) let l = List.map (fun v -> find_reg_v v s.operand_sz, s.operand_sz) [0 ; 1 ; 2 ; 3 ; 5 ; 6 ; 7] in push s l
+      | '\x61' -> (* POPA *) let l = List.map (fun v -> find_reg_v v s.operand_sz, s.operand_sz) [7 ; 6 ; 3 ; 2 ; 1 ; 0] in pop s l
 
       | '\x63' ->
          if !Config.address_sz = 32 then (* ARPL *) arpl s
@@ -2751,7 +2755,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let dst = V ( T (to_segment_reg s.a reg)) in
          let src = find_reg_v rm 16 in
          return s [ Set (dst, Lval src) ]
-      | '\x8f' -> (* POP of word or double word *) let dst, _src = operands_from_mod_reg_rm s s.operand_sz 0 in pop s [dst]
+      | '\x8f' -> (* POP of word or double word *) let dst, _src = operands_from_mod_reg_rm s s.operand_sz 0 in pop s [dst, s.operand_sz]
 
       | '\x90'                  -> (* NOP *) return s [Nop]
       | c when '\x91' <= c && c <= '\x97' -> (* XCHG word or double-word with eAX *) xchg_with_eax s ((Char.code c) - 0x90)
@@ -2763,8 +2767,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let a = Data.Address.add_offset (Data.Address.of_int Data.Address.Global cs' s.addr_sz) off in
          return s (call s (A a))
       | '\x9b' -> (* WAIT *) error s.a "WAIT decoder. Interpreter halts"
-      | '\x9c' -> (* PUSHF *) pushf s s.operand_sz
-      | '\x9d' -> (* POPF *) popf s s.operand_sz
+      | '\x9c' -> (* PUSHF *) pushf s s.addr_sz
+      | '\x9d' -> (* POPF *) popf s s.addr_sz
       | '\xa0' -> (* MOV EAX *) mov_with_eax s 8 false
       | '\xa1' -> (* MOV EAX *) mov_with_eax s s.operand_sz false (* yes! it is 32 for x64 also, see Vol 2A 2.2.1.4 *)
       | '\xa2' -> (* MOV EAX *) mov_with_eax s 8 true
@@ -2800,9 +2804,9 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\xc9' -> (* LEAVE *)
          let sp = V (to_reg esp !Config.stack_width) in
          let bp = V (to_reg ebp !Config.stack_width) in
-         return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp]))
-      | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs)] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
-      | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs)]))
+         return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp, !Config.stack_width]))
+      | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs), 16] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
+      | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs), 16]))
       | '\xcc' -> (* INT 3 *) error s.a "INT 3 decoded. Interpreter halts"
       | '\xcd' -> (* INT *) let c = getchar s in error s.a (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
       | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
@@ -2993,14 +2997,14 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
       | c when '\x80' <= c && c <= '\x8f' -> let cond = (Char.code c) - 0x80 in jcc s cond 32
       | c when '\x90' <= c && c <= '\x9f' -> let cond = (Char.code c) - 0x90 in setcc s cond
-      | '\xa0' -> push s [V (T fs)]
-      | '\xa1' -> pop s [V (T fs)]
+      | '\xa0' -> let n = if s.operand_sz = 16 then 16 else !Config.stack_width in push s [V (T fs), n]
+      | '\xa1' -> pop s [V (T fs), s.operand_sz]
       (*| '\xa2' -> cpuid *)
       | '\xa3' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bt s reg rm
       | '\xa4' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_ld_stmt reg rm s.operand_sz (get_imm s 8 8 false))
       | '\xa5' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_ld_stmt reg rm s.operand_sz (Lval (V cl)))
-      | '\xa8' -> push s [V (T gs)]
-      | '\xa9' -> pop s [V (T gs)]
+      | '\xa8' -> let n = if s.operand_sz = 16 then 16 else !Config.stack_width in push s [V (T gs), n]
+      | '\xa9' -> pop s [V (T gs), s.operand_sz]
 
       | '\xab' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in bts s reg rm
       | '\xac' -> let reg, rm = operands_from_mod_reg_rm s s.operand_sz 0 in return s (shift_rd_stmt reg rm s.operand_sz (get_imm s 8 8 false))

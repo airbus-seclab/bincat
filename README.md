@@ -131,3 +131,8 @@ by Willi Ballenthin, released under the Apache License 2.0.
 BinCAT includes a modified copy of
 [newspeak](https://github.com/airbus-seclab/c2newspeak).
 
+## Automated builds
+
+Automated builds are performed automatically (see
+[azure-pipelines.yml](azure-pipelines.yml)). The latest builds and test results
+can be accessed [here](https://dev.azure.com/airbus-seclab/bincat/_build)

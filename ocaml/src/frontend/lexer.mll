@@ -53,6 +53,7 @@ let _ =
     "big", BIG;
     "x86", X86;
     "x64", X64;
+    "IDA", IDA;
     (* settings tokens *)
     "mem_model", MEM_MODEL;
     "op_sz", OP_SZ;

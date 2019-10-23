@@ -103,14 +103,13 @@ COVERAGES = [Large, Medium, Small, Smoke]
 
 
 def pytest_addoption(parser):
-    cov = lambda name: {x._name: x for x in COVERAGES}.get(name,name)
-    parser.addoption("--coverage", choices=COVERAGES, #[x._name for x in COVERAGES],
-                     default=Medium, type=cov, help="test more or less values")
+    parser.addoption("--coverage", choices=[x._name for x in COVERAGES],
+                     default="medium", help="test more or less values")
 
 
 def pytest_generate_tests(metafunc):
     func_name = metafunc.function.func_name
-    coverage = metafunc.config.option.coverage
+    coverage = {x._name: x for x in COVERAGES}[metafunc.config.option.coverage]
     for fn in metafunc.fixturenames:
         fnstr = fn.rstrip("_")  # alias foo_, foo__, etc. to foo
         if hasattr(coverage, fnstr):

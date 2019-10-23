@@ -199,7 +199,7 @@ npk/newspeak/newspeak.cmi:
 	$(CAMLCOMPIL) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.mli
 
 %.cmx: %.ml $$(DEPS-$$(*F))
-	$(CAMLOPT) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.ml
+	$(CAMLOPT) -pp $(CPPO) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.ml
 
 %.cmo: %.ml $$(DEPS-$$(*F))
 	$(CAMLC) $(CAMLOPTIONS) $(LIBINCL) $(OPTS-$(*F)) -c $*.ml
@@ -232,7 +232,7 @@ install: $(LIBNAME) $(EXENAME)
 
 .depend: $(ML) $(MLI)
 	rm -f .depend
-	-$(CAMLDEP) $(LIBINCL) -slash $(CAMLDEPOPT) $+ > .depend
+	-$(CAMLDEP) -pp $(CPPO) $(LIBINCL) -slash $(CAMLDEPOPT) $+ > .depend
 
 doc: $(ML) $(MLI)
 	@mkdir -p $(DOCPATH)/html
