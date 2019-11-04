@@ -50,6 +50,7 @@ ML=\
   domains/reduced_bit_tainting.ml\
   domains/heap.ml\
   domains/reduced_unrel_typenv_heap.ml\
+  domains/objects.ml\
   disassembly/cfa.ml\
   disassembly/core_x86.ml\
   disassembly/armv7.ml\
