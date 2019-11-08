@@ -19,7 +19,11 @@ GCC_DIR = counter("gcc-%i")
 def getReg(my_node, name):
     v = cfa.Value('reg', name, cfa.reg_len(name))
     # hardcoded first unrel
-    return my_node.unrels["0"][v][0]
+    try:
+        return my_node.unrels["0"][v][0]
+    except KeyError:
+        return my_node.unrels[my_node.unrels.keys()[0]][v][0]
+        
 
 
 def getLastNode(prgm):
