@@ -2,6 +2,7 @@ import subprocess
 import os
 import inspect
 import pytest
+import conftest
 from collections import defaultdict
 from pybincat import cfa
 
@@ -506,3 +507,6 @@ class PowerPC(Arch):
         regs["ov"] = (xer >> 30) & 1
         regs["ca"] = (xer >> 29) & 1
         regs["tbc"] = (xer >> 0) & 0x7f
+
+def get_cov():
+    return {x._name: x for x in conftest.COVERAGES}[pytest.config.option.coverage]
