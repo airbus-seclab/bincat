@@ -20,7 +20,7 @@ All these dependencies except IDA are usually packaged by linux distributions.
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
   libocamlgraph-ocaml-dev python-setuptools python-dev \
-  ocaml-compiler-libs libppx-tools-ocaml-dev cppo
+  ocaml-compiler-libs libppx-tools-ocaml-dev cppo libnum-ocaml-dev
 ```
 
 ##### on Ubuntu 18.04:
