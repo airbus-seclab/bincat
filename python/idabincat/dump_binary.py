@@ -16,7 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
 import logging
-import idaapi
+import ida_bytes
+import ida_segment
 from idabincat.analyzer_conf import ConfigHelpers
 
 dump_log = logging.getLogger('bincat.plugin.dump_binary')
@@ -31,15 +32,14 @@ def dump_binary(path):
     current_offset = 0
     with open(path, 'wb+') as f:
         # over all segments
-        for n in range(idaapi.get_segm_qty()):
-            seg = idaapi.getnseg(n)
+        for n in range(ida_segment.get_segm_qty()):
+            seg = ida_segment.getnseg(n)
             start_ea = seg.start_ea
             end_ea = seg.end_ea
             size = end_ea - start_ea
-            # IDA7.4 FIXME
-            f.write(idaapi.get_many_bytes_ex(start_ea, size)[0])
+            f.write(ida_bytes.get_bytes(start_ea, size)[0])
             sections.append(
-                (idaapi.get_segm_name(seg), start_ea, size,
+                (ida_segment.get_segm_name(seg), start_ea, size,
                  current_offset, size))
             current_offset += size
     dump_log.debug(repr(sections))
