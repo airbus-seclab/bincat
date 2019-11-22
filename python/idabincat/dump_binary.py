@@ -27,7 +27,6 @@ dump_log.setLevel(logging.INFO)
 # returns a list of sections
 # [(name, va, vasize, raw_addr, raw_size)]
 def dump_binary(path):
-    max_addr = 0
     sections = []
     current_offset = 0
     with open(path, 'wb+') as f:

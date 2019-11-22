@@ -224,7 +224,7 @@ class LocalAnalyzerTimer(object):
         self.qprocess = qprocess
         self.timer = idaapi.register_timer(self.interval, self)
         if self.timer is None:
-            raise RuntimeError, "Failed to register timer"
+            raise RuntimeError("Failed to register timer")
 
     def __call__(self):
         if idaapi.user_cancelled():

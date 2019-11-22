@@ -30,6 +30,7 @@ import logging
 import idaapi
 import idautils
 import ida_segment
+import ida_kernwin
 import idabincat.netnode
 from idabincat.plugin_options import PluginOptions
 
@@ -37,7 +38,7 @@ from idabincat.plugin_options import PluginOptions
 bc_log = logging.getLogger('bincat-cfg')
 bc_log.setLevel(logging.INFO)
 
-X64_GPR = ['rax', 'rcx', 'rdx', 'rbx', 'rbp', 'rsi', 'rdi', 'rsp']+["r%d" % d for d in xrange(8, 16)]
+X64_GPR = ['rax', 'rcx', 'rdx', 'rbx', 'rbp', 'rsi', 'rdi', 'rsp']+["r%d" % d for d in range(8, 16)]
 X86_GPR = ['eax', 'ecx', 'edx', 'ebx', 'ebp', 'esi', 'edi', 'esp']
 
 
@@ -275,7 +276,7 @@ class ConfigHelpers(object):
         if arch == 'x64':
             if reg in X64_GPR:
                 return 64
-            if reg in ["xmm%d" % d for d in xrange(0, 16)]:
+            if reg in ["xmm%d" % d for d in range(0, 16)]:
                 return 128
             if reg in ['cf', 'pf', 'af', 'zf', 'sf', 'tf', 'if', 'of', 'nt',
                        'rf', 'vm', 'ac', 'vif', 'vip', 'id', 'df']:
@@ -320,7 +321,7 @@ class ConfigHelpers(object):
         if arch == "x64":
             for name in X64_GPR:
                 regs.append([name, "0", "0xFFFFFFFFFFFFFFFF", ""])
-            if name in ["xmm%d" % d for d in xrange(0, 16)]:
+            if name in ["xmm%d" % d for d in range(0, 16)]:
                 regs.append([name, "0", "0x"+"F"*32, ""])
             regs.append(["rsp", "0xb8001000", "", ""])
             for name in ["cf", "pf", "af", "zf", "sf", "tf", "if", "of", "nt",
