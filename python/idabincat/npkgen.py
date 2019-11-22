@@ -169,7 +169,7 @@ class NpkGen(object):
         """
         # Get type
         imp_t = idaapi.tinfo_t()
-        if idaapi.get_tinfo2(ea, imp_t):
+        if idaapi.get_tinfo(imp_t, ea):
             if not imp_t.is_func():
                 self.imports.append(idaapi.print_type(ea, True) + ";")
             else:
@@ -216,7 +216,7 @@ class NpkGen(object):
             # struct members
             for idx in range(0, tinfo.get_udt_nmembers()):
                 u.offset = idx
-                tinfo.find_udt_member(idaapi.STRMEM_INDEX, u)
+                tinfo.find_udt_member(u, idaapi.STRMEM_INDEX)
 
                 # print "member :"+str(u.type)
                 # Recurse base type

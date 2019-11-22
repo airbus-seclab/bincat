@@ -349,7 +349,6 @@ class BinCATMemForm_t(ida_kernwin.PluginForm):
         self.pretty_to_int_map = \
             dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
 
-    @QtCore.pyqtSlot(int)
     def handle_selection_range_changed(self, bindex):
         if bindex < 0:
             return
@@ -359,7 +358,6 @@ class BinCATMemForm_t(ida_kernwin.PluginForm):
             return
         self.last_visited[cur_reg] = bindex + start
 
-    @QtCore.pyqtSlot(int, int, bool)
     def handle_new_override(self, abs_start, abs_end, re_run):
         # add override for each byte
         mask, res = QtWidgets.QInputDialog.getText(
@@ -381,7 +379,6 @@ class BinCATMemForm_t(ida_kernwin.PluginForm):
         if re_run:
             self.s.re_run()
 
-    @QtCore.pyqtSlot(str)
     def update_range(self, crangeidx):
         if self.current_range_idx == crangeidx:
             return
@@ -397,7 +394,6 @@ class BinCATMemForm_t(ida_kernwin.PluginForm):
         self.hexwidget.setNewMem(meminfo)
         self.last_visited[cur_reg] = new_range[0]
 
-    @QtCore.pyqtSlot("QString")
     def update_region(self, pretty_region):
         if pretty_region not in self.pretty_to_int_map:
             self.pretty_to_int_map[pretty_region] = pretty_region  # ex: /h\d+/
@@ -871,7 +867,6 @@ class BinCATConfigForm_t(ida_kernwin.PluginForm):
             self.update_config_list()
 
     # Called when the edit combo is changed
-    @QtCore.pyqtSlot(int)
     def _load_config(self, index):
         if not self.s.current_ea:
             self.s.current_ea = idaapi.get_screen_ea()
@@ -1179,7 +1174,6 @@ class BinCATRegistersForm_t(ida_kernwin.PluginForm):
                      ida_kernwin.PluginForm.WOPN_RESTORE |
                      ida_kernwin.PluginForm.WOPN_TAB))
 
-    @QtCore.pyqtSlot(str)
     def update_node(self, node):
         node_id = node.split(' ')[0]
         if node != "" and (not self.s.current_node or
@@ -1188,7 +1182,6 @@ class BinCATRegistersForm_t(ida_kernwin.PluginForm):
             self.s.set_current_node(node_id)
             self.node_select.blockSignals(False)
 
-    @QtCore.pyqtSlot(str)
     def update_unrel(self, unrel):
         unrel_id = unrel.split(' ')[0]
         node_id = self.node_select.currentText().split(' ')[0]
@@ -1198,7 +1191,6 @@ class BinCATRegistersForm_t(ida_kernwin.PluginForm):
             self.s.set_current_node(node_id, unrel_id=unrel_id)
             self.node_select.blockSignals(False)
 
-    @QtCore.pyqtSlot(str)
     def goto_next(self, node):
         if self.nextnodes_combo.currentIndex() == 0:
             return
