@@ -238,7 +238,7 @@ class Netnode(object):
     def get(self, key, default=None):
         try:
             return self[key]
-        except KeyError:
+        except (KeyError, zlib.error):
             return default
 
     def __contains__(self, key):
@@ -246,7 +246,7 @@ class Netnode(object):
             if self[key] is not None:
                 return True
             return False
-        except KeyError:
+        except (KeyError, zlib.error):
             return False
 
     def iterkeys(self):
