@@ -2004,17 +2004,12 @@ class HandleAddOverride(idaapi.action_handler_t):
     def activate(self, ctx):
         self.s.gui.show_windows()
 
-        # IDA 7 compat bug: get_highlighted_identifier is mapped to
-        # get_highlight which expects a widget as arguments
-        # moreover, it returns a tuple instead of a String
-        try:
-            highlighted = idaapi.get_highlighted_identifier()
-        except TypeError:
-            highlighted = idaapi.get_highlight(ctx.widget)
-        if highlighted is None:
-            return 0
-        elif isinstance(highlighted, tuple):
-            highlighted = highlighted[0]
+        v = ida_kernwin.get_current_viewer()
+        thing = ida_kernwin.get_highlight(v)
+        if thing and thing[1]:
+            highlighted = thing[0]
+        else:
+           return 0
         address = self.s.current_ea
         # guess whether highlighted text is register or address
         try:
@@ -2158,9 +2153,7 @@ class Hooks(idaapi.UI_Hooks):
         self.gui.show_windows()
 
     def updating_actions(self, ctx):
-        # IDA 6/7 compat
-        win_type = ctx.widget_type if hasattr(ctx, "widget_type") else \
-            ctx.form_type
+        win_type = ctx.widget_type
         if win_type == idaapi.BWN_DISASM:
             ea = ctx.cur_ea
             if ida_bytes.is_code(idaapi.get_full_flags(ea)):

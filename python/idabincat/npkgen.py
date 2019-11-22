@@ -23,6 +23,7 @@ import logging
 import subprocess
 try:
     import idaapi
+    from ida_typeinf import PRTYPE_1LINE
 except ImportError:
     # imported outside ida - for instance, from wsgi.py
     pass
@@ -171,7 +172,7 @@ class NpkGen(object):
         imp_t = idaapi.tinfo_t()
         if idaapi.get_tinfo(imp_t, ea):
             if not imp_t.is_func():
-                self.imports.append(idaapi.print_type(ea, True) + ";")
+                self.imports.append(idaapi.print_type(ea, PRTYPE_1LINE) + ";")
             else:
                 # Iterate over ret type and args
                 for i in range(-1, imp_t.get_nargs()):
@@ -182,7 +183,7 @@ class NpkGen(object):
                         self.import_name(str(no_ptr))
 
                     self.import_name(str(arg_t))
-                self.imports.append(idaapi.print_type(ea, True) + " {}")
+                self.imports.append(idaapi.print_type(ea, PRTYPE_1LINE) + " {}")
         return True
 
     def analyze_type(self, tinfo):

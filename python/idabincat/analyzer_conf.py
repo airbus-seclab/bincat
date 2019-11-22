@@ -101,9 +101,7 @@ class ConfigHelpers(object):
 
     @staticmethod
     def askfile(types, prompt):
-        # IDA 6/7 compat
-        askfile = idaapi.ask_file if hasattr(idaapi, 'ask_file') else idaapi.askfile_c
-        fname = askfile(1, types, prompt)
+        fname = ida_kernwin.ask_file(1, types, prompt)
         return ConfigHelpers.string_decode(fname)
 
     # Helper that returns an Unicode string with the file path
@@ -195,9 +193,8 @@ class ConfigHelpers(object):
         # heuristic entry point must be in the code section
         for n in range(idaapi.get_segm_qty()):
             seg = idaapi.getnseg(n)
-            # IDA 6/7 compat
-            start_ea = seg.start_ea if hasattr(seg, "start_ea") else seg.startEA
-            end_ea = seg.end_ea if hasattr(seg, "end_ea") else seg.endEA
+            start_ea = seg.start_ea
+            end_ea = seg.end_ea
             if seg.type == idaapi.SEG_CODE and start_ea <= entrypoint < end_ea:
                 # TODO : check PE/ELF for **physical** (raw) section size
                 return start_ea, end_ea
