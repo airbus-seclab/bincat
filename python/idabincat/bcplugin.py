@@ -116,9 +116,8 @@ class BincatPlugin(idaapi.plugin_t):
     # IDA API methods: init, run, term
     def init(self):
         info = idaapi.get_inf_structure()
-        # IDA 6/7 compat
-        procname = info.procname if hasattr(info, 'procname') else info.get_proc_name()[0]
-        if procname != 'metapc' and procname != 'ARM' and procname != 'PPC' and procname != 'ARMB':
+        procname = info.procname
+        if procname != 'metapc' and procname != 'ARM' and procname != 'ARMB' and procname != 'PPC':
             bc_log.info("CPU '%s' is not supported, not loading BinCAT", procname)
             return idaapi.PLUGIN_SKIP
         try:
@@ -225,7 +224,7 @@ class LocalAnalyzerTimer(object):
         self.qprocess = qprocess
         self.timer = idaapi.register_timer(self.interval, self)
         if self.timer is None:
-            raise RuntimeError, "Failed to register timer"
+            raise RuntimeError("Failed to register timer")
 
     def __call__(self):
         if idaapi.user_cancelled():

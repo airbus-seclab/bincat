@@ -16,7 +16,8 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
 import logging
-import idaapi
+import ida_bytes
+import ida_segment
 from idabincat.analyzer_conf import ConfigHelpers
 
 dump_log = logging.getLogger('bincat.plugin.dump_binary')
@@ -27,60 +28,22 @@ dump_log.setLevel(logging.INFO)
 # returns a list of sections
 # [(name, va, vasize, raw_addr, raw_size)]
 def dump_binary(path):
-    max_addr = 0
-    # Check if we have a buggy IDA or not
-    try:
-        idaapi.get_many_bytes_ex(0, 1)
-    except TypeError:
-        buggy = True
-    else:
-        buggy = False
-    if buggy:
-        f = idaapi.qfile_t()
-        try:
-            f.open(path, 'wb+')
-        except TypeError:
-            # Another ugly hack for IDA 6/7 compat (unicode strings)
-            f.open(str(path), 'wb+')
-        segments = [idaapi.getnseg(x) for x in range(idaapi.get_segm_qty())]
-
-        # no need for IDA 7 compat, it's not buggy
-        max_addr = segments[-1].endEA
-
-        if max_addr > 200*1024*1024:
-            askyn = idaapi.ask_yn if hasattr(idaapi, "ask_yn") else idaapi.askyn_c
-            if askyn(idaapi.ASKBTN_NO, "Dump file is over 200MB,"
-                    " do you want to dump it anyway ?") != idaapi.ASKBTN_YES:
-                return None
-
-        idaapi.base2file(f.get_fp(), 0, 0, max_addr)
-        f.close()
-        return [("dump", 0, max_addr, 0, max_addr)]
-
-    else:
-        sections = []
-        current_offset = 0
-        with open(path, 'wb+') as f:
-            # over all segments
-            for n in range(idaapi.get_segm_qty()):
-                seg = idaapi.getnseg(n)
-                if hasattr(seg, "start_ea"):
-                    start_ea = seg.start_ea
-                else:
-                    start_ea = seg.startEA
-                if hasattr(seg, "end_ea"):
-                    end_ea = seg.end_ea
-                else:
-                    end_ea = seg.endEA
-                size = end_ea - start_ea
-                # Only works with fixed IDAPython.
-                f.write(idaapi.get_many_bytes_ex(start_ea, size)[0])
-                sections.append(
-                    (idaapi.get_segm_name(seg), start_ea, size,
-                     current_offset, size))
-                current_offset += size
-        dump_log.debug(repr(sections))
-        return sections
+    sections = []
+    current_offset = 0
+    with open(path, 'wb+') as f:
+        # over all segments
+        for n in range(ida_segment.get_segm_qty()):
+            seg = ida_segment.getnseg(n)
+            start_ea = seg.start_ea
+            end_ea = seg.end_ea
+            size = end_ea - start_ea
+            f.write(ida_bytes.get_bytes(start_ea, size)[0])
+            sections.append(
+                (ida_segment.get_segm_name(seg), start_ea, size,
+                 current_offset, size))
+            current_offset += size
+    dump_log.debug(repr(sections))
+    return sections
 
 
 if __name__ == '__main__':

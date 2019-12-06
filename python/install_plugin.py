@@ -10,8 +10,7 @@ try:
     import requests
     print "'requests' is installed, good."
 except ImportError:
-    askyn = idaapi.ask_yn if hasattr(idaapi, "ask_yn") else idaapi.askyn_c
-    if askyn(idaapi.ASKBTN_NO,
+    if idaapi.ask_yn(idaapi.ASKBTN_NO,
              "'requests' is not installed, do you want to install it ?\n"
              "Choose 'no' if you do not intend to use "
              "a distant BinCAT server") == idaapi.ASKBTN_YES:
