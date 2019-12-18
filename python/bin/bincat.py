@@ -37,16 +37,16 @@ def main():
         except KeyError:
             logger.error("No State is defined having node_id %s", options.diff[1])
             sys.exit(1)
-        print state1.diff(state2)
+        print((state1.diff(state2)))
 
     if options.first_uncertain_taint:
         state, tainted = find_first_tainted_node(p)
         if state:
-            print "%s is tainted:" % state
+            print(("%s is tainted:" % state))
             for (reg, val) in tainted:
-                print "%s -> %s" % (reg, val)
+                print(("%s -> %s" % (reg, val)))
         else:
-            print "No state containing tainted values have been found."
+            print("No state containing tainted values have been found.")
 
 def find_first_tainted_node(p):
         node0 = "0"
@@ -56,7 +56,7 @@ def find_first_tainted_node(p):
         while nextstates:
             curstate = p[nextstates.popleft()]
             nextstates.extend(p.edges[curstate.node_id])
-            for reg, vals in curstate.regaddrs.items():
+            for reg, vals in list(curstate.regaddrs.items()):
                 for val in vals:
                     if val.ttop != 0 or val.tbot != 0:
                         tainted.append((reg, vals))

@@ -18,7 +18,10 @@
 """
 import os
 import logging
-import ConfigParser
+try:
+    import configparser as ConfigParser
+except ImportError:
+    import ConfigParser
 
 # Logging
 bc_log = logging.getLogger('bincat.gui.pluginoptions')

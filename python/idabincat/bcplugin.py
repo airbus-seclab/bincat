@@ -28,7 +28,10 @@ import sys
 import tempfile
 import traceback
 import zlib
-from ConfigParser import NoSectionError
+try:
+    from configparser import NoSectionError
+except ImportError:
+    from ConfigParser import NoSectionError
 
 # Ugly but IDA Python Linux doesn't have it !
 try:
@@ -670,7 +673,7 @@ class State(object):
         self.netnode["current_ea"] = current_ea
         if not cfa:
             return
-        for addr, nodeids in cfa.addr_nodes.items():
+        for addr, nodeids in list(cfa.addr_nodes.items()):
             if hasattr(idaapi, "user_cancelled") and idaapi.user_cancelled() > 0:
                 bc_log.info("User cancelled!")
                 idaapi.hide_wait_box()
