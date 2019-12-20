@@ -27,7 +27,10 @@ from pybincat.tools import parsers
 from pybincat import PyBinCATException
 import tempfile
 import functools
-
+# Python 2/3 compat
+import sys
+if sys.version_info > (2, 8):
+    long = int
 
 def reg_len(regname):
     """
@@ -242,7 +245,7 @@ class CFA(object):
         return cls.parse(outfname, logs=logfname)
 
     def _toValue(self, eip, region=""):
-        if type(eip) in [int, int]:
+        if isinstance(eip, (int, long)):
             addr = Value(region, eip, 0)
         elif type(eip) is Value:
             addr = eip
@@ -871,7 +874,7 @@ class Unrel(object):
         for regaddr in self.list_modified_keys(other):
             region = regaddr.region
             address = regaddr.value
-            if regaddr.is_concrete() and isinstance(address, int):
+            if regaddr.is_concrete() and isinstance(address, (int, long)):
                 address = "%#08x" % address
             res.append("@@ %s %s @@" % (region, address))
             if (parent is not None) and (regaddr in parent.regaddrs):

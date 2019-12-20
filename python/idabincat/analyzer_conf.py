@@ -37,6 +37,9 @@ import ida_kernwin
 import idabincat.netnode
 from builtins import bytes
 from idabincat.plugin_options import PluginOptions
+# Python 2/3 compat
+if sys.version_info > (2, 8):
+    long = int
 
 # Logging
 bc_log = logging.getLogger('bincat-cfg')
@@ -632,13 +635,13 @@ class AnalyzerConfig(object):
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
-        if type(value) in (int, int):
+        if isinstance(value, (int, long)):
             value = "0x%X" % value
         self._config.set('analyzer', 'analysis_ep', value)
 
     @stop_address.setter
     def stop_address(self, value):
-        if type(value) in (int, int):
+        if isinstance(value, (int, long)):
             value = "0x%X" % value
         if value is None or value == "":
             self._config.remove_option('analyzer', 'cut')
@@ -969,7 +972,7 @@ class AnalyzerConfigurations(object):
         Get named config, or preferred config if defined for this address.
         Returns an AnalyzerConfig instance, or None
         """
-        if isinstance(name_or_address, int):
+        if isinstance(name_or_address, (int, long)):
             # address
             name = self._prefs.get(name_or_address, None)
             if not name:
