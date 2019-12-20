@@ -327,7 +327,10 @@ class Node(object):
             taintsrc = ["t-" + str(maxtaintsrcid)]
         else:
             # v0.7+ format, tainted
-            taintsrc = list(map(str.strip, taintedstr.split(',')))
+            try:
+                taintsrc = list(map(unicode.strip, taintedstr.split(',')))
+            except NameError:
+                taintsrc = list(map(str.strip, taintedstr.split(',')))
             tainted = True
         new_node.tainted = tainted
         new_node.taintsrc = taintsrc
