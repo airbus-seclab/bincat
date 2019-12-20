@@ -3,6 +3,7 @@
 # https://github.com/williballenthin/ida-netnode
 # and is Licensed under the Apache 2 licence
 
+import sys
 import zlib
 import json
 import logging
@@ -34,17 +35,17 @@ class Netnode(object):
 
       - https://www.hex-rays.com/products/ida/support/sdkdoc/netnode_8hpp.html
       - The IDA Pro Book, version 2
- 
+
     Conceptually, this netnode class represents is a key-value store
       uniquely identified by a namespace.
 
     This class abstracts over some of the peculiarities of the low-level
       netnode API. Notably, it supports indexing data by strings or
       numbers, and allows values to be larger than 1024 bytes in length.
-    
-    This class supports keys that are numbers or strings. 
+
+    This class supports keys that are numbers or strings.
     Values must be JSON-encodable. They can not be None.
-   
+
     Implementation:
      (You don't have to worry about this section if you just want to
         use the library. Its here for potential contributors.)
@@ -52,12 +53,12 @@ class Netnode(object):
       The major limitation of the underlying netnode API is the fixed
         maximum length of a value. Values must not be larger than 1024
         bytes. Otherwise, you must use the `blob` API. We do that for you.
-    
+
       The first enhancement is transparently zlib-encoding all values.
 
       To support arbitrarily sized values with keys of either int or str types,
         we store the values in different places:
-    
+
         - integer keys with small values: stored in default supval table
         - integer keys with large values: the data is stored in the blob
            table named 'M' using an internal key. The link from the given key
@@ -75,11 +76,17 @@ class Netnode(object):
 
     @staticmethod
     def _decompress(data):
-        return zlib.decompress(data)
+        if sys.version_info < (2, 8):
+            return zlib.decompress(data)
+        return zlib.decompress(data).decode('utf8')
 
     @staticmethod
     def _compress(data):
-        return zlib.compress(data)
+        if sys.version_info < (2, 8):
+            data_ = data
+        else:
+            data_ = bytes(data, encoding='utf8')
+        return zlib.compress(data_)
 
     @staticmethod
     def _encode(data):
@@ -180,9 +187,9 @@ class Netnode(object):
         if len(value) > BLOB_SIZE:
             storekey = self._get_next_slot(STR_KEYS_TAG)
             self._n.setblob(value, storekey, STR_KEYS_TAG)
-            self._n.hashset(key, str(storekey), STR_TO_INT_MAP_TAG)
+            self._n.hashset(key, bytes(storekey), STR_TO_INT_MAP_TAG)
         else:
-            self._n.hashset(key, value)
+            self._n.hashset(key, bytes(value))
 
     def _strget(self, key):
         assert isinstance(key, (str))
@@ -209,7 +216,8 @@ class Netnode(object):
         else:
             raise TypeError("cannot use {} as key".format(type(key)))
 
-        return self._decode(self._decompress(v))
+        data = self._decompress(v)
+        return self._decode(data)
 
     def __setitem__(self, key, value):
         '''

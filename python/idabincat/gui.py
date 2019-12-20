@@ -902,7 +902,7 @@ class BinCATConfigForm_t(ida_kernwin.PluginForm):
             self.regs_table.setEnabled(True)
             self.mem_table.setEnabled(True)
             self.lbl_core_path.hide()
-        self.ip_start_addr.setText(config.analysis_ep)
+        self.ip_start_addr.setText(str(config.analysis_ep))
         cut = config.stop_address or ""
         self.ip_stop_addr.setText(cut)
         if config.analysis_method == "forward_binary":

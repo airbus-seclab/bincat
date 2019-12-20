@@ -518,8 +518,13 @@ class AnalyzerConfig(object):
     def binary_filepath(self):
         # remove quotes
         value = self._config.get('program', 'filepath')
+        # Python 2/3 compat
+        try:
+            value = value.decode('utf-8')
+        except AttributeError:
+            pass
         value = value.replace('"', '')
-        return value.decode('utf-8')
+        return value
 
     @property
     def in_marshalled_cfa_file(self):
@@ -740,7 +745,10 @@ class AnalyzerConfig(object):
 
     @staticmethod
     def load_from_str(string):
-        sio = StringIO(string)
+        if sys.version_info < (2, 8):
+            sio = StringIO(unicode(string))
+        else:
+            sio = StringIO(string)
         parser = ConfigParser.RawConfigParser()
         parser.optionxform = str
         parser.readfp(sio)
@@ -750,7 +758,9 @@ class AnalyzerConfig(object):
         # OCaml can only handle "local" encodings for file name
         # So, ugly code following
         binpath = self.binary_filepath
-        local_binpath = ('"%s"' % binpath).encode(sys.getfilesystemencoding())
+        # TODO FIXME (python3 ...)
+        # local_binpath = ('"%s"' % binpath).encode(sys.getfilesystemencoding())
+        local_binpath = '"%s"' % binpath
         self._config.set('program', 'filepath', local_binpath)
         with open(filepath, 'w') as configfile:
             self._config.write(configfile)

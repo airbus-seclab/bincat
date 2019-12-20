@@ -37,7 +37,7 @@ def dump_binary(path):
             start_ea = seg.start_ea
             end_ea = seg.end_ea
             size = end_ea - start_ea
-            f.write(ida_bytes.get_bytes(start_ea, size)[0])
+            f.write(ida_bytes.get_bytes(start_ea, size))
             sections.append(
                 (ida_segment.get_segm_name(seg), start_ea, size,
                  current_offset, size))
