@@ -74,15 +74,36 @@ def test_basics_assign2(tmpdir):
 ## /_/ \_\_| |_|\__|_||_|_|_|_\___|\__|_\__/__/
 ## Arithmetics
 
+#R-type arithmetic and logical instructions
+# op can be: ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND
+op_arithmetic_logical_rtype = pytest.mark.parametrize("op", ["add", "sub", "sll", "slt", "sltu", "xor", "srl", "sra", "or", "and"])
+@op_arithmetic_logical_rtype
+def test_arith_log_rtype(tmpdir, op, op32, op32_):
+    asm = """
+    li r1, #{op32}
+    li r2, #{op32_}
+    {op} r3, r2, r1
+    """.format(**locals())
+    compare(tmpdir, asm, ["r1", "r2", "r3"])
 
-
+#I-type arithmetic and logical instructions
+#op can be: ADDI, SLTI, XORI, ORI, ANDI, SLLI, SRLI, SRAI
+op_arithmetic_logical_itype = pytest.mark.parametrize("op", ["addi", "slti", "xori", "ori", "andi", "slli", "srli", "srai"])
+@op_arithmetic_logical_itype
+def test_arith_log_itype(tmpdir, op, op32, op32_):
+    asm = """
+    li r1, #{op32}
+    {op} r2, r1, op32_
+    """.format(**locals())
+    compare(tmpdir, asm, ["r1", "r2"])
+    
 ##  ___                  _    _
 ## | _ )_ _ __ _ _ _  __| |_ (_)_ _  __ _
 ## | _ \ '_/ _` | ' \/ _| ' \| | ' \/ _` |
 ## |___/_| \__,_|_||_\__|_||_|_|_||_\__, |
 ##                                  |___/
 ## Branching
-
+#JAL, JALR
 
 ##  _                 _                 _    ___ _
 ## | |   ___  __ _ __| |   __ _ _ _  __| |  / __| |_ ___ _ _ ___
@@ -90,10 +111,14 @@ def test_basics_assign2(tmpdir):
 ## |____\___/\__,_\__,_|  \__,_|_||_\__,_|  |___/\__\___/_| \___|
 ## Load and Store
 
-
+#LOADS: LB, LH, LW, LD, LBU, LHU, LWU
+#STORE: SB, SH, SW, SD
 ##  ___              _      _
 ## / __|_ __  ___ __(_)__ _| |
 ## \__ \ '_ \/ -_) _| / _` | |
 ## |___/ .__/\___\__|_\__,_|_|
 ##     |_|
 ## Special
+#B-type: BEQ, BNE, BLT, BGE, BLTU, BGEU
+#LUI
+#AUIPC

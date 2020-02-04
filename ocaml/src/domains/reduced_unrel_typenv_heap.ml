@@ -26,21 +26,25 @@ module Make(D: Unrel.T) =
   module U = Unrels.Make(D)
   module T = Typenv
   module H = Heap
-
+           
   type t = U.t * T.t * H.t
 
   let init () = U.init (), T.init (), H.init ()
 
   let bot = U.BOT, T.BOT, H.BOT
 
-  let forget (uenv, tenv, henv) = U.forget uenv, T.forget tenv, H.forget henv
+  let forget (uenv, tenv, henv) =
+    U.forget uenv, T.forget tenv, H.forget henv
 
-  let is_bot (uenv, tenv, henv) = U.is_bot uenv || T.is_bot tenv || H.is_bot henv
+  let is_bot (uenv, tenv, henv) =
+    U.is_bot uenv || T.is_bot tenv || H.is_bot henv
 
   let is_subset (uenv1, tenv1, henv1) (uenv2, tenv2, henv2) =
-    U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2 && H.is_subset henv1 henv2
+    U.is_subset uenv1 uenv2 && T.is_subset tenv1 tenv2 &&
+      H.is_subset henv1 henv2
 
-  let remove_register r (uenv, tenv, henv) = U.remove_register r uenv, T.remove_register r tenv, henv
+  let remove_register r (uenv, tenv, henv) =
+    U.remove_register r uenv, T.remove_register r tenv, henv
 
   let forget_lval lv (uenv, tenv, henv) =
     let tenv' =
@@ -48,22 +52,30 @@ module Make(D: Unrel.T) =
       | Asm.V (Asm.T r)
       | Asm.V (Asm.P (r, _, _)) -> T.remove_register r tenv
       | _ ->
-         let addrs, _ = U.mem_to_addresses uenv (Asm.Lval lv) (H.check_status henv) in
+         let addrs, _ =
+           U.mem_to_addresses uenv (Asm.Lval lv) (H.check_status henv)
+         in
          T.remove_addresses addrs tenv
     in
     U.forget_lval lv uenv (H.check_status henv), tenv', henv
 
-  let add_register r (uenv, tenv, henv) = U.add_register r uenv, T.add_register r tenv, henv
+  let add_register r (uenv, tenv, henv) =
+    U.add_register r uenv, T.add_register r tenv, henv
 
-  let to_string (uenv, tenv, henv) id = (U.to_string uenv id) @ (T.to_string tenv) @ (H.to_string henv)
+  let to_string (uenv, tenv, henv) id =
+    (U.to_string uenv id) @ (T.to_string tenv) @
+      (H.to_string henv)
 
-  let value_of_register (uenv, _tenv, _henv) r = U.value_of_register uenv r
+  let value_of_register (uenv, _tenv, _henv) r =
+    U.value_of_register uenv r
 
-  let string_of_register (uenv, tenv, _henv) r = [U.string_of_register uenv r ; T.string_of_register tenv r]
+  let string_of_register (uenv, tenv, _henv) r =
+    [U.string_of_register uenv r ; T.string_of_register tenv r]
 
-  let value_of_exp (uenv, _tenv, henv) e = U.value_of_exp uenv e (H.check_status henv)
+  let value_of_exp (uenv, _tenv, henv) e =
+    U.value_of_exp uenv e (H.check_status henv)
 
-  let type_of_exp tenv uenv henv e =
+  let type_of_exp tenv uenv henv oenv e =
     match e with
     | Asm.Lval (Asm.V (Asm.P (_r, _, _))) -> Types.UNKNOWN
     | Asm.Lval (Asm.V (Asm.T r)) -> T.of_key (Env.Key.Reg r) tenv
@@ -123,6 +135,7 @@ module Make(D: Unrel.T) =
         | Types.T t -> Types.T (TypedC.Ptr t)
         | t ->  t (* TODO: could be more precise: we know it is a pointer *)
       in    
+
       let _, tenv', _ = set_type lv ptr_typ (uenv', tenv, henv) in
       (uenv', tenv', henv), b
     with _ -> set_type lv Types.UNKNOWN (uenv', tenv, henv), b
