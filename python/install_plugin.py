@@ -32,7 +32,7 @@ except ImportError:
 userdir = idaapi.get_user_idadir()
 plugin_dir = os.path.join(userdir, "plugins")
 
-bincat_path = os.path.dirname(os.path.realpath(__file__))
+bincat_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 if not os.path.isdir(userdir) or not os.path.isdir(bincat_path):
     print "Something's wrong: %s or %s is not a dir" % (plugin_dir, bincat_path)
@@ -45,7 +45,7 @@ if os.path.isdir(p_idabincat) and os.path.isdir(p_pybincat):
         dir_util.copy_tree(p_idabincat, os.path.join(plugin_dir, "idabincat"))
         bin_path = os.path.join(plugin_dir, "idabincat", "bin")
         print "Copying 'bin' to "+bin_path
-        dir_util.copy_tree(os.path.join(bincat_path, 'bin'), bin_path)
+        dir_util.copy_tree(os.path.join(bincat_path, 'python', 'bin'), bin_path)
         print "Copying 'pybincat' to "+plugin_dir
         dir_util.copy_tree(p_pybincat, os.path.join(plugin_dir, "pybincat"))
         print "Copying 'bcplugin.py' to "+plugin_dir
@@ -56,16 +56,16 @@ if os.path.isdir(p_idabincat) and os.path.isdir(p_pybincat):
         print "Could not install! Error: "+str(e)+"\n"
 
 
-confpath = os.path.join(userdir, 'idabincat', 'conf')
+confpath = os.path.join(plugin_dir, 'idabincat', 'conf')
 print "Installing default config in "+confpath
 try:
     dir_util.copy_tree(os.path.join(p_idabincat, "conf"), confpath)
 except OSError as e:
     print "Could not install! Error: "+str(e)+"\n"
 
-libpath = os.path.join(userdir, 'idabincat', 'lib')
+libpath = os.path.join(plugin_dir, 'idabincat', 'lib')
 print "Installing default headers in "+libpath
 try:
-    dir_util.copy_tree(os.path.join(p_idabincat, "lib"), libpath)
+    dir_util.copy_tree(os.path.join(bincat_path, "lib"), libpath)
 except OSError as e:
     print "Could not install! Error: "+str(e)+"\n"

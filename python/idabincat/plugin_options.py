@@ -41,7 +41,7 @@ class PluginOptions(object):
             else:
                 raise RuntimeError
             bc_log.warning("IDAUSR not defined, using %s", idausr)
-        cls.config_path = os.path.join(idausr, "idabincat")
+        cls.config_path = os.path.join(idausr, "plugins", "idabincat")
 
         # Plugin options
         def_options = {
