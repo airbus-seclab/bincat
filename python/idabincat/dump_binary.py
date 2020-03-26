@@ -21,7 +21,7 @@ import ida_segment
 from idabincat.analyzer_conf import ConfigHelpers
 
 dump_log = logging.getLogger('bincat.plugin.dump_binary')
-dump_log.setLevel(logging.INFO)
+dump_log.setLevel(logging.DEBUG)
 
 
 # Dumps a remapped binary (as seen in IDA to disk)
@@ -37,6 +37,7 @@ def dump_binary(path):
             start_ea = seg.start_ea
             end_ea = seg.end_ea
             size = end_ea - start_ea
+            dump_log.debug("Dumping 0x%x bytes from 0x%x", size, start_ea)
             f.write(ida_bytes.get_bytes(start_ea, size))
             sections.append(
                 (ida_segment.get_segm_name(seg), start_ea, size,
