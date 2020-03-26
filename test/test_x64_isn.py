@@ -816,12 +816,14 @@ def test_push_imm(tmpdir, op64):
 def test_misc_movzx(tmpdir, op32):
     asm = """
             mov eax, {op32:#x}
+            mov esi, {op32:#x}
             mov rbx, 0
             movzx bx, al
             movzx rcx, al
             movzx rdx, ax
+            movzx rdi, sil
           """.format(**locals())
-    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx"])
+    compare(tmpdir, asm, ["rax", "rbx", "rcx", "rdx", "rdi"])
 
 def test_misc_movsx(tmpdir, op32):
     asm = """
