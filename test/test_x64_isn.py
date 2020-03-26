@@ -161,17 +161,30 @@ def test_mov_mem(tmpdir, op64, op8):
     """.format(**locals())
     compare(tmpdir, asm, ["rbx", "rcx", "rdx", "r8"])
 
-def test_mov_mem_bpl(tmpdir, op32 ):
+def test_mov_mem_to_reg8(tmpdir, op8):
     asm = """
-        mov eax, {op32:#x}
-        mov [0x100000], rax
+        mov eax, 0x12345678
+        mov [{op8}+0x100000], rax
+        ; test bpl
         push rbp
         xor ebp, ebp
-        mov bpl, [0x100000]
+        mov bpl, [{op8}+0x100000]
         mov rbx, rbp
         pop rbp
+        ; test spl
+        mov rdx, rsp
+        xor rsp, rsp
+        mov spl, [{op8}+0x100001]
+        mov rcx, rsp
+        mov rsp, rdx
+        ; test sil
+        xor rsi, rsi
+        mov sil, [{op8}+0x100002]
+        ; test dil
+        xor rdi, rdi
+        mov dil, [{op8}+0x100003]
     """.format(**locals())
-    compare(tmpdir, asm, ["rbx"])
+    compare(tmpdir, asm, ["rbx", "rcx", "rsi", "rdi"])
 
 def test_mov_mem_reg64_off(tmpdir, op64, op8, op32):
     asm = """
