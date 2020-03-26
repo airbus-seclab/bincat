@@ -1027,7 +1027,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
        M (add_data_segment s (md_from_mem s md rm' sz), mem_sz)
     | 3 ->
        (* special case for ah ch dh bh *)
-       if sz = 8 && rm >= 4 then
+       if sz = 8 && rm >= 4 && not s.rex.present then
          V (get_h_slice (rm'-4))
        else
          V (find_reg rm' sz)
@@ -2660,7 +2660,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          begin
            try
              let rex = decode_from_0x40_to_0x4F c s.operand_sz in
-              L.debug2 (fun p -> p "got rex prefix: w:%d r:%d x:%d b:%d" rex.w rex.r rex.x rex.b_);
+             L.debug2 (fun p -> p "got rex prefix: w:%d r:%d x:%d b:%d" rex.w rex.r rex.x rex.b_);
              s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
            with Exit -> (* INC *)
              let r = find_reg ((Char.code c) - 0x40) s.operand_sz in inc_dec (V r) Add s s.operand_sz
@@ -2670,6 +2670,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          begin
            try
              let rex = decode_from_0x40_to_0x4F c s.operand_sz in
+             L.debug2 (fun p -> p "got rex prefix: w:%d r:%d x:%d b:%d" rex.w rex.r rex.x rex.b_);
              if rex.w = 1 && s.rex.op_switch then
                (* previous operand_switch is ignored *)
                switch_sizes s;
