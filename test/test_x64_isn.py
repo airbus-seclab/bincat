@@ -161,6 +161,18 @@ def test_mov_mem(tmpdir, op64, op8):
     """.format(**locals())
     compare(tmpdir, asm, ["rbx", "rcx", "rdx", "r8"])
 
+def test_mov_mem_bpl(tmpdir, op32 ):
+    asm = """
+        mov eax, {op32:#x}
+        mov [0x100000], rax
+        push rbp
+        xor ebp, ebp
+        mov bpl, [0x100000]
+        mov rbx, rbp
+        pop rbp
+    """.format(**locals())
+    compare(tmpdir, asm, ["rbx"])
+
 def test_mov_mem_reg64_off(tmpdir, op64, op8, op32):
     asm = """
         mov rax, {op64}
@@ -448,6 +460,14 @@ def test_arith_inc_reg64_32(tmpdir, op64):
             inc eax
           """.format(**locals())
     compare(tmpdir, asm, ["rax", "of", "sf", "zf", "pf", "af"])
+
+def test_arith_xor_reg64_32(tmpdir, op64, op64_):
+    asm = """
+            mov rax, {op64:#x}
+            mov rbx, {op64_:#x}
+            xor eax, ebx
+          """.format(**locals())
+    compare(tmpdir, asm, ["rax", "of", "sf", "zf", "pf"])
 
 ##                                      _
 ##  ___  ___  __ _ _ __ ___   ___ _ __ | |_ ___

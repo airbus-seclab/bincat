@@ -1016,7 +1016,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let rm' =
       if s.rex.b_used then rm
       else
-        (** rex.b is used to specify the top bit of rm *)
+        (* rex.b is used to specify the top bit of rm *)
         begin
           s.rex.b_used <- true;
           s.rex.b_ lsl 3 + rm
