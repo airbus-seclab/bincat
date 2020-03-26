@@ -83,7 +83,7 @@ type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
 type segment_register_mask = { rpl: privilege_level; ti: table_indicator; index: Word.t }
 
 (** type for REX prefixes *)
-type rex_t = {w: int; r: int; x: int; b_: int; mutable b_used: bool; mutable op_switch: bool}
+type rex_t = {w: int; r: int; x: int; b_: int; mutable b_used: bool; mutable op_switch: bool; present: bool}
 
 
 (** decoding context contains all information about
@@ -281,7 +281,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 
     module Imports = X64Imports.Make(Domain)(Stubs)
 
-    let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; b_used = false; op_switch = false  }
+    let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; b_used = false; op_switch = false ; present = true}
 
     let get_rex c = Some (iget_rex c)
 
@@ -3061,7 +3061,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
         rep = false;
         repe = false;
         repne = false;
-        rex = {r=0; w=0; x=0; b_=0; b_used=false; op_switch=false};
+        rex = {r=0; w=0; x=0; b_=0; b_used=false; op_switch=false; present=false};
       }
     in
     try
