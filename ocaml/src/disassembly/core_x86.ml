@@ -1016,6 +1016,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let rm' =
       if s.rex.b_used then rm
       else
+        (** rex.b is used to specify the top bit of rm *)
         begin
           s.rex.b_used <- true;
           s.rex.b_ lsl 3 + rm
@@ -1035,10 +1036,12 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let operands_from_mod_reg_rm_core s sz ?(mem_sz=sz) dst_sz  =
     let c = getchar s in
     let md, reg, rm = mod_nnn_rm (Char.code c) in
+    L.debug2 (fun p -> p "ModR/M: mod=%d reg=%d rm=%d" md reg rm);
     let rm' = exp_of_md s md rm sz mem_sz in
     let reg = s.rex.r lsl 3 + reg in
     let reg_v =
-      if dst_sz = 8 && reg >= 4 then
+      (* with REX, AH/BH/CH/DH are not accessible *)
+      if dst_sz = 8 && reg >= 4 && not s.rex.present then
         V (get_h_slice (reg-4))
       else
         find_reg_v reg dst_sz
@@ -2657,6 +2660,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          begin
            try
              let rex = decode_from_0x40_to_0x4F c s.operand_sz in
+              L.debug2 (fun p -> p "got rex prefix: w:%d r:%d x:%d b:%d" rex.w rex.r rex.x rex.b_);
              s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
            with Exit -> (* INC *)
              let r = find_reg ((Char.code c) - 0x40) s.operand_sz in inc_dec (V r) Add s s.operand_sz
