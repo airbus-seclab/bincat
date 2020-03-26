@@ -640,7 +640,7 @@ class State(object):
                     self.netnode["remapped_sections"] = self.remapped_sections
             self.netnode["remap_binary"] = self.remap_binary
             if cfaoutfname is not None and os.path.isfile(cfaoutfname):
-                with open(cfaoutfname, 'r') as f:
+                with open(cfaoutfname, 'rb') as f:
                     self.last_cfaout_marshal = f.read()
             bc_log.info("Analysis results have been stored idb.")
         else:
