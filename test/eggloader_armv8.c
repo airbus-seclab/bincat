@@ -68,13 +68,13 @@ int main(int argc, char *argv[])
         "b .after\n"
         ".before:\n"
         "ldr x0, %[retsav]\n"
+        "ldr x1, %[r]\n"
+        "ldr x2, %[spsav]\n"
         "str x30, [x0]\n"
         "str x29, [sp,#-16]!\n"  // push fp
-        "ldr x0, %[r]\n"
-        "str x0, [sp,#-16]!\n"   // push struct r
-        "ldr x0, %[spsav]\n"
+        "str x1, [sp,#-16]!\n"   // push struct r
         "mov x1, sp\n"
-        "str x1, [x0]\n"
+        "str x1, [x2]\n"
         "sub sp, sp, #0x1000\n"  // create some space to mess up with the stack
         : 
         [retsav] "=m" (retsav),

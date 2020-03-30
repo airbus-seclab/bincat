@@ -4,6 +4,7 @@
 * ocaml >= 4.03 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * cppo
 * ocamlfind
+* num (for ocaml >= 4.06)
 * zarith library >=1.4
 * python 2.7
 * pytest for tests
@@ -20,7 +21,7 @@ All these dependencies except IDA are usually packaged by linux distributions.
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
   libocamlgraph-ocaml-dev python-setuptools python-dev \
-  ocaml-compiler-libs libppx-tools-ocaml-dev cppo
+  ocaml-compiler-libs libppx-tools-ocaml-dev cppo libnum-ocaml-dev
 ```
 
 ##### on Ubuntu 18.04:

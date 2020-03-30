@@ -2,6 +2,7 @@ import subprocess
 import os
 import inspect
 import pytest
+import conftest
 from collections import defaultdict
 from pybincat import cfa
 
@@ -18,7 +19,11 @@ GCC_DIR = counter("gcc-%i")
 def getReg(my_node, name):
     v = cfa.Value('reg', name, cfa.reg_len(name))
     # hardcoded first unrel
-    return my_node.unrels["0"][v][0]
+    try:
+        return my_node.unrels["0"][v][0]
+    except KeyError:
+        return my_node.unrels[my_node.unrels.keys()[0]][v][0]
+        
 
 
 def getLastNode(prgm):
@@ -508,6 +513,7 @@ class PowerPC(Arch):
         regs["tbc"] = (xer >> 0) & 0x7f
 
 
+
 ##  ___ ___ ___  ___  __   __   __ _ _
 ## | _ \_ _/ __|/ __|_\ \ / /  / /| | |
 ## |   /| |\__ \ (_|___\ V /  / _ \_  _|
@@ -529,3 +535,7 @@ class RISCV64(Arch):
 
     def extract_flags(self, regs):
         pass # XXX
+
+def get_cov():
+    return {x._name: x for x in conftest.COVERAGES}[pytest.config.option.coverage]
+

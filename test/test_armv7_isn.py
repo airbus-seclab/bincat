@@ -1,6 +1,6 @@
 import pytest
 import os
-from util import ARM,Thumb
+from util import ARM,Thumb,get_cov
 
 arm = ARM(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7.ini.in')
@@ -335,8 +335,8 @@ def test_data_proc_read_pc(tmpdir):
 
 @pytest.mark.parametrize("ubfxparams",
                          [(x,y)
-                          for x in pytest.config.option.coverage.op5
-                          for y in pytest.config.option.coverage.op5
+                          for x in get_cov().op5
+                          for y in get_cov().op5
                           if x+y <= 31 and y > 0])
 def test_media_ubfx(tmpdir, armv7op, ubfxparams):
     op5,op5_ = ubfxparams

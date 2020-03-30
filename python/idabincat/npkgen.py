@@ -23,6 +23,7 @@ import logging
 import subprocess
 try:
     import idaapi
+    from ida_typeinf import PRTYPE_1LINE
 except ImportError:
     # imported outside ida - for instance, from wsgi.py
     pass
@@ -169,9 +170,9 @@ class NpkGen(object):
         """
         # Get type
         imp_t = idaapi.tinfo_t()
-        if idaapi.get_tinfo2(ea, imp_t):
+        if idaapi.get_tinfo(imp_t, ea):
             if not imp_t.is_func():
-                self.imports.append(idaapi.print_type(ea, True) + ";")
+                self.imports.append(idaapi.print_type(ea, PRTYPE_1LINE) + ";")
             else:
                 # Iterate over ret type and args
                 for i in range(-1, imp_t.get_nargs()):
@@ -182,7 +183,7 @@ class NpkGen(object):
                         self.import_name(str(no_ptr))
 
                     self.import_name(str(arg_t))
-                self.imports.append(idaapi.print_type(ea, True) + " {}")
+                self.imports.append(idaapi.print_type(ea, PRTYPE_1LINE) + " {}")
         return True
 
     def analyze_type(self, tinfo):
@@ -216,7 +217,7 @@ class NpkGen(object):
             # struct members
             for idx in range(0, tinfo.get_udt_nmembers()):
                 u.offset = idx
-                tinfo.find_udt_member(idaapi.STRMEM_INDEX, u)
+                tinfo.find_udt_member(u, idaapi.STRMEM_INDEX)
 
                 # print "member :"+str(u.type)
                 # Recurse base type

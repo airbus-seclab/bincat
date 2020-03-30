@@ -136,7 +136,7 @@ module Make(D: Unrel.T) =
          let mres, t = List.fold_left (fun (m', t) (u, msg) ->
                            try
                              let u', t' = U.set dst src u check_address_validity in
-                              (u', msg)::m', Taint.Set.add t' t
+                             (u', Log.History.new_ [msg] "")::m', Taint.Set.add t' t
                            with _ ->
                              bot := true;
                              m', t)  ([], Taint.Set.empty) m'
@@ -179,7 +179,9 @@ module Make(D: Unrel.T) =
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT -> m
-      | Val m1', Val m2' ->
+      | Val m1, Val m2 ->
+         let m1' = List.map (fun (m, id) -> m, Log.History.new_ [id] "") m1 in
+         let m2' = List.map (fun (m, id) -> m, Log.History.new_ [id] "") m2 in
          let m = m1'@m2' in
          (* check if the size of m exceeds the threshold *)
          if List.length m > !Config.kset_bound then

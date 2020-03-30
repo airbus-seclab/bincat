@@ -23,6 +23,8 @@ import logging
 import string
 import re
 import idaapi
+import ida_kernwin
+import ida_bytes
 import idautils
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtCore import Qt
@@ -326,7 +328,7 @@ class Meminfo(object):
         return idx+self.start
 
 
-class BinCATMemForm_t(idaapi.PluginForm):
+class BinCATMemForm_t(ida_kernwin.PluginForm):
     """
     BinCAT memory display form.
     """
@@ -347,7 +349,6 @@ class BinCATMemForm_t(idaapi.PluginForm):
         self.pretty_to_int_map = \
             dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
 
-    @QtCore.pyqtSlot(int)
     def handle_selection_range_changed(self, bindex):
         if bindex < 0:
             return
@@ -357,7 +358,6 @@ class BinCATMemForm_t(idaapi.PluginForm):
             return
         self.last_visited[cur_reg] = bindex + start
 
-    @QtCore.pyqtSlot(int, int, bool)
     def handle_new_override(self, abs_start, abs_end, re_run):
         # add override for each byte
         mask, res = QtWidgets.QInputDialog.getText(
@@ -379,7 +379,6 @@ class BinCATMemForm_t(idaapi.PluginForm):
         if re_run:
             self.s.re_run()
 
-    @QtCore.pyqtSlot(str)
     def update_range(self, crangeidx):
         if self.current_range_idx == crangeidx:
             return
@@ -395,7 +394,6 @@ class BinCATMemForm_t(idaapi.PluginForm):
         self.hexwidget.setNewMem(meminfo)
         self.last_visited[cur_reg] = new_range[0]
 
-    @QtCore.pyqtSlot(str)
     def update_region(self, pretty_region):
         if pretty_region not in self.pretty_to_int_map:
             self.pretty_to_int_map[pretty_region] = pretty_region  # ex: /h\d+/
@@ -495,16 +493,16 @@ class BinCATMemForm_t(idaapi.PluginForm):
         if self.shown:
             return
         self.shown = True
-        return idaapi.PluginForm.Show(
+        return ida_kernwin.PluginForm.Show(
             self, "BinCAT Memory",
-            options=(idaapi.PluginForm.FORM_PERSIST |
-                     idaapi.PluginForm.FORM_MENU |
-                     idaapi.PluginForm.FORM_SAVE |
-                     idaapi.PluginForm.FORM_RESTORE |
-                     idaapi.PluginForm.FORM_TAB))
+            options=(ida_kernwin.PluginForm.WOPN_PERSIST |
+                     ida_kernwin.PluginForm.WOPN_MENU |
+                     ida_kernwin.PluginForm.WCLS_SAVE |
+                     ida_kernwin.PluginForm.WOPN_RESTORE |
+                     ida_kernwin.PluginForm.WOPN_TAB))
 
 
-class BinCATConfigForm_t(idaapi.PluginForm):
+class BinCATConfigForm_t(ida_kernwin.PluginForm):
     """
     BinCAT initial configuration form
     This form allows the definition and edition of
@@ -869,7 +867,6 @@ class BinCATConfigForm_t(idaapi.PluginForm):
             self.update_config_list()
 
     # Called when the edit combo is changed
-    @QtCore.pyqtSlot(str)
     def _load_config(self, index):
         if not self.s.current_ea:
             self.s.current_ea = idaapi.get_screen_ea()
@@ -963,16 +960,16 @@ class BinCATConfigForm_t(idaapi.PluginForm):
         if self.shown:
             return
         self.shown = True
-        return idaapi.PluginForm.Show(
+        return ida_kernwin.PluginForm.Show(
             self, "BinCAT Configuration",
-            options=(idaapi.PluginForm.FORM_PERSIST |
-                     idaapi.PluginForm.FORM_SAVE |
-                     idaapi.PluginForm.FORM_MENU |
-                     idaapi.PluginForm.FORM_RESTORE |
-                     idaapi.PluginForm.FORM_TAB))
+            options=(ida_kernwin.PluginForm.WOPN_PERSIST |
+                     ida_kernwin.PluginForm.WCLS_SAVE |
+                     ida_kernwin.PluginForm.WOPN_MENU |
+                     ida_kernwin.PluginForm.WOPN_RESTORE |
+                     ida_kernwin.PluginForm.WOPN_TAB))
 
 
-class BinCATDebugForm_t(idaapi.PluginForm):
+class BinCATDebugForm_t(ida_kernwin.PluginForm):
     """
     BinCAT Debug form: display IL and instruction bytes, if present in BinCAT
     output.
@@ -1034,12 +1031,12 @@ class BinCATDebugForm_t(idaapi.PluginForm):
         if self.shown:
             return
         self.shown = True
-        return idaapi.PluginForm.Show(
+        return ida_kernwin.PluginForm.Show(
             self, "BinCAT IL",
-            options=(idaapi.PluginForm.FORM_PERSIST |
-                     idaapi.PluginForm.FORM_SAVE |
-                     idaapi.PluginForm.FORM_RESTORE |
-                     idaapi.PluginForm.FORM_TAB))
+            options=(ida_kernwin.PluginForm.WOPN_PERSIST |
+                     ida_kernwin.PluginForm.WCLS_SAVE |
+                     ida_kernwin.PluginForm.WOPN_RESTORE |
+                     ida_kernwin.PluginForm.WOPN_TAB))
 
 
 class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
@@ -1066,7 +1063,7 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
         painter.restore()
 
 
-class BinCATRegistersForm_t(idaapi.PluginForm):
+class BinCATRegistersForm_t(ida_kernwin.PluginForm):
     """
     BinCAT Register values form
     This form displays the values of tainted registers
@@ -1170,14 +1167,13 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
         if self.shown:
             return
         self.shown = True
-        return idaapi.PluginForm.Show(
+        return ida_kernwin.PluginForm.Show(
             self, "BinCAT Registers",
-            options=(idaapi.PluginForm.FORM_PERSIST |
-                     idaapi.PluginForm.FORM_SAVE |
-                     idaapi.PluginForm.FORM_RESTORE |
-                     idaapi.PluginForm.FORM_TAB))
+            options=(ida_kernwin.PluginForm.WOPN_PERSIST |
+                     ida_kernwin.PluginForm.WCLS_SAVE |
+                     ida_kernwin.PluginForm.WOPN_RESTORE |
+                     ida_kernwin.PluginForm.WOPN_TAB))
 
-    @QtCore.pyqtSlot(str)
     def update_node(self, node):
         node_id = node.split(' ')[0]
         if node != "" and (not self.s.current_node or
@@ -1186,7 +1182,6 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
             self.s.set_current_node(node_id)
             self.node_select.blockSignals(False)
 
-    @QtCore.pyqtSlot(str)
     def update_unrel(self, unrel):
         unrel_id = unrel.split(' ')[0]
         node_id = self.node_select.currentText().split(' ')[0]
@@ -1196,7 +1191,6 @@ class BinCATRegistersForm_t(idaapi.PluginForm):
             self.s.set_current_node(node_id, unrel_id=unrel_id)
             self.node_select.blockSignals(False)
 
-    @QtCore.pyqtSlot(str)
     def goto_next(self, node):
         if self.nextnodes_combo.currentIndex() == 0:
             return
@@ -1621,7 +1615,7 @@ class RegistersInfoModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
 
-class BinCATOverridesForm_t(idaapi.PluginForm):
+class BinCATOverridesForm_t(ida_kernwin.PluginForm):
     """
     BinCAT Overrides display form
     Displays taint overrides defined by the user.
@@ -1721,12 +1715,12 @@ class BinCATOverridesForm_t(idaapi.PluginForm):
         if self.shown:
             return
         self.shown = True
-        return idaapi.PluginForm.Show(
+        return ida_kernwin.PluginForm.Show(
             self, "BinCAT Overrides",
-            options=(idaapi.PluginForm.FORM_PERSIST |
-                     idaapi.PluginForm.FORM_SAVE |
-                     idaapi.PluginForm.FORM_RESTORE |
-                     idaapi.PluginForm.FORM_TAB))
+            options=(ida_kernwin.PluginForm.WOPN_PERSIST |
+                     ida_kernwin.PluginForm.WCLS_SAVE |
+                     ida_kernwin.PluginForm.WOPN_RESTORE |
+                     ida_kernwin.PluginForm.WOPN_TAB))
 
 
 class OverridesModel(QtCore.QAbstractTableModel):
@@ -2010,17 +2004,12 @@ class HandleAddOverride(idaapi.action_handler_t):
     def activate(self, ctx):
         self.s.gui.show_windows()
 
-        # IDA 7 compat bug: get_highlighted_identifier is mapped to
-        # get_highlight which expects a widget as arguments
-        # moreover, it returns a tuple instead of a String
-        try:
-            highlighted = idaapi.get_highlighted_identifier()
-        except TypeError:
-            highlighted = idaapi.get_highlight(ctx.widget)
-        if highlighted is None:
-            return 0
-        elif isinstance(highlighted, tuple):
-            highlighted = highlighted[0]
+        v = ida_kernwin.get_current_viewer()
+        thing = ida_kernwin.get_highlight(v)
+        if thing and thing[1]:
+            highlighted = thing[0]
+        else:
+           return 0
         address = self.s.current_ea
         # guess whether highlighted text is register or address
         try:
@@ -2164,20 +2153,14 @@ class Hooks(idaapi.UI_Hooks):
         self.gui.show_windows()
 
     def updating_actions(self, ctx):
-        # IDA 6/7 compat
-        win_type = ctx.widget_type if hasattr(ctx, "widget_type") else \
-            ctx.form_type
+        win_type = ctx.widget_type
         if win_type == idaapi.BWN_DISASM:
             ea = ctx.cur_ea
-            if idaapi.isCode(idaapi.getFlags(ea)):
+            if ida_bytes.is_code(idaapi.get_full_flags(ea)):
                 self.s.set_current_ea(ea)
 
-    def populating_tform_popup(self, form, popup):
-        # IDA 6/7 compat
-        try:
-            win_type = idaapi.get_widget_type(form)
-        except AttributeError:
-            win_type = idaapi.get_tform_type(form)
+    def populating_widget_popup(self, form, popup):
+        win_type = idaapi.get_widget_type(form)
         if win_type == idaapi.BWN_DISASM:
             idaapi.attach_action_to_popup(
                 form, popup, "bincat:ana_from_here",
@@ -2303,11 +2286,11 @@ class GUI(object):
         if self.hooks:
             self.hooks.unhook()
             self.hooks = None
-        self.BinCATConfigForm.Close(idaapi.PluginForm.FORM_SAVE)
-        self.BinCATRegistersForm.Close(idaapi.PluginForm.FORM_SAVE)
-        self.BinCATDebugForm.Close(idaapi.PluginForm.FORM_SAVE)
-        self.BinCATMemForm.Close(idaapi.PluginForm.FORM_SAVE)
-        self.BinCATOverridesForm.Close(idaapi.PluginForm.FORM_SAVE)
+        self.BinCATConfigForm.Close(ida_kernwin.PluginForm.WCLS_SAVE)
+        self.BinCATRegistersForm.Close(ida_kernwin.PluginForm.WCLS_SAVE)
+        self.BinCATDebugForm.Close(ida_kernwin.PluginForm.WCLS_SAVE)
+        self.BinCATMemForm.Close(ida_kernwin.PluginForm.WCLS_SAVE)
+        self.BinCATOverridesForm.Close(ida_kernwin.PluginForm.WCLS_SAVE)
         self.regsinfo_model = None
         self.overrides_model = None
         self.configurations_model = None
