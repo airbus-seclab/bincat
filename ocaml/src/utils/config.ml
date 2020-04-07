@@ -255,7 +255,7 @@ let tainting_rules : ((string * string), (call_conv_t * taint_t option * taint_t
 
 
 (** data structure for the typing rules of import functions *)
-let typing_rules : (string, TypedC.ftyp) Hashtbl.t = Hashtbl.create 5
+let typing_rules : (string, Types.ftyp) Hashtbl.t = Hashtbl.create 5
 
 (** default size of the initial heap *)
 (* 1 Go in bits *)
