@@ -17,7 +17,7 @@
 *)
 
 
-(* Log module for the CFG *)
+(* Log module for the CFA *)
 
 module L = Log.Make(struct let name = "cfa" end)
 
@@ -36,6 +36,11 @@ sig
       op_sz  : int; (** size in bits of operands *)
     }
 
+    (** data type for handlers *)           
+    type handler_kind_t =
+      | Direct of Data.Address.t
+      | Inlined of Asm.stmt list
+
     type t  = {
       id: int;                          (** unique identificator of the state *)
       mutable ip: Data.Address.t;       (** instruction pointer *)
@@ -49,7 +54,8 @@ sig
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t;    (** set of taint sources*)
-      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list); (** table of user defined handlers * default handler behavior *)
     }
 
     val compare: t -> t -> int
@@ -57,13 +63,15 @@ sig
 
   (** oracle for retrieving any semantic information computed by the interpreter *)
   class oracle:
-    domain ->
+    domain -> ((int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list)) ->
   object
     (** returns the computed concrete value of the given register
         may raise an exception if the conretization fails
         (not a singleton, bottom) *)
     method value_of_register: Register.t -> Z.t
 
+    (** returns the address associated to the given interrupt number *)
+      method get_handler: int -> State.handler_kind_t
   end
 
   (** abstract data type of the control flow graph *)
@@ -73,7 +81,7 @@ sig
   val create: unit -> t
 
   (** [init addr] creates a state whose ip field is _addr_ *)
-  val init_state: Data.Address.t -> State.t
+  val init_state: Data.Address.t -> (int -> Asm.stmt list) -> State.t
 
   (** [add_state cfg state] adds the state _state_ from the CFG _cfg_ *)
   val add_state: t -> State.t -> unit
@@ -147,6 +155,11 @@ struct
       op_sz  : int; (** size in bits of operands *)
     }
 
+                           
+    type handler_kind_t =
+      | Direct of Data.Address.t
+      | Inlined of Asm.stmt list
+
     (** abstract data type of a state *)
     type t = {
       id: int;                          (** unique identificator of the state *)
@@ -161,7 +174,8 @@ struct
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t;     (** set of taint sources. Empty if not tainted  *)
-      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list); (** table of handlers ; None is the default behavior of the signal Some a means the user specified handler is at address a *)
     }
 
     (** the state identificator counter *)
@@ -186,9 +200,14 @@ struct
   open State
 
 
-  class oracle (d: domain) =
+  class oracle (d: domain) (handlers: (((int, Data.Address.t) Hashtbl.t) * (int -> Asm.stmt list))) =
   object
     method value_of_register (reg: Register.t) = Domain.value_of_register d reg
+
+    method get_handler i = 
+      try
+        State.Direct (Hashtbl.find (fst handlers) i)
+      with Not_found -> State.Inlined ((snd handlers) i)
   end
 
   (** type of a CFA *)
@@ -262,13 +281,13 @@ struct
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
-    
-  let init_state (ip: Data.Address.t): State.t =
+  let init_state (ip: Data.Address.t) default_handlers: State.t =
     let d', _taint = init_abstract_value ip in
+    let d2 = Domain.make_first_stack_frame d' in
     {
       id = 0;
       ip = ip;
-      v = d';
+      v = d2;
       back_v = None;
       final = false;
       back_loop = false;
@@ -282,6 +301,7 @@ struct
       };
       taint_sources = Taint.Set.singleton Taint.U;
       back_taint_sources = None;
+      handlers = Hashtbl.create 5, default_handlers;
     }
 
 
@@ -322,6 +342,7 @@ struct
 
   let remove_successor ((g, _): t) (src: State.t) (dst: State.t): unit = G.remove_edge g src dst
 
+
   let add_state (g, ips: t) (v: State.t): unit =
     G.add_vertex g v;
     update_ips ips v
@@ -337,6 +358,7 @@ struct
   let iter_state_ip (f: State.t -> unit) (_, ips) ip =
     try List.iter f (Hashtbl.find ips ip)
     with Not_found -> ()
+                    
 
   let pred (g, _ips: t) (v: State.t): State.t =
     try List.hd (G.pred g v)
@@ -397,8 +419,8 @@ struct
 
 
   let marshal (fid:out_channel) (cfa, ips: t): unit =
-    Marshal.to_channel fid cfa [];
-    Marshal.to_channel fid ips [];
+    Marshal.to_channel fid cfa [Marshal.Closures];
+    Marshal.to_channel fid ips [Marshal.Closures];
     Marshal.to_channel fid !state_cpt [];;
 
   let unmarshal fid: t =

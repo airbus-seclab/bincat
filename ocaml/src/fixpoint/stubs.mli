@@ -29,8 +29,9 @@ It returns also a boolean true whenever the result is tainted. Parameter [callin
     
   val init: unit -> unit
 
-
-  val stubs : (string, (Data.Address.t -> Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) -> 
+  val default_handler: int -> Asm.stmt list
+    
+  val stubs : (string, (Data.Address.t -> Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 
 

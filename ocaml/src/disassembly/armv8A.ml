@@ -68,7 +68,7 @@ struct
   let x30 = Register.make ~name:"x30" ~size:64;;
   let xzr = Register.make ~name:"xzr" ~size:64;; (* Zero register *)
   let pc = Register.make ~name:"pc" ~size:64;; (* instruction pointer *)
-  let sp = Register.make ~name:"sp" ~size:64;; (* stack pointer *)
+  let sp = Register.make_sp ~name:"sp" ~size:64;; (* stack pointer *)
 
   (* condition flags are modeled as registers of size 1 *)
   let nflag = Register.make ~name:"n" ~size:1;;

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -54,7 +54,7 @@ struct
     (* None is for the default value set in Config *)
     let unroll_nb = ref None
 
-    (** opposite the given comparison operator *)
+    (* opposite the given comparison operator *)
     let inv_cmp (cmp: Asm.cmp): Asm.cmp =
       match cmp with
       | EQ  -> NEQ
@@ -141,7 +141,7 @@ struct
               Cfa.remove_state g v; l'
             end
           else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
-      with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
+      with Exceptions.Analysis (Exceptions.Empty _) -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 
 
     (*************************** Forward from binary file ************************)
@@ -169,8 +169,9 @@ struct
       with _ -> ()
 
     exception Jmp_exn
-
-    type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t) list ref
+    exception Handler of int * Data.Address.t
+                       
+    type fun_stack_t = ((string * string) option * Data.Address.t * Cfa.State.t * (Data.Address.t, int * D.t) Hashtbl.t * Asm.stmt list) list ref
 
     let rec process_value (ip: Data.Address.t) (d: D.t) (s: Asm.stmt) (fun_stack: fun_stack_t) (node_id: int): D.t * Taint.Set.t =
         L.debug2 (fun p -> p "process_value VVVVVVVVVVVVVVVVVVVVVVVVVVVVVV\n%s\n---------\n%s\n---------" (String.concat " " (D.to_string d node_id)) (Asm.string_of_stmt s true));
@@ -249,7 +250,7 @@ struct
                  | _ -> L.analysis (fun p -> p "Tainting directive for %s ignored" (Asm.string_of_lval lv false)); d, Taint.Set.singleton Taint.U
                end
             | Directive (Type (lv, t)) -> D.set_type lv t d, Taint.Set.singleton Taint.U
-
+               
             | Directive (Skip (f, call_conv)) as skip_statement ->
                L.analysis (fun p -> p "Skipping %s" (Asm.string_of_fun f));
                (* TODO: optimize to avoid type switching *)
@@ -268,18 +269,19 @@ struct
                d', taint'
                
             | Directive (Stub (fun_name, call_conv)) as stub_statement ->
-               let _, _, v, _ = List.hd !fun_stack in
+               let _, _, v, _, _ = List.hd !fun_stack in
               let d', taint', cleanup_stmts = Stubs.process ip v.Cfa.State.ip d fun_name call_conv in
               let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (stub_statement :: cleanup_stmts) true));
                                List.fold_left (fun (d, t) stmt -> let dd, tt = process_value ip d stmt fun_stack node_id in
                                                                   dd, Taint.Set.union t tt) (d', taint') cleanup_stmts in
               d', taint'
-              
+
+            | Directive (Handler (sig_nb, addr)) -> raise (Handler (sig_nb, addr))
             | _ -> raise Jmp_exn
                  
         in
         res, tainted
-      with Exceptions.Empty _ -> D.bot, Taint.Set.singleton Taint.BOT
+      with Exceptions.Analysis (Exceptions.Empty _) -> D.bot, Taint.Set.singleton Taint.BOT
 
     and process_if (ip: Data.Address.t) (d: D.t) (e: Asm.bexp) (then_stmts: Asm.stmt list) (else_stmts: Asm.stmt list) fun_stack (node_id: int) =
       if has_jmp then_stmts || has_jmp else_stmts then
@@ -289,8 +291,19 @@ struct
              let de, be = List.fold_left (fun (d, b) s -> let d', b' = process_value ip d s fun_stack node_id in d', Taint.Set.union b b') (restrict d e false) else_stmts in
              D.join dt de, Taint.Set.union bt be
 
+
+    let apply_after_call_stmts v stmts fun_stack =
+      let d', t' =
+        List.fold_left (fun (d, t) s ->
+            let d', t' = process_value v.Cfa.State.ip d s fun_stack v.Cfa.State.id in
+            d', Taint.Set.union t t') (v.Cfa.State.v,Taint.Set.singleton Taint.U) stmts
+      in
+      v.Cfa.State.v <- d';
+      v, t'
+      
+
     (** returns the result of the transfert function corresponding to the statement on the given abstract value *)
-    let skip_or_import_call vertices a fun_stack =     
+    let skip_or_import_call (vertices: Cfa.State.t list) a fun_stack: Cfa.State.t list * Taint.Set.t =     
       (* will raise Not_found if no import or skip is found *)
       L.debug2 (fun p -> p "skip_or_import_tbl at %s" (Data.Address.to_string a));
       let fundec =
@@ -305,15 +318,22 @@ struct
         let t =
             List.fold_left (fun t v ->             
                 let d', t' =
-                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value a d stmt fun_stack v.Cfa.State.id in d', Taint.Set.union t t') (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
+                  List.fold_left (fun (d, t) stmt ->
+                      try
+                        let d', t' = process_value a d stmt fun_stack v.Cfa.State.id in
+                         d', Taint.Set.union t t'
+                      with Handler (sig_nb, handler_addr) -> (* TODO factorize this code with same pattern in process_vertices *)
+                        Hashtbl.replace (fst v.Cfa.State.handlers) sig_nb handler_addr;
+                        d, t
+                      ) (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
                 in
                 v.Cfa.State.v <- d';
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in
                 let a =
                   match Data.Address.Set.elements addrs with
                   | [a] -> a
-                  | []  -> L.abort (fun p->p "no return address")
-                  | _l  -> L.abort (fun p->p "multiple return addresses")
+                  | []  ->  raise (Exceptions.Analysis (Exceptions.Empty "no return address can be computed"))
+                  | _   -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "multiple return addresses"))
                 in
                 L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
                 v.Cfa.State.ip <- a;
@@ -325,16 +345,17 @@ struct
 
     
     let process_stmts fun_stack g (v: Cfa.State.t) (ip: Data.Address.t): Cfa.State.t list =
-        let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) : (Cfa.State.t list * Taint.Set.t) =
+        let fold_to_target (apply: Data.Address.t -> unit) (vertices: Cfa.State.t list) (target: Asm.exp) from_call: (Cfa.State.t list * Taint.Set.t) =
             let import = ref false in
-            let res =
+            let vertices', t =
                 List.fold_left (fun (l, t) v ->
                     try
                         let addrs, taint_sources = D.mem_to_addresses v.Cfa.State.v target in
                         let addresses = Data.Address.Set.elements addrs in
                         match addresses with
                         | [a] ->
-                          begin
+                           begin
+                             if from_call then v.Cfa.State.v <- D.call v.Cfa.State.v;
                               L.debug (fun p->p "fold_to_target addr : %s" (Data.Address.to_string a));
                               try let res = skip_or_import_call [v] a fun_stack in import := true; res
                               with Not_found -> v.Cfa.State.ip <- a; apply a; v::l, Taint.Set.union t taint_sources
@@ -343,12 +364,24 @@ struct
                         | l -> L.abort (fun p -> p "Please select between the addresses %s for jump target from %s\n"
                                               (List.fold_left (fun s a -> s^(Data.Address.to_string a)) "" l) (Data.Address.to_string v.Cfa.State.ip))
                     with
-                    | Exceptions.Too_many_concrete_elements _ as e ->
+                    | Exceptions.Analysis (Exceptions.Too_many_concrete_elements _) as e ->
                        L.exc_and_abort e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                 ) ([], Taint.Set.singleton Taint.U) vertices
             in
-            if !import then fun_stack := List.tl !fun_stack;
-            res
+            if !import then
+              begin
+                (* TODO: factorize with process_vertices, case Jmp_exn, subcase Jmp (A a) *)
+                let _, _, _, _, (stmts: Asm.stmt list) = List.hd !fun_stack in
+                let vertices', t' =
+                      List.fold_left (fun (l, t) v ->
+                          let v', t' = apply_after_call_stmts v stmts fun_stack in
+                        v'::l, Taint.Set.union t t') ([], Taint.Set.singleton Taint.U) vertices
+                in
+                fun_stack := List.tl !fun_stack;
+                vertices', Taint.Set.union t t'
+              end
+            else
+              vertices', t
 
       in
       let add_to_fun_stack a =
@@ -366,10 +399,17 @@ struct
             Some (Hashtbl.find Config.import_tbl (Data.Address.to_int a))
           with Not_found -> None
         in
-        fun_stack := (f, ip, v, !unroll_tbl)::!fun_stack;
+        fun_stack := (f, ip, v, !unroll_tbl, [])::!fun_stack;
         unroll_tbl := Hashtbl.create 1000
       in
-      
+
+      let add_stmts_to_fun_stack stmts =
+        try
+          let f, ip, v, unroll_tbl, prev_stmts = List.hd !fun_stack in
+          fun_stack := (f, ip, v, unroll_tbl, prev_stmts @ stmts)::(List.tl !fun_stack)
+        with _ -> raise (Exceptions.Error "unexpected empty function stack")
+      in
+
       let copy v d branch is_pred =
     (* TODO: optimize with Cfa.State.copy that copies every field and then here some are updated => copy them directly *)
         let v' = Cfa.copy_state g v in
@@ -386,45 +426,62 @@ struct
       in
 
 
-    let iprocess_ret ipstack v fun_stack =
+
+    let iprocess_ret stack_info v fun_stack =
       let d = v.Cfa.State.v in
       let sp = Register.stack_pointer () in
       let ip_on_stack, taint_sources = D.mem_to_addresses d (Asm.Lval (Asm.M (Asm.Lval (Asm.V (Asm.T sp)), (Register.size sp)))) in
       match Data.Address.Set.elements (ip_on_stack) with
       | [a] ->
-         begin
-           match ipstack with
-           | Some ip' ->
+         let after_stmts =
+           
+           match stack_info with
+           | Some (ip', after_stmts) ->
               if not (Data.Address.equal ip' a) then
                 L.analysis (fun p -> p "computed instruction pointer %s differs from instruction pointer found on the stack %s at RET instruction"
-                                       (Data.Address.to_string ip') (Data.Address.to_string a))
-           | None -> ()
-         end;
-        
+                                       (Data.Address.to_string ip') (Data.Address.to_string a));
+              after_stmts
+           | None -> []
+         in       
          begin
            try
-             add_to_fun_stack a;
              let vert, t = skip_or_import_call [v] a fun_stack in
-             Some vert, t
+             add_to_fun_stack a;
+             if after_stmts <> [] then
+               let vert', t' = List.fold_left (fun (l, t) v' ->
+                   let v', t' = apply_after_call_stmts v' after_stmts fun_stack in
+                   v'::l, Taint.Set.union t t') ([], t) vert
+               in
+               Some vert', t'
+             else Some vert, t
            with Not_found ->
              v.Cfa.State.ip <- a;
              Some [v], taint_sources
          end
-      | _ -> L.abort (fun p -> p "computed instruction pointer at return instruction is either undefined or imprecise")
+      | [] -> raise (Exceptions.Analysis (Exceptions.Empty "no valid instruction pointer at return can be retrieved"))
+      | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements  "computed instruction pointer at return is imprecise"))
 
     in  
                
-    let process_ret (fun_stack: fun_stack_t) v =
-      try
-        let _f, ipstack, _v, prev_unroll_tbl = List.hd !fun_stack in
-        fun_stack := List.tl !fun_stack;
-        unroll_tbl := prev_unroll_tbl;
-        iprocess_ret (Some ipstack) v fun_stack
-      with Failure _ ->
-        L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip));
-        iprocess_ret None v fun_stack
-
+    let process_ret (fun_stack: fun_stack_t) v: (Cfa.State.t list option * Taint.Set.t) =
+      let res, taint =
+        try
+          let _f, ipstack, _v', prev_unroll_tbl, after_ret_stmts = List.hd !fun_stack in
+          fun_stack := List.tl !fun_stack;
+          unroll_tbl := prev_unroll_tbl;
+          iprocess_ret (Some (ipstack, after_ret_stmts)) v fun_stack
+        with Failure _ ->
+          L.analysis (fun p -> p "RET without previous CALL at address %s" (Data.Address.to_string v.Cfa.State.ip));
+          iprocess_ret None v fun_stack
+      in
+      let res' =
+        match res with
+        | None -> res
+        | Some vertices -> Some (List.map (fun v -> { v with Cfa.State.v = D.ret v.Cfa.State.v }) vertices)
+      in
+      res', taint
     in
+
       
       let rec process_if_with_jmp (vertices: Cfa.State.t list) (e: Asm.bexp) (istmts: Asm.stmt list) (estmts: Asm.stmt list) =
         let process_branch stmts branch =
@@ -435,9 +492,9 @@ struct
                 l, b
               else
                 (copy v d (Some true) false)::l, Taint.Set.union b taint_sources
-            with Exceptions.Empty "Interpreter.process_if_with_jmp" -> l, b) ([], Taint.Set.singleton Taint.U) vertices)
+            with Exceptions.Analysis (Exceptions.Empty "Interpreter.process_if_with_jmp") -> l, b) ([], Taint.Set.singleton Taint.U) vertices)
           in
-          let vert, b' = process_list vertices' stmts in
+          let vert, b', _after_call_stmts = process_list vertices' stmts in
           vert, Taint.Set.union b b'
         in
         let then', bt = process_branch istmts true in
@@ -446,29 +503,45 @@ struct
         then' @ else', Taint.Set.union be bt
 
 
-      and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt) : (Cfa.State.t list * Taint.Set.t) =
+      and process_vertices (vertices: Cfa.State.t list) (s: Asm.stmt) : (Cfa.State.t list * Taint.Set.t) * bool =
         try
-          List.fold_left (fun (l, b) v -> let d, b' = process_value v.Cfa.State.ip v.Cfa.State.v s fun_stack v.Cfa.State.id in
-                                          v.Cfa.State.v <- d;
-                                          let taint = Taint.Set.union b b' in
-                                          (*v.Cfa.State.taint_sources <- taint;*)
-                                          v::l, taint) ([], Taint.Set.singleton Taint.U) vertices
-        with Jmp_exn ->
+          List.fold_left (fun (l, b) v ->
+              let d, b' =
+                try process_value v.Cfa.State.ip v.Cfa.State.v s fun_stack v.Cfa.State.id
+                with
+                  Handler (sig_nb, handler_addr') -> Hashtbl.replace (fst v.Cfa.State.handlers) sig_nb handler_addr';
+                  v.Cfa.State.v, b
+              in
+              v.Cfa.State.v <- d;
+              let taint = Taint.Set.union b b' in
+              (*v.Cfa.State.taint_sources <- taint;*)
+              v::l, taint) ([], Taint.Set.singleton Taint.U) vertices, false
+        with
+      
+        | Jmp_exn ->
              match s with
-             | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts 
+             | If (e, then_stmts, else_stmts) -> process_if_with_jmp vertices e then_stmts else_stmts, false 
 
              | Jmp (A a) ->
                 begin
                   try
-                    let res = skip_or_import_call vertices a fun_stack in
+                    let _, _, _, _, stmts = List.hd !fun_stack in
+                    let vertices, t = skip_or_import_call vertices a fun_stack in
+                    let vertices', t' =
+                      List.fold_left (fun (l, t) v ->
+                          let v', t' = apply_after_call_stmts v stmts fun_stack in
+                        v'::l, Taint.Set.union t t') ([], Taint.Set.singleton Taint.U) vertices
+                    in
                     fun_stack := List.tl !fun_stack;
-                    res
-                  with Not_found ->
-                    List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.Set.singleton Taint.U
+                    (vertices', Taint.Set.union t t'), false
+                  with
+                  | _ ->
+                     (List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.Set.singleton Taint.U), false
                 end
 
              | Jmp (R target) ->
-                begin
+                let res =
+                  begin
                   match target with
                   | Lval (M (Const c, _)) ->
                      begin
@@ -481,57 +554,60 @@ struct
                          List.map (fun v -> v.Cfa.State.ip <- a; v) vertices, Taint.Set.singleton Taint.U
                      end
                     
-                  | target -> fold_to_target (fun _a -> ()) vertices target
-                end
+                  | target -> fold_to_target (fun _a -> ()) vertices target false
+                  end
+                in res, false
                   
                
              | Call (A a) ->
                 add_to_fun_stack a;
+               let vertices' = List.map (fun v -> { v with Cfa.State.v = D.call v.Cfa.State.v}) vertices in
                 begin
                   try
-                    skip_or_import_call vertices a fun_stack
+                    skip_or_import_call (vertices': Cfa.State.t list) a fun_stack, true
                   with Not_found ->
-                    List.iter (fun v -> v.Cfa.State.ip <- a) vertices;
-                    vertices, Taint.Set.singleton Taint.U
+                    List.iter (fun v -> v.Cfa.State.ip <- a) vertices';
+                    (vertices', Taint.Set.singleton Taint.U), true
                 end
-             | Call (R target) -> fold_to_target add_to_fun_stack vertices target
+             | Call (R target) -> fold_to_target add_to_fun_stack vertices target true, false
                                 
-             | Return ->
-                List.fold_left (fun (l, b) v ->
+             | Return ->               
+                  List.fold_left (fun (l, b) v ->
                     let v', b' = process_ret fun_stack v in
                     match v' with
                     | None -> l, Taint.Set.union b b'
-                    | Some v -> v@l, Taint.Set.union b b') ([], Taint.Set.singleton Taint.U) vertices
+                    | Some v -> v@l, Taint.Set.union b b') ([], Taint.Set.singleton Taint.U) vertices, false
                
-             | _       -> vertices, Taint.Set.singleton Taint.U
+             | _       -> (vertices, Taint.Set.singleton Taint.U), false
+         
 
-      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.Set.t =
+      and process_list (vertices: Cfa.State.t list) (stmts: Asm.stmt list): Cfa.State.t list * Taint.Set.t * Asm.stmt list =
         match stmts with
         | s::stmts ->
-           let new_vert, tainted =
              begin
                try
-                 let (new_vertices: Cfa.State.t list), (t: Taint.Set.t) = process_vertices vertices s in
-                 let vert, t' = process_list new_vertices stmts in
-                 vert, Taint.Set.union t t'
-               with Exceptions.Bot_deref -> [], Taint.Set.singleton Taint.BOT (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
+                 let ((new_vertices: Cfa.State.t list), (t: Taint.Set.t)), (has_call_inside: bool) = process_vertices vertices s in
+                 if has_call_inside then new_vertices, t, stmts
+                 else
+                   let vert, t', stmts' = process_list new_vertices stmts in
+                   vert, Taint.Set.union t t', stmts'
+               with Exceptions.Analysis Exceptions.Bot_deref -> [], Taint.Set.singleton Taint.BOT, [] (* in case of undefined dereference corresponding vertices are no more explored. They are not added to the waiting list neither *)
              end
-           in
-
-           new_vert, tainted
-        | []       -> vertices, Taint.Set.singleton Taint.U
+        | [] -> vertices, Taint.Set.singleton Taint.U, []
       in
       let vstart = copy v v.Cfa.State.v None true in
       vstart.Cfa.State.ip <- ip;
       (* check if the instruction has to be skiped *)
       let ia = Data.Address.to_int v.Cfa.State.ip in
       if not (Config.SAddresses.mem ia !Config.nopAddresses) then
-        let vertices, taint = process_list [vstart] v.Cfa.State.stmts in
+        let vertices, taint, after_call_stmts = process_list [vstart] v.Cfa.State.stmts in
         begin
           try
             v.Cfa.State.taint_sources <- taint;
-            List.iter (fun (_f, _ip, v, _tbl) -> v.Cfa.State.taint_sources <- Taint.Set.union v.Cfa.State.taint_sources taint) !fun_stack;
-          with _ as e -> raise e;
+            if after_call_stmts <> [] then
+              add_stmts_to_fun_stack after_call_stmts;
+            List.iter (fun (_f, _ip, v, _tbl, _after_call_stmts) -> v.Cfa.State.taint_sources <- Taint.Set.union v.Cfa.State.taint_sources taint) !fun_stack;
+          with _ -> ()
         end;
         vertices
       else
@@ -635,7 +711,7 @@ struct
               try
                 Hashtbl.find itbl name
               with Not_found -> { empty_desc with ia_name = "?." ^ name } in
-            Hashtbl.replace itbl name { func_desc with ia_typing_rule=true })  Config.typing_rules;
+            Hashtbl.replace itbl name { func_desc with ia_typing_rule=true })  Types.typing_rules;
           Hashtbl.iter (fun  (libname, name) (_callconv, _taint_ret, _taint_args) ->
             let func_desc =
               try
@@ -722,7 +798,7 @@ struct
             (* computed next step                                                                                  *)
             (* the new instruction pointer (offset variable) is also returned                                      *)
             let r = match text' with
-            | Some text'' ->  Decoder.parse text'' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v)
+            | Some text'' ->  Decoder.parse text'' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v v.Cfa.State.handlers)
             | None -> L.abort(fun p -> p "Could not retrieve %i bytes at %s to decode next instruction"
               !Config.max_instruction_size (Data.Address.to_string v.Cfa.State.ip) ) in
             begin
@@ -755,23 +831,23 @@ struct
             Log.latest_finished_address := Some v.Cfa.State.ip;  (* v.Cfa.State.ip can change because of calls and jumps *)
 
           with
-          | Exceptions.Too_many_concrete_elements msg ->
+          | Exceptions.Analysis (Exceptions.Too_many_concrete_elements msg) ->
              L.analysis (fun p -> p "%s" msg);
            
 
-          | Exceptions.Use_after_free msg ->
+          | Exceptions.Analysis (Exceptions.Use_after_free msg) ->
             L.analysis (fun p -> p "possible use after free in alloc %s, at: %s" msg (Data.Address.to_string v.Cfa.State.ip));
            
 
-          | Exceptions.Undefined_free msg ->
+          | Exceptions.Analysis (Exceptions.Undefined_free msg) ->
              L.analysis (fun p -> p "undefined free detected here: %s" msg);
            
               
-          | Exceptions.Double_free ->
+          | Exceptions.Analysis Exceptions.Double_free ->
               L.analysis (fun p -> p "possible double free detected");
           
 
-          | Exceptions.Stop msg ->
+          | Exceptions.Analysis (Exceptions.Stop msg) ->
              L.analysis (fun p -> p "analysis stopped for the current context: %s" msg)
             
           | e             -> L.exc e (fun p -> p "Unexpected exception"); dump g; raise e
@@ -845,9 +921,24 @@ struct
         if Asm.equal_lval lv dst then d', taint
         else D.forget_lval dst d, taint
           
-      | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
+      | BinOp (Add, e1, e2) -> back_add_sub Sub dst e1 e2 d
       | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
-         
+(*      | TernOp (bexp, e1, e2) ->
+         let vif = D.eval_exp e1 d in
+         let velse = D.eval_exp e2 d in
+         let vflag = D.eval_exp dst in
+         let dif =
+           if D.compare vflag vif then
+             D.restrict dst vif true
+           else
+             D.bot
+         in
+         let delse =
+           if D.compare vflag velse then
+             D.restrict dst velse false
+         in
+         D.join dif delse
+ *)
       | _ -> D.forget_lval dst d, Taint.Set.singleton Taint.TOP
 
     (** backward transfert function on the given abstract value *)
@@ -869,6 +960,7 @@ struct
         | Directive Default_unroll -> d, Taint.Set.singleton Taint.U
         | Directive (Stub _) -> d, Taint.Set.singleton Taint.U
         | Directive (Skip _) -> d, Taint.Set.singleton Taint.U
+        | Directive (Handler _) -> d, Taint.Set.singleton Taint.U
         | Set (dst, src) -> back_set dst src d
         | Assert (_bexp, _msg) -> d, Taint.Set.singleton Taint.U (* TODO *)
         | If (_e, istmts, estmts) ->
@@ -884,7 +976,7 @@ struct
         let start_v =
           match v.Cfa.State.back_v with
           | Some d -> d
-          | None -> raise (Exceptions.Empty "undefined abstract value used in backward mode")
+          | None -> raise (Exceptions.Analysis (Exceptions.Empty "undefined abstract value used in backward mode"))
         in
         let d', taint_sources =
           List.fold_left (fun (d, b) s ->
@@ -961,6 +1053,7 @@ struct
         | Asm.Directive (Asm.Unroll _)
         | Asm.Directive (Asm.Stub _)
         | Asm.Directive (Asm.Skip _)
+        | Asm.Directive (Asm.Handler _)
         | Asm.Directive (Asm.Unroll_until _)
         | Asm.Directive Asm.Default_unroll
         | Asm.Jmp (Asm.A _)

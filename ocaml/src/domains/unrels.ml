@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -35,11 +35,11 @@ module Make(D: Unrel.T) =
     let is_bot m = m = BOT
 
     let imprecise_exn r =
-      raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "value of register %s is too much imprecise" (Register.name r)))
+      raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements (Printf.sprintf "value of register %s is too much imprecise" (Register.name r))))
       
     let value_of_register m r =
       match m with
-      | BOT -> raise (Exceptions.Empty (Printf.sprintf "unrel.value_of_register:  environment is empty; can't look up register %s" (Register.name r)))
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "unrel.value_of_register:  environment is empty; can't look up register %s" (Register.name r))))
       | Val m' ->
          let v = List.fold_left (fun prev (u, _) ->
                      let v' = U.value_of_register u r in
@@ -57,8 +57,9 @@ module Make(D: Unrel.T) =
          
     let string_of_register m r =
       match m with
-      | BOT ->  raise (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r)))
+      | BOT ->  raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "string_of_register: environment is empty; can't look up register %s" (Register.name r))))
       | Val m' -> List.fold_left (fun acc (u, _) -> (U.string_of_register u r)^acc) "" m'
+
 
     let forget m =
       match m with
@@ -98,12 +99,13 @@ module Make(D: Unrel.T) =
                              ) [] m'
 
     let imprecise_value_of_exp e =
-      raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true)))
+      raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements (Printf.sprintf "concretisation of expression %s is too much imprecise" (Asm.string_of_exp e true))))
       
     let value_of_exp m e check_address_validity =
       match m with
-      | BOT -> raise (Exceptions.Empty "unrels.value_of_exp: environment is empty")
-      | Val m' -> let v = List.fold_left (fun prev (u, _) ->
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "unrels.value_of_exp: environment is empty"))
+      | Val m' ->
+         let v = List.fold_left (fun prev (u, _) ->
                      let v' = U.value_of_exp u e check_address_validity in
                      match prev with
                      | None -> Some v'
@@ -149,7 +151,7 @@ module Make(D: Unrel.T) =
          
   
                
-    let set_lval_to_addr lv addrs m check_address_validity =
+    let set_lval_to_addr lv (addrs: (Data.Address.t * Log.History.t) list) m check_address_validity =
       match m with
       | BOT -> BOT, Taint.Set.singleton Taint.BOT
       | Val m' ->
@@ -161,13 +163,12 @@ module Make(D: Unrel.T) =
          in
          let taint = ref (Taint.Set.singleton Taint.U) in
          let m2 =
-           List.fold_left (fun acc (a, msg) ->
+           List.fold_left (fun acc (a, nid) ->
                let m' =
-                 List.map (fun (u, prev_id) ->
+                 List.map (fun (u, _prev_id) -> (* TODO: check if we need to keep prev_id *)
                      let u', t = U.set_lval_to_addr lv a u check_address_validity in                     
                      taint := Taint.Set.add t !taint;
-                     let id = Log.History.new_ [prev_id] msg in
-                     u', id) m'
+                     u', nid) m'
                in
                acc @ m'
              ) [] addrs
@@ -198,7 +199,7 @@ module Make(D: Unrel.T) =
           else
             let id = Log.History.new_ [snd u1; snd u2] "meet" in
               (u', id)::m
-        with Exceptions.Empty _ ->
+        with Exceptions.Analysis (Exceptions.Empty _) ->
           bot := true;
           m
       in
@@ -268,7 +269,8 @@ module Make(D: Unrel.T) =
                            try                            
                           let ulist', tset' = U.compare u check_address_validity e1 op e2 in
                           List.fold_left (fun  m' u -> (u, msgs)::m') m' ulist', Taint.Set.singleton tset'
-                          with Exceptions.Empty _ ->
+                                       with Exceptions.Analysis (Exceptions.Empty msg)  ->
+                                         L.analysis (fun p -> p "analysis stops for that context: %s" (Exceptions.string_of_analysis (Exceptions.Empty msg)));
                             bot := true;
                             m', t) ([], Taint.Set.singleton Taint.U) m'
          in
@@ -281,16 +283,19 @@ module Make(D: Unrel.T) =
            else
              Val mres, t
 
+         
     let mem_to_addresses m e check_address_validity =
       L.debug2 (fun p -> p "mem_to_addresses %s" (Asm.string_of_exp e true));
       match m with
-      | BOT -> raise (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true)))
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty (Printf.sprintf "Environment is empty. Can't evaluate %s" (Asm.string_of_exp e true))))
       | Val m' ->
          List.fold_left (fun (addrs, t) u ->
              try
                let addrs', t' = U.mem_to_addresses (fst u) e check_address_validity in
                Data.Address.Set.union addrs addrs', Taint.Set.add t' t
-             with _ -> addrs, t) (Data.Address.Set.empty, Taint.Set.singleton Taint.U) m' 
+             with Exceptions.Analysis a   ->
+               L.analysis (fun p -> p "analysis stops for that context: %s" (Exceptions.string_of_analysis a));
+               addrs, t) (Data.Address.Set.empty, Taint.Set.singleton Taint.U) m' 
 
     let taint_sources e m check_address_validity =
       match m with
@@ -299,7 +304,7 @@ module Make(D: Unrel.T) =
 
     let get_offset_from e cmp terminator upper_bound sz m check_address_validity =
         match m with
-      | BOT -> raise (Exceptions.Empty "Unrels.get_offset_from: environment is empty")
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_offset_from: environment is empty"))
       | Val m' ->
          let res =
            List.fold_left (fun o u ->
@@ -308,15 +313,15 @@ module Make(D: Unrel.T) =
                | None -> Some o'
                | Some o ->
                   if o = o' then Some o
-                  else raise (Exceptions.Empty "Unrels.get_offset_from: different offsets found")) None m'
+                  else raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_offset_from: different offsets found"))) None m'
          in
          match res with
          | Some o -> o
-         | _ -> raise (Exceptions.Empty "Unrels.get_offset_from: undefined offset")
+         | _ -> raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_offset_from: undefined offset"))
             
     let get_bytes e cmp terminator (upper_bound: int) (sz: int) (m: t) check_address_validity =
           match m with
-      | BOT -> raise (Exceptions.Empty "Unrels.get_bytes: environment is empty")
+      | BOT -> raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_bytes: environment is empty"))
       | Val m' ->
          let res =
            List.fold_left (fun acc u ->
@@ -328,14 +333,14 @@ module Make(D: Unrel.T) =
                   if Bytes.equal bytes bytes' then
                     acc
                   else
-                    raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")
+                    raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return"))
                 else
-                  raise (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return")       
+                  raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_bytes: incompatible set of bytes to return"))
              ) None m'
          in
          match res with
          | Some r -> r
-         | None -> raise (Exceptions.Empty "Unrels.get_bytes: undefined bytes to compute")
+         | None -> raise (Exceptions.Analysis (Exceptions.Empty "Unrels.get_bytes: undefined bytes to compute"))
 
     let copy m dst arg sz check_address_validity =
       match m with
@@ -353,7 +358,7 @@ module Make(D: Unrel.T) =
                  | None -> Some n'
                  | Some n  ->
                     if n = n' then Some n' 
-                    else raise (Exceptions.Empty "diffrent lengths of  bytes copied in Unrels.copy_hex")
+                    else raise (Exceptions.Analysis (Exceptions.Empty "diffrent lengths of  bytes copied in Unrels.copy_hex"))
                in
                (u', msg)::acc, nn
              )  ([], None) m'
@@ -361,7 +366,7 @@ module Make(D: Unrel.T) =
          begin
            match n  with
            | Some n' -> Val m, n'
-           | None -> raise (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_hex")
+           | None -> raise (Exceptions.Analysis (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_hex"))
          end
       | BOT -> BOT, 0
              
@@ -372,13 +377,14 @@ module Make(D: Unrel.T) =
 
     let print_hex m src nb capitalise pad_option word_sz check_address_validity =
       match m with
-      | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "Unrels.print_hex: environment is empty")
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Analysis (Exceptions.Empty "Unrels.print_hex: environment is empty"))
       | Val m' ->
          match m' with
          | [(u, msg)] ->
             let u', len = U.print_hex u src nb capitalise pad_option word_sz check_address_validity in
             Val ([u', msg]), len
-         | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
+         | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only"))
+
 
     let copy_until m dst e terminator term_sz upper_bound with_exception pad_options check_address_validity =
        match m with
@@ -388,7 +394,7 @@ module Make(D: Unrel.T) =
           | [(u, msg)] ->
              let len, u' = U.copy_until u dst e terminator term_sz upper_bound with_exception pad_options check_address_validity in
              len, Val ([u', msg])
-         | _ -> raise (Exceptions.Too_many_concrete_elements "U.copy_until: implemented only for one unrel only")
+         | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "U.copy_until: implemented only for one unrel only"))
 
     let print_until m e terminator term_sz upper_bound with_exception pad_options check_address_validity =
       match m with
@@ -398,17 +404,22 @@ module Make(D: Unrel.T) =
           | [(u, msg)] ->
              let len, u' = U.print_until u e terminator term_sz upper_bound with_exception pad_options check_address_validity in
              len, Val ([u', msg])
-          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_until: implemented only for one unrel only")
+          | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "U.print_until: implemented only for one unrel only"))
+
 
     let copy_chars m dst src nb pad_options check_address_validity =
       match m with
       | BOT -> BOT
       | Val m' -> Val (List.map (fun (u, msg) -> U.copy_chars u dst src nb pad_options check_address_validity, msg) m')
 
-    let print_chars m src nb pad_options check_address_validity =
+    let print_chars (m: t) src nb pad_options check_address_validity =
       match m with
-      | Val m' -> Val (List.map (fun (u, msg) -> U.print_chars u src nb pad_options check_address_validity, msg) m')
-      | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
+      | Val [(u, msg)] ->
+         let u', len = U.print_chars u src nb pad_options check_address_validity in
+         Val ([u', msg]), len
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT, 0
+      | _ -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "U.print_chars: implemented only for one unrel only"))
+
 
     let copy_register r dst src =
       match src with

@@ -46,7 +46,7 @@ struct
   (************************************************************************)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
   let r0 = Register.make ~name:"r0" ~size:32;;
-  let r1 = Register.make ~name:"r1" ~size:32;;
+  let r1 = Register.make_sp ~name:"r1" ~size:32;; (* r1 is the stack pointer *)
   let r2 = Register.make ~name:"r2" ~size:32;;
   let r3 = Register.make ~name:"r3" ~size:32;;
   let r4 = Register.make ~name:"r4" ~size:32;;

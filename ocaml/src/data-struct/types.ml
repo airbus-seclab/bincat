@@ -1,5 +1,6 @@
 (*
     This file is part of BinCAT.
+
     Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
@@ -21,7 +22,8 @@ module T = TypedC
          
 (** offset type in a structure *)
 type offset = int
-            
+
+
 (** abstract data type for type reconstruction *)
 module Class =
   struct
@@ -97,8 +99,6 @@ let to_string t =
   | BOT -> "_"
   | UNKNOWN -> "?"
 
-let typ_of_npk (npk_t: TypedC.typ) = npk_t
-
 let join t1 t2 =
   match t1, t2 with
   | BOT, t | t, BOT -> t
@@ -110,7 +110,7 @@ let meet t1 t2 =
   | BOT, _ | _, BOT -> BOT
   | C t1', C t2' when T.equals_typ t1' t2' -> t1
   | UNKNOWN, t | t, UNKNOWN -> t
-  | _, _ -> raise (Exceptions.Empty "types.meet")
+  | _, _ -> raise (Exceptions.Analysis (Exceptions.Empty "types.meet"))
 
 let is_subset t1 t2 =
   match t1, t2 with
@@ -128,3 +128,9 @@ let equal t1 t2 =
   | UNKNOWN, UNKNOWN -> false
   | C t1, C t2 -> T.equals_typ t1 t2
   | _, _ -> false
+
+(** data structure for the typing rules of import functions *)
+let typing_rules : (string, ftyp) Hashtbl.t = Hashtbl.create 5
+
+let reset () =
+  Hashtbl.reset typing_rules;;

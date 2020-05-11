@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -152,102 +152,6 @@ sig
 
 end
 
-(** signature of vector *)
-module type T =
-sig
-    (** abstract data type *)
-    type t
-      
-    (** top on sz bit-width *)
-    val top: int -> t
-
-    (** returns length *)
-    val size: t -> int
-
-    (** forgets the content while preserving the taint *)
-    val forget: t -> (int * int) option -> t
-    (** the forget operation is bounded to bits from l to u if the second parameter is Some (l, u) *)
-
-    (** value conversion. May raise an exception *)
-    val to_z: t -> Z.t
-
-    (** char conversion. May raise an exception *)
-    val to_char: t -> char
-
-    (** abstract join *)
-    val join: t -> t -> t
-
-    (** abstract meet *)
-    val meet: t -> t -> t
-
-    (** widening *)
-    val widen: t -> t -> t
-
-    (** string conversion *)
-    val to_string: t -> string
-
-    (** string conversion (value string, taint string) *)
-    val to_strings: t -> string * string
-
-    (** binary operation *)
-    val binary: Asm.binop -> t -> t -> t
-
-    (** unary operation *)
-    val unary: Asm.unop -> t -> t
-
-    (** untaint *)
-    val untaint: t -> t
-
-    (** taint *)
-    val taint: t -> t
-
-    (** span taint *)
-    val span_taint: t -> Taint.t -> t
-
-    (** conversion from word *)
-    val of_word: Data.Word.t -> t
-
-    (** comparison *)
-    val compare: t -> Asm.cmp -> t -> bool
-
-    (** conversion to a set of addresses *)
-    val to_addresses: Data.Address.region -> t -> Data.Address.Set.t
-
-    (** check whether the first argument is included in the second one *)
-    val is_subset: t -> t -> bool
-
-    (** conversion from a config value.
-    The integer parameter is the size in bits of the config value *)
-    val of_config: Config.cvalue -> int -> t
-
-    (** conversion from a tainting value.
-        The value option is a possible previous init.
-        The computed taint is also returned *)
-    val taint_of_config: Config.tvalue list -> int -> t option -> t * Taint.t
-
-    (** [combine v1 v2 l u] computes v1[l, u] <- v2 *)
-    val combine: t -> t -> int -> int -> t
-
-    (** return the value corresponding to bits l to u may raise an exception if range bits exceeds the capacity of the vector *)
-    val extract: t -> int -> int -> t
-
-    (** [from_position v i len] returns the sub-vector v[i]...v[i-len-1] may raise an exception if i > |v| or i-len-1 < 0 *)
-    val from_position: t -> int -> int -> t
-
-    (** [of_repeat_val v v_len nb] returns the concatenation of pattern v having length v_len, nb times *)
-    val of_repeat_val: t -> int -> int -> t
-
-    (** returns the concatenation of the two given vectors *)
-    val concat: t -> t -> t
-
-    (** returns the minimal taint value of the given parameter *)
-    val get_minimal_taint: t -> Taint.t
-
-    (** returns the taint value of the given parameter *)
-    val taint_sources: t -> Taint.t
-
-
-end
 
 module Make(V: Val) =
   (struct
@@ -307,7 +211,7 @@ module Make(V: Val) =
       
     let to_z v = v_to_z V.to_z v
     (* this function may raise an exception if one of the bits cannot be converted into a Z.t integer (one bit at BOT or TOP) *)
-    let to_word conv v = Data.Word.of_int (v_to_z conv v) !Config.address_sz
+    let to_word conv v = Data.Word.of_int (v_to_z conv v) !Config.operand_sz
       
     let extract_strings v =
       let v' =
@@ -363,7 +267,7 @@ module Make(V: Val) =
       
     let widen v1 v2 =
       if Z.compare (to_z v1) (to_z v2) <> 0 then
-        raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.widen with different vectors (v1=%s v2=%s)" (to_string v1) (to_string v2)))
+        raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.widen with different vectors (v1=%s v2=%s)" (to_string v1) (to_string v2))))
       else v1
         
     (* common utility to add and sub *)
@@ -557,9 +461,9 @@ module Make(V: Val) =
       try
         Z.to_int z_shift_count
       with Z.Overflow ->
-        raise (Exceptions.Too_many_concrete_elements
+        raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements
                  (Printf.sprintf "vector.shr: shift count overflow: %s"
-                    (Z.to_string z_shift_count)))
+                    (Z.to_string z_shift_count))))
           
           
     let shl v1 v2 =
@@ -625,10 +529,7 @@ module Make(V: Val) =
             msb1 := !msb1+1;
           done;
           if !msb1 = lv1 then
-            L.abort (fun p -> p "core_div((%d)%s, (%d)%s): Division by zero"
-              (Array.length v1) (to_string v1)
-              (Array.length v2) (to_string v2)
-            )
+            raise (Exceptions.Analysis Exceptions.DivByZero)
           else
             let quo = Array.make lv1 V.zero in
             let rem = ref v1 in
@@ -942,4 +843,4 @@ module Make(V: Val) =
           Array.fold_left (fun acc elt -> Taint.logor acc (V.get_taint elt)) (Taint.U) v
 
                             
-    end: T)
+    end: Pointer.T)

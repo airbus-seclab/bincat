@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -83,6 +83,12 @@ type mode_t =
   | Protected
   | Real
 
+type stack_kind =
+  | Decreasing
+  | Increasing
+
+let stack = ref Decreasing
+          
 type analysis_src =
   | Bin
   | Cfa
@@ -137,7 +143,8 @@ let address_format = ref "%x"
 let address_format0x = ref "%#x"
 
 let gdt: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 19
-
+let handler: (Z.t, Z.t) Hashtbl.t = Hashtbl.create 10
+                   
 (* value of the NULL address *)
 let null_cst = ref Z.zero
 (* predicate to check whether the given Z.t is the NULL value *) 
@@ -148,6 +155,12 @@ let char_of_null_cst () = Char.chr (Z.to_int !null_cst)
 (* used for powerpc mfspr *)
 let processor_version = ref 0
 
+type os_t =
+  | Windows
+  | Linux
+
+let os = ref Windows
+                
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)
 let interleave = ref false
@@ -240,7 +253,7 @@ let sections: sec_t = ref []
 let import_tbl: (Z.t, (string * string)) Hashtbl.t = Hashtbl.create 5
 let import_tbl_rev: (string, Z.t) Hashtbl.t = Hashtbl.create 5
 
-(* tainting and typing rules for functions *)
+(* tainting rules for functions *)
 type taint_t =
   | No_taint
   | Buf_taint
@@ -253,16 +266,12 @@ let assert_tainted_functions: (Z.t, taint_t list) Hashtbl.t = Hashtbl.create 5
 (** data structure for the tainting rules of import functions *)
 let tainting_rules : ((string * string), (call_conv_t * taint_t option * taint_t list)) Hashtbl.t = Hashtbl.create 5
 
-
-(** data structure for the typing rules of import functions *)
-let typing_rules : (string, Types.ftyp) Hashtbl.t = Hashtbl.create 5
-
 (** default size of the initial heap *)
 (* 1 Go in bits *)
 let default_heap_size = ref (Z.mul (Z.shift_left Z.one 30) (Z.of_int 8))
 
 
-(* argv ooptions *)
+(* argv options *)
 type argv_config_t = {
     ignore_unknown_relocations : bool option ref ;
     no_state : bool option ref ;
@@ -344,8 +353,8 @@ let reset () =
   Hashtbl.reset import_tbl;
   Hashtbl.reset assert_untainted_functions;
   Hashtbl.reset assert_tainted_functions;
-  Hashtbl.reset tainting_rules;
-  Hashtbl.reset typing_rules;;
+  Hashtbl.reset tainting_rules;;
+
 
 (** returns size of content, rounded to the next multiple of operand_sz *)
 let size_of_content c =

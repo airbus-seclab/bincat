@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -89,7 +89,7 @@ struct
 
   let get_local_callconv cc =
     match cc with
-    | Config.SVR -> svr_calling_convention
+    | Config.SVR | Config.STDCALL -> svr_calling_convention
     | c -> L.abort (fun p -> p "Calling convention [%s] not supported for PowerPC architecture"
                                (Config.call_conv_to_string c))
 
@@ -97,7 +97,7 @@ struct
 
   let typing_rule_stmts_from_name name =
     try
-      let _rule = Hashtbl.find Config.typing_rules name in
+      let _rule = Hashtbl.find Types.typing_rules name in
       [], []
     with
     | _ -> [], []

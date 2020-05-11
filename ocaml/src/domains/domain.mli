@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -67,8 +67,8 @@ module type T =
       Returns also the taint of the given expression *)
       val set: Asm.lval -> Asm.exp -> t -> t * Taint.Set.t
 
-      (** set the given left value to the given list of addresses. The asssociated string a short message explaining the origin of these addresses *)
-      val set_lval_to_addr: Asm.lval -> (Data.Address.t * string) list -> t -> t * Taint.Set.t
+      (** set the given left value to the given list of addresses *)
+      val set_lval_to_addr: Asm.lval -> (Data.Address.t * Log.History.t) list -> t -> t * Taint.Set.t
         
       (** joins the two abstract values *)
       val join: t -> t -> t
@@ -157,8 +157,9 @@ number of copied bytes is returned *)
 
     (** [print_chars d src nb pad_options]
       print src until nb bytes are copied or null byte is found. If it found before nb bytes
-      are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *)
-      val print_chars: t -> Asm.exp -> int -> (char * bool) option -> t
+      are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right. Returns 
+also the number of chars effectively written *)
+      val print_chars: t -> Asm.exp -> int -> (char * bool) option -> t * int
 
       (** [copy_register r dst src] returns dst with value of register r being replaced by its value in src *)
       val copy_register: Register.t -> t -> t -> t
@@ -169,7 +170,16 @@ number of copied bytes is returned *)
     (** [deallocate d a] allocate the heap memory chunk at address a *)
       val deallocate: t -> Data.Address.heap_id_t -> t
 
-      (** [deallocate d addrs] weake allocate the heap memory chunks at addresses addrs *)
+      (** [deallocate d addrs] weak allocate the heap memory chunks at addresses addrs *)
       val weak_deallocate: t -> Data.Address.heap_id_t list -> t
+
+      (** transfer function when a function is entered *)
+      val call: t -> t
+
+      (** transfer function for function exit *)
+        val ret: t -> t
+
+        (** creates the initial stack frame *)
+        val make_first_stack_frame: t -> t
     end
 

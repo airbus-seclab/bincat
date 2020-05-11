@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -83,7 +83,7 @@ module Address: sig
     | Global (** abstract base address of global variables and code *)
     | Heap of heap_id_t * Z.t (** abstract base address of a dynamically allocated memory block. The Z.t integer is the size in bits of the allocation *)
 
-  (** conversion from Config.region to region *)
+  (** conversion from Region.t to region *)
   val region_from_config: Config.region -> region
     
   (** string conversion of a region *)

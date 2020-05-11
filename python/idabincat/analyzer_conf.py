@@ -149,7 +149,7 @@ class ConfigHelpers(object):
             idaapi.CM_CC_MANUAL: "manual",
         }[compiler_info.cm & idaapi.CM_CC_MASK]
         # XXX
-        if ConfigHelpers.get_arch() == "powerpc" and ida_db_info_structure.abiname == "sysv":
+        if ConfigHelpers.get_arch() == "powerpc" and ida_db_info_structure.abiname.startswith("sysv"):
             return "svr"
         if ConfigHelpers.get_arch() == "x64":
             if ConfigHelpers.get_file_type() == 'elf':

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2019 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -174,7 +174,8 @@ module Make(D: Unrel.T) =
 
 
   let print_chars (uenv, _tenv) src sz pad_options =
-    U.print_chars uenv src sz pad_options, T.top
+    let uenv', len = U.print_chars uenv src sz pad_options in
+    (uenv', T.top), len
 
   let copy_until (uenv, tenv) dst arg terminator term_sz upper_bound with_exception pad_options =
     let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options in

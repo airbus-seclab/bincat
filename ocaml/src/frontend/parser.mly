@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -160,8 +160,15 @@
           L.debug (fun p -> p "Open npk file [%s]" header);
           let p = TypedC.read header in
           List.iter (fun (s, f) ->
-            L.debug (fun p -> p "  - loaded type for [%s]" s);
-        Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
+              L.debug (fun p -> p "  - loaded type for [%s]" s);
+              let args, ret = f.TypedC.function_type in
+              let args' =
+                match args with
+                | None -> None
+                | Some args -> Some (List.map (fun (t, name) -> Types.C t, name) args)
+              in
+              let ftyp = args', Types.C ret in
+        Hashtbl.add Types.typing_rules s ftyp) p.TypedC.function_declarations
         with e -> L.exc e (fun p -> p "failed to load header %s" header)) !npk_headers
     ;;
 
@@ -171,12 +178,12 @@
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FS_BASE GS_BASE FLAT SEGMENTED STATE
 %token FORMAT RAW MANUAL PE ELF ELFOBJ ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA UNDERSCORE
-%token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
+%token GDT CUT ASSERT IMPORTS CALL U T HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
-%token IGNORE_UNKNOWN_RELOCATIONS IDA
+%token IGNORE_UNKNOWN_RELOCATIONS IDA OS WINDOWS LINUX STACK INCREASING DECREASING
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -320,6 +327,8 @@
     | FILEPATH EQUAL f=QUOTED_STRING     { update_mandatory FILEPATH; Config.binary := f }
     | FORMAT EQUAL f=format      { update_mandatory FORMAT; Config.format := f }
     | NULL EQUAL v=INT { Config.null_cst := v}
+    | OS EQUAL s=os_kind { Config.os := s}
+    | STACK EQUAL s=stack_kind { Config.stack := s}
 
       format:
     | PE  { Config.PE }
@@ -365,7 +374,14 @@
     | GS_BASE EQUAL i=init       { update_x64_mandatory GS_BASE; init_register "gs_base" i }
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x64_mandatory GDT; Hashtbl.replace Config.gdt i v }
 
+    os_kind:
+    | WINDOWS { Config.Windows }
+    | LINUX { Config.Linux }
 
+    stack_kind:
+    | INCREASING { Config.Increasing }
+    | DECREASING { Config.Decreasing }
+      
     memmodel:
     | FLAT  { Config.Flat }
     | SEGMENTED { Config.Segmented }

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -56,6 +56,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     begin
       try
         Config.reset ();
+        Types.reset ();
         lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = configfile; };
         Parser.process Lexer.token lexbuf
       with
@@ -102,9 +103,8 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
               complete_map.Mapped_mem.sections;
         L.info2(fun p -> p "-- End of mapped sections dump");
       end;
-    let module Vector    = Vector.Make(Reduced_bit_tainting) in
-    let module Pointer   = Pointer.Make(Vector) in
-    let module Domain   = Reduced_unrel_typenv_heap.Make(Pointer) in
+    let module Pointer = Pointer.Make(Reduced_taintedBitVector_interval) in
+    let module Domain = Reduced_unrel_typenv_heap_stack.Make(Pointer) in
     let decoder =
       match !Config.architecture with
       | Config.X86 -> (module Core_x86.Make(Core_x86.X86): Decoder.Make)
@@ -145,7 +145,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
          (* 7: generate the initial cfa with only an initial state *)
          let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
          Interpreter.make_registers();
-         let s = Interpreter.Cfa.init_state ep' in
+         let s = Interpreter.Cfa.init_state ep' Interpreter.Stubs.default_handler in
          let g = Interpreter.Cfa.create () in
          Interpreter.Cfa.add_state g s;
          let cfa =
