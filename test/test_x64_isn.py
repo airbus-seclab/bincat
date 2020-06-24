@@ -862,6 +862,19 @@ def test_misc_xlat(tmpdir, op8):
           """.format(**locals())
     compare(tmpdir, asm, ["rax"])
 
+
+def test_bswap(tmpdir, op64):
+    asm = """
+           mov rax, {op64:#x}
+           mov rbx, {op64:#x}
+           mov rsi, {op64:#x}
+           bswap rax
+           bswap rbx
+           bswap rsi
+         """.format(**locals())
+    compare(tmpdir, asm, ["rax", "rbx", "rsi"])
+
+
 def test_misc_xchg_m64_r64(tmpdir):
     asm = """
            push 0x12345678

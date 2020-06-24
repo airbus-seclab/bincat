@@ -2363,6 +2363,38 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let dst = exp_of_md s md rm 8 8 in
     return s [If (e, [Set (dst, const1 8)], [Set (dst, const0 8)])]
 
+  let bswap s nreg opsz =
+    let reg = Hashtbl.find register_tbl nreg in
+    let stmts =  match opsz with
+      | 32 ->
+         let lvreg = V ( P (reg, 0, 31)) in
+         let vreg0 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V ( P (reg, 0, 7) ) ) ), const 24 32) in
+         let vreg1 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V ( P (reg, 8, 15) ) ) ), const 16 32) in
+         let vreg2 = BinOp(Shl, UnOp(ZeroExt 32, Lval (V ( P (reg, 16, 23) ) ) ), const 8 32) in
+         let vreg3 = UnOp(ZeroExt 32, Lval (V ( P (reg, 24, 31) ) ) ) in
+         [ Set ( lvreg , BinOp(Or,
+                               BinOp(Or, vreg0, vreg1),
+                               BinOp(Or, vreg2, vreg3) ) ) ]
+      | 64 ->
+         let lvreg = V ( T reg ) in
+         let vreg0 = BinOp(Shl, UnOp(ZeroExt 64, Lval (V ( P (reg, 0, 7) ) ) ), const 56 64) in
+         let vreg1 = BinOp(Shl, UnOp(ZeroExt 64, Lval (V ( P (reg, 8, 15) ) ) ), const 48 64) in
+         let vreg2 = BinOp(Shl, UnOp(ZeroExt 64, Lval (V ( P (reg, 16, 23) ) ) ), const 40 64) in
+         let vreg3 = BinOp(Shl, UnOp(ZeroExt 64, Lval (V ( P (reg, 24, 31) ) ) ), const 32 64) in
+         let vreg4 = BinOp(Shl, UnOp(ZeroExt 64, Lval (V ( P (reg, 32, 39) ) ) ), const 24 64) in
+         let vreg5 = BinOp(Shl, UnOp(ZeroExt 64, Lval (V ( P (reg, 40, 47) ) ) ), const 16 64) in
+         let vreg6 = BinOp(Shl, UnOp(ZeroExt 64, Lval (V ( P (reg, 48, 55) ) ) ), const 8 64) in
+         let vreg7 = UnOp(ZeroExt 64, Lval (V ( P (reg, 56, 63) ) ) ) in
+         [ Set ( lvreg , BinOp(Or,
+                               BinOp(Or,
+                                     BinOp(Or, vreg0, vreg1),
+                                     BinOp(Or, vreg2, vreg3) ),
+                               BinOp(Or,
+                                     BinOp(Or, vreg4, vreg5),
+                                     BinOp(Or, vreg6, vreg7) ) ) ) ]
+      | x -> error s.a (Printf.sprintf "Uknown operand size: %i\n" x) in
+    return s stmts
+
   let xchg s arg1 arg2 sz =
     let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
     let stmts = [ Set(V (T tmp), Lval arg1);
@@ -3043,6 +3075,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\xc1' -> (* XADD *)  xadd_mrm s s.operand_sz
 
       | '\xc7' -> (* CMPXCHG8B *)  cmpxchg8b_mrm s
+      | c when '\xc8' <= c && c <= '\xcf' -> let nreg = (Char.code c) - 0xc8 in bswap s nreg s.operand_sz
 
 
       | c        -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
