@@ -868,9 +868,24 @@ def test_bswap(tmpdir, op64):
            mov rax, {op64:#x}
            mov rbx, {op64:#x}
            mov rsi, {op64:#x}
+           mov r10, {op64:#x}
+           mov r15, {op64:#x}
            bswap rax
            bswap rbx
            bswap rsi
+           bswap r10
+           bswap r15
+         """.format(**locals())
+    compare(tmpdir, asm, ["rax", "rbx", "rsi", "r15"])
+
+def test_bswap_32(tmpdir, op64):
+    asm = """
+           mov rax, {op64:#x}
+           mov rbx, {op64:#x}
+           mov rsi, {op64:#x}
+           bswap eax
+           bswap ebx
+           bswap esi
          """.format(**locals())
     compare(tmpdir, asm, ["rax", "rbx", "rsi"])
 
