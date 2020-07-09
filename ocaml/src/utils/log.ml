@@ -261,9 +261,8 @@ module History =
       if preds = [] then
         ""
       else
-        List.fold_left (fun acc pred ->
-            msg ^ " " ^ (get_msg pred) ^ " " ^ acc
-          ) "" preds
-                           
+        String.trim(List.fold_left (fun acc pred ->
+          String.trim(msg ^ " " ^ (get_msg pred) ^ " " ^ acc)
+          ) "" preds)
 
   end
