@@ -80,7 +80,7 @@ class NpkGen(object):
         res = sink.res()
         for s in self.structs:
             if "struct " not in s:
-                search = r"(^\s*(?:typedef )?)\b%s\b" % s
+                search = r"(^\s*(?:typedef )?)\b%s\b" % re.escape(s)
                 res = re.sub(
                     search, r"\1struct %s" % s, res, flags=re.MULTILINE)
         res += "\n\n"+"\n".join(self.imports)

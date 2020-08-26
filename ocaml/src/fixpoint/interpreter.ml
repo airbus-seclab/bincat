@@ -549,6 +549,7 @@ struct
       let same prev v' =
           prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
             prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
+            prev.Cfa.State.ip = v'.Cfa.State.ip && (* both ips should be the same *)
               (* fixpoint reached *)
               D.is_subset v'.Cfa.State.v prev.Cfa.State.v
       in
