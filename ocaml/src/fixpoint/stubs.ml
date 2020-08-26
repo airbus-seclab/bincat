@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -325,6 +325,10 @@ struct
       let d' = D.print d str !Config.operand_sz in
       D.set ret (Asm.Const (Data.Word.of_int Z.one !Config.operand_sz)) d'
 
+    (* TODO: merge all tainting src to have the same id *)
+    let getc _  _ d ret _ = D.forget_lval ret d, Taint.Set.singleton (Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted (Taint.Src.new_src()))))
+    let getchar = getc
+                                                 
     let bin_exit (_ip) _ _d _ret _args =
       raise (Exceptions.Stop "on exit call")
       
@@ -387,6 +391,8 @@ struct
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "putchar"        (putchar,      1);
+      Hashtbl.replace stubs "getchar" (getchar, 0);
+      Hashtbl.replace stubs "getc" (getc, 1);
       Hashtbl.replace stubs "exit"        (bin_exit,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1);;
