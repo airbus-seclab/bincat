@@ -116,6 +116,19 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
+    let memcmp (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
+      L.info (fun p -> p "memcmp stub");
+      let lv1 = Asm.Lval (args 0) in
+      let lv2 = Asm.Lval (args 1) in
+      let sz =  Asm.Lval (args 2) in
+      try
+        let n = Z.to_int (D.value_of_exp d sz) in
+        let v1 = D.value_of_exp d (Asm.Lval (Asm.M (lv1, (8*n)))) in
+        let v2 = D.value_of_exp d (Asm.Lval (Asm.M (lv2, (8*n)))) in
+        let res = Asm.Const (Data.Word.of_int (Z.sub v1 v2) !Config.operand_sz) in
+        D.set ret res d 
+      with _ -> D.forget_lval ret d, Taint.Set.singleton Taint.U  
+              
     let memset (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
       let arg0 = args 0 in
       let dst = Asm.Lval arg0 in
@@ -383,6 +396,7 @@ struct
           
     let init () =
       Hashtbl.replace stubs "memcpy"        (memcpy,      3);
+      Hashtbl.replace stubs "memcmp"        (memcmp,      3);
       Hashtbl.replace stubs "memset"        (memset,      3);
       Hashtbl.replace stubs "sprintf"       (sprintf,     0);
       Hashtbl.replace stubs "printf"        (printf,      0);
