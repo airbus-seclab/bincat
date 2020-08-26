@@ -1168,6 +1168,17 @@ def test_misc_xchg_m32_r32(tmpdir):
          """
     compare(tmpdir, asm, ["eax", "ebx", "ecx"])
 
+def test_bswap(tmpdir, op32):
+    asm = """
+           mov eax, {op32:#x}
+           mov ebx, {op32:#x}
+           mov esi, {op32:#x}
+           bswap eax
+           bswap ebx
+           bswap esi
+         """.format(**locals())
+    compare(tmpdir, asm, ["eax", "ebx", "esi"])
+
 def test_misc_xchg_m8_r8(tmpdir):
     asm = """
            push 0x12345678
