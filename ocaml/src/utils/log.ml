@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -256,14 +256,8 @@ module History =
 
           
       
-    let rec get_msg id =
-      let preds, msg = Hashtbl.find msg_id_tbl id in
-      if preds = [] then
-        ""
-      else
-        List.fold_left (fun acc pred ->
-            msg ^ " " ^ (get_msg pred) ^ " " ^ acc
-          ) "" preds
-                           
-
+    let get_msg id =
+      let _preds, msg = Hashtbl.find msg_id_tbl id in
+      msg
+      
   end
