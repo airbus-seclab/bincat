@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -193,6 +193,14 @@ module Make(D: Unrel.T) =
 
   let print_hex (uenv, tenv, henv) src sz capitalise pad_option word_sz: t * int =
     let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz (H.check_status henv) in
+    (uenv', tenv, henv), len
+
+    let copy_int (uenv, _tenv, henv) dst src sz capitalise pad_option word_sz: t * int =
+    let uenv', len = U.copy_int uenv dst src sz capitalise pad_option word_sz (H.check_status henv) in
+    (uenv', T.top, henv), len
+
+  let print_int (uenv, tenv, henv) src sz capitalise pad_option word_sz: t * int =
+    let uenv', len = U.print_int uenv src sz capitalise pad_option word_sz (H.check_status henv) in
     (uenv', tenv, henv), len
 
   let copy_chars (uenv, tenv, henv) dst src sz pad_options =

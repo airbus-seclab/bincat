@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -364,6 +364,29 @@ module Make(D: Unrel.T) =
            | None -> raise (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_hex")
          end
       | BOT -> BOT, 0
+
+    let copy_int m dst src nb capitalise pad_option word_sz check_address_validity =
+      match m with
+      | Val m' ->
+         let m, n =
+           List.fold_left (fun (acc, n) (u, msg) ->
+               let u', n' = U.copy_int u dst src nb capitalise pad_option word_sz check_address_validity in
+               let nn =
+                 match n with
+                 | None -> Some n'
+                 | Some n  ->
+                    if n = n' then Some n' 
+                    else raise (Exceptions.Empty "diffrent lengths of  bytes copied in Unrels.copy_int")
+               in
+               (u', msg)::acc, nn
+             )  ([], None) m'
+         in
+         begin
+           match n  with
+           | Some n' -> Val m, n'
+           | None -> raise (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_int")
+         end
+      | BOT -> BOT, 0
              
     let print m arg sz check_address_validity =
       match m with
@@ -377,6 +400,16 @@ module Make(D: Unrel.T) =
          match m' with
          | [(u, msg)] ->
             let u', len = U.print_hex u src nb capitalise pad_option word_sz check_address_validity in
+            Val ([u', msg]), len
+         | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
+
+    let print_int m src nb capitalise pad_option word_sz check_address_validity =
+      match m with
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "Unrels.print_int: environment is empty")
+      | Val m' ->
+         match m' with
+         | [(u, msg)] ->
+            let u', len = U.print_int u src nb capitalise pad_option word_sz check_address_validity in
             Val ([u', msg]), len
          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
 

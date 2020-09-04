@@ -194,16 +194,23 @@ struct
                             fmt_pos+2, dst_off', d'
                           | c ->  L.abort (fun p -> p "(s)printf: Unknown format char in format string: %c" c)
                       end
-                    | 'x' | 'X' ->
-                      let copy =
-                          match to_buffer with
-                          | Some dst ->
+                    | 'x' | 'X' | 'd' ->
+                       let format_copy, format_print =
+                         match c with
+                         |'x' | 'X' -> D.copy_hex, D.print_hex
+                         | _ -> D.copy_int, D.print_int
+                       in
+                       let copy =
+                         match to_buffer with
+                         | Some dst ->
                             let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int dst_off) !Config.stack_width))  in
-                            D.copy_hex d dst'
-                          | _ -> D.print_hex d
-                      in
-                      let d', dst_off' = copy arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) !Config.operand_sz in
-                      fmt_pos+1, dst_off', d'
+                            format_copy d dst'
+                          | _ -> format_print d
+                       in
+                       let d', dst_off' = copy arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) !Config.operand_sz in
+                       fmt_pos+1, dst_off', d'
+
+                       
                     | 's' ->
                       let dump =
                           match to_buffer with

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -1029,7 +1029,15 @@ module Make(D: T) =
      try Env.replace key new_v' m
      with Not_found -> Env.add key new_v m
 
-
+    let to_int m src _nb _capitalise _pad_option _full_print _word_sz check_address_validity =
+      let str =
+        try
+          let v = value_of_exp m src check_address_validity in
+          Z.to_string v
+        with _ -> "?"
+      in
+      str, String.length str
+      
     let to_hex m src nb capitalise pad_option full_print _word_sz check_address_validity: string * int =
       let capitalise str =
         if capitalise then String.uppercase_ascii str
@@ -1113,8 +1121,37 @@ module Make(D: T) =
          write m' Z.zero, len
       | [] -> raise (Exceptions.Empty "unrel.copy_hex")
       | _  -> Env.empty, len (* TODO could be more precise *)
-  
 
+    (* TODO: factorize owth copy_hex *)
+    let copy_int m' dst src nb capitalise pad_option word_sz check_address_validity: t * int =
+      let _, src_tainted = (eval_exp m' src check_address_validity) in
+      let str_src, len = to_int m' src nb capitalise pad_option false word_sz check_address_validity in
+      let vdst = fst (eval_exp m' dst check_address_validity) in
+      let dst_addrs = Data.Address.Set.elements (D.to_addresses vdst) in
+      match dst_addrs with
+      | [dst_addr] ->
+         let znb = Z.of_int nb in
+         let rec write m' o =
+           if Z.compare o znb < 0 then
+             let c = String.get str_src (Z.to_int o) in
+             let dst = Data.Address.add_offset dst_addr o in
+             let i' = Z.of_int (Char.code c) in
+             let r = D.of_word (Data.Word.of_int i' 8) in
+             let v' =
+               match src_tainted, D.taint_sources r with
+               | Taint.U, Taint.U -> r
+               | _, Taint.U -> D.span_taint r src_tainted
+               | _, _ -> D.taint r
+             in
+             write (write_in_memory dst m' v' 8 true check_address_validity) (Z.add o Z.one)
+           else
+             m'
+         in
+         write m' Z.zero, len
+      | [] -> raise (Exceptions.Empty "unrel.copy_int")
+      | _  -> Env.empty, len (* TODO could be more precise *)
+
+            
     let print_hex m' src nb capitalise pad_option word_sz check_address_validity: t * int =      
       let str, len = to_hex m' src nb capitalise pad_option false word_sz check_address_validity in
       (* str is already stripped in hex *)
@@ -1122,6 +1159,11 @@ module Make(D: T) =
       m', len
 
 
+    let print_int m' src nb capitalise pad_option word_sz check_address_validity =
+      let str, len = to_int m' src nb capitalise pad_option false word_sz check_address_validity in
+      Log.Stdout.stdout (fun p -> p "%s" str);
+      m', len
+      
     let copy m' dst arg sz check_address_validity: t =
     (* TODO: factorize pattern matching of dst with Interpreter.sprintf and with Unrel.copy_hex *)
     (* plus make pattern matching more generic for register detection *)
