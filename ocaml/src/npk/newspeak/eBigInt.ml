@@ -624,18 +624,13 @@ let square_big_int bi =
   ignore (square_nat res 0 len_res (bi.abs_value) 0 len_bi);
   {sign = 1; abs_value = res}
 
-(* round off of the futur last digit (of the integer represented by the string
-   argument of the function) that is now the previous one.
-   if s contains an integer of the form (10^n)-1
-    then s <- only 0 digits and the result_int is true
-   else s <- the round number and the result_int is false *)
-let round_futur_last_digit s off_set length =
+let round_futur_last_digit_bytes (s:bytes) off_set length =
  let l = pred (length + off_set) in
-  if Char.code(String.get s l) >= Char.code '5'
+  if Char.code(Bytes.get s l) >= Char.code '5'
     then
      let rec round_rec l =
        if l < off_set then true else begin
-         let current_char = String.get s l in
+         let current_char = Bytes.get s l in
          if current_char = '9' then
            (Bytes.set s l '0'; round_rec (pred l))
          else
@@ -644,6 +639,15 @@ let round_futur_last_digit s off_set length =
        end
      in round_rec (pred l)
    else false
+(* round off of the futur last digit (of the integer represented by the string
+   argument of the function) that is now the previous one.
+   if s contains an integer of the form (10^n)-1
+    then s <- only 0 digits and the result_int is true
+   else s <- the round number and the result_int is false *)
+let round_futur_last_digit (s:string) off_set length =
+  let b = Bytes.of_string s in 
+    let res = round_futur_last_digit_bytes b off_set length
+    in res
 
 
 (* Approximation with floating decimal point a` la approx_ratio_exp *)
