@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -121,7 +121,8 @@ let _ =
     "fun_skip", FUN_SKIP;
     "TAINT_ALL", TAINT_ALL;
     "TAINT_NONE", TAINT_NONE;
-    "null", NULL
+    "null", NULL;
+    "taint_input", TAINT_INPUT;
     ]
 
 let strip_int s =

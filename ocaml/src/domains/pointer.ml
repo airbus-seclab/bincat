@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -258,4 +258,15 @@ module Make (V: Vector.T) =
       | Val (_, o) -> V.taint_sources o
 
 
+    let get_taint p =
+      match p with
+      | TOP -> Taint.TOP
+      | BOT ->  Taint.BOT
+      | Val (_, o) -> V.get_taint o
+
+    let forget_taint p =
+      match p with
+      | TOP | BOT -> p
+      | Val (r, o) -> Val (r, V.forget_taint o)
+                        
     end: Unrel.T)

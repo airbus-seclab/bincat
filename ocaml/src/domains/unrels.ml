@@ -258,6 +258,8 @@ module Make(D: Unrel.T) =
 
     let span_taint_to_addr a t m = fold_on_taint m (U.span_taint_to_addr a t)
 
+    let taint_lval lv taint m check_address_validity = fold_on_taint m (U.taint_lval lv taint check_address_validity)
+                              
     let compare m check_address_validity e1 op e2 =
       L.debug2 (fun p -> p "compare: %s %s %s" (Asm.string_of_exp e1 true) (Asm.string_of_cmp op) (Asm.string_of_exp e2 true));
       match m with
@@ -458,5 +460,11 @@ module Make(D: Unrel.T) =
                   [] dst' )
          end
       | BOT -> BOT
-              
+
+    let get_taint v m check_address_validity =
+      match m with
+      | BOT -> Taint.BOT
+      | Val m' -> List.fold_left (fun prev_t (u, _log) ->
+                      let t = U.get_taint v u check_address_validity in
+                    Taint.join prev_t t) Taint.U m'
   end

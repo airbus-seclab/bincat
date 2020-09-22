@@ -110,6 +110,9 @@ module type T =
     (** [span_taint v t] span taint t on each bit of v *)
     val span_taint: t -> Taint.t -> t
 
+    (** forgets the taint of the given value *)
+    val forget_taint: t -> t
+      
     (** returns the sub value between bits low and up *)
     val extract: t -> int -> int -> t
 
@@ -125,6 +128,7 @@ module type T =
     (** returns the minimal taint value of the given parameter *)
     val get_minimal_taint: t -> Taint.t
 
+    val get_taint: t -> Taint.t
   end
 
 
@@ -780,6 +784,62 @@ module Make(D: T) =
       Env.replace k v' m', taint
 
 
+    let forget_taint m = Env.map (fun v -> D.forget_taint v) m
+
+                 
+    let taint_in_memory a m taint sz strong =
+      let addrs = get_addr_list a (sz/8) in
+      let update_one_key a (m, prev_taint): D.t Env.t * Taint.t =
+        let key = safe_find a m in
+        let m', taint' =
+                  match key with
+                  | None ->
+                     raise (Exceptions.Empty (Printf.sprintf
+                                                "unrel.taint_in_memory: no key found for taint update at address %s" (Data.Address.to_string a)))
+                  | Some (Env.Key.Reg _, _) -> L.abort (fun p -> p "Implementation error: the found key is a Reg")
+                  (* single byte to update *)
+                  | Some (Env.Key.Mem (_) as addr_k, match_val) ->
+                     if strong then
+                       Env.replace addr_k (D.span_taint match_val taint) m, taint
+                     else
+                       let taint' = Taint.join (D.get_taint match_val) taint in
+                       Env.replace addr_k (D.span_taint match_val taint) m, taint'
+                  (* we have to split the interval *)
+                  | Some (Env.Key.Mem_Itv (_, _) as key, match_val) ->
+                     let dom' = split_itv m key a in
+                     if strong then
+                       Env.add (Env.Key.Mem(a)) (D.span_taint match_val taint) dom', taint
+                     else
+                       let taint' = Taint.join (D.get_taint match_val) taint in
+                       Env.add (Env.Key.Mem(a)) (D.span_taint match_val taint') dom', taint'
+        in
+        m', Taint.join taint' prev_taint
+      in
+      List.fold_left (fun prev a -> update_one_key a prev) (m, Taint.U) addrs
+
+    let get_taint lv m check_address_validity =
+      let _, taint = eval_exp m (Asm.Lval lv) check_address_validity in
+      taint
+                       
+    let taint_lval lv taint check_address_validity m: t * Taint.t =
+      match lv with
+      | Asm.V (Asm.T r) -> span_taint_to_register r taint m
+      | Asm.V (Asm.P (r, _l, _u)) -> span_taint_to_register r Taint.TOP m (* TODO: could be more precise *)
+      | Asm.M (e, sz) ->
+         try
+           let v, _ = eval_exp m e check_address_validity in
+           let addrs = D.to_addresses v in
+           let l = Data.Address.Set.elements addrs in
+           begin 
+             match l with
+             | [a] -> taint_in_memory a m taint sz true
+             | _  -> List.fold_left (fun (m, prev_t) a ->
+                         let m', taint' = taint_in_memory a m taint sz false in
+                       m', Taint.join prev_t taint') (m, Taint.U) l
+           end
+         with _ -> forget_taint m, Taint.TOP
+         
+         
     let set_memory_from_config addr ((content: Config.cvalue option), (taint: Config.tvalue list)) nb check_address_validity domain': t * Taint.t =
       L.debug (fun p->p "Unrel.set_memory_from_config");  
       let taint_srcs = extract_taint_src_ids taint in          
