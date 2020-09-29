@@ -22,14 +22,14 @@ module type T =
 sig
   type domain_t
 
-  val process : Data.Address.t -> Data.Address.t -> domain_t -> string -> Asm.calling_convention_t -> 
+  val process : Data.Address.t -> Data.Address.t option -> domain_t -> string -> Asm.calling_convention_t -> 
     domain_t * Taint.Set.t * Asm.stmt list
 
   val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.Set.t * Asm.stmt list
     
   val init: unit -> unit
 
-  val stubs : (string, (Data.Address.t -> Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->  
+  val stubs : (string, (Data.Address.t -> Data.Address.t option -> domain_t -> Asm.lval -> (int -> Asm.lval) ->  
 
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 end
@@ -42,7 +42,7 @@ struct
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
+    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t option) (d: domain_t) ret args: domain_t * Taint.Set.t =
       try
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
         let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
@@ -50,10 +50,16 @@ struct
         let d' = D.allocate_on_heap d id in
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
-        let ip_str = Data.Address.to_string calling_ip in
-        let success_msg = "successful heap allocation at " ^ ip_str in
-        let failure_msg = "heap allocation failed at " ^ ip_str in
-        D.set_lval_to_addr ret [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ] d'
+          let success_msg = "successful heap allocation " in
+          let failure_msg = "heap allocation failed  " in
+          let postfix =
+            match calling_ip with
+            | Some ip -> let ip_str = Data.Address.to_string ip in "at " ^ ip_str
+            | None -> ""
+          in
+          let success_msg = success_msg ^ postfix in
+          let failure_msg = failure_msg ^ postfix in
+          D.set_lval_to_addr ret [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
     let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =

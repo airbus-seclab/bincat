@@ -268,12 +268,20 @@ struct
                d', taint'
                
             | Directive (Stub (fun_name, call_conv)) as stub_statement ->
-               let _, _, v, _ = List.hd !fun_stack in
-              let d', taint', cleanup_stmts = Stubs.process ip v.Cfa.State.ip d fun_name call_conv in
-              let d', taint' = Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (stub_statement :: cleanup_stmts) true));
-                               List.fold_left (fun (d, t) stmt -> let dd, tt = process_value ip d stmt fun_stack node_id in
-                                                                  dd, Taint.Set.union t tt) (d', taint') cleanup_stmts in
-              d', taint'
+               let prev_ip =
+                 try
+                   let _, _, v, _ = List.hd !fun_stack in
+                   Some v.Cfa.State.ip
+                 with Failure _ -> None
+               in
+               let d', taint', cleanup_stmts = Stubs.process ip prev_ip d fun_name call_conv in
+               let d', taint' =
+                 Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (stub_statement :: cleanup_stmts) true));
+                 List.fold_left (fun (d, t) stmt ->
+                     let dd, tt = process_value ip d stmt fun_stack node_id in
+                     dd, Taint.Set.union t tt) (d', taint') cleanup_stmts
+               in
+               d', taint'
               
             | _ -> raise Jmp_exn
                  
@@ -305,7 +313,9 @@ struct
         let t =
             List.fold_left (fun t v ->             
                 let d', t' =
-                    List.fold_left (fun (d, t) stmt -> let d', t' = process_value a d stmt fun_stack v.Cfa.State.id in d', Taint.Set.union t t') (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
+                  List.fold_left (fun (d, t) stmt ->
+                      let d', t' = process_value a d stmt fun_stack v.Cfa.State.id in
+                      d', Taint.Set.union t t') (v.Cfa.State.v, Taint.Set.singleton Taint.U) stmts
                 in
                 v.Cfa.State.v <- d';
                 let addrs, _ = D.mem_to_addresses d' ret_addr_exp in
@@ -347,7 +357,7 @@ struct
                        L.exc_and_abort e (fun p -> p "Uncomputable set of address targets for jump at ip = %s\n" (Data.Address.to_string v.Cfa.State.ip))
                 ) ([], Taint.Set.singleton Taint.U) vertices
             in
-            if !import then fun_stack := List.tl !fun_stack;
+            if !import then begin try fun_stack := List.tl !fun_stack with Failure _ -> () end; 
             res
 
       in
