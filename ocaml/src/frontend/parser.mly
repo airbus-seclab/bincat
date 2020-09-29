@@ -436,7 +436,7 @@
     | STORE_MCFA EQUAL v=STRING      { update_mandatory STORE_MCFA; update_boolean "store_mcfa" Config.store_mcfa v }
     | HEADER EQUAL npk_list=npk { npk_headers := npk_list }
     | IGNORE_UNKNOWN_RELOCATIONS EQUAL b=STRING { update_boolean "ignore_unknown_relocations" Config.ignore_unknown_relocations b }
-    | TAINT_INPUT { Config.taint_input := true }
+    | TAINT_INPUT EQUAL b=STRING { update_boolean "taint_input" Config.taint_input b}
 
       analysis_kind:
     | FORWARD_BIN  { Config.Forward Config.Bin }
