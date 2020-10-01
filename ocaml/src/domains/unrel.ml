@@ -697,7 +697,9 @@ module Make(D: T) =
       with _ ->
         let m = Env.empty in
         let m' = Env.fold (fun k v m -> Env.add k v m) m1' m in
-        Env.fold (fun k v m -> try let v' = Env.find k m1' in Env.replace k (D.join v v') m with Not_found -> Env.add k v m) m2' m'
+        Env.fold (fun k v m -> try
+              L.debug2 (fun p -> p "Unrel.join on %s" (Env.Key.to_string k));
+              let v' = Env.find k m1' in Env.replace k (D.join v v') m with Not_found -> Env.add k v m) m2' m'
 
 
     let meet m1 m2 =
