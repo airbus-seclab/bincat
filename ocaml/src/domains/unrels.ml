@@ -175,14 +175,29 @@ module Make(D: Unrel.T) =
          Val m2, !taint
 
   
-         
+    let remove_duplicates m1 m2 =
+      let one_check ulist (u, id) =
+        if List.exists (fun (u', _id') -> U.is_subset u' u && U.is_subset u u') ulist then
+          ulist
+        else
+          (u, id)::ulist
+      in
+      let filter m =
+        match m with
+        | [] -> []
+        | v1::tl -> List.fold_left one_check [v1] tl
+      in
+      let m1' = filter m1 in
+      let m2' = filter m2 in
+      List.fold_left one_check m1' m2'
+      
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT -> m
       | Val m1, Val m2 ->
          let m1' = List.map (fun (m, id) -> m, Log.History.new_ [id] "") m1 in
          let m2' = List.map (fun (m, id) -> m, Log.History.new_ [id] "") m2 in
-         let m = m1'@m2' in
+         let m = remove_duplicates m1' m2' in
          (* check if the size of m exceeds the threshold *)
          if List.length m > !Config.kset_bound then
            Val ((merge m1' ) @ (merge m2'))

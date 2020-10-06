@@ -573,16 +573,36 @@ module Make(D: T) =
          List.fold_left (fun m a ->  write_in_memory a m D.top n true check_address_validity) m' l
 
 
-    let val_restrict m e1 _v1 cmp _e2 v2: t list =
+    let val_restrict m e1 v1 cmp _e2 v2: t list =
       match e1, cmp with
       | Asm.Lval (Asm.V (Asm.T r)), cmp when cmp = Asm.EQ ->
          let v  = Env.find (Env.Key.Reg r) m in
          let v' = D.meet v v2 in
          if D.is_bot v' then
-             raise (Exceptions.Empty "unrel.val_restrict")
+               raise (Exceptions.Empty "unrel.val_restrict")
          else
            [Env.replace (Env.Key.Reg r) v' m]
-      | _, _ -> [m]
+      | _, _ ->
+         (* TODO: improve by restricting result + integrationg into the domain to have better reductions *)
+         try
+           let z1 = D.to_z v1 in
+           let z2 = D.to_z v2 in
+           let diff = Z.compare z1 z2 in
+           let b =
+             match diff, cmp with
+             | 0, Asm.LEQ -> true
+             | 0, Asm.EQ -> true
+             | 0, _ -> false
+             | _, Asm.NEQ -> true
+             | n, Asm.LEQ when n <= 0 -> true
+             | n, Asm.GT when n > 0 -> true
+             | _, _ -> false
+           in
+           if b then
+             [m]
+           else
+             raise (Exceptions.Empty "unrel.val_restrict")
+         with _ -> [m]
 
     (* TODO factorize with compare_env *)
     let compare m' check_address_validity (e1: Asm.exp) op e2 =
