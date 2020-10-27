@@ -47,7 +47,7 @@ ML=\
   domains/pointer.ml\
   domains/unrels.ml\
   domains/reduced_bit_tainting.ml\
-  domains/heap.ml\
+  domains/abstract_heap.ml\
   domains/reduced_unrel_typenv_heap.ml\
   disassembly/cfa.ml\
   disassembly/core_x86.ml\

@@ -283,11 +283,11 @@ module Make(D: Unrel.T) =
          let bot = ref false in
          let mres, t = List.fold_left (fun (m', t) (u, msgs) ->
                            try                            
-                          let ulist', tset' = U.compare u check_address_validity e1 op e2 in
-                          List.fold_left (fun  m' u -> (u, msgs)::m') m' ulist', Taint.Set.singleton tset'
-                          with Exceptions.Empty _ ->
-                            bot := true;
-                            m', t) ([], Taint.Set.singleton Taint.U) m'
+                             let ulist', tset' = U.compare u check_address_validity e1 op e2 in
+                             List.fold_left (fun  m' u -> (u, msgs)::m') m' ulist', Taint.Set.singleton tset'
+                           with Exceptions.Empty _ ->
+                             bot := true;
+                             m', t) ([], Taint.Set.singleton Taint.U) m'
          in
          let card = List.length mres in
          if !bot && card = 0 then

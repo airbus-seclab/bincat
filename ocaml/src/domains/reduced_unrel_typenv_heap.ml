@@ -25,7 +25,7 @@ module Make(D: Unrel.T) =
 (struct
   module U = Unrels.Make(D)
   module T = Typenv
-  module H = Heap
+  module H = Asbtract_heap
 
   type t = U.t * T.t * H.t
 
