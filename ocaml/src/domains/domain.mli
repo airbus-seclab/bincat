@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -90,6 +90,11 @@ module type T =
       (** apply the given taint mask to the given register. The computed taint is also returned *)
       val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.Set.t
 
+      (** applies the given taint to the given lvalue *)
+      val taint_lval: Asm.lval -> Taint.t -> t -> t * Taint.Set.t
+
+     
+        
       (** apply the given taint to the given register *)
       val span_taint_to_register: Register.t -> Taint.t -> t -> t * Taint.Set.t
 
@@ -174,5 +179,8 @@ number of copied bytes is returned *)
 
       (** [deallocate d addrs] weake allocate the heap memory chunks at addresses addrs *)
       val weak_deallocate: t -> Data.Address.heap_id_t list -> t
+
+                                                                 (** return the taint of the given left value *)
+        val get_taint: Asm.lval -> t -> Taint.t
     end
 

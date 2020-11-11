@@ -25,7 +25,7 @@ module Make(D: Unrel.T) =
 (struct
   module U = Unrels.Make(D)
   module T = Typenv
-  module H = Heap
+  module H = Abstract_heap
 
   type t = U.t * T.t * H.t
 
@@ -165,6 +165,10 @@ module Make(D: Unrel.T) =
     let uenv', taint = U.taint_address_mask a c uenv in
     (uenv', tenv, henv), taint
 
+  let taint_lval lv taint (uenv, tenv, henv) =
+    let uenv', taint' = U.taint_lval lv taint uenv (H.check_status henv) in
+    (uenv', tenv, henv), taint'
+    
   let span_taint_to_addr a taint (uenv, tenv, henv) =
     let uenv', taint' = U.span_taint_to_addr a taint uenv in
     (uenv', tenv, henv), taint'
@@ -229,4 +233,6 @@ module Make(D: Unrel.T) =
   let deallocate (uenv, tenv, henv) addr = uenv, tenv, H.dealloc henv addr
 
   let weak_deallocate (uenv, tenv, henv) addrs = uenv, tenv, H.weak_dealloc henv addrs
- end: Domain.T)
+
+  let get_taint lv (uenv, _tenv, henv) = U.get_taint lv uenv (H.check_status henv)
+end: Domain.T)

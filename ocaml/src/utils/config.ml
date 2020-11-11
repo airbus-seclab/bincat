@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -20,10 +20,10 @@ let ignore_unknown_relocations = ref false;;
 
 let unroll = ref 200;;
 let fun_unroll = ref 200;;
-let kset_bound = ref 10;;
+let kset_bound = ref 50;;
 let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
-
+let taint_input = ref false;; (* if true then automatically taint functions with external input like getc *)
 let max_instruction_size = ref 16;;
 let external_symbol_max_size = ref 32;
 
