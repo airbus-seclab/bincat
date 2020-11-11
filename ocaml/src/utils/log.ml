@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -165,7 +165,7 @@ module Make(Modname: sig val name : string end) = struct
     Printf.fprintf !logfid  "[ABORT] %s: %s\n" modname msg;
     Printexc.print_raw_backtrace !logfid (Printexc.get_callstack 100);
     flush !logfid;
-    flush Pervasives.stdout;
+    flush Stdlib.stdout;
     raise (Exceptions.Error msg)
 
   let exc_and_abort e fmsg =
@@ -174,7 +174,7 @@ module Make(Modname: sig val name : string end) = struct
     Printf.fprintf !logfid  "%s\n" (Printexc.to_string e);
     Printexc.print_backtrace !logfid;
     flush !logfid;
-    flush Pervasives.stdout;
+    flush Stdlib.stdout;
     raise (Exceptions.Error msg)
 
 
@@ -256,14 +256,8 @@ module History =
 
           
       
-    let rec get_msg id =
-      let preds, msg = Hashtbl.find msg_id_tbl id in
-      if preds = [] then
-        ""
-      else
-        List.fold_left (fun acc pred ->
-            msg ^ " " ^ (get_msg pred) ^ " " ^ acc
-          ) "" preds
-                           
-
+    let get_msg id =
+      let _preds, msg = Hashtbl.find msg_id_tbl id in
+      msg
+      
   end

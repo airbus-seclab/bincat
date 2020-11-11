@@ -689,7 +689,10 @@ class State(object):
                     tainted = True
                     if node.taintsrc:
                         # Take the first one
-                        taint_id = int(node.taintsrc[0].split("-")[1])
+                        try:
+                            taint_id = int(node.taintsrc[0].split("-")[1])
+                        except IndexError: # Taint is TOP
+                            taint_id = 0
                     break
 
             if tainted:

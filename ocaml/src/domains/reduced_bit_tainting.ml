@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -36,7 +36,7 @@ let to_z (v, _t) = B.to_z v
 
 let to_int (v, _t) = B.to_int v
 
-let forget_taint (v, _t) tid = v, T.singleton (T.Src.Maybe tid)
+let forget_taint_src (v, _t) tid = v, T.singleton (T.Src.Maybe tid)
 
 let join (v1, t1) (v2, t2) = B.join v1 v2, T.join t1 t2
 
@@ -136,4 +136,4 @@ let logand (v1, t1) (v2, t2) =
 
 let is_tainted (_v, t) = T.is_tainted t
 
-
+let forget_taint (v, _) = v, Taint.TOP

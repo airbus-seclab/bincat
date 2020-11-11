@@ -76,9 +76,12 @@ let parse_let loc let_spec =
         #if OCAML_VERSION < (4, 03, 0)
         pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
                         [(_, {pexp_desc = Pexp_constant (Const_string (opc, None))})]) } } -> insn_ident, opc
-        #else
+        #elif OCAML_VERSION < (4, 11, 0)
         pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
                         [(_, {pexp_desc = Pexp_constant (Pconst_string (opc, None))})]) } } -> insn_ident, opc
+        #else
+        pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
+                        [(_, {pexp_desc = Pexp_constant (Pconst_string (opc, _, None))})]) } } -> insn_ident, opc
         #endif
     | _ ->
       raise (Location.Error (

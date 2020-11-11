@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2017 - Airbus Group
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -175,6 +175,7 @@ let make_mapped_mem filepath entrypoint =
     | R_386_32 -> reloc_obj (Z.of_int (!Config.external_symbol_max_size))
     | R_386_PC32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_386_RELATIVE | R_X86_64_RELATIVE | R_PPC_RELATIVE -> reloc_relative Z.zero
+    | R_ARM_RELATIVE -> fun _ _ _ -> L.debug(fun p -> p "do nothing")
     | R_PPC_ADDR32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
     | R_PPC_JMP_SLOT -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
     | R_386_COPY | R_ARM_COPY | R_X86_64_COPY | R_AARCH64_COPY | R_PPC_COPY

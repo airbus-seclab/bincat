@@ -1399,8 +1399,8 @@ class InitConfigRegModel(QtCore.QAbstractTableModel):
         return flags
 
     def all_taint_top(self):
-        for i in range(0, len(self.rows)):
-            size = ConfigHelpers.register_size(ConfigHelpers.get_arch(self.s.edit_config.analysis_ep),
+        for i in xrange(0, len(self.rows)):
+            size = ConfigHelpers.register_size(ConfigHelpers.get_arch(),
                                                self.rows[i][0])
             if size >= 8:
                 self.rows[i][-1] = "0?0x"+"F"*(size/4)

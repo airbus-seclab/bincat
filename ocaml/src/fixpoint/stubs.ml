@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -22,14 +22,14 @@ module type T =
 sig
   type domain_t
 
-  val process : Data.Address.t -> Data.Address.t -> domain_t -> string -> Asm.calling_convention_t -> 
+  val process : Data.Address.t -> Data.Address.t option -> domain_t -> string -> Asm.calling_convention_t -> 
     domain_t * Taint.Set.t * Asm.stmt list
 
   val skip: domain_t -> Config.fun_t -> Asm.calling_convention_t -> domain_t *  Taint.Set.t * Asm.stmt list
     
   val init: unit -> unit
 
-  val stubs : (string, (Data.Address.t -> Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->  
+  val stubs : (string, (Data.Address.t -> Data.Address.t option -> domain_t -> Asm.lval -> (int -> Asm.lval) ->  
 
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 end
@@ -42,7 +42,7 @@ struct
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t) (d: domain_t) ret args: domain_t * Taint.Set.t =
+    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t option) (d: domain_t) ret args: domain_t * Taint.Set.t =
       try
         let sz = D.value_of_exp d (Asm.Lval (args 0)) in
         let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
@@ -50,10 +50,16 @@ struct
         let d' = D.allocate_on_heap d id in
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
-        let ip_str = Data.Address.to_string calling_ip in
-        let success_msg = "successful heap allocation at " ^ ip_str in
-        let failure_msg = "heap allocation failed at " ^ ip_str in
-        D.set_lval_to_addr ret [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ] d'
+          let success_msg = "successful heap allocation " in
+          let failure_msg = "heap allocation failed  " in
+          let postfix =
+            match calling_ip with
+            | Some ip -> let ip_str = Data.Address.to_string ip in "at " ^ ip_str
+            | None -> ""
+          in
+          let success_msg = success_msg ^ postfix in
+          let failure_msg = failure_msg ^ postfix in
+          D.set_lval_to_addr ret [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
     let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
@@ -116,6 +122,21 @@ struct
         D.set ret dst d'
       with _ -> L.abort (fun p -> p "too large copy size in memcpy stub")
 
+    let memcmp (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
+      L.info (fun p -> p "memcmp stub");
+      let sz =  Asm.Lval (args 2) in
+      try
+        let n = Z.to_int (D.value_of_exp d sz) in
+        let lv1 = Asm.M (Asm.Lval (args 0), 8*n) in
+        let lv2 = Asm.M (Asm.Lval (args 1), 8*n) in
+        let v1 = D.value_of_exp d (Asm.Lval lv1) in
+        let v2 = D.value_of_exp d (Asm.Lval lv2) in
+        let res = Asm.Const (Data.Word.of_int (Z.sub v1 v2) !Config.operand_sz) in
+        let d' = fst (D.set ret res d) in
+        let taint = Taint.join (D.get_taint lv1 d') (D.get_taint lv2 d') in
+        D.taint_lval ret taint d'
+      with _ -> D.forget_lval ret d, Taint.Set.singleton Taint.TOP (* TODO: check soundness of the returned taint *)        
+      
     let memset (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
       let arg0 = args 0 in
       let dst = Asm.Lval arg0 in
@@ -181,16 +202,23 @@ struct
                             fmt_pos+2, dst_off', d'
                           | c ->  L.abort (fun p -> p "(s)printf: Unknown format char in format string: %c" c)
                       end
-                    | 'x' | 'X' ->
-                      let copy =
-                          match to_buffer with
-                          | Some dst ->
+                    | 'x' | 'X' | 'd' ->
+                       let format_copy, format_print =
+                         match c with
+                         |'x' | 'X' -> D.copy_hex, D.print_hex
+                         | _ -> D.copy_int, D.print_int
+                       in
+                       let copy =
+                         match to_buffer with
+                         | Some dst ->
                             let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int dst_off) !Config.stack_width))  in
-                            D.copy_hex d dst'
-                          | _ -> D.print_hex d
-                      in
-                      let d', dst_off' = copy arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) !Config.operand_sz in
-                      fmt_pos+1, dst_off', d'
+                            format_copy d dst'
+                          | _ -> format_print d
+                       in
+                       let d', dst_off' = copy arg digit_nb (Char.compare c 'X' = 0) (Some (pad_char, pad_left)) !Config.operand_sz in
+                       fmt_pos+1, dst_off', d'
+
+                       
                     | 's' ->
                       let dump =
                           match to_buffer with
@@ -232,7 +260,19 @@ struct
                   in
                   let digit_nb = !Config.operand_sz/8 in
                   let d', dst_off' = dump arg digit_nb (Char.compare c 'X' = 0) None !Config.operand_sz in
-                      fmt_pos+1, dst_off', d'
+                  fmt_pos+1, dst_off', d'
+                | 'd' -> (* %d *)
+                   let dump =
+                      match to_buffer with
+                      | Some dst ->
+                        let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int dst_off) !Config.stack_width))  in
+                        D.copy_int d dst'
+                      | None ->
+                        D.print_int d
+                  in
+                  let digit_nb = !Config.operand_sz/8 in
+                  let d', dst_off' = dump arg digit_nb (Char.compare c 'X' = 0) None !Config.operand_sz in
+                  fmt_pos+1, dst_off', d'
                 | c when '1' <= c && c <= '9' -> format_num d dst_off c (fmt_pos+1) arg '0' true
                 | '0' -> format_num d dst_off '0' (fmt_pos+1) arg '0' true
                 | ' ' -> format_num d dst_off '0' (fmt_pos+1) arg ' ' true
@@ -325,6 +365,17 @@ struct
       let d' = D.print d str !Config.operand_sz in
       D.set ret (Asm.Const (Data.Word.of_int Z.one !Config.operand_sz)) d'
 
+    (* TODO: merge all tainting src to have the same id *)
+    let getc _  _ d ret _ =
+      let d' = D.forget_lval ret d in
+      if !Config.taint_input then
+        let taint_mask = Taint.S (Taint.SrcSet.singleton (Taint.Src.Tainted (Taint.Src.new_src()))) in
+        D.taint_lval ret taint_mask d'
+      else
+        d', Taint.Set.singleton Taint.U
+      
+    let getchar = getc
+                                                 
     let bin_exit (_ip) _ _d _ret _args =
       raise (Exceptions.Stop "on exit call")
       
@@ -379,6 +430,7 @@ struct
           
     let init () =
       Hashtbl.replace stubs "memcpy"        (memcpy,      3);
+      Hashtbl.replace stubs "memcmp"        (memcmp,      3);
       Hashtbl.replace stubs "memset"        (memset,      3);
       Hashtbl.replace stubs "sprintf"       (sprintf,     0);
       Hashtbl.replace stubs "printf"        (printf,      0);
@@ -387,10 +439,12 @@ struct
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
       Hashtbl.replace stubs "putchar"        (putchar,      1);
+      Hashtbl.replace stubs "getchar" (getchar, 0);
+      Hashtbl.replace stubs "getc" (getc, 1);
       Hashtbl.replace stubs "exit"        (bin_exit,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
-      Hashtbl.replace stubs "free" (heap_deallocator, 1);;
-      Hashtbl.replace stubs "_Znwj" (heap_allocator, 1);; (* new *)
+      Hashtbl.replace stubs "free" (heap_deallocator, 1);
+      Hashtbl.replace stubs "_Znwj" (heap_allocator, 1); (* new *)
       Hashtbl.replace stubs "_ZdlPv" (heap_deallocator, 1);; (* delete *)
 
 

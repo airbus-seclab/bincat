@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -145,11 +145,13 @@ sig
     val compare: t -> Asm.cmp -> t -> bool
 
     (** undefine the taint of the given value *)
-    val forget_taint: t -> Taint.Src.id_t -> t
+    val forget_taint_src: t -> Taint.Src.id_t -> t
 
     (** returns the taint value of the given parameter *)
     val get_taint: t -> Taint.t
 
+    (** forget the taint of the given value *)
+    val forget_taint: t -> t
 end
 
 (** signature of vector *)
@@ -246,7 +248,11 @@ sig
     (** returns the taint value of the given parameter *)
     val taint_sources: t -> Taint.t
 
+    (** return the taint of the given argument *)
+    val get_taint: t -> Taint.t
 
+    (** forget the taint of the given argument *)
+    val forget_taint: t -> t
 end
 
 module Make(V: Val) =
@@ -419,6 +425,7 @@ module Make(V: Val) =
     let geq v1 v2 = leq v2 v1
 
     let compare v1 op v2 =
+      (*L.debug2 (fun p -> p "compare %s %s %s" (V.to_string v1) (Asm.string_of_cmp op) (V.to_string v2));*)
       if (Array.length v1) != (Array.length v2) then
         L.abort (fun p -> p "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
           (to_string v1) (Asm.string_of_cmp op) (to_string v2)
@@ -799,7 +806,7 @@ module Make(V: Val) =
            let get_byte s i = (Z.of_string_base 16 (String.sub s (i/4) 1)) in
            for i = 0 to n' do           
              if Z.testbit m i then
-               let v' = V.forget_taint v.(n'-i) tid in
+               let v' = V.forget_taint_src v.(n'-i) tid in
                if is_first then
                  v.(n'-i) <- v'
                else
@@ -858,7 +865,7 @@ module Make(V: Val) =
                else
                  v.(n'-i) <- V.taint_logor v.(n'-i) v'
              else
-               let v' = V.forget_taint v.(n'-i) tid in
+               let v' = V.forget_taint_src v.(n'-i) tid in
                if is_first then
                  v.(n'-i) <- v' 
                else
@@ -941,5 +948,9 @@ module Make(V: Val) =
         let taint_sources v =
           Array.fold_left (fun acc elt -> Taint.logor acc (V.get_taint elt)) (Taint.U) v
 
-                            
+        let get_taint = taint_sources
+
+        let forget_taint v =
+          Array.map (V.update_taint Taint.TOP) v       
+          
     end: T)

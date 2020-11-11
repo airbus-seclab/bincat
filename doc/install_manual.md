@@ -4,6 +4,7 @@
 * ocaml >= 4.03 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * cppo
 * ocamlfind
+* ocamlgraph 1.8
 * num (for ocaml >= 4.06)
 * zarith library >=1.4
 * python 2.7

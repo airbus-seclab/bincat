@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -175,14 +175,29 @@ module Make(D: Unrel.T) =
          Val m2, !taint
 
   
-         
+    let remove_duplicates m1 m2 =
+      let one_check ulist (u, id) =
+        if List.exists (fun (u', _id') -> U.is_subset u' u && U.is_subset u u') ulist then
+          ulist
+        else
+          (u, id)::ulist
+      in
+      let filter m =
+        match m with
+        | [] -> []
+        | v1::tl -> List.fold_left one_check [v1] tl
+      in
+      let m1' = filter m1 in
+      let m2' = filter m2 in
+      List.fold_left one_check m1' m2'
+      
     let join m1 m2 =
       match m1, m2 with
       | BOT, m | m, BOT -> m
       | Val m1, Val m2 ->
          let m1' = List.map (fun (m, id) -> m, Log.History.new_ [id] "") m1 in
          let m2' = List.map (fun (m, id) -> m, Log.History.new_ [id] "") m2 in
-         let m = m1'@m2' in
+         let m = remove_duplicates m1' m2' in
          (* check if the size of m exceeds the threshold *)
          if List.length m > !Config.kset_bound then
            Val ((merge m1' ) @ (merge m2'))
@@ -258,6 +273,8 @@ module Make(D: Unrel.T) =
 
     let span_taint_to_addr a t m = fold_on_taint m (U.span_taint_to_addr a t)
 
+    let taint_lval lv taint m check_address_validity = fold_on_taint m (U.taint_lval lv taint check_address_validity)
+                              
     let compare m check_address_validity e1 op e2 =
       L.debug2 (fun p -> p "compare: %s %s %s" (Asm.string_of_exp e1 true) (Asm.string_of_cmp op) (Asm.string_of_exp e2 true));
       match m with
@@ -266,11 +283,11 @@ module Make(D: Unrel.T) =
          let bot = ref false in
          let mres, t = List.fold_left (fun (m', t) (u, msgs) ->
                            try                            
-                          let ulist', tset' = U.compare u check_address_validity e1 op e2 in
-                          List.fold_left (fun  m' u -> (u, msgs)::m') m' ulist', Taint.Set.singleton tset'
-                          with Exceptions.Empty _ ->
-                            bot := true;
-                            m', t) ([], Taint.Set.singleton Taint.U) m'
+                             let ulist', tset' = U.compare u check_address_validity e1 op e2 in
+                             List.fold_left (fun  m' u -> (u, msgs)::m') m' ulist', Taint.Set.singleton tset'
+                           with Exceptions.Empty _ ->
+                             bot := true;
+                             m', t) ([], Taint.Set.singleton Taint.U) m'
          in
          let card = List.length mres in
          if !bot && card = 0 then
@@ -364,6 +381,29 @@ module Make(D: Unrel.T) =
            | None -> raise (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_hex")
          end
       | BOT -> BOT, 0
+
+    let copy_int m dst src nb capitalise pad_option word_sz check_address_validity =
+      match m with
+      | Val m' ->
+         let m, n =
+           List.fold_left (fun (acc, n) (u, msg) ->
+               let u', n' = U.copy_int u dst src nb capitalise pad_option word_sz check_address_validity in
+               let nn =
+                 match n with
+                 | None -> Some n'
+                 | Some n  ->
+                    if n = n' then Some n' 
+                    else raise (Exceptions.Empty "diffrent lengths of  bytes copied in Unrels.copy_int")
+               in
+               (u', msg)::acc, nn
+             )  ([], None) m'
+         in
+         begin
+           match n  with
+           | Some n' -> Val m, n'
+           | None -> raise (Exceptions.Empty "uncomputable length of  bytes copied in Unrels.copy_int")
+         end
+      | BOT -> BOT, 0
              
     let print m arg sz check_address_validity =
       match m with
@@ -377,6 +417,16 @@ module Make(D: Unrel.T) =
          match m' with
          | [(u, msg)] ->
             let u', len = U.print_hex u src nb capitalise pad_option word_sz check_address_validity in
+            Val ([u', msg]), len
+         | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
+
+    let print_int m src nb capitalise pad_option word_sz check_address_validity =
+      match m with
+      | BOT -> Log.Stdout.stdout (fun p -> p "_"); m, raise (Exceptions.Empty "Unrels.print_int: environment is empty")
+      | Val m' ->
+         match m' with
+         | [(u, msg)] ->
+            let u', len = U.print_int u src nb capitalise pad_option word_sz check_address_validity in
             Val ([u', msg]), len
          | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_hex: implemented only for one unrel only")
 
@@ -425,5 +475,11 @@ module Make(D: Unrel.T) =
                   [] dst' )
          end
       | BOT -> BOT
-              
+
+    let get_taint v m check_address_validity =
+      match m with
+      | BOT -> Taint.BOT
+      | Val m' -> List.fold_left (fun prev_t (u, _log) ->
+                      let t = U.get_taint v u check_address_validity in
+                    Taint.join prev_t t) Taint.U m'
   end

@@ -257,7 +257,7 @@ class Netnode(object):
             if self[key] is not None:
                 return True
             return False
-        except (KeyError, zlib.error):
+        except (KeyError, zlib.error, ValueError):
             return False
 
     def iterkeys(self):

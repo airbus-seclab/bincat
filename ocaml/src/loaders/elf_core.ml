@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -687,7 +687,7 @@ type reloc_type_t =
  | R_X86_64_32S | R_X86_64_16 | R_X86_64_PC16 | R_X86_64_8 | R_X86_64_PC8 | R_X86_64_PC64
  | R_X86_64_GOTOFF64 | R_X86_64_GOTPC32 | R_X86_64_SIZE32 | R_X86_64_SIZE64 | R_X86_64_IRELATIV
   (* ARM relocation types *)
-  | R_ARM_NONE | R_ARM_COPY | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT
+  | R_ARM_NONE | R_ARM_COPY | R_ARM_GLOB_DAT | R_ARM_JUMP_SLOT | R_ARM_RELATIVE
   (* AARCH64 relocation types *)
   | R_AARCH64_COPY | R_AARCH64_GLOB_DAT | R_AARCH64_JUMP_SLOT | R_AARCH64_RELATIVE
   | R_AARCH64_TLS_DTPREL64 | R_AARCH64_TLS_DTPMOD64 | R_AARCH64_TLS_TPREL64
@@ -729,6 +729,7 @@ let to_reloc_type r hdr =
          | 20 -> R_ARM_COPY
          | 21 -> R_ARM_GLOB_DAT
          | 22 -> R_ARM_JUMP_SLOT
+         | 23 -> R_ARM_RELATIVE
          | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
     | AARCH64 ->
@@ -780,7 +781,7 @@ let reloc_type_to_string rel =
   | R_X86_64_GOTPC32 -> "R_X86_64_GOTPC32"    | R_X86_64_SIZE32 -> "R_X86_64_SIZE32"        | R_X86_64_SIZE64 -> "R_X86_64_SIZE64"
   | R_X86_64_IRELATIV -> "R_X86_64_IRELATIV"
   | R_ARM_NONE -> "R_ARM_NONE"
-  | R_ARM_COPY -> "R_ARM_COPY" | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT"
+  | R_ARM_COPY -> "R_ARM_COPY" | R_ARM_GLOB_DAT -> "R_ARM_GLOB_DAT"  | R_ARM_JUMP_SLOT -> "R_ARM_JUMP_SLOT" | R_ARM_RELATIVE -> "R_ARM_RELATIVE"
   | R_AARCH64_COPY -> "R_AARCH64_COPY"                 | R_AARCH64_GLOB_DAT -> "R_AARCH64_GLOB_DAT"
   | R_AARCH64_JUMP_SLOT -> "R_AARCH64_JUMP_SLOT"       | R_AARCH64_RELATIVE -> "R_AARCH64_RELATIVE"
   | R_AARCH64_TLS_DTPREL64 -> "R_AARCH64_TLS_DTPREL64" | R_AARCH64_TLS_DTPMOD64 -> "R_AARCH64_TLS_DTPMOD64"

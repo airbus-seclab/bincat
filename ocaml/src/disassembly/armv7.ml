@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -440,8 +440,8 @@ struct
     @ jmp_or_call_stmt
 
   let branch_exchange s instruction =
-    let zero = const 0 32 in
-    let one = const 1 32 in
+    let zero = const 0 1 in
+    let one = const 1 1 in
     let jreg = Lval(V(treg (instruction land 0xf))) in
     let bit1 = BinOp(And, jreg, one) in
     let target = BinOp(And, jreg, const 0xfffffffe 32) in

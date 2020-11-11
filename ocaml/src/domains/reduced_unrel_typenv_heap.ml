@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -25,7 +25,7 @@ module Make(D: Unrel.T) =
 (struct
   module U = Unrels.Make(D)
   module T = Typenv
-  module H = Heap
+  module H = Abstract_heap
 
   type t = U.t * T.t * H.t
 
@@ -165,6 +165,10 @@ module Make(D: Unrel.T) =
     let uenv', taint = U.taint_address_mask a c uenv in
     (uenv', tenv, henv), taint
 
+  let taint_lval lv taint (uenv, tenv, henv) =
+    let uenv', taint' = U.taint_lval lv taint uenv (H.check_status henv) in
+    (uenv', tenv, henv), taint'
+    
   let span_taint_to_addr a taint (uenv, tenv, henv) =
     let uenv', taint' = U.span_taint_to_addr a taint uenv in
     (uenv', tenv, henv), taint'
@@ -195,6 +199,14 @@ module Make(D: Unrel.T) =
     let uenv', len = U.print_hex uenv src sz capitalise pad_option word_sz (H.check_status henv) in
     (uenv', tenv, henv), len
 
+    let copy_int (uenv, _tenv, henv) dst src sz capitalise pad_option word_sz: t * int =
+    let uenv', len = U.copy_int uenv dst src sz capitalise pad_option word_sz (H.check_status henv) in
+    (uenv', T.top, henv), len
+
+  let print_int (uenv, tenv, henv) src sz capitalise pad_option word_sz: t * int =
+    let uenv', len = U.print_int uenv src sz capitalise pad_option word_sz (H.check_status henv) in
+    (uenv', tenv, henv), len
+
   let copy_chars (uenv, tenv, henv) dst src sz pad_options =
     let tenv' = char_type uenv tenv henv dst in
     U.copy_chars uenv dst src sz pad_options (H.check_status henv), tenv', henv
@@ -221,4 +233,6 @@ module Make(D: Unrel.T) =
   let deallocate (uenv, tenv, henv) addr = uenv, tenv, H.dealloc henv addr
 
   let weak_deallocate (uenv, tenv, henv) addrs = uenv, tenv, H.weak_dealloc henv addrs
- end: Domain.T)
+
+  let get_taint lv (uenv, _tenv, henv) = U.get_taint lv uenv (H.check_status henv)
+end: Domain.T)

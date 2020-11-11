@@ -83,7 +83,7 @@ type desc_tbl = (Word.t, tbl_entry) Hashtbl.t
 type segment_register_mask = { rpl: privilege_level; ti: table_indicator; index: Word.t }
 
 (** type for REX prefixes *)
-type rex_t = {w: int; r: int; x: int; b_: int; mutable b_used: bool; mutable op_switch: bool}
+type rex_t = {w: int; r: int; x: int; b_: int; mutable b_used: bool; mutable op_switch: bool; present: bool}
 
 
 (** decoding context contains all information about
@@ -281,7 +281,7 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 
     module Imports = X64Imports.Make(Domain)(Stubs)
 
-    let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; b_used = false; op_switch = false  }
+    let iget_rex c = { w = (c lsr 3) land 1 ; r = (c lsr 2) land 1 ; x = (c lsr 1) land 1 ; b_ = c land 1; b_used = false; op_switch = false ; present = true}
 
     let get_rex c = Some (iget_rex c)
 
@@ -1016,6 +1016,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let rm' =
       if s.rex.b_used then rm
       else
+        (* rex.b is used to specify the top bit of rm *)
         begin
           s.rex.b_used <- true;
           s.rex.b_ lsl 3 + rm
@@ -1026,7 +1027,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
        M (add_data_segment s (md_from_mem s md rm' sz), mem_sz)
     | 3 ->
        (* special case for ah ch dh bh *)
-       if sz = 8 && rm >= 4 then
+       if sz = 8 && rm >= 4 && not s.rex.present then
          V (get_h_slice (rm'-4))
        else
          V (find_reg rm' sz)
@@ -1035,10 +1036,12 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let operands_from_mod_reg_rm_core s sz ?(mem_sz=sz) dst_sz  =
     let c = getchar s in
     let md, reg, rm = mod_nnn_rm (Char.code c) in
+    L.debug2 (fun p -> p "ModR/M: mod=%d reg=%d rm=%d" md reg rm);
     let rm' = exp_of_md s md rm sz mem_sz in
     let reg = s.rex.r lsl 3 + reg in
     let reg_v =
-      if dst_sz = 8 && reg >= 4 then
+      (* with REX, AH/BH/CH/DH are not accessible *)
+      if dst_sz = 8 && reg >= 4 && not s.rex.present then
         V (get_h_slice (reg-4))
       else
         find_reg_v reg dst_sz
@@ -2360,6 +2363,34 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let dst = exp_of_md s md rm 8 8 in
     return s [If (e, [Set (dst, const1 8)], [Set (dst, const0 8)])]
 
+  let bswap s nreg opsz =
+    let reg = Hashtbl.find register_tbl nreg in
+    let regsz = Register.size reg in
+    let tmp   = Register.make ~name:(Register.fresh_name()) ~size:regsz in
+    let stmts =  match opsz with
+      | 32 ->
+         [ Set( V (T tmp), Const (Word.zero regsz)) ;
+           Set( V (P (tmp, 0, 7)), Lval (V (P (reg, 24, 31))) ) ;
+           Set( V (P (tmp, 8, 15)), Lval (V (P (reg, 16, 23))) ) ;
+           Set( V (P (tmp, 16, 23)), Lval (V (P (reg, 8, 15))) ) ;
+           Set( V (P (tmp, 24, 31)), Lval (V (P (reg, 0, 7))) ) ;
+           Set( V (T reg), Lval (V (T tmp) ) ) ;
+           Directive (Remove tmp) ]
+      | 64 ->
+         [ Set( V (T tmp), Const (Word.zero regsz)) ;
+           Set( V (P (tmp, 0, 7)), Lval (V (P (reg, 56, 63))) ) ;
+           Set( V (P (tmp, 8, 15)), Lval (V (P (reg, 48, 55))) ) ;
+           Set( V (P (tmp, 16, 23)), Lval (V (P (reg, 40, 47))) ) ;
+           Set( V (P (tmp, 24, 31)), Lval (V (P (reg, 32, 39))) ) ;
+           Set( V (P (tmp, 32, 39)), Lval (V (P (reg, 24, 31))) ) ;
+           Set( V (P (tmp, 40, 47)), Lval (V (P (reg, 16, 23))) ) ;
+           Set( V (P (tmp, 48, 55)), Lval (V (P (reg, 8, 15))) ) ;
+           Set( V (P (tmp, 56, 63)), Lval (V (P (reg, 0, 7))) ) ;
+           Set( V (T reg), Lval (V (T tmp) ) ) ;
+           Directive (Remove tmp) ]
+      | x -> error s.a (Printf.sprintf "Uknown operand size: %i\n" x) in
+    return s stmts
+
   let xchg s arg1 arg2 sz =
     let tmp   = Register.make ~name:(Register.fresh_name()) ~size:sz in
     let stmts = [ Set(V (T tmp), Lval arg1);
@@ -2657,6 +2688,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          begin
            try
              let rex = decode_from_0x40_to_0x4F c s.operand_sz in
+             L.debug2 (fun p -> p "got rex prefix: w:%d r:%d x:%d b:%d" rex.w rex.r rex.x rex.b_);
              s.rex <- rex; if s.rex.w = 1 then s.operand_sz <- 64; decode s
            with Exit -> (* INC *)
              let r = find_reg ((Char.code c) - 0x40) s.operand_sz in inc_dec (V r) Add s s.operand_sz
@@ -2666,6 +2698,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          begin
            try
              let rex = decode_from_0x40_to_0x4F c s.operand_sz in
+             L.debug2 (fun p -> p "got rex prefix: w:%d r:%d x:%d b:%d" rex.w rex.r rex.x rex.b_);
              if rex.w = 1 && s.rex.op_switch then
                (* previous operand_switch is ignored *)
                switch_sizes s;
@@ -3038,6 +3071,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       | '\xc1' -> (* XADD *)  xadd_mrm s s.operand_sz
 
       | '\xc7' -> (* CMPXCHG8B *)  cmpxchg8b_mrm s
+      | c when '\xc8' <= c && c <= '\xcf' -> let nreg = ((Char.code c)  - 0xc8) + (8*s.rex.b_)  in bswap s nreg s.operand_sz
 
 
       | c        -> error s.a (Printf.sprintf "unknown second opcode 0x%x\n" (Char.code c))
@@ -3061,7 +3095,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
         rep = false;
         repe = false;
         repne = false;
-        rex = {r=0; w=0; x=0; b_=0; b_used=false; op_switch=false};
+        rex = {r=0; w=0; x=0; b_=0; b_used=false; op_switch=false; present=false};
       }
     in
     try
