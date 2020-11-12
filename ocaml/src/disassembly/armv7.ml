@@ -1278,17 +1278,13 @@ struct
 
   let decode_thumb_special_data_branch_exch s isn =
     match (isn lsr 6) land 0xf with
-    | 0b0000 -> (* Add Low Registers ADD (register)*)
-       notimplemented_thumb s isn "ADD (low reg)"
-    | 0b0001 | 0b0010 | 0b0011 -> (* Add High Registers ADD (register) *)
+    | 0b000 | 0b0001 | 0b0010 | 0b0011 -> (* Add High Registers ADD (register) *)
        let rd = ((isn lsr 4) land 0x8) lor (isn land 0x7) in
        let rm = (isn lsr 3) land 0xf in
        op_add (reg rd) rm (Lval (V (treg rd))) |> mark_couple
     | 0b0101 | 0b0110 | 0b0111 -> (* Compare High Registers CMP (register) *)
        notimplemented_thumb s isn "CMP (high reg)"
-    | 0b1000 -> (* Move Low Registers MOV (register) *)
-       notimplemented_thumb s isn "MOV (low reg)"
-    | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
+    | 0b1000 | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
        thumb_mov_high_reg s isn
     | 0b1100 | 0b1101 -> (* Branch and Exchange BX *)
        thumb_bx s isn
