@@ -635,7 +635,7 @@ struct
                                         const 28 32))),
                       const 0b10000 32)) ]
        else error s.a "MRS from SPSR not supported"
-    | 0b000,0,0b01 -> 
+    | 0b000,0,0b01 ->
        if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
          data_proc_msr rm_stmt
        else error s.a "MSR to SPSR not supported"
@@ -1396,11 +1396,11 @@ struct
            [ Set (M (ofs, 32), Lval (V (treg rt))) ]
          else (* LDR (immediate) Load Register SP relative *)
            [ Set (V (treg rt), Lval (M (ofs, 32))) ]
-      | _ -> 
+      | _ ->
          let rn = (isn lsr 3) land 7 in
          let rt = isn land 7 in
          let imm5 = (isn lsr 6) land 0x1f in
-         let ofs sz = BinOp (Add, Lval (V (treg rn)), const (imm5 lsl sz) 32) in 
+         let ofs sz = BinOp (Add, Lval (V (treg rn)), const (imm5 lsl sz) 32) in
          (* imm5 is shifted by 0 for byte access, 1 for halfword access, 2 for word access *)
          begin
            match isn lsr 11 land 0x1f with
