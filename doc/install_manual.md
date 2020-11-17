@@ -36,9 +36,9 @@ apt install make python python-pip python-setuptools python-dev python-pytest \
 
 If you also want to run bincat tests, install the following packages:
 * gcc-aarch64-linux-gnu
-* gcc-arm-linux-gnueabi
+* gcc-arm-linux-gnueabi, libc6-dev-armel-cross
 * gcc-powerpc-linux-gnu
-* qemu
+* qemu, qemu-user
 
 ##### on Archlinux:
 Install packages first
