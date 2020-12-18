@@ -425,7 +425,7 @@ module Make(V: Val) =
     let geq v1 v2 = leq v2 v1
 
     let compare v1 op v2 =
-      (*L.debug2 (fun p -> p "compare %s %s %s" (V.to_string v1) (Asm.string_of_cmp op) (V.to_string v2));*)
+      L.debug2 (fun p -> p "compare %s %s %s" (to_string v1) (Asm.string_of_cmp op) (to_string v2));
       if (Array.length v1) != (Array.length v2) then
         L.abort (fun p -> p "BAD Vector.compare(%s,%s,%s) len1=%i len2=%i"
           (to_string v1) (Asm.string_of_cmp op) (to_string v2)

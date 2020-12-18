@@ -71,7 +71,7 @@ use-after-detection, etc.). This invariant holds for the node it shares an id
 with. For instance `[node 4 - unrel 3]` is an invariant related to the node 4.
 Note that several invariants can correspond to the same node as we are able to
 compute several invariants in parallel. In the above example, 3 is the unique
-identifier of the 
+identifier of the invariant described under section `[node 4 - unrel 3]`
 ### mem[...] 
 An invariant about value and taint holding for the address between []
 ### reg[...] 
