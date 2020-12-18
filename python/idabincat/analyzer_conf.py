@@ -15,7 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
-from __future__ import absolute_import
+
 import ctypes
 import collections
 import functools
@@ -24,15 +24,22 @@ import os
 import os.path
 import sys
 import re
-import StringIO
-import ConfigParser
+from io import StringIO
+try:
+    import configparser as ConfigParser
+except ImportError:
+    import ConfigParser
 import logging
 import idaapi
 import idautils
 import ida_segment
 import ida_kernwin
 import idabincat.netnode
+from builtins import bytes
 from idabincat.plugin_options import PluginOptions
+# Python 2/3 compat
+if sys.version_info > (2, 8):
+    long = int
 
 # Logging
 bc_log = logging.getLogger('bincat-cfg')
@@ -91,7 +98,11 @@ class ConfigHelpers(object):
     def string_decode(string):
         if idaapi.get_kernel_version()[0] == '7':
             # IDA 7 only has UTF-8 strings
-            string_u = string.decode('UTF-8')
+            try:
+                string_u = string.decode('UTF-8')
+            except AttributeError:
+                # Python 3
+                string_u = string
         else:
             # IDA 6 uses the system locale
             # on Linux it's usually UTF-8 but we can't be sure
@@ -167,7 +178,7 @@ class ConfigHelpers(object):
     def get_bitness(ea):
         seg = idaapi.getseg(ea)
         if not seg:
-            seg = idaapi.getseg(idautils.Segments().next())
+            seg = idaapi.getseg(next(idautils.Segments()))
         bitness = seg.bitness
         return {0: 16, 1: 32, 2: 64}[bitness]
 
@@ -510,8 +521,13 @@ class AnalyzerConfig(object):
     def binary_filepath(self):
         # remove quotes
         value = self._config.get('program', 'filepath')
+        # Python 2/3 compat
+        try:
+            value = value.decode('utf-8')
+        except AttributeError:
+            pass
         value = value.replace('"', '')
-        return value.decode('utf-8')
+        return value
 
     @property
     def in_marshalled_cfa_file(self):
@@ -619,13 +635,13 @@ class AnalyzerConfig(object):
     # Configuration modification functions - edit currently loaded config
     @analysis_ep.setter
     def analysis_ep(self, value):
-        if type(value) in (int, long):
+        if isinstance(value, (int, long)):
             value = "0x%X" % value
         self._config.set('analyzer', 'analysis_ep', value)
 
     @stop_address.setter
     def stop_address(self, value):
-        if type(value) in (int, long):
+        if isinstance(value, (int, long)):
             value = "0x%X" % value
         if value is None or value == "":
             self._config.remove_option('analyzer', 'cut')
@@ -693,7 +709,7 @@ class AnalyzerConfig(object):
                 ov_by_eip[eip].add("%s, %s" % (register, value))
 
             # 3. Add to config
-            for eip, ov_set in ov_by_eip.items():
+            for eip, ov_set in list(ov_by_eip.items()):
                 hex_addr = "0x%x" % eip
                 self._config.set("override", hex_addr, ';'.join(ov_set))
         else:  # backward
@@ -732,7 +748,10 @@ class AnalyzerConfig(object):
 
     @staticmethod
     def load_from_str(string):
-        sio = StringIO.StringIO(string)
+        if sys.version_info < (2, 8):
+            sio = StringIO(unicode(string))
+        else:
+            sio = StringIO(string)
         parser = ConfigParser.RawConfigParser()
         parser.optionxform = str
         parser.readfp(sio)
@@ -742,7 +761,9 @@ class AnalyzerConfig(object):
         # OCaml can only handle "local" encodings for file name
         # So, ugly code following
         binpath = self.binary_filepath
-        local_binpath = ('"%s"' % binpath).encode(sys.getfilesystemencoding())
+        # TODO FIXME (python3 ...)
+        # local_binpath = ('"%s"' % binpath).encode(sys.getfilesystemencoding())
+        local_binpath = '"%s"' % binpath
         self._config.set('program', 'filepath', local_binpath)
         with open(filepath, 'w') as configfile:
             self._config.write(configfile)
@@ -753,7 +774,7 @@ class AnalyzerConfig(object):
         self._config.add_section('state')
         for key, val in self.init_state.as_kv():
             self._config.set('state', key, val)
-        sio = StringIO.StringIO()
+        sio = StringIO()
         self._config.write(sio)
         sio.seek(0)
         return sio.read()
@@ -833,7 +854,7 @@ class AnalyzerConfig(object):
         imports = ConfigHelpers.get_imports()
         # [import] section
         config.add_section('imports')
-        for ea, imp in imports.iteritems():
+        for ea, imp in imports.items():
             if imp[0]:
                 name = "%s, \"%s\"" % imp
             else:
@@ -932,7 +953,7 @@ class AnalyzerConfigurations(object):
     def _load_from_idb(self):
         self._configs = self._netnode.get('analyzer_configs', dict())
         self._prefs = {}
-        for k, v in self._netnode.get('analyzer_prefs', dict()).items():
+        for k, v in list(self._netnode.get('analyzer_prefs', dict()).items()):
             self._prefs[int(k)] = v
         for k, v in list(self._prefs.items()):
             if v not in self._configs:
@@ -951,7 +972,7 @@ class AnalyzerConfigurations(object):
         Get named config, or preferred config if defined for this address.
         Returns an AnalyzerConfig instance, or None
         """
-        if isinstance(name_or_address, int):
+        if isinstance(name_or_address, (int, long)):
             # address
             name = self._prefs.get(name_or_address, None)
             if not name:
