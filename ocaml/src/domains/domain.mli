@@ -90,6 +90,11 @@ module type T =
       (** apply the given taint mask to the given register. The computed taint is also returned *)
       val taint_register_mask: Register.t -> Config.tvalue -> t -> t * Taint.Set.t
 
+      (** applies the given taint to the given lvalue *)
+      val taint_lval: Asm.lval -> Taint.t -> t -> t * Taint.Set.t
+
+     
+        
       (** apply the given taint to the given register *)
       val span_taint_to_register: Register.t -> Taint.t -> t -> t * Taint.Set.t
 
@@ -139,10 +144,13 @@ module type T =
 number of copied bytes is returned *)
       val copy_hex: t -> Asm.exp -> Asm.exp -> int -> bool -> (char * bool) option -> int -> t * int
 
+      val copy_int: t -> Asm.exp -> Asm.exp -> int -> bool -> (char * bool) option -> int -> t * int
+
         (** [print_hex d arg sz is_hex pad_char pad_left word_sz] copy the first sz bits of arg into stdout. May raise an exception if dst is undefined in d or arg cannot be concretised; If is_hex is true then letters are capitalized ; pad_char is the character to pad if sz <> !Config.operand_sz / 8 ; padding is done on the left if pad_left is true otherwise it is padded on the right. Returns also the number of printed bytes *)
       val print_hex: t -> Asm.exp -> int -> bool -> (char * bool) option -> int -> t * int
 
-
+      val print_int: t -> Asm.exp -> int -> bool -> (char * bool) option -> int -> t * int
+        
     (** [copy_until d dst arg term term_sz bound with_exception pad_options] copy the bits of arg into address dst until the first occurence of term is found into arg. This occurence may be at most at address [arg+bound] raise an exception if the with_exception=true and upper bound is exceeded of dst is undefined in d
     it returns also the number of copied bits. If the length to copy is shorter than the specified bound and pad_options is Some (pad_char, pad_left) then it is left padded with pad_char if pad_left=true itherwise it is right padded *)
       val copy_until: t -> Asm.exp -> Asm.exp -> Asm.exp -> int -> int -> bool -> (char * bool) option -> int * t
@@ -181,5 +189,7 @@ also the number of chars effectively written *)
 
         (** creates the initial stack frame *)
         val make_first_stack_frame: t -> t
+                                                                 (** return the taint of the given left value *)
+        val get_taint: Asm.lval -> t -> Taint.t
     end
 

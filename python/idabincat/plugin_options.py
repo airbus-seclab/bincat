@@ -18,7 +18,10 @@
 """
 import os
 import logging
-import ConfigParser
+try:
+    import configparser as ConfigParser
+except ImportError:
+    import ConfigParser
 
 # Logging
 bc_log = logging.getLogger('bincat.gui.pluginoptions')
@@ -66,5 +69,5 @@ class PluginOptions(object):
 
     @classmethod
     def save(cls):
-        with open(cls.configfile, 'wb') as optfile:
+        with open(cls.configfile, 'w') as optfile:
             cls._options.write(optfile)

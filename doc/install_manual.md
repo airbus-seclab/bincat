@@ -4,6 +4,7 @@
 * ocaml >= 4.03 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * cppo
 * ocamlfind
+* ocamlgraph 1.8
 * num (for ocaml >= 4.06)
 * zarith library >=1.4
 * python 2.7
@@ -35,9 +36,9 @@ apt install make python python-pip python-setuptools python-dev python-pytest \
 
 If you also want to run bincat tests, install the following packages:
 * gcc-aarch64-linux-gnu
-* gcc-arm-linux-gnueabi
+* gcc-arm-linux-gnueabi, libc6-dev-armel-cross
 * gcc-powerpc-linux-gnu
-* qemu
+* qemu, qemu-user
 
 ##### on Archlinux:
 Install packages first

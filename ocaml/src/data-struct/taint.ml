@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -57,7 +57,7 @@ module Src =
   end
 
 (* set of (possible) tainting sources *)
-module SrcSet = SetExt.Make (Src)
+module SrcSet = SetExt.Make(Src)
 
 
 (* a taint value can be

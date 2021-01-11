@@ -104,7 +104,7 @@ class NpkGen(object):
             imports_data = self.get_header_data()
 
         ig_name = os.path.join(dirname, "ida-generated.h")
-        c = open(ig_name, "wb+")
+        c = open(ig_name, "w+")
         c.write(imports_data)
         c.close()
         # 2. use gcc to preprocess this file
@@ -145,7 +145,7 @@ class NpkGen(object):
             error_msg = "Error encountered while running c2newspeak."
             if e.output:
                 error_msg += "\n--- start of c2newspeak output ---\n"
-                error_msg += e.output
+                error_msg += str(e.output)
                 error_msg += "\n--- end of c2newspeak output ---"
             npk_log.error(error_msg, exc_info=True)
             raise NpkGenException(error_msg)

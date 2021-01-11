@@ -3,11 +3,15 @@
 # https://github.com/williballenthin/ida-netnode
 # and is Licensed under the Apache 2 licence
 
+import sys
 import zlib
 import json
 import logging
-
+import struct
 import idaapi
+# Python 2/3 compat
+if sys.version_info > (2, 8):
+    long = int
 
 BLOB_SIZE = 1024
 OUR_NETNODE = "$ com.bincat"
@@ -34,17 +38,17 @@ class Netnode(object):
 
       - https://www.hex-rays.com/products/ida/support/sdkdoc/netnode_8hpp.html
       - The IDA Pro Book, version 2
- 
+
     Conceptually, this netnode class represents is a key-value store
       uniquely identified by a namespace.
 
     This class abstracts over some of the peculiarities of the low-level
       netnode API. Notably, it supports indexing data by strings or
       numbers, and allows values to be larger than 1024 bytes in length.
-    
-    This class supports keys that are numbers or strings. 
+
+    This class supports keys that are numbers or strings.
     Values must be JSON-encodable. They can not be None.
-   
+
     Implementation:
      (You don't have to worry about this section if you just want to
         use the library. Its here for potential contributors.)
@@ -52,12 +56,12 @@ class Netnode(object):
       The major limitation of the underlying netnode API is the fixed
         maximum length of a value. Values must not be larger than 1024
         bytes. Otherwise, you must use the `blob` API. We do that for you.
-    
+
       The first enhancement is transparently zlib-encoding all values.
 
       To support arbitrarily sized values with keys of either int or str types,
         we store the values in different places:
-    
+
         - integer keys with small values: stored in default supval table
         - integer keys with large values: the data is stored in the blob
            table named 'M' using an internal key. The link from the given key
@@ -75,11 +79,17 @@ class Netnode(object):
 
     @staticmethod
     def _decompress(data):
-        return zlib.decompress(data)
+        if sys.version_info < (2, 8):
+            return zlib.decompress(data)
+        return zlib.decompress(data).decode('utf8')
 
     @staticmethod
     def _compress(data):
-        return zlib.compress(data)
+        if sys.version_info < (2, 8):
+            data_ = data
+        else:
+            data_ = bytes(data, encoding='utf8')
+        return zlib.compress(data_)
 
     @staticmethod
     def _encode(data):
@@ -90,7 +100,7 @@ class Netnode(object):
         return json.loads(data)
 
     def _intdel(self, key):
-        assert isinstance(key, int)
+        assert isinstance(key, (int, long))
 
         did_del = False
         storekey = self._n.supval(key, INT_TO_INT_MAP_TAG)
@@ -119,7 +129,7 @@ class Netnode(object):
             return slot + 1
 
     def _intset(self, key, value):
-        assert isinstance(key, int)
+        assert isinstance(key, (int, long))
         assert value is not None
 
         try:
@@ -135,7 +145,7 @@ class Netnode(object):
             self._n.supset(key, value)
 
     def _intget(self, key):
-        assert isinstance(key, int)
+        assert isinstance(key, (int, long))
 
         storekey = self._n.supval(key, INT_TO_INT_MAP_TAG)
         if storekey is not None:
@@ -156,8 +166,8 @@ class Netnode(object):
 
         did_del = False
         storekey = self._n.hashval(key, STR_TO_INT_MAP_TAG)
-        if storekey is not None:
-            storekey = int(storekey)
+        if storekey is not None and len(storekey) == 4:
+            storekey, = struct.unpack('>I', storekey)
             self._n.delblob(storekey, STR_KEYS_TAG)
             self._n.hashdel(key)
             did_del = True
@@ -180,16 +190,16 @@ class Netnode(object):
         if len(value) > BLOB_SIZE:
             storekey = self._get_next_slot(STR_KEYS_TAG)
             self._n.setblob(value, storekey, STR_KEYS_TAG)
-            self._n.hashset(key, str(storekey), STR_TO_INT_MAP_TAG)
+            self._n.hashset(key, struct.pack('>I', storekey), STR_TO_INT_MAP_TAG)
         else:
-            self._n.hashset(key, value)
+            self._n.hashset(key, bytes(value))
 
     def _strget(self, key):
         assert isinstance(key, (str))
 
         storekey = self._n.hashval(key, STR_TO_INT_MAP_TAG)
-        if storekey is not None:
-            storekey = int(storekey)
+        if storekey is not None and len(storekey) == 4:
+            storekey, = struct.unpack('>I', storekey)
             v = self._n.getblob(storekey, STR_KEYS_TAG)
             if v is None:
                 raise NetnodeCorruptError()
@@ -204,12 +214,13 @@ class Netnode(object):
     def __getitem__(self, key):
         if isinstance(key, str):
             v = self._strget(key)
-        elif isinstance(key, int):
+        elif isinstance(key, (int, long)):
             v = self._intget(key)
         else:
             raise TypeError("cannot use {} as key".format(type(key)))
 
-        return self._decode(self._decompress(v))
+        data = self._decompress(v)
+        return self._decode(data)
 
     def __setitem__(self, key, value):
         '''
@@ -222,7 +233,7 @@ class Netnode(object):
         v = self._compress(self._encode(value))
         if isinstance(key, str):
             self._strset(key, v)
-        elif isinstance(key, int):
+        elif isinstance(key, (int, long)):
             self._intset(key, v)
         else:
             raise TypeError("cannot use {} as key".format(type(key)))
@@ -230,7 +241,7 @@ class Netnode(object):
     def __delitem__(self, key):
         if isinstance(key, str):
             self._strdel(key)
-        elif isinstance(key, int):
+        elif isinstance(key, (int, long)):
             self._intdel(key)
         else:
             raise TypeError("cannot use {} as key".format(type(key)))
@@ -300,21 +311,21 @@ class Netnode(object):
                 i = self._n.hashnxt(i, STR_TO_INT_MAP_TAG)
 
     def keys(self):
-        return [k for k in self.keys()]
+        return [k for k in list(self.keys())]
 
     def itervalues(self):
-        for k in self.keys():
+        for k in list(self.keys()):
             yield self[k]
 
     def values(self):
-        return [v for v in self.values()]
+        return [v for v in list(self.values())]
 
     def iteritems(self):
-        for k in self.keys():
+        for k in list(self.keys()):
             yield k, self[k]
 
     def items(self):
-        return [(k, v) for k, v in self.items()]
+        return [(k, v) for k, v in list(self.items())]
 
     def kill(self):
         self._n.kill()

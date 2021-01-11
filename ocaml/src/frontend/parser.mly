@@ -184,6 +184,7 @@
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
 %token IGNORE_UNKNOWN_RELOCATIONS IDA OS WINDOWS LINUX STACK INCREASING DECREASING
+%token TAINT_INPUT
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -452,6 +453,7 @@
     | STORE_MCFA EQUAL v=STRING      { update_mandatory STORE_MCFA; update_boolean "store_mcfa" Config.store_mcfa v }
     | HEADER EQUAL npk_list=npk { npk_headers := npk_list }
     | IGNORE_UNKNOWN_RELOCATIONS EQUAL b=STRING { update_boolean "ignore_unknown_relocations" Config.ignore_unknown_relocations b }
+    | TAINT_INPUT EQUAL b=STRING { update_boolean "taint_input" Config.taint_input b}
 
       analysis_kind:
     | FORWARD_BIN  { Config.Forward Config.Bin }

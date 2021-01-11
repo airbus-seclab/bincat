@@ -297,8 +297,7 @@ class Meminfo(object):
         if abs_addr is None:
             raise IndexError
         addr_value = cfa.Value(self.region, abs_addr, 32)
-        in_range = filter(
-            lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
+        in_range = [r for r in self.ranges if abs_addr >= r[0] and abs_addr <= r[1]]
         if not in_range or self.unrel is None:
             res = []
         else:
@@ -310,8 +309,7 @@ class Meminfo(object):
         if not abs_addr:
             return ""
         addr_value = cfa.Value(self.region, abs_addr, 32)
-        in_range = filter(
-            lambda r: abs_addr >= r[0] and abs_addr <= r[1], self.ranges)
+        in_range = [r for r in self.ranges if abs_addr >= r[0] and abs_addr <= r[1]]
         if not in_range:
             return ""
         t = self.unrel.getregtype(addr_value)
@@ -345,9 +343,9 @@ class BinCATMemForm_t(ida_kernwin.PluginForm):
         self.current_region = None
         self.current_range_idx = None
         #: region name (0+ characters) -> address
-        self.last_visited = dict((k, None) for k in cfa.PRETTY_REGIONS.keys())
+        self.last_visited = dict((k, None) for k in list(cfa.PRETTY_REGIONS.keys()))
         self.pretty_to_int_map = \
-            dict((v, k) for k, v in cfa.PRETTY_REGIONS.items())
+            dict((v, k) for k, v in list(cfa.PRETTY_REGIONS.items()))
 
     def handle_selection_range_changed(self, bindex):
         if bindex < 0:
@@ -481,7 +479,7 @@ class BinCATMemForm_t(ida_kernwin.PluginForm):
             self.range_select.blockSignals(True)
             self.range_select.clear()
 
-            for r in self.mem_ranges.values()[0]:
+            for r in list(self.mem_ranges.values())[0]:
                 self.range_select.addItem("%08x-%08x" % r)
             self.range_select.blockSignals(False)
             self.update_region(newregion)
@@ -904,7 +902,7 @@ class BinCATConfigForm_t(ida_kernwin.PluginForm):
             self.regs_table.setEnabled(True)
             self.mem_table.setEnabled(True)
             self.lbl_core_path.hide()
-        self.ip_start_addr.setText(config.analysis_ep)
+        self.ip_start_addr.setText(str(config.analysis_ep))
         cut = config.stop_address or ""
         self.ip_stop_addr.setText(cut)
         if config.analysis_method == "forward_binary":
@@ -1212,7 +1210,7 @@ class BinCATRegistersForm_t(ida_kernwin.PluginForm):
             self.node_select.clear()
             self.unrel_select.clear()
             node_ids = sorted(self.s.current_node_ids, key=int)
-            unrel_ids = sorted(self.s.current_node.unrels.keys(), key=int)
+            unrel_ids = sorted(list(self.s.current_node.unrels.keys()), key=int)
             for idx, node_id in enumerate(node_ids):
                 self.node_select.addItem(
                     node_id + ' (%d other nodes)' % (len(node_ids)-1))
@@ -1522,7 +1520,7 @@ class RegistersInfoModel(QtCore.QAbstractTableModel):
         self.rows = []
         self.changed_rows = set()
         if node and unrel:
-            self.rows = filter(lambda x: x.region == "reg", unrel.regaddrs)
+            self.rows = [x for x in unrel.regaddrs if x.region == "reg"]
             self.rows = sorted(self.rows, key=RegistersInfoModel.rowcmp)
 
             # find parent nodes
@@ -1530,7 +1528,7 @@ class RegistersInfoModel(QtCore.QAbstractTableModel):
                        if node.node_id in self.s.cfa.edges[nodeid]]
             for pnode in parents:
                 pnode = self.s.cfa[pnode]
-                for punrel in node.unrels.values():
+                for punrel in list(node.unrels.values()):
                     for k in unrel.list_modified_keys(punrel):
                         if k in self.rows:
                             self.changed_rows.add(self.rows.index(k))

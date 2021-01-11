@@ -15,7 +15,10 @@
     You should have received a copy of the GNU Affero General Public License
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
-import ConfigParser
+try:
+    import configparser as ConfigParser
+except ImportError:
+    import ConfigParser
 import distutils.spawn
 import hashlib
 import os

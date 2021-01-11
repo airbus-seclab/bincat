@@ -277,6 +277,21 @@ struct
               d', taint'
 
             | Directive (Handler (sig_nb, addr)) -> raise (Handler (sig_nb, addr))
+               let prev_ip =
+                 try
+                   let _, _, v, _ = List.hd !fun_stack in
+                   Some v.Cfa.State.ip
+                 with Failure _ -> None
+               in
+               let d', taint', cleanup_stmts = Stubs.process ip prev_ip d fun_name call_conv in
+               let d', taint' =
+                 Log.Trace.trace (Data.Address.global_of_int (Z.of_int 0))  (fun p -> p "%s" (string_of_stmts (stub_statement :: cleanup_stmts) true));
+                 List.fold_left (fun (d, t) stmt ->
+                     let dd, tt = process_value ip d stmt fun_stack node_id in
+                     dd, Taint.Set.union t tt) (d', taint') cleanup_stmts
+               in
+               d', taint'
+              
             | _ -> raise Jmp_exn
                  
         in

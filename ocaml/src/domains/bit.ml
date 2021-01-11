@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2020 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -118,7 +118,7 @@ let eq v1 v2 =
 
 let neq v1 v2 =
   match v1, v2 with
-  | ZERO, ZERO | ONE, ONE     -> false
+  | ZERO, ZERO | ONE, ONE -> false
   | _, _                  -> true
 
 let leq v1 v2 =

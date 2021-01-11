@@ -51,9 +51,10 @@ ML=\
   domains/reduced_bit_tainting.ml\
   domains/intervalDomain.ml\
   domains/reduced_taintedBitVector_interval.ml\
-  domains/heap.ml\
   domains/abstractStack.ml\
   domains/reduced_unrel_typenv_heap_stack.ml\
+  domains/abstract_heap.ml\
+  domains/reduced_unrel_typenv_heap.ml\
   disassembly/cfa.ml\
   disassembly/core_x86.ml\
   disassembly/armv7.ml\
@@ -104,7 +105,7 @@ LIBINCL = $(EXTLIBINCL) -I data-struct -I domains -I utils -I disassembly -I fro
 #  -> not really a problem.
 #  W42: use of XXX relies on type-directed disambiguation
 #  -> not really a pb
-CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58 -w -42 -w -58
+CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58 -w -42 -w -58 -w -67
 
 CAMLC   =ocamlc
 CAMLOPT =ocamlopt

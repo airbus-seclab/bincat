@@ -17,14 +17,20 @@
 """
 
 import subprocess
-import ConfigParser
+try:
+    import configparser as ConfigParser
+except ImportError:
+    import ConfigParser
 from collections import defaultdict
 import re
 from pybincat.tools import parsers
 from pybincat import PyBinCATException
 import tempfile
 import functools
-
+# Python 2/3 compat
+import sys
+if sys.version_info > (2, 8):
+    long = int
 
 def reg_len(regname):
     """
@@ -239,7 +245,7 @@ class CFA(object):
         return cls.parse(outfname, logs=logfname)
 
     def _toValue(self, eip, region=""):
-        if type(eip) in [int, long]:
+        if isinstance(eip, (int, long)):
             addr = Value(region, eip, 0)
         elif type(eip) is Value:
             addr = eip
@@ -324,7 +330,10 @@ class Node(object):
             taintsrc = ["t-" + str(maxtaintsrcid)]
         else:
             # v0.7+ format, tainted
-            taintsrc = map(str.strip, taintedstr.split(','))
+            try:
+                taintsrc = list(map(unicode.strip, taintedstr.split(',')))
+            except NameError:
+                taintsrc = list(map(str.strip, taintedstr.split(',')))
             tainted = True
         new_node.tainted = tainted
         new_node.taintsrc = taintsrc
@@ -584,7 +593,7 @@ class Unrel(object):
         """
         self._regaddrs = {}
         self._regtypes = {}
-        for k, v in self._outputkv.iteritems():
+        for k, v in self._outputkv.items():
             if k == "description":
                 self.description = k
                 continue
@@ -709,7 +718,7 @@ class Unrel(object):
         ranges are sorted and coleasced
         """
         ranges = defaultdict(list)
-        for addr in self.regaddrs.keys():
+        for addr in list(self.regaddrs.keys()):
             if addr.region != 'reg':
                 ranges[addr.region].append((addr.value, addr.value+len(self.regaddrs[addr])-1))
         # Sort ranges
@@ -774,7 +783,7 @@ class Unrel(object):
         for (idx, v) in enumerate(val):
             addr = item.value + idx
             recorded = False
-            for e_key, e_val in self.regaddrs.items():
+            for e_key, e_val in list(self.regaddrs.items()):
                 # existing keys in regaddrs
                 if type(e_key.value) is str:
                     # e_key is a register, item is a memory address => skip
@@ -819,7 +828,7 @@ class Unrel(object):
     def __eq__(self, other):
         if set(self.regaddrs.keys()) != set(other.regaddrs.keys()):
             return False
-        for regaddr in self.regaddrs.keys():
+        for regaddr in list(self.regaddrs.keys()):
             if ((len(self.regaddrs[regaddr]) > 1) ^
                     (len(other.regaddrs[regaddr]) > 1)):
                 # split required, one of them only is split
@@ -865,7 +874,7 @@ class Unrel(object):
         for regaddr in self.list_modified_keys(other):
             region = regaddr.region
             address = regaddr.value
-            if regaddr.is_concrete() and isinstance(address, int):
+            if regaddr.is_concrete() and isinstance(address, (int, long)):
                 address = "%#08x" % address
             res.append("@@ %s %s @@" % (region, address))
             if (parent is not None) and (regaddr in parent.regaddrs):
