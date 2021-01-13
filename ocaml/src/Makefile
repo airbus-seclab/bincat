@@ -54,6 +54,9 @@ ML=\
   disassembly/armv7.ml\
   disassembly/armv8A.ml\
   disassembly/powerpc.ml\
+  fixpoint/core.ml\
+  fixpoint/forward.ml\
+  fixpoint/backward.ml\
   fixpoint/interpreter.ml\
   bincat_ver.ml \
   main.ml

@@ -20,6 +20,70 @@ module L = Log.Make(struct let name = "main" end)
 
 (** Entry points of the library *)
 
+          type import_attrib_t = {
+      mutable ia_name: string;
+      mutable ia_addr: Z.t option;
+      mutable ia_typing_rule: bool;
+      mutable ia_tainting_rule: bool;
+      mutable ia_stub: bool;
+    }
+
+let import_log () =
+ let empty_desc = {
+     ia_name = "n/a";
+     ia_addr = None;
+     ia_typing_rule = false;
+     ia_tainting_rule = false;
+          ia_stub = false;
+   }
+ in
+ let yesno b = if b then "YES" else "no" in
+ let itbl = Hashtbl.create 5 in
+ Hashtbl.iter (fun a (libname, fname) ->
+     let func_desc = { empty_desc with
+                       ia_name = libname ^ "." ^ fname;
+                       ia_addr = Some a;
+                     } in
+     Hashtbl.add itbl fname func_desc) Config.import_tbl;
+ Hashtbl.iter (fun name _typing_rule ->
+     let func_desc =
+       try
+         Hashtbl.find itbl name
+       with Not_found -> { empty_desc with ia_name = "?." ^ name } in
+     Hashtbl.replace itbl name { func_desc with ia_typing_rule=true })  Config.typing_rules;
+ Hashtbl.iter (fun  (libname, name) (_callconv, _taint_ret, _taint_args) ->
+     let func_desc =
+       try
+         Hashtbl.find itbl name
+       with Not_found -> { empty_desc with ia_name = libname ^ "." ^ name } in
+     Hashtbl.replace itbl name { func_desc with ia_tainting_rule=true })  Config.tainting_rules;
+ Hashtbl.iter (fun name _ ->
+     let func_desc =
+       try
+         Hashtbl.find itbl name
+       with Not_found -> { empty_desc with ia_name = "?." ^ name } in
+     Hashtbl.replace itbl name { func_desc with ia_stub=true })  Stubs.stubs;
+ 
+ let addr_to_str x = match x with
+   | Some a ->
+      begin (* too bad we can't format "%%0%ix" to make a new format *)
+        match !Config.address_sz with
+        | 16 -> Printf.sprintf "%04x" (Z.to_int a)
+        | 32 -> Printf.sprintf "%08x" (Z.to_int a)
+        | 64 -> Printf.sprintf "%016x" (Z.to_int a)
+        | _ ->  Printf.sprintf "%x" (Z.to_int a)
+      end
+   | None -> "?"
+ in
+ L.info (fun p -> p "Dumping state of imports");
+ Hashtbl.iter (fun _name func_desc ->
+     L.info (fun p -> p "| IMPORT %-30s addr=%-16s typing=%-3s tainting=%-3s stub=%-3s"
+                        func_desc.ia_name (addr_to_str func_desc.ia_addr)
+                        (yesno func_desc.ia_typing_rule) (yesno func_desc.ia_tainting_rule) (yesno func_desc.ia_stub)))
+   itbl;
+ L.info (fun p -> p "End of dump")
+
+          
 (** [process cfile rfile lfile] launches an analysis run such that:
     - [configfile] is the name of the configuration file
     - [resultfile] is the name of the result file
@@ -32,6 +96,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
   Register.clear();
   (* setting the log file *)
   Log.init logfile;
+  if L.log_info () then import_log();
   L.info (fun m -> m "BinCAT version %s" Bincat_ver.version_string);
   try
     (* setting the backtrace parameters for debugging purpose *)

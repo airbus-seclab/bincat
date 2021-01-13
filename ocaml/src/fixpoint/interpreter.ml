@@ -29,30 +29,16 @@ struct
     (** Decoder *)
     module Decoder = Decoder(D)(Stubs)
 
-    type import_attrib_t = {
-      mutable ia_name: string;
-      mutable ia_addr: Z.t option;
-      mutable ia_typing_rule: bool;
-      mutable ia_tainting_rule: bool;
-      mutable ia_stub: bool;
-    }
-
+   
 
     (** Control Flow Automaton *)
     module Cfa = Decoder.Cfa
 
-
+module B = Backward
+module F = Forward
     open Asm
 
-    (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
-    let unroll_tbl: ((Data.Address.t, int * D.t) Hashtbl.t) ref = ref (Hashtbl.create 1000)
-
-    (* Hash table to store number of times a function has been analysed *)
-    let fun_unroll_tbl: (Data.Address.t, int) Hashtbl.t = Hashtbl.create 10
-
-    (* current unroll value *)
-    (* None is for the default value set in Config *)
-    let unroll_nb = ref None
+  
 
     (** opposite the given comparison operator *)
     let inv_cmp (cmp: Asm.cmp): Asm.cmp =
@@ -95,53 +81,6 @@ struct
            D.compare d e1 cmp' e2
       in
       process e b
-
-
-    (** widen the given state with all previous vertices that have the same ip as v *)
-    let widen prev v =
-      let join_v = D.join prev v.Cfa.State.v in
-      v.Cfa.State.final <- true;
-      v.Cfa.State.v <- D.widen prev join_v
-
-
-    (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor
-    the widening may be also launched if the threshold is reached *)
-    let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (get_field: Cfa.State.t -> D.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
-      try
-        let l = process_stmts g v ip in
-        List.iter (fun v ->
-          let d = get_field v in
-          let n, jd =
-            try
-              let n', jd' = Hashtbl.find !unroll_tbl ip in
-              let d' = D.join jd' d in
-              Hashtbl.replace !unroll_tbl ip (n'+1, d'); n'+1, jd'
-            with Not_found ->
-              Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, d);
-              1, d
-          in
-          let nb_max =
-            match !unroll_nb with
-            | None -> !Config.unroll
-            | Some n -> n
-          in
-          if n <= nb_max then
-            ()
-          else
-            begin
-              L.analysis (fun p -> p "widening occurs at %s" (Data.Address.to_string ip));
-              widen jd v
-            end
-        ) l;
-        
-        List.fold_left (fun l' v ->
-          if D.is_bot (get_field v) then
-            begin
-              L.analysis (fun p -> p "unreachable state at address %s" (Data.Address.to_string ip));
-              Cfa.remove_state g v; l'
-            end
-          else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
-      with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
 
 
     (*************************** Forward from binary file ************************)
@@ -552,44 +491,13 @@ struct
           [vstart]
         end
 
+    let forward_cfa (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
+      Core.cfa_iteration (fun g v ip vert -> List.fold_left (fun l v' -> (forward_abstract_value g v ip v')@l) [] vert)
+        Cfa.succs unroll g s dump
 
-    (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
-    let filter_vertices (subsuming: bool) g vertices =
-      (* predicate to check whether a new state has to be explored or not *)
-      let same prev v' =
-          prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
-            prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
-            prev.Cfa.State.ip = v'.Cfa.State.ip && (* both ips should be the same *)
-              (* fixpoint reached *)
-              D.is_subset v'.Cfa.State.v prev.Cfa.State.v
-      in
-      List.fold_left (fun l v ->
-          try
-            (* filters on cutting instruction pointers *)
-            if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
-              begin
-              L.analysis (fun p -> p "Address %s reached but not explored because it belongs to the cut off branches\n"
-                        (Data.Address.to_string v.Cfa.State.ip));
-              raise Exit
-              end
-            else
-              
-              (* explore if a greater abstract state of v has already been explored *)
-              if subsuming then
-                begin
-                  Cfa.iter_state_ip (fun prev ->
-                      if v.Cfa.State.id = prev.Cfa.State.id then
-                        ()
-                      else
-                        if same prev v then raise Exit
-                    ) g v.Cfa.State.ip
-                end;
-            v::l
-          with
-            Exit -> l
-          ) [] vertices
-     
+   
 
+          
     (** fixpoint iterator to build the CFA corresponding to the provided code starting from the initial state s.
      g is the initial CFA reduced to the singleton s *)
     let forward_bin (mapped_mem: Mapped_mem.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
@@ -623,62 +531,8 @@ struct
             D.set_register_from_config reg rule) rules
         in
         hash_add_or_append overrides ip rules'
-      ) Config.reg_override;
-      if L.log_info () then
-        begin
-          let empty_desc = {
-              ia_name = "n/a";
-              ia_addr = None;
-              ia_typing_rule = false;
-              ia_tainting_rule = false;
-              ia_stub = false;
-            } in
-          let yesno b = if b then "YES" else "no" in
-          let itbl = Hashtbl.create 5 in
-          Hashtbl.iter (fun a (libname, fname) ->
-            let func_desc = { empty_desc with
-              ia_name = libname ^ "." ^ fname;
-              ia_addr = Some a;
-            } in
-            Hashtbl.add itbl fname func_desc) Config.import_tbl;
-          Hashtbl.iter (fun name _typing_rule ->
-            let func_desc =
-              try
-                Hashtbl.find itbl name
-              with Not_found -> { empty_desc with ia_name = "?." ^ name } in
-            Hashtbl.replace itbl name { func_desc with ia_typing_rule=true })  Config.typing_rules;
-          Hashtbl.iter (fun  (libname, name) (_callconv, _taint_ret, _taint_args) ->
-            let func_desc =
-              try
-                Hashtbl.find itbl name
-              with Not_found -> { empty_desc with ia_name = libname ^ "." ^ name } in
-            Hashtbl.replace itbl name { func_desc with ia_tainting_rule=true })  Config.tainting_rules;
-          Hashtbl.iter (fun name _ ->
-            let func_desc =
-              try
-                Hashtbl.find itbl name
-              with Not_found -> { empty_desc with ia_name = "?." ^ name } in
-            Hashtbl.replace itbl name { func_desc with ia_stub=true })  Stubs.stubs;
-
-          let addr_to_str x = match x with
-            | Some a ->
-               begin (* too bad we can't format "%%0%ix" to make a new format *)
-                 match !Config.address_sz with
-                 | 16 -> Printf.sprintf "%04x" (Z.to_int a)
-                 | 32 -> Printf.sprintf "%08x" (Z.to_int a)
-                 | 64 -> Printf.sprintf "%016x" (Z.to_int a)
-                 | _ ->  Printf.sprintf "%x" (Z.to_int a)
-               end
-            | None -> "?"
-          in
-          L.info (fun p -> p "Dumping state of imports");
-          Hashtbl.iter (fun _name func_desc ->
-            L.info (fun p -> p "| IMPORT %-30s addr=%-16s typing=%-3s tainting=%-3s stub=%-3s"
-              func_desc.ia_name (addr_to_str func_desc.ia_addr)
-              (yesno func_desc.ia_typing_rule) (yesno func_desc.ia_tainting_rule) (yesno func_desc.ia_stub)))
-            itbl;
-          L.info (fun p -> p "End of dump");
-        end;
+        ) Config.reg_override;
+     
 
       List.iter (fun (tbl, region) ->
         Hashtbl.iter (fun z rules ->
@@ -793,153 +647,6 @@ struct
       g
 
 
-    (******************** BACKWARD *******************************)
-    (*************************************************************)
-
-    let shift_and_add shift len =
-      let one = Const (Data.Word.one len) in
-      let one' = Const (Data.Word.of_int (Z.of_int (len-1)) len) in
-      let shifted_one = BinOp (Asm.Shl, one, one') in
-      BinOp (Asm.Add, shift, shifted_one)
-        
-    let back_add_sub op dst e1 e2 d =
-      match e1, e2 with
-      | Lval lv1, Lval lv2 ->
-        if Asm.equal_lval lv1 lv2 then
-            if op = Asm.Sub then
-             let len = Asm.lval_length lv1 in
-             let shift = BinOp (Asm.Shr, Lval dst, Const (Data.Word.of_int (Z.of_int 1) len)) in
-             let d', taint =
-               try
-                 if Z.compare Z.one (D.value_of_exp d (Decoder.overflow_expression())) = 0 then
-                   D.set lv1 (shift_and_add shift len) d
-                 else
-                   D.set lv1 shift d
-               with _ ->
-                 let d1, taint1 = D.set lv1 shift d in
-                 let d2, taint2 = D.set lv1 (shift_and_add shift len) d in 
-                 D.join d1 d2, Taint.Set.union taint1 taint2
-             in
-             if Asm.with_lval dst (Lval lv1) then
-               d', taint
-             else D.forget_lval dst d', taint
-           else
-             D.forget_lval dst d, Taint.Set.singleton Taint.TOP
-         else
-          if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then 
-            D.set lv1 (BinOp (op, Lval dst, e2)) d
-          else D.forget_lval dst d, Taint.Set.singleton Taint.TOP
-            
-      | Lval lv, Const c | Const c, Lval lv ->
-         let d', taint = D.set lv (BinOp (op, Lval dst, Const c)) d in
-         if Asm.with_lval dst (Lval lv) then
-           d', taint
-         else D.forget_lval dst d', taint
-               
-      | Lval lv, e | e, Lval lv ->
-           if (Asm.with_lval dst e1) || (Asm.with_lval dst e2) then
-             D.set lv (BinOp (op, Lval dst, e)) d
-           else D.forget_lval dst d, Taint.Set.singleton Taint.TOP
-
-      | _ ->  D.forget_lval dst d, Taint.Set.singleton Taint.TOP
-
-
-    let back_set (dst: Asm.lval) (src: Asm.exp) (d: D.t): (D.t * Taint.Set.t) =
-      match src with
-      | Lval lv ->
-         let d', taint = D.set lv (Lval dst) d in
-         if Asm.equal_lval lv dst then d', taint
-         else D.forget_lval dst d', taint
-
-      | UnOp (Not, Lval lv) ->
-        let d', taint = D.set lv (UnOp (Not, Lval dst)) d in
-        if Asm.equal_lval lv dst then d', taint
-        else D.forget_lval dst d, taint
-          
-      | BinOp (Add, e1, e2)  -> back_add_sub Sub dst e1 e2 d
-      | BinOp (Sub, e1, e2) -> back_add_sub Add dst e1 e2 d
-         
-      | _ -> D.forget_lval dst d, Taint.Set.singleton Taint.TOP
-
-    (** backward transfert function on the given abstract value *)
-    let backward_process (branch: bool option) (d: D.t) (stmt: Asm.stmt) : (D.t * Taint.Set.t) =
-      (* BE CAREFUL: this function does not apply to nested if statements *)
-      let rec back d stmt =
-        L.debug (fun p -> p "back of %s.........." (Asm.string_of_stmt stmt true));
-        match stmt with
-        | Call _
-        | Return
-        | Jmp _
-        | Nop -> d, Taint.Set.singleton Taint.U
-        | Directive (Forget _) -> d, Taint.Set.singleton Taint.U
-        | Directive (Remove r) -> D.add_register r d, Taint.Set.singleton Taint.U
-        | Directive (Taint _) -> D.forget d, Taint.Set.singleton Taint.TOP
-        | Directive (Type _) -> D.forget d, Taint.Set.singleton Taint.U
-        | Directive (Unroll _) -> d, Taint.Set.singleton Taint.U
-        | Directive (Unroll_until _) -> d, Taint.Set.singleton Taint.U
-        | Directive Default_unroll -> d, Taint.Set.singleton Taint.U
-        | Directive (Stub _) -> d, Taint.Set.singleton Taint.U
-        | Directive (Skip _) -> d, Taint.Set.singleton Taint.U
-        | Set (dst, src) -> back_set dst src d
-        | Assert (_bexp, _msg) -> d, Taint.Set.singleton Taint.U (* TODO *)
-        | If (_e, istmts, estmts) ->
-           match branch with
-           | Some true -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.Set.union b b') (d, Taint.Set.singleton Taint.U) (List.rev istmts)
-           | Some false -> List.fold_left (fun (d, b) s -> let d', b' = back d s in d', Taint.Set.union b b') (d, Taint.Set.singleton Taint.U) (List.rev estmts)
-           | None -> D.forget d, Taint.Set.singleton Taint.U
-      in
-      back d stmt
-
-    let back_update_abstract_value (g:Cfa.t) (v: Cfa.State.t) (ip: Data.Address.t) (pred: Cfa.State.t): Cfa.State.t list =
-      let backward _g v _ip =
-        let start_v =
-          match v.Cfa.State.back_v with
-          | Some d -> d
-          | None -> raise (Exceptions.Empty "undefined abstract value used in backward mode")
-        in
-        let d', taint_sources =
-          List.fold_left (fun (d, b) s ->
-            let d', b' = backward_process v.Cfa.State.branch d s in
-            d', Taint.Set.union b b'
-          ) (start_v, Taint.Set.singleton Taint.U) (List.rev pred.Cfa.State.stmts)
-        in
-        let v' = D.meet pred.Cfa.State.v d' in
-        begin
-          match pred.Cfa.State.back_v, pred.Cfa.State.back_taint_sources with
-          | None, None -> 
-             pred.Cfa.State.back_v <- Some v';
-            pred.Cfa.State.back_taint_sources <- Some taint_sources
-          | Some v2, Some t2 -> 
-             pred.Cfa.State.back_v <- Some (D.join v' v2);
-            pred.Cfa.State.back_taint_sources <- Some (Taint.Set.union t2 taint_sources)
-          | _, _ -> 
-             raise (Exceptions.Error "inconsistent state in backward mode")
-        end;
-        [pred]
-      in
-      let get_field v =
-        match v.Cfa.State.back_v with
-        | Some d -> d
-        | None -> raise (Exceptions.Error "Illegal call to get_field in interpreter")
-      in
-      update_abstract_value g v get_field ip backward
-
-
-    let back_unroll g v pred =
-      if v.Cfa.State.final then
-        begin
-          v.Cfa.State.final <- false;
-          let new_pred = Cfa.copy_state g v in
-          new_pred.Cfa.State.back_loop <- true;
-          Cfa.remove_successor g pred v;
-          Cfa.add_state g new_pred;
-          Cfa.add_successor g pred new_pred;
-          Cfa.add_successor g new_pred v;
-          new_pred
-        end
-      else
-        pred
-
     (*************************************)
     (* FORWARD AUXILARY FUNCTIONS ON CFA *)
     (*************************************)
@@ -1008,34 +715,7 @@ struct
     (****************************)
     (* FIXPOINT ON CFA *)
     (****************************)
-    let cfa_iteration (update_abstract_value: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list -> Cfa.State.t list)
-        (next: Cfa.t -> Cfa.State.t -> Cfa.State.t list)
-        (unroll: Cfa.t -> Cfa.State.t -> Cfa.State.t -> Cfa.State.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
-      if D.is_bot s.Cfa.State.v then
-        begin
-          dump g;
-          L.abort (fun p -> p "analysis not started: empty meet with previous computed value")
-        end
-      else
-        let module Vertices = Set.Make(Cfa.State) in
-        let continue = ref true in
-        let waiting = ref (Vertices.singleton s) in
-        try
-          while !continue do
-            let v = Vertices.choose !waiting in
-            waiting := Vertices.remove v !waiting;
-            let v' = next g v in
-            let new_vertices = List.fold_left (fun l v' -> (update_abstract_value g v v'.Cfa.State.ip [v'])@l) [] v' in
-            let new_vertices' = List.map (unroll g v) new_vertices in
-            let vertices' = filter_vertices false g new_vertices' in
-            List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
-            continue := not (Vertices.is_empty !waiting);
-          done;
-          g
-        with
-        | Invalid_argument _ -> L.analysis (fun p -> p "entry node of the CFA reached"); g
-        | e -> dump g; raise e
-
+    
     let backward (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
       cfa_iteration (fun g v ip vert -> back_update_abstract_value g v ip (List.hd vert))
         (fun g v -> [Cfa.pred g v]) back_unroll g s dump
@@ -1043,7 +723,7 @@ struct
     let forward_cfa (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
       cfa_iteration (fun g v ip vert -> List.fold_left (fun l v' -> (forward_abstract_value g v ip v')@l) [] vert)
         Cfa.succs unroll g s dump
-
+      
     (************* INTERLEAVING OF FORWARD/BACKWARD ANALYSES *******)
     (***************************************************************)
 
@@ -1053,8 +733,7 @@ struct
         Hashtbl.clear !unroll_tbl;
         List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.sinks cfa)
       in
-      let g_bwd = process backward g in
+      let g_bwd = process B.process g in
       process forward_cfa g_bwd
     let make_registers () = Decoder.init_registers ()
 end
-
