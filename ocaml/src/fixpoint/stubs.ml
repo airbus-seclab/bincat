@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -34,8 +34,7 @@ sig
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 end
 
-
-module Make (D: Domain.T) : (T with type domain_t := D.t)  =
+module Make(D: Domain.T) =
 struct
 
     type domain_t = D.t
@@ -125,17 +124,21 @@ struct
     let memcmp (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
       L.info (fun p -> p "memcmp stub");
       let sz =  Asm.Lval (args 2) in
+      let lv1 = Asm.M (Asm.Lval (args 0), 8*n) in
+      let lv2 = Asm.M (Asm.Lval (args 1), 8*n) in
+      let taint =
+        try
+          Taint.join (D.get_taint lv1 d') (D.get_taint lv2 d')
+        with _ -> Taint.Set.singleton Taint.TOP
+      in
       try
         let n = Z.to_int (D.value_of_exp d sz) in
-        let lv1 = Asm.M (Asm.Lval (args 0), 8*n) in
-        let lv2 = Asm.M (Asm.Lval (args 1), 8*n) in
         let v1 = D.value_of_exp d (Asm.Lval lv1) in
         let v2 = D.value_of_exp d (Asm.Lval lv2) in
         let res = Asm.Const (Data.Word.of_int (Z.sub v1 v2) !Config.operand_sz) in
         let d' = fst (D.set ret res d) in
-        let taint = Taint.join (D.get_taint lv1 d') (D.get_taint lv2 d') in
         D.taint_lval ret taint d'
-      with _ -> D.forget_lval ret d, Taint.Set.singleton Taint.TOP (* TODO: check soundness of the returned taint *)        
+      with _ -> D.forget_lval ret d, taint
       
     let memset (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
       let arg0 = args 0 in

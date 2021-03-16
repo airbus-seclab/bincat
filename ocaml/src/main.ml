@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -215,7 +215,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
          Interpreter.Cfa.add_state g s;
          let cfa =
            match !Mapped_mem.current_mapping with
-            | Some mm -> Interpreter.forward_bin mm g s dump
+            | Some mm -> Interpreter.Forward.from_bin mm g s dump
             | None -> L.abort(fun p -> p "File to be analysed not mapped")
           in
           (* launch an interleaving of backward/forward if an inferred property can be backward propagated *)
@@ -225,10 +225,10 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
             cfa
 
       (* forward analysis from a CFA *)
-      | Config.Forward Config.Cfa -> from_cfa Interpreter.forward_cfa
+      | Config.Forward Config.Cfa -> from_cfa Interpreter.Forward.from_cfa
 
       (* backward analysis from a CFA *)
-      | Config.Backward -> from_cfa Interpreter.backward
+      | Config.Backward -> from_cfa Interpreter.Backward.from_cfa
     in
 
     (* dumping results *)

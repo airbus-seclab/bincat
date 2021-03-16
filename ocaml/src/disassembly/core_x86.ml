@@ -139,9 +139,10 @@ let error a msg =
 
 
 
-module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
+module X86(Domain: Domain.T) =
   struct
     module Cfa = Cfa.Make(Domain)
+    module Stubs = Stubs.Make(Domain)
     let operand_sz = 32
     (************************************************************)
     (* Creation of the registers                                *)

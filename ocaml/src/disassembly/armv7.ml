@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -21,7 +21,7 @@
 *)
 module L = Log.Make(struct let name = "armv7" end)
 
-module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
+module Make(Domain: Domain.T) =
 struct
 
   type ctx_t = unit
@@ -235,7 +235,8 @@ struct
 
 
   module Cfa = Cfa.Make(Domain)
-
+  module Stubs = Stubs.Make(Domain)
+               
   module Imports = Armv7Imports.Make(Domain)(Stubs)
 
   type state = {

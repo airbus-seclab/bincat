@@ -50,15 +50,15 @@ ML=\
   domains/abstract_heap.ml\
   domains/reduced_unrel_typenv_heap.ml\
   disassembly/cfa.ml\
+  fixpoint/stubs.ml\
   disassembly/core_x86.ml\
   disassembly/armv7.ml\
   disassembly/armv8A.ml\
   disassembly/powerpc.ml\
-  fixpoint/core.ml\
   fixpoint/forward.ml\
   fixpoint/backward.ml\
   fixpoint/interpreter.ml\
-  bincat_ver.ml \
+  bincat_ver.ml\
   main.ml
 
 MLI=\
@@ -69,8 +69,9 @@ MLI=\
   loaders/loader.mli\
   domains/domain.mli\
   disassembly/cfa.mli\
+  fixpoint/stubs.mli\
   disassembly/decoder.mli\
-  fixpoint/stubs.mli
+
 
 
 DEPS-armv8A := armv8A_ppx

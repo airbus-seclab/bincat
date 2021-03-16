@@ -28,6 +28,9 @@ sig
   (** control flow graph *)
   module Cfa: Cfa.T
 
+  (** stubs *)
+  module Stubs: Stubs.T
+       
   (** data struct for external functions management *)
   module Imports:
   sig
@@ -62,12 +65,12 @@ sig
 end
 
 
-module type Make = functor (D: Domain.T) (Stubs: Stubs.T with type domain_t := D.t) -> 
+module type Make = functor (D: Domain.T) -> 
 
 sig
   (** control flow graph *)
   module Cfa: (Cfa.T with type domain = D.t)
-  
+  module Stubs: (Stubs.T with type domain_t = D.t)
   module Imports:
   sig
 
