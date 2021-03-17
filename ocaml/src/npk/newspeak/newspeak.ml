@@ -1,7 +1,7 @@
 (*
   C2Newspeak: compiles C code into Newspeak. Newspeak is a minimal language 
   well-suited for static analysis.
-  Copyright (C) 2007-2011  Charles Hymans, Sarah Zennou
+  Copyright (C) 2007-2021  Charles Hymans, Sarah Zennou
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -32,54 +32,54 @@ struct
       
   let zero = "0"
   let one = "1"
-  let of_big_int = EBigInt.string_of_big_int
-  let to_big_int = EBigInt.big_int_of_string
+  let of_z = Z.to_string
+  let to_z = Z.of_string
   let of_int x = string_of_int x
   let to_int x = 
-    let i = to_big_int x in
-    if not (EBigInt.is_int_big_int i) 
+    let i = to_z x in
+    if not (Big_int_Z.is_int_big_int i) 
     then invalid_arg "Newspeak.Nat.to_int";
-    EBigInt.int_of_big_int i
+    Big_int_Z.int_of_big_int i
 
   let apply_big_int_op op x y =
-    let x = EBigInt.big_int_of_string x in
-    let y = EBigInt.big_int_of_string y in
+    let x = Big_int_Z.big_int_of_string x in
+    let y = Big_int_Z.big_int_of_string y in
     let z = op x y in
-      EBigInt.string_of_big_int z
+      Big_int_Z.string_of_big_int z
 
-  let add = apply_big_int_op EBigInt.add_big_int
+  let add = apply_big_int_op Big_int_Z.add_big_int
 
-  let sub = apply_big_int_op EBigInt.sub_big_int
+  let sub = apply_big_int_op Big_int_Z.sub_big_int
 
-  let mul = apply_big_int_op EBigInt.mult_big_int
+  let mul = apply_big_int_op Big_int_Z.mult_big_int
 
-  let div = apply_big_int_op EBigInt.div_big_int
+  let div = apply_big_int_op Big_int_Z.div_big_int
 
   let neg x = 
-    let x = EBigInt.big_int_of_string x in
-    let y = EBigInt.minus_big_int x in
-      EBigInt.string_of_big_int y
+    let x = Big_int_Z.big_int_of_string x in
+    let y = Big_int_Z.minus_big_int x in
+      Big_int_Z.string_of_big_int y
 
   let add_int i x = 
-    let x = EBigInt.big_int_of_string x in
-    let y = EBigInt.add_int_big_int i x in
-      EBigInt.string_of_big_int y
+    let x = Big_int_Z.big_int_of_string x in
+    let y = Big_int_Z.add_int_big_int i x in
+      Big_int_Z.string_of_big_int y
 
   let mul_int i x = 
-    let x = EBigInt.big_int_of_string x in
-    let y = EBigInt.mult_int_big_int i x in
-      EBigInt.string_of_big_int y
+    let x = Big_int_Z.big_int_of_string x in
+    let y = Big_int_Z.mult_int_big_int i x in
+      Big_int_Z.string_of_big_int y
 
   let shift_left x n =
-    let x = EBigInt.big_int_of_string x in
-    let y = EBigInt.power_int_positive_int 2 n in
-    let z = EBigInt.mult_big_int x y in
-      EBigInt.string_of_big_int z
+    let x = Big_int_Z.big_int_of_string x in
+    let y = Big_int_Z.power_int_positive_int 2 n in
+    let z = Big_int_Z.mult_big_int x y in
+      Big_int_Z.string_of_big_int z
 
   let compare x y = 
-    let x = EBigInt.big_int_of_string x in
-    let y = EBigInt.big_int_of_string y in
-      EBigInt.compare_big_int x y
+    let x = Big_int_Z.big_int_of_string x in
+    let y = Big_int_Z.big_int_of_string y in
+      Big_int_Z.compare_big_int x y
 
   let to_string x = x
   let of_string x = x
