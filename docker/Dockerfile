@@ -1,10 +1,10 @@
 FROM ubuntu:18.04
 
-# default value
+# default values
 ARG SOURCE_BRANCH=master
+ARG REPO=https://github.com/airbus-seclab/bincat/
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN mkdir /install
 WORKDIR /install
 
 RUN apt-get update && apt-get install --no-install-recommends -y \
@@ -23,7 +23,7 @@ RUN pip install Flask
 
 RUN mkdir -p /tmp/bincat_web
 
-RUN git clone https://github.com/airbus-seclab/bincat/
+RUN git clone "$REPO"
 RUN cd bincat && git checkout "$SOURCE_BRANCH" && make PREFIX=/usr && make PREFIX=/usr install
 WORKDIR /
 ENV FLASK_APP webbincat.wsgi

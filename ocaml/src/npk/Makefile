@@ -4,9 +4,17 @@ GITVERSION:=$(shell git describe --dirty)
 LIBDIR=$(DESTDIR)/$(PREFIX)/lib/
 BINDIR=$(DESTDIR)/$(PREFIX)/bin/
 
-CPPO_VER=-V OCAML:$(shell ocamlc -vnum)
+CAMLC   ?=ocamlc
+CAMLOPT ?=ocamlopt
+CAMLLEX ?=ocamllex
+MENHIR  =menhir --explain
+CAMLDEP ?=ocamldep
+CAMLDOC ?=ocamldoc
+CAMLFIND ?=ocamlfind
+
+CPPO_VER=-V OCAML:$(shell $(CAMLC) -vnum)
 CPPO="cppo $(CPPO_VER)"
-CAMLLIBDIR:=$(shell ocamlc -where)
+CAMLLIBDIR:=$(shell $(CAMLC) -where)
 
 
 ML=\
@@ -84,18 +92,12 @@ OPTS-npk2lpk := -w -7
 EXTLIB := str unix graph zarith bigarray
 PACKAGES := ocamlgraph zarith
 
-EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
+EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell $(CAMLFIND) query $(P)))
 LIBINCL = $(EXTLIBINCL) -I utils -I newspeak -I c2newspeak
 
 
 CAMLOPTIONS = -g -w Ael -warn-error +a-3-7-50-42-44-58-26
 
-CAMLC   =ocamlc
-CAMLOPT =ocamlopt
-CAMLLEX =ocamllex
-MENHIR  =menhir --explain
-CAMLDEP =ocamldep
-CAMLDOC =ocamldoc
 
 
 ifeq ($(BYTECODE), 1)

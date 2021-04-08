@@ -35,7 +35,7 @@ jobs:
     steps:
       - script: docker build -t "bincat:$BUILD_SOURCEVERSION" --build-arg "SOURCE_BRANCH=$BUILD_SOURCEVERSION" "$BUILD_SOURCESDIRECTORY/docker/" -f "$BUILD_SOURCESDIRECTORY/docker/Dockerfile.runtests"
         displayName: 'Build docker image'
-      - script: docker run -v /tmp/linux-release:/install/bincat/release -e AZURE_BUILD=true -w /install/bincat "bincat:$BUILD_SOURCEVERSION" bash -c 'echo "##vso[task.setvariable variable=distdir]bincat-bin-$(git describe --dirty)"; make lindist; cp -R bincat-bin-* release/'
+      - script: docker run -v /tmp/linux-release:/install/bincat/release -e CI_BUILD=true -w /install/bincat "bincat:$BUILD_SOURCEVERSION" bash -c 'echo "##vso[task.setvariable variable=distdir]bincat-bin-$(git describe --dirty)"; make lindist; cp -R bincat-bin-* release/'
         displayName: 'Build Linux release'
       - task: PublishBuildArtifacts@1
         displayName: Publish BinCAT for Linux installer

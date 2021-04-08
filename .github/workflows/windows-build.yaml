@@ -1,0 +1,46 @@
+name: Build-Windows
+on: [push, pull_request]
+
+jobs:
+  build-windows:
+    runs-on: windows-2019
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          # also fetch tags
+          fetch-depth: 0
+      - name: Install esy (OCaml package manager)
+        run: npm install -g esy
+      - name: Install OCaml dependencies
+        run: |
+          cd ocaml/src
+          set HOME=D:\
+          echo "HOME is %HOME%"
+          echo ESY INSTALL START
+          esy install -v -v
+          echo ESY INSTALL END
+        shell: cmd
+      - name: Build BinCAT for Windows installer
+        run: |
+          set HOME=D:\a
+          make windist PYTHON=python
+        shell: cmd
+        env:
+          CAMLC: "esy ocamlc"
+          CAMLOPT: "esy ocamlopt"
+          CAMLLEX: "esy ocamllex"
+          CAMLDEP: "esy ocamldep"
+          CAMLDOC: "esy ocamldoc"
+          CAMLFIND: "esy ocamlfind"
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: always()
+        with:
+          limit-access-to-actor: true
+      - name: Publish installer
+        uses: actions/upload-artifact@v2
+        with:
+          name: bincat-installer
+          # XXX
+          path: bincat-bin-*/bincat-bin*.zip
