@@ -21,7 +21,7 @@
 *)
 module L = Log.Make(struct let name = "powerpc" end)
 
-module Make(Domain: Domain.T) =
+module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
 
   type ctx_t = unit
@@ -31,7 +31,6 @@ struct
   open Decodeutils
 
   module Cfa = Cfa.Make(Domain)
-  module Stubs = Stubs.Make(Domain)
                
   type state = {
     mutable g             : Cfa.t;        (** current cfa *)

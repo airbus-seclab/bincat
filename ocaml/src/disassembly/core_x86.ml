@@ -139,10 +139,9 @@ let error a msg =
 
 
 
-module X86(Domain: Domain.T) =
+module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
   struct
     module Cfa = Cfa.Make(Domain)
-    module Stubs = Stubs.Make(Domain)
     let operand_sz = 32
     (************************************************************)
     (* Creation of the registers                                *)
@@ -710,6 +709,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (** control flow automaton *)
   module Arch = Arch(Domain)(Stubs)
   open Arch
+
   module Cfa = Arch.Cfa
   module Imports = Arch.Imports
   let cl = P (Arch.ecx, 0, 7)

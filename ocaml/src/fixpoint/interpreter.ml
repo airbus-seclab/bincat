@@ -20,13 +20,12 @@
 
 module L = Log.Make(struct let name = "interpreter" end)
 
-module Make(D: Domain.T)(Decoder: Decoder.Make) =
+module Make(D: Domain.T)(Decoder: Decoder.Make)(Stubs: Stubs.T with type domain_t = D.t) =
 struct
 
-  module Decoder = Decoder(D)
+  module Decoder = Decoder(D)(Stubs)
   module Cfa = Decoder.Cfa
-  module Stubs = Decoder.Stubs 
-  open Asm
+ 
 
  (* Hash table to know when a widening has to be processed, that is when the associated value reaches the threshold Config.unroll *)
   let unroll_tbl: ((Data.Address.t, int * D.t) Hashtbl.t) ref = ref (Hashtbl.create 1000)
@@ -84,8 +83,7 @@ struct
       with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
                                  
 
-                
-    (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
+ (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
     let filter_vertices (subsuming: bool) g vertices =
       (* predicate to check whether a new state has to be explored or not *)
       let same prev v' =
@@ -121,6 +119,7 @@ struct
             Exit -> l
           ) [] vertices
      
+                
     let cfa_iteration (update_abstract_value: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list -> Cfa.State.t list)
         (next: Cfa.t -> Cfa.State.t -> Cfa.State.t list)
         (unroll: Cfa.t -> Cfa.State.t -> Cfa.State.t -> Cfa.State.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t -> unit): Cfa.t =
@@ -153,22 +152,20 @@ struct
 
     module Core =
       struct
+        type ctx_t = Decoder.ctx_t
         let unroll_nb = unroll_nb
         let cfa_iteration = cfa_iteration
         let update_abstract_value = update_abstract_value
         let parse = Decoder.parse
         let init = Decoder.init
+        let unroll_tbl = unroll_tbl
+        let fun_unroll_tbl = fun_unroll_tbl
+        let filter_vertices = filter_vertices
       end
       
     module Forward = Forward.Make(D)(Cfa)(Stubs)(Decoder)(Core)
     module Backward = Backward.Make(D)(Cfa)(Decoder)(Core)
-    
- 
-
    
-
-    
-      
     (************* INTERLEAVING OF FORWARD/BACKWARD ANALYSES *******)
     let interleave_from_cfa (g: Cfa.t) (dump: Cfa.t -> unit): Cfa.t =
       L.analysis (fun p -> p "entering interleaving mode");
@@ -176,8 +173,8 @@ struct
         Hashtbl.clear !unroll_tbl;
         List.fold_left (fun g s0 -> mode g s0 dump) cfa (Cfa.sinks cfa)
       in
-      let g_bwd = process B.process g in
-      process F.from_cfa g_bwd
+      let g_bwd = process Backward.from_cfa g in
+      process Forward.from_cfa g_bwd
       
     let make_registers () = Decoder.init_registers ()
 end

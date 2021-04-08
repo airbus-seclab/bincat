@@ -21,7 +21,7 @@
 *)
 module L = Log.Make(struct let name = "armv7" end)
 
-module Make(Domain: Domain.T) =
+module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 struct
 
   type ctx_t = unit
@@ -235,7 +235,6 @@ struct
 
 
   module Cfa = Cfa.Make(Domain)
-  module Stubs = Stubs.Make(Domain)
                
   module Imports = Armv7Imports.Make(Domain)(Stubs)
 

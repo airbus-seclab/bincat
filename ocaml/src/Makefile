@@ -50,7 +50,6 @@ ML=\
   domains/abstract_heap.ml\
   domains/reduced_unrel_typenv_heap.ml\
   disassembly/cfa.ml\
-  fixpoint/stubs.ml\
   disassembly/core_x86.ml\
   disassembly/armv7.ml\
   disassembly/armv8A.ml\

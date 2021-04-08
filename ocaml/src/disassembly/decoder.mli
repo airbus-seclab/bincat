@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -27,10 +27,7 @@ module type T =
 sig
   (** control flow graph *)
   module Cfa: Cfa.T
-
-  (** stubs *)
-  module Stubs: Stubs.T
-       
+    
   (** data struct for external functions management *)
   module Imports:
   sig
@@ -65,12 +62,11 @@ sig
 end
 
 
-module type Make = functor (D: Domain.T) -> 
+module type Make = functor (D: Domain.T)(Stubs: Stubs.T with type domain_t := D.t)-> 
 
 sig
   (** control flow graph *)
   module Cfa: (Cfa.T with type domain = D.t)
-  module Stubs: (Stubs.T with type domain_t = D.t)
   module Imports:
   sig
 
