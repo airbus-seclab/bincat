@@ -15,7 +15,6 @@ ML=\
   utils/listUtils.ml\
   utils/strSet.ml\
   newspeak/conf.ml\
-  newspeak/eBigInt.ml\
   newspeak/temps.ml\
   newspeak/newspeak.ml\
   newspeak/npkcontext.ml\
@@ -71,7 +70,6 @@ MLI=\
   newspeak/conf.mli\
   newspeak/lowspeak.mli\
   newspeak/x2newspeak.mli\
-  newspeak/eBigInt.mli\
   newspeak/npkil.mli\
   newspeak/linker.mli\
   newspeak/npk2lpk.mli\
@@ -83,8 +81,8 @@ OPTS-newspeak := -w -7
 OPTS-lowspeak := -w -7
 OPTS-npk2lpk := -w -7
 
-EXTLIB := nums str unix graph zarith bigarray
-PACKAGES := ocamlgraph zarith num
+EXTLIB := str unix graph zarith bigarray
+PACKAGES := ocamlgraph zarith
 
 EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
 LIBINCL = $(EXTLIBINCL) -I utils -I newspeak -I c2newspeak

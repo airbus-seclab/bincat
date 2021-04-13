@@ -61,8 +61,10 @@ ML=\
   disassembly/armv8A.ml\
   disassembly/powerpc.ml\
   disassembly/risc_v.ml\
+  fixpoint/forward.ml\
+  fixpoint/backward.ml\
   fixpoint/interpreter.ml\
-  bincat_ver.ml \
+  bincat_ver.ml\
   main.ml
 
 MLI=\
@@ -73,8 +75,9 @@ MLI=\
   loaders/loader.mli\
   domains/domain.mli\
   disassembly/cfa.mli\
+  fixpoint/stubs.mli\
   disassembly/decoder.mli\
-  fixpoint/stubs.mli
+
 
 
 DEPS-armv8A := armv8A_ppx
@@ -95,8 +98,8 @@ DEPS-reduced_unrel_typenv_heap_stack := npk/c2newspeak/typedC.cmi npk/newspeak/n
 OPTS-reduced_unrel_typenv_heap_stack := -I npk/c2newspeak -I npk/newspeak
 
 
-EXTLIB := nums str unix graph zarith bigarray
-PACKAGES := ocamlgraph zarith num
+EXTLIB := str unix graph zarith bigarray
+PACKAGES := ocamlgraph zarith
 
 EXTLIBINCL := $(foreach P,$(PACKAGES), -I $(shell ocamlfind query $(P)))
 LIBINCL = $(EXTLIBINCL) -I data-struct -I domains -I utils -I disassembly -I frontend -I loaders -I fixpoint

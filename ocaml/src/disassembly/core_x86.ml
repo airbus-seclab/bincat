@@ -717,6 +717,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   
   module Arch = Arch(Domain)(Stubs)
   open Arch
+
   module Cfa = Arch.Cfa
   module Imports = Arch.Imports
   let cl = P (Arch.ecx, 0, 7)
