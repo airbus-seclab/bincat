@@ -35,8 +35,7 @@ sig
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 end
 
-module Make(D: Domain.T) =
-struct
+module Make(D: Domain.T) = struct
 
     type domain_t = D.t
 
@@ -51,7 +50,8 @@ struct
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
         D.set_lval_to_addr ret [ (addr, success_id) ; (Data.Address.of_null (), failure_id) ] d'
-      with Z.Overflow -> raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate"))
+      with Z.Overflow ->
+        raise (Exceptions.Analysis (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate"))
 
           let success_msg = "successful heap allocation " in
           let failure_msg = "heap allocation failed  " in
