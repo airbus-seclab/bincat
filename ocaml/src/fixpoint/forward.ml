@@ -241,7 +241,7 @@ module Make(D: Domain.T)(Cfa: Cfa.T with type domain = D.t)(Stubs: Stubs.T with 
                d', taint'
 
                
-            | Directive (Handler (sig_nb, addr)) -> raise (Handler (sig_nb, addr))
+            | Directive (Handler (sig_nb, addr)) -> raise (Handler (sig_nb, addr)) ->
                let prev_ip =
                  try
                    let _, _, v, _ = List.hd !fun_stack in
