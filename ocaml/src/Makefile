@@ -68,7 +68,6 @@ MLI=\
   loaders/loader.mli\
   domains/domain.mli\
   disassembly/cfa.mli\
-  fixpoint/stubs.mli\
   disassembly/decoder.mli\
 
 

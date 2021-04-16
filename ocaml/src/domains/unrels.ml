@@ -457,8 +457,17 @@ module Make(D: Unrel.T) =
 
     let print_chars m src nb pad_options check_address_validity =
       match m with
-      | Val m' -> Val (List.map (fun (u, msg) -> U.print_chars u src nb pad_options check_address_validity, msg) m')
-      | BOT -> Log.Stdout.stdout (fun p -> p "_"); BOT
+      | BOT ->
+         Log.Stdout.stdout (fun p -> p "_");
+         BOT, 0
+         
+      | Val ([u, msg]) ->
+         let u', len = U.print_chars u src nb pad_options check_address_validity in
+         Val ([u', msg]), len
+
+      | _ -> raise (Exceptions.Too_many_concrete_elements "U.print_chars: implemented only for one unrel only")
+         
+     
 
     let copy_register r dst src =
       match src with

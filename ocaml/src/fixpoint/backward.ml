@@ -119,6 +119,7 @@ struct
         | Directive Default_unroll -> d, Taint.Set.singleton Taint.U
         | Directive (Stub _) -> d, Taint.Set.singleton Taint.U
         | Directive (Skip _) -> d, Taint.Set.singleton Taint.U
+        | Directive (Handler _) -> d, Taint.Set.singleton Taint.U
         | Set (dst, src) -> back_set dst src d
         | Assert (_bexp, _msg) -> d, Taint.Set.singleton Taint.U (* TODO *)
         | If (_e, istmts, estmts) ->
@@ -140,7 +141,7 @@ struct
         let start_v =  
 	      match v.Cfa.State.back_v with 
 	      | Some d -> d
-	      | None -> raise (Exceptions.Analysis (Exceptions.Empty "undefined abstract value used in backward mode"))
+	      | None -> raise (Exceptions.Empty "undefined abstract value used in backward mode")
 	    in 
 	    let d', taint_sources =
           List.fold_left (fun (d, b) s ->

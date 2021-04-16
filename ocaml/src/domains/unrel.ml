@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -1090,9 +1090,10 @@ module Make(D: T) =
 
     let print_chars m' src nb pad_options check_address_validity =
       (* TODO: factorize with copy_until *)
-      let bytes = snd (i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m' false pad_options check_address_validity) in
-      print_bytes bytes nb;
-      m'
+      let len, bytes = i_get_bytes src Asm.EQ (Asm.Const (Data.Word.of_int Z.zero 8)) nb 8 m' false pad_options check_address_validity
+      in
+      print_bytes bytes len;
+      m', len
        
 
     let copy_chars_to_register m reg offset src nb pad_options check_address_validity =

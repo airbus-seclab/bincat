@@ -31,7 +31,7 @@ sig
 
   val default_handler: int -> Asm.stmt list
     
-  val stubs : (string, (Data.Address.t -> Data.Address.t -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
+  val stubs : (string, (Data.Address.t -> Data.Address.t option -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 end
 
@@ -49,7 +49,7 @@ module Make(D: Domain.T) = struct
         let d' = D.allocate_on_heap d id in
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
-        let success_msg = "successful heap allocation " in
+        let success_msg = "successfull heap allocation " in
         let failure_msg = "heap allocation failed  " in
         let postfix =
           match calling_ip with
@@ -403,38 +403,6 @@ module Make(D: Domain.T) = struct
       let cleanup_stmts = (call_conv.Asm.callee_cleanup 2) in
       d, taint, stmts@cleanup_stmts
 
-    let default_handler sig_nb =
-      (* see man 7 signal. Implementation of POSIX.1-2001 *)
-      let ignore_sig sig_text =
-        L.analysis (fun p -> p "Handling signal %s: ignored" sig_text);
-        []
-      in
-      let abort sig_text =
-        L.analysis (fun p -> p "Handling signal %s: analysis stops" sig_text);
-        L.abort (fun p -> p "see above")
-      in
-      match sig_nb with
-      | 1 (* SIGHUP *) -> abort "SIGHUP"
-      | 2 (* SIGINT *) -> abort "SIGINT"                        
-      | 3 (* SIGQUIT *) -> abort "SIGQUIT"
-      | 4 (* SIGIL *) -> abort "SIGIL"
-      | 5 (* SIGTRAP *) -> abort "SIGTRAP"
-      | 6 (* SIGABRT *) -> abort "SIGABRT"
-      | 7 | 10 (* SIGBUS *) -> abort "SIGBUS"
-      | 8 (* SIGFPE *) -> abort "SIGFPE"
-      | 9 (* SIGKILL *) -> abort "SIGKILL"
-      | 11 (* SIGSEGV *) -> abort "SIGSEGV"
-      | 12 | 31 (* SIGSYS *) -> abort "SIGSYS"
-      | 13 (* SIGPIPE *) -> abort "SIGPIPE"
-      | 14 (* SIGALRM *) -> ignore_sig "SIGALRM"
-      | 15 (* SIGTERM *) -> abort "SIGTERM"
-      | 16 (* SIGUSR1 *) -> ignore_sig "SIGUSR1"
-      | 17 | 18 (* SIGCHLD *) -> abort "SIGCHLD"
-      | 19 | 25 (* SIGCONT *) -> ignore_sig "SIGCONT"
-      | 20 | 24 (* SIGTSTP *) -> ignore_sig "SIGSTP"
-      | 26 (* SIGTTIN *) -> ignore_sig "SIGTTIN"
-      | 27 (* SIGTTOU *) -> ignore_sig "SIGTTOU"
-      | _ -> L.analysis (fun p -> p "received Illegal signal %d. Ignored" sig_nb); []
              
     let putchar (_ip) _ d ret args =
       let str = Asm.Lval (args 0) in
