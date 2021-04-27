@@ -399,11 +399,16 @@ struct
     close_out f;;
 
 
-  let marshal (fid:out_channel) (cfa, ips: t): unit =
+  let _marshal (fid:out_channel) (cfa, ips: t): unit =
     Marshal.to_channel fid cfa [];
     Marshal.to_channel fid ips [];
     Marshal.to_channel fid !state_cpt [];;
 
+  let marshal (fid: out_channel) (cfa, ips: t): unit =
+    Marshal.to_channel fid cfa [Marshal.Closures];
+    Marshal.to_channel fid ips [Marshal.Closures];
+    Marshal.to_channel fid !state_cpt [];;
+  
   let unmarshal fid: t =
     let origcfa = Marshal.from_channel fid in
     let origips = Marshal.from_channel fid in
