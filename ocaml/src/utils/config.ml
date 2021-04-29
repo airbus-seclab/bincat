@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -148,6 +148,12 @@ let char_of_null_cst () = Char.chr (Z.to_int !null_cst)
 (* used for powerpc mfspr *)
 let processor_version = ref 0
 
+type os_t =
+  | Windows
+  | Linux
+
+let os = ref Windows
+       
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)
 let interleave = ref false

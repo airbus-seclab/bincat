@@ -34,8 +34,13 @@ sig
     type ctx_t = {
       addr_sz: int; (** size in bits of the addresses *)
       op_sz  : int; (** size in bits of operands *)
-    }
-
+      }
+               
+    (** data type for handler management *)
+    type handler_kind_t =
+      | Direct of Data.Address.t
+      | Inlined of Asm.stmt list
+                 
     type t  = {
       id: int;                          (** unique identificator of the state *)
       mutable ip: Data.Address.t;       (** instruction pointer *)
@@ -58,13 +63,17 @@ sig
 
   (** oracle for retrieving any semantic information computed by the interpreter *)
   class oracle:
-    domain ->
+          domain ->
+          (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list) ->
   object
     (** returns the computed concrete value of the given register
         may raise an exception if the conretization fails
         (not a singleton, bottom) *)
     method value_of_register: Register.t -> Z.t
 
+    (** returns the address associated to the given interrupt number *)
+    method get_handler: int -> State.handler_kind_t
+         
   end
 
   (** abstract data type of the control flow graph *)
@@ -148,6 +157,10 @@ struct
       op_sz  : int; (** size in bits of operands *)
     }
 
+    type handler_kind_t =
+      | Direct of Data.Address.t
+      | Inlined of Asm.stmt list
+                 
     (** abstract data type of a state *)
     type t = {
       id: int;                          (** unique identificator of the state *)
@@ -188,9 +201,14 @@ struct
   open State
 
 
-  class oracle (d: domain) =
+  class oracle (d: domain) (handlers: (((int, Data.Address.t) Hashtbl.t) * (int -> Asm.stmt list))) =
   object
     method value_of_register (reg: Register.t) = Domain.value_of_register d reg
+
+    method get_handler i = 
+      try
+        State.Direct (Hashtbl.find (fst handlers) i)
+      with Not_found -> State.Inlined ((snd handlers) i)
   end
 
   (** type of a CFA *)
@@ -398,11 +416,6 @@ struct
     G.iter_edges_e (fun e -> Printf.fprintf f "e%d_%d = %d -> %d\n" (G.E.src e).id (G.E.dst e).id (G.E.src e).id (G.E.dst e).id) g;
     close_out f;;
 
-
-  let _marshal (fid:out_channel) (cfa, ips: t): unit =
-    Marshal.to_channel fid cfa [];
-    Marshal.to_channel fid ips [];
-    Marshal.to_channel fid !state_cpt [];;
 
   let marshal (fid: out_channel) (cfa, ips: t): unit =
     Marshal.to_channel fid cfa [Marshal.Closures];

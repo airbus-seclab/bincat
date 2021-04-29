@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -98,40 +98,46 @@ type ictx_t = {
 
 
 module type Arch =
-  functor (Domain: Domain.T) -> functor (Stubs: Stubs.T with type domain_t := Domain.t) ->
-                                sig
-                                  module Cfa: Cfa.T
-                                  val operand_sz: int
-                                  module Imports:
-                                  sig
-                                    val init: unit -> unit
-                                    val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
-                                              Data.Address.t -> Asm.import_desc_t
-                                    val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
-                                  end
-                                  val ebx: Register.t
-                                  val ebp: Register.t
-                                  val esi: Register.t
-                                  val edi: Register.t
-                                  val edx: Register.t
-                                  val eax: Register.t
-                                  val ecx: Register.t
-                                  val esp: Register.t
-                                  val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
-                                  val decode_from_0x40_to_0x4F: char -> int -> rex_t
-                                  val arch_get_base_address: Cfa.oracle -> ictx_t -> Data.Address.t -> Register.t -> Z.t
-                                  (* function to set an lval to an expression *)
-                                  val set_dest: Asm.lval -> Asm.exp -> Asm.stmt list
+  functor (Domain: Domain.T) ->
+  functor (Stubs: Stubs.T with type domain_t := Domain.t) ->
+  sig
+    module Cfa: Cfa.T
+    val operand_sz: int
+    module Imports:
+    sig
+      val init: unit -> unit
+      val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
+                Data.Address.t -> Asm.import_desc_t
+      val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
 
-                                  (** add_segment translates the segment selector/offset pair into a linear addresss *)
-                                  val add_segment: Cfa.oracle -> ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
-                                  (* Check segments limits, returns (success_bool, base_addr, limit) *)
-                                  val check_seg_limit: Cfa.oracle -> Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
-                                  val get_rex: int -> rex_t option
-                                  val prologue: Address.t -> Asm.stmt list
-                                  val get_operand_sz_for_stack: unit -> int
-                                end
-
+      (** returns the statements enabling to set the first function argument corresponding to the current calling convention *)
+      val set_first_arg: Asm.exp -> Asm.stmt list
+      val unset_first_arg: unit -> Asm.stmt list
+        
+    end
+    val ebx: Register.t
+    val ebp: Register.t
+    val esi: Register.t
+    val edi: Register.t
+    val edx: Register.t
+    val eax: Register.t
+    val ecx: Register.t
+    val esp: Register.t
+    val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
+    val decode_from_0x40_to_0x4F: char -> int -> rex_t
+    val arch_get_base_address: Cfa.oracle -> ictx_t -> Data.Address.t -> Register.t -> Z.t
+    (* function to set an lval to an expression *)
+    val set_dest: Asm.lval -> Asm.exp -> Asm.stmt list
+      
+    (** add_segment translates the segment selector/offset pair into a linear addresss *)
+    val add_segment: Cfa.oracle -> ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
+    (* Check segments limits, returns (success_bool, base_addr, limit) *)
+    val check_seg_limit: Cfa.oracle -> Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
+    val get_rex: int -> rex_t option
+    val prologue: Address.t -> Asm.stmt list
+    val get_operand_sz_for_stack: unit -> int
+  end
+  
 (** fatal error reporting *)
 let error a msg =
   L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
@@ -1375,19 +1381,16 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     in
     replace_lv lv
 
-  let call s dest_exp =
-    let cesp = M (Lval (V (T esp)), !Config.stack_width)   in
-    (* call destination *)
-    let ip' = Data.Address.add_offset s.a (Z.of_int s.o) in
-    let ip   = Const (Data.Address.to_word ip' s.operand_sz) in
-    let stmts =
-      [
-        set_esp Sub (T esp) !Config.stack_width;
-        Set (cesp, ip);
-        Call dest_exp
-      ]
-    in
-    stmts
+  let icall s =
+      let cesp = M (Lval (V (T esp)), !Config.stack_width) in
+      (* call destination *)
+      let ip' = Data.Address.add_offset s.a (Z.of_int s.o) in
+      let ip = Const (Data.Address.to_word ip' s.operand_sz) in
+      [set_esp Sub (T esp) !Config.stack_width;
+       Set (cesp, ip)]
+                
+  let call s dest_exp = (icall s)@[Call dest_exp]
+                      
 
   (** call with expression *)
   let indirect_call s dst =
@@ -1491,27 +1494,29 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (** state generation for the pop instructions *)
   let pop s lv = return s (pop_stmts true s lv)
 
-  let popf s sz =
-    let name        = Register.fresh_name ()            in
-    let v           = Register.make ~name:name ~size:sz in
-    let tmp         = V (T v) in
+  let popf_stmts s sz =
+    let name = Register.fresh_name () in
+    let v = Register.make ~name:name ~size:sz in
+    let tmp = V (T v) in
     let stmt = set_eflags v in
     let popst = pop_stmts true s [tmp, sz] in
-    return s (popst @ stmt @ [Directive (Remove v)])
+    popst @ stmt @ [Directive (Remove v)]
 
+  let popf s sz = return s (popf_stmts s sz)
+                
   (** generation of statements for the push instructions *)
   let push_stmts (s: state) v =
     let esp' = esp_lval () in
     let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
-    (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
-    (* this is the purpose of the pre and post statements *)
+    (* in case esp is in the list, save its value before the first push 
+       (this is this value that has to be pushed for esp) 
+       this is the purpose of the pre and post statements *)
     let pre, post=
       if List.exists (fun k -> with_stack_pointer false s.a (fst k)) v then
         [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
       else
         [], []
     in
-
     let stmts =
       List.fold_left (
           fun stmts (lv, n) ->
@@ -1544,7 +1549,9 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let push_immediate s sz =
     let c     = get_imm s sz !Config.stack_width true in
     let esp'  = esp_lval () in
-    let stmts = [ set_esp Sub esp' !Config.stack_width; Set (M (Lval (V esp'), !Config.stack_width), c) ]
+    let stmts = [
+        set_esp Sub esp' !Config.stack_width;
+        Set (M (Lval (V esp'), !Config.stack_width), c) ]
     in
     return s stmts
 
@@ -1564,7 +1571,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
   let pushf s sz = return s (pushf_stmts s sz)
 
-  (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
+  (** returns the state for the mov from immediate operand to register. 
+      The size in byte of the immediate is given as parameter *)
   let mov_immediate s sz =
     let sz' = if sz = 8 then sz else s.operand_sz in
     let dst, _ = operands_from_mod_reg_rm s sz' 0 in
@@ -2562,13 +2570,39 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (* raised by xmm instructions starting by 0xF2 *)
   exception No_rep of Cfa.State.t * Data.Address.t
 
+  let convert_interrupt_number n =
+    match !Config.os, n with
+    | Config.Linux, 3 -> 5
+    | _, _ -> n
+              
+  (** INT 3 *)
+  let int_3 s ctx =
+    L.debug2 (fun p -> p "decoding INT 3");
+    let n = convert_interrupt_number 3 in
+    let handler = ctx#get_handler n in
+    let stmts =
+      match handler with
+      | Cfa.State.Direct a -> (Imports.set_first_arg (const n !Config.stack_width)) @ (call s (A a)) @ (Imports.unset_first_arg ())
+      | Cfa.State.Inlined stmts -> (icall s) @ stmts
+    in
+    let stmts = (* push flags, set the first arg of the handler and call the handler *)
+      (if !Config.os = Config.Windows then [] else pushf_stmts s !Config.stack_width)
+      @ stmts
+      @ (if !Config.os = Config.Windows then [] else popf_stmts s !Config.stack_width)
+    in
+    return s stmts
 
+  let iret s =
+    let stmts = (* pop ip, pop flags and restore context *)
+      Return::(popf_stmts s !Config.stack_width) in
+    return s stmts
+    
   (************************************************************)
   (* Main decoding                                            *)
   (************************************************************)
 
   (** decoding of one instruction *)
-  let decode s =
+  let decode s ctx =
     let add_sub_mrm s op use_carry sz direction =
       let dst, src = operands_from_mod_reg_rm s sz direction in
       add_sub s op use_carry dst src sz
@@ -2817,10 +2851,10 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp, !Config.stack_width]))
       | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs), 16] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
       | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs), 16]))
-      | '\xcc' -> (* INT 3 *) error s.a "INT 3 decoded. Interpreter halts"
+      | '\xcc' -> (* INT 3 *) int_3 s ctx
       | '\xcd' -> (* INT *) let c = getchar s in error s.a (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
       | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
-      | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
+      | '\xcf' -> (* IRET *) iret s
 
       | '\xd0' -> (* grp2 shift with one on byte size *) grp2 s 8 (Some (const1 8))
       | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (const1 8))
@@ -3076,7 +3110,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       }
     in
     try
-      let v', ip = decode s' in
+      let v', ip = decode s' ctx in
       Some (v', ip, s'.segments)
     with
     | Exceptions.Error _ as e -> raise e

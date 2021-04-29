@@ -122,6 +122,9 @@ let _ =
     "TAINT_ALL", TAINT_ALL;
     "TAINT_NONE", TAINT_NONE;
     "null", NULL;
+    "os", OS;
+    "linux", LINUX;
+    "windows", WINDOWS;
     "taint_input", TAINT_INPUT;
     ]
 

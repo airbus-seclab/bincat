@@ -713,7 +713,7 @@ let from_bin (mapped_mem: Mapped_mem.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t
         (* the new instruction pointer (offset variable) is also returned                                      *)
         let r =
           match text' with
-          | Some text'' ->  Core.parse text'' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v)
+          | Some text'' ->  Core.parse text'' g !d v v.Cfa.State.ip (new Cfa.oracle v.Cfa.State.v v.Cfa.State.handlers)
           | None -> L.abort (fun p -> p "Could not retrieve %i bytes at %s to decode next instruction"
                                         !Config.max_instruction_size (Data.Address.to_string v.Cfa.State.ip) )
         in

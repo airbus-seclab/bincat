@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -176,7 +176,7 @@
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
-%token IGNORE_UNKNOWN_RELOCATIONS IDA TAINT_INPUT
+%token IGNORE_UNKNOWN_RELOCATIONS OS WINDOWS LINUX IDA TAINT_INPUT
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -319,7 +319,8 @@
     | ARCHITECTURE EQUAL a=architecture  { update_mandatory ARCHITECTURE; Config.architecture := a }
     | FILEPATH EQUAL f=QUOTED_STRING     { update_mandatory FILEPATH; Config.binary := f }
     | FORMAT EQUAL f=format      { update_mandatory FORMAT; Config.format := f }
-    | NULL EQUAL v=INT { Config.null_cst := v}
+    | NULL EQUAL v=INT { Config.null_cst := v }
+    | OS EQUAL s=os_kind { Config.os := s }
 
       format:
     | PE  { Config.PE }
@@ -365,7 +366,10 @@
     | GS_BASE EQUAL i=init       { update_x64_mandatory GS_BASE; init_register "gs_base" i }
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x64_mandatory GDT; Hashtbl.replace Config.gdt i v }
 
-
+    os_kind:
+    | WINDOWS { Config.Windows }
+    | LINUX { Config.Linux }
+          
     memmodel:
     | FLAT  { Config.Flat }
     | SEGMENTED { Config.Segmented }
