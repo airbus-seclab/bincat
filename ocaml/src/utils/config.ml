@@ -151,8 +151,9 @@ let processor_version = ref 0
 type os_t =
   | Windows
   | Linux
+  | Unknown_os
 
-let os = ref Windows
+let os = ref Unknown_os
        
 (* if true then an interleave of backward then forward analysis from a CFA will be processed *)
 (** after the first forward analysis from binary has been performed *)
