@@ -81,7 +81,7 @@ class InitFile:
         if "code_length" not in v:
             fstat = os.stat(v["filepath"])
             v["code_length"] = fstat.st_size
-        v["regmem"] = ("\n".join("mem[%#x]=|%s|" % (addr, val.encode("hex"))
+        v["regmem"] = ("\n".join("mem[%#x]=|%s|" % (addr, val.hex())
                                  for (addr, val) in self.mem.items())
                        + "\n".join("reg[%s]=%s" % (regname, val)
                                  for (regname, val) in self.reg.items())
@@ -326,10 +326,10 @@ class Arch:
         inf.write(".text\n.globl _start\n_start:\n" + asm)
         subprocess.check_call(self.AS + ["-o", str(obj), str(inf)])
         subprocess.check_call(self.OBJCOPY + ["-O", "binary", str(obj), str(outf)])
-        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)])
+        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)]).decode("ascii", "replace")
         s = [l for l in lst.splitlines() if l.startswith(" ")]
         listing = "\n".join(s)
-        opcodes = open(str(outf)).read()
+        opcodes = open(str(outf),"rb").read()
         return listing, str(outf), opcodes
     def cpu_run(self, tmpdir, opcodesfname):
         eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
@@ -337,8 +337,8 @@ class Arch:
         if self.QEMU:
             cmd = self.QEMU + cmd
         out = subprocess.check_output(cmd)
-        regs = {reg: int(val, 16) for reg, val in
-                (l.strip().split("=") for l in out.splitlines())}
+        regs = {reg.decode("ascii"): int(val, 16) for reg, val in
+                (l.strip().split(b"=") for l in out.splitlines())}
         self.extract_flags(regs)
         return regs
 
@@ -361,8 +361,8 @@ class X86(Arch):
         inf = d.join("asm.S")
         outf = d.join("opcodes")
         inf.write("BITS 32\n"+asm)
-        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
-        opcodes = open(str(outf)).read()
+        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)]).decode("ascii", "replace")
+        opcodes = open(str(outf), "rb").read()
         return listing, str(outf), opcodes
 
     def extract_flags(self, regs):
@@ -403,8 +403,8 @@ class X64(Arch):
         inf = d.join("asm.S")
         outf = d.join("opcodes")
         inf.write("BITS 64\n"+asm)
-        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
-        opcodes = open(str(outf)).read()
+        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)]).decode("ascii", "replace")
+        opcodes = open(str(outf), "rb").read()
         return listing, str(outf), opcodes
 
     def extract_flags(self, regs):
@@ -512,5 +512,3 @@ class PowerPC(Arch):
         regs["ca"] = (xer >> 29) & 1
         regs["tbc"] = (xer >> 0) & 0x7f
 
-def get_cov():
-    return {x._name: x for x in conftest.COVERAGES}[pytest.config.option.coverage]

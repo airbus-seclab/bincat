@@ -1,6 +1,7 @@
 
 import pytest
 import hashlib
+import itertools
 
 
 def armv8_bitmasks():
@@ -52,6 +53,7 @@ class TestValues(object, metaclass=TestValues_Meta):
     x86carryop = [ "stc", "clc"]
     armv8bitmasks = armv8_bitmasks()[0:10]
     armv8off = [-512, -8, 0, 8, 504]
+    op5_couple = [(x,y) for x,y in itertools.product(op5,op5) if x+y <= 31 and y > 0]
 
 class Large(TestValues):
     _name = "large"
@@ -114,7 +116,7 @@ def pytest_generate_tests(metafunc):
         if hasattr(coverage, fnstr):
             params = getattr(coverage, fnstr)
             if coverage.hash_single:
-                hashint = int(hashlib.sha1(func_name + fnstr).hexdigest(), 16)
+                hashint = int(hashlib.sha1((func_name + fnstr).encode("utf8")).hexdigest(), 16)
                 paramidx = hashint % len(params)
                 params = [params[paramidx]]
             metafunc.parametrize(fn, params)

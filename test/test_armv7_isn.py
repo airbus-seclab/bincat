@@ -1,6 +1,6 @@
 import pytest
 import os
-from util import ARM,Thumb,get_cov
+from util import ARM,Thumb
 
 arm = ARM(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7.ini.in')
@@ -333,13 +333,9 @@ def test_data_proc_read_pc(tmpdir):
 ## | |\/| | _|| |) | | / _ \   | |\__ \ .` |
 ## |_|  |_|___|___/___/_/ \_\ |___|___/_|\_|
 
-@pytest.mark.parametrize("ubfxparams",
-                         [(x,y)
-                          for x in get_cov().op5
-                          for y in get_cov().op5
-                          if x+y <= 31 and y > 0])
-def test_media_ubfx(tmpdir, armv7op, ubfxparams):
-    op5,op5_ = ubfxparams
+
+def test_media_ubfx(tmpdir, armv7op, op5_couple, request):
+    op5,op5_ = op5_couple
     asm = """
           mov r2, #{armv7op}
           ubfx r3, r2, #{op5}, #{op5_}
