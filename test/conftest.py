@@ -25,8 +25,7 @@ class TestValues_Meta(type):
     def __repr__(self):
         return self._name
 
-class TestValues(object):
-    __metaclass__ = TestValues_Meta
+class TestValues(object, metaclass=TestValues_Meta):
     _name = "NA"
     hash_single = False
     loop_cnt = [1, 15, 100]
@@ -108,7 +107,7 @@ def pytest_addoption(parser):
 
 
 def pytest_generate_tests(metafunc):
-    func_name = metafunc.function.func_name
+    func_name = metafunc.function.__name__
     coverage = {x._name: x for x in COVERAGES}[metafunc.config.option.coverage]
     for fn in metafunc.fixturenames:
         fnstr = fn.rstrip("_")  # alias foo_, foo__, etc. to foo

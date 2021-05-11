@@ -26,6 +26,6 @@ def test_coverage(tmpdir):
 
     bc.run()
     cfa = bc.result.cfa
-    assert len(cfa.edges[unicode(3)]) == 2
-    assert cfa.nodes[unicode(8)].statements == u'esi <- 0x0;'
+    assert len(cfa.edges[str(3)]) == 2
+    assert cfa.nodes[str(8)].statements == 'esi <- 0x0;'
 
