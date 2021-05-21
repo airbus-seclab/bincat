@@ -118,9 +118,9 @@
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
-    let supported_version = 4 in
-    if input_version != supported_version then
-      L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
+        let supported_version = 4 in
+        if input_version != supported_version then
+          L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
 
       (** footer function *)
       let check_context () =
@@ -154,7 +154,7 @@
           List.iter add (List.rev funs)
         in
         Hashtbl.iter add_tainting_rules libraries;
-    (* complete the table of function rules with type information *)
+        (* complete the table of function rules with type information *)
         List.iter (fun header ->
         try
           L.debug (fun p -> p "Open npk file [%s]" header);
@@ -162,7 +162,10 @@
           List.iter (fun (s, f) ->
             L.debug (fun p -> p "  - loaded type for [%s]" s);
         Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
-        with e -> L.exc e (fun p -> p "failed to load header %s" header)) !npk_headers
+        with e -> L.exc e (fun p -> p "failed to load header %s" header)) !npk_headers;
+      (* update the os type *)
+        if !Config.format = Config.PE then
+          Config.os := Config.Windows
     ;;
 
     %}

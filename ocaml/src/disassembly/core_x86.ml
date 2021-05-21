@@ -17,7 +17,7 @@
  *)
 
 (************************************************************)
-(* core functionalities of the x86 decoders                 *)
+(* Core functionalities of the x86 decoders                 *)
 (************************************************************)
 
 module L = Log.Make(struct let name = "core_x86" end)
@@ -71,7 +71,7 @@ type tbl_entry = {
     dpl: privilege_level;
     p: Z.t;
     avl: Z.t;
-    l: Z.t;
+    l: Z.t; (* 64-bit flag *)
     db: Z.t;
     gran: Z.t;}
 
@@ -848,7 +848,9 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let lvl   = v land 3         in
     let ti    = (v lsr 2) land 1 in
     let index = (v lsr 3)        in
-    { rpl = privilege_level_of_int lvl; ti = if ti = 0 then GDT else LDT; index = Word.of_int (Z.of_int index) 13 }
+    { rpl = privilege_level_of_int lvl;
+      ti = if ti = 0 then GDT else LDT;
+      index = Word.of_int (Z.of_int index) 13 }
 
 
 
@@ -864,7 +866,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let copy_segments s addr ctx =
     let segments =
       get_segments addr ctx in
-    { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
+    { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt;
+      idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
   (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
   let get_base_address s sreg =
@@ -2570,15 +2573,15 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (* raised by xmm instructions starting by 0xF2 *)
   exception No_rep of Cfa.State.t * Data.Address.t
 
+
   let convert_interrupt_number n =
     match !Config.os, n with
     | Config.Linux, 3 -> 5
     | _, _ -> n
-              
-  (** INT 3 *)
-  let int_3 s ctx =
-    L.debug2 (fun p -> p "decoding INT 3");
-    let n = convert_interrupt_number 3 in
+
+  (** INT n *)
+  let int_n n s ctx =
+    let n = convert_interrupt_number n in
     let handler = ctx#get_handler n in
     let stmts =
       match handler with
@@ -2591,6 +2594,33 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       @ (if !Config.os = Config.Windows then [] else popf_stmts s !Config.stack_width)
     in
     return s stmts
+ 
+
+  (* INT 3*)
+  let int_3 s ctx =
+    L.debug2 (fun p -> p "decoding INT 3");
+    (* we ignore the differences between the opcode CC et CD03 *)
+    int_n 3 s ctx
+
+
+  let into s ctx =
+    try
+      (* Vol 3, 5.2.1: Bit 53 is defined as the 64-bit (L) flag and is used to select 
+         between 64-bit mode and compatibility mode when IA-32e mode is active *)
+      let csv = get_segment_register_mask (ctx#value_of_register cs) in
+      let tbl = if csv.ti = GDT then s.segments.gdt else s.segments.ldt in
+      let cs_segment = Hashtbl.find tbl csv.index in
+      let is_64 =  Z.logand (Z.shift_right cs_segment.base 53) Z.one in
+      if Z.compare is_64 Z.one = 0 then
+        (* vol 2A, 3-457 *)
+        error s.a "Illegal call to INTO in x64 mode"
+      else
+        let ofv = ctx#value_of_register fof in
+        if Z.compare ofv Z.one = 0 then
+          int_n 4 s ctx
+        else
+          return s []
+    with _ -> error s.a "Imprecise value for cs or overflow flag. Analysis stops"
 
   let iret s =
     let stmts = (* pop ip, pop flags and restore context *)
@@ -2835,6 +2865,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let n = (Char.code c) - 0xb4  in
          let r = V (P (Hashtbl.find register_tbl n, 8, 15)) in
          return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
+         
       | c when '\xb8' <= c && c <= '\xbf' -> mov_imm_direct s c
       | '\xc0' -> (* shift grp2 with byte size*) grp2 s 8 None
       | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
@@ -2849,11 +2880,16 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let sp = V (to_reg esp !Config.stack_width) in
          let bp = V (to_reg ebp !Config.stack_width) in
          return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp, !Config.stack_width]))
-      | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs), 16] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
+
+      | '\xca' -> (* RET FAR and pop a word *)
+         return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs), 16] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
+                                             
       | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs), 16]))
       | '\xcc' -> (* INT 3 *) int_3 s ctx
       | '\xcd' -> (* INT *) let c = getchar s in error s.a (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
-      | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
+
+      | '\xce' -> (* INTO *) into s ctx
+         
       | '\xcf' -> (* IRET *) iret s
 
       | '\xd0' -> (* grp2 shift with one on byte size *) grp2 s 8 (Some (const1 8))
