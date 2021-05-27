@@ -3006,6 +3006,15 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let v, ip = mod_rm_on_xmm2 s sz in
          raise (No_rep (v, ip))
 
+      | '\x1e' ->
+         let byte = getchar s in
+         if byte = '\xfa' || byte = '\xfb' then
+           (* endbr64 / endbr62 *)
+           (* TODO: could call our checker that verifies whether the actual return address is the one expected *)
+           return s [ Nop ]
+         else
+           error s.a (Printf.sprintf "unknown third opcode 0x%x\n" (Char.code byte))
+           
       | '\x1F' -> (* long nop *) let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
 
       | '\x28' -> (* MOVAPD *) (* TODO: make it more precise *)
