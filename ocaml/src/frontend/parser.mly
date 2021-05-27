@@ -180,6 +180,7 @@
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
 %token IGNORE_UNKNOWN_RELOCATIONS OS WINDOWS LINUX IDA TAINT_INPUT
+%token MPX ENABLED DISABLED
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -324,6 +325,7 @@
     | FORMAT EQUAL f=format      { update_mandatory FORMAT; Config.format := f }
     | NULL EQUAL v=INT { Config.null_cst := v }
     | OS EQUAL s=os_kind { Config.os := s }
+    | MPX EQUAL b=mpx_enabled { Config.mpx := b }
 
       format:
     | PE  { Config.PE }
@@ -372,7 +374,10 @@
     os_kind:
     | WINDOWS { Config.Windows }
     | LINUX { Config.Linux }
-          
+
+    mpx_enabled:
+    | ENABLED { true }
+    | DISABLED { false }
     memmodel:
     | FLAT  { Config.Flat }
     | SEGMENTED { Config.Segmented }

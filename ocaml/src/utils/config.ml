@@ -125,6 +125,9 @@ let call_conv_to_string cc =
   | SYSV -> "SYSV"
   | MS -> "MS"
 
+(* MPX extension *)
+let mpx = ref false
+        
 let call_conv = ref CDECL
 
 let ep = ref Z.zero

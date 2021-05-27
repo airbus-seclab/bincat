@@ -3010,8 +3010,11 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let byte = getchar s in
          if byte = '\xfa' || byte = '\xfb' then
            (* endbr64 / endbr62 *)
-           (* TODO: could call our checker that verifies whether the actual return address is the one expected *)
-           return s [ Nop ]
+           if !Config.mpx then
+             error s.a "endbr: MPX extension not managed"
+           else
+             (* TODO: could call our checker that verifies whether the actual return address is the one expected *)
+             return s [ Nop ]
          else
            error s.a (Printf.sprintf "unknown third opcode 0x%x\n" (Char.code byte))
            

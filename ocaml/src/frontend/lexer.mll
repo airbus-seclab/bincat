@@ -126,6 +126,9 @@ let _ =
     "linux", LINUX;
     "windows", WINDOWS;
     "taint_input", TAINT_INPUT;
+    "MPX", MPX;
+    "enabled", ENABLED;
+    "disabled", DISABLED;
     ]
 
 let strip_int s =
