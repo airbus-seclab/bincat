@@ -1,6 +1,7 @@
 
 import pytest
 import hashlib
+import itertools
 
 
 def armv8_bitmasks():
@@ -25,8 +26,7 @@ class TestValues_Meta(type):
     def __repr__(self):
         return self._name
 
-class TestValues(object):
-    __metaclass__ = TestValues_Meta
+class TestValues(object, metaclass=TestValues_Meta):
     _name = "NA"
     hash_single = False
     loop_cnt = [1, 15, 100]
@@ -53,6 +53,7 @@ class TestValues(object):
     x86carryop = [ "stc", "clc"]
     armv8bitmasks = armv8_bitmasks()[0:10]
     armv8off = [-512, -8, 0, 8, 504]
+    op5_couple = [(x,y) for x,y in itertools.product(op5,op5) if x+y <= 31 and y > 0]
 
 class Large(TestValues):
     _name = "large"
@@ -108,14 +109,14 @@ def pytest_addoption(parser):
 
 
 def pytest_generate_tests(metafunc):
-    func_name = metafunc.function.func_name
+    func_name = metafunc.function.__name__
     coverage = {x._name: x for x in COVERAGES}[metafunc.config.option.coverage]
     for fn in metafunc.fixturenames:
         fnstr = fn.rstrip("_")  # alias foo_, foo__, etc. to foo
         if hasattr(coverage, fnstr):
             params = getattr(coverage, fnstr)
             if coverage.hash_single:
-                hashint = int(hashlib.sha1(func_name + fnstr).hexdigest(), 16)
+                hashint = int(hashlib.sha1((func_name + fnstr).encode("utf8")).hexdigest(), 16)
                 paramidx = hashint % len(params)
                 params = [params[paramidx]]
             metafunc.parametrize(fn, params)

@@ -22,7 +22,7 @@ def getReg(my_node, name):
     try:
         return my_node.unrels["0"][v][0]
     except KeyError:
-        return my_node.unrels[my_node.unrels.keys()[0]][v][0]
+        return my_node.unrels[list(my_node.unrels.keys())[0]][v][0]
         
 
 
@@ -81,15 +81,15 @@ class InitFile:
         if "code_length" not in v:
             fstat = os.stat(v["filepath"])
             v["code_length"] = fstat.st_size
-        v["regmem"] = ("\n".join("mem[%#x]=|%s|" % (addr, val.encode("hex"))
-                                 for (addr, val) in self.mem.iteritems())
+        v["regmem"] = ("\n".join("mem[%#x]=|%s|" % (addr, val.hex())
+                                 for (addr, val) in self.mem.items())
                        + "\n".join("reg[%s]=%s" % (regname, val)
-                                 for (regname, val) in self.reg.iteritems())
+                                 for (regname, val) in self.reg.items())
                        )
         v["analyzer_section"] = "\n".join(self.analyzer_entries)
         v["program_section"] = "\n".join(self.program_entries)
         conf = self.template.format(**v)
-        print self.conf_edits
+        print(self.conf_edits)
         for before, after in self.conf_edits:
             conf = conf.replace(before, after)
         return conf
@@ -97,7 +97,7 @@ class InitFile:
     def set_directives(self, directives):
         overrides = directives.get("overrides", {})
         self["overrides"] = "\n".join(
-            "%#010x=%s" % (addr, val) for addr, val in overrides.iteritems())
+            "%#010x=%s" % (addr, val) for addr, val in overrides.items())
 
     def set_mem(self, addr, val):
         self.mem[addr] = val
@@ -181,7 +181,7 @@ class Arch:
     def run_bc_test(self, bctest, testname):
         try:
             bctest.run()
-        except Exception, e:  # hack to add test name in the exception
+        except Exception as e:  # hack to add test name in the exception
             pytest.fail("%s: %r\n%s" % (testname, e, bctest.listing))
         return {reg: getReg(bctest.result.last_node, reg) for reg in self.ALL_REGS}
 
@@ -197,7 +197,7 @@ class Arch:
         diff = []
         same = []
         diff_summary = []
-        for r, v in regs.iteritems():
+        for r, v in regs.items():
             if type(v) is tuple:
                 v = list(v)
             else:
@@ -250,17 +250,17 @@ class Arch:
         bctest = self.make_bc_test(tmpdir, asm)
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             pytest.fail("%s: %s\n%s" % (testname, e, bctest.listing))
 
-        print hline
-        print bctest.listing
-        print
+        print(hline)
+        print(bctest.listing)
+        print()
         for reg in regs:
             regspec = reg.split(":")
             reg = regspec[0]
             bitfield = regspec[1:]
-            print "%6s = %08x" % (reg, cpu[reg])
+            print("%6s = %08x" % (reg, cpu[reg]))
 
     def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
         testname = inspect.stack()[1][3]
@@ -273,7 +273,7 @@ class Arch:
 
         try:
             cpu = self.cpu_run(tmpdir, bctest.filename)
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             pytest.fail("%s: %s\n%s" % (testname, e, bctest.listing))
 
         diff = []
@@ -307,7 +307,7 @@ class Arch:
                           + "\n".join(same))
         diff = []
         diff_summary = []
-        for r, t in reg_taints.iteritems():
+        for r, t in reg_taints.items():
             if bincat[r].taint != t:
                 diff.append("- expected :  %s = %08x ! %08x" % (r, cpu[r], t))
                 diff.append("+ bincat   :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
@@ -319,17 +319,17 @@ class Arch:
                           + "\n".join(diff)+"\n=========================\n"+"\n".join(same))
 
     def assemble(self, tmpdir, asm):
-        d = tmpdir.mkdir(self.AS_TMP_DIR.next())
+        d = tmpdir.mkdir(next(self.AS_TMP_DIR))
         inf = d.join("asm.S")
         obj = d.join("asm.o")
         outf = d.join("opcodes")
         inf.write(".text\n.globl _start\n_start:\n" + asm)
         subprocess.check_call(self.AS + ["-o", str(obj), str(inf)])
         subprocess.check_call(self.OBJCOPY + ["-O", "binary", str(obj), str(outf)])
-        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)])
+        lst = subprocess.check_output(self.OBJDUMP + ["-b", "binary", "-D",  str(outf)]).decode("ascii", "replace")
         s = [l for l in lst.splitlines() if l.startswith(" ")]
         listing = "\n".join(s)
-        opcodes = open(str(outf)).read()
+        opcodes = open(str(outf),"rb").read()
         return listing, str(outf), opcodes
     def cpu_run(self, tmpdir, opcodesfname):
         eggloader = os.path.join(os.path.dirname(os.path.realpath(__file__)), self.EGGLOADER)
@@ -337,8 +337,8 @@ class Arch:
         if self.QEMU:
             cmd = self.QEMU + cmd
         out = subprocess.check_output(cmd)
-        regs = {reg: int(val, 16) for reg, val in
-                (l.strip().split("=") for l in out.splitlines())}
+        regs = {reg.decode("ascii"): int(val, 16) for reg, val in
+                (l.strip().split(b"=") for l in out.splitlines())}
         self.extract_flags(regs)
         return regs
 
@@ -357,12 +357,12 @@ class X86(Arch):
     EGGLOADER = 'eggloader_x86'
 
     def assemble(self, tmpdir, asm):
-        d = tmpdir.mkdir(self.NASM_TMP_DIR.next())
+        d = tmpdir.mkdir(next(self.NASM_TMP_DIR))
         inf = d.join("asm.S")
         outf = d.join("opcodes")
         inf.write("BITS 32\n"+asm)
-        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
-        opcodes = open(str(outf)).read()
+        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)]).decode("ascii", "replace")
+        opcodes = open(str(outf), "rb").read()
         return listing, str(outf), opcodes
 
     def extract_flags(self, regs):
@@ -399,12 +399,12 @@ class X64(Arch):
     EGGLOADER = 'eggloader_x64'
 
     def assemble(self, tmpdir, asm):
-        d = tmpdir.mkdir(self.NASM_TMP_DIR.next())
+        d = tmpdir.mkdir(next(self.NASM_TMP_DIR))
         inf = d.join("asm.S")
         outf = d.join("opcodes")
         inf.write("BITS 64\n"+asm)
-        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)])
-        opcodes = open(str(outf)).read()
+        listing = subprocess.check_output(["nasm", "-l", "/dev/stdout", "-o", str(outf), str(inf)]).decode("ascii", "replace")
+        opcodes = open(str(outf), "rb").read()
         return listing, str(outf), opcodes
 
     def extract_flags(self, regs):
@@ -512,5 +512,3 @@ class PowerPC(Arch):
         regs["ca"] = (xer >> 29) & 1
         regs["tbc"] = (xer >> 0) & 0x7f
 
-def get_cov():
-    return {x._name: x for x in conftest.COVERAGES}[pytest.config.option.coverage]
