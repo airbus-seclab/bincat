@@ -37,8 +37,8 @@ bincat_path = os.path.dirname(os.path.realpath(__file__))
 if not os.path.isdir(userdir) or not os.path.isdir(bincat_path):
     print("Something's wrong: %s or %s is not a dir" % (plugin_dir, bincat_path))
 
-p_idabincat = os.path.join(bincat_path, "python", "idabincat")
-p_pybincat = os.path.join(bincat_path, "python", "pybincat")
+p_idabincat = os.path.join(bincat_path, "idabincat")
+p_pybincat = os.path.join(bincat_path, "pybincat")
 if os.path.isdir(p_idabincat) and os.path.isdir(p_pybincat):
     try:
         print("Copying 'idabincat' to "+plugin_dir)
@@ -65,7 +65,7 @@ except OSError as e:
 libpath = os.path.join(userdir, 'idabincat', 'lib')
 print("Installing default headers in "+libpath)
 try:
-    dir_util.copy_tree(os.path.join(p_idabincat, "lib"), libpath)
+    dir_util.copy_tree(os.path.join(os.path.join(bincat_path, os.pardir), "lib"), libpath)
 except OSError as e:
     print("Could not install! Error: "+str(e)+"\n")
 
