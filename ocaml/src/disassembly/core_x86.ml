@@ -2485,6 +2485,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       if s.repne then
         match c with
         | c when '\xA6' <= c && c <= '\xA7' || '\xAE' <= c && c <= '\xAF' -> c
+        | '\xFF' -> if !Config.mpx then error s.a "bnd jmp instruction not managed (MPX enabled)" else c
         | _ -> L.warn (fun p->p "%s: Decoder: undefined behavior of REPNE with opcode %x" (Data.Address.to_string s.a) (Char.code c)); c
       else
         c
@@ -2937,6 +2938,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
         begin
           match List.hd v.Cfa.State.stmts with
           | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
+          | Jmp _ -> L.decoder (fun p -> p "simplified rep jmp into jmp")
           | _ ->
              (* XXX:
               * if we do not have a cmps or a scas remove repe/repne flag
