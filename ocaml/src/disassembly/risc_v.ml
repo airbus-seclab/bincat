@@ -45,38 +45,38 @@ struct
   (* Creation of the general purpose registers *)
   (************************************************************************)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
-  (*  let x0 = Register.make ~name:"x0" ~size:!Config.address_sz;; (* hardcoded to zero *) see Vol I*)
-  let x1 = Register.make ~name:"x1" ~size:!Config.address_sz;;
-  let x2 = Register.make ~name:"x2" ~size:!config.address_sz;;
-  let x3 = Register.make ~name:"x3" ~size:!config.address_sz;;
-  let x4 = Register.make ~name:"x4" ~size:!Config.address_sz;;
-  let x5 = Register.make ~name:"x5" ~size:!Config.address_sz;;
-  let x6 = Register.make ~name:"x6" ~size:!Config.address_sz;;
-  let x7 = Register.make ~name:"x7" ~size:!Config.address_sz;;
-  let x8 = Register.make ~name:"x8" ~size:!Config.address_sz;;
-  let x9 = Register.make ~name:"x9" ~size:!Config.address_sz;;
-  let x10 = Register.make ~name:"x10" ~size:!Config.address_sz;;
-  let x11 = Register.make ~name:"x11" ~size:!Config.address_sz;;
-  let x12 = Register.make ~name:"x12" ~size:!Config.address_sz;;
-  let x13 = Register.make ~name:"x13" ~size:!Config.address_sz;;
-  let x14 = Register.make ~name:"x14" ~size:!Config.address_sz;;
-  let x15 = Register.make ~name:"x15" ~size:!Config.address_sz;;
-  let x16 = Register.make ~name:"x16" ~size:!Config.address_sz;;
-  let x17 = Register.make ~name:"x17" ~size:!Config.address_sz;;
-  let x18 = Register.make ~name:"x18" ~size:!Config.address_sz;;
-  let x19 = Register.make ~name:"x19" ~size:!Config.address_sz;;
-  let x20 = Register.make ~name:"x20" ~size:!Config.address_sz;;
-  let x21 = Register.make ~name:"x21" ~size:!Config.address_sz;;
-  let x22 = Register.make ~name:"x22" ~size:!Config.address_sz;;
-  let x23 = Register.make ~name:"x23" ~size:!Config.address_sz;;
-  let x24 = Register.make ~name:"x24" ~size:!Config.address_sz;;
-  let x25 = Register.make ~name:"x25" ~size:!Config.address_sz;;
-  let x26 = Register.make ~name:"x26" ~size:!Config.address_sz;;
-  let x27 = Register.make ~name:"x27" ~size:!Config.address_sz;;
-  let x28 = Register.make ~name:"x28" ~size:!Config.address_sz;;
-  let x29 = Register.make ~name:"x29" ~size:!Config.address_sz;;
-  let x30 = Register.make ~name:"x30" ~size:!Config.address_sz;;
-  let x31 = Register.make ~name:"x31" ~size:!Config.address_sz;;
+  (*  let x0 = Register.make ~name:"x0" ~size:Isa.xlen;; (* hardcoded to zero *) see Vol I*)
+  let x1 = Register.make ~name:"x1" ~size:Isa.xlen;;
+  let x2 = Register.make ~name:"x2" ~size:Isa.xlen;;
+  let x3 = Register.make ~name:"x3" ~size:Isa.xlen;;
+  let x4 = Register.make ~name:"x4" ~size:Isa.xlen;;
+  let x5 = Register.make ~name:"x5" ~size:Isa.xlen;;
+  let x6 = Register.make ~name:"x6" ~size:Isa.xlen;;
+  let x7 = Register.make ~name:"x7" ~size:Isa.xlen;;
+  let x8 = Register.make ~name:"x8" ~size:Isa.xlen;;
+  let x9 = Register.make ~name:"x9" ~size:Isa.xlen;;
+  let x10 = Register.make ~name:"x10" ~size:Isa.xlen;;
+  let x11 = Register.make ~name:"x11" ~size:Isa.xlen;;
+  let x12 = Register.make ~name:"x12" ~size:Isa.xlen;;
+  let x13 = Register.make ~name:"x13" ~size:Isa.xlen;;
+  let x14 = Register.make ~name:"x14" ~size:Isa.xlen;;
+  let x15 = Register.make ~name:"x15" ~size:Isa.xlen;;
+  let x16 = Register.make ~name:"x16" ~size:Isa.xlen;;
+  let x17 = Register.make ~name:"x17" ~size:Isa.xlen;;
+  let x18 = Register.make ~name:"x18" ~size:Isa.xlen;;
+  let x19 = Register.make ~name:"x19" ~size:Isa.xlen;;
+  let x20 = Register.make ~name:"x20" ~size:Isa.xlen;;
+  let x21 = Register.make ~name:"x21" ~size:Isa.xlen;;
+  let x22 = Register.make ~name:"x22" ~size:Isa.xlen;;
+  let x23 = Register.make ~name:"x23" ~size:Isa.xlen;;
+  let x24 = Register.make ~name:"x24" ~size:Isa.xlen;;
+  let x25 = Register.make ~name:"x25" ~size:Isa.xlen;;
+  let x26 = Register.make ~name:"x26" ~size:Isa.xlen;;
+  let x27 = Register.make ~name:"x27" ~size:Isa.xlen;;
+  let x28 = Register.make ~name:"x28" ~size:Isa.xlen;;
+  let x29 = Register.make ~name:"x29" ~size:Isa.xlen;;
+  let x30 = Register.make ~name:"x30" ~size:Isa.xlen;;
+  let x31 = Register.make ~name:"x31" ~size:Isa.xlen;;
 
   let get_opcode str =
     String.get str 25
@@ -92,7 +92,7 @@ struct
       b = state;
       a = addr;
       buf = text;
-      addr_sz = !Config.address_sz;
+      addr_sz = Isa.xlen;
     }
     in
     try
