@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -16,9 +16,12 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
  *)
 
-(* implements at least RV32I and RV64I ISA as stated in spec v2.2 *)
+(* implements at least RV32I and RV64I ISA as stated in spec v2.1
+https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/riscv-spec-20191213.pdf *)
 module L = Log.Make(struct let name = "risc_v" end)
-module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
+
+(* XLEN refers to the width of an integer register in bits (either 32 or 64), see section 1.3) *)
+module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)(Isa: sig val xlen: int end) =
 struct
 
   type ctx_t = unit
@@ -37,7 +40,8 @@ struct
 
   module Imports = RiscVImports.Make(Domain)(Stubs)
 
-                   (************************************************************************)
+ 
+  (************************************************************************)
   (* Creation of the general purpose registers *)
   (************************************************************************)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
