@@ -37,6 +37,7 @@ ML=\
   disassembly/armv7Imports.ml\
   disassembly/armv8aImports.ml\
   disassembly/powerpcImports.ml\
+  disassembly/riscVImports.ml\
   frontend/lexer.ml\
   frontend/parser.ml\
   domains/env.ml\

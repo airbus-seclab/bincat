@@ -31,7 +31,7 @@ struct
 
   let cdecl_calling_convention () = {
     return = reg "eax" ;
-    callee_cleanup = (fun _x -> [ ]) ;
+    callee_cleanup = (fun _x -> []) ;
     arguments = function
     | n -> M (BinOp (Add,
                      Lval (reg "esp"),

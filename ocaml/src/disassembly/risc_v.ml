@@ -21,7 +21,14 @@ https://github.com/riscv/riscv-isa-manual/releases/download/Ratified-IMAFDQC/ris
 module L = Log.Make(struct let name = "risc_v" end)
 
 (* XLEN refers to the width of an integer register in bits (either 32 or 64), see section 1.3) *)
-module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)(Isa: sig val xlen: int end) =
+
+(* 32I ISA *)
+module I32 = struct let xlen = 32 end
+
+(* 64I ISA *)
+module I64 = struct let xlen = 64 end
+           
+module Make(Isa: sig val xlen: int end)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
 struct
 
   type ctx_t = unit
@@ -40,10 +47,21 @@ struct
 
   module Imports = RiscVImports.Make(Domain)(Stubs)
 
+  type type_kind =
+    | R
+    | I
+    | S
+    | B
+    | U
+    | J
  
   (************************************************************************)
   (* Creation of the general purpose registers *)
   (************************************************************************)
+
+  (* correspondence between ABI mnemonics and actual registers can be found
+     here: https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#named-abis
+   *)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
   (*  let x0 = Register.make ~name:"x0" ~size:Isa.xlen;; (* hardcoded to zero *) see Vol I*)
   let x1 = Register.make ~name:"x1" ~size:Isa.xlen;;
@@ -78,15 +96,46 @@ struct
   let x30 = Register.make ~name:"x30" ~size:Isa.xlen;;
   let x31 = Register.make ~name:"x31" ~size:Isa.xlen;;
 
-  let get_opcode str =
-    String.get str 25
+
+  (* convert a string of bits into an integer array *)
+  let fill_bit_array bit_array str len =
+    let convert (c: char): int =
+      match c with
+      | '0' -> 0
+      | '1' -> 1
+      | _ -> L.abort (fun p -> p "invalid bit char")
+    in
+    (* we revert the bit orders to get the number as in the spec, ie the first bit of the string is numbered 31 while the last bit of the string is the zeroth bit *)
+    String.iteri (fun i c -> Array.set bit_array (convert c) (len-i)) str;;
+
+  (* opcode is bits 6 to 0 *)
+  let get_opcode (bit_array: int Array.t): int =
+    let rec acc res n =
+      if n = 0 then
+        res + bit_array.(n)
+      else
+        acc (res lsl 1 + bit_array.(n)) (n-1)
+    in
+    acc 0 6
+
+ 
+  let i_type opcode = failwith "not yet implemented"
+
+  (** fatal error reporting *)
+  let error a msg =
+    L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
     
-  let decode s instr_sz: Cfa.State.t * Data.Address.t =
+  let decode s: Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
-    let opcode = get_opcode str in
-      match str with
+    let len = String.length str in
+    let bit_array = Array.make len 0 in
+    fill_bit_array bit_array str len;
+    let opcode = get_opcode bit_array in
+    match opcode with
+    | 0b0000011 -> (* I-type *) i_type opcode
+    | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     
-  let parse text cfg _ctx state addr oracle =
+  let parse text cfg _ctx state addr _oracle =
      let s =  {
       g = cfg;
       b = state;
@@ -96,16 +145,15 @@ struct
     }
     in
     try
-      let v' = decode s A in
-      let ip' = Data.Address.add_offset addr (s.addr_sz/8) in
+      let v' = decode s in
+      let ip' = Data.Address.add_offset addr (Z.of_int (s.addr_sz/8)) in
       Some (v', ip', ())
     with
     | Exceptions.Error _ as e -> raise e
     | _  -> (*end of buffer *) None
 
 let init_registers () = ()
-  let init () =
-    Imports.init ()
+let init () = Imports.init ()
 
-  let overflow_expression () = Failwith "Not implemented" (* see comment section 2.4, Vol 1 *)
+let overflow_expression () = failwith "Not implemented" (* see comment section 2.4, Vol 1 *)
 end

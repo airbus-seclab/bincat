@@ -114,6 +114,7 @@ type call_conv_t =
   | SVR (* PowerPC *)
   | SYSV (* x64 SystemV *)
   | MS (* x64 Microsoft *)
+  | RISCVI (* risc v without floating point hardware *)
 
 let call_conv_to_string cc =
   match cc with
@@ -124,6 +125,7 @@ let call_conv_to_string cc =
   | SVR -> "SVR"
   | SYSV -> "SYSV"
   | MS -> "MS"
+  | RISCVI -> "RISC V integer"
 
 (* MPX extension *)
 let mpx = ref false
