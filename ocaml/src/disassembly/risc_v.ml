@@ -48,12 +48,8 @@ struct
   module Imports = RiscVImports.Make(Domain)(Stubs)
 
   type type_kind =
-    | R
-    | I
-    | S
-    | B
-    | U
-    | J
+    | R | I | S
+    | B | U | J
  
   (************************************************************************)
   (* Creation of the general purpose registers *)
@@ -109,15 +105,43 @@ struct
     String.iteri (fun i c -> Array.set bit_array (convert c) (len-i)) str;;
 
   (* opcode is bits 6 to 0 *)
-  let get_opcode (bit_array: int Array.t): int =
-    let rec acc res n =
+  let get_opcode (bits: int Array.t): int =
+    let rec acc n =
       if n = 0 then
-        res + bit_array.(n)
+        bits.(n)
       else
-        acc (res lsl 1 + bit_array.(n)) (n-1)
+        bits.(n) lsl n + (acc (n-1))
     in
-    acc 0 6
+    acc 6
 
+  (* returns the sign extension on len bits of the bit b *)
+  let sign_extend b o len =
+    let rec acc n =
+      if n < len then
+        b lsl (o+n) + (acc (n+1))
+      else 0
+    in
+    if b = 0 then b
+    else acc 0
+    
+  (* returns an int from the b-th to u-th bits of bit_array left-shifted by o *)
+  let get_range_immediate bits o l u =
+    let rec acc i =
+      if i > u then 0
+      else
+        bits.(i) lsl (i+o) + (acc (i-1))
+    in
+    acc l
+
+  (* figure 2.4 *)
+  let get_immediate kind bits =
+    match kind with
+    | I -> bits.(20) + (get_range_immediate bits 1 21 24) + (get_range_immediate bits 5 25 30) + (sign_extend bits.(31) 11 21)  
+    | S -> bits.(7) + (get_range_immediate bits 1 8 11) + (get_range_immediate bits 5 25 30) + (sign_extend bits.(31) 11 21) 
+    | B -> (* 0 + *) (get_range_immediate bits 1 8 11) + (get_range_immediate bits 5 25 30) + (bits.(7) lsl 11) + (sign_extend bits.(31) 12 20) 
+    | U -> (* 0 on 12 bits + *) (get_range_immediate bits 12 19 12) + (get_range_immediate bits 20 30 20) + (bits.(31) lsl 31)
+    | J -> (* 0 + *) (get_range_immediate bits 21 24 1) + (get_range_immediate bits 25 30 5) + (bits.(20) lsl 6) + (get_range_immediate bits 12 19 12) + (sign_extend bits.(31) 20 12)
+    | R -> L.abort (fun p -> p "no R-immediate defined in the spec")  
  
   let i_type opcode = failwith "not yet implemented"
 
