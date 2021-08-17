@@ -26,6 +26,7 @@ ML=\
   data-struct/mapped_mem.ml\
   loaders/manual.ml\
   loaders/raw.ml\
+  loaders/ihex.ml\
   loaders/elf_core.ml\
   loaders/elf.ml\
   loaders/elf_coredump.ml\

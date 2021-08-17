@@ -101,6 +101,7 @@ let _ =
     "elfobj", ELFOBJ;
     "manual", MANUAL;
     "raw", RAW;
+    "ihex", IHEX;
     "mode", MODE;
     "protected", PROTECTED;
     "real", REAL;

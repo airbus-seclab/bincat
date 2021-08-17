@@ -90,6 +90,7 @@ module IEnv(Stubs: Stubs.T) = struct
       match !Config.format with
       | Config.PE -> L.abort (fun p -> p "PE file format not implemented yet")
       | Config.ELF | Config.ELFOBJ -> Elf.make_mapped_mem
+      | Config.IHEX -> Ihex.make_mapped_mem
       | Config.RAW -> Raw.make_mapped_mem
       | Config.MANUAL -> Manual.make_mapped_mem
     in

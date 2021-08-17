@@ -43,6 +43,7 @@ let memory_model = ref Flat
 type format_t =
   | RAW          (** no structure ; codes begins at phys_code_addr and is loader at rva_code *)
   | MANUAL       (** uses [sections] to map file in virtual mem *)
+  | IHEX         (** Intel HEX format *)
   | PE
   | ELF
   | ELFOBJ
