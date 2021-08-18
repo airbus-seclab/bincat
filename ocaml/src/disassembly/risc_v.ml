@@ -59,7 +59,7 @@ struct
      here: https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#named-abis
    *)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
-  (*  let x0 = Register.make ~name:"x0" ~size:Isa.xlen;; (* hardcoded to zero *) see Vol I*)
+  let x0 = Register.make ~name:"x0" ~size:Isa.xlen;; (* hardcoded to zero *)
   let x1 = Register.make ~name:"x1" ~size:Isa.xlen;;
   let x2 = Register.make ~name:"x2" ~size:Isa.xlen;;
   let x3 = Register.make ~name:"x3" ~size:Isa.xlen;;
@@ -92,6 +92,15 @@ struct
   let x30 = Register.make ~name:"x30" ~size:Isa.xlen;;
   let x31 = Register.make ~name:"x31" ~size:Isa.xlen;;
 
+  let reg_tbl = Hashtbl.create 32;;
+
+  List.iteri (fun i reg -> Hashtbl.add reg_tbl i reg) [
+      x0; x1; x2; x3; x4; x5; x6; x7; x8; x9; x10; x11; x12; x13; x14;
+      x15; x16; x17; x18; x19; x20; x21; x22; x23; x24; x25; x26; x27;
+      x28; x29; x30; x31 ];;
+
+  let get_register (i: int): lval = V ( T(Hashtbl.find reg_tbl i))
+                                  
 
   (* convert a string of bits into an integer array *)
   let fill_bit_array bit_array str len =
@@ -140,23 +149,46 @@ struct
     | S -> bits.(7) + (get_range_immediate bits 1 8 11) + (get_range_immediate bits 5 25 30) + (sign_extend bits.(31) 11 21) 
     | B -> (* 0 + *) (get_range_immediate bits 1 8 11) + (get_range_immediate bits 5 25 30) + (bits.(7) lsl 11) + (sign_extend bits.(31) 12 20) 
     | U -> (* 0 on 12 bits + *) (get_range_immediate bits 12 19 12) + (get_range_immediate bits 20 30 20) + (bits.(31) lsl 31)
-    | J -> (* 0 + *) (get_range_immediate bits 21 24 1) + (get_range_immediate bits 25 30 5) + (bits.(20) lsl 6) + (get_range_immediate bits 12 19 12) + (sign_extend bits.(31) 20 12)
+    | J -> (* 0 + *)
+       (get_range_immediate bits 21 24 1) + (get_range_immediate bits 25 30 5) +
+         (bits.(20) lsl 6) + (get_range_immediate bits 12 19 12) + (sign_extend bits.(31) 20 12)
     | R -> L.abort (fun p -> p "no R-immediate defined in the spec")  
  
-  let i_type opcode = failwith "not yet implemented"
+
+  (* figure 2.3, row B-type *)
+  let b_decode bits =                  
+    let funct3 = get_immediate_range bits 12 14 0 in
+    let rs1 = get_immediate_range bits 15 19 0 in
+    let rs2 = get_immediate_range bits 20 24 0 in
+    let offset = get_immediate B bits in
+    offset, rs1, rs2, offset
 
   (** fatal error reporting *)
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
-    
+
+  let comparison bits =
+    let offset, rs1, rs2, func3 = b_decode bits in
+    let bop =
+      match func3 with
+      | 0b000 -> (* beq *) EQ
+      | 0b001 -> (* bne *) NEQ
+      | 0b100 -> (* blt *) LT
+      | 0b101 -> (* bge *) GE
+      | 0b110 -> (* bltu *) LT
+      | 0b111 -> (* bgeu *) GEQ
+      | _ -> L.abort (p -> p "undefined comparison opcode ")
+    in
+    return s [Cmp(bop, ?, ?)]
+      
   let decode s: Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
-    let bit_array = Array.make len 0 in
-    fill_bit_array bit_array str len;
-    let opcode = get_opcode bit_array in
+    let bits = Array.make len 0 in
+    fill_bit_array bits str len;
+    let opcode = get_opcode bits in
     match opcode with
-    | 0b0000011 -> (* I-type *) i_type opcode
+    | 0b1100011 -> comparison bits
     | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     
   let parse text cfg _ctx state addr _oracle =

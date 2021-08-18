@@ -51,6 +51,8 @@ type cmp =
   | LT  (** strictly less than *)
   | GEQ (** greater than or equal to *)
   | GT  (** strictly greater than *)
+  | GES (** signed greater than or equal to *)
+  | LTS (** signed less than *)
 
   (** logical binary operators *)
 type logbinop =
@@ -170,6 +172,8 @@ let string_of_cmp c =
   | LT  -> "<"
   | GEQ -> ">="
   | GT  -> ">"
+  | LTS -> "<"
+  | GES -> ">="
 
 
 let string_of_logbinop o =
