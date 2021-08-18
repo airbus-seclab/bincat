@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -399,7 +399,7 @@ module Make(V: Val) =
         v
           
           
-    let lt_core v1 v2 final =
+    let lt_core v1 v2 final is_signed =
       let lv1 = Array.length v1 in
       let lv2 = Array.length v2 in
       if lv1 <> lv2 then
@@ -413,16 +413,24 @@ module Make(V: Val) =
             | Some b -> b
             | None -> rec_lt v1 v2 (i+1)
         in
-        let res = rec_lt v1 v2 0 in
-        L.debug2 (fun p -> p "lt_core %s %s %s = %b"
-          (to_string v1) (if final then "<=" else "<")
-          (to_string v2) res);
-        res
+        (* check whether v1 and v2 have the same sign *)
+        if not i_signed then
+          rec_lt v1 v2 0
+        else
+          let v1_sign = v1.(0) in
+          let v2_sign = v2.(0) in
+          (* correct as the comparison is performed only on bit values and not their taints, 
+             see Reduced_bit_taing.compare *)
+          if V.compare v1.(0) v2.(0) then
+            rec_lt v1 v2 0
+          else
+            (* signs are different *)
+            V.is_one v1.(0)
           
-    let lt v1 v2 = lt_core v1 v2 false
-    let leq v1 v2 = lt_core v1 v2 true
-    let gt v1 v2 = lt v2 v1
-    let geq v1 v2 = leq v2 v1
+    let lt v1 v2 is_signed = lt_core v1 v2 false is_signed
+    let leq v1 v2 is_signed = lt_core v1 v2 true is_signed
+    let gt v1 v2 = lt v2 v1 false
+    let geq v1 v2 is_signed = leq v2 v1 is_signed
 
     let compare v1 op v2 =
       L.debug2 (fun p -> p "compare %s %s %s" (to_string v1) (Asm.string_of_cmp op) (to_string v2));
@@ -433,10 +441,12 @@ module Make(V: Val) =
       match op with
       | Asm.EQ  -> for_all2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
       | Asm.NEQ -> exist2 (fun b1 b2 -> V.compare b1 op b2) v1 v2
-      | Asm.LT -> lt v1 v2
-      | Asm.LEQ -> leq v1 v2
+      | Asm.LT -> lt v1 v2 false
+      | Asm.LEQ -> leq v1 v2 false
       | Asm.GT -> gt v1 v2
-      | Asm.GEQ -> geq v1 v2
+      | Asm.GEQ -> geq v1 v2 false
+      | Asm.LTS -> lt v1 v2 true
+      | Asm.GEQS -> geq v1 v2 true
          
     let add v1 v2 =
       let res = core_add_sub V.add v1 v2 in
