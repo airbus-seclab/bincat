@@ -414,14 +414,12 @@ module Make(V: Val) =
             | None -> rec_lt v1 v2 (i+1)
         in
         (* check whether v1 and v2 have the same sign *)
-        if not i_signed then
+        if not is_signed then
           rec_lt v1 v2 0
         else
-          let v1_sign = v1.(0) in
-          let v2_sign = v2.(0) in
           (* correct as the comparison is performed only on bit values and not their taints, 
              see Reduced_bit_taing.compare *)
-          if V.compare v1.(0) v2.(0) then
+          if V.compare v1.(0) Asm.EQ v2.(0) then
             rec_lt v1 v2 0
           else
             (* signs are different *)
@@ -446,7 +444,7 @@ module Make(V: Val) =
       | Asm.GT -> gt v1 v2
       | Asm.GEQ -> geq v1 v2 false
       | Asm.LTS -> lt v1 v2 true
-      | Asm.GEQS -> geq v1 v2 true
+      | Asm.GES -> geq v1 v2 true
          
     let add v1 v2 =
       let res = core_add_sub V.add v1 v2 in
@@ -651,7 +649,7 @@ module Make(V: Val) =
             let rem = ref v1 in
             for i = !msb1 downto 0 do
               let sv2 = ishl v2_ext i in
-              if geq !rem sv2 then
+              if geq !rem sv2 false then
                 begin
                   rem := sub !rem sv2;
                   quo.(lv1-i-1) <- V.one;
