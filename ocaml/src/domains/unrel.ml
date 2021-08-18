@@ -434,6 +434,8 @@ module Make(D: T) =
       | Asm.GEQ -> Asm.LT
       | Asm.LEQ -> Asm.GT
       | Asm.GT  -> Asm.LEQ
+      | Asm.GES -> Asm.LTS
+      | Asm.LTS -> Asm.GES
 
 
 
