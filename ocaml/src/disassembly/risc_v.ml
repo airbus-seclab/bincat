@@ -173,11 +173,11 @@ struct
       match func3 with
       | 0b000 -> (* beq *) EQ
       | 0b001 -> (* bne *) NEQ
-      | 0b100 -> (* blt *) LT
-      | 0b101 -> (* bge *) GE
+      | 0b100 -> (* blt *) LTS
+      | 0b101 -> (* bge *) GES
       | 0b110 -> (* bltu *) LT
       | 0b111 -> (* bgeu *) GEQ
-      | _ -> L.abort (p -> p "undefined comparison opcode ")
+      | _ -> L.abort (fun p -> p "undefined comparison opcode ")
     in
     return s [Cmp(bop, ?, ?)]
       
