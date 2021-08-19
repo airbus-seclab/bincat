@@ -125,16 +125,7 @@ struct
     in
     acc 6
 
-  (* returns the sign extension on len bits of the bit b *)
-  let sign_extend b o len =
-    let rec acc n =
-      if n < len then
-        b lsl (o+n) + (acc (n+1))
-      else 0
-    in
-    if b = 0 then b
-    else acc 0
-    
+ 
   (* returns an int from the b-th to u-th bits of bit_array left-shifted by o *)
   let get_range_immediate bits o l u =
     let rec acc i =
@@ -144,16 +135,55 @@ struct
     in
     acc l
 
+  let get_z_immediate bits o l u = Z.of_int (get_range_immediate bits o l u)
+
   (* figure 2.4 *)
+  let i_immediate bits =
+    let z1 = Z.of_int bits.(20) in
+    let z2 = get_z_immediate bits 1 21 24 in
+    let z3 = get_z_immediate bits 5 25 30 in
+    let z4 = Z.of_int (bits.(31) lsl 11) in
+    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
+    sign_extension z 12 32
+
+  let s_immediate bits =
+    let z1 = Z.of_int bits.(7) in
+    let z2 = get_z_immediate bits 1 8 11 in
+    let z3 = get_z_immediate bits 5 25 30 in
+    let z4 = Z.of_int (bits.(31) lsl 11) in
+    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
+    sign_extension z 12 32
+
+  let b_immediate bits =
+    let z1 = get_z_immediate bits 1 8 11 in
+    let z2 = get_z_immediate bits 5 25 30 in
+    let z3 = Z.of_int (bits.(7) lsl 11) in
+    let z4 = Z.of_int (bits.(31) lsl 12) in
+    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
+    sign_extension z 13 32
+
+  let u_immediate bits =
+    let z1 = get_z_immediate bits 12 19 12 in
+    let z2 = get_z_immediate bits 20 30 20 in
+    let z3 = Z.of_int (bits.(31) lsl 31) in
+    List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3]
+    
+  let j_immediate bits =
+    let z1 = get_z_immediate bits 21 24 1 in
+    let z2 = get_z_immediate bits 25 30 5 in
+    let z3 = Z.of_int (bits.(20) lsl 6) in
+    let z4 = get_z_immediate bits 12 19 12 in
+    let z5 = Z.of_int (bits.(31) lsl 20) in
+    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4; z5] in
+    sign_extension z 21 32
+                       
   let get_immediate kind bits =
     match kind with
-    | I -> bits.(20) + (get_range_immediate bits 1 21 24) + (get_range_immediate bits 5 25 30) + (sign_extend bits.(31) 11 21)  
-    | S -> bits.(7) + (get_range_immediate bits 1 8 11) + (get_range_immediate bits 5 25 30) + (sign_extend bits.(31) 11 21) 
-    | B -> (* 0 + *) (get_range_immediate bits 1 8 11) + (get_range_immediate bits 5 25 30) + (bits.(7) lsl 11) + (sign_extend bits.(31) 12 20) 
-    | U -> (* 0 on 12 bits + *) (get_range_immediate bits 12 19 12) + (get_range_immediate bits 20 30 20) + (bits.(31) lsl 31)
-    | J -> (* 0 + *)
-       (get_range_immediate bits 21 24 1) + (get_range_immediate bits 25 30 5) +
-         (bits.(20) lsl 6) + (get_range_immediate bits 12 19 12) + (sign_extend bits.(31) 20 12)
+    | I -> i_immediate bits
+    | S -> s_immediate bits
+    | B -> b_immediate bits
+    | U -> u_immediate bits 
+    | J -> j_immediate bits
     | R -> L.abort (fun p -> p "no R-immediate defined in the spec")  
  
 
@@ -163,7 +193,7 @@ struct
     let rs1 = get_range_immediate bits 15 19 0 in
     let rs2 = get_range_immediate bits 20 24 0 in
     let offset = get_immediate B bits in
-    offset, rs1, rs2, offset
+    offset, rs1, rs2, funct3
 
   (** fatal error reporting *)
   let error a msg =
@@ -188,8 +218,8 @@ struct
     in
     (* page 22: the offset is signed-extended and added to the address of the 
        branch instruction to give the target address *)
-    let a' = Address.add_offset s.a (sign_extend offset) in
-    [If (Cmp(bop, get_register rs1, get_register rs2), [Jmp (A a')], [Nop])]
+    let a' = Address.add_offset s.a (sign_extension offset 12 32) in
+    [If (Cmp(bop, Lval (get_register rs1), Lval (get_register rs2)), [Jmp (A a')], [Nop])]
       
   let decode s: Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
