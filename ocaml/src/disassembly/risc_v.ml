@@ -35,6 +35,8 @@ struct
 
   open Data
   open Asm
+  open Decodeutils
+     
   module Cfa = Cfa.Make(Domain)
              
   type state = {
@@ -169,10 +171,10 @@ struct
 
   let return s stmts str =
     s.b.Cfa.State.stmts <- stmts;
-    s.b.Cfa.State.bytes <- Disas.string_to_char_list str;
+    s.b.Cfa.State.bytes <- string_to_char_list str;
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
     
-  let comparison bits =
+  let comparison s bits =
     let offset, rs1, rs2, func3 = b_decode bits in
     let bop =
       match func3 with
@@ -186,9 +188,8 @@ struct
     in
     (* page 22: the offset is signed-extended and added to the address of the 
        branch instruction to give the target address *)
-    let ip = Address.add_offset s.a (Z.of_int s.o) in
-    let a' = Address.add_offset ip (sign_extend offset) in
-    [If (Cmp(bop, get_register rs1, get_register rs2), [Jmp (A a')], [Jmp (A ip)])]
+    let a' = Address.add_offset s.a (sign_extend offset) in
+    [If (Cmp(bop, get_register rs1, get_register rs2), [Jmp (A a')], [Nop])]
       
   let decode s: Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
@@ -198,7 +199,7 @@ struct
     let opcode = get_opcode bits in
     let stmts =
       match opcode with
-      | 0b1100011 -> comparison bits
+      | 0b1100011 -> comparison s bits
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
     return s str stmts

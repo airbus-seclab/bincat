@@ -32,7 +32,6 @@ ML=\
   disassembly/decodeutils.ml\
   fixpoint/stubs.ml\
   fixpoint/rules.ml\
-  disassembly/disas.ml\
   disassembly/x86Imports.ml\
   disassembly/x64Imports.ml\
   disassembly/armv7Imports.ml\

@@ -186,7 +186,7 @@ struct
 
   let return (s: state) (str: string) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
-    s.b.Cfa.State.bytes <- Disas.string_to_char_list str;
+    s.b.Cfa.State.bytes <- string_to_char_list str;
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
 
   (******************************)
