@@ -42,7 +42,7 @@ struct
     mutable b: Cfa.State.t; (** state predecessor *)
     a: Address.t; (** current address to decode *)
     buf: string; (** buffer to decode *)
-    mutable addr_sz: int; (** address size in bits *)
+    mutable operand_sz: int; (** operand size in bits *)
     }
 
   module Imports = RiscVImports.Make(Domain)(Stubs)
@@ -157,9 +157,9 @@ struct
 
   (* figure 2.3, row B-type *)
   let b_decode bits =                  
-    let funct3 = get_immediate_range bits 12 14 0 in
-    let rs1 = get_immediate_range bits 15 19 0 in
-    let rs2 = get_immediate_range bits 20 24 0 in
+    let funct3 = get_range_immediate bits 12 14 0 in
+    let rs1 = get_range_immediate bits 15 19 0 in
+    let rs2 = get_range_immediate bits 20 24 0 in
     let offset = get_immediate B bits in
     offset, rs1, rs2, offset
 
@@ -167,6 +167,11 @@ struct
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
+  let return s stmts str =
+    s.b.Cfa.State.stmts <- stmts;
+    s.b.Cfa.State.bytes <- Disas.string_to_char_list str;
+    s.b, Data.Address.add_offset s.a (Z.of_int 4)
+    
   let comparison bits =
     let offset, rs1, rs2, func3 = b_decode bits in
     let bop =
@@ -177,9 +182,13 @@ struct
       | 0b101 -> (* bge *) GES
       | 0b110 -> (* bltu *) LT
       | 0b111 -> (* bgeu *) GEQ
-      | _ -> L.abort (fun p -> p "undefined comparison opcode ")
+      | _ -> L.abort (fun p -> p "undefined comparison opcode")
     in
-    return s [Cmp(bop, ?, ?)]
+    (* page 22: the offset is signed-extended and added to the address of the 
+       branch instruction to give the target address *)
+    let ip = Address.add_offset s.a (Z.of_int s.o) in
+    let a' = Address.add_offset ip (sign_extend offset) in
+    [If (Cmp(bop, get_register rs1, get_register rs2), [Jmp (A a')], [Jmp (A ip)])]
       
   let decode s: Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
@@ -187,9 +196,12 @@ struct
     let bits = Array.make len 0 in
     fill_bit_array bits str len;
     let opcode = get_opcode bits in
-    match opcode with
-    | 0b1100011 -> comparison bits
-    | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
+    let stmts =
+      match opcode with
+      | 0b1100011 -> comparison bits
+      | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
+    in
+    return s str stmts
     
   let parse text cfg _ctx state addr _oracle =
      let s =  {
@@ -197,12 +209,11 @@ struct
       b = state;
       a = addr;
       buf = text;
-      addr_sz = Isa.xlen;
+      operand_sz = Isa.xlen;
     }
     in
     try
-      let v' = decode s in
-      let ip' = Data.Address.add_offset addr (Z.of_int (s.addr_sz/8)) in
+      let v', ip' = decode s in
       Some (v', ip', ())
     with
     | Exceptions.Error _ as e -> raise e

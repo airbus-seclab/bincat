@@ -176,15 +176,7 @@ struct
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
-  let string_to_char_list str =
-    let len = String.length str in
-    let rec process i =
-      if i < len then
-        (String.get str i)::(process (i+1))
-      else
-        []
-    in
-    List.rev (process 0)
+  
 
   let build_instruction (str: string): int =
     (Char.code (String.get str 0))
@@ -194,7 +186,7 @@ struct
 
   let return (s: state) (str: string) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
     s.b.Cfa.State.stmts <- stmts;
-    s.b.Cfa.State.bytes <- string_to_char_list str;
+    s.b.Cfa.State.bytes <- Disas.string_to_char_list str;
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
 
   (******************************)
