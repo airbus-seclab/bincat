@@ -1040,5 +1040,5 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
     Imports.init ()
 
   let overflow_expression () = Lval (V (T vflag))
-  let init_registers () = ()
+  let init_registers () = []
 end

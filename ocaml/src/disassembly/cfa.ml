@@ -83,7 +83,7 @@ sig
   val create: unit -> t
 
   (** [init_state addr] creates a state whose ip field is _addr_ *)
-  val init_state: Data.Address.t -> (int -> Asm.stmt list) -> State.t
+  val init_state: Data.Address.t -> (Register.t * Data.Word.t) list -> (int -> Asm.stmt list) -> State.t
 
   (** [add_state cfg state] adds the state _state_ from the CFG _cfg_ *)
   val add_state: t -> State.t -> unit
@@ -128,7 +128,7 @@ sig
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
 
-  val init_abstract_value: Data.Address.t -> domain * Taint.Set.t
+  val init_abstract_value: Data.Address.t -> (Register.t * Data.Word.t) list -> domain * Taint.Set.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
   val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t
@@ -275,16 +275,22 @@ struct
     let d', taint3 = init_heap ip d' !Config.heap_content in
     d', Taint.Set.union taint3 (Taint.Set.union taint2 taint1)
 
-    let init_abstract_value ip =
-      let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+  let init_abstract_value ip init_reg =
+    let d  = List.fold_left (fun d r ->
+                 let exp =
+                   try
+                     Some (List.assoc r init_reg)
+                   with Not_found -> None
+                 in
+                 Domain.add_register r d exp) (Domain.init()) (Register.used()) in
       update_abstract_value ip d
 
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
     
-  let init_state (ip: Data.Address.t) default_handlers: State.t =
-    let d', _taint = init_abstract_value ip in
+  let init_state (ip: Data.Address.t) init_reg default_handlers: State.t =
+    let d', _taint = init_abstract_value ip init_reg in
     {
       id = 0;
       ip = ip;

@@ -111,7 +111,7 @@ struct
         | Jmp _
         | Nop -> d, Taint.Set.singleton Taint.U
         | Directive (Forget _) -> d, Taint.Set.singleton Taint.U
-        | Directive (Remove r) -> D.add_register r d, Taint.Set.singleton Taint.U
+        | Directive (Remove r) -> D.add_register r d None, Taint.Set.singleton Taint.U
         | Directive (Taint _) -> D.forget d, Taint.Set.singleton Taint.TOP
         | Directive (Type _) -> D.forget d, Taint.Set.singleton Taint.U
         | Directive (Unroll _) -> d, Taint.Set.singleton Taint.U

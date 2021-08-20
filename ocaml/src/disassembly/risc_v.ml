@@ -257,7 +257,8 @@ struct
     | Exceptions.Error _ as e -> raise e
     | _  -> (*end of buffer *) None
 
-let init_registers () = ()
+  let init_registers () = (); [x0, Data.Word.of_int Z.zero Isa.xlen]
+                          
 let init () = Imports.init ()
 
 let overflow_expression () = failwith "Not implemented" (* see comment section 2.4, Vol 1 *)

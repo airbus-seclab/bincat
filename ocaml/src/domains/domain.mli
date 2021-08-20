@@ -46,8 +46,8 @@ module type T =
       (** forget the value of the given lvalue (ie set to top) *)
       val forget_lval: Asm.lval -> t -> t
 
-      (** add the given register to the given abstract value *)
-      val add_register: Register.t -> t -> t
+      (** add the given register to the given abstract value with an optional initial value *)
+      val add_register: Register.t -> t -> Data.Word.t option -> t
 
       (** string conversion. The int parameter is an id to be added to the generated string *)
       val to_string: t -> int -> string list

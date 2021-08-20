@@ -224,8 +224,8 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
           (* 6: generate code *)
          (* 7: generate the initial cfa with only an initial state *)
          let ep' = Data.Address.of_int Data.Address.Global !Config.ep !Config.address_sz in
-         Interpreter.make_registers();
-         let s = Interpreter.Cfa.init_state ep' Stubs.default_handler in
+         let init_reg = Interpreter.make_registers() in
+         let s = Interpreter.Cfa.init_state ep' init_reg Stubs.default_handler in
          let g = Interpreter.Cfa.create () in
          Interpreter.Cfa.add_state g s;
          let cfa =
