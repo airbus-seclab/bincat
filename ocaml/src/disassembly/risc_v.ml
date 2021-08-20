@@ -175,7 +175,7 @@ struct
     let z3 = Z.of_int (bits.(31) lsl 31) in
     List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3]
     
-  let j_immediate bits =
+  let j_immediate bits: Z.t =
     let z1 = get_z_immediate bits 21 24 1 in
     let z2 = get_z_immediate bits 25 30 5 in
     let z3 = Z.of_int (bits.(20) lsl 6) in
@@ -202,6 +202,12 @@ struct
     let offset = get_immediate B bits in
     offset, rs1, rs2, funct3
 
+  (* figure 2.3, row J-type *)
+  let j_decode bits =
+    let rd = get_range_immediate bits 7 11 0 in
+    let imm = get_immediate J bits in
+    rd, imm
+    
   (** fatal error reporting *)
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
@@ -225,9 +231,21 @@ struct
     in
     (* page 22: the offset is signed-extended and added to the address of the 
        branch instruction to give the target address *)
-    let a' = Address.add_offset s.a (sign_extension offset 12 32) in
+    let a' = Address.add_offset s.a offset in
     [If (Cmp(bop, Lval (get_register rs1), Lval (get_register rs2)), [Jmp (A a')], [Nop])]
-      
+
+  let jal s bits =
+    let rd, imm = j_decode bits in
+    let a = Data.Address.add_offset s.a imm in
+    if rd = 0 then
+      (* unconditional jump *)
+      [Jmp (A a)]
+    else
+      (* call *)
+      let a' = Data.Address.add_offset s.a (Z.of_int 4) in
+      [Set(get_register rd, Const (Data.Address.to_word a' Isa.xlen));
+       Call (A a)]
+    
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
@@ -237,6 +255,9 @@ struct
     let stmts =
       match opcode with
       | 0b1100011 -> comparison s bits
+
+      | 0b1100111 -> jal s bits
+                   
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
     return s str stmts
@@ -261,5 +282,6 @@ struct
                           
 let init () = Imports.init ()
 
+                   
 let overflow_expression () = failwith "Not implemented" (* see comment section 2.4, Vol 1 *)
 end
