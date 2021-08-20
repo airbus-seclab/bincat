@@ -216,6 +216,12 @@ struct
     let rs1 = get_range_immediate bits 15 19 0 in
     let imm = get_immediate I bits in
     imm, rs1, funct3, rd
+
+  (* figure 2.3, row U-type *)
+  let u_decode bits =
+    let rd = get_range_immediate bits 7 11 0 in
+    let imm = get_immediate U bits in
+    imm, rd
     
   (** fatal error reporting *)
   let error a msg =
@@ -271,7 +277,13 @@ struct
       let a' = Data.Address.add_offset s.a (Z.of_int 4) in
       [Set(get_register rd, Const (Data.Address.to_word a' Isa.xlen));
        Call (R target)]
-          
+
+  let lui bits =
+    let imm, rd = u_decode bits in
+    if rd = 0 then []
+    else
+      [Set(get_register rd, const imm)]
+    
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
@@ -284,7 +296,8 @@ struct
 
       | 0b1100111 -> jal s bits
       | 0b1101111 -> jalr s bits
-                   
+
+      | 0b0110111 -> lui bits
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
     return s str stmts
