@@ -274,16 +274,22 @@ struct
     if rd = 0 then
       [Jmp (R target)]
     else
-      let a' = Data.Address.add_offset s.a (Z.of_int 4) in
-      [Set(get_register rd, Const (Data.Address.to_word a' Isa.xlen));
+      let a' = Z.add (Data.Address.to_int s.a) (Z.of_int 4) in
+      [Set(get_register rd, const a');
        Call (R target)]
 
   let lui bits =
     let imm, rd = u_decode bits in
     if rd = 0 then []
+    else [ Set (get_register rd, const imm) ]
+
+  let auipc s bits =
+    let imm, rd = u_decode bits in
+    if rd = 0 then []
     else
-      [Set(get_register rd, const imm)]
-    
+      let c = Z.add (Data.Address.to_int s.a) imm in
+      [ Set(get_register rd, const c) ]
+      
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
@@ -298,6 +304,8 @@ struct
       | 0b1101111 -> jalr s bits
 
       | 0b0110111 -> lui bits
+      | 0b0010111 -> auipc s bits
+                   
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
     return s str stmts
