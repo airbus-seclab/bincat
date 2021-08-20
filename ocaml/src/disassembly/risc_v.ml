@@ -60,10 +60,16 @@ struct
   (* correspondence between ABI mnemonics and actual registers can be found
      here: https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#named-abis
    *)
-  let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
+
+  (* page 14: There is no dedicated stack pointer or subroutine return address link register in the Base Integer
+     ISA; the instruction encoding allows any x register to be used for these purposes. However, the
+     standard software calling convention uses register x1 to hold the return address for a call, with
+     register x5 available as an alternate link register. The standard calling convention uses register
+     x2 as the stack pointer *)
+  let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 33;;
   let x0 = Register.make ~name:"x0" ~size:Isa.xlen;; (* hardcoded to zero *)
-  let x1 = Register.make ~name:"x1" ~size:Isa.xlen;;
-  let x2 = Register.make ~name:"x2" ~size:Isa.xlen;;
+  let x1 = Register.make ~name:"x1" ~size:Isa.xlen;; (* standard return address ; fallback is x5 *)
+  let x2 = Register.make ~name:"x2" ~size:Isa.xlen;; (* standard stack pointer *)
   let x3 = Register.make ~name:"x3" ~size:Isa.xlen;;
   let x4 = Register.make ~name:"x4" ~size:Isa.xlen;;
   let x5 = Register.make ~name:"x5" ~size:Isa.xlen;;
@@ -199,7 +205,7 @@ struct
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
-  let return s stmts str =
+  let return s str stmts =
     s.b.Cfa.State.stmts <- stmts;
     s.b.Cfa.State.bytes <- string_to_char_list str;
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
@@ -221,7 +227,7 @@ struct
     let a' = Address.add_offset s.a (sign_extension offset 12 32) in
     [If (Cmp(bop, Lval (get_register rs1), Lval (get_register rs2)), [Jmp (A a')], [Nop])]
       
-  let decode s: Cfa.State.t * Data.Address.t =
+  let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
     let bits = Array.make len 0 in
@@ -234,7 +240,7 @@ struct
     in
     return s str stmts
     
-  let parse text cfg _ctx state addr _oracle =
+  let parse (text: string) cfg _ctx state addr _oracle =
      let s =  {
       g = cfg;
       b = state;
