@@ -188,7 +188,6 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       | Config.POWERPC -> (module Powerpc.Make: Decoder.Make)
       | Config.RV32I -> (module Risc_v.Make(Risc_v.I32): Decoder.Make)
       | Config.RV64I -> (module Risc_v.Make(Risc_v.I64): Decoder.Make) 
-      | _ -> failwith "Decoder still in progress"
     in
     let module Decoder = (val decoder: Decoder.Make) in
     let module Stubs = Stubs.Make(Domain) in
