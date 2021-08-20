@@ -120,6 +120,7 @@ struct
     in
     (* we revert the bit orders to get the number as in the spec, ie the first bit of the string is numbered 31 while the last bit of the string is the zeroth bit *)
     String.iteri (fun i c -> Array.set bit_array (convert c) (len-i)) str;;
+  
 
   (* opcode is bits 6 to 0 *)
   let get_opcode (bits: int Array.t): int =
