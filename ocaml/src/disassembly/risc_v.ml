@@ -183,7 +183,8 @@ struct
     let z5 = Z.of_int (bits.(31) lsl 20) in
     let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4; z5] in
     sign_extension z 21 32
-                       
+
+  (* the result is signed-extended *)
   let get_immediate kind bits =
     match kind with
     | I -> i_immediate bits
@@ -207,6 +208,14 @@ struct
     let rd = get_range_immediate bits 7 11 0 in
     let imm = get_immediate J bits in
     rd, imm
+
+  (* figure 2.3, row I-type *)
+  let i_decode bits =
+    let rd = get_range_immediate bits 7 11 0 in
+    let funct3 = get_range_immediate bits 12 14 0 in
+    let rs1 = get_range_immediate bits 15 19 0 in
+    let imm = get_immediate I bits in
+    imm, rs1, funct3, rd
     
   (** fatal error reporting *)
   let error a msg =
@@ -234,6 +243,8 @@ struct
     let a' = Address.add_offset s.a offset in
     [If (Cmp(bop, Lval (get_register rs1), Lval (get_register rs2)), [Jmp (A a')], [Nop])]
 
+  let const z = Const (Data.Word.of_int z Isa.xlen)
+                 
   let jal s bits =
     let rd, imm = j_decode bits in
     let a = Data.Address.add_offset s.a imm in
@@ -245,7 +256,22 @@ struct
       let a' = Data.Address.add_offset s.a (Z.of_int 4) in
       [Set(get_register rd, Const (Data.Address.to_word a' Isa.xlen));
        Call (A a)]
-    
+
+  let jalr s bits =
+    let offset, rs1, _funct3, rd = i_decode bits in
+    (* The target address is obtained by adding the sign-extended 12-bit I-immediate 
+       to the register rs1, then setting the least-significant bit of the result to zero *)
+    let target = BinOp (And,
+                        BinOp(Add, Lval (get_register rs1), const offset),
+                        const (Z.of_int 0xFFFFFFFE))
+    in
+    if rd = 0 then
+      [Jmp (R target)]
+    else
+      let a' = Data.Address.add_offset s.a (Z.of_int 4) in
+      [Set(get_register rd, Const (Data.Address.to_word a' Isa.xlen));
+       Call (R target)]
+          
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
@@ -257,6 +283,7 @@ struct
       | 0b1100011 -> comparison s bits
 
       | 0b1100111 -> jal s bits
+      | 0b1101111 -> jalr s bits
                    
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
