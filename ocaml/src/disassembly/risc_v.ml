@@ -319,6 +319,38 @@ struct
         | _ -> L.abort (fun p -> p "undefined register immediate instruction")
       in
       [ Set (get_register rd, e) ]
+
+  let reg_reg bits =
+    let funct7, rs2, rs1, funct3, rd = r_decode bits in
+    if rd = 0 then
+      []
+    else
+      let rs1' = Lval(get_register rs1) in
+      let rs2' = Lval(get_register rs2) in
+      let binop op = BinOp(op, rs1', rs2') in
+      let ternop op = TernOp(Cmp(op, rs1', rs2'), const Z.one, const Z.zero) in
+      let reg_mask op = BinOp(op, rs1', BinOp(And, rs2', const (Z.of_int 0b101))) in
+      let e =
+        match funct7, funct3 with
+        | 0, 0 -> binop Add
+        | 32, 0 -> binop Sub
+        | 0, 1 -> (* sll *) reg_mask Shl
+        | 0, 2 -> (* slt *) ternop LTS
+        | 0, 3 -> (* sltu *)
+           if rs1 = 0 then
+             let c = Cmp(NEQ, rs2', const Z.zero) in
+             TernOp(c, const Z.one, const Z.zero)
+           else ternop LT
+          
+        | 0, 4 -> binop Xor
+        | 0, 5 -> (* srl *) reg_mask Shr
+        | 32, 5 -> (* sra *) failwith "not implemented"
+                           
+        | 0, 6 -> binop Or
+        | 0, 7 -> binop And
+        | _ -> L.abort (fun p -> p "undefined funct3, funct3 pairs in Register Register instruction")
+      in
+      [ Set (get_register rd, e)  ]
     
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
@@ -337,6 +369,8 @@ struct
       | 0b0010111 -> auipc s bits
 
       | 0b0010011 -> reg_imm bits
+
+      | 0b0110011 -> reg_reg bits
                    
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
