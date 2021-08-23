@@ -222,7 +222,16 @@ struct
     let rd = get_range_immediate bits 7 11 0 in
     let imm = get_immediate U bits in
     imm, rd
-    
+
+  (* figure 2.3, row R-type *)
+  let r_decode bits =
+    let funct7 = get_range_immediate bits 25 31 0 in
+    let rs2 = get_range_immediate bits 20 24 0 in
+    let rs1 = get_range_immediate bits 15 19 0 in
+    let funct3 = get_range_immediate bits 12 14 0 in
+    let rd = get_range_immediate bits 7 11 0 in
+    funct7, rs2, rs1, funct3, rd
+                                               
   (** fatal error reporting *)
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
@@ -289,7 +298,28 @@ struct
     else
       let c = Z.add (Data.Address.to_int s.a) imm in
       [ Set(get_register rd, const c) ]
-      
+
+  let reg_imm bits =
+    let imm, rs1, funct3, rd = i_decode bits in
+    if rd = 0 then
+      []
+    else
+      let rs1 = Lval (get_register rs1) in
+      let c = const imm in
+      let binop op = BinOp (op, rs1, c) in
+      let ternop op = TernOp (Cmp (op, rs1, c), const Z.one, const Z.zero) in 
+      let e =
+        match funct3 with
+        | 0 -> (* addi *) binop Add
+        | 2 -> (* slti *) ternop LTS
+        | 3 -> (* sltiu *) ternop LT
+        | 4 -> (* xori *) binop Xor
+        | 6 -> (* ori *) binop Or
+        | 7 -> (* andi *) binop And
+        | _ -> L.abort (fun p -> p "undefined register immediate instruction")
+      in
+      [ Set (get_register rd, e) ]
+    
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
@@ -305,6 +335,8 @@ struct
 
       | 0b0110111 -> lui bits
       | 0b0010111 -> auipc s bits
+
+      | 0b0010011 -> reg_imm bits
                    
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
