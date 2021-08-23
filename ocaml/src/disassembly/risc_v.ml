@@ -325,32 +325,41 @@ struct
     if rd = 0 then
       []
     else
-      let rs1' = Lval(get_register rs1) in
+      let r1 = Hashtbl.find reg_tbl rs1 in
+      let rs1' = Lval(V (T r1)) in
       let rs2' = Lval(get_register rs2) in
-      let binop op = BinOp(op, rs1', rs2') in
-      let ternop op = TernOp(Cmp(op, rs1', rs2'), const Z.one, const Z.zero) in
-      let reg_mask op = BinOp(op, rs1', BinOp(And, rs2', const (Z.of_int 0b101))) in
-      let e =
-        match funct7, funct3 with
-        | 0, 0 -> binop Add
-        | 32, 0 -> binop Sub
-        | 0, 1 -> (* sll *) reg_mask Shl
-        | 0, 2 -> (* slt *) ternop LTS
-        | 0, 3 -> (* sltu *)
-           if rs1 = 0 then
-             let c = Cmp(NEQ, rs2', const Z.zero) in
-             TernOp(c, const Z.one, const Z.zero)
-           else ternop LT
-          
-        | 0, 4 -> binop Xor
-        | 0, 5 -> (* srl *) reg_mask Shr
-        | 32, 5 -> (* sra *) failwith "not implemented"
-                           
-        | 0, 6 -> binop Or
-        | 0, 7 -> binop And
-        | _ -> L.abort (fun p -> p "undefined funct3, funct3 pairs in Register Register instruction")
-      in
-      [ Set (get_register rd, e)  ]
+      let rd = get_register rd in
+      let bin_set op = [Set(rd, BinOp(op, rs1', rs2'))] in
+      let tern_set op = [Set (rd, TernOp(Cmp(op, rs1', rs2'), const Z.one, const Z.zero)) ] in
+      let reg_mask op = BinOp(op, rs1', BinOp(And, rs2', const (Z.of_int 0x1f))) in
+      match funct7, funct3 with
+      | 0, 0 -> bin_set Add
+      | 32, 0 -> bin_set Sub
+      | 0, 1 -> (* sll *) [ Set(rd, reg_mask Shl) ]
+      | 0, 2 -> (* slt *) tern_set LTS
+      | 0, 3 -> (* sltu *)
+         if rs1 = 0 then
+           let c = Cmp(NEQ, rs2', const Z.zero) in
+           [ Set(rd, TernOp(c, const Z.one, const Z.zero)) ]
+         else tern_set LT
+        
+      | 0, 4 -> bin_set Xor
+      | 0, 5 -> (* srl *) [ Set (rd, reg_mask Shr) ]
+      | 32, 5 -> (* sra *)
+         let msb_expr = msb_reg r1 in
+         let e = reg_mask Shr in
+         let e' = BinOp(Shl, const (Z.of_int (-1)), e) in
+         [
+           If (Cmp(EQ, msb_expr, const Z.one), 
+               (* sign extension *)
+               [ Set(rd, BinOp(Or, e, e')) ],
+               [ Set(rd, e) ])
+         ]
+         
+      | 0, 6 -> bin_set Or
+      | 0, 7 -> bin_set And
+      | _ -> L.abort (fun p -> p "undefined funct3, funct3 pairs in Register Register instruction")
+      
     
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
