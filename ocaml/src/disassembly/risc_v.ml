@@ -398,7 +398,11 @@ struct
     let src = M(BinOp(Add, rs2, imm), sz) in 
       [ Set (src, Lval (V lval)) ]
         
-    
+  let fence bits =
+    let funct3 = get_range_immediate bits 12 14 0 in
+    match funct3 with
+    | 0 (* fence *) | 1 (* fence.i *) -> []
+    | _ -> L.abort (fun p -> p "undefined funct3 for fence instructions")
     
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
@@ -423,7 +427,9 @@ struct
       | 0b0000011 -> load bits
 
       | 0b0100011 -> store bits
-                   
+
+      | 0b0001111 -> fence bits
+
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
     return s str stmts
