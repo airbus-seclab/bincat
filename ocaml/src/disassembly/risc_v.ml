@@ -231,7 +231,16 @@ struct
     let funct3 = get_range_immediate bits 12 14 0 in
     let rd = get_range_immediate bits 7 11 0 in
     funct7, rs2, rs1, funct3, rd
-                                               
+
+  (* figure 2.3, row S-type *)
+  let s_decode bits =
+    let rs1 = get_range_immediate bits 15 19 0 in
+    let rs2 = get_range_immediate bits 20 24 0 in
+    let funct3 = get_range_immediate bits 12 14 0 in
+    let imm = get_immediate S bits in
+    imm, rs1, rs2, funct3
+
+
   (** fatal error reporting *)
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
@@ -373,7 +382,24 @@ struct
         | _ -> L.abort (fun p -> p "undefined funct3 for load")
       in
       [ Set(rd, e) ]
-          
+
+  let store bits =
+    let imm, rs1, rs2, funct3 = s_decode bits in
+    let rs2 = Lval (get_register rs2) in
+    let rs1 = Hashtbl.find reg_tbl rs1 in
+    let imm = const imm in
+    let lval, sz =
+      match funct3 with
+      | 0 -> (* sb *) P (rs1, 0, 8), 0 
+      | 1 -> (* sh *) P (rs1, 0, 16), 16
+      | 2 -> (* sw *) T rs1, Isa.xlen
+      | _ -> L.abort (fun p -> p "undefined store kind")
+    in
+    let src = M(BinOp(Add, rs2, imm), sz) in 
+      [ Set (src, Lval (V lval)) ]
+        
+    
+    
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
@@ -396,6 +422,8 @@ struct
 
       | 0b0000011 -> load bits
 
+      | 0b0100011 -> store bits
+                   
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
     return s str stmts
