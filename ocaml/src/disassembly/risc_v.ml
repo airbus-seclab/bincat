@@ -69,7 +69,7 @@ struct
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 33;;
   let x0 = Register.make ~name:"x0" ~size:Isa.xlen;; (* hardcoded to zero *)
   let x1 = Register.make ~name:"x1" ~size:Isa.xlen;; (* standard return address ; fallback is x5 *)
-  let x2 = Register.make ~name:"x2" ~size:Isa.xlen;; (* standard stack pointer *)
+  let x2 = Register.make_sp ~name:"x2" ~size:Isa.xlen;; (* standard stack pointer *)
   let x3 = Register.make ~name:"x3" ~size:Isa.xlen;;
   let x4 = Register.make ~name:"x4" ~size:Isa.xlen;;
   let x5 = Register.make ~name:"x5" ~size:Isa.xlen;;
