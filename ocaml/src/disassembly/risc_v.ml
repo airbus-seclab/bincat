@@ -452,8 +452,7 @@ struct
 
   let init_registers () = (); [x0, Data.Word.of_int Z.zero Isa.xlen]
                           
-let init () = Imports.init ()
-
-                   
-let overflow_expression () = failwith "Not implemented" (* see comment section 2.4, Vol 1 *)
+  let init () = Imports.init ()
+              
+  let overflow_expression () = failwith "Not implemented" (* see comment section 2.4, Vol 1 *)
 end
