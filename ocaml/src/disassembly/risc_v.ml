@@ -346,21 +346,34 @@ struct
       | 0, 4 -> bin_set Xor
       | 0, 5 -> (* srl *) [ Set (rd, reg_mask Shr) ]
       | 32, 5 -> (* sra *)
-         let msb_expr = msb_reg r1 in
          let e = reg_mask Shr in
-         let e' = BinOp(Shl, const (Z.of_int (-1)), e) in
-         [
-           If (Cmp(EQ, msb_expr, const Z.one), 
-               (* sign extension *)
-               [ Set(rd, BinOp(Or, e, e')) ],
-               [ Set(rd, e) ])
-         ]
+         [ Set(rd, UnOp(SignExt Isa.xlen, e)) ]
          
       | 0, 6 -> bin_set Or
       | 0, 7 -> bin_set And
-      | _ -> L.abort (fun p -> p "undefined funct3, funct3 pairs in Register Register instruction")
-      
+      | _ -> L.abort (fun p -> p "undefined (funct7, funct3) pair in Register Register instruction")
+
     
+  let load bits =
+    let imm, rs1, funct3, rd = i_decode bits in
+    if rd = 0 then
+      []
+    else
+      let rd = get_register rd in
+      let rs1 = get_register rs1 in
+      let off = const imm in
+      let mem = BinOp(Add, Lval rs1, off) in
+      let e =
+        match funct3 with
+        | 0 -> (* lb *) UnOp(SignExt Isa.xlen, Lval (M(mem, 8)))
+        | 1 -> (* lh *) UnOp(SignExt Isa.xlen, Lval (M(mem, 16)))
+        | 2 -> (* lw *) Lval (M(mem, 32))
+        | 4 -> (* lbu *) Lval (M(mem, 8))
+        | 5 -> (* lhu *) Lval (M(mem, 16))
+        | _ -> L.abort (fun p -> p "undefined funct3 for load")
+      in
+      [ Set(rd, e) ]
+          
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let len = String.length str in
@@ -380,7 +393,9 @@ struct
       | 0b0010011 -> reg_imm bits
 
       | 0b0110011 -> reg_reg bits
-                   
+
+      | 0b0000011 -> load bits
+
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
     return s str stmts
