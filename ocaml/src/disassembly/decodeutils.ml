@@ -36,6 +36,9 @@ let to33bits_s x = UnOp(SignExt 33, x)
 
 (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
 let sign_extension i sz nb =
+  if sz = nb then
+    i
+  else
     if Z.testbit i (sz-1) then
       let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
       (* ffff00.. mask *)

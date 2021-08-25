@@ -151,7 +151,7 @@ struct
     let z3 = get_z_immediate bits 5 25 30 in
     let z4 = Z.of_int (bits.(31) lsl 11) in
     let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
-    sign_extension z 12 32
+    sign_extension z 12 Isa.xlen
 
   let s_immediate bits =
     let z1 = Z.of_int bits.(7) in
@@ -159,7 +159,7 @@ struct
     let z3 = get_z_immediate bits 5 25 30 in
     let z4 = Z.of_int (bits.(31) lsl 11) in
     let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
-    sign_extension z 12 32
+    sign_extension z 12 Isa.xlen
 
   let b_immediate bits =
     let z1 = get_z_immediate bits 1 8 11 in
@@ -167,13 +167,13 @@ struct
     let z3 = Z.of_int (bits.(7) lsl 11) in
     let z4 = Z.of_int (bits.(31) lsl 12) in
     let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
-    sign_extension z 13 32
+    sign_extension z 13 Isa.xlen
 
   let u_immediate bits =
     let z1 = get_z_immediate bits 12 19 12 in
     let z2 = get_z_immediate bits 20 30 20 in
     let z3 = Z.of_int (bits.(31) lsl 31) in
-    List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3]
+    sign_extension (List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3]) 32 Isa.xlen
     
   let j_immediate bits: Z.t =
     let z1 = get_z_immediate bits 21 24 1 in
@@ -182,7 +182,7 @@ struct
     let z4 = get_z_immediate bits 12 19 12 in
     let z5 = Z.of_int (bits.(31) lsl 20) in
     let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4; z5] in
-    sign_extension z 21 32
+    sign_extension z 21 Isa.xlen
 
   (* the result is signed-extended *)
   let get_immediate kind bits =
