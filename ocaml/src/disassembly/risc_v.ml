@@ -364,10 +364,7 @@ struct
     
   let reg_imm_w bits =
     let imm, rd, funct3, rs1 = iw_decode bits in
-    let rs1 =
-      if Isa.xlen = 32 then Lval (get_register rs1)
-      else Lval (V (P (Hashtbl.find reg_tbl rs1, 0, 31)))
-    in
+    let rs1 = Lval (V (P (Hashtbl.find reg_tbl rs1, 0, 31))) in
     let rd = get_register rd in
     match imm, funct3 with
     | 0, 1 -> (* slliw *)
@@ -391,7 +388,38 @@ struct
        binop_imm_w Shl res rs1 rd c (SignExt Isa.xlen)
        
     | _, _ -> L.abort (fun p -> p "undefined register-immediate instruction on words")
-            
+
+  let reg_reg_w bits =
+    let funct7, rs2, rs1, funct3, rd = r_decode bits in
+    let rs1 = Lval (V (P (Hashtbl.find reg_tbl rs1, 0, 31))) in
+    let rs2 = Lval (V (P (Hashtbl.find reg_tbl rs2, 0, 31))) in
+    if rd = 0 then
+      []
+    else
+      let rd = get_register rd in
+      let op, sz, ext =
+        match funct3, funct7 with
+        | 0, 0 -> (* addw *) Add, 33, None
+        | 0, 32 -> (* subw *) Sub, 33, None
+        | 1, 0 -> (* sllw *) Shl, 32, None
+        | 5, 0 -> (* srlw *) Shr, 64, Some (ZeroExt 32)
+        | 5, 32 -> (* sraw *) Shr, 64, Some (SignExt 32)
+        | _, _ -> L.abort (fun p -> p "undefined (funct3, funct3) in .w instruction")
+      in
+      let aux = Register.make (Register.fresh_name()) sz in
+      let e = BinOp(op, rs1, rs2) in
+      let paux = Lval (V (P (aux, 0, 31))) in
+      let e' =
+        match ext with
+        | Some ext -> UnOp(ext, paux)
+        | None -> paux
+      in
+      [
+        Set(V (T aux), e);
+        Set(rd, e');
+        Directive(Remove aux)
+      ]
+      
   let reg_reg bits =
     let funct7, rs2, rs1, funct3, rd = r_decode bits in
     if rd = 0 then
@@ -496,6 +524,7 @@ struct
 
       (* RV64I *)
       | 0b0011011 -> reg_imm_w bits
+      | 0b0111011 -> reg_reg_w bits
                    
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
