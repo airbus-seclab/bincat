@@ -11,7 +11,7 @@ int (*egg)();
 
 void usage(void)
 {
-        fprintf(stderr, "Usage: eggloader_armv8 <egg_file_name>\n");
+        fprintf(stderr, "Usage: eggloader_armv7 <egg_file_name>\n");
         exit(-1);
 }
 
