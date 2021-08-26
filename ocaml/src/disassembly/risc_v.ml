@@ -354,22 +354,34 @@ struct
         | _ -> L.abort (fun p -> p "undefined register immediate instruction")
       in
       [ Set (get_register rd, e) ]
-      
+
+  let binop_imm_w op res rs1 rd imm ext =
+    [
+      Set(V (T res), BinOp(op, imm, rs1));
+      Set(rd, UnOp(ext, Lval (V (P(res, 0, 31)))));
+      Directive(Remove res)
+    ]
+    
   let reg_imm_w bits =
     let imm, rd, funct3, rs1 = iw_decode bits in
-    let rs1 = Lval (get_register rs1) in
+    let rs1 =
+      if Isa.xlen = 32 then Lval (get_register rs1)
+      else Lval (V (P (Hashtbl.find reg_tbl rs1, 0, 31)))
+    in
     let rd = get_register rd in
     match imm, funct3 with
-    | 0, 1 -> (* slliw *) failwith "to implement"
+    | 0, 1 -> (* slliw *)
+       let c = const_w (Z.of_int imm) in
+       let res = Register.make (Register.fresh_name()) (32+imm) in
+       binop_imm_w Shl res rs1 rd c (ZeroExt Isa.xlen) 
+       
     | imm, 0 -> (* addiw *)
-       let imm = sign_extension (Z.of_int imm) 12 32 in
+       let imm = Const (Word.of_int (sign_extension (Z.of_int imm) 12 32) 32) in
        let res = Register.make (Register.fresh_name()) 33 in
-       [
-         Set(V (T res), BinOp(Add, const_w imm, rs1));
-         Set(rd, UnOp(SignExt Isa.xlen, Lval (V (P(res, 0, 31)))));
-         Directive(Remove res)
-       ]
+       binop_imm_w Add res rs1 rd imm (SignExt Isa.xlen)
+       
     | 0, 5 -> (* srliw *) failwith "to implement"
+       
     | 32, 5 -> (* sraiw *) failwith "to implement"
     | _, _ -> L.abort (fun p -> p "undefined register-immediate instruction on words")
             
