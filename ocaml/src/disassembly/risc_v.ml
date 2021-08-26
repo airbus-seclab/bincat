@@ -51,7 +51,7 @@ struct
 
   type type_kind =
     | R | I | S
-    | B | U | J
+    | B | U | J | IW (* I-immediate kind of word-size *)
  
   (************************************************************************)
   (* Creation of the general purpose registers *)
@@ -145,13 +145,16 @@ struct
   let get_z_immediate bits o l u = Z.of_int (get_range_immediate bits o l u)
 
   (* figure 2.4 *)
-  let i_immediate bits =
+  let i_core_immediate bits sz =
     let z1 = Z.of_int bits.(20) in
     let z2 = get_z_immediate bits 1 21 24 in
     let z3 = get_z_immediate bits 5 25 30 in
     let z4 = Z.of_int (bits.(31) lsl 11) in
     let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
-    sign_extension z 12 Isa.xlen
+    sign_extension z 12 sz
+
+  let i_immediate bits = i_core_immediate bits Isa.xlen
+  let i_immediate_w bits = i_core_immediate bits 32
 
   let s_immediate bits =
     let z1 = Z.of_int bits.(7) in
@@ -192,6 +195,7 @@ struct
     | B -> b_immediate bits
     | U -> u_immediate bits 
     | J -> j_immediate bits
+    | IW -> i_immediate_w bits
     | R -> L.abort (fun p -> p "no R-immediate defined in the spec")  
  
 
@@ -210,13 +214,21 @@ struct
     rd, imm
 
   (* figure 2.3, row I-type *)
-  let i_decode bits =
+  let i_core_decode bits =
     let rd = get_range_immediate bits 7 11 0 in
     let funct3 = get_range_immediate bits 12 14 0 in
     let rs1 = get_range_immediate bits 15 19 0 in
-    let imm = get_immediate I bits in
-    imm, rs1, funct3, rd
+    rs1, funct3, rd
 
+  let i_decode bits =
+    let rd, funct3, rs1 = i_core_decode bits in
+    get_immediate I bits, rd, funct3, rs1
+                    
+  (* RV64I special instruction of I-type *)
+  let iw_decode bits =
+    let rd, funct3, rs1 = i_core_decode bits in
+    get_range_immediate bits 25 31 0, rd, funct3, rs1
+    
   (* figure 2.3, row U-type *)
   let u_decode bits =
     let rd = get_range_immediate bits 7 11 0 in
@@ -268,7 +280,8 @@ struct
     [If (Cmp(bop, Lval (get_register rs1), Lval (get_register rs2)), [Jmp (A a')], [Nop])]
 
   let const z = Const (Data.Word.of_int z Isa.xlen)
-                 
+  let const_w z = Const (Data.Word.of_int z 32)
+                
   let jal s bits =
     let rd, imm = j_decode bits in
     let a = Data.Address.add_offset s.a imm in
@@ -308,6 +321,8 @@ struct
       let c = Z.add (Data.Address.to_int s.a) imm in
       [ Set(get_register rd, const c) ]
 
+ 
+           
   let reg_imm bits =
     let imm, rs1, funct3, rd = i_decode bits in
     if rd = 0 then
@@ -320,15 +335,54 @@ struct
       let e =
         match funct3 with
         | 0 -> (* addi *) binop Add
+        | 1 -> (* slli *)
+           let hi = get_range_immediate bits 25 31 0 in
+           let up = if Isa.xlen = 32 then 24 else 25 in
+           let lo = const (Z.of_int (get_range_immediate bits 20 up 0)) in
+           if hi = 0 then
+             BinOp (Shl, rs1, lo)
+           else
+             L.abort (fun p -> p "illegal bits 26..31 for slli")
+           
         | 2 -> (* slti *) ternop LTS
         | 3 -> (* sltiu *) ternop LT
+        | 5 ->
+           let hi = get_range_immediate bits 5 11 0 in
+           let up = if Isa.xlen = 32 then 24 else 25 in
+           let lo = const (Z.of_int (get_range_immediate bits 20 up 0)) in
+           if hi = 0 then
+             BinOp (Shr, rs1, lo)
+           else
+             if hi = 16 then
+               UnOp(SignExt Isa.xlen, BinOp (Shr, rs1, lo))
+             else
+               L.abort (fun p -> p "illegal bits 26..31 for slr(a)i")
+           
         | 4 -> (* xori *) binop Xor
         | 6 -> (* ori *) binop Or
         | 7 -> (* andi *) binop And
         | _ -> L.abort (fun p -> p "undefined register immediate instruction")
       in
       [ Set (get_register rd, e) ]
-
+      
+  let reg_imm_w bits =
+    let imm, rd, funct3, rs1 = iw_decode bits in
+    let rs1 = Lval (get_register rs1) in
+    let rd = get_register rd in
+    match imm, funct3 with
+    | 0, 1 -> (* slliw *) failwith "to implement"
+    | imm, 0 -> (* addiw *)
+       let imm = sign_extension (Z.of_int imm) 12 32 in
+       let res = Register.make (Register.fresh_name()) 33 in
+       [
+         Set(V (T res), BinOp(Add, const_w imm, rs1));
+         Set(rd, UnOp(SignExt Isa.xlen, Lval (V (P(res, 0, 31)))));
+         Directive(Remove res)
+       ]
+    | 0, 5 -> (* srliw *) failwith "to implement"
+    | 32, 5 -> (* sraiw *) failwith "to implement"
+    | _, _ -> L.abort (fun p -> p "undefined register-immediate instruction on words")
+            
   let reg_reg bits =
     let funct7, rs2, rs1, funct3, rd = r_decode bits in
     if rd = 0 then
@@ -412,6 +466,7 @@ struct
     let opcode = get_opcode bits in
     let stmts =
       match opcode with
+      (* RV32I *)
       | 0b1100011 -> comparison s bits
 
       | 0b1100111 -> jal s bits
@@ -430,6 +485,9 @@ struct
 
       | 0b0001111 -> fence bits
 
+      (* RV64I *)
+      | 0b0011011 -> reg_imm_w bits
+                   
       | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
     in
     return s str stmts
