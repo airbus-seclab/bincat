@@ -322,7 +322,16 @@ struct
       [ Set(get_register rd, const c) ]
 
  
-           
+  let shift_imm bits rs1 is_left =
+    let b = if Isa.xlen = 32 then 25 else 26 in
+    let hi = get_range_immediate bits b 31 0 in
+    let lo = const (Z.of_int (get_range_immediate bits 20 (b-1) 0)) in
+    match hi, is_left with
+    | 0, true -> BinOp (Shl, rs1, lo)
+    | 0, false -> UnOp (ZeroExt Isa.xlen, BinOp (Shr, rs1, lo))
+    | 16, _ -> UnOp (SignExt Isa.xlen, BinOp (Shr, rs1, lo))
+    | _ -> L.abort (fun p -> p "illegal high bits for shift with immediate")
+    
   let reg_imm bits =
     let imm, rs1, funct3, rd = i_decode bits in
     if rd = 0 then
@@ -335,29 +344,10 @@ struct
       let e =
         match funct3 with
         | 0 -> (* addi *) binop Add
-        | 1 -> (* slli *)
-           let hi = get_range_immediate bits 25 31 0 in
-           let up = if Isa.xlen = 32 then 24 else 25 in
-           let lo = const (Z.of_int (get_range_immediate bits 20 up 0)) in
-           if hi = 0 then
-             BinOp (Shl, rs1, lo)
-           else
-             L.abort (fun p -> p "illegal bits 26..31 for slli")
-           
+        | 1 -> (* slli *) shift_imm bits rs1 true           
         | 2 -> (* slti *) ternop LTS
         | 3 -> (* sltiu *) ternop LT
-        | 5 ->
-           let hi = get_range_immediate bits 5 11 0 in
-           let up = if Isa.xlen = 32 then 24 else 25 in
-           let lo = const (Z.of_int (get_range_immediate bits 20 up 0)) in
-           if hi = 0 then
-             BinOp (Shr, rs1, lo)
-           else
-             if hi = 16 then
-               UnOp(SignExt Isa.xlen, BinOp (Shr, rs1, lo))
-             else
-               L.abort (fun p -> p "illegal bits 26..31 for slr(a)i")
-           
+        | 5 -> (* slri / srai *) shift_imm bits rs1 false
         | 4 -> (* xori *) binop Xor
         | 6 -> (* ori *) binop Or
         | 7 -> (* andi *) binop And
