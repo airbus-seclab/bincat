@@ -380,9 +380,16 @@ struct
        let res = Register.make (Register.fresh_name()) 33 in
        binop_imm_w Add res rs1 rd imm (SignExt Isa.xlen)
        
-    | 0, 5 -> (* srliw *) failwith "to implement"
+    | 0, 5 -> (* srliw *) 
+       let c = const_w (Z.of_int imm) in
+       let res = Register.make (Register.fresh_name()) (32-imm) in
+       binop_imm_w Shl res rs1 rd c (ZeroExt Isa.xlen)
        
-    | 32, 5 -> (* sraiw *) failwith "to implement"
+    | 32, 5 -> (* sraiw *)
+       let c = const_w (Z.of_int imm) in
+       let res = Register.make (Register.fresh_name()) (32-imm) in
+       binop_imm_w Shl res rs1 rd c (SignExt Isa.xlen)
+       
     | _, _ -> L.abort (fun p -> p "undefined register-immediate instruction on words")
             
   let reg_reg bits =
