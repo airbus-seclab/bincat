@@ -7,7 +7,7 @@ ALLOBJ=libc.no $(EXE)
 
 
 test: $(ALLOBJ)
-	python2 -m pytest --tb=line --coverage $(COVERAGE) $(PYTESTFLAGS)
+	python3 -m pytest --tb=line --coverage $(COVERAGE) $(PYTESTFLAGS)
 
 eggloaders: $(ALLOBJ)
 
