@@ -186,8 +186,6 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
       | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
       | Config.POWERPC -> (module Powerpc.Make: Decoder.Make)
-      | Config.RV32I -> (module Risc_v.Make(Riscv_v.I32): Decoder.Make)
-      | Config.RV64I -> (module Risc_v.Make(Riscv_v.I64): Decoder.Make) 
       | _ -> failwith "Decoder still in progress"
     in
     let module Decoder = (val decoder: Decoder.Make) in

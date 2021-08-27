@@ -34,7 +34,7 @@ struct
   type ctx_t = unit
 
   open Data
-  open Asm
+  (*  open Asm *)
   module Cfa = Cfa.Make(Domain)
              
   type state = {
@@ -119,7 +119,7 @@ struct
     acc 0 6
 
  
-  let i_type opcode = failwith "not yet implemented"
+  let i_type _opcode = failwith "not yet implemented"
 
   (** fatal error reporting *)
   let error a msg =
