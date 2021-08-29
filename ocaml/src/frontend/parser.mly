@@ -341,7 +341,7 @@
     | AAPCS    { Config.AAPCS }
     | SVR      { Config.SVR }
     | SYSV     { Config.SYSV }
-    | MS      { Config.MS }
+    | MS       { Config.MS }
     | RISCV    { Config.RISCVI }
 
     mmode:
