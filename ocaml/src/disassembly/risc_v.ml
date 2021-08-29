@@ -195,13 +195,13 @@ struct
     rs1, funct3, rd
 
   let i_decode bits =
-    let rd, funct3, rs1 = i_core_decode bits in
-    get_immediate I bits, rd, funct3, rs1
+    let rs1, funct3, rd = i_core_decode bits in
+    get_immediate I bits, rs1, funct3, rd
                     
   (* RV64I special instruction of I-type *)
   let iw_decode bits =
-    let rd, funct3, rs1 = i_core_decode bits in
-    get_range_immediate bits 25 31 0, rd, funct3, rs1
+    let rs1, funct3, rd = i_core_decode bits in
+    get_range_immediate bits 20 31 0, rs1, funct3, rd
     
   (* figure 2.3, row U-type *)
   let u_decode bits =
@@ -337,7 +337,7 @@ struct
     ]
     
   let reg_imm_w bits =
-    let imm, rd, funct3, rs1 = iw_decode bits in
+    let imm, rs1, funct3, rd = iw_decode bits in
     let rs1 = Lval (V (P (Hashtbl.find reg_tbl rs1, 0, 31))) in
     let rd = get_register rd in
     match imm, funct3 with
