@@ -69,6 +69,9 @@ let _ =
     "svr", SVR;
     "sysv", SYSV;
     "ms", MS;
+    "riscv", RISCV;
+    "RISCV", RISCV;
+    "RiscV", RISCV;
     (* analyzer tokens *)
     "ini_version", INI_VERSION;
     "unroll", UNROLL;
