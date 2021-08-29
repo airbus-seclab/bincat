@@ -528,7 +528,7 @@ class RISCV64(Arch):
     AS_TMP_DIR = counter("riscv64-as-%i")
     AS = ["riscv64-linux-gnu-as"]
     OBJCOPY = ["riscv64-linux-gnu-objcopy"]
-    OBJDUMP = ["riscv64-linux-gnu-objdump", "-mriscv:rv64"]
+    OBJDUMP = ["riscv64-linux-gnu-objdump", "-mriscv:rv64", "--disassembler-options=no-aliases,numeric"]
     EGGLOADER = "eggloader_riscv64"
     QEMU = ["qemu-riscv64"]
 
