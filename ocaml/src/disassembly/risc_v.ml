@@ -47,7 +47,6 @@ struct
     mutable operand_sz: int; (** operand size in bits *)
     }
 
-  module Imports = RiscVImports.Make(Domain)(Stubs)
 
   type type_kind =
     | R | I | S
@@ -109,82 +108,57 @@ struct
 
   let get_register (i: int): lval = V ( T(Hashtbl.find reg_tbl i))
                                   
+  module Imports = RiscVImports.Make(Domain)(Stubs)
 
-  (* convert a string of bits into an integer array *)
-  let fill_bit_array bit_array str len =
-    let convert (c: char): int =
-      match c with
-      | '0' -> 0
-      | '1' -> 1
-      | _ -> L.abort (fun p -> p "invalid bit char")
-    in
-    (* we revert the bit orders to get the number as in the spec, ie the first bit of the string is numbered 31 while the last bit of the string is the zeroth bit *)
-    String.iteri (fun i c -> Array.set bit_array (convert c) (len-i)) str;;
-  
 
   (* opcode is bits 6 to 0 *)
-  let get_opcode (bits: int Array.t): int =
-    let rec acc n =
-      if n = 0 then
-        bits.(n)
-      else
-        bits.(n) lsl n + (acc (n-1))
-    in
-    acc 6
+  let get_opcode (bits: int): int =
+    bits land 0x7f
 
- 
-  (* returns an int from the b-th to u-th bits of bit_array left-shifted by o *)
-  let get_range_immediate bits o l u =
-    let rec acc i =
-      if i > u then 0
-      else
-        bits.(i) lsl (i+o) + (acc (i-1))
-    in
-    acc l
+  let get_isn str =
+    (Char.code (String.get str 0))
+    lor ((Char.code (String.get str 1)) lsl 8)
+    lor ((Char.code (String.get str 2)) lsl 16)
+    lor ((Char.code (String.get str 3)) lsl 24)
+
+  (* returns an int from the l-th to u-th bits, left-shifted by o *)
+  let get_range_immediate bits l u o =
+    ((bits lsr l) land (lnot (-1 lsl (u-l+1)))) lsl o
 
   let get_z_immediate bits o l u = Z.of_int (get_range_immediate bits o l u)
 
   (* figure 2.4 *)
   let i_core_immediate bits sz =
-    let z1 = Z.of_int bits.(20) in
-    let z2 = get_z_immediate bits 1 21 24 in
-    let z3 = get_z_immediate bits 5 25 30 in
-    let z4 = Z.of_int (bits.(31) lsl 11) in
-    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
+    let z = get_z_immediate bits 20 31 0 in
     sign_extension z 12 sz
 
   let i_immediate bits = i_core_immediate bits Isa.xlen
   let i_immediate_w bits = i_core_immediate bits 32
 
   let s_immediate bits =
-    let z1 = Z.of_int bits.(7) in
-    let z2 = get_z_immediate bits 1 8 11 in
-    let z3 = get_z_immediate bits 5 25 30 in
-    let z4 = Z.of_int (bits.(31) lsl 11) in
-    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
+    let z1 = get_z_immediate bits 7 11 0 in
+    let z2 = get_z_immediate bits 25 31 5 in
+    let z = Z.logor z1 z2 in
     sign_extension z 12 Isa.xlen
 
   let b_immediate bits =
-    let z1 = get_z_immediate bits 1 8 11 in
-    let z2 = get_z_immediate bits 5 25 30 in
-    let z3 = Z.of_int (bits.(7) lsl 11) in
-    let z4 = Z.of_int (bits.(31) lsl 12) in
+    let z1 = get_z_immediate bits 8 11 1 in
+    let z2 = get_z_immediate bits 25 30 5 in
+    let z3 = get_z_immediate bits 7 7 11 in
+    let z4 = get_z_immediate bits 31 31 12 in
     let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
     sign_extension z 13 Isa.xlen
 
   let u_immediate bits =
-    let z1 = get_z_immediate bits 12 19 12 in
-    let z2 = get_z_immediate bits 20 30 20 in
-    let z3 = Z.of_int (bits.(31) lsl 31) in
-    sign_extension (List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3]) 32 Isa.xlen
-    
+    let z = get_z_immediate bits 12 31 12 in
+    sign_extension z 32 Isa.xlen
+
   let j_immediate bits: Z.t =
-    let z1 = get_z_immediate bits 21 24 1 in
-    let z2 = get_z_immediate bits 25 30 5 in
-    let z3 = Z.of_int (bits.(20) lsl 6) in
-    let z4 = get_z_immediate bits 12 19 12 in
-    let z5 = Z.of_int (bits.(31) lsl 20) in
-    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4; z5] in
+    let z1 = get_z_immediate bits 21 30 1 in
+    let z2 = get_z_immediate bits 20 20 11 in
+    let z3 = get_z_immediate bits 12 19 12 in
+    let z4 = get_z_immediate bits 31 31 20 in
+    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in
     sign_extension z 21 Isa.xlen
 
   (* the result is signed-extended *)
@@ -497,9 +471,7 @@ struct
     
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
-    let len = String.length str in
-    let bits = Array.make len 0 in
-    fill_bit_array bits str len;
+    let bits = get_isn str in
     let opcode = get_opcode bits in
     let stmts =
       match opcode with
