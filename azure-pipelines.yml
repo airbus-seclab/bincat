@@ -31,7 +31,7 @@ jobs:
           artifactName: $(distdir)
   - job: Linux_release_and_tests
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-20.04'
     steps:
       - script: docker build -t "bincat:$BUILD_SOURCEVERSION" --build-arg "SOURCE_BRANCH=$BUILD_SOURCEVERSION" "$BUILD_SOURCESDIRECTORY/docker/" -f "$BUILD_SOURCESDIRECTORY/docker/Dockerfile.runtests"
         displayName: 'Build docker image'
@@ -43,7 +43,7 @@ jobs:
         inputs:
           pathtoPublish: /tmp/linux-release/$(distdir)
           artifactName: $(distdir)
-      - script: docker run -v /tmp/test-results:/install/bincat/test-results -w /install/bincat/test "bincat:$BUILD_SOURCEVERSION" bash -c 'python2 -m pytest --coverage smoke -k "not repne" --junitxml=/install/bincat/test-results/pytest_report.xml || true'
+      - script: docker run -v /tmp/test-results:/install/bincat/test-results -w /install/bincat/test "bincat:$BUILD_SOURCEVERSION" bash -c 'python3 -m pytest --coverage smoke -k "not repne" --junitxml=/install/bincat/test-results/pytest_report.xml || true'
         displayName: 'Run tests'
       - task: PublishTestResults@2
         inputs:
