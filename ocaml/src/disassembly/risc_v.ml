@@ -472,7 +472,7 @@ struct
   let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
     let bits = get_isn str in
-    let opcode = get_opcode bits in
+    let opcode = get_opcode bits in 
     let stmts =
       match opcode with
       (* RV32I *)
