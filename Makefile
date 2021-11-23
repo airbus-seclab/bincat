@@ -1,7 +1,7 @@
 export DESTDIR=/
 export PREFIX=usr/local
 
-PYTHON	   ?=python2
+PYTHON	   ?=python3
 PYPATH	   =python
 NPKPATH    =lib
 MLPATH	   =ocaml/src
