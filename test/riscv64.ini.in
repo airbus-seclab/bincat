@@ -1,0 +1,90 @@
+# used as a config file template for tests
+
+[analyzer]
+ini_version = 4
+unroll = 150
+loglevel = 10
+store_marshalled_cfa = true
+in_marshalled_cfa_file = "incfa.marshal"
+out_marshalled_cfa_file = "outcfa.marshal"
+analysis = forward_binary
+analysis_ep = 0x00
+cut = {code_length}
+headers = "libc.no"
+{analyzer_section}
+
+[program]
+mode = protected
+call_conv = riscv
+mem_sz = 32
+op_sz = 32
+stack_width = 32
+architecture = RV64I
+filepath = "{filepath}"
+format = raw
+{program_section}
+
+
+[state]
+#reg[cr] = 0x0?0xffffffff
+#reg[so] = 0?1
+#reg[ov] = 0?1
+#reg[ca] = 0?1
+#reg[tbc] = 0?0x7f
+reg[x0] = 0
+reg[x1] = 0x1000
+reg[x2] = 0
+reg[x3] = 0
+reg[x4] = 0
+reg[x5] = 0
+reg[x6] = 0
+reg[x7] = 0
+reg[x8] = 0
+reg[x9] = 0
+reg[x10] = 0
+reg[x11] = 0
+reg[x12] = 0
+reg[x13] = 0
+reg[x14] = 0
+reg[x15] = 0
+reg[x16] = 0
+reg[x17] = 0
+reg[x18] = 0
+reg[x19] = 0
+reg[x20] = 0
+reg[x21] = 0
+reg[x22] = 0
+reg[x23] = 0
+reg[x24] = 0
+reg[x25] = 0
+reg[x26] = 0
+reg[x27] = 0
+reg[x28] = 0
+reg[x29] = 0
+reg[x30] = 0
+reg[x31] = 0
+#reg[lr] = 0
+#reg[ctr] = 0
+
+#here addresses are supposed to be absolute and not of the form ds:o
+mem[0x1000*8192] = |00|?0xFF
+
+{regmem}
+
+[override]
+{overrides}
+ 
+
+[libc]
+#tainting rules for libc
+#default calling convention for this lib
+# call_conv = fastcall
+* = open(@, _)
+#read uses a different calling convention
+* = read<aapcs>(@, *, @)
+
+#[imports]
+#0x4 = all,"strlen"
+#0x8 = all,"memcpy"
+#0xc = all,"printf"
+#0x10 = all,"sprintf"
