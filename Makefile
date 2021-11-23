@@ -31,7 +31,7 @@ install: all
 	make -C $(PYPATH) install
 
 IDAuser:
-	@echo "Linking pybincat and idabincat inside IDA Python ...................."
+	@echo "Copying pybincat and idabincat inside IDA Python ...................."
 	rm -rf "${IDAUSR}/plugins/pybincat"
 	mkdir -p "${IDAUSR}/plugins"
 	cp -r python/pybincat "${IDAUSR}/plugins/pybincat"
