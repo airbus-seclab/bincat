@@ -405,7 +405,8 @@ struct
       let rd = get_register rd in
       let bin_set op = [Set(rd, BinOp(op, rs1', rs2'))] in
       let tern_set op = [Set (rd, TernOp(Cmp(op, rs1', rs2'), const Z.one, const Z.zero)) ] in
-      let reg_mask op = BinOp(op, rs1', BinOp(And, rs2', const (Z.of_int 0x1f))) in
+      let low_bit_mask = const (Z.of_int (if Isa.xlen = 32 then 0x1f else 0x3f)) in
+      let reg_mask op = BinOp(op, rs1', BinOp(And, rs2', low_bit_mask)) in
       match funct7, funct3 with
       | 0, 0 -> bin_set Add
       | 32, 0 -> bin_set Sub
