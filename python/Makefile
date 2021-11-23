@@ -6,7 +6,7 @@ ifdef DESTDIR
 DESTDIROPT = --root=$(DESTDIR)
 endif
 
-PYTHON     ?=python2
+PYTHON     ?=python3
 
 all:
 	$(PYTHON) ./setup.py build
