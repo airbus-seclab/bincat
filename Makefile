@@ -1,7 +1,7 @@
 export DESTDIR=/
 export PREFIX=usr/local
 
-PYTHON	   ?=python2
+PYTHON	   ?=python3
 PYPATH	   =python
 NPKPATH    =lib
 MLPATH	   =ocaml/src
@@ -113,7 +113,7 @@ lindist: clean all
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md doc "$(distdir)"
 	# On azure, do not zip or delete $(distdir)
-ifeq ($(AZURE_BUILD),)
+ifeq ($(CI_BUILD),)
 	tar cvJf "$(distdir).tar.xz" "$(distdir)"
 	-rm -rf "$(distdir)"
 endif
