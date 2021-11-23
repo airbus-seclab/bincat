@@ -19,7 +19,7 @@
     along with BinCAT.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import collections
+from collections.abc import MutableSequence
 import hashlib
 import logging
 import os
@@ -874,7 +874,7 @@ class State(object):
         self.overrides.append((ea, htext, mask))
 
 
-class CallbackWrappedList(collections.MutableSequence):
+class CallbackWrappedList(MutableSequence):
     """
     Acts as a List object, wraps write access with calls to properly invalidate
     models associated with View GUI objects.
