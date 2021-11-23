@@ -90,7 +90,7 @@ else
 	cp ocaml/src/bincat.exe "$(distdir)/bin"
 	cp -r python/build/lib/ "$(distdir)/python"
 	cp -r python/idabincat/conf/ "$(distdir)/python/idabincat"
-	mkdir "$(distdir)"/python/idabincat/lib
+	mkdir -p "$(distdir)"/python/idabincat/lib
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md doc "$(distdir)"
 	# On azure, do not zip or delete $(distdir)
