@@ -126,7 +126,7 @@ def reg_len(regname):
             "x24": 64, "x25": 64, "x26": 64, "x27": 64, "x28": 64, "x29": 64,
             "x30": 64, "x31": 64 }[regname]
     else:
-        raise KeyError("Unkown arch %s" % CFA.arch)
+        raise KeyError("Unknown arch %s" % CFA.arch)
 
 
 #: maps short region names to pretty names
