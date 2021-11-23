@@ -6,6 +6,7 @@
 * install depext (`opam install depext depext-cygwinports`)
 * install libgmp (`opam depext conf-gmp.1`)
 * install dependencies (`opam install menhir zarith ocamlgraph ppx_tools cppo num`)
+* install `zip` (`cygwin-install gui`)
 * source environment variables: `eval $(ocaml-env cygwin)`
 
 ### Install dependencies
