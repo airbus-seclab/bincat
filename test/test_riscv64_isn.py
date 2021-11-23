@@ -117,14 +117,25 @@ def test_arith_log_rtype(tmpdir, op, op32, op32_):
 
 #I-type arithmetic and logical instructions
 #op can be: ADDI, SLTI, XORI, ORI, ANDI, SLLI, SRLI, SRAI
-op_arithmetic_logical_itype = pytest.mark.parametrize("op", ["addi", "slti", "xori", "ori", "andi", "slli", "srli", "srai"])
+op_arithmetic_logical_itype = pytest.mark.parametrize("op", ["addi", "slti", "xori", "ori", "andi"])
 @op_arithmetic_logical_itype
-def test_arith_log_itype(tmpdir, op, op32, op32_):
+def test_arith_log_itype(tmpdir, op, op32, op12_s):
     asm = """
     li x3, {op32}
-    {op} x4, x3, op32_
+    {op} x4, x3, {op12_s}
     """.format(**locals())
     compare(tmpdir, asm, ["x3", "x4"])
+
+#op can be: SLLI, SRLI, SRAI
+op_arithmetic_logical_itype = pytest.mark.parametrize("op", ["slli", "srli", "srai"])
+@op_arithmetic_logical_itype
+def test_arith_log_shift_itype(tmpdir, op, op32, op5):
+    asm = """
+    li x3, {op32}
+    {op} x4, x3, {op5}
+    """.format(**locals())
+    compare(tmpdir, asm, ["x3", "x4"])
+
 
 
 ##  ___                  _    _
