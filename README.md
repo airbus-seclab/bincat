@@ -78,7 +78,7 @@ On Windows:
 BinCAT should work with IDA on Wine, once pip is installed:
 
 * download <https://bootstrap.pypa.io/get-pip.py> (verify it's good ;)
-* `~/.wine/drive_c/Python27/python.exe get-pip.py`
+* `~/.wine/drive_c/Python/python.exe get-pip.py`
 
 ## Using BinCAT
 
