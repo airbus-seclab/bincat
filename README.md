@@ -133,6 +133,12 @@ BinCAT includes a modified copy of
 
 ## Automated builds
 
+### Windows
 Automated builds are performed automatically (see
 [azure-pipelines.yml](azure-pipelines.yml)). The latest builds and test results
 can be accessed [here](https://dev.azure.com/airbus-seclab/bincat/_build)
+
+### Linux
+Automated builds are performed automatically using GitHub Actions (see
+[here](.github/workflows/linux-build-and-test.yaml)), results can be obtained
+on GitHub's [Actions](https://github.com/airbus-seclab/bincat/actions) tab.

@@ -29,23 +29,3 @@ jobs:
         inputs:
           pathtoPublish: $(Build.SourcesDirectory)/$(distdir)
           artifactName: $(distdir)
-  - job: Linux_release_and_tests
-    pool:
-      vmImage: 'ubuntu-20.04'
-    steps:
-      - script: docker build -t "bincat:$BUILD_SOURCEVERSION" --build-arg "SOURCE_BRANCH=$BUILD_SOURCEVERSION" "$BUILD_SOURCESDIRECTORY/docker/" -f "$BUILD_SOURCESDIRECTORY/docker/Dockerfile.runtests"
-        displayName: 'Build docker image'
-      - script: docker run -v /tmp/linux-release:/install/bincat/release -e CI_BUILD=true -w /install/bincat "bincat:$BUILD_SOURCEVERSION" bash -c 'echo "##vso[task.setvariable variable=distdir]bincat-bin-$(git describe --dirty)"; make lindist; cp -R bincat-bin-* release/'
-        displayName: 'Build Linux release'
-      - task: PublishBuildArtifacts@1
-        displayName: Publish BinCAT for Linux installer
-        continueOnError: false
-        inputs:
-          pathtoPublish: /tmp/linux-release/$(distdir)
-          artifactName: $(distdir)
-      - script: docker run -v /tmp/test-results:/install/bincat/test-results -w /install/bincat/test "bincat:$BUILD_SOURCEVERSION" bash -c 'python3 -m pytest --coverage smoke -k "not repne" --junitxml=/install/bincat/test-results/pytest_report.xml || true'
-        displayName: 'Run tests'
-      - task: PublishTestResults@2
-        inputs:
-          testResultsFormat: 'JUnit'
-          testResultsFiles: /tmp/test-results/pytest_report.xml
