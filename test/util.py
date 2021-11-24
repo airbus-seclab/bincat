@@ -81,7 +81,7 @@ class InitFile:
         if "code_length" not in v:
             fstat = os.stat(v["filepath"])
             v["code_length"] = fstat.st_size
-        v["regmem"] = ("\n".join("mem[%#x]=|%s|" % (addr, val.hex())
+        v["regmem"] = ("\n".join("mem[%#x]=|%s|" % (addr, val.encode('utf-8').hex())
                                  for (addr, val) in self.mem.items())
                        + "\n".join("reg[%s]=%s" % (regname, val)
                                  for (regname, val) in self.reg.items())
@@ -99,7 +99,7 @@ class InitFile:
         self["overrides"] = "\n".join(
             "%#010x=%s" % (addr, val) for addr, val in overrides.items())
 
-    def set_mem(self, addr, val):
+    def set_mem(self, addr, val: str):
         self.mem[addr] = val
 
     def set_reg(self, regname, val):

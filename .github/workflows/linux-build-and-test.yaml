@@ -1,0 +1,50 @@
+name: Build-Test-Linux
+on: [push, pull_request]
+
+jobs:
+  build-test-linux:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          # also fetch tags
+          fetch-depth: 0
+      - name: Build
+        run: |
+          docker build -t "bincat:ci-test" . -f "docker/Dockerfile.runtests"
+      - name: Run tests
+        run: |
+          mkdir -p out
+          docker run --rm -v "$(pwd)"/out:/out -w /install/bincat/test "bincat:ci-test" bash -x -c 'python3 -m pytest --coverage smoke -k "not repne" --junitxml=/install/bincat/test-results/pytest_report.xml || true; cp /install/bincat/test-results/pytest_report.xml /out/'
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v2
+        with:
+          name: Unit Test Results
+          path: out/pytest_report.xml
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
+        with:
+          files: out/pytest_report.xml
+      - name: Build BinCAT for Linux installer
+        #if: ${{ github.event.type == 'PushEvent'  && github.event.ref == 'refs/heads/master' }}
+        run: |
+          mkdir -p out
+          docker run -v "$(pwd)"/out:/out -w /install/bincat "bincat:ci-test" bash -x -c 'make lindist && cp -R bincat-bin-* /out; find /out'
+          echo "-- find --"
+          find out
+      - name: Publish BinCAT for Linux installer
+        uses: actions/upload-artifact@v2
+        with:
+          name: bincat-installer
+          path: out/bincat-bin-*.tar.xz
+  event_file:
+    name: "Event File"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
