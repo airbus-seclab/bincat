@@ -109,7 +109,7 @@ class NpkGen(object):
         # 2. use gcc to preprocess this file
         try:
             out = subprocess.check_output(
-                ["gcc", "-E", ig_name], stderr=subprocess.STDOUT)
+                ["gcc", "-P", "-E", ig_name], stderr=subprocess.STDOUT)
         except OSError as e:
             error_msg = ("Error encountered while running gcc. "
                          "Is it installed in PATH?")
