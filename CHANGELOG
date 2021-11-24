@@ -1,3 +1,8 @@
+2021-11-XX: v1.2
+* Initial RISC-V support
+* Python 3 migration (IDA 7.4 required)
+* Asynchronous code path (signal handler/int3/int X) support
+
 2019-01-22: v1.1
 * AMD64 (x86-64) support
 * Huge performance improvements
