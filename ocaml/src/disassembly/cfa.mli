@@ -81,7 +81,7 @@ module type T =
   val create: unit -> t
 
   (** [init_state addr] creates a state whose ip field is _addr_ *)
-  val init_state: Data.Address.t -> (int -> Asm.stmt list) -> State.t
+  val init_state: Data.Address.t -> (Register.t * Data.Word.t) list -> (int -> Asm.stmt list) -> State.t
 
   (** [add_state cfg state] adds the state _state_ from the CFG _cfg_ *)
   val add_state: t -> State.t -> unit
@@ -126,7 +126,7 @@ module type T =
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
 
-  val init_abstract_value: Data.Address.t -> domain * Taint.Set.t
+  val init_abstract_value: Data.Address.t -> (Register.t * Data.Word.t) list -> domain * Taint.Set.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
   val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t

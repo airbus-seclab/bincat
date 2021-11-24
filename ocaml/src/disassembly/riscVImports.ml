@@ -85,4 +85,28 @@ module Make(D: Domain.T)(Stubs: Stubs.T with type domain_t := D.t) =
     let init () =
       Stubs.init();
       init_imports ()
+
+    let skip fdesc a =
+        match fdesc with
+      | Some (fdesc', cc) ->
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_name fdesc'.Asm.name) then
+           let stmts = [Directive (Skip (Asm.Fun_name fdesc'.Asm.name, cc))]  in
+           { fdesc' with stub = stmts }
+         else
+           fdesc'
+        
+      | None ->
+         let ia = Data.Address.to_int a in
+         if Hashtbl.mem Config.funSkipTbl (Config.Fun_addr ia) then
+           {
+          name = "";
+          libname = "";
+          prologue = [];
+          stub = [];
+          epilogue = [] ;
+          ret_addr =Lval(reg "x1");
+           }
+         else
+           raise Not_found
+
   end

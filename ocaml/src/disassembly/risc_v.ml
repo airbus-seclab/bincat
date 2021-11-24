@@ -34,7 +34,10 @@ struct
   type ctx_t = unit
 
   open Data
-  (*  open Asm *)
+  open Asm
+  open Decodeutils
+     
+
   module Cfa = Cfa.Make(Domain)
              
   type state = {
@@ -42,18 +45,13 @@ struct
     mutable b: Cfa.State.t; (** state predecessor *)
     a: Address.t; (** current address to decode *)
     buf: string; (** buffer to decode *)
-    mutable addr_sz: int; (** address size in bits *)
+    mutable operand_sz: int; (** operand size in bits *)
     }
 
-  module Imports = RiscVImports.Make(Domain)(Stubs)
 
   type type_kind =
-    | R
-    | I
-    | S
-    | B
-    | U
-    | J
+    | R | I | S
+    | B | U | J | IW (* I-immediate kind of word-size *)
  
   (************************************************************************)
   (* Creation of the general purpose registers *)
@@ -62,10 +60,16 @@ struct
   (* correspondence between ABI mnemonics and actual registers can be found
      here: https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#named-abis
    *)
-  let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
-  (*  let x0 = Register.make ~name:"x0" ~size:Isa.xlen;; (* hardcoded to zero *) see Vol I*)
-  let x1 = Register.make ~name:"x1" ~size:Isa.xlen;;
-  let x2 = Register.make ~name:"x2" ~size:Isa.xlen;;
+
+  (* page 14: There is no dedicated stack pointer or subroutine return address link register in the Base Integer
+     ISA; the instruction encoding allows any x register to be used for these purposes. However, the
+     standard software calling convention uses register x1 to hold the return address for a call, with
+     register x5 available as an alternate link register. The standard calling convention uses register
+     x2 as the stack pointer *)
+  let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 33;;
+  let x0 = Register.make ~name:"x0" ~size:Isa.xlen;; (* hardcoded to zero *)
+  let x1 = Register.make ~name:"x1" ~size:Isa.xlen;; (* standard return address ; fallback is x5 *)
+  let x2 = Register.make_sp ~name:"x2" ~size:Isa.xlen;; (* standard stack pointer *)
   let x3 = Register.make ~name:"x3" ~size:Isa.xlen;;
   let x4 = Register.make ~name:"x4" ~size:Isa.xlen;;
   let x5 = Register.make ~name:"x5" ~size:Isa.xlen;;
@@ -96,64 +100,429 @@ struct
   let x30 = Register.make ~name:"x30" ~size:Isa.xlen;;
   let x31 = Register.make ~name:"x31" ~size:Isa.xlen;;
 
+  let reg_tbl = Hashtbl.create 32;;
 
-  (* convert a string of bits into an integer array *)
-  let fill_bit_array bit_array str len =
-    let convert (c: char): int =
-      match c with
-      | '0' -> 0
-      | '1' -> 1
-      | _ -> L.abort (fun p -> p "invalid bit char")
-    in
-    (* we revert the bit orders to get the number as in the spec, ie the first bit of the string is numbered 31 while the last bit of the string is the zeroth bit *)
-    String.iteri (fun i c -> Array.set bit_array (convert c) (len-i)) str;;
+  List.iteri (fun i reg -> Hashtbl.add reg_tbl i reg) [
+      x0; x1; x2; x3; x4; x5; x6; x7; x8; x9; x10; x11; x12; x13; x14;
+      x15; x16; x17; x18; x19; x20; x21; x22; x23; x24; x25; x26; x27;
+      x28; x29; x30; x31 ];;
+
+  let get_register (i: int): lval = V ( T(Hashtbl.find reg_tbl i))
+                                  
+  module Imports = RiscVImports.Make(Domain)(Stubs)
+
 
   (* opcode is bits 6 to 0 *)
-  let get_opcode (bit_array: int Array.t): int =
-    let rec acc res n =
-      if n = 0 then
-        res + bit_array.(n)
-      else
-        acc (res lsl 1 + bit_array.(n)) (n-1)
-    in
-    acc 0 6
+  let get_opcode (bits: int): int =
+    bits land 0x7f
 
+  let get_isn str =
+    (Char.code (String.get str 0))
+    lor ((Char.code (String.get str 1)) lsl 8)
+    lor ((Char.code (String.get str 2)) lsl 16)
+    lor ((Char.code (String.get str 3)) lsl 24)
+
+  (* returns an int from the l-th to u-th bits, left-shifted by o *)
+  let get_range_immediate bits l u o =
+    ((bits lsr l) land (lnot (-1 lsl (u-l+1)))) lsl o
+
+  let get_z_immediate bits o l u = Z.of_int (get_range_immediate bits o l u)
+
+  (* figure 2.4 *)
+  let i_core_immediate bits sz =
+    let z = get_z_immediate bits 20 31 0 in
+    sign_extension z 12 sz
+
+  let i_immediate bits = i_core_immediate bits Isa.xlen
+  let i_immediate_w bits = i_core_immediate bits 32
+
+  let s_immediate bits =
+    let z1 = get_z_immediate bits 7 11 0 in
+    let z2 = get_z_immediate bits 25 31 5 in
+    let z = Z.logor z1 z2 in
+    sign_extension z 12 Isa.xlen
+
+  let b_immediate bits =
+    let z1 = get_z_immediate bits 8 11 1 in
+    let z2 = get_z_immediate bits 25 30 5 in
+    let z3 = get_z_immediate bits 7 7 11 in
+    let z4 = get_z_immediate bits 31 31 12 in
+    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in  
+    sign_extension z 13 Isa.xlen
+
+  let u_immediate bits =
+    let z = get_z_immediate bits 12 31 12 in
+    sign_extension z 32 Isa.xlen
+
+  let j_immediate bits: Z.t =
+    let z1 = get_z_immediate bits 21 30 1 in
+    let z2 = get_z_immediate bits 20 20 11 in
+    let z3 = get_z_immediate bits 12 19 12 in
+    let z4 = get_z_immediate bits 31 31 20 in
+    let z = List.fold_left (fun z' zi -> Z.add z' zi) Z.zero [z1; z2; z3; z4] in
+    sign_extension z 21 Isa.xlen
+
+  (* the result is signed-extended *)
+  let get_immediate kind bits =
+    match kind with
+    | I -> i_immediate bits
+    | S -> s_immediate bits
+    | B -> b_immediate bits
+    | U -> u_immediate bits 
+    | J -> j_immediate bits
+    | IW -> i_immediate_w bits
+    | R -> L.abort (fun p -> p "no R-immediate defined in the spec")  
  
-  let i_type _opcode = failwith "not yet implemented"
+
+  (* figure 2.3, row B-type *)
+  let b_decode bits =                  
+    let funct3 = get_range_immediate bits 12 14 0 in
+    let rs1 = get_range_immediate bits 15 19 0 in
+    let rs2 = get_range_immediate bits 20 24 0 in
+    let offset = get_immediate B bits in
+    offset, rs1, rs2, funct3
+
+  (* figure 2.3, row J-type *)
+  let j_decode bits =
+    let rd = get_range_immediate bits 7 11 0 in
+    let imm = get_immediate J bits in
+    rd, imm
+
+  (* figure 2.3, row I-type *)
+  let i_core_decode bits =
+    let rd = get_range_immediate bits 7 11 0 in
+    let funct3 = get_range_immediate bits 12 14 0 in
+    let rs1 = get_range_immediate bits 15 19 0 in
+    rs1, funct3, rd
+
+  let i_decode bits =
+    let rs1, funct3, rd = i_core_decode bits in
+    get_immediate I bits, rs1, funct3, rd
+                    
+  (* RV64I special instruction of I-type *)
+  let iw_decode bits =
+    let rs1, funct3, rd = i_core_decode bits in
+    get_range_immediate bits 20 31 0, rs1, funct3, rd
+    
+  (* figure 2.3, row U-type *)
+  let u_decode bits =
+    let rd = get_range_immediate bits 7 11 0 in
+    let imm = get_immediate U bits in
+    imm, rd
+
+  (* figure 2.3, row R-type *)
+  let r_decode bits =
+    let funct7 = get_range_immediate bits 25 31 0 in
+    let rs2 = get_range_immediate bits 20 24 0 in
+    let rs1 = get_range_immediate bits 15 19 0 in
+    let funct3 = get_range_immediate bits 12 14 0 in
+    let rd = get_range_immediate bits 7 11 0 in
+    funct7, rs2, rs1, funct3, rd
+
+  (* figure 2.3, row S-type *)
+  let s_decode bits =
+    let rs1 = get_range_immediate bits 15 19 0 in
+    let rs2 = get_range_immediate bits 20 24 0 in
+    let funct3 = get_range_immediate bits 12 14 0 in
+    let imm = get_immediate S bits in
+    imm, rs1, rs2, funct3
+
 
   (** fatal error reporting *)
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
+
+  let return s str stmts =
+    s.b.Cfa.State.stmts <- stmts;
+    s.b.Cfa.State.bytes <- string_to_char_list str;
+    s.b, Data.Address.add_offset s.a (Z.of_int 4)
     
-  let decode s: Cfa.State.t * Data.Address.t =
+  let comparison s bits =
+    let offset, rs1, rs2, func3 = b_decode bits in
+    let bop =
+      match func3 with
+      | 0b000 -> (* beq *) EQ
+      | 0b001 -> (* bne *) NEQ
+      | 0b100 -> (* blt *) LTS
+      | 0b101 -> (* bge *) GES
+      | 0b110 -> (* bltu *) LT
+      | 0b111 -> (* bgeu *) GEQ
+      | _ -> L.abort (fun p -> p "undefined comparison opcode")
+    in
+    (* page 22: the offset is signed-extended and added to the address of the 
+       branch instruction to give the target address *)
+    let a' = Address.add_offset s.a offset in
+    [If (Cmp(bop, Lval (get_register rs1), Lval (get_register rs2)), [Jmp (A a')], [Nop])]
+
+  let const z = Const (Data.Word.of_int z Isa.xlen)
+  let const_w z = Const (Data.Word.of_int z 32)
+                
+  let jal s bits =
+    let rd, imm = j_decode bits in
+    let a = Data.Address.add_offset s.a imm in
+    if rd = 0 then
+      (* unconditional jump *)
+      [Jmp (A a)]
+    else
+      (* call *)
+      let a' = Data.Address.add_offset s.a (Z.of_int 4) in
+      [Set(get_register rd, Const (Data.Address.to_word a' Isa.xlen));
+       Call (A a)]
+
+  let jalr s bits =
+    let offset, rs1, _funct3, rd = i_decode bits in
+    (* The target address is obtained by adding the sign-extended 12-bit I-immediate 
+       to the register rs1, then setting the least-significant bit of the result to zero *)
+    let target = BinOp (And,
+                        BinOp(Add, Lval (get_register rs1), const offset),
+                        const (Z.of_int 0xFFFFFFFE))
+    in
+    if rd = 0 then
+      [Jmp (R target)]
+    else
+      let a' = Z.add (Data.Address.to_int s.a) (Z.of_int 4) in
+      [Set(get_register rd, const a');
+       Call (R target)]
+
+  let lui bits =
+    let imm, rd = u_decode bits in
+    if rd = 0 then []
+    else [ Set (get_register rd, const imm) ]
+
+  let auipc s bits =
+    let imm, rd = u_decode bits in
+    if rd = 0 then []
+    else
+      let c = Z.add (Data.Address.to_int s.a) imm in
+      [ Set(get_register rd, const c) ]
+
+ 
+  let shift_imm bits rs1 is_left =
+    let b = if Isa.xlen = 32 then 25 else 26 in
+    let hi = get_range_immediate bits b 31 0 in
+    let lo = const (Z.of_int (get_range_immediate bits 20 (b-1) 0)) in
+    match hi, is_left with
+    | 0, true -> BinOp (Shl, rs1, lo)
+    | 0, false -> UnOp (ZeroExt Isa.xlen, BinOp (Shr, rs1, lo))
+    | 16, _ -> UnOp (SignExt Isa.xlen, BinOp (Shr, rs1, lo))
+    | _ -> L.abort (fun p -> p "illegal high bits for shift with immediate")
+    
+  let reg_imm bits =
+    let imm, rs1, funct3, rd = i_decode bits in
+    if rd = 0 then
+      []
+    else
+      let rs1 = Lval (get_register rs1) in
+      let c = const imm in
+      let binop op = BinOp (op, rs1, c) in
+      let ternop op = TernOp (Cmp (op, rs1, c), const Z.one, const Z.zero) in 
+      let e =
+        match funct3 with
+        | 0 -> (* addi *) binop Add
+        | 1 -> (* slli *) shift_imm bits rs1 true           
+        | 2 -> (* slti *) ternop LTS
+        | 3 -> (* sltiu *) ternop LT
+        | 5 -> (* slri / srai *) shift_imm bits rs1 false
+        | 4 -> (* xori *) binop Xor
+        | 6 -> (* ori *) binop Or
+        | 7 -> (* andi *) binop And
+        | _ -> L.abort (fun p -> p "undefined register immediate instruction")
+      in
+      [ Set (get_register rd, e) ]
+
+  let binop_imm_w op res rs1 rd imm ext =
+    [
+      Set(V (T res), BinOp(op, imm, rs1));
+      Set(rd, UnOp(ext, Lval (V (P(res, 0, 31)))));
+      Directive(Remove res)
+    ]
+    
+  let reg_imm_w bits =
+    let imm, rs1, funct3, rd = iw_decode bits in
+    let rs1 = Lval (V (P (Hashtbl.find reg_tbl rs1, 0, 31))) in
+    let rd = get_register rd in
+    match imm, funct3 with
+    | 0, 1 -> (* slliw *)
+       let c = const_w (Z.of_int imm) in
+       let res = Register.make (Register.fresh_name()) (32+imm) in
+       binop_imm_w Shl res rs1 rd c (ZeroExt Isa.xlen) 
+       
+    | imm, 0 -> (* addiw *)
+       let imm = Const (Word.of_int (sign_extension (Z.of_int imm) 12 32) 32) in
+       let res = Register.make (Register.fresh_name()) 33 in
+       binop_imm_w Add res rs1 rd imm (SignExt Isa.xlen)
+       
+    | 0, 5 -> (* srliw *) 
+       let c = const_w (Z.of_int imm) in
+       let res = Register.make (Register.fresh_name()) (32-imm) in
+       binop_imm_w Shl res rs1 rd c (ZeroExt Isa.xlen)
+       
+    | 32, 5 -> (* sraiw *)
+       let c = const_w (Z.of_int imm) in
+       let res = Register.make (Register.fresh_name()) (32-imm) in
+       binop_imm_w Shl res rs1 rd c (SignExt Isa.xlen)
+       
+    | _, _ -> L.abort (fun p -> p "undefined register-immediate instruction on words")
+
+  let reg_reg_w bits =
+    let funct7, rs2, rs1, funct3, rd = r_decode bits in
+    let rs1 = Lval (V (P (Hashtbl.find reg_tbl rs1, 0, 31))) in
+    let rs2 = Lval (V (P (Hashtbl.find reg_tbl rs2, 0, 31))) in
+    if rd = 0 then
+      []
+    else
+      let rd = get_register rd in
+      let op, sz, ext =
+        match funct3, funct7 with
+        | 0, 0 -> (* addw *) Add, 33, None
+        | 0, 32 -> (* subw *) Sub, 33, None
+        | 1, 0 -> (* sllw *) Shl, 32, None
+        | 5, 0 -> (* srlw *) Shr, 64, Some (ZeroExt 32)
+        | 5, 32 -> (* sraw *) Shr, 64, Some (SignExt 32)
+        | _, _ -> L.abort (fun p -> p "undefined (funct3, funct3) in .w instruction")
+      in
+      let aux = Register.make (Register.fresh_name()) sz in
+      let e = BinOp(op, rs1, rs2) in
+      let paux = Lval (V (P (aux, 0, 31))) in
+      let e' =
+        match ext with
+        | Some ext -> UnOp(ext, paux)
+        | None -> paux
+      in
+      [
+        Set(V (T aux), e);
+        Set(rd, e');
+        Directive(Remove aux)
+      ]
+      
+  let reg_reg bits =
+    let funct7, rs2, rs1, funct3, rd = r_decode bits in
+    if rd = 0 then
+      []
+    else
+      let r1 = Hashtbl.find reg_tbl rs1 in
+      let rs1' = Lval(V (T r1)) in
+      let rs2' = Lval(get_register rs2) in
+      let rd = get_register rd in
+      let bin_set op = [Set(rd, BinOp(op, rs1', rs2'))] in
+      let tern_set op = [Set (rd, TernOp(Cmp(op, rs1', rs2'), const Z.one, const Z.zero)) ] in
+      let low_bit_mask = const (Z.of_int (if Isa.xlen = 32 then 0x1f else 0x3f)) in
+      let reg_mask op = BinOp(op, rs1', BinOp(And, rs2', low_bit_mask)) in
+      match funct7, funct3 with
+      | 0, 0 -> bin_set Add
+      | 32, 0 -> bin_set Sub
+      | 0, 1 -> (* sll *) [ Set(rd, reg_mask Shl) ]
+      | 0, 2 -> (* slt *) tern_set LTS
+      | 0, 3 -> (* sltu *)
+         if rs1 = 0 then
+           let c = Cmp(NEQ, rs2', const Z.zero) in
+           [ Set(rd, TernOp(c, const Z.one, const Z.zero)) ]
+         else tern_set LT
+        
+      | 0, 4 -> bin_set Xor
+      | 0, 5 -> (* srl *) [ Set (rd, reg_mask Shr) ]
+      | 32, 5 -> (* sra *)
+         let e = reg_mask Shr in
+         [ Set(rd, UnOp(SignExt Isa.xlen, e)) ]
+         
+      | 0, 6 -> bin_set Or
+      | 0, 7 -> bin_set And
+      | _ -> L.abort (fun p -> p "undefined (funct7, funct3) pair in Register Register instruction")
+
+    
+  let load bits =
+    let imm, rs1, funct3, rd = i_decode bits in
+    if rd = 0 then
+      []
+    else
+      let rd = get_register rd in
+      let rs1 = get_register rs1 in
+      let off = const imm in
+      let mem = BinOp(Add, Lval rs1, off) in
+      let e =
+        match funct3 with
+        | 0 -> (* lb *) UnOp(SignExt Isa.xlen, Lval (M(mem, 8)))
+        | 1 -> (* lh *) UnOp(SignExt Isa.xlen, Lval (M(mem, 16)))
+        | 2 -> (* lw *) Lval (M(mem, 32))
+        | 4 -> (* lbu *) Lval (M(mem, 8))
+        | 5 -> (* lhu *) Lval (M(mem, 16))
+        | _ -> L.abort (fun p -> p "undefined funct3 for load")
+      in
+      [ Set(rd, e) ]
+
+  let store bits =
+    let imm, rs1, rs2, funct3 = s_decode bits in
+    let rs2 = Lval (get_register rs2) in
+    let rs1 = Hashtbl.find reg_tbl rs1 in
+    let imm = const imm in
+    let lval, sz =
+      match funct3 with
+      | 0 -> (* sb *) P (rs1, 0, 8), 0 
+      | 1 -> (* sh *) P (rs1, 0, 16), 16
+      | 2 -> (* sw *) T rs1, Isa.xlen
+      | _ -> L.abort (fun p -> p "undefined store kind")
+    in
+    let src = M(BinOp(Add, rs2, imm), sz) in 
+      [ Set (src, Lval (V lval)) ]
+        
+  let fence bits =
+    let funct3 = get_range_immediate bits 12 14 0 in
+    match funct3 with
+    | 0 (* fence *) | 1 (* fence.i *) -> []
+    | _ -> L.abort (fun p -> p "undefined funct3 for fence instructions")
+    
+  let decode (s: state): Cfa.State.t * Data.Address.t =
     let str = String.sub s.buf 0 4 in
-    let len = String.length str in
-    let bit_array = Array.make len 0 in
-    fill_bit_array bit_array str len;
-    let opcode = get_opcode bit_array in
-    match opcode with
-    | 0b0000011 -> (* I-type *) i_type opcode
-    | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
+    let bits = get_isn str in
+    let opcode = get_opcode bits in 
+    let stmts =
+      match opcode with
+      (* RV32I *)
+      | 0b1100011 -> comparison s bits
+
+      | 0b1100111 -> jal s bits
+      | 0b1101111 -> jalr s bits
+
+      | 0b0110111 -> lui bits
+      | 0b0010111 -> auipc s bits
+
+      | 0b0010011 -> reg_imm bits
+
+      | 0b0110011 -> reg_reg bits
+
+      | 0b0000011 -> load bits
+
+      | 0b0100011 -> store bits
+
+      | 0b0001111 -> fence bits
+
+      (* RV64I *)
+      | 0b0011011 -> reg_imm_w bits
+      | 0b0111011 -> reg_reg_w bits
+                   
+      | _ -> error s.a (Printf.sprintf "unknown opcode %x\n" opcode)
+    in
+    return s str stmts
     
-  let parse text cfg _ctx state addr _oracle =
+  let parse (text: string) cfg _ctx state addr _oracle =
      let s =  {
       g = cfg;
       b = state;
       a = addr;
       buf = text;
-      addr_sz = Isa.xlen;
+      operand_sz = Isa.xlen;
     }
     in
     try
-      let v' = decode s in
-      let ip' = Data.Address.add_offset addr (Z.of_int (s.addr_sz/8)) in
+      let v', ip' = decode s in
       Some (v', ip', ())
     with
     | Exceptions.Error _ as e -> raise e
     | _  -> (*end of buffer *) None
 
-let init_registers () = ()
-let init () = Imports.init ()
-
-let overflow_expression () = failwith "Not implemented" (* see comment section 2.4, Vol 1 *)
+  let init_registers () = (); [x0, Data.Word.of_int Z.zero Isa.xlen]
+                          
+  let init () = Imports.init ()
+              
+  let overflow_expression () = failwith "Not implemented" (* see comment section 2.4, Vol 1 *)
 end

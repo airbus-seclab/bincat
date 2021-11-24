@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -83,10 +83,10 @@ module Make(D: Unrel.T) =
       | BOT -> BOT
       | Val m' -> Val (List.map (fun (u, ids) -> U.forget_lval lv u check_address_validity, ids) m')
                 
-    let add_register r m =
+    let add_register r m w =
       match m with
       | BOT -> BOT
-      | Val m' -> Val (List.map (fun (u, id) -> U.add_register r u, id) m')
+      | Val m' -> Val (List.map (fun (u, id) -> U.add_register r u w, id) m')
 
     let to_string m id =
       match m with

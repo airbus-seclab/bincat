@@ -65,7 +65,9 @@ module Make(D: Domain.T)(Cfa: Cfa.T with type domain = D.t)(Stubs: Stubs.T with 
       | LT  -> GEQ
       | GEQ -> LT
       | LEQ -> GT
-      | GT  -> LEQ;;
+      | GT  -> LEQ
+      | GES -> LTS
+      | LTS -> GES;;
              
     let restrict (d: D.t) (e: Asm.bexp) (b: bool): (D.t * Taint.Set.t) =
       L.debug (fun p -> p "restrict: e=%s b=%B" (Asm.string_of_bexp e true) b);

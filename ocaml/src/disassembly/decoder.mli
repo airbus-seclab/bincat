@@ -57,7 +57,7 @@ sig
     val overflow_expression: unit -> Asm.exp
 
                                        (** creates registers if not done by default (see x86 and x64 mechanisms) *)
-    val init_registers: unit -> unit
+    val init_registers: unit -> (Register.t * Data.Word.t) list 
 
 end
 
@@ -95,6 +95,6 @@ sig
     val overflow_expression: unit -> Asm.exp
 
                                        (** creates registers if not done by default (see x86 and x64 mechanisms) *)
-    val init_registers: unit -> unit
+    val init_registers: unit -> (Register.t * Data.Word.t) list 
 
 end

@@ -53,7 +53,7 @@ module Make(D: Unrel.T) =
     in
     U.forget_lval lv uenv (H.check_status henv), tenv', henv
 
-  let add_register r (uenv, tenv, henv) = U.add_register r uenv, T.add_register r tenv, henv
+  let add_register r (uenv, tenv, henv) w = U.add_register r uenv w, T.add_register r tenv, henv
 
   let to_string (uenv, tenv, henv) id = (U.to_string uenv id) @ (T.to_string tenv) @ (H.to_string henv)
 

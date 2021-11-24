@@ -47,6 +47,8 @@ let _ =
     "PPC"    , POWERPC;
     "RV32I", RV32I;
     "RV64I", RV64I;
+    "rv32i", RV32I;
+    "rv64i", RV64I;
     "processor_version", PROCESSOR_VERSION;
     "endianness", ENDIANNESS;
     "little", LITTLE;
@@ -69,6 +71,9 @@ let _ =
     "svr", SVR;
     "sysv", SYSV;
     "ms", MS;
+    "riscv", RISCV;
+    "RISCV", RISCV;
+    "RiscV", RISCV;
     (* analyzer tokens *)
     "ini_version", INI_VERSION;
     "unroll", UNROLL;

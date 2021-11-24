@@ -1669,9 +1669,9 @@ struct
       | Exceptions.Error _ as e -> raise e
       | _  -> (*end of buffer *) None
 
-let init_registers () = ()
-  let init () =
-    Imports.init ()
+  let init_registers () = []
+                        
+let init () = Imports.init ()
 
   let overflow_expression () = Lval (V (T vflag))
 end

@@ -63,6 +63,7 @@ ML=\
   disassembly/armv7.ml\
   disassembly/armv8A.ml\
   disassembly/powerpc.ml\
+  disassembly/risc_v.ml\
   fixpoint/forward.ml\
   fixpoint/backward.ml\
   fixpoint/interpreter.ml\

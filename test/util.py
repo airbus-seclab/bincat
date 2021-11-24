@@ -512,3 +512,25 @@ class PowerPC(Arch):
         regs["ca"] = (xer >> 29) & 1
         regs["tbc"] = (xer >> 0) & 0x7f
 
+
+##  ___ ___ ___  ___  __   __   __ _ _
+## | _ \_ _/ __|/ __|_\ \ / /  / /| | |
+## |   /| |\__ \ (_|___\ V /  / _ \_  _|
+## |_|_\___|___/\___|   \_/   \___/ |_|
+##
+## RISC-V 64
+
+class RISCV64(Arch):
+    ALL_REGS = [ "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9",
+                 "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18",
+                 "x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27",
+                 "x28", "x29", "x30", "x31"]
+    AS_TMP_DIR = counter("riscv64-as-%i")
+    AS = ["riscv64-linux-gnu-as"]
+    OBJCOPY = ["riscv64-linux-gnu-objcopy"]
+    OBJDUMP = ["riscv64-linux-gnu-objdump", "-mriscv:rv64", "--disassembler-options=no-aliases,numeric"]
+    EGGLOADER = "eggloader_riscv64"
+    QEMU = ["qemu-riscv64"]
+
+    def extract_flags(self, regs):
+        pass

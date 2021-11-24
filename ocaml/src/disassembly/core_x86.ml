@@ -763,7 +763,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     }
 
   let init_registers() =
-    Arch.init_registers register_tbl xmm_tbl
+    Arch.init_registers register_tbl xmm_tbl;
+    []
 
   (** initialization of the decoder *)
   let init () =
