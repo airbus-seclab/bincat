@@ -28,6 +28,8 @@ get_key_powerpc: get_key.c sha1.c
 get_key_x86_cpp: get_key_cpp.cpp sha1.c
 	g++ $(CXXFLAGS) -m32 -o $@ $^ -L /usr/lib/gcc/i686-linux-gnu/7
 
+get_key_x64_cpp_v2: get_key_cpp_v2.cpp sha1.c
+	g++ $(CXXFLAGS) -o $@ $^ 
 
 clean:
 	rm -f $(OBJ) sha1.o
