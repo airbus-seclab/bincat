@@ -25,6 +25,16 @@ apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
   ocaml-compiler-libs libppx-tools-ocaml-dev cppo libnum-ocaml-dev
 ```
 
+to run tests:
+
+```
+apt install gcc-powerpc-linux-gnu gcc-arm-linux-gnueabi \
+  gcc-aarch64-linux-gnu gcc-aarch64-linux-gnu \
+  gcc-riscv64-linux-gnu qemu qemu-user nasm \
+  libc6-dev-arm64-cross libc6-dev-armel-cross libc6-dev-riscv64-cross \
+  libc6-dev-powerpc-cross 
+```
+
 ##### on Ubuntu 18.04:
 Enable the `universe` repository.
 ```
@@ -33,12 +43,6 @@ apt install make python python-pip python-setuptools python-dev python-pytest \
         libzarith-ocaml-dev libocamlgraph-ocaml-dev ocaml-compiler-libs \
         libppx-tools-ocaml-dev cppo
 ```
-
-If you also want to run bincat tests, install the following packages:
-* gcc-aarch64-linux-gnu
-* gcc-arm-linux-gnueabi, libc6-dev-armel-cross
-* gcc-powerpc-linux-gnu
-* qemu, qemu-user
 
 ##### on Archlinux:
 Install packages first
