@@ -29,7 +29,7 @@ let process lexer_name lexbuf =
     let src_file = "Compiler.parse" in
     let lexeme 	 = Lexing.lexeme lexbuf in
     let msg 	 = "syntax error: unexpected token: "^lexeme in
-    let advice 	 = ", please fix your code" in
+    let advice 	 = ", please check code validity" in
     let pos 	 = Lexing.lexeme_start_p lexbuf in
     let loc 	 = 
       (pos.Lexing.pos_fname, pos.Lexing.pos_lnum, 

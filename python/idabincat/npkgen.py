@@ -84,6 +84,7 @@ class NpkGen(object):
                 res = re.sub(search, r"\1struct %s " % s, res, flags=re.MULTILINE)
         res += "\n\n"+"\n".join(self.imports)
         res = re.sub(r"__attribute__.*? ", " ", res)
+        res = re.sub("__fastcall", "", res)
 
         res = res.replace("$", "D_")
         res = res.replace("::", "__")
@@ -143,14 +144,16 @@ class NpkGen(object):
             npk_log.error(error_msg, exc_info=True)
             raise NpkGenException(error_msg) from e
         except subprocess.CalledProcessError as e:
-            error_msg = "Error encountered while running c2newspeak."
+            error_msg = ""
             if e.output:
                 error_msg += "\n--- start of c2newspeak output ---\n"
                 error_msg += str(e.output)
                 error_msg += "\n--- end of c2newspeak output ---"
             # Don't show exception if c2newspeak returns 1 (parse error)
             if e.returncode != 1:
-                npk_log.error(error_msg, exc_info=True)
+                npk_log.error("Error encountered while running c2newspeak.\n"+error_msg, exc_info=True)
+            else:
+                npk_log.info("Parse error in c2newspeak:\n"+error_msg)
             raise NpkGenException(error_msg) from e
         # output is in destfname
         os.chdir(cwd)
