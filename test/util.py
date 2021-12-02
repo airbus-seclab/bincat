@@ -26,15 +26,16 @@ def getReg(my_node, name):
         
 
 
-def getLastNode(prgm):
+def getLastNode(prgm, expect_tree=True):
     curNode = prgm['0']
     while True:
         nextNodes = prgm.next_nodes(curNode.node_id)
         if len(nextNodes) == 0:
             return curNode
-        assert len(nextNodes) == 1, \
-            ("expected exactly 1 destination node after running this "
-             "instruction (node: %s)" % curNode.node_id)
+        if not expect_tree:
+            assert len(nextNodes) == 1, \
+                ("expected exactly 1 destination node after running this "
+                 "instruction (node: %s)" % curNode.node_id)
         curNode = nextNodes[0]
 
 
