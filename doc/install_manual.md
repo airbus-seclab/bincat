@@ -10,7 +10,7 @@
 * python 2.7
 * pytest for tests
 * ocamldoc for the ocaml documentation generation
-* python2-sphinx for the python documentation generation
+* python3-sphinx for the python documentation generation
 * menhir for the configuration parsing in ocaml
 * the ocamlgraph library
 * IDA >= 7.0 (for the plugin)
@@ -21,7 +21,7 @@ All these dependencies except IDA are usually packaged by linux distributions.
 ##### on Debian Sid:
 ```
 apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
-  libocamlgraph-ocaml-dev python-setuptools python-dev \
+  libocamlgraph-ocaml-dev python3-setuptools python3-dev \
   ocaml-compiler-libs libppx-tools-ocaml-dev cppo libnum-ocaml-dev
 ```
 
@@ -43,7 +43,7 @@ If you also want to run bincat tests, install the following packages:
 ##### on Archlinux:
 Install packages first
 ```
-pacman -S base-devel ocaml-findlib opam rsync git python2-pytest python2-sphinx
+pacman -S base-devel ocaml-findlib opam rsync git python3-pytest python3-sphinx
 ```
 
 Add a symlink to caml includes:
