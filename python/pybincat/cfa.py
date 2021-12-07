@@ -355,6 +355,9 @@ class Node(object):
         new_node.taintsrc = taintsrc
         return new_node
 
+    def default_unrel(self):
+        return self.unrels[self.default_unrel_id()]
+
     def default_unrel_id(self):
         ids = sorted(self.unrels.keys())
         if not ids:
