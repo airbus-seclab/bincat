@@ -972,7 +972,7 @@ module Make(D: T) =
 
     let i_get_bytes (addr: Asm.exp) (cmp: Asm.cmp) (terminator: Asm.exp) (upper_bound: int) (sz: int) (m': t) (with_exception: bool) pad_options check_address_validity: (int * D.t list) =
 
-      L.debug(fun p -> p "i_get_bytes addr=%s cmp=%s terminator=%s upper_bound=%i sz=%i"
+      L.debug(fun p -> p "i_get_bytes addr=%s cmp='%s' terminator=%s upper_bound=%i sz=%i"
         (Asm.string_of_exp addr true) (Asm.string_of_cmp cmp)
         (Asm.string_of_exp terminator true) upper_bound sz);
     
