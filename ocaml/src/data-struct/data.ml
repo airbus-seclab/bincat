@@ -176,7 +176,8 @@ struct
                n
              else
                Word.compare_value w1 w2
-
+        let to_string (r, w) = Printf.sprintf "%s%s" (string_of_region r) (Word.to_string w)
+                             
         let equal (r1, w1) (r2, w2) =
             if equal_region r1 r2 then Word.equal w1 w2
             else false
@@ -187,7 +188,7 @@ struct
               raise (Exceptions.Error "Tried to create negative address")
             else r, w
 
-        let to_string (r, w) = Printf.sprintf "%s%s" (string_of_region r) (Word.to_string w)
+
 
         (** returns the offset of the address *)
         let to_int (_, w) =  Word.to_int w

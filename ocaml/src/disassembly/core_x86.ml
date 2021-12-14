@@ -2498,7 +2498,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let unroll_scas (cmp: cmp) s i: stmt =
     let edi' = V (to_reg edi s.addr_sz) in
     let mem  = add_segment s (Lval edi') es in
-    Directive (Unroll_until (mem, cmp, Lval (V (to_reg eax i)), 10000, i))
+    Directive (Unroll_until (mem, cmp, Lval (V (to_reg eax i)), 1024, i))
 
   let switch_sizes s = s.operand_sz <- if s.operand_sz = 16 then 32 else 16; s.imm_sz <- s.operand_sz;;
 
@@ -2972,7 +2972,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
              in
              if not (s.repe || s.repne) then
                v.Cfa.State.stmts <- [ Directive (Type (V (T ecx), Types.T (TypedC.Int (Newspeak.Unsigned, Register.size ecx))));
-                                      Directive (Unroll (Lval (V (T ecx)), 10000)) ] @ blk
+                                      Directive (Unroll (Lval (V (T ecx)), 1024)) ] @ blk
              else
                begin
                  let cmp = if s.repne then EQ else NEQ in

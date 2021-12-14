@@ -367,10 +367,7 @@ module Make(V: Val) =
       
     let meet v1 v2 = map2 V.meet v1 v2
       
-    let widen v1 v2 =
-      if Z.compare (to_z v1) (to_z v2) <> 0 then
-        raise (Exceptions.Too_many_concrete_elements (Printf.sprintf "vector.widen with different vectors (v1=%s v2=%s)" (to_string v1) (to_string v2)))
-      else v1
+    let widen v1 v2 = map2 V.widen v1 v2
         
     (* common utility to add and sub *)
     let core_add_sub op v1 v2 =

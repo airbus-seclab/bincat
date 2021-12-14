@@ -136,6 +136,7 @@ sig
   (** [iter_state_ip f ip] iterates function _f_ on states that have _ip_ as ip field *)
   val iter_state_ip: (State.t -> unit) -> t -> Data.Address.t -> unit
 
+  val update_ips: t -> State.t -> unit
 end
 
 (** the control flow automaton functor *)
@@ -315,17 +316,16 @@ struct
   (* CFA utilities *)
   (*****************)
 
-  let update_ips ips v =
+  let update_ips (_g, ips) v =
     let states =
        try Hashtbl.find ips v.State.ip
       with Not_found -> []
     in
     Hashtbl.replace ips v.State.ip (v::states)
     
-  let copy_state (g, ips) v =
+  let copy_state (g, _ips) v =
     let v = { v with id = new_state_id() } in
     G.add_vertex g v;
-    update_ips ips v;
     v
 
 
@@ -349,9 +349,8 @@ struct
 
   let remove_successor ((g, _): t) (src: State.t) (dst: State.t): unit = G.remove_edge g src dst
 
-  let add_state (g, ips: t) (v: State.t): unit =
-    G.add_vertex g v;
-    update_ips ips v
+  let add_state (g, _ips: t) (v: State.t): unit =
+    G.add_vertex g v
 
   let add_successor (g, _ips) src dst: unit = G.add_edge g src dst
 

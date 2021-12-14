@@ -39,13 +39,12 @@ struct
 
   (** widen the given state with all previous vertices that have the same ip as v *)
   let widen prev v =
-    let join_v = D.join prev v.Cfa.State.v in
     v.Cfa.State.final <- true;
-    v.Cfa.State.v <- D.widen prev join_v
+    v.Cfa.State.v <- D.widen prev v.Cfa.State.v
     
     (** update the abstract value field of the given vertices wrt to their list of statements and the abstract value of their predecessor
     the widening may be also launched if the threshold is reached *)    
-    let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (get_field: Cfa.State.t -> D.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
+  let update_abstract_value (g: Cfa.t) (v: Cfa.State.t) (get_field: Cfa.State.t -> D.t) (ip: Data.Address.t) (process_stmts: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list): Cfa.State.t list =
       try
         let l = process_stmts g v ip in
         List.iter (fun v ->
@@ -59,7 +58,7 @@ struct
               Hashtbl.add !unroll_tbl v.Cfa.State.ip (1, d);
               1, d
           in
-          let nb_max =
+          let nb_max = 
             match !unroll_nb with
             | None -> !Config.unroll
             | Some n -> n
@@ -72,7 +71,6 @@ struct
               widen jd v
             end
         ) l;
-        
         List.fold_left (fun l' v ->
           if D.is_bot (get_field v) then
             begin
@@ -81,19 +79,22 @@ struct
             end
           else v::l') [] l (* TODO: optimize by avoiding creating a state then removing it if its abstract value is bot *)
       with Exceptions.Empty _ -> L.analysis (fun p -> p "No new reachable states from %s\n" (Data.Address.to_string ip)); []
-                                 
 
- (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ (same address and same decoding context and subsuming abstract value if subsuming = true) *)
+  let is_subset prev v' =
+    Data.Address.equal prev.Cfa.State.ip v'.Cfa.State.ip && (* TODO: optimize as normally is_subset is called on same ip addresses *)
+      prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
+        prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&        
+                                                   (* fixpoint reached *)
+          D.is_subset v'.Cfa.State.v prev.Cfa.State.v
+
+ (** [filter_vertices subsuming g vertices] returns vertices in _vertices_ that are not already in _g_ 
+     (same address and same decoding context and subsuming abstract value if subsuming = true) *)
     let filter_vertices (subsuming: bool) g vertices =
       (* predicate to check whether a new state has to be explored or not *)
-      let same prev v' =
-          prev.Cfa.State.ctx.Cfa.State.addr_sz = v'.Cfa.State.ctx.Cfa.State.addr_sz &&
-            prev.Cfa.State.ctx.Cfa.State.op_sz = v'.Cfa.State.ctx.Cfa.State.op_sz &&
-            prev.Cfa.State.ip = v'.Cfa.State.ip && (* both ips should be the same *)
-              (* fixpoint reached *)
-              D.is_subset v'.Cfa.State.v prev.Cfa.State.v
-      in
-      List.fold_left (fun l v ->
+     
+      let res =
+        List.fold_left (fun l v ->
+            L.analysis (fun p -> p "examining (%d)" v.Cfa.State.id);
           try
             (* filters on cutting instruction pointers *)
             if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
@@ -111,13 +112,26 @@ struct
                       if v.Cfa.State.id = prev.Cfa.State.id then
                         ()
                       else
-                        if same prev v then raise Exit
-                    ) g v.Cfa.State.ip
-                end;
-            v::l
+                        if is_subset prev v then
+                          begin
+                            L.analysis (fun p -> p "fixed point reached between (%d) and (%d)" prev.Cfa.State.id v.Cfa.State.id);
+                            raise Exit
+                          end
+                   
+                    ) g v.Cfa.State.ip;
+                  v::l
+                end
+              else v::l
           with
             Exit -> l
           ) [] vertices
+      in
+      L.analysis (fun p -> p "at filter_vertices: %d new vertices to explore. Before filter: %d vertices" (List.length (res)) (List.length vertices));
+      if List.length res > 0 then
+        begin
+          List.iter(fun rv -> L.analysis (fun p -> p "remaining vertice to explore: %d" rv.Cfa.State.id) ) res;
+        end;
+      res
      
                 
     let cfa_iteration (update_abstract_value: Cfa.t -> Cfa.State.t -> Data.Address.t -> Cfa.State.t list -> Cfa.State.t list)
@@ -142,7 +156,9 @@ struct
             in
             let new_vertices' = List.map (unroll g v) new_vertices in
             let vertices' = filter_vertices false g new_vertices' in
-            List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
+            List.iter (fun v ->
+                Cfa.update_ips g v;
+                waiting := Vertices.add v !waiting) vertices';
             continue := not (Vertices.is_empty !waiting);
           done;
           g

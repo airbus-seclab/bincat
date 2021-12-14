@@ -70,8 +70,8 @@ module Make(D: Unrel.T) =
       | BOT, _ -> true
       | _, BOT -> false
       | Val m1', Val m2' ->
-         List.for_all (fun (u2, _ids2) ->
-             List.exists (fun (u1, _ids1) -> U.is_subset u1 u2) m1') m2'
+         List.for_all (fun (u1, _ids2) ->
+             List.exists (fun (u2, _ids1) -> U.is_subset u1 u2) m2') m1'
 
     let remove_register r m =
       match m with
@@ -200,7 +200,7 @@ module Make(D: Unrel.T) =
          let m = remove_duplicates m1' m2' in
          (* check if the size of m exceeds the threshold *)
          if List.length m > !Config.kset_bound then
-           Val ((merge m1' ) @ (merge m2'))
+           Val (merge (m1'@m2'))
          else
            Val m
 
@@ -233,15 +233,17 @@ module Make(D: Unrel.T) =
            else
              Val m'
 
-    let widen m1 m2 =
-      match m1, m2 with
+    let widen prev_m m =
+      L.analysis (fun p -> p "************************ widening ************\n\n\n");
+      match prev_m, m with
       | BOT, m | m, BOT  -> m
-      | Val m1', Val m2' ->
-         let mm1 = merge m1' in
-         let mm2 = merge m2' in
+      | Val prev_m', Val m' ->
+         let mm1 = merge prev_m' in
+         let mm2 = merge m' in
          match mm1, mm2 with
          | [], _ | _, [] -> Val ([])
-         | (u1, id1)::_, (u2, id2)::_ -> Val ([U.widen u1 u2, Log.History.new_ [id1 ; id2] "widen"])
+         | (u1, id1)::_, (u2, id2)::_ ->
+            Val ([U.widen u1 u2, Log.History.new_ [id1 ; id2] "widen"])
 
 
             

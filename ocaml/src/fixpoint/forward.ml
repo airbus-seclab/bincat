@@ -739,9 +739,11 @@ let from_bin (mapped_mem: Mapped_mem.t) (g: Cfa.t) (s: Cfa.State.t) (dump: Cfa.t
              end;
              (* these vertices are updated by their right abstract values and the new ip  *)
              let new_vertices = Core.update_abstract_value g v' (fun v -> v.Cfa.State.v) ip' (process_stmts fun_stack) in
-             (* among these computed vertices only new are added to the waiting set of vertices to compute       *)
+             (* among these computed vertices only new are added to the waiting set of vertices to compute *)
              let vertices'  = Core.filter_vertices true g new_vertices in
-             List.iter (fun v -> waiting := Vertices.add v !waiting) vertices';
+             List.iter (fun v ->
+                 Cfa.update_ips g v;
+                 waiting := Vertices.add v !waiting) vertices';
              (* udpate the internal state of the decoder *)
              d := d'
           | None -> ()
