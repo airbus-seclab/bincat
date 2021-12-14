@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -17,7 +17,7 @@
  *)
 
 (************************************************************)
-(* core functionalities of the x86 decoders                 *)
+(* Core functionalities of the x86 decoders                 *)
 (************************************************************)
 
 module L = Log.Make(struct let name = "core_x86" end)
@@ -71,7 +71,7 @@ type tbl_entry = {
     dpl: privilege_level;
     p: Z.t;
     avl: Z.t;
-    l: Z.t;
+    l: Z.t; (* 64-bit flag *)
     db: Z.t;
     gran: Z.t;}
 
@@ -98,53 +98,51 @@ type ictx_t = {
 
 
 module type Arch =
-  functor (Domain: Domain.T) -> functor (Stubs: Stubs.T with type domain_t := Domain.t) ->
-                                sig
-                                  module Cfa: Cfa.T
-                                  val operand_sz: int
-                                  module Imports:
-                                  sig
-                                    val init: unit -> unit
-                                    val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
-                                              Data.Address.t -> Asm.import_desc_t
-                                    val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
-                                  end
-                                  val ebx: Register.t
-                                  val ebp: Register.t
-                                  val esi: Register.t
-                                  val edi: Register.t
-                                  val edx: Register.t
-                                  val eax: Register.t
-                                  val ecx: Register.t
-                                  val esp: Register.t
-                                  val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
-                                  val decode_from_0x40_to_0x4F: char -> int -> rex_t
-                                  val arch_get_base_address: Cfa.oracle -> ictx_t -> Data.Address.t -> Register.t -> Z.t
-                                  (* function to set an lval to an expression *)
-                                  val set_dest: Asm.lval -> Asm.exp -> Asm.stmt list
+  functor (Domain: Domain.T) ->
+  functor (Stubs: Stubs.T with type domain_t := Domain.t) ->
+  sig
+    module Cfa: Cfa.T
+    val operand_sz: int
+    module Imports:
+    sig
+      val init: unit -> unit
+      val skip: (Asm.import_desc_t * Asm.calling_convention_t) option ->
+                Data.Address.t -> Asm.import_desc_t
+      val tbl: (Data.Address.t, Asm.import_desc_t * Asm.calling_convention_t) Hashtbl.t
 
-                                  (** add_segment translates the segment selector/offset pair into a linear addresss *)
-                                  val add_segment: Cfa.oracle -> ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
-                                  (* Check segments limits, returns (success_bool, base_addr, limit) *)
-                                  val check_seg_limit: Cfa.oracle -> Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
-                                  val get_rex: int -> rex_t option
-                                  val prologue: Address.t -> Asm.stmt list
-                                  val get_operand_sz_for_stack: unit -> int
-                                end
-
+      (** returns the statements enabling to set the first function argument corresponding to the current calling convention *)
+      val set_first_arg: Asm.exp -> Asm.stmt list
+      val unset_first_arg: unit -> Asm.stmt list
+        
+    end
+    val ebx: Register.t
+    val ebp: Register.t
+    val esi: Register.t
+    val edi: Register.t
+    val edx: Register.t
+    val eax: Register.t
+    val ecx: Register.t
+    val esp: Register.t
+    val init_registers: (int, Register.t) Hashtbl.t -> (int, Register.t) Hashtbl.t -> unit
+    val decode_from_0x40_to_0x4F: char -> int -> rex_t
+    val arch_get_base_address: Cfa.oracle -> ictx_t -> Data.Address.t -> Register.t -> Z.t
+    (* function to set an lval to an expression *)
+    val set_dest: Asm.lval -> Asm.exp -> Asm.stmt list
+      
+    (** add_segment translates the segment selector/offset pair into a linear addresss *)
+    val add_segment: Cfa.oracle -> ictx_t -> int -> Data.Address.t -> Asm.exp -> Register.t -> Asm.exp
+    (* Check segments limits, returns (success_bool, base_addr, limit) *)
+    val check_seg_limit: Cfa.oracle -> Data.Address.t -> ictx_t -> Register.t -> Data.Address.t -> bool * Z.t * Z.t
+    val get_rex: int -> rex_t option
+    val prologue: Address.t -> Asm.stmt list
+    val get_operand_sz_for_stack: unit -> int
+  end
+  
 (** fatal error reporting *)
 let error a msg =
   L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
 
-
-(**************************************************)
-(*  __  _____   __                 _      _       *)
-(*  \ \/ ( _ ) / /   _ __  ___  __| |_  _| |___   *)
-(*   >  </ _ \/ _ \ | '  \/ _ \/ _` | || | / -_)  *)
-(*  /_/\_\___/\___/ |_|_|_\___/\__,_|\_,_|_\___|  *)
-(*  X86 Module                                    *)
-(**************************************************)
 
 
 module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
@@ -227,13 +225,6 @@ module X86(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let get_operand_sz_for_stack () = raise Exit
   end
 
-(**************************************************)
-(*  __  __ __ _ _                  _      _       *)
-(*  \ \/ // /| | |   _ __  ___  __| |_  _| |___   *)
-(*   >  </ _ \_  _| | '  \/ _ \/ _` | || | / -_)  *)
-(*  /_/\_\___/ |_|  |_|_|_\___/\__,_|\_,_|_\___|  *)
-(*                                                *)
-(**************************************************)
 
 module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
   struct
@@ -342,15 +333,6 @@ module  X64(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
     let get_operand_sz_for_stack () = 64
 
   end
-
-
-(********************************************************)
-(*   __  __      _                       _      _       *)
-(*  |  \/  |__ _| |_____   _ __  ___  __| |_  _| |___   *)
-(*  | |\/| / _` | / / -_) | '  \/ _ \/ _` | || | / -_)  *)
-(*  |_|  |_\__,_|_\_\___| |_|_|_\___/\__,_|\_,_|_\___|  *)
-(*                                                      *)
-(********************************************************)
 
 module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) = struct
 
@@ -733,6 +715,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (** control flow automaton *)
   module Arch = Arch(Domain)(Stubs)
   open Arch
+
   module Cfa = Arch.Cfa
   module Imports = Arch.Imports
   let cl = P (Arch.ecx, 0, 7)
@@ -780,7 +763,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     }
 
   let init_registers() =
-    Arch.init_registers register_tbl xmm_tbl
+    Arch.init_registers register_tbl xmm_tbl;
+    []
 
   (** initialization of the decoder *)
   let init () =
@@ -865,7 +849,9 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     let lvl   = v land 3         in
     let ti    = (v lsr 2) land 1 in
     let index = (v lsr 3)        in
-    { rpl = privilege_level_of_int lvl; ti = if ti = 0 then GDT else LDT; index = Word.of_int (Z.of_int index) 13 }
+    { rpl = privilege_level_of_int lvl;
+      ti = if ti = 0 then GDT else LDT;
+      index = Word.of_int (Z.of_int index) 13 }
 
 
 
@@ -881,7 +867,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let copy_segments s addr ctx =
     let segments =
       get_segments addr ctx in
-    { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt; idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
+    { gdt = Hashtbl.copy s.gdt; ldt = Hashtbl.copy s.ldt;
+      idt = Hashtbl.copy s.idt; data = ds; reg = segments  }
 
   (** returns the base address corresponding to the given value (whose format is supposed to be compatible with the content of segment registers *)
   let get_base_address s sreg =
@@ -1398,19 +1385,16 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     in
     replace_lv lv
 
-  let call s dest_exp =
-    let cesp = M (Lval (V (T esp)), !Config.stack_width)   in
-    (* call destination *)
-    let ip' = Data.Address.add_offset s.a (Z.of_int s.o) in
-    let ip   = Const (Data.Address.to_word ip' s.operand_sz) in
-    let stmts =
-      [
-        set_esp Sub (T esp) !Config.stack_width;
-        Set (cesp, ip);
-        Call dest_exp
-      ]
-    in
-    stmts
+  let icall s =
+      let cesp = M (Lval (V (T esp)), !Config.stack_width) in
+      (* call destination *)
+      let ip' = Data.Address.add_offset s.a (Z.of_int s.o) in
+      let ip = Const (Data.Address.to_word ip' s.operand_sz) in
+      [set_esp Sub (T esp) !Config.stack_width;
+       Set (cesp, ip)]
+                
+  let call s dest_exp = (icall s)@[Call dest_exp]
+                      
 
   (** call with expression *)
   let indirect_call s dst =
@@ -1514,27 +1498,29 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   (** state generation for the pop instructions *)
   let pop s lv = return s (pop_stmts true s lv)
 
-  let popf s sz =
-    let name        = Register.fresh_name ()            in
-    let v           = Register.make ~name:name ~size:sz in
-    let tmp         = V (T v) in
+  let popf_stmts s sz =
+    let name = Register.fresh_name () in
+    let v = Register.make ~name:name ~size:sz in
+    let tmp = V (T v) in
     let stmt = set_eflags v in
     let popst = pop_stmts true s [tmp, sz] in
-    return s (popst @ stmt @ [Directive (Remove v)])
+    popst @ stmt @ [Directive (Remove v)]
 
+  let popf s sz = return s (popf_stmts s sz)
+                
   (** generation of statements for the push instructions *)
   let push_stmts (s: state) v =
     let esp' = esp_lval () in
     let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
-    (* in case esp is in the list, save its value before the first push (this is this value that has to be pushed for esp) *)
-    (* this is the purpose of the pre and post statements *)
+    (* in case esp is in the list, save its value before the first push 
+       (this is this value that has to be pushed for esp) 
+       this is the purpose of the pre and post statements *)
     let pre, post=
       if List.exists (fun k -> with_stack_pointer false s.a (fst k)) v then
         [ Set (V (T t), Lval (V esp')) ], [ Directive (Remove t) ]
       else
         [], []
     in
-
     let stmts =
       List.fold_left (
           fun stmts (lv, n) ->
@@ -1567,7 +1553,9 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let push_immediate s sz =
     let c     = get_imm s sz !Config.stack_width true in
     let esp'  = esp_lval () in
-    let stmts = [ set_esp Sub esp' !Config.stack_width; Set (M (Lval (V esp'), !Config.stack_width), c) ]
+    let stmts = [
+        set_esp Sub esp' !Config.stack_width;
+        Set (M (Lval (V esp'), !Config.stack_width), c) ]
     in
     return s stmts
 
@@ -1587,7 +1575,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
   let pushf s sz = return s (pushf_stmts s sz)
 
-  (** returns the state for the mov from immediate operand to register. The size in byte of the immediate is given as parameter *)
+  (** returns the state for the mov from immediate operand to register. 
+      The size in byte of the immediate is given as parameter *)
   let mov_immediate s sz =
     let sz' = if sz = 8 then sz else s.operand_sz in
     let dst, _ = operands_from_mod_reg_rm s sz' 0 in
@@ -2497,6 +2486,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       if s.repne then
         match c with
         | c when '\xA6' <= c && c <= '\xA7' || '\xAE' <= c && c <= '\xAF' -> c
+        | '\xFF' -> if !Config.mpx then error s.a "bnd jmp instruction not managed (MPX enabled)" else c
         | _ -> L.warn (fun p->p "%s: Decoder: undefined behavior of REPNE with opcode %x" (Data.Address.to_string s.a) (Char.code c)); c
       else
         c
@@ -2586,12 +2576,65 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   exception No_rep of Cfa.State.t * Data.Address.t
 
 
+  let convert_interrupt_number n =
+    match !Config.os, n with
+    | Config.Linux, 3 -> 5
+    | _, _ -> n
+
+  (** INT n *)
+  let int_n n s ctx =
+    let n = convert_interrupt_number n in
+    let handler = ctx#get_handler n in
+    let stmts =
+      match handler with
+      | Cfa.State.Direct a -> (Imports.set_first_arg (const n !Config.stack_width)) @ (call s (A a)) @ (Imports.unset_first_arg ())
+      | Cfa.State.Inlined stmts -> (icall s) @ stmts
+    in
+    let stmts = (* push flags, set the first arg of the handler and call the handler *)
+      (if !Config.os = Config.Windows then [] else pushf_stmts s !Config.stack_width)
+      @ stmts
+      @ (if !Config.os = Config.Windows then [] else popf_stmts s !Config.stack_width)
+    in
+    return s stmts
+ 
+
+  (* INT 3*)
+  let int_3 s ctx =
+    L.debug2 (fun p -> p "decoding INT 3");
+    (* we ignore the differences between the opcode CC et CD03 *)
+    int_n 3 s ctx
+
+
+  let into s ctx =
+    try
+      (* Vol 3, 5.2.1: Bit 53 is defined as the 64-bit (L) flag and is used to select 
+         between 64-bit mode and compatibility mode when IA-32e mode is active *)
+      let csv = get_segment_register_mask (ctx#value_of_register cs) in
+      let tbl = if csv.ti = GDT then s.segments.gdt else s.segments.ldt in
+      let cs_segment = Hashtbl.find tbl csv.index in
+      let is_64 =  Z.logand (Z.shift_right cs_segment.base 53) Z.one in
+      if Z.compare is_64 Z.one = 0 then
+        (* vol 2A, 3-457 *)
+        error s.a "Illegal call to INTO in x64 mode"
+      else
+        let ofv = ctx#value_of_register fof in
+        if Z.compare ofv Z.one = 0 then
+          int_n 4 s ctx
+        else
+          return s []
+    with _ -> error s.a "Imprecise value for cs or overflow flag. Analysis stops"
+
+  let iret s =
+    let stmts = (* pop ip, pop flags and restore context *)
+      Return::(popf_stmts s !Config.stack_width) in
+    return s stmts
+    
   (************************************************************)
   (* Main decoding                                            *)
   (************************************************************)
 
   (** decoding of one instruction *)
-  let decode s =
+  let decode s ctx =
     let add_sub_mrm s op use_carry sz direction =
       let dst, src = operands_from_mod_reg_rm s sz direction in
       add_sub s op use_carry dst src sz
@@ -2824,6 +2867,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let n = (Char.code c) - 0xb4  in
          let r = V (P (Hashtbl.find register_tbl n, 8, 15)) in
          return s [Set (r, Const (Word.of_int (int_of_byte s) 8))]
+         
       | c when '\xb8' <= c && c <= '\xbf' -> mov_imm_direct s c
       | '\xc0' -> (* shift grp2 with byte size*) grp2 s 8 None
       | '\xc1' -> (* shift grp2 with word or double-word size *) grp2 s s.operand_sz None
@@ -2838,12 +2882,17 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let sp = V (to_reg esp !Config.stack_width) in
          let bp = V (to_reg ebp !Config.stack_width) in
          return s ( (Set (sp, Lval bp))::(pop_stmts false s [bp, !Config.stack_width]))
-      | '\xca' -> (* RET FAR and pop a word *) return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs), 16] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
+
+      | '\xca' -> (* RET FAR and pop a word *)
+         return s ([Return ; set_esp Add (T esp) s.addr_sz ; ] @ (pop_stmts false s [V (T cs), 16] @ (* pop imm16 *) [set_esp Add (T esp) 16]))
+                                             
       | '\xcb' -> (* RET FAR *) return s ([Return ; set_esp Add (T esp) s.addr_sz; ] @ (pop_stmts false s [V (T cs), 16]))
-      | '\xcc' -> (* INT 3 *) error s.a "INT 3 decoded. Interpreter halts"
+      | '\xcc' -> (* INT 3 *) int_3 s ctx
       | '\xcd' -> (* INT *) let c = getchar s in error s.a (Printf.sprintf "INT %d decoded. Interpreter halts" (Char.code c))
-      | '\xce' -> (* INTO *) error s.a "INTO decoded. Interpreter halts"
-      | '\xcf' -> (* IRET *) error s.a "IRET instruction decoded. Interpreter halts"
+
+      | '\xce' -> (* INTO *) into s ctx
+         
+      | '\xcf' -> (* IRET *) iret s
 
       | '\xd0' -> (* grp2 shift with one on byte size *) grp2 s 8 (Some (const1 8))
       | '\xd1' -> (* grp2 shift with one on word or double size *) grp2 s s.operand_sz (Some (const1 8))
@@ -2890,6 +2939,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
         begin
           match List.hd v.Cfa.State.stmts with
           | Return -> L.decoder (fun p -> p "simplified rep ret into ret")
+          | Jmp _ -> L.decoder (fun p -> p "simplified rep jmp into jmp")
           | _ ->
              (* XXX:
               * if we do not have a cmps or a scas remove repe/repne flag
@@ -2959,6 +3009,18 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
          let v, ip = mod_rm_on_xmm2 s sz in
          raise (No_rep (v, ip))
 
+      | '\x1e' ->
+         let byte = getchar s in
+         if byte = '\xfa' || byte = '\xfb' then
+           (* endbr64 / endbr62 *)
+           if !Config.mpx then
+             error s.a "endbr: MPX extension not managed"
+           else
+             (* TODO: could call our checker that verifies whether the actual return address is the one expected *)
+             return s [ Nop ]
+         else
+           error s.a (Printf.sprintf "unknown third opcode 0x%x\n" (Char.code byte))
+           
       | '\x1F' -> (* long nop *) let _, _ = operands_from_mod_reg_rm s s.operand_sz 0 in return s [ Nop ]
 
       | '\x28' -> (* MOVAPD *) (* TODO: make it more precise *)
@@ -3099,7 +3161,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       }
     in
     try
-      let v', ip = decode s' in
+      let v', ip = decode s' ctx in
       Some (v', ip, s'.segments)
     with
     | Exceptions.Error _ as e -> raise e

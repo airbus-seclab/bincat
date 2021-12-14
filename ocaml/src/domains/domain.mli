@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -46,8 +46,8 @@ module type T =
       (** forget the value of the given lvalue (ie set to top) *)
       val forget_lval: Asm.lval -> t -> t
 
-      (** add the given register to the given abstract value *)
-      val add_register: Register.t -> t -> t
+      (** add the given register to the given abstract value with an optional initial value *)
+      val add_register: Register.t -> t -> Data.Word.t option -> t
 
       (** string conversion. The int parameter is an id to be added to the generated string *)
       val to_string: t -> int -> string list
@@ -166,7 +166,7 @@ number of copied bytes is returned *)
     (** [print_chars d src nb pad_options]
       print src until nb bytes are copied or null byte is found. If it found before nb bytes
       are copied then if pad_options = Some (pad_char, pad_left) it is padded with the char pad_char on the left if pad_left = true otherwise on the right *)
-      val print_chars: t -> Asm.exp -> int -> (char * bool) option -> t
+      val print_chars: t -> Asm.exp -> int -> (char * bool) option -> t * int
 
       (** [copy_register r dst src] returns dst with value of register r being replaced by its value in src *)
       val copy_register: Register.t -> t -> t -> t

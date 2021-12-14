@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -21,7 +21,7 @@
 *)
 module L = Log.Make(struct let name = "powerpc" end)
 
-module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t) =
+module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
 
   type ctx_t = unit
@@ -31,7 +31,7 @@ struct
   open Decodeutils
 
   module Cfa = Cfa.Make(Domain)
-
+               
   type state = {
     mutable g             : Cfa.t;        (** current cfa *)
     mutable b             : Cfa.State.t;  (** state predecessor *)
@@ -1270,5 +1270,5 @@ struct
 
   let overflow_expression () = Lval (V (P (cr, 28, 28)))
 
-  let init_registers () = ()
+  let init_registers () = []
 end

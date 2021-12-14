@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -33,6 +33,11 @@ module type T =
       op_sz  : int; (** size in bits of operands *)
     }
 
+    (** data type for handler management *)
+    type handler_kind_t =
+      | Direct of Data.Address.t
+      | Inlined of Asm.stmt list
+                 
     type t  = {
       id: int;                  (** unique identificator of the state *)
       mutable ip: Data.Address.t;   (** instruction pointer *)
@@ -47,7 +52,8 @@ module type T =
       mutable branch: bool option; (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;      (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t; (** set of taint sources *)
-      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list); (** table of user defined handlers * default handler behavior *)
 
     }
 
@@ -57,13 +63,15 @@ module type T =
 
   (** oracle for retrieving any semantic information computed by the interpreter *)
   class oracle:
-    domain ->
+    domain -> (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list) -> 
   object
     (** returns the computed concrete value of the given register
         may raise an exception if the conretization fails
         (not a singleton, bottom) *)
     method value_of_register: Register.t -> Z.t
 
+    (** returns the address associated to the given interrupt number *)
+    method get_handler: int -> State.handler_kind_t
   end
 
   (** abstract data type of the control flow graph *)
@@ -72,8 +80,8 @@ module type T =
   (** [create] creates an empty CFG *)
   val create: unit -> t
 
-  (** [init addr] creates a state whose ip field is _addr_ *)
-  val init_state: Data.Address.t -> State.t
+  (** [init_state addr] creates a state whose ip field is _addr_ *)
+  val init_state: Data.Address.t -> (Register.t * Data.Word.t) list -> (int -> Asm.stmt list) -> State.t
 
   (** [add_state cfg state] adds the state _state_ from the CFG _cfg_ *)
   val add_state: t -> State.t -> unit
@@ -118,7 +126,7 @@ module type T =
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
 
-  val init_abstract_value: Data.Address.t -> domain * Taint.Set.t
+  val init_abstract_value: Data.Address.t -> (Register.t * Data.Word.t) list -> domain * Taint.Set.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
   val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t

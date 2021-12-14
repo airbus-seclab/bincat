@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -159,6 +159,8 @@ let compare v1 op v2 =
   | Asm.GEQ -> geq v2 v1
   | Asm.LT  -> lt v1 v2
   | Asm.GT  -> gt v1 v2
+  | Asm.LTS -> lt v1 v2 (* at bit level does make difference between signed and unsigned *)
+  | Asm.GES -> geq v1 v2 (* same remark as LTS *)
 
 let is_subset v1 v2 = eq v1 v2
 

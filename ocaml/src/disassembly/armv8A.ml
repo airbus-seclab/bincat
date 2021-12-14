@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -162,7 +162,7 @@ struct
       P (reg_from_num n, 0, 31)
 
   module Cfa = Cfa.Make(Domain)
-
+               
   module Imports = Armv8aImports.Make(Domain)(Stubs)
 
   type state = {
@@ -176,15 +176,7 @@ struct
   let error a msg =
     L.abort (fun p -> p "at %s: %s" (Address.to_string a) msg)
 
-  let string_to_char_list str =
-    let len = String.length str in
-    let rec process i =
-      if i < len then
-        (String.get str i)::(process (i+1))
-      else
-        []
-    in
-    List.rev (process 0)
+  
 
   let build_instruction (str: string): int =
     (Char.code (String.get str 0))
@@ -1048,5 +1040,5 @@ B  <31:31:op:F:0,30:26:_:F:00101,25:0:imm26:F:xxxxxxxxxxxxxxxxxxxxxxxxxx> Branch
     Imports.init ()
 
   let overflow_expression () = Lval (V (T vflag))
-  let init_registers () = ()
+  let init_registers () = []
 end

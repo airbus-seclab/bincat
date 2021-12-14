@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -235,7 +235,7 @@ struct
 
 
   module Cfa = Cfa.Make(Domain)
-
+               
   module Imports = Armv7Imports.Make(Domain)(Stubs)
 
   type state = {
@@ -1772,9 +1772,9 @@ struct
       | Exceptions.Error _ as e -> raise e
       | _  -> (*end of buffer *) None
 
-let init_registers () = ()
-  let init () =
-    Imports.init ()
+  let init_registers () = []
+                        
+let init () = Imports.init ()
 
   let overflow_expression () = Lval (V (T vflag))
 end

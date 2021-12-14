@@ -1,7 +1,7 @@
 export DESTDIR=/
 export PREFIX=usr/local
 
-PYTHON	   ?=python2
+PYTHON	   ?=python3
 PYPATH	   =python
 NPKPATH    =lib
 MLPATH	   =ocaml/src
@@ -31,7 +31,7 @@ install: all
 	make -C $(PYPATH) install
 
 IDAuser:
-	@echo "Linking pybincat and idabincat inside IDA Python ...................."
+	@echo "Copying pybincat and idabincat inside IDA Python ...................."
 	rm -rf "${IDAUSR}/plugins/pybincat"
 	mkdir -p "${IDAUSR}/plugins"
 	cp -r python/pybincat "${IDAUSR}/plugins/pybincat"
@@ -90,7 +90,7 @@ else
 	cp ocaml/src/bincat.exe "$(distdir)/bin"
 	cp -r python/build/lib/ "$(distdir)/python"
 	cp -r python/idabincat/conf/ "$(distdir)/python/idabincat"
-	mkdir "$(distdir)"/python/idabincat/lib
+	mkdir -p "$(distdir)"/python/idabincat/lib
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md doc "$(distdir)"
 	# On azure, do not zip or delete $(distdir)
@@ -113,7 +113,7 @@ lindist: clean all
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md doc "$(distdir)"
 	# On azure, do not zip or delete $(distdir)
-ifeq ($(AZURE_BUILD),)
+ifeq ($(CI_BUILD),)
 	tar cvJf "$(distdir).tar.xz" "$(distdir)"
 	-rm -rf "$(distdir)"
 endif

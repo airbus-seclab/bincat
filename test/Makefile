@@ -7,7 +7,7 @@ ALLOBJ=libc.no $(EXE)
 
 
 test: $(ALLOBJ)
-	python2 -m pytest --tb=line --coverage $(COVERAGE) $(PYTESTFLAGS)
+	python3 -m pytest --tb=line --coverage $(COVERAGE) $(PYTESTFLAGS)
 
 eggloaders: $(ALLOBJ)
 
@@ -27,6 +27,9 @@ eggloader_armv8: eggloader_armv8.c
 
 eggloader_powerpc: eggloader_powerpc.c
 	powerpc-linux-gnu-gcc -static -g -o $@ $<
+
+eggloader_riscv64: eggloader_riscv64.c
+	riscv64-linux-gnu-gcc -static -g -o $@ $<
 
 libc.no: libc.c
 	c2newspeak --typed-npk -o $@ $<

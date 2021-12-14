@@ -80,11 +80,11 @@ class NpkGen(object):
         res = sink.res()
         for s in self.structs:
             if "struct " not in s:
-                search = r"(^\s*(?:typedef )?)\b%s\b" % re.escape(s)
-                res = re.sub(
-                    search, r"\1struct %s" % s, res, flags=re.MULTILINE)
+                search = r"(^\s*(?:typedef )?)\s*%s\s" % re.escape(s)
+                res = re.sub(search, r"\1struct %s " % s, res, flags=re.MULTILINE)
         res += "\n\n"+"\n".join(self.imports)
         res = re.sub(r"__attribute__.*? ", " ", res)
+        res = re.sub("__fastcall", "", res)
 
         res = res.replace("$", "D_")
         res = res.replace("::", "__")
@@ -94,7 +94,7 @@ class NpkGen(object):
     def generate_tnpk(self, imports_data="", destfname=None):
         # required: c2newspeak requires a file, checks its extension
         dirname = tempfile.mkdtemp('bincat-generate-header')
-        npk_log.debug("Generating TNPK file in %s", dirname)
+        npk_log.info("Generating TNPK file in %s", dirname)
         cwd = os.getcwd()
         os.chdir(dirname)
 
@@ -107,10 +107,11 @@ class NpkGen(object):
         c = open(ig_name, "w+")
         c.write(imports_data)
         c.close()
+        npk_log.info("Calling 'gcc -P -E %s'", ig_name)
         # 2. use gcc to preprocess this file
         try:
             out = subprocess.check_output(
-                ["gcc", "-E", ig_name], stderr=subprocess.STDOUT)
+                ["gcc", "-P", "-E", ig_name], stderr=subprocess.STDOUT)
         except OSError as e:
             error_msg = ("Error encountered while running gcc. "
                          "Is it installed in PATH?")
@@ -119,12 +120,13 @@ class NpkGen(object):
                 npk_log.error(error_msg, exc_info=True)
             else:
                 npk_log.error(error_msg, exc_info=False)
-            raise NpkGenException(error_msg)
+            raise NpkGenException(error_msg) from e
         except Exception as e:
             error_msg = "Error encountered while running gcc."
             npk_log.error(error_msg, exc_info=True)
-            raise NpkGenException(error_msg)
+            raise NpkGenException(error_msg) from e
         pp_name = os.path.join(dirname, "pre-processed.c")
+        npk_log.info("Parsing '%s'" % pp_name)
         with open(pp_name, "wb") as f:
             f.write(out)
         # 3. use c2newspeak to generate .no
@@ -140,15 +142,19 @@ class NpkGen(object):
             error_msg = ("Error encountered while running c2newspeak. "
                          "Is it installed in PATH?")
             npk_log.error(error_msg, exc_info=True)
-            raise NpkGenException(error_msg)
+            raise NpkGenException(error_msg) from e
         except subprocess.CalledProcessError as e:
-            error_msg = "Error encountered while running c2newspeak."
+            error_msg = ""
             if e.output:
                 error_msg += "\n--- start of c2newspeak output ---\n"
                 error_msg += str(e.output)
                 error_msg += "\n--- end of c2newspeak output ---"
-            npk_log.error(error_msg, exc_info=True)
-            raise NpkGenException(error_msg)
+            # Don't show exception if c2newspeak returns 1 (parse error)
+            if e.returncode != 1:
+                npk_log.error("Error encountered while running c2newspeak.\n"+error_msg, exc_info=True)
+            else:
+                npk_log.info("Parse error in c2newspeak:\n"+error_msg)
+            raise NpkGenException(error_msg) from e
         # output is in destfname
         os.chdir(cwd)
         npk_log.debug("TNPK file has been successfully generated.")

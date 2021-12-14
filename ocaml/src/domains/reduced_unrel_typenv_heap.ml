@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -53,7 +53,7 @@ module Make(D: Unrel.T) =
     in
     U.forget_lval lv uenv (H.check_status henv), tenv', henv
 
-  let add_register r (uenv, tenv, henv) = U.add_register r uenv, T.add_register r tenv, henv
+  let add_register r (uenv, tenv, henv) w = U.add_register r uenv w, T.add_register r tenv, henv
 
   let to_string (uenv, tenv, henv) id = (U.to_string uenv id) @ (T.to_string tenv) @ (H.to_string henv)
 
@@ -213,7 +213,8 @@ module Make(D: Unrel.T) =
 
 
   let print_chars (uenv, _tenv, henv) src sz pad_options =
-    U.print_chars uenv src sz pad_options (H.check_status henv), T.top, henv
+    let uenv', len = U.print_chars uenv src sz pad_options (H.check_status henv) in
+    (uenv', T.top, henv), len
 
   let copy_until (uenv, tenv, henv) dst arg terminator term_sz upper_bound with_exception pad_options =
     let len, uenv' = U.copy_until uenv dst arg terminator term_sz upper_bound with_exception pad_options (H.check_status henv) in

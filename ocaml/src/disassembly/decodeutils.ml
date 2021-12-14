@@ -36,6 +36,9 @@ let to33bits_s x = UnOp(SignExt 33, x)
 
 (** sign extension of a Z.int _i_ of _sz_ bits on _nb_ bits *)
 let sign_extension i sz nb =
+  if sz = nb then
+    i
+  else
     if Z.testbit i (sz-1) then
       let ff = (Z.sub (Z.shift_left (Z.one) nb) Z.one) in
       (* ffff00.. mask *)
@@ -99,3 +102,14 @@ let overflow_stmts sz res op1 op op2 =
   let c1          = Cmp (cmp_op, sign_op1, sign_op2)          in
   let c2          = Cmp (NEQ, sign_res, sign_op1)         in
   TernOp (BBinOp (LogAnd, c1, c2), const1 1, const0 1)
+
+(** returns the char list of the given string **)
+let string_to_char_list str =
+    let len = String.length str in
+    let rec process i =
+      if i < len then
+        (String.get str i)::(process (i+1))
+      else
+        []
+    in
+    List.rev (process 0)

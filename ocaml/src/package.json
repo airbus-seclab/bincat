@@ -1,0 +1,14 @@
+{
+  "name": "bincat",
+  "description": "Specification of opam dependencies for BinCAT for Windows",
+  "dependencies": {
+    "ocaml": "4.8.x",
+    "@opam/menhir": "*",
+    "@opam/zarith": "*",
+    "@opam/ocamlgraph": "*",
+    "@opam/ppx_tools": "*",
+    "@opam/cppo": "*",
+    "@opam/num": "*",
+    "@opam/gmp": "*"
+  }
+}

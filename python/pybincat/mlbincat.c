@@ -55,21 +55,29 @@ static PyMethodDef MlMethods[] = {
   { "process", process, METH_VARARGS, "Launch the analyzer" },
   {NULL, NULL, 0, NULL}
 };
+static struct PyModuleDef cMLBincat =
+{
+    PyModuleDef_HEAD_INIT,
+    "mlbincat",
+    "",          /* module documentation, may be NULL */
+    -1,          /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
+    MlMethods
+};
 
-PyMODINIT_FUNC
-initmlbincat(void)
+PyMODINIT_FUNC PyInit_mlbincat(void)
 {
 	char *argv[2];
 	argv[0]="";
 	argv[1]=NULL;
 	caml_startup(argv);
 	PyObject *module;
-	module = Py_InitModule("mlbincat", MlMethods);
+	module = PyModule_Create(&cMLBincat);
 	if (module == NULL)
-	  return;
+	  return NULL;
 
 	OcamlException = PyErr_NewException("mlbincat.OcamlException", NULL, NULL);
 	Py_INCREF(OcamlException);
 	PyModule_AddObject(module, "error", OcamlException);
+    return module;
 }
 

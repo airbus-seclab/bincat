@@ -264,7 +264,7 @@ def test_logic_neg(tmpdir, op32):
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov" ])
 
 
-@pytest.mark.parametrize("exp", range(33))
+@pytest.mark.parametrize("exp", list(range(33)))
 def test_cntlzw(tmpdir, exp, op32):
     op32 |= 2**exp
     asm = """
@@ -324,7 +324,7 @@ def test_logic_srawi(tmpdir, op32, op5):
 ## Compare
 
 @pytest.mark.parametrize("op", ["cmp", "cmpl"])
-@pytest.mark.parametrize("crfD", range(8))
+@pytest.mark.parametrize("crfD", list(range(8)))
 def test_compare_cmp_cmpl(tmpdir, op, crfD, op32h, op32h_):
     so = op32h & 0x8000
     asm = """
@@ -338,7 +338,7 @@ def test_compare_cmp_cmpl(tmpdir, op, crfD, op32h, op32h_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr"])
 
-@pytest.mark.parametrize("crfD", range(8))
+@pytest.mark.parametrize("crfD", list(range(8)))
 def test_compare_cmpli(tmpdir, crfD, op32h, op32h_):
     so = op32h & 0x8000
     asm = """
@@ -351,7 +351,7 @@ def test_compare_cmpli(tmpdir, crfD, op32h, op32h_):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "cr"])
 
-@pytest.mark.parametrize("crfD", range(8))
+@pytest.mark.parametrize("crfD", list(range(8)))
 def test_compare_cmpi(tmpdir, crfD, op32h, op16_s):
     so = op32h & 0x8000
     asm = """
@@ -439,12 +439,12 @@ def test_branch_and_link2(tmpdir):
     compare(tmpdir, asm, ["r3"])
 
 
-VALID_COND_BYTES = [ 0x00,       0x02,       0x04, 0x05, 0x06, 0x07,
-                     0x08,       0x0a,       0x0c, 0x0d, 0x0e, 0x0f,
-                     0x10, 0x11, 0x12, 0x13, 0x14,
-                     0x18, 0x19, 0x0a, 0x1b,                         ]
+VALID_COND_BYTES = [ 0x00,       0x02,       0x04,       0x06, 0x07,
+                     0x08,       0x0a,       0x0c,       0x0e, 0x0f,
+                     0x10,       0x12,       0x14,
+                     0x18, 0x19, 0x1a, 0x1b,                         ]
 
-@pytest.mark.parametrize("cr7", range(16))
+@pytest.mark.parametrize("cr7", list(range(16)))
 @pytest.mark.parametrize("bit", ["gt", "lt", "eq", "so"])
 @pytest.mark.parametrize("cond", VALID_COND_BYTES)
 @pytest.mark.parametrize("ctr", [0, 1])
@@ -470,7 +470,7 @@ def test_branch_bclr(tmpdir, cr7, bit, cond, ctr):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7", "r8", "ctr"])
 
-@pytest.mark.parametrize("cr7", range(16))
+@pytest.mark.parametrize("cr7", list(range(16)))
 @pytest.mark.parametrize("bit", ["gt", "lt", "eq", "so"])
 @pytest.mark.parametrize("cond", [ x for x in VALID_COND_BYTES if x & 4 ])
                          # only conds that do not touch to CTR for bcctr
@@ -500,7 +500,7 @@ def test_branch_bcctr_bclr(tmpdir, cr7, bit, cond, ctr):
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r7", "r8"])
 
 
-@pytest.mark.parametrize("cr7", range(16))
+@pytest.mark.parametrize("cr7", list(range(16)))
 @pytest.mark.parametrize("cond", VALID_COND_BYTES)
 @pytest.mark.parametrize("bit", ["gt", "lt", "eq", "so"])
 def test_branch_cond(tmpdir, cr7, bit, cond):
@@ -678,7 +678,7 @@ def test_load_stmw(tmpdir):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "r5", "r6", "r28", "r29", "r30", "r31"])
 
-@pytest.mark.parametrize("op", range(1, 33))
+@pytest.mark.parametrize("op", list(range(1, 33)))
 def test_load_lswi(tmpdir, op):
     asm = """
         xor %r0, %r0, %r0
@@ -704,7 +704,7 @@ def test_load_lswi(tmpdir, op):
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r28", "r29", "r30", "r31"])
 
-@pytest.mark.parametrize("op", range(1, 33))
+@pytest.mark.parametrize("op", list(range(1, 33)))
 def test_store_stswi(tmpdir, op):
     initreg = ["    lis %r{num}, 0xaa{num:02d}\n    ori %r{num}, %r{num}, 0x55{num:02d}".format(num=i)
                for i in [28, 29, 30, 31, 0, 1, 2, 3, 4]]

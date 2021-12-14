@@ -148,7 +148,7 @@ let string_of_ftyp (args_t, ret_t) =
 
 let rec string_of_exp margin e =
   match e with
-      Const (CInt i) -> EBigInt.string_of_big_int (Npk.Nat.to_big_int i)
+      Const (CInt i) -> Big_int_Z.string_of_big_int (Npk.Nat.to_z i)
     | Const _ -> "cst"
     | Lval (lv, _) -> string_of_lv margin lv
     | AddrOf (lv, t) -> "&("^(string_of_lv margin lv)^")_"^(string_of_typ t)
@@ -484,7 +484,7 @@ let rec mask e1 e2 =
       | e1, Unop(Npkil.BNot _, e2') -> e1, e2'
       | _, _ -> Npkcontext.report_error "Cir.eval_exp" "static expression expected"
   in
-  let n1 = Npk.Nat.to_big_int (eval_exp e1) in
+  let n1 = Npk.Nat.to_z (eval_exp e1) in
   let n2 = 
     try 
       Npk.Nat.to_int (eval_exp e2) 
@@ -498,51 +498,51 @@ let rec mask e1 e2 =
 	    268435455; 536870911; 1073741823 ]
   in
   if List.mem n2 l then
-    let m = EBigInt.big_int_of_int (n2+1)  in
-      EBigInt.mult_big_int (EBigInt.div_big_int n1 m) m
+    let m = Big_int_Z.big_int_of_int (n2+1)  in
+      Big_int_Z.mult_big_int (Big_int_Z.div_big_int n1 m) m
   else Npkcontext.report_error "Cir.eval_exp" "static expression expected"
 
 and eval_exp e =
   let apply_bop op v1 v2 =
     match op with
-	Npk.PlusI -> EBigInt.add_big_int v1 v2
-      | Npk.MinusI -> EBigInt.sub_big_int v1 v2
-      | Npk.MultI -> EBigInt.mult_big_int v1 v2
+	Npk.PlusI -> Big_int_Z.add_big_int v1 v2
+      | Npk.MinusI -> Big_int_Z.sub_big_int v1 v2
+      | Npk.MultI -> Big_int_Z.mult_big_int v1 v2
       | Npk.DivI -> 
-	  if (EBigInt.compare_big_int v2 EBigInt.zero_big_int = 0) 
+	  if (Big_int_Z.compare_big_int v2 Big_int_Z.zero_big_int = 0) 
 	  then Npkcontext.report_error "Cir.eval_exp" "division by zero";
-	  EBigInt.div_big_int v1 v2
+	  Big_int_Z.div_big_int v1 v2
       | Npk.Shiftlt -> 
-	  let p = EBigInt.power_int_positive_big_int 2 v2 in
-	    EBigInt.mult_big_int v1 p
+	  let p = Big_int_Z.power_int_positive_big_int 2 v2 in
+	    Big_int_Z.mult_big_int v1 p
       | Npk.Shiftrt -> 
-	  let p = EBigInt.power_int_positive_big_int 2 v2 in
-	    EBigInt.div_big_int v1 p
+	  let p = Big_int_Z.power_int_positive_big_int 2 v2 in
+	    Big_int_Z.div_big_int v1 p
       | Npk.Eq (Npk.Int _) ->
-	  if EBigInt.compare_big_int v1 v2 = 0 then EBigInt.unit_big_int
-	  else EBigInt.zero_big_int
+	  if Big_int_Z.compare_big_int v1 v2 = 0 then Big_int_Z.unit_big_int
+	  else Big_int_Z.zero_big_int
       | Npk.Gt (Npk.Int _) -> 
-	  if EBigInt.compare_big_int v1 v2 > 0 then EBigInt.unit_big_int
-	  else EBigInt.zero_big_int
-      | Npk.PlusPI -> EBigInt.add_big_int v1 v2
+	  if Big_int_Z.compare_big_int v1 v2 > 0 then Big_int_Z.unit_big_int
+	  else Big_int_Z.zero_big_int
+      | Npk.PlusPI -> Big_int_Z.add_big_int v1 v2
       | Npk.BAnd _ ->
-	  if EBigInt.sign_big_int v1 < 0 || EBigInt.sign_big_int v2 < 0 then 
+	  if Big_int_Z.sign_big_int v1 < 0 || Big_int_Z.sign_big_int v2 < 0 then 
 	    Npkcontext.report_error "Cir.eval_exp" "static expression expected";
-	  EBigInt.and_big_int v1 v2
+	  Big_int_Z.and_big_int v1 v2
       | Npk.BOr _ -> 
-	  if EBigInt.sign_big_int v1 < 0 || EBigInt.sign_big_int v2 < 0 then
+	  if Big_int_Z.sign_big_int v1 < 0 || Big_int_Z.sign_big_int v2 < 0 then
 	    Npkcontext.report_error "Cir.eval_exp" "static expression expected"; 
-	  EBigInt.or_big_int v1 v2
+	  Big_int_Z.or_big_int v1 v2
       | Npk.BXor _ -> 
-	  if EBigInt.sign_big_int v1 < 0 || EBigInt.sign_big_int v2 < 0 then 
+	  if Big_int_Z.sign_big_int v1 < 0 || Big_int_Z.sign_big_int v2 < 0 then 
 	    Npkcontext.report_error "Cir.eval_exp" "static expression expected";
-	      EBigInt.xor_big_int v1 v2
+	      Big_int_Z.xor_big_int v1 v2
       | _ -> 
 	  Npkcontext.report_error "Cir.eval_exp" "static expression expected"
   in
   let rec eval_exp (e: exp) =
     match e with
-	Const (CInt i) -> Npk.Nat.to_big_int i
+	Const (CInt i) -> Npk.Nat.to_z i
       | Binop (op, e1, e2) -> 
 	  if is_mask op e1 e2 then mask e1 e2
 	  else apply_bop op (eval_exp e1) (eval_exp e2)
@@ -550,7 +550,7 @@ and eval_exp e =
       | Unop (Npkil.Cast (Npk.Int _, Npk.Ptr), e) -> eval_exp e
       | Unop (Npkil.Coerce b, e) -> 
 	  let i = eval_exp e in
-	    if Newspeak.belongs (Npk.Nat.of_big_int i) b then i 
+	    if Newspeak.belongs (Npk.Nat.of_z i) b then i 
 	    else Npkcontext.report_error "Cir.eval_exp" "integer overflow"
       | _ -> 
 	  Npkcontext.report_error "Cir.eval_exp" "static expression expected"
@@ -560,7 +560,7 @@ and eval_exp e =
       Npkcontext.report_error "Cir.eval_exp" 
 	"expression without side-effects expected"
     end;
-    Npk.Nat.of_big_int (eval_exp e)
+    Npk.Nat.of_z (eval_exp e)
 
 module Int =
 struct

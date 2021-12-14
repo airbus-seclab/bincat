@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -118,9 +118,9 @@
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
-    let supported_version = 4 in
-    if input_version != supported_version then
-      L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
+        let supported_version = 4 in
+        if input_version != supported_version then
+          L.abort (fun p->p "Invalid configuration version: '%d', expected: '%d'" input_version supported_version);;
 
       (** footer function *)
       let check_context () =
@@ -154,7 +154,7 @@
           List.iter add (List.rev funs)
         in
         Hashtbl.iter add_tainting_rules libraries;
-    (* complete the table of function rules with type information *)
+        (* complete the table of function rules with type information *)
         List.iter (fun header ->
         try
           L.debug (fun p -> p "Open npk file [%s]" header);
@@ -162,12 +162,15 @@
           List.iter (fun (s, f) ->
             L.debug (fun p -> p "  - loaded type for [%s]" s);
         Hashtbl.add Config.typing_rules s f.TypedC.function_type) p.TypedC.function_declarations
-        with e -> L.exc e (fun p -> p "failed to load header %s" header)) !npk_headers
+        with e -> L.exc e (fun p -> p "failed to load header %s" header)) !npk_headers;
+      (* update the os type *)
+        if !Config.format = Config.PE then
+          Config.os := Config.Windows
     ;;
 
     %}
 %token EOF LEFT_SQ_BRACKET RIGHT_SQ_BRACKET EQUAL REG MEM STAR AT
-%token CALL_CONV CDECL FASTCALL STDCALL AAPCS MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
+%token CALL_CONV CDECL FASTCALL STDCALL AAPCS RISCV MEM_MODEL MEM_SZ OP_SZ STACK_WIDTH
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FS_BASE GS_BASE FLAT SEGMENTED STATE
 %token FORMAT RAW MANUAL PE ELF ELFOBJ ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA UNDERSCORE
@@ -176,7 +179,8 @@
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
 %token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
-%token IGNORE_UNKNOWN_RELOCATIONS IDA TAINT_INPUT
+%token IGNORE_UNKNOWN_RELOCATIONS OS WINDOWS LINUX IDA TAINT_INPUT
+%token MPX ENABLED DISABLED
 %token <string> STRING
 %token <string> HEX_BYTES
 %token <string> HEAP_HEX_BYTES
@@ -319,7 +323,9 @@
     | ARCHITECTURE EQUAL a=architecture  { update_mandatory ARCHITECTURE; Config.architecture := a }
     | FILEPATH EQUAL f=QUOTED_STRING     { update_mandatory FILEPATH; Config.binary := f }
     | FORMAT EQUAL f=format      { update_mandatory FORMAT; Config.format := f }
-    | NULL EQUAL v=INT { Config.null_cst := v}
+    | NULL EQUAL v=INT { Config.null_cst := v }
+    | OS EQUAL s=os_kind { Config.os := s }
+    | MPX EQUAL b=mpx_enabled { Config.mpx := b }
 
       format:
     | PE  { Config.PE }
@@ -335,7 +341,8 @@
     | AAPCS    { Config.AAPCS }
     | SVR      { Config.SVR }
     | SYSV     { Config.SYSV }
-    | MS      { Config.MS }
+    | MS       { Config.MS }
+    | RISCV    { Config.RISCVI }
 
     mmode:
     | PROTECTED { Config.Protected }
@@ -365,7 +372,13 @@
     | GS_BASE EQUAL i=init       { update_x64_mandatory GS_BASE; init_register "gs_base" i }
     | GDT LEFT_SQ_BRACKET i=INT RIGHT_SQ_BRACKET EQUAL v=INT { update_x64_mandatory GDT; Hashtbl.replace Config.gdt i v }
 
+    os_kind:
+    | WINDOWS { Config.Windows }
+    | LINUX { Config.Linux }
 
+    mpx_enabled:
+    | ENABLED { true }
+    | DISABLED { false }
     memmodel:
     | FLAT  { Config.Flat }
     | SEGMENTED { Config.Segmented }

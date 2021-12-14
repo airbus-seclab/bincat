@@ -1,7 +1,7 @@
 (*
   C2Newspeak: compiles C code into Newspeak. Newspeak is a minimal language 
   well-suited for static analysis.
-  Copyright (C) 2007-2011  Charles Hymans, Sarah Zennou
+  Copyright (C) 2007-2021  Charles Hymans, Sarah Zennou
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -70,8 +70,8 @@ module Nat: sig
       @raise Invalid_argument "Newspeak.Nat.to_int" otherwise. *)
   val to_int: t -> int
 
-  val of_big_int: EBigInt.big_int -> t
-  val to_big_int: t -> EBigInt.big_int
+  val of_z: Z.t -> t
+  val to_z: t -> Z.t
 
   val add: t -> t -> t
   val mul: t -> t -> t

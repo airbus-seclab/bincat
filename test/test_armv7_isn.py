@@ -1,6 +1,6 @@
 import pytest
 import os
-from util import ARM,Thumb,ThumbU,get_cov
+from util import ARM,Thumb,ThumbU
 
 arm = ARM(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7.ini.in')
@@ -238,6 +238,7 @@ def test_data_proc_arith_no_carry(tmpdir, op, armv7op, armv7op_):
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z", "c", "v"])
 
 @dataop_comp_arith
+@pytest.mark.xfail # not implemented yet
 def test_data_proc_arith_imm(tmpdir, op, armv7op, armv7op_):
     asm = """
             mov r0, #{armv7op}
@@ -306,7 +307,7 @@ def test_data_proc_test_arith(tmpdir, op, armv7op, armv7op_):
     compare(tmpdir, asm, ["r0","r1", "n", "z", "c", "v"])
 
 
-@pytest.mark.parametrize("flags", range(15))
+@pytest.mark.parametrize("flags", list(range(15)))
 def test_data_proc_msr_cpsr_reg(tmpdir,flags):
     asm = """
             mov r0, #{flags:#x}0000000
@@ -314,14 +315,14 @@ def test_data_proc_msr_cpsr_reg(tmpdir,flags):
     """.format(**locals())
     compare(tmpdir, asm, ["n", "z", "v", "c"])
 
-@pytest.mark.parametrize("flags", range(15))
+@pytest.mark.parametrize("flags", list(range(15)))
 def test_data_proc_msr_cpsr_imm(tmpdir,flags):
     asm = """
             msr cpsr, #{flags:#x}0000000
     """.format(**locals())
     compare(tmpdir, asm, ["n", "z", "v", "c"])
 
-@pytest.mark.parametrize("flags", range(15))
+@pytest.mark.parametrize("flags", list(range(15)))
 def test_data_proc_mrs_cpsr(tmpdir,flags):
     asm = """
             mov r0, #{flags:#x}0000000
@@ -346,13 +347,9 @@ def test_data_proc_read_pc(tmpdir):
 ## | |\/| | _|| |) | | / _ \   | |\__ \ .` |
 ## |_|  |_|___|___/___/_/ \_\ |___|___/_|\_|
 
-@pytest.mark.parametrize("ubfxparams",
-                         [(x,y)
-                          for x in get_cov().op5
-                          for y in get_cov().op5
-                          if x+y <= 31 and y > 0])
-def test_media_ubfx(tmpdir, armv7op, ubfxparams):
-    op5,op5_ = ubfxparams
+
+def test_media_ubfx(tmpdir, armv7op, op5_couple, request):
+    op5,op5_ = op5_couple
     asm = """
           mov r2, #{armv7op}
           ubfx r3, r2, #{op5}, #{op5_}
@@ -788,7 +785,7 @@ def test_swap_swap_byte_same_reg(tmpdir):
     compare(tmpdir, asm, ["r0", "r1", "r2"])
 
 
-@pytest.mark.parametrize("flags", range(15))
+@pytest.mark.parametrize("flags", list(range(15)))
 @pytest.mark.parametrize("cc", condition_codes)
 def test_cond(tmpdir, flags, cc):
     asm = """

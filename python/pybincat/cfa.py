@@ -109,8 +109,24 @@ def reg_len(regname):
             "r24": 32, "r25": 32, "r26": 32, "r27": 32, "r28": 32, "r29": 32,
             "r30": 32, "r31": 32, "lr": 32, "ctr": 32, "cr": 32,
             "tbc": 7, "so": 1, "ov": 1, "ca": 1}[regname]
+    elif CFA.arch.lower() == "rv32i":
+        return {
+            "x0": 32, "x1": 32, "x2": 32, "x3": 32, "x4": 32, "x5": 32,
+            "x6": 32, "x7": 32, "x8": 32, "x9": 32, "x10": 32, "x11": 32,
+            "x12": 32, "x13": 32, "x14": 32, "x15": 32, "x16": 32, "x17": 32,
+            "x18": 32, "x19": 32, "x20": 32, "x21": 32, "x22": 32, "x23": 32,
+            "x24": 32, "x25": 32, "x26": 32, "x27": 32, "x28": 32, "x29": 32,
+            "x30": 32, "x31": 32 }[regname]
+    elif CFA.arch.lower() == "rv64i":
+        return {
+            "x0": 64, "x1": 64, "x2": 64, "x3": 64, "x4": 64, "x5": 64,
+            "x6": 64, "x7": 64, "x8": 64, "x9": 64, "x10": 64, "x11": 64,
+            "x12": 64, "x13": 64, "x14": 64, "x15": 64, "x16": 64, "x17": 64,
+            "x18": 64, "x19": 64, "x20": 64, "x21": 64, "x22": 64, "x23": 64,
+            "x24": 64, "x25": 64, "x26": 64, "x27": 64, "x28": 64, "x29": 64,
+            "x30": 64, "x31": 64 }[regname]
     else:
-        raise KeyError("Unkown arch %s" % CFA.arch)
+        raise KeyError("Unknown arch %s" % CFA.arch)
 
 
 #: maps short region names to pretty names
@@ -338,6 +354,9 @@ class Node(object):
         new_node.tainted = tainted
         new_node.taintsrc = taintsrc
         return new_node
+
+    def default_unrel(self):
+        return self.unrels[self.default_unrel_id()]
 
     def default_unrel_id(self):
         ids = sorted(self.unrels.keys())

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -29,14 +29,13 @@ sig
     
   val init: unit -> unit
 
-  val stubs : (string, (Data.Address.t -> Data.Address.t option -> domain_t -> Asm.lval -> (int -> Asm.lval) ->  
-
+  val default_handler: int -> Asm.stmt list
+    
+  val stubs : (string, (Data.Address.t -> Data.Address.t option -> domain_t -> Asm.lval -> (int -> Asm.lval) ->
                          domain_t * Taint.Set.t) * int) Hashtbl.t
 end
 
-
-module Make (D: Domain.T) : (T with type domain_t := D.t)  =
-struct
+module Make(D: Domain.T) = struct
 
     type domain_t = D.t
 
@@ -50,17 +49,19 @@ struct
         let d' = D.allocate_on_heap d id in
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
-          let success_msg = "successful heap allocation " in
-          let failure_msg = "heap allocation failed  " in
-          let postfix =
-            match calling_ip with
-            | Some ip -> let ip_str = Data.Address.to_string ip in "at " ^ ip_str
-            | None -> ""
-          in
-          let success_msg = success_msg ^ postfix in
-          let failure_msg = failure_msg ^ postfix in
-          D.set_lval_to_addr ret [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ] d'
+        let success_msg = "successfull heap allocation " in
+        let failure_msg = "heap allocation failed  " in
+        let postfix =
+          match calling_ip with
+          | Some ip -> let ip_str = Data.Address.to_string ip in "at " ^ ip_str
+          | None -> ""
+        in
+        let success_msg = success_msg ^ postfix in
+        let failure_msg = failure_msg ^ postfix in
+        D.set_lval_to_addr ret [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
+
+
 
     let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
       match a with
@@ -98,7 +99,7 @@ struct
            let msg = Printf.sprintf "Illegal dereference of %s (null)" (Asm.string_of_lval (args 0) true) in
            raise (Exceptions.Null_deref msg)
       with
-        Exceptions.Too_many_concrete_elements _ ->
+        Exceptions.Too_many_concrete_elements _  ->
           raise (Exceptions.Too_many_concrete_elements "Stubs: too many addresses to deallocate")
       
     let strlen (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
@@ -129,13 +130,17 @@ struct
         let n = Z.to_int (D.value_of_exp d sz) in
         let lv1 = Asm.M (Asm.Lval (args 0), 8*n) in
         let lv2 = Asm.M (Asm.Lval (args 1), 8*n) in
+        let taint =
+          try
+            Taint.join (D.get_taint lv1 d) (D.get_taint lv2 d)
+          with _ -> Taint.TOP
+        in
         let v1 = D.value_of_exp d (Asm.Lval lv1) in
         let v2 = D.value_of_exp d (Asm.Lval lv2) in
         let res = Asm.Const (Data.Word.of_int (Z.sub v1 v2) !Config.operand_sz) in
         let d' = fst (D.set ret res d) in
-        let taint = Taint.join (D.get_taint lv1 d') (D.get_taint lv2 d') in
         D.taint_lval ret taint d'
-      with _ -> D.forget_lval ret d, Taint.Set.singleton Taint.TOP (* TODO: check soundness of the returned taint *)        
+      with _ -> D.forget_lval ret d, Taint.Set.singleton Taint.TOP
       
     let memset (_ip: Data.Address.t) _ (d: domain_t) ret args: domain_t * Taint.Set.t =
       let arg0 = args 0 in
@@ -226,7 +231,7 @@ struct
                             let dst' = Asm.BinOp (Asm.Add, dst, Asm.Const (Data.Word.of_int (Z.of_int dst_off) !Config.stack_width))
                             in
                             D.copy_chars d dst'
-                          | _ -> D.print_chars d
+                          | _ -> (fun arg1 arg2 arg3 -> fst (D.print_chars d arg1 arg2 arg3))
                       in
                       fmt_pos+1, digit_nb, dump arg digit_nb (Some (pad_char, pad_left))
 
@@ -359,6 +364,46 @@ struct
       L.info (fun p -> p "--- end of puts--");
       d', taint
 
+
+    let write _ip _ d ret args =
+      L.info (fun p -> p "write output");
+      let fd =
+        try
+         Z.to_int (D.value_of_exp d (Asm.Lval (args 0)))
+        with _ -> L.abort (fun p -> p "imprecise file descriptor as argument of write")
+      in
+      if fd = 1 then
+        let buf = Asm.Lval (args 1) in
+        try
+          let char_nb = Z.to_int (D.value_of_exp d (Asm.Lval (args 2))) in
+          let d', len = D.print_chars d buf char_nb None in
+          let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
+          L.info (fun p -> p "--- end of write--");
+          d', taint
+        with Exceptions.Too_many_concrete_elements _ -> L.abort (fun p -> p "imprecise number of char to write")
+      else
+        L.abort (fun p -> p "write output implemented only for stdout")
+      
+    let stubs = Hashtbl.create 5
+
+    let signal_process d call_conv: domain_t * Taint.Set.t * Asm.stmt list =
+      let args = call_conv.Asm.arguments in
+      let d, taint, stmts =
+        try
+        let int_nb = Z.to_int (D.value_of_exp d (Asm.Lval (args 0))) in
+        let addrs, taint = D.mem_to_addresses d (Asm.Lval (args 1)) in
+        (* int_nb and addr has to be concrete values *)
+        match Data.Address.Set.elements addrs with
+        | [a] -> d, taint, [Asm.Directive (Asm.Handler (int_nb, a))]
+        | _ -> raise (Exceptions.Too_many_concrete_elements "several possible handler addresses")
+        with Exceptions.Too_many_concrete_elements _ ->
+          L.warn (fun p -> p "uncomputable argument of signal call (signal number or handler address). Skipped");
+          d, Taint.Set.singleton Taint.U, []
+      in
+      let cleanup_stmts = (call_conv.Asm.callee_cleanup 2) in
+      d, taint, stmts@cleanup_stmts
+
+             
     let putchar (_ip) _ d ret args =
       let str = Asm.Lval (args 0) in
       L.info (fun p -> p "putchar output:");
@@ -378,10 +423,11 @@ struct
                                                  
     let bin_exit (_ip) _ _d _ret _args =
       raise (Exceptions.Stop "on exit call")
-      
-    let stubs = Hashtbl.create 5
 
     let process ip calling_ip d fun_name call_conv: domain_t * Taint.Set.t * Asm.stmt list =
+       if String.compare fun_name "signal" = 0 then
+        signal_process d call_conv 
+      else     
       let apply_f, arg_nb =
         try Hashtbl.find stubs fun_name
         with Not_found -> L.abort (fun p -> p "No stub available for function [%s]" fun_name)
@@ -404,6 +450,9 @@ struct
       let cleanup_stmts = (call_conv.Asm.callee_cleanup arg_nb) in
       d', taint, cleanup_stmts
 
+
+  
+        
     let skip d f call_conv: domain_t * Taint.Set.t * Asm.stmt list =
       let arg_nb, ret_val = Hashtbl.find Config.funSkipTbl f in
       let d, taint =
@@ -427,17 +476,52 @@ struct
       in
       let cleanup_stmts = call_conv.Asm.callee_cleanup (Z.to_int arg_nb) in
       d,taint, cleanup_stmts
-          
+
+    let default_handler sig_nb =
+      (* see man 7 signal. Implementation of POSIX.1-2001 *)
+      let ignore_sig sig_text =
+        L.analysis (fun p -> p "Handling signal %s: ignored" sig_text);
+        []
+      in
+      let abort sig_text =
+        L.analysis (fun p -> p "Handling signal %s: analysis stops" sig_text);
+        L.abort (fun p -> p "see above")
+      in
+      match sig_nb with
+      | 1 (* SIGHUP *) -> abort "SIGHUP"
+      | 2 (* SIGINT *) -> abort "SIGINT"                        
+      | 3 (* SIGQUIT *) -> abort "SIGQUIT"
+      | 4 (* SIGIL *) -> abort "SIGIL"
+      | 5 (* SIGTRAP *) -> abort "SIGTRAP"
+      | 6 (* SIGABRT *) -> abort "SIGABRT"
+      | 7 | 10 (* SIGBUS *) -> abort "SIGBUS"
+      | 8 (* SIGFPE *) -> abort "SIGFPE"
+      | 9 (* SIGKILL *) -> abort "SIGKILL"
+      | 11 (* SIGSEGV *) -> abort "SIGSEGV"
+      | 12 | 31 (* SIGSYS *) -> abort "SIGSYS"
+      | 13 (* SIGPIPE *) -> abort "SIGPIPE"
+      | 14 (* SIGALRM *) -> ignore_sig "SIGALRM"
+      | 15 (* SIGTERM *) -> abort "SIGTERM"
+      | 16 (* SIGUSR1 *) -> ignore_sig "SIGUSR1"
+      | 17 | 18 (* SIGCHLD *) -> abort "SIGCHLD"
+      | 19 | 25 (* SIGCONT *) -> ignore_sig "SIGCONT"
+      | 20 | 24 (* SIGTSTP *) -> ignore_sig "SIGSTP"
+      | 26 (* SIGTTIN *) -> ignore_sig "SIGTTIN"
+      | 27 (* SIGTTOU *) -> ignore_sig "SIGTTOU"
+      | _ -> L.analysis (fun p -> p "received Illegal signal %d. Ignored" sig_nb); []
+      
     let init () =
       Hashtbl.replace stubs "memcpy"        (memcpy,      3);
       Hashtbl.replace stubs "memcmp"        (memcmp,      3);
       Hashtbl.replace stubs "memset"        (memset,      3);
       Hashtbl.replace stubs "sprintf"       (sprintf,     0);
       Hashtbl.replace stubs "printf"        (printf,      0);
+      Hashtbl.replace stubs "write" (write, 3);
       Hashtbl.replace stubs "__sprintf_chk" (sprintf_chk, 0);
       Hashtbl.replace stubs "__printf_chk"  (printf_chk,  0);
       Hashtbl.replace stubs "puts"          (puts,        1);
       Hashtbl.replace stubs "strlen"        (strlen,      1);
+      Hashtbl.replace stubs "signal"        ((fun _ _ _ _ _ -> raise (Exceptions.Stop "on signal that stops execution of the program")),  0); (* special treatment for signal see signal_process *)
       Hashtbl.replace stubs "putchar"        (putchar,      1);
       Hashtbl.replace stubs "getchar" (getchar, 0);
       Hashtbl.replace stubs "getc" (getc, 1);

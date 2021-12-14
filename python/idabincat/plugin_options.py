@@ -18,6 +18,7 @@
 """
 import os
 import logging
+import ida_diskio
 try:
     import configparser as ConfigParser
 except ImportError:
@@ -34,17 +35,8 @@ class PluginOptions(object):
     @classmethod
     def init(cls):
         # Configuration files path
-        idausr = os.getenv('IDAUSR')
-        if not idausr:
-            if os.name == "nt":
-                idausr = os.path.join(
-                    os.getenv("APPDATA"), "Hex-Rays", "IDA Pro")
-            elif os.name == "posix":
-                idausr = os.path.join(os.getenv("HOME"), ".idapro")
-            else:
-                raise RuntimeError
-            bc_log.warning("IDAUSR not defined, using %s", idausr)
-        cls.config_path = os.path.join(idausr, "idabincat")
+        idausr = ida_diskio.get_user_idadir()
+        cls.config_path = os.path.join(idausr, "plugins", "idabincat")
 
         # Plugin options
         def_options = {

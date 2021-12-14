@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2019 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -34,8 +34,13 @@ sig
     type ctx_t = {
       addr_sz: int; (** size in bits of the addresses *)
       op_sz  : int; (** size in bits of operands *)
-    }
-
+      }
+               
+    (** data type for handler management *)
+    type handler_kind_t =
+      | Direct of Data.Address.t
+      | Inlined of Asm.stmt list
+                 
     type t  = {
       id: int;                          (** unique identificator of the state *)
       mutable ip: Data.Address.t;       (** instruction pointer *)
@@ -49,7 +54,8 @@ sig
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t;    (** set of taint sources*)
-      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list); (** table of user defined handlers * default handler behavior *)
     }
 
     val compare: t -> t -> int
@@ -57,13 +63,17 @@ sig
 
   (** oracle for retrieving any semantic information computed by the interpreter *)
   class oracle:
-    domain ->
+          domain ->
+          (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list) ->
   object
     (** returns the computed concrete value of the given register
         may raise an exception if the conretization fails
         (not a singleton, bottom) *)
     method value_of_register: Register.t -> Z.t
 
+    (** returns the address associated to the given interrupt number *)
+    method get_handler: int -> State.handler_kind_t
+         
   end
 
   (** abstract data type of the control flow graph *)
@@ -72,8 +82,8 @@ sig
   (** [create] creates an empty CFG *)
   val create: unit -> t
 
-  (** [init addr] creates a state whose ip field is _addr_ *)
-  val init_state: Data.Address.t -> State.t
+  (** [init_state addr] creates a state whose ip field is _addr_ *)
+  val init_state: Data.Address.t -> (Register.t * Data.Word.t) list -> (int -> Asm.stmt list) -> State.t
 
   (** [add_state cfg state] adds the state _state_ from the CFG _cfg_ *)
   val add_state: t -> State.t -> unit
@@ -118,7 +128,7 @@ sig
 
   (** [init_abstract_value] builds the initial abstract value from the input configuration *)
 
-  val init_abstract_value: Data.Address.t -> domain * Taint.Set.t
+  val init_abstract_value: Data.Address.t -> (Register.t * Data.Word.t) list -> domain * Taint.Set.t
 
   (** [update_abstract_value] updates the given abstract state from the input configuration *)
   val update_abstract_value: Data.Address.t -> domain -> domain * Taint.Set.t
@@ -147,6 +157,10 @@ struct
       op_sz  : int; (** size in bits of operands *)
     }
 
+    type handler_kind_t =
+      | Direct of Data.Address.t
+      | Inlined of Asm.stmt list
+                 
     (** abstract data type of a state *)
     type t = {
       id: int;                          (** unique identificator of the state *)
@@ -161,7 +175,8 @@ struct
       mutable branch: bool option;      (** None is for unconditional predecessor. Some true if the predecessor is a If-statement for which the true branch has been taken. Some false if the false branch has been taken *)
       mutable bytes: char list;         (** corresponding list of bytes *)
       mutable taint_sources: Taint.Set.t;     (** set of taint sources. Empty if not tainted  *)
-      mutable back_taint_sources: Taint.Set.t option (** set of taint sources in backward mode. None means undefined *)
+      mutable back_taint_sources: Taint.Set.t option; (** set of taint sources in backward mode. None means undefined *)
+      mutable handlers: (int, Data.Address.t) Hashtbl.t * (int -> Asm.stmt list); (** table of user defined handlers * default handler behavior *)
     }
 
     (** the state identificator counter *)
@@ -186,9 +201,14 @@ struct
   open State
 
 
-  class oracle (d: domain) =
+  class oracle (d: domain) (handlers: (((int, Data.Address.t) Hashtbl.t) * (int -> Asm.stmt list))) =
   object
     method value_of_register (reg: Register.t) = Domain.value_of_register d reg
+
+    method get_handler i = 
+      try
+        State.Direct (Hashtbl.find (fst handlers) i)
+      with Not_found -> State.Inlined ((snd handlers) i)
   end
 
   (** type of a CFA *)
@@ -255,16 +275,22 @@ struct
     let d', taint3 = init_heap ip d' !Config.heap_content in
     d', Taint.Set.union taint3 (Taint.Set.union taint2 taint1)
 
-    let init_abstract_value ip =
-      let d  = List.fold_left (fun d r -> Domain.add_register r d) (Domain.init()) (Register.used()) in
+  let init_abstract_value ip init_reg =
+    let d  = List.fold_left (fun d r ->
+                 let exp =
+                   try
+                     Some (List.assoc r init_reg)
+                   with Not_found -> None
+                 in
+                 Domain.add_register r d exp) (Domain.init()) (Register.used()) in
       update_abstract_value ip d
 
 
   (* CFA creation.
      Return the abstract value generated from the Config module *)
     
-  let init_state (ip: Data.Address.t): State.t =
-    let d', _taint = init_abstract_value ip in
+  let init_state (ip: Data.Address.t) init_reg default_handlers: State.t =
+    let d', _taint = init_abstract_value ip init_reg in
     {
       id = 0;
       ip = ip;
@@ -282,6 +308,7 @@ struct
       };
       taint_sources = Taint.Set.singleton Taint.U;
       back_taint_sources = None;
+      handlers = Hashtbl.create 5, default_handlers;
     }
 
 
@@ -396,11 +423,11 @@ struct
     close_out f;;
 
 
-  let marshal (fid:out_channel) (cfa, ips: t): unit =
-    Marshal.to_channel fid cfa [];
-    Marshal.to_channel fid ips [];
+  let marshal (fid: out_channel) (cfa, ips: t): unit =
+    Marshal.to_channel fid cfa [Marshal.Closures];
+    Marshal.to_channel fid ips [Marshal.Closures];
     Marshal.to_channel fid !state_cpt [];;
-
+  
   let unmarshal fid: t =
     let origcfa = Marshal.from_channel fid in
     let origips = Marshal.from_channel fid in

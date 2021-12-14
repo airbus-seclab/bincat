@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2021 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -31,7 +31,7 @@ struct
 
   let cdecl_calling_convention () = {
     return = reg "eax" ;
-    callee_cleanup = (fun _x -> [ ]) ;
+    callee_cleanup = (fun _x -> []) ;
     arguments = function
     | n -> M (BinOp (Add,
                      Lval (reg "esp"),
@@ -60,6 +60,23 @@ struct
 
   let get_callconv () = get_local_callconv !Config.call_conv
 
+  let set_first_arg e =
+    let r = reg "esp" in
+    [
+      Set (r, BinOp(Sub, Lval r, Const (Data.Word.of_int (Z.of_int (!Config.stack_width/8)) !Config.stack_width))) ;
+      Set (M(Lval r, !Config.stack_width), e)
+    ]
+    
+  let unset_first_arg () =
+    match !Config.call_conv with
+    | Config.CDECL ->
+       let r = reg "esp" in
+       [
+         Set (r, BinOp(Add, Lval r, Const (Data.Word.of_int (Z.of_int (!Config.stack_width/8)) !Config.stack_width)))
+       ]
+    | Config.STDCALL -> [] (* done by the callee *)
+    | cc -> L.abort (fun p -> p "Unset_first_arg: unsupported pour that calling convetion (%s)" (Config.call_conv_to_string cc))
+          
   let stub_stmts_from_name name callconv =
     if  Hashtbl.mem Stubs.stubs name then
       [ Directive (Stub (name, callconv)) ]
