@@ -358,10 +358,9 @@ module Make(D: Domain.T) = struct
 
     let puts (_ip: Data.Address.t) _ d ret args =
       let str = Asm.Lval (args 0) in
-      L.info (fun p -> p "puts output:");
       let len, d' = D.print_until d str (Asm.Const (Data.Word.of_int Z.zero 8)) 8 10000 true None in
       let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
-      L.info (fun p -> p "--- end of puts--");
+      Log.Stdout.stdout (fun p -> p "\n");
       d', taint
 
 
@@ -374,11 +373,9 @@ module Make(D: Domain.T) = struct
       if fd = 1 then
         let buf = Asm.Lval (args 1) in
         try
-          L.info (fun p -> p "write(1) output:");
           let char_nb = Z.to_int (D.value_of_exp d (Asm.Lval (args 2))) in
           let d', len = D.print_chars d buf char_nb None in
           let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in
-          L.info (fun p -> p "--- end of write--");
           d', taint
         with Exceptions.Too_many_concrete_elements _ -> L.abort (fun p -> p "imprecise number of char to write")
       else
@@ -406,7 +403,6 @@ module Make(D: Domain.T) = struct
              
     let putchar (_ip) _ d ret args =
       let str = Asm.Lval (args 0) in
-      L.info (fun p -> p "putchar output:");
       let d' = D.print d str !Config.operand_sz in
       D.set ret (Asm.Const (Data.Word.of_int Z.one !Config.operand_sz)) d'
 

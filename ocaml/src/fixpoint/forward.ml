@@ -352,7 +352,7 @@ module Make(D: Domain.T)(Cfa: Cfa.T with type domain = D.t)(Stubs: Stubs.T with 
               | []  -> raise (Exceptions.Empty "no return address can be computed")
               | _l  -> raise (Exceptions.Too_many_concrete_elements "multiple return addresses")
             in
-            L.analysis (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
+            L.info2 (fun p -> p "returning from stub to %s" (Data.Address.to_string a));
             v.Cfa.State.ip <- a;
             Log.Trace.trace a (fun p -> p "%s"
                                           (Asm.string_of_stmts [ Asm.Jmp(R ret_addr_exp) ] true));
