@@ -465,6 +465,14 @@ class Thumb(ARM):
         """ + asm
         return ARM.assemble(self, tmpdir, asm)
 
+class ThumbU(Thumb):
+    def assemble(self, tmpdir, asm):
+        asm = """
+           .code 16
+           .syntax unified
+           .thumb_func
+        """ + asm
+        return ARM.assemble(self, tmpdir, asm)
 
 class AARCH64(ARM):
     ALL_REGS = ["x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10",

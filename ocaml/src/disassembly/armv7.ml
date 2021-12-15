@@ -635,7 +635,7 @@ struct
                                         const 28 32))),
                       const 0b10000 32)) ]
        else error s.a "MRS from SPSR not supported"
-    | 0b000,0,0b01 -> 
+    | 0b000,0,0b01 ->
        if instruction land (1 lsl 22) = 0 then (* Source PSR: 0=CPSR 1=SPSR *)
          data_proc_msr rm_stmt
        else error s.a "MSR to SPSR not supported"
@@ -1276,19 +1276,24 @@ struct
       Set (V (T pc), BinOp (And, Lval (V (treg rm)), const 0xfffffffe 32)) ;
       Jmp (R (Lval (V (T pc)))) ] |> mark_as_isn
 
+  let decode_thumb32_mov s isn =
+    let str2 = String.sub s.buf 2 2 in
+    let isn2 = build_thumb16_instruction s str2 in
+    L.debug (fun p->p "decode_thumb_mov_low 0x%x 0x%x" isn isn2);
+    let rm = isn2 land 0xF in
+    let rd = (isn2 lsr 8) land 0xF in
+    let jump_pc = if rd = 15 then [ Jmp (R (Lval (V (T pc)))) ] else [] in
+    [ Set (V (treg rd), Lval (V (treg rm))) ] @ jump_pc |> mark_as_isn
+
   let decode_thumb_special_data_branch_exch s isn =
     match (isn lsr 6) land 0xf with
-    | 0b0000 -> (* Add Low Registers ADD (register)*)
-       notimplemented_thumb s isn "ADD (low reg)"
-    | 0b0001 | 0b0010 | 0b0011 -> (* Add High Registers ADD (register) *)
+    | 0b000 | 0b0001 | 0b0010 | 0b0011 -> (* Add High Registers ADD (register) *)
        let rd = ((isn lsr 4) land 0x8) lor (isn land 0x7) in
        let rm = (isn lsr 3) land 0xf in
        op_add (reg rd) rm (Lval (V (treg rd))) |> mark_couple
     | 0b0101 | 0b0110 | 0b0111 -> (* Compare High Registers CMP (register) *)
        notimplemented_thumb s isn "CMP (high reg)"
-    | 0b1000 -> (* Move Low Registers MOV (register) *)
-       notimplemented_thumb s isn "MOV (low reg)"
-    | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
+    | 0b1000 | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
        thumb_mov_high_reg s isn
     | 0b1100 | 0b1101 -> (* Branch and Exchange BX *)
        thumb_bx s isn
@@ -1400,11 +1405,11 @@ struct
            [ Set (M (ofs, 32), Lval (V (treg rt))) ]
          else (* LDR (immediate) Load Register SP relative *)
            [ Set (V (treg rt), Lval (M (ofs, 32))) ]
-      | _ -> 
+      | _ ->
          let rn = (isn lsr 3) land 7 in
          let rt = isn land 7 in
          let imm5 = (isn lsr 6) land 0x1f in
-         let ofs sz = BinOp (Add, Lval (V (treg rn)), const (imm5 lsl sz) 32) in 
+         let ofs sz = BinOp (Add, Lval (V (treg rn)), const (imm5 lsl sz) 32) in
          (* imm5 is shifted by 0 for byte access, 1 for halfword access, 2 for word access *)
          begin
            match isn lsr 11 land 0x1f with
@@ -1527,6 +1532,104 @@ struct
        thumb32_bl_blx_immediate s isn isn2
     | _ -> L.abort (fun p -> p "unexpected thumb32 encoding %04x %04x" isn isn2)
 
+  let ror_c_imm32 imm n _c =
+    let m = n mod 32 in
+    let result = (imm lsr m) lor (imm lsl (32-m)) in
+    (result land 0xFFFFFFFF, (result lsr 31) land 1)
+
+
+  let thumb_expand_imm_c imm12 c =
+    L.debug (fun p->p "thumb_expand_imm_c 0x%x" imm12);
+    let imm8 = imm12 land 0xFF in
+    if (imm12 lsr 10) land 3 = 0 then
+        let op = ((imm12 lsr 8) land 3) in
+        if op != 0 && imm8 = 0 then
+            L.abort (fun p->p "thumb_expand_imm_c: unpredictable")
+        else
+            let imm32 =
+                match op with
+                | 0b00 -> const imm8 32
+                | 0b01 -> const ((imm8 lsl 16) lor imm8) 32
+                | 0b10 -> const ((imm8 lsl 24) lor (imm8 lsl 8)) 32
+                | 0b11 -> const ((imm8 lsl 24) lor (imm8 lsl 16)
+                                 lor (imm8 lsl 8) lor imm8) 32
+                | _ -> L.abort (fun p -> p "Impossible state")
+            in
+            L.debug (fun p->p "thumb_expand_imm_c ret %s" (Asm.string_of_exp imm32 true));
+            (imm32, c)
+    else
+        let unrot = 0b10000000 lor (imm12 land 0x7F) in
+        let rot, c = ror_c_imm32 unrot (imm12 lsr 7) c in
+        (const rot 32, c)
+
+
+  let thumb32_mov rd rn _bit_s imm12 =
+    let imm32, _ = thumb_expand_imm_c imm12 0 (* TODO: carry *) in
+    if rn = 0xF then
+        [ MARK_ISN (Set (V (treg rd), imm32)) ]
+    else
+        [ MARK_ISN (Set (V (treg rd), BinOp(Or, Lval(V (treg rn)), imm32))) ]
+
+  let thumb32_add_cmn rd rn _bit_s imm12 =
+    let imm32, _ = thumb_expand_imm_c imm12 0 (* TODO: carry *) in
+    if rn = 0xF then
+        [ MARK_ISN (Set (V (treg rd), BinOp(Sub, Lval(V (treg rn)), imm32))) ]
+    else
+        [ MARK_ISN (Set (V (treg rd), BinOp(Add, Lval(V (treg rn)), imm32))) ]
+
+  let thumb32_sub_cmp rd rn _bit_s imm12 =
+    let imm32, _ = thumb_expand_imm_c imm12 0 (* TODO: carry *) in
+    if rn = 0xF then
+        [ MARK_ISN (Set (V (treg rd), imm32)) ]
+    else
+        [ MARK_ISN (Set (V (treg rd), BinOp(Sub, Lval(V (treg rn)), imm32))) ]
+
+
+  let decode_thumb32_data_mod_imm s isn isn2 =
+    let op = (isn lsr 5) land 0xf in
+    let bit_s = (isn lsr 1) land 1 in
+    let rn = isn land 0xf in
+    let rd = (isn2 lsr 8) land 0xf in
+    let imml = isn2 land 0xff in
+    let immh = (isn2 lsr 12) land 0b111 in
+    let imm12 = (immh lsl 8) lor imml lor ((isn land 0x400) lsl 1) in
+    L.debug (fun p->p "decode_thumb32_data_mod_imm 0x%x 0x%x 0x%x" isn isn2 imm12);
+    match op with
+    | 0b0000 -> notimplemented_thumb s isn "thumb32 AND/TST"
+    | 0b0001 -> notimplemented_thumb s isn "thumb32 BIC"
+    | 0b0010 -> thumb32_mov rd rn bit_s imm12
+    | 0b0011 -> notimplemented_thumb s isn "thumb32 OR/NOR"
+    | 0b0100 -> notimplemented_thumb s isn "thumb32 XOR/TST"
+    | 0b1000 -> thumb32_add_cmn rd rn bit_s imm12
+    | 0b1010 -> notimplemented_thumb s isn "thumb32 addc"
+    | 0b1011 -> notimplemented_thumb s isn "thumb32 subc"
+    | 0b1101 -> thumb32_sub_cmp rd rn bit_s imm12
+    | 0b1110 -> notimplemented_thumb s isn "thumb32 revsub"
+    | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding")
+
+  let decode_thumb32_store_single s isn isn2 =
+    let op1 = (isn lsr 5) land 7 in
+    let op2msb = (isn2 lsr 11) land 1 in
+    let rn = (isn land 0xF) in
+    let rt = ((isn2 lsr 12) land 0xF) in
+    match (op1, op2msb) with
+    | (0b100, _) -> notimplemented_thumb s isn "STRB imm"
+    | (0, 1) -> let index  = ((isn2 lsr 10) land 1) = 1 in
+                let op = if ((isn2 lsr 9) land 1) = 1 then Add else Sub in
+                let wback  = ((isn2 lsr 8) land 1) = 1 in
+                let imm32 = const (isn2 land 0xFF) 32 in
+                let offset_addr = BinOp(op, Lval(V (treg rn)), imm32) in
+                let address = if index then offset_addr else Lval(V( treg rn)) in
+                let wback_stmts = if wback then [MARK_ISN(Set(V(treg rn), offset_addr))] else [] in
+                let store = MARK_ISN(Set(M(address, 8), Lval(V (preg rt 0 7)))) in
+                [store] @ wback_stmts
+    | (0, 0) -> notimplemented_thumb s isn "STRB reg"
+    | (0b101, _) | (0b001, 1) -> notimplemented_thumb s isn "STRH imm"
+    | (0b001, 0) -> notimplemented_thumb s isn "STRH reg"
+    | (0b110, _) | (0b010, 1) -> notimplemented_thumb s isn "STR imm"
+    | (0b010, 0) -> notimplemented_thumb s isn "STR reg"
+    | _ -> L.abort (fun p -> p "Unexpected thumb32 encoding")
+
 
   let decode_thumb32 s isn isn2 =
     let op1 = (isn lsr 11) land 3 in
@@ -1548,12 +1651,12 @@ struct
          decode_thumb32_branches_misc s isn isn2
        else
          if op2 land 0x20 = 0 then (* Data-processing (modified immediate) *)
-           notimplemented_thumb s isn "Data-processing (modified immediate)"
-         else (* Data-processing (modified immediate) *)
+           decode_thumb32_data_mod_imm s isn isn2
+         else (* Data-processing (immediate) *)
            notimplemented_thumb s isn "Data-processing (plain binary immediate)"
     | 0b11 ->
        if op2 land 0x71 = 0 then (* Store single data item *)
-         notimplemented_thumb s isn "Store single data item"
+         decode_thumb32_store_single s isn isn2
        else if op2 land 0x71 = 0x10 then (* Advanced SIMD element or structure load/store *)
          notimplemented_thumb s isn "Advanced SIMD element or structure load/store"
        else if op2 land 0x67 = 1 then (* Load byte, memory hints *)

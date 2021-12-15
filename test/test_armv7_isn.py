@@ -1,6 +1,6 @@
 import pytest
 import os
-from util import ARM,Thumb
+from util import ARM,Thumb,ThumbU
 
 arm = ARM(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7.ini.in')
@@ -11,6 +11,11 @@ thumb = Thumb(
     os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7thumb.ini.in')
 )
 tcompare = thumb.compare
+
+thumbu = ThumbU(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),'armv7thumb.ini.in')
+)
+tucompare = thumbu.compare
 
 @pytest.fixture()
 def cmpall():
@@ -231,6 +236,15 @@ def test_data_proc_arith_no_carry(tmpdir, op, armv7op, armv7op_):
             {op}s r3, r0, r1
     """.format(**locals())
     compare(tmpdir, asm, ["r0","r1", "r2", "r3", "n", "z", "c", "v"])
+
+@dataop_comp_arith
+@pytest.mark.xfail # not implemented yet
+def test_data_proc_arith_imm(tmpdir, op, armv7op, armv7op_):
+    asm = """
+            mov r0, #{armv7op}
+            {op}.w r1, r0, #{armv7op_}
+    """.format(**locals())
+    tucompare(tmpdir, asm, ["r0","r1"])
 
 @dataop_comp_arith
 def test_data_proc_arith_no_carry2(tmpdir, op, armv7op, armv7op_):
