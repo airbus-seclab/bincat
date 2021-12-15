@@ -366,7 +366,6 @@ module Make(D: Domain.T) = struct
 
 
     let write _ip _ d ret args =
-      L.info (fun p -> p "write output");
       let fd =
         try
          Z.to_int (D.value_of_exp d (Asm.Lval (args 0)))
@@ -375,6 +374,7 @@ module Make(D: Domain.T) = struct
       if fd = 1 then
         let buf = Asm.Lval (args 1) in
         try
+          L.info (fun p -> p "write(1) output:");
           let char_nb = Z.to_int (D.value_of_exp d (Asm.Lval (args 2))) in
           let d', len = D.print_chars d buf char_nb None in
           let d', taint = D.set ret (Asm.Const (Data.Word.of_int (Z.of_int len) !Config.operand_sz)) d' in

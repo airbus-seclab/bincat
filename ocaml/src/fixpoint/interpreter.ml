@@ -94,7 +94,7 @@ struct
      
       let res =
         List.fold_left (fun l v ->
-            L.analysis (fun p -> p "examining (%d)" v.Cfa.State.id);
+            L.debug (fun p -> p "examining (%d)" v.Cfa.State.id);
           try
             (* filters on cutting instruction pointers *)
             if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then
@@ -126,10 +126,10 @@ struct
             Exit -> l
           ) [] vertices
       in
-      L.analysis (fun p -> p "at filter_vertices: %d new vertices to explore. Before filter: %d vertices" (List.length (res)) (List.length vertices));
+      L.debug (fun p -> p "at filter_vertices: %d new vertices to explore. Before filter: %d vertices" (List.length (res)) (List.length vertices));
       if List.length res > 0 then
         begin
-          List.iter(fun rv -> L.analysis (fun p -> p "remaining vertice to explore: %d" rv.Cfa.State.id) ) res;
+          List.iter(fun rv -> L.debug (fun p -> p "remaining vertice to explore: %d" rv.Cfa.State.id) ) res;
         end;
       res
      
