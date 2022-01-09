@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2021 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -21,7 +21,17 @@
 *)
 module L = Log.Make(struct let name = "powerpc" end)
 
-module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
+module PPC =
+  struct
+    let size = 32
+  end
+
+module PPC64 =
+  struct
+    let size = 64
+  end
+
+module Make(V: sig val size: int end)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
 
   type ctx_t = unit
@@ -45,41 +55,41 @@ struct
   (* Creation of the general purpose registers *)
   (************************************************************************)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
-  let r0 = Register.make ~name:"r0" ~size:32;;
-  let r1 = Register.make ~name:"r1" ~size:32;;
-  let r2 = Register.make ~name:"r2" ~size:32;;
-  let r3 = Register.make ~name:"r3" ~size:32;;
-  let r4 = Register.make ~name:"r4" ~size:32;;
-  let r5 = Register.make ~name:"r5" ~size:32;;
-  let r6 = Register.make ~name:"r6" ~size:32;;
-  let r7 = Register.make ~name:"r7" ~size:32;;
-  let r8 = Register.make ~name:"r8" ~size:32;;
-  let r9 = Register.make ~name:"r9" ~size:32;;
-  let r10 = Register.make ~name:"r10" ~size:32;;
-  let r11 = Register.make ~name:"r11" ~size:32;;
-  let r12 = Register.make ~name:"r12" ~size:32;;
-  let r13 = Register.make ~name:"r13" ~size:32;;
-  let r14 = Register.make ~name:"r14" ~size:32;;
-  let r15 = Register.make ~name:"r15" ~size:32;;
-  let r16 = Register.make ~name:"r16" ~size:32;;
-  let r17 = Register.make ~name:"r17" ~size:32;;
-  let r18 = Register.make ~name:"r18" ~size:32;;
-  let r19 = Register.make ~name:"r19" ~size:32;;
-  let r20 = Register.make ~name:"r20" ~size:32;;
-  let r21 = Register.make ~name:"r21" ~size:32;;
-  let r22 = Register.make ~name:"r22" ~size:32;;
-  let r23 = Register.make ~name:"r23" ~size:32;;
-  let r24 = Register.make ~name:"r24" ~size:32;;
-  let r25 = Register.make ~name:"r25" ~size:32;;
-  let r26 = Register.make ~name:"r26" ~size:32;;
-  let r27 = Register.make ~name:"r27" ~size:32;;
-  let r28 = Register.make ~name:"r28" ~size:32;;
-  let r29 = Register.make ~name:"r29" ~size:32;;
-  let r30 = Register.make ~name:"r30" ~size:32;;
-  let r31 = Register.make ~name:"r31" ~size:32;;
+  let r0 = Register.make ~name:"r0" ~size:V.size;;
+  let r1 = Register.make ~name:"r1" ~size:V.size;;
+  let r2 = Register.make ~name:"r2" ~size:V.size;;
+  let r3 = Register.make ~name:"r3" ~size:V.size;;
+  let r4 = Register.make ~name:"r4" ~size:V.size;;
+  let r5 = Register.make ~name:"r5" ~size:V.size;;
+  let r6 = Register.make ~name:"r6" ~size:V.size;;
+  let r7 = Register.make ~name:"r7" ~size:V.size;;
+  let r8 = Register.make ~name:"r8" ~size:V.size;;
+  let r9 = Register.make ~name:"r9" ~size:V.size;;
+  let r10 = Register.make ~name:"r10" ~size:V.size;;
+  let r11 = Register.make ~name:"r11" ~size:V.size;;
+  let r12 = Register.make ~name:"r12" ~size:V.size;;
+  let r13 = Register.make ~name:"r13" ~size:V.size;;
+  let r14 = Register.make ~name:"r14" ~size:V.size;;
+  let r15 = Register.make ~name:"r15" ~size:V.size;;
+  let r16 = Register.make ~name:"r16" ~size:V.size;;
+  let r17 = Register.make ~name:"r17" ~size:V.size;;
+  let r18 = Register.make ~name:"r18" ~size:V.size;;
+  let r19 = Register.make ~name:"r19" ~size:V.size;;
+  let r20 = Register.make ~name:"r20" ~size:V.size;;
+  let r21 = Register.make ~name:"r21" ~size:V.size;;
+  let r22 = Register.make ~name:"r22" ~size:V.size;;
+  let r23 = Register.make ~name:"r23" ~size:V.size;;
+  let r24 = Register.make ~name:"r24" ~size:V.size;;
+  let r25 = Register.make ~name:"r25" ~size:V.size;;
+  let r26 = Register.make ~name:"r26" ~size:V.size;;
+  let r27 = Register.make ~name:"r27" ~size:V.size;;
+  let r28 = Register.make ~name:"r28" ~size:V.size;;
+  let r29 = Register.make ~name:"r29" ~size:V.size;;
+  let r30 = Register.make ~name:"r30" ~size:V.size;;
+  let r31 = Register.make ~name:"r31" ~size:V.size;;
 
-  let lr = Register.make ~name:"lr" ~size:32;;
-  let ctr = Register.make ~name:"ctr" ~size:32;;
+  let lr = Register.make ~name:"lr" ~size:V.size;;
+  let ctr = Register.make ~name:"ctr" ~size:V.size;;
   let cr = Register.make ~name:"cr" ~size:32;;
 
   (* condition flags are modeled as registers of size 1 *)
