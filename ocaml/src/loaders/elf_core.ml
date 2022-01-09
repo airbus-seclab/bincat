@@ -124,13 +124,14 @@ let e_type_to_string typ =
 (* ELF ident machine *)
 
 type e_machine_t =
-  | NONE    | SPARC  | X86     | MIPS     | POWERPC  | S390  | ARM
+  | NONE    | SPARC  | X86     | MIPS     | POWERPC  | PPC64 | S390  | ARM
   | SUPERH  | IA64   | X86_64  | AARCH64  | RISCV
   | OTHER of int
 
 let to_machine x =
   match x with
   | 0x00 -> NONE     | 0x02 -> SPARC  | 0x03 -> X86     | 0x08 -> MIPS  | 0x14 -> POWERPC
+  | 0x15 -> PPC
   | 0x16 -> S390     | 0x28 -> ARM    | 0x2A -> SUPERH  | 0x32 -> IA64  | 0x3E -> X86_64
   | 0xB7 -> AARCH64  | 0xF3 -> RISCV
   | mach -> OTHER mach
@@ -138,7 +139,7 @@ let to_machine x =
 let e_machine_to_string mach =
   match mach with
   | NONE -> "NONE"        | SPARC -> "SPARC"      | X86 -> "X86"          | MIPS -> "MIPS"
-  | POWERPC -> "POWERPC"  | S390 -> "S390"        | ARM -> "ARM"          | SUPERH -> "SUPERH"
+  | POWERPC -> "POWERPC"  | PPC -> "PPC64" | S390 -> "S390"        | ARM -> "ARM"          | SUPERH -> "SUPERH"
   | IA64 -> "IA64"        | X86_64 -> "X86_64"       | AARCH64 -> "AARCH64"  | RISCV -> "RISCV"
   | OTHER i -> (Printf.sprintf "%08x" i)
 

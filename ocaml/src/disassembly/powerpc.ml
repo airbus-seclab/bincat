@@ -19,6 +19,8 @@
 (*
    Decoder for PowerPC
 *)
+(* https://wiki.raptorcs.com/wiki/File:PowerISA_public.v3.1.pdf *)
+
 module L = Log.Make(struct let name = "powerpc" end)
 
 module PPC =
@@ -90,7 +92,7 @@ struct
 
   let lr = Register.make ~name:"lr" ~size:V.size;;
   let ctr = Register.make ~name:"ctr" ~size:V.size;;
-  let cr = Register.make ~name:"cr" ~size:32;;
+  let cr = Register.make ~name:"cr" ~size:32;; (* cr size is 32 in both PPC and PPC64 *)
 
   (* condition flags are modeled as registers of size 1 *)
 
