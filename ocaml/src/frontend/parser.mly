@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2021 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -90,6 +90,7 @@
     let armv7_mandatory_keys = Hashtbl.create 20;;
     let armv8_mandatory_keys = Hashtbl.create 20;;
     let powerpc_mandatory_keys = Hashtbl.create 20;;
+    let powerpc64_mandatory_keys = Hashtbl.create 20;;
     let riscV_mandatory_keys = Hashtbl.create 20;;
     
       (** set the corresponding option reference *)
@@ -115,6 +116,7 @@
       let _update_armv7_mandatory key = update_arch_mandatory_key armv7_mandatory_keys key;;
       let _update_armv8_mandatory key = update_arch_mandatory_key armv8_mandatory_keys key;;
       let _update_powerpc_mandatory key = update_arch_mandatory_key powerpc_mandatory_keys key;;
+      let _update_powerpc64_mandatory key = update_arch_mandatory_key powerpc64_mandatory_keys key;;
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
@@ -134,6 +136,7 @@
             | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
             | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv8_mandatory_keys
             | Config.POWERPC -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc_mandatory_keys
+            | Config.PPC64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc64_mandatory_keys
             | Config.RV32I | Config.RV64I -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "RV32I/64I") riscV_mandatory_keys
           end;
         (* fill the table of tainting rules for each provided library *)
