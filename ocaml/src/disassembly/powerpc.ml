@@ -23,24 +23,140 @@
 
 module L = Log.Make(struct let name = "powerpc" end)
 
+open Data
+open Asm
+open Decodeutils
+
+let ith_bit v n = (v lsr n) land 0b1
+                
+(* split field decoding *)
+
+  let decode_split_field x =
+    ((x lsr 5) land 0x1f) lor ((x land 0x1f) lsl 5)
+
+  (* PPC Forms decoding *)
+
+  let decode_I_Form isn =
+    let li = isn land 0x03fffffc in
+    let aa = (isn lsr 1) land 1 in
+    let lk = isn land 1 in
+    li, aa, lk
+    
+  let decode_B_Form isn =
+    let bo = (isn lsr 21) land 0x1f in
+    let bi = (isn lsr 16) land 0x1f in
+    let bd = (isn lsr 2) land 0x3fff in
+    let aa = (isn lsr 1) land 1 in
+    let lk = isn land 1 in
+    bo, bi, bd, aa, lk
+
+  let decode_D_Form isn =
+    let op1 = (isn lsr 21) land 0x1f in
+    let op2 = (isn lsr 16) land 0x1f in
+    let imm = (isn land 0xffff) in
+    op1, op2, imm
+
+  let decode_M_Form isn =
+    let rS = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rBsh = (isn lsr 11) land 0x1f in
+    let mb = (isn lsr 6) land 0x1f in
+    let me = (isn lsr 1) land 0x1f in
+    let rc = (isn land 1) in
+    rS, rA, rBsh, mb, me, rc
+
+  let decode_X_Form isn =
+    let rSD = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rB = (isn lsr 11) land 0x1f in
+    let rc = (isn land 1) in
+    rSD, rA, rB, rc
+
+  let decode_XO_Form isn =
+    let rD = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rB = (isn lsr 11) land 0x1f in
+    let oe = (isn lsr 10) land 1 in
+    let rc = (isn land 1) in
+    rD, rA, rB, oe, rc
+
+  let decode_XL_Form isn =
+    let rD = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rB = (isn lsr 11) land 0x1f in
+    let lk = (isn land 1) in
+    rD, rA, rB, lk
+
+  let decode_XFX_Form isn =
+    let rSD = (isn lsr 21) land 0x1f in
+    let regnum = (isn lsr 11) land 0x3ff in
+    rSD,regnum
+
+  let z4 = Z.of_int 4
+         
 module PPC =
   struct
     let size = 32
+    let mode = ref 32
+             
+    let decode_conditional_core_XL_form a isn lr lr_or_ctr wrapper =
+      let bo, bi, _, lk = decode_XL_Form isn in
+      let cia = Address.to_int a in
+      let c = zconst (Z.add cia z4) 32 in
+      let update_lr = if lk == 0 then [] else [ Set (V (T lr), c) ] in
+      let if_jump = Jmp (R (BinOp(Shl, Lval (V (P (lr_or_ctr, 0, 29))) , const 2 32))) in
+      let else_jump = Jmp (R c) in
+      (wrapper bi bo [if_jump] [else_jump]) @ update_lr
+
+    let decode_conditional_lr_XL_form a isn lr wrapper =
+      decode_conditional_core_XL_form a isn lr lr wrapper
+
+    let decode_conditional_cr_XL_form a isn lr cr _ctr wrapper =
+      decode_conditional_core_XL_form a isn lr cr wrapper
+    
   end
 
 module PPC64 =
   struct
     let size = 64
+    let mode = ref 64
+
+    let core_conditional_XL_form a isn lr =
+      let bo, bi, _, lk = decode_XL_Form isn in
+      let cia = Address.to_int a in
+      let c = zconst (Z.add cia z4) 64 in
+      let update_lr = if lk == 0 then [] else [ Set (V (T lr), c) ] in
+      bo, bi, update_lr
+      
+    let decode_conditional_lr_XL_form a isn lr wrapper =
+      let bo, bi, update_lr = core_conditional_XL_form a isn lr in
+      let if_jump = Jmp (R (BinOp(Shl, Lval (V (P (lr, 0, 61))), const 2 64))) in
+      (wrapper bi bo [if_jump] []) @ update_lr
+      
+    let decode_conditional_cr_XL_form a isn lr cr ctr _wrapper =
+      let bo, bi, update_lr = core_conditional_XL_form a isn lr in
+      let bo_0 = ith_bit bo 0 in
+      let bo_1 = const (ith_bit bo 1) 1 in
+      let cond_ok =
+        let i = bi+32 in
+        if bo_0 = 1 then BConst true else Cmp (EQ, Lval (V (P(cr, i, i))), bo_1)
+      in
+      let if_jump = Jmp (R (BinOp(Shl, Lval (V (P(ctr, 0, 61))), const 2 64))) in
+      (If(cond_ok, [if_jump], []))::update_lr 
   end
 
-module Make(V: sig val size: int end)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
+module type Isa =
+  sig
+    val size: int
+    val mode: int ref
+    val decode_conditional_lr_XL_form: Address.t -> int -> Register.t -> (int -> int -> (Asm.stmt list) -> (Asm.stmt list) -> (Asm.stmt list)) -> (Asm.stmt list)
+
+    val decode_conditional_cr_XL_form: Address.t -> int -> Register.t -> Register.t -> Register.t -> (int -> int -> (Asm.stmt list) -> (Asm.stmt list) -> (Asm.stmt list)) -> (Asm.stmt list)
+  end
+module Make(Isa: Isa)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
 
   type ctx_t = unit
-
-  open Data
-  open Asm
-  open Decodeutils
 
   module Cfa = Cfa.Make(Domain)
                
@@ -57,41 +173,41 @@ struct
   (* Creation of the general purpose registers *)
   (************************************************************************)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
-  let r0 = Register.make ~name:"r0" ~size:V.size;;
-  let r1 = Register.make ~name:"r1" ~size:V.size;;
-  let r2 = Register.make ~name:"r2" ~size:V.size;;
-  let r3 = Register.make ~name:"r3" ~size:V.size;;
-  let r4 = Register.make ~name:"r4" ~size:V.size;;
-  let r5 = Register.make ~name:"r5" ~size:V.size;;
-  let r6 = Register.make ~name:"r6" ~size:V.size;;
-  let r7 = Register.make ~name:"r7" ~size:V.size;;
-  let r8 = Register.make ~name:"r8" ~size:V.size;;
-  let r9 = Register.make ~name:"r9" ~size:V.size;;
-  let r10 = Register.make ~name:"r10" ~size:V.size;;
-  let r11 = Register.make ~name:"r11" ~size:V.size;;
-  let r12 = Register.make ~name:"r12" ~size:V.size;;
-  let r13 = Register.make ~name:"r13" ~size:V.size;;
-  let r14 = Register.make ~name:"r14" ~size:V.size;;
-  let r15 = Register.make ~name:"r15" ~size:V.size;;
-  let r16 = Register.make ~name:"r16" ~size:V.size;;
-  let r17 = Register.make ~name:"r17" ~size:V.size;;
-  let r18 = Register.make ~name:"r18" ~size:V.size;;
-  let r19 = Register.make ~name:"r19" ~size:V.size;;
-  let r20 = Register.make ~name:"r20" ~size:V.size;;
-  let r21 = Register.make ~name:"r21" ~size:V.size;;
-  let r22 = Register.make ~name:"r22" ~size:V.size;;
-  let r23 = Register.make ~name:"r23" ~size:V.size;;
-  let r24 = Register.make ~name:"r24" ~size:V.size;;
-  let r25 = Register.make ~name:"r25" ~size:V.size;;
-  let r26 = Register.make ~name:"r26" ~size:V.size;;
-  let r27 = Register.make ~name:"r27" ~size:V.size;;
-  let r28 = Register.make ~name:"r28" ~size:V.size;;
-  let r29 = Register.make ~name:"r29" ~size:V.size;;
-  let r30 = Register.make ~name:"r30" ~size:V.size;;
-  let r31 = Register.make ~name:"r31" ~size:V.size;;
+  let r0 = Register.make ~name:"r0" ~size:Isa.size;;
+  let r1 = Register.make ~name:"r1" ~size:Isa.size;;
+  let r2 = Register.make ~name:"r2" ~size:Isa.size;;
+  let r3 = Register.make ~name:"r3" ~size:Isa.size;;
+  let r4 = Register.make ~name:"r4" ~size:Isa.size;;
+  let r5 = Register.make ~name:"r5" ~size:Isa.size;;
+  let r6 = Register.make ~name:"r6" ~size:Isa.size;;
+  let r7 = Register.make ~name:"r7" ~size:Isa.size;;
+  let r8 = Register.make ~name:"r8" ~size:Isa.size;;
+  let r9 = Register.make ~name:"r9" ~size:Isa.size;;
+  let r10 = Register.make ~name:"r10" ~size:Isa.size;;
+  let r11 = Register.make ~name:"r11" ~size:Isa.size;;
+  let r12 = Register.make ~name:"r12" ~size:Isa.size;;
+  let r13 = Register.make ~name:"r13" ~size:Isa.size;;
+  let r14 = Register.make ~name:"r14" ~size:Isa.size;;
+  let r15 = Register.make ~name:"r15" ~size:Isa.size;;
+  let r16 = Register.make ~name:"r16" ~size:Isa.size;;
+  let r17 = Register.make ~name:"r17" ~size:Isa.size;;
+  let r18 = Register.make ~name:"r18" ~size:Isa.size;;
+  let r19 = Register.make ~name:"r19" ~size:Isa.size;;
+  let r20 = Register.make ~name:"r20" ~size:Isa.size;;
+  let r21 = Register.make ~name:"r21" ~size:Isa.size;;
+  let r22 = Register.make ~name:"r22" ~size:Isa.size;;
+  let r23 = Register.make ~name:"r23" ~size:Isa.size;;
+  let r24 = Register.make ~name:"r24" ~size:Isa.size;;
+  let r25 = Register.make ~name:"r25" ~size:Isa.size;;
+  let r26 = Register.make ~name:"r26" ~size:Isa.size;;
+  let r27 = Register.make ~name:"r27" ~size:Isa.size;;
+  let r28 = Register.make ~name:"r28" ~size:Isa.size;;
+  let r29 = Register.make ~name:"r29" ~size:Isa.size;;
+  let r30 = Register.make ~name:"r30" ~size:Isa.size;;
+  let r31 = Register.make ~name:"r31" ~size:Isa.size;;
 
-  let lr = Register.make ~name:"lr" ~size:V.size;;
-  let ctr = Register.make ~name:"ctr" ~size:V.size;;
+  let lr = Register.make ~name:"lr" ~size:Isa.size;;
+  let ctr = Register.make ~name:"ctr" ~size:Isa.size;;
   let cr = Register.make ~name:"cr" ~size:32;; (* cr size is 32 in both PPC and PPC64 *)
 
   (* condition flags are modeled as registers of size 1 *)
@@ -224,63 +340,7 @@ struct
   let not_implemented_64bits s isn isn_name =
     L.abort (fun p -> p "at %s: instruction %s is 64-bit only (isn=%08x)" (Address.to_string s.a) isn_name isn)
 
-  (* split field decoding *)
-
-  let decode_split_field x =
-    ((x lsr 5) land 0x1f) lor ((x land 0x1f) lsl 5)
-
-  (* PPC Forms decoding *)
-
-  let decode_B_Form isn =
-    let bo = (isn lsr 21) land 0x1f in
-    let bi = (isn lsr 16) land 0x1f in
-    let bd = (isn lsr 2) land 0x3fff in
-    let aa = (isn lsr 1) land 1 in
-    let lk = isn land 1 in
-    bo, bi, bd, aa, lk
-
-  let decode_D_Form isn =
-    let op1 = (isn lsr 21) land 0x1f in
-    let op2 = (isn lsr 16) land 0x1f in
-    let imm = (isn land 0xffff) in
-    op1, op2, imm
-
-  let decode_M_Form isn =
-    let rS = (isn lsr 21) land 0x1f in
-    let rA = (isn lsr 16) land 0x1f in
-    let rBsh = (isn lsr 11) land 0x1f in
-    let mb = (isn lsr 6) land 0x1f in
-    let me = (isn lsr 1) land 0x1f in
-    let rc = (isn land 1) in
-    rS, rA, rBsh, mb, me, rc
-
-  let decode_X_Form isn =
-    let rSD = (isn lsr 21) land 0x1f in
-    let rA = (isn lsr 16) land 0x1f in
-    let rB = (isn lsr 11) land 0x1f in
-    let rc = (isn land 1) in
-    rSD, rA, rB, rc
-
-  let decode_XO_Form isn =
-    let rD = (isn lsr 21) land 0x1f in
-    let rA = (isn lsr 16) land 0x1f in
-    let rB = (isn lsr 11) land 0x1f in
-    let oe = (isn lsr 10) land 1 in
-    let rc = (isn land 1) in
-    rD, rA, rB, oe, rc
-
-  let decode_XL_Form isn =
-    let rD = (isn lsr 21) land 0x1f in
-    let rA = (isn lsr 16) land 0x1f in
-    let rB = (isn lsr 11) land 0x1f in
-    let lk = (isn land 1) in
-    rD, rA, rB, lk
-
-  let decode_XFX_Form isn =
-    let rSD = (isn lsr 21) land 0x1f in
-    let regnum = (isn lsr 11) land 0x3ff in
-    rSD,regnum
-
+  
   (* Operation decoders *)
 
 
@@ -289,55 +349,86 @@ struct
                            (Address.to_string s.a) isn_name isn);
     []
 
+
   (* Branching *)
+                  
+  let wrap_with_bi_bo_condition bi bo if_stmts else_stmts =
+    let m = if !Isa.mode = 64 then 0 else 32 in
+    let bo_0 = ith_bit bo 0 in
+    let bo_1 = const (ith_bit bo 1) 1 in
+    let bo_2 = ith_bit bo 2 in
+    let bo_3 = ith_bit bo 3 in
+    let stmts =
+      if bo_2 = 0 then []
+      else [ Set(vt ctr, BinOp(Sub, lvt ctr, const1 Isa.size)) ]
+    in
+    let ctr_ok =
+      if bo_2 = 0 then
+        let cmp = if bo_3 = 0 then NEQ else EQ in
+        let len = Isa.size - m in 
+        Cmp(cmp, lvp ctr m (Isa.size-1), const0 len)     
+      else BConst true
+    in
+    let cond_ok =
+      let test = if Isa.size = 32 then crbit (31-bi) else crbit (bi+32) in 
+      if bo_0 = 0 then Cmp(EQ, Lval test, bo_1)
+      else BConst true
+    in
+    let ctr_and_cond_ok = BBinOp(LogAnd, ctr_ok, cond_ok) in
+    stmts @ [ If (ctr_and_cond_ok, if_stmts, else_stmts) ]
 
-  let wrap_with_bi_bo_condition bi bo exprs =
-    let dec_ctr = Set( vt ctr, BinOp(Sub, lvt ctr, const1 32)) in
-    let cmp0_ctr cond = Cmp(cond, lvt ctr, const0 32) in
-    let cmpbi_cr cond = Cmp(cond, Lval (crbit (31-bi)), const 0 1) in
-    match bo lsr 1 with
-    | 0b0000 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr NEQ, cmpbi_cr EQ), exprs, []) ]
-    | 0b0001 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr EQ, cmpbi_cr EQ), exprs, []) ]
-    | 0b0010 | 0b0011 -> [ If (cmpbi_cr EQ, exprs, []) ]
-    | 0b0100 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr NEQ, cmpbi_cr NEQ), exprs, []) ]
-    | 0b0101 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr EQ, cmpbi_cr NEQ), exprs, []) ]
-    | 0b0110 | 0b0111 -> [ If (cmpbi_cr NEQ, exprs, []) ]
-    | 0b1000 | 0b1100 -> [ dec_ctr ; If (cmp0_ctr NEQ, exprs, []) ]
-    | 0b1001 | 0b1101 -> [ dec_ctr ; If (cmp0_ctr EQ, exprs, []) ]
-    | _ -> exprs
 
-  let decode_branch state isn =
-    let li = isn land 0x03fffffc in
-    let aa = (isn lsr 1) land 1 in
-    let lk = isn land 1 in
-    let signext_li = if li land 0x02000000 == 0 then li else li lor 0xfc000000 in
-    let cia = Z.to_int (Address.to_int state.a) in
-    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let target = if aa == 1
-                 then (R (const signext_li 32))
-                 else (R (const ((cia+signext_li) land 0xffffffff) 32)) in
-    let jump_stmt = if lk == 0
-                    then [ Jmp target ]
-                    else [ Call target ] in
+  (* auxiliary functions to sign extend z or z+off) on sz bits taking into account the Isa.mode *) 
+  let gen_signext z off sz =
+    let se_z =
+      sign_extension (Z.of_int (z lsl 2)) (sz+2) !Isa.mode
+    in
+    let se_z' = 
+      match off with
+      | None -> se_z
+      | Some o -> Z.add o se_z
+    in
+    let c = Const (Word.of_int se_z' Isa.size) in 
+    if Isa.size = !Isa.mode then
+      UnOp(ZeroExt Isa.size, c)
+    else c
+    
+  let decode_branch_I_form state isn =
+    let li, aa, lk = decode_I_Form isn in
+    let cia = Address.to_int state.a in
+    let cia' = Z.add cia (Z.of_int 4) in
+    let update_lr =
+      if lk == 0 then []
+      else [ Set (vt lr, zconst cia' Isa.size) ]
+    in
+    let target =
+      if aa == 1 then R (gen_signext li None 24)
+      else R (gen_signext li (Some cia) 24)
+    in
+    let jump_stmt =
+      if lk == 0
+      then [ Jmp target ]
+      else [ Call target ]
+    in
     update_lr @ jump_stmt
 
-  let decode_branch_condition state isn=
+  let decode_branch_conditional_B_form state isn =
     let bo, bi, bd, aa, lk = decode_B_Form isn in
-    let signext_bd = if bd land 0x2000 == 0 then (bd lsl 2) else (bd lsl 2) lor 0xffff0000 in
-    let cia = Z.to_int (Address.to_int state.a) in
-    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let jump = if aa == 1
-               then Jmp (R (const signext_bd 32))
-               else Jmp (R (const ((cia+signext_bd) land 0xffffffff) 32)) in
-    wrap_with_bi_bo_condition bi bo (jump :: update_lr)
+    let cia = Address.to_int state.a in
+    let update_lr =
+      if lk == 0 then []
+      else [ Set (vt lr, zconst (Z.add cia (Z.of_int 4)) Isa.size) ] in
+    let jump =
+      if aa == 1 then Jmp (R (gen_signext bd None 14))
+      else Jmp (R (gen_signext bd (Some cia) 14))
+    in
+    (wrap_with_bi_bo_condition bi bo [jump] []) @ update_lr
 
-  let decode_bclr_bcctr state isn lr_or_ctr=
-    let bo, bi, _, lk = decode_XL_Form isn in
-    let cia = Z.to_int (Address.to_int state.a) in
-    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let jump = Jmp (R (lvt lr_or_ctr)) in
-    wrap_with_bi_bo_condition bi bo (jump :: update_lr)
+  let decode_conditional_lr_XL_form state isn =
+    Isa.decode_conditional_lr_XL_form state.a isn lr wrap_with_bi_bo_condition
 
+  let decode_conditional_cr_XL_form state isn =
+    Isa.decode_conditional_cr_XL_form state.a isn lr cr ctr wrap_with_bi_bo_condition
 
   (* special *)
 
@@ -979,7 +1070,7 @@ struct
   let decode_010011 s isn =
     match (isn lsr 1) land 0x3ff with
     | 0b0000000000-> decode_mcrf s isn
-    | 0b0000010000-> decode_bclr_bcctr s isn lr        (* bclr *)
+    | 0b0000010000-> decode_conditional_lr_XL_form s isn (* bclr *)
     | 0b0000100001-> decode_cr_op_not s isn Or         (* crnor *)
     | 0b0000110010-> not_implemented s isn "rfi"
     | 0b0010000001-> decode_cr_op_complement s isn And (* crandc *)
@@ -990,7 +1081,7 @@ struct
     | 0b0100100001-> decode_cr_op_not s isn Xor        (* creqv  *)
     | 0b0110100001-> decode_cr_op_complement s isn Or  (* crorc  *)
     | 0b0111000001-> decode_cr_op s isn Or             (* cror   *)
-    | 0b1000010000-> decode_bclr_bcctr s isn ctr       (* bcctr  *)
+    | 0b1000010000-> decode_conditional_cr_XL_form s isn (* bcctr  *)
     | _ -> error s.a (Printf.sprintf "decode_010011: unknown opcode 0x%x" isn)
 
   let decode_011110 s isn =
@@ -1206,9 +1297,9 @@ struct
       | 0b001101 -> decode_addic s isn 1 (* addic. *)
       | 0b001110 -> decode_addi s isn
       | 0b001111 -> decode_addis s isn
-      | 0b010000 -> decode_branch_condition s isn (* bc bca bcl bcla *)
+      | 0b010000 -> decode_branch_conditional_B_form s isn (* bc bca bcl bcla *)
       | 0b010001 -> not_implemented s isn "sc"
-      | 0b010010 -> decode_branch s isn
+      | 0b010010 -> decode_branch_I_form s isn
       | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
       | 0b010100 -> decode_rlwimi s isn
       | 0b010101 -> decode_rlwinm s isn
