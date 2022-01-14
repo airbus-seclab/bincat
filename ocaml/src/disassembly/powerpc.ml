@@ -380,8 +380,9 @@ struct
 
   (* auxiliary functions to sign extend z or z+off) on sz bits taking into account the Isa.mode *) 
   let gen_signext z off sz =
+    let z', sz' = if !Isa.mode = 32 then z, sz else z lsl 2, sz + 2 in
     let se_z =
-      sign_extension (Z.of_int (z lsl 2)) (sz+2) !Isa.mode
+      sign_extension (Z.of_int z') sz' !Isa.mode
     in
     let se_z' = 
       match off with
@@ -389,11 +390,12 @@ struct
       | Some o -> Z.add o se_z
     in
     let c = Const (Word.of_int se_z' Isa.size) in 
-    if Isa.size = !Isa.mode then
+    if !Isa.mode < Isa.size then
       UnOp(ZeroExt Isa.size, c)
     else c
     
   let decode_branch_I_form state isn =
+    L.debug (fun p -> p "entering decode_branch_I_form with address %s" (Data.Address.to_string state.a));
     let li, aa, lk = decode_I_Form isn in
     let cia = Address.to_int state.a in
     let cia' = Z.add cia (Z.of_int 4) in
@@ -405,12 +407,13 @@ struct
       if aa == 1 then R (gen_signext li None 24)
       else R (gen_signext li (Some cia) 24)
     in
+    L.debug (fun p -> p "target: %s" (Asm.string_of_jmp_target target true));
     let jump_stmt =
       if lk == 0
       then [ Jmp target ]
       else [ Call target ]
     in
-    update_lr @ jump_stmt
+    jump_stmt @ update_lr
 
   let decode_branch_conditional_B_form state isn =
     let bo, bi, bd, aa, lk = decode_B_Form isn in
