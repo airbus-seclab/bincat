@@ -27,7 +27,7 @@ open Data
 open Asm
 open Decodeutils
 
-let ith_bit v n = (v lsr n) land 0b1
+let ith_bit v n sz = (v lsr (sz-n-1)) land 0b1
                 
 (* split field decoding *)
 
@@ -102,9 +102,9 @@ module PPC =
     let decode_conditional_core_XL_form a isn lr lr_or_ctr wrapper =
       let bo, bi, _, lk = decode_XL_Form isn in
       let cia = Address.to_int a in
-      let c = zconst (Z.add cia z4) 32 in
+      let c = zconst (Z.add cia z4) Isa.size in
       let update_lr = if lk == 0 then [] else [ Set (V (T lr), c) ] in
-      let if_jump = Jmp (R (BinOp(Shl, Lval (V (P (lr_or_ctr, 0, 29))) , const 2 32))) in
+      let if_jump = Jmp (R (Lval (V (T lr_or_ctr)))) in
       let else_jump = Jmp (R c) in
       (wrapper bi bo [if_jump] [else_jump]) @ update_lr
 
@@ -135,8 +135,8 @@ module PPC64 =
       
     let decode_conditional_cr_XL_form a isn lr cr ctr _wrapper =
       let bo, bi, update_lr = core_conditional_XL_form a isn lr in
-      let bo_0 = ith_bit bo 0 in
-      let bo_1 = const (ith_bit bo 1) 1 in
+      let bo_0 = ith_bit bo 0 6 in
+      let bo_1 = const (ith_bit bo 1 6) 1 in
       let cond_ok =
         let i = bi+32 in
         if bo_0 = 1 then BConst true else Cmp (EQ, Lval (V (P(cr, i, i))), bo_1)
@@ -353,18 +353,19 @@ struct
   (* Branching *)
                   
   let wrap_with_bi_bo_condition bi bo if_stmts else_stmts =
-    let m = if !Isa.mode = 64 then 0 else 32 in
-    let bo_0 = ith_bit bo 0 in
-    let bo_1 = const (ith_bit bo 1) 1 in
-    let bo_2 = ith_bit bo 2 in
-    let bo_3 = ith_bit bo 3 in
+    let m = if !Isa.mode = Isa.size then 0 else 32 in
+    let bo_0 = ith_bit bo 0 6 in
+    let bo_1 = const (ith_bit bo 1 6) 1 in
+    let bo_2 = ith_bit bo 2 6 in
+    let bo_3 = ith_bit bo 3 6 in
+    L.debug (fun p -> p "wrap_with_bi_bo_condition with bi = %x and bo = %x" bi bo);
     let stmts =
-      if bo_2 = 0 then []
+      if bo_2 <> 0 then []
       else [ Set(vt ctr, BinOp(Sub, lvt ctr, const1 Isa.size)) ]
     in
     let ctr_ok =
       if bo_2 = 0 then
-        let cmp = if bo_3 = 0 then NEQ else EQ in
+        let cmp = if bo_3 = 1 then EQ else NEQ in
         let len = Isa.size - m in 
         Cmp(cmp, lvp ctr m (Isa.size-1), const0 len)     
       else BConst true
@@ -395,7 +396,6 @@ struct
     else c
     
   let decode_branch_I_form state isn =
-    L.debug (fun p -> p "entering decode_branch_I_form with address %s" (Data.Address.to_string state.a));
     let li, aa, lk = decode_I_Form isn in
     let cia = Address.to_int state.a in
     let cia' = Z.add cia (Z.of_int 4) in
@@ -407,7 +407,6 @@ struct
       if aa == 1 then R (gen_signext li None 24)
       else R (gen_signext li (Some cia) 24)
     in
-    L.debug (fun p -> p "target: %s" (Asm.string_of_jmp_target target true));
     let jump_stmt =
       if lk == 0
       then [ Jmp target ]
