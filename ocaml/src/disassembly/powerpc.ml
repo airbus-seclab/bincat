@@ -102,17 +102,17 @@ module PPC =
     let decode_conditional_core_XL_form a isn lr lr_or_ctr wrapper =
       let bo, bi, _, lk = decode_XL_Form isn in
       let cia = Address.to_int a in
-      let c = zconst (Z.add cia z4) Isa.size in
+      let c = zconst (Z.add cia z4) 32 in
       let update_lr = if lk == 0 then [] else [ Set (V (T lr), c) ] in
-      let if_jump = Jmp (R (Lval (V (T lr_or_ctr)))) in
-      let else_jump = Jmp (R c) in
-      (wrapper bi bo [if_jump] [else_jump]) @ update_lr
+      let if_jump = Jmp (R (Lval (V (P(lr_or_ctr, 0, 29))))) in
+
+      (wrapper bi bo [if_jump] a) @ update_lr
 
     let decode_conditional_lr_XL_form a isn lr wrapper =
       decode_conditional_core_XL_form a isn lr lr wrapper
 
-    let decode_conditional_cr_XL_form a isn lr cr _ctr wrapper =
-      decode_conditional_core_XL_form a isn lr cr wrapper
+    let decode_conditional_ctr_XL_form a isn lr _cr ctr wrapper =
+      decode_conditional_core_XL_form a isn lr ctr wrapper
     
   end
 
@@ -131,9 +131,9 @@ module PPC64 =
     let decode_conditional_lr_XL_form a isn lr wrapper =
       let bo, bi, update_lr = core_conditional_XL_form a isn lr in
       let if_jump = Jmp (R (BinOp(Shl, Lval (V (P (lr, 0, 61))), const 2 64))) in
-      (wrapper bi bo [if_jump] []) @ update_lr
+      (wrapper bi bo [if_jump] a) @ update_lr
       
-    let decode_conditional_cr_XL_form a isn lr cr ctr _wrapper =
+    let decode_conditional_ctr_XL_form a isn lr cr ctr _wrapper =
       let bo, bi, update_lr = core_conditional_XL_form a isn lr in
       let bo_0 = ith_bit bo 0 6 in
       let bo_1 = const (ith_bit bo 1 6) 1 in
@@ -149,9 +149,9 @@ module type Isa =
   sig
     val size: int
     val mode: int ref
-    val decode_conditional_lr_XL_form: Address.t -> int -> Register.t -> (int -> int -> (Asm.stmt list) -> (Asm.stmt list) -> (Asm.stmt list)) -> (Asm.stmt list)
+    val decode_conditional_lr_XL_form: Address.t -> int -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
 
-    val decode_conditional_cr_XL_form: Address.t -> int -> Register.t -> Register.t -> Register.t -> (int -> int -> (Asm.stmt list) -> (Asm.stmt list) -> (Asm.stmt list)) -> (Asm.stmt list)
+    val decode_conditional_ctr_XL_form: Address.t -> int -> Register.t -> Register.t -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
   end
 module Make(Isa: Isa)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
@@ -352,13 +352,12 @@ struct
 
   (* Branching *)
                   
-  let wrap_with_bi_bo_condition bi bo if_stmts else_stmts =
+  let wrap_with_bi_bo_condition bi bo if_stmts a =
     let m = if !Isa.mode = Isa.size then 0 else 32 in
-    let bo_0 = ith_bit bo 0 6 in
-    let bo_1 = const (ith_bit bo 1 6) 1 in
-    let bo_2 = ith_bit bo 2 6 in
-    let bo_3 = ith_bit bo 3 6 in
-    L.debug (fun p -> p "wrap_with_bi_bo_condition with bi = %x and bo = %x" bi bo);
+    let bo_0 = ith_bit bo 0 5 in
+    let bo_1 = const (ith_bit bo 1 5) 1 in
+    let bo_2 = ith_bit bo 2 5 in
+    let bo_3 = ith_bit bo 3 5 in
     let stmts =
       if bo_2 <> 0 then []
       else [ Set(vt ctr, BinOp(Sub, lvt ctr, const1 Isa.size)) ]
@@ -375,8 +374,11 @@ struct
       if bo_0 = 0 then Cmp(EQ, Lval test, bo_1)
       else BConst true
     in
+    let cia = Address.to_int a in
+    let c = zconst (Z.add cia z4) Isa.size in
+    let else_jmp = Jmp (R c) in
     let ctr_and_cond_ok = BBinOp(LogAnd, ctr_ok, cond_ok) in
-    stmts @ [ If (ctr_and_cond_ok, if_stmts, else_stmts) ]
+    stmts @ [ If (ctr_and_cond_ok, if_stmts, [else_jmp]) ]
 
 
   (* auxiliary functions to sign extend z or z+off) on sz bits taking into account the Isa.mode *) 
@@ -424,13 +426,13 @@ struct
       if aa == 1 then Jmp (R (gen_signext bd None 14))
       else Jmp (R (gen_signext bd (Some cia) 14))
     in
-    (wrap_with_bi_bo_condition bi bo [jump] []) @ update_lr
+    (wrap_with_bi_bo_condition bi bo [jump] state.a) @ update_lr
 
   let decode_conditional_lr_XL_form state isn =
     Isa.decode_conditional_lr_XL_form state.a isn lr wrap_with_bi_bo_condition
 
-  let decode_conditional_cr_XL_form state isn =
-    Isa.decode_conditional_cr_XL_form state.a isn lr cr ctr wrap_with_bi_bo_condition
+  let decode_conditional_ctr_XL_form state isn =
+    Isa.decode_conditional_ctr_XL_form state.a isn lr cr ctr wrap_with_bi_bo_condition
 
   (* special *)
 
@@ -1083,7 +1085,7 @@ struct
     | 0b0100100001-> decode_cr_op_not s isn Xor        (* creqv  *)
     | 0b0110100001-> decode_cr_op_complement s isn Or  (* crorc  *)
     | 0b0111000001-> decode_cr_op s isn Or             (* cror   *)
-    | 0b1000010000-> decode_conditional_cr_XL_form s isn (* bcctr  *)
+    | 0b1000010000-> decode_conditional_ctr_XL_form s isn (* bcctr  *)
     | _ -> error s.a (Printf.sprintf "decode_010011: unknown opcode 0x%x" isn)
 
   let decode_011110 s isn =
