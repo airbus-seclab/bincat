@@ -50,7 +50,7 @@ let ith_bit v n sz = (v lsr (sz-n-1)) land 0b1
     let lk = isn land 1 in
     bo, bi, bd, aa, lk
 
-  let decode_D_Form isn =
+  let decode_D_Form _prefix isn =
     let op1 = (isn lsr 21) land 0x1f in
     let op2 = (isn lsr 16) land 0x1f in
     let imm = (isn land 0xffff) in
@@ -158,6 +158,11 @@ struct
 
   type ctx_t = unit
 
+  type st_t = { r: int; ie: int; } (* manual reference 1.6.3.1 *)
+            
+  type prefix_t =
+    | LoadStore of st_t
+                 
   module Cfa = Cfa.Make(Domain)
                
   type state = {
@@ -166,6 +171,8 @@ struct
     a                     : Address.t;    (** current address to decode *)
     buf                   : string;       (** buffer to decode *)
     endianness            : Config.endianness_t;      (** whether memory access is little endian *)
+    mutable isn           : int list; (** list of 32-bit instruction chunks *)
+    mutable prefix: prefix_t option; (* prefix for PPC64 only; field = None for 32-bits *)
   }
 
 
@@ -491,8 +498,8 @@ struct
     let crfD, rA, rB, _ = decode_X_Form isn in
     compare_arithmetical crfD (lvtreg rA) (lvtreg rB)
 
-  let decode_cmpi _state isn =
-    let crfD, rA, simm = decode_D_Form isn in
+  let decode_cmpi state isn =
+    let crfD, rA, simm = decode_D_Form state.prefix isn in
     compare_arithmetical crfD (lvtreg rA) (sconst simm 16 32)
 
   let compare_logical crfD exprA exprB =
@@ -507,8 +514,8 @@ struct
     let crfD, rA, rB, _ = decode_X_Form isn in
     compare_logical crfD (lvtreg rA) (lvtreg rB)
 
-  let decode_cmpli _state isn =
-    let crfD, rA, uimm = decode_D_Form isn in
+  let decode_cmpli state isn =
+    let crfD, rA, uimm = decode_D_Form state.prefix isn in
     compare_logical crfD (lvtreg rA) (const uimm 32)
 
   (* logic *)
@@ -525,20 +532,20 @@ struct
     let rS, rA, rB, rc = decode_X_Form isn in
     Set (vtreg rA, UnOp (Not, BinOp (op, lvtreg rS, lvtreg rB))) :: (cr_flags_stmts rc rA)
 
-  let decode_logic_imm _state isn op =
-    let rS, rA, uimm = decode_D_Form isn in
+  let decode_logic_imm state isn op =
+    let rS, rA, uimm = decode_D_Form state.prefix isn in
     [ Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32) ) ]
 
-  let decode_logic_imm_shifted _state isn op =
-    let rS, rA, uimm = decode_D_Form isn in
+  let decode_logic_imm_shifted state isn op =
+    let rS, rA, uimm = decode_D_Form state.prefix isn in
     [ Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) ]
 
-  let decode_logic_imm_dot _state isn op =
-    let rS, rA, uimm = decode_D_Form isn in
+  let decode_logic_imm_dot state isn op =
+    let rS, rA, uimm = decode_D_Form state.prefix isn in
     Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32)) :: (cr_flags_stmts 1 rA)
 
-  let decode_logic_imm_shifted_dot _state isn op =
-    let rS, rA, uimm = decode_D_Form isn in
+  let decode_logic_imm_shifted_dot state isn op =
+    let rS, rA, uimm = decode_D_Form state.prefix isn in
     Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) :: (cr_flags_stmts 1 rA)
 
   let decode_cntlzw _state isn =
@@ -651,20 +658,20 @@ struct
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
 
-  let decode_addis _state isn =
-    let rD, rA, simm = decode_D_Form isn in
+  let decode_addis state isn =
+    let rD, rA, simm = decode_D_Form state.prefix isn in
     match rA == 0 with
     | true -> [ Set (vtreg rD, const (simm lsl 16) 32) ]
     | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, const (simm lsl 16) 32)) ]
 
-  let decode_addi _state isn =
-    let rD, rA, simm = decode_D_Form isn in
+  let decode_addi state isn =
+    let rD, rA, simm = decode_D_Form state.prefix isn in
     match rA == 0 with
     | true -> [ Set (vtreg rD, sconst simm 16 32) ]
     | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, sconst simm 16 32)) ]
 
-  let decode_addic _state isn update_cr =
-    let rD, rA, simm = decode_D_Form isn in
+  let decode_addic state isn update_cr =
+    let rD, rA, simm = decode_D_Form state.prefix isn in
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     [
       Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), to33bits (sconst simm 16 32))) ;
@@ -673,8 +680,8 @@ struct
       Directive (Remove tmpreg) ;
     ] @ (cr_flags_stmts update_cr rD)
 
-  let decode_subfic _state isn =
-    let rD, rA, simm = decode_D_Form isn in
+  let decode_subfic state isn =
+    let rD, rA, simm = decode_D_Form state.prefix isn in
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     let simm32p1 = if simm land 0x8000 == 0 then simm+1 else ((simm lor 0xffff0000)+1) in
     [
@@ -841,8 +848,8 @@ struct
     let rD, rA, rB, rc = decode_X_Form isn in
     Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 0 15)) :: (cr_flags_stmts rc rD)
 
-  let decode_mulli _state isn =
-    let rD, rA, simm = decode_D_Form isn in
+  let decode_mulli state isn =
+    let rD, rA, simm = decode_D_Form state.prefix isn in
     let tmpreg = Register.make (Register.fresh_name ()) 64 in
     [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, sconst simm 16 32)) ;
       Set (vtreg rD, lvp tmpreg 0 31) ;
@@ -863,7 +870,7 @@ struct
 
   (* Load and Store *)
 
-  let decode_load_store_form isn indexed update =
+  let decode_load_store_form prefix isn indexed update =
     if indexed then
       begin
         let rSD, rA, rB, _ = decode_X_Form isn in
@@ -873,15 +880,15 @@ struct
       end
       else
         begin
-          let rSD, rA, d = decode_D_Form isn in
+          let rSD, rA, d = decode_D_Form prefix isn in
           let signexp_d = sconst d 16 32 in
           let ea = (if rA == 0 && not update then signexp_d
                     else BinOp (Add, lvtreg rA, signexp_d)) in
           (rSD, rA, ea)
         end
 
-  let decode_load _state isn ?(reversed=false) ?(algebraic=false) ~indexed ~sz ~update () =
-    let rD, rA, ea = decode_load_store_form isn indexed update in
+  let decode_load state isn ?(reversed=false) ?(algebraic=false) ~indexed ~sz ~update () =
+    let rD, rA, ea = decode_load_store_form state.prefix isn indexed update in
     let update_stmts = if update then [ Set (vtreg rA, ea) ] else [] in
     let extmode = if algebraic then SignExt 32 else ZeroExt 32 in
     let eap n = BinOp (Add, ea, const n 32) in
@@ -903,8 +910,8 @@ struct
     Set (vtreg rD, memval) :: update_stmts
 
 
-  let decode_store _state isn ?(reversed=false) ~indexed ~sz ~update () =
-    let rS, rA, ea = decode_load_store_form isn indexed update in
+  let decode_store state isn ?(reversed=false) ~indexed ~sz ~update () =
+    let rS, rA, ea = decode_load_store_form state.prefix isn indexed update in
     let update_stmts = if update then [ Set (vtreg rA, ea) ] else [] in
     let regval = match reversed, sz with
       | false, 32 -> lvtreg rS
@@ -923,8 +930,8 @@ struct
                                  reversed sz) in
     Set (M (ea, sz), regval) :: update_stmts
 
-    let decode_lmw _state isn =
-      let rD, rA, d = decode_D_Form isn in
+    let decode_lmw state isn =
+      let rD, rA, d = decode_D_Form state.prefix isn in
       let sd = if d land 0x8000 == 0 then d else d lor 0xffff0000 in
       let rec loadreg ea n =
         if n == 32 then []
@@ -937,8 +944,8 @@ struct
             tail in
       loadreg sd rD
 
-    let decode_stmw _state isn =
-      let rS, rA, d = decode_D_Form isn in
+    let decode_stmw state isn =
+      let rS, rA, d = decode_D_Form state.prefix isn in
       let sd = if d land 0x8000 == 0 then d else d lor 0xffff0000 in
       let rec storereg ea n =
         if n == 32 then []
@@ -1020,13 +1027,16 @@ struct
 
   (* Decoding and switching *)
 
-  let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
+  let return (s: state) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
+    let bytes =
+      List.map (fun isn  ->
+          [ Char.chr (isn land 0xff) ;
+            Char.chr ((isn lsr 8) land 0xff) ;
+            Char.chr ((isn lsr 16) land 0xff) ;
+            Char.chr ((isn lsr 24) land 0xff) ]) (List.rev s.isn)
+    in
     s.b.Cfa.State.stmts <- stmts;
-    s.b.Cfa.State.bytes <-
-        [ Char.chr (instruction land 0xff) ;
-          Char.chr ((instruction lsr 8) land 0xff) ;
-          Char.chr ((instruction lsr 16) land 0xff) ;
-          Char.chr ((instruction lsr 24) land 0xff) ];
+    s.b.Cfa.State.bytes <- List.fold_left (fun l isn -> l @ isn) [] bytes;
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
 
   let build_instruction s str =
@@ -1280,13 +1290,15 @@ struct
        | _ -> error s.a (Printf.sprintf "decode_11111: unknown opcode 0x%x" isn)
 
 
-  let decode s: Cfa.State.t * Data.Address.t =
+    
+  let rec core_decode s =
     let str = String.sub s.buf 0 4 in
     let isn  = build_instruction s str in
-    let stmts = match (isn lsr 26) land 0x3f with
+    s.isn <- isn::s.isn;
+      match (isn lsr 26) land 0x3f with
       | 0x60 -> []
 (*      | 0b000000 ->  *)
-(*      | 0b000001 ->  *)
+      | 0b000001 -> decode_prefix s isn
       | 0b000010 -> not_implemented_64bits s isn "tdi"
       | 0b000011 -> not_implemented s isn "twi"
       | 0b000100 -> decode_000100 s isn  (* mulchw mulhhw mulhw mullw ... *)
@@ -1350,10 +1362,36 @@ struct
       | 0b111110 ->  decode_111110 s isn (* std stdu *)
       | 0b111111 -> decode_111111 s isn (* fcmpu frsp?? ... *)
 
-      | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn) in
-    return s isn stmts
+      | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
+  and decode_prefix s isn =
+    (* ref manual: 1.6.3 *)
+    let typ = (isn lsr 24) land 0x3 in
+    match typ with
+    | 0b00 (* eight-byte load/store ins *) ->
+       let st = (isn lsr 23) land 0x1 in
+       if st = 0 then
+         (* signed 8LS *)
+         let r = (isn lsr 20) land 0x01 in
+         let ie = (isn lsr 17) land 0x3ffff in
+         s.prefix <- Some (LoadStore {r = r; ie = ie;});
+         core_decode s
+       else
+         (* reserved *) 
+         L.abort (fun p -> p "decoder stops because of reserved value for bit ST in prefix")
+    | 0b01 ->
+    (* eight-byte register-to-register ins *)
+       L.abort (fun p -> p "eight-byte register-to-register instruction not decoded yet")
+    | 0b10 -> 
+    (* modified load/store ins *)
+       L.abort (fun p -> p "modified load/store instruction not decoded yet")
+    | _ -> (* modified register-to-register ins *)
+       L.abort (fun p -> p "modified register-to-register instruction not decoded yet")
 
+  let decode s =
+    let stmts = core_decode s in
+    return s stmts
+    
   let parse text cfg _ctx state addr _oracle =
 
     let s =  {
@@ -1362,6 +1400,8 @@ struct
       a = addr;
       buf = text;
       endianness = !Config.endianness;
+      isn = [];
+      prefix = None;
     }
     in
     try
