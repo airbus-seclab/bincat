@@ -136,7 +136,7 @@
             | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
             | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv8_mandatory_keys
             | Config.POWERPC -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc_mandatory_keys
-            | Config.PPC64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc64_mandatory_keys
+            | Config.POWERPC64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC64") powerpc64_mandatory_keys
             | Config.RV32I | Config.RV64I -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "RV32I/64I") riscV_mandatory_keys
           end;
         (* fill the table of tainting rules for each provided library *)
