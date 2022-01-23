@@ -521,6 +521,31 @@ class PowerPC(Arch):
         regs["ca"] = (xer >> 29) & 1
         regs["tbc"] = (xer >> 0) & 0x7f
 
+##  ___                    ___  ___    __ _ _
+## | _ \_____ __ _____ _ _| _ \/ __|  / /| | |
+## |  _/ _ \ V  V / -_) '_|  _/ (__  / _ \_  _|
+## |_| \___/\_/\_/\___|_| |_|  \___| \___/ |_|
+## PowerPC 64
+
+class PowerPC64(Arch):
+    ALL_REGS = ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+                "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
+                "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29",
+                "r30", "r31", "lr", "ctr", "cr", "so", "ov", "ca", "tbc"]
+    AS_TMP_DIR = counter("powerpc64-as-%i")
+    AS = ["powerpc64-linux-gnu-as", "-many", "-mpower9", "-mbig"]
+    OBJCOPY = ["powerpc64-linux-gnu-objcopy"]
+    OBJDUMP = ["powerpc64-linux-gnu-objdump", "-mpowerpc", "-M64", "-EB"]
+    EGGLOADER = "eggloader_powerpc64"
+    QEMU = ["qemu-ppc64"]
+
+    def extract_flags(self, regs):
+        xer = regs.pop("xer")
+        regs["so"] = (xer >> 31) & 1
+        regs["ov"] = (xer >> 30) & 1
+        regs["ca"] = (xer >> 29) & 1
+        regs["tbc"] = (xer >> 0) & 0x7f
+
 
 ##  ___ ___ ___  ___  __   __   __ _ _
 ## | _ \_ _/ __|/ __|_\ \ / /  / /| | |
