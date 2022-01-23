@@ -142,14 +142,16 @@ class BCTest:
         return "".join(s)
 
 
-def val2str(val, top=None, taint=None, ttop=None):
-    s = "%08x" % val
+def val2str(l, val, top=None, taint=None, ttop=None):
+    print(l,val)
+    fmt = "%%0%ix" % l
+    s = fmt % val
     if top:
-        s += " ? %08x" % top
+        s += (" ? "+fmt) % top
     if taint or ttop:
-        s += " ! %08x" % taint
+        s += (" ! "+fmt) % taint
         if ttop:
-            s += "? %08x" % ttop
+            s += ("? "+fmt) % ttop
     return s
 
 
@@ -205,7 +207,7 @@ class Arch:
                 v = [v]
             v += [0, 0, 0]
             target_value, target_vtop, target_taint, target_ttop = v[:4]
-            target_str = val2str(target_value, target_vtop, target_taint, target_ttop)
+            target_str = val2str(reg_len(r), target_value, target_vtop, target_taint, target_ttop)
             value = bincat[r].value
             vtop = bincat[r].vtop
             taint = bincat[r].taint
@@ -215,7 +217,7 @@ class Arch:
                 diff.append("- target:  %s = %s" %
                             (r, target_str))
                 diff.append("+ bincat:  %s = %s  %r" %
-                            (r, val2str(value, vtop, taint, ttop), bincat[r]))
+                            (r, val2str(reg_len(r), value, vtop, taint, ttop), bincat[r]))
                 diff_summary.append(r)
             else:
                 same.append("  both  :  %s = %s  %r" %
@@ -258,10 +260,11 @@ class Arch:
         print(bctest.listing)
         print()
         for reg in regs:
+            rl = reg_len(reg)
             regspec = reg.split(":")
             reg = regspec[0]
             bitfield = regspec[1:]
-            print("%6s = %08x" % (reg, cpu[reg]))
+            print(f"{reg:6} = {cpu[reg]:0{rl}x}")
 
     def compare(self, tmpdir, asm, regs=None, reg_taints={}, top_allowed={}):
         testname = inspect.stack()[1][3]
@@ -281,23 +284,24 @@ class Arch:
         same = []
         diff_summary = []
         for r in regs:
+            rl = (cfa.reg_len(r)+3)//4
             regspec = r.split(":")
             r = regspec[0]
             bitfield = regspec[1:]
             mask = self.bf2mask(bitfield)
-            maskstring = "" if mask == -1 else (" (mask=%08x)" % mask)
+            maskstring = "" if mask == -1 else f" (mask={mask:0{rl}x})"
             vtop = bincat[r].vtop
             value = bincat[r].value
             if cpu[r] & ~vtop & mask != value & ~vtop & mask:
-                diff.append("- cpu   :  %s = %08x" % (r, cpu[r]))
-                diff.append("+ bincat:  %s = %08x  %r" % (r, value, bincat[r]))
+                diff.append(f"- cpu   :  {r} = {cpu[r]:0{rl}x}")
+                diff.append(f"+ bincat:  {r} = {value:0{rl}x}  {bincat[r]}")
                 diff_summary.append(r)
             else:
-                same.append("  both  :  %s = %08x  %r%s" % (r, value, bincat[r], maskstring))
+                same.append(f"  both  :  {r} = {value:0{rl}x}  {bincat[r]}{maskstring}")
             allow_top = top_allowed.get(r, 0)
             if vtop & ~allow_top & mask:
-                diff.append("+ top allowed:  %s = %08x ? %08x" % (r, cpu[r], allow_top))
-                diff.append("+ bincat     :  %s = %08x ? %08x  %r" % (r, value, vtop, bincat[r]))
+                diff.append(f"+ top allowed:  {r} = {cpu[r]:0{rl}x} ? {allow_top:0{rl}x}")
+                diff.append(f"+ bincat     :  {r} = {value:0{rl}x} ? {vtop:0{rl}x}  {bincat[r]}")
                 diff_summary.append("%s(top)" % r)
         assert not diff, ("%s: (%s)" % (testname, ", ".join(diff_summary))
                           + hline
@@ -309,12 +313,13 @@ class Arch:
         diff = []
         diff_summary = []
         for r, t in reg_taints.items():
+            rl = (cfa.reg_len(r)+3)//4
             if bincat[r].taint != t:
-                diff.append("- expected :  %s = %08x ! %08x" % (r, cpu[r], t))
-                diff.append("+ bincat   :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
+                diff.append(f"- expected :  {r} = {cpu[r]:0{rl}x} ! {t:0{rl}x}")
+                diff.append(f"+ bincat   :  {r} = {bincat[r].value:0{rl}x} ! {bincat[r].taint:0{rl}x}  {taint, bincat[r]}")
                 diff_summary.append(r)
             else:
-                same.append("  both     :  %s = %08x ! %08x  %r" % (r, bincat[r].value, bincat[r].taint, bincat[r]))
+                same.append(f"  both     :  {r} = {bincat[r].value:0{rl}x} ! {bincat[r].taint:0{rl}x}  {taint, bincat[r]}")
         assert not diff, ("%s: (%s)" % (testname, ", ".join(diff_summary))
                           + hline
                           + "\n".join(diff)+"\n=========================\n"+"\n".join(same))
