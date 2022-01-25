@@ -45,6 +45,11 @@ let _ =
     "POWERPC", POWERPC;
     "ppc"    , POWERPC;
     "PPC"    , POWERPC;
+    "powerpc64", POWERPC64;
+    "PowerPC64", POWERPC64;
+    "POWERPC64", POWERPC64;
+    "ppc64"    , POWERPC64;
+    "PPC64"    , POWERPC64;
     "RV32I", RV32I;
     "RV64I", RV64I;
     "rv32i", RV32I;

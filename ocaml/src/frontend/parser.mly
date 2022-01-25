@@ -136,7 +136,7 @@
             | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
             | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv8_mandatory_keys
             | Config.POWERPC -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc_mandatory_keys
-            | Config.PPC64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc64_mandatory_keys
+            | Config.POWERPC64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC64") powerpc64_mandatory_keys
             | Config.RV32I | Config.RV64I -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "RV32I/64I") riscV_mandatory_keys
           end;
         (* fill the table of tainting rules for each provided library *)
@@ -181,7 +181,7 @@
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
-%token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
+%token POWERPC POWERPC64 SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
 %token IGNORE_UNKNOWN_RELOCATIONS OS WINDOWS LINUX IDA TAINT_INPUT
 %token MPX ENABLED DISABLED
 %token <string> STRING
@@ -217,6 +217,7 @@
     | LEFT_SQ_BRACKET X86 RIGHT_SQ_BRACKET x=x86_section     { x }
     | LEFT_SQ_BRACKET X64 RIGHT_SQ_BRACKET x=x64_section     { x }
     | LEFT_SQ_BRACKET POWERPC RIGHT_SQ_BRACKET x=powerpc_section     { x }
+    | LEFT_SQ_BRACKET POWERPC64 RIGHT_SQ_BRACKET x=powerpc_section     { x }
     | LEFT_SQ_BRACKET RV32I RIGHT_SQ_BRACKET x=rv32i_section     { x }
     | LEFT_SQ_BRACKET RV64I RIGHT_SQ_BRACKET x=rv64i_section     { x }
     | LEFT_SQ_BRACKET IDA RIGHT_SQ_BRACKET x=ida_section     { x }
@@ -357,6 +358,7 @@
     | ARMV7 { Config.ARMv7 }
     | ARMV8 { Config.ARMv8 }
     | POWERPC { Config.POWERPC }
+    | POWERPC64 { Config.POWERPC64 }
     | RV32I { Config.RV32I }
     | RV64I { Config.RV64I }
         

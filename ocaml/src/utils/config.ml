@@ -53,7 +53,7 @@ type archi_t =
   | ARMv7
   | ARMv8 (* ARMv8-A *)
   | POWERPC
-  | PPC64
+  | POWERPC64
   | RV32I (* risc-v integer 32 bits *)
   | RV64I (* risc-v integer 64 bits *)
 
@@ -64,7 +64,7 @@ let archi_to_string = function
   | ARMv7 -> "armv7"
   | ARMv8 -> "armv8"
   | POWERPC -> "powerpc"
-  | PPC64 -> "powerpc64"
+  | POWERPC64 -> "powerpc64"
   | RV32I -> "RV32I"
   | RV64I -> "RV64I"
 

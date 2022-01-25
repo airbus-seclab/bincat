@@ -186,7 +186,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
       | Config.ARMv7 -> (module Armv7.Make: Decoder.Make)
       | Config.ARMv8 -> (module Armv8A.Make: Decoder.Make)
       | Config.POWERPC -> (module Powerpc.Make(Powerpc.PPC): Decoder.Make)
-      | Config.PPC64 -> (module Powerpc.Make(Powerpc.PPC64): Decoder.Make)
+      | Config.POWERPC64 -> (module Powerpc.Make(Powerpc.PPC64): Decoder.Make)
       | Config.RV32I -> (module Risc_v.Make(Risc_v.I32): Decoder.Make)
       | Config.RV64I -> (module Risc_v.Make(Risc_v.I64): Decoder.Make) 
     in
