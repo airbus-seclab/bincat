@@ -902,12 +902,12 @@ struct
     let eap n = BinOp (Add, ea, const n Isa.size) in
     let memval =
       match reversed, sz with
-      | false, Isa.size -> Lval (M (ea, sz))
+      | false, sz when sz = Isa.size -> Lval (M (ea, sz))
       | false,  _ -> UnOp (extmode, Lval (M (ea, sz)))
       | true, 16 -> BinOp (Or,
                            UnOp (ZeroExt Isa.size, Lval (M (ea, 8))),
                            BinOp (Shl, UnOp(extmode, Lval (M (eap 1, 8))), const 8 Isa.size))
-      | true, Isa.size -> BinOp (Or,
+      | true, sz when sz = Isa.size -> BinOp (Or,
                            BinOp (Or,
                                   UnOp(ZeroExt Isa.size, Lval (M (ea, 8))),
                                   BinOp(Shl, UnOp(ZeroExt Isa.size, Lval (M (eap 1, 8))), const 8 Isa.size)),
