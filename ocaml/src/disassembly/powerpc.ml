@@ -898,23 +898,25 @@ struct
   let decode_load state isn ?(reversed=false) ?(algebraic=false) ~indexed ~sz ~update () =
     let rD, rA, ea = decode_load_store_form state.prefix isn indexed update in
     let update_stmts = if update then [ Set (vtreg rA, ea) ] else [] in
-    let extmode = if algebraic then SignExt 32 else ZeroExt 32 in
-    let eap n = BinOp (Add, ea, const n 32) in
-    let memval = match reversed, sz with
-      | false, 32 -> Lval (M (ea, sz))
+    let extmode = if algebraic then SignExt Isa.size else ZeroExt Isa.size in
+    let eap n = BinOp (Add, ea, const n Isa.size) in
+    let memval =
+      match reversed, sz with
+      | false, Isa.size -> Lval (M (ea, sz))
       | false,  _ -> UnOp (extmode, Lval (M (ea, sz)))
       | true, 16 -> BinOp (Or,
-                           UnOp (ZeroExt 32, Lval (M (ea, 8))),
-                           BinOp (Shl, UnOp(extmode, Lval (M (eap 1, 8))), const 8 32))
-      | true, 32 -> BinOp (Or,
+                           UnOp (ZeroExt Isa.size, Lval (M (ea, 8))),
+                           BinOp (Shl, UnOp(extmode, Lval (M (eap 1, 8))), const 8 Isa.size))
+      | true, Isa.size -> BinOp (Or,
                            BinOp (Or,
-                                  UnOp(ZeroExt 32, Lval (M (ea, 8))),
-                                  BinOp(Shl, UnOp(ZeroExt 32, Lval (M (eap 1, 8))), const 8 32)),
+                                  UnOp(ZeroExt Isa.size, Lval (M (ea, 8))),
+                                  BinOp(Shl, UnOp(ZeroExt Isa.size, Lval (M (eap 1, 8))), const 8 Isa.size)),
                            BinOp (Or,
-                                  BinOp(Shl, UnOp(ZeroExt 32, Lval (M (eap 2, 8))), const 16 32),
-                                  BinOp(Shl, UnOp(ZeroExt 32, Lval (M (eap 3, 8))), const 24 32)))
+                                  BinOp(Shl, UnOp(ZeroExt Isa.size, Lval (M (eap 2, 8))), const 16 Isa.size),
+                                  BinOp(Shl, UnOp(ZeroExt Isa.size, Lval (M (eap 3, 8))), const 24 Isa.size)))
       | _ -> L.abort (fun p -> p "internal error: unexpected decoding combination: reversed=%b sz=%i"
-                                 reversed sz) in
+                                 reversed sz)
+    in
     Set (vtreg rD, memval) :: update_stmts
 
 
