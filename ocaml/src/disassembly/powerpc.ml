@@ -36,6 +36,12 @@ let ith_bit v n sz = (v lsr (sz-n-1)) land 0b1
 
   (* PPC Forms decoding *)
 
+  (* ST type as in prefix opcode for PPC64 *)
+  type st_t = { r: int; ie: int; } (* manual reference 1.6.3.1 *)
+  type prefix_t =
+    | LoadStore of st_t
+                 
+  
   let decode_I_Form isn =
     let li = isn land 0x03fffffc in
     let aa = (isn lsr 1) land 1 in
@@ -50,11 +56,16 @@ let ith_bit v n sz = (v lsr (sz-n-1)) land 0b1
     let lk = isn land 1 in
     bo, bi, bd, aa, lk
 
-  let decode_D_Form _prefix isn =
+  let decode_D_Form prefix isn =
     let op1 = (isn lsr 21) land 0x1f in
     let op2 = (isn lsr 16) land 0x1f in
     let imm = (isn land 0xffff) in
-    op1, op2, imm
+    let imm', sz =
+      match prefix with
+      | Some LoadStore st -> (st.ie lsl 18) lor imm, 34 (* IE is concatenated on the left *)
+      | _ -> imm, 16
+    in
+    op1, op2, imm', sz
 
   let decode_M_Form isn =
     let rS = (isn lsr 21) land 0x1f in
@@ -157,12 +168,7 @@ module Make(Isa: Isa)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Dom
 struct
 
   type ctx_t = unit
-
-  type st_t = { r: int; ie: int; } (* manual reference 1.6.3.1 *)
             
-  type prefix_t =
-    | LoadStore of st_t
-                 
   module Cfa = Cfa.Make(Domain)
                
   type state = {
@@ -215,7 +221,7 @@ struct
 
   let lr = Register.make ~name:"lr" ~size:Isa.size;;
   let ctr = Register.make ~name:"ctr" ~size:Isa.size;;
-  let cr = Register.make ~name:"cr" ~size:32;; (* cr size is 32 in both PPC and PPC64 *)
+  let cr = Register.make ~name:"cr" ~size:Isa.size;; (* actual cr size is 32 in PPC64 in cr[32:63]*)
 
   (* condition flags are modeled as registers of size 1 *)
 
@@ -499,8 +505,8 @@ struct
     compare_arithmetical crfD (lvtreg rA) (lvtreg rB)
 
   let decode_cmpi state isn =
-    let crfD, rA, simm = decode_D_Form state.prefix isn in
-    compare_arithmetical crfD (lvtreg rA) (sconst simm 16 32)
+    let crfD, rA, simm, sz = decode_D_Form state.prefix isn in
+    compare_arithmetical crfD (lvtreg rA) (sconst simm sz Isa.size)
 
   let compare_logical crfD exprA exprB =
     [
@@ -515,8 +521,8 @@ struct
     compare_logical crfD (lvtreg rA) (lvtreg rB)
 
   let decode_cmpli state isn =
-    let crfD, rA, uimm = decode_D_Form state.prefix isn in
-    compare_logical crfD (lvtreg rA) (const uimm 32)
+    let crfD, rA, uimm, _sz = decode_D_Form state.prefix isn in
+    compare_logical crfD (lvtreg rA) (const uimm Isa.size)
 
   (* logic *)
 
@@ -533,20 +539,20 @@ struct
     Set (vtreg rA, UnOp (Not, BinOp (op, lvtreg rS, lvtreg rB))) :: (cr_flags_stmts rc rA)
 
   let decode_logic_imm state isn op =
-    let rS, rA, uimm = decode_D_Form state.prefix isn in
-    [ Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32) ) ]
+    let rS, rA, uimm, _sz = decode_D_Form state.prefix isn in
+    [ Set (vtreg rA, BinOp(op, lvtreg rS, const uimm Isa.size) ) ]
 
   let decode_logic_imm_shifted state isn op =
-    let rS, rA, uimm = decode_D_Form state.prefix isn in
-    [ Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) ]
+    let rS, rA, uimm, sz = decode_D_Form state.prefix isn in
+    [ Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl sz) Isa.size) ) ]
 
   let decode_logic_imm_dot state isn op =
-    let rS, rA, uimm = decode_D_Form state.prefix isn in
-    Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32)) :: (cr_flags_stmts 1 rA)
+    let rS, rA, uimm, _sz = decode_D_Form state.prefix isn in
+    Set (vtreg rA, BinOp(op, lvtreg rS, const uimm Isa.size)) :: (cr_flags_stmts 1 rA)
 
   let decode_logic_imm_shifted_dot state isn op =
-    let rS, rA, uimm = decode_D_Form state.prefix isn in
-    Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) :: (cr_flags_stmts 1 rA)
+    let rS, rA, uimm, sz = decode_D_Form state.prefix isn in
+    Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl sz) Isa.size) ) :: (cr_flags_stmts 1 rA)
 
   let decode_cntlzw _state isn =
     let rS, rA, _, rc = decode_X_Form isn in
@@ -659,33 +665,35 @@ struct
     Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
 
   let decode_addis state isn =
-    let rD, rA, simm = decode_D_Form state.prefix isn in
+    let rD, rA, simm, sz = decode_D_Form state.prefix isn in
+    let simm' = const (simm lsl sz) Isa.size in
     match rA == 0 with
-    | true -> [ Set (vtreg rD, const (simm lsl 16) 32) ]
-    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, const (simm lsl 16) 32)) ]
+    | true -> [ Set (vtreg rD, simm') ]
+    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, simm')) ]
 
   let decode_addi state isn =
-    let rD, rA, simm = decode_D_Form state.prefix isn in
+    let rD, rA, simm, sz = decode_D_Form state.prefix isn in
+    let simm' = sconst simm sz Isa.size in
     match rA == 0 with
-    | true -> [ Set (vtreg rD, sconst simm 16 32) ]
-    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, sconst simm 16 32)) ]
+    | true -> [ Set (vtreg rD, simm') ]
+    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, simm')) ]
 
   let decode_addic state isn update_cr =
-    let rD, rA, simm = decode_D_Form state.prefix isn in
+    let rD, rA, simm, sz  = decode_D_Form state.prefix isn in
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     [
-      Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), to33bits (sconst simm 16 32))) ;
+      Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), to33bits (sconst simm sz Isa.size))) ;
       Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
       Set (vt ca, lvp tmpreg 32 32) ;
       Directive (Remove tmpreg) ;
     ] @ (cr_flags_stmts update_cr rD)
 
   let decode_subfic state isn =
-    let rD, rA, simm = decode_D_Form state.prefix isn in
+    let rD, rA, simm, sz = decode_D_Form state.prefix isn in
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    let simm32p1 = if simm land 0x8000 == 0 then simm+1 else ((simm lor 0xffff0000)+1) in
+    let simm32p1 = Z.add (sign_extension (Z.of_int simm) sz Isa.size) Z.one in 
     [
-      Set (vt tmpreg, BinOp(Add, to33bits ((UnOp (Not, lvtreg rA))), const simm32p1 33)) ;
+      Set (vt tmpreg, BinOp(Add, to33bits ((UnOp (Not, lvtreg rA))), zconst simm32p1 33)) ;
       Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
       Set (vt ca, lvp tmpreg 32 32) ;
       Directive (Remove tmpreg) ;
@@ -849,9 +857,9 @@ struct
     Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 0 15)) :: (cr_flags_stmts rc rD)
 
   let decode_mulli state isn =
-    let rD, rA, simm = decode_D_Form state.prefix isn in
+    let rD, rA, simm, sz = decode_D_Form state.prefix isn in
     let tmpreg = Register.make (Register.fresh_name ()) 64 in
-    [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, sconst simm 16 32)) ;
+    [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, sconst simm sz Isa.size)) ;
       Set (vtreg rD, lvp tmpreg 0 31) ;
       Directive (Remove tmpreg) ; ]
 
@@ -880,8 +888,8 @@ struct
       end
       else
         begin
-          let rSD, rA, d = decode_D_Form prefix isn in
-          let signexp_d = sconst d 16 32 in
+          let rSD, rA, d, sz = decode_D_Form prefix isn in
+          let signexp_d = sconst d sz Isa.size in
           let ea = (if rA == 0 && not update then signexp_d
                     else BinOp (Add, lvtreg rA, signexp_d)) in
           (rSD, rA, ea)
@@ -931,28 +939,33 @@ struct
     Set (M (ea, sz), regval) :: update_stmts
 
     let decode_lmw state isn =
-      let rD, rA, d = decode_D_Form state.prefix isn in
-      let sd = if d land 0x8000 == 0 then d else d lor 0xffff0000 in
+      let rD, rA, d, sz = decode_D_Form state.prefix isn in
+      let sd = sign_extension (Z.of_int d) sz Isa.size in 
       let rec loadreg ea n =
         if n == 32 then []
         else
-          let tail = loadreg (ea+4) (n+1) in
+          let tail = loadreg (Z.add ea z4) (n+1) in
+          let ff = Z.sub (Z.shift_left (Z.one) Isa.size) Z.one in
+          let ea' = Z.logand ea ff in
           if n != rA || n == 31 then
             Set (vtreg n, Lval (M (BinOp(Add, lvtreg rA,
-                                         const (ea land 0xffffffff) 32), 32))) :: tail
+                                         zconst ea' Isa.size), Isa.size))) :: tail
           else
             tail in
       loadreg sd rD
 
     let decode_stmw state isn =
-      let rS, rA, d = decode_D_Form state.prefix isn in
-      let sd = if d land 0x8000 == 0 then d else d lor 0xffff0000 in
+      (* TODO: factorize with decode_lmw *)
+      let rS, rA, d, sz = decode_D_Form state.prefix isn in
+      let sd = sign_extension (Z.of_int d) sz Isa.size in 
       let rec storereg ea n =
         if n == 32 then []
         else
-          let tail = storereg (ea+4) (n+1) in
+          let tail = storereg (Z.add ea z4) (n+1) in
+          let ff = Z.sub (Z.shift_left (Z.one) Isa.size) Z.one in
+          let ea' = Z.logand ea ff in
           if n != rA || n == 31 then
-            Set (M (BinOp(Add, lvtreg rA, const (ea land 0xffffffff) 32), 32),
+            Set (M (BinOp(Add, lvtreg rA, zconst ea' Isa.size), Isa.size),
                  lvtreg n) :: tail
           else
             tail in
