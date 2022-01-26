@@ -124,7 +124,8 @@ module PPC =
 
     let decode_conditional_ctr_XL_form a isn lr _cr ctr wrapper =
       decode_conditional_core_XL_form a isn lr ctr wrapper
-    
+
+    let overflow_expression cr = Lval (V (P (cr, 28, 28)))
   end
 
 module PPC64 =
@@ -132,6 +133,8 @@ module PPC64 =
     let size = 64
     let mode = ref 64
 
+    let overflow_expression cr = Lval (V (P (cr, 60, 60)))
+                               
     let core_conditional_XL_form a isn lr =
       let bo, bi, _, lk = decode_XL_Form isn in
       let cia = Address.to_int a in
@@ -163,6 +166,8 @@ module type Isa =
     val decode_conditional_lr_XL_form: Address.t -> int -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
 
     val decode_conditional_ctr_XL_form: Address.t -> int -> Register.t -> Register.t -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
+    val overflow_expression: Register.t -> Asm.exp
+      
   end
 module Make(Isa: Isa)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
@@ -268,6 +273,9 @@ struct
     | 30 -> r30
     | 31 -> r31
     | _ -> L.abort (fun p -> p "Unknown register number %i" n)
+
+  let ext_e e = UnOp(ZeroExt (Isa.size+1), e)
+  let ext_e_s e = UnOp(SignExt (Isa.size+1), e)
 
   let treg n =
     T (reg n)
@@ -680,11 +688,12 @@ struct
 
   let decode_addic state isn update_cr =
     let rD, rA, simm, sz  = decode_D_Form state.prefix isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let u = Isa.size-1 in
+    let tmpreg = Register.make (Register.fresh_name ()) (Isa.size+1) in
     [
       Set (vt tmpreg, BinOp(Add, ext_e (lvtreg rA), ext_e (sconst simm sz Isa.size))) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
-      Set (vt ca, lvp tmpreg 32 32) ;
+      Set (vpreg rD 0 u, lvp tmpreg 0 u) ;
+      Set (vt ca, lvp tmpreg Isa.size Isa.size) ;
       Directive (Remove tmpreg) ;
     ] @ (cr_flags_stmts update_cr rD)
 
@@ -700,17 +709,16 @@ struct
     ]
 
   let add_with_carry_out expA expB rD =
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let tmpreg = Register.make (Register.fresh_name ()) (Isa.size+1) in
+    let u = Isa.size-1 in
     [
       Set (vt tmpreg, BinOp(Add, expA, expB)) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
-      Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg 32 32, const1 1),
+      Set (vpreg rD 0 u, lvp tmpreg 0 u) ;
+      Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg Isa.size Isa.size, const1 1),
                           const1 1, const0 1)) ;
       Directive (Remove tmpreg) ;
     ]
 
-  let ext_e e = UnOp(ZeroExt (Isa.size+1), e)
-  let ext_e_s e = UnOp(SignExt (Isa.size+1), e)
               
   let decode_addc _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
@@ -720,7 +728,7 @@ struct
 
   let decode_subfc _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), ext_e (lvtreg rB))) (const1 33) rD)
+    (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), ext_e (lvtreg rB))) (const1 (Isa.size+1)) rD)
     @ (xer_flags_stmts_sub oe rA rB rD)
     @ (cr_flags_stmts rc rD)
 
@@ -1433,7 +1441,8 @@ struct
   let init () =
     Imports.init ()
 
-  let overflow_expression () = Lval (V (P (cr, 28, 28)))
-
+ 
+  let overflow_expression () = Isa.overflow_expression(cr)
+    
   let init_registers () = []
 end
