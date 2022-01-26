@@ -488,7 +488,7 @@ struct
   let compare_arithmetical crfD exprA exprB =
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     [
-      Set (vt tmpreg, BinOp(Sub, to33bits_s exprA, to33bits_s exprB)) ;
+      Set (vt tmpreg, BinOp(Sub, ext_e_s exprA, ext_e_s exprB)) ;
       Set (crbit (31-crfD), TernOp (Cmp (NEQ, msb_reg tmpreg, const0 33),
                                           const1 1, const0 1)) ;
       Set (crbit (30-crfD), TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 33),
@@ -682,7 +682,7 @@ struct
     let rD, rA, simm, sz  = decode_D_Form state.prefix isn in
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     [
-      Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), to33bits (sconst simm sz Isa.size))) ;
+      Set (vt tmpreg, BinOp(Add, ext_e (lvtreg rA), ext_e (sconst simm sz Isa.size))) ;
       Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
       Set (vt ca, lvp tmpreg 32 32) ;
       Directive (Remove tmpreg) ;
@@ -693,7 +693,7 @@ struct
     let tmpreg = Register.make (Register.fresh_name ()) 33 in
     let simm32p1 = Z.add (sign_extension (Z.of_int simm) sz Isa.size) Z.one in 
     [
-      Set (vt tmpreg, BinOp(Add, to33bits ((UnOp (Not, lvtreg rA))), zconst simm32p1 33)) ;
+      Set (vt tmpreg, BinOp(Add, ext_e ((UnOp (Not, lvtreg rA))), zconst simm32p1 33)) ;
       Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
       Set (vt ca, lvp tmpreg 32 32) ;
       Directive (Remove tmpreg) ;
@@ -709,34 +709,37 @@ struct
       Directive (Remove tmpreg) ;
     ]
 
+  let ext_e e = UnOp(ZeroExt (Isa.size+1), e)
+  let ext_e_s e = UnOp(SignExt (Isa.size+1), e)
+              
   let decode_addc _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (to33bits (lvtreg rA)) (to33bits (lvtreg rB)) rD)
+    (add_with_carry_out (ext_e (lvtreg rA)) (ext_e (lvtreg rB)) rD)
     @ (xer_flags_stmts_add oe rA rB rD) 
     @ (cr_flags_stmts rc rD)
 
   let decode_subfc _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), to33bits (lvtreg rB))) (const1 33) rD)
+    (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), ext_e (lvtreg rB))) (const1 33) rD)
     @ (xer_flags_stmts_sub oe rA rB rD)
     @ (cr_flags_stmts rc rD)
 
   let decode_adde _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (BinOp(Add, to33bits (lvtreg rA), to33bits (lvtreg rB))) (to33bits (lvt ca)) rD)
+    (add_with_carry_out (BinOp(Add, ext_e (lvtreg rA), ext_e (lvtreg rB))) (ext_e (lvt ca)) rD)
     @ (xer_flags_stmts_add oe rA rB rD)
     @ (cr_flags_stmts rc rD)
 
   let decode_subfe _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), to33bits (lvtreg rB))) (to33bits (lvt ca)) rD)
+    (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), ext_e (lvtreg rB))) (ext_e (lvt ca)) rD)
     @ (xer_flags_stmts_sub oe rA rB rD)
     @ (cr_flags_stmts rc rD)
 
   let decode_subfme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
-    let isn_stmts = (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), const 0xffffffff 33))
-                       (to33bits (lvt ca)) rD) in
+    let isn_stmts = (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), const 0xffffffff 33))
+                       (ext_e (lvt ca)) rD) in
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
@@ -750,7 +753,7 @@ struct
 
   let decode_addme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
-    let isn_stmts = add_with_carry_out (to33bits (lvtreg rA)) (BinOp (Add, const 0xffffffff 33, to33bits (lvt ca))) rD in
+    let isn_stmts = add_with_carry_out (ext_e (lvtreg rA)) (BinOp (Add, const 0xffffffff 33, ext_e (lvt ca))) rD in
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
@@ -773,7 +776,7 @@ struct
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
       else [] in
-    (add_with_carry_out (to33bits (UnOp (Not, (lvtreg rA)))) (to33bits (lvt ca)) rD)
+    (add_with_carry_out (ext_e (UnOp (Not, (lvtreg rA)))) (ext_e (lvt ca)) rD)
     @ xer_stmts
     @ (cr_flags_stmts rc rD)
 
@@ -788,7 +791,7 @@ struct
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
       else [] in
-    (add_with_carry_out (to33bits (lvtreg rA)) (to33bits (lvt ca)) rD)
+    (add_with_carry_out (ext_e (lvtreg rA)) (ext_e (lvt ca)) rD)
     @ xer_stmts
     @ (cr_flags_stmts rc rD)
 
