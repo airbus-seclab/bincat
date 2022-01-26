@@ -284,9 +284,9 @@ class Arch:
         same = []
         diff_summary = []
         for r in regs:
-            rl = (cfa.reg_len(r)+3)//4
             regspec = r.split(":")
             r = regspec[0]
+            rl = (cfa.reg_len(r)+3)//4
             bitfield = regspec[1:]
             mask = self.bf2mask(bitfield)
             maskstring = "" if mask == -1 else f" (mask={mask:0{rl}x})"
