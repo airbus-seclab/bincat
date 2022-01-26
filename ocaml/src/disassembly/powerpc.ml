@@ -666,7 +666,7 @@ struct
 
   let decode_addis state isn =
     let rD, rA, simm, sz = decode_D_Form state.prefix isn in
-    let simm' = const (simm lsl sz) Isa.size in
+    let simm' = sconst (simm lsl sz) (sz*2) Isa.size in
     match rA == 0 with
     | true -> [ Set (vtreg rD, simm') ]
     | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, simm')) ]
