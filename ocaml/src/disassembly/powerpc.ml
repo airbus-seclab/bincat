@@ -126,6 +126,10 @@ module PPC =
       decode_conditional_core_XL_form a isn lr ctr wrapper
 
     let overflow_expression cr = Lval (V (P (cr, 28, 28)))
+
+    let c80 = const 0x80000000 32
+    let c7f = const 0x7fffffff 32
+    let cff_e = const 0xffffffff 33
   end
 
 module PPC64 =
@@ -135,6 +139,10 @@ module PPC64 =
 
     let overflow_expression cr = Lval (V (P (cr, 60, 60)))
                                
+    let c80 = Const (Word.of_int (Z.of_string "0x8000000000000000") 64)
+    let c7f = Const (Word.of_int (Z.of_string "0x7fffffffffffffff") 64)
+    let cff_e = Const (Word.of_int (Z.of_string "0xffffffffffffffff") 65)
+              
     let core_conditional_XL_form a isn lr =
       let bo, bi, _, lk = decode_XL_Form isn in
       let cia = Address.to_int a in
@@ -167,6 +175,10 @@ module type Isa =
 
     val decode_conditional_ctr_XL_form: Address.t -> int -> Register.t -> Register.t -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
     val overflow_expression: Register.t -> Asm.exp
+
+    val c7f: Asm.exp
+    val cff_e: Asm.exp
+    val c80: Asm.exp
       
   end
 module Make(Isa: Isa)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
@@ -179,7 +191,7 @@ struct
   type state = {
     mutable g             : Cfa.t;        (** current cfa *)
     mutable b             : Cfa.State.t;  (** state predecessor *)
-    a                     : Address.t;    (** current address to decode *)
+    mutable a             : Address.t;    (** current address to decode *)
     buf                   : string;       (** buffer to decode *)
     endianness            : Config.endianness_t;      (** whether memory access is little endian *)
     mutable isn           : int list; (** list of 32-bit instruction chunks *)
@@ -439,6 +451,7 @@ struct
 
   let decode_branch_conditional_B_form state isn =
     let bo, bi, bd, aa, lk = decode_B_Form isn in
+    let bd = bd lsl 2 in
     let cia = Address.to_int state.a in
     let update_lr =
       if lk == 0 then []
@@ -751,8 +764,8 @@ struct
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                    Cmp (EQ, lvtreg rA, const 0x7fffffff 32),
-                                    Cmp (EQ, lvtreg rD, const 0x7fffffff 32)),
+                                    Cmp (EQ, lvtreg rA, Isa.c7f),
+                                    Cmp (EQ, lvtreg rD, Isa.c7f)),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
@@ -761,12 +774,12 @@ struct
 
   let decode_addme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
-    let isn_stmts = add_with_carry_out (ext_e (lvtreg rA)) (BinOp (Add, const 0xffffffff 33, ext_e (lvt ca))) rD in
+    let isn_stmts = add_with_carry_out (ext_e (lvtreg rA)) (BinOp (Add, Isa.cff_e, ext_e (lvt ca))) rD in
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                    Cmp (EQ, lvtreg rA, const 0x80000000 32),
-                                    Cmp (EQ, lvtreg rD, const 0x7fffffff 32)),
+                                    Cmp (EQ, lvtreg rA, Isa.c80),
+                                    Cmp (EQ, lvtreg rD, Isa.c7f)),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
@@ -1317,8 +1330,8 @@ struct
 
 
     
-  let rec core_decode s =
-    let str = String.sub s.buf 0 4 in
+  let rec core_decode s off =
+    let str = String.sub s.buf off (off+4) in
     let isn  = build_instruction s str in
     s.isn <- isn::s.isn;
       match (isn lsr 26) land 0x3f with
@@ -1342,7 +1355,7 @@ struct
       | 0b010000 -> decode_branch_conditional_B_form s isn (* bc bca bcl bcla *)
       | 0b010001 -> not_implemented s isn "sc"
       | 0b010010 -> decode_branch_I_form s isn
-      | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
+       | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
       | 0b010100 -> decode_rlwimi s isn
       | 0b010101 -> decode_rlwinm s isn
 (*      | 0b010110 ->  *)
@@ -1401,7 +1414,8 @@ struct
          let r = (isn lsr 20) land 0x01 in
          let ie = (isn lsr 17) land 0x3ffff in
          s.prefix <- Some (LoadStore {r = r; ie = ie;});
-         core_decode s
+         s.a <- Data.Address.add_offset s.a z4;
+         core_decode s 4
        else
          (* reserved *) 
          L.abort (fun p -> p "decoder stops because of reserved value for bit ST in prefix")
@@ -1415,7 +1429,7 @@ struct
        L.abort (fun p -> p "modified register-to-register instruction not decoded yet")
 
   let decode s =
-    let stmts = core_decode s in
+    let stmts = core_decode s 0 in
     return s stmts
     
   let parse text cfg _ctx state addr _oracle =
