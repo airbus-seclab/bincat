@@ -129,7 +129,17 @@ module PPC =
 
     let c80 = const 0x80000000 32
     let c7f = const 0x7fffffff 32
+    let cff = const 0xffffffff 32
     let cff_e = const 0xffffffff 33
+
+    let crbit r x = V (P(r, x, x))
+
+    let mtspr_so_idx = 31
+    let mtspr_ov_idx = 30
+    let mtspr_ca_idx = 29
+
+    let cr_flag_test r = V (T r)
+    let vp_cr cr l u = V (P(cr, l, u))
   end
 
 module PPC64 =
@@ -141,8 +151,13 @@ module PPC64 =
                                
     let c80 = Const (Word.of_int (Z.of_string "0x8000000000000000") 64)
     let c7f = Const (Word.of_int (Z.of_string "0x7fffffffffffffff") 64)
+    let cff = Const (Word.of_int (Z.of_string "0xffffffffffffffff") 64)
     let cff_e = Const (Word.of_int (Z.of_string "0xffffffffffffffff") 65)
-              
+
+    let mtspr_so_idx = 63
+    let mtspr_ov_idx = 62
+    let mtspr_ca_idx = 61
+                     
     let core_conditional_XL_form a isn lr =
       let bo, bi, _, lk = decode_XL_Form isn in
       let cia = Address.to_int a in
@@ -164,7 +179,15 @@ module PPC64 =
         if bo_0 = 1 then BConst true else Cmp (EQ, Lval (V (P(cr, i, i))), bo_1)
       in
       let if_jump = Jmp (R (BinOp(Shl, Lval (V (P(ctr, 0, 61))), const 2 64))) in
-      (If(cond_ok, [if_jump], []))::update_lr 
+      (If(cond_ok, [if_jump], []))::update_lr
+
+    let crbit r x = let x' = 32+x in V (P(r, x', x'))
+
+    let cr_flag_test r =
+      if !mode = 32 then V (P(r, 32, 63))
+      else V (T r)
+
+    let vp_cr cr l u = V (P(cr, l+32, u+32))
   end
 
 module type Isa =
@@ -177,9 +200,19 @@ module type Isa =
     val overflow_expression: Register.t -> Asm.exp
 
     val c7f: Asm.exp
+    val cff: Asm.exp
     val cff_e: Asm.exp
     val c80: Asm.exp
-      
+    val crbit: Register.t -> int -> Asm.lval
+
+    val mtspr_so_idx: int
+    val mtspr_ov_idx: int
+    val mtspr_ca_idx: int
+
+    val cr_flag_test: Register.t -> Asm.lval
+
+    (* returns cr[l,u] *)
+    val vp_cr: Register.t -> int -> int -> Asm.lval
   end
 module Make(Isa: Isa)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
@@ -311,21 +344,21 @@ struct
 
   let lvpreg n a b = Lval (V (P (reg n, a, b)))
 
-  let crbit x = vp cr x x
+  let crbit x = Isa.crbit cr x
 
   (* Update CR[0] according to the latest result. Must be called after XER has been updated for CR[0].so to reflect XER.so *)
   let cr_flags_stmts rc rD =
     if rc == 1 then [
         Set(crbit 31, (* cr[0].lt *)
-            TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
+            TernOp(Cmp (EQ, msb_reg (reg rD), const1 Isa.size),
                    const1 1, const0 1)) ;
         Set(crbit 30, (* cr[0].gt *)
             TernOp(BBinOp (LogAnd,
-                           Cmp (EQ, msb_reg (reg rD), const0 32),
-                           Cmp (NEQ, lvtreg rD, const0 32)),
+                           Cmp (EQ, msb_reg (reg rD), const0 Isa.size),
+                           Cmp (NEQ, lvtreg rD, const0 Isa.size)),
                    const1 1, const0 1)) ;
         Set(crbit 29, (* cr[0].eq *)
-            TernOp(Cmp (EQ, lvtreg rD, const0 32),
+            TernOp(Cmp (EQ, Lval (Isa.cr_flag_test (reg rD)), const0 Isa.size),
                    const1 1, const0 1)) ;
         Set(crbit 28, lvt so) ; (* cr[0].so *)
       ]
@@ -333,7 +366,8 @@ struct
 
     (* Update XER flag after rD <- rA + rB *)
     let xer_flags_stmts_add oe rA rB rD =
-      if oe == 1 then [
+      if oe == 1 then
+        [ 
           Set(vt ov, TernOp (BBinOp(LogAnd,
                                     Cmp (EQ, msb_reg (reg rA), msb_reg (reg rB)),
                                     Cmp (NEQ, msb_reg (reg rA), msb_reg (reg rD))),
@@ -356,7 +390,7 @@ struct
     (* Update XER flag after rD <- neg rA *)
     let xer_flags_stmts_neg oe rA =
       if oe == 1 then [
-          Set(vt ov, TernOp (Cmp (EQ, lvtreg rA, const 0x80000000 32),
+          Set(vt ov, TernOp (Cmp (EQ, lvtreg rA, Isa.c80),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
@@ -403,7 +437,7 @@ struct
       else BConst true
     in
     let cond_ok =
-      let test = if Isa.size = 32 then crbit (31-bi) else crbit (bi+32) in 
+      let test = crbit (31-bi) in
       if bo_0 = 0 then Cmp(EQ, Lval test, bo_1)
       else BConst true
     in
@@ -491,11 +525,14 @@ struct
   let decode_mtspr state isn =
     let rS, sprn = decode_XFX_Form isn in
     let sprf = decode_split_field sprn in
+    let bso = Isa.mtspr_so_idx in
+    let bov = Isa.mtspr_ov_idx in
+    let bca = Isa.mtspr_ca_idx in
     match sprf with
     | 1 -> (* XER *)
-       [ Set (vt so, lvpreg rS 31 31) ;
-         Set (vt ov, lvpreg rS 30 30) ;
-         Set (vt ca, lvpreg rS 29 29) ;
+       [ Set (vt so, lvpreg rS bso bso) ;
+         Set (vt ov, lvpreg rS bov bov) ;
+         Set (vt ca, lvpreg rS bca bca) ;
          Set (vt tbc, lvpreg rS 0 6) ]
     | 8 -> (* LR *)
        [ Set (vt lr, lvtreg rS) ]
@@ -712,12 +749,13 @@ struct
 
   let decode_subfic state isn =
     let rD, rA, simm, sz = decode_D_Form state.prefix isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let n1 = Isa.size+1 in
+    let tmpreg = Register.make (Register.fresh_name ()) n1 in
     let simm32p1 = Z.add (sign_extension (Z.of_int simm) sz Isa.size) Z.one in 
     [
-      Set (vt tmpreg, BinOp(Add, ext_e ((UnOp (Not, lvtreg rA))), zconst simm32p1 33)) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
-      Set (vt ca, lvp tmpreg 32 32) ;
+      Set (vt tmpreg, BinOp(Add, ext_e ((UnOp (Not, lvtreg rA))), zconst simm32p1 n1)) ;
+      Set (vpreg rD 0 31, lvp tmpreg 0 (Isa.size-1)) ;
+      Set (vt ca, lvp tmpreg Isa.size Isa.size) ;
       Directive (Remove tmpreg) ;
     ]
 
@@ -833,14 +871,14 @@ struct
     let invalid_xer = if oe == 0 then []
                       else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
     let invalid_cr = if rc == 0 then []
-                     else [ Directive (Forget (vp cr 29 31)); Set (vp cr 28 28, const1 1) ] in
+                     else [ Directive (Forget (Isa.vp_cr cr 29 31)); Set (Isa.crbit cr 28, const1 1) ] in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
       If (BBinOp(LogOr,
-                 Cmp (EQ, lvtreg rB, const0 32),
+                 Cmp (EQ, lvtreg rB, const0 Isa.size),
                  BBinOp(LogAnd,
-                        Cmp (EQ, lvtreg rA, const 0x80000000 32),
-                        Cmp (EQ, lvtreg rB, const 0xffffffff 32))),
+                        Cmp (EQ, lvtreg rA, Isa.c80),
+                        Cmp (EQ, lvtreg rB, Isa.cff))),
           Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
           Set (vtreg rD, BinOp(IDiv, lvtreg rA, lvtreg rB)) ::
             ((clear_ov oe) @ (cr_flags_stmts rc rD)))
@@ -851,7 +889,7 @@ struct
     let invalid_xer = if oe == 0 then []
                       else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
     let invalid_cr = if rc == 0 then []
-                     else [ Directive (Forget (vp cr 29 31)); Set (vp cr 28 28, const1 1) ] in
+                     else [ Directive (Forget (Isa.vp_cr cr 29 31)); Set (Isa.crbit cr 28, const1 1) ] in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
       If (Cmp (EQ, lvtreg rB, const0 32),
