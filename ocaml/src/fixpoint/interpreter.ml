@@ -94,7 +94,6 @@ struct
      
       let res =
         List.fold_left (fun l v ->
-            L.debug (fun p -> p "examining (%d)" v.Cfa.State.id);
           try
             (* filters on cutting instruction pointers *)
             if Config.SAddresses.mem (Data.Address.to_int v.Cfa.State.ip) !Config.blackAddresses then

@@ -137,7 +137,10 @@ module PPC =
     let mtspr_so_idx = 31
     let mtspr_ov_idx = 30
     let mtspr_ca_idx = 29
+    let mtspr_ltbc_idx = 0
+    let mtspr_utbc_idx = 6
 
+                       
     let cr_flag_test r = V (T r)
     let vp_cr cr l u = V (P(cr, l, u))
   end
@@ -157,7 +160,9 @@ module PPC64 =
     let mtspr_so_idx = 63
     let mtspr_ov_idx = 62
     let mtspr_ca_idx = 61
-                     
+    let mtspr_ltbc_idx = 32
+    let mtspr_utbc_idx = 38
+                       
     let core_conditional_XL_form a isn lr =
       let bo, bi, _, lk = decode_XL_Form isn in
       let cia = Address.to_int a in
@@ -208,7 +213,9 @@ module type Isa =
     val mtspr_so_idx: int
     val mtspr_ov_idx: int
     val mtspr_ca_idx: int
-
+    val mtspr_ltbc_idx: int
+    val mtspr_utbc_idx: int
+    
     val cr_flag_test: Register.t -> Asm.lval
 
     (* returns cr[l,u] *)
@@ -528,12 +535,14 @@ struct
     let bso = Isa.mtspr_so_idx in
     let bov = Isa.mtspr_ov_idx in
     let bca = Isa.mtspr_ca_idx in
+    let ltbc = Isa.mtspr_ltbc_idx in
+    let utbc = Isa.mtspr_utbc_idx in
     match sprf with
     | 1 -> (* XER *)
        [ Set (vt so, lvpreg rS bso bso) ;
          Set (vt ov, lvpreg rS bov bov) ;
          Set (vt ca, lvpreg rS bca bca) ;
-         Set (vt tbc, lvpreg rS 0 6) ]
+         Set (vt tbc, lvpreg rS ltbc utbc) ]
     | 8 -> (* LR *)
        [ Set (vt lr, lvtreg rS) ]
     | 9 -> (* CTR *)
