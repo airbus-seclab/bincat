@@ -817,8 +817,8 @@ struct
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                    Cmp (EQ, lvtreg rD, const 0x80000000 32),
-                                    Cmp (EQ, lvtreg rA, const 0x7fffffff 32)),
+                                    Cmp (EQ, lvtreg rD, Isa.c80),
+                                    Cmp (EQ, lvtreg rA, Isa.c7f)),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
