@@ -770,7 +770,7 @@ struct
 
   let decode_subfme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
-    let isn_stmts = (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), const 0xffffffff 33))
+    let isn_stmts = (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), Isa.cff_e))
                        (ext_e (lvt ca)) rD) in
     let xer_stmts =
       if oe == 1 then [
@@ -802,8 +802,8 @@ struct
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                    Cmp (EQ, lvtreg rD, const 0x80000000 32),
-                                    Cmp (EQ, lvtreg rA, const 0x80000000 32)),
+                                    Cmp (EQ, lvtreg rD, Isa.c80),
+                                    Cmp (EQ, lvtreg rA, Isa.c80)),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
