@@ -727,7 +727,7 @@ struct
     let simm32p1 = Z.add (sign_extension (Z.of_int simm) sz Isa.size) Z.one in 
     [
       Set (vt tmpreg, BinOp(Add, ext_e ((UnOp (Not, lvtreg rA))), zconst simm32p1 n1)) ;
-      Set (vpreg rD 0 Isa.size-1, lvp tmpreg 0 (Isa.size-1)) ;
+      Set (vpreg rD 0 (Isa.size-1), lvp tmpreg 0 (Isa.size-1)) ;
       Set (vt ca, lvp tmpreg Isa.size Isa.size) ;
       Directive (Remove tmpreg) ;
     ]
@@ -1045,7 +1045,7 @@ struct
     let rS, crm1 = decode_XFX_Form isn in
     let crm = (crm1 lsr 1) land 0xff in
     if crm == 0xff then (* shortcut for special case when all CR fields are set with rS *)
-      [ Set (vt cr, lvtreg rS) ]
+      [ Set (vt cr, lvpreg rS 0 31) ]
     else
       let stmts = ref [] in
       for i = 0 to 7 do
