@@ -125,43 +125,25 @@ module PPC =
     let decode_conditional_ctr_XL_form a isn lr _cr ctr wrapper =
       decode_conditional_core_XL_form a isn lr ctr wrapper
 
-    let overflow_expression cr = Lval (V (P (cr, 28, 28)))
 
     let c80 = const 0x80000000 32
     let c7f = const 0x7fffffff 32
     let cff = const 0xffffffff 32
     let cff_e = const 0xffffffff 33
 
-    let crbit r x = V (P(r, x, x))
-
-    let mtspr_so_idx = 31
-    let mtspr_ov_idx = 30
-    let mtspr_ca_idx = 29
-    let mtspr_ltbc_idx = 0
-    let mtspr_utbc_idx = 6
-
-                       
     let cr_flag_test r = V (T r)
-    let vp_cr cr l u = V (P(cr, l, u))
   end
 
 module PPC64 =
   struct
     let size = 64
     let mode = ref 64
-
-    let overflow_expression cr = Lval (V (P (cr, 60, 60)))
                                
     let c80 = Const (Word.of_int (Z.of_string "0x8000000000000000") 64)
     let c7f = Const (Word.of_int (Z.of_string "0x7fffffffffffffff") 64)
     let cff = Const (Word.of_int (Z.of_string "0xffffffffffffffff") 64)
     let cff_e = Const (Word.of_int (Z.of_string "0xffffffffffffffff") 65)
 
-    let mtspr_so_idx = 63
-    let mtspr_ov_idx = 62
-    let mtspr_ca_idx = 61
-    let mtspr_ltbc_idx = 32
-    let mtspr_utbc_idx = 38
                        
     let core_conditional_XL_form a isn lr =
       let bo, bi, _, lk = decode_XL_Form isn in
@@ -186,13 +168,10 @@ module PPC64 =
       let if_jump = Jmp (R (BinOp(Shl, Lval (V (P(ctr, 0, 61))), const 2 64))) in
       (If(cond_ok, [if_jump], []))::update_lr
 
-    let crbit r x = let x' = 32+x in V (P(r, x', x'))
-
     let cr_flag_test r =
-      if !mode = 32 then V (P(r, 32, 63))
+      if !mode = 32 then V (P(r, 0, 31))
       else V (T r)
 
-    let vp_cr cr l u = V (P(cr, l+32, u+32))
   end
 
 module type Isa =
@@ -202,25 +181,16 @@ module type Isa =
     val decode_conditional_lr_XL_form: Address.t -> int -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
 
     val decode_conditional_ctr_XL_form: Address.t -> int -> Register.t -> Register.t -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
-    val overflow_expression: Register.t -> Asm.exp
+
 
     val c7f: Asm.exp
     val cff: Asm.exp
     val cff_e: Asm.exp
     val c80: Asm.exp
-    val crbit: Register.t -> int -> Asm.lval
-
-    val mtspr_so_idx: int
-    val mtspr_ov_idx: int
-    val mtspr_ca_idx: int
-    val mtspr_ltbc_idx: int
-    val mtspr_utbc_idx: int
-    
+   
     val cr_flag_test: Register.t -> Asm.lval
 
-    (* returns cr[l,u] *)
-    val vp_cr: Register.t -> int -> int -> Asm.lval
-  end
+    end
 module Make(Isa: Isa)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
 
@@ -278,7 +248,7 @@ struct
 
   let lr = Register.make ~name:"lr" ~size:Isa.size;;
   let ctr = Register.make ~name:"ctr" ~size:Isa.size;;
-  let cr = Register.make ~name:"cr" ~size:Isa.size;; (* actual cr size is 32 in PPC64 in cr[32:63]*)
+  let cr = Register.make ~name:"cr" ~size:32;; (* actual cr size is 32 in PPC64 in cr[32:63]*)
 
   (* condition flags are modeled as registers of size 1 *)
 
@@ -350,22 +320,22 @@ struct
   let lvtreg n = Lval (V (T (reg n)))
 
   let lvpreg n a b = Lval (V (P (reg n, a, b)))
-
-  let crbit x = Isa.crbit cr x
+                   
+  let crbit x = V (P (cr, x, x))
 
   (* Update CR[0] according to the latest result. Must be called after XER has been updated for CR[0].so to reflect XER.so *)
   let cr_flags_stmts rc rD =
     if rc == 1 then [
         Set(crbit 31, (* cr[0].lt *)
-            TernOp(Cmp (EQ, msb_reg (reg rD), const1 Isa.size),
+            TernOp(Cmp (EQ, msb_reg (reg rD), const1 !Isa.mode),
                    const1 1, const0 1)) ;
         Set(crbit 30, (* cr[0].gt *)
             TernOp(BBinOp (LogAnd,
-                           Cmp (EQ, msb_reg (reg rD), const0 Isa.size),
-                           Cmp (NEQ, lvtreg rD, const0 Isa.size)),
+                           Cmp (EQ, msb_reg (reg rD), const0 !Isa.mode),
+                           Cmp (NEQ, lvtreg rD, const0 !Isa.mode)),
                    const1 1, const0 1)) ;
         Set(crbit 29, (* cr[0].eq *)
-            TernOp(Cmp (EQ, Lval (Isa.cr_flag_test (reg rD)), const0 Isa.size),
+            TernOp(Cmp (EQ, Lval (Isa.cr_flag_test (reg rD)), const0 !Isa.mode),
                    const1 1, const0 1)) ;
         Set(crbit 28, lvt so) ; (* cr[0].so *)
       ]
@@ -427,7 +397,6 @@ struct
   (* Branching *)
                   
   let wrap_with_bi_bo_condition bi bo if_stmts a =
-    let m = if !Isa.mode = Isa.size then 0 else 32 in
     let bo_0 = ith_bit bo 0 5 in
     let bo_1 = const (ith_bit bo 1 5) 1 in
     let bo_2 = ith_bit bo 2 5 in
@@ -439,8 +408,8 @@ struct
     let ctr_ok =
       if bo_2 = 0 then
         let cmp = if bo_3 = 1 then EQ else NEQ in
-        let len = Isa.size - m in 
-        Cmp(cmp, lvp ctr m (Isa.size-1), const0 len)     
+        let len = !Isa.mode in 
+        Cmp(cmp, lvp ctr 0 (len-1), const0 len)     
       else BConst true
     in
     let cond_ok =
@@ -532,17 +501,12 @@ struct
   let decode_mtspr state isn =
     let rS, sprn = decode_XFX_Form isn in
     let sprf = decode_split_field sprn in
-    let bso = Isa.mtspr_so_idx in
-    let bov = Isa.mtspr_ov_idx in
-    let bca = Isa.mtspr_ca_idx in
-    let ltbc = Isa.mtspr_ltbc_idx in
-    let utbc = Isa.mtspr_utbc_idx in
     match sprf with
     | 1 -> (* XER *)
-       [ Set (vt so, lvpreg rS bso bso) ;
-         Set (vt ov, lvpreg rS bov bov) ;
-         Set (vt ca, lvpreg rS bca bca) ;
-         Set (vt tbc, lvpreg rS ltbc utbc) ]
+       [ Set (vt so, lvpreg rS 31 31) ;
+         Set (vt ov, lvpreg rS 30 30) ;
+         Set (vt ca, lvpreg rS 29 29) ;
+         Set (vt tbc, lvpreg rS 0 6) ]
     | 8 -> (* LR *)
        [ Set (vt lr, lvtreg rS) ]
     | 9 -> (* CTR *)
@@ -733,7 +697,7 @@ struct
 
   let decode_addis state isn =
     let rD, rA, simm, sz = decode_D_Form state.prefix isn in
-    let simm' = sconst (simm lsl sz) (sz*2) Isa.size in
+    let simm' = sconst (simm lsl 16) (sz+16) Isa.size in
     match rA == 0 with
     | true -> [ Set (vtreg rD, simm') ]
     | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, simm')) ]
@@ -763,7 +727,7 @@ struct
     let simm32p1 = Z.add (sign_extension (Z.of_int simm) sz Isa.size) Z.one in 
     [
       Set (vt tmpreg, BinOp(Add, ext_e ((UnOp (Not, lvtreg rA))), zconst simm32p1 n1)) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 (Isa.size-1)) ;
+      Set (vpreg rD 0 Isa.size-1, lvp tmpreg 0 (Isa.size-1)) ;
       Set (vt ca, lvp tmpreg Isa.size Isa.size) ;
       Directive (Remove tmpreg) ;
     ]
@@ -880,7 +844,7 @@ struct
     let invalid_xer = if oe == 0 then []
                       else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
     let invalid_cr = if rc == 0 then []
-                     else [ Directive (Forget (Isa.vp_cr cr 29 31)); Set (Isa.crbit cr 28, const1 1) ] in
+                     else [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ] in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
       If (BBinOp(LogOr,
@@ -898,7 +862,7 @@ struct
     let invalid_xer = if oe == 0 then []
                       else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
     let invalid_cr = if rc == 0 then []
-                     else [ Directive (Forget (Isa.vp_cr cr 29 31)); Set (Isa.crbit cr 28, const1 1) ] in
+                     else [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ] in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
       If (Cmp (EQ, lvtreg rB, const0 32),
@@ -1503,7 +1467,7 @@ struct
     Imports.init ()
 
  
-  let overflow_expression () = Isa.overflow_expression(cr)
+  let overflow_expression () = Lval (V (P (cr, 28, 28)))
     
   let init_registers () = []
 end
