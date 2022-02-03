@@ -865,7 +865,7 @@ struct
                      else [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ] in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
-      If (Cmp (EQ, lvtreg rB, const0 32),
+      If (Cmp (EQ, lvtreg rB, const0 Isa.size),
           Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
           Set (vtreg rD, BinOp(Div, lvtreg rA, lvtreg rB)) ::
             ((clear_ov oe) @ (cr_flags_stmts rc rD)))

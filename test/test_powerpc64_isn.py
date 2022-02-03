@@ -70,7 +70,7 @@ def test_arith_op_dot(tmpdir, op):
         mtspr 1, %r3       # update XER
         {op}. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:61-63" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
 
 @pytest.mark.parametrize("op", ARITH_OPS)
 def test_arith_op_o(tmpdir, op):
@@ -94,7 +94,7 @@ def test_arith_op_o_dot(tmpdir, op):
         mtspr 1, %r3       # update XER
         {op}o. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:61-63", "ov", "ca" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov", "ca" ])
 
 @pytest.mark.parametrize("op", ARITH_OPS)
 @pytest.mark.parametrize("xer", [0x2000, 0x0000])
@@ -108,7 +108,7 @@ def test_arith_op_flags(tmpdir, op, xer, op32, op32_):
         ori %r4, %r4, {op32_}@l
         {op}o. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:61-63", "ov", "ca" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov", "ca" ])
 
 @pytest.mark.parametrize("op", ["addi", "addis"])
 def test_arith_addi(tmpdir, op, op32, op16_s):
@@ -139,7 +139,7 @@ def test_arith_addic_doc_subfic(tmpdir, op, op32, op16_s):
         mtspr 1, %r3       # update XER (for XER.so flag)
         {op} %r4, %r3, {op16_s}
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "ca", "cr:61-63"])
+    compare(tmpdir, asm, ["r3", "r4", "ca", "cr:29-31"])
 
 @pytest.mark.parametrize("op", ["addme", "addze", "subfme", "subfze"])
 @pytest.mark.parametrize("xer", [0x0000, 0x2000])
@@ -151,7 +151,7 @@ def test_arith_addmeo_addzeo_subfmeo_subfzeo_dot(tmpdir, op, xer, op32):
         ori %r3, %r3, {op32}@l
         {op}o. %r4, %r3
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63", "ov", "ca" ])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov", "ca" ])
 
 
 def test_arith_extsb(tmpdir, op8):
@@ -159,14 +159,14 @@ def test_arith_extsb(tmpdir, op8):
         li %r3, {op8}
         extsb. %r4, %r3
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63"])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
 def test_arith_extsh(tmpdir, op16_s):
     asm = """
         li %r3, {op16_s}
         extsh. %r4, %r3
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63"])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
 
 def test_arith_divw(tmpdir, op32, op32_):
@@ -178,8 +178,8 @@ def test_arith_divw(tmpdir, op32, op32_):
         divwo. %r5, %r3, %r4
     """.format(**locals())
     invalid = (op32_== 0) or (op32 == 0x80000000 and op32_ == 0xffffffff)
-    top = { "r5": 0xffffffff, "cr":0xe0000000 } if invalid else {}
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:61-63", "ov"],
+    top = { "r5": 0xffffffffffffffff, "cr":0xe0000000 } if invalid else {}
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov"],
             top_allowed = top)
 
 def test_arith_divwu(tmpdir, op32, op32_):
@@ -192,7 +192,7 @@ def test_arith_divwu(tmpdir, op32, op32_):
     """.format(**locals())
     invalid = op32_== 0
     top = { "r5": 0xffffffff, "cr":0xe0000000 } if invalid else {}
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:61-63", "ov"],
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov"],
             top_allowed = top)
 
 
@@ -207,7 +207,7 @@ def test_arith_mul(tmpdir, op, op32, op32_):
         ori %r4, %r4, {op32}@l
         {op}. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:61-63"])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31"])
 
 
 def test_arith_mulli(tmpdir, op32, op16_s):
@@ -235,7 +235,7 @@ def test_logic_with_flags(tmpdir, logic, op32, op32_):
         ori %r4, %r4, {op32_}@l
         {logic}. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:61-63" ])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31" ])
 
 @pytest.mark.parametrize("logic", ["ori", "oris", "xori", "xoris" ])
 def test_logic_imm(tmpdir, logic, op32, op16):
@@ -253,7 +253,7 @@ def test_logic_imm_dot(tmpdir, logic, op32, op16):
         ori %r3, %r3, {op32}@l
         {logic} %r4, %r3, {op16}
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63"])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
 def test_logic_neg(tmpdir, op32):
     asm = """
@@ -261,7 +261,7 @@ def test_logic_neg(tmpdir, op32):
         ori %r3, %r3, {op32}@l
         nego. %r4, %r3
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63", "ov" ])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ov" ])
 
 
 @pytest.mark.parametrize("exp", list(range(33)))
@@ -272,7 +272,7 @@ def test_cntlzw(tmpdir, exp, op32):
         ori %r3, %r3, {op32}@l
         cntlzw. %r4, %r3
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63"])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
 @pytest.mark.parametrize("op", ["rlwimi", "rlwinm"])
 def test_logic_rlwimi_rlwinm_dot(tmpdir, op, op32, op32_, op5, op5_, op5__):
@@ -283,7 +283,7 @@ def test_logic_rlwimi_rlwinm_dot(tmpdir, op, op32, op32_, op5, op5_, op5__):
         ori %r4, %r4, {op32_}@l
         {op}. %r4, %r3, {op5}, {op5_}, {op5__}
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63"])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
 def test_logic_rlwnm_dot(tmpdir, op32, op32_, op5, op5_, op5__):
     asm = """
@@ -292,7 +292,7 @@ def test_logic_rlwnm_dot(tmpdir, op32, op32_, op5, op5_, op5__):
         li %r5, {op5}
         rlwnm. %r4, %r3, %r5, {op5_}, {op5__}
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63"])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
 @pytest.mark.parametrize("op", ["slw", "srw", "sraw"])
 @pytest.mark.parametrize("opshift", [0, 1, 6, 30, 31, 32, 35, 63, 66, 125])
@@ -304,7 +304,7 @@ def test_logic_shift_dot(tmpdir, op, op32, opshift):
         li %r4, {opshift}
         {op}. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:61-63", "ca"])
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ca"])
 
 def test_logic_srawi(tmpdir, op32, op5):
     asm = """
@@ -313,7 +313,7 @@ def test_logic_srawi(tmpdir, op32, op5):
         mtspr 1, %r3       # set ca to a determined value
         srawi. %r4, %r3, {op5}
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "cr:61-63", "ca"])
+    compare(tmpdir, asm, ["r3", "r4", "cr:29-31", "ca"])
 
 
 ##   ___
