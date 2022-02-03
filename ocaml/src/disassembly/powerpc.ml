@@ -837,7 +837,7 @@ struct
 
   let decode_extsh _state isn =
     let rS, rA, _, rc = decode_X_Form isn in
-    Set (vtreg rA, UnOp(SignExt 32, lvpreg rS 0 15)) :: (cr_flags_stmts rc rA)
+    Set (vtreg rA, UnOp(SignExt Isa.size, lvpreg rS 0 15)) :: (cr_flags_stmts rc rA)
 
   let decode_divw _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
