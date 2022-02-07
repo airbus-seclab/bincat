@@ -845,15 +845,19 @@ struct
                       else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
     let invalid_cr = if rc == 0 then []
                      else [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ] in
+    let undef_up =
+      if Isa.size = 32 then []
+      else [ Directive (Forget (vpreg rD 32 63)) ]
+    in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
       If (BBinOp(LogOr,
-                 Cmp (EQ, lvtreg rB, const0 Isa.size),
+                 Cmp (EQ, lvpreg rB 0 31, const0 32),
                  BBinOp(LogAnd,
-                        Cmp (EQ, lvtreg rA, Isa.c80),
-                        Cmp (EQ, lvtreg rB, Isa.cff))),
+                        Cmp (EQ, lvpreg rA 0 31, const 0x80000000 32),
+                        Cmp (EQ, lvpreg rB 0 31, const 0xffffffff 32))),
           Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
-          Set (vtreg rD, BinOp(IDiv, lvtreg rA, lvtreg rB)) ::
+          Set (vpreg rD 0 31, BinOp(IDiv, lvpreg rA 0 31, lvpreg rB 0 31)) :: undef_up @
             ((clear_ov oe) @ (cr_flags_stmts rc rD)))
     ]
 
@@ -863,11 +867,15 @@ struct
                       else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
     let invalid_cr = if rc == 0 then []
                      else [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ] in
+    let undef_up =
+      if Isa.size = 32 then []
+      else [ Directive (Forget (vpreg rD 32 63)) ]
+    in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
-      If (Cmp (EQ, lvtreg rB, const0 Isa.size),
+      If (Cmp (EQ, lvpreg rB 0 31, const0 32),
           Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
-          Set (vtreg rD, BinOp(Div, lvtreg rA, lvtreg rB)) ::
+          Set (vpreg rD 0 31, BinOp(Div, lvpreg rA 0 31, lvpreg rB 0 31)) :: undef_up @
             ((clear_ov oe) @ (cr_flags_stmts rc rD)))
     ]
 
