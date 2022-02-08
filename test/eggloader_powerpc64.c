@@ -50,7 +50,8 @@ int main(int argc, char *argv[])
         int f;
         int len;
         void *eggp;
-        unsigned long long cr, ctr, xer, lr;
+	unsigned int cr;
+        unsigned long long ctr, xer, lr;
         unsigned long long reg[32];
 //        void *spsav;
         int i;
@@ -170,7 +171,7 @@ int main(int argc, char *argv[])
                 "ld %%r3, 8(%%r3)\n"      // retrieve test r1 from backup zone (/!\ actuallly, it has not been preserved)
                 "std %%r3, %[reg1]\n"
                 "mfcr %%r3\n"
-                "std %%r3, %[cr]\n"
+                "stw %%r3, %[cr]\n"
                 "mfspr %%r3, 1\n"         // read XER
                 "std %%r3, %[xer]\n"
                 "mfctr %%r3\n"
@@ -220,7 +221,7 @@ int main(int argc, char *argv[])
         for (i = 0; i < 32; i++)
                 printf("r%i=%016llx\n", i, reg[i]);
         printf("ctr=%016llx\n", ctr);
-        printf("cr=%016llx\n", cr);
+        printf("cr=%08x\n", cr);
         printf("xer=%016llx\n", xer);
         printf("lr=%016llx\n", lr);
 }
