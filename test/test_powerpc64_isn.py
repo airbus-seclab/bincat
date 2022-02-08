@@ -178,8 +178,8 @@ def test_arith_divw(tmpdir, op32, op32_):
         divwo. %r5, %r3, %r4
     """.format(**locals())
     invalid = (op32_== 0) or (op32 == 0x80000000 and op32_ == 0xffffffff)
-    top = { "r5": 0xffffffffffffffff, "cr":0xe0000000, "ov":1 } if invalid else {"r5": 0xffffffff00000000}
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov"],
+    top = { "r5": 0xffffffffffffffff, "cr":0xe0000000 } if invalid else {"r5": 0xffffffff00000000}
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31"],
             top_allowed = top)
 
 def test_arith_divwu(tmpdir, op32, op32_):
@@ -191,8 +191,8 @@ def test_arith_divwu(tmpdir, op32, op32_):
         divwuo. %r5, %r3, %r4
     """.format(**locals())
     invalid = op32_== 0
-    top = { "r5": 0xffffffffffffffff, "cr":0xe0000000, "ov":1 } if invalid else {"r5": 0xffffffff00000000}
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31", "ov"],
+    top = { "r5": 0xffffffffffffffff, "cr":0xe0000000 } if invalid else {"r5": 0xffffffff00000000}
+    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31"],
             top_allowed = top)
 
 

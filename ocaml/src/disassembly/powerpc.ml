@@ -341,7 +341,7 @@ struct
         Set(crbit 30, (* cr[0].gt *)
             TernOp(BBinOp (LogAnd,
                            Cmp (EQ, Isa.msb_reg (reg rD) imod, const0 imod),
-                           Cmp (NEQ, lvtreg rD, const0 imod)),
+                           Cmp (NEQ, lvpreg rD 0 (imod-1), const0 imod)),
                    const1 1, const0 1)) ;
         Set(crbit 29, (* cr[0].eq *)
             TernOp(Cmp (EQ, Lval (Isa.cr_flag_test (reg rD) imod), const0 imod),
