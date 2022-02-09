@@ -205,7 +205,9 @@ def test_arith_mul(tmpdir, op, op32, op32_):
         ori %r4, %r4, {op32}@l
         {op}. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5"])
+    top = {"r5": 0xffffffff00000000}
+    compare(tmpdir, asm, ["r3", "r4", "r5"],
+            top_allowed = top)
 
 
 def test_arith_mulli(tmpdir, op32, op16_s):

@@ -904,7 +904,7 @@ struct
 
   let decode_mulhw _state isn op =
     let rD, rA, rB, rc = decode_X_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) (Isa.size*2) in
+    let tmpreg = Register.make (Register.fresh_name ()) 64 in
     let undef_up =
       if Isa.size = 32 then []
       else [ Directive (Forget (vpreg rD 32 63)) ]
@@ -915,7 +915,7 @@ struct
       else
         [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ]
     in
-    [ Set (vt tmpreg, BinOp(op, lvtreg rA, lvtreg rB)) ;
+    [ Set (vt tmpreg, BinOp(op, lvpreg rA 0 31, lvpreg rB 0 31)) ;
       Set (vtreg rD, lvp tmpreg 32 63) ;
       Directive (Remove tmpreg) ; ]
     @ cr_flags @ undef_up
@@ -943,7 +943,7 @@ struct
                                              const0 1, const1 1)) ;
                          Set (vt so, BinOp (Or, lvt ov, lvt so)) ] in
     [ Set (vt tmpreg, BinOp (IMul, lvpreg rA 0 31, lvpreg rB 0 31)) ;
-      Set (vtreg rD, lvp tmpreg 0 31) ; ]
+      Set (vpreg rD 0 31, lvp tmpreg 0 31) ; ]
     @ undef_up
     @ ov_stmt
     @ [ Directive (Remove tmpreg) ]
