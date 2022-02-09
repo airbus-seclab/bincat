@@ -168,7 +168,7 @@ def test_arith_extsh(tmpdir, op16_s):
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr:29-31"])
 
-
+#could do better for cr if modes 32/64 are distinguished
 def test_arith_divw(tmpdir, op32, op32_):
     asm = """
         lis %r3, {op32}@h
@@ -178,8 +178,8 @@ def test_arith_divw(tmpdir, op32, op32_):
         divwo. %r5, %r3, %r4
     """.format(**locals())
     invalid = (op32_== 0) or (op32 == 0x80000000 and op32_ == 0xffffffff)
-    top = { "r5": 0xffffffffffffffff, "cr":0xe0000000 } if invalid else {"r5": 0xffffffff00000000}
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31"],
+    top = { "r5": 0xffffffffffffffff } if invalid else {"r5": 0xffffffff00000000}
+    compare(tmpdir, asm, ["r3", "r4", "r5" ],
             top_allowed = top)
 
 def test_arith_divwu(tmpdir, op32, op32_):
@@ -191,14 +191,12 @@ def test_arith_divwu(tmpdir, op32, op32_):
         divwuo. %r5, %r3, %r4
     """.format(**locals())
     invalid = op32_== 0
-    top = { "r5": 0xffffffffffffffff, "cr":0xe0000000 } if invalid else {"r5": 0xffffffff00000000}
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31"],
+    top = { "r5": 0xffffffffffffffff } if invalid else {"r5": 0xffffffff00000000}
+    compare(tmpdir, asm, ["r3", "r4", "r5" ],
             top_allowed = top)
 
 
-@pytest.mark.parametrize("op", ["mulchw","mulchwu", "mulhhw", "mulhhwu",
-                                "mulhw", "mulhwu", "mullhw", "mullhwu",
-                                "mullwo"])
+@pytest.mark.parametrize("op", ["mulhw", "mulhwu",  "mullwo"])
 def test_arith_mul(tmpdir, op, op32, op32_):
     asm = """
         lis %r3, {op32}@h
@@ -207,7 +205,7 @@ def test_arith_mul(tmpdir, op, op32, op32_):
         ori %r4, %r4, {op32}@l
         {op}. %r5, %r3, %r4
     """.format(**locals())
-    compare(tmpdir, asm, ["r3", "r4", "r5", "cr:29-31"])
+    compare(tmpdir, asm, ["r3", "r4", "r5"])
 
 
 def test_arith_mulli(tmpdir, op32, op16_s):

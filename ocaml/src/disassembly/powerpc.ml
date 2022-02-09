@@ -858,6 +858,12 @@ struct
       if Isa.size = 32 then []
       else [ Directive (Forget (vpreg rD 32 63)) ]
     in
+    let cr_flags =
+      if !Isa.mode = 32 then
+        cr_flags_stmts rc rD 32
+      else
+        [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ]
+    in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
       If (BBinOp(LogOr,
@@ -867,7 +873,7 @@ struct
                         Cmp (EQ, lvpreg rB 0 31, const 0xffffffff 32))),
           Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
           Set (vpreg rD 0 31, BinOp(IDiv, lvpreg rA 0 31, lvpreg rB 0 31)) :: undef_up @
-            ((clear_ov oe) @ (cr_flags_stmts rc rD 32)))
+            ((clear_ov oe) @ cr_flags))
     ]
 
   let decode_divwu _state isn =
@@ -898,11 +904,21 @@ struct
 
   let decode_mulhw _state isn op =
     let rD, rA, rB, rc = decode_X_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let tmpreg = Register.make (Register.fresh_name ()) (Isa.size*2) in
+    let undef_up =
+      if Isa.size = 32 then []
+      else [ Directive (Forget (vpreg rD 32 63)) ]
+    in
+    let cr_flags =
+      if !Isa.mode = 32 then
+        cr_flags_stmts rc rD 32
+      else
+        [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ]
+    in
     [ Set (vt tmpreg, BinOp(op, lvtreg rA, lvtreg rB)) ;
       Set (vtreg rD, lvp tmpreg 32 63) ;
       Directive (Remove tmpreg) ; ]
-    @ (cr_flags_stmts rc rD !Isa.mode)
+    @ cr_flags @ undef_up
 
   let decode_mullhw _state isn op =
     let rD, rA, rB, rc = decode_X_Form isn in
@@ -918,12 +934,17 @@ struct
   let decode_mullw _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let undef_up =
+      if Isa.size = 32 then []
+      else [ Directive (Forget (vpreg rD 32 63)) ]
+    in
     let ov_stmt = if oe == 0 then []
                   else [ Set (vt ov, TernOp (Cmp (EQ, lvp tmpreg 32 63, const0 32),
                                              const0 1, const1 1)) ;
                          Set (vt so, BinOp (Or, lvt ov, lvt so)) ] in
-    [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, lvtreg rB)) ;
+    [ Set (vt tmpreg, BinOp (IMul, lvpreg rA 0 31, lvpreg rB 0 31)) ;
       Set (vtreg rD, lvp tmpreg 0 31) ; ]
+    @ undef_up
     @ ov_stmt
     @ [ Directive (Remove tmpreg) ]
     @ (cr_flags_stmts rc rD !Isa.mode)
