@@ -599,13 +599,13 @@ struct
     let zero x y = Cmp (EQ, lvpreg rS x y, const0 (y-x+1)) in
     let rec check_zero a b n =
       if a == b then
-        TernOp (zero a b, const (n+1) 32, const n 32)
+        TernOp (zero a b, const (n+1) Isa.size, const n Isa.size)
       else
         let mid = (a+b+1)/2 in
         TernOp (zero mid b,
                 check_zero a (mid-1) (n+b-mid+1),
                 if mid == b
-                then const n 32
+                then const n Isa.size
                 else check_zero mid b n) in
     Set (vtreg rA, check_zero 0 31 0) :: (cr_flags_stmts rc rA !Isa.mode)
 
