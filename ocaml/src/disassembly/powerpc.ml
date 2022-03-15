@@ -610,12 +610,16 @@ struct
     Set (vtreg rA, check_zero 0 31 0) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let build_mask mb me =
+    let sz = 32 in
+    let sz1 = 31 in
+    let ff = z_mask_ff 32 in
     let mask =
       if mb <= me then
-       (1 lsl (32-mb))-(1 lsl (31-me))
+       Z.sub (Z.shift_left Z.one (sz - mb)) (Z.shift_left Z.one (sz1 - me)) 
       else
-        0xffffffff-(1 lsl (31-me))+(1 lsl (32-mb)) in
-    const mask 32
+        Z.add (Z.sub ff (Z.shift_left Z.one (sz1 - me)))  (Z.shift_left Z.one (sz - mb))
+    in
+    zconst mask 32
 
   let decode_rlwimi _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
@@ -627,28 +631,33 @@ struct
       if mb <= me then
         [ Set (vpreg rA (31-me) (31-mb), lvp tmpreg (31-me) (31-mb)) ]
       else
-        [ Set (vpreg rA 0 (31-mb), lvp tmpreg 0 (31-mb)) ;
-          Set (vpreg rA (31-me) 31, lvp tmpreg (31-me) 31) ] in
+        let stmts = [ Set (vpreg rA 0 (31-mb), lvp tmpreg 0 (31-mb)) ;
+                      Set (vpreg rA (31-me) 31, lvp tmpreg (31-me) 31) ]
+        in
+        if Isa.size = 32 then stmts
+        else (Set (vpreg rA 32 63, const0 32))::stmts
+    in
     let remove = [ Directive (Remove tmpreg) ] in
-    rot @ stmts @ remove @ (cr_flags_stmts rc rA !Isa.mode)
-
+    rot @ stmts @  remove @ (cr_flags_stmts rc rA !Isa.mode)
+ 
   let decode_rlwinm _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
-    Set (vtreg rA, BinOp (And, build_mask mb me,
+    Set (vpreg rA 0 (Isa.size-1), UnOp(ZeroExt Isa.size, 
+                        BinOp (And, build_mask mb me,
                           BinOp (Or,
-                                 BinOp(Shl, lvtreg rS, const sh 32),
-                                 BinOp(Shr, lvtreg rS, const (32-sh) 32))) )
-    :: (cr_flags_stmts rc rA !Isa.mode)
+                                 BinOp(Shl, lvpreg rS 0 31, const sh 32),
+                                 BinOp(Shr, lvpreg rS 0 31, const (32-sh) 32)))))
+    :: (cr_flags_stmts rc rA 32)
 
   let decode_rlwnm _state isn =
     let rS, rA, rB, mb, me, rc = decode_M_Form isn in
-    let lval_sh = BinOp(And, lvtreg rB, const 0x1f 32) in
+    let lval_sh = BinOp(And, lvpreg rB 0 31, const 0x1f 32) in
     let lval_msh = BinOp(Sub, const 32 32, lval_sh) in
-    Set (vtreg rA, BinOp (And, build_mask mb me,
+    Set (vpreg rA 0 31, BinOp (And, build_mask mb me,
                           BinOp (Or,
                                  BinOp(Shl, lvtreg rS, lval_sh),
                                  BinOp(Shr, lvtreg rS, lval_msh))) )
-    :: (cr_flags_stmts rc rA !Isa.mode)
+    :: (cr_flags_stmts rc rA 32)
 
   let decode_logic_shift _state isn shift =
     let rS, rA, rB, rc = decode_X_Form isn in
