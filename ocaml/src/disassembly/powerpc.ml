@@ -610,44 +610,58 @@ struct
     Set (vtreg rA, check_zero 0 31 0) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let build_mask mb me =
-    let sz = 32 in
-    let sz1 = 31 in
-    let ff = z_mask_ff 32 in
+    let sz = Isa.size in
+    let sz1 = sz-1 in
+    let ff = z_mask_ff sz in
     let mask =
       if mb <= me then
        Z.sub (Z.shift_left Z.one (sz - mb)) (Z.shift_left Z.one (sz1 - me)) 
       else
         Z.add (Z.sub ff (Z.shift_left Z.one (sz1 - me)))  (Z.shift_left Z.one (sz - mb))
     in
-    zconst mask 32
+    zconst mask sz
 
   let decode_rlwimi _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 32 in
-    let rot = [ Set (vt tmpreg, BinOp(Or,
-                                      BinOp(Shl, lvtreg rS, const sh 32),
-                                      BinOp(Shr, lvtreg rS, const (32-sh) 32))) ; ] in
-    let stmts =
-      if mb <= me then
-        [ Set (vpreg rA (31-me) (31-mb), lvp tmpreg (31-me) (31-mb)) ]
+    let rS', pre, post =
+      if Isa.size = 32 then
+       lvtreg rS, [], []
       else
-        let stmts = [ Set (vpreg rA 0 (31-mb), lvp tmpreg 0 (31-mb)) ;
-                      Set (vpreg rA (31-me) 31, lvp tmpreg (31-me) 31) ]
-        in
-        if Isa.size = 32 then stmts
-        else (Set (vpreg rA 32 63, const0 32))::stmts
+        let vps = Register.make (Register.fresh_name ()) Isa.size in
+        lvt vps, [Set (vt vps, UnOp(ZeroExt Isa.size, lvpreg rS 0 31));
+                  Set (vp vps 32 (Isa.size-1), lvpreg rS 0 31) ], [Directive (Remove vps)]
+    in
+    let tmpreg = Register.make (Register.fresh_name ()) Isa.size in
+    let rot = [ Set (vt tmpreg, BinOp(Or,
+                                      BinOp(Shl, rS', const sh Isa.size),
+                                      BinOp(Shr, rS', const (Isa.size-sh) Isa.size))) ]
+    in
+    let u = 32-1 in
+    let stmts, u' =
+      if mb <= me then
+        [ Set (vpreg rA (u-me) (u-mb), lvp tmpreg (u-me) (u-mb)) ], None
+      else 
+        [ Set (vpreg rA 0 (u-mb), lvp tmpreg 0 (u-mb)) ;
+          Set (vpreg rA (u-me) u, lvp tmpreg (u-me) u) ], Some (u+1)
+    in
+    let stmts' =
+      match Isa.size, u' with
+      | n, _ when n = 32 -> []
+      | _, Some u' -> [Set (vpreg rA u' (Isa.size-1), const0 (Isa.size-u')) ]
+      | _ -> []
     in
     let remove = [ Directive (Remove tmpreg) ] in
-    rot @ stmts @  remove @ (cr_flags_stmts rc rA !Isa.mode)
+    pre @ rot @ stmts @ stmts' @ post @ remove @ (cr_flags_stmts rc rA !Isa.mode)
  
   let decode_rlwinm _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
+    let u = Isa.size - 1 in
     Set (vpreg rA 0 (Isa.size-1), UnOp(ZeroExt Isa.size, 
                         BinOp (And, build_mask mb me,
                           BinOp (Or,
-                                 BinOp(Shl, lvpreg rS 0 31, const sh 32),
-                                 BinOp(Shr, lvpreg rS 0 31, const (32-sh) 32)))))
-    :: (cr_flags_stmts rc rA 32)
+                                 BinOp(Shl, lvpreg rS 0 u, const sh Isa.size),
+                                 BinOp(Shr, lvpreg rS 0 u, const (u-sh) Isa.size)))))
+    :: (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_rlwnm _state isn =
     let rS, rA, rB, mb, me, rc = decode_M_Form isn in
