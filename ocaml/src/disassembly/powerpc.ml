@@ -647,7 +647,7 @@ struct
     let me' = 31 - me in
     if mb <= me then
       let before =
-        let n = me'-1 in
+        let n = me'+ 1 in
         if n >= 0 then
           [ Set (vp tmpreg 0 n, const0 me') ]
         else []
