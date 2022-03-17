@@ -609,18 +609,6 @@ struct
                 else check_zero mid b n) in
     Set (vtreg rA, check_zero 0 31 0) :: (cr_flags_stmts rc rA !Isa.mode)
 
-  let build_mask mb me =
-    let sz = Isa.size in
-    let sz1 = sz-1 in
-    let ff = z_mask_ff sz in
-    let mask =
-      if mb <= me then
-       Z.sub (Z.shift_left Z.one (sz - mb)) (Z.shift_left Z.one (sz1 - me)) 
-      else
-        Z.add (Z.sub ff (Z.shift_left Z.one (sz1 - me)))  (Z.shift_left Z.one (sz - mb))
-    in
-    zconst mask sz
-
   let decode_rlwimi _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
     let rS', pre, post =
@@ -647,31 +635,76 @@ struct
     let stmts' =
       match Isa.size, u' with
       | n, _ when n = 32 -> []
-      | _, Some u' -> [Set (vpreg rA u' (Isa.size-1), const0 (Isa.size-u')) ]
+      | _, Some u' -> [Set (vpreg rA u' (Isa.size-1), lvp tmpreg u' (Isa.size-1)) ]
       | _ -> []
     in
     let remove = [ Directive (Remove tmpreg) ] in
     pre @ rot @ stmts @ stmts' @ post @ remove @ (cr_flags_stmts rc rA !Isa.mode)
- 
+
+
+  let build_mask mb me tmpreg =
+    let mb' = 31 - mb in
+    let me' = 31 - me in
+    if mb <= me then
+      let before =
+        let n = me'-1 in
+        if n >= 0 then
+          [ Set (vp tmpreg 0 n, const0 me') ]
+        else []
+      in
+      let after =
+        let n = mb' + 1 in
+        if n < Isa.size-1 then
+          [Set(vp tmpreg n (Isa.size-1), const0 (Isa.size-n)) ]
+        else
+          []
+      in
+      before @ after
+    else
+      let mb' = mb' + 1 in
+      let me' = me' - 1 in
+      if mb' <=  me' then
+        [ Set (vp tmpreg mb' me', const0 (me'- mb' + 1)) ]
+      else
+        []
+          
   let decode_rlwinm _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
-    let u = Isa.size - 1 in
-    Set (vpreg rA 0 (Isa.size-1), UnOp(ZeroExt Isa.size, 
-                        BinOp (And, build_mask mb me,
-                          BinOp (Or,
-                                 BinOp(Shl, lvpreg rS 0 u, const sh Isa.size),
-                                 BinOp(Shr, lvpreg rS 0 u, const (u-sh) Isa.size)))))
-    :: (cr_flags_stmts rc rA !Isa.mode)
+    let rS', pre, post =
+      if Isa.size = 32 then
+       lvtreg rS, [], []
+      else
+        let vps = Register.make (Register.fresh_name ()) Isa.size in
+        lvt vps, [Set (vt vps, UnOp(ZeroExt Isa.size, lvpreg rS 0 31));
+                  Set (vp vps 32 (Isa.size-1), lvpreg rS 0 31) ], [Directive (Remove vps)]
+    in
+    let tmpreg = Register.make (Register.fresh_name ()) Isa.size in
+    let rot =  [ Set (vt tmpreg, BinOp(Or,
+                                      BinOp(Shl, rS', const sh Isa.size),
+                                      BinOp(Shr, rS', const (Isa.size-sh) Isa.size))) ]
+    in
+    let stmts = build_mask mb me tmpreg @ [Set (vtreg rA, lvt tmpreg) ] in
+    pre @ rot @ stmts @ post @ [ Directive (Remove tmpreg) ] @ (cr_flags_stmts rc rA !Isa.mode)
+
 
   let decode_rlwnm _state isn =
     let rS, rA, rB, mb, me, rc = decode_M_Form isn in
     let lval_sh = BinOp(And, lvpreg rB 0 31, const 0x1f 32) in
     let lval_msh = BinOp(Sub, const 32 32, lval_sh) in
-    Set (vpreg rA 0 31, BinOp (And, build_mask mb me,
-                          BinOp (Or,
-                                 BinOp(Shl, lvtreg rS, lval_sh),
-                                 BinOp(Shr, lvtreg rS, lval_msh))) )
-    :: (cr_flags_stmts rc rA 32)
+    let rS', pre, post =
+      if Isa.size = 32 then
+       lvtreg rS, [], []
+      else
+        let vps = Register.make (Register.fresh_name ()) Isa.size in
+        lvt vps, [Set (vt vps, UnOp(ZeroExt Isa.size, lvpreg rS 0 31));
+                  Set (vp vps 32 (Isa.size-1), lvpreg rS 0 31) ], [Directive (Remove vps)]
+    in
+    let tmpreg = Register.make (Register.fresh_name ()) Isa.size in
+    let rot = [ Set (vt tmpreg, BinOp(Or, BinOp(Shl, rS', lval_sh),
+                                      BinOp(Shr, rS', lval_msh))) ]
+    in
+    let stmts = build_mask mb me tmpreg @ [Set (vtreg rA, lvt tmpreg) ] in
+    pre @ rot @ stmts @ post @ [ Directive (Remove tmpreg) ] @ (cr_flags_stmts rc rA 32)
 
   let decode_logic_shift _state isn shift =
     let rS, rA, rB, rc = decode_X_Form isn in
