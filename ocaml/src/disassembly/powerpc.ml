@@ -647,14 +647,14 @@ struct
     let me' = 31 - me in
     if mb <= me then
       let before =
-        let n = me'+ 1 in
+        let n = me'- 1 in
         if n >= 0 then
-          [ Set (vp tmpreg 0 n, const0 me') ]
+          [ Set (vp tmpreg 0 n, const0 (n+1)) ]
         else []
       in
       let after =
         let n = mb' + 1 in
-        if n < Isa.size-1 then
+        if n <= Isa.size-1 then
           [Set(vp tmpreg n (Isa.size-1), const0 (Isa.size-n)) ]
         else
           []
@@ -667,16 +667,19 @@ struct
         [ Set (vp tmpreg mb' me', const0 (me'- mb' + 1)) ]
       else
         []
-          
+
+  let concat32 rS =
+    let vps = Register.make (Register.fresh_name ()) Isa.size in
+    lvt vps, [Set (vt vps, UnOp(ZeroExt Isa.size, lvpreg rS 0 31));
+              Set (vp vps 32 (Isa.size-1), lvpreg rS 0 31) ], [Directive (Remove vps)]
+
   let decode_rlwinm _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
     let rS', pre, post =
       if Isa.size = 32 then
        lvtreg rS, [], []
       else
-        let vps = Register.make (Register.fresh_name ()) Isa.size in
-        lvt vps, [Set (vt vps, UnOp(ZeroExt Isa.size, lvpreg rS 0 31));
-                  Set (vp vps 32 (Isa.size-1), lvpreg rS 0 31) ], [Directive (Remove vps)]
+        concat32 rS
     in
     let tmpreg = Register.make (Register.fresh_name ()) Isa.size in
     let rot =  [ Set (vt tmpreg, BinOp(Or,
@@ -689,46 +692,45 @@ struct
 
   let decode_rlwnm _state isn =
     let rS, rA, rB, mb, me, rc = decode_M_Form isn in
-    let lval_sh = BinOp(And, lvpreg rB 0 31, const 0x1f 32) in
-    let lval_msh = BinOp(Sub, const 32 32, lval_sh) in
+    let lval_sh = BinOp(And, lvpreg rB 0 (Isa.size-1), const 0x1f Isa.size) in
+    let lval_msh = BinOp(Sub, const Isa.size Isa.size, lval_sh) in
     let rS', pre, post =
       if Isa.size = 32 then
        lvtreg rS, [], []
       else
-        let vps = Register.make (Register.fresh_name ()) Isa.size in
-        lvt vps, [Set (vt vps, UnOp(ZeroExt Isa.size, lvpreg rS 0 31));
-                  Set (vp vps 32 (Isa.size-1), lvpreg rS 0 31) ], [Directive (Remove vps)]
+        concat32 rS
     in
     let tmpreg = Register.make (Register.fresh_name ()) Isa.size in
-    let rot = [ Set (vt tmpreg, BinOp(Or, BinOp(Shl, rS', lval_sh),
+    let rot = [ Set (vt tmpreg, BinOp(Or,
+                                      BinOp(Shl, rS', lval_sh),
                                       BinOp(Shr, rS', lval_msh))) ]
     in
     let stmts = build_mask mb me tmpreg @ [Set (vtreg rA, lvt tmpreg) ] in
-    pre @ rot @ stmts @ post @ [ Directive (Remove tmpreg) ] @ (cr_flags_stmts rc rA 32)
+    pre @ rot @ stmts @ post @ [ Directive (Remove tmpreg) ] @ (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_logic_shift _state isn shift =
     let rS, rA, rB, rc = decode_X_Form isn in
     If (Cmp (EQ, lvpreg rB 5 5, const0 1),
         [ Set (vtreg rA, BinOp(shift,lvtreg rS,
-                               UnOp(ZeroExt 32, lvpreg rB 0 4)))] ,
-        [ Set (vtreg rA, const0 32) ] ) :: (cr_flags_stmts rc rA !Isa.mode)
+                               UnOp(ZeroExt Isa.size, lvpreg rB 0 4)))] ,
+        [ Set (vtreg rA, const0 Isa.size) ] ) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_sraw _state isn =
     let rS, rA, rB, rc = decode_X_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let sz = Isa.size * 2 in
+    let tmpreg = Register.make (Register.fresh_name ()) sz in
     [
       If (Cmp (EQ, lvpreg rB 5 5, const1 1),
-          [ Set (vtreg rA, TernOp (Cmp (EQ, lvpreg rS 31 31, const1 1),
-                                   const 0xffffffff 32, const0 32)) ;
-            Set (vt ca, lvpreg rS 31 31) ;  ],
-          [ Set (vt tmpreg , UnOp(SignExt 64, lvtreg rS)) ;
-            Set (vt tmpreg, BinOp (Shr, lvt tmpreg, UnOp(ZeroExt 64, lvpreg rB 0 4))) ;
-            Set (vtreg rA, lvp tmpreg 0 31) ;
+          [ Set (vtreg rA, UnOp (SignExt Isa.size, (lvpreg rS 31 31))) ;
+            Set (vt ca, lvpreg rS 31 31) ],
+          [ Set (vt tmpreg , UnOp(SignExt sz, lvtreg rS)) ;
+            Set (vt tmpreg, BinOp (Shr, lvt tmpreg, UnOp(ZeroExt sz, lvpreg rB 0 4))) ;
+            Set (vtreg rA, lvp tmpreg 0 (Isa.size-1)) ;
             Directive (Remove tmpreg) ;
             Set (vt ca, TernOp (BBinOp (LogOr,
                                         Cmp (EQ, lvpreg rS 31 31, const0 1),
                                         Cmp (EQ,
-                                             BinOp (Shl, lvtreg rS,
+                                             BinOp (Shl, lvpreg rS 0 31,
                                                     BinOp (Sub, const 32 32,
                                                            UnOp (ZeroExt 32, lvpreg rB 0 4))),
                                              const0 32)),
