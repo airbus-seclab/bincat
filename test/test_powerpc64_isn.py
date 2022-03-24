@@ -326,7 +326,8 @@ def test_logic_srawi(tmpdir, op32, op5):
 
 @pytest.mark.parametrize("op", ["cmp", "cmpl"])
 @pytest.mark.parametrize("crfD", list(range(8)))
-def test_compare_cmp_cmpl(tmpdir, op, crfD, op32h, op32h_):
+@pytest.mark.parametrize("l", list(range(2)))
+def test_compare_cmp_cmpl(tmpdir, op, l, crfD, op32h, op32h_):
     so = op32h & 0x8000
     asm = """
         lis %r3, 0
@@ -335,7 +336,7 @@ def test_compare_cmp_cmpl(tmpdir, op, crfD, op32h, op32h_):
         mtspr 1, %r3     # so = 0 or 1
         lis %r3, {op32h}
         lis %r4, {op32h_}
-        {op}  cr{crfD}, %r3, %r4
+        {op}  cr{crfD}, {l}, %r3, %r4
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "r4", "cr"])
 
