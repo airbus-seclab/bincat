@@ -341,7 +341,8 @@ def test_compare_cmp_cmpl(tmpdir, op, l, crfD, op32h, op32h_):
     compare(tmpdir, asm, ["r3", "r4", "cr"])
 
 @pytest.mark.parametrize("crfD", list(range(8)))
-def test_compare_cmpli(tmpdir, crfD, op32h, op32h_):
+@pytest.mark.parametrize("l", list(range(2)))
+def test_compare_cmpli(tmpdir, l, crfD, op32h, op32h_):
     so = op32h & 0x8000
     asm = """
         lis %r3, 0
@@ -349,7 +350,7 @@ def test_compare_cmpli(tmpdir, crfD, op32h, op32h_):
         lis %r3, {so}
         mtspr 1, %r3     # so = 0 or 1
         lis %r3, {op32h}
-        cmpli  cr{crfD}, %r3, {op32h_}
+        cmpli  cr{crfD}, {l}, %r3, {op32h_}
     """.format(**locals())
     compare(tmpdir, asm, ["r3", "cr"])
 
