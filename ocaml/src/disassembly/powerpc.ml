@@ -60,7 +60,7 @@ let ith_bit v n sz = (v lsr (sz-n-1)) land 0b1
     let op1 = (isn lsr 21) land 0x1f in
     let op2 = (isn lsr 16) land 0x1f in
     let imm = (isn land 0xffff) in
-    let l = (isn lsr 22) land 0x01 in
+    let l = (isn lsr 21) land 0x01 in
     let imm', sz =
       match prefix with
       | Some LoadStore st -> (st.ie lsl 18) lor imm, 34 (* IE is concatenated on the left *)
@@ -78,11 +78,11 @@ let ith_bit v n sz = (v lsr (sz-n-1)) land 0b1
     rS, rA, rBsh, mb, me, rc
 
   let decode_X_Form isn =
-    let rSD = (isn lsr 21) land 0x1f in
+    let rSD = (isn lsr 23) land 0x07 in
     let rA = (isn lsr 16) land 0x1f in
     let rB = (isn lsr 11) land 0x1f in
     let rc = (isn land 1) in
-    let l = (isn lsr 22) land 1 in
+    let l = (isn lsr 21) land 0x1 in
     rSD, l, rA, rB, rc
 
   let decode_XO_Form isn =
@@ -526,9 +526,12 @@ struct
 
 
   (* compare *)
-  let sz_of_cmp l =
-     if Isa.size = 32 || l = 0 then 33
-     else 65
+  let sz_of_cmp l crfD =
+    let sz =
+      if Isa.size = 32 || l = 0 then 33
+      else 65
+    in
+    sz, 4*crfD
     
   let compare_arithmetical crfD exprA exprB sz =  
     let tmpreg = Register.make (Register.fresh_name ()) sz in
@@ -548,14 +551,15 @@ struct
 
   let decode_cmp _state isn =
     let crfD, l, rA, rB, _ = decode_X_Form isn in
-    let sz = sz_of_cmp l in
-    let u = sz - 1 in
-    compare_arithmetical (crfD*4) (lvpreg rA 0 u) (lvpreg rB 0 u) sz
+    let sz, crfD' = sz_of_cmp l crfD in
+    let u = sz - 2 in
+    compare_arithmetical crfD' (lvpreg rA 0 u) (lvpreg rB 0 u) sz
 
   let decode_cmpi state isn =
     let crfD, l, rA, simm, sz = decode_D_Form state.prefix isn in
-    let u = sz_of_cmp l in
-    compare_arithmetical crfD (lvtreg rA) (sconst simm sz u) u
+    let u, crfD' = sz_of_cmp l crfD in
+    let u' = sz - 2 in
+    compare_arithmetical crfD' (lvpreg rA 0 u) (sconst simm sz u') u
 
   let compare_logical crfD exprA exprB =
     [
@@ -566,12 +570,16 @@ struct
     ]
 
   let decode_cmpl _state isn =
-    let crfD, _l, rA, rB, _ = decode_X_Form isn in
-    compare_logical crfD (lvtreg rA) (lvtreg rB) 
+    let crfD, l, rA, rB, _ = decode_X_Form isn in
+    let u, crfD' = sz_of_cmp l crfD in
+    let u = u - 2 in
+    compare_logical crfD' (lvpreg rA 0 u) (lvpreg rB 0 u) 
 
   let decode_cmpli state isn =
-    let crfD, _l, rA, uimm, _sz = decode_D_Form state.prefix isn in
-    compare_logical crfD (lvtreg rA) (const uimm Isa.size)
+    let crfD, l, rA, uimm, _sz = decode_D_Form state.prefix isn in
+    let u, crfD' = sz_of_cmp l crfD in
+    let u = u - 2 in
+    compare_logical crfD' (lvpreg rA 0 u) (const uimm u)
 
   (* logic *)
 
