@@ -576,8 +576,8 @@ struct
   let decode_cmpi state isn =
     let crfD, l, rA, simm, sz = decode_D_L_Form state.prefix isn in
     let u, crfD' = sz_of_cmp l crfD in
-    let u' = sz - 2 in
-    compare_arithmetical crfD' (lvpreg rA 0 u) (sconst simm sz u') u
+    let u' = u - 2 in
+    compare_arithmetical crfD' (lvpreg rA 0 u') (sconst simm sz (u'+1)) u
 
   let compare_logical crfD exprA exprB =
     [
