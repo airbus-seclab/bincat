@@ -455,9 +455,8 @@ struct
 
   (* auxiliary functions to sign extend z or z+off) on sz bits taking into account the Isa.mode *) 
   let gen_signext z off sz =
-    let z', sz' = if !Isa.mode = 32 then z, sz else z lsl 2, sz + 2 in
     let se_z =
-      sign_extension (Z.of_int z') sz' !Isa.mode
+      sign_extension (Z.of_int z) sz !Isa.mode
     in
     let se_z' = 
       match off with
@@ -472,6 +471,7 @@ struct
   let decode_branch_I_form state isn =
     let li, aa, lk = decode_I_Form isn in
     let cia = Address.to_int state.a in
+    L.debug (fun p -> p "li = %i, aa = %i, lk = %i, cia = %s" li aa lk (Data.Address.to_string state.a));
     let cia' = Z.add cia (Z.of_int 4) in
     let update_lr =
       if lk == 0 then []
