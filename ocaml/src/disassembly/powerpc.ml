@@ -176,7 +176,7 @@ module PPC64 =
       
     let decode_conditional_lr_XL_form a isn lr wrapper =
       let bo, bi, update_lr = core_conditional_XL_form a isn lr in
-      let if_jump = Jmp (R (BinOp(Shl, Lval (V (P (lr, 0, 61))), const 2 64))) in
+      let if_jump = Jmp (R (Lval (V (P(lr, 0, 61))))) in
       (wrapper bi bo [if_jump] a) @ update_lr
       
     let decode_conditional_ctr_XL_form a isn lr cr ctr _wrapper =
@@ -471,7 +471,6 @@ struct
   let decode_branch_I_form state isn =
     let li, aa, lk = decode_I_Form isn in
     let cia = Address.to_int state.a in
-    L.debug (fun p -> p "li = %i, aa = %i, lk = %i, cia = %s" li aa lk (Data.Address.to_string state.a));
     let cia' = Z.add cia (Z.of_int 4) in
     let update_lr =
       if lk == 0 then []
