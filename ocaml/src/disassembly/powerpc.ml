@@ -179,17 +179,11 @@ module PPC64 =
       let if_jump = Jmp (R (Lval (V (P(lr, 0, 61))))) in
       (wrapper bi bo [if_jump] a) @ update_lr
       
-    let decode_conditional_ctr_XL_form a isn lr cr ctr _wrapper =
-      let bo, bi, update_lr = core_conditional_XL_form a isn lr in
-      let bo_0 = ith_bit bo 0 6 in
-      let bo_1 = const (ith_bit bo 1 6) 1 in
-      let cond_ok =
-        let i = bi+32 in
-        if bo_0 = 1 then BConst true else Cmp (EQ, Lval (V (P(cr, i, i))), bo_1)
-      in
-      let if_jump = Jmp (R (BinOp(Shl, Lval (V (P(ctr, 0, 61))), const 2 64))) in
-      (If(cond_ok, [if_jump], []))::update_lr
-
+    let decode_conditional_ctr_XL_form a isn _lr _cr ctr wrapper =
+      let bo, bi, update_ctr = core_conditional_XL_form a isn ctr in
+      let if_jump = Jmp (R (Lval (V (P(ctr, 0, 61))))) in
+      (wrapper bi bo [if_jump] a) @ update_ctr
+     
     let cr_flag_test r imod =
       if imod = 32 then V (P(r, 0, 31))
       else V (T r)
@@ -1078,15 +1072,16 @@ struct
       | true, 16 -> BinOp (Or,
                            UnOp (ZeroExt Isa.size, Lval (M (ea, 8))),
                            BinOp (Shl, UnOp(extmode, Lval (M (eap 1, 8))), const 8 Isa.size))
-      | true, sz when sz = Isa.size -> BinOp (Or,
-                           BinOp (Or,
-                                  UnOp(ZeroExt Isa.size, Lval (M (ea, 8))),
-                                  BinOp(Shl, UnOp(ZeroExt Isa.size, Lval (M (eap 1, 8))), const 8 Isa.size)),
-                           BinOp (Or,
-                                  BinOp(Shl, UnOp(ZeroExt Isa.size, Lval (M (eap 2, 8))), const 16 Isa.size),
-                                  BinOp(Shl, UnOp(ZeroExt Isa.size, Lval (M (eap 3, 8))), const 24 Isa.size)))
-      | _ -> L.abort (fun p -> p "internal error: unexpected decoding combination: reversed=%b sz=%i"
-                                 reversed sz)
+      | true, sz ->
+         let e = BinOp (Or,
+                        BinOp (Or,
+                               UnOp(ZeroExt sz, Lval (M (ea, 8))),
+                               BinOp(Shl, UnOp(ZeroExt sz, Lval (M (eap 1, 8))), const 8 sz)),
+                        BinOp (Or,
+                               BinOp(Shl, UnOp(ZeroExt sz, Lval (M (eap 2, 8))), const 16 sz),
+                               BinOp(Shl, UnOp(ZeroExt sz, Lval (M (eap 3, 8))), const 24 sz)))
+         in
+         if sz = Isa.size then e else UnOp(ZeroExt Isa.size, e)
     in
     Set (vtreg rD, memval) :: update_stmts
 
