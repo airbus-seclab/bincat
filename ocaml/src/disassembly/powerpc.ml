@@ -1108,16 +1108,19 @@ struct
 
     let decode_lmw state isn =
       let rD, rA, d, sz = decode_D_Form state.prefix isn in
-      let sd = sign_extension (Z.of_int d) sz Isa.size in 
+      let sd = sign_extension (Z.of_int d) sz 32 in 
       let rec loadreg ea n =
         if n == 32 then []
         else
           let tail = loadreg (Z.add ea z4) (n+1) in
-          let ff = Z.sub (Z.shift_left (Z.one) Isa.size) Z.one in
+          let ff = Z.sub (Z.shift_left (Z.one) 32) Z.one in
           let ea' = Z.logand ea ff in
           if n != rA || n == 31 then
-            Set (vtreg n, Lval (M (BinOp(Add, lvtreg rA,
-                                         zconst ea' Isa.size), Isa.size))) :: tail
+            let e = Lval (M (BinOp(Add, lvpreg rA 0 31,
+                                   zconst ea' 32), 32))
+            in
+            let e' = if !Isa.mode = 32 then e else UnOp(ZeroExt Isa.size, e) in
+            Set (vtreg n, e') :: tail
           else
             tail in
       loadreg sd rD
