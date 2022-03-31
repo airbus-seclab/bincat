@@ -686,7 +686,6 @@ def test_load_stmw(tmpdir):
 def test_load_lswi(tmpdir, op):
     asm = """
         xor %r0, %r0, %r0
-        mr %r1, %r0
         mr %r2, %r0
         mr %r3, %r0
         mr %r4, %r0
@@ -706,7 +705,7 @@ def test_load_lswi(tmpdir, op):
      end:
         nop
     """.format(**locals())
-    compare(tmpdir, asm, ["r0", "r1", "r2", "r3", "r4", "r28", "r29", "r30", "r31"])
+    compare(tmpdir, asm, ["r0", "r2", "r3", "r4", "r28", "r29", "r30", "r31"])
 
 @pytest.mark.parametrize("op", list(range(1, 33)))
 def test_store_stswi(tmpdir, op):
