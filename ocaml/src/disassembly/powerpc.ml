@@ -1162,7 +1162,7 @@ struct
 
     let decode_stswi _state isn =
       let rD, rA, nb, _ = decode_X_Form isn in
-      let ea x = if rA == 0 then const x 32 else BinOp(Add, lvtreg rA, const x 32) in
+      let ea x = if rA == 0 then const x 32 else BinOp(Add, lvpreg rA 0 31, const x 32) in
       let nb' = if nb == 0 then 32 else nb in
       let storereg = ref [] in
       for n = 0 to nb'-1 do
