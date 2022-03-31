@@ -1128,16 +1128,16 @@ struct
     let decode_stmw state isn =
       (* TODO: factorize with decode_lmw *)
       let rS, rA, d, sz = decode_D_Form state.prefix isn in
-      let sd = sign_extension (Z.of_int d) sz Isa.size in 
+      let sd = sign_extension (Z.of_int d) sz 32  in 
       let rec storereg ea n =
         if n == 32 then []
         else
           let tail = storereg (Z.add ea z4) (n+1) in
-          let ff = Z.sub (Z.shift_left (Z.one) Isa.size) Z.one in
+          let ff = Z.sub (Z.shift_left (Z.one) 32) Z.one in
           let ea' = Z.logand ea ff in
           if n != rA || n == 31 then
-            Set (M (BinOp(Add, lvtreg rA, zconst ea' Isa.size), Isa.size),
-                 lvtreg n) :: tail
+            Set (M (BinOp(Add, lvpreg rA 0 31, zconst ea' 32), 32),
+                 lvpreg n 0 31) :: tail
           else
             tail in
       storereg sd rS
