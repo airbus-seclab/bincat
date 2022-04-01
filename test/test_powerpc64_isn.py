@@ -710,7 +710,7 @@ def test_load_lswi(tmpdir, op):
 @pytest.mark.parametrize("op", list(range(1, 33)))
 def test_store_stswi(tmpdir, op):
     initreg = ["    lis %r{num}, 0xaa{num:02d}\n    ori %r{num}, %r{num}, 0x55{num:02d}".format(num=i)
-               for i in [28, 29, 30, 31, 0, 2, 3, 4]]
+               for i in [28, 29, 30, 31, 0, 1, 2, 3, 4]]
     asm = "\n".join(initreg)+"""
         b j2
     j1:

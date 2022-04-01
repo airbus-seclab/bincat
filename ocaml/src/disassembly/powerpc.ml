@@ -590,7 +590,6 @@ struct
     let crfD, l, rA, uimm, _sz = decode_D_L_Form state.prefix isn in
     let u, crfD' = sz_of_cmp l crfD in
     let u = u - 2 in
-    L.debug (fun p -> p "crfD = %i, l = %i, rA = %i, uimm = %i " crfD l rA uimm);
     compare_logical crfD' (lvpreg rA 0 u) (const uimm (u+1))
 
   (* logic *)
