@@ -517,7 +517,7 @@ struct
     | 9 -> (* CTR *)
        [ Set (vtreg rD, lvt ctr) ]
     | 287 -> (* PV processor version *)
-       [ Set (vtreg rD, const !Config.processor_version 32) ]
+       [ Set (vtreg rD, const !Config.processor_version Isa.size) ]
     | n -> error state.a (Printf.sprintf "mfspr from SPR #%i not supported yet" n)
 
   let decode_mtspr state isn =
