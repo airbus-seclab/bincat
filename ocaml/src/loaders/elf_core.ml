@@ -701,6 +701,8 @@ type reloc_type_t =
   | R_PPC_JMP_SLOT | R_PPC_RELATIVE | R_PPC_LOCAL24PC | R_PPC_UADDR32 | R_PPC_UADDR16 | R_PPC_REL32
   | R_PPC_PLT32 | R_PPC_PLTREL32 | R_PPC_PLT16_LO | R_PPL_PLT16_HI | R_PPC_PLT16_HA | R_PPC_SDAREL16
   | R_PPC_SECTOFF | R_PPC_SECTOFF_LO | R_PPC_SECTOFF_HI | R_PPC_SECTOFF_HA | R_PPC_ADDR30
+(* PPC64 relocation types *)
+  | R_PPC64_RELATIVE | R_PPC64_ADDR64
 
 let to_reloc_type r hdr =
     match hdr.e_machine with
@@ -765,6 +767,13 @@ let to_reloc_type r hdr =
          | 36 -> R_PPC_SECTOFF_HA      | 37 -> R_PPC_ADDR30
          | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
+    | PPC64 ->
+       begin
+         match r with
+         | 22 -> R_PPC64_RELATIVE
+         | 38 -> R_PPC64_ADDR64
+         | _ -> RELOC_OTHER (hdr.e_machine, r)
+       end
     | _ -> RELOC_OTHER (hdr.e_machine, r)
 
 let reloc_type_to_string rel =
@@ -807,6 +816,7 @@ let reloc_type_to_string rel =
   | R_PPC_SDAREL16 -> "R_PPC_SDAREL16"             | R_PPC_SECTOFF -> "R_PPC_SECTOFF"
   | R_PPC_SECTOFF_LO -> "R_PPC_SECTOFF_LO"         | R_PPC_SECTOFF_HI -> "R_PPC_SECTOFF_HI"
   | R_PPC_SECTOFF_HA -> "R_PPC_SECTOFF_HA"         | R_PPC_ADDR30 -> "R_PPC_ADDR30"
+  | R_PPC64_RELATIVE -> "R_PPC64_RELATIVE"         | R_PPC64_ADDR64 -> "R_PPC64_ADDR64"
   | RELOC_OTHER (mach,num) -> (Printf.sprintf "reloc(%s,%#x)" (e_machine_to_string mach) num)
 
 

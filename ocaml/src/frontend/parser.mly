@@ -330,7 +330,8 @@
     | NULL EQUAL v=INT { Config.null_cst := v }
     | OS EQUAL s=os_kind { Config.os := s }
     | MPX EQUAL b=mpx_enabled { Config.mpx := b }
-
+    | EXT_SYM_MAX_SIZE EQUAL i=INT         { Config.external_symbol_max_size := Z.to_int i }
+                                 
       format:
     | PE  { Config.PE }
     | ELF { Config.ELF }
@@ -440,7 +441,6 @@
     | UNROLL EQUAL i=INT         { Config.unroll := Z.to_int i }
     | KSET_BOUND EQUAL i=INT         { Config.kset_bound := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT         { Config.fun_unroll := Z.to_int i }
-    | EXT_SYM_MAX_SIZE EQUAL i=INT         { Config.external_symbol_max_size := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | NOP EQUAL l=addresses          { List.iter (fun a -> Config.nopAddresses := Config.SAddresses.add a !Config.nopAddresses) l }
