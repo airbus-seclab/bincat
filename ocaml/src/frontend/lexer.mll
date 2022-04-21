@@ -84,7 +84,6 @@ let _ =
     "unroll", UNROLL;
     "function_unroll", FUN_UNROLL;
     "kset_bound", KSET_BOUND;
-    "external_symbol_max_size", EXT_SYM_MAX_SIZE;
     "cut", CUT;
     "loglevel", LOGLEVEL;
     "store_marshalled_cfa", STORE_MCFA;
