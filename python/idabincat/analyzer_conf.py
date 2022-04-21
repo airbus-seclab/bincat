@@ -160,7 +160,7 @@ class ConfigHelpers(object):
             idaapi.CM_CC_MANUAL: "manual",
         }[compiler_info.cm & idaapi.CM_CC_MASK]
         # XXX
-        if ConfigHelpers.get_arch() == "powerpc" and ida_db_info_structure.abiname == "sysv":
+        if ConfigHelpers.get_arch().startswith("powerpc") and ida_db_info_structure.abiname == "sysv":
             return "svr"
         if ConfigHelpers.get_arch() == "x64":
             if ConfigHelpers.get_file_type() == 'elf':
@@ -313,6 +313,13 @@ class ConfigHelpers(object):
                 return 7
             else:
                 return 32
+        elif arch == 'powerpc64':
+            if reg in ['so', 'ov', 'ca', 'ca32']:
+                return 1
+            elif reg == 'tbc':
+                return 7
+            else:
+                return 64
         return None
 
     @staticmethod
@@ -371,6 +378,17 @@ class ConfigHelpers(object):
             for reg in ['so', 'ov', 'ca']:
                 regs.append([reg, "0", "1", ""])
             regs.append(["tbc", "0", "0x7F", ""])
+
+        elif arch == "powerpc64":
+            for i in range(31):
+                regs.append(["r%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
+            for reg in ['cr']:
+                regs.append([reg, "0", "0xFFFFFFFF", ""])
+            for reg in ['lr', 'ctr']:
+                regs.append([reg, "0", "0xFFFFFFFFFFFFFFFF", ""])
+            for reg in ['so', 'ov', 'ca', 'ca32']:
+                regs.append([reg, "0", "1", ""])
+            regs.append(["tbc", "0", "0x7F", ""])
         return regs
 
     @staticmethod
@@ -387,7 +405,10 @@ class ConfigHelpers(object):
             else:
                 return "x86"
         if procname == "ppc":
-            return "powerpc"
+            if info.is_64bit():
+                return "powerpc64"
+            else:
+                return "powerpc"
         elif procname.startswith("arm"):
             if info.is_64bit():
                 return "armv8"
@@ -894,7 +915,7 @@ class AnalyzerConfig(object):
                 # remove segment registers
                 for seg_reg in ('cs', 'ds', 'ss', 'es', 'fs', 'gs'):
                     config.remove_option('x86', seg_reg)
-        elif arch == "powerpc":
+        elif arch.startstwith("powerpc"):
             try:
                 config.add_section(arch)
             except ConfigParser.DuplicateSectionError:

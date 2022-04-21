@@ -279,6 +279,7 @@ struct
   let so = Register.make ~name:"so" ~size:1;;
   let ov = Register.make ~name:"ov" ~size:1;;
   let ca = Register.make ~name:"ca" ~size:1;;
+  let ca32 = Register.make ~name:"ca32" ~size:1;;
   let tbc = Register.make ~name:"tbc" ~size:7;;
 
   module Imports = PowerpcImports.Make(Domain)(Stubs)
