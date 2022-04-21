@@ -380,7 +380,7 @@ class ConfigHelpers(object):
     @staticmethod
     def get_arch():
         info = idaapi.get_inf_structure()
-        procname = info.procName.lower()
+        procname = info.procname.lower()
         if procname == "metapc":
             if info.is_64bit():
                 return "x64"
