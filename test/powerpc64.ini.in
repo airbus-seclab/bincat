@@ -16,13 +16,12 @@ headers = "libc.no"
 [program]
 mode = protected
 call_conv = svr
-mem_sz = 32
-op_sz = 32
-stack_width = 32
+mem_sz = 64
+op_sz = 64
+stack_width = 64
 architecture = powerpc64
 filepath = "{filepath}"
 format = raw
-external_symbol_max_size = 64
 {program_section}
 
 [powerpc64]

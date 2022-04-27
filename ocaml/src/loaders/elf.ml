@@ -177,7 +177,7 @@ let make_mapped_mem filepath entrypoint =
     | R_386_RELATIVE | R_X86_64_RELATIVE | R_PPC_RELATIVE | R_PPC64_RELATIVE -> reloc_relative Z.zero
     | R_ARM_RELATIVE -> fun _ _ _ -> L.debug(fun p -> p "do nothing")
     | R_PPC_ADDR32 | R_PPC64_ADDR64 -> reloc_obj_rel (Z.of_int (!Config.address_sz))
-    | R_PPC_JMP_SLOT -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
+    | R_PPC_JMP_SLOT | R_PPC64_JMP_SLOT -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
     | R_386_COPY | R_ARM_COPY | R_X86_64_COPY | R_AARCH64_COPY | R_PPC_COPY
       -> reloc_copy (Z.of_int (!Config.address_sz/8))
     | rt ->

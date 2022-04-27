@@ -123,6 +123,12 @@ let ith_bit v n sz = (v lsr (sz-n-1)) land 0b1
     let regnum = (isn lsr 11) land 0x3ff in
     rSD,regnum
 
+  let decode_DS_Form isn =
+    let ds = (isn lsr 2) land 0x3fff in
+    let ra = (isn lsr 16) land 0x1f in
+    let rs = (isn lsr 21) land 0x1f in
+    rs, ra, ds
+    
   let z4 = Z.of_int 4
          
 module PPC =
@@ -1209,6 +1215,11 @@ struct
     if crfD = crfS then []
     else [ Set (vp cr (28-crfD) (31-crfD), lvp cr (28-crfS) (31-crfS)) ]
 
+  let decode_std _state isn =
+    let rs, ra, ds = decode_DS_Form isn in
+    let ea = BinOp(Add, lvtreg ra, UnOp(SignExt 64, const (ds lsl 2) 16)) in
+    [ Set (M(ea, 64), lvtreg rs) ]
+    
   (* Decoding and switching *)
 
   let return (s: state) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
@@ -1434,7 +1445,9 @@ struct
 
   let decode_111110 s isn =
     match isn land 0x3 with
-    | 0b00 -> not_implemented_64bits s isn "std"
+    | 0b00 ->
+       if Isa.size = 64 then decode_std s isn
+       else not_implemented_64bits s isn "std"
     | 0b01 -> not_implemented_64bits s isn "stdu"
     | _ -> error s.a (Printf.sprintf "decode_111110: unknown opcode 0x%x" isn)
 

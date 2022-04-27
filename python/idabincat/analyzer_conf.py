@@ -915,9 +915,9 @@ class AnalyzerConfig(object):
                 # remove segment registers
                 for seg_reg in ('cs', 'ds', 'ss', 'es', 'fs', 'gs'):
                     config.remove_option('x86', seg_reg)
-        elif arch.startstwith("powerpc"):
+        elif arch.startswith("powerpc"):
             try:
-                config.add_section(arch)
+                config.add_section('powerpc')
             except ConfigParser.DuplicateSectionError:
                 # already exists in (arch,OS)-specific config
                 pass
