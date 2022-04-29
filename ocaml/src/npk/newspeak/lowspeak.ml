@@ -1,7 +1,7 @@
 (*
   C2Newspea: compiles C code into Newspeak. Newspeak is a minimal language 
   well-suited for static analysis.
-  Copyright (C) 2007-2011  Charles Hymans, Olivier Levillain, Sarah Zennou, 
+  Copyright (C) 2007-2022  Charles Hymans, Olivier Levillain, Sarah Zennou, 
   Etienne Millon
   
   This library is free software; you can redistribute it and/or
@@ -107,7 +107,7 @@ let exp_of_int x = Const (N.CInt (N.Nat.of_int x))
 (***************************************************)
 
 module StringMap = 
-  Map.Make (struct type t = string let compare = Pervasives.compare end)
+  Map.Make (struct type t = string let compare = Stdlib.compare end)
 
 let rec seq sep f l =
   match l with

@@ -61,7 +61,11 @@ module Make(D: Domain.T) = struct
         D.set_lval_to_addr ret [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ] d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
-
+    let cpp_basic_string _mangled_str (_ip: Data.Address.t) (_calling_ip: Data.Address.t option) (_d: domain_t) _ret _args =
+      (*let obj_type = Cpp.demangle mangled_str in
+      let region, id = Data.Address.new_abstract_object obj_type in*) failwith "not implemented"
+      
+      
 
     let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
       match a with
@@ -524,8 +528,8 @@ module Make(D: Domain.T) = struct
       Hashtbl.replace stubs "exit"        (bin_exit,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
       Hashtbl.replace stubs "free" (heap_deallocator, 1);
-      Hashtbl.replace stubs "_Znwj" (heap_allocator, 1); (* new *)
-      Hashtbl.replace stubs "_ZdlPv" (heap_deallocator, 1);; (* delete *)
+      let basic_str = "__ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC1Ev" in
+      Hashtbl.replace stubs basic_str (cpp_basic_string basic_str, 1);;
 
 
 end

@@ -371,7 +371,9 @@ class ConfigHelpers(object):
             regs.append(["v", "0", "1", ""])
             regs.append(["xzr", "0", "", ""])
         elif arch == "powerpc":
-            for i in range(31):
+            regs.append(["r0", "0", "0xFFFFFFFF", ""])
+            regs.append(["r1", "0xb8001000", "", ""])
+            for i in range(2, 31):
                 regs.append(["r%d" % i, "0", "0xFFFFFFFF", ""])
             for reg in ['lr', 'ctr', 'cr']:
                 regs.append([reg, "0", "0xFFFFFFFF", ""])
@@ -380,8 +382,10 @@ class ConfigHelpers(object):
             regs.append(["tbc", "0", "0x7F", ""])
 
         elif arch == "powerpc64":
-            for i in range(31):
+            regs.append(["r0", "0", "0xFFFFFFFFFFFFFFFF", ""])
+            for i in range(2, 31):
                 regs.append(["r%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
+            regs.append(["r1", "0xb8001000", "", ""])
             for reg in ['cr']:
                 regs.append([reg, "0", "0xFFFFFFFF", ""])
             for reg in ['lr', 'ctr']:

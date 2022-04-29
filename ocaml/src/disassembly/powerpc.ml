@@ -1215,10 +1215,24 @@ struct
     if crfD = crfS then []
     else [ Set (vp cr (28-crfD) (31-crfD), lvp cr (28-crfS) (31-crfS)) ]
 
-  let decode_std _state isn =
+  let core_std isn update =
     let rs, ra, ds = decode_DS_Form isn in
     let ea = BinOp(Add, lvtreg ra, UnOp(SignExt 64, const (ds lsl 2) 16)) in
-    [ Set (M(ea, 64), lvtreg rs) ]
+    (Set (M(ea, 64), lvtreg rs))::
+      (if update then [Set (vtreg ra, ea)]
+      else [])
+  let decode_std _state isn = core_std isn false
+
+  let decode_stdu _state isn = core_std isn true
+
+                             
+  let decode_ld _state isn update =
+    let rs, ra, ds = decode_DS_Form isn in
+    let ea = BinOp(Add, lvtreg ra, UnOp(SignExt 64, const (ds lsl 2) 16)) in
+    (Set (vtreg rs, Lval (M(ea, 64))))::
+      (if update then [Set (vtreg ra, ea)]
+       else [])
+    
     
   (* Decoding and switching *)
 
@@ -1424,8 +1438,14 @@ struct
 
   let decode_111010 s isn =
     match isn land 0x3 with
-    | 0b00 -> not_implemented_64bits s isn "ld"
-    | 0b01 -> not_implemented_64bits s isn "ldu"
+    | 0b00 ->
+       if Isa.size = 64 then decode_ld s isn false
+       else not_implemented_64bits s isn "ld"
+      
+    | 0b01 ->
+       if Isa.size = 64 then decode_ld s isn true
+       else not_implemented_64bits s isn "ldu"
+      
     | 0b10 -> not_implemented_64bits s isn "lwa"
     | _ -> error s.a (Printf.sprintf "decode_111010: unknown opcode 0x%x" isn)
 
@@ -1443,12 +1463,17 @@ struct
     | 0b11111 -> not_implemented s isn "fnmadds??"
     | _ -> error s.a (Printf.sprintf "decode_111011: unknown opcode 0x%x" isn)
 
+
   let decode_111110 s isn =
     match isn land 0x3 with
     | 0b00 ->
        if Isa.size = 64 then decode_std s isn
        else not_implemented_64bits s isn "std"
-    | 0b01 -> not_implemented_64bits s isn "stdu"
+              
+    | 0b01 ->
+       if Isa.size = 64 then decode_stdu s isn
+       else not_implemented_64bits s isn "stdu"
+      
     | _ -> error s.a (Printf.sprintf "decode_111110: unknown opcode 0x%x" isn)
 
   let decode_111111 s isn =

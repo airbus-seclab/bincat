@@ -1,7 +1,7 @@
 (*
   C2Newspeak: compiles C code into Newspeak. Newspeak is a minimal language 
   well-suited for static analysis.
-  Copyright (C) 2007  Charles Hymans, Olivier Levillain
+  Copyright (C) 2007-2022  Charles Hymans, Olivier Levillain
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -136,7 +136,7 @@ and tmp_nat =
   | Mult of (tmp_nat * int)
 
 module String_set = 
-  Set.Make (struct type t = string let compare = Pervasives.compare end)
+  Set.Make (struct type t = string let compare = Stdlib.compare end)
 
 let zero = Const (N.CInt N.Nat.zero)
 let zero_f = Const (N.CFloat (0., "0."))

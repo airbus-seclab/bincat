@@ -726,14 +726,26 @@ def test_store_stswi(tmpdir, op):
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r2", "r3", "r4", "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31"])
 
-def test_store_std(tmpdir):
+@pytest.mark.parametrize("op", ["", "u"])
+def test_store_std(tmpdir, op):
     asm = """
     mflr %r0
-    li %r1, 0xb8000000
-    std %r0, 0x10(%r1)
+    li %r1, 0xb8
+    li %r4, 24
+    slw %r1, %r1, %r4
+    std{op} %r0, 0x10(%r1)
     """.format(**locals())
     compare(tmpdir, asm, ["r0", "r1"])
-    
+
+@pytest.mark.parametrize("op", ["", "u"])
+def test_ld(tmpdir, op):
+    asm = """
+    mflr %r0
+    li %r1, 0x0
+    addi %r1, %r1, 0xb8000000
+    ld{op} %r0, 0x7010(%r1)
+    """.format(**locals())
+    compare(tmpdir, asm, ["r0", "r1"])
 ##   ___                          ___ ___
 ##  / _ \ _ __ ___   ___ _ _     / __| _ \
 ## | (_) | '_ (_-<  / _ \ ' \   | (__|   /
