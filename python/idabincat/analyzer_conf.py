@@ -350,7 +350,7 @@ class ConfigHelpers(object):
             regs.append(["z", "0", "1", ""])
             regs.append(["c", "0", "1", ""])
             regs.append(["v", "0", "1", ""])
-            if entrypoint mod 2 == 0:
+            if entrypoint % 2 == 0:
                 regs.append(["t", "1", "", ""])
                 regs.append(["itstate", "0", "", ""])
             else:
@@ -420,7 +420,7 @@ class InitialState(object):
                     self.mem.append(InitialState.mem_init_parse(k, v))
         else:
             arch = ConfigHelpers.get_arch()
-            self.regs = ConfigHelpers.get_registers_with_state(arch)
+            self.regs = ConfigHelpers.get_registers_with_state(arch, entrypoint)
             self.mem = ConfigHelpers.get_initial_mem(arch)
 
     def set_regs(self, regs):
