@@ -316,7 +316,7 @@ class ConfigHelpers(object):
         return None
 
     @staticmethod
-    def get_registers_with_state(arch):
+    def get_registers_with_state(arch, entrypoint):
         # returns an array of arrays
         # ["name", "value", "topmask", "taintmask"]
         regs = []
@@ -350,7 +350,12 @@ class ConfigHelpers(object):
             regs.append(["z", "0", "1", ""])
             regs.append(["c", "0", "1", ""])
             regs.append(["v", "0", "1", ""])
-            regs.append(["t", "0", "", ""])
+            if entrypoint mod 2 == 0:
+                regs.append(["t", "1", "", ""])
+                regs.append(["itstate", "0", "", ""])
+            else:
+                regs.append(["t", "0", "", ""])
+                
         elif arch == "armv8":
             for i in range(31):
                 regs.append(["x%d" % i, "0", "0xFFFFFFFFFFFFFFFF", ""])
