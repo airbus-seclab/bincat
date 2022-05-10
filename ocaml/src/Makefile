@@ -110,7 +110,7 @@ LIBINCL = $(EXTLIBINCL) -I data-struct -I domains -I utils -I disassembly -I fro
 #  -> not really a problem.
 #  W42: use of XXX relies on type-directed disambiguation
 #  -> not really a pb
-CAMLOPTIONS = -g -w A-e-l -warn-error +a-3-7-50-42-44-58 -w -42 -w -58 -w -67
+CAMLOPTIONS = -g -w A-e-l -warn-error +a-3-7-50-42-44-58 -w -42 -w -58 -w -67 -w -70
 
 EXEOPT=bincat
 EXEBYTE=bincat.byte
