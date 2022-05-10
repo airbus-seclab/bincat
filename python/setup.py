@@ -41,6 +41,7 @@ else:
         sources=["pybincat/mlbincat.c"],
         libraries=["bincat"],
         library_dirs=["../ocaml/src"],
+        extra_compile_args=['-Wno-discarded-qualifiers'],
     )
 
 package_data_files = ['idabincat/conf/*ini']
