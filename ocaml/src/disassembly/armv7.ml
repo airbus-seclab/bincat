@@ -1122,7 +1122,10 @@ struct
       | 0b100 -> L.analysis (fun p -> p "SEV: Send Event hint") ; []
       | _ -> L.abort (fun p -> p "Unkown hint instruction encoding %04x" isn)
 
-  
+  let decode_thumb_uxtb isn =
+    let rm = (isn lsr 3) land 0x07 in
+    let rd = isn land 0x07 in
+    [Set (V (treg rm), UnOp(ZeroExt 32, Lval (V (preg rd 0 7)))) ], []
     
   let decode_thumb_misc s isn =
     match (isn lsr 6) land 0x3f with
@@ -1142,14 +1145,19 @@ struct
        
     | 0b000100 | 0b000101 | 0b000110 | 0b000111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
        notimplemented_thumb s isn "CBZ/CBNZ (0)"
+
     | 0b001000 -> (* Signed Extend Halfword SXTH *)
        notimplemented_thumb s isn "SXTH"
+
     | 0b001001 -> (* Signed Extend Byte SXTB *)
        notimplemented_thumb s isn "SXTB"
+
     | 0b001010 -> (* Unsigned Extend Halfword UXTH *)
        notimplemented_thumb s isn "UXTH"
+
     | 0b001011 -> (* Unsigned Extend Byte UXTB *)
-       notimplemented_thumb s isn "UXTB"
+       decode_thumb_uxtb isn |> mark_couple
+      
     | 0b001100 | 0b001101 | 0b001110 | 0b001111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
        notimplemented_thumb s isn "CBNZ/CBZ (1)"
     | 0b010000 | 0b010001 | 0b010010 | 0b010011 | 0b010100 | 0b010101 | 0b010110 | 0b010111 -> (* Push Multiple Registers PUSH *)
