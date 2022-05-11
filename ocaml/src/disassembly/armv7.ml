@@ -679,7 +679,7 @@ struct
                               TernOp (Cmp (EQ, BinOp(And, Lval (V (treg rm)), const (1 lsl (32-n)) 32),const 0 32),
                                       const 0 1, const 1 1)) ]
            | None -> [ Set ( V (T cflag),   (* shift count comes from a register. We shift again on 33 bits *)
-                             TernOp (Cmp (EQ, BinOp(And,
+                            TernOp (Cmp (EQ, BinOp(And,
                                                     BinOp(Shl, UnOp(ZeroExt 33, Lval (V (treg rm))),
                                                           UnOp(ZeroExt 33, op3)),
                                                     const (1 lsl 32) 33), const 0 33),
@@ -1122,6 +1122,8 @@ struct
       | 0b100 -> L.analysis (fun p -> p "SEV: Send Event hint") ; []
       | _ -> L.abort (fun p -> p "Unkown hint instruction encoding %04x" isn)
 
+  
+    
   let decode_thumb_misc s isn =
     match (isn lsr 6) land 0x3f with
     | 0b011001 ->
@@ -1129,11 +1131,15 @@ struct
          notimplemented_thumb s isn "SETEND"
        else (* Change Processor State CPS *)
          notimplemented_thumb s isn "CPS"
+      
     | 0b000000 | 0b000001 -> (* Add Immediate to SP ADD (SP plus immediate) *)
-       notimplemented_thumb s isn "ADD on SP"
+       let imm7 = isn land 0x7f in
+       op_add sp 13 (const (imm7 lsl 2) 32) |> mark_couple
+       
     | 0b000010 | 0b000011 -> (* Subtract Immediate from SP SUB (SP minus immediate) *)
        let imm7 = isn land 0x7f in
        op_sub sp 13 (const (imm7 lsl 2) 32) |> mark_couple
+       
     | 0b000100 | 0b000101 | 0b000110 | 0b000111 -> (* Compare and Branch on Zero CBNZ, CBZ *)
        notimplemented_thumb s isn "CBZ/CBNZ (0)"
     | 0b001000 -> (* Signed Extend Halfword SXTH *)
