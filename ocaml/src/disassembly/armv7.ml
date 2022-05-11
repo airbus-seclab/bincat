@@ -523,7 +523,8 @@ struct
           | 0b11 -> (* ror *)
              let actual_shift = if shift_amount = 0 then 32 else shift_amount in
              ror_stmt (Lval (V (treg rm))) actual_shift
-          | _ -> error s.a "unexpected shift type insingle data xfer" in
+          | _ -> error s.a "unexpected shift type insingle data xfer"
+    in
     let updown = if (instruction land (1 lsl 23)) = 0 then Sub else Add in
     let preindex = (instruction land (1 lsl 24)) <> 0 in
     let writeback = (instruction land (1 lsl 21)) <> 0 in
@@ -542,7 +543,8 @@ struct
         if length = 32 then
           [ Set (V (treg rd), Lval src_or_dst) ], rd = 15
         else
-          [ Set (V (treg rd), UnOp(ZeroExt 32, Lval src_or_dst)) ], rd = 15 in
+          [ Set (V (treg rd), UnOp(ZeroExt 32, Lval src_or_dst)) ], rd = 15
+    in
     let write_back_stmt = Set (V (treg rn), BinOp(updown, Lval (V (treg rn)), ofs)) in
     let stmts' =
       if preindex then
@@ -1207,13 +1209,17 @@ struct
          | 0b00 -> (* Add register ADD (register) *)
             op_add (reg rd) rn (Lval (V (treg rm_or_imm3)))
          | 0b01 -> (* Subtract register SUB (register) *)
+            
             op_sub (reg rd) rn (Lval (V (treg rm_or_imm3)))
          | 0b10 -> (* Add 3-bit immediate ADD (immediate, Thumb) *)
             op_add (reg rd) rn (const rm_or_imm3 32)
+           
          | 0b11 -> (* Subtract 3-bit immediate SUB (immediate, Thumb) *)
             op_sub (reg rd) rn (const rm_or_imm3 32)
+
          | _ -> L.abort (fun p -> p "Unknown encoding %04x" isn)
        end |> mark_couple
+       
     | 0b000 -> (* Logical Shift Left LSL (immediate) *)
        let shift = (isn lsr 6) land 0x1f in
        let rm = (isn lsr 3) land 7 in
@@ -1227,6 +1233,7 @@ struct
              flags_stmts
        else
          MARK_ISN (Set (V (treg rd), Lval (V (treg rm)))) :: flags_stmts
+       
     | 0b001 -> (* Logical Shift Right LSR (immediate) *)
        let imm5 = (isn lsr 6) land 0x1f in
        let shift = if imm5 = 0 then 32 else imm5 in
@@ -1236,16 +1243,21 @@ struct
          MARK_ISN  (Set (V (treg rd), BinOp (Shr, Lval (V (treg rm)), const shift 32))) ;
          MARK_FLAG (nflag_update_exp (reg rd)) ;
          MARK_FLAG (zflag_update_exp (Lval ( V (treg rd)))) ; ]
+
     | 0b010 -> (* Arithmetic Shift Right ASR (immediate) *)
        notimplemented_thumb s isn "ASR (imm)"
+
     | 0b100 -> (* Move MOV (immediate) *)
        thumb_mov_imm s isn
+
     | 0b101 -> (* Compare CMP (immediate) *)
        thumb_cmp_imm s isn
+
     | 0b110 -> (* Add 8-bit immediate ADD (immediate, Thumb) *)
        let rdn = (isn lsr 8) land 7 in
        let imm8 = isn land 0xff in
        op_add (reg rdn) rdn (const imm8 32) |> mark_couple
+       
     | 0b111 -> (* Subtract 8-bit immediate SUB (immediate, Thumb) *)
        let rdn = (isn lsr 8) land 7 in
        let imm8 = isn land 0xff in
@@ -1305,14 +1317,19 @@ struct
        let rd = ((isn lsr 4) land 0x8) lor (isn land 0x7) in
        let rm = (isn lsr 3) land 0xf in
        op_add (reg rd) rm (Lval (V (treg rd))) |> mark_couple
+       
     | 0b0101 | 0b0110 | 0b0111 -> (* Compare High Registers CMP (register) *)
        notimplemented_thumb s isn "CMP (high reg)"
+      
     | 0b1000 | 0b1001 | 0b1010 | 0b1011 -> (* Move High Registers MOV (register) *)
        thumb_mov_high_reg s isn
+      
     | 0b1100 | 0b1101 -> (* Branch and Exchange BX *)
        thumb_bx s isn
+      
     | 0b1110 | 0b1111 -> (* Branch with Link and Exchange BLX *)
        notimplemented_thumb s isn "BLX"
+
     | _ -> L.abort (fun p -> p "Unknown or unpredictable instruction %04x" isn)
 
   let thumb_mul _s isn =
@@ -1335,42 +1352,62 @@ struct
     match (isn lsr 6) land 0xf with
     | 0b0000 -> (* Bitwise AND *)
        op_and (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
+      
     | 0b0001 -> (* Bitwise Exclusive OR *)
        op_eor (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
-    | 0b0010 -> (* LSL Logical Shift Left *)
-       notimplemented_thumb s isn "LSL (register)"
+
+    | 0b0010 -> (* LSL Logical Shift Left (register) *)
+       let rm = (isn lsr 3) land 7 in
+       let rd = isn land 7 in
+       ([Set (V (treg rd), BinOp (Shl, Lval (V (treg rm)), UnOp (ZeroExt 32, Lval (V (preg rm 0 7)))))],
+       [nflag_update_exp (reg rd) ; zflag_update_exp (Lval ( V (treg rd)))]) |> mark_couple
+
+
     | 0b0011 -> (* LSR Logical Shift Right *)
        notimplemented_thumb s isn "LSR (register)"
+      
     | 0b0100 -> (* ASR Arithmetic Shift Right *)
        notimplemented_thumb s isn "ASR (register)"
+
     | 0b0101 -> (* ADC Add with Carry *)
        notimplemented_thumb s isn "ADC (register)"
+
     | 0b0110 -> (* SBC Subtract with Carry *)
        notimplemented_thumb s isn "SBC (register)"
+
     | 0b0111 -> (* ROR Rotate Right *)
        notimplemented_thumb s isn "ROR (register)"
+
     | 0b1000 -> (* TST Test *)
        let tmpreg = Register.make (Register.fresh_name ()) 32 in
        let opstmts,flagstmts = op_and tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
+
     | 0b1001 -> (* RSB Reverse Subtract from 0 *)
        op_rsb (reg op0) op1 (const 0 32) |> mark_couple
+      
     | 0b1010 -> (* CMP Compare Registers *)
        let tmpreg = Register.make (Register.fresh_name ()) 32 in
        let opstmts,flagstmts = op_sub tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
+
     | 0b1011 -> (* CMN Compare Negative *)
        let tmpreg = Register.make (Register.fresh_name ()) 32 in
        let opstmts,flagstmts = op_add tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
+
     | 0b1100 -> (* ORR Bitwise OR *)
        op_orr (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
+
     | 0b1101 -> (* MUL Multiply Two Registers *)
        thumb_mul s isn
+
     | 0b1110 -> (* BIC Bitwise Bit Clear *)
        op_bic (reg op0) op0 (Lval (V (treg op1))) |> mark_couple
+
     | 0b1111 -> (* MVN Bitwise NOT *)
        op_mvn (reg op0) (Lval (V (treg op1))) |> mark_couple
+
     | _ -> L.abort (fun p -> p "internal error")
 
   let thumb_ldr _s isn =
