@@ -1,6 +1,6 @@
 """
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -109,6 +109,15 @@ def reg_len(regname):
             "r24": 32, "r25": 32, "r26": 32, "r27": 32, "r28": 32, "r29": 32,
             "r30": 32, "r31": 32, "lr": 32, "ctr": 32, "cr": 32,
             "tbc": 7, "so": 1, "ov": 1, "ca": 1}[regname]
+    elif CFA.arch == "powerpc64":
+        return {
+            "r0": 64, "r1": 64, "r2": 64, "r3": 64, "r4": 64, "r5": 64,
+            "r6": 64, "r7": 64, "r8": 64, "r9": 64, "r10": 64, "r11": 64,
+            "r12": 64, "r13": 64, "r14": 64, "r15": 64, "r16": 64, "r17": 64,
+            "r18": 64, "r19": 64, "r20": 64, "r21": 64, "r22": 64, "r23": 64,
+            "r24": 64, "r25": 64, "r26": 64, "r27": 64, "r28": 64, "r29": 64,
+            "r30": 64, "r31": 64, "lr": 64, "ctr": 64, "cr": 32, 
+            "tbc": 7, "so": 1, "ov": 1, "ca": 1, "ca32": 1}[regname]
     elif CFA.arch.lower() == "rv32i":
         return {
             "x0": 32, "x1": 32, "x2": 32, "x3": 32, "x4": 32, "x5": 32,

@@ -19,6 +19,10 @@ doc/generated
 *.swp
 *.egg
 test/**
+!test/*.py
+!test/*.c
+!test/*.ini.in
+!test/Makefile
 tags
 ocaml/src/bincat
 ocaml/test/.cache

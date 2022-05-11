@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -103,7 +103,7 @@ let make_mapped_mem filepath entrypoint =
   let max_addr = List.fold_left (fun mx sec -> Z.max mx (Data.Address.to_int sec.virt_addr_end)) Z.zero sections in
   let max_addr' = Hashtbl.fold (fun _k v mx -> Z.max mx v) Config.import_tbl_rev Z.zero in
   let min_addr' = Hashtbl.fold (fun _k v mx -> Z.min mx v) Config.import_tbl_rev max_addr in
-  reloc_external_addr := Z.max max_addr (Z.add max_addr' (Z.of_int !Config.external_symbol_max_size));
+  reloc_external_addr := Z.max max_addr (Z.add max_addr' (Z.of_int !Config.address_sz));
 
   let choose_address_for_import sym_name sym_size =
     try
@@ -172,12 +172,12 @@ let make_mapped_mem filepath entrypoint =
     | R_ARM_GLOB_DAT | R_386_GLOB_DAT | R_AARCH64_GLOB_DAT | R_X86_64_GLOB_DAT
       | R_PPC_GLOB_DAT -> reloc_glob_dat (Z.of_int (!Config.address_sz/8))
     | R_386_TLS_TPOFF
-    | R_386_32 -> reloc_obj (Z.of_int (!Config.external_symbol_max_size))
-    | R_386_PC32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
-    | R_386_RELATIVE | R_X86_64_RELATIVE | R_PPC_RELATIVE -> reloc_relative Z.zero
+    | R_386_32 -> reloc_obj (Z.of_int (!Config.address_sz))
+    | R_386_PC32 -> reloc_obj_rel (Z.of_int (!Config.address_sz))
+    | R_386_RELATIVE | R_X86_64_RELATIVE | R_PPC_RELATIVE | R_PPC64_RELATIVE -> reloc_relative Z.zero
     | R_ARM_RELATIVE -> fun _ _ _ -> L.debug(fun p -> p "do nothing")
-    | R_PPC_ADDR32 -> reloc_obj_rel (Z.of_int (!Config.external_symbol_max_size))
-    | R_PPC_JMP_SLOT -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
+    | R_PPC_ADDR32 | R_PPC64_ADDR64 -> reloc_obj_rel (Z.of_int (!Config.address_sz))
+    | R_PPC_JMP_SLOT | R_PPC64_JMP_SLOT -> reloc_jump_slot (Z.of_int (!Config.address_sz/8))
     | R_386_COPY | R_ARM_COPY | R_X86_64_COPY | R_AARCH64_COPY | R_PPC_COPY
       -> reloc_copy (Z.of_int (!Config.address_sz/8))
     | rt ->

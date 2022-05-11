@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2021 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -90,6 +90,7 @@
     let armv7_mandatory_keys = Hashtbl.create 20;;
     let armv8_mandatory_keys = Hashtbl.create 20;;
     let powerpc_mandatory_keys = Hashtbl.create 20;;
+    let powerpc64_mandatory_keys = Hashtbl.create 20;;
     let riscV_mandatory_keys = Hashtbl.create 20;;
     
       (** set the corresponding option reference *)
@@ -115,6 +116,7 @@
       let _update_armv7_mandatory key = update_arch_mandatory_key armv7_mandatory_keys key;;
       let _update_armv8_mandatory key = update_arch_mandatory_key armv8_mandatory_keys key;;
       let _update_powerpc_mandatory key = update_arch_mandatory_key powerpc_mandatory_keys key;;
+      let _update_powerpc64_mandatory key = update_arch_mandatory_key powerpc64_mandatory_keys key;;
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
@@ -134,6 +136,7 @@
             | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
             | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv8_mandatory_keys
             | Config.POWERPC -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc_mandatory_keys
+            | Config.POWERPC64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC64") powerpc64_mandatory_keys
             | Config.RV32I | Config.RV64I -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "RV32I/64I") riscV_mandatory_keys
           end;
         (* fill the table of tainting rules for each provided library *)
@@ -177,8 +180,8 @@
 %token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
-%token ENDIANNESS LITTLE BIG EXT_SYM_MAX_SIZE NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
-%token POWERPC SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
+%token ENDIANNESS LITTLE BIG NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
+%token POWERPC POWERPC64 SVR SYSV MS PROCESSOR_VERSION NULL X64 LOAD_PE_CRASHDUMP RV32I RV64I
 %token IGNORE_UNKNOWN_RELOCATIONS OS WINDOWS LINUX IDA TAINT_INPUT
 %token MPX ENABLED DISABLED
 %token <string> STRING
@@ -214,6 +217,7 @@
     | LEFT_SQ_BRACKET X86 RIGHT_SQ_BRACKET x=x86_section     { x }
     | LEFT_SQ_BRACKET X64 RIGHT_SQ_BRACKET x=x64_section     { x }
     | LEFT_SQ_BRACKET POWERPC RIGHT_SQ_BRACKET x=powerpc_section     { x }
+    | LEFT_SQ_BRACKET POWERPC64 RIGHT_SQ_BRACKET x=powerpc_section     { x }
     | LEFT_SQ_BRACKET RV32I RIGHT_SQ_BRACKET x=rv32i_section     { x }
     | LEFT_SQ_BRACKET RV64I RIGHT_SQ_BRACKET x=rv64i_section     { x }
     | LEFT_SQ_BRACKET IDA RIGHT_SQ_BRACKET x=ida_section     { x }
@@ -327,6 +331,7 @@
     | OS EQUAL s=os_kind { Config.os := s }
     | MPX EQUAL b=mpx_enabled { Config.mpx := b }
 
+                                 
       format:
     | PE  { Config.PE }
     | ELF { Config.ELF }
@@ -354,6 +359,7 @@
     | ARMV7 { Config.ARMv7 }
     | ARMV8 { Config.ARMv8 }
     | POWERPC { Config.POWERPC }
+    | POWERPC64 { Config.POWERPC64 }
     | RV32I { Config.RV32I }
     | RV64I { Config.RV64I }
         
@@ -435,7 +441,6 @@
     | UNROLL EQUAL i=INT         { Config.unroll := Z.to_int i }
     | KSET_BOUND EQUAL i=INT         { Config.kset_bound := Z.to_int i }
     | FUN_UNROLL EQUAL i=INT         { Config.fun_unroll := Z.to_int i }
-    | EXT_SYM_MAX_SIZE EQUAL i=INT         { Config.external_symbol_max_size := Z.to_int i }
     | ENTRYPOINT EQUAL i=INT         { update_mandatory ENTRYPOINT; Config.ep := i }
     | CUT EQUAL l=addresses          { List.iter (fun a -> Config.blackAddresses := Config.SAddresses.add a !Config.blackAddresses) l }
     | NOP EQUAL l=addresses          { List.iter (fun a -> Config.nopAddresses := Config.SAddresses.add a !Config.nopAddresses) l }

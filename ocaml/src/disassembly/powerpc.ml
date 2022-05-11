@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2021 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -19,25 +19,222 @@
 (*
    Decoder for PowerPC
 *)
+(* https://wiki.raptorcs.com/wiki/File:PowerISA_public.v3.1.pdf *)
+
 module L = Log.Make(struct let name = "powerpc" end)
 
-module Make(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
+open Data
+open Asm
+open Decodeutils
+
+let ith_bit v n sz = (v lsr (sz-n-1)) land 0b1
+                
+(* split field decoding *)
+
+  let decode_split_field x =
+    ((x lsr 5) land 0x1f) lor ((x land 0x1f) lsl 5)
+
+  (* PPC Forms decoding *)
+
+  (* ST type as in prefix opcode for PPC64 *)
+  type st_t = { r: int; ie: int; } (* manual reference 1.6.3.1 *)
+  type prefix_t =
+    | LoadStore of st_t
+                 
+  
+  let decode_I_Form isn =
+    let li = isn land 0x03fffffc in
+    let aa = (isn lsr 1) land 1 in
+    let lk = isn land 1 in
+    li, aa, lk
+    
+  let decode_B_Form isn =
+    let bo = (isn lsr 21) land 0x1f in
+    let bi = (isn lsr 16) land 0x1f in
+    let bd = (isn lsr 2) land 0x3fff in
+    let aa = (isn lsr 1) land 1 in
+    let lk = isn land 1 in
+    bo, bi, bd, aa, lk
+
+  let decode_D_L_Form prefix isn =
+    let op1 = (isn lsr 23) land 0x07 in
+    let op2 = (isn lsr 16) land 0x1f in
+    let imm = (isn land 0xffff) in
+    let l = (isn lsr 21) land 0x01 in
+    let imm', sz =
+      match prefix with
+      | Some LoadStore st -> (st.ie lsl 18) lor imm, 34 (* IE is concatenated on the left *)
+      | _ -> imm, 16
+    in
+    op1, l, op2, imm', sz
+
+    let decode_D_Form prefix isn =
+    let op1 = (isn lsr 21) land 0x1f in
+    let op2 = (isn lsr 16) land 0x1f in
+    let imm = (isn land 0xffff) in
+    let imm', sz =
+      match prefix with
+      | Some LoadStore st -> (st.ie lsl 18) lor imm, 34 (* IE is concatenated on the left *)
+      | _ -> imm, 16
+    in
+    op1, op2, imm', sz
+
+  let decode_M_Form isn =
+    let rS = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rBsh = (isn lsr 11) land 0x1f in
+    let mb = (isn lsr 6) land 0x1f in
+    let me = (isn lsr 1) land 0x1f in
+    let rc = (isn land 1) in
+    rS, rA, rBsh, mb, me, rc
+
+  let decode_X_Form isn =
+    let rSD = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rB = (isn lsr 11) land 0x1f in
+    let rc = (isn land 1) in
+    rSD, rA, rB, rc
+
+    let decode_X_L_Form isn =
+    let rSD = (isn lsr 23) land 0x07 in
+    let rA = (isn lsr 16) land 0x1f in
+    let rB = (isn lsr 11) land 0x1f in
+    let rc = (isn land 1) in
+    let l = (isn lsr 21) land 0x1 in
+    rSD, l, rA, rB, rc
+
+  let decode_XO_Form isn =
+    let rD = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rB = (isn lsr 11) land 0x1f in
+    let oe = (isn lsr 10) land 1 in
+    let rc = (isn land 1) in
+    rD, rA, rB, oe, rc
+
+  let decode_XL_Form isn =
+    let rD = (isn lsr 21) land 0x1f in
+    let rA = (isn lsr 16) land 0x1f in
+    let rB = (isn lsr 11) land 0x1f in
+    let lk = (isn land 1) in
+    rD, rA, rB, lk
+
+  let decode_XFX_Form isn =
+    let rSD = (isn lsr 21) land 0x1f in
+    let regnum = (isn lsr 11) land 0x3ff in
+    rSD,regnum
+
+  let decode_DS_Form isn =
+    let ds = (isn lsr 2) land 0x3fff in
+    let ra = (isn lsr 16) land 0x1f in
+    let rs = (isn lsr 21) land 0x1f in
+    rs, ra, ds
+    
+  let z4 = Z.of_int 4
+         
+module PPC =
+  struct
+    let size = 32
+    let mode = ref 32
+             
+    let decode_conditional_core_XL_form a isn lr lr_or_ctr wrapper =
+      let bo, bi, _, lk = decode_XL_Form isn in
+      let cia = Address.to_int a in
+      let c = zconst (Z.add cia z4) 32 in
+      let update_lr = if lk == 0 then [] else [ Set (V (T lr), c) ] in
+      let if_jump = Jmp (R (Lval (V (P(lr_or_ctr, 0, 29))))) in
+
+      (wrapper bi bo [if_jump] a) @ update_lr
+
+    let decode_conditional_lr_XL_form a isn lr wrapper =
+      decode_conditional_core_XL_form a isn lr lr wrapper
+
+    let decode_conditional_ctr_XL_form a isn lr _cr ctr wrapper =
+      decode_conditional_core_XL_form a isn lr ctr wrapper
+
+
+    let c80 = const 0x80000000 32
+    let c7f = const 0x7fffffff 32
+    let cff = const 0xffffffff 32
+    let cff_e = const 0xffffffff 33
+
+    let cr_flag_test r _imod = V (T r)
+
+    let msb_reg r _imod = msb_reg r
+  end
+
+module PPC64 =
+  struct
+    let size = 64
+    let mode = ref 64
+                               
+    let c80 = Const (Word.of_int (Z.of_string "0x8000000000000000") 64)
+    let c7f = Const (Word.of_int (Z.of_string "0x7fffffffffffffff") 64)
+    let cff = Const (Word.of_int (Z.of_string "0xffffffffffffffff") 64)
+    let cff_e = Const (Word.of_int (Z.of_string "0xffffffffffffffff") 65)
+
+                       
+    let core_conditional_XL_form a isn lr =
+      let bo, bi, _, lk = decode_XL_Form isn in
+      let cia = Address.to_int a in
+      let c = zconst (Z.add cia z4) 64 in
+      let update_lr = if lk == 0 then [] else [ Set (V (T lr), c) ] in
+      bo, bi, update_lr
+      
+    let decode_conditional_lr_XL_form a isn lr wrapper =
+      let bo, bi, update_lr = core_conditional_XL_form a isn lr in
+      let if_jump = Jmp (R (Lval (V (P(lr, 0, 61))))) in
+      (wrapper bi bo [if_jump] a) @ update_lr
+      
+    let decode_conditional_ctr_XL_form a isn _lr _cr ctr wrapper =
+      let bo, bi, update_ctr = core_conditional_XL_form a isn ctr in
+      let if_jump = Jmp (R (Lval (V (P(ctr, 0, 61))))) in
+      (wrapper bi bo [if_jump] a) @ update_ctr
+     
+    let cr_flag_test r imod =
+      if imod = 32 then V (P(r, 0, 31))
+      else V (T r)
+
+    let msb_reg (r: Register.t) (imod: int) =
+      let imod' = imod - 1 in
+      let sz_min_one = const (imod') imod in
+      BinOp(And, (const1 imod), BinOp(Shr, Lval (V (P(r, 0, imod'))), sz_min_one))
+      
+      
+  end
+
+module type Isa =
+  sig
+    val size: int
+    val mode: int ref
+    val decode_conditional_lr_XL_form: Address.t -> int -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
+
+    val decode_conditional_ctr_XL_form: Address.t -> int -> Register.t -> Register.t -> Register.t -> (int -> int -> (Asm.stmt list) -> Data.Address.t -> (Asm.stmt list)) -> (Asm.stmt list)
+
+
+    val c7f: Asm.exp
+    val cff: Asm.exp
+    val cff_e: Asm.exp
+    val c80: Asm.exp
+   
+    val cr_flag_test: Register.t -> int -> Asm.lval
+
+    val msb_reg: Register.t -> int -> exp
+    end
+module Make(Isa: Isa)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := Domain.t)=
 struct
 
   type ctx_t = unit
-
-  open Data
-  open Asm
-  open Decodeutils
-
+            
   module Cfa = Cfa.Make(Domain)
                
   type state = {
     mutable g             : Cfa.t;        (** current cfa *)
     mutable b             : Cfa.State.t;  (** state predecessor *)
-    a                     : Address.t;    (** current address to decode *)
+    mutable a             : Address.t;    (** current address to decode *)
     buf                   : string;       (** buffer to decode *)
     endianness            : Config.endianness_t;      (** whether memory access is little endian *)
+    mutable isn           : int list; (** list of 32-bit instruction chunks *)
+    mutable prefix: prefix_t option; (* prefix for PPC64 only; field = None for 32-bits *)
   }
 
 
@@ -45,42 +242,42 @@ struct
   (* Creation of the general purpose registers *)
   (************************************************************************)
   let (register_tbl: (int, Register.t) Hashtbl.t) = Hashtbl.create 16;;
-  let r0 = Register.make ~name:"r0" ~size:32;;
-  let r1 = Register.make ~name:"r1" ~size:32;;
-  let r2 = Register.make ~name:"r2" ~size:32;;
-  let r3 = Register.make ~name:"r3" ~size:32;;
-  let r4 = Register.make ~name:"r4" ~size:32;;
-  let r5 = Register.make ~name:"r5" ~size:32;;
-  let r6 = Register.make ~name:"r6" ~size:32;;
-  let r7 = Register.make ~name:"r7" ~size:32;;
-  let r8 = Register.make ~name:"r8" ~size:32;;
-  let r9 = Register.make ~name:"r9" ~size:32;;
-  let r10 = Register.make ~name:"r10" ~size:32;;
-  let r11 = Register.make ~name:"r11" ~size:32;;
-  let r12 = Register.make ~name:"r12" ~size:32;;
-  let r13 = Register.make ~name:"r13" ~size:32;;
-  let r14 = Register.make ~name:"r14" ~size:32;;
-  let r15 = Register.make ~name:"r15" ~size:32;;
-  let r16 = Register.make ~name:"r16" ~size:32;;
-  let r17 = Register.make ~name:"r17" ~size:32;;
-  let r18 = Register.make ~name:"r18" ~size:32;;
-  let r19 = Register.make ~name:"r19" ~size:32;;
-  let r20 = Register.make ~name:"r20" ~size:32;;
-  let r21 = Register.make ~name:"r21" ~size:32;;
-  let r22 = Register.make ~name:"r22" ~size:32;;
-  let r23 = Register.make ~name:"r23" ~size:32;;
-  let r24 = Register.make ~name:"r24" ~size:32;;
-  let r25 = Register.make ~name:"r25" ~size:32;;
-  let r26 = Register.make ~name:"r26" ~size:32;;
-  let r27 = Register.make ~name:"r27" ~size:32;;
-  let r28 = Register.make ~name:"r28" ~size:32;;
-  let r29 = Register.make ~name:"r29" ~size:32;;
-  let r30 = Register.make ~name:"r30" ~size:32;;
-  let r31 = Register.make ~name:"r31" ~size:32;;
+  let r0 = Register.make ~name:"r0" ~size:Isa.size;;
+  let r1 = Register.make ~name:"r1" ~size:Isa.size;;
+  let r2 = Register.make ~name:"r2" ~size:Isa.size;;
+  let r3 = Register.make ~name:"r3" ~size:Isa.size;;
+  let r4 = Register.make ~name:"r4" ~size:Isa.size;;
+  let r5 = Register.make ~name:"r5" ~size:Isa.size;;
+  let r6 = Register.make ~name:"r6" ~size:Isa.size;;
+  let r7 = Register.make ~name:"r7" ~size:Isa.size;;
+  let r8 = Register.make ~name:"r8" ~size:Isa.size;;
+  let r9 = Register.make ~name:"r9" ~size:Isa.size;;
+  let r10 = Register.make ~name:"r10" ~size:Isa.size;;
+  let r11 = Register.make ~name:"r11" ~size:Isa.size;;
+  let r12 = Register.make ~name:"r12" ~size:Isa.size;;
+  let r13 = Register.make ~name:"r13" ~size:Isa.size;;
+  let r14 = Register.make ~name:"r14" ~size:Isa.size;;
+  let r15 = Register.make ~name:"r15" ~size:Isa.size;;
+  let r16 = Register.make ~name:"r16" ~size:Isa.size;;
+  let r17 = Register.make ~name:"r17" ~size:Isa.size;;
+  let r18 = Register.make ~name:"r18" ~size:Isa.size;;
+  let r19 = Register.make ~name:"r19" ~size:Isa.size;;
+  let r20 = Register.make ~name:"r20" ~size:Isa.size;;
+  let r21 = Register.make ~name:"r21" ~size:Isa.size;;
+  let r22 = Register.make ~name:"r22" ~size:Isa.size;;
+  let r23 = Register.make ~name:"r23" ~size:Isa.size;;
+  let r24 = Register.make ~name:"r24" ~size:Isa.size;;
+  let r25 = Register.make ~name:"r25" ~size:Isa.size;;
+  let r26 = Register.make ~name:"r26" ~size:Isa.size;;
+  let r27 = Register.make ~name:"r27" ~size:Isa.size;;
+  let r28 = Register.make ~name:"r28" ~size:Isa.size;;
+  let r29 = Register.make ~name:"r29" ~size:Isa.size;;
+  let r30 = Register.make ~name:"r30" ~size:Isa.size;;
+  let r31 = Register.make ~name:"r31" ~size:Isa.size;;
 
-  let lr = Register.make ~name:"lr" ~size:32;;
-  let ctr = Register.make ~name:"ctr" ~size:32;;
-  let cr = Register.make ~name:"cr" ~size:32;;
+  let lr = Register.make ~name:"lr" ~size:Isa.size;;
+  let ctr = Register.make ~name:"ctr" ~size:Isa.size;;
+  let cr = Register.make ~name:"cr" ~size:32;; (* actual cr size is 32 in PPC64 in cr[32:63]*)
 
   (* condition flags are modeled as registers of size 1 *)
 
@@ -88,6 +285,7 @@ struct
   let so = Register.make ~name:"so" ~size:1;;
   let ov = Register.make ~name:"ov" ~size:1;;
   let ca = Register.make ~name:"ca" ~size:1;;
+  let ca32 = Register.make ~name:"ca32" ~size:1;;
   let tbc = Register.make ~name:"tbc" ~size:7;;
 
   module Imports = PowerpcImports.Make(Domain)(Stubs)
@@ -128,6 +326,9 @@ struct
     | 31 -> r31
     | _ -> L.abort (fun p -> p "Unknown register number %i" n)
 
+  let ext_e e = UnOp(ZeroExt (Isa.size+1), e)
+  let ext_e_s e = UnOp(SignExt (Isa.size+1), e)
+
   let treg n =
     T (reg n)
 
@@ -149,22 +350,22 @@ struct
   let lvtreg n = Lval (V (T (reg n)))
 
   let lvpreg n a b = Lval (V (P (reg n, a, b)))
-
-  let crbit x = vp cr x x
+                   
+  let crbit x = V (P (cr, x, x))
 
   (* Update CR[0] according to the latest result. Must be called after XER has been updated for CR[0].so to reflect XER.so *)
-  let cr_flags_stmts rc rD =
+  let cr_flags_stmts rc rD imod =
     if rc == 1 then [
         Set(crbit 31, (* cr[0].lt *)
-            TernOp(Cmp (EQ, msb_reg (reg rD), const1 32),
+            TernOp(Cmp (EQ, Isa.msb_reg (reg rD) imod, const1 imod),
                    const1 1, const0 1)) ;
         Set(crbit 30, (* cr[0].gt *)
             TernOp(BBinOp (LogAnd,
-                           Cmp (EQ, msb_reg (reg rD), const0 32),
-                           Cmp (NEQ, lvtreg rD, const0 32)),
+                           Cmp (EQ, Isa.msb_reg (reg rD) imod, const0 imod),
+                           Cmp (NEQ, lvpreg rD 0 (imod-1), const0 imod)),
                    const1 1, const0 1)) ;
         Set(crbit 29, (* cr[0].eq *)
-            TernOp(Cmp (EQ, lvtreg rD, const0 32),
+            TernOp(Cmp (EQ, Lval (Isa.cr_flag_test (reg rD) imod), const0 imod),
                    const1 1, const0 1)) ;
         Set(crbit 28, lvt so) ; (* cr[0].so *)
       ]
@@ -172,7 +373,8 @@ struct
 
     (* Update XER flag after rD <- rA + rB *)
     let xer_flags_stmts_add oe rA rB rD =
-      if oe == 1 then [
+      if oe == 1 then
+        [ 
           Set(vt ov, TernOp (BBinOp(LogAnd,
                                     Cmp (EQ, msb_reg (reg rA), msb_reg (reg rB)),
                                     Cmp (NEQ, msb_reg (reg rA), msb_reg (reg rD))),
@@ -195,7 +397,7 @@ struct
     (* Update XER flag after rD <- neg rA *)
     let xer_flags_stmts_neg oe rA =
       if oe == 1 then [
-          Set(vt ov, TernOp (Cmp (EQ, lvtreg rA, const 0x80000000 32),
+          Set(vt ov, TernOp (Cmp (EQ, lvtreg rA, Isa.c80),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
@@ -212,63 +414,7 @@ struct
   let not_implemented_64bits s isn isn_name =
     L.abort (fun p -> p "at %s: instruction %s is 64-bit only (isn=%08x)" (Address.to_string s.a) isn_name isn)
 
-  (* split field decoding *)
-
-  let decode_split_field x =
-    ((x lsr 5) land 0x1f) lor ((x land 0x1f) lsl 5)
-
-  (* PPC Forms decoding *)
-
-  let decode_B_Form isn =
-    let bo = (isn lsr 21) land 0x1f in
-    let bi = (isn lsr 16) land 0x1f in
-    let bd = (isn lsr 2) land 0x3fff in
-    let aa = (isn lsr 1) land 1 in
-    let lk = isn land 1 in
-    bo, bi, bd, aa, lk
-
-  let decode_D_Form isn =
-    let op1 = (isn lsr 21) land 0x1f in
-    let op2 = (isn lsr 16) land 0x1f in
-    let imm = (isn land 0xffff) in
-    op1, op2, imm
-
-  let decode_M_Form isn =
-    let rS = (isn lsr 21) land 0x1f in
-    let rA = (isn lsr 16) land 0x1f in
-    let rBsh = (isn lsr 11) land 0x1f in
-    let mb = (isn lsr 6) land 0x1f in
-    let me = (isn lsr 1) land 0x1f in
-    let rc = (isn land 1) in
-    rS, rA, rBsh, mb, me, rc
-
-  let decode_X_Form isn =
-    let rSD = (isn lsr 21) land 0x1f in
-    let rA = (isn lsr 16) land 0x1f in
-    let rB = (isn lsr 11) land 0x1f in
-    let rc = (isn land 1) in
-    rSD, rA, rB, rc
-
-  let decode_XO_Form isn =
-    let rD = (isn lsr 21) land 0x1f in
-    let rA = (isn lsr 16) land 0x1f in
-    let rB = (isn lsr 11) land 0x1f in
-    let oe = (isn lsr 10) land 1 in
-    let rc = (isn land 1) in
-    rD, rA, rB, oe, rc
-
-  let decode_XL_Form isn =
-    let rD = (isn lsr 21) land 0x1f in
-    let rA = (isn lsr 16) land 0x1f in
-    let rB = (isn lsr 11) land 0x1f in
-    let lk = (isn land 1) in
-    rD, rA, rB, lk
-
-  let decode_XFX_Form isn =
-    let rSD = (isn lsr 21) land 0x1f in
-    let regnum = (isn lsr 11) land 0x3ff in
-    rSD,regnum
-
+  
   (* Operation decoders *)
 
 
@@ -277,55 +423,89 @@ struct
                            (Address.to_string s.a) isn_name isn);
     []
 
+
   (* Branching *)
+                  
+  let wrap_with_bi_bo_condition bi bo if_stmts a =
+    let bo_0 = ith_bit bo 0 5 in
+    let bo_1 = const (ith_bit bo 1 5) 1 in
+    let bo_2 = ith_bit bo 2 5 in
+    let bo_3 = ith_bit bo 3 5 in
+    let stmts =
+      if bo_2 <> 0 then []
+      else [ Set(vt ctr, BinOp(Sub, lvt ctr, const1 Isa.size)) ]
+    in
+    let ctr_ok =
+      if bo_2 = 0 then
+        let cmp = if bo_3 = 1 then EQ else NEQ in
+        let len = !Isa.mode in 
+        Cmp(cmp, lvp ctr 0 (len-1), const0 len)     
+      else BConst true
+    in
+    let cond_ok =
+      let test = crbit (31-bi) in
+      if bo_0 = 0 then Cmp(EQ, Lval test, bo_1)
+      else BConst true
+    in
+    let cia = Address.to_int a in
+    let c = zconst (Z.add cia z4) Isa.size in
+    let else_jmp = Jmp (R c) in
+    let ctr_and_cond_ok = BBinOp(LogAnd, ctr_ok, cond_ok) in
+    stmts @ [ If (ctr_and_cond_ok, if_stmts, [else_jmp]) ]
 
-  let wrap_with_bi_bo_condition bi bo exprs =
-    let dec_ctr = Set( vt ctr, BinOp(Sub, lvt ctr, const1 32)) in
-    let cmp0_ctr cond = Cmp(cond, lvt ctr, const0 32) in
-    let cmpbi_cr cond = Cmp(cond, Lval (crbit (31-bi)), const 0 1) in
-    match bo lsr 1 with
-    | 0b0000 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr NEQ, cmpbi_cr EQ), exprs, []) ]
-    | 0b0001 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr EQ, cmpbi_cr EQ), exprs, []) ]
-    | 0b0010 | 0b0011 -> [ If (cmpbi_cr EQ, exprs, []) ]
-    | 0b0100 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr NEQ, cmpbi_cr NEQ), exprs, []) ]
-    | 0b0101 -> [ dec_ctr ; If (BBinOp(LogAnd, cmp0_ctr EQ, cmpbi_cr NEQ), exprs, []) ]
-    | 0b0110 | 0b0111 -> [ If (cmpbi_cr NEQ, exprs, []) ]
-    | 0b1000 | 0b1100 -> [ dec_ctr ; If (cmp0_ctr NEQ, exprs, []) ]
-    | 0b1001 | 0b1101 -> [ dec_ctr ; If (cmp0_ctr EQ, exprs, []) ]
-    | _ -> exprs
 
-  let decode_branch state isn =
-    let li = isn land 0x03fffffc in
-    let aa = (isn lsr 1) land 1 in
-    let lk = isn land 1 in
-    let signext_li = if li land 0x02000000 == 0 then li else li lor 0xfc000000 in
-    let cia = Z.to_int (Address.to_int state.a) in
-    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let target = if aa == 1
-                 then (R (const signext_li 32))
-                 else (R (const ((cia+signext_li) land 0xffffffff) 32)) in
-    let jump_stmt = if lk == 0
-                    then [ Jmp target ]
-                    else [ Call target ] in
-    update_lr @ jump_stmt
+  (* auxiliary functions to sign extend z or z+off) on sz bits taking into account the Isa.mode *) 
+  let gen_signext z off sz =
+    let se_z =
+      sign_extension (Z.of_int z) sz !Isa.mode
+    in
+    let se_z' = 
+      match off with
+      | None -> se_z
+      | Some o -> Z.add o se_z
+    in
+    let c = Const (Word.of_int se_z' Isa.size) in 
+    if !Isa.mode < Isa.size then
+      UnOp(ZeroExt Isa.size, c)
+    else c
+    
+  let decode_branch_I_form state isn =
+    let li, aa, lk = decode_I_Form isn in
+    let cia = Address.to_int state.a in
+    let cia' = Z.add cia (Z.of_int 4) in
+    let update_lr =
+      if lk == 0 then []
+      else [ Set (vt lr, zconst cia' Isa.size) ]
+    in
+    let target =
+      if aa == 1 then R (gen_signext li None 24)
+      else R (gen_signext li (Some cia) 24)
+    in
+    let jump_stmt =
+      if lk == 0
+      then [ Jmp target ]
+      else [ Call target ]
+    in
+    jump_stmt @ update_lr
 
-  let decode_branch_condition state isn=
+  let decode_branch_conditional_B_form state isn =
     let bo, bi, bd, aa, lk = decode_B_Form isn in
-    let signext_bd = if bd land 0x2000 == 0 then (bd lsl 2) else (bd lsl 2) lor 0xffff0000 in
-    let cia = Z.to_int (Address.to_int state.a) in
-    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let jump = if aa == 1
-               then Jmp (R (const signext_bd 32))
-               else Jmp (R (const ((cia+signext_bd) land 0xffffffff) 32)) in
-    wrap_with_bi_bo_condition bi bo (jump :: update_lr)
+    let bd = bd lsl 2 in
+    let cia = Address.to_int state.a in
+    let update_lr =
+      if lk == 0 then []
+      else [ Set (vt lr, zconst (Z.add cia (Z.of_int 4)) Isa.size) ] in
+    let jump =
+      if aa == 1 then Jmp (R (gen_signext bd None 14))
+      else Jmp (R (gen_signext bd (Some cia) 14))
+    in
+    (wrap_with_bi_bo_condition bi bo [jump] state.a) @ update_lr
 
-  let decode_bclr_bcctr state isn lr_or_ctr=
-    let bo, bi, _, lk = decode_XL_Form isn in
-    let cia = Z.to_int (Address.to_int state.a) in
-    let update_lr = if lk == 0 then [] else [ Set (vt lr, const (cia+4) 32) ] in
-    let jump = Jmp (R (lvt lr_or_ctr)) in
-    wrap_with_bi_bo_condition bi bo (jump :: update_lr)
+  let decode_conditional_lr_XL_form state isn =
+    Isa.decode_conditional_lr_XL_form state.a isn lr wrap_with_bi_bo_condition
 
+  let decode_conditional_ctr_XL_form state isn =
+    Isa.decode_conditional_ctr_XL_form state.a isn lr cr ctr wrap_with_bi_bo_condition
 
   (* special *)
 
@@ -344,7 +524,7 @@ struct
     | 9 -> (* CTR *)
        [ Set (vtreg rD, lvt ctr) ]
     | 287 -> (* PV processor version *)
-       [ Set (vtreg rD, const !Config.processor_version 32) ]
+       [ Set (vtreg rD, const !Config.processor_version Isa.size) ]
     | n -> error state.a (Printf.sprintf "mfspr from SPR #%i not supported yet" n)
 
   let decode_mtspr state isn =
@@ -364,15 +544,22 @@ struct
 
 
   (* compare *)
-
-  let compare_arithmetical crfD exprA exprB =
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+  let sz_of_cmp l crfD =
+    let sz =
+      if Isa.size = 32 || l = 0 then 33
+      else 65
+    in
+    sz, 4*crfD
+    
+  let compare_arithmetical crfD exprA exprB sz =  
+    let tmpreg = Register.make (Register.fresh_name ()) sz in
+    let ext_e_s e = UnOp(SignExt sz, e) in
     [
-      Set (vt tmpreg, BinOp(Sub, to33bits_s exprA, to33bits_s exprB)) ;
-      Set (crbit (31-crfD), TernOp (Cmp (NEQ, msb_reg tmpreg, const0 33),
+      Set (vt tmpreg, BinOp(Sub, ext_e_s exprA, ext_e_s exprB)) ;
+      Set (crbit (31-crfD), TernOp (Cmp (NEQ, msb_reg tmpreg, const0 sz),
                                           const1 1, const0 1)) ;
-      Set (crbit (30-crfD), TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 33),
-                                            Cmp(NEQ, lvt tmpreg, const0 33)),
+      Set (crbit (30-crfD), TernOp (BBinOp(LogAnd, Cmp (EQ, msb_reg tmpreg, const0 sz),
+                                            Cmp(NEQ, lvt tmpreg, const0 sz)),
                                                         const1 1, const0 1)) ;
       Set (crbit (29-crfD), TernOp (Cmp (EQ, exprA, exprB),
                                       const1 1, const0 1)) ;
@@ -381,12 +568,16 @@ struct
     ]
 
   let decode_cmp _state isn =
-    let crfD, rA, rB, _ = decode_X_Form isn in
-    compare_arithmetical crfD (lvtreg rA) (lvtreg rB)
+    let crfD, l, rA, rB, _ = decode_X_L_Form isn in
+    let sz, crfD' = sz_of_cmp l crfD in
+    let u = sz - 2 in
+    compare_arithmetical crfD' (lvpreg rA 0 u) (lvpreg rB 0 u) sz
 
-  let decode_cmpi _state isn =
-    let crfD, rA, simm = decode_D_Form isn in
-    compare_arithmetical crfD (lvtreg rA) (sconst simm 16 32)
+  let decode_cmpi state isn =
+    let crfD, l, rA, simm, sz = decode_D_L_Form state.prefix isn in
+    let u, crfD' = sz_of_cmp l crfD in
+    let u' = u - 2 in
+    compare_arithmetical crfD' (lvpreg rA 0 u') (sconst simm sz (u'+1)) u
 
   let compare_logical crfD exprA exprB =
     [
@@ -397,307 +588,390 @@ struct
     ]
 
   let decode_cmpl _state isn =
-    let crfD, rA, rB, _ = decode_X_Form isn in
-    compare_logical crfD (lvtreg rA) (lvtreg rB)
+    let crfD, l, rA, rB, _ = decode_X_L_Form isn in
+    let u, crfD' = sz_of_cmp l crfD in
+    let u = u - 2 in
+    compare_logical crfD' (lvpreg rA 0 u) (lvpreg rB 0 u) 
 
-  let decode_cmpli _state isn =
-    let crfD, rA, uimm = decode_D_Form isn in
-    compare_logical crfD (lvtreg rA) (const uimm 32)
+  let decode_cmpli state isn =
+    let crfD, l, rA, uimm, _sz = decode_D_L_Form state.prefix isn in
+    let u, crfD' = sz_of_cmp l crfD in
+    let u = u - 2 in
+    compare_logical crfD' (lvpreg rA 0 u) (const uimm (u+1))
 
   (* logic *)
 
   let decode_logic _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
-    Set (vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA)
+    Set (vtreg rA, BinOp (op, lvtreg rS, lvtreg rB)) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_logic_complement _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
-    Set (vtreg rA, BinOp (op, lvtreg rS, UnOp(Not, lvtreg rB))) :: (cr_flags_stmts rc rA)
+    Set (vtreg rA, BinOp (op, lvtreg rS, UnOp(Not, lvtreg rB))) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_logic_not _state isn op =
     let rS, rA, rB, rc = decode_X_Form isn in
-    Set (vtreg rA, UnOp (Not, BinOp (op, lvtreg rS, lvtreg rB))) :: (cr_flags_stmts rc rA)
+    Set (vtreg rA, UnOp (Not, BinOp (op, lvtreg rS, lvtreg rB))) :: (cr_flags_stmts rc rA !Isa.mode)
 
-  let decode_logic_imm _state isn op =
-    let rS, rA, uimm = decode_D_Form isn in
-    [ Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32) ) ]
+  let decode_logic_imm state isn op =
+    let rS, rA, uimm, _sz = decode_D_Form state.prefix isn in
+    [ Set (vtreg rA, BinOp(op, lvtreg rS, const uimm Isa.size) ) ]
 
-  let decode_logic_imm_shifted _state isn op =
-    let rS, rA, uimm = decode_D_Form isn in
-    [ Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) ]
+  let decode_logic_imm_shifted state isn op =
+    let rS, rA, uimm, sz = decode_D_Form state.prefix isn in
+    [ Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl sz) Isa.size) ) ]
 
-  let decode_logic_imm_dot _state isn op =
-    let rS, rA, uimm = decode_D_Form isn in
-    Set (vtreg rA, BinOp(op, lvtreg rS, const uimm 32)) :: (cr_flags_stmts 1 rA)
+  let decode_logic_imm_dot state isn op =
+    let rS, rA, uimm, _sz = decode_D_Form state.prefix isn in
+    Set (vtreg rA, BinOp(op, lvtreg rS, const uimm Isa.size)) :: (cr_flags_stmts 1 rA !Isa.mode)
 
-  let decode_logic_imm_shifted_dot _state isn op =
-    let rS, rA, uimm = decode_D_Form isn in
-    Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl 16) 32) ) :: (cr_flags_stmts 1 rA)
+  let decode_logic_imm_shifted_dot state isn op =
+    let rS, rA, uimm, sz = decode_D_Form state.prefix isn in
+    Set (vtreg rA, BinOp(op, lvtreg rS, const (uimm lsl sz) Isa.size) ) :: (cr_flags_stmts 1 rA !Isa.mode)
 
   let decode_cntlzw _state isn =
     let rS, rA, _, rc = decode_X_Form isn in
     let zero x y = Cmp (EQ, lvpreg rS x y, const0 (y-x+1)) in
     let rec check_zero a b n =
       if a == b then
-        TernOp (zero a b, const (n+1) 32, const n 32)
+        TernOp (zero a b, const (n+1) Isa.size, const n Isa.size)
       else
         let mid = (a+b+1)/2 in
         TernOp (zero mid b,
                 check_zero a (mid-1) (n+b-mid+1),
                 if mid == b
-                then const n 32
+                then const n Isa.size
                 else check_zero mid b n) in
-    Set (vtreg rA, check_zero 0 31 0) :: (cr_flags_stmts rc rA)
-
-  let build_mask mb me =
-    let mask =
-      if mb <= me then
-       (1 lsl (32-mb))-(1 lsl (31-me))
-      else
-        0xffffffff-(1 lsl (31-me))+(1 lsl (32-mb)) in
-    const mask 32
+    Set (vtreg rA, check_zero 0 31 0) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_rlwimi _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 32 in
-    let rot = [ Set (vt tmpreg, BinOp(Or,
-                                      BinOp(Shl, lvtreg rS, const sh 32),
-                                      BinOp(Shr, lvtreg rS, const (32-sh) 32))) ; ] in
-    let stmts =
-      if mb <= me then
-        [ Set (vpreg rA (31-me) (31-mb), lvp tmpreg (31-me) (31-mb)) ]
+    let rS', pre, post =
+      if Isa.size = 32 then
+       lvtreg rS, [], []
       else
-        [ Set (vpreg rA 0 (31-mb), lvp tmpreg 0 (31-mb)) ;
-          Set (vpreg rA (31-me) 31, lvp tmpreg (31-me) 31) ] in
+        let vps = Register.make (Register.fresh_name ()) Isa.size in
+        lvt vps, [Set (vt vps, UnOp(ZeroExt Isa.size, lvpreg rS 0 31));
+                  Set (vp vps 32 (Isa.size-1), lvpreg rS 0 31) ], [Directive (Remove vps)]
+    in
+    let tmpreg = Register.make (Register.fresh_name ()) Isa.size in
+    let rot = [ Set (vt tmpreg, BinOp(Or,
+                                      BinOp(Shl, rS', const sh Isa.size),
+                                      BinOp(Shr, rS', const (Isa.size-sh) Isa.size))) ]
+    in
+    let u = 32-1 in
+    let stmts, u' =
+      if mb <= me then
+        [ Set (vpreg rA (u-me) (u-mb), lvp tmpreg (u-me) (u-mb)) ], None
+      else 
+        [ Set (vpreg rA 0 (u-mb), lvp tmpreg 0 (u-mb)) ;
+          Set (vpreg rA (u-me) u, lvp tmpreg (u-me) u) ], Some (u+1)
+    in
+    let stmts' =
+      match Isa.size, u' with
+      | n, _ when n = 32 -> []
+      | _, Some u' -> [Set (vpreg rA u' (Isa.size-1), lvp tmpreg u' (Isa.size-1)) ]
+      | _ -> []
+    in
     let remove = [ Directive (Remove tmpreg) ] in
-    rot @ stmts @ remove @ (cr_flags_stmts rc rA)
+    pre @ rot @ stmts @ stmts' @ post @ remove @ (cr_flags_stmts rc rA !Isa.mode)
+
+
+  let build_mask mb me tmpreg =
+    let mb' = 31 - mb in
+    let me' = 31 - me in
+    if mb <= me then
+      let before =
+        let n = me'- 1 in
+        if n >= 0 then
+          [ Set (vp tmpreg 0 n, const0 (n+1)) ]
+        else []
+      in
+      let after =
+        let n = mb' + 1 in
+        if n <= Isa.size-1 then
+          [Set(vp tmpreg n (Isa.size-1), const0 (Isa.size-n)) ]
+        else
+          []
+      in
+      before @ after
+    else
+      let mb' = mb' + 1 in
+      let me' = me' - 1 in
+      if mb' <=  me' then
+        [ Set (vp tmpreg mb' me', const0 (me'- mb' + 1)) ]
+      else
+        []
+
+  let concat32 rS =
+    let vps = Register.make (Register.fresh_name ()) Isa.size in
+    lvt vps, [Set (vt vps, UnOp(ZeroExt Isa.size, lvpreg rS 0 31));
+              Set (vp vps 32 (Isa.size-1), lvpreg rS 0 31) ], [Directive (Remove vps)]
 
   let decode_rlwinm _state isn =
     let rS, rA, sh, mb, me, rc = decode_M_Form isn in
-    Set (vtreg rA, BinOp (And, build_mask mb me,
-                          BinOp (Or,
-                                 BinOp(Shl, lvtreg rS, const sh 32),
-                                 BinOp(Shr, lvtreg rS, const (32-sh) 32))) )
-    :: (cr_flags_stmts rc rA)
+    let rS', pre, post =
+      if Isa.size = 32 then
+       lvtreg rS, [], []
+      else
+        concat32 rS
+    in
+    let tmpreg = Register.make (Register.fresh_name ()) Isa.size in
+    let rot =  [ Set (vt tmpreg, BinOp(Or,
+                                      BinOp(Shl, rS', const sh Isa.size),
+                                      BinOp(Shr, rS', const (Isa.size-sh) Isa.size))) ]
+    in
+    let stmts = build_mask mb me tmpreg @ [Set (vtreg rA, lvt tmpreg) ] in
+    pre @ rot @ stmts @ post @ [ Directive (Remove tmpreg) ] @ (cr_flags_stmts rc rA !Isa.mode)
+
 
   let decode_rlwnm _state isn =
     let rS, rA, rB, mb, me, rc = decode_M_Form isn in
-    let lval_sh = BinOp(And, lvtreg rB, const 0x1f 32) in
-    let lval_msh = BinOp(Sub, const 32 32, lval_sh) in
-    Set (vtreg rA, BinOp (And, build_mask mb me,
-                          BinOp (Or,
-                                 BinOp(Shl, lvtreg rS, lval_sh),
-                                 BinOp(Shr, lvtreg rS, lval_msh))) )
-    :: (cr_flags_stmts rc rA)
+    let lval_sh = BinOp(And, lvpreg rB 0 (Isa.size-1), const 0x1f Isa.size) in
+    let lval_msh = BinOp(Sub, const Isa.size Isa.size, lval_sh) in
+    let rS', pre, post =
+      if Isa.size = 32 then
+       lvtreg rS, [], []
+      else
+        concat32 rS
+    in
+    let tmpreg = Register.make (Register.fresh_name ()) Isa.size in
+    let rot = [ Set (vt tmpreg, BinOp(Or,
+                                      BinOp(Shl, rS', lval_sh),
+                                      BinOp(Shr, rS', lval_msh))) ]
+    in
+    let stmts = build_mask mb me tmpreg @ [Set (vtreg rA, lvt tmpreg) ] in
+    pre @ rot @ stmts @ post @ [ Directive (Remove tmpreg) ] @ (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_logic_shift _state isn shift =
     let rS, rA, rB, rc = decode_X_Form isn in
+    let post =
+      if Isa.size = 32 then []
+      else [ Set (vpreg rA 32 63, const0 32) ]
+    in
     If (Cmp (EQ, lvpreg rB 5 5, const0 1),
-        [ Set (vtreg rA, BinOp(shift,lvtreg rS,
-                               UnOp(ZeroExt 32, lvpreg rB 0 4)))] ,
-        [ Set (vtreg rA, const0 32) ] ) :: (cr_flags_stmts rc rA)
+        [ Set (vpreg rA 0 31, BinOp(shift, lvpreg rS 0 31,
+                               UnOp(ZeroExt 32, lvpreg rB 0 4)))] @ post,
+        [ Set (vtreg rA, const0 Isa.size) ] ) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_sraw _state isn =
     let rS, rA, rB, rc = decode_X_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let sz = Isa.size * 2 in
+    let tmpreg = Register.make (Register.fresh_name ()) sz in
     [
       If (Cmp (EQ, lvpreg rB 5 5, const1 1),
-          [ Set (vtreg rA, TernOp (Cmp (EQ, lvpreg rS 31 31, const1 1),
-                                   const 0xffffffff 32, const0 32)) ;
-            Set (vt ca, lvpreg rS 31 31) ;  ],
-          [ Set (vt tmpreg , UnOp(SignExt 64, lvtreg rS)) ;
-            Set (vt tmpreg, BinOp (Shr, lvt tmpreg, UnOp(ZeroExt 64, lvpreg rB 0 4))) ;
-            Set (vtreg rA, lvp tmpreg 0 31) ;
+          [ Set (vtreg rA, UnOp (SignExt Isa.size, (lvpreg rS 31 31))) ;
+            Set (vt ca, lvpreg rS 31 31) ],
+          [ Set (vt tmpreg , UnOp(SignExt sz, lvtreg rS)) ;
+            Set (vt tmpreg, BinOp (Shr, lvt tmpreg, UnOp(ZeroExt sz, lvpreg rB 0 4))) ;
+            Set (vtreg rA, lvp tmpreg 0 (Isa.size-1)) ;
             Directive (Remove tmpreg) ;
             Set (vt ca, TernOp (BBinOp (LogOr,
                                         Cmp (EQ, lvpreg rS 31 31, const0 1),
                                         Cmp (EQ,
-                                             BinOp (Shl, lvtreg rS,
+                                             BinOp (Shl, lvpreg rS 0 31,
                                                     BinOp (Sub, const 32 32,
                                                            UnOp (ZeroExt 32, lvpreg rB 0 4))),
                                              const0 32)),
                                 const0 1, const1 1))
         ] )
-    ] @ (cr_flags_stmts rc rA)
+    ] @ (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_srawi _state isn =
-    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let sz = Isa.size * 2 in
+    let tmpreg = Register.make (Register.fresh_name ()) sz in
     let rS, rA, sh, rc = decode_X_Form isn in
     [
-      Set (vt tmpreg , UnOp(SignExt 64, lvtreg rS)) ;
-      Set (vt tmpreg, BinOp (Shr, lvt tmpreg, const sh 64)) ;
-      Set (vtreg rA, lvp tmpreg 0 31) ;
+      Set (vt tmpreg , UnOp(SignExt sz, lvtreg rS)) ;
+      Set (vt tmpreg, BinOp (Shr, lvt tmpreg, const sh sz)) ;
+      Set (vtreg rA, lvp tmpreg 0 (Isa.size-1)) ;
       Directive (Remove tmpreg) ;
       Set (vt ca, TernOp (BBinOp (LogOr,
                                   Cmp (EQ, lvpreg rS 31 31, const0 1),
-                                  Cmp (EQ, BinOp (Shl, lvtreg rS, const (32-sh) 32), const0 32)),
+                                  Cmp (EQ, BinOp (Shl, lvpreg rS 0 31, const (32-sh) 32), const0 32)),
                           const0 1, const1 1)) ;
-    ] @ (cr_flags_stmts rc rA)
+    ] @ (cr_flags_stmts rc rA !Isa.mode)
 
   (* arithmetics *)
 
   let decode_add _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD))
+    Set (vtreg rD, BinOp(Add, lvtreg rA, lvtreg rB)) :: ((xer_flags_stmts_add oe rA rB rD) @ (cr_flags_stmts rc rD !Isa.mode))
 
   let decode_sub _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD))
+    Set (vtreg rD, BinOp(Sub, lvtreg rB, lvtreg rA)) :: ((xer_flags_stmts_sub oe rA rB rD) @ (cr_flags_stmts rc rD !Isa.mode))
 
-  let decode_addis _state isn =
-    let rD, rA, simm = decode_D_Form isn in
+  let decode_addis state isn =
+    let rD, rA, simm, sz = decode_D_Form state.prefix isn in
+    let simm' = sconst (simm lsl 16) (sz+16) Isa.size in
     match rA == 0 with
-    | true -> [ Set (vtreg rD, const (simm lsl 16) 32) ]
-    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, const (simm lsl 16) 32)) ]
+    | true -> [ Set (vtreg rD, simm') ]
+    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, simm')) ]
 
-  let decode_addi _state isn =
-    let rD, rA, simm = decode_D_Form isn in
+  let decode_addi state isn =
+    let rD, rA, simm, sz = decode_D_Form state.prefix isn in
+    let simm' = sconst simm sz Isa.size in
     match rA == 0 with
-    | true -> [ Set (vtreg rD, sconst simm 16 32) ]
-    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, sconst simm 16 32)) ]
+    | true -> [ Set (vtreg rD, simm') ]
+    | false -> [ Set (vtreg rD, BinOp(Add, lvtreg rA, simm')) ]
 
-  let decode_addic _state isn update_cr =
-    let rD, rA, simm = decode_D_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+  let decode_addic state isn update_cr =
+    let rD, rA, simm, sz  = decode_D_Form state.prefix isn in
+    let u = Isa.size-1 in
+    let tmpreg = Register.make (Register.fresh_name ()) (Isa.size+1) in
     [
-      Set (vt tmpreg, BinOp(Add, to33bits (lvtreg rA), to33bits (sconst simm 16 32))) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
-      Set (vt ca, lvp tmpreg 32 32) ;
+      Set (vt tmpreg, BinOp(Add, ext_e (lvtreg rA), ext_e (sconst simm sz Isa.size))) ;
+      Set (vpreg rD 0 u, lvp tmpreg 0 u) ;
+      Set (vt ca, lvp tmpreg Isa.size Isa.size) ;
       Directive (Remove tmpreg) ;
-    ] @ (cr_flags_stmts update_cr rD)
+    ] @ (cr_flags_stmts update_cr rD !Isa.mode)
 
-  let decode_subfic _state isn =
-    let rD, rA, simm = decode_D_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
-    let simm32p1 = if simm land 0x8000 == 0 then simm+1 else ((simm lor 0xffff0000)+1) in
+  let decode_subfic state isn =
+    let rD, rA, simm, sz = decode_D_Form state.prefix isn in
+    let n1 = Isa.size+1 in
+    let tmpreg = Register.make (Register.fresh_name ()) n1 in
+    let simm32p1 = Z.add (sign_extension (Z.of_int simm) sz Isa.size) Z.one in 
     [
-      Set (vt tmpreg, BinOp(Add, to33bits ((UnOp (Not, lvtreg rA))), const simm32p1 33)) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
-      Set (vt ca, lvp tmpreg 32 32) ;
+      Set (vt tmpreg, BinOp(Add, ext_e ((UnOp (Not, lvtreg rA))), zconst simm32p1 n1)) ;
+      Set (vpreg rD 0 (Isa.size-1), lvp tmpreg 0 (Isa.size-1)) ;
+      Set (vt ca, lvp tmpreg Isa.size Isa.size) ;
       Directive (Remove tmpreg) ;
     ]
 
   let add_with_carry_out expA expB rD =
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let tmpreg = Register.make (Register.fresh_name ()) (Isa.size+1) in
+    let u = Isa.size-1 in
     [
       Set (vt tmpreg, BinOp(Add, expA, expB)) ;
-      Set (vpreg rD 0 31, lvp tmpreg 0 31) ;
-      Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg 32 32, const1 1),
+      Set (vpreg rD 0 u, lvp tmpreg 0 u) ;
+      Set (vt ca, TernOp (Cmp (EQ, lvp tmpreg Isa.size Isa.size, const1 1),
                           const1 1, const0 1)) ;
       Directive (Remove tmpreg) ;
     ]
 
+              
   let decode_addc _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (to33bits (lvtreg rA)) (to33bits (lvtreg rB)) rD)
+    (add_with_carry_out (ext_e (lvtreg rA)) (ext_e (lvtreg rB)) rD)
     @ (xer_flags_stmts_add oe rA rB rD) 
-    @ (cr_flags_stmts rc rD)
+    @ (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_subfc _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), to33bits (lvtreg rB))) (const1 33) rD)
+    (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), ext_e (lvtreg rB))) (const1 (Isa.size+1)) rD)
     @ (xer_flags_stmts_sub oe rA rB rD)
-    @ (cr_flags_stmts rc rD)
+    @ (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_adde _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (BinOp(Add, to33bits (lvtreg rA), to33bits (lvtreg rB))) (to33bits (lvt ca)) rD)
+    (add_with_carry_out (BinOp(Add, ext_e (lvtreg rA), ext_e (lvtreg rB))) (ext_e (lvt ca)) rD)
     @ (xer_flags_stmts_add oe rA rB rD)
-    @ (cr_flags_stmts rc rD)
+    @ (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_subfe _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
-    (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), to33bits (lvtreg rB))) (to33bits (lvt ca)) rD)
+    (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), ext_e (lvtreg rB))) (ext_e (lvt ca)) rD)
     @ (xer_flags_stmts_sub oe rA rB rD)
-    @ (cr_flags_stmts rc rD)
+    @ (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_subfme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
-    let isn_stmts = (add_with_carry_out (BinOp(Add, to33bits (UnOp (Not, (lvtreg rA))), const 0xffffffff 33))
-                       (to33bits (lvt ca)) rD) in
+    let isn_stmts = (add_with_carry_out (BinOp(Add, ext_e (UnOp (Not, (lvtreg rA))), Isa.cff_e))
+                       (ext_e (lvt ca)) rD) in
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                    Cmp (EQ, lvtreg rA, const 0x7fffffff 32),
-                                    Cmp (EQ, lvtreg rD, const 0x7fffffff 32)),
+                                    Cmp (EQ, lvtreg rA, Isa.c7f),
+                                    Cmp (EQ, lvtreg rD, Isa.c7f)),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
       else [] in
-    isn_stmts @ xer_stmts @ (cr_flags_stmts rc rD)
+    isn_stmts @ xer_stmts @ (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_addme _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
-    let isn_stmts = add_with_carry_out (to33bits (lvtreg rA)) (BinOp (Add, const 0xffffffff 33, to33bits (lvt ca))) rD in
+    let isn_stmts = add_with_carry_out (ext_e (lvtreg rA)) (BinOp (Add, Isa.cff_e, ext_e (lvt ca))) rD in
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                    Cmp (EQ, lvtreg rA, const 0x80000000 32),
-                                    Cmp (EQ, lvtreg rD, const 0x7fffffff 32)),
+                                    Cmp (EQ, lvtreg rA, Isa.c80),
+                                    Cmp (EQ, lvtreg rD, Isa.c7f)),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
       else [] in
-    isn_stmts @ xer_stmts @ (cr_flags_stmts rc rD)
+    isn_stmts @ xer_stmts @ (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_subfze _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                    Cmp (EQ, lvtreg rD, const 0x80000000 32),
-                                    Cmp (EQ, lvtreg rA, const 0x80000000 32)),
+                                    Cmp (EQ, lvtreg rD, Isa.c80),
+                                    Cmp (EQ, lvtreg rA, Isa.c80)),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
       else [] in
-    (add_with_carry_out (to33bits (UnOp (Not, (lvtreg rA)))) (to33bits (lvt ca)) rD)
+    (add_with_carry_out (ext_e (UnOp (Not, (lvtreg rA)))) (ext_e (lvt ca)) rD)
     @ xer_stmts
-    @ (cr_flags_stmts rc rD)
+    @ (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_addze _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
     let xer_stmts =
       if oe == 1 then [
           Set(vt ov, TernOp (BBinOp(LogAnd,
-                                    Cmp (EQ, lvtreg rD, const 0x80000000 32),
-                                    Cmp (EQ, lvtreg rA, const 0x7fffffff 32)),
+                                    Cmp (EQ, lvtreg rD, Isa.c80),
+                                    Cmp (EQ, lvtreg rA, Isa.c7f)),
                              const1 1, const0 1)) ;
           Set(vt so, BinOp (Or, lvt ov, lvt so)) ;
         ]
       else [] in
-    (add_with_carry_out (to33bits (lvtreg rA)) (to33bits (lvt ca)) rD)
+    (add_with_carry_out (ext_e (lvtreg rA)) (ext_e (lvt ca)) rD)
     @ xer_stmts
-    @ (cr_flags_stmts rc rD)
+    @ (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_neg _state isn =
     let rD, rA, _, oe, rc = decode_XO_Form isn in
-    Set (vtreg rD, BinOp(Add, UnOp(Not, lvtreg rA), const1 32)) :: ((xer_flags_stmts_neg oe rA) @ (cr_flags_stmts rc rD))
+    Set (vtreg rD, BinOp(Add, UnOp(Not, lvtreg rA), const1 Isa.size)) :: ((xer_flags_stmts_neg oe rA) @ (cr_flags_stmts rc rD !Isa.mode))
 
   let decode_extsb _state isn =
     let rS, rA, _, rc = decode_X_Form isn in
-    Set (vtreg rA, UnOp(SignExt 32, lvpreg rS 0 7)) :: (cr_flags_stmts rc rA)
+    Set (vtreg rA, UnOp(SignExt Isa.size, lvpreg rS 0 7)) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_extsh _state isn =
     let rS, rA, _, rc = decode_X_Form isn in
-    Set (vtreg rA, UnOp(SignExt 32, lvpreg rS 0 15)) :: (cr_flags_stmts rc rA)
+    Set (vtreg rA, UnOp(SignExt Isa.size, lvpreg rS 0 15)) :: (cr_flags_stmts rc rA !Isa.mode)
 
   let decode_divw _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     let invalid_xer = if oe == 0 then []
                       else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
     let invalid_cr = if rc == 0 then []
-                     else [ Directive (Forget (vp cr 29 31)); Set (vp cr 28 28, const1 1) ] in
+                     else [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ] in
+    let undef_up =
+      if Isa.size = 32 then []
+      else [ Directive (Forget (vpreg rD 32 63)) ]
+    in
+    let cr_flags =
+      if !Isa.mode = 32 then
+        cr_flags_stmts rc rD 32
+      else
+        [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ]
+    in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
       If (BBinOp(LogOr,
-                 Cmp (EQ, lvtreg rB, const0 32),
+                 Cmp (EQ, lvpreg rB 0 31, const0 32),
                  BBinOp(LogAnd,
-                        Cmp (EQ, lvtreg rA, const 0x80000000 32),
-                        Cmp (EQ, lvtreg rB, const 0xffffffff 32))),
+                        Cmp (EQ, lvpreg rA 0 31, const 0x80000000 32),
+                        Cmp (EQ, lvpreg rB 0 31, const 0xffffffff 32))),
           Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
-          Set (vtreg rD, BinOp(IDiv, lvtreg rA, lvtreg rB)) ::
-            ((clear_ov oe) @ (cr_flags_stmts rc rD)))
+          Set (vpreg rD 0 31, BinOp(IDiv, lvpreg rA 0 31, lvpreg rB 0 31)) :: undef_up @
+            ((clear_ov oe) @ cr_flags))
     ]
 
   let decode_divwu _state isn =
@@ -705,58 +979,77 @@ struct
     let invalid_xer = if oe == 0 then []
                       else [ Set (vt ov, const1 1); Set (vt so, const1 1) ] in
     let invalid_cr = if rc == 0 then []
-                     else [ Directive (Forget (vp cr 29 31)); Set (vp cr 28 28, const1 1) ] in
+                     else [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ] in
+    let undef_up =
+      if Isa.size = 32 then []
+      else [ Directive (Forget (vpreg rD 32 63)) ]
+    in
     let clear_ov oe = if oe == 1 then [ Set (vt ov, const0 1) ] else [] in
     [
-      If (Cmp (EQ, lvtreg rB, const0 32),
+      If (Cmp (EQ, lvpreg rB 0 31, const0 32),
           Directive (Forget (vtreg rD)) :: (invalid_xer @ invalid_cr),
-          Set (vtreg rD, BinOp(Div, lvtreg rA, lvtreg rB)) ::
-            ((clear_ov oe) @ (cr_flags_stmts rc rD)))
+          Set (vpreg rD 0 31, BinOp(Div, lvpreg rA 0 31, lvpreg rB 0 31)) :: undef_up @
+            ((clear_ov oe) @ (cr_flags_stmts rc rD 32)))
     ]
 
   let decode_mulchw _state isn op =
     let rD, rA, rB, rc = decode_X_Form isn in
-    Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 16 31)) :: (cr_flags_stmts rc rD)
+    Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 16 31)) :: (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_mulhhw _state isn op =
     let rD, rA, rB, rc = decode_X_Form isn in
-    Set (vtreg rD, BinOp(op, lvpreg rA 16 31, lvpreg rB 16 31)) :: (cr_flags_stmts rc rD)
+    Set (vtreg rD, BinOp(op, lvpreg rA 16 31, lvpreg rB 16 31)) :: (cr_flags_stmts rc rD !Isa.mode)
 
   let decode_mulhw _state isn op =
     let rD, rA, rB, rc = decode_X_Form isn in
     let tmpreg = Register.make (Register.fresh_name ()) 64 in
-    [ Set (vt tmpreg, BinOp(op, lvtreg rA, lvtreg rB)) ;
+    let undef_up =
+      if Isa.size = 32 then []
+      else [ Directive (Forget (vpreg rD 32 63)) ]
+    in
+    let cr_flags =
+      if !Isa.mode = 32 then
+        cr_flags_stmts rc rD 32
+      else
+        [ Directive (Forget (vp cr 29 31)); Set (crbit 28, const1 1) ]
+    in
+    [ Set (vt tmpreg, BinOp(op, lvpreg rA 0 31, lvpreg rB 0 31)) ;
       Set (vtreg rD, lvp tmpreg 32 63) ;
       Directive (Remove tmpreg) ; ]
-    @ (cr_flags_stmts rc rD)
+    @ cr_flags @ undef_up
 
   let decode_mullhw _state isn op =
     let rD, rA, rB, rc = decode_X_Form isn in
-    Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 0 15)) :: (cr_flags_stmts rc rD)
+    Set (vtreg rD, BinOp(op, lvpreg rA 0 15, lvpreg rB 0 15)) :: (cr_flags_stmts rc rD !Isa.mode)
 
-  let decode_mulli _state isn =
-    let rD, rA, simm = decode_D_Form isn in
-    let tmpreg = Register.make (Register.fresh_name ()) 64 in
-    [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, sconst simm 16 32)) ;
-      Set (vtreg rD, lvp tmpreg 0 31) ;
+  let decode_mulli state isn =
+    let rD, rA, simm, sz = decode_D_Form state.prefix isn in
+    let tmpreg = Register.make (Register.fresh_name ()) (Isa.size*2) in
+    [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, sconst simm sz Isa.size)) ;
+      Set (vtreg rD, lvp tmpreg 0 (Isa.size-1)) ;
       Directive (Remove tmpreg) ; ]
 
   let decode_mullw _state isn =
     let rD, rA, rB, oe, rc = decode_XO_Form isn in
     let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let undef_up =
+      if Isa.size = 32 then []
+      else [ Directive (Forget (vpreg rD 32 63)) ]
+    in
     let ov_stmt = if oe == 0 then []
                   else [ Set (vt ov, TernOp (Cmp (EQ, lvp tmpreg 32 63, const0 32),
                                              const0 1, const1 1)) ;
                          Set (vt so, BinOp (Or, lvt ov, lvt so)) ] in
-    [ Set (vt tmpreg, BinOp (IMul, lvtreg rA, lvtreg rB)) ;
-      Set (vtreg rD, lvp tmpreg 0 31) ; ]
+    [ Set (vt tmpreg, BinOp (IMul, lvpreg rA 0 31, lvpreg rB 0 31)) ;
+      Set (vpreg rD 0 31, lvp tmpreg 0 31) ; ]
+    @ undef_up
     @ ov_stmt
     @ [ Directive (Remove tmpreg) ]
-    @ (cr_flags_stmts rc rD)
+    @ (cr_flags_stmts rc rD !Isa.mode)
 
   (* Load and Store *)
 
-  let decode_load_store_form isn indexed update =
+  let decode_load_store_form prefix isn indexed update =
     if indexed then
       begin
         let rSD, rA, rB, _ = decode_X_Form isn in
@@ -766,38 +1059,41 @@ struct
       end
       else
         begin
-          let rSD, rA, d = decode_D_Form isn in
-          let signexp_d = sconst d 16 32 in
+          let rSD, rA, d, sz = decode_D_Form prefix isn in
+          let signexp_d = sconst d sz Isa.size in
           let ea = (if rA == 0 && not update then signexp_d
                     else BinOp (Add, lvtreg rA, signexp_d)) in
           (rSD, rA, ea)
         end
 
-  let decode_load _state isn ?(reversed=false) ?(algebraic=false) ~indexed ~sz ~update () =
-    let rD, rA, ea = decode_load_store_form isn indexed update in
+  let decode_load state isn ?(reversed=false) ?(algebraic=false) ~indexed ~sz ~update () =
+    let rD, rA, ea = decode_load_store_form state.prefix isn indexed update in
     let update_stmts = if update then [ Set (vtreg rA, ea) ] else [] in
-    let extmode = if algebraic then SignExt 32 else ZeroExt 32 in
-    let eap n = BinOp (Add, ea, const n 32) in
-    let memval = match reversed, sz with
-      | false, 32 -> Lval (M (ea, sz))
+    let extmode = if algebraic then SignExt Isa.size else ZeroExt Isa.size in
+    let eap n = BinOp (Add, ea, const n Isa.size) in
+    let memval =
+      match reversed, sz with
+      | false, sz when sz = Isa.size -> Lval (M (ea, sz))
       | false,  _ -> UnOp (extmode, Lval (M (ea, sz)))
       | true, 16 -> BinOp (Or,
-                           UnOp (ZeroExt 32, Lval (M (ea, 8))),
-                           BinOp (Shl, UnOp(extmode, Lval (M (eap 1, 8))), const 8 32))
-      | true, 32 -> BinOp (Or,
-                           BinOp (Or,
-                                  UnOp(ZeroExt 32, Lval (M (ea, 8))),
-                                  BinOp(Shl, UnOp(ZeroExt 32, Lval (M (eap 1, 8))), const 8 32)),
-                           BinOp (Or,
-                                  BinOp(Shl, UnOp(ZeroExt 32, Lval (M (eap 2, 8))), const 16 32),
-                                  BinOp(Shl, UnOp(ZeroExt 32, Lval (M (eap 3, 8))), const 24 32)))
-      | _ -> L.abort (fun p -> p "internal error: unexpected decoding combination: reversed=%b sz=%i"
-                                 reversed sz) in
+                           UnOp (ZeroExt Isa.size, Lval (M (ea, 8))),
+                           BinOp (Shl, UnOp(extmode, Lval (M (eap 1, 8))), const 8 Isa.size))
+      | true, sz ->
+         let e = BinOp (Or,
+                        BinOp (Or,
+                               UnOp(ZeroExt sz, Lval (M (ea, 8))),
+                               BinOp(Shl, UnOp(ZeroExt sz, Lval (M (eap 1, 8))), const 8 sz)),
+                        BinOp (Or,
+                               BinOp(Shl, UnOp(ZeroExt sz, Lval (M (eap 2, 8))), const 16 sz),
+                               BinOp(Shl, UnOp(ZeroExt sz, Lval (M (eap 3, 8))), const 24 sz)))
+         in
+         if sz = Isa.size then e else UnOp(ZeroExt Isa.size, e)
+    in
     Set (vtreg rD, memval) :: update_stmts
 
 
-  let decode_store _state isn ?(reversed=false) ~indexed ~sz ~update () =
-    let rS, rA, ea = decode_load_store_form isn indexed update in
+  let decode_store state isn ?(reversed=false) ~indexed ~sz ~update () =
+    let rS, rA, ea = decode_load_store_form state.prefix isn indexed update in
     let update_stmts = if update then [ Set (vtreg rA, ea) ] else [] in
     let regval = match reversed, sz with
       | false, 32 -> lvtreg rS
@@ -816,37 +1112,45 @@ struct
                                  reversed sz) in
     Set (M (ea, sz), regval) :: update_stmts
 
-    let decode_lmw _state isn =
-      let rD, rA, d = decode_D_Form isn in
-      let sd = if d land 0x8000 == 0 then d else d lor 0xffff0000 in
+    let decode_lmw state isn =
+      let rD, rA, d, sz = decode_D_Form state.prefix isn in
+      let sd = sign_extension (Z.of_int d) sz 32 in 
       let rec loadreg ea n =
         if n == 32 then []
         else
-          let tail = loadreg (ea+4) (n+1) in
+          let tail = loadreg (Z.add ea z4) (n+1) in
+          let ff = Z.sub (Z.shift_left (Z.one) 32) Z.one in
+          let ea' = Z.logand ea ff in
           if n != rA || n == 31 then
-            Set (vtreg n, Lval (M (BinOp(Add, lvtreg rA,
-                                         const (ea land 0xffffffff) 32), 32))) :: tail
+            let e = Lval (M (BinOp(Add, lvpreg rA 0 31,
+                                   zconst ea' 32), 32))
+            in
+            let e' = if !Isa.mode = 32 then e else UnOp(ZeroExt Isa.size, e) in
+            Set (vtreg n, e') :: tail
           else
             tail in
       loadreg sd rD
 
-    let decode_stmw _state isn =
-      let rS, rA, d = decode_D_Form isn in
-      let sd = if d land 0x8000 == 0 then d else d lor 0xffff0000 in
+    let decode_stmw state isn =
+      (* TODO: factorize with decode_lmw *)
+      let rS, rA, d, sz = decode_D_Form state.prefix isn in
+      let sd = sign_extension (Z.of_int d) sz 32  in 
       let rec storereg ea n =
         if n == 32 then []
         else
-          let tail = storereg (ea+4) (n+1) in
+          let tail = storereg (Z.add ea z4) (n+1) in
+          let ff = Z.sub (Z.shift_left (Z.one) 32) Z.one in
+          let ea' = Z.logand ea ff in
           if n != rA || n == 31 then
-            Set (M (BinOp(Add, lvtreg rA, const (ea land 0xffffffff) 32), 32),
-                 lvtreg n) :: tail
+            Set (M (BinOp(Add, lvpreg rA 0 31, zconst ea' 32), 32),
+                 lvpreg n 0 31) :: tail
           else
             tail in
       storereg sd rS
 
     let decode_lswi _state isn =
       let rD, rA, nb, _ = decode_X_Form isn in
-      let ea x = if rA == 0 then const x 32 else BinOp(Add, lvtreg rA, const x 32) in
+      let ea x = if rA == 0 then const x 32 else BinOp(Add, lvpreg rA 0 31, const x 32) in
       let nb' = if nb == 0 then 32 else nb in
       let loadreg = ref [] in
       for n = 0 to nb'-1 do
@@ -864,7 +1168,7 @@ struct
 
     let decode_stswi _state isn =
       let rD, rA, nb, _ = decode_X_Form isn in
-      let ea x = if rA == 0 then const x 32 else BinOp(Add, lvtreg rA, const x 32) in
+      let ea x = if rA == 0 then const x 32 else BinOp(Add, lvpreg rA 0 31, const x 32) in
       let nb' = if nb == 0 then 32 else nb in
       let storereg = ref [] in
       for n = 0 to nb'-1 do
@@ -881,7 +1185,7 @@ struct
     let rS, crm1 = decode_XFX_Form isn in
     let crm = (crm1 lsr 1) land 0xff in
     if crm == 0xff then (* shortcut for special case when all CR fields are set with rS *)
-      [ Set (vt cr, lvtreg rS) ]
+      [ Set (vt cr, lvpreg rS 0 31) ]
     else
       let stmts = ref [] in
       for i = 0 to 7 do
@@ -911,15 +1215,37 @@ struct
     if crfD = crfS then []
     else [ Set (vp cr (28-crfD) (31-crfD), lvp cr (28-crfS) (31-crfS)) ]
 
+  let core_std isn update =
+    let rs, ra, ds = decode_DS_Form isn in
+    let ea = BinOp(Add, lvtreg ra, UnOp(SignExt 64, const (ds lsl 2) 16)) in
+    (Set (M(ea, 64), lvtreg rs))::
+      (if update then [Set (vtreg ra, ea)]
+      else [])
+  let decode_std _state isn = core_std isn false
+
+  let decode_stdu _state isn = core_std isn true
+
+                             
+  let decode_ld _state isn update =
+    let rs, ra, ds = decode_DS_Form isn in
+    let ea = BinOp(Add, lvtreg ra, UnOp(SignExt 64, const (ds lsl 2) 16)) in
+    (Set (vtreg rs, Lval (M(ea, 64))))::
+      (if update then [Set (vtreg ra, ea)]
+       else [])
+    
+    
   (* Decoding and switching *)
 
-  let return (s: state) (instruction: int) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
+  let return (s: state) (stmts: Asm.stmt list): Cfa.State.t * Data.Address.t =
+    let bytes =
+      List.map (fun isn  ->
+          [ Char.chr (isn land 0xff) ;
+            Char.chr ((isn lsr 8) land 0xff) ;
+            Char.chr ((isn lsr 16) land 0xff) ;
+            Char.chr ((isn lsr 24) land 0xff) ]) (List.rev s.isn)
+    in
     s.b.Cfa.State.stmts <- stmts;
-    s.b.Cfa.State.bytes <-
-        [ Char.chr (instruction land 0xff) ;
-          Char.chr ((instruction lsr 8) land 0xff) ;
-          Char.chr ((instruction lsr 16) land 0xff) ;
-          Char.chr ((instruction lsr 24) land 0xff) ];
+    s.b.Cfa.State.bytes <- List.fold_left (fun l isn -> l @ isn) [] bytes;
     s.b, Data.Address.add_offset s.a (Z.of_int 4)
 
   let build_instruction s str =
@@ -967,7 +1293,7 @@ struct
   let decode_010011 s isn =
     match (isn lsr 1) land 0x3ff with
     | 0b0000000000-> decode_mcrf s isn
-    | 0b0000010000-> decode_bclr_bcctr s isn lr        (* bclr *)
+    | 0b0000010000-> decode_conditional_lr_XL_form s isn (* bclr *)
     | 0b0000100001-> decode_cr_op_not s isn Or         (* crnor *)
     | 0b0000110010-> not_implemented s isn "rfi"
     | 0b0010000001-> decode_cr_op_complement s isn And (* crandc *)
@@ -978,7 +1304,7 @@ struct
     | 0b0100100001-> decode_cr_op_not s isn Xor        (* creqv  *)
     | 0b0110100001-> decode_cr_op_complement s isn Or  (* crorc  *)
     | 0b0111000001-> decode_cr_op s isn Or             (* cror   *)
-    | 0b1000010000-> decode_bclr_bcctr s isn ctr       (* bcctr  *)
+    | 0b1000010000-> decode_conditional_ctr_XL_form s isn (* bcctr  *)
     | _ -> error s.a (Printf.sprintf "decode_010011: unknown opcode 0x%x" isn)
 
   let decode_011110 s isn =
@@ -1112,8 +1438,14 @@ struct
 
   let decode_111010 s isn =
     match isn land 0x3 with
-    | 0b00 -> not_implemented_64bits s isn "ld"
-    | 0b01 -> not_implemented_64bits s isn "ldu"
+    | 0b00 ->
+       if Isa.size = 64 then decode_ld s isn false
+       else not_implemented_64bits s isn "ld"
+      
+    | 0b01 ->
+       if Isa.size = 64 then decode_ld s isn true
+       else not_implemented_64bits s isn "ldu"
+      
     | 0b10 -> not_implemented_64bits s isn "lwa"
     | _ -> error s.a (Printf.sprintf "decode_111010: unknown opcode 0x%x" isn)
 
@@ -1131,10 +1463,17 @@ struct
     | 0b11111 -> not_implemented s isn "fnmadds??"
     | _ -> error s.a (Printf.sprintf "decode_111011: unknown opcode 0x%x" isn)
 
+
   let decode_111110 s isn =
     match isn land 0x3 with
-    | 0b00 -> not_implemented_64bits s isn "std"
-    | 0b01 -> not_implemented_64bits s isn "stdu"
+    | 0b00 ->
+       if Isa.size = 64 then decode_std s isn
+       else not_implemented_64bits s isn "std"
+              
+    | 0b01 ->
+       if Isa.size = 64 then decode_stdu s isn
+       else not_implemented_64bits s isn "stdu"
+      
     | _ -> error s.a (Printf.sprintf "decode_111110: unknown opcode 0x%x" isn)
 
   let decode_111111 s isn =
@@ -1173,13 +1512,15 @@ struct
        | _ -> error s.a (Printf.sprintf "decode_11111: unknown opcode 0x%x" isn)
 
 
-  let decode s: Cfa.State.t * Data.Address.t =
-    let str = String.sub s.buf 0 4 in
+    
+  let rec core_decode s off =
+    let str = String.sub s.buf off (off+4) in
     let isn  = build_instruction s str in
-    let stmts = match (isn lsr 26) land 0x3f with
+    s.isn <- isn::s.isn;
+      match (isn lsr 26) land 0x3f with
       | 0x60 -> []
 (*      | 0b000000 ->  *)
-(*      | 0b000001 ->  *)
+      | 0b000001 -> decode_prefix s isn
       | 0b000010 -> not_implemented_64bits s isn "tdi"
       | 0b000011 -> not_implemented s isn "twi"
       | 0b000100 -> decode_000100 s isn  (* mulchw mulhhw mulhw mullw ... *)
@@ -1194,10 +1535,10 @@ struct
       | 0b001101 -> decode_addic s isn 1 (* addic. *)
       | 0b001110 -> decode_addi s isn
       | 0b001111 -> decode_addis s isn
-      | 0b010000 -> decode_branch_condition s isn (* bc bca bcl bcla *)
+      | 0b010000 -> decode_branch_conditional_B_form s isn (* bc bca bcl bcla *)
       | 0b010001 -> not_implemented s isn "sc"
-      | 0b010010 -> decode_branch s isn
-      | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
+      | 0b010010 -> decode_branch_I_form s isn
+       | 0b010011 -> decode_010011 s isn (* mcrf bclr?? crnor rfi crandc isync crxor crnand crand creqv crorc cror bcctr?? *)
       | 0b010100 -> decode_rlwimi s isn
       | 0b010101 -> decode_rlwinm s isn
 (*      | 0b010110 ->  *)
@@ -1243,10 +1584,37 @@ struct
       | 0b111110 ->  decode_111110 s isn (* std stdu *)
       | 0b111111 -> decode_111111 s isn (* fcmpu frsp?? ... *)
 
-      | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn) in
-    return s isn stmts
+      | _ -> error s.a (Printf.sprintf "Unknown opcode 0x%x" isn)
 
+  and decode_prefix s isn =
+    (* ref manual: 1.6.3 *)
+    let typ = (isn lsr 24) land 0x3 in
+    match typ with
+    | 0b00 (* eight-byte load/store ins *) ->
+       let st = (isn lsr 23) land 0x1 in
+       if st = 0 then
+         (* signed 8LS *)
+         let r = (isn lsr 20) land 0x01 in
+         let ie = (isn lsr 17) land 0x3ffff in
+         s.prefix <- Some (LoadStore {r = r; ie = ie;});
+         s.a <- Data.Address.add_offset s.a z4;
+         core_decode s 4
+       else
+         (* reserved *) 
+         L.abort (fun p -> p "decoder stops because of reserved value for bit ST in prefix")
+    | 0b01 ->
+    (* eight-byte register-to-register ins *)
+       L.abort (fun p -> p "eight-byte register-to-register instruction not decoded yet")
+    | 0b10 -> 
+    (* modified load/store ins *)
+       L.abort (fun p -> p "modified load/store instruction not decoded yet")
+    | _ -> (* modified register-to-register ins *)
+       L.abort (fun p -> p "modified register-to-register instruction not decoded yet")
 
+  let decode s =
+    let stmts = core_decode s 0 in
+    return s stmts
+    
   let parse text cfg _ctx state addr _oracle =
 
     let s =  {
@@ -1255,6 +1623,8 @@ struct
       a = addr;
       buf = text;
       endianness = !Config.endianness;
+      isn = [];
+      prefix = None;
     }
     in
     try
@@ -1268,7 +1638,8 @@ struct
   let init () =
     Imports.init ()
 
+ 
   let overflow_expression () = Lval (V (P (cr, 28, 28)))
-
+    
   let init_registers () = []
 end

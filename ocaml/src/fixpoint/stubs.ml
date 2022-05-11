@@ -62,7 +62,6 @@ module Make(D: Domain.T) = struct
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
 
-
     let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
       match a with
       | Data.Address.Heap (id, _), o ->
@@ -523,9 +522,7 @@ module Make(D: Domain.T) = struct
       Hashtbl.replace stubs "getc" (getc, 1);
       Hashtbl.replace stubs "exit"        (bin_exit,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
-      Hashtbl.replace stubs "free" (heap_deallocator, 1);
-      Hashtbl.replace stubs "_Znwj" (heap_allocator, 1); (* new *)
-      Hashtbl.replace stubs "_ZdlPv" (heap_deallocator, 1);; (* delete *)
+      Hashtbl.replace stubs "free" (heap_deallocator, 1);;
 
 
 end

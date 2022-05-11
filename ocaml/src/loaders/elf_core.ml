@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2020 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -43,7 +43,7 @@ let to_data x =
   match x with
   | 1 -> ELFDATA_2LSB
   | 2 -> ELFDATA_2MSB
-  | dat -> L.abort(fun p -> p "unkown elf data encoding %02x" dat)
+  | dat -> L.abort(fun p -> p "unknown elf data encoding %02x" dat)
 
 let e_data_to_string dat =
   match dat with
@@ -124,13 +124,14 @@ let e_type_to_string typ =
 (* ELF ident machine *)
 
 type e_machine_t =
-  | NONE    | SPARC  | X86     | MIPS     | POWERPC  | S390  | ARM
+  | NONE    | SPARC  | X86     | MIPS     | POWERPC  | PPC64 | S390  | ARM
   | SUPERH  | IA64   | X86_64  | AARCH64  | RISCV
   | OTHER of int
 
 let to_machine x =
   match x with
   | 0x00 -> NONE     | 0x02 -> SPARC  | 0x03 -> X86     | 0x08 -> MIPS  | 0x14 -> POWERPC
+  | 0x15 -> PPC64
   | 0x16 -> S390     | 0x28 -> ARM    | 0x2A -> SUPERH  | 0x32 -> IA64  | 0x3E -> X86_64
   | 0xB7 -> AARCH64  | 0xF3 -> RISCV
   | mach -> OTHER mach
@@ -138,7 +139,7 @@ let to_machine x =
 let e_machine_to_string mach =
   match mach with
   | NONE -> "NONE"        | SPARC -> "SPARC"      | X86 -> "X86"          | MIPS -> "MIPS"
-  | POWERPC -> "POWERPC"  | S390 -> "S390"        | ARM -> "ARM"          | SUPERH -> "SUPERH"
+  | POWERPC -> "POWERPC"  | PPC64 -> "PPC64" | S390 -> "S390"        | ARM -> "ARM"          | SUPERH -> "SUPERH"
   | IA64 -> "IA64"        | X86_64 -> "X86_64"       | AARCH64 -> "AARCH64"  | RISCV -> "RISCV"
   | OTHER i -> (Printf.sprintf "%08x" i)
 
@@ -700,6 +701,8 @@ type reloc_type_t =
   | R_PPC_JMP_SLOT | R_PPC_RELATIVE | R_PPC_LOCAL24PC | R_PPC_UADDR32 | R_PPC_UADDR16 | R_PPC_REL32
   | R_PPC_PLT32 | R_PPC_PLTREL32 | R_PPC_PLT16_LO | R_PPL_PLT16_HI | R_PPC_PLT16_HA | R_PPC_SDAREL16
   | R_PPC_SECTOFF | R_PPC_SECTOFF_LO | R_PPC_SECTOFF_HI | R_PPC_SECTOFF_HA | R_PPC_ADDR30
+(* PPC64 relocation types *)
+  | R_PPC64_JMP_SLOT | R_PPC64_RELATIVE | R_PPC64_ADDR64
 
 let to_reloc_type r hdr =
     match hdr.e_machine with
@@ -764,6 +767,14 @@ let to_reloc_type r hdr =
          | 36 -> R_PPC_SECTOFF_HA      | 37 -> R_PPC_ADDR30
          | _ -> RELOC_OTHER (hdr.e_machine, r)
        end
+    | PPC64 ->
+       begin
+         match r with
+         | 21 -> R_PPC64_JMP_SLOT
+         | 22 -> R_PPC64_RELATIVE
+         | 38 -> R_PPC64_ADDR64
+         | _ -> RELOC_OTHER (hdr.e_machine, r)
+       end
     | _ -> RELOC_OTHER (hdr.e_machine, r)
 
 let reloc_type_to_string rel =
@@ -806,6 +817,8 @@ let reloc_type_to_string rel =
   | R_PPC_SDAREL16 -> "R_PPC_SDAREL16"             | R_PPC_SECTOFF -> "R_PPC_SECTOFF"
   | R_PPC_SECTOFF_LO -> "R_PPC_SECTOFF_LO"         | R_PPC_SECTOFF_HI -> "R_PPC_SECTOFF_HI"
   | R_PPC_SECTOFF_HA -> "R_PPC_SECTOFF_HA"         | R_PPC_ADDR30 -> "R_PPC_ADDR30"
+  | R_PPC64_RELATIVE -> "R_PPC64_RELATIVE"         | R_PPC64_ADDR64 -> "R_PPC64_ADDR64"
+  | R_PPC64_JMP_SLOT -> "R_PPC64_JMP_SLOT"
   | RELOC_OTHER (mach,num) -> (Printf.sprintf "reloc(%s,%#x)" (e_machine_to_string mach) num)
 
 

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2021 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -25,7 +25,6 @@ let loglevel = ref 3;;
 let module_loglevel: (string, int) Hashtbl.t = Hashtbl.create 5;;
 let taint_input = ref false;; (* if true then automatically taint functions with external input like getc *)
 let max_instruction_size = ref 16;;
-let external_symbol_max_size = ref 32;
 
 (* set of values that will not be explored as values of the instruction pointer *)
 module SAddresses = Set.Make(Z)
@@ -53,6 +52,7 @@ type archi_t =
   | ARMv7
   | ARMv8 (* ARMv8-A *)
   | POWERPC
+  | POWERPC64
   | RV32I (* risc-v integer 32 bits *)
   | RV64I (* risc-v integer 64 bits *)
 
@@ -63,6 +63,7 @@ let archi_to_string = function
   | ARMv7 -> "armv7"
   | ARMv8 -> "armv8"
   | POWERPC -> "powerpc"
+  | POWERPC64 -> "powerpc64"
   | RV32I -> "RV32I"
   | RV64I -> "RV64I"
 

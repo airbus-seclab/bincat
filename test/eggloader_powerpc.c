@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 
         char ret_to_main[] =
                 "\x90\x20" BACKUP_ZONE_ADDR_IN_HEX_P4
-                                    //     lwz  r1, (BACKUP_ZONE_ADDR+4)(0) ; save test sp
+                                    //     stw  r1, (BACKUP_ZONE_ADDR+4)(0) ; save test sp
                 "\x80\x20" BACKUP_ZONE_ADDR_IN_HEX
                                     //     lwz  r1, BACKUP_ZONE_ADDR(0) ; restore sp
                 "\x97\xc1\xff\xfc"  //     stwu    r30,-4(r1)           ; save r30 on stack
