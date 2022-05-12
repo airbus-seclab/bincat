@@ -48,6 +48,7 @@ ML=\
   disassembly/riscVImports.ml\
   frontend/lexer.ml\
   frontend/parser.ml\
+  frontend/demangle.ml\
   domains/env.ml\
   domains/typenv.ml\
   domains/bit.ml\
