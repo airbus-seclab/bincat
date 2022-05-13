@@ -6,7 +6,7 @@ BINDIR=$(DESTDIR)/$(PREFIX)/bin/
 CAMLC   ?=ocamlc
 CAMLOPT ?=ocamlopt
 CAMLLEX ?=ocamllex
-MENHIR  =menhir --explain
+
 CAMLDEP ?=ocamldep
 CAMLDOC ?=ocamldoc
 CAMLFIND ?=ocamlfind
@@ -112,6 +112,8 @@ LIBINCL = $(EXTLIBINCL) -I data-struct -I domains -I utils -I disassembly -I fro
 #  -> not really a pb
 
 CAMLOPTIONS = -g -w A-e-l -warn-error +a-3-7-50-42-44-58 -w -42 -w -58 -w -67 -w -70
+
+MENHIR  =menhir --explain
 
 EXEOPT=bincat
 EXEBYTE=bincat.byte

@@ -87,11 +87,7 @@
       (GS_BASE, "gs_base");
       ];;
 
-    let armv7_mandatory_keys = Hashtbl.create 20;;
-    let armv8_mandatory_keys = Hashtbl.create 20;;
-    let powerpc_mandatory_keys = Hashtbl.create 20;;
-    let powerpc64_mandatory_keys = Hashtbl.create 20;;
-    let riscV_mandatory_keys = Hashtbl.create 20;;
+   
     
       (** set the corresponding option reference *)
       let update_boolean optname opt v =
@@ -113,10 +109,7 @@
 
       let update_x86_mandatory key = update_arch_mandatory_key x86_mandatory_keys key;;
       let update_x64_mandatory key = update_arch_mandatory_key x64_mandatory_keys key;;
-      let _update_armv7_mandatory key = update_arch_mandatory_key armv7_mandatory_keys key;;
-      let _update_armv8_mandatory key = update_arch_mandatory_key armv8_mandatory_keys key;;
-      let _update_powerpc_mandatory key = update_arch_mandatory_key powerpc_mandatory_keys key;;
-      let _update_powerpc64_mandatory key = update_arch_mandatory_key powerpc64_mandatory_keys key;;
+    
 
       (** check that the version matches the one we support *)
       let check_ini_version input_version =
@@ -133,11 +126,7 @@
             match !Config.architecture with
             | Config.X86 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x86") x86_mandatory_keys
             | Config.X64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "x64") x64_mandatory_keys
-            | Config.ARMv7 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv7") armv7_mandatory_keys
-            | Config.ARMv8 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "ARMv8") armv8_mandatory_keys
-            | Config.POWERPC -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC") powerpc_mandatory_keys
-            | Config.POWERPC64 -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "POWERPC64") powerpc64_mandatory_keys
-            | Config.RV32I | Config.RV64I -> Hashtbl.iter (fun _ (pname, b) -> if not b then missing_item pname "RV32I/64I") riscV_mandatory_keys
+            | _ -> ()
           end;
         (* fill the table of tainting rules for each provided library *)
         let add_tainting_rules l (c, funs) =
@@ -177,7 +166,7 @@
 %token ANALYZER INI_VERSION UNROLL FUN_UNROLL DS CS SS ES FS GS FS_BASE GS_BASE FLAT SEGMENTED STATE
 %token FORMAT RAW MANUAL PE ELF ELFOBJ ENTRYPOINT FILEPATH MASK MODE REAL PROTECTED
 %token LANGLE_BRACKET RANGLE_BRACKET LPAREN RPAREN COMMA UNDERSCORE
-%token GDT CUT ASSERT IMPORTS CALL U T STACK HEAP SEMI_COLON PROGRAM
+%token GDT CUT ASSERT IMPORTS CALL U T HEAP SEMI_COLON PROGRAM
 %token ANALYSIS FORWARD_BIN FORWARD_CFA BACKWARD STORE_MCFA IN_MCFA_FILE OUT_MCFA_FILE HEADER
 %token OVERRIDE TAINT_NONE TAINT_ALL SECTION SECTIONS LOGLEVEL ARCHITECTURE X86 ARMV7 ARMV8
 %token ENDIANNESS LITTLE BIG NOP LOAD_ELF_COREDUMP FUN_SKIP KSET_BOUND
@@ -189,9 +178,80 @@
 %token <string> HEAP_HEX_BYTES
 %token <string> QUOTED_STRING
 %token <Z.t> INT
-%token <Z.t> SINT
 %token <Z.t> HINT
-             %token TAINT
+%token TAINT
+
+%type <Z.t list> addresses
+%type <Config.analysis_t> analysis_kind
+%type <unit> analyzer
+%type <unit> analyzer_item
+%type <Config.archi_t> architecture
+%type <Config.taint_t> argument
+%type <Config.taint_t list> arguments
+%type <unit> armv7_section
+%type <unit> armv8_section
+%type <unit> assert_rule
+%type <unit> assert_rules
+%type <Config.bytes> byte_kind
+%type <Config.call_conv_t> callconv
+%type <unit> data_sections
+%type <Config.endianness_t> endianness
+%type <Config.format_t> format
+%type <string * Config.call_conv_t option * Config.taint_t list> fun_rule
+%type < Config.fun_t * (Z.t * (Config.cvalue option * Config.tvalue list) option)> fun_skip
+%type <(Config.fun_t * (Z.t * (Config.cvalue option * Config.tvalue list) option)) list> fun_skip_list
+%type <Z.t * Z.t> heap_couple
+%type <unit> ida_section
+%type <unit> import
+%type <unit> imports
+%type <Config.cvalue option * (Config.tvalue list)> init
+%type <Config.content> int_kind
+%type <unit> libname
+%type <unit> library
+%type <unit> library_item
+%type <Config.taint_t list> loption(separated_nonempty_list(COMMA,argument))
+%type <Config.cvalue> mcontent
+%type <Config.memory_model_t> memmodel
+%type <Config.mode_t> mmode
+%type <bool> mpx_enabled
+%type <string list> npk
+%type <Config.tvalue list> one_tcontent
+%type <Config.os_t> os_kind
+%type <unit> override
+%type <unit> override_addr
+%type <unit> override_addr_item
+%type <unit> override_heap_item
+%type <unit> override_item
+%type < (Z.t,
+          ((Z.t * int) * (Config.cvalue option * Config.tvalue list)) list)
+         Hashtbl.t * (Z.t * int) * (Config.cvalue option * Config.tvalue list)> override_one_addr
+%type <string * (Register.t -> Config.cvalue option * (Config.tvalue list)) > override_reg
+%type <unit> override_reg_item
+%type <unit> overrides
+%type <Z.t * (Config.cvalue option * Config.tvalue list) option> pair_skip
+%type <unit> powerpc_section
+%type <unit> powerpc_section_item
+%type <unit> program
+%type <unit> program_item
+%type <Z.t * int> repeat
+%type <(Z.t * Z.t) * int> repeat_heap
+%type <unit> rv32i_section
+%type <unit> rv64i_section
+%type <unit> section
+%type <unit> section_item
+%type <unit> sections
+%type <Config.taint_t list> separated_nonempty_list(COMMA,argument)
+%type <unit> set_default_source_function
+%type <unit> set_source_function
+%type <unit> state
+%type <unit> state_item
+%type <Config.tvalue list> taint_sources
+%type <Config.tvalue list> tcontent
+%type <unit> x64_item
+%type <unit> x64_section
+%type <unit> x86_item
+%type <unit> x86_section
+                              
 %start <unit> process
 %%
 (* in every below rule a later rule in the file order may inhibit a previous rule *)
