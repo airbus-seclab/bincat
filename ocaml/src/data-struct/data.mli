@@ -74,6 +74,9 @@ module Address: sig
   (** unique identifier type of a heap chunk *)
   type heap_id_t = int
 
+  (** unique id type of a C++ object *)
+  type object_id_t = int
+                   
   (** trick to ensure that address into the heap have the same size as in global and stack region *)
   type pos = int option (** None means an address that can be used as a key in any environment 
                             Some n represents the symbolic nth byte of a heap address *)
@@ -82,6 +85,7 @@ module Address: sig
   type region =
     | Global (** abstract base address of global variables and code *)
     | Heap of heap_id_t * Z.t (** abstract base address of a dynamically allocated memory block. The Z.t integer is the size in bits of the allocation *)
+    | Object of object_id_t (** abstract base address of a C++ object *)
 
   (** conversion from Config.region to region *)
   val region_from_config: Config.region -> region
@@ -162,6 +166,9 @@ module Address: sig
 
   (** returns a fresh heap region of the given size (in bits). The id of the new region is also returned *)
   val new_heap_region: Z.t -> region * int
+
+  (** returns a fresh object region for the given object type. The id of the new region is also returned *)
+  val new_object_region: Types.t -> region * int
 
   (** returns the heap region associated to the given heap id. The size of the region is also returned *)
   val get_heap_region: int -> region * Z.t

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2021 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -41,16 +41,11 @@ module Make(D: Domain.T) = struct
 
     let shift argfun n = fun x -> (argfun (n+x))
 
-    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t option) (d: domain_t) ret args: domain_t * Taint.Set.t =
-      try
-        let sz = D.value_of_exp d (Asm.Lval (args 0)) in
-        let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
-        Hashtbl.add Dump.heap_id_tbl id ip;
-        let d' = D.allocate_on_heap d id in
+    let generate_heap_or_obj_lval region calling_ip str_k =
         let zero = Data.Word.zero !Config.address_sz in
         let addr = region, zero in
-        let success_msg = "successfull heap allocation " in
-        let failure_msg = "heap allocation failed  " in
+        let success_msg = "successfull " ^ str_k ^ " allocation " in
+        let failure_msg = str_k ^ " allocation failed  " in
         let postfix =
           match calling_ip with
           | Some ip -> let ip_str = Data.Address.to_string ip in "at " ^ ip_str
@@ -58,9 +53,26 @@ module Make(D: Domain.T) = struct
         in
         let success_msg = success_msg ^ postfix in
         let failure_msg = failure_msg ^ postfix in
-        D.set_lval_to_addr ret [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ] d'
+        [ (addr, success_msg) ; (Data.Address.of_null (), failure_msg) ]
+        
+    let heap_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t option) (d: domain_t) ret args: domain_t * Taint.Set.t =
+      try
+        let sz = D.value_of_exp d (Asm.Lval (args 0)) in
+        let region, id = Data.Address.new_heap_region (Z.mul (Z.of_int 8) sz) in
+        let d' = D.allocate_on_heap d id in
+        Hashtbl.add Dump.heap_id_tbl id ip;
+        let stmts = generate_heap_or_obj_lval region calling_ip "heap" in
+        D.set_lval_to_addr ret stmts d'
       with Z.Overflow -> raise (Exceptions.Too_many_concrete_elements "heap allocation: imprecise size to allocate")
 
+    let object_allocator (ip: Data.Address.t) (calling_ip: Data.Address.t option) (d: domain_t) _ret args: domain_t * Taint.Set.t =
+      let this_ptr = args 0 in
+      let region, id = Data.Address.new_object_region (failwith "inferring a type from a mangled name") in
+      Hashtbl.add Dump.object_id_tbl id ip;
+      let d' = D.allocate_object d id in
+      let stmts = generate_heap_or_obj_lval region calling_ip "object" in
+      D.set_lval_to_addr this_ptr stmts d'
+        
 
     let check_free (ip: Data.Address.t) (a: Data.Address.t): Data.Address.heap_id_t =
       match a with
@@ -522,7 +534,8 @@ module Make(D: Domain.T) = struct
       Hashtbl.replace stubs "getc" (getc, 1);
       Hashtbl.replace stubs "exit"        (bin_exit,      1);
       Hashtbl.replace stubs "malloc" (heap_allocator, 1);
-      Hashtbl.replace stubs "free" (heap_deallocator, 1);;
-
+      Hashtbl.replace stubs "free" (heap_deallocator, 1);
+      Hashtbl.replace stubs "_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC1Ev" (object_allocator, 1);;
+    
 
 end

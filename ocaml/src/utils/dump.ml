@@ -8,7 +8,10 @@ let taint_src_tbl : (Taint.Src.id_t, src_t) Hashtbl.t = Hashtbl.create 5
 
 (* map from heap id to instruction pointer where the allocation occured *)
 let heap_id_tbl: (int, Data.Address.t) Hashtbl.t = Hashtbl.create 5
-    
+
+(* map from object id to instruction pointer where the allocation occured *)
+let object_id_tbl: (int, Data.Address.t) Hashtbl.t = Hashtbl.create 5
+
 let clear () =
   Hashtbl.clear heap_id_tbl;
   Hashtbl.clear taint_src_tbl;;

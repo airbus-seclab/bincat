@@ -177,7 +177,7 @@ let process (configfile:string) (resultfile:string) (logfile:string): unit =
     
     let module Vector    = Vector.Make(Reduced_bit_tainting) in
     let module Pointer   = Pointer.Make(Vector) in
-    let module Domain   = Reduced_unrel_typenv_heap.Make(Pointer) in
+    let module Domain   = Reduced_unrel_typenv_heap_objects.Make(Pointer) in
    
     let decoder =
       match !Config.architecture with

@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2018 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -118,12 +118,14 @@ struct
     module A = struct
 
       type heap_id_t = int
+      type object_id_t = int
       type pos = int option
         
       (* these memory regions are supposed not to overlap *)
       type region =
         | Global 
         | Heap of heap_id_t * Z.t (* first int is the id ; second int is the size in bits *)
+        | Object of object_id_t
             
 
       type t = region * Word.t (* valid address *)
@@ -132,6 +134,9 @@ struct
 
         let heap_tbl = Hashtbl.create 5
 
+        let object_id = ref 0
+
+        let object_tbl = Hashtbl.create 5
             
         let new_heap_region sz =
           let id = !heap_id in 
@@ -139,6 +144,14 @@ struct
           Hashtbl.add heap_tbl id sz;
           heap_id := !heap_id + 1;
           region, id
+
+         let new_object_region obj_t =
+          let id = !object_id in 
+          let region = Object id in
+          Hashtbl.add object_tbl id obj_t;
+          object_id := !object_id + 1;
+          region, id
+          
 
         let get_heap_region id =
           let sz = Hashtbl.find heap_tbl id in
@@ -150,6 +163,7 @@ struct
             match r with
             | Global -> ""
             | Heap (id, _)  -> "H"^(string_of_int id) ^ "-"
+            | Object id -> "O"^(string_of_int id) ^ "-"
 
         let of_null () = Global, Word.of_int !Config.null_cst !Config.address_sz    
 
@@ -166,8 +180,12 @@ struct
             | Global, Global -> 0
             | Global, _ -> -1
             | Heap (id1, _), Heap (id2, _) -> id1 - id2
+            | Object id1, Object id2 -> id1 - id2
             | Heap _, Global -> 1
-
+            | Object _, Global -> 1
+            | Object _, Heap _ -> -1
+            | Heap _, Object _ -> 1
+                                
         let equal_region r1 r2 = compare_region r1 r2 = 0
                                                                               
         let compare (r1, w1) (r2, w2) =

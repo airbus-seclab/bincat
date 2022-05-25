@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2021 - Airbus
+    Copyright 2014-2022 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -171,8 +171,11 @@ number of copied bytes is returned *)
       (** [copy_register r dst src] returns dst with value of register r being replaced by its value in src *)
       val copy_register: Register.t -> t -> t -> t
 
-    (** [allocate_on_heap d id] allocate the id heap chunk into d *)
+      (** [allocate_on_heap d id] allocate the id heap chunk into d *)
       val allocate_on_heap: t -> Data.Address.heap_id_t -> t
+
+      (** [allocate_object d id] allocate the C++ object of id _id_ into d *)
+      val allocate_object: t -> Data.Address.object_id_t -> t
 
     (** [deallocate d a] allocate the heap memory chunk at address a *)
       val deallocate: t -> Data.Address.heap_id_t -> t
@@ -180,7 +183,7 @@ number of copied bytes is returned *)
       (** [deallocate d addrs] weake allocate the heap memory chunks at addresses addrs *)
       val weak_deallocate: t -> Data.Address.heap_id_t list -> t
 
-                                                                 (** return the taint of the given left value *)
-        val get_taint: Asm.lval -> t -> Taint.t
+      (** return the taint of the given left value *)
+      val get_taint: Asm.lval -> t -> Taint.t
     end
 
