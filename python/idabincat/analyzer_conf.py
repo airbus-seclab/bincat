@@ -233,7 +233,7 @@ class ConfigHelpers(object):
             while n.supval(i) is not None:
                 raw = n.supval(i)
                 sec = pesection_t.from_buffer_copy(raw)
-                res.append([sec.s_name, imagebase+sec.s_vaddr, sec.s_vsize,
+                res.append([sec.s_name.decode(), imagebase+sec.s_vaddr, sec.s_vsize,
                             sec.s_scnptr, sec.s_psize])
                 i += 1
             return res
