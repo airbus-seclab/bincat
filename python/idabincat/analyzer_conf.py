@@ -858,7 +858,7 @@ class AnalyzerConfig(object):
 
         input_file = ConfigHelpers.guess_file_path()
         ftype = ConfigHelpers.get_file_type()
-        config.set('program', 'filepath', '"%s"' % input_file.encode('utf-8'))
+        config.set('program', 'filepath', '"%s"' % input_file)
 
         # For now BinCAT engine only parses elf files
         if ftype != "elf":
