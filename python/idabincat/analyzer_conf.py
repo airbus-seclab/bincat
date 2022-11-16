@@ -551,12 +551,7 @@ class AnalyzerConfig(object):
     def binary_filepath(self):
         # remove quotes
         value = self._config.get('program', 'filepath')
-        # Python 2/3 compat
-        try:
-            value = value.decode('utf-8')
-        except AttributeError:
-            pass
-        value = value.replace('"', '')
+        value = ConfigHelpers.string_decode(value)
         return value
 
     @property
@@ -687,7 +682,7 @@ class AnalyzerConfig(object):
         # make sure value is surrounded by quotes
         if '"' not in value:
             value = '"%s"' % value
-        self._config.set('program', 'filepath', value.encode('utf-8'))
+        self._config.set('program', 'filepath', value)
 
     @in_marshalled_cfa_file.setter
     def in_marshalled_cfa_file(self, value):
@@ -790,14 +785,11 @@ class AnalyzerConfig(object):
     def write(self, filepath):
         # OCaml can only handle "local" encodings for file name
         # So, ugly code following
-        binpath = self.binary_filepath
-        # TODO FIXME (python3 ...)
-        # local_binpath = ('"%s"' % binpath).encode(sys.getfilesystemencoding())
-        local_binpath = '"%s"' % binpath
+        local_binpath = ConfigHelpers.string_decode(self.binary_filepath)
         self._config.set('program', 'filepath', local_binpath)
         with open(filepath, 'w') as configfile:
             self._config.write(configfile)
-        self.binary_filepath = binpath
+        self.binary_filepath = local_binpath
 
     def __str__(self):
         self._config.remove_section('state')
@@ -858,7 +850,7 @@ class AnalyzerConfig(object):
 
         input_file = ConfigHelpers.guess_file_path()
         ftype = ConfigHelpers.get_file_type()
-        config.set('program', 'filepath', '"%s"' % input_file)
+        config.set('program', 'filepath', '"%s"' % ConfigHelpers.string_decode(input_file))
 
         # For now BinCAT engine only parses elf files
         if ftype != "elf":
