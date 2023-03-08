@@ -78,11 +78,11 @@ class HexItemDelegate(QStyledItemDelegate):
         # compute size hint for hex view
         dh = QTextDocument()
         dh.setHtml("<font color='green'>DF</font>")
-        self.hex_hint = QtCore.QSize(dh.idealWidth()-dh.documentMargin(), 22)
+        self.hex_hint = QtCore.QSize(int(dh.idealWidth()-dh.documentMargin()), 22)
         # compute size hint for char view
         dc = QTextDocument()
         dc.setHtml("W")
-        self.char_hint = QtCore.QSize(dc.idealWidth()-dc.documentMargin(), 22)
+        self.char_hint = QtCore.QSize(int(dc.idealWidth()-dc.documentMargin()), 22)
         self._model = model
 
     def get_pixmap(self, txt, hl, rect, brush):

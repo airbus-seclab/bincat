@@ -1,6 +1,6 @@
 """
     This file is part of BinCAT.
-    Copyright 2014-2021 - Airbus
+    Copyright 2014-2023 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -96,7 +96,7 @@ class ConfigHelpers(object):
     # Helper function to get a filename as a Unicode string
     @staticmethod
     def string_decode(string):
-        if idaapi.get_kernel_version()[0] == '7':
+        if idaapi.get_kernel_version()[0] >= '7':
             # IDA 7 only has UTF-8 strings
             try:
                 string_u = string.decode('UTF-8')

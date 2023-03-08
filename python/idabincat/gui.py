@@ -729,7 +729,7 @@ class BinCATConfigForm_t(ida_kernwin.PluginForm):
         menu.addAction(all_taint_top)
         # add header height to qpoint, else menu is misplaced. not sure why...
         qpoint2 = qpoint + \
-            QtCore.QPoint(0, self.mem_table.horizontalHeader().height())
+            QtCore.QPoint(0, int(self.mem_table.horizontalHeader().height()))
         menu.exec_(self.regs_table.mapToGlobal(qpoint2))
 
     def _mem_table_menu(self, qpoint):
@@ -746,7 +746,7 @@ class BinCATConfigForm_t(ida_kernwin.PluginForm):
         menu.addAction(remove_mem_entry)
         # add header height to qpoint, else menu is misplaced. not sure why...
         qpoint2 = qpoint + \
-            QtCore.QPoint(0, self.mem_table.horizontalHeader().height())
+            QtCore.QPoint(0, int(self.mem_table.horizontalHeader().height()))
         menu.exec_(self.mem_table.mapToGlobal(qpoint2))
 
     def _add_mem_entry(self, index):
