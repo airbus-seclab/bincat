@@ -1,6 +1,6 @@
 (*
     This file is part of BinCAT.
-    Copyright 2014-2022 - Airbus
+    Copyright 2014-2023 - Airbus
 
     BinCAT is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -964,7 +964,7 @@ type elf_t = {
   dynamic : e_dynamic_t list ;
   symtab : e_sym_t list ;
   notes : e_note_t list ;
-  got : int ;
+  got : int option; (* None means not computed *)
 }
 
 let get_all_notes s hdr phlist =
@@ -1119,7 +1119,7 @@ let to_elf s =
         map_section_entities (fun ofs -> to_rela s ofs sh symtab hdr) sh
     ) rela_sections
                ) in
-  let got = failwith "compute GOT address" in
+  let got = None in
   let notes = get_all_notes s hdr phdr in
   {
     hdr = hdr ;
