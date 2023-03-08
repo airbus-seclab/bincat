@@ -457,7 +457,7 @@ let sh_type_to_string sht =
 (* ELF section header *)
 
 type e_shdr_t = {
-  p_sh_index        : int ;
+  p_sh_index   : int ;
   sh_name      : Z.t ;
   sh_type      : sh_type_t ;
   sh_flags     : Z.t ;
@@ -467,7 +467,7 @@ type e_shdr_t = {
   sh_link      : int ;
   sh_info      : int ;
   sh_addralign : Z.t ;
-  sh_entsize   :  Z.t ;
+  sh_entsize   : Z.t ;
 }
 
 let to_shdr s hdr shidx =
@@ -519,7 +519,8 @@ let get_string s shdr stridx =
   let rec extract ofs =
     let b = dec_byte s ofs in
     if b == 0 then []
-    else b :: extract (ofs+1) in
+    else b :: extract (ofs+1)
+  in
   let blist = extract (Z.to_int (Z.add shdr.sh_offset stridx)) in
   Misc.string_of_chars (List.map Char.chr blist)
 
@@ -963,6 +964,7 @@ type elf_t = {
   dynamic : e_dynamic_t list ;
   symtab : e_sym_t list ;
   notes : e_note_t list ;
+  got : int ;
 }
 
 let get_all_notes s hdr phlist =
@@ -1077,12 +1079,14 @@ let elf_to_coredump_regs elf =
                                   (e_osabi_to_string elf.hdr.e_ident.e_osabi)
                                   (e_machine_to_string elf.hdr.e_machine)))
 
+  
 let to_elf s =
   let map_section_entities f shdr =
     let sz = Z.to_int shdr.sh_size in
     let entsz = Z.to_int shdr.sh_entsize in
     let sbase = Z.to_int shdr.sh_offset in
-    List.map (fun ri -> f (sbase+ri*entsz)) (Misc.seq 0 (sz/entsz-1)) in
+    List.map (fun ri -> f (sbase+ri*entsz)) (Misc.seq 0 (sz/entsz-1))
+  in
   let hdr = to_hdr s in
   let phdr = List.map (fun phi -> to_phdr s hdr phi) (Misc.seq 0 (hdr.e_phnum-1)) in
   let shdr = List.map (fun shi -> to_shdr s hdr shi) (Misc.seq 0 (hdr.e_shnum-1)) in
@@ -1100,21 +1104,22 @@ let to_elf s =
   let dynamic = List.flatten (
     List.map (
       fun sh ->
-        map_section_entities (fun ofs -> to_dynamic s ofs hdr.e_ident)  sh
+        map_section_entities (fun ofs -> to_dynamic s ofs hdr.e_ident) sh
     ) dynamic_sections
   ) in
   let rel = List.flatten (
     List.map (
       fun sh ->
-        (map_section_entities (fun ofs -> to_rel s ofs sh symtab hdr) sh)
+        map_section_entities (fun ofs -> to_rel s ofs sh symtab hdr) sh
     ) rel_sections
   ) in
   let rela = List.flatten (
     List.map (
       fun sh ->
-        (map_section_entities (fun ofs -> to_rela s ofs sh symtab hdr) sh)
+        map_section_entities (fun ofs -> to_rela s ofs sh symtab hdr) sh
     ) rela_sections
-  ) in
+               ) in
+  let got = failwith "compute GOT address" in
   let notes = get_all_notes s hdr phdr in
   {
     hdr = hdr ;
@@ -1125,17 +1130,6 @@ let to_elf s =
     dynamic = dynamic ;
     symtab = symtab ;
     notes= notes ;
+    got = got ;
   }
 
-
-(*
-let () =
-  let f = open_in_bin Sys.argv.(1) in
-  let buf = String.create (in_channel_length f) in
-  let () = really_input f buf 0 (String.length buf) in
-  let () = close_in f in
-  let elf = to_elf buf in
-  Printf.printf "%s\n" (hdr_to_string hdr);
-  List.map (fun p -> Printf.printf "%s\n" (ph_to_string p)) elf.ph
-
-*)
