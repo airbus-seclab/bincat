@@ -2,12 +2,20 @@
 
 ### Install the OCaml environment
 
-* install OCaml 64-bit from <https://fdopen.github.io/opam-repository-mingw/>
-* install depext (`opam install depext depext-cygwinports`)
-* install libgmp (`opam depext conf-gmp.1`)
-* install dependencies (`opam install menhir zarith ocamlgraph ppx_tools cppo num`)
-* install `zip` (`cygwin-install gui`)
-* source environment variables: `eval $(ocaml-env cygwin)`
+* install Cygwin from <https://cygwin.com/> with the following packages:
+  * `curl`
+  * `git`
+  * `make`
+  * `python3` (optional if you already have python installed)
+  * `mingw64-x86_64-gcc-g++`
+  * `mingw64-x86_64-gmp`
+  * `zip`
+* install opam from <https://opam.ocaml.org/> version >= 2.2.0 with `ocaml-variants=4.14.0-mingw64` (or above) as the base package for the switch, and then install the following packages:
+  * `dune`
+  * `menhir`
+  * `ocamlgraph`
+  * `ppxlib`
+  * `zarith`
 
 ### Install dependencies
 * install pip: `wget https://bootstrap.pypa.io/get-pip.py ; python get-pip.py`
@@ -17,6 +25,6 @@
 ```
 git clone https://github.com/airbus-seclab/bincat.git
 cd bincat
-eval $(ocaml-env cygwin)
+eval $(opam env)
 make windist PYTHON=python
 ```
