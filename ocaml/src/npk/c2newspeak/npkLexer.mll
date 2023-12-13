@@ -153,6 +153,7 @@ rule token = parse
   | "if"                { IF }
   | "inline"            { INLINE }
   | "register"          { REGISTER }
+  | "__noreturn"        { NORETURN }
   | "auto"              { AUTO }
   | "return"            { RETURN }
   | "sizeof"            { SIZEOF }

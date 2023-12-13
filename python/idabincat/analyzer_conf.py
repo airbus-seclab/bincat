@@ -157,7 +157,6 @@ class ConfigHelpers(object):
             idaapi.CM_CC_PASCAL: "pascal",
             idaapi.CM_CC_FASTCALL: "fastcall",
             idaapi.CM_CC_THISCALL: "thiscall",
-            idaapi.CM_CC_MANUAL: "manual",
         }[compiler_info.cm & idaapi.CM_CC_MASK]
         # XXX
         if ConfigHelpers.get_arch().startswith("powerpc") and ida_db_info_structure.abiname == "sysv":

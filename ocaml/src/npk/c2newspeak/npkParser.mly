@@ -82,7 +82,7 @@ let rec build_ptrto n t =
 %}
 
 %token BREAK CONST CONTINUE CASE DEFAULT DO ELSE ENUM STATIC 
-%token EXTERN FOR IF REGISTER AUTO RETURN VOLATILE 
+%token EXTERN FOR IF REGISTER NORETURN AUTO RETURN VOLATILE
 %token SWITCH TYPEDEF WHILE GOTO
 %token CHAR DOUBLE FLOAT INT SHORT LONG STRUCT UNION SIGNED UNSIGNED VOID
 %token ELLIPSIS COLON COMMA DOT LBRACE RBRACE 
@@ -926,6 +926,7 @@ attribute:
 | INLINE                                   { [] }
 | CDECL                                    { [] }
 | RESTRICT                                 { [] }
+| NORETURN                                 { [] }
 ;;
 
 attribute_name_list:
@@ -936,7 +937,7 @@ attribute_name_list:
 attribute_name:
   IDENTIFIER                               { 
     begin match $1 with
-	"aligned" | "__aligned__" | "__cdecl__" | "__cdecl" | "noreturn" | "__noreturn__"
+	"aligned" | "__aligned__" | "__cdecl__" | "__cdecl" | "noreturn" | "__noreturn" | "__noreturn__"
       | "__always_inline__" | "always_inline"  | "__nothrow__" 
       | "__pure__" | "pure" | "__gnu_inline__"
       | "__deprecated__" | "deprecated" | "__malloc__" 
