@@ -1,8 +1,6 @@
-open Ast_mapper
-open Asttypes
-open Parsetree
-open Ast_convenience
+open Ppxlib
 
+module GhostAst = Ast_builder.Make(struct let loc = Location.none end)
 
 (* str.split(',') -> list *)
 let opc2fields str =
@@ -10,19 +8,20 @@ let opc2fields str =
     let fields = Str.split comma str in
     fields
 
+
 (* generate the AST for
    (var lsr f_end) land (2^(f_start-fend)-1)
 *)
 let do_shift_mask var f_start f_end =
-    let end_int = Ast_convenience.int f_end in
-    let mask_int = Ast_convenience.int ((2 lsl (f_start-f_end))-1) in
-    let shifted = (app (evar "lsr") [var; end_int]) in
-    app (evar "land") [shifted; mask_int]
+    let end_int = GhostAst.pexp_constant(Pconst_integer (string_of_int f_end, None)) in
+    let mask_int = GhostAst.pexp_constant(Pconst_integer (string_of_int ((2 lsl (f_start-f_end))-1), None)) in
+    let shifted = GhostAst.eapply (GhostAst.evar "lsr") [var; end_int] in
+    GhostAst.eapply (GhostAst.evar "land") [shifted; mask_int]
 
 (* generate the AST from
     start_bit:end_bit_name:flag:val *)
-let field2ast insn fld body =
-    let insn_var = (evar insn) in
+let field2ast insn body fld =
+    let insn_var = (GhostAst.evar insn) in
     let colon = Str.regexp ":" in
     let field_def = Array.of_list (Str.split colon fld) in
     let f_start =  int_of_string (Array.get field_def 0) in
@@ -34,84 +33,74 @@ let field2ast insn fld body =
         (* TODO: generate validation of unamed parts *)
         body
     end
-    else begin
-        let val_exp = do_shift_mask insn_var f_start f_end in
-        let_in [Ast_helper.Vb.mk (pvar f_name) val_exp ] body
+    else
+      let pat = GhostAst.pvar f_name in
+      let expr = do_shift_mask insn_var f_start f_end in
+      GhostAst.pexp_let
+        Nonrecursive
+        [ GhostAst.value_binding ~pat ~expr ]
+        body
+
+
+let raise_error loc msg =
+  Location.raise_errorf ~loc "ARMV8A decode error: %s" msg
+
+
+let parse_let loc expr =
+  match expr.pexp_desc with
+  | Pexp_let(_rec_flag, variable_bindings, tail) -> begin
+      match variable_bindings with
+      | variable_binding :: [] -> begin
+          match variable_binding.pvb_expr.pexp_desc with
+          | Pexp_apply(lambda, args) ->
+             let insn_ident = match lambda.pexp_desc with
+               | Pexp_ident(insn_ident) -> Longident.name insn_ident.txt
+               | _ -> raise_error lambda.pexp_loc "unexpected lambda expression ('let%decode _ = <here>')"
+             in
+             begin match args with
+             | (_arg_label, expr) :: [] -> begin
+                 match expr.pexp_desc with
+                 | Pexp_constant(Pconst_string(to_decode, _loc, _)) -> (insn_ident, to_decode, tail)
+                 | _ -> raise_error expr.pexp_loc "lambda application of let%decode expects exactly one string argument ('let%decode _ = _ \"<here>\"')"
+               end
+             | _ -> raise_error loc "too many parameters ('let%decode _ = _ \"...\" <here>')"
+             end
+
+          | _ ->
+             begin
+               Printf.printf "DEBUG: %s\n" (Ppxlib_ast.Pprintast.string_of_expression expr) ;
+               raise_error expr.pexp_loc "unexpected right expression ('let%decode _ = <here>')"
+             end
+        end
+
+      | _ -> raise_error loc "unsupported multiple variable binding"
+
     end
 
+  | _ -> raise_error loc "unsupported expression: supported pattern is 'let%decode _ = _ \"...\" in'"
 
-(*
-parse_let gets the AST corresponding to the
- 'let%decode VAR1 = VAR2 "spec" in'
-code and extracts VAR2 and "spec"
 
-AST:
-Pexp_let (Nonrecursive,
- [{pvb_pat =
-    {ppat_desc =
-      Ppat_var {txt = "insn'"}};
-   pvb_expr =
-    {pexp_desc =
-      Pexp_apply
-       ({pexp_desc =
-          Pexp_ident
-           {txt = Lident "insn"}},
-       [("",
-         {pexp_desc =
-           Pexp_constant
-            (Const_string
-              ("31:31:sf:F:0,30:30:op:F:0,29:29:S:F:0,28:24:_:F:10001,23:22:shift:F:xx,21:10:imm12:F:xxxxxxxxxxxx,9:5:Rn:F:xxxxx,4:0:Rd:F:xxxxx",
-              None))})])}}],
-*)
-let parse_let loc let_spec =
-    let spec = match let_spec with
-        | a::_ -> a
-        | [] ->
-          raise (Location.Error (
-              Location.error ~loc "let%decode syntax is invalid"))
-    in
-    match spec with
-    | { pvb_pat = { ppat_desc = Ppat_var { txt = new_insn }};
-        (* fugly code to deal with AST changes *)
-        #if OCAML_VERSION < (4, 03, 0)
-        pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
-                        [(_, {pexp_desc = Pexp_constant (Const_string (opc, None))})]) } } -> insn_ident, opc
-        #elif OCAML_VERSION < (4, 11, 0)
-        pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
-                        [(_, {pexp_desc = Pexp_constant (Pconst_string (opc, None))})]) } } -> insn_ident, opc
-        #else
-        pvb_expr = { pexp_desc = Pexp_apply( {pexp_desc = Pexp_ident{txt = Longident.Lident insn_ident } },
-                        [(_, {pexp_desc = Pexp_constant (Pconst_string (opc, _, None))})]) } } -> insn_ident, opc
-        #endif
-    | _ ->
-      raise (Location.Error (
-          Location.error ~loc "let%decode syntax is invalid"))
+let expand ~ctxt expr =
+  let loc = Expansion_context.Extension.extension_point_loc ctxt in
+  let (insn_ident, to_decode, tail) = parse_let loc expr in
+  let fields = opc2fields to_decode in
+  let res = List.fold_left (field2ast insn_ident) tail fields in
+  (*
+  Printf.printf "\n\n\n=======================================\n" ;
+  Printf.printf "BEFORE\n%s\n" (Ppxlib.Pprintast.string_of_expression expr);
+  Printf.printf "=======================================\n" ;
+  Printf.printf "AFTER:\n%s\n" (Ppxlib.Pprintast.string_of_expression res);
+  Printf.printf "=======================================\n" ;
+   *)
+  res
 
-let decode_mapper _argv =
-    { default_mapper with
-      expr = fun mapper expr ->
-          match expr with
-          | { pexp_desc =
-                  (* Should have name "decode". *)
-                  Pexp_extension ({ txt = "decode"; loc }, pstr)} ->
-            begin match pstr with
-                    (* the expected syntax is :
-                       let%decode new_insn = insn "decodestring" in let_body*)
-                    PStr [{ pstr_desc =
-                                Pstr_eval ({ pexp_loc  = loc;
-                                             pexp_desc = Pexp_let (_, let_spec, let_body)}, _)}] ->
-                      (* extract info from the let_spec *)
-                      let insn_ident, opc = parse_let loc let_spec in
-                      (* decode the opcode spec *)
-                      let fields = opc2fields opc in
-                      (* create the sequence of let var = in *)
-                      List.fold_left (fun body field -> field2ast insn_ident field body) let_body fields
-                | _ ->
-                  raise (Location.Error (
-                      Location.error ~loc "let%decode syntax is invalid"))
-            end
-          (* Delegate to the default mapper. *)
-          | x -> default_mapper.expr mapper x;
-    }
+let decode_extension =
+  Extension.V3.declare
+       "decode"
+       Extension.Context.expression
+       Ast_pattern.(single_expr_payload __)
+       expand
 
-let () = register "decode" decode_mapper
+let rule = Context_free.Rule.extension decode_extension
+
+let () = Driver.register_transformation ~rules:[ rule ] "armv8A_decode"

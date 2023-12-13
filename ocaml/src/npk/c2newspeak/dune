@@ -1,0 +1,7 @@
+(ocamllex
+  (modules npkLexer pp_lexer))
+
+(menhir
+  (flags --explain)
+  (modules npkParser pp_parser))
+

@@ -1102,7 +1102,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
 
   let cmp_stmts e1 e2 sz =
-    let tmp         = Register.make (Register.fresh_name ()) sz in
+    let tmp         = Register.make ~name:(Register.fresh_name ()) ~size:sz in
     let res         = Lval (V (T tmp))                          in
     let flag_stmts =
       [
@@ -1392,13 +1392,13 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
       let ip = Const (Data.Address.to_word ip' s.operand_sz) in
       [set_esp Sub (T esp) !Config.stack_width;
        Set (cesp, ip)]
-                
+
   let call s dest_exp = (icall s)@[Call dest_exp]
-                      
+
 
   (** call with expression *)
   let indirect_call s dst =
-    let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
+    let t    = Register.make ~name:(Register.fresh_name ()) ~size:(Register.size esp) in
     let has_sp = with_stack_pointer false s.a dst in
     let pre, real_dst, post =
       if has_sp then
@@ -1507,13 +1507,13 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
     popst @ stmt @ [Directive (Remove v)]
 
   let popf s sz = return s (popf_stmts s sz)
-                
+
   (** generation of statements for the push instructions *)
   let push_stmts (s: state) v =
     let esp' = esp_lval () in
-    let t    = Register.make (Register.fresh_name ()) (Register.size esp) in
-    (* in case esp is in the list, save its value before the first push 
-       (this is this value that has to be pushed for esp) 
+    let t    = Register.make ~name:(Register.fresh_name ()) ~size:(Register.size esp) in
+    (* in case esp is in the list, save its value before the first push
+       (this is this value that has to be pushed for esp)
        this is the purpose of the pre and post statements *)
     let pre, post=
       if List.exists (fun k -> with_stack_pointer false s.a (fst k)) v then
@@ -2253,8 +2253,8 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
   let aas s = core_aaa_aas s Sub
 
   let core_daa_das s op =
-    let old_al = Register.make (Register.fresh_name()) 8 in
-    let old_cf = Register.make (Register.fresh_name()) 1 in
+    let old_al = Register.make ~name:(Register.fresh_name()) ~size:8 in
+    let old_cf = Register.make ~name:(Register.fresh_name()) ~size:1 in
     let al_op_6 = BinOp (op, Lval al, const 6 8) in
     let carry_or_borrow =  if op = Asm.Add then
                              BBinOp(LogAnd,
@@ -2317,7 +2317,7 @@ module Make(Arch: Arch)(Domain: Domain.T)(Stubs: Stubs.T with type domain_t := D
 
   let aad s =
     let base = const_of_Z (int_of_byte s) 8 in
-    let tmp  = Register.make (Register.fresh_name ()) 16 in
+    let tmp  = Register.make ~name:(Register.fresh_name ()) ~size:16 in
     let stmts = [
         Set(V (T tmp), BinOp(Add, UnOp(ZeroExt 16, Lval al), BinOp(Mul, Lval ah, base)));
         Set(al, Lval (V (P (tmp, 0, 7))));

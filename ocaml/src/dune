@@ -1,0 +1,39 @@
+(env
+ (_
+   (flags (:standard -warn-error +a-7-26-67))))
+
+(rule
+  (target bincat_ver.ml)
+  (action
+    (with-stdout-to
+      %{target}
+      (echo "let version_string = \"%{env:VERSION=n/a}\""))))
+      
+(library
+  (name armv8A_ppx)
+  (kind ppx_rewriter)
+  (modules armv8A_ppx)
+  (libraries ppxlib str))
+
+(library
+  (name bincat)
+  (public_name bincat)
+  (modules_without_implementation code decoder domain loader)
+  (modules :standard \ armv8A_ppx main c2newspeak reduced_unrel_typenv)
+  (wrapped false)
+  (libraries bigarray ocamlgraph str unix zarith)
+  (preprocess
+    (per_module
+      ((pps armv8A_ppx) armv8A))))
+
+(executables
+  (names main c2newspeak)
+  (public_names bincat c2newspeak)
+  (package bincat)
+  (modules main c2newspeak)
+  (modes exe)
+  (link_flags :standard -cclib %{env:CCLIB=})
+  (libraries bincat))
+
+(include_subdirs unqualified)
+

@@ -40,7 +40,7 @@ else:
         "pybincat/mlbincat",
         sources=["pybincat/mlbincat.c"],
         libraries=["bincat"],
-        library_dirs=["../ocaml/src"],
+        library_dirs=["../ocaml/build/"],
         extra_compile_args=['-Wno-discarded-qualifiers'],
     )
 

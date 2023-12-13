@@ -116,8 +116,8 @@ struct
                                const 1 1, const 0 1))
 
   let set_cflag_vflag_after_add_with_carry a b carry =
-    let tmpregu = Register.make (Register.fresh_name ()) 33 in
-    let tmpregs = Register.make (Register.fresh_name ()) 33 in
+    let tmpregu = Register.make ~name:(Register.fresh_name ()) ~size:33 in
+    let tmpregs = Register.make ~name:(Register.fresh_name ()) ~size:33 in
     [ Set (V (T tmpregu), BinOp(Add, BinOp(Add, to33bits a, to33bits b),
                                 to33bits carry)) ;
       Set (V (T tmpregs), BinOp(Add, BinOp(Add, to33bits_s a, to33bits_s b),
@@ -130,13 +130,13 @@ struct
       Directive(Remove tmpregs) ]
 
   let cflag_update_stmts op a b =
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:33 in
     [ Set (V (T tmpreg), BinOp(op, to33bits a, to33bits b)) ;
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
       Directive (Remove tmpreg) ]
 
   let cflag_update_stmts_with_carry op a b =
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:33 in
     [ Set (V (T tmpreg), BinOp(op, to33bits (Lval (V (T cflag))),
                                BinOp(op, to33bits a, to33bits b))) ;
       Set (V (T cflag), Lval (V (P (tmpreg, 32, 32)))) ;
@@ -181,7 +181,7 @@ struct
     @ cflag_update_stmts Add (Lval (V (treg rn))) op2_stmt
 
   let op_sub rd rn op2_stmt =
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:33 in
     [ Set (V (T rd), BinOp(Sub, Lval (V (treg rn)), op2_stmt) ) ],
     [ zflag_update_exp (Lval (V (T rd))) ;
       nflag_update_exp rd ;
@@ -195,7 +195,7 @@ struct
       Directive (Remove tmpreg) ]
 
   let op_rsb rd rn op2_stmt =
-    let tmpreg = Register.make (Register.fresh_name ()) 33 in
+    let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:33 in
     [ Set (V (T rd), BinOp(Sub, op2_stmt, Lval (V (treg rn)))) ],
     [ zflag_update_exp (Lval (V (T rd))) ;
       nflag_update_exp rd ;
@@ -346,7 +346,7 @@ struct
         32, (V (treg rm)), M (Lval (V (treg rn)), 32), (V (treg rd)) in
     let stmts =
       if rm = rd then
-        let tmpreg = Register.make (Register.fresh_name ()) length in
+        let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:length in
         [ Set (V (T tmpreg), Lval mem)  ;
           Set (mem, Lval dst) ;
           Set (dst, Lval (V (T tmpreg))) ;
@@ -367,7 +367,7 @@ struct
     let rm = instruction land 0xf in
     let accumulate = instruction land (1 lsl 21) <> 0 in
     let set_cc = instruction land (1 lsl 20) <> 0 in
-    let tmpreg = Register.make (Register.fresh_name ()) 64 in
+    let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:64 in
     let accu_stmt = if accumulate then
         Set (V (treg rd), BinOp(Add, Lval (V (P (tmpreg, 0, 31))),
                                Lval (V (treg rn))))
@@ -392,7 +392,7 @@ struct
       let dir_op = if ascend then Add else Sub in
       let ofs = ref (if instruction land (1 lsl 24) = 0 then 0 else 4) in
       let store = instruction land (1 lsl 20) = 0 in
-      let tmpreg = Register.make (Register.fresh_name ()) 32 in
+      let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:32 in
       let tmpreg_v = V(T tmpreg) in
       (* set tmp reg to src register value, so that the src register can be
        * loaded *)
@@ -852,11 +852,11 @@ struct
             let opstmts,flagstmts = op_mvn (reg rd) op2_stmt in
             opstmts, flagstmts @ op2_carry_stmt, rd = 15
          | 0b10001 -> (* TST - set condition codes on Op1 AND Op2 *)
-            let tmpreg = Register.make (Register.fresh_name ()) 32 in
+            let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:32 in
             let opstmts,flagstmts = op_and tmpreg rn op2_stmt in
             [], opstmts @ flagstmts @ [ Directive (Remove tmpreg) ] @ op2_carry_stmt, false
          | 0b10011 -> (* TEQ - set condition codes on Op1 EOR Op2 *)
-            let tmpreg = Register.make (Register.fresh_name ()) 32 in
+            let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:32 in
             [],
             [ Set(V (T tmpreg), BinOp(Xor, Lval (V (treg rn)), op2_stmt)) ;
               zflag_update_exp (Lval (V (T tmpreg))) ;
@@ -865,7 +865,7 @@ struct
             @ op2_carry_stmt,
             false
          | 0b10101 -> (* CMP - set condition codes on Op1 - Op2 *)
-            let tmpreg = Register.make (Register.fresh_name ()) 33 in
+            let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:33 in
             [],
             [
               Set( V (T tmpreg), BinOp(Add, to33bits (Lval (V (treg rn))),
@@ -878,7 +878,7 @@ struct
               Directive (Remove tmpreg) ],
             false
          | 0b10111 -> (* CMN - set condition codes on Op1 + Op2 *)
-            let tmpreg = Register.make (Register.fresh_name ()) 33 in
+            let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:33 in
             [],
             [ Set( V (T tmpreg), BinOp(Add, to33bits (Lval (V (treg rn))),
                                        to33bits op2_stmt) ) ;
@@ -1193,7 +1193,7 @@ struct
   let thumb_cmp_imm _s isn =
     let rn = (isn lsr 8) land 7 in
     let imm = isn land 0xff in
-    let tmpreg = Register.make (Register.fresh_name ()) 32 in
+    let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:32 in
     let opstmts,flagstmts = op_sub tmpreg rn (const imm 32) in
     mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
 
@@ -1336,7 +1336,7 @@ struct
     let rn = (isn lsr 3) land 7 in
     let rdm = isn land 7 in
     let dest = V (treg rdm) in
-    let tmp = Register.make (Register.fresh_name ()) 64 in
+    let tmp = Register.make ~name:(Register.fresh_name ()) ~size:64 in
     [ MARK_ISN (Set (V (T tmp),
                     BinOp(Mul,
                           Lval dest,
@@ -1379,7 +1379,7 @@ struct
        notimplemented_thumb s isn "ROR (register)"
 
     | 0b1000 -> (* TST Test *)
-       let tmpreg = Register.make (Register.fresh_name ()) 32 in
+       let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:32 in
        let opstmts,flagstmts = op_and tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
 
@@ -1387,12 +1387,12 @@ struct
        op_rsb (reg op0) op1 (const 0 32) |> mark_couple
       
     | 0b1010 -> (* CMP Compare Registers *)
-       let tmpreg = Register.make (Register.fresh_name ()) 32 in
+       let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:32 in
        let opstmts,flagstmts = op_sub tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
 
     | 0b1011 -> (* CMN Compare Negative *)
-       let tmpreg = Register.make (Register.fresh_name ()) 32 in
+       let tmpreg = Register.make ~name:(Register.fresh_name ()) ~size:32 in
        let opstmts,flagstmts = op_add tmpreg op0 (Lval (V (treg op1))) in
        mark_as_isn (opstmts @ flagstmts @ [ Directive (Remove tmpreg) ])
 

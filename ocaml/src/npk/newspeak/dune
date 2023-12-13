@@ -1,0 +1,6 @@
+(ocamllex
+  (modules abilexer))
+
+(menhir
+  (flags --explain)
+  (modules abiparser))

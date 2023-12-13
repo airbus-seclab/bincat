@@ -18,23 +18,23 @@ if not os.path.isdir(plugin_dir):
 
 bincat_path = os.path.dirname(os.path.realpath(__file__))
 
-src_idabincat = os.path.join(bincat_path, "idabincat")
-src_pybincat = os.path.join(bincat_path, "pybincat")
+src_idabincat = os.path.join(bincat_path, "python", "idabincat")
+src_pybincat = os.path.join(bincat_path, "python", "pybincat")
 
 if os.path.isdir(src_idabincat) and os.path.isdir(src_pybincat):
     try:
-        print("Copying 'idabincat' to "+plugin_dir)
+        print("Copying 'idabincat' to " + plugin_dir)
         shutil.copytree(src_idabincat, os.path.join(plugin_dir, "idabincat"), dirs_exist_ok=True)
         bin_path = os.path.join(plugin_dir, "idabincat", "bin")
-        print("Copying 'bin' to "+bin_path)
-        shutil.copytree(os.path.join(bincat_path, 'bin'), bin_path)
-        print("Copying 'pybincat' to "+plugin_dir)
+        print("Copying 'bin' to " + bin_path)
+        shutil.copytree(os.path.join(bincat_path, 'bin'), bin_path, dirs_exist_ok = True)
+        print("Copying 'pybincat' to " + plugin_dir)
         shutil.copytree(src_pybincat, os.path.join(plugin_dir, "pybincat"), dirs_exist_ok=True)
-        print("Copying 'bcplugin.py' to "+plugin_dir)
+        print("Copying 'bcplugin.py' to " + plugin_dir)
         shutil.copy(os.path.join(src_idabincat, "bcplugin.py"),
                     os.path.join(plugin_dir, "bcplugin.py"))
     except OSError as e:
-        print("Could not install! Error: "+str(e)+"\n")
+        print("Could not install! Error: " + str(e) + "\n")
     else:
         print("Plugin installed, please restart IDA to use BinCAT")
 else:

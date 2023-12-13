@@ -167,11 +167,7 @@ module Make(Modname: sig val name : string end) = struct
     Printexc.print_raw_backtrace !logfid (Printexc.get_callstack 100);
     flush !logfid;
 
-#if OCAML_VERSION < (4, 08, 0)
-    flush Pervasives.stdout;
-#else
     flush Stdlib.stdout;
-#endif
     raise (Exceptions.Error msg)
 
   let exc_and_abort e fmsg =
@@ -180,11 +176,7 @@ module Make(Modname: sig val name : string end) = struct
     Printf.fprintf !logfid  "%s\n" (Printexc.to_string e);
     Printexc.print_backtrace !logfid;
     flush !logfid;
-#if OCAML_VERSION < (4, 08, 0)
-    flush Pervasives.stdout;
-#else
     flush Stdlib.stdout;
-#endif
     raise (Exceptions.Error msg)
 
 

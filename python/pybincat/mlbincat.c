@@ -9,7 +9,6 @@
 #include <caml/memory.h>
 #include <caml/callback.h>
 #include <caml/printexc.h>
-#include <caml/compatibility.h>
 
 static PyObject *OcamlException;
 

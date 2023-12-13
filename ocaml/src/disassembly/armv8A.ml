@@ -223,7 +223,7 @@ struct
     let num = (insn land 0x1F) in
     if num = 31 && not use_sp then begin
       L.debug (fun p->p "write to XZR");
-      let tmp = Register.make (Register.fresh_name ()) (sf2sz sf) in
+      let tmp = Register.make ~name:(Register.fresh_name ()) ~size:(sf2sz sf) in
       V(T(tmp)), [Directive(Remove(tmp))]
     end else
       V(reg_sf num sf), []
@@ -535,7 +535,7 @@ UBFM <31:31:sf:F:0,30:29:opc:F:10,28:23:_:F:100110,22:22:N:F:0,21:16:immr:F:xxxx
     let rn = get_reg_lv rn_v sf_v in
     let rm = get_reg_lv rm_v sf_v in
     let rd = get_reg_lv rd_v sf_v in
-    let tmp = Register.make (Register.fresh_name ()) (2*sz) in
+    let tmp = Register.make ~name:(Register.fresh_name ()) ~size:(2*sz) in
     let tmp_v = V(T(tmp)) in
     [ Set(tmp_v, UnOp(ZeroExt (sz*2),Lval rn)); Set(tmp_v, BinOp(Or, BinOp(Shl, Lval tmp_v, const sz (sz*2)), UnOp(ZeroExt (sz*2), Lval rm)));
       Set(rd, Lval(V(P(tmp, imms_v, imms_v+sz-1)))); Directive(Remove tmp)]
@@ -579,7 +579,7 @@ UMULH  <31:31:sf:1  30:29:op54:00  28:24:_:11011  23:23:U:1  22:21:_:10  20:16:R
     if sf_v = 0 && (op31_v != 0) then
       error s.a (Printf.sprintf "invalid instruction 0x%x" insn);
     let sz = sf2sz sf_v in
-    let tmp = Register.make (Register.fresh_name ()) (sz*2) in
+    let tmp = Register.make ~name:(Register.fresh_name ()) ~size:(sz*2) in
     let u_v = op31_v lsr 2 in
     match op31_v with
     | 0 ->

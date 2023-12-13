@@ -344,22 +344,22 @@ struct
     match imm, funct3 with
     | 0, 1 -> (* slliw *)
        let c = const_w (Z.of_int imm) in
-       let res = Register.make (Register.fresh_name()) (32+imm) in
-       binop_imm_w Shl res rs1 rd c (ZeroExt Isa.xlen) 
-       
+       let res = Register.make ~name:(Register.fresh_name()) ~size:(32+imm) in
+       binop_imm_w Shl res rs1 rd c (ZeroExt Isa.xlen)
+
     | imm, 0 -> (* addiw *)
        let imm = Const (Word.of_int (sign_extension (Z.of_int imm) 12 32) 32) in
-       let res = Register.make (Register.fresh_name()) 33 in
+       let res = Register.make ~name:(Register.fresh_name()) ~size:33 in
        binop_imm_w Add res rs1 rd imm (SignExt Isa.xlen)
        
     | 0, 5 -> (* srliw *) 
        let c = const_w (Z.of_int imm) in
-       let res = Register.make (Register.fresh_name()) (32-imm) in
+       let res = Register.make ~name:(Register.fresh_name()) ~size:(32-imm) in
        binop_imm_w Shl res rs1 rd c (ZeroExt Isa.xlen)
        
     | 32, 5 -> (* sraiw *)
        let c = const_w (Z.of_int imm) in
-       let res = Register.make (Register.fresh_name()) (32-imm) in
+       let res = Register.make ~name:(Register.fresh_name()) ~size:(32-imm) in
        binop_imm_w Shl res rs1 rd c (SignExt Isa.xlen)
        
     | _, _ -> L.abort (fun p -> p "undefined register-immediate instruction on words")
@@ -381,7 +381,7 @@ struct
         | 5, 32 -> (* sraw *) Shr, 64, Some (SignExt 32)
         | _, _ -> L.abort (fun p -> p "undefined (funct3, funct3) in .w instruction")
       in
-      let aux = Register.make (Register.fresh_name()) sz in
+      let aux = Register.make ~name:(Register.fresh_name()) ~size:sz in
       let e = BinOp(op, rs1, rs2) in
       let paux = Lval (V (P (aux, 0, 31))) in
       let e' =

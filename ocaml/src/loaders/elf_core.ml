@@ -893,7 +893,7 @@ let to_rela s rofs shdr symtab hdr =
   }
 
 let rela_to_string (rela:e_rela_t) =
-  Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s addend=%-09x %s"
+  Printf.sprintf "shidx=%2i ofs=%08x sym=%02x type=%-20s addend=%-9x %s"
     rela.p_r_shdr.p_sh_index
     (Z.to_int rela.r_offset)
     (Z.to_int rela.r_sym)

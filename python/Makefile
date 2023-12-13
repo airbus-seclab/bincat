@@ -8,8 +8,10 @@ endif
 
 PYTHON     ?=python3
 
+OCAMLSTDLIB = $(shell ocamlc -config-var standard_library)
+
 all:
-	$(PYTHON) ./setup.py build
+	CFLAGS="-I $(OCAMLSTDLIB)" $(PYTHON) ./setup.py build
 
 install:
 	$(PYTHON) ./setup.py install $(PREFIXOPT) $(DESTDIROPT)

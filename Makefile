@@ -1,10 +1,13 @@
 export DESTDIR=/
 export PREFIX=usr/local
+ifeq ($(OS),Windows_NT)
+export PATH=$(shell $$CC -print-sysroot)/mingw/bin:${PATH}
+endif
 
 PYTHON	   ?=python3
 PYPATH	   =python
 NPKPATH    =lib
-MLPATH	   =ocaml/src
+MLPATH	   =ocaml
 TESTPATH = test
 DPREFIX	   =$(PREFIX)
 DOCMLPATH  =../../doc/generated/ocaml
@@ -13,7 +16,7 @@ DOCGENPATH =doc/generated
 MLLIBDIR=../../python/idabincat
 IDAPATH   ?= $(HOME)/ida-6.95
 IDAUSR	?= $(HOME)/.idapro
-C2NPK := ../ocaml/src/npk/c2newspeak.opt
+C2NPK := ../ocaml/build/c2newspeak
 
 all:
 	@echo "Compiling OCaml part................................................."
@@ -84,9 +87,9 @@ else
 	@echo "Making Windows binary release."
 	$(eval distdir := bincat-win-$(shell git describe --dirty))
 	mkdir -p $(distdir)/bin
-	cp "$(shell ldd ocaml/src/bincat.exe|perl -nle 'print $$1 if /.*=> (.*libgmp.*) \(.*\)/')" "$(distdir)/bin"
-	cp ocaml/src/npk/c2newspeak.opt "$(distdir)/bin/c2newspeak.exe"
-	cp ocaml/src/bincat.exe "$(distdir)/bin"
+	cp "$(shell ldd ocaml/build/bincat|perl -nle 'print $$1 if /.*=> (.*libgmp.*) \(.*\)/')" "$(distdir)/bin"
+	cp ocaml/build/bincat "$(distdir)/bin/bincat.exe"
+	cp ocaml/build/c2newspeak "$(distdir)/bin/c2newspeak.exe"
 	cp -r python/build/lib/ "$(distdir)/python"
 	cp -r python/idabincat/conf/ "$(distdir)/python/idabincat"
 	mkdir -p "$(distdir)"/python/idabincat/lib
@@ -104,8 +107,8 @@ lindist: clean all
 	@echo "Making Linux binary release."
 	$(eval distdir := bincat-bin-$(shell git describe --dirty))
 	mkdir -p "$(distdir)/bin"
-	cp ocaml/src/bincat "$(distdir)/bin"
-	cp ocaml/src/npk/c2newspeak.opt "$(distdir)/bin/c2newspeak"
+	cp ocaml/build/bincat "$(distdir)/bin/bincat"
+	cp ocaml/build/c2newspeak "$(distdir)/bin/c2newspeak"
 	cp -r python/build/lib* "$(distdir)/python"
 	cp -r python/idabincat/conf/ "$(distdir)/python/idabincat"
 	mkdir "$(distdir)/python/idabincat/lib"
