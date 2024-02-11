@@ -207,7 +207,7 @@ class Arch:
                 v = [v]
             v += [0, 0, 0]
             target_value, target_vtop, target_taint, target_ttop = v[:4]
-            target_str = val2str(reg_len(r), target_value, target_vtop, target_taint, target_ttop)
+            target_str = val2str(cfa.reg_len(r), target_value, target_vtop, target_taint, target_ttop)
             value = bincat[r].value
             vtop = bincat[r].vtop
             taint = bincat[r].taint
@@ -217,7 +217,7 @@ class Arch:
                 diff.append("- target:  %s = %s" %
                             (r, target_str))
                 diff.append("+ bincat:  %s = %s  %r" %
-                            (r, val2str(reg_len(r), value, vtop, taint, ttop), bincat[r]))
+                            (r, val2str(cfa.reg_len(r), value, vtop, taint, ttop), bincat[r]))
                 diff_summary.append(r)
             else:
                 same.append("  both  :  %s = %s  %r" %
@@ -260,7 +260,7 @@ class Arch:
         print(bctest.listing)
         print()
         for reg in regs:
-            rl = reg_len(reg)
+            rl = cfa.reg_len(reg)
             regspec = reg.split(":")
             reg = regspec[0]
             bitfield = regspec[1:]

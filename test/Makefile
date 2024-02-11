@@ -1,7 +1,7 @@
 COVERAGE=medium
 PYTESTFLAGS=
 
-ARCHS=x86 armv7 armv7thumb armv8 powerpc x64
+ARCHS=x86 armv7 armv7thumb armv8 powerpc powerpc64 riscv64 x64
 EXE=$(foreach n,$(ARCHS),eggloader_$(n))
 ALLOBJ=libc.no $(EXE)
 
@@ -29,7 +29,7 @@ eggloader_powerpc: eggloader_powerpc.c
 	powerpc-linux-gnu-gcc -static -g -o $@ $<
 
 eggloader_powerpc64: eggloader_powerpc64.c
-	powerpc64-linux-gnu-gcc-11 -static -g -o $@ $<
+	powerpc64-linux-gnu-gcc -static -g -o $@ $<
 
 eggloader_riscv64: eggloader_riscv64.c
 	riscv64-linux-gnu-gcc -static -g -o $@ $<
