@@ -1,4 +1,4 @@
-(lang dune 3.0)
+(lang dune 2.9)
 
 (name bincat)
 
@@ -7,6 +7,8 @@
 (using menhir 2.0)
 
 (use_standard_c_and_cxx_flags)
+
+(generate_opam_files)
 
 (package
   (name bincat)

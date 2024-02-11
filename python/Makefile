@@ -6,15 +6,13 @@ ifdef DESTDIR
 DESTDIROPT = --root=$(DESTDIR)
 endif
 
-PYTHON     ?=python3
-
 OCAMLSTDLIB = $(shell ocamlc -config-var standard_library)
 
 all:
-	CFLAGS="-I $(OCAMLSTDLIB)" $(PYTHON) ./setup.py build
+	CFLAGS="-I $(OCAMLSTDLIB)" pip wheel --no-deps .
 
 install:
-	$(PYTHON) ./setup.py install $(PREFIXOPT) $(DESTDIROPT)
+	pip install --no-deps $(PREFIXOPT) $(DESTDIROPT) .
 
 doc:
 	make -C doc generate
