@@ -1,46 +1,36 @@
 name: Build-Windows
-on: [push, pull_request]
+
+on:
+  workflow_dispatch:
 
 jobs:
   build-windows:
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+
+      - name: Install OCaml
+        uses: ocaml/setup-ocaml@v2
+        if: runner.os == 'Windows'
         with:
-          # also fetch tags
-          fetch-depth: 0
-      - name: Install esy (OCaml package manager)
-        run: npm install -g esy
-      - name: Install OCaml dependencies
-        run: |
-          cd ocaml/src
-          set HOME=D:\
-          echo "HOME is %HOME%"
-          echo ESY INSTALL START
-          esy install -v -v
-          echo ESY INSTALL END
-        shell: cmd
-      - name: Build BinCAT for Windows installer
-        run: |
-          set HOME=D:\a
-          make windist PYTHON=python
-        shell: cmd
-        env:
-          CAMLC: "esy ocamlc"
-          CAMLOPT: "esy ocamlopt"
-          CAMLLEX: "esy ocamllex"
-          CAMLDEP: "esy ocamldep"
-          CAMLDOC: "esy ocamldoc"
-          CAMLFIND: "esy ocamlfind"
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-        if: always()
-        with:
-          limit-access-to-actor: true
-      - name: Publish installer
-        uses: actions/upload-artifact@v2
+          ocaml-compiler: "ocaml-variants=4.14.1+mingw64"
+          allow-prerelease-opam: true
+          opam-repositories: |
+            opam-repository-mingw: https://github.com/ocaml-opam/opam-repository-mingw.git#sunset
+            default: https://github.com/ocaml/opam-repository.git
+
+      - name: Install Cygwin dependencies
+        run: setup-x86_64.exe -P curl -P git -P make -P python3 -P mingw64-x86_64-gcc-g++ -P mingw64-x86_64-gmp -P zip
+
+      - name: Install Ocaml dependencies
+        run: opam depext -i dune menhir ocamlgraph ppxlib zarith
+
+      - name: Make windist
+        run: opam exec -- make windist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: bincat-installer
-          # XXX
-          path: bincat-bin-*/bincat-bin*.zip
+          path: bincat-win-*/

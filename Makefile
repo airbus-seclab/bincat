@@ -1,8 +1,6 @@
+SHELL=/bin/bash
 export DESTDIR=/
 export PREFIX=usr/local
-ifeq ($(OS),Windows_NT)
-export PATH=$(shell $$CC -print-sysroot)/mingw/bin:${PATH}
-endif
 
 PYTHON	   ?=python3
 PYPATH	   =python
@@ -95,17 +93,12 @@ else
 	mkdir -p "$(distdir)"/python/idabincat/lib
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md CHANGELOG doc "$(distdir)"
-	# On azure, do not zip or delete $(distdir)
-ifeq ($(BUILD_BUILDID),)
-	zip -r "$(distdir).zip" "$(distdir)"
-	-rm -rf "$(distdir)"
-endif
 endif
 
 lindist: STATIC=1
 lindist: clean all
 	@echo "Making Linux binary release."
-	$(eval distdir := bincat-bin-$(shell git describe --dirty))
+	$(eval distdir := bincat-linux-$(shell git describe --dirty))
 	mkdir -p "$(distdir)/bin"
 	cp ocaml/build/bincat "$(distdir)/bin/bincat"
 	cp ocaml/build/c2newspeak "$(distdir)/bin/c2newspeak"
@@ -114,11 +107,8 @@ lindist: clean all
 	mkdir "$(distdir)/python/idabincat/lib"
 	cp -r lib/*.no "$(distdir)/python/idabincat/lib"
 	cp -r python/install_plugin.py README.md CHANGELOG doc "$(distdir)"
-	# On azure, do not zip or delete $(distdir)
-ifeq ($(CI_BUILD),)
 	tar cvJf "$(distdir).tar.xz" "$(distdir)"
 	-rm -rf "$(distdir)"
-endif
 
 tags:
 	otags -vi -r ocaml

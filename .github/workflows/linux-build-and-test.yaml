@@ -1,12 +1,14 @@
 name: Build-Test-Linux
-on: [push, pull_request]
+
+on:
+  workflow_dispatch:
 
 jobs:
   build-test-linux:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           # also fetch tags
           fetch-depth: 0
@@ -18,12 +20,12 @@ jobs:
           mkdir -p out
           docker run --rm -v "$(pwd)"/out:/out -w /install/bincat/test "bincat:ci-test" bash -x -c 'python3 -m pytest --coverage smoke -k "not repne" --junitxml=/install/bincat/test-results/pytest_report.xml || true; cp /install/bincat/test-results/pytest_report.xml /out/'
       - name: Upload Test Results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: Unit Test Results
           path: out/pytest_report.xml
       - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
+        uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
           files: out/pytest_report.xml
@@ -35,16 +37,16 @@ jobs:
           echo "-- find --"
           find out
       - name: Publish BinCAT for Linux installer
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: bincat-installer
-          path: out/bincat-bin-*.tar.xz
+          path: out/bincat-linux-*.tar.xz
   event_file:
     name: "Event File"
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}
