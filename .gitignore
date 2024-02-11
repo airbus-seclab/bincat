@@ -28,6 +28,8 @@ ocaml/src/bincat
 ocaml/test/.cache
 ocaml/src/bincat_ver.ml
 ocaml/src/armv8A_ppx
+ocaml/bincat.opam
+ocaml/bincat.install
 *.no
 python/idabincat/bin
 test/eggloader_x86
