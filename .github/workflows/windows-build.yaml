@@ -10,8 +10,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # also fetch tags
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Install OCaml
         uses: ocaml/setup-ocaml@v2

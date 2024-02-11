@@ -10,8 +10,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # also fetch tags
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Build
         run: |
@@ -38,7 +38,7 @@ jobs:
         #if: ${{ github.event.type == 'PushEvent'  && github.event.ref == 'refs/heads/master' }}
         run: |
           mkdir -p out
-          docker run -v "$(pwd)"/out:/out -w /install/bincat "bincat:ci-test" bash -x -c 'make lindist && cp -R bincat-bin-* /out; find /out'
+          docker run -v "$(pwd)"/out:/out -w /install/bincat "bincat:ci-test" bash -x -c 'make lindist && cp -R bincat-linux-* /out; find /out'
           echo "-- find --"
           find out
 
