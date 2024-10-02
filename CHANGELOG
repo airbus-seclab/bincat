@@ -1,8 +1,13 @@
+2024-10-02: v1.4
+* Support of IDA 9.0
+* Update documentation
+
 2023-02-11: v1.3
 * Support of IDA 8.3
 * New build infrastructure for OCaml
 * Support of most recent OCaml compiler
 * Small bugfixes and improvements
+* Update documentation
 
 2021-12-15: v1.2
 * Initial RISC-V support

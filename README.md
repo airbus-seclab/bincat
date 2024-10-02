@@ -26,7 +26,7 @@ Check the [tutorial](doc/tutorial.md) out to see the corresponding tasks.
 
 Supported host platforms:
 
-* IDA plugin: all, version **7.4 or later** (Only Python 3 is supported)
+* IDA plugin: all, version **7.4 or later** (only Python 3 is supported)
 * analyzer (local or remote): Linux, Windows, macOS (maybe)
 
 Supported CPU for analysis (for now):
@@ -73,7 +73,7 @@ On Windows:
 #### IDA Plugin
 
 * [Windows manual install](doc/plugin_manual_win.md).
-* [Linux manual install](doc/install_plugin.md)
+* [Linux manual install](doc/install_manual.md)
 
 BinCAT should work with IDA on Wine, once pip is installed:
 
@@ -133,12 +133,7 @@ BinCAT includes a modified copy of
 
 ## Automated builds
 
-### Windows
-Automated builds are performed automatically (see
-[azure-pipelines.yml](azure-pipelines.yml)). The latest builds and test results
-can be accessed [here](https://dev.azure.com/airbus-seclab/bincat/_build)
-
-### Linux
-Automated builds are performed automatically using GitHub Actions (see
-[here](.github/workflows/linux-build-and-test.yaml)), results can be obtained
-on GitHub's [Actions](https://github.com/airbus-seclab/bincat/actions) tab.
+Automated builds for Linux and Windows are performed automatically
+using GitHub Actions (see [here](.github/workflows)), results can be
+obtained on GitHub's
+[Actions](https://github.com/airbus-seclab/bincat/actions) tab.

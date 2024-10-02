@@ -33,3 +33,4 @@ ocaml/bincat.install
 *.no
 python/idabincat/bin
 test/eggloader_x86
+python/*.whl

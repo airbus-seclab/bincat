@@ -26,5 +26,5 @@
 git clone https://github.com/airbus-seclab/bincat.git
 cd bincat
 eval $(opam env)
-make windist PYTHON=python
+make windist
 ```

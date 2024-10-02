@@ -1,71 +1,60 @@
 ## Building & Install (Linux / macOS)
+
 ### Dependencies
 
 * ocaml >= 4.03 / check that type value = long in the include header caml/mlvalues.h (compiled with -fPIC for amd-64)
 * ocamlfind
 * dune
+* menhir for the configuration parsing in ocaml
 * ppxlib
-* ocamlgraph 1.8
-* num (for ocaml >= 4.06)
-* zarith library >=1.4
-* python 2.7
+* ocamlgraph >= 1.8
+* zarith library >= 1.4
+* python 3
 * pytest for tests
 * ocamldoc for the ocaml documentation generation
-* python3-sphinx for the python documentation generation
-* menhir for the configuration parsing in ocaml
-* the ocamlgraph library
+* python-sphinx for the python documentation generation
 * IDA >= 7.0 (for the plugin)
 
 #### Installing linux packages
 All these dependencies except IDA are usually packaged by linux distributions.
 
-##### on Debian Sid:
+##### on Debian and Ubuntu:
 ```
-apt install ocaml menhir ocaml-findlib libzarith-ocaml-dev \
-  libocamlgraph-ocaml-dev python3-setuptools python3-dev \
-  ocaml-compiler-libs libppx-tools-ocaml-dev cppo libnum-ocaml-dev
+apt install python3 python3-pip python3-pytest \
+        ocaml menhir ocaml-findlib libzarith-ocaml-dev \
+        libocamlgraph-ocaml-dev python3-setuptools python3-dev \
+        ocaml-compiler-libs libppx-tools-ocaml-dev cppo libapparmor1 \
+        ocaml-dune menhir ocaml-odoc libppxlib-ocaml-dev xz-utils \
+        vim nasm libc6-dev-i386 wget git
 ```
 
 to run tests:
 
 ```
-apt install gcc-powerpc-linux-gnu gcc-arm-linux-gnueabi \
-  gcc-aarch64-linux-gnu gcc-aarch64-linux-gnu \
-  gcc-riscv64-linux-gnu qemu qemu-user nasm \
-  libc6-dev-arm64-cross libc6-dev-armel-cross libc6-dev-riscv64-cross \
-  libc6-dev-powerpc-cross 
-```
-
-##### on Ubuntu 18.04:
-Enable the `universe` repository.
-```
-apt install make python python-pip python-setuptools python-dev python-pytest \
-        nasm libc6-dev-i386 gcc-multilib ocaml menhir ocaml-findlib \
-        libzarith-ocaml-dev libocamlgraph-ocaml-dev ocaml-compiler-libs \
-        libppx-tools-ocaml-dev cppo
+apt install python3 python3-pip python3-pytest \
+        ocaml menhir ocaml-findlib libzarith-ocaml-dev \
+        libocamlgraph-ocaml-dev python3-setuptools python3-dev \
+        ocaml-compiler-libs libppx-tools-ocaml-dev cppo libapparmor1 \
+        ocaml-dune menhir libppxlib-ocaml-dev xz-utils \
+        vim nasm libc6-dev-i386 wget git \
+        python3-pytest-xdist gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi gcc-powerpc64-linux-gnu gcc-powerpc-linux-gnu gcc-riscv64-linux-gnu qemu qemu-user libc6-dev-armel-cross libc6-dev-powerpc-cross libc6-dev-arm64-cross libc6-dev-ppc64-cross libc6-dev-riscv64-cross
 ```
 
 ##### on Archlinux:
 Install packages first
 ```
-pacman -S base-devel ocaml-findlib opam rsync git python3-pytest python3-sphinx
+pacman -S base-devel opam rsync git python-pytest python-sphinx
 ```
 
-Add a symlink to caml includes:
+Install OCaml packages using Opam
 ```
-ln -s /usr/lib/ocaml/caml /usr/include/caml
-```
-
-Install ocaml packages using opam
-```
-opam init --use-internal-solver
+opam init
 eval $(opam env)
-opam install zarith ocamlgraph menhir ppx_tools cppo num --use-internal-solver
+opam install dune menhir ocamlgraph ppxlib zarith
 ```
 
 If you also want to run bincat tests, install the following packages, and run the following commands:
 * aarch64-linux-gnu-gcc
-* arm-linux-gnueabihf-gcc (from AUR)
 * arm-linux-gnueabihf-gcc (from AUR)
 * powerpc-linux-gnu-gcc (from AUR)
 * qemu-arch-extra
@@ -75,7 +64,6 @@ ln -s /usr/bin/arm-linux-gnueabihf-as /usr/bin/arm-linux-gnueabi-as
 ln -s /usr/bin/arm-linux-gnueabihf-objcopy /usr/bin/arm-linux-gnueabi-objcopy
 ln -s /usr/bin/arm-linux-gnueabihf-objdump /usr/bin/arm-linux-gnueabi-objdump
 ```
-
 
 These instruction have been tested from a clean chroot (`pacstrap -i -c -d bincat-test base`, then `systemd-nspawn -b -D bincat-test`).
 
@@ -104,6 +92,13 @@ make install
 ```
 make doc
 ```
+
+5. for IDA plugin
+
+```
+make IDAuser
+```
+
 
 ### OCaml compilation
 
