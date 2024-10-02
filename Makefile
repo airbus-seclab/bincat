@@ -83,7 +83,7 @@ ifneq ($(OS),Windows_NT)
 	    $(error "windist only works on Windows.")
 else
 	@echo "Making Windows binary release."
-	$(eval distdir := bincat-win-$(shell git describe --dirty))
+	$(eval distdir := bincat-win-$(shell git describe --tags --dirty))
 	mkdir -p $(distdir)/bin
 	cp "$(shell ldd ocaml/build/bincat|perl -nle 'print $$1 if /.*=> (.*libgmp.*) \(.*\)/')" "$(distdir)/bin"
 	cp ocaml/build/bincat "$(distdir)/bin/bincat.exe"
@@ -98,7 +98,7 @@ endif
 lindist: STATIC=1
 lindist: clean all
 	@echo "Making Linux binary release."
-	$(eval distdir := bincat-linux-$(shell git describe --dirty))
+	$(eval distdir := bincat-linux-$(shell git describe --tags --dirty))
 	mkdir -p "$(distdir)/bin"
 	cp ocaml/build/bincat "$(distdir)/bin/bincat"
 	cp ocaml/build/c2newspeak "$(distdir)/bin/c2newspeak"
