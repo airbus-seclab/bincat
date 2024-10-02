@@ -24,6 +24,7 @@ import subprocess
 try:
     import idaapi
     from ida_typeinf import PRTYPE_1LINE
+    import idc
 except ImportError:
     # imported outside ida - for instance, from wsgi.py
     pass
@@ -167,7 +168,7 @@ class NpkGen(object):
         helper do import a type by name into local types
         """
         # print "import_name : "+type_name
-        idaapi.import_type(idaapi.cvar.idati, -1, type_name, 0)
+        idc.import_type(-1, type_name)
 
     def imp_cb(self, ea, name, ord_nb):
         """
@@ -251,7 +252,7 @@ class NpkGen(object):
     def add_types(self):
         local_type = idaapi.tinfo_t()
         count = 0
-        for ordinal in range(1, idaapi.get_ordinal_qty(idaapi.cvar.idati)):
+        for ordinal in range(1, idaapi.get_ordinal_limit(idaapi.cvar.idati)):
             local_type.get_numbered_type(idaapi.cvar.idati, ordinal)
             if self.analyze_type(local_type):
                 count += 1

@@ -48,6 +48,7 @@ from PyQt5.QtCore import QItemSelection
 from PyQt5.QtCore import QItemSelectionModel
 from PyQt5.QtCore import QRectF
 from PyQt5.QtCore import QAbstractTableModel
+import PyQt5.QtWidgets as QtWidgets
 from PyQt5.QtWidgets import QMenu
 from PyQt5.QtWidgets import QStyle
 from PyQt5.QtWidgets import QAction
@@ -60,7 +61,6 @@ from PyQt5.QtWidgets import QInputDialog
 from PyQt5.QtWidgets import QStyledItemDelegate
 from PyQt5.QtWidgets import QAbstractItemView
 
-from .hexview_auto import Ui_Form as HexViewBase
 from .common import h
 from .common import LoggingObject
 
@@ -465,8 +465,7 @@ class HexItemSelectionModel(QItemSelectionModel):
         self._update_selection(self._start_qindex, qindex)
         self._start_qindex = None
 
-
-class HexTableView(QTableView, LoggingObject):
+class HexTableView(QTableView):
     """ table view that handles click events for better selection handling """
     leftMousePressed = pyqtSignal([QMouseEvent])
     leftMousePressedIndex = pyqtSignal([QModelIndex])
@@ -603,7 +602,7 @@ class HexTableView(QTableView, LoggingObject):
 Origin = namedtuple("Origin", ["offset", "name"])
 
 
-class HexViewWidget(QWidget, HexViewBase, LoggingObject):
+class HexViewWidget(QWidget):
     originsChanged = pyqtSignal()
     newOverride = pyqtSignal(int, int, bool)
 
@@ -671,6 +670,27 @@ class HexViewWidget(QWidget, HexViewBase, LoggingObject):
         self.view.setItemDelegate(HexItemDelegate(self._model, self))
 
         self.statusLabel.setText("")
+
+    def setupUi(self, Form):
+        Form.setObjectName("Form")
+        Form.resize(400, 300)
+        self.verticalLayout = QtWidgets.QVBoxLayout(Form)
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.mainLayout = QtWidgets.QVBoxLayout()
+        self.mainLayout.setObjectName("mainLayout")
+        self.statusLabel = QtWidgets.QLabel(Form)
+        self.statusLabel.setMaximumSize(QtCore.QSize(16777215, 15))
+        self.statusLabel.setObjectName("statusLabel")
+        self.mainLayout.addWidget(self.statusLabel)
+        self.verticalLayout.addLayout(self.mainLayout)
+
+        self.retranslateUi(Form)
+        QtCore.QMetaObject.connectSlotsByName(Form)
+
+    def retranslateUi(self, Form):
+        _translate = QtCore.QCoreApplication.translate
+        Form.setWindowTitle(_translate("Form", "Form"))
+        self.statusLabel.setText(_translate("Form", "TextLabel"))
 
     def setNewMem(self, meminfo):
         self._model.beginResetModel()

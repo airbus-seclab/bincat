@@ -45,8 +45,8 @@ except ImportError:
     # log message will be displayed later
     pass
 
+import ida_ida
 import idaapi
-from idaapi import NW_OPENIDB, NW_CLOSEIDB, NW_TERMIDA, NW_REMOVE
 import idabincat.netnode
 import idabincat.npkgen
 from idabincat.plugin_options import PluginOptions
@@ -87,13 +87,13 @@ def dedup_loglines(loglines, max=None):
         if not loglines:
             flush_staging()
             break
-        l = loglines.pop()
-        if l == staging:
+        line = loglines.pop()
+        if line == staging:
             n += 1
         else:
             if flush_staging():
                 break
-            staging = l
+            staging = line
             n = 1
     res.reverse()
     return res
@@ -118,8 +118,7 @@ class BincatPlugin(idaapi.plugin_t):
 
     # IDA API methods: init, run, term
     def init(self):
-        info = idaapi.get_inf_structure()
-        procname = info.procname
+        procname = ida_ida.inf_get_procname()
         if procname != 'metapc' and procname != 'ARM' and procname != 'ARMB' and procname != 'PPC':
             bc_log.info("CPU '%s' is not supported, not loading BinCAT", procname)
             return idaapi.PLUGIN_SKIP
@@ -240,20 +239,13 @@ class LocalAnalyzerTimer(object):
     def destroy(self):
         idaapi.unregister_timer(self.timer)
 
-
-class LocalAnalyzer(Analyzer, QtCore.QProcess):
+class LocalAnalyzer(Analyzer):
     """
     Runs BinCAT locally using QProcess.
     """
 
     def __init__(self, *args, **kwargs):
-        QtCore.QProcess.__init__(self)
         Analyzer.__init__(self, *args, **kwargs)
-        # Qprocess signal handlers
-        self.error.connect(self.procanalyzer_on_error)
-        self.stateChanged.connect(self.procanalyzer_on_state_change)
-        self.started.connect(self.procanalyzer_on_start)
-        self.finished.connect(self.procanalyzer_on_finish)
 
     def generate_tnpk(self, fname=None, destfname=None):
         if fname:
@@ -272,8 +264,15 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
     def run(self):
         idaapi.show_wait_box("Running analysis")
 
+        self.process = QtCore.QProcess()
+        # Qprocess signal handlers
+        self.process.error.connect(self.procanalyzer_on_error)
+        self.process.stateChanged.connect(self.procanalyzer_on_state_change)
+        self.process.started.connect(self.procanalyzer_on_start)
+        self.process.finished.connect(self.procanalyzer_on_finish)
+
         # Create a timer to allow for cancellation
-        self.timer = LocalAnalyzerTimer(self)
+        self.timer = LocalAnalyzerTimer(self.process)
 
         cmdline = ["bincat",
                    [self.initfname, self.outfname, self.logfname]]
@@ -281,7 +280,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         bc_log.debug(
             "Analyzer cmdline: [%s %s]", cmdline[0], " ".join(cmdline[1]))
         try:
-            self.start(*cmdline)
+            self.process.start(*cmdline)
         except Exception as e:
             bc_log.error("BinCAT failed to launch the analyzer.py")
             bc_log.warning("Exception: %s\n%s", str(e), traceback.format_exc())
@@ -296,7 +295,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         except IndexError:
             errtxt = "Unspecified error %s" % err
         bc_log.error("Analyzer error: %s", errtxt)
-        self.process_output()
+        self.process.process_output()
 
     def procanalyzer_on_state_change(self, new_state):
         states = ["Not running", "Starting", "Running"]
@@ -307,7 +306,7 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
 
     def procanalyzer_on_finish(self):
         bc_log.info("Analyzer process finished")
-        exitcode = self.exitCode()
+        exitcode = self.process.exitCode()
         if exitcode != 0:
             bc_log.error("analyzer returned exit code=%i", exitcode)
         try:
@@ -322,9 +321,9 @@ class LocalAnalyzer(Analyzer, QtCore.QProcess):
         """
         self.timer.destroy()
         bc_log.info("---- stdout ----------------")
-        bc_log.info(str(self.readAllStandardOutput()))
+        bc_log.info(str(self.process.readAllStandardOutput()))
         bc_log.info("---- stderr ----------------")
-        bc_log.info(str(self.readAllStandardError()))
+        bc_log.info(str(self.process.readAllStandardError()))
         bc_log.info("---- logfile ---------------")
         if os.path.exists(self.logfname):
             with open(self.logfname, 'r') as f:
@@ -450,7 +449,6 @@ class WebAnalyzer(Analyzer):
             if not files["out.ini"]:  # try to parse out.ini if it exists
                 return
         with open(self.outfname, 'w') as outfp:
-
             outfp.write(self.download_file(files["out.ini"]))
         analyzer_log_contents = self.download_file(files["analyzer.log"])
         with open(self.logfname, 'w') as logfp:

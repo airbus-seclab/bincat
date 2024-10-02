@@ -34,8 +34,8 @@ import idaapi
 import idautils
 import ida_segment
 import ida_kernwin
+import ida_ida
 import idabincat.netnode
-from builtins import bytes
 from idabincat.plugin_options import PluginOptions
 # Python 2/3 compat
 if sys.version_info > (2, 8):
@@ -86,8 +86,7 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_file_type():
-        ida_db_info_structure = idaapi.get_inf_structure()
-        f_type = ida_db_info_structure.filetype
+        f_type = ida_ida.inf_get_filetype()
         if f_type in ConfigHelpers.ftypes:
             return ConfigHelpers.ftypes[f_type]
         else:
@@ -136,17 +135,15 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_memory_model():
-        ida_db_info_structure = idaapi.get_inf_structure()
-        compiler_info = ida_db_info_structure.cc
-        if compiler_info.cm & idaapi.C_PC_FLAT == idaapi.C_PC_FLAT:
+        cm = ida_ida.inf_get_cc_cm()
+        if cm & idaapi.C_PC_FLAT == idaapi.C_PC_FLAT:
             return "flat"
         else:
             return "segmented"
 
     @staticmethod
     def get_call_convention():
-        ida_db_info_structure = idaapi.get_inf_structure()
-        compiler_info = ida_db_info_structure.cc
+        cm = ida_ida.inf_get_cc_cm()
         cc = {
             idaapi.CM_CC_INVALID: "invalid",
             idaapi.CM_CC_UNKNOWN: "unknown",
@@ -157,7 +154,7 @@ class ConfigHelpers(object):
             idaapi.CM_CC_PASCAL: "pascal",
             idaapi.CM_CC_FASTCALL: "fastcall",
             idaapi.CM_CC_THISCALL: "thiscall",
-        }[compiler_info.cm & idaapi.CM_CC_MASK]
+        }[cm & idaapi.CM_CC_MASK]
         # XXX
         if ConfigHelpers.get_arch().startswith("powerpc") and ida_db_info_structure.abiname == "sysv":
             return "svr"
@@ -183,17 +180,15 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_endianness():
-        ida_db_info_structure = idaapi.get_inf_structure()
-        return "big" if ida_db_info_structure.is_be() else "little"
+        return "big" if ida_ida.inf_is_be() else "little"
 
 
     @staticmethod
     def get_stack_width():
-        ida_db_info_structure = idaapi.get_inf_structure()
-        if ida_db_info_structure.is_64bit():
+        if ida_ida.inf_is_64bit():
             return 8*8
         else:
-            if ida_db_info_structure.is_32bit():
+            if ida_ida.inf_is_32bit_exactly():
                 return 4*8
             else:
                 return 2*8
@@ -405,20 +400,19 @@ class ConfigHelpers(object):
 
     @staticmethod
     def get_arch():
-        info = idaapi.get_inf_structure()
-        procname = info.procname.lower()
+        procname = ida_ida.inf_get_procname().lower()
         if procname == "metapc":
-            if info.is_64bit():
+            if ida_ida.inf_is_64bit():
                 return "x64"
             else:
                 return "x86"
         if procname == "ppc":
-            if info.is_64bit():
+            if ida_ida.inf_is_64bit():
                 return "powerpc64"
             else:
                 return "powerpc"
         elif procname.startswith("arm"):
-            if info.is_64bit():
+            if ida_ida.inf_is_64bit():
                 return "armv8"
             else:
                 return "armv7"
@@ -649,7 +643,7 @@ class AnalyzerConfig(object):
     def remap(self):
         if not self._config.has_option('IDA', 'remap_binary'):
             return False
-        return self._config.get('IDA', 'remap_binary').lower() == "true";
+        return self._config.get('IDA', 'remap_binary').lower() == "true"
 
     @remap.setter
     def remap(self, value):
@@ -778,7 +772,7 @@ class AnalyzerConfig(object):
             sio = StringIO(string)
         parser = ConfigParser.RawConfigParser()
         parser.optionxform = str
-        parser.readfp(sio)
+        parser.read_file(sio)
         return AnalyzerConfig(parser)
 
     def write(self, filepath):
