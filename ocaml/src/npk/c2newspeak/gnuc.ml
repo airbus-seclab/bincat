@@ -97,6 +97,9 @@ let _ =
 
   Hashtbl.add token_tbl "__label__" LABEL;
 
+  Hashtbl.add token_tbl "__off" OFF;
+  Hashtbl.add token_tbl "__offset" OFFSET;
+
   List.iter (fun x -> Hashtbl.add token_tbl x (IDENTIFIER x)) builtin_names
 
 
