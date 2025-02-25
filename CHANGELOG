@@ -1,3 +1,7 @@
+2025-10-02: v1.5
+* Add dark theme option
+* Add QWORD support in c2newspeak
+
 2024-10-02: v1.4
 * Support of IDA 9.0
 * Update documentation
