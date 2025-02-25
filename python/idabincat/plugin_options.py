@@ -44,7 +44,8 @@ class PluginOptions(object):
             "load_from_idb": "True",
             "server_url": "http://localhost:5000",
             "web_analyzer": "False",
-            "autostart": "False"}
+            "autostart": "False",
+            "dark_theme": "False"}
         cls._options = ConfigParser.ConfigParser(defaults=def_options)
         cls._options.optionxform = str
         cls.configfile = os.path.join(cls.config_path, "conf", "options.ini")

@@ -140,6 +140,9 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
 
         layout = QtWidgets.QGridLayout()
 
+        lbl_theme = QtWidgets.QLabel("Theme")
+        self.dark_theme = QtWidgets.QCheckBox('Dark &theme')
+
         lbl_default_bhv = QtWidgets.QLabel("Default behaviour")
         # Save config in IDB by default
         self.chk_save = QtWidgets.QCheckBox('Save &configuration to IDB')
@@ -157,21 +160,25 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         lbl_url = QtWidgets.QLabel("Remote URL:")
         self.url = QtWidgets.QLineEdit(self)
 
-        layout.addWidget(lbl_default_bhv, 0, 0)
-        layout.addWidget(self.chk_save, 1, 0)
-        layout.addWidget(self.chk_load, 2, 0)
-        layout.addWidget(lbl_plug_opts, 3, 0)
-        layout.addWidget(self.chk_start, 4, 0)
-        layout.addWidget(self.chk_remote, 5, 0)
-        layout.addWidget(lbl_url, 6, 0)
-        layout.addWidget(self.url, 7, 0)
-        layout.addWidget(btn_start, 8, 0)
-        layout.addWidget(btn_cancel, 8, 1)
+        layout.addWidget(lbl_theme, 0, 0)
+        layout.addWidget(self.dark_theme, 1, 0)
+        layout.addWidget(lbl_default_bhv, 2, 0)
+        layout.addWidget(self.chk_save, 3, 0)
+        layout.addWidget(self.chk_load, 4, 0)
+        layout.addWidget(lbl_plug_opts, 5, 0)
+        layout.addWidget(self.chk_start, 6, 0)
+        layout.addWidget(self.chk_remote, 7, 0)
+        layout.addWidget(lbl_url, 8, 0)
+        layout.addWidget(self.url, 9, 0)
+        layout.addWidget(btn_start, 10, 0)
+        layout.addWidget(btn_cancel, 11, 1)
 
         self.setLayout(layout)
 
         btn_start.setFocus()
 
+        self.dark_theme.setChecked(
+            PluginOptions.get("dark_theme") == "True")
         self.chk_start.setChecked(
             PluginOptions.get("autostart") == "True")
         self.chk_save.setChecked(
@@ -184,6 +191,7 @@ class BinCATOptionsForm_t(QtWidgets.QDialog):
         self.url.setText(url)
 
     def save_config(self):
+        PluginOptions.set("dark_theme", str(self.dark_theme.isChecked()))
         PluginOptions.set("autostart", str(self.chk_start.isChecked()))
         PluginOptions.set("save_to_idb", str(self.chk_save.isChecked()))
         PluginOptions.set("load_from_idb", str(self.chk_load.isChecked()))
@@ -221,13 +229,13 @@ class Meminfo(object):
         color_str = ""
         for i, c in enumerate(strval):
             if strtaint[i] == 'F':  # full taint
-                color_str += "<font color='green'>"+c+"</font>"
+                color_str += "<span class='full_taint'>"+c+"</span>"
             elif strtaint[i] == '0':  # no taint
-                color_str += c
+                color_str += "<span class='no_taint'>"+c+"</span>"
             elif strtaint[i] == '?':  # unknown taint
-                color_str += "<font color='blue'>"+c+"</font>"
+                color_str += "<span class='unknown_taint'>"+c+"</span>"
             else:  # not fully tainted
-                color_str += "<font color='#c1ad01'>"+c+"</font>"
+                color_str += "<span class='not_fully_tainted'>"+c+"</span>"
         return color_str
 
     def char(self, idx):
@@ -1038,6 +1046,25 @@ class BinCATDebugForm_t(ida_kernwin.PluginForm):
 
 
 class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
+    def __init__(self):
+        super(RegisterItemDelegate, self).__init__()
+        self.doc = QtGui.QTextDocument()
+        if PluginOptions.get("dark_theme") == "True":
+            style = """
+                    * { font-family: monospace; color: white; }
+                    .full_taint { color: lime; }
+                    .unknown_taint { color: cyan; }
+                    .not_fully_tainted { color: gold; }
+                    """
+        else:
+            style = """
+                    * { font-family: monospace; color: black; }
+                    .full_taint { color: green; }
+                    .unknown_taint { color: blue; }
+                    .not_fully_tainted { color: #c1ad01; }
+                    """
+        self.doc.setDefaultStyleSheet(style)
+
     """
     http://stackoverflow.com/questions/35397943/how-to-make-a-fast-qtableview-with-html-formatted-and-clickable-cells
     Represents tainted data with colors in the BinCATRegistersForm_t
@@ -1047,8 +1074,7 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
 
         painter.save()
 
-        doc = QtGui.QTextDocument()
-        doc.setHtml(options.text)
+        self.doc.setHtml("<span>" + options.text + "</span>")
 
         options.text = ""
         options.widget.style().drawControl(
@@ -1056,7 +1082,7 @@ class RegisterItemDelegate(QtWidgets.QStyledItemDelegate):
 
         painter.translate(options.rect.left(), options.rect.top())
         clip = QtCore.QRectF(0, 0, options.rect.width(), options.rect.height())
-        doc.drawContents(painter, clip)
+        self.doc.drawContents(painter, clip)
 
         painter.restore()
 
