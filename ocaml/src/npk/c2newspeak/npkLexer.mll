@@ -177,6 +177,7 @@ rule token = parse
   | "volatile"          { VOLATILE }
 
 (* values *)
+  | "_QWORD"            { QWORD }
   | integer_constant    { INTEGER (prefix, value, sign, length) }
   | float               { FLOATCST (value, suffix) }
   | "'" ((('\\'_)|[^'\\''\''])+ as c)

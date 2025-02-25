@@ -98,6 +98,7 @@ let rec build_ptrto n t =
 %token BUILTIN_CONSTANT_P
 %token FUNNAME
 %token OFFSETOF SIZEOF TYPEOF
+%token QWORD
 %token EOF
 
 %token <Csyntax.assertion> NPK
@@ -732,6 +733,7 @@ ftyp:
 type_specifier:
   VOID                                    { Bare.Void }
 | CHAR                                    { Bare.Integer (Newspeak.char_kind ()) }
+| QWORD                                   { Bare.Integer (Newspeak.Unsigned, !Conf.size_of_longlong) }
 | ityp                                    { Bare.Integer (Newspeak.Signed, $1) }
 | SIGNED CHAR                             { Bare.Integer (Newspeak.Signed, !Conf.size_of_char) }
 | SIGNED ityp                             {
